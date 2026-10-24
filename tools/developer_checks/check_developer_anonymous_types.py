@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 """Reviewed anonymous typedef normalization and real C ABI consumers."""
-import os
-from pathlib import Path
 import platform
 from driven_sources import driven
 from dev_common import JAIFMT, ROOT, labeled_runner
+from build_developer_bindings import llvm_prefix
 
 
 run = labeled_runner('Anonymous typedef workflow', stdout=True)
 
 
 def main():
-    prefix = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
+    prefix = llvm_prefix()
     native = ROOT / "stdlib/internal/developer-tools/clang-bindings"
     oracle = ROOT / "target/developer-tools-anonymous-oracle"
     run([prefix / "bin/clang", "-std=c11", "-O2", "-Wall", "-Wextra", "-Werror",

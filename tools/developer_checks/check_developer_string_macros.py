@@ -5,13 +5,14 @@ from pathlib import Path
 import platform
 import build_developer_bindings
 from dev_common import JAIFMT, ROOT, labeled_runner
+from build_developer_bindings import llvm_prefix
 
 
 run = labeled_runner('String macros')
 
 
 def main():
-    prefix = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
+    prefix = llvm_prefix()
     build_developer_bindings.build(prefix)
     oracle = ROOT / "target/developer-tools-string-evaluation"
     run([prefix / "bin/clang", "-std=c11", "-Wall", "-Wextra", "-Werror", "-I", prefix / "include",

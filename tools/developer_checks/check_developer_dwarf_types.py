@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 """Original C DWARF type metadata drives public lookup; no Jai byte parser claim."""
 import json
-import os
-from pathlib import Path
 import re
 from dev_common import JAIFMT, ROOT, labeled_runner, sha256_file
+from build_developer_bindings import llvm_prefix
 
 
 run = labeled_runner('Original DWARF type fixture', expected=None, env=None, timeout=60, stdout=True)
 
 
 def main():
-    prefix = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
+    prefix = llvm_prefix()
     generated = ["check_native_type_lookups :: () {"]
     evidence = {"scope": "original C x86/x64/arm64 O0/O2 DWARF4 metadata decoded by official SDK; host public model lookup, not a Jai byte parser or target execution", "fixtures": []}
     for architecture, target in [("x86", "i386-unknown-linux-gnu"), ("x64", "x86_64-unknown-linux-gnu"), ("arm64", "aarch64-unknown-linux-gnu")]:

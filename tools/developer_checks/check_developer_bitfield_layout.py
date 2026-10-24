@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """Generated bitfield storage and accessors against the C compiler's layout of the same header."""
-import os
-from pathlib import Path
 import platform
 import re
 from driven_sources import driven
 from dev_common import JAIC, JAIFMT, ROOT, labeled_runner
+from build_developer_bindings import llvm_prefix
 
 run = labeled_runner("Bitfield layout", stdout=True)
 
@@ -37,7 +36,7 @@ def layout_assertions(generated, keywords):
 
 
 def main():
-    prefix = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
+    prefix = llvm_prefix()
     target = ROOT / "target"
     flags = ["-dynamiclib"] if platform.system() == "Darwin" else ["-shared", "-fPIC"]
     suffix = "dylib" if platform.system() == "Darwin" else "so"

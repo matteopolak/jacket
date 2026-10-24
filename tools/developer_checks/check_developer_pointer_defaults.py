@@ -4,13 +4,14 @@ import os
 from pathlib import Path
 import platform
 from dev_common import JAIFMT, ROOT, labeled_runner
+from build_developer_bindings import llvm_prefix
 
 
 run = labeled_runner('Pointer defaults')
 
 
 def main():
-    prefix = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
+    prefix = llvm_prefix()
     jaic = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")) / "debug/jaic"
     source = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-pointer-defaults.jai"
     consumer = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-pointer-defaults-roundtrip.jai"

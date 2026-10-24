@@ -4,13 +4,14 @@ import os
 from pathlib import Path
 import platform
 from dev_common import JAIFMT, ROOT, labeled_runner
+from build_developer_bindings import llvm_prefix
 
 
 run = labeled_runner('Procedure results')
 
 
 def main():
-    prefix = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
+    prefix = llvm_prefix()
     jaic = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")) / "debug/jaic"
     driven = ROOT / "stdlib/Bindings_Generator/tests/driven"
     source = driven / "bindings-procedure-results.jai"

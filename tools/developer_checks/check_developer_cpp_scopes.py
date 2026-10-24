@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 """Canonical C++ scopes, explicit callback flattening and real native adapters."""
-import os
-from pathlib import Path
 import platform
 from dev_common import JAIFMT, ROOT, labeled_runner
+from build_developer_bindings import llvm_prefix
 
 
 run = labeled_runner('C++ scope workflow')
 
 
 def main():
-    prefix = Path(os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX", "/opt/homebrew/opt/llvm"))
+    prefix = llvm_prefix()
     oracle = ROOT / "target/developer-tools-cpp-function-types"
     run([prefix / "bin/clang", "-std=c11", "-O2", "-Wall", "-Wextra", "-Werror", "-I", prefix / "include",
          ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-cpp-function-types.c", "-L", prefix / "lib",
