@@ -61,7 +61,7 @@ jaic stdlib/Extensions/Postgres/Tool/main.jai -interp -- prepare|check [--root D
 - Schema database naming, build timing and pruning: `schema_databases.jai`. The service (`describe_service.jai`) keeps one connection per database.
 - Macros: `typed.jai`. They are `#expand` with `@Interpolates("sql")`, so inline `%name` holes work.
 
-Gotchas: `Rows` buffers the whole result (no portal streaming); `fetch_all` borrows the rows' data, so free with `free_rows`. `query_one`, `query_opt` and `query_scalar` return values in temporary storage. Alias type overrides resolve in the module's scope, so user types in `Json(T)` overrides need `query_as`. Unreachable databases are silent in the editor (`Service.unknown`) and errors in builds.
+Gotchas: `Rows` buffers the whole result (no portal streaming); `fetch_all(rows, allocator = context.allocator)` copies every row, and the strings, arrays and documents it points to, into one block (two passes over the type info: size, then copy), so the copies outlive `free_rows` and `array_free(items)` frees them. `query_one`, `query_opt` and `query_scalar` return values in temporary storage. Alias type overrides resolve in the module's scope, so user types in `Json(T)` overrides need `query_as`. Unreachable databases are silent in the editor (`Service.unknown`) and errors in builds.
 
 ## Configuration
 
