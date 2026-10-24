@@ -32,6 +32,8 @@ Print_Options :: struct {
     tuples_only: bool; // \t: no title, header or footer
     footer := true; // \pset footer: the "(N rows)" line only; explicit footers always print
     null_display: string;
+    true_display := "t"; // \pset display_true: how a boolean column shows true
+    false_display := "f"; // \pset display_false
     field_separator := "|"; // unaligned
     record_separator := "\n"; // unaligned
     field_separator_zero: bool; // unaligned: a zero byte instead of `field_separator`
@@ -150,7 +152,6 @@ print_query_result :: (out: *String_Builder, headers: [] string, type_oids: [] u
 
     table: Table;
     table.headers = headers;
-    table.cells = cells;
     table.nulls = nulls;
     table.default_footer = true;
 
@@ -158,6 +159,14 @@ print_query_result :: (out: *String_Builder, headers: [] string, type_oids: [] u
 
     for 0..headers.count - 1 {
         table.align[it] = ifx it < type_oids.count then column_alignment(type_oids[it]) else #char "l";
+    }
+
+    table.cells = NewArray(cells.count, string,, temp);
+
+    for 0..cells.count - 1 {
+        column := ifx headers.count > 0 then it % headers.count else 0;
+        isnull := nulls.count > it && nulls[it];
+        table.cells[it] = ifx column < type_oids.count && !isnull then display_bool(options, type_oids[column], cells[it]) else cells[it];
     }
 
     if row_count >= 0 table.rows = row_count;
@@ -179,12 +188,26 @@ column_alignment :: (type_oid: u32) -> u8 {
         case 701; #through; // float8
         case 790; #through; // money
         case 1700; #through; // numeric
-        case 5069; // xid8
+        case 5069; #through; // xid8
+        case 6437; // oid8
             return #char "r";
     }
 
     return #char "l";
 }
+
+// What `\pset display_true` and `display_false` make of a boolean column's text; the text of any
+// other type is returned as it is.
+display_bool :: (options: Print_Options, type_oid: u32, text: string) -> string {
+    if type_oid != BOOL_OID || text.count == 0 return text;
+
+    if text[0] == #char "t" return options.true_display;
+    if text[0] == #char "f" return options.false_display;
+
+    return text;
+}
+
+BOOL_OID :: 16;
 
 // How many terminal columns the text takes, as psql counts them: wide East Asian characters are
 // two, combining marks none, and each control character the width of the escape it prints as.

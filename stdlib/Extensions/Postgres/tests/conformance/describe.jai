@@ -221,7 +221,7 @@ print_result :: (r: *Pg.Result, title: string, options: Print_Options, footers: 
     for row: 0..r.row_count - 1 {
         for col: 0..columns - 1 {
             bytes, missing := Pg.raw_value(r, row, col);
-            t.cells[row * columns + col] = cast(string) bytes;
+            t.cells[row * columns + col] = ifx missing then cast(string) bytes else display_bool(options, r.columns[col].type_oid, cast(string) bytes);
             t.nulls[row * columns + col] = missing;
         }
     }
@@ -953,6 +953,22 @@ run_one :: (b: *String_Builder) -> *Pg.Result {
     return psql_exec(sql_text(b));
 }
 
+add_sequence_publication_footer :: (footers: *[..] string, oid: string) -> bool {
+    result := psql_exec(tprint("SELECT pubname FROM pg_catalog.pg_publication p\nWHERE p.puballsequences\n AND pg_catalog.pg_relation_is_publishable('%')\nORDER BY 1", oid));
+    if !result return false;
+
+    defer free_query_result(result);
+
+    if result.row_count == 0 return true;
+
+    text := "Included in publications:";
+    for i: 0..result.row_count - 1 text = tprint("%\n    \"%\"", text, cell(result, i, 0));
+
+    array_add(footers, text);
+
+    return true;
+}
+
 describe_sequence :: (schemaname: string, relationname: string, oid: string, relpersistence: u8) -> bool {
     b := new_sql();
 
@@ -979,6 +995,8 @@ describe_sequence :: (schemaname: string, relationname: string, oid: string, rel
         if kind == #char "a" array_add(*footers, tprint("Owned by: %", cell(result, 0, 0)));
         else if kind == #char "i" array_add(*footers, tprint("Sequence for identity column: %", cell(result, 0, 0)));
     }
+
+    if at_least(190000) && !add_sequence_publication_footer(*footers, oid) return false;
 
     title := tprint("Sequence \"%.%\"", schemaname, relationname);
     if relpersistence == #char "u" title = tprint("Unlogged sequence \"%.%\"", schemaname, relationname);
@@ -1277,17 +1295,23 @@ add_rule_footers :: (cont: *Content, oid: string) -> bool {
     return true;
 }
 
+publication_footer_query :: (oid: string) -> string {
+    tail := tprint("WHERE pr.prrelid = '%'\nUNION\nSELECT pubname\n     , NULL\n     , NULL\nFROM pg_catalog.pg_publication p\nWHERE p.puballtables AND pg_catalog.pg_relation_is_publishable('%')\nORDER BY 1;", oid, oid);
+
+    if at_least(190000) {
+        tail = tprint("WHERE pr.prrelid = '%'\n AND NOT pr.prexcept\nUNION\nSELECT pubname\n     , NULL\n     , NULL\nFROM pg_catalog.pg_publication p\nWHERE p.puballtables AND pg_catalog.pg_relation_is_publishable('%')\n     AND NOT EXISTS (\n     SELECT 1\n     FROM pg_catalog.pg_publication_rel pr\n     WHERE pr.prpubid = p.oid AND\n     (pr.prrelid = '%' OR pr.prrelid = pg_catalog.pg_partition_root('%')))\nORDER BY 1;", oid, oid, oid, oid);
+    }
+
+    return tprint("SELECT pubname\n     , NULL\n     , NULL\nFROM pg_catalog.pg_publication p\n     JOIN pg_catalog.pg_publication_namespace pn ON p.oid = pn.pnpubid\n     JOIN pg_catalog.pg_class pc ON pc.relnamespace = pn.pnnspid\nWHERE pc.oid ='%' and pg_catalog.pg_relation_is_publishable('%')\nUNION\nSELECT pubname\n     , pg_catalog.pg_get_expr(pr.prqual, c.oid)\n     , (CASE WHEN pr.prattrs IS NOT NULL THEN\n         (SELECT pg_catalog.string_agg(attname, ', ')\n           FROM pg_catalog.generate_series(0, pg_catalog.array_upper(pr.prattrs::pg_catalog.int2[], 1)) s,\n                pg_catalog.pg_attribute\n          WHERE attrelid = pr.prrelid AND attnum = prattrs[s])\n        ELSE NULL END) FROM pg_catalog.pg_publication p\n     JOIN pg_catalog.pg_publication_rel pr ON p.oid = pr.prpubid\n     JOIN pg_catalog.pg_class c ON c.oid = pr.prrelid\n%", oid, oid, tail);
+}
+
 add_publication_footers :: (cont: *Content, oid: string) -> bool {
-    b := new_sql();
-
-    putf(*b, "SELECT pubname\n     , NULL\n     , NULL\nFROM pg_catalog.pg_publication p\n     JOIN pg_catalog.pg_publication_namespace pn ON p.oid = pn.pnpubid\n     JOIN pg_catalog.pg_class pc ON pc.relnamespace = pn.pnnspid\nWHERE pc.oid ='%' and pg_catalog.pg_relation_is_publishable('%')\nUNION\nSELECT pubname\n     , pg_get_expr(pr.prqual, c.oid)\n     , (CASE WHEN pr.prattrs IS NOT NULL THEN\n         (SELECT string_agg(attname, ', ')\n           FROM pg_catalog.generate_series(0, pg_catalog.array_upper(pr.prattrs::pg_catalog.int2[], 1)) s,\n                pg_catalog.pg_attribute\n          WHERE attrelid = pr.prrelid AND attnum = prattrs[s])\n        ELSE NULL END) FROM pg_catalog.pg_publication p\n     JOIN pg_catalog.pg_publication_rel pr ON p.oid = pr.prpubid\n     JOIN pg_catalog.pg_class c ON c.oid = pr.prrelid\nWHERE pr.prrelid = '%'\nUNION\nSELECT pubname\n     , NULL\n     , NULL\nFROM pg_catalog.pg_publication p\nWHERE p.puballtables AND pg_catalog.pg_relation_is_publishable('%')\nORDER BY 1;", oid, oid, oid, oid);
-
-    result := run_one(*b);
+    result := psql_exec(publication_footer_query(oid));
     if !result return false;
 
     defer free_query_result(result);
 
-    if result.row_count > 0 add_footer(cont, "Publications:");
+    if result.row_count > 0 add_footer(cont, ifx at_least(190000) then "Included in publications:" else "Publications:");
 
     for i: 0..result.row_count - 1 {
         line := tprint("    \"%\"", cell(result, i, 0));
@@ -1295,6 +1319,21 @@ add_publication_footers :: (cont: *Content, oid: string) -> bool {
         if !is_null(result, i, 1) line = tprint("% WHERE %", line, cell(result, i, 1));
         add_footer(cont, line);
     }
+
+    if at_least(190000) return add_excluded_publication_footers(cont, oid);
+
+    return true;
+}
+
+add_excluded_publication_footers :: (cont: *Content, oid: string) -> bool {
+    result := psql_exec(tprint("SELECT pubname\nFROM pg_catalog.pg_publication p\nJOIN pg_catalog.pg_publication_rel pr ON p.oid = pr.prpubid\nWHERE (pr.prrelid = '%' OR pr.prrelid = pg_catalog.pg_partition_root('%'))\nAND pr.prexcept\nORDER BY 1;", oid, oid));
+    if !result return false;
+
+    defer free_query_result(result);
+
+    if result.row_count > 0 add_footer(cont, "Excluded from publications:");
+
+    for i: 0..result.row_count - 1 add_footer(cont, tprint("    \"%\"", cell(result, i, 0)));
 
     return true;
 }
@@ -1392,13 +1431,19 @@ add_inheritance_footers :: (cont: *Content, schemaname: string, oid: string, rel
 
         defer free_query_result(result);
 
-        for i: 0..result.row_count - 1 {
-            line: string;
-            if i == 0 line = tprint("Inherits: %", cell(result, i, 0));
-            else line = tprint("          %", cell(result, i, 0));
-            if i < result.row_count - 1 line = tprint("%,", line);
+        if at_least(190000) {
+            if result.row_count > 0 add_footer(cont, "Inherits:");
 
-            add_footer(cont, line);
+            for i: 0..result.row_count - 1 add_footer(cont, tprint("    %", cell(result, i, 0)));
+        } else {
+            for i: 0..result.row_count - 1 {
+                line: string;
+                if i == 0 line = tprint("Inherits: %", cell(result, i, 0));
+                else line = tprint("          %", cell(result, i, 0));
+                if i < result.row_count - 1 line = tprint("%,", line);
+
+                add_footer(cont, line);
+            }
         }
     }
 
@@ -1418,15 +1463,19 @@ add_inheritance_footers :: (cont: *Content, schemaname: string, oid: string, rel
             }
         } else {
             label := ifx is_partitioned then "Partitions" else "Child tables";
+            listed := at_least(190000);
             indent := copy_string(label,, temp);
 
             for 0..indent.count - 1 indent.data[it] = #char " ";
+
+            if listed && tuples > 0 add_footer(cont, tprint("%:", label));
 
             for i: 0..tuples - 1 {
                 child := first_char(cell(result, i, 1));
                 line: string;
 
-                if i == 0 line = tprint("%: %", label, cell(result, i, 0));
+                if listed line = tprint("    %", cell(result, i, 0));
+                else if i == 0 line = tprint("%: %", label, cell(result, i, 0));
                 else line = tprint("%  %", indent, cell(result, i, 0));
 
                 if !is_null(result, i, 3) line = tprint("% %", line, cell(result, i, 3));
@@ -1435,7 +1484,7 @@ add_inheritance_footers :: (cont: *Content, schemaname: string, oid: string, rel
                 else if child == Relkind.FOREIGN_TABLE && at_least(160000) line = tprint("%, FOREIGN", line);
 
                 if cell(result, i, 2) == "t" line = tprint("% (DETACH PENDING)", line);
-                if i < tuples - 1 line = tprint("%,", line);
+                if !listed && i < tuples - 1 line = tprint("%,", line);
 
                 add_footer(cont, line);
             }
@@ -1680,7 +1729,7 @@ describe_d :: (s: *Scanner, name: string, pattern: Pattern, verbose: bool, show_
     if sub == #char "n" return list_schemas(pattern, verbose, show_system), true;
     if sub == #char "O" return list_collations(pattern, verbose, show_system), true;
     if sub == #char "C" return list_casts(pattern, verbose), true;
-    if sub == #char "X" return list_extended_stats(pattern), true;
+    if sub == #char "X" return list_extended_stats(pattern, verbose), true;
     if sub == #char "y" return list_event_triggers(pattern, verbose), true;
 
     if sub == #char "c" {
@@ -2063,7 +2112,10 @@ show_source :: (l: *Loop, name: string) -> Command_Status {
 list_publications :: (pattern: Pattern) -> bool {
     b := new_sql();
 
-    put(*b, "SELECT pubname AS \"Name\",\n  pg_catalog.pg_get_userbyid(pubowner) AS \"Owner\",\n  puballtables AS \"All tables\",\n  pubinsert AS \"Inserts\",\n  pubupdate AS \"Updates\",\n  pubdelete AS \"Deletes\",\n  pubtruncate AS \"Truncates\"");
+    put(*b, "SELECT pubname AS \"Name\",\n  pg_catalog.pg_get_userbyid(pubowner) AS \"Owner\",\n  puballtables AS \"All tables\"");
+    if at_least(190000) put(*b, ",\n  puballsequences AS \"All sequences\"");
+
+    put(*b, ",\n  pubinsert AS \"Inserts\",\n  pubupdate AS \"Updates\",\n  pubdelete AS \"Deletes\",\n  pubtruncate AS \"Truncates\"");
     if at_least(180000) put(*b, ",\n  (CASE pubgencols WHEN 'n' THEN 'none' WHEN 's' THEN 'stored' END) AS \"Generated columns\"");
 
     put(*b, ",\n  pubviaroot AS \"Via root\"\nFROM pg_catalog.pg_publication\n");
@@ -2107,10 +2159,16 @@ publication_footer :: (cont: *Content, sql: string, heading: string, as_schema: 
 describe_publications :: (pattern: Pattern) -> bool {
     b := new_sql();
 
-    put(*b, "SELECT oid, pubname,\n  pg_catalog.pg_get_userbyid(pubowner) AS owner,\n  puballtables, pubinsert, pubupdate, pubdelete, pubtruncate");
+    put(*b, "SELECT oid, pubname,\n  pg_catalog.pg_get_userbyid(pubowner) AS owner,\n  puballtables");
+    if at_least(190000) put(*b, ", puballsequences");
+
+    put(*b, ", pubinsert, pubupdate, pubdelete, pubtruncate");
     if at_least(180000) put(*b, ", (CASE pubgencols WHEN 'n' THEN 'none' WHEN 's' THEN 'stored' END)");
 
-    put(*b, ", pubviaroot\nFROM pg_catalog.pg_publication\n");
+    put(*b, ", pubviaroot");
+    if at_least(190000) put(*b, ", pg_catalog.obj_description(oid, 'pg_publication')");
+
+    put(*b, "\nFROM pg_catalog.pg_publication\n");
 
     if !validate_pattern(*b, pattern, false, false, "", "pubname", "", "", 1) return false;
 
@@ -2138,18 +2196,26 @@ describe_publications :: (pattern: Pattern) -> bool {
         content_init(*cont, tprint("Publication %", cell(r, i, 1)));
         cont.default_footer = true;
 
-        for name: string.["Owner", "All tables", "Inserts", "Updates", "Deletes", "Truncates"] add_header(*cont, name);
+        add_header(*cont, "Owner");
+        add_header(*cont, "All tables");
+        if at_least(190000) add_header(*cont, "All sequences");
+
+        for name: string.["Inserts", "Updates", "Deletes", "Truncates"] add_header(*cont, name);
         if at_least(180000) add_header(*cont, "Generated columns");
 
         add_header(*cont, "Via root");
+        if at_least(190000) add_header(*cont, "Description");
         for col: 2..r.columns.count - 1 add_cell(*cont, cell(r, i, col));
 
         if cell(r, i, 3) != "t" {
-            sql := tprint("SELECT n.nspname, c.relname, pg_get_expr(pr.prqual, c.oid), (CASE WHEN pr.prattrs IS NOT NULL THEN\n     pg_catalog.array_to_string(      ARRAY(SELECT attname\n              FROM\n                pg_catalog.generate_series(0, pg_catalog.array_upper(pr.prattrs::pg_catalog.int2[], 1)) s,\n                pg_catalog.pg_attribute\n        WHERE attrelid = c.oid AND attnum = prattrs[s]), ', ')\n       ELSE NULL END)\nFROM pg_catalog.pg_class c,\n     pg_catalog.pg_namespace n,\n     pg_catalog.pg_publication_rel pr\nWHERE c.relnamespace = n.oid\n  AND c.oid = pr.prrelid\n  AND pr.prpubid = '%'\nORDER BY 1,2", pubid);
+            sql := tprint("SELECT n.nspname, c.relname, pg_get_expr(pr.prqual, c.oid), (CASE WHEN pr.prattrs IS NOT NULL THEN\n     pg_catalog.array_to_string(      ARRAY(SELECT attname\n              FROM\n                pg_catalog.generate_series(0, pg_catalog.array_upper(pr.prattrs::pg_catalog.int2[], 1)) s,\n                pg_catalog.pg_attribute\n        WHERE attrelid = c.oid AND attnum = prattrs[s]), ', ')\n       ELSE NULL END)\nFROM pg_catalog.pg_class c,\n     pg_catalog.pg_namespace n,\n     pg_catalog.pg_publication_rel pr\nWHERE c.relnamespace = n.oid\n  AND c.oid = pr.prrelid\n  AND pr.prpubid = '%'\n%ORDER BY 1,2", pubid, ifx at_least(190000) then "  AND NOT pr.prexcept\n" else "");
             if !publication_footer(*cont, sql, "Tables:", false) return false;
 
             sql = tprint("SELECT n.nspname\nFROM pg_catalog.pg_namespace n\n     JOIN pg_catalog.pg_publication_namespace pn ON n.oid = pn.pnnspid\nWHERE pn.pnpubid = '%'\nORDER BY 1", pubid);
             if !publication_footer(*cont, sql, "Tables from schemas:", true) return false;
+        } else if at_least(190000) {
+            sql := tprint("SELECT n.nspname || '.' || c.relname\nFROM pg_catalog.pg_class c\n     JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace\n     JOIN pg_catalog.pg_publication_rel pr ON c.oid = pr.prrelid\nWHERE pr.prpubid = '%' AND pr.prexcept\nORDER BY 1", pubid);
+            if !publication_footer(*cont, sql, "Except tables:", true) return false;
         }
 
         emit_content(*cont, psql.popt);
@@ -2172,8 +2238,13 @@ describe_subscriptions :: (pattern: Pattern, verbose: bool) -> bool {
         put(*b, ", subtwophasestate AS \"Two-phase commit\"\n, subdisableonerr AS \"Disable on error\"\n");
         if at_least(160000) put(*b, ", suborigin AS \"Origin\"\n, subpasswordrequired AS \"Password required\"\n, subrunasowner AS \"Run as owner?\"\n");
         if at_least(170000) put(*b, ", subfailover AS \"Failover\"\n");
+        if at_least(190000) put(*b, ", (select srvname from pg_catalog.pg_foreign_server where oid=subserver) AS \"Server\"\n, subretaindeadtuples AS \"Retain dead tuples\"\n, submaxretention AS \"Max retention duration\"\n, subretentionactive AS \"Retention active\"\n");
 
-        put(*b, ",  subsynccommit AS \"Synchronous commit\"\n,  subconninfo AS \"Conninfo\"\n, subskiplsn AS \"Skip LSN\"\n");
+        put(*b, ",  subsynccommit AS \"Synchronous commit\"\n,  subconninfo AS \"Conninfo\"\n");
+        if at_least(190000) put(*b, ", subwalrcvtimeout AS \"Receiver timeout\"\n");
+
+        put(*b, ", subskiplsn AS \"Skip LSN\"\n");
+        if at_least(190000) put(*b, ",  pg_catalog.obj_description(oid, 'pg_subscription') AS \"Description\"\n");
     }
 
     put(*b, "FROM pg_catalog.pg_subscription\nWHERE subdbid = (SELECT oid\n                 FROM pg_catalog.pg_database\n                 WHERE datname = pg_catalog.current_database())");
@@ -2692,10 +2763,14 @@ list_event_triggers :: (pattern: Pattern, verbose: bool) -> bool {
     return run_and_print(*b, "List of event triggers");
 }
 
-list_extended_stats :: (pattern: Pattern) -> bool {
+list_extended_stats :: (pattern: Pattern, verbose: bool) -> bool {
     b := new_sql();
 
-    put(*b, "SELECT \nes.stxnamespace::pg_catalog.regnamespace::pg_catalog.text AS \"Schema\", \nes.stxname AS \"Name\", \npg_catalog.format('%s FROM %s', \n  pg_catalog.pg_get_statisticsobjdef_columns(es.oid), \n  es.stxrelid::pg_catalog.regclass) AS \"Definition\",\nCASE WHEN 'd' = any(es.stxkind) THEN 'defined' \nEND AS \"Ndistinct\", \nCASE WHEN 'f' = any(es.stxkind) THEN 'defined' \nEND AS \"Dependencies\",\nCASE WHEN 'm' = any(es.stxkind) THEN 'defined' \nEND AS \"MCV\"  \nFROM pg_catalog.pg_statistic_ext es \n");
+    put(*b, "SELECT \nes.stxnamespace::pg_catalog.regnamespace::pg_catalog.text AS \"Schema\", \nes.stxname AS \"Name\", \npg_catalog.format('%s FROM %s', \n  pg_catalog.pg_get_statisticsobjdef_columns(es.oid), \n  es.stxrelid::pg_catalog.regclass) AS \"Definition\",\nCASE WHEN 'd' = any(es.stxkind) THEN 'defined' \nEND AS \"Ndistinct\", \nCASE WHEN 'f' = any(es.stxkind) THEN 'defined' \nEND AS \"Dependencies\",\nCASE WHEN 'm' = any(es.stxkind) THEN 'defined' \nEND AS \"MCV\" ");
+
+    if verbose && at_least(190000) put(*b, ", \npg_catalog.obj_description(oid, 'pg_statistic_ext') AS \"Description\"\n");
+
+    put(*b, " \nFROM pg_catalog.pg_statistic_ext es \n");
 
     if !validate_pattern(*b, pattern, false, false, "es.stxnamespace::pg_catalog.regnamespace::pg_catalog.text", "es.stxname", "", "pg_catalog.pg_statistics_obj_is_visible(es.oid)", 3) return false;
 
@@ -2790,7 +2865,7 @@ list_schemas :: (pattern: Pattern, verbose: bool, show_system: bool) -> bool {
         defer free_query_result(q);
 
         if q.row_count > 0 {
-            array_add(*footers, "Publications:");
+            array_add(*footers, ifx at_least(190000) then "Included in publications:" else "Publications:");
             for i: 0..q.row_count - 1 array_add(*footers, tprint("    \"%\"", cell(q, i, 0)));
         }
     }

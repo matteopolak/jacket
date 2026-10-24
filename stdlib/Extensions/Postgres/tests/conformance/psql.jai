@@ -2586,7 +2586,7 @@ print_rows :: (result: *Pg.Result, start := true, stop := true, prior: s64 = 0) 
     for row: 0..result.row_count - 1 {
         for column: 0..columns - 1 {
             bytes, is_null := Pg.raw_value(result, row, column);
-            cells[row * columns + column] = cast(string) bytes;
+            cells[row * columns + column] = ifx is_null then cast(string) bytes else display_bool(psql.popt, oids[column], cast(string) bytes);
             nulls[row * columns + column] = is_null;
         }
     }
@@ -2761,8 +2761,8 @@ print_crosstab :: (result: *Pg.Result) -> bool {
         slot := *cell_rows[y * across.count + x];
 
         if slot.* >= 0 {
-            row_text := ifx v_null then psql.popt.null_display else cast(string) v;
-            column_text := ifx h_null then psql.popt.null_display else cast(string) h;
+            row_text := ifx v_null then psql.popt.null_display else display_bool(psql.popt, result.columns[vertical].type_oid, cast(string) v);
+            column_text := ifx h_null then psql.popt.null_display else display_bool(psql.popt, result.columns[horizontal].type_oid, cast(string) h);
             return fail(tprint("query result contains multiple data values for row \"%\", column \"%\"", row_text, column_text));
         }
 
@@ -2775,7 +2775,7 @@ print_crosstab :: (result: *Pg.Result) -> bool {
 
     headers := NewArray(width, string,, temp);
     headers[0] = result.columns[vertical].name;
-    for across headers[it_index + 1] = ifx it.is_null then psql.popt.null_display else it.value;
+    for across headers[it_index + 1] = ifx it.is_null then psql.popt.null_display else display_bool(psql.popt, result.columns[horizontal].type_oid, it.value);
 
     table.headers = headers;
 
@@ -2790,7 +2790,7 @@ print_crosstab :: (result: *Pg.Result) -> bool {
     nulls := NewArray(down.count * width, bool,, temp);
 
     for y: 0..down.count - 1 {
-        cells[y * width] = down[y].value;
+        cells[y * width] = display_bool(psql.popt, result.columns[vertical].type_oid, down[y].value);
         nulls[y * width] = down[y].is_null;
 
         for x: 0..across.count - 1 {
@@ -2799,7 +2799,7 @@ print_crosstab :: (result: *Pg.Result) -> bool {
 
             bytes, is_null := Pg.raw_value(result, row, data);
 
-            cells[y * width + x + 1] = cast(string) bytes;
+            cells[y * width + x + 1] = ifx is_null then cast(string) bytes else display_bool(psql.popt, result.columns[data].type_oid, cast(string) bytes);
             nulls[y * width + x + 1] = is_null;
         }
     }
@@ -4086,6 +4086,8 @@ show_all_pset :: () {
         "border", tprint("%", o.border),
         "columns", tprint("%", o.columns),
         "csv_fieldsep", quoted(o.csv_field_separator),
+        "display_false", quoted(o.false_display),
+        "display_true", quoted(o.true_display),
         "expanded", expanded,
         "fieldsep", ifx o.field_separator_zero then "zero" else quoted(o.field_separator),
         "fieldsep_zero", on_off(o.field_separator_zero),
@@ -4112,8 +4114,10 @@ show_all_pset :: () {
     while i < rows.count {
         name := rows[i];
 
-        // PostgreSQL 16 added xheader_width.
-        if name != "xheader_width" || psql.db.server_version >= 160000 {
+        // PostgreSQL 16 added xheader_width, 19 display_false and display_true.
+        shown := (name != "xheader_width" || psql.db.server_version >= 160000) && (!begins_with(name, "display_") || psql.db.server_version >= 190000);
+
+        if shown {
             write_out(tprint("%1%2 %3\n", name, repeat_char(#char " ", 24 - name.count), rows[i + 1]));
         }
 
@@ -4166,6 +4170,21 @@ pset_apply :: (option: string, value: string, has_value: bool, quiet: bool) -> b
             if !quiet {
                 if o.field_separator_zero write_out("Field separator is zero byte.\n");
                 else write_out(tprint("Field separator is \"%\".\n", o.field_separator));
+            }
+
+        case "display_true"; #through;
+        case "display_false";
+            if psql.db.server_version < 190000 {
+                print_error(tprint("\\pset: unknown option: %", option));
+                return false;
+            }
+
+            if option == "display_true" {
+                if has_value o.true_display = copy_string(value);
+                if !quiet write_out(tprint("Boolean true display is \"%\".\n", o.true_display));
+            } else {
+                if has_value o.false_display = copy_string(value);
+                if !quiet write_out(tprint("Boolean false display is \"%\".\n", o.false_display));
             }
 
         case "fieldsep_zero";
