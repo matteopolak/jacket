@@ -1151,3 +1151,48 @@ fn options_around_the_file_and_chatter_levels() {
     let interp = jaic(&[file, "-interp", "-quiet", "-", "meta", "--", "one"]);
     assert!(interp.status.success());
 }
+
+/// A foreign library declared under a source checkout's `stdlib/` that was never built (a plain
+/// `cargo build`, as in #36) says to run `just build`; the same declaration elsewhere does not.
+#[test]
+fn missing_native_library_in_a_source_checkout_names_just_build() {
+    let run = |name: &str, checkout: bool| {
+        let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(name);
+        std::fs::create_dir_all(dir.join("stdlib")).unwrap();
+        if checkout {
+            std::fs::write(dir.join("Justfile"), "").unwrap();
+        }
+        std::fs::write(
+            dir.join("stdlib/helper.jai"),
+            "gp_missing_library :: #library \"jacket_missing_native_library\";\n\
+             gp_environment :: (name: *u8) -> *u8 #foreign gp_missing_library;\n",
+        )
+        .unwrap();
+        let source = dir.join("main.jai");
+        std::fs::write(
+            &source,
+            "#load \"stdlib/helper.jai\";\n#run gp_environment(\"PATH\");\n",
+        )
+        .unwrap();
+        let output = Command::new(JAIC)
+            .arg("-check")
+            .arg(&source)
+            .output()
+            .unwrap();
+        assert!(!output.status.success());
+        String::from_utf8_lossy(&output.stderr).into_owned()
+    };
+    let hint = "builds the libraries the standard library binds with `just build`";
+    let inside = run("cli-missing-native-checkout", true);
+    assert!(
+        inside.contains("foreign procedure `gp_environment` is not available here"),
+        "{inside}"
+    );
+    assert!(inside.contains(hint), "{inside}");
+    let outside = run("cli-missing-native-release", false);
+    assert!(
+        outside.contains("was not found or does not define it"),
+        "{outside}"
+    );
+    assert!(!outside.contains("just build"), "{outside}");
+}
