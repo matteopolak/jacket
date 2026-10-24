@@ -6,6 +6,7 @@
 //     jaic stdlib/Extensions/Postgres/Tool/main.jai -interp -- generate [--root DIR] [--out FILE]
 //     jaic stdlib/Extensions/Postgres/Tool/main.jai -interp -- migrate|status [--root DIR]
 //     jaic stdlib/Extensions/Postgres/Tool/main.jai -interp -- new NAME [--root DIR]
+//     jaic stdlib/Extensions/Postgres/Tool/main.jai -interp -- diff [--root DIR] [--name NAME]
 //
 // `prepare` describes every entry again against DATABASE_URL (or JACKET_DATABASE_URL) and rewrites
 // the ones that changed. `check` does the same without writing, and fails when an entry differs,
@@ -16,7 +17,9 @@
 // `generate` reads the migrations' schema database on the server DATABASE_URL names and writes
 // `db/schema.jai` (or FILE) from it. `migrate` applies db/migrations to DATABASE_URL itself,
 // `status` lists each migration's state there, and `new NAME` creates the next
-// `db/migrations/NNNN_name.sql`. See docs/postgres/schema.md.
+// `db/migrations/NNNN_name.sql`. `diff` compares the structs of a hand-edited `db/schema.jai`
+// with the migrations' schema database and writes the next migration as a proposal; it applies
+// nothing (docs/postgres/diff.md). See docs/postgres/schema.md.
 
 #import "Basic";
 #import "String";
@@ -40,7 +43,7 @@ Options :: struct {
 }
 
 JSON_SUFFIX :: ".json";
-COMMANDS :: string.["prepare", "check", "generate", "migrate", "status", "new"];
+COMMANDS :: string.["prepare", "check", "generate", "migrate", "status", "new", "diff"];
 
 options: Options;
 failures := 0;
@@ -63,6 +66,9 @@ main :: () {
         } else if argument == "--out" && i + 1 < arguments.count {
             options.out = arguments[i + 1];
             i += 1;
+        } else if argument == "--name" && i + 1 < arguments.count {
+            options.name = arguments[i + 1];
+            i += 1;
         } else if argument == "--prune" {
             options.prune = true;
         } else if !options.command {
@@ -78,7 +84,7 @@ main :: () {
     }
 
     if !array_contains(COMMANDS, options.command) || options.command == "new" && !options.name {
-        print("usage: pg prepare [--root DIR] [--build COMMAND] [--prune]\n       pg check [--root DIR] [--build COMMAND]\n       pg generate [--root DIR] [--out FILE]\n       pg migrate|status [--root DIR]\n       pg new NAME [--root DIR]\n");
+        print("usage: pg prepare [--root DIR] [--build COMMAND] [--prune]\n       pg check [--root DIR] [--build COMMAND]\n       pg generate [--root DIR] [--out FILE]\n       pg migrate|status [--root DIR]\n       pg new NAME [--root DIR]\n       pg diff [--root DIR] [--name NAME]\n");
         exit(2);
     }
 
@@ -99,6 +105,7 @@ work :: () {
     else if options.command == "migrate" migrate_database();
     else if options.command == "status" print_status();
     else if options.command == "new" new_migration();
+    else if options.command == "diff" propose_diff();
     else describe_entries();
 }
 
@@ -369,13 +376,56 @@ print_status :: () {
     for statuses print("%  %\n", it.name, to_lower_copy(tprint("%", it.state),, temp));
 }
 
-// Creates `db/migrations/NNNN_name.sql`, numbered after the newest migration and as wide as it.
+// Creates `db/migrations/NNNN_name.sql`.
 new_migration :: () {
-    name := slug(options.name);
+    path, ok := next_migration_path(options.name);
+    if !ok return;
+
+    if !write_entire_file(path, tprint("-- %\n", slug(options.name))) {
+        problem(tprint("cannot write %", path));
+        return;
+    }
+
+    print("created %\n", path);
+}
+
+// Writes the migration that would bring the migrated schema to the structs of db/schema.jai,
+// unless nothing differs.
+propose_diff :: () {
+    config, config_ok := database_config();
+    if !config_ok return;
+
+    proposal, why := Pg.diff_schema(config, migrations_folder(), join(options.root, "/db/schema.jai",, temp));
+
+    if why {
+        problem(why);
+        return;
+    }
+
+    if !proposal.sql {
+        print("db/schema.jai matches the migrations: nothing to propose\n");
+        return;
+    }
+
+    path, ok := next_migration_path(ifx options.name then options.name else "schema changes");
+    if !ok return;
+
+    if !write_entire_file(path, proposal.sql) {
+        problem(tprint("cannot write %", path));
+        return;
+    }
+
+    print("created % (% change%, % TODO%): review it, then run `migrate`\n", path, proposal.changes, ifx proposal.changes == 1 then "" else "s", proposal.todos, ifx proposal.todos == 1 then "" else "s");
+}
+
+// The path of `db/migrations/NNNN_name.sql`, numbered after the newest migration and as wide as
+// it; or a problem reported.
+next_migration_path :: (label: string) -> string, bool {
+    name := slug(label);
 
     if !name {
-        problem(tprint("\"%\" has no letters or digits to name a migration with", options.name));
-        return;
+        problem(tprint("\"%\" has no letters or digits to name a migration with", label));
+        return "", false;
     }
 
     folder := migrations_folder();
@@ -383,7 +433,7 @@ new_migration :: () {
 
     if why {
         problem(why);
-        return;
+        return "", false;
     }
 
     next := 1;
@@ -399,14 +449,8 @@ new_migration :: () {
     while number.count < width number = tprint("0%", number);
 
     make_directory_if_it_does_not_exist(folder, true);
-    path := join(folder, "/", number, "_", name, ".sql",, temp);
 
-    if !write_entire_file(path, tprint("-- %\n", name)) {
-        problem(tprint("cannot write %", path));
-        return;
-    }
-
-    print("created %\n", path);
+    return join(folder, "/", number, "_", name, ".sql",, temp), true;
 }
 
 // "Add users table" as "add_users_table".

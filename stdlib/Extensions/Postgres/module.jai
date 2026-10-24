@@ -86,3 +86,4 @@ Base64 :: #import "Base64";
 #load "typed.jai";
 #load "schema.jai";
 #load "generate.jai";
+#load "diff.jai";

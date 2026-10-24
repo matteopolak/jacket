@@ -1,7 +1,8 @@
 #!/bin/sh
 # The pg tool's migrate, status, new and generate commands on a project built from this folder, and
 # a program that uses the generated db/schema.jai: it compiles, goes stale when a migration
-# changes, and rejects a bad db/json_columns.jai.
+# changes, and rejects a bad db/json_columns.jai; and `diff` proposes a migration for a struct added
+# by hand.
 #
 #     JAI_PG_TEST_PORT=54329 sh run.sh
 #
@@ -57,5 +58,21 @@ rm "$project/db/migrations/0003_extra.sql"
 printf 'Json_Columns :: Pg.Json_Column.[ .{ "users.email", Settings } ];\n' > "$project/db/json_columns.jai"
 if "$jaic" "$project/main.jai" -exe "$work/bad" > "$work/out" 2>&1; then fail "a bad json mapping compiled"; fi
 grep -q 'maps "users.email"' "$work/out" || fail "the json mapping error does not name the column"
+
+# diff: nothing to propose for the generated file; a struct added by hand becomes the next migration
+pg diff | grep -q 'nothing to propose' || fail "diff of a fresh schema"
+[ ! -f "$project/db/migrations/0003_schema_changes.sql" ] || fail "diff wrote a file with nothing to propose"
+cat >> "$project/db/schema.jai" <<'JAI'
+
+Note :: struct @pg_table(public.notes) {
+    id: s64; @pg_primary_key
+    body: Pg.Nullable(string);
+}
+JAI
+pg diff --name "add notes" | grep -q '0003_add_notes.sql' || fail "diff"
+grep -q 'create table "public"."notes"' "$project/db/migrations/0003_add_notes.sql" || fail "diff wrote no create table"
+pg migrate | grep -q 'applied 1 migration' || fail "migrate of the proposal"
+pg generate | grep -q 'wrote' || fail "generate after the proposal"
+pg diff | grep -q 'nothing to propose' || fail "diff after migrating the proposal"
 
 echo "all schema tests passed"
