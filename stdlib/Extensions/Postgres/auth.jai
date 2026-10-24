@@ -94,7 +94,9 @@ check_auth_method :: (c: *Connection, config: Config, policy: Auth_Policy, code:
         case AUTH_SASL_CONTINUE; #through;
         case AUTH_SASL_FINAL;
             method = .SCRAM_SHA_256;
+            // libpq 18 names the mechanism when `require_auth` forbids it by name.
             reason = "server requested SASL authentication";
+            if contains(config.require_auth, "!scram-sha-256") reason = "server requested SCRAM-SHA-256 authentication";
         case;
             return .{};
     }

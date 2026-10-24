@@ -91,6 +91,18 @@ State :: struct {
     crosstab_args: [4] string;
     bind_params: [..] string;
     bind_active: bool;
+    // PostgreSQL 18's \parse, \bind_named and \close_prepared: which kind of message the next
+    // query sends, and the statement name it uses.
+    send_mode: Send_Mode;
+    stmt_name: string;
+
+    // Pipeline mode (\startpipeline ...): the pipeline, and psql's counts of what is in it.
+    pipe: *Pg.Pipeline;
+    pipe_sql: [..] string; // the text of every queued step, for error positions; a sync is empty
+    pipe_commands: s64; // sent since the last sync or flush request
+    pipe_syncs: s64; // sync points whose results are unread
+    pipe_available: s64; // command results that can be read now
+    pipe_errors: string; // messages libpq keeps for a failed call, which pile up
     gfile: string;
     gpipe: string; // \g | command: gfile holds the output until the command reads it
     saved_popt: Print_Options;
@@ -103,6 +115,13 @@ State :: struct {
 
     last_error: Pg.Pg_Error; // for \errverbose
     last_error_query: string;
+}
+
+Send_Mode :: enum u8 {
+    QUERY;
+    PARSE;
+    BIND_NAMED;
+    CLOSE;
 }
 
 psql: State;
@@ -156,11 +175,6 @@ run :: (args: [] string) -> s64 {
     i := 1;
 
     next_value :: () -> string #expand {
-        if i + 1 >= args.count {
-            print_error(tprint("option requires an argument -- '%'", args[i]));
-            `return EXIT_FAILURE;
-        }
-
         i += 1;
 
         return args[i];
@@ -170,6 +184,13 @@ run :: (args: [] string) -> s64 {
         arg := args[i];
 
         if begins_with(arg, "--") {
+            takes_value := arg == "--set" || arg == "--variable" || arg == "--dbname" || arg == "--host" || arg == "--port" || arg == "--username" || arg == "--command" || arg == "--file";
+
+            if takes_value && i + 1 >= args.count {
+                print_error(tprint("option requires an argument -- '%'", arg));
+                return EXIT_FAILURE;
+            }
+
             if arg == {
                 case "--no-psqlrc";
                 case "--help"; return print_help("options");
@@ -182,6 +203,15 @@ run :: (args: [] string) -> s64 {
                 case "--tuples-only"; psql.popt.tuples_only = true;
                 case "--no-password";
                 case "--csv"; psql.popt.format = .CSV;
+                // An option with a required argument takes it from the next word as well.
+                case "--set"; #through;
+                case "--variable"; array_add(*pending_vars, next_value());
+                case "--dbname"; dbname = next_value();
+                case "--host"; host = next_value();
+                case "--port"; port = next_value();
+                case "--username"; user = next_value();
+                case "--command"; array_add(*actions, .{ text = next_value() });
+                case "--file"; array_add(*actions, .{ is_file = true, text = next_value() });
                 case;
                     if begins_with(arg, "--help=") return print_help(advance(arg, 7));
                     else if begins_with(arg, "--set=") array_add(*pending_vars, advance(arg, 6));
@@ -1217,6 +1247,8 @@ send_query :: (sql: string, copies_expected: s64) -> bool {
         write_fd(1, "\n");
     }
 
+    if psql.pipe return pipeline_send(sql);
+
     ok := false;
     savepoint := false;
 
@@ -1294,10 +1326,16 @@ reset_query_flags :: () {
         it.* = "";
     }
 
+    reset_bind_state();
+}
+
+reset_bind_state :: () {
     for psql.bind_params free(it);
 
     array_reset(*psql.bind_params);
     psql.bind_active = false;
+    psql.send_mode = .QUERY;
+    psql.stmt_name = "";
 }
 
 execute_and_show :: (sql: string, copies_expected: s64, savepoint_gone: *bool) -> bool {
@@ -1333,7 +1371,9 @@ execute_and_show :: (sql: string, copies_expected: s64, savepoint_gone: *bool) -
     current_query = sql;
     error: Pg.Pg_Error;
 
-    if psql.bind_active {
+    if psql.send_mode != .QUERY {
+        error = run_extended_alone(sql, *hooks);
+    } else if psql.bind_active {
         // \bind: the extended protocol, with the values as untyped text parameters.
         args := NewArray(psql.bind_params.count, Any,, temp);
         for psql.bind_params args[it_index] = psql.bind_params[it_index];
@@ -1440,7 +1480,7 @@ show_notifications :: () {
 
 // \watch [interval] [i=SECONDS] [c=COUNT] [m=MIN_ROWS]: runs the query again and again.
 watch_command :: (l: *Loop, s: *Scanner) -> Command_Status {
-    interval: float64 = 2.0;
+    interval := watch_interval();
     count := -1;
     min_rows := -1;
     have_interval, have_count, have_min := false, false, false;
@@ -1526,6 +1566,37 @@ watch_command :: (l: *Loop, s: *Scanner) -> Command_Status {
     }
 
     return .SKIP_LINE;
+}
+
+// The seconds \watch waits by default: WATCH_INTERVAL.
+watch_interval :: () -> float64 {
+    text, found := variables_get(*psql.vars, "WATCH_INTERVAL");
+    number, valid := parse_watch_number(text);
+
+    return ifx found && valid then number else 2.0;
+}
+
+// The assign hook of WATCH_INTERVAL: a number from 0 up, as psql's ParseVariableDouble reads it.
+check_watch_interval :: (value: string) -> bool {
+    _, valid := parse_watch_number(value);
+    if valid return true;
+
+    // 1e500 is a number too large to hold.
+    exponent := find_index_from_left(to_lower_copy(value,, temp), #char "e");
+
+    if exponent > 0 {
+        _, mantissa := parse_watch_number(slice(value, 0, exponent));
+        digits, ok := string_to_int(advance(value, exponent + 1));
+
+        if mantissa && ok && digits > 308 {
+            print_error(tprint("value \"%\" is out of range for \"WATCH_INTERVAL\"", value));
+            return false;
+        }
+    }
+
+    print_error(tprint("invalid value \"%\" for \"WATCH_INTERVAL\": floating point number expected", value));
+
+    return false;
 }
 
 // A non-negative decimal number such as 0.01 or 2: the whole text must be one.
@@ -1621,6 +1692,376 @@ shell_command :: (line: string) -> Command_Status {
     }
 
     return .SKIP_LINE;
+}
+
+// \parse, \bind_named and \close_prepared outside a pipeline: one message, then a sync.
+run_extended_alone :: (sql: string, hooks: *Query_Hooks) -> Pg.Pg_Error {
+    p, error := Pg.pipeline_enter(psql.db);
+    if error.kind != .NONE return error;
+
+    params: [] string = psql.bind_params;
+
+    if psql.send_mode == {
+        case .PARSE; error = Pg.pipeline_prepare(p, psql.stmt_name, sql);
+        case .CLOSE; error = Pg.pipeline_close_statement(p, psql.stmt_name);
+        case .BIND_NAMED; error = Pg.pipeline_execute_prepared_text(p, psql.stmt_name, params);
+    }
+
+    if error.kind == .NONE error = Pg.pipeline_sync(p);
+
+    if error.kind != .NONE {
+        Pg.pipeline_abandon(p);
+        return error;
+    }
+
+    failure: Pg.Pg_Error;
+
+    while true {
+        item, read_error := Pg.pipeline_next_result(p);
+
+        if read_error.kind != .NONE {
+            Pg.pipeline_abandon(p);
+            Pg.free_error(*failure);
+
+            return read_error;
+        }
+
+        if item.kind == .NONE || item.kind == .SYNC {
+            Pg.free_pipeline_result(*item);
+            break;
+        }
+
+        if item.kind == .RESULT && psql.send_mode == .BIND_NAMED {
+            on_result(hooks, *item.result);
+        } else if item.kind == .ERROR && failure.kind == .NONE {
+            failure = item.error;
+            item.error = .{};
+        }
+
+        Pg.free_pipeline_result(*item);
+    }
+
+    exit_error := Pg.pipeline_exit(p);
+    if exit_error.kind != .NONE Pg.pipeline_abandon(p);
+
+    return failure;
+}
+
+// Pipeline mode (PostgreSQL 18's \startpipeline and friends). The counts are psql's: commands
+// sent since the last sync or flush request, sync points not read yet, and command results that
+// the server has been asked to send.
+
+NOT_IN_PIPELINE :: "cannot send pipeline when not in pipeline mode";
+
+update_pipeline_variables :: () {
+    variables_set(*psql.vars, "PIPELINE_COMMAND_COUNT", tprint("%", psql.pipe_commands));
+    variables_set(*psql.vars, "PIPELINE_SYNC_COUNT", tprint("%", psql.pipe_syncs));
+    variables_set(*psql.vars, "PIPELINE_RESULT_COUNT", tprint("%", psql.pipe_available));
+}
+
+leave_pipeline :: () {
+    for psql.pipe_sql free(it);
+
+    array_reset(*psql.pipe_sql);
+
+    psql.pipe = null;
+    psql.pipe_commands = 0;
+    psql.pipe_syncs = 0;
+    psql.pipe_available = 0;
+    psql.pipe_errors = "";
+    update_pipeline_variables();
+}
+
+// A query, \parse, \bind_named or \close_prepared arriving while a pipeline is open: it is queued.
+pipeline_send :: (sql: string) -> bool {
+    if psql.gdesc {
+        // libpq keeps the messages of failed calls, and shows them all each time.
+        psql.pipe_errors = copy_string(tprint("%synchronous command execution functions are not allowed in pipeline mode\n", psql.pipe_errors));
+        print_error_raw(psql.pipe_errors);
+        reset_query_flags();
+
+        return false;
+    }
+
+    p := psql.pipe;
+    params: [] string = psql.bind_params;
+    error: Pg.Pg_Error;
+
+    if psql.send_mode == {
+        case .PARSE; error = Pg.pipeline_prepare(p, psql.stmt_name, sql);
+        case .CLOSE; error = Pg.pipeline_close_statement(p, psql.stmt_name);
+        case .BIND_NAMED; error = Pg.pipeline_execute_prepared_text(p, psql.stmt_name, params);
+        case; error = Pg.pipeline_query_text(p, sql, .[], params);
+    }
+
+    reset_query_flags();
+
+    if error.kind != .NONE {
+        print_error_raw(build_error_message(error, sql, true));
+        Pg.free_error(*error);
+
+        return false;
+    }
+
+    array_add(*psql.pipe_sql, copy_string(sql));
+    psql.pipe_commands += 1;
+    update_pipeline_variables();
+
+    return true;
+}
+
+// The \g family cannot run in a pipeline: the command fails and takes the query buffer with it.
+pipeline_refuses :: (l: *Loop, name: string) -> bool {
+    if !psql.pipe return false;
+
+    print_error(tprint("\\% not allowed in pipeline mode", name));
+    l.query.count = 0;
+    scan_reset(*l.scanner);
+    reset_query_flags();
+
+    return true;
+}
+
+pipeline_command :: (l: *Loop, name: string) -> Command_Status {
+    s := *l.scanner;
+
+    if name == "sendpipeline" {
+        if !psql.pipe {
+            print_error("\\sendpipeline not allowed outside of pipeline mode");
+            return .ERROR;
+        }
+
+        if !psql.bind_active {
+            print_error("\\sendpipeline must be used after \\bind or \\bind_named");
+            return .ERROR;
+        }
+
+        return .SEND;
+    }
+
+    count := 0;
+    count_given := false;
+
+    if name == "getresults" {
+        arg, found := next_arg(s);
+
+        if found {
+            number, valid := string_to_int(arg);
+
+            if !valid || number < 0 {
+                print_error("\\getresults: invalid number of requested results");
+                return .ERROR;
+            }
+
+            count = number;
+            count_given = true;
+        }
+    }
+
+    // These stand in for the query buffer, which goes with them.
+    l.query.count = 0;
+    scan_reset(s);
+    reset_query_flags();
+
+    if name == "startpipeline" {
+        if psql.pipe return .SKIP_LINE;
+
+        if !psql.db {
+            print_error("You are currently not connected to a database.");
+            return .ERROR;
+        }
+
+        p, error := Pg.pipeline_enter(psql.db);
+
+        if error.kind != .NONE {
+            print_error_raw(build_error_message(error, "", true));
+            Pg.free_error(*error);
+
+            return .ERROR;
+        }
+
+        psql.pipe = p;
+        update_pipeline_variables();
+
+        return .SKIP_LINE;
+    }
+
+    if name == "getresults" {
+        total := psql.pipe_available + psql.pipe_syncs;
+
+        if total == 0 {
+            print_error("No pending results to get");
+            return .SKIP_LINE;
+        }
+
+        if !count_given || count == 0 || count > total count = total;
+
+        return ifx read_pipeline_results(count) then Command_Status.SKIP_LINE else .ERROR;
+    }
+
+    if !psql.pipe {
+        print_error(NOT_IN_PIPELINE);
+        return .ERROR;
+    }
+
+    error: Pg.Pg_Error;
+
+    if name == "flush" {
+        error = Pg.pipeline_flush(psql.pipe);
+    } else if name == "flushrequest" {
+        error = Pg.pipeline_flush_request(psql.pipe);
+
+        psql.pipe_available += psql.pipe_commands;
+        psql.pipe_commands = 0;
+    } else {
+        error = Pg.pipeline_sync(psql.pipe);
+
+        psql.pipe_syncs += 1;
+        psql.pipe_available += psql.pipe_commands;
+        psql.pipe_commands = 0;
+        array_add(*psql.pipe_sql, "");
+    }
+
+    if error.kind != .NONE {
+        print_error_raw(build_error_message(error, "", true));
+        Pg.free_error(*error);
+
+        return .ERROR;
+    }
+
+    update_pipeline_variables();
+
+    if name != "endpipeline" return .SKIP_LINE;
+
+    ok := read_pipeline_results(psql.pipe_available + psql.pipe_syncs, everything = true);
+
+    if psql.pipe {
+        exit_error := Pg.pipeline_exit(psql.pipe);
+
+        if exit_error.kind != .NONE {
+            Pg.free_error(*exit_error);
+            Pg.pipeline_abandon(psql.pipe);
+        }
+
+        leave_pipeline();
+    }
+
+    return ifx ok then Command_Status.SKIP_LINE else .ERROR;
+}
+
+new_pipeline_hooks :: () -> Query_Hooks {
+    hooks: Query_Hooks;
+    hooks.on_result = on_result;
+    hooks.success = true;
+
+    return hooks;
+}
+
+// The command (or sync point) at the head of the queue is over: its text goes.
+pipeline_step_done :: () {
+    if psql.pipe_sql.count {
+        free(psql.pipe_sql[0]);
+        array_ordered_remove_by_index(*psql.pipe_sql, 0);
+    }
+}
+
+// Reads and shows `requested` results (sync points count). After a failed command the results of
+// the commands it made skip are not shown one by one: a run of them is reported once.
+read_pipeline_results :: (requested: s64, everything := false) -> bool {
+    p := psql.pipe;
+    ok := true;
+    remaining := requested;
+    discard := false;
+    hooks := new_pipeline_hooks();
+
+    while (remaining > 0 || everything) && p.head < p.steps.count {
+        step := p.steps[p.head];
+
+        if step == .QUERY && psql.fetch_count > 0 && !discard && !hooks.chunk_started {
+            if p.aborted print_warning("fetching results in chunked mode failed");
+            else Pg.pipeline_chunked_rows(p, psql.fetch_count);
+        }
+
+        item, error := Pg.pipeline_next_result(p);
+
+        if error.kind != .NONE {
+            print_error_raw(build_error_message(error, "", true));
+            Pg.free_error(*error);
+            Pg.pipeline_abandon(p);
+            leave_pipeline();
+
+            return false;
+        }
+
+        defer Pg.free_pipeline_result(*item);
+
+        if item.kind == .NONE break;
+
+        sql := ifx psql.pipe_sql.count then psql.pipe_sql[0] else "";
+
+        if item.kind == {
+            case .SYNC;
+                psql.pipe_syncs -= 1;
+                discard = false;
+                remaining -= 1;
+                pipeline_step_done();
+
+            case .ROWS;
+                on_result(*hooks, *item.result);
+
+            case .RESULT;
+                if step == .QUERY {
+                    on_result(*hooks, *item.result);
+                    flush_pending(*hooks, last = true);
+                }
+
+                hooks = new_pipeline_hooks();
+                psql.pipe_available -= 1;
+                discard = false;
+                remaining -= 1;
+                pipeline_step_done();
+
+            case .ERROR;
+                flush_pending(*hooks, last = false);
+                print_error_raw(build_error_message(item.error, sql, true));
+                set_result_variables_failed(item.error);
+
+                Pg.free_error(*psql.last_error);
+                psql.last_error = item.error;
+                psql.last_error_query = copy_string(sql);
+                item.error = .{};
+
+                hooks = new_pipeline_hooks();
+                ok = false;
+                discard = true;
+
+                // A commit that fails answers at the sync point, whose own result follows. The
+                // error counts as one of the results asked for, but not as a command's.
+                remaining -= 1;
+
+                if step != .SYNC {
+                    psql.pipe_available -= 1;
+                    pipeline_step_done();
+                }
+
+            case .ABORTED;
+                if !discard {
+                    print_error("Pipeline aborted, command did not run");
+                    ok = false;
+                }
+
+                discard = true;
+                psql.pipe_available -= 1;
+                remaining -= 1;
+                pipeline_step_done();
+        }
+
+        update_pipeline_variables();
+    }
+
+    flush_pending(*hooks, last = true);
+
+    return ok;
 }
 
 // \gdesc: the columns the query would return, without running it (psql's DescribeQuery).
@@ -1735,7 +2176,13 @@ copy_in :: (h: *Pg.Script_Hooks, copy: *Pg.Copy_Info) -> string, bool, string {
     if !more return "", true, "";
 
     psql.lineno += 1;
-    if line == "\\.\n" || line == "\\.\r\n" || line == "\\." hooks.copy_in_done = true;
+
+    // The terminator ends the data and is not sent: CSV data from a client no longer takes
+    // `\.` as its end (PostgreSQL 18), so it would arrive as a row.
+    if line == "\\.\n" || line == "\\.\r\n" || line == "\\." {
+        hooks.copy_in_done = true;
+        return "", true, "";
+    }
 
     return line, false, "";
 }
@@ -2630,6 +3077,7 @@ assign_variable :: (name: string, value: string, is_null: bool) -> bool {
         "HISTCONTROL", "none",
         "VERBOSITY", "default",
         "SHOW_CONTEXT", "errors",
+        "WATCH_INTERVAL", "2",
     ];
 
     v := value;
@@ -2763,12 +3211,65 @@ apply_variable :: (name: string, value: string) -> bool {
             psql.fetch_count = string_to_int(value);
         case "HISTSIZE"; integer();
         case "IGNOREEOF"; integer();
+        case "WATCH_INTERVAL";
+            if !check_watch_interval(value) return false;
     }
 
     return true;
 }
 
 // Backslash commands (psql's command.c)
+
+// \bind, \bind_named, \parse and \close_prepared: they choose the messages the next query sends.
+extended_command :: (s: *Scanner, name: string) -> Command_Status {
+    if name == "bind" {
+        array_reset(*psql.bind_params);
+
+        while true {
+            arg, found := next_arg(s);
+            if !found break;
+            array_add(*psql.bind_params, copy_string(arg));
+        }
+
+        psql.bind_active = true;
+        psql.send_mode = .QUERY;
+
+        return .SKIP_LINE;
+    }
+
+    first, found := next_arg(s);
+
+    // A failed command also drops what an earlier one set up.
+    reset_bind_state();
+
+    if !found {
+        print_error(tprint("\\%: missing required argument", name));
+        return .ERROR;
+    }
+
+    psql.stmt_name = copy_string(first);
+
+    if name == "parse" {
+        psql.send_mode = .PARSE;
+        return .SEND;
+    }
+
+    if name == "close_prepared" {
+        psql.send_mode = .CLOSE;
+        return .SEND;
+    }
+
+    while true {
+        arg, more := next_arg(s);
+        if !more break;
+        array_add(*psql.bind_params, copy_string(arg));
+    }
+
+    psql.bind_active = true;
+    psql.send_mode = .BIND_NAMED;
+
+    return .SKIP_LINE;
+}
 
 handle_slash_command :: (l: *Loop) -> Command_Status {
     s := *l.scanner;
@@ -2821,7 +3322,8 @@ handle_slash_command :: (l: *Loop) -> Command_Status {
 // it runs).
 known_command :: (name: string) -> bool {
     KNOWN :: string.[
-        "a", "bind", "C", "c", "connect", "cd", "conninfo", "copy", "copyright", "crosstabview",
+        "a", "bind", "bind_named", "close_prepared", "parse", "startpipeline", "endpipeline", "syncpipeline",
+        "sendpipeline", "flush", "flushrequest", "getresults", "C", "c", "connect", "cd", "conninfo", "copy", "copyright", "crosstabview",
         "e", "edit", "ef", "ev", "echo", "qecho", "warn", "elif", "else", "endif", "encoding",
         "errverbose", "f", "g", "gx", "gdesc", "getenv", "gexec", "gset", "h", "help", "H", "html",
         "i", "include", "ir", "include_relative", "if", "l", "list", "l+", "list+", "o", "out",
@@ -3037,6 +3539,8 @@ run_command :: (l: *Loop, name: string) -> Command_Status {
 
         case "g"; #through;
         case "gx";
+            if pipeline_refuses(l, name) return .ERROR;
+
             arg, found := next_arg(s, .FILE_OR_PIPE);
             if found && begins_with(arg, "(") {
                 // \g (option=value ...): print settings for this query only.
@@ -3063,6 +3567,8 @@ run_command :: (l: *Loop, name: string) -> Command_Status {
             return .SEND;
 
         case "gset";
+            if pipeline_refuses(l, name) return .ERROR;
+
             prefix, found := next_arg(s);
 
             psql.gset_prefix = ifx found then copy_string(prefix) else "";
@@ -3071,6 +3577,8 @@ run_command :: (l: *Loop, name: string) -> Command_Status {
             return .SEND;
 
         case "gexec";
+            if pipeline_refuses(l, name) return .ERROR;
+
             psql.gexec = true;
             return .SEND;
 
@@ -3088,18 +3596,20 @@ run_command :: (l: *Loop, name: string) -> Command_Status {
             psql.gdesc = true;
             return .SEND;
 
-        case "bind";
-            array_reset(*psql.bind_params);
+        case "bind"; #through;
+        case "bind_named"; #through;
+        case "parse"; #through;
+        case "close_prepared";
+            return extended_command(s, name);
 
-            while true {
-                arg, found := next_arg(s);
-                if !found break;
-                array_add(*psql.bind_params, copy_string(arg));
-            }
-
-            psql.bind_active = true;
-
-            return .SKIP_LINE;
+        case "startpipeline"; #through;
+        case "endpipeline"; #through;
+        case "syncpipeline"; #through;
+        case "flush"; #through;
+        case "flushrequest"; #through;
+        case "getresults"; #through;
+        case "sendpipeline";
+            return pipeline_command(l, name);
 
         case "H"; #through;
         case "html";
@@ -3261,6 +3771,14 @@ run_command :: (l: *Loop, name: string) -> Command_Status {
             return .SKIP_LINE;
 
         case "watch";
+            if psql.pipe {
+                print_error("\\watch not allowed in pipeline mode");
+                l.query.count = 0;
+                scan_reset(s);
+
+                return .ERROR;
+            }
+
             return watch_command(l, s);
 
         case "o"; #through;
@@ -3274,7 +3792,7 @@ run_command :: (l: *Loop, name: string) -> Command_Status {
             return include_command(s, name);
     }
 
-    if begins_with(name, "d") || begins_with(name, "s") || begins_with(name, "lo_list") || name == "z" || name == "l" || name == "l+" || name == "list" || name == "list+" {
+    if begins_with(name, "d") || begins_with(name, "s") || begins_with(name, "lo_list") || begins_with(name, "z") || name == "l" || name == "l+" || name == "list" || name == "list+" {
         status, handled := describe_command(l, name);
         if handled return status;
     }
@@ -3557,8 +4075,12 @@ show_all_pset :: () {
 
     while i < rows.count {
         name := rows[i];
-        line := tprint("%1%2 %3\n", name, repeat_char(#char " ", 24 - name.count), rows[i + 1]);
-        write_out(line);
+
+        // PostgreSQL 16 added xheader_width.
+        if name != "xheader_width" || psql.db.server_version >= 160000 {
+            write_out(tprint("%1%2 %3\n", name, repeat_char(#char " ", 24 - name.count), rows[i + 1]));
+        }
+
         i += 2;
     }
 }

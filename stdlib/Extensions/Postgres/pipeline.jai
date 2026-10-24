@@ -622,6 +622,11 @@ consume_query :: (p: *Pipeline, type: u8, body: [] u8) -> Outcome, Pg_Error {
             out.kind = .RESULT;
 
             return .DONE, .{};
+        case #char "G"; #through;
+        case #char "H"; #through;
+        case #char "W";
+            // As in libpq, the connection ends: a COPY would need the rest of the pipeline.
+            return .MORE, protocol_error(c, "COPY in a pipeline is not supported, aborting connection");
         case;
             return .MORE, unexpected(c, type, "a statement");
     }
