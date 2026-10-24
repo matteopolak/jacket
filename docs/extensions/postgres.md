@@ -205,7 +205,7 @@ that of `PQTRACE_SUPPRESS_TIMESTAMPS | PQTRACE_REGRESS_MODE`: OIDs and process i
 to stop. Tracing costs nothing when off (one pointer test per message).
 
 **Errors.** `Pg_Error.kind` says where the failure came from: `CONFIG`, `IO`, `TIMED_OUT`,
-`CANCELED`, `CLOSED`, `TLS`, `AUTH`, `PROTOCOL`, `SERVER`, `DECODE` or `USAGE`. Server errors carry
+`CANCELED`, `CLOSED`, `TLS`, `AUTH`, `PROTOCOL`, `SERVER`, `DECODE`, `USAGE` or `NOT_FOUND` (a typed `query_one` with no row). Server errors carry
 every `ErrorResponse` field (`code`, `detail`, `hint`, `position`, `table`, `column`,
 `constraint`, ...). `code` is a `Sqlstate`: an enum over the five characters, so
 `error.code == .UNIQUE_VIOLATION` works, and `sqlstate_class` keeps only the class. An error owns

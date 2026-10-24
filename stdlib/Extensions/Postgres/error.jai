@@ -13,7 +13,8 @@ Error_Kind :: enum u8 {
     PROTOCOL; // the server sent something this client does not understand
     SERVER; // an ErrorResponse: `code`, `message` and the rest are set
     DECODE; // a value did not decode into the type asked for
-    USAGE; // the call does not fit the result (a missing row or column, say)
+    USAGE; // the call does not fit the result (a missing column, more rows than one, say)
+    NOT_FOUND; // `query_one` matched no row
 }
 
 // The five-character SQLSTATE, packed into a number so that it compares and switches like an
@@ -199,6 +200,7 @@ kind_text :: (kind: Error_Kind) -> string {
         case .PROTOCOL; return "protocol error";
         case .DECODE; return "decode error";
         case .USAGE; return "usage error";
+        case .NOT_FOUND; return "not found";
     }
 
     return "error";

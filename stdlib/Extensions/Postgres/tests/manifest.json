@@ -11,6 +11,17 @@
     ]
   },
   {
+    "name": "typed_scan",
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io fibers"
+    ]
+  },
+  {
     "name": "server",
     "unsupported_modes": [
       "wasm-interp",
@@ -49,5 +60,15 @@
   {
     "name": "conformance/scan_test",
     "stdout": "ok\n"
+  },
+  {
+    "name": "conformance/pipeline_traces",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io fibers; a PostgreSQL server and libpq_pipeline's traces (tools/pg_conformance/run.py --pipeline-traces), else skipped"
+    ]
   }
 ]
