@@ -253,12 +253,8 @@ parse_uri_options :: (info: *Conninfo, uri: string) -> Pg_Error {
         }
     }
 
-    if terminator != 0 {
-        error := parse_uri_parameters(info, advance(uri, at + 1));
-        if error.kind != .NONE return error;
-    }
-
-    // The host and port from the authority win over `?host=` and `?port=`.
+    // `?host=` and `?port=` win over the host and port of the authority, as in libpq:
+    // `postgres://localhost/db?host=/tmp` uses the socket in /tmp.
     host_list := comma_separated(hosts);
     port_list := comma_separated(ports);
 
@@ -269,6 +265,11 @@ parse_uri_options :: (info: *Conninfo, uri: string) -> Pg_Error {
 
     if port_list {
         error := set_decoded(info, "port", port_list);
+        if error.kind != .NONE return error;
+    }
+
+    if terminator != 0 {
+        error := parse_uri_parameters(info, advance(uri, at + 1));
         if error.kind != .NONE return error;
     }
 
