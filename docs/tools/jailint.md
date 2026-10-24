@@ -141,6 +141,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `shadowed_it` | suspicious | warn | no | a nested `for` hides an `it` the enclosing loop still uses |
 | `single_case_switch` | style | warn | editor | `if mode == { case .VERBOSE; ...; }`, with at most a default case: an `if` written as a `switch` |
 | `string_literal_write` | correctness | deny | editor | `s := "abc"; s[0] = x;`: a write into a string literal, which is read-only |
+| `unchecked_directive` | restriction | allow | no | `f :: () #no_abc { ... }` or `#asm { ... }` with no `//` comment on the line or the line above |
 | `uninit_read` | correctness | deny | editor | `total: int = ---; for xs total += it;`: a variable read before anything is written to it |
 | `unknown_allow` | suspicious | warn | editor | a `// jailint: allow(...)` comment naming a rule that does not exist |
 | `unnecessary_semicolon` | style | warn | yes | `x = 1;;`, `if ready { ... };`: an empty statement |
@@ -278,6 +279,8 @@ Not auto-fixed: the slip may be on the other side. After `using info;`, `width =
 One case of one value, plus at most a default case. `#complete` switches, `#through` cases, cases listing several values and `#if` switches are skipped. The editor offers `if x == v { ... }` (with the default as the `else`); the bodies keep their text, so `jaifmt` fixes the indentation, and `--fix` leaves it.
 ### string_literal_write
 Literals are read-only and equal literals share storage, so the write is a runtime error (interpreter) or a crash (native). Fires on `s[i] = x`, `s[i] += x`, `s.data[i] = x` and `s.data.* = x` when `s` was declared from a literal (`s := "abc";`, `s: string = "abc";`) in the same statement list and nothing since could have changed it: any assignment to `s`, taking `*s`, or redeclaring the name (in any nested scope) ends the check, so `s = copy_string(s);` silences later writes. Writes in nested blocks and in macros are not reported. The editor offers to wrap the literal in `copy_string(...)` where the variable is declared (the copy is then yours to free).
+### unchecked_directive
+Each `#no_abc`, `#no_aoc` and `#asm` needs a comment on its own line or the line just above. These take away bounds and overflow checks or leave the language, so the reason belongs next to them. Generated files are skipped. No fix: the reason is the author's to write.
 ### uninit_read
 The first mention after the declaration, in the same block, decides; a write anywhere (even inside an `if`) ends the check, so only straight-line reads are reported. Taking the address (`init(*x)`, `for *x`), `.data`/`.count` of a fixed-size array and compiler built-ins (`type_of(x)`) are not reads. Procedures with `using` are skipped. The editor offers to drop the `= ---` so the variable starts out zeroed.
 ### unknown_allow

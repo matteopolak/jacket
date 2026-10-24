@@ -64,6 +64,7 @@ mod self_assignment;
 mod shadowed_it;
 mod single_case_switch;
 mod string_literal_write;
+mod unchecked_directive;
 mod uninit_read;
 mod unknown_allow;
 mod unnecessary_semicolon;
@@ -430,6 +431,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Correctness,
         summary: "a write into a string literal, which is read-only (`s := \"abc\"; s[0] = x;`)",
         check: string_literal_write::check,
+    },
+    RuleInfo {
+        name: "unchecked_directive",
+        category: Category::Restriction,
+        summary: "`#no_abc`, `#no_aoc` or `#asm` with no comment saying why",
+        check: unchecked_directive::check,
     },
     RuleInfo {
         name: "uninit_read",
