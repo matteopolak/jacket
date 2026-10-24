@@ -277,6 +277,36 @@ execute :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, $call := #call
     return count, .{};
 } @Interpolates("sql")
 
+// `query` on a pipeline: the statement is queued, checked like `query`, and its rows come later
+// from `take`. Queue several, then take them: they share one round trip.
+//
+//     p := Pg.pipeline_enter(c);
+//     users := Pg.queue(p, "select id, name from users where id = $1", id);
+//     count := Pg.queue_execute(p, "update users set seen = now() where id = $1", id);
+//     rows, error := Pg.take(p, users);
+//     changed, error = Pg.take(p, count);
+//     Pg.pipeline_exit(p);
+queue :: (p: *Pipeline, $sql: string, args: ..Any, $call := #caller_code) -> Pending(Rows(#run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1))))), Pg_Error #expand {
+    #run check_statement(sql, call, 1, true);
+
+    pending: Pending(Rows(#run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1)))));
+    pending.serial = p.queued;
+    error := queue_typed(p, #run rewritten_sql(sql, call, 1), "", args, ifx #run binary_results(sql, call, 1) then Format.BINARY else .TEXT);
+
+    return pending, error;
+} @Interpolates("sql")
+
+// `execute` on a pipeline: `take` gives the count of rows the statement changed.
+queue_execute :: (p: *Pipeline, $sql: string, args: ..Any, $call := #caller_code) -> Pending(s64), Pg_Error #expand {
+    #run check_statement(sql, call, 1, false);
+
+    pending: Pending(s64);
+    pending.serial = p.queued;
+    error := queue_typed(p, #run rewritten_sql(sql, call, 1), "", args, ifx #run binary_results(sql, call, 1) then Format.BINARY else .TEXT);
+
+    return pending, error;
+} @Interpolates("sql")
+
 // The first column of the only row.
 query_scalar :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, $call := #caller_code) -> type_of(Scalar(#run scalar_type(sql, call, 1)).value), Pg_Error #expand {
     #run check_statement(sql, call, 1, true);

@@ -47,6 +47,7 @@ main :: () {
         test_query_as(db);
         test_json_and_arrays(db);
         test_statement_cache(db, config);
+        test_pipeline(db);
     });
 
     if failures {
@@ -255,6 +256,55 @@ count_parses :: (c: *Pg.Connection, line: string) {
 
 // Typed queries prepare once per connection and bind afterwards; `plan = .CUSTOM` opts out, and
 // `verify_statements` notices a table that changed under the program.
+test_pipeline :: (db: *Pg.Connection) {
+    p, enter_error := Pg.pipeline_enter(db);
+
+    check(enter_error.kind == .NONE, "enter pipeline");
+
+    first, error_a := Pg.queue(p, "select id, email from users where id = %", 1);
+    touched, error_b := Pg.queue_execute(p, "update users set email = email where id > %", 0);
+    second, error_c := Pg.queue(p, "select email from users where id = %", 2);
+
+    check(error_a.kind == .NONE && error_b.kind == .NONE && error_c.kind == .NONE, "queue typed statements");
+
+    // Taken out of order: the first and the update are read on the way and kept.
+    rows_two, take_c := Pg.take(p, second);
+
+    check(take_c.kind == .NONE && rows_two.result.row_count == 1, "take the last one first");
+    for rows_two check(it.email == "b@example.com", "the last one's row");
+
+    Pg.free_rows(*rows_two);
+
+    count, take_b := Pg.take(p, touched);
+
+    check(take_b.kind == .NONE && count == 2, "take an execute");
+
+    rows_one, take_a := Pg.take(p, first);
+
+    check(take_a.kind == .NONE && rows_one.result.row_count == 1, "take the first one last");
+    for rows_one check(it.id == 1 && it.email == "a@example.com", "the first one's row");
+
+    Pg.free_rows(*rows_one);
+
+    _, again := Pg.take(p, first);
+
+    check(again.kind == .USAGE, "a result is taken once");
+
+    // A failing statement fails its batch: the next one is skipped.
+    bad, _ := Pg.queue(p, "select id from users where id = 1 / %", 0);
+    after, _ := Pg.queue(p, "select id from users where id = %", 1);
+
+    _, bad_error := Pg.take(p, bad);
+
+    check(bad_error.kind == .SERVER && bad_error.code == .DIVISION_BY_ZERO, "division by zero");
+
+    _, after_error := Pg.take(p, after);
+
+    check(after_error.kind == .ABORTED, "the rest of the batch is skipped");
+
+    check(Pg.pipeline_exit(p).kind == .NONE, "exit after taking everything");
+}
+
 test_statement_cache :: (db: *Pg.Connection, config: Pg.Config) {
     Pg.set_trace(db, count_parses);
     defer Pg.set_trace(db, null);

@@ -66,6 +66,38 @@ Pipeline :: struct {
     chunk_rows: s64; // the statement being read delivers this many rows per result (0: all at once)
     tag_ready: bool; // the statement's last rows were delivered, and its command tag is in `current`
     current: Pipeline_Result; // the result being assembled: a deadline in the middle loses nothing
+
+    queued: s64; // statements queued since `pipeline_enter`, sync points not counted
+    read: s64; // of those, how many have their result read
+    early: [..] Early_Result; // read on the way to a later typed result (`take`), not taken yet
+}
+
+// A queued typed statement whose answer is still to come: `take` it after queuing the rest. `R` is
+// what `take` returns.
+Pending :: struct(R: Type) {
+    serial: s64;
+}
+
+// The answer to a statement queued with `queue` or `queue_execute`: its rows, or the count of rows
+// it changed. The statements queued so far get a sync point first if they have none, so the batch
+// ends. Pendings may be taken in any order; results read on the way are kept for their own `take`.
+take :: (p: *Pipeline, pending: Pending($R)) -> R, Pg_Error {
+    out: R;
+
+    item, error := take_result(p, pending.serial);
+
+    if error.kind != .NONE return out, error;
+
+    #if R == s64 {
+        out = item.result.rows_affected;
+        free_result(*item.result);
+    } else {
+        out.result = item.result;
+    }
+
+    array_free(item.parameter_types);
+
+    return out, .{};
 }
 
 // Starts pipeline mode on a connection. Entering again returns the same pipeline.
@@ -86,7 +118,15 @@ pipeline_enter :: (c: *Connection) -> *Pipeline, Pg_Error {
 // Ends pipeline mode. It fails, and the pipeline stays, while results are unread.
 pipeline_exit :: (p: *Pipeline) -> Pg_Error {
     if !p.active return .{};
-    if p.head < p.steps.count return make_error(.USAGE, "cannot exit pipeline mode with uncollected results");
+
+    // Sync points that `take` queued and nothing else is left: read them here.
+    while p.head < p.steps.count && p.steps[p.head] == .SYNC && p.early.count == 0 {
+        item, error := pipeline_next_result(p);
+        free_pipeline_result(*item);
+        if error.kind != .NONE return error;
+    }
+
+    if p.head < p.steps.count || p.early.count return make_error(.USAGE, "cannot exit pipeline mode with uncollected results");
     if p.connection.out.count return make_error(.USAGE, "cannot exit pipeline mode with unsent statements: flush or sync first");
 
     free_pipeline(p);
@@ -238,6 +278,7 @@ pipeline_next_result :: (p: *Pipeline) -> Pipeline_Result, Pg_Error {
 
         if p.aborted && step != .SYNC {
             next_step(p);
+            p.read += 1;
 
             return .{ kind = .ABORTED }, .{};
         }
@@ -261,6 +302,8 @@ pipeline_next_result :: (p: *Pipeline) -> Pipeline_Result, Pg_Error {
 
         p.current = .{};
         start_result(p);
+
+        if item.kind != .ROWS && item.kind != .SYNC p.read += 1;
 
         if outcome == .DONE {
             next_step(p);
@@ -395,6 +438,68 @@ start_result :: (p: *Pipeline) {
 add_step :: (p: *Pipeline, step: Pipeline_Step) {
     array_add(*p.steps, step);
     p.unsynced += 1;
+    p.queued += 1;
+}
+
+Early_Result :: struct {
+    serial: s64;
+    item: Pipeline_Result;
+}
+
+// The result of queued statement `serial`, as a RESULT: errors and skips become the error.
+take_result :: (p: *Pipeline, serial: s64) -> Pipeline_Result, Pg_Error {
+    for p.early {
+        if it.serial != serial continue;
+
+        item := it.item;
+        array_ordered_remove_by_index(*p.early, it_index);
+
+        return result_or_error(item);
+    }
+
+    if serial < p.read || serial >= p.queued return .{}, make_error(.USAGE, "that statement's result was already taken, or it belongs to another pipeline");
+
+    if p.unsynced {
+        error := pipeline_queue_sync(p);
+        if error.kind != .NONE return .{}, error;
+    }
+
+    while true {
+        item, error := pipeline_next_result(p);
+
+        if error.kind != .NONE {
+            free_pipeline_result(*item);
+            return .{}, error;
+        }
+
+        if item.kind == .SYNC continue;
+        if item.kind == .NONE return .{}, make_error(.USAGE, "the pipeline has no result left for that statement");
+
+        if item.kind == .ROWS {
+            free_pipeline_result(*item);
+            return .{}, make_error(.USAGE, "a typed statement cannot be read in chunked rows mode");
+        }
+
+        if p.read - 1 == serial return result_or_error(item);
+
+        array_add(*p.early, .{ serial = p.read - 1, item = item });
+    }
+
+    return .{}, .{};
+}
+
+result_or_error :: (item: Pipeline_Result) -> Pipeline_Result, Pg_Error {
+    if item.kind == .RESULT return item, .{};
+
+    copy := item;
+    error := copy.error;
+
+    copy.error = .{};
+    free_pipeline_result(*copy);
+
+    if item.kind == .ABORTED return .{}, make_error(.ABORTED, "skipped: an earlier statement of its pipeline batch failed");
+
+    return .{}, error;
 }
 
 next_step :: (p: *Pipeline) {
@@ -409,6 +514,9 @@ next_step :: (p: *Pipeline) {
 
 free_pipeline :: (p: *Pipeline) {
     free_pipeline_result(*p.current);
+    for *p.early free_pipeline_result(*it.item);
+
+    array_free(p.early);
     array_free(p.steps);
     p.* = .{};
 }
