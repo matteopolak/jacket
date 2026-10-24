@@ -44,7 +44,7 @@ open :: (c: *Connection, config: Config) -> Pg_Error {
     if error.kind != .NONE return error;
 
     begin_message(c, 0);
-    put_u32(*c.out, PROTOCOL_3_2);
+    put_u32(*c.out, PROTOCOL_3_0 + c.protocol_requested);
     put_cstring(*c.out, "user");
     put_cstring(*c.out, user);
     put_cstring(*c.out, "database");
@@ -83,7 +83,7 @@ open :: (c: *Connection, config: Config) -> Pg_Error {
 
     put_u8(*c.out, 0);
     end_message(c);
-    c.protocol_minor = 2;
+    c.protocol_minor = c.protocol_requested;
     error = send(c);
     if error.kind != .NONE return error;
 
@@ -281,20 +281,16 @@ authenticate :: (c: *Connection, config: Config, user: string) -> Pg_Error {
                 error = answer_authentication(c, config, user, code, *r, *scram);
                 if error.kind != .NONE return error;
 
-            case #char "v";
-                // NegotiateProtocolVersion: the newest protocol version the server speaks for
-                // major version 3, then the protocol options it did not recognize.
-                version := get_u32(*r);
-                if r.bad || version >> 16 != 3 || (version & 0xffff) > 2 {
-                    return protocol_error(c, "an unexpected protocol version answer");
-                }
+                if code == AUTH_CLEARTEXT || code == AUTH_MD5 || code == AUTH_SASL responded = true;
 
-                c.protocol_minor = version & 0xffff;
+            case #char "v";
+                error = negotiate_protocol_version(c, *r);
+                if error.kind != .NONE return error;
 
             case #char "K";
                 c.backend_pid = get_s32(*r);
                 key := rest(*r);
-                if r.bad || key.count < 4 || key.count > 256 return protocol_error(c, "bad BackendKeyData");
+                if r.bad || !valid_cancel_key(c, key) return protocol_error(c, "bad BackendKeyData");
 
                 free(c.cancel_key.data);
                 c.cancel_key = array_copy(key);

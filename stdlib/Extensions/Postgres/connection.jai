@@ -1,5 +1,13 @@
 // A connection: one server session, used by one fiber at a time.
 
+// A minor version of protocol 3, for `Config.min_protocol_version` and `max_protocol_version`.
+// Version 3.2 (PostgreSQL 18 and later) allows cancel keys of up to 256 bytes, where 3.0 has four.
+Protocol_Version :: enum u8 {
+    V3_0;
+    V3_2;
+    LATEST; // the newest this client speaks: 3.2
+}
+
 Transaction_Status :: enum u8 {
     IDLE; // outside a transaction block
     IN_TRANSACTION; // inside BEGIN ... COMMIT
@@ -14,6 +22,11 @@ Parameter :: struct {
 // Called for each NoticeResponse (warnings, RAISE NOTICE). The notice is freed after the call.
 Notice_Proc :: #type (connection: *Connection, notice: *Pg_Error);
 
+// Called for each NotificationResponse (a NOTIFY on a channel the connection LISTENs to), in the
+// middle of whatever request is reading. The notification is freed after the call. Without one,
+// notifications queue on the connection (`next_notification`, `wait_for_notification`).
+Notification_Proc :: #type (connection: *Connection, notification: *Notification);
+
 Connection :: struct {
     status: Transaction_Status;
     backend_pid: s32;
@@ -24,8 +37,15 @@ Connection :: struct {
     parameters: [..] Parameter;
     on_notice: Notice_Proc = log_notice;
     user_data: *void; // for the program: on_notice can find its state here
+    on_notification: Notification_Proc;
+    // Notifications received and not yet taken, oldest first, when `on_notification` is not set.
+    notifications: [..] Notification;
+    on_trace: Trace_Proc; // `set_trace`
+    trace_data: *void;
     // The minor protocol version in use: 2 (PostgreSQL 18 and later) or 0.
     protocol_minor: u32;
+    protocol_requested: u32; // the minor version the startup message asked for
+    protocol_required: u32; // the lowest minor version `min_protocol_version` accepts
     tls_used: bool;
     // Authentication used SCRAM-SHA-256-PLUS: the password exchange is bound to this TLS session.
     channel_binding_used: bool;
@@ -50,6 +70,9 @@ Connection :: struct {
     writer: Io.Writer;
     out: [..] u8;
     message_start: s64;
+    message_type: u8; // of the message being written; 0 for the startup messages
+    trace_regress: bool;
+    pipeline: Pipeline; // pipeline mode, when `pipeline.active`
     input: [..] u8;
     input_start: s64;
     #if TLS {
@@ -104,6 +127,11 @@ close :: (c: *Connection, now := false) {
         free(it.value);
     }
 
+    free_pipeline(*c.pipeline);
+    for *c.notifications free_notification(it);
+
+    array_free(c.notifications);
+
     array_free(c.parameters);
     array_free(c.out);
     array_free(c.input);
@@ -146,6 +174,51 @@ close_transport :: (c: *Connection, now: bool) {
     }
 }
 
+minor_of :: (version: Protocol_Version) -> u32 {
+    if version == .V3_0 return 0;
+    return 2;
+}
+
+// Reads the protocol range from the config. An older server answers a request for a newer
+// protocol with NegotiateProtocolVersion; `min_protocol_version` is how far down it may go.
+set_protocol_versions :: (c: *Connection, config: Config) -> Pg_Error {
+    c.protocol_requested = minor_of(config.max_protocol_version);
+    c.protocol_required = minor_of(config.min_protocol_version);
+
+    if c.protocol_required > c.protocol_requested {
+        return make_error(.CONFIG, "min_protocol_version is newer than max_protocol_version");
+    }
+
+    return .{};
+}
+
+// NegotiateProtocolVersion: the newest minor version the server speaks for major version 3, then
+// the count and names of the protocol options it did not recognize (this client sends none).
+negotiate_protocol_version :: (c: *Connection, r: *Cursor) -> Pg_Error {
+    version := get_u32(r);
+
+    if r.bad || version >> 16 != 3 || (version & 0xffff) > c.protocol_requested {
+        return protocol_error(c, "an unexpected protocol version answer");
+    }
+
+    minor := version & 0xffff;
+
+    if minor < c.protocol_required {
+        c.broken = true;
+        return make_error(.PROTOCOL, "the server speaks protocol version 3.%, and min_protocol_version asks for 3.%", minor, c.protocol_required);
+    }
+
+    c.protocol_minor = minor;
+
+    return .{};
+}
+
+// Version 3.0 has four-byte cancel keys; 3.2 allows up to 256 bytes.
+valid_cancel_key :: (c: *Connection, key: [] u8) -> bool {
+    if c.protocol_minor < 2 return key.count == 4;
+    return key.count >= 4 && key.count <= 256;
+}
+
 set_parameter :: (c: *Connection, name: string, value: string) {
     for *c.parameters {
         if it.name == name {
@@ -180,8 +253,8 @@ parse_server_version :: (text: string) -> s64 {
     return major * VERSION_MAJOR + minor;
 }
 
-// Messages that may arrive at any time: ParameterStatus, NoticeResponse and (later)
-// NotificationResponse. Returns true when the message was one of them.
+// Messages that may arrive at any time: ParameterStatus, NoticeResponse and NotificationResponse.
+// Returns true when the message was one of them.
 handle_async :: (c: *Connection, type: u8, body: [] u8) -> bool {
     if type == {
         case #char "S";
@@ -200,7 +273,26 @@ handle_async :: (c: *Connection, type: u8, body: [] u8) -> bool {
 
             return true;
         case #char "A";
-            return true; // LISTEN/NOTIFY: not routed yet
+            r := Cursor.{ data = body };
+            notification: Notification;
+
+            notification.backend_pid = get_s32(*r);
+            notification.channel = copy_string(get_cstring(*r));
+            notification.payload = copy_string(get_cstring(*r));
+
+            if r.bad {
+                free_notification(*notification);
+                return true; // a malformed one is dropped, like an unknown notice field
+            }
+
+            if c.on_notification {
+                c.on_notification(c, *notification);
+                free_notification(*notification);
+            } else {
+                array_add(*c.notifications, notification);
+            }
+
+            return true;
     }
 
     return false;

@@ -12,13 +12,96 @@ HEADER_BYTES :: 5;
 
 begin_message :: (c: *Connection, type: u8) {
     if type array_add(*c.out, type);
+    c.message_type = type;
     c.message_start = c.out.count;
     put_u32(*c.out, 0);
 }
 
 end_message :: (c: *Connection) {
     length := c.out.count - c.message_start;
+
     write_u32(c.out.data + c.message_start, cast(u32) length);
+
+    if c.on_trace && c.message_type {
+        trace_message(c, true, c.message_type, .{ length - 4, c.out.data + c.message_start + 4 });
+    }
+}
+
+// The messages of the extended protocol, as pipelines and `run_extended` queue them.
+
+put_parse :: (c: *Connection, name: string, sql: string, types: [] u32) {
+    begin_message(c, #char "P");
+    put_cstring(*c.out, name);
+    put_cstring(*c.out, sql);
+    put_u16(*c.out, cast(u16) types.count);
+    for types put_u32(*c.out, it);
+
+    end_message(c);
+}
+
+// Parameters go as text unless one needs another format; the format codes are left out when
+// every parameter is text.
+put_bind :: (c: *Connection, portal: string, statement: string, params: [] Param, result_format: Format) {
+    all_text := true;
+    for params if it.format != .TEXT all_text = false;
+
+    begin_message(c, #char "B");
+    put_cstring(*c.out, portal);
+    put_cstring(*c.out, statement);
+
+    if all_text {
+        put_u16(*c.out, 0);
+    } else {
+        put_u16(*c.out, cast(u16) params.count);
+        for params put_u16(*c.out, xx it.format);
+    }
+
+    put_u16(*c.out, cast(u16) params.count);
+
+    for params {
+        if it.null {
+            put_u32(*c.out, 0xffff_ffff);
+        } else {
+            put_u32(*c.out, cast(u32) it.data.count);
+            put_bytes(*c.out, it.data);
+        }
+    }
+
+    put_u16(*c.out, 1);
+    put_u16(*c.out, xx result_format);
+    end_message(c);
+}
+
+// `kind` is `S` for a prepared statement, `P` for a portal.
+put_describe :: (c: *Connection, kind: u8, name: string) {
+    begin_message(c, #char "D");
+    put_u8(*c.out, kind);
+    put_cstring(*c.out, name);
+    end_message(c);
+}
+
+put_close :: (c: *Connection, kind: u8, name: string) {
+    begin_message(c, #char "C");
+    put_u8(*c.out, kind);
+    put_cstring(*c.out, name);
+    end_message(c);
+}
+
+put_execute :: (c: *Connection, portal: string, limit: u32) {
+    begin_message(c, #char "E");
+    put_cstring(*c.out, portal);
+    put_u32(*c.out, limit);
+    end_message(c);
+}
+
+put_sync :: (c: *Connection) {
+    begin_message(c, #char "S");
+    end_message(c);
+}
+
+put_flush :: (c: *Connection) {
+    begin_message(c, #char "H");
+    end_message(c);
 }
 
 send :: (c: *Connection) -> Pg_Error {
@@ -113,6 +196,8 @@ read_message :: (c: *Connection) -> type: u8, body: [] u8, Pg_Error {
     body := [] u8.{ length - 4, c.input.data + c.input_start + HEADER_BYTES };
 
     c.input_start += 1 + length;
+
+    if c.on_trace trace_message(c, false, type, body);
 
     return type, body, .{};
 }

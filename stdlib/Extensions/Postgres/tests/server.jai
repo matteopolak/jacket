@@ -60,6 +60,14 @@ main :: () {
         test_pool();
         step("test_transactions");
         test_transactions();
+        step("test_pipeline");
+        test_pipeline();
+        step("test_pipeline_deadline");
+        test_pipeline_deadline();
+        step("test_notifications");
+        test_notifications();
+        step("test_protocol_versions");
+        test_protocol_versions();
     });
     print("ok\n");
 }
@@ -768,16 +776,18 @@ test_startup_parameters :: () {
 
     // The client's DateStyle and IntervalStyle win over the server's unless send_styles is off.
     config.parameters = Pg.Startup_Parameter.[.{ "options", "-c intervalstyle=sql_standard -c datestyle=SQL,DMY" }];
-    db = connect_ok(config);
-    assert(scalar(db, "show intervalstyle", string) == "postgres");
-    assert(scalar(db, "show datestyle", string) == "ISO, DMY");
-    Pg.close(db);
+    styled := connect_ok(config);
+
+    assert(scalar(styled, "show intervalstyle", string) == "postgres");
+    assert(scalar(styled, "show datestyle", string) == "ISO, DMY");
+    Pg.close(styled);
 
     config.send_styles = false;
-    db = connect_ok(config);
-    assert(scalar(db, "show intervalstyle", string) == "sql_standard");
-    assert(scalar(db, "show datestyle", string) == "SQL, DMY");
-    Pg.close(db);
+    unstyled := connect_ok(config);
+
+    assert(scalar(unstyled, "show intervalstyle", string) == "sql_standard");
+    assert(scalar(unstyled, "show datestyle", string) == "SQL, DMY");
+    Pg.close(unstyled);
 }
 
 Notice_Log :: struct {
@@ -1100,6 +1110,345 @@ test_transactions :: () {
 insert_value :: (tx: *Pg.Connection, value: int) -> Pg.Pg_Error {
     _, error := Pg.query_dynamic(tx, "insert into tx_check values ($1)", value);
     return error;
+}
+
+// Pipelines: typed statements, an error in the middle, prepared statements, and recovery.
+test_pipeline :: () {
+    db := connect_ok(config_for("postgres"));
+
+    defer Pg.close(db);
+    assert_ok(Pg.execute_script(db, "create temp table pipe_t(a int, b text)"), "create");
+
+    p, error := Pg.pipeline_enter(db);
+
+    assert_ok(error, "enter");
+
+    // Statements go out together, and the answers come back in order.
+    assert_ok(Pg.pipeline_query(p, "insert into pipe_t values ($1, $2)", 1, "one"), "queue");
+    assert_ok(Pg.pipeline_query(p, "insert into pipe_t values ($1, $2)", 2, "two"), "queue");
+    assert_ok(Pg.pipeline_query(p, "select a, b from pipe_t order by a"), "queue");
+    assert_ok(Pg.pipeline_query_binary(p, "select a from pipe_t order by a desc"), "queue");
+    assert_ok(Pg.pipeline_sync(p), "sync");
+    assert(Pg.pipeline_pending(p) == 5);
+
+    item := next_item(p, .RESULT);
+
+    assert(item.result.rows_affected == 1 && item.result.command == "INSERT 0 1");
+    Pg.free_pipeline_result(*item);
+
+    item = next_item(p, .RESULT);
+    Pg.free_pipeline_result(*item);
+
+    item = next_item(p, .RESULT);
+    assert(item.result.row_count == 2 && item.result.columns.count == 2);
+
+    b, get_error := Pg.get(*item.result, 1, "b", string);
+
+    assert_ok(get_error, "get");
+    assert(b == "two");
+    Pg.free_pipeline_result(*item);
+
+    item = next_item(p, .RESULT);
+    a, binary_error := Pg.get(*item.result, 0, 0, s64);
+
+    assert_ok(binary_error, "binary get");
+    assert(a == 2 && item.result.columns[0].format == .BINARY);
+    Pg.free_pipeline_result(*item);
+
+    item = next_item(p, .SYNC);
+    Pg.free_pipeline_result(*item);
+    assert(db.status == .IDLE);
+
+    // A prepared statement, run twice with different arguments, and one that fails.
+    assert_ok(Pg.pipeline_prepare(p, "pipe_get", "select b from pipe_t where a = $1", u32.[23]), "prepare");
+    assert_ok(Pg.pipeline_execute_prepared(p, "pipe_get", 1), "execute");
+    assert_ok(Pg.pipeline_execute_prepared(p, "pipe_get", 2), "execute");
+    assert_ok(Pg.pipeline_query(p, "select 1/$1::int", 0), "queue");
+    assert_ok(Pg.pipeline_query(p, "select 2"), "queue");
+    assert_ok(Pg.pipeline_sync(p), "sync");
+
+    item = next_item(p, .RESULT);
+    Pg.free_pipeline_result(*item);
+
+    for string.["one", "two"] {
+        item = next_item(p, .RESULT);
+        value, value_error := Pg.get(*item.result, 0, 0, string);
+
+        assert_ok(value_error, "get");
+        assert(value == it);
+        Pg.free_pipeline_result(*item);
+    }
+
+    item = next_item(p, .ERROR);
+    assert(item.error.code == .DIVISION_BY_ZERO);
+    Pg.free_pipeline_result(*item);
+
+    item = next_item(p, .ABORTED);
+    Pg.free_pipeline_result(*item);
+    item = next_item(p, .SYNC);
+    Pg.free_pipeline_result(*item);
+
+    // Back to normal after the exit.
+    assert_ok(Pg.pipeline_exit(p), "exit");
+    assert(scalar(db, "select 5", s64) == 5);
+
+    // A pipeline inside a transaction sees the transaction's state at each sync.
+    assert_ok(Pg.execute_script(db, "begin"), "begin");
+    p, error = Pg.pipeline_enter(db);
+    assert_ok(error, "enter");
+    assert_ok(Pg.pipeline_query(p, "select 1/0"), "queue");
+    assert_ok(Pg.pipeline_sync(p), "sync");
+
+    item = next_item(p, .ERROR);
+    Pg.free_pipeline_result(*item);
+    item = next_item(p, .SYNC);
+    Pg.free_pipeline_result(*item);
+
+    assert(db.status == .FAILED);
+    assert_ok(Pg.pipeline_exit(p), "exit");
+    assert_ok(Pg.execute_script(db, "rollback"), "rollback");
+
+    // Prepared statements outlive the transaction; describe and close them without a pipeline.
+    info, describe_error := Pg.describe_prepared(db, "pipe_get");
+
+    assert_ok(describe_error, "describe_prepared");
+    assert(info.parameter_types.count == 1 && info.parameter_types[0] == 23 && info.columns.count == 1);
+    Pg.free_statement_info(*info);
+    assert_ok(Pg.close_prepared(db, "pipe_get"), "close_prepared");
+}
+
+next_item :: (p: *Pg.Pipeline, kind: Pg.Pipeline_Kind, location := #caller_location) -> Pg.Pipeline_Result {
+    item, error := Pg.pipeline_next_result(p);
+
+    assert_ok(error, "next result", location);
+
+    if item.kind != kind {
+        print("%:%: expected a % result, got % (%)\n", location.fully_pathed_filename, location.line_number, kind, item.kind, Pg.error_text(item.error));
+        assert(false);
+    }
+
+    return item;
+}
+
+// A deadline in the middle of a pipeline loses nothing; abandoning one cancels it.
+test_pipeline_deadline :: () {
+    db := connect_ok(config_for("postgres"));
+
+    defer Pg.close(db);
+
+    p, error := Pg.pipeline_enter(db);
+
+    assert_ok(error, "enter");
+    assert_ok(Pg.pipeline_query(p, "select pg_sleep(0.4), 7"), "queue");
+    assert_ok(Pg.pipeline_query(p, "select 8"), "queue");
+    assert_ok(Pg.pipeline_sync(p), "sync");
+
+    // The first wait times out; asking again gets the same statement's result.
+    item: Pg.Pipeline_Result;
+
+    Io.with_deadline(100, #code {
+        item, error = Pg.pipeline_next_result(p);
+    });
+
+    assert(error.kind == .TIMED_OUT, "got %", Pg.error_text(error));
+    Pg.free_error(*error);
+    assert(!db.broken);
+
+    item = next_item(p, .RESULT);
+    value, get_error := Pg.get(*item.result, 0, 1, s64);
+
+    assert_ok(get_error, "get");
+    assert(value == 7);
+    Pg.free_pipeline_result(*item);
+
+    item = next_item(p, .RESULT);
+    Pg.free_pipeline_result(*item);
+    item = next_item(p, .SYNC);
+    Pg.free_pipeline_result(*item);
+    assert_ok(Pg.pipeline_exit(p), "exit");
+
+    // Abandoned in the middle of a long statement: the cancel ends it, the connection stays.
+    p, error = Pg.pipeline_enter(db);
+    assert_ok(error, "enter");
+    assert_ok(Pg.pipeline_query(p, "select pg_sleep(5)"), "queue");
+    assert_ok(Pg.pipeline_query(p, "select 1"), "queue");
+    assert_ok(Pg.pipeline_flush(p), "flush");
+
+    started := current_time_monotonic();
+
+    Io.with_deadline(100, #code {
+        item, error = Pg.pipeline_next_result(p);
+    });
+
+    assert(error.kind == .TIMED_OUT, "got %", Pg.error_text(error));
+    Pg.free_error(*error);
+
+    Pg.pipeline_abandon(p);
+
+    assert(!db.broken, "the connection broke");
+    assert(!p.active);
+    assert(to_milliseconds(current_time_monotonic() - started) < 3000, "the cancel was slow");
+    assert(scalar(db, "select 3", s64) == 3);
+}
+
+// Notifications: a wait, a callback, one in the middle of a query, and the wait's deadline.
+test_notifications :: () {
+    listener := connect_ok(config_for("postgres"));
+    sender := connect_ok(config_for("postgres"));
+
+    defer Pg.close(listener);
+    defer Pg.close(sender);
+
+    assert_ok(Pg.listen(listener, "pg_test_jobs"), "listen");
+    assert_ok(Pg.listen(listener, "odd \"channel\" name"), "listen to a quoted name");
+
+    assert_ok(Pg.notify(sender, "pg_test_jobs", "first"), "notify");
+    assert_ok(Pg.notify(sender, "odd \"channel\" name"), "notify");
+    assert_ok(Pg.notify(sender, "not_listened", "lost"), "notify");
+
+    n, error := Pg.wait_for_notification(listener);
+
+    assert_ok(error, "wait");
+    assert(n.channel == "pg_test_jobs" && n.payload == "first" && n.backend_pid == sender.backend_pid);
+    Pg.free_notification(*n);
+
+    n, error = Pg.wait_for_notification(listener);
+    assert_ok(error, "wait");
+    assert(n.channel == "odd \"channel\" name" && n.payload == "");
+    Pg.free_notification(*n);
+
+    // Nothing is left, so a wait with a deadline times out, and the connection stays usable.
+    Io.with_deadline(100, #code {
+        n, error = Pg.wait_for_notification(listener);
+    });
+
+    assert(error.kind == .TIMED_OUT, "got %", Pg.error_text(error));
+    Pg.free_error(*error);
+    assert(!listener.broken && !listener.busy);
+
+    // One that arrives while a query runs is queued.
+    assert_ok(Pg.notify(sender, "pg_test_jobs", "second"), "notify");
+    assert(scalar(listener, "select 1 from pg_sleep(0.1)", s64) == 1);
+
+    found: bool;
+    n, found = Pg.next_notification(listener);
+    assert(found && n.payload == "second");
+    Pg.free_notification(*n);
+    _, found = Pg.next_notification(listener);
+    assert(!found);
+
+    // A connection hears its own notifications, at the end of the statement that sent them.
+    assert_ok(Pg.notify(listener, "pg_test_jobs", "mine"), "notify");
+    n, error = Pg.wait_for_notification(listener);
+    assert_ok(error, "wait");
+    assert(n.payload == "mine" && n.backend_pid == listener.backend_pid);
+    Pg.free_notification(*n);
+
+    // A callback takes them in place of the queue.
+    seen_payload = "";
+
+    listener.on_notification = (c: *Pg.Connection, notification: *Pg.Notification) {
+        seen_payload = copy_string(notification.payload);
+    };
+
+    assert_ok(Pg.notify(sender, "pg_test_jobs", "called"), "notify");
+    assert(scalar(listener, "select 2 from pg_sleep(0.1)", s64) == 2);
+    assert(seen_payload == "called");
+    assert(listener.notifications.count == 0);
+    listener.on_notification = null;
+
+    // Another fiber sends while this one waits.
+    waiting_sender = sender;
+    sender_done = false;
+    Io.spawn(send_later);
+
+    n, error = Pg.wait_for_notification(listener);
+    assert_ok(error, "wait");
+    assert(n.payload == "later");
+    Pg.free_notification(*n);
+
+    while !sender_done Io.sleep(10);
+
+    // Canceling a waiting fiber ends the wait.
+    waiting_listener = listener;
+    waiter_error = .NONE;
+    waiter_done = false;
+    waiter := Io.spawn(wait_forever);
+
+    Io.sleep(100);
+    Io.cancel(waiter);
+    while !waiter_done Io.sleep(10);
+
+    assert(waiter_error == .CANCELED, "the waiter got %", waiter_error);
+    assert(!listener.broken && !listener.busy);
+    assert(scalar(listener, "select 9", s64) == 9);
+
+    assert_ok(Pg.unlisten(listener, "pg_test_jobs"), "unlisten");
+    assert_ok(Pg.unlisten_all(listener), "unlisten all");
+}
+
+seen_payload: string;
+waiting_sender: *Pg.Connection;
+sender_done: bool;
+waiting_listener: *Pg.Connection;
+waiter_error: Pg.Error_Kind;
+waiter_done: bool;
+
+send_later :: () {
+    Io.sleep(100);
+    assert_ok(Pg.notify(waiting_sender, "pg_test_jobs", "later"), "notify from a fiber");
+    sender_done = true;
+}
+
+wait_forever :: () {
+    n, error := Pg.wait_for_notification(waiting_listener);
+
+    waiter_error = error.kind;
+    waiter_done = true;
+    Pg.free_notification(*n);
+    Pg.free_error(*error);
+}
+
+// Protocol 3.0 by default; 3.2 when asked for and the server speaks it, and a clear failure when
+// it is required and the server does not.
+test_protocol_versions :: () {
+    plain := connect_ok(config_for("postgres"));
+
+    defer Pg.close(plain);
+    assert(plain.protocol_minor == 0 && plain.cancel_key.count == 4);
+
+    modern := plain.server_version >= 180000;
+
+    config := config_for("postgres");
+    config.max_protocol_version = .LATEST;
+
+    db := connect_ok(config);
+
+    defer Pg.close(db);
+
+    // A server before 18 answers NegotiateProtocolVersion, and the connection falls back to 3.0.
+    assert(db.protocol_minor == ifx modern then 2 else 0, "protocol 3.%", db.protocol_minor);
+    assert(db.cancel_key.count == ifx modern then 32 else 4, "a % byte cancel key", db.cancel_key.count);
+    assert(scalar(db, "select 1", s64) == 1);
+    expect_timeout_recovers(db);
+
+    config.min_protocol_version = .LATEST;
+
+    if modern {
+        required := connect_ok(config);
+
+        assert(required.protocol_minor == 2);
+        Pg.close(required);
+    } else {
+        error := connect_fails(config, .PROTOCOL);
+        assert(contains(error.message, "protocol version 3.0"), "got %", error.message);
+        Pg.free_error(*error);
+    }
+
+    config.max_protocol_version = .V3_0;
+    error := connect_fails(config, .CONFIG);
+
+    Pg.free_error(*error);
 }
 
 #if OS == .WINDOWS {
