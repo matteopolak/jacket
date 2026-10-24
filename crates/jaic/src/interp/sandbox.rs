@@ -483,6 +483,19 @@ impl SandboxHost {
     }
 }
 
+/// The stat call a Linux x86-64 `syscall(number, ...)` makes, if it is one.
+fn stat_syscall(symbol: &str, args: &[u64]) -> Option<LibcFn> {
+    if symbol != "syscall" || !cfg!(all(target_os = "linux", target_arch = "x86_64")) {
+        return None;
+    }
+    match word_or_zero(args, 0) {
+        4 => Some(LibcFn::Stat),
+        5 => Some(LibcFn::Fstat),
+        6 => Some(LibcFn::Lstat),
+        _ => None,
+    }
+}
+
 fn cstr(ptr: u64) -> String {
     if ptr == 0 {
         return String::new();
@@ -528,8 +541,12 @@ impl Host for SandboxHost {
         if let Some(result) = self.objc_foreign(symbol, args) {
             return Some(Ok(vec![result]));
         }
-        // Each area answers the procedures it implements and passes on the rest.
-        let fun = LibcFn::from_name(symbol)?;
+        // Linux x86-64 reaches the stat family through syscall(2) (stdlib/POSIX/wrappers.jai).
+        let (fun, args) = match stat_syscall(symbol, args) {
+            Some(fun) => (fun, args.get(1..).unwrap_or_default()),
+            // Each area answers the procedures it implements and passes on the rest.
+            None => (LibcFn::from_name(symbol)?, args),
+        };
         let arg = |i: usize| word_or_zero(args, i);
         let served = self
             .stdin_foreign(fun, args)

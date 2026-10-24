@@ -395,6 +395,39 @@ fn size_of_path(h: &mut SandboxHost, path: &str) -> u64 {
 }
 
 #[test]
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+fn linux_stat_syscalls_reach_the_virtual_file_system() {
+    let mut h = host();
+    let missing = cstring("nope");
+    let mut st = [0u8; 144];
+    assert_eq!(
+        call(
+            &mut h,
+            "syscall",
+            &[4, missing.as_ptr() as u64, st.as_mut_ptr() as u64]
+        ),
+        u64::MAX
+    );
+    let root = cstring("/tmp");
+    assert_eq!(
+        call(
+            &mut h,
+            "syscall",
+            &[4, root.as_ptr() as u64, st.as_mut_ptr() as u64]
+        ),
+        0
+    );
+    assert_eq!(
+        call(
+            &mut h,
+            "syscall",
+            &[6, root.as_ptr() as u64, st.as_mut_ptr() as u64]
+        ),
+        0
+    );
+}
+
+#[test]
 fn file_descriptors_write_read_seek_and_report_errors() {
     let mut h = host();
     assert_eq!(write_to(&mut h, 1, b"out"), 3);
