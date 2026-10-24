@@ -78,6 +78,7 @@ Base64 :: #import "Base64";
 #load "sql_scan.jai";
 #load "entry.jai";
 #load "describe.jai";
+#load "schema_databases.jai";
 #load "resolve.jai";
 #load "shape.jai";
 #load "typed.jai";

@@ -8,6 +8,7 @@
 // See docs/postgres/typed-queries.md.
 
 #import "Basic";
+#import "String";
 Io :: #import "Extensions/Io";
 Json :: #import "Extensions/Json";
 Service :: #import "Extensions/Service";
@@ -20,8 +21,10 @@ main :: () {
 }
 
 // A connection kept between requests, and the backoff for reaching it again after a failure.
+// `database` empty is the URL's own database; otherwise a schema database on the same server.
 Held :: struct {
     url: string;
+    database: string;
     db: *Pg.Connection;
     failed_until: s64; // monotonic ms: until then the last failure is the answer
     backoff: s64;
@@ -33,6 +36,8 @@ held: [..] Held;
 RECONNECT_FIRST :: 1_000;
 RECONNECT_MAX :: 30_000;
 
+schemas: Pg.Schema_Databases;
+
 answer :: (request_text: string) -> Service.Status, string {
     request, error := Json.from_json(Pg.Describe_Request, request_text, .{ missing_fields_default = true },, temp);
     if error.kind != .NONE return .FAILED, tprint("malformed request: %", error.message);
@@ -43,17 +48,50 @@ answer :: (request_text: string) -> Service.Status, string {
 
     // A connection that went stale between requests is replaced once.
     for attempt: 0..1 {
-        db, failure := connection_for(request.url);
+        db, failure := connection_for(request.url, "");
         if !db return .UNAVAILABLE, failure;
 
+        // It parsed when the connection was made.
+        config, config_error := Pg.parse_url(request.url);
+        if config_error.kind != .NONE return .UNAVAILABLE, Pg.error_text(config_error);
+
+        target, problem := Pg.schema_target(*schemas, db, config, request.migrations);
+        if problem && db.broken {
+            drop_connection(request.url, "");
+            if attempt == 1 return .UNAVAILABLE, problem;
+            continue;
+        }
+
+        if problem return .FAILED, problem;
+
+        if target.built {
+            for held if it.database != target.database && begins_with(it.database, "jacket_") drop_connection(it.url, it.database);
+            Pg.prune_schema_databases(db);
+        }
+
+        answered := db;
+
+        if target.database {
+            answered, failure = connection_for(request.url, target.database);
+            if !answered return .UNAVAILABLE, failure;
+        }
+
+        request.setup = target.setup;
         reply: string;
-        if request.op == "fingerprints" reply = Pg.fingerprints_answer(db, request);
-        else if request.op == "describe" reply = Pg.describe_answer(db, request);
+
+        if request.op == "fingerprints" reply = Pg.fingerprints_answer(answered, request);
+        else if request.op == "describe" reply = Pg.describe_answer(answered, request);
         else return .FAILED, tprint("unknown operation \"%\"", request.op);
+
+        if answered != db && answered.broken {
+            drop_connection(request.url, target.database);
+            if attempt == 1 return .UNAVAILABLE, "the database connection broke while describing";
+            continue;
+        }
 
         if !db.broken return .OK, reply;
 
-        drop_connection(request.url);
+        drop_connection(request.url, "");
         if attempt == 1 return .UNAVAILABLE, "the database connection broke while describing";
     }
 
@@ -64,16 +102,16 @@ now_milliseconds :: () -> s64 {
     return to_milliseconds(current_time_monotonic());
 }
 
-slot_for :: (url: string) -> *Held {
-    for *held if it.url == url return it;
+slot_for :: (url: string, database: string) -> *Held {
+    for *held if it.url == url && it.database == database return it;
 
-    array_add(*held, .{ url = copy_string(url) });
+    array_add(*held, .{ url = copy_string(url), database = copy_string(database) });
 
     return *held[held.count - 1];
 }
 
-drop_connection :: (url: string) {
-    slot := slot_for(url);
+drop_connection :: (url: string, database: string) {
+    slot := slot_for(url, database);
 
     if slot.db {
         Pg.close(slot.db, now = true);
@@ -81,8 +119,8 @@ drop_connection :: (url: string) {
     }
 }
 
-connection_for :: (url: string) -> *Pg.Connection, string {
-    slot := slot_for(url);
+connection_for :: (url: string, database: string) -> *Pg.Connection, string {
+    slot := slot_for(url, database);
     if slot.db && !slot.db.broken return slot.db, "";
 
     if slot.db {
@@ -102,6 +140,8 @@ connection_for :: (url: string) -> *Pg.Connection, string {
 
         return null, slot.failure;
     }
+
+    if database config.database = slot.database;
 
     db, error := Pg.connect(config);
 

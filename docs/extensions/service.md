@@ -46,7 +46,7 @@ ANSWER :: #run -> string {
 
 **Workers.** `Services` runs one manager thread per service file. On its first job, the manager starts `jaic <file> -interp` in the file's folder.
 
-- **Wire format.** Frames are an 8-byte little-endian length followed by the bytes. An answer frame starts with a status byte. `Service.serve` reads frames from stdin and writes answers to stdout.
+- **Wire format.** Frames are an 8-byte little-endian length followed by the bytes. An answer frame starts with a status byte. `Service.serve` reads frames from stdin and writes answers to stdout. Before the first frame it moves the answers to a copy of stdout and points stdout at stderr, so anything the handler prints or logs ends up in the stderr tail the manager keeps for crash messages instead of corrupting a frame.
 - **Restart on change.** A fingerprint covers the sizes and modification times of the `.jai` files up to two folders below the service's folder, plus `jaic` itself. The manager checks it at most once a second. When it changes, the worker is restarted and any backoff is forgotten.
 - **Limits.** These are the `ServiceConfig` defaults:
   - A request has 30 s.

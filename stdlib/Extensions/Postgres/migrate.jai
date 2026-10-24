@@ -85,9 +85,23 @@ read_migrations :: (folder: string, relative_to := "") -> [] Migration, problem:
 // The schema hash: SHA-256 chained over each migration's name and digest, in order, so it changes
 // when any file is renamed, edited, added or removed. Hex.
 schema_hash :: (migrations: [] Migration) -> string {
+    if !migrations.count return "";
+
+    hashes := prefix_hashes(migrations);
+    return hashes[hashes.count - 1];
+}
+
+// The schema hash of each prefix of `migrations`: entry i covers migrations 0 to i.
+prefix_hashes :: (migrations: [] Migration) -> [] string {
+    hashes := NewArray(migrations.count, string,, temp);
     chained := "";
-    for migrations chained = sha256_hex(tprint("%\n%\n%", chained, it.name, it.sha256));
-    return chained;
+
+    for migrations {
+        chained = sha256_hex(tprint("%\n%\n%", chained, it.name, it.sha256));
+        hashes[it_index] = chained;
+    }
+
+    return hashes;
 }
 
 // Where one migration stands against a database.

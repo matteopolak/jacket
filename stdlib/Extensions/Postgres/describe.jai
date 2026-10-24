@@ -12,7 +12,8 @@ Describe_Request :: struct {
     sql: string; // the rewritten statement (`$1`, `$2`, ...)
     schema_hash: string; // of the migrations; copied into the entry
     keys: [] string; // "fingerprints": the dependency keys to fingerprint
-    schema: string; // reserved for the schema databases of the migration runner (phase 4)
+    migrations: string; // the migrations folder: answer from its schema database
+    setup: string; // set by the service: SQL run first inside the describe's transaction
 }
 
 describe_request_json :: (request: Describe_Request) -> string {
@@ -44,7 +45,27 @@ fingerprints_answer :: (db: *Connection, request: Describe_Request) -> string {
         return Json_Module.to_json(answer);
     }
 
+    if request.setup {
+        error = execute_script(db, tprint("begin;\n%", request.setup));
+
+        if error.kind != .NONE {
+            json_set(*answer, "kind", json_string("error"));
+            json_set(*answer, "message", json_string(tprint("a migration newer than the schema database failed: %", error_text(error))));
+            free_error(*error);
+            rolled_back := execute_script(db, "rollback");
+
+            free_error(*rolled_back);
+
+            return Json_Module.to_json(answer);
+        }
+    }
+
     prints, fail := fingerprints(db, request.keys);
+
+    if request.setup {
+        rolled_back := execute_script(db, "rollback");
+        free_error(*rolled_back);
+    }
 
     if fail.kind != .NONE {
         json_set(*answer, "kind", json_string("error"));
@@ -76,6 +97,21 @@ describe_value :: (db: *Connection, request: Describe_Request) -> Json_Value {
 
     error = execute_script(db, "begin");
     if error.kind != .NONE return failure_answer(error);
+
+    if request.setup {
+        error = execute_script(db, request.setup);
+
+        if error.kind != .NONE {
+            message := tprint("a migration newer than the schema database failed: %", error_text(error));
+
+            free_error(*error);
+            abandoned := execute_script(db, "rollback");
+
+            free_error(*abandoned);
+
+            return failure_answer(make_error(.USAGE, "%", message));
+        }
+    }
 
     info, describe_error := describe_statement(db, request.sql);
 
@@ -110,7 +146,7 @@ describe_value :: (db: *Connection, request: Describe_Request) -> Json_Value {
 
     free_error(*rolled_back);
 
-    dependencies(db, request.sql, info, *types, *entry);
+    dependencies(db, request.sql, request.setup, info, *types, *entry);
 
     free_statement_info(*info);
 
@@ -748,11 +784,22 @@ split_arguments :: (text: string) -> [] string {
 // function from it (inside the rolled-back transaction) and reading pg_depend. Views are followed
 // to what they use. On failure the entry says so (`deps_complete` stays false) and relies on the
 // schema hash alone.
-dependencies :: (db: *Connection, sql: string, info: Statement_Info, types: *Described_Types, entry: *Query_Entry) {
+dependencies :: (db: *Connection, sql: string, setup: string, info: Statement_Info, types: *Described_Types, entry: *Query_Entry) {
     error := execute_script(db, "begin");
     if error.kind != .NONE {
         free_error(*error);
         return;
+    }
+
+    if setup {
+        error = execute_script(db, setup);
+
+        if error.kind != .NONE {
+            free_error(*error);
+            rolled_back := execute_script(db, "rollback");
+            free_error(*rolled_back);
+            return;
+        }
     }
 
     defer {

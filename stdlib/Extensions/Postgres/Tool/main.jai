@@ -126,7 +126,7 @@ work :: () {
         for split(text, "\n") if trim(it) array_add(*used, trim(it));
     }
 
-    schema_hash := Pg.migrations_hash(options.root);
+    _, schema_hash := Pg.migrations_of(options.root);
     present: [..] string;
     changed := 0;
 
