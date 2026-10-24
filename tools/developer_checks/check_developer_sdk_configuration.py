@@ -88,7 +88,9 @@ def main():
             rpaths = [part for value in re.findall(r"\((?:RPATH|RUNPATH)\).*?\[(.*?)\]", dynamic) for part in value.split(":")]
         if host != "Darwin" and str(sdk / "lib") not in rpaths:
             raise RuntimeError("Production helper lacks the configured runtime library search path")
-        if host == "Darwin" and rpaths:
+        # A conda compiler adds an rpath to its own library directory to everything it links; it
+        # is harmless while every runtime dependency is loader-relative, which takes precedence.
+        if host == "Darwin" and rpaths and not all(path.startswith("@loader_path/") for path in evidence["helper_libclang"]):
             raise RuntimeError("Mac helper must load its bundled runtime directly, without SDK rpaths")
         evidence["helper_runtime_search_paths"] = rpaths
         extension = "dylib" if host == "Darwin" else "so"
