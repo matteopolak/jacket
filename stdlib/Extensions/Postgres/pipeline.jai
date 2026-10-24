@@ -119,8 +119,12 @@ pipeline_enter :: (c: *Connection) -> *Pipeline, Pg_Error {
 pipeline_exit :: (p: *Pipeline) -> Pg_Error {
     if !p.active return .{};
 
-    // Sync points that `take` queued and nothing else is left: read them here.
-    while p.head < p.steps.count && p.steps[p.head] == .SYNC && p.early.count == 0 {
+    // Sync points that `take` queued and nothing else is left: read them here. A refused exit
+    // must leave every result in place, so nothing is read while anything else is queued.
+    only_syncs := p.early.count == 0;
+    for p.head..p.steps.count - 1 if p.steps[it] != .SYNC only_syncs = false;
+
+    while only_syncs && p.head < p.steps.count {
         item, error := pipeline_next_result(p);
         free_pipeline_result(*item);
         if error.kind != .NONE return error;

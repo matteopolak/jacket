@@ -1286,6 +1286,24 @@ test_pipeline :: () {
     assert_ok(Pg.pipeline_exit(p), "exit");
     assert_ok(Pg.execute_script(db, "rollback"), "rollback");
 
+    // An exit refused for unread results reads nothing: each sync point is still there to read.
+    p, error = Pg.pipeline_enter(db);
+    assert_ok(error, "enter");
+    assert_ok(Pg.pipeline_query(p, "select 1"), "queue");
+    assert_ok(Pg.pipeline_sync(p), "sync");
+    assert_ok(Pg.pipeline_query(p, "select 2"), "queue");
+    assert_ok(Pg.pipeline_sync(p), "sync");
+
+    item = next_item(p, .RESULT);
+    Pg.free_pipeline_result(*item);
+    assert(Pg.pipeline_exit(p).kind == .USAGE, "exit with a result unread");
+
+    item = next_item(p, .SYNC);
+    Pg.free_pipeline_result(*item);
+    item = next_item(p, .RESULT);
+    Pg.free_pipeline_result(*item);
+    assert_ok(Pg.pipeline_exit(p), "exit");
+
     // Prepared statements outlive the transaction; describe and close them without a pipeline.
     info, describe_error := Pg.describe_prepared(db, "pipe_get");
 
