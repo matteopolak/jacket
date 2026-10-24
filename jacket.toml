@@ -82,6 +82,53 @@ paths = [
 ]
 rules = { magic_number = "allow" }
 
+# Tests, regressions and benchmarks write the flagged shapes on purpose: hand-written copy loops,
+# one-element arrays, wide shifts and unsigned bounds are the inputs under test.
+[[lint.overrides]]
+paths = ["tests/**", "benchmarks/**", "stdlib/**/tests/**"]
+rules = { manual_memcpy = "allow", manual_array_find = "allow", useless_format = "allow", unsigned_range_end_minus_one = "allow", useless_resizable = "allow", shift_overflow = "allow", lossy_float_literal = "allow", format_push_string = "allow" }
+
+# Library code whose loops, bounds and formatting are kept as written: each loop or format call is
+# guarded or shaped so that rewriting it would change when it allocates or what it reads.
+[[lint.overrides]]
+paths = [
+    "stdlib/Extensions/Jai_Format/config.jai",
+    "stdlib/Extensions/Tls/stream.jai",
+    "stdlib/Extensions/Wasi_Runtime/files.jai",
+    "stdlib/internal/bindings/apple-toolchain/module.jai",
+    "stdlib/Extensions/Regex/nfa.jai",
+]
+rules = { manual_memcpy = "allow" }
+
+[[lint.overrides]]
+paths = [
+    "stdlib/Extensions/Regex/**",
+    "stdlib/internal/developer-tools/codeview-types.jai",
+    "stdlib/internal/input/cocoa-events.jai",
+    "stdlib/internal/audio/loading.jai",
+]
+rules = { unsigned_range_end_minus_one = "allow", manual_memcpy = "allow" }
+
+[[lint.overrides]]
+paths = ["stdlib/internal/developer-tools/c-header.jai"]
+rules = { format_push_string = "allow" }
+
+[[lint.overrides]]
+paths = ["stdlib/internal/developer-tools/codeview-types.jai", "stdlib/internal/developer-tools/generator-platform.jai"]
+rules = { useless_format = "allow" }
+
+[[lint.overrides]]
+paths = ["stdlib/internal/android-toolchain/android-manifest-writer.jai", "stdlib/internal/media/mpeg/program.jai"]
+rules = { shift_overflow = "allow" }
+
+[[lint.overrides]]
+paths = ["stdlib/internal/media/mpeg/audio.jai", "stdlib/internal/random/pcg.jai"]
+rules = { lossy_float_literal = "allow" }
+
+[[lint.overrides]]
+paths = ["stdlib/internal/input/cocoa-events.jai", "stdlib/internal/subtitles/parse.jai"]
+rules = { manual_array_find = "allow" }
+
 [format]
 # jaifmt settings for this repository; see docs/tools/jaifmt.md.
 indent_width = 4
