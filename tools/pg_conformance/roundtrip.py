@@ -166,6 +166,8 @@ def main() -> int:
     parser.add_argument("--skip-regress", action="store_true", help="skip the regression run: edge values and JSON literals only")
     parser.add_argument("--timezone", default="Europe/Amsterdam", help="the session time zone, for timestamptz text")
     args = parser.parse_args()
+    # The build runs in its own folder, so a relative path would point nowhere.
+    args.jaic = args.jaic.resolve()
 
     version = pg_config(args.pg_config, "--version").split()[1]
     major = version.split(".")[0]

@@ -442,6 +442,10 @@ def main() -> int:
     parser.add_argument("--shim", type=Path, help="a shim binary already built, instead of building one")
     parser.add_argument("--shim-only", action="store_true", help="reuse the last real-psql results")
     args = parser.parse_args()
+    # The builds run in their output folders, so a relative path would point nowhere.
+    args.jaic = args.jaic.resolve()
+    if args.shim:
+        args.shim = args.shim.resolve()
 
     if args.tap:
         return run_tap(args)
