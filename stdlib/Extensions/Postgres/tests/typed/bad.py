@@ -12,6 +12,7 @@ import sys
 PRELUDE = '''#import "Basic";
 Pg :: #import "Extensions/Postgres";
 User :: struct { id: s64; email: string; display_name: string; }
+Orm_User :: struct @pg_table(public.users) { id: s64; email: string; }
 main :: (db: *Pg.Connection) {
 '''
 
@@ -57,6 +58,14 @@ CASES = [
         '"select id', "can be NULL", "",
     ),
     ("duplicate column", 'rows, error := Pg.query(db, "select id, id from users");', '"select id', "two columns are named", ""),
+    ("orm unknown field", 'rows, error := Pg.select(db, Orm_User, where = #code it.emial == "x");', "it.emial", 'has no field "emial"', ""),
+    (
+        "orm call",
+        'twice :: (n: s64) -> s64 { return n * 2; } rows, error := Pg.select(db, Orm_User, where = #code it.id == twice(it.id));',
+        "twice(it.id)", "cannot call twice", "",
+    ),
+    ("orm no table", 'rows, error := Pg.select(db, User, where = #code it.id == 1);', "it.id == 1", "no @pg_table note", ""),
+    ("orm set", 'n, error := Pg.update(db, Orm_User, set = #code it.nope = 1, where = #code it.id == 1);', "it.nope", "set assigns to a field", ""),
 ]
 
 

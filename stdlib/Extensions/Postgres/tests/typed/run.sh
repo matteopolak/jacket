@@ -110,7 +110,12 @@ cp -R "$here/identity" "$work/identity"
 JACKET_PG_ROOT="$work/identity" "$jaic" "$work/identity/main.jai" -exe "$work/identity_test" || fail "build row type identity"
 [ "$("$work/identity_test")" = ok ] || fail "row type identity"
 
-# 8. Bad programs: the error is reported at the right place.
+# 8. The ORM: select, insert, update and delete through table structs.
+cp -R "$here/../orm" "$work/orm"
+JACKET_PG_ROOT="$work/orm" "$jaic" "$work/orm/main.jai" -exe "$work/orm_test" || fail "build orm"
+[ "$("$work/orm_test")" = ok ] || fail "orm"
+
+# 9. Bad programs: the error is reported at the right place.
 python3 "$here/bad.py" "$jaic" "$work" || fail "bad programs"
 
 echo "all typed query tests passed"
