@@ -578,6 +578,16 @@
           "default": "warn",
           "markdownDescription": "a nested `for` hides an `it` the enclosing loop uses (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#shadowed_it)"
         },
+        "single_case_switch": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "warn",
+          "markdownDescription": "a `switch` with a single case, which is an `if` (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#single_case_switch)"
+        },
         "string_literal_write": {
           "type": "string",
           "enum": [

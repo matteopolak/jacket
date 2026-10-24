@@ -57,6 +57,7 @@ mod returned_local_address;
 mod reversed_range;
 mod self_assignment;
 mod shadowed_it;
+mod single_case_switch;
 mod string_literal_write;
 mod uninit_read;
 mod unknown_allow;
@@ -380,6 +381,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Suspicious,
         summary: "a nested `for` hides an `it` the enclosing loop uses",
         check: shadowed_it::check,
+    },
+    RuleInfo {
+        name: "single_case_switch",
+        category: Category::Style,
+        summary: "a `switch` with a single case, which is an `if`",
+        check: single_case_switch::check,
     },
     RuleInfo {
         name: "string_literal_write",

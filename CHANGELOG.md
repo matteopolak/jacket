@@ -16,6 +16,7 @@
 - `jailint` reports `assert(true)` and `#assert true`, which can never fail (`assert_constant`).
 - `jailint` suggests `null` for `cast(*T) 0` (`zero_ptr`).
 - `jailint` has an opt-in `identical_case_bodies` lint for `switch` cases that do the same thing and could list their values together.
+- `jailint` suggests an `if` for a `switch` with a single case (`single_case_switch`).
 
 ### Improved
 
