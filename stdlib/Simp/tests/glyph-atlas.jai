@@ -52,13 +52,13 @@ main :: () {
     assert(glyph.x0 > 0 && glyph.y0 > 0);
     ink: u64;
 
-    for row: 0..glyph.height - 1 {
+    for row: 0..(cast(s64) glyph.height) - 1 {
         source := slot.bitmap.buffer + cast(int) row * slot.bitmap.pitch;
         dest := page.bitmap_data.data.data + (glyph.y0 + cast(int) row) * page.bitmap_data.stride + glyph.x0 * 4;
 
         assert(dest[-1] == 0 && dest[glyph.width * 4 + 3] == 0);
 
-        for col: 0..glyph.width - 1 {
+        for col: 0..(cast(s64) glyph.width) - 1 {
             assert(dest[col * 4] == 255 && dest[col * 4 + 1] == 255 && dest[col * 4 + 2] == 255);
             assert(dest[col * 4 + 3] == source[col]);
             ink += dest[col * 4 + 3];
