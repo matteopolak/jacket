@@ -358,6 +358,9 @@ run :: (args: [] string) -> s64 {
 
     result := EXIT_SUCCESS;
 
+    // COPY FROM STDIN in a -c command reads psql's standard input, shared by every -c.
+    psql.stdin_open = true;
+
     for actions {
         if it.is_file && it.text == "-" {
             result = main_loop("", input_name = "<stdin>", from_stdin = true);
