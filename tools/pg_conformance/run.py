@@ -31,7 +31,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from fetch import VERSIONS, fetch
+from fetch import VERSIONS, fetch, major_of
 from repo_output import output_dir, shared_output_dir
 from toolkit.cli import add_jaic_argument
 from toolkit.download import pinned
@@ -135,7 +135,7 @@ def build_regress_lib(source: Path, out: Path, config: str) -> Path:
         postgres = Path(pg_config(config, "--bindir")) / "postgres"
         link = ["-bundle", "-bundle_loader", str(postgres)]
         # macOS servers load ".so" up to PostgreSQL 15 and ".dylib" from 16.
-        major = int(pg_config(config, "--version").split()[1].split(".")[0])
+        major = int(major_of(pg_config(config, "--version").split()[1]))
         target = libdir / ("regress.so" if major < 16 else "regress.dylib")
     else:
         link = ["-shared"]
@@ -303,7 +303,7 @@ def run_tap_file(args, suite: dict, source: Path, bindir: Path, mode: str, out: 
 
 def run_tap(args) -> int:
     version = pg_config(args.pg_config, "--version").split()[1]
-    major = version.split(".")[0]
+    major = major_of(version)
     if major not in VERSIONS:
         print(f"no pinned suite for PostgreSQL {version}", file=sys.stderr)
         return 2
@@ -451,7 +451,7 @@ def main() -> int:
         return run_tap(args)
 
     version = pg_config(args.pg_config, "--version").split()[1]
-    major = version.split(".")[0]
+    major = major_of(version)
     if major not in VERSIONS:
         print(f"no pinned suite for PostgreSQL {version}", file=sys.stderr)
         return 2

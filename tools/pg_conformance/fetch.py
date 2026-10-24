@@ -12,6 +12,7 @@ Nothing is copied into the repository (docs/postgres/conformance.md).
 from __future__ import annotations
 
 import argparse
+import re
 import shutil
 import sys
 import tarfile
@@ -32,6 +33,14 @@ VERSIONS = {
     # The next major's newest pre-release, for the workflow's allowed-to-fail beta job.
     "19": ("19rc1", "af105fc8e960fc836a09fc2cd7f582b49fd17675d9d36631abe3a565bfd7d701"),
 }
+
+def major_of(version: str) -> str:
+    """The major version of a `pg_config --version` number: "17" for 17.11, "19" for 19rc1."""
+    match = re.match(r"\d+", version)
+    if not match:
+        raise ValueError(f"not a PostgreSQL version: {version}")
+    return match.group(0)
+
 
 # The parts of the source tree the runners use.
 SUITES = (

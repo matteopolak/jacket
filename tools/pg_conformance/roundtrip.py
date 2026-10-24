@@ -28,7 +28,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from fetch import VERSIONS, fetch
+from fetch import VERSIONS, fetch, major_of
 from repo_output import output_dir
 from run import CONFORMANCE, build_regress_lib, pg_config, run_suite
 from toolkit.cli import add_jaic_argument
@@ -170,7 +170,7 @@ def main() -> int:
     args.jaic = args.jaic.resolve()
 
     version = pg_config(args.pg_config, "--version").split()[1]
-    major = version.split(".")[0]
+    major = major_of(version)
     if major not in VERSIONS:
         print(f"no pinned suite for PostgreSQL {version}", file=sys.stderr)
         return 2
