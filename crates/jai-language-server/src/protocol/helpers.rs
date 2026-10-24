@@ -14,7 +14,7 @@ pub(super) fn folder_path(uri: &Value) -> Option<PathBuf> {
 }
 
 pub(super) fn valid_id(id: &RequestId) -> bool {
-    matches!(id, RequestId::Number(_)) || matches!(id, RequestId::String(text) if text.len() <= 128)
+    !matches!(id, RequestId::String(text) if text.len() > 128)
 }
 
 pub(super) fn decode<T: serde::de::DeserializeOwned>(value: Value) -> Result<T, Failure> {

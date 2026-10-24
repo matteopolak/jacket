@@ -11,6 +11,7 @@
 
 ### Improved
 
+- The language server accepts a request id written as a float with no fraction, such as `1.0`, and answers with the id as it was sent.
 - The language server treats a position past the end of a line or file, or inside an emoji, the same way in edits and in requests: it moves to the end or to the start of the character instead of rejecting the edit or request.
 - A trailing `/` on a `jaifmt` `ignore` glob, as in `generated/`, now ignores that directory, as it does for `jailint`'s `exclude`.
 - `just build` also builds the native libraries and `Bindings_Generator` helpers a release ships, and a missing one in a source checkout says to run it (#36).

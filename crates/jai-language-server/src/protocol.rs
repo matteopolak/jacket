@@ -4,20 +4,15 @@ mod helpers;
 mod methods;
 mod notifications;
 mod params;
+mod request_id;
 mod requests;
 mod wire;
 
 pub use self::helpers::message_too_large;
 use crate::{MarkupKind, Session};
-use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, VecDeque};
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord)]
-#[serde(untagged)]
-pub enum RequestId {
-    Number(i32),
-    String(String),
-}
+pub use self::request_id::RequestId;
 
 #[derive(Clone, Debug)]
 pub enum ProtocolError {

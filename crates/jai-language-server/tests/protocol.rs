@@ -377,3 +377,35 @@ fn doc_comments_reach_hover_and_completion_resolve_is_advertised() {
     );
     assert_eq!(resolved[0]["result"]["label"], "answer");
 }
+
+#[test]
+fn request_ids_may_be_any_whole_number_and_are_echoed_as_received() {
+    for raw in ["1.0", "7", "-4", "9007199254740993", "\"abc\"", "\"1\""] {
+        let mut session = JsonSession::new(Limits::default());
+        initialize(&mut session);
+        let request = format!(r#"{{"jsonrpc":"2.0","id":{raw},"method":"shutdown"}}"#);
+        let output: Value =
+            serde_json::from_str(&session.handle_json(&request).unwrap()[0]).unwrap();
+        assert_eq!(output["id"].to_string(), raw);
+        assert!(output.get("error").is_none(), "{raw}");
+    }
+    let mut session = JsonSession::new(Limits::default());
+    for raw in ["1.5", "true", "null", "1e300"] {
+        let request = format!(r#"{{"jsonrpc":"2.0","id":{raw},"method":"shutdown"}}"#);
+        let output: Value =
+            serde_json::from_str(&session.handle_json(&request).unwrap()[0]).unwrap();
+        assert_eq!(output["error"]["code"], -32600, "{raw}");
+    }
+}
+
+#[test]
+fn a_cancellation_matches_the_same_number_written_either_way() {
+    let mut session = JsonSession::new(Limits::default());
+    initialize(&mut session);
+    let cancel = r#"{"jsonrpc":"2.0","method":"$/cancelRequest","params":{"id":7}}"#;
+    session.handle_json(cancel).unwrap();
+    let request = r#"{"jsonrpc":"2.0","id":7.0,"method":"textDocument/documentSymbol","params":{"textDocument":{"uri":"file:///workspace/missing.jai"}}}"#;
+    let output: Value = serde_json::from_str(&session.handle_json(request).unwrap()[0]).unwrap();
+    assert_eq!(output["error"]["code"], -32800);
+    assert_eq!(output["id"].to_string(), "7.0");
+}
