@@ -402,7 +402,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .WINDOWS] `SW_SHOWDEFAULT :: 10`
 - [OS == .WINDOWS] `SW_FORCEMINIMIZE :: 11`
 - [OS == .WINDOWS] `SW_MAX :: 11`
-- [OS == .WINDOWS] `CW_USEDEFAULT :: 0x80000000`
+- [OS == .WINDOWS] `CW_USEDEFAULT :s32: 0x80000000`
 - [OS == .WINDOWS] `AdjustWindowRect :: (lpRect: *RECT, dwStyle: u32, bMenu: BOOL) -> BOOL #foreign user32`
 - [OS == .WINDOWS] `AdjustWindowRectEx :: (lpRect: *RECT, dwStyle: DWORD, bMenu: BOOL, dwExStyle: DWORD) -> BOOL #foreign user32`
 - [OS == .WINDOWS] `CreateWindowExA :: (dwExStyle: u32, lpClassName: *u8, lpWindowName: *u8, dwStyle: u32, x: s32, y: s32, nWidth: s32, nHeight: s32, hwndParent: HWND, hMenu: HMENU, hInstance: HINSTANCE, lpParam: *void) -> HWND #foreign user32`
@@ -616,14 +616,14 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .WINDOWS] `GetCursorPos :: (p: *POINT) -> s32 #foreign user32`
 - [OS == .WINDOWS] `LoadCursorA :: (hInstance: HINSTANCE, lpCursorName: *u8) -> HCURSOR #foreign user32`
 - [OS == .WINDOWS] `LoadCursorW :: (hInstance: HINSTANCE, lpCursorName: *s16) -> HCURSOR #foreign user32`
-- [OS == .WINDOWS] `SetCursor :: (cursor: HCURSOR) #foreign user32`
+- [OS == .WINDOWS] `SetCursor :: (cursor: HCURSOR) -> HCURSOR #foreign user32`
 - [OS == .WINDOWS] `ShowCursor :: (bShow: s32) -> s32 #foreign user32`
 - [OS == .WINDOWS] `MSG :: struct`
 - [OS == .WINDOWS] `PM_NOREMOVE :: 0x0000`
 - [OS == .WINDOWS] `PM_REMOVE :: 0x0001`
 - [OS == .WINDOWS] `PM_NOYIELD :: 0x0002`
-- [OS == .WINDOWS] `DispatchMessageA :: (msg: *MSG) -> s32 #foreign user32`
-- [OS == .WINDOWS] `DispatchMessageW :: (msg: *MSG) -> s32 #foreign user32`
+- [OS == .WINDOWS] `DispatchMessageA :: (msg: *MSG) -> LRESULT #foreign user32`
+- [OS == .WINDOWS] `DispatchMessageW :: (msg: *MSG) -> LRESULT #foreign user32`
 - [OS == .WINDOWS] `GetMessageExtraInfo :: () -> LPARAM #foreign user32`
 - [OS == .WINDOWS] `PeekMessageA :: (msg: *MSG, hwnd: HWND, wMsgFilterMin: u32, wMsgFilterMax: u32, wRemoveMsg: u32) -> s32 #foreign user32`
 - [OS == .WINDOWS] `PeekMessageW :: (msg: *MSG, hwnd: HWND, wMsgFilterMin: u32, wMsgFilterMax: u32, wRemoveMsg: u32) -> s32 #foreign user32`
@@ -834,7 +834,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .WINDOWS] `PROCESSOR_RELATIONSHIP :: struct`
 - [OS == .WINDOWS] `NUMA_NODE_RELATIONSHIP :: struct`
 - [OS == .WINDOWS] `CACHE_RELATIONSHIP :: struct`
-- [OS == .WINDOWS] `using PROCESSOR_CACHE_TYPE :: enum`
+- [OS == .WINDOWS] `using PROCESSOR_CACHE_TYPE :: enum s32`
 - [OS == .WINDOWS] `GROUP_RELATIONSHIP :: struct`
 - [OS == .WINDOWS] `PROCESSOR_GROUP_INFO :: struct`
 - [OS == .WINDOWS] `GROUP_AFFINITY :: struct`
@@ -1086,7 +1086,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .WINDOWS] `THREAD_PRIORITY_NORMAL :: 0`
 - [OS == .WINDOWS] `THREAD_PRIORITY_ABOVE_NORMAL :: 1`
 - [OS == .WINDOWS] `THREAD_PRIORITY_HIGHEST :: 2`
-- [OS == .WINDOWS] `JOBOBJECTINFOCLASS :: enum`
+- [OS == .WINDOWS] `JOBOBJECTINFOCLASS :: enum s32`
 - [OS == .WINDOWS] `using Job_Object_Limit :: enum u32`
 - [OS == .WINDOWS] `JOBOBJECT_BASIC_LIMIT_INFORMATION :: struct`
 - [OS == .WINDOWS] `IO_COUNTERS :: struct`
@@ -1107,7 +1107,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .WINDOWS] `GetThreadId :: (Thread: HANDLE) -> DWORD #foreign kernel32`
 - [OS == .WINDOWS] `OpenThread :: (dwDesiredAccess: u32, bInheritHandle: BOOL, dwThreadId: u32) -> HANDLE #foreign kernel32`
 - [OS == .WINDOWS] `ResumeThread :: (thread: HANDLE) -> s32 #foreign kernel32`
-- [OS == .WINDOWS] `SetEnvironmentVariableA :: (name: *u8, value: *u8) #foreign kernel32`
+- [OS == .WINDOWS] `SetEnvironmentVariableA :: (name: *u8, value: *u8) -> BOOL #foreign kernel32`
 - [OS == .WINDOWS] `SetInformationJobObject :: (hJob: HANDLE, JobOjectInformationClass: JOBOBJECTINFOCLASS, lpJobObjectInformation: *void, cbJobObjectInformationLength: u32) -> BOOL #foreign kernel32`
 - [OS == .WINDOWS] `SetThreadDescription :: (hThread: HANDLE, lpThreadDescription: *u16) -> HRESULT #foreign kernel32`
 - [OS == .WINDOWS] `SetThreadPriority :: (thread: HANDLE, priority: s32) -> s32 #foreign kernel32`
@@ -1191,17 +1191,17 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .WINDOWS] `INVALID_FILE_ATTRIBUTES : u32 : 0xffff_ffff`
 - [OS == .WINDOWS] `WIN32_FIND_DATAW :: struct`
 - [OS == .WINDOWS] `FILE_GENERIC_ALL :: 0x10000000`
-- [OS == .WINDOWS] `FILE_GENERIC_READ :: 0x80000000`
-- [OS == .WINDOWS] `FILE_GENERIC_WRITE :: 0x40000000`
-- [OS == .WINDOWS] `FILE_GENERIC_EXECUTE :: 0x20000000`
+- [OS == .WINDOWS] `FILE_GENERIC_READ :: 0x120089`
+- [OS == .WINDOWS] `FILE_GENERIC_WRITE :: 0x120116`
+- [OS == .WINDOWS] `FILE_GENERIC_EXECUTE :: 0x1200A0`
 - [OS == .WINDOWS] `FILE_LIST_DIRECTORY :: 0x1`
 - [OS == .WINDOWS] `FILE_EXECUTE :: 0x20`
 - [OS == .WINDOWS] `FILE_READ_ATTRIBUTES :: 0x80`
 - [OS == .WINDOWS] `FILE_READ_DATA :: 0x1`
 - [OS == .WINDOWS] `FILE_TRAVERSE :: 0x20`
 - [OS == .WINDOWS] `using SetFilePointer_MoveMethod :: enum u32`
-- [OS == .WINDOWS] `using FINDEX_INFO_LEVELS :: enum`
-- [OS == .WINDOWS] `using FINDEX_SEARCH_OPS :: enum`
+- [OS == .WINDOWS] `using FINDEX_INFO_LEVELS :: enum s32`
+- [OS == .WINDOWS] `using FINDEX_SEARCH_OPS :: enum s32`
 - [OS == .WINDOWS] `FIND_FIRST_EX_CASE_SENSITIVE :: 0x1`
 - [OS == .WINDOWS] `FIND_FIRST_EX_LARGE_FETCH :: 0x2`
 - [OS == .WINDOWS] `FIND_FIRST_EX_ON_DISK_ENTRIES_ONLY :: 0x4`
@@ -1238,7 +1238,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .WINDOWS] `MoveFileW :: (filename: *u16, new_filename: *u16) -> BOOL #foreign kernel32`
 - [OS == .WINDOWS] `ReadFile :: (file: HANDLE, buffer: *void, to_read: DWORD, did_read: *DWORD, overlapped: *void = null) -> BOOL #foreign kernel32`
 - [OS == .WINDOWS] `ReplaceFileW :: (lpReplacedFileName: LPCWSTR, lpReplacementFileName: LPCWSTR, lpBackupFileName: LPCWSTR, dwReplaceFlags: DWORD, lpExclude: *void, lpReserved: *void) -> BOOL #foreign kernel32`
-- [OS == .WINDOWS] `using FILE_INFO_BY_HANDLE_CLASS :: enum`
+- [OS == .WINDOWS] `using FILE_INFO_BY_HANDLE_CLASS :: enum s32`
 - [OS == .WINDOWS] `FILE_STANDARD_INFO :: struct`
 - [OS == .WINDOWS] `FILE_END_OF_FILE_INFO :: struct`
 - [OS == .WINDOWS] `FILE_FULL_DIR_INFO :: struct`
@@ -1271,7 +1271,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .WINDOWS] `IMAGEHLP_LINEW64 :: struct`
 - [OS == .WINDOWS] `SYMBOL_INFO :: struct`
 - [OS == .WINDOWS] `SYMOPT :: enum_flags u32`
-- [OS == .WINDOWS] `STATUS_ACCESS_VIOLATION :: 0x80000005`
+- [OS == .WINDOWS] `STATUS_ACCESS_VIOLATION :: 0xC0000005`
 - [OS == .WINDOWS] `EXCEPTION_WRITE_FAULT :: 1`
 - [OS == .WINDOWS] `MINIDUMP_TYPE :: enum_flags u32`
 - [OS == .WINDOWS] `MINIDUMP_CALLBACK_TYPE :: enum u32`
@@ -1609,7 +1609,7 @@ BITMAP :: struct {
 ### `BITMAPFILEHEADER`
 
 ```jai
-BITMAPFILEHEADER :: struct {
+BITMAPFILEHEADER :: struct #no_padding {
     bfType: u16;
     bfSize: u32;
     bfReserved1: u16;
@@ -2054,7 +2054,7 @@ FILE_FULL_DIR_INFO :: struct {
 ### `FILE_INFO_BY_HANDLE_CLASS`
 
 ```jai
-using FILE_INFO_BY_HANDLE_CLASS :: enum {
+using FILE_INFO_BY_HANDLE_CLASS :: enum s32 {
     FileBasicInfo;
     FileStandardInfo;
     FileNameInfo;
@@ -2132,7 +2132,7 @@ using FILTERKEY_FLAGS :: enum_flags u32 {
 ### `FINDEX_INFO_LEVELS`
 
 ```jai
-using FINDEX_INFO_LEVELS :: enum {
+using FINDEX_INFO_LEVELS :: enum s32 {
   FindExInfoStandard;
   FindExInfoBasic;
   FindExInfoMaxInfoLevel;
@@ -2141,7 +2141,7 @@ using FINDEX_INFO_LEVELS :: enum {
 ### `FINDEX_SEARCH_OPS`
 
 ```jai
-using FINDEX_SEARCH_OPS :: enum {
+using FINDEX_SEARCH_OPS :: enum s32 {
   FindExSearchNameMatch;
   FindExSearchLimitToDirectories;
   FindExSearchLimitToDevices;
@@ -2292,7 +2292,7 @@ IUnknown_VTable :: struct {
 ### `JOBOBJECTINFOCLASS`
 
 ```jai
-JOBOBJECTINFOCLASS :: enum {
+JOBOBJECTINFOCLASS :: enum s32 {
     BasicAccountingInformation :: 1;
     BasicLimitInformation;
     BasicProcessIdList;
@@ -2901,7 +2901,7 @@ POINTL :: struct {
 ### `PROCESSOR_CACHE_TYPE`
 
 ```jai
-using PROCESSOR_CACHE_TYPE :: enum {
+using PROCESSOR_CACHE_TYPE :: enum s32 {
     CacheUnified;
     CacheInstruction;
     CacheData;
@@ -3502,7 +3502,20 @@ WIN32_FIND_DATAW :: struct {
 ### `WNDCLASSEXA`
 
 ```jai
-WNDCLASSEXA :: struct {}
+WNDCLASSEXA :: struct {
+    cbSize: u32;
+    style: u32;
+    lpfnWndProc: (hWnd: HWND, Msg: u32, wParam: WPARAM, lParam: LPARAM) -> s64 #foreign;
+    cbClsExtra: s32;
+    cbWndExtra: s32;
+    hInstance: HINSTANCE;
+    hIcon: HICON;
+    hCursor: HCURSOR;
+    hbrBackground: HBRUSH;
+    lpszMenuName: *u8;
+    lpszClassName: *u8;
+    hIconSm: HICON;
+}
 ```
 ### `WNDCLASSEXW`
 

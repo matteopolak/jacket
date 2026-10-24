@@ -204128,7 +204128,7 @@
     },
     "Windows": {
       "spec": "docs/specs/stdlib/modules/windows.md",
-      "spec_sha256": "b5c3be5df546332dd88de1340e308b5fd7dc718ea5aca976a61f00423b17b7b2",
+      "spec_sha256": "ea8618d673196df94fde27f83e691661686f18805c1c6cee01734388fdb4c1f4",
       "counts": {
         "declared": 1549,
         "implemented": 9,
@@ -206919,7 +206919,7 @@
         },
         {
           "name": "CW_USEDEFAULT",
-          "signature": "CW_USEDEFAULT :: 0x80000000",
+          "signature": "CW_USEDEFAULT :s32: 0x80000000",
           "condition": "OS == .WINDOWS",
           "spec_line": 405,
           "status": "declared"
@@ -208417,7 +208417,7 @@
         },
         {
           "name": "SetCursor",
-          "signature": "SetCursor :: (cursor: HCURSOR) #foreign user32",
+          "signature": "SetCursor :: (cursor: HCURSOR) -> HCURSOR #foreign user32",
           "condition": "OS == .WINDOWS",
           "spec_line": 619,
           "status": "declared"
@@ -208459,14 +208459,14 @@
         },
         {
           "name": "DispatchMessageA",
-          "signature": "DispatchMessageA :: (msg: *MSG) -> s32 #foreign user32",
+          "signature": "DispatchMessageA :: (msg: *MSG) -> LRESULT #foreign user32",
           "condition": "OS == .WINDOWS",
           "spec_line": 625,
           "status": "declared"
         },
         {
           "name": "DispatchMessageW",
-          "signature": "DispatchMessageW :: (msg: *MSG) -> s32 #foreign user32",
+          "signature": "DispatchMessageW :: (msg: *MSG) -> LRESULT #foreign user32",
           "condition": "OS == .WINDOWS",
           "spec_line": 626,
           "status": "declared"
@@ -209943,7 +209943,7 @@
         },
         {
           "name": "PROCESSOR_CACHE_TYPE",
-          "signature": "using PROCESSOR_CACHE_TYPE :: enum",
+          "signature": "using PROCESSOR_CACHE_TYPE :: enum s32",
           "condition": "OS == .WINDOWS",
           "spec_line": 837,
           "status": "declared"
@@ -211707,7 +211707,7 @@
         },
         {
           "name": "JOBOBJECTINFOCLASS",
-          "signature": "JOBOBJECTINFOCLASS :: enum",
+          "signature": "JOBOBJECTINFOCLASS :: enum s32",
           "condition": "OS == .WINDOWS",
           "spec_line": 1089,
           "status": "declared"
@@ -211854,7 +211854,7 @@
         },
         {
           "name": "SetEnvironmentVariableA",
-          "signature": "SetEnvironmentVariableA :: (name: *u8, value: *u8) #foreign kernel32",
+          "signature": "SetEnvironmentVariableA :: (name: *u8, value: *u8) -> BOOL #foreign kernel32",
           "condition": "OS == .WINDOWS",
           "spec_line": 1110,
           "status": "declared"
@@ -212442,21 +212442,21 @@
         },
         {
           "name": "FILE_GENERIC_READ",
-          "signature": "FILE_GENERIC_READ :: 0x80000000",
+          "signature": "FILE_GENERIC_READ :: 0x120089",
           "condition": "OS == .WINDOWS",
           "spec_line": 1194,
           "status": "declared"
         },
         {
           "name": "FILE_GENERIC_WRITE",
-          "signature": "FILE_GENERIC_WRITE :: 0x40000000",
+          "signature": "FILE_GENERIC_WRITE :: 0x120116",
           "condition": "OS == .WINDOWS",
           "spec_line": 1195,
           "status": "declared"
         },
         {
           "name": "FILE_GENERIC_EXECUTE",
-          "signature": "FILE_GENERIC_EXECUTE :: 0x20000000",
+          "signature": "FILE_GENERIC_EXECUTE :: 0x1200A0",
           "condition": "OS == .WINDOWS",
           "spec_line": 1196,
           "status": "declared"
@@ -212505,14 +212505,14 @@
         },
         {
           "name": "FINDEX_INFO_LEVELS",
-          "signature": "using FINDEX_INFO_LEVELS :: enum",
+          "signature": "using FINDEX_INFO_LEVELS :: enum s32",
           "condition": "OS == .WINDOWS",
           "spec_line": 1203,
           "status": "declared"
         },
         {
           "name": "FINDEX_SEARCH_OPS",
-          "signature": "using FINDEX_SEARCH_OPS :: enum",
+          "signature": "using FINDEX_SEARCH_OPS :: enum s32",
           "condition": "OS == .WINDOWS",
           "spec_line": 1204,
           "status": "declared"
@@ -212771,7 +212771,7 @@
         },
         {
           "name": "FILE_INFO_BY_HANDLE_CLASS",
-          "signature": "using FILE_INFO_BY_HANDLE_CLASS :: enum",
+          "signature": "using FILE_INFO_BY_HANDLE_CLASS :: enum s32",
           "condition": "OS == .WINDOWS",
           "spec_line": 1241,
           "status": "declared"
@@ -213002,7 +213002,7 @@
         },
         {
           "name": "STATUS_ACCESS_VIOLATION",
-          "signature": "STATUS_ACCESS_VIOLATION :: 0x80000005",
+          "signature": "STATUS_ACCESS_VIOLATION :: 0xC0000005",
           "condition": "OS == .WINDOWS",
           "spec_line": 1274,
           "status": "declared"

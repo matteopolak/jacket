@@ -54,7 +54,7 @@ winmm :: #library,system "winmm";
 }
 
 #if OS == .WINDOWS {
-    BITMAPFILEHEADER :: struct {
+    BITMAPFILEHEADER :: struct #no_padding {
         bfType: u16;
         bfSize: u32;
         bfReserved1: u16;
@@ -466,7 +466,7 @@ winmm :: #library,system "winmm";
 }
 
 #if OS == .WINDOWS {
-    using FILE_INFO_BY_HANDLE_CLASS :: enum {
+    using FILE_INFO_BY_HANDLE_CLASS :: enum s32 {
         FileBasicInfo;
         FileStandardInfo;
         FileNameInfo;
@@ -581,7 +581,7 @@ winmm :: #library,system "winmm";
 }
 
 #if OS == .WINDOWS {
-    using FINDEX_INFO_LEVELS :: enum {
+    using FINDEX_INFO_LEVELS :: enum s32 {
         FindExInfoStandard;
         FindExInfoBasic;
         FindExInfoMaxInfoLevel;
@@ -590,7 +590,7 @@ winmm :: #library,system "winmm";
 }
 
 #if OS == .WINDOWS {
-    using FINDEX_SEARCH_OPS :: enum {
+    using FINDEX_SEARCH_OPS :: enum s32 {
         FindExSearchNameMatch;
         FindExSearchLimitToDirectories;
         FindExSearchLimitToDevices;
@@ -800,7 +800,7 @@ winmm :: #library,system "winmm";
 }
 
 #if OS == .WINDOWS {
-    JOBOBJECTINFOCLASS :: enum {
+    JOBOBJECTINFOCLASS :: enum s32 {
         BasicAccountingInformation :: 1;
         BasicLimitInformation;
         BasicProcessIdList;
@@ -1369,7 +1369,7 @@ winmm :: #library,system "winmm";
 }
 
 #if OS == .WINDOWS {
-    using PROCESSOR_CACHE_TYPE :: enum {
+    using PROCESSOR_CACHE_TYPE :: enum s32 {
         CacheUnified;
         CacheInstruction;
         CacheData;
@@ -1944,7 +1944,20 @@ winmm :: #library,system "winmm";
 }
 
 #if OS == .WINDOWS {
-    WNDCLASSEXA :: struct {}
+    WNDCLASSEXA :: struct {
+        cbSize: u32;
+        style: u32;
+        lpfnWndProc: (hWnd: HWND, Msg: u32, wParam: WPARAM, lParam: LPARAM) -> s64 #foreign;
+        cbClsExtra: s32;
+        cbWndExtra: s32;
+        hInstance: HINSTANCE;
+        hIcon: HICON;
+        hCursor: HCURSOR;
+        hbrBackground: HBRUSH;
+        lpszMenuName: *u8;
+        lpszClassName: *u8;
+        hIconSm: HICON;
+    }
 
 }
 
@@ -2319,10 +2332,6 @@ winmm :: #library,system "winmm";
 }
 
 #if OS == .WINDOWS {
-    CW_USEDEFAULT :: 0x80000000;
-}
-
-#if OS == .WINDOWS {
     DBT_DEVICEARRIVAL :: 0x8000;
 }
 
@@ -2691,15 +2700,15 @@ winmm :: #library,system "winmm";
 }
 
 #if OS == .WINDOWS {
-    FILE_GENERIC_EXECUTE :: 0x20000000;
+    FILE_GENERIC_EXECUTE :: 0x1200A0;
 }
 
 #if OS == .WINDOWS {
-    FILE_GENERIC_READ :: 0x80000000;
+    FILE_GENERIC_READ :: 0x120089;
 }
 
 #if OS == .WINDOWS {
-    FILE_GENERIC_WRITE :: 0x40000000;
+    FILE_GENERIC_WRITE :: 0x120116;
 }
 
 #if OS == .WINDOWS {
@@ -4451,7 +4460,7 @@ winmm :: #library,system "winmm";
 }
 
 #if OS == .WINDOWS {
-    STATUS_ACCESS_VIOLATION :: 0x80000005;
+    STATUS_ACCESS_VIOLATION :: 0xC0000005;
 }
 
 #if OS == .WINDOWS {
@@ -6257,6 +6266,10 @@ winmm :: #library,system "winmm";
 }
 
 #if OS == .WINDOWS {
+    CW_USEDEFAULT: s32 : 0x80000000;
+}
+
+#if OS == .WINDOWS {
     DEVICE_NOTIFY_WINDOW_HANDLE: u32 : 0;
 }
 
@@ -6563,11 +6576,11 @@ winmm :: #library,system "winmm";
 }
 
 #if OS == .WINDOWS {
-    DispatchMessageA :: (msg: *MSG) -> s32 #foreign user32;
+    DispatchMessageA :: (msg: *MSG) -> LRESULT #foreign user32;
 }
 
 #if OS == .WINDOWS {
-    DispatchMessageW :: (msg: *MSG) -> s32 #foreign user32;
+    DispatchMessageW :: (msg: *MSG) -> LRESULT #foreign user32;
 }
 
 #if OS == .WINDOWS {
@@ -7315,7 +7328,7 @@ winmm :: #library,system "winmm";
 }
 
 #if OS == .WINDOWS {
-    SetCursor :: (cursor: HCURSOR) #foreign user32;
+    SetCursor :: (cursor: HCURSOR) -> HCURSOR #foreign user32;
 }
 
 #if OS == .WINDOWS {
@@ -7327,7 +7340,7 @@ winmm :: #library,system "winmm";
 }
 
 #if OS == .WINDOWS {
-    SetEnvironmentVariableA :: (name: *u8, value: *u8) #foreign kernel32;
+    SetEnvironmentVariableA :: (name: *u8, value: *u8) -> BOOL #foreign kernel32;
 }
 
 #if OS == .WINDOWS {
