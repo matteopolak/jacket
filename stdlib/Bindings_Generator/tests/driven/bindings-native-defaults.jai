@@ -23,6 +23,6 @@ main :: () {
     assert(contains(text, "AbstractNative_VTable"));
     assert(contains(text, "Forward_VTable"));
     assert(contains(text, "Inner :: struct"));
-    assert(contains(text, "slot_0:") && contains(text, "// C++ virtual: apply"));
+    assert(contains(text, "apply:") && contains(text, "// C++ virtual: apply"));
     assert(!contains(text, "__UnknownLib") && !contains(text, "virtual_apply"));
 }

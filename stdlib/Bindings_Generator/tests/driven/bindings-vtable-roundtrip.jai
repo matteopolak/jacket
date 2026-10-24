@@ -11,21 +11,21 @@ main :: () {
 
     assert(object != null);
     defer dispatch_destroy(object);
-    assert(object.__vtable.slot_0(object, 32) == 42);
+    assert(object.__vtable.apply(object, 32) == 42);
     object.value = 17;
-    assert(object.__vtable.slot_0(object, 25) == 42);
+    assert(object.__vtable.apply(object, 25) == 42);
     assert(size_of(IndependentDispatch.IndependentDispatch_VTable) == 2 * size_of(*void));
     assert(offset_of(IndependentDispatch, "__vtable") == 0);
 
     #if expected_wrappers {
-        assert(IndependentDispatch.IndependentDispatch_slot_0(object, 25) == 42);
+        assert(IndependentDispatch_apply(object, 25) == 42);
     } else {
-        #assert(!#exists(IndependentDispatch.IndependentDispatch_slot_0));
+        #assert(!#exists(IndependentDispatch_apply));
     }
 
     #if expected_accessor {
         assert(IndependentDispatch.vtable(object) == object.__vtable);
-        assert(IndependentDispatch.vtable(object).slot_0(object, 25) == 42);
+        assert(IndependentDispatch.vtable(object).apply(object, 25) == 42);
     } else {
         #assert(!#exists(IndependentDispatch.vtable));
     }

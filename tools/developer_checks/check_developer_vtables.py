@@ -110,6 +110,10 @@ def check_abi(run, prefix, jaic, source, work, flags, library, system):
     names = [line.split()[1] for line in model.stdout.splitlines()]
     expected_names = ["Destructor" if "~" in entry else entry.split("::")[-1].split("(")[0] for entry in entries]
     assert names == expected_names, (names, entries)
+    # Each slot is named for its method; same-name overloads and destructors keep a positional or numbered name.
+    table = generated.read_text().split("{", 1)[1].split("\n}", 1)[0]
+    slot_names = re.findall(r"^\s*(\w+): .*;", table, re.M)
+    assert len(slot_names) == len(entries), (slot_names, entries)
     consumer = work / "abi-roundtrip.jai"
     text = ('#import "Basic";\n#load "abi-table.jai";\n'
             'DispatchSmall :: struct { a: s32; }\n'
@@ -131,19 +135,19 @@ def check_abi(run, prefix, jaic, source, work, flags, library, system):
             shape = {"small": "DispatchSmall", "big": "DispatchBig", "pair": "DispatchFloatPair"}[name]
             argument = "cast(float32) 2" if name == "pair" else "2"
             if system == "Windows":
-                text += f" result_{index}: {shape};\n object.__vtable.slot_{index}(object, *result_{index}, {argument});\n"
+                text += f" result_{index}: {shape};\n object.__vtable.{slot_names[index]}(object, *result_{index}, {argument});\n"
             else:
-                text += f" result_{index} := object.__vtable.slot_{index}(object, {argument});\n"
+                text += f" result_{index} := object.__vtable.{slot_names[index]}(object, {argument});\n"
             assertion = f"result_{index}.a == 72" if name == "small" else f"result_{index}.a == 82 && result_{index}.b == 92 && result_{index}.c == 102" if name == "big" else f"result_{index}.a == 3.5 && result_{index}.b == 4.5"
             text += f" assert({assertion});\n"
             continue
         if name == "take":
-            text += f" assert(object.__vtable.slot_{index}(object, .{{7}}, .{{11, 13, 17}}) == 48);\n"
+            text += f" assert(object.__vtable.{slot_names[index]}(object, .{{7}}, .{{11, 13, 17}}) == 48);\n"
             continue
         floating = "(float)" in entry
         value = "cast(float32) 2" if floating else "2"
         expected = 22 if "choose(float)" in entry else 42 if "choose(int)" in entry else 32 if "tail(" in entry else 62 if floating else 52
-        text += f" assert(object.__vtable.slot_{index}({receiver}, {value}) == {expected});\n"
+        text += f" assert(object.__vtable.{slot_names[index]}({receiver}, {value}) == {expected});\n"
     text += ' print("ok\\n");\n}\n'
     consumer.write_text(text)
     for optimization in [0, 2]:

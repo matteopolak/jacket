@@ -18,6 +18,14 @@
       "module": "check_developer_vtables"
     },
     {
+      "module": "check_developer_cpp_wrappers",
+      "label": "C++ virtual method wrappers",
+      "hosts": [
+        "Darwin",
+        "Linux"
+      ]
+    },
+    {
       "module": "check_developer_type_emission"
     },
     {

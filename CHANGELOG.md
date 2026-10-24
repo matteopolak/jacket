@@ -29,6 +29,7 @@
 
 ### Fixed
 
+- `Bindings_Generator` writes a wrapper for every C++ virtual method, such as `IGlobalSession_createSession(session, ...)`, and the wrappers of a base interface accept pointers to the interfaces derived from it (#39).
 - `Bindings_Generator` lays out C bitfields like the C compiler does, in one `__bitfield` field per storage unit, and writes `Record_field` and `Record_set_field` accessors for them (turn off with `generate_bitfield_accessors`); packed records and `#pragma pack` keep their layout (#38).
 - The language server no longer reports an error for compile-time code that calls something only a real build can run, such as `BuildCpp`'s `mkdtemp` (#37).
 - `a, b = 1, 2, 3;` reports that it has too many values instead of ignoring the extra one.

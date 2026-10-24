@@ -242,6 +242,7 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `stripped_name :: (name: string) -> string`
 - `is_valid_identifier_start :: (char: u8) -> bool`
 - `print_struct_vtable :: (builder: *String_Builder, _struct: *Struct, extra_info: Struct_Extra_Info)`
+- `print_struct_vtable_wrappers :: (builder: *String_Builder, _struct: *Struct, extra_info: Struct_Extra_Info, existing_declarations: [] *Declaration)`
 - `Generate_Bindings_Options :: struct #type_info_none`
 - `handle_toplevel_cursors :: (cur: CXCursor, parent: CXCursor, client_data: CXClientData) -> CXChildVisitResult #c_call`
 - `get_name_for_cursor :: (cur: CXCursor) -> string`
@@ -4506,31 +4507,56 @@ is inserted at the initial storage position of the record or generated raw
 layout record when that record owns the vtable; when a vtable parent supplies
 the pointer, the child does not add a second one. The generated vtable record
 preserves slot order and pointer-sized placeholders for omitted slots so
-later slots retain their positions. `print_struct_vtable` emits that record;
-when enabled, it also emits inline `<Record>_<slot>` wrappers which call
-`obj.vtable.<slot>(obj, ...)`, and an optional `vtable(obj)` accessor returning
-the typed pointer. `print_function` gives direct virtual foreign declarations
-the `virtual_` prefix (and `_CFormat` where applicable), retaining the
-represented foreign library and symbol. This direct declaration is distinct
-from invoking the slot through the vtable. Slot order and inheritance remain
-subject to the target/ABI limits documented above.
+later slots retain their positions. Each slot member is named for its C++
+method (`area`, `release`); a second slot with the same name gets a numeric
+suffix by the same `_N` scheme other generated names use (`scale`, `scale_1`),
+a reserved word gets the usual leading underscore (`_cast`), and destructor
+slots, which have no callable type, keep a positional `slot_<index>` name.
+`print_struct_vtable` emits that record and, when enabled, the typed
+`vtable(obj)` accessor returning the typed pointer. `print_function` gives
+direct virtual foreign declarations the `virtual_` prefix (and `_CFormat`
+where applicable), retaining the represented foreign library and symbol. This
+direct declaration is distinct from invoking the slot through the vtable. Slot
+order and inheritance remain subject to the target/ABI limits documented above.
 
 The two public vtable-output options are independent. The typed vtable record
 is emitted in all four settings; `generate_c_style_api_for_vtable` controls the
-`<Record>_<slot>` inline wrappers, and `generate_vtable_helpers` controls the
-typed `vtable(obj)` accessor:
+slot wrappers, and `generate_vtable_helpers` controls the typed `vtable(obj)`
+accessor:
 
 | C-style slot wrappers | `vtable` accessor | Additional output |
 | --- | --- | --- |
 | off | off | Neither helper form |
-| on | off | `<Record>_<slot>` wrappers |
+| on | off | Slot wrappers |
 | off | on | `vtable(obj)` accessor |
 | on | on | Both helper forms |
 
-Wrapper suffixes are taken from the generated vtable member's `output_name`
-(for example `slot_0`), not re-derived from the original `Function.output_name`.
-Variadic slot wrappers are skipped with a diagnostic; the typed vtable record
-remains emitted.
+Slot wrappers are ordinary procedures in the scope that holds the records, not
+members of a record, so a call needs no record qualifier: for
+`struct IGlobalSession : ISlangUnknown { virtual SlangResult createSession(SessionDesc const& desc, ISession** outSession) = 0; }`
+the output is
+
+```jai
+IGlobalSession_createSession :: inline (this: *IGlobalSession, desc: *SessionDesc, outSession: **ISession) -> SlangResult { return this.__vtable.createSession(this, desc, outSession); }
+```
+
+The name is `<declaring record>_<slot name>`, with a leading underscore of the slot
+name dropped and a numeric suffix when another declaration already has the name.
+Every record with a vtable gets a wrapper for each of its own methods and one for
+each method it inherits, all taking a pointer to that record. An inherited method is
+named for the ancestor that declares it, so `ISlangUnknown_release(session)` compiles
+for an `*ISession` as well as for an `*ISlangUnknown`: the wrapper of one name is
+overloaded once per record that derives from the declaring one, and an inherited
+slot's wrapper casts the receiver to the type its slot declares. A method an
+override replaces is wrapped under the name of the record that declares the
+override as well. C++ reference parameters and results are pointers
+(`T const&` is `*T`). Omitted and destructor slots and slots that are variadic
+get no wrapper (a variadic one is reported). `print_struct_vtable_wrappers`
+prints these wrappers for one record; the generator calls it for every printed
+record after the declarations, in the exported scope, with the global
+declarations as `existing_declarations` for name repair. A call through a wrapper
+is a call through the object's vtable, so it dispatches to the most derived
+override.
 
 Objective-C method output is a generated typed wrapper, not a Jai compiler
 intrinsic. It declares a selector symbol and casts the selected Objective-C

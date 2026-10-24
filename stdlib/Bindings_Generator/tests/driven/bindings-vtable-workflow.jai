@@ -77,15 +77,16 @@ main :: () {
 
         defer free_buffers(*output);
         B.print_struct(*output, record, null);
+        B.print_struct_vtable_wrappers(*output, record, info.*, .[]);
         assert(!output.failed);
         text := builder_to_string(*output);
 
         defer free(text);
         assert(contains(text, "IndependentDispatch_VTable :: struct"));
-        assert(contains(text, "slot_0") && contains(text, "slot_1: *void"));
-        assert(contains(text, "IndependentDispatch_slot_0 ::") == options.generate_c_style_api_for_vtable);
+        assert(contains(text, "apply: ") && contains(text, "retained_position: *void"));
+        assert(contains(text, "IndependentDispatch_apply ::") == options.generate_c_style_api_for_vtable);
         assert(contains(text, "vtable ::") == options.generate_vtable_helpers);
-        assert(!contains(text, "IndependentDispatch_slot_1 ::"));
+        assert(!contains(text, "IndependentDispatch_retained_position ::"));
         assert(write_entire_file(args[1], text));
         // Metadata's variadic slot still prints; only its automatic wrapper skips.
         slot := info.vtable_struct.declarations[0].type.type_of_function;
@@ -102,14 +103,15 @@ main :: () {
         push_context {
             context.logger = capture_error;
             B.print_struct_vtable(*skipped, record, info.*);
+            B.print_struct_vtable_wrappers(*skipped, record, info.*, .[]);
         }
 
         assert(!skipped.failed && errors == 1);
         skipped_text := builder_to_string(*skipped);
 
         defer free(skipped_text);
-        assert(contains(skipped_text, "slot_0") && contains(skipped_text, "slot_1"));
-        assert(!contains(skipped_text, "IndependentDispatch_slot_0 ::"));
+        assert(contains(skipped_text, "apply") && contains(skipped_text, "retained_position"));
+        assert(!contains(skipped_text, "IndependentDispatch_apply ::"));
         slot.flags = flags;
         options.generate_c_style_api_for_vtable = saved_wrappers;
     }

@@ -218,6 +218,21 @@ binding_generated_checks :: (builder: *String_Builder, records: [] *Struct) {
     }
 }
 
+// The slot wrappers of every printed record that has a vtable.
+binding_vtable_wrapper_section :: (builder: *String_Builder, records: [] *Struct, existing: [] *Declaration) {
+    for record: records {
+        if !record || !record.type || record.flags & (.IS_VTABLE | .IS_ANON_INLINE_TYPE) || record.decl_flags & .TEMPLATE || record.template_type_params.count > 0 continue;
+        if !record.virtual_functions.count && !record.parents.count continue;
+        if !looks_like_valid_identifier(record.output_name) continue;
+
+        info, _created := find_or_create_extra_info(record.type, cast(*Declaration) record);
+        if !info || info == *struct_extra_info_unknown || !info.vtable_struct continue;
+
+        print_struct_vtable_wrappers(builder, record, info.*, existing);
+        if builder.failed return;
+    }
+}
+
 binding_emit_canonical_jai :: (builder: *String_Builder, generator: *Generator, options: *Generate_Bindings_Options) {
     if options.will_print_bindings options.will_print_bindings();
 
@@ -280,9 +295,28 @@ binding_emit_canonical_jai :: (builder: *String_Builder, generator: *Generator, 
     if options.generate_library_declarations binding_generated_libraries(builder, generator, options);
     if options.generate_compile_time_struct_checks binding_generated_checks(builder, records);
 
-    if generator.pending_bitfields.count {
-        append(builder, "\n#scope_export\n");
+    wrappers: String_Builder;
 
+    defer free_buffers(*wrappers);
+    binding_vtable_wrapper_section(*wrappers, records, existing);
+
+    if wrappers.failed {
+        fail_type_emission(builder);
+        return;
+    }
+
+    has_wrappers := builder_string_length(*wrappers) > 0;
+
+    if has_wrappers || generator.pending_bitfields.count append(builder, "\n#scope_export\n");
+
+    if has_wrappers {
+        text := builder_to_string(*wrappers);
+
+        defer free(text);
+        append(builder, text);
+    }
+
+    if generator.pending_bitfields.count {
         accessor_names: [..] string;
 
         defer {

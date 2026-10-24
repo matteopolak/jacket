@@ -420,40 +420,10 @@ binding_copy_argument_view :: (source: [] *Declaration, destination: *[..] *Decl
 binding_vtable_helpers :: (builder: *String_Builder, record: *Struct, info: Struct_Extra_Info) -> bool {
     options := gp_current_options();
     if !options || !record || !record.type || !info.vtable_struct return false;
-    if !options.generate_c_style_api_for_vtable && !options.generate_vtable_helpers return true;
+    if !options.generate_vtable_helpers return true;
 
     pointer := info.vtable_pointer_declaration;
     if !pointer || !looks_like_valid_identifier(pointer.output_name) || !pointer.type return false;
-
-    if options.generate_c_style_api_for_vtable for slot: info.vtable_struct.declarations {
-        if !slot || !slot.type return false;
-
-        signature := slot.type.type_of_function;
-        if !signature continue; // Omitted slots retain storage, never a callable helper.
-
-        if signature.flags & .VARIADIC {
-            log_error("Bindings_Generator: variadic vtable slot wrapper is unsupported\n");
-            continue;
-        }
-
-        if !signature.arguments.count || !binding_argument_view_valid(signature.arguments) return false;
-
-        append_indentation(builder);
-        print_to_builder(builder, "%_% :: inline ", record.output_name, slot.output_name);
-        if !jai_model_function(builder, signature, cast(*Declaration) record, 0, 0) return false;
-
-        append(builder, " { ");
-        if !is_void_type(signature.return_type) append(builder, "return ");
-
-        print_to_builder(builder, "%.%.%(", signature.arguments[0].output_name, pointer.output_name, slot.output_name);
-
-        for argument, index: signature.arguments {
-            if index > 0 append(builder, ", ");
-            append(builder, argument.output_name);
-        }
-
-        append(builder, "); }\n");
-    }
 
     if options.generate_vtable_helpers {
         append_indentation(builder);
@@ -465,6 +435,114 @@ binding_vtable_helpers :: (builder: *String_Builder, record: *Struct, info: Stru
 
         print_to_builder(builder, " { return obj.%; }\n", pointer.output_name);
     }
+
+    return !builder.failed;
+}
+
+// A wrapper for every method of `record` and of its ancestors, named for the class that declares
+// the method and taking a pointer to `record`. A call through a base class's name therefore
+// accepts a derived pointer: `Base_method(derived)` and `Base_method(base)` are overloads of one
+// name. A name that another declaration already uses gets a numeric suffix.
+binding_vtable_wrappers :: (builder: *String_Builder, record: *Struct, info: Struct_Extra_Info, existing: [] *Declaration) -> bool {
+    options := gp_current_options();
+    if !options || !record || !record.type || !info.vtable_struct return false;
+    if !options.generate_c_style_api_for_vtable return true;
+
+    pointer := info.vtable_pointer_declaration;
+    if !pointer || !looks_like_valid_identifier(pointer.output_name) || !looks_like_valid_identifier(record.output_name) return false;
+
+    receiver := type_to_string(*(CType.{ type_of_struct = record }), null);
+
+    defer free(receiver);
+    if !receiver.count return false;
+
+    owner := record;
+    owner_info := info;
+    depth := 0;
+
+    while owner && owner_info.vtable_struct && depth < 256 {
+        depth += 1;
+
+        for owner_slot, index: owner_info.vtable_struct.declarations {
+            if !owner_slot || !owner_slot.type || !looks_like_valid_identifier(owner.output_name) continue;
+            if index >= info.vtable_struct.declarations.count || index >= owner_info.vtable.count return false;
+
+            // An inherited method is wrapped under the name of the ancestor that declares it.
+            if owner_info.vtable[index].parent != cast(*Declaration) owner continue;
+
+            slot := info.vtable_struct.declarations[index];
+            if !slot || !slot.type || !slot.type.type_of_function continue; // Omitted and destructor slots have no callable helper.
+
+            if !binding_vtable_wrapper(builder, record, receiver, pointer, slot, owner, owner_slot, existing) return false;
+        }
+
+        owner = owner_info.vtable_parent;
+
+        if !owner_info.vtable_parent_info break;
+
+        owner_info = owner_info.vtable_parent_info.*;
+    }
+
+    return !builder.failed;
+}
+
+binding_vtable_wrapper :: (builder: *String_Builder, record: *Struct, receiver: string, pointer: *Declaration, slot: *Declaration, owner: *Struct, owner_slot: *Declaration, existing: [] *Declaration) -> bool {
+    signature := slot.type.type_of_function;
+
+    if signature.flags & .VARIADIC {
+        log_error("Bindings_Generator: variadic vtable slot wrapper is unsupported\n");
+        return true;
+    }
+
+    if !signature.arguments.count || !binding_argument_view_valid(signature.arguments) return false;
+
+    method := owner_slot.output_name;
+    if method.count > 1 && method[0] == #char "_" && looks_like_valid_identifier(slice(method, 1, method.count - 1)) method = slice(method, 1, method.count - 1);
+
+    base := tprint("%_%", owner.output_name, method);
+    name := base;
+
+    for suffix: 1..existing.count + 1 {
+        taken := false;
+        for declaration: existing if declaration && declaration.output_name == name taken = true;
+        if !taken break;
+
+        name = tprint("%_%", base, suffix);
+    }
+
+    print_to_builder(builder, "% :: inline (this: *%", name, receiver);
+
+    for argument, index: signature.arguments {
+        if index == 0 continue;
+
+        print_to_builder(builder, ", %: ", argument.output_name);
+        if !jai_model_type(builder, argument.type, null, 0, 0) return false;
+    }
+
+    append(builder, ") -> ");
+    if !jai_model_type(builder, signature.return_type, null, 0, 0) return false;
+
+    append(builder, " { ");
+    if !is_void_type(signature.return_type) append(builder, "return ");
+
+    print_to_builder(builder, "this.%.%(", pointer.output_name, slot.output_name);
+
+    first := signature.arguments[0].type;
+
+    if first && first.pointer_to && first.pointer_to.type_of_struct == record append(builder, "this");
+    else {
+        append(builder, "cast(");
+        if !jai_model_type(builder, first, null, 0, 0) return false;
+        append(builder, ") this");
+    }
+
+    for argument, index: signature.arguments {
+        if index == 0 continue;
+
+        print_to_builder(builder, ", %", argument.output_name);
+    }
+
+    append(builder, "); }\n");
 
     return !builder.failed;
 }

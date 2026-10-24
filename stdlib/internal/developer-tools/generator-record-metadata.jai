@@ -17,6 +17,31 @@ gm_generated_member :: (session: *GM_Sessions.Session, record: *Struct, name: st
     return member;
 }
 
+// A slot is named for its method, with a numeric suffix when an earlier slot has the name.
+// Destructor slots and names that are not identifiers keep a positional name.
+gm_vtable_slot_name :: (function: *Function, index: int, table: *Struct) -> string {
+    positional := tprint("slot_%", index);
+    if function.type && function.type.type_of_function && function.type.type_of_function.flags & .DESTRUCTOR return positional;
+
+    base := ifx function.output_name.count then function.output_name else function.name;
+    if begins_with(base, "operator") base = replace_operator_name(base);
+
+    base = avoid_reserved_names(base);
+    if !looks_like_valid_identifier(base) return positional;
+
+    name := base;
+
+    for suffix: 1..table.declarations.count + 1 {
+        taken := false;
+        for member: table.declarations if member && member.output_name == name taken = true;
+        if !taken break;
+
+        name = tprint("%_%", base, suffix);
+    }
+
+    return name;
+}
+
 gm_metadata_byte_storage :: (bytes: s64) -> *CType {
     session := gm_current_session();
     generator := gm_active_generator();
@@ -368,7 +393,7 @@ gm_record_metadata :: (record: *Struct, depth := 0) -> *Struct_Extra_Info { // j
             type := gm_vtable_slot_type(function);
             if !type return null;
 
-            field := gm_generated_member(session, table, tprint("slot_%", index), type, index * pointer_size * 8);
+            field := gm_generated_member(session, table, gm_vtable_slot_name(function, index, table), type, index * pointer_size * 8);
             field.comment.text = GM_Sessions.copy_text(session, tprint("// C++ virtual: %", function.name));
 
             GM_Sessions.append_owned(session, *table.declarations, field);
