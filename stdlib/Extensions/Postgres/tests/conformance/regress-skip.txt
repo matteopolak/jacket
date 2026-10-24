@@ -1,0 +1,3 @@
+# Regression files the psql shim does not handle yet, one per line: `name # reason`.
+# tools/pg_conformance/run.py does not count their failures. Keep this list short and give
+# every entry a reason; run.py says when one passes again so it can be removed.
