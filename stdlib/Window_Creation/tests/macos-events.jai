@@ -32,6 +32,16 @@ main :: () {
     window := WC.create_window(320, 200, "Clean-room native event test", 40, 200);
 
     assert(window != null);
+
+    // Key status reaches the window asynchronously, as focus notifications. Take them before
+    // the key is posted: a focus change arriving in the key's frame releases the held key (a
+    // release without shift) ahead of the assertions on the press.
+    for 1..2000 {
+        I.update_window_events();
+        if I.input_application_has_focus && result_message(window, "isKeyWindow", s8) != 0 break;
+        sleep_milliseconds(1);
+    }
+
     I.update_window_events();
     I.set_custom_cursor_handling(true);
     assert(result_message(window, "areCursorRectsEnabled", s8) == 0);
