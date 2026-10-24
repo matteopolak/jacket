@@ -2,7 +2,7 @@
 // client (docs/postgres/benchmark.md). It loads its own tables, so it needs a database it may
 // drop `pgbench_*` tables in.
 //
-//     DATABASE_URL=postgres://... jaic tpcb.jai -exe tpcb && ./tpcb -clients 8 -seconds 10 -scale 1
+//     DATABASE_URL=postgres://... jaic tpcb.jai -exe tpcb && ./tpcb -clients 8 -seconds 10 -scale 1 [-prepared]
 
 #import "Basic";
 #import "Extensions/Environment";
@@ -14,6 +14,7 @@ Settings :: struct {
     seconds := 10;
     scale := 1;
     load := true; // false: reuse the tables of an earlier run
+    prepared := false; // named statements from the connection's cache, as pgbench -M prepared
 }
 
 settings: Settings;
@@ -36,6 +37,11 @@ main :: () {
 
         if flag == "-no-load" {
             settings.load = false;
+            continue;
+        }
+
+        if flag == "-prepared" {
+            settings.prepared = true;
             continue;
         }
 
@@ -89,7 +95,7 @@ main :: () {
 }
 
 usage :: () {
-    fatal("usage: tpcb [-clients N] [-seconds N] [-scale N] [-no-load]");
+    fatal("usage: tpcb [-clients N] [-seconds N] [-scale N] [-no-load] [-prepared]");
 }
 
 number :: (text: string) -> s64 {
@@ -184,7 +190,13 @@ run_transaction :: (aid: s64, bid: s64, tid: s64, delta: s64) -> Pg.Pg_Error {
 
     for statements {
         result: Pg.Result;
-        result, error = Pg.query_binary(c, it.sql, ..it.args);
+
+        if settings.prepared {
+            result, error = Pg.query_cached(c, it.sql, ..it.args, binary = true);
+        } else {
+            result, error = Pg.query_binary(c, it.sql, ..it.args);
+        }
+
         Pg.free_result(*result);
 
         if error.kind != .NONE {
