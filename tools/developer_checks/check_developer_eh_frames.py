@@ -11,7 +11,9 @@ from dev_common import JAIFMT, ROOT, sha256_file
 
 def main():
     prefix = build_developer_bindings.llvm_prefix()
-    linker = os.environ.get("DEVELOPER_TOOLS_LD_LLD") or shutil.which("ld.lld")
+    linker = (os.environ.get("DEVELOPER_TOOLS_LD_LLD")
+              or shutil.which("ld.lld", path=str(prefix / "bin"))
+              or shutil.which("ld.lld"))
     if not linker:
         raise RuntimeError("Relocated eh_frame fixtures require official ld.lld (DEVELOPER_TOOLS_LD_LLD)")
     declaration = "Native_Eh_Frame :: struct { filename: string; section_address: u64; fde_offset: s64; fde_end: s64; fde_length: u64; cie_offset: u64; pc_begin: u64; pc_range: u64; instruction_types: string; augmentation: string; encoding: u8; }"
