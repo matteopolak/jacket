@@ -31,11 +31,13 @@ def dependencies(binary, sdk_library):
         paths = re.findall(r"=>\s+(\S+)", output)
     selected = [path for path in paths if "libclang" in Path(path).name]
     if platform.system() == "Darwin":
-        valid = len(selected) == 1 and selected[0] in {"@rpath/libclang.dylib", "@loader_path/libclang.dylib"}
+        # The spelling follows the SDK: `libclang.dylib`, or a versioned name such as
+        # `libclang.13.dylib` from a conda SDK.
+        valid = len(selected) == 1 and re.fullmatch(r"@(rpath|loader_path)/libclang(\.[0-9.]+)?\.dylib", selected[0])
     else:
         valid = selected and all(Path(path).resolve() == sdk_library.resolve() for path in selected)
     if not valid:
-        raise RuntimeError("Production executable does not select the configured/bundled libclang runtime")
+        raise RuntimeError(f"Production executable does not select the configured/bundled libclang runtime: {selected}")
     return selected
 
 
@@ -70,7 +72,9 @@ def main():
         library = native_directory / library_name
         if host == "Darwin":
             manifest = json.loads((native_directory / "runtime-sdk.json").read_text())
-            if library.is_symlink() or manifest[library_name]["sdk_sha256"] != sha256_file(sdk_library):
+            sdk_digest = sha256_file(sdk_library)
+            bundled = [entry for name, entry in manifest.items() if name.startswith("libclang")]
+            if library.is_symlink() or not any(entry["sdk_sha256"] == sdk_digest for entry in bundled):
                 raise RuntimeError("Production bundled libclang did not originate from the configured SDK")
             evidence["bundled_runtime"] = manifest
         elif library.readlink() != sdk_library:
