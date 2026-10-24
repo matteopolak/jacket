@@ -4,6 +4,7 @@
 #import "File";
 POSIX :: #import "POSIX";
 Pg :: #import "Extensions/Postgres";
+Base64 :: #import "Base64";
 
 chmod_private :: (path: string) {
     POSIX.chmod(temp_c_string(path), 0x180); // 0600
@@ -18,6 +19,7 @@ main :: () {
     test_conninfo();
     test_require_auth();
     test_saslprep();
+    test_scram();
     test_passfile();
     test_ssl_options();
     test_sqlstates();
@@ -199,6 +201,46 @@ test_saslprep :: () {
 
     assert(begins_with(secret, "SCRAM-SHA-256$1024:"));
     assert(Pg.md5_secret("pass", "user").count == 35);
+}
+
+// The SCRAM-SHA-256 example of RFC 7677 section 3, and the cache of SaltedPassword.
+test_scram :: () {
+    first_bare := "n=user,r=rOprNGfwEbeRWgbNEkqO";
+    nonce := "rOprNGfwEbeRWgbNEkqO";
+    server_nonce := "rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0";
+    server_first := "r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,s=W22ZaJ0SNY7soEsUEjb6gQ==,i=4096";
+    salt, decoded := Base64.base64_decode("W22ZaJ0SNY7soEsUEjb6gQ==");
+
+    assert(decoded);
+    assert(begins_with(server_nonce, nonce));
+
+    runs := Pg.scram_pbkdf2_runs();
+    final, signature := Pg.scram_client_proof("pencil", first_bare, "n,,", server_first, server_nonce, salt, 4096);
+
+    assert(final == "c=biws,r=rOprNGfwEbeRWgbNEkqO%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0,p=dHzbZapWIk4jUhN+Ute9ytag9zjfMHgsqmmiz7AndVQ=", "client-final-message %", final);
+    assert(Base64.base64_encode(string.{ 32, signature.data }) == "6rriTRBi23WpRR/wtup+mMhUZUn/dB5nLTJRsjl95G4=");
+    assert(Pg.scram_pbkdf2_runs() == runs + 1);
+
+    // The same password, salt and iterations again: no second PBKDF2, and the same answer.
+    again, again_signature := Pg.scram_client_proof("pencil", first_bare, "n,,", server_first, server_nonce, salt, 4096);
+
+    assert(again == final && memcmp(again_signature.data, signature.data, 32) == 0);
+    assert(Pg.scram_pbkdf2_runs() == runs + 1);
+
+    // Another password, salt or iteration count is another entry.
+    _, wrong := Pg.scram_client_proof("pencil2", first_bare, "n,,", server_first, server_nonce, salt, 4096);
+
+    assert(memcmp(wrong.data, signature.data, 32) != 0 && Pg.scram_pbkdf2_runs() == runs + 2);
+    Pg.scram_client_proof("pencil", first_bare, "n,,", server_first, server_nonce, salt, 4097);
+    assert(Pg.scram_pbkdf2_runs() == runs + 3);
+
+    // The cache is bounded: many other entries push the first one out.
+    for 1..32 Pg.scram_client_proof("pencil", first_bare, "n,,", server_first, server_nonce, salt, 10 + it);
+
+    before := Pg.scram_pbkdf2_runs();
+
+    Pg.scram_client_proof("pencil", first_bare, "n,,", server_first, server_nonce, salt, 4096);
+    assert(Pg.scram_pbkdf2_runs() == before + 1);
 }
 
 test_passfile :: () {

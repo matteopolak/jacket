@@ -146,6 +146,13 @@ test_authentication :: () {
 
     db = connect_ok(config_for("jai_scram", "scram secret"));
     assert(scalar(db, "select current_user", string) == "jai_scram");
+
+    // A second login with the same password and salt does not run PBKDF2 again.
+    runs := Pg.scram_pbkdf2_runs();
+    again := connect_ok(config_for("jai_scram", "scram secret"));
+
+    assert(Pg.scram_pbkdf2_runs() == runs, "a second SCRAM login ran PBKDF2 again");
+    Pg.close(again);
     assert(!db.channel_binding_used);
     Pg.close(db);
 

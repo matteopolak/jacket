@@ -63,7 +63,11 @@ types, `Numeric`), `error.jai` (`Pg_Error`, `Sqlstate`), `pipeline.jai` (pipelin
    so a server that does not know the password cannot fake a login. `-PLUS` hashes the server
    certificate with its signature hash (`Tls.peer_certificate_signature_hash`), with MD5 and
    SHA-1 raised to SHA-256 as RFC 5929 says. A cleartext password is sent only over TLS, or
-   with `allow_cleartext_password`.
+   with `allow_cleartext_password`. The PBKDF2 step of SCRAM is cached for the process (16
+   entries, keyed by a hash of password, salt and iteration count, behind a spin lock), so
+   reconnecting a pool does not repeat it; `scram_client_proof` is the pure part of the exchange
+   and `scram_pbkdf2_runs` counts the real runs, both for tests (the RFC 7677 example is checked
+   in `tests/offline.jai`).
 
 **Queries.**
 
