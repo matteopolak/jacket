@@ -119,17 +119,6 @@ pipeline_enter :: (c: *Connection) -> *Pipeline, Pg_Error {
 pipeline_exit :: (p: *Pipeline) -> Pg_Error {
     if !p.active return .{};
 
-    // Sync points that `take` queued and nothing else is left: read them here. A refused exit
-    // must leave every result in place, so nothing is read while anything else is queued.
-    only_syncs := p.early.count == 0;
-    for p.head..p.steps.count - 1 if p.steps[it] != .SYNC only_syncs = false;
-
-    while only_syncs && p.head < p.steps.count {
-        item, error := pipeline_next_result(p);
-        free_pipeline_result(*item);
-        if error.kind != .NONE return error;
-    }
-
     if p.head < p.steps.count || p.early.count return make_error(.USAGE, "cannot exit pipeline mode with uncollected results");
     if p.connection.out.count return make_error(.USAGE, "cannot exit pipeline mode with unsent statements: flush or sync first");
 
@@ -445,6 +434,20 @@ add_step :: (p: *Pipeline, step: Pipeline_Step) {
     p.queued += 1;
 }
 
+// Once every queued statement's result is read and taken, reads the sync points left (the ones
+// `take` queued among them), so the pipeline can exit. With results still unread it reads nothing.
+read_trailing_syncs :: (p: *Pipeline) -> Pg_Error {
+    if p.read < p.queued || p.early.count return .{};
+
+    while p.head < p.steps.count && p.steps[p.head] == .SYNC {
+        item, error := pipeline_next_result(p);
+        free_pipeline_result(*item);
+        if error.kind != .NONE return error;
+    }
+
+    return .{};
+}
+
 Early_Result :: struct {
     serial: s64;
     item: Pipeline_Result;
@@ -452,11 +455,23 @@ Early_Result :: struct {
 
 // The result of queued statement `serial`, as a RESULT: errors and skips become the error.
 take_result :: (p: *Pipeline, serial: s64) -> Pipeline_Result, Pg_Error {
-    for p.early {
-        if it.serial != serial continue;
+    found := -1;
 
-        item := it.item;
-        array_ordered_remove_by_index(*p.early, it_index);
+    for p.early if it.serial == serial {
+        found = it_index;
+        break;
+    }
+
+    if found >= 0 {
+        item := p.early[found].item;
+
+        array_ordered_remove_by_index(*p.early, found);
+
+        error := read_trailing_syncs(p);
+        if error.kind != .NONE {
+            free_pipeline_result(*item);
+            return .{}, error;
+        }
 
         return result_or_error(item);
     }
@@ -484,7 +499,15 @@ take_result :: (p: *Pipeline, serial: s64) -> Pipeline_Result, Pg_Error {
             return .{}, make_error(.USAGE, "a typed statement cannot be read in chunked rows mode");
         }
 
-        if p.read - 1 == serial return result_or_error(item);
+        if p.read - 1 == serial {
+            error = read_trailing_syncs(p);
+            if error.kind != .NONE {
+                free_pipeline_result(*item);
+                return .{}, error;
+            }
+
+            return result_or_error(item);
+        }
 
         array_add(*p.early, .{ serial = p.read - 1, item = item });
     }

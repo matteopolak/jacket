@@ -1302,6 +1302,8 @@ test_pipeline :: () {
     Pg.free_pipeline_result(*item);
     item = next_item(p, .RESULT);
     Pg.free_pipeline_result(*item);
+    item = next_item(p, .SYNC);
+    Pg.free_pipeline_result(*item);
     assert_ok(Pg.pipeline_exit(p), "exit");
 
     // Prepared statements outlive the transaction; describe and close them without a pipeline.
