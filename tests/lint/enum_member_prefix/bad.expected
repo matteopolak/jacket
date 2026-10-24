@@ -1,0 +1,36 @@
+warning[enum_member_prefix]: every member of `Color` starts with `Color`
+  --> tests/lint/enum_member_prefix/bad.jai:3:1
+   |
+ 3 | Color :: enum {
+   | ^^^^^
+   |
+   = help: members are used as `Color.NAME`, so the prefix repeats the enum's name: drop it
+   = note: `enum_member_prefix` is `warn` by default
+
+warning[enum_member_prefix]: every member of `Token_Kind` starts with `Token_Kind`
+  --> tests/lint/enum_member_prefix/bad.jai:9:1
+   |
+ 9 | Token_Kind :: enum u8 {
+   | ^^^^^^^^^^
+   |
+   = help: members are used as `Token_Kind.NAME`, so the prefix repeats the enum's name: drop it
+   = note: `enum_member_prefix` is `warn` by default
+
+warning[enum_member_prefix]: every member of `ShapeKind` starts with `ShapeKind`
+  --> tests/lint/enum_member_prefix/bad.jai:14:1
+   |
+14 | ShapeKind :: enum {
+   | ^^^^^^^^^
+   |
+   = help: members are used as `ShapeKind.NAME`, so the prefix repeats the enum's name: drop it
+   = note: `enum_member_prefix` is `warn` by default
+
+warning[enum_member_prefix]: every member of `Mode` starts with `Mode`
+  --> tests/lint/enum_member_prefix/bad.jai:20:5
+   |
+20 |     Mode :: enum {
+   |     ^^^^
+   |
+   = help: members are used as `Mode.NAME`, so the prefix repeats the enum's name: drop it
+   = note: `enum_member_prefix` is `warn` by default
+

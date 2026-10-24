@@ -24,6 +24,7 @@ mod double_free;
 mod dropped_result;
 mod duplicate_condition;
 mod element_count_as_bytes;
+mod enum_member_prefix;
 mod erasing_op;
 mod excessive_nesting;
 mod float_equality;
@@ -195,6 +196,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Correctness,
         summary: "`memcpy(d, xs.data, xs.count)` with elements wider than a byte",
         check: element_count_as_bytes::check,
+    },
+    RuleInfo {
+        name: "enum_member_prefix",
+        category: Category::Style,
+        summary: "every member of an enum starts with the enum's name",
+        check: enum_member_prefix::check,
     },
     RuleInfo {
         name: "erasing_op",

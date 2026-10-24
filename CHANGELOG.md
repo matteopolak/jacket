@@ -23,6 +23,7 @@
 - `jailint` reports hex literals with letters in both cases, such as `0xDeadbeef` (`mixed_case_hex_literals`).
 - `jailint` has an opt-in `unreadable_literal` lint for long numbers without `_` separators, with a fix that adds them.
 - `jailint` reports a stray `;` that ends nothing, such as `x = 1;;` or `if c { ... };` (`unnecessary_semicolon`).
+- `jailint` reports an enum whose members all repeat the enum's name as a prefix (`enum_member_prefix`).
 
 ### Improved
 

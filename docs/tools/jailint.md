@@ -102,6 +102,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `dropped_result` | suspicious | warn | editor | `n := to_integer(s);`: a call that keeps fewer values than it returns and whose next value is a `bool`, usually "did it work" |
 | `duplicate_condition` | suspicious | warn | editor | an `else if` that repeats an earlier condition and can never run |
 | `element_count_as_bytes` | correctness | deny | yes | `memcpy(d, xs.data, xs.count)` with `xs: [] s32`: an element count passed where a `@TakesByteCount` procedure wants bytes |
+| `enum_member_prefix` | style | warn | no | `Color :: enum { COLOR_RED; COLOR_GREEN; }`: members that repeat the enum's name, which `Color.RED` already says |
 | `erasing_op` | suspicious | warn | editor | `x * 0`, `x & 0`, `x % 1`: always `0` |
 | `excessive_nesting` | pedantic | allow | no | blocks nested deeper than `max_nesting` (default 6) |
 | `float_equality` | pedantic | allow | no | `==` or `!=` between two computed floats |
@@ -187,6 +188,8 @@ A declaration or assignment whose right side is one call that returns more value
 Conditions must be side-effect-free; a call in between restarts the comparison. A repeated `case` value is not checked here: the compiler rejects it. The editor offers to remove the dead `else if` branch (not when a comment sits in it).
 ### element_count_as_bytes
 Only when `xs.data` is another argument of the same call, so the count clearly describes that array. Elements of one byte (`u8`, `s8`, `bool`) and strings are left alone. The fix appends `* size_of(Elem)`; it is not applied by `--fix`, since the element type may need its module's name.
+### enum_member_prefix
+Two or more members, all beginning with the enum's name once case and `_` are ignored (`Token_Kind` and `TOKEN_KIND_IDENT`) and each with something left after it. Enums that add members with `#insert` or `using`, and generated files, are skipped. No fix: renaming members changes every use of them.
 ### erasing_op
 Left alone inside an index or array literal, where a `0 *` lines up with other rows. When the other operand is side-effect-free the editor offers to write the `0`.
 ### excessive_nesting

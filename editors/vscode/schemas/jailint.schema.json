@@ -258,6 +258,16 @@
           "default": "deny",
           "markdownDescription": "`memcpy(d, xs.data, xs.count)` with elements wider than a byte (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#element_count_as_bytes)"
         },
+        "enum_member_prefix": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "warn",
+          "markdownDescription": "every member of an enum starts with the enum's name (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#enum_member_prefix)"
+        },
         "erasing_op": {
           "type": "string",
           "enum": [
