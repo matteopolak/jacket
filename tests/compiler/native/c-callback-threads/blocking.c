@@ -59,10 +59,12 @@ EXPORT int finish_caller(void) {
 
 EXPORT int call_back(Callback cb, int x) { return cb(x); }
 
-// Returns once `*flag` is nonzero: a long call that only another thread can end.
-EXPORT int wait_for_flag(volatile int *flag) {
+// Returns once `*flag` is nonzero: a long call that only another thread can end. `*waiting` is
+// set once the call has found `*flag` still zero, so the other thread knows it is waiting.
+EXPORT int wait_for_flag(volatile int *flag, volatile int *waiting) {
     int naps = 0;
     while (!*flag) {
+        *waiting = 1;
         nap();
         naps++;
     }

@@ -11,7 +11,7 @@ Callback :: #type (x: s32) -> s32 #c_call;
 start_caller :: (cb: Callback, x: s32) #foreign blocking;
 finish_caller :: () -> s32 #foreign blocking;
 call_back :: (cb: Callback, x: s32) -> s32 #foreign blocking;
-wait_for_flag :: (flag: *s32) -> s32 #foreign blocking;
+wait_for_flag :: (flag: *s32, waiting: *s32) -> s32 #foreign blocking;
 
 mutex: Mutex;
 condition: Condition_Variable;
@@ -22,6 +22,7 @@ worker: Thread;
 worker_result: s32;
 
 flag: s32;
+waiting: s32;
 
 // Waits for `mutex`, which the main thread holds until it has set `value`.
 read_locked :: (x: s32) -> s32 #c_call {
@@ -78,7 +79,7 @@ nesting_worker :: (thread: *Thread) -> s64 {
 
 // Stays in C until the main thread, running Jai code meanwhile, sets `flag`.
 flag_waiter :: (thread: *Thread) -> s64 {
-    worker_result = wait_for_flag(*flag);
+    worker_result = wait_for_flag(*flag, *waiting);
     return 0;
 }
 
@@ -121,7 +122,10 @@ main :: () {
 
     thread_init(*worker, flag_waiter);
     thread_start(*worker);
-    sleep_milliseconds(50);
+
+    // The thread must be inside the call before the flag is set, however long it takes to start.
+    while !waiting sleep_milliseconds(1);
+
     total := 0;
     for 1..100000 total += it;
 
