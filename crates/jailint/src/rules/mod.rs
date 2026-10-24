@@ -47,6 +47,7 @@ mod manual_clamp;
 mod manual_index_counter;
 mod min_max;
 mod misrefactored_assign_op;
+mod mixed_case_hex_literals;
 mod modified_range_bound;
 mod needless_bool;
 mod needless_continue;
@@ -324,6 +325,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Correctness,
         summary: "`a += a + b`, an update that applies the operator to `a` twice",
         check: misrefactored_assign_op::check,
+    },
+    RuleInfo {
+        name: "mixed_case_hex_literals",
+        category: Category::Style,
+        summary: "a hex literal with both upper and lower case digits (`0xDeadbeef`)",
+        check: mixed_case_hex_literals::check,
     },
     RuleInfo {
         name: "modified_range_bound",

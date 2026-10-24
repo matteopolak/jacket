@@ -478,6 +478,16 @@
           "default": "deny",
           "markdownDescription": "`a += a + b`, an update that applies the operator to `a` twice (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#misrefactored_assign_op)"
         },
+        "mixed_case_hex_literals": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "warn",
+          "markdownDescription": "a hex literal with both upper and lower case digits (`0xDeadbeef`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#mixed_case_hex_literals)"
+        },
         "modified_range_bound": {
           "type": "string",
           "enum": [

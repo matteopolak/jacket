@@ -194,6 +194,13 @@ impl<'a> Cx<'a> {
                 .all(|(x, y)| self.src(x.span) == self.src(y.span))
     }
 
+    /// The byte offset lies in the body of a macro (an `#expand` procedure, or one nested in it).
+    pub fn in_macro(&self, at: usize) -> bool {
+        self.procs.iter().any(|p| {
+            p.is_macro && (p.body.span.start as usize) <= at && at < p.body.span.end as usize
+        })
+    }
+
     /// A comment overlaps the bytes `start..end`.
     pub fn has_comment_between(&self, start: usize, end: usize) -> bool {
         let first = self

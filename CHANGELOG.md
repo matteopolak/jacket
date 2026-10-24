@@ -20,6 +20,7 @@
 - `jailint` reports a `continue` that is the last thing a loop does (`needless_continue`).
 - `jailint` has an opt-in `bool_to_int_with_if` lint for `ifx c then 1 else 0`, which `cast(int) c` writes without a branch.
 - `jailint` has an opt-in `if_not_else` lint for an `if` or `ifx` with a negated condition and an `else`.
+- `jailint` reports hex literals with letters in both cases, such as `0xDeadbeef` (`mixed_case_hex_literals`).
 
 ### Improved
 

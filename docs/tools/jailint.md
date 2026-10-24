@@ -124,6 +124,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `manual_index_counter` | complexity | warn | yes | a counter kept next to a `for` loop that always equals `it_index` |
 | `min_max` | correctness | deny | editor | `min(0, max(100, x))`: a clamp with swapped bounds |
 | `misrefactored_assign_op` | correctness | deny | editor | `total += total + x;`: a compound assignment whose right side repeats the target and the operator, which was probably `total = total + x;` rewritten halfway |
+| `mixed_case_hex_literals` | style | warn | editor | `0xDeadbeef`, `0xFFfF`: a hex literal whose letters are in both cases |
 | `modified_range_bound` | suspicious | warn | no | `for 0..n-1 { ...; n -= 1; }`: the range was fixed before the first iteration, so the change does not reach the loop |
 | `needless_bool` | complexity | warn | yes | `ifx c then true else false`, `if c return true; else return false;` |
 | `needless_continue` | style | warn | yes | `for xs { work(it); continue; }`, `if c { work(); continue; }` ending a loop: a `continue` the loop would have done anyway |
@@ -240,6 +241,8 @@ Numbers with constant bounds, the lower not above the upper (a swapped pair is `
 Literal bounds only, with `@ReturnsSmaller`/`@ReturnsLarger` procedures (the library's `min`/`max`). Use `clamp`. The editor offers `clamp(value, lo, hi)` with the two bounds in order.
 ### misrefactored_assign_op
 The same operator on both sides, a side-effect-free target of a number type spelled the same in both places (`a op= a op b`), and for `+ * & | ^` on integers also `a op= b op a`. The editor offers `a op= b`; `--fix` leaves it, since the other reading (`a = a op b`) is as likely to be the one meant.
+### mixed_case_hex_literals
+Read from the tokens, so it needs no types; literals in macros and generated files are skipped. The editor offers the literal in the case most of its letters use (lower on a tie); which case to use is a matter of taste, so `--fix` leaves it.
 ### modified_range_bound
 Only locals named directly in a range end (`n` in `0..n-1`); `xs.count` bounds are left alone. Quiet when a `break` or `return` follows the assignment, or the statement holding it, in the same block (`n = it; break;` records a result).
 ### needless_bool
