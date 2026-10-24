@@ -1,6 +1,6 @@
 //! The file system the compiler reads sources through, and finding a module on it.
 use crate::paths::normalize;
-use crate::sema::{HashMap, HashSet, PathBuf, Rc, ast};
+use crate::sema::{HashMap, PathBuf, Rc, ast};
 use std::path::Path;
 
 /// Source access. Native builds read the filesystem; the browser supplies a
@@ -79,18 +79,36 @@ impl FileSystem for NativeFs {
 #[derive(Default)]
 pub struct VirtualFs {
     files: HashMap<PathBuf, Rc<[u8]>>,
-    /// Every directory holding a file, however deep: `is_dir` is asked for each path the
-    /// compiler canonicalizes, and a scan of `files` for each is quadratic in the library size.
-    dirs: HashSet<PathBuf>,
+    /// Every directory holding a file, however deep, with the names directly inside it (and
+    /// whether each holds more): `is_dir` is asked for each path the compiler canonicalizes and
+    /// `list_dir` for each module folder, and a scan of `files` for each is quadratic in the
+    /// library size.
+    dirs: HashMap<PathBuf, std::collections::BTreeMap<String, bool>>,
 }
 
 impl VirtualFs {
     pub fn insert(&mut self, path: impl Into<PathBuf>, bytes: impl Into<Rc<[u8]>>) {
         let path = normalize(&path.into());
-        for dir in path.ancestors().skip(1) {
-            if !self.dirs.insert(dir.to_path_buf()) {
-                break;
+        let parts: Vec<_> = path.components().collect();
+        let mut dir = PathBuf::new();
+        for (i, part) in parts.iter().enumerate() {
+            if matches!(
+                part,
+                std::path::Component::RootDir | std::path::Component::Prefix(_)
+            ) {
+                dir.push(part);
+                continue;
             }
+            let name = part.as_os_str().to_string_lossy().into_owned();
+            let nested = i + 1 < parts.len();
+            let entry = self
+                .dirs
+                .entry(dir.clone())
+                .or_default()
+                .entry(name)
+                .or_insert(false);
+            *entry |= nested;
+            dir.push(part);
         }
         self.files.insert(path, bytes.into());
     }
@@ -111,27 +129,14 @@ impl FileSystem for VirtualFs {
     }
 
     fn is_dir(&self, path: &Path) -> bool {
-        self.dirs.contains(&normalize(path))
+        self.dirs.contains_key(&normalize(path))
     }
 
     fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
-        let p = normalize(path);
-        let mut out: std::collections::BTreeMap<String, bool> =
-            std::collections::BTreeMap::default();
-        for key in self.files.keys() {
-            let Ok(rest) = key.strip_prefix(&p) else {
-                continue;
-            };
-            let mut parts = rest.components();
-            let Some(first) = parts.next() else {
-                continue;
-            };
-            let nested = parts.next().is_some();
-            let name = first.as_os_str().to_string_lossy().into_owned();
-            let entry = out.entry(name).or_insert(false);
-            *entry |= nested;
-        }
-        out.into_iter().collect()
+        self.dirs
+            .get(&normalize(path))
+            .map(|names| names.iter().map(|(n, d)| (n.clone(), *d)).collect())
+            .unwrap_or_default()
     }
 }
 
@@ -219,4 +224,38 @@ pub(super) fn modules_in(fs: &dyn FileSystem, dir: &Path) -> Vec<String> {
             }
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn virtual_listing_names_files_and_folders_directly_inside() {
+        let mut fs = VirtualFs::default();
+        fs.insert("/lib/a.jai", b"".to_vec());
+        fs.insert("/lib/b/module.jai", b"".to_vec());
+        fs.insert("/lib/b/deep/c.jai", b"".to_vec());
+        fs.insert("/lib/b.jai", b"".to_vec());
+        fs.insert("/other/x.jai", b"".to_vec());
+        assert_eq!(
+            fs.list_dir(Path::new("/lib")),
+            [
+                ("a.jai".into(), false),
+                ("b".into(), true),
+                ("b.jai".into(), false)
+            ]
+        );
+        assert_eq!(
+            fs.list_dir(Path::new("/lib/b/../b/")),
+            [("deep".into(), true), ("module.jai".into(), false)]
+        );
+        assert_eq!(
+            fs.list_dir(Path::new("/")),
+            [("lib".into(), true), ("other".into(), true)]
+        );
+        assert!(fs.list_dir(Path::new("/lib/a.jai")).is_empty());
+        assert!(fs.is_dir(Path::new("/lib/b/deep")));
+        assert!(!fs.is_dir(Path::new("/lib/a.jai")));
+    }
 }
