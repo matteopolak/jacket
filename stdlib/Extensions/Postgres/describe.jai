@@ -614,7 +614,7 @@ load_attributes :: (db: *Connection, columns: [] Column) -> Table_Attributes, Pg
 
     if !count return attributes, .{};
 
-    query := tprint("select a.attrelid::int8, a.attnum::int4, a.attnotnull::text, n.nspname || '.' || c.relname || '.' || a.attname from pg_attribute a join pg_class c on c.oid = a.attrelid join pg_namespace n on n.oid = c.relnamespace where (a.attrelid, a.attnum) in (%)", builder_to_string(*builder));
+    query := tprint("select a.attrelid::int8, a.attnum::int4, a.attnotnull::text, n.nspname || '.' || c.relname || '.' || a.attname from pg_attribute a join pg_class c on c.oid = a.attrelid join pg_namespace n on n.oid = c.relnamespace where (a.attrelid, a.attnum) in (%)", builder_to_string(*builder,, temp));
     result, error := query_dynamic(db, query);
 
     if error.kind != .NONE return attributes, error;

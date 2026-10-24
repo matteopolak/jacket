@@ -693,7 +693,7 @@ managed_describe_running :: (server: *Managed_Server) -> bool {
     server.port = cast(u16) port;
 
     #if OS != .WINDOWS {
-        server.socket_dir = sprint("%", trim(lines[PID_LINE_SOCKET]));
+        server.socket_dir = copy_string(trim(lines[PID_LINE_SOCKET]));
     }
 
     managed_fill_config(server);

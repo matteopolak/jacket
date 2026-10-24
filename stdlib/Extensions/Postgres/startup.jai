@@ -267,7 +267,7 @@ negotiate_tls :: (c: *Connection, config: Config) -> Pg_Error {
             return "SSL error: certificate verify failed";
         }
 
-        if error.alert > 0 return tprint("SSL error: % alert %", ifx is_sslv3_alert(error.alert) then "ssl/tls" else "tlsv1", replace(Tls.alert_name(error.alert), "_", " "));
+        if error.alert > 0 return tprint("SSL error: % alert %", ifx is_sslv3_alert(error.alert) then "ssl/tls" else "tlsv1", replace(Tls.alert_name(error.alert), "_", " ",, temp));
 
         return tprint("SSL error: %", Tls.error_text(error));
     }

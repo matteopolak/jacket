@@ -2305,9 +2305,9 @@ orm_copy_code :: (T: Type) -> string {
         return "";
     }
 
-    statement := tprint("copy % (%) from stdin (format binary)", table, builder_to_string(*names));
+    statement := tprint("copy % (%) from stdin (format binary)", table, builder_to_string(*names,, temp));
 
-    return tprint("stored, error := copy_in(db, %, values, .[%]);\nreturn stored, error;\n", jai_string(statement), builder_to_string(*members));
+    return tprint("stored, error := copy_in(db, %, values, .[%]);\nreturn stored, error;\n", jai_string(statement), builder_to_string(*members,, temp));
 }
 
 orm_insert_code :: (T: Type) -> string {
@@ -2352,12 +2352,12 @@ orm_insert_code :: (T: Type) -> string {
         inserted += 1;
     }
 
-    statement := ifx inserted then tprint("insert into % (%) values (%) returning %", table, builder_to_string(*names), builder_to_string(*holes), builder_to_string(*all)) else tprint("insert into % default values returning %", table, builder_to_string(*all));
+    statement := ifx inserted then tprint("insert into % (%) values (%) returning %", table, builder_to_string(*names,, temp), builder_to_string(*holes,, temp), builder_to_string(*all,, temp)) else tprint("insert into % default values returning %", table, builder_to_string(*all,, temp));
 
     builder: String_Builder;
     builder.allocator = temp;
 
-    print_to_builder(*builder, "rows, error := query_as(T, db, %1%2);\n", jai_string(statement), builder_to_string(*values));
+    print_to_builder(*builder, "rows, error := query_as(T, db, %1%2);\n", jai_string(statement), builder_to_string(*values,, temp));
     append(*builder, "row: T;\n");
     append(*builder, "if error.kind != .NONE return row, error;\n");
     append(*builder, "detached := Rows(T).{ result = detach_to_temp(*rows.result), map = rows.map };\n");
