@@ -66,6 +66,9 @@ connect :: (config: Config) -> *Connection, Pg_Error {
     }
 
     c := New(Connection);
+    if config.on_notice c.on_notice = config.on_notice;
+
+    c.user_data = config.user_data;
     error: Pg_Error;
 
     Io.with_deadline(config.connect_timeout, #code {

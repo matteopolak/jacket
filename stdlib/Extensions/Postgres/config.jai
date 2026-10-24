@@ -27,6 +27,14 @@ Config :: struct {
     // `DateStyle`, `IntervalStyle`), matched by name without regard to case. Text-format dates,
     // times and intervals only decode with DateStyle ISO and IntervalStyle postgres.
     parameters: [] Startup_Parameter;
+    // Send DateStyle ISO and IntervalStyle postgres. false leaves both to the server's settings
+    // (as psql does); text-format dates, times and intervals may then fail to decode.
+    send_styles := true;
+
+    // The connection's `on_notice` and `user_data` from the start, so notices sent while logging
+    // in (a login event trigger's, say) reach them too. Null keeps the default, which logs.
+    on_notice: Notice_Proc;
+    user_data: *void;
 
     ssl_mode := Ssl_Mode.PREFER;
     // Start TLS at once, with ALPN `postgresql`, instead of asking first (PostgreSQL 17 and

@@ -62,9 +62,13 @@ types, `Numeric`), `error.jai` (`Pg_Error`, `Sqlstate`).
 - `run_script(db, sql, *hooks)` is the same protocol with every statement's outcome reported to
   `Script_Hooks`: `on_result` gets each statement's `Result` (rows, `command` tag, `returns_rows`)
   in order, `copy_in` feeds `COPY ... FROM STDIN` (or fails it with a message), and `copy_out`
-  receives `COPY ... TO STDOUT` data. The returned error is the one that stopped the script, after
-  the results before it were reported. Embed the hooks with `#as using` to carry your own state.
+  receives `COPY ... TO STDOUT` data. `on_copy` runs when a COPY starts, before any data moves
+  (`Copy_Info.incoming` tells the two directions apart). The returned error is the one that
+  stopped the script, after the results before it were reported. Embed the hooks with `#as using` to carry your own state.
   Postgres runs the whole string as one implicit transaction unless it has its own `BEGIN`.
+- `describe_statement(db, sql)` prepares the unnamed statement and returns its parameter types
+  and result columns (`Statement_Info`, freed with `free_statement_info`) without running it.
+  A statement with no result has no columns.
 - After an `ErrorResponse` the reader drains to `ReadyForQuery`, so the connection stays usable
   and `connection.status` is current (`IDLE`, `IN_TRANSACTION`, `FAILED`).
 
@@ -137,7 +141,8 @@ error := Pg.transaction(pool, user_id, (tx: *Pg.Connection, id: s64) -> Pg.Pg_Er
 ```
 
 **Notices** (`RAISE NOTICE`, warnings) go to `connection.on_notice`, by default `log`.
-`connection.user_data` is there for the handler's state.
+`connection.user_data` is there for the handler's state. Set `Config.on_notice` and
+`Config.user_data` instead to also catch notices sent while logging in.
 
 ## How to change it
 
@@ -166,7 +171,9 @@ cancel and drain after a deadline or cancel),
 `max_scram_iterations` (default 1,000,000), `allow_cleartext_password`, `parameters` (extra
 startup parameters such as `TimeZone`; a name the client sends itself, `client_encoding`,
 `DateStyle` or `IntervalStyle`, replaces its value. Text-format dates and intervals only decode
-under `DateStyle=ISO` and `IntervalStyle=postgres`).
+under `DateStyle=ISO` and `IntervalStyle=postgres`), `send_styles` (default true; false sends
+neither style, leaving the server's or role's settings in place, for programs that only show text
+values), `on_notice` and `user_data` (see Notices above).
 
 `parse_url` reads `postgres://user:password@host:port/database?...`. Parameters: `host`, `port`,
 `user`, `password`, `dbname`, `sslmode` (`allow` maps to `prefer`), `sslnegotiation=direct`,
@@ -195,6 +202,8 @@ Tests (`stdlib/Extensions/Postgres/tests`):
   - Unix sockets;
   - every type in both formats, arrays and parameters;
   - server errors and recovery, scripts and transaction status;
+  - `run_script` hooks including COPY, startup parameters and `send_styles`, login-time notice
+    handlers, and `describe_statement`;
   - deadlines and `Io.cancel`, which leave the connection usable (plain, TLS, direct TLS, in a
     transaction);
   - the pool: limits and waiting, newest first, rollback on release, health checks, lifetime,

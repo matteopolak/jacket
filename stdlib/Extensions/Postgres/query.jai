@@ -53,6 +53,115 @@ query_binary :: (c: *Connection, sql: string, args: ..Any) -> Result, Pg_Error {
     return result, error;
 }
 
+// What the server makes of a statement without running it: the types it infers for `$1`, `$2`,
+// ... and the columns it would return (none for a statement that returns no rows).
+Statement_Info :: struct {
+    parameter_types: [] u32;
+    columns: [] Column;
+}
+
+// Parses `sql` as the unnamed prepared statement and describes it (Parse, Describe, Sync). Free
+// the result with `free_statement_info`.
+describe_statement :: (c: *Connection, sql: string) -> Statement_Info, Pg_Error {
+    error := begin_request(c, sql);
+    if error.kind != .NONE return .{}, error;
+
+    defer c.busy = false;
+
+    begin_message(c, #char "P");
+    put_cstring(*c.out, "");
+    put_cstring(*c.out, sql);
+    put_u16(*c.out, 0);
+    end_message(c);
+
+    begin_message(c, #char "D");
+    put_u8(*c.out, #char "S");
+    put_cstring(*c.out, "");
+    end_message(c);
+
+    begin_message(c, #char "S");
+    end_message(c);
+
+    error = send(c);
+    if error.kind != .NONE return .{}, error;
+
+    info: Statement_Info;
+    rows: Result;
+    failure: Pg_Error;
+
+    while true {
+        type, body, read_error := read_message(c);
+        if read_error.kind != .NONE {
+            free_error(*failure);
+            free_result(*rows);
+            free_statement_info(*info);
+            recover_interrupted(c, read_error);
+
+            return .{}, read_error;
+        }
+
+        if handle_async(c, type, body) continue;
+
+        if type == {
+            case #char "1"; #through;
+            case #char "n";
+
+            case #char "t";
+                r := Cursor.{ data = body };
+                count := cast(s64) get_u16(*r);
+
+                array_free(info.parameter_types);
+                info.parameter_types = NewArray(count, u32);
+                for *info.parameter_types it.* = get_u32(*r);
+
+                if r.bad {
+                    free_statement_info(*info);
+                    return .{}, protocol_error(c, "a malformed ParameterDescription");
+                }
+
+            case #char "T";
+                error = read_columns(c, *rows, body);
+                if error.kind != .NONE {
+                    free_result(*rows);
+                    free_statement_info(*info);
+                    return .{}, error;
+                }
+
+            case #char "E";
+                if failure.kind == .NONE failure = parse_server_error(body);
+
+            case #char "Z";
+                c.status = transaction_status(ifx body.count then body[0] else 0);
+                info.columns = rows.columns;
+                rows.columns = .[];
+                free_result(*rows);
+
+                if failure.kind != .NONE {
+                    free_statement_info(*info);
+                    return .{}, failure;
+                }
+
+                return info, .{};
+
+            case;
+                free_error(*failure);
+                free_result(*rows);
+                free_statement_info(*info);
+
+                return .{}, protocol_error(c, tprint("unexpected message % while describing a statement", cast(string) u8.[type]));
+        }
+    }
+
+    return .{}, .{};
+}
+
+free_statement_info :: (info: *Statement_Info) {
+    for info.columns free(it.name);
+    array_free(info.columns);
+    array_free(info.parameter_types);
+    info.* = .{};
+}
+
 // Runs SQL that may hold several statements, without parameters (the simple query protocol), and
 // discards any rows. For migrations and scripts. Without an explicit BEGIN the whole string runs
 // as one implicit transaction, so the first error stops it and undoes the statements before it.
@@ -66,6 +175,9 @@ Script_Hooks :: struct {
     // command tag. The result is freed after the call unless the hook moves it out (and leaves
     // `result.*` zeroed). Without this hook rows are not kept at all.
     on_result: (hooks: *Script_Hooks, result: *Result);
+
+    // Called when the server starts a COPY, before any data moves.
+    on_copy: (hooks: *Script_Hooks, copy: *Copy_Info);
 
     // COPY ... FROM STDIN: called until it says `done`, each time for the next piece of data (any
     // split; rows need not line up with calls). A non-empty `failure` aborts the COPY with that
@@ -81,6 +193,7 @@ Script_Hooks :: struct {
 
 // The shape of a COPY the server has started.
 Copy_Info :: struct {
+    incoming: bool; // FROM STDIN: the client sends; else TO STDOUT: the server sends
     format: Format; // the overall format: text (also CSV) or binary
     column_formats: [] Format;
 }
@@ -164,6 +277,9 @@ run_script :: (c: *Connection, sql: string, hooks: *Script_Hooks) -> Pg_Error {
                     free_error(*failure);
                     return error;
                 }
+
+                copy.incoming = type == #char "G";
+                if hooks && hooks.on_copy hooks.on_copy(hooks, *copy);
 
                 if type == #char "G" {
                     error = send_copy_data(c, hooks, *copy);
@@ -366,6 +482,8 @@ run_extended :: (c: *Connection, sql: string, args: [] Any, result_format: Forma
                     free_result(*result);
                     return .{}, error;
                 }
+
+                result.returns_rows = true;
 
             case #char "D";
                 error = read_row(c, *result, body);
