@@ -11,6 +11,17 @@
     ]
   },
   {
+    "name": "fake_server",
+    "stdout": "ok\n",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io fibers"
+    ]
+  },
+  {
     "name": "typed_scan",
     "stdout": "ok\n",
     "unsupported_modes": [
