@@ -47,6 +47,7 @@ mod min_max;
 mod misrefactored_assign_op;
 mod modified_range_bound;
 mod needless_bool;
+mod needless_continue;
 mod neg_multiply;
 mod no_effect;
 mod range_past_count;
@@ -321,6 +322,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Complexity,
         summary: "`ifx c then true else false` and `if c return true; else return false;`",
         check: needless_bool::check,
+    },
+    RuleInfo {
+        name: "needless_continue",
+        category: Category::Style,
+        summary: "a `continue` as the last thing a loop body does",
+        check: needless_continue::check,
     },
     RuleInfo {
         name: "neg_multiply",

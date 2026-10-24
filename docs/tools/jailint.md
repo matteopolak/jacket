@@ -124,6 +124,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `misrefactored_assign_op` | correctness | deny | editor | `total += total + x;`: a compound assignment whose right side repeats the target and the operator, which was probably `total = total + x;` rewritten halfway |
 | `modified_range_bound` | suspicious | warn | no | `for 0..n-1 { ...; n -= 1; }`: the range was fixed before the first iteration, so the change does not reach the loop |
 | `needless_bool` | complexity | warn | yes | `ifx c then true else false`, `if c return true; else return false;` |
+| `needless_continue` | style | warn | yes | `for xs { work(it); continue; }`, `if c { work(); continue; }` ending a loop: a `continue` the loop would have done anyway |
 | `neg_multiply` | style | warn | yes | `x * -1`, `-1 * x`, `f * -1.0`: a multiplication by minus one, which is a negation |
 | `no_effect` | suspicious | warn | editor | `x == 5;`, `count + 1;`, `flush;`: a statement that does nothing |
 | `range_past_count` | correctness | deny | editor | `for i: 0..xs.count` indexing `xs[i]`: one past the end |
@@ -237,6 +238,8 @@ The same operator on both sides, a side-effect-free target of a number type spel
 Only locals named directly in a range end (`n` in `0..n-1`); `xs.count` bounds are left alone. Quiet when a `break` or `return` follows the assignment, or the statement holding it, in the same block (`n = it; break;` records a result).
 ### needless_bool
 A trailing `if c return true; return false;` is left alone when an earlier guard in the block also returns a literal. Comments inside the `if` withhold the fix.
+### needless_continue
+An unlabelled `continue` that ends a `for` or `while` body, or ends a branch of an `if` that is the body's last statement. The fix removes the statement when other statements share its block; an `if c continue;` that closes the loop does nothing at all, so it is reported without a fix.
 ### neg_multiply
 Signed integers and floats only, and only the literals `-1` and `-1.0`. The fix writes `-x`, and `-(a + b)` when the other side is not a single term.
 ### no_effect

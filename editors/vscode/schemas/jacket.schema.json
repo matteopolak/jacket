@@ -515,6 +515,16 @@
               "default": "warn",
               "markdownDescription": "`ifx c then true else false` and `if c return true; else return false;` (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#needless_bool)"
             },
+            "needless_continue": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a `continue` as the last thing a loop body does (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#needless_continue)"
+            },
             "neg_multiply": {
               "type": "string",
               "enum": [
