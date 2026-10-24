@@ -72,6 +72,7 @@ mod needless_continue;
 mod neg_cmp_float;
 mod neg_multiply;
 mod no_effect;
+pub(crate) mod platform_leak;
 mod pointer_into_resizable;
 mod print_in_module;
 mod range_past_count;
@@ -507,6 +508,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Suspicious,
         summary: "a statement that computes a value and drops it (`x == 5;`)",
         check: no_effect::check,
+    },
+    RuleInfo {
+        name: "platform_leak",
+        category: Category::Restriction,
+        summary: "portable code imports something that asserts an operating system it is not built for",
+        check: platform_leak::check,
     },
     RuleInfo {
         name: "pointer_into_resizable",

@@ -492,7 +492,11 @@ impl Compiler {
             self.ct.asserts_done += 1;
             if !holds? {
                 let msg = self.assert_message(scope, message.as_ref(), &args)?;
-                return Err(Box::new(self.static_assert_failed(&cond, cond.span, msg)));
+                let failure = self.static_assert_failed(&cond, cond.span, msg);
+                if self.src.import_trace.keeps_going() {
+                    continue;
+                }
+                return Err(Box::new(failure));
             }
         }
         Ok(())

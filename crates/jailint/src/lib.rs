@@ -56,6 +56,8 @@ pub struct Lint {
     pub label: Option<String>,
     /// Advice; with a fix, the changed code is shown after it.
     pub help: Option<String>,
+    /// Further facts, printed as `note:` lines after the advice.
+    pub notes: Vec<String>,
     pub fix: Option<Fix>,
 }
 
@@ -142,6 +144,7 @@ pub fn lint_files(
                     message: f.message,
                     label: f.label,
                     help: f.help,
+                    notes: Vec::new(),
                     fix: f.fix,
                 });
             }
@@ -165,6 +168,7 @@ pub fn lint_files(
                     message: format!("`{}` allows nothing here", stale.name),
                     label: None,
                     help: Some("nothing it covers is reported any more; remove it".into()),
+                    notes: Vec::new(),
                     fix: None,
                 });
             }

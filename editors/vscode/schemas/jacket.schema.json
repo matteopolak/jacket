@@ -755,6 +755,16 @@
               "default": "warn",
               "markdownDescription": "a statement that computes a value and drops it (`x == 5;`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#no_effect)"
             },
+            "platform_leak": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "allow",
+              "markdownDescription": "portable code imports something that asserts an operating system it is not built for (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#platform_leak)"
+            },
             "pointer_into_resizable": {
               "type": "string",
               "enum": [
@@ -1215,6 +1225,47 @@
               "rules": {
                 "$ref": "#/properties/lint/properties/rules"
               }
+            }
+          }
+        },
+        "portability": {
+          "type": "object",
+          "additionalProperties": false,
+          "markdownDescription": "The code `platform_leak` holds to every operating system: it is compiled once per target and must not import a file one of them does not build.",
+          "properties": {
+            "targets": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "linux",
+                  "macos",
+                  "windows"
+                ]
+              },
+              "uniqueItems": true,
+              "markdownDescription": "The operating systems portable code is built for. Default: all three."
+            },
+            "portable": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "markdownDescription": "Globs (relative to this file) of the code that must build on every target, such as `stdlib/**`."
+            },
+            "platforms": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "linux",
+                    "macos",
+                    "windows"
+                  ]
+                },
+                "uniqueItems": true
+              },
+              "markdownDescription": "Globs of files that build only on the operating systems listed (`[]`: on none of them). The most specific matching glob decides. A `// jailint: platforms(linux, macos)` comment at the top of a file does the same for that file."
             }
           }
         }

@@ -191,10 +191,20 @@ fn imported_modules(text: &str) -> Vec<String> {
 
 /// Whether `cond` compares the compile target: it names `OS` or `CPU`.
 fn mentions_target(cond: &Expr) -> bool {
+    mentions(cond, &["OS", "CPU"])
+}
+
+/// Whether `cond` is about the operating system: it names `OS`, or is the literal `false` (what
+/// the unsupported branch of a target check asserts).
+fn mentions_os(cond: &Expr) -> bool {
+    matches!(cond.kind, ExprKind::Bool(false)) || mentions(cond, &["OS"])
+}
+
+fn mentions(cond: &Expr, names: &[&str]) -> bool {
     match &cond.kind {
-        ExprKind::Ident(name) => matches!(name.as_str(), "OS" | "CPU"),
-        ExprKind::Binary(_, a, b) => mentions_target(a) || mentions_target(b),
-        ExprKind::Unary(_, a) => mentions_target(a),
+        ExprKind::Ident(name) => names.contains(&name.as_str()),
+        ExprKind::Binary(_, a, b) => mentions(a, names) || mentions(b, names),
+        ExprKind::Unary(_, a) => mentions(a, names),
         _ => false,
     }
 }
@@ -559,6 +569,9 @@ impl Compiler {
             (true, None) => Diagnostic::error(span, "#assert failed: its condition is false"),
         }
         .with_kind(DiagnosticKind::StaticAssert);
+        self.src
+            .import_trace
+            .failure(span, &d.message, mentions_os(cond));
         if !message.is_empty()
             && let Some(text) = shown
         {

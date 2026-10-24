@@ -43,6 +43,9 @@ pub struct SourceState {
     /// In a host twin: sources its compile-time code added, with the scope a `Code` value named,
     /// waiting for the target compiler to load them too (`sema::host_twin`).
     pub(in crate::sema) twin_outbox: Vec<(super::ProgramSource, Option<super::ScopeId>)>,
+    /// Import sites and failed asserts, for tools that attribute a failure to the file that asked
+    /// for the code (`sema::import_trace`).
+    pub(in crate::sema) import_trace: super::ImportTrace,
 }
 
 impl SourceState {
@@ -63,6 +66,7 @@ impl SourceState {
             insert_sites: HashMap::default(),
             program_sources: Vec::new(),
             twin_outbox: Vec::new(),
+            import_trace: super::ImportTrace::default(),
         }
     }
 }

@@ -605,7 +605,11 @@ impl Compiler {
         }
         if !holds? {
             let msg = self.assert_message(scope, message.as_ref(), args)?;
-            return Err(Box::new(self.static_assert_failed(cond, span, msg)));
+            let failure = self.static_assert_failed(cond, span, msg);
+            if self.src.import_trace.keeps_going() {
+                return Ok(());
+            }
+            return Err(Box::new(failure));
         }
         Ok(())
     }

@@ -21,7 +21,8 @@ Other options (see `--help`): `-A`/`-W`/`-D <rule>` (allow, warn, deny; `all`; `
 1. **Plan** (`driver.rs`). Paths become `.jai` files minus `exclude`. `module.jai` and files directly in an import directory are modules, compiled by importing them from an empty program so every procedure is checked. A file that a module (or a nearby program) `#load`s is compiled as part of that module or program (`enclosing_module`, `enclosing_program`); otherwise `unused_parameter` would flag a module's exported interface. Only the listed files are reported.
 2. **Compile** with lint facts on (`IdeFacts::lint`): per-expression types and constness, cast types, every entity a name resolved to, and which import answered each lookup. Compile-time code runs in the sandboxed host with a block budget; workspaces a metaprogram creates are linted too (`jaic::build::WorkspaceObserver`).
 3. **Lint** (`lib.rs`). Re-parse, build suppressions, collect procedure bodies and whether every instance checked fully, then run each enabled rule. Where the compiler did not look (an `#if` branch left out, a failed body) rules fall back to text and stay quiet.
-4. **Report.** `--fix` applies non-overlapping machine-applicable fixes and re-lints, up to 5 passes (`fix.rs`). The language server's `source.fixAll.jailint` applies one pass. A file reached from several roots is reported once.
+4. **Leak pass** (`driver::leak_pass`, only when `platform_leak` is on). Each root whose entry file is portable is compiled again for every target system with `Compiler::keep_going_past_asserts`; `jaic` notes each `#import`/`#load` it meets and each failing `#assert` (`sema/import_trace.rs`). `rules::platform_leak::analyze` turns those into findings. The failed asserts, with the chain of import sites to each, are also in `Outcome::failed_asserts`.
+5. **Report.** `--fix` applies non-overlapping machine-applicable fixes and re-lints, up to 5 passes (`fix.rs`). The language server's `source.fixAll.jailint` applies one pass. A file reached from several roots is reported once.
 
 Editors: `jailsp` lints each open document using the cached compile that hover uses. Diagnostics carry the rule as `code` and a link to its `### <rule>` section below, and `deny` rules are errors. Settings come from the `[lint]` table of the nearest `jacket.toml`, else `jailint.toml` (the browser build sends it as an open document). See [the language server](../compiler/language-server.md#lints-and-quick-fixes).
 
@@ -158,6 +159,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `neg_cmp_float` | pedantic | allow | editor | `!(x < limit)` with floats: not the same as `x >= limit` for NaN |
 | `neg_multiply` | style | warn | yes | `x * -1`, `-1 * x`, `f * -1.0`: a multiplication by minus one, which is a negation |
 | `no_effect` | suspicious | warn | editor | `x == 5;`, `count + 1;`, `flush;`: a statement that does nothing |
+| `platform_leak` | restriction | allow | no | `#import "POSIX";` in code held to every operating system: it fails to compile on Windows |
 | `pointer_into_resizable` | suspicious | warn | no | `p := *xs[i]; array_add(*xs, v); use(p);`: a pointer into a resizable array used after the array may have moved |
 | `print_in_module` | restriction | allow | no | `print(...)` or `write_string(...)` in a file that belongs to a module |
 | `range_past_count` | correctness | deny | editor | `for i: 0..xs.count` indexing `xs[i]`: one past the end |
@@ -336,6 +338,8 @@ Every comparison with a NaN is false, so `!(a < b)` is true for NaN where `a >= 
 Signed integers and floats only, and only the literals `-1` and `-1.0`. The fix writes `-x`, and `-(a + b)` when the other side is not a single term.
 ### no_effect
 An expression statement containing no call. The editor offers the likely intent: `==` becomes `=`, `x + 1;` becomes `x += 1;`, a procedure name gets `()`, and any other statement is removed. `--fix` applies none, since the typo may be in either place.
+### platform_leak
+Code meant to build everywhere that imports a module asserting an operating system it is not built for (`#assert OS == .LINUX || OS == .MACOS` in `POSIX`), found only when someone builds for that system. The rule compiles each portable root once per target (Linux, macOS and Windows on x64, from any host) with failing `#assert`s recorded instead of stopping the compile, and reports every `#import` or `#load` in portable code that brings in a file the settings say a target does not build, when an `#assert` about the operating system fails in that file or below it. The label is on the import and a note names the assert. Reports are by import site and system, so two systems at one import are two findings. An `#assert` that fails in a portable file with nothing above it to blame is reported on the assert: the file needs a `platforms` entry. Only asserts that name `OS` (or are `false`) count; CPU, size and build-setting asserts do not. Needs `[lint.portability]` (see Configuration); off by default, and `// jailint: allow(platform_leak)` covers an import. A compile that stops on another error before the asserts run finds nothing for that root. No fix.
 ### pointer_into_resizable
 A resizable array that outgrows its storage gets a new block and frees the old one, so a pointer taken into the old block dangles. Fires on a local initialised with the address of an element (`p := *xs[i];`, `*xs[i].field`) or with the pointer a growing call returns (`p := array_add(*xs);`) when a later statement of the same block calls a `@GrowsArray` procedure on the same array and a statement after it mentions `p`; and on the iterator of `for *xs` when a statement of the body grows `xs` and a later one mentions the iterator. Arrays are compared as written. Growing inside a by-value `for xs` is fine (each iteration reads the count and data again), and the rule is quiet when the growing statement can leave the block (`return`, `break`, `continue`, `remove`) or the pointer is assigned a new value. A pointer that is still valid because the array was reserved first is reported too; take it again after growing, or keep the index. No fix.
 ### print_in_module
@@ -457,6 +461,21 @@ unused_parameter = "allow"
 paths = ["tests/**"]
 rules = { float_equality = "allow", magic_number = "allow" }
 ```
+
+`[lint.portability]` tells `platform_leak` which code is portable. A file is checked for a system unless the most specific `platforms` glob matching it (the most characters besides `*` and `?`) leaves the system out, or a `// jailint: platforms(linux, macos)` comment before its first line of code does; `[]` means no checked system builds it.
+
+```toml
+[lint.portability]
+targets = ["linux", "macos", "windows"]                  # the default
+portable = ["stdlib/**"]                                 # globs that must build on every target
+
+[lint.portability.platforms]                             # files limited to some systems
+"stdlib/POSIX/**" = ["linux", "macos"]
+"stdlib/Windows/**" = ["windows"]
+"stdlib/Android/**" = []                                 # none of the three
+```
+
+The repository's `jacket.toml` holds `stdlib/` to it: OS modules and the per-system halves of modules (`internal/files/filesystem-windows.jai`, `internal/process/windows.jai`) are listed, stdlib tests are not checked (`"stdlib/**/tests/**" = []`), and CI runs the rule in its own step on Linux (a `just lint --os` run leaves it out, since it compiles every target itself). When the rule reports a stdlib import, guard it with `#if OS ==` (or move it into the per-system file) if portable code should not reach it; list the file under `platforms` if it really is for one system.
 
 Both tools match globs the same way: `*` and `?` stay within one path component, `**` crosses components (`**/x` also matches `x` at the top), a trailing `/` is dropped, an empty pattern matches nothing, and a pattern that matches a directory covers everything in it. The definition is `glob` in `crates/jailint/src/config.rs` and `glob_path_match` in `stdlib/Extensions/Jai_Format/config.jai`; both run every case in `tests/glob/cases.txt` (`pattern<TAB>path<TAB>match|nomatch`), so add a case there when changing either.
 

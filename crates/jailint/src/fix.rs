@@ -95,6 +95,7 @@ mod tests {
             message: String::new(),
             label: None,
             help: None,
+            notes: Vec::new(),
             fix: Some(crate::Fix {
                 title: String::new(),
                 edits: edits

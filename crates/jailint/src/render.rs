@@ -62,6 +62,7 @@ pub fn render(
             }),
         });
     }
+    report.notes.extend(lint.notes.iter().cloned());
     if lint.level == default {
         report.notes.push(format!(
             "`{}` is `{}` by default",

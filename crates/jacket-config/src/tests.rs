@@ -366,7 +366,8 @@ fn known_keys_match_the_structs() {
             "lint",
             "exclude = [\"a\"]\nmax_nesting = 1\nmax_complexity = 9\nmax_arguments = 5\nmax_bools = 2\nmax_stack_array_bytes = 4096\nmagic_number_allow = [60, 0.5]\n\
              magic_number_min = 4\nmagic_number_in_tests = true\n[lint.rules]\na = \"b\"\n\
-             [[lint.overrides]]\npaths = [\"c\"]\n[lint.overrides.rules]\nd = \"e\"\n",
+             [[lint.overrides]]\npaths = [\"c\"]\n[lint.overrides.rules]\nd = \"e\"\n\
+             [lint.portability]\ntargets = [\"linux\"]\nportable = [\"p/**\"]\n[lint.portability.platforms]\n\"q/**\" = [\"linux\"]\n",
         ),
         (
             "format",

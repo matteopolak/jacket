@@ -88,6 +88,26 @@ pub struct Lint {
     /// Rule levels for some paths (`[[lint.overrides]]`); a later entry wins over an earlier one.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub overrides: Vec<LintOverride>,
+    /// Which code must build on every operating system (`platform_leak`).
+    #[serde(default, skip_serializing_if = "Portability::is_empty")]
+    pub portability: Portability,
+}
+
+/// The code that is meant to build on every operating system, for `platform_leak`.
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+pub struct Portability {
+    /// The operating systems portable code is built for: `linux`, `macos`, `windows`. Left out,
+    /// all three.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub targets: Vec<String>,
+    /// Globs (relative to the file) of the code that must build on every target.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub portable: Vec<String>,
+    /// Globs of files that build only on the operating systems listed (none: on no target). When
+    /// several match a file, the most specific one (the most characters besides `*` and `?`)
+    /// decides.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub platforms: BTreeMap<String, Vec<String>>,
 }
 
 /// Rule levels for the files under some paths.
@@ -156,7 +176,7 @@ macro_rules! is_empty {
     ($($t:ty),*) => {$(impl $t { pub fn is_empty(&self) -> bool { *self == Self::default() } })*};
 }
 
-is_empty!(Project, Toolchain, Lint, Format, Experimental);
+is_empty!(Project, Toolchain, Lint, Format, Experimental, Portability);
 
 /// The keys each table accepts, to suggest the near one for a misspelling. A test keeps these in
 /// step with the structs.
@@ -177,7 +197,9 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
             "magic_number_in_tests",
             "rules",
             "overrides",
+            "portability",
         ],
+        "lint.portability" => &["targets", "portable", "platforms"],
         "format" => &[
             "indent_width",
             "case_indent",

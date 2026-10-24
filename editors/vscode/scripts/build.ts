@@ -264,6 +264,20 @@ const jacket = {
             },
           },
         },
+        portability: {
+          type: "object",
+          additionalProperties: false,
+          markdownDescription: "The code `platform_leak` holds to every operating system: it is compiled once per target and must not import a file one of them does not build.",
+          properties: {
+            targets: { type: "array", items: { enum: ["linux", "macos", "windows"] }, uniqueItems: true, markdownDescription: "The operating systems portable code is built for. Default: all three." },
+            portable: { type: "array", items: { type: "string" }, markdownDescription: "Globs (relative to this file) of the code that must build on every target, such as `stdlib/**`." },
+            platforms: {
+              type: "object",
+              additionalProperties: { type: "array", items: { enum: ["linux", "macos", "windows"] }, uniqueItems: true },
+              markdownDescription: "Globs of files that build only on the operating systems listed (`[]`: on none of them). The most specific matching glob decides. A `// jailint: platforms(linux, macos)` comment at the top of a file does the same for that file.",
+            },
+          },
+        },
       },
     },
     format: section(jaifmt, "Settings for the jaifmt formatter."),

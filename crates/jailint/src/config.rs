@@ -13,12 +13,20 @@
 //! [[lint.overrides]]
 //! paths = ["tests/**"]
 //! rules = { float_equality = "allow" }
+//!
+//! [lint.portability]
+//! targets = ["linux", "macos", "windows"]
+//! portable = ["stdlib/**"]
+//!
+//! [lint.portability.platforms]
+//! "stdlib/POSIX/**" = ["linux", "macos"]
 //! ```
 //!
 //! Anything the schema does not know under `[lint]` is an error, so a typo does not silently
 //! keep a rule on.
 use jacket_config::{Disk, Files, Lint};
 use jaic::fxhash::HashMap;
+use jaic::sema::TargetOs;
 use std::path::{Path, PathBuf};
 
 pub const FILE_NAME: &str = jacket_config::FILE_NAME;
@@ -140,6 +148,8 @@ pub struct Config {
     pub magic_number_in_tests: Option<bool>,
     /// Directory of the configuration file (or the working directory).
     pub root: PathBuf,
+    /// Which code `platform_leak` holds to every operating system.
+    pub portability: Portability,
     /// The file the settings came from, if any.
     pub source: Option<PathBuf>,
     /// One-line notes about the configuration (a legacy file in use or ignored).
@@ -153,6 +163,66 @@ pub struct Override {
     pub paths: Vec<String>,
     /// Levels by rule or category name; a rule's own entry wins over its category's.
     pub levels: HashMap<String, Level>,
+}
+
+/// The operating systems `platform_leak` checks portable code on when `targets` is left out.
+pub const DEFAULT_PORTABILITY_TARGETS: [TargetOs; 3] =
+    [TargetOs::Linux, TargetOs::MacOS, TargetOs::Windows];
+
+/// `[lint.portability]`: the code that must build on every operating system it is built for.
+#[derive(Clone, Debug, Default)]
+pub struct Portability {
+    /// The systems portable code is built for; empty means [`DEFAULT_PORTABILITY_TARGETS`].
+    pub targets: Vec<TargetOs>,
+    /// Globs relative to `Config::root` of the code that must build on every target.
+    pub portable: Vec<String>,
+    /// Globs of files that build only on the listed systems.
+    pub platforms: Vec<(String, Vec<TargetOs>)>,
+}
+
+impl Portability {
+    /// The systems portable code is checked on.
+    pub fn targets(&self) -> &[TargetOs] {
+        if self.targets.is_empty() {
+            &DEFAULT_PORTABILITY_TARGETS
+        } else {
+            &self.targets
+        }
+    }
+}
+
+/// The systems a `// jailint: platforms(linux, macos)` comment in the first lines of a file (before
+/// any code) restricts it to; names that are not a system are ignored.
+pub fn file_platforms(text: &str) -> Option<Vec<TargetOs>> {
+    for line in text.lines() {
+        let line = line.trim();
+        if line.is_empty() {
+            continue;
+        }
+        let comment = line.strip_prefix("//")?;
+        let Some(rest) = comment.trim().strip_prefix("jailint:") else {
+            continue;
+        };
+        let Some(list) = rest.trim().strip_prefix("platforms") else {
+            continue;
+        };
+        let inner = list.trim().strip_prefix('(')?;
+        let inner = &inner[..inner.find(')')?];
+        return Some(
+            inner
+                .split(',')
+                .filter_map(|name| platform(name.trim()))
+                .collect(),
+        );
+    }
+    None
+}
+
+/// The operating system a `platform_leak` setting names.
+fn platform(name: &str) -> Option<TargetOs> {
+    DEFAULT_PORTABILITY_TARGETS
+        .into_iter()
+        .find(|os| jaic::target::os_name(*os) == name)
 }
 
 /// The nesting depth `excessive_nesting` allows when nothing sets it.
@@ -277,6 +347,7 @@ impl Config {
             ..Config::default()
         };
         config.levels = levels(&lint.rules)?;
+        config.portability = portability(&lint.portability)?;
         for o in &lint.overrides {
             if o.paths.is_empty() {
                 return Err("a `[[lint.overrides]]` entry has no `paths`".into());
@@ -287,6 +358,32 @@ impl Config {
             });
         }
         Ok(config)
+    }
+
+    /// Whether the file at `path` is held to every target: it matches a `portable` glob.
+    pub fn is_portable(&self, path: &Path) -> bool {
+        let text = self.relative(path);
+        self.portability.portable.iter().any(|p| glob(p, &text))
+    }
+
+    /// Whether the file at `path` builds on `os` as the configuration says: the `platforms` glob
+    /// that matches it most specifically (the most characters that are not `*` or `?`) lists
+    /// `os`, or none matches. Globs of equal specificity must all list it. (A `platforms(...)`
+    /// comment in the file restricts it further; see [`file_platforms`].)
+    pub fn builds_on(&self, path: &Path, os: TargetOs) -> bool {
+        let text = self.relative(path);
+        let specificity =
+            |pattern: &str| pattern.chars().filter(|c| !matches!(c, '*' | '?')).count();
+        let matching = || {
+            self.portability
+                .platforms
+                .iter()
+                .filter(|(pattern, _)| glob(pattern, &text))
+        };
+        let best = matching().map(|(pattern, _)| specificity(pattern)).max();
+        matching()
+            .filter(|(pattern, _)| Some(specificity(pattern)) == best)
+            .all(|(_, systems)| systems.contains(&os))
     }
 
     /// The settings of the nearest config directory above `start`; `Ok(None)` when there is
@@ -368,6 +465,34 @@ impl Config {
         let relative = path.strip_prefix(&self.root).unwrap_or(path);
         relative.to_string_lossy().replace('\\', "/")
     }
+}
+
+/// Checked `[lint.portability]` settings.
+fn portability(settings: &jacket_config::Portability) -> Result<Portability, String> {
+    let systems = |names: &[String], key: &str| -> Result<Vec<TargetOs>, String> {
+        names
+            .iter()
+            .map(|name| {
+                platform(name).ok_or_else(|| {
+                    format!(
+                        "unknown operating system \"{name}\" in `{key}`\nhelp: use \"linux\", \"macos\" or \"windows\""
+                    )
+                })
+            })
+            .collect()
+    };
+    let mut out = Portability {
+        targets: systems(&settings.targets, "lint.portability.targets")?,
+        portable: settings.portable.clone(),
+        platforms: Vec::new(),
+    };
+    for (pattern, names) in &settings.platforms {
+        out.platforms.push((
+            pattern.clone(),
+            systems(names, &format!("lint.portability.platforms.\"{pattern}\""))?,
+        ));
+    }
+    Ok(out)
 }
 
 /// Rule and category names, for suggestions.
@@ -526,6 +651,42 @@ mod tests {
         assert!(
             parse("[[lint.overrides]]\npaths = [\"a\"]\nrules = { lossy = \"warn\" }\n").is_err()
         );
+    }
+
+    #[test]
+    fn portability_settings() {
+        let text = "[lint.portability]\nportable = [\"lib/**\"]\n[lint.portability.platforms]\n\"lib/posix/**\" = [\"linux\", \"macos\"]\n\"lib/posix/mac/**\" = [\"macos\"]\n\"lib/posix/win*.jai\" = [\"windows\"]\n";
+        let config = parse(text).unwrap();
+        assert_eq!(config.portability.targets(), DEFAULT_PORTABILITY_TARGETS);
+        assert!(config.is_portable(Path::new("/r/lib/a.jai")));
+        assert!(!config.is_portable(Path::new("/r/app/a.jai")));
+        let on = |p: &str, os| config.builds_on(Path::new(p), os);
+        assert!(on("/r/lib/a.jai", TargetOs::Windows));
+        assert!(on("/r/lib/posix/a.jai", TargetOs::Linux));
+        assert!(!on("/r/lib/posix/a.jai", TargetOs::Windows));
+        assert!(!on("/r/lib/posix/mac/a.jai", TargetOs::Linux));
+        assert!(on("/r/lib/posix/mac/a.jai", TargetOs::MacOS));
+        // The more specific glob decides, whatever order they are written in.
+        assert!(on("/r/lib/posix/win32.jai", TargetOs::Windows));
+        assert!(!on("/r/lib/posix/win32.jai", TargetOs::Linux));
+        assert!(
+            parse("[lint.portability]\ntargets = [\"beos\"]\n").is_err_and(|e| e.contains("beos"))
+        );
+        assert!(parse("[lint.portability.platforms]\n\"a\" = [\"wasm\"]\n").is_err());
+    }
+
+    #[test]
+    fn platforms_comment_must_come_before_code() {
+        assert_eq!(
+            file_platforms("// notes\n// jailint: platforms(linux, macos, beos)\nx :: 1;\n"),
+            Some(vec![TargetOs::Linux, TargetOs::MacOS])
+        );
+        assert_eq!(file_platforms("// jailint: platforms()\n"), Some(vec![]));
+        assert_eq!(
+            file_platforms("x :: 1;\n// jailint: platforms(linux)\n"),
+            None
+        );
+        assert_eq!(file_platforms("// jailint: allow(a)\n"), None);
     }
 
     #[test]

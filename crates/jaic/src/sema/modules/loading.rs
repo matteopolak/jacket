@@ -81,6 +81,7 @@ impl Compiler {
     pub fn load_file(&mut self, path: &Path, module: ModuleId, span: Span) -> Result<()> {
         self.check_source_access(path, span)?;
         let path = self.src.canon(path);
+        self.src.import_trace.edge(span, path.clone());
         let key = (path.clone(), module);
         if let Some(state) = self.src.file_by_path.get(&key) {
             return match state {
@@ -207,6 +208,9 @@ impl Compiler {
         import: Option<&ast::Import>,
     ) -> Result<ModuleId> {
         self.check_source_access(entry, span)?;
+        if self.src.import_trace.keeps_going() {
+            self.src.import_trace.edge(span, self.src.canon(entry));
+        }
         // Jai identifies an instance by the argument list as written. Reordering
         // named arguments creates another instance, even when the effective values match.
         // Keep positional names and explicit/default argument differences in the key too.

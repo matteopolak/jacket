@@ -37,6 +37,15 @@ fn lint(file: &Path, levels: &[(&str, Level)]) -> (Vec<Lint>, String) {
 /// [`lint`] with other settings in `config`.
 fn lint_with(file: &Path, levels: &[(&str, Level)], mut config: Config) -> (Vec<Lint>, String) {
     config.root = repo();
+    // `platform_leak`'s cases: their folder is held to every system, and POSIX is Unix only.
+    config.portability = jailint::config::Portability {
+        targets: Vec::new(),
+        portable: vec!["tests/lint/platform_leak/**".into()],
+        platforms: vec![(
+            "stdlib/POSIX/**".into(),
+            vec![jaic::sema::TargetOs::Linux, jaic::sema::TargetOs::MacOS],
+        )],
+    };
     for r in RULES {
         config.levels.insert(r.name.to_string(), Level::Allow);
     }

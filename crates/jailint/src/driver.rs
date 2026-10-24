@@ -13,17 +13,22 @@
 //!   it is checked, called or not.
 //! - Anything else is a program and is compiled from that file.
 //!
+//! With `platform_leak` on, each root whose entry file is portable is compiled again for every
+//! target operating system ([`leak_pass`]), keeping going past failing `#assert`s.
+//!
 //! Lints are reported for the listed files and the files listed files `#load`. A file several
 //! roots compile is reported from the first root (modules before programs, then by path).
 use crate::config::Config;
-use crate::{Lint, lint_files};
+use crate::{Level, Lint, lint_files};
 use jaic::build::{BuildEnv, WorkspaceObserver, Workspaces};
 use jaic::fxhash::{HashMap, HashSet};
 use jaic::ide::IdeRoot;
 use jaic::interp::{SandboxHost, SharedHost};
 use jaic::paths::CanonCache;
 use jaic::project::{self, DiskFs, LoadCache, ProjectFs, Root, RootOptions, resolve_root};
-use jaic::sema::{Compiler, FileSystem, NativeFs, Options as CompilerOptions, ProgramSource};
+use jaic::sema::{
+    Compiler, FileSystem, ImportEdge, NativeFs, Options as CompilerOptions, ProgramSource, TargetOs,
+};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
@@ -67,6 +72,79 @@ pub struct Outcome {
     pub contexts: Vec<CheckedContext>,
     /// Requested/load-discovered files absent from every compiled context (e.g. inactive loads).
     pub unvisited_files: Vec<PathBuf>,
+    /// Every `#assert` that failed in a compile, with the imports that led to its file. A normal
+    /// compile stops at its first; the `platform_leak` compiles keep going.
+    pub failed_asserts: Vec<AssertFailure>,
+}
+
+/// An `#assert` that failed while compiling `root` for `os`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AssertFailure {
+    pub root: PathBuf,
+    pub os: TargetOs,
+    pub path: PathBuf,
+    /// Byte range of the assert's condition in `path`.
+    pub start: usize,
+    pub end: usize,
+    /// The compiler's text (`#assert failed: ...`).
+    pub message: String,
+    /// The condition names `OS` or is `false`: the failure is about the operating system.
+    pub about_os: bool,
+    /// The `#import` or `#load` statements that led from the root's entry to `path`, outermost
+    /// first: each is in the file named, at the byte range given.
+    pub chain: Vec<ImportSite>,
+}
+
+/// One `#import` or `#load` statement.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ImportSite {
+    pub path: PathBuf,
+    pub start: usize,
+    pub end: usize,
+}
+
+/// The sites that loaded `file`, outermost first: each file's first request, followed up to a
+/// file nothing asked for.
+fn import_chain(edges: &[ImportEdge], file: &Path) -> Vec<ImportSite> {
+    let mut chain = Vec::new();
+    let mut seen: HashSet<&Path> = HashSet::default();
+    seen.insert(file);
+    let mut at = file;
+    while let Some(edge) = edges
+        .iter()
+        .find(|e| e.to == at && !seen.contains(e.from.as_path()))
+    {
+        chain.push(ImportSite {
+            path: edge.from.clone(),
+            start: edge.start,
+            end: edge.end,
+        });
+        seen.insert(&edge.from);
+        at = &edge.from;
+    }
+    chain.reverse();
+    chain
+}
+
+/// The failed asserts of `compiler`, once each, with their import chains.
+fn failures_of(compiler: &Compiler, root: &Path) -> Vec<AssertFailure> {
+    let edges = compiler.import_edges();
+    let mut seen = HashSet::default();
+    compiler
+        .failed_asserts()
+        .into_iter()
+        .filter(|f| seen.insert((f.path.clone(), f.start)))
+        .map(|f| AssertFailure {
+            root: root.to_path_buf(),
+            os: compiler.options.os,
+            chain: import_chain(&edges, &f.path),
+            path: f.path,
+            start: f.start,
+            end: f.end,
+            message: f.message,
+            about_os: f.about_os,
+        })
+        .collect()
 }
 
 #[derive(Clone, Debug)]
@@ -207,6 +285,7 @@ struct RootResult {
     texts: BTreeMap<String, Rc<str>>,
     error: Option<String>,
     contexts: Vec<CheckedContext>,
+    failures: Vec<AssertFailure>,
 }
 
 /// The native file system with relative paths taken from `base` (the root's directory), as if
@@ -273,12 +352,18 @@ type Finished = Rc<RefCell<Vec<(Box<Compiler>, bool)>>>;
 /// Collects the compilers of the workspaces a metaprogram creates, with lint facts on.
 struct Collect {
     roots: Vec<IdeRoot>,
+    /// Record lint facts; otherwise keep going past failing `#assert`s.
+    lint: bool,
     done: Finished,
 }
 
 impl WorkspaceObserver for Collect {
     fn created(&mut self, compiler: &mut Compiler) {
-        crate::facts::enable(compiler, self.roots.clone());
+        if self.lint {
+            crate::facts::enable(compiler, self.roots.clone());
+        } else {
+            compiler.keep_going_past_asserts();
+        }
     }
 
     fn finished(&mut self, compiler: Box<Compiler>, failed: bool) {
@@ -286,20 +371,27 @@ impl WorkspaceObserver for Collect {
     }
 }
 
-/// Compile `root` with lint facts and lint the files in `report` it compiled, following the
-/// workspaces its metaprogram creates (`build.jai` compiling the real program).
-fn lint_root(
+/// A root's compiler after compiling, with the workspaces its metaprogram created.
+struct Compiled {
+    compiler: Box<Compiler>,
+    workspaces: Rc<RefCell<Workspaces>>,
+    done: Finished,
+    reports: Rc<RefCell<Vec<String>>>,
+    /// The first error of the root's own compile.
+    error: Option<String>,
+}
+
+/// Compile `root` for `os` (the options' own when `None`) on x64: the CPU is left out of what a
+/// leak check can depend on. With a `report` set the compile
+/// records lint facts for those files; without one it records every failing `#assert` instead
+/// of stopping at the first and records no lint facts.
+fn compile_root(
     root: &Root,
-    index: usize,
     options: &Options,
-    report: &BTreeSet<PathBuf>,
+    os: Option<TargetOs>,
+    report: Option<&BTreeSet<PathBuf>>,
     canon: &CanonCache,
-    claims: &Claims,
-) -> RootResult {
-    let _release = Release {
-        claims,
-        index,
-    };
+) -> Compiled {
     let main_dir = match root {
         Root::Module {
             dir, ..
@@ -307,6 +399,9 @@ fn lint_root(
         Root::Program(p) => p.parent().map(Path::to_path_buf).unwrap_or_default(),
     };
     let mut copts = options.compiler_options.clone();
+    if let Some(os) = os {
+        jaic::target::select_os_cpu(&mut copts, Some(os), Some(jaic::sema::TargetCpu::X64));
+    }
     copts.import_paths.insert(0, main_dir.join("modules"));
     if let Root::Module {
         dir, ..
@@ -346,7 +441,9 @@ fn lint_root(
         fs.clone(),
         &main_dir.to_string_lossy(),
     )));
-    let roots: Vec<IdeRoot> = report.iter().map(IdeRoot::under).collect();
+    let roots: Vec<IdeRoot> =
+        report.map_or_else(Vec::new, |r| r.iter().map(IdeRoot::under).collect());
+    let lint = report.is_some();
     let done = Rc::new(RefCell::new(Vec::new()));
     let reports = Rc::new(RefCell::new(Vec::<String>::new()));
     let workspace_host = host.clone();
@@ -361,6 +458,7 @@ fn lint_root(
         report: Box::new(move |_, text| sink.borrow_mut().push(text.to_string())),
         observer: Some(Box::new(Collect {
             roots: roots.clone(),
+            lint,
             done: done.clone(),
         })),
     });
@@ -368,7 +466,11 @@ fn lint_root(
     compiler.ct.interp.host = Box::new(SharedHost(host));
     compiler.ct.interp.block_budget = Some(BLOCK_BUDGET);
     compiler.attach_workspaces(workspaces.clone());
-    crate::facts::enable(&mut compiler, roots);
+    if lint {
+        crate::facts::enable(&mut compiler, roots);
+    } else {
+        compiler.keep_going_past_asserts();
+    }
     let result = match root {
         Root::Program(path) => {
             let sources: Vec<_> = std::iter::once(ProgramSource::File(path.clone()))
@@ -416,7 +518,37 @@ fn lint_root(
             })
         }
     };
-    let mut error = result.err().map(|e| e.message.clone());
+    Compiled {
+        compiler,
+        workspaces,
+        done,
+        reports,
+        error: result.err().map(|e| e.message.clone()),
+    }
+}
+
+/// Compile `root` with lint facts and lint the files in `report` it compiled, following the
+/// workspaces its metaprogram creates (`build.jai` compiling the real program).
+fn lint_root(
+    root: &Root,
+    index: usize,
+    options: &Options,
+    report: &BTreeSet<PathBuf>,
+    canon: &CanonCache,
+    claims: &Claims,
+) -> RootResult {
+    let _release = Release {
+        claims,
+        index,
+    };
+    let Compiled {
+        mut compiler,
+        workspaces,
+        done,
+        reports,
+        error,
+    } = compile_root(root, options, None, Some(report), canon);
+    let mut error = error;
     let top_complete = error.is_none();
     if top_complete
         && let Err(message) =
@@ -445,7 +577,9 @@ fn lint_root(
         files: Vec<(jaic::source::FileId, PathBuf)>,
     }
     let mut checked = Vec::new();
+    let mut failures = Vec::new();
     for (mut compiler, failed) in compilers {
+        failures.extend(failures_of(&compiler, root.path()));
         let diagnostics = compiler.ide_check_all();
         let complete = !failed && diagnostics.is_empty();
         if error.is_none()
@@ -521,6 +655,7 @@ fn lint_root(
         texts,
         error,
         contexts,
+        failures,
     }
 }
 
@@ -530,6 +665,7 @@ type Sent = (
     BTreeMap<String, String>,
     Option<String>,
     Vec<CheckedContext>,
+    Vec<AssertFailure>,
 );
 
 /// Lint what `options` names.
@@ -572,20 +708,20 @@ pub fn run(options: &Options) -> Outcome {
                     collected
                         .lock()
                         .expect("no thread panicked holding the lock")
-                        .push((i, r.lints, texts, r.error, r.contexts));
+                        .push((i, r.lints, texts, r.error, r.contexts, r.failures));
                 }
             });
         }
     });
-    for (i, lints, texts, error, contexts) in collected.into_inner().unwrap_or_default() {
-        results[i] = Some((lints, texts, error, contexts));
+    for (i, lints, texts, error, contexts, failures) in collected.into_inner().unwrap_or_default() {
+        results[i] = Some((lints, texts, error, contexts, failures));
     }
     let mut lints = Vec::new();
     let mut texts: BTreeMap<String, Rc<str>> = BTreeMap::new();
     let mut incomplete = Vec::new();
     let mut owner: BTreeMap<String, usize> = BTreeMap::new();
     for (i, r) in results.iter().enumerate() {
-        let Some((_, t, error, _)) = r else {
+        let Some((_, t, error, _, _)) = r else {
             continue;
         };
         for path in t.keys() {
@@ -596,11 +732,13 @@ pub fn run(options: &Options) -> Outcome {
         }
     }
     let mut contexts = Vec::new();
+    let mut failed_asserts = Vec::new();
     for (i, r) in results.into_iter().enumerate() {
-        let Some((ls, t, _, compiled)) = r else {
+        let Some((ls, t, _, compiled, failures)) = r else {
             continue;
         };
         contexts.extend(compiled);
+        failed_asserts.extend(failures);
         for l in ls {
             if owner.get(&l.path) == Some(&i) {
                 lints.push(l);
@@ -612,6 +750,15 @@ pub fn run(options: &Options) -> Outcome {
             }
         }
     }
+    leak_pass(
+        &roots,
+        options,
+        &report,
+        &canon,
+        &mut lints,
+        &mut texts,
+        &mut failed_asserts,
+    );
     lints.sort_by(|a, b| (&a.path, a.start, a.rule).cmp(&(&b.path, b.start, b.rule)));
     lints.dedup_by(|a, b| {
         a.path == b.path
@@ -642,5 +789,254 @@ pub fn run(options: &Options) -> Outcome {
         roots: roots.len(),
         contexts,
         unvisited_files,
+        failed_asserts,
+    }
+}
+
+/// What one portable root's compile for one system found.
+type LeakRun = (usize, TargetOs, Vec<ImportEdge>, Vec<AssertFailure>);
+
+/// `platform_leak`: compile each root whose entry file is portable once per target system, with
+/// failing `#assert`s recorded rather than stopping the compile, and report the imports (or
+/// files) that portable code should not have, as [`rules::platform_leak`] explains.
+fn leak_pass(
+    roots: &[Root],
+    options: &Options,
+    report: &BTreeSet<PathBuf>,
+    canon: &CanonCache,
+    lints: &mut Vec<Lint>,
+    texts: &mut BTreeMap<String, Rc<str>>,
+    failed_asserts: &mut Vec<AssertFailure>,
+) {
+    use crate::rules::platform_leak::{Leak, Probe, analyze};
+    let config = &options.config;
+    let Some(rule) = crate::RULES.iter().find(|r| r.name == "platform_leak") else {
+        return;
+    };
+    if config.portability.portable.is_empty()
+        || !report
+            .iter()
+            .any(|f| config.level_at(rule, f) != Level::Allow)
+    {
+        return;
+    }
+    let probe = Probe::new(config);
+    let mut jobs: Vec<(usize, TargetOs)> = Vec::new();
+    for (i, root) in roots.iter().enumerate() {
+        let entry = root.path();
+        if config.level_at(rule, entry) == Level::Allow {
+            continue;
+        }
+        for &os in config.portability.targets() {
+            if probe.portable(entry, os) {
+                jobs.push((i, os));
+            }
+        }
+    }
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let collected: Mutex<Vec<LeakRun>> = Mutex::new(Vec::new());
+    let wanted = if options.jobs == 0 {
+        jaic::pool::cores().min(MAX_AUTO_JOBS)
+    } else {
+        options.jobs
+    };
+    let workers = wanted.min(jobs.len().max(1));
+    jaic::pool::get().scope(|s| {
+        for _ in 0..workers {
+            let (jobs, next, collected) = (&jobs, &next, &collected);
+            s.spawn(move |_| {
+                loop {
+                    let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    let Some(&(index, os)) = jobs.get(i) else {
+                        break;
+                    };
+                    let root = &roots[index];
+                    if options.verbose {
+                        eprintln!(
+                            "jailint: checking {} for {}",
+                            root.path().display(),
+                            jaic::target::os_name(os)
+                        );
+                    }
+                    let Compiled {
+                        mut compiler,
+                        workspaces,
+                        done,
+                        error,
+                        ..
+                    } = compile_root(root, options, Some(os), None, canon);
+                    if error.is_none() {
+                        let _ = jaic::build::finish_all(
+                            &workspaces,
+                            &mut compiler.ct.interp.block_budget,
+                        );
+                    }
+                    let mut compilers = std::mem::take(&mut *done.borrow_mut());
+                    compilers.push((compiler, false));
+                    let mut edges = Vec::new();
+                    let mut failures = Vec::new();
+                    for (compiler, _) in &compilers {
+                        edges.extend(compiler.import_edges());
+                        failures.extend(failures_of(compiler, root.path()));
+                    }
+                    drop(compilers);
+                    collected
+                        .lock()
+                        .expect("no thread panicked holding the lock")
+                        .push((index, os, edges, failures));
+                }
+            });
+        }
+    });
+    let mut runs = collected.into_inner().unwrap_or_default();
+    runs.sort_by(|a, b| (a.0, jaic::target::os_name(a.1)).cmp(&(b.0, jaic::target::os_name(b.1))));
+    let mut read: BTreeMap<PathBuf, Option<Rc<str>>> = BTreeMap::new();
+    let mut text_of = |path: &Path, texts: &BTreeMap<String, Rc<str>>| -> Option<Rc<str>> {
+        read.entry(path.to_path_buf())
+            .or_insert_with(|| {
+                texts
+                    .get(path.to_string_lossy().as_ref())
+                    .cloned()
+                    .or_else(|| std::fs::read_to_string(path).ok().map(Rc::from))
+            })
+            .clone()
+    };
+    let mut seen = HashSet::default();
+    for (_, os, edges, failures) in runs {
+        let asserts: Vec<_> = failures
+            .iter()
+            .filter(|f| f.about_os)
+            .map(|f| jaic::sema::FailedAssert {
+                path: f.path.clone(),
+                start: f.start,
+                end: f.end,
+                message: f.message.clone(),
+                about_os: true,
+            })
+            .collect();
+        for leak in analyze(&probe, os, &edges, &asserts) {
+            let (path, start, assert) = match &leak {
+                Leak::Import {
+                    from,
+                    start,
+                    assert,
+                    ..
+                } => (from, *start, assert),
+                Leak::Own {
+                    assert,
+                } => (&assert.path, assert.start, assert),
+            };
+            if !report.contains(path)
+                || !seen.insert((path.clone(), start, os as u8))
+                || config.level_at(rule, path) == Level::Allow
+            {
+                continue;
+            }
+            let (Some(text), Some(assert_text)) =
+                (text_of(path, texts), text_of(&assert.path, texts))
+            else {
+                continue;
+            };
+            if allowed_by_comment(rule, &text, start) {
+                continue;
+            }
+            let lint = leak_lint(&leak, os, &probe, config, rule, &assert_text);
+            texts
+                .entry(path.to_string_lossy().into_owned())
+                .or_insert(text);
+            lints.push(lint);
+        }
+        failed_asserts.extend(failures);
+    }
+}
+
+/// Whether a `// jailint: allow(platform_leak)` (or the category, or `all`) covers `offset`.
+fn allowed_by_comment(rule: &crate::RuleInfo, text: &str, offset: usize) -> bool {
+    let file = jaic::source::FileId(0);
+    let (tokens, comments, errors) = jaic::lexer::lex_with_trivia(file, text);
+    if !errors.is_empty() {
+        return false;
+    }
+    let (ast, tokens) = jaic::parser::parse_tokens(file, text, tokens);
+    let Ok(ast) = ast else {
+        return false;
+    };
+    crate::suppress::Suppressions::new(text, &tokens, &comments, &ast).allows_rule(rule, offset)
+}
+
+/// The finding for one leak on `os`.
+fn leak_lint(
+    leak: &crate::rules::platform_leak::Leak,
+    os: TargetOs,
+    probe: &crate::rules::platform_leak::Probe,
+    config: &Config,
+    rule: &'static crate::RuleInfo,
+    assert_text: &str,
+) -> Lint {
+    use crate::rules::platform_leak::{Leak, display_name, line_col, system_list};
+    let os_name = jaic::target::os_name(os);
+    let assert = match leak {
+        Leak::Import {
+            assert, ..
+        }
+        | Leak::Own {
+            assert,
+        } => assert,
+    };
+    let (line, column) = line_col(assert_text, assert.start);
+    let shown = assert
+        .path
+        .strip_prefix(&config.root)
+        .unwrap_or(&assert.path);
+    let reason = assert
+        .message
+        .strip_prefix("#assert failed: ")
+        .unwrap_or(&assert.message);
+    let notes = vec![format!(
+        "the `#assert` at {}:{line}:{column} fails on {os_name}: {reason}",
+        shown.to_string_lossy().replace('\\', "/")
+    )];
+    match leak {
+        Leak::Import {
+            from,
+            start,
+            end,
+            to,
+            ..
+        } => Lint {
+            rule: rule.name,
+            level: config.level_at(rule, from),
+            path: from.to_string_lossy().into_owned(),
+            start: *start,
+            end: *end,
+            message: format!("{} is not available on {os_name}", display_name(to)),
+            label: Some(format!(
+                "only builds on {}",
+                system_list(&probe.systems(to))
+            )),
+            help: Some(
+                "guard the import with an `#if OS ==` check, or list this file under `[lint.portability.platforms]`"
+                    .into(),
+            ),
+            notes,
+            fix: None,
+        },
+        Leak::Own {
+            assert,
+        } => Lint {
+            rule: rule.name,
+            level: config.level_at(rule, &assert.path),
+            path: assert.path.to_string_lossy().into_owned(),
+            start: assert.start,
+            end: assert.end,
+            message: format!("{} is not available on {os_name}", display_name(&assert.path)),
+            label: Some(format!("fails on {os_name}")),
+            help: Some(
+                "list the file under `[lint.portability.platforms]` or add `// jailint: platforms(...)` at its top"
+                    .into(),
+            ),
+            notes: Vec::new(),
+            fix: None,
+        },
     }
 }
