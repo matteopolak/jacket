@@ -354,13 +354,28 @@ Parse.
 `Config.statement_timeout` (ms) is sent as the `statement_timeout` startup parameter. A connection
 string can set it through `options=-c statement_timeout=5000` as well.
 
+**Several hosts and `sslmode`** (`connection.jai`). `connect` builds the host list from
+`Config.hosts` (or `host`/`port`), shuffles it with `load_balance_hosts = .RANDOM`, and tries each
+host with its own `connect_timeout` until one logs in and passes `target_session_attrs`: `READ_WRITE`
+and `READ_ONLY` ask `SHOW transaction_read_only` (a standby counts as read-only), `PRIMARY` and
+`STANDBY` use the `in_hot_standby` status (or `pg_is_in_recovery()` before PostgreSQL 14), and
+`PREFER_STANDBY` makes a pass for a standby over all the hosts, then one for any. The error of the
+last attempt is returned; a server of the wrong kind gives `.HOST_REJECTED`. Pools use the same
+`connect`, so a pool follows a failover when its hosts are listed. A name with several addresses
+is not expanded: only the first one the resolver gives is tried.
+
+`ssl_mode = .ALLOW` connects without TLS and, if the server answers with an error, asks again with
+TLS (no certificate check). `.PREFER` offers TLS, and when the server then rejects the login it
+tries once more in the clear, as libpq does. Neither retries a failed TCP connect.
+
 ## Configuration
 
 `Config` fields: `host`, `port`, `user` (default `$USER`), `password`, `database` (default the user),
-`application_name`, `options`, `ssl_mode` (`DISABLE`, `PREFER` (default), `REQUIRE`,
+`application_name`, `options`, `ssl_mode` (`DISABLE`, `ALLOW`, `PREFER` (default), `REQUIRE`,
 `VERIFY_CA`, `VERIFY_FULL`), `ssl_direct`, `ssl_root_cert_pem` (PEM; empty means the system
 roots for `VERIFY_*` and no check otherwise; the chain must end in a self-signed root from it),
-`ssl_crl_pem` (revocation lists: the server's certificate needs one from its issuer, and must not
+`target_session_attrs` (`ANY` (default), `READ_WRITE`, `READ_ONLY`, `PRIMARY`, `STANDBY`,
+`PREFER_STANDBY`), `load_balance_hosts` (`DISABLE`, `RANDOM`), `hosts`, `ssl_crl_pem` (revocation lists: the server's certificate needs one from its issuer, and must not
 be on it), `ssl_cert_pem` and `ssl_key` (the client certificate chain and its key, PEM or DER)
 with `ssl_key_password`, `ssl_cert_mode` (`DISABLE`, `ALLOW` (default), `REQUIRE`), `ssl_sni`
 (default true), `ssl_min_protocol_version` and `ssl_max_protocol_version` (`TLS_1_0` to `TLS_1_3`;
@@ -379,8 +394,8 @@ values), `on_notice` and `user_data` (see Notices above), `json_options` (see JS
 
 `parse_conninfo(text, use_environment := false)` reads libpq's connection strings: a URI as below,
 or `host=db port=5432 user='a b'` (single quotes, `\` escapes). Errors have libpq's texts. Several
-hosts (`host1:5432,host2:5433`) fill `Config.hosts`; `connect` uses `host` and `port`, the first,
-and does not try the others. Further keywords: `hostaddr` (connected to in place of the host, which
+hosts (`host1:5432,host2:5433`) fill `Config.hosts`; `connect` tries them in order (see Several
+hosts below). Further keywords: `target_session_attrs`, `load_balance_hosts`, `hostaddr` (connected to in place of the host, which
 TLS still checks), `passfile`, `require_auth`, `client_encoding`, `replication`,
 `min_protocol_version` and `max_protocol_version` (`3.0`, `3.2`, `latest`), `sslrootcert=system`
 (system roots, and `sslmode` defaults to `verify-full`; `$SSL_CERT_FILE` and `$SSL_CERT_DIR` replace
@@ -410,7 +425,7 @@ iterations)` and `md5_secret(password, user)` build the secret for `ALTER ROLE .
 `cancel_query(connection)` sends a cancel request for the statement another fiber is waiting on.
 
 `parse_url` is `parse_conninfo` for URIs: `postgres://user:password@host:port/database?...`. Parameters: `host`, `port`,
-`user`, `password`, `dbname`, `sslmode` (`allow` maps to `prefer`), `sslnegotiation=direct`,
+`user`, `password`, `dbname`, `sslmode` (including `allow`), `sslnegotiation=direct`,
 `sslrootcert` (a PEM file, or `system`) and the other `ssl*` keywords above, `channel_binding`, `application_name`, `options` and
 `connect_timeout` (seconds). A config from `parse_url` or `copy_config` owns its strings: call `free_config`.
 

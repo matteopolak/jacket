@@ -6,6 +6,23 @@ Ssl_Mode :: enum u8 {
     REQUIRE; // TLS, no certificate check
     VERIFY_CA; // TLS, the chain must lead to a trusted root
     VERIFY_FULL; // TLS, the chain and the host name are checked
+    ALLOW; // a plain connection first; TLS (no certificate check) only when the server refuses that
+}
+
+// Which of several servers `connect` accepts, as libpq's `target_session_attrs`.
+Target_Session_Attrs :: enum u8 {
+    ANY;
+    READ_WRITE; // transactions are not read-only (a primary, by default)
+    READ_ONLY;
+    PRIMARY; // not in hot standby
+    STANDBY; // in hot standby
+    PREFER_STANDBY; // a standby if any host is one, else any
+}
+
+// The order `connect` tries the hosts in, as libpq's `load_balance_hosts`.
+Load_Balance_Hosts :: enum u8 {
+    DISABLE; // as listed
+    RANDOM; // shuffled for each connection
 }
 
 Ssl_Cert_Mode :: enum u8 {
@@ -38,9 +55,12 @@ Config :: struct {
     // server's certificate is checked against and the password file is searched by.
     hostaddr: string;
     // Every host of a connection string such as `host1:5432,host2:5433`, the first one included.
-    // Empty for one host. This client connects to `host` and `port`, the first of them: it does
-    // not try the others.
+    // Empty for one host (`host` and `port`). With several, `connect` tries them in turn until one
+    // accepts the login and suits `target_session_attrs`; `host`, `hostaddr` and `port` are then
+    // only the first entry's copy.
     hosts: [] Host_Port;
+    target_session_attrs := Target_Session_Attrs.ANY;
+    load_balance_hosts := Load_Balance_Hosts.DISABLE;
     user: string; // empty: $USER
     password: string;
     database: string; // empty: the user name
@@ -271,7 +291,7 @@ config_from_conninfo :: (info: Conninfo, use_environment := false) -> Config, Pg
 
     if mode == {
         case "disable"; config.ssl_mode = .DISABLE;
-        case "allow"; config.ssl_mode = .PREFER;
+        case "allow"; config.ssl_mode = .ALLOW;
         case "prefer"; config.ssl_mode = .PREFER;
         case "require"; config.ssl_mode = .REQUIRE;
         case "verify-ca"; config.ssl_mode = .VERIFY_CA;
@@ -279,6 +299,30 @@ config_from_conninfo :: (info: Conninfo, use_environment := false) -> Config, Pg
         case "";
         case;
             return failed(*config, "invalid sslmode value: \"%\"", mode);
+    }
+
+    attrs := value("target_session_attrs");
+
+    if attrs == {
+        case "any"; config.target_session_attrs = .ANY;
+        case "read-write"; config.target_session_attrs = .READ_WRITE;
+        case "read-only"; config.target_session_attrs = .READ_ONLY;
+        case "primary"; config.target_session_attrs = .PRIMARY;
+        case "standby"; config.target_session_attrs = .STANDBY;
+        case "prefer-standby"; config.target_session_attrs = .PREFER_STANDBY;
+        case "";
+        case;
+            return failed(*config, "invalid target_session_attrs value: \"%\"", attrs);
+    }
+
+    balance := value("load_balance_hosts");
+
+    if balance == {
+        case "disable"; config.load_balance_hosts = .DISABLE;
+        case "random"; config.load_balance_hosts = .RANDOM;
+        case "";
+        case;
+            return failed(*config, "invalid load_balance_hosts value: \"%\"", balance);
     }
 
     negotiation := value("sslnegotiation");
@@ -636,6 +680,7 @@ ssl_mode_name :: (mode: Ssl_Mode) -> string {
     if mode == {
         case .DISABLE; return "disable";
         case .PREFER; return "prefer";
+        case .ALLOW; return "allow";
         case .REQUIRE; return "require";
         case .VERIFY_CA; return "verify-ca";
         case .VERIFY_FULL; return "verify-full";

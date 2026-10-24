@@ -35,8 +35,8 @@ extension differences in the environment do not show up as client failures.
 | Authentication TAP | `src/test/authentication/t/001_password.pl`, `002_saslprep.pl`, `003_peer.pl`, `004_file_inclusion.pl`, `006_login_trigger.pl` | SCRAM, MD5, cleartext, `require_auth`, password files, SASLprep of passwords, peer authentication, login event triggers | Passes: 178, 20, 53, 2 and 32 tests. `005_sspi.pl` is Windows only. |
 | SSL TAP | `src/test/ssl/t/001_ssltests.pl`, `002_scram.pl` | `sslmode`, `sslrootcert`, host name checks, client certificates, CRLs, SCRAM channel binding | Applies. `001_ssltests.pl`: 201 of 205 tests (the real `psql` passes 200; the four others are the suite's own TODO skips); `002_scram.pl`: 21 of 24, the three left being the RSASSA-PSS certificate test, which mbedTLS cannot do (`TAP_SSL_SKIPS` in `run.py`). |
 | libpq TAP | `src/interfaces/libpq/t/001_uri.pl` | connection URI and key/value parsing | Passes (60 tests) through the `libpq_uri_regress` shim |
-| libpq TAP | `005_negotiate_encryption.pl` | the `sslmode` and `sslnegotiation` matrix | Applies (GSS rows do not); with the SSL suites |
-| libpq TAP | `003_load_balance_host_list.pl`, `004_load_balance_dns.pl` | multiple hosts, `load_balance_hosts` | Skipped: the config holds every host but connecting uses the first |
+| libpq TAP | `003_load_balance_host_list.pl` | several hosts, the next one after a failure, `load_balance_hosts=random`, `target_session_attrs` | Applies: `connect` tries the hosts in order or shuffled (not run locally; needs a PostgreSQL source tree) |
+| libpq TAP | `004_load_balance_dns.pl`, `005_negotiate_encryption.pl` | one name with several addresses; the `sslmode` and `sslnegotiation` matrix | Skipped: the client tries the first address of a name only; the matrix has GSS encryption rows |
 | psql TAP | `src/bin/psql/t/020_cancel.pl` | query cancellation from a signal | Passes (2 tests): the shim turns `SIGINT` into a cancel request (`cancel_query`) |
 | psql TAP | `src/bin/psql/t/001_basic.pl` | options, `\timing`, `\watch`, notifications, `\errverbose`, `--single-transaction`, `\g` into a program, `\restrict` | 105 of 112 tests; the rest are listed below |
 | Pipeline traces | `src/test/modules/libpq_pipeline/traces/*.trace` and `libpq_pipeline.c` | the exact message sequence of pipelines, errors inside them, `Sync` handling, prepared statements, single-row and chunked results | Applies. `tests/conformance/pipeline_traces.jai` replays all nine scenarios and matches every trace line for line on 17.11 (`run.py --pipeline-traces`; PostgreSQL 17 and later). |
@@ -83,8 +83,8 @@ are the oracle. `--only <part of a path>` picks files; `--shim-only` skips the r
 under `target/pg-conformance/run/<major>/tap/<shim|real>/<file>/`.
 
 Not run (`TAP_SKIPS` in `run.py`): `005_sspi.pl` (Windows), `010_tab_completion.pl` (a terminal and
-a line editor), `002_api.pl` (libpq's C API), `003`/`004_load_balance_*.pl` (the client connects to
-the first host only), `005_negotiate_encryption.pl` (with the SSL suites).
+a line editor), `002_api.pl` (libpq's C API), `004_load_balance_dns.pl` (the client tries the first address of a
+name only), `005_negotiate_encryption.pl` (GSS rows).
 
 Tests of `001_basic.pl` that do not apply (`TAP_BASIC_SKIPS`): `\help` (the shim has no SQL
 command help text) and the replication-mode response (`unexpected PQresultStatus: 8`: the client does

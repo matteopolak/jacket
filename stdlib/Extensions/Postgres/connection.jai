@@ -91,32 +91,50 @@ Connection :: struct {
 }
 
 // Opens a connection and authenticates. On failure the connection is null and nothing needs
-// closing. Must run on a fiber (`Io.io_run`); `config.connect_timeout` bounds the whole of it.
+// closing. Must run on a fiber (`Io.io_run`); `config.connect_timeout` bounds each attempt.
+//
+// With several hosts (`Config.hosts`) they are tried in order, or in a random order with
+// `load_balance_hosts` RANDOM, until one accepts the login and has the role `target_session_attrs`
+// asks for. `connect_timeout` limits each attempt.
 connect :: (config: Config) -> *Connection, Pg_Error {
     if !Io.in_scheduler() {
         return null, make_error(.CONFIG, "Postgres calls must run on a fiber: call them inside Io.io_run");
     }
 
-    c := New(Connection);
-    if config.on_notice c.on_notice = config.on_notice;
+    hosts: [..] Host_Port;
+    hosts.allocator = temp;
 
-    c.user_data = config.user_data;
-    c.json_options = config.json_options;
-    c.statements.mode = config.statement_cache;
-    c.statements.capacity = config.statement_cache_size;
-    c.statements.verify = config.verify_statements;
-    error: Pg_Error;
-
-    Io.with_deadline(config.connect_timeout, #code {
-        error = open(c, config);
-    });
-
-    if error.kind != .NONE {
-        close(c, now = true);
-        return null, error;
+    if config.hosts.count {
+        for config.hosts array_add(*hosts, it);
+    } else {
+        array_add(*hosts, .{ config.host, config.hostaddr, config.port });
     }
 
-    return c, .{};
+    if config.load_balance_hosts == .RANDOM shuffle_hosts(hosts);
+
+    // `prefer-standby` looks for a standby among all the hosts first, then takes any.
+    attempts := Target_Session_Attrs.[config.target_session_attrs, .ANY];
+    passes := ifx config.target_session_attrs == .PREFER_STANDBY then 2 else 1;
+    last: Pg_Error;
+
+    for pass: 0..passes - 1 {
+        wanted := attempts[pass];
+        if wanted == .PREFER_STANDBY wanted = .STANDBY;
+
+        for host: hosts {
+            c, error := connect_host(config, host, wanted);
+
+            if error.kind == .NONE {
+                free_error(*last);
+                return c, .{};
+            }
+
+            free_error(*last);
+            last = error;
+        }
+    }
+
+    return null, last;
 }
 
 // Ends the session (Terminate) and frees the connection. `now` skips the goodbye.
@@ -165,6 +183,124 @@ log_notice :: (c: *Connection, notice: *Pg_Error) {
 }
 
 #scope_module
+
+shuffle_hosts :: (hosts: [] Host_Port) {
+    for 1..hosts.count - 1 {
+        i := hosts.count - it;
+        bytes: [4] u8;
+
+        if !Random.random_bytes(bytes) return;
+
+        j := cast(s64) (read_u32(bytes.data) % cast(u32) (i + 1));
+        hosts[i], hosts[j] = hosts[j], hosts[i];
+    }
+}
+
+// One host, with the retries sslmode asks for: `allow` tries a plain connection and then TLS, and
+// `prefer` falls back to a plain connection when the server refused the login over TLS.
+connect_host :: (config: Config, host: Host_Port, wanted: Target_Session_Attrs) -> *Connection, Pg_Error {
+    attempt := config;
+    attempt.host = ifx host.host then host.host else "localhost";
+    attempt.hostaddr = host.hostaddr;
+    attempt.port = host.port;
+    attempt.hosts = .[];
+
+    unix_socket := begins_with(attempt.host, "/");
+
+    if config.ssl_mode == .ALLOW {
+        attempt.ssl_mode = .DISABLE;
+
+        c, error, _ := connect_once(attempt, wanted);
+        if error.kind != .SERVER || unix_socket return c, error;
+
+        // Refused without TLS: ask again with it.
+        free_error(*error);
+        attempt.ssl_mode = .REQUIRE;
+
+        c, error, _ = connect_once(attempt, wanted);
+
+        return c, error;
+    }
+
+    c, error, tls_used := connect_once(attempt, wanted);
+
+    if config.ssl_mode == .PREFER && error.kind == .SERVER && tls_used && !unix_socket {
+        free_error(*error);
+        attempt.ssl_mode = .DISABLE;
+
+        c, error, _ = connect_once(attempt, wanted);
+    }
+
+    return c, error;
+}
+
+// One connection attempt to `config.host`. `tls_used` says whether it got as far as using TLS.
+connect_once :: (config: Config, wanted: Target_Session_Attrs) -> *Connection, Pg_Error, tls_used: bool {
+    c := New(Connection);
+    if config.on_notice c.on_notice = config.on_notice;
+
+    c.user_data = config.user_data;
+    c.json_options = config.json_options;
+    c.statements.mode = config.statement_cache;
+    c.statements.capacity = config.statement_cache_size;
+    c.statements.verify = config.verify_statements;
+    error: Pg_Error;
+
+    Io.with_deadline(config.connect_timeout, #code {
+        error = open(c, config);
+    });
+
+    if error.kind == .NONE && wanted != .ANY {
+        Io.with_deadline(config.connect_timeout, #code {
+            problem := session_mismatch(c, wanted);
+
+            if problem {
+                error = make_error(.HOST_REJECTED, "connection to server at \"%\", port % failed: %", config.host, config.port, problem);
+            }
+        });
+    }
+
+    if error.kind != .NONE {
+        tls_used := c.tls_used;
+        close(c, now = true);
+
+        return null, error, tls_used;
+    }
+
+    return c, .{}, c.tls_used;
+}
+
+// Why the server is not the kind `target_session_attrs` asked for, or "" when it is.
+session_mismatch :: (c: *Connection, wanted: Target_Session_Attrs) -> string {
+    in_standby := parameter(c, "in_hot_standby");
+
+    if !in_standby {
+        // Servers before 14 do not report it.
+        result, error := query_dynamic(c, "select pg_is_in_recovery()");
+        if error.kind != .NONE return tprint("could not query the server: %", error.message);
+
+        value, _ := get(*result, 0, 0, string);
+
+        in_standby = ifx value == "t" then "on" else "off";
+        free_result(*result);
+    }
+
+    if wanted == .PRIMARY return ifx in_standby == "on" then "server is in hot standby mode" else "";
+    if wanted == .STANDBY return ifx in_standby == "on" then "" else "server is not in hot standby mode";
+
+    result, error := query_dynamic(c, "show transaction_read_only");
+    if error.kind != .NONE return tprint("could not query the server: %", error.message);
+
+    value, _ := get(*result, 0, 0, string);
+    read_only := value == "on";
+
+    free_result(*result);
+
+    if wanted == .READ_WRITE return ifx read_only || in_standby == "on" then "session is read-only" else "";
+    if wanted == .READ_ONLY return ifx read_only || in_standby == "on" then "" else "session is not read-only";
+
+    return "";
+}
 
 close_transport :: (c: *Connection, now: bool) {
     #if TLS {
