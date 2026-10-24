@@ -118,6 +118,7 @@ JACKET_PG_ROOT="$work/orm" "$jaic" "$work/orm/main.jai" -exe "$work/orm_test" ||
 grep -rqF 'select \"id\", \"email\" from \"public\".\"users\"' "$work/orm/db/queries" || fail "orm each did not prune its columns"
 grep -rqF 'jsonb_each(\"settings\"::jsonb) as orm_j' "$work/orm/db/queries" || fail "orm each did not prune the settings document"
 grep -rqF 'as \"orm__author__email\"' "$work/orm/db/queries" || fail "orm each did not read the author in the same statement"
+grep -rqF '"select \"id\" from \"public\".\"users\" order by \"id\""' "$work/orm/db/queries" || fail "orm each read more than the key for a has-many loop"
 
 # 9. Bad programs: the error is reported at the right place.
 python3 "$here/bad.py" "$jaic" "$work" || fail "bad programs"
