@@ -143,7 +143,7 @@ open_transport :: (c: *Connection) -> Pg_Error {
 }
 
 negotiate_tls :: (c: *Connection, config: Config) -> Pg_Error {
-    if config.ssl_mode == .DISABLE || c.unix_socket return .{};
+    if config.ssl_mode == .DISABLE || config.ssl_mode == .ALLOW || c.unix_socket return .{};
 
     #if !TLS {
         if config.ssl_mode == .PREFER return .{};

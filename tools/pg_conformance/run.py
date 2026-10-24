@@ -64,6 +64,7 @@ TAP_SSL_SKIPS = {
 
 TAP_SUITES = (
     {"file": "src/interfaces/libpq/t/001_uri.pl", "real": False},
+    {"file": "src/interfaces/libpq/t/003_load_balance_host_list.pl"},
     {"file": "src/test/authentication/t/001_password.pl", "skip_tests": TAP_PASSWORD_SKIPS},
     {"file": "src/test/authentication/t/002_saslprep.pl"},
     {"file": "src/test/authentication/t/003_peer.pl"},
@@ -81,9 +82,8 @@ TAP_SKIPS = {
     "src/test/authentication/t/005_sspi.pl": "Windows only (SSPI)",
     "src/bin/psql/t/010_tab_completion.pl": "drives psql's line editor through a terminal; the shim has none",
     "src/interfaces/libpq/t/002_api.pl": "tests libpq's C API through its own test client",
-    "src/interfaces/libpq/t/003_load_balance_host_list.pl": "needs connecting to the next host after a failure and load balancing: the client connects to the first host",
-    "src/interfaces/libpq/t/004_load_balance_dns.pl": "needs load_balance_hosts and a name resolving to several addresses",
-    "src/interfaces/libpq/t/005_negotiate_encryption.pl": "the TLS and GSS negotiation matrix, with the SSL suites",
+    "src/interfaces/libpq/t/004_load_balance_dns.pl": "needs one name resolving to several addresses (a hosts file entry), and the client tries the first address only",
+    "src/interfaces/libpq/t/005_negotiate_encryption.pl": "the matrix includes GSS encryption rows (Kerberos), which the client does not speak",
 }
 
 TAP_TIMEOUT = 900  # seconds for one TAP file

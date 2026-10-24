@@ -15,6 +15,7 @@ Error_Kind :: enum u8 {
     DECODE; // a value did not decode into the type asked for
     USAGE; // the call does not fit the result (a missing column, more rows than one, say)
     NOT_FOUND; // `query_one` matched no row
+    HOST_REJECTED; // a server answered, but is not the kind `target_session_attrs` asks for
 }
 
 // The five-character SQLSTATE, packed into a number so that it compares and switches like an
@@ -201,6 +202,7 @@ kind_text :: (kind: Error_Kind) -> string {
         case .DECODE; return "decode error";
         case .USAGE; return "usage error";
         case .NOT_FOUND; return "not found";
+        case .HOST_REJECTED; return "no suitable server";
     }
 
     return "error";

@@ -77,6 +77,8 @@ main :: () {
         test_copy_out();
         step("test_listener");
         test_listener();
+        step("test_multiple_hosts");
+        test_multiple_hosts();
     });
     print("ok\n");
 }
@@ -1690,6 +1692,122 @@ test_statement_cache :: () {
     }
 
     assert(Pg.statement_cache_count(db) == before + 1);
+}
+
+// Several hosts: the next one after a failure, a random order, the kind of server wanted, and
+// `sslmode=allow`.
+test_multiple_hosts :: () {
+    // The first host refuses connections.
+    config := config_for("postgres");
+    config.hosts = Pg.Host_Port.[.{ "127.0.0.1", "", 1 }, .{ "127.0.0.1", "", port }];
+
+    db := connect_ok(config);
+
+    assert(scalar(db, "select 1", s64) == 1);
+    Pg.close(db);
+
+    // All of them do: the last error comes back.
+    config.hosts = Pg.Host_Port.[.{ "127.0.0.1", "", 1 }, .{ "127.0.0.1", "", 2 }];
+    error := connect_fails(config, .IO);
+
+    Pg.free_error(*error);
+
+    // In the listed order unless asked otherwise; shuffled with load_balance_hosts=random. The
+    // TCP host and the socket directory are told apart by whether the session has a server address.
+    if socket_dir && OS != .WINDOWS {
+        config = config_for("postgres");
+        config.hosts = Pg.Host_Port.[.{ "127.0.0.1", "", port }, .{ socket_dir, "", port }];
+
+        for 1..10 {
+            db = connect_ok(config);
+            assert(scalar(db, "select inet_server_addr() is not null", bool), "the first host was not used first");
+            Pg.close(db);
+        }
+
+        config.load_balance_hosts = .RANDOM;
+        tcp, socket := 0, 0;
+
+        for 1..60 {
+            db = connect_ok(config);
+
+            if scalar(db, "select inet_server_addr() is not null", bool) tcp += 1;
+            else socket += 1;
+
+            Pg.close(db);
+        }
+
+        assert(tcp > 0 && socket > 0, "random order used one host only: % tcp, % socket", tcp, socket);
+    }
+
+    // target_session_attrs: a session that is read-only by default, as on a replica.
+    config = config_for("postgres");
+    config.options = "-c default_transaction_read_only=on";
+
+    for attrs: Pg.Target_Session_Attrs.[.ANY, .READ_ONLY, .PRIMARY, .PREFER_STANDBY] {
+        config.target_session_attrs = attrs;
+        db = connect_ok(config);
+        Pg.close(db);
+    }
+
+    for attrs: Pg.Target_Session_Attrs.[.READ_WRITE, .STANDBY] {
+        config.target_session_attrs = attrs;
+        error = connect_fails(config, .HOST_REJECTED);
+        assert(contains(error.message, "session is read-only") || contains(error.message, "not in hot standby"), "got %", error.message);
+        Pg.free_error(*error);
+    }
+
+    config = config_for("postgres");
+
+    for attrs: Pg.Target_Session_Attrs.[.ANY, .READ_WRITE, .PRIMARY, .PREFER_STANDBY] {
+        config.target_session_attrs = attrs;
+        db = connect_ok(config);
+        Pg.close(db);
+    }
+
+    for attrs: Pg.Target_Session_Attrs.[.READ_ONLY, .STANDBY] {
+        config.target_session_attrs = attrs;
+        error = connect_fails(config, .HOST_REJECTED);
+        Pg.free_error(*error);
+    }
+
+    // The next host is tried when one has the wrong role.
+    config.target_session_attrs = .READ_WRITE;
+    config.hosts = Pg.Host_Port.[.{ "127.0.0.1", "", 1 }, .{ "127.0.0.1", "", port }];
+    db = connect_ok(config);
+    Pg.close(db);
+
+    // Connection strings.
+    parsed, parse_error := Pg.parse_conninfo("host=a,b target_session_attrs=prefer-standby load_balance_hosts=random sslmode=allow");
+
+    assert_ok(parse_error, "parse_conninfo");
+    assert(parsed.target_session_attrs == .PREFER_STANDBY && parsed.load_balance_hosts == .RANDOM && parsed.ssl_mode == .ALLOW);
+    Pg.free_config(*parsed);
+
+    _, parse_error = Pg.parse_conninfo("target_session_attrs=bogus");
+    assert(parse_error.kind == .CONFIG && contains(parse_error.message, "invalid target_session_attrs value: \"bogus\""), "got %", Pg.error_text(parse_error));
+    Pg.free_error(*parse_error);
+
+    _, parse_error = Pg.parse_conninfo("load_balance_hosts=sometimes");
+    assert(parse_error.kind == .CONFIG && contains(parse_error.message, "invalid load_balance_hosts value"), "got %", Pg.error_text(parse_error));
+    Pg.free_error(*parse_error);
+
+    // sslmode=allow: plain first, TLS when the server refuses that.
+    config = config_for("postgres");
+    config.ssl_mode = .ALLOW;
+    db = connect_ok(config);
+    assert(!db.tls_used);
+    Pg.close(db);
+
+    config = config_for("jai_tls_scram", "tls secret");
+    config.ssl_mode = .ALLOW;
+    db = connect_ok(config);
+    assert(db.tls_used);
+    Pg.close(db);
+
+    // A wrong password is the server's answer on both attempts.
+    config.password = "wrong";
+    error = connect_fails(config, .SERVER);
+    Pg.free_error(*error);
 }
 
 receive_within :: (listener: *Pg.Listener, milliseconds: s64) -> Pg.Notification, Pg.Pg_Error {
