@@ -28,6 +28,7 @@ Result :: struct {
 
     values: [..] Value_Span; // row_count * columns.count of them, row by row
     data: [..] u8;
+    json_options: Json_Options; // for `Json(T)` columns; the connection's to begin with
     allocations: [..] *void;
     allocator: Allocator; // context.allocator when the query ran: it owns everything above
 }
@@ -225,6 +226,7 @@ run_script :: (c: *Connection, sql: string, hooks: *Script_Hooks) -> Pg_Error {
     failure: Pg_Error;
     result: Result;
     result.allocator = context.allocator;
+    result.json_options = c.json_options;
     copy: Copy_Info;
 
     defer {
@@ -281,6 +283,7 @@ run_script :: (c: *Connection, sql: string, hooks: *Script_Hooks) -> Pg_Error {
 
                 free_result(*result);
                 result.allocator = context.allocator;
+                result.json_options = c.json_options;
 
             case #char "I";
             // An empty statement: nothing to report.
@@ -353,8 +356,12 @@ get :: (r: *Result, row: s64, column: s64, $T: Type) -> T, Pg_Error {
     {
         // What decoding allocates belongs to the result.
         push_allocator(.{ result_allocator, r });
-        #if #run is_nullable(T) why = decode(bytes, info.format, info.type_oid, *value.value);
-        else why = decode(bytes, info.format, info.type_oid, *value);
+        // Decoded JSON strings may point into the result, as `string` columns do.
+        options := r.json_options;
+        options.borrow = true;
+
+        #if #run is_nullable(T) why = decode(bytes, info.format, info.type_oid, *value.value, *options);
+        else why = decode(bytes, info.format, info.type_oid, *value, *options);
     }
 
     if why return value, make_error(.DECODE, "column \"%\" (%) of row %: %", info.name, type_name(info.type_oid), row, why);
@@ -482,6 +489,7 @@ run_extended :: (c: *Connection, sql: string, args: [] Any, result_format: Forma
 
     result: Result;
     result.allocator = context.allocator;
+    result.json_options = c.json_options;
     failure: Pg_Error;
 
     while true {
