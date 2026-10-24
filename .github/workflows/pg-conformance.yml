@@ -67,11 +67,11 @@ jobs:
           echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
       - name: Install PostgreSQL ${{ matrix.postgres }} from the PGDG repository
         run: |
-          # The repository line is written by hand: the runner's apt ignored the deb822 file that
-          # apt.postgresql.org.sh writes. The per-major component carries a major before its release.
+          # The LLVM step points apt at jai-ci-sources.list.d (tools/ci/apt_lib.sh), so the
+          # repository goes there. The per-major component carries a major before its release.
           sudo install -d /usr/share/postgresql-common/pgdg
           sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc
-          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main ${{ matrix.postgres }}" | sudo tee /etc/apt/sources.list.d/pgdg.list
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main ${{ matrix.postgres }}" | sudo tee /etc/apt/jai-ci-sources.list.d/pgdg.list
           sudo apt-get update
           apt-cache policy "postgresql-${{ matrix.postgres }}"
           sudo apt-get install -y "postgresql-${{ matrix.postgres }}" "postgresql-server-dev-${{ matrix.postgres }}" libipc-run-perl libio-pty-perl
