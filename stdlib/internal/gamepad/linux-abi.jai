@@ -9,10 +9,10 @@ input_event :: Linux.input_event;
 input_absinfo :: Linux.input_absinfo;
 
 libevdev_read_flag :: enum_flags s32 {
-    LIBEVDEV_READ_FLAG_SYNC :: 1;
-    LIBEVDEV_READ_FLAG_NORMAL :: 2;
-    LIBEVDEV_READ_FLAG_FORCE_SYNC :: 4;
-    LIBEVDEV_READ_FLAG_BLOCKING :: 8;
+    SYNC :: 1;
+    NORMAL :: 2;
+    FORCE_SYNC :: 4;
+    BLOCKING :: 8;
 }
 
 libevdev_grab_mode :: enum s32 {
