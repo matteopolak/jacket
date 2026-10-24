@@ -34,6 +34,7 @@ excessive_nesting = "warn"
 leaked_allocation = "warn"
 cognitive_complexity = "warn"
 magic_number = "warn"
+platform_leak = "warn"
 
 # Exact float comparisons in library code are checked; tests compare exact results on purpose.
 [[lint.overrides]]
@@ -234,6 +235,69 @@ rules = { lossy_float_literal = "allow" }
 [[lint.overrides]]
 paths = ["stdlib/internal/input/cocoa-events.jai", "stdlib/internal/subtitles/parse.jai"]
 rules = { manual_array_find = "allow" }
+
+# The standard library builds on every operating system unless a file below says otherwise;
+# `platform_leak` compiles it once per system and reports portable code that imports a file
+# one of them does not build.
+[lint.portability]
+portable = ["stdlib/**"]
+
+# Files limited to some systems; `[]` is a file none of the three builds (or, for tests, that
+# is not checked). A file here that portable code imports without an `#if OS ==` guard is a
+# leak; the most specific glob wins.
+[lint.portability.platforms]
+# Tests and their fixtures may be written for one system.
+"stdlib/**/tests/**" = []
+# Android (the compiler checks Linux, macOS and Windows; Android has no target of its own).
+"stdlib/Android/**" = []
+# WebAssembly only.
+"stdlib/Wasi_Numeric_Runtime/**" = []
+"stdlib/Extensions/Wasi_Runtime/**" = []
+# Asserts a Windows host, not a Windows target.
+"stdlib/linux_build/**" = []
+# Linux on ARM64 only.
+"stdlib/internal/bindings/linux-arm64-kernel/**" = []
+# Android only (its native-app glue).
+"stdlib/internal/bindings/android-commands/**" = []
+# Unix.
+"stdlib/POSIX/**" = ["linux", "macos"]
+# Linux.
+"stdlib/Linux/**" = ["linux"]
+"stdlib/X11/**" = ["linux"]
+"stdlib/Extensions/Io_Uring/**" = ["linux"]
+# macOS.
+"stdlib/macOS/**" = ["macos"]
+"stdlib/Metal/**" = ["macos"]
+"stdlib/Objective_C/**" = ["macos"]
+"stdlib/internal/bindings/fsevents-context/**" = ["macos"]
+"stdlib/internal/bindings/nsgl/**" = ["macos"]
+# The per-system halves of modules that pick one with `#if OS ==`.
+"stdlib/internal/files/filesystem.jai" = ["linux", "macos"]
+"stdlib/internal/files/native-unix.jai" = ["linux", "macos"]
+"stdlib/internal/process/**" = ["linux", "macos"]
+"stdlib/internal/system/unix.jai" = ["linux", "macos"]
+"stdlib/internal/window/connection.jai" = ["linux"]
+"stdlib/internal/files/filesystem-windows.jai" = ["windows"]
+"stdlib/internal/files/native-windows.jai" = ["windows"]
+"stdlib/internal/files/windows-abi.jai" = ["windows"]
+"stdlib/internal/files/windows-text.jai" = ["windows"]
+"stdlib/internal/process/windows.jai" = ["windows"]
+"stdlib/internal/process/windows-types.jai" = ["windows"]
+"stdlib/internal/system/windows.jai" = ["windows"]
+"stdlib/internal/windows-resources/**" = ["windows"]
+"stdlib/internal/bindings/wgl/**" = ["windows"]
+"stdlib/internal/bindings/dxc-wide/**" = ["windows"]
+# Windows.
+"stdlib/Windows/**" = ["windows"]
+"stdlib/d3d11/**" = ["windows"]
+"stdlib/d3d12/**" = ["windows"]
+"stdlib/d3d_compiler/**" = ["windows"]
+"stdlib/dxc_compiler/**" = ["windows"]
+"stdlib/dxgi/**" = ["windows"]
+"stdlib/nvidia_aftermath/**" = ["windows"]
+"stdlib/internal/bindings/dxc-compile/**" = ["windows"]
+"stdlib/internal/runtime/windows-crash-cleanup/**" = ["windows"]
+"stdlib/internal/windows-registry/**" = ["windows"]
 
 [format]
 # jaifmt settings for this repository; see docs/tools/jaifmt.md.
