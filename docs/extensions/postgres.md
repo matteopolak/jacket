@@ -116,6 +116,15 @@ maybe := Pg.get(*result, row, "extra", Pg.Nullable(Pg.Json(Extra))); // SQL NULL
   `jsonb[]`. `Json(T)` carries its encoder in its `write` field, because parameters arrive as
   `Any`; a zeroed `Json(T)` has none and is refused.
 
+**Enums.** A Jai `enum` maps to a Postgres enum by label: as a parameter it goes as its label in text
+(OID 0, so the server reads the enum the statement wants), an array of them as an array literal, and
+a column decodes by matching the label to a member name, in either format. A label that is not a
+plain name (`in progress`, `if`) is spelled `__in_20progress` and `__if`: `enum_member_name` and
+`enum_label` convert. An integer column is not read into an enum, and an enum is never sent
+as its number. [`generate`](../postgres/schema.md) writes these enums from the catalog.
+`Json(Json_Raw)` is a json column kept as text (the document is `.value.text`), for columns
+without a mapped type.
+
 **Protocol versions.** `Config.max_protocol_version` and `min_protocol_version` (`.V3_0`,
 `.V3_2`, `.LATEST`) pick the range. PostgreSQL 17 and older answer a 3.2 request with
 `NegotiateProtocolVersion` naming 3.0; the connection then speaks 3.0, or fails with a `PROTOCOL`

@@ -19,11 +19,14 @@ some :: (value: $T) -> Nullable(T) {
 
 // A `json` or `jsonb` document holding a `T`. `get` decodes it with the Json module's decoder for
 // `T`, under the result's `json_options`; as a parameter it is encoded with `write_json`.
-// `write` lets a parameter passed as `Any` find its encoder, so leave it as it is.
+// `write` lets a parameter passed as `Any` find its encoder, so leave it as it is. `Json(Json_Raw)`
+// keeps the document undecoded: it is what a generated schema gives a json column nobody mapped.
 Json :: struct(T: Type) {
     value: T;
     write: (value: *T, builder: *String_Builder) = (value: *T, builder: *String_Builder) {
-        Json_Module.write_json(builder, value.*);
+        // Json(Json_Raw) is a column with no mapped type: its text goes out as it is.
+        #if T == Json_Raw append(builder, value.text);
+        else Json_Module.write_json(builder, value.*);
     };
 }
 

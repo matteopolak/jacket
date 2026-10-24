@@ -82,3 +82,5 @@ Base64 :: #import "Base64";
 #load "resolve.jai";
 #load "shape.jai";
 #load "typed.jai";
+#load "schema.jai";
+#load "generate.jai";
