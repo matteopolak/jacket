@@ -268,6 +268,12 @@ impl Compiler {
             // Nothing ran: the target compiler runs it.
             return Ok(None);
         }
+        if result.is_err() && twin.ct.executions == before.0 {
+            // The run failed to check before anything ran: it names something the host program
+            // does not have (a member a module exports only for the target's OS, say). The
+            // target compiler checks it against the target and reports what is really wrong.
+            return Ok(None);
+        }
         self.ct.interp.block_budget = twin.ct.interp.block_budget;
         // A retry decision must see that code ran, and what it was waiting for.
         self.ct.executions += twin.ct.executions - before.0;
