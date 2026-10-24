@@ -75,6 +75,10 @@ State :: struct {
     input_at: s64;
     lineno: s64;
     input_name: string; // the script file being read; empty for standard input and -c
+    stdin_open: bool; // the input is standard input, with more to read (fill_input)
+    interactive: bool; // standard input and output are a terminal: prompts are shown
+    continuation: bool; // the next line continues a query
+    password_prompt: string; // asked for by \password instead of the usual prompt
 
     // Set by \g-family commands for the next query only.
     gset_prefix: string;
@@ -87,8 +91,14 @@ State :: struct {
     bind_params: [..] string;
     bind_active: bool;
     gfile: string;
+    gpipe: string; // \g | command: gfile holds the output until the command reads it
     saved_popt: Print_Options;
     restore_popt: bool;
+
+    timing: bool;
+    restricted: bool; // \restrict is in force
+    restrict_key: string;
+    single_transaction: bool;
 
     last_error: Pg.Pg_Error; // for \errverbose
     last_error_query: string;
@@ -110,10 +120,24 @@ exit_code := EXIT_SUCCESS;
 
 main :: () {
     Io.io_run(() {
+        // SIGINT cancels the running statement, as in psql.
+        Io.catch_interrupts();
+        Io.spawn(watch_interrupts);
         exit_code = run(get_command_line_arguments());
     });
 
     exit(cast(s32) exit_code);
+}
+
+// Turns SIGINT into a cancel request for the statement being run. The signal only sets a flag,
+// which this fiber polls.
+watch_interrupts :: () {
+    while Io.sleep(10) == .NONE {
+        if !Io.interrupted() continue;
+
+        Io.clear_interrupt();
+        if psql.db && psql.db.busy Pg.cancel_query(psql.db);
+    }
 }
 
 // Startup
@@ -153,6 +177,9 @@ run :: (args: [] string) -> s64 {
         if begins_with(arg, "--") {
             if arg == {
                 case "--no-psqlrc";
+                case "--help"; return print_help("options");
+                case "--version"; return print_version();
+                case "--single-transaction"; psql.single_transaction = true;
                 case "--quiet"; set_variable("QUIET", "on");
                 case "--echo-all"; set_variable("ECHO", "all");
                 case "--echo-queries"; set_variable("ECHO", "queries");
@@ -161,7 +188,8 @@ run :: (args: [] string) -> s64 {
                 case "--no-password";
                 case "--csv"; psql.popt.format = .CSV;
                 case;
-                    if begins_with(arg, "--set=") array_add(*pending_vars, advance(arg, 6));
+                    if begins_with(arg, "--help=") return print_help(advance(arg, 7));
+                    else if begins_with(arg, "--set=") array_add(*pending_vars, advance(arg, 6));
                     else if begins_with(arg, "--variable=") array_add(*pending_vars, advance(arg, 11));
                     else if begins_with(arg, "--dbname=") dbname = advance(arg, 9);
                     else if begins_with(arg, "--host=") host = advance(arg, 7);
@@ -174,6 +202,10 @@ run :: (args: [] string) -> s64 {
                         return EXIT_FAILURE;
                     }
             }
+        } else if arg == "-V" {
+            return print_version();
+        } else if arg == "-?" {
+            return print_help("options");
         } else if begins_with(arg, "-") && arg.count > 1 {
             // Short options may be bundled: -XAtq.
             j := 1;
@@ -194,6 +226,7 @@ run :: (args: [] string) -> s64 {
 
                 if flag == {
                     case #char "X";
+                    case #char "1"; psql.single_transaction = true;
                     case #char "a"; set_variable("ECHO", "all");
                     case #char "e"; set_variable("ECHO", "queries");
                     case #char "b"; set_variable("ECHO", "errors");
@@ -239,7 +272,7 @@ run :: (args: [] string) -> s64 {
 
     connection_string := "";
 
-    if dbname && (contains(dbname, "=") || begins_with(dbname, "postgres://") || begins_with(dbname, "postgresql://")) {
+    if dbname && Pg.is_conninfo(dbname) {
         connection_string = dbname;
         dbname = "";
     }
@@ -248,15 +281,26 @@ run :: (args: [] string) -> s64 {
     if error return EXIT_BADCONN;
 
     if !actions.count {
-        input, ok := read_stdin();
-        if !ok return EXIT_FAILURE;
-        return main_loop(input);
+        psql.interactive = POSIX.isatty(0) == 1 && POSIX.isatty(1) == 1;
+        return main_loop("", from_stdin = true);
     }
 
-    for actions {
-        result: s64;
+    if psql.single_transaction {
+        error := Pg.execute_script(psql.db, "START TRANSACTION");
 
-        if it.is_file {
+        if error.kind != .NONE {
+            print_error_raw(build_error_message(error, "", true));
+            Pg.free_error(*error);
+            return EXIT_FAILURE;
+        }
+    }
+
+    result := EXIT_SUCCESS;
+
+    for actions {
+        if it.is_file && it.text == "-" {
+            result = main_loop("", input_name = "<stdin>", from_stdin = true);
+        } else if it.is_file {
             text, ok := read_entire_file(it.text, log_errors = false);
             if !ok {
                 print_error(tprint("%: No such file or directory", it.text));
@@ -278,10 +322,22 @@ run :: (args: [] string) -> s64 {
             if !ok && !psql.db return EXIT_BADCONN;
         }
 
-        if result != EXIT_SUCCESS return result;
+        // Without ON_ERROR_STOP the next action runs after a failure and the last one decides.
+        if result != EXIT_SUCCESS && psql.on_error_stop break;
     }
 
-    return EXIT_SUCCESS;
+    if psql.single_transaction && psql.db {
+        command := ifx psql.on_error_stop && result != EXIT_SUCCESS then "ROLLBACK" else "COMMIT";
+        error := Pg.execute_script(psql.db, command);
+
+        if error.kind != .NONE {
+            print_error_raw(build_error_message(error, "", true));
+            Pg.free_error(*error);
+            return EXIT_FAILURE;
+        }
+    }
+
+    return result;
 }
 
 init_variables :: () {
@@ -320,84 +376,200 @@ init_variables :: () {
     }
 }
 
-read_stdin :: () -> string, bool {
-    data: [..] u8;
+// Reads standard input until the unread part holds a whole line, or it ends. A query is sent as
+// soon as its line has arrived, not when the input is complete.
+fill_input :: () {
+    if !psql.stdin_open return;
+
     chunk: [65536] u8;
 
     while true {
+        end := psql.input_at;
+        while end < psql.input.count && psql.input[end] != #char "\n" end += 1;
+        if end < psql.input.count return;
+
+        show_prompt();
+
         n := POSIX.read(0, chunk.data, chunk.count);
+
         if n < 0 {
             if errno_value() == POSIX.EINTR continue;
-            return "", false;
+            psql.stdin_open = false;
+            return;
         }
 
-        if n == 0 break;
+        if n == 0 {
+            psql.stdin_open = false;
+            return;
+        }
 
-        array_add(*data, ..array_view(chunk, 0, n));
+        // The old buffer stays: lines already handed out point into it.
+        psql.input = join(psql.input, string.{ n, chunk.data });
+    }
+}
+
+// The prompt psql shows before it waits for a line of a terminal.
+show_prompt :: () {
+    if !psql.interactive return;
+
+    text := psql.password_prompt;
+
+    if !text {
+        template, _ := variables_get(*psql.vars, ifx psql.continuation then "PROMPT2" else "PROMPT1");
+        text = expand_prompt(template);
     }
 
-    return cast(string) data, true;
+    write_fd(1, text);
+}
+
+// The parts of a prompt template that psql's tests use: %/ %n %# %R %x and %%.
+expand_prompt :: (template: string) -> string {
+    builder: String_Builder;
+    builder.allocator = temp;
+
+    i := 0;
+
+    while i < template.count {
+        c := template[i];
+
+        i += 1;
+
+        if c != #char "%" || i >= template.count {
+            append(*builder, string.{ 1, *template[i - 1] });
+            continue;
+        }
+
+        code := template[i];
+
+        i += 1;
+
+        if code == {
+            case #char "/"; append(*builder, psql.config.database);
+            case #char "n"; append(*builder, psql.config.user);
+            case #char "#"; append(*builder, ifx Pg.parameter(psql.db, "is_superuser") == "on" then "#" else ">");
+            case #char "R"; append(*builder, ifx psql.continuation then "-" else "=");
+            case #char "x";
+                if psql.db {
+                    if psql.db.status == .IN_TRANSACTION append(*builder, "*");
+                    else if psql.db.status == .FAILED append(*builder, "!");
+                }
+            case #char "%"; append(*builder, "%");
+        }
+    }
+
+    return builder_to_string(*builder,, temp);
+}
+
+print_version :: () -> s64 {
+    write_fd(1, "psql (PostgreSQL) 17.0 (jacket psql shim)\n");
+    return EXIT_SUCCESS;
+}
+
+// The options and meta-commands this psql stand-in understands.
+print_help :: (topic: string) -> s64 {
+    if topic == {
+        case "options"; #through;
+        case "";
+            write_fd(1, "psql is the PostgreSQL interactive terminal, here a stand-in built on the Jai client.\n\nUsage:\n  psql [OPTION]... [DBNAME [USERNAME]]\n\nGeneral options:\n  -c, --command=COMMAND    run only single command (SQL or internal) and exit\n  -d, --dbname=DBNAME      database name to connect to, or a connection string\n  -f, --file=FILENAME      execute commands from file, then exit\n  -1, --single-transaction execute as a single transaction\n  -V, --version            output version information, then exit\n  -X, --no-psqlrc          do not read startup file\n  -?, --help[=options]     show this help, then exit\n      --help=commands      list backslash commands, then exit\n      --help=variables     list special variables, then exit\n\nInput and output options:\n  -a, -b, -e, -q, -v NAME=VALUE\n\nOutput format options:\n  -A, -t, -x, -P, -F, -R, --csv\n\nConnection options:\n  -h, --host=HOSTNAME      database server host or socket directory\n  -p, --port=PORT          database server port\n  -U, --username=USERNAME  database user name\n  -w, --no-password        never prompt for password\n");
+        case "commands";
+            write_fd(1, "Backslash commands understood:\n  \\c, \\copy, \\d..., \\e (not supported), \\echo, \\encoding, \\errverbose, \\g, \\gdesc, \\gexec, \\gset, \\i, \\if, \\o, \\password, \\pset, \\q, \\restrict, \\set, \\timing, \\unrestrict, \\watch, \\!\n");
+        case "variables";
+            write_fd(1, "Special variables:\n  AUTOCOMMIT, COMP_KEYWORD_CASE, DBNAME, ECHO, ENCODING, ERROR, FETCH_COUNT, HOST, ON_ERROR_ROLLBACK, ON_ERROR_STOP, PORT, PROMPT1, PROMPT2, QUIET, ROW_COUNT, SHOW_ALL_RESULTS, SQLSTATE, USER, VERBOSITY\n");
+        case;
+            print_error(tprint("unrecognized help topic \"%\"", topic));
+            return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
 }
 
 // Connecting
 
-// libpq's connection options from a `key=value` string or a URL, overriding the separate values.
+// Connects like psql does: the options of the command line (-h, -p, -U, -d), a connection string
+// in place of the database name, which overrides them, and libpq's environment variables for
+// whatever neither gave.
 connect_to :: (connection_string: string, dbname: string, user: string, host: string, port: string, keep_previous: bool) -> failed: bool {
-    config: Pg.Config;
-    config.ssl_mode = .PREFER;
-    config.application_name = "psql";
+    info, _ := Pg.parse_conninfo_options("");
 
-    appname := environment("PGAPPNAME");
-    if appname config.application_name = appname;
+    defer Pg.free_conninfo(*info);
 
-    config.host = ifx host then host else "/tmp";
-    config.user = user;
-    config.database = dbname;
-    config.password = environment("PGPASSWORD");
-    config.options = environment("PGOPTIONS");
-    config.connect_timeout = -1;
-
-    sslmode := environment("PGSSLMODE");
-    if sslmode apply_sslmode(*config, sslmode);
-
-    if port {
-        value, ok := string_to_int(port);
-        if !ok || value <= 0 || value > 65535 {
-            print_error(tprint("invalid port number: \"%\"", port));
-            return true;
-        }
-
-        config.port = cast(u16) value;
-    }
+    if host Pg.conninfo_set(*info, "host", host);
+    if port Pg.conninfo_set(*info, "port", port);
+    if user Pg.conninfo_set(*info, "user", user);
+    if dbname Pg.conninfo_set(*info, "dbname", dbname);
 
     if connection_string {
-        error := apply_connection_string(*config, connection_string);
-        if error {
-            print_error(error);
+        parsed, error := Pg.parse_conninfo_options(connection_string);
+
+        if error.kind != .NONE {
+            print_error_raw(tprint("psql: error: %\n", error.message));
+            Pg.free_error(*error);
             return true;
         }
+
+        for Pg.CONNINFO_KEYWORDS {
+            value, found := Pg.conninfo_get(parsed, it);
+            if found Pg.conninfo_set(*info, it, value);
+        }
+
+        Pg.free_conninfo(*parsed);
     }
+
+    Pg.conninfo_set(*info, "fallback_application_name", "psql");
+
+    // Without a host, psql uses the Unix socket in the directory the server was built for.
+    _, has_host := Pg.conninfo_get(info, "host");
+    _, has_address := Pg.conninfo_get(info, "hostaddr");
+
+    if !has_host && !has_address && !environment("PGHOST") && !environment("PGHOSTADDR") {
+        Pg.conninfo_set(*info, "host", "/tmp");
+    }
+
+    config, config_error := Pg.config_from_conninfo(info, use_environment = true);
+
+    if config_error.kind != .NONE {
+        print_error_raw(tprint("psql: error: %\n", config_error.message));
+        Pg.free_error(*config_error);
+        return true;
+    }
+
+    _, has_timeout := Pg.conninfo_get(info, "connect_timeout");
+    if !has_timeout && !environment("PGCONNECT_TIMEOUT") config.connect_timeout = -1;
+
+    // libpq sends passwords in clear text whatever the transport.
+    config.allow_cleartext_password = true;
 
     if !config.user config.user = environment("USER");
     if !config.database config.database = config.user;
 
-    // The settings libpq takes from the environment as startup parameters.
+    // The settings libpq takes from the environment as startup parameters, and the connection
+    // string's own (client_encoding, replication).
     array_reset(*psql.parameters);
 
-    for pair: string.[
-        "PGDATESTYLE", "DateStyle",
-        "PGTZ", "TimeZone",
-        "PGGEQO", "geqo",
-    ] {
-        if it_index % 2 continue;
-        value := environment(pair);
-        if value array_add(*psql.parameters, .{ string.["PGDATESTYLE", "DateStyle", "PGTZ", "TimeZone", "PGGEQO", "geqo"][it_index + 1], value });
+    ENVIRONMENT_PARAMETERS :: Pg.Startup_Parameter.[
+        .{ "PGDATESTYLE", "DateStyle" },
+        .{ "PGTZ", "TimeZone" },
+        .{ "PGGEQO", "geqo" },
+    ];
+
+    for ENVIRONMENT_PARAMETERS {
+        value := environment(it.name);
+        if value array_add(*psql.parameters, .{ it.value, value });
     }
 
-    encoding := environment("PGCLIENTENCODING");
-    if !encoding encoding = locale_encoding();
+    has_encoding := false;
 
-    array_add(*psql.parameters, .{ "client_encoding", encoding });
+    for config.parameters {
+        array_add(*psql.parameters, it);
+        if it.name == "client_encoding" has_encoding = true;
+    }
+
+    if !has_encoding {
+        encoding := environment("PGCLIENTENCODING");
+        if !encoding encoding = locale_encoding();
+
+        array_add(*psql.parameters, .{ "client_encoding", encoding });
+    }
 
     config.parameters = psql.parameters;
     config.send_styles = false;
@@ -430,119 +602,6 @@ connect_to :: (connection_string: string, dbname: string, user: string, host: st
     return false;
 }
 
-apply_sslmode :: (config: *Pg.Config, mode: string) {
-    if mode == {
-        case "disable"; config.ssl_mode = .DISABLE;
-        case "allow"; config.ssl_mode = .PREFER;
-        case "prefer"; config.ssl_mode = .PREFER;
-        case "require"; config.ssl_mode = .REQUIRE;
-        case "verify-ca"; config.ssl_mode = .VERIFY_CA;
-        case "verify-full"; config.ssl_mode = .VERIFY_FULL;
-    }
-}
-
-// `host=... port=... dbname=...` (single quotes and backslash escapes allowed in values) or a URL.
-apply_connection_string :: (config: *Pg.Config, text: string) -> error: string {
-    if begins_with(text, "postgres://") || begins_with(text, "postgresql://") {
-        parsed, error := Pg.parse_url(text);
-        if error.kind != .NONE return copy_string(error.message);
-
-        if parsed.host config.host = parsed.host;
-        if parsed.port != 5432 || contains(text, ":5432") config.port = parsed.port;
-        if parsed.user config.user = parsed.user;
-        if parsed.password config.password = parsed.password;
-        if parsed.database config.database = parsed.database;
-        if parsed.options config.options = parsed.options;
-
-        config.ssl_mode = parsed.ssl_mode;
-
-        return "";
-    }
-
-    at := 0;
-
-    skip_space :: () #expand {
-        while at < text.count && is_space(text[at]) at += 1;
-    }
-
-    while true {
-        skip_space();
-        if at >= text.count break;
-
-        start := at;
-
-        while at < text.count && text[at] != #char "=" && !is_space(text[at]) at += 1;
-
-        key := slice(text, start, at - start);
-
-        skip_space();
-
-        if at >= text.count || text[at] != #char "=" {
-            return tprint("missing \"=\" after \"%\" in connection info string", key);
-        }
-
-        at += 1;
-        skip_space();
-        value: [..] u8;
-
-        if at < text.count && text[at] == #char "'" {
-            at += 1;
-            closed := false;
-
-            while at < text.count {
-                c := text[at];
-                if c == #char "\\" && at + 1 < text.count {
-                    array_add(*value, text[at + 1]);
-                    at += 2;
-                    continue;
-                }
-
-                at += 1;
-
-                if c == #char "'" {
-                    closed = true;
-                    break;
-                }
-
-                array_add(*value, c);
-            }
-
-            if !closed return "unterminated quoted string in connection info string";
-        } else {
-            while at < text.count && !is_space(text[at]) {
-                if text[at] == #char "\\" && at + 1 < text.count at += 1;
-                array_add(*value, text[at]);
-                at += 1;
-            }
-        }
-
-        v := cast(string) value;
-
-        if key == {
-            case "host"; config.host = v;
-            case "hostaddr"; config.host = v;
-            case "port";
-                number, ok := string_to_int(v);
-                if !ok || number <= 0 || number > 65535 return tprint("invalid port number: \"%\"", v);
-
-                config.port = cast(u16) number;
-            case "dbname"; config.database = v;
-            case "user"; config.user = v;
-            case "password"; config.password = v;
-            case "options"; config.options = v;
-            case "application_name"; config.application_name = v;
-            case "fallback_application_name";
-            case "sslmode"; apply_sslmode(config, v);
-            case "connect_timeout";
-            case "client_encoding";
-            case;
-                return tprint("invalid connection option \"%\"", key);
-        }
-    }
-
-    return "";
-}
-
 // psql's client_encoding `auto`: the locale's character set.
 locale_encoding :: () -> string {
     for string.["LC_ALL", "LC_CTYPE", "LANG"] {
@@ -558,17 +617,27 @@ locale_encoding :: () -> string {
     return "SQL_ASCII";
 }
 
+// What libpq makes of a failed connection: where it tried, then why. Mistakes in the settings
+// have no place to mention.
 connection_error_text :: (config: Pg.Config, error: Pg.Pg_Error) -> string {
+    if error.kind == .CONFIG return error.message;
+
     where: string;
 
     if begins_with(config.host, "/") {
         where = tprint("connection to server on socket \"%/.s.PGSQL.%\" failed", config.host, config.port);
+    } else if config.hostaddr && config.hostaddr != config.host {
+        where = tprint("connection to server at \"%\" (%), port % failed", config.host, config.hostaddr, config.port);
     } else {
         where = tprint("connection to server at \"%\", port % failed", config.host, config.port);
     }
 
     if error.kind == .SERVER {
         return tprint("%: %", where, trim_right(build_error_message(error, "", false), "\n"));
+    }
+
+    if error.kind == .AUTH && begins_with(error.message, "the server asked for a password, and none was given") {
+        return tprint("%: fe_sendauth: no password supplied", where);
     }
 
     return tprint("%: %", where, error.message);
@@ -654,6 +723,14 @@ file_out :: (text: string) {
 
 close_g_output :: () {
     if g_output_open file_close(*g_output);
+
+    // \g | command: the command reads what the query printed.
+    if psql.gpipe && g_output_open {
+        POSIX.system(temp_c_string(tprint("(%) < '%'", psql.gpipe, psql.gfile)));
+        file_delete(psql.gfile);
+    }
+
+    psql.gpipe = "";
     g_output_open = false;
     psql.gfile = "";
 }
@@ -922,18 +999,21 @@ branch_active :: (l: *Loop) -> bool {
     return state == .TRUE || state == .ELSE_TRUE;
 }
 
-main_loop :: (input: string, one_command := false, input_name := "") -> s64 {
+main_loop :: (input: string, one_command := false, input_name := "", from_stdin := false) -> s64 {
     saved_input := psql.input;
     saved_at := psql.input_at;
     saved_lineno := psql.lineno;
     saved_name := psql.input_name;
+    saved_stdin := psql.stdin_open;
 
     psql.input = input;
     psql.input_at = 0;
     psql.lineno = 0;
     psql.input_name = input_name;
+    psql.stdin_open = from_stdin;
 
     defer {
+        psql.stdin_open = saved_stdin;
         psql.input = saved_input;
         psql.input_at = saved_at;
         psql.lineno = saved_lineno;
@@ -950,6 +1030,8 @@ main_loop :: (input: string, one_command := false, input_name := "") -> s64 {
     success := true;
 
     while true {
+        psql.continuation = l.query.count > 0 || scan_in_quote(*l.scanner);
+
         line, more := next_line();
         if !more break;
 
@@ -1043,6 +1125,8 @@ main_loop :: (input: string, one_command := false, input_name := "") -> s64 {
         }
     }
 
+    if one_command && !success && result == EXIT_SUCCESS result = EXIT_FAILURE;
+
     if l.query.count > 0 && result == EXIT_SUCCESS && status != .TERMINATE {
         if branch_active(*l) {
             success = send_query(copy_string(buffer_string(l.query)), scan_count_copy_from_stdin(*l.scanner));
@@ -1065,6 +1149,7 @@ scanner_message :: (kind: Message_Kind, text: string, data: *void) {
 
 // The next input line without its line ending; false at the end of the input.
 next_line :: () -> string, bool {
+    fill_input();
     if psql.input_at >= psql.input.count return "", false;
 
     start := psql.input_at;
@@ -1083,6 +1168,7 @@ next_line :: () -> string, bool {
 
 // The next raw input line with its newline, for COPY data.
 next_raw_line :: () -> string, bool {
+    fill_input();
     if psql.input_at >= psql.input.count return "", false;
 
     start := psql.input_at;
@@ -1163,7 +1249,12 @@ send_query :: (sql: string, copies_expected: s64) -> bool {
 
     savepoint_gone := false;
 
+    started := current_time_monotonic();
+
     ok = execute_and_show(sql, copies_expected, *savepoint_gone);
+
+    if psql.timing print_timing(to_microseconds(current_time_monotonic() - started));
+    if psql.db show_notifications();
 
     if !ok && psql.echo == .ERRORS print_error(tprint("STATEMENT:  %", sql));
 
@@ -1274,13 +1365,21 @@ execute_and_show :: (sql: string, copies_expected: s64, savepoint_gone: *bool) -
         hooks.success = false;
 
         if psql.db.broken || error.kind == .CLOSED || error.kind == .IO {
+            closed :: "server closed the connection unexpectedly\n\tThis probably means the server terminated abnormally\n\tbefore or while processing the request.";
+            // After a FATAL error libpq appends this to that error's text, so it has no prefix.
+            if error.kind == .SERVER print_error_raw(tprint("%\n", closed));
+            else print_error(closed);
+
             print_error("connection to server was lost");
             Pg.close(psql.db, now = true);
             psql.db = null;
+            if !psql.interactive exit(EXIT_BADCONN);
+
             return false;
         }
     } else {
         flush_pending(*hooks, last = true);
+        variables_set(*psql.vars, "ENCODING", Pg.parameter(psql.db, "client_encoding"));
 
         if !hooks.any_result {
             // An empty query: nothing came back but it did not fail.
@@ -1311,6 +1410,206 @@ execute_and_show :: (sql: string, copies_expected: s64, savepoint_gone: *bool) -
     return hooks.success;
 }
 
+print_timing :: (microseconds: s64) {
+    pad :: (value: s64, width: s64) -> string {
+        text := tprint("%", value);
+        while text.count < width text = tprint("0%", text);
+        return text;
+    }
+
+    text := tprint("Time: %.% ms", microseconds / 1000, pad(microseconds % 1000, 3));
+
+    if microseconds >= 1_000_000 {
+        total := microseconds / 1000;
+        text = tprint("% (%:%.%)", text, pad(total / 60000, 2), pad((total / 1000) % 60, 2), pad(total % 1000, 3));
+    }
+
+    write_out(tprint("%\n", text));
+}
+
+// Notifications that arrived with the last statement.
+show_notifications :: () {
+    while true {
+        n, found := Pg.next_notification(psql.db);
+        if !found break;
+
+        if n.payload {
+            write_out(tprint("Asynchronous notification \"%\" with payload \"%\" received from server process with PID %.\n", n.channel, n.payload, n.backend_pid));
+        } else {
+            write_out(tprint("Asynchronous notification \"%\" received from server process with PID %.\n", n.channel, n.backend_pid));
+        }
+
+        Pg.free_notification(*n);
+    }
+}
+
+// \watch [interval] [i=SECONDS] [c=COUNT] [m=MIN_ROWS]: runs the query again and again.
+watch_command :: (l: *Loop, s: *Scanner) -> Command_Status {
+    interval: float64 = 2.0;
+    count := -1;
+    min_rows := -1;
+    have_interval, have_count, have_min := false, false, false;
+
+    while true {
+        arg, found := next_arg(s);
+        if !found break;
+
+        name, value := "", arg;
+        eq := find_index_from_left(arg, #char "=");
+
+        if eq >= 0 {
+            name = slice(arg, 0, eq);
+            value = advance(arg, eq + 1);
+        }
+
+        if !name || name == "i" || name == "interval" {
+            if have_interval {
+                print_error("interval value is specified more than once");
+                return .ERROR;
+            }
+
+            number, valid := parse_watch_number(value);
+            if !valid || number < 0 || number > 1.0e9 {
+                print_error(tprint("incorrect interval value \"%\"", value));
+                return .ERROR;
+            }
+
+            interval = number;
+            have_interval = true;
+        } else if name == "c" || name == "count" {
+            if have_count {
+                print_error("iteration count is specified more than once");
+                return .ERROR;
+            }
+
+            number, valid, rest := string_to_int(value);
+            if !valid || rest || number <= 0 {
+                print_error(tprint("incorrect iteration count \"%\"", value));
+                return .ERROR;
+            }
+
+            count = number;
+            have_count = true;
+        } else if name == "m" || name == "min_rows" {
+            if have_min {
+                print_error("minimum row count specified more than once");
+                return .ERROR;
+            }
+
+            number, valid, rest := string_to_int(value);
+            if !valid || rest || number < 0 {
+                print_error(tprint("incorrect minimum row count \"%\"", value));
+                return .ERROR;
+            }
+
+            min_rows = number;
+            have_min = true;
+        } else {
+            print_error(tprint("unrecognized parameter \"%\"", name));
+            return .ERROR;
+        }
+    }
+
+    sql := copy_string(ifx l.query.count then buffer_string(l.query) else l.previous);
+
+    l.previous = sql;
+    l.query.count = 0;
+    scan_reset(*l.scanner);
+
+    while send_query(sql, -1) {
+        if count > 0 {
+            count -= 1;
+            if count == 0 break;
+        }
+
+        rows, _ := variables_get(*psql.vars, "ROW_COUNT");
+        number, valid := string_to_int(rows);
+
+        if min_rows >= 0 && valid && number < min_rows break;
+
+        Io.sleep(cast(s64) (interval * 1000));
+    }
+
+    return .SKIP_LINE;
+}
+
+// A non-negative decimal number such as 0.01 or 2: the whole text must be one.
+parse_watch_number :: (text: string) -> float64, bool {
+    if !text return 0, false;
+
+    value := 0.0;
+    scale := 0.0;
+    digits := 0;
+
+    for text {
+        if it == #char "." {
+            if scale != 0 return 0, false;
+            scale = 1;
+        } else if it >= #char "0" && it <= #char "9" {
+            digits += 1;
+
+            if scale == 0 {
+                value = value * 10 + (it - #char "0");
+            } else {
+                scale /= 10;
+                value += (it - #char "0") * scale;
+            }
+        } else {
+            return 0, false;
+        }
+    }
+
+    return value, digits > 0;
+}
+
+// \password: asks twice for a new password and sets it, hashed here so that the server never sees
+// it. On a terminal the prompts are shown; the typing is not hidden.
+password_command :: (s: *Scanner) -> Command_Status {
+    user, has_user := next_arg(s, .SQL_ID);
+    if !has_user user = psql.config.user;
+
+    ask :: (prompt: string) -> string {
+        psql.password_prompt = prompt;
+        line, _ := next_raw_line();
+        psql.password_prompt = "";
+
+        return trim_right(line, "\r\n");
+    }
+
+    first := ask(tprint("Enter new password for user \"%\": ", user));
+    second := ask("Enter it again: ");
+
+    if first != second {
+        print_error("Passwords didn't match.");
+        return .ERROR;
+    }
+
+    secret: string;
+    result, error := Pg.query_dynamic(psql.db, "SHOW password_encryption");
+
+    if error.kind == .NONE {
+        method := Pg.get(*result, 0, 0, string);
+
+        if method == "md5" {
+            secret = Pg.md5_secret(first, user);
+        } else {
+            iterations, ok := string_to_int(Pg.parameter(psql.db, "scram_iterations"));
+            secret = Pg.scram_secret(first, ifx ok then iterations else 4096);
+        }
+
+        Pg.free_result(*result);
+        error = Pg.execute_script(psql.db, tprint("ALTER USER % PASSWORD %", escape_identifier(user), escape_literal(secret)));
+    }
+
+    if error.kind != .NONE {
+        print_error_raw(build_error_message(error, "", true));
+        Pg.free_error(*error);
+        return .ERROR;
+    }
+
+    return .SKIP_LINE;
+}
+
 // \!: runs the line with the shell and records how it ended.
 shell_command :: (line: string) -> Command_Status {
     if out_file_open file_flush(*out_file);
@@ -1335,7 +1634,10 @@ describe_query :: (sql: string) -> bool {
     if error.kind != .NONE {
         print_error_raw(build_error_message(error, sql, true));
         set_result_variables_failed(error);
-        Pg.free_error(*error);
+        Pg.free_error(*psql.last_error);
+        psql.last_error = error;
+        psql.last_error_query = sql;
+
         return false;
     }
 
@@ -2480,7 +2782,10 @@ handle_slash_command :: (l: *Loop) -> Command_Status {
 
     status: Command_Status;
 
-    if is_conditional(name) {
+    if psql.restricted && name != "unrestrict" {
+        print_error("backslash commands are restricted; only \\unrestrict is allowed");
+        status = .ERROR;
+    } else if is_conditional(name) {
         status = conditional_command(l, name);
     } else if active {
         s.active = true;
@@ -2744,7 +3049,12 @@ run_command :: (l: *Loop, name: string) -> Command_Status {
                 arg, found = next_arg(s, .FILE_OR_PIPE);
             }
 
-            if found && !begins_with(arg, "|") psql.gfile = arg;
+            if found && begins_with(arg, "|") {
+                psql.gpipe = copy_string(advance(arg, 1));
+                psql.gfile = tprint("%/psql-pipe-%", ifx environment("TMPDIR") then environment("TMPDIR") else "/tmp", POSIX.getpid());
+            } else if found {
+                psql.gfile = arg;
+            }
 
             if name == "gx" {
                 if !psql.restore_popt {
@@ -2858,11 +3168,14 @@ run_command :: (l: *Loop, name: string) -> Command_Status {
 
             psql.verbosity = .VERBOSE;
             psql.show_context = .ALWAYS;
-            print_error_raw(build_error_message(psql.last_error, psql.last_error_query, true));
+            print_error(trim_right(build_error_message(psql.last_error, psql.last_error_query, true), "\n"));
             psql.verbosity = saved;
             psql.show_context = saved_context;
 
             return .SKIP_LINE;
+
+        case "password";
+            return password_command(s);
 
         case "encoding";
             value, found := next_arg(s);
@@ -2901,8 +3214,59 @@ run_command :: (l: *Loop, name: string) -> Command_Status {
             return .SKIP_LINE;
 
         case "timing";
-            next_arg(s);
+            value, found := next_arg(s);
+
+            if !found {
+                psql.timing = !psql.timing;
+            } else if value == "on" || value == "true" || value == "1" {
+                psql.timing = true;
+            } else if value == "off" || value == "false" || value == "0" {
+                psql.timing = false;
+            } else {
+                print_error(tprint("unrecognized value \"%\" for \"\\timing\": Boolean expected", value));
+                return .ERROR;
+            }
+
+            write_out(ifx psql.timing then "Timing is on.\n" else "Timing is off.\n");
+
             return .SKIP_LINE;
+
+        case "copyright";
+            write_out("PostgreSQL Database Management System\n(formerly known as Postgres, then as Postgres95)\n\nPortions Copyright (c) 1996-2024, PostgreSQL Global Development Group\n\nPortions Copyright (c) 1994, The Regents of the University of California\n\nPermission to use, copy, modify, and distribute this software and its\ndocumentation for any purpose, without fee, and without a written agreement\nis hereby granted, provided that the above copyright notice and this\nparagraph and the following two paragraphs appear in all copies.\n");
+            return .SKIP_LINE;
+
+        case "restrict";
+            key, found := next_arg(s, .WHOLE_LINE);
+
+            if !found || !key {
+                print_error("\\restrict: missing required argument");
+                return .ERROR;
+            }
+
+            psql.restricted = true;
+            psql.restrict_key = copy_string(key);
+
+            return .SKIP_LINE;
+
+        case "unrestrict";
+            key, _ := next_arg(s, .WHOLE_LINE);
+
+            if !psql.restricted {
+                print_error("\\unrestrict: not currently in restricted mode");
+                return .ERROR;
+            }
+
+            if key != psql.restrict_key {
+                print_error("\\unrestrict: wrong key");
+                return .ERROR;
+            }
+
+            psql.restricted = false;
+
+            return .SKIP_LINE;
+
+        case "watch";
+            return watch_command(l, s);
 
         case "o"; #through;
         case "out";
@@ -3098,7 +3462,7 @@ connect_command :: (s: *Scanner) -> Command_Status {
 
     connection_string := "";
 
-    if has_db && (contains(dbname, "=") || begins_with(dbname, "postgres://") || begins_with(dbname, "postgresql://")) {
+    if has_db && Pg.is_conninfo(dbname) {
         connection_string = dbname;
         has_db = false;
     }

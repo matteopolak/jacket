@@ -1,9 +1,24 @@
 // The parts of the client that need no server: URLs, SQLSTATEs, UUIDs and calendar arithmetic.
 #import "Basic";
+#import "String";
+#import "File";
+POSIX :: #import "POSIX";
 Pg :: #import "Extensions/Postgres";
+
+chmod_private :: (path: string) {
+    POSIX.chmod(temp_c_string(path), 0x180); // 0600
+}
+
+chmod_open :: (path: string) {
+    POSIX.chmod(temp_c_string(path), 0x1A4); // 0644
+}
 
 main :: () {
     test_urls();
+    test_conninfo();
+    test_require_auth();
+    test_saslprep();
+    test_passfile();
     test_sqlstates();
     test_uuids();
     test_calendar();
@@ -50,6 +65,146 @@ test_urls :: () {
 
         Pg.free_error(*error);
     }
+}
+
+test_conninfo :: () {
+    config, error := Pg.parse_conninfo("host=db1,db2 port=5433,5434 user='a b' dbname=app password=a\\ b require_auth=scram-sha-256 sslmode=require application_name=x");
+
+    assert(error.kind == .NONE);
+    assert(config.host == "db1" && config.port == 5433 && config.hosts.count == 2);
+    assert(config.hosts[1].host == "db2" && config.hosts[1].port == 5434);
+    assert(config.user == "a b" && config.password == "a b" && config.database == "app");
+    assert(config.require_auth == "scram-sha-256" && config.ssl_mode == .REQUIRE && config.application_name == "x");
+    Pg.free_config(*config);
+
+    config, error = Pg.parse_conninfo("postgresql://u:p%40ss@h1:1,[::1]:2/db?hostaddr=1.2.3.4,5.6.7.8&sslmode=disable");
+    assert(error.kind == .NONE);
+    assert(config.hosts.count == 2 && config.hosts[1].host == "::1" && config.hosts[1].port == 2);
+    assert(config.hostaddr == "1.2.3.4" && config.password == "p@ss" && config.ssl_mode == .DISABLE);
+    Pg.free_config(*config);
+
+    config, error = Pg.parse_conninfo("postgres://h/d?min_protocol_version=3.0&max_protocol_version=latest");
+    assert(error.kind == .NONE && config.min_protocol_version == .V3_0 && config.max_protocol_version == .LATEST);
+    Pg.free_config(*config);
+
+    config, error = Pg.parse_conninfo("sslrootcert=system");
+    assert(error.kind == .NONE && config.ssl_mode == .VERIFY_FULL && config.ssl_root_cert_pem == "");
+    Pg.free_config(*config);
+
+    // libpq's error texts.
+    errors :: string.[
+        "postgre://", "missing \"=\" after \"postgre://\" in connection info string",
+        "postgres://[::1", "end of string reached when looking for matching \"]\" in IPv6 host address in URI: \"postgres://[::1\"",
+        "postgres://[::1]z", "unexpected character \"z\" at position 17 in URI (expected \":\" or \"/\"): \"postgres://[::1]z\"",
+        "postgresql://host?key=key=value", "extra key/value separator \"=\" in URI query parameter: \"key\"",
+        "postgresql://host?zzz", "missing key/value separator \"=\" in URI query parameter: \"zzz\"",
+        "postgresql://a%00b", "forbidden value %00 in percent-encoded value: \"a%00b\"",
+        "postgresql://%1", "invalid percent-encoded token: \"%1\"",
+        "postgresql://host/db?u%7aer=x", "invalid URI query parameter: \"uzer\"",
+        "host=a b", "missing \"=\" after \"b\" in connection info string",
+        "host='a", "unterminated quoted string in connection info string",
+        "nope=1", "invalid connection option \"nope\"",
+        "port=x", "invalid port number: \"x\"",
+        "host=a,b port=1,2,3", "could not match 3 port numbers to 2 hosts",
+        "max_protocol_version=4.0", "invalid max_protocol_version value: \"4.0\"",
+        "sslmode=maybe", "invalid sslmode value: \"maybe\"",
+    ];
+
+    for 0..errors.count / 2 - 1 {
+        config, error = Pg.parse_conninfo(errors[it * 2]);
+
+        if error.kind != .CONFIG || error.message != errors[it * 2 + 1] {
+            print("% gave %\n", errors[it * 2], Pg.error_text(error));
+            assert(false);
+        }
+
+        Pg.free_error(*error);
+    }
+
+    info, _ := Pg.parse_conninfo_options("postgres://h?options=-c%20x%3D1&host=ignored");
+    value, found := Pg.conninfo_get(info, "options");
+
+    assert(found && value == "-c x=1");
+    value, found = Pg.conninfo_get(info, "host");
+    assert(found && value == "h");
+    _, found = Pg.conninfo_get(info, "port");
+    assert(!found);
+    Pg.free_conninfo(*info);
+}
+
+test_require_auth :: () {
+    policy, error := Pg.parse_require_auth("");
+
+    assert(error.kind == .NONE && !policy.restricted);
+
+    policy, error = Pg.parse_require_auth("password,md5");
+    assert(error.kind == .NONE && policy.restricted && policy.allowed == (Pg.Auth_Method.PASSWORD | .MD5));
+
+    policy, error = Pg.parse_require_auth("!none");
+    assert(error.kind == .NONE && !(policy.allowed & .NONE) && (policy.allowed & .SCRAM_SHA_256));
+
+    bad :: string.[
+        "scram-sha-256,!md5", "negative require_auth method \"!md5\" cannot be mixed with non-negative methods",
+        "!password,!none,scram-sha-256", "require_auth method \"scram-sha-256\" cannot be mixed with negative methods",
+        "password,md5,password", "require_auth method \"password\" is specified more than once",
+        "!none,!md5,!none", "require_auth method \"!none\" is specified more than once",
+        "none,abcdefg", "invalid require_auth value: \"abcdefg\"",
+    ];
+
+    for 0..bad.count / 2 - 1 {
+        policy, error = Pg.parse_require_auth(bad[it * 2]);
+        assert(error.kind == .CONFIG && error.message == bad[it * 2 + 1]);
+        Pg.free_error(*error);
+    }
+}
+
+test_saslprep :: () {
+    // The examples of RFC 4013, section 3.
+    prepared, ok := Pg.saslprep("I\xc2\xadX");
+
+    assert(ok && prepared == "IX");
+    prepared, ok = Pg.saslprep("\xe2\x85\xa8");
+    assert(ok && prepared == "IX");
+    prepared, ok = Pg.saslprep("\xc2\xaa");
+    assert(ok && prepared == "a");
+    prepared, ok = Pg.saslprep("user");
+    assert(ok && prepared == "user");
+    // Spaces become plain spaces.
+    prepared, ok = Pg.saslprep("a\xc2\xa0b");
+    assert(ok && prepared == "a b");
+    // A prohibited character, a bidirectional violation and invalid UTF-8 leave the password as it is.
+    _, ok = Pg.saslprep("a\xc2\x85b");
+    assert(!ok);
+    _, ok = Pg.saslprep("foo\xd8\xa71bar");
+    assert(!ok);
+    _, ok = Pg.saslprep("\xff");
+    assert(!ok);
+    // A password made only of right-to-left letters, with a digit between them, is fine.
+    prepared, ok = Pg.saslprep("\xd8\xa71\xd8\xa7");
+    assert(ok && prepared == "\xd8\xa71\xd8\xa7");
+
+    secret := Pg.scram_secret("pass", 1024);
+
+    assert(begins_with(secret, "SCRAM-SHA-256$1024:"));
+    assert(Pg.md5_secret("pass", "user").count == 35);
+}
+
+test_passfile :: () {
+    path := "passfile-test.pgpass";
+    text := "# a comment\nother:5432:*:*:no\n*:5432:app:me:with\\:colon:ignored\nlocalhost:*:*:*:fallback\n";
+
+    assert(write_entire_file(path, text));
+    chmod_private(path);
+
+    config: Pg.Config;
+    config.passfile = path;
+    assert(Pg.passfile_password(config, "db", 5432, "app", "me") == "with:colon");
+    assert(Pg.passfile_password(config, "db", 5433, "app", "me") == "");
+    assert(Pg.passfile_password(config, "/tmp", 5432, "x", "y") == "fallback");
+
+    chmod_open(path);
+    assert(Pg.passfile_password(config, "db", 5432, "app", "me") == "");
+    file_delete(path);
 }
 
 test_sqlstates :: () {

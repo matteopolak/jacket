@@ -33,7 +33,15 @@ open :: (c: *Connection, config: Config) -> Pg_Error {
         }
     }
 
-    c.host = copy_string(config.host);
+    _, policy_error := parse_require_auth(config.require_auth);
+    if policy_error.kind != .NONE return policy_error;
+
+    versions_error := set_protocol_versions(c, config);
+    if versions_error.kind != .NONE return versions_error;
+
+    // A hostaddr is connected to in place of the host name, which TLS then checks the
+    // certificate against as well.
+    c.host = copy_string(ifx config.hostaddr then config.hostaddr else config.host);
     c.port = config.port;
     c.ssl_direct = config.ssl_direct;
     c.cancel_timeout = config.cancel_timeout;
@@ -87,7 +95,13 @@ open :: (c: *Connection, config: Config) -> Pg_Error {
     error = send(c);
     if error.kind != .NONE return error;
 
-    return authenticate(c, config, user);
+    effective := config;
+
+    if !effective.password {
+        effective.password = passfile_password(config, config.host, config.port, database, user);
+    }
+
+    return authenticate(c, effective, user);
 }
 
 open_transport :: (c: *Connection) -> Pg_Error {
@@ -248,6 +262,8 @@ send_cancel_request :: (c: *Connection) -> Pg_Error {
 
 authenticate :: (c: *Connection, config: Config, user: string) -> Pg_Error {
     scram: Scram;
+    policy, _ := parse_require_auth(config.require_auth);
+    responded := false;
 
     defer free_scram(*scram);
     authenticated := false;
@@ -264,6 +280,13 @@ authenticate :: (c: *Connection, config: Config, user: string) -> Pg_Error {
                 code := get_u32(*r);
 
                 if r.bad return protocol_error(c, "a short authentication request");
+
+                // Once the client has answered with a password or SCRAM, the server's OK is the
+                // end of that exchange, which was checked when it began.
+                if code != AUTH_OK || !responded {
+                    error = check_auth_method(c, config, policy, code);
+                    if error.kind != .NONE return error;
+                }
 
                 if code == AUTH_OK {
                     if scram.started && !scram.verified {
@@ -425,4 +448,14 @@ contains_zero :: (text: string) -> bool {
         if !value return "";
         return copy_string(to_string(value),, temp);
     }
+}
+
+#scope_export
+
+// Asks the server to cancel the statement `c` is running, as libpq's PQcancel does. Meant for
+// another fiber than the one waiting for the statement (a signal handler's, say): the waiting
+// call then returns the server's "canceling statement due to user request". Does nothing useful
+// when no statement is running.
+cancel_query :: (c: *Connection) -> Pg_Error {
+    return send_cancel_request(c);
 }

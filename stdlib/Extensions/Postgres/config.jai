@@ -18,6 +18,13 @@ Config :: struct {
     // A host name or address, or a directory holding the server's Unix socket (starts with `/`).
     host := "localhost";
     port: u16 = 5432;
+    // An address to connect to instead of looking `host` up. `host` is still the name the
+    // server's certificate is checked against and the password file is searched by.
+    hostaddr: string;
+    // Every host of a connection string such as `host1:5432,host2:5433`, the first one included.
+    // Empty for one host. This client connects to `host` and `port`, the first of them: it does
+    // not try the others.
+    hosts: [] Host_Port;
     user: string; // empty: $USER
     password: string;
     database: string; // empty: the user name
@@ -65,6 +72,15 @@ Config :: struct {
     // Send the password in clear text when the server asks, without TLS.
     allow_cleartext_password := false;
 
+    // The password file to look in when `password` is empty: lines of
+    // `host:port:database:user:password`, `*` matching anything, `\` escaping `:` and `\`. Empty:
+    // `$PGPASSFILE`, then `~/.pgpass`. A file others can read is ignored, as in libpq.
+    passfile: string;
+    // The authentication methods the server may use, as libpq's `require_auth`: a comma separated
+    // list of `password`, `md5`, `gss`, `sspi`, `scram-sha-256` and `none`, or the same each with
+    // a `!` in front to forbid them. Empty: any.
+    require_auth: string;
+
     owned: bool; // set by `parse_url`: the strings belong to the config (`free_config`)
 }
 
@@ -73,203 +89,214 @@ Startup_Parameter :: struct {
     value: string;
 }
 
+Host_Port :: struct {
+    host: string;
+    hostaddr: string;
+    port: u16 = 5432;
+}
+
 // `postgres://user:password@host:port/database?sslmode=verify-full&application_name=api`.
 // `postgresql://` works too. A Unix socket directory goes in `host`, percent-encoded or as a
-// parameter: `postgres:///app?host=/var/run/postgresql`. Parameters: host, port, user, password,
-// dbname, sslmode, sslnegotiation (`direct`), sslrootcert (a PEM file), channel_binding,
-// application_name, options, connect_timeout (seconds).
+// parameter: `postgres:///app?host=/var/run/postgresql`. It is `parse_conninfo` for a URI.
 parse_url :: (url: string) -> Config, Pg_Error {
+    if conninfo_uri_prefix(url) == 0 {
+        return .{}, make_error(.CONFIG, "a URL must start with postgres:// or postgresql://, not %", url);
+    }
+
+    return parse_conninfo(url);
+}
+
+// libpq's connection strings: a URI (see `parse_url`) or `host=localhost port=5432 dbname=app`,
+// where a value with spaces is quoted, `'a value'`, and `\` escapes the next character
+// (`\'` and `\\` inside quotes). Parameters (keywords): host, hostaddr, port, user, password, passfile, dbname,
+// sslmode, sslnegotiation (`direct`), sslrootcert (a PEM file, or `system`), channel_binding,
+// application_name, fallback_application_name, options, connect_timeout (seconds), client_encoding,
+// replication and require_auth. libpq's other keywords are accepted and ignored. Errors read like
+// libpq's.
+//
+// With `use_environment` the keywords that were not given come from `PGHOST`, `PGPORT`,
+// `PGUSER`, `PGPASSWORD`, `PGDATABASE` and the other variables libpq reads; otherwise only the
+// text counts. The config owns its strings: `free_config`.
+parse_conninfo :: (text: string, use_environment := false) -> Config, Pg_Error {
+    info, error := parse_conninfo_options(text);
+    if error.kind != .NONE return .{}, error;
+
+    defer free_conninfo(*info);
+
+    return config_from_conninfo(info, use_environment);
+}
+
+// The `Config` for the options of a connection string, as `parse_conninfo` makes it. Programs
+// that combine several sources (a command line and a connection string) set the options
+// themselves with `conninfo_set` first.
+config_from_conninfo :: (info: Conninfo, use_environment := false) -> Config, Pg_Error {
     config: Config;
     config.owned = true;
     config.host = "";
     config.application_name = "";
+
     failed :: (config: *Config, format: string, args: ..Any) -> Config, Pg_Error #expand {
         free_config(config);
         return .{}, make_error(.CONFIG, format, ..args);
     }
 
-    rest := url;
-    scheme_found := false;
+    value :: (keyword: string) -> string #expand {
+        return conninfo_value(info, keyword, use_environment);
+    }
 
-    for prefix: string.["postgresql://", "postgres://"] {
-        if begins_with(rest, prefix) {
-            rest = advance(rest, prefix.count);
-            scheme_found = true;
-            break;
+    config.user = copy_string(value("user"));
+    config.password = copy_string(value("password"));
+    config.passfile = copy_string(value("passfile"));
+    config.database = copy_string(value("dbname"));
+    config.options = copy_string(value("options"));
+    config.require_auth = copy_string(value("require_auth"));
+
+    application_name := value("application_name");
+    if !application_name application_name = value("fallback_application_name");
+
+    config.application_name = copy_string(application_name);
+
+    // Hosts, addresses and ports line up by position; one port serves every host.
+    host_names := split_list(value("host"));
+    addresses := split_list(value("hostaddr"));
+    ports := split_list(value("port"));
+    count := max(max(host_names.count, addresses.count), 1);
+
+    if host_names.count && addresses.count && host_names.count != addresses.count {
+        return failed(*config, "could not match % host names to % hostaddr values", host_names.count, addresses.count);
+    }
+
+    if ports.count > 1 && ports.count != count {
+        return failed(*config, "could not match % port numbers to % hosts", ports.count, count);
+    }
+
+    hosts: [..] Host_Port;
+
+    for 0..count - 1 {
+        entry: Host_Port;
+        if it < host_names.count entry.host = copy_string(host_names[it]);
+        if it < addresses.count entry.hostaddr = copy_string(addresses[it]);
+
+        text := ifx ports.count == 1 then ports[0] else ifx it < ports.count then ports[it] else "";
+
+        if text {
+            port, valid := parse_port(text);
+            if !valid {
+                array_add(*hosts, entry);
+                config.hosts = hosts;
+                return failed(*config, "invalid port number: \"%\"", text);
+            }
+
+            entry.port = port;
         }
+
+        array_add(*hosts, entry);
     }
 
-    if !scheme_found return failed(*config, "a URL must start with postgres:// or postgresql://, not %", url);
-
-    query := "";
-    found, before, after := split_from_left(rest, #char "?");
-
-    if found {
-        rest = before;
-        query = after;
+    if hosts.count {
+        config.host = copy_string(hosts[0].host);
+        config.hostaddr = copy_string(hosts[0].hostaddr);
+        config.port = hosts[0].port;
     }
 
-    path := "";
-
-    found, before, after = split_from_left(rest, #char "/");
-    if found {
-        rest = before;
-        path = after;
-    }
-
-    // user:password@host:port
-    at := find_index_from_right(rest, #char "@");
-    if at >= 0 {
-        credentials := slice(rest, 0, at);
-
-        rest = advance(rest, at + 1);
-        found, name, secret := split_from_left(credentials, #char ":");
-        ok: bool;
-        config.user, ok = percent_decode(ifx found then name else credentials);
-        if !ok return failed(*config, "bad percent-encoding in the user name");
-
-        if found {
-            config.password, ok = percent_decode(secret);
-            if !ok return failed(*config, "bad percent-encoding in the password");
-        }
-    }
-
-    host_text := rest;
-    port_text := "";
-
-    if begins_with(rest, "[") {
-        close := find_index_from_left(rest, #char "]");
-        if close < 0 return failed(*config, "an IPv6 host needs a closing ]");
-
-        host_text = slice(rest, 1, close - 1);
-        tail := advance(rest, close + 1);
-        if begins_with(tail, ":") port_text = advance(tail, 1);
-        else if tail return failed(*config, "unexpected text after the host: %", tail);
+    if hosts.count > 1 {
+        config.hosts = hosts;
     } else {
-        colon := find_index_from_right(rest, #char ":");
-        if colon >= 0 {
-            host_text = slice(rest, 0, colon);
-            port_text = advance(rest, colon + 1);
-        }
-    }
-
-    ok: bool;
-    config.host, ok = percent_decode(host_text);
-    if !ok return failed(*config, "bad percent-encoding in the host");
-
-    if port_text {
-        port, valid := parse_port(port_text);
-        if !valid return failed(*config, "bad port: %", port_text);
-        config.port = port;
-    }
-
-    config.database, ok = percent_decode(path);
-    if !ok return failed(*config, "bad percent-encoding in the database name");
-
-    while query {
-        pair := query;
-
-        query = "";
-        found, before, after = split_from_left(pair, #char "&");
-        if found {
-            pair = before;
-            query = after;
+        for hosts {
+            free(it.host);
+            free(it.hostaddr);
         }
 
-        if !pair continue;
+        array_free(hosts);
+    }
 
-        has_value, key, encoded := split_from_left(pair, #char "=");
-        if !has_value return failed(*config, "parameter % has no value", pair);
+    root_certificate := value("sslrootcert");
+    mode := value("sslmode");
 
-        value, decoded := percent_decode(encoded);
-        if !decoded return failed(*config, "bad percent-encoding in parameter %", key);
+    if !mode && root_certificate == "system" mode = "verify-full";
 
-        keep := false;
+    if mode == {
+        case "disable"; config.ssl_mode = .DISABLE;
+        case "allow"; config.ssl_mode = .PREFER;
+        case "prefer"; config.ssl_mode = .PREFER;
+        case "require"; config.ssl_mode = .REQUIRE;
+        case "verify-ca"; config.ssl_mode = .VERIFY_CA;
+        case "verify-full"; config.ssl_mode = .VERIFY_FULL;
+        case "";
+        case;
+            return failed(*config, "invalid sslmode value: \"%\"", mode);
+    }
 
-        if key == {
-            case "host";
-                free(config.host);
-                config.host = value;
-                keep = true;
-            case "user";
-                free(config.user);
-                config.user = value;
-                keep = true;
-            case "password";
-                free(config.password);
-                config.password = value;
-                keep = true;
-            case "dbname";
-                free(config.database);
-                config.database = value;
-                keep = true;
-            case "application_name";
-                free(config.application_name);
-                config.application_name = value;
-                keep = true;
-            case "options";
-                free(config.options);
-                config.options = value;
-                keep = true;
-            case "port";
-                port, valid := parse_port(value);
-                if !valid {
-                    free(value);
-                    return failed(*config, "bad port: %", encoded);
-                }
+    negotiation := value("sslnegotiation");
 
-                config.port = port;
-            case "sslmode";
-                if value == {
-                    case "disable"; config.ssl_mode = .DISABLE;
-                    case "allow"; config.ssl_mode = .PREFER;
-                    case "prefer"; config.ssl_mode = .PREFER;
-                    case "require"; config.ssl_mode = .REQUIRE;
-                    case "verify-ca"; config.ssl_mode = .VERIFY_CA;
-                    case "verify-full"; config.ssl_mode = .VERIFY_FULL;
-                    case;
-                        free(value);
-                        return failed(*config, "unknown sslmode %", encoded);
-                }
-            case "sslnegotiation";
-                if value == "direct" config.ssl_direct = true;
-                else if value != "postgres" {
-                    free(value);
-                    return failed(*config, "unknown sslnegotiation %", encoded);
-                }
-            case "channel_binding";
-                if value == {
-                    case "disable"; config.channel_binding = .DISABLE;
-                    case "prefer"; config.channel_binding = .PREFER;
-                    case "require"; config.channel_binding = .REQUIRE;
-                    case;
-                        free(value);
-                        return failed(*config, "unknown channel_binding %", encoded);
-                }
-            case "sslrootcert";
-                pem, read := read_entire_file(value, log_errors = false);
-                if !read {
-                    free(value);
-                    return failed(*config, "cannot read sslrootcert %", encoded);
-                }
+    if negotiation == {
+        case "direct"; config.ssl_direct = true;
+        case "postgres";
+        case "";
+        case;
+            return failed(*config, "invalid sslnegotiation value: \"%\"", negotiation);
+    }
 
-                free(config.ssl_root_cert_pem);
-                config.ssl_root_cert_pem = pem;
-            case "connect_timeout";
-                seconds, valid, remainder := string_to_int(value);
-                if !valid || remainder {
-                    free(value);
-                    return failed(*config, "bad connect_timeout %", encoded);
-                }
+    binding := value("channel_binding");
 
-                config.connect_timeout = ifx seconds <= 0 then Io.NO_DEADLINE else seconds * 1000;
+    if binding == {
+        case "disable"; config.channel_binding = .DISABLE;
+        case "prefer"; config.channel_binding = .PREFER;
+        case "require"; config.channel_binding = .REQUIRE;
+        case "";
+        case;
+            return failed(*config, "invalid channel_binding value: \"%\"", binding);
+    }
+
+    if root_certificate && root_certificate != "system" && config.ssl_mode != .DISABLE {
+        pem, read := read_entire_file(root_certificate, log_errors = false);
+        if !read return failed(*config, "could not read root certificate file \"%\"", root_certificate);
+
+        config.ssl_root_cert_pem = pem;
+    }
+
+    for keyword: string.["min_protocol_version", "max_protocol_version"] {
+        text := value(keyword);
+        version: Protocol_Version;
+
+        if text == {
+            case "3.0"; version = .V3_0;
+            case "3.2"; version = .V3_2;
+            case "latest"; version = .LATEST;
+            case "";
+                continue;
             case;
-                free(value);
-                return failed(*config, "unknown URL parameter %", key);
+                return failed(*config, "invalid % value: \"%\"", keyword, text);
         }
 
-        if !keep free(value);
+        if it_index == 0 config.min_protocol_version = version;
+        else config.max_protocol_version = version;
     }
+
+    timeout := value("connect_timeout");
+
+    if timeout {
+        seconds, valid, remainder := string_to_int(timeout);
+        if !valid || remainder return failed(*config, "invalid connect_timeout value: \"%\"", timeout);
+
+        // libpq waits at least two seconds, and does not limit the wait at zero.
+        config.connect_timeout = ifx seconds <= 0 then Io.NO_DEADLINE else max(seconds, 2) * 1000;
+    }
+
+    parameters: [..] Startup_Parameter;
+    encoding := value("client_encoding");
+
+    if encoding && encoding != "auto" {
+        array_add(*parameters, .{ copy_string("client_encoding"), copy_string(encoding) });
+    }
+
+    replication := value("replication");
+
+    if replication {
+        array_add(*parameters, .{ copy_string("replication"), copy_string(replication) });
+    }
+
+    config.parameters = parameters;
 
     if !config.host config.host = copy_string("localhost");
     if !config.application_name config.application_name = copy_string("jai");
@@ -277,12 +304,20 @@ parse_url :: (url: string) -> Config, Pg_Error {
     return config, .{};
 }
 
-// Frees the strings of a config from `parse_url`; does nothing for one the program built.
 // A config that owns copies of its strings, for keeping beyond the original (`free_config`).
 copy_config :: (config: Config) -> Config {
     copy := config;
     copy.owned = true;
     copy.host = copy_string(config.host);
+    copy.hostaddr = copy_string(config.hostaddr);
+    copy.hosts = array_copy(config.hosts);
+    for *copy.hosts {
+        it.host = copy_string(it.host);
+        it.hostaddr = copy_string(it.hostaddr);
+    }
+
+    copy.passfile = copy_string(config.passfile);
+    copy.require_auth = copy_string(config.require_auth);
     copy.user = copy_string(config.user);
     copy.password = copy_string(config.password);
     copy.database = copy_string(config.database);
@@ -298,10 +333,22 @@ copy_config :: (config: Config) -> Config {
     return copy;
 }
 
+// Frees the strings of a config from `parse_conninfo`, `parse_url` or `copy_config`; does nothing
+// for one the program built.
 free_config :: (config: *Config) {
     if !config.owned return;
 
     free(config.host);
+    free(config.hostaddr);
+    free(config.passfile);
+    free(config.require_auth);
+
+    for config.hosts {
+        free(it.host);
+        free(it.hostaddr);
+    }
+
+    array_free(config.hosts);
     free(config.user);
     free(config.password);
     free(config.database);
@@ -320,44 +367,55 @@ free_config :: (config: *Config) {
 
 #scope_module
 
+// The value of a keyword: what the connection string set, else its environment variable.
+conninfo_value :: (info: Conninfo, keyword: string, use_environment: bool) -> string {
+    value, found := conninfo_get(info, keyword);
+    if found return value;
+    if !use_environment return "";
+
+    index := conninfo_index(keyword);
+    if index < 0 || !CONNINFO_ENVIRONMENT[index] return "";
+
+    return environment(CONNINFO_ENVIRONMENT[index]);
+}
+
+// The environment variable libpq reads for each of CONNINFO_KEYWORDS, empty where it has none.
+CONNINFO_ENVIRONMENT :: string.[
+    "PGSERVICE", "PGUSER", "PGPASSWORD", "PGPASSFILE", "PGCHANNELBINDING", "PGCONNECT_TIMEOUT",
+    "PGDATABASE", "PGHOST", "PGHOSTADDR", "PGPORT", "PGCLIENTENCODING", "PGOPTIONS", "PGAPPNAME",
+    "", "", "", "", "", "", "PGSSLMODE", "PGSSLNEGOTIATION", "PGSSLCOMPRESSION", "PGSSLCERT",
+    "PGSSLKEY", "", "PGSSLCERTMODE", "PGSSLROOTCERT", "PGSSLCRL", "PGSSLCRLDIR", "PGSSLSNI",
+    "PGREQUIREPEER", "PGREQUIREAUTH", "PGMINPROTOCOLVERSION", "PGMAXPROTOCOLVERSION", "PGSSLMINPROTOCOLVERSION", "PGSSLMAXPROTOCOLVERSION",
+    "PGGSSENCMODE", "PGKRBSRVNAME", "PGGSSLIB", "PGGSSDELEGATION", "", "PGTARGETSESSIONATTRS",
+    "PGLOADBALANCEHOSTS",
+];
+
+// "a,b,,c" as four entries; empty text as none.
+split_list :: (text: string) -> [] string {
+    items: [..] string;
+    items.allocator = temp;
+
+    if !text return items;
+
+    rest := text;
+
+    while true {
+        found, item, after := split_from_left(rest, #char ",");
+
+        if !found {
+            array_add(*items, rest);
+            break;
+        }
+
+        array_add(*items, item);
+        rest = after;
+    }
+
+    return items;
+}
+
 parse_port :: (text: string) -> u16, bool {
     value, valid, remainder := string_to_int(text);
     if !valid || remainder || value < 1 || value > 65535 return 0, false;
     return cast(u16) value, true;
-}
-
-percent_decode :: (text: string) -> string, bool {
-    out := alloc_string(text.count);
-    count := 0;
-    i := 0;
-
-    while i < text.count {
-        c := text[i];
-        if c == #char "%" {
-            if i + 2 >= text.count {
-                free(out);
-                return "", false;
-            }
-
-            high := hex_value(text[i + 1]);
-            low := hex_value(text[i + 2]);
-
-            if high < 0 || low < 0 {
-                free(out);
-                return "", false;
-            }
-
-            out[count] = cast(u8) (high * 16 + low);
-            i += 3;
-        } else {
-            out[count] = c;
-            i += 1;
-        }
-
-        count += 1;
-    }
-
-    out.count = count;
-
-    return out, true;
 }

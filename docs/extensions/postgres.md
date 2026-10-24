@@ -204,7 +204,9 @@ every `ErrorResponse` field (`code`, `detail`, `hint`, `position`, `table`, `col
 `constraint`, ...). `code` is a `Sqlstate`: an enum over the five characters, so
 `error.code == .UNIQUE_VIOLATION` works, and `sqlstate_class` keeps only the class. An error owns
 its text: call `free_error` when done. A failure that leaves the stream out of step (I/O, a
-protocol error, a FATAL) sets `connection.broken`, and later calls fail with `CLOSED`.
+protocol error, a FATAL) sets `connection.broken`, and later calls fail with `CLOSED`. When the
+server sends a FATAL error and then closes (a crash, `pg_terminate_backend`), the call returns that
+error rather than the close.
 
 **Deadlines and cancellation.** Any call can sit under `Io.with_deadline`, and `Io.cancel` of the
 fiber works the same way. When either ends the wait for an answer, the call returns `TIMED_OUT` or
@@ -300,7 +302,28 @@ under `DateStyle=ISO` and `IntervalStyle=postgres`), `send_styles` (default true
 neither style, leaving the server's or role's settings in place, for programs that only show text
 values), `on_notice` and `user_data` (see Notices above), `json_options` (see JSON above).
 
-`parse_url` reads `postgres://user:password@host:port/database?...`. Parameters: `host`, `port`,
+`parse_conninfo(text, use_environment := false)` reads libpq's connection strings: a URI as below,
+or `host=db port=5432 user='a b'` (single quotes, `\` escapes). Errors have libpq's texts. Several
+hosts (`host1:5432,host2:5433`) fill `Config.hosts`; `connect` uses `host` and `port`, the first,
+and does not try the others. Further keywords: `hostaddr` (connected to in place of the host, which
+TLS still checks), `passfile`, `require_auth`, `client_encoding`, `replication`,
+`min_protocol_version` and `max_protocol_version` (`3.0`, `3.2`, `latest`), `sslrootcert=system`
+(system roots, and `sslmode` defaults to `verify-full`). With `use_environment` the keywords not
+given come from `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`, `PGPASSFILE`,
+`PGREQUIREAUTH`, `PGSSLMODE` and the other variables libpq reads. Lower level:
+`parse_conninfo_options` (the options as set, with `conninfo_get`/`conninfo_set`, `is_conninfo`)
+and `config_from_conninfo`. Free with `free_config` / `free_conninfo`.
+
+`Config.require_auth` is libpq's: `password`, `md5`, `gss`, `sspi`, `scram-sha-256`, `none`, or the
+same with `!` to forbid; a login by another method fails with `authentication method requirement
+"..." failed: ...`. `Config.passfile` (default `$PGPASSFILE`, then `~/.pgpass`) supplies a password
+when `Config.password` is empty; a file readable by others is ignored. Passwords are prepared with
+SASLprep before SCRAM (`saslprep(text)`; normalization works per code point, so decomposed accents
+are not recomposed, and unassigned code points are not rejected). `scram_secret(password,
+iterations)` and `md5_secret(password, user)` build the secret for `ALTER ROLE ... PASSWORD`.
+`cancel_query(connection)` sends a cancel request for the statement another fiber is waiting on.
+
+`parse_url` is `parse_conninfo` for URIs: `postgres://user:password@host:port/database?...`. Parameters: `host`, `port`,
 `user`, `password`, `dbname`, `sslmode` (`allow` maps to `prefer`), `sslnegotiation=direct`,
 `sslrootcert` (a PEM file), `channel_binding`, `application_name`, `options` and
 `connect_timeout` (seconds). A config from `parse_url` or `copy_config` owns its strings: call `free_config`.

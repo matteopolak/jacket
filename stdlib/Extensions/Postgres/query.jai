@@ -95,12 +95,11 @@ describe_statement :: (c: *Connection, sql: string) -> Statement_Info, Pg_Error 
     while true {
         type, body, read_error := read_message(c);
         if read_error.kind != .NONE {
-            free_error(*failure);
             free_result(*rows);
             free_statement_info(*info);
             recover_interrupted(c, read_error);
 
-            return .{}, read_error;
+            return .{}, error_before_close(*failure, read_error);
         }
 
         if handle_async(c, type, body) continue;
@@ -237,9 +236,8 @@ run_script :: (c: *Connection, sql: string, hooks: *Script_Hooks) -> Pg_Error {
     while true {
         type, body, read_error := read_message(c);
         if read_error.kind != .NONE {
-            free_error(*failure);
             recover_interrupted(c, read_error);
-            return read_error;
+            return error_before_close(*failure, read_error);
         }
 
         if handle_async(c, type, body) continue;
@@ -462,10 +460,9 @@ run_extended :: (c: *Connection, sql: string, args: [] Any, result_format: Forma
     while true {
         type, body, read_error := read_message(c);
         if read_error.kind != .NONE {
-            free_error(*failure);
             free_result(*result);
             recover_interrupted(c, read_error);
-            return .{}, read_error;
+            return .{}, error_before_close(*failure, read_error);
         }
 
         if handle_async(c, type, body) continue;
@@ -539,6 +536,20 @@ recover_interrupted :: (c: *Connection, error: Pg_Error) {
     });
 
     if !recovered c.broken = true;
+}
+
+// The error a failed read ends a request with. A server that stops on a FATAL error (a crash, an
+// administrator's terminate) sends it and then closes, so that error says more than the close.
+error_before_close :: (failure: *Pg_Error, read_error: Pg_Error) -> Pg_Error {
+    if read_error.kind == .CLOSED && failure.kind == .SERVER {
+        error := failure.*;
+        failure.* = .{};
+        return error;
+    }
+
+    free_error(failure);
+
+    return read_error;
 }
 
 drain_to_ready :: (c: *Connection) -> bool {
