@@ -22,6 +22,7 @@ their path, so the import says the code is jaic-only:
 | `#import "Extensions/Io_Uring";` | Linux io_uring: kernel constants and structs generated from the UAPI header, the three system calls, and a mapped `Ring` (Linux only) |
 | `#import "Extensions/Tls";` | TLS 1.2 and 1.3 on a vendored mbedTLS: client and server handshakes over any `Io` reader/writer pair, system or private roots, ALPN; used by Http for HTTPS (not on wasm) |
 | `#import "Extensions/Service";` | Compile-time services: long-lived programs that compile-time code asks questions (a database connection kept open between compiles), answered without blocking the editor |
+| `#import "Extensions/Postgres";` | PostgreSQL client on Io fibers: TLS with SCRAM-SHA-256(-PLUS), MD5 and cleartext auth, Unix sockets, extended and simple queries, structured server errors, text and binary codecs (not on wasm) |
 | `#import "Extensions/String_Literal";` | The source location of a byte of a string literal's value, so compile-time checks of queries or patterns can point at the exact character |
 | `#import "Extensions/Wasi_Runtime";` | The C library and `_start` a wasm64 program needs as a WASI command (added by `jaic -os wasm`) |
 

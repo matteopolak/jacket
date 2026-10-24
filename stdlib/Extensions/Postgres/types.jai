@@ -1,0 +1,232 @@
+// Jai types for Postgres values that have no exact Jai counterpart.
+
+// A value that may be SQL NULL. `null` is true for NULL, and `value` is then zero.
+Nullable :: struct(T: Type) {
+    value: T;
+    null: bool;
+}
+
+// The value, or `default` when it is NULL.
+or_else :: (n: Nullable($T), default: T) -> T {
+    if n.null return default;
+    return n.value;
+}
+
+// A non-null `Nullable` holding `value`.
+some :: (value: $T) -> Nullable(T) {
+    return .{ value = value };
+}
+
+// `uuid`: the 16 bytes in network order.
+Uuid :: struct {
+    bytes: [16] u8;
+}
+
+// `timestamptz`: an instant, in microseconds since 2000-01-01 00:00:00 UTC (Postgres' own epoch).
+// TIMESTAMP_INFINITY and TIMESTAMP_MINUS_INFINITY are `infinity` and `-infinity`.
+Timestamp :: struct {
+    microseconds: s64;
+}
+
+// `timestamp` (without time zone): a wall-clock reading, in microseconds since 2000-01-01 00:00:00.
+Local_Timestamp :: struct {
+    microseconds: s64;
+}
+
+// `date`: days since 2000-01-01. DATE_INFINITY and DATE_MINUS_INFINITY are `infinity` and
+// `-infinity`.
+Date :: struct {
+    days: s32;
+}
+
+// `time` (without time zone): microseconds since midnight.
+Time :: struct {
+    microseconds: s64;
+}
+
+// `interval`: months, days and microseconds are kept apart, as Postgres keeps them, because a
+// month has no fixed number of days and a day has no fixed number of microseconds across a
+// daylight-saving change.
+Interval :: struct {
+    months: s32;
+    days: s32;
+    microseconds: s64;
+}
+
+// `numeric`: an exact decimal, as its text: "-12.3400", "0", "NaN", "Infinity", "-Infinity".
+// `numeric_to_s64` and `numeric_to_float64` convert it.
+Numeric :: struct {
+    text: string;
+}
+
+// `infinity` and `-infinity` of timestamps and dates, as the server stores them.
+TIMESTAMP_INFINITY :: S64_MAX;
+TIMESTAMP_MINUS_INFINITY :: S64_MIN;
+DATE_INFINITY :: S32_MAX;
+DATE_MINUS_INFINITY :: S32_MIN;
+
+MICROSECONDS_PER_DAY :: 86_400_000_000;
+
+// Microseconds from 1970-01-01 (the Unix epoch) to 2000-01-01.
+UNIX_TO_POSTGRES_MICROSECONDS :: 946_684_800_000_000;
+
+timestamp_from_unix_microseconds :: (microseconds: s64) -> Timestamp {
+    return .{ microseconds - UNIX_TO_POSTGRES_MICROSECONDS };
+}
+
+unix_microseconds :: (t: Timestamp) -> s64 {
+    return t.microseconds + UNIX_TO_POSTGRES_MICROSECONDS;
+}
+
+// The current time from the system clock.
+now :: () -> Timestamp {
+    return timestamp_from_unix_microseconds(to_microseconds(current_time_consensus() - APOLLO_TIME_FOR_JAN_1_1970));
+}
+
+// The date of a proleptic Gregorian calendar day. Year 0 is 1 BC, as in ISO 8601.
+date_from_civil :: (year: s64, month: s64, day: s64) -> Date {
+    return .{ cast(s32) (days_from_civil(year, month, day) - DAYS_1970_TO_2000) };
+}
+
+civil_from_date :: (date: Date) -> year: s64, month: s64, day: s64 {
+    year, month, day := civil_from_days(cast(s64) date.days + DAYS_1970_TO_2000);
+    return year, month, day;
+}
+
+timestamp_from_civil :: (year: s64, month: s64, day: s64, hour := 0, minute := 0, second := 0, microsecond := 0) -> Timestamp {
+    days := cast(s64) date_from_civil(year, month, day).days;
+    return .{ days * MICROSECONDS_PER_DAY + ((hour * 60 + minute) * 60 + second) * 1_000_000 + microsecond };
+}
+
+// `Uuid` from "0f8fad5b-d9cb-469f-a165-70867728950e" (dashes optional, any case).
+parse_uuid :: (text: string) -> Uuid, bool {
+    u: Uuid;
+    count := 0;
+    i := 0;
+
+    while i < text.count {
+        if text[i] == #char "-" {
+            i += 1;
+            continue;
+        }
+
+        if count == 16 || i + 1 >= text.count return .{}, false;
+
+        high := hex_value(text[i]);
+        low := hex_value(text[i + 1]);
+
+        if high < 0 || low < 0 return .{}, false;
+
+        u.bytes[count] = cast(u8) (high * 16 + low);
+        count += 1;
+        i += 2;
+    }
+
+    return u, count == 16;
+}
+
+// "0f8fad5b-d9cb-469f-a165-70867728950e", in temporary storage.
+uuid_text :: (u: Uuid) -> string {
+    DIGITS :: "0123456789abcdef";
+    out := talloc_string(36);
+    at := 0;
+
+    DASH_BEFORE :: s64.[4, 6, 8, 10]; // 8-4-4-4-12 hex digits
+
+    for u.bytes {
+        if array_find(DASH_BEFORE, it_index) {
+            out[at] = #char "-";
+            at += 1;
+        }
+
+        out[at] = DIGITS[it >> 4];
+        out[at + 1] = DIGITS[it & 0xf];
+        at += 2;
+    }
+
+    return out;
+}
+
+// The integer part of a numeric; false for NaN, the infinities, or one out of range. A fraction
+// is truncated toward zero.
+numeric_to_s64 :: (n: Numeric) -> s64, bool {
+    text := n.text;
+    dot := find_index_from_left(text, #char ".");
+
+    if dot >= 0 text.count = dot;
+    if text == "-" || text == "-0" return 0, true;
+
+    value, valid, rest := string_to_int(text, 10, s64);
+
+    return value, valid && !rest;
+}
+
+numeric_to_float64 :: (n: Numeric) -> float64, bool {
+    if n.text == "NaN" return FLOAT64_NAN, true;
+    if n.text == "Infinity" return FLOAT64_INFINITY, true;
+    if n.text == "-Infinity" return -FLOAT64_INFINITY, true;
+
+    value, valid, rest := string_to_float64(n.text);
+
+    return value, valid && !rest;
+}
+
+#scope_module
+
+DAYS_1970_TO_2000 :: 10_957;
+
+// The Gregorian calendar repeats every 400 years (an era) of 146,097 days. Counting years from
+// March 1 puts the leap day last, so months 0..11 (March..February) have the lengths
+// 31 30 31 30 31 31 30 31 30 31 31 28/29, and month m starts on day (153m + 2) / 5 of that year.
+YEARS_PER_ERA :: 400;
+DAYS_PER_ERA :: 146_097;
+DAYS_PER_YEAR :: 365;
+DAYS_PER_4_YEARS :: 4 * DAYS_PER_YEAR + 1;
+DAYS_PER_CENTURY :: 100 * DAYS_PER_YEAR + 24;
+MONTHS_PER_YEAR :: 12;
+MARCH :: 3;
+MONTH_START_SCALE :: 153; // with MONTH_START_DIVISOR: the start of month m is (153m + 2) / 5
+MONTH_START_DIVISOR :: 5;
+DAYS_0000_03_01_TO_1970 :: 719_468; // from the March 1 that starts era 0 to 1970-01-01
+
+// Days since 1970-01-01 of a proleptic Gregorian date (valid for any year).
+days_from_civil :: (year: s64, month: s64, day: s64) -> s64 {
+    y := ifx month < MARCH then year - 1 else year;
+    era := floor_divide(y, YEARS_PER_ERA);
+    year_of_era := y - era * YEARS_PER_ERA;
+    shifted_month := (month + MONTHS_PER_YEAR - MARCH) % MONTHS_PER_YEAR;
+    day_of_year := (MONTH_START_SCALE * shifted_month + 2) / MONTH_START_DIVISOR + day - 1;
+    day_of_era := year_of_era * DAYS_PER_YEAR + year_of_era / 4 - year_of_era / 100 + day_of_year;
+
+    return era * DAYS_PER_ERA + day_of_era - DAYS_0000_03_01_TO_1970;
+}
+
+civil_from_days :: (days: s64) -> year: s64, month: s64, day: s64 {
+    z := days + DAYS_0000_03_01_TO_1970;
+    era := floor_divide(z, DAYS_PER_ERA);
+    day_of_era := z - era * DAYS_PER_ERA;
+    // Leap days pushed back out, so that dividing by 365 gives the year of the era.
+    year_of_era := (day_of_era - day_of_era / (DAYS_PER_4_YEARS - 1) + day_of_era / DAYS_PER_CENTURY - day_of_era / (DAYS_PER_ERA - 1)) / DAYS_PER_YEAR;
+    day_of_year := day_of_era - (DAYS_PER_YEAR * year_of_era + year_of_era / 4 - year_of_era / 100);
+    shifted_month := (MONTH_START_DIVISOR * day_of_year + 2) / MONTH_START_SCALE;
+    day := day_of_year - (MONTH_START_SCALE * shifted_month + 2) / MONTH_START_DIVISOR + 1;
+    month := (shifted_month + MARCH - 1) % MONTHS_PER_YEAR + 1;
+    year := year_of_era + era * YEARS_PER_ERA;
+
+    if month < MARCH year += 1;
+
+    return year, month, day;
+}
+
+floor_divide :: (a: s64, b: s64) -> s64 {
+    q := a / b;
+    if (a % b != 0) && ((a < 0) != (b < 0)) q -= 1;
+    return q;
+}
+
+hex_value :: (c: u8) -> s64 {
+    if c >= #char "0" && c <= #char "9" return c - #char "0";
+    if c >= #char "a" && c <= #char "f" return c - #char "a" + 10;
+    if c >= #char "A" && c <= #char "F" return c - #char "A" + 10;
+    return -1;
+}
