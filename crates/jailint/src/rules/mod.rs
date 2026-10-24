@@ -10,6 +10,7 @@ use jaic::source::Span;
 mod absurd_comparison;
 mod almost_swapped;
 mod approx_constant;
+mod assert_constant;
 mod banner_comment;
 mod bitwise_precedence;
 mod bool_comparison;
@@ -101,6 +102,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Style,
         summary: "a hand-typed `3.14159` or `1.4142` where `Math` has the constant",
         check: approx_constant::check,
+    },
+    RuleInfo {
+        name: "assert_constant",
+        category: Category::Style,
+        summary: "`assert(true)` or `#assert true`, which can never fail",
+        check: assert_constant::check,
     },
     RuleInfo {
         name: "banner_comment",

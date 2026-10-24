@@ -5,9 +5,9 @@ assert_helper :: (message := "", args: ..Any, loc := #caller_location) -> bool #
 #if ENABLE_ASSERT {
     assert :: (arg: bool, message := "", args: ..Any, loc := #caller_location) #no_debug #expand {
         if !arg assert_helper(message, ..args, loc = loc);
-    }
+    } @AssertsArgument
 } else {
-    assert :: (#discard arg: bool, #discard message := "", #discard args: ..Any, #discard loc := #caller_location) #expand {}
+    assert :: (#discard arg: bool, #discard message := "", #discard args: ..Any, #discard loc := #caller_location) #expand {} @AssertsArgument
 }
 
 // Writes the formatted text to standard output, or standard error when requested.

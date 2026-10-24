@@ -21,6 +21,8 @@ pub(crate) struct Cx<'a> {
     pub tokens: &'a [Token],
     /// The file's comments, in order (from `jaic::lexer::lex_with_trivia`).
     pub comments: &'a [Comment],
+    /// The file's top-level statements.
+    pub stmts: &'a [Stmt],
     pub procs: Vec<ProcSite<'a>>,
     pub imports: Vec<crate::rules::unused_import::Unused>,
     /// Links in doc comments that name nothing (`broken_doc_link`).
@@ -85,6 +87,7 @@ impl<'a> Cx<'a> {
             lines: compiler.src.sources.get(ast.file).lines(),
             tokens,
             comments,
+            stmts: &ast.stmts,
             procs,
             imports,
             doc_links: Vec::new(),
@@ -308,6 +311,30 @@ impl<'a> Cx<'a> {
         } else {
             (span.start as usize, end)
         }
+    }
+}
+
+impl Cx<'_> {
+    /// [`Cx::statement_removal`], also taking the blank lines that follow when the statement
+    /// stood alone on its lines right after a blank line or an opening `{`, so removing it
+    /// leaves no hole.
+    pub fn tidy_removal(&self, span: Span) -> (usize, usize) {
+        let (start, mut end) = self.statement_removal(span);
+        if self.line_start(start).0 != start {
+            return (start, end);
+        }
+        let before = self.text[..start].trim_end_matches([' ', '\t']);
+        if before.is_empty() || before.ends_with("{\n") || before.ends_with("\n\n") {
+            loop {
+                let rest = &self.text[end..];
+                let trimmed = rest.trim_start_matches([' ', '\t']);
+                if !trimmed.starts_with('\n') {
+                    break;
+                }
+                end += rest.len() - trimmed.len() + 1;
+            }
+        }
+        (start, end)
     }
 }
 

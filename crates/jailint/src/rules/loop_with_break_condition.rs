@@ -53,13 +53,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 return true;
             }
             let keep = negated(cx, cond);
-            let (start, mut end) = cx.statement_removal(first.span);
-            // The blank line that set the test apart goes with it.
-            if cx.line_start(start).0 == start {
-                while let Some(len) = blank_line(&cx.text[end..]) {
-                    end += len;
-                }
-            }
+            let (start, end) = cx.tidy_removal(first.span);
             let commented =
                 cx.has_comment_between(body.span.start as usize, first.span.end as usize);
             out.push(Finding {
@@ -89,13 +83,6 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             true
         });
     }
-}
-
-/// The length of the blank line `rest` starts with, newline included.
-fn blank_line(rest: &str) -> Option<usize> {
-    let trimmed = rest.trim_start_matches([' ', '\t']);
-    let spaces = rest.len() - trimmed.len();
-    trimmed.starts_with('\n').then_some(spaces + 1)
 }
 
 /// The test that keeps the loop going, as text: `!c` gives `c`.
