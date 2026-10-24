@@ -179,6 +179,21 @@ impl<'a> Cx<'a> {
         self.expression_tokens(a).eq(self.expression_tokens(b))
     }
 
+    /// The two byte ranges hold the same tokens (whitespace and comments aside). Unlike
+    /// [`Cx::same_tokens`] the ranges are taken as given: no parentheses are added around them.
+    pub fn same_token_ranges(&self, a: Span, b: Span) -> bool {
+        let tokens = |s: Span| {
+            let first = self.tokens.partition_point(|t| t.span.start < s.start);
+            let last = self.tokens.partition_point(|t| t.span.end <= s.end);
+            &self.tokens[first..last.max(first)]
+        };
+        let (a, b) = (tokens(a), tokens(b));
+        a.len() == b.len()
+            && a.iter()
+                .zip(b)
+                .all(|(x, y)| self.src(x.span) == self.src(y.span))
+    }
+
     /// A comment overlaps the bytes `start..end`.
     pub fn has_comment_between(&self, start: usize, end: usize) -> bool {
         let first = self

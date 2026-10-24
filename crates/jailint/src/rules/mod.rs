@@ -28,6 +28,7 @@ mod excessive_nesting;
 mod float_equality;
 mod frees;
 mod identical_branches;
+mod identical_case_bodies;
 mod identical_operands;
 mod identity_op;
 mod impossible_comparison;
@@ -205,6 +206,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Suspicious,
         summary: "an `if`/`else` or `ifx` whose branches are the same",
         check: identical_branches::check,
+    },
+    RuleInfo {
+        name: "identical_case_bodies",
+        category: Category::Pedantic,
+        summary: "two cases of a `switch` with the same body, which could list their values together",
+        check: identical_case_bodies::check,
     },
     RuleInfo {
         name: "identical_operands",

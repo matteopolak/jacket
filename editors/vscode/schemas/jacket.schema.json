@@ -325,6 +325,16 @@
               "default": "warn",
               "markdownDescription": "an `if`/`else` or `ifx` whose branches are the same (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#identical_branches)"
             },
+            "identical_case_bodies": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "allow",
+              "markdownDescription": "two cases of a `switch` with the same body, which could list their values together (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#identical_case_bodies)"
+            },
             "identical_operands": {
               "type": "string",
               "enum": [

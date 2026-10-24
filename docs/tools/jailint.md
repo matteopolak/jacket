@@ -105,6 +105,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `excessive_nesting` | pedantic | allow | no | blocks nested deeper than `max_nesting` (default 6) |
 | `float_equality` | pedantic | allow | no | `==` or `!=` between two computed floats |
 | `identical_branches` | suspicious | warn | editor | `if c { A } else { A }`, `ifx c then a else a` |
+| `identical_case_bodies` | pedantic | allow | editor | `case .PNG; return "image"; case .JPEG; return "image";`: cases that do the same thing and could be `case .PNG, .JPEG;` |
 | `identical_operands` | suspicious | warn | no | `a == a`, `x - x`, `ok && ok` |
 | `identity_op` | complexity | warn | yes | `x + 0`, `x * 1`, `x / 1` |
 | `impossible_comparison` | correctness | deny | editor | `x > 5 && x < 3`, `x != 1 \|\| x != 2`: comparisons of one integer that never pass together, or always pass between them |
@@ -185,6 +186,8 @@ Off by default. A level is a braced block or a `switch`; `else if` chains and `#
 Off by default: exact comparison is often deliberate. Constants, `x != x` and `operator ==` bodies are not reported.
 ### identical_branches
 Compared by tokens. Empty branches, `#if`, and the last link of an `else if` chain are left alone. When the condition is side-effect-free, the editor offers to keep one copy of the block (or the value of an `ifx`) and drop the test.
+### identical_case_bodies
+Off by default, since one case per row is sometimes the clearer table. Compares the tokens of a case's body with those of every earlier case of the same `switch`; default cases, empty bodies, `#through` cases and `#if` switches are skipped. The editor merges the later case into the earlier one's value list; `--fix` leaves it.
 ### identical_operands
 Float `==`, `!=` and `-` are left alone (NaN tests), as are operator procedures.
 ### identity_op
