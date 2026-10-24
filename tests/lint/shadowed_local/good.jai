@@ -28,6 +28,13 @@ grid_sum :: (rows: [][] int) -> int {
     return total;
 }
 
+copy_of :: (n: int) -> int {
+    n := n;
+    n += 1;
+
+    return n;
+}
+
 siblings :: (flag: bool) -> int {
     if flag {
         value := 1;
@@ -65,6 +72,6 @@ outer :: () -> int {
 }
 
 main :: () {
-    print("%\n", clamp_count(12) + siblings(true) + later() + outer());
+    print("%\n", clamp_count(12) + copy_of(1) + siblings(true) + later() + outer());
     print("%\n", grid_sum(.[.[1, 2], .[3]]));
 }

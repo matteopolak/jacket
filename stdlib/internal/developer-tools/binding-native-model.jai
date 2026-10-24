@@ -340,17 +340,17 @@ model_numeric_macro :: (model: *Native_Model, declaration: *Declaration) {
         literal.float_value = clang_EvalResult_getAsDouble(evaluated);
     } else if kind == .StrLiteral {
         native := clang_EvalResult_getAsStr(evaluated);
-        text := to_string(native);
+        bytes := to_string(native);
         extent := model_byte_string_extent(expression);
 
-        if !native || extent <= 0 || text.count != extent - 1 {
+        if !native || extent <= 0 || bytes.count != extent - 1 {
             log_error("Bindings_Generator: macro % is not a supported byte string constant (wide, embedded NUL or nonliteral)\n", declaration.name);
             model.failed = true;
             return;
         }
 
         literal.literal_kind = .STRING;
-        literal.string_value = copy_string(text);
+        literal.string_value = copy_string(bytes);
         array_add(*model.allocations, literal.string_value.data);
 
         if !model.string_type {

@@ -39,9 +39,9 @@ main :: () {
     }
 
     for i: 0..0x7bfe {
-        a := H.float16_to_float32(cast(H.Float16) i);
-        b := H.float16_to_float32(cast(H.Float16) (i + 1));
-        midpoint := (a + b) / 2;
+        low := H.float16_to_float32(cast(H.Float16) i);
+        high := H.float16_to_float32(cast(H.Float16) (i + 1));
+        midpoint := (low + high) / 2;
         expected := i + (i & 1);
 
         assert(cast(u16) H.float32_to_float16(midpoint) == cast(u16) expected);

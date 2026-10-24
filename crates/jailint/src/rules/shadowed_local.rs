@@ -19,17 +19,17 @@
 //! Looks at variable declarations (`name := ...`, `name: T`) in nested blocks, loop bodies and
 //! `case` bodies, against the parameters and the variables declared earlier in the blocks
 //! around them. Not reported: loop variables, implicit (`it`, `it_index`) or named, as they are
-//! scoped to the loop on purpose; `_`; declarations in macros (`#expand`), which have their own
+//! scoped to the loop on purpose; names starting with `_`; declarations in macros (`#expand`), which have their own
 //! naming rules; and anything inside a nested procedure, which cannot see the outer locals.
-//! No fix: which of the two to rename is the author's call. Off by default (`allow`): reusing a
-//! short name in a sibling block is fine, and in a nested one it is common.
+//! A variable that starts from the one it hides (`count := count;`, `text := trim(text);`), the
+//! usual way to get a changeable copy of a parameter, is not reported either, nor is a name
+//! starting with `_`. No fix: which of the two to rename is the author's call. Off by default
+//! (`allow`): reusing a short name in a sibling block is fine, and in a nested one it is common.
+use super::local_scopes::{self, Scopes};
 use crate::Finding;
 use crate::syntax::Cx;
-use jaic::ast::{DeclKind, Ident, Stmt, StmtKind as S};
+use jaic::ast::{Decl, Ident, Stmt, UsingStmt};
 use jaic::intern::Sym;
-
-/// Names visible at some point, innermost scope last; each with the offset where it is declared.
-type Scopes = Vec<Vec<(Sym, u32)>>;
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
@@ -46,114 +46,73 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             .filter_map(|q| q.name.as_ref())
             .map(|n| (n.name, n.span.start))
             .collect();
-        let mut scopes: Scopes = vec![params, Vec::new()];
-        block(cx, &p.body.stmts, &mut scopes, out);
+        let mut walk = Shadows {
+            cx,
+            out,
+            scopes: vec![params, Vec::new()],
+        };
+        local_scopes::walk(&p.body.stmts, &mut walk);
     }
 }
 
-fn block(cx: &Cx, stmts: &[Stmt], scopes: &mut Scopes, out: &mut Vec<Finding>) {
-    for s in stmts {
-        stmt(cx, s, scopes, out);
+struct Shadows<'a, 'o> {
+    cx: &'a Cx<'a>,
+    out: &'o mut Vec<Finding>,
+    /// Names visible at the point reached, innermost scope last, each with the offset where it
+    /// is declared.
+    scopes: Vec<Vec<(Sym, u32)>>,
+}
+
+impl Scopes for Shadows<'_, '_> {
+    fn enter(&mut self) {
+        self.scopes.push(Vec::new());
+    }
+
+    fn leave(&mut self) {
+        self.scopes.pop();
+    }
+
+    /// Reported if an enclosing scope has the name; visible from here on.
+    fn variable(&mut self, decl: &Decl, name: &Ident) {
+        let text = name.name.as_str();
+        if text.starts_with('_') || derived_from_itself(self.cx, decl, name) {
+            return;
+        }
+        let outer = self.scopes[..self.scopes.len() - 1]
+            .iter()
+            .rev()
+            .flat_map(|scope| scope.iter().rev())
+            .find(|(n, _)| *n == name.name);
+        if let Some(&(_, at)) = outer {
+            let (line, _) = self.cx.lines.line_col(self.cx.text, at as usize);
+            self.out.push(super::finding(
+                name.span,
+                format!("`{text}` shadows the variable of that name declared on line {line}"),
+                Some(
+                    "rename one of them; an assignment here no longer reaches the outer one".into(),
+                ),
+            ));
+        }
+        self.bound(name);
+    }
+
+    /// Visible from here on, without being checked.
+    fn bound(&mut self, name: &Ident) {
+        if let Some(inner) = self.scopes.last_mut() {
+            inner.push((name.name, name.span.start));
+        }
+    }
+
+    fn using(&mut self, _: &Stmt, _: &UsingStmt) {
     }
 }
 
-/// `body` in a scope of its own.
-fn scoped(cx: &Cx, body: &Stmt, scopes: &mut Scopes, out: &mut Vec<Finding>) {
-    scopes.push(Vec::new());
-    match &body.kind {
-        S::Block(b) => block(cx, &b.stmts, scopes, out),
-        _ => stmt(cx, body, scopes, out),
-    }
-    scopes.pop();
-}
-
-fn stmt(cx: &Cx, s: &Stmt, scopes: &mut Scopes, out: &mut Vec<Finding>) {
-    match &s.kind {
-        S::Decl(d) if d.kind == DeclKind::Var && !d.backtick && !d.using => {
-            for name in &d.names {
-                declare(cx, name, scopes, out);
-            }
-        }
-        S::Block(b) => {
-            scopes.push(Vec::new());
-            block(cx, &b.stmts, scopes, out);
-            scopes.pop();
-        }
-        S::If {
-            then_branch,
-            else_branch,
-            ..
-        } => {
-            scoped(cx, then_branch, scopes, out);
-            if let Some(e) = else_branch {
-                scoped(cx, e, scopes, out);
-            }
-        }
-        S::Switch(sw) | S::StaticSwitch(sw) => {
-            for case in &sw.cases {
-                scopes.push(Vec::new());
-                block(cx, &case.body, scopes, out);
-                scopes.pop();
-            }
-        }
-        S::While(w) => {
-            scopes.push(Vec::new());
-            if w.bind_label
-                && let Some(label) = &w.label
-            {
-                bring_in(label, scopes);
-            }
-            scoped(cx, &w.body, scopes, out);
-            scopes.pop();
-        }
-        S::For(f) => {
-            scopes.push(Vec::new());
-            for name in [&f.it, &f.index].into_iter().flatten() {
-                bring_in(name, scopes);
-            }
-            scoped(cx, &f.body, scopes, out);
-            scopes.pop();
-        }
-        S::Defer {
-            body, ..
-        } => scoped(cx, body, scopes, out),
-        S::PushContext(p) => scoped(cx, &p.body, scopes, out),
-        S::StaticIf(si) => {
-            for branch in [&si.then_branch, &si.else_branch] {
-                scopes.push(Vec::new());
-                block(cx, branch, scopes, out);
-                scopes.pop();
-            }
-        }
-        _ => {}
-    }
-}
-
-/// A name that is visible from here on, without being checked (a loop variable).
-fn bring_in(name: &Ident, scopes: &mut Scopes) {
-    if let Some(inner) = scopes.last_mut() {
-        inner.push((name.name, name.span.start));
-    }
-}
-
-/// A variable declared here: reported if an enclosing scope has the name, then visible.
-fn declare(cx: &Cx, name: &Ident, scopes: &mut Scopes, out: &mut Vec<Finding>) {
-    let text = name.name.as_str();
-    if text == "_" {
-        return;
-    }
-    let outer = scopes[..scopes.len() - 1]
-        .iter()
-        .rev()
-        .flat_map(|scope| scope.iter().rev())
-        .find(|(n, _)| *n == name.name);
-    if let Some(&(_, at)) = outer {
-        let (line, _) = cx.lines.line_col(cx.text, at as usize);
-        out.push(super::finding(
-            name.span,
-            format!("`{text}` shadows the variable of that name declared on line {line}"),
-            Some("rename one of them; an assignment here no longer reaches the outer one".into()),
-        ));
-    }
-    bring_in(name, scopes);
+/// `x := x;`, `x := x * 2;`: the new variable starts from the one it hides, the usual way to
+/// get a changeable copy of a parameter.
+fn derived_from_itself(cx: &Cx, decl: &Decl, name: &Ident) -> bool {
+    decl.value.as_ref().is_some_and(|v| {
+        cx.name_tokens(name.name, v.span.start, v.span.end)
+            .next()
+            .is_some()
+    })
 }

@@ -57,6 +57,7 @@
 - `jailint` has an opt-in lint for a comment that reads as a declaration's docs but has a blank line between them (`detached_doc_comment`).
 - `jailint` has an opt-in lint for a local variable that hides a parameter or another local of the same procedure (`shadowed_local`).
 - `jailint` reports a `#scope_file` declaration that nothing in its file uses (`unused_private_declaration`).
+- `jailint` has an opt-in lint for a `using` of a struct whose members share names with variables already in scope (`using_pollution`).
 
 ### Improved
 

@@ -52,6 +52,7 @@ mod integer_division_in_float;
 mod large_stack_array;
 mod leaked_allocation;
 mod leaked_temporary;
+mod local_scopes;
 mod loop_with_break_condition;
 mod lossy_float_literal;
 mod lossy_xx;
@@ -108,6 +109,7 @@ mod unused_variable;
 mod use_after_free;
 mod useless_format;
 mod useless_resizable;
+mod using_pollution;
 mod wrapping_constant;
 mod zero_ptr;
 
@@ -721,6 +723,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Correctness,
         summary: "a variable read after a `@FreesArgument` call freed it (`free(p); use(p);`)",
         check: use_after_free::check,
+    },
+    RuleInfo {
+        name: "using_pollution",
+        category: Category::Pedantic,
+        summary: "a `using` of a struct whose members share names with parameters, locals or globals already in scope",
+        check: using_pollution::check,
     },
     RuleInfo {
         name: "wrapping_constant",

@@ -100,12 +100,12 @@ run_case :: (exempt_path: bool, exempt_namespace := false) -> u32 {
             equivalent_count += 1;
             if declaration.decl_flags & .OMIT_FROM_OUTPUT equivalent_omitted += 1;
 
-            function := cast(*B.Function) declaration;
+            equivalent := cast(*B.Function) declaration;
 
             if first_equivalent {
-                assert(first_equivalent != function);
-                assert(B.functions_are_equivalent(first_equivalent, function));
-            } else first_equivalent = function;
+                assert(first_equivalent != equivalent);
+                assert(B.functions_are_equivalent(first_equivalent, equivalent));
+            } else first_equivalent = equivalent;
         }
 
         if declaration.name == "run_different" {

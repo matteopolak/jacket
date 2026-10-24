@@ -1,0 +1,40 @@
+warning[using_pollution]: `using style` brings in `count`, which is already in scope
+  --> tests/lint/using_pollution/bad.jai:21:22
+   |
+21 | draw :: (count: int, using style: Style) -> int {
+   |                      ^^^^^^^^^^^^^^^^^^
+   |
+   = help: list the members that are meant (`using,only(...)`) or write `name.member`
+
+warning[using_pollution]: `using frame` brings in `count`, which is already in scope
+  --> tests/lint/using_pollution/bad.jai:25:23
+   |
+25 | stack :: (count: int, using frame: Frame) -> int {
+   |                       ^^^^^^^^^^^^^^^^^^
+   |
+   = help: list the members that are meant (`using,only(...)`) or write `name.member`
+
+warning[using_pollution]: `using style` brings in `count`, which is already in scope
+  --> tests/lint/using_pollution/bad.jai:33:5
+   |
+33 |     using style;
+   |     ^^^^^^^^^^^^
+   |
+   = help: list the members that are meant (`using,only(...)`) or write `name.member`
+
+warning[using_pollution]: `using f` brings in `width`, which is already in scope
+  --> tests/lint/using_pollution/bad.jai:41:5
+   |
+41 |     using f;
+   |     ^^^^^^^^
+   |
+   = help: list the members that are meant (`using,only(...)`) or write `name.member`
+
+warning[using_pollution]: `using l` brings in `limit`, which is already in scope
+  --> tests/lint/using_pollution/bad.jai:47:5
+   |
+47 |     using l;
+   |     ^^^^^^^^
+   |
+   = help: list the members that are meant (`using,only(...)`) or write `name.member`
+

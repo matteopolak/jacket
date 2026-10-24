@@ -1115,6 +1115,16 @@
               "default": "deny",
               "markdownDescription": "a variable read after a `@FreesArgument` call freed it (`free(p); use(p);`) (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#use_after_free)"
             },
+            "using_pollution": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "allow",
+              "markdownDescription": "a `using` of a struct whose members share names with parameters, locals or globals already in scope (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#using_pollution)"
+            },
             "wrapping_constant": {
               "type": "string",
               "enum": [

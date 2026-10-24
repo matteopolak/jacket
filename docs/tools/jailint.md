@@ -194,6 +194,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `use_after_free` | correctness | deny | no | `free(p); print("%", p.x);`: a variable read after a `@FreesArgument` call freed it |
 | `useless_format` | complexity | warn | editor | `tprint("%", name)`, `sprint("%", name)` with `name: string`: a copy made through a string builder |
 | `useless_resizable` | perf | warn | no | `parts: [..] string;` followed by `array_add(*parts, "a"); array_add(*parts, "b");` and only reads |
+| `using_pollution` | pedantic | allow | no | `draw :: (count: int, using style: Style)` where `Style` has a `count` member: a `using` that brings in a name already in scope |
 | `wrapping_constant` | correctness | deny | editor | `(0xffff_ffff - 40) / h`, `h < 0x8000_0000` with `h: s32`: a constant that wraps |
 | `zero_ptr` | style | warn | editor | `cast(*u8) 0`: a null pointer written as a cast of zero |
 
@@ -358,7 +359,7 @@ Not auto-fixed: the slip may be on the other side. After `using info;`, `width =
 ### shadowed_it
 `row := it;` before the inner loop is the usual idiom and is not reported.
 ### shadowed_local
-A variable declaration (`name := ...`, `name: T`) in a nested block, loop body or `case` body whose name is a parameter or a variable declared earlier in an enclosing block of the same procedure. Not reported: loop variables, implicit (`it`, `it_index`) or named, and `while name := cond` bindings; `_`; macros (`#expand`); and code inside a nested procedure, which cannot see the outer locals. A name declared later in the outer block does not count, nor does a variable in a sibling block. No fix. Off by default.
+A variable declaration (`name := ...`, `name: T`) in a nested block, loop body or `case` body whose name is a parameter or a variable declared earlier in an enclosing block of the same procedure. Not reported: loop variables, implicit (`it`, `it_index`) or named, and `while name := cond` bindings; names starting with `_`; a variable that starts from the one it hides (`n := n;`, `n := n + 1;`); macros (`#expand`); and code inside a nested procedure, which cannot see the outer locals. A name declared later in the outer block does not count, nor does a variable in a sibling block. No fix. Off by default.
 ### shift_overflow
 The result is `0` (or `-1` for `>>` on a negative signed value) whatever the operand holds, and the compiler accepts it. Fires on `<<`, `>>` and `<<=`, `>>=` when the count is an integer literal no less than the bit width of the left operand's integer type. Constant left operands (`1 << 40`, typed by where they are used) and rotates are skipped. The usual cause is an operand narrower than meant: widen it first in parentheses, `(cast(u64) x) << 40` (`cast(u64) x << 40` shifts before it casts). No fix.
 ### single_case_switch
@@ -407,6 +408,8 @@ A local or parameter that is the first argument of a statement-level `@FreesArgu
 Fires on a call of a procedure noted `@FormatsToString` (the library's `tprint` and `sprint`) whose format is exactly `"%"` and whose single value is a `string`. The editor offers the string itself for `tprint` and `copy_string(s)` for `sprint`. They are not applied by `--fix`: a `tprint` result lives in temporary storage and a `sprint` result belongs to the caller, so replacing either changes who may free what.
 ### useless_resizable
 A resizable array allocates and has to be freed; a handful of elements known up front fit in a fixed array on the stack (`parts: [2] string`). The rule is deliberately narrow. It fires on a local `name: [..] T;` without a value when every later use in the procedure is a statement of the same block that is just `array_add(*name, item)` (a procedure noted `@AddsToArray`), an index, `.count` or `.data`, the collection of a `for`, or a call that frees it (`@FreesArgument`). Passing the array anywhere else may need the `[..]` type, so those locals are left alone, as are adds made in loops, branches or several at once. No fix.
+### using_pollution
+A `using x;` statement, `using x: T;` declaration or `using` parameter whose struct (its own members and those of structs it `using`s, through a pointer too) has members named like a parameter or local visible at that point, a variable or constant at the top of the file, or a member an earlier `using` in the procedure brought in. The finding names up to four of them. `using,only(...)` and `using,except(...)` narrow the members; other filters are skipped. Procedures, types, macros (`#expand`), `_` and unnamed members are not counted. No fix. Off by default.
 ### wrapping_constant
 A constant takes the other operand's type, so the first divides `-41` by `h`. Only `/ % < <= > >=` next to a non-constant integer; `+ - *`, `==`, bitwise operators, named constants and casts are not reported. Suggested fix is computing in `s64`.
 
