@@ -1,0 +1,842 @@
+// The ORM: `select`, `update`, `delete` and `insert` on the table structs of db/schema.jai. Each
+// is a macro that turns its filters (Jai expressions in `Code`) into SQL while the program
+// compiles and hands the statement to the typed queries (typed.jai), so it is described, checked
+// and cached like any `Pg.query`. Nothing is built at run time.
+//
+//     min_score := 3;
+//     users, error := Pg.select(db, User, where = #code it.active && it.score >= min_score, order_by = #code it.email, limit = 20);
+//
+// In a filter, `it.<field>` is a column, literals stay literals, and any other expression is a
+// parameter, evaluated where the filter was written. See docs/postgres/orm.md.
+
+// Defaults for `select`: no filter, no order.
+EVERY_ROW :: #code true;
+NO_ORDER :: #code null;
+
+// The rows of `T`'s table that pass `where`, in `order_by` order (`desc` for descending), at most
+// `limit` of them (-1: all) after skipping `offset`.
+select :: (db: $D, $T: Type, $where: Code = EVERY_ROW, $order_by: Code = NO_ORDER, $desc := false, $limit := -1, $offset := 0) -> Rows(T), Pg_Error #expand {
+    #insert #run orm_statement_code(T, .SELECT, where, order_by, where, desc, limit, offset);
+}
+
+// Sets fields of the rows that pass `where`: `set = #code it.score = score + 1` (or a block of such
+// assignments). Returns the number of rows changed.
+update :: (db: $D, $T: Type, $set: Code, $where: Code) -> s64, Pg_Error #expand {
+    #insert #run orm_statement_code(T, .UPDATE, where, where, set, false, -1, 0);
+}
+
+// Deletes the rows that pass `where` and returns how many there were. `where` is required: pass
+// `#code true` to delete every row.
+delete :: (db: $D, $T: Type, $where: Code) -> s64, Pg_Error #expand {
+    #insert #run orm_statement_code(T, .DELETE, where, where, where, false, -1, 0);
+}
+
+// Inserts `value` and returns the row the table now holds (with its defaults and generated
+// columns). Fields with a database default (`@pg_default`) or a generated value
+// (`@pg_generated`) are left to the database.
+insert :: (db: $D, value: $T) -> T, Pg_Error #expand {
+    #insert #run orm_insert_code(T);
+}
+
+// Inserts each value in turn (one statement each), stopping at the first error. Returns the rows
+// inserted so far, from context.allocator.
+insert_many :: (db: $D, values: [] $T) -> [] T, Pg_Error {
+    rows: [..] T;
+
+    for values {
+        row, error := insert(db, it);
+        if error.kind != .NONE return rows, error;
+
+        array_add(*rows, row);
+    }
+
+    return rows, .{};
+}
+
+// What the filters may call; they only mean something inside `where`, as SQL.
+
+// `like`: `Pg.like(it.email, "%@example.com")`.
+like :: (value: string, pattern: string) -> bool {
+    return false;
+}
+
+// `ilike`: case-insensitive `like`.
+ilike :: (value: string, pattern: string) -> bool {
+    return false;
+}
+
+// `= any(values)`: `Pg.in(it.id, ids)`.
+in :: (value: $T, values: [] T) -> bool {
+    return false;
+}
+
+// `lower(value)`.
+lower :: (value: string) -> string {
+    return "";
+}
+
+// `upper(value)`.
+upper :: (value: string) -> string {
+    return "";
+}
+
+// `(value is null or condition)`: an optional filter, `Pg.if_some(team, #code it.team_id == team)`
+// with `team: Nullable(s64)`, where `team` stands for its value inside the condition.
+if_some :: (value: $T, condition: Code) -> bool {
+    return false;
+}
+
+#scope_module
+
+Orm_Print :: #import "Program_Print";
+
+Orm_Kind :: enum {
+    SELECT;
+    UPDATE;
+    DELETE;
+}
+
+// The table behind a struct of db/schema.jai: `"schema"."table"`.
+orm_table :: (T: Type) -> string, problem: string {
+    info := cast(*Type_Info_Struct) type_info(T);
+
+    if info.type != .STRUCT return "", tprint("% is not a struct", T);
+
+    for info.notes {
+        name, found := note_arguments(it, "pg_table");
+        if !found continue;
+
+        dot := find_index_from_left(name, #char ".");
+
+        if dot < 0 return quote_identifier(name), "";
+
+        return tprint("%.%", quote_identifier(slice(name, 0, dot)), quote_identifier(advance(name, dot + 1))), "";
+    }
+
+    return "", tprint("% has no @pg_table note: the ORM works on the structs of db/schema.jai", T);
+}
+
+orm_columns :: (T: Type) -> [] *Type_Info_Struct_Member {
+    info := cast(*Type_Info_Struct) type_info(T);
+    columns: [..] *Type_Info_Struct_Member;
+    columns.allocator = temp;
+
+    for *info.members {
+        if (it.flags & .CONSTANT) || (it.flags & .USING) continue;
+
+        array_add(*columns, it);
+    }
+
+    return columns;
+}
+
+// What is inside the parentheses of a note `name(...)`.
+note_arguments :: (note: string, name: string) -> string, found: bool {
+    if note.count < name.count + 2 || !begins_with(note, name) || note[name.count] != #char "(" || !ends_with(note, ")") return "", false;
+
+    return slice(note, name.count + 1, note.count - name.count - 2), true;
+}
+
+has_note :: (member: *Type_Info_Struct_Member, note: string) -> bool {
+    for member.notes if it == note return true;
+    return false;
+}
+
+// A Jai string literal holding `text`.
+jai_string :: (text: string) -> string {
+    builder: String_Builder;
+    builder.allocator = temp;
+
+    append(*builder, "\"");
+
+    for text {
+        if it == #char "\"" append(*builder, "\\\"");
+        else if it == #char "\\" append(*builder, "\\\\");
+        else if it == #char "\n" append(*builder, "\\n");
+        else append(*builder, it);
+    }
+
+    append(*builder, "\"");
+
+    return builder_to_string(*builder);
+}
+
+// The SQL a filter becomes, with a `%` per parameter and each parameter's Jai text.
+Orm_Sql :: struct {
+    T: Type;
+    builder: String_Builder;
+    parameters: [..] string;
+    // Set by the second pass: each parameter's Jai type, for the cast after its hole.
+    parameter_types: [] Type;
+    problem: string;
+    problem_node: *Code_Node;
+    // Inside `if_some`: the Nullable whose value the condition reads.
+    some_name: string;
+}
+
+orm_fail :: (sql: *Orm_Sql, node: *Code_Node, message: string) {
+    if sql.problem return;
+
+    sql.problem = message;
+    sql.problem_node = node;
+}
+
+orm_root :: (code: Code) -> *Code_Node {
+    root := compiler_get_nodes(code);
+
+    while root && root.kind == .DIRECTIVE_CODE root = (cast(*Code_Directive_Code) root).expression;
+
+    return root;
+}
+
+is_null_code :: (node: *Code_Node) -> bool {
+    if !node return true;
+    if node.kind != .IDENT && node.kind != .LITERAL return false;
+    if node.kind == .IDENT return (cast(*Code_Ident) node).name == "null";
+
+    literal := cast(*Code_Literal) node;
+
+    return literal.value_type == .POINTER;
+}
+
+is_ident :: (node: *Code_Node, name: string) -> bool {
+    return node && node.kind == .IDENT && (cast(*Code_Ident) node).name == name;
+}
+
+// Whether `node` reads `it` anywhere.
+mentions_it :: (node: *Code_Node) -> bool {
+    if !node return false;
+
+    if node.kind == {
+        case .IDENT;
+            return (cast(*Code_Ident) node).name == "it";
+
+        case .BINARY_OPERATOR;
+            binary := cast(*Code_Binary_Operator) node;
+            if binary.operator_type == #char "." return mentions_it(binary.left);
+
+            return mentions_it(binary.left) || mentions_it(binary.right);
+
+        case .UNARY_OPERATOR;
+            return mentions_it((cast(*Code_Unary_Operator) node).subexpression);
+
+        case .PROCEDURE_CALL;
+            call := cast(*Code_Procedure_Call) node;
+            for call.arguments_unsorted if mentions_it(it.expression) return true;
+
+            return false;
+
+        case .CAST;
+            return mentions_it((cast(*Code_Cast) node).expression);
+
+        case .DIRECTIVE_CODE;
+            return mentions_it((cast(*Code_Directive_Code) node).expression);
+    }
+
+    return false;
+}
+
+// The member chain `it.a.b`, or an empty array when `node` is not one.
+field_path :: (node: *Code_Node) -> [] string {
+    path: [..] string;
+    path.allocator = temp;
+
+    while node && node.kind == .BINARY_OPERATOR {
+        binary := cast(*Code_Binary_Operator) node;
+        if binary.operator_type != #char "." || binary.right.kind != .IDENT return .[];
+
+        array_insert_at(*path, (cast(*Code_Ident) binary.right).name, 0);
+        node = binary.left;
+    }
+
+    if !is_ident(node, "it") return .[];
+
+    return path;
+}
+
+// The name a filter calls, `Pg.like` or `like`.
+called_name :: (call: *Code_Procedure_Call) -> string {
+    expression := call.procedure_expression;
+
+    if expression.kind == .IDENT return (cast(*Code_Ident) expression).name;
+
+    if expression.kind == .BINARY_OPERATOR {
+        binary := cast(*Code_Binary_Operator) expression;
+        if binary.operator_type == #char "." && binary.right.kind == .IDENT return (cast(*Code_Ident) binary.right).name;
+    }
+
+    return "";
+}
+
+call_argument :: (call: *Code_Procedure_Call, index: s64) -> *Code_Node {
+    if index >= call.arguments_unsorted.count return null;
+    return call.arguments_unsorted[index].expression;
+}
+
+member_of :: (T: Type, name: string) -> *Type_Info_Struct_Member {
+    for orm_columns(T) if it.name == name return it;
+    return null;
+}
+
+// Appends a parameter hole for the Jai expression `node`.
+orm_parameter :: (sql: *Orm_Sql, node: *Code_Node) {
+    builder: String_Builder;
+    builder.allocator = temp;
+
+    if !Orm_Print.print_expression(*builder, node) {
+        orm_fail(sql, node, "the ORM cannot pass this expression as a parameter; compute it into a variable first");
+        return;
+    }
+
+    orm_hole(sql, builder_to_string(*builder));
+}
+
+orm_hole :: (sql: *Orm_Sql, text: string) {
+    index := sql.parameters.count;
+
+    array_add(*sql.parameters, text);
+    append(*sql.builder, "% ");
+
+    // `%` alone takes the type Postgres infers; with the argument's Jai type known, cast to it so
+    // an s64 compares with an int4 column.
+    if index < sql.parameter_types.count {
+        cast_to := parameter_cast(sql.parameter_types[index]);
+        if cast_to print_to_builder(*sql.builder, "::% ", cast_to);
+    }
+}
+
+// The Postgres type a parameter of type `T` is sent as, or "" to let the server infer it.
+parameter_cast :: (T: Type) -> string {
+    info := type_info(T);
+
+    if is_nullable_info(info) info = nullable_value_type(info);
+
+    if info.type == {
+        case .BOOL; return "bool";
+        case .STRING; return "text";
+        case .FLOAT; return ifx info.runtime_size == 4 then "float4" else "float8";
+
+        case .INTEGER;
+            if info.runtime_size == 8 return "int8";
+            if info.runtime_size == 4 return "int4";
+
+            return "int2";
+
+        case .ARRAY;
+            element := (cast(*Type_Info_Array) info).element_type;
+            if element == type_info(u8) return "bytea";
+
+            inner := parameter_cast(get_type(element));
+            if inner return tprint("%[]", inner);
+
+            return "";
+    }
+
+    if info == type_info(Uuid) return "uuid";
+    if info == type_info(Timestamp) return "timestamptz";
+    if info == type_info(Local_Timestamp) return "timestamp";
+    if info == type_info(Date) return "date";
+    if info == type_info(Time) return "time";
+    if info == type_info(Interval) return "interval";
+    if info == type_info(Numeric) return "numeric";
+
+    return "";
+}
+
+orm_expression :: (sql: *Orm_Sql, node: *Code_Node) {
+    if sql.problem return;
+
+    if !mentions_it(node) {
+        if node.kind == .LITERAL {
+            orm_literal(sql, cast(*Code_Literal) node);
+            return;
+        }
+
+        if is_null_code(node) {
+            append(*sql.builder, "null");
+            return;
+        }
+
+        if sql.some_name && is_ident(node, sql.some_name) {
+            orm_hole(sql, tprint("%.value", sql.some_name));
+            return;
+        }
+
+        orm_parameter(sql, node);
+
+        return;
+    }
+
+    if node.kind == {
+        case .IDENT;
+            orm_fail(sql, node, "`it` on its own has no SQL form: compare one of its fields");
+
+        case .BINARY_OPERATOR;
+            orm_binary(sql, cast(*Code_Binary_Operator) node);
+
+        case .UNARY_OPERATOR;
+            unary := cast(*Code_Unary_Operator) node;
+
+            if unary.operator_type == #char "!" {
+                append(*sql.builder, "not (");
+                orm_expression(sql, unary.subexpression);
+                append(*sql.builder, ")");
+            } else if unary.operator_type == #char "-" {
+                append(*sql.builder, "-(");
+                orm_expression(sql, unary.subexpression);
+                append(*sql.builder, ")");
+            } else {
+                orm_fail(sql, node, "the ORM has no SQL for this op");
+            }
+
+        case .PROCEDURE_CALL;
+            orm_call(sql, cast(*Code_Procedure_Call) node);
+
+        case;
+            orm_fail(sql, node, "the ORM cannot turn this expression into SQL");
+    }
+}
+
+orm_literal :: (sql: *Orm_Sql, literal: *Code_Literal) {
+    if literal.value_type == {
+        case .NUMBER;
+            if literal.value_flags & .FLOAT print_to_builder(*sql.builder, "%", literal._float64);
+            else print_to_builder(*sql.builder, "%", literal._s64);
+
+        case .STRING;
+            print_to_builder(*sql.builder, "'%'", replace(literal._string, "'", "''",, temp));
+
+        case .BOOLEAN;
+            append(*sql.builder, ifx literal._s64 then "true" else "false");
+
+        case .POINTER;
+            append(*sql.builder, "null");
+
+        case;
+            orm_parameter(sql, literal);
+    }
+}
+
+orm_column :: (sql: *Orm_Sql, node: *Code_Node) {
+    path := field_path(node);
+
+    if !path.count {
+        orm_fail(sql, node, "the ORM cannot turn this expression into SQL");
+        return;
+    }
+
+    member := member_of(sql.T, path[0]);
+
+    if !member {
+        orm_fail(sql, node, tprint("% has no field \"%\"", sql.T, path[0]));
+        return;
+    }
+
+    if path.count == 1 {
+        append(*sql.builder, quote_identifier(path[0]));
+        return;
+    }
+
+    orm_json_path(sql, node, member, path);
+}
+
+// `it.settings.theme`: a key of a `Json(T)` column, by `T`'s json names. A string leaf is read as
+// text (`->>`); any other leaf is cast from its text.
+orm_json_path :: (sql: *Orm_Sql, node: *Code_Node, member: *Type_Info_Struct_Member, path: [] string) {
+    info := member.type;
+    if is_nullable_info(info) info = nullable_value_type(info);
+
+    if !is_json_info(info) {
+        orm_fail(sql, node, tprint("%.% is not a json column, so it has no fields in SQL", sql.T, path[0]));
+        return;
+    }
+
+    info = nullable_value_type(info);
+
+    keys: [..] string;
+    keys.allocator = temp;
+
+    for 1..path.count - 1 {
+        name := path[it];
+
+        if info.type != .STRUCT {
+            orm_fail(sql, node, tprint("% has no field \"%\"", get_type(info), name));
+            return;
+        }
+
+        field: *Type_Info_Struct_Member;
+        for *(cast(*Type_Info_Struct) info).members if it.name == name field = it;
+
+        if !field {
+            orm_fail(sql, node, tprint("% has no field \"%\"", get_type(info), name));
+            return;
+        }
+
+        array_add(*keys, json_key_of(field));
+        info = field.type;
+    }
+
+    append(*sql.builder, "(");
+    append(*sql.builder, quote_identifier(path[0]));
+
+    for keys {
+        arrow := ifx it_index == keys.count - 1 then "->>" else "->";
+        print_to_builder(*sql.builder, "%'%'", arrow, replace(it, "'", "''",, temp));
+    }
+
+    append(*sql.builder, ")");
+
+    leaf := info;
+    if is_nullable_info(leaf) leaf = nullable_value_type(leaf);
+
+    if leaf.type != .STRING {
+        cast_to := parameter_cast(get_type(leaf));
+        if leaf.type == .BOOL cast_to = "bool";
+
+        if !cast_to {
+            orm_fail(sql, node, tprint("a json % has no SQL comparison; compare one of its fields", get_type(leaf)));
+            return;
+        }
+
+        print_to_builder(*sql.builder, "::%", cast_to);
+    }
+}
+
+// The key a field has in its json document: its `@json(name=...)` rename, else its name.
+json_key_of :: (member: *Type_Info_Struct_Member) -> string {
+    for member.notes {
+        arguments, found := note_arguments(it, "json");
+        if !found continue;
+
+        for split(arguments, ",",, temp) {
+            part := trim(it);
+            if begins_with(part, "name=") return trim(advance(part, 5), "\"");
+            if begins_with(part, "name =") return trim(advance(part, 6), " \"");
+        }
+    }
+
+    return member.name;
+}
+
+orm_binary :: (sql: *Orm_Sql, binary: *Code_Binary_Operator) {
+    op := binary.operator_type;
+
+    if op == #char "." {
+        orm_column(sql, binary);
+        return;
+    }
+
+    if op == .IS_EQUAL || op == .IS_NOT_EQUAL {
+        null_side: *Code_Node;
+        other: *Code_Node;
+
+        if is_null_code(binary.right) {
+            null_side = binary.right;
+            other = binary.left;
+        } else if is_null_code(binary.left) {
+            null_side = binary.left;
+            other = binary.right;
+        }
+
+        if null_side {
+            append(*sql.builder, "(");
+            orm_expression(sql, other);
+            append(*sql.builder, ifx op == .IS_EQUAL then " is null)" else " is not null)");
+            return;
+        }
+    }
+
+    word := "";
+
+    if op == {
+        case .IS_EQUAL; word = "=";
+        case .IS_NOT_EQUAL; word = "<>";
+        case .LOGICAL_AND; word = "and";
+        case .LOGICAL_OR; word = "or";
+        case .LESS_OR_EQUAL; word = "<=";
+        case .GREATER_OR_EQUAL; word = ">=";
+        case #char "<"; word = "<";
+        case #char ">"; word = ">";
+        case #char "+"; word = "+";
+        case #char "-"; word = "-";
+        case #char "*"; word = "*";
+        case #char "/"; word = "/";
+        case #char "%"; word = "%%";
+    }
+
+    if !word {
+        orm_fail(sql, binary, "the ORM has no SQL for this op");
+        return;
+    }
+
+    append(*sql.builder, "(");
+    orm_expression(sql, binary.left);
+    print_to_builder(*sql.builder, " % ", word);
+    orm_expression(sql, binary.right);
+    append(*sql.builder, ")");
+}
+
+orm_call :: (sql: *Orm_Sql, call: *Code_Procedure_Call) {
+    name := called_name(call);
+    count := call.arguments_unsorted.count;
+
+    if (name == "like" || name == "ilike") && count == 2 {
+        append(*sql.builder, "(");
+        orm_expression(sql, call_argument(call, 0));
+        print_to_builder(*sql.builder, " % ", name);
+        orm_expression(sql, call_argument(call, 1));
+        append(*sql.builder, ")");
+
+        return;
+    }
+
+    if name == "in" && count == 2 {
+        append(*sql.builder, "(");
+        orm_expression(sql, call_argument(call, 0));
+        append(*sql.builder, " = any(");
+        orm_expression(sql, call_argument(call, 1));
+        append(*sql.builder, "))");
+
+        return;
+    }
+
+    if (name == "lower" || name == "upper") && count == 1 {
+        print_to_builder(*sql.builder, "%(", name);
+        orm_expression(sql, call_argument(call, 0));
+        append(*sql.builder, ")");
+        return;
+    }
+
+    if name == "if_some" && count == 2 {
+        orm_if_some(sql, call);
+        return;
+    }
+
+    orm_fail(sql, call, tprint("the ORM cannot call % in SQL: filters may use Pg.like, Pg.ilike, Pg.in, Pg.lower, Pg.upper and Pg.if_some", ifx name then name else "this"));
+}
+
+// `Pg.if_some(team, #code it.team_id == team)`: `($1 or team_id = $2)`, with `team.null` and
+// `team.value`.
+orm_if_some :: (sql: *Orm_Sql, call: *Code_Procedure_Call) {
+    value := call_argument(call, 0);
+    condition := call_argument(call, 1);
+
+    if !value || value.kind != .IDENT {
+        orm_fail(sql, call, "Pg.if_some takes a variable (a Nullable) and a #code condition that names it");
+        return;
+    }
+
+    while condition && condition.kind == .DIRECTIVE_CODE condition = (cast(*Code_Directive_Code) condition).expression;
+
+    if !condition {
+        orm_fail(sql, call, "Pg.if_some needs a #code condition");
+        return;
+    }
+
+    saved_name := sql.some_name;
+    name := (cast(*Code_Ident) value).name;
+
+    sql.some_name = name;
+
+    // The null test reads the Nullable's flag; the condition reads its value.
+    append(*sql.builder, "(");
+    orm_hole(sql, tprint("%.null", name));
+    append(*sql.builder, " or ");
+    orm_expression(sql, condition);
+    append(*sql.builder, ")");
+
+    sql.some_name = saved_name;
+}
+
+// `set = #code it.a = x` or `#code { it.a = x; it.b = y; }`.
+orm_set :: (sql: *Orm_Sql, node: *Code_Node) {
+    if node.kind == .BLOCK {
+        block := cast(*Code_Block) node;
+        first := true;
+
+        for block.statements {
+            if !first append(*sql.builder, ", ");
+            first = false;
+            orm_set(sql, it);
+        }
+
+        return;
+    }
+
+    if node.kind != .BINARY_OPERATOR || (cast(*Code_Binary_Operator) node).operator_type != #char "=" {
+        orm_fail(sql, node, "set takes assignments to fields: #code it.field = value");
+        return;
+    }
+
+    binary := cast(*Code_Binary_Operator) node;
+    path := field_path(binary.left);
+
+    if path.count != 1 || !member_of(sql.T, path[0]) {
+        orm_fail(sql, binary.left, tprint("set assigns to a field of % (it.field = value)", sql.T));
+        return;
+    }
+
+    print_to_builder(*sql.builder, "% = ", quote_identifier(path[0]));
+    orm_expression(sql, binary.right);
+}
+
+// The SQL of a statement, or a problem reported at the node it is about.
+orm_build :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, desc: bool, limit: s64, offset: s64, types: [] Type) -> Orm_Sql {
+    sql: Orm_Sql;
+    sql.T = T;
+    sql.builder.allocator = temp;
+    sql.parameters.allocator = temp;
+    sql.parameter_types = types;
+
+    table, problem := orm_table(T);
+
+    if problem {
+        sql.problem = problem;
+        return sql;
+    }
+
+    if kind == {
+        case .SELECT;
+            append(*sql.builder, "select ");
+
+            for orm_columns(T) {
+                if it_index append(*sql.builder, ", ");
+                append(*sql.builder, quote_identifier(it.name));
+            }
+
+            print_to_builder(*sql.builder, " from %", table);
+
+        case .UPDATE;
+            print_to_builder(*sql.builder, "update % set ", table);
+            orm_set(*sql, orm_root(set));
+
+        case .DELETE;
+            print_to_builder(*sql.builder, "delete from %", table);
+    }
+
+    filter := orm_root(where);
+
+    if filter && !(filter.kind == .LITERAL && (cast(*Code_Literal) filter).value_type == .BOOLEAN && (cast(*Code_Literal) filter)._s64 != 0) {
+        append(*sql.builder, " where ");
+        orm_expression(*sql, filter);
+    }
+
+    if kind == .SELECT {
+        order := orm_root(order_by);
+
+        if order && !is_null_code(order) {
+            append(*sql.builder, " order by ");
+            orm_expression(*sql, order);
+            if desc append(*sql.builder, " desc");
+        }
+
+        if limit >= 0 print_to_builder(*sql.builder, " limit %", limit);
+        if offset > 0 print_to_builder(*sql.builder, " offset %", offset);
+    }
+
+    return sql;
+}
+
+// The body of `select`, `update` and `delete`: a constant per parameter for its type, then the
+// typed query with the SQL built from those types.
+orm_statement_code :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, desc: bool, limit: s64, offset: s64) -> string {
+    sql := orm_build(T, kind, where, order_by, set, desc, limit, offset, .[]);
+
+    if sql.problem {
+        location := ifx sql.problem_node then node_location(sql.problem_node) else node_location(orm_root(where));
+        compiler_report(sql.problem, location);
+        return "";
+    }
+
+    builder: String_Builder;
+    builder.allocator = temp;
+
+    // Parameters read from `set` resolve where it was written, the rest where `where` was.
+    for sql.parameters print_to_builder(*builder, "Orm_P% :: type_of(%);\n", it_index, orm_insert_text(it));
+
+    append(*builder, "Orm_Types :: Type.[");
+    for sql.parameters print_to_builder(*builder, "%Orm_P%", ifx it_index then ", " else "", it_index);
+
+    append(*builder, "];\n");
+
+    kind_text := tprint(".%", kind);
+    sql_text := tprint("#run orm_sql_text(T, %, where, %, %, %, %, %, Orm_Types)", kind_text, ifx kind == .SELECT then "order_by" else "where", ifx kind == .UPDATE then "set" else "where", desc, limit, offset);
+
+    if kind == .SELECT print_to_builder(*builder, "orm_result, orm_error := query_as(T, db, %", sql_text);
+    else print_to_builder(*builder, "orm_result, orm_error := execute(db, %", sql_text);
+
+    for sql.parameters print_to_builder(*builder, ", %", orm_insert_text(it));
+
+    append(*builder, ");\nreturn orm_result, orm_error;\n");
+
+    return builder_to_string(*builder);
+}
+
+// A parameter's Jai text, inserted where the filter was written.
+orm_insert_text :: (text: string) -> string {
+    return tprint("(#insert,scope(where) %)", jai_string(text));
+}
+
+orm_sql_text :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, desc: bool, limit: s64, offset: s64, types: [] Type) -> string {
+    sql := orm_build(T, kind, where, order_by, set, desc, limit, offset, types);
+    return builder_to_string(*sql.builder);
+}
+
+// The body of `insert`.
+orm_insert_code :: (T: Type) -> string {
+    table, problem := orm_table(T);
+
+    if problem {
+        compiler_report(problem);
+        return "";
+    }
+
+    columns := orm_columns(T);
+    names: String_Builder;
+    names.allocator = temp;
+    holes: String_Builder;
+    holes.allocator = temp;
+    values: String_Builder;
+    values.allocator = temp;
+    all: String_Builder;
+    all.allocator = temp;
+
+    inserted := 0;
+
+    for columns {
+        if it_index append(*all, ", ");
+
+        append(*all, quote_identifier(it.name));
+
+        if has_note(it, "pg_default") || has_note(it, "pg_generated") continue;
+
+        if inserted {
+            append(*names, ", ");
+            append(*holes, ", ");
+        }
+
+        append(*names, quote_identifier(it.name));
+        append(*holes, "%");
+
+        cast_to := parameter_cast(get_type(it.type));
+        if cast_to print_to_builder(*holes, "::%", cast_to);
+
+        print_to_builder(*values, ", value.%", it.name);
+        inserted += 1;
+    }
+
+    statement := ifx inserted then tprint("insert into % (%) values (%) returning %", table, builder_to_string(*names), builder_to_string(*holes), builder_to_string(*all)) else tprint("insert into % default values returning %", table, builder_to_string(*all));
+
+    builder: String_Builder;
+    builder.allocator = temp;
+
+    print_to_builder(*builder, "rows, error := query_as(T, db, %1%2);\n", jai_string(statement), builder_to_string(*values));
+    append(*builder, "row: T;\n");
+    append(*builder, "if error.kind != .NONE return row, error;\n");
+    append(*builder, "detached := Rows(T).{ result = detach_to_temp(*rows.result), map = rows.map };\n");
+    append(*builder, "if detached.result.row_count != 1 return row, make_error(.USAGE, \"the insert returned % rows\", detached.result.row_count);\n");
+    append(*builder, "error = read_row(*detached, 0, *row);\n");
+    append(*builder, "return row, error;\n");
+
+    return builder_to_string(*builder);
+}

@@ -80,6 +80,7 @@ Base64 :: #import "Base64";
 #load "describe.jai";
 #load "schema_databases.jai";
 #load "resolve.jai";
+#load "orm.jai";
 #load "shape.jai";
 #load "typed.jai";
 #load "schema.jai";
