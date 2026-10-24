@@ -11,7 +11,7 @@ typedef __UINT32_TYPE__ uint32_t;
 typedef __UINT64_TYPE__ uint64_t;
 #define bool _Bool
 
-#define BfClash_x 5
+#define get_x 5
 
 enum BfColor { BF_RED, BF_GREEN, BF_BLUE };
 enum BfLevel { BF_LOW = -2, BF_MID = 0, BF_HIGH = 1 };

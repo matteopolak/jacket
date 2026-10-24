@@ -218,9 +218,48 @@ binding_generated_checks :: (builder: *String_Builder, records: [] *Struct) {
     }
 }
 
-// The slot wrappers of every printed record that has a vtable.
-binding_vtable_wrapper_section :: (builder: *String_Builder, records: [] *Struct, existing: [] *Declaration) {
-    for record: records {
+// One top-level declaration as printed, and which of the records and bitfield units collected so far it brought.
+Binding_Section :: struct {
+    text: string;
+    first_record: int;
+    end_record: int;
+    first_group: int;
+    end_group: int;
+}
+
+binding_print_section :: (builder: *String_Builder, sections: *[..] Binding_Section, generator: *Generator, declaration: *Declaration, existing: *[..] *Declaration, records: *[..] *Struct) -> bool {
+    section: Binding_Section;
+    fragment: String_Builder;
+
+    defer free_buffers(*fragment);
+    section.first_record = records.count;
+    section.first_group = generator.pending_bitfields.count;
+    print_declaration_to_builder(*fragment, declaration, null, .IS_GLOBAL, existing_declarations = existing);
+
+    if fragment.failed {
+        builder.failed = true;
+        return false;
+    }
+
+    if !binding_walk_output(declaration, binding_collect_printed_records, records) {
+        fail_type_emission(builder);
+        return false;
+    }
+
+    section.end_record = records.count;
+    section.end_group = generator.pending_bitfields.count;
+    section.text = builder_to_string(*fragment);
+    array_add(sections, section);
+
+    return true;
+}
+
+// What follows a section in the same scope: the vtable record, wrappers and accessor of each polymorphic record it
+// printed, then the accessors of its bitfield units.
+binding_section_helpers :: (builder: *String_Builder, generator: *Generator, section: Binding_Section, records: [] *Struct, existing: [] *Declaration, used: *[..] Helper_Name) {
+    for index: section.first_record..section.end_record - 1 {
+        record := records[index];
+
         if !record || !record.type || record.flags & (.IS_VTABLE | .IS_ANON_INLINE_TYPE) || record.decl_flags & .TEMPLATE || record.template_type_params.count > 0 continue;
         if !record.virtual_functions.count && !record.parents.count continue;
         if !looks_like_valid_identifier(record.output_name) continue;
@@ -228,7 +267,39 @@ binding_vtable_wrapper_section :: (builder: *String_Builder, records: [] *Struct
         info, _created := find_or_create_extra_info(record.type, cast(*Declaration) record);
         if !info || info == *struct_extra_info_unknown || !info.vtable_struct continue;
 
-        print_struct_vtable_wrappers(builder, record, info.*, existing);
+        fragment: String_Builder;
+
+        defer free_buffers(*fragment);
+        valid := binding_vtable_output(*fragment, record, info.*, existing, used);
+
+        commit_type_fragment(builder, *fragment, valid);
+        if builder.failed return;
+    }
+
+    for index: section.first_group..section.end_group - 1 {
+        group := generator.pending_bitfields[index];
+        scope := cast(*Struct) group.parent;
+
+        while scope && scope.flags & .IS_ANON {
+            if !scope.parent || scope.parent.kind != .STRUCT {
+                fail_type_emission(builder);
+                return;
+            }
+
+            scope = cast(*Struct) scope.parent;
+        }
+
+        if !scope {
+            fail_type_emission(builder);
+            return;
+        }
+
+        fragment: String_Builder;
+
+        defer free_buffers(*fragment);
+        valid := binding_bitfield_accessors(*fragment, group, scope, existing, used);
+
+        commit_type_fragment(builder, *fragment, valid);
         if builder.failed return;
     }
 }
@@ -256,21 +327,22 @@ binding_emit_canonical_jai :: (builder: *String_Builder, generator: *Generator, 
     append(builder, options.header);
     existing: [..] *Declaration;
     records: [..] *Struct;
+    sections: [..] Binding_Section;
 
     defer array_free(existing);
     defer array_free(records);
+
+    defer {
+        for section: sections free(section.text);
+        array_free(sections);
+    }
 
     for declaration: generator.flattened_global_scope_members {
         if should_be_omitted(declaration, declaration.parent) continue;
 
         avoid_name_clash(*existing, declaration);
-        print_declaration_to_builder(builder, declaration, null, .IS_GLOBAL, existing_declarations = *existing);
-        if builder.failed return;
 
-        if !binding_walk_output(declaration, binding_collect_printed_records, *records) {
-            fail_type_emission(builder);
-            return;
-        }
+        if !binding_print_section(builder, *sections, generator, declaration, *existing, *records) return;
     }
 
     index := 0;
@@ -281,69 +353,28 @@ binding_emit_canonical_jai :: (builder: *String_Builder, generator: *Generator, 
         if array_find(existing, declaration) || should_be_omitted(declaration, declaration.parent) continue;
 
         avoid_name_clash(*existing, declaration, try_parent_prefix = true);
-        print_declaration_to_builder(builder, declaration, null, .IS_GLOBAL, existing_declarations = *existing);
-        if builder.failed return;
 
-        if !binding_walk_output(declaration, binding_collect_printed_records, *records) {
-            fail_type_emission(builder);
-            return;
-        }
+        if !binding_print_section(builder, *sections, generator, declaration, *existing, *records) return;
+    }
+
+    // Names are final once every declaration has printed, so the helpers can be checked against all of them.
+    used: [..] Helper_Name;
+
+    defer {
+        for entry: used free(entry.name);
+        array_free(used);
+    }
+
+    for section: sections {
+        append(builder, section.text);
+        binding_section_helpers(builder, generator, section, records, existing, *used);
+        if builder.failed return;
     }
 
     append(builder, "\n#scope_file\n");
     if generator.generated_printf_wrapper || generator.int128_was_referenced append(builder, "#import \"Basic\";\n");
     if options.generate_library_declarations binding_generated_libraries(builder, generator, options);
     if options.generate_compile_time_struct_checks binding_generated_checks(builder, records);
-
-    wrappers: String_Builder;
-
-    defer free_buffers(*wrappers);
-    binding_vtable_wrapper_section(*wrappers, records, existing);
-
-    if wrappers.failed {
-        fail_type_emission(builder);
-        return;
-    }
-
-    has_wrappers := builder_string_length(*wrappers) > 0;
-
-    if has_wrappers || generator.pending_bitfields.count append(builder, "\n#scope_export\n");
-
-    if has_wrappers {
-        text := builder_to_string(*wrappers);
-
-        defer free(text);
-        append(builder, text);
-    }
-
-    if generator.pending_bitfields.count {
-        accessor_names: [..] string;
-
-        defer {
-            for name: accessor_names free(name);
-            array_free(accessor_names);
-        }
-
-        for group: generator.pending_bitfields {
-            scope := cast(*Struct) group.parent;
-            while scope && scope.flags & .IS_ANON {
-                if !scope.parent || scope.parent.kind != .STRUCT {
-                    fail_type_emission(builder);
-                    return;
-                }
-
-                scope = cast(*Struct) scope.parent;
-            }
-
-            if !scope {
-                fail_type_emission(builder);
-                return;
-            }
-
-            if group.flags & .LAYOUT_UNIT append_layout_unit_accessors(builder, group, scope, existing, *accessor_names);
-            else append_bitfield_helpers(builder, group, scope);
-        }
-    }
 
     append(builder, options.footer);
 }

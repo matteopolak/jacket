@@ -78,7 +78,7 @@ def main():
 
     paths = [emitter, consumer, *generated]
     run([JAIFMT, "--config", ROOT / "jacket.toml", "--check", *paths])
-    run([ROOT / "target/debug/jailint", "-D", "warnings", "-I", target, *paths])
+    run([JAIC.parent / "jailint", "-D", "warnings", "-I", target, *paths])
     print("Bitfield units and accessors matched C sizes, offsets and bytes for the host (interpreter, native O0/O2, C O0/O2); "
           "Windows/Linux/macOS generated layouts passed their assertions and the C compiler's layout for each target; no cross-target execution")
 

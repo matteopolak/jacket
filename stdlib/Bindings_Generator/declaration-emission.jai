@@ -59,18 +59,6 @@ print_struct :: (builder: *String_Builder, _struct: *Struct, existing_declaratio
     if valid && builder && !builder.failed gp_current_generator().counts.structs += 1;
 }
 
-// The slot wrappers of a record with a vtable, for the scope that holds the record's name.
-print_struct_vtable_wrappers :: (builder: *String_Builder, _struct: *Struct, extra_info: Struct_Extra_Info, existing_declarations: [] *Declaration) {
-    if !extra_info.vtable_struct return;
-
-    fragment: String_Builder;
-
-    defer free_buffers(*fragment);
-    valid := binding_vtable_wrappers(*fragment, _struct, extra_info, existing_declarations);
-
-    commit_type_fragment(builder, *fragment, valid);
-}
-
 print_namespace :: (builder: *String_Builder, ns: *Namespace) {
     entered := BE_Traversal.enter(.DECLARATION_BODY, ns);
 
@@ -122,16 +110,24 @@ print_namespace :: (builder: *String_Builder, ns: *Namespace) {
     commit_type_fragment(builder, *fragment, valid);
 }
 
+// The vtable record, then (as the options say) the wrappers that call its slots and the `vtable(obj)` accessor.
 print_struct_vtable :: (builder: *String_Builder, _struct: *Struct, extra_info: Struct_Extra_Info) {
     if !extra_info.vtable_struct return;
 
-    print_struct(builder, extra_info.vtable_struct, null);
-    if builder.failed return;
-
     fragment: String_Builder;
+    used: [..] Helper_Name;
 
     defer free_buffers(*fragment);
-    valid := binding_vtable_helpers(*fragment, _struct, extra_info);
+
+    defer {
+        for entry: used free(entry.name);
+        array_free(used);
+    }
+
+    existing := binding_global_declarations(gp_current_generator());
+
+    defer array_free(existing);
+    valid := binding_vtable_output(*fragment, _struct, extra_info, existing, *used);
 
     commit_type_fragment(builder, *fragment, valid);
 }

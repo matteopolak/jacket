@@ -164,84 +164,84 @@ main :: () {
     check_offset("BfPackedBits", "z", offset_of(G.BfPackedBits, "z"));
     check_offset("BfPackedUnion", "byte", offset_of(G.BfPackedUnion, "byte"));
 
-    check_field(G.BfIssue, u32, "BfIssue.type", G.BfIssue_type, G.BfIssue_set_type, 8);
-    check_field(G.BfIssue, u32, "BfIssue.size", G.BfIssue_size, G.BfIssue_set_size, 24);
+    check_field(G.BfIssue, u32, "BfIssue.type", G.get_type, G.set_type, 8);
+    check_field(G.BfIssue, u32, "BfIssue.size", G.get_size, G.set_size, 24);
 
-    check_field(G.BfSigned, s8, "BfSigned.a", G.BfSigned_a, G.BfSigned_set_a, 3);
-    check_field(G.BfSigned, s16, "BfSigned.b", G.BfSigned_b, G.BfSigned_set_b, 5);
-    check_field(G.BfSigned, u32, "BfSigned.c", G.BfSigned_c, G.BfSigned_set_c, 7);
-    check_field(G.BfSigned, s32, "BfSigned.d", G.BfSigned_d, G.BfSigned_set_d, 17);
-    check_field(G.BfSigned, s64, "BfSigned.e", G.BfSigned_e, G.BfSigned_set_e, 33);
-    check_field(G.BfSigned, u64, "BfSigned.f", G.BfSigned_f, G.BfSigned_set_f, 31);
+    check_field(G.BfSigned, s8, "BfSigned.a", G.get_a, G.set_a, 3);
+    check_field(G.BfSigned, s16, "BfSigned.b", G.get_b, G.set_b, 5);
+    check_field(G.BfSigned, u32, "BfSigned.c", G.get_c, G.set_c, 7);
+    check_field(G.BfSigned, s32, "BfSigned.d", G.get_d, G.set_d, 17);
+    check_field(G.BfSigned, s64, "BfSigned.e", G.get_e, G.set_e, 33);
+    check_field(G.BfSigned, u64, "BfSigned.f", G.get_f, G.set_f, 31);
 
-    check_field(G.BfBool, bool, "BfBool.flag", G.BfBool_flag, G.BfBool_set_flag, 1);
-    check_field(G.BfBool, bool, "BfBool.other", G.BfBool_other, G.BfBool_set_other, 1);
-    check_field(G.BfBool, u8, "BfBool.rest", G.BfBool_rest, G.BfBool_set_rest, 6);
-    check_field(G.BfBool, bool, "BfBool.last", G.BfBool_last, G.BfBool_set_last, 1);
+    check_field(G.BfBool, bool, "BfBool.flag", G.get_flag, G.set_flag, 1);
+    check_field(G.BfBool, bool, "BfBool.other", G.get_other, G.set_other, 1);
+    check_field(G.BfBool, u8, "BfBool.rest", G.get_rest, G.set_rest, 6);
+    check_field(G.BfBool, bool, "BfBool.last", G.get_last, G.set_last, 1);
 
-    check_field(G.BfEnum, G.BfColor, "BfEnum.color", G.BfEnum_color, G.BfEnum_set_color, 2, s64.[0, 1, 2]);
-    check_field(G.BfEnum, G.BfLevel, "BfEnum.level", G.BfEnum_level, G.BfEnum_set_level, 3, s64.[-2, 0, 1]);
-    check_field(G.BfEnum, bool, "BfEnum.on", G.BfEnum_on, G.BfEnum_set_on, 1);
-    check_field(G.BfEnum, s32, "BfEnum.small", G.BfEnum_small, G.BfEnum_set_small, 2);
+    check_field(G.BfEnum, G.BfColor, "BfEnum.color", G.get_color, G.set_color, 2, s64.[0, 1, 2]);
+    check_field(G.BfEnum, G.BfLevel, "BfEnum.level", G.get_level, G.set_level, 3, s64.[-2, 0, 1]);
+    check_field(G.BfEnum, bool, "BfEnum.on", G.get_on, G.set_on, 1);
+    check_field(G.BfEnum, s32, "BfEnum.small", G.get_small, G.set_small, 2);
 
-    check_field(G.BfUnnamed, u32, "BfUnnamed.a", G.BfUnnamed_a, G.BfUnnamed_set_a, 3);
-    check_field(G.BfUnnamed, u32, "BfUnnamed.b", G.BfUnnamed_b, G.BfUnnamed_set_b, 4);
-    check_field(G.BfUnnamed, u32, "BfUnnamed.c", G.BfUnnamed_c, G.BfUnnamed_set_c, 2);
-    check_field(G.BfUnnamed, u32, "BfUnnamed.d", G.BfUnnamed_d, G.BfUnnamed_set_d, 9);
+    check_field(G.BfUnnamed, u32, "BfUnnamed.a", G.get_a, G.set_a, 3);
+    check_field(G.BfUnnamed, u32, "BfUnnamed.b", G.get_b, G.set_b, 4);
+    check_field(G.BfUnnamed, u32, "BfUnnamed.c", G.get_c, G.set_c, 2);
+    check_field(G.BfUnnamed, u32, "BfUnnamed.d", G.get_d, G.set_d, 9);
 
-    check_field(G.BfZeroWidth, u8, "BfZeroWidth.a", G.BfZeroWidth_a, G.BfZeroWidth_set_a, 3);
-    check_field(G.BfZeroWidth, u8, "BfZeroWidth.b", G.BfZeroWidth_b, G.BfZeroWidth_set_b, 2);
-    check_field(G.BfZeroWidth, u16, "BfZeroWidth.c", G.BfZeroWidth_c, G.BfZeroWidth_set_c, 11);
+    check_field(G.BfZeroWidth, u8, "BfZeroWidth.a", G.get_a, G.set_a, 3);
+    check_field(G.BfZeroWidth, u8, "BfZeroWidth.b", G.get_b, G.set_b, 2);
+    check_field(G.BfZeroWidth, u16, "BfZeroWidth.c", G.get_c, G.set_c, 11);
 
-    check_field(G.BfStraddle, u8, "BfStraddle.a", G.BfStraddle_a, G.BfStraddle_set_a, 6);
-    check_field(G.BfStraddle, u8, "BfStraddle.b", G.BfStraddle_b, G.BfStraddle_set_b, 6);
-    check_field(G.BfStraddle, u16, "BfStraddle.c", G.BfStraddle_c, G.BfStraddle_set_c, 6);
-    check_field(G.BfStraddle, u16, "BfStraddle.d", G.BfStraddle_d, G.BfStraddle_set_d, 12);
-    check_field(G.BfStraddle, u32, "BfStraddle.e", G.BfStraddle_e, G.BfStraddle_set_e, 20);
-    check_field(G.BfStraddle, u32, "BfStraddle.f", G.BfStraddle_f, G.BfStraddle_set_f, 20);
+    check_field(G.BfStraddle, u8, "BfStraddle.a", G.get_a, G.set_a, 6);
+    check_field(G.BfStraddle, u8, "BfStraddle.b", G.get_b, G.set_b, 6);
+    check_field(G.BfStraddle, u16, "BfStraddle.c", G.get_c, G.set_c, 6);
+    check_field(G.BfStraddle, u16, "BfStraddle.d", G.get_d, G.set_d, 12);
+    check_field(G.BfStraddle, u32, "BfStraddle.e", G.get_e, G.set_e, 20);
+    check_field(G.BfStraddle, u32, "BfStraddle.f", G.get_f, G.set_f, 20);
 
-    check_field(G.BfWide, u64, "BfWide.whole", G.BfWide_whole, G.BfWide_set_whole, 64);
-    check_field(G.BfWide, s64, "BfWide.signed_whole", G.BfWide_signed_whole, G.BfWide_set_signed_whole, 64);
-    check_field(G.BfWide, u64, "BfWide.high", G.BfWide_high, G.BfWide_set_high, 40);
-    check_field(G.BfWide, u64, "BfWide.low", G.BfWide_low, G.BfWide_set_low, 24);
+    check_field(G.BfWide, u64, "BfWide.whole", G.get_whole, G.set_whole, 64);
+    check_field(G.BfWide, s64, "BfWide.signed_whole", G.get_signed_whole, G.set_signed_whole, 64);
+    check_field(G.BfWide, u64, "BfWide.high", G.get_high, G.set_high, 40);
+    check_field(G.BfWide, u64, "BfWide.low", G.get_low, G.set_low, 24);
 
-    check_field(G.BfTrail, u32, "BfTrail.bits", G.BfTrail_bits, G.BfTrail_set_bits, 3);
+    check_field(G.BfTrail, u32, "BfTrail.bits", G.get_bits, G.set_bits, 3);
 
-    check_field(G.BfGap, u8, "BfGap.a", G.BfGap_a, G.BfGap_set_a, 1);
-    check_field(G.BfGap, u8, "BfGap.b", G.BfGap_b, G.BfGap_set_b, 3);
-    check_field(G.BfGap, u8, "BfGap.c", G.BfGap_c, G.BfGap_set_c, 7);
+    check_field(G.BfGap, bool, "BfGap.a", G.get_a, G.set_a, 1);
+    check_field(G.BfGap, u8, "BfGap.b", G.get_b, G.set_b, 3);
+    check_field(G.BfGap, u8, "BfGap.c", G.get_c, G.set_c, 7);
 
-    check_field(G.BfComments, u16, "BfComments.count", G.BfComments_count, G.BfComments_set_count, 10);
-    check_field(G.BfComments, u16, "BfComments.flag", G.BfComments_flag, G.BfComments_set_flag, 1);
-    check_field(G.BfComments, u16, "BfComments.level", G.BfComments_level, G.BfComments_set_level, 5);
+    check_field(G.BfComments, u16, "BfComments.count", G.get_count, G.set_count, 10);
+    check_field(G.BfComments, bool, "BfComments.flag", G.get_flag, G.set_flag, 1);
+    check_field(G.BfComments, u16, "BfComments.level", G.get_level, G.set_level, 5);
 
-    check_field(G.BfInner, s8, "BfInner.x", G.BfInner_x, G.BfInner_set_x, 4);
-    check_field(G.BfInner, u8, "BfInner.y", G.BfInner_y, G.BfInner_set_y, 4);
-    check_field(G.BfNested, u16, "BfNested.head", G.BfNested_head, G.BfNested_set_head, 5);
-    check_field(G.BfNested, u16, "BfNested.foot", G.BfNested_foot, G.BfNested_set_foot, 9);
+    check_field(G.BfInner, s8, "BfInner.x", G.get_x_1, G.set_x_1, 4);
+    check_field(G.BfInner, u8, "BfInner.y", G.get_y, G.set_y, 4);
+    check_field(G.BfNested, u16, "BfNested.head", G.get_head, G.set_head, 5);
+    check_field(G.BfNested, u16, "BfNested.foot", G.get_foot, G.set_foot, 9);
 
-    // The constant BfClash_x took that accessor name, so the pair for `x` carries a suffix.
-    check_field(G.BfClash, s32, "BfClash.x", G.BfClash_x_1, G.BfClash_set_x_1, 3);
-    check_field(G.BfClash, s32, "BfClash.y", G.BfClash_y, G.BfClash_set_y, 4);
-    expect(G.BfClash_x == 5, "the constant BfClash_x changed");
+    // The constant get_x took that accessor name, so every pair for an `x` carries a suffix.
+    check_field(G.BfClash, s32, "BfClash.x", G.get_x_1, G.set_x_1, 3);
+    check_field(G.BfClash, s32, "BfClash.y", G.get_y, G.set_y, 4);
+    expect(G.get_x == 5, "the constant get_x changed");
 
-    check_field(G.BfAnonymous, u8, "BfAnonymous.p", G.BfAnonymous_p, G.BfAnonymous_set_p, 1);
-    check_field(G.BfAnonymous, u8, "BfAnonymous.q", G.BfAnonymous_q, G.BfAnonymous_set_q, 2);
+    check_field(G.BfAnonymous, bool, "BfAnonymous.p", G.get_p, G.set_p, 1);
+    check_field(G.BfAnonymous, u8, "BfAnonymous.q", G.get_q, G.set_q, 2);
 
-    check_field(G.BfUnion, u32, "BfUnion.parts_lo", G.BfUnion_parts_lo, G.BfUnion_set_parts_lo, 8);
-    check_field(G.BfUnion, u32, "BfUnion.parts_hi", G.BfUnion_parts_hi, G.BfUnion_set_parts_hi, 24);
-    check_field(G.BfUnion, u16, "BfUnion.narrow", G.BfUnion_narrow, G.BfUnion_set_narrow, 9);
-    check_field(G.BfUnionBits, u32, "BfUnionBits.a", G.BfUnionBits_a, G.BfUnionBits_set_a, 5);
-    check_field(G.BfUnionBits, s32, "BfUnionBits.b", G.BfUnionBits_b, G.BfUnionBits_set_b, 17);
+    check_field(G.BfUnion, u32, "BfUnion.parts_lo", G.get_parts_lo, G.set_parts_lo, 8);
+    check_field(G.BfUnion, u32, "BfUnion.parts_hi", G.get_parts_hi, G.set_parts_hi, 24);
+    check_field(G.BfUnion, u16, "BfUnion.narrow", G.get_narrow, G.set_narrow, 9);
+    check_field(G.BfUnionBits, u32, "BfUnionBits.a", G.get_a, G.set_a, 5);
+    check_field(G.BfUnionBits, s32, "BfUnionBits.b", G.get_b, G.set_b, 17);
 
-    check_field(G.BfPack1, u32, "BfPack1.f", G.BfPack1_f, G.BfPack1_set_f, 3);
-    check_field(G.BfPack1, u32, "BfPack1.g", G.BfPack1_g, G.BfPack1_set_g, 13);
-    check_field(G.BfPack2, u16, "BfPack2.f", G.BfPack2_f, G.BfPack2_set_f, 5);
-    check_field(G.BfPack2, u16, "BfPack2.g", G.BfPack2_g, G.BfPack2_set_g, 9);
-    check_field(G.BfPack2, u32, "BfPack2.h", G.BfPack2_h, G.BfPack2_set_h, 20);
-    check_field(G.BfPackedBits, u32, "BfPackedBits.x", G.BfPackedBits_x, G.BfPackedBits_set_x, 4);
-    check_field(G.BfPackedBits, u32, "BfPackedBits.y", G.BfPackedBits_y, G.BfPackedBits_set_y, 12);
-    check_field(G.BfPackedUnion, u32, "BfPackedUnion.wide", G.BfPackedUnion_wide, G.BfPackedUnion_set_wide, 21);
+    check_field(G.BfPack1, u32, "BfPack1.f", G.get_f, G.set_f, 3);
+    check_field(G.BfPack1, u32, "BfPack1.g", G.get_g, G.set_g, 13);
+    check_field(G.BfPack2, u16, "BfPack2.f", G.get_f, G.set_f, 5);
+    check_field(G.BfPack2, u16, "BfPack2.g", G.get_g, G.set_g, 9);
+    check_field(G.BfPack2, u32, "BfPack2.h", G.get_h, G.set_h, 20);
+    check_field(G.BfPackedBits, u32, "BfPackedBits.x", G.get_x_1, G.set_x_1, 4);
+    check_field(G.BfPackedBits, u32, "BfPackedBits.y", G.get_y, G.set_y, 12);
+    check_field(G.BfPackedUnion, u32, "BfPackedUnion.wide", G.get_wide, G.set_wide, 21);
 
     // Every field C knows about has a check above.
     expect(checked_fields == oracle_field_count(), "% fields checked, C has %", checked_fields, oracle_field_count());
@@ -250,14 +250,14 @@ main :: () {
     jai: G.BfIssue;
     native_record: G.BfIssue;
 
-    G.BfIssue_set_type(*jai, 0x9c);
-    G.BfIssue_set_size(*jai, 0xabcdef);
+    G.set_type(*jai, 0x9c);
+    G.set_size(*jai, 0xabcdef);
     jai.offset = 77;
     expect(oracle_set(temp_c_string("BfIssue.type"), *native_record, 0x9c) == 1, "BfIssue.type");
     expect(oracle_set(temp_c_string("BfIssue.size"), *native_record, 0xabcdef) == 1, "BfIssue.size");
     native_record.offset = 77;
     expect(bytes_equal(cast(*u8) *jai, cast(*u8) *native_record, size_of(G.BfIssue)), "BfIssue written field by field differs from C");
-    expect(G.BfIssue_type(jai) == 0x9c && G.BfIssue_size(jai) == 0xabcdef && jai.offset == 77, "BfIssue reads back wrongly");
+    expect(G.get_type(jai) == 0x9c && G.get_size(jai) == 0xabcdef && jai.offset == 77, "BfIssue reads back wrongly");
 
     assert(failures == 0, "% bitfield checks failed", failures);
     print("ok\n");

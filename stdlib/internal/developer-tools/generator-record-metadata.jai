@@ -31,15 +31,56 @@ gm_vtable_slot_name :: (function: *Function, index: int, table: *Struct) -> stri
 
     name := base;
 
-    for suffix: 1..table.declarations.count + 1 {
-        taken := false;
-        for member: table.declarations if member && member.output_name == name taken = true;
-        if !taken break;
+    for suffix: 1..gm_vtable_member_count(table) + 1 {
+        if !gm_vtable_name_taken(table, name) break;
 
         name = tprint("%_%", base, suffix);
     }
 
     return name;
+}
+
+// The members of a vtable record, counting those it reaches through the parent table it embeds.
+gm_vtable_member_count :: (table: *Struct) -> int {
+    count := 0;
+
+    for member: table.declarations {
+        count += 1;
+
+        embedded := ifx member && member.type then member.type.type_of_struct else null;
+        if member && (member.decl_flags & .QUALIFIER_USING) != 0 && embedded count += gm_vtable_member_count(embedded);
+    }
+
+    return count;
+}
+
+gm_vtable_name_taken :: (table: *Struct, name: string) -> bool {
+    for member: table.declarations {
+        if !member continue;
+        if member.output_name == name return true;
+
+        embedded := ifx member.type then member.type.type_of_struct else null;
+        if (member.decl_flags & .QUALIFIER_USING) != 0 && embedded && gm_vtable_name_taken(embedded, name) return true;
+    }
+
+    return false;
+}
+
+// A derived record can hold its base as one field only when its own fields start after the base's whole size.
+// Where they reuse the base's tail padding the base's fields are repeated in the record instead.
+gm_can_embed_parent :: (record: *Struct, parent: *Struct) -> bool {
+    for declaration: record.declarations {
+        if !declaration || declaration.kind != .DECLARATION || declaration.storage_class == .Static || (declaration.decl_flags & .IS_METADATA) != 0 continue;
+        if declaration.bit_offset_in_parent >= 0 && declaration.bit_offset_in_parent / 8 < parent.type.size return false;
+    }
+
+    return true;
+}
+
+gm_overlay_place :: (record: *Struct, declaration: *Declaration) -> *Declaration {
+    for overlay: record.overlays if overlay.declaration == declaration return overlay.place;
+
+    return null;
 }
 
 gm_metadata_byte_storage :: (bytes: s64) -> *CType {
@@ -135,7 +176,7 @@ gm_polymorphic_field_layout :: (record: *Struct, info: *Struct_Extra_Info) -> bo
     position: s64;
 
     for field: info.modified_declarations {
-        if !field || field.kind != .DECLARATION || field.storage_class == .Static || (field.decl_flags & .IS_METADATA) != 0 {
+        if !field || field.kind != .DECLARATION || field.storage_class == .Static || (field.decl_flags & .IS_METADATA) != 0 || gm_overlay_place(record, field) {
             GM_Sessions.append_movable_owned(session, *output, field);
             continue;
         }
@@ -270,6 +311,7 @@ gm_record_metadata :: (record: *Struct, depth := 0) -> *Struct_Extra_Info { // j
     info: Struct_Extra_Info;
     info.struct_alignment = record.type.alignment;
     parent_info: *Struct_Extra_Info;
+    parent_record: *Struct;
 
     if record.parents.count {
         parent_declaration := record.parents[0];
@@ -281,6 +323,8 @@ gm_record_metadata :: (record: *Struct, depth := 0) -> *Struct_Extra_Info { // j
         }
 
         parent := parent_type.type_of_struct;
+
+        parent_record = parent;
         phase := gm_scope_index(session, cast(*Declaration) parent);
 
         if phase >= 0 && session.scope_states[phase].stage != .FULL {
@@ -379,22 +423,31 @@ gm_record_metadata :: (record: *Struct, depth := 0) -> *Struct_Extra_Info { // j
         pointer_size := gm_pointer_size();
         table := GM_Sessions.new_owned(session, Struct);
         table.kind = .STRUCT;
-        table.parent = cast(*Declaration) record;
         table.name = GM_Sessions.copy_text(session, tprint("%_VTable", record.name));
         table.output_name = GM_Sessions.copy_text(session, tprint("%_VTable", gm_name(cast(*Declaration) record)));
         table.flags = .IS_VTABLE;
-        table.decl_flags = .IS_METADATA;
+        table.decl_flags = .IS_METADATA | .TYPE_INFO_NONE;
         table.type = GM_Sessions.new_owned(session, CType);
         table.type.type_of_struct = table;
         table.type.size = info.vtable.count * pointer_size;
         table.type.alignment = pointer_size;
         info.vtable_struct = table;
-        for function, index: info.vtable {
+
+        // The table holds only the slots the record adds; the parent's come in through its table.
+        if parent_info {
+            inherited := gm_generated_member(session, table, "vtable", parent_info.vtable_struct.type, 0);
+            inherited.decl_flags = .QUALIFIER_USING;
+            GM_Sessions.append_owned(session, *table.declarations, inherited);
+        }
+
+        for index: inherited_slots..info.vtable.count - 1 {
+            function := info.vtable[index];
             type := gm_vtable_slot_type(function);
+
             if !type return null;
 
             field := gm_generated_member(session, table, gm_vtable_slot_name(function, index, table), type, index * pointer_size * 8);
-            field.comment.text = GM_Sessions.copy_text(session, tprint("// C++ virtual: %", function.name));
+            if !type.type_of_function field.comment.text = GM_Sessions.copy_text(session, tprint("// C++ virtual: %", function.name));
 
             GM_Sessions.append_owned(session, *table.declarations, field);
         }
@@ -403,12 +456,51 @@ gm_record_metadata :: (record: *Struct, depth := 0) -> *Struct_Extra_Info { // j
         pointer.pointer_to = table.type;
         pointer.size = pointer_size;
         pointer.alignment = pointer_size;
-        info.vtable_pointer_declaration = gm_generated_member(session, record, "__vtable", pointer, 0);
-        GM_Sessions.append_movable_owned(session, *info.modified_declarations, info.vtable_pointer_declaration);
+        info.vtable_pointer_declaration = gm_generated_member(session, record, gm_unused_member_name(session, record, "vtable"), pointer, 0);
 
-        if parent_info for field: parent_info.modified_declarations {
-            if !field || field.kind != .DECLARATION || field == parent_info.vtable_pointer_declaration continue;
-            GM_Sessions.append_movable_owned(session, *info.modified_declarations, field);
+        if parent_info && gm_can_embed_parent(record, parent_record) {
+            // `#as using,except(vtable) base: Base;` plus `#overlay (base) vtable: *Table;`
+            parent_type := gm_underlying(record.parents[0].type);
+            base := gm_generated_member(session, record, gm_unused_member_name(session, record, to_lower_copy(parent_record.output_name)), parent_type, 0);
+            base.decl_flags = .QUALIFIER_AS | .QUALIFIER_USING;
+            base.using_except = GM_Sessions.copy_text(session, parent_info.vtable_pointer_declaration.output_name);
+            info.vtable_pointer_declaration.decl_flags |= .OMIT_FROM_CHECKS;
+            info.vtable_pointer_declaration.comment.text = GM_Sessions.copy_text(session, tprint("// Overlay parent's vtable with %’s vtable", record.output_name));
+
+            GM_Sessions.append_owned(session, *record.overlays, Declaration_Overlay.{ base, info.vtable_pointer_declaration });
+            GM_Sessions.append_movable_owned(session, *info.modified_declarations, base);
+            GM_Sessions.append_movable_owned(session, *info.modified_declarations, info.vtable_pointer_declaration);
+        } else if parent_info {
+            // The parent's fields are repeated in order, with this record's pointer where the parent's was.
+            parent_pointer := parent_info.vtable_pointer_declaration;
+            place := gm_overlay_place(parent_record, parent_pointer);
+            substituted := false;
+
+            for field: parent_info.modified_declarations {
+                if !field continue;
+
+                if field == parent_pointer {
+                    if place {
+                        info.vtable_pointer_declaration.decl_flags |= .OMIT_FROM_CHECKS;
+                        GM_Sessions.append_owned(session, *record.overlays, Declaration_Overlay.{ place, info.vtable_pointer_declaration });
+                    }
+
+                    GM_Sessions.append_movable_owned(session, *info.modified_declarations, info.vtable_pointer_declaration);
+                    substituted = true;
+                    continue;
+                }
+
+                if field.kind != .DECLARATION continue;
+
+                GM_Sessions.append_movable_owned(session, *info.modified_declarations, field);
+            }
+
+            if !substituted {
+                gm_construction_error("inherited vtable pointer is missing from the parent's members");
+                return null;
+            }
+        } else {
+            GM_Sessions.append_movable_owned(session, *info.modified_declarations, info.vtable_pointer_declaration);
         }
     }
 

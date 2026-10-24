@@ -106,8 +106,16 @@ binding_ordinary_declaration :: (builder: *String_Builder, declaration: *Declara
         return false;
     }
 
-    if declaration.decl_flags & .QUALIFIER_USING append(builder, "using ");
-    else if declaration.decl_flags & .QUALIFIER_AS append(builder, "#as ");
+    place := ifx scope && scope.kind == .STRUCT then gm_overlay_place(cast(*Struct) scope, declaration) else null;
+
+    if place print_to_builder(builder, "#overlay (%) ", place.output_name);
+    if declaration.decl_flags & .QUALIFIER_AS append(builder, "#as ");
+
+    if declaration.decl_flags & .QUALIFIER_USING {
+        append(builder, "using");
+        if declaration.using_except.count print_to_builder(builder, ",except(%)", declaration.using_except);
+        append(builder, " ");
+    }
 
     append(builder, declaration.output_name);
     for 0..alignment - declaration.output_name.count - 1 append(builder, " ");
@@ -119,6 +127,7 @@ binding_ordinary_declaration :: (builder: *String_Builder, declaration: *Declara
     if inferred append(builder, ifx constant then " :: " else " := ");
     else {
         append(builder, ": ");
+        if type.type_of_function && scope && scope.kind == .STRUCT && (cast(*Struct) scope).flags & .IS_VTABLE append(builder, "#type ");
         print_type_to_builder(builder, type, scope, flags, null);
         if initializer append(builder, ifx constant then " : " else " = ");
     }
@@ -417,37 +426,40 @@ binding_copy_argument_view :: (source: [] *Declaration, destination: *[..] *Decl
     return true;
 }
 
-binding_vtable_helpers :: (builder: *String_Builder, record: *Struct, info: Struct_Extra_Info) -> bool {
+// The vtable record of `record`, then the wrappers and accessor that go with it.
+binding_vtable_output :: (builder: *String_Builder, record: *Struct, info: Struct_Extra_Info, existing: [] *Declaration, used: *[..] Helper_Name) -> bool {
     options := gp_current_options();
     if !options || !record || !record.type || !info.vtable_struct return false;
-    if !options.generate_vtable_helpers return true;
 
-    pointer := info.vtable_pointer_declaration;
-    if !pointer || !looks_like_valid_identifier(pointer.output_name) || !pointer.type return false;
+    print_struct(builder, info.vtable_struct, null);
+    if builder.failed return false;
 
-    if options.generate_vtable_helpers {
-        append_indentation(builder);
-        append(builder, "vtable :: inline (obj: *");
-        if !jai_model_type(builder, record.type, cast(*Declaration) record, 0, 0) return false;
-
-        append(builder, ") -> ");
-        if !jai_model_type(builder, pointer.type, cast(*Declaration) record, 0, 0) return false;
-
-        print_to_builder(builder, " { return obj.%; }\n", pointer.output_name);
-    }
+    if options.generate_c_style_api_for_vtable && !binding_vtable_wrappers(builder, record, info, existing, used) return false;
+    if options.generate_vtable_helpers && !binding_vtable_helpers(builder, record, info) return false;
 
     return !builder.failed;
 }
 
-// A wrapper for every method of `record` and of its ancestors, named for the class that declares
-// the method and taking a pointer to `record`. A call through a base class's name therefore
-// accepts a derived pointer: `Base_method(derived)` and `Base_method(base)` are overloads of one
-// name. A name that another declaration already uses gets a numeric suffix.
-binding_vtable_wrappers :: (builder: *String_Builder, record: *Struct, info: Struct_Extra_Info, existing: [] *Declaration) -> bool {
-    options := gp_current_options();
-    if !options || !record || !record.type || !info.vtable_struct return false;
-    if !options.generate_c_style_api_for_vtable return true;
+binding_vtable_helpers :: (builder: *String_Builder, record: *Struct, info: Struct_Extra_Info) -> bool {
+    pointer := info.vtable_pointer_declaration;
+    if !pointer || !looks_like_valid_identifier(pointer.output_name) || !pointer.type return false;
 
+    append_indentation(builder);
+    append(builder, "vtable :: (obj: *");
+    if !jai_model_type(builder, record.type, cast(*Declaration) record, 0, 0) return false;
+
+    append(builder, ") -> ");
+    if !jai_model_type(builder, pointer.type, cast(*Declaration) record, 0, 0) return false;
+
+    print_to_builder(builder, " { return obj.%; }\n", pointer.output_name);
+
+    return !builder.failed;
+}
+
+// A wrapper for each method the record adds to its vtable: `Record_method(this, ...)` calls through the table.
+// Because a record holds its parent as a base, a wrapper of a parent takes a derived pointer without help. A record
+// that repeats its parent's fields instead gets one more wrapper per inherited method, under the parent's name.
+binding_vtable_wrappers :: (builder: *String_Builder, record: *Struct, info: Struct_Extra_Info, existing: [] *Declaration, used: *[..] Helper_Name) -> bool {
     pointer := info.vtable_pointer_declaration;
     if !pointer || !looks_like_valid_identifier(pointer.output_name) || !looks_like_valid_identifier(record.output_name) return false;
 
@@ -458,35 +470,29 @@ binding_vtable_wrappers :: (builder: *String_Builder, record: *Struct, info: Str
 
     owner := record;
     owner_info := info;
-    depth := 0;
+    place := gm_overlay_place(record, pointer);
+    holds_parent := place != null && place.type != null && place.type.type_of_struct == info.vtable_parent;
 
-    while owner && owner_info.vtable_struct && depth < 256 {
-        depth += 1;
+    for 0..255 {
+        if !owner || !owner_info.vtable_struct return !builder.failed;
 
-        for owner_slot, index: owner_info.vtable_struct.declarations {
-            if !owner_slot || !owner_slot.type || !looks_like_valid_identifier(owner.output_name) continue;
-            if index >= info.vtable_struct.declarations.count || index >= owner_info.vtable.count return false;
+        for slot: owner_info.vtable_struct.declarations {
+            if !slot || !slot.type || (slot.decl_flags & .QUALIFIER_USING) != 0 || !slot.type.type_of_function continue; // Omitted and destructor slots have no callable helper.
+            if !looks_like_valid_identifier(owner.output_name) continue;
 
-            // An inherited method is wrapped under the name of the ancestor that declares it.
-            if owner_info.vtable[index].parent != cast(*Declaration) owner continue;
-
-            slot := info.vtable_struct.declarations[index];
-            if !slot || !slot.type || !slot.type.type_of_function continue; // Omitted and destructor slots have no callable helper.
-
-            if !binding_vtable_wrapper(builder, record, receiver, pointer, slot, owner, owner_slot, existing) return false;
+            if !binding_vtable_wrapper(builder, record, receiver, pointer, slot, owner, existing, used) return false;
         }
 
+        if holds_parent || !owner_info.vtable_parent || !owner_info.vtable_parent_info return !builder.failed;
+
         owner = owner_info.vtable_parent;
-
-        if !owner_info.vtable_parent_info break;
-
         owner_info = owner_info.vtable_parent_info.*;
     }
 
     return !builder.failed;
 }
 
-binding_vtable_wrapper :: (builder: *String_Builder, record: *Struct, receiver: string, pointer: *Declaration, slot: *Declaration, owner: *Struct, owner_slot: *Declaration, existing: [] *Declaration) -> bool {
+binding_vtable_wrapper :: (builder: *String_Builder, record: *Struct, receiver: string, pointer: *Declaration, slot: *Declaration, owner: *Struct, existing: [] *Declaration, used: *[..] Helper_Name) -> bool {
     signature := slot.type.type_of_function;
 
     if signature.flags & .VARIADIC {
@@ -496,20 +502,22 @@ binding_vtable_wrapper :: (builder: *String_Builder, record: *Struct, receiver: 
 
     if !signature.arguments.count || !binding_argument_view_valid(signature.arguments) return false;
 
-    method := owner_slot.output_name;
+    method := slot.output_name;
     if method.count > 1 && method[0] == #char "_" && looks_like_valid_identifier(slice(method, 1, method.count - 1)) method = slice(method, 1, method.count - 1);
 
     base := tprint("%_%", owner.output_name, method);
     name := base;
 
-    for suffix: 1..existing.count + 1 {
+    for suffix: 1..existing.count + used.count + 1 {
         taken := false;
         for declaration: existing if declaration && declaration.output_name == name taken = true;
+        for entry: used.* if entry.name == name && entry.scope == record taken = true;
         if !taken break;
 
         name = tprint("%_%", base, suffix);
     }
 
+    array_add(used, .{ copy_string(name), record });
     print_to_builder(builder, "% :: inline (this: *%", name, receiver);
 
     for argument, index: signature.arguments {
@@ -649,8 +657,10 @@ binding_struct_body :: (builder: *String_Builder, record: *Struct, existing: *[.
         // A generic declaration has no single native layout to pad or validate.
         fields = record.declarations;
         alignment = 0;
-    } else if record.flags & .IS_VTABLE fields = record.declarations;
-    else {
+    } else if record.flags & .IS_VTABLE {
+        fields = record.declarations;
+        alignment = 0;
+    } else {
         info, _generated := find_or_create_extra_info(record.type, cast(*Declaration) record);
         if info == *struct_extra_info_unknown && binding_native_incomplete_record(record, explicit_alignment) {
             append(builder, "struct");
@@ -697,6 +707,7 @@ binding_struct_body :: (builder: *String_Builder, record: *Struct, existing: *[.
     defer generator.tab_depth -= 1;
 
     anonymous_members := 0;
+    noted_virtual_functions := false;
 
     for field: fields {
         if !field return false;
@@ -719,13 +730,15 @@ binding_struct_body :: (builder: *String_Builder, record: *Struct, existing: *[.
             }
         }
 
-        print_declaration_to_builder(builder, field, cast(*Declaration) record, existing_declarations = existing);
-        if builder.failed return false;
-    }
+        // A virtual method nothing defines prints nothing, so it must not leave its indentation behind.
+        if field.kind == .FUNCTION && (cast(*Function) field).flags & .VIRTUAL && !(cast(*Function) field).library continue;
 
-    if extra_info && extra_info.vtable_struct {
-        for 0..generator.tab_depth - 1 append(builder, TAB_STRING);
-        print_struct_vtable(builder, record, extra_info.*);
+        if !noted_virtual_functions && field.kind == .FUNCTION && binding_prints_virtual_function(cast(*Function) field) {
+            noted_virtual_functions = true;
+            binding_virtual_functions_note(builder);
+        }
+
+        print_declaration_to_builder(builder, field, cast(*Declaration) record, existing_declarations = existing);
         if builder.failed return false;
     }
 
@@ -734,4 +747,20 @@ binding_struct_body :: (builder: *String_Builder, record: *Struct, existing: *[.
     append(builder, "}");
 
     return !builder.failed;
+}
+
+// A virtual method is declared in its record only when a library defines it; otherwise it is called through the vtable.
+binding_prints_virtual_function :: (function: *Function) -> bool {
+    return function != null && (function.flags & .VIRTUAL) != 0 && function.library != null && (function.decl_flags & .OMIT_FROM_OUTPUT) == 0;
+}
+
+binding_virtual_functions_note :: (builder: *String_Builder) {
+    lines := string.["Virtual functions:", "Normally you should call them via the vtable.", "But these bindings can be useful if you need to call the parent implementation in a sub-struct’s overwritten method", "or need to create a vtable yourself."];
+
+    append(builder, "\n");
+
+    for line: lines {
+        append_indentation(builder);
+        print_to_builder(builder, "// %\n", line);
+    }
 }

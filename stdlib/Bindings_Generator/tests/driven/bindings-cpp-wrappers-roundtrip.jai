@@ -17,7 +17,8 @@ check_shapes :: () {
     // A method declared by the record itself.
     assert(ICube_volume(cube) == 64);
 
-    // Methods of the ancestors, called through a derived pointer by the declaring class's name.
+    // Methods of the ancestors, called through a derived pointer by the declaring class's name: the derived
+    // pointer converts to the ancestor's.
     box := cast(*IBox) cube;
     shape := cast(*IShape) cube;
 
@@ -51,8 +52,8 @@ check_shapes :: () {
     assert(IShape_cast(cube, 4) == 20);
 
     // The wrappers reach the same slots as a direct call.
-    assert(cube.__vtable.side(box) == IBox_side(cube));
-    assert(ICube.vtable(cube) == cube.__vtable);
+    assert(cube.vtable.side(box) == IBox_side(cube));
+    assert(vtable(cube) == cube.vtable);
 
     // A method of the base interface, and out parameters.
     assert(IRefCounted_addRef(cube) == 2);

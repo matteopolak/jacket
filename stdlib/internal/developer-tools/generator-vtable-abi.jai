@@ -107,7 +107,7 @@ gm_vtable_slot_type :: (function: *Function) -> *CType {
 
     type.type_of_function = signature;
     signature.return_type = native.return_type;
-    signature.flags = native.flags & ~(Function_Type.Flags.CPP_METHOD | .INLINE);
+    signature.flags = (native.flags & ~Function_Type.Flags.INLINE) | .CPP_METHOD;
     result := gm_underlying(native.return_type);
     indirect := TARGET_OS == .WINDOWS && result && result.type_of_struct != null;
 

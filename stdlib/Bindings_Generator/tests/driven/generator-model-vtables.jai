@@ -72,17 +72,30 @@ main :: () {
 
         assert(info != null && generated == derived);
         assert(info.vtable.count == 4 && info.vtable[0] == derived.virtual_functions[0] && info.vtable[1] == base.virtual_functions[1] && info.vtable[2] == derived.virtual_functions[1] && info.vtable[3] == derived.virtual_functions[2]);
-        assert(info.vtable_struct != null && info.vtable_struct.declarations.count == 4);
+        assert(info.vtable_struct != null && info.vtable_struct.declarations.count == 3);
         assert(info.vtable_struct.type.size == 4 * size_of(*void));
-        assert(info.vtable_struct.declarations[1].type.pointer_to == generator.type_def_void);
-        assert(info.vtable_struct.declarations[2].bit_offset_in_parent == 16 * 8);
-        assert(info.vtable_struct.declarations[0].type.type_of_function.arguments.count == 2);
-        assert((info.vtable_struct.declarations[0].type.type_of_function.flags & .CPP_METHOD) == 0);
+        // The table holds the slots the record adds after a member for the parent's table; an omitted slot is a pointer.
+        assert(info.vtable_struct.declarations[0].type.type_of_struct == info.vtable_parent_info.vtable_struct && (info.vtable_struct.declarations[0].decl_flags & .QUALIFIER_USING) != 0);
+        assert(info.vtable_parent_info.vtable_struct.declarations[1].type.pointer_to == generator.type_def_void);
+        assert(info.vtable_struct.declarations[1].output_name == "hidden_1" && info.vtable_struct.declarations[1].bit_offset_in_parent == 16 * 8);
+        assert(info.vtable_struct.declarations[1].type.type_of_function.arguments.count == 2);
+        assert((info.vtable_struct.declarations[1].type.type_of_function.flags & .CPP_METHOD) != 0);
         assert(info.vtable_parent == base && info.vtable_parent_declaration == derived.parents[0]);
         assert(info.vtable_parent_info == H.table_find_pointer(*generator.extra_infos, base));
         assert(info.modified_declarations.count >= 6);
-        assert(info.modified_declarations[0] == info.vtable_pointer_declaration && info.vtable_pointer_declaration.type.pointer_to.type_of_struct == info.vtable_struct);
-        assert(info.modified_declarations[1].bit_offset_in_parent == Native_Virtual_Value_Offset * 8);
+        assert(info.vtable_pointer_declaration.type.pointer_to.type_of_struct == info.vtable_struct);
+
+        if info.modified_declarations[0] == info.vtable_pointer_declaration {
+            // Itanium places a derived field in the base's tail padding: the base's fields are repeated.
+            assert(info.modified_declarations[1].bit_offset_in_parent == Native_Virtual_Value_Offset * 8);
+        } else {
+            // MSVC keeps the base whole: it is embedded, with this record's table pointer over its own.
+            embedded := info.modified_declarations[0];
+
+            assert((embedded.decl_flags & .QUALIFIER_USING) != 0 && embedded.bit_offset_in_parent == 0);
+            assert(info.modified_declarations[1] == info.vtable_pointer_declaration);
+        }
+
         found_other := false;
 
         for field: info.modified_declarations if field.name == "other" {

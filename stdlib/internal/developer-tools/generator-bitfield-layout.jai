@@ -116,7 +116,7 @@ gm_group_bitfields :: (session: *GM_Sessions.Session, record: *Struct, info: *St
                 group.location = declaration.location;
                 group.parent = cast(*Declaration) record;
                 group.flags |= .LAYOUT_UNIT;
-                if options.generate_bitfield_accessors group.flags |= .GENERATE_HELPERS;
+                if options.generate_bitfield_helpers group.flags |= .GENERATE_HELPERS;
 
                 entry: GM_Layout_Entry;
                 entry.declaration = cast(*Declaration) group;

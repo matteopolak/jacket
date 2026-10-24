@@ -77,7 +77,7 @@ main :: () {
 
         defer free_buffers(*output);
         B.print_struct(*output, record, null);
-        B.print_struct_vtable_wrappers(*output, record, info.*, .[]);
+        B.print_struct_vtable(*output, record, info.*);
         assert(!output.failed);
         text := builder_to_string(*output);
 
@@ -103,7 +103,6 @@ main :: () {
         push_context {
             context.logger = capture_error;
             B.print_struct_vtable(*skipped, record, info.*);
-            B.print_struct_vtable_wrappers(*skipped, record, info.*, .[]);
         }
 
         assert(!skipped.failed && errors == 1);

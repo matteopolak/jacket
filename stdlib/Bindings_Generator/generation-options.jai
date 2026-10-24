@@ -50,7 +50,6 @@ Generate_Bindings_Options :: struct #type_info_none {
     generate_c_style_api_for_vtable := true;
     generate_vtable_helpers := true;
     generate_bitfield_helpers := true;
-    generate_bitfield_accessors := true;
     add_overloaded_const_and_ref_comments := true;
     add_placeholders_for_unresolved_types := true;
     mimic_spacing_flags := Mimic_Spacing_Flags.ALL;

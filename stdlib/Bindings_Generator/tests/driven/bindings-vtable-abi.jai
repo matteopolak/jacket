@@ -60,6 +60,9 @@ main :: () {
             print("% %\n", index, function.name);
         }
 
+        // The derived table reaches the base's slots through its first member, so the base's table goes first.
+        if info.vtable_parent_info B.print_struct(*output, info.vtable_parent_info.vtable_struct, null);
+
         B.print_struct(*output, info.vtable_struct, null);
         assert(!output.failed);
         text := builder_to_string(*output);

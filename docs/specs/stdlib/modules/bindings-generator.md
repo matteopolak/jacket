@@ -242,7 +242,6 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `stripped_name :: (name: string) -> string`
 - `is_valid_identifier_start :: (char: u8) -> bool`
 - `print_struct_vtable :: (builder: *String_Builder, _struct: *Struct, extra_info: Struct_Extra_Info)`
-- `print_struct_vtable_wrappers :: (builder: *String_Builder, _struct: *Struct, extra_info: Struct_Extra_Info, existing_declarations: [] *Declaration)`
 - `Generate_Bindings_Options :: struct #type_info_none`
 - `handle_toplevel_cursors :: (cur: CXCursor, parent: CXCursor, client_data: CXClientData) -> CXChildVisitResult #c_call`
 - `get_name_for_cursor :: (cur: CXCursor) -> string`
@@ -1466,7 +1465,6 @@ CXVirtualFileOverlayImpl :: struct {}
 - `generate_c_style_api_for_vtable       := true`
 - `generate_vtable_helpers               := true`
 - `generate_bitfield_helpers             := true`
-- `generate_bitfield_accessors           := true`
 - `add_overloaded_const_and_ref_comments := true`
 - `add_placeholders_for_unresolved_types := true`
 - `mimic_spacing_flags             := Mimic_Spacing_Flags.ALL`
@@ -4502,18 +4500,45 @@ token, the result is empty. Therefore the result is token-spelling text, not
 a source-slice or a stable formatting representation.
 
 For a record with virtual slots, `Struct_Extra_Info.vtable_struct` is the
-typed record used for generated slot layout. The vtable pointer declaration
-is inserted at the initial storage position of the record or generated raw
-layout record when that record owns the vtable; when a vtable parent supplies
-the pointer, the child does not add a second one. The generated vtable record
-preserves slot order and pointer-sized placeholders for omitted slots so
-later slots retain their positions. Each slot member is named for its C++
-method (`area`, `release`); a second slot with the same name gets a numeric
+typed record used for generated slot layout, named `<Record>_VTable` and printed
+`#type_info_none`. It holds the slots the record adds, in order, with
+pointer-sized placeholders for omitted slots so later slots retain their
+positions; a record whose parent has a vtable starts it with `using vtable:
+<Parent>_VTable;`, so the slots it inherits and the slots it overrides are the
+parent's. Each slot member is named for its C++ method (`area`, `release`); a
+second slot with the same name, in the table or one it embeds, gets a numeric
 suffix by the same `_N` scheme other generated names use (`scale`, `scale_1`),
 a reserved word gets the usual leading underscore (`_cast`), and destructor
-slots, which have no callable type, keep a positional `slot_<index>` name.
-`print_struct_vtable` emits that record and, when enabled, the typed
-`vtable(obj)` accessor returning the typed pointer. `print_function` gives
+slots, which have no callable type, keep a positional `slot_<index>` name. A
+slot is `name: #type (this: *Record, ...) -> R #cpp_method;`.
+
+The record's own member for the table is `vtable: *<Record>_VTable;`
+(`Struct_Extra_Info.vtable_pointer_declaration`). When the parent has a vtable
+and the record's own fields all start at or after the parent's size, the record
+holds its parent as a base and overlays the pointer on the parent's:
+
+```jai
+IGlobalSession :: struct {
+    #as using,except(vtable) iunknownish: IUnknownish;
+    #overlay (iunknownish) vtable: *IGlobalSession_VTable; // Overlay parent's vtable with IGlobalSession’s vtable
+}
+```
+
+so a `*IGlobalSession` converts to a `*IUnknownish`, and the overlay is listed in
+`Struct.overlays`. When a field starts inside the parent's tail padding (which
+the Itanium ABI allows), the parent cannot be a field and the record repeats the
+parent's fields in place, with its own pointer where the parent's was; such a
+record gets no conversion to its parent, and `print_struct_vtable` gives it a
+wrapper for each inherited method as well (below).
+
+`print_struct_vtable` prints the table after the record, in the scope that holds
+the record's name, then, as the options below say, the slot wrappers and the typed
+accessor `vtable :: (obj: *Record) -> *Record_VTable { return obj.vtable; }`. A
+record that has virtual methods defined by a library also lists, inside the record,
+`virtual_<method> :: (this: *Record, ...) #cpp_method #foreign <library> "<symbol>";`
+after a comment saying they are for calling a parent's implementation or building
+a vtable by hand; a virtual method no library defines (a pure virtual one) gets
+no such declaration, since it has no symbol to link. `print_function` gives
 direct virtual foreign declarations the `virtual_` prefix (and `_CFormat`
 where applicable), retaining the represented foreign library and symbol. This
 direct declaration is distinct from invoking the slot through the vtable. Slot
@@ -4534,29 +4559,29 @@ accessor:
 Slot wrappers are ordinary procedures in the scope that holds the records, not
 members of a record, so a call needs no record qualifier: for
 `struct IGlobalSession : ISlangUnknown { virtual SlangResult createSession(SessionDesc const& desc, ISession** outSession) = 0; }`
-the output is
+the output, right after the table, is
 
 ```jai
-IGlobalSession_createSession :: inline (this: *IGlobalSession, desc: *SessionDesc, outSession: **ISession) -> SlangResult { return this.__vtable.createSession(this, desc, outSession); }
+IGlobalSession_createSession :: inline (this: *IGlobalSession, desc: *SessionDesc, outSession: **ISession) -> SlangResult { return this.vtable.createSession(this, desc, outSession); }
 ```
 
 The name is `<declaring record>_<slot name>`, with a leading underscore of the slot
-name dropped and a numeric suffix when another declaration already has the name.
-Every record with a vtable gets a wrapper for each of its own methods and one for
-each method it inherits, all taking a pointer to that record. An inherited method is
-named for the ancestor that declares it, so `ISlangUnknown_release(session)` compiles
-for an `*ISession` as well as for an `*ISlangUnknown`: the wrapper of one name is
-overloaded once per record that derives from the declaring one, and an inherited
-slot's wrapper casts the receiver to the type its slot declares. A method an
-override replaces is wrapped under the name of the record that declares the
-override as well. C++ reference parameters and results are pointers
-(`T const&` is `*T`). Omitted and destructor slots and slots that are variadic
-get no wrapper (a variadic one is reported). `print_struct_vtable_wrappers`
-prints these wrappers for one record; the generator calls it for every printed
-record after the declarations, in the exported scope, with the global
-declarations as `existing_declarations` for name repair. A call through a wrapper
-is a call through the object's vtable, so it dispatches to the most derived
-override.
+name dropped and a numeric suffix when another global declaration already has the
+name. Each record gets a wrapper for each slot it adds, taking a pointer to that
+record; a method an override replaces keeps the wrapper of the record that
+declared it, which dispatches to the most derived override. Because a record that
+holds its parent converts to it, `ISlangUnknown_release(session)` compiles for an
+`*ISession` as well as for an `*ISlangUnknown` without a second wrapper. A record
+that repeats its parent's fields gets one more wrapper per inherited method, under
+the name of the ancestor that declares it, and the receiver is cast to the type
+the slot declares. C++ reference parameters and results are pointers (`T const&`
+is `*T`). Omitted and destructor slots and slots that are variadic get no wrapper
+(a variadic one is reported). A call through a wrapper is a call through the
+object's vtable.
+
+The generator writes each top-level declaration, then the table, wrappers and
+accessors of the polymorphic records it contains, then the accessors of its
+bitfield units, so the names it checks against are the final global names.
 
 Objective-C method output is a generated typed wrapper, not a Jai compiler
 intrinsic. It declares a selector symbol and casts the selected Objective-C
@@ -4698,9 +4723,9 @@ Eligibility is evaluated only on function-argument declarations by the declarati
 
 `maybe_unwrap_bitfield_declaration` returns a one-member bitfield's original member pointer after assigning the group's storage type to that member. Other inputs return the original declaration pointer. This is a visible member-type mutation, not a new declaration or copy.
 
-`append_bitfield_helpers` emits getters and setters for named group members. Names are `get_`/`set_` followed by anonymous-container field prefixes joined by underscores and then the member output name. The setter takes `fields: *Scope` and a value; the getter takes `fields: Scope` by value and returns the value. One-bit values use bool; wider values use the member's represented type. Setters update only the member's bit range, preserving unrelated bits; byte-array groups can span elements. Getters recover the masked bit range. The emitter does not apply an additional narrow signed-field sign-extension operation; full C/C++ signed-bitfield equivalence must not be inferred merely from a signed return type. Unnamed members produce no accessors.
+`append_bitfield_helpers` emits a setter and a getter for each named group member, the same procedures the generated bindings contain. Names are `set_`/`get_` followed by anonymous-container field prefixes joined by underscores and then the member output name. The setter takes `fields: *Scope` and a value; the getter takes `fields: Scope` by value and returns the value; every record's procedures of one name are overloads told apart by that first argument. A one-bit unsigned member that is not an enumeration uses `bool` for both; other members use the member's represented type. Setters update only the member's bit range, preserving unrelated bits; byte-array groups can span elements. Getters recover the masked bit range and sign-extend members of a signed type, so a signed member narrower than its type reads back negative values. Unnamed members produce no accessors. A name that a non-procedure declaration of the active generator already has, or that an earlier call gave the same record, gets a numeric suffix on both procedures of the pair.
 
-**Bitfields in generated bindings.** `generate_bindings` does not print bitfield members as fields. `gm_record_metadata` rebuilds each record's member list from libclang's own numbers (each member's `clang_Cursor_getOffsetOfField` bit offset and `clang_getFieldDeclBitWidth` width, and the record's size and alignment), so the Jai record occupies the same bytes the target's C compiler gives it, whichever ABI rules (Itanium or MSVC) the target uses. The public `maybe_add_to_bitfield` / `finish_bitfield` helpers above are separate and are not used by this path.
+**Bitfields in generated bindings.** `generate_bindings` does not print bitfield members as fields. `gm_record_metadata` rebuilds each record's member list from libclang's own numbers (each member's `clang_Cursor_getOffsetOfField` bit offset and `clang_getFieldDeclBitWidth` width, and the record's size and alignment), so the Jai record occupies the same bytes the target's C compiler gives it, whichever ABI rules (Itanium or MSVC) the target uses. The units are built from the same `Bitfield` model as the public `maybe_add_to_bitfield` / `finish_bitfield` helpers above, and the accessors of both come from one emitter, so a program that groups members itself and calls `append_bitfield_helpers` gets the procedures the generator writes.
 
 Consecutive bitfield members that share a storage unit become one `Bitfield` (kind `.BITFIELD`, flag `LAYOUT_UNIT`) in `Struct_Extra_Info.modified_declarations`; the record's own `declarations` are untouched, so visitors still see the original members. Members share a unit when the aligned container of their declared type (1, 2, 4 or 8 bytes) overlaps the unit's. A zero-width member ends the unit and prints nothing; unnamed members stay in the unit's member list as `_`. In a union every bitfield is a unit of its own. The unit is the largest aligned unsigned integer that covers the bytes the members use and stays clear of the neighbouring fields (never wider than the type the members were declared with); when no integer fits (packed records), it is a `[N] u8` array over exactly those bytes.
 
@@ -4720,14 +4745,19 @@ The first unit of a record is `__bitfield`; later ones are `__bitfield_1`, `__bi
 
 When Jai's natural placement of the record's fields (with the storage units) would differ from the native offsets, size or alignment (packed records, `#pragma pack`, MSVC rules), the record is printed `#no_padding`, explicit `__padding_<offset>: [N] u8` fields fill every gap and the tail, and fields or units naturally aligned more strictly than the record carry `#align` of the record's alignment. `Struct_Extra_Info.explicit_layout` records that choice. This applies to every record with a known native offset for each field, bitfields or not; a record with a C11 anonymous member keeps the natural placement and relies on the generated `#assert` lines.
 
-With `generate_bitfield_accessors` (default `true`), each named bitfield member gets an inline getter and setter after the declarations, named after the outermost record:
+With `generate_bitfield_helpers` (default `true`), each named bitfield member gets a setter and a getter, written right after the record that holds it as ordinary procedures:
 
 ```jai
-VMExecOperand_type :: inline (s: VMExecOperand) -> u32 { ... }
-VMExecOperand_set_type :: inline (s: *VMExecOperand, value: u32) { ... }
+set_type :: (fields: *VMExecOperand, value: u32) {
+    MASK0: u32 : 0b1111_1111;
+    fields.__bitfield = (fields.__bitfield & ~MASK0) | (value & MASK0);
+}
+get_type :: (fields: VMExecOperand) -> u32 {
+    return (fields.__bitfield & 0b1111_1111);
+}
 ```
 
-A member inside a nested record includes the nested member names after the record's name (`BfUnion_parts_lo`, `BfUnion_set_parts_lo`). Getters mask and shift and sign-extend signed members; `bool` members return `bool` and enum members return the enum type. Setters take the member's own type and replace only the member's bits. A pair whose names collide with a generated declaration or another accessor gets `_1`, `_2`, ... appended to both names (`BfClash_x_1`, `BfClash_set_x_1`); the member itself is unaffected. Members whose unit is wider than eight bytes get no accessors. `generate_bitfield_accessors := false` leaves the storage fields and member comments and prints no procedures. `generate_bitfield_helpers` governs only the `get_`/`set_` helpers of the public group API above.
+A member that does not start the unit shifts its mask and value (`(0b1111_1111_1111_1111_1111_1111 << 8)`), and a value whose type differs from the unit's is cast. A member inside a nested record adds the names of the anonymous containers after `set_`/`get_` (`set_parts_lo`). One-bit unsigned members that are not enumerations take and return `bool`. A member of a signed type is sign-extended by shifting its top bit up to the type's and back down, so it reads back negative values; enum members return the enum type. A pair whose names collide with a generated non-procedure declaration, such as a constant or record, or with an earlier pair for the same record, gets `_1`, `_2`, ... appended to both names (`set_x_1`, `get_x_1`); the member itself is unaffected. Units that are byte arrays are read and written through a 64-bit copy of their bytes. Members whose unit is wider than eight bytes get no accessors. `generate_bitfield_helpers := false` leaves the storage fields and member comments and prints no procedures.
 
 ### Wrappers and printing callbacks
 
@@ -4797,7 +4827,7 @@ Platform coverage note: exports for Nintendo and PS5 targets are unspecified.
 
 ## Native C++ virtual dispatch
 
-Single-inheritance scalar/pointer and bounded trivial-record vtables support 64-bit macOS, Linux and MSVC Windows on x86-64 and arm64. Destructor entries retain opaque pointer slots (two for Itanium, one for MSVC) and have no callable helper. MSVC aggregate-return slots expose an explicit output pointer after `this`; Itanium uses ordinary C aggregate returns. Supported record values are nonempty, at most 32 bytes, aligned at most eight, and contain naturally placed, nonomitted supported fields without inheritance, virtual methods, bitfields, unions or nontrivial copy/move/destruction. Slot comments identify source method names. Target triples must match `TARGET_OS`; unsupported ABIs are diagnosed. See [C++ vtables](../../../native/cpp-vtables.md) for implementation, constraints and verification.
+Single-inheritance scalar/pointer and bounded trivial-record vtables support 64-bit macOS, Linux and MSVC Windows on x86-64 and arm64. Destructor entries retain opaque pointer slots (two for Itanium, one for MSVC) and have no callable helper. MSVC aggregate-return slots expose an explicit output pointer after `this`; Itanium uses ordinary C aggregate returns. Supported record values are nonempty, at most 32 bytes, aligned at most eight, and contain naturally placed, nonomitted supported fields without inheritance, virtual methods, bitfields, unions or nontrivial copy/move/destruction. Comments on destructor and omitted slots identify the source method. Target triples must match `TARGET_OS`; unsupported ABIs are diagnosed. See [C++ vtables](../../../native/cpp-vtables.md) for implementation, constraints and verification.
 
 Ignored system declarations containing unsupported extended `long double`, such as Linux `max_align_t`, are skipped with an omission diagnostic. Other system declarations keep the existing retained/omitted canonical model; explicitly included extended types remain diagnosed. Explicit extended floating API types remain unsupported; eight-byte `long double` already maps to `float64`. `std::nullptr_t` maps to `*void` with native size/alignment. Clang evaluates `sizeof` and `alignof` initializer nodes, while enum and const-variable defaults resolve canonical referenced declarations lazily. Numeric named defaults retain their typed identifier expressions.
 

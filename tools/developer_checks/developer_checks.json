@@ -65,6 +65,14 @@
       "module": "check_developer_bitfield_layout"
     },
     {
+      "module": "check_developer_output_format",
+      "label": "bitfield and vtable output format",
+      "hosts": [
+        "Darwin",
+        "Linux"
+      ]
+    },
+    {
       "module": "check_developer_variadic"
     },
     {
