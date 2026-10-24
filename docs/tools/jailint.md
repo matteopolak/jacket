@@ -169,6 +169,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `reversed_range` | correctness | deny | editor | `for i: 10..0`: a range that never runs |
 | `self_assignment` | suspicious | warn | editor | `x = x;` |
 | `shadowed_it` | suspicious | warn | no | a nested `for` hides an `it` the enclosing loop still uses |
+| `shadowed_local` | pedantic | allow | no | `count := 10;` inside an `if` in a procedure with a parameter `count`: a local that hides another of the same procedure |
 | `shift_overflow` | suspicious | warn | no | `x << 40` with `x: s32`, `small << 8` with `small: u8`: a shift that moves every bit out |
 | `single_case_switch` | style | warn | editor | `if mode == { case .VERBOSE; ...; }`, with at most a default case: an `if` written as a `switch` |
 | `string_literal_write` | correctness | deny | editor | `s := "abc"; s[0] = x;`: a write into a string literal, which is read-only |
@@ -355,6 +356,8 @@ Counting down is `for < i: 0..10`. The fix changes behaviour, so it is editor-on
 Not auto-fixed: the slip may be on the other side. After `using info;`, `width = width;` assigns a field to itself; names found only through `using` that also exist as earlier locals are not reported.
 ### shadowed_it
 `row := it;` before the inner loop is the usual idiom and is not reported.
+### shadowed_local
+A variable declaration (`name := ...`, `name: T`) in a nested block, loop body or `case` body whose name is a parameter or a variable declared earlier in an enclosing block of the same procedure. Not reported: loop variables, implicit (`it`, `it_index`) or named, and `while name := cond` bindings; `_`; macros (`#expand`); and code inside a nested procedure, which cannot see the outer locals. A name declared later in the outer block does not count, nor does a variable in a sibling block. No fix. Off by default.
 ### shift_overflow
 The result is `0` (or `-1` for `>>` on a negative signed value) whatever the operand holds, and the compiler accepts it. Fires on `<<`, `>>` and `<<=`, `>>=` when the count is an integer literal no less than the bit width of the left operand's integer type. Constant left operands (`1 << 40`, typed by where they are used) and rotates are skipped. The usual cause is an operand narrower than meant: widen it first in parentheses, `(cast(u64) x) << 40` (`cast(u64) x << 40` shifts before it casts). No fix.
 ### single_case_switch

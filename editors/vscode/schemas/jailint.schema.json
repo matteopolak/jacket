@@ -838,6 +838,16 @@
           "default": "warn",
           "markdownDescription": "a nested `for` hides an `it` the enclosing loop uses (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#shadowed_it)"
         },
+        "shadowed_local": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "allow",
+          "markdownDescription": "a local variable named like a parameter or another local in an enclosing scope of the same procedure (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#shadowed_local)"
+        },
         "single_case_switch": {
           "type": "string",
           "enum": [
