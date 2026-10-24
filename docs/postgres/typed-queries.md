@@ -13,7 +13,7 @@ Pg.free_rows(*rows);
 ## How it works
 
 1. **Rewrite.** `sql_scan.jai` turns each `%` into `$n`, skipping quoted strings, comments and dollar quotes (`%%` is a literal `%`; a Postgres `$n` is rejected). The statement id is a 64-bit hash of the rewritten text.
-2. **Resolve.** `resolve.jai` (`prepare_query`, memoised per call site) looks for `db/queries/<id>.json` under the project root. On a miss it asks the describe service, which uses the URL if there is one and otherwise, with `JACKET_PG_MANAGED=1`, a managed server.
+2. **Resolve.** `resolve.jai` (`prepare_query`, memoised per call site) looks for `db/queries/<id>.json` under the project root. On a miss it asks the describe service, which uses the URL if there is one and otherwise, with managed mode on (`JACKET_PG_MANAGED=1` or `[postgres] managed = true` in `jacket.toml`), a managed server.
 3. **Describe.** `describe_service.jai` is a `jaic -interp` worker (`Service.serve`) that holds connections per URL, backs off on failure (1 s doubling to 30 s) and memoises connect errors. `describe.jai` does Parse + Describe, resolves type names (domains, arrays, enums), reads `attnotnull`, and runs `EXPLAIN (VERBOSE, FORMAT JSON)` on the generic plan to find columns made nullable by outer joins. Aliases can force nullability or a type: `name!` (non-null), `name?` (nullable), `name: Jai_Type`.
 4. **Shape.** `shape.jai` builds `Row(shape)`, a struct with one doc-commented field per column, and checks arguments against the parameter types (`s64` does not narrow to `integer`). Errors point at the argument or, for server errors, at the offending byte of the string literal.
 5. **Run.** `typed.jai` expands into a call that sends the rewritten statement (binary results when every column is decodable). `for rows` decodes one row at a time.
@@ -66,7 +66,7 @@ Gotchas: `Rows` buffers the whole result (no portal streaming); `fetch_all` borr
 ## Configuration
 
 - `JACKET_DATABASE_URL`, then `DATABASE_URL`: the compile-time database.
-- `JACKET_PG_MANAGED=1`: with no URL, describe in a private PostgreSQL the service downloads and starts itself ([managed.md](managed.md)). It needs `db/migrations`; without them a miss is an error. Ignored when a URL is set or `JACKET_PG_OFFLINE` is. `JACKET_PG_MANAGED_VERSION` and `JACKET_PG_MANAGED_CACHE` pick the release and the cache folder.
+- `JACKET_PG_MANAGED=1` (or `managed = true` under `[postgres]` in `jacket.toml`): with no URL, describe in a private PostgreSQL the service downloads and starts itself ([managed.md](managed.md)). It needs `db/migrations`; without them a miss is an error. Ignored when a URL is set or `JACKET_PG_OFFLINE` is. `JACKET_PG_MANAGED_VERSION` and `JACKET_PG_MANAGED_CACHE` pick the release and the cache folder.
 - `JACKET_PG_OFFLINE=1`: never connect; misses are errors.
 - `JACKET_PG_SEARCH_PATH`: search path for describing.
 - `JACKET_PG_ROOT`: override the project root.

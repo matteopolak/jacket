@@ -48,13 +48,13 @@ answer :: (request_text: string) -> Service.Status, string {
         // An empty managed server has no schema: only the migrations can give it one.
         if !request.migrations return .FAILED, "managed mode needs migrations: add SQL files to db/migrations, or set DATABASE_URL";
 
-        url, failure := managed_url();
+        url, failure := managed_url(request.managed_version);
         if !url return .UNAVAILABLE, failure;
 
         request.url = url;
     }
 
-    if !request.url return .UNAVAILABLE, "no database: set JACKET_DATABASE_URL or DATABASE_URL, or JACKET_PG_MANAGED=1";
+    if !request.url return .UNAVAILABLE, "no database: set JACKET_DATABASE_URL or DATABASE_URL, or JACKET_PG_MANAGED=1 (or managed = true under [postgres] in jacket.toml)";
 
     // A connection that went stale between requests is replaced once.
     for attempt: 0..1 {
@@ -127,12 +127,15 @@ Managed_State :: struct {
 
 managed: Managed_State;
 
-managed_url :: () -> url: string, failure: string {
+managed_url :: (version: string) -> url: string, failure: string {
     if managed.ready return managed.url, "";
 
     if now_milliseconds() < managed.failed_until return "", managed.failure;
 
-    server, error := Pg.start_managed(Pg.managed_settings_from_environment());
+    settings := Pg.managed_settings_from_environment();
+    if version settings.version = version;
+
+    server, error := Pg.start_managed(settings);
 
     if error {
         managed.failure = copy_string(tprint("cannot start the managed PostgreSQL server: %", error));

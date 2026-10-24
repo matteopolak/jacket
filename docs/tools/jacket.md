@@ -116,6 +116,10 @@ rules = { unused_variable = "warn" }
 indent_width = 4
 ignore = ["gen/**"]
 
+[postgres]                      # read by Extensions/Postgres, see docs/postgres/managed.md
+managed = true                  # describe typed queries in a managed server when no URL is set
+managed_version = "16.15.1"     # a pinned release from MANAGED_ARCHIVES
+
 [experimental]                  # may change between releases; each is a jaic flag
 parse_threads = 4               # -parse_threads
 serial_parse = false            # -serial_parse

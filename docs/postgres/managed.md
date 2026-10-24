@@ -2,7 +2,7 @@
 
 ## What it is
 
-`stdlib/Extensions/Postgres/managed.jai` starts a private, throwaway PostgreSQL server with no setup: it downloads pinned binaries once, verifies them, caches them per user, creates a cluster and starts it. The compile-time describe service uses it when a project has no database URL and managed mode is on (`JACKET_PG_MANAGED=1`; see [Compile-time use](#compile-time-use)).
+`stdlib/Extensions/Postgres/managed.jai` starts a private, throwaway PostgreSQL server with no setup: it downloads pinned binaries once, verifies them, caches them per user, creates a cluster and starts it. The compile-time describe service uses it when a project has no database URL and managed mode is on (`managed = true` under `[postgres]` in `jacket.toml`, or `JACKET_PG_MANAGED=1`; see [Compile-time use](#compile-time-use)).
 
 ```jai
 settings: Pg.Managed_Settings;
@@ -27,7 +27,7 @@ Defaults: cache `$XDG_CACHE_HOME/jacket/postgres` or `~/.cache/jacket/postgres` 
 
 ## Compile-time use
 
-Typed queries ([typed-queries.md](typed-queries.md)) pick the managed server when there is no `JACKET_DATABASE_URL` or `DATABASE_URL`, `JACKET_PG_OFFLINE` is not set and `JACKET_PG_MANAGED` is set to anything but `0`. The lookup order is unchanged: a good cache entry wins, and only a miss starts the server.
+Typed queries ([typed-queries.md](typed-queries.md)) pick the managed server when there is no `JACKET_DATABASE_URL` or `DATABASE_URL`, `JACKET_PG_OFFLINE` is not set and managed mode is on: `JACKET_PG_MANAGED` set to anything but `0`, or, when the variable is unset, `managed = true` under `[postgres]` in the project's `jacket.toml`. The `pg` tool's `prepare`, `check`, `generate` and `diff` follow the same rule; `prepare` and `check` describe in the migrations' schema database there, as the service does (`migrate` and `status` always need a URL). The lookup order is unchanged: a good cache entry wins, and only a miss starts the server.
 
 - **Migrations are required.** A managed server starts empty, so the only schema it can have comes from `db/migrations`. The describe service builds the usual `jacket_<hash>` schema database on it. With no migrations, a miss is a compile error that says so; a project that only has hand-run SQL should use `DATABASE_URL`.
 - **Two steps, on purpose.** The first start downloads and unpacks about 30 MB, which can take longer than the 30 s a service request gets. The compiler side therefore calls `prepare_managed` (download, `initdb`) once per compile, in the build itself, and the describe service only calls `start_managed`, which is quick once that has run. If the preparation fails, the query reports why (the editor stays silent, as for an unreachable database).
@@ -47,11 +47,21 @@ Typed queries ([typed-queries.md](typed-queries.md)) pick the managed server whe
 
 Compile-time environment (`managed_settings_from_environment`):
 
-- `JACKET_PG_MANAGED=1`: turn managed mode on. There is no `jacket.toml` setting; the module does not read that file beyond using it to find the project root.
+- `JACKET_PG_MANAGED=1`: turn managed mode on (`0` turns it off, overriding `jacket.toml`).
+
+`jacket.toml` (`project_managed_settings`, read when the variables are unset):
+
+```toml
+[postgres]
+managed = true
+managed_version = "16.15.1"
+```
+
+`jacket-config` knows both keys, so tools do not warn about them; the module parses just this table itself.
 - `JACKET_PG_MANAGED_VERSION`: a pinned release from `MANAGED_ARCHIVES`, such as `16.15.1`, to match production's major version.
 - `JACKET_PG_MANAGED_CACHE`: the cache folder (binaries and cluster) instead of the per-user default.
 
-Tests: `stdlib/Extensions/Postgres/tests/managed.jai` runs the pure checks by default. `JAI_PG_TEST_MANAGED=1` downloads into a temporary cache, starts a server on port 54339, runs `select version()`, checks reuse and restart, and removes everything. `tests/typed/run.sh` with `JAI_PG_TEST_MANAGED=1` also builds `queries.jai` in managed mode with no database URL (`JAI_PG_TEST_MANAGED_CACHE` reuses an already downloaded cache).
+Tests: `stdlib/Extensions/Postgres/tests/managed.jai` runs the pure checks by default. `JAI_PG_TEST_MANAGED=1` downloads into a temporary cache, starts a server on port 54339, runs `select version()`, checks reuse and restart, and removes everything. `tests/typed/run.sh` with `JAI_PG_TEST_MANAGED=1` also builds `queries.jai` in managed mode with no database URL, again from `jacket.toml` alone, runs `pg prepare` against the managed server and runs two builds at once on a stopped server (`JAI_PG_TEST_MANAGED_CACHE` reuses an already downloaded cache).
 
 ## Dependencies
 

@@ -154,6 +154,30 @@ if [ "${JAI_PG_TEST_MANAGED:-}" = 1 ]; then
     managed "$jaic" "$here/queries.jai" -exe "$work/managed_queries" || fail "managed rebuild"
     [ "$("$work/managed_queries")" = ok ] || fail "managed queries after a rebuild"
     [ "$(find "$managed_root/db/queries" -type f | wc -l)" -eq "$managed_count" ] || fail "managed rebuild wrote a different cache"
+
+    # `[postgres] managed = true` in jacket.toml turns it on without the variable.
+    printf '[postgres]\nmanaged = true\n' > "$managed_root/jacket.toml"
+    from_toml() { env -u DATABASE_URL -u JACKET_DATABASE_URL -u JACKET_PG_MANAGED JACKET_PG_ROOT="$managed_root" JACKET_PG_MANAGED_CACHE="$managed_cache" "$@"; }
+    rm -rf "$managed_root/db/queries"
+    from_toml "$jaic" "$here/queries.jai" -exe "$work/managed_queries" || fail "managed build from jacket.toml"
+    [ "$(find "$managed_root/db/queries" -type f | wc -l)" -eq "$managed_count" ] || fail "the jacket.toml build wrote a different cache"
+
+    # The pg tool's prepare describes against the managed server too.
+    from_toml "$jaic" "$here/../../Tool/main.jai" -interp -- prepare --root "$managed_root" > "$work/out" 2>&1 || { cat "$work/out"; fail "pg prepare with managed mode"; }
+
+    # Two builds at once with the server stopped: the lock lets one start it, the other reuses it.
+    stop_managed_server
+    rm -rf "$managed_root/db/queries"
+    mkdir -p "$work/race_a" "$work/race_b"
+    from_toml "$jaic" "$here/queries.jai" -exe "$work/race_a/q" > "$work/race_a/out" 2>&1 &
+    race_a=$!
+    from_toml "$jaic" "$here/queries.jai" -exe "$work/race_b/q" > "$work/race_b/out" 2>&1 &
+    race_b=$!
+    wait "$race_a" || { cat "$work/race_a/out"; fail "the first of two racing managed builds"; }
+    wait "$race_b" || { cat "$work/race_b/out"; fail "the second of two racing managed builds"; }
+    [ "$("$work/race_a/q")" = ok ] && [ "$("$work/race_b/q")" = ok ] || fail "racing managed builds"
+    [ "$(find "$managed_root/db/queries" -type f | wc -l)" -eq "$managed_count" ] || fail "racing managed builds wrote a different cache"
+    rm -f "$managed_root/jacket.toml"
     stop_managed_server
 fi
 
