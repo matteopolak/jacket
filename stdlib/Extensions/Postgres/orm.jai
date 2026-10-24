@@ -55,6 +55,13 @@ insert_many :: (db: $D, values: [] $T) -> [] T, Pg_Error {
     return rows, .{};
 }
 
+// Stores `values` with one binary COPY and returns how many rows the server stored. Much faster
+// than `insert_many` for many rows, but it reads nothing back: fields marked `@pg_default` or
+// `@pg_generated` are left to the database, as in `insert`, and their values are not returned.
+copy_many :: (db: $D, values: [] $T) -> s64, Pg_Error {
+    #insert #run orm_copy_code(T);
+}
+
 // The rows `parents` have through the has-many relation `relation` (a `@pg_has_many` note of
 // `T`), in one query: `items[i]` belongs to `parents[i]`. Free it with `free_loaded`; the items
 // read from its result.
@@ -1462,6 +1469,43 @@ orm_sql_text :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code
 }
 
 // The body of `insert`.
+orm_copy_code :: (T: Type) -> string {
+    table, problem := orm_table(T);
+
+    if problem {
+        compiler_report(problem);
+        return "";
+    }
+
+    names: String_Builder;
+    names.allocator = temp;
+    members: String_Builder;
+    members.allocator = temp;
+    count := 0;
+
+    for orm_columns(T) {
+        if has_note(it, "pg_default") || has_note(it, "pg_generated") continue;
+
+        if count {
+            append(*names, ", ");
+            append(*members, ", ");
+        }
+
+        append(*names, quote_identifier(it.name));
+        append(*members, jai_string(it.name));
+        count += 1;
+    }
+
+    if !count {
+        compiler_report(tprint("% has no field to copy: every one is @pg_default or @pg_generated", T));
+        return "";
+    }
+
+    statement := tprint("copy % (%) from stdin (format binary)", table, builder_to_string(*names));
+
+    return tprint("stored, error := copy_in(db, %, values, .[%]);\nreturn stored, error;\n", jai_string(statement), builder_to_string(*members));
+}
+
 orm_insert_code :: (T: Type) -> string {
     table, problem := orm_table(T);
 

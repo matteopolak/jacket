@@ -88,5 +88,5 @@ User :: struct @pg_table(public.users) @pg_belongs_to(team:team_id:Team:id) @pg_
     /// jsonb, nullable
     settings: Pg.Nullable(Pg.Json(Pg.json_column_type("users.settings")));
     /// json, not null
-    payload: Pg.Json(Pg.json_column_type("users.payload")); @pg_default
+    payload: Pg.Json(Pg.json_column_type("users.payload")); @pg_default @pg_json
 }

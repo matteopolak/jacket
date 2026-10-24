@@ -611,6 +611,7 @@ append_relation :: (builder: *String_Builder, catalog: Catalog, names: Names, in
         if column.primary_key append(builder, " @pg_primary_key");
         if column.has_default append(builder, " @pg_default");
         if column.generated append(builder, " @pg_generated");
+        if column.base == "json" append(builder, " @pg_json");
 
         append(builder, "\n");
     }
