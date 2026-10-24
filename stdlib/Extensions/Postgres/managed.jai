@@ -595,13 +595,18 @@ managed_run :: (args: ..string) -> bool, string {
 
 // Runs `pg_ctl start`. On Windows the server it launches inherits pg_ctl's output handles and
 // keeps them open while it runs, so captured output would never end: the output is not captured
-// there, and the server log says what went wrong.
+// there, and the server log says what went wrong. The launch also leaves out the job object that
+// ends a child with its parent, which would take the server down as soon as pg_ctl returned.
 managed_run_start :: (args: ..string) -> bool, string {
     #if OS != .WINDOWS return managed_run(..args);
 
-    result := Proc.run_command(..args);
-    if result.type == .FAILED_TO_LAUNCH return false, sprint("cannot run %", args[0]);
-    if result.type != .EXITED || result.exit_code != 0 return false, sprint("% exited with %", args[0], result.exit_code);
+    process: Proc.Process;
+    if !Proc.create_process(*process, ..args, kill_process_if_parent_exits = false) return false, sprint("cannot run %", args[0]);
+
+    defer Proc.deinit(*process);
+
+    waited, result := Proc.get_process_result(*process);
+    if !waited || result.type != .EXITED || result.exit_code != 0 return false, sprint("% exited with %", args[0], result.exit_code);
 
     return true, "";
 }
