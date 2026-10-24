@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
 """Verify canonical Windows clock SDK ABI/import links; never claim target execution."""
 import json
-import os
-from pathlib import Path
 import re
 from dev_common import ROOT, labeled_runner, sha256_file
-from build_developer_bindings import llvm_prefix
+from build_developer_bindings import llvm_prefix, mingw_prefix
 
 
 run = labeled_runner('Windows profiling SDK check', expected=None, env=None, timeout=60, stdout=True)
 
 
 def main():
-    sdk = Path(os.environ.get("DEVELOPER_TOOLS_MINGW_PREFIX", "/opt/homebrew/opt/mingw-w64/toolchain-x86_64"))
+    sdk = mingw_prefix()
     llvm = llvm_prefix()
     fixture = ROOT / "stdlib/Iprof/tests/driven/iprof-windows-clock.c"
     gcc = sdk / "bin/x86_64-w64-mingw32-gcc"
