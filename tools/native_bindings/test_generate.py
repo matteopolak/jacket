@@ -6,6 +6,7 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 from toolkit.repo import ROOT
 
+import re
 import sys
 import unittest
 
@@ -270,6 +271,61 @@ Record :: struct { value: u64; }
         self.assertIn('CPU == .ARM64',code)
         self.assertEqual(ledger[0]['status'],'partially_declared')
         self.assertIn('unresolved_shape_condition',ledger[0])
+
+
+class CommittedRecordLayoutTests(unittest.TestCase):
+    """Structural checks on the committed bindings that need no platform headers."""
+
+    @staticmethod
+    def records(text):
+        lines = text.splitlines()
+        i = 0
+        while i < len(lines):
+            head = re.match(r'^\s*(\w+)\s*::\s*(?:struct|union)\b[^{]*\{\s*$', lines[i])
+            if not head:
+                i += 1
+                continue
+            depth, members, j = 1, [], i + 1
+            while j < len(lines) and depth:
+                members.append(lines[j].strip())
+                depth += lines[j].count('{') - lines[j].count('}')
+                j += 1
+            yield head[1], members
+            i = j
+
+    def test_overlay_groups_start_from_an_earlier_member(self):
+        # A union listed ahead of the members that precede it in the header
+        # moves every later field, so the anchor must already be declared.
+        bad = []
+        for path in sorted((ROOT / 'stdlib').rglob('declarations.jai')):
+            for name, members in self.records(path.read_text()):
+                seen = set()
+                for line in members:
+                    overlay = re.match(r'#overlay \((\w+)\)\s*(\w+):', line)
+                    if overlay:
+                        if overlay[1] not in seen:
+                            bad.append(f'{path.parent.name}.{name}.{overlay[2]}')
+                        seen.add(overlay[2])
+                        continue
+                    member = re.match(r'(?:(?:#if [^{}]*?|else) +)?(?:#as\s+)?(?:using(?:,except\([^)]*\))?\s+)?(\w+):', line)
+                    if member:
+                        seen.add(member[1])
+        self.assertEqual(bad, [])
+
+    def test_bit_views_are_not_aggregate_members(self):
+        # `get_x`/`set_x` read bits of `__bitfield`; a field named `x` as well
+        # would add storage the C record does not have.
+        bad = []
+        for path in sorted((ROOT / 'stdlib').rglob('declarations.jai')):
+            text = path.read_text()
+            views = {}
+            for m in re.finditer(r'^\s*(?:get|set)_(\w+) :: \(fields: \*?(\w+)', text, re.M):
+                views.setdefault(m[2], set()).add(m[1])
+            for name, members in self.records(text):
+                fields = {m[1] for line in members if (m := re.match(r'(\w+):', line))}
+                if '__bitfield' in fields:
+                    bad += [f'{path.parent.name}.{name}.{v}' for v in sorted(views.get(name, set()) & fields)]
+        self.assertEqual(bad, [])
 
 
 if __name__ == '__main__':

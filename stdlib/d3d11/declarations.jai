@@ -4772,9 +4772,9 @@ D3D11_VIDEO_DECODER_EXTENSION :: struct {
 }
 
 D3D11_VIDEO_DECODER_OUTPUT_VIEW_DESC :: struct {
-    Texture2D: D3D11_TEX2D_VDOV;
     DecodeProfile: GUID;
     ViewDimension: D3D11_VDOV_DIMENSION;
+    Texture2D: D3D11_TEX2D_VDOV;
 }
 
 D3D11_VIDEO_FRAME_FORMAT :: enum s32 {
@@ -4830,11 +4830,6 @@ D3D11_VIDEO_PROCESSOR_CAPS :: struct {
 
 D3D11_VIDEO_PROCESSOR_COLOR_SPACE :: struct {
     __bitfield: u32;
-    RGB_Range: u32;
-    YCbCr_Matrix: u32;
-    YCbCr_xvYCC: u32;
-    Nominal_Range: u32;
-    Reserved: u32;;
 }
 
 D3D11_VIDEO_PROCESSOR_CONTENT_DESC :: struct {
@@ -4959,9 +4954,9 @@ D3D11_VIDEO_PROCESSOR_FORMAT_SUPPORT :: enum s32 {
 }
 
 D3D11_VIDEO_PROCESSOR_INPUT_VIEW_DESC :: struct {
-    Texture2D: D3D11_TEX2D_VPIV;
     FourCC: u32;
     ViewDimension: D3D11_VPIV_DIMENSION;
+    Texture2D: D3D11_TEX2D_VPIV;
 }
 
 D3D11_VIDEO_PROCESSOR_ITELECINE_CAPS :: enum s32 {
@@ -5006,9 +5001,9 @@ D3D11_VIDEO_PROCESSOR_OUTPUT_RATE :: enum s32 {
 }
 
 D3D11_VIDEO_PROCESSOR_OUTPUT_VIEW_DESC :: struct {
-    #overlay (Texture2DArray) Texture2D: D3D11_TEX2D_VPOV;
-    Texture2DArray: D3D11_TEX2D_ARRAY_VPOV;
     ViewDimension: D3D11_VPOV_DIMENSION;
+    Texture2D: D3D11_TEX2D_VPOV;
+    #overlay (Texture2D) Texture2DArray: D3D11_TEX2D_ARRAY_VPOV;
 }
 
 D3D11_VIDEO_PROCESSOR_PROCESSOR_CAPS :: enum s32 {

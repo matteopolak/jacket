@@ -14883,7 +14883,7 @@
     },
     "d3d11": {
       "spec": "docs/specs/stdlib/modules/d3d11.md",
-      "spec_sha256": "d4fb4ce15dd14e5ebb4a449b8f7bbbf2d6f86be3c4f1161772303b7efa99a8ca",
+      "spec_sha256": "54f223f6daf3e3dcb29edbfa58f6ecc5c74180acf2f467a2d1a47a508cdc8404",
       "counts": {
         "declared": 894,
         "forwarded": 429,
@@ -24315,7 +24315,7 @@
     },
     "d3d12": {
       "spec": "docs/specs/stdlib/modules/d3d12.md",
-      "spec_sha256": "faee459ff114849369b6ecc2def5c12a7ba8a276e5fc062cd9f8095274c3acf9",
+      "spec_sha256": "d23253e167f3eaa7a826fbaa1fb91105054e52dbe0bc6e0cc27609770e0ca3e4",
       "counts": {
         "declared": 1284,
         "forwarded": 431,
@@ -58904,7 +58904,7 @@
     },
     "ImGui": {
       "spec": "docs/specs/stdlib/modules/imgui.md",
-      "spec_sha256": "7bd027fd513152028e0f8aad7b692d2f8323d2fcd9addc578be9e0240084f6a2",
+      "spec_sha256": "24573ba27cf37e532bfa2efabbe2e90ba34e24840289724cb3806fb300a1efda",
       "counts": {
         "declared": 939,
         "implemented": 96
@@ -70277,7 +70277,7 @@
     },
     "macOS": {
       "spec": "docs/specs/stdlib/modules/macos.md",
-      "spec_sha256": "f2754668f698bd8ece264ab697b027afd3368f9d1a584bcd7427239706a2f40a",
+      "spec_sha256": "d1b33e416e6322c091d50f45a5b86d17f7d7bb31adf7d7f9eb2b84c2611ef3ca",
       "counts": {
         "declared": 2481,
         "implemented": 65,

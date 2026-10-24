@@ -1794,8 +1794,6 @@ imgui :: #library,system "imgui";
 #if OS != .WINDOWS {
     ImFontGlyph :: struct {
         __bitfield: u32;
-        Visible: u32;
-        Codepoint: u32;
         AdvanceX: float;
         X0: float;
         Y0: float;
@@ -1812,8 +1810,6 @@ imgui :: #library,system "imgui";
 #if OS == .WINDOWS {
     ImFontGlyph :: struct {
         __bitfield: u32;
-        Visible: u32;
-        Codepoint: u32;
         AdvanceX: float;
         X0: float;
         Y0: float;

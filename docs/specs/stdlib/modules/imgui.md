@@ -2813,8 +2813,6 @@ ImGuiContext :: struct {}
 #### `ImFontGlyph` (struct)
 
 - `__bitfield: u32`
-- `Visible: u32`
-- `Codepoint: u32`
 - `AdvanceX:   float`
 - `X0:         float`
 - `Y0:         float`
@@ -4747,8 +4745,6 @@ ImGuiContext :: struct {}
 #### `ImFontGlyph` (struct)
 
 - `__bitfield: u32`
-- `Visible: u32`
-- `Codepoint: u32`
 - `AdvanceX:   float`
 - `X0:         float`
 - `Y0:         float`

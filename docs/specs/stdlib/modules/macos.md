@@ -3914,26 +3914,17 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `address:    u32`
 - `size:       mach_msg_size_t`
 - `__bitfield: u32`
-- `copy: mach_msg_copy_options_t`
-- `pad1: u32`
-- `type: mach_msg_descriptor_type_t; `
 
 #### `mach_msg_ool_descriptor64_t` (struct)
 
 - `address:    u64 #align 4`
 - `__bitfield: u32`
-- `copy: mach_msg_copy_options_t`
-- `pad1: u32`
-- `type: mach_msg_descriptor_type_t; `
 - `size:       mach_msg_size_t`
 
 #### `mach_msg_ool_descriptor_t` (struct)
 
 - `address:    *void #align 4`
 - `__bitfield: u32`
-- `copy: mach_msg_copy_options_t`
-- `pad1: u32`
-- `type: mach_msg_descriptor_type_t; `
 - `size:       mach_msg_size_t`
 
 #### `mach_msg_ool_ports_descriptor32_t` (struct)
@@ -3941,26 +3932,17 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `address:    u32`
 - `count:      mach_msg_size_t`
 - `__bitfield: u32`
-- `copy: mach_msg_copy_options_t`
-- `disposition: mach_msg_type_name_t`
-- `type: mach_msg_descriptor_type_t; `
 
 #### `mach_msg_ool_ports_descriptor64_t` (struct)
 
 - `address:    u64 #align 4`
 - `__bitfield: u32`
-- `copy: mach_msg_copy_options_t`
-- `disposition: mach_msg_type_name_t`
-- `type: mach_msg_descriptor_type_t; `
 - `count:      mach_msg_size_t`
 
 #### `mach_msg_ool_ports_descriptor_t` (struct)
 
 - `address:    *void #align 4`
 - `__bitfield: u32`
-- `copy: mach_msg_copy_options_t`
-- `disposition: mach_msg_type_name_t`
-- `type: mach_msg_descriptor_type_t; `
 - `count:      mach_msg_size_t`
 
 #### `mach_msg_descriptor_t` (struct)
