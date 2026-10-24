@@ -21,10 +21,15 @@ SIMD :: #import "Extensions/SIMD";
     assert(found && is_dir, "the made directory exists");
     assert(make_directory_if_it_does_not_exist("cross-target-files/a/b"), "making it again succeeds");
 
-    // The target's cpuid does not exist on the host.
+    // The run sees the host's processor (`CPU` is the host's here), so only the host's own
+    // instruction set families are reported, whatever the target is.
     features := SIMD.cpu_features();
 
-    assert(!features.avx2 && !features.sve, "no vector features are reported for another target");
+    #if CPU == .ARM64 {
+        assert(!features.avx2 && !features.avx512, "no x86 features on an Arm host");
+    } else {
+        assert(!features.sve, "no Arm features on an x86 host");
+    }
 }
 
 main :: () {}
