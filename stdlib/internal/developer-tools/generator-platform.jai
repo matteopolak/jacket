@@ -99,7 +99,7 @@ gp_configured_path :: (file: string) -> string, bool {
 
     if !ok || !gp_valid_text(contents) return "", false;
 
-    return tprint("%", contents), true;
+    return copy_temporary_string(contents), true;
 }
 
 gp_xcrun_find :: (tool: string) -> string {
@@ -112,7 +112,7 @@ gp_xcrun_find :: (tool: string) -> string {
 
     while output.count > 0 && (output[output.count - 1] == #char "\n" || output[output.count - 1] == #char "\r") output = GP_String.slice(output, 0, output.count - 1);
 
-    return tprint("%", output);
+    return copy_temporary_string(output);
 }
 
 // The first of `names` found in a PATH directory, as a temporary string; empty when none is.
@@ -469,7 +469,7 @@ gp_libc_paths :: (os: Operating_System_Tag, cpu: CPU_Tag) -> string, string, boo
             while output.count > 0 && (output[output.count - 1] == #char "\n" || output[output.count - 1] == #char "\r") output = GP_String.slice(output, 0, output.count - 1);
 
             // Materialize under the caller temporary arena before releasing probe output.
-            sdk = tprint("%", output);
+            sdk = copy_temporary_string(output);
         }
 
         generic = tprint("%/usr/include", sdk);
