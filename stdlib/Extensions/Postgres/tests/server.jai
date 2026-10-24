@@ -595,6 +595,21 @@ SQL;
     Pg.free_error(*error);
     assert(scalar(db, "select count(*) from s", s64) == 3);
 
+    // chunk_rows hands rows over in pieces as they arrive; the last call has the tag.
+    log.lines.count = 0;
+    log.chunk_rows = 2;
+    assert_ok(Pg.run_script(db, "select g from generate_series(1, 5) g; select 9", *log), "chunks");
+    log.chunk_rows = 0;
+    chunks := string.[
+        " returns_rows=true columns=1 rows=2 1 2",
+        " returns_rows=true columns=1 rows=2 3 4",
+        "SELECT 5 returns_rows=true columns=1 rows=1 5",
+        "SELECT 1 returns_rows=true columns=1 rows=1 9",
+    ];
+
+    assert(log.lines.count == chunks.count);
+    for chunks assert(log.lines[it_index] == it, log.lines[it_index]);
+
     // Without hooks COPY FROM STDIN fails cleanly.
     error = Pg.execute_script(db, "copy s from stdin");
     assert(error.code == .QUERY_CANCELED);

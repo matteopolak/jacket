@@ -64,7 +64,9 @@ types, `Numeric`), `error.jai` (`Pg_Error`, `Sqlstate`).
   in order, `copy_in` feeds `COPY ... FROM STDIN` (or fails it with a message), and `copy_out`
   receives `COPY ... TO STDOUT` data. `on_copy` runs when a COPY starts, before any data moves
   (`Copy_Info.incoming` tells the two directions apart). The returned error is the one that
-  stopped the script, after the results before it were reported. Embed the hooks with `#as using` to carry your own state.
+  stopped the script, after the results before it were reported. With `chunk_rows` set,
+  `on_result` gets rows in pieces of that many as they arrive (`result.partial`), then the rest
+  with the command tag, so a large result never sits in memory whole. Embed the hooks with `#as using` to carry your own state.
   Postgres runs the whole string as one implicit transaction unless it has its own `BEGIN`.
 - `describe_statement(db, sql)` prepares the unnamed statement and returns its parameter types
   and result columns (`Statement_Info`, freed with `free_statement_info`) without running it.
