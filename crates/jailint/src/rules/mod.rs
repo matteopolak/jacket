@@ -79,6 +79,7 @@ mod unknown_allow;
 mod unnecessary_semicolon;
 mod unpaired_lock;
 mod unreadable_literal;
+mod unsigned_range_end_minus_one;
 pub(crate) mod unused_import;
 mod unused_parameter;
 pub(crate) use unused_parameter::RunState;
@@ -524,6 +525,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Suspicious,
         summary: "a `@Locks` call with a path that returns or ends without a matching `@Unlocks`",
         check: unpaired_lock::check,
+    },
+    RuleInfo {
+        name: "unsigned_range_end_minus_one",
+        category: Category::Suspicious,
+        summary: "`for 0..n-1` with an unsigned `n`, which wraps around when `n` is 0",
+        check: unsigned_range_end_minus_one::check,
     },
     RuleInfo {
         name: "unreadable_literal",

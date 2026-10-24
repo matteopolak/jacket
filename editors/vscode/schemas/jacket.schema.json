@@ -825,6 +825,16 @@
               "default": "warn",
               "markdownDescription": "a `@Locks` call with a path that returns or ends without a matching `@Unlocks` (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unpaired_lock)"
             },
+            "unsigned_range_end_minus_one": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "`for 0..n-1` with an unsigned `n`, which wraps around when `n` is 0 (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unsigned_range_end_minus_one)"
+            },
             "unreadable_literal": {
               "type": "string",
               "enum": [
