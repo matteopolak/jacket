@@ -228,6 +228,8 @@ impl Compiler {
             Operand::Builtin(b) => self.check_builtin(f, scope, b, args, expected, span),
             Operand::PolyStruct(ps) => self.instantiate_poly_call(scope, ps, args, span),
             Operand::Procs(procs) => {
+                let interpolated = self.expand_interpolation(&procs, args, span)?;
+                let args = interpolated.as_deref().unwrap_or(args);
                 let as_code = self.macro_code_args(&procs, args);
                 let discarded = self.discarded_args(&procs, args);
                 let call_args =

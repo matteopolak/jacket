@@ -6,7 +6,7 @@ Start with [features](features.md), [the command line](tools/cli.md) and [instal
 
 ## Language
 
-[language/](language/) has one page per topic (for example [modules](language/modules-and-imports.md), [procedures](language/procedures.md), [polymorphism](language/polymorphism.md), [macros](language/macros-and-custom-iteration.md), [numbers](language/numbers.md)). Compile-time execution and the `Compiler` module are in [metaprogramming/](metaprogramming/).
+[language/](language/) has one page per topic (for example [modules](language/modules-and-imports.md), [procedures](language/procedures.md), [polymorphism](language/polymorphism.md), [macros](language/macros-and-custom-iteration.md), [inline holes](language/interpolates.md), [numbers](language/numbers.md)). Compile-time execution and the `Compiler` module are in [metaprogramming/](metaprogramming/).
 
 ## Compiler
 

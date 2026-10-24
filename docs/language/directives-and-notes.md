@@ -12,7 +12,7 @@ Source markers that change how a declaration or statement is treated: directive 
 
 A note is `@` plus every character up to whitespace: `@short=j`, `@range(1,64)`. A touching `;` or `{` belongs to the note, so member notes go after the semicolon (`a: int; @tag`). `@help("two words")` is an error. `@"?text"` is read as one string note; this deviates from the older reference build because programs in the corpus use it (`Tok::Note` in `lexer.rs`).
 
-Notes are stored, never interpreted: `type_info(T).members[i].notes`, `type_info(S).notes`, `Code_Struct.notes`, `Code_Enum.notes` (`Type_Info_Enum` has none). Built in `sema/typeinfo.rs` and `sema/code_export.rs`.
+Notes are stored, never interpreted: `type_info(T).members[i].notes`, `type_info(S).notes`, `Code_Struct.notes`, `Code_Enum.notes` (`Type_Info_Enum` has none). Built in `sema/typeinfo.rs` and `sema/code_export.rs`. The two notes on procedures that the compiler reads are `@PrintLike` (checks a format string against its arguments) and the `jaic` extension `@Interpolates` ([inline holes](interpolates.md)).
 
 ### `#must` and `#discard`
 

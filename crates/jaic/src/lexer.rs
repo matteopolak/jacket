@@ -5,6 +5,7 @@ mod floats;
 mod here;
 mod punct;
 mod scan;
+mod value_map;
 
 pub use self::api::{
     Comment, CommentKind, Lexed, PlatformTarget, balanced, lex, lex_for_target, lex_ide,
@@ -14,6 +15,7 @@ pub use self::floats::{FloatLiteralPrecision, float_literal_precision, has_big_f
 pub use self::here::{LANGUAGE_TAGS, here_string_tag, names_language};
 pub use self::punct::P;
 pub(crate) use self::scan::is_ident_char;
+pub use self::value_map::string_value_map;
 use crate::intern::Sym;
 use crate::source::Span;
 use std::rc::Rc;

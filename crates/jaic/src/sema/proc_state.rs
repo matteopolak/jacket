@@ -73,6 +73,9 @@ pub struct ProcState {
     pub unscoped_codes: HashMap<usize, Vec<ScopeId>>,
     /// Notes after a procedure declaration's body (`f :: () { ... } @thread`).
     pub proc_decl_notes: HashMap<ProcId, Vec<ast::Note>>,
+    /// String literals rewritten by `@Interpolates`, by span: their value is no longer the
+    /// spelling in the source.
+    pub interpolated: HashSet<Span>,
     /// Calls that received their `#caller_location` by default, by that location (file,
     /// line, column): the span of their first argument. A failed `assert` names its call's
     /// location, so the report shows this as the condition.

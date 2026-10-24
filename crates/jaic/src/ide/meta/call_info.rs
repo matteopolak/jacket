@@ -47,6 +47,20 @@ impl Compiler {
             .collect()
     }
 
+    /// The literals of `file` read for `@Interpolates` holes.
+    pub fn ide_interpolations(&self, file: FileId) -> Vec<super::IdeInterpolation> {
+        self.ed
+            .facts()
+            .map(|ide| {
+                ide.interpolations
+                    .iter()
+                    .filter(|i| i.string.file == file)
+                    .copied()
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
     /// Calls recorded in `file`, described.
     pub fn ide_calls(&mut self, file: FileId) -> Vec<IdeCallInfo> {
         let calls: Vec<IdeCall> = self

@@ -16,6 +16,7 @@ pub(crate) mod format;
 pub mod framing;
 mod hierarchy;
 pub(crate) mod hover;
+mod interpolation;
 #[cfg(unix)]
 pub mod large_alloc;
 mod lexical_recovery;

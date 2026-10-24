@@ -128,7 +128,7 @@ struct Context<'a> {
     limits: Limits,
 }
 
-fn editor_tokens(tokens: &[jaic::lexer::Token]) -> Vec<Token> {
+pub(crate) fn editor_tokens(tokens: &[jaic::lexer::Token]) -> Vec<Token> {
     let mut converted = Vec::with_capacity(tokens.len());
     converted.extend(tokens.iter().filter_map(|token| {
         let kind = match &token.tok {

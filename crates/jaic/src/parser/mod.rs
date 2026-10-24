@@ -91,6 +91,17 @@ pub fn parse_tokens(
     (parsed, parser.toks)
 }
 
+/// Parses `tokens` (the lexing of `text`, whose spans may have been moved) as one expression
+/// that fills them all.
+pub fn parse_expression(text: &str, tokens: Vec<Token>) -> Result<crate::ast::Expr, Diagnostic> {
+    let mut parser = Parser::new(text, tokens);
+    let expr = parser.parse_expr()?;
+    if !parser.at_eof() {
+        return Err(parser.expected("the end of the expression", ""));
+    }
+    Ok(expr)
+}
+
 pub(crate) struct Parser<'a> {
     src: &'a str,
     toks: Vec<Token>,

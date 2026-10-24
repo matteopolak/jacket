@@ -82,6 +82,8 @@ pub struct IdeFacts {
     pub(crate) expansion_index: HashMap<(Span, crate::ide::meta::IdeExpansionKind), usize>,
     /// Calls and the procedure and parameters they resolved to.
     pub calls: Vec<crate::ide::meta::IdeCall>,
+    /// String literals read for `@Interpolates` holes.
+    pub interpolations: Vec<crate::ide::meta::IdeInterpolation>,
     pub(crate) call_spans: HashSet<Span>,
     /// The procedure each direct call expression resolved to, in any file (`None`: checks of it
     /// disagreed, as instances of a polymorphic procedure can). See `never_returns.rs`.

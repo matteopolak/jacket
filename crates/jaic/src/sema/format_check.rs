@@ -154,7 +154,10 @@ impl Compiler {
                 .with_label("the extra arguments are not printed")
                 .with_help("add a `%` for each argument, or remove the extra ones")
         };
-        let fix = if given.len() < need {
+        // The literal's text in the source is not the string that was checked.
+        let fix = if self.pr.interpolated.contains(&format_arg.span) {
+            None
+        } else if given.len() < need {
             self.escape_unmatched(format_arg.span, given.len())
         } else {
             self.drop_extra_arguments(format_arg.span, need, given.iter().map(|&a| args[a].span))

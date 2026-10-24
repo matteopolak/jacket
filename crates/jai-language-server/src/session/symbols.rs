@@ -79,7 +79,7 @@ impl Session {
     ) -> Result<Option<(usize, Token)>, Error> {
         let (uri, doc) = self.document_entry(uri)?;
         let byte = doc.index.byte(&doc.text, position);
-        Ok(tokens_at(
+        let found = tokens_at(
             &self
                 .analysis_for(uri)
                 .expect("opened document has analysis")
@@ -87,7 +87,9 @@ impl Session {
             byte,
         )
         .find(|(_, token)| matches!(token.kind, TokenKind::Ident | TokenKind::Keyword))
-        .map(|(at, token)| (at, *token)))
+        .map(|(at, token)| (at, *token));
+        // A name in an `@Interpolates` hole is a word of the string's text.
+        Ok(found.or_else(|| self.hole_word(uri, byte)))
     }
 
     pub(super) fn bindings(
