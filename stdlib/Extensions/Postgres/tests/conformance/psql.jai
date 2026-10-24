@@ -11,6 +11,7 @@
 #import "String";
 #import "File";
 POSIX :: #import "POSIX";
+#import "Extensions/Environment";
 Io :: #import "Extensions/Io";
 Pg :: #import "Extensions/Postgres";
 
@@ -106,12 +107,6 @@ State :: struct {
 
 psql: State;
 
-environment :: (name: string) -> string {
-    value := POSIX.getenv(temp_c_string(name));
-    if !value return "";
-    return to_string(value);
-}
-
 errno_value :: () -> s64 {
     return cast(s64) POSIX.__errno_location().*;
 }
@@ -149,10 +144,10 @@ Startup_Action :: struct {
 
 run :: (args: [] string) -> s64 {
     actions: [..] Startup_Action;
-    dbname := environment("PGDATABASE");
-    user := environment("PGUSER");
-    host := environment("PGHOST");
-    port := environment("PGPORT");
+    dbname := environment_variable("PGDATABASE");
+    user := environment_variable("PGUSER");
+    host := environment_variable("PGHOST");
+    port := environment_variable("PGPORT");
     positional := 0;
     pending_vars: [..] string;
 
@@ -521,7 +516,7 @@ connect_to :: (connection_string: string, dbname: string, user: string, host: st
     _, has_host := Pg.conninfo_get(info, "host");
     _, has_address := Pg.conninfo_get(info, "hostaddr");
 
-    if !has_host && !has_address && !environment("PGHOST") && !environment("PGHOSTADDR") {
+    if !has_host && !has_address && !environment_variable("PGHOST") && !environment_variable("PGHOSTADDR") {
         Pg.conninfo_set(*info, "host", "/tmp");
     }
 
@@ -534,12 +529,12 @@ connect_to :: (connection_string: string, dbname: string, user: string, host: st
     }
 
     _, has_timeout := Pg.conninfo_get(info, "connect_timeout");
-    if !has_timeout && !environment("PGCONNECT_TIMEOUT") config.connect_timeout = -1;
+    if !has_timeout && !environment_variable("PGCONNECT_TIMEOUT") config.connect_timeout = -1;
 
     // libpq sends passwords in clear text whatever the transport.
     config.allow_cleartext_password = true;
 
-    if !config.user config.user = environment("USER");
+    if !config.user config.user = environment_variable("USER");
     if !config.database config.database = config.user;
 
     // The settings libpq takes from the environment as startup parameters, and the connection
@@ -553,7 +548,7 @@ connect_to :: (connection_string: string, dbname: string, user: string, host: st
     ];
 
     for ENVIRONMENT_PARAMETERS {
-        value := environment(it.name);
+        value := environment_variable(it.name);
         if value array_add(*psql.parameters, .{ it.value, value });
     }
 
@@ -565,7 +560,7 @@ connect_to :: (connection_string: string, dbname: string, user: string, host: st
     }
 
     if !has_encoding {
-        encoding := environment("PGCLIENTENCODING");
+        encoding := environment_variable("PGCLIENTENCODING");
         if !encoding encoding = locale_encoding();
 
         array_add(*psql.parameters, .{ "client_encoding", encoding });
@@ -605,7 +600,7 @@ connect_to :: (connection_string: string, dbname: string, user: string, host: st
 // psql's client_encoding `auto`: the locale's character set.
 locale_encoding :: () -> string {
     for string.["LC_ALL", "LC_CTYPE", "LANG"] {
-        value := environment(it);
+        value := environment_variable(it);
         if !value continue;
 
         lower := to_lower_copy(value,, temp);
@@ -3001,7 +2996,7 @@ run_command :: (l: *Loop, name: string) -> Command_Status {
                 return .ERROR;
             }
 
-            value := environment(env);
+            value := environment_variable(env);
             if value && !set_variable(var, value) return .ERROR;
 
             return .SKIP_LINE;
@@ -3051,7 +3046,7 @@ run_command :: (l: *Loop, name: string) -> Command_Status {
 
             if found && begins_with(arg, "|") {
                 psql.gpipe = copy_string(advance(arg, 1));
-                psql.gfile = tprint("%/psql-pipe-%", ifx environment("TMPDIR") then environment("TMPDIR") else "/tmp", POSIX.getpid());
+                psql.gfile = tprint("%/psql-pipe-%", ifx environment_variable("TMPDIR") then environment_variable("TMPDIR") else "/tmp", POSIX.getpid());
             } else if found {
                 psql.gfile = arg;
             }

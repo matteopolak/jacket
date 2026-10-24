@@ -7,7 +7,7 @@
 #import "Basic";
 #import "String";
 #import "File";
-POSIX :: #import "POSIX";
+#import "Extensions/Environment";
 Io :: #import "Extensions/Io";
 Pg :: #import "Extensions/Postgres";
 
@@ -15,12 +15,6 @@ INT4 :: 23;
 TEXT :: 25;
 NUMERIC :: 1700;
 INTERVAL :: 1186;
-
-environment :: (name: string) -> string {
-    value := POSIX.getenv(temp_c_string(name));
-    if !value return "";
-    return to_string(value);
-}
 
 traces_dir: string;
 failures: s64;
@@ -31,7 +25,7 @@ Capture :: struct {
 }
 
 main :: () {
-    traces_dir = environment("PG_PIPELINE_TRACES");
+    traces_dir = environment_variable("PG_PIPELINE_TRACES");
     if !traces_dir {
         print("skipped: set PG_PIPELINE_TRACES to libpq_pipeline's traces directory\n");
         return;
@@ -94,17 +88,17 @@ run :: (name: string, scenario: (db: *Pg.Connection)) {
 
 server_config :: () -> Pg.Config {
     config: Pg.Config;
-    config.host = environment("PGHOST");
+    config.host = environment_variable("PGHOST");
     if !config.host config.host = "localhost";
 
-    port_text := environment("PGPORT");
+    port_text := environment_variable("PGPORT");
     if port_text {
         port, valid := string_to_int(port_text);
         assert(valid, "bad PGPORT");
         config.port = cast(u16) port;
     }
 
-    config.user = environment("PGUSER");
+    config.user = environment_variable("PGUSER");
     if !config.user config.user = "postgres";
 
     config.database = "postgres";

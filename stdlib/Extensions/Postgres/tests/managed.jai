@@ -3,6 +3,7 @@
 // starts a server, queries it, stops it, and starts it again on the same data folder.
 #import "Basic";
 #import "String";
+#import "Extensions/Environment";
 #import "POSIX";
 Io :: #import "Extensions/Io";
 Pg :: #import "Extensions/Postgres";
@@ -10,7 +11,7 @@ Pg :: #import "Extensions/Postgres";
 main :: () {
     test_logic();
 
-    if to_string(getenv("JAI_PG_TEST_MANAGED")) == "1" {
+    if environment_variable("JAI_PG_TEST_MANAGED") == "1" {
         Io.io_run(() {
             test_real();
         });

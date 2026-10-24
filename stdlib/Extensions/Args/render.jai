@@ -52,9 +52,9 @@ Stream :: enum u8 {
 color_enabled :: (stream: Stream) -> bool {
     if color_mode == .ALWAYS return true;
     if color_mode == .NEVER return false;
-    if environment_set("NO_COLOR") return false;
+    if Env.has_environment_variable("NO_COLOR") return false;
     if forced("FORCE_COLOR") || forced("CLICOLOR_FORCE") return true;
-    if environment_value("TERM") == "dumb" return false;
+    if Env.environment_variable("TERM") == "dumb" return false;
 
     return is_terminal(stream);
 }

@@ -16,17 +16,10 @@ Typed_Files :: #import "File_Utilities";
 Io :: #import "Extensions/Io";
 Json :: #import "Extensions/Json";
 Pg :: #import "Extensions/Postgres";
+#import "Extensions/Environment";
 
 libc :: #system_library "libc";
-getenv :: (name: *u8) -> *u8 #foreign libc;
 system :: (command: *u8) -> s32 #foreign libc;
-
-environment :: (name: string) -> string {
-    value := getenv(temp_c_string(name));
-    if !value return "";
-
-    return to_string(value);
-}
 
 Options :: struct {
     command: string;
@@ -100,8 +93,8 @@ work :: () {
         }
     }
 
-    url := environment("JACKET_DATABASE_URL");
-    if !url url = environment("DATABASE_URL");
+    url := environment_variable("JACKET_DATABASE_URL");
+    if !url url = environment_variable("DATABASE_URL");
 
     if !url {
         problem("set DATABASE_URL (or JACKET_DATABASE_URL) to describe the queries");

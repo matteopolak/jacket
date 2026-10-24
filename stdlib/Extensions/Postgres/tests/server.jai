@@ -6,6 +6,7 @@
 Io :: #import "Extensions/Io";
 Pg :: #import "Extensions/Postgres";
 #import "Extensions/Json";
+#import "Extensions/Environment";
 
 FIXTURES :: #run join(#filepath, "../../Tls/tests/fixtures/");
 
@@ -13,7 +14,7 @@ port: u16;
 socket_dir: string;
 
 main :: () {
-    port_text := environment("JAI_PG_TEST_PORT");
+    port_text := environment_variable("JAI_PG_TEST_PORT");
     if !port_text {
         print("skipped: set JAI_PG_TEST_PORT (see tests/start_server.sh)\n");
         return;
@@ -23,7 +24,7 @@ main :: () {
 
     assert(valid, "bad JAI_PG_TEST_PORT");
     port = cast(u16) value;
-    socket_dir = environment("JAI_PG_TEST_SOCKET_DIR");
+    socket_dir = environment_variable("JAI_PG_TEST_SOCKET_DIR");
 
     Io.io_run(() {
         step("test_authentication");
@@ -73,7 +74,7 @@ main :: () {
 }
 
 step :: (name: string) {
-    if environment("JAI_PG_TEST_VERBOSE") print("%\n", name);
+    if environment_variable("JAI_PG_TEST_VERBOSE") print("%\n", name);
 }
 
 config_for :: (user: string, password := "") -> Pg.Config {
@@ -1475,19 +1476,4 @@ test_protocol_versions :: () {
     error := connect_fails(config, .CONFIG);
 
     Pg.free_error(*error);
-}
-
-#if OS == .WINDOWS {
-    environment :: (name: string) -> string {
-        return "";
-    }
-} else {
-    libc :: #system_library "libc";
-    getenv :: (name: *u8) -> *u8 #foreign libc;
-
-    environment :: (name: string) -> string {
-        value := getenv(temp_c_string(name));
-        if !value return "";
-        return to_string(value);
-    }
 }

@@ -5,6 +5,7 @@
 Io :: #import "Extensions/Io";
 Pg :: #import "Extensions/Postgres";
 #import "Extensions/Json";
+#import "Extensions/Environment";
 
 Settings :: struct {
     theme: string;
@@ -30,7 +31,7 @@ check :: (ok: bool, what: string) {
 
 main :: () {
     Io.io_run(() {
-        config, error := Pg.parse_url(environment("DATABASE_URL"));
+        config, error := Pg.parse_url(environment_variable("DATABASE_URL"));
 
         assert(error.kind == .NONE);
         db:, error = Pg.connect(config);
@@ -227,14 +228,4 @@ test_json_and_arrays :: (db: *Pg.Connection) {
     typed, typed_error := Pg.query_one(db, "select settings as \"settings!: Json(Json_Value)\" from users where id = 1");
 
     check(typed_error.kind == .NONE && typed.settings.value.kind == .OBJECT, "Json(T) override");
-}
-
-libc :: #system_library "libc";
-getenv :: (name: *u8) -> *u8 #foreign libc;
-
-environment :: (name: string) -> string {
-    value := getenv(temp_c_string(name));
-    if !value return "";
-
-    return to_string(value);
 }

@@ -18,8 +18,8 @@ AUTH_SASL_FINAL :: 12;
 
 open :: (c: *Connection, config: Config) -> Pg_Error {
     user := config.user;
-    if !user user = environment("USER");
-    if !user user = environment("USERNAME");
+    if !user user = environment_variable("USER");
+    if !user user = environment_variable("USERNAME");
     if !user return make_error(.CONFIG, "no user name: set Config.user");
 
     database := ifx config.database then config.database else user;
@@ -427,27 +427,6 @@ auth_error :: (c: *Connection, what: string) -> Pg_Error {
 contains_zero :: (text: string) -> bool {
     for text if it == 0 return true;
     return false;
-}
-
-#if OS == .WINDOWS {
-    kernel32_pg :: #system_library "kernel32";
-    GetEnvironmentVariableA :: (name: *u8, buffer: *u8, size: u32) -> u32 #foreign kernel32_pg;
-
-    environment :: (name: string) -> string {
-        buffer: [512] u8;
-        count := GetEnvironmentVariableA(temp_c_string(name), buffer.data, buffer.count);
-        if count == 0 || count >= buffer.count return "";
-        return copy_string(string.{ count, buffer.data },, temp);
-    }
-} else {
-    libc_pg :: #system_library "libc";
-    getenv_pg :: (name: *u8) -> *u8 #foreign libc_pg "getenv";
-
-    environment :: (name: string) -> string {
-        value := getenv_pg(temp_c_string(name));
-        if !value return "";
-        return copy_string(to_string(value),, temp);
-    }
 }
 
 #scope_export

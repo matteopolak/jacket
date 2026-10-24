@@ -376,7 +376,7 @@ conninfo_value :: (info: Conninfo, keyword: string, use_environment: bool) -> st
     index := conninfo_index(keyword);
     if index < 0 || !CONNINFO_ENVIRONMENT[index] return "";
 
-    return environment(CONNINFO_ENVIRONMENT[index]);
+    return environment_variable(CONNINFO_ENVIRONMENT[index]);
 }
 
 // The environment variable libpq reads for each of CONNINFO_KEYWORDS, empty where it has none.
