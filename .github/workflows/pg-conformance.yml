@@ -11,7 +11,7 @@ name: postgres conformance
 # installed server) on Linux, macOS and Windows.
 on:
   push:
-    branches: [main]
+    branches: [main, claude/pg-orm-design-e49892]
     paths:
       - stdlib/Extensions/Postgres/**
       - stdlib/Extensions/Io/**
