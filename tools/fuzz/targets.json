@@ -26,5 +26,10 @@
   "Crc": {
     "deny": [],
     "known": {}
+  },
+  "Extensions/Postgres": {
+    "deny": [],
+    "hooks": "properties/Postgres.jai",
+    "known": {}
   }
 }

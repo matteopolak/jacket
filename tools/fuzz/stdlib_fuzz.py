@@ -119,7 +119,7 @@ class Runner:
         hooks = settings.get('hooks')
         hooks_path = str((ROOT / 'tools/fuzz' / hooks).resolve()) if hooks else ''
         names = '\n'.join(module_names(module))
-        wrapper = self.scratch / f'discover-{module}.jai'
+        wrapper = self.scratch / f'discover-{file_stem(module)}.jai'
         wrapper.write_text('\n'.join([
             f'MODULE :: "{module}";',
             f'NAMES :: #string END\n{names}\nEND;',
@@ -139,7 +139,7 @@ class Runner:
             return None, []
         skipped = [line[5:] for line in out.splitlines() if line.startswith('SKIP ')]
         body = out.split('HARNESS BEGIN\n', 1)[1].split('HARNESS END', 1)[0]
-        harness = self.scratch / f'harness-{module}.jai'
+        harness = self.scratch / f'harness-{file_stem(module)}.jai'
         harness.write_text('ENGINE_BUILD :: false;\n' + body)
         return harness, skipped
 
@@ -173,6 +173,11 @@ class Runner:
         if code != 0:
             raise HarnessError(f'cannot list {harness}:\n{err}', err)
         return [line for line in out.splitlines() if line]
+
+
+def file_stem(module: str) -> str:
+    """A module path as one file name: `Extensions/Postgres` becomes `Extensions-Postgres`."""
+    return module.replace('/', '-')
 
 
 def module_names(module: str) -> list[str]:
@@ -289,9 +294,9 @@ def engine_signature(stderr: str) -> str:
 
 def build_engine(runner: Runner, module: str, harness: Path, opt: str) -> Path | None:
     """Compile the harness with coverage instrumentation and the libFuzzer engine, ASan on."""
-    source = runner.scratch / f'engine-{module}.jai'
+    source = runner.scratch / f'engine-{file_stem(module)}.jai'
     source.write_text(harness.read_text().replace('ENGINE_BUILD :: false;', 'ENGINE_BUILD :: true;', 1))
-    binary = runner.scratch / f'engine-{module}'
+    binary = runner.scratch / f'engine-{file_stem(module)}'
     command = runner.jaic_command(f'-{opt}', source) + ['-sanitize', 'address,fuzzer', '-exe', str(binary)]
     code, out, err = runner.run(command, timeout=600)
     if code != 0:

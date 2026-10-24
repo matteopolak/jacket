@@ -65,16 +65,34 @@ Allocations live in `Rng.live` and are freed by `case_end` after each call. Not 
 | `hooks` | property file, relative to `tools/fuzz/` |
 | `known` | `{ "proc": ["text of a signature"] }`: expected precondition failures, reported as `known` and not as new findings |
 
+A module path with a slash (`Extensions/Postgres`) names its scratch files with dashes (`harness-Extensions-Postgres.jai`).
+
 Only add modules whose procedures are pure computation over their arguments. Skip anything with side effects: files, network, processes, allocator or `context` mutation, global state (random seeding, `set_*`, `init_*`). The module's exports come from the names declared in its `module.jai` (`probe_<name> :: Target.<name>;` makes the compiler typecheck each). `Fuzz` never inspects bodies, so this is a review decision per module, recorded as `deny` or by leaving the module out of `targets.json`.
+
+## Postgres client
+
+`Extensions/Postgres` has no generated cases: its exports need a connection. `properties/Postgres.jai` builds one whose `Io.Reader` serves the case's bytes as the server's reply (in pieces of 1 to 8 bytes, or 16 KiB) and whose `Io.Writer` keeps what the client sends, so the real message reader, decoders and COPY code run without a server. Every call runs inside `Io.io_run`. The hooks:
+
+| Hook | Property |
+|---|---|
+| `fuzz_pg_reply_random_bytes` | any bytes as the reply to `query_dynamic` / `query_binary`: a result or an error |
+| `fuzz_pg_reply_cut_short` | a well-formed reply cut anywhere: an error, never a hang |
+| `fuzz_pg_reply_mutated` | a reply with bytes changed, inserted and dropped, and notices, notifications and parameter changes mixed in |
+| `fuzz_pg_decode_value` | one value of any bytes as a column of any type, text or binary, read with every type `get` takes |
+| `fuzz_pg_round_trip_scalars` / `_arrays` | a value sent as a parameter, answered with the bytes the client sent (same type OID and format), reads back as itself |
+| `fuzz_pg_copy_out_random` / `_fields` | binary COPY data into a struct: random bytes, then a valid header with random fields |
+| `fuzz_pg_copy_round_trip` | rows written with `copy_in` come back the same through `copy_out` |
+
+The fiber has temporary storage of its own, freed when it ends: a hook that hands values back copies them into the caller's with `in_caller_temp`.
 
 ## Coverage-guided mode
 
-`--engine` builds `engine-<Module>` with `jaic -O0 -sanitize address,fuzzer` ([sanitizers](../native/sanitizers.md)): SanitizerCoverage edge counters, a PC table and traced comparisons, ASan, and libFuzzer's engine without its `main`. The harness `main` (`ENGINE_BUILD :: true`) calls `run_engine`, which passes libFuzzer its arguments and `engine_input` as the callback through `LLVMFuzzerRunDriver`; `engine_input` is `#c_call`, so it enters a fresh context, points the `Rng` at the input and runs one case. A Jai runtime error ends the process, which libFuzzer reports as a crash.
+`--engine` builds `engine-<Module>` with `jaic -O0 -sanitize address,fuzzer` ([sanitizers](../native/sanitizers.md)): SanitizerCoverage edge counters, a PC table and traced comparisons, ASan, and libFuzzer's engine without its `main`. The harness `main` (`ENGINE_BUILD :: true`) calls `run_engine`, which passes libFuzzer its arguments and `engine_input` as the callback through `LLVMFuzzerRunDriver`; `engine_input` is `#c_call`, so it enters a fresh context, points the `Rng` at the input and runs one case. `case_end` frees the case's allocations and resets temporary storage, in both modes. A Jai runtime error ends the process, which libFuzzer reports as a crash.
 
 - Corpus: `fuzz/corpus/stdlib/<Module>/`; crashes, timeouts and OOMs: `fuzz/artifacts/stdlib/<Module>/` (both gitignored). The run uses `-fork=1 -ignore_crashes=1`, so it continues after a crash and the driver reproduces each artifact with `--trace` (prints the case name per input) to attribute and classify it. `--only NAME` fuzzes one procedure; `--time`, `--engine-max-len` (input size bound), `--opt` and `--timeout` tune the run.
 - A finding is the crash file; replay it with `engine-<Module> --trace --only <case> <file>`. Copy it into `fuzz/regressions/stdlib/` with the fix. The report line shows the file, the case and the signature (a Jai runtime error, an ASan report with its top frame, a timeout, OOM).
 - Checked: with the old `find_index_of_any_from_left` the engine finds the out-of-bounds read in seconds (`AddressSanitizer: SEGV in find_index_of_any_from_left bytes.jai:81`).
-- Needs the Homebrew `llvm` (or `libclang-rt` on Linux), found the way the ASan runtime is; see [sanitizers](../native/sanitizers.md). Memory: ASan reserves a lot of virtual space, so run one module at a time on small machines.
+- Needs the Homebrew `llvm` (or `libclang-rt` on Linux), found the way the ASan runtime is; see [sanitizers](../native/sanitizers.md). Memory: ASan reserves a lot of virtual space, so run one module at a time on small machines. A module that links native libraries (Postgres links mbedtls) needs `JAIC_NATIVE_LIBS` somewhere the sandbox can read, such as a copy in the scratch folder.
 
 ## Sandbox
 
@@ -92,6 +110,7 @@ Gotchas: casts check overflow, so generator code must use `cast,trunc`; `#no_abc
 ## Findings so far
 
 - `find_index_from_left` / `find_index_of_any_from_left` (`#no_abc`) read before the string for a negative `start_index` (SIGSEGV/SIGBUS under `jaic -interp`). Fixed by clamping to 0; stored as `fuzz/regressions/stdlib/String.find_index_of_any_from_left.{4,12}.json`, tested in `stdlib/String/tests/basics.jai`.
+- Postgres: a binary array value whose header claims more elements than its bytes hold (up to 2^31 - 1) made the client allocate them all before failing, gigabytes per value. It now checks the count against the bytes first; tested in `tests/fake_server.jai`.
 - `slice` asserts `index >= 0 && count >= 0`: a documented precondition, listed as `known`.
 
 ## Later phases
