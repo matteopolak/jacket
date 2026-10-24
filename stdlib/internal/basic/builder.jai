@@ -28,7 +28,7 @@ init_string_builder :: (using builder: *String_Builder, buffer_size := -1) {
     base.allocated = initial_bytes.count - size_of(String_Builder.Buffer);
     current_buffer = base;
     initialized = true;
-}
+} @Opens
 
 ensure_contiguous_space :: (using builder: *String_Builder, bytes: s64) -> pointer: *void {
     assert(bytes >= 0);
@@ -125,11 +125,11 @@ append :: (using builder: *String_Builder, s: *u8, length: s64) {
 
     memcpy(memory, s, length);
     advance_through_ensured_space(builder, length);
-}
+} @Opens
 
 append :: inline (builder: *String_Builder, s: string) {
     append(builder, s.data, s.count);
-} @AppendsString
+} @AppendsString @Opens
 
 append :: inline (using builder: *String_Builder, byte: u8) {
     if initialized && !failed && current_buffer.allocated > current_buffer.count {
@@ -139,7 +139,7 @@ append :: inline (using builder: *String_Builder, byte: u8) {
     } else {
         append(builder, *byte, 1);
     }
-}
+} @Opens
 
 append_by_pointer :: inline (builder: *String_Builder, pointer: *$T) {
     append(builder, cast(*u8) pointer, size_of(T));
@@ -179,7 +179,7 @@ free_buffers :: (using builder: *String_Builder) {
     current_buffer = null;
     initialized = false;
     failed = false;
-} @FreesArgument
+} @FreesArgument @Closes
 
 reset :: (using builder: *String_Builder) {
     #if ENABLE_ASSERT {
@@ -193,7 +193,7 @@ reset :: (using builder: *String_Builder) {
     init_string_builder(builder, subsequent_buffer_size);
 
     #if ENABLE_ASSERT get_base_buffer(builder).ensured_count = ensured;
-}
+} @Closes
 
 builder_to_string :: (builder: *String_Builder, extra_bytes_to_prepend := 0, do_reset := true) -> string {
     assert(extra_bytes_to_prepend >= 0);
@@ -214,7 +214,7 @@ builder_to_string :: (builder: *String_Builder, extra_bytes_to_prepend := 0, do_
     if do_reset reset(builder);
 
     return result;
-} @Allocates
+} @Allocates @Closes
 
 write_builder :: (using builder: *String_Builder, do_reset := true, to_standard_error := false) -> s64 {
     if failed return 0;
@@ -232,7 +232,7 @@ write_builder :: (using builder: *String_Builder, do_reset := true, to_standard_
     if do_reset reset(builder);
 
     return total;
-} @WritesOutput
+} @WritesOutput @Closes
 
 #scope_file
 grow_builder :: (using builder: *String_Builder, minimum_capacity: s64) -> bool {

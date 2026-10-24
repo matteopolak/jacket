@@ -39,7 +39,7 @@ file_open :: (name: string, for_writing := false, keep_existing_content := false
     if !ok && log_errors context.logger("file_open failed\n", context.logger_data, Log_Info.{ common_flags = .ERROR });
 
     return file, ok;
-}
+} @Opens
 
 is_valid :: (file: File) -> bool {
     return file.handle != null && file.handle != W.INVALID_HANDLE_VALUE;
@@ -54,7 +54,7 @@ file_close :: (file: *File) {
     }
 
     file.handle = W.INVALID_HANDLE_VALUE;
-} @FreesArgument
+} @FreesArgument @Closes
 
 file_read :: (f: File, vdata: *void, bytes_to_read: s64) -> (success: bool, total_read: s64) {
     if !is_valid(f) || !vdata || bytes_to_read <= 0 return false, 0;

@@ -888,6 +888,16 @@
           "default": "allow",
           "markdownDescription": "`#no_abc`, `#no_aoc` or `#asm` with no comment saying why (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unchecked_directive)"
         },
+        "unclosed_resource": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "warn",
+          "markdownDescription": "a local opened by an `@Opens` call (`file_open`, `append(*builder, ..)`) that nothing closes (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unclosed_resource)"
+        },
         "uninit_read": {
           "type": "string",
           "enum": [

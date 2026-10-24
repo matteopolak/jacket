@@ -27,7 +27,7 @@ file_open :: (name: string, for_writing := false, keep_existing_content := false
     if !handle && log_errors context.logger("file_open failed\n", context.logger_data, Log_Info.{ common_flags = .ERROR });
 
     return File.{ handle }, handle != null;
-}
+} @Opens
 
 file_close :: (file: *File) {
     if file.handle {
@@ -36,7 +36,7 @@ file_close :: (file: *File) {
     }
 
     file.handle = null;
-} @FreesArgument
+} @FreesArgument @Closes
 
 is_valid :: (file: File) -> bool {
     return file.handle != null;

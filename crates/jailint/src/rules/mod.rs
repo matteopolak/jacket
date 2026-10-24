@@ -88,6 +88,7 @@ mod temp_storage_escape;
 mod todo_marker;
 mod too_many_arguments;
 mod unchecked_directive;
+mod unclosed_resource;
 mod uninit_read;
 mod unknown_allow;
 mod unnecessary_force_cast;
@@ -602,6 +603,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Restriction,
         summary: "`#no_abc`, `#no_aoc` or `#asm` with no comment saying why",
         check: unchecked_directive::check,
+    },
+    RuleInfo {
+        name: "unclosed_resource",
+        category: Category::Suspicious,
+        summary: "a local opened by an `@Opens` call (`file_open`, `append(*builder, ..)`) that nothing closes",
+        check: unclosed_resource::check,
     },
     RuleInfo {
         name: "uninit_read",

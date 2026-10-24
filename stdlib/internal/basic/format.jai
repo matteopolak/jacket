@@ -255,7 +255,7 @@ print_to_builder :: (builder: *String_Builder, format_string: string, args: ..An
     }
 
     return !builder.failed;
-} @PrintLike
+} @PrintLike @Opens
 
 my_is_digit :: (c: s64) -> bool {
     return c >= #char "0" && c <= #char "9";

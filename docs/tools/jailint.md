@@ -60,6 +60,8 @@ Several rules decide what a call means from a note on the procedure's declaratio
 | `@Exits` | `exit_in_module` | ends the process (`exit`) |
 | `@PrintLike` | `leaked_temporary` | its `string` parameter is a format string, followed by the values it formats (`print`, `log`, `sprint`, `tprint`) |
 | `@TempAllocates` | `temp_storage_escape` | the result lives in temporary storage, which the program resets (`tprint`, `talloc`, `talloc_string`, `copy_temporary_string`, `temp_c_string`); a procedure with this note is a wrapper whose own `return`s are not checked |
+| `@Opens` | `unclosed_resource` | acquires something that has to be given back: it returns the resource (`file_open`) or starts holding memory in the local its first argument points to (`init_string_builder`, `append`, `print_to_builder`) |
+| `@Closes` | `unclosed_resource` | gives back what `@Opens` acquired from its first argument (`file_close`, `free_buffers`, `reset`, `builder_to_string`, `write_builder`); a `@FreesArgument` procedure closes as well |
 | `@FormatsToString` | `useless_format`, `format_push_string` | its first argument is a format string and the rest are the values; it returns the formatted text as a new string (`sprint`, `tprint`) |
 | `@AppendsString` | `format_push_string` | adds the string in its second argument to the builder in its first (`append(*builder, s)`) |
 
@@ -173,6 +175,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `todo_marker` | restriction | allow | no | `// TODO: handle the empty list` |
 | `too_many_arguments` | restriction | allow | no | `draw :: (x: int, y: int, w: int, h: int, r: u8, g: u8, b: u8, a: u8)` |
 | `unchecked_directive` | restriction | allow | no | `f :: () #no_abc { ... }` or `#asm { ... }` with no `//` comment on the line or the line above |
+| `unclosed_resource` | suspicious | warn | no | `builder: String_Builder; append(*builder, "x");` or `file, ok := file_open(p);` with nothing that closes it |
 | `uninit_read` | correctness | deny | editor | `total: int = ---; for xs total += it;`: a variable read before anything is written to it |
 | `unknown_allow` | suspicious | warn | editor | a `// jailint: allow(...)` comment naming a rule that does not exist |
 | `unnecessary_force_cast` | complexity | warn | yes | `cast,force(s64) a` with `a: s32`: nothing is reinterpreted and there is no range to check |
@@ -362,6 +365,8 @@ A marker is `TODO`, `FIXME`, `XXX` or `HACK` in capitals, standing alone (`TODO:
 Every parameter counts, defaulted, baked (`$T`) and variadic ones included. A procedure with more than `[lint] max_arguments` (default 7) is reported on its name, with its count. Group parameters that belong together in a struct. `#c_call` and foreign procedures, whose signature C fixes, and generated files are skipped. No fix. Off by default.
 ### unchecked_directive
 Each `#no_abc`, `#no_aoc` and `#asm` needs a comment on its own line or the line just above. These take away bounds and overflow checks or leave the language, so the reason belongs next to them. Generated files are skipped. No fix: the reason is the author's to write.
+### unclosed_resource
+A local that an `@Opens` call acquired something for, and that nothing closes. The opener is either assigned (`file, ok := file_open(path);`: the first name is the resource) or a statement on the address of a local declared in the procedure (`append(*builder, s);`, `init_string_builder(*builder);`). It fires when, afterwards, every mention of the local is another `@Opens` call, a comparison, a test in an `if` or `while`, or a number, bool or enum member read or written. Passing the local (or its address) to any other call, `defer`red or not, returning it, assigning it elsewhere, putting it in a literal, or a mention the scan cannot follow (a nested procedure, a code block) counts as closing or handing it on and keeps the rule quiet. It does not check that every path closes. `builder_to_string` and `write_builder` close a builder because they reset it unless `do_reset` is false. No fix.
 ### uninit_read
 The first mention after the declaration, in the same block, decides; a write anywhere (even inside an `if`) ends the check, so only straight-line reads are reported. Taking the address (`init(*x)`, `for *x`), `.data`/`.count` of a fixed-size array and compiler built-ins (`type_of(x)`) are not reads. Procedures with `using` are skipped. The editor offers to drop the `= ---` so the variable starts out zeroed.
 ### unknown_allow
