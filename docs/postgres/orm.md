@@ -79,6 +79,7 @@ Two more reads are cut down the same way:
 
   It decodes into a generated struct with only the read fields, which keep their notes and initial values, so `@json(default)`, renames and `Json_Maybe`'s missing-versus-null behave as on the full struct. A key the document lacks stays missing. A non-null column skips the `case`, so the describe step still sees it as non-null. Any other use of the column (the whole document, `.write`, a deeper value than one field) fetches it whole.
 - **Through a to-one relation.** `it.author.email` in the body (for a `@pg_belongs_to` relation `author`) adds the filter's scalar subquery to the select list as `"orm__author__email"`. `it` is then an `Orm_Item`: a struct that `using`s `T` (as `it.orm_row`) and has one member per relation read, holding the fields read (`it.author.email`). A missing related row leaves them zero. Pass `it.orm_row` where a `T` is wanted. One level only: `it.author.team.name` is not read this way (use `load_one`).
+- **Through a has-many relation.** `for post: it.posts` (or `it.posts.count`) for a `@pg_has_many` relation `posts` selects the relation's key columns, reads every row first, and then loads the related rows for all of them with one more query, as `load_many` does (`orm_load_many_as`). `it.posts` is a `[] Post` member of `Orm_Item`. The related rows are freed with the loop's result.
 
 The query runs when the loop starts; a failure goes to `error` and the body never runs. The result is freed when the loop ends, so strings read from `it` must be copied to outlive it.
 

@@ -124,6 +124,11 @@ load_one :: (db: $D, parents: [] $T, $relation: string, $call := #caller_code) -
     #insert #run orm_load_code(T, relation, .BELONGS_TO);
 }
 
+// `load_many` with the related struct given, for `Pg.each`, whose loop knows it already.
+orm_load_many_as :: (db: $D, parents: [] $T, $relation: string, $Target: Type) -> Loaded_Many(Target), Pg_Error {
+    #insert #run orm_load_code(T, relation, .HAS_MANY, "Target");
+}
+
 free_loaded :: (loaded: *Loaded_Many($Item)) {
     array_free(loaded.items);
     array_free(loaded.rows);
@@ -497,7 +502,7 @@ orm_key_part :: (builder: *String_Builder, value: $V) {
 // The body of `load_many` and `load_one`: collect the keys, run one query, and hand each row to
 // the parents whose key it carries. A key on one column is that column's value; on several, a
 // string made of the parts. A parent or row with a null part has no key and matches nothing.
-orm_load_code :: (T: Type, name: string, kind: Orm_Relation_Kind) -> string {
+orm_load_code :: (T: Type, name: string, kind: Orm_Relation_Kind, target := "") -> string {
     relation, problem := orm_relation(T, name);
     if problem || relation.kind != kind || relation.own_columns.count != relation.target_columns.count return "";
 
@@ -519,7 +524,7 @@ orm_load_code :: (T: Type, name: string, kind: Orm_Relation_Kind) -> string {
     builder: String_Builder;
     builder.allocator = temp;
 
-    print_to_builder(*builder, "Orm_Target :: %;\n", orm_insert_text(relation.target));
+    print_to_builder(*builder, "Orm_Target :: %;\n", ifx target then target else orm_insert_text(relation.target));
 
     for relation.own_columns print_to_builder(*builder, "Orm_K% :: #run orm_value_type(type_of(parents[0].%));\n", it_index, it);
 
@@ -1468,9 +1473,16 @@ orm_build :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, d
             append(*sql.builder, "select ");
 
             if columns {
+                written := 0;
+
                 for split(columns, ",",, temp) {
-                    if it_index append(*sql.builder, ", ");
-                    orm_read_column(*sql, orm_read_entry(it));
+                    entry := orm_read_entry(it);
+                    if entry.many continue; // loaded after the query
+
+                    if written append(*sql.builder, ", ");
+
+                    orm_read_column(*sql, entry);
+                    written += 1;
                 }
             } else {
                 for orm_columns(T) {
@@ -1730,12 +1742,18 @@ orm_each_code :: (T: Type, where: Code, order_by: Code, desc: bool, limit: s64, 
     copies.allocator = temp;
     relations: [..] string;
     relations.allocator = temp;
+    many: [..] int; // the entries of has-many relations
+    many.allocator = temp;
 
     // Declarations first: each pruned document's struct and each related field's type.
     for text, index: entries {
         entry := orm_read_entry(text);
 
-        if entry.relation {
+        if entry.many {
+            relation := orm_relation(T, entry.name);
+            print_to_builder(*builder, "Orm_M% :: %;\n", index, orm_insert_text(relation.target));
+            array_add(*many, index);
+        } else if entry.relation {
             relation_index := array_find_index(sql.relation_names, orm_relation_target_name(T, entry.relation));
             print_to_builder(*builder, "Orm_F% :: #run orm_member_type(Orm_R%, %);\n", index, relation_index, jai_string(entry.name));
             array_add_if_unique(*relations, entry.relation);
@@ -1758,6 +1776,8 @@ orm_each_code :: (T: Type, where: Code, order_by: Code, desc: bool, limit: s64, 
 
         for entries {
             entry := orm_read_entry(it);
+
+            if entry.many continue;
 
             if entry.relation {
                 print_to_builder(*builder, "    #if orm_is_nullable(Orm_F%) %: Orm_F%; else %: Nullable(Orm_F%);\n", it_index, orm_relation_alias(entry), it_index, orm_relation_alias(entry), it_index);
@@ -1783,15 +1803,18 @@ orm_each_code :: (T: Type, where: Code, order_by: Code, desc: bool, limit: s64, 
         append(*builder, "}\n");
     }
 
-    if relations {
+    if relations || many {
         append(*builder, "Orm_Item :: struct {\n    using orm_row: T;\n");
         for relations print_to_builder(*builder, "    %: Orm_Related_%;\n", it, it);
+        for many print_to_builder(*builder, "    %: [] Orm_M%;\n", orm_read_entry(entries[it]).name, it);
         append(*builder, "}\n");
     }
 
     for entries {
         entry := orm_read_entry(it);
         alias := orm_relation_alias(entry);
+
+        if entry.many continue;
 
         if entry.relation {
             print_to_builder(*copies, "        #if orm_is_nullable(Orm_F%) it.%.% = orm_partial.%; else it.%.% = orm_partial.%.value;\n", it_index, entry.relation, entry.name, alias, entry.relation, entry.name, alias);
@@ -1816,29 +1839,55 @@ orm_each_code :: (T: Type, where: Code, order_by: Code, desc: bool, limit: s64, 
 
     append(*builder, ");\n");
 
+    item_type := ifx relations || many then "Orm_Item" else "T";
+
+    // Reads row `it_index` into `it`, or breaks out of the enclosing loop.
+    read: String_Builder;
+    read.allocator = temp;
+
+    print_to_builder(*read, "        `it: %;\n", item_type);
+
+    if columns {
+        append(*read, "        orm_partial: Orm_Partial;\n        orm_read := read_row(*orm_rows, it_index, *orm_partial);\n");
+    } else {
+        append(*read, "        orm_read := read_row(*orm_rows, it_index, *it);\n");
+    }
+
+    append(*read, "        if orm_read.kind != .NONE {\n            if q.error q.error.* = orm_read;\n            orm_failed = true;\n            break;\n        }\n");
+
+    if columns append(*read, builder_to_string(*copies));
+
     append(*builder, #string JAI
 if orm_error.kind != .NONE {
     if q.error q.error.* = orm_error;
 } else {
     defer free_rows(*orm_rows);
-
-    for `it_index: 0..orm_rows.result.row_count - 1 {
+    orm_failed := false;
 JAI);
 
-    print_to_builder(*builder, "        `it: %;\n", ifx relations then "Orm_Item" else "T");
+    if many {
+        // Every row first, so each has-many relation loads in one query for all of them.
+        append(*builder, "    orm_items := NewArray(orm_rows.result.row_count, Orm_Item);\n    defer array_free(orm_items);\n");
+        append(*builder, "    for it_index: 0..orm_rows.result.row_count - 1 {\n");
+        append(*builder, replace(builder_to_string(*read), "`", "",, temp));
+        append(*builder, "        orm_items[it_index] = it;\n    }\n");
+        append(*builder, "    orm_parents := NewArray(orm_items.count, T,, temp);\n    for orm_items orm_parents[it_index] = it.orm_row;\n");
 
-    if columns {
-        append(*builder, "        orm_partial: Orm_Partial;\n        orm_read := read_row(*orm_rows, it_index, *orm_partial);\n");
-        append(*builder, builder_to_string(*copies));
+        for many {
+            name := orm_read_entry(entries[it]).name;
+            print_to_builder(*builder, "    orm_many_%1: Loaded_Many(Orm_M%2);\n    defer free_loaded(*orm_many_%1);\n", it, it);
+            print_to_builder(*builder, "    if !orm_failed {\n        orm_load_error: Pg_Error;\n        orm_many_%1, orm_load_error = orm_load_many_as(q.db, orm_parents, %2, Orm_M%1);\n", it, jai_string(name));
+            append(*builder, "        if orm_load_error.kind != .NONE {\n            if q.error q.error.* = orm_load_error;\n            orm_failed = true;\n        }\n    }\n");
+        }
+
+        append(*builder, "    if !orm_failed for `it_index: 0..orm_items.count - 1 {\n        `it := orm_items[it_index];\n");
+        for many print_to_builder(*builder, "        it.% = orm_many_%.items[it_index];\n", orm_read_entry(entries[it]).name, it);
     } else {
-        append(*builder, "        orm_read := read_row(*orm_rows, it_index, *it);\n");
+        append(*builder, "    for `it_index: 0..orm_rows.result.row_count - 1 {\n");
+        append(*builder, builder_to_string(*read));
     }
 
     append(*builder, #string JAI
-        if orm_read.kind != .NONE {
-            if q.error q.error.* = orm_read;
-            break;
-        }
 
         #insert body;
     }
@@ -1854,6 +1903,7 @@ Orm_Read_Entry :: struct {
     name: string; // the column, or the related struct's field
     relation: string;
     pruned: bool;
+    many: bool; // `relation[]`: a has-many relation the body reads whole
     fields: [] string;
 }
 
@@ -1862,7 +1912,10 @@ orm_read_entry :: (text: string) -> Orm_Read_Entry {
     dot := find_index_from_left(text, #char ".");
     colon := find_index_from_left(text, #char ":");
 
-    if dot >= 0 {
+    if ends_with(text, "[]") {
+        entry.name = slice(text, 0, text.count - 2);
+        entry.many = true;
+    } else if dot >= 0 {
         entry.relation = slice(text, 0, dot);
         entry.name = advance(text, dot + 1);
     } else if colon >= 0 {
@@ -1934,6 +1987,22 @@ orm_read_columns :: (T: Type, body: Code) -> string {
             relation, problem := orm_relation(T, path[0]);
             if !problem && relation.kind == .BELONGS_TO && path.count >= 2 {
                 array_add_if_unique(*related, tprint("%.%", path[0], path[1]));
+            }
+
+            // The loop loads the rows after the query, from the parents' key columns.
+            if !problem && relation.kind == .HAS_MANY {
+                array_add_if_unique(*related, tprint("%[]", path[0]));
+
+                for key: relation.own_columns {
+                    found := false;
+                    for reads if it.name == key found = true;
+                    if found continue;
+
+                    read := array_add(*reads);
+                    read.name = key;
+                    read.whole = true;
+                    read.fields.allocator = temp;
+                }
             }
 
             continue;
