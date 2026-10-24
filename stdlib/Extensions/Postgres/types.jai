@@ -72,7 +72,8 @@ Time :: struct {
 
 // `interval`: months, days and microseconds are kept apart, as Postgres keeps them, because a
 // month has no fixed number of days and a day has no fixed number of microseconds across a
-// daylight-saving change.
+// daylight-saving change. From PostgreSQL 17 `infinity` is every field at S32_MAX / S64_MAX and
+// `-infinity` every field at the minimum.
 Interval :: struct {
     months: s32;
     days: s32;

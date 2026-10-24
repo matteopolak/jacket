@@ -79,7 +79,13 @@ types, `Numeric`), `error.jai` (`Pg_Error`, `Sqlstate`), `pipeline.jai` (pipelin
 **Parameters.** Integers, bools and strings go as text with OID 0, so the server infers their type
 from the query (`$1 = 'abc'`, `$2 + 5`). Floats, `[] u8` (bytea), `Uuid`, the date and time
 types and arrays go as binary with their OID, so nothing is lost to formatting. `Numeric` goes
-as its text with the numeric OID. `Nullable(T)` with `null` set sends SQL NULL.
+as its text with the numeric OID (inside an array, in binary form). `Nullable(T)` with `null` set sends SQL NULL.
+Arrays are one-dimensional: a multi-dimensional array is a `.DECODE` error, and a lower bound
+other than 1 is dropped. `bool`, `bytea`, `"char"`, `name`, `oid`, the integer and float types,
+`text`, `bpchar`, `varchar`, `uuid`, `date`, `time`, `timestamp`, `timestamptz`, `interval`,
+`numeric`, `json` and `jsonb` have array forms. On servers from 17, an `interval` of `infinity`
+or `-infinity` reads as every field at its limit. The
+[binary round trip](../postgres/conformance.md) checks all of this against the server.
 
 **Results.** `Result` copies each row's values into one buffer and keeps an offset and length per
 value; `-1` marks NULL. `get(*result, row, column, T)` decodes on demand, in the column's
