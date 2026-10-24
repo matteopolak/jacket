@@ -79,8 +79,14 @@ impl Importer<'_> {
                 untyped,
             } => {
                 let imported = self.ty(ty)?;
-                self.same_layout(ty, imported)?;
-                let value = self.value(value)?;
+                // A bare `long double` is converted to the target's format; inside another
+                // type it has to be the same format (`same_layout`).
+                let value = if let TypeKind::WideFloat(format) = *self.host.ty.types.kind(ty) {
+                    self.wide_value(format, imported, value)?
+                } else {
+                    self.same_layout(ty, imported)?;
+                    self.value(value)?
+                };
                 Ok(Operand::Const {
                     ty: imported,
                     value,
@@ -91,6 +97,31 @@ impl Importer<'_> {
                 "this #run result is a procedure or another compile-time entity of the host \
                  program and cannot be used by the target program",
             ),
+        }
+    }
+
+    /// A `long double` constant of the host's `format` as the target's: the same number in the
+    /// target's format, or a `float64` where the target's `long double` is one.
+    fn wide_value(
+        &mut self,
+        format: crate::wide_float::WideFloat,
+        imported: TypeId,
+        value: Value,
+    ) -> Result<Value> {
+        use crate::wide_float;
+        let Value::Bytes(image) = &value else {
+            return self.fail("a long double #run result is not a constant");
+        };
+        let Ok(bytes) = <wide_float::Bytes>::try_from(image.bytes.as_slice()) else {
+            return self.fail("a long double #run result is not a constant");
+        };
+        match self.target.ty.types.wide_float(imported) {
+            Some(target) => {
+                let mut image = (**image).clone();
+                image.bytes = wide_float::convert(format, target, &bytes).to_vec();
+                Ok(Value::Bytes(Rc::new(image)))
+            }
+            None => Ok(Value::float(wide_float::to_f64(format, &bytes))),
         }
     }
 
@@ -202,6 +233,8 @@ impl Importer<'_> {
             }
             TypeKind::Struct(id) => self.named_struct(host, id)?,
             TypeKind::Enum(id) => self.named_enum(host, id)?,
+            // The host's `long double` is not the target's type: the target's own is meant.
+            TypeKind::WideFloat(_) => self.target.long_double_type(),
             TypeKind::Distinct(_) => {
                 return self.fail(
                     "a #run result of a distinct type cannot be used by the target program yet",
@@ -498,6 +531,11 @@ impl Importer<'_> {
                 },
             )
             | (TypeKind::Pointer(h), TypeKind::Pointer(t)) => self.same_layout(h, t),
+            (TypeKind::WideFloat(h), TypeKind::WideFloat(t)) if h == t => Ok(()),
+            (TypeKind::WideFloat(_), _) | (_, TypeKind::WideFloat(_)) => self.fail(
+                "`long double` has a different format on the host than in the target program; \
+                 return it as a plain value, not inside another type",
+            ),
             _ => Ok(()),
         }
     }

@@ -290,6 +290,13 @@ fn narrow(fmt: WideFloat, b: &Bytes, p: Prec, exp_bits: u32) -> u128 {
     encode_ieee(n, p, exp_bits)
 }
 
+/// The value `b` of format `from`, as the nearest value of format `to`. Exact toward a format
+/// with at least as much precision and range (x87 to binary128), rounded to nearest, ties to
+/// even, otherwise; a NaN becomes the default quiet NaN.
+pub fn convert(from: WideFloat, to: WideFloat, b: &Bytes) -> Bytes {
+    from_num(to, decode(from, b))
+}
+
 pub fn to_f64(fmt: WideFloat, b: &Bytes) -> f64 {
     f64::from_bits(narrow(fmt, b, P64, 11) as u64)
 }

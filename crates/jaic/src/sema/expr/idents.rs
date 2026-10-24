@@ -10,6 +10,16 @@ use crate::sema::{
 use crate::types::{ArrayKind, ProcType, TypeKind};
 
 impl Compiler {
+    /// The program's `long double`: `float64` where the two are the same, else the wide type of
+    /// the target's format. Compile-time code of a cross build is a different compiler with the
+    /// host's format, and its results are converted (`host_import.rs`).
+    pub(in crate::sema) fn long_double_type(&mut self) -> TypeId {
+        match self.options.long_double {
+            Some(fmt) => self.ty.types.intern(TypeKind::WideFloat(fmt)),
+            None => TypeId::F64,
+        }
+    }
+
     /// `#jaic_type name`: a type only jaic has, for the `Extensions/Long_Double` module to export
     /// (`docs/language/long-double.md`). `long_double` is the target C compiler's
     /// `long double`: `float64` where the two are the same, else the wide `Long_Double` type.
@@ -24,10 +34,7 @@ impl Compiler {
             }
         };
         match name {
-            "long_double" => Ok(match self.options.long_double {
-                Some(fmt) => self.ty.types.intern(TypeKind::WideFloat(fmt)),
-                None => TypeId::F64,
-            }),
+            "long_double" => Ok(self.long_double_type()),
             other => err(span, format!("unknown jaic extension type `{other}`")),
         }
     }
