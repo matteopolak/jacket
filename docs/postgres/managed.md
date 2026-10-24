@@ -2,7 +2,7 @@
 
 ## What it is
 
-`stdlib/Extensions/Postgres/managed.jai` starts a private, throwaway PostgreSQL server with no setup: it downloads pinned binaries once, verifies them, caches them per user, creates a cluster and starts it. The compile-time describe service uses it when a project has no `DATABASE_URL` and managed mode is on (the hookup is a separate change; see the design's plan item 6).
+`stdlib/Extensions/Postgres/managed.jai` starts a private, throwaway PostgreSQL server with no setup: it downloads pinned binaries once, verifies them, caches them per user, creates a cluster and starts it. The compile-time describe service uses it when a project has no database URL and managed mode is on (`JACKET_PG_MANAGED=1`; see [Compile-time use](#compile-time-use)).
 
 ```jai
 settings: Pg.Managed_Settings;
@@ -25,19 +25,33 @@ Io.io_run(() { db, pg_error := Pg.connect(server.config); ... });
 
 Defaults: cache `$XDG_CACHE_HOME/jacket/postgres` or `~/.cache/jacket/postgres` (Linux), `~/Library/Caches/jacket/postgres` (macOS), `%LOCALAPPDATA%\jacket\postgres` (Windows); data `<cache>/cluster-<major>`.
 
+## Compile-time use
+
+Typed queries ([typed-queries.md](typed-queries.md)) pick the managed server when there is no `JACKET_DATABASE_URL` or `DATABASE_URL`, `JACKET_PG_OFFLINE` is not set and `JACKET_PG_MANAGED` is set to anything but `0`. The lookup order is unchanged: a good cache entry wins, and only a miss starts the server.
+
+- **Migrations are required.** A managed server starts empty, so the only schema it can have comes from `db/migrations`. The describe service builds the usual `jacket_<hash>` schema database on it. With no migrations, a miss is a compile error that says so; a project that only has hand-run SQL should use `DATABASE_URL`.
+- **Two steps, on purpose.** The first start downloads and unpacks about 30 MB, which can take longer than the 30 s a service request gets. The compiler side therefore calls `prepare_managed` (download, `initdb`) once per compile, in the build itself, and the describe service only calls `start_managed`, which is quick once that has run. If the preparation fails, the query reports why (the editor stays silent, as for an unreachable database).
+- **The service owns the server.** It starts it on the first request that needs it, keeps the URL for the life of the service process and reuses the server across requests. If the connection fails, it starts (or finds) the server again on the next request. It does not stop the server when it exits: the next build finds it running, which is why it is quick. Stop it by hand with `pg_ctl stop -D <cache>/cluster-<major>` from the cached `bin` folder.
+
 ## How to change it
 
 - **Pinned releases.** `MANAGED_ARCHIVES` holds the latest release of each supported major: 15.19.1, 16.15.1, 17.11.1 (the default, `MANAGED_VERSION`) and 18.6.1; select one with `Managed_Settings.version`. 15.19.1 has no `aarch64-pc-windows-msvc` asset upstream, so that row is absent. Each digest was taken from the `.sha256` file and matched against the GitHub API digest. Each major gets its own default cluster folder.
 - **Bump the pinned version.** In the release listing, take the new tag (the asset names are `postgresql-<version>-<triple>.tar.gz`, tag equals version). For each triple get the digest from `<asset>.sha256` and confirm it against the digest the GitHub API reports for the asset (`gh api repos/theseus-rs/postgresql-binaries/releases/tags/<tag> --jq '.assets[] | [.name,.digest]'`). Replace the rows in `MANAGED_ARCHIVES` and `MANAGED_VERSION`. Keep old rows only if they should stay selectable through `Managed_Settings.version`. Run `tests/managed.jai` with `JAI_PG_TEST_MANAGED=1`, and update the major-version check in `check_server` for a new major. A new major needs a new cluster: the default data folder name includes it.
 - **Add a platform.** Add it to `managed_triple_for` and a row per release in `MANAGED_ARCHIVES`.
 - **Change the server settings.** Edit `managed_conf` (or pass `extra_conf`). Existing clusters pick it up on the next start because `jacket.conf` is rewritten.
-- Gotchas: a data folder with `PG_VERSION` but no `.jacket-managed` marker is refused (it is either someone's cluster or an interrupted `initdb`; delete it). Starting the same data folder from two processes at once is not safe; the describe service is meant to be its single owner. The Windows path is written to the same contract but has not been run.
+- Gotchas: a data folder with `PG_VERSION` but no `.jacket-managed` marker is refused (it is either someone's cluster or an interrupted `initdb`; delete it). `prepare_managed` and `start_managed` take a lock folder, `<data_dir>.lock` (an atomic `mkdir` holding a `pid` file), so two compiles racing on the same data folder take turns; the second finds the server running and reuses it. A lock whose process has died is removed (not detected on Windows, where a stuck lock gives up after 10 minutes and names the folder to delete). The Windows path is written to the same contract but has not been run.
 
 ## Configuration
 
 `Managed_Settings`: `version`, `cache_dir`, `data_dir`, `socket_dir`, `port`, `timeout_seconds`, `extra_conf`. Environment read for the default cache folder: `XDG_CACHE_HOME`, `HOME` (`USERPROFILE` and `LOCALAPPDATA` on Windows). Constants: `MANAGED_VERSION`, `MANAGED_ARCHIVES`, `MANAGED_RELEASE_URL`.
 
-Test: `stdlib/Extensions/Postgres/tests/managed.jai` runs the pure checks by default. `JAI_PG_TEST_MANAGED=1` downloads into a temporary cache, starts a server on port 54339, runs `select version()`, checks reuse and restart, and removes everything.
+Compile-time environment (`managed_settings_from_environment`):
+
+- `JACKET_PG_MANAGED=1`: turn managed mode on. There is no `jacket.toml` setting; the module does not read that file beyond using it to find the project root.
+- `JACKET_PG_MANAGED_VERSION`: a pinned release from `MANAGED_ARCHIVES`, such as `16.15.1`, to match production's major version.
+- `JACKET_PG_MANAGED_CACHE`: the cache folder (binaries and cluster) instead of the per-user default.
+
+Tests: `stdlib/Extensions/Postgres/tests/managed.jai` runs the pure checks by default. `JAI_PG_TEST_MANAGED=1` downloads into a temporary cache, starts a server on port 54339, runs `select version()`, checks reuse and restart, and removes everything. `tests/typed/run.sh` with `JAI_PG_TEST_MANAGED=1` also builds `queries.jai` in managed mode with no database URL (`JAI_PG_TEST_MANAGED_CACHE` reuses an already downloaded cache).
 
 ## Dependencies
 

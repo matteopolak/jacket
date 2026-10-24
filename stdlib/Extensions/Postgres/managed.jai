@@ -33,6 +33,20 @@ Managed_Settings :: struct {
     extra_conf: string;
 }
 
+// The settings the compile-time describe service uses: the defaults, with `JACKET_PG_MANAGED_VERSION`
+// (a pinned release such as "16.15.1") and `JACKET_PG_MANAGED_CACHE` (the cache folder) applied.
+managed_settings_from_environment :: () -> Managed_Settings {
+    settings: Managed_Settings;
+
+    version := environment_variable("JACKET_PG_MANAGED_VERSION");
+
+    if version settings.version = version;
+
+    settings.cache_dir = environment_variable("JACKET_PG_MANAGED_CACHE");
+
+    return settings;
+}
+
 Managed_Server :: struct {
     config: Config; // connect with this; user `postgres`, database `postgres`, no password
     url: string; // the same as a `postgresql://` URL
@@ -234,45 +248,92 @@ ensure_binaries :: (settings: Managed_Settings) -> bin_dir: string, error: strin
 // returned `config` connects as `postgres`.
 //
 // The cluster uses `fsync = off`, `synchronous_commit = off` and `full_page_writes = off`: it is
-// for throwaway data and loses it on a crash. Starting the same data folder from two processes
-// at the same moment is not safe.
+// for throwaway data and loses it on a crash. Two processes starting the same data folder take
+// turns on a lock folder next to it (`<data_dir>.lock`): the second waits for the first, then
+// finds the server running and reuses it. A lock whose owner has died is taken over.
 start_managed :: (settings: Managed_Settings) -> Managed_Server, error: string {
+    data := managed_data_dir(settings);
+    if !data return .{}, "no cache folder: set HOME (or Managed_Settings.cache_dir or data_dir)";
+
+    lock, lock_error := acquire_managed_lock(data);
+    if lock_error return .{}, lock_error;
+
+    defer release_managed_lock(lock);
+
+    return start_managed_locked(settings);
+}
+
+// The cluster's folder: the setting, else `<cache>/cluster-<major version>`.
+managed_data_dir :: (settings: Managed_Settings) -> string {
+    if settings.data_dir return settings.data_dir;
+
+    cache := settings.cache_dir;
+    if !cache cache = managed_cache_dir();
+    if !cache return "";
+
+    return sprint("%/cluster-%", cache, managed_major(settings.version));
+}
+
+// Everything `start_managed` does before starting the server: the download, and the cluster.
+// These are the slow parts (seconds to tens of seconds, the first time only), so code with a
+// time limit on its requests calls this first, somewhere without one, and `start_managed` is
+// then quick. Safe to call again and from several processes; it returns an error text.
+prepare_managed :: (settings: Managed_Settings) -> error: string {
+    data := managed_data_dir(settings);
+    if !data return "no cache folder: set HOME (or Managed_Settings.cache_dir or data_dir)";
+
+    lock, lock_error := acquire_managed_lock(data);
+    if lock_error return lock_error;
+
+    defer release_managed_lock(lock);
+
+    _, error := prepare_managed_locked(settings);
+
+    return error;
+}
+
+prepare_managed_locked :: (settings: Managed_Settings) -> bin: string, error: string {
     bin, error := ensure_binaries(settings);
-    if error return .{}, error;
+    if error return "", error;
 
-    server: Managed_Server;
-    server.bin_dir = bin;
-    server.data_dir = settings.data_dir;
-    if !server.data_dir {
-        cache := settings.cache_dir;
-        if !cache cache = managed_cache_dir();
-        server.data_dir = sprint("%/cluster-%", cache, managed_major(settings.version));
-    }
-
-    data := server.data_dir;
-    if managed_has_quote(data) return .{}, sprint("the data folder must not contain a single quote: %", data);
+    data := managed_data_dir(settings);
+    if managed_has_quote(data) return "", sprint("the data folder must not contain a single quote: %", data);
 
     marker := sprint("%/.jacket-managed", data);
     if !file_exists_managed(marker) {
         if file_exists_managed(sprint("%/PG_VERSION", data)) {
-            return .{}, sprint("% holds a PostgreSQL cluster that managed mode did not create (or an initdb that did not finish); remove it or pick another data_dir", data);
+            return "", sprint("% holds a PostgreSQL cluster that managed mode did not create (or an initdb that did not finish); remove it or pick another data_dir", data);
         }
 
-        if !make_directory_if_it_does_not_exist(data, true) return .{}, sprint("cannot create %", data);
+        if !make_directory_if_it_does_not_exist(data, true) return "", sprint("cannot create %", data);
 
         ok, text := managed_run(managed_tool(bin, "initdb"), "-D", data, "-U", "postgres", "--auth=trust", "-E", "UTF8", "--locale=C", "--no-sync");
-        if !ok return .{}, sprint("initdb failed: %", text);
+        if !ok return "", sprint("initdb failed: %", text);
 
         conf := sprint("%/postgresql.conf", data);
         existing, read_ok := read_entire_file(conf);
 
-        if !read_ok return .{}, sprint("cannot read %", conf);
+        if !read_ok return "", sprint("cannot read %", conf);
 
-        if !write_entire_file(conf, sprint("%\n\ninclude_if_exists = 'jacket.conf'\n", existing)) return .{}, sprint("cannot write %", conf);
-        if !write_entire_file(marker, "managed by Jacket: initdb finished\n") return .{}, sprint("cannot write %", marker);
+        if !write_entire_file(conf, sprint("%\n\ninclude_if_exists = 'jacket.conf'\n", existing)) return "", sprint("cannot write %", conf);
+        if !write_entire_file(marker, "managed by Jacket: initdb finished\n") return "", sprint("cannot write %", marker);
     }
 
+    return bin, "";
+}
+
+start_managed_locked :: (settings: Managed_Settings) -> Managed_Server, error: string {
+    bin, error := prepare_managed_locked(settings);
+    if error return .{}, error;
+
+    server: Managed_Server;
+    server.bin_dir = bin;
+    server.data_dir = managed_data_dir(settings);
+
+    data := server.data_dir;
+
     running, _ := managed_run(managed_tool(bin, "pg_ctl"), "status", "-D", data);
+
     if running {
         found := managed_describe_running(*server);
         if !found return .{}, sprint("the server on % is running, but its postmaster.pid is unreadable", data);
@@ -338,6 +399,18 @@ File_Utilities :: #import "File_Utilities";
     managed_process_id :: () -> s64 {
         return GetCurrentProcessId();
     }
+
+    CreateDirectoryA :: (path: *u8, attributes: *void) -> s32 #foreign kernel32_managed;
+
+    // True when this call created the folder: false when it exists already (or cannot be made).
+    managed_create_exclusive :: (path: string) -> bool {
+        return CreateDirectoryA(temp_c_string(path), null) != 0;
+    }
+
+    // Windows has no cheap test for a dead owner: a lock there is only given up on after the wait.
+    managed_process_alive :: (pid: s64) -> bool {
+        return true;
+    }
 } else {
     MANAGED_EXE :: "";
 
@@ -347,6 +420,76 @@ File_Utilities :: #import "File_Utilities";
     managed_process_id :: () -> s64 {
         return getpid_managed();
     }
+
+    mkdir_managed :: (path: *u8, mode: u32) -> s32 #foreign libc_managed "mkdir";
+    kill_managed :: (pid: s32, signal: s32) -> s32 #foreign libc_managed "kill";
+
+    // True when this call created the folder (mode 0755): `mkdir` fails when it exists, which makes it a lock.
+    managed_create_exclusive :: (path: string) -> bool {
+        return mkdir_managed(temp_c_string(path), 493) == 0;
+    }
+
+    managed_process_alive :: (pid: s64) -> bool {
+        return kill_managed(cast(s32) pid, 0) == 0;
+    }
+}
+
+// How long to wait for another process that holds the lock: it may be downloading the archive.
+MANAGED_LOCK_WAIT_SECONDS :: 600;
+// How long a lock folder may stay without a `pid` file before it is taken to be abandoned.
+MANAGED_LOCK_PID_GRACE_MS :: 5_000;
+
+// Takes the lock folder `<data>.lock`, waiting for its holder to finish. Returns the folder.
+acquire_managed_lock :: (data: string) -> lock: string, error: string {
+    lock := sprint("%.lock", data);
+    parent_end := find_index_from_right(lock, #char "/");
+
+    if parent_end > 0 {
+        parent := slice(lock, 0, parent_end);
+        if !make_directory_if_it_does_not_exist(parent, true) return "", sprint("cannot create %", parent);
+    }
+
+    waited := 0;
+    pid_missing := 0;
+
+    while waited <= MANAGED_LOCK_WAIT_SECONDS * 1000 {
+        if managed_create_exclusive(lock) {
+            if !write_entire_file(sprint("%/pid", lock), sprint("%\n", managed_process_id())) {
+                managed_remove_tree(lock);
+                return "", sprint("cannot write %/pid", lock);
+            }
+
+            return lock, "";
+        }
+
+        // Is the holder gone? Then the lock is abandoned; remove it and try again at once.
+        text, ok := read_entire_file(sprint("%/pid", lock));
+        stale := false;
+
+        if ok {
+            pid, valid := string_to_int(trim(text));
+            stale = valid && !managed_process_alive(pid);
+        } else {
+            // The holder may be between making the folder and writing its pid.
+            pid_missing += 100;
+            stale = pid_missing >= MANAGED_LOCK_PID_GRACE_MS;
+        }
+
+        if stale {
+            managed_remove_tree(lock);
+            pid_missing = 0;
+            continue;
+        }
+
+        sleep_milliseconds(100);
+        waited += 100;
+    }
+
+    return "", sprint("another process has been starting the managed server for %s; if none is, remove %", MANAGED_LOCK_WAIT_SECONDS, lock);
+}
+
+release_managed_lock :: (lock: string) {
+    managed_remove_tree(lock);
 }
 
 file_exists_managed :: (path: string) -> bool {

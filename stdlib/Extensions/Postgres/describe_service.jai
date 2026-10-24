@@ -44,12 +44,28 @@ answer :: (request_text: string) -> Service.Status, string {
 
     if request.op == "ping" return .OK, "pong";
 
-    if !request.url return .UNAVAILABLE, "no database: set JACKET_DATABASE_URL or DATABASE_URL";
+    if !request.url && request.managed {
+        // An empty managed server has no schema: only the migrations can give it one.
+        if !request.migrations return .FAILED, "managed mode needs migrations: add SQL files to db/migrations, or set DATABASE_URL";
+
+        url, failure := managed_url();
+        if !url return .UNAVAILABLE, failure;
+
+        request.url = url;
+    }
+
+    if !request.url return .UNAVAILABLE, "no database: set JACKET_DATABASE_URL or DATABASE_URL, or JACKET_PG_MANAGED=1";
 
     // A connection that went stale between requests is replaced once.
     for attempt: 0..1 {
         db, failure := connection_for(request.url, "");
-        if !db return .UNAVAILABLE, failure;
+
+        if !db {
+            // The managed server may have been stopped: start it again for the next request.
+            if request.url == managed.url managed.ready = false;
+
+            return .UNAVAILABLE, failure;
+        }
 
         // It parsed when the connection was made.
         config, config_error := Pg.parse_url(request.url);
@@ -96,6 +112,39 @@ answer :: (request_text: string) -> Service.Status, string {
     }
 
     return .FAILED, "unreachable";
+}
+
+// The managed server this service process owns (managed.jai). It is started by the first request
+// that needs it and then reused; `start_managed` takes a lock, so two services (two compiles, or
+// a compile and the editor) never start the same data folder at once. The server keeps running
+// when the service exits, so the next build finds it ready.
+Managed_State :: struct {
+    ready: bool;
+    url: string;
+    failed_until: s64; // monotonic ms: until then the last failure is the answer
+    failure: string;
+}
+
+managed: Managed_State;
+
+managed_url :: () -> url: string, failure: string {
+    if managed.ready return managed.url, "";
+
+    if now_milliseconds() < managed.failed_until return "", managed.failure;
+
+    server, error := Pg.start_managed(Pg.managed_settings_from_environment());
+
+    if error {
+        managed.failure = copy_string(tprint("cannot start the managed PostgreSQL server: %", error));
+        managed.failed_until = now_milliseconds() + RECONNECT_MAX;
+
+        return "", managed.failure;
+    }
+
+    managed.ready = true;
+    managed.url = copy_string(server.url);
+
+    return managed.url, "";
 }
 
 now_milliseconds :: () -> s64 {

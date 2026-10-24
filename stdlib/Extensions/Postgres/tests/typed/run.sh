@@ -81,7 +81,7 @@ EOF
 mkdir -p "$work/pinned_root/db" && cp -R "$JACKET_PG_ROOT/db/migrations" "$work/pinned_root/db/"
 JACKET_PG_ROOT="$work/pinned_root" JACKET_PG_BUILD_DELAY_MS=600000 "$jaic" "$work/pinned.jai" -exe "$work/pinned" > /dev/null || fail "a query using the new migration's column"
 [ "$(schema_databases | wc -l)" -eq 1 ] || fail "the new migration built a database early: $(schema_databases)"
-"$jaic" "$here/queries.jai" -exe "$work/queries" > /dev/null || fail "build with a new migration"
+JACKET_PG_BUILD_DELAY_MS=600000 "$jaic" "$here/queries.jai" -exe "$work/queries" > /dev/null || fail "build with a new migration"
 [ "$("$work/queries")" = ok ] || fail "queries with a new migration"
 # One that cannot run in a transaction makes a database for the whole set right away; only the
 # newest three are kept.
@@ -117,5 +117,42 @@ JACKET_PG_ROOT="$work/orm" "$jaic" "$work/orm/main.jai" -exe "$work/orm_test" ||
 
 # 9. Bad programs: the error is reported at the right place.
 python3 "$here/bad.py" "$jaic" "$work" || fail "bad programs"
+
+# 10. Managed mode: no database URL at all; the describe service starts its own server and builds
+# the schema database from the migrations. Downloads the pinned PostgreSQL release unless
+# JAI_PG_TEST_MANAGED_CACHE names a folder that has it. Gated on JAI_PG_TEST_MANAGED=1.
+if [ "${JAI_PG_TEST_MANAGED:-}" = 1 ]; then
+    managed_root="$work/managed_project"
+    managed_cache=${JAI_PG_TEST_MANAGED_CACHE:-$work/managed_cache}
+    mkdir -p "$managed_root/db/migrations"
+    managed() { env -u DATABASE_URL -u JACKET_DATABASE_URL JACKET_PG_ROOT="$managed_root" JACKET_PG_MANAGED=1 JACKET_PG_MANAGED_CACHE="$managed_cache" "$@"; }
+    stop_managed_server() {
+        for data in "$managed_cache"/cluster-*; do
+            [ -f "$data/postmaster.pid" ] || continue
+            for pg_ctl in "$managed_cache"/*/bin/pg_ctl; do "$pg_ctl" stop -D "$data" -m fast > /dev/null 2>&1 || true; done
+        done
+    }
+    trap 'stop_managed_server; rm -rf "$work"' EXIT
+
+    # Without migrations there is no schema to describe against: the error says so.
+    if managed "$jaic" "$here/queries.jai" -exe "$work/managed_none" > "$work/out" 2>&1; then fail "a managed build without migrations succeeded"; fi
+    grep -q "no migrations" "$work/out" || fail "the managed error does not mention migrations"
+
+    grep -v "schema public" "$here/schema.sql" > "$managed_root/db/migrations/0001_init.sql"
+    managed "$jaic" "$here/queries.jai" -exe "$work/managed_queries" || fail "managed build"
+    [ "$("$work/managed_queries")" = ok ] || fail "managed queries"
+    managed_count=$(find "$managed_root/db/queries" -type f | wc -l)
+    [ "$managed_count" -gt 10 ] || fail "managed cache entries were not written ($managed_count)"
+    running=0
+    for pidfile in "$managed_cache"/cluster-*/postmaster.pid; do [ -f "$pidfile" ] && running=1; done
+    [ "$running" = 1 ] || fail "the managed server is not running"
+
+    # A second build with an empty cache finds the server running and reuses it.
+    rm -rf "$managed_root/db/queries" "$work/managed_queries"
+    managed "$jaic" "$here/queries.jai" -exe "$work/managed_queries" || fail "managed rebuild"
+    [ "$("$work/managed_queries")" = ok ] || fail "managed queries after a rebuild"
+    [ "$(find "$managed_root/db/queries" -type f | wc -l)" -eq "$managed_count" ] || fail "managed rebuild wrote a different cache"
+    stop_managed_server
+fi
 
 echo "all typed query tests passed"
