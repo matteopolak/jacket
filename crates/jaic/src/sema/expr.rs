@@ -615,11 +615,18 @@ impl Compiler {
                     ..
                 } = &**boxed;
                 let (inserted, at) = self.eval_insert_expr(scope, value)?;
-                // `#insert,scope() code` resolves names at the insertion site.
-                let at = if target.is_none() && flags.iter().any(|fl| fl.name.as_str() == "scope") {
-                    scope
-                } else {
-                    at
+                // `#insert,scope() code` resolves names at the insertion site, and
+                // `,scope(other_code)` where that code was written.
+                let at = match target {
+                    Some(t) => match self.eval_const(scope, t, None)? {
+                        Operand::Const {
+                            value: Value::Code(other),
+                            ..
+                        } => self.pr.code_scopes[other.0 as usize],
+                        _ => return err(t.span, "#insert,scope(...) needs a Code value"),
+                    },
+                    None if flags.iter().any(|fl| fl.name.as_str() == "scope") => scope,
+                    None => at,
                 };
                 self.check_expr(f, at, &inserted, expected)
             }
