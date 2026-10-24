@@ -1,0 +1,16 @@
+warning[exit_in_module]: a module should not end the process
+  --> tests/lint/exit_in_module/bad.jai:5:9
+   |
+ 5 |         exit(1);
+   |         ^^^^^^^
+   |
+   = help: return an error and let the program decide whether to exit
+
+warning[exit_in_module]: a module should not end the process
+  --> tests/lint/exit_in_module/bad.jai:12:5
+   |
+12 |     exit(2);
+   |     ^^^^^^^
+   |
+   = help: return an error and let the program decide whether to exit
+

@@ -325,6 +325,16 @@
               "default": "allow",
               "markdownDescription": "blocks nested deeper than `max_nesting` (default 6) (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#excessive_nesting)"
             },
+            "exit_in_module": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "allow",
+              "markdownDescription": "a module ends the process (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#exit_in_module)"
+            },
             "float_equality": {
               "type": "string",
               "enum": [
@@ -594,6 +604,16 @@
               ],
               "default": "warn",
               "markdownDescription": "a statement that computes a value and drops it (`x == 5;`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#no_effect)"
+            },
+            "print_in_module": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "allow",
+              "markdownDescription": "a module writes to the program's output (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#print_in_module)"
             },
             "range_past_count": {
               "type": "string",

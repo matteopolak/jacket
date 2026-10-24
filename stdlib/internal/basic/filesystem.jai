@@ -32,7 +32,7 @@ set_working_directory :: (s: string) -> bool {
 
 exit :: (status: s32) {
     c_exit(status);
-}
+} @Exits
 
 sleep_milliseconds :: (milliseconds: s32) {
     assert(milliseconds >= 0);

@@ -66,7 +66,7 @@ impl Compiler {
     /// The overload the call whose callee name is at `name` resolved to, out of the set `ps`
     /// that name stands for. `None` when no call was recorded there, or when several
     /// candidates fitted equally well.
-    pub(crate) fn ide_resolved_overload(&self, name: Span, ps: &[ProcId]) -> Option<ProcId> {
+    pub fn ide_resolved_overload(&self, name: Span, ps: &[ProcId]) -> Option<ProcId> {
         if ps.len() < 2 {
             return None;
         }

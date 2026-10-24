@@ -101,13 +101,13 @@ write_string :: (s: string, to_standard_error := false) #no_context #compiler {
     acquire_output_lock();
     defer release_output_lock();
     write_string_unsynchronized(s, to_standard_error);
-}
+} @WritesOutput
 
 write_strings :: (strings: ..string, to_standard_error := false) #no_context #compiler {
     acquire_output_lock();
     defer release_output_lock();
     for s: strings write_string_unsynchronized(s, to_standard_error);
-}
+} @WritesOutput
 
 #if OS == .ANDROID {
     android_flush_write_string_buffer :: (force := false) #no_context {

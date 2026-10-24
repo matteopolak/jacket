@@ -36,7 +36,7 @@ set_working_directory :: (s: string) -> bool {
 
 exit :: (status: s32) {
     W.ExitProcess(cast,no_check(u32) status);
-}
+} @Exits
 
 sleep_milliseconds :: (milliseconds: s32) {
     assert(milliseconds >= 0);

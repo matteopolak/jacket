@@ -178,6 +178,18 @@ fn suppressions_silence_every_rule() {
 }
 
 #[test]
+fn programs_may_print_and_exit() {
+    // `print_in_module` and `exit_in_module` look only at files that belong to a module.
+    let file = repo().join("tests/lint/module_scope/main.jai");
+    let levels = [
+        ("print_in_module", Level::Warn),
+        ("exit_in_module", Level::Warn),
+    ];
+    let (lints, text) = lint(&file, &levels);
+    assert!(lints.is_empty(), "{}", rendered(&lints, &text, &file));
+}
+
+#[test]
 fn generated_files_are_skipped_by_unused_rules() {
     let file = repo().join("tests/lint/unused_import/generated.jai");
     let levels: Vec<(&str, Level)> = [

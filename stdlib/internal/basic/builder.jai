@@ -232,7 +232,7 @@ write_builder :: (using builder: *String_Builder, do_reset := true, to_standard_
     if do_reset reset(builder);
 
     return total;
-}
+} @WritesOutput
 
 #scope_file
 grow_builder :: (using builder: *String_Builder, minimum_capacity: s64) -> bool {

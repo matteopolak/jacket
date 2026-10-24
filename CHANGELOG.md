@@ -26,6 +26,8 @@
 - `jailint` reports an enum whose members all repeat the enum's name as a prefix (`enum_member_prefix`).
 - `jailint` has an opt-in lint for `#no_abc`, `#no_aoc` and `#asm` without an explanatory comment (`unchecked_directive`).
 - `jailint` has an opt-in lint for exported procedures, structs and enums without a doc comment (`missing_doc`).
+- `jailint` has an opt-in lint for modules that write to the program's output (`print_in_module`).
+- `jailint` has an opt-in lint for modules that end the process (`exit_in_module`).
 
 ### Improved
 

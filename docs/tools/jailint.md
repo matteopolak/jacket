@@ -54,6 +54,8 @@ Several rules decide what a call means from a note on the procedure's declaratio
 | `@Locks` | `unpaired_lock` | takes the lock its first argument names (`lock(*mutex)`); a procedure with this note is a wrapper and is not checked itself |
 | `@Unlocks` | `unpaired_lock` | gives back the lock its first argument names |
 | `@AssertsArgument` | `assert_constant` | stops the program unless its first argument is true (the library's `assert`) |
+| `@WritesOutput` | `print_in_module` | writes to the program's standard output or error (`print`, `write_string`, `write_strings`, `write_builder`) |
+| `@Exits` | `exit_in_module` | ends the process (`exit`) |
 
 ```jai
 shout :: (s: string) -> string {
@@ -105,6 +107,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `enum_member_prefix` | style | warn | no | `Color :: enum { COLOR_RED; COLOR_GREEN; }`: members that repeat the enum's name, which `Color.RED` already says |
 | `erasing_op` | suspicious | warn | editor | `x * 0`, `x & 0`, `x % 1`: always `0` |
 | `excessive_nesting` | pedantic | allow | no | blocks nested deeper than `max_nesting` (default 6) |
+| `exit_in_module` | restriction | allow | no | `exit(1)` in a file that belongs to a module |
 | `float_equality` | pedantic | allow | no | `==` or `!=` between two computed floats |
 | `identical_branches` | suspicious | warn | editor | `if c { A } else { A }`, `ifx c then a else a` |
 | `identical_case_bodies` | pedantic | allow | editor | `case .PNG; return "image"; case .JPEG; return "image";`: cases that do the same thing and could be `case .PNG, .JPEG;` |
@@ -132,6 +135,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `needless_continue` | style | warn | yes | `for xs { work(it); continue; }`, `if c { work(); continue; }` ending a loop: a `continue` the loop would have done anyway |
 | `neg_multiply` | style | warn | yes | `x * -1`, `-1 * x`, `f * -1.0`: a multiplication by minus one, which is a negation |
 | `no_effect` | suspicious | warn | editor | `x == 5;`, `count + 1;`, `flush;`: a statement that does nothing |
+| `print_in_module` | restriction | allow | no | `print(...)` or `write_string(...)` in a file that belongs to a module |
 | `range_past_count` | correctness | deny | editor | `for i: 0..xs.count` indexing `xs[i]`: one past the end |
 | `redundant_alias` | complexity | warn | yes | a local only copied into another local (`a := f(); b := a;`) or returned right away |
 | `redundant_cast` | complexity | warn | yes | a cast to the type the value already has |
@@ -196,6 +200,8 @@ Two or more members, all beginning with the enum's name once case and `_` are ig
 Left alone inside an index or array literal, where a `0 *` lines up with other rows. When the other operand is side-effect-free the editor offers to write the `0`.
 ### excessive_nesting
 Off by default. A level is a braced block or a `switch`; `else if` chains and `#if` add none. A procedure written inside a block starts counting from that block's depth, so a nested procedure cannot hide the nesting. Reports the first block past the limit on each path, on its `{` (or the `switch` header). The limit is `[lint] max_nesting` in `jacket.toml` or `--max-nesting <n>`, default 6; enable it with `-W excessive_nesting` or `[lint.rules]`. On the standard library, a limit of 6 finds nothing and 5 finds five blocks. Fix by returning or `continue`ing early, or by moving the inner part into a procedure. Generated files are skipped.
+### exit_in_module
+A file belongs to a module when it or a directory above it holds a `module.jai`. A call is reported when the procedure it calls has the `@Exits` note (the library's `exit`). A library that exits skips the program's cleanup and cannot be tested: return an error. Programs, macros and generated files are not checked. No fix.
 ### float_equality
 Off by default: exact comparison is often deliberate. Constants, `x != x` and `operator ==` bodies are not reported.
 ### identical_branches
@@ -262,6 +268,8 @@ An unlabelled `continue` that ends a `for` or `while` body, or ends a branch of 
 Signed integers and floats only, and only the literals `-1` and `-1.0`. The fix writes `-x`, and `-(a + b)` when the other side is not a single term.
 ### no_effect
 An expression statement containing no call. The editor offers the likely intent: `==` becomes `=`, `x + 1;` becomes `x += 1;`, a procedure name gets `()`, and any other statement is removed. `--fix` applies none, since the typo may be in either place.
+### print_in_module
+A file belongs to a module when it or a directory above it holds a `module.jai`. A call is reported when the procedure it calls has the `@WritesOutput` note (the library's `print`, `write_string`, `write_strings` and `write_builder`). A library does not know where output belongs: return the text or log it, and let the program print. Programs, macros and generated files are not checked. No fix.
 ### range_past_count
 Ranges include their end. Quiet when the body mentions `xs.count` (it may guard the index). The `- 1` fix changes behaviour, so it is editor-only.
 ### redundant_alias

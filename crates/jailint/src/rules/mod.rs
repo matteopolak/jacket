@@ -27,6 +27,7 @@ mod element_count_as_bytes;
 mod enum_member_prefix;
 mod erasing_op;
 mod excessive_nesting;
+mod exit_in_module;
 mod float_equality;
 mod frees;
 mod identical_branches;
@@ -55,6 +56,7 @@ mod needless_bool;
 mod needless_continue;
 mod neg_multiply;
 mod no_effect;
+mod print_in_module;
 mod range_past_count;
 mod redundant_alias;
 mod redundant_cast;
@@ -218,6 +220,12 @@ pub static RULES: &[RuleInfo] = &[
         check: excessive_nesting::check,
     },
     RuleInfo {
+        name: "exit_in_module",
+        category: Category::Restriction,
+        summary: "a module ends the process",
+        check: exit_in_module::check,
+    },
+    RuleInfo {
         name: "float_equality",
         category: Category::Pedantic,
         summary: "`==` or `!=` between two computed floats",
@@ -378,6 +386,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Suspicious,
         summary: "a statement that computes a value and drops it (`x == 5;`)",
         check: no_effect::check,
+    },
+    RuleInfo {
+        name: "print_in_module",
+        category: Category::Restriction,
+        summary: "a module writes to the program's output",
+        check: print_in_module::check,
     },
     RuleInfo {
         name: "range_past_count",
@@ -632,6 +646,14 @@ pub(crate) fn has_note(cx: &Cx, proc: ProcId, name: &str) -> bool {
 /// spelling of the name, says what the call means.
 pub(crate) fn calls_noted(cx: &Cx, callee: &Expr, name: &str) -> bool {
     let procs = callee_procs(cx, callee);
+    let span = match &callee.kind {
+        E::Member(_, name) => name.span,
+        _ => callee.span,
+    };
+    // Of an overload set, the one this call chose says what the call means.
+    if let Some(chosen) = cx.compiler.ide_resolved_overload(span, procs) {
+        return has_note(cx, chosen, name);
+    }
     !procs.is_empty() && procs.iter().all(|&p| has_note(cx, p, name))
 }
 
@@ -700,6 +722,32 @@ pub(crate) fn walk_code<'a>(cx: &Cx<'a>, visit: &mut dyn FnMut(Node<'a>, &[Node<
             true
         });
     }
+}
+
+/// Report each call, in a file that belongs to a module, to a procedure with the note `note`.
+/// For rules about what a library should leave to the program that uses it.
+pub(crate) fn calls_in_module(
+    cx: &Cx,
+    out: &mut Vec<Finding>,
+    note: &str,
+    message: &str,
+    help: &str,
+) {
+    if cx.generated() || !cx.in_module() {
+        return;
+    }
+    walk_code(cx, &mut |n, _| {
+        let Node::Expr(e) = n else {
+            return;
+        };
+        if let E::Call {
+            callee, ..
+        } = &e.kind
+            && calls_noted(cx, callee, note)
+        {
+            out.push(finding(e.span, message.into(), Some(help.into())));
+        }
+    });
 }
 
 /// A finding without a fix.

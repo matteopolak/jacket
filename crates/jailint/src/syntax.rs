@@ -201,6 +201,16 @@ impl<'a> Cx<'a> {
         })
     }
 
+    /// The file is part of a module: it, or a directory above it, holds a `module.jai`. A library
+    /// is used by programs that decide what is printed and when the process ends.
+    pub fn in_module(&self) -> bool {
+        let path = self.compiler.src.sources.get(self.file).path.to_string();
+        let path = std::fs::canonicalize(&path).unwrap_or_else(|_| path.into());
+        path.ancestors()
+            .skip(1)
+            .any(|dir| dir.join("module.jai").is_file())
+    }
+
     /// A comment overlaps the bytes `start..end`.
     pub fn has_comment_between(&self, start: usize, end: usize) -> bool {
         let first = self
