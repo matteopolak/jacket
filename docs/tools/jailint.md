@@ -111,6 +111,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `constant_condition` | suspicious | warn | no | an `if` or `while` whose condition is always true or always false, by the compiler's value ranges |
 | `defer_frees_returned` | correctness | deny | editor | `defer free(p);` then `return p;`: the caller gets memory the `defer` already released |
 | `defer_in_loop` | suspicious | warn | no | a `defer` in a loop body that cleans up something from outside the loop |
+| `detached_doc_comment` | pedantic | allow | editor | `// Adds one to n.` and a blank line before `bump :: (n: int) -> int`: a comment that reads as docs but is not attached |
 | `double_free` | correctness | deny | editor | `free(p); free(p);`: a variable freed twice by the same procedure with nothing in between |
 | `dropped_result` | suspicious | warn | editor | `n := to_integer(s);`: a call that keeps fewer values than it returns and whose next value is a `bool`, usually "did it work" |
 | `duplicate_condition` | suspicious | warn | editor | an `else if` that repeats an earlier condition and can never run |
@@ -226,6 +227,8 @@ Reads the compiler's reachability facts (`jaic::sema::reachability` and `jaic::i
 The `defer` must be a single `@FreesArgument` call on a local. Quiet when anything after it assigns the variable or takes its address (`p = null;` hands ownership on), and in macros. Returning a field (`return name.count;`) is fine: it is read before the `defer` runs. The editor offers to remove the `defer`.
 ### defer_in_loop
 The loop body's scope ends every iteration, so `defer free(buffer)` frees an outer buffer after the first pass. Fires only for calls of `@FreesArgument` procedures (the library's `free`, `array_free`, `deinit`s, closers and destroyers carry it) on values declared before the loop and not used earlier in the body.
+### detached_doc_comment
+A top-level procedure, struct or enum with a blank line between its declaration and a comment above that reads as a sentence (three or more words, starting with a capital letter or a backtick and ending in `.`, `!` or `?`: section headings, commented-out code, `TODO` markers and `jailint:` directives are left alone). Hover and the generated docs only see comments directly above a declaration, so the gap hides the text. A comment before the file's first code is a header and is left alone. The editor offers to close the gap; `--fix` does not, since the comment may be a section heading. Only a blank line is looked at, not code between the comment and the declaration. Off by default.
 ### double_free
 The same walk as `use_after_free`: a statement-level `@FreesArgument` call on a local or parameter, then, as the next thing that mentions it in the block, a statement-level call of the *same* procedure on it (`free(p); free(p);`, `close(f); close(f);`). Calls of different procedures are not paired, because `deinit(p); free(p);` releases the contents and then the memory. Silent when anything else mentions the variable in between, when a `return`/`break`/`continue` comes first, for a `defer` or a free nested in a branch, and for the cases listed under `use_after_free`. The editor offers to remove the second free; `--fix` does not, since the first one may be the wrong call.
 ### dropped_result

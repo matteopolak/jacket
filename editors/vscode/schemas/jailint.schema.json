@@ -248,6 +248,16 @@
           "default": "warn",
           "markdownDescription": "a `defer` in a loop body that cleans up something from outside the loop (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#defer_in_loop)"
         },
+        "detached_doc_comment": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "allow",
+          "markdownDescription": "a comment that reads as a declaration's docs but has a blank line between it and the declaration (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#detached_doc_comment)"
+        },
         "double_free": {
           "type": "string",
           "enum": [

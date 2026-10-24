@@ -1,0 +1,33 @@
+warning[detached_doc_comment]: this comment is separated from `bump` by a blank line, so it is not its doc comment
+  --> tests/lint/detached_doc_comment/bad.jai:3:1
+   |
+ 3 | // Adds one to the number it is given.
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: remove the blank line to document it
+   |
+ 4 - 
+   |
+
+warning[detached_doc_comment]: this comment is separated from `weight` by a blank line, so it is not its doc comment
+  --> tests/lint/detached_doc_comment/bad.jai:14:1
+   |
+14 | /* Counts the pieces of a pair
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: remove the blank line to document it
+   |
+16 - 
+   |
+
+warning[detached_doc_comment]: this comment is separated from `Turn` by a blank line, so it is not its doc comment
+  --> tests/lint/detached_doc_comment/bad.jai:22:1
+   |
+22 | // Left and right are relative to its heading.
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: remove the blank line to document it
+   |
+23 - 
+   |
+

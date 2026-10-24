@@ -54,6 +54,7 @@
 - `jailint` has an opt-in lint for temporary-storage strings, such as `tprint` results, that are kept in a global or struct field or returned (`temp_storage_escape`).
 - `jailint` reports a file or string builder that is opened and never closed (`unclosed_resource`).
 - `jailint` reports an `allow` comment or `@jailint_allow` note that silences nothing (`unused_suppression`).
+- `jailint` has an opt-in lint for a comment that reads as a declaration's docs but has a blank line between them (`detached_doc_comment`).
 
 ### Improved
 

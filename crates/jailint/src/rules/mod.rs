@@ -23,6 +23,7 @@ mod cognitive_complexity;
 mod constant_condition;
 mod defer_frees_returned;
 mod defer_in_loop;
+mod detached_doc_comment;
 mod double_free;
 mod dropped_result;
 mod duplicate_condition;
@@ -220,6 +221,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Suspicious,
         summary: "a `defer` in a loop body that cleans up something from outside the loop",
         check: defer_in_loop::check,
+    },
+    RuleInfo {
+        name: "detached_doc_comment",
+        category: Category::Pedantic,
+        summary: "a comment that reads as a declaration's docs but has a blank line between it and the declaration",
+        check: detached_doc_comment::check,
     },
     RuleInfo {
         name: "double_free",
