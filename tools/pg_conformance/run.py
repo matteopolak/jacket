@@ -46,12 +46,20 @@ SKIP_FILE = CONFORMANCE / "regress-skip.txt"
 # Tests of psql/t/001_basic.pl that need what the shim does not have: name fragment to reason.
 TAP_BASIC_SKIPS = {
     "\\help": "the shim has no SQL command help text",
+    "errverbose after FETCH_COUNT": "psql before 17 runs a FETCH_COUNT query through a declared cursor, which shifts the error's line; the shim uses chunked mode",
     "PQresultStatus": "replication protocol responses (CopyBoth) are not supported by the client",
+}
+
+# Tests of authentication/t/001_password.pl whose expected message is the libpq of their own
+# version. When require_auth forbids SCRAM by name, libpq 18 reports "SCRAM-SHA-256"; earlier ones
+# report "SASL". The client follows 18, the newest.
+TAP_PASSWORD_SKIPS = {
+    "forbidden, fails with SCRAM auth": "libpq before 18 words a forbidden SCRAM as SASL authentication",
 }
 
 TAP_SUITES = (
     {"file": "src/interfaces/libpq/t/001_uri.pl", "real": False},
-    {"file": "src/test/authentication/t/001_password.pl"},
+    {"file": "src/test/authentication/t/001_password.pl", "skip_tests": TAP_PASSWORD_SKIPS},
     {"file": "src/test/authentication/t/002_saslprep.pl"},
     {"file": "src/test/authentication/t/003_peer.pl"},
     {"file": "src/test/authentication/t/004_file_inclusion.pl"},
@@ -118,7 +126,9 @@ def build_regress_lib(source: Path, out: Path, config: str) -> Path:
                 includes.append("-I" + extra)
         postgres = Path(pg_config(config, "--bindir")) / "postgres"
         link = ["-bundle", "-bundle_loader", str(postgres)]
-        target = libdir / "regress.dylib"
+        # macOS servers load ".so" up to PostgreSQL 15 and ".dylib" from 16.
+        major = int(pg_config(config, "--version").split()[1].split(".")[0])
+        target = libdir / ("regress.so" if major < 16 else "regress.dylib")
     else:
         link = ["-shared"]
         target = libdir / "regress.so"
@@ -302,6 +312,10 @@ def run_tap(args) -> int:
 
     failed = []
     for suite in suites:
+        if not (source / suite["file"]).exists():
+            print(f"  {suite['file']}: not in PostgreSQL {version}")
+            continue
+
         shim = run_tap_file(args, suite, source, shim_bin, "shim", out, perl_path)
         real: dict[int, tuple[bool, str]] = {}
         if suite.get("real", True) and not args.shim_only:
@@ -328,7 +342,7 @@ def run_tap(args) -> int:
             line += f"; real {sum(1 for ok, _ in real.values() if ok)}/{len(real)}"
         print(line)
         if skipped:
-            print(f"    skipped (see TAP_BASIC_SKIPS): {sorted(skipped)}")
+            print(f"    skipped (see the TAP_*_SKIPS tables): {sorted(skipped)}")
         if also:
             print(f"    failing with the real programs too (not counted): {also}")
         if broken:

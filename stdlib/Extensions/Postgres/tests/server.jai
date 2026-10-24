@@ -1459,6 +1459,18 @@ test_protocol_versions :: () {
     assert(scalar(db, "select 1", s64) == 1);
     expect_timeout_recovers(db);
 
+    // Naming 3.2 outright behaves like asking for the latest, cancel key and all.
+    named := config_for("postgres");
+    named.max_protocol_version = .V3_2;
+
+    pinned := connect_ok(named);
+
+    defer Pg.close(pinned);
+
+    assert(pinned.protocol_minor == ifx modern then 2 else 0, "protocol 3.%", pinned.protocol_minor);
+    assert(pinned.cancel_key.count == ifx modern then 32 else 4, "a % byte cancel key", pinned.cancel_key.count);
+    expect_timeout_recovers(pinned);
+
     config.min_protocol_version = .LATEST;
 
     if modern {

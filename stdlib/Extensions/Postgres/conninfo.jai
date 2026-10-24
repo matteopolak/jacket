@@ -287,6 +287,24 @@ comma_separated :: (items: [] string) -> string {
     return builder_to_string(*builder,, temp);
 }
 
+// Spaces around a query parameter's name or value are dropped; one inside is an error (PostgreSQL
+// 18), because a space belongs in the URI as %20.
+uri_trim_spaces :: (text: string) -> string, Pg_Error {
+    first := 0;
+    last := text.count;
+
+    while first < last && text[first] == #char " " first += 1;
+    while last > first && text[last - 1] == #char " " last -= 1;
+
+    trimmed := slice(text, first, last - first);
+
+    if contains(trimmed, " ") {
+        return "", make_error(.CONFIG, "unexpected spaces found in \"%\", use percent-encoded spaces (\%20) instead", text);
+    }
+
+    return trimmed, .{};
+}
+
 parse_uri_parameters :: (info: *Conninfo, parameters: string) -> Pg_Error {
     rest := parameters;
 
@@ -320,12 +338,20 @@ parse_uri_parameters :: (info: *Conninfo, parameters: string) -> Pg_Error {
             return make_error(.CONFIG, "missing key/value separator \"=\" in URI query parameter: \"%\"", slice(rest, 0, value_end));
         }
 
-        keyword, error := uri_decode(slice(rest, 0, keyword_end));
+        raw_keyword, error := uri_trim_spaces(slice(rest, 0, keyword_end));
+        if error.kind != .NONE return error;
+
+        raw_value:, error = uri_trim_spaces(slice(rest, value_start, value_end - value_start));
+
+        if error.kind != .NONE return error;
+
+        keyword:, error = uri_decode(raw_keyword);
+
         if error.kind != .NONE return error;
 
         defer free(keyword);
 
-        value:, error = uri_decode(slice(rest, value_start, value_end - value_start));
+        value:, error = uri_decode(raw_value);
 
         if error.kind != .NONE return error;
 

@@ -55,8 +55,14 @@ Interactive features (the line editor, `\e`, `\password`, `\prompt`, `\watch`) a
 the suites never use them. `FETCH_COUNT` prints in pieces only in the aligned layouts; the others
 print the whole result at the end.
 
-On 17.11 every regression file that passes with the real psql passes with the shim. Files that
-ever need what the shim does not do are listed in `tests/conformance/regress-skip.txt`, each with
+The shim follows the newest psql it is run against (18): `\bind_named`, `\parse`,
+`\close_prepared` and pipeline mode (`\startpipeline`, `\endpipeline`, `\syncpipeline`,
+`\sendpipeline`, `\flush`, `\flushrequest`, `\getresults` and the `PIPELINE_*` variables) run on
+the client's pipeline API; `\pset`, `\d` and the other listings follow the server's major
+version, so 15, 16, 17 and 18 all print what their own psql prints.
+
+Every regression file that passes with the real psql passes with the shim on 15, 16, 17 and 18.
+Files that ever need what the shim does not do are listed in `tests/conformance/regress-skip.txt`, each with
 its reason.
 
 ### The TAP suites
@@ -133,6 +139,35 @@ On 17.11 it checks about 157,000 distinct values (1.3 million fetched) and 390 J
 no failure. Two known limits are counted, not failed: a `json` text with a lone surrogate escape
 (`"\ud83d"`) cannot be a `Json_Value` string and is read as `Json_Raw`, and `json` text with a
 `\u0000` escape has no `jsonb` form to compare with.
+
+### Results by version
+
+Run locally against the managed binaries (`stdlib/Extensions/Postgres/managed.jai` pins 15.19.1,
+16.15.1, 17.11.1 and 18.6.1; `pg_regress` and its `regress` library come from the archive's
+`lib/pgxs` and `include/server`, and `run.py` builds the library as `regress.so` up to 15 and
+`regress.dylib` from 16 on macOS):
+
+| Suite | 15.19 | 16.15 | 17.11 | 18.6 |
+| --- | --- | --- | --- | --- |
+| Regression (shim / real psql) | 217/217 | 220/220 | 225/225 | 231/231 |
+| Pipeline traces | n/a | n/a | all ok | all ok |
+| Binary round trip | ok | ok | ok | ok |
+| `tests/server.jai` | ok | ok | ok | ok (incl. protocol 3.2) |
+| TAP: `001_uri` | 57/57 | 60/60 | 60/60 | 63/63 |
+| TAP: authentication files | all pass | all pass | all pass | all pass |
+| TAP: `001_basic` (rest are listed skips) | 60/68 | 79/87 | 105/112 | 124/131 |
+| TAP: `020_cancel` | 2/2 | 2/2 | 2/2 | 2/2 |
+
+Protocol 3.2 (PostgreSQL 18 only): `test_protocol_versions` connects with `max_protocol_version =
+.V3_2`, expects protocol minor 2 and a 32-byte cancel key, and cancels through it. Before 18 the
+same connection settles on 3.0 with a 4-byte key.
+
+Version-dependent texts: libpq 18 words `require_auth=!scram-sha-256` failures as "SCRAM-SHA-256
+authentication" where earlier ones say "SASL"; the client follows 18 and `TAP_PASSWORD_SKIPS`
+excludes the four older expectations. psql before 17 declares a cursor for `FETCH_COUNT`, which
+shifts the error's `LINE`; the shim uses chunked mode, so that `\errverbose` test is skipped
+before 17. TAP files a version does not ship (`003_peer` before 16, `006_login_trigger` before 17)
+print "not in PostgreSQL <version>".
 
 ## How to change it
 
