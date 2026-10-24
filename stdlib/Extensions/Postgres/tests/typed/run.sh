@@ -114,6 +114,8 @@ JACKET_PG_ROOT="$work/identity" "$jaic" "$work/identity/main.jai" -exe "$work/id
 cp -R "$here/../orm" "$work/orm"
 JACKET_PG_ROOT="$work/orm" "$jaic" "$work/orm/main.jai" -exe "$work/orm_test" || fail "build orm"
 [ "$("$work/orm_test")" = ok ] || fail "orm"
+# Pg.each fetched only what its loop body reads.
+grep -rqF 'select \"id\", \"email\" from \"public\".\"users\"' "$work/orm/db/queries" || fail "orm each did not prune its columns"
 
 # 9. Bad programs: the error is reported at the right place.
 python3 "$here/bad.py" "$jaic" "$work" || fail "bad programs"
