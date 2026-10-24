@@ -12,7 +12,8 @@ import sys
 PRELUDE = '''#import "Basic";
 Pg :: #import "Extensions/Postgres";
 User :: struct { id: s64; email: string; display_name: string; }
-Orm_User :: struct @pg_table(public.users) { id: s64; email: string; }
+Orm_User :: struct @pg_table(public.users) @pg_has_many(posts:Orm_Post:author_id:id) { id: s64; email: string; }
+Orm_Post :: struct @pg_table(public.posts) @pg_belongs_to(author:author_id:Orm_User:id) { id: s64; author_id: s64; title: string; }
 main :: (db: *Pg.Connection) {
 '''
 
@@ -68,6 +69,9 @@ CASES = [
     ("orm set", 'n, error := Pg.update(db, Orm_User, set = #code it.nope = 1, where = #code it.id == 1);', "it.nope", "set assigns to a field", ""),
     ("orm json operator", 'rows, error := Pg.select(db, Orm_User, where = #code Pg.has_key(it.email, "a"));', "it.email", "is not a json column", ""),
     ("orm sql literal", 'clause := "true"; rows, error := Pg.select(db, Orm_User, where = #code Pg.sql(clause));', "clause));", "takes a string literal", ""),
+    ("orm related field", 'rows, error := Pg.select(db, Orm_Post, where = #code it.author.nope == 1);', "it.author.nope", 'has no field "nope"', ""),
+    ("orm has-many filter", 'rows, error := Pg.select(db, Orm_User, where = #code it.posts.title == "x");', "it.posts.title", "has-many relation", ""),
+    ("orm load kind", 'users: [] Orm_User; loaded, error := Pg.load_one(db, users, "posts");', "Pg.load_one", "load it with Pg.load_many", ""),
     ("orm sql field", 'rows, error := Pg.select(db, Orm_User, where = #code Pg.sql("%(it.nope) = 1"));', 'Pg.sql("%(it.nope) = 1")', 'has no field "nope"', ""),
 ]
 

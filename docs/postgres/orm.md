@@ -22,6 +22,8 @@ removed, error := Pg.delete(db, User, where = #code it.id == row.id);
 | `insert_many(db, values)` | `[] T, Pg_Error` | one `insert` per value, stopping at the first error |
 | `update(db, T, set, where)` | `s64, Pg_Error` (rows changed) | `update <table> set ... where ...` |
 | `delete(db, T, where)` | `s64, Pg_Error` (rows deleted) | `delete from <table> where ...`; `where` is required (`#code true` for every row) |
+| `load_many(db, parents, "posts")` | `Loaded_Many(Post), Pg_Error` | one `select ... where author_id = any($1)` for a `@pg_has_many` relation |
+| `load_one(db, posts, "author")` | `Loaded_One(User), Pg_Error` | one `select ... where id = any($1)` for a `@pg_belongs_to` relation |
 
 ## How it works
 
@@ -49,17 +51,33 @@ where ((("score" >= $1 ::int8 ) and ("email" like $2 ::text )) and ("display_nam
 
 `from_sql` replaces the table with a query of your own that returns the table's columns, with the same holes as `Pg.sql`: `Pg.select(db, User, from_sql = "select * from users_visible_to(%viewer)", where = ...)` becomes `select ... from (select * from users_visible_to($1)) as orm_source where ...`.
 
+### Relations
+
+The relation notes `generate` writes (`@pg_belongs_to(author:author_id:User:id)`, `@pg_has_many(posts:Post:author_id:id)`, see [schema.md](schema.md)) give two things:
+
+- **Filters through a to-one relation.** `where = #code it.author.email == owner` becomes a scalar subquery, `(select "email" from "public"."users" as orm_r0 where orm_r0."id" = "public"."posts"."author_id")`, so a missing row compares as null. Paths nest (`it.author.team.name`) and reach json keys (`it.author.settings.theme`). The related struct is named in the note, so the macro looks it up where the call was written (`Orm_R0 :: #insert,scope(call) "User"`) and builds the SQL in a second pass once it has the type. A has-many relation cannot be filtered on.
+- **Loading related rows in one query**, instead of one per parent:
+
+  ```jai
+  posts, error := Pg.load_many(db, users, "posts");     // posts.items[i]: [] Post of users[i]
+  defer Pg.free_loaded(*posts);
+  authors, error := Pg.load_one(db, posts_list, "author"); // authors.items[i]: Nullable(User)
+  ```
+
+  The parents' keys go in as one array parameter, the rows come back once, and a hash table from key to parent hands them out. `items` are views into `rows`, which read from `result`, so everything lives until `free_loaded`. Parents sharing a key share their items. A null foreign key gives an empty list or a null item.
+
 `insert` leaves out fields marked `@pg_default` or `@pg_generated`, so the database fills them, and reads the stored row back with `returning`.
 
 ## How to change it
 
+- **Relations.** `orm_relation` parses the notes; `orm_related_column` writes the subquery; `orm_load_code` writes the body of `load_many` / `load_one`. The note format is shared with `generate.jai` and `diff.jai`.
 - **A new operator or call.** Add a case to `orm_binary` or `orm_call` in `orm.jai`, a stub procedure next to `like` if it is a call, a use in `tests/orm/main.jai`, and an error case in `tests/typed/bad.py` if it can be misused.
 - **A new parameter type.** `parameter_cast` maps a Jai type to the cast written after its hole. A type it does not know gets no cast, and Postgres infers one.
 - **Gotchas.**
   - The filter is walked as written, so a parameter expression is evaluated once per call, in the caller's scope.
   - Inside an `#expand` macro, `return f()` of a two-value call crashes the compiler today. The generated code binds the results to locals first.
   - A `Nullable(T)` zero value is not null (`null` defaults to `false`).
-- **Not yet built** (see the design): column pruning from the loop body, to-one joins and to-many batched loading through `@pg_belongs_to` / `@pg_has_many`, `Json_Maybe` comparisons, and COPY for large `insert_many`.
+- **Not yet built** (see the design): column pruning from the loop body (every select reads all columns), relations read inside the loop body without an explicit `load_*` call, relations on several columns in `load_*`, `Json_Maybe` comparisons, and COPY for large `insert_many`.
 
 ## Configuration
 
