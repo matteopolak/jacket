@@ -73,6 +73,8 @@ main :: () {
         test_statement_cache();
         step("test_statement_timeout");
         test_statement_timeout();
+        step("test_copy_out");
+        test_copy_out();
     });
     print("ok\n");
 }
@@ -1686,6 +1688,175 @@ test_statement_cache :: () {
     }
 
     assert(Pg.statement_cache_count(db) == before + 1);
+}
+
+Copy_Row :: struct {
+    id: s64;
+    name: string;
+    score: Pg.Nullable(s32);
+    tags: [] string;
+    raw: [] u8;
+    price: Pg.Numeric;
+    at: Pg.Timestamp;
+    doc: Pg.Json_Raw;
+    ratio: float64;
+    flag: bool;
+}
+
+Copy_Pieces :: struct {
+    text: [..] u8;
+    calls: s64;
+}
+
+gather_copy :: (data: [] u8, user_data: *void) {
+    pieces := cast(*Copy_Pieces) user_data;
+    pieces.calls += 1;
+    for data array_add(*pieces.text, it);
+}
+
+// COPY ... TO STDOUT, streamed to a callback in any format and decoded from binary into structs.
+test_copy_out :: () {
+    db := connect_ok(config_for("postgres"));
+
+    defer Pg.close(db);
+
+    assert_ok(Pg.execute_script(db, #string SQL
+create temp table copied (id int8, name text, score int4, tags text[], raw bytea, price numeric, at timestamptz, doc jsonb, ratio float8, flag bool);
+insert into copied values
+    (1, 'alice', 7, '{a,b}', '\xdeadbeef', 12.50, '2024-05-06 07:08:09+00', '{"k": [1, 2]}', 0.25, true),
+    (2, 'bob "q"', null, '{}', '', -0.001, '2000-01-01 00:00:00+00', 'null', -1.5, false),
+    (3, 'café', 0, '{}', '\x00', 0, '1999-12-31 23:59:59.999999+00', '{}', 1e300, true)
+SQL
+), "create");
+
+    // A text stream, a piece per row.
+    pieces: Copy_Pieces;
+    count, error := Pg.copy_out(db, "copy (select id, name from copied order by id) to stdout", gather_copy, *pieces);
+
+    assert_ok(error, "copy_out text");
+    assert(count == 3 && pieces.calls == 3, "% rows in % pieces", count, pieces.calls);
+    assert(cast(string) pieces.text == "1\talice\n2\tbob \"q\"\n3\tcafé\n", "got %", cast(string) pieces.text);
+
+    csv: Copy_Pieces;
+
+    count, error = Pg.copy_out(db, "copy (select id, name from copied order by id) to stdout (format csv, header)", gather_copy, *csv);
+
+    assert_ok(error, "copy_out csv");
+    assert(count == 3 && begins_with(cast(string) csv.text, "id,name\n1,alice\n2,\"bob \"\"q\"\"\"\n"), "got %", cast(string) csv.text);
+
+    // The raw binary stream starts with the COPY signature.
+    binary: Copy_Pieces;
+
+    count, error = Pg.copy_out(db, "copy (select id from copied) to stdout (format binary)", gather_copy, *binary);
+
+    assert_ok(error, "copy_out binary stream");
+    assert(count == 3 && begins_with(cast(string) binary.text, "PGCOPY\n\xff\r\n\0"));
+
+    // Statements that are not COPY TO STDOUT are refused.
+    _, error = Pg.copy_out(db, "select 1", gather_copy, *binary);
+    assert(error.kind == .USAGE, "got %", Pg.error_text(error));
+    Pg.free_error(*error);
+
+    _, error = Pg.copy_out(db, "copy copied from stdin", gather_copy, *binary);
+    assert(error.kind == .SERVER || error.kind == .USAGE);
+    Pg.free_error(*error);
+    assert(scalar(db, "select 1", s64) == 1);
+
+    // Rows.
+    rows, rows_error := Pg.copy_out(db, "copy (select * from copied order by id) to stdout (format binary)", Copy_Row);
+
+    assert_ok(rows_error, "copy_out rows");
+    assert(rows.rows.count == 3);
+
+    first := rows.rows[0];
+
+    assert(first.id == 1 && first.name == "alice" && first.score.value == 7 && !first.score.null);
+    assert(first.tags.count == 2 && first.tags[1] == "b");
+    assert(first.raw.count == 4 && first.raw[0] == 0xde && first.raw[3] == 0xef);
+    assert(first.price.text == "12.50", "got %", first.price.text);
+    assert(first.at.microseconds == 768294489000000, "got %", first.at.microseconds);
+    assert(contains(first.doc.text, "\"k\""));
+    assert(first.ratio == 0.25 && first.flag);
+
+    second := rows.rows[1];
+
+    assert(second.name == "bob \"q\"" && second.score.null && second.tags.count == 0 && second.raw.count == 0);
+    assert(second.price.text == "-0.001" && second.at.microseconds == 0 && second.doc.text == "null" && !second.flag);
+
+    third := rows.rows[2];
+
+    assert(third.name == "café" && !third.score.null && third.score.value == 0 && third.tags.count == 0);
+    assert(third.at.microseconds == -1 && third.ratio == 1e300);
+    Pg.free_copy_rows(*rows);
+
+    // A subset of the members, in the statement's order.
+    Small :: struct {
+        name: string;
+        id: s64;
+    }
+
+    small, small_error := Pg.copy_out(db, "copy (select name, id from copied order by id) to stdout (format binary)", Small, .["name", "id"]);
+
+    assert_ok(small_error, "copy_out some columns");
+    assert(small.rows.count == 3 && small.rows[2].id == 3 && small.rows[0].name == "alice");
+    Pg.free_copy_rows(*small);
+
+    // The inverse of copy_in: what goes in comes out.
+    rows, rows_error = Pg.copy_out(db, "copy (select * from copied order by id) to stdout (format binary)", Copy_Row);
+    assert_ok(rows_error, "copy_out for the round trip");
+    assert_ok(Pg.execute_script(db, "create temp table copied_again (like copied)"), "create again");
+
+    stored, copy_error := Pg.copy_in(db, "copy copied_again from stdin (format binary)", rows.rows);
+
+    assert_ok(copy_error, "copy_in the rows back");
+    assert(stored == 3);
+    assert(scalar(db, "select count(*) from (select * from copied except select * from copied_again) d", s64) == 0);
+    assert(scalar(db, "select count(*) from copied_again", s64) == 3);
+    Pg.free_copy_rows(*rows);
+
+    // Mistakes are reported, and the connection stays usable.
+    Wrong :: struct {
+        id: s64;
+        name: s32;
+    }
+
+    _, wrong_error := Pg.copy_out(db, "copy (select id, name from copied) to stdout (format binary)", Wrong);
+
+    assert(wrong_error.kind == .DECODE, "got %", Pg.error_text(wrong_error));
+    Pg.free_error(*wrong_error);
+
+    Narrow :: struct {
+        id: s64;
+        score: s32;
+    }
+
+    _, null_error := Pg.copy_out(db, "copy (select id, score from copied) to stdout (format binary)", Narrow);
+
+    assert(null_error.kind == .DECODE && contains(null_error.message, "NULL"), "got %", Pg.error_text(null_error));
+    Pg.free_error(*null_error);
+
+    _, text_error := Pg.copy_out(db, "copy (select id, name from copied) to stdout", Small);
+
+    assert(text_error.kind == .USAGE, "got %", Pg.error_text(text_error));
+    Pg.free_error(*text_error);
+
+    _, count_error := Pg.copy_out(db, "copy (select id from copied) to stdout (format binary)", Small);
+
+    assert(count_error.kind == .USAGE, "got %", Pg.error_text(count_error));
+    Pg.free_error(*count_error);
+    assert(scalar(db, "select 1", s64) == 1);
+
+    // A pool lends a connection for the call.
+    pool, pool_error := Pg.create_pool(config_for("postgres"));
+
+    assert_ok(pool_error, "create_pool");
+    defer Pg.close_pool(pool);
+
+    via_pool, via_error := Pg.copy_out(pool, "copy (select 5::int8, 'x'::text) to stdout (format binary)", Small, .["id", "name"]);
+
+    assert_ok(via_error, "copy_out through a pool");
+    assert(via_pool.rows.count == 1 && via_pool.rows[0].id == 5);
+    Pg.free_copy_rows(*via_pool);
 }
 
 // `statement_timeout` is a startup parameter, and `options` carries it through a connection string.
