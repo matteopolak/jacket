@@ -48,6 +48,7 @@
 - `jailint` suggests a struct literal for a struct that is declared and then has its fields set one by one (`field_reassign_with_default`).
 - `jailint` has an opt-in lint for `while` loops counted in floats (`float_loop_counter`).
 - `jailint` has an opt-in lint for `xx` outside call arguments (`autocast_used`).
+- `jailint` has an opt-in lint for `xx` written as a call argument (`autocast_in_arg`).
 
 ### Improved
 

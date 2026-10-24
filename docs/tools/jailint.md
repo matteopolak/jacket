@@ -94,6 +94,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `almost_swapped` | correctness | deny | editor | `a = b; b = a;`, a swap that sets both to `b` |
 | `approx_constant` | style | warn | editor | `3.14159`, `6.2832`, `1.4142`: a hand-typed approximation of a constant `Math` has (`PI`, `TAU`, `SQRT2`, ...) |
 | `assert_constant` | style | warn | yes | `assert(true, "...")`, `#assert true;`: an assertion whose condition is the literal `true`. `assert(false, ...)` is a deliberate failure and is not reported |
+| `autocast_in_arg` | restriction | allow | editor | `draw(xx width, xx height)`: the callee's parameter types decide the conversions |
 | `autocast_used` | restriction | allow | editor | `small: u8 = xx big;`, `return xx count;`: a conversion whose target type is left to the context |
 | `bad_bit_mask` | correctness | deny | editor | `(x & 4) == 1`, `(x | 2) == 0`: a comparison of a masked value with a constant the mask makes unreachable |
 | `banner_comment` | style | warn | yes | a comment that is only a line of `-`, `=` or `*` fencing off a section |
@@ -191,6 +192,8 @@ Two consecutive statements with side-effect-free sides of the same type. A real 
 Needs at least four significant digits (`3.14` is a rough value on purpose) and a match where the literal stops, rounded or cut off. Knows π, 2π, π/2, π/4, √2 and √½. Constant declarations are left alone. A test that checks a value on purpose takes `// jailint: allow(approx_constant)`. The editor offers the replacement (`PI64` family for a `float64` literal, a quotient in parentheses); the `Math` import is yours to add.
 ### assert_constant
 The call must be to a procedure with the `@AssertsArgument` note (the library's `assert`). Macros are skipped. The fix removes the statement when it stands in a block and its other arguments have no side effects.
+### autocast_in_arg
+The call site then depends on the parameter types: changing `draw` to take a `float` instead of an `s32` changes what `xx` does at every call, and nothing there says so. Fires on an `xx` that is directly an argument of a call (other uses are `autocast_used`). When the compiler resolved the cast the message names both types and the editor offers `cast(T)` for plain `xx`; `--fix` does not apply it. Off by default: `xx` in arguments is idiomatic Jai, especially for C APIs.
 ### autocast_used
 `xx` takes its target type from the context, so the line does not say what the value becomes, and changing the type on the left silently changes the conversion on the right. `cast(u8) big` says it where it happens. Fires on every `xx` that is not directly an argument of a call (those are `autocast_in_arg`). When the compiler resolved the cast the message names both types and the editor offers `cast(T)` for plain `xx`; `--fix` does not apply it. Off by default: `xx` is idiomatic Jai.
 ### bad_bit_mask

@@ -98,6 +98,16 @@
           "default": "deny",
           "markdownDescription": "a comparison an unsigned value always passes or fails (`u >= 0`) (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#absurd_comparison)"
         },
+        "autocast_in_arg": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "allow",
+          "markdownDescription": "`xx`, the automatic cast, written as an argument of a call (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#autocast_in_arg)"
+        },
         "almost_swapped": {
           "type": "string",
           "enum": [

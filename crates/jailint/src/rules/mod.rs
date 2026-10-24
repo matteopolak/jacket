@@ -11,6 +11,7 @@ mod absurd_comparison;
 mod almost_swapped;
 mod approx_constant;
 mod assert_constant;
+mod autocast_in_arg;
 mod autocast_used;
 mod bad_bit_mask;
 mod banner_comment;
@@ -124,6 +125,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Correctness,
         summary: "a comparison an unsigned value always passes or fails (`u >= 0`)",
         check: absurd_comparison::check,
+    },
+    RuleInfo {
+        name: "autocast_in_arg",
+        category: Category::Restriction,
+        summary: "`xx`, the automatic cast, written as an argument of a call",
+        check: autocast_in_arg::check,
     },
     RuleInfo {
         name: "almost_swapped",
