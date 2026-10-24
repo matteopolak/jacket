@@ -20,6 +20,7 @@ removed, error := Pg.delete(db, User, where = #code it.id == row.id);
 | `select(db, T, where?, order_by?, desc?, limit?, offset?, from_sql?)` | `Rows(T), Pg_Error` | `select <every column> from <table> where ... order by ... limit ... offset ...` |
 | `insert(db, value)` | `T, Pg_Error` | `insert ... returning <every column>` |
 | `insert_many(db, values)` | `[] T, Pg_Error` | one `insert` per value, stopping at the first error |
+| `copy_many(db, values)` | `s64, Pg_Error` (rows stored) | one binary `copy ... from stdin` ([copy.md](copy.md)); reads nothing back |
 | `update(db, T, set, where)` | `s64, Pg_Error` (rows changed) | `update <table> set ... where ...` |
 | `delete(db, T, where)` | `s64, Pg_Error` (rows deleted) | `delete from <table> where ...`; `where` is required (`#code true` for every row) |
 | `load_many(db, parents, "posts")` | `Loaded_Many(Post), Pg_Error` | one `select ... where author_id = any($1)` for a `@pg_has_many` relation |
@@ -78,7 +79,7 @@ The relation notes `generate` writes (`@pg_belongs_to(author:author_id:User:id)`
   - The filter is walked as written, so a parameter expression is evaluated once per call, in the caller's scope.
   - Inside an `#expand` macro, `return f()` of a two-value call crashes the compiler today. The generated code binds the results to locals first.
   - A `Nullable(T)` zero value is not null (`null` defaults to `false`).
-- **Not yet built** (see the design): column pruning from the loop body (every select reads all columns), relations read inside the loop body without an explicit `load_*` call, relations on several columns in `load_*`, and COPY for large `insert_many`.
+- **Not yet built** (see the design): column pruning from the loop body (every select reads all columns), relations read inside the loop body without an explicit `load_*` call, relations on several columns in `load_*`, and switching `insert_many` itself to COPY (it returns the stored rows, which COPY cannot).
 
 ## Configuration
 

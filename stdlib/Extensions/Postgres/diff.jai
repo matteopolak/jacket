@@ -15,6 +15,7 @@ Schema_Field :: struct {
     primary_key: bool;
     has_default: bool;
     generated: bool;
+    json_text: bool; // `@pg_json`: a `json` column rather than `jsonb`
 }
 
 // A struct with an `@pg_table` note.
@@ -416,6 +417,7 @@ parse_struct :: (name: string, schema: string, table: string, notes: [] string, 
             if note == "pg_primary_key" field.primary_key = true;
             else if note == "pg_default" field.has_default = true;
             else if note == "pg_generated" field.generated = true;
+            else if note == "pg_json" field.json_text = true;
         }
 
         array_add(*fields, field);
@@ -594,6 +596,8 @@ column_definition :: (p: *Proposal_Builder, owner: string, field: Schema_Field) 
     inner, nullable := unwrap_nullable(field.type_text);
     sql := sql_type_of_text(inner, p.refs);
 
+    if sql == "jsonb" && field.json_text sql = "json";
+
     if !sql {
         line_todo(p, tprint("%.%: no Postgres type for the Jai type %; the column is left out", owner, quote(field.name), field.type_text));
         return "";
@@ -719,6 +723,13 @@ compare_column :: (p: *Proposal_Builder, relation: Catalog_Relation, column: Cat
         sql := sql_type_of_text(inner, p.refs);
 
         line_todo(p, tprint("%.%: the type changed from % to %; write the conversion by hand, such as `alter table % alter column % type % using ...`", owner, quote(column.name), expected, inner, owner, quote(column.name), ifx sql then sql else "..."));
+    }
+
+    is_json := column.base == "json" || column.base == "jsonb";
+
+    if is_json && field.json_text != (column.base == "json") {
+        to := ifx field.json_text then "json" else "jsonb";
+        statement(p, *p.alters, tprint("alter table % alter column % type % using %::%;", owner, quote(column.name), to, quote(column.name), to));
     }
 
     if nullable && !column.nullable {

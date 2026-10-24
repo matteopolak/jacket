@@ -39,7 +39,7 @@ User :: struct @pg_table(public.users) @pg_belongs_to(team:team_id:Team:id) @pg_
 - **Enums.** A Jai enum with the labels as member names; `Pg.enum_member_name` / `enum_label` spell labels that are not plain names (`__in_20progress`). The codecs send and read an enum by label ([postgres.md](../extensions/postgres.md)).
 - **Notes** (read from `type_info(T).notes` and `members[i].notes`; a note has no spaces, and enums have none):
   - `@pg_table(schema.name)` on the struct;
-  - `@pg_primary_key`, `@pg_default` (default, identity or generated: an insert may omit it) and `@pg_generated` (always generated: an insert may not set it) on columns;
+  - `@pg_primary_key`, `@pg_default` (default, identity or generated: an insert may omit it) `@pg_generated` (always generated: an insert may not set it) and `@pg_json` (a `json` column, not `jsonb`, which binary COPY needs to know) on columns;
   - `@pg_belongs_to(name:cols:Target:target cols)` on the table holding a foreign key, and `@pg_has_many(name:Source:source cols:own cols)` on the table it points to. Columns are comma separated. A belongs-to is named for its column without `_id`, else the target's singular name; a has-many for the source table, else `<table>_by_<column>`.
 - **JSON.** Every `json` / `jsonb` column is `Pg.Json(Pg.json_column_type("table.column"))` (`schema.table.column` outside `public`). The macro looks the key up in `Json_Columns` and falls back to `Json_Raw`, so a mapping change needs no `generate`:
 

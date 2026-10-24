@@ -29,6 +29,7 @@ main :: () {
         test_relations(db);
         test_writes(db);
         test_json_maybe(db);
+        test_copy(db);
     });
 
     if failures {
@@ -246,4 +247,91 @@ test_json_maybe :: (db: *Pg.Connection) {
     gone:, error = Pg.delete(db, User, where = #code it.id == with_null.id || it.id == with_value.id);
 
     check(error.kind == .NONE && gone == 2, Pg.error_text(error));
+}
+
+Copy_Row :: struct {
+    n: Pg.Numeric;
+    j: Pg.Json(Settings); @pg_json
+    jb: Pg.Nullable(Pg.Json(Settings));
+    b: [] u8;
+    at: Pg.Timestamp;
+    a: [] s64;
+    m: Mood;
+    f: float64;
+    i: s32;
+    t: Pg.Nullable(string);
+}
+
+// Binary COPY: the ORM's copy_many, and copy_in over a table with one column of each kind.
+test_copy :: (db: *Pg.Connection) {
+    users: [3] User;
+    for *users {
+        it.email = tprint("copy%@example.com", it_index);
+        it.display_name.null = true;
+        it.settings.null = true;
+    }
+
+    users[1].display_name = .{ value = "Copied" };
+    users[1].settings = .{ value = .{ value = .{ theme = "copied" } } };
+
+    stored, error := Pg.copy_many(db, users);
+
+    check(error.kind == .NONE && stored == 3, Pg.error_text(error));
+
+    copied:, error = Pg.select(db, User, where = #code Pg.like(it.email, "copy%@example.com"), order_by = #code it.email);
+    all := Pg.fetch_all(*copied);
+
+    check(error.kind == .NONE && all.count == 3 && all[1].display_name.value == "Copied" && all[0].display_name.null && all[2].mood == .ok, Pg.error_text(error));
+    Pg.free_rows(*copied);
+
+    gone:, error = Pg.delete(db, User, where = #code Pg.like(it.email, "copy%@example.com"));
+
+    check(error.kind == .NONE && gone == 3, Pg.error_text(error));
+
+    error = Pg.execute_script(db, "create temp table copy_kinds (n numeric, j json, jb jsonb, b bytea, at timestamptz, a int8[], m mood, f float8, i int4, t text)");
+    check(error.kind == .NONE, Pg.error_text(error));
+
+    rows: [2] Copy_Row;
+    rows[0] = .{ n = .{ "-12345.0067" }, b = .[1, 0, 255], at = .{ 86_400_000_000 }, a = .[3, -4], m = .happy, f = 2.5, i = -7 };
+    rows[0].j.value = .{ theme = "dark" };
+    rows[0].jb = .{ value = .{ value = .{ theme = "light", font_size = 9 } } };
+    rows[0].t = .{ value = "tab\there" };
+    rows[1] = .{ n = .{ "0.000" }, m = .sad, i = 2_000_000_000 };
+    rows[1].jb.null = true;
+    rows[1].t.null = true;
+
+    stored, error = Pg.copy_in(db, "copy copy_kinds from stdin (format binary)", rows);
+    check(error.kind == .NONE && stored == 2, Pg.error_text(error));
+
+    text, error = := Pg.query_dynamic(db, "select n::text, j::text, jb->>'theme', encode(b, 'hex'), (at at time zone 'UTC')::date::text, a::text, m::text, f::text, i::text, t from copy_kinds order by i");
+    defer Pg.free_result(*text);
+    check(error.kind == .NONE && text.row_count == 2, Pg.error_text(error));
+
+    if text.row_count == 2 {
+        expected := string.["-12345.0067", "{\"theme\":\"dark\",\"font_size\":14}", "light", "0100ff", "2000-01-02", "{3,-4}", "happy", "2.5", "-7", "tab\there"];
+
+        for expected {
+            got := Pg.get(*text, 0, it_index, string);
+            check(got == it, tprint("column %: % instead of %", it_index, got, it));
+        }
+
+        check(Pg.get(*text, 1, 0, string) == "0.000" && Pg.is_null(*text, 1, 2) && Pg.is_null(*text, 1, 9), "the second row");
+    }
+
+    // Enough rows for several chunks.
+    many := NewArray(5000, Copy_Row,, temp);
+    for *many it.* = rows[0];
+
+    stored, error = Pg.copy_in(db, "copy copy_kinds from stdin (format binary)", many);
+    check(error.kind == .NONE && stored == many.count, Pg.error_text(error));
+
+    // A wrong width is the server's error, not a corrupt row.
+    Wide :: struct {
+        i: s64;
+    }
+
+    wide := Wide.[.{ 1 }];
+
+    stored, error = Pg.copy_in(db, "copy copy_kinds (i) from stdin (format binary)", wide);
+    check(error.kind == .SERVER, "an s64 into int4 should fail");
 }
