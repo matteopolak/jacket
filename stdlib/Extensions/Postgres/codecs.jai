@@ -346,7 +346,14 @@ decode_array_binary :: (bytes: [] u8, out: *[] $Element, json: *Json_Layers) -> 
 
     if r.bad || count < 0 return "a malformed binary array";
 
+    // Each element has at least its 4-byte length: a count the data cannot hold is never allocated.
+    if count > (r.data.count - r.at) / 4 return "a truncated binary array";
+
     result := NewArray(count, Element);
+    failed := true;
+
+    defer if failed array_free(result);
+
     for *result {
         length := get_s32(*r);
 
@@ -370,6 +377,7 @@ decode_array_binary :: (bytes: [] u8, out: *[] $Element, json: *Json_Layers) -> 
         if why return tprint("element %: %", it_index + 1, why);
     }
 
+    failed = false;
     out.* = result;
 
     return "";

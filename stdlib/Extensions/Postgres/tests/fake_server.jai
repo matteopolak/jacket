@@ -77,6 +77,25 @@ main :: () {
 
         assert(failed > 0, "no mutation was rejected");
 
+        // A binary array whose header claims more elements than its bytes can hold is an error,
+        // without allocating room for them first.
+        // The result keeps the allocator the query ran with, and decodes with it.
+        set_reply(huge_array_reply());
+        values: [] s32;
+        get_error: Pg.Pg_Error;
+
+        {
+            parent = context.allocator;
+            push_allocator(small_allocations, null);
+            result, query_error = run_query();
+            assert(query_error.kind == .NONE, Pg.error_text(query_error));
+            values, get_error = Pg.get(*result, 0, 0, [] s32);
+        }
+
+        assert(get_error.kind != .NONE, "an array of 2^31 - 1 elements in 20 bytes was read");
+        Pg.free_error(*get_error);
+        Pg.free_result(*result);
+
         Io.close(listener);
         print("ok\n");
     });
@@ -247,6 +266,51 @@ valid_reply :: () -> [] u8 {
     message(*out, #char "Z", .[#char "I"]);
 
     return out;
+}
+
+// One int4[] column whose value claims 2^31 - 1 elements and holds none.
+huge_array_reply :: () -> [] u8 {
+    out: [..] u8;
+    out.allocator = temp;
+
+    message(*out, #char "1", .[]);
+    message(*out, #char "2", .[]);
+
+    body: [..] u8;
+    body.allocator = temp;
+    put16(*body, 1);
+    put_cstring(*body, "a");
+    put32(*body, 0);
+    put16(*body, 0);
+    put32(*body, 1007);
+    put16(*body, -1);
+    put32(*body, -1);
+    put16(*body, 1);
+    message(*out, #char "T", body);
+
+    array_reset(*body);
+    put16(*body, 1);
+    array_value: [..] u8;
+    array_value.allocator = temp;
+    for s64.[1, 0, 23, 0x7FFF_FFFF, 1] put32(*array_value, it);
+
+    value_bytes(*body, array_value);
+    message(*out, #char "D", body);
+
+    array_reset(*body);
+    put_cstring(*body, "SELECT 1");
+    message(*out, #char "C", body);
+    message(*out, #char "Z", .[#char "I"]);
+
+    return out;
+}
+
+// Passes requests to `parent`, failing the test on one over a mebibyte.
+parent: Allocator;
+
+small_allocations :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, allocator_data: *void) -> *void {
+    if mode == .ALLOCATE || mode == .RESIZE assert(size <= 1024 * 1024, "an allocation of % bytes", size);
+    return parent.proc(mode, size, old_size, old_memory, parent.data);
 }
 
 // A notice, a notification and a parameter change.
