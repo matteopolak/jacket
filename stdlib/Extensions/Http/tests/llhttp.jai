@@ -94,7 +94,7 @@ main :: () {
             continue;
         }
 
-        check(false, tprint("% (%)\n  input: %\n  llhttp: %\n  ours:   %", it.id, it.name, it.input, replace(expected, "\n", " | "), replace(whole, "\n", " | ")));
+        check(false, tprint("% (%)\n  input: %\n  llhttp: %\n  ours:   %", it.id, it.name, it.input, replace(expected, "\n", " | ",, temp), replace(whole, "\n", " | ",, temp)));
     }
 
     print("% cases: % match llhttp, % deviate on purpose, % need a lenient mode\n", LLHTTP_CASES.count, matched, deviated, lenient);

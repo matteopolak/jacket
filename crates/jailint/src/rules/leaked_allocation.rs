@@ -127,7 +127,7 @@ fn allocation<'a>(cx: &Cx, d: &'a Decl) -> Option<&'a Expr> {
 }
 
 /// The procedure may run under another allocator, or does something the scan cannot follow.
-fn changes_allocator(cx: &Cx, header: &ProcHeader, body: &[Stmt]) -> bool {
+pub(super) fn changes_allocator(cx: &Cx, header: &ProcHeader, body: &[Stmt]) -> bool {
     if header.params.iter().any(|q| q.using) {
         return true;
     }

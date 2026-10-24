@@ -191,7 +191,7 @@ label_width :: (option: Option_Spec) -> s64 {
 notes_for :: (option: Option_Spec) -> string {
     notes: String_Builder;
     if option.default_text.count print(*notes, " [default: %]", option.default_text);
-    if option.choices.count && option.kind != .FLAG print(*notes, " [possible values: %]", join(..option.choices, ", "));
+    if option.choices.count && option.kind != .FLAG print(*notes, " [possible values: %]", join(..option.choices, ", ",, temp));
     if option.range_text.count print(*notes, " [range: %]", option.range_text);
     if option.env.count print(*notes, " [env: %]", option.env);
 

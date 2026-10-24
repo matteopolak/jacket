@@ -7,6 +7,6 @@ main :: () {
 
     defer free_buffers(*builder);
     print_type_to_builder(*builder, null);
-    print("%\n", builder_to_string(*builder));
+    print("%\n", builder_to_string(*builder,, temp));
     print("%\n", type_to_string(null));
 }

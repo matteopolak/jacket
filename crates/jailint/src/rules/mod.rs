@@ -50,6 +50,7 @@ mod int_plus_one;
 mod integer_division_in_float;
 mod large_stack_array;
 mod leaked_allocation;
+mod leaked_temporary;
 mod loop_with_break_condition;
 mod lossy_float_literal;
 mod lossy_xx;
@@ -371,6 +372,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Pedantic,
         summary: "a local holding memory from an `@Allocates` call that is never freed, returned or handed on",
         check: leaked_allocation::check,
+    },
+    RuleInfo {
+        name: "leaked_temporary",
+        category: Category::Suspicious,
+        summary: "an `@Allocates` result that is only compared, measured, indexed or printed, so nothing can free it",
+        check: leaked_temporary::check,
     },
     RuleInfo {
         name: "lossy_float_literal",

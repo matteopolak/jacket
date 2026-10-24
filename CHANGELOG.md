@@ -49,6 +49,7 @@
 - `jailint` has an opt-in lint for `while` loops counted in floats (`float_loop_counter`).
 - `jailint` has an opt-in lint for `xx` outside call arguments (`autocast_used`).
 - `jailint` has an opt-in lint for `xx` written as a call argument (`autocast_in_arg`).
+- `jailint` reports an allocated string that is only compared, measured, indexed or printed, such as `if sprint("%", n) == "7"` (`leaked_temporary`).
 
 ### Improved
 

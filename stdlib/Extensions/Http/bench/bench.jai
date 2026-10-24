@@ -26,7 +26,7 @@ make_large_headers :: (copies: int) -> string {
 
     for 0..40 print_to_builder(*cookie, "k%=%; ", it, "abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnopqrstuvwxyz");
 
-    unit := tprint("GET /a/very/long/path/%?q=% HTTP/1.1\r\nHost: example.com\r\nCookie: %\r\nX-Forwarded-For: 203.0.113.7, 198.51.100.23, 192.0.2.99\r\nAuthorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk5yJV_adQssw5c\r\n\r\n", "segment/another/segment/and/another/one/more", "search+terms+that+go+on+and+on+and+on", builder_to_string(*cookie));
+    unit := tprint("GET /a/very/long/path/%?q=% HTTP/1.1\r\nHost: example.com\r\nCookie: %\r\nX-Forwarded-For: 203.0.113.7, 198.51.100.23, 192.0.2.99\r\nAuthorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk5yJV_adQssw5c\r\n\r\n", "segment/another/segment/and/another/one/more", "search+terms+that+go+on+and+on+and+on", builder_to_string(*cookie,, temp));
 
     return make_stream(unit, copies);
 }

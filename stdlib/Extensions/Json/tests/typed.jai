@@ -435,7 +435,7 @@ values :: () {
     builder: String_Builder;
 
     write_json(*builder, v);
-    check(builder_to_string(*builder) == to_json(v), "write_json");
+    check(builder_to_string(*builder,, temp) == to_json(v), "write_json");
 
     free_json(*v);
     free_json(*big);

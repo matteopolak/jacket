@@ -103,8 +103,8 @@ main :: () {
     parts := split("alpha,beta,gamma", ",");
 
     check(parts.count == 3 && parts[2] == "gamma", "split");
-    check(join(..parts, "+") == "alpha+beta+gamma", "join");
-    check(to_upper_copy("windows") == "WINDOWS", "to_upper_copy");
+    check(join(..parts, "+",, temp) == "alpha+beta+gamma", "join");
+    check(to_upper_copy("windows",, temp) == "WINDOWS", "to_upper_copy");
     found, before, after := split_from_left("key=value", #char "=");
 
     check(found && before == "key" && after == "value", "split_from_left");

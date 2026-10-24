@@ -14,7 +14,7 @@ exit :: (code: s32) #foreign libc;
 libc :: #system_library "libc";
 
 main :: () {
-    assert(join("a", "b") == "ab");
+    assert(join("a", "b") == "ab"); // jailint: allow(leaked_temporary) only the listed names are in scope, not `temp`
     assert(S.contains("hello", "ell"));
     builder: String_Builder; // jailint: allow(unused_variable) names a listed type
     print("ok\n");

@@ -120,10 +120,10 @@ bash_script :: (root: *Command_Spec) -> string {
             array_add(*spellings, tprint("--%", option.long));
             if option.short array_add(*spellings, tprint("-%", short_text(option.short)));
 
-            print(*out, "        %:%)\n", command_key(root.name, visit.path), join(..spellings, "|"));
+            print(*out, "        %:%)\n", command_key(root.name, visit.path), join(..spellings, "|",, temp));
 
             if option.choices.count {
-                print(*out, "            COMPREPLY=($(compgen -W \"%\" -- \"$cur\"))\n", join(..option.choices, " "));
+                print(*out, "            COMPREPLY=($(compgen -W \"%\" -- \"$cur\"))\n", join(..option.choices, " ",, temp));
             } else if wants_files(option) {
                 append(*out, "            COMPREPLY=($(compgen -f -- \"$cur\"))\n");
             } else {
@@ -156,7 +156,7 @@ bash_script :: (root: *Command_Spec) -> string {
         subcommands: [..] string;
         for visit.spec.subcommands array_add(*subcommands, it.name);
 
-        print(*out, "        %) words=\"%\"; subcommands=\"%\" ;;\n", command_key(root.name, visit.path), join(..words, " "), join(..subcommands, " "));
+        print(*out, "        %) words=\"%\"; subcommands=\"%\" ;;\n", command_key(root.name, visit.path), join(..words, " ",, temp), join(..subcommands, " ",, temp));
     }
 
     append(*out, "    esac\n\n    if [[ \"$cur\" == -* ]]; then\n        COMPREPLY=($(compgen -W \"$words\" -- \"$cur\"))\n");
@@ -178,7 +178,7 @@ zsh_text :: (text: string) -> string {
 }
 
 zsh_value_action :: (option: Option_Spec) -> string {
-    if option.choices.count return tprint("(%)", join(..option.choices, " "));
+    if option.choices.count return tprint("(%)", join(..option.choices, " ",, temp));
     if wants_files(option) return "_files";
     return " ";
 }
@@ -268,7 +268,7 @@ fish_script :: (root: *Command_Spec) -> string {
 
             if takes_value(option) {
                 append(*line, " -r");
-                if option.choices.count print(*line, " -f -a '%'", join(..option.choices, " "));
+                if option.choices.count print(*line, " -f -a '%'", join(..option.choices, " ",, temp));
                 else if !wants_files(option) append(*line, " -f");
             }
 
@@ -286,7 +286,7 @@ fish_script :: (root: *Command_Spec) -> string {
 
         for visit.spec.positionals {
             if wants_files(it) || !it.choices.count print(*out, "complete -c %% -F\n", root.name, condition);
-            else print(*out, "complete -c %% -f -a '%'\n", root.name, condition, join(..it.choices, " "));
+            else print(*out, "complete -c %% -f -a '%'\n", root.name, condition, join(..it.choices, " ",, temp));
         }
 
         if visit.spec.subcommands.count {
@@ -324,7 +324,7 @@ powershell_script :: (root: *Command_Spec) -> string {
 
         parent_key := join(..parent_path, ";", before_first = true);
 
-        print(*out, "            '%%;%' { $command = '%;%' }\n", root.name, parent_key, visit.path[visit.path.count - 1], root.name, join(..visit.path, ";"));
+        print(*out, "            '%%;%' { $command = '%;%' }\n", root.name, parent_key, visit.path[visit.path.count - 1], root.name, join(..visit.path, ";",, temp));
     }
 
     append(*out, "        }\n    }\n\n    $previous = if ($elements.Count -gt 1) { $elements[$elements.Count - 1] } else { '' }\n");
@@ -341,7 +341,7 @@ powershell_script :: (root: *Command_Spec) -> string {
             if option.short array_add(*names, tprint("-%", short_text(option.short)));
 
             for name: names {
-                print(*out, "        '%%;%' { @(", root.name, join(..visit.path, ";", before_first = true), name);
+                print(*out, "        '%%;%' { @(", root.name, join(..visit.path, ";", before_first = true,, temp), name);
 
                 for choice: option.choices {
                     if it_index append(*out, ", ");
@@ -358,7 +358,7 @@ powershell_script :: (root: *Command_Spec) -> string {
     append(*out, "    $completions = switch ($command) {\n");
 
     for visit: visits {
-        print(*out, "        '%%' {\n            @(\n", root.name, join(..visit.path, ";", before_first = true));
+        print(*out, "        '%%' {\n            @(\n", root.name, join(..visit.path, ";", before_first = true,, temp));
 
         for option: accepted_options(visit) {
             if option.short print(*out, "                [System.Management.Automation.CompletionResult]::new('-%', '-%', 'ParameterName', '%')\n", short_text(option.short), short_text(option.short), ps_text(option.help));

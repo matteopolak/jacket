@@ -50,13 +50,14 @@ Several rules decide what a call means from a note on the procedure's declaratio
 | `@RemovesFromArray` | `remove_in_for` | removes elements from the array its first argument points to |
 | `@AddsToArray` | `useless_resizable` | adds one element to the end of the resizable array its first argument points to (`array_add(*xs, item)`) |
 | `@FreesArgument` | `defer_in_loop`, `use_after_free`, `double_free` | after the call the *first* argument's memory or resource is gone: freed, closed or destroyed (`free`, `array_free`, `array_reset`, closers and `deinit`s). Not for a procedure whose first argument is only an allocator, heap or owner |
-| `@Allocates` | `leaked_allocation` | the result is newly allocated and the caller owns it (`alloc`, `New`, `copy_string`, `sprint`, `join`, ...) |
+| `@Allocates` | `leaked_allocation`, `leaked_temporary` | the result is newly allocated and the caller owns it (`alloc`, `New`, `copy_string`, `sprint`, `join`, ...) |
 | `@TakesByteCount` | `element_count_as_bytes` | the last argument is a number of bytes in the memory the pointer arguments point at (`memcpy`, `memset`, `memcmp`) |
 | `@Locks` | `unpaired_lock` | takes the lock its first argument names (`lock(*mutex)`); a procedure with this note is a wrapper and is not checked itself |
 | `@Unlocks` | `unpaired_lock` | gives back the lock its first argument names |
 | `@AssertsArgument` | `assert_constant` | stops the program unless its first argument is true (the library's `assert`) |
 | `@WritesOutput` | `print_in_module` | writes to the program's standard output or error (`print`, `write_string`, `write_strings`, `write_builder`) |
 | `@Exits` | `exit_in_module` | ends the process (`exit`) |
+| `@PrintLike` | `leaked_temporary` | its `string` parameter is a format string, followed by the values it formats (`print`, `log`, `sprint`, `tprint`) |
 | `@FormatsToString` | `useless_format`, `format_push_string` | its first argument is a format string and the rest are the values; it returns the formatted text as a new string (`sprint`, `tprint`) |
 | `@AppendsString` | `format_push_string` | adds the string in its second argument to the builder in its first (`append(*builder, s)`) |
 
@@ -133,6 +134,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `large_stack_array` | pedantic | allow | no | `scratch: [1 << 20] u8;` as a local: a megabyte of stack |
 | `leaked_allocation` | pedantic | allow | editor | `p := New(T);` that is never freed, returned or handed on |
 | `loop_with_break_condition` | complexity | warn | yes | `while true { if i >= n break; ... }`: a loop that opens by leaving when a test fails, which is the `while` condition |
+| `leaked_temporary` | suspicious | warn | no | `if sprint("%", n) == "7"`, `print("%", sprint(...))`: an `@Allocates` result that is compared, measured, indexed or printed and nothing can free |
 | `lossy_float_literal` | style | warn | yes | `pi: float32 = 31415.92653;`: digits a `float32` cannot hold |
 | `lossy_xx` | pedantic | allow | yes | `xx` that narrows a number to a smaller type |
 | `magic_number` | pedantic | allow | no | `if x > 37`, `y * 1.0472`, `timeout = 8640`: an unexplained number where a named constant would read better |
@@ -268,6 +270,8 @@ Operands are typed before the cast, so the integers divide first. A variable div
 Locals live on the stack, which is small (a thread's is often 1 MiB or less) and shared with deep recursion, so a local of a megabyte can overflow it with no message beyond a crash. Fires on a local variable (not a parameter) whose type is a fixed array larger than `[lint] max_stack_array_bytes` (64 KiB by default); arrays of structs count by total size. Locals of polymorphic procedures and macros, and generated files, are skipped. Allocate large buffers with `NewArray` or `alloc`, use a resizable array, or keep them in a global. No fix. Off by default.
 ### leaked_allocation
 Off by default: ownership conventions differ, and a program that allocates once for its whole run may leak on purpose. A local declared from a call of an `@Allocates` procedure (the library's `alloc`, `New`, `NewArray`, `copy_string`, `sprint`, `join`, `array_copy`, `to_upper_copy`, `read_entire_file`, ...; a cast around the call is fine) whose every later mention is harmless: reading or writing a number, bool or enum through it (`p.count`, `p.depth = 1`), comparing it, testing it in an `if`/`while`, or a bare statement. Passing it (or anything reached through it) to any call, freeing it (also by `defer`), returning it, assigning it elsewhere, taking its address, putting it in a literal or reassigning it all count as handling the memory and keep the rule silent. It also stays silent when it cannot tell which allocator is in force: a procedure that uses `push_context`, assigns `context`, calls a macro (`push_allocator` is one) or has `#insert`/`using`, an allocating call with `,, allocator = temp`, or a name mentioned where the walk cannot follow. For a pointer, the editor offers `defer free(x);` on the next line.
+### leaked_temporary
+A call of an `@Allocates` procedure (`sprint`, `join`, `copy_string`, ...) whose result is used where it is read and dropped at once: an operand of a comparison, the receiver of `.count` or of an index, or a value argument of a `@PrintLike` call. With no name holding it, nothing can free the memory, so it leaks on every run. Anything else (storing, passing to another call, returning) may hand the memory on and is not reported. It stays quiet in a procedure that changes the allocator (`push_context`, assigning `context`, `push_allocator` and other macros, `#insert`) and for a call with a `,,` context change. Keep the value in a local and `defer free` it, or use `tprint`. No fix.
 ### loop_with_break_condition
 A `while true` (macros aside) whose body starts with an `if` without an `else` that only does an unlabelled `break`, with or without braces. The fix puts the opposite test in the header (`!c` becomes `c`, `a >= b` on numbers becomes `a < b`) and removes the `if`; a comment inside the `if`, or before it in the loop, withholds it.
 ### lossy_float_literal
