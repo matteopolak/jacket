@@ -65,6 +65,7 @@ mod print_in_module;
 mod range_past_count;
 mod redundant_alias;
 mod redundant_cast;
+mod redundant_deref;
 mod remove_in_for;
 mod returned_local_address;
 mod reversed_range;
@@ -443,6 +444,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Complexity,
         summary: "a local that only exists to be copied into another local or returned",
         check: redundant_alias::check,
+    },
+    RuleInfo {
+        name: "redundant_deref",
+        category: Category::Complexity,
+        summary: "`p.*.field` where `p.field` means the same",
+        check: redundant_deref::check,
     },
     RuleInfo {
         name: "redundant_cast",

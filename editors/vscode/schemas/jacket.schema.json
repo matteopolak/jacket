@@ -685,6 +685,16 @@
               "default": "warn",
               "markdownDescription": "a local that only exists to be copied into another local or returned (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#redundant_alias)"
             },
+            "redundant_deref": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "`p.*.field` where `p.field` means the same (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#redundant_deref)"
+            },
             "redundant_cast": {
               "type": "string",
               "enum": [

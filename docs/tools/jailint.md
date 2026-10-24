@@ -144,6 +144,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `range_past_count` | correctness | deny | editor | `for i: 0..xs.count` indexing `xs[i]`: one past the end |
 | `redundant_alias` | complexity | warn | yes | a local only copied into another local (`a := f(); b := a;`) or returned right away |
 | `redundant_cast` | complexity | warn | yes | a cast to the type the value already has |
+| `redundant_deref` | complexity | warn | yes | `p.*.field` with `p: *Point`: member access already looks through a pointer to a struct |
 | `remove_in_for` | correctness | deny | editor | `array_*_remove_*` on the array a `for` is walking |
 | `returned_local_address` | correctness | deny | no | `return *x;`, `return *x.field;`, `return buffer.data;` with `x` or `buffer` a local: a pointer into a stack frame that is gone |
 | `reversed_range` | correctness | deny | editor | `for i: 10..0`: a range that never runs |
@@ -295,6 +296,8 @@ Ranges include their end. Quiet when the body mentions `xs.count` (it may guard 
 Style rule, deliberately narrow so the fix never changes behaviour: the two statements are adjacent with nothing (not even a comment) between, the first name appears exactly twice in the body, the types are identical, and no `#insert`, `using`, notes or flags are involved. Parameters, loop variables, globals, macros and generated files are skipped.
 ### redundant_cast
 Aliases like `c_long` differ per platform, so the value must be declared with the same type spelling. Polymorphic bodies and macros are skipped.
+### redundant_deref
+Fires when a member is taken from the dereference of an expression whose type is a pointer to a struct or union. A pointer to a pointer or to an array is left alone, where the `.*` changes the meaning. `--fix` removes the `.*` written after the pointer; the prefix form `(<<p).field` is reported without a fix.
 ### remove_in_for
 The loop steps past the element moved into the removed slot. Use `remove it;`. Fires on `@RemovesFromArray` procedures (`Basic`'s `array_*_remove_*`). Quiet for backwards loops and when `break`/`return` follows. When the call is a statement removing the element being visited (`array_unordered_remove_by_index(*xs, it_index);`), the editor offers `remove it;`. It is not applied by `--fix`, since the call may keep the order and `remove` does not.
 ### returned_local_address

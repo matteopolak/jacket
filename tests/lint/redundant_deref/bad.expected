@@ -1,0 +1,72 @@
+warning[redundant_deref]: `q.*` is not needed to reach `x`
+  --> tests/lint/redundant_deref/bad.jai:17:6
+   |
+17 |     q.*.x = 5;
+   |      ^^
+   |
+help: write `q.x`: member access already looks through the pointer
+   |
+17 ~     q.x = 5;
+   |
+   = note: `redundant_deref` is `warn` by default
+
+warning[redundant_deref]: `q.*` is not needed to reach `x`
+  --> tests/lint/redundant_deref/bad.jai:19:13
+   |
+19 |     sum := q.*.x + q.*.y;
+   |             ^^
+   |
+help: write `q.x`: member access already looks through the pointer
+   |
+19 ~     sum := q.x + q.*.y;
+   |
+   = note: `redundant_deref` is `warn` by default
+
+warning[redundant_deref]: `q.*` is not needed to reach `y`
+  --> tests/lint/redundant_deref/bad.jai:19:21
+   |
+19 |     sum := q.*.x + q.*.y;
+   |                     ^^
+   |
+help: write `q.y`: member access already looks through the pointer
+   |
+19 ~     sum := q.*.x + q.y;
+   |
+   = note: `redundant_deref` is `warn` by default
+
+warning[redundant_deref]: `l.*` is not needed to reach `start`
+  --> tests/lint/redundant_deref/bad.jai:24:13
+   |
+24 |     sum += l.*.start.x + l.*.end.*.y;
+   |             ^^
+   |
+help: write `l.start`: member access already looks through the pointer
+   |
+24 ~     sum += l.start.x + l.*.end.*.y;
+   |
+   = note: `redundant_deref` is `warn` by default
+
+warning[redundant_deref]: `l.*` is not needed to reach `end`
+  --> tests/lint/redundant_deref/bad.jai:24:27
+   |
+24 |     sum += l.*.start.x + l.*.end.*.y;
+   |                           ^^
+   |
+help: write `l.end`: member access already looks through the pointer
+   |
+24 ~     sum += l.*.start.x + l.end.*.y;
+   |
+   = note: `redundant_deref` is `warn` by default
+
+warning[redundant_deref]: `l.*.end.*` is not needed to reach `y`
+  --> tests/lint/redundant_deref/bad.jai:24:33
+   |
+24 |     sum += l.*.start.x + l.*.end.*.y;
+   |                                 ^^
+   |
+help: write `l.*.end.y`: member access already looks through the pointer
+   |
+24 ~     sum += l.*.start.x + l.*.end.y;
+   |
+   = note: `redundant_deref` is `warn` by default
+
