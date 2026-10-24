@@ -64,7 +64,7 @@
 Io :: #import "Extensions/Io";
 Json_Module :: #import "Extensions/Json";
 
-Json_Options :: Json_Module.Json_Options;
+#load "json_options.jai";
 
 #if TLS {
     Tls :: #import "Extensions/Tls";

@@ -123,3 +123,15 @@ The describe service and the pg tool import the module on their own, so they see
 ## Dependencies
 
 The wire client (`describe_statement`, `query_binary`, `query_dynamic`), `Json`, `Service` and `Io` (describe worker), SHA-256 for fingerprints. Tests: `tests/typed_scan.jai` (offline) and `tests/typed/run.sh`, which needs `JAI_PG_TEST_PORT` (optionally `JAI_PG_TEST_SOCKET_DIR`, `PSQL`, `JAIC`).
+
+## JSON columns
+
+A `json` / `jsonb` column is a `Json_Raw` (its text) unless an alias override, a `Json(T)` field in `query_as`, or a `Json_Columns` entry says which `T` it holds. `Pg.json_value(raw)` reads any document as a `Json_Value` tree; free it with `free_json`.
+
+Decoding is governed by `Pg.Json_Options` (`unknown_fields`, `missing_fields`, `duplicate_keys`, plus the connection-wide `max_depth` and `max_size`). Three layers, each option falling through its `.INHERIT` default to the one below:
+
+1. the connection: `Config.json_options`;
+2. the column: the `options` of its `Json_Columns` entry, carried in the type as `Json(T, OPTIONS)`;
+3. the query: a keyword argument, `Pg.query(db, "...", json = .{ unknown_fields = .DENY })`. Every typed macro accepts it, and it is not counted as an SQL argument (`statement_argument_count`, `resolve.jai`).
+
+A struct's own `@json(...)` notes win over all three. A failed decode reads `column "settings" (users.settings), row 3, at $.theme: ...`; the origin comes from the catalog at compile time (`Statement_Meta.origins`, set on the result by `apply_statement_meta`, `typed.jai`) and is the column's type when it has no table. The layering is in `module_json_options` (`json_options.jai`).

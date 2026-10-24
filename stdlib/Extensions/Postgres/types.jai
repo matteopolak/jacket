@@ -18,10 +18,12 @@ some :: (value: $T) -> Nullable(T) {
 }
 
 // A `json` or `jsonb` document holding a `T`. `get` decodes it with the Json module's decoder for
-// `T`, under the result's `json_options`; as a parameter it is encoded with `write_json`.
+// `T`, under the result's `json_options` and the query's `json` (json_options.jai); as a parameter
+// it is encoded with `write_json`. `OPTIONS` is a `Json_Columns` entry's options (packed by
+// `pack_json_options`), which the generated schema puts in the type; 0 says nothing.
 // `write` lets a parameter passed as `Any` find its encoder, so leave it as it is. `Json(Json_Raw)`
 // keeps the document undecoded: it is what a generated schema gives a json column nobody mapped.
-Json :: struct(T: Type) {
+Json :: struct(T: Type, OPTIONS: u32 = 0) {
     value: T;
     write: (value: *T, builder: *String_Builder) = (value: *T, builder: *String_Builder) {
         // Json(Json_Raw) is a column with no mapped type: its text goes out as it is.
@@ -42,7 +44,14 @@ Json_Raw :: struct {
 }
 
 decode_json :: ($T: Type, raw: Json_Raw, options := Json_Options.{}) -> T, Json_Module.Json_Error {
-    value, error := Json_Module.from_json(T, raw.text, options);
+    value, error := Json_Module.from_json(T, raw.text, module_json_options(.{ connection = options }, 0));
+    return value, error;
+}
+
+// The document as a `Json_Value` tree, which the caller releases with `free_json`; any JSON can be
+// read this way, whatever `T` a column would map it to.
+json_value :: (raw: Json_Raw, options := Json_Options.{}) -> Json_Module.Json_Value, Json_Module.Json_Error {
+    value, error := Json_Module.from_json(Json_Module.Json_Value, raw.text, module_json_options(.{ connection = options }, 0));
     return value, error;
 }
 

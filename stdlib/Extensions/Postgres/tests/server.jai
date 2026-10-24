@@ -425,11 +425,45 @@ SQL;
 
     assert(only.value.theme == "dark");
 
-    result.json_options.deny_unknown_fields = true;
+    result.json_options.unknown_fields = .DENY;
     _, error = Pg.get(*result, 0, 3, [] Pg.Json(Theme_Only));
     assert(error.kind == .DECODE && contains(error.message, "element 2: at $"), error.message);
     Pg.free_error(*error);
     result.json_options = .{};
+
+    // Strictness has three layers: the connection's, a `Json_Columns` entry's (the `OPTIONS` of
+    // the column's type) and the query's, the most specific last.
+    Strict :: Pg.Json(Theme_Only, Pg.pack_json_options(.{ unknown_fields = .DENY }));
+    Relaxed :: Pg.Json(Theme_Only, Pg.pack_json_options(.{ unknown_fields = .IGNORE }));
+
+    _, error = Pg.get(*result, 0, 0, Strict);
+    assert(error.kind == .DECODE && contains(error.message, "at $"), error.message);
+    Pg.free_error(*error);
+
+    result.json_query.unknown_fields = .IGNORE;
+    strict := get(*result, 0, Strict);
+
+    assert(strict.value.theme == "dark");
+    result.json_query = .{};
+
+    result.json_options.unknown_fields = .DENY;
+    relaxed := get(*result, 0, Relaxed);
+
+    assert(relaxed.value.theme == "dark");
+    result.json_options = .{};
+
+    // A missing field is an error unless the layer says it keeps its initializer.
+    empty := query_in(db, "select '{}'::json", format);
+
+    defer Pg.free_result(*empty);
+
+    _, error = Pg.get(*empty, 0, 0, Pg.Json(Theme_Only));
+    assert(error.kind == .DECODE, "a missing field decoded");
+    Pg.free_error(*error);
+
+    defaulted := get(*empty, 0, Pg.Json(Theme_Only, Pg.pack_json_options(.{ missing_fields = .DEFAULT })));
+
+    assert(defaulted.value.theme == "");
 
     // A json value keeps duplicate keys; the last wins unless asked otherwise.
     duplicate := query_in(db, "select '{\"theme\": \"a\", \"theme\": \"b\"}'::json", format);

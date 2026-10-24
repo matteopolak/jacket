@@ -41,12 +41,14 @@ User :: struct @pg_table(public.users) @pg_belongs_to(team:team_id:Team:id) @pg_
   - `@pg_table(schema.name)` on the struct;
   - `@pg_primary_key`, `@pg_default` (default, identity or generated: an insert may omit it) `@pg_generated` (always generated: an insert may not set it) and `@pg_json` (a `json` column, not `jsonb`, which binary COPY needs to know) on columns;
   - `@pg_belongs_to(name:cols:Target:target cols)` on the table holding a foreign key, and `@pg_has_many(name:Source:source cols:own cols)` on the table it points to. Columns are comma separated. A belongs-to is named for its column without `_id`, else the target's singular name; a has-many for the source table, else `<table>_by_<column>`.
-- **JSON.** Every `json` / `jsonb` column is `Pg.Json(Pg.json_column_type("table.column"))` (`schema.table.column` outside `public`). The macro looks the key up in `Json_Columns` and falls back to `Json_Raw`, so a mapping change needs no `generate`:
+- **JSON.** Every `json` / `jsonb` column is `Pg.Json(Pg.json_column_type("table.column"), Pg.json_column_options("table.column"))` (`schema.table.column` outside `public`). The macros look the key up in `Json_Columns` and fall back to `Json_Raw` and default options, so a mapping change needs no `generate`:
 
   ```jai
   // db/json_columns.jai, next to schema.jai; loaded by it when it exists
-  Json_Columns :: Pg.Json_Column.[ .{ "users.settings", Settings } ];
+  Json_Columns :: Pg.Json_Column.[ .{ "users.settings", Settings, .{ unknown_fields = .DENY } } ];
   ```
+
+  A literal gives `column`, `type` and `options` in that order, or names the ones it sets (`.{ column = "users.settings", type = Settings }`). `options` is a `Pg.Json_Options`: how strictly that column's documents are decoded. It rides in the column's type as `Json(T, OPTIONS)` (`pack_json_options` / `unpack_json_options`, `json_options.jai`), sits above the connection's options and below a query's own `json = ...`, and each option left at `.INHERIT` takes the layer below.
 
   `#run Pg.check_json_columns` makes a mapping for a column that is not a json column of the schema a compile error. `Json(Json_Raw)` keeps the document as text (`.value.text`). Types used in `json_columns.jai` are looked up in the program that loads `schema.jai`.
 - **Nulls.** `Pg.Nullable(T)` for every nullable column; `[] T` for arrays, as in typed queries.
@@ -54,7 +56,7 @@ User :: struct @pg_table(public.users) @pg_belongs_to(team:team_id:Team:id) @pg_
 ## How to change it
 
 - Generator and catalog queries: `generate.jai`. Add a note by printing it in `append_relation` and reading it from the ORM. A new column attribute goes in `Catalog_Column`, `load_relations` and the offline test's catalog.
-- Staleness check, `Json_Column`, `json_column_type`, enum spelling: `schema.jai`.
+- Staleness check, `Json_Column`, `json_column_type`, `json_column_options`, enum spelling: `schema.jai`. A new JSON option goes in `json_options.jai` (enum, `Json_Options`, the packing and `module_json_options`).
 - Tool commands: `Tool/main.jai`.
 - Gotchas: golden files (`tests/schema/offline_expected.txt`, `expected_schema.txt`) change with any output change; regenerate and read the diff. The output must stay stable under `jaifmt`. `Json_Columns` is only visible to the schema file's scope.
 

@@ -3,18 +3,21 @@
 //
 //     #run Pg.check_schema(#file);                       // stale file: compile error
 //     #run Pg.check_json_columns(Json_Columns, string.[...]);
-//     settings: Pg.Json(Pg.json_column_type("users.settings"));
+//     settings: Pg.Json(Pg.json_column_type("users.settings"), Pg.json_column_options("users.settings"));
 
 #scope_export
 
 // One line of the hand-written `db/json_columns.jai`:
 //
-//     Json_Columns :: Pg.Json_Column.[ .{ "users.settings", Settings } ];
+//     Json_Columns :: Pg.Json_Column.[ .{ "users.settings", Settings, .{ unknown_fields = .DENY } } ];
 //
-// `column` is "table.column", with the schema in front when it is not `public`.
+// `column` is "table.column", with the schema in front when it is not `public`. `options` says how
+// strictly that column's documents are decoded; it sits between the connection's options and a
+// query's own (json_options.jai).
 Json_Column :: struct {
     column: string;
     type: Type;
+    options: Json_Options;
 }
 
 // The Jai type a json or jsonb column holds, from the `Json_Columns` visible where this is
@@ -24,6 +27,14 @@ json_column_type :: (column: string) -> Type #expand {
     for `Json_Columns if it.column == column return it.type;
 
     return Json_Raw;
+}
+
+// The options of the `Json_Columns` entry for `column`, packed as the second parameter of
+// `Json(T, OPTIONS)`; 0 when it has none.
+json_column_options :: (column: string) -> u32 #expand {
+    for `Json_Columns if it.column == column return pack_json_options(it.options);
+
+    return 0;
 }
 
 // Does a file called `name` sit in the folder of `file`? For the generated file to load

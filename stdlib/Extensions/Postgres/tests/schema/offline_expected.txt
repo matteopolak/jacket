@@ -56,7 +56,7 @@ User :: struct @pg_table(public.users) @pg_belongs_to(team:team_id:Team:id) @pg_
     /// enum[], not null
     past_moods: [] Mood;
     /// jsonb, nullable
-    settings: Pg.Nullable(Pg.Json(Pg.json_column_type("users.settings")));
+    settings: Pg.Nullable(Pg.Json(Pg.json_column_type("users.settings"), Pg.json_column_options("users.settings")));
     /// text[], not null
     tags: [] string;
     /// date, nullable

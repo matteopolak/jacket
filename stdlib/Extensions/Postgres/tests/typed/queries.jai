@@ -12,6 +12,14 @@ Settings :: struct {
     font_size := 14; @json(default)
 }
 
+Theme_Only :: struct {
+    theme: string;
+}
+
+Theme_Row :: struct {
+    settings: Pg.Nullable(Pg.Json(Theme_Only));
+}
+
 User_Summary :: struct {
     id: s64;
     email: string;
@@ -246,6 +254,19 @@ test_json_and_arrays :: (db: *Pg.Connection) {
     typed, typed_error := Pg.query_one(db, "select settings as \"settings!: Json(Json_Value)\" from users where id = 1");
 
     check(typed_error.kind == .NONE && typed.settings.value.kind == .OBJECT, "Json(T) override");
+
+    // a keyword argument sets the strictness of this query alone, and the error names the column
+    lenient, lenient_error := Pg.query_as(Theme_Row, db, "select settings from users where id = 1");
+
+    for lenient {}
+
+    check(lenient_error.kind == .NONE && lenient.error.kind == .NONE, "unknown json keys are ignored by default");
+
+    strict, _ := Pg.query_as(Theme_Row, db, "select settings from users where id = 1", json = .{ unknown_fields = .DENY });
+
+    for strict {}
+
+    check(strict.error.kind == .DECODE && contains(strict.error.message, "column \"settings\" (users.settings), row 0, at $"), "json options per query");
 }
 
 parses_sent := 0;

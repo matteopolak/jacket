@@ -164,12 +164,31 @@ rewritten_sql :: (sql: string, call: Code, sql_index: s64) -> string {
     return prepare_query(sql, call, sql_index).rewrite.sql;
 }
 
-binary_results :: (sql: string, call: Code, sql_index: s64) -> bool {
+// How a statement's results are asked for and described: binary when every column has a binary
+// decoder, and where each column comes from (`users.settings`, one per line) for decode errors.
+Statement_Meta :: struct {
+    binary: bool;
+    origins: string;
+}
+
+binary_results :: (sql: string, call: Code, sql_index: s64) -> Statement_Meta {
     prepared := prepare_query(sql, call, sql_index);
+    meta := Statement_Meta.{ binary = true };
 
-    for prepared.entry.columns if !binary_decodable(it.base) return false;
+    builder: String_Builder;
+    builder.allocator = temp;
 
-    return true;
+    for prepared.entry.columns {
+        if !binary_decodable(it.base) meta.binary = false;
+
+        origin := ifx begins_with(it.origin, "public.") then slice(it.origin, 7, it.origin.count - 7) else it.origin;
+        if it_index append(*builder, "\n");
+        append(*builder, origin);
+    }
+
+    meta.origins = builder_to_string(*builder,, temp);
+
+    return meta;
 }
 
 // The columns the query was compiled against, for `Config.verify_statements`: their count, then
@@ -198,7 +217,8 @@ check_statement :: (sql: string, call: Code, sql_index: s64, returns_rows: bool)
     check_arguments(prepared, sql_index + 1);
 }
 
-// The arguments from `first` on that fill placeholders: not the named `plan = ` option.
+// The arguments from `first` on that fill placeholders: not the named `plan = ` and `json = `
+// options.
 value_arguments :: (call_node: *Code_Procedure_Call, first: s64) -> [] *Code_Node {
     nodes: [..] *Code_Node;
     nodes.allocator = temp;
@@ -208,7 +228,7 @@ value_arguments :: (call_node: *Code_Procedure_Call, first: s64) -> [] *Code_Nod
         option := false;
 
         for call_node.arguments_unsorted {
-            if it.name && it.name.name == "plan" && it.expression == node option = true;
+            if it.name && (it.name.name == "plan" || it.name.name == "json") && it.expression == node option = true;
         }
 
         if !option array_add(*nodes, node);
