@@ -109,6 +109,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `identical_case_bodies` | pedantic | allow | editor | `case .PNG; return "image"; case .JPEG; return "image";`: cases that do the same thing and could be `case .PNG, .JPEG;` |
 | `identical_operands` | suspicious | warn | no | `a == a`, `x - x`, `ok && ok` |
 | `identity_op` | complexity | warn | yes | `x + 0`, `x * 1`, `x / 1` |
+| `if_not_else` | pedantic | allow | editor | `if !ready { ... } else { ... }`, `if a != b { ... } else { ... }`, `ifx !c then x else y`: a negation the swapped branches would not need |
 | `impossible_comparison` | correctness | deny | editor | `x > 5 && x < 3`, `x != 1 \|\| x != 2`: comparisons of one integer that never pass together, or always pass between them |
 | `index_only_loop` | complexity | warn | yes | `for i: 0..xs.count-1` where `i` only indexes the array or string `xs` |
 | `infinite_loop` | suspicious | warn | no | a `while` whose condition nothing in the loop changes |
@@ -197,6 +198,8 @@ Off by default, since one case per row is sometimes the clearer table. Compares 
 Float `==`, `!=` and `-` are left alone (NaN tests), as are operator procedures.
 ### identity_op
 `0 + x`, operations inside indexes/array literals and shifts by `0` are left alone (they line up with neighbours).
+### if_not_else
+Off by default, since putting the exceptional or shorter branch first is often right. A condition `!c`, or `a != b` of numbers, pointers, enums or strings, with a plain `else` (an `else if` chain is skipped). The editor swaps the branches when both are blocks, or for an `ifx`; `--fix` leaves it.
 ### impossible_comparison
 Only integer expressions compared with integer literals, within one run of `&&` or `||`. Floats are left alone (`x > 1 && x < 2` holds for `1.5`). Redundant pairs such as `x < 3 && x < 5` are not reported. For a lone pair of comparisons the editor offers to swap `&&` and `||`, when the swapped test is not impossible too.
 ### index_only_loop

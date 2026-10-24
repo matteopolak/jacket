@@ -32,6 +32,7 @@ mod identical_branches;
 mod identical_case_bodies;
 mod identical_operands;
 mod identity_op;
+mod if_not_else;
 mod impossible_comparison;
 mod index_only_loop;
 mod infinite_loop;
@@ -233,6 +234,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Complexity,
         summary: "an operation that changes nothing (`x + 0`, `x * 1`)",
         check: identity_op::check,
+    },
+    RuleInfo {
+        name: "if_not_else",
+        category: Category::Pedantic,
+        summary: "an `if` or `ifx` with a negated condition and an `else`",
+        check: if_not_else::check,
     },
     RuleInfo {
         name: "impossible_comparison",

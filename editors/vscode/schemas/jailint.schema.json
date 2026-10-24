@@ -328,6 +328,16 @@
           "default": "warn",
           "markdownDescription": "an operation that changes nothing (`x + 0`, `x * 1`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#identity_op)"
         },
+        "if_not_else": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "allow",
+          "markdownDescription": "an `if` or `ifx` with a negated condition and an `else` (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#if_not_else)"
+        },
         "impossible_comparison": {
           "type": "string",
           "enum": [
