@@ -51,6 +51,7 @@
 - `jailint` has an opt-in lint for `xx` written as a call argument (`autocast_in_arg`).
 - `jailint` reports an allocated string that is only compared, measured, indexed or printed, such as `if sprint("%", n) == "7"` (`leaked_temporary`).
 - `jailint` reports a pointer into a resizable array that is used after `array_add` or another growing call may have moved the array (`pointer_into_resizable`).
+- `jailint` has an opt-in lint for temporary-storage strings, such as `tprint` results, that are kept in a global or struct field or returned (`temp_storage_escape`).
 
 ### Improved
 

@@ -885,6 +885,16 @@
               "default": "deny",
               "markdownDescription": "a write into a string literal, which is read-only (`s := \"abc\"; s[0] = x;`) (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#string_literal_write)"
             },
+            "temp_storage_escape": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "allow",
+              "markdownDescription": "a `@TempAllocates` result (`tprint`, `talloc`) stored in a global or through a pointer, or returned (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#temp_storage_escape)"
+            },
             "todo_marker": {
               "type": "string",
               "enum": [

@@ -30,23 +30,23 @@ temporary_allocator :: temp;
 
 talloc :: inline (size: s64) -> *void {
     return temporary_allocator_proc(.ALLOCATE, size, 0, null, null);
-}
+} @TempAllocates
 
 temporary_alloc :: inline (size: s64) -> *void {
     return talloc(size);
-}
+} @TempAllocates
 
 talloc_string :: (count: int) -> string {
     data := cast(*u8) talloc(count);
     assert(data != null || count == 0);
     return .{ count, data };
-}
+} @TempAllocates
 
 copy_temporary_string :: inline (s: string) -> string {
     result := talloc_string(s.count);
     memcpy(result.data, s.data, s.count);
     return result;
-}
+} @TempAllocates
 
 temp_c_string :: (s: string) -> *u8 {
     result := cast(*u8) talloc(s.count + 1);
@@ -56,7 +56,7 @@ temp_c_string :: (s: string) -> *u8 {
     result[s.count] = 0;
 
     return result;
-}
+} @TempAllocates
 
 temporary_allocator_proc :: (mode: Allocator_Mode, requested_size: s64, old_size: s64, old_memory: *void, allocator_data: *void) -> *void {
     if mode == .CAPS {

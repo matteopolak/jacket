@@ -294,7 +294,7 @@ tprint :: (format_string: string, args: ..Any) -> string {
     push_allocator(temp);
 
     return builder_to_string(*builder);
-} @UseResult @PrintLike @FormatsToString
+} @UseResult @PrintLike @FormatsToString @TempAllocates
 
 print_character :: (_c: u8) {
     write_string(string.{ 1, *_c });

@@ -59,6 +59,7 @@ Several rules decide what a call means from a note on the procedure's declaratio
 | `@WritesOutput` | `print_in_module` | writes to the program's standard output or error (`print`, `write_string`, `write_strings`, `write_builder`) |
 | `@Exits` | `exit_in_module` | ends the process (`exit`) |
 | `@PrintLike` | `leaked_temporary` | its `string` parameter is a format string, followed by the values it formats (`print`, `log`, `sprint`, `tprint`) |
+| `@TempAllocates` | `temp_storage_escape` | the result lives in temporary storage, which the program resets (`tprint`, `talloc`, `talloc_string`, `copy_temporary_string`, `temp_c_string`); a procedure with this note is a wrapper whose own `return`s are not checked |
 | `@FormatsToString` | `useless_format`, `format_push_string` | its first argument is a format string and the rest are the values; it returns the formatted text as a new string (`sprint`, `tprint`) |
 | `@AppendsString` | `format_push_string` | adds the string in its second argument to the builder in its first (`append(*builder, s)`) |
 
@@ -168,6 +169,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `shift_overflow` | suspicious | warn | no | `x << 40` with `x: s32`, `small << 8` with `small: u8`: a shift that moves every bit out |
 | `single_case_switch` | style | warn | editor | `if mode == { case .VERBOSE; ...; }`, with at most a default case: an `if` written as a `switch` |
 | `string_literal_write` | correctness | deny | editor | `s := "abc"; s[0] = x;`: a write into a string literal, which is read-only |
+| `temp_storage_escape` | pedantic | allow | no | `label = tprint("item %", id);` with `label` a global: temporary-storage memory kept past the next reset |
 | `todo_marker` | restriction | allow | no | `// TODO: handle the empty list` |
 | `too_many_arguments` | restriction | allow | no | `draw :: (x: int, y: int, w: int, h: int, r: u8, g: u8, b: u8, a: u8)` |
 | `unchecked_directive` | restriction | allow | no | `f :: () #no_abc { ... }` or `#asm { ... }` with no `//` comment on the line or the line above |
@@ -352,6 +354,8 @@ The result is `0` (or `-1` for `>>` on a negative signed value) whatever the ope
 One case of one value, plus at most a default case. `#complete` switches, `#through` cases, cases listing several values and `#if` switches are skipped. The editor offers `if x == v { ... }` (with the default as the `else`); the bodies keep their text, so `jaifmt` fixes the indentation, and `--fix` leaves it.
 ### string_literal_write
 Literals are read-only and equal literals share storage, so the write is a runtime error (interpreter) or a crash (native). Fires on `s[i] = x`, `s[i] += x`, `s.data[i] = x` and `s.data.* = x` when `s` was declared from a literal (`s := "abc";`, `s: string = "abc";`) in the same statement list and nothing since could have changed it: any assignment to `s`, taking `*s`, or redeclaring the name (in any nested scope) ends the check, so `s = copy_string(s);` silences later writes. Writes in nested blocks and in macros are not reported. The editor offers to wrap the literal in `copy_string(...)` where the variable is declared (the copy is then yours to free).
+### temp_storage_escape
+Off by default: handing back a temporary string from a helper is a common, documented convention. A call of a `@TempAllocates` procedure (or a local initialised with one) is reported when it is assigned to a global, to a member reached through a pointer or `.*`, added to such an array with an `@AddsToArray` call, declared as a file-scope variable, or returned from a procedure that is not itself noted `@TempAllocates`. A member of a local struct and plain locals are not reported. Copy the string first (`copy_string`), or note the returning procedure `@TempAllocates` so callers know to copy. No fix.
 ### todo_marker
 A marker is `TODO`, `FIXME`, `XXX` or `HACK` in capitals, standing alone (`TODO:` and `(FIXME)` count; `todo`, `TODOS` and `AUTODOC` do not). Each comment is reported once, for its first marker. Strings are not looked at, and generated files are skipped. No fix. For a tree that must carry no unfinished-work markers, or a project that tracks them elsewhere.
 ### too_many_arguments

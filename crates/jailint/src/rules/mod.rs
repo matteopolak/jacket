@@ -84,6 +84,7 @@ mod shadowed_it;
 mod shift_overflow;
 mod single_case_switch;
 mod string_literal_write;
+mod temp_storage_escape;
 mod todo_marker;
 mod too_many_arguments;
 mod unchecked_directive;
@@ -577,6 +578,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Correctness,
         summary: "a write into a string literal, which is read-only (`s := \"abc\"; s[0] = x;`)",
         check: string_literal_write::check,
+    },
+    RuleInfo {
+        name: "temp_storage_escape",
+        category: Category::Pedantic,
+        summary: "a `@TempAllocates` result (`tprint`, `talloc`) stored in a global or through a pointer, or returned",
+        check: temp_storage_escape::check,
     },
     RuleInfo {
         name: "todo_marker",
