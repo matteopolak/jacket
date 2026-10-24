@@ -902,6 +902,18 @@ pub struct Import {
     pub span: Span,
 }
 
+/// Prefix of the hidden name an `#import` written inside an expression is declared under.
+pub const EXPRESSION_IMPORT_PREFIX: &str = "__import_expr_";
+
+impl Import {
+    /// The import was written inside an expression (`(#import "Basic").print(...)`), so its
+    /// statement is the hoisted declaration, not text of its own in the file.
+    pub fn is_expression(&self) -> bool {
+        self.name
+            .is_some_and(|n| n.name.as_str().starts_with(EXPRESSION_IMPORT_PREFIX))
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum UsingFilter {
     None,

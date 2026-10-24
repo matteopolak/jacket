@@ -58,7 +58,13 @@ pub(crate) fn prepare(
         let S::Import(imp) = &s.kind else {
             continue;
         };
-        if !imp.params.is_empty() || !imp.flags.is_empty() || imp.using.is_some() {
+        // The expression that holds an expression's import uses it, and removing the directive
+        // from the middle of the expression would leave the rest of it behind.
+        if !imp.params.is_empty()
+            || !imp.flags.is_empty()
+            || imp.using.is_some()
+            || imp.is_expression()
+        {
             continue;
         }
         let text = describe(imp);

@@ -1,0 +1,4 @@
+!#import "Basic";
+G :#no_aoc: #import "GetRect";
+
+main :: () {}

@@ -222,6 +222,17 @@ main :: () {
 }
 
 #[test]
+fn fix_leaves_imports_written_inside_expressions_alone() {
+    let dir = scratch("fix-expression-import");
+    // The directive is part of the statement around it: removing it would leave `!` behind.
+    let before = "!#import \"Basic\";\nG :#no_aoc: #import \"GetRect\";\nmain :: () {}\n";
+    let file = dir.join("game.jai");
+    std::fs::write(&file, before).unwrap();
+    let (text, _) = jailint(&dir, &["--fix", "--allow-incomplete", "game.jai"]);
+    assert_eq!(std::fs::read_to_string(&file).unwrap(), before, "{text}");
+}
+
+#[test]
 fn a_program_that_does_not_compile_fails_the_run_unless_incomplete_is_allowed() {
     let dir = scratch("incomplete");
     std::fs::write(

@@ -98,7 +98,11 @@ impl Parser<'_> {
     /// the statement that uses it, and the expression names that.
     fn parse_import_expr(&mut self, start: crate::source::Span) -> PResult<Expr> {
         let name = Ident {
-            name: crate::intern::Sym::intern(&format!("__import_expr_{}", start.start)),
+            name: crate::intern::Sym::intern(&format!(
+                "{}{}",
+                crate::ast::EXPRESSION_IMPORT_PREFIX,
+                start.start
+            )),
             span: start,
         };
         let import = self.parse_import(Some(name), start)?;
