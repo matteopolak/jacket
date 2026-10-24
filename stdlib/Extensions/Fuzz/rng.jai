@@ -86,4 +86,7 @@ case_alloc :: (r: *Rng, bytes: s64) -> *u8 {
 case_end :: (r: *Rng) {
     for r.live free(it);
     r.live.count = 0;
+
+    // A case's temporary allocations end with it, or a long engine run grows until it runs out.
+    reset_temporary_storage();
 }
