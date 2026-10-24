@@ -33,7 +33,7 @@ extension differences in the environment do not show up as client failures.
 | libpq TAP | `005_negotiate_encryption.pl` | the `sslmode` and `sslnegotiation` matrix | Applies (GSS rows do not) |
 | libpq TAP | `003_load_balance_host_list.pl` | multiple hosts, `load_balance_hosts` | Applies once multi-host config exists |
 | psql TAP | `src/bin/psql/t/020_cancel.pl` | query cancellation from a signal | Applies (the shim maps `SIGINT` to `Io.cancel`) |
-| Pipeline traces | `src/test/modules/libpq_pipeline/traces/*.trace` | the exact message sequence of pipelines, errors inside them, `Sync` handling | Vectors: compared with our client's own trace |
+| Pipeline traces | `src/test/modules/libpq_pipeline/traces/*.trace` and `libpq_pipeline.c` | the exact message sequence of pipelines, errors inside them, `Sync` handling, prepared statements, single-row and chunked results | Applies. `tests/conformance/pipeline_traces.jai` replays all nine scenarios and matches every trace line for line on 17.11 (`run.py --pipeline-traces`; PostgreSQL 17 and later). |
 | pgbench | `src/bin/pgbench` | load | Does not apply: pgbench links libpq. Its built-in TPC-B script runs on our pool as a load test. |
 | Isolation | `src/test/isolation` | concurrency | Does not apply: the tester links libpq. |
 
@@ -74,6 +74,12 @@ These go into the binary round-trip test as extra SQL, with a note of where each
 
 - **A new suite:** add its pinned source to `tools/pg_conformance/fetch.py`, a runner step to
   `tools/pg_conformance/run.py`, and a row to the table above.
+- **A pipeline trace that differs:** `python3 tools/pg_conformance/run.py --pipeline-traces
+  [--port <n>]` builds `pipeline_traces.jai`, starts a temporary cluster (or uses the running
+  one) and prints the first differing line of each trace, libpq's and ours. The scenarios follow
+  `libpq_pipeline.c` (fetched with the traces) step by step; the traces only hold messages, so
+  the test also checks each step's result. Our trace is the connection's `set_trace` output in
+  regress mode (`docs/extensions/postgres.md`).
 - **A failing regression file:** run `python3 tools/pg_conformance/run.py --only <name>`
   (add `--port <n>` to use a running server instead of temporary clusters, and `--shim-only` to
   reuse the last real-psql results). Both outputs and the diffs stay under

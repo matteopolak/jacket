@@ -48,6 +48,13 @@ Config :: struct {
     ssl_root_cert_pem: string; // the roots to trust; empty: the system's
     channel_binding := Channel_Binding.PREFER;
 
+    // The protocol versions to use, like libpq's `min_protocol_version` and `max_protocol_version`.
+    // The startup message asks for the maximum; a server that speaks less answers with the version
+    // it does, which the connection uses unless it is below the minimum (then connecting fails).
+    // The default is 3.0, as libpq's: `.LATEST` asks for 3.2, which PostgreSQL 18 and later speak.
+    min_protocol_version := Protocol_Version.V3_0;
+    max_protocol_version := Protocol_Version.V3_0;
+
     // The whole connect (TCP, TLS, authentication), in milliseconds; negative: no limit.
     connect_timeout := 10_000;
     // After a deadline or cancel ends a query: how long to spend asking the server to stop it and

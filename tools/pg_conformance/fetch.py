@@ -38,7 +38,7 @@ SUITES = (
     "src/test/ssl",
     "src/test/perl",
     "src/interfaces/libpq/t",
-    "src/test/modules/libpq_pipeline/traces",
+    "src/test/modules/libpq_pipeline",
     "src/bin/psql/t",
     "contrib/spi",  # autoinc and refint, which the regression suite's triggers test loads
 )

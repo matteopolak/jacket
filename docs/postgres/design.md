@@ -799,7 +799,9 @@ Phases (each lands on this branch, then goes to `main` when it is useful on its 
    4. The `pg-conformance` workflow, with PostgreSQL's regression suite through a Jai psql. Done; the TAP, URI, trace and driver-vector suites follow ([Conformance](conformance.md)).
    5. JSON: `Json(T)`, `Json_Raw`, `Json_Maybe`, binary `jsonb`, `json[]`, strictness options, error paths, borrowing decode.
 
-   Then pipelining, COPY, LISTEN/NOTIFY and protocol 3.2.
+   6. Pipelining (`Pipeline`, libpq's semantics, checked against `libpq_pipeline`'s traces), LISTEN/NOTIFY (queue, callback, `wait_for_notification`), the message trace and protocol 3.2 (`min`/`max_protocol_version`, negotiation, long cancel keys). Done; 3.2 itself runs only against PostgreSQL 18 in CI.
+
+   The typed query layer (phase 3) will pipeline Parse with Bind and Execute through the same queue.
 3. **Typed raw queries:** `query`/`query_one`/`execute`/`query_as`, JSON column overrides, the describe service (schema databases, nullability, overrides), the offline cache, the pg tool's `prepare`/`check`. Editor feedback lands here: error spans, completions, hover, offline notes.
 4. **Migrations and schema:** the runner, embedded migrations, the schema-database cache, `generate` (with `db/json_columns.jai`), the `db/schema.jai` staleness check, row type identity.
 5. **ORM:** `select` with `Code` filters, typed JSON navigation, column pruning, to-one joins, to-many batched loading, insert/update/delete.

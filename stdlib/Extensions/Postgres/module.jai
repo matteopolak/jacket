@@ -36,6 +36,9 @@
 #load "codecs.jai";
 #load "types.jai";
 #load "pool.jai";
+#load "pipeline.jai";
+#load "notify.jai";
+#load "trace.jai";
 
 #scope_module
 

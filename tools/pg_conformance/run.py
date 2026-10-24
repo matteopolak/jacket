@@ -9,6 +9,8 @@ real psql and fails with the shim, unless regress-skip.txt lists it (docs/postgr
     python3 tools/pg_conformance/run.py                    # a temporary cluster per client
     python3 tools/pg_conformance/run.py --port 54329       # an already running server
     python3 tools/pg_conformance/run.py --only boolean int4
+
+    python3 tools/pg_conformance/run.py --pipeline-traces  # message traces against libpq_pipeline's
 """
 
 from __future__ import annotations
@@ -167,6 +169,51 @@ def read_skips() -> dict[str, str]:
     return skips
 
 
+def run_pipeline_traces(args, major: str) -> int:
+    """Replays libpq_pipeline's scenarios on our client and compares its message trace with the
+    .trace files libpq wrote (tests/conformance/pipeline_traces.jai). Uses the server at --port,
+    or starts a temporary one."""
+    import socket
+    import tempfile
+
+    if int(major) < 17:
+        # Older libpq_pipeline scenarios differ (no chunked rows, no close of prepared statements).
+        print(f"pipeline traces: skipped for PostgreSQL {major}")
+        return 0
+
+    traces = fetch(major) / "src" / "test" / "modules" / "libpq_pipeline" / "traces"
+    out = output_dir("pg-conformance", "run", major) / "pipeline-traces"
+    out.mkdir(parents=True, exist_ok=True)
+    subprocess.run([str(args.jaic), str(CONFORMANCE / "pipeline_traces.jai"), "-exe", "pipeline_traces"], cwd=out, check=True)
+    program = str(out / "pipeline_traces")
+    env = dict(os.environ, PG_PIPELINE_TRACES=str(traces), PGUSER=args.user)
+
+    if args.port:
+        env.update(PGHOST=args.host, PGPORT=str(args.port))
+        return subprocess.run([program], env=env).returncode
+
+    server_bin = Path(pg_config(args.pg_config, "--bindir"))
+    for name in ("LC_ALL", "LANG", "LC_CTYPE", "LC_COLLATE"):
+        env.setdefault(name, "en_US.UTF-8")
+
+    with tempfile.TemporaryDirectory(prefix="pgtr") as tmp:
+        data = Path(tmp) / "data"
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            port = probe.getsockname()[1]
+
+        initdb = [str(server_bin / "initdb"), "-D", str(data), "-A", "trust", "-U", "postgres", "--no-sync"]
+        subprocess.run(initdb, env=env, check=True, stdout=subprocess.DEVNULL)
+        options = f"-p {port} -k {tmp} -c listen_addresses=''"
+        ctl = [str(server_bin / "pg_ctl"), "-D", str(data), "-l", str(Path(tmp) / "log")]
+        subprocess.run([*ctl, "-o", options, "-w", "start"], env=env, check=True, stdout=subprocess.DEVNULL)
+        try:
+            env.update(PGHOST=tmp, PGPORT=str(port), PGUSER="postgres")
+            return subprocess.run([program], env=env).returncode
+        finally:
+            subprocess.run([*ctl, "-m", "fast", "stop"], env=env, stdout=subprocess.DEVNULL)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     add_jaic_argument(parser)
@@ -175,6 +222,7 @@ def main() -> int:
     parser.add_argument("--port", type=int, help="use this running server instead of temporary clusters")
     parser.add_argument("--user", default="postgres", help="the user to connect as, with --port")
     parser.add_argument("--only", nargs="+", help="run these tests (after test_setup) instead of the schedule")
+    parser.add_argument("--pipeline-traces", action="store_true", help="compare the client's message traces with libpq_pipeline's instead of running the regression suite")
     parser.add_argument("--shim", type=Path, help="a shim binary already built, instead of building one")
     parser.add_argument("--shim-only", action="store_true", help="reuse the last real-psql results")
     args = parser.parse_args()
@@ -184,6 +232,9 @@ def main() -> int:
     if major not in VERSIONS:
         print(f"no pinned suite for PostgreSQL {version}", file=sys.stderr)
         return 2
+
+    if args.pipeline_traces:
+        return run_pipeline_traces(args, major)
 
     regress = fetch(major) / "src" / "test" / "regress"
     out = output_dir("pg-conformance", "run", major)

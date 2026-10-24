@@ -442,47 +442,14 @@ run_extended :: (c: *Connection, sql: string, args: [] Any, result_format: Forma
     }
 
     // Parse, Bind, Describe, Execute and Sync go out together: one round trip.
-    begin_message(c, #char "P");
-    put_cstring(*c.out, "");
-    put_cstring(*c.out, sql);
-    put_u16(*c.out, cast(u16) params.count);
-    for params put_u32(*c.out, it.oid);
+    types := NewArray(params.count, u32,, temp);
+    for params types[it_index] = it.oid;
 
-    end_message(c);
-
-    begin_message(c, #char "B");
-    put_cstring(*c.out, "");
-    put_cstring(*c.out, "");
-    put_u16(*c.out, cast(u16) params.count);
-    for params put_u16(*c.out, xx it.format);
-
-    put_u16(*c.out, cast(u16) params.count);
-
-    for params {
-        if it.null {
-            put_u32(*c.out, 0xffff_ffff);
-        } else {
-            put_u32(*c.out, cast(u32) it.data.count);
-            put_bytes(*c.out, it.data);
-        }
-    }
-
-    put_u16(*c.out, 1);
-    put_u16(*c.out, xx result_format);
-    end_message(c);
-
-    begin_message(c, #char "D");
-    put_u8(*c.out, #char "P");
-    put_cstring(*c.out, "");
-    end_message(c);
-
-    begin_message(c, #char "E");
-    put_cstring(*c.out, "");
-    put_u32(*c.out, 0);
-    end_message(c);
-
-    begin_message(c, #char "S");
-    end_message(c);
+    put_parse(c, "", sql, types);
+    put_bind(c, "", "", params, result_format);
+    put_describe(c, #char "P", "");
+    put_execute(c, "", 0);
+    put_sync(c);
 
     error = send(c);
     if error.kind != .NONE return .{}, error;
@@ -600,6 +567,7 @@ drain_to_ready :: (c: *Connection) -> bool {
 begin_request :: (c: *Connection, sql: string) -> Pg_Error {
     if !c return make_error(.USAGE, "no connection");
     if c.broken return make_error(.CLOSED, "the connection was broken by an earlier failure");
+    if c.pipeline.active return make_error(.USAGE, "synchronous command execution functions are not allowed in pipeline mode");
     if c.busy return make_error(.USAGE, "the connection is in use by another fiber; borrow one per fiber from a pool");
     if !Io.in_scheduler() return make_error(.USAGE, "Postgres calls must run on a fiber: call them inside Io.io_run");
     if contains_zero(sql) return make_error(.USAGE, "the SQL holds a zero byte");

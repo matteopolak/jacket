@@ -71,6 +71,8 @@ jobs:
           "$PG_BIN/pg_ctl" -D "$RUNNER_TEMP/pg" stop
       - name: Regression suite through psql and the shim
         run: python3 -u tools/pg_conformance/run.py --jaic target/debug/jaic --pg-config "$PG_BIN/pg_config"
+      - name: Pipeline message traces against libpq_pipeline's
+        run: python3 -u tools/pg_conformance/run.py --jaic target/debug/jaic --pg-config "$PG_BIN/pg_config" --pipeline-traces
       - name: Keep the diffs
         if: ${{ failure() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

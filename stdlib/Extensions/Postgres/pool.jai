@@ -98,6 +98,16 @@ release :: (pool: *Pool, c: *Connection) {
     assert(c.pool == pool, "Postgres: released a connection to a pool it does not come from");
     assert(!c.busy, "Postgres: released a connection while a request is running on it");
 
+    if c.pipeline.active {
+        // Statements or results left unread leave the session out of step.
+        error := pipeline_exit(*c.pipeline);
+        if error.kind != .NONE c.broken = true;
+
+        free_error(*error);
+    }
+
+    drop_notifications(c);
+
     if !c.broken && c.status != .IDLE {
         // The borrower's deadline or cancel may have ended the transaction's work: finish anyway.
         Io.with_grace(c.cancel_timeout, #code {

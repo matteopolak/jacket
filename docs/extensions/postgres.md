@@ -35,7 +35,8 @@ Io.io_run(() {
 authentication loop), `scram.jai`, `wire.jai` (message framing and the `Cursor` reader),
 `query.jai` (`Result`, `query_dynamic`, `query_binary`, `execute_script`, `run_script`, `get`), `codecs.jai`
 (`Oid`, decoding and parameter encoding), `types.jai` (`Nullable`, `Uuid`, the date and time
-types, `Numeric`), `error.jai` (`Pg_Error`, `Sqlstate`).
+types, `Numeric`), `error.jai` (`Pg_Error`, `Sqlstate`), `pipeline.jai` (pipelining),
+`notify.jai` (LISTEN/NOTIFY) and `trace.jai` (the message trace).
 
 **Connecting.** `connect` must run on a fiber. The whole of it sits under one
 `Io.with_deadline(config.connect_timeout)`.
@@ -44,8 +45,9 @@ types, `Numeric`), `error.jai` (`Pg_Error`, `Sqlstate`).
    with `Io.connect_unix`, and TLS is skipped. Otherwise it uses TCP.
 2. TLS: `SSLRequest`, then the handshake if the server says `S`. With `ssl_direct` the
    handshake starts at once, with ALPN `postgresql` (PostgreSQL 17 and later).
-3. The startup message asks for protocol 3.2 and accepts the server's downgrade to 3.0. It
-   sets `client_encoding=UTF8`, `DateStyle=ISO` and `IntervalStyle=postgres`, which the text
+3. The startup message asks for `max_protocol_version` (default 3.0, as libpq's; `.LATEST` is
+   3.2) and accepts a `NegotiateProtocolVersion` downgrade unless it goes below
+   `min_protocol_version`. It sets `client_encoding=UTF8`, `DateStyle=ISO` and `IntervalStyle=postgres`, which the text
    decoders rely on.
 4. Authentication. SCRAM verifies the server's signature before it accepts `AuthenticationOk`,
    so a server that does not know the password cannot fake a login. `-PLUS` hashes the server
@@ -107,6 +109,94 @@ maybe := Pg.get(*result, row, "extra", Pg.Nullable(Pg.Json(Extra))); // SQL NULL
   server reads them as `json` or `jsonb` as the statement needs. In arrays they go as binary
   `jsonb[]`. `Json(T)` carries its encoder in its `write` field, because parameters arrive as
   `Any`; a zeroed `Json(T)` has none and is refused.
+
+**Protocol versions.** `Config.max_protocol_version` and `min_protocol_version` (`.V3_0`,
+`.V3_2`, `.LATEST`) pick the range. PostgreSQL 17 and older answer a 3.2 request with
+`NegotiateProtocolVersion` naming 3.0; the connection then speaks 3.0, or fails with a `PROTOCOL`
+error if `min_protocol_version` is higher. `connection.protocol_minor` says what is in use. The
+difference that matters is the cancel key: four bytes in 3.0, 4 to 256 in 3.2 (PostgreSQL 18
+sends 32). The key is kept as bytes (`connection.cancel_key`) and sent whole in `CancelRequest`.
+Not yet read from connection strings: the URL parameters `min_protocol_version` and
+`max_protocol_version` need adding to `conninfo.jai`'s keyword list.
+
+**Pipelining** (`pipeline.jai`). A pipeline queues several statements and reads their results
+later, in order. The semantics are libpq's pipeline mode.
+
+```jai
+p, error := Pg.pipeline_enter(db);
+Pg.pipeline_query(p, "insert into log(line) values ($1)", "one");
+Pg.pipeline_query(p, "select count(*) from log");
+Pg.pipeline_sync(p);                        // queue a sync point and send everything
+while true {
+    item, error := Pg.pipeline_next_result(p);
+    defer Pg.free_pipeline_result(*item);
+    if item.kind == .SYNC break;            // also .NONE, if nothing is queued
+    // .RESULT: item.result; .ERROR: item.error; .ABORTED: skipped
+}
+Pg.pipeline_exit(p);
+```
+
+- `pipeline_enter(db)` returns the connection's `*Pipeline` (entering twice returns the same one).
+  While it is active, `query_dynamic`, `execute_script` and the other one-request calls fail with
+  a `USAGE` error ("synchronous command execution functions are not allowed in pipeline mode").
+- Queueing: `pipeline_query(p, sql, args..)` and `pipeline_query_binary` (typed arguments, as
+  `query_dynamic`), `pipeline_query_text(p, sql, types, values, format)` (arguments already text,
+  with the parameter OIDs to declare), `pipeline_prepare`, `pipeline_execute_prepared` and
+  `pipeline_execute_prepared_text`, `pipeline_describe_statement` and `pipeline_describe_portal`,
+  `pipeline_close_statement` and `pipeline_close_portal`. A query is Parse, Bind, Describe portal
+  and Execute; a prepared one leaves out Parse. Queueing only writes into the output buffer.
+- Sending: `pipeline_sync` queues a sync point and sends. `pipeline_queue_sync` queues without
+  sending. `pipeline_flush_request` queues a `Flush` message (the server then sends its answers
+  without ending the batch) and sends. `pipeline_flush` only sends. Reading a result sends
+  whatever is still unsent first.
+- Results: `pipeline_next_result(p)` gives the oldest statement's outcome: `.RESULT` (rows and
+  command tag in `item.result`; for describes the columns, and `parameter_types` for a statement),
+  `.ERROR` (`item.error`, a `SERVER` error), `.ABORTED` or `.SYNC`. The `Pg_Error` it returns is
+  for the connection. After an error the server skips the rest of the batch up to the next sync
+  point; those statements come back as `.ABORTED` without a round trip, and the `.SYNC` result
+  ends the abort (`p.aborted`). Without a sync point an error is not recovered from: send one.
+  `connection.status` follows the server's `ReadyForQuery` at each `.SYNC`.
+- `pipeline_chunked_rows(p, n)` (and `pipeline_single_row(p)`, n = 1) makes the statement being
+  read arrive in `.ROWS` results of `n` rows (`result.partial`), then a `.RESULT` with the
+  command tag and no rows. It must be called before the statement's first result.
+- `pipeline_exit(p)` fails while results are unread or statements unsent. A pipeline never has
+  to end with a sync point (libpq's `pipeline_idle` case: flush request, read, exit).
+- Deadlines: `pipeline_next_result` under `Io.with_deadline` returns `TIMED_OUT` and keeps what
+  it read, so the call can be repeated. `pipeline_abandon(p)` gives up: it cancels the running
+  statement, drains the answers to the last sync point and leaves pipeline mode (the connection
+  breaks if that takes longer than `cancel_timeout`).
+- Outside a pipeline: `describe_prepared`, `describe_portal`, `close_prepared` and
+  `close_portal` run one Describe or Close and a Sync.
+- A pipeline writes before it reads. If so many statements queue that the server's answers fill
+  the socket buffers before any is read, both sides block: read results every few hundred
+  kilobytes of queued statements. A pool drops a connection released with unread results.
+
+**LISTEN/NOTIFY** (`notify.jai`). The server sends `NotificationResponse` whenever the session is
+outside a transaction, and the client reads it wherever it reads the connection: in a query, a
+script, a pipeline or a wait. With `connection.on_notification` set, each notification goes to
+that callback (freed after the call). Otherwise they queue on the connection.
+
+```jai
+Pg.listen(db, "jobs");                          // channel names are quoted
+n, error := Pg.wait_for_notification(db);       // blocks this fiber; deadline and cancel work
+defer Pg.free_notification(*n);                 // n.channel, n.payload, n.backend_pid
+n, found := Pg.next_notification(db);           // the queue, without waiting
+Pg.notify(other, "jobs", "payload");            // pg_notify($1, $2)
+```
+
+`wait_for_notification` takes the connection (`busy`) while it waits, so nothing else can use it:
+keep a listening connection off the pool. After `TIMED_OUT` or `CANCELED` the connection is as it
+was. A FATAL from the server while waiting (shutdown, idle session timeout) comes back as the
+error and breaks the connection. `unlisten`, `unlisten_all` and `drop_notifications` complete
+the set. Reconnecting does not re-issue `LISTEN`, and notifications sent while disconnected are
+lost, as in Postgres.
+
+**Message trace** (`trace.jai`). `set_trace(db, proc, data, regress = true)` calls `proc` with one
+line per protocol message sent (`F`) or received (`B`) from then on, in the text format of libpq's
+`PQtrace` (tab-separated: direction, length, message name, fields). With `regress` the output is
+that of `PQTRACE_SUPPRESS_TIMESTAMPS | PQTRACE_REGRESS_MODE`: OIDs and process ids print as
+`NNNN`, an error's length as `NN` and its file, line and routine as `SSSS`. Pass a null `proc`
+to stop. Tracing costs nothing when off (one pointer test per message).
 
 **Errors.** `Pg_Error.kind` says where the failure came from: `CONFIG`, `IO`, `TIMED_OUT`,
 `CANCELED`, `CLOSED`, `TLS`, `AUTH`, `PROTOCOL`, `SERVER`, `DECODE` or `USAGE`. Server errors carry
@@ -178,6 +268,12 @@ error := Pg.transaction(pool, user_id, (tx: *Pg.Connection, id: s64) -> Pg.Pg_Er
   formats. If it can be a parameter, add a branch to `encode_binary`. For an array, add the
   pair to `ARRAY_TYPES`. Add a row to `tests/server.jai` in `test_values`, which runs in both
   formats.
+- **A pipeline step.** `Pipeline_Step` lists what a queued request expects back. A new request
+  adds a step, a `queue_*` function that writes its messages and calls `add_step`, and a case in
+  `consume` (`pipeline.jai`) that says which message ends it. The typed queries of a later phase
+  queue Parse together with Bind and Execute through the same `queue_query`.
+- **A traced message.** Add its name and fields to `trace_frontend` or `trace_backend`
+  (`trace.jai`); the field helpers print as libpq does. Check against a `.trace` file.
 - **A new auth method.** Add a case to `answer_authentication` in `startup.jai`. Keep the rule
   that a method weaker than what `channel_binding = .REQUIRE` allows fails before it sends
   anything.
@@ -194,7 +290,8 @@ error := Pg.transaction(pool, user_id, (tx: *Pg.Connection, id: s64) -> Pg.Pg_Er
 `Config` fields: `host`, `port`, `user` (default `$USER`), `password`, `database` (default the user),
 `application_name`, `options`, `ssl_mode` (`DISABLE`, `PREFER` (default), `REQUIRE`,
 `VERIFY_CA`, `VERIFY_FULL`), `ssl_direct`, `ssl_root_cert_pem` (default: the system roots),
-`channel_binding` (`DISABLE`, `PREFER`, `REQUIRE`), `connect_timeout` (ms, default 10 s), `cancel_timeout` (ms, default 2 s: the time allowed for
+`channel_binding` (`DISABLE`, `PREFER`, `REQUIRE`), `min_protocol_version` and
+`max_protocol_version` (`.V3_0` (default), `.V3_2`, `.LATEST`), `connect_timeout` (ms, default 10 s), `cancel_timeout` (ms, default 2 s: the time allowed for
 cancel and drain after a deadline or cancel),
 `max_scram_iterations` (default 1,000,000), `allow_cleartext_password`, `parameters` (extra
 startup parameters such as `TimeZone`; a name the client sends itself, `client_encoding`,
@@ -223,6 +320,9 @@ certificate). It also uses `internal/crypto` for SHA-256/384/512, HMAC, PBKDF2 a
 
 Tests (`stdlib/Extensions/Postgres/tests`):
 
+- `conformance/pipeline_traces.jai` replays the scenarios of PostgreSQL's `libpq_pipeline` test and
+  compares the client's message trace with libpq's `.trace` files, line for line
+  ([Conformance](../postgres/conformance.md)).
 - `offline.jai` needs no server: URLs, SQLSTATEs, UUIDs, calendar arithmetic, numerics.
 - `server.jai` covers:
   - each auth method and its failures;
@@ -236,7 +336,11 @@ Tests (`stdlib/Extensions/Postgres/tests`):
     transaction);
   - the pool: limits and waiting, newest first, rollback on release, health checks, lifetime,
     `min_idle`, closing with borrowed connections;
-  - transactions: commit, rollback, ignored failures, retries.
+  - transactions: commit, rollback, ignored failures, retries;
+  - pipelines (typed statements, errors and aborts, prepared statements, a deadline in the
+    middle, `pipeline_abandon`), notifications (waiting, callback, queue, a deadline, `Io.cancel`,
+    another fiber sending) and protocol versions (negotiating down to 3.0, `min_protocol_version`
+    failing, and 3.2 with its longer cancel key when the server is PostgreSQL 18).
 
   It skips unless `JAI_PG_TEST_PORT` is set. To start a matching server:
 
