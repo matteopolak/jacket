@@ -170,6 +170,119 @@ append_bitfield_helpers :: (builder: *String_Builder, bitfield: *Bitfield, scope
 
 #scope_module
 #import "Basic";
+#import "String";
+
+// Prints one bitfield storage unit: the integer (or byte array) field, then its members in a comment.
+binding_bitfield_unit :: (builder: *String_Builder, group: *Bitfield, scope: *Declaration, flags: Print_Decl_Flags, alignment: int) -> bool {
+    generator := gp_current_generator();
+    if !generator || !group.type || !looks_like_valid_identifier(group.output_name) return false;
+
+    append(builder, group.output_name);
+    append(builder, ": ");
+    print_type_to_builder(builder, group.type, scope);
+    if group.explicit_field_alignment > 0 print_to_builder(builder, " #align %", group.explicit_field_alignment);
+
+    append(builder, ";\n");
+    append_indentation(builder);
+    append(builder, "/*\n");
+
+    generator.tab_depth += 1;
+
+    for member: group.members {
+        if !member || !member.type return false;
+
+        prefix: String_Builder;
+
+        defer free_buffers(*prefix);
+        append_prefix_comment(*prefix, member.comment, false);
+        lines := split(builder_to_string(*prefix), "\n");
+
+        defer array_free(lines);
+
+        for line: lines if line.count {
+            safe := binding_nested_comment_text(line);
+
+            defer free(safe);
+            append_indentation(builder);
+            append(builder, safe);
+            append(builder, "\n");
+        }
+
+        append_indentation(builder);
+        append(builder, ifx member.output_name.count then member.output_name else "_");
+        append(builder, ": ");
+        print_type_to_builder(builder, member.type, scope);
+        print_to_builder(builder, "; /* % bits */", member.bitfield_width);
+
+        suffix: String_Builder;
+
+        defer free_buffers(*suffix);
+        append_postfix_comment(*suffix, member.comment);
+        text := builder_to_string(*suffix);
+
+        defer free(text);
+        safe := binding_nested_comment_text(text);
+
+        defer free(safe);
+        append(builder, safe);
+        append(builder, "\n");
+    }
+
+    generator.tab_depth -= 1;
+    append_indentation(builder);
+    append(builder, "*/\n");
+
+    return !builder.failed;
+}
+
+// Source comments are copied into a block comment, so their own comment markers must nest.
+// Text whose markers do not pair up has them broken apart instead.
+binding_nested_comment_text :: (text: string) -> string {
+    depth := 0;
+    balanced := true;
+
+    for index: 0..text.count - 2 {
+        if text[index] == #char "/" && text[index + 1] == #char "*" depth += 1;
+        else if text[index] == #char "*" && text[index + 1] == #char "/" {
+            depth -= 1;
+            if depth < 0 balanced = false;
+        }
+    }
+
+    if depth != 0 balanced = false;
+    if balanced return copy_string(text);
+
+    result: String_Builder;
+
+    defer free_buffers(*result);
+    index := 0;
+
+    while index < text.count {
+        if index + 1 < text.count && ((text[index] == #char "/" && text[index + 1] == #char "*") || (text[index] == #char "*" && text[index + 1] == #char "/")) {
+            append(*result, text[index]);
+            append(*result, " ");
+            index += 1;
+            continue;
+        }
+
+        append(*result, text[index]);
+        index += 1;
+    }
+
+    return builder_to_string(*result);
+}
+
+// The accessors for every named member of a storage unit. A name another declaration or accessor
+// already uses gets a numeric suffix, as other generated names do, on both procedures of the pair.
+append_layout_unit_accessors :: (builder: *String_Builder, group: *Bitfield, scope: *Struct, existing: [] *Declaration, used: *[..] string) {
+    fragment: String_Builder;
+
+    defer free_buffers(*fragment);
+    valid := group != null && scope != null;
+    if valid valid = binding_layout_unit_accessors(*fragment, group, scope, existing, used);
+
+    commit_type_fragment(builder, *fragment, valid);
+}
 
 binding_field_contains :: (field: *Declaration, record: *Struct) -> bool {
     if !field return false;
@@ -238,6 +351,116 @@ binding_bitfield_accessors :: (builder: *String_Builder, group: *Bitfield, scope
         }
 
         append(builder, "}\n");
+    }
+
+    return !builder.failed;
+}
+
+binding_accessor_name_taken :: (name: string, existing: [] *Declaration, used: [] string) -> bool {
+    for declaration: existing if declaration && declaration.output_name == name return true;
+    for taken: used if taken == name return true;
+
+    return false;
+}
+
+binding_mask_text :: (width: int) -> string {
+    if width >= 64 return "(~cast(u64) 0)";
+
+    return tprint("(cast(u64) %)", (cast(u64) 1 << cast(u64) width) - 1);
+}
+
+binding_layout_unit_accessors :: (builder: *String_Builder, group: *Bitfield, scope: *Struct, existing: [] *Declaration, used: *[..] string) -> bool { // jailint: allow(cognitive_complexity)
+    if !group.type || !looks_like_valid_identifier(group.output_name) return false;
+
+    path: String_Builder;
+
+    defer free_buffers(*path);
+    append_parent_field_path(*path, group.parent, cast(*Declaration) scope);
+    if path.failed return false;
+
+    access_prefix := builder_to_string(*path);
+
+    defer free(access_prefix);
+    append_parent_field_path(*path, group.parent, cast(*Declaration) scope, "_");
+    if path.failed return false;
+
+    name_prefix := builder_to_string(*path);
+
+    defer free(name_prefix);
+    scope_name := type_to_string(*(CType.{ type_of_struct = scope }), null);
+
+    defer free(scope_name);
+    if !scope_name.count || !looks_like_valid_identifier(scope.output_name) return false;
+
+    storage_name := type_to_string(group.type, cast(*Declaration) scope);
+
+    defer free(storage_name);
+    array := group.type.array_element_type != null;
+    storage_bytes := group.type.size;
+    field := tprint("s.%%", access_prefix, group.output_name);
+
+    if storage_bytes < 1 || storage_bytes > 8 || (!array && !storage_name.count) return true;
+
+    for member: group.members {
+        if !member || !member.output_name.count || !looks_like_valid_identifier(member.output_name) continue;
+
+        width := member.bitfield_width;
+        shift := member.bit_offset_in_parent - group.bit_offset_in_parent;
+
+        if width < 1 || width > 64 || shift < 0 || shift + width > storage_bytes * 8 continue;
+
+        value_type := type_to_string(member.type, cast(*Declaration) scope);
+
+        defer free(value_type);
+        if !value_type.count continue;
+
+        base := strip_type(member.type, typedefs = true, enums = true);
+        named := strip_type(member.type, typedefs = true);
+
+        if !base || !named continue;
+
+        is_bool := (base.flags & .BOOL) != 0;
+        is_enum := named.type_of_enum != null;
+        is_signed := (base.number_flags & .SIGNED) != 0;
+        integer_name := ifx is_enum then type_to_string(base, cast(*Declaration) scope) else copy_string(value_type);
+
+        defer free(integer_name);
+        if !integer_name.count continue;
+
+        base_name := tprint("%_%%", scope.output_name, name_prefix, member.output_name);
+        getter := base_name;
+        setter := tprint("%_set_%%", scope.output_name, name_prefix, member.output_name);
+
+        for suffix: 1..existing.count + used.count + 2 {
+            if !binding_accessor_name_taken(getter, existing, used.*) && !binding_accessor_name_taken(setter, existing, used.*) break;
+
+            getter = tprint("%_%", base_name, suffix);
+            setter = tprint("%_set_%%_%", scope.output_name, name_prefix, member.output_name, suffix);
+        }
+
+        array_add(used, copy_string(getter));
+        array_add(used, copy_string(setter));
+        mask := binding_mask_text(width);
+        load := ifx array then "bits" else tprint("(cast(u64) %)", field);
+
+        print_to_builder(builder, "% :: inline (s: %) -> % {\n", getter, scope_name, value_type);
+        if array print_to_builder(builder, " bits: u64;\n for i: 0..% bits |= (cast(u64) %[i]) << (cast(u64) (8 * i));\n", storage_bytes - 1, field);
+
+        print_to_builder(builder, " value := (% >> %) & %;\n", load, shift, mask);
+        if is_signed && width < 64 print_to_builder(builder, " if (value & ((cast(u64) 1) << %)) != 0 value |= ~%;\n", width - 1, mask);
+
+        if is_bool append(builder, " return value != 0;\n}\n");
+        else if is_enum print_to_builder(builder, " return cast(%) cast,trunc(%) value;\n}\n", value_type, integer_name);
+        else print_to_builder(builder, " return cast,trunc(%) value;\n}\n", value_type);
+
+        print_to_builder(builder, "% :: inline (s: *%, value: %) {\n", setter, scope_name, value_type);
+        if array print_to_builder(builder, " bits: u64;\n for i: 0..% bits |= (cast(u64) %[i]) << (cast(u64) (8 * i));\n", storage_bytes - 1, field);
+
+        replaced := tprint("((% & ~(% << %)) | (((cast,no_check(u64) value) & %) << %))", ifx array then "bits" else tprint("(cast(u64) %)", field), mask, shift, mask, shift);
+
+        if array {
+            print_to_builder(builder, " bits = %;\n for i: 0..% %[i] = cast,trunc(u8) (bits >> (cast(u64) (8 * i)));\n}\n", replaced, storage_bytes - 1, field);
+        } else print_to_builder(builder, " % = cast,trunc(%) %;\n}\n", field, storage_name, replaced);
     }
 
     return !builder.failed;

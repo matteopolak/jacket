@@ -102,6 +102,7 @@ Struct_Extra_Info :: struct {
     struct_alignment: int;
     has_field: bool;
     has_nonzero_sized_field: bool;
+    explicit_layout: bool;
     inherits_from_template: bool;
     modified_declarations: [..] *Declaration;
     all_scope_declarations: [..] *Declaration;
@@ -115,7 +116,8 @@ Bitfield :: struct {
     alignment_type: *CType;
     flags: Flags;
     Flags :: enum_flags u8 {
-        GENERATE_HELPERS
+        GENERATE_HELPERS;
+        LAYOUT_UNIT
     }
 }
 

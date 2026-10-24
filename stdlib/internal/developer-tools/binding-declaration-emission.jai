@@ -53,17 +53,28 @@ binding_declaration :: (builder: *String_Builder, declaration: *Declaration, sco
         }
     } else if declaration.kind == .BITFIELD {
         group := cast(*Bitfield) declaration;
-        unwrapped := maybe_unwrap_bitfield_declaration(declaration);
 
-        if unwrapped != declaration return binding_declaration(builder, unwrapped, scope, flags | .NO_INDENT, alignment, existing, explicit_alignment);
+        if group.flags & .LAYOUT_UNIT {
+            if group.flags & .GENERATE_HELPERS && !array_find(generator.pending_bitfields, group) {
+                session := context._bindings_generator_session;
+                if session GM_Sessions.append_owned(session, *generator.pending_bitfields, group);
+                else array_add(*generator.pending_bitfields, group);
+            }
 
-        if group.flags & .GENERATE_HELPERS && !array_find(generator.pending_bitfields, group) {
-            session := context._bindings_generator_session;
-            if session GM_Sessions.append_owned(session, *generator.pending_bitfields, group);
-            else array_add(*generator.pending_bitfields, group);
+            if !binding_bitfield_unit(builder, group, scope, flags, alignment) return false;
+        } else {
+            unwrapped := maybe_unwrap_bitfield_declaration(declaration);
+
+            if unwrapped != declaration return binding_declaration(builder, unwrapped, scope, flags | .NO_INDENT, alignment, existing, explicit_alignment);
+
+            if group.flags & .GENERATE_HELPERS && !array_find(generator.pending_bitfields, group) {
+                session := context._bindings_generator_session;
+                if session GM_Sessions.append_owned(session, *generator.pending_bitfields, group);
+                else array_add(*generator.pending_bitfields, group);
+            }
+
+            if !binding_ordinary_declaration(builder, declaration, scope, flags, alignment, explicit_alignment) return false;
         }
-
-        if !binding_ordinary_declaration(builder, declaration, scope, flags, alignment, explicit_alignment) return false;
     } else if declaration.kind == .DECLARATION {
         if !binding_ordinary_declaration(builder, declaration, scope, flags, alignment, explicit_alignment) return false;
     } else {
@@ -599,6 +610,7 @@ binding_struct_body :: (builder: *String_Builder, record: *Struct, existing: *[.
     }
 
     append_type_info_directives(builder, cast(*Declaration) record);
+    if extra_info && extra_info.explicit_layout append(builder, " #no_padding");
     if explicit_alignment > 0 alignment = explicit_alignment;
     if alignment > 0 print_to_builder(builder, " #align %", alignment);
 

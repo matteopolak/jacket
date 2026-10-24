@@ -54,6 +54,9 @@
       "module": "check_developer_anonymous_types"
     },
     {
+      "module": "check_developer_bitfield_layout"
+    },
+    {
       "module": "check_developer_variadic"
     },
     {

@@ -2,6 +2,7 @@
 #import "Basic";
 #import "String";
 #load "generator-vtable-abi.jai";
+#load "generator-bitfield-layout.jai";
 
 gm_generated_member :: (session: *GM_Sessions.Session, record: *Struct, name: string, type: *CType, offset: int) -> *Declaration {
     member := GM_Sessions.new_owned(session, Declaration);
@@ -386,8 +387,12 @@ gm_record_metadata :: (record: *Struct, depth := 0) -> *Struct_Extra_Info { // j
         }
     }
 
+    grouped := false;
+
+    if !info.vtable_struct && !record.parents.count && !record.template_type_params.count grouped = gm_group_bitfields(session, record, *info);
+
     for declaration: record.declarations {
-        GM_Sessions.append_movable_owned(session, *info.modified_declarations, declaration);
+        if !grouped GM_Sessions.append_movable_owned(session, *info.modified_declarations, declaration);
         GM_Sessions.append_movable_owned(session, *info.all_scope_declarations, declaration);
     }
 

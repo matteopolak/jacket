@@ -1465,6 +1465,7 @@ CXVirtualFileOverlayImpl :: struct {}
 - `generate_c_style_api_for_vtable       := true`
 - `generate_vtable_helpers               := true`
 - `generate_bitfield_helpers             := true`
+- `generate_bitfield_accessors           := true`
 - `add_overloaded_const_and_ref_comments := true`
 - `add_placeholders_for_unresolved_types := true`
 - `mimic_spacing_flags             := Mimic_Spacing_Flags.ALL`
@@ -1740,7 +1741,7 @@ Literal :: struct {
 - `members: [..] *Declaration`
 - `alignment_type: *CType`
 - `flags: Flags`
-- `Flags :: enum_flags u8 { GENERATE_HELPERS }`
+- `Flags :: enum_flags u8 { GENERATE_HELPERS; LAYOUT_UNIT }`
 
 #### `Bitfield_Status` (struct)
 
@@ -1780,6 +1781,7 @@ Literal :: struct {
 - `struct_alignment:           int`
 - `has_field:                  bool`
 - `has_nonzero_sized_field:    bool`
+- `explicit_layout:            bool`
 - `inherits_from_template:     bool`
 - `modified_declarations:      [..] *Declaration`
 - `all_scope_declarations:     [..] *Declaration`
@@ -4671,6 +4673,35 @@ Eligibility is evaluated only on function-argument declarations by the declarati
 `maybe_unwrap_bitfield_declaration` returns a one-member bitfield's original member pointer after assigning the group's storage type to that member. Other inputs return the original declaration pointer. This is a visible member-type mutation, not a new declaration or copy.
 
 `append_bitfield_helpers` emits getters and setters for named group members. Names are `get_`/`set_` followed by anonymous-container field prefixes joined by underscores and then the member output name. The setter takes `fields: *Scope` and a value; the getter takes `fields: Scope` by value and returns the value. One-bit values use bool; wider values use the member's represented type. Setters update only the member's bit range, preserving unrelated bits; byte-array groups can span elements. Getters recover the masked bit range. The emitter does not apply an additional narrow signed-field sign-extension operation; full C/C++ signed-bitfield equivalence must not be inferred merely from a signed return type. Unnamed members produce no accessors.
+
+**Bitfields in generated bindings.** `generate_bindings` does not print bitfield members as fields. `gm_record_metadata` rebuilds each record's member list from libclang's own numbers (each member's `clang_Cursor_getOffsetOfField` bit offset and `clang_getFieldDeclBitWidth` width, and the record's size and alignment), so the Jai record occupies the same bytes the target's C compiler gives it, whichever ABI rules (Itanium or MSVC) the target uses. The public `maybe_add_to_bitfield` / `finish_bitfield` helpers above are separate and are not used by this path.
+
+Consecutive bitfield members that share a storage unit become one `Bitfield` (kind `.BITFIELD`, flag `LAYOUT_UNIT`) in `Struct_Extra_Info.modified_declarations`; the record's own `declarations` are untouched, so visitors still see the original members. Members share a unit when the aligned container of their declared type (1, 2, 4 or 8 bytes) overlaps the unit's. A zero-width member ends the unit and prints nothing; unnamed members stay in the unit's member list as `_`. In a union every bitfield is a unit of its own. The unit is the largest aligned unsigned integer that covers the bytes the members use and stays clear of the neighbouring fields (never wider than the type the members were declared with); when no integer fits (packed records), it is a `[N] u8` array over exactly those bytes.
+
+A unit prints as a storage field followed by its members in a comment, with each member's source comments kept:
+
+```jai
+section: **u8;
+__bitfield: u32;
+/*
+ type: u32; /* 8 bits */ // type of the operand data.
+ size: u32; /* 24 bits */
+*/
+offset: u32;
+```
+
+The first unit of a record is `__bitfield`; later ones are `__bitfield_1`, `__bitfield_2` and so on (a name already used by a member is skipped). Source comments that contain unpaired `/*` or `*/` have those markers broken apart (`/ *`) so the member list stays closed.
+
+When Jai's natural placement of the record's fields (with the storage units) would differ from the native offsets, size or alignment (packed records, `#pragma pack`, MSVC rules), the record is printed `#no_padding`, explicit `__padding_<offset>: [N] u8` fields fill every gap and the tail, and fields or units naturally aligned more strictly than the record carry `#align` of the record's alignment. `Struct_Extra_Info.explicit_layout` records that choice. This applies to every record with a known native offset for each field, bitfields or not; a record with a C11 anonymous member keeps the natural placement and relies on the generated `#assert` lines.
+
+With `generate_bitfield_accessors` (default `true`), each named bitfield member gets an inline getter and setter after the declarations, named after the outermost record:
+
+```jai
+VMExecOperand_type :: inline (s: VMExecOperand) -> u32 { ... }
+VMExecOperand_set_type :: inline (s: *VMExecOperand, value: u32) { ... }
+```
+
+A member inside a nested record includes the nested member names after the record's name (`BfUnion_parts_lo`, `BfUnion_set_parts_lo`). Getters mask and shift and sign-extend signed members; `bool` members return `bool` and enum members return the enum type. Setters take the member's own type and replace only the member's bits. A pair whose names collide with a generated declaration or another accessor gets `_1`, `_2`, ... appended to both names (`BfClash_x_1`, `BfClash_set_x_1`); the member itself is unaffected. Members whose unit is wider than eight bytes get no accessors. `generate_bitfield_accessors := false` leaves the storage fields and member comments and prints no procedures. `generate_bitfield_helpers` governs only the `get_`/`set_` helpers of the public group API above.
 
 ### Wrappers and printing callbacks
 

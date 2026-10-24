@@ -283,6 +283,13 @@ binding_emit_canonical_jai :: (builder: *String_Builder, generator: *Generator, 
     if generator.pending_bitfields.count {
         append(builder, "\n#scope_export\n");
 
+        accessor_names: [..] string;
+
+        defer {
+            for name: accessor_names free(name);
+            array_free(accessor_names);
+        }
+
         for group: generator.pending_bitfields {
             scope := cast(*Struct) group.parent;
             while scope && scope.flags & .IS_ANON {
@@ -299,7 +306,8 @@ binding_emit_canonical_jai :: (builder: *String_Builder, generator: *Generator, 
                 return;
             }
 
-            append_bitfield_helpers(builder, group, scope);
+            if group.flags & .LAYOUT_UNIT append_layout_unit_accessors(builder, group, scope, existing, *accessor_names);
+            else append_bitfield_helpers(builder, group, scope);
         }
     }
 
