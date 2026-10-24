@@ -565,7 +565,19 @@ jai_model_function :: (builder: *String_Builder, function: *Function_Type, scope
 
     append(builder, ") -> ");
 
-    return jai_model_type(builder, function.return_type, scope, flags, depth + 1);
+    // A procedure type as the result would take the directives that follow the
+    // declaration, so it is written in parentheses.
+    result := function.return_type;
+    returns_procedure := result != null && (result.type_of_function != null || (result.pointer_to != null && result.pointer_to.type_of_function != null));
+
+    if !returns_procedure return jai_model_type(builder, function.return_type, scope, flags, depth + 1);
+
+    append(builder, "(");
+    if !jai_model_type(builder, function.return_type, scope, flags, depth + 1) return false;
+
+    append(builder, ")");
+
+    return !builder.failed;
 }
 
 binding_valist_is_opaque :: (function: *Function_Type) -> bool {

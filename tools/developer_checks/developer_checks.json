@@ -47,6 +47,9 @@
       "module": "check_developer_pointer_defaults"
     },
     {
+      "module": "check_developer_procedure_results"
+    },
+    {
       "module": "check_developer_string_macros"
     },
     {
