@@ -20,6 +20,14 @@ Pg.free_rows(*rows);
 
 `query_one` and `query_scalar` return a `.NOT_FOUND` error when no row matches, and a `.USAGE` error for more than one. `query_as(T, ...)` checks a hand-written struct: columns match fields by name, nullable columns need `Nullable`, and `Json(T)` fields say what a json column holds.
 
+### Row type identity
+
+When every column of a `query`, `query_one` or `query_opt` is read straight from one table under its own name (`select *`, `select u.* ... `, `returning *`), the macro returns that table's struct from `db/schema.jai` instead of an anonymous `Row(...)`, so the result flows into code that takes `User`.
+
+- The table comes from the columns' origins (`schema.table.column`); the struct name from the `Name :: struct @pg_table(schema.table)` line in `<root>/db/schema.jai`.
+- The name has to resolve where the query is written. The macro inserts it with `#insert,scope(call)` in two steps, `#exists(Name)` first, so a struct the caller cannot see (another module, `#scope_file`) falls back to `Row(...)` without an error.
+- `row_type` (shape.jai) then checks the struct's fields against the columns, in order, by name and with `field_accepts`; any mismatch also falls back. Rows decode positionally either way.
+
 ### Schema databases
 
 With a `db/migrations` folder, queries are described in a **schema database** built from the migrations, not in the database the URL names. `schema_databases.jai` picks it, and the service connects to it on the same server (the role needs `CREATEDB`):

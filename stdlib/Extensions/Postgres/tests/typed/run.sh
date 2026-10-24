@@ -105,7 +105,12 @@ if "$jaic" "$tool" -interp -- check --root "$JACKET_PG_ROOT" > "$work/out" 2>&1;
 grep -q "unused entry 1111111111111111" "$work/out" || fail "tool check did not name the unused entry"
 rm -f "$JACKET_PG_ROOT/db/queries/1111111111111111.json"
 
-# 7. Bad programs: the error is reported at the right place.
+# 7. Row type identity: `select *` returns the table's struct from db/schema.jai.
+cp -R "$here/identity" "$work/identity"
+JACKET_PG_ROOT="$work/identity" "$jaic" "$work/identity/main.jai" -exe "$work/identity_test" || fail "build row type identity"
+[ "$("$work/identity_test")" = ok ] || fail "row type identity"
+
+# 8. Bad programs: the error is reported at the right place.
 python3 "$here/bad.py" "$jaic" "$work" || fail "bad programs"
 
 echo "all typed query tests passed"

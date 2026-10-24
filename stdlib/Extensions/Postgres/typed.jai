@@ -70,11 +70,13 @@ for_expansion :: (rows: *Rows($T), body: Code, flags: For_Flags) #expand {
     }
 }
 
-// Runs the statement and returns its rows. `Rows(Row(...))` has one field per column.
-query :: (db: $D, $sql: string, args: ..Any, $call := #caller_code) -> Rows(Row(#run row_shape(sql, call, 1))), Pg_Error #expand {
+// Runs the statement and returns its rows. `Rows(Row(...))` has one field per column; when the
+// columns are exactly one table's, it is `Rows(Table)` with that table's struct from db/schema.jai
+// (row type identity, see `row_type`).
+query :: (db: $D, $sql: string, args: ..Any, $call := #caller_code) -> Rows(#run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1)))), Pg_Error #expand {
     #run check_statement(sql, call, 1, true);
 
-    rows: Rows(Row(#run row_shape(sql, call, 1)));
+    rows: Rows(#run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1))));
     error: Pg_Error;
     rows.result, error = run_statement(db, #run rewritten_sql(sql, call, 1), #run binary_results(sql, call, 1), args);
 
@@ -83,10 +85,10 @@ query :: (db: $D, $sql: string, args: ..Any, $call := #caller_code) -> Rows(Row(
 
 // The only row, or a `.NOT_FOUND` error when there is none. More rows are a `.USAGE` error. The row
 // lives in temporary storage (until `reset_temporary_storage`).
-query_one :: (db: $D, $sql: string, args: ..Any, $call := #caller_code) -> Row(#run row_shape(sql, call, 1)), Pg_Error #expand {
+query_one :: (db: $D, $sql: string, args: ..Any, $call := #caller_code) -> #run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1))), Pg_Error #expand {
     #run check_statement(sql, call, 1, true);
 
-    value: Row(#run row_shape(sql, call, 1));
+    value: #run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1)));
     result, error := run_statement(db, #run rewritten_sql(sql, call, 1), #run binary_results(sql, call, 1), args);
 
     if error.kind != .NONE return value, error;
@@ -108,10 +110,10 @@ query_one :: (db: $D, $sql: string, args: ..Any, $call := #caller_code) -> Row(#
 } @Interpolates("sql")
 
 // The first row and whether there was one.
-query_opt :: (db: $D, $sql: string, args: ..Any, $call := #caller_code) -> Row(#run row_shape(sql, call, 1)), bool, Pg_Error #expand {
+query_opt :: (db: $D, $sql: string, args: ..Any, $call := #caller_code) -> #run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1))), bool, Pg_Error #expand {
     #run check_statement(sql, call, 1, true);
 
-    value: Row(#run row_shape(sql, call, 1));
+    value: #run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1)));
     result, error := run_statement(db, #run rewritten_sql(sql, call, 1), #run binary_results(sql, call, 1), args);
 
     if error.kind != .NONE return value, false, error;

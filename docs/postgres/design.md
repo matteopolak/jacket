@@ -586,7 +586,7 @@ User :: struct @pg_table("users") {
 Raw query results and table structs stay connected under C in three ways:
 
 1. **Same origin.** Both come from `RowDescription`/`pg_attribute` after the same migrations, mapped by the same codec table. `users.email` is `string` everywhere or nowhere.
-2. **Row type identity.** When a query's columns are exactly one table's columns in order, by table OID and attribute number, the macro returns the **table struct** (`User`) instead of a new anonymous struct:
+2. **Row type identity.** When a query's columns are exactly one table's columns in order (by origin and name) and the caller can see that table's struct, the macro returns the **table struct** (`User`) instead of a new anonymous struct:
    - `select * from users`
    - `select u.* from users u join ...`
    - `returning *`
@@ -803,7 +803,7 @@ Phases (each lands on this branch, then goes to `main` when it is useful on its 
 
    The typed query layer (phase 3) will pipeline Parse with Bind and Execute through the same queue.
 3. **Typed raw queries:** `query`/`query_one`/`execute`/`query_as`, JSON column overrides, the describe service (schema databases, nullability, overrides), the offline cache, the pg tool's `prepare`/`check`. Editor feedback lands here: error spans, completions, hover, offline notes. *Landed* ([typed-queries.md](typed-queries.md)): everything above except pipelined execution of typed queries, portal streaming (`Rows` buffers the whole result), and user-defined types in `query` alias overrides (use `query_as`). The editor test is written but unrun.
-4. **Migrations and schema:** the runner, embedded migrations, the schema-database cache, `generate` (with `db/json_columns.jai`), the `db/schema.jai` staleness check, row type identity. *Landed* ([migrations.md](migrations.md), [schema.md](schema.md)): the runner, embedded migrations, the pg tool's `migrate`, `status`, `new` and `generate` (from the migrations' schema database, `db/json_columns.jai` through `Pg.json_column_type`), the `db/schema.jai` staleness check, Jai enums for Postgres enums, and the relation notes the ORM reads. The schema-database cache landed with typed queries ([typed-queries.md](typed-queries.md#schema-databases)). Row type identity is not part of it.
+4. **Migrations and schema:** the runner, embedded migrations, the schema-database cache, `generate` (with `db/json_columns.jai`), the `db/schema.jai` staleness check, row type identity. *Landed* ([migrations.md](migrations.md), [schema.md](schema.md)): the runner, embedded migrations, the pg tool's `migrate`, `status`, `new` and `generate` (from the migrations' schema database, `db/json_columns.jai` through `Pg.json_column_type`), the `db/schema.jai` staleness check, Jai enums for Postgres enums, and the relation notes the ORM reads. The schema-database cache and row type identity landed with typed queries ([typed-queries.md](typed-queries.md#schema-databases), [row type identity](typed-queries.md#row-type-identity)).
 5. **ORM:** `select` with `Code` filters, typed JSON navigation, column pruning, to-one joins, to-many batched loading, insert/update/delete.
 6. **Zero setup:** managed per-platform Postgres for compile-time typing; `diff` migration proposals. *Managed binaries landed* (`stdlib/Extensions/Postgres/managed.jai`, see [managed.md](managed.md)): download, verify, cache, `initdb` and start. The describe service does not call it yet, and `diff` is not started.
 
