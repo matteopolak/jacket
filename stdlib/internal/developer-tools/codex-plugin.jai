@@ -159,7 +159,7 @@ codex_timestamp :: () -> Apollo_Time, bool #no_aoc {
         now: Codex_Windows.FILETIME;
 
         Codex_Windows.GetSystemTimeAsFileTime(*now);
-        ticks := (cast(u64) now.dwHighDateTime << 32) | now.dwLowDateTime;
+        ticks := ((cast(u64) now.dwHighDateTime) << 32) | now.dwLowDateTime;
 
         FILETIME_TICKS_PER_SECOND :: 10000000;
         NANOSECONDS_PER_FILETIME_TICK :: 100;

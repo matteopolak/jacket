@@ -102,7 +102,7 @@ detect :: () {
 
         #asm { xgetbv hi, lo, index; }
 
-        return (cast(u64) hi << 32) | cast(u64) lo;
+        return ((cast(u64) hi) << 32) | cast(u64) lo;
     }
 
     detect_x64 :: (found: *Cpu_Features) {
