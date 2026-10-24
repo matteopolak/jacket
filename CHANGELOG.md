@@ -22,6 +22,7 @@
 - `jailint` has an opt-in `if_not_else` lint for an `if` or `ifx` with a negated condition and an `else`.
 - `jailint` reports hex literals with letters in both cases, such as `0xDeadbeef` (`mixed_case_hex_literals`).
 - `jailint` has an opt-in `unreadable_literal` lint for long numbers without `_` separators, with a fix that adds them.
+- `jailint` reports a stray `;` that ends nothing, such as `x = 1;;` or `if c { ... };` (`unnecessary_semicolon`).
 
 ### Improved
 

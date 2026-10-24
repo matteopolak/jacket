@@ -65,6 +65,7 @@ mod single_case_switch;
 mod string_literal_write;
 mod uninit_read;
 mod unknown_allow;
+mod unnecessary_semicolon;
 mod unpaired_lock;
 mod unreadable_literal;
 pub(crate) mod unused_import;
@@ -434,6 +435,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Suspicious,
         summary: "a `// jailint: allow(...)` comment naming a rule that does not exist",
         check: unknown_allow::check,
+    },
+    RuleInfo {
+        name: "unnecessary_semicolon",
+        category: Category::Style,
+        summary: "a `;` that ends nothing (`x = 1;;`, `if c { ... };`)",
+        check: unnecessary_semicolon::check,
     },
     RuleInfo {
         name: "unpaired_lock",

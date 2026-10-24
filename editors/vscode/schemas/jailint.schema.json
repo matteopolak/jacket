@@ -658,6 +658,16 @@
           "default": "warn",
           "markdownDescription": "a `// jailint: allow(...)` comment naming a rule that does not exist (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unknown_allow)"
         },
+        "unnecessary_semicolon": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "warn",
+          "markdownDescription": "a `;` that ends nothing (`x = 1;;`, `if c { ... };`) (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unnecessary_semicolon)"
+        },
         "unpaired_lock": {
           "type": "string",
           "enum": [
