@@ -19,6 +19,7 @@ main :: () {
     test_require_auth();
     test_saslprep();
     test_passfile();
+    test_ssl_options();
     test_sqlstates();
     test_uuids();
     test_calendar();
@@ -54,7 +55,12 @@ test_urls :: () {
         "mysql://localhost", "postgres://h:0/d", "postgres://h:70000/d", "postgres://h:x/d",
         "postgres://[::1/d", "postgres://h/d?sslmode=sometimes", "postgres://h/d?nope=1",
         "postgres://h/d?port", "postgres://h/d%2", "postgres://h/d%zz",
-        "postgres://h/d?sslrootcert=/no/such/file.pem",
+        "postgres://h/d?sslmode=verify-ca&sslrootcert=/no/such/file.pem",
+        "postgres://h/d?sslmode=verify-full&sslrootcert=/no/such/file.pem",
+        "postgres://h/d?sslmode=require&sslrootcert=system",
+        "postgres://h/d?sslcertmode=sometimes", "postgres://h/d?sslsni=2",
+        "postgres://h/d?ssl_min_protocol_version=TLSv9",
+        "postgres://h/d?ssl_min_protocol_version=TLSv1.3&ssl_max_protocol_version=TLSv1.2",
     ];
     for bad {
         config, error = Pg.parse_url(it);
@@ -205,6 +211,45 @@ test_passfile :: () {
     chmod_open(path);
     assert(Pg.passfile_password(config, "db", 5432, "app", "me") == "");
     file_delete(path);
+}
+
+test_ssl_options :: () {
+    // A root certificate that is missing matters only when the server is to be verified.
+    config, error := Pg.parse_conninfo("host=h sslmode=require sslrootcert=/no/such/file.pem sslcert=/no/such.crt");
+
+    assert(error.kind == .NONE && config.ssl_root_cert_pem == "" && config.ssl_cert_pem == "");
+    assert(config.ssl_cert_mode == .ALLOW && config.ssl_sni);
+    Pg.free_config(*config);
+
+    config, error = Pg.parse_conninfo("host=h sslsni=0 sslcertmode=require ssl_min_protocol_version=TLSv1.3 sslpassword=pw");
+    assert(error.kind == .NONE && !config.ssl_sni && config.ssl_cert_mode == .REQUIRE);
+    assert(config.ssl_min_protocol_version == .TLS_1_3 && config.ssl_max_protocol_version == .TLS_1_3 && config.ssl_key_password == "pw");
+    Pg.free_config(*config);
+
+    // A certificate needs its key, and a key only its owner may read.
+    assert(write_entire_file("ssl-options.crt", "certificate\n"));
+    assert(write_entire_file("ssl-options.key", "key\n"));
+
+    config, error = Pg.parse_conninfo("host=h sslcert=ssl-options.crt sslkey=missing.key");
+    assert(error.kind == .CONFIG && contains(error.message, "certificate present, but not private key file \"missing.key\""));
+    Pg.free_error(*error);
+
+    chmod_open("ssl-options.key");
+    config, error = Pg.parse_conninfo("host=h sslcert=ssl-options.crt sslkey=ssl-options.key");
+    assert(error.kind == .CONFIG && contains(error.message, "has group or world access"));
+    Pg.free_error(*error);
+
+    chmod_private("ssl-options.key");
+    config, error = Pg.parse_conninfo("host=h sslcert=ssl-options.crt sslkey=ssl-options.key sslcertmode=disable");
+    assert(error.kind == .NONE && config.ssl_cert_pem == "");
+    Pg.free_config(*config);
+
+    config, error = Pg.parse_conninfo("host=h sslcert=ssl-options.crt sslkey=ssl-options.key");
+    assert(error.kind == .NONE && config.ssl_cert_pem == "certificate\n" && config.ssl_key == "key\n");
+    Pg.free_config(*config);
+
+    file_delete("ssl-options.crt");
+    file_delete("ssl-options.key");
 }
 
 test_sqlstates :: () {

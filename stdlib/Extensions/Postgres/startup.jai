@@ -42,6 +42,14 @@ open :: (c: *Connection, config: Config) -> Pg_Error {
     // A hostaddr is connected to in place of the host name, which TLS then checks the
     // certificate against as well.
     c.host = copy_string(ifx config.hostaddr then config.hostaddr else config.host);
+    c.tls_name = copy_string(ifx config.host then config.host else config.hostaddr);
+    c.tls_check_name = config.ssl_mode == .VERIFY_FULL;
+
+    // SNI names a host, never an address (libpq's test: digits and dots, or a colon).
+    if config.ssl_sni && c.tls_name && !begins_with(c.tls_name, "/") && !looks_like_address(c.tls_name) {
+        c.tls_sni = copy_string(c.tls_name);
+    }
+
     c.port = config.port;
     c.ssl_direct = config.ssl_direct;
     c.cancel_timeout = config.cancel_timeout;
@@ -170,21 +178,55 @@ negotiate_tls :: (c: *Connection, config: Config) -> Pg_Error {
 
 #if TLS {
     start_tls :: (c: *Connection, config: Config) -> Pg_Error {
+        verifying := config.ssl_mode == .VERIFY_CA || config.ssl_mode == .VERIFY_FULL;
+
+        if config.ssl_max_protocol_version < .TLS_1_2 {
+            return make_error(.TLS, "SSL error: this client speaks TLS 1.2 and 1.3 only");
+        }
+
         c.tls_config.alpn = string.["postgresql"];
         c.tls_config.roots_pem = config.ssl_root_cert_pem;
-        c.tls_config.verify = config.ssl_mode == .VERIFY_CA || config.ssl_mode == .VERIFY_FULL;
+        c.tls_config.crl_pem = config.ssl_crl_pem;
+        // Roots that were given are used in every mode (the chain is checked, the name is not);
+        // verify-full then checks the name itself, by libpq's rules (`verify_server_name`).
+        c.tls_config.verify = verifying || config.ssl_root_cert_pem.count > 0;
+        c.tls_config.verify_name = false;
+        c.tls_config.root_must_be_self_signed = true;
+        c.tls_config.min_version = .TLS_1_2;
+        c.tls_config.max_version = ifx config.ssl_max_protocol_version == .TLS_1_3 then Tls.Tls_Version.TLS_1_3 else .TLS_1_2;
+
+        if config.ssl_min_protocol_version == .TLS_1_3 c.tls_config.min_version = .TLS_1_3;
+
+        if config.ssl_cert_mode != .DISABLE && config.ssl_cert_pem && config.ssl_key {
+            c.tls_config.certificate_chain_pem = config.ssl_cert_pem;
+            c.tls_config.private_key_pem = config.ssl_key;
+            c.tls_config.private_key_password = config.ssl_key_password;
+            c.tls_cert_sent = true;
+        }
+
         tls_error := Tls.tls_config_init(*c.tls_config);
-        if tls_error.kind != .NONE return make_error(.TLS, Tls.error_text(tls_error));
+
+        if tls_error.kind != .NONE {
+            if tls_error.wrong_key_password {
+                return make_error(.TLS, "could not load private key file \"%\": bad decrypt", config.ssl_key_file);
+            }
+
+            return make_error(.TLS, Tls.error_text(tls_error));
+        }
 
         c.tls_config_ready = true;
 
-        name := ifx c.tls_config.verify then c.host else "";
-        stream: *Tls.Tls_Stream;
-        stream, tls_error = Tls.tls_connect(*c.tls_config, c.reader, c.writer, name);
+        return connect_tls(c, *c.tls_config);
+    }
+
+    // The handshake over the connection's reader and writer, the stream becoming theirs.
+    connect_tls :: (c: *Connection, config: *Tls.Tls_Config) -> Pg_Error {
+        stream, tls_error := Tls.tls_connect(config, c.reader, c.writer, c.tls_sni);
+
         if tls_error.kind != .NONE {
             c.broken = true;
             if tls_error.kind == .IO return io_failure(tls_error.io, Tls.error_text(tls_error));
-            return make_error(.TLS, Tls.error_text(tls_error));
+            return make_error(.TLS, tls_failure_text(tls_error));
         }
 
         c.tls = stream;
@@ -192,8 +234,56 @@ negotiate_tls :: (c: *Connection, config: Config) -> Pg_Error {
         c.reader = Tls.reader_of(stream);
         c.writer = Tls.writer_of(stream);
 
+        if c.tls_check_name {
+            problem := verify_server_name(stream, c.tls_name);
+
+            if problem {
+                c.broken = true;
+
+                return make_error(.TLS, problem);
+            }
+        }
+
         return .{};
     }
+
+    // What libpq prints for a failed handshake, or a TLS failure afterwards.
+    tls_failure_text :: (error: Tls.Tls_Error) -> string {
+        if error.kind == .VERIFY {
+            detail := Tls.detail(*error);
+
+            if detail return tprint("SSL error: certificate verify failed (%)", detail);
+
+            return "SSL error: certificate verify failed";
+        }
+
+        if error.alert > 0 return tprint("SSL error: % alert %", ifx is_sslv3_alert(error.alert) then "ssl/tls" else "tlsv1", replace(Tls.alert_name(error.alert), "_", " "));
+
+        return tprint("SSL error: %", Tls.error_text(error));
+    }
+}
+
+// The alerts OpenSSL words as "ssl/tls alert ..." (those of SSL 3.0); the others it calls TLS 1.0's.
+is_sslv3_alert :: (alert: u8) -> bool {
+    SSLV3_ALERTS :: u8.[10, 20, 30, 40, 41, 42, 43, 44, 45, 46, 47];
+
+    for SSLV3_ALERTS if it == alert return true;
+
+    return false;
+}
+
+// Whether `host` is written as an address (only digits and dots, or with a colon), which libpq
+// never sends as SNI.
+looks_like_address :: (host: string) -> bool {
+    for host {
+        if it == #char ":" return true;
+    }
+
+    for host {
+        if it != #char "." && (it < #char "0" || it > #char "9") return false;
+    }
+
+    return host.count > 0;
 }
 
 // Asks the server to stop what `c` is running: a CancelRequest on a connection of its own, over
@@ -204,6 +294,9 @@ send_cancel_request :: (c: *Connection) -> Pg_Error {
 
     side: Connection;
     side.host = c.host;
+    side.tls_name = c.tls_name;
+    side.tls_sni = c.tls_sni;
+    side.tls_check_name = c.tls_check_name;
     side.port = c.port;
 
     defer {
@@ -230,14 +323,8 @@ send_cancel_request :: (c: *Connection) -> Pg_Error {
                 if answer[0] != #char "S" return make_error(.TLS, "the server refused TLS for the cancel request");
             }
 
-            name := ifx c.tls_config.verify then c.host else "";
-            stream, tls_error := Tls.tls_connect(*c.tls_config, side.reader, side.writer, name);
-
-            if tls_error.kind != .NONE return make_error(.TLS, Tls.error_text(tls_error));
-
-            side.tls = stream;
-            side.reader = Tls.reader_of(stream);
-            side.writer = Tls.writer_of(stream);
+            error = connect_tls(*side, *c.tls_config);
+            if error.kind != .NONE return error;
         }
     }
 
@@ -293,7 +380,11 @@ authenticate :: (c: *Connection, config: Config, user: string) -> Pg_Error {
                         return auth_error(c, "the server accepted the login without proving it knows the password");
                     }
                     if config.channel_binding == .REQUIRE && !scram.plus {
-                        return auth_error(c, "channel_binding=require, but the server did not use SCRAM-SHA-256-PLUS");
+                        return auth_error(c, "channel binding required, but server authenticated client without channel binding");
+                    }
+
+                    if config.ssl_cert_mode == .REQUIRE && !c.tls_cert_sent {
+                        return auth_error(c, "server accepted connection without a valid SSL certificate");
                     }
 
                     authenticated = true;
@@ -341,7 +432,7 @@ authenticate :: (c: *Connection, config: Config, user: string) -> Pg_Error {
 
 answer_authentication :: (c: *Connection, config: Config, user: string, code: u32, r: *Cursor, scram: *Scram) -> Pg_Error {
     if config.channel_binding == .REQUIRE && (code == AUTH_CLEARTEXT || code == AUTH_MD5) {
-        return auth_error(c, "channel_binding=require, but the server asked for a password without SCRAM");
+        return auth_error(c, "channel binding required but not supported by server's authentication request");
     }
 
     if code == {

@@ -44,7 +44,17 @@ types, `Numeric`), `error.jai` (`Pg_Error`, `Sqlstate`), `pipeline.jai` (pipelin
 1. A `host` starting with `/` is a socket directory: it connects to `<dir>/.s.PGSQL.<port>`
    with `Io.connect_unix`, and TLS is skipped. Otherwise it uses TCP.
 2. TLS: `SSLRequest`, then the handshake if the server says `S`. With `ssl_direct` the
-   handshake starts at once, with ALPN `postgresql` (PostgreSQL 17 and later).
+   handshake starts at once, with ALPN `postgresql` (PostgreSQL 17 and later). The chain is
+   checked whenever roots are known (`VERIFY_CA` and `VERIFY_FULL` always; `REQUIRE` and
+   `PREFER` when `ssl_root_cert_pem` is set), without the host name; `VERIFY_FULL` then
+   checks the name by libpq's rules (`tls_name.jai`): a host name against the certificate's
+   dNSName entries (`*.` wildcards for one label), an IP address against its iPAddress entries
+   (any spelling of the same address) and, as text, its dNSName entries; the common name only
+   when the certificate has no entry of the kind the host could match. The name is the
+   `host`, never the `hostaddr` connected to. The host name is sent as SNI (not an address;
+   `sslsni=0` turns it off). A client certificate is sent when `ssl_cert_pem` and `ssl_key` are
+   set; a server alert after the handshake (TLS 1.3 shows a refused client certificate only on
+   the next read) is reported as `SSL error: tlsv1 alert unknown ca`, as libpq words it.
 3. The startup message asks for `max_protocol_version` (default 3.0, as libpq's; `.LATEST` is
    3.2) and accepts a `NegotiateProtocolVersion` downgrade unless it goes below
    `min_protocol_version`. It sets `client_encoding=UTF8`, `DateStyle=ISO` and `IntervalStyle=postgres`, which the text
@@ -306,7 +316,13 @@ error := Pg.transaction(pool, user_id, (tx: *Pg.Connection, id: s64) -> Pg.Pg_Er
 
 `Config` fields: `host`, `port`, `user` (default `$USER`), `password`, `database` (default the user),
 `application_name`, `options`, `ssl_mode` (`DISABLE`, `PREFER` (default), `REQUIRE`,
-`VERIFY_CA`, `VERIFY_FULL`), `ssl_direct`, `ssl_root_cert_pem` (default: the system roots),
+`VERIFY_CA`, `VERIFY_FULL`), `ssl_direct`, `ssl_root_cert_pem` (PEM; empty means the system
+roots for `VERIFY_*` and no check otherwise; the chain must end in a self-signed root from it),
+`ssl_crl_pem` (revocation lists: the server's certificate needs one from its issuer, and must not
+be on it), `ssl_cert_pem` and `ssl_key` (the client certificate chain and its key, PEM or DER)
+with `ssl_key_password`, `ssl_cert_mode` (`DISABLE`, `ALLOW` (default), `REQUIRE`), `ssl_sni`
+(default true), `ssl_min_protocol_version` and `ssl_max_protocol_version` (`TLS_1_0` to `TLS_1_3`;
+TLS 1.2 and 1.3 are what is spoken, a minimum below 1.2 is raised to it),
 `channel_binding` (`DISABLE`, `PREFER`, `REQUIRE`), `min_protocol_version` and
 `max_protocol_version` (`.V3_0` (default), `.V3_2`, `.LATEST`), `connect_timeout` (ms, default 10 s), `cancel_timeout` (ms, default 2 s: the time allowed for
 cancel and drain after a deadline or cancel),
@@ -323,7 +339,18 @@ hosts (`host1:5432,host2:5433`) fill `Config.hosts`; `connect` uses `host` and `
 and does not try the others. Further keywords: `hostaddr` (connected to in place of the host, which
 TLS still checks), `passfile`, `require_auth`, `client_encoding`, `replication`,
 `min_protocol_version` and `max_protocol_version` (`3.0`, `3.2`, `latest`), `sslrootcert=system`
-(system roots, and `sslmode` defaults to `verify-full`). With `use_environment` the keywords not
+(system roots, and `sslmode` defaults to `verify-full`; `$SSL_CERT_FILE` and `$SSL_CERT_DIR` replace
+the system's, as for OpenSSL; any other `sslmode` than `verify-full` is an error). The files are read
+when the string is parsed, as libpq does at connect time: `sslrootcert` (a missing file is fine
+unless `sslmode` is `verify-ca` or `verify-full`: `root certificate file "x" does not exist`;
+default `~/.postgresql/root.crt`, used when it exists), `sslcert` and `sslkey` (defaults
+`~/.postgresql/postgresql.crt` and `.key`; a missing certificate means none is sent, a certificate
+without a key is `certificate present, but not private key file "x"`, and a key that group or others
+can access is refused as libpq does), `sslpassword`, `sslcertmode` (`disable`, `allow`, `require`;
+`require` fails after login unless a certificate was configured to be sent; unlike libpq it does not ask whether the server requested one), `sslcrl` (PEM file; a missing one is
+ignored; default `~/.postgresql/root.crl`) and `sslcrldir` (every PEM file in the directory),
+`sslsni`, `ssl_min_protocol_version` and `ssl_max_protocol_version` (`TLSv1` to `TLSv1.3`).
+With `use_environment` the keywords not
 given come from `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`, `PGPASSFILE`,
 `PGREQUIREAUTH`, `PGSSLMODE` and the other variables libpq reads. Lower level:
 `parse_conninfo_options` (the options as set, with `conninfo_get`/`conninfo_set`, `is_conninfo`)
@@ -340,7 +367,7 @@ iterations)` and `md5_secret(password, user)` build the secret for `ALTER ROLE .
 
 `parse_url` is `parse_conninfo` for URIs: `postgres://user:password@host:port/database?...`. Parameters: `host`, `port`,
 `user`, `password`, `dbname`, `sslmode` (`allow` maps to `prefer`), `sslnegotiation=direct`,
-`sslrootcert` (a PEM file), `channel_binding`, `application_name`, `options` and
+`sslrootcert` (a PEM file, or `system`) and the other `ssl*` keywords above, `channel_binding`, `application_name`, `options` and
 `connect_timeout` (seconds). A config from `parse_url` or `copy_config` owns its strings: call `free_config`.
 
 `Pool_Config` fields (milliseconds; a negative value turns the limit off): `max_size` (10),

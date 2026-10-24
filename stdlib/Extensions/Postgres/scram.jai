@@ -31,9 +31,9 @@ scram_start :: (c: *Connection, config: Config, s: *Scram, mechanisms: [] string
 
     s.plus = certificate_hash.count > 0;
     if config.channel_binding == .REQUIRE && !s.plus {
-        if !c.tls_used return auth_error(c, "channel_binding=require needs TLS");
-        if !offers_plus return auth_error(c, "channel_binding=require, but the server does not offer SCRAM-SHA-256-PLUS");
-        return auth_error(c, "channel_binding=require, but the server certificate's signature has no hash to bind to");
+        if !c.tls_used return auth_error(c, "channel binding required, but SSL not in use");
+        if !offers_plus return auth_error(c, "channel binding is required, but server did not offer an authentication method that supports channel binding");
+        return auth_error(c, "channel binding required, but the server certificate's signature has no hash to bind to");
     }
 
     if !s.plus && !offers_plain {

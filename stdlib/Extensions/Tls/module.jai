@@ -26,6 +26,7 @@
 #load "error.jai";
 #load "config.jai";
 #load "stream.jai";
+#load "names.jai";
 
 #scope_module
 

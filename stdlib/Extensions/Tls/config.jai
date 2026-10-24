@@ -17,14 +17,23 @@ Tls_Verify_Proc :: #type (chain: [][] u8, server_name: string, data: *void) -> s
 // the fields you need, then call `tls_config_init`.
 Tls_Config :: struct {
     // Server (and, for a client that must prove who it is, client): the certificate chain as PEM,
-    // the endpoint's own certificate first, and its private key as PEM (PKCS#8, PKCS#1 or SEC1,
-    // not encrypted).
+    // the endpoint's own certificate first, and its private key: PEM or DER (PKCS#8, PKCS#1 or
+    // SEC1; the name `_pem` is kept from when only PEM was read). `private_key_password` decrypts
+    // an encrypted PKCS#8 key (PBES2 with PBKDF2 and AES or 3DES) or an OpenSSL-style encrypted
+    // PEM one; empty for a key that is not encrypted.
     certificate_chain_pem: string;
     private_key_pem: string;
+    private_key_password: string;
 
     // The certificate authorities to trust, as PEM (any number of certificates). Empty: the system's
     // (see docs/extensions/tls.md for where each OS keeps them).
     roots_pem: string;
+
+    // Client with `roots_pem`: certificate revocation lists as PEM (any number, or one DER). The
+    // server's certificate must be covered: if no list in here was issued by its issuer, or one
+    // lists the certificate, the connection fails. Lists for the other certificates of a chain are
+    // used when present.
+    crl_pem: string;
 
     // The protocols to offer (client) or accept (server) through ALPN, most preferred first:
     // `.["h2", "http/1.1"]`. Empty: no ALPN extension. A server that has a list and a client that
@@ -35,6 +44,17 @@ Tls_Config :: struct {
     // open to anyone in the middle; it exists for tests and for talking to devices on a private
     // network, and is never the default.
     verify := true;
+
+    // Client: check that the server's certificate is for the name `tls_connect` is given. Off, the
+    // chain is still checked, and the name is still sent as SNI. For callers that match the name
+    // by their own rules (a database's, say); with `verify_proc` or the system's verifier on
+    // macOS and Windows the name is simply not passed on.
+    verify_name := true;
+
+    // Client with `roots_pem`: the chain must end in a self-signed certificate from `roots_pem`.
+    // Otherwise any certificate listed there is a trust anchor, intermediate CAs included (the
+    // library's rule); OpenSSL-based clients need the root, and this option gives that behaviour.
+    root_must_be_self_signed := false;
 
     // Server: ask the client for a certificate and check it against `roots_pem` (or the system's
     // roots on Linux). Clients without a valid certificate fail the handshake.
@@ -65,6 +85,8 @@ Tls_Native :: struct {
     own_chain: *void;
     own_key: *void;
     roots: *void;
+    crl: *void;
+    check_name: bool;
 
     // The ALPN names as C strings and the list mbedTLS holds on to: names, then a null.
     alpn_names: [..] *u8;
@@ -163,9 +185,26 @@ build_native :: (config: *Tls_Config, native: *Tls_Native) -> Tls_Error {
 
         if !native.own_key return make_error(.CONFIG, "out of memory");
 
-        status := jai_tls_pk_parse(native.own_key, config.private_key_pem.data, cast(u64) config.private_key_pem.count);
+        status := jai_tls_pk_parse(native.own_key, config.private_key_pem.data, cast(u64) config.private_key_pem.count, config.private_key_password.data, cast(u64) config.private_key_password.count);
 
-        if status != 0 return make_error(.CONFIG, tprint("the private key: %", library_message(status)), status);
+        if status != 0 {
+            error = make_error(.CONFIG, tprint("the private key: %", library_message(status)), status);
+            error.wrong_key_password = status == ERR_PK_PASSWORD_MISMATCH || status == ERR_PK_PASSWORD_REQUIRED || config.private_key_password.count > 0;
+
+            return error;
+        }
+    }
+
+    native.check_name = config.verify_name;
+
+    if config.crl_pem.count > 0 {
+        native.crl = jai_tls_crl_new();
+
+        if !native.crl return make_error(.CONFIG, "out of memory");
+
+        status := jai_tls_crl_parse(native.crl, config.crl_pem.data, cast(u64) config.crl_pem.count);
+
+        if status != 0 return make_error(.CONFIG, tprint("the revocation lists could not be read: %", library_message(status)), status);
     }
 
     if config.roots_pem.count > 0 {
@@ -225,7 +264,8 @@ build_client :: (config: *Tls_Config, native: *Tls_Native, min: s32, max: s32) -
         native.external_data = config.verify_data;
     } else if native.roots {
         mbedtls_ssl_conf_authmode(conf, SSL_VERIFY_REQUIRED);
-        mbedtls_ssl_conf_ca_chain(conf, native.roots, null);
+        mbedtls_ssl_conf_ca_chain(conf, native.roots, native.crl);
+        jai_tls_conf_verify(conf, native.roots, native.crl, ifx config.verify_name then 0 else 1, ifx config.root_must_be_self_signed then 1 else 0);
     } else #if SYSTEM_VERIFIER {
         // The operating system's verifier has the last word (see trust_*.jai).
         mbedtls_ssl_conf_authmode(conf, SSL_VERIFY_OPTIONAL);
@@ -243,7 +283,8 @@ build_client :: (config: *Tls_Config, native: *Tls_Native, min: s32, max: s32) -
         }
 
         mbedtls_ssl_conf_authmode(conf, SSL_VERIFY_REQUIRED);
-        mbedtls_ssl_conf_ca_chain(conf, system_roots, null);
+        mbedtls_ssl_conf_ca_chain(conf, system_roots, native.crl);
+        jai_tls_conf_verify(conf, system_roots, native.crl, ifx config.verify_name then 0 else 1, ifx config.root_must_be_self_signed then 1 else 0);
     }
 
     if native.alpn_list.count > 0 {
@@ -318,6 +359,7 @@ release_native :: (native: *Tls_Native) {
     if native.own_chain jai_tls_crt_free(native.own_chain);
     if native.own_key jai_tls_pk_free(native.own_key);
     if native.roots jai_tls_crt_free(native.roots);
+    if native.crl jai_tls_crl_free(native.crl);
 
     for native.alpn_names free(it);
 

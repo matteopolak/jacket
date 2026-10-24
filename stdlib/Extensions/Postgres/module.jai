@@ -74,6 +74,7 @@ Base64 :: #import "Base64";
 
 #load "wire.jai";
 #load "startup.jai";
+#load "tls_name.jai";
 #load "scram.jai";
 #load "sql_scan.jai";
 #load "entry.jai";

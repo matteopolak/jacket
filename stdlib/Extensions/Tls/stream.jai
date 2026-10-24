@@ -79,7 +79,8 @@ Tls_Stream :: struct {
 // Connecting
 
 // Runs the client handshake over `reader` and `writer` and checks the server's certificate against
-// `server_name` (which is also sent as the SNI name). On success the stream owns the connection:
+// `server_name` (which is also sent as the SNI name; "" sends none, and with `verify_name` off the
+// name is not checked). On success the stream owns the connection:
 // `close` closes it. On an error nothing is closed, the connection is the caller's to close.
 tls_connect :: (config: *Tls_Config, reader: Io.Reader, writer: Io.Writer, server_name: string) -> *Tls_Stream, Tls_Error {
     native := config.native;
@@ -87,7 +88,7 @@ tls_connect :: (config: *Tls_Config, reader: Io.Reader, writer: Io.Writer, serve
     if !native return null, make_error(.CONFIG, "tls_config_init was not called");
     if !native.client return null, native.client_error;
 
-    if config.verify && server_name.count == 0 {
+    if config.verify && config.verify_name && server_name.count == 0 {
         return null, make_error(.CONFIG, "tls_connect needs the server's name to check its certificate against");
     }
 
@@ -103,12 +104,15 @@ tls_connect :: (config: *Tls_Config, reader: Io.Reader, writer: Io.Writer, serve
 
             return null, from_library(.CONFIG, status);
         }
+    } else if !native.check_name {
+        // The library refuses to check a chain without a name unless told, once, that there is none.
+        mbedtls_ssl_set_hostname(stream.ssl, null);
     }
 
     error = run_handshake(stream);
 
     if error.kind == .NONE && native.external_verify {
-        error = verify_externally(stream, native, server_name);
+        error = verify_externally(stream, native, ifx native.check_name then server_name else "");
     }
 
     if error.kind != .NONE {
@@ -666,7 +670,7 @@ fail :: (stream: *Tls_Stream, result: s32) -> Io.Io_Error {
         stream.failure = make_error(.TRUNCATED, "the connection ended without close_notify", result, .CONNECTION_RESET);
         stream.broken = .CONNECTION_RESET;
     } else {
-        stream.failure = from_library(.PROTOCOL, result);
+        stream.failure = from_stream(stream, .PROTOCOL, result);
         stream.failure.io = .CONNECTION_ABORTED;
         stream.broken = .CONNECTION_ABORTED;
     }
@@ -931,7 +935,7 @@ handshake_failure :: (stream: *Tls_Stream, result: s32) -> Tls_Error {
         return make_error(.IO, "the peer closed the connection during the handshake", result, .CONNECTION_RESET);
     }
 
-    return from_library(.HANDSHAKE, result);
+    return from_stream(stream, .HANDSHAKE, result);
 }
 
 // The reasons mbedTLS found, in words.

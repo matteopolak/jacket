@@ -18,6 +18,9 @@ ERR_SSL_PEER_CLOSE_NOTIFY :: -0x7880;
 ERR_SSL_CONN_EOF :: -0x7280;
 ERR_SSL_RECEIVED_NEW_SESSION_TICKET :: -0x7B00;
 ERR_SSL_ALLOC_FAILED :: -0x7F00;
+ERR_SSL_FATAL_ALERT_MESSAGE :: -0x7780;
+ERR_PK_PASSWORD_MISMATCH :: -0x3B80;
+ERR_PK_PASSWORD_REQUIRED :: -0x3C00;
 ERR_X509_CERT_VERIFY_FAILED :: -0x2700;
 // The library's own network codes (its sockets are not compiled in): what the BIO callbacks return
 // when the Io call under them failed. The stream keeps the `Io_Error`.
@@ -56,7 +59,12 @@ jai_tls_crt_der :: (crt: *void, length: *u64) -> *u8 #foreign libmbedtls;
 jai_tls_crt_next :: (crt: *void) -> *void #foreign libmbedtls;
 jai_tls_pk_new :: () -> *void #foreign libmbedtls;
 jai_tls_pk_free :: (pk: *void) #foreign libmbedtls;
-jai_tls_pk_parse :: (pk: *void, data: *u8, length: u64) -> s32 #foreign libmbedtls;
+jai_tls_pk_parse :: (pk: *void, data: *u8, length: u64, password: *u8, password_length: u64) -> s32 #foreign libmbedtls;
+jai_tls_crl_new :: () -> *void #foreign libmbedtls;
+jai_tls_crl_free :: (crl: *void) #foreign libmbedtls;
+jai_tls_crl_parse :: (crl: *void, data: *u8, length: u64) -> s32 #foreign libmbedtls;
+jai_tls_conf_verify :: (conf: *void, roots: *void, crl: *void, ignore_name: s32, anchored: s32) #foreign libmbedtls;
+jai_tls_ssl_alert :: (ssl: *void) -> s32 #foreign libmbedtls;
 jai_tls_system_roots :: () -> *void #foreign libmbedtls;
 
 mbedtls_ssl_conf_own_cert :: (conf: *void, own_cert: *void, pk_key: *void) -> s32 #foreign libmbedtls;
