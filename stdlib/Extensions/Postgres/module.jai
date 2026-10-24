@@ -43,6 +43,7 @@
 #load "pool.jai";
 #load "pipeline.jai";
 #load "notify.jai";
+#load "listener.jai";
 #load "trace.jai";
 #load "migrate.jai";
 #load "managed.jai";
