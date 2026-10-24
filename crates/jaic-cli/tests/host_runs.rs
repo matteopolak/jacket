@@ -274,6 +274,17 @@ fn compile_time_code_in_a_target_only_file_loads_no_target_libraries() {
 }
 
 #[test]
+fn a_run_in_a_branch_only_the_target_takes_stays_on_the_target() {
+    for (os, cpu) in foreign_targets() {
+        success(
+            Command::new(env!("CARGO_BIN_EXE_jaic"))
+                .arg(host_run_fixture("cross-target-only-branch.jai"))
+                .args(["-check", "-os", os, "-cpu", cpu]),
+        );
+    }
+}
+
+#[test]
 fn a_target_only_foreign_procedure_is_unavailable_at_compile_time() {
     for (os, cpu) in foreign_targets() {
         let output = Command::new(env!("CARGO_BIN_EXE_jaic"))

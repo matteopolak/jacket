@@ -392,11 +392,38 @@ impl Compiler {
         // A file the twin did not load itself is one the host program does not have: an OS- or
         // CPU-specific file the `#if` chain left out. Loading it would hand the twin the target's
         // libraries and declarations, so the run stays on the target compiler.
-        twin.src
+        let twin_scope = twin
+            .src
             .files
             .iter()
             .find(|file: &&FileInfo| file.module == twin_module && file.path == path)
-            .map(|file| file.scope)
+            .map(|file| file.scope)?;
+        // The run may sit in an `#if` branch only the target takes, where the file declares names
+        // (an import, a constant) the host program's copy of the file does not have.
+        // The file's names live in its scope and, up to the module, in the scopes above it.
+        let declared = |compiler: &Compiler, mut scope: ScopeId| -> HashSet<String> {
+            let mut names = HashSet::<String>::default();
+            loop {
+                let found = compiler.scope(scope);
+                names.extend(found.names.keys().map(|name| name.as_str().to_owned()));
+                names.extend(
+                    found
+                        .imports
+                        .iter()
+                        .filter_map(|entry| entry.import.name)
+                        .map(|name| name.name.as_str().to_owned()),
+                );
+                match (found.kind, found.parent) {
+                    (ScopeKind::File, Some(parent)) => scope = parent,
+                    _ => return names,
+                }
+            }
+        };
+        let host_names = declared(twin, twin_scope);
+        let missing = declared(self, current)
+            .iter()
+            .any(|name| used.contains(name.as_str()) && !host_names.contains(name));
+        (!missing).then_some(twin_scope)
     }
 
     /// The twin's instance of `module`: the same entry file with the same arguments.
