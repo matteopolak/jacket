@@ -129,7 +129,7 @@ append :: (using builder: *String_Builder, s: *u8, length: s64) {
 
 append :: inline (builder: *String_Builder, s: string) {
     append(builder, s.data, s.count);
-}
+} @AppendsString
 
 append :: inline (using builder: *String_Builder, byte: u8) {
     if initialized && !failed && current_buffer.allocated > current_buffer.count {

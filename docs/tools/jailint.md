@@ -56,7 +56,8 @@ Several rules decide what a call means from a note on the procedure's declaratio
 | `@AssertsArgument` | `assert_constant` | stops the program unless its first argument is true (the library's `assert`) |
 | `@WritesOutput` | `print_in_module` | writes to the program's standard output or error (`print`, `write_string`, `write_strings`, `write_builder`) |
 | `@Exits` | `exit_in_module` | ends the process (`exit`) |
-| `@FormatsToString` | `useless_format` | its first argument is a format string and the rest are the values; it returns the formatted text as a new string (`sprint`, `tprint`) |
+| `@FormatsToString` | `useless_format`, `format_push_string` | its first argument is a format string and the rest are the values; it returns the formatted text as a new string (`sprint`, `tprint`) |
+| `@AppendsString` | `format_push_string` | adds the string in its second argument to the builder in its first (`append(*builder, s)`) |
 
 ```jai
 shout :: (s: string) -> string {
@@ -112,6 +113,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `excessive_nesting` | pedantic | allow | no | blocks nested deeper than `max_nesting` (default 6) |
 | `exit_in_module` | restriction | allow | no | `exit(1)` in a file that belongs to a module |
 | `float_equality` | pedantic | allow | no | `==` or `!=` between two computed floats |
+| `format_push_string` | perf | warn | editor | `append(*builder, tprint("%: %\n", name, value))`: `print_to_builder` writes into the builder directly |
 | `identical_branches` | suspicious | warn | editor | `if c { A } else { A }`, `ifx c then a else a` |
 | `identical_case_bodies` | pedantic | allow | editor | `case .PNG; return "image"; case .JPEG; return "image";`: cases that do the same thing and could be `case .PNG, .JPEG;` |
 | `identical_operands` | suspicious | warn | no | `a == a`, `x - x`, `ok && ok` |
@@ -221,6 +223,8 @@ Off by default. A level is a braced block or a `switch`; `else if` chains and `#
 A file belongs to a module when it or a directory above it holds a `module.jai`, with no `tests` or `test` folder in between (those hold programs that use the module). A call is reported when the procedure it calls has the `@Exits` note (the library's `exit`). A library that exits skips the program's cleanup and cannot be tested: return an error. Programs, macros and generated files are not checked. No fix.
 ### float_equality
 Off by default: exact comparison is often deliberate. Constants, `x != x` and `operator ==` bodies are not reported.
+### format_push_string
+Fires on a call of a procedure noted `@AppendsString` (the library's `append` of a string) whose string is a call of one noted `@FormatsToString` (`tprint`, `sprint`). `print_to_builder(*builder, ...)` takes the same format and values and writes into the builder without building a second string first; a `sprint` result is also never freed by this form. The editor offers the rewritten call; `--fix` leaves it alone because a formatting failure leaves the builder with the part that was written instead of nothing.
 ### identical_branches
 Compared by tokens. Empty branches, `#if`, and the last link of an `else if` chain are left alone. When the condition is side-effect-free, the editor offers to keep one copy of the block (or the value of an `ifx`) and drop the test.
 ### identical_case_bodies

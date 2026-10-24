@@ -31,6 +31,7 @@ mod excessive_bools;
 mod excessive_nesting;
 mod exit_in_module;
 mod float_equality;
+mod format_push_string;
 mod frees;
 mod identical_branches;
 mod identical_case_bodies;
@@ -248,6 +249,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Restriction,
         summary: "a module ends the process",
         check: exit_in_module::check,
+    },
+    RuleInfo {
+        name: "format_push_string",
+        category: Category::Perf,
+        summary: "`append(*b, tprint(...))`, which formats into a new string to add it to a builder",
+        check: format_push_string::check,
     },
     RuleInfo {
         name: "float_equality",

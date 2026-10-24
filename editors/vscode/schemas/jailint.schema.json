@@ -318,6 +318,16 @@
           "default": "allow",
           "markdownDescription": "a module ends the process (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#exit_in_module)"
         },
+        "format_push_string": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "warn",
+          "markdownDescription": "`append(*b, tprint(...))`, which formats into a new string to add it to a builder (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#format_push_string)"
+        },
         "float_equality": {
           "type": "string",
           "enum": [

@@ -40,6 +40,7 @@
 - `jailint` reports `p.*.field` where `p.field` means the same, and fixes it (`redundant_deref`).
 - `jailint` reports `cast,force` where the value already has the type or the cast only widens, and fixes it (`unnecessary_force_cast`).
 - `jailint` reports `tprint("%", s)` and `sprint("%", s)` with a string `s`, which only copy it (`useless_format`).
+- `jailint` suggests `print_to_builder` for `append(*builder, tprint(...))` (`format_push_string`).
 
 ### Improved
 
