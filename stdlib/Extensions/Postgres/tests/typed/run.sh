@@ -4,7 +4,8 @@
 #     JAI_PG_TEST_PORT=54329 JAI_PG_TEST_SOCKET_DIR=/tmp/pgsock sh run.sh
 #
 # Needs jaic (JAIC, default `jaic`), psql (PSQL, default `psql`), and a server that lets the
-# `postgres` user in without a password. It uses and rewrites the database jai_typed_test.
+# `postgres` user in without a password. It uses and rewrites the database
+# jai_typed_test (JAI_PG_TEST_DATABASE picks another).
 # Skipped when JAI_PG_TEST_PORT is not set.
 set -eu
 here=$(cd "$(dirname "$0")" && pwd)
@@ -12,16 +13,17 @@ here=$(cd "$(dirname "$0")" && pwd)
 jaic=${JAIC:-jaic}
 psql=${PSQL:-psql}
 socket=${JAI_PG_TEST_SOCKET_DIR:-/tmp}
+database=${JAI_PG_TEST_DATABASE:-jai_typed_test}
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 
-export DATABASE_URL="postgres://postgres@localhost/jai_typed_test?host=$socket&port=$JAI_PG_TEST_PORT"
+export DATABASE_URL="postgres://postgres@localhost/$database?host=$socket&port=$JAI_PG_TEST_PORT"
 export JACKET_PG_ROOT="$work/project"
 mkdir -p "$JACKET_PG_ROOT"
 
 admin() { "$psql" -h "$socket" -p "$JAI_PG_TEST_PORT" -U postgres -v ON_ERROR_STOP=1 -q "$@"; }
-admin -d postgres -c "drop database if exists jai_typed_test" -c "create database jai_typed_test" > /dev/null
-admin -d jai_typed_test -f "$here/schema.sql" > /dev/null
+admin -d postgres -c "drop database if exists $database" -c "create database $database" > /dev/null
+admin -d "$database" -f "$here/schema.sql" > /dev/null
 
 fail() { echo "FAILED: $*"; exit 1; }
 
@@ -44,7 +46,7 @@ grep -q "JACKET_PG_OFFLINE" "$work/out" || fail "offline error does not name the
 # 4. A changed table re-describes only the queries that use it.
 "$jaic" "$here/queries.jai" -exe "$work/queries" > /dev/null || fail "rebuild"
 before=$(cat "$JACKET_PG_ROOT"/db/queries/*.json | md5 2>/dev/null || cat "$JACKET_PG_ROOT"/db/queries/*.json | md5sum)
-admin -d jai_typed_test -c "alter table posts add column pinned boolean not null default false" > /dev/null
+admin -d "$database" -c "alter table posts add column pinned boolean not null default false" > /dev/null
 "$jaic" "$here/queries.jai" -exe "$work/queries" > /dev/null || fail "build after alter"
 [ "$("$work/queries")" = ok ] || fail "queries after alter"
 after=$(cat "$JACKET_PG_ROOT"/db/queries/*.json | md5 2>/dev/null || cat "$JACKET_PG_ROOT"/db/queries/*.json | md5sum)

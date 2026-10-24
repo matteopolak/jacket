@@ -20,6 +20,24 @@ Pg.free_rows(*rows);
 
 `query_one` and `query_scalar` return a `.NOT_FOUND` error when no row matches, and a `.USAGE` error for more than one. `query_as(T, ...)` checks a hand-written struct: columns match fields by name, nullable columns need `Nullable`, and `Json(T)` fields say what a json column holds.
 
+### Pipelines
+
+`queue(p, sql, ..)` and `queue_execute(p, sql, ..)` are `query` and `execute` on a `*Pipeline` (`pipeline_enter`): the statement is checked at compile time as usual, queued unsent, and returns a `Pending(R)`. `take(p, pending)` returns the `Rows(...)` or the changed-row count.
+
+```jai
+p := Pg.pipeline_enter(c);
+user := Pg.queue(p, "select id, email from users where id = %", id);
+seen := Pg.queue_execute(p, "update users set seen_at = now() where id = %", id);
+rows, error := Pg.take(p, user); // one round trip for both
+count, error = Pg.take(p, seen);
+Pg.pipeline_exit(p);
+```
+
+- The first `take` adds a sync point if the queued statements have none, so they run as one implicit transaction: an error fails its statement, and the rest of the batch fails with `.ABORTED`.
+- Pendings can be taken in any order. Results read on the way are kept on the pipeline (`Pipeline.early`) until taken; `pipeline_exit` refuses while any are left.
+- Each pending carries the pipeline's statement serial (`Pipeline.queued`, `Pipeline.read`), so mixing `take` with `pipeline_next_result` on the same batch is not supported.
+- Queued statements use the unnamed statement, not the statement cache.
+
 ### Row type identity
 
 When every column of a `query`, `query_one` or `query_opt` is read straight from one table under its own name (`select *`, `select u.* ... `, `returning *`), the macro returns that table's struct from `db/schema.jai` instead of an anonymous `Row(...)`, so the result flows into code that takes `User`.
