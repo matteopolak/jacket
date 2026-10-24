@@ -67,6 +67,7 @@ mod self_assignment;
 mod shadowed_it;
 mod single_case_switch;
 mod string_literal_write;
+mod todo_marker;
 mod unchecked_directive;
 mod uninit_read;
 mod unknown_allow;
@@ -452,6 +453,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Correctness,
         summary: "a write into a string literal, which is read-only (`s := \"abc\"; s[0] = x;`)",
         check: string_literal_write::check,
+    },
+    RuleInfo {
+        name: "todo_marker",
+        category: Category::Restriction,
+        summary: "a comment with a `TODO`, `FIXME`, `XXX` or `HACK` marker",
+        check: todo_marker::check,
     },
     RuleInfo {
         name: "unchecked_directive",
