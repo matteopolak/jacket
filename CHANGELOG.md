@@ -38,6 +38,7 @@
 - `jailint` reports `float32` literals with more digits than a `float32` keeps, such as `31415.92653`, and fixes them (`lossy_float_literal`).
 - `jailint` has an opt-in lint for `!(a < b)` on floats, which differs from `a >= b` for NaN (`neg_cmp_float`).
 - `jailint` reports `p.*.field` where `p.field` means the same, and fixes it (`redundant_deref`).
+- `jailint` reports `cast,force` where the value already has the type or the cast only widens, and fixes it (`unnecessary_force_cast`).
 
 ### Improved
 

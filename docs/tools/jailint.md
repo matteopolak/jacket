@@ -158,6 +158,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `unchecked_directive` | restriction | allow | no | `f :: () #no_abc { ... }` or `#asm { ... }` with no `//` comment on the line or the line above |
 | `uninit_read` | correctness | deny | editor | `total: int = ---; for xs total += it;`: a variable read before anything is written to it |
 | `unknown_allow` | suspicious | warn | editor | a `// jailint: allow(...)` comment naming a rule that does not exist |
+| `unnecessary_force_cast` | complexity | warn | yes | `cast,force(s64) a` with `a: s32`: nothing is reinterpreted and there is no range to check |
 | `unnecessary_semicolon` | style | warn | yes | `x = 1;;`, `if ready { ... };`: an empty statement |
 | `unpaired_lock` | suspicious | warn | editor | `lock(*m);` with a `return`, or the end of the procedure, reached before the matching unlock |
 | `unreadable_literal` | pedantic | allow | yes | `1000000`, `0xdeadbeef`, `1234567.5`: a long literal with no `_` between its digits |
@@ -324,6 +325,8 @@ Each `#no_abc`, `#no_aoc` and `#asm` needs a comment on its own line or the line
 The first mention after the declaration, in the same block, decides; a write anywhere (even inside an `if`) ends the check, so only straight-line reads are reported. Taking the address (`init(*x)`, `for *x`), `.data`/`.count` of a fixed-size array and compiler built-ins (`type_of(x)`) are not reads. Procedures with `using` are skipped. The editor offers to drop the `= ---` so the variable starts out zeroed.
 ### unknown_allow
 A name in a line comment's `allow(...)` or `allow-file(...)` list that is not a rule, a category or `all`. The comment allows nothing, so a typo leaves the finding in place, and a rule that was renamed leaves a comment that covers nothing. Suggests the closest rule name. `@jailint_allow(...)` notes are not checked. The editor offers to swap in the suggested name.
+### unnecessary_force_cast
+`,force` reinterprets the bits of a number as a float (or back) or of an aggregate as another of the same size, and also skips the range check a plain cast makes when it narrows an integer. When the value already has the target type or the conversion widens (`s32` to `s64`, `u8` to `u32`, `float32` to `float64`) neither applies, so the flag only warns the reader of something that is not there. Fires on a `cast,force` with no other modifier and a non-constant operand. `--fix` removes `,force`; the result is the same value, since the plain cast has nothing to check.
 ### unnecessary_semicolon
 An empty statement in a block, a `case`, a procedure body or at the top level of a file. A `;` that is the whole body of a loop or `if` (`while poll() ;`) is how an empty body is written and is not reported. Macros and generated files are skipped. The fix removes the `;`, and its line when it stands alone.
 ### unpaired_lock

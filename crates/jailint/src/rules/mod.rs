@@ -79,6 +79,7 @@ mod too_many_arguments;
 mod unchecked_directive;
 mod uninit_read;
 mod unknown_allow;
+mod unnecessary_force_cast;
 mod unnecessary_semicolon;
 mod unpaired_lock;
 mod unreadable_literal;
@@ -528,6 +529,12 @@ pub static RULES: &[RuleInfo] = &[
         category: Category::Correctness,
         summary: "a variable declared `= ---` read before anything is written to it",
         check: uninit_read::check,
+    },
+    RuleInfo {
+        name: "unnecessary_force_cast",
+        category: Category::Complexity,
+        summary: "`cast,force` where the value already has the type or the conversion widens",
+        check: unnecessary_force_cast::check,
     },
     RuleInfo {
         name: "unknown_allow",

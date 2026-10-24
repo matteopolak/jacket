@@ -1,0 +1,48 @@
+warning[unnecessary_force_cast]: `cast,force` from `s32` to `s64` reinterprets nothing and has no range to check
+  --> tests/lint/unnecessary_force_cast/bad.jai:4:10
+   |
+ 4 |     x := cast,force(s64) a;
+   |          ^^^^^^^^^^^^^^
+   |
+help: remove `,force`: the plain cast does the same
+   |
+ 4 ~     x := cast(s64) a;
+   |
+   = note: `unnecessary_force_cast` is `warn` by default
+
+warning[unnecessary_force_cast]: `cast,force` from `u8` to `u32` reinterprets nothing and has no range to check
+  --> tests/lint/unnecessary_force_cast/bad.jai:6:10
+   |
+ 6 |     y := cast,force(u32) b;
+   |          ^^^^^^^^^^^^^^
+   |
+help: remove `,force`: the plain cast does the same
+   |
+ 6 ~     y := cast(u32) b;
+   |
+   = note: `unnecessary_force_cast` is `warn` by default
+
+warning[unnecessary_force_cast]: `cast,force` from `float32` to `float64` reinterprets nothing and has no range to check
+  --> tests/lint/unnecessary_force_cast/bad.jai:8:10
+   |
+ 8 |     z := cast,force(float64) c;
+   |          ^^^^^^^^^^^^^^^^^^
+   |
+help: remove `,force`: the plain cast does the same
+   |
+ 8 ~     z := cast(float64) c;
+   |
+   = note: `unnecessary_force_cast` is `warn` by default
+
+warning[unnecessary_force_cast]: `cast,force` from `s64` to `s64` reinterprets nothing and has no range to check
+  --> tests/lint/unnecessary_force_cast/bad.jai:10:13
+   |
+10 |     same := cast,force(int) d;
+   |             ^^^^^^^^^^^^^^
+   |
+help: remove `,force`: the plain cast does the same
+   |
+10 ~     same := cast(int) d;
+   |
+   = note: `unnecessary_force_cast` is `warn` by default
+

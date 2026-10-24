@@ -788,6 +788,16 @@
           "default": "deny",
           "markdownDescription": "a variable declared `= ---` read before anything is written to it (default `deny`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#uninit_read)"
         },
+        "unnecessary_force_cast": {
+          "type": "string",
+          "enum": [
+            "allow",
+            "warn",
+            "deny"
+          ],
+          "default": "warn",
+          "markdownDescription": "`cast,force` where the value already has the type or the conversion widens (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unnecessary_force_cast)"
+        },
         "unknown_allow": {
           "type": "string",
           "enum": [
