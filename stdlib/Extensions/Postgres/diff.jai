@@ -719,7 +719,11 @@ compare_column :: (p: *Proposal_Builder, relation: Catalog_Relation, column: Cat
     expected, problem := field_type(relation, plain, p.catalog, p.names);
     if problem return;
 
-    if normal_type(expected) != inner {
+    // A json column's Jai type comes from its `Json_Columns` mapping, not from the database: any
+    // `Json(...)` on both sides is the same column type.
+    both_json := begins_with(normal_type(expected), "Json(") && begins_with(inner, "Json(");
+
+    if normal_type(expected) != inner && !both_json {
         sql := sql_type_of_text(inner, p.refs);
 
         line_todo(p, tprint("%.%: the type changed from % to %; write the conversion by hand, such as `alter table % alter column % type % using ...`", owner, quote(column.name), expected, inner, owner, quote(column.name), ifx sql then sql else "..."));
