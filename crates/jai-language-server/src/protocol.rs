@@ -10,7 +10,7 @@ mod wire;
 
 pub use self::helpers::message_too_large;
 use crate::{MarkupKind, Session};
-use std::collections::{BTreeSet, VecDeque};
+use std::collections::VecDeque;
 
 pub use self::request_id::RequestId;
 
@@ -46,7 +46,7 @@ enum Lifecycle {
 pub struct JsonSession {
     session: Session,
     lifecycle: Lifecycle,
-    cancelled: BTreeSet<RequestId>,
+    cancelled: VecDeque<RequestId>,
     completed: VecDeque<RequestId>,
     /// Markdown when the client listed it in `textDocument.hover.contentFormat`.
     hover_kind: MarkupKind,

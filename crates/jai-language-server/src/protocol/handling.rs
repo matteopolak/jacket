@@ -7,7 +7,7 @@ use super::params::CancelParams;
 use super::{JsonSession, Lifecycle, ProtocolError, RequestId};
 use crate::{Error, Limits, MarkupKind, Session};
 use serde_json::{Value, json};
-use std::collections::{BTreeSet, VecDeque};
+use std::collections::VecDeque;
 
 impl JsonSession {
     pub fn new(limits: Limits) -> Self {
@@ -23,7 +23,7 @@ impl JsonSession {
         Self {
             session,
             lifecycle: Lifecycle::New,
-            cancelled: BTreeSet::new(),
+            cancelled: VecDeque::new(),
             completed: VecDeque::new(),
             hover_kind: MarkupKind::PlainText,
             signature_kind: MarkupKind::PlainText,
@@ -156,6 +156,39 @@ impl JsonSession {
         }
     }
 
+    /// Handle messages that arrived together, one answer list per message in order, up to the
+    /// one that ends the session. Cancellations among them are noted first, so a request
+    /// queued behind the work in front of it can still be cancelled.
+    pub fn handle_batch(&mut self, inputs: &[String]) -> Result<Vec<Vec<String>>, ProtocolError> {
+        for input in inputs {
+            self.note_cancellation(input);
+        }
+        let mut answers = Vec::with_capacity(inputs.len());
+        for input in inputs {
+            answers.push(self.handle_json(input)?);
+            if self.exit_status().is_some() {
+                break;
+            }
+        }
+        Ok(answers)
+    }
+
+    fn note_cancellation(&mut self, input: &str) {
+        if input.len() > self.session.limits().message_bytes || !input.contains("$/cancelRequest") {
+            return;
+        }
+        if let Ok(Some(Incoming {
+            id: None,
+            method,
+            params,
+        })) = incoming(input)
+            && Notification::parse(&method) == Some(Notification::Cancel)
+            && let Ok(params) = serde_json::from_value::<CancelParams>(params)
+        {
+            let _ = self.cancel_request(params.id);
+        }
+    }
+
     fn handle_request(
         &mut self,
         id: RequestId,
@@ -163,7 +196,8 @@ impl JsonSession {
         params: Value,
     ) -> Result<Vec<String>, ProtocolError> {
         let identifier = json!(id);
-        if self.cancelled.remove(&id) {
+        if let Some(at) = self.cancelled.iter().position(|cancelled| *cancelled == id) {
+            self.cancelled.remove(at);
             self.remember(id);
             let cancelled = failure(identifier, ErrorCode::RequestCancelled, "Request cancelled");
             return self.encode(vec![cancelled], None);
@@ -289,12 +323,18 @@ impl JsonSession {
         if self.completed.contains(&id) {
             return Ok(());
         }
-        if self.cancelled.len() >= self.session.limits().cancelled_requests
-            && !self.cancelled.contains(&id)
-        {
-            return Err(Error::Limit("cancellation queue exceeded"));
+        if self.cancelled.contains(&id) {
+            return Ok(());
         }
-        self.cancelled.insert(id);
+        // A cancellation whose request never comes would sit here for good: the oldest goes.
+        let limit = self.session.limits().cancelled_requests;
+        if limit == 0 {
+            return Ok(());
+        }
+        if self.cancelled.len() >= limit {
+            self.cancelled.pop_front();
+        }
+        self.cancelled.push_back(id);
         Ok(())
     }
 

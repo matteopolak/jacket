@@ -127,18 +127,38 @@ fn main() -> std::process::ExitCode {
                 output.flush()?;
                 return Ok(session.exit_status().unwrap_or(1));
             }
-            for message in decoder.push(&chunk)? {
-                for response in session.handle_json(&message)? {
+            // Whatever else has already arrived is read with it, so a cancellation can reach a
+            // request that is still waiting its turn.
+            let mut messages = decoder.push(&chunk)?;
+            let mut ended = false;
+            while let Ok(more) = input.try_recv() {
+                let more = more?;
+                if more.is_empty() {
+                    ended = true;
+                    break;
+                }
+                messages.extend(decoder.push(&more)?);
+            }
+            for responses in session.handle_batch(&messages)? {
+                for response in responses {
                     output.write_all(&jai_language_server::framing::encode(&response))?;
                 }
                 output.flush()?;
-                if let Some(status) = session.exit_status() {
-                    for response in session.flush_publications()? {
-                        output.write_all(&jai_language_server::framing::encode(&response))?;
-                    }
-                    output.flush()?;
-                    return Ok(status);
+            }
+            if let Some(status) = session.exit_status() {
+                for response in session.flush_publications()? {
+                    output.write_all(&jai_language_server::framing::encode(&response))?;
                 }
+                output.flush()?;
+                return Ok(status);
+            }
+            if ended {
+                decoder.finish()?;
+                for response in session.flush_publications()? {
+                    output.write_all(&jai_language_server::framing::encode(&response))?;
+                }
+                output.flush()?;
+                return Ok(session.exit_status().unwrap_or(1));
             }
             // A message over the size limit was skipped unread: say so rather than go quiet.
             for length in decoder.take_oversized() {
