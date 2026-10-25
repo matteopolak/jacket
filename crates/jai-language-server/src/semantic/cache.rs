@@ -1,7 +1,9 @@
 //! The cache of finished analyses.
 use super::compile::{Compiled, compile};
 use super::parses::parse_error;
-use super::{ALTERNATES, Analysis, Buffers, BuildFacts, CACHED, Environment};
+use super::{
+    ALTERNATES, Analysis, Buffers, BuildFacts, CACHED, Environment, SMALL_COST, SMALL_KEPT,
+};
 use jaic::sema::TargetOs;
 use jaic::source::FileId;
 use std::cell::RefCell;
@@ -9,7 +11,6 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
-#[derive(Default)]
 pub struct Cache {
     entries: Vec<Analysis>,
     /// Canonical forms of the paths compiled, so a request does not ask the file system again.
@@ -17,6 +18,7 @@ pub struct Cache {
     /// Programs compiled so far.
     compiles: usize,
     /// Parsed files compiles share: most files are the same from one compile to the next.
+    /// Every session on a thread shares one (`shared_parses`).
     parses: Rc<RefCell<jaic::parser::ParseReuse>>,
     /// Workspace trust is withheld: compiles run no compile-time code (see
     /// `IdeFacts::untrusted`). Survives `reset`; change it with `set_trusted`.
@@ -26,6 +28,31 @@ pub struct Cache {
     pub(crate) recorded: BTreeMap<PathBuf, BuildFacts>,
     /// Moves on whenever `recorded` changes.
     pub(crate) recorded_version: u64,
+}
+
+impl Default for Cache {
+    fn default() -> Self {
+        Cache {
+            entries: Vec::new(),
+            canonical: jaic::paths::CanonCache::default(),
+            compiles: 0,
+            parses: shared_parses(),
+            untrusted: false,
+            recorded: BTreeMap::new(),
+            recorded_version: 0,
+        }
+    }
+}
+
+/// The parses of this thread's sessions. A kept parse is only taken for the very same text
+/// under the same path and file id, and a tree is never changed after parsing, so a session
+/// gets what it would have parsed itself; the stdlib is then parsed once for all of them
+/// instead of once per session.
+fn shared_parses() -> Rc<RefCell<jaic::parser::ParseReuse>> {
+    thread_local! {
+        static PARSES: Rc<RefCell<jaic::parser::ParseReuse>> = Rc::default();
+    }
+    PARSES.with(Rc::clone)
 }
 
 /// A compile's open texts by canonical path, with the keys they are known by.
@@ -117,12 +144,12 @@ impl Cache {
         }
     }
 
-    /// Drop compiles until one fewer than `CACHED` is left. The one kept is the newest that
-    /// checked of `root` (what completion falls back to while its text does not parse), else
-    /// the costliest that checked (a project's compile, not a stray file's that takes
-    /// milliseconds to redo), else the newest. A compile for another target makes room only
-    /// among those (one is kept), so asking about a skipped branch does not cost the program's
-    /// own compile.
+    /// Drop compiles until one fewer than `CACHED` is left, not counting up to `SMALL_KEPT`
+    /// small ones. The one kept is the newest that checked of `root` (what completion falls
+    /// back to while its text does not parse), else the costliest that checked (a project's
+    /// compile, not a stray file's that takes milliseconds to redo), else the newest. A compile
+    /// for another target makes room only among those (one is kept), so asking about a skipped
+    /// branch does not cost the program's own compile.
     fn make_room(&mut self, os: Option<TargetOs>, root: &Path) {
         if os.is_some() {
             // The oldest compile for another target goes; the newest stays, so hovers that go
@@ -133,7 +160,15 @@ impl Cache {
             }
             return;
         }
-        while self.entries.iter().filter(|a| a.os.is_none()).count() >= CACHED {
+        let small = |a: &Analysis| a.cost <= SMALL_COST;
+        loop {
+            let (light, heavy): (Vec<usize>, Vec<usize>) = (0..self.entries.len())
+                .filter(|&i| self.entries[i].os.is_none())
+                .partition(|&i| small(&self.entries[i]));
+            let over_light = light.len() > SMALL_KEPT;
+            if heavy.len() + light.len().saturating_sub(SMALL_KEPT) < CACHED {
+                break;
+            }
             let own = |a: &Analysis| a.usable && a.os.is_none();
             let keep = self
                 .entries
@@ -145,8 +180,20 @@ impl Cache {
                         .max_by_key(|&i| self.entries[i].cost)
                 })
                 .or_else(|| self.entries.iter().rposition(|a| a.os.is_none()));
-            let victim = (0..self.entries.len())
-                .find(|&i| Some(i) != keep && self.entries[i].os.is_none())
+            // The oldest of the kind there are too many of goes first.
+            let class = if over_light {
+                &light
+            } else {
+                &heavy
+            };
+            let victim = class
+                .iter()
+                .copied()
+                .find(|&i| Some(i) != keep)
+                .or_else(|| {
+                    (0..self.entries.len())
+                        .find(|&i| Some(i) != keep && self.entries[i].os.is_none())
+                })
                 .unwrap_or(0);
             self.entries.remove(victim);
         }
