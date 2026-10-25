@@ -135,7 +135,7 @@ windows_thread_entry :: (data: *void) -> u32 #c_call {
 set_windows_thread_name :: (thread: *Thread, name: string) {
     wide := Text.utf16_path(name);
     defer free(wide);
-    if !wide || W.SetThreadDescription(thread.windows_thread, wide) < 0
+    if !wide || SetThreadDescription(thread.windows_thread, wide) < 0
         context.logger("thread name could not be set\n", context.logger_data, Log_Info.{ common_flags = .WARNING });
 }
 
@@ -150,3 +150,4 @@ libc :: #system_library "libc";
 begin_thread :: (security: *void, stack_size: u32, entry: *void, argument: *void, flags: u32, id: *s32) -> u64 #foreign libc "_beginthreadex";
 GetTickCount64 :: () -> u64 #foreign kernel32;
 InitializeCriticalSectionEx :: (section: *W.CRITICAL_SECTION, spin_count: u32, flags: u32) -> s32 #foreign kernel32;
+SetThreadDescription :: (thread: W.HANDLE, description: *u16) -> s32 #foreign kernel32;

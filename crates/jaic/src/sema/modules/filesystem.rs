@@ -226,7 +226,9 @@ impl BootstrapModule {
     }
 }
 
-/// Find `Name.jai` or `Name/module.jai` in `from_dir/modules`, then on `import_paths`.
+/// Find `Name.jai` or `Name/module.jai` in `from_dir/modules`, then in the import path
+/// directory `from_dir` lives under (a library's own files see its siblings first), then on
+/// `import_paths`.
 /// The public `Preload` protocol name also aliases the single bootstrap entry.
 pub fn find_module_in(
     fs: &dyn FileSystem,
@@ -235,6 +237,12 @@ pub fn find_module_in(
     from_dir: &Path,
 ) -> Option<PathBuf> {
     let mut dirs: Vec<PathBuf> = vec![from_dir.join("modules")];
+    dirs.extend(
+        import_paths
+            .iter()
+            .find(|root| from_dir.starts_with(root))
+            .cloned(),
+    );
     dirs.extend(import_paths.iter().cloned());
     for dir in &dirs {
         let file = dir.join(format!("{name}.jai"));
@@ -288,6 +296,28 @@ pub(super) fn modules_in(fs: &dyn FileSystem, dir: &Path) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_library_file_finds_its_siblings_before_other_import_paths() {
+        let mut fs = VirtualFs::default();
+        fs.insert("/std/Windows/module.jai", b"".to_vec());
+        fs.insert("/std/Basic/module.jai", b"".to_vec());
+        fs.insert("/project/libs/Windows.jai", b"".to_vec());
+        let paths = [PathBuf::from("/project/libs"), PathBuf::from("/std")];
+        let found = |name, dir| find_module_in(&fs, &paths, name, Path::new(dir));
+        assert_eq!(
+            found("Windows", "/std/internal/files"),
+            Some(PathBuf::from("/std/Windows/module.jai"))
+        );
+        assert_eq!(
+            found("Windows", "/project/src"),
+            Some(PathBuf::from("/project/libs/Windows.jai"))
+        );
+        assert_eq!(
+            found("Basic", "/project/libs"),
+            Some(PathBuf::from("/std/Basic/module.jai"))
+        );
+    }
 
     #[test]
     fn virtual_listing_names_files_and_folders_directly_inside() {
