@@ -29,7 +29,7 @@ PLATFORMS = {
     ("Linux", "arm64"): "linux-arm64",
 }
 PLATFORM = PLATFORMS.get((platform.system(), platform.machine()))
-TOOLS = ("jaic", "jailsp", "jailint", "jaifmt")
+TOOLS = ("jaic", "jailsp", "jailint", "jaifmt", "jacket")
 
 
 @unittest.skipIf(PLATFORM is None, "install.sh has no build for this platform")

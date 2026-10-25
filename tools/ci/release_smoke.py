@@ -153,13 +153,7 @@ def check_versions(tag: str, bin_dir: Path) -> None:
     """`jacket version` lists jacket and every tool it fronts; each line carries the release's version."""
     version = tag.removeprefix("v")
     if not (bin_dir / exe("jacket")).exists():
-        # Releases before 0.20 do not ship jacket; check the compiler alone.
-        print("::warning::this release has no jacket; checking jaic only")
-        text = need(run([bin_dir / exe("jaic"), "-version"]), "jaic -version")
-        print(text.strip())
-        if version not in text:
-            raise SystemExit(f"jaic does not report {version}")
-        return
+        raise SystemExit(f"{tag} has no jacket")
     text = need(run([bin_dir / exe("jacket"), "version"]), "jacket version")
     print(text.strip())
     lines = [line for line in text.splitlines() if line.strip()]

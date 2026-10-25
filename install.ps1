@@ -3,7 +3,7 @@
 #
 #   irm https://raw.githubusercontent.com/matteopolak/jacket/main/install.ps1 | iex
 #
-# Environment (each JAI_* name also works as JAIC_*; JAI_* wins when both are set):
+# Environment:
 #   JAI_VERSION      release to install, e.g. 0.4.0 or v0.4.0 (default: the latest release)
 #   JAI_INSTALL_DIR  where releases are unpacked (default: %LOCALAPPDATA%\Programs\jai)
 #   JAI_BASE_URL     where release assets are fetched from, as <base>/v<version>/<asset> (default:
@@ -32,10 +32,10 @@
         default { throw "There is no prebuilt Jai toolchain for Windows on $arch; see https://github.com/$repo#install" }
     }
 
-    $version = if ($env:JAI_VERSION) { "$env:JAI_VERSION".Trim() } else { "$env:JAIC_VERSION".Trim() }
+    $version = "$env:JAI_VERSION".Trim()
     if ($version.StartsWith('v')) { $version = $version.Substring(1) }
     $defaultBase = "https://github.com/$repo/releases/download"
-    $baseUrl = if ($env:JAI_BASE_URL) { "$env:JAI_BASE_URL".TrimEnd('/') } elseif ($env:JAIC_BASE_URL) { "$env:JAIC_BASE_URL".TrimEnd('/') } else { $defaultBase }
+    $baseUrl = if ($env:JAI_BASE_URL) { "$env:JAI_BASE_URL".TrimEnd('/') } else { $defaultBase }
     if (-not $version -or $version -eq 'latest') {
         if ($baseUrl -ne $defaultBase) { throw 'JAI_BASE_URL needs JAI_VERSION' }
         # The /releases/latest page redirects to /releases/tag/v<version>; unlike the API, no
@@ -52,7 +52,7 @@
     }
     if ($version -notmatch '^[0-9A-Za-z.-]+$') { throw "JAI_VERSION '$version' is not a version like 0.4.0" }
 
-    $installDir = if ($env:JAI_INSTALL_DIR) { $env:JAI_INSTALL_DIR } elseif ($env:JAIC_INSTALL_DIR) { $env:JAIC_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'Programs\jai' }
+    $installDir = if ($env:JAI_INSTALL_DIR) { $env:JAI_INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'Programs\jai' }
     $root = "jacket-$platform"
     $archive = "$root.zip"
     $base = "$baseUrl/v$version"
@@ -81,7 +81,9 @@
         $unpack = Join-Path $tmp 'unpack'
         [IO.Compression.ZipFile]::ExtractToDirectory((Join-Path $tmp $archive), $unpack)
         $unpacked = Join-Path $unpack $root
-        if (-not (Test-Path (Join-Path $unpacked 'jaic.exe'))) { throw "$archive does not contain $root\jaic.exe" }
+        foreach ($tool in 'jacket', 'jaic', 'jailsp', 'jailint', 'jaifmt') {
+            if (-not (Test-Path (Join-Path $unpacked "$tool.exe"))) { throw "jai $version has no $tool; install a newer release" }
+        }
 
         New-Item -ItemType Directory -Force $installDir | Out-Null
         $target = Join-Path $installDir $version

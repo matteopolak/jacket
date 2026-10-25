@@ -717,10 +717,7 @@ jobs:
           cd "$RUNNER_TEMP/tap"
           mkdir -p Formula
           cp "$RUNNER_TEMP/packages/homebrew/jacket.rb" Formula/jacket.rb
-          # The formula was called jai before 0.18.0; the rename lets `brew upgrade` move old installs.
-          git rm -q --ignore-unmatch Formula/jai.rb
-          echo '{ "jai": "jacket" }' > formula_renames.json
-          git add Formula/jacket.rb formula_renames.json
+          git add Formula/jacket.rb
           if git diff --cached --quiet; then echo "Formula/jacket.rb is already at $VERSION"; exit 0; fi
           git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
             commit -q -m "jacket $VERSION"

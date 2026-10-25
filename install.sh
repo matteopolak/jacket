@@ -4,7 +4,7 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/matteopolak/jacket/main/install.sh | sh
 #
-# Environment (each JAI_* name also works as JAIC_*; JAI_* wins when both are set):
+# Environment:
 #   JAI_VERSION      release to install, e.g. 0.4.0 or v0.4.0 (default: the latest release)
 #   JAI_INSTALL_DIR  where releases are unpacked, one folder per version (default: ~/.local/share/jai)
 #   JAI_BIN_DIR      where the command symlinks go (default: ~/.local/bin)
@@ -92,9 +92,9 @@ Build from source or use the Nix flake instead: https://github.com/$REPO#install
 
 main() {
     plat="$(platform)"
-    version="${JAI_VERSION:-${JAIC_VERSION:-}}"
+    version="${JAI_VERSION:-}"
     version="${version#v}"
-    base_url="${JAI_BASE_URL:-${JAIC_BASE_URL:-https://github.com/$REPO/releases/download}}"
+    base_url="${JAI_BASE_URL:-https://github.com/$REPO/releases/download}"
     if [ -z "$version" ] || [ "$version" = latest ]; then
         [ "$base_url" = "https://github.com/$REPO/releases/download" ] || fail "JAI_BASE_URL needs JAI_VERSION"
         version="$(latest_version)"
@@ -102,8 +102,8 @@ main() {
     case "$version" in
         *[!0-9A-Za-z.-]* | "") fail "JAI_VERSION '$version' is not a version like 0.4.0" ;;
     esac
-    install_dir="${JAI_INSTALL_DIR:-${JAIC_INSTALL_DIR:-$HOME/.local/share/jai}}"
-    bin_dir="${JAI_BIN_DIR:-${JAIC_BIN_DIR:-$HOME/.local/bin}}"
+    install_dir="${JAI_INSTALL_DIR:-$HOME/.local/share/jai}"
+    bin_dir="${JAI_BIN_DIR:-$HOME/.local/bin}"
     root="jacket-$plat" # the archive's top folder
     archive="$root.tar.gz"
     base="${base_url%/}/v$version"
@@ -135,16 +135,17 @@ Install a later version, or build from source: https://github.com/$REPO#install"
         fi
     done
     target="$install_dir/$version"
+    for tool in $TOOLS; do
+        [ -x "$tmp/unpack/$root/$tool" ] || fail "jai $version has no $tool; install a newer release"
+    done
     rm -rf "$target.new"
     mv "$tmp/unpack/$root" "$target.new"
     rm -rf "$target"
     mv "$target.new" "$target"
     linked=""
     for tool in $TOOLS; do
-        if [ -x "$target/$tool" ]; then # older releases lack jaifmt and jacket
-            ln -sfn "$target/$tool" "$bin_dir/$tool"
-            linked="$linked $tool"
-        fi
+        ln -sfn "$target/$tool" "$bin_dir/$tool"
+        linked="$linked $tool"
     done
     # Versions installed by earlier runs; the symlinks no longer point into them.
     for old in "$install_dir"/[0-9]*; do

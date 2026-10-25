@@ -250,7 +250,7 @@ jobs:
       - name: Prepare hash-pinned SDL Python test inputs
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part != 'rust' }}
         run: python3 tools/bindings/prepare_sdl_python_tests.py --scratch "$RUNNER_TEMP/sdl-python" --cache "$RUNNER_TEMP/sdl-python-cache" >> "$GITHUB_ENV"
-      # The repository's Jai code must be formatted (settings: jaifmt.toml).
+      # The repository's Jai code must be formatted (settings: jacket.toml).
       - name: Jai format check
         id: jai-format
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part != 'rust' }}
@@ -284,7 +284,7 @@ jobs:
         env:
           XDG_CACHE_HOME: ${{ runner.temp }}/generator-downloads
         run: python3 tools/generators/check_generated.py --formatter target/jaifmt
-      # The repository's Jai code must be lint-free (settings: jailint.toml). An optimized
+      # The repository's Jai code must be lint-free (settings: jacket.toml). An optimized
       # jailint: the debug build needs longer than the job's whole timeout to lint the tree.
       - name: Jai lint
         id: jai-lint
@@ -893,7 +893,7 @@ jobs:
           echo "previous=$previous latest=$latest"
           # With a single release there is nothing to upgrade from; install the latest only.
           if [ -n "$previous" ]; then
-            JAIC_VERSION="$previous" ./install.sh
+            JAI_VERSION="$previous" ./install.sh
             test -d "$HOME/.local/share/jai/${previous#v}"
           fi
           # A PATH without the bin folder (the runners already have ~/.local/bin on theirs).
@@ -912,7 +912,7 @@ jobs:
           jailint hello.jai
           test "$(echo 'main::(){x:=1;}' | jaifmt --stdin)" = "$(printf 'main :: () {\n    x := 1;\n}')"
           command -v jailsp
-      - name: Custom directories (the JAI_* names; the steps around use JAIC_*), and a re-run of the same version
+      - name: Custom directories, and a re-run of the same version
         if: steps.release.outputs.has == 'true'
         run: |
           export JAI_INSTALL_DIR="$RUNNER_TEMP/custom/share" JAI_BIN_DIR="$RUNNER_TEMP/custom/bin"
@@ -922,12 +922,12 @@ jobs:
           cd "$RUNNER_TEMP" && "$JAI_BIN_DIR/jaic" hello.jai -interp
       - name: Bad versions and occupied commands fail with a message
         run: |
-          if JAIC_VERSION=0.0.0-missing JAIC_INSTALL_DIR="$RUNNER_TEMP/x" JAIC_BIN_DIR="$RUNNER_TEMP/xb" ./install.sh 2> err.txt; then exit 1; fi
+          if JAI_VERSION=0.0.0-missing JAI_INSTALL_DIR="$RUNNER_TEMP/x" JAI_BIN_DIR="$RUNNER_TEMP/xb" ./install.sh 2> err.txt; then exit 1; fi
           cat err.txt && grep -q "could not download" err.txt
           # (Without an archive for this platform, install.sh stops before looking at the links.)
           if [ "${{ steps.release.outputs.has }}" != true ]; then exit 0; fi
           mkdir -p "$RUNNER_TEMP/occupied" && touch "$RUNNER_TEMP/occupied/jaic"
-          if JAIC_BIN_DIR="$RUNNER_TEMP/occupied" ./install.sh 2> err.txt; then exit 1; fi
+          if JAI_BIN_DIR="$RUNNER_TEMP/occupied" ./install.sh 2> err.txt; then exit 1; fi
           cat err.txt && grep -q "is not a symlink" err.txt
   install-ps1:
     needs: changes
