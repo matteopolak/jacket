@@ -42,7 +42,11 @@ fn a_second_error_gets_its_own_quick_fixes() {
     let titles: Vec<&str> = second.iter().map(|a| a.title.as_str()).collect();
     assert_eq!(
         titles,
-        ["Add `#import \"Basic\";`", "Add `#import \"Math\";`"],
+        [
+            "Add `#import \"Basic\";`",
+            "Add `#import \"Math\";`",
+            "Add `#import \"Extensions/Testing\";`"
+        ],
         "{second:?}"
     );
     assert!(second.iter().all(|a| !a.is_preferred));

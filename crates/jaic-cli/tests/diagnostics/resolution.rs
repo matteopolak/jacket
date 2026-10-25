@@ -72,7 +72,7 @@ fn unknown_identifier_names_the_module_or_metaprogram_that_declares_it() {
         &stderr(&output),
         &[
             "help: `log` is declared in the `Basic` module: add `#import \"Basic\";` to this file",
-            "help: other modules that declare `log`: `Math`",
+            "help: other modules that declare `log`: `Math`, `Extensions/Testing`",
         ],
     );
     // A module used as a namespace: bind it to its name.

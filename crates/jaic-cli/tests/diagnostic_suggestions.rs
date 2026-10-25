@@ -80,7 +80,7 @@ fn an_import_is_a_help_line_and_the_other_modules_one_more() {
         &[
             "error: unknown identifier `log`",
             "help: `log` is declared in the `Basic` module: add `#import \"Basic\";` to this file",
-            "help: other modules that declare `log`: `Math`",
+            "help: other modules that declare `log`: `Math`, `Extensions/Testing`",
         ],
     );
     assert_eq!(output.matches("help:").count(), 2, "{output}");
