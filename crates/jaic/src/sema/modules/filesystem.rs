@@ -226,9 +226,11 @@ impl BootstrapModule {
     }
 }
 
-/// Find `Name.jai` or `Name/module.jai` in `from_dir/modules`, then in the import path
-/// directory `from_dir` lives under (a library's own files see its siblings first), then on
-/// `import_paths`.
+/// Find `Name.jai` or `Name/module.jai` in `from_dir/modules`, then on `import_paths`.
+/// A file under an import path's private `internal/` folder looks in that import path first,
+/// so a project's replacement for a module (its own `Windows`) never reaches the library's
+/// internals. Public modules see the replacement like any other import does, so a project's
+/// `Objective_C` is the one the library's `GL` uses too and the two share its types.
 /// The public `Preload` protocol name also aliases the single bootstrap entry.
 pub fn find_module_in(
     fs: &dyn FileSystem,
@@ -240,7 +242,7 @@ pub fn find_module_in(
     dirs.extend(
         import_paths
             .iter()
-            .find(|root| from_dir.starts_with(root))
+            .find(|root| from_dir.starts_with(root.join("internal")))
             .cloned(),
     );
     dirs.extend(import_paths.iter().cloned());
@@ -316,6 +318,18 @@ mod tests {
         assert_eq!(
             found("Basic", "/project/libs"),
             Some(PathBuf::from("/std/Basic/module.jai"))
+        );
+    }
+
+    #[test]
+    fn a_public_library_module_sees_a_project_replacement() {
+        let mut fs = VirtualFs::default();
+        fs.insert("/std/Objective_C/module.jai", b"".to_vec());
+        fs.insert("/project/modules/Objective_C/module.jai", b"".to_vec());
+        let paths = [PathBuf::from("/project/modules"), PathBuf::from("/std")];
+        assert_eq!(
+            find_module_in(&fs, &paths, "Objective_C", Path::new("/std/GL")),
+            Some(PathBuf::from("/project/modules/Objective_C/module.jai"))
         );
     }
 

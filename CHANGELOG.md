@@ -18,7 +18,7 @@
 - A program starts at the procedure compile-time code names with `entry_point_name`.
 - `using,map(...)` works on a module import.
 - `$T/.[A, B]`, or a constant list of types such as `$T/Allowed`, limits a polymorphic parameter to those types.
-- A library's own files find the modules beside them before the ones a project adds to the import path, so a project's own `Windows` module no longer replaces the one the standard library uses, and naming a thread works on Windows with such a project.
+- A project's own `Windows` module no longer replaces the one the standard library uses internally, so naming a thread works on Windows with such a project; a module a project replaces is still the one every public library module imports.
 - A module import with `using,map(...)` no longer fails when other declarations in the importing module are sized or expanded before its mapper has run.
 - A baked argument for a parameter without a declared type is checked against the type of its default, so `#bake_arguments formatFloat(zero_removal = .NO)` finds `.NO`.
 - An untyped baked parameter such as `$initialize := true` has the type of its default, so an integer argument no longer selects it over an overload that takes a value.
