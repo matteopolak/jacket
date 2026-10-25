@@ -293,9 +293,11 @@ impl Compiler {
             return err(span, "macro has no body");
         };
         self.ed.macro_expanded(proc);
-        if f.macros.len() > 64 {
+        if f.macros.len() > 64 || (f.macro_overflow && !f.macros.is_empty()) {
+            f.macro_overflow = true;
             return err(span, "macro expansion is too deeply nested");
         }
+        f.macro_overflow = false;
         let module = self.scope(sig.scope).module;
         let mscope = self.new_scope(ScopeKind::Macro, Some(sig.scope), module, None);
         // Locals of the macro belong to the caller's procedure.

@@ -238,6 +238,10 @@ pub struct FnCtx {
     pub constant_only: Option<&'static str>,
     /// Macro expansion stack: (caller scope, return block, result slots, defer depth).
     pub macros: Vec<MacroFrame>,
+    /// An expansion went too deep: every expansion fails at once until the outermost one
+    /// returns, so a body that expands itself twice cannot keep a recovering check busy for
+    /// 2^depth expansions.
+    pub macro_overflow: bool,
     /// `#insert (break=..., continue=..., remove=...) body` of `for_expansion` macros being
     /// expanded (innermost last).
     pub insert_replacements: Vec<InsertReplacements>,
@@ -401,6 +405,7 @@ impl FnCtx {
             compile_time: false,
             constant_only: None,
             macros: Vec::new(),
+            macro_overflow: false,
             insert_replacements: Vec::new(),
             pending_for_body: None,
             type_only: false,

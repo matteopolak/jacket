@@ -14,6 +14,7 @@
 
 ### Fixed
 
+- The language server no longer hangs on a `for_expansion` or macro whose body expands itself more than once.
 - `jaic -interp -os wasm` passes the arguments after `--` to the program.
 - A program starts at the procedure compile-time code names with `entry_point_name`.
 - `using,map(...)` works on a module import.
