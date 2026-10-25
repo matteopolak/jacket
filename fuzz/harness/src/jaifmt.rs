@@ -67,7 +67,9 @@ fn tokens(text: &str) -> Option<Vec<String>> {
 /// The syntax tree's debug form with every span offset and node id blanked, so two trees compare
 /// equal when they differ only in layout. `None` when the text does not parse.
 fn syntax(text: &str) -> Option<String> {
-    const BLANKED: [&str; 3] = ["start: ", "end: ", "AstId("];
+    // Spans, ids and the offset an `#import` expression's hidden name is numbered by all move
+    // when only the layout does.
+    const BLANKED: [&str; 4] = ["start: ", "end: ", "AstId(", jaic::ast::EXPRESSION_IMPORT_PREFIX];
     let file = jaic::parser::parse_file(FileId(0), text).ok()?;
     let tree = format!("{:?}", file.stmts);
     let mut out = String::with_capacity(tree.len());
