@@ -98,6 +98,7 @@ paths = [
     "stdlib/Extensions/Http/bench/bench.jai",
     "stdlib/Extensions/Http/bench/client_bench.jai",
     "stdlib/Extensions/Http/bench/server_bench.jai",
+    "stdlib/Extensions/Image/bench/jpeg_bench.jai",
     "stdlib/Extensions/Io/bench/files.jai",
     "stdlib/Extensions/Json/bench/bench.jai",
 ]
@@ -106,6 +107,11 @@ rules = { magic_number = "allow" }
 # Binary file formats and wire protocols: field offsets, tags, sizes and magic values are the format.
 [[lint.overrides]]
 paths = [
+    "stdlib/Extensions/Deflate/stream.jai",
+    "stdlib/Extensions/Image/jpeg.jai",
+    "stdlib/Extensions/Image/jpeg_huffman.jai",
+    "stdlib/Extensions/Image/jpeg_output.jai",
+    "stdlib/Extensions/Image/jpeg_scan.jai",
     "stdlib/internal/android-toolchain/adb-process.jai",
     "stdlib/internal/android-toolchain/android-manifest-writer.jai",
     "stdlib/internal/android-toolchain/android-manifest.jai",
@@ -149,6 +155,9 @@ rules = { magic_number = "allow" }
 # Float, checksum and number-formatting algorithms: the constants come from the published algorithm.
 [[lint.overrides]]
 paths = [
+    "stdlib/Extensions/Deflate/checksum.jai",
+    "stdlib/Extensions/Deflate/deflate.jai",
+    "stdlib/Extensions/Deflate/inflate.jai",
     "stdlib/Extensions/Json/number.jai",
     "stdlib/internal/basic/binary-to-decimal.jai",
     "stdlib/internal/basic/decimal-to-binary.jai",

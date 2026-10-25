@@ -27,9 +27,19 @@
     "deny": [],
     "known": {}
   },
+  "Extensions/Deflate": {
+    "deny": [],
+    "hooks": "properties/Deflate.jai",
+    "known": {}
+  },
   "Extensions/Postgres": {
     "deny": [],
     "hooks": "properties/Postgres.jai",
+    "known": {}
+  },
+  "Extensions/Image": {
+    "deny": ["make_image"],
+    "hooks": "properties/Image.jai",
     "known": {}
   }
 }

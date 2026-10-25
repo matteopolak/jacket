@@ -11,6 +11,7 @@
 - Golden-output tests (`name.jai` with `name.stdout`) and compile-fail tests (`tests/compile_fail/`), with `--accept` to update them.
 - Doc tests: `jacket test` runs the ```` ```jai ```` examples in a library's doc comments, including those in files the library `#load`s, with `no_run`, `compile_fail`, `should_fail`, `ignore` and platform options such as `only(linux)`.
 - Notes on a test set its options: `@timeout`, `@only`, `@skip_on`, `@needs`, `@serial`, `@should_fail`, `@xfail` and more.
+- The `Extensions/Image` module decodes PNG, JPEG, QOI, BMP and PNM images, converts between pixel formats, resizes, crops, flips and rotates them, and encodes PNG, QOI, BMP and PPM.
 - The `Extensions/Deflate` module compresses and decompresses raw DEFLATE, zlib and gzip data, with CRC-32 and Adler-32.
 
 ### Fixed
