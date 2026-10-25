@@ -36,7 +36,7 @@ main :: () {
     // Key status reaches the window asynchronously, as focus notifications. Take them before
     // the key is posted: a focus change arriving in the key's frame releases the held key (a
     // release without shift) ahead of the assertions on the press.
-    for 1..2000 {
+    for 1..10000 {
         I.update_window_events();
         if I.input_application_has_focus && result_message(window, "isKeyWindow", s8) != 0 break;
         sleep_milliseconds(1);
@@ -53,8 +53,14 @@ main :: () {
     found_text := false;
 
     for event: I.events_this_frame {
-        if event.type == .KEYBOARD && event.key_code == cast(I.Key_Code) #char "A" {
-            assert(event.key_pressed == 1 && !event.repeat && event.shift_pressed);
+        // A focus change that still lands in this frame adds a release of the key; only the press
+        // carries what was posted.
+        if event.type == .KEYBOARD && event.key_code == cast(I.Key_Code) #char "A" && event.key_pressed == 1 {
+            if event.repeat || !event.shift_pressed {
+                for observed: I.events_this_frame print("frame event: type=%, key=%, value=%, down=%, repeat=%, flags=%\n", observed.type, observed.key_code, observed.utf32, observed.key_pressed, observed.repeat, observed.modifier_flags.packed);
+            }
+
+            assert(!event.repeat && event.shift_pressed);
             assert(event.text_input_count == 1);
             assert(event.window == window);
             found_key = true;
