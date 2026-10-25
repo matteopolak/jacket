@@ -46,7 +46,9 @@ impl SandboxHost {
                 _ => self.set_errno(EINVAL),
             },
             LibcFn::Getpid => 1,
-            // Secure random bytes, at most 256 per call like the C function.
+            // Secure random bytes, at most 256 per call like the C function. Elsewhere (the
+            // browser engine) the embedding host answers.
+            #[cfg(unix)]
             LibcFn::Getentropy => match host_entropy(arg(1) as usize) {
                 Some(bytes) => {
                     write_bytes(arg(0), &bytes);
@@ -99,21 +101,15 @@ impl SandboxHost {
 
 /// `len` bytes from the operating system's secure random source, or none when `len` is over the
 /// C function's limit or the source cannot be read.
+#[cfg(unix)]
 fn host_entropy(len: usize) -> Option<Vec<u8>> {
+    use std::io::Read;
     if len > 256 {
         return None;
     }
-    #[cfg(unix)]
-    {
-        use std::io::Read;
-        let mut bytes = vec![0; len];
-        std::fs::File::open("/dev/urandom")
-            .and_then(|mut f| f.read_exact(&mut bytes))
-            .ok()?;
-        Some(bytes)
-    }
-    #[cfg(not(unix))]
-    {
-        None
-    }
+    let mut bytes = vec![0; len];
+    std::fs::File::open("/dev/urandom")
+        .and_then(|mut f| f.read_exact(&mut bytes))
+        .ok()?;
+    Some(bytes)
 }
