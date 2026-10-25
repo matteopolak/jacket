@@ -520,6 +520,24 @@ impl Compiler {
                 addr,
             });
         }
+        // A pointer to a value cast to a fixed array of the same size reads that value as the array.
+        if let Some(pointee) = self.ty.types.pointee(fr)
+            && pointee != TypeId::VOID
+            && matches!(
+                self.ty.types.kind(tr),
+                TypeKind::Array {
+                    kind: ArrayKind::Fixed(_),
+                    ..
+                }
+            )
+            && self.size_of(pointee, span)? == self.size_of(to, span)?
+        {
+            let (_, addr) = self.rvalue(f, op, span)?;
+            return Ok(Operand::Place {
+                ty: to,
+                addr,
+            });
+        }
         let mut d = Diagnostic::error(
             span,
             format!(

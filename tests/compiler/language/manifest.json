@@ -98,6 +98,13 @@
     "covers": "an integer computed by #run takes the expected integer type when it fits"
   },
   {
+    "name": "pointer-to-array-cast",
+    "main": "cases/pointer-to-array-cast/main.jai",
+    "mode": "interp",
+    "expected_stdout": "ok\n",
+    "covers": "a pointer to a value cast to an array of the same size reads the value as that array"
+  },
+  {
     "name": "aggregate-map",
     "main": "cases/aggregate-map/main.jai",
     "mode": "interp",
