@@ -186,7 +186,8 @@ DumpProgramInfoLog :: (program: GLuint, name: string) {
     nsgl_create_context :: (major_version: s32 = 0, minor_version: s32 = 0,
                            compatibility := false, debug := false,
                            wanted_msaa: s32 = DEFAULT_MSAA) -> *NSOpenGLContext, chosen_msaa: s32 {
-        return NativeNSGL.create(major_version, minor_version, compatibility, debug, wanted_msaa);
+        created, samples := NativeNSGL.create(major_version, minor_version, compatibility, debug, wanted_msaa);
+        return cast(*NSOpenGLContext) created, samples;
     }
 
     nsgl_create_context :: (win: *NSWindow, major_version: s32 = 0, minor_version: s32 = 0,
@@ -389,7 +390,7 @@ binding_context_failure :: () {
     NativeNSGL :: #import "internal/bindings/nsgl";
 
     NSWindow :: AppKit.NSWindow;
-    NSOpenGLContext :: NativeNSGL.NSOpenGLContext;
+    NSOpenGLContext :: AppKit.NSOpenGLContext;
 }
 
 #if OS == .WINDOWS {

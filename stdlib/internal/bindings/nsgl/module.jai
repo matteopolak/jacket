@@ -1,8 +1,7 @@
-// AppKit owns the canonical public class identity.
-NSOpenGLContext :: AppKit.NSOpenGLContext;
-
+// Contexts cross this module as *void: GL gives them its own AppKit class type, which is the
+// project's when a project ships its own Objective_C.
 create :: (major: s32, minor: s32, compatibility: bool, debug: bool,
-           wanted_samples: s32) -> *NSOpenGLContext, s32 {
+           wanted_samples: s32) -> *void, s32 {
     if major < 0 || minor < 0 || wanted_samples < 0 || (major == 0 && minor != 0) {
         diagnostic("Invalid NSOpenGL version or sample request");
         return null, 0;
@@ -85,14 +84,14 @@ create :: (major: s32, minor: s32, compatibility: bool, debug: bool,
     return null, 0;
 }
 
-attach :: (value: *NSOpenGLContext, view: *void) {
-    Send :: #type (self: *NSOpenGLContext, op: O.Selector, view: *void) #c_call;
+attach :: (value: *void, view: *void) {
+    Send :: #type (self: *void, op: O.Selector, view: *void) #c_call;
     call := cast(Send) message;
     call(value, O.selector("setView:"), view);
 }
 
-make_current :: (value: *NSOpenGLContext) {
-    Send :: #type (self: *NSOpenGLContext, op: O.Selector) #c_call;
+make_current :: (value: *void) {
+    Send :: #type (self: *void, op: O.Selector) #c_call;
     call := cast(Send) message;
     call(value, O.selector("makeCurrentContext"));
 }
@@ -144,11 +143,11 @@ new_format :: (attributes: *u32) -> *void {
     return call(allocated, O.selector("initWithAttributes:"), attributes);
 }
 
-new_context :: (format: *void) -> *NSOpenGLContext {
+new_context :: (format: *void) -> *void {
     allocated := O.objc_alloc(O.objc_getClass("NSOpenGLContext"));
     if !allocated return null;
 
-    Init :: #type (self: *void, op: O.Selector, format: *void, share: *void) -> *NSOpenGLContext #c_call;
+    Init :: #type (self: *void, op: O.Selector, format: *void, share: *void) -> *void #c_call;
     call := cast(Init) message;
 
     return call(allocated, O.selector("initWithFormat:shareContext:"), format, null);
@@ -167,5 +166,3 @@ format_value :: (format: *void, attribute: u32) -> s32 {
 #scope_file
 
 GL_1_LAST_MINOR_VERSION :: 5;
-
-AppKit :: #import "Objective_C/AppKit";
