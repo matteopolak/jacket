@@ -1,5 +1,5 @@
 //! Expanding pending declarations and plain static ifs.
-use super::model::{EntityState, PendingState, ScopeId};
+use super::model::{EntityKind, EntityState, PendingState, ScopeId};
 use crate::sema::Epochs;
 use crate::sema::{Compiler, Result, ast};
 
@@ -71,7 +71,8 @@ impl Compiler {
             // `#if` only reads names, so it can go ahead once those are declared: an item
             // that runs compile-time code can need what a file added after it declares.
             if self.scope(scope).pending[i].state == PendingState::Expanding {
-                return self.expand_plain_ifs(scope);
+                self.expand_plain_ifs(scope)?;
+                return self.expand_namespace_usings(scope);
             }
             if self.scope(scope).pending[i].state == PendingState::Waiting {
                 self.scope_mut(scope).pending[i].state = PendingState::Expanding;
@@ -83,6 +84,7 @@ impl Compiler {
                 // themselves mid-lowering. Put the item back and retry it later.
                 let reentrant = !self.epochs.retrying_pending
                     && (self.epochs.resolving_depth > 0
+                        || self.epochs.mapping_imports > 0
                         || self
                             .pr
                             .procs
@@ -123,7 +125,7 @@ impl Compiler {
                 }
                 if reentrant
                     && !spent
-                    && self.ct.executions == executions
+                    && (self.ct.executions == executions || self.epochs.mapping_imports > 0)
                     && self.epochs.in_progress_misses != in_progress
                     && let Err(e) = result
                 {
@@ -136,6 +138,44 @@ impl Compiler {
                 result?;
             }
             i += 1;
+        }
+        Ok(())
+    }
+
+    /// Expand a scope's `using Name;` items that name a module import, ahead of items that run
+    /// compile-time code: bringing in a module's names reads no variable, and a global being
+    /// sized by an earlier item can spell those names in its types.
+    fn expand_namespace_usings(&mut self, scope: ScopeId) -> Result<()> {
+        for i in 0..self.scope(scope).pending.len() {
+            let item = &self.scope(scope).pending[i];
+            if item.state != PendingState::Waiting {
+                continue;
+            }
+            let ast::StmtKind::Using(using) = &item.stmt.kind else {
+                continue;
+            };
+            let ast::ExprKind::Ident(name) = using.value.kind else {
+                continue;
+            };
+            let (stmt, exported, file_scope) = (item.stmt.clone(), item.exported, item.file_scope);
+            let saved = std::mem::replace(&mut self.epochs.lookup_without_expansion, true);
+            let named = self.lookup(file_scope, name);
+            self.epochs.lookup_without_expansion = saved;
+            let names_import = named.is_ok_and(|ids| {
+                ids.first().is_some_and(|&id| {
+                    matches!(self.ns.entities[id.0 as usize].kind, EntityKind::Import(_))
+                })
+            });
+            if !names_import {
+                continue;
+            }
+            self.scope_mut(scope).pending[i].state = PendingState::Expanding;
+            let result = self.expand_pending_item(scope, file_scope, &stmt, exported);
+            self.scope_mut(scope).pending[i].state = if result.is_ok() {
+                PendingState::Done
+            } else {
+                PendingState::Waiting
+            };
         }
         Ok(())
     }

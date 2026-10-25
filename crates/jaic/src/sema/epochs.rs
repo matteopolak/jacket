@@ -15,6 +15,9 @@ pub struct Epochs {
     /// Entities being resolved right now (nested): a conditional item whose condition names one
     /// of them fails as circular only because the outer resolution has not finished.
     pub resolving_depth: u32,
+    /// `using,map` mappers running right now (nested): an item expanded meanwhile can need
+    /// names that exist only once the mapper is done, and fails only because of that.
+    pub mapping_imports: u32,
     /// Set while `expand_all` retries deferred items: failures are then final.
     pub retrying_pending: bool,
     /// Set while the plain `#if` pass expands an item: lookups then leave other pending items

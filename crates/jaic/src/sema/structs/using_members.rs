@@ -58,6 +58,22 @@ impl Compiler {
     /// Resolve the target of a `using` statement at file/struct scope.
     pub fn using_target(&mut self, scope: ScopeId, value: &ast::Expr) -> Result<UsingEntry> {
         // `using global_var;` names a variable, which is not a constant but is a valid target.
+        // Its type is all that matters, so it is not run to read its value.
+        if let E::Ident(name) = &value.kind
+            && let Some(&id) = self.lookup(scope, *name)?.first()
+            && let EntityKind::Decl {
+                decl, ..
+            } = &self.ns.entities[id.0 as usize].kind
+            && decl.kind == ast::DeclKind::Var
+            && let Resolved::Global {
+                ty, ..
+            } = self.resolve_entity(id)?
+        {
+            return Ok(UsingEntry::Place {
+                ty,
+                entity: id,
+            });
+        }
         match self.eval_const_or_run(scope, value, None)? {
             Operand::Module(m) => Ok(UsingEntry::Module(m, None)),
             Operand::Type(t) => Ok(UsingEntry::Type(t)),

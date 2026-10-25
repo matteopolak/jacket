@@ -33,12 +33,15 @@ impl Compiler {
                 // (through the program's types); until it has run they are visible unmapped.
                 self.scope_mut(scope).imports[index].module = Some(module);
             }
+            self.epochs.mapping_imports += u32::from(mapping);
             let filter = self.resolve_module_filter(
                 entry.from_scope,
                 module,
                 &entry.filter,
                 entry.import.span,
-            )?;
+            );
+            self.epochs.mapping_imports -= u32::from(mapping);
+            let filter = filter?;
             self.scope_mut(scope).imports[index].filter = filter;
             Ok(module)
         })();

@@ -119,6 +119,13 @@
     "covers": "an integer polymorphic constant of a procedure or struct converts to the integer type it meets"
   },
   {
+    "name": "namespace-using-before-sizing",
+    "main": "cases/namespace-using-before-sizing/main.jai",
+    "mode": "interp",
+    "expected_stdout": "ok\n",
+    "covers": "using a module import name is expanded ahead of items that size a global"
+  },
+  {
     "name": "aggregate-map",
     "main": "cases/aggregate-map/main.jai",
     "mode": "interp",
