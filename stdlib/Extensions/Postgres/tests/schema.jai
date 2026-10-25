@@ -5,10 +5,23 @@
 #import "Basic";
 #import "String";
 #import "File";
-#import "POSIX";
 #import "Extensions/Environment";
 Io :: #import "Extensions/Io";
 Pg :: #import "Extensions/Postgres";
+
+// Names the scratch files, so runs of this test at the same time stay apart.
+#if OS == .WINDOWS {
+    process_id :: () -> s64 {
+        GetCurrentProcessId :: () -> u32 #foreign kernel32;
+        kernel32 :: #system_library "kernel32";
+        return GetCurrentProcessId();
+    }
+} else {
+    process_id :: () -> s64 {
+        POSIX :: #import "POSIX";
+        return POSIX.getpid();
+    }
+}
 
 main :: () {
     test_enum_names();
@@ -138,7 +151,7 @@ test_problems :: () {
 }
 
 test_staleness :: () {
-    root := tprint("/tmp/jacket-schema-test-%", cast(s64) getpid());
+    root := tprint("jacket-schema-test-%", process_id());
     folder := tprint("%/db/migrations", root);
     first := tprint("%/0001_a.sql", folder);
     second := tprint("%/0002_b.sql", folder);
@@ -329,7 +342,7 @@ test_server :: (port: u16) {
 // hand edits of it become the migration that makes them true.
 test_diff_server :: (config: Pg.Config, generated: string) {
     folder := join(#filepath, "schema/migrations",, temp);
-    file := tprint("/tmp/jacket-diff-test-%.jai", cast(s64) getpid());
+    file := tprint("jacket-diff-test-%.jai", process_id());
 
     defer file_delete(file);
 

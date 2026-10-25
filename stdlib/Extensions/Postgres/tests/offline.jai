@@ -2,16 +2,23 @@
 #import "Basic";
 #import "String";
 #import "File";
-POSIX :: #import "POSIX";
 Pg :: #import "Extensions/Postgres";
 Base64 :: #import "Base64";
 
-chmod_private :: (path: string) {
-    POSIX.chmod(temp_c_string(path), 0x180); // 0600
-}
+// File modes matter only where the client checks them: not on Windows.
+#if OS != .WINDOWS {
+    POSIX :: #import "POSIX";
 
-chmod_open :: (path: string) {
-    POSIX.chmod(temp_c_string(path), 0x1A4); // 0644
+    chmod_private :: (path: string) {
+        POSIX.chmod(temp_c_string(path), 0x180); // 0600
+    }
+
+    chmod_open :: (path: string) {
+        POSIX.chmod(temp_c_string(path), 0x1A4); // 0644
+    }
+} else {
+    chmod_private :: (path: string) {}
+    chmod_open :: (path: string) {}
 }
 
 main :: () {
@@ -321,8 +328,11 @@ test_passfile :: () {
     assert(Pg.passfile_password(config, "db", 5433, "app", "me") == "");
     assert(Pg.passfile_password(config, "/tmp", 5432, "x", "y") == "fallback");
 
-    chmod_open(path);
-    assert(Pg.passfile_password(config, "db", 5432, "app", "me") == "");
+    #if OS != .WINDOWS {
+        chmod_open(path);
+        assert(Pg.passfile_password(config, "db", 5432, "app", "me") == "");
+    }
+
     file_delete(path);
 }
 
@@ -347,10 +357,12 @@ test_ssl_options :: () {
     assert(error.kind == .CONFIG && contains(error.message, "certificate present, but not private key file \"missing.key\""));
     Pg.free_error(*error);
 
-    chmod_open("ssl-options.key");
-    config, error = Pg.parse_conninfo("host=h sslcert=ssl-options.crt sslkey=ssl-options.key");
-    assert(error.kind == .CONFIG && contains(error.message, "has group or world access"));
-    Pg.free_error(*error);
+    #if OS != .WINDOWS {
+        chmod_open("ssl-options.key");
+        config, error = Pg.parse_conninfo("host=h sslcert=ssl-options.crt sslkey=ssl-options.key");
+        assert(error.kind == .CONFIG && contains(error.message, "has group or world access"));
+        Pg.free_error(*error);
+    }
 
     chmod_private("ssl-options.key");
     config, error = Pg.parse_conninfo("host=h sslcert=ssl-options.crt sslkey=ssl-options.key sslcertmode=disable");
@@ -390,6 +402,9 @@ test_uuids :: () {
 }
 
 test_calendar :: () {
+    // The span arithmetic below uses the module's operators.
+    using Pg;
+
     assert(Pg.date_from_civil(2000, 1, 1).days == 0);
     assert(Pg.date_from_civil(1970, 1, 1).days == -10_957);
     assert(Pg.date_from_civil(2024, 2, 29).days == 8_825);
