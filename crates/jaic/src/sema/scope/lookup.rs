@@ -1,6 +1,6 @@
 //! Name lookup through scopes, imports and using entries.
 use super::model::{EntityId, EntityKind, Found, ScopeId, ScopeKind, UsingEntry};
-use super::module_lookup::filter_hides;
+use super::module_lookup::filter_name;
 use crate::sema::{Compiler, Result, Sym};
 
 impl Compiler {
@@ -90,11 +90,11 @@ impl Compiler {
                         break;
                     };
                     if let UsingEntry::Module(m, filter) = entry {
-                        if filter.as_deref().is_some_and(|f| filter_hides(f, name)) {
+                        let Some(target) = filter_name(filter.as_deref(), name) else {
                             continue;
-                        }
+                        };
                         let m = *m;
-                        if let Some(result) = self.merge_module_lookup(&mut found, m, name)? {
+                        if let Some(result) = self.merge_module_lookup(&mut found, m, target)? {
                             return Ok(result);
                         }
                     } else {
@@ -119,11 +119,13 @@ impl Compiler {
                         continue;
                     };
                     {
-                        if filter_hides(&self.scope(sid).imports[i].filter, name) {
+                        let Some(target) =
+                            filter_name(Some(&self.scope(sid).imports[i].filter), name)
+                        else {
                             continue;
-                        }
+                        };
                         let before = found.len();
-                        let result = self.merge_module_lookup(&mut found, module, name)?;
+                        let result = self.merge_module_lookup(&mut found, module, target)?;
                         if result.is_some() || found.len() > before {
                             self.ide_note_import_use(sid, i);
                         }

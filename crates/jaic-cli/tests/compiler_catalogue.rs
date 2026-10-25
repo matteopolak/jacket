@@ -143,6 +143,7 @@ fn source_reconstruction_executes_original_semantics_and_retains_rejections() {
         "enum-members",
         "array-flags",
         "directives",
+        "module-map",
     ] {
         let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
             .env("JAIC_STDLIB", root.join("stdlib"))
@@ -159,17 +160,6 @@ fn source_reconstruction_executes_original_semantics_and_retains_rejections() {
             String::from_utf8_lossy(&output.stderr)
         );
     }
-    let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
-        .env("JAIC_STDLIB", root.join("stdlib"))
-        .arg(root.join("tests/compiler/semantics/code-roundtrip-module-map-rejected.jai"))
-        .arg("-check")
-        .output()
-        .unwrap();
-    assert!(!output.status.success());
-    assert!(
-        String::from_utf8_lossy(&output.stderr)
-            .contains("using,map on modules is not supported by the reviewed contract")
-    );
     let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
         .env("JAIC_STDLIB", root.join("stdlib"))
         .arg(root.join("tests/compiler/semantics/code-modify-control.jai"))

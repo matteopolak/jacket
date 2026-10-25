@@ -3,8 +3,8 @@
 use super::scope::UsingEntry;
 use super::value::Aggregate;
 use super::{
-    Compiler, Diagnostic, EntityId, Rc, Result, ScopeId, SourcePath, Span, Sym, TypeId, Value, ast,
-    err, ir, scope,
+    Compiler, Diagnostic, EntityId, ModuleId, Rc, Result, ScopeId, SourcePath, Span, Sym, TypeId,
+    Value, ast, err, ir, scope,
 };
 use crate::types::{ArrayKind, TypeKind};
 
@@ -156,13 +156,7 @@ impl Compiler {
         }
         self.ide_note_filter_names(&entry, filter);
         if let UsingEntry::Module(m, _) = entry {
-            let filter = self.resolve_name_filter(scope, filter)?;
-            if matches!(filter, ast::UsingFilter::Map(_)) {
-                return err(
-                    span,
-                    "using,map on modules is not supported by the reviewed contract",
-                );
-            }
+            let filter = self.resolve_module_filter(scope, m, filter, span)?;
             return Ok(UsingEntry::Module(m, Some(Rc::new(filter))));
         }
         let filter = if let ast::UsingFilter::Computed {
@@ -187,72 +181,151 @@ impl Compiler {
                     "using mapper must be a single compile-time procedure",
                 );
             }
-            let module = self.scope(scope).module;
-            let map_scope = self.new_scope(scope::ScopeKind::Proc, Some(scope), module, None);
-            let proc_ty = if let Value::Proc(p) = mapper {
-                self.proc_type(p, span)?
-            } else {
-                unreachable!()
-            };
-            self.add_entity(
-                map_scope,
-                Sym::intern("__using_mapper"),
-                expr.span,
-                scope::EntityKind::Const {
-                    value: mapper,
-                    ty: proc_ty,
-                },
-                false,
-            );
-            // A writable array of copied string views is passed to the mapper. The
-            // source spelling is solely original member names, never arbitrary code.
-            let list = names
-                .iter()
-                .map(|n| format!("{:?}", n.as_str()))
-                .collect::<Vec<_>>()
-                .join(", ");
-            let source = format!(
-                "__mapped :: #run (() -> [{}] string {{ __names: [{}] string = .[{list}]; __using_mapper(__names); return __names; }})();",
-                names.len(),
-                names.len()
-            );
-            let file = self.src.sources.add(
-                SourcePath::virtual_source("using mapper"),
-                source.clone().into(),
-            );
-            let parsed = crate::parser::parse_file(file, &source).map_err(Box::new)?;
-            let ast::StmtKind::Decl(decl) = &parsed.stmts[0].kind else {
-                unreachable!()
-            };
-            let result = decl.value.as_ref().unwrap();
-            let (value, ty) = self.eval_const_typed(map_scope, result)?;
-            let mapped = self.filter_strings(&value, ty, expr.span)?;
-            if mapped.len() != names.len() {
-                return err(expr.span, "using mapper changed the number of member names");
-            }
-            ast::UsingFilter::Map(
-                mapped
-                    .into_iter()
-                    .zip(names)
-                    .filter(|(new, _)| !new.as_str().is_empty())
-                    .map(|(new, old)| {
-                        (
-                            ast::Ident {
-                                name: new,
-                                span,
-                            },
-                            ast::Ident {
-                                name: old,
-                                span,
-                            },
-                        )
-                    })
-                    .collect(),
-            )
+            self.map_member_names(scope, expr, mapper, &names, span)?
         } else {
             self.resolve_name_filter(scope, filter)?
         };
         Ok(UsingEntry::Filtered(Box::new(entry), Rc::new(filter)))
+    }
+
+    /// `resolve_name_filter` for a filter on `module`, where a mapper also sees the
+    /// names the module exports.
+    pub(super) fn resolve_module_filter(
+        &mut self,
+        scope: ScopeId,
+        module: ModuleId,
+        filter: &ast::UsingFilter,
+        span: Span,
+    ) -> Result<ast::UsingFilter> {
+        let ast::UsingFilter::Computed {
+            kind: ast::UsingFilterKind::Map,
+            expr,
+        } = filter
+        else {
+            return self.resolve_name_filter(scope, filter);
+        };
+        let mapper = self.eval_const_value(scope, expr)?;
+        if !matches!(mapper, Value::Proc(_)) {
+            return err(
+                expr.span,
+                "using mapper must be a single compile-time procedure",
+            );
+        }
+        let mut names = Vec::new();
+        self.module_exported_names(module, &mut Vec::new(), &mut names)?;
+        names.sort_by_key(|name| name.as_str());
+        self.map_member_names(scope, expr, mapper, &names, span)
+    }
+
+    /// The names `module` and the modules it re-exports declare for importers.
+    fn module_exported_names(
+        &mut self,
+        module: ModuleId,
+        seen: &mut Vec<ModuleId>,
+        out: &mut Vec<Sym>,
+    ) -> Result<()> {
+        if seen.contains(&module) {
+            return Ok(());
+        }
+        seen.push(module);
+        let scope = self.ns.modules[module.0 as usize].scope;
+        self.expand_pending(scope)?;
+        let mut declared: Vec<Sym> = self
+            .scope(scope)
+            .names
+            .iter()
+            .filter(|(_, ids)| {
+                ids.iter().any(|&id| {
+                    let e = self.entity(id);
+                    e.exported && !e.file_private
+                })
+            })
+            .map(|(name, _)| *name)
+            .collect();
+        out.append(&mut declared);
+        for index in self.ns.modules[module.0 as usize]
+            .exported_using_imports
+            .clone()
+        {
+            if let Some(inner) = self.import_module(scope, index)? {
+                self.module_exported_names(inner, seen, out)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Run the compile-time `mapper` over the original `names` and pair each kept
+    /// result with the name it replaces; an empty result drops the name.
+    fn map_member_names(
+        &mut self,
+        scope: ScopeId,
+        expr: &ast::Expr,
+        mapper: Value,
+        names: &[Sym],
+        span: Span,
+    ) -> Result<ast::UsingFilter> {
+        let module = self.scope(scope).module;
+        let map_scope = self.new_scope(scope::ScopeKind::Proc, Some(scope), module, None);
+        let proc_ty = if let Value::Proc(p) = mapper {
+            self.proc_type(p, span)?
+        } else {
+            unreachable!()
+        };
+        self.add_entity(
+            map_scope,
+            Sym::intern("__using_mapper"),
+            expr.span,
+            scope::EntityKind::Const {
+                value: mapper,
+                ty: proc_ty,
+            },
+            false,
+        );
+        // A writable array of copied string views is passed to the mapper. The
+        // source spelling is solely original member names, never arbitrary code.
+        let list = names
+            .iter()
+            .map(|n| format!("{:?}", n.as_str()))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let source = format!(
+            "__mapped :: #run (() -> [{}] string {{ __names: [{}] string = .[{list}]; __using_mapper(__names); return __names; }})();",
+            names.len(),
+            names.len()
+        );
+        let file = self.src.sources.add(
+            SourcePath::virtual_source("using mapper"),
+            source.clone().into(),
+        );
+        let parsed = crate::parser::parse_file(file, &source).map_err(Box::new)?;
+        let ast::StmtKind::Decl(decl) = &parsed.stmts[0].kind else {
+            unreachable!()
+        };
+        let result = decl.value.as_ref().unwrap();
+        let (value, ty) = self.eval_const_typed(map_scope, result)?;
+        let mapped = self.filter_strings(&value, ty, expr.span)?;
+        if mapped.len() != names.len() {
+            return err(expr.span, "using mapper changed the number of member names");
+        }
+        Ok(ast::UsingFilter::Map(
+            mapped
+                .into_iter()
+                .zip(names)
+                .filter(|(new, _)| !new.as_str().is_empty())
+                .map(|(new, old)| {
+                    (
+                        ast::Ident {
+                            name: new,
+                            span,
+                        },
+                        ast::Ident {
+                            name: *old,
+                            span,
+                        },
+                    )
+                })
+                .collect(),
+        ))
     }
 
     fn aggregate_using_names(&mut self, ty: TypeId) -> Result<Vec<Sym>> {

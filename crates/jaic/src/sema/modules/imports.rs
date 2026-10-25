@@ -19,14 +19,41 @@ impl Compiler {
         }
         let entry = known.clone();
         self.scope_mut(scope).imports[index].loading = true;
-        let resolved = (|| {
-            let filter = self.resolve_name_filter(entry.from_scope, &entry.filter)?;
+        let mapping = matches!(
+            entry.filter,
+            ast::UsingFilter::Computed {
+                kind: ast::UsingFilterKind::Map,
+                ..
+            }
+        );
+        let resolved = (|| -> Result<ModuleId> {
+            let module = self.resolve_import(entry.from_scope, &entry.import)?;
+            if mapping {
+                // The mapper is compile-time code that may need names of this very module
+                // (through the program's types); until it has run they are visible unmapped.
+                self.scope_mut(scope).imports[index].module = Some(module);
+            }
+            let filter = self.resolve_module_filter(
+                entry.from_scope,
+                module,
+                &entry.filter,
+                entry.import.span,
+            )?;
             self.scope_mut(scope).imports[index].filter = filter;
-            self.resolve_import(entry.from_scope, &entry.import)
+            Ok(module)
         })();
         self.scope_mut(scope).imports[index].loading = false;
-        let module = resolved?;
+        let module = match resolved {
+            Ok(module) => module,
+            Err(error) => {
+                self.scope_mut(scope).imports[index].module = None;
+                return Err(error);
+            }
+        };
         self.scope_mut(scope).imports[index].module = Some(module);
+        if mapping {
+            self.epochs.namespace_generation += 1;
+        }
         self.ide_note_filter_names(&scope::UsingEntry::Module(module, None), &entry.filter);
         Ok(Some(module))
     }

@@ -90,10 +90,12 @@ impl Compiler {
             };
             let ids = match self.lookup_import(scope, index) {
                 Ok(Some(inner)) => {
-                    if filter_hides(&self.scope(scope).imports[index].filter, name) {
+                    let Some(target) =
+                        filter_name(Some(&self.scope(scope).imports[index].filter), name)
+                    else {
                         continue;
-                    }
-                    self.module_declarations_unbound(inner, name)
+                    };
+                    self.module_declarations_unbound(inner, target)
                 }
                 Ok(None) => {
                     self.caches.module_names_unsettled = true;
@@ -107,8 +109,8 @@ impl Compiler {
             }
         }
         if matches!(&result, Ok(ids) if ids.is_empty()) {
-            for used in self.ns.using_modules(module, name, true) {
-                let ids = self.module_declarations_unbound(used, name);
+            for (used, target) in self.ns.using_modules(module, name, true) {
+                let ids = self.module_declarations_unbound(used, target);
                 if !matches!(&ids, Ok(ids) if ids.is_empty()) {
                     result = ids;
                     break;
@@ -188,8 +190,8 @@ impl Compiler {
         }
         for entry in self.scope(scope).usings.clone() {
             if let UsingEntry::Module(inner, filter) = &entry {
-                if !filter.as_ref().is_some_and(|f| filter_hides(f, name)) {
-                    let found = self.module_lookup(*inner, name)?;
+                if let Some(target) = filter_name(filter.as_deref(), name) {
+                    let found = self.module_lookup(*inner, target)?;
                     if !matches!(&found, Found::Entities(ids) if ids.is_empty()) {
                         return Ok(found);
                     }
@@ -202,11 +204,12 @@ impl Compiler {
             .member_using_imports
             .clone()
         {
-            if filter_hides(&self.scope(scope).imports[index].filter, name) {
+            let Some(target) = filter_name(Some(&self.scope(scope).imports[index].filter), name)
+            else {
                 continue;
-            }
+            };
             if let Some(inner) = self.lookup_import(scope, index)? {
-                let found = self.module_lookup(inner, name)?;
+                let found = self.module_lookup(inner, target)?;
                 if !matches!(&found, Found::Entities(ids) if ids.is_empty()) {
                     return Ok(found);
                 }
@@ -314,10 +317,13 @@ impl Compiler {
                 break;
             };
             match self.lookup_import(scope, index) {
-                Ok(Some(inner))
-                    if !filter_hides(&self.scope(scope).imports[index].filter, name) =>
-                {
-                    match self.module_using_member(inner, name) {
+                Ok(Some(inner)) => {
+                    let Some(target) =
+                        filter_name(Some(&self.scope(scope).imports[index].filter), name)
+                    else {
+                        continue;
+                    };
+                    match self.module_using_member(inner, target) {
                         Ok(None) => {}
                         other => {
                             result = other;
@@ -333,8 +339,8 @@ impl Compiler {
             }
         }
         if matches!(result, Ok(None)) {
-            for used in self.ns.using_modules(module, name, true) {
-                match self.module_using_member(used, name) {
+            for (used, target) in self.ns.using_modules(module, name, true) {
+                match self.module_using_member(used, target) {
                     Ok(None) => {}
                     other => {
                         result = other;
@@ -366,23 +372,40 @@ impl Compiler {
 /// Does a `using` filter keep `name` out? Computed and mapping filters hide nothing here.
 pub fn filter_hides(filter: &ast::UsingFilter, name: Sym) -> bool {
     match filter {
-        ast::UsingFilter::Only(_) | ast::UsingFilter::Except(_) => {
+        ast::UsingFilter::Only(_) | ast::UsingFilter::Except(_) | ast::UsingFilter::Map(_) => {
             crate::sema::using::filter_target(filter, name).is_none()
         }
         _ => false,
     }
 }
 
+/// The name a module declares for `name` as seen through an optional `using` filter;
+/// `None` when the filter keeps it out. Mapping filters answer with the original name.
+pub(super) fn filter_name(filter: Option<&ast::UsingFilter>, name: Sym) -> Option<Sym> {
+    match filter {
+        Some(
+            filter @ (ast::UsingFilter::Only(_)
+            | ast::UsingFilter::Except(_)
+            | ast::UsingFilter::Map(_)),
+        ) => crate::sema::using::filter_target(filter, name),
+        _ => Some(name),
+    }
+}
+
 impl Namespaces {
     /// Modules `module` says `using M;` to whose filters let `name` through: only those at
     /// export scope when `exported_only`.
-    fn using_modules(&self, module: ModuleId, name: Sym, exported_only: bool) -> Vec<ModuleId> {
+    fn using_modules(
+        &self,
+        module: ModuleId,
+        name: Sym,
+        exported_only: bool,
+    ) -> Vec<(ModuleId, Sym)> {
         self.modules[module.0 as usize]
             .using_modules
             .iter()
             .filter(|used| used.exported || !exported_only)
-            .filter(|used| !used.filter.as_ref().is_some_and(|f| filter_hides(f, name)))
-            .map(|used| used.module)
+            .filter_map(|used| Some((used.module, filter_name(used.filter.as_deref(), name)?)))
             .collect()
     }
 }

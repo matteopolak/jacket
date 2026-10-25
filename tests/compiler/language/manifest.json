@@ -49,6 +49,13 @@
     "covers": "using,except with a computed-nonexistent name and remaining qualified access"
   },
   {
+    "name": "import-map",
+    "main": "cases/import-map/main.jai",
+    "mode": "interp",
+    "expected_stdout": "ok\n",
+    "covers": "using,map on a named module import: renamed exports, namespace alias keeps original names"
+  },
+  {
     "name": "aggregate-map",
     "main": "cases/aggregate-map/main.jai",
     "mode": "interp",

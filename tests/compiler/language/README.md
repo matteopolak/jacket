@@ -13,7 +13,7 @@ The runner requires an absolute `jaic` executable located under this workspace's
 
 ## Coverage
 
-The manifest covers declarations and conversions, ranges and iteration, defaults and named arguments, `defer`, file/module/export scopes, independent `#load` scopes, filtered imports, aggregate `using,map`, module parameter identity, polymorphism, `#run`/`#assert`/`#if`, macro expansion, and `#insert`.
+The manifest covers declarations and conversions, ranges and iteration, defaults and named arguments, `defer`, file/module/export scopes, independent `#load` scopes, filtered imports, module and aggregate `using,map`, module parameter identity, polymorphism, `#run`/`#assert`/`#if`, macro expansion, and `#insert`.
 
 The fixtures intentionally do not assert unresolved behavior such as merging overload sets from multiple filtered imports, module-import name mapping, Runtime_Support instance identity, evaluation order for side-effecting arguments, or ambiguous/reversed range boundaries. The guide remains the contract for these undecided edges; add a fixture only when an observable rule is evidenced.
 
