@@ -193,12 +193,6 @@ rules = { magic_number = "allow" }
 paths = ["tests/**", "benchmarks/**", "stdlib/**/tests/**"]
 rules = { manual_memcpy = "allow", manual_array_find = "allow", useless_format = "allow", unsigned_range_end_minus_one = "allow", useless_resizable = "allow", shift_overflow = "allow", lossy_float_literal = "allow", format_push_string = "allow" }
 
-# The channel count of a loaded sound is not checked against the eight directions, so this copy
-# stays a loop: its bounds check stops a bad count instead of writing past the array.
-[[lint.overrides]]
-paths = ["stdlib/internal/audio/loading.jai"]
-rules = { manual_memcpy = "allow" }
-
 # The standard library builds on every operating system unless a file below says otherwise;
 # `platform_leak` compiles it once per system and reports portable code that imports a file
 # one of them does not build.

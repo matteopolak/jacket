@@ -107,7 +107,9 @@ assign_channel_directions :: (data: *Sound_Data) {
         }
     }
 
-    for channel: 0..cast(s64) data.nchannels - 1 data.source_directions[channel] = directions[channel];
+    // Both loaders reject more than MAX_CHANNELS_PER_SOUND channels, the size of both arrays.
+    assert(data.nchannels <= directions.count);
+    memcpy(data.source_directions.data, directions.data, data.nchannels * size_of(Source_Direction));
 }
 
 report_audio_error :: (name: string, detail: string) {
