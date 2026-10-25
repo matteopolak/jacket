@@ -2268,31 +2268,35 @@ test_unix_sockets :: () {
         Io.close(listener);
 
         // No listener any more: the file is still there but refuses.
-        refused, refused_error := Io.connect_unix(path);
+        _, refused_error := Io.connect_unix(path);
 
         assert(refused_error == .CONNECTION_REFUSED, "stale socket: %", refused_error);
 
         // Without `replace` an existing file blocks the bind.
-        stale, stale_error := Io.unix_listen(path);
+        _, stale_error := Io.unix_listen(path);
 
         assert(stale_error == .ADDRESS_IN_USE, "listen over a file: %", stale_error);
 
         unlink_test_socket(temp_c_string(path));
 
-        missing, missing_error := Io.connect_unix(path);
+        _, missing_error := Io.connect_unix(path);
 
         assert(missing_error == .NOT_FOUND, "missing socket: %", missing_error);
 
         // Paths that cannot be a socket address fail instead of being cut short.
         long: [200] u8;
-        for 0..long.count - 1 long[it] = #char "a";
+        for *long it.* = #char "a";
 
-        too_long, long_error := Io.connect_unix(string.{ 200, long.data });
+        _, long_error := Io.connect_unix(string.{ 200, long.data });
 
         assert(long_error == .INVALID, "long path: %", long_error);
-        too_long, long_error = Io.connect_unix(string.{ 104, long.data });
-        assert(long_error == .INVALID, "104-byte path: %", long_error);
-        empty, empty_error := Io.unix_listen("");
+        // A path the size of `sun_path` leaves no room for its terminator.
+        #if OS == .MACOS sun_path_size :: 104;
+        else sun_path_size :: 108;
+
+        _, long_error = Io.connect_unix(string.{ sun_path_size, long.data });
+        assert(long_error == .INVALID, "%-byte path: %", sun_path_size, long_error);
+        _, empty_error := Io.unix_listen("");
 
         assert(empty_error == .INVALID, "empty path: %", empty_error);
     }
