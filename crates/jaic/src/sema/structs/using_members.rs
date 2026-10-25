@@ -98,6 +98,60 @@ impl Compiler {
         }
     }
 
+    /// Whether `name`, reached through the `using` place `entry`, lies behind a pointer field
+    /// instead of inside the place itself.
+    pub(in crate::sema) fn member_through_pointer(
+        &mut self,
+        entry: &UsingEntry,
+        name: Sym,
+    ) -> Result<bool> {
+        let UsingEntry::Place {
+            ty, ..
+        } = entry
+        else {
+            return Ok(false);
+        };
+        let ty = self.ty.types.repr_struct(*ty);
+        let Some(s) = self.ty.types.as_struct(ty) else {
+            return Ok(false);
+        };
+        Ok(self.struct_member_behind_pointer(s, name, false, &mut Vec::new())? == Some(true))
+    }
+
+    /// `Some(true)` when `name` of `s` (or of a struct it takes in with `using`) is reached
+    /// through a pointer, `Some(false)` when directly, `None` when `s` has no such member.
+    fn struct_member_behind_pointer(
+        &mut self,
+        s: StructId,
+        name: Sym,
+        behind: bool,
+        searched: &mut Vec<StructId>,
+    ) -> Result<Option<bool>> {
+        if searched.contains(&s) {
+            return Ok(None);
+        }
+        searched.push(s);
+        self.layout_struct(s, Span::NONE)?;
+        let fields = self.ty.types.struct_info(s).fields.clone();
+        if fields.iter().any(|f| f.name == Some(name)) {
+            return Ok(Some(behind));
+        }
+        for field in fields.iter().filter(|f| f.using) {
+            let (inner, through) = match self.ty.types.pointee(field.ty) {
+                Some(p) => (p, true),
+                None => (field.ty, behind),
+            };
+            let inner = self.ty.types.repr_struct(inner);
+            if let Some(inner) = self.ty.types.as_struct(inner)
+                && let Some(found) =
+                    self.struct_member_behind_pointer(inner, name, through || behind, searched)?
+            {
+                return Ok(Some(found));
+            }
+        }
+        Ok(None)
+    }
+
     // Default values
 
     /// Offset, type and authored declaration of `name` in a `using` field of `s`.

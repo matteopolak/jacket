@@ -105,6 +105,13 @@
     "covers": "a pointer to a value cast to an array of the same size reads the value as that array"
   },
   {
+    "name": "using-pointer-argument-write",
+    "main": "cases/using-pointer-argument-write/main.jai",
+    "mode": "interp",
+    "expected_stdout": "ok\n",
+    "covers": "a member behind a pointer held by a using argument can be assigned"
+  },
+  {
     "name": "aggregate-map",
     "main": "cases/aggregate-map/main.jai",
     "mode": "interp",

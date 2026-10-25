@@ -326,6 +326,8 @@ impl Compiler {
             // A member brought in by `using` is part of that name's storage.
             let found = match self.lookup_full(scope, *name)? {
                 Found::Entities(ids) => ids,
+                // A member reached through a pointer the argument holds is not the argument's.
+                Found::Using(entry, _) if self.member_through_pointer(&entry, *name)? => Vec::new(),
                 Found::Using(entry, _) => entry.place_entity().into_iter().collect(),
             };
             if let [entity] = found[..]
