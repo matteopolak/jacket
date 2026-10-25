@@ -513,7 +513,7 @@ fn hovers_show_the_compilers_memory_layout() {
     // Variables of aggregate types show their type's size; scalars do not.
     assert_eq!(
         layout_hover(&s, "p: Player", 0),
-        "p: Player\nsize 24, align 8"
+        "p: Player {\n    entity: Entity;\n    health: float32;\n    pos: [2] float64;\n}\nsize 24, align 8"
     );
     assert_eq!(layout("count", 0), None);
     assert_eq!(layout("s :=", 0), None);

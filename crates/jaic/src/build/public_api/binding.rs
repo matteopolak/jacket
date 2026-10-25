@@ -277,7 +277,7 @@ fn collect(
     };
     let name = match &kind {
         TypeKind::Struct(record) => compiler.ty.types.struct_info(*record).name.to_string(),
-        _ => compiler.ty.types.name(ty),
+        _ => compiler.ty.types.full_name(ty),
     };
     schema.types.insert(
         ty,

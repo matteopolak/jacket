@@ -674,7 +674,7 @@ impl Compiler {
                 ..
             } => format!(
                 "constant {} of type {}",
-                value.render(&self.ty.types),
+                value.render(&self.ty.types, true),
                 self.ty.types.name(*ty)
             ),
             Operand::Type(t) => format!("type {}", self.ty.types.name(*t)),

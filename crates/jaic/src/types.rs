@@ -454,8 +454,21 @@ impl Types {
         }
     }
 
-    /// Human-readable spelling, as Jai prints types.
+    /// The spelling for diagnostics and the editor: like [`Self::full_name`], but a long string
+    /// argument of a polymorphic struct (a typed query's row, say) is cut short, so the name stays
+    /// on one readable line.
     pub fn name(&self, ty: TypeId) -> String {
+        self.spell(ty, true)
+    }
+
+    /// Human-readable spelling, as Jai prints types, with every polymorph argument in full.
+    /// Anything that names a type for the program or other tools (symbols, debug info, printed
+    /// output) uses this one.
+    pub fn full_name(&self, ty: TypeId) -> String {
+        self.spell(ty, false)
+    }
+
+    fn spell(&self, ty: TypeId, short: bool) -> String {
         match self.kind(ty) {
             TypeKind::Void => "void".into(),
             TypeKind::Bool => "bool".into(),
@@ -485,20 +498,20 @@ impl Types {
             TypeKind::PolyStruct {
                 name, ..
             } => name.to_string(),
-            TypeKind::Pointer(t) => format!("*{}", self.name(*t)),
+            TypeKind::Pointer(t) => format!("*{}", self.spell(*t, short)),
             TypeKind::Array {
                 elem,
                 kind,
             } => match kind {
-                ArrayKind::Fixed(n) => format!("[{n}] {}", self.name(*elem)),
-                ArrayKind::View => format!("[] {}", self.name(*elem)),
-                ArrayKind::Resizable => format!("[..] {}", self.name(*elem)),
+                ArrayKind::Fixed(n) => format!("[{n}] {}", self.spell(*elem, short)),
+                ArrayKind::View => format!("[] {}", self.spell(*elem, short)),
+                ArrayKind::Resizable => format!("[..] {}", self.spell(*elem, short)),
             },
             TypeKind::Proc(p) => {
-                let params: Vec<String> = p.params.iter().map(|t| self.name(*t)).collect();
+                let params: Vec<String> = p.params.iter().map(|t| self.spell(*t, short)).collect();
                 let mut s = format!("({})", params.join(", "));
                 if !p.returns.is_empty() {
-                    let r: Vec<String> = p.returns.iter().map(|t| self.name(*t)).collect();
+                    let r: Vec<String> = p.returns.iter().map(|t| self.spell(*t, short)).collect();
                     s.push_str(" -> ");
                     s.push_str(&r.join(", "));
                 }
@@ -512,7 +525,11 @@ impl Types {
                 if info.poly_args.is_empty() {
                     info.name.to_string()
                 } else {
-                    let args: Vec<String> = info.poly_args.iter().map(|v| v.render(self)).collect();
+                    let args: Vec<String> = info
+                        .poly_args
+                        .iter()
+                        .map(|v| v.render(self, short))
+                        .collect();
                     format!("{}({})", info.name, args.join(", "))
                 }
             }

@@ -73,3 +73,49 @@ fn a_bad_column_is_reported_once_the_describe_answer_arrives() {
     }
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+const ROW_PROGRAM: &str = r#"#import "Basic";
+Pg :: #import "Extensions/Postgres";
+lookup :: (db: *Pg.Connection) {
+    rows, error := Pg.query(db, "select id, email from users");
+    for row: rows print("%\n", row.email);
+}
+main :: () {}
+"#;
+
+#[test]
+fn a_typed_row_hovers_as_its_columns() {
+    let (Some(jaic), Some(_)) = (built_jaic(), database_url()) else {
+        eprintln!("skipped: needs a built jaic and JACKET_DATABASE_URL");
+        return;
+    };
+    let dir = common::project("pg-typed-hover", &[("main.jai", ROW_PROGRAM)]);
+    let mut environment = common::environment();
+    environment.services = Some(Rc::new(EditorServices::new(Services::new(ServiceConfig {
+        jaic: Some(jaic),
+        ..ServiceConfig::default()
+    }))));
+    let mut s = Session::with_environment(Limits::default(), environment);
+    s.set_workspace_folders(vec![dir.clone()]);
+    let (uri, text) = common::open_from_disk(&mut s, &dir, "main.jai");
+    let at = common::at(&text, "row.email");
+    let hover = |s: &Session| {
+        s.hover(&uri, at)
+            .unwrap()
+            .map(|h| h.contents.value)
+            .unwrap_or_default()
+    };
+    let deadline = Instant::now() + Duration::from_secs(120);
+    let mut shown = hover(&s);
+    while !shown.contains("email: string;") {
+        assert!(Instant::now() < deadline, "no row fields: {shown}");
+        std::thread::sleep(Duration::from_millis(50));
+        if s.take_service_arrivals() {
+            shown = hover(&s);
+        }
+    }
+    assert!(shown.contains("row: Row {"), "{shown}");
+    assert!(shown.contains("/// users.id"), "{shown}");
+    assert!(!shown.contains("Row(\""), "{shown}");
+    let _ = std::fs::remove_dir_all(&dir);
+}

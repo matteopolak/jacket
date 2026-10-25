@@ -51,7 +51,7 @@ impl Compiler {
             .into_iter()
             .flat_map(|m| &m.params)
         {
-            origins.insert(format!("{name} = {}", value.render(&self.ty.types)));
+            origins.insert(format!("{name} = {}", value.render(&self.ty.types, true)));
         }
         let bindings = self.ide_bindings_text(id);
         if origins.is_empty() {

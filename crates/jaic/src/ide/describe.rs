@@ -9,6 +9,9 @@ use crate::sema::{Compiler, scope, value};
 use crate::types::TypeId;
 use crate::types::TypeKind;
 
+/// How many fields a written-out type shows.
+const HOVER_FIELDS: usize = 32;
+
 impl Compiler {
     fn ide_proc_header(&self, name: Sym, p: ProcId) -> String {
         format!("{name} :: {}", clip(&self.ide_header_text(p)))
@@ -62,6 +65,52 @@ impl Compiler {
             params.join(", "),
             &text[close + 1..]
         )
+    }
+
+    /// A value's type for hover text: a struct (or union) is written out as its fields, each
+    /// under the doc comment of its declaration, since the name alone may say little (an
+    /// instance whose long string argument was cut short, a body `#insert` wrote).
+    pub(super) fn ide_value_type(&mut self, t: TypeId) -> String {
+        let short = self.ty.types.name(t);
+        let TypeKind::Struct(s) = *self.ty.types.kind(t) else {
+            return short;
+        };
+        self.ide_laid_out(t);
+        let info = self.ty.types.struct_info(s);
+        // A cut name says less than the fields under it: the polymorphic struct's name heads them.
+        let head = if short == self.ty.types.full_name(t) {
+            short
+        } else {
+            self.ty
+                .types
+                .struct_info(info.poly_parent.unwrap_or(s))
+                .name
+                .to_string()
+        };
+        let fields = info.fields.clone();
+        if fields.iter().all(|f| f.name.is_none()) {
+            return head;
+        }
+        let mut text = format!("{head} {{\n");
+        for f in fields.iter().take(HOVER_FIELDS) {
+            let Some(name) = f.name else {
+                continue;
+            };
+            let doc = self
+                .src
+                .sources
+                .try_get(f.span.file)
+                .and_then(|file| crate::docs::declaration(&file.text, f.span.start as usize));
+            for line in doc.iter().flat_map(|d| d.lines()) {
+                text.push_str(&format!("    /// {line}\n"));
+            }
+            text.push_str(&format!("    {name}: {};\n", self.ty.types.name(f.ty)));
+        }
+        if fields.len() > HOVER_FIELDS {
+            text.push_str("    ...\n");
+        }
+        text.push('}');
+        text
     }
 
     pub(super) fn ide_type_hover(&mut self, name: &str, t: TypeId) -> String {
@@ -119,14 +168,14 @@ impl Compiler {
         let resolved = match self.entity(id).kind.clone() {
             EntityKind::Local {
                 ty, ..
-            } => return format!("{name}: {}", self.ty.types.name(ty)),
+            } => return format!("{name}: {}", self.ide_value_type(ty)),
             EntityKind::Const {
                 value: value::Value::Type(t),
                 ..
             } => return self.ide_type_hover(name.as_str(), t),
             EntityKind::Const {
                 ty, ..
-            } => return format!("{name} :: {}", self.ty.types.name(ty)),
+            } => return format!("{name} :: {}", self.ide_value_type(ty)),
             EntityKind::Placeholder => return format!("{name} :: #placeholder"),
             EntityKind::Builtin(_) => {
                 return format!(
@@ -172,7 +221,7 @@ impl Compiler {
             }) => format!(
                 "{name} :: {} = {}",
                 self.ty.types.name(ty),
-                value.render(&self.ty.types)
+                value.render(&self.ty.types, true)
             ),
             Some(Resolved::Global {
                 ty, ..

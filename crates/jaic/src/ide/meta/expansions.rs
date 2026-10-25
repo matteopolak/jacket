@@ -184,7 +184,7 @@ impl Compiler {
                     Value::Proc(p) => self.proc(*p).name.to_string(),
                     Value::Code(c) => format!("#code {}", self.ide_code_text(*c)),
                     Value::Bytes(_) => format!("{}.{{…}}", self.ty.types.name(*ty)),
-                    other => other.render(&self.ty.types),
+                    other => other.render(&self.ty.types, true),
                 });
                 (text, self.ty.types.name(*ty), literal)
             }

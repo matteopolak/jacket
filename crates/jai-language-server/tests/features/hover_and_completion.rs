@@ -119,7 +119,10 @@ fn names_from_a_using_parameter_hover_and_go_to_it() {
         .definition(&uri(), at_nth(text, "name, health", 0, 1))
         .unwrap();
     assert_eq!(name.as_deref(), Some("name: string"));
-    assert_eq!(pos.as_deref(), Some("position: Vec2"));
+    assert_eq!(
+        pos.as_deref(),
+        Some("position: Vec2 {\n    x: float32;\n    y: float32;\n}")
+    );
     assert_eq!(def.len(), 1, "{def:?}");
     assert_eq!(def[0].range.start, at_nth(text, "name: string", 0, 0));
 }

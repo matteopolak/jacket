@@ -196,7 +196,7 @@ impl Compiler {
             return simple("", 8, DebugTypeKind::Pointer(ir::DEBUG_CHAR));
         }
         let ty = TypeId(key);
-        let name = self.ty.types.name(ty);
+        let name = self.ty.types.full_name(ty);
         let kind = match self.ty.types.kind(ty).clone() {
             TypeKind::Bool => DebugTypeKind::Bool,
             TypeKind::Int {

@@ -180,7 +180,7 @@ impl Compiler {
                     .join("\n")
             }
             IdeWhat::Entity(e) => self.ide_entity_hover(*e, Some(r.ty)),
-            IdeWhat::Member(_) => format!("{name}: {}", self.ty.types.name(r.ty)),
+            IdeWhat::Member(_) => format!("{name}: {}", self.ide_value_type(r.ty)),
             IdeWhat::Type(t) => self.ide_type_hover(&name, *t),
             // An overload set may include aliases (`print :: print_to_builder;`): show each
             // under the name used.
@@ -257,8 +257,9 @@ impl Compiler {
             },
             _ => Vec::new(),
         };
+        // Docs are read where the declaration is, generated text included.
         if procs.is_empty() {
-            return self.ide_definition(file, offset);
+            return self.ide_definition_in_sources(file, offset);
         }
         let spans = procs
             .iter()

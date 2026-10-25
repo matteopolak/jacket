@@ -254,7 +254,7 @@ impl Compiler {
                 } => format!(
                     "{n} = {}",
                     self.ide_literal(value)
-                        .unwrap_or_else(|| value.render(&self.ty.types))
+                        .unwrap_or_else(|| value.render(&self.ty.types, true))
                 ),
                 _ => n.to_string(),
             })

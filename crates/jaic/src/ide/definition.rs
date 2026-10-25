@@ -123,7 +123,9 @@ impl Compiler {
         span
     }
 
-    fn ide_definition_in_sources(&mut self, file: FileId, offset: u32) -> Vec<Span> {
+    /// Where what is named at `offset` is declared, in generated text when it was declared
+    /// there (not moved to the `#insert` that wrote it).
+    pub(super) fn ide_definition_in_sources(&mut self, file: FileId, offset: u32) -> Vec<Span> {
         self.ide_note_callee_at(file, offset);
         if let Some((_, ids)) = self.ide_filter_targets(file, offset) {
             return self.ide_narrow_decls(

@@ -90,7 +90,7 @@ impl Compiler {
         let g = match self.ty.failed_infos.remove(&ty) {
             Some(g) => g,
             None => self.out.program.add_global(ir::Global {
-                name: format!("type_info.{}", self.ty.types.name(ty)),
+                name: format!("type_info.{}", self.ty.types.full_name(ty)),
                 size,
                 align,
                 init: Vec::new(),

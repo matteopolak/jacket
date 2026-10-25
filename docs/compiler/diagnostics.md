@@ -141,3 +141,7 @@ Assertions: `context.assertion_failed` is invoked; the selected runtime can mark
 ## Dependencies
 
 Standard library only: `render.rs`, `suggest.rs` (edit distance), `sema/suggestions.rs`, `sema/trap_report.rs`, `interp::Trap`, `stdlib/Runtime_Support/module.jai` (assertion reports in executables).
+
+## Type names
+
+`Types::name` spells a type for diagnostics, lints and the editor. A string argument of a polymorphic struct longer than 40 bytes is cut to its first 24 bytes plus `…`, escaped onto one line, so a struct whose body `#insert` builds from a long string reads `Row("/// users.id: bigint, no…")` instead of the whole string. `Types::full_name` keeps every argument; use it wherever the name reaches the program or another tool (type info symbols, debug info, compile-time printed messages, public API bindings), since cut names can collide. The limits are `SHORT_STRING_LIMIT` and `SHORT_STRING_KEEP` in `sema/value.rs`. Tests: `crates/jai-language-server/tests/long_polymorph_names.rs`.

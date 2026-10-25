@@ -1076,7 +1076,7 @@ impl Compiler {
                 Value::Float(x, _) => x.to_string(),
                 Value::Bool(b) => b.to_string(),
                 Value::String(s) => String::from_utf8_lossy(&s).into_owned(),
-                Value::Type(t) => self.ty.types.name(t),
+                Value::Type(t) => self.ty.types.full_name(t),
                 Value::Null => "null".to_string(),
                 _ => "?".to_string(),
             });

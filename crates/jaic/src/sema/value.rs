@@ -134,13 +134,26 @@ impl Value {
         }
     }
 
-    pub fn render(&self, types: &Types) -> String {
+    /// The value as a polymorph argument in a type's name; `short` cuts a long string down.
+    pub fn render(&self, types: &Types, short: bool) -> String {
         match self {
+            Value::String(s) if short && s.len() > SHORT_STRING_LIMIT => {
+                let text = String::from_utf8_lossy(s);
+                let mut end = SHORT_STRING_KEEP;
+                while !text.is_char_boundary(end) {
+                    end -= 1;
+                }
+                format!("\"{}…\"", text[..end].escape_debug())
+            }
+            Value::String(s) if short => {
+                format!("\"{}\"", String::from_utf8_lossy(s).escape_debug())
+            }
             Value::Int(v) => v.to_string(),
             Value::Float(v, _) => format!("{v}"),
             Value::Bool(v) => v.to_string(),
             Value::String(s) => format!("\"{}\"", String::from_utf8_lossy(s)),
-            Value::Type(t) => types.name(*t),
+            Value::Type(t) if short => types.name(*t),
+            Value::Type(t) => types.full_name(*t),
             Value::Null => "null".into(),
             Value::Proc(p) => format!("proc#{}", p.0),
             Value::Bytes(_) => "{...}".into(),
@@ -149,6 +162,12 @@ impl Value {
         }
     }
 }
+
+/// A string polymorph argument longer than this many bytes is cut short in [`Types::name`].
+const SHORT_STRING_LIMIT: usize = 40;
+
+/// How many bytes of a cut string stay.
+const SHORT_STRING_KEEP: usize = 24;
 
 #[cfg(test)]
 mod tests {

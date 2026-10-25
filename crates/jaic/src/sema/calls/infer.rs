@@ -1148,8 +1148,8 @@ fn bind_pattern(
                 span,
                 format!(
                     "{CONFLICT}{name}`: {} and {}",
-                    existing.render(types),
-                    value.render(types)
+                    existing.render(types, true),
+                    value.render(types, true)
                 ),
             );
         }
