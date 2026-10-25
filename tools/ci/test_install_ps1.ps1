@@ -12,7 +12,7 @@ function Build($version) {
   $stage = Join-Path $base "stage-$version"
   $top = Join-Path $stage 'jacket-windows-x64'
   New-Item -ItemType Directory -Force (Join-Path $top 'stdlib\prelude') | Out-Null
-  foreach ($tool in 'jaic', 'jailsp', 'jailint', 'jaifmt') { "stub $version" | Set-Content (Join-Path $top "$tool.exe") }
+  foreach ($tool in 'jacket', 'jaic', 'jailsp', 'jailint', 'jaifmt') { "stub $version" | Set-Content (Join-Path $top "$tool.exe") }
   $dir = Join-Path $root "v$version"
   New-Item -ItemType Directory -Force $dir | Out-Null
   $zip = Join-Path $dir 'jacket-windows-x64.zip'
