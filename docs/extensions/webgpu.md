@@ -2,7 +2,7 @@
 
 ## What it is
 
-The standard WebGPU C API (`webgpu.h`): every type, enum, struct, callback and `wgpu*` procedure, plus helpers for windows, adapters, mapping and error scopes. Natively the procedures call [wgpu-native](https://github.com/gfx-rs/wgpu-native); in the browser playground they forward to the page's WebGPU. Both sides are generated from webgpu-headers' `webgpu.yml`, so one program runs in both places.
+The standard WebGPU C API (`webgpu.h`): every type, enum, struct, callback and `wgpu*` procedure, plus helpers for windows, adapters, mapping and error scopes. Natively the procedures call [wgpu-native](https://github.com/gfx-rs/wgpu-native); in the browser playground they forward to the page's WebGPU. Both sides are generated from webgpu-headers' `webgpu.yml`, so code that only talks to the GPU (`examples/webgpu/compute.jai`) runs in both places. Surfaces differ: `webgpu_create_surface` takes a `Window_Creation` window and is native only, while the playground binds `wgpuInstanceCreateSurface(instance, null)` to its own canvas (`examples/tour/gpu/raymarch_gpu.jai`).
 
 ```jai
 #import "Extensions/WebGPU";
@@ -14,7 +14,7 @@ format  := webgpu_surface_format(surface, adapter);  // pass srgb = true only if
 webgpu_present(surface);
 ```
 
-Examples: `examples/webgpu/triangle.jai` (window, pipeline), `raymarch.jai` (fragment shader, uniforms, input), `compute.jai` (storage buffers, mapping); the playground tour ends with `examples/tour/gpu/raymarch_gpu.jai`.
+Examples: `examples/webgpu/triangle.jai` (window, pipeline) and `raymarch.jai` (fragment shader, uniforms, input), both native only, and `compute.jai` (storage buffers, mapping); the playground tour ends with `examples/tour/gpu/raymarch_gpu.jai`.
 
 | Where | Backend | Surface |
 | --- | --- | --- |

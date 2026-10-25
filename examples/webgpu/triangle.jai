@@ -1,17 +1,15 @@
-// A spinning triangle with WebGPU. Natively it opens a window (wgpu-native, see
-// docs/extensions/webgpu.md); in the browser playground it draws into the page's canvas.
-// Space pauses, a mouse click changes the background, Escape quits.
+// A spinning triangle with WebGPU, in a window of its own (wgpu-native, see
+// docs/extensions/webgpu.md). Native only: the browser playground has no windows, and draws
+// only the tour's own GPU stop (examples/tour/gpu). Space pauses, a mouse click changes the
+// background, Escape quits.
 
 #import "Basic";
 #import "Math";
 #import "Input";
 #import "Random";
-#import "Window_Type";
 #import "Extensions/WebGPU";
 
-#if OS != .WASM {
-    #import "Window_Creation";
-}
+#import "Window_Creation";
 
 SHADER :: #string WGSL
 struct Uniforms { angle: f32, aspect: f32 }
@@ -46,11 +44,7 @@ Uniforms :: struct {
 }
 
 main :: () {
-    window: Window_Type;
-
-    #if OS != .WASM {
-        window = create_window(800, 600, "WebGPU triangle");
-    }
+    window := create_window(800, 600, "WebGPU triangle");
 
     instance := wgpuCreateInstance(null);
     surface := webgpu_create_surface(instance, window);

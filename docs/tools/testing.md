@@ -27,6 +27,8 @@ Options: `--filter`, `--verbose`, `--timeout` (default 60; 900 for the full swee
 - The memory limit is passed to `jaic` as `JAIC_MEMORY_LIMIT`; `jaic` exits 120 at the first allocation past it (LLVM and child processes are not capped). The sweep refuses to run a `jaic` older than the sources in `crates/jaic`, `jaic-cli` or `jaic-llvm`, because a stale build may lack the limits that keep negative cases from exhausting memory.
 - The `upstream` set needs `python3 tools/fetch_upstreams.py` first. The sweep builds missing native libraries and sets `JAIC_NATIVE_LIBS`.
 
+Every program in `examples/` is also checked by `cargo test -p jaic-cli --test examples`: `jaic -check -os <os>` for each OS its row in `PROGRAMS` lists, with the reason when one is left out (the HTTP and window examples are native only). A file another example `#load`s (the tour's sections, `http/notes.jai`) is checked through that program; a new example fails the test until it has a row.
+
 **Adding cases:**
 
 - Must be rejected: put it in `tests/corpus/negative/` and add a `kind: negative` manifest entry with `sha256` and a `negative.check` string found in the diagnostic.

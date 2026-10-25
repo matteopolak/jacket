@@ -1,16 +1,14 @@
 // A raymarched scene drawn by one full-screen fragment shader with WebGPU:
 // a twisting torus orbiting a blobby sphere over a checkered floor, with soft shadows.
-// Click to change the palette, Space pauses, Escape quits. Natively it opens a window (see
-// docs/extensions/webgpu.md); in the browser playground it draws into the Render tab.
+// Click to change the palette, Space pauses, Escape quits. It opens a window (see
+// docs/extensions/webgpu.md), so it is native only; the tour's GPU stop (examples/tour/gpu)
+// is the same scene for the browser playground.
 
 #import "Basic";
 #import "Input";
-#import "Window_Type";
 #import "Extensions/WebGPU";
 
-#if OS != .WASM {
-    #import "Window_Creation";
-}
+#import "Window_Creation";
 
 SHADER :: #string WGSL
 struct Uniforms { time: f32, aspect: f32, palette: f32, _pad: f32 }
@@ -130,11 +128,7 @@ Uniforms :: struct {
 }
 
 main :: () {
-    window: Window_Type;
-
-    #if OS != .WASM {
-        window = create_window(960, 600, "WebGPU raymarch");
-    }
+    window := create_window(960, 600, "WebGPU raymarch");
 
     instance := wgpuCreateInstance(null);
     surface := webgpu_create_surface(instance, window);
