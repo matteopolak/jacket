@@ -5,6 +5,8 @@
 // `args` are the call's 64-bit slots as BigInts (pointers are addresses in `memory.buffer`); a
 // function returns its result (a number, BigInt or boolean) or a promise of it. A promise
 // suspends the module through JSPI, so such programs must run with `playAsync`.
+// The engine itself answers `getentropy` from the JavaScript runtime's secure random source
+// (`crypto.getRandomValues`); a host function of the same name takes its place.
 export async function createEngine(wasmBytes, { host } = {}) {
   const module = await WebAssembly.compile(wasmBytes);
   const unknown = WebAssembly.Module.imports(module).filter(i => i.module !== "jai_host");
@@ -40,10 +42,18 @@ export async function createEngine(wasmBytes, { host } = {}) {
     view(BigUint64Array, results, count, "results")[0] = bits;
   }
   function fail(error) { lastError = String(error?.message ?? error); return 2; }
+  // `getentropy` fills at most 256 bytes and answers 0, or -1 when it cannot.
+  const builtins = {
+    getentropy([buffer, length]) {
+      const count = address(length);
+      if (count > 256) return -1;
+      globalThis.crypto.getRandomValues(view(Uint8Array, buffer, count, "entropy buffer"));
+      return 0;
+    },
+  };
   const imports = { jai_host: {
     call(name, nameLength, args, count, results, resultCount) {
-      const functions = host?.functions;
-      if (!functions) return 1;
+      const functions = { ...builtins, ...host?.functions };
       try {
         const key = utf8.decode(view(Uint8Array, name, address(nameLength), "name"));
         if (!Object.hasOwn(functions, key)) return 1;

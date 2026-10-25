@@ -51,6 +51,7 @@ wasi_args_get :: (pointers: u32, text: u32) -> s32 #foreign wasi "args_get";
 wasi_environ_sizes_get :: (count: u32, text_bytes: u32) -> s32 #foreign wasi "environ_sizes_get";
 wasi_environ_get :: (pointers: u32, text: u32) -> s32 #foreign wasi "environ_get";
 wasi_clock_time_get :: (clock: u32, precision: u64, nanoseconds: u32) -> s32 #foreign wasi "clock_time_get";
+wasi_random_get :: (buffer: u32, length: u32) -> s32 #foreign wasi "random_get";
 wasi_proc_exit :: (code: s32) #foreign wasi "proc_exit";
 
 // One WASI `ciovec`: a 32-bit address and length.
@@ -192,6 +193,15 @@ wasi_clock_gettime :: (clock: s32, result: *Seconds_And_Nanoseconds) -> s32 #c_c
 
     result.seconds = cast(s64) (nanoseconds / 1_000_000_000);
     result.nanoseconds = cast(s64) (nanoseconds % 1_000_000_000);
+
+    return 0;
+}
+
+// Like the C function, at most 256 bytes at a time.
+#program_export "getentropy"
+wasi_getentropy :: (buffer: *void, length: u64) -> s32 #c_call {
+    if length > 256 return -1;
+    if wasi_random_get(offset32(buffer), cast,no_check(u32) length) != 0 return -1;
 
     return 0;
 }
