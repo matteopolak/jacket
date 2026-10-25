@@ -107,7 +107,7 @@ assign_channel_directions :: (data: *Sound_Data) {
         }
     }
 
-    for channel: 0..data.nchannels - 1 data.source_directions[channel] = directions[channel];
+    for channel: 0..cast(s64) data.nchannels - 1 data.source_directions[channel] = directions[channel];
 }
 
 report_audio_error :: (name: string, detail: string) {

@@ -563,6 +563,6 @@ demux_next :: (demux: *Demux) -> *Packet {
 
 decode_pts :: (p: *u8, prefix: u8) -> float64 {
     B.assert((p[0] >> 4) == prefix && (p[0] & 1) == 1 && (p[2] & 1) == 1 && (p[4] & 1) == 1, "invalid MPEG timestamp marker");
-    clock := (cast(u64) ((p[0] >> 1) & 7) << 30) | (cast(u64) p[1] << 22) | (cast(u64) (p[2] >> 1) << 15) | (cast(u64) p[3] << 7) | cast(u64) (p[4] >> 1);
+    clock := ((cast(u64) ((p[0] >> 1) & 7)) << 30) | ((cast(u64) p[1]) << 22) | ((cast(u64) (p[2] >> 1)) << 15) | ((cast(u64) p[3]) << 7) | cast(u64) (p[4] >> 1);
     return cast(float64) clock / 90000.0;
 }

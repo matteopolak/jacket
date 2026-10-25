@@ -104,7 +104,7 @@ am_start :: (w: *AM_Writer, name: string) {
         am_put32(b, a.name.index);
         am_put32(b, a.rawValue.index);
         am_put16(b, 8);
-        am_put16(b, cast(u16) a.typedValue.dataType << 8);
+        am_put16(b, (cast(u16) a.typedValue.dataType) << 8);
         am_put32(b, a.typedValue.data);
     }
 

@@ -17,7 +17,7 @@ set_custom_cursor_handling :: (is_custom: bool) {
         windows := Cocoa.application_windows();
         count := Cocoa.result_message(windows, "count", u64);
 
-        for index: 0..count - 1 {
+        for index: 0..cast(s64) count - 1 {
             window := Cocoa.argument_result_message(windows, "objectAtIndex:", cast(u64) index, Window_Type);
             disable_mac_cursor_rects(window);
         }
@@ -149,16 +149,9 @@ process_mac_notification :: (notification: *void) {
         if name == "NSWindowWillCloseNotification" {
             event.type = .QUIT;
 
-            retired_index: int = -1;
+            retired, retired_index := Basic.array_find(disabled_cursor_windows, window);
 
-            for item, index: disabled_cursor_windows {
-                if item == window {
-                    retired_index = index;
-                    break;
-                }
-            }
-
-            if retired_index >= 0 {
+            if retired {
                 Basic.array_unordered_remove_by_index(*disabled_cursor_windows, retired_index);
                 Cocoa.release(window);
             }

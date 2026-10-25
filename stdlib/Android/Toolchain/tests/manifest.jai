@@ -24,6 +24,9 @@ main :: () {
     defer deinit(*manifest);
     assert(manifest.android_namespace.uri == ANDROID_XML_SCHEMA);
     assert(manifest.elements[0].name == "manifest");
+    // The writer never writes a null value, so each attribute reads back with its type.
+    for element: manifest.elements for attribute : element.attributes assert(attribute.typedValue.dataType != 0);
+
     found := false;
     for s: manifest.string_pool if s == config.app_name found = true;
 
