@@ -8,7 +8,7 @@ mod request_id;
 mod requests;
 mod wire;
 
-pub use self::helpers::message_too_large;
+pub use self::helpers::{message_too_large, oversized_replies};
 use crate::{MarkupKind, Session};
 use std::collections::VecDeque;
 

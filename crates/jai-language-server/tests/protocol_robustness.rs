@@ -132,3 +132,42 @@ fn cancellations_that_never_match_do_not_fill_the_store() {
     let second: Value = serde_json::from_str(&answers[1][0]).unwrap();
     assert_eq!(second["error"]["code"], -32800);
 }
+
+#[test]
+fn an_oversized_request_gets_an_error_response() {
+    use jai_language_server::framing::{FrameDecoder, encode};
+    let padding = "x".repeat(300);
+    let body = format!(
+        r#"{{"jsonrpc":"2.0","id":41,"method":"textDocument/hover","params":{{"pad":"{padding}"}}}}"#
+    );
+    let mut decoder = FrameDecoder::new(128);
+    assert!(decoder.push(&encode(&body)).unwrap().is_empty());
+    let skipped = decoder.take_oversized();
+    let replies: Vec<Value> = jai_language_server::oversized_replies(&skipped[0], 128)
+        .iter()
+        .map(|reply| serde_json::from_str(reply).unwrap())
+        .collect();
+    assert_eq!(replies[0]["id"], 41);
+    assert!(replies[0]["error"]["code"].is_i64(), "{replies:?}");
+    assert_eq!(replies[1]["method"], "window/showMessage");
+}
+
+#[test]
+fn publications_over_the_output_limit_do_not_end_the_session() {
+    let mut session = JsonSession::new(Limits {
+        output_bytes: 300,
+        ..Limits::default()
+    });
+    session.defer_publications(true);
+    send(
+        &mut session,
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} }),
+    );
+    let broken = "main :: ( { } ) ;;; ( ( ( x := ; y := ; z := ;\n".repeat(20);
+    open(&mut session, "file:///workspace/main.jai", &broken);
+    let flushed = session
+        .flush_publications()
+        .expect("the limit is not fatal");
+    let logged: Value = serde_json::from_str(&flushed[0]).unwrap();
+    assert_eq!(logged["method"], "window/logMessage");
+}

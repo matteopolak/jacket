@@ -49,8 +49,11 @@ fn an_oversized_message_is_skipped_and_the_stream_stays_in_step() {
     }
     decoder.finish().unwrap();
     assert_eq!(output, ["{\"a\":1}", "{\"b\":2}"]);
-    assert_eq!(decoder.take_oversized(), [300]);
-    assert_eq!(decoder.take_oversized(), [] as [usize; 0]);
+    let skipped = decoder.take_oversized();
+    assert_eq!(skipped.len(), 1);
+    assert_eq!(skipped[0].length, 300);
+    assert_eq!(skipped[0].head, big.as_bytes());
+    assert!(decoder.take_oversized().is_empty());
 }
 
 /// A message just under the limit, then the next one, arriving in one chunk that is larger

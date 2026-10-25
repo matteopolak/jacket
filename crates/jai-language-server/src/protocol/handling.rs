@@ -102,7 +102,7 @@ impl JsonSession {
                 }));
             }
         }
-        self.encode(messages, None)
+        self.encode_unprompted(messages)
     }
 
     /// A compile-time service answer is pending: poll `service_arrivals` now and then.
@@ -117,7 +117,7 @@ impl JsonSession {
             return Ok(Vec::new());
         }
         let messages = self.edited(true);
-        self.encode(messages, None)
+        self.encode_unprompted(messages)
     }
 
     /// An edit is waiting for `flush_publications`.
@@ -132,7 +132,7 @@ impl JsonSession {
             return Ok(Vec::new());
         }
         let messages = self.publications_now();
-        self.encode(messages, None)
+        self.encode_unprompted(messages)
     }
 
     pub fn handle_json(&mut self, input: &str) -> Result<Vec<String>, ProtocolError> {
@@ -347,6 +347,15 @@ impl JsonSession {
             self.completed.pop_front();
         }
         self.completed.push_back(id);
+    }
+
+    /// `messages` that no request asked for. Over the output cap they are replaced by a log line:
+    /// there is no request to fail, and the server keeps running.
+    fn encode_unprompted(&self, messages: Vec<Value>) -> Result<Vec<String>, ProtocolError> {
+        match self.encode(messages, None) {
+            Err(ProtocolError::OutputLimit) => self.encode(vec![log_error(OUTPUT_LIMIT)], None),
+            other => other,
+        }
     }
 
     /// The messages as JSON text, then `tail` (already text: the response to a large request).

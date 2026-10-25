@@ -30,17 +30,30 @@ impl std::fmt::Display for FrameError {
 impl std::error::Error for FrameError {
 }
 
+/// A message that was over the size limit and thrown away unread.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Oversized {
+    pub length: usize,
+    /// The first bytes of its body, enough to find the request id.
+    pub head: Vec<u8>,
+}
+
 pub struct FrameDecoder {
     buffer: Vec<u8>,
     expected: Option<usize>,
     body_limit: usize,
     /// Bytes of an oversized message still to be thrown away as they arrive.
     discarding: usize,
-    /// The declared lengths of the messages thrown away since `take_oversized` was last called.
-    oversized: Vec<usize>,
+    /// The message being thrown away: its declared length and the start of its body so far.
+    skipping: Option<Oversized>,
+    /// The messages thrown away since `take_oversized` was last called.
+    oversized: Vec<Oversized>,
 }
 
 const HEADER_LIMIT: usize = 8192;
+
+/// How much of an oversized body is kept to find its request id.
+const HEAD_LIMIT: usize = 4096;
 
 impl FrameDecoder {
     pub fn new(body_limit: usize) -> Self {
@@ -49,25 +62,34 @@ impl FrameDecoder {
             expected: None,
             body_limit,
             discarding: 0,
+            skipping: None,
             oversized: vec![],
         }
     }
 
-    /// The lengths of the messages that were over the limit and thrown away unread (their bytes
-    /// are skipped as they arrive, so the stream stays in step), each reported once.
-    pub fn take_oversized(&mut self) -> Vec<usize> {
+    /// The messages that were over the limit and thrown away unread (their bytes are skipped as
+    /// they arrive, so the stream stays in step), each reported once.
+    pub fn take_oversized(&mut self) -> Vec<Oversized> {
         std::mem::take(&mut self.oversized)
     }
 
-    fn discard(&mut self) {
-        let skipped = self.discarding.min(self.buffer.len());
-        self.buffer.drain(..skipped);
+    /// Throw away what is left of an oversized body from the front of `bytes`; how many bytes
+    /// that took.
+    fn skip(&mut self, bytes: &[u8]) -> usize {
+        let skipped = self.discarding.min(bytes.len());
         self.discarding -= skipped;
+        if let Some(message) = &mut self.skipping {
+            let room = HEAD_LIMIT.saturating_sub(message.head.len());
+            message.head.extend_from_slice(&bytes[..skipped.min(room)]);
+            if message.head.len() >= HEAD_LIMIT || self.discarding == 0 {
+                self.oversized.extend(self.skipping.take());
+            }
+        }
+        skipped
     }
 
     pub fn push(&mut self, bytes: &[u8]) -> Result<Vec<String>, FrameError> {
-        let skipped = self.discarding.min(bytes.len());
-        self.discarding -= skipped;
+        let skipped = self.skip(bytes);
         let bytes = &bytes[skipped..];
         self.buffer.extend_from_slice(bytes);
         let mut messages = vec![];
@@ -77,9 +99,14 @@ impl FrameDecoder {
                 None => match self.header()? {
                     None => break,
                     Some(length) if length > self.body_limit => {
-                        self.oversized.push(length);
                         self.discarding = length;
-                        self.discard();
+                        self.skipping = Some(Oversized {
+                            length,
+                            head: vec![],
+                        });
+                        let buffered = std::mem::take(&mut self.buffer);
+                        let skipped = self.skip(&buffered);
+                        self.buffer = buffered[skipped..].to_vec();
                         continue;
                     }
                     Some(length) => *self.expected.insert(length),

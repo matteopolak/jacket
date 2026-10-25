@@ -86,6 +86,64 @@ pub fn message_too_large(length: usize, limit: usize) -> String {
     .to_string()
 }
 
+/// What to send for a message that was over the limit and skipped: an error response when its
+/// request id could be read from the start of the body, and the notice for the user.
+pub fn oversized_replies(message: &crate::framing::Oversized, limit: usize) -> Vec<String> {
+    let mut replies = vec![];
+    if let Some(id) = leading_id(&message.head) {
+        let error = failure(
+            json!(id),
+            ErrorCode::RequestFailed,
+            &format!(
+                "The request is larger than the {} MiB message limit",
+                limit / (1024 * 1024)
+            ),
+        );
+        replies.push(error.to_string());
+    }
+    replies.push(message_too_large(message.length, limit));
+    replies
+}
+
+/// The `id` member of the JSON object that `head` starts, if it comes within `head`.
+fn leading_id(head: &[u8]) -> Option<RequestId> {
+    let (mut depth, mut at) = (0usize, 0);
+    while at < head.len() {
+        match head[at] {
+            b'{' | b'[' => depth += 1,
+            b'}' | b']' => depth = depth.checked_sub(1)?,
+            b'"' => {
+                let start = at + 1;
+                at = start;
+                while at < head.len() && head[at] != b'"' {
+                    at += if head[at] == b'\\' {
+                        2
+                    } else {
+                        1
+                    };
+                }
+                let key = head.get(start..at)?;
+                let after = head.get(at + 1..)?;
+                let after_colon = after
+                    .iter()
+                    .position(|b| !b.is_ascii_whitespace())
+                    .filter(|&n| after[n] == b':');
+                if depth == 1
+                    && key == b"id"
+                    && let Some(n) = after_colon
+                {
+                    let mut values = serde_json::Deserializer::from_slice(&after[n + 1..])
+                        .into_iter::<RequestId>();
+                    return values.next()?.ok();
+                }
+            }
+            _ => {}
+        }
+        at += 1;
+    }
+    None
+}
+
 pub(super) fn log_error(message: &str) -> Value {
     json!({
         "jsonrpc": "2.0",

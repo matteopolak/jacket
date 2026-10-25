@@ -161,9 +161,11 @@ fn main() -> std::process::ExitCode {
                 return Ok(session.exit_status().unwrap_or(1));
             }
             // A message over the size limit was skipped unread: say so rather than go quiet.
-            for length in decoder.take_oversized() {
-                let notice = jai_language_server::message_too_large(length, limits.message_bytes);
-                output.write_all(&jai_language_server::framing::encode(&notice))?;
+            for message in decoder.take_oversized() {
+                for reply in jai_language_server::oversized_replies(&message, limits.message_bytes)
+                {
+                    output.write_all(&jai_language_server::framing::encode(&reply))?;
+                }
                 output.flush()?;
             }
         }
