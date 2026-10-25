@@ -89,11 +89,33 @@ main :: () {
         exit(2);
     }
 
-    if !options.root options.root = Pg.find_project_root(join(get_working_directory(), "/x",, temp));
+    if options.root options.root = from_shell(options.root);
+    else options.root = Pg.find_project_root(join(from_shell("."), "/x",, temp));
+
+    if options.out options.out = from_shell(options.out);
+
+    is_folder, found := Typed_Files.is_directory(options.root);
+    if !found || !is_folder {
+        print("the project folder % does not exist\n", options.root);
+        exit(2);
+    }
 
     Io.io_run(work);
 
     exit(ifx failures then 1 else 0);
+}
+
+// jaic runs the tool from the tool's own folder, so a relative path is taken from the folder the
+// shell was in (PWD), when the shell says.
+from_shell :: (path: string) -> string {
+    if is_absolute_path(path) return path;
+
+    base := environment_variable("PWD");
+    if !base || !is_absolute_path(base) base = get_working_directory();
+
+    if path == "." return base;
+
+    return join(base, "/", path);
 }
 
 problem :: (message: string) {

@@ -154,6 +154,10 @@ echo '{}' > "$project/db/queries/1111111111111111.json"
 if "$jaic" "$tool" -interp -- check --root "$project" > "$work/out" 2>&1; then fail "tool check missed an unused entry"; fi
 grep -q "unused entry 1111111111111111" "$work/out" || fail "tool check did not name the unused entry"
 rm -f "$project/db/queries/1111111111111111.json"
+# A relative root is taken from the folder the tool was started in.
+(cd "$project" && "$jaic" "$tool" -interp -- check --root .) > "$work/out" 2>&1 || { cat "$work/out"; fail "tool check with a relative root"; }
+(cd "$work" && "$jaic" "$tool" -interp -- check --root project) > "$work/out" 2>&1 || { cat "$work/out"; fail "tool check with a relative root below"; }
+
 # 7. Row type identity: `select *` returns the table's struct from db/schema.jai.
 cp -R "$here/identity" "$work/identity"
 "$jaic" "$work/identity/main.jai" -exe "$work/identity_test" || fail "build row type identity"
