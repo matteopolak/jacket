@@ -21,7 +21,6 @@ from toolkit.cli import add_jaic_argument
 CASES = (
     "Basic/tests/builder-format",
     "Basic/tests/integer-format",
-    "String/tests/patterns",
     "Hash/tests/floats",
     "Basic/tests/filesystem",
     "File_Utilities/tests/shape",
@@ -63,7 +62,6 @@ CASES = (
     "Basic/tests/capabilities",
     "Basic/tests/preamble",
     "Basic/tests/array-aliasing",
-    "String/tests/basics",
     "Basic/tests/wide-conversions",
     "Hash/tests/scalar-fnv",
 )

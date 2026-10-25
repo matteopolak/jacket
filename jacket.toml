@@ -280,3 +280,15 @@ blank_line_before_return = true # above a return in a longer body
 # - fuzz: seeds are fuzzer inputs (odd layout is the point, and the jaifmt target starts from
 #   them) and regressions are byte-exact reproducers.
 ignore = ["tests/corpus/**", "stdlib/Extensions/Jai_Format/tests/fixtures/**", "tests/compiler/native/debug-info/**", "fuzz/**"]
+
+[test]
+# The folders `jacket test` runs (see docs/tools/jacket-test.md): each has a `tests/` folder.
+# Run inside one of them, it runs only that one. The other stdlib modules' runtime tests are in
+# their tests/manifest.json, run by tools/stdlib/stdlib_runtime.py, which skips these folders.
+paths = [
+    "stdlib/Bit_Array",
+    "stdlib/Extensions/Testing",
+    "stdlib/Hash_Table",
+    "stdlib/String",
+    "stdlib/System",
+]

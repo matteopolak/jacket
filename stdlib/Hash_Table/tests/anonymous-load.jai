@@ -1,5 +1,5 @@
 #import "Basic";
-#load "anonymous-file.jai";
+#load "table-scope/anonymous-file.jai";
 
 main :: () {
     path, ok := get_absolute_path(".");

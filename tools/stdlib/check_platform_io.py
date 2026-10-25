@@ -30,14 +30,13 @@ from toolkit.hashing import sha256_bytes
 
 
 # The platform programs this driver builds for Windows and runs through the Wasm checks, as ids
-# of the stdlib test catalogue.
+# of the stdlib test catalogue (modules that `jacket test` runs are not in it).
 CONTRACTS = (
     "File/tests/unicode-paths",
     "Process/tests/lifecycle",
     "Runtime_Support/tests/binary-output",
     "Runtime_Support/tests/startup-arguments",
     "Runtime_Support_Crash_Handler/tests/windows-records",
-    "System/tests/queries",
     "Thread/tests/synchronization",
     "Thread/tests/thread-group",
 )

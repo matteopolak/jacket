@@ -1,0 +1,4 @@
+second-private-import-in-loaded-file.jai:6:17: error: unknown identifier `Hidden_File`
+        path, ok := Hidden_File.get_absolute_path(".");
+                    ^^^^^^^^^^^
+

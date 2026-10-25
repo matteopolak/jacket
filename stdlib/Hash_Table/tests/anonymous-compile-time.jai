@@ -1,6 +1,6 @@
 #import "Basic";
 #import "Compiler";
-#load "anonymous-file.jai";
+#load "table-scope/anonymous-file.jai";
 
 #run {
     options := get_build_options();

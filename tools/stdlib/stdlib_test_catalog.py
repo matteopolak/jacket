@@ -23,6 +23,7 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import json
 import os
+import tomllib
 from pathlib import Path
 
 from stdlib.case_capabilities import user_deferred_reason
@@ -92,14 +93,26 @@ def visible(path):
     return not any(part.startswith("._") for part in path.parts)
 
 
+def jacket_test_folders(root=ROOT):
+    """The folders `jacket test` runs (`[test] paths` in jacket.toml), as absolute paths."""
+    config = root / "jacket.toml"
+    if not config.is_file():
+        return set()
+    paths = tomllib.loads(config.read_text(encoding="utf-8")).get("test", {}).get("paths", [])
+    return {(root / path).resolve() for path in paths}
+
+
 def test_directories(root=ROOT):
-    """Every `tests` directory below stdlib/, outermost only, then the compiler regressions."""
+    """Every `tests` directory below stdlib/, outermost only, then the compiler regressions.
+    Folders `jacket test` runs are left out: their tests are not manifest cases."""
     stdlib = root / "stdlib"
+    migrated = jacket_test_folders(root)
     for directory, children, _ in os.walk(stdlib):
         children.sort()
         if "tests" in children:
             children.remove("tests")
-            yield Path(directory) / "tests"
+            if Path(directory).resolve() not in migrated:
+                yield Path(directory) / "tests"
     yield root / COMPILER_REGRESSIONS
 
 

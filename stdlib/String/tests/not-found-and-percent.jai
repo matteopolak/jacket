@@ -1,30 +1,36 @@
 // Not-found results of the splits differ by overload, `%%` is checked but left unconsumed by
 // `scan`, and substring search finds matches from any start offset.
-#import "Basic";
-S :: #import "String";
+#import "Extensions/Testing";
 
-main :: () {
-    found, left, right := S.split_from_right("abc", cast(u8) 124);
+not_found_results_differ_by_overload :: () {
+    found, left, right := Str.split_from_right("abc", cast(u8) 124);
 
-    assert(!found && left == "" && right == "abc");
-    found, left, right = S.split_from_right("abc", "|");
-    assert(!found && left == "abc" && right == "");
-    found, left, right = S.split_from_left("abc", cast(u8) 124);
-    assert(!found && left == "abc" && right == "");
-    found, left, right = S.split_from_right("a|b|c", cast(u8) 124);
-    assert(found && left == "a|b" && right == "c");
+    expect(!found && left == "" && right == "abc");
+    found, left, right = Str.split_from_right("abc", "|");
+    expect(!found && left == "abc" && right == "");
+    found, left, right = Str.split_from_left("abc", cast(u8) 124);
+    expect(!found && left == "abc" && right == "");
+    found, left, right = Str.split_from_right("a|b|c", cast(u8) 124);
+    expect(found && left == "a|b" && right == "c");
+} @test
 
-    assert(S.find_index_from_left("abcabc", "bc") == 1);
-    assert(S.find_index_from_left("abcabc", "bc", 2) == 4);
-    assert(S.find_index_from_left("abcabc", "cx") == -1);
-    assert(S.find_index_from_left("abcabc", cast(u8) 99, -5) == 2);
+substring_search_honors_the_start_offset :: () {
+    expect_equal(Str.find_index_from_left("abcabc", "bc"), 1);
+    expect_equal(Str.find_index_from_left("abcabc", "bc", 2), 4);
+    expect_equal(Str.find_index_from_left("abcabc", "cx"), -1);
+    expect_equal(Str.find_index_from_left("abcabc", cast(u8) 99, -5), 2);
+} @test
 
-    ok, values := S.scan("%%", "%");
+scan_checks_percent_but_does_not_consume_it :: () {
+    ok, values := Str.scan("%%", "%");
 
-    assert(!ok && values.count == 0);
-    ok, values = S.scan("%%", "x");
-    assert(!ok);
+    expect(!ok && values.count == 0);
+    ok, values = Str.scan("%%", "x");
+    expect(!ok);
 
-    assert(S.scan2("%", "%%"));
-    print("ok\n");
-}
+    expect(Str.scan2("%", "%%"));
+} @test
+
+#scope_file
+
+Str :: #import "String";
