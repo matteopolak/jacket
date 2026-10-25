@@ -135,6 +135,17 @@
 - Procedures that a file-scope `#insert` declares are checked when something calls them, so a generated overload nothing uses can name things that do not exist.
 - `Subtitles` HTML output groups lines into speaker turns with a paragraph per run of dialogue or directions, and a speaker whose turns are split only by an instant with no speaker gets one CSV row instead of two.
 
+### Removed
+
+- `jai.toml`, `jailint.toml` and `jaifmt.toml` are no longer read; settings live only in `jacket.toml`. `jacket config migrate` is gone, so run it with 0.27 first if you still have the old files.
+- `jaifmt.wasm` no longer takes `--config-name`; its config text is always a `jacket.toml`.
+- `Jai_Format.parse_config` now reads `jacket.toml` text; `parse_jacket_config` is gone.
+- `jaic` no longer explains option and subcommand spellings from before 0.17.
+- The installers no longer read the `JAIC_*` variables; use `JAI_*`.
+- The installers no longer install releases without `jacket` and `jaifmt`.
+- `jailint` takes one spelling per option: `-I`, `-os`, `-cpu` and `--add` (not `-import_dir`, `--import-dir`, `--os`, `--cpu` or `-add`).
+- The VS Code extension no longer checks for its old extension IDs.
+
 ## [0.26.0] - 2026-10-23
 
 ### New
