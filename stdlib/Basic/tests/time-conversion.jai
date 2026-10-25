@@ -94,7 +94,8 @@ main :: () {
         assert(now_valid);
         native_now := Native_Time.time(null);
 
-        assert(now_ts.tv_sec <= native_now && native_now - now_ts.tv_sec <= 1);
+        // time() may read a coarser clock that trails by a tick, so it can be a second behind too.
+        assert(abs(native_now - now_ts.tv_sec) <= 1);
     }
 
     #if OS == .WINDOWS {
