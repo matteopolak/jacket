@@ -8,6 +8,12 @@ get_username :: Impl.get_username;
 get_home_directory :: Impl.get_home_directory;
 get_machinename :: Impl.get_machinename;
 get_path_of_running_executable :: Impl.get_path_of_running_executable;
+// How many processors of a kind the machine has.
+//
+// ```jai,skip_on(wasm)
+// logical := get_number_of_processors(.ALL_LOGICAL);
+// assert(logical >= get_number_of_processors(.ALL_PHYSICAL) && logical > 0);
+// ```
 get_number_of_processors :: Impl.get_number_of_processors;
 
 #if OS == .WINDOWS {

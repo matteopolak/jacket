@@ -290,6 +290,7 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: bool) -> ExitCode {
     flags.extend(args.jaic_args.iter().cloned());
     let jaic = tools::find(tools::JAIC);
     let stdlib = stdlib_dir(&jaic);
+    let mut doc_files = std::collections::BTreeSet::new();
     let toolchain = Toolchain {
         jaic: jaic.clone(),
         flags,
@@ -307,7 +308,7 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: bool) -> ExitCode {
         .unwrap_or_default();
     let roots: Vec<discover::Root> = discover::roots(&args.path, &configured, &project_dir, cwd)
         .into_iter()
-        .map(|dir| discover::Root::read(dir, &stdlib))
+        .map(|dir| discover::Root::read(dir, &stdlib, &mut doc_files))
         .filter(|r| !r.is_empty())
         .collect();
     if roots.is_empty() {
@@ -574,9 +575,9 @@ fn cases(roots: &[discover::Root], built: &[Option<Built>]) -> Vec<Case> {
         }
         // Doc tests are named for their module, so they need no root prefix.
         for (doc, block) in root.docs.iter().enumerate() {
-            for word in &block.unknown {
+            for problem in &block.problems {
                 warnings.push(format!(
-                    "{}:{}: unknown doc test option `{word}` (ignored)",
+                    "{}:{}: {problem}",
                     block.file.display(),
                     block.line
                 ));
@@ -590,10 +591,7 @@ fn cases(roots: &[discover::Root], built: &[Option<Built>]) -> Vec<Case> {
                 file: block.file.clone(),
                 line: block.line,
                 notes: Vec::new(),
-                options: TestOptions {
-                    ignore: block.ignore,
-                    ..TestOptions::default()
-                },
+                options: block.options.clone(),
                 run_as: local,
                 doc: Some(doc),
             });

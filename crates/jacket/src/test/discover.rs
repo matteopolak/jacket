@@ -8,6 +8,7 @@
 //!
 //! The roots are `[test] paths` in jacket.toml (only those the current directory is in, when it
 //! is in some), else the project's folder.
+use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
@@ -59,7 +60,8 @@ pub fn is_golden(source: &Path) -> bool {
 }
 
 impl Root {
-    pub fn read(dir: PathBuf, stdlib: &Path) -> Root {
+    /// `seen` holds the files earlier roots read doc tests from; a file is read for one root.
+    pub fn read(dir: PathBuf, stdlib: &Path, seen: &mut BTreeSet<PathBuf>) -> Root {
         let tests = dir.join("tests");
         let (golden, unit) = jai_files(&tests).into_iter().partition(|f| is_golden(f));
         let label = dir
@@ -69,7 +71,7 @@ impl Root {
         let module = module_name(&dir, stdlib).unwrap_or_else(|| label.clone());
         Root {
             docs: if library {
-                super::doctest::blocks(&dir, &module)
+                super::doctest::blocks(&dir, &module, stdlib, seen)
             } else {
                 Vec::new()
             },
@@ -165,7 +167,7 @@ mod tests {
             std::fs::write(tests.join(file), "").unwrap();
         }
         std::fs::write(dir.join("module.jai"), "").unwrap();
-        let root = Root::read(dir.clone(), Path::new("/nowhere"));
+        let root = Root::read(dir.clone(), Path::new("/nowhere"), &mut BTreeSet::new());
         assert_eq!(root.module, root.label);
         assert!(root.library);
         assert_eq!(root.unit, [tests.join("unit.jai")]);

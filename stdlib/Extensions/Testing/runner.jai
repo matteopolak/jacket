@@ -77,8 +77,21 @@ run_tests :: (cases: [] Test_Case) {
     }
 }
 
+// Runs `body` as a test that prints nothing of its own: a failed check prints its message, and
+// the program exits with status 1. `jacket test` runs a doc comment's example with it.
+run_example :: (body: (t: *Test)) {
+    runner_allocator = context.allocator;
+    quiet = true;
+    example := Test_Case.{ name = "example", body = body, flags = .ALLOW_LEAKS };
+    test := run_case(*example, "");
+
+    if test.failed exit(1);
+}
+
 #scope_module
 
+// Whether the runner's own lines (`test ... ok`, the summary) are left out.
+quiet := false;
 // Whether results go to jacket as records (`--run`) or to a person (no arguments).
 reporting := false;
 // The subtest path asked for under the test that runs (`a/b` asks for `b` under `a`).
@@ -105,6 +118,8 @@ report_failure :: (loc: Source_Code_Location, message: string) {
 
     if reporting {
         record("fail", current.name, loc.fully_pathed_filename, tprint("%", loc.line_number), message);
+    } else if quiet {
+        print("%:%: %\n", loc.fully_pathed_filename, loc.line_number, message, to_standard_error = true);
     } else {
         print("    %:%: %\n", loc.fully_pathed_filename, loc.line_number, indented(message), to_standard_error = true);
     }
@@ -199,7 +214,7 @@ finish :: (t: *Test) {
 
     if reporting {
         record("end", t.name, status);
-    } else {
+    } else if !quiet {
         print("test % ... %\n", t.name, ifx t.failed then "FAILED" else ifx t.skipped then "skipped" else "ok");
     }
 }

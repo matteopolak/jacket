@@ -241,6 +241,12 @@ trim_right :: (s: string, chars := DEFAULT_SPACES) -> string {
     return slice(s, 0, count);
 } @UseResult
 
+// `s` without the `chars` at either end; the result points into `s`.
+//
+// ```jai
+// assert(trim("  hi \t") == "hi");
+// assert(trim("--x--", "-") == "x");
+// ```
 trim :: (s: string, chars := DEFAULT_SPACES) -> string {
     return trim_right(trim_left(s, chars), chars);
 } @UseResult

@@ -9,7 +9,7 @@
 - `jacket test` builds a project's tests once and runs each in its own process, in parallel, with timeouts, retries, filters, sharding, and JSON or JUnit output.
 - The `Extensions/Testing` module: `@test` procedures, `expect`/`require` checks with diffs, subtests, temporary folders, and a per-test allocator that fails a test on a leak or a double free.
 - Golden-output tests (`name.jai` with `name.stdout`) and compile-fail tests (`tests/compile_fail/`), with `--accept` to update them.
-- Doc tests: `jacket test` runs the ```` ```jai ```` examples in a library's doc comments, with `no_run`, `compile_fail`, `should_fail` and `ignore` options.
+- Doc tests: `jacket test` runs the ```` ```jai ```` examples in a library's doc comments, including those in files the library `#load`s, with `no_run`, `compile_fail`, `should_fail`, `ignore` and platform options such as `only(linux)`.
 - Notes on a test set its options: `@timeout`, `@only`, `@skip_on`, `@needs`, `@serial`, `@should_fail`, `@xfail` and more.
 
 ### Fixed

@@ -115,6 +115,11 @@ table_find_pointer :: (table: *Table, key: table.Key_Type) -> *table.Value_Type 
     return *entry.value;
 }
 
+// ```jai
+// table: Table(int, string);
+// table_add(*table, 7, "seven");
+// assert(table_contains(*table, 7) && !table_contains(*table, 8));
+// ```
 table_contains :: (table: *Table, key: table.Key_Type) -> bool {
     return table_find_pointer(table, key) != null;
 }

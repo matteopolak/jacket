@@ -84,7 +84,7 @@ bad.jai:3:12: error: type mismatch: expected `int`, got `string`
 
 ### Doc tests
 
-The examples in a library's doc comments are tests too (`crates/jacket/src/test/doctest.rs`). A doc comment is the run of `//` lines (`///` too) directly above a declaration, or the run that opens `module.jai`, which documents the module. jacket reads the root's `.jai` files outside `tests/` and outside folders that hold a `module.jai` of their own; files a library `#load`s from elsewhere are not read.
+The examples in a library's doc comments are tests too (`crates/jacket/src/test/doctest.rs`). A doc comment is the run of `//` lines (`///` too) directly above a declaration, or the run that opens `module.jai`, which documents the module. jacket reads the root's `.jai` files outside `tests/` and outside folders that hold a `module.jai` of their own, then every file they `#load`, wherever it lives, and the `internal/...` modules they `#import` (most standard library modules keep their code in `stdlib/internal`). A block in a loaded file belongs to the root that loads it; a file two roots load is read for the first one only. Only the root's own `module.jai` gives module docs.
 
 ```jai
 // The pieces of `s` between each `separator`.
@@ -96,7 +96,7 @@ The examples in a library's doc comments are tests too (`crates/jacket/src/test/
 split :: Impl.split;
 ```
 
-Each block is a program that imports `Basic` and the library (by its path in the standard library, `Extensions/Testing`, or else by its folder's name), unless the block imports them itself. A block with a file-level `main` is used as it is. Otherwise its lines become the body of a procedure, with its `#import` and `#load` lines moved to file level. Either way the example runs through the Testing module with leak checks off, so a failed `assert`, `expect` or `require` fails the doc test. Diagnostics and stack traces name the doc comment's file and line.
+Each block is a program that imports `Basic` and the library (by its path in the standard library, `Extensions/Testing`, or else by its folder's name), unless the block imports them itself. A block with a file-level `main` is used as it is. Otherwise its lines become the body of a procedure, with its `#import` and `#load` lines moved to file level. Either way the example runs through the Testing module with leak checks off, so a failed `assert`, `expect` or `require` fails the doc test. Diagnostics and stack traces name the doc comment's file and line, and a failure shows only the example's own output, without the runner's lines.
 
 Only fences that start with `jai` are tests. Options follow it, separated by commas or spaces:
 
@@ -107,6 +107,8 @@ Only fences that start with `jai` are tests. Options follow it, separated by com
 | ```` ```jai,compile_fail ```` | must fail to type-check |
 | ```` ```jai,should_fail ```` | is built and run, and must fail: a failed check, an assert, a crash or a nonzero exit |
 | ```` ```jai,ignore ```` | is skipped |
+
+The notes a `@test` takes are options too, without the `@`: ```` ```jai,only(linux, macos) ````, ```` ```jai,skip_on(wasm) ````, `needs(...)` and `timeout(...)` work as on a unit test (below).
 
 An unknown option is a warning. Doc tests are named `doc: Module.symbol#N`, or `doc: Module#N` for the module's own docs, where N counts the symbol's blocks from 1. They carry the file and line of their fence. `--doc` runs only doc tests and `--no-doc` leaves them out. `no_run` and `compile_fail` blocks run for any `-os`/`-cpu`; the others need `--runner` on another target, as unit tests do.
 

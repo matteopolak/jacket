@@ -6,11 +6,13 @@
 //! otherwise its lines are the body of a generated procedure, with its `#import` and `#load`
 //! lines moved to file level. Either way the program runs the example through the Testing module,
 //! so a failed `assert` or `expect` fails the doc test. Options follow `jai` on the fence:
-//! `ignore`, `no_run`, `compile_fail`, `should_fail`.
+//! `ignore`, `no_run`, `compile_fail`, `should_fail`, and the notes of a test (`only(linux)`).
 use super::build::{Toolchain, compile_output, unbuilt_flags};
 use super::exec::{Ending, Live};
 use super::golden::{self, Checked};
 use super::jobs::ending_text;
+use super::options::TestOptions;
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
@@ -38,9 +40,10 @@ pub struct Block {
     pub line: u32,
     pub code: String,
     pub mode: Mode,
-    pub ignore: bool,
-    /// Fence words jacket does not know, to warn about.
-    pub unknown: Vec<String>,
+    /// `ignore` and the test notes on the fence (`only(linux)`).
+    pub options: TestOptions,
+    /// Fence words that are not options, to warn about.
+    pub problems: Vec<String>,
 }
 
 const ENTRY_POINT: &str = "__jacket_doc_main";
@@ -71,18 +74,31 @@ fn library_files(dir: &Path, top: bool, out: &mut Vec<PathBuf>) {
     }
 }
 
-/// Every doc block of the library `module` in `dir`.
-pub fn blocks(dir: &Path, module: &str) -> Vec<Block> {
-    let mut files = Vec::new();
-    library_files(dir, true, &mut files);
+/// Every doc block of the library `module` in `dir`: its own files, the files they `#load`
+/// (wherever those are), and the standard library's private `internal/` modules its own files
+/// import, with the files those load. A file in `seen` was read for an earlier library and is
+/// not read again.
+pub fn blocks(dir: &Path, module: &str, stdlib: &Path, seen: &mut BTreeSet<PathBuf>) -> Vec<Block> {
+    let mut own = Vec::new();
+    library_files(dir, true, &mut own);
+    let module_file = canonical(&dir.join("module.jai"));
+    let mut queue: VecDeque<(PathBuf, bool)> = own.into_iter().map(|f| (f, true)).collect();
     let mut out = Vec::new();
-    let mut counts: std::collections::BTreeMap<String, u32> = std::collections::BTreeMap::new();
-    for file in files {
+    let mut counts: BTreeMap<String, u32> = BTreeMap::new();
+    while let Some((file, is_own)) = queue.pop_front() {
+        let file = canonical(&file);
+        if !seen.insert(file.clone()) {
+            continue;
+        }
         let Ok(text) = std::fs::read_to_string(&file) else {
             continue;
         };
-        let is_module = file.file_name().is_some_and(|n| n == "module.jai");
-        for mut block in file_blocks(&text, is_module, module) {
+        queue.extend(
+            references(&text, &file, is_own, stdlib)
+                .into_iter()
+                .map(|f| (f, false)),
+        );
+        for mut block in file_blocks(&text, file == module_file, module) {
             let n = counts.entry(block.name.clone()).or_insert(0);
             *n += 1;
             block.name = format!("{}#{n}", block.name);
@@ -91,6 +107,70 @@ pub fn blocks(dir: &Path, module: &str) -> Vec<Block> {
         }
     }
     out
+}
+
+fn canonical(path: &Path) -> PathBuf {
+    path.canonicalize().unwrap_or_else(|_| path.to_path_buf())
+}
+
+/// The string literal after `directive` in `code`, if the line has one.
+fn quoted_after<'a>(code: &'a str, directive: &str) -> Option<&'a str> {
+    let rest = code[code.find(directive)? + directive.len()..].trim_start();
+    let rest = rest.strip_prefix('"')?;
+    Some(&rest[..rest.find('"')?])
+}
+
+/// The files `file` brings in: what it `#load`s, and (for the library's own files) the
+/// standard library's `internal/` modules it imports.
+fn references(text: &str, file: &Path, is_own: bool, stdlib: &Path) -> Vec<PathBuf> {
+    let dir = file.parent().unwrap_or(Path::new("."));
+    let mut out = Vec::new();
+    for line in text.lines() {
+        let code = line.split("//").next().unwrap_or("");
+        if let Some(path) = quoted_after(code, "#load") {
+            let path = dir.join(path);
+            if path.is_file() {
+                out.push(path);
+            }
+        }
+        if is_own
+            && let Some(name) = quoted_after(code, "#import")
+            && name.starts_with("internal/")
+        {
+            let base = stdlib.join(name);
+            let found = [base.with_extension("jai"), base.join("module.jai")]
+                .into_iter()
+                .find(|p| p.is_file());
+            out.extend(found);
+        }
+    }
+    out
+}
+
+/// The words of a fence's info string, split at commas and spaces outside parentheses:
+/// `jai,only(linux, macos) no_run` is `jai`, `only(linux, macos)`, `no_run`.
+fn fence_words(info: &str) -> Vec<String> {
+    let mut words = Vec::new();
+    let mut word = String::new();
+    let mut depth = 0usize;
+    for c in info.chars() {
+        match c {
+            '(' => depth += 1,
+            ')' => depth = depth.saturating_sub(1),
+            _ => {}
+        }
+        if depth == 0 && (c == ',' || c.is_whitespace()) {
+            if !word.is_empty() {
+                words.push(std::mem::take(&mut word));
+            }
+        } else {
+            word.push(c);
+        }
+    }
+    if !word.is_empty() {
+        words.push(word);
+    }
+    words
 }
 
 /// The comment text of a `//` line, or `None` for another line.
@@ -162,11 +242,8 @@ fn fenced(lines: &[&str]) -> Vec<(usize, Block)> {
             i += 1;
             continue;
         };
-        let mut words = info
-            .split([',', ' '])
-            .map(str::trim)
-            .filter(|w| !w.is_empty());
-        let runs = words.next() == Some("jai");
+        let mut words = fence_words(info).into_iter();
+        let runs = words.next().as_deref() == Some("jai");
         let start = i;
         let mut code = String::new();
         i += 1;
@@ -187,16 +264,21 @@ fn fenced(lines: &[&str]) -> Vec<(usize, Block)> {
             line: 0,
             code,
             mode: Mode::Run,
-            ignore: false,
-            unknown: Vec::new(),
+            options: TestOptions::default(),
+            problems: Vec::new(),
         };
         for word in words {
-            match word {
-                "ignore" => block.ignore = true,
+            match word.as_str() {
+                "ignore" => block.options.ignore = true,
                 "no_run" => block.mode = Mode::NoRun,
                 "compile_fail" => block.mode = Mode::CompileFail,
                 "should_fail" => block.mode = Mode::ShouldFail,
-                other => block.unknown.push(other.to_string()),
+                // The notes of a test: `only(linux)`, `skip_on(wasm)`, `timeout(5)`, ...
+                note => {
+                    if let Err(problem) = block.options.apply(note) {
+                        block.problems.push(problem.replace("note `@", "option `"));
+                    }
+                }
             }
         }
         out.push((start, block));
@@ -277,7 +359,7 @@ fn generate(block: &Block, module: &str) -> (String, Vec<u32>) {
         &format!(
             "}}\n\
              {ENTRY_POINT} :: () {{\n    \
-             __jacket_doc_testing.run_tests(__jacket_doc_testing.Test_Case.[.{{ \"doc\", __jacket_doc_example, .{{}}, .ALLOW_LEAKS }}]);\n}}\n\
+             __jacket_doc_testing.run_example(__jacket_doc_example);\n}}\n\
              #run {{\n    \
              C :: #import \"Compiler\";\n    \
              options := C.get_build_options();\n    \
@@ -454,7 +536,7 @@ split :: (s: string) {
         let blocks = file_blocks(SOURCE, true, "Str");
         let summary: Vec<(&str, u32, Mode, bool)> = blocks
             .iter()
-            .map(|b| (b.name.as_str(), b.line, b.mode, b.ignore))
+            .map(|b| (b.name.as_str(), b.line, b.mode, b.options.ignore))
             .collect();
         assert_eq!(
             summary,
@@ -465,9 +547,45 @@ split :: (s: string) {
             ]
         );
         assert_eq!(blocks[0].code, "expect(true);\n");
-        assert_eq!(blocks[2].unknown, ["bogus"]);
+        assert_eq!(blocks[2].problems, ["unknown option `bogus` (ignored)"]);
         // Outside module.jai the opening comment is not the module's docs.
         assert_eq!(file_blocks(SOURCE, false, "Str").len(), 2);
+    }
+
+    #[test]
+    fn loaded_files_are_read_once() {
+        let base = std::env::temp_dir().join(format!("jacket-doctest-{}", std::process::id()));
+        let shared = base.join("internal/shared.jai");
+        std::fs::create_dir_all(shared.parent().unwrap()).unwrap();
+        std::fs::write(&shared, "// ```jai\n// f();\n// ```\nf :: () {}\n").unwrap();
+        for name in ["A", "B"] {
+            std::fs::create_dir_all(base.join(name)).unwrap();
+            std::fs::write(
+                base.join(name).join("module.jai"),
+                "#load \"../internal/shared.jai\";\n",
+            )
+            .unwrap();
+        }
+        let mut seen = BTreeSet::new();
+        let a = blocks(&base.join("A"), "A", &base, &mut seen);
+        let b = blocks(&base.join("B"), "B", &base, &mut seen);
+        assert_eq!(
+            a.iter().map(|b| b.name.as_str()).collect::<Vec<_>>(),
+            ["A.f#1"]
+        );
+        assert!(b.is_empty());
+        std::fs::remove_dir_all(base).unwrap();
+    }
+
+    #[test]
+    fn fence_words_keep_parentheses_whole() {
+        assert_eq!(
+            fence_words("jai,only(linux, macos) no_run"),
+            ["jai", "only(linux, macos)", "no_run"]
+        );
+        let blocks = fenced(&["```jai,skip_on(wasm),timeout(3)", "x := 1;", "```"]);
+        assert_eq!(blocks[0].1.options.skip_on, ["wasm"]);
+        assert_eq!(blocks[0].1.options.timeout, Some(3));
     }
 
     #[test]
@@ -478,8 +596,8 @@ split :: (s: string) {
             line: 4,
             code: "#import \"Math\";\nx := 1;\n".into(),
             mode: Mode::Run,
-            ignore: false,
-            unknown: Vec::new(),
+            options: TestOptions::default(),
+            problems: Vec::new(),
         };
         let (text, lines) = generate(&block, "M");
         assert!(text.contains("#import \"Basic\";\n#import \"M\";\n#import \"Math\";\n"));
