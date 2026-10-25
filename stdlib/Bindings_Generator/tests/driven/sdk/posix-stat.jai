@@ -3,6 +3,7 @@ P :: #import "POSIX";
 libc :: #library,system "c";
 abort :: () #foreign libc;
 process_id :: () -> s32 #foreign libc "getpid";
+make_dir :: (path: *u8, mode: P.mode_t) -> s32 #foreign libc "mkdir";
 make_path :: (buffer: *u8, capacity: u64, format: *u8, args: ..Any) -> s32 #foreign libc "snprintf";
 
 check :: (value: bool) {
@@ -20,6 +21,8 @@ main :: () {
         #assert offset_of(P.stat_t, "st_mode") == 16;
     }
 
+    // The scratch folder may not exist yet; an existing one is fine.
+    make_dir(".work", cast(P.mode_t) P.S_IRWXU);
     pid := process_id();
     name_buffer, link_buffer, target_buffer: [128] u8;
     name_count := make_path(name_buffer.data, 128, ".work/posix-stat-%d.txt", pid);
