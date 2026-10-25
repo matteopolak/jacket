@@ -123,9 +123,29 @@ x := 1;
 "#,
     );
     assert!(
-        e.contains("mix of inline holes and positional arguments"),
+        e.contains("a mix of inline holes and positional arguments"),
         "{e}"
     );
+}
+
+#[test]
+fn an_empty_hole_is_an_error() {
+    let e = error(
+        r#"
+#run describe("a %( ) b");
+"#,
+    );
+    assert!(e.contains("an inline hole is empty"), "{e}");
+}
+
+#[test]
+fn a_hole_that_is_not_utf8_is_an_error() {
+    let e = error(
+        r#"
+#run describe("a %(\xff) b");
+"#,
+    );
+    assert!(e.contains("an inline hole must be valid UTF-8 text"), "{e}");
 }
 
 #[test]
