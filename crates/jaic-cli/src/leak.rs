@@ -3,19 +3,17 @@ use jaic::interp::SandboxHost;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-/// A value the process never tears down when `leak` is set: it exits right after, and freeing a
-/// large compiler piece by piece takes longer than the exit itself.
+/// A value the process never tears down: it exits right after, and freeing a large compiler
+/// piece by piece takes longer than the exit itself.
 pub(super) struct LeakOnExit<T> {
     value: Option<T>,
-    leak: bool,
     before_leak: fn(&mut T),
 }
 
 impl<T> LeakOnExit<T> {
-    pub(super) fn new(value: T, leak: bool, before_leak: fn(&mut T)) -> Self {
+    pub(super) fn new(value: T, before_leak: fn(&mut T)) -> Self {
         LeakOnExit {
             value: Some(value),
-            leak,
             before_leak,
         }
     }
@@ -37,13 +35,11 @@ impl<T> std::ops::DerefMut for LeakOnExit<T> {
 
 impl<T> Drop for LeakOnExit<T> {
     fn drop(&mut self) {
-        if self.leak {
-            // Leaking skips the interpreter's `Drop`, which is what flushes `-profile` counts.
-            if let Some(value) = self.value.as_mut() {
-                (self.before_leak)(value);
-            }
-            std::mem::forget(self.value.take());
+        // Leaking skips the interpreter's `Drop`, which is what flushes `-profile` counts.
+        if let Some(value) = self.value.as_mut() {
+            (self.before_leak)(value);
         }
+        std::mem::forget(self.value.take());
     }
 }
 

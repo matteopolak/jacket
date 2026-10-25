@@ -89,3 +89,43 @@ main :: () {
         "{stderr}"
     );
 }
+
+/// The run ends when `main` does, failed or not, even while another thread waits in C (as an Io
+/// resolver helper does on its semaphore): a native program's exit ends such threads too.
+#[test]
+fn the_run_ends_while_a_thread_waits_in_c() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("interpreter-exit-blocked-thread");
+    std::fs::create_dir_all(&dir).unwrap();
+    for (name, ending, status) in [
+        ("returns", "print(\"done\\n\");", 0),
+        ("asserts", "assert(false, \"blocked thread marker\");", 1),
+    ] {
+        let file = dir.join(format!("{name}.jai"));
+        let source = format!(
+            "#import \"Basic\";\n#import \"Thread\";\nsem: Semaphore;\n\
+             main :: () {{\n    init(*sem);\n    t: Thread;\n    \
+             thread_init(*t, (t: *Thread) -> s64 {{ wait_for(*sem); return 0; }});\n    \
+             thread_start(*t);\n    sleep_milliseconds(50);\n    {ending}\n}}\n"
+        );
+        std::fs::write(&file, source).unwrap();
+        let mut child = Command::new(env!("CARGO_BIN_EXE_jaic"))
+            .arg(&file)
+            .args(["-interp", "-no_workspace_output"])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .unwrap();
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+        let code = loop {
+            if let Some(exit) = child.try_wait().unwrap() {
+                break exit.code();
+            }
+            if std::time::Instant::now() > deadline {
+                let _ = child.kill();
+                panic!("{name}: the run did not end after main returned");
+            }
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        };
+        assert_eq!(code, Some(status), "{name}");
+    }
+}

@@ -447,6 +447,17 @@ fn record_coverage(covered: &mut Vec<bool>, program: &Program, id: FuncId, func:
 }
 
 impl Interp {
+    /// The process exits next: flush the profile and stop the Jai threads without joining them.
+    /// A thread blocked in C (a helper waiting on a semaphore) would keep `shutdown` waiting
+    /// forever, while a native program's exit just ends it.
+    pub fn stop_for_exit(&mut self) {
+        self.flush_profile();
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(shared) = &self.shared {
+            shared.stop();
+        }
+    }
+
     /// Stop for good: flush the profile, stop and join the Jai threads, and make the thunks C
     /// may still hold fail with a message instead of running a dead interpreter. Calling it
     /// again does nothing more.

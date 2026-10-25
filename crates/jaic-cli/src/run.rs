@@ -68,10 +68,11 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     )));
     let sandbox = (options.os == TargetOs::Wasm).then(|| shared_sandbox.clone());
     let workspaces = create_workspaces(&cli, &options, &fs, &shared_sandbox);
-    // `-check` and builds exit right after: tearing down the syntax trees and the program takes
-    // about a tenth of a large check, and nothing observes it.
-    let mut compiler = LeakOnExit::new(Compiler::new(options, fs), cli.mode != Mode::Interp, |c| {
-        c.ct.interp.flush_profile();
+    // jaic exits right after: tearing down the syntax trees and the program takes about a tenth
+    // of a large check, and nothing observes it. After `-interp` the program's threads are left
+    // to the exit too, as a native program's are; joining one blocked in C would never return.
+    let mut compiler = LeakOnExit::new(Compiler::new(options, fs), |c| {
+        c.ct.interp.stop_for_exit();
     });
     if let Some(host) = &sandbox {
         compiler.ct.interp.host = Box::new(SharedHost(host.clone()));

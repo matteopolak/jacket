@@ -202,6 +202,13 @@ impl Shared {
         self.lock().callbacks = true;
     }
 
+    /// The process is about to exit: threads waiting for the baton stop, and the others are left
+    /// to the exit, as a native program's are.
+    pub(in crate::interp) fn stop(&self) {
+        self.lock().dead = true;
+        self.cv.notify_all();
+    }
+
     /// The interpreter is being dropped.
     pub(in crate::interp) fn close(&self) {
         let workers = {
