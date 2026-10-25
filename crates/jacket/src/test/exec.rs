@@ -197,7 +197,7 @@ pub fn kill_tree(child: &mut Child) {
     {
         // The child leads its own process group (see `spawn`).
         let _ = Command::new("kill")
-            .args(["-KILL", &format!("-{pid}")])
+            .args(kill_group_args(pid))
             .stderr(Stdio::null())
             .status();
     }
@@ -210,6 +210,14 @@ pub fn kill_tree(child: &mut Child) {
             .status();
     }
     let _ = child.kill();
+}
+
+/// `kill` arguments that kill process group `pid`. The `--` matters: without it procps `kill`
+/// reads `-1234` as an option, keeps only its first digit and signals pid -1, which is every
+/// process the user owns.
+#[cfg(unix)]
+fn kill_group_args(pid: u32) -> [String; 4] {
+    ["-s".into(), "KILL".into(), "--".into(), format!("-{pid}")]
 }
 
 fn spawn(invocation: &Invocation) -> std::io::Result<Child> {
@@ -578,7 +586,13 @@ mod process_tests {
     }
 
     #[test]
-    fn a_timeout_kills_the_process() {
+    fn the_process_group_is_named_after_the_end_of_options() {
+        assert_eq!(kill_group_args(1234), ["-s", "KILL", "--", "-1234"]);
+    }
+
+    #[test]
+    fn a_timeout_kills_the_process_and_what_it_started() {
+        let sleeper = std::env::temp_dir().join(format!("jacket-sleeper-{}", std::process::id()));
         let second = |_: &str| Some(Duration::from_millis(300));
         let limits = Limits {
             timeout: &second,
@@ -587,11 +601,25 @@ mod process_tests {
         };
         let started = Instant::now();
         let outcome = run(
-            &script(r"printf '\002start\037a\003' >&2; sleep 30"),
+            &script(&format!(
+                r"printf '\002start\037a\003' >&2; sleep 30 & echo $! > {sleeper}; wait",
+                sleeper = sleeper.display()
+            )),
             &limits,
             &mut |_| {},
         );
         assert_eq!(outcome.ending, Ending::TimedOut);
         assert!(started.elapsed() < Duration::from_secs(10));
+        // The grandchild is gone too, and this test process is still here to check.
+        let pid = std::fs::read_to_string(&sleeper).unwrap();
+        let _ = std::fs::remove_file(&sleeper);
+        let alive = Command::new("kill")
+            .args(["-0", pid.trim()])
+            .status()
+            .unwrap();
+        assert!(
+            !alive.success(),
+            "the sleep the test started is still running"
+        );
     }
 }

@@ -61,7 +61,7 @@ Each unit test runs as `tests --run NAME --temp DIR` in its own process, `-j` at
 
 With `--interp` or `--no-isolation`, a root's tests are split into `-j` batches and each batch runs in one process, because every `-interp` process compiles the program again. A crash or `exit` in a batch fails that test and a new process starts at the next one.
 
-The test's own output on both streams is captured and shown with its failure; `--no-capture` streams it instead and runs one test at a time. A test that runs past its timeout has its process group killed (`kill -KILL -PID`, `taskkill /T` on Windows) and is reported `TIMEOUT`; one still running after the `slow` time gets a `SLOW` line. `--quiet` (`-q`) prints only the tests that fail, time out or are flaky, then the summary; CI uses it.
+The test's own output on both streams is captured and shown with its failure; `--no-capture` streams it instead and runs one test at a time. A test that runs past its timeout has its process group killed (`kill -s KILL -- -PID`; the `--` keeps procps `kill` from reading `-PID` as an option and signalling every process, `taskkill /T` on Windows) and is reported `TIMEOUT`; one still running after the `slow` time gets a `SLOW` line. `--quiet` (`-q`) prints only the tests that fail, time out or are flaky, then the summary; CI uses it.
 
 Each test gets a fresh `temp_dir` under the work folder. Folders of passing tests are deleted; a failing test's is kept and printed (`--keep-temp` keeps all).
 
