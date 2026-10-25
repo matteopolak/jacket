@@ -463,7 +463,7 @@ jobs:
       - name: Build production compiler and lint tools
         run: |
           cargo build --locked -p jaic-cli -p jailint
-          cargo build --locked --release -p jaic-cli
+          cargo build --locked --release -p jaic-cli -p jacket
           target/debug/jaic jaifmt/main.jai -O2 -exe target/jaifmt
       - uses: ./.github/actions/native-libs-cache
         with:
@@ -486,6 +486,20 @@ jobs:
           [[ "$RUNNER_OS" == Linux ]] && run=(xvfb-run -a -s "-screen 0 1280x1024x24")
           "${run[@]}" python3 -u tools/stdlib/stdlib_runtime.py --jaic target/release/jaic --platform ${{ matrix.platform }} --shard ${{ matrix.shard }} \
             --modes native --opt O2 --strict --timeout 600
+      - name: Stdlib tests run by jacket test
+        # The modules under `[test] paths` in jacket.toml (stdlib_runtime.py skips them), once per
+        # platform: native, interpreted, wasm interpreted and built, and native -O2.
+        if: ${{ always() && !cancelled() && matrix.shard == '1/2' }}
+        run: |
+          ulimit -c 0
+          jacket=target/release/jacket
+          status=0
+          "$jacket" test || status=1
+          "$jacket" test --interp || status=1
+          "$jacket" test --interp -os wasm || status=1
+          "$jacket" test -os wasm --runner "node tools/wasi_run.mjs" || status=1
+          "$jacket" test -- -O2 || status=1
+          exit $status
       # The `stdlib-coverage` job reports the interpreter reachability of all shards together.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ always() && !cancelled() }}
@@ -1351,7 +1365,9 @@ jobs:
           triple: ${{ matrix.triple }}
       - uses: ./.github/actions/native-libs-cache
       - name: Build jaic with the LLVM backend
-        run: cargo build --locked -p jaic-cli --no-default-features --features static-llvm
+        run: |
+          cargo build --locked -p jaic-cli --no-default-features --features static-llvm
+          cargo build --locked -p jacket
       - uses: ./.github/actions/windows-provider
         with:
           cpu: ${{ matrix.cpu }}
@@ -1370,6 +1386,16 @@ jobs:
       - name: Stdlib tests, native O2
         if: ${{ !cancelled() }}
         run: python -u tools/stdlib/stdlib_runtime.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --shard ${{ matrix.shard }} --modes native --opt O2 --strict --dlls "$MESA_DIR"
+      - name: Stdlib tests run by jacket test
+        # The modules under `[test] paths` in jacket.toml, as in `stdlib-runtime`, without wasm.
+        if: ${{ !cancelled() && matrix.shard == '1/2' }}
+        run: |
+          jacket="$(dirname "$JAIC")/jacket.exe"
+          status=0
+          "$jacket" test || status=1
+          "$jacket" test --interp || status=1
+          "$jacket" test -- -O2 || status=1
+          exit $status
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ always() && !cancelled() }}
         with:
