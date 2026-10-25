@@ -28,6 +28,8 @@ pub struct TestOptions {
     /// A known failure, with the reason. Passing is an error, so the note gets removed.
     pub xfail: Option<String>,
     pub allow_leaks: bool,
+    /// A doc test marked `ignore`.
+    pub ignore: bool,
 }
 
 /// Where tests run: the target and how.
@@ -122,6 +124,9 @@ impl TestOptions {
 
     /// Why the test does not run on `target` with `have` capabilities, if it does not.
     pub fn skip_reason(&self, target: &Target, have: &[String]) -> Option<String> {
+        if self.ignore {
+            return Some("ignored (`jai,ignore`)".into());
+        }
         if self.interp_only && !target.interp {
             return Some("interp only".into());
         }

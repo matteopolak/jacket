@@ -1,6 +1,9 @@
 // Checks. Each reports at the caller's line and returns whether it held; `jacket test` shows the
 // line's source next to the message.
 
+// ```jai
+// expect(1 + 1 == 2);
+// ```
 expect :: (condition: bool, message := "", loc := #caller_location) -> bool {
     if condition return true;
     report_failure(loc, ifx message then message else "expected true, got false");
@@ -17,6 +20,14 @@ expect_equal :: (got: $T, want: $U, loc := #caller_location) -> bool {
 }
 
 // `|got - want| <= tolerance`. NaN is never near anything.
+//
+// ```jai,should_fail
+// expect_near(0.5, 0.25, 0.1);
+// ```
+//
+// ```jai,compile_fail
+// expect_near("half", 0.5, 0.1);
+// ```
 expect_near :: (got: float64, want: float64, tolerance: float64, loc := #caller_location) -> bool {
     difference := got - want;
     if difference < 0 difference = -difference;

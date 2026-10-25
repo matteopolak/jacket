@@ -2,7 +2,7 @@
 //! workers, and how each run's records, exit and timeouts become an outcome.
 use super::exec::{self, Ending, Live};
 use super::options::TestOptions;
-use super::{Case, Kind, Message, Outcome, Plan, Status, build, golden};
+use super::{Case, Kind, Message, Outcome, Plan, Status, build, doctest, golden};
 use std::collections::{BTreeMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
@@ -415,7 +415,21 @@ fn run_file_case(plan: &Plan, index: usize) -> Outcome {
     let case = &plan.cases[index];
     let root = &plan.roots[case.root];
     let started = Instant::now();
-    let checked = if case.kind == Kind::Golden {
+    let checked = if let Some(doc) = case.doc {
+        let work = plan.work.join(format!("doc-{index}"));
+        let _ = std::fs::create_dir_all(&work);
+        let mut quiet = |_: Live| {};
+        doctest::check(
+            &root.docs[doc],
+            &root.module,
+            &plan.root_flags[case.root],
+            &plan.toolchain,
+            &work,
+            &root.dir,
+            timeout_of(plan, &case.options),
+            &mut quiet,
+        )
+    } else if case.kind == Kind::Golden {
         let work = plan.work.join(format!("golden-{index}"));
         let _ = std::fs::create_dir_all(&work);
         let mut quiet = |_: Live| {};

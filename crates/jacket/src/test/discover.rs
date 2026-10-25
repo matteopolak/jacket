@@ -21,6 +21,11 @@ pub struct Root {
     pub unit: Vec<PathBuf>,
     pub golden: Vec<PathBuf>,
     pub compile_fail: Vec<PathBuf>,
+    /// The name a program imports the library by: its path in the standard library
+    /// (`Extensions/Testing`), else its folder's name, found through `-import_dir`.
+    pub module: String,
+    /// A library's doc tests.
+    pub docs: Vec<super::doctest::Block>,
 }
 
 pub const EXPECTED: [&str; 3] = ["stdout", "stderr", "exit"];
@@ -37,20 +42,39 @@ fn jai_files(dir: &Path) -> Vec<PathBuf> {
     files
 }
 
+/// `dir`'s path below `stdlib`, with `/` separators, when it is there.
+fn module_name(dir: &Path, stdlib: &Path) -> Option<String> {
+    let dir = dir.canonicalize().ok()?;
+    let below = dir.strip_prefix(stdlib.canonicalize().ok()?).ok()?;
+    let parts: Vec<String> = below
+        .components()
+        .map(|c| c.as_os_str().to_string_lossy().into_owned())
+        .collect();
+    (!parts.is_empty()).then(|| parts.join("/"))
+}
+
 /// Whether `source` has an expected-output file beside it.
 pub fn is_golden(source: &Path) -> bool {
     EXPECTED.iter().any(|e| source.with_extension(e).is_file())
 }
 
 impl Root {
-    pub fn read(dir: PathBuf) -> Root {
+    pub fn read(dir: PathBuf, stdlib: &Path) -> Root {
         let tests = dir.join("tests");
         let (golden, unit) = jai_files(&tests).into_iter().partition(|f| is_golden(f));
         let label = dir
             .file_name()
             .map_or_else(|| "tests".into(), |n| n.to_string_lossy().into_owned());
+        let library = dir.join("module.jai").is_file();
+        let module = module_name(&dir, stdlib).unwrap_or_else(|| label.clone());
         Root {
-            library: dir.join("module.jai").is_file(),
+            docs: if library {
+                super::doctest::blocks(&dir, &module)
+            } else {
+                Vec::new()
+            },
+            module,
+            library,
             compile_fail: jai_files(&tests.join("compile_fail")),
             dir,
             label,
@@ -60,7 +84,10 @@ impl Root {
     }
 
     pub fn is_empty(&self) -> bool {
-        self.unit.is_empty() && self.golden.is_empty() && self.compile_fail.is_empty()
+        self.unit.is_empty()
+            && self.golden.is_empty()
+            && self.compile_fail.is_empty()
+            && self.docs.is_empty()
     }
 }
 
@@ -138,7 +165,8 @@ mod tests {
             std::fs::write(tests.join(file), "").unwrap();
         }
         std::fs::write(dir.join("module.jai"), "").unwrap();
-        let root = Root::read(dir.clone());
+        let root = Root::read(dir.clone(), Path::new("/nowhere"));
+        assert_eq!(root.module, root.label);
         assert!(root.library);
         assert_eq!(root.unit, [tests.join("unit.jai")]);
         assert_eq!(root.golden, [tests.join("hello.jai")]);

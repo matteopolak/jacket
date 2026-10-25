@@ -32,6 +32,12 @@ Bench :: struct {
 }
 
 // Prints a line to the test's output, which `jacket test` shows when the test fails.
+//
+// ```jai,no_run
+// reports_progress :: (t: *Test) {
+//     log(t, "step % of %", 1, 3);
+// }
+// ```
 log :: (t: *Test, format: string, args: ..Any) {
     text := tprint(format, ..args);
     print("%\n", text);

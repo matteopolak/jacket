@@ -51,7 +51,18 @@ split_from_left :: Impl.split_from_left;
 split_from_right :: Impl.split_from_right;
 split_from_left_by_any :: Impl.split_from_left_by_any;
 split_from_right_by_any :: Impl.split_from_right_by_any;
+// The pieces of `s` between each `separator` (a string or a byte).
+//
+// ```jai
+// parts := split("a,b,c", ",");
+// assert(parts.count == 3 && parts[1] == "b");
+// ```
 split :: Impl.split;
+// The strings one after another, with `separator` between them.
+//
+// ```jai
+// assert(join("a", "b", "c", separator = "-") == "a-b-c");
+// ```
 join :: Impl.join;
 replace :: Impl.replace;
 wildcard_match :: Impl.wildcard_match;

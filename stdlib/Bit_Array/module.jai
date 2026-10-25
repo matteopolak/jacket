@@ -2,6 +2,13 @@ Bit_Array :: Impl.Bit_Array;
 init_bit_array :: Impl.init_bit_array;
 make_bit_array :: Impl.make_bit_array;
 deinit :: Impl.deinit;
+// Sets bit `i`; `bits[i]` reads it back.
+//
+// ```jai
+// bits := make_bit_array(8);
+// set_bit(*bits, 3);
+// assert(bits[3] && !bits[2]);
+// ```
 set_bit :: Impl.set_bit;
 clear_bit :: Impl.clear_bit;
 toggle_bit :: Impl.toggle_bit;

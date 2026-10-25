@@ -36,6 +36,7 @@ A test root is a folder with a `tests/` directory (`crates/jacket/src/test/disco
 | `tests/name.jai` with `name.stdout`, `name.stderr` or `name.exit` beside it | golden test: built and run alone, output compared |
 | `tests/compile_fail/name.jai` (with `name.stderr`) | compile-fail test: must fail to type-check with exactly those diagnostics |
 | every other `tests/*.jai` | unit test file: all of them are `#load`ed into one program, whose `@test` procedures are the tests |
+| a ```` ```jai ```` block in a doc comment of the library (a root with `module.jai`) | doc test: built and run as a program of its own |
 
 Folders below `tests/` are for files the tests `#load` or `#import`. When the root holds a `module.jai`, its parent folder is added as an import folder, so the tests `#import "Name"` the module they test from the working copy.
 
@@ -80,6 +81,34 @@ bad.jai:3:12: error: type mismatch: expected `int`, got `string`
 ```
 
 `--accept` writes what was printed into the expected files instead of comparing: for a golden test, `.stdout` (created if missing) and the `.stderr`/`.exit` files that exist; for a compile-fail test, `.stderr`.
+
+### Doc tests
+
+The examples in a library's doc comments are tests too (`crates/jacket/src/test/doctest.rs`). A doc comment is the run of `//` lines (`///` too) directly above a declaration, or the run that opens `module.jai`, which documents the module. jacket reads the root's `.jai` files outside `tests/` and outside folders that hold a `module.jai` of their own; files a library `#load`s from elsewhere are not read.
+
+```jai
+// The pieces of `s` between each `separator`.
+//
+// ```jai
+// parts := split("a,b,c", ",");
+// assert(parts.count == 3 && parts[1] == "b");
+// ```
+split :: Impl.split;
+```
+
+Each block is a program that imports `Basic` and the library (by its path in the standard library, `Extensions/Testing`, or else by its folder's name), unless the block imports them itself. A block with a file-level `main` is used as it is. Otherwise its lines become the body of a procedure, with its `#import` and `#load` lines moved to file level. Either way the example runs through the Testing module with leak checks off, so a failed `assert`, `expect` or `require` fails the doc test. Diagnostics and stack traces name the doc comment's file and line.
+
+Only fences that start with `jai` are tests. Options follow it, separated by commas or spaces:
+
+| Fence | The doc test |
+| --- | --- |
+| ```` ```jai ```` | is built and run, and must exit with status 0 |
+| ```` ```jai,no_run ```` | is only type-checked |
+| ```` ```jai,compile_fail ```` | must fail to type-check |
+| ```` ```jai,should_fail ```` | is built and run, and must fail: a failed check, an assert, a crash or a nonzero exit |
+| ```` ```jai,ignore ```` | is skipped |
+
+An unknown option is a warning. Doc tests are named `doc: Module.symbol#N`, or `doc: Module#N` for the module's own docs, where N counts the symbol's blocks from 1. They carry the file and line of their fence. `--doc` runs only doc tests and `--no-doc` leaves them out. `no_run` and `compile_fail` blocks run for any `-os`/`-cpu`; the others need `--runner` on another target, as unit tests do.
 
 ### Filters
 
@@ -137,7 +166,7 @@ jacket test -- -O2                                     # flags after `--` go to 
 | `run`, `finished` | `passed`, `failed`, `skipped`, `timed_out`, `xfail`, `xpass`, `flaky`, `not_run`, `duration` |
 | `list` | `name`, `kind`, `file`, `line`, `notes` (with `--list`) |
 
-`kind` is `test`, `golden`, `compile_fail` or `bench`. `type: "bench"` is reserved for benchmark results. Warnings and build errors stay on standard error.
+`kind` is `test`, `golden`, `compile_fail`, `doc` or `bench`. `type: "bench"` is reserved for benchmark results. Warnings and build errors stay on standard error.
 
 `--junit FILE` also writes JUnit XML: a `<testsuite>` per root, a `<testcase>` per test with `<failure>`, `<skipped>` and the captured output.
 
@@ -173,6 +202,7 @@ Reserved. `jacket bench --list` lists `@bench` procedures (`name :: (b: *Bench) 
 - **jacket runs jaic as a program**, not in-process. `jacket` is a front door to separate tools and links none of them; a separate compile also means the tests build exactly as `jaic` builds them. The cost, one compile per root and run, is the same either way.
 - **`--interp` isolation is per batch, not per test.** Each `-interp` process compiles the program again, so one per test would cost a compile per test. Tests in a batch still get a fresh tracking allocator, temp folder and temporary storage, and a crash only ends its batch: the next process starts at the next test.
 - **Per-test options are notes on the test**; `jacket.toml` has only run-wide settings. A test's requirements move with it, and a test file is readable alone.
+- **Doc tests run every ```` ```jai ```` block**, as rustdoc does with Rust's, and need no `@test`: an example that no longer compiles or runs is a failure. Bare statements are wrapped in a procedure, so a short example needs no `main`. Untagged fences are not run, since comments written before doc tests existed use them for other text.
 - **Expected-output files hold whole output**, not substrings: a change in a diagnostic shows up as a diff and `--accept` updates it. Paths are written `$DIR` and `$STDLIB`.
 - **The design follows** cargo-nextest (process per test, retries and flaky reports, partitions, JSON events), Go's `testing` (`*Test`, subtests, `cleanup`, `temp_dir`), Zig's testing allocator (leak and bad-free checks), pytest (`xfail`), and trybuild (compile-fail files).
 
@@ -181,6 +211,7 @@ Reserved. `jacket bench --list` lists `@bench` procedures (`name :: (b: *Bench) 
 - A new flag: `TestArgs` in `crates/jacket/src/cli.rs`, read in `settings` in `crates/jacket/src/test/mod.rs`; if it has a `jacket.toml` key, add it to `Test` and `TestRun` in `crates/jacket-config/src/schema.rs` (and the known-keys lists and the VS Code schema in `editors/vscode/scripts/build.ts`).
 - A new note: `TestOptions::apply` and `skip_reason` in `crates/jacket/src/test/options.rs`, then how it is used in `jobs.rs` (`resolve`, `expectations`) or `mod.rs`; list it in the table above.
 - A new kind of file test: `Root::read` (`discover.rs`), a `Kind`, and a runner in `golden.rs` called from `run_file_case` (`jobs.rs`).
+- Doc tests: what counts as a doc comment, the fence options and the generated program are in `doctest.rs` (`file_blocks`, `fenced`, `generate`); checking a block is `doctest::check`.
 - Scheduling and batching: `jobs` and `run_jobs` in `jobs.rs`. Process handling, record parsing and timeouts: `exec.rs`. Output: `report.rs`.
 - The JSON fields are a format others read (CI, the language server): add fields freely, and change or remove one only with a changelog line.
 - Unit tests for the runner are in each file; `cargo test -p jacket`. The Testing module's Jai tests run with `jacket test` in `stdlib/Extensions/Testing`.

@@ -416,6 +416,7 @@ fn junit(cases: &[Case], outcomes: &[Outcome], elapsed: Duration) -> String {
             Kind::Test | Kind::Bench => "test",
             Kind::Golden => "golden",
             Kind::CompileFail => "compile_fail",
+            Kind::Doc => "doc",
         };
         out.push_str(&format!(
             "    <testcase name=\"{}\" classname=\"{class}\" file=\"{}\" line=\"{}\" time=\"{:.3}\"",
@@ -482,6 +483,7 @@ mod tests {
             notes: Vec::new(),
             options: TestOptions::default(),
             run_as: name.into(),
+            doc: None,
         };
         let cases = [case("a"), case("b<c>")];
         let mut failed = Outcome::new(1, Status::Fail);

@@ -54,6 +54,74 @@ fn file_name(path: &Path) -> String {
         .map_or_else(String::new, |n| n.to_string_lossy().into_owned())
 }
 
+/// How to run `source`: `jaic -interp` on it, or the program built from it in `work`. A
+/// compile error is the `Err`.
+pub(super) fn invocation(
+    source: &Path,
+    root_flags: &[String],
+    toolchain: &Toolchain,
+    work: &Path,
+    cwd: &Path,
+) -> Result<Invocation, String> {
+    if toolchain.interp {
+        let mut args = vec![
+            source.to_string_lossy().into_owned(),
+            "-interp".into(),
+            "-quiet".into(),
+        ];
+        args.extend(unbuilt_flags(&toolchain.flags));
+        args.extend(root_flags.iter().cloned());
+        return Ok(Invocation {
+            program: toolchain.jaic.clone(),
+            args,
+            cwd: cwd.to_path_buf(),
+        });
+    }
+    let stem = file_name(&source.with_extension(""));
+    let exe = work.join(format!("golden-{stem}"));
+    let report = work.join(format!("golden-{stem}.txt"));
+    let output = Command::new(&toolchain.jaic)
+        .arg(source)
+        .arg("-quiet")
+        .args(&toolchain.flags)
+        .args(root_flags)
+        .arg("-exe")
+        .arg(&exe)
+        .env("JAIC_REPORT_EXE", &report)
+        .current_dir(work)
+        .output()
+        .map_err(|error| format!("could not start `{}`: {error}", toolchain.jaic.display()))?;
+    if !output.status.success() {
+        return Err(format!("it does not compile:\n{}", compile_output(&output)));
+    }
+    let exe = std::fs::read_to_string(&report)
+        .ok()
+        .and_then(|t| t.lines().last().map(PathBuf::from))
+        .filter(|p| p.is_file())
+        .unwrap_or(exe);
+    let (program, args) = program_and_args(&exe, &toolchain.runner);
+    Ok(Invocation {
+        program,
+        args,
+        cwd: cwd.to_path_buf(),
+    })
+}
+
+/// Runs `invocation` with no records expected: everything it prints is its output.
+pub(super) fn run_plain(
+    invocation: &Invocation,
+    timeout: Option<Duration>,
+    live: &mut dyn FnMut(Live),
+) -> exec::Outcome {
+    let limit = move |_: &str| timeout;
+    let limits = Limits {
+        timeout: &limit,
+        slow: None,
+        stream: false,
+    };
+    exec::run(invocation, &limits, live)
+}
+
 /// Builds and runs the golden test `source`.
 #[allow(clippy::too_many_arguments)]
 pub fn golden(
@@ -67,69 +135,14 @@ pub fn golden(
     live: &mut dyn FnMut(Live),
 ) -> Checked {
     let mut checked = Checked::default();
-    let stem = file_name(&source.with_extension(""));
-    let invocation = if toolchain.interp {
-        let mut args = vec![
-            source.to_string_lossy().into_owned(),
-            "-interp".into(),
-            "-quiet".into(),
-        ];
-        args.extend(unbuilt_flags(&toolchain.flags));
-        args.extend(root_flags.iter().cloned());
-        Invocation {
-            program: toolchain.jaic.clone(),
-            args,
-            cwd: cwd.to_path_buf(),
-        }
-    } else {
-        let exe = work.join(format!("golden-{stem}"));
-        let report = work.join(format!("golden-{stem}.txt"));
-        let output = Command::new(&toolchain.jaic)
-            .arg(source)
-            .arg("-quiet")
-            .args(&toolchain.flags)
-            .args(root_flags)
-            .arg("-exe")
-            .arg(&exe)
-            .env("JAIC_REPORT_EXE", &report)
-            .current_dir(work)
-            .output();
-        match output {
-            Ok(output) if output.status.success() => {}
-            Ok(output) => {
-                checked
-                    .problems
-                    .push(format!("it does not compile:\n{}", compile_output(&output)));
-                return checked;
-            }
-            Err(error) => {
-                checked.problems.push(format!(
-                    "could not start `{}`: {error}",
-                    toolchain.jaic.display()
-                ));
-                return checked;
-            }
-        }
-        let exe = std::fs::read_to_string(&report)
-            .ok()
-            .and_then(|t| t.lines().last().map(PathBuf::from))
-            .filter(|p| p.is_file())
-            .unwrap_or(exe);
-        let (program, args) = program_and_args(&exe, &toolchain.runner);
-        Invocation {
-            program,
-            args,
-            cwd: cwd.to_path_buf(),
+    let invocation = match invocation(source, root_flags, toolchain, work, cwd) {
+        Ok(invocation) => invocation,
+        Err(problem) => {
+            checked.problems.push(problem);
+            return checked;
         }
     };
-    let limit = move |_: &str| timeout;
-    let limits = Limits {
-        timeout: &limit,
-        slow: None,
-        stream: false,
-    };
-    // A golden program writes no records: everything it prints is its output.
-    let outcome = exec::run(&invocation, &limits, live);
+    let outcome = run_plain(&invocation, timeout, live);
     checked.stdout = outcome.preamble_stdout;
     checked.stderr = outcome.preamble;
     if outcome.ending == Ending::TimedOut {

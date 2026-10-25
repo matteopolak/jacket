@@ -177,6 +177,12 @@ pub struct TestArgs {
     /// Test the `tests/` of these folders instead of the project's
     #[arg(long, value_name = "DIR")]
     pub path: Vec<std::path::PathBuf>,
+    /// Run only the doc tests: the `jai` code blocks in a library's doc comments
+    #[arg(long, conflicts_with = "no_doc")]
+    pub doc: bool,
+    /// Leave the doc tests out
+    #[arg(long)]
+    pub no_doc: bool,
     /// Keep every test's temporary folder (failed tests keep theirs anyway)
     #[arg(long)]
     pub keep_temp: bool,

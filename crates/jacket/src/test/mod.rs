@@ -8,6 +8,7 @@
 mod build;
 mod diff;
 mod discover;
+mod doctest;
 mod exec;
 mod golden;
 mod jobs;
@@ -34,6 +35,8 @@ pub enum Kind {
     Test,
     Golden,
     CompileFail,
+    /// An example in a doc comment.
+    Doc,
     Bench,
 }
 
@@ -43,6 +46,7 @@ impl Kind {
             Kind::Test => "test",
             Kind::Golden => "golden",
             Kind::CompileFail => "compile_fail",
+            Kind::Doc => "doc",
             Kind::Bench => "bench",
         }
     }
@@ -63,6 +67,22 @@ pub struct Case {
     pub options: TestOptions,
     /// What `--run` is given: `local`, or `local/subtest` when a filter names a subtest.
     pub run_as: String,
+    /// A doc test's block, in its root's `docs`.
+    pub doc: Option<usize>,
+}
+
+impl Case {
+    /// Whether it only compiles, so it runs on any target (compile-fail tests, `no_run` and
+    /// `compile_fail` doc tests).
+    fn compiles_only(&self, roots: &[discover::Root]) -> bool {
+        match self.doc {
+            Some(doc) => !matches!(
+                roots[self.root].docs[doc].mode,
+                doctest::Mode::Run | doctest::Mode::ShouldFail
+            ),
+            None => self.kind == Kind::CompileFail,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -269,6 +289,7 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: bool) -> ExitCode {
     }
     flags.extend(args.jaic_args.iter().cloned());
     let jaic = tools::find(tools::JAIC);
+    let stdlib = stdlib_dir(&jaic);
     let toolchain = Toolchain {
         jaic: jaic.clone(),
         flags,
@@ -286,7 +307,7 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: bool) -> ExitCode {
         .unwrap_or_default();
     let roots: Vec<discover::Root> = discover::roots(&args.path, &configured, &project_dir, cwd)
         .into_iter()
-        .map(discover::Root::read)
+        .map(|dir| discover::Root::read(dir, &stdlib))
         .filter(|r| !r.is_empty())
         .collect();
     if roots.is_empty() {
@@ -342,6 +363,10 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: bool) -> ExitCode {
         if is_bench != bench && (bench || !args.list) {
             continue;
         }
+        let is_doc = case.kind == Kind::Doc;
+        if (args.doc && !is_doc) || (args.no_doc && is_doc) {
+            continue;
+        }
         if let Some(run_as) = select(&case, &args.filters, args.exact) {
             selected.push(Case {
                 run_as,
@@ -385,7 +410,7 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: bool) -> ExitCode {
         roots,
         root_flags,
         built,
-        stdlib: stdlib_dir(&jaic),
+        stdlib,
         toolchain,
         settings,
         work,
@@ -518,6 +543,7 @@ fn cases(roots: &[discover::Root], built: &[Option<Built>]) -> Vec<Case> {
                     notes: entry.notes.clone(),
                     options,
                     run_as: entry.name.clone(),
+                    doc: None,
                 });
             }
         }
@@ -542,8 +568,35 @@ fn cases(roots: &[discover::Root], built: &[Option<Built>]) -> Vec<Case> {
                     ),
                     options: header_of(file, &mut warnings),
                     run_as: local,
+                    doc: None,
                 });
             }
+        }
+        // Doc tests are named for their module, so they need no root prefix.
+        for (doc, block) in root.docs.iter().enumerate() {
+            for word in &block.unknown {
+                warnings.push(format!(
+                    "{}:{}: unknown doc test option `{word}` (ignored)",
+                    block.file.display(),
+                    block.line
+                ));
+            }
+            let local = format!("doc: {}", block.name);
+            cases.push(Case {
+                name: local.clone(),
+                local: local.clone(),
+                kind: Kind::Doc,
+                root: index,
+                file: block.file.clone(),
+                line: block.line,
+                notes: Vec::new(),
+                options: TestOptions {
+                    ignore: block.ignore,
+                    ..TestOptions::default()
+                },
+                run_as: local,
+                doc: Some(doc),
+            });
         }
     }
     for warning in &warnings {
@@ -569,7 +622,7 @@ fn execute(
             .options
             .skip_reason(target, &plan.settings.needs)
             .or_else(|| {
-                (case.kind != Kind::CompileFail)
+                (!case.compiles_only(&plan.roots))
                     .then(|| cross_skip.map(String::from))
                     .flatten()
             });
@@ -689,6 +742,7 @@ mod tests {
             notes: Vec::new(),
             options: TestOptions::default(),
             run_as: String::new(),
+            doc: None,
         }
     }
 
