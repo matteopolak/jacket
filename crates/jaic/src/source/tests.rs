@@ -18,7 +18,7 @@ fn crlf_line_ends_exclude_the_carriage_return() {
     let text = "ab\r\ncd\r\n\r\nef\r";
     let index = LineIndex::new(text);
     let lines: Vec<&str> = index.lines().map(|(a, b)| &text[a..b]).collect();
-    assert_eq!(lines, ["ab", "cd", "", "ef"]);
+    assert_eq!(lines, ["ab", "cd", "", "ef", ""]);
     // On the `\r` itself the position is the line's end, not past it.
     assert_eq!(index.utf16_position(text, 2), Some((0, 2)));
     assert_eq!(index.utf16_position(text, 3), Some((0, 2)));
@@ -115,19 +115,26 @@ fn random_text(seed: &mut u64) -> String {
         .collect()
 }
 
-/// The language server's original line table, kept as the reference the shared one must
-/// agree with.
+/// A line table written the plain way, the reference the shared one must agree with: `\r\n`,
+/// `\n` and a lone `\r` each end a line.
 fn reference(text: &str) -> (Vec<usize>, Vec<usize>) {
+    let bytes = text.as_bytes();
     let mut starts = vec![0];
     let mut ends = vec![];
-    for (at, byte) in text.bytes().enumerate() {
-        if byte == b'\n' {
-            ends.push(if at > 0 && text.as_bytes()[at - 1] == b'\r' {
-                at - 1
-            } else {
-                at
-            });
-            starts.push(at + 1);
+    let mut at = 0;
+    while at < bytes.len() {
+        match bytes[at] {
+            b'\r' if bytes.get(at + 1) == Some(&b'\n') => {
+                ends.push(at);
+                starts.push(at + 2);
+                at += 2;
+            }
+            b'\r' | b'\n' => {
+                ends.push(at);
+                starts.push(at + 1);
+                at += 1;
+            }
+            _ => at += 1,
         }
     }
     ends.push(text.len());
@@ -147,14 +154,7 @@ fn utf16_positions_agree_with_the_original_on_random_text() {
                 continue;
             }
             let line = starts.partition_point(|s| *s <= byte) - 1;
-            // A `\r` ending the text is part of the last line in the original; the shared
-            // index leaves it out like every other line ending.
-            let end = if line == ends.len() - 1 && text.ends_with('\r') && text.len() > starts[line]
-            {
-                ends[line] - 1
-            } else {
-                ends[line]
-            };
+            let end = ends[line];
             let want = (
                 line as u32,
                 text[starts[line]..byte.min(end)].encode_utf16().count() as u32,
@@ -184,8 +184,9 @@ fn char_columns_agree_with_counting_from_the_line_start() {
         let index = LineIndex::new(&text);
         for byte in 0..=text.len() + 2 {
             let clamped = text.floor_char_boundary(byte.min(text.len()));
-            let line = text[..clamped].matches('\n').count() + 1;
-            let start = text[..clamped].rfind('\n').map_or(0, |n| n + 1);
+            let (starts, _) = reference(&text);
+            let line = starts.partition_point(|s| *s <= clamped);
+            let start = starts[line - 1];
             let col = text[start..clamped].chars().count() + 1;
             assert_eq!(
                 index.line_col(&text, byte),
@@ -252,4 +253,25 @@ fn updating_after_random_edits_matches_a_full_rebuild() {
             );
         }
     }
+}
+
+#[test]
+fn a_lone_carriage_return_ends_a_line() {
+    let text = "ab\rcd\r\nef\ngh";
+    let index = LineIndex::new(text);
+    let lines: Vec<&str> = index.lines().map(|(a, b)| &text[a..b]).collect();
+    assert_eq!(lines, ["ab", "cd", "ef", "gh"]);
+    assert_eq!(index.offset_utf16(text, 1, 1), 4);
+    assert_eq!(index.utf16_position(text, 6), Some((1, 2)));
+    assert_eq!(line_start(text, 4), 3);
+    assert_eq!(line_end(text, 3), 5);
+}
+
+#[test]
+fn typing_a_newline_after_a_carriage_return_updates_the_index() {
+    let before = "ab\rcd";
+    let after = "ab\r\ncd";
+    let mut index = LineIndex::new(before);
+    index.update(after, 3);
+    assert_eq!(index, LineIndex::new(after));
 }

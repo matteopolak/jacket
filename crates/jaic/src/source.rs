@@ -48,8 +48,8 @@ impl Span {
 /// Where the lines of one text start and end: the single answer to "which line and column is
 /// this offset" for the compiler, the renderer, the language server and the linter.
 ///
-/// Lines end at `\n`; a `\r` before it is not part of the line (`line_end` excludes it), and
-/// neither is a `\r` ending the text. Offsets are bytes. Columns are counted in characters
+/// Lines end at `\n`, `\r\n` or a lone `\r`, the three endings the language server protocol
+/// names; the line ending is not part of the line (`line_end` excludes it). Offsets are bytes. Columns are counted in characters
 /// (`line_col`) or UTF-16 units (`utf16_position`, the language server protocol's unit).
 /// Building is one pass; every query after that is a binary search, so callers that ask
 /// about many offsets of one text build the index once and keep it (`SourceFile::lines`).
@@ -73,7 +73,12 @@ impl LineIndex {
     /// byte that differs from the text the index was built for. Lines before the one holding
     /// `from` keep their entries; that line and every one after it are scanned again.
     pub fn update(&mut self, text: &str, from: usize) {
-        let line = self.line_of(from.min(text.len()));
+        let mut from = from.min(text.len());
+        // A `\n` typed after a `\r` turns that line ending into `\r\n`.
+        if from > 0 && text.as_bytes()[from - 1] == b'\r' {
+            from -= 1;
+        }
+        let line = self.line_of(from);
         self.starts.truncate(line + 1);
         self.ends.truncate(line);
         self.scan(text);
@@ -82,17 +87,19 @@ impl LineIndex {
     /// Record the lines of `text` from the start of the last known line to the end.
     fn scan(&mut self, text: &str) {
         let bytes = text.as_bytes();
-        let from = self.starts.last().map_or(0, |&start| start as usize);
-        for (at, _) in text[from..].match_indices('\n') {
-            let at = from + at;
-            self.ends
-                .push((at - usize::from(at > 0 && bytes[at - 1] == b'\r')) as u32);
-            self.starts.push(at as u32 + 1);
+        let mut at = self.starts.last().map_or(0, |&start| start as usize);
+        while let Some(found) = bytes[at..].iter().position(|&b| b == b'\n' || b == b'\r') {
+            let end = at + found;
+            let next = if bytes[end] == b'\r' && bytes.get(end + 1) == Some(&b'\n') {
+                end + 2
+            } else {
+                end + 1
+            };
+            self.ends.push(end as u32);
+            self.starts.push(next as u32);
+            at = next;
         }
-        let last = *self.starts.last().unwrap_or(&0) as usize;
-        let len = text.len();
-        self.ends
-            .push((len - usize::from(len > last && bytes[len - 1] == b'\r')) as u32);
+        self.ends.push(text.len() as u32);
     }
 
     /// The number of lines: one more than the newlines, so the empty text has one, and a text
@@ -188,24 +195,30 @@ pub fn utf16_len(text: &str) -> u32 {
 /// offsets of one text, build a `LineIndex`. An offset past the end counts as the end; one
 /// inside a character is fine.
 pub fn line_start(text: &str, offset: usize) -> usize {
-    let bytes = &text.as_bytes()[..offset.min(text.len())];
-    bytes.iter().rposition(|&b| b == b'\n').map_or(0, |n| n + 1)
+    let bytes = text.as_bytes();
+    let mut end = offset.min(bytes.len());
+    // The `\n` of a `\r\n` still belongs to the line the `\r` ends.
+    if end > 0 && bytes.get(end) == Some(&b'\n') && bytes[end - 1] == b'\r' {
+        end -= 1;
+    }
+    bytes[..end]
+        .iter()
+        .rposition(|&b| b == b'\n' || b == b'\r')
+        .map_or(0, |n| n + 1)
 }
 
-/// The end of the line holding `offset` in `text`, before its line break (a `\r` in front of
-/// the `\n` is not part of the line either); the counterpart of `line_start`.
+/// The end of the line holding `offset` in `text`, before its line break (`\n`, `\r\n` or a
+/// lone `\r`); the counterpart of `line_start`.
 pub fn line_end(text: &str, offset: usize) -> usize {
     let bytes = text.as_bytes();
-    let from = offset.min(bytes.len());
-    let end = bytes[from..]
-        .iter()
-        .position(|&b| b == b'\n')
-        .map_or(bytes.len(), |n| from + n);
-    if end > 0 && bytes[end - 1] == b'\r' {
-        end - 1
-    } else {
-        end
+    let mut from = offset.min(bytes.len());
+    if from > 0 && bytes.get(from) == Some(&b'\n') && bytes[from - 1] == b'\r' {
+        from -= 1;
     }
+    from + bytes[from..]
+        .iter()
+        .position(|&b| b == b'\n' || b == b'\r')
+        .unwrap_or(bytes.len() - from)
 }
 
 /// What a source is named: a file on disk, or a label for text with no file (`#import,string`,
