@@ -134,6 +134,12 @@ prepare_text :: (font: *Dynamic_Font, text: string, effect_flags: Font_Effects =
 }
 
 convert_to_temporary_glyphs :: (using font: *Dynamic_Font, s: string, effect_flags: Font_Effects) {
+    begin_prepare_text(font);
+    append_prepare_text(font, s, effect_flags);
+}
+
+/// Starts a new run of prepared text, dropping what an earlier run gathered.
+begin_prepare_text :: (using font: *Dynamic_Font) {
     persistent := font_context();
 
     push_context, defer_pop persistent;
@@ -141,6 +147,13 @@ convert_to_temporary_glyphs :: (using font: *Dynamic_Font, s: string, effect_fla
     Basic.array_reset_keeping_memory(*temporary_glyphs_byte_offsets);
     temporary_glyphs_width_in_pixels = 0;
     glyph_conversion_failed = false;
+}
+
+/// Adds the glyphs of `s` to the run; byte offsets count from the start of this piece.
+append_prepare_text :: (using font: *Dynamic_Font, s: string, effect_flags: Font_Effects = 0) {
+    persistent := font_context();
+
+    push_context, defer_pop persistent;
     offset: int;
     while offset < s.count {
         code, count, status := Unicode.character_utf8_to_utf32(s.data + offset, s.count - offset, true);
@@ -165,6 +178,11 @@ convert_to_temporary_glyphs :: (using font: *Dynamic_Font, s: string, effect_fla
         temporary_glyphs_width_in_pixels += glyph.advance;
         offset += count;
     }
+}
+
+/// Closes the run; its glyphs and width stay available to `draw_prepared_text`.
+end_prepare_text :: (font: *Dynamic_Font) {
+    // Appending already keeps the run drawable, so there is nothing left to settle.
 }
 
 accumulate_glyphs_from_font :: (source: *Dynamic_Font, dest: *Dynamic_Font) {

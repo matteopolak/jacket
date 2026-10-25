@@ -11,6 +11,9 @@ Only names visible through the module’s exported scope are listed. Declaration
 - `set_render_target :: (texture: *Texture, coords := Simp_Coordinate_System.RIGHT_HANDED)`
 - `update_window :: (window: Window_Type)`
 - `draw_text :: (font: *Dynamic_Font, x: s64, y: s64, text: string, color := Vector4.{1,1,1,1}, effects: Font_Effects = 0) -> width: s64`
+- `begin_prepare_text :: (font: *Dynamic_Font)`
+- `append_prepare_text :: (font: *Dynamic_Font, s: string, effect_flags: Font_Effects = 0)`
+- `end_prepare_text :: (font: *Dynamic_Font)`
 - `draw_prepared_text :: (font: *Dynamic_Font, x: s64, y: s64, color := Vector4.{1, 1, 1, 1}, effects: Font_Effects = 0)`
 - `Window_Info :: struct`
 - `window_infos: [..] Window_Info`

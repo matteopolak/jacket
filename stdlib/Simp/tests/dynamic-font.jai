@@ -34,6 +34,18 @@ main :: () {
     assert(S.get_baseline_height(font) > 0);
     assert(S.prepare_text(font, "Aé A", .NO_KERNING | .LEFT_JUSTIFIED) == width);
 
+    S.begin_prepare_text(font);
+    S.append_prepare_text(font, "Aé");
+    S.append_prepare_text(font, " ");
+    S.append_prepare_text(font, "A");
+    S.end_prepare_text(font);
+
+    assert(font.temporary_glyphs.count == 4 && font.temporary_glyphs_width_in_pixels == width);
+    S.begin_prepare_text(font);
+
+    assert(font.temporary_glyphs.count == 0 && font.temporary_glyphs_width_in_pixels == 0);
+    S.prepare_text(font, "Aé A");
+
     if font.feature_smallcaps || font.feature_lining_numbers {
         assert(S.prepare_text(font, "a1", .SMALLCAPS | .LINING_FIGURES) > 0);
         assert(font.temporary_glyphs.count == 2);

@@ -31,6 +31,14 @@ U :: #import "Windows_Utf8";
         assert(embedded_utf8_valid && embedded_utf8 == embedded && embedded_utf8.data[3] == 0);
         free(embedded_utf8);
         free(embedded_wide);
+        fresh := U.utf8_to_wide_new("A\xc3\xa9");
+
+        assert(fresh != null && fresh[0] == 65 && fresh[1] == 0xe9 && fresh[2] == 0);
+        free(fresh);
+        blank := U.utf8_to_wide_new("");
+
+        assert(blank != null && blank[0] == 0);
+        free(blank);
         bad, bad_valid := U.wide_to_utf8(null);
 
         assert(!bad_valid && bad.count == 0 && bad.data == null);

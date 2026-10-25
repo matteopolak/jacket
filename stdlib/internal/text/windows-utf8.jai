@@ -24,6 +24,22 @@
         return output, true, cast(s32) bytes;
     }
 
+    utf8_to_wide_new :: (utf8: string) -> *u16 {
+        wide, success, bytes := utf8_to_wide(utf8);
+        if !success return null;
+
+        units := cast(s64) bytes / 2;
+        result := cast(*u16) B.alloc((units + 1) * 2);
+
+        if !result return null;
+        if wide memcpy(result, wide, units * 2);
+
+        result[units] = 0;
+        B.free(wide);
+
+        return result;
+    }
+
     wide_to_utf8 :: (data: *u16, length: s32 = -1) -> (result: string, success: bool) {
         if !data || length == 0 || length < -1 return .{}, false;
 
