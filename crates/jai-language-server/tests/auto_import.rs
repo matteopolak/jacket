@@ -536,6 +536,53 @@ fn a_workspace_holding_the_stdlib_offers_it_by_module() {
 }
 
 #[test]
+fn sessions_share_the_stdlib_index_until_a_buffer_or_the_disk_changes_it() {
+    let dir = project(
+        "shared-stdlib",
+        &[
+            ("stdlib/Basic/module.jai", "#load \"scalar.jai\";\n"),
+            ("stdlib/Basic/scalar.jai", "print_scalar :: () {}\n"),
+            ("work/main.jai", ""),
+        ],
+    );
+    let text = "main :: () {\n    prin\n}\n";
+    let main = dir.join("work/main.jai");
+    let basic = || [("Basic".to_string(), "#import \"Basic\";\n\n".to_string())];
+    let none: [(String, String); 0] = [];
+    let mut first = session_with_stdlib(dir.join("stdlib"));
+    let list = complete_at(&mut first, &main, text, "prin");
+    assert_eq!(sources_of(&list, "print_scalar"), basic());
+    // Another session with the stdlib file open reads the buffer, not what the first one read.
+    let mut editing = session_with_stdlib(dir.join("stdlib"));
+    editing
+        .open(
+            uri_of(&dir.join("stdlib/Basic/scalar.jai")),
+            1,
+            "print_edited :: () {}\n".into(),
+        )
+        .unwrap();
+    let list = complete_at(&mut editing, &main, text, "prin");
+    assert_eq!(sources_of(&list, "print_edited"), basic());
+    assert_eq!(sources_of(&list, "print_scalar"), none);
+    // The buffer is that session's own: a new one still sees the disk.
+    let mut fresh = session_with_stdlib(dir.join("stdlib"));
+    let list = complete_at(&mut fresh, &main, text, "prin");
+    assert_eq!(sources_of(&list, "print_scalar"), basic());
+    assert_eq!(sources_of(&list, "print_edited"), none);
+    // A change on disk is seen by the next session.
+    std::fs::write(
+        dir.join("stdlib/Basic/scalar.jai"),
+        "print_changed_on_disk :: () {}\n",
+    )
+    .unwrap();
+    let mut after = session_with_stdlib(dir.join("stdlib"));
+    let list = complete_at(&mut after, &main, text, "prin");
+    assert_eq!(sources_of(&list, "print_changed_on_disk"), basic());
+    assert_eq!(sources_of(&list, "print_scalar"), none);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn names_of_files_the_program_already_loads_need_no_edit() {
     // `main.jai` is the inferred entry; it loads `a.jai` and `b.jai`. Editing `b.jai` alone, the
     // program is checked from the entry, so the names of `a.jai` are offered without an edit; a file nothing loads gets a `#load`

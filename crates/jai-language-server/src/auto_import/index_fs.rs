@@ -60,6 +60,7 @@ impl project::ProjectFs for IndexFs<'_, '_> {
         let dir = file.parent().unwrap_or(Path::new("/"));
         let mut index = self.index.borrow_mut();
         if let Some(facts) = index.builds.get(file) {
+            self.sources.note_own();
             out.extend(facts.programs.iter().flat_map(|p| p.files.iter().cloned()));
         } else {
             let scan = self.sources.scan(&mut index, file);

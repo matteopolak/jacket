@@ -1,14 +1,14 @@
 //! Finding the modules an import can name: the files a program loads, the standard library's
 //! modules (ranked, cached) and the project's own.
 use super::index_fs::IndexFs;
-use super::{Index, MAX_LOADED, Module, ModuleCache, Modules, Sources};
+use super::{AskedOptions, Index, MAX_LOADED, Module, ModuleCache, Modules, Recorded, Sources};
 use crate::exports::Visibility;
 use crate::project;
 use jaic::fxhash::HashMap;
 use jaic::sema::ModuleRanking;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 impl Sources<'_> {
     /// `root` and every file its `#load`s reach (and the files a build metaprogram compiles).
@@ -58,7 +58,7 @@ impl Sources<'_> {
         index: &mut Index,
         dir: &Path,
         prefix: &str,
-    ) -> Vec<Rc<Module>> {
+    ) -> Vec<Arc<Module>> {
         let mut modules = Vec::new();
         for (entry, is_dir) in self.list_dir(dir) {
             if entry.starts_with('.') {
@@ -75,7 +75,7 @@ impl Sources<'_> {
             } else {
                 continue;
             };
-            modules.push(Rc::new(self.read_module(
+            modules.push(Arc::new(self.read_module(
                 index,
                 dir,
                 prefix,
@@ -135,12 +135,12 @@ impl Sources<'_> {
         {
             return modules.clone();
         }
-        Rc::new(
+        Arc::new(
             modules
                 .iter()
                 .map(|m| {
                     if m.files.iter().any(|f| stale.contains(f)) {
-                        Rc::new(self.read_module(
+                        Arc::new(self.read_module(
                             index,
                             &m.dir,
                             &m.prefix,
@@ -173,10 +173,63 @@ impl Sources<'_> {
             ));
             return modules;
         }
-        let preload = (self.env.options)(&dir.join(".prelude-index.jai"))
+        let modules = self.shared_stdlib(index, dir);
+        index.stdlib = Some((
+            dir.to_path_buf(),
+            ModuleCache {
+                modules: modules.clone(),
+                stale: BTreeSet::new(),
+            },
+        ));
+        modules
+    }
+
+    /// The stdlib's modules as another session of this process read them, if nothing they were
+    /// read from has changed since and no open document stands in for one of those files;
+    /// otherwise read here, and kept for other sessions when only the file system went in.
+    fn shared_stdlib(&self, index: &mut Index, dir: &Path) -> Modules {
+        static KEPT_STDLIBS: Mutex<Vec<(PathBuf, Arc<SharedStdlib>)>> = Mutex::new(Vec::new());
+        let candidates: Vec<Arc<SharedStdlib>> = KEPT_STDLIBS
+            .lock()
+            .map(|kept| {
+                kept.iter()
+                    .rev()
+                    .filter(|(root, _)| root == dir)
+                    .map(|(_, shared)| shared.clone())
+                    .collect()
+            })
+            .unwrap_or_default();
+        if let Some(found) = candidates
+            .into_iter()
+            .find(|shared| shared.is_current(self))
+        {
+            return found.modules.clone();
+        }
+        // Scans kept from earlier would not be recorded as read: read them again.
+        index.files.retain(|path, _| !path.starts_with(dir));
+        let outer = self.recording.replace(Some(Recorded::default()));
+        let modules = self.read_stdlib(index, dir);
+        let recorded = self.recording.replace(outer).unwrap_or_default();
+        // The stdlib's files are only read through its modules: drop their scans.
+        index.files.retain(|path, _| !path.starts_with(dir));
+        if let Some(shared) = SharedStdlib::new(modules.clone(), recorded)
+            && let Ok(mut kept) = KEPT_STDLIBS.lock()
+        {
+            kept.retain(|(root, old)| root != dir || old.is_current(self));
+            kept.push((dir.to_path_buf(), Arc::new(shared)));
+            if kept.len() > KEPT {
+                kept.remove(0);
+            }
+        }
+        modules
+    }
+
+    fn read_stdlib(&self, index: &mut Index, dir: &Path) -> Modules {
+        let preload = self
+            .options(&dir.join(".prelude-index.jai"))
             .preload
             .map(|path| self.key(&path));
-        let mut modules: Vec<Rc<Module>> = self
+        let mut modules: Vec<Arc<Module>> = self
             .modules_in(index, dir, "")
             .into_iter()
             .filter(|m| {
@@ -188,24 +241,14 @@ impl Sources<'_> {
             .collect();
         let extensions = jaic::STDLIB_EXTENSIONS_DIR;
         modules.extend(self.modules_in(index, &dir.join(extensions), &format!("{extensions}/")));
-        // The stdlib's files are only read through its modules: drop their scans.
-        index.files.retain(|path, _| !path.starts_with(dir));
-        let modules = Rc::new(modules);
-        index.stdlib = Some((
-            dir.to_path_buf(),
-            ModuleCache {
-                modules: modules.clone(),
-                stale: BTreeSet::new(),
-            },
-        ));
-        modules
+        Arc::new(modules)
     }
 
     /// Which stdlib modules to suggest first: those most other stdlib modules import. Worked out
     /// again only when the module list changes.
     pub(super) fn stdlib_ranking(&self, index: &mut Index, modules: &Modules) -> ModuleRanking {
         if let Some((from, ranking)) = &index.ranking
-            && Rc::ptr_eq(from, modules)
+            && Arc::ptr_eq(from, modules)
         {
             return ranking.clone();
         }
@@ -235,7 +278,7 @@ impl Sources<'_> {
             );
             return modules;
         }
-        let modules = Rc::new(self.modules_in(index, dir, ""));
+        let modules = Arc::new(self.modules_in(index, dir, ""));
         index.module_dirs.insert(
             dir.to_path_buf(),
             ModuleCache {
@@ -244,5 +287,53 @@ impl Sources<'_> {
             },
         );
         modules
+    }
+}
+
+/// Stdlib module lists kept for the sessions of this process.
+const KEPT: usize = 4;
+
+/// A stdlib module list and what it was read from: each path's stamp and the options asked for.
+struct SharedStdlib {
+    modules: Modules,
+    stamps: Vec<(PathBuf, u64)>,
+    paths: BTreeSet<PathBuf>,
+    options: Vec<(PathBuf, AskedOptions)>,
+}
+
+impl SharedStdlib {
+    /// `None` when an open document or a build went in, or a path has no stamp.
+    fn new(modules: Modules, recorded: Recorded) -> Option<Self> {
+        if recorded.own {
+            return None;
+        }
+        let stamps = recorded
+            .stamps
+            .into_iter()
+            .map(|(path, stamp)| Some((path, stamp?)))
+            .collect::<Option<Vec<_>>>()?;
+        Some(SharedStdlib {
+            modules,
+            paths: stamps.iter().map(|(path, _)| path.clone()).collect(),
+            stamps,
+            options: recorded.options.into_iter().collect(),
+        })
+    }
+
+    /// Whether `sources` would read the same modules: no path it was read from changed or is
+    /// an open document (or a folder holding one), and the options are the same.
+    fn is_current(&self, sources: &Sources) -> bool {
+        sources
+            .open
+            .keys()
+            .all(|open| !open.ancestors().any(|path| self.paths.contains(path)))
+            && self
+                .stamps
+                .iter()
+                .all(|(path, stamp)| sources.env.fs.stamp(path) == Some(*stamp))
+            && self.options.iter().all(|(root, (import_paths, preload))| {
+                let options = (sources.env.options)(root);
+                options.import_paths == *import_paths && options.preload == *preload
+            })
     }
 }
