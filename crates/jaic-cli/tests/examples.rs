@@ -16,6 +16,7 @@ const PROGRAMS: &[(&str, &[&str], &str)] = &[
     ("using-records.jai", ALL, ""),
     ("tour/main.jai", ALL, ""),
     ("webgpu/compute.jai", ALL, ""),
+    ("webgpu/textured_cube/main.jai", ALL, ""),
     (
         "webgpu/triangle.jai",
         NATIVE,
