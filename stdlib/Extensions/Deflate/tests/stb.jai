@@ -8,7 +8,7 @@
 #import "stb_image_write";
 
 // The stb functions allocate with the C library.
-libc :: #library,system "c";
+libc :: #system_library "libc";
 c_free :: (memory: *void) #foreign libc "free";
 
 stb_compress :: (data: [] u8, quality: s32) -> [] u8 {

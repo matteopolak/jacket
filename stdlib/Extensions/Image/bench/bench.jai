@@ -18,7 +18,7 @@ Load :: #import "stb_image";
 Write :: #import "stb_image_write";
 Resize :: #import "stb_image_resize";
 
-libc :: #library,system "c";
+libc :: #system_library "libc";
 c_free :: (memory: *void) #foreign libc "free";
 
 seconds :: () -> float64 {

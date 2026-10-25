@@ -14,3 +14,8 @@
 
 # Postgres schema goldens are compared with generated LF text.
 /stdlib/Extensions/Postgres/tests/schema/* text eol=lf
+
+# Image and compression fixtures are compared byte for byte; some have no NUL bytes and would
+# otherwise get CRLF line endings on a Windows checkout.
+/stdlib/Extensions/Image/tests/fixtures/** -text
+/examples/webgpu/textured_cube/assets/** -text

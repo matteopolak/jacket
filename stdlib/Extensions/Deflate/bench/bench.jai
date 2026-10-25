@@ -15,7 +15,7 @@
 #import "stb_image_write";
 
 // The stb functions allocate with the C library.
-libc :: #library,system "c";
+libc :: #system_library "libc";
 c_free :: (memory: *void) #foreign libc "free";
 
 WORDS :: string.["the", "of", "and", "compiler", "stream", "window", "literal", "length", "distance", "huffman", "block", "match", "symbol", "table", "inflate", "deflate", "a", "to", "in", "is", "bytes", "output", "Jai", "code"];
