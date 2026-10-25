@@ -230,16 +230,11 @@ jobs:
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part != 'jai' }}
         # The full reference lexer requires the separately supplied sources.
         # Protected-tool rejection remains active without original native files.
-        # The step stops itself before the job's timeout so its log is kept, and lists the processes
-        # still running a minute before it does.
+        # On Linux the step stops itself before the job's timeout, and stops the largest process when
+        # memory runs low, naming what it stopped, so the log is kept.
         run: |
           ulimit -c 0
-          ( sleep 1680; echo "::error::Rust tests still running after 28 minutes:"; ps -eo pid,ppid,etimes,args --forest ) &
-          watchdog=$!
-          status=0
-          timeout --kill-after=30s 29m just test --suite cargo --jobs "$(getconf _NPROCESSORS_ONLN)" || status=$?
-          kill "$watchdog" 2>/dev/null || true
-          exit "$status"
+          tools/ci/run_watched.sh 29 -- just test --suite cargo --jobs "$(getconf _NPROCESSORS_ONLN)"
       - name: Native tests with every program divided into parts
         id: split-native
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part != 'jai' }}
