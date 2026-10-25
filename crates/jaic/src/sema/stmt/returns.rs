@@ -20,7 +20,13 @@ impl Compiler {
             let mut ops = Vec::new();
             for (i, v) in values.iter().enumerate() {
                 let expected = frame.result_slots.get(i).map(|s| s.0);
-                ops.push(self.check_expr(f, scope, &v.value, expected)?);
+                match self.check_expr(f, scope, &v.value, expected)? {
+                    // `return two();`: each result of the call fills one of the macro's.
+                    Operand::Multi(vals) if values.len() == 1 => {
+                        ops.extend(vals.into_iter().take(frame.result_slots.len()));
+                    }
+                    other => ops.push(other),
+                }
             }
             for (op, (ty, slot)) in ops.into_iter().zip(&frame.result_slots) {
                 let op = self.convert(f, op, *ty, span)?;
