@@ -34,9 +34,9 @@ read_variable :: (name: string) -> value: string, set: bool {
         wide_value := Windows._wgetenv(cast(*s16) wide_name);
         if !wide_value return "", false;
 
-        value := wide_to_utf8(cast(*u16) wide_value,, temp);
+        value, converted := wide_to_utf8(cast(*u16) wide_value,, temp);
 
-        return value, true;
+        return value, converted;
     } else {
         value := c_getenv(temp_c_string(name));
         if !value return "", false;

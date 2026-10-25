@@ -11,3 +11,6 @@
 
 # The glob table is read by Rust and Jai tests that split on "\n".
 /tests/glob/cases.txt text eol=lf
+
+# Postgres schema goldens are compared with generated LF text.
+/stdlib/Extensions/Postgres/tests/schema/* text eol=lf

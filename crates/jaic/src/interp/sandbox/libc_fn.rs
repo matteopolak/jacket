@@ -42,6 +42,7 @@ raw_enum! {
         SchedYield = "sched_yield",
         Sysconf = "sysconf",
         Getpid = "getpid",
+        Getentropy = "getentropy",
         ClockGettime = "clock_gettime",
         Gettimeofday = "gettimeofday",
         Time = "time",

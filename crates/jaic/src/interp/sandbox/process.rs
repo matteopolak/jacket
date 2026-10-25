@@ -1,6 +1,6 @@
 //! Output, exiting, and process-level procedures.
 
-use super::{EINVAL, EPERM, Host, LibcFn, SandboxHost, read_bytes};
+use super::{EINVAL, EPERM, Host, LibcFn, SandboxHost, read_bytes, write_bytes};
 
 impl SandboxHost {
     /// Program output, exiting, and the process-level procedures a sandboxed run answers with
@@ -46,6 +46,14 @@ impl SandboxHost {
                 _ => self.set_errno(EINVAL),
             },
             LibcFn::Getpid => 1,
+            // Secure random bytes, at most 256 per call like the C function.
+            LibcFn::Getentropy => match host_entropy(arg(1) as usize) {
+                Some(bytes) => {
+                    write_bytes(arg(0), &bytes);
+                    0
+                }
+                None => self.set_errno(EINVAL),
+            },
             // Nothing a sandboxed program runs may start another process. It fails as a
             // refused call does, so code with a fallback (a build stamping its version from
             // `git`) carries on, and code that called it holding a lock lets go of it.
@@ -86,5 +94,26 @@ impl SandboxHost {
             self.environment_texts.insert(key, text);
         }
         text
+    }
+}
+
+/// `len` bytes from the operating system's secure random source, or none when `len` is over the
+/// C function's limit or the source cannot be read.
+fn host_entropy(len: usize) -> Option<Vec<u8>> {
+    if len > 256 {
+        return None;
+    }
+    #[cfg(unix)]
+    {
+        use std::io::Read;
+        let mut bytes = vec![0; len];
+        std::fs::File::open("/dev/urandom")
+            .and_then(|mut f| f.read_exact(&mut bytes))
+            .ok()?;
+        Some(bytes)
+    }
+    #[cfg(not(unix))]
+    {
+        None
     }
 }

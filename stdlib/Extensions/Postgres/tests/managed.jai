@@ -119,7 +119,7 @@ check_server :: (server: Pg.Managed_Server) {
 remove_tree :: (path: string) {
     #if OS == .WINDOWS {
         native := copy_string(path,, temp);
-        for 0..native.count - 1 if native[it] == #char "/" native[it] = #char "\\";
+        for *native if it.* == #char "/" it.* = #char "\\";
         Proc.run_command("cmd", "/c", "rmdir", "/s", "/q", native);
     } else {
         Proc.run_command("rm", "-rf", path);
