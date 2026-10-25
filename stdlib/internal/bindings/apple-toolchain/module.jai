@@ -57,7 +57,8 @@ sdk_lookup :: (command: *u8) -> string {
 
             capacity *= 2;
             grown := cast(*u8) Native.allocate(capacity);
-            for i: 0..n - 1 grown[i] = buffer[i];
+
+            memcpy(grown, buffer, n);
 
             Native.release(buffer);
             buffer = grown;

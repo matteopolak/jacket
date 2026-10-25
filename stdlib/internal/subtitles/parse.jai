@@ -140,12 +140,10 @@ get_sections_for_characters :: (subtitles: Subtitles, names: ..string) -> [..] *
         matches := false;
 
         for instant: section.instants {
-            for name: names if name == instant.speaker {
+            if Basic.array_find(names, instant.speaker) {
                 matches = true;
                 break;
             }
-
-            if matches break;
         }
 
         if matches array_add(*selected, section);

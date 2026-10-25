@@ -845,7 +845,7 @@ sni_callback :: (data: *void, ssl: *void, name: *u8, length: u64) -> s32 #c_call
 
     if count > stream.peer_name_bytes.count count = stream.peer_name_bytes.count;
 
-    for 0..count - 1 stream.peer_name_bytes[it] = name[it];
+    memcpy(stream.peer_name_bytes.data, name, count);
 
     stream.peer_name_count = cast(u8) count;
 

@@ -37,7 +37,7 @@ generate_header :: (using info: *Header_Info, path: string) -> bool {
 
     for width: 0..3 {
         bits := cast(s64) 8 << width;
-        append(*builder, tprint("typedef int%_t s%;\ntypedef uint%_t u%;\n", bits, bits, bits, bits));
+        print_to_builder(*builder, "typedef int%_t s%;\ntypedef uint%_t u%;\n", bits, bits, bits, bits);
     }
 
     types: [..] *Type_Info;
@@ -85,7 +85,7 @@ generate_header :: (using info: *Header_Info, path: string) -> bool {
             st := cast(*Type_Info_Struct) ti;
             tag := ifx st.textual_flags & .UNION then "union" else "struct";
 
-            append(*builder, tprint("typedef % % %;\n", tag, name, name));
+            print_to_builder(*builder, "typedef % % %;\n", tag, name, name);
         }
     }
 
@@ -107,7 +107,7 @@ generate_header :: (using info: *Header_Info, path: string) -> bool {
         signature, ok := header_declarator(info, decl.type, name, true);
         if !ok return false;
 
-        append(*builder, tprint("extern %;\n", signature));
+        print_to_builder(*builder, "extern %;\n", signature);
     }
 
     append(*builder, "#ifdef __cplusplus\n}\n#endif\n#undef JAI_HEADER_ASSERT\n#undef JAI_HEADER_ALIGNOF\n");
@@ -346,7 +346,7 @@ header_define_type :: (info: *Header_Info, builder: *String_Builder, ti: *Type_I
 
         tag := ifx st.textual_flags & .UNION then "union" else "struct";
 
-        append(builder, tprint("% % {\n", tag, name));
+        print_to_builder(builder, "% % {\n", tag, name);
 
         for member: st.members {
             if header_omitted_member(member) continue;
@@ -355,16 +355,16 @@ header_define_type :: (info: *Header_Info, builder: *String_Builder, ti: *Type_I
             text, ok := header_declarator(info, member.type, member.name, false);
             if !ok return false;
 
-            append(builder, tprint("    %;\n", text));
+            print_to_builder(builder, "    %;\n", text);
         }
 
         append(builder, "};\n");
-        append(builder, tprint("JAI_HEADER_ASSERT(sizeof(%) == %, \"Jai size mismatch\");\n", name, st.runtime_size));
-        append(builder, tprint("JAI_HEADER_ASSERT(JAI_HEADER_ALIGNOF(%) == %, \"Jai alignment mismatch\");\n", name, st.alignment));
+        print_to_builder(builder, "JAI_HEADER_ASSERT(sizeof(%) == %, \"Jai size mismatch\");\n", name, st.runtime_size);
+        print_to_builder(builder, "JAI_HEADER_ASSERT(JAI_HEADER_ALIGNOF(%) == %, \"Jai alignment mismatch\");\n", name, st.alignment);
 
         for member: st.members {
             if header_omitted_member(member) continue;
-            append(builder, tprint("JAI_HEADER_ASSERT(offsetof(%, %) == %, \"Jai field offset mismatch\");\n", name, member.name, member.offset_in_bytes));
+            print_to_builder(builder, "JAI_HEADER_ASSERT(offsetof(%, %) == %, \"Jai field offset mismatch\");\n", name, member.name, member.offset_in_bytes);
         }
     } else if ti.type == .ENUM {
         en := cast(*Type_Info_Enum) ti;
@@ -373,8 +373,8 @@ header_define_type :: (info: *Header_Info, builder: *String_Builder, ti: *Type_I
         if info.enum_internal_types {
             base, ok := header_declarator(info, en.internal_type, "", false);
             if !ok return false;
-            append(builder, tprint("typedef enum % : % {\n", name, base));
-        } else append(builder, tprint("typedef enum % {\n", name));
+            print_to_builder(builder, "typedef enum % : % {\n", name, base);
+        } else print_to_builder(builder, "typedef enum % {\n", name);
 
         prefix: String_Builder;
 
@@ -384,11 +384,11 @@ header_define_type :: (info: *Header_Info, builder: *String_Builder, ti: *Type_I
         for item, index: en.names {
             symbol := ifx info.prefix_enum_values then tprint("%_%", header_builder_text(*prefix), item) else item;
             if !header_identifier(symbol) return header_error("invalid C enum value name");
-            if !en.internal_type.signed && en.values[index] < 0 append(builder, tprint("    % = %ULL,\n", symbol, cast(u64) en.values[index]));
-            else append(builder, tprint("    % = %,\n", symbol, en.values[index]));
+            if !en.internal_type.signed && en.values[index] < 0 print_to_builder(builder, "    % = %ULL,\n", symbol, cast(u64) en.values[index]);
+            else print_to_builder(builder, "    % = %,\n", symbol, en.values[index]);
         }
 
-        append(builder, tprint("} %;\n", name));
+        print_to_builder(builder, "} %;\n", name);
     } else {
         variant := cast(*Type_Info_Variant) ti;
         if !header_define_type(info, builder, variant.variant_of, done, active) return false;
@@ -396,7 +396,7 @@ header_define_type :: (info: *Header_Info, builder: *String_Builder, ti: *Type_I
         text, ok := header_declarator(info, variant.variant_of, name, false);
         if !ok return false;
 
-        append(builder, tprint("typedef %;\n", text));
+        print_to_builder(builder, "typedef %;\n", text);
     }
 
     append(builder, "\n");

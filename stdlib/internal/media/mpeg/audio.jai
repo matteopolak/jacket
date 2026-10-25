@@ -357,7 +357,7 @@ audio_decode_frame :: (audio: *Audio) {
                     }
                 }
 
-                for j: 0..31 audio.samples.interleaved[(out + j) * 2 + ch] = audio.U[j] / -1090519040.0;
+                for j: 0..31 audio.samples.interleaved[(out + j) * 2 + ch] = audio.U[j] / -1090519040;
             }
 
             out += 32;

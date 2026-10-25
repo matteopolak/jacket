@@ -450,7 +450,7 @@ edit_distance :: (a: string, b: string) -> int {
             current[j] = min(previous[j] + 1, min(current[j - 1] + 1, previous[j - 1] + cost));
         }
 
-        for 0..b.count previous[it] = current[it];
+        memcpy(previous.data, current.data, (b.count + 1) * size_of(s64));
     }
 
     return previous[b.count];

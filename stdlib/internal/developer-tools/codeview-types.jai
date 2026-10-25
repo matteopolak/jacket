@@ -112,7 +112,7 @@ describe_builtin :: (type_id: Type_Id) -> string {
     }
 
     mode := (id >> 8) & 15;
-    if mode == 0 return sprint("%", name);
+    if mode == 0 return copy_string(name);
     if mode > 7 return "";
 
     return sprint("% *[mode=%]", name, mode);
@@ -253,7 +253,7 @@ cv_padding :: (input: *Line_Wire_Input) -> bool {
 
     count := first - 0xf0;
     if count - 1 > input.limit - input.cursor return false;
-    for index: 1..count - 1 if cv_u8(input) != first - index return false;
+    for index: 1..cast(s64) count - 1 if cv_u8(input) != first - index return false;
 
     return !input.failed && input.cursor == input.limit;
 }
@@ -265,7 +265,7 @@ cv_member_padding :: (input: *Line_Wire_Input) -> bool {
     count := first - 0xf0;
 
     if count - 1 > input.limit - input.cursor return false;
-    for index: 1..count - 1 if cv_u8(input) != first - index return false;
+    for index: 1..cast(s64) count - 1 if cv_u8(input) != first - index return false;
 
     return !input.failed;
 }
@@ -514,11 +514,11 @@ cv_describe_record :: (types: [] *Codeview_Type, ids: [] *Codeview_Type, type: *
             text := describe_builtin((cast(*Codeview_Builtin) type).id);
 
             return text, text.count > 0;
-        case .STRUCTURE, .CLASS, .UNION; return sprint("%", (cast(*Codeview_Struct) type).name), true;
-        case .ENUM; return sprint("%", (cast(*Codeview_Enum) type).name), true;
+        case .STRUCTURE, .CLASS, .UNION; return copy_string((cast(*Codeview_Struct) type).name), true;
+        case .ENUM; return copy_string((cast(*Codeview_Enum) type).name), true;
         case .STRING_ID; return sprint("string %", (cast(*Codeview_String_Id) type).name), true;
-        case .FUNC_ID, .MFUNC_ID; return sprint("%", (cast(*Codeview_Function_Id) type).name), true;
-        case .ALIAS; return sprint("%", (cast(*Codeview_Alias) type).name), true;
+        case .FUNC_ID, .MFUNC_ID; return copy_string((cast(*Codeview_Function_Id) type).name), true;
+        case .ALIAS; return copy_string((cast(*Codeview_Alias) type).name), true;
         case .TYPESERVER2; return sprint("type-server %", (cast(*Codeview_Typeserver2) type).name), true;
         case .FIELDLIST;
             list := cast(*Codeview_List) type;

@@ -590,7 +590,7 @@ fingerprint :: (program: *Program) -> sets: [..][256] bool, exact: bool {
 
         for consumers {
             inst := *insts[it];
-            for t: 0..inst.alt - 1 {
+            for t: 0..cast(s64) inst.alt - 1 {
                 tr := *program.transitions[inst.next + t];
                 for b: cast(int) tr.lo..cast(int) tr.hi set[b] = true;
 
@@ -660,7 +660,7 @@ bytes_before :: (program: *Program, required: [256] bool) -> [256] bool, ok: boo
         if inst.kind == {
             case .MATCH; return before, false;
             case .RANGES;
-                for t: 0..inst.alt - 1 {
+                for t: 0..cast(s64) inst.alt - 1 {
                     tr := *program.transitions[inst.next + t];
                     other := false;
 
@@ -842,7 +842,7 @@ dfa_compute :: (d: *Dfa, s: u32, cls: int) -> u32 {
     d.resolved.count = 0;
     first := d.list_start[state];
 
-    for k: 0..d.list_count[state] - 1 {
+    for k: 0..cast(s64) d.list_count[state] - 1 {
         array_add(*d.stack, d.lists[first + k]);
 
         while d.stack.count {
@@ -880,7 +880,7 @@ dfa_compute :: (d: *Dfa, s: u32, cls: int) -> u32 {
 
         if end_of_text continue;
 
-        for t: 0..inst.alt - 1 {
+        for t: 0..cast(s64) inst.alt - 1 {
             tr := *program.transitions[inst.next + t];
             if b < tr.lo || b > tr.hi continue;
             if d.mark_b[tr.next] == d.generation continue;

@@ -135,7 +135,7 @@ pike_search :: (program: *Program, text: string, start: int, end: int, anchored:
             thread_slots := thread_slots(*vm.current, pc);
 
             if inst.kind == .MATCH {
-                for 0..vm.slot_count - 1 slots[it] = thread_slots[it];
+                memcpy(slots.data, thread_slots.data, vm.slot_count * size_of(int));
                 matched = true;
                 break;
             }
@@ -143,7 +143,7 @@ pike_search :: (program: *Program, text: string, start: int, end: int, anchored:
             if inst.kind == .RANGES && pos < end {
                 b := text[pos];
 
-                for t: 0..inst.alt - 1 {
+                for t: 0..cast(s64) inst.alt - 1 {
                     tr := *program.transitions[inst.next + t];
                     if b >= tr.lo && b <= tr.hi add_thread(*vm, *vm.next, tr.next, pos + 1, thread_slots);
                 }
@@ -204,7 +204,7 @@ backtrack_search :: (program: *Program, text: string, start: int, end: int, slot
                     // stack the rest so that they pop in order.
                     first: u32 = 0xFFFF_FFFF;
 
-                    for < t: 0..inst.alt - 1 {
+                    for < t: 0..cast(s64) inst.alt - 1 {
                         tr := *program.transitions[inst.next + t];
                         if b < tr.lo || b > tr.hi continue;
                         if first != 0xFFFF_FFFF array_add(*stack, .{ pc = first, pos = pos + 1, restore = -1 });

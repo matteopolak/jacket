@@ -27,7 +27,7 @@ random_seed :: (state: *u64, new_seed: u32) #no_aoc {
 }
 
 random_get_zero_to_one :: (state: *u64) -> float {
-    return cast(float) random_get(state) / 4294967295.0;
+    return cast(float) random_get(state) / 4294967296;
 }
 
 random_get_within_range :: (state: *u64, min: float, max: float) -> float {

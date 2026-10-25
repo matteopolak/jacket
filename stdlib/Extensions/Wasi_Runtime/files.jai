@@ -226,7 +226,7 @@ absolute_path :: (path: *u8, into: *u8) -> s64 #no_context {
     into[0] = #char "/";
 
     if path[0] != #char "/" {
-        for 0..working_directory_bytes - 1 into[it] = working_directory[it];
+        memcpy(into, working_directory.data, working_directory_bytes);
         length = working_directory_bytes;
     }
 
@@ -278,7 +278,7 @@ prepare_files :: () #no_context {
         index := preopened_for(first_path.data, length);
 
         if length > 0 && index >= 0 && preopened[index].absolute {
-            for 0..length working_directory[it] = first_path[it];
+            memcpy(working_directory.data, first_path.data, length + 1);
             working_directory_bytes = length;
         }
     }
@@ -573,7 +573,7 @@ wasi_getcwd :: (buffer: *u8, size: u64) -> *u8 #c_call {
         return null;
     }
 
-    for 0..working_directory_bytes - 1 buffer[it] = working_directory[it];
+    memcpy(buffer, working_directory.data, working_directory_bytes);
 
     buffer[working_directory_bytes] = 0;
 
@@ -592,7 +592,8 @@ wasi_chdir :: (path: *u8) -> s32 #c_call {
 
     length := absolute_path(path, second_path.data);
     if length < 0 return -1;
-    for 0..length working_directory[it] = second_path[it];
+
+    memcpy(working_directory.data, second_path.data, length + 1);
 
     working_directory_bytes = length;
 
@@ -681,7 +682,7 @@ wasi_realpath :: (path: *u8, resolved: *u8) -> *u8 #c_call {
         }
     }
 
-    for 0..length - 1 into[it] = current[it];
+    memcpy(into, current.data, length);
 
     into[length] = 0;
 

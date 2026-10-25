@@ -263,7 +263,7 @@ length_from :: (program: *Program, lengths: [] int, start: u32) -> int {
                     array_add(*stack, .{ inst.alt, false });
                     array_add(*stack, .{ inst.next, false });
                 case .RANGES;
-                    for t: 0..inst.alt - 1 array_add(*stack, .{ program.transitions[inst.next + t].next, false });
+                    for t: 0..cast(s64) inst.alt - 1 array_add(*stack, .{ program.transitions[inst.next + t].next, false });
             }
 
             continue;
@@ -279,7 +279,7 @@ length_from :: (program: *Program, lengths: [] int, start: u32) -> int {
                 a := known(lengths, inst.next);
                 if a == known(lengths, inst.alt) result = a;
             case .RANGES;
-                for t: 0..inst.alt - 1 {
+                for t: 0..cast(s64) inst.alt - 1 {
                     n := known(lengths, program.transitions[inst.next + t].next);
                     if n == VARIES || (t > 0 && n + 1 != result) {
                         result = VARIES;

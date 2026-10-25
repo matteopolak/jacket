@@ -201,7 +201,7 @@ fill_state :: (b: *Builder, index: int) -> bool {
             continue;
         }
 
-        for t: 0..inst.alt - 1 {
+        for t: 0..cast(s64) inst.alt - 1 {
             tr := program.transitions[inst.next + t];
             target: u32 = NO_EDGE;
 
