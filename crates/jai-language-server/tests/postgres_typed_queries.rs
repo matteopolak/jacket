@@ -71,6 +71,17 @@ fn a_bad_column_is_reported_once_the_describe_answer_arrives() {
             found = messages(&s, &uri);
         }
     }
+    // Only the unknown column is underlined, not the rest of the statement.
+    let error = s
+        .diagnostics(&uri)
+        .unwrap()
+        .into_iter()
+        .find(|d| d.message.contains("42703"))
+        .unwrap();
+    assert_eq!(
+        (error.range.start, error.range.end),
+        (common::at(PROGRAM, "emal"), common::end_of(PROGRAM, "emal"))
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 

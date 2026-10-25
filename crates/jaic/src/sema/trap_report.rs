@@ -100,7 +100,7 @@ impl Compiler {
             let named = (!path.is_empty())
                 .then(|| self.src.file_by_path(path))
                 .flatten()
-                .map(|file| self.src.statement_span((file.0, *line, (*col).max(1))));
+                .map(|file| self.src.reported_span((file.0, *line, (*col).max(1))));
             // The line of the program's own code that made the report (not the stdlib's).
             let reporter = frames
                 .iter()
@@ -356,6 +356,31 @@ impl SourceState {
             let have = &self.sources.get(id).path;
             have.to_string() == path || wanted.as_deref().is_some_and(|w| have.to_path() == w)
         })
+    }
+
+    /// Where a metaprogram's report at `loc` points. Inside a string literal (a byte of SQL, say)
+    /// that is the word there; anywhere else the statement, as `statement_span` has it.
+    fn reported_span(&self, loc: (u32, u32, u32)) -> Span {
+        let statement = self.statement_span(loc);
+        let Some(source) = self.sources.try_get(FileId(loc.0)) else {
+            return statement;
+        };
+        let at = statement.start as usize;
+        let (tokens, _) = crate::lexer::lex_ide(FileId(loc.0), &source.text);
+        let inside = tokens.iter().any(|t| {
+            matches!(t.tok, crate::lexer::Tok::Str(_))
+                && (t.span.start as usize) < at
+                && at < t.span.end as usize
+        });
+        if !inside {
+            return statement;
+        }
+        let word = source.text.as_bytes()[at..]
+            .iter()
+            .take_while(|b| b.is_ascii_alphanumeric() || **b == b'_' || **b >= 0x80)
+            .count()
+            .max(1);
+        Span::new(FileId(loc.0), at, at + word)
     }
 
     /// The statement at `loc`: from its column to the end of that line (without a trailing

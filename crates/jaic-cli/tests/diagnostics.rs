@@ -194,3 +194,52 @@ fn a_failed_initializer_reports_its_own_error_and_nothing_after_it() {
         "{text}"
     );
 }
+
+/// A metaprogram's report at a byte inside a string literal (a word of SQL, say) underlines
+/// that word, not the rest of the line.
+#[test]
+fn report_inside_a_string_underlines_the_word() {
+    let dir = scratch("report-in-string");
+    // The line the report points at, and the carets under it.
+    let report = |name: &str, text: &str, line: u32, column: u32| {
+        let source = dir.join(name);
+        let program = format!(
+            "#import \"Compiler\";\n{text}\n#run compiler_report(\"no such column\", .{{ fully_pathed_filename = #file, line_number = {line}, character_number = {column} }});\n"
+        );
+        std::fs::write(&source, program).unwrap();
+        let output = Command::new(JAIC)
+            .arg("-check")
+            .arg(&source)
+            .output()
+            .unwrap();
+        let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+        assert!(!output.status.success(), "{stderr}");
+        let lines: Vec<&str> = stderr.lines().collect();
+        let at = lines
+            .iter()
+            .position(|l| l.contains("error: no such column"))
+            .unwrap_or_else(|| panic!("{stderr}"));
+        (
+            lines[at + 1].trim().to_string(),
+            lines[at + 2].trim().to_string(),
+            stderr,
+        )
+    };
+    let (line, carets, stderr) = report("one.jai", "SQL :: \"select id, emal from users\";", 2, 20);
+    assert_eq!(
+        (line.as_str(), carets.as_str()),
+        ("SQL :: \"select id, emal from users\";", "^^^^"),
+        "{stderr}"
+    );
+    let (line, carets, stderr) = report(
+        "here.jai",
+        "TEXT :: #string DONE\nselect id\nfrom users where emial = 1\nDONE",
+        4,
+        18,
+    );
+    assert_eq!(
+        (line.as_str(), carets.as_str()),
+        ("from users where emial = 1", "^^^^^"),
+        "{stderr}"
+    );
+}
