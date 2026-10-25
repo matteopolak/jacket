@@ -108,7 +108,7 @@ jobs:
         with:
           persist-credentials: false
       # node 24: JSPI's WebAssembly.Suspending (behind --experimental-wasm-jspi) for the WebGPU host test.
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
       - name: Install the pinned Rust toolchain and wasm target
@@ -181,7 +181,7 @@ jobs:
         with:
           just-version: '1.58.0'
       # node 24: Memory64 without a flag, for the wasm64 modules `jaic -os wasm` writes.
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
       # Platform-neutral checks run once, on Linux x64 (the `jai` part), not on every leg.
@@ -351,7 +351,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
       - name: Install the pinned toolchain
@@ -385,7 +385,7 @@ jobs:
         run: xvfb-run -a pnpm run test:e2e
       - name: Package the .vsix
         run: pnpm run package -o jacket-vscode.vsix
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: vscode-extension
           path: editors/vscode/jacket-vscode.vsix
@@ -457,7 +457,7 @@ jobs:
           # stdlib/SDL/tests/geometry-timer.jai uses Homebrew's.
           brew: freetype sdl2 mingw-w64
           alsa: 'true'
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24'
       - name: Build production compiler and lint tools
@@ -501,7 +501,7 @@ jobs:
           "$jacket" test -- -O2 || status=1
           exit $status
       # The `stdlib-coverage` job reports the interpreter reachability of all shards together.
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ always() && !cancelled() }}
         with:
           name: stdlib-coverage-${{ matrix.platform }}-${{ strategy.job-index }}
@@ -557,10 +557,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.14'
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: stdlib-coverage-*
           path: target/coverage
@@ -659,7 +659,7 @@ jobs:
           read -ra repos <<< "$(python3 tools/corpus/select_upstream_cases.py --platform linux-x64 --repos)"
           python3 tools/fetch_upstreams.py --only "${repos[@]}"
           xvfb-run -a python3 -u tools/differential/jaic_sweep.py --jaic target/release/jaic --timeout 600 -v upstream --only-platform linux-x64
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ always() && !cancelled() }}
         with:
           name: smoke-screenshots-${{ matrix.platform }}
@@ -731,7 +731,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.14'
       - name: Install the Linux backend SDKs
@@ -807,7 +807,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+      - uses: cachix/install-nix-action@448cde739abec1eaf0646249e3d25bb8d9bc7702 # v31.11.2
       - name: Check the lock file is current
         run: nix flake lock --no-update-lock-file
       - name: Check the flake
@@ -1011,7 +1011,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.14'
       # No release yet (a new repository, or before the first tag): the steps that install a
@@ -1101,7 +1101,7 @@ jobs:
         # --stdlib first cross-builds the third-party C libraries (stb_*, FreeType, lz4, ...) with
         # MinGW-w64 or llvm-mingw as static archives (tools/native/build_native_libs.py).
         run: python3 tools/native/windows_cross.py build --stdlib --cpu ${{ matrix.cpu }} --jaic target/debug/jaic --out cross-${{ matrix.cpu }}
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: cross-${{ matrix.cpu }}
           path: cross-${{ matrix.cpu }}
@@ -1125,7 +1125,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: cross-${{ matrix.cpu }}
           path: cross-${{ matrix.cpu }}
@@ -1396,7 +1396,7 @@ jobs:
           "$jacket" test --interp || status=1
           "$jacket" test -- -O2 || status=1
           exit $status
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ always() && !cancelled() }}
         with:
           name: stdlib-coverage-windows-${{ matrix.cpu }}-${{ strategy.job-index }}
@@ -1464,7 +1464,7 @@ jobs:
           read -ra repos <<< "$(python tools/corpus/select_upstream_cases.py --platform windows-x64 --repos)"
           python tools/fetch_upstreams.py --only "${repos[@]}"
           python -u tools/differential/jaic_sweep.py --jaic target/x86_64-pc-windows-msvc/release/jaic.exe --timeout 600 -v upstream --only-platform windows-x64
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ always() && !cancelled() }}
         with:
           name: smoke-screenshots-windows-x64
