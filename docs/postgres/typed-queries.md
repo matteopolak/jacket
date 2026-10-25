@@ -91,7 +91,7 @@ queries.jai:61:33: info: this query and the ones after it are checked against th
 
 ### Project root and cache
 
-The root is the nearest folder upward from the calling file containing `jacket.toml` or the first folder of `MIGRATIONS` (`db/`), else the file's own folder. Entries are JSON (`entry.jai`): columns, parameters, JSON types, dependencies and a schema fingerprint. A cached entry is good when its `schema_hash` (from `db/migrations/*.sql`, see `schema_hash` in `migrate.jai`) matches. Otherwise, with a URL and not offline, the fingerprints of its dependencies are re-checked through the service. Offline, a hash mismatch is stale, and anything else is used as is.
+The root is the nearest folder upward from the calling file containing `jacket.toml` or the first folder of `MIGRATIONS` (`db/`), else the file's own folder. `query_as` and `execute` take `project_file` to start from another file instead: the ORM passes its caller's, since the statements it writes sit in the module. Entries are JSON (`entry.jai`): columns, parameters, JSON types, dependencies and a schema fingerprint. A cached entry is good when its `schema_hash` (from `db/migrations/*.sql`, see `schema_hash` in `migrate.jai`) matches. Otherwise, with a URL and not offline, the fingerprints of its dependencies are re-checked through the service. Offline, a hash mismatch is stale, and anything else is used as is.
 
 With `JACKET_PG_CHECK` set, every query used by a build is recorded in `used.txt` so the tool can prune.
 

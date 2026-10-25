@@ -264,10 +264,13 @@ query_opt :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json
 } @Interpolates("sql")
 
 // Runs a statement and returns the number of rows it affected.
-execute :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $call := #caller_code) -> s64, Pg_Error #expand {
-    #run check_statement(sql, call, 1, false);
+//
+// `project_file` names the file whose project (migrations, query cache, `.env`) the statement
+// belongs to, when it is not the file of the call: for code that writes statements for others.
+execute :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $project_file := "", $call := #caller_code) -> s64, Pg_Error #expand {
+    #run check_statement(sql, call, 1, false, project_file);
 
-    result, error := run_statement(db, #run rewritten_sql(sql, call, 1), #run binary_results(sql, call, 1), args, plan, json, #run expected_columns(sql, call, 1));
+    result, error := run_statement(db, #run rewritten_sql(sql, call, 1, project_file), #run binary_results(sql, call, 1, project_file), args, plan, json, #run expected_columns(sql, call, 1, project_file));
     if error.kind != .NONE return 0, error;
 
     count := result.rows_affected;
@@ -413,15 +416,15 @@ query_scalar :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := J
 
 // `query` into your own struct. The columns are matched to fields by name, and checked: a column
 // that can be NULL needs a `Nullable` field, the types must be assignable, and a `Json(T)` field
-// says which type a json column holds.
-query_as :: ($T: Type, db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $call := #caller_code) -> Rows(T), Pg_Error #expand {
-    #run check_statement_as(T, sql, call, 2);
+// says which type a json column holds. `project_file` is as for `execute`.
+query_as :: ($T: Type, db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $project_file := "", $call := #caller_code) -> Rows(T), Pg_Error #expand {
+    #run check_statement_as(T, sql, call, 2, project_file);
 
     rows: Rows(T);
     error: Pg_Error;
 
-    #insert #run field_map_code(T, sql, call, 2);
-    rows.result, error = run_statement(db, #run rewritten_sql(sql, call, 2), #run binary_results(sql, call, 2), args, plan, json, #run expected_columns(sql, call, 2));
+    #insert #run field_map_code(T, sql, call, 2, project_file);
+    rows.result, error = run_statement(db, #run rewritten_sql(sql, call, 2, project_file), #run binary_results(sql, call, 2, project_file), args, plan, json, #run expected_columns(sql, call, 2, project_file));
 
     return rows, error;
 } @Interpolates("sql")

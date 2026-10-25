@@ -27,6 +27,7 @@ Prepared :: struct {
     id: u64;
     sql_node: *Code_Node;
     call_node: *Code_Procedure_Call;
+    project_file: string; // the file the project is found from (see `find_project_root`)
 }
 
 prepared_memo: [..] *Prepared;
@@ -492,14 +493,17 @@ check_cache_entry :: (prepared: *Prepared, settings: Typed_Settings, entry: Quer
 
 // The description of the statement at one call site, memoised for the compile. Reports errors
 // itself; a result that is not known yet (the editor is still waiting) ends the compile-time call.
-prepare_query :: (sql: string, call: Code, sql_index: s64) -> *Prepared {
+// `project_file` is the file the project is found from, when not the call's own: the ORM's
+// statements are written inside the module, but belong to the file that called it.
+prepare_query :: (sql: string, call: Code, sql_index: s64, project_file := "") -> *Prepared {
     call_node := call_of(call);
     sql_node: *Code_Node;
 
     if sql_index < call_node.arguments_sorted.count sql_node = call_node.arguments_sorted[sql_index];
 
     where := node_location(ifx sql_node then sql_node else cast(*Code_Node) call_node);
-    key := tprint("%|%:%:%", sql, where.fully_pathed_filename, where.line_number, where.character_number);
+    file := ifx project_file then project_file else where.fully_pathed_filename;
+    key := tprint("%|%:%:%|%", sql, where.fully_pathed_filename, where.line_number, where.character_number, file);
 
     for prepared_memo if it.key == key return it;
 
@@ -507,6 +511,7 @@ prepare_query :: (sql: string, call: Code, sql_index: s64) -> *Prepared {
     prepared.key = copy_string(key);
     prepared.call_node = call_node;
     prepared.sql_node = sql_node;
+    prepared.project_file = copy_string(file);
     prepared.rewrite = rewrite_placeholders(sql);
 
     if prepared.rewrite.error {
@@ -524,7 +529,7 @@ prepare_query :: (sql: string, call: Code, sql_index: s64) -> *Prepared {
     }
 
     prepared.id = statement_id(prepared.rewrite.sql);
-    settings := typed_settings(where.fully_pathed_filename);
+    settings := typed_settings(file);
 
     if settings.recording note_used(settings.root, prepared.id);
 

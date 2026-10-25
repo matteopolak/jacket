@@ -44,7 +44,7 @@ Each call is an `#expand` macro whose body is `#insert #run orm_statement_code(.
    - `Pg.sql("lower(%(it.email)) = lower(%email)")` is raw SQL: `%(it.field)` (or `%(it.json.key)`) is a column, `%name` and `%(expression)` are parameters, `%%` is a percent sign. The text must be a string literal. `contains` and `sql` have no procedure in the module, because those names are common ones; the walker knows them by name.
    - Anything else (a call to another procedure, `it` passed whole) is a compile error at that node.
 3. **Parameter types.** The macro first emits `Orm_P<i> :: type_of((#insert,scope(where) "<text>"))` for each parameter, so the compiler types it in the caller's scope. Each hole gets a cast from that type (`$1 ::int8`, `$2 ::text`), so Postgres never has to guess.
-4. **Typed query.** The emitted code calls `query_as(T, db, <sql>, <parameters>)` (or `execute` for update/delete). From there it is a typed query: the statement is described against the database or the schema database, the result columns are checked against `T`, and the description is cached in `db/queries`.
+4. **Typed query.** The emitted code calls `query_as(T, db, <sql>, <parameters>, project_file = "<caller's file>")` (or `execute` for update/delete). The call sits in `orm.jai`, so `project_file` (from `orm_project_argument`) makes the project root, query cache and `.env` come from the file that called the ORM. From there it is a typed query: the statement is described against the database or the schema database, the result columns are checked against `T`, and the description is cached in `db/queries`.
 
 Example: `where = #code it.score >= min && Pg.like(it.email, pattern) && it.display_name != null` becomes
 

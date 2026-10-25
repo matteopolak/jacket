@@ -33,29 +33,29 @@ Partial :: struct(T: Type, fields: string) {
 // Sets fields of the rows that pass `where`: `set = #code it.score = score + 1` (or a block of such
 // assignments). Returns the number of rows changed.
 update :: (db: $D, $T: Type, $set: Code, $where: Code, $call := #caller_code) -> s64, Pg_Error #expand {
-    #insert #run orm_statement_code(T, .UPDATE, where, where, set, false, -1, 0, "");
+    #insert #run orm_statement_code(T, .UPDATE, where, where, set, false, -1, 0, "", "", call);
 }
 
 // Deletes the rows that pass `where` and returns how many there were. `where` is required: pass
 // `#code true` to delete every row.
 delete :: (db: $D, $T: Type, $where: Code, $call := #caller_code) -> s64, Pg_Error #expand {
-    #insert #run orm_statement_code(T, .DELETE, where, where, where, false, -1, 0, "");
+    #insert #run orm_statement_code(T, .DELETE, where, where, where, false, -1, 0, "", "", call);
 }
 
 // Inserts `value` and returns the row the table now holds (with its defaults and generated
 // columns). Fields with a database default (`@pg_default`) or a generated value
 // (`@pg_generated`) are left to the database.
-insert :: (db: $D, value: $T) -> T, Pg_Error #expand {
-    #insert #run orm_insert_code(T);
+insert :: (db: $D, value: $T, $call := #caller_code) -> T, Pg_Error #expand {
+    #insert #run orm_insert_code(T, call);
 }
 
 // Inserts each value in turn (one statement each), stopping at the first error. Returns the rows
 // inserted so far, from context.allocator.
-insert_many :: (db: $D, values: [] $T) -> [] T, Pg_Error {
+insert_many :: (db: $D, values: [] $T, $call := #caller_code) -> [] T, Pg_Error {
     rows: [..] T;
 
     for values {
-        row, error := insert(db, it);
+        row, error := insert(db, it, call = call);
         if error.kind != .NONE return rows, error;
 
         array_add(*rows, row);
@@ -91,7 +91,7 @@ Orm_Each :: struct(D: Type, T: Type, where: Code, order_by: Code, desc: bool, li
 }
 
 for_expansion :: (q: *Orm_Each($D, $T, $where, $order_by, $desc, $limit, $offset, $from_sql, $strategy, $call), body: Code, flags: For_Flags) #expand {
-    #insert #run orm_each_code(T, where, order_by, desc, limit, offset, from_sql, strategy, body);
+    #insert #run orm_each_code(T, where, order_by, desc, limit, offset, from_sql, strategy, body, call);
 }
 
 // Stores `values` with one binary COPY and returns how many rows the server stored. Much faster
@@ -123,16 +123,16 @@ Loaded_One :: struct(Item: Type) {
 }
 
 load_many :: (db: $D, parents: [] $T, $relation: string, $call := #caller_code) -> Loaded_Many(#insert,scope(call) #run orm_relation_target(T, relation, .HAS_MANY)), Pg_Error #expand {
-    #insert #run orm_load_code(T, relation, .HAS_MANY);
+    #insert #run orm_load_code(T, relation, .HAS_MANY, "", orm_project_argument(call));
 }
 
 load_one :: (db: $D, parents: [] $T, $relation: string, $call := #caller_code) -> Loaded_One(#insert,scope(call) #run orm_relation_target(T, relation, .BELONGS_TO)), Pg_Error #expand {
-    #insert #run orm_load_code(T, relation, .BELONGS_TO);
+    #insert #run orm_load_code(T, relation, .BELONGS_TO, "", orm_project_argument(call));
 }
 
 // `load_many` with the related struct given, for `Pg.each`, whose loop knows it already.
-orm_load_many_as :: (db: $D, parents: [] $T, $relation: string, $Target: Type) -> Loaded_Many(Target), Pg_Error {
-    #insert #run orm_load_code(T, relation, .HAS_MANY, "Target");
+orm_load_many_as :: (db: $D, parents: [] $T, $relation: string, $Target: Type, $project_file: string) -> Loaded_Many(Target), Pg_Error {
+    #insert #run orm_load_code(T, relation, .HAS_MANY, "Target", ", project_file = project_file");
 }
 
 free_loaded :: (loaded: *Loaded_Many($Item)) {
@@ -510,7 +510,8 @@ orm_key_part :: (builder: *String_Builder, value: $V) {
 // The body of `load_many` and `load_one`: collect the keys, run one query, and hand each row to
 // the parents whose key it carries. A key on one column is that column's value; on several, a
 // string made of the parts. A parent or row with a null part has no key and matches nothing.
-orm_load_code :: (T: Type, name: string, kind: Orm_Relation_Kind, target := "") -> string {
+// `project` is the `project_file` argument of the query (see `orm_project_argument`).
+orm_load_code :: (T: Type, name: string, kind: Orm_Relation_Kind, target: string, project: string) -> string {
     relation, problem := orm_relation(T, name);
     if problem || relation.kind != kind || relation.own_columns.count != relation.target_columns.count return "";
 
@@ -586,6 +587,8 @@ orm_load_code :: (T: Type, name: string, kind: Orm_Relation_Kind, target := "") 
 
     print_to_builder(*builder, "orm_rows, orm_error := query_as(Orm_Target, db, #run orm_load_sql(Orm_Target, %, Orm_Key_Types)", jai_string(join(..relation.target_columns, ",",, temp)));
     for relation.own_columns print_to_builder(*builder, ", cast([] Orm_K%1) orm_keys_%1", it_index);
+
+    append(*builder, project);
 
     append(*builder, ");\n");
 
@@ -1607,6 +1610,17 @@ orm_sql_string :: (text: string) -> string {
     return builder_to_string(*builder);
 }
 
+// The file that called the ORM. The typed statements the ORM writes sit in this module, but they
+// belong to that file's project: its migrations, query cache and `.env`.
+orm_project_file :: (call: Code) -> string {
+    return node_location(orm_root(call)).fully_pathed_filename;
+}
+
+// `, project_file = "<the caller's file>"`, the last argument of a statement the ORM writes.
+orm_project_argument :: (call: Code) -> string {
+    return tprint(", project_file = %", jai_string(orm_project_file(call)));
+}
+
 // The row type of a `select`: `T`, or `Partial(T, fields)`.
 orm_select_row :: (fields: string) -> string {
     return ifx fields then "Partial(T, fields)" else "T";
@@ -1656,7 +1670,7 @@ orm_partial_body :: (T: Type, fields: string) -> string {
 
 // The body of `select`, `update` and `delete`: a constant per parameter for its type, then the
 // typed query with the SQL built from those types.
-orm_statement_code :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, desc: bool, limit: s64, offset: s64, from_sql: string, fields := "", call: Code = NO_ORDER) -> string {
+orm_statement_code :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, desc: bool, limit: s64, offset: s64, from_sql: string, fields: string, call: Code) -> string {
     columns: string;
 
     if fields {
@@ -1686,6 +1700,7 @@ orm_statement_code :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set
 
     for sql.parameters print_to_builder(*builder, ", %", orm_argument(*sql, it_index));
 
+    append(*builder, orm_project_argument(call));
     append(*builder, ");\nreturn orm_result, orm_error;\n");
 
     return builder_to_string(*builder);
@@ -1738,7 +1753,7 @@ orm_sql_text :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code
 // The body of `each`'s loop. `columns` (from `orm_read_columns`) names what the body reads; the
 // rows are read into `Orm_Partial` and copied into `it`, a `T` (or an `Orm_Item` that `using`s one
 // and adds the related structs the body reads).
-orm_each_code :: (T: Type, where: Code, order_by: Code, desc: bool, limit: s64, offset: s64, from_sql: string, strategy: Orm_Strategy, body: Code) -> string {
+orm_each_code :: (T: Type, where: Code, order_by: Code, desc: bool, limit: s64, offset: s64, from_sql: string, strategy: Orm_Strategy, body: Code, call: Code) -> string {
     columns := orm_read_columns(T, body);
     if strategy == .LATERAL columns = replace(columns, "[]", "[*]",, temp);
 
@@ -1868,6 +1883,7 @@ orm_each_code :: (T: Type, where: Code, order_by: Code, desc: bool, limit: s64, 
     print_to_builder(*builder, "orm_rows, orm_error := query_as(%, q.db, #run orm_sql_text(T, .SELECT, where, order_by, where, %, %, %, %, Orm_Types, Orm_Relations, %)", row_type, desc, limit, offset, jai_string(from_sql), jai_string(columns));
     for sql.parameters print_to_builder(*builder, ", %", orm_argument(*sql, it_index));
 
+    append(*builder, orm_project_argument(call));
     append(*builder, ");\n");
 
     item_type := ifx relations || many then "Orm_Item" else "T";
@@ -1907,7 +1923,7 @@ JAI);
         for preload {
             name := orm_read_entry(entries[it]).name;
             print_to_builder(*builder, "    orm_many_%1: Loaded_Many(Orm_M%2);\n    defer free_loaded(*orm_many_%1);\n", it, it);
-            print_to_builder(*builder, "    if !orm_failed {\n        orm_load_error: Pg_Error;\n        orm_many_%1, orm_load_error = orm_load_many_as(q.db, orm_parents, %2, Orm_M%1);\n", it, jai_string(name));
+            print_to_builder(*builder, "    if !orm_failed {\n        orm_load_error: Pg_Error;\n        orm_many_%1, orm_load_error = orm_load_many_as(q.db, orm_parents, %2, Orm_M%1, %3);\n", it, jai_string(name), jai_string(orm_project_file(call)));
             append(*builder, "        if orm_load_error.kind != .NONE {\n            if q.error q.error.* = orm_load_error;\n            orm_failed = true;\n        }\n    }\n");
         }
 
@@ -2310,7 +2326,7 @@ orm_copy_code :: (T: Type) -> string {
     return tprint("stored, error := copy_in(db, %, values, .[%]);\nreturn stored, error;\n", jai_string(statement), builder_to_string(*members,, temp));
 }
 
-orm_insert_code :: (T: Type) -> string {
+orm_insert_code :: (T: Type, call: Code) -> string {
     table, problem := orm_table(T);
 
     if problem {
@@ -2357,7 +2373,7 @@ orm_insert_code :: (T: Type) -> string {
     builder: String_Builder;
     builder.allocator = temp;
 
-    print_to_builder(*builder, "rows, error := query_as(T, db, %1%2);\n", jai_string(statement), builder_to_string(*values,, temp));
+    print_to_builder(*builder, "rows, error := query_as(T, db, %1%2%3);\n", jai_string(statement), builder_to_string(*values,, temp), orm_project_argument(call));
     append(*builder, "row: T;\n");
     append(*builder, "if error.kind != .NONE return row, error;\n");
     append(*builder, "detached := Rows(T).{ result = detach_to_temp(*rows.result), map = rows.map };\n");

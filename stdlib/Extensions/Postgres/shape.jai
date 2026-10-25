@@ -160,8 +160,8 @@ scalar_type :: (sql: string, call: Code, sql_index: s64) -> string {
     return field_type_text(prepared.entry.columns[0]);
 }
 
-rewritten_sql :: (sql: string, call: Code, sql_index: s64) -> string {
-    return prepare_query(sql, call, sql_index).rewrite.sql;
+rewritten_sql :: (sql: string, call: Code, sql_index: s64, project_file := "") -> string {
+    return prepare_query(sql, call, sql_index, project_file).rewrite.sql;
 }
 
 // How a statement's results are asked for and described: binary when every column has a binary
@@ -171,8 +171,8 @@ Statement_Meta :: struct {
     origins: string;
 }
 
-binary_results :: (sql: string, call: Code, sql_index: s64) -> Statement_Meta {
-    prepared := prepare_query(sql, call, sql_index);
+binary_results :: (sql: string, call: Code, sql_index: s64, project_file := "") -> Statement_Meta {
+    prepared := prepare_query(sql, call, sql_index, project_file);
     meta := Statement_Meta.{ binary = true };
 
     builder: String_Builder;
@@ -193,8 +193,8 @@ binary_results :: (sql: string, call: Code, sql_index: s64) -> Statement_Meta {
 
 // The columns the query was compiled against, for `Config.verify_statements`: their count, then
 // each name, one per line.
-expected_columns :: (sql: string, call: Code, sql_index: s64) -> string {
-    prepared := prepare_query(sql, call, sql_index);
+expected_columns :: (sql: string, call: Code, sql_index: s64, project_file := "") -> string {
+    prepared := prepare_query(sql, call, sql_index, project_file);
 
     builder: String_Builder;
     builder.allocator = temp;
@@ -206,8 +206,8 @@ expected_columns :: (sql: string, call: Code, sql_index: s64) -> string {
 }
 
 // Argument and shape checks for `query`-like (`returns_rows`) and `execute` calls.
-check_statement :: (sql: string, call: Code, sql_index: s64, returns_rows: bool) {
-    prepared := prepare_query(sql, call, sql_index);
+check_statement :: (sql: string, call: Code, sql_index: s64, returns_rows: bool, project_file := "") {
+    prepared := prepare_query(sql, call, sql_index, project_file);
 
     if returns_rows && !prepared.entry.columns.count {
         report_at(prepared.sql_node, "this statement returns no rows: use Pg.execute, or add a RETURNING clause");
@@ -228,7 +228,8 @@ value_arguments :: (call_node: *Code_Procedure_Call, first: s64) -> [] *Code_Nod
         option := false;
 
         for call_node.arguments_unsorted {
-            if it.name && (it.name.name == "plan" || it.name.name == "json" || it.name.name == "batch") && it.expression == node option = true;
+            // Named arguments are the options after the values (`plan`, `json`, `project_file`, ...).
+            if it.name && it.expression == node option = true;
         }
 
         if !option array_add(*nodes, node);
@@ -392,8 +393,8 @@ value_fits :: (base: string, info: *Type_Info) -> bool {
 }
 
 // Checks every field of `T` against the statement's columns; reports the first mismatch.
-check_statement_as :: (T: Type, sql: string, call: Code, sql_index: s64) {
-    prepared := prepare_query(sql, call, sql_index);
+check_statement_as :: (T: Type, sql: string, call: Code, sql_index: s64, project_file := "") {
+    prepared := prepare_query(sql, call, sql_index, project_file);
 
     if !prepared.entry.columns.count {
         report_at(prepared.sql_node, "this statement returns no rows: use Pg.execute, or add a RETURNING clause");
@@ -437,8 +438,8 @@ join_names :: (entry: Query_Entry) -> string {
 }
 
 // `rows.map = s64.[...]`: for each field of T, its column.
-field_map_code :: (T: Type, sql: string, call: Code, sql_index: s64) -> string {
-    prepared := prepare_query(sql, call, sql_index);
+field_map_code :: (T: Type, sql: string, call: Code, sql_index: s64, project_file := "") -> string {
+    prepared := prepare_query(sql, call, sql_index, project_file);
     info := cast(*Type_Info_Struct) type_info(T);
 
     builder: String_Builder;
@@ -479,8 +480,7 @@ row_table_struct :: (prepared: *Prepared) -> string {
         else if owner != table return "";
     }
 
-    location := node_location(cast(*Code_Node) prepared.call_node);
-    path := schema_path(find_project_root(location.fully_pathed_filename));
+    path := schema_path(find_project_root(prepared.project_file));
     text, ok := read_entire_file(path, log_errors = false,, temp);
 
     if !ok return "";
