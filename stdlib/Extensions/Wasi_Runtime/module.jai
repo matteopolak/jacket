@@ -126,6 +126,23 @@ wasi_host_provides :: (name: *u8, count: u64) -> u32 #c_call {
     return 0;
 }
 
+// Extensions/Assets declares these page procedures; jai_host_provides says they are absent, so
+// load_asset reads the WASI file system instead and they are never called.
+#program_export "jai_asset_fetch"
+wasi_asset_fetch :: (path: *u8, count: u64) -> s64 #c_call {
+    return 0;
+}
+
+#program_export "jai_asset_size"
+wasi_asset_size :: (handle: s64) -> s64 #c_call {
+    return 0;
+}
+
+#program_export "jai_asset_take"
+wasi_asset_take :: (handle: s64, buffer: *u8, count: u64) -> u32 #c_call {
+    return 0;
+}
+
 #program_export "write"
 wasi_write :: (fd: s32, buffer: *void, count: u64) -> s64 #c_call {
     span := Span32.{ offset32(buffer), cast,no_check(u32) count };

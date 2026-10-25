@@ -10,10 +10,10 @@ import path from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { checkExample, exampleCases } from "./examples_wasm.mjs";
 
-export const BUNDLE_FILES = ["README.md", "build-metadata.json", "engine.mjs", "jai_wasm.wasm", "jaifmt-playground.jai", "jaifmt.wasm", "tour.json",
+export const BUNDLE_FILES = ["README.md", "build-metadata.json", "engine.mjs", "jai_wasm.wasm", "jaifmt-playground.jai", "jaifmt.wasm", "textured_cube.json", "tour.json",
   "webgpu_bindings.generated.mjs", "webgpu_host.mjs"];
 /** Example workspaces shipped as folders, each described by `<name>.json` (tools/browser/build_scripting_wasm.py). */
-export const BUNDLE_EXAMPLES = ["tour"];
+export const BUNDLE_EXAMPLES = ["textured_cube", "tour"];
 
 /** Relative paths of every regular file under `directory`; symlinks and other file types are rejected. */
 async function regularFiles(directory, prefix = "") {
@@ -36,10 +36,12 @@ export async function exampleFiles(directory, name) {
   const index = JSON.parse(await readFile(path.join(directory, `${name}.json`), "utf8"));
   assert.equal(index.schema_version, 1);
   const listed = (await regularFiles(directory, name)).map(file => file.slice(name.length + 1));
-  assert.deepEqual([...index.files].sort(), listed, `${name}.json must list exactly the files under ${name}/`);
+  const assets = index.assets ?? [];
+  assert.deepEqual([...index.files, ...assets].sort(), listed, `${name}.json must list exactly the files under ${name}/`);
   assert(index.files.includes(index.main), `${name}.json names a main file it does not list`);
+  for (const asset of assets) assert(asset.startsWith("assets/") && asset.endsWith(".png"), `${name}.json lists an unexpected asset: ${asset}`);
   const files = {};
-  for (const file of listed) files[file] = await readFile(path.join(directory, name, file), "utf8");
+  for (const file of index.files) files[file] = await readFile(path.join(directory, name, file), "utf8");
   return { main: index.main, files };
 }
 

@@ -16,6 +16,9 @@
 | `Args` | typed, compile-time-generated command-line parser (clap-like); `jaifmt` uses it | [args](args.md) |
 | `Regex` | Rust-`regex` syntax and semantics, linear time; `Regex.Static` patterns give typed groups | [regex](regex.md) |
 | `Json` | `to_json`/`from_json` generated from your types and `@json` notes | [json](json.md) |
+| `Image` | decode PNG, JPEG, QOI, BMP and PNM; encode PNG, QOI, BMP and PPM; convert, resize, crop, flip, rotate | [image](image.md) |
+| `Deflate` | DEFLATE compression with zlib and gzip framing, CRC-32 and Adler-32 | [deflate](deflate.md) |
+| `Assets` | `load_asset`: a program's files from disk natively, over `fetch` in the playground | [assets](assets.md) |
 | `Http` | sans-IO HTTP/1.x codec, plus a fiber server and client | [codec](http-codec.md), [server](http-server.md), [client](http-client.md) |
 | `SIMD` | portable fixed-width vectors | [simd](simd.md) |
 | `Hash_Map` | opt-in SwissTable hash map: single-key, 16-slot SIMD group probing | [hash-map](hash-map.md) |

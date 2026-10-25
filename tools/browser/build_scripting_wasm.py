@@ -41,16 +41,25 @@ def bundled_examples(root):
     return [(case["bundle"], root / case["directory"], case["main"]) for case in cases if "bundle" in case]
 
 
+# Binary files an example loads at run time with Extensions/Assets. They live in its `assets/`
+# folder, are listed under "assets" in the index (not opened as source) and are capped in size.
+ASSET_SUFFIXES = {".png"}
+MAX_ASSET_BYTES = 256 * 1024
+
+
 def stage_example(source, output, name, main):
     """Copy an example workspace to <output>/<name>/ and describe it in <output>/<name>.json.
 
-    Embedders (the hosted playground) fetch the index first, then each listed file. Dotfiles are left out.
+    Embedders (the hosted playground) fetch the index first, then each listed file; `assets` are
+    fetched by the program itself (load_asset, with the engine's asset base at <name>/). Dotfiles
+    are left out.
     """
     destination = output / name
     if destination.is_symlink():
         raise SystemExit(f"bundle example directory is a symlink: {destination}")
     shutil.rmtree(destination, ignore_errors=True)
     files = []
+    assets = []
     for path in sorted(source.rglob("*")):
         relative = path.relative_to(source)
         if any(part.startswith(".") for part in relative.parts):
@@ -58,12 +67,19 @@ def stage_example(source, output, name, main):
         if path.is_symlink():
             raise SystemExit(f"example files cannot be symlinks: {path}")
         if path.is_file():
+            if relative.parts[0] == "assets":
+                if path.suffix not in ASSET_SUFFIXES or path.stat().st_size > MAX_ASSET_BYTES:
+                    raise SystemExit(f"example asset must be {sorted(ASSET_SUFFIXES)} of at most {MAX_ASSET_BYTES} bytes: {path}")
+                assets.append(relative.as_posix())
+            else:
+                files.append(relative.as_posix())
             (destination / relative).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(path, destination / relative)
-            files.append(relative.as_posix())
     if main not in files:
         raise SystemExit(f"example {source} has no {main}")
     index = {"schema_version": 1, "main": main, "files": files}
+    if assets:
+        index["assets"] = assets
     (output / f"{name}.json").write_text(json.dumps(index, indent=2) + "\n")
 
 

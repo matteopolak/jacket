@@ -137,6 +137,29 @@ class ScriptingWasmBuildTests(unittest.TestCase):
             )
             self.assertFalse((output / "walk/.hidden").exists())
 
+    def test_example_assets_are_listed_apart_and_capped(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            source = base / "example"
+            (source / "assets").mkdir(parents=True)
+            (source / "main.jai").write_text("main :: () {}\n")
+            (source / "assets/texture.png").write_bytes(b"\x89PNG")
+            output = base / "out"
+            output.mkdir()
+            wasm.stage_example(source, output, "example", "main.jai")
+            index = json.loads((output / "example.json").read_text())
+            self.assertEqual(index["files"], ["main.jai"])
+            self.assertEqual(index["assets"], ["assets/texture.png"])
+            self.assertEqual((output / "example/assets/texture.png").read_bytes(), b"\x89PNG")
+
+            (source / "assets/notes.txt").write_text("not an asset type")
+            with self.assertRaises(SystemExit):
+                wasm.stage_example(source, output, "example", "main.jai")
+            (source / "assets/notes.txt").unlink()
+            (source / "assets/huge.png").write_bytes(bytes(wasm.MAX_ASSET_BYTES + 1))
+            with self.assertRaises(SystemExit):
+                wasm.stage_example(source, output, "example", "main.jai")
+
     def test_separate_build_volume_floor_refuses_build(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary).resolve() / "source"

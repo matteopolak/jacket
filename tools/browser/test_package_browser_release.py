@@ -201,6 +201,10 @@ class BrowserReleaseTests(unittest.TestCase):
             "x\n.mjs",
             "index.html",
             "style.css",
+            "texture.png",
+            "tour/texture.png",
+            "assets/texture.png",
+            "textured_cube/assets/notes.txt",
         ):
             with self.subTest(name=name), self.assertRaises(ValueError):
                 release.asset_path(name)
@@ -210,6 +214,7 @@ class BrowserReleaseTests(unittest.TestCase):
             "tour/main.jai",
             "tour/meta/macros.jai",
             "tour/tour.md",
+            "textured_cube/assets/jacket.png",
         ):
             self.assertEqual(release.asset_path(name), name)
         with tempfile.TemporaryDirectory() as temporary:

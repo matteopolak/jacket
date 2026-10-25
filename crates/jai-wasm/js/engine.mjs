@@ -7,7 +7,12 @@
 // suspends the module through JSPI, so such programs must run with `playAsync`.
 // The engine itself answers `getentropy` from the JavaScript runtime's secure random source
 // (`crypto.getRandomValues`); a host function of the same name takes its place.
-export async function createEngine(wasmBytes, { host } = {}) {
+//
+// `assets` (optional) lets Extensions/Assets fetch files: `{ base, limit }`. `load_asset(path)`
+// fetches `path` resolved against the `base` URL (a directory), with no credentials and no
+// redirects, refusing paths that leave it and responses over `limit` bytes (16 MiB by default).
+// The engine also answers `jai_host_provides` for every function it and `host` offer.
+export async function createEngine(wasmBytes, { host, assets } = {}) {
   const module = await WebAssembly.compile(wasmBytes);
   const unknown = WebAssembly.Module.imports(module).filter(i => i.module !== "jai_host");
   if (unknown.length !== 0) throw new Error("This runtime build unexpectedly requires host imports.");
@@ -51,9 +56,11 @@ export async function createEngine(wasmBytes, { host } = {}) {
       return 0;
     },
   };
+  if (assets?.base !== undefined) Object.assign(builtins, assetFunctions(assets, view, address));
   const imports = { jai_host: {
     call(name, nameLength, args, count, results, resultCount) {
       const functions = { ...builtins, ...host?.functions };
+      functions.jai_host_provides = ([at, length]) => Object.hasOwn(functions, utf8.decode(view(Uint8Array, at, address(length), "name")));
       try {
         const key = utf8.decode(view(Uint8Array, name, address(nameLength), "name"));
         if (!Object.hasOwn(functions, key)) return 1;
@@ -165,5 +172,48 @@ export async function createEngine(wasmBytes, { host } = {}) {
       languageCheck(api.jai_lsp_begin()); for (const byte of bytes) languageCheck(api.jai_lsp_push(byte)); languageCheck(api.jai_lsp_dispatch());
       const result = JSON.parse(readLanguage("output", 2 * 1024 * 1024)); if (!Array.isArray(result)) throw new Error("Invalid language response envelope."); return result;
     } } : {})
+  };
+}
+
+// Extensions/Assets in the browser: `jai_asset_fetch` resolves to a handle (0 when the path is
+// refused or the fetch fails), `jai_asset_size` and `jai_asset_take` hand its bytes over once.
+function assetFunctions({ base, limit = 16 * 1024 * 1024 }, view, address) {
+  const root = new URL(base, globalThis.location?.href);
+  if (!root.pathname.endsWith("/")) root.pathname += "/";
+  if (!Number.isSafeInteger(limit) || limit < 0) throw new RangeError("assets.limit must be a byte count.");
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  const held = new Map();
+  let next = 1;
+  // The same rule as asset_path_is_relative in stdlib/Extensions/Assets/module.jai.
+  const relative = path => path.length > 0 && !/[\\:\0]/.test(path) && path.split("/").every(part => part !== "" && part !== "..");
+  async function fetchAsset(path) {
+    if (!relative(path)) return 0;
+    const url = new URL(path, root);
+    if (url.origin !== root.origin || !url.pathname.startsWith(root.pathname)) return 0;
+    try {
+      const response = await fetch(url, { credentials: "omit", redirect: "error" });
+      if (!response.ok) return 0;
+      const declared = Number(response.headers.get("content-length") ?? 0);
+      if (declared > limit) return 0;
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      if (bytes.length > limit) return 0;
+      held.set(next, bytes);
+      return next++;
+    } catch { return 0; }
+  }
+  return {
+    jai_asset_fetch([at, length]) {
+      let path;
+      try { path = decoder.decode(view(Uint8Array, at, address(length), "asset path")); } catch { return 0; }
+      return fetchAsset(path);
+    },
+    jai_asset_size: ([handle]) => held.get(Number(handle))?.length ?? 0,
+    jai_asset_take([handle, at, length]) {
+      const bytes = held.get(Number(handle));
+      if (!bytes || address(length) !== bytes.length) return 0;
+      held.delete(Number(handle));
+      view(Uint8Array, at, bytes.length, "asset buffer").set(bytes);
+      return 1;
+    },
   };
 }

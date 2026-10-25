@@ -13,6 +13,7 @@
 - Notes on a test set its options: `@timeout`, `@only`, `@skip_on`, `@needs`, `@serial`, `@should_fail`, `@xfail` and more.
 - The `Extensions/Image` module decodes PNG, JPEG, QOI, BMP and PNM images, converts between pixel formats, resizes, crops, flips and rotates them, and encodes PNG, QOI, BMP and PPM.
 - The `Extensions/Deflate` module compresses and decompresses raw DEFLATE, zlib and gzip data, with CRC-32 and Adler-32.
+- The `Extensions/Assets` module's `load_asset` reads a file shipped with a program, from disk natively or fetched from the page in the browser.
 
 ### Fixed
 

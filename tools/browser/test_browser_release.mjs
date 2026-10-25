@@ -24,6 +24,10 @@ async function fixture() {
   await writeFile(path.join(directory, "tour", "main.jai"), '#load "nested/part.jai";\n');
   await writeFile(path.join(directory, "tour", "nested", "part.jai"), "main :: () {}\n");
   await writeFile(path.join(directory, "tour.json"), JSON.stringify({ schema_version: 1, main: "main.jai", files: ["main.jai", "nested/part.jai"] }));
+  await mkdir(path.join(directory, "textured_cube", "assets"), { recursive: true });
+  await writeFile(path.join(directory, "textured_cube", "main.jai"), "main :: () {}\n");
+  await writeFile(path.join(directory, "textured_cube", "assets", "a.png"), Buffer.from([137, 80, 78, 71]));
+  await writeFile(path.join(directory, "textured_cube.json"), JSON.stringify({ schema_version: 1, main: "main.jai", files: ["main.jai"], assets: ["assets/a.png"] }));
   const metadata = { schema_version: 1, commit: "a".repeat(40), toolchain: "nightly-2026-08-29", wasm_sha256: createHash("sha256").update(wasm).digest("hex"),
     jaifmt_wasm_sha256: createHash("sha256").update(formatter).digest("hex") };
   await writeFile(path.join(directory, "build-metadata.json"), JSON.stringify(metadata));
@@ -56,6 +60,9 @@ test("the tour index must list exactly the staged tour files, and no other folde
     await writeFile(path.join(directory, "tour", "extra.jai"), "x :: 1;\n");
     await assert.rejects(inspectAssets(directory), /list exactly the files/);
     await rm(path.join(directory, "tour", "extra.jai"));
+    await writeFile(path.join(directory, "textured_cube", "assets", "b.png"), Buffer.from([137]));
+    await assert.rejects(inspectAssets(directory), /list exactly the files/);
+    await rm(path.join(directory, "textured_cube", "assets", "b.png"));
     await mkdir(path.join(directory, "ui"));
     await writeFile(path.join(directory, "ui", "index.mjs"), "");
     await assert.rejects(inspectAssets(directory), /Unexpected bundle folder/);

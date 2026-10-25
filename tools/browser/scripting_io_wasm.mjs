@@ -31,6 +31,26 @@ export async function checkScriptingIo(engine, createLiveEngine) {
     assert.equal(interactive.stdout, "argc=1 last=main\ngot typed\nthen true\n", interactive.rendered);
     assert.deepEqual(waited, [6, 0]);
     console.log("PASS: asynchronous JSPI input");
+    // Extensions/Assets: the engine fetches under `assets.base` and nowhere else.
+    const realFetch = globalThis.fetch;
+    const fetched = [];
+    globalThis.fetch = async (url, init) => {
+      fetched.push([String(url), init.credentials, init.redirect]);
+      if (String(url) === "https://example.test/assets/textures/a.bin") return new Response(new Uint8Array([9, 8, 7]));
+      return new Response("missing", { status: 404 });
+    };
+    try {
+      const assets = await createLiveEngine({ assets: { base: "https://example.test/assets/" } });
+      const program = { "main.jai": await readFile(new URL("../../tests/compiler/language/browser-io/assets.jai", import.meta.url), "utf8") };
+      const loaded = await assets.playAsync(program, "main.jai");
+      assert.deepEqual(loaded.diagnostics, [], loaded.rendered);
+      assert.equal(loaded.stdout, "found true 3\nfirst 9 last 7\nmissing false\nescaped false\n", loaded.rendered);
+      assert.deepEqual(fetched, [
+        ["https://example.test/assets/textures/a.bin", "omit", "error"],
+        ["https://example.test/assets/textures/missing.bin", "omit", "error"],
+      ]);
+    } finally { globalThis.fetch = realFetch; }
+    console.log("PASS: assets fetched under the asset base");
   } else {
     console.log("NOT RUN: asynchronous input requires JSPI");
   }

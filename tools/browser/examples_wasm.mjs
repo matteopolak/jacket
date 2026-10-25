@@ -12,10 +12,12 @@ export async function exampleCases() {
   return JSON.parse(await readFile(path.join(root, "tests/corpus/examples.json"), "utf8")).cases;
 }
 
-/** Every regular file under `directory`, keyed by its relative POSIX path. */
+/** Every regular source file under `directory`, keyed by its relative POSIX path. The top-level
+ * `assets/` folder holds files the program fetches itself (Extensions/Assets), not sources. */
 export async function workspaceFiles(directory, base = directory, files = {}) {
   for (const entry of (await readdir(directory, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
     const full = path.join(directory, entry.name);
+    if (entry.isDirectory() && directory === base && entry.name === "assets") continue;
     if (entry.isDirectory()) await workspaceFiles(full, base, files);
     else if (entry.isFile()) files[path.relative(base, full).split(path.sep).join("/")] = await readFile(full, "utf8");
   }

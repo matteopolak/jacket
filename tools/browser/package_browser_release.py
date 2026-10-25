@@ -33,6 +33,8 @@ MAX_FILES = 64
 MAX_FILE_BYTES = 64 * 1024**2
 MAX_TOTAL_BYTES = 128 * 1024**2
 SUFFIXES = {".mjs", ".wasm", ".json", ".md", ".jai"}
+# Example assets (build_scripting_wasm.ASSET_SUFFIXES), only inside an example's assets/ folder.
+ASSET_SUFFIXES = {".png"}
 FORBIDDEN = {
     "reference",
     "corpus",
@@ -116,7 +118,8 @@ def asset_path(name):
         or any(part in {"", ".", ".."} | FORBIDDEN for part in path.parts)
     ):
         raise ValueError("unsafe browser asset path: " + name)
-    if path.suffix not in SUFFIXES:
+    in_assets = len(path.parts) > 2 and path.parts[1] == "assets"
+    if path.suffix not in SUFFIXES and not (in_assets and path.suffix in ASSET_SUFFIXES):
         raise ValueError("unsupported browser release asset: " + name)
     return name
 
