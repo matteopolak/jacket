@@ -83,6 +83,7 @@ const DOC_LINES: usize = 40;
 pub fn scan(text: &str) -> FileScan {
     let parsed = jaic::parser::parse_file_ide(FileId(0), text);
     let tokens = &parsed.tokens;
+    let docs = crate::docs::Docs::new(text);
     let mut out = FileScan {
         builds: build_files(tokens),
         import_paths: import_paths(tokens),
@@ -91,7 +92,7 @@ pub fn scan(text: &str) -> FileScan {
     };
     for item in ide_facts::top_level(&parsed.file) {
         match item.kind {
-            TopLevelKind::Decl(decl) => out.declaration(text, tokens, decl, &item),
+            TopLevelKind::Decl(decl) => out.declaration(text, &docs, tokens, decl, &item),
             TopLevelKind::Import(import) => {
                 if let ImportSource::Module(path) = &import.source {
                     let name = import.name.map(|n| n.name.as_str().to_owned());
@@ -113,6 +114,7 @@ impl FileScan {
     fn declaration(
         &mut self,
         text: &str,
+        docs: &crate::docs::Docs,
         tokens: &[Token],
         decl: &jaic::ast::Decl,
         item: &TopLevel,
@@ -151,7 +153,7 @@ impl FileScan {
                 kind,
                 visibility: item.visibility,
                 signature: signature(text, tokens, start),
-                doc: doc_above(text, start),
+                doc: doc_above(docs, start),
                 alias: alias.clone(),
                 call: call.clone(),
             };
@@ -265,8 +267,8 @@ fn signature(text: &str, tokens: &[Token], start: usize) -> String {
 }
 
 /// The doc comment of the declaration at `at`, as shown next to a completion item.
-fn doc_above(text: &str, at: usize) -> String {
-    crate::docs::above(text, at)
+fn doc_above(docs: &crate::docs::Docs, at: usize) -> String {
+    docs.above(at)
         .map(|doc| doc.lines().take(DOC_LINES).collect::<Vec<_>>().join("\n"))
         .unwrap_or_default()
 }

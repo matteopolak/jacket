@@ -295,6 +295,23 @@ impl Trivia {
     }
 }
 
+/// The comments of one text, lexed once, for asking about many declarations of it.
+pub struct Docs(Rc<Trivia>);
+
+impl Docs {
+    pub fn new(text: &str) -> Self {
+        Self(trivia(text))
+    }
+
+    /// [`above`] for this text.
+    pub fn above(&self, at: usize) -> Option<String> {
+        if !valid(&self.0.text, at) {
+            return None;
+        }
+        above_in(&self.0, at)
+    }
+}
+
 /// The docs above the declaration whose line holds `at`.
 pub fn above(text: &str, at: usize) -> Option<String> {
     if !valid(text, at) {
