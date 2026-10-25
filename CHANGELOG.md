@@ -2,6 +2,27 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- `using,map(...)` works on a module import.
+- `$T/.[A, B]`, or a constant list of types such as `$T/Allowed`, limits a polymorphic parameter to those types.
+- A library's own files find the modules beside them before the ones a project adds to the import path, so a project's own `Windows` module no longer replaces the one the standard library uses, and naming a thread works on Windows with such a project.
+- The language server counts a lone `\r` as a line break, cancels requests that are still queued, answers an oversized request with an error, and closes a document whose edit it could not apply (telling you) instead of carrying on with stale text.
+- The language server accepts `file://localhost/` and `file:/` paths, any language id for a `.jai` file, and a blank line or quoted charset in message headers, and leaves untitled and remote documents alone.
+
+### Removed
+
+- `jai.toml`, `jailint.toml` and `jaifmt.toml` are no longer read; settings live only in `jacket.toml`. `jacket config migrate` is gone, so run it with 0.27 first if you still have the old files.
+- `jaifmt.wasm` no longer takes `--config-name`; its config text is always a `jacket.toml`.
+- `Jai_Format.parse_config` now reads `jacket.toml` text; `parse_jacket_config` is gone.
+- `jaic` no longer explains option and subcommand spellings from before 0.17.
+- The installers no longer read the `JAIC_*` variables; use `JAI_*`.
+- The installers no longer install releases without `jacket` and `jaifmt`.
+- `jailint` no longer takes `--import-dir`, `--os` or `--cpu`; it takes the same spellings as `jaic` (`-I`/`-import_dir`, `-os`, `-cpu`, `-add`), plus `--add`.
+- The VS Code extension no longer checks for its old extension IDs.
+
+## [0.27.0] - 2026-10-25
+
 ### New
 
 - `Objective_C/AppKit` adds `NSWindow.close`, `NSCursor`, `NSSavePanel`, `NSOpenPanel` and `NSPasteboardTypeFileURL`.
@@ -79,9 +100,6 @@
 
 ### Fixed
 
-- `using,map(...)` works on a module import.
-- `$T/.[A, B]`, or a constant list of types such as `$T/Allowed`, limits a polymorphic parameter to those types.
-- A library's own files find the modules beside them before the ones a project adds to the import path, so a project's own `Windows` module no longer replaces the one the standard library uses, and naming a thread works on Windows with such a project.
 - In a cross build, a `Long_Double` computed by `#run` is converted to the target's `long double` format instead of failing with a type mismatch, and `#run` code in a file only the target program loads no longer tries to load the target's native libraries.
 - `Bindings_Generator` prints C++ virtual methods in the official layout: a `Name_VTable` record with `#cpp_method` slots, derived records that hold their base with `#as using,except(vtable)` and `#overlay`, and a `Record_method` wrapper for each method (#39).
 - `Bindings_Generator` lays out C bitfields like the C compiler does, in one `__bitfield` field per storage unit, and writes `set_member` and `get_member` procedures after the record; packed records and `#pragma pack` keep their layout (#38).
@@ -137,19 +155,6 @@
 - A `#ifx` with a constant condition leaves the other arm out, so its type and contents do not matter.
 - Procedures that a file-scope `#insert` declares are checked when something calls them, so a generated overload nothing uses can name things that do not exist.
 - `Subtitles` HTML output groups lines into speaker turns with a paragraph per run of dialogue or directions, and a speaker whose turns are split only by an instant with no speaker gets one CSV row instead of two.
-- The language server counts a lone `\r` as a line break, cancels requests that are still queued, answers an oversized request with an error, and closes a document whose edit it could not apply (telling you) instead of carrying on with stale text.
-- The language server accepts `file://localhost/` and `file:/` paths, any language id for a `.jai` file, and a blank line or quoted charset in message headers, and leaves untitled and remote documents alone.
-
-### Removed
-
-- `jai.toml`, `jailint.toml` and `jaifmt.toml` are no longer read; settings live only in `jacket.toml`. `jacket config migrate` is gone, so run it with 0.27 first if you still have the old files.
-- `jaifmt.wasm` no longer takes `--config-name`; its config text is always a `jacket.toml`.
-- `Jai_Format.parse_config` now reads `jacket.toml` text; `parse_jacket_config` is gone.
-- `jaic` no longer explains option and subcommand spellings from before 0.17.
-- The installers no longer read the `JAIC_*` variables; use `JAI_*`.
-- The installers no longer install releases without `jacket` and `jaifmt`.
-- `jailint` no longer takes `--import-dir`, `--os` or `--cpu`; it takes the same spellings as `jaic` (`-I`/`-import_dir`, `-os`, `-cpu`, `-add`), plus `--add`.
-- The VS Code extension no longer checks for its old extension IDs.
 
 ## [0.26.0] - 2026-10-23
 
