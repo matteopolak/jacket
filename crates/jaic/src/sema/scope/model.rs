@@ -58,6 +58,19 @@ pub struct ImportEntry {
     pub filter: ast::UsingFilter,
 }
 
+impl ImportEntry {
+    /// Whether the names of this import come from a `using,map` mapper that has not run yet.
+    pub fn is_mapped(&self) -> bool {
+        matches!(
+            self.filter,
+            ast::UsingFilter::Computed {
+                kind: ast::UsingFilterKind::Map,
+                ..
+            }
+        )
+    }
+}
+
 /// `using x;` inside a body/struct: names are looked up as members of `value`.
 #[derive(Clone)]
 pub enum UsingEntry {

@@ -63,6 +63,13 @@
     "covers": "using,map on a named module import: renamed exports, namespace alias keeps original names"
   },
   {
+    "name": "import-map-late-names",
+    "main": "cases/import-map-late-names/main.jai",
+    "mode": "interp",
+    "expected_stdout": "ok\n",
+    "covers": "a global sized before a using,map mapper has run may name the mapped exports"
+  },
+  {
     "name": "aggregate-map",
     "main": "cases/aggregate-map/main.jai",
     "mode": "interp",

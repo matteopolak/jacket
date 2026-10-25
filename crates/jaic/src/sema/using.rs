@@ -204,7 +204,15 @@ impl Compiler {
         else {
             return self.resolve_name_filter(scope, filter);
         };
-        let mapper = self.eval_const_value(scope, expr)?;
+        // Naming the mapper must not expand the importing module's other pending items: they
+        // can need the names this very mapper is about to rename.
+        let saved = std::mem::replace(&mut self.epochs.lookup_without_expansion, true);
+        let quick = self.eval_const_value(scope, expr);
+        self.epochs.lookup_without_expansion = saved;
+        let mapper = match quick {
+            Ok(mapper) => mapper,
+            Err(_) => self.eval_const_value(scope, expr)?,
+        };
         if !matches!(mapper, Value::Proc(_)) {
             return err(
                 expr.span,

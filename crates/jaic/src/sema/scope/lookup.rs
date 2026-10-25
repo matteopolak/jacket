@@ -109,15 +109,29 @@ impl Compiler {
                     }
                 }
                 let imports = self.scope(sid).imports.len();
+                let mut mid_mapping = false;
                 for i in 0..imports {
                     let resolved = match self.scope(sid).imports[i].module {
                         Some(module) => Some(module),
+                        // A mapper runs arbitrary compile-time code, which needs modules whose
+                        // `#if`s are still expanding; it waits for an ordinary lookup.
+                        None if self.epochs.lookup_without_expansion
+                            && self.scope(sid).imports[i].is_mapped() =>
+                        {
+                            self.epochs.in_progress_misses += 1;
+                            None
+                        }
                         None => self.lookup_import(sid, i)?,
                     };
                     let Some(module) = resolved else {
                         cacheable = false;
                         continue;
                     };
+                    // Names are still unmapped while the mapper runs: a miss now may be a hit
+                    // once it has, so it must not be remembered.
+                    if self.scope(sid).imports[i].is_mapped() {
+                        mid_mapping = true;
+                    }
                     {
                         let Some(target) =
                             filter_name(Some(&self.scope(sid).imports[i].filter), name)
@@ -149,6 +163,10 @@ impl Compiler {
                             return Ok(result);
                         }
                     }
+                }
+                if mid_mapping && found.is_empty() {
+                    self.epochs.in_progress_misses += 1;
+                    cacheable = false;
                 }
                 if cacheable && found.is_empty() && self.epochs.namespace_generation == generation {
                     self.caches.scope_misses.insert(key, generation);
