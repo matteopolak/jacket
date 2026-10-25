@@ -70,6 +70,13 @@
     "covers": "a global sized before a using,map mapper has run may name the mapped exports"
   },
   {
+    "name": "bake-arguments-default-enum",
+    "main": "cases/bake-arguments-default-enum/main.jai",
+    "mode": "interp",
+    "expected_stdout": "ok\n",
+    "covers": "a baked argument for an untyped parameter is checked against the type of its default"
+  },
+  {
     "name": "aggregate-map",
     "main": "cases/aggregate-map/main.jai",
     "mode": "interp",

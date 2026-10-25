@@ -309,6 +309,20 @@ impl Compiler {
             });
             let declared = match (&param.ty, &pattern) {
                 (Some(t), None) => Some(self.eval_type(def_scope, t)?),
+                // `mode := Mode.FAST` is a `Mode`: the baked value is checked against it.
+                (None, _) => param
+                    .default
+                    .as_ref()
+                    .and_then(|d| self.eval_const(def_scope, d, None).ok())
+                    .map(|op| match op {
+                        Operand::Const {
+                            ty,
+                            value,
+                            untyped: true,
+                        } => self.ty.default_untyped(ty, &value),
+                        other => other.ty(),
+                    })
+                    .filter(|&t| t != TypeId::TYPE && t != TypeId::CODE),
                 _ => None,
             };
             let (value, ty) = self.bake_value(scope, &arg.value, declared)?;
