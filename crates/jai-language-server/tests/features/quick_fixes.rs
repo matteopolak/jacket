@@ -223,7 +223,11 @@ fn a_name_several_modules_declare_offers_each_without_preferring_one() {
     let titles: Vec<&str> = actions.iter().map(|a| a.title.as_str()).collect();
     assert_eq!(
         titles,
-        ["Add `#import \"Basic\";`", "Add `#import \"Math\";`"],
+        [
+            "Add `#import \"Basic\";`",
+            "Add `#import \"Math\";`",
+            "Add `#import \"Extensions/Testing\";`"
+        ],
         "{actions:?}"
     );
     assert!(actions.iter().all(|a| !a.is_preferred));
