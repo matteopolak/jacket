@@ -18,7 +18,7 @@ FAILED :: #run ask("fail:no table");
 GONE :: #run ask("gone:no database");
 
 MISSING :: #run -> string {
-    status, reply := Service.call(tprint("%missing.jai", #filepath), "x");
+    status := Service.call(tprint("%missing.jai", #filepath), "x");
     return tprint("%", status);
 };
 

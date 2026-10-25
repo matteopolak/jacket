@@ -4,7 +4,9 @@
 
 Pg :: #import "Extensions/Postgres";
 
-// Not visible to main.jai, so queries on posts keep their anonymous rows.
+// Not visible to main.jai, so queries on posts keep their anonymous rows. Nothing names it: it is
+// here to be passed over.
+// jailint: allow(unused_private_declaration)
 Hidden_Post :: struct @pg_table(public.posts) {
     id: s64;
     author_id: s64;

@@ -104,11 +104,6 @@ is_true :: (r: *Pg.Result, row: s64, col: s64) -> bool {
     return cell(r, row, col) == "t";
 }
 
-column_index :: (r: *Pg.Result, name: string) -> s64 {
-    for r.columns if it.name == name return it_index;
-    return -1;
-}
-
 to_int :: (text: string) -> s64 {
     value: s64;
     negative := false;
