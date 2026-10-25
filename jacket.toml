@@ -1,5 +1,3 @@
-# Written by `jacket config migrate` from jailint.toml, jaifmt.toml.
-
 [lint]
 # jailint settings for this repository; see docs/tools/jailint.md.
 

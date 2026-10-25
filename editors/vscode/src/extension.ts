@@ -11,10 +11,8 @@ import { CONFIG_FILE, isIgnored, minimalReplacement, runJaifmt } from "./jaifmt"
 import { acceptedKey, probeVersion, staleMessage, staleToolchain } from "./pathVersion";
 import { ToolchainManager, type Installed } from "./toolchainManager";
 
-/** Editable config buffers; jailsp applies their contents on save. */
-const SETTINGS_FILES = ["jacket.toml", "jailint.toml", "jai.toml", "jaifmt.toml"];
-/** Earlier IDs of this extension: `matteopolak.jai` up to 0.4.1, then `matteopolak.jai-toolchain`. */
-export const OLD_EXTENSION_IDS = ["matteopolak.jai", "matteopolak.jai-toolchain"];
+/** The editable config buffer; jailsp applies its contents on save. */
+const SETTINGS_FILE = "jacket.toml";
 
 let client: LanguageClient | undefined;
 let log: vscode.LogOutputChannel;
@@ -59,16 +57,8 @@ function locate<T>(find: () => T): T | undefined {
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<{ client: () => LanguageClient | undefined }> {
-  // Both register the same command IDs and whichever activates second fails, so this one
-  // stands aside until the old one is uninstalled.
-  const old = OLD_EXTENSION_IDS.filter((id) => vscode.extensions.getExtension(id));
-  if (old.length > 0) {
-    void offerToUninstallOldExtensions(old);
-    return { client: () => undefined };
-  }
   extensionContext = context;
   log = vscode.window.createOutputChannel("Jai", { log: true });
-  void offerToMigrate(context);
   serverOutput = vscode.window.createOutputChannel("Jai Language Server", { log: true });
   toolchain = new ToolchainManager(context, log);
   const expansions = new ExpansionDocuments(() => client);
@@ -118,23 +108,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<{ clie
   installed = await toolchain.installed();
   void restart(expansions);
   return { client: () => client };
-}
-
-async function offerToUninstallOldExtensions(ids: string[]): Promise<void> {
-  const list = ids.join(", ");
-  const uninstall = "Uninstall";
-  const choice = await vscode.window.showWarningMessage(
-    `The Jai extension is now Jacket (matteopolak.jacket), but the old ${list} ${ids.length > 1 ? "are" : "is"} still installed. They provide the same commands, so this extension stays off until ${ids.length > 1 ? "they are" : "it is"} uninstalled.`,
-    uninstall,
-  );
-  if (choice !== uninstall) return;
-  for (const id of ids) {
-    await vscode.commands.executeCommand("workbench.extensions.uninstallExtension", id);
-  }
-  const reload = "Reload Window";
-  if ((await vscode.window.showInformationMessage(`Uninstalled ${list}. Reload the window to start Jacket.`, reload)) === reload) {
-    await vscode.commands.executeCommand("workbench.action.reloadWindow");
-  }
 }
 
 export async function deactivate(): Promise<void> {
@@ -249,7 +222,7 @@ async function startServer(expansions: ExpansionDocuments): Promise<void> {
     initializationOptions: () => serverSettings(),
     synchronize: {
       // Auto-import completion indexes the project's files: tell jailsp when they change.
-      fileEvents: vscode.workspace.createFileSystemWatcher("**/{*.jai,jacket.toml,jai.toml,jailint.toml,jaifmt.toml}"),
+      fileEvents: vscode.workspace.createFileSystemWatcher("**/{*.jai,jacket.toml}"),
     },
     middleware: {
       executeCommand: async (command, args, next) => expansions.handle(command, await next(command, args)),
@@ -270,13 +243,12 @@ async function startServer(expansions: ExpansionDocuments): Promise<void> {
   }
 }
 
-// --- jacket.toml (and the legacy jailint.toml and jai.toml) -------------------------------
-// jailsp reads lint and project settings from the nearest jacket.toml (else the legacy files)
-// on disk. Open TOML buffers are synchronised separately and applied on save;
+// --- jacket.toml ------------------------------------------------------------------------
+// jailsp reads lint and project settings from the nearest jacket.toml on disk. Open TOML buffers are synchronised separately and applied on save;
 // the document selector stays Jai-only, so other requests are not sent for TOML.
 
 function isSettingsFile(document: vscode.TextDocument): boolean {
-  return document.uri.scheme === "file" && SETTINGS_FILES.includes(path.basename(document.uri.fsPath));
+  return document.uri.scheme === "file" && path.basename(document.uri.fsPath) === SETTINGS_FILE;
 }
 
 /** The settings jailsp reads, as `initializationOptions` (the shape of the `jai` section). */
@@ -295,37 +267,6 @@ function serverSettings(): {
     // Untrusted workspaces: jailsp runs no `#run`, build metaprogram or computed `#insert`.
     trusted: vscode.workspace.isTrusted,
   };
-}
-
-/** One notice per machine: the workspace still has the legacy config files and no jacket.toml. */
-async function offerToMigrate(context: vscode.ExtensionContext): Promise<void> {
-  const KEY = "jai.migrationNoticeShown";
-  if (context.globalState.get<boolean>(KEY)) return;
-  const folder = vscode.workspace.workspaceFolders?.[0];
-  if (!folder) return;
-  const exists = async (name: string) => {
-    try {
-      await vscode.workspace.fs.stat(vscode.Uri.joinPath(folder.uri, name));
-      return true;
-    } catch {
-      return false;
-    }
-  };
-  if (await exists("jacket.toml")) return;
-  const legacy = [];
-  for (const name of ["jailint.toml", "jaifmt.toml", "jai.toml"]) if (await exists(name)) legacy.push(name);
-  if (legacy.length === 0) return;
-  await context.globalState.update(KEY, true);
-  const run = "Run `jacket config migrate`";
-  const choice = await vscode.window.showInformationMessage(
-    `Jai: ${legacy.join(", ")} still work, but settings now live in one jacket.toml.`,
-    run,
-  );
-  if (choice === run) {
-    const terminal = vscode.window.createTerminal({ name: "jacket", cwd: folder.uri.fsPath });
-    terminal.show();
-    terminal.sendText("jacket config migrate");
-  }
 }
 
 function openSettingsFiles(target: LanguageClient): void {
@@ -411,7 +352,7 @@ async function formatDocument(document: vscode.TextDocument, _options: vscode.Fo
     const reason = result.stderr.trim().split(/\r?\n/).join(" ") || `exit status ${result.code}`;
     log.warn(`jaifmt: ${reason}`);
     vscode.window.setStatusBarMessage(`$(warning) jaifmt: ${reason.replace(/^(jaifmt: )?(<stdin>:)?/, "")}`, 8000);
-    if (/jaifmt\.toml|jacket\.toml/.test(reason)) void vscode.window.showErrorMessage(`Jai: ${reason} (${CONFIG_FILE})`);
+    if (/jacket\.toml/.test(reason)) void vscode.window.showErrorMessage(`Jai: ${reason} (${CONFIG_FILE})`);
     return [];
   }
   const change = minimalReplacement(before, result.stdout);

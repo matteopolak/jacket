@@ -1,7 +1,7 @@
 //! `jacket`'s own commands: `new`, `init`, `config`, `clean` and `version`.
 use crate::cli::ConfigAction;
 use crate::{project, tools};
-use jacket_config::{Disk, FILE_NAME, migrate};
+use jacket_config::{Disk, FILE_NAME};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
 
@@ -145,50 +145,7 @@ fn finish_scaffold(dir: &Path, name: &str, lib: bool) -> ExitCode {
 
 pub fn config(action: ConfigAction, cwd: &Path) -> ExitCode {
     match action {
-        ConfigAction::Migrate {
-            dry_run,
-        } => config_migrate(cwd, dry_run),
         ConfigAction::Show => config_show(cwd),
-    }
-}
-
-fn config_migrate(cwd: &Path, dry_run: bool) -> ExitCode {
-    let Some(location) = jacket_config::locate(&Disk, cwd) else {
-        println!("no configuration found above {}", cwd.display());
-        return ExitCode::SUCCESS;
-    };
-    match migrate::run(&Disk, &location, dry_run) {
-        Ok((migrate::Outcome::AlreadyMigrated(path), _)) => {
-            println!("{} already exists; nothing to migrate", path.display());
-            ExitCode::SUCCESS
-        }
-        Ok((migrate::Outcome::NothingToMigrate, _)) => {
-            println!("no legacy config files in {}", location.dir.display());
-            ExitCode::SUCCESS
-        }
-        Ok((
-            migrate::Outcome::Wrote {
-                path,
-                written,
-            },
-            Some(plan),
-        )) => {
-            for warning in &plan.warnings {
-                eprintln!("jacket: {warning}");
-            }
-            if written {
-                println!("{}", migrate::summary(&plan, &path));
-            } else {
-                println!(
-                    "# would write {} (--dry-run)\n{}",
-                    path.display(),
-                    plan.text
-                );
-            }
-            ExitCode::SUCCESS
-        }
-        Ok(_) => ExitCode::SUCCESS,
-        Err(error) => fail(error),
     }
 }
 
@@ -204,39 +161,14 @@ fn config_show(cwd: &Path) -> ExitCode {
         }
         Err(error) => return fail(error),
     };
-    println!("# effective configuration for {}", loaded.dir().display());
+    println!("# effective configuration from {}", loaded.file().display());
     println!("# CLI flags override it; settings not listed have their defaults\n");
-    let text = match toml::to_string(&loaded.config) {
-        Ok(text) => text,
-        Err(error) => return fail(error),
-    };
-    let Ok(mut doc) = text.parse::<toml_edit::DocumentMut>() else {
-        print!("{text}");
-        return ExitCode::SUCCESS;
-    };
-    let sections: Vec<String> = doc.as_table().iter().map(|(k, _)| k.to_string()).collect();
-    for section in sections {
-        let origin = loaded
-            .source_of(&section)
-            .file_name()
-            .map_or(String::new(), |n| n.to_string_lossy().into_owned());
-        if let Some(table) = doc.get_mut(&section).and_then(|i| i.as_table_mut()) {
-            annotate(table, &origin);
+    match toml::to_string(&loaded.config) {
+        Ok(text) => {
+            print!("{text}");
+            ExitCode::SUCCESS
         }
-    }
-    print!("{doc}");
-    ExitCode::SUCCESS
-}
-
-fn annotate(table: &mut toml_edit::Table, origin: &str) {
-    for (_, item) in table.iter_mut() {
-        match item {
-            toml_edit::Item::Value(value) => {
-                value.decor_mut().set_suffix(format!("  # {origin}"));
-            }
-            toml_edit::Item::Table(inner) => annotate(inner, origin),
-            _ => {}
-        }
+        Err(error) => fail(error),
     }
 }
 

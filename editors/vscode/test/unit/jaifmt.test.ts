@@ -41,14 +41,14 @@ describe("minimal replacement", () => {
 
 // With JAIFMT=<path to a built jaifmt>, also run the real formatter.
 describe("jaifmt --stdin", { skip: !process.env.JAIFMT && "set JAIFMT to a jaifmt executable" }, () => {
-  it("formats text and honours the jaifmt.toml of the working directory", async () => {
+  it("formats text and honours the jacket.toml of the working directory", async () => {
     const { mkdtempSync, writeFileSync } = await import("node:fs");
     const { tmpdir } = await import("node:os");
     const dir = mkdtempSync(path.join(tmpdir(), "jaifmt-"));
     const plain = await runJaifmt(process.env.JAIFMT!, "main::(){x:=1;}", dir);
     assert.equal(plain.ok, true, plain.stderr);
     assert.equal(plain.stdout, "main :: () {\n    x := 1;\n}\n");
-    writeFileSync(path.join(dir, "jaifmt.toml"), "indent_width = 2\n");
+    writeFileSync(path.join(dir, "jacket.toml"), "[format]\nindent_width = 2\n");
     const two = await runJaifmt(process.env.JAIFMT!, "main::(){x:=1;}", dir);
     assert.equal(two.stdout, "main :: () {\n  x := 1;\n}\n");
     const broken = await runJaifmt(process.env.JAIFMT!, "main :: () {", dir);

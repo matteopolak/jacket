@@ -38,7 +38,7 @@ jacket fmt     Format with `jaifmt` (`--check`, paths; the project by default)
 jacket lsp     Run the language server over stdio (`jailsp`)
 jacket new     Create a project in a new directory        (--lib for a library)
 jacket init    Create a project in the current directory  (--lib for a library)
-jacket config  migrate [--dry-run] | show
+jacket config  show
 jacket clean   Remove the executable `jacket build` writes
 jacket version Print the version of jacket and of every tool it fronts
 jacket upgrade Install the latest release over this installation [--version TAG] [--check] [--yes]
@@ -87,7 +87,7 @@ To change it: the platform-to-archive mapping is `asset_name` in `upgrade/mod.rs
 
 ## jacket.toml
 
-The nearest directory above the working directory (or the open file, for `jailsp`) that holds a `jacket.toml` or any legacy file is the project. Every section and key is optional.
+The nearest directory above the working directory (or the open file, for `jailsp`) that holds a `jacket.toml` is the project. Every section and key is optional.
 
 In VS Code, install Even Better TOML (`tamasfe.even-better-toml`) for key completion, hover docs and validation: the Jai extension registers `editors/vscode/schemas/jacket.schema.json` through `tomlValidation`, which that extension reads. Other editors can point Taplo at the same schema.
 
@@ -126,48 +126,21 @@ serial_parse = false            # -serial_parse
 codegen_units = 4               # -codegen_units
 ```
 
-Precedence: command-line flags, then `jacket.toml`, then legacy files, then defaults. Unknown sections and keys are never fatal and never read: parsing drops them (`serde_ignored` collects their paths) and every tool prints the same warning, `unknown setting `lint.max_nestng` in jacket.toml (ignored); did you mean `lint.max_nesting`?` (the suggestion appears when a known key is close). A top-level key that belongs in a section gets that instead: `unknown setting `import_path` in jacket.toml (ignored); it belongs under `[project]``, and likely spellings point at the real key (`build_files` → ``use `entry` under `[project]` ``); the aliases live in `schema::ALIASES`. `jailint` still rejects unknown rule names and levels inside `[lint.rules]`, whose keys are rule names, not schema keys. A file that is not valid TOML, or has a wrongly typed value, is an error naming the file and line.
+Precedence: command-line flags, then `jacket.toml`, then defaults. Unknown sections and keys are never fatal and never read: parsing drops them (`serde_ignored` collects their paths) and every tool prints the same warning, `unknown setting `lint.max_nestng` in jacket.toml (ignored); did you mean `lint.max_nesting`?` (the suggestion appears when a known key is close). A top-level key that belongs in a section gets that instead: `unknown setting `import_path` in jacket.toml (ignored); it belongs under `[project]``, and likely spellings point at the real key (`build_files` → ``use `entry` under `[project]` ``); the aliases live in `schema::ALIASES`. `jailint` still rejects unknown rule names and levels inside `[lint.rules]`, whose keys are rule names, not schema keys. A file that is not valid TOML, or has a wrongly typed value, is an error naming the file and line.
 
-`jacket config show` prints the effective settings annotated with the file each value came from.
-
-### Legacy files
-
-`jai.toml`, `jailint.toml` and `jaifmt.toml` are still read when the directory has no `jacket.toml`:
-
-| legacy | becomes |
-| --- | --- |
-| `jai.toml` `build_files`, `import_path` | `[project] entry`, `import_path` |
-| `jailint.toml` top-level keys, `[rules]` | `[lint]`, `[lint.rules]` |
-| `jaifmt.toml` keys | `[format]` |
-
-A directory with both uses `jacket.toml` and ignores the legacy file, with a one-line note on stderr (`jailsp` sends a log message instead). The legacy files are looked up per directory: a `jacket.toml` in a deeper directory wins over legacy files above it.
-
-## Migration
-
-`jacket config migrate [--dry-run]` writes `jacket.toml` next to the legacy files, merging the ones in that directory. Comments and layout move with their keys (`toml_edit`), unknown keys are copied over and then warned about like any other file, the header says where the file came from, and **the old files are never deleted**. It is idempotent: with a `jacket.toml` present it does nothing. `--dry-run` prints the file and where it would go.
-
-| situation | what happens |
-| --- | --- |
-| `jacket build/check/run/lint/fmt/lsp/clean` in a tree with legacy files and no `jacket.toml` | The first such command writes `jacket.toml` next to them and prints one line saying so. |
-| same, with `CI` set | Nothing is written; a warning names `jacket config migrate`. |
-| `jaic`, `jailint`, `jaifmt` or `jailsp` run directly | They read the legacy files and never write; they warn once with a hint to run `jacket config migrate`. |
-| `jacket config show` | Read-only; notes the legacy files. |
-| `jacket.toml` and a legacy file in one directory | `jacket.toml` wins; the legacy file is ignored with a note (not repeated for a file `migrate` wrote itself). |
-| a legacy file that does not parse | An error naming that file; nothing is written. |
-
-The notices go to stderr, since stdout may be an LSP stream. The VS Code extension offers a one-time notice with a button that runs the migration; the Neovim plugin reads `jacket.toml` and needs none.
+`jacket config show` prints the effective settings and the file they came from.
 
 ## How to change it
 
 - A new `jaic`-flag-backed setting: add the field to `Experimental` in `crates/jacket-config/src/schema.rs`, forward it in `defaults` in `crates/jacket/src/compile.rs`, and add a case to the `compile.rs` tests; extend `editors/vscode/scripts/build.ts` and run it.
-- A new section read by a tool: add a typed struct in `schema.rs` (no catch-all map: unknown keys are collected by `parse_noting`, and the `known_keys` list there feeds the did-you-mean, which a test keeps in step with the struct), then read it from `Loaded`; give a legacy file a mapping in `migrate.rs` only if one existed.
+- A new section read by a tool: add a typed struct in `schema.rs` (no catch-all map: unknown keys are collected by `parse_noting`, and the `known_keys` list there feeds the did-you-mean, which a test keeps in step with the struct), then read it from `Loaded`.
 - Entry inference is `jacket_config::first_entry` and `INFERRED_ENTRIES`; `jaic-cli` and `jailsp` both use it, so keep one order.
 - The compiler library (`crates/jaic`) never reads `jacket.toml` and stays dependency-free; `jaic` takes its settings as flags from `jacket`. Only the `jaic-cli` binary uses `jacket-config`, to suggest the project's entry when it is given a directory.
-- `jaifmt` is written in Jai and reads `[format]` itself (`Jai_Format`'s `parse_jacket_config`); a change to the format keys is made in `stdlib/Extensions/Jai_Format/config.jai`.
+- `jaifmt` is written in Jai and reads `[format]` itself (`Jai_Format`'s `parse_config`); a change to the format keys is made in `stdlib/Extensions/Jai_Format/config.jai`.
 
 ## Configuration
 
-Environment variables `jacket` reads: `CI` (suppresses migration writes, and makes the build status plain); `JAIC_PROGRESS`, `NO_COLOR` and `TERM` (the `Running` line); for `upgrade`, `GITHUB_TOKEN` and the proxy variables `curl` reads. Everything else is jaic's, such as `JAIC_STDLIB` ([native linking](../native/native-linking.md)).
+Environment variables `jacket` reads: `CI` (makes the build status plain); `JAIC_PROGRESS`, `NO_COLOR` and `TERM` (the `Running` line); for `upgrade`, `GITHUB_TOKEN` and the proxy variables `curl` reads. Everything else is jaic's, such as `JAIC_STDLIB` ([native linking](../native/native-linking.md)).
 
 ## Dependencies
 

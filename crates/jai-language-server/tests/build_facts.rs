@@ -25,7 +25,7 @@ fn build_with(options: &str, add: &str) -> String {
     format!("{HEAD}{options}{}", TAIL.replace("{ADD}", add))
 }
 
-const TOML: &str = "build_files = [\"build.jai\"]\n";
+const TOML: &str = "[project]\nentry = [\"build.jai\"]\n";
 
 const MAIN: &str = "#import \"Basic\";\nhelper :: (x: int) -> int { return x * 2; }\n\
     main :: () {\n    answer := helper(21);\n    print(\"%\\n\", answer);\n}\n";
@@ -53,7 +53,7 @@ fn path_built_with_tprint_and_filepath() {
     let dir = project(
         "tprint",
         &[
-            ("jai.toml", TOML),
+            ("jacket.toml", TOML),
             ("build.jai", &build),
             ("src/main.jai", MAIN),
         ],
@@ -73,7 +73,7 @@ fn path_kept_in_a_variable() {
     let dir = project(
         "variable",
         &[
-            ("jai.toml", TOML),
+            ("jacket.toml", TOML),
             ("build.jai", &build),
             ("src/main.jai", MAIN),
         ],
@@ -97,7 +97,7 @@ fn files_added_in_a_loop() {
     let dir = project(
         "loop",
         &[
-            ("jai.toml", TOML),
+            ("jacket.toml", TOML),
             ("build.jai", &build),
             ("src/main.jai", &main),
             ("src/extra.jai", "extra_value :: 1;\n"),
@@ -136,7 +136,7 @@ fn import_path_project(name: &str, vendor: &str) -> (PathBuf, String) {
     let dir = project(
         name,
         &[
-            ("jai.toml", TOML),
+            ("jacket.toml", TOML),
             ("build.jai", &build),
             ("vendor/Tools.jai", "tool_value :: 41;\n"),
             ("src/main.jai", TOOLS_MAIN),
@@ -253,7 +253,7 @@ fn the_run_cannot_write_files() {
     let dir = project(
         "sandbox",
         &[
-            ("jai.toml", TOML),
+            ("jacket.toml", TOML),
             ("build.jai", &build),
             ("src/main.jai", MAIN),
         ],

@@ -1,0 +1,7 @@
+mystery = 1
+build_files = "x.jai"
+[lint]
+color = true
+[format]
+indent_width = 3
+bogus = [1, 2]

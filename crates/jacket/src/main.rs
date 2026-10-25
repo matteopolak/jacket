@@ -42,10 +42,7 @@ fn main() -> ExitCode {
         Command::Config {
             action,
         } => commands::config(action, &cwd),
-        Command::Clean => {
-            project::migrate_on_first_use(&cwd);
-            commands::clean(&cwd)
-        }
+        Command::Clean => commands::clean(&cwd),
         Command::Version => commands::version(),
         Command::Upgrade {
             version,
@@ -74,7 +71,6 @@ fn tool_command(command: &str, args: &[OsString], cwd: &Path) -> ExitCode {
     if let Some(tool) = raw {
         return tools::exec(tools::find(tool).as_os_str(), args);
     }
-    project::migrate_on_first_use(cwd);
     // `jailint` reads the same file and prints its own notes.
     let loaded = match project::load_with(cwd, command != "lint") {
         Ok(loaded) => loaded,

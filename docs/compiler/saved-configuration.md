@@ -2,7 +2,7 @@
 
 ## What it is
 
-The language server applies `jacket.toml` and supported legacy configuration files on save. Unfinished typing neither changes active settings nor produces configuration warnings.
+The language server applies `jacket.toml` on save. Unfinished typing neither changes active settings nor produces configuration warnings.
 
 ## How it works
 
@@ -16,7 +16,7 @@ Keep config readers routed through the saved snapshot in `config::SessionFiles` 
 
 ## Configuration
 
-Applies to `jacket.toml`, `jai.toml`, `jailint.toml` and `jaifmt.toml`. Existing nearest-file lookup, legacy precedence, defaults and validation remain in `jacket-config`. Editors must send save notifications; there is no debounce timer or per-keystroke application.
+Applies to `jacket.toml`. Nearest-file lookup, defaults and validation remain in `jacket-config`. Editors must send save notifications; there is no debounce timer or per-keystroke application.
 
 ## Dependencies
 

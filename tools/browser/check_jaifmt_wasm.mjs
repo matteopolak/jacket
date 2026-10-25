@@ -8,7 +8,7 @@
 //       staged directory with its own engine (default target/scripting-runtime).
 //   node --no-warnings tools/browser/check_jaifmt_wasm.mjs wasi <jaifmt.wasm> [native-jaifmt]
 //       jaifmt.wasm (jaifmt/wasm.jai compiled by `jaic -os wasm`) the way a page uses it: source
-//       on stdin, the jaifmt.toml text in --config, the result on stdout. Given a native jaifmt,
+//       on stdin, the jacket.toml text in --config, the result on stdout. Given a native jaifmt,
 //       every golden case must also match `jaifmt --stdin --config <file>`. Needs node 24 (Memory64).
 //
 // See docs/tools/jaifmt.md.
@@ -37,12 +37,12 @@ async function engineBackend(argument) {
   return {
     label: "jaifmt in the wasm engine",
     goldenName: name => (name === "switch" ? "src/nested/switch.jai" : "main.jai"),
-    configError: /jaifmt\.toml: line 1: indent_width/,
+    configError: /jacket\.toml: line 2: indent_width/,
     refusal: /unbalanced/,
     async format(source, { config, name = "main.jai" } = {}) {
       const program = driver.replace(/^TARGET :: ".*";$/m, `TARGET :: ${JSON.stringify(name)};`);
       const files = { "__jaifmt__.jai": program, [name]: source };
-      if (config !== undefined) files["jaifmt.toml"] = config;
+      if (config !== undefined) files["jacket.toml"] = config;
       const started = performance.now();
       const result = engine.play(files, "__jaifmt__.jai");
       const errors = (result.diagnostics ?? []).filter(d => d.severity === "error");
@@ -51,7 +51,7 @@ async function engineBackend(argument) {
     },
     // The playground's own config (as on the portfolio) and the examples users try first.
     async extra(format) {
-      const portfolio = 'indent_width = 4\nmax_blank_lines = 2\nbrace_style = "same_line"\n';
+      const portfolio = '[format]\nindent_width = 4\nmax_blank_lines = 2\nbrace_style = "same_line"\n';
       const messy = 'main :: ()\n{\n    a: int,     b: int;\n    arr := int.[1,2 ,  3];\n    for arr    {\n    }\n' +
         '    x:=1;   if x>0 {print("hi %\\n",x);}\n    if x ==\n    {\n        case 1; a = 1;\n    }\n}\n';
       const tidy = 'main :: () {\n    a: int, b: int;\n    arr := int.[1, 2, 3];\n    for arr {}\n    x := 1;\n' +
@@ -73,7 +73,7 @@ async function wasiBackend(wasmPath, nativePath) {
     label: "jaifmt.wasm",
     nativeNote: nativePath ? ", identical to native jaifmt" : "",
     goldenName: () => "main.jai",
-    configError: /^jaifmt: jaifmt\.toml: line 1: indent_width/,
+    configError: /^jaifmt: jacket\.toml: line 2: indent_width/,
     refusal: /^jaifmt: broken\.jai:.*unbalanced/,
     // One run of the module: a fresh instance, stdin and stdout through scratch files.
     async format(source, { config, name = "main.jai" } = {}) {
@@ -96,7 +96,7 @@ async function wasiBackend(wasmPath, nativePath) {
         writeFileSync(path.join(scratch, "case.toml"), config);
         args.push("--config", path.join(scratch, "case.toml"));
       }
-      // From scratch, so a config-less case does not pick up the repository's own jaifmt.toml.
+      // From scratch, so a config-less case does not pick up the repository's own jacket.toml.
       return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
         execFileSync(path.resolve(nativePath), args, { input: source, cwd: scratch }));
     }),
@@ -127,7 +127,7 @@ for (const name of names) {
 
 await backend.extra?.(format);
 
-const badConfig = await format("main :: () {}\n", { config: "indent_width = wide\n" });
+const badConfig = await format("main :: () {}\n", { config: "[format]\nindent_width = wide\n" });
 assert.equal(badConfig.exitCode, 1);
 assert.equal(badConfig.stdout, "");
 assert.match(badConfig.stderr, backend.configError);

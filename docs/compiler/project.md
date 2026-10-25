@@ -6,7 +6,7 @@ The one place that knows how a Jai project is laid out for tools that do not com
 
 ## How it works
 
-- **Settings.** Not here: `jacket-config` parses `jacket.toml` (serde and `toml`) and the legacy files, finds the nearest one through a `Files` trait (the editor counts unsaved buffers) and migrates legacy files. `find_config_dir` remains for a caller that wants any one file name.
+- **Settings.** Not here: `jacket-config` parses `jacket.toml` (serde and `toml`) and finds the nearest one through a `Files` trait (the editor counts unsaved buffers). `find_config_dir` remains for a caller that wants any one file name.
 - **Base and entries.** `project_base`: the folder of the nearest config, else the innermost workspace folder holding the file. `jacket_config::entry_files`: `[project] entry`, else the `INFERRED_ENTRIES` that exist (`build.jai`, `first.jai`, `main.jai`, `src/main.jai`, `module.jai`; `declared` says which); `first_entry` is the one `jacket` hands to jaic.
 - **Directives.** `scan_directives(tokens)` finds `#load` and `#import` (with `,file`/`,dir` flags; `,string` is skipped) from lexer tokens, so it works while the text does not parse. `directive_links(file, text)` also resolves `#load`/`,file`/`,dir` targets against the file's folder. A module import needs the import paths, so its `target` stays `None`.
 - **Files.** `ProjectFs` is what a walk sees: `DiskFs` resolves links in its keys; `jailsp` puts open buffers and its scan cache over the disk (`auto_import.rs` `IndexFs`) and adds the files a build metaprogram compiles to a file's `edges`. `load_closure` and `reachable_loads` follow `edges`.
@@ -24,7 +24,7 @@ Add a setting by extending the schema in `crates/jacket-config/src/schema.rs`. C
 
 ## Configuration
 
-`jacket.toml` and the legacy `jai.toml`, `jailint.toml` and `jaifmt.toml`; see [jacket](../tools/jacket.md), the [language server](language-server.md) and [jailint](../tools/jailint.md) docs for their keys.
+`jacket.toml`; see [jacket](../tools/jacket.md), the [language server](language-server.md) and [jailint](../tools/jailint.md) docs for their keys.
 
 ## Dependencies
 

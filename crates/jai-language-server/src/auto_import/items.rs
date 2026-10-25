@@ -39,7 +39,7 @@ impl Session {
     /// Auto-import items for `prefix` at the cursor of `uri` (whose text is `text`), leaving out
     /// `visible` names; and whether the list is incomplete (more matches, or too short a prefix
     /// yet, so the client asks again as the word grows).
-    /// The `jai.toml` build files whose run is still unknown and could attribute `uri` to a
+    /// The `[project] entry` files whose run is still unknown and could attribute `uri` to a
     /// program, with a hash of what each would be run from (see `Index::probed`).
     pub(crate) fn unrecorded_builds(&self, uri: &DocumentUri) -> Vec<(PathBuf, u64)> {
         let Some(env) = self.environment.as_ref() else {
@@ -56,7 +56,7 @@ impl Session {
             // Everything the run reads: the metaprogram, what it loads, the settings file.
             let mut files: Vec<PathBuf> = sources.closure(&mut index, &entry).into_iter().collect();
             if let Some((folder, _)) = sources.config(&mut index, &entry) {
-                files.extend(project::CONFIG_NAMES.iter().map(|n| folder.join(n)));
+                files.push(folder.join(jacket_config::FILE_NAME));
             }
             let mut texts = String::new();
             for file in files {
@@ -73,7 +73,7 @@ impl Session {
         out
     }
 
-    /// The entry file of the project program `uri` belongs to (`jai.toml`'s `build_files`, an
+    /// The entry file of the project program `uri` belongs to (`[project] entry`, an
     /// inferred entry, or the file that loads it), read from disk and the open documents.
     pub(crate) fn project_root(&self, uri: &DocumentUri) -> Option<PathBuf> {
         let env = self.environment.as_ref()?;

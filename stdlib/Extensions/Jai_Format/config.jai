@@ -1,4 +1,4 @@
-// jaifmt.toml and jacket.toml `[format]` parsing, and ignore globs. No file access: the caller reads the file.
+// jacket.toml `[format]` parsing, and ignore globs. No file access: the caller reads the file.
 
 #scope_module
 
@@ -12,16 +12,15 @@ resolved_case_body_indent :: (config: Format_Config) -> int {
     return config.case_body_indent;
 }
 
-// Parses `text` into `config`; on failure returns false and a message naming the line. Keys the
-// format settings do not have are dropped into `config.unknown_keys` (as `key`, or `format.key`
-// for a sub-table), not errors. With
-// `jacket`, `text` is a jacket.toml: only the settings under `format` count and everything else
-// is skipped; otherwise `text` is a jaifmt.toml, whose keys sit at the top.
+// Parses the jacket.toml `text` into `config`; on failure returns false and a message naming the
+// line. Only the settings under `format` count and everything else is skipped. Keys the format
+// settings do not have are dropped into `config.unknown_keys` (as `key`, or `format.key` for a
+// sub-table), not errors.
 //
 // The TOML read is the part a config uses: `key = value` pairs, `[table]` headers, bare and quoted
 // keys, dotted keys (`format.indent_width = 2`), inline tables (`format = { indent_width = 2 }`),
 // basic and literal strings, and arrays or inline tables that continue over several lines.
-parse_config_into :: (text: string, config: *Format_Config, jacket := false) -> bool, string {
+parse_config_into :: (text: string, config: *Format_Config) -> bool, string {
     line_number := 0;
     rest := text;
 
@@ -65,9 +64,6 @@ parse_config_into :: (text: string, config: *Format_Config, jacket := false) -> 
         depth = 0;
 
         if statement[0] == #char "[" {
-            // Only a jacket.toml has tables.
-            if !jacket return false, tprint("line %: expected `key = value`", statement_line);
-
             header, ok := parse_table_header(statement);
             if !ok return false, tprint("line %: malformed table header", statement_line);
 
@@ -75,7 +71,7 @@ parse_config_into :: (text: string, config: *Format_Config, jacket := false) -> 
 
             if table[0] == "format" && table.count > 1 array_add(*config.unknown_keys, dotted(table, 0));
         } else {
-            ok, message := apply_pair(config, table, statement, statement_line, jacket);
+            ok, message := apply_pair(config, table, statement, statement_line);
             if !ok return false, message;
         }
     }
@@ -104,8 +100,8 @@ parse_table_header :: (header: string) -> [..] string, bool {
 
 // One `key = value` statement (its arrays and inline tables are closed) found under the `[table]`
 // header whose keys are `table`.
-apply_pair :: (config: *Format_Config, table: [] string, statement: string, line_number: int, jacket: bool) -> bool, string {
-    in_format := !jacket || (table.count && table[0] == "format");
+apply_pair :: (config: *Format_Config, table: [] string, statement: string, line_number: int) -> bool, string {
+    in_format := table.count && table[0] == "format";
 
     path, ok, after := parse_key_path(statement);
     after = trim(after);
@@ -122,18 +118,14 @@ apply_pair :: (config: *Format_Config, table: [] string, statement: string, line
     for table array_add(*keys, it);
     for path array_add(*keys, it);
 
-    // In a jacket.toml the format settings are the keys under `format`, however they are written:
-    // in a `[format]` table, as `format.name = ...`, or in `format = { ... }`.
-    first := 0;
+    // The format settings are the keys under `format`, however they are written: in a `[format]`
+    // table, as `format.name = ...`, or in `format = { ... }`.
+    if keys[0] != "format" return true, "";
 
-    if jacket {
-        if keys[0] != "format" return true, "";
+    // A `[format.sub]` table was reported when its header was read.
+    if table.count > 1 return true, "";
 
-        // A `[format.sub]` table was reported when its header was read.
-        if table.count > 1 return true, "";
-
-        first = 1;
-    }
+    first := 1;
 
     if keys.count == first return apply_inline_table(config, value, line_number);
 

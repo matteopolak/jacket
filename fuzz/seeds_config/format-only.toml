@@ -1,0 +1,5 @@
+# fmt
+[format]
+indent_width = 2
+brace_style = "same_line" # always
+ignore = ["a/**"]

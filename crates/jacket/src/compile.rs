@@ -227,10 +227,7 @@ mod tests {
             config: jacket_config::parse(toml).unwrap(),
             location: jacket_config::Location {
                 dir: "/w".into(),
-                jacket: true,
-                legacy: Vec::new(),
             },
-            from_legacy: Vec::new(),
             notes: Vec::new(),
         }
     }

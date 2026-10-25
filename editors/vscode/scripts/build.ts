@@ -3,7 +3,7 @@
 //   node scripts/build.ts icon [--check]      images/icon.{svg,png} and the two file icons, from one glyph:
 //                                             the playground's Jai file icon, a rounded tile with a `J` cut
 //                                             out (16x16 units, even-odd fill); PNG rendered with resvg
-//   node scripts/build.ts schemas [--check]   schemas/{jailint,jaifmt,jai,jacket}.schema.json from jailint's
+//   node scripts/build.ts schemas [--check]   schemas/jacket.schema.json from jailint's
 //                                             rule table (crates/jailint/src/rules/mod.rs) and the keys the
 //                                             config parsers accept, so a new rule or key is completed and
 //                                             validated in the TOML files without editing a schema by hand
@@ -121,13 +121,8 @@ const level = (rule: { name: string; level: string; summary: string }) => ({
   markdownDescription: `${rule.summary} (default \`${rule.level}\`). [Docs](${DOCS}/jailint.md#${rule.name})`,
 });
 
-const jailint = {
-  $schema: "http://json-schema.org/draft-07/schema#",
-  $id: "https://github.com/matteopolak/jacket/editors/vscode/schemas/jailint.schema.json",
-  title: "jailint.toml",
-  description: "Settings for jailint and the lints jailsp reports.",
-  type: "object",
-  additionalProperties: false,
+// The `[lint]` keys that come from the rule table.
+const lintRules = {
   properties: {
     exclude: {
       type: "array",
@@ -161,13 +156,7 @@ const count = (minimum: number, maximum: number, fallback: number | undefined, t
   ...(fallback === undefined ? {} : { default: fallback }),
   markdownDescription: text,
 });
-const jaifmt = {
-  $schema: "http://json-schema.org/draft-07/schema#",
-  $id: "https://github.com/matteopolak/jacket/editors/vscode/schemas/jaifmt.schema.json",
-  title: "jaifmt.toml",
-  description: `Settings for the jaifmt formatter. ${DOCS}/jaifmt.md#configuration`,
-  type: "object",
-  additionalProperties: false,
+const formatKeys = {
   properties: {
     indent_width: count(1, 16, 4, "Spaces per indentation level."),
     case_indent: count(0, 16, undefined, "Indentation of `case` lines in `if x == {`. Default: `indent_width`."),
@@ -189,24 +178,7 @@ const jaifmt = {
 };
 
 const paths = (text: string) => ({ type: "array", items: { type: "string" }, markdownDescription: text });
-const project = {
-  $schema: "http://json-schema.org/draft-07/schema#",
-  $id: "https://github.com/matteopolak/jacket/editors/vscode/schemas/jai.schema.json",
-  title: "jai.toml",
-  description: `Project settings for jailsp: the files it builds and where its modules are. https://github.com/matteopolak/jacket/blob/main/docs/compiler/language-server.md#project-settings-jaitoml`,
-  type: "object",
-  additionalProperties: false,
-  properties: {
-    build_files: paths(
-      "The files you give `jaic` (or `add_build_file`), relative to this file, such as `[\"first.jai\"]` or `[\"src/main.jai\"]`. Default: those of `build.jai`, `first.jai`, `main.jai` and `src/main.jai` that exist.",
-    ),
-    import_path: paths(
-      "More folders to import modules from, relative to this file, as `-import_dir` adds (`Build_Options.import_path`). The `modules` folder next to the build file is always searched.",
-    ),
-  },
-};
-
-const section = (schema: { description: string; properties: object }, text: string) => ({
+const section = (schema: { properties: object }, text: string) => ({
   type: "object",
   additionalProperties: false,
   markdownDescription: text,
@@ -242,7 +214,7 @@ const jacket = {
       additionalProperties: false,
       markdownDescription: "Settings for jailint and the lints jailsp reports.",
       properties: {
-        ...jailint.properties,
+        ...lintRules.properties,
         max_nesting: { type: "integer", minimum: 1, markdownDescription: "How many blocks deep code may nest before `excessive_nesting` fires." },
         max_complexity: { type: "integer", minimum: 0, default: 25, markdownDescription: "The cognitive complexity above which `cognitive_complexity` reports a procedure." },
         max_arguments: { type: "integer", minimum: 0, default: 7, markdownDescription: "The parameter count above which `too_many_arguments` reports a procedure." },
@@ -280,7 +252,7 @@ const jacket = {
         },
       },
     },
-    format: section(jaifmt, "Settings for the jaifmt formatter."),
+    format: section(formatKeys, "Settings for the jaifmt formatter."),
     experimental: {
       type: "object",
       additionalProperties: false,
@@ -296,7 +268,7 @@ const jacket = {
 
 function schemas(check: boolean) {
   let stale = false;
-  for (const [name, schema] of [["jailint", jailint], ["jaifmt", jaifmt], ["jai", project], ["jacket", jacket]]) {
+  for (const [name, schema] of [["jacket", jacket]] as const) {
     const path = join(root, "schemas", `${name}.schema.json`);
     const text = JSON.stringify(schema, null, 2) + "\n";
     if (check) {

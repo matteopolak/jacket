@@ -1,2 +1,5 @@
+[lint.rules]
+
 # The integration tests check that ignored files are left alone.
+[format]
 ignore = ["sub/**"]

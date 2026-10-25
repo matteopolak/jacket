@@ -613,13 +613,13 @@ fn names_of_files_the_program_already_loads_need_no_edit() {
 }
 
 #[test]
-fn jai_toml_names_the_entry_and_import_path() {
+fn jacket_toml_names_the_entry_and_import_path() {
     let dir = project(
         "config",
         &[
             (
-                "jai.toml",
-                "build_files = [\"app/entry.jai\"]\nimport_path = [\"vendor\"]\n",
+                "jacket.toml",
+                "[project]\nentry = [\"app/entry.jai\"]\nimport_path = [\"vendor\"]\n",
             ),
             ("app/entry.jai", "#load \"part.jai\";\nmain :: () {}\n"),
             ("app/part.jai", ""),

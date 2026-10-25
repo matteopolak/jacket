@@ -89,10 +89,10 @@ describe("Jai extension", () => {
     await vscode.commands.executeCommand("workbench.action.files.revert");
   });
 
-  it("applies jailint.toml edits on save", async () => {
+  it("applies jacket.toml lint edits on save", async () => {
     const lint = await open("lint.jai");
     await diagnostics(lint, (d) => d.some((x) => x.source === "jailint"));
-    const settings = await open("jailint.toml");
+    const settings = await open("jacket.toml");
     const original = settings.getText();
     assert.equal(settings.languageId, "toml");
     const edit = new vscode.WorkspaceEdit();
@@ -102,7 +102,7 @@ describe("Jai extension", () => {
     assert.ok(await settings.save());
     await open("lint.jai");
     await diagnostics(lint, (d) => !d.some((x) => x.source === "jailint"));
-    await open("jailint.toml");
+    await open("jacket.toml");
     const restore = new vscode.WorkspaceEdit();
     restore.replace(settings.uri, new vscode.Range(settings.positionAt(0), settings.positionAt(settings.getText().length)), original);
     assert.ok(await vscode.workspace.applyEdit(restore));
@@ -141,7 +141,7 @@ describe("Jai extension", () => {
     await vscode.commands.executeCommand("workbench.action.files.revert");
   });
 
-  it("leaves files jaifmt.toml ignores alone", async () => {
+  it("leaves files jacket.toml ignores alone", async () => {
     const document = await open(path.join("sub", "ignored.jai"));
     const edits = await vscode.commands.executeCommand<vscode.TextEdit[]>("vscode.executeFormatDocumentProvider", document.uri, {
       tabSize: 4,

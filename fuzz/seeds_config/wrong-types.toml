@@ -1,0 +1,6 @@
+[project]
+entry = 3
+[lint]
+max_nesting = "deep"
+[format]
+indent_width = "wide"

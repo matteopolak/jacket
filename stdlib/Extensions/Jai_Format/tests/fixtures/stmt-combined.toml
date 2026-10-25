@@ -1,3 +1,4 @@
+[format]
 blank_line_after_declarations = true
 blank_lines_around_blocks = true
 blank_line_between_cases = true

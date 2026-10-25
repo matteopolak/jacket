@@ -1,0 +1,7 @@
+a.b = 1
+project."entry" = ["q"]
+lint.rules.float_equality = "warn"
+[lint.rules.nested]
+x = 1
+[format]
+indent_width = 2

@@ -71,9 +71,9 @@ impl JsonSession {
         let OpenParams {
             text_document: item,
         } = decode(params)?;
-        let settings = crate::project::CONFIG_NAMES
-            .iter()
-            .any(|name| item.uri.ends_with(&format!("/{name}")));
+        let settings = item
+            .uri
+            .ends_with(&format!("/{}", jacket_config::FILE_NAME));
         if item.language_id != "jai" && !settings {
             return Err(fail(
                 ErrorCode::InvalidParams,

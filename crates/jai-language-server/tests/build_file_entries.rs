@@ -1,4 +1,4 @@
-//! A `jai.toml` that lists the project's `build.jai` among `build_files` must not change how
+//! A `jacket.toml` that lists the project's `build.jai` in `[project] entry` must not change how
 //! `src/main.jai` (the program that metaprogram builds) is checked and answered.
 use jai_language_server::DiagnosticCode;
 use std::path::{Path, PathBuf};
@@ -34,7 +34,7 @@ fn check_via(
 ) {
     let mut files = vec![(build_path, build), ("src/main.jai", MAIN)];
     if let Some(toml) = toml {
-        files.push(("jai.toml", toml));
+        files.push(("jacket.toml", toml));
     }
     let dir = project(name, &files);
     let Some(editor_dir) = via(&dir) else {
@@ -71,19 +71,19 @@ fn without_a_toml() {
 
 #[test]
 fn toml_without_the_build_file() {
-    check("main-only", Some("build_files = [\"src/main.jai\"]\n"));
+    check("main-only", Some("[project]\nentry = [\"src/main.jai\"]\n"));
 }
 
 #[test]
 fn toml_with_only_the_build_file() {
-    check("build-only", Some("build_files = [\"build.jai\"]\n"));
+    check("build-only", Some("[project]\nentry = [\"build.jai\"]\n"));
 }
 
 #[test]
 fn toml_with_the_build_file_and_main() {
     check(
         "both",
-        Some("build_files = [\"build.jai\", \"src/main.jai\"]\n"),
+        Some("[project]\nentry = [\"build.jai\", \"src/main.jai\"]\n"),
     );
 }
 
@@ -91,7 +91,7 @@ fn toml_with_the_build_file_and_main() {
 fn toml_with_main_then_the_build_file() {
     check(
         "both-reversed",
-        Some("build_files = [\"src/main.jai\", \"build.jai\"]\n"),
+        Some("[project]\nentry = [\"src/main.jai\", \"build.jai\"]\n"),
     );
 }
 
@@ -104,10 +104,13 @@ fn computed_main_path_with_the_build_file_listed() {
     );
     for (name, toml) in [
         ("computed-none", None),
-        ("computed-build", Some("build_files = [\"build.jai\"]\n")),
+        (
+            "computed-build",
+            Some("[project]\nentry = [\"build.jai\"]\n"),
+        ),
         (
             "computed-both",
-            Some("build_files = [\"build.jai\", \"src/main.jai\"]\n"),
+            Some("[project]\nentry = [\"build.jai\", \"src/main.jai\"]\n"),
         ),
     ] {
         check_with(name, toml, "build.jai", &build);
@@ -120,13 +123,16 @@ fn build_file_in_a_subfolder() {
     let build = BUILD.replace("\"src/main.jai\"", "\"../src/main.jai\"");
     for (name, toml) in [
         ("sub-none", None),
-        ("sub-build", Some("build_files = [\"tools/build.jai\"]\n")),
+        (
+            "sub-build",
+            Some("[project]\nentry = [\"tools/build.jai\"]\n"),
+        ),
     ] {
         check_with(name, toml, "tools/build.jai", &build);
     }
 }
 
-const BUILD_TOML: Option<&str> = Some("build_files = [\"build.jai\"]\n");
+const BUILD_TOML: Option<&str> = Some("[project]\nentry = [\"build.jai\"]\n");
 
 /// Every spelling of the one `src/main.jai` the build file may add.
 #[test]

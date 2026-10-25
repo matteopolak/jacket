@@ -49,7 +49,7 @@ vim.filetype.add({ extension = { jai = 'jai' } })
 vim.lsp.config('jailsp', {
   cmd = { 'jailsp' },
   filetypes = { 'jai' },
-  root_markers = { 'jacket.toml', 'jai.toml', 'jailint.toml', '.git' },
+  root_markers = { 'jacket.toml', '.git' },
 })
 vim.lsp.enable('jailsp')
 ```

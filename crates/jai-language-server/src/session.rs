@@ -66,7 +66,7 @@ pub struct Session {
     pub(crate) polymorph_index: RefCell<crate::polymorphs::Index>,
     /// `Cache::recorded_version` as of the last time discovery was given the recorded builds.
     synced_builds: std::cell::Cell<u64>,
-    /// Open `jailint.toml` files: settings for the lints of documents under their directory.
+    /// Open `jacket.toml` files: settings for the lints of documents under their directory.
     /// They are not Jai documents, so they get no analysis or diagnostics of their own.
     pub(crate) lint_configs: BTreeMap<DocumentUri, Document>,
     /// Configuration snapshots committed by opening or saving, separate from edits.
@@ -79,7 +79,7 @@ pub struct Session {
     snippet_support: bool,
     /// Declarations at least this many lines long get a hint at their closing brace.
     pub(crate) closing_brace_min_lines: usize,
-    /// The client's workspace folders: projects without a `jai.toml` are inferred in them.
+    /// The client's workspace folders: projects without a `jacket.toml` are inferred in them.
     pub(crate) workspace_folders: Vec<PathBuf>,
     /// What modules and project files declare, for auto-import completion.
     pub(crate) index: RefCell<crate::auto_import::Index>,

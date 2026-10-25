@@ -37,16 +37,16 @@ main :: () {
 
     assert(equivalent, why);
 
-    config, config_ok, config_error := parse_config("indent_width = 2 # browser setting\n");
+    config, config_ok, config_error := parse_config("[format]\nindent_width = 2 # browser setting\n");
 
     assert(config_ok, config_error);
     two, two_ok := format_source(SOURCE, config);
 
     assert(two_ok && two == EXPECTED_TWO_SPACES, two);
 
-    _, bad_ok, bad_error := parse_config("indent_width = wide\n");
+    _, bad_ok, bad_error := parse_config("[format]\nindent_width = wide\n");
 
-    assert(!bad_ok && bad_error == "line 1: indent_width must be an integer from 1 to 16", bad_error);
+    assert(!bad_ok && bad_error == "line 2: indent_width must be an integer from 1 to 16", bad_error);
 
     refused, refused_ok, refused_error := format_source("f :: () { x := (1; }\n");
 

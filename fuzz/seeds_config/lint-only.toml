@@ -1,0 +1,10 @@
+# lint settings
+[lint]
+exclude = [
+  "tests/**", # fixtures
+]
+max_nesting = 4
+
+[lint.rules]
+# strict here
+float_equality = "deny"

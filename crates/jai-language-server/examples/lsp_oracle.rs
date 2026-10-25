@@ -151,17 +151,17 @@ fn parse_args() -> Result<Args, String> {
     Ok(parsed)
 }
 
-/// A session with `text` open as `path`, made the entry by a `jai.toml` beside it, as an editor
+/// A session with `text` open as `path`, made the entry by a `jacket.toml` beside it, as an editor
 /// opening a project's main file has it.
 fn open(args: &Args, path: &Path, uri: &DocumentUri, text: &str) -> Option<Session> {
     let mut session = Session::with_environment(
         Limits::default(),
         typing_files::native_environment(args.stdlib.clone()),
     );
-    let config = DocumentUri::from_path(&path.parent()?.join("jai.toml")).ok()?;
+    let config = DocumentUri::from_path(&path.parent()?.join("jacket.toml")).ok()?;
     let entry = serde_json::to_string(path.file_name()?.to_str()?).ok()?;
     session
-        .open(config, 1, format!("build_files = [{entry}]\n"))
+        .open(config, 1, format!("[project]\nentry = [{entry}]\n"))
         .ok()?;
     session.set_auto_import(false);
     session.open(uri.clone(), 1, text.to_owned()).ok()?;

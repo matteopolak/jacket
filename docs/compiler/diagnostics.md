@@ -116,7 +116,7 @@ Assertions: `context.assertion_failed` is invoked; the selected runtime can mark
 
 ### Exit status
 
-`jaic`: 0 success (`-interp`: the program's own status), 1 compile/runtime/build/link error or unreadable input, 2 command-line mistake, 3 no `main`, 120 memory limit (`JAIC_MEMORY_LIMIT`), 121 native code crashed under the interpreter, 101 internal error. `jailint`: 1 for a `deny` finding, 2 for a command-line or `jailint.toml` mistake. `jaifmt`: 1 when `--check` finds files that would change.
+`jaic`: 0 success (`-interp`: the program's own status), 1 compile/runtime/build/link error or unreadable input, 2 command-line mistake, 3 no `main`, 120 memory limit (`JAIC_MEMORY_LIMIT`), 121 native code crashed under the interpreter, 101 internal error. `jailint`: 1 for a `deny` finding, 2 for a command-line or `jacket.toml` mistake. `jaifmt`: 1 when `--check` finds files that would change.
 
 ## How to change it
 

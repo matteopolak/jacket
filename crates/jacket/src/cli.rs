@@ -23,9 +23,7 @@ src/main.jai or module.jai), and `[experimental]` settings become jaic flags unl
 
 A command that is none of these runs `jacket-<command>` from PATH, as `cargo` does.
 
-Configuration is the nearest jacket.toml (docs/tools/jacket.md). Legacy jai.toml, jailint.toml
-and jaifmt.toml are still read, and are migrated to jacket.toml the first time a jacket command
-runs next to them (never under CI; `jacket config migrate` does it on demand).";
+Configuration is the nearest jacket.toml (docs/tools/jacket.md).";
 
 #[derive(Parser, Debug)]
 #[command(name = "jacket", version, about = ABOUT, after_help = AFTER_HELP, disable_help_subcommand = true)]
@@ -68,7 +66,7 @@ pub enum Command {
         #[arg(long)]
         lib: bool,
     },
-    /// Show or migrate the configuration
+    /// Show the configuration
     Config {
         #[command(subcommand)]
         action: ConfigAction,
@@ -114,13 +112,6 @@ pub struct Passthrough {
 
 #[derive(Subcommand, Debug)]
 pub enum ConfigAction {
-    /// Write jacket.toml from the legacy jai.toml, jailint.toml and jaifmt.toml beside each
-    /// other; the old files are kept
-    Migrate {
-        /// Print the jacket.toml that would be written instead of writing it
-        #[arg(long)]
-        dry_run: bool,
-    },
-    /// Print the effective configuration, annotated with where each value comes from
+    /// Print the effective configuration
     Show,
 }

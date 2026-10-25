@@ -1,0 +1,16 @@
+[project]
+entry = "main.jai"
+
+[lint]
+max_nesting = 3
+[lint.rules]
+unused_variable = "allow"
+
+[format]
+indent_width = 4
+
+[toolchain]
+version = "0.18.0"
+
+[experimental]
+parse_threads = 2

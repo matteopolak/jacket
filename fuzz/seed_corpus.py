@@ -72,16 +72,13 @@ def lsp_session(text):
 
 
 def config_seeds(out):
-    """NUL-separated `jai.toml`, `jailint.toml`, `jaifmt.toml` and `jacket.toml` texts (the
-    `jacket_config` target's input): the hand-written bundles in fuzz/seeds_config plus each
-    config file in the repository in its own slot."""
-    slots = {"jai.toml": 0, "jailint.toml": 1, "jaifmt.toml": 2, "jacket.toml": 3}
-    inputs = [p.read_bytes() for p in sorted((FUZZ / "seeds_config").glob("*.bundle"))]
-    for name, slot in slots.items():
-        for path in sorted(ROOT.rglob(name)):
-            if "target" in path.parts or "node_modules" in path.parts:
-                continue
-            inputs.append(b"\0" * slot + path.read_bytes())
+    """`jacket.toml` texts (the `jacket_config` target's input): the hand-written ones in
+    fuzz/seeds_config plus each `jacket.toml` in the repository."""
+    inputs = [p.read_bytes() for p in sorted((FUZZ / "seeds_config").glob("*.toml"))]
+    for path in sorted(ROOT.rglob("jacket.toml")):
+        if "target" in path.parts or "node_modules" in path.parts:
+            continue
+        inputs.append(path.read_bytes())
     for data in inputs:
         (out / hashlib.sha1(data).hexdigest()).write_bytes(data)
     return len(inputs)

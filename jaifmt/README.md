@@ -42,7 +42,7 @@ The [main README](../README.md#install) lists the other ways to install.
 | `--check` | write nothing; list files that would change and exit with 1 |
 | `--stdin` | format standard input to standard output |
 | `--is-ignored <file>` | print nothing; exit 0 when the config's `ignore` list covers the file, 1 when not (2 on a config error); editors use it |
-| `--config <file>` | use this file instead of the nearest `jaifmt.toml` |
+| `--config <file>` | use this `jacket.toml` instead of the nearest one |
 | `-v`, `--verbose` | report every file, a summary, and lines longer than `max_width` |
 | `--color auto\|always\|never` | colour in error messages (`NO_COLOR` is respected) |
 
@@ -52,9 +52,10 @@ The exit status is 0 on success, 1 when `--check` found files to change, and 2 o
 
 ## Configuration
 
-jaifmt reads the nearest `jaifmt.toml` above each file:
+jaifmt reads the `[format]` section of the nearest `jacket.toml` above each file:
 
 ```toml
+[format]
 indent_width = 4
 max_blank_lines = 2
 brace_style = "same_line"   # or "preserve"

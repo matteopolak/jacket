@@ -24,7 +24,7 @@ Other options (see `--help`): `-A`/`-W`/`-D <rule>` (allow, warn, deny; `all`; `
 4. **Leak pass** (`driver::leak_pass`, only when `platform_leak` is on). Each root whose entry file is portable is compiled again for every target system with `Compiler::keep_going_past_asserts`; `jaic` notes each `#import`/`#load` it meets and each failing `#assert` (`sema/import_trace.rs`). `rules::platform_leak::analyze` turns those into findings. The failed asserts, with the chain of import sites to each, are also in `Outcome::failed_asserts`.
 5. **Report.** `--fix` applies non-overlapping machine-applicable fixes and re-lints, up to 5 passes (`fix.rs`). The language server's `source.fixAll.jailint` applies one pass. A file reached from several roots is reported once.
 
-Editors: `jailsp` lints each open document using the cached compile that hover uses. Diagnostics carry the rule as `code` and a link to its `### <rule>` section below, and `deny` rules are errors. Settings come from the `[lint]` table of the nearest `jacket.toml`, else `jailint.toml` (the browser build sends it as an open document). See [the language server](../compiler/language-server.md#lints-and-quick-fixes).
+Editors: `jailsp` lints each open document using the cached compile that hover uses. Diagnostics carry the rule as `code` and a link to its `### <rule>` section below, and `deny` rules are errors. Settings come from the `[lint]` table of the nearest `jacket.toml` (the browser build sends it as an open document). See [the language server](../compiler/language-server.md#lints-and-quick-fixes).
 
 ## Target checking
 
@@ -90,7 +90,7 @@ Every rule belongs to one category, and the category sets its default level, as 
 
 A category name works wherever a rule name does: `[lint.rules] pedantic = "warn"`, `-W pedantic`, `// jailint: allow(suspicious)`. In `[lint.rules]` a rule's own entry wins over its category's; on the command line later flags win (`-W pedantic -A magic_number`). `deny` findings are errors: the run exits 1 and editors show them as errors. `jailint --list` prints each rule's category and default.
 
-Columns: `yes` means `--fix` applies the fix; `editor` means the fix may change behaviour, so it is only a quick fix in the editor; `no` means none. "Side-effect-free" below means names, member paths, literals, indexing, casts and operators: no calls. Rules that compare expressions compare them as written, ignoring whitespace. A rule is removed once `jaic` rejects what it found; a `jailint.toml` naming a removed rule fails with `unknown rule`.
+Columns: `yes` means `--fix` applies the fix; `editor` means the fix may change behaviour, so it is only a quick fix in the editor; `no` means none. "Side-effect-free" below means names, member paths, literals, indexing, casts and operators: no calls. Rules that compare expressions compare them as written, ignoring whitespace. A rule is removed once `jaic` rejects what it found; a `[lint.rules]` table naming a removed rule fails with `unknown rule`.
 
 Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comment saying exactly when it fires, and `tests/lint/<rule>/` has `bad.jai` (+ `bad.expected`, `bad.fixed.jai`) and `good.jai`. The `every_rule_is_documented` test requires a table row and a `### <rule>` section here, because editors link to the anchor.
 
@@ -439,7 +439,7 @@ Rules are comma-separated; `all` means every rule. A name that is neither a rule
 
 ## Configuration
 
-The `[lint]` table of `jacket.toml` ([jacket](jacket.md)), found by walking up from the first path (or `--config`). A directory with only a legacy `jailint.toml` is read the same way (the same keys, without the `[lint]` header) and the tool suggests `jacket config migrate`. Unknown settings are dropped with a warning (`unknown setting ... (ignored)`); unknown rules or levels are errors so a typo cannot leave a rule on. `-A`/`-W`/`-D` override the file, overrides included.
+The `[lint]` table of `jacket.toml` ([jacket](jacket.md)), found by walking up from the first path (or `--config`). Unknown settings are dropped with a warning (`unknown setting ... (ignored)`); unknown rules or levels are errors so a typo cannot leave a rule on. `-A`/`-W`/`-D` override the file, overrides included.
 
 ```toml
 [lint]

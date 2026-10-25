@@ -102,12 +102,12 @@ fn an_open_jailint_toml_configures_the_lints() {
             })
             .unwrap()
     };
-    let settings = "file:///lsp-test/jailint.toml";
+    let settings = "file:///lsp-test/jacket.toml";
     let published = notify(
         &mut json,
         "textDocument/didOpen",
         serde_json::json!({"textDocument": {"uri": settings, "languageId": "toml",
-            "version": 1, "text": "[rules]\nbool_comparison = \"allow\"\n"}}),
+            "version": 1, "text": "[lint.rules]\nbool_comparison = \"allow\"\n"}}),
     );
     assert_eq!(lint_count(&published), 0);
     // The settings file is not Jai: nothing is published for it.
@@ -119,7 +119,7 @@ fn an_open_jailint_toml_configures_the_lints() {
         &mut json,
         "textDocument/didChange",
         serde_json::json!({"textDocument": {"uri": settings, "version": 2},
-            "contentChanges": [{"text": "[rules]\nbool_comparison = \"deny\"\n"}]}),
+            "contentChanges": [{"text": "[lint.rules]\nbool_comparison = \"deny\"\n"}]}),
     );
     assert!(published.is_empty(), "typing must not apply settings");
     let published = notify(

@@ -44,8 +44,7 @@
   "main": "./dist/extension.cjs",
   "activationEvents": [
     "workspaceContains:**/*.jai",
-    "workspaceContains:**/jacket.toml",
-    "workspaceContains:**/jailint.toml"
+    "workspaceContains:**/jacket.toml"
   ],
   "capabilities": {
     "untrustedWorkspaces": {
@@ -87,10 +86,7 @@
           "toml"
         ],
         "filenames": [
-          "jacket.toml",
-          "jaifmt.toml",
-          "jailint.toml",
-          "jai.toml"
+          "jacket.toml"
         ],
         "configuration": "./toml-language-configuration.json"
       },
@@ -154,18 +150,6 @@
       {
         "fileMatch": "jacket.toml",
         "url": "./schemas/jacket.schema.json"
-      },
-      {
-        "fileMatch": "jailint.toml",
-        "url": "./schemas/jailint.schema.json"
-      },
-      {
-        "fileMatch": "jaifmt.toml",
-        "url": "./schemas/jaifmt.schema.json"
-      },
-      {
-        "fileMatch": "jai.toml",
-        "url": "./schemas/jai.schema.json"
       }
     ],
     "snippets": [
@@ -310,7 +294,7 @@
         "jai.completion.autoImport": {
           "type": "boolean",
           "default": true,
-          "markdownDescription": "Offer names the file cannot see yet in completion, from standard-library modules, the project's modules and its other files, and add the `#import` or `#load` they need when one is accepted. Project entry files and module folders come from `jai.toml` (or are inferred)."
+          "markdownDescription": "Offer names the file cannot see yet in completion, from standard-library modules, the project's modules and its other files, and add the `#import` or `#load` they need when one is accepted. Project entry files and module folders come from `jacket.toml` (or are inferred)."
         },
         "jai.completion.callSnippets": {
           "type": "string",

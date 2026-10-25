@@ -52,7 +52,7 @@ To build it from a checkout, run `cargo build -p jailint --release`.
 
 ## Configuration
 
-Put a `jacket.toml` at your project root to change rule levels or skip files (a plain `jailint.toml` with the same keys, without the `[lint]` header, still works; `jacket config migrate` converts it):
+Put a `jacket.toml` at your project root to change rule levels or skip files:
 
 ```toml
 [lint]

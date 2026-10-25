@@ -28,7 +28,7 @@ Language support for Jai from [Jacket](https://github.com/matteopolak/jacket), t
 
   ![The quick fix for it](https://raw.githubusercontent.com/matteopolak/jacket/main/editors/vscode/images/quick-fix.png)
 
-- **Formatting** with `jaifmt`, honouring the `[format]` table of `jacket.toml` or a legacy `jaifmt.toml` (including its `ignore` globs); works with `editor.formatOnSave`.
+- **Formatting** with `jaifmt`, honouring the `[format]` table of `jacket.toml` (including its `ignore` globs); works with `editor.formatOnSave`.
 
   ![A file before and after Format Document](https://raw.githubusercontent.com/matteopolak/jacket/main/editors/vscode/images/formatting.png)
 
@@ -36,7 +36,7 @@ Language support for Jai from [Jacket](https://github.com/matteopolak/jacket), t
 - **Highlighting**: a TextMate grammar for keywords, directives, here-strings, numbers (`0x`, `0b`, `0h`, `_`), nested comments, declarations and `$T`/`$$x` polymorph variables, refined by the server's semantic tokens.
 - **Embedded languages**: a here-string whose terminator names a language is highlighted as that language: `#string WGSL`, `GLSL`, `HLSL`, `SQL`, `JSON`, `HTML`, `CSS`, `JS`, `TS`, `PY`, `SH`, `C`, `CPP`, `RUST`, `YAML`, `TOML`, `JAI` and more (ignoring case). A WGSL grammar is bundled; GLSL and Metal need an extension that provides their grammar. Other terminators (`END`) stay plain strings.
 - **Commands**: *Jai: Run File*, *Build File* and *Check File* (`jaic file.jai [-interp|-check]` in a terminal), *Restart Language Server*, *Download Toolchain*.
-- **`jacket.toml` completion, hover docs and validation** with [Even Better TOML](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml) installed: this extension ships schemas for `jacket.toml` and the legacy `jailint.toml`/`jaifmt.toml`/`jai.toml`, and Even Better TOML picks them up automatically.
+- **`jacket.toml` completion, hover docs and validation** with [Even Better TOML](https://marketplace.visualstudio.com/items?itemName=tamasfe.even-better-toml) installed: this extension ships a schema for `jacket.toml`, and Even Better TOML picks them up automatically.
 - Snippets, bracket and comment configuration, and a file icon.
 
 ## Getting the toolchain

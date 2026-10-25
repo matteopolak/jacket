@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
-  "name": "TOML (jaifmt.toml, jailint.toml)",
+  "name": "TOML (jacket.toml)",
   "scopeName": "source.toml.jai-settings",
   "patterns": [
     { "include": "#comment" },

@@ -1,5 +1,5 @@
 //! jailint from the command line: which files it compiles as what, and mistakes on its command
-//! line and in `jailint.toml`, each of which says what is wrong and how to fix it, and exits
+//! line and in `jacket.toml`, each of which says what is wrong and how to fix it, and exits
 //! with status 2.
 use std::path::PathBuf;
 use std::process::Command;
@@ -97,17 +97,7 @@ fn config_mistakes_name_the_line_and_the_fix() {
         text.contains("unknown setting `lint.max_nestng` in jacket.toml (ignored); did you mean `lint.max_nesting`?"),
         "{text}"
     );
-    // The legacy file still works, with a hint to migrate.
     std::fs::remove_file(dir.join("jacket.toml")).unwrap();
-    std::fs::write(
-        dir.join("jailint.toml"),
-        "[rules]\nfloat_equalty = \"deny\"\n",
-    )
-    .unwrap();
-    let (text, code) = jailint(&dir, &["game.jai"]);
-    assert_eq!(code, Some(2), "{text}");
-    assert!(text.contains("unknown rule `float_equalty`"), "{text}");
-    std::fs::remove_file(dir.join("jailint.toml")).unwrap();
     let (text, code) = jailint(&dir, &["--config", "missing.toml", "game.jai"]);
     assert_eq!(code, Some(2));
     assert!(

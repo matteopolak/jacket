@@ -5,7 +5,7 @@
 //! - **Standard-library modules** (and `Extensions/<Name>`): their exported top-level names.
 //!   Indexed once per stdlib folder, on first use.
 //! - **The project's modules**: the `modules/` folder next to the entry file and next to the
-//!   project root, `jai.toml`'s `import_path`, and the environment's import paths. A module
+//!   project root, `[project] import_path`, and the environment's import paths. A module
 //!   there hides a stdlib module of the same name, as for the compiler.
 //! - **The project's other files**: declarations of `.jai` files under the project folder that
 //!   the program does not load yet get `#load "relative/path.jai";` into the document; files
@@ -231,7 +231,7 @@ struct Program {
     dir: PathBuf,
     /// The project's entry files: never offered for `#load`.
     entries: BTreeSet<PathBuf>,
-    /// `jai.toml`'s `build_files` that exist, when no entry's loads reach the document: one of
+    /// `[project] entry` that exist, when no entry's loads reach the document: one of
     /// them may build it in a way only running it shows (a computed path).
     unattributed: Vec<PathBuf>,
     /// Folders of user modules, searched in order.

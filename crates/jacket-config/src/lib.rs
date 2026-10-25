@@ -1,11 +1,7 @@
 //! `jacket.toml`: the one configuration file of the Jai tools.
 //!
 //! - [`schema`]: the types a `jacket.toml` deserializes into.
-//! - [`locate`] / [`load`]: the nearest config directory above a path, and its settings. A
-//!   directory with a `jacket.toml` uses only that; a directory with only the legacy files
-//!   (`jai.toml`, `jailint.toml`, `jaifmt.toml`) is read through the same migration code that
-//!   `jacket config migrate` writes with, so both always agree.
-//! - [`migrate`]: legacy files to the text of a `jacket.toml`, comments kept.
+//! - [`locate`] / [`load`]: the nearest `jacket.toml` above a path, and its settings.
 //! - [`infer_entries`]: which file a project builds, shared by `jaic` and `jailsp`.
 //!
 //! Every Rust tool reads the file here; `jaifmt` (written in Jai) reads its `[format]` section
@@ -13,7 +9,6 @@
 #![forbid(unsafe_code)]
 use std::path::{Path, PathBuf};
 
-pub mod migrate;
 pub mod schema;
 
 pub use schema::{
@@ -22,13 +17,6 @@ pub use schema::{
 
 /// The configuration file name.
 pub const FILE_NAME: &str = "jacket.toml";
-
-/// Legacy files: `jai.toml` (project), `jailint.toml` and `jaifmt.toml`.
-pub const LEGACY_PROJECT: &str = "jai.toml";
-
-pub const LEGACY_LINT: &str = "jailint.toml";
-pub const LEGACY_FORMAT: &str = "jaifmt.toml";
-pub const LEGACY_FILES: [&str; 3] = [LEGACY_PROJECT, LEGACY_LINT, LEGACY_FORMAT];
 
 /// Entry files tried, in order, when `[project] entry` names none: a build metaprogram, a
 /// program, then a library's root.
@@ -60,14 +48,10 @@ impl Files for Disk {
     }
 }
 
-/// The nearest directory holding a config file.
+/// The nearest directory holding a `jacket.toml`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Location {
     pub dir: PathBuf,
-    /// `dir` has a `jacket.toml`.
-    pub jacket: bool,
-    /// The legacy file names `dir` has (all of them are ignored when `jacket` is set).
-    pub legacy: Vec<&'static str>,
 }
 
 impl Location {
@@ -76,20 +60,14 @@ impl Location {
     }
 }
 
-/// The nearest directory at or above `start` (a directory) with a `jacket.toml` or a legacy file.
+/// The nearest directory at or above `start` (a directory) with a `jacket.toml`.
 pub fn locate(fs: &dyn Files, start: &Path) -> Option<Location> {
-    start.ancestors().find_map(|dir| {
-        let jacket = fs.is_file(&dir.join(FILE_NAME));
-        let legacy: Vec<&'static str> = LEGACY_FILES
-            .into_iter()
-            .filter(|n| fs.is_file(&dir.join(n)))
-            .collect();
-        (jacket || !legacy.is_empty()).then(|| Location {
+    start
+        .ancestors()
+        .find(|dir| fs.is_file(&dir.join(FILE_NAME)))
+        .map(|dir| Location {
             dir: dir.to_path_buf(),
-            jacket,
-            legacy,
         })
-    })
 }
 
 /// A settings file that could not be read.
@@ -113,10 +91,7 @@ impl std::error::Error for ConfigError {
 pub struct Loaded {
     pub config: Config,
     pub location: Location,
-    /// Legacy files the settings were read from (empty with a `jacket.toml`).
-    pub from_legacy: Vec<PathBuf>,
-    /// One-line notes for the user: a legacy file ignored beside a `jacket.toml`, a legacy file
-    /// that should be migrated, keys the schema does not know.
+    /// One-line notes for the user: keys the schema does not know.
     pub notes: Vec<String>,
 }
 
@@ -125,24 +100,15 @@ impl Loaded {
         &self.location.dir
     }
 
-    /// The file `section` (`project`, `lint`, `format`, ...) was read from.
-    pub fn source_of(&self, section: &str) -> PathBuf {
-        if self.location.jacket {
-            return self.location.file();
-        }
-        let legacy = match section {
-            "project" => LEGACY_PROJECT,
-            "lint" => LEGACY_LINT,
-            "format" => LEGACY_FORMAT,
-            _ => return self.location.file(),
-        };
-        self.location.dir.join(legacy)
+    /// The `jacket.toml` the settings were read from.
+    pub fn file(&self) -> PathBuf {
+        self.location.file()
     }
 }
 
 /// The text of a config file that exists; one that cannot be read (permissions, not UTF-8) is an
 /// error rather than empty settings.
-pub(crate) fn read(fs: &dyn Files, path: &Path) -> Result<String, ConfigError> {
+fn read(fs: &dyn Files, path: &Path) -> Result<String, ConfigError> {
     fs.read(path).map_err(|error| ConfigError {
         path: path.to_path_buf(),
         message: format!("the file could not be read: {error}"),
@@ -159,53 +125,16 @@ pub fn load(fs: &dyn Files, start: &Path) -> Result<Option<Loaded>, ConfigError>
 
 /// The settings of a located directory.
 pub fn load_at(fs: &dyn Files, location: Location) -> Result<Loaded, ConfigError> {
-    let mut notes = Vec::new();
-    let (config, unknown, from_legacy) =
-        if location.jacket {
-            let path = location.file();
-            let text = read(fs, &path)?;
-            let (config, unknown) = parse_noting(&text).map_err(|message| ConfigError {
-                path: path.clone(),
-                message,
-            })?;
-            // The old files stay after a migration, so a file `jacket config migrate` wrote is not
-            // worth a note on every command; one written by hand next to them is.
-            if !location.legacy.is_empty() && !text.starts_with(migrate::HEADER_PREFIX) {
-                notes.push(format!(
-                    "note: {} has {FILE_NAME}; ignoring {}",
-                    location.dir.display(),
-                    location.legacy.join(", ")
-                ));
-            }
-            (config, unknown, Vec::new())
-        } else {
-            let plan = migrate::plan(fs, &location.dir)?;
-            notes.push(format!(
-            "note: {} in {} {} the legacy config; run `jacket config migrate` to write {FILE_NAME}",
-            location.legacy.join(", "),
-            location.dir.display(),
-            if location.legacy.len() == 1 { "is" } else { "are" }
-        ));
-            notes.extend(plan.warnings.iter().cloned());
-            let (config, unknown) = parse_noting(&plan.text).map_err(|message| {
-                // The file whose keys alone already do not fit the schema.
-                let culprit = location.legacy.iter().find(|name| {
-                    migrate::plan_only(fs, &location.dir, Some(name))
-                        .is_ok_and(|p| parse(&p.text).is_err())
-                });
-                ConfigError {
-                    path: location.dir.join(culprit.unwrap_or(&location.legacy[0])),
-                    message,
-                }
-            })?;
-            (config, unknown, plan.sources)
-        };
-    notes.extend(unknown.iter().map(|key| unknown_note(key)));
+    let path = location.file();
+    let text = read(fs, &path)?;
+    let (config, unknown) = parse_noting(&text).map_err(|message| ConfigError {
+        path,
+        message,
+    })?;
     Ok(Loaded {
         config,
         location,
-        from_legacy,
-        notes,
+        notes: unknown.iter().map(|key| unknown_note(key)).collect(),
     })
 }
 

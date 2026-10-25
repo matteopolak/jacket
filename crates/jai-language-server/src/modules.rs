@@ -1,4 +1,4 @@
-//! Where a program's modules are, worked out without a `jai.toml`.
+//! Where a program's modules are, worked out without a `jacket.toml`.
 //!
 //! The compiler looks for `#import "Name"` in the importing file's `modules/` folder, then in
 //! its import paths: its own module folder (here the standard library) and whatever the build
@@ -6,9 +6,9 @@
 //! An editor finds the folders the metaprogram adds three ways, best first, and every one that is a folder is searched before the standard library:
 //!
 //! 1. `modules/` next to the root file, then next to each folder above it up to the project
-//!    base (the folder of the nearest `jai.toml`, else the workspace folder holding the file).
-//! 2. `import_path` of the nearest `jai.toml`, relative to it.
-//! 3. The string literals a project entry file (`build_files`, an inferred entry, or the root
+//!    base (the folder of the nearest `jacket.toml`, else the workspace folder holding the file).
+//! 2. `import_path` of the nearest `jacket.toml`, relative to it.
+//! 3. The string literals a project entry file (`[project] entry`, an inferred entry, or the root
 //!    itself) writes in a statement that mentions `import_path`: `array_add(*import_path,
 //!    "modules");`, `options.import_path = .["a", "b"];`. Relative paths are taken from the
 //!    entry's folder and from the project base. Computed paths (a `%` format, a variable) are
@@ -66,7 +66,7 @@ impl Sources<'_> {
         }
         // 2. `[project] import_path`.
         if let Some((folder, config)) = &config {
-            deps.extend(project::CONFIG_NAMES.iter().map(|n| folder.join(n)));
+            deps.push(folder.join(jacket_config::FILE_NAME));
             dirs.extend(
                 config
                     .import_path

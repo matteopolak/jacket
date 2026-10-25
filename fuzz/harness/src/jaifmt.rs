@@ -17,7 +17,7 @@ use jai_wasm::play::{PlayOptions, run_with};
 use jaic::source::FileId;
 use std::collections::BTreeMap;
 
-/// The driver: format `/workspace/input.jai` with the config in `/workspace/jaifmt.toml`, twice.
+/// The driver: format `/workspace/input.jai` with the config in `/workspace/jacket.toml`, twice.
 /// Exit codes: 0 formatted (stdout holds the text), 1 refused, 2 internal check failed,
 /// 3 second pass refused, 4 not idempotent, 5 bad config.
 const DRIVER: &str = r#"
@@ -29,7 +29,7 @@ const DRIVER: &str = r#"
 main :: () -> s32 {
     source, read := read_entire_file("/workspace/input.jai", log_errors = false);
     if !read return 1;
-    toml := read_entire_file("/workspace/jaifmt.toml", log_errors = false);
+    toml := read_entire_file("/workspace/jacket.toml", log_errors = false);
     config, config_ok, config_error := parse_config(toml);
     if !config_ok { print("%\n", config_error, to_standard_error = true); return 5; }
     once, ok, error := format_source(source, config);
@@ -49,9 +49,9 @@ main :: () -> s32 {
 /// indentation and brace styles get checked too.
 const CONFIGS: [&str; 4] = [
     "",
-    "indent_width = 2\ncase_indent = 0\n",
-    "brace_style = \"preserve\"\nmax_blank_lines = 0\n",
-    "indent_width = 8\ncase_body_indent = 2\nmax_blank_lines = 1\n",
+    "[format]\nindent_width = 2\ncase_indent = 0\n",
+    "[format]\nbrace_style = \"preserve\"\nmax_blank_lines = 0\n",
+    "[format]\nindent_width = 8\ncase_body_indent = 2\nmax_blank_lines = 1\n",
 ];
 
 /// Interpreter blocks for formatting one input twice. Formatting is linear: an 8 KiB input takes
@@ -96,7 +96,7 @@ pub fn jaifmt(data: &[u8]) {
     let mut files = BTreeMap::new();
     files.insert("main.jai".to_string(), DRIVER.as_bytes().to_vec());
     files.insert("input.jai".to_string(), data.to_vec());
-    files.insert("jaifmt.toml".to_string(), config.as_bytes().to_vec());
+    files.insert("jacket.toml".to_string(), config.as_bytes().to_vec());
     let options = PlayOptions {
         budget: Some(FORMAT_BUDGET),
         compile_only: false,

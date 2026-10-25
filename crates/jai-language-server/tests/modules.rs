@@ -1,5 +1,5 @@
-//! Module folders found without a `jai.toml`: `modules/` in the folders above the root file up to
-//! the workspace folder, `jai.toml`'s `import_path`, and the paths a build metaprogram adds.
+//! Module folders found without a `jacket.toml`: `modules/` in the folders above the root file up to
+//! the workspace folder, `jacket.toml`'s `import_path`, and the paths a build metaprogram adds.
 use jai_language_server::{DiagnosticCode, Limits, SemanticTokenKind, Session};
 use std::path::Path;
 mod common;
@@ -87,11 +87,14 @@ fn folders_above_the_workspace_are_not_searched() {
 }
 
 #[test]
-fn jai_toml_import_path_is_searched() {
+fn jacket_toml_import_path_is_searched() {
     let dir = project(
         "toml",
         &[
-            ("jai.toml", "import_path = [\"vendor/mods\"]\n"),
+            (
+                "jacket.toml",
+                "[project]\nimport_path = [\"vendor/mods\"]\n",
+            ),
             ("vendor/mods/Tools.jai", TOOLS),
             ("src/main.jai", APP),
         ],

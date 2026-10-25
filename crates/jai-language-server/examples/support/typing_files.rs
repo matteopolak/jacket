@@ -1,5 +1,5 @@
 //! Opening real source files for the typing-session checker (`typing_session.rs`): the file, the
-//! sibling files it loads or imports by relative path, and a `jai.toml` that makes it the entry.
+//! sibling files it loads or imports by relative path, and a `jacket.toml` that makes it the entry.
 use jai_language_server::{DocumentUri, Environment};
 use std::path::{Path, PathBuf};
 
@@ -64,10 +64,10 @@ pub fn read_file_input(path: &Path) -> Option<FileInput> {
         let content = std::fs::read_to_string(&sibling).ok()?;
         docs.push((uri(&sibling)?, content));
     }
-    let config = uri(&path.parent()?.join("jai.toml"))?;
+    let config = uri(&path.parent()?.join("jacket.toml"))?;
     let entry = serde_json::to_string(path.file_name()?.to_str()?).ok()?;
     Some(FileInput {
-        setup: vec![(config, format!("build_files = [{entry}]\n"))],
+        setup: vec![(config, format!("[project]\nentry = [{entry}]\n"))],
         docs,
     })
 }

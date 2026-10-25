@@ -3,7 +3,7 @@
 //! Lints come from the same type-checked compile that hover, inlay hints and code lenses use
 //! (`semantic::Cache`, keyed by the open texts), so an edit costs one compile however many
 //! features ask. A document is linted only when it parses. Its settings come from the nearest
-//! `jacket.toml` above it (or legacy `jailint.toml`): an open one (the client sent it with `didOpen`, which is how the
+//! `jacket.toml` above it: an open one (the client sent it with `didOpen`, which is how the
 //! browser build gets one), else one on disk.
 //!
 //! Each machine-applicable fix is a preferred `quickfix` on its finding, carrying the finding
@@ -25,12 +25,11 @@ pub fn rule_url(rule: &str) -> String {
     format!("https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#{rule}")
 }
 
-/// A settings file rather than a Jai document: `jacket.toml`, or a legacy `jai.toml`,
-/// `jailint.toml` or `jaifmt.toml`.
+/// A settings file (`jacket.toml`) rather than a Jai document.
 pub(crate) fn is_config(uri: &DocumentUri) -> bool {
     Path::new(uri.path())
         .file_name()
-        .is_some_and(|n| crate::project::CONFIG_NAMES.iter().any(|c| n == *c))
+        .is_some_and(|n| n == jacket_config::FILE_NAME)
 }
 
 /// What a code action request asks for, from its `context`.

@@ -5,8 +5,7 @@
 //!
 //! Where it comes from, first match wins:
 //! 1. `jacket.toml`, the nearest config directory at or above the document (a saved session snapshot before
-//!    the one on disk; a legacy `jai.toml` counts when no `jacket.toml` is there): `[project]
-//!    entry` names the entry files, `import_path` adds module folders; paths are relative to its
+//!    the one on disk): `[project] entry` names the entry files, `import_path` adds module folders; paths are relative to its
 //!    folder.
 //! 2. Otherwise the workspace folder holding the document, with the entry files inferred
 //!    (`jacket_config::INFERRED_ENTRIES`: all that exist are tried as entries).
@@ -18,14 +17,6 @@ use std::path::{Component, Path};
 pub use jaic::project::*;
 
 pub use jacket_config::{EntryFiles, Project as ProjectConfig};
-
-/// Every file name whose edit changes a project's settings.
-pub const CONFIG_NAMES: [&str; 4] = [
-    jacket_config::FILE_NAME,
-    jacket_config::LEGACY_PROJECT,
-    jacket_config::LEGACY_LINT,
-    jacket_config::LEGACY_FORMAT,
-];
 
 /// `base`'s entry files: `[project] entry`, else the inferred ones; declared ones are
 /// normalised.

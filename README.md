@@ -80,7 +80,7 @@ entry = ["build.jai"]              # what `jacket build` compiles
 import_path = ["vendor/modules"]   # extra module folders, like -I
 ```
 
-The same file holds lint rules (`[lint]`) and formatter settings (`[format]`). If you have older `jai.toml`, `jailint.toml` or `jaifmt.toml` files, `jacket config migrate` merges them into one `jacket.toml`.
+The same file holds lint rules (`[lint]`) and formatter settings (`[format]`).
 
 ## Formatting and linting
 

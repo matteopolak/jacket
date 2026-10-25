@@ -32,7 +32,7 @@ pub fn find_config_dir(
         .map(Path::to_path_buf)
 }
 
-/// The base folder of the project holding `file`: where the nearest `jai.toml` is, else the
+/// The base folder of the project holding `file`: where the nearest `jacket.toml` is, else the
 /// innermost of the workspace `folders` that holds `file`.
 pub fn project_base(
     config_dir: Option<&Path>,

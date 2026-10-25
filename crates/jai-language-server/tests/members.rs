@@ -153,7 +153,11 @@ fn references_reach_project_files_that_are_not_open() {
     let main = "#load \"util.jai\";\nmain :: () { p: Point; p.x = 1; }\n";
     std::fs::write(dir.join("util.jai"), util).unwrap();
     std::fs::write(dir.join("main.jai"), main).unwrap();
-    std::fs::write(dir.join("jai.toml"), "build_files = [\"main.jai\"]\n").unwrap();
+    std::fs::write(
+        dir.join("jacket.toml"),
+        "[project]\nentry = [\"main.jai\"]\n",
+    )
+    .unwrap();
     let util_uri = DocumentUri::from_path(&dir.join("util.jai")).unwrap();
     let mut s = session();
     s.open(util_uri.clone(), 1, util.into()).unwrap();

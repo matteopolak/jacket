@@ -1,0 +1,4 @@
+# the project
+[project]
+entry = ["first.jai"] # entry
+import_path = ["vendor"]

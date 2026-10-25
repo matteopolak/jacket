@@ -4,13 +4,12 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "The jacket.toml schema, its lookup, and migration from the legacy tool config files."
+description = "The jacket.toml schema and its lookup."
 
 [dependencies]
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_ignored = "=0.1.14"
 toml = "=1.1.2"
-toml_edit = "=0.25.13"
 
 [lints]
 workspace = true

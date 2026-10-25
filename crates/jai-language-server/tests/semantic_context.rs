@@ -10,8 +10,8 @@ fn fixture(configured: bool) -> (Session, DocumentUri, Rc<Cell<usize>>) {
     let mut fs = VirtualFs::default();
     if configured {
         fs.insert(
-            "/observed/jai.toml",
-            "build_files = [\"entry.jai\"]\n".as_bytes(),
+            "/observed/jacket.toml",
+            "[project]\nentry = [\"entry.jai\"]\n".as_bytes(),
         );
         fs.insert(
             "/observed/entry.jai",

@@ -97,22 +97,22 @@ fn settings_files_that_do_not_parse_are_reported_once() {
         json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} }),
     );
     let dir = "file:///resilience-config";
-    let broken = "[rules\nunused_variable = \"deny\"\n";
-    open(&mut s, &format!("{dir}/jailint.toml"), 1, broken);
+    let broken = "[lint.rules\nunused_variable = \"deny\"\n";
+    open(&mut s, &format!("{dir}/jacket.toml"), 1, broken);
     let main = format!("{dir}/main.jai");
     let first = messages(&open(&mut s, &main, 1, "main :: () {\n    x := 1;\n}\n"));
     assert_eq!(first.len(), 1, "{first:?}");
-    assert!(first[0].contains("jailint.toml"), "{first:?}");
+    assert!(first[0].contains("jacket.toml"), "{first:?}");
     assert!(first[0].contains("defaults"), "{first:?}");
     // Same problem, next edit: nothing more.
     let again = messages(&open(&mut s, &main, 2, "main :: () {\n    y := 1;\n}\n"));
     assert!(again.is_empty(), "{again:?}");
     // Fixed, then broken again: news.
-    open(&mut s, &format!("{dir}/jailint.toml"), 2, "[rules]\n");
+    open(&mut s, &format!("{dir}/jacket.toml"), 2, "[lint.rules]\n");
     let ok = messages(&open(&mut s, &main, 3, "main :: () {\n    z := 1;\n}\n"));
     assert!(ok.is_empty(), "{ok:?}");
     // Editing the settings file re-lints the open documents, which is when it is read.
-    let mut broken_again = messages(&open(&mut s, &format!("{dir}/jailint.toml"), 3, broken));
+    let mut broken_again = messages(&open(&mut s, &format!("{dir}/jacket.toml"), 3, broken));
     broken_again.extend(messages(&open(
         &mut s,
         &main,
@@ -120,54 +120,6 @@ fn settings_files_that_do_not_parse_are_reported_once() {
         "main :: () {\n    w := 1;\n}\n",
     )));
     assert_eq!(broken_again.len(), 1, "{broken_again:?}");
-}
-
-fn logs(out: &[Value]) -> Vec<String> {
-    out.iter()
-        .filter(|m| m["method"] == "window/logMessage")
-        .map(|m| m["params"]["message"].as_str().unwrap().to_string())
-        .collect()
-}
-
-#[test]
-fn a_legacy_file_beside_jacket_toml_is_ignored_with_one_log_line() {
-    let mut s = with_environment();
-    send(
-        &mut s,
-        json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} }),
-    );
-    let dir = "file:///resilience-legacy";
-    open(
-        &mut s,
-        &format!("{dir}/jacket.toml"),
-        1,
-        "[lint.rules]\nunused_variable = \"deny\"\n",
-    );
-    open(
-        &mut s,
-        &format!("{dir}/jailint.toml"),
-        1,
-        "[rules]\nunused_variable = \"allow\"\n",
-    );
-    let main = format!("{dir}/main.jai");
-    let first = open(&mut s, &main, 1, "main :: () {\n    x := 1;\n}\n");
-    let lines = logs(&first);
-    assert_eq!(lines.len(), 1, "{first:?}");
-    assert!(lines[0].contains("ignoring jailint.toml"), "{lines:?}");
-    // The jacket.toml level applies: `deny` is an error.
-    let published = first
-        .iter()
-        .find(|m| m["method"] == "textDocument/publishDiagnostics" && m["params"]["uri"] == main)
-        .unwrap();
-    let lint = published["params"]["diagnostics"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|d| d["source"] == "jailint")
-        .expect("the unused variable is linted");
-    assert_eq!(lint["severity"], 1, "{lint:?}");
-    let again = open(&mut s, &main, 2, "main :: () {\n    y := 1;\n}\n");
-    assert!(logs(&again).is_empty(), "{again:?}");
 }
 
 #[test]
@@ -180,9 +132,9 @@ fn a_bad_project_file_is_reported_once_by_open_or_completion() {
     let dir = "file:///resilience-project";
     let mut found = messages(&open(
         &mut s,
-        &format!("{dir}/jai.toml"),
+        &format!("{dir}/jacket.toml"),
         1,
-        "build_files = 3\n",
+        "[project]\nentry = 3\n",
     ));
     let main = format!("{dir}/main.jai");
     let text = "main :: () {\n    prin\n}\n";
@@ -201,7 +153,7 @@ fn a_bad_project_file_is_reported_once_by_open_or_completion() {
     );
     found.extend(messages(&out));
     assert_eq!(found.len(), 1, "{out:?}");
-    assert!(found[0].contains("jai.toml"), "{found:?}");
+    assert!(found[0].contains("jacket.toml"), "{found:?}");
     assert!(found[0].contains("an array of strings"), "{found:?}");
     let again = complete(&mut s, &main, 1, 8);
     assert!(messages(&again).is_empty(), "{again:?}");

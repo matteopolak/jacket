@@ -13,12 +13,12 @@ fn probe() {
     let windows = root.join("Windows/module.jai").canonicalize().unwrap();
     let text = std::fs::read_to_string(&module).unwrap();
     let mut session = session();
-    let config = file_uri(main.parent().unwrap().join("jai.toml").to_str().unwrap());
+    let config = file_uri(main.parent().unwrap().join("jacket.toml").to_str().unwrap());
     session
         .open(
             config,
             1,
-            "build_files = [\"windows-device-decoding.jai\"]\n".into(),
+            "[project]\nentry = [\"windows-device-decoding.jai\"]\n".into(),
         )
         .unwrap();
     let main_uri = file_uri(main.to_str().unwrap());

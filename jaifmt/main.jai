@@ -34,7 +34,7 @@ HELP :: Args.Help(Options).{
     check = "Do not write; list the files that would change and exit with 1",
     stdin = "Format standard input to standard output",
     is_ignored = "Print nothing; exit 0 when FILE is ignored by the nearest config's ignore list, 1 when it is not (for editors)",
-    config = "Use this config (a jacket.toml or a jaifmt.toml) instead of the nearest one",
+    config = "Use this jacket.toml instead of the nearest one",
     verbose = "Report every file, a summary, and lines over max_width",
     color = "Colour errors; auto means on a terminal, unless NO_COLOR is set",
 };
@@ -374,21 +374,17 @@ read_all_stdin :: () -> string {
 }
 
 // Finds the nearest config in `directory` or its parents and loads it; returns defaults when
-// there is none. A directory's jacket.toml (its `[format]` section) wins over its jaifmt.toml,
-// which is the legacy file. Results are cached per directory.
+// there is none: a directory's jacket.toml (its `[format]` section). Results are cached per
+// directory.
 config_for_directory :: (directory: string) -> *Format_Config, ok: bool, error: string {
     for config_cache if it.directory == directory return it.config, it.ok, it.error;
 
     entry: Config_Cache_Entry;
     entry.directory = copy_string(directory);
     jacket := tprint("%/%", directory, JACKET_CONFIG_FILE_NAME);
-    legacy := tprint("%/%", directory, FORMAT_CONFIG_FILE_NAME);
 
     if file_exists(jacket) {
         entry.config, entry.ok, entry.error = load_config(jacket);
-    } else if file_exists(legacy) {
-        entry.config, entry.ok, entry.error = load_config(legacy);
-        if entry.ok warn_legacy(legacy);
     } else {
         parent := parent_directory(directory);
         if parent.count && parent != directory {
@@ -410,16 +406,7 @@ load_config :: (path: string) -> *Format_Config, ok: bool, error: string {
 
     if !read_ok return config, false, sprint("could not read config `%`", shown(path));
 
-    parsed: Format_Config;
-    ok: bool;
-    message: string;
-
-    if is_jacket_file(path) {
-        parsed, ok, message = parse_jacket_config(text);
-    } else {
-        parsed, ok, message = parse_config(text);
-    }
-
+    parsed, ok, message := parse_config(text);
     if !ok return config, false, sprint("in `%`, %", shown(path), message);
 
     config.* = parsed;
@@ -431,21 +418,6 @@ load_config :: (path: string) -> *Format_Config, ok: bool, error: string {
 
     return config, true, "";
 }
-
-is_jacket_file :: (path: string) -> bool {
-    return path == JACKET_CONFIG_FILE_NAME || ends_with(path, tprint("/%", JACKET_CONFIG_FILE_NAME));
-}
-
-// The legacy jaifmt.toml is still read; the tools that fail on it must not write, so this only
-// says how to move to jacket.toml, once per file.
-warn_legacy :: (path: string) {
-    for warned_legacy if it == path return;
-
-    array_add(*warned_legacy, copy_string(path));
-    print_error("jaifmt: `%` is the legacy config; run `jacket config migrate` to write jacket.toml\n", shown(path));
-}
-
-warned_legacy: [..] string;
 
 // `a/b/c` -> `a/b`; `/a` -> `/`; `a` -> "".
 parent_directory :: (path: string) -> string {

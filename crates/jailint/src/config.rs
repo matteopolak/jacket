@@ -1,5 +1,4 @@
-//! The linter's settings: the `[lint]` section of `jacket.toml` (or a legacy `jailint.toml`,
-//! migrated on the fly by `jacket-config`).
+//! The linter's settings: the `[lint]` section of `jacket.toml`.
 //!
 //! ```toml
 //! [lint]
@@ -152,7 +151,7 @@ pub struct Config {
     pub portability: Portability,
     /// The file the settings came from, if any.
     pub source: Option<PathBuf>,
-    /// One-line notes about the configuration (a legacy file in use or ignored).
+    /// One-line notes about the configuration (unknown keys).
     pub notes: Vec<String>,
 }
 
@@ -396,7 +395,7 @@ impl Config {
         }
     }
 
-    /// Settings of a `jacket.toml` or legacy `jailint.toml` at `path`.
+    /// Settings of the `jacket.toml` (or another file in its format) at `path`.
     pub fn load(path: &Path) -> Result<Config, String> {
         // Paths checked against `exclude` are canonical, so the root must be too.
         let dir = match path.parent() {
@@ -404,7 +403,6 @@ impl Config {
             _ => Path::new("."),
         };
         let dir = &dir.canonicalize().unwrap_or_else(|_| dir.to_path_buf());
-        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
         let text = std::fs::read_to_string(path).map_err(|e| {
             format!(
                 "could not read config `{}`: {}",
@@ -412,36 +410,20 @@ impl Config {
                 jaic::io_reason(&e)
             )
         })?;
-        let mut config = if name == jacket_config::LEGACY_LINT {
-            // One legacy file, named: read it alone, as migration would.
-            let fs = One(path.to_path_buf(), text);
-            let loaded = jacket_config::load_at(
-                &fs,
-                jacket_config::Location {
-                    dir: dir.clone(),
-                    jacket: false,
-                    legacy: vec![jacket_config::LEGACY_LINT],
-                },
-            )
-            .map_err(|e| e.to_string())?;
-            Self::from_loaded(loaded)?
-        } else {
-            let (parsed, unknown) = jacket_config::parse_noting(&text)
-                .map_err(|e| format!("in `{}`, {e}", path.display()))?;
-            let mut config = Self::from_lint(&parsed.lint, dir)
-                .map_err(|e| format!("in `{}`, {e}", path.display()))?;
-            config.notes = unknown
-                .iter()
-                .map(|key| jacket_config::unknown_note(key))
-                .collect();
-            config
-        };
+        let (parsed, unknown) = jacket_config::parse_noting(&text)
+            .map_err(|e| format!("in `{}`, {e}", path.display()))?;
+        let mut config = Self::from_lint(&parsed.lint, dir)
+            .map_err(|e| format!("in `{}`, {e}", path.display()))?;
+        config.notes = unknown
+            .iter()
+            .map(|key| jacket_config::unknown_note(key))
+            .collect();
         config.source = Some(path.to_path_buf());
         Ok(config)
     }
 
     fn from_loaded(loaded: jacket_config::Loaded) -> Result<Config, String> {
-        let source = loaded.source_of("lint");
+        let source = loaded.file();
         let mut config = Config::from_lint(&loaded.config.lint, loaded.dir())
             .map_err(|e| format!("in `{}`, {e}", source.display()))?;
         config.source = Some(source);
@@ -532,21 +514,6 @@ fn check_rule(rule: &str, value: &str) -> Result<(), String> {
     Level::parse(value).map(drop).ok_or_else(|| {
         format!("unknown level \"{value}\" for `{rule}`\nhelp: use \"allow\", \"warn\" or \"deny\"")
     })
-}
-
-/// One file in memory, for reading a named legacy config.
-struct One(PathBuf, String);
-
-impl Files for One {
-    fn is_file(&self, path: &Path) -> bool {
-        path == self.0
-    }
-
-    fn read(&self, path: &Path) -> std::io::Result<String> {
-        (path == self.0)
-            .then(|| self.1.clone())
-            .ok_or_else(|| std::io::ErrorKind::NotFound.into())
-    }
 }
 
 /// Glob match: `*` is any run of characters but `/`, `**` any run including `/`, `?` one

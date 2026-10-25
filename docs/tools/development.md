@@ -63,7 +63,7 @@ Tested by `tools/ci/test_pre_commit_hook.py` on a temporary repository with stan
 
 ## Code formatting
 
-Rust uses the pinned nightly `rustfmt` and `rustfmt.toml` (edition 2024, `max_width = 100`, compact items expanded, at most two blank lines). `tools/dev/check_rust_format.py` first checks that every manifest under `crates/` is a workspace member (an unregistered crate would escape formatting), then runs `cargo fmt --all -- --check` and `tools/dev/rust_item_spacing.py --check` (rustfmt does not put blank lines between multi-line items; the script does). Jai uses [jaifmt](jaifmt.md) with `jaifmt.toml`; CI runs `jaifmt --check stdlib tests benchmarks tools jaifmt examples`. A new crate must be added to `members` in the root `Cargo.toml`. Change style options in `rustfmt.toml` and land the reformat as its own commit.
+Rust uses the pinned nightly `rustfmt` and `rustfmt.toml` (edition 2024, `max_width = 100`, compact items expanded, at most two blank lines). `tools/dev/check_rust_format.py` first checks that every manifest under `crates/` is a workspace member (an unregistered crate would escape formatting), then runs `cargo fmt --all -- --check` and `tools/dev/rust_item_spacing.py --check` (rustfmt does not put blank lines between multi-line items; the script does). Jai uses [jaifmt](jaifmt.md) with the `[format]` section of `jacket.toml`; CI runs `jaifmt --check stdlib tests benchmarks tools jaifmt examples`. A new crate must be added to `members` in the root `Cargo.toml`. Change style options in `rustfmt.toml` and land the reformat as its own commit.
 
 **Format-only commits** (repo-wide `jaifmt` or `cargo fmt`, or a style option change) contain nothing else and use the message `style: format with jaifmt` (or `rustfmt`).
 

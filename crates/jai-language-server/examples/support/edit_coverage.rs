@@ -240,12 +240,12 @@ pub fn check(path: &Path, source: &str, stdlib: Option<PathBuf>, max_lines: usiz
     let mut s = Session::with_environment(Limits::default(), environment(stdlib));
     // The corpus worker checks this source file, including its real imports/loads.
     // An inferred application entry may deliberately exclude it on the host target.
-    let config = file_uri(&path.parent().unwrap().join("jai.toml"));
+    let config = file_uri(&path.parent().unwrap().join("jacket.toml"));
     s.open(
         config,
         1,
         format!(
-            "build_files = [{}]\n",
+            "[project]\nentry = [{}]\n",
             serde_json::to_string(path.file_name().unwrap().to_str().unwrap()).unwrap()
         ),
     )

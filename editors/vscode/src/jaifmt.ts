@@ -2,7 +2,7 @@
 // cover the ignore query and the edit computation without VS Code.
 import { spawn } from "node:child_process";
 
-export const CONFIG_FILE = "jaifmt.toml";
+export const CONFIG_FILE = "jacket.toml";
 
 /**
  * Whether the `ignore` list of the config that applies to `file` covers it, asked of
@@ -61,7 +61,7 @@ export interface FormatResult {
 }
 
 /**
- * Formats `text` with `jaifmt --stdin`, started in `cwd` so jaifmt finds the `jaifmt.toml` that
+ * Formats `text` with `jaifmt --stdin`, started in `cwd` so jaifmt finds the `jacket.toml` that
  * applies to the document (it looks in the working directory and its parents).
  */
 export function runJaifmt(executable: string, text: string, cwd: string, token?: { onCancellationRequested(listener: () => void): unknown }): Promise<FormatResult> {

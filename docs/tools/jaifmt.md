@@ -25,7 +25,7 @@ Flags are declared at the top of `jaifmt/main.jai` and parsed by [`Extensions/Ar
 
 - `lexer.jai`: same token boundaries as `crates/jaic/src/lexer.rs`, but comments are tokens and each token records the whitespace before it.
 - `format.jai`: `plan_lines` decides line breaks (`breaks[i]`), then the emit loop writes each line with indentation from a stack of `Frame`s and zero or one space between tokens (`spacing_rule`).
-- `config.jai`: `jacket.toml` `[format]` / `jaifmt.toml` parsing and ignore globs.
+- `config.jai`: `jacket.toml` `[format]` parsing and ignore globs.
 
 Behaviour in short:
 
@@ -40,7 +40,7 @@ Behaviour in short:
 
 ## Configuration
 
-The `[format]` table of `jacket.toml` ([jacket](jacket.md)), or a legacy `jaifmt.toml` with the same keys at its top (a TOML subset: integers, booleans, basic and literal strings, string arrays that may span lines, quoted and dotted keys, and `format = { ... }` inline tables or `format.key = ...` in a `jacket.toml`; unknown keys are dropped with a warning on stderr, bad values are errors). The nearest one up the tree applies per file, and a directory's `jacket.toml` beats its `jaifmt.toml`; other tables in `jacket.toml` are skipped. A legacy file is used with a hint on stderr to run `jacket config migrate`. `--config` overrides (a path to either kind of file, or inline text). `jaifmt --is-ignored <file>` answers the ignore question without formatting (exit 0 ignored, 1 not, 2 error); the VS Code and Neovim plugins call it instead of reading the globs themselves.
+The `[format]` table of `jacket.toml` ([jacket](jacket.md)) (a TOML subset: integers, booleans, basic and literal strings, string arrays that may span lines, quoted and dotted keys, and `format = { ... }` inline tables or `format.key = ...`; unknown keys are dropped with a warning on stderr, bad values are errors). The nearest one up the tree applies per file; other tables are skipped. `--config` overrides (a path to a `jacket.toml`, or inline text). `jaifmt --is-ignored <file>` answers the ignore question without formatting (exit 0 ignored, 1 not, 2 error); the VS Code and Neovim plugins call it instead of reading the globs themselves.
 
 ```toml
 [format]
@@ -72,7 +72,7 @@ Also `format_tokens_equivalent`, `format_is_ignored(config, path)` (set `config.
 ## Browser
 
 - `jaifmt/playground.jai` runs in the wasm engine against `/workspace` (`TARGET` constant names the file); exit 0 means stdout is the formatted file, 1 means stderr has one `jaifmt: ...` line. `tools/browser/build_scripting_wasm.py` stages it as `jaifmt-playground.jai` in every browser bundle.
-- `jaifmt/wasm.jai` is a WASI command: `jaic jaifmt/wasm.jai -os wasm -O2 -no_debug_info -exe jaifmt.wasm`, run with `node --no-warnings tools/wasi_run.mjs jaifmt.wasm --config "indent_width = 2" < in.jai`. Source on stdin, config text from `--config` or `JAIFMT_CONFIG`, same exit contract. The text is read as `jaifmt.toml` syntax unless `--config-name jacket.toml` says it is a `jacket.toml`, whose `[format]` table is used. It is about 35 times faster than the engine path but needs Memory64 (Chrome 133, Firefox 134, node 24, not Safari); pages fall back to the engine driver when `WebAssembly.validate` rejects it. Its hash is recorded as `jaifmt_wasm_sha256` in the release bundle's `build-metadata.json`. `node tools/browser/check_jaifmt_wasm.mjs wasi jaifmt.wasm target/jaifmt` compares it with native on every golden case; `check_jaifmt_wasm.mjs engine` runs the same cases through the playground's interpreter path.
+- `jaifmt/wasm.jai` is a WASI command: `jaic jaifmt/wasm.jai -os wasm -O2 -no_debug_info -exe jaifmt.wasm`, run with `node --no-warnings tools/wasi_run.mjs jaifmt.wasm --config $'[format]\nindent_width = 2' < in.jai`. Source on stdin, config text from `--config` or `JAIFMT_CONFIG`, same exit contract. The text is a `jacket.toml`, whose `[format]` table is used. It is about 35 times faster than the engine path but needs Memory64 (Chrome 133, Firefox 134, node 24, not Safari); pages fall back to the engine driver when `WebAssembly.validate` rejects it. Its hash is recorded as `jaifmt_wasm_sha256` in the release bundle's `build-metadata.json`. `node tools/browser/check_jaifmt_wasm.mjs wasi jaifmt.wasm target/jaifmt` compares it with native on every golden case; `check_jaifmt_wasm.mjs engine` runs the same cases through the playground's interpreter path.
 
 ## How to change it
 

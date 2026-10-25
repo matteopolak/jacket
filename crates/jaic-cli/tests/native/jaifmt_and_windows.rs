@@ -5,7 +5,7 @@ use std::process::Command;
 
 /// `jaifmt/` builds natively and behaves as documented: `--stdin` formats to stdout,
 /// `--check` lists files that would change (exit 1) without writing, a plain run rewrites them,
-/// ignore globs from the nearest jaifmt.toml apply, and malformed files are refused (exit 2).
+/// ignore globs from the nearest jacket.toml apply, and malformed files are refused (exit 2).
 #[test]
 fn jaifmt_builds_and_formats() {
     // jaifmt walks directories through the POSIX module, which has no Windows side.
@@ -84,8 +84,8 @@ fn jaifmt_builds_and_formats() {
     let messy = "main :: () {\nx:=1;\n}\n";
     let bad_source = "f :: () { x := (1; }\n";
     std::fs::write(
-        dir.join("jaifmt.toml"),
-        "indent_width = 2\nignore = [\"src/skipped\"]\n",
+        dir.join("jacket.toml"),
+        "[format]\nindent_width = 2\nignore = [\"src/skipped\"]\n",
     )
     .unwrap();
     std::fs::write(dir.join("src/a.jai"), messy).unwrap();

@@ -174,10 +174,10 @@ impl Session {
         answer
     }
 
-    /// Runs the `jai.toml` build files that could build `uri` but have not been run (or were
+    /// Runs the `[project] entry` files that could build `uri` but have not been run (or were
     /// changed since), once each, so their recorded facts decide which program `uri` is in
     /// instead of a scan of their text. A run that fails is not repeated until the
-    /// metaprogram, what it loads or `jai.toml` changes.
+    /// metaprogram, what it loads or `jacket.toml` changes.
     fn run_unrecorded_builds(&self, uri: &DocumentUri, files: &BTreeMap<PathBuf, Rc<[u8]>>) {
         let Some(environment) = self.environment.as_ref() else {
             return;

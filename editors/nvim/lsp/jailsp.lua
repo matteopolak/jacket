@@ -7,7 +7,7 @@ local config = require('jai.config')
 return {
   cmd = require('jai').server_cmd,
   filetypes = { 'jai' },
-  root_markers = { 'jacket.toml', 'jai.toml', 'jailint.toml', 'jaifmt.toml', '.git' },
+  root_markers = { 'jacket.toml', '.git' },
   before_init = function(params, cfg)
     -- Read when the server starts, so `setup()` and `vim.g.jai` may come later than this file.
     local settings = config.server_settings()

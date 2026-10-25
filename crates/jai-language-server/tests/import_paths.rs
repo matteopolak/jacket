@@ -1,6 +1,6 @@
 //! A sweep of `#import` / `#load` handling in a real project folder: navigation and hover on
 //! the strings, module-name completion, `#import,file` / `#import,dir`, `../` loads, module
-//! folders from `jai.toml`, `Name.jai` against `Name/module.jai`, paths with spaces, and a
+//! folders from `jacket.toml`, `Name.jai` against `Name/module.jai`, paths with spaces, and a
 //! missing module's diagnostic and quick fix.
 use jai_language_server::{DiagnosticCode, DiagnosticSeverity, DocumentUri, Limits, Session};
 mod common;
@@ -33,7 +33,7 @@ fn imports_and_loads_resolve_through_every_kind_of_path() {
     let dir = project(
         "kinds",
         &[
-            ("jai.toml", "import_path = [\"vendor\"]\n"),
+            ("jacket.toml", "[project]\nimport_path = [\"vendor\"]\n"),
             ("src/main.jai", main),
             ("src/modules/Single.jai", "single_value :: 1;\n"),
             ("src/modules/Folder/module.jai", "folder_value :: 2;\n"),
