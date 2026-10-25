@@ -622,7 +622,18 @@ impl Compiler {
                         Operand::Const {
                             value: Value::Code(other),
                             ..
-                        } => self.pr.code_scopes[other.0 as usize],
+                        } => {
+                            // Names that code's scope lacks come from the code itself (a
+                            // `compiler_get_code` result names the polymorphic constants of
+                            // the procedure inserting it).
+                            let target = self.pr.code_scopes[other.0 as usize];
+                            let hidden = self.new_hidden_scope(target);
+                            let proc_depth = self.scope(scope).proc_depth;
+                            let hidden_scope = &mut self.ns.scopes[hidden.0 as usize];
+                            hidden_scope.fallbacks = vec![at];
+                            hidden_scope.proc_depth = proc_depth;
+                            hidden
+                        }
                         _ => return err(t.span, "#insert,scope(...) needs a Code value"),
                     },
                     None if flags.iter().any(|fl| fl.name.as_str() == "scope") => scope,
