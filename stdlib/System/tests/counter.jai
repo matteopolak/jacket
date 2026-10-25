@@ -4,7 +4,7 @@
 #import "Extensions/Testing";
 
 cpu_counter_lies_between_two_reads_of_the_clock :: () {
-    #if OS != .WASM {
+    #if OS == .LINUX || OS == .MACOS {
         #if CPU == .X64 {
             #assert #exists(S.M64);
             cpu := S.M64.get_cpu_info();
@@ -50,10 +50,11 @@ cpu_counter_lies_between_two_reads_of_the_clock :: () {
     }
 } @test
 
-// System does not build for wasm: there the tests are skipped and their bodies left out.
+// The test runs only on Linux and macOS: elsewhere it is skipped and its body left out, since the
+// directory still compiles as one program there.
 #scope_file
 
-#if OS != .WASM {
+#if OS == .LINUX || OS == .MACOS {
     S :: #import "System";
     #if CPU != .X64 P :: #import "POSIX";
 }

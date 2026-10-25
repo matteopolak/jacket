@@ -7,9 +7,9 @@
 #import "stb_image";
 #import "stb_image_write";
 
-// The stb functions allocate with the C library.
-libc :: #system_library "libc";
-c_free :: (memory: *void) #foreign libc "free";
+// Each stb library allocates from its own C runtime, which on Windows is a static one with its own
+// heap, so a buffer goes back to the library that made it: stbi_image_free for stb_image's.
+// stb_image_write exports no free, so its few compressed streams here are left allocated.
 
 stb_compress :: (data: [] u8, quality: s32) -> [] u8 {
     length: s32;
@@ -20,8 +20,6 @@ stb_compress :: (data: [] u8, quality: s32) -> [] u8 {
     result.data = alloc(max(length, 1));
 
     for 0..length - 1 result[it] = packed[it];
-
-    c_free(packed);
 
     return result;
 }
@@ -70,7 +68,7 @@ main :: () {
                 }
 
                 check(same, tprint("%: stb output differs for our level % stream", label, level));
-                c_free(output);
+                stbi_image_free(output);
             }
 
             free(packed.data);

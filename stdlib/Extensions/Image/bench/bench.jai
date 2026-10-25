@@ -18,9 +18,6 @@ Load :: #import "stb_image";
 Write :: #import "stb_image_write";
 Resize :: #import "stb_image_resize";
 
-libc :: #system_library "libc";
-c_free :: (memory: *void) #foreign libc "free";
-
 seconds :: () -> float64 {
     return to_float64_seconds(current_time_monotonic());
 }

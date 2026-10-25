@@ -14,9 +14,14 @@
 #import "stb_image";
 #import "stb_image_write";
 
-// The stb functions allocate with the C library.
+// stb_image frees its own buffers. stb_image_write exports no free, and on Windows its static C
+// runtime keeps a heap of its own, so there its compressed streams are left allocated.
 libc :: #system_library "libc";
 c_free :: (memory: *void) #foreign libc "free";
+
+free_compressed :: (memory: *void) {
+    #if OS != .WINDOWS c_free(memory);
+}
 
 WORDS :: string.["the", "of", "and", "compiler", "stream", "window", "literal", "length", "distance", "huffman", "block", "match", "symbol", "table", "inflate", "deflate", "a", "to", "in", "is", "bytes", "output", "Jai", "code"];
 
@@ -139,7 +144,7 @@ stb_decode_work :: () {
     length: s32;
     out := stbi_zlib_decode_malloc(packed.data, cast(s32) packed.count, *length);
     sink += out[length / 2];
-    c_free(out);
+    stbi_image_free(out);
 }
 
 inflate_work :: () {
@@ -163,7 +168,7 @@ stb_compress_work :: () {
     length: s32;
     out := stbi_zlib_compress(input.data, cast(s32) input.count, *length, 8);
     sink += out[length / 2];
-    c_free(out);
+    free_compressed(out);
 }
 
 crc_work :: () {
@@ -199,7 +204,7 @@ run_set :: (name: string, data: [] u8) {
     stb_out := stbi_zlib_compress(input.data, cast(s32) input.count, *length, 8);
     stb_size := cast(float64) length;
 
-    c_free(stb_out);
+    free_compressed(stb_out);
 
     stb_time := measure(stb_compress_work);
 
