@@ -112,6 +112,13 @@
     "covers": "a member behind a pointer held by a using argument can be assigned"
   },
   {
+    "name": "polymorphic-constant-converts",
+    "main": "cases/polymorphic-constant-converts/main.jai",
+    "mode": "interp",
+    "expected_stdout": "ok\n",
+    "covers": "an integer polymorphic constant of a procedure or struct converts to the integer type it meets"
+  },
+  {
     "name": "aggregate-map",
     "main": "cases/aggregate-map/main.jai",
     "mode": "interp",

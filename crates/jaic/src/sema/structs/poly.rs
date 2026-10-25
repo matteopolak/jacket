@@ -43,7 +43,12 @@ impl Compiler {
                 .filter_map(|p| p.name)
                 .find(|p| p.name == n)
                 .map_or(lit.span, |p| p.span);
-            self.add_const(scope, n, at, v, t);
+            let integer =
+                matches!(v, Value::Int(_)) && matches!(self.ty.types.kind(t), TypeKind::Int { .. });
+            let id = self.add_const(scope, n, at, v, t);
+            // An integer argument converts to the integer type a use wants when it fits, as
+            // the literal it was written as would.
+            self.entity_mut(id).untyped_const = integer;
         }
         let file_scope = scope;
         for stmt in &lit.body {

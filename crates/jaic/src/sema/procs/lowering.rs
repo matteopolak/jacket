@@ -470,6 +470,13 @@ impl Compiler {
                 (None, Some(p)) => self.new_const(scope, *name, p.span, value.clone(), *ty),
                 (None, None) => self.add_const(scope, *name, span, value.clone(), *ty),
             };
+            // An integer argument converts to the integer type a use wants when it fits, as
+            // the literal it was written as would.
+            if matches!(value, Value::Int(_))
+                && matches!(self.ty.types.kind(*ty), crate::types::TypeKind::Int { .. })
+            {
+                self.entity_mut(id).untyped_const = true;
+            }
             bound.push((*name, id));
         }
         if self.ed.is_live() {

@@ -14,6 +14,7 @@
 - An integer computed by `#run` takes the integer type expected where it is written when its value fits.
 - `(*value).([4] u8)` reads the value as an array of the size it has.
 - A member behind a pointer that a `using` argument holds can be assigned.
+- An integer constant of a polymorphic procedure or struct, such as `$CAPACITY: s64`, converts to the integer type it meets.
 - The language server counts a lone `\r` as a line break, cancels requests that are still queued, answers an oversized request with an error, and closes a document whose edit it could not apply (telling you) instead of carrying on with stale text.
 - The language server accepts `file://localhost/` and `file:/` paths, any language id for a `.jai` file, and a blank line or quoted charset in message headers, and leaves untitled and remote documents alone.
 
