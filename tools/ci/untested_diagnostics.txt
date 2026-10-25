@@ -181,7 +181,6 @@ signedness mismatch: the constant {} does not fit in `{}`
 strings can only be compared with == and !=
 struct `{}` contains itself (use a pointer)
 target TEMPORARY_STORAGE_SIZE was bound to {}, but the final workspace temporary_storage_size is {}
-the argument has no value
 the failure ordering of a compare-exchange cannot be release or acq_rel
 the member name of `offset_of` must be a constant string
 the operands of `{}` must be registers
