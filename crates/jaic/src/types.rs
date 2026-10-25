@@ -458,17 +458,25 @@ impl Types {
     /// argument of a polymorphic struct (a typed query's row, say) is cut short, so the name stays
     /// on one readable line.
     pub fn name(&self, ty: TypeId) -> String {
-        self.spell(ty, true)
+        self.spell(ty, Spelling::Short)
+    }
+
+    /// The spelling for a label with no room for detail (an inlay hint): like [`Self::name`],
+    /// but a polymorph instance whose arguments would be cut short is named by its polymorphic
+    /// struct alone, so `Row("…")` reads `Row`.
+    pub fn label(&self, ty: TypeId) -> String {
+        self.spell(ty, Spelling::Label)
     }
 
     /// Human-readable spelling, as Jai prints types, with every polymorph argument in full.
     /// Anything that names a type for the program or other tools (symbols, debug info, printed
     /// output) uses this one.
     pub fn full_name(&self, ty: TypeId) -> String {
-        self.spell(ty, false)
+        self.spell(ty, Spelling::Full)
     }
 
-    fn spell(&self, ty: TypeId, short: bool) -> String {
+    fn spell(&self, ty: TypeId, mode: Spelling) -> String {
+        let short = mode != Spelling::Full;
         match self.kind(ty) {
             TypeKind::Void => "void".into(),
             TypeKind::Bool => "bool".into(),
@@ -498,20 +506,20 @@ impl Types {
             TypeKind::PolyStruct {
                 name, ..
             } => name.to_string(),
-            TypeKind::Pointer(t) => format!("*{}", self.spell(*t, short)),
+            TypeKind::Pointer(t) => format!("*{}", self.spell(*t, mode)),
             TypeKind::Array {
                 elem,
                 kind,
             } => match kind {
-                ArrayKind::Fixed(n) => format!("[{n}] {}", self.spell(*elem, short)),
-                ArrayKind::View => format!("[] {}", self.spell(*elem, short)),
-                ArrayKind::Resizable => format!("[..] {}", self.spell(*elem, short)),
+                ArrayKind::Fixed(n) => format!("[{n}] {}", self.spell(*elem, mode)),
+                ArrayKind::View => format!("[] {}", self.spell(*elem, mode)),
+                ArrayKind::Resizable => format!("[..] {}", self.spell(*elem, mode)),
             },
             TypeKind::Proc(p) => {
-                let params: Vec<String> = p.params.iter().map(|t| self.spell(*t, short)).collect();
+                let params: Vec<String> = p.params.iter().map(|t| self.spell(*t, mode)).collect();
                 let mut s = format!("({})", params.join(", "));
                 if !p.returns.is_empty() {
-                    let r: Vec<String> = p.returns.iter().map(|t| self.spell(*t, short)).collect();
+                    let r: Vec<String> = p.returns.iter().map(|t| self.spell(*t, mode)).collect();
                     s.push_str(" -> ");
                     s.push_str(&r.join(", "));
                 }
@@ -530,6 +538,15 @@ impl Types {
                         .iter()
                         .map(|v| v.render(self, short))
                         .collect();
+                    let cut = || {
+                        info.poly_args
+                            .iter()
+                            .zip(&args)
+                            .any(|(v, a)| *a != v.render(self, false))
+                    };
+                    if mode == Spelling::Label && cut() {
+                        return info.name.to_string();
+                    }
                     format!("{}({})", info.name, args.join(", "))
                 }
             }
@@ -541,4 +558,15 @@ impl Types {
     pub fn count(&self) -> usize {
         self.kinds.len()
     }
+}
+
+/// How much of a type's name [`Types::spell`] writes out.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Spelling {
+    /// Every polymorph argument in full.
+    Full,
+    /// Long string arguments cut short.
+    Short,
+    /// A polymorph instance with a cut argument named by its polymorphic struct alone.
+    Label,
 }

@@ -6,11 +6,26 @@ use crate::sema::scope::{EntityId, EntityKind, EntityState, Resolved};
 use crate::sema::{Compiler, Value, scope};
 use crate::source::FileId;
 use crate::source::Span;
-use crate::types::TypeKind;
+use crate::types::{TypeId, TypeKind, Types};
 
 impl Compiler {
-    /// Inferred types of declarations `x := value` in `file`: (name span, type).
+    /// Inferred types of declarations `x := value` in `file`: (name span, type), spelled in
+    /// full so an edit can write them into the code.
     pub fn ide_declared_types(&self, file: FileId) -> Vec<(Span, String)> {
+        self.declared_types(file, Types::full_name)
+    }
+
+    /// [`Self::ide_declared_types`] spelled to label the code, as inlay hints do: a type whose
+    /// name would be cut short is named by its polymorphic struct alone.
+    pub fn ide_declared_type_labels(&self, file: FileId) -> Vec<(Span, String)> {
+        self.declared_types(file, Types::label)
+    }
+
+    fn declared_types(
+        &self,
+        file: FileId,
+        spell: fn(&Types, TypeId) -> String,
+    ) -> Vec<(Span, String)> {
         let Some(ide) = self.ed.facts() else {
             return Vec::new();
         };
@@ -26,7 +41,7 @@ impl Compiler {
             else {
                 continue;
             };
-            let name = self.ty.types.name(ty);
+            let name = spell(&self.ty.types, ty);
             match out.iter().find(|(s, _)| *s == r.span) {
                 Some((_, n)) if *n != name => conflicting.push(r.span),
                 Some(_) => {}

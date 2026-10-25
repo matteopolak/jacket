@@ -524,6 +524,28 @@ extracted :: (sum: s64, base: int) -> s64, string {
 }
 
 #[test]
+fn an_extracted_result_keeps_a_long_polymorph_argument_in_full() {
+    let text = "Row :: struct ($shape: string) { #insert shape; }
+make :: () -> Row(\"/// a long doc line for the id column\\nid: s64;\\n\") {
+    r: Row(\"/// a long doc line for the id column\\nid: s64;\\n\");
+    return r;
+}
+run :: () {
+    row := make();
+    print_id(row.id);
+}
+print_id :: (id: s64) {}
+";
+    let out = run(
+        text,
+        select(text, "row := make();"),
+        "Extract into procedure",
+    );
+    assert!(out.contains("a long doc line for the id column"), "{out}");
+    assert!(!out.contains('…'), "{out}");
+}
+
+#[test]
 fn extracts_a_loop_that_uses_a_parameter() {
     let text = "show :: (v: int) {}
 run :: (items: []int) {

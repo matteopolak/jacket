@@ -1,9 +1,11 @@
 //! A user-written polymorphic struct whose body `#insert` builds from a long string argument:
 //! hover writes a value's struct type out as its fields under their `///` docs, a field's own
-//! hover reads its docs from the inserted text, and diagnostics cut the argument short.
+//! hover reads its docs from the inserted text, diagnostics cut the argument short and an inlay
+//! hint names the polymorphic struct alone.
 use jai_language_server::DiagnosticCode;
 mod common;
-use common::{at, open, uri};
+use common::{at, open, position, uri};
+use jai_language_server::Range;
 
 const PROGRAM: &str = "Row :: struct ($shape: string) { #insert shape; }
 
@@ -12,6 +14,7 @@ main :: () {
     wrong: int = row;
     print_id(row.id);
     spot: Spot;
+    copy := row;
 }
 
 print_id :: (id: s64) {}
@@ -81,4 +84,20 @@ fn diagnostics_cut_the_argument_short() {
         messages.iter().all(|m| !m.contains("email")),
         "{messages:?}"
     );
+}
+
+#[test]
+fn an_inlay_hint_names_the_polymorphic_struct_alone() {
+    let s = open(PROGRAM);
+    let all = Range {
+        start: position(PROGRAM, 0),
+        end: position(PROGRAM, PROGRAM.len()),
+    };
+    let hints = s.inlay_hints(&uri(), all).unwrap();
+    let copy = at(PROGRAM, "copy :=");
+    let label = hints
+        .iter()
+        .find(|h| h.position.line == copy.line)
+        .map(|h| h.label.clone());
+    assert_eq!(label.as_deref(), Some(": Row"), "{hints:?}");
 }

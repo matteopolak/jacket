@@ -137,7 +137,7 @@ impl Session {
         let last = doc.index.byte(text, range.end);
         let Some((types, calls, expansions, loop_names)) = self.checked(uri, |a, f| {
             (
-                a.compiler.ide_declared_types(f),
+                a.compiler.ide_declared_type_labels(f),
                 a.compiler.ide_calls(f),
                 a.compiler.ide_expansions(f),
                 a.compiler.ide_implicit_loop_names(f),
