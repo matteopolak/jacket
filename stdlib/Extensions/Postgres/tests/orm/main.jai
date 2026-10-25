@@ -164,6 +164,19 @@ test_relations :: (db: *Pg.Connection) {
 
     check(error.kind == .NONE && all_posts.count == 2 && all_posts[0].title == "hello", Pg.error_text(error));
 
+    // An enum literal takes its type from the column it is compared with, directly or through a
+    // relation.
+    happy:, error = Pg.select(db, Post, where = #code it.author.mood == .happy && .sad != it.author.mood);
+
+    check(error.kind == .NONE && happy.result.row_count == 2, Pg.error_text(error));
+    Pg.free_rows(*happy);
+
+    calm:, error = Pg.select(db, User, where = #code it.mood == .ok);
+    all_calm := Pg.fetch_all(*calm);
+
+    check(error.kind == .NONE && all_calm.count == 1 && all_calm[0].email == "b@example.com", Pg.error_text(error));
+    Pg.free_rows(*calm);
+
     authors:, error = Pg.load_one(db, all_posts, "author");
 
     check(error.kind == .NONE && authors.items.count == 2 && !authors.items[0].null && authors.items[1].value.email == "a@example.com", Pg.error_text(error));

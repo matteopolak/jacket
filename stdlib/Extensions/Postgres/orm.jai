@@ -278,8 +278,9 @@ jai_string :: (text: string) -> string {
 // The SQL a filter becomes, with a `%` per parameter and each parameter's Jai text.
 Orm_Sql :: struct {
     T: Type;
+    statement_type: Type; // `T` of the statement: `T` changes inside a relation's subquery
     builder: String_Builder;
-    parameters: [..] string;
+    parameters: [..] string; // as Jai of the generated code (see `orm_argument`)
     // Per parameter: a procedure of this module the value goes through first, or "".
     wraps: [..] string;
     // Set by the second pass: each parameter's Jai type, for the cast after its hole.
@@ -682,10 +683,11 @@ orm_json_value :: (value: $V) -> Json(V) {
     return .{ value = value };
 }
 
-orm_hole :: (sql: *Orm_Sql, text: string, wrap := "") {
+// `text` is Jai where the call was written, or with `in_module` Jai of the generated code itself.
+orm_hole :: (sql: *Orm_Sql, text: string, wrap := "", in_module := false) {
     index := sql.parameters.count;
 
-    array_add(*sql.parameters, text);
+    array_add(*sql.parameters, ifx in_module then text else orm_insert_text(text));
     array_add(*sql.wraps, wrap);
     append(*sql.builder, "% ");
 
@@ -1212,10 +1214,56 @@ orm_binary :: (sql: *Orm_Sql, binary: *Code_Binary_Operator) {
     }
 
     append(*sql.builder, "(");
-    orm_expression(sql, binary.left);
-    print_to_builder(*sql.builder, " % ", word);
-    orm_expression(sql, binary.right);
+
+    // `.admin` has no type of its own: it takes the enum of the column on the other side.
+    compares := op == .IS_EQUAL || op == .IS_NOT_EQUAL || op == .LESS_OR_EQUAL || op == .GREATER_OR_EQUAL || op == #char "<" || op == #char ">";
+
+    if compares && enum_literal_name(binary.right) {
+        orm_expression(sql, binary.left);
+        print_to_builder(*sql.builder, " % ", word);
+        orm_enum_hole(sql, binary.left, binary.right);
+    } else if compares && enum_literal_name(binary.left) {
+        orm_enum_hole(sql, binary.right, binary.left);
+        print_to_builder(*sql.builder, " % ", word);
+        orm_expression(sql, binary.right);
+    } else {
+        orm_expression(sql, binary.left);
+        print_to_builder(*sql.builder, " % ", word);
+        orm_expression(sql, binary.right);
+    }
+
     append(*sql.builder, ")");
+}
+
+// The enum literal `literal` as a parameter of the type of `column`: a field of the table, or
+// of a to-one relation.
+orm_enum_hole :: (sql: *Orm_Sql, column: *Code_Node, literal: *Code_Node) {
+    path := field_path(column);
+    owner := "";
+
+    if path.count == 1 && sql.T == sql.statement_type {
+        owner = "T";
+    } else if path.count == 2 && sql.T == sql.statement_type {
+        relation, problem := orm_relation(sql.T, path[0]);
+
+        if !problem && relation.kind == .BELONGS_TO {
+            index := array_find_index(sql.relation_names, relation.target);
+
+            if index < 0 {
+                array_add(*sql.relation_names, relation.target);
+                index = sql.relation_names.count - 1;
+            }
+
+            owner = tprint("Orm_R%", index);
+        }
+    }
+
+    if !owner {
+        orm_fail(sql, literal, "the ORM cannot tell the type of this enum literal here: name its type (`Role.admin`)");
+        return;
+    }
+
+    orm_hole(sql, tprint("type_of(%.%).%", owner, path[path.count - 1], enum_literal_name(literal)), in_module = true);
 }
 
 orm_call :: (sql: *Orm_Sql, call: *Code_Procedure_Call) {
@@ -1463,6 +1511,7 @@ orm_set :: (sql: *Orm_Sql, node: *Code_Node) {
 orm_build :: (T: Type, kind: Orm_Kind, where: Code, order_by: Code, set: Code, desc: bool, limit: s64, offset: s64, from_sql: string, types: [] Type, relations: [] Type, columns := "") -> Orm_Sql {
     sql: Orm_Sql;
     sql.T = T;
+    sql.statement_type = T;
     sql.builder.allocator = temp;
     sql.parameters.allocator = temp;
     sql.wraps.allocator = temp;
@@ -1731,7 +1780,7 @@ orm_insert_text :: (text: string) -> string {
 
 // Parameter `index` as an argument: its text where the filter was written, through its wrap.
 orm_argument :: (sql: *Orm_Sql, index: s64) -> string {
-    text := orm_insert_text(sql.parameters[index]);
+    text := sql.parameters[index];
     wrap := sql.wraps[index];
 
     return ifx wrap then tprint("%(%)", wrap, text) else text;

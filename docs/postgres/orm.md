@@ -99,6 +99,7 @@ The query runs when the loop starts; a failure goes to `error` and the body neve
 The relation notes `generate` writes (`@pg_belongs_to(author:author_id:User:id)`, `@pg_has_many(posts:Post:author_id:id)`, see [schema.md](schema.md)) give two things:
 
 - **Filters through a to-one relation.** `where = #code it.author.email == owner` becomes a scalar subquery, `(select "email" from "public"."users" as orm_r0 where orm_r0."id" = "public"."posts"."author_id")`, so a missing row compares as null. Paths nest (`it.author.team.name`) and reach json keys (`it.author.settings.theme`). The related struct is named in the note, so the macro looks it up where the call was written (`Orm_R0 :: #insert,scope(call) "User"`) and builds the SQL in a second pass once it has the type. A has-many relation cannot be filtered on.
+- **Enum literals.** `it.mood == .happy`, or `it.author.mood == .happy` through a to-one relation, takes the enum from the column: the parameter is `type_of(T.mood).happy` (`Orm_R<i>` for a relation), written in the macro's own scope (`orm_enum_hole`). Against anything else, name the type (`Mood.happy`).
 - **Loading related rows in one query**, instead of one per parent:
 
   ```jai
