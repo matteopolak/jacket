@@ -8,29 +8,5 @@
     "required_capabilities": [
       "native SDK, OS or graphics services"
     ]
-  },
-  {
-    "name": "jpeg_decode",
-    "required_browser_host_capabilities": [
-      "compile-time-binary-files"
-    ]
-  },
-  {
-    "name": "jpeg_leaks",
-    "required_browser_host_capabilities": [
-      "compile-time-binary-files"
-    ]
-  },
-  {
-    "name": "jpeg_malformed",
-    "required_browser_host_capabilities": [
-      "compile-time-binary-files"
-    ]
-  },
-  {
-    "name": "jpeg_robust",
-    "required_browser_host_capabilities": [
-      "compile-time-binary-files"
-    ]
   }
 ]

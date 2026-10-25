@@ -2,8 +2,6 @@
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 
-const textFile = /\.(jai|txt|json|md)$/;
-
 export async function collectPlayFiles(dir, base, files, { moduleWorkspace = false, ownTests = null } = {}) {
   const entries = await readdir(dir, { withFileTypes: true });
   entries.sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
@@ -17,13 +15,14 @@ export async function collectPlayFiles(dir, base, files, { moduleWorkspace = fal
       if (ownTests && entry.name === "tests" && full !== ownTests && !full.startsWith(ownTests + path.sep)) continue;
       await collectPlayFiles(full, base, files, { moduleWorkspace, ownTests });
     }
-    else if (entry.isFile() && textFile.test(entry.name)) {
+    else if (entry.isFile()) {
       const relative = path.relative(base, full).replaceAll("\\", "/");
       // Module workspaces retain every source (including relative #load inputs)
       // and every test fixture. Library audit/documentation payloads outside test
       // directories are not run inputs and must not be resent as user files.
       if (moduleWorkspace && !entry.name.endsWith(".jai") && !relative.split("/").includes("tests")) continue;
-      files[relative] = await readFile(full, "utf8");
+      // Every file is sent as its bytes, so binary fixtures arrive intact.
+      files[relative] = new Uint8Array(await readFile(full));
     }
   }
 }
@@ -44,9 +43,9 @@ export async function buildPlayRequest(root, test) {
 
 export function playRequestSize(files, main, { libraryRoot } = {}) {
   let pathBytes = 0, sourceBytes = 0;
-  for (const [name, text] of Object.entries(files)) {
+  for (const [name, contents] of Object.entries(files)) {
     pathBytes += Buffer.byteLength(name, "utf8");
-    sourceBytes += Buffer.byteLength(text, "utf8");
+    sourceBytes += typeof contents === "string" ? Buffer.byteLength(contents, "utf8") : contents.length;
   }
   const mainBytes = Buffer.byteLength(main, "utf8");
   const libraryRootBytes = libraryRoot === undefined ? 0 : Buffer.byteLength(libraryRoot, "utf8");
