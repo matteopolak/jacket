@@ -12,7 +12,8 @@ use std::path::{Path, PathBuf};
 pub mod schema;
 
 pub use schema::{
-    Config, Experimental, Format, Lint, LintOverride, Portability, Project, Toolchain,
+    Config, Experimental, Format, Lint, LintOverride, Portability, Project, Test, TestRun,
+    Toolchain,
 };
 
 /// The configuration file name.

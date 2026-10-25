@@ -10,6 +10,7 @@ mod commands;
 mod compile;
 mod project;
 mod status;
+mod test;
 mod tools;
 mod upgrade;
 
@@ -31,7 +32,19 @@ fn main() -> ExitCode {
     {
         return tool_command(command, &args[1..], &cwd);
     }
-    match Cli::parse().command {
+    let testing = matches!(
+        args.first().and_then(|a| a.to_str()),
+        Some("test" | "bench")
+    );
+    let args = if testing {
+        cli::test_args(args)
+    } else {
+        args
+    };
+    let cli = Cli::parse_from(std::iter::once(OsString::from("jacket")).chain(args));
+    match cli.command {
+        Command::Test(test) => test::run(&test, &cwd, false),
+        Command::Bench(bench) => test::run(&bench, &cwd, true),
         Command::New {
             name,
             lib,

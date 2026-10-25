@@ -177,6 +177,18 @@ const formatKeys = {
   },
 };
 
+const testRunKeys = {
+  properties: {
+    jobs: { type: "integer", minimum: 1, markdownDescription: "Tests run at once (`-j`). Default: the machine's threads." },
+    timeout: { type: "integer", minimum: 0, default: 120, markdownDescription: "Seconds before a test without `@timeout` is killed (`--timeout`); 0 for no limit." },
+    slow: { type: "integer", minimum: 0, default: 30, markdownDescription: "Seconds before a running test is reported as slow; 0 for never." },
+    retries: { type: "integer", minimum: 0, default: 0, markdownDescription: "Runs of a failed test before it counts as failed (`--retries`); one that then passes is FLAKY." },
+    fail_fast: { type: "boolean", default: false, markdownDescription: "Start no more tests after the first failure (`--fail-fast`)." },
+    flaky_fails: { type: "boolean", default: false, markdownDescription: "A FLAKY test fails the run." },
+    runner: { type: "string", markdownDescription: "Command that runs test programs built for another target, such as `node tools/wasi_run.mjs` (`--runner`)." },
+    needs: { type: "array", items: { type: "string" }, markdownDescription: "Capabilities this machine has, for tests with `@needs(...)` (`--needs`), such as `[\"network\"]`." },
+  },
+};
 const paths = (text: string) => ({ type: "array", items: { type: "string" }, markdownDescription: text });
 const section = (schema: { properties: object }, text: string) => ({
   type: "object",
@@ -249,6 +261,20 @@ const jacket = {
               markdownDescription: "Globs of files that build only on the operating systems listed (`[]`: on none of them). The most specific matching glob decides. A `// jailint: platforms(linux, macos)` comment at the top of a file does the same for that file.",
             },
           },
+        },
+      },
+    },
+    test: {
+      type: "object",
+      additionalProperties: false,
+      markdownDescription: "Run-wide settings for `jacket test`; a test's own options are notes on it.",
+      properties: {
+        paths: paths("Test roots, relative to this file: folders with a `tests/` directory. Inside one of them, `jacket test` runs only that one. Default: this folder."),
+        ...testRunKeys.properties,
+        profile: {
+          type: "object",
+          markdownDescription: "Named sets of settings over `[test]`, chosen with `jacket test --profile NAME`.",
+          additionalProperties: { type: "object", additionalProperties: false, properties: testRunKeys.properties },
         },
       },
     },

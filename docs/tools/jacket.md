@@ -33,6 +33,8 @@ What `jacket` adds is only the project:
 jacket build   Compile a program: `jaic <args>`, flags untouched
 jacket check   Type-check without writing anything: `jaic -check <args>`
 jacket run     Build, then run the program; arguments after `--` go to it
+jacket test    Build the tests once and run each in its own process (jacket-test.md)
+jacket bench   Reserved for benchmarks; `--list` lists them
 jacket lint    Lint with `jailint` (`--fix`, `-D warnings`, paths)
 jacket fmt     Format with `jaifmt` (`--check`, paths; the project by default)
 jacket lsp     Run the language server over stdio (`jailsp`)
@@ -115,6 +117,13 @@ rules = { unused_variable = "warn" }
 [format]                        # every jaifmt key, see jaifmt.md
 indent_width = 4
 ignore = ["gen/**"]
+
+[test]                          # jacket test, see jacket-test.md
+paths = ["libs/parser"]         # folders with a tests/ directory
+timeout = 120                   # seconds per test
+
+[test.profile.ci]               # jacket test --profile ci
+retries = 2
 
 [postgres]                      # read by Extensions/Postgres, see docs/postgres/managed.md
 managed = true                  # describe typed queries in a managed server when no URL is set

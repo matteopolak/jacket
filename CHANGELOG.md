@@ -6,9 +6,15 @@
 
 - `Windows_Utf8.utf8_to_wide_new` converts a string to a zero-terminated `*u16` allocated with the context allocator.
 - `Simp.begin_prepare_text`, `append_prepare_text` and `end_prepare_text` build a run of prepared text piece by piece.
+- `jacket test` builds a project's tests once and runs each in its own process, in parallel, with timeouts, retries, filters, sharding, and JSON or JUnit output.
+- The `Extensions/Testing` module: `@test` procedures, `expect`/`require` checks with diffs, subtests, temporary folders, and a per-test allocator that fails a test on a leak or a double free.
+- Golden-output tests (`name.jai` with `name.stdout`) and compile-fail tests (`tests/compile_fail/`), with `--accept` to update them.
+- Notes on a test set its options: `@timeout`, `@only`, `@skip_on`, `@needs`, `@serial`, `@should_fail`, `@xfail` and more.
 
 ### Fixed
 
+- `jaic -interp -os wasm` passes the arguments after `--` to the program.
+- A program starts at the procedure compile-time code names with `entry_point_name`.
 - `using,map(...)` works on a module import.
 - `$T/.[A, B]`, or a constant list of types such as `$T/Allowed`, limits a polymorphic parameter to those types.
 - A library's own files find the modules beside them before the ones a project adds to the import path, so a project's own `Windows` module no longer replaces the one the standard library uses, and naming a thread works on Windows with such a project.

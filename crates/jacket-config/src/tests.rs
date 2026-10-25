@@ -224,6 +224,12 @@ fn known_keys_match_the_structs() {
             "parse_threads = 1\nserial_parse = true\ncodegen_units = 1\n",
         ),
         ("postgres", "managed = true\nmanaged_version = \"17.6.0\"\n"),
+        (
+            "test",
+            "paths = [\"a\"]\njobs = 2\ntimeout = 5\nslow = 1\nretries = 1\nfail_fast = true\n\
+             flaky_fails = true\nrunner = \"node\"\nneeds = [\"network\"]\n\
+             [test.profile.ci]\njobs = 1\n",
+        ),
     ];
     let mut tops: Vec<&str> = Vec::new();
     for (name, body) in sections {
@@ -241,4 +247,42 @@ fn known_keys_match_the_structs() {
     tops.sort_unstable();
     known.sort_unstable();
     assert_eq!(tops, known);
+}
+
+#[test]
+fn test_profiles_lay_over_the_test_section() {
+    let (config, unknown) = parse_noting(
+        "[test]\njobs = 4\nretries = 1\n[test.profile.ci]\nretries = 3\nfail_fast = true\njbos = 2\n",
+    )
+    .unwrap();
+    assert_eq!(unknown, ["test.profile.ci.jbos"]);
+    assert!(unknown_note(&unknown[0]).contains("did you mean `test.profile.ci.jobs`?"));
+    let (_, unknown) = parse_noting("[test]\njbos = 2\n").unwrap();
+    assert_eq!(unknown, ["test.jbos"]);
+    let ci = config.test.run().overlaid(&config.test.profile["ci"]);
+    assert_eq!(
+        (ci.jobs, ci.retries, ci.fail_fast),
+        (Some(4), Some(3), Some(true))
+    );
+    let all = TestRun {
+        jobs: Some(1),
+        timeout: Some(1),
+        slow: Some(1),
+        retries: Some(1),
+        fail_fast: Some(true),
+        flaky_fails: Some(true),
+        runner: Some("r".into()),
+        needs: vec!["n".into()],
+    };
+    let value = toml::Value::try_from(all).unwrap();
+    let mut keys: Vec<&str> = value
+        .as_table()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    let mut known = schema::known_keys("test.profile.x").to_vec();
+    keys.sort_unstable();
+    known.sort_unstable();
+    assert_eq!(keys, known);
 }

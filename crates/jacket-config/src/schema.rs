@@ -17,6 +17,8 @@ pub struct Config {
     pub experimental: Experimental,
     #[serde(default, skip_serializing_if = "Postgres::is_empty")]
     pub postgres: Postgres,
+    #[serde(default, skip_serializing_if = "Test::is_empty")]
+    pub test: Test,
 }
 
 /// A string or a list of strings (`entry = "main.jai"` is a list of one).
@@ -182,6 +184,108 @@ pub struct Postgres {
     pub managed_version: Option<String>,
 }
 
+/// Run-wide settings of `jacket test`. Options of a single test are notes on it, never here.
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+pub struct Test {
+    /// The folders whose `tests/` directory holds tests, relative to the file. Default: this one.
+    #[serde(default, skip_serializing_if = "is_empty_strings")]
+    pub paths: Strings,
+    /// Tests run at once (`-j`). Default: the machine's threads.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub jobs: Option<usize>,
+    /// Seconds before a test is killed, unless it has its own `@timeout`; 0 for no limit.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeout: Option<u64>,
+    /// Seconds after which a running test is reported as slow; 0 for never.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slow: Option<u64>,
+    /// Times a failed test is run again (`--retries`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retries: Option<u32>,
+    /// Stop starting tests after the first failure (`--fail-fast`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fail_fast: Option<bool>,
+    /// A test that passes only on a retry fails the run.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub flaky_fails: Option<bool>,
+    /// The command that runs a test program built for another target (`--runner`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runner: Option<String>,
+    /// Capabilities this machine has, for tests with `@needs` (`--needs`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub needs: Vec<String>,
+    /// Named sets of settings (`[test.profile.ci]`) that `--profile` lays over these.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub profile: BTreeMap<String, TestRun>,
+}
+
+/// The settings `[test]` and each `[test.profile.<name>]` share; each matches a flag. (Not
+/// `#[serde(flatten)]` into [`Test`]: flattening hides unknown keys from the warnings.)
+#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+pub struct TestRun {
+    /// Tests run at once (`-j`). Default: the machine's threads.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub jobs: Option<usize>,
+    /// Seconds before a test is killed, unless it has its own `@timeout`; 0 for no limit.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeout: Option<u64>,
+    /// Seconds after which a running test is reported as slow; 0 for never.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slow: Option<u64>,
+    /// Times a failed test is run again (`--retries`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retries: Option<u32>,
+    /// Stop starting tests after the first failure (`--fail-fast`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fail_fast: Option<bool>,
+    /// A test that passes only on a retry fails the run.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub flaky_fails: Option<bool>,
+    /// The command that runs a test program built for another target (`--runner`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runner: Option<String>,
+    /// Capabilities this machine has, for tests with `@needs` (`--needs`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub needs: Vec<String>,
+}
+
+impl Test {
+    /// The `[test]` settings themselves, without `paths` and the profiles.
+    pub fn run(&self) -> TestRun {
+        TestRun {
+            jobs: self.jobs,
+            timeout: self.timeout,
+            slow: self.slow,
+            retries: self.retries,
+            fail_fast: self.fail_fast,
+            flaky_fails: self.flaky_fails,
+            runner: self.runner.clone(),
+            needs: self.needs.clone(),
+        }
+    }
+}
+
+impl TestRun {
+    /// These settings with `over`'s set ones in their place.
+    #[must_use]
+    pub fn overlaid(&self, over: &TestRun) -> TestRun {
+        TestRun {
+            jobs: over.jobs.or(self.jobs),
+            timeout: over.timeout.or(self.timeout),
+            slow: over.slow.or(self.slow),
+            retries: over.retries.or(self.retries),
+            fail_fast: over.fail_fast.or(self.fail_fast),
+            flaky_fails: over.flaky_fails.or(self.flaky_fails),
+            runner: over.runner.clone().or_else(|| self.runner.clone()),
+            needs: if over.needs.is_empty() {
+                self.needs.clone()
+            } else {
+                over.needs.clone()
+            },
+        }
+    }
+}
+
 fn is_empty_strings(s: &Strings) -> bool {
     s.0.is_empty()
 }
@@ -197,7 +301,8 @@ is_empty!(
     Format,
     Experimental,
     Portability,
-    Postgres
+    Postgres,
+    Test
 );
 
 /// The keys each table accepts, to suggest the near one for a misspelling. A test keeps these in
@@ -211,6 +316,7 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
             "format",
             "experimental",
             "postgres",
+            "test",
         ],
         "project" => &["entry", "import_path"],
         "toolchain" => &["version"],
@@ -247,9 +353,33 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
         ],
         "experimental" => &["parse_threads", "serial_parse", "codegen_units"],
         "postgres" => &["managed", "managed_version"],
+        "test" => &[
+            "paths",
+            "jobs",
+            "timeout",
+            "slow",
+            "retries",
+            "fail_fast",
+            "flaky_fails",
+            "runner",
+            "needs",
+            "profile",
+        ],
+        profile if profile.starts_with("test.profile.") => TEST_RUN_KEYS,
         _ => &[],
     }
 }
+
+const TEST_RUN_KEYS: &[&str] = &[
+    "jobs",
+    "timeout",
+    "slow",
+    "retries",
+    "fail_fast",
+    "flaky_fails",
+    "runner",
+    "needs",
+];
 
 /// Likely spellings of a section's key, written at the top level of the file: the spelling, the
 /// section and the key it means.
@@ -272,6 +402,7 @@ pub(crate) fn misplaced_home(key: &str) -> Option<(&'static str, &'static str)> 
         "format",
         "experimental",
         "postgres",
+        "test",
     ]
     .into_iter()
     .find_map(|table| {
