@@ -49,7 +49,7 @@ def main():
              ROOT / "stdlib/internal/developer-tools/binding-native-model.jai"]
     run([JAIFMT, "--config", ROOT / "jacket.toml", "--check", *paths])
     run([Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")) / "debug/jailint", "-D", "warnings", "-I", ROOT / "target", *paths])
-    run([Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")) / "debug/jailint", "-D", "warnings", "--os", "windows", "--cpu", "x64",
+    run([Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")) / "debug/jailint", "-D", "warnings", "-os", "windows", "-cpu", "x64",
          ROOT / "stdlib/Bindings_Generator/module.jai"])
     print("Multiple-header C bindings/customization/C++ bridges passed interpreter/native Mac O0/O2, configured native O0/O2 consumers, diagnostics/preservation, formatting and strict lint")
 

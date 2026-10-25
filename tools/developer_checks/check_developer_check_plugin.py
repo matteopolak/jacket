@@ -30,7 +30,7 @@ def main():
          ROOT / "stdlib/internal/developer-tools/porting-check.jai", ROOT / "stdlib/internal/developer-tools/check-bindings.jai",
          ROOT / "tests/compiler/rejections/check-plugin-porting.jai", ROOT / "tests/compiler/rejections/check-plugin-bindings.jai"])
     run([ROOT / "target/debug/jailint", "-D", "warnings", *paths])
-    run([ROOT / "target/debug/jailint", "-D", "warnings", "--os", "windows", "--cpu", "x64", *paths])
+    run([ROOT / "target/debug/jailint", "-D", "warnings", "-os", "windows", "-cpu", "x64", *paths])
     print("Check persistent factory and configured real callback effects passed interpreter/native Mac O0/O2, diagnosed rejections, formatting and strict lint")
 
 

@@ -112,7 +112,7 @@ def main():
     run([JAIFMT, "--config", ROOT / "jacket.toml", "--check", *paths,
          ROOT / "stdlib/internal/developer-tools/check-bindings.jai"], expected="")
     run([ROOT / "target/debug/jailint", "-D", "warnings", "-I", ROOT / "target", *paths], expected="")
-    run([ROOT / "target/debug/jailint", "-D", "warnings", "--os", "windows", "--cpu", "x64",
+    run([ROOT / "target/debug/jailint", "-D", "warnings", "-os", "windows", "-cpu", "x64",
          ROOT / "stdlib/Check/module.jai", ROOT / "stdlib/internal/developer-tools/check-engine/module.jai"], expected="")
     if platform.system() == "Darwin":
         library = ROOT / "stdlib/internal/developer-tools/check-native/libdeveloper_tools_check.dylib"

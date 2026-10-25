@@ -421,11 +421,11 @@ def main(argv=None):
     run([ROOT / "target/debug/jailint", "-D", "warnings", "-I", ROOT / "target", *host_lint_paths])
     check_paths = [ROOT / "stdlib/Check/module.jai", ROOT / "stdlib/internal/developer-tools/check-engine/module.jai",
                    ROOT / "stdlib/Check/tests/driven/check-porting.jai"]
-    run([ROOT / "target/debug/jailint", "-D", "warnings", "--os", "windows", "--cpu", "x64", *check_paths])
+    run([ROOT / "target/debug/jailint", "-D", "warnings", "-os", "windows", "-cpu", "x64", *check_paths])
     run([JAIC, "stdlib/Check/tests/driven/check-porting.jai", "-check", "-os", "windows", "-cpu", "x64"])
     debug_windows = [ROOT / "stdlib/Debug/module.jai", ROOT / "stdlib/internal/developer-tools/debug-native.jai",
                      ROOT / "stdlib/Debug/tests/driven/debug-windows-contract.jai"]
-    run([ROOT / "target/debug/jailint", "-D", "warnings", "--os", "windows", "--cpu", "x64", *debug_windows])
+    run([ROOT / "target/debug/jailint", "-D", "warnings", "-os", "windows", "-cpu", "x64", *debug_windows])
     for cpu in ["x64", "arm64"]:
         run([JAIC, "stdlib/Debug/tests/driven/debug-windows-contract.jai", "-check", "-os", "windows", "-cpu", cpu])
         for os_name in ["linux", "windows"]:

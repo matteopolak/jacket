@@ -19,7 +19,7 @@ options:
   -W <rule>           warn on a rule
   -D <rule>           deny a rule; `-D warnings` makes every warning an error
   --max-nesting <n>   blocks `excessive_nesting` allows (default: [lint] max_nesting in jacket.toml, else 6)
-  -I <dir>            add an import directory relative to invocation cwd (also -import_dir)
+  -I <dir>            add an import directory relative to invocation cwd
   -os <os>           check linux, windows, macos or wasm (default: host)
   -cpu <cpu>         check x64/x86_64 or arm64/aarch64 (default: target/host)
   -target <triple>   select a target triple (overrides -os/-cpu; includes WASI)
@@ -27,7 +27,7 @@ options:
   --context <file>  check an enclosing program; report only the requested paths
   --checked-files <file> write the actual checked paths, one per line
   --allow-incomplete  count programs that do not compile on this target without failing the run
-  --add <source>     add source in the program scope (also -add)
+  --add <source>     add source in the program scope
   -j <n>              compile n programs at once (default: one per CPU, at most 8)
   --list              list the rules and their default levels
   --color <when>      auto, always or never
@@ -124,11 +124,11 @@ fn parse_args() -> Result<Option<Args>, String> {
             "--config" => args.config = Some(PathBuf::from(value("--config")?)),
             "--manifest" => args.manifest = Some(PathBuf::from(value(&a)?)),
             "--checked-files" => args.checked_files = Some(PathBuf::from(value(&a)?)),
-            "--add" | "-add" => args.add_sources.push(value(&a)?),
+            "--add" => args.add_sources.push(value(&a)?),
             "--context" => args.context = Some(PathBuf::from(value(&a)?)),
-            "-I" | "-import_dir" | "--import-dir" => args.imports.push(value(&a)?.into()),
-            "-os" | "--os" => args.target.os = Some(jailint::target::parse_os(&value(&a)?)?),
-            "-cpu" | "--cpu" => args.target.cpu = Some(jailint::target::parse_cpu(&value(&a)?)?),
+            "-I" => args.imports.push(value(&a)?.into()),
+            "-os" => args.target.os = Some(jailint::target::parse_os(&value(&a)?)?),
+            "-cpu" => args.target.cpu = Some(jailint::target::parse_cpu(&value(&a)?)?),
             "-target" => args.target.triple = Some(value(&a)?),
             "--max-nesting" => {
                 args.max_nesting = Some(
@@ -165,15 +165,12 @@ fn parse_args() -> Result<Option<Args>, String> {
                     "--manifest",
                     "--checked-files",
                     "--add",
-                    "--os",
-                    "--cpu",
                     "--context",
                     "--max-nesting",
                     "-A",
                     "-W",
                     "-D",
                     "-I",
-                    "-import_dir",
                     "-os",
                     "-cpu",
                     "-target",
