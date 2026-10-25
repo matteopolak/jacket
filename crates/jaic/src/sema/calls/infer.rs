@@ -196,10 +196,23 @@ impl Compiler {
             };
             // A number-typed constant parameter takes its argument as a normal parameter does:
             // converted to the declared type, or rejected.
-            let scalar_declared = match &param.ty {
-                Some(t) if !procs::has_poly(t) => self
+            let scalar_declared = match (&param.ty, &param.default) {
+                (Some(t), _) if !procs::has_poly(t) => self
                     .eval_type(def_scope, t)
                     .ok()
+                    .filter(|&dt| self.is_scalar_constant_type(dt)),
+                // `$flag := true` is a `bool`: an untyped parameter has the type of its default.
+                (None, Some(d)) => self
+                    .eval_const(def_scope, d, None)
+                    .ok()
+                    .map(|op| match op {
+                        Operand::Const {
+                            ty,
+                            value,
+                            untyped: true,
+                        } => self.ty.default_untyped(ty, &value),
+                        other => other.ty(),
+                    })
                     .filter(|&dt| self.is_scalar_constant_type(dt)),
                 _ => None,
             };

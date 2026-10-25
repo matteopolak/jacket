@@ -77,6 +77,13 @@
     "covers": "a baked argument for an untyped parameter is checked against the type of its default"
   },
   {
+    "name": "baked-default-type",
+    "main": "cases/baked-default-type/main.jai",
+    "mode": "interp",
+    "expected_stdout": "ok\n",
+    "covers": "an untyped baked parameter has the type of its default, so an integer argument selects the value overload"
+  },
+  {
     "name": "aggregate-map",
     "main": "cases/aggregate-map/main.jai",
     "mode": "interp",

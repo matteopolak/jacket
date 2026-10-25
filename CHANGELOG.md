@@ -9,6 +9,7 @@
 - A library's own files find the modules beside them before the ones a project adds to the import path, so a project's own `Windows` module no longer replaces the one the standard library uses, and naming a thread works on Windows with such a project.
 - A module import with `using,map(...)` no longer fails when other declarations in the importing module are sized or expanded before its mapper has run.
 - A baked argument for a parameter without a declared type is checked against the type of its default, so `#bake_arguments formatFloat(zero_removal = .NO)` finds `.NO`.
+- An untyped baked parameter such as `$initialize := true` has the type of its default, so an integer argument no longer selects it over an overload that takes a value.
 - The language server counts a lone `\r` as a line break, cancels requests that are still queued, answers an oversized request with an error, and closes a document whose edit it could not apply (telling you) instead of carrying on with stale text.
 - The language server accepts `file://localhost/` and `file:/` paths, any language id for a `.jai` file, and a blank line or quoted charset in message headers, and leaves untitled and remote documents alone.
 
