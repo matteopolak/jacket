@@ -471,8 +471,12 @@ impl Compiler {
                 (None, None) => self.add_const(scope, *name, span, value.clone(), *ty),
             };
             // An integer argument converts to the integer type a use wants when it fits, as
-            // the literal it was written as would.
-            if matches!(value, Value::Int(_))
+            // the literal it was written as would. An untyped or polymorphic parameter keeps
+            // the argument's own type: `type_of` sees a `cast(u32)` argument as `u32`.
+            let declared =
+                param.is_none_or(|p| p.ty.as_ref().is_some_and(|t| !super::model::has_poly(t)));
+            if declared
+                && matches!(value, Value::Int(_))
                 && matches!(self.ty.types.kind(*ty), crate::types::TypeKind::Int { .. })
             {
                 self.entity_mut(id).untyped_const = true;
