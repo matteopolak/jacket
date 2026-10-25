@@ -168,14 +168,6 @@ fn command_line_mistakes_explain_themselves() {
             &["error: `-exe` only applies to a build, not `-check`"],
         ),
         (
-            &["ok.jai", "-o", "x"],
-            &[
-                "error: `-o` takes no value since 0.17.0",
-                "help: it asks for an optimized build; name the output with `-exe name` and `-output_path dir`",
-                "help: to keep the old meaning of `-o x`, use `-exe x`",
-            ],
-        ),
-        (
             &["ok.jai", "-O7"],
             &[
                 "error: unknown optimization level `-O7`",
@@ -230,90 +222,6 @@ fn command_line_mistakes_explain_themselves() {
             &["ok.jai", "-quiet", "-verbose"],
             &["error: `-quiet` and `-verbose` contradict each other"],
         ),
-        // Old spellings name their replacements, unless a plugin is given them.
-        (
-            &["ok.jai", "--emit-ir", "x.ll"],
-            &[
-                "error: `--emit-ir` is spelled differently since 0.17.0",
-                "help: use -emit_ir <file.ll>",
-            ],
-        ),
-        (
-            &["ok.jai", "--timings"],
-            &[
-                "error: `--timings` is spelled differently",
-                "help: use -timings",
-            ],
-        ),
-        (
-            &["ok.jai", "--no-debug-info"],
-            &["help: use -no_debug_info"],
-        ),
-        (
-            &["ok.jai", "--color", "never"],
-            &["help: use -no_color to turn colour off"],
-        ),
-        (
-            &["ok.jai", "-color=never"],
-            &["error: `-color` is spelled differently"],
-        ),
-        (
-            &["ok.jai", "-plug", "X"],
-            &[
-                "error: `-plug` is spelled differently",
-                "help: use +Name after the file",
-            ],
-        ),
-        (
-            &["ok.jai", "-plugin", "X"],
-            &["error: `-plugin` is spelled differently"],
-        ),
-        (
-            &["ok.jai", "--sanitize", "address"],
-            &["help: use -sanitize <list>"],
-        ),
-        (
-            &["ok.jai", "--target", "x"],
-            &["help: use -target <triple>"],
-        ),
-        // The old subcommands: the same command in the new form, other arguments carried over.
-        (
-            &["run", "ok.jai", "--", "a"],
-            &[
-                "error: jaic has no subcommands since 0.17.0",
-                "help: use `jaic ok.jai -interp -- a`",
-            ],
-        ),
-        (
-            &["check", "ok.jai", "-I", "libs"],
-            &["help: use `jaic ok.jai -I libs -check`"],
-        ),
-        (
-            &[
-                "build",
-                "ok.jai",
-                "-o",
-                "out",
-                "--emit-ir",
-                "x.ll",
-                "-plug",
-                "Check",
-            ],
-            &["help: use `jaic ok.jai -exe out -emit_ir x.ll +Check`"],
-        ),
-        (
-            &[
-                "run",
-                "ok.jai",
-                "--color",
-                "never",
-                "--timings",
-                "-",
-                "meta",
-            ],
-            &["help: use `jaic ok.jai -no_color -timings -interp - meta`"],
-        ),
-        (&["build"], &["help: use `jaic file.jai`"]),
     ];
     for (args, expected) in cases {
         let output = jaic(&dir, args, &[]);
@@ -329,18 +237,18 @@ fn command_line_mistakes_explain_themselves() {
 fn plugin_arguments_help_version_and_colour() {
     let dir = scratch("cli-help");
     std::fs::write(dir.join("ok.jai"), "main :: () {}\n").unwrap();
-    // Old spellings after a `+Plugin` are the plugin's own arguments, not mistakes.
+    // Options after a `+Plugin` are the plugin's own arguments, not mistakes.
     let output = jaic(
         &dir,
         &["ok.jai", "-check", "+NoSuchPlugin", "--timings"],
         &[],
     );
     assert!(
-        !stderr(&output).contains("spelled differently"),
+        !stderr(&output).contains("unknown option"),
         "{}",
         stderr(&output)
     );
-    // A file that is really called `build` is compiled, not taken for the old subcommand.
+    // A file called `build` is compiled like any other.
     std::fs::write(dir.join("build"), "main :: () {}\n").unwrap();
     let output = jaic(&dir, &["build", "-check"], &[]);
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));

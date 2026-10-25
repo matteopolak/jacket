@@ -370,11 +370,6 @@ mod tests {
         assert!(cli(&["-od", "a.jai"]).flavor == Some(Flavor::OptimizedDebug));
         assert!(cli(&["-o", "a.jai"]).flavor == Some(Flavor::Optimized));
         assert!(
-            error(&["a.jai", "-o", "out"])
-                .message
-                .contains("takes no value")
-        );
-        assert!(
             error(&["a.jai", "-o", "-very_debug"])
                 .message
                 .contains("flavor")
@@ -382,22 +377,6 @@ mod tests {
         let c = cli(&["a.jai", "-exe", "build/app.exe", "-output_path", "out"]);
         assert_eq!(c.exe.as_deref(), Some("build/app.exe"));
         assert_eq!(c.output_path, Some(PathBuf::from("out")));
-    }
-
-    #[test]
-    fn old_subcommands_get_the_new_command_back() {
-        let e = error(&["run", "a.jai", "-I", "d", "--", "x"]);
-        assert!(
-            e.help[0].contains("`jaic a.jai -I d -interp -- x`"),
-            "{:?}",
-            e.help
-        );
-        let e = error(&["build", "a.jai", "-o", "out", "-plug", "Check"]);
-        assert!(
-            e.help[0].contains("`jaic a.jai -exe out +Check`"),
-            "{:?}",
-            e.help
-        );
     }
 
     #[test]

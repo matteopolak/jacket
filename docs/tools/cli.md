@@ -132,7 +132,7 @@ With `-interp`, a program that runs to the end exits with its own status. [Diagn
 
 ### Mistakes
 
-An unknown option suggests the closest known one. The spellings from before 0.17 (`jaic run x.jai`, `check`, `build`, `--emit-ir`, `--no-debug-info`, `--timings`, `--color`, `--sanitize`, `--target`, `-plug`, `-plugin`, and `-o <path>`) are errors that tell you the new spelling. After a `+Plugin` they are passed to the plugin instead.
+An unknown option suggests the closest known one. After a `+Plugin`, options are passed to the plugin instead.
 
 ## Configuration
 

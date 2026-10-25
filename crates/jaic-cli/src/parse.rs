@@ -1,16 +1,13 @@
 //! Parsing arguments into a request and checking the input file.
 use super::cli::{Cli, Mode, Plugin};
 use super::options::{Action, CliError, CliOption, Request};
-use super::usage::{no_file_error, program_args_error, subcommand_error, unknown_option};
+use super::usage::{no_file_error, program_args_error, unknown_option};
 use std::path::Path;
 use std::process::ExitCode;
 
 pub(super) fn parse(args: &[String]) -> Result<Request, CliError> {
-    let Some(first) = args.first() else {
+    if args.is_empty() {
         return Err(no_file_error());
-    };
-    if matches!(first.as_str(), "run" | "check" | "build") && !Path::new(first).exists() {
-        return Err(subcommand_error(args));
     }
     let mut cli = Cli::default();
     let mut file: Option<String> = None;
@@ -95,16 +92,6 @@ pub(super) fn parse(args: &[String]) -> Result<Request, CliError> {
             }
             Action::OptLevel(level) => cli.opt_level = Some(level),
             Action::Flavor(flavor) => {
-                // Before 0.17.0 `-o` named the output.
-                if a == "-o"
-                    && let Some(word) = rest.clone().next()
-                    && !word.starts_with(['-', '+'])
-                    && !word.ends_with(".jai")
-                {
-                    return Err(CliError::new("`-o` takes no value since 0.17.0")
-                        .help("it asks for an optimized build; name the output with `-exe name` and `-output_path dir`")
-                        .help(format!("to keep the old meaning of `-o {word}`, use `-exe {word}`")));
-                }
                 if cli.flavor.is_some_and(|f| f != flavor) {
                     return Err(CliError::new(
                         "`-o`, `-od` and `-very_debug` each pick a build flavor; use one",
