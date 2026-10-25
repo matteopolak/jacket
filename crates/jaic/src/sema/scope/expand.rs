@@ -84,7 +84,6 @@ impl Compiler {
                 // themselves mid-lowering. Put the item back and retry it later.
                 let reentrant = !self.epochs.retrying_pending
                     && (self.epochs.resolving_depth > 0
-                        || self.epochs.mapping_imports > 0
                         || self
                             .pr
                             .procs
@@ -123,9 +122,19 @@ impl Compiler {
                     self.scope_mut(scope).pending[i].state = PendingState::Waiting;
                     return Ok(());
                 }
+                // A `using,map` mapper that is still running leaves names undeclared that the item
+                // needs; it is tried again with the next lookup, once the mapper is done.
+                if self.epochs.mapping_imports > 0
+                    && !spent
+                    && self.epochs.in_progress_misses != in_progress
+                    && result.is_err()
+                {
+                    self.scope_mut(scope).pending[i].state = PendingState::Waiting;
+                    return Ok(());
+                }
                 if reentrant
                     && !spent
-                    && (self.ct.executions == executions || self.epochs.mapping_imports > 0)
+                    && self.ct.executions == executions
                     && self.epochs.in_progress_misses != in_progress
                     && let Err(e) = result
                 {
