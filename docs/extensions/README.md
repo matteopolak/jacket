@@ -10,6 +10,7 @@
 | Module | What it is for | Docs |
 | --- | --- | --- |
 | `Environment` | reading environment variables, UTF-8 on every platform | [environment](environment.md) |
+| `Testing` | `@test` procedures, checks, subtests and a leak-checking allocator, run by `jacket test` | [testing](testing.md) |
 | `Fuzz` | deterministic argument generators and procedure fuzz runners | [stdlib fuzzing](../tools/stdlib-fuzzing.md) |
 | `Long_Double` | C's `long double` in the target's format, for calling C functions that take or return one | [Long_Double](../language/long-double.md) |
 | `Args` | typed, compile-time-generated command-line parser (clap-like); `jaifmt` uses it | [args](args.md) |
