@@ -330,6 +330,14 @@ pub fn dead_code_setting(shared: &SharedWorkspaces, id: i64) -> Option<DeadCode>
     reg.list.get(id as usize)?.settings.dead_code_elimination
 }
 
+/// `entry_point_name` as compile-time code last set it for workspace `id` (possibly the one
+/// being compiled), when it set one.
+pub fn entry_point_setting(shared: &SharedWorkspaces, id: i64) -> Option<String> {
+    let reg = shared.borrow();
+    let name = &reg.list.get(id as usize)?.settings.entry_point_name;
+    (!name.is_empty()).then(|| name.clone())
+}
+
 /// Target runtime storage settings, including changes made by the compiling
 /// workspace itself. `NO_OUTPUT` workspaces have no target runtime to initialize.
 pub(crate) fn runtime_storage_setting(

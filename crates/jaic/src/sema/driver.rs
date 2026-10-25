@@ -226,6 +226,7 @@ impl Compiler {
 
     /// False when there is no program to lower.
     fn lower_reachable_inner(&mut self, lenient: bool) -> Result<bool> {
+        self.refresh_entry_point();
         // A program made only of `#run`/`#assert` directives has nothing to lower.
         let Some(m) = self.ns.main_module else {
             return Ok(false);
@@ -577,8 +578,19 @@ impl Compiler {
         Ok(())
     }
 
+    /// The program may have named its own entry point (`set_build_options` with
+    /// `entry_point_name`) while it compiled.
+    fn refresh_entry_point(&mut self) {
+        if let Some(workspaces) = &self.ct.interp.workspaces
+            && let Some(name) = crate::build::entry_point_setting(workspaces, self.meta.workspace)
+        {
+            self.options.entry_point = name;
+        }
+    }
+
     /// The `main` procedure of the main module (or the one `entry_point_name` names).
     pub fn program_main(&mut self, span: Span) -> Result<ProcId> {
+        self.refresh_entry_point();
         let Some(m) = self.ns.main_module else {
             return err(span, "no main module");
         };
@@ -717,6 +729,7 @@ impl Compiler {
     /// an empty slice passes `argc = 0, argv = null`. The strings live for the whole process.
     pub fn run_program_with_args(&mut self, args: &[String]) -> Result<i32> {
         self.finalize_runtime_configuration()?;
+        self.refresh_entry_point();
         self.ct.interp.run_arguments = args.to_vec();
         let (argc, argv) = if args.is_empty() {
             (0, 0)

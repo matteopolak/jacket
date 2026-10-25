@@ -377,3 +377,31 @@ fn exact_independent_portable_projection_and_relative_controls() {
         );
     }
 }
+
+#[test]
+fn entry_point_named_at_compile_time_is_where_the_program_starts() {
+    let dir = directory("entry-point");
+    let source = dir.join("entry.jai");
+    std::fs::write(
+        &source,
+        r#"#import "Basic";
+        #run { C :: #import "Compiler"; o := C.get_build_options(); o.entry_point_name = "start_here"; C.set_build_options(o); }
+        main :: () { print("main\n"); }
+        start_here :: () { print("start_here\n"); }
+        "#,
+    )
+    .unwrap();
+    let interp = checked(
+        Command::new(env!("CARGO_BIN_EXE_jaic"))
+            .arg(&source)
+            .arg("-interp"),
+    );
+    assert_eq!(String::from_utf8_lossy(&interp.stdout), "start_here\n");
+    checked(
+        Command::new(env!("CARGO_BIN_EXE_jaic"))
+            .current_dir(&dir)
+            .arg(&source),
+    );
+    let native = checked(&mut Command::new(dir.join("entry")));
+    assert_eq!(String::from_utf8_lossy(&native.stdout), "start_here\n");
+}
