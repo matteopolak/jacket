@@ -129,6 +129,9 @@ pub(crate) struct Parser<'a> {
     /// True while parsing the statement of a `#code` literal: a closing `)`, `]` or `,` of the
     /// enclosing expression ends it like a `;` would.
     in_code_stmt: bool,
+    /// True directly in a struct or union body: a member may be named `null`, `true` or `false`
+    /// (it is reached as `x.null`), unlike a variable, constant or parameter.
+    in_aggregate_body: bool,
     /// Expressions and statements currently open (see `MAX_NESTING`).
     depth: usize,
     /// Set only by the editor entry points. Strict parsing never resynchronizes.
@@ -160,6 +163,7 @@ impl<'a> Parser<'a> {
             pending_notes: Vec::new(),
             hoisted: Vec::new(),
             in_code_stmt: false,
+            in_aggregate_body: false,
             depth: 0,
             recovery: None,
             ide_closed_braces: crate::fxhash::HashSet::default(),
@@ -321,6 +325,22 @@ impl<'a> Parser<'a> {
             }
             _ => Err(self.expected("identifier", context)),
         }
+    }
+
+    /// A name being declared. `null`, `true` and `false` always read as their literals, so a
+    /// variable, constant or parameter of that name could never be used.
+    fn reject_literal_name(&self, name: Ident) -> PResult<Ident> {
+        let word = name.name.as_str();
+        if self.in_aggregate_body || !matches!(word, "null" | "true" | "false") {
+            return Ok(name);
+        }
+        Err(Diagnostic::error(
+            name.span,
+            format!("`{word}` is a keyword and cannot be declared"),
+        )
+        .with_help(format!(
+            "`{word}` always means the literal; use another name"
+        )))
     }
 
     /// Consumes a string literal token.

@@ -312,14 +312,18 @@ impl Parser<'_> {
     /// Parameters up to and including `close` (the opening token is already consumed).
     pub(super) fn parse_params(&mut self, close: P) -> PResult<Vec<Param>> {
         let saved = std::mem::replace(&mut self.in_list, true);
+        let outer = std::mem::replace(&mut self.in_aggregate_body, false);
         let mut params = Vec::new();
+        let mut parsed = Ok(());
         while !self.at(close) {
-            self.parse_param_group(&mut params)?;
-            if !(self.eat(P::Comma) || self.eat(P::Semi)) {
+            parsed = self.parse_param_group(&mut params);
+            if parsed.is_err() || !(self.eat(P::Comma) || self.eat(P::Semi)) {
                 break;
             }
         }
         self.in_list = saved;
+        self.in_aggregate_body = outer;
+        parsed?;
         self.expect(close, "to end the parameter list")?;
         Ok(params)
     }
@@ -385,7 +389,8 @@ impl Parser<'_> {
             if baked || auto {
                 self.bump();
             }
-            names.push((self.ident("as parameter name")?, baked, auto));
+            let name = self.ident("as parameter name")?;
+            names.push((self.reject_literal_name(name)?, baked, auto));
             if !self.eat(P::Comma) {
                 break;
             }

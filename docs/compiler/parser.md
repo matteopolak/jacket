@@ -10,6 +10,7 @@ The recursive-descent parser in `crates/jaic/src/parser/`. It turns tokens from 
 - Types are ordinary expressions: `*T` is `Unary(Star)`, `[N] T` is `ArrayType`, a bodiless procedure header is `ProcType`.
 - Expressions use precedence climbing (`expr.rs`) over `binary_op` ([operator precedence](../language/operators.md)), then prefix operators and `cast`/`xx`, then a postfix loop (`.member`, `.*`, `[i]`, `(args)`, `.{..}`, `.[..]`).
 - Files, struct bodies and blocks share one statement grammar (`stmt.rs`). Declarations (`decl.rs`) are recognised by lookahead: `name {, name} :`, `::` or `:=`.
+- `null`, `true` and `false` always parse as literals, so a variable, constant or parameter of that name is rejected (`reject_literal_name`). Struct and union members may use them (`in_aggregate_body`), since they are reached as `x.null`; named results are not checked.
 - A statement needs `;` unless the previous token closed a brace body, a here-string or `{} #flags` (`Parser::ends_block`).
 - A BOM and then a `#!` line at the start of a file are skipped by `Lexer::run`; a `#!` elsewhere is an error.
 - Here-strings keep every line ending of the body, including the one before the terminator: `#string END\nabc\nEND` is `"abc\n"`.

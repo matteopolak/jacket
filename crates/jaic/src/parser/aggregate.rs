@@ -29,7 +29,10 @@ impl Parser<'_> {
         let mut flags = StructFlags::default();
         let mut modify = self.parse_struct_flags(&mut flags)?;
         self.expect(P::LBrace, "to start the body")?;
-        let body = self.parse_stmts_until_close()?;
+        let outer = std::mem::replace(&mut self.in_aggregate_body, true);
+        let body = self.parse_stmts_until_close();
+        self.in_aggregate_body = outer;
+        let body = body?;
         let end = self.ide_close_block(start, "to end the body")?;
         modify = self.parse_struct_flags(&mut flags)?.or(modify);
         self.block_end = self.pos;

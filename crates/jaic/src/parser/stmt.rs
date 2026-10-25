@@ -84,7 +84,10 @@ fn assign_op(p: P) -> Option<AssignOp> {
 impl Parser<'_> {
     pub(super) fn parse_block(&mut self) -> PResult<Block> {
         let start = self.expect(P::LBrace, "to start a block")?;
-        let stmts = self.parse_stmts_until_close()?;
+        let outer = std::mem::replace(&mut self.in_aggregate_body, false);
+        let stmts = self.parse_stmts_until_close();
+        self.in_aggregate_body = outer;
+        let stmts = stmts?;
         let end = self.ide_close_block(start, "to end the block")?;
         Ok(Block {
             stmts,

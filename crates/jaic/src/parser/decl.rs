@@ -359,6 +359,12 @@ impl Parser<'_> {
         } else {
             Vec::new()
         };
+        for (i, name) in names.iter().enumerate() {
+            let place = targets.get(i).is_some_and(Option::is_some);
+            if !place && !existing.get(i).copied().unwrap_or(false) {
+                self.reject_literal_name(*name)?;
+            }
+        }
         if !targets.is_empty() {
             targets.resize(names.len(), None);
             let assigned = |i: usize| existing.get(i).copied().unwrap_or(false);
