@@ -23,6 +23,7 @@ pub struct Reporter {
     interp: bool,
     color: bool,
     capture: bool,
+    quiet: bool,
     sources: BTreeMap<String, Vec<String>>,
 }
 
@@ -89,6 +90,7 @@ impl Reporter {
         cwd: &Path,
         interp: bool,
         capture: bool,
+        quiet: bool,
     ) -> Reporter {
         use std::io::IsTerminal;
         let color = std::io::stderr().is_terminal() && std::env::var_os("NO_COLOR").is_none();
@@ -99,6 +101,7 @@ impl Reporter {
             interp,
             color,
             capture,
+            quiet,
             sources: BTreeMap::new(),
         }
     }
@@ -191,6 +194,11 @@ impl Reporter {
         match self.format {
             OutputFormat::Json => self.json(&self.outcome_json(case, outcome)),
             OutputFormat::Human => {
+                if self.quiet
+                    && matches!(outcome.status, Status::Pass | Status::Skip | Status::XFail)
+                {
+                    return;
+                }
                 let time = if outcome.status == Status::Skip {
                     " ".repeat(11)
                 } else {

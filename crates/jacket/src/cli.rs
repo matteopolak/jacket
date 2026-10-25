@@ -147,6 +147,9 @@ pub struct TestArgs {
     /// Run a root's tests in one process instead of one process each
     #[arg(long)]
     pub no_isolation: bool,
+    /// Print only the tests that fail, time out or are flaky, then the summary
+    #[arg(short, long)]
+    pub quiet: bool,
     /// `human` text, or `json`: one event per line on standard output
     #[arg(long, value_enum, default_value_t = OutputFormat::Human)]
     pub format: OutputFormat,

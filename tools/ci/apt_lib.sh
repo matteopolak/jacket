@@ -30,14 +30,19 @@ apt_configure() {
     | sudo tee "$apt_root/apt.conf.d/80jai-ci-network" > /dev/null
 }
 
-# Run an apt-get command, giving up on an attempt after ten minutes and retrying it twice. An
-# install cut off mid-way leaves dpkg half done, so finish that before the retry.
+# Run an apt-get command, giving up on an attempt after three minutes and trying up to five times.
+# An install cut off mid-way leaves dpkg half done, so finish that before the retry. Its output is
+# shown only when an attempt fails.
 apt_get() {
-  local attempt
+  local attempt log
+  log=$(mktemp)
   for attempt in 1 2 3 4 5; do
-    if sudo timeout 180 apt-get "$@"; then
+    # shellcheck disable=SC2024 # the log is ours; only apt-get needs root
+    if sudo timeout 180 apt-get "$@" > "$log" 2>&1; then
+      rm -f "$log"
       return 0
     fi
+    tail -n 40 "$log" >&2
     echo "apt-get $1 failed or stalled (attempt $attempt of 5)" >&2
     sudo dpkg --configure -a || true
   done

@@ -73,7 +73,7 @@ if (!isMainThread) {
   const unavailable = tests.filter(c => results.get(c.id).unavailable);
   const passed = tests.filter(c => results.get(c.id).pass);
   for (const c of failed) console.log("FAIL " + c.id + ": " + results.get(c.id).why);
-  for (const c of unavailable) console.log("UNAVAILABLE " + c.id + ": " + results.get(c.id).unavailable);
+  if (process.env.PLAYGROUND_VERBOSE) for (const c of unavailable) console.log("UNAVAILABLE " + c.id + ": " + results.get(c.id).unavailable);
   const missing = only.filter(id => !catalogue.some(c => c.id === id));
   if (missing.length) console.log("no such case: " + missing.join(", "));
   console.log(passed.length + " passed (including expected precise rejections), " + failed.length + " failed, " + unavailable.length + " target/mode unavailable; " + tests.length + " selected");

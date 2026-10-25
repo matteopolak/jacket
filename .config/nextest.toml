@@ -9,6 +9,9 @@ fail-fast = false
 # Run them with `cargo nextest run --ignore-default-filter -E 'test(name)'`.
 [profile.ci]
 fail-fast = false
+# Only failing and slow tests get a line, during the run and again at the end.
+status-level = "slow"
+final-status-level = "fail"
 # A test still running after 10 minutes is killed and reported by name, instead of the job
 # reaching its own timeout with no log.
 slow-timeout = { period = "120s", terminate-after = 5 }

@@ -655,7 +655,7 @@ def main():
         "--verbose",
         "-v",
         action="store_true",
-        help="print the output of every failure in full",
+        help="print the output of every failure in full, and every unavailable or disabled test",
     )
     args = ap.parse_args()
     if (
@@ -868,10 +868,11 @@ def main():
         print(f"FAIL {test} [{mode}]")
         for line in shown:
             print(f"    {line}")
-    for line in unavailable:
-        print("UNAVAILABLE " + line)
-    for line in disabled:
-        print("DISABLED " + line)
+    if args.verbose:
+        for line in unavailable:
+            print("UNAVAILABLE " + line)
+        for line in disabled:
+            print("DISABLED " + line)
     print(f"\nstdlib runtime tests on {args.platform} ({len(todo)} tests):")
     for mode in modes:
         p, f, u, b, n, r, s = counts[mode]

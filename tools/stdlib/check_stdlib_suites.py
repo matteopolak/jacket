@@ -67,6 +67,12 @@ def main():
     )
     parser.add_argument("--native-libs", required=True, type=Path)
     parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="print every suite's output, not only the failing ones'",
+    )
+    parser.add_argument(
         "--bindings-native-libs",
         type=Path,
         help="real source-built ABI8 SDK and C probe directory",
@@ -209,8 +215,9 @@ def main():
                 else {}
             ),
         )
-        # A concurrent suite's output is printed whole when it ends, so lines never interleave.
-        if capture:
+        # A suite's output is printed only when it fails (or with --verbose), whole, so concurrent
+        # suites never interleave.
+        if capture and (result.returncode or args.verbose):
             sys.stdout.write(result.stdout)
         print("RESULT suite:", suite, "exit", result.returncode, flush=True)
         return result.returncode
@@ -219,13 +226,13 @@ def main():
         return [
             suite
             for suite in group
-            if run_suite(suite, args.jobs > 1)
+            if run_suite(suite, args.jobs > 1 or not args.verbose)
         ]
 
     groups = [g for g in ([s for s in group if s in selected] for group in GROUPS) if g]
     if args.jobs == 1:
         # Keep the requested order when running serially.
-        failures = [suite for suite in selected if run_suite(suite, False)]
+        failures = [suite for suite in selected if run_suite(suite, not args.verbose)]
     else:
         with concurrent.futures.ThreadPoolExecutor(args.jobs) as pool:
             for failed in pool.map(run_group, groups):

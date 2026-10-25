@@ -93,9 +93,17 @@ sudo() {
 }
 apt_get update""")
         self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(result.stdout.count("timeout 180 apt-get update"), 5)
+        # A failed attempt's own output is shown on standard error.
+        self.assertEqual(result.stderr.count("timeout 180 apt-get update"), 5)
         self.assertEqual(result.stdout.count("dpkg --configure -a"), 5)
         self.assertIn("attempt 5 of 5", result.stderr)
+
+    def test_successful_command_prints_nothing(self):
+        result = self.run_bash("""source "$1"
+sudo() { printf 'Unpacking %s\\n' "$*"; }
+apt_get install --yes llvm""")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout + result.stderr, "")
 
     def test_prefetch_downloads_each_planned_package_and_never_fails(self):
         result = self.run_bash("""source "$1"

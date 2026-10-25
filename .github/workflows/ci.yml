@@ -124,7 +124,7 @@ jobs:
           python3 tools/ci/check_ci_sources.py
           python3 tools/ci/check_repo_paths.py
       - name: Verify the wasm boundary and language server
-        run: cargo test --locked -p jai-language-server -p jai-wasm
+        run: cargo test --locked -q -p jai-language-server -p jai-wasm
       - name: Build and stage the real WebAssembly compiler without the native backend
         run: python3 tools/browser/build_scripting_wasm.py --release --output target/ci-wasm
       - name: Execute the real WebAssembly module
@@ -140,8 +140,6 @@ jobs:
       - name: Run every stdlib test in the browser engine
         # because they need what the browser lacks (native libraries, windows); a test that only
         # partly does skips that part itself under `OS == .WASM`. The browser release runs the same check.
-        env:
-          PLAYGROUND_PROGRESS: "1"
         run: node tools/browser/check_playground_stdlib.mjs target/ci-wasm
       - name: Interpreter and browser engine agree (corpus and generated programs)
         # docs/tools/testing.md; the host jaic needs no LLVM to interpret.
@@ -496,11 +494,11 @@ jobs:
           ulimit -c 0
           jacket=target/release/jacket
           status=0
-          "$jacket" test || status=1
-          "$jacket" test --interp || status=1
-          "$jacket" test --interp -os wasm || status=1
-          "$jacket" test -os wasm --runner "node tools/wasi_run.mjs" || status=1
-          "$jacket" test -- -O2 || status=1
+          "$jacket" test -q || status=1
+          "$jacket" test -q --interp || status=1
+          "$jacket" test -q --interp -os wasm || status=1
+          "$jacket" test -q -os wasm --runner "node tools/wasi_run.mjs" || status=1
+          "$jacket" test -q -- -O2 || status=1
           exit $status
       # The `stdlib-coverage` job reports the interpreter reachability of all shards together.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -1394,9 +1392,9 @@ jobs:
         run: |
           jacket="$(dirname "$JAIC")/jacket.exe"
           status=0
-          "$jacket" test || status=1
-          "$jacket" test --interp || status=1
-          "$jacket" test -- -O2 || status=1
+          "$jacket" test -q || status=1
+          "$jacket" test -q --interp || status=1
+          "$jacket" test -q -- -O2 || status=1
           exit $status
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ always() && !cancelled() }}

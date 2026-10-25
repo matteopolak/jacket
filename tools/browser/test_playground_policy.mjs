@@ -63,7 +63,7 @@ test("actual worker host keeps diagnostic failures and predeclared availability 
     for (const c of cases) await writeFile(path.join(base, c.path), JSON.stringify(c.result));
     await writeFile(path.join(stage, "jai_wasm.wasm"), "inert artifact, never instantiated");
     await writeFile(path.join(stage, "engine.mjs"), `export async function createEngine() { return { play(files, main) { const r = JSON.parse(files[main]); if (r.requestFailure) throw new Error(r.requestFailure); return r; } }; }`);
-    const run = spawnSync(process.execPath, [path.join(tools, "check_playground_stdlib.mjs"), stage], { encoding: "utf8", timeout: 30000 });
+    const run = spawnSync(process.execPath, [path.join(tools, "check_playground_stdlib.mjs"), stage], { encoding: "utf8", timeout: 30000, env: { ...process.env, PLAYGROUND_VERBOSE: "1" } });
     assert.equal(run.error, undefined);
     assert.equal(run.status, 1, run.stderr);
     assert.match(run.stdout, /1 passed .* 5 failed, 1 target\/mode unavailable; 7 selected/);

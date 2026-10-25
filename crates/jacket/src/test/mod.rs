@@ -389,6 +389,7 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: bool) -> ExitCode {
         cwd,
         args.interp,
         settings.capture,
+        args.quiet,
     );
     if list {
         reporter.list(&selected);

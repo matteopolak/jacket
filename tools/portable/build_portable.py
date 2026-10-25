@@ -133,7 +133,6 @@ def archive_fixtures():
     subprocess.run(
         [archive_tool, "rcs", str(native), str(ARCHIVE_OUT / "original.o")], check=True
     )
-    print("Built original archive wire fixtures and genuine host C object archive")
 
 
 def zip_fixtures():
@@ -172,7 +171,6 @@ def zip_fixtures():
     struct.pack_into("<H", variants["descriptor"], central + 8, 8)
     for name, data in variants.items():
         (directory / f"{name}.zip").write_bytes(data)
-    print("Built independent ZIP fixtures")
 
 
 CPUID_SOURCE = ROOT / "stdlib/Machine_X64/tests/native/cpuid-features.c"
@@ -251,7 +249,6 @@ def meow_fixtures(verify_native):
         assert actual == data, "native C comparison differs from the reviewed fixture"
         print("Source-built native C reproduced 317 Meow vectors byte-identically")
     shutil.copyfile(fixture, output / "vectors.bin")
-    print("Staged 317 original Meow vectors with pinned C/data digests")
 
 
 @functools.cache
@@ -416,7 +413,6 @@ def mpeg_fixtures():
         (output / (name + ".mp2")).write_bytes(frame * 2)
     frame = audio_frame(1, 5, protected=True)
     (output / "joint-crc.mp2").write_bytes(frame * 2)
-    print("Built independent MPEG B/AC and nonzero stereo fixtures")
 
 
 def clipboard(output):
