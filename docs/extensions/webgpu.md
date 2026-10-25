@@ -14,7 +14,7 @@ format  := webgpu_surface_format(surface, adapter);  // pass srgb = true only if
 webgpu_present(surface);
 ```
 
-Examples: `examples/webgpu/triangle.jai` (window, pipeline) and `raymarch.jai` (fragment shader, uniforms, input), both native only, and `compute.jai` (storage buffers, mapping); the playground tour ends with `examples/tour/gpu/raymarch_gpu.jai`.
+Examples: `examples/webgpu/triangle.jai` (window, pipeline) and `raymarch.jai` (fragment shader, uniforms, input), both native only, `compute.jai` (storage buffers, mapping), and `textured_cube/` (vertex and index buffers, depth, a PNG texture loaded with [Extensions/Assets](assets.md) and decoded with [Extensions/Image](image.md)), which runs natively and in the playground; the playground tour ends with `examples/tour/gpu/raymarch_gpu.jai`. In the browser `webgpu_canvas_size()` gives the canvas size, where native code uses `webgpu_window_size(window)`.
 
 | Where | Backend | Surface |
 | --- | --- | --- |
@@ -31,7 +31,7 @@ webgpu.yml (pinned) --tools/webgpu_gen.py--> stdlib/Extensions/WebGPU/generated.
                                           --> crates/jai-wasm/js/webgpu_bindings.generated.mjs   struct layouts, enum strings
 ```
 
-**Helpers** (`module.jai`): `webgpu_create_surface` (per-OS code in `macos.jai`, `windows.jai`, `linux.jai`; wgpu-native aborts on most calls with a null surface, so check); `webgpu_surface_format` (first format whose sRGB-ness matches; macOS prefers `bgra8unorm-srgb`, browsers `bgra8unorm`, so without it the same shader looks different); `webgpu_request_adapter/device`, `webgpu_map_buffer` (replaces `WGPU_WHOLE_MAP_SIZE`, which wgpu-native rejects), `webgpu_pop_error_scope`, `webgpu_present` (in the browser also waits for the next animation frame), `webgpu_window_size`. `WEBGPU_SURFACE_OCCLUDED` is wgpu-native's extra status for a non-visible Metal window: skip the frame, do not reconfigure. Callback strings are only valid during the callback, so helpers copy them.
+**Helpers** (`module.jai`): `webgpu_create_surface` (per-OS code in `macos.jai`, `windows.jai`, `linux.jai`; wgpu-native aborts on most calls with a null surface, so check); `webgpu_surface_format` (first format whose sRGB-ness matches; macOS prefers `bgra8unorm-srgb`, browsers `bgra8unorm`, so without it the same shader looks different); `webgpu_request_adapter/device`, `webgpu_map_buffer` (replaces `WGPU_WHOLE_MAP_SIZE`, which wgpu-native rejects), `webgpu_pop_error_scope`, `webgpu_present` (in the browser also waits for the next animation frame), `webgpu_window_size` (native) and `webgpu_canvas_size` (browser). `WEBGPU_SURFACE_OCCLUDED` is wgpu-native's extra status for a non-visible Metal window: skip the frame, do not reconfigure. Callback strings are only valid during the callback, so helpers copy them.
 
 **Native:** `generated.jai` declares procedures `#foreign libwgpu`. `jaic -interp` loads the shared library from the native-libs directory ([native libraries](../tools/native-libs.md)); built programs link the static one (`.a`/`.lib`), with system libraries listed `link_always` in `macos.jai`, `linux.jai`, `windows.jai`. Release archives ship wgpu-native in `native-libs/<platform>/` ([releases](../tools/releases.md)); in a checkout run `python3 tools/bindings/fetch_wgpu_native.py`.
 

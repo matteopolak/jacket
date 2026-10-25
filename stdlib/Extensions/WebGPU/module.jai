@@ -263,14 +263,19 @@ webgpu_format_is_srgb :: (format: WGPUTextureFormat) -> bool {
     return false;
 }
 
-// Native-only size of the surface `window` shows, in pixels.
-#if OS != .WASM {
+#if OS == .WASM {
+    // Browser-only size of the page's canvas (the surface wgpuInstanceCreateSurface(instance,
+    // null) draws into), in pixels. It changes when the page resizes the canvas: compare it each
+    // frame and configure the surface again.
+    webgpu_canvas_size :: () -> width: s32, height: s32 {
+        w, h: u32;
+        jai_canvas_size(*w, *h);
+        return cast(s32) w, cast(s32) h;
+    }
+} else {
+    // Native-only size of the surface `window` shows, in pixels.
     webgpu_window_size :: (window: Window_Type) -> width: s32, height: s32 {
-        #if OS == .WASM {
-            w, h: u32;
-            jai_canvas_size(*w, *h);
-            return cast(s32) w, cast(s32) h;
-        } else #if OS == .MACOS {
+        #if OS == .MACOS {
             return webgpu_macos_drawable_size(window);
         } else {
             WC :: #import "Window_Creation";
