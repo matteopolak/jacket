@@ -190,7 +190,15 @@ macro_rules! is_empty {
     ($($t:ty),*) => {$(impl $t { pub fn is_empty(&self) -> bool { *self == Self::default() } })*};
 }
 
-is_empty!(Project, Toolchain, Lint, Format, Experimental, Portability, Postgres);
+is_empty!(
+    Project,
+    Toolchain,
+    Lint,
+    Format,
+    Experimental,
+    Portability,
+    Postgres
+);
 
 /// The keys each table accepts, to suggest the near one for a misspelling. A test keeps these in
 /// step with the structs.
