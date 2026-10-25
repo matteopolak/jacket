@@ -153,7 +153,7 @@ The wire client (`describe_statement`, `query_binary`, `query_dynamic`), `Json`,
 
 ## JSON columns
 
-A `json` / `jsonb` column is a `Json_Raw` (its text) unless an alias override, a `Json(T)` field in `query_as`, or a `Json_Columns` entry says which `T` it holds. `Pg.json_value(raw)` reads any document as a `Json_Value` tree; free it with `free_json`.
+A `json` / `jsonb` column is a `Json_Raw` (its text) unless an alias override, a `Json(T)` field in `query_as`, or a `Json_Columns` entry says which `T` it holds. `Pg.json_value(raw)` reads any document as a `Json_Value` tree; free it with `free_json`, which lives in the Json module (`#import "Extensions/Json";`), not in `Pg`.
 
 Decoding is governed by `Pg.Json_Options` (`unknown_fields`, `missing_fields`, `duplicate_keys`, plus the connection-wide `max_depth` and `max_size`). Three layers, each option falling through its `.INHERIT` default to the one below:
 

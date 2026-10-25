@@ -48,7 +48,7 @@ User :: struct @pg_table(public.users) @pg_belongs_to(team:team_id:Team:id) @pg_
   Json_Columns :: Pg.Json_Column.[ .{ "users.settings", Settings, .{ unknown_fields = .DENY } } ];
   ```
 
-  A literal gives `column`, `type` and `options` in that order, or names the ones it sets (`.{ column = "users.settings", type = Settings }`). `options` is a `Pg.Json_Options`: how strictly that column's documents are decoded. It rides in the column's type as `Json(T, OPTIONS)` (`pack_json_options` / `unpack_json_options`, `json_options.jai`), sits above the connection's options and below a query's own `json = ...`, and each option left at `.INHERIT` takes the layer below.
+  Each entry is a `Pg.Json_Column`, whose fields are `column`, `type` and `options`. A literal without names, like the one above, lists them in that order. A literal can name its fields instead and leave out the ones it does not set: `.{ column = "users.settings", type = Settings }` keeps the default options. `options` is a `Pg.Json_Options`: how strictly that column's documents are decoded. It rides in the column's type as `Json(T, OPTIONS)` (`pack_json_options` / `unpack_json_options`, `json_options.jai`), sits above the connection's options and below a query's own `json = ...`, and each option left at `.INHERIT` takes the layer below.
 
   `#run Pg.check_json_columns` makes a mapping for a column that is not a json column of the schema a compile error. `Json(Json_Raw)` keeps the document as text (`.value.text`). Types used in `json_columns.jai` are looked up in the program that loads `schema.jai`.
 - **Nulls.** `Pg.Nullable(T)` for every nullable column; `[] T` for arrays, as in typed queries.

@@ -48,8 +48,8 @@ decode_json :: ($T: Type, raw: Json_Raw, options := Json_Options.{}) -> T, Json_
     return value, error;
 }
 
-// The document as a `Json_Value` tree, which the caller releases with `free_json`; any JSON can be
-// read this way, whatever `T` a column would map it to.
+// The document as a `Json_Value` tree, which the caller releases with `free_json` (from
+// Extensions/Json); any JSON can be read this way, whatever `T` a column would map it to.
 json_value :: (raw: Json_Raw, options := Json_Options.{}) -> Json_Module.Json_Value, Json_Module.Json_Error {
     value, error := Json_Module.from_json(Json_Module.Json_Value, raw.text, module_json_options(.{ connection = options }, 0));
     return value, error;
