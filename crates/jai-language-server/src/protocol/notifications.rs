@@ -104,13 +104,27 @@ impl JsonSession {
             .session
             .change(&target, p.text_document.version, &p.content_changes);
         if let Err(error) = changed {
-            if let Error::Limit(what) = &error {
-                self.session.notify(format!(
-                    "jailsp did not apply an edit to {}: {what}.",
-                    p.text_document.uri
-                ));
+            // A version the document is already past is a repeat; any other failure leaves the
+            // client's text ahead of ours, so drop ours and wait for the file to be opened again.
+            if matches!(error, Error::StaleVersion | Error::MissingDocument) {
+                return Err(domain(error));
             }
-            return Err(domain(error));
+            self.session.notify(format!(
+                "jailsp could not apply an edit to {} ({error}) and closed it: its diagnostics, hover and completion are off until it is opened again.",
+                p.text_document.uri
+            ));
+            let message = format!("textDocument/didChange failed: {error}");
+            let _ = self.session.close(&target);
+            let mut messages = vec![super::helpers::log_error(&message)];
+            messages.extend(self.edited(settings));
+            if !self.pull_diagnostics {
+                messages.push(json!({
+                    "jsonrpc": "2.0",
+                    "method": "textDocument/publishDiagnostics",
+                    "params": { "uri": target.as_str(), "diagnostics": [] },
+                }));
+            }
+            return Ok(messages);
         }
         if settings {
             return Ok(vec![]);
