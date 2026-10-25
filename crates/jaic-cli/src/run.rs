@@ -386,14 +386,7 @@ fn interpret(
         };
         compiler.ct.interp.run_executable = Some(main_dir.join(name).display().to_string());
     }
-    // The sandbox's memory is virtual; host-allocated argv strings are not visible there.
-    let outcome = timings::time("run", || {
-        if sandbox.is_some() {
-            compiler.run_program()
-        } else {
-            compiler.run_program_with_args(&cli.program_args)
-        }
-    });
+    let outcome = timings::time("run", || compiler.run_program_with_args(&cli.program_args));
     if let Some(host) = sandbox {
         use std::io::Write;
         let host = host.borrow();

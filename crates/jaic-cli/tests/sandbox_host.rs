@@ -56,3 +56,33 @@ fn sandbox_has_basic_time_sleep_and_exit() {
     );
     assert_eq!(output.status.code(), Some(3));
 }
+
+/// A wasm program run with `-interp` (in the sandbox host) gets its arguments too.
+#[test]
+fn wasm_interp_passes_program_arguments() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-wasm-run-args");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("args.jai");
+    std::fs::write(
+        &source,
+        "#import \"Basic\";\n\
+         main :: () {\n\
+         \x20   args := get_command_line_arguments();\n\
+         \x20   for args if it_index > 0 print(\"[%]\", it);\n\
+         \x20   print(\"%\\n\", args.count);\n\
+         }\n",
+    )
+    .unwrap();
+    let output = Command::new(JAIC)
+        .args(["-interp", "-os", "wasm"])
+        .arg(&source)
+        .args(["--", "a", "b c"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "[a][b c]3\n");
+}
