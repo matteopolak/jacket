@@ -57,6 +57,39 @@ impl Compiler {
                 .default_untyped(lhs.ty(), &lhs.const_value().unwrap());
             rhs = self.explicit_cast(f, rhs, ty, ast::CastFlags::default(), span)?;
         }
+        // Comparing integers compares their values: a distinct integer type meets another
+        // integer type as the type it is made from.
+        if is_comparison(op)
+            && lhs.ty() != rhs.ty()
+            && !matches!(
+                lhs,
+                Operand::Const {
+                    untyped: true,
+                    ..
+                }
+            )
+            && !matches!(
+                rhs,
+                Operand::Const {
+                    untyped: true,
+                    ..
+                }
+            )
+        {
+            for operand in [&mut lhs, &mut rhs] {
+                let ty = operand.ty();
+                let base = self.ty.types.repr(ty);
+                if base != ty && is_int_value(self, operand) {
+                    *operand = self.explicit_cast(
+                        f,
+                        operand.clone(),
+                        base,
+                        ast::CastFlags::default(),
+                        span,
+                    )?;
+                }
+            }
+        }
         // Unify operand types.
         let ty =
             self.binary_operand_type(&lhs, &rhs, expected, is_shift, (a.span, b.span), span)?;

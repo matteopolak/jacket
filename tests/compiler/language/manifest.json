@@ -84,6 +84,13 @@
     "covers": "an untyped baked parameter has the type of its default, so an integer argument selects the value overload"
   },
   {
+    "name": "distinct-integer-compare",
+    "main": "cases/distinct-integer-compare/main.jai",
+    "mode": "interp",
+    "expected_stdout": "ok\n",
+    "covers": "integers compare with a distinct integer type by value"
+  },
+  {
     "name": "aggregate-map",
     "main": "cases/aggregate-map/main.jai",
     "mode": "interp",
