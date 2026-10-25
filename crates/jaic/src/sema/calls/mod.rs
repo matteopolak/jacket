@@ -40,6 +40,7 @@ mod operators;
 mod poly_hints;
 mod precheck;
 mod slots;
+mod type_lists;
 
 pub(super) use self::infer::own_instance_key;
 pub(super) use self::slots::header_poly_names;

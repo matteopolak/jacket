@@ -1042,6 +1042,19 @@ impl Compiler {
                         ),
                     );
                 }
+                // `$T/.[A, B]` (or a constant naming such a list): T must be one of the types.
+                if !interface
+                    && let Some(options) = self.restriction_type_list(scope, restriction, 0)?
+                    && !options.contains(&ty)
+                {
+                    return err(
+                        span,
+                        format!(
+                            "{} is not one of the types the restriction allows",
+                            self.ty.types.name(ty)
+                        ),
+                    );
+                }
                 bind_pattern(
                     span,
                     &self.ty.types,

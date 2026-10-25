@@ -35,6 +35,8 @@ IntPair :: #bake_arguments Pair(T = int);        // Pair :: struct ($T: Type, $N
 
 ## How to change it
 
+A `$T/.[A, B]` restriction, or `$T/Name` where `Name :: Type.[A, B]`, admits only the listed types (`restriction_type_list` in `calls/infer.rs`); a restriction that is not a list of types is unaffected.
+
 New inference rules go in `calls/infer.rs`; instance creation is `instantiate` in `procs.rs`. `sema/typeinfo.rs` lists baked parameters first in a struct's type info; keep that order. Tests: `tests/compiler/regressions/modify-polymorph-forms.jai`, `struct-modify.jai`, `baked-struct-restriction.jai`, `variadic-struct-parameter.jai`, `poly-infer-from-ifx.jai`, `lang-poly-misc.jai`.
 
 ## Rules
