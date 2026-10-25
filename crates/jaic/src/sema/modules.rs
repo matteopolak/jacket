@@ -9,7 +9,7 @@ mod parameters;
 
 pub(super) use self::declare::file_scope_for_eval;
 pub use self::filesystem::{
-    BootstrapModule, FileSystem, NativeFs, VirtualFs, find_module_in, import_entry,
+    BootstrapModule, FileSystem, NativeFs, VirtualFs, content_stamp, find_module_in, import_entry,
 };
 pub(super) use self::loading::FileLoadState;
 pub use self::parameters::ParameterContract;

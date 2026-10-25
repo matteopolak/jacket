@@ -84,4 +84,18 @@ impl FileSystem for OverlayFs {
     fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
         self.base.list_dir(&self.at(path))
     }
+
+    fn stamp(&self, path: &Path) -> Option<u64> {
+        let key = self.canonical_of(path);
+        let open = self
+            .files
+            .get(&key)
+            .map(|bytes| jaic::sema::content_stamp(bytes));
+        // What is stamped counts as read: the compile it belongs to depends on it.
+        self.reads.borrow_mut().files.insert(key);
+        match open {
+            Some(stamp) => Some(stamp),
+            None => self.base.stamp(&self.at(path)),
+        }
+    }
 }

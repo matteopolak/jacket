@@ -61,6 +61,7 @@ mod runtime_config;
 mod runtime_info;
 pub mod scope;
 mod source_state;
+mod stdlib_index;
 mod stmt;
 pub(crate) mod structs;
 mod suggestions;
@@ -87,7 +88,9 @@ pub use expr::PreludeType;
 pub use import_trace::{FailedAssert, ImportEdge, ImportTrace};
 pub use meta_state::MetaState;
 pub use module_rank::{ModuleRanking, Rank, count_importers};
-pub use modules::{BootstrapModule, FileSystem, NativeFs, VirtualFs, find_module_in, import_entry};
+pub use modules::{
+    BootstrapModule, FileSystem, NativeFs, VirtualFs, content_stamp, find_module_in, import_entry,
+};
 pub use name_caches::NameCaches;
 pub use namespaces::Namespaces;
 pub use output::Output;

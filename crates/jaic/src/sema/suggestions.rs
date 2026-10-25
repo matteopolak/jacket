@@ -1,11 +1,12 @@
 //! "Did you mean" help for unknown names. Working out the closest visible name costs a walk
 //! over every scope in reach, so it happens when an error is rendered for the user, not each
 //! time a lookup fails (failed lookups are routine while checking overloads and `#if`s).
-use super::module_rank::{ModuleRanking, count_importers};
+use super::module_rank::ModuleRanking;
 use super::name_caches::DeclaringKey;
 use super::scope::{ScopeId, UsingEntry};
+use super::stdlib_index::{StdlibIndex, StdlibView};
 use super::{Compiler, ModuleId, Sym, TypeId};
-use crate::ast::{Expr, ExprKind, ScopeKind, StmtKind};
+use crate::ast::{Expr, ExprKind, StmtKind};
 use crate::fxhash::HashMap;
 use crate::lexer::{P, Tok};
 use crate::sema::SourceState;
@@ -13,134 +14,14 @@ use crate::sema::TypeState;
 use crate::source::{
     Applicability, Diagnostic, DiagnosticKind, FileId, ImportSuggestion, Span, Suggestion,
 };
-use std::cell::RefCell;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use std::rc::Rc;
 
 /// The most modules an unknown name's help offers to import.
 const MAX_IMPORTS: usize = 4;
 
 /// Modules the compiler loads itself; they are never imported by name.
 pub const COMPILER_INTERNAL_MODULES: &[&str] = &["prelude", "Preload", "Runtime_Support"];
-
-/// Whether the module file `text` declares `operator <op>` outside its `#scope_file` sections
-/// (a line-based test: the declaration starts a line, as `operator + :: (...)`).
-fn exports_operator(text: &str, op: &str) -> bool {
-    let mut file_scope = false;
-    for line in text.lines() {
-        let trimmed = line.trim_start();
-        if trimmed.starts_with("#scope_file") {
-            file_scope = true;
-        } else if trimmed.starts_with("#scope_export") || trimmed.starts_with("#scope_module") {
-            file_scope = trimmed.starts_with("#scope_module");
-        } else if !file_scope
-            && line.len() - trimmed.len() <= 4
-            && trimmed
-                .strip_prefix("operator")
-                .and_then(|rest| rest.trim_start().strip_prefix(op))
-                .is_some_and(|rest| rest.trim_start().starts_with("::"))
-        {
-            return true;
-        }
-    }
-    false
-}
-
-/// Whether an `operator <op>` declaration in `text` names every one of `names` among its
-/// parameters (a line-based test, like [`exports_operator`]).
-fn operator_takes(text: &str, op: &str, names: &[String]) -> bool {
-    let mut file_scope = false;
-    let mut lines = text.lines();
-    while let Some(line) = lines.next() {
-        let trimmed = line.trim_start();
-        if trimmed.starts_with("#scope_file") {
-            file_scope = true;
-        } else if trimmed.starts_with("#scope_export") || trimmed.starts_with("#scope_module") {
-            file_scope = trimmed.starts_with("#scope_module");
-        } else if !file_scope
-            && line.len() - trimmed.len() <= 4
-            && trimmed
-                .strip_prefix("operator")
-                .and_then(|rest| rest.trim_start().strip_prefix(op))
-                .is_some_and(|rest| rest.trim_start().starts_with("::"))
-        {
-            let mut head = trimmed.to_string();
-            while !head.contains('{') && !head.contains("->") && head.len() < 400 {
-                match lines.next() {
-                    Some(next) => head.push_str(next),
-                    None => break,
-                }
-            }
-            let end = head
-                .find("->")
-                .or_else(|| head.find('{'))
-                .unwrap_or(head.len());
-            let words: Vec<&str> = head[..end]
-                .split(|c: char| !(c.is_alphanumeric() || c == '_'))
-                .collect();
-            if names.iter().all(|n| words.contains(&n.as_str())) {
-                return true;
-            }
-        }
-    }
-    false
-}
-
-/// Whether the module file `text` declares `name` for its importers: at its top level (or in a
-/// top-level `#if`), outside `#scope_file` and `#scope_module` sections. Only a file whose lines
-/// look like such a declaration is parsed.
-fn exports_name(text: &str, name: &str) -> bool {
-    if !may_export_name(text, name) {
-        return false;
-    }
-    let Ok(file) = crate::parser::parse_file(FileId(u32::MAX), text) else {
-        return true;
-    };
-    fn declares(stmts: &[crate::ast::Stmt], name: &str, exported: &mut bool) -> bool {
-        stmts.iter().any(|stmt| match &stmt.kind {
-            StmtKind::Scope(kind) => {
-                *exported = *kind == ScopeKind::Export;
-                false
-            }
-            StmtKind::Decl(decl) => *exported && decl.names.iter().any(|n| n.name.as_str() == name),
-            StmtKind::StaticIf(boxed) => {
-                let crate::ast::StaticIfStmt {
-                    then_branch,
-                    else_branch,
-                    ..
-                } = &**boxed;
-                let (mut then_exported, mut else_exported) = (*exported, *exported);
-                declares(then_branch, name, &mut then_exported)
-                    || declares(else_branch, name, &mut else_exported)
-            }
-            _ => false,
-        })
-    }
-    declares(&file.stmts, name, &mut true)
-}
-
-/// Whether `text` has a line, indented at most four spaces and outside a `#scope_file` section,
-/// that starts with a declaration of `name` (a quick test before [`exports_name`] parses).
-fn may_export_name(text: &str, name: &str) -> bool {
-    let mut file_scope = false;
-    for line in text.lines() {
-        let trimmed = line.trim_start();
-        if trimmed.starts_with("#scope_file") {
-            file_scope = true;
-        } else if trimmed.starts_with("#scope_export") || trimmed.starts_with("#scope_module") {
-            file_scope = trimmed.starts_with("#scope_module");
-        } else if !file_scope && line.len() - trimmed.len() <= 4 && declares_name(trimmed, name) {
-            return true;
-        }
-    }
-    false
-}
-
-/// Whether `code` starts with a declaration of `name` (`name ::`, `name :=` or `name: T`).
-fn declares_name(code: &str, name: &str) -> bool {
-    code.trim_start()
-        .strip_prefix(name)
-        .is_some_and(|rest| rest.trim_start().starts_with(':'))
-}
 
 /// Whether `code`, parsed as top-level Jai, declares `name`.
 fn code_declares(code: &[u8], name: &str) -> bool {
@@ -169,25 +50,6 @@ fn adds_declaration(text: &str, name: &str) -> bool {
             && w[1].tok == Tok::Punct(P::LParen)
             && matches!(&w[2].tok, Tok::Str(code) if code_declares(code, name))
     })
-}
-
-/// The modules `#import "Name"` names in `text`, found from its tokens.
-fn imported_modules(text: &str) -> Vec<String> {
-    if !text.contains("#import") {
-        return Vec::new();
-    }
-    let Ok(tokens) = crate::lexer::lex(FileId(u32::MAX), text) else {
-        return Vec::new();
-    };
-    crate::project::scan_directives(&tokens)
-        .into_iter()
-        .filter_map(|link| match link.source {
-            crate::project::LinkSource::Import(crate::ast::ImportSource::Module(name)) => {
-                Some(name.to_string())
-            }
-            _ => None,
-        })
-        .collect()
 }
 
 /// Whether `cond` compares the compile target: it names `OS` or `CPU`.
@@ -329,7 +191,7 @@ impl Compiler {
         if let Some(found) = self.caches.declaring_imports.borrow().get(&key) {
             return found.clone();
         }
-        let found = self.imports_declaring_by(name, &|_, text| exports_name(text, name));
+        let found = self.imports_declaring_name(name);
         self.caches
             .declaring_imports
             .borrow_mut()
@@ -372,12 +234,13 @@ impl Compiler {
         if let Some(found) = self.caches.declaring_imports.borrow().get(&key) {
             return found.clone();
         }
-        let found = self.imports_declaring_by(&format!("operator {text}"), &|module, source| {
-            exports_operator(source, text)
-                && (names.is_empty()
-                    || homes.iter().any(|h| h == module)
-                    || operator_takes(source, text, &names))
-        });
+        let found = match self.stdlib_view() {
+            Some(view) => {
+                let modules = view.modules_exporting_operator(text, &names, &homes);
+                self.ranked_imports(&view, Vec::new(), modules)
+            }
+            None => Vec::new(),
+        };
         self.caches
             .declaring_imports
             .borrow_mut()
@@ -385,115 +248,69 @@ impl Compiler {
         found
     }
 
-    fn imports_declaring_by(
-        &self,
-        name: &str,
-        declares_in: &dyn Fn(&str, &str) -> bool,
-    ) -> Vec<ImportSuggestion> {
-        let mut found = Vec::new();
+    fn imports_declaring_name(&self, name: &str) -> Vec<ImportSuggestion> {
         if name.len() < 2 || name.starts_with("__") {
-            return found;
+            return Vec::new();
         }
-        let Some(stdlib) = self.options.stdlib_root() else {
-            return found;
+        let Some(view) = self.stdlib_view() else {
+            return Vec::new();
         };
-        let mut modules: Vec<(String, bool)> = self
-            .src
-            .stdlib_modules_under(stdlib, "")
-            .into_iter()
-            .chain(
-                self.src
-                    .stdlib_modules_under(stdlib, crate::STDLIB_EXTENSIONS_DIR),
-            )
-            .filter(|(m, is_dir)| {
-                let entry = if *is_dir {
-                    stdlib.join(m).join("module.jai")
-                } else {
-                    stdlib.join(format!("{m}.jai"))
-                };
-                !COMPILER_INTERNAL_MODULES.contains(&m.as_str())
-                    && self.options.preload.as_ref().is_none_or(|preload| {
-                        self.src.fs.canonical(preload) != self.src.fs.canonical(&entry)
-                    })
-            })
-            .collect();
-        let ranking = ModuleRanking::clone(&self.stdlib_importers(stdlib, &modules))
-            .with_project(self.project_import_counts());
-        modules.sort_by_cached_key(|(m, _)| (ranking.rank(m), m.clone()));
-        modules.dedup_by(|a, b| a.0 == b.0);
-        if modules.iter().any(|(m, _)| m == name) {
-            found.push(ImportSuggestion {
+        let named = if view.has_module(name) {
+            vec![ImportSuggestion {
                 module: name.to_string(),
                 name: Some(name.to_string()),
-            });
+            }]
+        } else {
+            Vec::new()
+        };
+        let modules = view.modules_exporting_name(name, &*self.src.fs);
+        self.ranked_imports(&view, named, modules)
+    }
+
+    /// `found` followed by the modules `modules` (indexes into the standard library), best
+    /// ranked first, up to [`MAX_IMPORTS`] in all.
+    fn ranked_imports(
+        &self,
+        view: &StdlibView,
+        mut found: Vec<ImportSuggestion>,
+        mut modules: Vec<usize>,
+    ) -> Vec<ImportSuggestion> {
+        if modules.is_empty() {
+            return found;
         }
-        for (module, is_dir) in modules {
+        let ranking = ModuleRanking::new(HashMap::default(), (*view.importers).clone())
+            .with_project(self.project_import_counts());
+        modules.sort_by_cached_key(|&m| {
+            let name = view.module_name(m);
+            (ranking.rank(name), name.to_string(), m)
+        });
+        for m in modules {
             if found.len() >= MAX_IMPORTS {
                 break;
             }
-            let mut files = Vec::new();
-            if is_dir {
-                self.module_files(&stdlib.join(&module), &mut files, 0);
-            } else {
-                files.push(stdlib.join(format!("{module}.jai")));
-            }
-            let declares = files.iter().any(|path| {
-                self.src
-                    .fs
-                    .read(path)
-                    .is_some_and(|bytes| declares_in(&module, &String::from_utf8_lossy(&bytes)))
+            found.push(ImportSuggestion {
+                module: view.module_name(m).to_string(),
+                name: None,
             });
-            if declares {
-                found.push(ImportSuggestion {
-                    module,
-                    name: None,
-                });
-            }
         }
         found
     }
 
-    /// How many other stdlib modules import each stdlib module, worked out once per thread and
-    /// stdlib folder: help for several unknown names should not read the stdlib again.
-    fn stdlib_importers(&self, stdlib: &Path, modules: &[(String, bool)]) -> ModuleRanking {
-        thread_local! {
-            static CACHE: RefCell<Option<(PathBuf, usize, ModuleRanking)>> = const { RefCell::new(None) };
+    /// The standard library's index as this compile sees it (without the module it preloads).
+    fn stdlib_view(&self) -> Option<Rc<StdlibView>> {
+        if let Some(view) = self.caches.stdlib_view.borrow().as_ref() {
+            return view.clone();
         }
-        if let Some(found) = CACHE.with(|c| {
-            c.borrow()
-                .as_ref()
-                .filter(|(dir, count, _)| dir == stdlib && *count == modules.len())
-                .map(|(_, _, ranking)| ranking.clone())
-        }) {
-            return found;
-        }
-        let imports: Vec<(&str, Vec<String>)> = modules
-            .iter()
-            .map(|(module, is_dir)| {
-                let mut files = Vec::new();
-                if *is_dir {
-                    self.module_files(&stdlib.join(module), &mut files, 0);
-                } else {
-                    files.push(stdlib.join(format!("{module}.jai")));
-                }
-                let paths = files
-                    .iter()
-                    .filter_map(|path| self.src.fs.read(path))
-                    .flat_map(|bytes| imported_modules(&String::from_utf8_lossy(&bytes)))
-                    .collect();
-                (module.as_str(), paths)
-            })
-            .collect();
-        let importers = count_importers(
-            imports
-                .iter()
-                .map(|(m, paths)| (*m, paths.iter().map(String::as_str))),
-        );
-        let ranking = ModuleRanking::new(HashMap::default(), importers);
-        CACHE.with(|c| {
-            *c.borrow_mut() = Some((stdlib.to_path_buf(), modules.len(), ranking.clone()));
+        let view = self.options.stdlib_root().map(|stdlib| {
+            let index = StdlibIndex::shared(&*self.src.fs, stdlib);
+            Rc::new(StdlibView::new(
+                index,
+                self.options.preload.as_deref(),
+                &*self.src.fs,
+            ))
         });
-        ranking
+        *self.caches.stdlib_view.borrow_mut() = Some(view.clone());
+        view
     }
 
     /// How often the program's own files import each module.
@@ -512,23 +329,6 @@ impl Compiler {
             }
         }
         counts
-    }
-
-    /// The `.jai` files of a module directory, leaving out tests and examples.
-    fn module_files(&self, dir: &Path, files: &mut Vec<PathBuf>, depth: usize) {
-        if depth > 3 {
-            return;
-        }
-        for (entry, is_dir) in self.src.fs.list_dir(dir) {
-            let path = dir.join(&entry);
-            if is_dir {
-                if !matches!(entry.as_str(), "tests" | "examples" | "modules") {
-                    self.module_files(&path, files, depth + 1);
-                }
-            } else if entry.ends_with(".jai") {
-                files.push(path);
-            }
-        }
     }
 
     /// The names a lookup from `scope` can reach without loading anything new: each enclosing
@@ -731,27 +531,7 @@ impl SourceState {
     /// The modules in `stdlib/folder` as (import name, is a folder): `Name` for the stdlib
     /// itself (`folder` empty), `folder/Name` below it.
     pub(crate) fn stdlib_modules_under(&self, stdlib: &Path, folder: &str) -> Vec<(String, bool)> {
-        let dir = stdlib.join(folder);
-        let prefix = if folder.is_empty() {
-            String::new()
-        } else {
-            format!("{folder}/")
-        };
-        self.fs
-            .list_dir(&dir)
-            .into_iter()
-            .filter_map(|(entry, is_dir)| {
-                if is_dir {
-                    self.fs
-                        .is_file(&dir.join(&entry).join("module.jai"))
-                        .then(|| (format!("{prefix}{entry}"), true))
-                } else {
-                    entry
-                        .strip_suffix(".jai")
-                        .map(|m| (format!("{prefix}{m}"), false))
-                }
-            })
-            .collect()
+        super::stdlib_index::modules_under(&*self.fs, stdlib, folder)
     }
 }
 

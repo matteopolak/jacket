@@ -6,6 +6,7 @@ use std::rc::Rc;
 use crate::fxhash::HashMap;
 use crate::intern::Sym;
 
+use super::stdlib_index::StdlibView;
 use super::{EntityId, ModuleId, ScopeId};
 use crate::source::ImportSuggestion;
 
@@ -41,4 +42,7 @@ pub struct NameCaches {
     /// for. A program that misses the same one many times would read the whole standard
     /// library each time.
     pub(in crate::sema) declaring_imports: RefCell<HashMap<DeclaringKey, Vec<ImportSuggestion>>>,
+    /// The standard library's index of declared names for this compile, once asked for (`None`
+    /// inside when there is no standard library folder).
+    pub(in crate::sema) stdlib_view: RefCell<Option<Option<Rc<StdlibView>>>>,
 }

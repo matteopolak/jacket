@@ -30,6 +30,23 @@ pub trait FileSystem {
     fn list_dir(&self, _path: &Path) -> Vec<(String, bool)> {
         Vec::new()
     }
+
+    /// A fingerprint of the file or folder at `path` that changes whenever what [`Self::read`] or
+    /// [`Self::list_dir`] would answer for it changes, or `None` when this file system cannot say
+    /// cheaply. What was worked out from a set of paths is reused while their stamps stay equal
+    /// (see `sema::stdlib_index`); without stamps it is worked out again for every compile.
+    fn stamp(&self, _path: &Path) -> Option<u64> {
+        None
+    }
+}
+
+/// A [`FileSystem::stamp`] of `bytes`.
+pub fn content_stamp(bytes: &[u8]) -> u64 {
+    use std::hash::Hasher;
+    let mut hasher = crate::fxhash::FxHasher::default();
+    hasher.write(bytes);
+    hasher.write_usize(bytes.len());
+    hasher.finish()
 }
 
 pub struct NativeFs;
@@ -74,6 +91,25 @@ impl FileSystem for NativeFs {
             })
             .collect()
     }
+
+    /// Size and modification time (a path that does not exist has a stamp of its own).
+    fn stamp(&self, path: &Path) -> Option<u64> {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = crate::fxhash::FxHasher::default();
+        match std::fs::metadata(path) {
+            Ok(meta) => {
+                meta.len().hash(&mut hasher);
+                meta.is_dir().hash(&mut hasher);
+                meta.modified()
+                    .ok()
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map(|d| d.as_nanos())
+                    .hash(&mut hasher);
+            }
+            Err(_) => u64::MAX.hash(&mut hasher),
+        }
+        Some(hasher.finish())
+    }
 }
 
 #[derive(Default)]
@@ -84,6 +120,8 @@ pub struct VirtualFs {
     /// `list_dir` for each module folder, and a scan of `files` for each is quadratic in the
     /// library size.
     dirs: HashMap<PathBuf, std::collections::BTreeMap<String, bool>>,
+    /// `stamp`s of files, worked out when first asked for.
+    stamps: std::cell::RefCell<HashMap<PathBuf, u64>>,
 }
 
 impl VirtualFs {
@@ -110,6 +148,7 @@ impl VirtualFs {
             *entry |= nested;
             dir.push(part);
         }
+        self.stamps.get_mut().clear();
         self.files.insert(path, bytes.into());
     }
 
@@ -137,6 +176,26 @@ impl FileSystem for VirtualFs {
             .get(&normalize(path))
             .map(|names| names.iter().map(|(n, d)| (n.clone(), *d)).collect())
             .unwrap_or_default()
+    }
+
+    /// The contents of a file, the names inside a folder.
+    fn stamp(&self, path: &Path) -> Option<u64> {
+        use std::hash::{Hash, Hasher};
+        let path = normalize(path);
+        if let Some(stamp) = self.stamps.borrow().get(&path) {
+            return Some(*stamp);
+        }
+        let stamp = if let Some(bytes) = self.files.get(&path) {
+            content_stamp(bytes)
+        } else if let Some(names) = self.dirs.get(&path) {
+            let mut hasher = crate::fxhash::FxHasher::default();
+            names.hash(&mut hasher);
+            hasher.finish()
+        } else {
+            u64::MAX
+        };
+        self.stamps.borrow_mut().insert(path, stamp);
+        Some(stamp)
     }
 }
 
