@@ -91,6 +91,13 @@
     "covers": "integers compare with a distinct integer type by value"
   },
   {
+    "name": "run-integer-fits",
+    "main": "cases/run-integer-fits/main.jai",
+    "mode": "interp",
+    "expected_stdout": "ok\n",
+    "covers": "an integer computed by #run takes the expected integer type when it fits"
+  },
+  {
     "name": "aggregate-map",
     "main": "cases/aggregate-map/main.jai",
     "mode": "interp",

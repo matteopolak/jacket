@@ -11,6 +11,7 @@
 - A baked argument for a parameter without a declared type is checked against the type of its default, so `#bake_arguments formatFloat(zero_removal = .NO)` finds `.NO`.
 - An untyped baked parameter such as `$initialize := true` has the type of its default, so an integer argument no longer selects it over an overload that takes a value.
 - Integers compare with a distinct integer type by value, as in `index == handle`.
+- An integer computed by `#run` takes the integer type expected where it is written when its value fits.
 - The language server counts a lone `\r` as a line break, cancels requests that are still queued, answers an oversized request with an error, and closes a document whose edit it could not apply (telling you) instead of carrying on with stale text.
 - The language server accepts `file://localhost/` and `file:/` paths, any language id for a `.jai` file, and a blank line or quoted charset in message headers, and leaves untitled and remote documents alone.
 

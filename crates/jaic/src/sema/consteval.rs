@@ -406,14 +406,45 @@ impl Compiler {
             return Ok(results.into_iter().next().unwrap_or(Operand::Void));
         }
         if !self.ed.is_live() {
-            return self.check_run_inner(scope, body, expected, span);
+            let result = self.check_run_inner(scope, body, expected, span)?;
+            return Ok(self.fit_run_integer(result, expected));
         }
         let mark = self.ide_output_mark();
-        let result = self.check_run_inner(scope, body, expected, span);
+        let result = self
+            .check_run_inner(scope, body, expected, span)
+            .map(|op| self.fit_run_integer(op, expected));
         if let Ok(op) = &result {
             self.ide_note_run(span, op, mark);
         }
         result
+    }
+
+    /// An integer a `#run` computed is a constant: it takes the integer type expected where it
+    /// is written when its value fits there.
+    fn fit_run_integer(&self, op: Operand, expected: Option<TypeId>) -> Operand {
+        let Operand::Const {
+            ty,
+            value: Value::Int(v),
+            untyped: false,
+        } = op
+        else {
+            return op;
+        };
+        let types = &self.ty.types;
+        if let Some(to) = expected
+            && to != ty
+            && matches!(types.kind(ty), TypeKind::Int { .. })
+            && matches!(types.kind(to), TypeKind::Int { .. })
+            && let Some((bits, signed)) = types.int_info(to)
+            && crate::sema::expr::wrap_int(v, bits, signed) == v
+        {
+            return Operand::Const {
+                ty: to,
+                value: Value::Int(v),
+                untyped: false,
+            };
+        }
+        op
     }
 
     fn check_run_inner(
