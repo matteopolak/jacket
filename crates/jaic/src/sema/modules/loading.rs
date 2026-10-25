@@ -22,8 +22,16 @@ impl Compiler {
         let Some(bytes) = self.src.fs.read(path) else {
             return Err(Box::new(self.src.unreadable_file(path, span)));
         };
+        if let Some((text, lines)) = self.ed.kept_source(path, &bytes) {
+            let file = crate::source::SourceFile::with_lines(path.into(), text, lines);
+            return Ok(self.src.sources.add_file(file));
+        }
         let text: Rc<str> = String::from_utf8_lossy(&bytes).into();
-        Ok(self.src.sources.add(path, text))
+        let file = self.src.sources.add(path, text);
+        let source = self.src.sources.get(file);
+        self.ed
+            .keep_source(path, &bytes, &source.text, source.lines());
+        Ok(file)
     }
 
     /// Distribution boundary for library-owned helpers, checked before cache hits.

@@ -23,7 +23,7 @@ impl Sources<'_> {
             return vec![decl.clone()];
         };
         let mut import_dirs = vec![import_dir.to_path_buf()];
-        import_dirs.extend((self.env.options)(root).import_paths);
+        import_dirs.extend(self.options(root).import_paths);
         let mut resolver = Resolver {
             sources: self,
             index,

@@ -116,6 +116,15 @@ const BLOCK_BUDGET: u64 = 200_000_000;
 /// the one being built included.
 const CACHED: usize = 2;
 
+/// Compiles of at most this many bytes of source (a file that imports nothing beyond the
+/// preload is about a third of this) are small: up to `SMALL_KEPT` of them are kept besides
+/// `CACHED`, so another open file that imports little is not compiled again after
+/// every edit of the program being typed in.
+const SMALL_COST: usize = 1 << 20;
+
+/// Small compiles kept besides `CACHED`.
+const SMALL_KEPT: usize = 2;
+
 /// Compiles for another target kept besides those (for code an `#if OS == ...` skipped), the
 /// one being built included.
 const ALTERNATES: usize = 3;

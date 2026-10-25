@@ -243,6 +243,31 @@ impl Editor {
         }
     }
 
+    /// The text and line index kept from an earlier compile that read `bytes` from `path`.
+    pub(crate) fn kept_source(
+        &self,
+        path: &Path,
+        bytes: &[u8],
+    ) -> Option<(Rc<str>, crate::source::LineIndex)> {
+        let (reuse, compile) = self.parse_reuse.as_ref()?;
+        reuse.borrow_mut().source(*compile, path, bytes)
+    }
+
+    /// Keep what `bytes` from `path` decoded to, for later compiles.
+    pub(crate) fn keep_source(
+        &self,
+        path: &Path,
+        bytes: &[u8],
+        text: &Rc<str>,
+        lines: &crate::source::LineIndex,
+    ) {
+        if let Some((reuse, compile)) = &self.parse_reuse {
+            reuse
+                .borrow_mut()
+                .keep_source(*compile, path, bytes, text, lines);
+        }
+    }
+
     /// Parses `text` (file `file`, read from `path`) the editor's way, with every syntax
     /// error recovered from and recorded: `None` when not recording, and the batch parser
     /// applies.

@@ -20,9 +20,11 @@ use crate::project::{self};
 use crate::semantic::Environment;
 use crate::session::Session;
 use jaic::sema::{ModuleRanking, TargetOs};
+use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::sync::Arc;
 
 mod aliases;
 mod index_fs;
@@ -63,8 +65,9 @@ pub(crate) struct Module {
 }
 
 /// The modules of a folder. Each is shared, so one that an edit made stale is read again
-/// without reading the rest.
-type Modules = Rc<Vec<Rc<Module>>>;
+/// without reading the rest. The stdlib's are shared between sessions too
+/// (`module_index::SharedStdlib`).
+type Modules = Arc<Vec<Arc<Module>>>;
 
 /// The modules of a folder, and the files that changed since they were read.
 struct ModuleCache {
@@ -244,6 +247,21 @@ pub(crate) struct Sources<'a> {
     pub(crate) open: BTreeMap<PathBuf, &'a str>,
     /// `canonical_key` of the paths asked about, each a few file system calls.
     keys: jaic::paths::CanonCache,
+    /// While the stdlib's modules are read for sharing: what they were read from.
+    recording: RefCell<Option<Recorded>>,
+}
+
+/// The paths a module list was read from (keys, with their stamps), the options asked for
+/// (import paths and Preload by root), and whether anything else went into it.
+/// The options a module list depends on: import paths and Preload.
+type AskedOptions = (Vec<PathBuf>, Option<PathBuf>);
+
+#[derive(Default)]
+struct Recorded {
+    stamps: BTreeMap<PathBuf, Option<u64>>,
+    options: BTreeMap<PathBuf, AskedOptions>,
+    /// An open document or a build's facts were read: the list is this session's own.
+    own: bool,
 }
 
 impl Session {
@@ -265,6 +283,7 @@ impl Session {
             env,
             open,
             keys,
+            recording: RefCell::default(),
         }
     }
 }
@@ -303,8 +322,43 @@ impl Sources<'_> {
         memo_key(&self.keys, self.env, path)
     }
 
+    /// While recording, `key` was read from the file system (`open`: from an open document).
+    fn note(&self, key: &Path, open: bool) {
+        if let Some(recorded) = self.recording.borrow_mut().as_mut() {
+            if open {
+                recorded.own = true;
+            } else if !recorded.stamps.contains_key(key) {
+                recorded
+                    .stamps
+                    .insert(key.to_path_buf(), self.env.fs.stamp(key));
+            }
+        }
+    }
+
+    /// While recording, something besides files and options went in.
+    fn note_own(&self) {
+        if let Some(recorded) = self.recording.borrow_mut().as_mut() {
+            recorded.own = true;
+        }
+    }
+
+    /// The compiler options for `root`.
+    pub(crate) fn options(&self, root: &Path) -> jaic::sema::Options {
+        let options = (self.env.options)(root);
+        if let Some(recorded) = self.recording.borrow_mut().as_mut() {
+            recorded.options.insert(
+                root.to_path_buf(),
+                (options.import_paths.clone(), options.preload.clone()),
+            );
+        }
+        options
+    }
+
     pub(crate) fn read(&self, path: &Path) -> Option<String> {
-        match self.open.get(&self.key(path)) {
+        let key = self.key(path);
+        let open = self.open.get(&key);
+        self.note(&key, open.is_some());
+        match open {
             Some(text) => Some((*text).to_string()),
             None => self
                 .env
@@ -315,17 +369,28 @@ impl Sources<'_> {
     }
 
     pub(crate) fn is_file(&self, path: &Path) -> bool {
-        self.open.contains_key(&self.key(path)) || self.env.fs.is_file(path)
+        let key = self.key(path);
+        let open = self.open.contains_key(&key);
+        self.note(&key, open);
+        open || self.env.fs.is_file(path)
+    }
+
+    /// Whether an open document lies under `key`.
+    fn open_under(&self, key: &Path) -> bool {
+        self.open.keys().any(|p| p.starts_with(key) && *p != key)
     }
 
     pub(crate) fn is_dir(&self, path: &Path) -> bool {
         let key = self.key(path);
-        self.open.keys().any(|p| p.starts_with(&key) && *p != key) || self.env.fs.is_dir(path)
+        let open = self.open_under(&key);
+        self.note(&key, open);
+        open || self.env.fs.is_dir(path)
     }
 
     /// Entries of `dir` (name, is a folder): on disk and open documents below it.
     fn list_dir(&self, dir: &Path) -> Vec<(String, bool)> {
         let key = self.key(dir);
+        self.note(&key, self.open_under(&key));
         let mut entries: BTreeSet<(String, bool)> = self.env.fs.list_dir(dir).into_iter().collect();
         for open in self.open.keys() {
             if let Ok(rest) = open.strip_prefix(&key) {
@@ -345,6 +410,7 @@ impl Sources<'_> {
     /// `scan` of a path that is already a key (what `project_files` lists), which costs no
     /// file system calls to know.
     fn scan_keyed(&self, index: &mut Index, path: &Path) -> Rc<FileScan> {
+        self.note(path, self.open.contains_key(path));
         if let Some(text) = self.open.get(path) {
             let h = hash(text);
             if let Some((seen, scan)) = index.open.get(path)

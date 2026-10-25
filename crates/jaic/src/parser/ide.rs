@@ -387,13 +387,22 @@ struct KeptParse {
     used: u64,
 }
 
+/// A file's decoded text and line index, for a compile that reads the same bytes again.
+struct KeptSource {
+    text: std::rc::Rc<str>,
+    lines: crate::source::LineIndex,
+    used: u64,
+}
+
 /// Editor parses kept from one compile for the next ones: a file read again with the same
 /// text under the same id is not parsed again. The trees are never changed after parsing.
 /// A compile takes each kept parse at most once, so every tree in it is its own (the same
 /// file loaded into two module instances is parsed for each, as without reuse).
+/// The decoded text and line index of each file read are kept too, by path.
 #[derive(Default)]
 pub struct ParseReuse {
     kept: crate::fxhash::HashMap<(std::path::PathBuf, FileId), KeptParse>,
+    sources: crate::fxhash::HashMap<std::path::PathBuf, KeptSource>,
     compiles: u64,
 }
 
@@ -407,7 +416,46 @@ impl ParseReuse {
         let now = self.compiles;
         self.kept
             .retain(|_, kept| kept.used + PARSES_KEPT_FOR >= now);
+        self.sources
+            .retain(|_, kept| kept.used + PARSES_KEPT_FOR >= now);
         now
+    }
+
+    /// The text and line index kept for `path` when it was last read as these `bytes`.
+    pub fn source(
+        &mut self,
+        compile: u64,
+        path: &std::path::Path,
+        bytes: &[u8],
+    ) -> Option<(std::rc::Rc<str>, crate::source::LineIndex)> {
+        let kept = self.sources.get_mut(path)?;
+        if kept.text.as_bytes() != bytes {
+            return None;
+        }
+        kept.used = compile;
+        Some((kept.text.clone(), kept.lines.clone()))
+    }
+
+    /// Keep `text` (decoded from `bytes`, read from `path`) and its line index. Bytes that
+    /// were not UTF-8 are decoded again each time.
+    pub fn keep_source(
+        &mut self,
+        compile: u64,
+        path: &std::path::Path,
+        bytes: &[u8],
+        text: &std::rc::Rc<str>,
+        lines: &crate::source::LineIndex,
+    ) {
+        if text.as_bytes() == bytes {
+            self.sources.insert(
+                path.to_path_buf(),
+                KeptSource {
+                    text: text.clone(),
+                    lines: lines.clone(),
+                    used: compile,
+                },
+            );
+        }
     }
 
     /// The parse of `text`, file `file` read from `path`, for compile `compile`.
@@ -421,7 +469,7 @@ impl ParseReuse {
         let key = (path.to_path_buf(), file);
         if let Some(kept) = self.kept.get_mut(&key)
             && kept.used != compile
-            && *kept.text == **text
+            && (std::rc::Rc::ptr_eq(&kept.text, text) || *kept.text == **text)
         {
             kept.used = compile;
             return kept.parse.clone();
@@ -480,5 +528,31 @@ mod reuse_tests {
             reuse.begin();
         }
         assert!(reuse.kept.is_empty());
+    }
+
+    #[test]
+    fn kept_sources_match_their_bytes() {
+        let mut reuse = ParseReuse::default();
+        let path = Path::new("/p/a.jai");
+        let text: Rc<str> = "a :: 1;\nb :: 2;".into();
+        let lines = crate::source::LineIndex::new(&text);
+        let first = reuse.begin();
+        reuse.keep_source(first, path, text.as_bytes(), &text, &lines);
+        let (again, kept_lines) = reuse.source(first, path, text.as_bytes()).expect("kept");
+        assert!(Rc::ptr_eq(&again, &text));
+        assert_eq!(kept_lines, lines);
+        assert!(reuse.source(first, path, b"a :: 3;").is_none());
+        // Text decoded with replacements is not kept.
+        let lossy: Rc<str> = String::from_utf8_lossy(b"\xff").into();
+        reuse.keep_source(first, Path::new("/p/b.jai"), b"\xff", &lossy, &lines);
+        assert!(
+            reuse
+                .source(first, Path::new("/p/b.jai"), b"\xff")
+                .is_none()
+        );
+        for _ in 0..=PARSES_KEPT_FOR {
+            reuse.begin();
+        }
+        assert!(reuse.sources.is_empty());
     }
 }
