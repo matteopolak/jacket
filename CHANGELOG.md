@@ -143,7 +143,7 @@
 - `jaic` no longer explains option and subcommand spellings from before 0.17.
 - The installers no longer read the `JAIC_*` variables; use `JAI_*`.
 - The installers no longer install releases without `jacket` and `jaifmt`.
-- `jailint` takes one spelling per option: `-I`, `-os`, `-cpu` and `--add` (not `-import_dir`, `--import-dir`, `--os`, `--cpu` or `-add`).
+- `jailint` no longer takes `--import-dir`, `--os` or `--cpu`; it takes the same spellings as `jaic` (`-I`/`-import_dir`, `-os`, `-cpu`, `-add`), plus `--add`.
 - The VS Code extension no longer checks for its old extension IDs.
 
 ## [0.26.0] - 2026-10-23
