@@ -134,6 +134,8 @@
 - A `#ifx` with a constant condition leaves the other arm out, so its type and contents do not matter.
 - Procedures that a file-scope `#insert` declares are checked when something calls them, so a generated overload nothing uses can name things that do not exist.
 - `Subtitles` HTML output groups lines into speaker turns with a paragraph per run of dialogue or directions, and a speaker whose turns are split only by an instant with no speaker gets one CSV row instead of two.
+- The language server counts a lone `\r` as a line break, cancels requests that are still queued, answers an oversized request with an error, and closes a document whose edit it could not apply (telling you) instead of carrying on with stale text.
+- The language server accepts `file://localhost/` and `file:/` paths, any language id for a `.jai` file, and a blank line or quoted charset in message headers, and leaves untitled and remote documents alone.
 
 ### Removed
 
