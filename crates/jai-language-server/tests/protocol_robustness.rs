@@ -171,3 +171,78 @@ fn publications_over_the_output_limit_do_not_end_the_session() {
     let logged: Value = serde_json::from_str(&flushed[0]).unwrap();
     assert_eq!(logged["method"], "window/logMessage");
 }
+
+#[test]
+fn framing_accepts_blank_lines_and_a_quoted_charset() {
+    use jai_language_server::framing::FrameDecoder;
+    let wire = b"\r\n\r\nContent-Length: 2\r\nContent-Type: application/vscode-jsonrpc; charset=\"utf-8\"\r\n\r\n{}\r\nContent-Length: 2\r\n\r\n{}";
+    let mut decoder = FrameDecoder::new(128);
+    assert_eq!(decoder.push(wire).unwrap(), ["{}", "{}"]);
+    decoder.finish().unwrap();
+}
+
+#[test]
+fn local_file_uris_have_one_spelling() {
+    use jai_language_server::DocumentUri;
+    let plain = DocumentUri::parse("file:///work/a.jai").unwrap();
+    for spelling in [
+        "file://localhost/work/a.jai",
+        "file:/work/a.jai",
+        "FILE:///work/a.jai",
+    ] {
+        assert_eq!(DocumentUri::parse(spelling).unwrap(), plain, "{spelling}");
+    }
+    assert!(DocumentUri::parse("file://other/work/a.jai").is_err());
+}
+
+#[test]
+fn documents_that_are_not_local_files_are_left_alone() {
+    let mut session = started();
+    let out = open(&mut session, "untitled:Untitled-1", "x :: 1;");
+    assert!(out.is_empty(), "{out:?}");
+    let out = send(
+        &mut session,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": { "uri": "untitled:Untitled-1", "version": 2 },
+                "contentChanges": [{ "text": "y :: 2;" }],
+            },
+        }),
+    );
+    assert!(out.is_empty(), "{out:?}");
+}
+
+#[test]
+fn a_jai_file_opens_whatever_the_client_calls_its_language() {
+    let mut session = started();
+    let out = send(
+        &mut session,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": { "textDocument": {
+                "uri": "file:///workspace/main.jai", "languageId": "Jai", "version": 1,
+                "text": "a :: 1;\n",
+            } },
+        }),
+    );
+    assert_eq!(out[0]["method"], "textDocument/publishDiagnostics");
+    let out = send(
+        &mut session,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": { "textDocument": {
+                "uri": "file:///workspace/other.jai", "languageId": "plaintext", "version": 1,
+                "text": "a :: 1;\n",
+            } },
+        }),
+    );
+    assert!(
+        out.iter()
+            .any(|m| m["method"] == "textDocument/publishDiagnostics"),
+        "{out:?}"
+    );
+}

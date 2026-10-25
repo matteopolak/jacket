@@ -1,6 +1,6 @@
 //! Notification handlers, publications and configuration.
 use super::JsonSession;
-use super::helpers::{decode, document, domain, fail, folder_path, uri};
+use super::helpers::{decode, domain, fail, file_document, folder_path, is_file_uri, uri};
 use super::methods::{ErrorCode, Failure, Notification};
 use super::params::{ChangeParams, OpenParams};
 use super::wire::diagnostic_wire;
@@ -25,7 +25,9 @@ impl JsonSession {
             Notification::DidOpen => self.did_open(params),
             Notification::DidChange => self.did_change(params),
             Notification::DidSave => {
-                let target = document(params)?;
+                let Some(target) = file_document(params)? else {
+                    return Ok(vec![]);
+                };
                 self.session.save(&target).map_err(domain)?;
                 Ok(self.edited(crate::lints::is_config(&target)))
             }
@@ -74,7 +76,12 @@ impl JsonSession {
         let settings = item
             .uri
             .ends_with(&format!("/{}", jacket_config::FILE_NAME));
-        if item.language_id != "jai" && !settings {
+        if !is_file_uri(&item.uri) {
+            // Untitled buffers and other schemes have no path to analyse.
+            return Ok(vec![]);
+        }
+        let jai_file = item.uri.ends_with(".jai") || item.language_id.eq_ignore_ascii_case("jai");
+        if !jai_file && !settings {
             return Err(fail(
                 ErrorCode::InvalidParams,
                 "Only Jai documents are supported",
@@ -98,6 +105,9 @@ impl JsonSession {
 
     fn did_change(&mut self, params: Value) -> Result<Vec<Value>, Failure> {
         let p: ChangeParams = decode(params)?;
+        if !is_file_uri(&p.text_document.uri) {
+            return Ok(vec![]);
+        }
         let target = uri(&p.text_document.uri)?;
         let settings = crate::lints::is_config(&target);
         let changed = self
@@ -133,7 +143,9 @@ impl JsonSession {
     }
 
     fn did_close(&mut self, params: Value) -> Result<Vec<Value>, Failure> {
-        let closed = document(params)?;
+        let Some(closed) = file_document(params)? else {
+            return Ok(vec![]);
+        };
         self.session.close(&closed).map_err(domain)?;
         if self.pull_diagnostics {
             return Ok(if crate::lints::is_config(&closed) {

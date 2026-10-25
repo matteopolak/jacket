@@ -142,10 +142,13 @@ impl Session {
 
     pub fn set_workspace_folders(&mut self, folders: Vec<PathBuf>) {
         self.polymorph_index.borrow_mut().clear();
-        self.workspace_folders = folders
-            .iter()
-            .map(|p| crate::document::path_key(p))
-            .collect();
+        let mut keys: Vec<_> = Vec::with_capacity(folders.len());
+        for key in folders.iter().map(|p| crate::document::path_key(p)) {
+            if !keys.contains(&key) {
+                keys.push(key);
+            }
+        }
+        self.workspace_folders = keys;
         self.index.borrow_mut().import_dirs.clear();
         self.touch();
     }

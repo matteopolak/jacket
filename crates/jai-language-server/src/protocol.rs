@@ -94,4 +94,20 @@ mod tests {
         assert_eq!(notifications.len(), Notification::METHODS.len());
         assert!(requests.is_disjoint(&notifications));
     }
+
+    #[test]
+    fn duplicate_workspace_folders_are_kept_once() {
+        let mut session = super::JsonSession::new(crate::Limits::default());
+        let init = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": { "workspaceFolders": [
+                { "uri": "file:///w", "name": "w" },
+                { "uri": "file://localhost/w", "name": "w2" },
+            ] },
+        });
+        session.handle_json(&init.to_string()).unwrap();
+        assert_eq!(session.session().workspace_folders.len(), 1);
+    }
 }

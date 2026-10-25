@@ -18,9 +18,24 @@ impl DocumentUri {
         if uri.len() > 4096 {
             return Err(Error::Limit("document URI exceeds 4096 bytes"));
         }
-        let encoded = uri
-            .strip_prefix("file://")
+        // `file:///p`, `file://localhost/p` and `file:/p` name the same local path.
+        let rest = uri
+            .get(..5)
+            .filter(|scheme| scheme.eq_ignore_ascii_case("file:"))
+            .map(|_| &uri[5..])
             .ok_or(Error::Uri("only absolute local file URIs are supported"))?;
+        let encoded = match rest.strip_prefix("//") {
+            Some(authority) => match authority.get(..9) {
+                Some(host)
+                    if host.eq_ignore_ascii_case("localhost")
+                        && authority[9..].starts_with('/') =>
+                {
+                    &authority[9..]
+                }
+                _ => authority,
+            },
+            None => rest,
+        };
         if !encoded.starts_with('/') || encoded.contains(['?', '#', '\\', '\0']) {
             return Err(Error::Uri(
                 "file URI must have no authority, query or fragment",

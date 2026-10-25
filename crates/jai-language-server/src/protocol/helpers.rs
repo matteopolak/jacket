@@ -26,6 +26,22 @@ pub(super) fn uri(text: &str) -> Result<DocumentUri, Failure> {
     DocumentUri::parse(text).map_err(domain)
 }
 
+/// Whether `text` names a local file; other schemes (untitled buffers, remote files) have no
+/// path to analyse.
+pub(super) fn is_file_uri(text: &str) -> bool {
+    text.get(..5)
+        .is_some_and(|scheme| scheme.eq_ignore_ascii_case("file:"))
+}
+
+/// The document of a `{ textDocument }` notification, `None` when it is not a local file.
+pub(super) fn file_document(params: Value) -> Result<Option<DocumentUri>, Failure> {
+    let p: DocumentParams = decode(params)?;
+    if !is_file_uri(&p.text_document.uri) {
+        return Ok(None);
+    }
+    uri(&p.text_document.uri).map(Some)
+}
+
 /// The document of a `{ textDocument }` request.
 pub(super) fn document(params: Value) -> Result<DocumentUri, Failure> {
     let p: DocumentParams = decode(params)?;

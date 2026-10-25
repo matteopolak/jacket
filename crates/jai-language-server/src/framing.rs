@@ -143,6 +143,12 @@ impl FrameDecoder {
         if at + 4 > HEADER_LIMIT {
             return Err(FrameError::HeaderLimit);
         }
+        // Blank lines between messages are skipped, not an empty header.
+        let blanks = self.buffer.len() - self.buffer.trim_ascii_start().len();
+        if blanks > 0 {
+            self.buffer.drain(..blanks);
+            return self.header();
+        }
         let header = &self.buffer[..at];
         if !header.is_ascii() {
             return Err(FrameError::InvalidHeader);
@@ -191,8 +197,8 @@ fn utf8_charset(content_type: &str) -> bool {
     content_type.split(';').skip(1).all(|option| {
         option.trim().split_once('=').is_none_or(|(key, encoding)| {
             !key.eq_ignore_ascii_case("charset")
-                || encoding.eq_ignore_ascii_case("utf-8")
-                || encoding.eq_ignore_ascii_case("utf8")
+                || encoding.trim_matches('"').eq_ignore_ascii_case("utf-8")
+                || encoding.trim_matches('"').eq_ignore_ascii_case("utf8")
         })
     })
 }
