@@ -171,7 +171,7 @@ VISITOR_ORACLE = ROOT / "target/developer-tools-cpp-visitor-oracle.jai"
 def inline_setup():
     """The fixtures the cases and the format/lint step share: libraries, generated bindings and oracles under target/."""
     prefix = build_developer_bindings.llvm_prefix()
-    visitor_oracle = prepare_cpp_visitors(prefix)
+    prepare_cpp_visitors(prefix)
     framework = ROOT / "target/developer-tools-frameworks/OriginalNative.framework"
     (framework / "Modules").mkdir(parents=True, exist_ok=True)
     (framework / "Headers").mkdir(parents=True, exist_ok=True)
