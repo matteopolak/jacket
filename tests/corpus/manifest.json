@@ -4217,6 +4217,32 @@
       "negative": {
         "check": "cannot access local `k` of an enclosing procedure"
       }
+    },
+    {
+      "id": "black-box-two-arguments",
+      "source": "negative/black-box-two-arguments.jai",
+      "sha256": "7bfa6ac3e7f68268ba1c8784877172562ecb0432e8a662ad8e63caf7b1f3053e",
+      "suite": "negative",
+      "feature": "black_box takes exactly one value",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "`black_box` takes one value and returns it"
+      }
+    },
+    {
+      "id": "black-box-void",
+      "source": "negative/black-box-void.jai",
+      "sha256": "d8b57b651336a0c124018fca22f2c9bfd952d930d14dc2d2fc759cf7f11dd0a7",
+      "suite": "negative",
+      "feature": "black_box rejects a void value",
+      "kind": "negative",
+      "target": "host",
+      "dependencies": [],
+      "negative": {
+        "check": "`black_box` needs a value with a runtime representation"
+      }
     }
   ]
 }

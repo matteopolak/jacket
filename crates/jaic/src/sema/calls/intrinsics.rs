@@ -225,6 +225,15 @@ impl Compiler {
         values: &[ir::Val],
         span: Span,
     ) -> Result<Operand> {
+        // A `void` argument lowers to no value and no result.
+        if let ([param], []) = (sig.params.as_slice(), sig.returns.as_slice())
+            && self.ir_ty(param.ty).is_none()
+        {
+            return err(
+                span,
+                "`black_box` needs a value with a runtime representation",
+            );
+        }
         let (&[value], &[ty], [param]) = (values, sig.returns.as_slice(), sig.params.as_slice())
         else {
             return err(span, "`black_box` takes one value and returns it");
