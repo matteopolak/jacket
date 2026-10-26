@@ -333,6 +333,17 @@ mod tests {
     }
 
     #[test]
+    fn modules_folder_then_import_dirs_then_stdlib() {
+        let c = cli(&["a.jai", "-import_dir", "/p/vendor", "-I", "/p/more"]);
+        let options = crate::run::compiler_options(&c, Path::new("/std"), Path::new("/p/app"))
+            .unwrap_or_else(|_| panic!("options"));
+        assert_eq!(
+            options.import_paths,
+            ["/p/app/modules", "/p/vendor", "/p/more", "/std"].map(PathBuf::from)
+        );
+    }
+
+    #[test]
     fn no_check_bindings_reaches_only_the_standard_librarys_check() {
         let stdlib = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
         let own = std::env::temp_dir().join(format!("jaic-check-{}", std::process::id()));

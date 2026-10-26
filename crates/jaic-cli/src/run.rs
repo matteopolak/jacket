@@ -208,7 +208,11 @@ fn enter_main_directory(cli: &mut Cli) -> Result<(PathBuf, PathBuf), ExitCode> {
 }
 
 /// The compiler options the command line asks for: checks, target and where imports are found.
-fn compiler_options(cli: &Cli, stdlib: &Path, main_dir: &Path) -> Result<Options, ExitCode> {
+pub(super) fn compiler_options(
+    cli: &Cli,
+    stdlib: &Path,
+    main_dir: &Path,
+) -> Result<Options, ExitCode> {
     let mut options = Options::host();
     if cli.no_dce {
         options.dead_code = DeadCode::None;
@@ -242,10 +246,7 @@ fn compiler_options(cli: &Cli, stdlib: &Path, main_dir: &Path) -> Result<Options
             return Err(ExitCode::from(2));
         }
     }
-    // The local `modules` folder is searched first, then `-import_dir`s, then the stdlib.
-    options.import_paths = vec![main_dir.join("modules")];
-    options.import_paths.extend(cli.imports.iter().cloned());
-    options.import_paths.push(stdlib.to_path_buf());
+    options.import_paths = jaic::project::import_paths(main_dir, &[], &cli.imports, stdlib);
     options.set_stdlib(&NativeFs, stdlib);
     Ok(options)
 }

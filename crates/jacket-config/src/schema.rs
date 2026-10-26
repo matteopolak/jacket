@@ -3,6 +3,7 @@
 use crate::pattern::PathPattern;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct Config {
@@ -49,6 +50,18 @@ pub struct Project {
     /// More module folders, as `-import_dir` adds.
     #[serde(default, skip_serializing_if = "is_empty_strings")]
     pub import_path: Strings,
+}
+
+impl Project {
+    /// The `import_path` folders for a `jacket.toml` in `base`: each joined onto `base`, in
+    /// the order written (an absolute entry stays as it is).
+    pub fn import_dirs(&self, base: &Path) -> Vec<PathBuf> {
+        self.import_path
+            .0
+            .iter()
+            .map(|dir| base.join(dir))
+            .collect()
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]

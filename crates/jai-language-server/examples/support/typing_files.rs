@@ -16,7 +16,7 @@ pub fn native_environment(stdlib: PathBuf) -> Environment {
         options: Box::new(move |main| {
             let mut options = jaic::sema::Options::host();
             let dir = main.parent().map(PathBuf::from).unwrap_or_default();
-            options.import_paths = vec![dir.join("modules"), stdlib.clone()];
+            options.import_paths = jaic::project::import_paths(&dir, &[], &[], &stdlib);
             options.set_stdlib(&jaic::sema::NativeFs, &stdlib);
             options
         }),

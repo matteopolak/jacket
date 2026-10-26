@@ -83,9 +83,9 @@ fn defaults(args: &[OsString], ctx: &Context) -> Vec<OsString> {
     };
     let region = flag_region(args);
     let mut out: Vec<OsString> = Vec::new();
-    for dir in &loaded.config.project.import_path.0 {
+    for dir in loaded.config.project.import_dirs(loaded.dir()) {
         out.push("-import_dir".into());
-        out.push(loaded.dir().join(dir).into_os_string());
+        out.push(dir.into_os_string());
     }
     let experimental = &loaded.config.experimental;
     if let Some(n) = experimental.parse_threads

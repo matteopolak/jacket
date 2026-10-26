@@ -279,7 +279,7 @@ fn native_environment() -> jai_language_server::Environment {
             // A file inside a standard library is analysed against that library.
             let stdlib = jaic::enclosing_stdlib(&jaic::sema::NativeFs, main)
                 .unwrap_or_else(|| stdlib.clone());
-            options.import_paths = vec![dir.join("modules"), stdlib.clone()];
+            options.import_paths = jaic::project::import_paths(&dir, &[], &[], &stdlib);
             options.set_stdlib(&jaic::sema::NativeFs, &stdlib);
             options
         }),

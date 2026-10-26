@@ -60,7 +60,7 @@ pub fn modules_environment(os: Option<TargetOs>) -> Environment {
                 options.os = os;
             }
             let dir = main.parent().map(PathBuf::from).unwrap_or_default();
-            options.import_paths = vec![dir.join("modules"), stdlib.clone()];
+            options.import_paths = jaic::project::import_paths(&dir, &[], &[], &stdlib);
             options.set_stdlib(&jaic::sema::NativeFs, &stdlib);
             options
         }),

@@ -20,7 +20,7 @@ jacket fmt --check                                        # jaifmt --check <proj
 What `jacket` adds is only the project:
 
 - With no `.jai` file named (before any `-` or `--`), the project's entry file goes first: `[project] entry`, else the first of `build.jai`, `first.jai`, `main.jai`, `src/main.jai`, `module.jai` that exists.
-- `[project] import_path` becomes `-import_dir`.
+- `[project] import_path` becomes `-import_dir`, in the order written and before the user's own flags (`jacket_config::Project::import_dirs`; the order `jaic::project::import_paths` gives them).
 - `[experimental]` settings become the matching jaic flags, each only when you did not pass that flag yourself.
 - `jacket fmt` with no path formats the project (the directory with the jacket.toml, else the current one).
 - `-help`/`-version` are never given anything extra.

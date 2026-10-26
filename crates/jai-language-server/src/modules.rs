@@ -69,10 +69,9 @@ impl Sources<'_> {
             deps.push(folder.join(jacket_config::FILE_NAME));
             dirs.extend(
                 config
-                    .import_path
-                    .0
+                    .import_dirs(folder)
                     .iter()
-                    .map(|p| project::normalize(&folder.join(p))),
+                    .map(|p| project::normalize(p)),
             );
         }
         // 3. What the build metaprogram adds.
@@ -122,18 +121,6 @@ impl Sources<'_> {
     }
 }
 
-/// `dirs` placed before the last import path (the standard library, by the environment's
-/// convention) of `paths`, without repeating one already there.
-pub(crate) fn splice(paths: &mut Vec<PathBuf>, dirs: &[PathBuf]) {
-    let at = paths.len().saturating_sub(1);
-    let fresh: Vec<PathBuf> = dirs
-        .iter()
-        .filter(|d| !paths.iter().any(|p| p == *d))
-        .cloned()
-        .collect();
-    paths.splice(at..at, fresh);
-}
-
 impl crate::Session {
     /// The module folders found for the program rooted at `root`, cached until a file they were
     /// read from changes or a file is created or deleted.
@@ -153,7 +140,7 @@ impl crate::Session {
     pub(crate) fn options_for(&self, root: &Path) -> Option<jaic::sema::Options> {
         let env = self.environment.as_ref()?;
         let mut options = (env.options)(root);
-        splice(&mut options.import_paths, &self.import_dirs(root));
+        project::add_import_dirs(&mut options.import_paths, &self.import_dirs(root));
         Some(options)
     }
 }

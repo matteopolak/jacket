@@ -4,7 +4,7 @@ use jai_language_server::{Environment, JsonSession, Limits};
 use jaic::sema::{Options, TargetCpu, TargetOs};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 const INPUT_LIMIT: usize = 1024 * 1024;
@@ -92,8 +92,9 @@ pub fn lsp_environment() -> Environment {
             options.os = TargetOs::Wasm;
             options.cpu = TargetCpu::Wasm;
             let dir = main.parent().map(PathBuf::from).unwrap_or_default();
-            options.import_paths = vec![dir.join("modules"), PathBuf::from(STDLIB_ROOT)];
-            options.set_stdlib(&*option_fs, std::path::Path::new(STDLIB_ROOT));
+            options.import_paths =
+                jaic::project::import_paths(&dir, &[], &[], Path::new(STDLIB_ROOT));
+            options.set_stdlib(&*option_fs, Path::new(STDLIB_ROOT));
             options
         }),
     }

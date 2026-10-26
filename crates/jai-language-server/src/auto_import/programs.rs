@@ -197,11 +197,15 @@ impl Sources<'_> {
         if found.is_none()
             && let Some(base) = &base
         {
-            let mut dirs = vec![base.join("modules")];
-            if let Some((_, config)) = &config {
-                dirs.extend(config.import_path.0.iter().map(|p| self.key(&base.join(p))));
-            }
-            dirs.retain(|d| file.starts_with(d) && self.is_dir(d));
+            let configured = config
+                .as_ref()
+                .map(|(_, config)| config.import_dirs(base))
+                .unwrap_or_default();
+            let mut dirs = project::existing_dirs(
+                &Listing(self),
+                &project::import_paths(base, &configured, &[], Path::new("")),
+            );
+            dirs.retain(|d| file.starts_with(d));
             if !dirs.is_empty() {
                 for entry in &entries {
                     let mut entry_dirs = vec![entry.parent().unwrap_or(base).join("modules")];
@@ -240,23 +244,26 @@ impl Sources<'_> {
         };
         let mut options = (self.env.options)(&root);
         let found = self.import_dirs(index, &root, folders).0;
-        crate::modules::splice(&mut options.import_paths, &found);
+        jaic::project::add_import_dirs(&mut options.import_paths, &found);
         let stdlib = options.stdlib_root().map(Path::to_path_buf);
-        let mut module_dirs = vec![root_dir.join("modules")];
-        if let Some(base) = &base {
-            module_dirs.push(base.join("modules"));
-            if let Some((_, config)) = &config {
-                module_dirs.extend(config.import_path.0.iter().map(|p| self.key(&base.join(p))));
-            }
-        }
-        module_dirs.extend(
-            options.import_paths.into_iter().filter(|p| {
-                stdlib.as_deref().map(project::normalize) != Some(project::normalize(p))
-            }),
+        let configured = match (&base, &config) {
+            (Some(base), Some((_, config))) => config.import_dirs(base),
+            _ => Vec::new(),
+        };
+        // The project's own `modules`, then what the environment and the build added.
+        let extra: Vec<PathBuf> = base
+            .iter()
+            .map(|base| base.join("modules"))
+            .chain(options.import_paths)
+            .collect();
+        let module_dirs = project::existing_dirs(
+            &Listing(self),
+            &project::import_paths(&root_dir, &configured, &extra, Path::new("")),
         );
-        let mut seen = BTreeSet::new();
-        module_dirs = module_dirs.iter().map(|d| self.key(d)).collect();
-        module_dirs.retain(|d| seen.insert(d.clone()) && self.is_dir(d));
+        let module_dirs: Vec<PathBuf> = module_dirs
+            .into_iter()
+            .filter(|d| Some(d) != stdlib.as_ref().map(|s| self.key(s)).as_ref())
+            .collect();
         Program {
             root,
             closure,

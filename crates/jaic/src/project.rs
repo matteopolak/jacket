@@ -7,6 +7,8 @@
 //!
 //! - [`project_base`]: the folder a project is based in (settings are in the `jacket-config` crate).
 //! - [`scan_directives`] / [`directive_links`]: `#load` and `#import` found from tokens.
+//! - [`import_paths`]: the one module search order; [`resolve_program`] adds the root a file
+//!   is compiled from, [`module_import`] how a program imports a module file.
 //! - [`ProjectFs`]: the files a walk sees (the disk, or an editor's open buffers over it).
 //! - [`load_closure`]: every file a root reaches through `#load`.
 //! - [`resolve_root`]: the file a source file belongs to, with [`RootOptions`] choosing the
@@ -46,6 +48,170 @@ pub fn project_base(
             .max_by_key(|f| f.as_os_str().len())
             .cloned()
     })
+}
+
+// Import paths
+
+/// The module search path of a program whose main file is in `main_dir`, in the order `jaic`
+/// searches it:
+///
+/// 1. `main_dir/modules`, the folder next to the main file;
+/// 2. `configured`, the `[project] import_path` folders of the project's `jacket.toml`, already
+///    joined onto the folder holding it (`jacket_config::Project::import_dirs`);
+/// 3. `extra`, in order: `-import_dir` folders, and whatever else a tool adds;
+/// 4. `stdlib`, last.
+///
+/// A folder that is listed twice (compared as normalised paths) keeps its first place. Folders
+/// that do not exist stay in the list: the compiler skips them, and a tool that needs only the
+/// existing ones filters with [`existing_dirs`]. This is the one place the order is decided;
+/// the command line, `jailint`, the language server and the playground all call it.
+pub fn import_paths(
+    main_dir: &Path,
+    configured: &[PathBuf],
+    extra: &[PathBuf],
+    stdlib: &Path,
+) -> Vec<PathBuf> {
+    let mut seen = BTreeSet::new();
+    std::iter::once(main_dir.join("modules"))
+        .chain(configured.iter().cloned())
+        .chain(extra.iter().cloned())
+        .chain(std::iter::once(stdlib.to_path_buf()))
+        .filter(|dir| seen.insert(normalize(dir)))
+        .collect()
+}
+
+/// Put `dirs` into `paths`, a list an environment built with [`import_paths`] (its own `modules`
+/// folder first, the standard library last): where `import_paths` would put `extra`, before the
+/// last path, skipping one already there. A tool whose environment owns the base list (the
+/// language server) adds what it found about the project this way, and the result is what
+/// `import_paths(main_dir, &[], &(existing middle ++ dirs), stdlib)` returns.
+pub fn add_import_dirs(paths: &mut Vec<PathBuf>, dirs: &[PathBuf]) {
+    let at = paths.len().saturating_sub(1);
+    let mut seen: BTreeSet<PathBuf> = paths.iter().map(|p| normalize(p)).collect();
+    let fresh: Vec<PathBuf> = dirs
+        .iter()
+        .filter(|d| seen.insert(normalize(d)))
+        .cloned()
+        .collect();
+    paths.splice(at..at, fresh);
+}
+
+/// The folders of `dirs` that exist in `fs`, keyed by it, without repeats. An empty path is
+/// no folder (a caller without a standard library passes one to [`import_paths`]).
+pub fn existing_dirs(fs: &dyn ProjectFs, dirs: &[PathBuf]) -> Vec<PathBuf> {
+    let mut seen = BTreeSet::new();
+    dirs.iter()
+        .filter(|dir| !dir.as_os_str().is_empty())
+        .map(|dir| fs.key(dir))
+        .filter(|dir| fs.is_dir(dir) && seen.insert(dir.clone()))
+        .collect()
+}
+
+/// What a tool knows about a project besides the file system: the settings and the folders
+/// its caller added.
+#[derive(Clone, Debug)]
+pub struct ProgramInputs {
+    /// `[project] import_path` of the nearest `jacket.toml`, as absolute folders.
+    pub configured: Vec<PathBuf>,
+    /// Folders added by the caller, searched after `configured`.
+    pub extra: Vec<PathBuf>,
+    pub stdlib: PathBuf,
+}
+
+/// A root and the module search path it is compiled with.
+#[derive(Clone, Debug)]
+pub struct Program {
+    pub root: Root,
+    pub import_dirs: Vec<PathBuf>,
+}
+
+impl Program {
+    pub fn path(&self) -> &Path {
+        self.root.path()
+    }
+}
+
+impl Root {
+    /// The folder whose `modules` folder is searched first: the main file's folder, or for a
+    /// module the import folder holding it.
+    pub fn main_dir(&self) -> PathBuf {
+        match self {
+            Root::Module {
+                dir, ..
+            } => dir.clone(),
+            Root::Program(p) => p.parent().map(Path::to_path_buf).unwrap_or_default(),
+        }
+    }
+}
+
+/// The module search path `root` is compiled with (see [`import_paths`]); a module's own
+/// import folder comes first among the extras, so that it finds its siblings.
+pub fn program_for(root: Root, inputs: &ProgramInputs) -> Program {
+    let mut extra = Vec::new();
+    if let Root::Module {
+        dir, ..
+    } = &root
+    {
+        extra.push(dir.clone());
+    }
+    extra.extend(inputs.extra.iter().cloned());
+    let import_dirs = import_paths(&root.main_dir(), &inputs.configured, &extra, &inputs.stdlib);
+    Program {
+        root,
+        import_dirs,
+    }
+}
+
+/// The program `file` belongs to and the import folders it is compiled with: [`resolve_root`]
+/// then [`program_for`]. The file system carries the live text of an editor's open buffers.
+pub fn resolve_program(
+    fs: &dyn ProjectFs,
+    file: &Path,
+    options: &RootOptions,
+    inputs: &ProgramInputs,
+    cache: &mut LoadCache,
+) -> Program {
+    program_for(resolve_root(fs, file, options, cache), inputs)
+}
+
+/// How a program imports the module file `root`: the `#import` line and the folder to put
+/// that program in. A module file is `<dir>/Name/module.jai` or `<dir>/Name.jai` with `dir`
+/// at or above it on `import_dirs` (`Extensions/SIMD` for a nested one); a file that declares
+/// `#module_parameters` is any root, imported by path. `key` spells paths the way the caller's
+/// file system does.
+pub fn module_import(
+    root: &Path,
+    import_dirs: &[PathBuf],
+    declares_parameters: bool,
+    key: &dyn Fn(&Path) -> PathBuf,
+) -> Option<(String, PathBuf)> {
+    let nested = root.file_name()? == "module.jai";
+    let module = if nested {
+        root.parent()?.to_path_buf()
+    } else {
+        root.with_extension("")
+    };
+    let module = key(&module);
+    for dir in import_dirs {
+        if let Ok(rest) = module.strip_prefix(key(dir))
+            && !rest.as_os_str().is_empty()
+            && (nested || rest.components().count() == 1)
+        {
+            let name = rest
+                .components()
+                .map(|c| c.as_os_str().to_str())
+                .collect::<Option<Vec<_>>>()?
+                .join("/");
+            return Some((format!("#import \"{name}\";"), dir.clone()));
+        }
+    }
+    declares_parameters.then(|| {
+        let path = root.to_str()?;
+        Some((
+            format!("#import,file \"{path}\";"),
+            root.parent()?.to_path_buf(),
+        ))
+    })?
 }
 
 // Directives
@@ -824,5 +990,111 @@ mod tests {
         let mut mixed = linter.clone();
         mixed.tie_break = TieBreak::ModuleFirstShallowest;
         assert_eq!(resolve(&mixed), Root::Program(dir.join("top.jai")));
+    }
+}
+
+#[cfg(test)]
+mod import_path_tests {
+    use super::*;
+
+    fn paths(list: &[&str]) -> Vec<PathBuf> {
+        list.iter().map(PathBuf::from).collect()
+    }
+
+    #[test]
+    fn local_modules_then_configured_then_extra_then_stdlib() {
+        let found = import_paths(
+            Path::new("/p/app"),
+            &paths(&["/p/vendor"]),
+            &paths(&["/x", "/y"]),
+            Path::new("/std"),
+        );
+        assert_eq!(
+            found,
+            paths(&["/p/app/modules", "/p/vendor", "/x", "/y", "/std"])
+        );
+    }
+
+    #[test]
+    fn a_repeated_folder_keeps_its_first_place_and_missing_ones_stay() {
+        let found = import_paths(
+            Path::new("/p"),
+            &paths(&["/p/./modules", "/nowhere"]),
+            &paths(&["/p/x/../vendor", "/p/vendor", "/std"]),
+            Path::new("/std"),
+        );
+        assert_eq!(
+            found,
+            paths(&["/p/modules", "/nowhere", "/p/x/../vendor", "/std"])
+        );
+    }
+
+    #[test]
+    fn parents_are_not_searched() {
+        let found = import_paths(Path::new("/p/a/b"), &[], &[], Path::new("/std"));
+        assert_eq!(found, paths(&["/p/a/b/modules", "/std"]));
+    }
+
+    #[test]
+    fn added_folders_land_where_extra_would() {
+        let base = import_paths(Path::new("/p"), &[], &paths(&["/e"]), Path::new("/std"));
+        let mut added = base.clone();
+        add_import_dirs(&mut added, &paths(&["/p/modules", "/v", "/e", "/w"]));
+        assert_eq!(
+            added,
+            import_paths(
+                Path::new("/p"),
+                &[],
+                &paths(&["/e", "/v", "/w"]),
+                Path::new("/std")
+            )
+        );
+    }
+
+    #[test]
+    fn modules_are_found_through_the_import_folders() {
+        let key = |p: &Path| p.to_path_buf();
+        let dirs = paths(&["/m", "/std"]);
+        let import =
+            |root: &str, parameters| module_import(Path::new(root), &dirs, parameters, &key);
+        assert_eq!(
+            import("/std/Extensions/SIMD/module.jai", false),
+            Some(("#import \"Extensions/SIMD\";".into(), PathBuf::from("/std")))
+        );
+        assert_eq!(
+            import("/m/Tools.jai", false),
+            Some(("#import \"Tools\";".into(), PathBuf::from("/m")))
+        );
+        assert_eq!(import("/elsewhere/x.jai", false), None);
+        assert_eq!(
+            import("/elsewhere/x.jai", true),
+            Some((
+                "#import,file \"/elsewhere/x.jai\";".into(),
+                PathBuf::from("/elsewhere")
+            ))
+        );
+    }
+
+    #[test]
+    fn a_module_program_searches_its_own_folder_after_the_configured_ones() {
+        let inputs = ProgramInputs {
+            configured: paths(&["/p/vendor"]),
+            extra: paths(&["/e"]),
+            stdlib: "/std".into(),
+        };
+        let module = Root::Module {
+            entry: "/lib/Tools/module.jai".into(),
+            name: "Tools".into(),
+            dir: "/lib".into(),
+        };
+        assert_eq!(
+            program_for(module, &inputs).import_dirs,
+            paths(&["/lib/modules", "/p/vendor", "/lib", "/e", "/std"])
+        );
+        let program = program_for(Root::Program("/p/main.jai".into()), &inputs);
+        assert_eq!(
+            program.import_dirs,
+            paths(&["/p/modules", "/p/vendor", "/e", "/std"])
+        );
     }
 }

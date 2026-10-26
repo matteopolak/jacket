@@ -145,7 +145,7 @@ fn options(main: &str, fs: &dyn FileSystem, stdlib: &Path) -> Options {
     let main_dir = PathBuf::from(format!("{WORKSPACE_ROOT}/{}", main.trim_start_matches('/')))
         .parent()
         .map_or_else(|| PathBuf::from(WORKSPACE_ROOT), PathBuf::from);
-    options.import_paths = vec![main_dir.join("modules"), stdlib.to_path_buf()];
+    options.import_paths = jaic::project::import_paths(&main_dir, &[], &[], stdlib);
     options.set_stdlib(fs, stdlib);
     options
 }
