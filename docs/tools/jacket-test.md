@@ -98,7 +98,7 @@ bad.jai:3:12: error: type mismatch: expected `int`, got `string`
 
 ### Doc tests
 
-The examples in a library's doc comments are tests too (`crates/jacket/src/test/doctest.rs`). A doc comment is the run of `//` lines (`///` too) directly above a declaration, or the run that opens `module.jai`, which documents the module. jacket reads the root's `.jai` files outside `tests/` and outside folders that hold a `module.jai` of their own, then every file they `#load`, wherever it lives, and the `internal/...` modules they `#import` (most standard library modules keep their code in `stdlib/internal`). A block in a loaded file belongs to the root that loads it; a file two roots load is read for the first one only. Only the root's own `module.jai` gives module docs.
+The examples in a library's doc comments are tests too (`crates/jacket/src/test/doctest.rs`). A doc comment is the run of `//` lines (`///` too) or the block comment directly above a constant declaration (a procedure, struct, enum or other `name :: ...`, also inside a top-level `#if`), or the run that opens `module.jai`, which documents the module. jacket asks the compiler for them (`jaic -doc_comments DIR`, which reads each file with jaic's parser): the root's `.jai` files outside `tests/` and outside folders that hold a `module.jai` of their own, then every file they `#load`, wherever it lives, and the `internal/...` modules they `#import` (most standard library modules keep their code in `stdlib/internal`). A block in a loaded file belongs to the root that loads it; a file two roots load is read for the first one only. Only the root's own `module.jai` gives module docs.
 
 ```jai
 // The pieces of `s` between each `separator`.
@@ -319,7 +319,7 @@ Programs run from their own `tests/` folder, as the old runner did. Where a test
 - A new flag: `TestArgs` in `crates/jacket/src/cli.rs`, read in `settings` in `crates/jacket/src/test/mod.rs`; if it has a `jacket.toml` key, add it to `Test` and `TestRun` in `crates/jacket-config/src/schema.rs` (and the known-keys lists and the VS Code schema in `editors/vscode/scripts/build.ts`).
 - A new note: `TestOptions::apply` and `skip_reason` in `crates/jacket/src/test/options.rs`, then how it is used in `jobs.rs` (`resolve`, `expectations`) or `mod.rs`; list it in the table above.
 - A new kind of file test: `Root::read` (`discover.rs`), a `Kind`, and a runner in `golden.rs` called from `run_file_case` (`jobs.rs`).
-- Doc tests: what counts as a doc comment, the fence options and the generated program are in `doctest.rs` (`file_blocks`, `fenced`, `generate`); checking a block is `doctest::check`.
+- Doc tests: what counts as a doc comment and which files are read is `crates/jaic/src/doc_comments.rs` (printed by `jaic -doc_comments`); the fence options and the generated program are in `doctest.rs` (`fenced`, `generate`); checking a block is `doctest::check`.
 - Scheduling and batching: `jobs` and `run_jobs` in `jobs.rs`. Process handling, record parsing and timeouts: `exec.rs`. Output: `report.rs`.
 - The JSON fields are a format others read (CI, the language server): add fields freely, and change or remove one only with a changelog line.
 - Unit tests for the runner are in each file; `cargo test -p jacket`. The Testing module's Jai tests run with `jacket test` in `stdlib/Extensions/Testing`.

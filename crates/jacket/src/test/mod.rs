@@ -359,7 +359,7 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: bool) -> ExitCode {
         .unwrap_or_default();
     let roots: Vec<discover::Root> = discover::roots(&args.path, &configured, &project_dir, cwd)
         .into_iter()
-        .map(|dir| discover::Root::read(dir, &stdlib, &mut doc_files))
+        .map(|dir| discover::Root::read(dir, &stdlib, &jaic, &mut doc_files))
         .filter(|r| !r.is_empty())
         .collect();
     if roots.is_empty() {

@@ -1,8 +1,9 @@
 //! Doc tests: the ```` ```jai ```` blocks in a library's doc comments, each built and run as a
 //! program of its own that imports the library.
 //!
-//! A doc comment is the run of `//` lines directly above a declaration (`name :: ...`), or the
-//! run that opens `module.jai` (the module's own docs). A block with a `main` is used as it is;
+//! The doc comments come from `jaic -doc_comments`, which reads the library with the compiler's
+//! parser: the docs above each constant declaration (also in `#if` branches) and the comment
+//! that opens `module.jai` (the module's own docs). A block with a `main` is used as it is;
 //! otherwise its lines are the body of a generated procedure, with its `#import` and `#load`
 //! lines moved to file level. Either way the program runs the example through the Testing module,
 //! so a failed `assert` or `expect` fails the doc test. Options follow `jai` on the fence:
@@ -12,7 +13,7 @@ use super::exec::{Ending, Live};
 use super::golden::{self, Checked};
 use super::jobs::ending_text;
 use super::options::TestOptions;
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
@@ -48,102 +49,102 @@ pub struct Block {
 
 const ENTRY_POINT: &str = "__jacket_doc_main";
 
-/// The `.jai` files of the library in `dir`: not its `tests/` folder, hidden folders, or folders
-/// that are modules of their own (with a `module.jai`).
-fn library_files(dir: &Path, top: bool, out: &mut Vec<PathBuf>) {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return;
-    };
-    let mut paths: Vec<PathBuf> = entries.flatten().map(|e| e.path()).collect();
-    paths.sort();
-    for path in paths {
-        let name = path
-            .file_name()
-            .map_or_else(String::new, |n| n.to_string_lossy().into_owned());
-        if name.starts_with('.') {
-            continue;
-        }
-        if path.is_dir() {
-            if (top && name == "tests") || path.join("module.jai").is_file() {
-                continue;
-            }
-            library_files(&path, false, out);
-        } else if path.extension().is_some_and(|e| e == "jai") {
-            out.push(path);
-        }
-    }
+/// One doc comment as `jaic -doc_comments` prints it.
+struct DocComment {
+    file: PathBuf,
+    line: u32,
+    /// `None` for the module's own docs.
+    symbol: Option<String>,
+    text: String,
 }
 
-/// Every doc block of the library `module` in `dir`: its own files, the files they `#load`
-/// (wherever those are), and the standard library's private `internal/` modules its own files
-/// import, with the files those load. A file in `seen` was read for an earlier library and is
-/// not read again.
-pub fn blocks(dir: &Path, module: &str, stdlib: &Path, seen: &mut BTreeSet<PathBuf>) -> Vec<Block> {
-    let mut own = Vec::new();
-    library_files(dir, true, &mut own);
-    let module_file = canonical(&dir.join("module.jai"));
-    let mut queue: VecDeque<(PathBuf, bool)> = own.into_iter().map(|f| (f, true)).collect();
-    let mut out = Vec::new();
-    let mut counts: BTreeMap<String, u32> = BTreeMap::new();
-    while let Some((file, is_own)) = queue.pop_front() {
-        let file = canonical(&file);
-        if !seen.insert(file.clone()) {
+/// `field` with the escapes of `jaic -doc_comments` undone.
+fn unescape(field: &str) -> String {
+    let mut out = String::with_capacity(field.len());
+    let mut chars = field.chars();
+    while let Some(c) = chars.next() {
+        if c != '\\' {
+            out.push(c);
             continue;
         }
-        let Ok(text) = std::fs::read_to_string(&file) else {
-            continue;
-        };
-        queue.extend(
-            references(&text, &file, is_own, stdlib)
-                .into_iter()
-                .map(|f| (f, false)),
-        );
-        for mut block in file_blocks(&text, file == module_file, module) {
-            let n = counts.entry(block.name.clone()).or_insert(0);
-            *n += 1;
-            block.name = format!("{}#{n}", block.name);
-            block.file.clone_from(&file);
-            out.push(block);
+        match chars.next() {
+            Some('n') => out.push('\n'),
+            Some('t') => out.push('\t'),
+            Some('r') => out.push('\r'),
+            Some(other) => out.push(other),
+            None => out.push('\\'),
         }
     }
     out
 }
 
-fn canonical(path: &Path) -> PathBuf {
-    path.canonicalize().unwrap_or_else(|_| path.to_path_buf())
+fn parse_records(text: &str) -> Vec<DocComment> {
+    text.lines()
+        .filter_map(|record| {
+            let mut fields = record.split('\t');
+            let file = PathBuf::from(unescape(fields.next()?));
+            let line = fields.next()?.parse().ok()?;
+            let symbol = unescape(fields.next()?);
+            let text = unescape(fields.next()?);
+            Some(DocComment {
+                file,
+                line,
+                symbol: (!symbol.is_empty()).then_some(symbol),
+                text,
+            })
+        })
+        .collect()
 }
 
-/// The string literal after `directive` in `code`, if the line has one.
-fn quoted_after<'a>(code: &'a str, directive: &str) -> Option<&'a str> {
-    let rest = code[code.find(directive)? + directive.len()..].trim_start();
-    let rest = rest.strip_prefix('"')?;
-    Some(&rest[..rest.find('"')?])
-}
-
-/// The files `file` brings in: what it `#load`s, and (for the library's own files) the
-/// standard library's `internal/` modules it imports.
-fn references(text: &str, file: &Path, is_own: bool, stdlib: &Path) -> Vec<PathBuf> {
-    let dir = file.parent().unwrap_or(Path::new("."));
-    let mut out = Vec::new();
-    for line in text.lines() {
-        let code = line.split("//").next().unwrap_or("");
-        if let Some(path) = quoted_after(code, "#load") {
-            let path = dir.join(path);
-            if path.is_file() {
-                out.push(path);
-            }
+/// Every doc block of the library `module` in `dir`, as `jaic -doc_comments` finds its docs. A
+/// file in `seen` was read for an earlier library and is not read again.
+pub fn blocks(dir: &Path, module: &str, jaic: &Path, seen: &mut BTreeSet<PathBuf>) -> Vec<Block> {
+    let output = Command::new(jaic).arg("-doc_comments").arg(dir).output();
+    let records = match output {
+        Ok(output) if output.status.success() => {
+            parse_records(&String::from_utf8_lossy(&output.stdout))
         }
-        if is_own
-            && let Some(name) = quoted_after(code, "#import")
-            && name.starts_with("internal/")
-        {
-            let base = stdlib.join(name);
-            let found = [base.with_extension("jai"), base.join("module.jai")]
-                .into_iter()
-                .find(|p| p.is_file());
-            out.extend(found);
+        Ok(output) => {
+            eprintln!(
+                "jacket: warning: could not read the doc comments of {}: {}",
+                dir.display(),
+                String::from_utf8_lossy(&output.stderr).trim()
+            );
+            return Vec::new();
+        }
+        Err(error) => {
+            eprintln!(
+                "jacket: warning: could not start `{}`: {error}",
+                jaic.display()
+            );
+            return Vec::new();
+        }
+    };
+    let mut claimed: BTreeSet<PathBuf> = BTreeSet::new();
+    let mut counts: BTreeMap<String, u32> = BTreeMap::new();
+    let mut out = Vec::new();
+    for comment in records {
+        if seen.contains(&comment.file) {
+            continue;
+        }
+        claimed.insert(comment.file.clone());
+        let name = match &comment.symbol {
+            Some(symbol) => format!("{module}.{symbol}"),
+            None => module.to_string(),
+        };
+        let lines: Vec<&str> = comment.text.lines().collect();
+        for (offset, block) in fenced(&lines) {
+            let n = counts.entry(name.clone()).or_insert(0);
+            *n += 1;
+            out.push(Block {
+                name: format!("{name}#{n}"),
+                file: comment.file.clone(),
+                line: comment.line + u32::try_from(offset).unwrap_or(0),
+                ..block
+            });
         }
     }
+    seen.extend(claimed);
     out
 }
 
@@ -173,13 +174,6 @@ fn fence_words(info: &str) -> Vec<String> {
     words
 }
 
-/// The comment text of a `//` line, or `None` for another line.
-fn comment_text(line: &str) -> Option<&str> {
-    let rest = line.trim_start().strip_prefix("//")?;
-    let rest = rest.trim_start_matches('/');
-    Some(rest.strip_prefix(' ').unwrap_or(rest))
-}
-
 /// The name a declaration line declares (`split :: (`), if it is one.
 fn declared(line: &str) -> Option<&str> {
     let line = line.trim_start();
@@ -192,43 +186,6 @@ fn declared(line: &str) -> Option<&str> {
         .next()
         .is_some_and(|c| c.is_alphabetic() || c == '_');
     (starts_well && rest.trim_start().starts_with("::")).then_some(name)
-}
-
-/// The blocks of one file, named without their number and with no file yet.
-fn file_blocks(text: &str, is_module: bool, module: &str) -> Vec<Block> {
-    let lines: Vec<&str> = text.lines().collect();
-    let first_code = lines.iter().position(|l| !l.trim().is_empty());
-    let mut out = Vec::new();
-    let mut i = 0;
-    while i < lines.len() {
-        if comment_text(lines[i]).is_none() {
-            i += 1;
-            continue;
-        }
-        let start = i;
-        while i < lines.len() && comment_text(lines[i]).is_some() {
-            i += 1;
-        }
-        let owner = lines.get(i).and_then(|l| declared(l));
-        let name = match owner {
-            Some(symbol) => format!("{module}.{symbol}"),
-            None if is_module && first_code == Some(start) => module.to_string(),
-            None => continue,
-        };
-        let text: Vec<&str> = lines[start..i]
-            .iter()
-            .filter_map(|l| comment_text(l))
-            .collect();
-        for (offset, block) in fenced(&text) {
-            out.push(Block {
-                name: name.clone(),
-                file: PathBuf::new(),
-                line: u32::try_from(start + offset + 1).unwrap_or(u32::MAX),
-                ..block
-            });
-        }
-    }
-    out
 }
 
 /// The ```` ```jai ```` blocks of a doc comment's lines, with the line each fence opens on.
@@ -502,79 +459,21 @@ fn check_program(
 mod tests {
     use super::*;
 
-    const SOURCE: &str = "\
-// Strings.
-//
-// ```jai
-// expect(true);
-// ```
-
-// Splits on commas.
-//
-// ```jai,no_run
-// parts := split(\"a,b\", \",\");
-// ```
-//
-// ```
-// not jai
-// ```
-//
-// ```jai ignore bogus
-// x := 1;
-// ```
-split :: (s: string) {
-    // inside a body: not docs
-    // ```jai
-    // never();
-    // ```
-    print(s);
-}
-";
-
     #[test]
-    fn blocks_come_from_doc_comments() {
-        let blocks = file_blocks(SOURCE, true, "Str");
-        let summary: Vec<(&str, u32, Mode, bool)> = blocks
+    fn records_become_blocks() {
+        let text = "/a.jai\t4\tsplit\tSplits.\\n\\n```jai,no_run\\nx := 1;\\n```\\n```\\nnot jai\\n```\\n```jai ignore bogus\\ny := 2;\\n```\n/a.jai\t1\t\tModule.\\n```jai\\nexpect(true);\\n```\n";
+        let comments = parse_records(text);
+        assert_eq!(comments.len(), 2);
+        assert_eq!(comments[0].symbol.as_deref(), Some("split"));
+        assert_eq!(comments[1].symbol, None);
+        let lines: Vec<&str> = comments[0].text.lines().collect();
+        let blocks = fenced(&lines);
+        let summary: Vec<(usize, Mode, bool)> = blocks
             .iter()
-            .map(|b| (b.name.as_str(), b.line, b.mode, b.options.ignore))
+            .map(|(at, b)| (*at, b.mode, b.options.ignore))
             .collect();
-        assert_eq!(
-            summary,
-            [
-                ("Str", 3, Mode::Run, false),
-                ("Str.split", 9, Mode::NoRun, false),
-                ("Str.split", 17, Mode::Run, true),
-            ]
-        );
-        assert_eq!(blocks[0].code, "expect(true);\n");
-        assert_eq!(blocks[2].problems, ["unknown option `bogus` (ignored)"]);
-        // Outside module.jai the opening comment is not the module's docs.
-        assert_eq!(file_blocks(SOURCE, false, "Str").len(), 2);
-    }
-
-    #[test]
-    fn loaded_files_are_read_once() {
-        let base = std::env::temp_dir().join(format!("jacket-doctest-{}", std::process::id()));
-        let shared = base.join("internal/shared.jai");
-        std::fs::create_dir_all(shared.parent().unwrap()).unwrap();
-        std::fs::write(&shared, "// ```jai\n// f();\n// ```\nf :: () {}\n").unwrap();
-        for name in ["A", "B"] {
-            std::fs::create_dir_all(base.join(name)).unwrap();
-            std::fs::write(
-                base.join(name).join("module.jai"),
-                "#load \"../internal/shared.jai\";\n",
-            )
-            .unwrap();
-        }
-        let mut seen = BTreeSet::new();
-        let a = blocks(&base.join("A"), "A", &base, &mut seen);
-        let b = blocks(&base.join("B"), "B", &base, &mut seen);
-        assert_eq!(
-            a.iter().map(|b| b.name.as_str()).collect::<Vec<_>>(),
-            ["A.f#1"]
-        );
-        assert!(b.is_empty());
-        std::fs::remove_dir_all(base).unwrap();
+        assert_eq!(summary, [(2, Mode::NoRun, false), (8, Mode::Run, true)]);
+        assert_eq!(blocks[1].1.problems, ["unknown option `bogus` (ignored)"]);
     }
 
     #[test]

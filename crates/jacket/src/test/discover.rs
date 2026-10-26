@@ -88,7 +88,7 @@ pub fn is_golden(source: &Path) -> bool {
 
 impl Root {
     /// `seen` holds the files earlier roots read doc tests from; a file is read for one root.
-    pub fn read(dir: PathBuf, stdlib: &Path, seen: &mut BTreeSet<PathBuf>) -> Root {
+    pub fn read(dir: PathBuf, stdlib: &Path, jaic: &Path, seen: &mut BTreeSet<PathBuf>) -> Root {
         let tests = dir.join("tests");
         let compile_dir = tests.join("compile_fail");
         let (mut unit, mut golden) = (Vec::new(), Vec::new());
@@ -114,7 +114,7 @@ impl Root {
         let module = module_name(&dir, stdlib).unwrap_or_else(|| label.clone());
         Root {
             docs: if library {
-                super::doctest::blocks(&dir, &module, stdlib, seen)
+                super::doctest::blocks(&dir, &module, jaic, seen)
             } else {
                 Vec::new()
             },
@@ -217,7 +217,12 @@ mod tests {
         }
         std::fs::write(tests.join("negative/n.jai"), "// test: compile_fail\n").unwrap();
         std::fs::write(dir.join("module.jai"), "").unwrap();
-        let root = Root::read(dir.clone(), Path::new("/nowhere"), &mut BTreeSet::new());
+        let root = Root::read(
+            dir.clone(),
+            Path::new("/nowhere"),
+            Path::new("jaic"),
+            &mut BTreeSet::new(),
+        );
         assert_eq!(root.module, root.label);
         assert!(root.library);
         assert_eq!(root.unit, [tests.join("unit.jai")]);
