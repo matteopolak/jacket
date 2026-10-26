@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Checks of the Unicode tables behind the regex engines: property names, the Perl classes,
 // range helpers and simple case folding.
 //

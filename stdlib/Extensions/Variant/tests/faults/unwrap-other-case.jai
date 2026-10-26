@@ -1,3 +1,4 @@
+// test: should_fail("unwrap: the Variant holds `s64`, not `string`")
 #import "Basic";
 #import "Extensions/Variant";
 

@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // CPU feature detection and choosing a version of a procedure by it.
 //
 //     jaic stdlib/Extensions/SIMD/tests/cpu-dispatch.jai -interp

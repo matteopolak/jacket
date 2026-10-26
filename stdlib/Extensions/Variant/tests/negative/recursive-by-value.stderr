@@ -1,0 +1,4 @@
+recursive-by-value.jai:13:5: error: struct `Variant` contains itself (use a pointer)
+        inner: Tree;
+        ^^^^^
+

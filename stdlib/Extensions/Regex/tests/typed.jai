@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Patterns known at compile time: typed groups, parse and parse_into, and the static versions
 // of the search procedures.
 //

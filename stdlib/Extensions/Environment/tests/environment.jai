@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // PATH is set on every desktop platform the tests run on; the other name is not set anywhere.
 #import "Basic";
 #import "Extensions/Environment";

@@ -1,3 +1,4 @@
+// test: skip_on(.WASM) only(.LINUX,.MACOS)
 // Reviewed fini releases the reservation; real native map checks, no mocks.
 #import "Basic";
 F :: #import "Flat_Pool";

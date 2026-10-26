@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 #import "Basic";
 F :: #import "File";
 U :: #import "File_Utilities";

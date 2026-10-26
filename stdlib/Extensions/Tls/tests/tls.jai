@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Extensions/Tls over loopback: handshakes (TLS 1.2 and 1.3, EC and RSA certificates), ALPN, SNI,
 // data both ways, close_notify and truncation, deadlines and cancellation, certificate checks,
 // client certificates, a custom verifier, waiting for input, and many connections at once. Run once

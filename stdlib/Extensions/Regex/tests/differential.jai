@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Matches random patterns against random texts and compares every match and capture span with
 // what Rust's regex crate found (data/differential_cases.jai, from tools/corpus/gen_regex_corpus.py).
 //

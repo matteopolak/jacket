@@ -1,0 +1,7 @@
+1:1: \x escape requires two hexadecimal digits
+1:21: integer literal overflow
+1:5: invalid binary digit
+1:5: number has a second decimal point
+1:4: exponent requires decimal digits
+1:14: unterminated block comment
+1:6: 0h float bit patterns require 4, 8 or 16 digits

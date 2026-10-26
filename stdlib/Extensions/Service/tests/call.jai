@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Compile-time calls to a service (services/upper.jai), as a build makes them.
 //
 //     jaic stdlib/Extensions/Service/tests/call.jai -interp

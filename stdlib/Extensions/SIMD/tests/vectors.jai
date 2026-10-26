@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Every operation of Extensions/SIMD against a scalar expectation.
 //
 //     jaic stdlib/Extensions/SIMD/tests/vectors.jai -interp

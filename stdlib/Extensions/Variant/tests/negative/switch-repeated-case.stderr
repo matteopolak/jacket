@@ -1,0 +1,7 @@
+../../switch.jai:76:17: error: variant_switch: `Variant(s64, string)` has more than one handler for the case `s64`
+                    compiler_report(tprint("variant_switch: `%` has more than one handler for the case `%`", variant_name(V), cases[position]));
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<#insert at /Users/matthew/projects/jai/.claude/worktrees/agent-ad6ea7ed61fd98aa6/stdlib/Extensions/Variant/switch.jai>:22:13: note: while running compile-time code started here
+        #insert -> string {
+                ^^^^^^^^^^^
+
