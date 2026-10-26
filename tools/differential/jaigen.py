@@ -842,13 +842,22 @@ class Gen:
             self.emit(f"{t} = {self.expr(self.pick(narrower), 1)};", indent)
         elif is_int(ty) and self.chance(0.5):
             op = self.pick(["+=", "-=", "*=", "&=", "|=", "^="])
-            self.emit(f"{t} {op} {self.expr(ty, 1)};", indent)
+            self.emit(f"{t} {op} {self.operand_without(t, ty)};", indent)
         elif is_float(ty) and self.chance(0.3):
             self.emit(
-                f"{t} {self.pick(['+=', '-=', '*='])} {self.expr(ty, 1)};", indent
+                f"{t} {self.pick(['+=', '-=', '*='])} {self.operand_without(t, ty)};", indent
             )
         else:
             self.emit(f"{t} = {self.expr(ty, 1)};", indent)
+
+    def operand_without(self, target, ty):
+        """An expression of `ty` that does not read `target`: `v -= v - x` is the `misrefactored_assign_op` lint's finding."""
+        reads = re.compile(r"(?<![\w.])" + re.escape(target) + r"(?!\w)")
+        for _ in range(8):
+            text = self.expr(ty, 1)
+            if not reads.search(text):
+                return text
+        return self.int_literal(ty) if is_int(ty) else "1.0"
 
     @staticmethod
     def widens(src, dst):
@@ -867,7 +876,7 @@ class Gen:
         self.depth_budget -= 1
         self.loop_depth += 1
         lo = self.r.randint(-3, 3)
-        hi = lo + self.r.randint(-1, 5)
+        hi = lo + self.r.randint(0, 5)
         name = self.fresh("i")
         rev = "< " if self.chance(0.2) else ""
         self.emit(f"for {rev}{name}: {lo}..{hi} {{", indent)
