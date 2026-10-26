@@ -7,7 +7,8 @@
     ],
     "required_capabilities": [
       "native Basic.exit assertion/termination path"
-    ]
+    ],
+    "interpreter_only": true
   },
   {
     "name": "array-bounds-check-opt-out",
@@ -193,7 +194,8 @@
     "name": "compiler-performance-and-dump-messages",
     "required_browser_host_capabilities": [
       "compiler-monotonic-clock"
-    ]
+    ],
+    "interpreter_only": true
   },
   {
     "name": "const-string-cast-to-array",
@@ -377,7 +379,8 @@
     ],
     "required_capabilities": [
       "native Process import and compile-time child process"
-    ]
+    ],
+    "interpreter_only": true
   },
   {
     "name": "rules-must-and-discard",
@@ -582,5 +585,141 @@
     "mode": "check-fail",
     "diagnostic_contains": "unknown identifier `Missing_Buffer`",
     "positive_baseline": "inserted-procedure-bodies-wait"
+  },
+  {
+    "name": "build-file-later-conditional",
+    "interpreter_only": true
+  },
+  {
+    "name": "build-options-main-defaults",
+    "interpreter_only": true
+  },
+  {
+    "name": "cast-bounds-check",
+    "interpreter_only": true
+  },
+  {
+    "name": "code-export-varargs-flag",
+    "interpreter_only": true
+  },
+  {
+    "name": "compile-time-failing-bodies",
+    "interpreter_only": true
+  },
+  {
+    "name": "compiler-build-file-and-literals",
+    "interpreter_only": true
+  },
+  {
+    "name": "compiler-enum-external-type",
+    "interpreter_only": true
+  },
+  {
+    "name": "compiler-header-own-types",
+    "interpreter_only": true
+  },
+  {
+    "name": "compiler-import-control",
+    "interpreter_only": true
+  },
+  {
+    "name": "compiler-make-procedure-live",
+    "interpreter_only": true
+  },
+  {
+    "name": "compiler-module-placeholder-insert",
+    "interpreter_only": true
+  },
+  {
+    "name": "compiler-noted-module-procs",
+    "interpreter_only": true
+  },
+  {
+    "name": "compiler-resolved-nodes",
+    "interpreter_only": true
+  },
+  {
+    "name": "compiler-type-table-compile-time",
+    "interpreter_only": true
+  },
+  {
+    "name": "compiler-typechecked-contents-read",
+    "interpreter_only": true
+  },
+  {
+    "name": "compiler-typechecked-messages",
+    "interpreter_only": true
+  },
+  {
+    "name": "compiler-typechecked-names",
+    "interpreter_only": true
+  },
+  {
+    "name": "compiler-typechecked-notes",
+    "interpreter_only": true
+  },
+  {
+    "name": "compiler-typechecked-phase-only",
+    "interpreter_only": true
+  },
+  {
+    "name": "compiler-typechecked-polymorph-static-if",
+    "interpreter_only": true
+  },
+  {
+    "name": "compiler-typechecked-unused-and-global-flags",
+    "interpreter_only": true
+  },
+  {
+    "name": "compiler-workspace-ids",
+    "interpreter_only": true
+  },
+  {
+    "name": "custom-link-library-lists",
+    "interpreter_only": true
+  },
+  {
+    "name": "dead-code-elimination",
+    "interpreter_only": true
+  },
+  {
+    "name": "enum-notes",
+    "interpreter_only": true
+  },
+  {
+    "name": "insert-scope-string-top-level",
+    "interpreter_only": true
+  },
+  {
+    "name": "late-file-conditional-declaration",
+    "interpreter_only": true
+  },
+  {
+    "name": "placeholder-defined-by-metaprogram",
+    "interpreter_only": true
+  },
+  {
+    "name": "rules-arithmetic-overflow-checks",
+    "interpreter_only": true
+  },
+  {
+    "name": "rules-compiler-module",
+    "interpreter_only": true
+  },
+  {
+    "name": "rules-compiler-records",
+    "interpreter_only": true
+  },
+  {
+    "name": "rules-directives-and-notes",
+    "interpreter_only": true
+  },
+  {
+    "name": "rules-pointers-bounds-option",
+    "interpreter_only": true
+  },
+  {
+    "name": "rules-workspaces",
+    "interpreter_only": true
   }
 ]

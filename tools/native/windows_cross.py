@@ -247,7 +247,7 @@ def cases(stdlib, platform=None):
         return
     # Expected compile-time failures are validated separately; they are not executables.
     for case in stdlib_runtime.validated_entries():
-        if expects_rejection(case):
+        if expects_rejection(case) or case.get("interpreter_only"):
             continue
         if case["path"] not in listed:
             yield (

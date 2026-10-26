@@ -98,7 +98,7 @@ def cases(name, gen_dir, gen_size=1.0):
                 continue
             # Expected compiler rejections have precise diagnostic oracles in the runtime runner.
             # Differential execution compares successful/runtime-fault programs only.
-            if c.get("mode") == "check-fail" or "error_contains" in c:
+            if c.get("mode") == "check-fail" or "error_contains" in c or c.get("interpreter_only"):
                 continue
             if wanted == "compiler":
                 yield Case(c["id"], c["path"], ROOT / "tests/compiler/regressions")

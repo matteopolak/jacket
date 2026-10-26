@@ -661,6 +661,8 @@ def main():
             rejected = disabled_reason(metadata)
             if rejected:
                 return cid, None, "", rejected, DISABLED
+            if a.native and metadata.get("interpreter_only"):
+                return cid, None, "", "does its work at compile time: only the interpreted run includes it", PLATFORM_UNAVAILABLE
             reason = unavailable_reason(
                 metadata, "native" if a.native else "interp", host_platform()
             )

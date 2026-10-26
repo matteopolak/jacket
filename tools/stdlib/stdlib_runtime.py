@@ -693,6 +693,8 @@ def main():
         source_case = case
         for mode in modes:
             case = case_for_mode(source_case, mode)
+            if case.get("interpreter_only") and mode not in ("interp", "check"):
+                continue
             rejected = disabled_reason(case)
             # A cross-target check applies to the cases that could run on that target.
             reason = unavailable_reason(

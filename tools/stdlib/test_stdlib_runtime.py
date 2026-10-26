@@ -80,6 +80,17 @@ class CatalogueTests(unittest.TestCase):
         )
         self.assertFalse(any("tests/stdlib/" in str(c["path"]) for c in cases))
 
+    def test_metaprogram_regressions_are_interpreter_only(self):
+        only = [c["id"] for c in validated_entries() if c.get("interpreter_only")]
+        self.assertIn("compiler/rules-workspaces", only)
+        self.assertGreaterEqual(len(only), 30)
+        # Everything that creates a workspace of its own is marked, so a new one is not run five times.
+        for case in validated_entries():
+            if case["family"] == "compiler":
+                text = case["path"].read_text(encoding="utf-8")
+                if "compiler_create_workspace" in text or "compiler_begin_intercept" in text:
+                    self.assertTrue(case.get("interpreter_only"), case["id"])
+
     def test_precise_negative_and_positive_output_are_required(self):
         case = {
             "mode": "check-fail",

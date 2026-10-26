@@ -129,7 +129,7 @@ Limits that exist because fuzzing found them (each has a regression): `MAX_NESTI
 
 ## Stdlib runtime tests
 
-Every top-level `*.jai` file of a `stdlib/**/tests/` directory, and of `tests/compiler/regressions/`, is a case that must build and exit 0 in each mode. A directory's optional `manifest.json` refines cases (expected output, required platform, native-only services) and can add cases that live in sub-directories; `tools/stdlib/stdlib_test_catalog.py` documents the row keys. Files in sub-directories (`support/`, `fixtures/`, `native/`) are helpers and never discovered on their own.
+Every top-level `*.jai` file of a `stdlib/**/tests/` directory, and of `tests/compiler/regressions/`, is a case that must build and exit 0 in each mode. A directory's optional `manifest.json` refines cases (expected output, required platform, native-only services) and can add cases that live in sub-directories; `tools/stdlib/stdlib_test_catalog.py` documents the row keys. Files in sub-directories (`support/`, `fixtures/`, `native/`) are helpers and never discovered on their own. A row with `"interpreter_only": true` marks a metaprogram that does all its work at compile time (it creates workspaces of its own): the `interp` mode, the interpreted sweep and the browser run include it, the native, wasm, differential and cross-build runs do not. Every regression that calls `compiler_create_workspace` or `compiler_begin_intercept` carries it (`test_stdlib_runtime.py` checks).
 
 ```sh
 PYTHONPATH=tools python3 tools/native/build_native_libs.py

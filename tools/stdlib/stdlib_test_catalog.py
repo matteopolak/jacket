@@ -74,6 +74,10 @@ ROW_KEYS = frozenset(
         "clipboard_guard",
         "source_check_only",
         "numerics_target_source",
+        # The program does its work at compile time (a metaprogram that builds and checks other
+        # workspaces): the interpreter runs all of it, and the native, wasm and cross builds would
+        # only repeat that, so only the `interp` mode and the sweep's interpreted run include it.
+        "interpreter_only",
     }
 )
 
