@@ -27,9 +27,6 @@ pub struct Toolchain {
     pub os: String,
     /// Build the unit-test program with `-coverage`.
     pub coverage: bool,
-    /// Ask the Discovery plugin for an optimized build without runtime checks (`jacket bench`).
-    /// The plugin has to: a plugin's build options replace the command line's.
-    pub optimize: bool,
 }
 
 /// One `@test` or `@bench` the plugin found.
@@ -165,9 +162,6 @@ pub fn unit(
         .current_dir(work);
     if list {
         command.arg("-cases").arg(&case_file);
-    }
-    if toolchain.optimize {
-        command.arg("-optimize");
     }
     if list || from_registry {
         // This build only finds the tests: `@compile_time` ones run where the program is built.
@@ -366,7 +360,6 @@ mod tests {
             runner: Vec::new(),
             os: "linux".into(),
             coverage: false,
-            optimize: false,
         };
         let names = ["a".to_string()];
         let run = |accept| {

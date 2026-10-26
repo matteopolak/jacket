@@ -10,8 +10,6 @@
 //                      (`jacket test --interp`, where plugins do not run)
 //     -no-compile-time do not run the `@compile_time` tests in this build (a check that only
 //                      finds the tests: `-registry` still gets the code that runs them)
-//     -optimize        build with optimizations and without runtime checks or stack traces
-//                      (`jacket bench`; a plugin's build options replace the command line's)
 //     -cases FILE      run each `@cases` list at compile time and write `test<TAB>case` per case
 //                      to FILE (for `jacket test --list`)
 //
@@ -41,7 +39,6 @@ Discovery :: struct {
     registry_path: string;
     cases_path: string;
     skip_compile_time: bool;
-    optimize: bool;
     found: [..] Found;
     added: bool;
 }
@@ -66,12 +63,6 @@ init :: (plugin: *Metaprogram_Plugin, options: [] string) -> bool {
 
     while i < options.count {
         option := options[i];
-
-        if option == "-optimize" {
-            discovery.optimize = true;
-            i += 1;
-            continue;
-        }
 
         if option == "-no-compile-time" {
             discovery.skip_compile_time = true;
@@ -103,11 +94,6 @@ log_help :: (plugin: *Metaprogram_Plugin) {
 add_source :: (plugin: *Metaprogram_Plugin) {
     options := get_build_options(plugin.workspace);
     options.entry_point_name = ENTRY_POINT;
-
-    if (cast(*Discovery) plugin).optimize {
-        set_optimization(*options, .OPTIMIZED, preserve_debug_info = false);
-        options.stack_trace = false;
-    }
 
     set_build_options(options, plugin.workspace);
 }

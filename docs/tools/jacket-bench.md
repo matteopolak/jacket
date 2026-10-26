@@ -36,7 +36,7 @@ Exit status: 0, 1 when a benchmark failed to run or regressed past `--max-regres
 
 **Where benchmarks are.** A `@bench` procedure takes nothing or a `*Bench` and sits at file level in a root's `benches/*.jai` or in a `tests/*.jai` file that contains `@bench`. `jacket bench` builds only those files (so unit tests and doc tests do not slow it); `jacket test` ignores `benches/`.
 
-**Building.** The same Discovery build as `jacket test` (`build.rs`), with the plugin option `-optimize`: `Optimization_Type.OPTIMIZED` (LLVM O2), no bounds, null or cast checks, no stack traces. It is the plugin that does it because a plugin's build options replace the command line's, so `jaic -optimized` has no effect there. A flag after `--` that chooses the optimization (`-o`, `-od`, `-very_debug`, `-O0`..`-O3`) turns `-optimize` off. `--interp` and `-os wasm` are refused.
+**Building.** The same Discovery build as `jacket test` (`build.rs`), with `-o -no_debug_info` passed to jaic: LLVM O2, no bounds, null or cast checks, no stack traces, no debug information. A flag after `--` that chooses the optimization (`-o`, `-od`, `-very_debug`, `-O0`..`-O3`) leaves them out. `--interp` and `-os wasm` are refused.
 
 **Running.** Benchmarks run one at a time (a parallel run would measure the machine's load). Each is `PROGRAM --bench NAME`, and the program (`stdlib/Extensions/Testing/bench.jai`, `run_bench`) does:
 

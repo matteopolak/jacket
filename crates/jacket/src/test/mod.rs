@@ -479,8 +479,9 @@ fn run_once(
         return fail("`jacket bench` measures native builds: drop `--interp` and `-os wasm`");
     }
     // Benchmarks are optimized, without runtime checks, unless a flag after `--` chooses.
-    let optimize =
-        bench && !args.list && !args.jaic_args.iter().any(|flag| sets_optimization(flag));
+    if bench && !args.list && !args.jaic_args.iter().any(|flag| sets_optimization(flag)) {
+        flags.extend(["-o".to_string(), "-no_debug_info".to_string()]);
+    }
     let Some(jaic) = tools::require(tools::JAIC) else {
         return ExitCode::from(127);
     };
@@ -496,7 +497,6 @@ fn run_once(
         runner,
         os: os.clone(),
         coverage: args.coverage,
-        optimize,
     };
     let cross = !args.interp && (os != host_os() || cpu != host_cpu());
     let cross_skip = (cross && toolchain.runner.is_empty())
