@@ -87,8 +87,9 @@ near_allows_a_tolerance :: () {
     passing(0.5, near(0.45, 0.1));
     passing(3, near(2.5, 0.5));
     failing(0.5, near(0.25, 0.1), "expected 0.5 to be within 0.1 of 0.25");
-    zero := 0.0;
-    nan := zero / zero;
+    // 0/0 is a negative NaN on x86-64; build a positive one so the message reads "NaN".
+    bits: u64 = 0x7ff8_0000_0000_0000;
+    nan := <<cast(*float64) *bits;
 
     failing(nan, near(1, 1000), "expected NaN to be within 1000 of 1");
 } @test
