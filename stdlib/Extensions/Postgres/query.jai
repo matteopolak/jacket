@@ -353,14 +353,21 @@ get :: (r: *Result, row: s64, column: s64, $T: Type) -> T, Pg_Error {
 
     why: string;
 
-    {
-        // What decoding allocates belongs to the result.
-        push_allocator(.{ result_allocator, r });
-        // Decoded JSON strings may point into the result, as `string` columns do.
-        layers := Json_Layers.{ connection = r.json_options, query = r.json_query, borrow = true };
+    #if #run decodes_in_place(T) {
+        // Numbers, bools and strings neither allocate nor read JSON options: no allocator or
+        // option layers to set up for each of the many values of a wide result.
+        #if #run is_nullable(T) why = decode(bytes, info.format, info.type_oid, *value.value);
+        else why = decode(bytes, info.format, info.type_oid, *value);
+    } else {
+        {
+            // What decoding allocates belongs to the result.
+            push_allocator(.{ result_allocator, r });
+            // Decoded JSON strings may point into the result, as `string` columns do.
+            layers := Json_Layers.{ connection = r.json_options, query = r.json_query, borrow = true };
 
-        #if #run is_nullable(T) why = decode(bytes, info.format, info.type_oid, *value.value, *layers);
-        else why = decode(bytes, info.format, info.type_oid, *value, *layers);
+            #if #run is_nullable(T) why = decode(bytes, info.format, info.type_oid, *value.value, *layers);
+            else why = decode(bytes, info.format, info.type_oid, *value, *layers);
+        }
     }
 
     if why {
@@ -683,25 +690,40 @@ read_row :: (c: *Connection, result: *Result, body: [] u8) -> Pg_Error {
     r := Cursor.{ data = body };
     count := cast(s64) get_u16(*r);
 
+    if r.bad return protocol_error(c, "a malformed DataRow");
     if count != result.columns.count return protocol_error(c, "a DataRow with the wrong number of columns");
 
+    // The message goes into the result as it is, in one copy: the length prefixes stay in `data`
+    // and the spans point past them.
+    base := result.data.count;
+
+    reserve_for(*result.data, base + body.count);
+    reserve_for(*result.values, result.values.count + count);
+    memcpy(result.data.data + base, body.data, body.count);
+    result.data.count = base + body.count;
+
+    at := r.at;
+    spans := result.values.data + result.values.count;
+
     for 0..count - 1 {
-        length := cast(s64) get_s32(*r);
+        if at + 4 > body.count return protocol_error(c, "a malformed DataRow");
+
+        length := cast(s64) cast,no_check(s32) read_u32(body.data + at);
+
+        at += 4;
+
         if length < 0 {
-            array_add(*result.values, .{ offset = 0, length = -1 });
+            spans[it] = .{ offset = 0, length = -1 };
             continue;
         }
 
-        bytes := get_bytes(*r, length);
+        if at + length > body.count return protocol_error(c, "a malformed DataRow");
 
-        if r.bad break;
-
-        array_add(*result.values, .{ offset = result.data.count, length = length });
-        put_bytes(*result.data, bytes);
+        spans[it] = .{ offset = base + at, length = length };
+        at += length;
     }
 
-    if r.bad return protocol_error(c, "a malformed DataRow");
-
+    result.values.count += count;
     result.row_count += 1;
 
     return .{};

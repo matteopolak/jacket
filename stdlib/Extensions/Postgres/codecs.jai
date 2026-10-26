@@ -520,48 +520,101 @@ decode_numeric_binary :: (bytes: [] u8, out: *Numeric) -> string {
         return "";
     }
 
-    digits := NewArray(count, s64,, temp);
-    for *digits {
-        it.* = get_u16(*r);
-        if it.* >= NUMERIC_BASE r.bad = true;
+    if 8 + count * 2 > bytes.count return "a malformed numeric";
+
+    digits := bytes.data + 8;
+
+    for 0..count - 1 {
+        if read_u16(digits + it * 2) >= NUMERIC_BASE return "a malformed numeric";
     }
 
-    if r.bad return "a malformed numeric";
+    // The text is written straight into one buffer: a sign, the whole part (the first group as
+    // it is, the rest four digits each), then `scale` digits of the groups after the point.
+    whole_digits := ifx weight < 0 then 1 else 4 * (weight + 1);
+    size := 1 + whole_digits + 1 + scale + 4;
+    text := NewArray(size, u8,, temp);
+    at := 0;
 
-    builder: String_Builder;
-    builder.allocator = temp;
-    if sign == 0x4000 && count > 0 append(*builder, "-");
+    if sign == 0x4000 && count > 0 {
+        text[at] = #char "-";
+        at += 1;
+    }
 
     if weight < 0 {
-        append(*builder, "0");
+        text[at] = #char "0";
+        at += 1;
     } else {
         for i: 0..weight {
-            d := ifx i < count then digits[i] else 0;
-            if i == 0 print_to_builder(*builder, "%", d);
-            else print_to_builder(*builder, "%", formatInt(d, minimum_digits = 4));
+            d := ifx i < count then cast(s64) read_u16(digits + i * 2) else 0;
+
+            if i == 0 {
+                at += write_decimal(text.data + at, d);
+            } else {
+                at += write_group(text.data + at, d, 4);
+            }
         }
     }
 
     if scale > 0 {
-        append(*builder, ".");
+        text[at] = #char ".";
+        at += 1;
         written := 0;
         j := 1;
 
         while written < scale {
             index := weight + j;
-            d := ifx index >= 0 && index < count then digits[index] else 0;
-            group := tprint("%", formatInt(d, minimum_digits = 4));
+            d := ifx index >= 0 && index < count then cast(s64) read_u16(digits + index * 2) else 0;
             take := min(4, scale - written);
 
-            append(*builder, slice(group, 0, take));
+            write_group(text.data + at, d, take);
+            at += take;
             written += take;
             j += 1;
         }
     }
 
-    out.text = builder_to_string(*builder);
+    out.text = .{ at, text.data };
 
     return "";
+}
+
+// `value` (below 10000) in decimal without padding; returns the digits written.
+write_decimal :: (at: *u8, value: s64) -> s64 {
+    if value >= 1000 return write_group(at, value, 4);
+
+    count := 1;
+    if value >= 100 count = 3;
+    else if value >= 10 count = 2;
+
+    rest := value;
+    index := count - 1;
+
+    while index >= 0 {
+        at[index] = cast(u8) (#char "0" + rest % 10);
+        rest /= 10;
+        index -= 1;
+    }
+
+    return count;
+}
+
+// The first `take` digits of `value` (below 10000) written as four digits with leading zeros;
+// returns `take`.
+write_group :: (at: *u8, value: s64, take: s64) -> s64 {
+    digits: [4] u8;
+    rest := value;
+
+    index := 3;
+
+    while index >= 0 {
+        digits[index] = cast(u8) (#char "0" + rest % 10);
+        rest /= 10;
+        index -= 1;
+    }
+
+    memcpy(at, digits.data, take);
+
+    return take;
 }
 
 // The binary form of a numeric given as text: "-12.50", "0", "NaN", "Infinity", "-Infinity".
@@ -1083,6 +1136,17 @@ is_nullable :: ($T: Type) -> bool {
 is_nullable_info :: (info: *Type_Info) -> bool {
     if info.type != .STRUCT return false;
     return (cast(*Type_Info_Struct) info).polymorph_source_struct == type_info(Nullable);
+}
+
+// Whether `decode` of a `T` (or of a `Nullable(T)`) needs neither an allocator nor JSON options.
+decodes_in_place :: ($T: Type) -> bool {
+    #if #run is_nullable(T) {
+        return decodes_in_place(type_of((cast(*T) null).value));
+    } else {
+        info := type_info(T);
+
+        return T == bool || T == string || info.type == .INTEGER || info.type == .FLOAT;
+    }
 }
 
 is_json :: ($T: Type) -> bool {

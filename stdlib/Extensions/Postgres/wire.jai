@@ -137,10 +137,19 @@ put_u64 :: (out: *[..] u8, value: u64) {
     put_u32(out, cast,trunc(u32) value);
 }
 
+// Room for `total` items, growing by doubling so a long run of small appends copies little.
+reserve_for :: (array: *[..] $T, total: s64) {
+    if total <= array.allocated return;
+    array_reserve(array, max(total, array.allocated * 2, 64));
+}
+
 put_bytes :: (out: *[..] u8, bytes: [] u8) {
     if !bytes.count return;
+
     start := out.count;
-    array_resize(out, start + bytes.count, initialize = false);
+
+    reserve_for(out, start + bytes.count);
+    out.count = start + bytes.count;
     memcpy(out.data + start, bytes.data, bytes.count);
 }
 
