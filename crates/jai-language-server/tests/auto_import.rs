@@ -909,3 +909,53 @@ fn locals_of_every_block_are_offered_without_an_import() {
     }
     assert!(missing.is_empty(), "local not offered in {missing:?}");
 }
+
+#[test]
+fn a_module_that_reexports_another_offers_its_names() {
+    let dir = project(
+        "reexport",
+        &[
+            (
+                "stdlib/Facade/module.jai",
+                "using Inner :: #import \"internal/bindings/real\";\nusing,except(skipped_name) #import \"internal/bindings/more\";\n",
+            ),
+            (
+                "stdlib/internal/bindings/real/module.jai",
+                "#load \"parts.jai\";\nusing Back :: #import \"Facade\";\n",
+            ),
+            (
+                "stdlib/internal/bindings/real/parts.jai",
+                "reexported_proc :: () {}\n#scope_module\nreexported_hidden :: () {}\n#scope_file\nreexported_private :: () {}\n",
+            ),
+            (
+                "stdlib/internal/bindings/more.jai",
+                "reexported_more :: () {}\nreexported_skipped :: () {}\nskipped_name :: () {}\n",
+            ),
+            ("work/main.jai", ""),
+        ],
+    );
+    let main = dir.join("work/main.jai");
+    let text = "main :: () {\n    reexported\n}\n";
+    let mut s = session_with_stdlib(dir.join("stdlib"));
+    let list = complete_at(&mut s, &main, text, "reexported");
+    let facade = || [("Facade".to_string(), "#import \"Facade\";\n\n".to_string())];
+    let none: [(String, String); 0] = [];
+    assert_eq!(sources_of(&list, "reexported_proc"), facade());
+    assert_eq!(sources_of(&list, "reexported_more"), facade());
+    assert_eq!(sources_of(&list, "reexported_skipped"), facade());
+    assert_eq!(sources_of(&list, "skipped_name"), none);
+    assert_eq!(sources_of(&list, "reexported_hidden"), none);
+    assert_eq!(sources_of(&list, "reexported_private"), none);
+    // Editing the re-exported module's file updates the facade's names.
+    let mut editing = session_with_stdlib(dir.join("stdlib"));
+    editing
+        .open(
+            uri_of(&dir.join("stdlib/internal/bindings/real/parts.jai")),
+            1,
+            "reexported_renamed :: () {}\n".into(),
+        )
+        .unwrap();
+    let list = complete_at(&mut editing, &main, text, "reexported");
+    assert_eq!(sources_of(&list, "reexported_renamed"), facade());
+    assert_eq!(sources_of(&list, "reexported_proc"), none);
+}

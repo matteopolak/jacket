@@ -38,6 +38,43 @@ pub struct Directive {
     /// Inside an `#if` block rather than directly at the top level.
     pub nested: bool,
     pub visibility: Visibility,
+    /// `using Name :: #import "X"` (or a bare `using #import "X"`): the names of `X` are the
+    /// importing file's own to export, narrowed by the `using,only`/`using,except` list.
+    pub reexport: Option<Reexport>,
+}
+
+/// Which of an imported module's names a `using` import passes on.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Reexport {
+    All,
+    Only(Vec<String>),
+    Except(Vec<String>),
+}
+
+impl Reexport {
+    pub fn allows(&self, name: &str) -> bool {
+        match self {
+            Reexport::All => true,
+            Reexport::Only(names) => names.iter().any(|n| n == name),
+            Reexport::Except(names) => !names.iter().any(|n| n == name),
+        }
+    }
+
+    fn of(using: &jaic::ast::UsingFilter) -> Reexport {
+        use jaic::ast::UsingFilter;
+        let names =
+            |list: &[jaic::ast::Ident]| list.iter().map(|n| n.name.as_str().to_owned()).collect();
+        match using {
+            UsingFilter::Only(list) => Reexport::Only(names(list)),
+            UsingFilter::Except(list) => Reexport::Except(names(list)),
+            // A renaming or computed list: every name stays offered under its own name.
+            UsingFilter::None
+            | UsingFilter::Map(_)
+            | UsingFilter::Computed {
+                ..
+            } => Reexport::All,
+        }
+    }
 }
 
 /// A top-level name and where it is declared, whatever its visibility (workspace symbols).
@@ -96,7 +133,9 @@ pub fn scan(text: &str) -> FileScan {
             TopLevelKind::Import(import) => {
                 if let ImportSource::Module(path) = &import.source {
                     let name = import.name.map(|n| n.name.as_str().to_owned());
-                    out.imports.push(directive(tokens, path, name, &item));
+                    let mut found = directive(tokens, path, name, &item);
+                    found.reexport = import.using.as_ref().map(Reexport::of);
+                    out.imports.push(found);
                 }
             }
             TopLevelKind::Load(path, _) => out.loads.push(directive(tokens, path, None, &item)),
@@ -179,6 +218,7 @@ fn directive(tokens: &[Token], path: &str, name: Option<String>, item: &TopLevel
         end: end as usize,
         nested: item.nested,
         visibility: item.visibility,
+        reexport: None,
     }
 }
 
@@ -340,6 +380,36 @@ hidden :: () {}
             "#import \"Basic\";\nM :: #import \"Math\";"
         );
         assert!(!scan.declares_main);
+    }
+
+    #[test]
+    fn using_imports_are_reexports() {
+        let scan = scan(
+            "using A :: #import \"One\";\nusing,only(x) B :: #import \"Two\";\nusing,except(y) #import \"Three\";\nC :: #import \"Four\";\n#scope_file\nusing D :: #import \"Five\";\n",
+        );
+        let found: Vec<_> = scan
+            .imports
+            .iter()
+            .map(|d| (d.path.as_str(), d.reexport.clone(), d.visibility))
+            .collect();
+        assert_eq!(
+            found,
+            [
+                ("One", Some(Reexport::All), Visibility::Export),
+                (
+                    "Two",
+                    Some(Reexport::Only(vec!["x".into()])),
+                    Visibility::Export
+                ),
+                (
+                    "Three",
+                    Some(Reexport::Except(vec!["y".into()])),
+                    Visibility::Export
+                ),
+                ("Four", None, Visibility::Export),
+                ("Five", Some(Reexport::All), Visibility::File),
+            ]
+        );
     }
 
     #[test]

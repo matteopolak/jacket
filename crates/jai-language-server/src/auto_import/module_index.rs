@@ -2,7 +2,7 @@
 //! modules (ranked, cached) and the project's own.
 use super::index_fs::IndexFs;
 use super::{AskedOptions, Index, MAX_LOADED, Module, ModuleCache, Modules, Recorded, Sources};
-use crate::exports::Visibility;
+use crate::exports::{Decl, Visibility};
 use crate::project;
 use jaic::fxhash::HashMap;
 use jaic::sema::ModuleRanking;
@@ -95,21 +95,34 @@ impl Sources<'_> {
         name: String,
         file: PathBuf,
     ) -> Module {
-        let only_os = self.scan(index, &file).only_os.clone();
-        let mut decls = Vec::new();
+        let mut only_os = self.scan(index, &file).only_os.clone();
         let mut imports = BTreeSet::new();
-        let files = self.closure(index, &file);
+        let mut files = self.closure(index, &file);
         for part in &files {
             let scan = self.scan(index, part);
             imports.extend(scan.imports.iter().map(|i| i.path.clone()));
-            for decl in scan
-                .decls
-                .iter()
-                .filter(|d| d.visibility == Visibility::Export)
-            {
-                decls.extend(self.alias_documentation(index, &file, part, decl, dir));
-            }
         }
+        let mut import_dirs = vec![dir.to_path_buf()];
+        import_dirs.extend(self.options(&file).import_paths);
+        let mut visiting = BTreeSet::from([file.clone()]);
+        let mut reexported_os = Vec::new();
+        let decls = self.exports_of(
+            index,
+            &file,
+            dir,
+            &import_dirs,
+            &mut visiting,
+            &mut files,
+            &mut reexported_os,
+        );
+        // A module that only passes on others is gated as they are.
+        if only_os.is_none()
+            && decls.iter().all(|d| d.1)
+            && reexported_os.iter().all(Option::is_some)
+        {
+            only_os = reexported_os.into_iter().next().flatten();
+        }
+        let decls = decls.into_iter().map(|(decl, _)| decl).collect();
         Module {
             name,
             only_os,
@@ -120,6 +133,72 @@ impl Sources<'_> {
             dir: dir.to_path_buf(),
             prefix: prefix.to_string(),
         }
+    }
+
+    /// The names the module whose entry is `entry` exports, each with whether it came through
+    /// a `using Name :: #import "X"` rather than from the module's own files. A re-export is
+    /// followed with the compiler's module search (`find_module`), once per module (`visiting`
+    /// ends a cycle), and only the target's `Export` names pass. The files of every module
+    /// followed go into `files` (an edit to one makes the module stale), and each target's
+    /// `#assert OS` into `reexported_os`.
+    #[allow(clippy::too_many_arguments)]
+    fn exports_of(
+        &self,
+        index: &mut Index,
+        entry: &Path,
+        dir: &Path,
+        import_dirs: &[PathBuf],
+        visiting: &mut BTreeSet<PathBuf>,
+        files: &mut BTreeSet<PathBuf>,
+        reexported_os: &mut Vec<Option<Vec<String>>>,
+    ) -> Vec<(Decl, bool)> {
+        let mut decls = Vec::new();
+        for part in self.closure(index, entry) {
+            let scan = self.scan(index, &part);
+            for decl in scan
+                .decls
+                .iter()
+                .filter(|d| d.visibility == Visibility::Export)
+            {
+                decls.extend(
+                    self.alias_documentation(index, entry, &part, decl, dir)
+                        .into_iter()
+                        .map(|d| (d, false)),
+                );
+            }
+            for import in &scan.imports {
+                let Some(reexport) = &import.reexport else {
+                    continue;
+                };
+                if import.visibility != Visibility::Export {
+                    continue;
+                }
+                let Some(target) = self.find_module(&import.path, &part, import_dirs) else {
+                    continue;
+                };
+                if !visiting.insert(target.clone()) {
+                    continue;
+                }
+                files.extend(self.closure(index, &target));
+                reexported_os.push(self.scan(index, &target).only_os.clone());
+                let inner = self.exports_of(
+                    index,
+                    &target,
+                    dir,
+                    import_dirs,
+                    visiting,
+                    files,
+                    reexported_os,
+                );
+                decls.extend(
+                    inner
+                        .into_iter()
+                        .filter(|(d, _)| reexport.allows(&d.name))
+                        .map(|(d, _)| (d, true)),
+                );
+            }
+        }
+        decls
     }
 
     /// `modules` with the ones read from a file in `stale` read again.

@@ -10,7 +10,10 @@ fn probe() {
     let main = root.join("Input/tests/windows-device-decoding.jai");
     let module = root.join("internal/input/windows-devices/module.jai");
     let (main, module) = (main.canonicalize().unwrap(), module.canonicalize().unwrap());
-    let windows = root.join("Windows/module.jai").canonicalize().unwrap();
+    let windows = root
+        .join("internal/bindings/windows-api/module.jai")
+        .canonicalize()
+        .unwrap();
     let text = std::fs::read_to_string(&module).unwrap();
     let mut session = session();
     let config = file_uri(main.parent().unwrap().join("jacket.toml").to_str().unwrap());
@@ -46,14 +49,18 @@ fn probe() {
                     found[0]
                         .uri
                         .ends_with(windows.file_name().unwrap().to_str().unwrap())
-                        && found[0].uri.contains("/Windows/"),
+                        && found[0].uri.contains("/windows-api/"),
                     "{label}: `W` at {position:?} went to {}",
                     found[0].uri
                 );
                 let hover = session.hover(&uri, position).unwrap().unwrap();
-                assert_eq!(
-                    hover.contents.value, "W :: #import \"Windows\"",
-                    "{label}: hover of `W` at {position:?}"
+                assert!(
+                    hover
+                        .contents
+                        .value
+                        .starts_with("W :: #import \"internal/bindings/windows-api\""),
+                    "{label}: hover of `W` at {position:?}: {}",
+                    hover.contents.value
                 );
                 uses += 1;
             }

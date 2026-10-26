@@ -58,19 +58,33 @@ impl Sources<'_> {
     }
 }
 
-impl Resolver<'_, '_> {
-    fn module(&self, name: &str, file: &Path) -> Option<PathBuf> {
+impl Sources<'_> {
+    /// The entry file of the module `name` imported from `file`: in the `modules` folder beside
+    /// it, then each of `import_dirs`; in a folder `Name.jai` wins over `Name/module.jai`, as in
+    /// `jaic::sema::modules::find_module_in`.
+    pub(super) fn find_module(
+        &self,
+        name: &str,
+        file: &Path,
+        import_dirs: &[PathBuf],
+    ) -> Option<PathBuf> {
         let local = file.parent()?.join("modules");
         std::iter::once(&local)
-            .chain(self.import_dirs.iter())
+            .chain(import_dirs.iter())
             .flat_map(|dir| {
                 [
-                    jaic::paths::module_entry(&dir.join(name)),
                     dir.join(format!("{name}.jai")),
+                    jaic::paths::module_entry(&dir.join(name)),
                 ]
             })
-            .find(|path| self.sources.is_file(path))
+            .find(|path| self.is_file(path))
             .map(|path| project::normalize(&path))
+    }
+}
+
+impl Resolver<'_, '_> {
+    fn module(&self, name: &str, file: &Path) -> Option<PathBuf> {
+        self.sources.find_module(name, file, &self.import_dirs)
     }
 
     fn resolve(&mut self, root: &Path, file: &Path, path: &[String], external: bool) -> Vec<Decl> {
