@@ -459,7 +459,7 @@ jobs:
         # The legs come from tools/ci/ci_changes.py (stdlib_matrix). A K/N shard runs every Nth
         # stdlib test (tools/stdlib/stdlib_runtime.py --shard) in `modes`, and again at -O2 when
         # `o2` is set; the other legs run the producer suites in `suites`, and the `suites` leg also
-        # `jacket test` and the WebGPU checks.
+        # the WebGPU checks, and `jacket test` where no tooling leg runs it.
         include: ${{ fromJSON(needs.changes.outputs.stdlib_matrix) }}
     concurrency:
       group: ${{ github.workflow }}-stdlib-runtime-${{ github.ref }}-${{ matrix.platform }}-${{ matrix.shard }}-${{ github.sha }}
@@ -512,9 +512,12 @@ jobs:
       - name: Stdlib tests run by jacket test
         # The modules under `[test] paths` in jacket.toml (stdlib_runtime.py skips them), once per
         # platform: native, interpreted and native -O2, and with `wasm`, wasm interpreted and built.
-        if: ${{ always() && !cancelled() && matrix.shard == 'suites' }}
+        # `jacket_test` is `all`, or `hash:K/N`: this leg's share, which spreads them over the
+        # platform's tooling legs (tools/ci/stdlib_jacket_test.sh).
+        if: ${{ always() && !cancelled() && matrix.jacket_test }}
         env:
           WASM: ${{ matrix.wasm }}
+          JACKET_TEST_PARTITION: ${{ matrix.jacket_test }}
         run: bash tools/ci/stdlib_jacket_test.sh
       # The `stdlib-coverage` job reports the interpreter reachability of all shards together.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -1316,14 +1319,15 @@ jobs:
         if: ${{ !cancelled() && matrix.o2 }}
         run: python -u tools/stdlib/stdlib_runtime.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --shard ${{ matrix.shard }} --modes native --opt O2 --strict --dlls "$MESA_DIR"
       - name: Stdlib tests run by jacket test
-        # The modules under `[test] paths` in jacket.toml, as in `stdlib-runtime`, without wasm.
-        if: ${{ !cancelled() && startsWith(matrix.shard, '1/') }}
+        # The modules under `[test] paths` in jacket.toml, as in `stdlib-runtime`, without wasm;
+        # each shard runs its share of the tests.
+        if: ${{ !cancelled() }}
         run: |
           jacket="$(dirname "$JAIC")/jacket.exe"
           status=0
-          "$jacket" test -q || status=1
-          "$jacket" test -q --interp || status=1
-          "$jacket" test -q -- -O2 || status=1
+          "$jacket" test -q --partition "hash:${{ matrix.shard }}" || status=1
+          "$jacket" test -q --partition "hash:${{ matrix.shard }}" --interp || status=1
+          "$jacket" test -q --partition "hash:${{ matrix.shard }}" -- -O2 || status=1
           exit $status
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ always() && !cancelled() }}

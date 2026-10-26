@@ -141,6 +141,36 @@ class Tiers(unittest.TestCase):
             platforms, {"linux-x64", "linux-arm64", "macos-arm64", "macos-x64"}
         )
 
+    def test_host_independent_work_runs_on_linux_x64_only(self):
+        legs = ci_changes.test_matrix(True)
+        for part in ("jai", "portability", "lint-windows", "lint-macos"):
+            self.assertEqual({leg["runner"] for leg in legs if leg["part"] == part}, {"ubuntu-24.04"})
+        self.assertEqual({leg["runner"] for leg in legs if leg["part"] == "split"}, {"ubuntu-24.04-arm"})
+        for leg in legs:
+            if leg["part"] == "rust" and leg["runner"] != "ubuntu-24.04":
+                self.assertIn("not test(wasm_target)", leg["expr"])
+        for leg in ci_changes.test_matrix(False):
+            if leg["runner"] != "ubuntu-24.04":
+                self.assertIn("not test(wasm_target)", leg["expr"])
+
+    def test_webassembly_runs_on_linux_x64_only(self):
+        for full in (False, True):
+            for leg in ci_changes.stdlib_matrix(full):
+                with self.subTest(full=full, leg=leg):
+                    self.assertEqual("wasm-" in leg.get("modes", ""), leg["platform"] == "linux-x64" and "modes" in leg)
+                    self.assertEqual(bool(leg.get("wasm")), leg["platform"] == "linux-x64" and "jacket_test" in leg)
+
+    def test_jacket_test_is_divided_once_per_platform(self):
+        for full in (False, True):
+            legs = ci_changes.stdlib_matrix(full)
+            for platform in {leg["platform"] for leg in legs}:
+                with self.subTest(full=full, platform=platform):
+                    shares = [leg["jacket_test"] for leg in legs if leg["platform"] == platform and leg.get("jacket_test")]
+                    if shares == ["all"]:
+                        continue
+                    count = ci_changes.TOOLING_PARTS
+                    self.assertEqual(shares, [f"hash:{k}/{count}" for k in range(1, count + 1)])
+
 
 if __name__ == "__main__":
     unittest.main()

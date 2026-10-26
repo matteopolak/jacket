@@ -160,6 +160,9 @@ INTEL = {"runner": "macos-15-intel", "architecture": "x86_64"}
 # On macOS the fast tier runs only the crates whose tests depend on the host: the compiler, its
 # backend and the test runner.
 HOST_CRATES = "package(jaic-cli) | package(jaic-llvm) | package(jaic) | package(jacket)"
+# The WebAssembly target tests run node on whatever the host is and build the same modules everywhere,
+# so only the Linux x64 legs run them.
+NOT_WASM = "not test(wasm_target)"
 
 
 def shards(count):
@@ -167,17 +170,22 @@ def shards(count):
 
 
 def test_matrix(full):
-    """The legs of the `test` job: `part` picks the steps, `shard` the share of them."""
+    """The legs of the `test` job: `part` picks the steps, `shard` the share of them. The other
+    hosts leave out what does not depend on the host: the WebAssembly target tests (NOT_WASM), the
+    policy tests and Jai format check (the `jai` leg) and the native tests built in four parts
+    (`split`, on Linux arm64 only)."""
     legs = [dict(X64, part="rust", shard=s) for s in shards(6)]
-    legs += [dict(X64, part="targets", shard=s) for s in shards(2)]
+    legs += [dict(X64, part="targets", shard=s) for s in shards(3)]
     parts = ("jai", "lint", "portability", "lint-windows", "lint-macos", "diff")
     legs += [dict(X64, part=part, shard="1/1") for part in parts]
     if not full:
-        return legs + [dict(MAC, part="rust", shard=s, expr=HOST_CRATES) for s in shards(2)]
-    legs.append(dict(X64, part="split", shard="1/1"))
+        return legs + [
+            dict(MAC, part="rust", shard=s, expr=f"({HOST_CRATES}) & {NOT_WASM}") for s in shards(2)
+        ]
     for host in (ARM, MAC, INTEL):
-        legs += [dict(host, part="rust", shard=s) for s in shards(3)]
-        legs += [dict(host, part=part, shard="1/1") for part in ("targets", "jai", "lint", "diff", "split")]
+        legs += [dict(host, part="rust", shard=s, expr=NOT_WASM) for s in shards(3)]
+        legs += [dict(host, part=part, shard="1/1") for part in ("targets", "lint", "diff")]
+    legs.append(dict(ARM, part="split", shard="1/1"))
     return legs
 
 
@@ -191,16 +199,29 @@ TOOLING_PARTS = 4
 def stdlib_matrix(full):
     """The legs of `stdlib-runtime`: `shard` is a share of the catalogue, with `modes` its
     stdlib_runtime.py modes and `o2` whether it reruns them at -O2, or names a leg that runs the
-    producer suites in `suites` (the `suites` leg also runs `jacket test` and the WebGPU checks)."""
+    producer suites in `suites` (the `suites` leg also runs the WebGPU checks). The WebAssembly modes and
+    the `jacket test` wasm runs do not depend on the host, so only Linux x64 has them. `jacket_test`
+    is the share of `jacket test` a leg runs: `tooling` legs take their part of the tests, and the
+    `suites` leg runs them all on a platform with no `tooling` legs."""
     everything = "interp,native,wasm-interp,wasm-native"
 
     def suite_legs(platform, names):
-        legs = [dict(platform=platform, shard="suites", suites=SUITES, wasm=platform == "linux-x64" or full)]
+        wasm = platform == "linux-x64"
+        legs = [
+            dict(platform=platform, shard="suites", suites=SUITES, wasm=wasm, jacket_test="" if "tooling" in names else "all")
+        ]
         for name in names:
             if name == "tooling":
                 # check_developer_tools.py splits its tests across these legs (JACKET_TOOLING_PART).
                 legs += [
-                    dict(platform=platform, shard=f"tooling {k} of {TOOLING_PARTS}", suites=name, tooling_part=f"{k}/{TOOLING_PARTS}")
+                    dict(
+                        platform=platform,
+                        shard=f"tooling {k} of {TOOLING_PARTS}",
+                        suites=name,
+                        tooling_part=f"{k}/{TOOLING_PARTS}",
+                        jacket_test=f"hash:{k}/{TOOLING_PARTS}",
+                        wasm=wasm,
+                    )
                     for k in range(1, TOOLING_PARTS + 1)
                 ]
             else:
@@ -213,7 +234,8 @@ def stdlib_matrix(full):
         return legs + suite_legs("linux-x64", ("bindings", "tooling")) + suite_legs("macos-arm64", ())
     legs = []
     for platform in ("linux-x64", "linux-arm64", "macos-arm64", "macos-x64"):
-        legs += [dict(platform=platform, shard=s, modes=everything, o2=True) for s in shards(2)]
+        modes = everything if platform == "linux-x64" else "interp,native"
+        legs += [dict(platform=platform, shard=s, modes=modes, o2=True) for s in shards(2)]
         legs += suite_legs(platform, ("bindings", "tooling"))
     return legs
 
