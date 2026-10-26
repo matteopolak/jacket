@@ -100,3 +100,94 @@ Straight-line code per struct and field, no runtime type switch. Keys match by l
 ## Dependencies
 
 `Basic`, `String`, `Compiler`, `Hash_Table`, `Extensions/SIMD`, `Extensions/Variant`. Nothing from Io (`Io.read_json` imports Json). The structural-index design follows simdjson (Langdale and Lemire); the code is written for this repo.
+
+## Compared with the community libraries
+
+Jacket's Json next to [`rluba--jaison`](https://github.com/rluba/jaison) and [`kujukuju--ContiguousJsonJai`](https://github.com/kujukuju/ContiguousJsonJai) (called Contiguous below), the two JSON libraries in the upstream corpus. The cells come from reading each library's source; ⚠ has a note, and a library not named in a row has nothing for it.
+
+| Feature | Jacket Json | jaison | Contiguous |
+| --- | --- | --- | --- |
+| How the code is made | generated per type at compile time (`#insert`), straight-line code per struct | one procedure that walks `Type_Info` on every call (`json_write_native`, `parse_value`) | generated per type at compile time (`#insert`), values stored as offsets into one block |
+| Typed decode into structs and arrays | ✅ | ✅ | ✅ |
+| Untyped tree | ✅ `Json_Value` | ✅ `JSON_Value` | ✅ `JsonGeneric` |
+| Typed field that holds an untyped subtree | ✅ | ✅ | ✅ |
+| Encode | ✅ | ✅ | ⚠ [1] |
+| Pretty printing | ✅ | ✅ | ✅ |
+| Parser follows RFC 8259 | ✅ | ⚠ [2] | ❌ [3] |
+| Error with position and path | ✅ line, column, byte offset, jsonpath | ❌ [4] | ❌ [3] |
+| Escapes decoded (`\n`, `é`, surrogate pairs) | ✅ | ⚠ [5] | ❌ [6] |
+| Output is valid UTF-8 JSON for any string | ✅ | ⚠ [7] | ❌ [1] |
+| Integers exact over their range, out of range is an error | ✅ | ✅ | ⚠ [8] |
+| Floats print as the shortest string that reads back, parse correctly rounded | ✅ | ⚠ [9] | ❌ [10] |
+| NaN and infinity | ✅ `null` | ✅ `null` or strings, by option | ❌ |
+| Rename fields | ✅ `rename`, `alias`, `rename_all` | ⚠ [11] | ⚠ [11] |
+| Skip fields (either direction, if empty or zero) | ✅ | ⚠ [12] | ⚠ [12] |
+| Missing field is an error unless the field has `default` | ✅ | ❌ [13] | ❌ [13] |
+| Unknown field: ignore or deny | ✅ both | ✅ both | ⚠ [14] |
+| Duplicate key: error or last wins | ✅ both | ❌ [15] | ❌ |
+| `null`, absent and value told apart | ✅ `Json_Maybe` | ❌ | ❌ |
+| Enums | ✅ by name | ✅ by name, flags as `A\|B` | ⚠ [16] |
+| Tagged unions | ✅ four layouts (`Variant`) | ❌ | ❌ |
+| Maps | ✅ `Hash_Table` with string keys | ❌ | ❌ |
+| Flatten and custom coders | ✅ `flatten`, `transparent`, `with=` | ⚠ [17] | ❌ |
+| Recursive types | ✅ | ✅ through pointers | ❌ [18] |
+| Limit on nesting depth | ✅ `max_depth` 256 | ❌ | ❌ |
+| Decode from a stream | ⚠ [19] | ❌ | ❌ |
+| Free everything with one call | ⚠ [20] | ❌ | ✅ [21] |
+| Query-string and form decoding by field type | ✅ | ❌ | ❌ |
+| Builds for wasm | ✅ | not checked | not checked |
+
+1. Contiguous writes a string between quotes as it is (`write_output` for `string` appends the bytes), so a quote, a backslash or a newline in a value makes invalid JSON. Floats are printed with `formatFloat(width = 16)`. Output is compact unless `$formatted`.
+2. Literals, strings, arrays and objects are checked, and a trailing comma is refused. Anything else goes to Basic's `string_to_float64` or `string_to_int`, so the number grammar is Basic's, and a document is not checked for a BOM or invalid UTF-8.
+3. The reader checks the structure with `assert`; with the module parameter `ENABLE_ASSERT = false` it checks nothing, and with it on a bad document stops the program. Failures that do not assert return only `false`.
+4. A failed parse returns `false` and writes a `log_error` line without a position (for example "Cannot parse STRING value into type ..."); a few cases `assert`.
+5. `\uXXXX` is decoded to one to three bytes from a 16-bit value, so a surrogate pair (`😀`) becomes two three-byte sequences, not one four-byte character.
+6. The reader has no unescape step; the README says Unicode is not supported. A string with `\n` keeps the backslash and the `n`.
+7. It escapes `"`, `\`, `\n`, `\r`, `\t` and other control characters, and leaves bytes of 0x80 and above as they are; a source comment marks invalid multi-byte characters as to do.
+8. Digits are collected and converted by Basic's `string_to_int` into the field's type, without a message for an out-of-range value.
+9. Printing goes through Basic's `print`; parsing through `string_to_float64`. Neither is documented as shortest or correctly rounded.
+10. The README says results are within "an extra digit or two" of JavaScript's.
+11. Per member only: `@JsonName(x)` (jaison) and `@json(x)` (Contiguous). There is no rule for a whole struct.
+12. `@JsonIgnore` (jaison) and `@jsonignore` (Contiguous) skip a member in both directions; Contiguous can leave out `null` members when writing (`$write_null_members`).
+13. jaison keeps a member at its default when the key is absent; Contiguous leaves it as it was.
+14. Contiguous always skips an unknown key (`skip_unknown_type`); there is no option to refuse it.
+15. A repeated key decodes twice into the same member and the second wins; the first string is not freed.
+16. Contiguous reads and writes an enum as its integer type.
+17. jaison flattens `using` members; there is nothing for custom coders.
+18. A struct with a pointer to itself (the `Node` of the benchmark) did not compile with Contiguous in these benchmarks, so its configuration workloads are blank.
+19. `from_json(T, source)` takes the document in pieces but gathers it in one buffer before decoding.
+20. Free procedures per type (`free_json`) and a `borrow` option that points strings into the input, so a decode in an arena frees with the arena.
+21. Everything a decode allocates is one block; the README calls freeing it one call.
+
+### How it was measured
+
+`benchmarks/compare/json/benches/json.jai`, run by `tools/bench/library_compare.py json` (see [library comparisons](../tools/library-comparisons.md)). All three libraries decode the same text into the same Jai types and encode the same values. Documents are generated with a fixed seed:
+
+- **api**: a page of 100 issues as a service returns them (minified, about 69 KB): nested users and labels, an optional assignee, escape sequences and non-ASCII text in the bodies.
+- **records**: 20,000 telemetry records (about 2 MB, minified): numbers, short strings, an array of four integers.
+- **config**: a hand-written style configuration nested 100 levels deep, pretty-printed.
+
+`decode_*` is the document into typed values (`decode_tree_*`: into each library's untyped tree), `encode_*` writes values decoded before the timer started, `roundtrip_api` is decode then encode. Each iteration allocates from a bump pool that is emptied afterwards, for all three libraries, because jaison has no free procedure for a typed decode and the others free in different ways. Inputs and results go through `black_box`.
+
+Apple M5 (10 cores: 4 Super and 6 Efficiency), 16 GB, macOS 27.0 arm64. The machine was a working desktop, not an idle one: the load average when the run began was 8.66, so absolute times carry a few percent of noise (the intervals show the part that was measured within one run) and the ratios are the result to read.
+
+Time per iteration, with the 95% interval of the bootstrap in brackets, and the ratio to Jacket (above 1: slower than Jacket).
+
+| Workload | jacket | jaison | contiguous |
+| --- | --- | --- | --- |
+| decode_api | 182 us (175 us to 192 us) | 295 us (283 us to 310 us) 1.62x | 122 us (121 us to 122 us) 0.67x |
+| decode_records | 8.65 ms (8.25 ms to 9.09 ms) | 12.9 ms (12.8 ms to 13 ms) 1.49x | 6.64 ms (6.59 ms to 6.7 ms) 0.77x |
+| decode_config | 75.3 us (74.6 us to 76 us) | 76.5 us (75.5 us to 77.9 us) 1.02x | n/a |
+| decode_tree_api | 221 us (220 us to 223 us) | 318 us (315 us to 321 us) 1.44x | 244 us (241 us to 248 us) 1.10x |
+| decode_tree_records | 11 ms (10.7 ms to 11.4 ms) | 13.2 ms (13.1 ms to 13.4 ms) 1.20x | 11.8 ms (11.7 ms to 11.9 ms) 1.07x |
+| encode_api | 40.6 us (40.4 us to 40.7 us) | 101 us (99 us to 102 us) 2.48x | 41.2 us (40.9 us to 41.5 us) 1.02x |
+| encode_records | 2.94 ms (2.9 ms to 2.99 ms) | 7.08 ms (7.01 ms to 7.16 ms) 2.41x | 5.5 ms (5.44 ms to 5.56 ms) 1.87x |
+| encode_config | 8.23 us (8.08 us to 8.38 us) | 21.4 us (21.2 us to 21.5 us) 2.59x | n/a |
+| roundtrip_api | 225 us (224 us to 227 us) | 370 us (367 us to 374 us) 1.64x | 168 us (167 us to 169 us) 0.75x |
+| decode_tree_config | 89.5 us (81.8 us to 100 us) | 86.9 us (85.5 us to 88.6 us) 0.97x | 4.66 ms (4.65 ms to 4.68 ms) 52.09x |
+
+Reading the table:
+
+- **jaison walks the type information at run time.** `json_write_native` and `parse_value` branch on `Type_Info.type` for every value and, for every object, build a `Table` of the struct's member names (the source comment says "@Speed: Building this table every time is pretty silly"). Jacket's generated code has no such work, which is the 1.4x to 1.6x on typed decodes of the api and records documents and 2.4x on encoding. The deeply nested `config` document has few values per object and short member names, and the two are level there.
+- **Contiguous is faster at typed decodes of flat documents** (0.67x and 0.77x of Jacket's time). It does less: no unescaping, no validation, and a single contiguous allocation. Its time for the same text is not for the same result, since escape sequences stay in the strings. On the untyped tree it is level with Jacket, and on the nested configuration tree it is 50 times slower (relative offsets that are fixed up in a pass that depends on depth).
+- Encoding is where the two generated-code libraries differ least on `api` (strings are short) and most on `records` (numbers): Jacket prints floats with Schubfach and integers without going through `print`.
