@@ -1,28 +1,28 @@
 switch-too-many-handlers.jai:9:5: error: no overload of `variant_switch` matches these arguments
         variant_switch(*v,
         ^^^^^^^^^^^^^^^^^^
-<#insert at /Users/matthew/projects/jai/.claude/worktrees/agent-ad6ea7ed61fd98aa6/stdlib/Extensions/Variant/switch.jai>:1:19: note: too many arguments: it takes at most 2
+<#insert at $STDLIB/Extensions/Variant/switch.jai>:1:19: note: too many arguments: it takes at most 2
     variant_switch :: (v: *$V/Variant, f1: $F1) {
                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^
-<#insert at /Users/matthew/projects/jai/.claude/worktrees/agent-ad6ea7ed61fd98aa6/stdlib/Extensions/Variant/switch.jai>:7:19: note: too many arguments: it takes at most 2
+<#insert at $STDLIB/Extensions/Variant/switch.jai>:7:19: note: too many arguments: it takes at most 2
     variant_switch :: (v: $V/Variant, f1: $F1) {
                       ^^^^^^^^^^^^^^^^^^^^^^^^^^
-<#insert at /Users/matthew/projects/jai/.claude/worktrees/agent-ad6ea7ed61fd98aa6/stdlib/Extensions/Variant/switch.jai>:11:19: note: too many arguments: it takes at most 3
+<#insert at $STDLIB/Extensions/Variant/switch.jai>:11:19: note: too many arguments: it takes at most 3
     variant_switch :: (v: *$V/Variant, f1: $F1, f2: $F2) {
                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-<#insert at /Users/matthew/projects/jai/.claude/worktrees/agent-ad6ea7ed61fd98aa6/stdlib/Extensions/Variant/switch.jai>:17:19: note: too many arguments: it takes at most 3
+<#insert at $STDLIB/Extensions/Variant/switch.jai>:17:19: note: too many arguments: it takes at most 3
     variant_switch :: (v: $V/Variant, f1: $F1, f2: $F2) {
                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-<#insert at /Users/matthew/projects/jai/.claude/worktrees/agent-ad6ea7ed61fd98aa6/stdlib/Extensions/Variant/switch.jai>:21:19: note: too many arguments: it takes at most 4
+<#insert at $STDLIB/Extensions/Variant/switch.jai>:21:19: note: too many arguments: it takes at most 4
     variant_switch :: (v: *$V/Variant, f1: $F1, f2: $F2, f3: $F3) {
                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-<#insert at /Users/matthew/projects/jai/.claude/worktrees/agent-ad6ea7ed61fd98aa6/stdlib/Extensions/Variant/switch.jai>:27:19: note: too many arguments: it takes at most 4
+<#insert at $STDLIB/Extensions/Variant/switch.jai>:27:19: note: too many arguments: it takes at most 4
     variant_switch :: (v: $V/Variant, f1: $F1, f2: $F2, f3: $F3) {
                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-<#insert at /Users/matthew/projects/jai/.claude/worktrees/agent-ad6ea7ed61fd98aa6/stdlib/Extensions/Variant/switch.jai>:31:19: note: too many arguments: it takes at most 5
+<#insert at $STDLIB/Extensions/Variant/switch.jai>:31:19: note: too many arguments: it takes at most 5
     variant_switch :: (v: *$V/Variant, f1: $F1, f2: $F2, f3: $F3, f4: $F4) {
                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-<#insert at /Users/matthew/projects/jai/.claude/worktrees/agent-ad6ea7ed61fd98aa6/stdlib/Extensions/Variant/switch.jai>:37:19: note: too many arguments: it takes at most 5
+<#insert at $STDLIB/Extensions/Variant/switch.jai>:37:19: note: too many arguments: it takes at most 5
     variant_switch :: (v: $V/Variant, f1: $F1, f2: $F2, f3: $F3, f4: $F4) {
                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

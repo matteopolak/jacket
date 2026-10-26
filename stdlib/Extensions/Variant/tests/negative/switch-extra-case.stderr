@@ -1,7 +1,7 @@
 ../../switch.jai:69:17: error: variant_switch: handler 3 takes a pointer to a type that is not a case of `Variant(s64, string)`. The cases are s64, string
                     compiler_report(tprint("variant_switch: handler % takes a pointer to a type that is not a case of `%`. The cases are %", handler_index + 1, variant_name(V), type_list_text(cases)));
                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-<#insert at /Users/matthew/projects/jai/.claude/worktrees/agent-ad6ea7ed61fd98aa6/stdlib/Extensions/Variant/switch.jai>:22:13: note: while running compile-time code started here
+<#insert at $STDLIB/Extensions/Variant/switch.jai>:22:13: note: while running compile-time code started here
         #insert -> string {
                 ^^^^^^^^^^^
 

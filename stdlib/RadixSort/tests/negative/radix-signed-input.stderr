@@ -1,22 +1,22 @@
 radix-signed-input.jai:7:5: error: no overload of `sort` matches these arguments
         R.sort(*sorter, input);
         ^^^^^^^^^^^^^^^^^^^^^^
-/Users/matthew/projects/jai/.claude/worktrees/agent-ad6ea7ed61fd98aa6/stdlib/internal/collections/radixsort.jai:39:9: note: argument of type `[2] s32` does not match parameter type `*u32`
+$STDLIB/internal/collections/radixsort.jai:39:9: note: argument of type `[2] s32` does not match parameter type `*u32`
     sort :: (using radix: *RadixSort, input: *u32, count: u32) {
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/Users/matthew/projects/jai/.claude/worktrees/agent-ad6ea7ed61fd98aa6/stdlib/internal/collections/radixsort.jai:43:9: note: argument of type `[2] s32` does not match parameter type `*u64`
+$STDLIB/internal/collections/radixsort.jai:43:9: note: argument of type `[2] s32` does not match parameter type `*u64`
     sort :: (using radix: *RadixSort, input: *u64, count: u32) {
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/Users/matthew/projects/jai/.claude/worktrees/agent-ad6ea7ed61fd98aa6/stdlib/internal/collections/radixsort.jai:47:9: note: argument of type `[2] s32` does not match parameter type `*float32`
+$STDLIB/internal/collections/radixsort.jai:47:9: note: argument of type `[2] s32` does not match parameter type `*float32`
     sort :: (using radix: *RadixSort, input: *float, count: u32) {
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/Users/matthew/projects/jai/.claude/worktrees/agent-ad6ea7ed61fd98aa6/stdlib/internal/collections/radixsort.jai:51:9: note: argument of type `[2] s32` does not match parameter type `[] u32`
+$STDLIB/internal/collections/radixsort.jai:51:9: note: argument of type `[2] s32` does not match parameter type `[] u32`
     sort :: (using radix: *RadixSort, input: [] u32) {
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/Users/matthew/projects/jai/.claude/worktrees/agent-ad6ea7ed61fd98aa6/stdlib/internal/collections/radixsort.jai:55:9: note: argument of type `[2] s32` does not match parameter type `[] u64`
+$STDLIB/internal/collections/radixsort.jai:55:9: note: argument of type `[2] s32` does not match parameter type `[] u64`
     sort :: (using radix: *RadixSort, input: [] u64) {
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-/Users/matthew/projects/jai/.claude/worktrees/agent-ad6ea7ed61fd98aa6/stdlib/internal/collections/radixsort.jai:59:9: note: argument of type `[2] s32` does not match parameter type `[] float32`
+$STDLIB/internal/collections/radixsort.jai:59:9: note: argument of type `[2] s32` does not match parameter type `[] float32`
     sort :: (using radix: *RadixSort, input: [] float) {
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

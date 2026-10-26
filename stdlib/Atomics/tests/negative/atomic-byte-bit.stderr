@@ -1,4 +1,4 @@
-/Users/matthew/projects/jai/.claude/worktrees/agent-ad6ea7ed61fd98aa6/stdlib/internal/concurrency/atomics.jai:71:5: error: #assert failed: atomic bit test requires a 2-, 4-, or 8-byte target
+$STDLIB/internal/concurrency/atomics.jai:71:5: error: #assert failed: atomic bit test requires a 2-, 4-, or 8-byte target
         #assert size_of(T) == 2 || size_of(T) == 4 || size_of(T) == 8, "atomic bit test requires a 2-, 4-, or 8-byte target";
         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

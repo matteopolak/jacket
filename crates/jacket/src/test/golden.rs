@@ -349,11 +349,16 @@ pub fn golden(
 pub fn normalize_paths(text: &str, dir: &Path, stdlib: &Path) -> String {
     let mut text = text.replace("\r\n", "\n");
     for (path, name) in [(stdlib, "$STDLIB"), (dir, "$DIR")] {
-        let plain = path.to_string_lossy().into_owned();
-        let forward = plain.replace('\\', "/");
-        for form in [plain, forward] {
-            if !form.is_empty() {
-                text = text.replace(&form, name);
+        // The compiler prints resolved paths, so `a/../stdlib` must match its canonical form too.
+        let real = path.canonicalize().ok();
+        for path in [Some(path), real.as_deref()].into_iter().flatten() {
+            let plain = path.to_string_lossy().into_owned();
+            let plain = plain.strip_prefix(r"\\?\").unwrap_or(&plain).to_string();
+            let forward = plain.replace('\\', "/");
+            for form in [plain, forward] {
+                if !form.is_empty() {
+                    text = text.replace(&form, name);
+                }
             }
         }
     }

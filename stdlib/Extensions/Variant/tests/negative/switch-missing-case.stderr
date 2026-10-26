@@ -1,7 +1,7 @@
 ../../switch.jai:87:13: error: variant_switch: `Variant(s64, string, bool)` has no handler for the case `string`
                 compiler_report(tprint("variant_switch: `%` has no handler for the case `%`", variant_name(V), cases[it_index]));
                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-<#insert at /Users/matthew/projects/jai/.claude/worktrees/agent-ad6ea7ed61fd98aa6/stdlib/Extensions/Variant/switch.jai>:12:13: note: while running compile-time code started here
+<#insert at $STDLIB/Extensions/Variant/switch.jai>:12:13: note: while running compile-time code started here
         #insert -> string {
                 ^^^^^^^^^^^
 

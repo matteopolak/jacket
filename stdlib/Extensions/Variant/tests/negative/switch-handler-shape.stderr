@@ -1,7 +1,7 @@
 ../../switch.jai:58:17: error: variant_switch: handler 2 must be a procedure with one pointer argument and no result, such as `(it: *s64) { ... }`
                     compiler_report(tprint("variant_switch: handler % must be a procedure with one pointer argument and no result, such as `(it: *%) { ... }`", handler_index + 1, cases[0]));
                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-<#insert at /Users/matthew/projects/jai/.claude/worktrees/agent-ad6ea7ed61fd98aa6/stdlib/Extensions/Variant/switch.jai>:12:13: note: while running compile-time code started here
+<#insert at $STDLIB/Extensions/Variant/switch.jai>:12:13: note: while running compile-time code started here
         #insert -> string {
                 ^^^^^^^^^^^
 
