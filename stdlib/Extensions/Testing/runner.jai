@@ -9,7 +9,7 @@
 //     --accept               snapshots that differ or are new replace the stored ones
 //     --seed N               the seed property tests start from
 //     --bench NAME...        measure these benchmarks and print a `bench` record each to standard
-//                            output; --samples N, --warmup MS and --sample-ms MS change the run
+//                            output; --samples N, --warmup MS and --measure-ms MS change the run
 //
 // With `--run`, results go to jacket as records on standard error: `\x02` kind, fields after
 // `\x1f`, then `\x03`. A `start` record is also written to standard output, so jacket can tell
@@ -66,7 +66,7 @@ run_tests :: (cases: [] Test_Case, benches: [] Bench_Case) {
             reporting = true;
         } else if argument == "--bench" {
             benching = true;
-        } else if benching && i + 1 < arguments.count && (argument == "--samples" || argument == "--warmup" || argument == "--sample-ms") {
+        } else if benching && i + 1 < arguments.count && (argument == "--samples" || argument == "--warmup" || argument == "--measure-ms") {
             i += 1;
             value, ok := string_to_int(arguments[i], 10, s64);
 
@@ -77,7 +77,7 @@ run_tests :: (cases: [] Test_Case, benches: [] Bench_Case) {
 
             if argument == "--samples" bench_settings.samples = value;
             else if argument == "--warmup" bench_settings.warmup_ms = value;
-            else bench_settings.sample_ms = value;
+            else bench_settings.measure_ms = value;
         } else if benching {
             array_add(*bench_names, argument);
         } else if reporting {

@@ -31,3 +31,8 @@ empty_loop :: (b: *Bench) {
         black_box(it);
     }
 } @bench
+
+// Nothing to do in the body: the optimizer deletes the loop, so this reports about zero.
+empty_body :: (b: *Bench) {
+    for 0..b.iterations - 1 {}
+} @bench

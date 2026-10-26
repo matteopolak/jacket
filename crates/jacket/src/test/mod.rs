@@ -6,6 +6,7 @@
 //! its records, [`golden`] checks golden-output and compile-fail tests, and [`report`] prints
 //! results as text, JSON lines or `JUnit` XML. This file plans the run and schedules it.
 mod bench;
+mod bench_stats;
 mod build;
 mod coverage;
 mod diff;

@@ -223,23 +223,33 @@ pub struct TestArgs {
 pub struct BenchArgs {
     #[command(flatten)]
     pub test: TestArgs,
-    /// Samples per benchmark, over `@samples` [default: 30]
-    #[arg(long, value_name = "N", value_parser = clap::value_parser!(u32).range(1..))]
+    /// Samples per benchmark, over `@samples` [default: 50]
+    #[arg(long, value_name = "N", value_parser = clap::value_parser!(u32).range(2..))]
     pub samples: Option<u32>,
-    /// Warm-up per benchmark in milliseconds [default: 100]
+    /// Warm-up per benchmark in milliseconds, at least; it goes on until the time per iteration
+    /// is steady [default: 100]
     #[arg(long, value_name = "MS", value_parser = clap::value_parser!(u32).range(1..))]
     pub warmup: Option<u32>,
-    /// Target time of one sample in milliseconds [default: 10]
+    /// Time to spend sampling each benchmark in milliseconds, over `@min_time` [default: 1000]
     #[arg(long, value_name = "MS", value_parser = clap::value_parser!(u32).range(1..))]
-    pub sample_ms: Option<u32>,
+    pub measure_ms: Option<u32>,
+    /// Bootstrap resamples for the confidence intervals and the comparison
+    #[arg(long, value_name = "N", default_value_t = 100_000, value_parser = clap::value_parser!(u32).range(100..))]
+    pub resamples: u32,
+    /// A change smaller than this many percent is noise
+    #[arg(long, value_name = "PCT", default_value_t = 2.0)]
+    pub noise_threshold: f64,
+    /// A change counts when its p-value is below this
+    #[arg(long, value_name = "P", default_value_t = 0.05)]
+    pub significance: f64,
     /// Write the results to `target/bench-baselines/NAME.json`
     #[arg(long, value_name = "NAME")]
     pub save_baseline: Option<String>,
     /// Compare with the results saved as NAME and show the change per benchmark
     #[arg(long, value_name = "NAME")]
     pub baseline: Option<String>,
-    /// Exit 1 when a median is more than PCT percent slower than the baseline and the change is
-    /// outside the noise
+    /// Exit 1 when a benchmark regressed (the change is significant and beyond the noise
+    /// threshold) by more than PCT percent
     #[arg(long, value_name = "PCT", requires = "baseline")]
     pub max_regression: Option<f64>,
 }

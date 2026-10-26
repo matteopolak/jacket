@@ -1,7 +1,8 @@
 // Benchmarks: procedures with a `@bench` note, measured by `jacket bench`. A bench loops
-// `b.iterations` times over the work it measures; the runner picks that number so one batch
-// takes about 10 ms, times many batches and reports the median and the spread. See
-// docs/tools/jacket-bench.md.
+// `b.iterations` times over the work it measures. The runner warms up until the time per
+// iteration is steady, then times samples of k * d iterations for k = 1, 2, 3... and hands the
+// raw (iterations, nanoseconds) pairs to jacket, which fits the line and reports the slope.
+// See docs/tools/jacket-bench.md.
 //
 //     hashing :: (b: *Bench) {
 //         text := "the quick brown fox";
@@ -48,20 +49,16 @@ Bench_Case :: struct {
     min_time_ms: s64;
 }
 
-// The least time per iteration the runner believes, in nanoseconds: a body that took no
-// measurable time still gets a finite batch.
-SHORTEST_NS :: 0.001;
-
-DEFAULT_SAMPLES :: 30;
+DEFAULT_SAMPLES :: 50;
 DEFAULT_WARMUP_MS :: 100;
-DEFAULT_SAMPLE_MS :: 10;
+DEFAULT_MEASURE_MS :: 1000;
 
-// Settings of a run from the command line (`--samples`, `--warmup`, `--sample-ms`); 0 keeps
+// Settings of a run from the command line (`--samples`, `--warmup`, `--measure-ms`); 0 keeps
 // what the bench or the defaults say.
 Bench_Settings :: struct {
     samples: s64;
     warmup_ms: s64;
-    sample_ms: s64;
+    measure_ms: s64;
 }
 
 #scope_module
@@ -72,76 +69,106 @@ Counter :: struct {
     bytes: s64;
 }
 
+// Fewest samples a slow bench gets, and the span of the batches that settle the warm-up.
+MIN_SAMPLES :: 10;
+SETTLE_BATCHES :: 5;
+SETTLE_BATCH_NS :: 10_000_000;
+SETTLE_SPREAD :: 0.02;
+MAX_WARMUP_FACTOR :: 10;
+MAX_ATTEMPTS :: 3;
+STEADY_QUALITY :: 0.99;
+LONGEST_BATCH :: 4_000_000_000;
+
+// The least time per iteration the runner believes, in nanoseconds: a body that took no
+// measurable time (its loop was deleted) still gets a finite batch.
+SHORTEST_NS :: 0.001;
+
 run_bench :: (bench_case: *Bench_Case, settings: Bench_Settings) {
     runner_allocator = context.allocator;
 
-    sample_ns := 1_000_000 * ifx settings.sample_ms then settings.sample_ms else DEFAULT_SAMPLE_MS;
-    warmup_ns := 1_000_000 * ifx settings.warmup_ms then settings.warmup_ms else DEFAULT_WARMUP_MS;
-    samples := ifx settings.samples then settings.samples else ifx bench_case.samples then bench_case.samples else DEFAULT_SAMPLES;
+    cpu := pin_to_cpu();
 
-    // Enough samples to measure for `@min_time` in total.
-    if bench_case.min_time_ms {
-        needed := (bench_case.min_time_ms * 1_000_000 + sample_ns - 1) / sample_ns;
-        if needed > samples samples = needed;
-    }
+    warmup_ns := 1_000_000 * ifx settings.warmup_ms then settings.warmup_ms else DEFAULT_WARMUP_MS;
+    measure_ms := ifx settings.measure_ms then settings.measure_ms else ifx bench_case.min_time_ms then bench_case.min_time_ms else DEFAULT_MEASURE_MS;
+    measure_ns := cast(float64) measure_ms * 1_000_000.0;
+    samples := ifx settings.samples then settings.samples else ifx bench_case.samples then bench_case.samples else DEFAULT_SAMPLES;
 
     b: Bench;
 
-    // Warm up with batches that double, which also finds how long one iteration takes.
-    iterations := 1;
-    per_iteration: float64 = 0.0;
-    warm := 0;
+    per_iteration := warm_up(*b, bench_case, warmup_ns);
 
-    while true {
-        elapsed := time_batch(*b, bench_case, iterations);
+    // Sample k runs k * step iterations, so the total is step * samples * (samples + 1) / 2.
+    // A bench so slow that one step would not fit gets equal samples (and fewer of them).
+    linear := true;
+    step: s64;
+    fit := measure_ns / (per_iteration * cast(float64) (samples * (samples + 1) / 2));
 
-        warm += elapsed;
-        per_iteration = cast(float64) elapsed / cast(float64) iterations;
+    if fit >= 1.0 {
+        step = cast(s64) (fit + 0.5);
+    } else {
+        linear = false;
 
-        // A batch that is already long enough is a good estimate.
-        if warm >= warmup_ns && elapsed >= sample_ns / 4 break;
-        if warm >= warmup_ns * 4 break;
+        affordable := cast(s64) (measure_ns / per_iteration);
+        if samples > affordable samples = affordable;
+        if samples < MIN_SAMPLES samples = MIN_SAMPLES;
 
-        iterations *= 2;
+        step = affordable / samples;
+        if step < 1 step = 1;
     }
-
-    if per_iteration < SHORTEST_NS per_iteration = SHORTEST_NS;
-
-    batch := cast(s64) (cast(float64) sample_ns / per_iteration);
-    if batch < 1 batch = 1;
 
     // On the heap: counting allocations resets temporary storage.
-    times: [..] float64;
+    iterations: [..] s64;
+    nanoseconds: [..] s64;
+    trial_iterations: [..] s64;
+    trial_nanoseconds: [..] s64;
 
-    defer array_free(times);
+    defer array_free(iterations);
+    defer array_free(nanoseconds);
 
-    for 0..samples - 1 {
-        elapsed := time_batch(*b, bench_case, batch);
-        array_add(*times, cast(float64) elapsed / cast(float64) batch);
+    // A burst of load from another process spoils the samples it lands on. When the samples do
+    // not lie on a line, take them again and keep the take that does.
+    attempts := 0;
+    quality: float64 = -1.0;
+
+    while attempts < MAX_ATTEMPTS {
+        attempts += 1;
+        array_reset_keeping_memory(*trial_iterations);
+        array_reset_keeping_memory(*trial_nanoseconds);
+
+        for 1..samples {
+            count := ifx linear then it * step else step;
+            if count > LONGEST_BATCH count = LONGEST_BATCH;
+
+            array_add(*trial_iterations, count);
+            array_add(*trial_nanoseconds, time_batch(*b, bench_case, count));
+        }
+
+        trial_quality := ifx linear then line_quality(trial_iterations, trial_nanoseconds) else 1.0;
+
+        if trial_quality > quality {
+            quality = trial_quality;
+            array_copy(*iterations, trial_iterations);
+            array_copy(*nanoseconds, trial_nanoseconds);
+        }
+
+        if quality >= STEADY_QUALITY break;
     }
+
+    array_free(trial_iterations);
+    array_free(trial_nanoseconds);
 
     // The allocation count comes from one more batch whose allocator counts, so counting never
     // slows the timed ones.
-    counter := count_allocations(*b, bench_case, batch);
-
-    sort_floats(times);
-    median := middle(times);
-
-    deviations: [..] float64;
-
-    defer array_free(deviations);
-    for times array_add(*deviations, absolute(it - median));
-
-    sort_floats(deviations);
+    counter := count_allocations(*b, bench_case, step);
 
     json: String_Builder;
     json.allocator = temp;
-    print_to_builder(*json, "{\"name\":\"%\",\"samples\":%,\"iterations\":%", bench_case.name, samples, batch);
-    print_to_builder(*json, ",\"median_ns\":%,\"mad_ns\":%", fixed(median), fixed(middle(deviations)));
-    print_to_builder(*json, ",\"min_ns\":%,\"max_ns\":%", fixed(times[0]), fixed(times[times.count - 1]));
-    print_to_builder(*json, ",\"p5_ns\":%,\"p95_ns\":%", fixed(percentile(times, 5)), fixed(percentile(times, 95)));
+    print_to_builder(*json, "{\"name\":\"%\",\"mode\":\"%\",\"samples\":%,\"step\":%,\"cpu\":%,\"attempts\":%", bench_case.name, ifx linear then "linear" else "flat", samples, step, cpu, attempts);
     print_to_builder(*json, ",\"bytes_per_iteration\":%,\"items_per_iteration\":%", b.bytes_per_iteration, b.items_per_iteration);
-    print_to_builder(*json, ",\"allocs_per_iteration\":%,\"alloc_bytes_per_iteration\":%}", fixed(cast(float64) counter.allocations / cast(float64) batch), fixed(cast(float64) counter.bytes / cast(float64) batch));
+    print_to_builder(*json, ",\"allocs_per_iteration\":%,\"alloc_bytes_per_iteration\":%", per_unit(counter.allocations, step), per_unit(counter.bytes, step));
+    append_list(*json, ",\"sample_iterations\":[", iterations);
+    append_list(*json, "],\"sample_ns\":[", nanoseconds);
+    append(*json, "]}");
 
     // The result goes to jacket as a record on standard output (see runner.jai).
     record: String_Builder;
@@ -154,7 +181,127 @@ run_bench :: (bench_case: *Bench_Case, settings: Bench_Settings) {
 
 #scope_file
 
-// Runs the body for `iterations` and gives the time it took, in nanoseconds.
+#if OS == .LINUX {
+    libc :: #system_library "libc";
+
+    sched_getcpu :: () -> s32 #foreign libc;
+    sched_setaffinity :: (pid: s32, size: u64, mask: *u64) -> s32 #foreign libc;
+}
+
+// Keeps the benchmark on the core it is on, so it is not moved (and its caches cooled) in the
+// middle of a run. Returns that core, or -1 where the system gives no way to pin (macOS).
+pin_to_cpu :: () -> s64 {
+    #if OS == .LINUX {
+        cpu := sched_getcpu();
+        if cpu < 0 || cpu >= 1024 return -1;
+
+        mask: [16] u64;
+        mask[cpu / 64] = cast(u64) 1 << cast(u64) (cpu % 64);
+
+        if sched_setaffinity(0, size_of([16] u64), *mask[0]) != 0 return -1;
+
+        return cpu;
+    }
+
+    return -1;
+}
+
+// Runs the body until its time per iteration is steady and returns it, in nanoseconds.
+// First batches that double find the order of magnitude, then batches of about 10 ms go on until
+// the warm-up time has passed and the last five agree within 2%: caches, branch predictors and
+// the clock speed have settled. A body that never settles stops at ten times the warm-up.
+warm_up :: (b: *Bench, bench_case: *Bench_Case, warmup_ns: s64) -> float64 {
+    iterations := 1;
+    warm := 0;
+    per_iteration: float64;
+
+    while true {
+        elapsed := time_batch(b, bench_case, iterations);
+
+        warm += elapsed;
+        per_iteration = longer_than_zero(elapsed, iterations);
+
+        if elapsed >= 1_000_000 || iterations >= LONGEST_BATCH break;
+
+        iterations *= 2;
+    }
+
+    recent: [SETTLE_BATCHES] float64;
+    batches := 0;
+
+    while warm < warmup_ns * MAX_WARMUP_FACTOR {
+        iterations = cast(s64) (cast(float64) SETTLE_BATCH_NS / per_iteration);
+        if iterations < 1 iterations = 1;
+        if iterations > LONGEST_BATCH iterations = LONGEST_BATCH;
+
+        elapsed := time_batch(b, bench_case, iterations);
+
+        warm += elapsed;
+        per_iteration = longer_than_zero(elapsed, iterations);
+
+        recent[batches % SETTLE_BATCHES] = per_iteration;
+        batches += 1;
+
+        if batches >= SETTLE_BATCHES && warm >= warmup_ns {
+            low := recent[0];
+            high := recent[0];
+
+            for recent {
+                if it < low low = it;
+                if it > high high = it;
+            }
+
+            if high - low <= SETTLE_SPREAD * low break;
+        }
+    }
+
+    return per_iteration;
+}
+
+// How well the samples lie on a line through the origin: 1 minus the share of the variance that
+// the line leaves, the R-squared that jacket reports.
+line_quality :: (iterations: [..] s64, nanoseconds: [..] s64) -> float64 {
+    sum_xx: float64 = 0.0;
+    sum_xy: float64 = 0.0;
+    sum_y: float64 = 0.0;
+
+    for iterations {
+        x := cast(float64) it;
+        y := cast(float64) nanoseconds[it_index];
+
+        sum_xx += x * x;
+        sum_xy += x * y;
+        sum_y += y;
+    }
+
+    slope := sum_xy / sum_xx;
+    mean := sum_y / cast(float64) iterations.count;
+    residual: float64 = 0.0;
+    total: float64 = 0.0;
+
+    for iterations {
+        x := cast(float64) it;
+        y := cast(float64) nanoseconds[it_index];
+
+        residual += (y - slope * x) * (y - slope * x);
+        total += (y - mean) * (y - mean);
+    }
+
+    if total <= 0.0 return 1.0;
+
+    return 1.0 - residual / total;
+}
+
+longer_than_zero :: (elapsed: s64, iterations: s64) -> float64 {
+    per_iteration := cast(float64) elapsed / cast(float64) iterations;
+    if per_iteration < SHORTEST_NS return SHORTEST_NS;
+
+    return per_iteration;
+}
+
+// Runs the body for `iterations` and gives the time it took, in nanoseconds. The clock is read
+// twice per batch, not per iteration: whatever that and the call cost is the same for every
+// batch, and the line jacket fits through the samples leaves it out.
 time_batch :: (b: *Bench, bench_case: *Bench_Case, iterations: s64) -> s64 {
     reset_temporary_storage();
     b.iterations = iterations;
@@ -200,50 +347,18 @@ counting_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *v
     return counter.parent.proc(mode, size, old_size, old_memory, counter.parent.data);
 }
 
-sort_floats :: (values: [..] float64) {
-    // Insertion sort: a run has tens of samples.
-    for 1..values.count - 1 {
-        value := values[it];
-        j := it - 1;
+append_list :: (json: *String_Builder, opening: string, values: [..] s64) {
+    append(json, opening);
 
-        while j >= 0 && values[j] > value {
-            values[j + 1] = values[j];
-            j -= 1;
-        }
-
-        values[j + 1] = value;
+    for values {
+        if it_index > 0 append(json, ",");
+        print_to_builder(json, "%", it);
     }
 }
 
-// The median of sorted values.
-middle :: (values: [..] float64) -> float64 {
-    count := values.count;
-    if count == 0 return 0;
-    if count % 2 == 1 return values[count / 2];
-
-    return (values[count / 2 - 1] + values[count / 2]) / 2;
-}
-
-// The value `percent` percent of the way through sorted values.
-percentile :: (values: [..] float64, percent: s64) -> float64 {
-    if values.count == 0 return 0;
-
-    position := cast(float64) (values.count - 1) * cast(float64) percent / 100.0;
-    low := cast(s64) position;
-    high := min(low + 1, values.count - 1);
-    fraction := position - cast(float64) low;
-
-    return values[low] + (values[high] - values[low]) * fraction;
-}
-
-absolute :: (value: float64) -> float64 {
-    return ifx value < 0 then -value else value;
-}
-
 // A number with three decimals and no exponent, which JSON and `string_to_float` agree on.
-fixed :: (value: float64) -> string {
-    if value < 0 return tprint("-%", fixed(-value));
-
+per_unit :: (total: s64, iterations: s64) -> string {
+    value := cast(float64) total / cast(float64) iterations;
     thousandths := cast(s64) (value * 1000.0 + 0.5);
 
     return tprint("%.%%%", thousandths / 1000, (thousandths / 100) % 10, (thousandths / 10) % 10, thousandths % 10);
