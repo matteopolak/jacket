@@ -51,10 +51,18 @@ def cargo_build(args: list[str], jobs: str) -> int:
     return run(["cargo", "build", "-j", jobs, "--locked", *args])
 
 
+def tracked(files: list[str]) -> list[str]:
+    """The files git tracks in this checkout, whatever the caller listed. Nothing under `.claude/`
+    (agent worktrees live there, each with its own standard library) survives."""
+    status, listing = run_captured(["git", "-c", "core.quotepath=off", "ls-files", "--cached"])
+    known = set(listing.split("\n")) if status == 0 else None
+    return [f for f in files if not f.startswith(".claude/") and (known is None or f in known)]
+
+
 def staged(lang: str) -> list[str]:
     out = subprocess.run(["sh", str(ROOT / "tools" / "dev" / "staged-files.sh"), lang],
                          cwd=ROOT, capture_output=True, text=True, check=True).stdout
-    return [line for line in out.splitlines() if line]
+    return tracked([line for line in out.splitlines() if line])
 
 
 def pick(paths: list[str], use_staged: bool) -> tuple[list[str], list[str], bool]:
@@ -64,6 +72,7 @@ def pick(paths: list[str], use_staged: bool) -> tuple[list[str], list[str], bool
             sys.exit("--staged and explicit paths cannot be combined")
         return staged("jai"), staged("rust"), False
     if paths:
+        paths = [p for p in paths if not os.path.normpath(p).startswith(".claude")]
         return ([p for p in paths if p.endswith(".jai") or (ROOT / p).is_dir()],
                 [p for p in paths if p.endswith(".rs") or (ROOT / p).is_dir()], False)
     return [], [], True
@@ -624,7 +633,7 @@ def check_editor(hook: Hook) -> None:
 def cmd_precommit(args) -> int:
     """Format and lint the staged files only (the git pre-commit hook; docs/tools/development.md#pre-commit-hook)."""
     listed = run_captured(["git", "-c", "core.quotepath=off", "diff", "--cached", "--name-only", "--diff-filter=ACMR"])
-    everything = [f for f in listed[1].split("\n") if f] if listed[0] == 0 else []
+    everything = tracked([f for f in listed[1].split("\n") if f]) if listed[0] == 0 else []
     if not everything:
         return 0
     jai, rust, shell = staged("jai"), staged("rust"), staged("shell")

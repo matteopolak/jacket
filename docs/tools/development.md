@@ -44,6 +44,10 @@ To add a recipe: give it a doc comment (it becomes the `--list` text) and a `[gr
 
 `just hooks` (and `just build`) set a *relative* `core.hooksPath=.githooks` in the shared git config and remove any worktree-level override. Git resolves a relative path against each worktree's root, so a linked worktree runs its own tree's hooks and no hook needs to hand over to another checkout. An absolute path into the main checkout (which agent worktrees used to get) is replaced the next time `just hooks` runs.
 
+The staged list is intersected with `git ls-files` for this checkout and drops anything under `.claude/`, so a hook run never lints another agent's worktree (each has its own standard library). `[lint] exclude` in `jacket.toml` repeats `.claude/**` for runs that name a directory.
+
+A new per-system file under `stdlib/internal` (one that imports `windows-api`, `posix-api`, `objc-api`, X11 and the like, or `#assert`s an OS) must be listed in `[lint.portability.platforms]` in `jacket.toml`, or the hook's `platform_leak` check fails on it.
+
 | Staged files | Check |
 | --- | --- |
 | `*.jai` | `jaifmt --check` on the export; `jailint -D warnings` on the working tree files (it needs the surrounding loaders and modules; a file another program `#load`s is linted through that program) |

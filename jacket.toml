@@ -10,6 +10,7 @@
 #   formatted.
 # - fuzz: fuzzer seeds and byte-exact regressions, many deliberately broken.
 exclude = [
+    ".claude/**",
     "tests/corpus/negative/**",
     "tests/lint/**",
     "stdlib/**/tests/negative/**",
@@ -234,6 +235,26 @@ portable = ["stdlib/**"]
 "stdlib/internal/process/**" = ["linux", "macos"]
 "stdlib/internal/system/unix.jai" = ["linux", "macos"]
 "stdlib/internal/window/connection.jai" = ["linux"]
+"stdlib/internal/window/cocoa*.jai" = ["macos"]
+"stdlib/internal/window/win32-*.jai" = ["windows"]
+"stdlib/internal/clipboard/cocoa.jai" = ["macos"]
+"stdlib/internal/clipboard/linux.jai" = ["linux"]
+"stdlib/internal/clipboard/win32.jai" = ["windows"]
+"stdlib/internal/audio/windows-abi.jai" = ["windows"]
+"stdlib/internal/developer-tools/debug-dialog-linux.jai" = ["linux"]
+"stdlib/internal/ipc/channel-posix.jai" = ["linux", "macos"]
+"stdlib/internal/ipc/channel-windows.jai" = ["windows"]
+"stdlib/internal/net/socket-abi-android.jai" = []
+"stdlib/internal/net/socket-abi-linux.jai" = ["linux"]
+"stdlib/internal/net/socket-abi-macos.jai" = ["macos"]
+"stdlib/internal/net/socket-abi-windows.jai" = ["windows"]
+"stdlib/internal/net/socket-fields-macos.jai" = ["macos"]
+"stdlib/internal/net/socket-fields-tcp-unix.jai" = ["linux"]
+"stdlib/internal/net/socket-fields-windows.jai" = ["windows"]
+"stdlib/internal/net/socket-posix.jai" = ["linux", "macos"]
+"stdlib/internal/net/socket-windows.jai" = ["windows"]
+"stdlib/internal/watching/inotify.jai" = ["linux"]
+"stdlib/internal/watching/windows.jai" = ["windows"]
 "stdlib/internal/input/cocoa-events.jai" = ["macos"]
 "stdlib/internal/input/x11-*.jai" = ["linux"]
 "stdlib/internal/input/windows-*.jai" = ["windows"]
