@@ -102,6 +102,13 @@ pub enum Intrinsic {
     /// Interpreter execution validates XSAVE/OSXSAVE and optional index-1 support.
     X86Xgetbv,
     Pause,
+    /// `(value) -> value`: the value, hidden from the optimizer (`black_box`). Native code is an
+    /// empty inline assembly that takes the value in a register and gives it back, so nothing
+    /// folds through it and the work behind it stays; no instruction is emitted.
+    BlackBox,
+    /// `(ptr)`: the memory at the address is read and written by code the optimizer cannot see
+    /// (`black_box` of an aggregate, which the caller copied to a fresh stack slot first).
+    BlackBoxMemory,
     /// `(number, a1..a6) -> raw result`, all `I64`: a Linux x86-64 system call (`#asm` `syscall`).
     /// The result is the kernel's raw return value, `-errno` on failure. Native code issues the
     /// `syscall` instruction; the interpreter calls the host's `syscall` on Linux x86-64 and the

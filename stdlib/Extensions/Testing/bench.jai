@@ -12,15 +12,11 @@
 //         }
 //     } @bench @samples(40)
 
-// Hides `value` from the optimizer: the result is not known at compile time and the work that
-// made it cannot be dropped as unused. Wrap what a bench computes, and the inputs it should not
-// see through.
-black_box :: (value: $T) -> T {
-    copy := value;
-    keeper(*copy, size_of(T));
-
-    return copy;
-}
+// Returns `value` and hides it from the optimizer: the compiler cannot know the result, and
+// cannot drop the work that made it, so wrap what a bench computes and the inputs it must not
+// see through. It is an intrinsic that costs no instruction: an empty assembly block takes the
+// value and may change it (and any memory), see docs/language/intrinsics.md.
+black_box :: (value: $T) -> T #intrinsic;
 
 // Each iteration handles `count` bytes, so the report shows a rate in bytes per second.
 set_bytes :: (b: *Bench, count: s64) {
@@ -74,38 +70,6 @@ Counter :: struct {
     parent: Allocator;
     allocations: s64;
     bytes: s64;
-}
-
-// What `black_box` calls. The compiler has to assume that a call through this pointer reads
-// and changes the memory it is given, because it cannot tell which of two procedures runs:
-// `settle` is the one that does (`run_bench` may switch to `inspect`, which reads every byte).
-// A direct call would not do: the optimizer sees that `settle` never reads the memory and
-// drops the stores that fill it.
-keeper: (pointer: *void, size: s64) = settle;
-
-// Where `settle` leaves the pointer, and what `inspect` computes; `run_bench` reads both, so
-// the stores to them are not dead.
-sink: *void;
-sink_sum: s64;
-
-settle :: no_inline (pointer: *void, size: s64) {
-    sink = pointer;
-
-    if pointer == cast(*void) 1 {
-        cast(*u8, pointer).* = 0;
-    }
-}
-
-inspect :: no_inline (pointer: *void, size: s64) {
-    sum := 0;
-    for 0..size - 1 sum += (cast(*u8, pointer) +it).*;
-
-    sink_sum = sum;
-    sink = pointer;
-
-    if pointer == cast(*void) 1 {
-        cast(*u8, pointer).* = 0;
-    }
 }
 
 run_bench :: (bench_case: *Bench_Case, settings: Bench_Settings) {
@@ -178,11 +142,6 @@ run_bench :: (bench_case: *Bench_Case, settings: Bench_Settings) {
     print_to_builder(*json, ",\"p5_ns\":%,\"p95_ns\":%", fixed(percentile(times, 5)), fixed(percentile(times, 95)));
     print_to_builder(*json, ",\"bytes_per_iteration\":%,\"items_per_iteration\":%", b.bytes_per_iteration, b.items_per_iteration);
     print_to_builder(*json, ",\"allocs_per_iteration\":%,\"alloc_bytes_per_iteration\":%}", fixed(cast(float64) counter.allocations / cast(float64) batch), fixed(cast(float64) counter.bytes / cast(float64) batch));
-
-    // Never true, but the compiler cannot know it (see `keeper`).
-    if sink == cast(*void) 1 || sink_sum == 1 {
-        keeper = inspect;
-    }
 
     // The result goes to jacket as a record on standard output (see runner.jai).
     record: String_Builder;

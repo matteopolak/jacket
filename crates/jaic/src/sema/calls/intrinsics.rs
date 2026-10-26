@@ -30,6 +30,9 @@ impl Compiler {
             k += 1;
             values.push(self.param_value(f, sig, &param, slot, &args, span)?);
         }
+        if name.as_str() == "black_box" {
+            return self.emit_black_box(f, sig, &values, span);
+        }
         let op = match name.as_str() {
             "memcpy" => ir::Intrinsic::Memcpy,
             "memset" => ir::Intrinsic::Memset,
@@ -210,6 +213,47 @@ impl Compiler {
         let results = f.b.intrinsic(op, values, &returns);
         let outs = vec![None; sig.returns.len()];
         Ok(self.call_results(&sig.returns, results, outs, &sig.return_callables))
+    }
+
+    /// `black_box(value)`: `value` unchanged, but unknown to the optimizer. A scalar goes through
+    /// an operation that takes and returns it; an aggregate is copied to a fresh stack slot that
+    /// the operation may read and write, and the slot is the result.
+    fn emit_black_box(
+        &mut self,
+        f: &mut FnCtx,
+        sig: &Signature,
+        values: &[ir::Val],
+        span: Span,
+    ) -> Result<Operand> {
+        let (&[value], &[ty], [param]) = (values, sig.returns.as_slice(), sig.params.as_slice())
+        else {
+            return err(span, "`black_box` takes one value and returns it");
+        };
+        if param.ty != ty {
+            return err(span, "`black_box` returns the type of its argument");
+        }
+        if self.is_memory_type(ty) {
+            let size = self.size_of(ty, span)?;
+            let align = self.align_of(ty, span)?;
+            let slot = f.b.alloca(size.max(1), align);
+            f.b.copy(slot, value, size);
+            f.b.intrinsic(ir::Intrinsic::BlackBoxMemory, vec![slot], &[]);
+            return Ok(self.call_results(
+                &sig.returns,
+                Vec::new(),
+                vec![Some(slot)],
+                &sig.return_callables,
+            ));
+        }
+        let Some(scalar) = self.ir_ty(ty) else {
+            return err(
+                span,
+                "`black_box` needs a value with a runtime representation",
+            );
+        };
+        let results =
+            f.b.intrinsic(ir::Intrinsic::BlackBox, vec![value], &[scalar]);
+        Ok(self.call_results(&sig.returns, results, vec![None], &sig.return_callables))
     }
 
     /// The compile-time integer passed as the last argument of an intrinsic.

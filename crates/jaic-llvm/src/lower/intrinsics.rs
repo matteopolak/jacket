@@ -162,6 +162,11 @@ impl<'ctx> Backend<'ctx, '_> {
             | Intrinsic::CycleCounter
             | Intrinsic::Syscall
             | Intrinsic::Pause => self.intrinsic_machine(st, op, args, want),
+            Intrinsic::BlackBox => self.black_box(args[0]).map(|v| vec![v]),
+            Intrinsic::BlackBoxMemory => {
+                self.black_box_memory(ptr_arg(0)?)?;
+                Ok(vec![])
+            }
             Intrinsic::FiberInit | Intrinsic::FiberSwitch | Intrinsic::FiberFree => {
                 self.intrinsic_fibers(st, op, args, want)
             }
@@ -927,6 +932,57 @@ impl<'ctx> Backend<'ctx, '_> {
             false,
         );
         Ok(basic(self.builder.build_indirect_call(ty, asm, &[], "")?))
+    }
+
+    /// `black_box` of a scalar: an empty assembly block that takes the value in a register and
+    /// gives it back in the same one. It emits no instruction, but the optimizer must assume the
+    /// block changed the value and touched memory, so the value is never known and whatever
+    /// computed it is kept.
+    pub(super) fn black_box(&self, value: BasicValueEnum<'ctx>) -> R<BasicValueEnum<'ctx>> {
+        let ty = value.get_type();
+        let class = if ty.is_float_type() {
+            match self.arch {
+                Arch::Aarch64 | Arch::Win64Arm => "w",
+                Arch::X86_64 | Arch::Win64 => "x",
+                Arch::Wasm64 => "r",
+            }
+        } else {
+            "r"
+        };
+        let fn_ty = self.fn_type(Some(ty), &[ty.into()], false);
+        let asm = self.ctx.create_inline_asm(
+            fn_ty,
+            String::new(),
+            format!("={class},0,~{{memory}}"),
+            true,
+            false,
+            None,
+            false,
+        );
+        basic(
+            self.builder
+                .build_indirect_call(fn_ty, asm, &[value.into()], "")?,
+        )
+        .ok_or_else(|| "black_box produced no value".into())
+    }
+
+    /// `black_box` of an aggregate: an empty assembly block that is given the address of the
+    /// copy and may read and write it.
+    pub(super) fn black_box_memory(&self, pointer: PointerValue<'ctx>) -> R<()> {
+        let ptr_ty = self.ptr_ty();
+        let fn_ty = self.fn_type(None, &[ptr_ty.into()], false);
+        let asm = self.ctx.create_inline_asm(
+            fn_ty,
+            String::new(),
+            "r,~{memory}".to_string(),
+            true,
+            false,
+            None,
+            false,
+        );
+        self.builder
+            .build_indirect_call(fn_ty, asm, &[pointer.into()], "")?;
+        Ok(())
     }
 }
 

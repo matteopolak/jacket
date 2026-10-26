@@ -179,6 +179,8 @@ impl Interp {
                     );
                 }
             }
+            I::BlackBox => Rets::one(a[0]),
+            I::BlackBoxMemory => Rets::default(),
             I::Pause => {
                 std::hint::spin_loop();
                 if self.multi && self.host.cooperative_threads() {
