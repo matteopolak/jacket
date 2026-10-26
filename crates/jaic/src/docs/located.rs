@@ -1,5 +1,5 @@
 //! Doc comments with the line they start on.
-use super::*;
+use super::{Comment, CommentKind, DocText, Trivia, decoration, line_start, trivia, valid};
 
 /// A doc comment and the line of the file its first line is on (1-based). Each line of `text`
 /// is the next line of the file.
