@@ -201,19 +201,22 @@ fn host_cpu() -> &'static str {
     }
 }
 
-/// The standard library jaic uses, to write it `$STDLIB` in compile-fail output: as jaic finds
-/// it (`JAIC_STDLIB`, else beside the compiler, else this repository's).
-fn stdlib_dir(jaic: &Path) -> PathBuf {
-    if let Some(dir) = std::env::var_os("JAIC_STDLIB") {
-        return dir.into();
+/// The standard library jaic uses, to write it `$STDLIB` in compile-fail output: jaic is asked
+/// (`jaic -print_stdlib`), so it is the one place that knows where the library is.
+fn stdlib_dir(jaic: &Path) -> Result<PathBuf, String> {
+    let output = std::process::Command::new(jaic)
+        .arg("-print_stdlib")
+        .output()
+        .map_err(|e| format!("could not start `{}`: {e}", jaic.display()))?;
+    let text = String::from_utf8_lossy(&output.stdout);
+    let line = text.lines().next().unwrap_or("").trim();
+    if !output.status.success() || line.is_empty() {
+        return Err(format!(
+            "`{} -print_stdlib` failed; is this jaic too old for this jacket?",
+            jaic.display()
+        ));
     }
-    let real = jaic.canonicalize().ok();
-    [Some(jaic.to_path_buf()), real]
-        .into_iter()
-        .flatten()
-        .filter_map(|exe| Some(exe.parent()?.join("stdlib")))
-        .find(|dir| dir.is_dir())
-        .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"))
+    Ok(PathBuf::from(line))
 }
 
 /// `hash:K/N` or `count:K/N`: whether the `index`-th test named `name` is in this part.
@@ -289,9 +292,20 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: bool) -> ExitCode {
     if let Some(cpu) = &args.cpu {
         flags.extend(["-cpu".to_string(), cpu.clone()]);
     }
+    // The project's import folders and `[experimental]` settings reach tests as they reach
+    // `jacket build`, and the user's own flags come last.
+    let user_flags: Vec<std::ffi::OsString> = args.jaic_args.iter().map(Into::into).collect();
+    flags.extend(
+        crate::compile::project_flags(&user_flags, loaded.as_ref())
+            .into_iter()
+            .map(|flag| flag.to_string_lossy().into_owned()),
+    );
     flags.extend(args.jaic_args.iter().cloned());
     let jaic = tools::find(tools::JAIC);
-    let stdlib = stdlib_dir(&jaic);
+    let stdlib = match stdlib_dir(&jaic) {
+        Ok(dir) => dir,
+        Err(error) => return fail(error),
+    };
     let mut doc_files = std::collections::BTreeSet::new();
     let toolchain = Toolchain {
         jaic: jaic.clone(),

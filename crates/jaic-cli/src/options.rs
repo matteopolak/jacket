@@ -43,6 +43,8 @@ pub(super) enum Request {
     Compile(Box<Cli>),
     Help,
     Version,
+    /// Print the standard library folder in use.
+    Stdlib,
 }
 
 /// Where `jaic -help` lists an option.
@@ -69,6 +71,7 @@ pub(super) struct Help {
 pub(super) enum Action {
     Help,
     Version,
+    PrintStdlib,
     Check,
     Interp,
     Flavor(Flavor),
@@ -95,8 +98,6 @@ pub(super) struct CliOption {
     pub(super) names: &'static [&'static str],
     /// Spellings it also accepts but never suggests (`-h`, `--help`).
     aliases: &'static [&'static str],
-    /// Only a build takes it: `-check` and `-interp` write no output.
-    pub(super) build_only: bool,
     /// Its `-help` line; `None` when another option's line covers it.
     pub(super) help: Option<Help>,
     pub(super) action: Action,
@@ -107,7 +108,6 @@ impl CliOption {
         CliOption {
             names,
             aliases: &[],
-            build_only: false,
             help: None,
             action,
         }
@@ -118,7 +118,6 @@ impl CliOption {
         CliOption {
             names: flag.names,
             aliases: &[],
-            build_only: false,
             help: Some(Help {
                 section,
                 synopsis: flag.synopsis,
@@ -130,11 +129,6 @@ impl CliOption {
 
     const fn aliases(mut self, aliases: &'static [&'static str]) -> Self {
         self.aliases = aliases;
-        self
-    }
-
-    pub(super) const fn build_only(mut self) -> Self {
-        self.build_only = true;
         self
     }
 
@@ -235,7 +229,6 @@ pub(super) const OPTIONS: &[CliOption] = {
             &["-exe"],
             store!("an executable name", |cli, name| cli.exe = Some(name)),
         )
-        .build_only()
         .help(
             Output,
             "-exe <name>",
@@ -247,56 +240,48 @@ pub(super) const OPTIONS: &[CliOption] = {
             store!("a directory", |cli, dir| cli.output_path =
                 Some(PathBuf::from(dir))),
         )
-        .build_only()
         .help(
             Output,
             "-output_path <dir>",
             "the directory the executable is written to",
         ),
-        CliOption::new(&["-o", "-optimized"], Action::Flavor(Flavor::Optimized))
-            .build_only()
-            .help(
-                Output,
-                "-o, -optimized",
-                "optimized build (LLVM O2) without stack traces or runtime checks",
-            ),
+        CliOption::new(&["-o", "-optimized"], Action::Flavor(Flavor::Optimized)).help(
+            Output,
+            "-o, -optimized",
+            "optimized build (LLVM O2) without stack traces or runtime checks",
+        ),
         CliOption::new(
             &["-od", "-optimized_debug"],
             Action::Flavor(Flavor::OptimizedDebug),
         )
-        .build_only()
         .help(
             Output,
             "-od, -optimized_debug",
             "lightly optimized build (LLVM O1) that keeps stack traces and checks",
         ),
-        CliOption::new(&["-very_debug"], Action::Flavor(Flavor::VeryDebug))
-            .build_only()
-            .help(
-                Output,
-                "-very_debug",
-                "unoptimized build with every runtime check on",
-            ),
-        CliOption::new(&["-O0"], Action::OptLevel(BitcodeOptimization::O0))
-            .build_only()
-            .help(
-                Output,
-                "-O0, -O1, -O2, -O3",
-                "pick the LLVM optimization level directly",
-            ),
-        CliOption::new(&["-O1"], Action::OptLevel(BitcodeOptimization::O1)).build_only(),
-        CliOption::new(&["-O2"], Action::OptLevel(BitcodeOptimization::O2)).build_only(),
-        CliOption::new(&["-O3"], Action::OptLevel(BitcodeOptimization::O3)).build_only(),
-        CliOption::new(&["-no_inline"], Action::Switch(|cli| &mut cli.no_inline))
-            .build_only()
-            .help(Output, "-no_inline", "do not inline procedures"),
-        CliOption::new(&["-no_split"], Action::Switch(|cli| &mut cli.no_split))
-            .build_only()
-            .help(
-                Output,
-                "-no_split",
-                "generate code as one module instead of several",
-            ),
+        CliOption::new(&["-very_debug"], Action::Flavor(Flavor::VeryDebug)).help(
+            Output,
+            "-very_debug",
+            "unoptimized build with every runtime check on",
+        ),
+        CliOption::new(&["-O0"], Action::OptLevel(BitcodeOptimization::O0)).help(
+            Output,
+            "-O0, -O1, -O2, -O3",
+            "pick the LLVM optimization level directly",
+        ),
+        CliOption::new(&["-O1"], Action::OptLevel(BitcodeOptimization::O1)),
+        CliOption::new(&["-O2"], Action::OptLevel(BitcodeOptimization::O2)),
+        CliOption::new(&["-O3"], Action::OptLevel(BitcodeOptimization::O3)),
+        CliOption::new(&["-no_inline"], Action::Switch(|cli| &mut cli.no_inline)).help(
+            Output,
+            "-no_inline",
+            "do not inline procedures",
+        ),
+        CliOption::new(&["-no_split"], Action::Switch(|cli| &mut cli.no_split)).help(
+            Output,
+            "-no_split",
+            "generate code as one module instead of several",
+        ),
         CliOption::new(
             &["-no_backtrace_on_crash"],
             Action::Switch(|cli| &mut cli.no_backtrace_on_crash),
@@ -311,13 +296,11 @@ pub(super) const OPTIONS: &[CliOption] = {
             store!("a file to write the LLVM IR to", |cli, file| cli.emit_ir =
                 Some(PathBuf::from(file))),
         )
-        .build_only()
         .help(Output, "-emit_ir <file.ll>", "also write the LLVM IR"),
         CliOption::new(
             &["-no_debug_info"],
             Action::Switch(|cli| &mut cli.no_debug_info),
         )
-        .build_only()
         .help(
             Output,
             "-no_debug_info",
@@ -330,19 +313,16 @@ pub(super) const OPTIONS: &[CliOption] = {
                 store: store_sanitize,
             },
         )
-        .build_only()
         .help(
             Output,
             "-sanitize <list>",
             "address, undefined and/or fuzzer, comma-separated",
         ),
-        CliOption::new(&["-coverage"], Action::Switch(|cli| &mut cli.coverage))
-            .build_only()
-            .help(
-                Output,
-                "-coverage",
-                "record line and function coverage (docs/tools/coverage.md)",
-            ),
+        CliOption::new(&["-coverage"], Action::Switch(|cli| &mut cli.coverage)).help(
+            Output,
+            "-coverage",
+            "record line and function coverage (docs/tools/coverage.md)",
+        ),
         CliOption::new(
             &["-no_workspace_output"],
             Action::Switch(|cli| &mut cli.no_workspace_output),
@@ -386,6 +366,11 @@ pub(super) const OPTIONS: &[CliOption] = {
         CliOption::new(&["-help"], Action::Help)
             .aliases(&["-h", "--help"])
             .help(Diagnostics, "-h, -help, --help", "print this help"),
+        CliOption::new(&["-print_stdlib"], Action::PrintStdlib).help(
+            Diagnostics,
+            "-print_stdlib",
+            "print the standard library folder jaic uses and exit",
+        ),
         CliOption::new(&["-version"], Action::Version)
             .aliases(&["-V", "--version"])
             .help(Diagnostics, "-V, -version, --version", "print the version"),

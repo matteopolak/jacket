@@ -126,7 +126,7 @@ pub struct TestArgs {
     /// Print the tests (and benchmarks) instead of running them
     #[arg(long)]
     pub list: bool,
-    /// Tests run at once [default: the machine's threads]
+    /// Tests run at once, as jaic's -j [default: the machine's threads]
     #[arg(short = 'j', long, value_name = "N")]
     pub jobs: Option<usize>,
     /// Seconds before a test without `@timeout` is killed; 0 for no limit [default: 120]
@@ -162,11 +162,11 @@ pub struct TestArgs {
     /// Run the tests in jaic's interpreter
     #[arg(long)]
     pub interp: bool,
-    /// Target OS, as jaic's -os
-    #[arg(long, value_name = "OS")]
+    /// Target OS, as jaic's -os (also spelt `-os`)
+    #[arg(long, value_name = "OS", value_parser = ["linux", "windows", "macos", "wasm"])]
     pub os: Option<String>,
-    /// Target CPU, as jaic's -cpu
-    #[arg(long, value_name = "CPU")]
+    /// Target CPU, as jaic's -cpu (also spelt `-cpu`)
+    #[arg(long, value_name = "CPU", value_parser = parse_cpu)]
     pub cpu: Option<String>,
     /// Command that runs test programs built for another target (`node tools/wasi_run.mjs`)
     #[arg(long, value_name = "COMMAND")]
@@ -197,17 +197,34 @@ pub struct TestArgs {
     pub jaic_args: Vec<String>,
 }
 
-/// jaic's single-dash `-os` and `-cpu` (before `--`) as the `--os` and `--cpu` clap knows.
+/// A CPU name as jaic's `-cpu` takes it, in the spelling the tests use (`x64`, `arm64`).
+fn parse_cpu(name: &str) -> Result<String, String> {
+    match name {
+        "x64" | "x86_64" => Ok("x64".into()),
+        "arm64" | "aarch64" => Ok("arm64".into()),
+        _ => Err("expected x64 or arm64".into()),
+    }
+}
+
+/// jaic's single-dash `-os` and `-cpu` (before `--`, also as `-os=linux`) as the `--os` and
+/// `--cpu` clap knows.
 pub fn test_args(args: Vec<OsString>) -> Vec<OsString> {
     let mut seen_end = false;
     args.into_iter()
         .map(|arg| {
             seen_end |= arg == "--";
-            match arg.to_str() {
-                Some("-os") if !seen_end => "--os".into(),
-                Some("-cpu") if !seen_end => "--cpu".into(),
-                _ => arg,
+            let Some(text) = arg.to_str().filter(|_| !seen_end) else {
+                return arg;
+            };
+            for name in ["os", "cpu"] {
+                if text == format!("-{name}") {
+                    return format!("--{name}").into();
+                }
+                if let Some(value) = text.strip_prefix(&format!("-{name}=")) {
+                    return format!("--{name}={value}").into();
+                }
             }
+            arg
         })
         .collect()
 }
@@ -223,4 +240,34 @@ pub struct Passthrough {
 pub enum ConfigAction {
     /// Print the effective configuration
     Show,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn jaic_spellings_of_the_target_reach_clap() {
+        let args = |words: &[&str]| -> Vec<OsString> { words.iter().map(OsString::from).collect() };
+        let got = test_args(args(&[
+            "test",
+            "-os",
+            "wasm",
+            "-cpu=arm64",
+            "--",
+            "-os",
+            "x",
+        ]));
+        assert_eq!(
+            got,
+            args(&["test", "--os", "wasm", "--cpu=arm64", "--", "-os", "x"])
+        );
+    }
+
+    #[test]
+    fn cpu_aliases_are_normalised() {
+        assert_eq!(parse_cpu("aarch64").as_deref(), Ok("arm64"));
+        assert_eq!(parse_cpu("x86_64").as_deref(), Ok("x64"));
+        assert!(parse_cpu("riscv").is_err());
+    }
 }

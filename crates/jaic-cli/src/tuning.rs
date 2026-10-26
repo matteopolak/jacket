@@ -193,20 +193,17 @@ const OPTIONS: &[CliOption] = &[
     CliOption::new(
         &["-dev_verify_ir"],
         Action::Switch(|cli| &mut cli.tuning.verify_ir),
-    )
-    .build_only(),
+    ),
     CliOption::new(
         &["-dev_o0_passes"],
         store!("an LLVM pass pipeline", |cli, passes| cli
             .tuning
             .o0_passes =
             Some(passes)),
-    )
-    .build_only(),
+    ),
     CliOption::new(
         &["-dev_split_units"],
         store!("a number of objects", |cli, n| cli.tuning.split_units =
             Some(parse_count(&n, "-dev_split_units")?)),
-    )
-    .build_only(),
+    ),
 ];

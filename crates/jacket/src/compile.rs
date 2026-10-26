@@ -7,7 +7,8 @@
 //!   else the first of `jacket_config::INFERRED_ENTRIES` that exists);
 //! - `[project] import_path` becomes `-import_dir`;
 //! - `[experimental]` becomes `-parse_threads`, `-serial_parse` and `-codegen_units`, each only
-//!   when the arguments do not already carry that flag.
+//!   when the arguments do not already carry that flag ([`project_flags`], which `jacket test`
+//!   uses too).
 //!
 //! `check` is `jaic -check <args>`. `run` is `jaic <args>` followed by the program (arguments
 //! after `--` go to it); with `-interp` the whole command line, `--` included, is jaic's.
@@ -76,33 +77,70 @@ pub fn entry(ctx: &Context) -> Option<PathBuf> {
         })
 }
 
-/// What `[project]` and `[experimental]` add in front of the user's arguments.
-fn defaults(args: &[OsString], ctx: &Context) -> Vec<OsString> {
-    let Some(loaded) = ctx.loaded else {
+/// A flag the project supplies.
+struct Supplied {
+    flag: &'static str,
+    value: Option<String>,
+    /// The user's arguments override it: any of these (or the flag itself) among them drops it.
+    /// `None` for a flag that is repeatable and always added.
+    unless: Option<&'static [&'static str]>,
+}
+
+/// What `[project]` and `[experimental]` ask of the compiler, in command-line order.
+fn supplied(loaded: &Loaded) -> Vec<Supplied> {
+    let mut out: Vec<Supplied> = loaded
+        .config
+        .project
+        .import_dirs(loaded.dir())
+        .into_iter()
+        .map(|dir| Supplied {
+            flag: "-import_dir",
+            value: Some(dir.to_string_lossy().into_owned()),
+            unless: None,
+        })
+        .collect();
+    let experimental = &loaded.config.experimental;
+    if let Some(n) = experimental.parse_threads {
+        out.push(Supplied {
+            flag: "-parse_threads",
+            value: Some(n.to_string()),
+            unless: Some(&[]),
+        });
+    }
+    if experimental.serial_parse == Some(true) {
+        out.push(Supplied {
+            flag: "-serial_parse",
+            value: None,
+            unless: Some(&[]),
+        });
+    }
+    if let Some(n) = experimental.codegen_units {
+        out.push(Supplied {
+            flag: "-codegen_units",
+            value: Some(n.to_string()),
+            unless: Some(&["-no_split"]),
+        });
+    }
+    out
+}
+
+/// The flags the project adds in front of `args` (jaic's arguments, user-written): its import
+/// folders, and each `[experimental]` setting the arguments do not already carry. `build`,
+/// `check`, `run` and `test` all take their compiler flags from here.
+pub fn project_flags(args: &[OsString], loaded: Option<&Loaded>) -> Vec<OsString> {
+    let Some(loaded) = loaded else {
         return Vec::new();
     };
     let region = flag_region(args);
     let mut out: Vec<OsString> = Vec::new();
-    for dir in loaded.config.project.import_dirs(loaded.dir()) {
-        out.push("-import_dir".into());
-        out.push(dir.into_os_string());
-    }
-    let experimental = &loaded.config.experimental;
-    if let Some(n) = experimental.parse_threads
-        && !has_flag(region, "-parse_threads")
-    {
-        out.push("-parse_threads".into());
-        out.push(n.to_string().into());
-    }
-    if experimental.serial_parse == Some(true) && !has_flag(region, "-serial_parse") {
-        out.push("-serial_parse".into());
-    }
-    if let Some(n) = experimental.codegen_units
-        && !has_flag(region, "-codegen_units")
-        && !has_flag(region, "-no_split")
-    {
-        out.push("-codegen_units".into());
-        out.push(n.to_string().into());
+    for supplied in supplied(loaded) {
+        let given = supplied.unless.is_some_and(|others| {
+            has_flag(region, supplied.flag) || others.iter().any(|o| has_flag(region, o))
+        });
+        if !given {
+            out.push(supplied.flag.into());
+            out.extend(supplied.value.map(OsString::from));
+        }
     }
     out
 }
@@ -122,7 +160,7 @@ pub fn jaic_argv(check: bool, args: &[OsString], ctx: &Context) -> Vec<OsString>
     {
         argv.push(entry.into_os_string());
     }
-    argv.extend(defaults(args, ctx));
+    argv.extend(project_flags(args, ctx.loaded));
     argv.extend(args.iter().cloned());
     argv
 }
@@ -336,6 +374,35 @@ mod tests {
                 "-no_split"
             ]
         );
+    }
+
+    #[test]
+    fn test_runs_take_the_same_project_flags() {
+        let with = loaded(
+            "[project]\nimport_path = [\"vendor\"]\n[experimental]\nparse_threads = 2\ncodegen_units = 4\n",
+        );
+        let flags = |args: &[&str]| -> Vec<String> {
+            project_flags(&os(args), Some(&with))
+                .iter()
+                .map(|a| a.to_string_lossy().into_owned())
+                .collect()
+        };
+        assert_eq!(
+            flags(&["-O2"]),
+            [
+                "-import_dir",
+                "/w/vendor",
+                "-parse_threads",
+                "2",
+                "-codegen_units",
+                "4"
+            ]
+        );
+        assert_eq!(
+            flags(&["-parse_threads=8", "-no_split"]),
+            ["-import_dir", "/w/vendor"]
+        );
+        assert!(project_flags(&os(&["-O2"]), None).is_empty());
     }
 
     #[test]

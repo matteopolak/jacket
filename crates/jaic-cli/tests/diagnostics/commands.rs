@@ -160,14 +160,6 @@ fn command_line_mistakes_explain_themselves() {
             ],
         ),
         (
-            &["ok.jai", "-interp", "-o"],
-            &["error: `-o` only applies to a build, not `-interp`"],
-        ),
-        (
-            &["ok.jai", "-check", "-exe", "x"],
-            &["error: `-exe` only applies to a build, not `-check`"],
-        ),
-        (
             &["ok.jai", "-O7"],
             &[
                 "error: unknown optimization level `-O7`",
@@ -273,6 +265,20 @@ fn plugin_arguments_help_version_and_colour() {
             ],
         );
     }
+    // Options that shape a build's output are accepted and ignored by the modes that write none.
+    for args in [
+        &["ok.jai", "-check", "-exe", "x", "-O2"][..],
+        &["ok.jai", "-interp", "-o", "-emit_ir", "x.ll"][..],
+    ] {
+        assert_eq!(jaic(&dir, args, &[]).status.code(), Some(0), "{args:?}");
+    }
+    let printed = jaic(&dir, &["-print_stdlib"], &[]);
+    assert_eq!(printed.status.code(), Some(0));
+    assert!(
+        String::from_utf8_lossy(&printed.stdout)
+            .trim()
+            .ends_with("stdlib")
+    );
     for flag in ["--version", "-version", "-V"] {
         let output = jaic(&dir, &[flag], &[]);
         assert_eq!(output.status.code(), Some(0), "{flag}");

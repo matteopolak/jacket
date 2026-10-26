@@ -212,7 +212,7 @@ jacket test -os wasm --runner "node --no-warnings tools/wasi_run.mjs" # a wasm b
 jacket test -- -O2                                     # flags after `--` go to jaic
 ```
 
-`-os` and `-cpu` are spelled as in jaic. `--runner` is split on spaces, and the built program and its arguments follow its words; it applies to unit and golden tests. Tests run in their own folders, so a word naming an existing file is made absolute: from the current directory for `--runner`, from the folder of `jacket.toml` for `[test] runner`. Flags after `--` that only a build takes (`-O2`, `-exe`, ...) are left out where jacket checks or interprets instead (listing, compile-fail tests, `--interp`).
+`-os` and `-cpu` are spelled as in jaic (`-os wasm`, `-os=wasm`, `--os wasm`), `-j` and `--jobs` too; an OS or CPU jaic does not know is a usage error. The compiler flags every test build gets are the project's, as for `jacket build`: `[project] import_path` as `-import_dir`, and each `[experimental]` setting the flags after `--` do not already carry. `--runner` is split on spaces, and the built program and its arguments follow its words; it applies to unit and golden tests. Tests run in their own folders, so a word naming an existing file is made absolute: from the current directory for `--runner`, from the folder of `jacket.toml` for `[test] runner`. Flags after `--` go to every jaic run unchanged; the ones that only shape a build's output (`-O2`, `-exe`, ...) are ignored by jaic where jacket checks or interprets instead (listing, compile-fail tests, `--interp`).
 
 ### Output formats
 
@@ -334,7 +334,7 @@ retries = 2
 fail_fast = true
 ```
 
-Flags win over the profile, the profile over `[test]`. Unknown keys get the usual `jacket.toml` warning. Environment: `JAIC_STDLIB` (where `$STDLIB` points, as for jaic), `TMPDIR` (the work folder).
+Flags win over the profile, the profile over `[test]`. Unknown keys get the usual `jacket.toml` warning. Environment: `JAIC_STDLIB` (where jaic finds its standard library, which `$STDLIB` stands for; jacket asks `jaic -print_stdlib`), `TMPDIR` (the work folder).
 
 ## Dependencies
 

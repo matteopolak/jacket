@@ -127,11 +127,6 @@ pub fn unit(
     } else {
         toolchain.flags.clone()
     };
-    let discovery_flags = if list || from_registry {
-        unbuilt_flags(&discovery_flags)
-    } else {
-        discovery_flags
-    };
     let mut command = Command::new(&toolchain.jaic);
     command
         .arg(&root)
@@ -188,7 +183,7 @@ pub fn unit(
                     .arg(&program_root)
                     .arg("-check")
                     .arg("-quiet")
-                    .args(unbuilt_flags(&toolchain.flags))
+                    .args(&toolchain.flags)
                     .args(root_flags)
                     .current_dir(work);
                 run_jaic(&mut command, toolchain)?;
@@ -254,45 +249,6 @@ fn host_flags(flags: &[String]) -> Vec<String> {
     out
 }
 
-/// jaic's options that only a build takes (`-check` and `-interp` reject them), and whether
-/// each takes a value.
-const BUILD_ONLY: [(&str, bool); 17] = [
-    ("-exe", true),
-    ("-output_path", true),
-    ("-emit_ir", true),
-    ("-sanitize", true),
-    ("-o", false),
-    ("-optimized", false),
-    ("-od", false),
-    ("-optimized_debug", false),
-    ("-very_debug", false),
-    ("-O0", false),
-    ("-O1", false),
-    ("-O2", false),
-    ("-O3", false),
-    ("-no_inline", false),
-    ("-no_split", false),
-    ("-no_debug_info", false),
-    ("-coverage", false),
-];
-
-/// `flags` for a `-check` or `-interp` run: without the options only a build takes, so
-/// `jacket test -- -O2` still lists, checks compile-fail tests and runs interpreted.
-pub fn unbuilt_flags(flags: &[String]) -> Vec<String> {
-    let mut out = Vec::new();
-    let mut flags = flags.iter();
-    while let Some(flag) = flags.next() {
-        match BUILD_ONLY.iter().find(|(name, _)| name == flag) {
-            Some((_, true)) => {
-                flags.next();
-            }
-            Some((_, false)) => {}
-            None => out.push(flag.clone()),
-        }
-    }
-    out
-}
-
 fn write(path: &Path, text: &str) -> Result<(), String> {
     std::fs::write(path, text).map_err(|e| format!("cannot write {}: {e}", path.display()))
 }
@@ -312,7 +268,7 @@ pub fn invocation(
     tail.extend(["--temp".to_string(), path_text(temp)]);
     let (program, mut args) = if toolchain.interp {
         let mut args = vec![path_text(&built.program), "-interp".into(), "-quiet".into()];
-        args.extend(unbuilt_flags(&toolchain.flags));
+        args.extend(toolchain.flags.iter().cloned());
         args.extend(root_flags.iter().cloned());
         args.push("--".into());
         (toolchain.jaic.clone(), args)
@@ -342,14 +298,6 @@ pub fn program_and_args(exe: &Path, runner: &[String]) -> (PathBuf, Vec<String>)
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn checks_leave_out_build_only_flags() {
-        let flags: Vec<String> = ["-O2", "-os", "wasm", "-exe", "a", "-import_dir", "x"]
-            .map(String::from)
-            .into();
-        assert_eq!(unbuilt_flags(&flags), ["-os", "wasm", "-import_dir", "x"]);
-    }
 
     #[test]
     fn manifest_lines_are_entries() {

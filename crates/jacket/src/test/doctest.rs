@@ -7,7 +7,7 @@
 //! lines moved to file level. Either way the program runs the example through the Testing module,
 //! so a failed `assert` or `expect` fails the doc test. Options follow `jai` on the fence:
 //! `ignore`, `no_run`, `compile_fail`, `should_fail`, and the notes of a test (`only(linux)`).
-use super::build::{Toolchain, compile_output, unbuilt_flags};
+use super::build::{Toolchain, compile_output};
 use super::exec::{Ending, Live};
 use super::golden::{self, Checked};
 use super::jobs::ending_text;
@@ -451,7 +451,7 @@ fn check_program(
             .arg(&source)
             .arg("-check")
             .arg("-quiet")
-            .args(unbuilt_flags(&toolchain.flags))
+            .args(&toolchain.flags)
             .args(root_flags)
             .current_dir(work)
             .output();

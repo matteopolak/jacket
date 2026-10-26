@@ -272,13 +272,10 @@ pub(super) struct Cli {
 
 impl Cli {
     /// Check the parsed options against each other and the mode, and apply the ones that
-    /// change plugins. `extra` is the first argument after the file, `build_only` the first
-    /// option only a build takes.
-    pub(super) fn finish(
-        &mut self,
-        extra: Option<String>,
-        build_only: Option<String>,
-    ) -> Result<(), CliError> {
+    /// change plugins. `extra` is the first argument after the file. Options that shape the
+    /// output (`-exe`, `-O2`, `-emit_ir`, ...) are accepted and ignored by `-check` and
+    /// `-interp`, which write none, so one command line serves all three.
+    pub(super) fn finish(&mut self, extra: Option<String>) -> Result<(), CliError> {
         if let Some(word) = extra {
             let mut error = if word.ends_with(".jai") {
                 CliError::new(format!(
@@ -296,20 +293,6 @@ impl Cli {
                 ));
             }
             return Err(error);
-        }
-        if let Some(option) = build_only.filter(|_| self.mode != Mode::Build) {
-            let (mode, why) = if self.mode == Mode::Check {
-                ("-check", "only compiles and writes no output")
-            } else {
-                (
-                    "-interp",
-                    "runs the program in the interpreter and writes no output",
-                )
-            };
-            return Err(
-                CliError::new(format!("`{option}` only applies to a build, not `{mode}`"))
-                    .help(format!("`{mode}` {why}; leave `{mode}` out to build")),
-            );
         }
         if self.no_workspace_output && self.mode != Mode::Interp {
             return Err(

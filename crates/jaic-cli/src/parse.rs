@@ -13,8 +13,6 @@ pub(super) fn parse(args: &[String]) -> Result<Request, CliError> {
     let mut file: Option<String> = None;
     let mut extra: Option<String> = None;
     let (mut check, mut interp) = (false, false);
-    // The first option that only builds take, for the `-check`/`-interp` error.
-    let mut build_only: Option<String> = None;
     let mut rest = args.iter();
     while let Some(arg) = rest.next() {
         match arg.as_str() {
@@ -71,12 +69,10 @@ pub(super) fn parse(args: &[String]) -> Result<Request, CliError> {
             }
             continue;
         };
-        if option.build_only {
-            build_only.get_or_insert_with(|| a.to_string());
-        }
         match option.action {
             Action::Help => return Ok(Request::Help),
             Action::Version => return Ok(Request::Version),
+            Action::PrintStdlib => return Ok(Request::Stdlib),
             Action::Check => check = true,
             Action::Interp => interp = true,
             Action::Switch(switch) => *switch(&mut cli) = true,
@@ -118,7 +114,7 @@ pub(super) fn parse(args: &[String]) -> Result<Request, CliError> {
         (_, true) => Mode::Interp,
         _ => Mode::Build,
     };
-    cli.finish(extra, build_only)?;
+    cli.finish(extra)?;
     Ok(Request::Compile(Box::new(cli)))
 }
 

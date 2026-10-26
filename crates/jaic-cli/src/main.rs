@@ -164,6 +164,10 @@ fn main() -> ExitCode {
             println!("jaic {}", env!("CARGO_PKG_VERSION"));
             return ExitCode::SUCCESS;
         }
+        Ok(Request::Stdlib) => {
+            println!("{}", jaic::paths::default_stdlib_dir().display());
+            return ExitCode::SUCCESS;
+        }
         Err(error) => return report_cli_error(error),
     };
     if cli.msvc_format {

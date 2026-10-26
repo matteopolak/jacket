@@ -28,7 +28,7 @@ The file you name is the only source file on the command line. Other files come 
 | build for another platform | `jaic main.jai -os windows -cpu arm64` |
 | name the output | `jaic main.jai -exe build/app` (a bare name such as `-exe app` is written to the current directory) |
 
-`-check` and `-interp` can't be combined. Options that only make sense for a build (`-exe`, `-o`, `-sanitize`, ...) are an error with either of them.
+`-check` and `-interp` can't be combined. Options that only make sense for a build (`-exe`, `-o`, `-sanitize`, ...) are accepted and ignored with either of them, so one command line can be built, checked or interpreted. `jaic -print_stdlib` prints the standard library folder jaic uses and exits; `jacket test` asks it for the folder.
 
 ### Build flavors
 
@@ -148,14 +148,13 @@ An unknown option suggests the closest known one. After a `+Plugin`, options are
 
 ## How to change it
 
-Options live in one table, `OPTIONS` in `crates/jaic-cli/src/main.rs`, in `-help` order. Each `CliOption` gives the option's spellings, what it does (`Action`), whether only a build takes it, and its `-help` line. `parse` looks every argument up there, so the table also drives "did you mean" suggestions (over `names`, not `aliases`), `-name=value` splitting, the build-only error and the help text. To add an option:
+Options live in one table, `OPTIONS` in `crates/jaic-cli/src/main.rs`, in `-help` order. Each `CliOption` gives the option's spellings, what it does (`Action`), and its `-help` line. `parse` looks every argument up there, so the table also drives "did you mean" suggestions (over `names`, not `aliases`), `-name=value` splitting, and the help text. To add an option:
 
 1. Add a field to `Cli` if it stores something.
 2. Add a row to `OPTIONS`:
 
    ```rust
    CliOption::new(&["-no_split"], Action::Switch(|cli| &mut cli.no_split))
-       .build_only()
        .help(Output, "-no_split", "generate code as one module instead of several"),
    ```
 

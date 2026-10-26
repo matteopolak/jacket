@@ -6,7 +6,7 @@
 //! depend on where the repository is. `--accept` writes what the program printed into the
 //! expected files instead of comparing (for a golden test, into those that exist, `.stdout` at
 //! least).
-use super::build::{Toolchain, compile_output, program_and_args, unbuilt_flags};
+use super::build::{Toolchain, compile_output, program_and_args};
 use super::exec::{self, Ending, Invocation, Limits, Live};
 use super::jobs::ending_text;
 use super::options::TestOptions;
@@ -96,7 +96,7 @@ fn built(
     if toolchain.interp {
         let mut args = vec![source.to_string_lossy().into_owned(), "-interp".into()];
         args.extend(quiet.iter().map(ToString::to_string));
-        args.extend(unbuilt_flags(&toolchain.flags));
+        args.extend(toolchain.flags.iter().cloned());
         args.extend(root_flags.iter().cloned());
         return Ok(Built {
             invocation: Invocation {
@@ -131,7 +131,7 @@ fn built(
             let checked = Command::new(&toolchain.jaic)
                 .arg(source)
                 .args(&quiet)
-                .args(unbuilt_flags(&toolchain.flags))
+                .args(&toolchain.flags)
                 .args(root_flags)
                 .arg("-check")
                 .current_dir(work)
@@ -199,7 +199,7 @@ fn check_only(source: &Path, root_flags: &[String], toolchain: &Toolchain, cwd: 
         .arg(source)
         .arg("-check")
         .arg("-quiet")
-        .args(unbuilt_flags(&toolchain.flags))
+        .args(&toolchain.flags)
         .args(root_flags)
         .current_dir(cwd)
         .output();
@@ -396,7 +396,7 @@ pub fn compile_fail(
         .arg("-check")
         .arg("-quiet")
         .arg("-no_color")
-        .args(unbuilt_flags(&toolchain.flags))
+        .args(&toolchain.flags)
         .args(root_flags)
         .env("NO_COLOR", "1")
         .current_dir(dir)
