@@ -80,6 +80,8 @@ struct RunCost {
     place: String,
     blocks: u64,
     nanos: u128,
+    /// Started by a file of the standard library.
+    library: bool,
 }
 
 static TOTALS: LazyLock<Mutex<Totals>> = LazyLock::new(Mutex::default);
@@ -228,40 +230,55 @@ impl Counts {
 }
 
 /// Record that the top-level run started at `place` ran `blocks` basic blocks in `time`.
-pub(crate) fn record_run(place: String, blocks: u64, time: std::time::Duration) {
+pub(crate) fn record_run(place: String, blocks: u64, time: std::time::Duration, library: bool) {
     totals().runs.push(RunCost {
         place,
         blocks,
         nanos: time.as_nanos(),
+        library,
     });
 }
 
-/// The `top` costliest top-level compile-time runs, or `None` when `-profile_runs` is off. A
-/// run inside another counts in the one around it, so the rows add up to the total.
+/// The `top` costliest top-level compile-time runs of the program's own code, then one line for
+/// all the runs the standard library started, or `None` when `-profile_runs` is off. A run
+/// inside another counts in the one around it, so the rows add up to the total; percentages
+/// are of the total of both.
 pub fn run_report(top: usize) -> Option<String> {
     if !run_costs() {
         return None;
     }
     let totals = totals();
-    let mut rows: Vec<&RunCost> = totals.runs.iter().collect();
+    let (library, mut rows): (Vec<&RunCost>, Vec<&RunCost>) =
+        totals.runs.iter().partition(|r| r.library);
     rows.sort_by_key(|r| std::cmp::Reverse((r.blocks, r.nanos)));
-    let all: u64 = rows.iter().map(|r| r.blocks).sum();
-    let nanos: u128 = rows.iter().map(|r| r.nanos).sum();
+    let blocks = |rows: &[&RunCost]| rows.iter().map(|r| r.blocks).sum::<u64>();
+    let nanos = |rows: &[&RunCost]| rows.iter().map(|r| r.nanos).sum::<u128>();
+    let all = blocks(&rows) + blocks(&library);
     let mut out = format!(
-        "compile-time runs: {} runs, {all} blocks, {}\n{:>6} {:>14} {:>10}  location\n",
+        "compile-time runs: {} runs, {} blocks, {}\n{:>6} {:>14} {:>10}  location\n",
         rows.len(),
-        millis(nanos),
+        blocks(&rows),
+        millis(nanos(&rows)),
         "%",
         "blocks",
         "time"
     );
-    for r in rows.into_iter().take(top) {
+    for r in rows.iter().take(top) {
         out.push_str(&format!(
             "{:>5.1}% {:>14} {:>10}  {}\n",
             100.0 * r.blocks as f64 / all.max(1) as f64,
             r.blocks,
             millis(r.nanos),
             r.place
+        ));
+    }
+    if !library.is_empty() {
+        out.push_str(&format!(
+            "{:>5.1}% {:>14} {:>10}  standard library ({} runs)\n",
+            100.0 * blocks(&library) as f64 / all.max(1) as f64,
+            blocks(&library),
+            millis(nanos(&library)),
+            library.len()
         ));
     }
     Some(out)

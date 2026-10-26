@@ -216,7 +216,8 @@ impl Compiler {
             .zip(self.ct.interp.block_budget)
             .map(|(start, left)| start.saturating_sub(left));
         if outermost && crate::interp::profile::run_costs() {
-            let place = self.src.sources.try_get(span.file).map_or_else(
+            let file = self.src.sources.try_get(span.file);
+            let place = file.map_or_else(
                 || "(compiler-made code)".to_string(),
                 |file| {
                     let (line, column) = file.line_col(span.start);
@@ -226,7 +227,14 @@ impl Compiler {
                     )
                 },
             );
-            crate::interp::profile::record_run(place, blocks.unwrap_or(0), elapsed);
+            let library = file
+                .zip(self.options.stdlib_root())
+                .is_some_and(|(file, root)| {
+                    self.src
+                        .canon(&file.path.to_path())
+                        .starts_with(self.src.canon(root))
+                });
+            crate::interp::profile::record_run(place, blocks.unwrap_or(0), elapsed, library);
         }
         self.meta.perf.runs.push(super::perf::RunStat {
             span,

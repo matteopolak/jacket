@@ -160,3 +160,43 @@ fn profile_runs_lists_compile_time_runs_by_cost() {
         "the cost table is opt-in"
     );
 }
+
+/// The standard library's own runs are one summary line after the program's rows, not rows of
+/// their own mixed in with them.
+#[test]
+fn profile_runs_summarizes_the_standard_librarys_runs() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-profile-runs-library");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("mine.jai");
+    std::fs::write(
+        &source,
+        "#import \"Basic\";\n\
+         #run print(\"%\\n\", 1);\n\
+         main :: () { print(\"%\\n\", 2); }\n",
+    )
+    .unwrap();
+    let output = Command::new(JAIC)
+        .args(["-check", "-profile_runs"])
+        .arg(&source)
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "{stderr}");
+    let table: Vec<&str> = stderr
+        .lines()
+        .skip_while(|line| !line.starts_with("compile-time runs: "))
+        .collect();
+    assert!(
+        table.iter().any(|line| line.contains("mine.jai:2:")),
+        "{stderr}"
+    );
+    assert!(
+        table.iter().all(|line| !line.contains("stdlib/")),
+        "no row names a library file: {stderr}"
+    );
+    let last = table.last().unwrap();
+    assert!(
+        last.contains("standard library (") && last.contains(" runs)"),
+        "{stderr}"
+    );
+}
