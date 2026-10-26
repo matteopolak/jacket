@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Reviewed anonymous typedef normalization and real C ABI consumers."""
 import platform
-from driven_sources import driven
-from dev_common import JAIFMT, ROOT, labeled_runner, cargo_binary, output_dir
-from build_developer_bindings import llvm_prefix
+from developer_checks.driven_sources import driven
+from developer_checks.dev_common import JAIFMT, ROOT, labeled_runner, cargo_binary, output_dir
+from developer_checks.build_developer_bindings import llvm_prefix
 
 
 run = labeled_runner('Anonymous typedef workflow', stdout=True)

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Real persistent Check factory and compiler-message callback effects."""
-import build_developer_check
-from driven_sources import driven
-from dev_common import JAIC, JAIFMT, ROOT, run_checked, cargo_binary, output_dir
+from developer_checks import build_developer_check
+from developer_checks.driven_sources import driven
+from developer_checks.dev_common import JAIC, JAIFMT, ROOT, run_checked, cargo_binary, output_dir
 
 
 

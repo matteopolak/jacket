@@ -2,11 +2,11 @@
 """Link original C objects with official LLD to obtain relocated eh_frame data."""
 import json
 import os
-import build_developer_bindings
+from developer_checks import build_developer_bindings
 import re
 import shutil
-from check_developer_dwarf_lines import run
-from dev_common import JAIFMT, ROOT, sha256_file, output_dir
+from developer_checks.check_developer_dwarf_lines import run
+from developer_checks.dev_common import JAIFMT, ROOT, sha256_file, output_dir
 
 
 def main():

@@ -6,12 +6,12 @@ are durable products of this source under our own target directory.
 """
 import json
 import ctypes
-import build_developer_bindings
+from developer_checks import build_developer_bindings
 from pathlib import Path
 import re
 import sys
-import generate_developer_binding_model as model
-from dev_common import JAIFMT, ROOT, labeled_runner, sha256_file, output_dir
+from developer_checks import generate_developer_binding_model as model
+from developer_checks.dev_common import JAIFMT, ROOT, labeled_runner, sha256_file, output_dir
 
 
 run = labeled_runner('Native ABI probe', expected=None, env=None, timeout=60, stdout=True)

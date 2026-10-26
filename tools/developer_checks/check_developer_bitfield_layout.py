@@ -2,9 +2,9 @@
 """Generated bitfield storage and accessors against the C compiler's layout of the same header."""
 import platform
 import re
-from driven_sources import driven
-from dev_common import JAIC, JAIFMT, ROOT, labeled_runner, output_dir
-from build_developer_bindings import llvm_prefix
+from developer_checks.driven_sources import driven
+from developer_checks.dev_common import JAIC, JAIFMT, ROOT, labeled_runner, output_dir
+from developer_checks.build_developer_bindings import llvm_prefix
 
 run = labeled_runner("Bitfield layout", stdout=True)
 

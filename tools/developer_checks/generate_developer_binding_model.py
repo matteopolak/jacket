@@ -8,7 +8,7 @@ Files are grouped by model responsibility, independently of inventory ordering.
 import re
 
 from generators.jai_codegen import emit_generated, generator_parser
-from dev_common import ROOT
+from developer_checks.dev_common import ROOT
 
 SPEC = ROOT / "docs/specs/stdlib/modules/bindings-generator.md"
 

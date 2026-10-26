@@ -5,9 +5,9 @@ from pathlib import Path
 import platform
 import re
 import shutil
-import build_developer_bindings
-from dev_common import JAIFMT, ROOT, run_checked, sha256_file, cargo_binary, output_dir
-from build_developer_bindings import llvm_prefix
+from developer_checks import build_developer_bindings
+from developer_checks.dev_common import JAIFMT, ROOT, run_checked, sha256_file, cargo_binary, output_dir
+from developer_checks.build_developer_bindings import llvm_prefix
 
 
 def run(command, output=None):

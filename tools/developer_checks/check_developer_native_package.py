@@ -5,8 +5,8 @@ import json
 import platform
 import shutil
 import subprocess
-from dev_common import run_checked, ROOT, output_dir
-from build_developer_bindings import llvm_prefix
+from developer_checks.dev_common import run_checked, ROOT, output_dir
+from developer_checks.build_developer_bindings import llvm_prefix
 
 
 def run(command):

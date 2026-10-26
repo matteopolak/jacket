@@ -5,8 +5,8 @@ import json
 from pathlib import Path
 import re
 import struct
-from dev_common import JAIFMT, ROOT, labeled_runner, sha256_bytes, output_dir
-from build_developer_bindings import llvm_prefix
+from developer_checks.dev_common import JAIFMT, ROOT, labeled_runner, sha256_bytes, output_dir
+from developer_checks.build_developer_bindings import llvm_prefix
 
 
 run = labeled_runner('Original CodeView fixture', expected=None, env=None, timeout=60, stdout=True)

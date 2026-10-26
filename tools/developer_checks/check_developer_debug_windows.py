@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Cross-build owned Windows Debug code; never claim Windows execution on macOS."""
 import json
-import build_developer_bindings
-from build_developer_bindings import mingw_prefix
+from developer_checks import build_developer_bindings
+from developer_checks.build_developer_bindings import mingw_prefix
 import platform
 import re
-from driven_sources import driven
-from dev_common import JAIFMT, ROOT, labeled_runner, sha256_file, cargo_target_dir, output_dir
+from developer_checks.driven_sources import driven
+from developer_checks.dev_common import JAIFMT, ROOT, labeled_runner, sha256_file, cargo_target_dir, output_dir
 
 EXPECTED = {"developer_debug_" + name for name in ["abort", "backtrace", "breakpoint", "debugger_present",
                                                  "free_symbols", "output", "readable", "symbols", "break_once",

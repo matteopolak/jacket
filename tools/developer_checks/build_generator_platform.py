@@ -6,8 +6,8 @@ from pathlib import Path
 import platform
 import shutil
 import subprocess
-import build_developer_bindings
-from dev_common import ROOT
+from developer_checks import build_developer_bindings
+from developer_checks.dev_common import ROOT
 
 
 def sdk_tool(prefix, name, fallback):

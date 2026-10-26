@@ -2,8 +2,8 @@
 """Verify canonical Windows clock SDK ABI/import links; never claim target execution."""
 import json
 import re
-from dev_common import ROOT, labeled_runner, sha256_file, output_dir
-from build_developer_bindings import llvm_prefix, mingw_prefix
+from developer_checks.dev_common import ROOT, labeled_runner, sha256_file, output_dir
+from developer_checks.build_developer_bindings import llvm_prefix, mingw_prefix
 
 
 run = labeled_runner('Windows profiling SDK check', expected=None, env=None, timeout=60, stdout=True)

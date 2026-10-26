@@ -6,9 +6,9 @@ import platform
 import re
 import shutil
 
-from dev_common import ENV, ROOT, cargo_target_dir, run_checked
+from developer_checks.dev_common import ENV, ROOT, cargo_target_dir, run_checked
 from repo_output import output_dir
-import build_developer_bindings
+from developer_checks import build_developer_bindings
 
 
 def main():

@@ -2,8 +2,8 @@
 """Original C DWARF type metadata drives public lookup; no Jai byte parser claim."""
 import json
 import re
-from dev_common import JAIFMT, ROOT, labeled_runner, sha256_file, output_dir
-from build_developer_bindings import llvm_prefix
+from developer_checks.dev_common import JAIFMT, ROOT, labeled_runner, sha256_file, output_dir
+from developer_checks.build_developer_bindings import llvm_prefix
 
 
 run = labeled_runner('Original DWARF type fixture', expected=None, env=None, timeout=60, stdout=True)

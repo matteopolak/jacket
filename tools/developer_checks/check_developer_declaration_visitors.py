@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Public callable omission visitor over real canonical model/closure storage."""
-from dev_common import JAIFMT, ROOT, labeled_runner, cargo_binary, output_dir
+from developer_checks.dev_common import JAIFMT, ROOT, labeled_runner, cargo_binary, output_dir
 
 
 run = labeled_runner('Declaration visitor')

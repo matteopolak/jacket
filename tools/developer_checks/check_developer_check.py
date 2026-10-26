@@ -4,9 +4,9 @@ import json
 from pathlib import Path
 import platform
 import re
-import build_developer_check
-from dev_common import JAIFMT, ROOT, run_checked, sha256_file, cargo_binary, output_dir
-from build_developer_bindings import llvm_prefix
+from developer_checks import build_developer_check
+from developer_checks.dev_common import JAIFMT, ROOT, run_checked, sha256_file, cargo_binary, output_dir
+from developer_checks.build_developer_bindings import llvm_prefix
 
 
 def run(command, *, code=0, expected=None):

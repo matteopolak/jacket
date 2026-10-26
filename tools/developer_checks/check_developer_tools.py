@@ -1,58 +1,91 @@
 #!/usr/bin/env python3
-"""Focused developer tooling evidence from this checkout's source-built tools."""
-import argparse
-import functools
-import time
+"""Developer tooling checks against this checkout's source-built tools, as unittest.
+
+    python3 tools/developer_checks/check_developer_tools.py                        # everything this host can run
+    python3 tools/developer_checks/check_developer_tools.py ManifestChecks.test_check_developer_vtables
+    python3 tools/developer_checks/check_developer_tools.py -k dwarf -v
+
+Three test classes: `ManifestChecks` runs the `main()` of each `check_developer_*` / `build_developer_*`
+module in CHECKS (those with hosts are skipped elsewhere, never passed), `DrivenCases` runs each driven
+case interpreted and native at O0 and O2, and `Inline` holds the rest (format and lint, Windows target
+checks, rejections). A test that reads what another leaves under target/ names it in NEEDS and runs it first,
+once per process, so any single test or any subset works on its own.
+
+`JACKET_TOOLING_PART=K/N` keeps every N-th test starting at the K-th (CI splits the suite into legs this way
+through check_stdlib_suites.py --tooling-part).
+"""
+import csv
 import importlib
-import os
 import json
-from pathlib import Path
+import os
+import platform
 import re
+import shutil
 import subprocess
 import sys
-import shutil
-import build_developer_bindings
-from driven_sources import driven, driven_matching
-import platform
-import csv
-from dev_common import ENV, JAIC, JAIFMT, ROOT, run_checked, sha256_file, cargo_binary, output_dir
+import unittest
+from unittest import mock
 
-UNAVAILABLE_EVIDENCE = []
-RESULTS = {}  # {module: its main()'s result} of the manifest checks run so far
-MANIFEST = Path(__file__).with_name("developer_checks.json")
+from developer_checks import build_developer_bindings
+from developer_checks.dev_common import ENV, JAIC, JAIFMT, ROOT, run_checked, sha256_file, cargo_binary, output_dir
+from developer_checks.driven_sources import driven, driven_matching
+
+PART_ENV = "JACKET_TOOLING_PART"
+
+# (module, hosts): the checks in the order they used to run; a module's main() is the check. `hosts` are
+# platform.system() values; elsewhere the test is skipped.
+CHECKS = [
+    ("check_developer_bindings", ()),
+    ("check_generator_platform", ("Darwin",)),
+    ("check_developer_cpp_custom", ()),
+    ("check_developer_vtables", ()),
+    ("check_developer_cpp_wrappers", ("Darwin", "Linux")),
+    ("check_developer_type_emission", ()),
+    ("check_developer_value_emission", ()),
+    ("check_developer_check", ()),
+    ("check_developer_check_plugin", ()),
+    ("check_developer_refined_emission", ()),
+    ("check_developer_multi_input", ()),
+    ("check_developer_pointer_defaults", ()),
+    ("check_developer_procedure_results", ()),
+    ("check_developer_string_macros", ()),
+    ("check_developer_declaration_visitors", ()),
+    ("check_developer_integer_range", ()),
+    ("check_developer_cpp_scopes", ()),
+    ("check_developer_anonymous_types", ()),
+    ("check_developer_bitfield_layout", ()),
+    ("check_developer_output_format", ("Darwin", "Linux")),
+    ("check_developer_variadic", ()),
+    ("check_developer_sdk_configuration", ()),
+    ("check_developer_native_package", ("Darwin",)),
+    ("build_developer_debug", ()),
+    ("check_developer_debug_lifecycle", ()),
+    ("check_developer_debug_windows", ("Darwin",)),
+    ("check_developer_msf", ()),
+    ("check_developer_native_abi", ()),
+    ("check_developer_dwarf_lines", ()),
+    ("check_developer_dwarf_line_wire", ()),
+    ("check_developer_dwarf_frames", ()),
+    ("check_developer_eh_frames", ()),
+    ("check_developer_dwarf_types", ()),
+    ("check_developer_codeview_strings", ()),
+    ("check_developer_profiler_windows", ("Darwin",)),
+]
+
+_done = set()
 
 
-def host_evidence(name, callback, required_hosts, host=None):
-    actual = host or platform.system()
-    if actual not in required_hosts:
-        row = {"name": name, "status": "unavailable", "actual_host": actual,
-               "required_hosts": list(required_hosts), "passed": None}
-        UNAVAILABLE_EVIDENCE.append(row)
-        print("UNAVAILABLE host evidence:", json.dumps(row), flush=True)
-        return
-    callback()  # Required host failures propagate; no fallback or success substitute.
+def once(name, body):
+    """Run `body` the first time `name` is asked for in this process."""
+    if name not in _done:
+        _done.add(name)
+        body()
 
 
-def manifest_checks():
-    return json.loads(MANIFEST.read_text())["checks"]
-
-
-def run_manifest(only=None):
-    """Run the checks listed in developer_checks.json in order (or just `only`); {module: its main()'s result}."""
-    results = {}
-    # A check that parses its own command line sees only its program name, not the runner's options.
-    sys.argv[1:] = []
-    for entry in manifest_checks():
-        module = entry["module"]
-        if only and module != only:
-            continue
-        callback = importlib.import_module(module).main
-        if "hosts" in entry:
-            host_evidence(entry["label"], lambda callback=callback, module=module: results.__setitem__(module, callback()), entry["hosts"])
-        else:
-            results[module] = callback()
-    RESULTS.update(results)
-    return results
+def run_check(module):
+    """The check module's main(), once. A check that parses its own command line sees only its name."""
+    with mock.patch.object(sys, "argv", [module]):
+        once(module, importlib.import_module(f"developer_checks.{module}").main)
 
 
 def run(command, *, output=None, error=""):
@@ -548,177 +581,121 @@ def case_groups():
     return groups
 
 
-COSTS_FILE = Path(__file__).with_name("tooling_part_costs.json")
-
-
-class Unit:
-    """One independently schedulable piece of the suite.
-
-    `fixtures` are units whose work this one needs on disk first: any part that runs this unit runs them
-    before it unless it already has (a fixture is an ordinary unit of exactly one part; the other parts
-    repeat it). `after` names units whose outputs this one reads and that are not cheap to repeat: they
-    always run in the same part, earlier."""
-
-    def __init__(self, name, run, fixtures=(), after=()):
-        self.name, self.run, self.fixtures, self.after = name, run, tuple(fixtures), tuple(after)
-
-
-SETUP = "inline:setup"
-# Units that read what a manifest check leaves under target/ (fixture binaries, oracle fragments the
-# check generates and a case #loads, evidence JSON). Everything else a unit reads comes from `inline_setup`.
-MANIFEST_OUTPUTS = {
-    "manifest:check_developer_dwarf_line_wire": ["check_developer_dwarf_lines"],
-    "case:bindings-native-abi": ["check_developer_native_abi"],
-    "case:dwarf-line-query": ["check_developer_dwarf_lines"],
-    "case:dwarf-line-wire": ["check_developer_dwarf_lines", "check_developer_dwarf_line_wire"],
-    "case:dwarf-fde": ["check_developer_dwarf_frames"],
-    "case:dwarf-eh-frame": ["check_developer_eh_frames"],
-    "case:dwarf-type-lookup": ["check_developer_dwarf_types"],
-    "case:codeview-strings": ["check_developer_codeview_strings"],
-    "case:msf-wire": ["check_developer_msf"],
-    "case:msf-public": ["check_developer_msf"],
-    "case:msf-page-bits": ["check_developer_msf"],
-    "inline:windows_checks": ["check_developer_dwarf_lines", "check_developer_dwarf_frames", "check_developer_dwarf_types",
-                              "check_developer_codeview_strings", "check_developer_msf"],
-    "inline:lint": ["check_developer_native_abi", "check_developer_dwarf_lines", "check_developer_dwarf_line_wire",
-                    "check_developer_dwarf_frames", "check_developer_eh_frames", "check_developer_dwarf_types",
-                    "check_developer_codeview_strings", "check_developer_msf"],
+# What a test reads that a manifest check leaves under target/ (fixture binaries, oracle fragments the check
+# generates and a case #loads, evidence JSON). Everything else comes from `inline_setup`.
+NEEDS = {
+    "check_developer_dwarf_line_wire": ["check_developer_dwarf_lines"],
+    "bindings-native-abi": ["check_developer_native_abi"],
+    "dwarf-line-query": ["check_developer_dwarf_lines"],
+    "dwarf-line-wire": ["check_developer_dwarf_lines", "check_developer_dwarf_line_wire"],
+    "dwarf-fde": ["check_developer_dwarf_frames"],
+    "dwarf-eh-frame": ["check_developer_eh_frames"],
+    "dwarf-type-lookup": ["check_developer_dwarf_types"],
+    "codeview-strings": ["check_developer_codeview_strings"],
+    "msf-wire": ["check_developer_msf"],
+    "msf-public": ["check_developer_msf"],
+    "msf-page-bits": ["check_developer_msf"],
+    "windows_checks": ["check_developer_dwarf_lines", "check_developer_dwarf_frames", "check_developer_dwarf_types",
+                       "check_developer_codeview_strings", "check_developer_msf"],
+    "lint": ["check_developer_native_abi", "check_developer_dwarf_lines", "check_developer_dwarf_line_wire",
+             "check_developer_dwarf_frames", "check_developer_eh_frames", "check_developer_dwarf_types",
+             "check_developer_codeview_strings", "check_developer_msf"],
 }
-INLINE_UNITS = [("performance", inline_performance), ("debug", inline_debug), ("missing_report", inline_missing_report),
-                ("rewrite", inline_rewrite), ("lint", inline_lint), ("windows_checks", inline_windows_checks),
-                ("check_rejections", inline_check_rejections), ("iprof_rejections", inline_iprof_rejections),
-                ("target_checks", inline_target_checks)]
 
 
-def inline_cases(group):
-    for case in group:
-        inline_case(case)
+def setup():
+    """The fixtures the cases and the format/lint step share: libraries, generated bindings and oracles under target/."""
+    run_check("check_developer_bindings")
+    once("setup", inline_setup)
 
 
-def units():
-    """Every unit of the suite, in the order the whole suite runs them."""
-    found = [Unit("manifest:" + entry["module"], functools.partial(run_manifest, entry["module"])) for entry in manifest_checks()]
-    found.append(Unit(SETUP, inline_setup, fixtures=["manifest:check_developer_bindings"]))
-    for group in case_groups():
-        found.append(Unit("case:" + group[0], functools.partial(inline_cases, group), fixtures=[SETUP]))
-    for name, function in INLINE_UNITS:
-        found.append(Unit("inline:" + name, function, fixtures=[SETUP] if name in ("lint", "windows_checks") else []))
-    by_name = {unit.name: unit for unit in found}
-    for name, modules in MANIFEST_OUTPUTS.items():
-        unit = by_name[name]
-        unit.after = tuple("manifest:" + module for module in modules)
-        unit.fixtures = unit.fixtures + unit.after
-    return found
+def need(name):
+    for module in NEEDS.get(name, ()):
+        run_check(module)
 
 
-def chains(all_units):
-    """Units that must share a part (linked by `after`), each chain in suite order."""
-    parent = {unit.name: unit.name for unit in all_units}
-
-    def find(name):
-        while parent[name] != name:
-            parent[name] = parent[parent[name]]
-            name = parent[name]
-        return name
-
-    for unit in all_units:
-        for other in unit.after:
-            parent[find(other)] = find(unit.name)
-    grouped = {}
-    for unit in all_units:
-        grouped.setdefault(find(unit.name), []).append(unit.name)
-    return list(grouped.values())
+class ManifestChecks(unittest.TestCase):
+    pass
 
 
-def load_costs():
-    return json.loads(COSTS_FILE.read_text())["seconds"]
+def add_manifest_check(module, hosts):
+    def test(self):
+        run_check(module)
+
+    test.__name__ = "test_" + module
+    if hosts:
+        test = unittest.skipUnless(platform.system() in hosts, f"needs a {'/'.join(hosts)} host")(test)
+    setattr(ManifestChecks, test.__name__, test)
 
 
-def assign_parts(all_units, count, costs):
-    """Deterministic greedy (heaviest chain first, onto the lightest part): the unit names of each part, in suite order."""
-    order = {unit.name: index for index, unit in enumerate(all_units)}
-    weighted = sorted(chains(all_units), key=lambda chain: (-sum(costs[name] for name in chain), order[chain[0]]))
-    loads, parts = [0.0] * count, [[] for _ in range(count)]
-    for chain in weighted:
-        target = min(range(count), key=lambda index: (loads[index], index))
-        parts[target].extend(chain)
-        loads[target] += sum(costs[name] for name in chain)
-    return [sorted(part, key=order.__getitem__) for part in parts]
+for _module, _hosts in CHECKS:
+    add_manifest_check(_module, _hosts)
 
 
-def run_units(selected, all_units):
-    """Run the named units in suite order, each after its fixtures; returns {name: seconds} for every unit run."""
-    by_name = {unit.name: unit for unit in all_units}
-    done, timings = set(), {}
-
-    def ensure(name):
-        if name in done:
-            return
-        done.add(name)
-        for fixture in by_name[name].fixtures:
-            ensure(fixture)
-        print(f"UNIT {name}", flush=True)
-        started = time.monotonic()
-        by_name[name].run()
-        timings[name] = round(time.monotonic() - started, 1)
-        print(f"UNIT {name}: {timings[name]}s", flush=True)
-
-    for name in selected:
-        ensure(name)
-    return timings
+class DrivenCases(unittest.TestCase):
+    pass
 
 
-def parse_part(text):
-    index, _, count = text.partition("/")
+def add_case(group):
+    def test(self):
+        setup()
+        need(group[0])
+        for case in group:
+            inline_case(case)
+
+    test.__name__ = "test_" + group[0].replace("-", "_")
+    setattr(DrivenCases, test.__name__, test)
+
+
+for _group in case_groups():
+    add_case(_group)
+
+
+class Inline(unittest.TestCase):
+    def test_performance(self):
+        inline_performance()
+
+    def test_debug(self):
+        inline_debug()
+
+    def test_missing_report(self):
+        inline_missing_report()
+
+    def test_rewrite(self):
+        inline_rewrite()
+
+    def test_lint(self):
+        setup()
+        need("lint")
+        inline_lint()
+
+    def test_windows_checks(self):
+        setup()
+        need("windows_checks")
+        inline_windows_checks()
+
+    def test_check_rejections(self):
+        inline_check_rejections()
+
+    def test_iprof_rejections(self):
+        inline_iprof_rejections()
+
+    def test_target_checks(self):
+        inline_target_checks()
+
+
+def load_tests(loader, tests, pattern):
+    """Apply JACKET_TOOLING_PART=K/N: every N-th test, from the K-th."""
+    part = os.environ.get(PART_ENV)
+    if not part:
+        return tests
+    index, _, count = part.partition("/")
     if not (index.isdecimal() and count.isdecimal() and 1 <= int(index) <= int(count)):
-        raise argparse.ArgumentTypeError("expected K/N with 1 <= K <= N, such as 2/3")
-    return int(index), int(count)
-
-
-def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--list", action="store_true", help="print the checks in developer_checks.json and exit")
-    parser.add_argument("--only", metavar="MODULE", help="run just this check from the manifest (not the shared fixtures after it)")
-    parser.add_argument("--part", type=parse_part, metavar="K/N", help="run only part K of N (K from 1) of the units; every unit is in exactly one part")
-    parser.add_argument("--list-units", action="store_true", help="print the units (of --part, if given) and exit")
-    parser.add_argument("--unit", metavar="NAME", action="append", help="run just this unit and its fixtures (repeatable; see --list-units)")
-    parser.add_argument("--timings", metavar="FILE", help="write the seconds each unit took to FILE as JSON")
-    args = parser.parse_args(argv)
-    if args.list:
-        for entry in manifest_checks():
-            hosts = f"  [{', '.join(entry['hosts'])} only]" if "hosts" in entry else ""
-            print(entry["module"] + hosts)
-        return
-    if args.only:
-        if args.only not in {entry["module"] for entry in manifest_checks()}:
-            parser.error(f"{args.only} is not in developer_checks.json")
-        run_manifest(args.only)
-        return
-    all_units = units()
-    names = [unit.name for unit in all_units]
-    label = "suite"
-    if args.part:
-        index, count = args.part
-        names = assign_parts(all_units, count, load_costs())[index - 1]
-        label = f"part {index}/{count}"
-    if args.unit:
-        unknown = set(args.unit) - set(names)
-        if unknown:
-            parser.error("not a unit here: " + ", ".join(sorted(unknown)))
-        names = [name for name in names if name in args.unit]
-        label = "units"
-    if args.list_units:
-        print("\n".join(names))
-        return
-    timings = run_units(names, all_units)
-    if args.timings:
-        Path(args.timings).write_text(json.dumps(timings, indent=2) + "\n")
-    unavailable = f"{len(UNAVAILABLE_EVIDENCE)} host-specific evidence groups unavailable (not passed)"
-    if label == "suite":
-        print(f"Developer tooling supported suite: {len(CASES) + RESULTS['check_developer_sdk_configuration']} interpreter/native O0/O2 fixtures, native C/C++ round trips, diagnostics, scoped format/lint and target ABI checks passed; {unavailable}")
-    else:
-        print(f"Developer tooling {label}: {len(timings)} units passed in {sum(timings.values()):.0f}s; {unavailable}")
+        raise SystemExit(f"{PART_ENV} must be K/N with 1 <= K <= N, such as 2/3")
+    every = [test for suite in tests for test in suite]
+    kept = unittest.TestSuite(every[int(index) - 1 :: int(count)])
+    return kept
 
 
 if __name__ == "__main__":
-    main()
+    unittest.main()

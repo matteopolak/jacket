@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Execute public generator value printers and generated typed Jai values."""
-from dev_common import JAIC, JAIFMT, ROOT, run_checked, cargo_binary, output_dir
+from developer_checks.dev_common import JAIC, JAIFMT, ROOT, run_checked, cargo_binary, output_dir
 
 
 

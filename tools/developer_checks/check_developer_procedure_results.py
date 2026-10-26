@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Generated functions that return procedures: parenthesized result, then real calls against C."""
 import platform
-from dev_common import JAIFMT, ROOT, labeled_runner, cargo_binary, output_dir
-from build_developer_bindings import llvm_prefix
+from developer_checks.dev_common import JAIFMT, ROOT, labeled_runner, cargo_binary, output_dir
+from developer_checks.build_developer_bindings import llvm_prefix
 
 
 run = labeled_runner('Procedure results')

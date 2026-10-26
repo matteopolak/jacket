@@ -12,7 +12,7 @@ import shutil
 import subprocess
 import re
 
-from dev_common import sha256_file
+from developer_checks.dev_common import sha256_file
 
 
 def output(command):

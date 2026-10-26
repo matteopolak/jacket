@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Produce original DWARF4 debug_frame bytes and native SDK FDE range oracles."""
 import json
-import build_developer_bindings
+from developer_checks import build_developer_bindings
 import re
-from check_developer_dwarf_lines import run
-from dev_common import JAIFMT, ROOT, sha256_file, output_dir
+from developer_checks.check_developer_dwarf_lines import run
+from developer_checks.dev_common import JAIFMT, ROOT, sha256_file, output_dir
 
 
 def main():

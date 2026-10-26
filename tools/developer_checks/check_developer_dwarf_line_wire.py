@@ -3,7 +3,7 @@
 import json
 import shutil
 import subprocess
-from dev_common import JAIFMT, ROOT, sha256_file, output_dir
+from developer_checks.dev_common import JAIFMT, ROOT, sha256_file, output_dir
 
 
 def main():

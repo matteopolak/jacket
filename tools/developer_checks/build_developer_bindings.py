@@ -12,8 +12,8 @@ from pathlib import Path
 import platform
 import shutil
 import subprocess
-import developer_native_runtime
-from dev_common import ROOT, output_dir
+from developer_checks import developer_native_runtime
+from developer_checks.dev_common import ROOT, output_dir
 
 
 def llvm_prefix(prefix=None):

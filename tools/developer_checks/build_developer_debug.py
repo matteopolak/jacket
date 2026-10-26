@@ -4,7 +4,7 @@ from pathlib import Path
 import os
 import platform
 import subprocess
-from dev_common import ROOT
+from developer_checks.dev_common import ROOT
 
 
 def main():

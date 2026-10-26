@@ -2,7 +2,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import developer_native_runtime as runtime
+from developer_checks import developer_native_runtime as runtime
 
 
 class RuntimeNamesTest(unittest.TestCase):

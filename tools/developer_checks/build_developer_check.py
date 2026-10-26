@@ -3,9 +3,9 @@
 from pathlib import Path
 import platform
 import subprocess
-import developer_native_runtime
-from dev_common import ROOT
-from build_developer_bindings import llvm_prefix
+from developer_checks import developer_native_runtime
+from developer_checks.dev_common import ROOT
+from developer_checks.build_developer_bindings import llvm_prefix
 
 
 def main():

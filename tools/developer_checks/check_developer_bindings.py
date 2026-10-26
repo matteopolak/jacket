@@ -2,9 +2,9 @@
 """Build and validate the private, staged libclang C binding pipeline."""
 import json
 import subprocess
-import build_developer_bindings
-from driven_sources import driven
-from dev_common import ENV, JAIFMT, ROOT, sha256_file, cargo_binary, output_dir
+from developer_checks import build_developer_bindings
+from developer_checks.driven_sources import driven
+from developer_checks.dev_common import ENV, JAIFMT, ROOT, sha256_file, cargo_binary, output_dir
 
 
 def run(command, expected="", returncode=0, diagnostic=None):

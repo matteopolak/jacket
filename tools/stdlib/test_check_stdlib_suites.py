@@ -13,12 +13,14 @@ import check_stdlib_suites as suites
 class Driver(unittest.TestCase):
     def run_main(self, *extra, fail=()):
         started = []
+        self.environments = environments = {}
         lock = threading.Lock()
         running, peak = [0], [0]
 
         def fake_run(command, **kwargs):
             with lock:
                 started.append(command)
+                environments[str(command[1])] = kwargs.get("env", {})
                 running[0] += 1
                 peak[0] = max(peak[0], running[0])
             threading.Event().wait(0.05)
@@ -58,8 +60,7 @@ class Driver(unittest.TestCase):
     def test_tooling_part_reaches_only_the_tooling_command(self):
         failed, started, _ = self.run_main("--tooling-part", "2/4")
         self.assertFalse(failed)
-        tails = {str(command[1]): command[-2:] for command in started}
-        parted = [path for path, tail in tails.items() if tail == ["--part", "2/4"]]
+        parted = [path for path, env in self.environments.items() if env.get("JACKET_TOOLING_PART") == "2/4"]
         self.assertEqual([Path(path).name for path in parted], ["check_developer_tools.py"])
         with self.assertRaises(SystemExit):
             self.run_main("--tooling-part", "5/4")

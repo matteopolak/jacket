@@ -3,10 +3,10 @@
 
 import platform
 import subprocess
-import build_developer_bindings
-import build_generator_platform
-from driven_sources import driven
-from dev_common import ENV, JAIC, JAIFMT, ROOT, labeled_runner, cargo_binary, output_dir
+from developer_checks import build_developer_bindings
+from developer_checks import build_generator_platform
+from developer_checks.driven_sources import driven
+from developer_checks.dev_common import ENV, JAIC, JAIFMT, ROOT, labeled_runner, cargo_binary, output_dir
 
 
 

@@ -6,8 +6,8 @@ import unittest
 from unittest.mock import patch
 from types import SimpleNamespace
 
-import build_generator_platform as provider
-import check_developer_cpp_custom as workflow
+from developer_checks import build_generator_platform as provider
+from developer_checks import check_developer_cpp_custom as workflow
 from ci.ci_test_scratch import assigned_scratch
 
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """SDK-evaluated byte-string macros through both actual generator pipelines."""
 import platform
-import build_developer_bindings
-from dev_common import JAIFMT, ROOT, labeled_runner, cargo_binary, output_dir
-from build_developer_bindings import llvm_prefix
+from developer_checks import build_developer_bindings
+from developer_checks.dev_common import JAIFMT, ROOT, labeled_runner, cargo_binary, output_dir
+from developer_checks.build_developer_bindings import llvm_prefix
 
 
 run = labeled_runner('String macros')

@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Produce original MSF fixtures and independent official-tool stream oracles."""
 import os
-import build_developer_bindings
+from developer_checks import build_developer_bindings
 import json
 import re
 import shutil
 import struct
-from dev_common import ROOT, labeled_runner, sha256_bytes, output_dir
+from developer_checks.dev_common import ROOT, labeled_runner, sha256_bytes, output_dir
 
 
 run = labeled_runner('MSF fixture command', expected=None, env=None, timeout=60, stdout=True)

@@ -198,7 +198,7 @@ def stdlib_matrix(full):
         legs = [dict(platform=platform, shard="suites", suites=SUITES, wasm=platform == "linux-x64" or full)]
         for name in names:
             if name == "tooling":
-                # check_developer_tools.py --part balances these by measured cost.
+                # check_developer_tools.py splits its tests across these legs (JACKET_TOOLING_PART).
                 legs += [
                     dict(platform=platform, shard=f"tooling {k} of {TOOLING_PARTS}", suites=name, tooling_part=f"{k}/{TOOLING_PARTS}")
                     for k in range(1, TOOLING_PARTS + 1)

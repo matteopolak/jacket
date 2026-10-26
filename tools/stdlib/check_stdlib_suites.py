@@ -65,7 +65,7 @@ def main():
     parser.add_argument(
         "--tooling-part",
         metavar="K/N",
-        help="run only part K of N of the tooling suite's units (passed to check_developer_tools.py --part)",
+        help="run only part K of N of the tooling suite's tests (JACKET_TOOLING_PART for check_developer_tools.py)",
     )
     parser.add_argument(
         "--verbose",
@@ -204,8 +204,6 @@ def main():
         ],
         "tooling": ["tools/developer_checks/check_developer_tools.py"],
     }
-    if args.tooling_part:
-        commands["tooling"] += ["--part", args.tooling_part]
     if args.private_x11_display:
         commands["numerics-native"].append("--private-x11-display")
     failures = []
@@ -215,7 +213,9 @@ def main():
         result = subprocess.run(
             [sys.executable, *map(str, commands[suite])],
             cwd=ROOT,
-            env=env,
+            env=dict(env, JACKET_TOOLING_PART=args.tooling_part)
+            if suite == "tooling" and args.tooling_part
+            else env,
             **(
                 dict(stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
                 if capture

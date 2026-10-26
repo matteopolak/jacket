@@ -4,10 +4,10 @@ import os
 import platform
 import shutil
 
-from dev_common import ENV, JAIC, JAIFMT, ROOT, labeled_runner
-from driven_sources import driven
+from developer_checks.dev_common import ENV, JAIC, JAIFMT, ROOT, labeled_runner
+from developer_checks.driven_sources import driven
 from repo_output import output_dir
-import build_developer_bindings
+from developer_checks import build_developer_bindings
 
 
 def main():

@@ -5,9 +5,9 @@ import os
 import platform
 import re
 import subprocess
-import build_generator_platform
-from build_developer_bindings import llvm_prefix
-from dev_common import JAIFMT, ROOT, run_checked, sha256_bytes, sha256_file, stdlib_env, cargo_binary, output_dir
+from developer_checks import build_generator_platform
+from developer_checks.build_developer_bindings import llvm_prefix
+from developer_checks.dev_common import JAIFMT, ROOT, run_checked, sha256_bytes, sha256_file, stdlib_env, cargo_binary, output_dir
 
 ENV = stdlib_env(TMPDIR=str(output_dir()))
 PREFIX = llvm_prefix()

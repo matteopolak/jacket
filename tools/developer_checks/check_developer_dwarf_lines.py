@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Original native DWARF4 line fixtures and independently decoded SDK row oracles."""
 import json
-import build_developer_bindings
+from developer_checks import build_developer_bindings
 import re
-from dev_common import JAIFMT, ROOT, labeled_runner, sha256_file, output_dir
+from developer_checks.dev_common import JAIFMT, ROOT, labeled_runner, sha256_file, output_dir
 
 
 run = labeled_runner('DWARF fixture command', expected=None, env=None, timeout=60, stdout=True)

@@ -3,9 +3,9 @@
 import os
 import platform
 import subprocess
-from build_developer_bindings import llvm_prefix
-from driven_sources import driven
-from dev_common import JAIFMT, ROOT, cargo_target_dir, output_dir
+from developer_checks.build_developer_bindings import llvm_prefix
+from developer_checks.driven_sources import driven
+from developer_checks.dev_common import JAIFMT, ROOT, cargo_target_dir, output_dir
 
 # No display: with one, a Linux assertion dialog would wait for a click instead of aborting.
 ENV = {name: value for name, value in os.environ.items() if name not in ("DISPLAY", "WAYLAND_DISPLAY")}

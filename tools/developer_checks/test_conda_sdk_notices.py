@@ -7,7 +7,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from dev_common import sha256_file
+from developer_checks.dev_common import sha256_file
 
 MODULE = Path(
     os.environ.get(

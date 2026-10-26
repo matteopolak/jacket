@@ -8,9 +8,9 @@ import subprocess
 import sys
 import tempfile
 
-from build_developer_bindings import llvm_prefix
-from driven_sources import driven, driven_matching
-from dev_common import ROOT, cargo_target_dir, jaifmt_path, sha256_file
+from developer_checks.build_developer_bindings import llvm_prefix
+from developer_checks.driven_sources import driven, driven_matching
+from developer_checks.dev_common import ROOT, cargo_target_dir, jaifmt_path, sha256_file
 
 
 def main():

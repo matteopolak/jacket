@@ -192,44 +192,6 @@ class RunnerContracts(unittest.TestCase):
         self.assertIsNone(args.existing_stdlib)
         self.assertIsNone(args.foundation)
 
-    def evidence(self):
-        namespace = {"UNAVAILABLE_EVIDENCE": [], "json": __import__("json")}
-        return load_function(
-            ROOT / "tools/developer_checks/check_developer_tools.py",
-            "host_evidence",
-            namespace,
-        ), namespace
-
-    def test_mac_recipe_on_linux_is_unavailable_and_never_called_or_passed(self):
-        run, namespace = self.evidence()
-        called = []
-        run("actual Mac SDK", lambda: called.append(True), ["Darwin"], host="Linux")
-        self.assertEqual(called, [])
-        self.assertIsNone(namespace["UNAVAILABLE_EVIDENCE"][0]["passed"])
-        self.assertEqual(namespace["UNAVAILABLE_EVIDENCE"][0]["status"], "unavailable")
-
-    def test_required_host_failure_propagates(self):
-        run, namespace = self.evidence()
-
-        def fail():
-            raise RuntimeError("real fixture failure")
-
-        with self.assertRaisesRegex(RuntimeError, "real fixture failure"):
-            run("actual Mac SDK", fail, ["Darwin"], host="Darwin")
-        self.assertEqual(namespace["UNAVAILABLE_EVIDENCE"], [])
-
-    def test_supported_host_evidence_executes_once(self):
-        run, namespace = self.evidence()
-        called = []
-        run(
-            "host recipe",
-            lambda: called.append(True),
-            ["Darwin", "Linux"],
-            host="Linux",
-        )
-        self.assertEqual(called, [True])
-        self.assertEqual(namespace["UNAVAILABLE_EVIDENCE"], [])
-
 
 if __name__ == "__main__":
     unittest.main()
