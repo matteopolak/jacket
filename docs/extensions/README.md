@@ -16,6 +16,7 @@
 | `Args` | typed, compile-time-generated command-line parser (clap-like); `jaifmt` uses it | [args](args.md) |
 | `Regex` | Rust-`regex` syntax and semantics, linear time; `Regex.Static` patterns give typed groups | [regex](regex.md) |
 | `Json` | `to_json`/`from_json` generated from your types and `@json` notes | [json](json.md) |
+| `Variant` | tagged union whose cases are types: `variant`, `set`, `get`, `variant_switch`, equality, printing; Json encodes it | [variant](variant.md) |
 | `Image` | decode PNG, JPEG, QOI, BMP and PNM; encode PNG, QOI, BMP and PPM; convert, resize, crop, flip, rotate | [image](image.md) |
 | `Deflate` | DEFLATE compression with zlib and gzip framing, CRC-32 and Adler-32 | [deflate](deflate.md) |
 | `Assets` | `load_asset`: a program's files from disk natively, over `fetch` in the playground | [assets](assets.md) |
