@@ -10,6 +10,8 @@
 //                      (`jacket test --interp`, where plugins do not run)
 //     -no-compile-time do not run the `@compile_time` tests in this build (a check that only
 //                      finds the tests: `-registry` still gets the code that runs them)
+//     -optimize        build with optimizations and without runtime checks or stack traces
+//                      (`jacket bench`; a plugin's build options replace the command line's)
 //     -cases FILE      run each `@cases` list at compile time and write `test<TAB>case` per case
 //                      to FILE (for `jacket test --list`)
 //
@@ -39,6 +41,7 @@ Discovery :: struct {
     registry_path: string;
     cases_path: string;
     skip_compile_time: bool;
+    optimize: bool;
     found: [..] Found;
     added: bool;
 }
@@ -63,6 +66,12 @@ init :: (plugin: *Metaprogram_Plugin, options: [] string) -> bool {
 
     while i < options.count {
         option := options[i];
+
+        if option == "-optimize" {
+            discovery.optimize = true;
+            i += 1;
+            continue;
+        }
 
         if option == "-no-compile-time" {
             discovery.skip_compile_time = true;
@@ -94,6 +103,12 @@ log_help :: (plugin: *Metaprogram_Plugin) {
 add_source :: (plugin: *Metaprogram_Plugin) {
     options := get_build_options(plugin.workspace);
     options.entry_point_name = ENTRY_POINT;
+
+    if (cast(*Discovery) plugin).optimize {
+        set_optimization(*options, .OPTIMIZED, preserve_debug_info = false);
+        options.stack_trace = false;
+    }
+
     set_build_options(options, plugin.workspace);
 }
 
@@ -163,6 +178,24 @@ generators_of :: (notes: [] *Code_Note) -> [] string {
     return names;
 }
 
+// What is wrong with the `@samples(N)` and `@min_time(MS)` notes of a bench, if anything.
+bench_note_problem :: (notes: [] *Code_Note) -> string {
+    for notes {
+        for prefix: string.["samples(", "min_time("] {
+            if !begins_with(it.text, prefix) continue;
+
+            digits := string.{ it.text.count - prefix.count - 1, it.text.data + prefix.count };
+            count, ok := string_to_int(digits);
+
+            if !ends_with(it.text, ")") || !ok || count < 1 {
+                return tprint("@% takes a positive whole number, as in `@%100)`, not `%`", string.{ prefix.count - 1, prefix.data }, prefix, digits);
+            }
+        }
+    }
+
+    return "";
+}
+
 collect :: (discovery: *Discovery, typechecked: *Message_Typechecked) {
     for typechecked.declarations {
         declaration := it.expression;
@@ -211,6 +244,13 @@ collect :: (discovery: *Discovery, typechecked: *Message_Typechecked) {
             }
         }
 
+        if kind == "bench" {
+            if bench_note_problem(header.notes) {
+                compiler_report(file, line, declaration.c0, bench_note_problem(header.notes));
+                continue;
+            }
+        }
+
         if header.arguments.count > 1 && !cases && !property {
             compiler_report(file, line, declaration.c0, tprint("a @% procedure takes no arguments or one `*%` (a @test with `@cases(LIST)` takes the entry as its arguments)", kind, ifx kind == "test" then "Test" else "Bench"));
             continue;
@@ -224,6 +264,15 @@ collect :: (discovery: *Discovery, typechecked: *Message_Typechecked) {
 
         array_add(*discovery.found, .{ kind, copy_string(declaration.name), copy_string(file), line, notes, header.arguments.count, copy_string(cases), property, copy_string(trials), generators_of(header.notes), compile_time });
     }
+}
+
+// The number of a `@samples(N)`-style note, or 0 when there is none.
+note_number :: (notes: [] string, prefix: string) -> string {
+    for notes {
+        if begins_with(it, prefix) && ends_with(it, ")") return string.{ it.count - prefix.count - 1, it.data + prefix.count };
+    }
+
+    return "0";
 }
 
 // The call that runs a `@property` test.
@@ -357,8 +406,23 @@ registry_source :: (discovery: *Discovery, run_compile_time: bool) -> string {
         print_to_builder(*registry, "    .{ %, __jacket_test_%, .{ %, %, 0 }, % },\n", quote(it.name), it_index, quote(it.file), it.line, flags);
     }
 
+    append(*registry, "];\n");
+
+    for discovery.found {
+        if it.kind != "bench" continue;
+        call := ifx it.arguments then tprint("%(b);", it.name) else tprint("%();", it.name);
+        print_to_builder(*registry, "__jacket_bench_% :: (b: *__jacket_testing.Bench) { % }\n", it_index, call);
+    }
+
+    append(*registry, "__jacket_benches :: __jacket_testing.Bench_Case.[\n");
+
+    for discovery.found {
+        if it.kind != "bench" continue;
+        print_to_builder(*registry, "    .{ %, __jacket_bench_%, %, % },\n", quote(it.name), it_index, note_number(it.notes, "samples("), note_number(it.notes, "min_time("));
+    }
+
     append(*registry, "];\n#scope_export\n");
-    print_to_builder(*registry, "% :: () { __jacket_testing.run_tests(__jacket_tests); }\n", ENTRY_POINT);
+    print_to_builder(*registry, "% :: () { __jacket_testing.run_tests(__jacket_tests, __jacket_benches); }\n", ENTRY_POINT);
 
     return builder_to_string(*registry);
 }

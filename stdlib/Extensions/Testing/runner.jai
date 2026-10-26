@@ -8,6 +8,8 @@
 //     --temp DIR             with --run: the I-th test's directory is DIR/I
 //     --accept               snapshots that differ or are new replace the stored ones
 //     --seed N               the seed property tests start from
+//     --bench NAME...        measure these benchmarks and print a `bench` record each to standard
+//                            output; --samples N, --warmup MS and --sample-ms MS change the run
 //
 // With `--run`, results go to jacket as records on standard error: `\x02` kind, fields after
 // `\x1f`, then `\x03`. A `start` record is also written to standard output, so jacket can tell
@@ -25,9 +27,16 @@ Test_Flags :: enum_flags u32 {
 }
 
 run_tests :: (cases: [] Test_Case) {
+    run_tests(cases, Bench_Case.[]);
+}
+
+run_tests :: (cases: [] Test_Case, benches: [] Bench_Case) {
     runner_allocator = context.allocator;
     arguments := get_command_line_arguments();
     names: [..] string;
+    bench_names: [..] string;
+    bench_settings: Bench_Settings;
+    benching := false;
     temp_root := "";
     listing := false;
     i := 1;
@@ -55,6 +64,22 @@ run_tests :: (cases: [] Test_Case) {
             seed_given = true;
         } else if argument == "--run" {
             reporting = true;
+        } else if argument == "--bench" {
+            benching = true;
+        } else if benching && i + 1 < arguments.count && (argument == "--samples" || argument == "--warmup" || argument == "--sample-ms") {
+            i += 1;
+            value, ok := string_to_int(arguments[i], 10, s64);
+
+            if !ok || value < 1 {
+                print("% takes a positive whole number, not '%'\n", argument, arguments[i], to_standard_error = true);
+                exit(2);
+            }
+
+            if argument == "--samples" bench_settings.samples = value;
+            else if argument == "--warmup" bench_settings.warmup_ms = value;
+            else bench_settings.sample_ms = value;
+        } else if benching {
+            array_add(*bench_names, argument);
         } else if reporting {
             array_add(*names, argument);
         } else {
@@ -69,6 +94,22 @@ run_tests :: (cases: [] Test_Case) {
 
     if listing {
         for cases print("%\t%\t%\n", it.name, it.location.fully_pathed_filename, it.location.line_number);
+        return;
+    }
+
+    if benching {
+        for name: bench_names {
+            found: *Bench_Case;
+            for *benches if it.name == name found = it;
+
+            if !found {
+                record("missing", name);
+                continue;
+            }
+
+            run_bench(found, bench_settings);
+        }
+
         return;
     }
 

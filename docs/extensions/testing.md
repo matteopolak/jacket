@@ -197,6 +197,7 @@ They run once per build, whatever the mode: natively, under `-O2` and for `-os w
 - How a case is named or an entry turned into arguments: `case_names`, `label_source` and `call_source` in `cases.jai`. They run at compile time inside `#insert`, from the procedure's and the entry's type information. `jacket test --list` learns the cases from a `#run` Discovery adds (`-cases FILE`), which calls `list_cases`.
 - A new `*Test` procedure: `module.jai`. A new note is read by `jacket test` (`crates/jacket/src/test/options.rs`), except `@allow_leaks`, which Discovery also turns into a `Test_Flags` bit because the program needs it.
 - A new record kind: `record` in `runner.jai`, `Demux` and `State` in `crates/jacket/src/test/exec.rs`, and the table in [jacket test](../tools/jacket-test.md#the-test-program-protocol).
+- Benchmarks (`@bench`, `black_box`, `Bench`) live in `bench.jai` and are run by [jacket bench](../tools/jacket-bench.md), not by `run_tests`'s default mode.
 - The module's own tests are in `stdlib/Extensions/Testing/tests`; run `jacket test` there (natively, with `--interp`, and for wasm).
 
 ## Configuration

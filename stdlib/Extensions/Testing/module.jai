@@ -28,9 +28,15 @@ Test :: struct {
     snapshots: s64;
 }
 
-// Reserved for `@bench` procedures, which `jacket test --list` lists; they do not run yet.
+// The benchmark that is running (`bench.jai`). A `@bench` procedure loops `iterations` times.
 Bench :: struct {
     iterations: s64;
+    bytes_per_iteration: s64;
+    items_per_iteration: s64;
+
+    // Private to the module.
+    started: Apollo_Time;
+    counter: *Counter;
 }
 
 // Prints a line to the test's output, which `jacket test` shows when the test fails.
@@ -99,6 +105,7 @@ run :: (t: *Test, name: string, body: (t: *Test, data: *$T), data: *T) -> bool {
 #load "compare.jai";
 #load "tracking.jai";
 #load "runner.jai";
+#load "bench.jai";
 
 #scope_module
 
