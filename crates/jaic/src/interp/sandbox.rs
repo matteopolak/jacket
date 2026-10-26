@@ -19,13 +19,13 @@ use std::path::Path;
 mod dirs;
 mod files;
 mod guest;
-mod libc_fn;
 mod memory;
 mod numeric;
 mod objc;
 mod process;
 mod stdin;
 mod streams;
+mod symbols;
 #[cfg(test)]
 mod tests;
 mod time;
@@ -35,7 +35,7 @@ use guest::{
     copy, fill, read_bytes, read_i64, read_u8, read_u64, write_bytes, write_i32, write_u8,
     write_u16, write_u32, write_u64, write_units,
 };
-use libc_fn::LibcFn;
+use symbols::{LibcFn, SandboxFn};
 
 use super::errno::{EBADF, EEXIST, EINVAL, EISDIR, ENOENT, ENOTDIR, ENOTEMPTY, EPERM};
 
@@ -535,17 +535,19 @@ impl Host for SandboxHost {
         args: &[u64],
         _sig: &ir::Sig,
     ) -> Option<Result<Vec<u64>, String>> {
-        if let Some(result) = self.windows_foreign(symbol, args) {
-            return Some(Ok(vec![result]));
-        }
-        if let Some(result) = self.objc_foreign(symbol, args) {
-            return Some(Ok(vec![result]));
-        }
         // Linux x86-64 reaches the stat family through syscall(2) (stdlib/POSIX/wrappers.jai).
         let (fun, args) = match stat_syscall(symbol, args) {
             Some(fun) => (fun, args.get(1..).unwrap_or_default()),
-            // Each area answers the procedures it implements and passes on the rest.
-            None => (LibcFn::from_name(symbol)?, args),
+            None => match SandboxFn::lookup(symbol)? {
+                SandboxFn::Windows(fun) => {
+                    return self.windows_foreign(fun, args).map(|r| Ok(vec![r]));
+                }
+                SandboxFn::Objc(fun) => {
+                    return Some(Ok(vec![self.objc_foreign(fun, args)]));
+                }
+                // Each area answers the procedures it implements and passes on the rest.
+                SandboxFn::Libc(fun) => (fun, args),
+            },
         };
         let arg = |i: usize| word_or_zero(args, i);
         let served = self

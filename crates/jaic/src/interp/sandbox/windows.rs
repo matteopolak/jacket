@@ -5,6 +5,7 @@
 //! A file handle is its descriptor plus [`HANDLE_BASE`] (so no handle is null or
 //! `INVALID_HANDLE_VALUE`), text is UTF-16 converted from and to UTF-8 whatever the code page,
 //! and failures set the error `GetLastError` returns.
+use super::symbols::WinFn;
 use super::{
     BASE_MTIME, EBADF, EEXIST, EISDIR, ENOENT, ENOTDIR, ENOTEMPTY, EPERM, Host, O_CREAT, O_EXCL,
     O_RDWR, O_TRUNC, O_WRONLY, SandboxHost, absolute, fill, join, read_bytes, read_u8, write_u32,
@@ -159,28 +160,28 @@ impl SandboxHost {
     }
 
     /// The Windows calls; `None` for any other symbol.
-    pub(super) fn windows_foreign(&mut self, symbol: &str, args: &[u64]) -> Option<u64> {
-        self.windows_text_and_time(symbol, args)
-            .or_else(|| self.windows_paths(symbol, args))
-            .or_else(|| self.windows_handles(symbol, args))
+    pub(super) fn windows_foreign(&mut self, fun: WinFn, args: &[u64]) -> Option<u64> {
+        self.windows_text_and_time(fun, args)
+            .or_else(|| self.windows_paths(fun, args))
+            .or_else(|| self.windows_handles(fun, args))
     }
 
     /// Error codes, code page conversion and the clocks.
-    fn windows_text_and_time(&mut self, symbol: &str, args: &[u64]) -> Option<u64> {
+    fn windows_text_and_time(&mut self, fun: WinFn, args: &[u64]) -> Option<u64> {
         let arg = |i: usize| word_or_zero(args, i);
-        Some(match symbol {
-            "GetLastError" => self.last_error,
-            "SetLastError" => {
+        Some(match fun {
+            WinFn::GetLastError => self.last_error,
+            WinFn::SetLastError => {
                 self.last_error = arg(0) as u32 as u64;
                 0
             }
             // Every code page is taken as UTF-8.
-            "MultiByteToWideChar" => {
+            WinFn::MultiByteToWideChar => {
                 let text = counted(arg(2), arg(3) as i32 as i64, 1);
                 let wide: Vec<u16> = String::from_utf8_lossy(&text).encode_utf16().collect();
                 put_counted(&wide, arg(4), arg(5) as i32 as i64)
             }
-            "WideCharToMultiByte" => {
+            WinFn::WideCharToMultiByte => {
                 let wide = counted(arg(2), arg(3) as i32 as i64, 2);
                 let units: Vec<u16> = wide
                     .as_chunks::<2>()
@@ -191,19 +192,19 @@ impl SandboxHost {
                 let text = String::from_utf16_lossy(&units).into_bytes();
                 put_counted(&text, arg(4), arg(5) as i32 as i64)
             }
-            "GetSystemTimeAsFileTime" | "GetSystemTimePreciseAsFileTime" => {
+            WinFn::GetSystemTimeAsFileTime | WinFn::GetSystemTimePreciseAsFileTime => {
                 // FILETIME: 100 ns ticks since 1601.
                 self.clock_ns += 1_000;
                 let ns = self.clock_ns + BASE_MTIME * 1_000_000_000;
                 write_u64(arg(0), ns / 100 + 116_444_736_000_000_000);
                 0
             }
-            "QueryPerformanceCounter" => {
+            WinFn::QueryPerformanceCounter => {
                 self.clock_ns += 1_000;
                 write_u64(arg(0), self.clock_ns / 100);
                 1
             }
-            "QueryPerformanceFrequency" => {
+            WinFn::QueryPerformanceFrequency => {
                 write_u64(arg(0), PERFORMANCE_FREQUENCY);
                 1
             }
@@ -212,10 +213,10 @@ impl SandboxHost {
     }
 
     /// Directories and file names.
-    fn windows_paths(&mut self, symbol: &str, args: &[u64]) -> Option<u64> {
+    fn windows_paths(&mut self, fun: WinFn, args: &[u64]) -> Option<u64> {
         let arg = |i: usize| word_or_zero(args, i);
-        Some(match symbol {
-            "GetCurrentDirectoryW" => {
+        Some(match fun {
+            WinFn::GetCurrentDirectoryW => {
                 let cwd = if self.cwd.is_empty() {
                     "/"
                 } else {
@@ -223,7 +224,7 @@ impl SandboxHost {
                 };
                 put_wide_path(cwd, arg(1), arg(0) as u32 as u64)
             }
-            "SetCurrentDirectoryW" => {
+            WinFn::SetCurrentDirectoryW => {
                 let path = self.wide_path(arg(0));
                 if !self.fs.is_dir(&path) {
                     return Some(self.fail(ERROR_PATH_NOT_FOUND));
@@ -231,14 +232,14 @@ impl SandboxHost {
                 self.cwd = path;
                 1
             }
-            "GetFullPathNameW" => {
+            WinFn::GetFullPathNameW => {
                 let path = self.wide_path(arg(0));
                 if arg(3) != 0 {
                     write_u64(arg(3), 0);
                 }
                 put_wide_path(&path, arg(2), arg(1) as u32 as u64)
             }
-            "GetFileAttributesW" => {
+            WinFn::GetFileAttributesW => {
                 let path = self.wide_path(arg(0));
                 if self.fs.is_dir(&path) {
                     FILE_ATTRIBUTE_DIRECTORY as u64
@@ -249,7 +250,7 @@ impl SandboxHost {
                     INVALID_FILE_ATTRIBUTES
                 }
             }
-            "CreateDirectoryW" => {
+            WinFn::CreateDirectoryW => {
                 let path = self.wide_path(arg(0));
                 if self.fs.is_dir(&path) || self.fs.exists_file(&path) {
                     return Some(self.fail(ERROR_ALREADY_EXISTS));
@@ -261,12 +262,12 @@ impl SandboxHost {
                 self.fs.dirs.insert(path);
                 1
             }
-            "RemoveDirectoryW" => {
+            WinFn::RemoveDirectoryW => {
                 let path = self.wide_path(arg(0));
                 let result = self.remove_dir(&path);
                 self.win_result(result)
             }
-            "DeleteFileW" => {
+            WinFn::DeleteFileW => {
                 let path = self.wide_path(arg(0));
                 if !self.fs.exists_file(&path) {
                     return Some(self.fail(ERROR_FILE_NOT_FOUND));
@@ -276,10 +277,10 @@ impl SandboxHost {
                 self.fs.removed.insert(path);
                 1
             }
-            "MoveFileExW" | "MoveFileW" => {
+            WinFn::MoveFileExW | WinFn::MoveFileW => {
                 let (from, to) = (self.wide_path(arg(0)), self.wide_path(arg(1)));
                 // Without MOVEFILE_REPLACE_EXISTING an existing target stays.
-                if (symbol == "MoveFileW" || arg(2) & 1 == 0) && self.fs.exists_file(&to) {
+                if (fun == WinFn::MoveFileW || arg(2) & 1 == 0) && self.fs.exists_file(&to) {
                     return Some(self.fail(ERROR_ALREADY_EXISTS));
                 }
                 let result = self.rename_file(&from, &to);
@@ -290,10 +291,10 @@ impl SandboxHost {
     }
 
     /// File handles, the standard handles, directory searches, and what the sandbox refuses.
-    fn windows_handles(&mut self, symbol: &str, args: &[u64]) -> Option<u64> {
+    fn windows_handles(&mut self, fun: WinFn, args: &[u64]) -> Option<u64> {
         let arg = |i: usize| word_or_zero(args, i);
-        Some(match symbol {
-            "CreateFileW" => {
+        Some(match fun {
+            WinFn::CreateFileW => {
                 let path = self.wide_path(arg(0));
                 let access = arg(1) & (GENERIC_READ | GENERIC_WRITE);
                 let mut flags = match access {
@@ -316,13 +317,13 @@ impl SandboxHost {
                     }
                 }
             }
-            "GetStdHandle" => match arg(0) as u32 {
+            WinFn::GetStdHandle => match arg(0) as u32 {
                 0xFFFF_FFF6 => HANDLE_BASE,     // STD_INPUT_HANDLE
                 0xFFFF_FFF5 => HANDLE_BASE + 1, // STD_OUTPUT_HANDLE
                 0xFFFF_FFF4 => HANDLE_BASE + 2, // STD_ERROR_HANDLE
                 _ => INVALID_HANDLE_VALUE,
             },
-            "CloseHandle" => {
+            WinFn::CloseHandle => {
                 if self.finds.remove(&arg(0)).is_some() {
                     self.allocations.remove(&arg(0));
                     return Some(1);
@@ -336,7 +337,7 @@ impl SandboxHost {
                     None => self.fail(ERROR_INVALID_HANDLE),
                 }
             }
-            "ReadFile" => {
+            WinFn::ReadFile => {
                 let Some(n) = self
                     .handle_fd(arg(0))
                     .and_then(|fd| self.read_fd(fd, arg(1), arg(2) as u32 as usize))
@@ -348,7 +349,7 @@ impl SandboxHost {
                 }
                 1
             }
-            "WriteFile" => {
+            WinFn::WriteFile => {
                 let len = arg(2) as u32 as usize;
                 let bytes = counted(arg(1), len as i64, 1);
                 let written = match self.handle_fd(arg(0)) {
@@ -367,14 +368,14 @@ impl SandboxHost {
                 }
                 1
             }
-            "GetFileSizeEx" => {
+            WinFn::GetFileSizeEx => {
                 let Some(len) = self.handle_fd(arg(0)).and_then(|fd| self.file_len(fd)) else {
                     return Some(self.fail(ERROR_INVALID_HANDLE));
                 };
                 write_u64(arg(1), len as u64);
                 1
             }
-            "SetFilePointerEx" => {
+            WinFn::SetFilePointerEx => {
                 let Some(pos) = self
                     .handle_fd(arg(0))
                     .and_then(|fd| self.seek(fd, arg(1) as i64, arg(3)))
@@ -386,10 +387,10 @@ impl SandboxHost {
                 }
                 1
             }
-            "FindFirstFileW" | "FindFirstFileExW" => {
+            WinFn::FindFirstFileW | WinFn::FindFirstFileExW => {
                 // `dir/*`, `dir/*.*` or one exact name.
                 let pattern = self.wide_path(arg(0));
-                let out = if symbol == "FindFirstFileExW" {
+                let out = if fun == WinFn::FindFirstFileExW {
                     arg(2)
                 } else {
                     arg(1)
@@ -429,7 +430,7 @@ impl SandboxHost {
                 self.finds.insert(handle, rest);
                 handle
             }
-            "FindNextFileW" => {
+            WinFn::FindNextFileW => {
                 let Some(next) = self.finds.get_mut(&arg(0)).map(Vec::pop) else {
                     return Some(self.fail(ERROR_INVALID_HANDLE));
                 };
@@ -445,7 +446,7 @@ impl SandboxHost {
                 self.fill_find_data(dir, name, is_dir, arg(1));
                 1
             }
-            "FindClose" => {
+            WinFn::FindClose => {
                 if self.finds.remove(&arg(0)).is_none() {
                     return Some(self.fail(ERROR_INVALID_HANDLE));
                 }
@@ -454,10 +455,13 @@ impl SandboxHost {
             }
             // Nothing a sandboxed program runs may start another process or share memory
             // with one (see `pipe` and `shm_open`).
-            "CreatePipe" | "CreateProcessW" | "CreateProcessA" | "CreateFileMappingW"
-            | "CreateFileMappingA" | "OpenFileMappingW" | "OpenFileMappingA" => {
-                self.fail(ERROR_ACCESS_DENIED)
-            }
+            WinFn::CreatePipe
+            | WinFn::CreateProcessW
+            | WinFn::CreateProcessA
+            | WinFn::CreateFileMappingW
+            | WinFn::CreateFileMappingA
+            | WinFn::OpenFileMappingW
+            | WinFn::OpenFileMappingA => self.fail(ERROR_ACCESS_DENIED),
 
             _ => return None,
         })

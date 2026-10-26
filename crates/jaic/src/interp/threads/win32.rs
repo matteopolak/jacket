@@ -23,6 +23,7 @@ use super::{Shared, Worker};
 #[cfg(windows)]
 use crate::interp::ir::FuncId;
 use crate::interp::word_or_zero;
+use crate::macros::raw_enum;
 #[cfg(windows)]
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -451,6 +452,56 @@ fn set_last_error(code: u32) {
     let _ = code;
 }
 
+raw_enum! {
+    /// A Win32 procedure the scheduler emulates (threads, waits, locks, semaphores, events).
+    enum Win32Fn by name {
+        AcquireSRWLockExclusive = "AcquireSRWLockExclusive",
+        AcquireSRWLockShared = "AcquireSRWLockShared",
+        CloseHandle = "CloseHandle",
+        CreateEventA = "CreateEventA",
+        CreateEventW = "CreateEventW",
+        CreateSemaphoreA = "CreateSemaphoreA",
+        CreateSemaphoreExA = "CreateSemaphoreExA",
+        CreateSemaphoreExW = "CreateSemaphoreExW",
+        CreateSemaphoreW = "CreateSemaphoreW",
+        CreateThread = "CreateThread",
+        DeleteCriticalSection = "DeleteCriticalSection",
+        EnterCriticalSection = "EnterCriticalSection",
+        ExitThread = "ExitThread",
+        GetExitCodeThread = "GetExitCodeThread",
+        GetThreadId = "GetThreadId",
+        InitializeConditionVariable = "InitializeConditionVariable",
+        InitializeCriticalSection = "InitializeCriticalSection",
+        InitializeCriticalSectionAndSpinCount = "InitializeCriticalSectionAndSpinCount",
+        InitializeCriticalSectionEx = "InitializeCriticalSectionEx",
+        InitializeSRWLock = "InitializeSRWLock",
+        LeaveCriticalSection = "LeaveCriticalSection",
+        ReleaseSRWLockExclusive = "ReleaseSRWLockExclusive",
+        ReleaseSRWLockShared = "ReleaseSRWLockShared",
+        ReleaseSemaphore = "ReleaseSemaphore",
+        ResetEvent = "ResetEvent",
+        ResumeThread = "ResumeThread",
+        SetEvent = "SetEvent",
+        Sleep = "Sleep",
+        SleepConditionVariableCS = "SleepConditionVariableCS",
+        SleepConditionVariableSRW = "SleepConditionVariableSRW",
+        SleepEx = "SleepEx",
+        SuspendThread = "SuspendThread",
+        SwitchToThread = "SwitchToThread",
+        TryAcquireSRWLockExclusive = "TryAcquireSRWLockExclusive",
+        TryAcquireSRWLockShared = "TryAcquireSRWLockShared",
+        TryEnterCriticalSection = "TryEnterCriticalSection",
+        WaitForMultipleObjects = "WaitForMultipleObjects",
+        WaitForMultipleObjectsEx = "WaitForMultipleObjectsEx",
+        WaitForSingleObject = "WaitForSingleObject",
+        WaitForSingleObjectEx = "WaitForSingleObjectEx",
+        WakeAllConditionVariable = "WakeAllConditionVariable",
+        WakeConditionVariable = "WakeConditionVariable",
+        Beginthreadex = "_beginthreadex",
+        Endthreadex = "_endthreadex",
+    }
+}
+
 impl Interp {
     /// The Win32 counterpart of `thread_foreign`. `None`: not one of them (or a handle the
     /// scheduler does not own), so the real procedure runs.
@@ -460,6 +511,7 @@ impl Interp {
         symbol: &str,
         args: &[u64],
     ) -> Option<Res<Vec<u64>>> {
+        let symbol = Win32Fn::from_name(symbol)?;
         self.win32_thread_foreign(program, symbol, args)
             .or_else(|| self.win32_sync_foreign(symbol, args))
     }
@@ -468,13 +520,13 @@ impl Interp {
     fn win32_thread_foreign(
         &mut self,
         program: &Program,
-        symbol: &str,
+        symbol: Win32Fn,
         args: &[u64],
     ) -> Option<Res<Vec<u64>>> {
         let arg = |i: usize| word_or_zero(args, i);
         let started = self.multi;
         let result: Res<u64> = match symbol {
-            "CreateThread" | "_beginthreadex" => {
+            Win32Fn::CreateThread | Win32Fn::Beginthreadex => {
                 if arg(0) != 0 {
                     return Some(self.trap("custom thread security attributes are unsupported by the managed interpreter"));
                 }
@@ -488,7 +540,7 @@ impl Interp {
                 }
                 self.create_thread(program, arg(2), arg(3), arg(4), arg(5))
             }
-            "ExitThread" | "_endthreadex" => {
+            Win32Fn::ExitThread | Win32Fn::Endthreadex => {
                 let me = self.me();
                 if !started || me == 0 || self.with_sched(|s| s.threads[me].adopted) {
                     return Some(self.trap(
@@ -498,7 +550,7 @@ impl Interp {
                 return Some(Err(Trap::new("managed thread exited")
                     .of_kind(Some(TrapKind::ThreadExit(arg(0) as u32)))));
             }
-            "GetThreadId" if self.owns(arg(0)) => {
+            Win32Fn::GetThreadId if self.owns(arg(0)) => {
                 let id = self.with_sched(|s| match s.objects.get(&arg(0)) {
                     Some(&Object::Thread(id)) => Some(s.threads[id].native_id),
                     _ => None,
@@ -510,7 +562,7 @@ impl Interp {
                     Ok(0)
                 }
             }
-            "ResumeThread" if self.owns(arg(0)) => {
+            Win32Fn::ResumeThread if self.owns(arg(0)) => {
                 let previous = self.with_sched(|s| {
                     let &Object::Thread(id) = s.objects.get(&arg(0))? else {
                         return None;
@@ -530,7 +582,7 @@ impl Interp {
                     Ok(u32::MAX as u64)
                 }
             }
-            "SuspendThread" if self.owns(arg(0)) => {
+            Win32Fn::SuspendThread if self.owns(arg(0)) => {
                 let previous = self.with_sched(|s| {
                     let Some(&Object::Thread(id)) = s.objects.get(&arg(0)) else {
                         return Ok(None);
@@ -568,17 +620,19 @@ impl Interp {
                 }
             }
             #[cfg(windows)]
-            "SuspendThread" | "ResumeThread" => match self.is_unmanaged_thread_alias(arg(0)) {
-                Ok(true) => {
-                    return Some(self.trap("suspending or resuming an unmanaged duplicate of an interpreted thread handle is unsupported; use its scheduler-managed handle"));
+            Win32Fn::SuspendThread | Win32Fn::ResumeThread => {
+                match self.is_unmanaged_thread_alias(arg(0)) {
+                    Ok(true) => {
+                        return Some(self.trap("suspending or resuming an unmanaged duplicate of an interpreted thread handle is unsupported; use its scheduler-managed handle"));
+                    }
+                    Ok(false) => return None,
+                    Err(message) => return Some(self.trap(message)),
                 }
-                Ok(false) => return None,
-                Err(message) => return Some(self.trap(message)),
-            },
-            "WaitForSingleObject" | "WaitForSingleObjectEx" if self.owns(arg(0)) => {
+            }
+            Win32Fn::WaitForSingleObject | Win32Fn::WaitForSingleObjectEx if self.owns(arg(0)) => {
                 self.wait_objects(&[arg(0)], false, arg(1) as u32)
             }
-            "WaitForMultipleObjects" | "WaitForMultipleObjectsEx" => {
+            Win32Fn::WaitForMultipleObjects | Win32Fn::WaitForMultipleObjectsEx => {
                 let count = arg(0) as u32 as u64;
                 if count == 0 || count > MAXIMUM_WAIT_OBJECTS {
                     return None;
@@ -595,7 +649,7 @@ impl Interp {
                 self.wait_objects(&handles, arg(2) as u32 != 0, arg(3) as u32)
             }
             #[cfg(windows)]
-            "GetExitCodeThread" if self.owns(arg(0)) => {
+            Win32Fn::GetExitCodeThread if self.owns(arg(0)) => {
                 let is_thread =
                     self.with_sched(|s| matches!(s.objects.get(&arg(0)), Some(Object::Thread(_))));
                 if !is_thread {
@@ -615,7 +669,7 @@ impl Interp {
                 }
             }
             #[cfg(not(windows))]
-            "GetExitCodeThread" if self.owns(arg(0)) => {
+            Win32Fn::GetExitCodeThread if self.owns(arg(0)) => {
                 let code = self.with_sched(|s| match s.objects.get(&arg(0)) {
                     Some(&Object::Thread(id)) if s.threads[id].finished => {
                         Some(s.threads[id].result as u32)
@@ -634,7 +688,7 @@ impl Interp {
                 }
                 Ok(1)
             }
-            "CloseHandle" if self.owns(arg(0)) => {
+            Win32Fn::CloseHandle if self.owns(arg(0)) => {
                 #[cfg(windows)]
                 if let Some(id) = self.with_sched(|s| match s.objects.get(&arg(0)) {
                     Some(&Object::Thread(id)) => Some(id),
@@ -679,45 +733,47 @@ impl Interp {
     }
 
     /// Locks, condition variables, semaphores, events and sleeping.
-    fn win32_sync_foreign(&mut self, symbol: &str, args: &[u64]) -> Option<Res<Vec<u64>>> {
+    fn win32_sync_foreign(&mut self, symbol: Win32Fn, args: &[u64]) -> Option<Res<Vec<u64>>> {
         let arg = |i: usize| word_or_zero(args, i);
         let started = self.multi;
         let result: Res<u64> = match symbol {
             // Critical sections and SRW locks. Initialization also runs the real procedure, so
             // the memory holds a valid lock should C code ever take it directly.
-            "InitializeCriticalSection"
-            | "InitializeCriticalSectionAndSpinCount"
-            | "InitializeCriticalSectionEx"
-            | "InitializeSRWLock"
-            | "DeleteCriticalSection" => {
+            Win32Fn::InitializeCriticalSection
+            | Win32Fn::InitializeCriticalSectionAndSpinCount
+            | Win32Fn::InitializeCriticalSectionEx
+            | Win32Fn::InitializeSRWLock
+            | Win32Fn::DeleteCriticalSection => {
                 self.with_sched(|s| s.mutexes.destroy(arg(0)));
                 return None;
             }
-            "EnterCriticalSection" | "AcquireSRWLockExclusive" | "AcquireSRWLockShared" => {
-                self.lock_mutex(arg(0), 1).map(|()| 0)
-            }
-            "TryEnterCriticalSection"
-            | "TryAcquireSRWLockExclusive"
-            | "TryAcquireSRWLockShared" => Ok(self.try_lock_mutex(arg(0)) as u64),
-            "LeaveCriticalSection" | "ReleaseSRWLockExclusive" | "ReleaseSRWLockShared" => {
+            Win32Fn::EnterCriticalSection
+            | Win32Fn::AcquireSRWLockExclusive
+            | Win32Fn::AcquireSRWLockShared => self.lock_mutex(arg(0), 1).map(|()| 0),
+            Win32Fn::TryEnterCriticalSection
+            | Win32Fn::TryAcquireSRWLockExclusive
+            | Win32Fn::TryAcquireSRWLockShared => Ok(self.try_lock_mutex(arg(0)) as u64),
+            Win32Fn::LeaveCriticalSection
+            | Win32Fn::ReleaseSRWLockExclusive
+            | Win32Fn::ReleaseSRWLockShared => {
                 let _ = self.unlock_mutex(arg(0));
                 Ok(0)
             }
 
             // Condition variables.
-            "InitializeConditionVariable" => {
+            Win32Fn::InitializeConditionVariable => {
                 self.with_sched(|s| s.cond_waiters.clear(arg(0)));
                 Ok(0)
             }
-            "WakeConditionVariable" => {
+            Win32Fn::WakeConditionVariable => {
                 self.wake_cond(arg(0), false);
                 Ok(0)
             }
-            "WakeAllConditionVariable" => {
+            Win32Fn::WakeAllConditionVariable => {
                 self.wake_cond(arg(0), true);
                 Ok(0)
             }
-            "SleepConditionVariableCS" | "SleepConditionVariableSRW" => {
+            Win32Fn::SleepConditionVariableCS | Win32Fn::SleepConditionVariableSRW => {
                 let deadline = deadline_after(arg(2) as u32);
                 match self.cond_wait(arg(0), arg(1), deadline) {
                     Ok(ETIMEDOUT) => {
@@ -730,8 +786,10 @@ impl Interp {
 
             // Semaphores and events: (attributes, initial, maximum, name) and
             // (attributes, manual reset, initially set, name).
-            "CreateSemaphoreA" | "CreateSemaphoreW" | "CreateSemaphoreExA"
-            | "CreateSemaphoreExW" => {
+            Win32Fn::CreateSemaphoreA
+            | Win32Fn::CreateSemaphoreW
+            | Win32Fn::CreateSemaphoreExA
+            | Win32Fn::CreateSemaphoreExW => {
                 let (initial, max) = (arg(1) as u32 as i32, arg(2) as u32 as i32);
                 if max <= 0 || initial < 0 || initial > max {
                     set_last_error(ERROR_INVALID_PARAMETER);
@@ -743,7 +801,7 @@ impl Interp {
                     }))
                 }
             }
-            "ReleaseSemaphore" if self.owns(arg(0)) => {
+            Win32Fn::ReleaseSemaphore if self.owns(arg(0)) => {
                 let release = arg(1) as u32 as i32;
                 let released = self.with_sched(|s| {
                     let Some(Object::Semaphore {
@@ -775,7 +833,7 @@ impl Interp {
                 }
                 Ok(1)
             }
-            "CreateEventA" | "CreateEventW" => {
+            Win32Fn::CreateEventA | Win32Fn::CreateEventW => {
                 let (manual, set) = (arg(1) as u32 != 0, arg(2) as u32 != 0);
                 let real = real_event_new(manual, set);
                 Ok(self.new_object_at(
@@ -787,8 +845,8 @@ impl Interp {
                     },
                 ))
             }
-            "SetEvent" | "ResetEvent" if self.owns(arg(0)) => {
-                let now_set = symbol == "SetEvent";
+            Win32Fn::SetEvent | Win32Fn::ResetEvent if self.owns(arg(0)) => {
+                let now_set = symbol == Win32Fn::SetEvent;
                 let found = self.with_sched(|s| {
                     let Some(Object::Event {
                         set,
@@ -815,12 +873,12 @@ impl Interp {
             }
 
             // Sleeping and yielding only matter once another thread exists.
-            "Sleep" | "SleepEx" if started => match arg(0) as u32 {
+            Win32Fn::Sleep | Win32Fn::SleepEx if started => match arg(0) as u32 {
                 0 => self.yield_now(),
                 ms => self.sleep_for(Duration::from_millis(ms as u64)).map(|_| ()),
             }
             .map(|()| 0),
-            "SwitchToThread" if started => self.yield_now().map(|()| 1),
+            Win32Fn::SwitchToThread if started => self.yield_now().map(|()| 1),
             _ => return None,
         };
         Some(result.map(|v| vec![v]))

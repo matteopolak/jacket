@@ -6,6 +6,7 @@
 //! so the same name always gives the same pointer, and a message send does nothing and answers
 //! null. `class` and `superclass` are the two sends whose answers compile-time code checks, so
 //! they answer a class (the receiver, and `NSObject`).
+use super::symbols::ObjcFn;
 use super::{HashMap, SandboxHost, cstr, write_bytes};
 use crate::interp::word_or_zero;
 
@@ -50,56 +51,55 @@ impl SandboxHost {
         ptr
     }
 
-    pub(super) fn objc_foreign(&mut self, symbol: &str, args: &[u64]) -> Option<u64> {
+    pub(super) fn objc_foreign(&mut self, fun: ObjcFn, args: &[u64]) -> u64 {
         let arg = |i: usize| word_or_zero(args, i);
-        Some(match symbol {
-            "sel_registerName" | "sel_getUid" => {
+        match fun {
+            ObjcFn::SelRegisterName | ObjcFn::SelGetUid => {
                 if arg(0) == 0 {
-                    return Some(0);
+                    return 0;
                 }
                 self.objc_intern(cstr(arg(0)), false)
             }
-            "sel_getName" | "class_getName" | "object_getClassName" => {
+            ObjcFn::SelGetName | ObjcFn::ClassGetName | ObjcFn::ObjectGetClassName => {
                 if self.objc.names.contains_key(&arg(0)) {
                     arg(0)
                 } else {
                     self.objc_intern("nil".to_string(), false)
                 }
             }
-            "objc_getClass"
-            | "objc_lookUpClass"
-            | "objc_getRequiredClass"
-            | "objc_getMetaClass" => {
+            ObjcFn::ObjcGetClass
+            | ObjcFn::ObjcLookUpClass
+            | ObjcFn::ObjcGetRequiredClass
+            | ObjcFn::ObjcGetMetaClass => {
                 if arg(0) == 0 {
-                    return Some(0);
+                    return 0;
                 }
                 self.objc_intern(cstr(arg(0)), true)
             }
-            "class_getInstanceSize" => INSTANCE_SIZE,
-            "class_getSuperclass" => self.objc_superclass(arg(0)),
-            "objc_msgSend"
-            | "objc_msgSend_stret"
-            | "objc_msgSend_fpret"
-            | "objc_msgSend_fpret2"
-            | "objc_msgSendSuper"
-            | "objc_msgSendSuper_stret"
-            | "objc_msgSendSuper2" => match self.objc.names.get(&arg(1)).map(String::as_str) {
+            ObjcFn::ClassGetInstanceSize => INSTANCE_SIZE,
+            ObjcFn::ClassGetSuperclass => self.objc_superclass(arg(0)),
+            ObjcFn::MsgSend
+            | ObjcFn::MsgSendStret
+            | ObjcFn::MsgSendFpret
+            | ObjcFn::MsgSendFpret2
+            | ObjcFn::MsgSendSuper
+            | ObjcFn::MsgSendSuperStret
+            | ObjcFn::MsgSendSuper2 => match self.objc.names.get(&arg(1)).map(String::as_str) {
                 Some("class") => arg(0),
                 Some("superclass") => self.objc_superclass(arg(0)),
                 _ => 0,
             },
             // The frameworks of a compile's target are not on this machine: loading one
             // gives a handle, and anything else is not found.
-            "dlopen" => {
+            ObjcFn::Dlopen => {
                 if cstr(arg(0)).starts_with("/System/Library/Frameworks/") {
                     self.objc_intern("framework".to_string(), true)
                 } else {
                     0
                 }
             }
-            "dlclose" => 0,
-            _ => return None,
-        })
+            ObjcFn::Dlclose => 0,
+        }
     }
 
     /// The class above `class`; the root class has none.
@@ -116,8 +116,10 @@ mod tests {
     use super::*;
 
     fn call(host: &mut SandboxHost, symbol: &str, args: &[u64]) -> u64 {
-        host.objc_foreign(symbol, args)
-            .unwrap_or_else(|| panic!("{symbol} is not provided"))
+        host.objc_foreign(
+            ObjcFn::from_name(symbol).expect("an Objective-C symbol"),
+            args,
+        )
     }
 
     fn name(text: &str) -> Vec<u8> {
