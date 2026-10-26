@@ -714,7 +714,7 @@ jobs:
       - name: Corpus, stdlib and module tests under ASan and UBSan (-O2)
         # Full tier only (tools/ci/ci_changes.py).
         if: ${{ always() && !cancelled() && steps.build-jaic.outcome == 'success' && needs.changes.outputs.full == 'true' }}
-        run: python3 tools/differential/jaic_sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O2 --headless --sanitize address,undefined --shard ${{ matrix.shard }} corpus modules regressions
+        run: python3 tools/differential/jaic_sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O2 --headless --sanitize address,undefined --shard ${{ matrix.shard }} --modules-from tests/compiler/optimized-modules.txt corpus modules regressions
   sdl3:
     # SDL3 built from the pinned source on every platform, its installed SDK audited and the
     # generated bindings checked (docs/extensions/sdl3.md).

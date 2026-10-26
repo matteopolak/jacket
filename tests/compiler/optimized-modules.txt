@@ -1,0 +1,21 @@
+# The stdlib modules whose tests the optimized (-O2) native sweep runs: code whose generated machine
+# code differs from -O0 in ways a test can notice (integer and float arithmetic, hashing, atomics and
+# threads, allocators, codecs and parsers). The other modules run optimized in stdlib_runtime.py's
+# -O2 pass; the sweep's -O2 run adds the sanitizers to this list and to the compiler regressions.
+# Names are the part of a case id before `/tests/` (tools/differential/jaic_sweep.py --modules-from).
+Basic
+Math
+Hash
+meow_hash
+Thread
+Machine_X64
+Runtime_Support
+rpmalloc
+Unmapping_Allocator
+Extensions/Json
+Extensions/Image
+Extensions/Long_Double
+lz4
+stb_image
+Ico_File
+Srgb

@@ -464,6 +464,17 @@ def run_native(
         shutil.rmtree(exe.parent, ignore_errors=True)
 
 
+def listed_modules(path):
+    """The module names in `path`: one per line, `#` starts a comment."""
+    lines = (line.split("#", 1)[0].strip() for line in path.read_text().splitlines())
+    return {line for line in lines if line}
+
+
+def module_listed(case_id, listed):
+    """Whether a `modules` case (`Extensions/Json/tests/x`) belongs to a listed module."""
+    return case_id.split("/tests/", 1)[0] in listed
+
+
 def main():
     from stdlib.stdlib_runtime import shard, take_shard
 
@@ -528,6 +539,13 @@ def main():
         default=(1, 1),
         metavar="K/N",
         help="run only the K-th of N equal parts of the selected cases (CI splits sweeps this way)",
+    )
+    ap.add_argument(
+        "--modules-from",
+        type=Path,
+        metavar="FILE",
+        help="the `modules` set keeps only the stdlib modules FILE lists, one name per line (`#` starts a comment); "
+        "the optimized sweep names the modules whose code generation differs from -O0 (tests/compiler/optimized-modules.txt)",
     )
     ap.add_argument(
         "--coverage",
@@ -622,9 +640,15 @@ def main():
         from stdlib.stdlib_runtime import build_data_fixtures
 
         build_data_fixtures()
+    listed = listed_modules(a.modules_from) if a.modules_from else None
     todo = take_shard(
-        [c for s in a.sets for c in cases(s) if a.filter in c[0] and wanted(c[0])],
-        a.shard
+        [
+            c
+            for s in a.sets
+            for c in cases(s)
+            if a.filter in c[0] and wanted(c[0]) and (s != "modules" or listed is None or module_listed(c[0], listed))
+        ],
+        a.shard,
     )
     if not todo:
         ap.error("test selection is empty")
