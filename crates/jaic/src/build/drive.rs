@@ -24,6 +24,7 @@ pub(super) fn step(
     shared: &SharedWorkspaces,
     id: i64,
     budget: &mut Option<u64>,
+    nested: bool,
 ) -> Result<(), String> {
     if shared.borrow().current.contains(&id) {
         return Err(format!(
@@ -50,6 +51,7 @@ pub(super) fn step(
         None => new_compiler(shared, id)?,
     };
     compiler.ct.interp.block_budget = *budget;
+    compiler.ct.interp.nested_eval = nested;
     // The registry borrow is released while the compiler runs: its
     // compile-time code may call back into the registry.
     shared.borrow_mut().current.push(id);

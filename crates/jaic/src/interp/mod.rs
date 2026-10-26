@@ -245,6 +245,17 @@ pub struct Interp {
     captured: Vec<threads_inline::SuspFrame>,
     /// Basic blocks left to run before execution traps (editors bound compile-time code).
     pub block_budget: Option<u64>,
+    /// When set, each top-level compile-time evaluation starts with this many blocks in
+    /// `block_budget` (`begin_evaluation`) instead of drawing on what the last one left.
+    pub eval_blocks: Option<u64>,
+    /// This interpreter runs for a compile-time evaluation of another one (a workspace a
+    /// metaprogram drives): its evaluations draw on the budget it was handed, not their own.
+    pub nested_eval: bool,
+    /// How many times the budget ran out. Sema reads it to tell a run that was cut off (which
+    /// would be cut off again) from one that merely waits for something.
+    pub budget_traps: u64,
+    /// Blocks run since the host was last asked whether to stop (`Host::stop_requested`).
+    stop_ticks: u32,
     /// The pages of program memory the compiler found accessible (see `probe`).
     probe: Box<probe::Probe>,
     /// Blocks and instructions run in the current frame (`-profile`, see `profile`).
@@ -289,6 +300,32 @@ impl Default for Interp {
 }
 
 impl Interp {
+    /// A top-level compile-time evaluation starts: it gets its own `eval_blocks` when the
+    /// interpreter has them. Returns the blocks left, to measure the cost against.
+    pub fn begin_evaluation(&mut self) -> Option<u64> {
+        if let Some(limit) = self.eval_blocks
+            && !self.nested_eval
+        {
+            self.block_budget = Some(limit);
+        }
+        self.block_budget
+    }
+
+    /// Hand `other` (an interpreter that runs part of the evaluation going on here) the
+    /// budget: what is left, and whether its evaluations are nested in this one's.
+    pub fn lend_budget(&self, other: &mut Interp, nested: bool) {
+        other.block_budget = self.block_budget;
+        other.eval_blocks = self.eval_blocks;
+        other.nested_eval = nested || self.nested_eval;
+        other.budget_traps = 0;
+    }
+
+    /// Take back what `lend_budget` lent, with the exhaustions that happened meanwhile.
+    pub fn take_back_budget(&mut self, other: &Interp) {
+        self.block_budget = other.block_budget;
+        self.budget_traps += other.budget_traps;
+    }
+
     pub fn new(host: Box<dyn Host>) -> Self {
         Self {
             stack: ValueStack::default(),
@@ -350,6 +387,10 @@ impl Interp {
             suspend_at: None,
             captured: Vec::new(),
             block_budget: None,
+            eval_blocks: None,
+            nested_eval: false,
+            budget_traps: 0,
+            stop_ticks: 0,
             probe: Box::default(),
             frame_blocks: 0,
             frame_insts: 0,

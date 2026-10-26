@@ -34,7 +34,8 @@ impl Compiler {
             })?;
             host.ct.interp = crate::interp::Interp::new(provider);
         }
-        host.ct.interp.block_budget = self.ct.interp.block_budget;
+        let nested = self.meta.perf.running();
+        self.ct.interp.lend_budget(&mut host.ct.interp, nested);
         let result = (|| {
             host.begin_sources(&[])?;
             let module = host.ns.main_module.unwrap();
@@ -75,7 +76,7 @@ impl Compiler {
             }
             Ok(result)
         })();
-        self.ct.interp.block_budget = host.ct.interp.block_budget;
+        self.ct.interp.take_back_budget(&host.ct.interp);
         // Dependency retries must observe real execution in the isolated
         // compiler too. Otherwise an effectful host run followed by a missing
         // target binding is incorrectly classified as an unstarted attempt.

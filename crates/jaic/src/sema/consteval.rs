@@ -136,6 +136,9 @@ impl Compiler {
                 .with_kind(DiagnosticKind::Untrusted),
             ));
         }
+        if self.ct.interp.host.stop_requested() {
+            return Err(Box::new(super::trap_report::stopped(span)));
+        }
         let func = f.b.finish();
         self.preflight_thunk_entry(&func)?;
         let id = self.out.program.reserve_func(func.name.clone());
@@ -167,6 +170,10 @@ impl Compiler {
             .and_then(super::super::ir::Func::first_direct_callee);
         let (mut stalls, mut elapsed) = (0, std::time::Duration::ZERO);
         let _running = crate::progress::enter(crate::progress::Phase::Running);
+        // A run inside another, or in a workspace the metaprogram around it drives, draws on
+        // that run's budget; any other starts a fresh one.
+        let outermost = !self.meta.perf.running() && !self.ct.interp.nested_eval;
+        let blocks_at_start = self.ct.interp.begin_evaluation();
         let clock = self.meta.perf.start_run();
         self.ct.executions += 1;
         let mut result = self.call_with_dependencies(id, &[ctx], &mut deferred);
@@ -205,11 +212,29 @@ impl Compiler {
             result = self.call_with_dependencies(id, &[ctx], &mut deferred);
             elapsed += self.meta.perf.finish_run(clock);
         }
+        let blocks = blocks_at_start
+            .zip(self.ct.interp.block_budget)
+            .map(|(start, left)| start.saturating_sub(left));
+        if outermost && crate::interp::profile::run_costs() {
+            let place = self.src.sources.try_get(span.file).map_or_else(
+                || "(compiler-made code)".to_string(),
+                |file| {
+                    let (line, column) = file.line_col(span.start);
+                    format!(
+                        "{}:{line}:{column}",
+                        crate::display_path(&file.path.to_path())
+                    )
+                },
+            );
+            crate::interp::profile::record_run(place, blocks.unwrap_or(0), elapsed);
+        }
         self.meta.perf.runs.push(super::perf::RunStat {
             span,
             callee,
             stalls,
             elapsed,
+            blocks,
+            outermost,
         });
         (
             self.ct.interp.code_exports,
@@ -449,7 +474,7 @@ impl Compiler {
         op
     }
 
-    fn check_run_inner(
+    pub(super) fn check_run_inner(
         &mut self,
         scope: ScopeId,
         body: &ast::RunBody,
@@ -547,147 +572,6 @@ impl Compiler {
         Ok(Rc::new(agg))
     }
 
-    // #insert
-
-    /// Evaluate the operand of `#insert`. `#insert -> string { ... }` (or `-> Code`) is a
-    /// procedure without parameters that runs at compile time; its result is inserted.
-    pub fn eval_insert_operand(&mut self, scope: ScopeId, value: &ast::Expr) -> Result<Operand> {
-        if let ast::ExprKind::Proc(lit) = &value.kind
-            && lit.header.params.is_empty()
-            && !lit.header.returns.is_empty()
-        {
-            let call = ast::Expr {
-                kind: ast::ExprKind::Call {
-                    callee: Box::new(value.clone()),
-                    args: Vec::new(),
-                    hint: ast::CallHint::None,
-                },
-                span: value.span,
-            };
-            let op = self.check_run_inner(scope, &ast::RunBody::Expr(call), None, value.span)?;
-            if self.ed.is_live() {
-                self.ide_note_insert(value, &op);
-            }
-            return Ok(op);
-        }
-        let op = self.eval_const(scope, value, None)?;
-        if self.ed.is_live() {
-            self.ide_note_insert(value, &op);
-        }
-        Ok(op)
-    }
-
-    pub fn insert_stmts_from(&mut self, op: Operand, span: Span) -> Result<Vec<ast::Stmt>> {
-        match op {
-            Operand::Const {
-                value: Value::Code(code),
-                ..
-            } => Ok(match &*self.pr.codes[code.0 as usize] {
-                ast::CodeBody::Block(b) => b.stmts.clone(),
-                ast::CodeBody::Stmt(s) => vec![s.clone()],
-                ast::CodeBody::Expr(e) => vec![ast::Stmt {
-                    kind: ast::StmtKind::Expr(e.clone()),
-                    span: e.span,
-                    notes: crate::ast::Notes::default(),
-                }],
-            }),
-            Operand::Const {
-                value: Value::String(s),
-                ..
-            } => {
-                let text: Rc<str> = String::from_utf8_lossy(&s).into();
-                let file = self.src.insert_source(span, text.clone())?;
-                let ast = crate::parser::parse_file(file, &text).map_err(Box::new)?;
-                Ok(ast.stmts)
-            }
-            Operand::Void => Ok(Vec::new()),
-            other => err(
-                span,
-                format!(
-                    "#insert needs a string or Code, found {}",
-                    self.describe(&other)
-                ),
-            ),
-        }
-    }
-
-    pub fn eval_insert_stmts(
-        &mut self,
-        scope: ScopeId,
-        value: &ast::Expr,
-    ) -> Result<Vec<ast::Stmt>> {
-        let op = self.eval_insert_operand(scope, value)?;
-        self.insert_stmts_from(op, value.span)
-    }
-
-    /// The expression an expression-position `#insert` produces, and the scope it is checked
-    /// in: a `Code` value's own scope (where its names were written), else `scope`.
-    pub fn eval_insert_expr(
-        &mut self,
-        scope: ScopeId,
-        value: &ast::Expr,
-    ) -> Result<(ast::Expr, ScopeId)> {
-        let op = self.eval_insert_operand(scope, value)?;
-        if let Operand::Const {
-            value: Value::Code(code),
-            ..
-        } = &op
-        {
-            let code_scope = self.code_scope_at(*code, scope);
-            return Ok((self.insert_expr_of(op, value)?, code_scope));
-        }
-        Ok((self.insert_expr_of(op, value)?, scope))
-    }
-
-    fn insert_expr_of(&mut self, op: Operand, value: &ast::Expr) -> Result<ast::Expr> {
-        match op {
-            Operand::Const {
-                value: Value::Code(code),
-                ..
-            } => match &*self.pr.codes[code.0 as usize] {
-                ast::CodeBody::Expr(e) => Ok(e.clone()),
-                ast::CodeBody::Stmt(_) => {
-                    err(value.span, "#insert of a statement in expression position")
-                }
-                ast::CodeBody::Block(b) => match b.stmts.as_slice() {
-                    [
-                        ast::Stmt {
-                            kind: ast::StmtKind::Expr(e),
-                            ..
-                        },
-                    ] => Ok(e.clone()),
-                    _ => err(
-                        value.span,
-                        "#insert of a statement block in expression position",
-                    ),
-                },
-            },
-            Operand::Const {
-                value: Value::String(s),
-                ..
-            } => {
-                // A trailing `;` (`#insert "x.y;"` as an expression) ends the statement only.
-                let source = String::from_utf8_lossy(&s);
-                let source = source.trim_end().trim_end_matches(';');
-                let text = format!("__jaic_insert :: ({source});");
-                let file = self.src.insert_source(value.span, text.clone().into())?;
-                let ast = crate::parser::parse_file(file, &text).map_err(Box::new)?;
-                match ast.stmts.first().map(|s| &s.kind) {
-                    Some(ast::StmtKind::Decl(d)) if d.value.is_some() => {
-                        Ok(d.value.clone().unwrap())
-                    }
-                    _ => err(value.span, "could not parse inserted expression"),
-                }
-            }
-            other => err(
-                value.span,
-                format!(
-                    "#insert needs a string or Code, found {}",
-                    self.describe(&other)
-                ),
-            ),
-        }
-    }
 
     /// `Source_Code_Location` constant.
     pub fn build_location_value(

@@ -1,6 +1,7 @@
 //! The compile the language server and the linter both run to get facts about a root: the
 //! compiler over a file system, a sandbox host for compile-time code, the registry of workspaces
-//! a metaprogram creates, and the budget that stops a `#run` that never ends. Building it here,
+//! a metaprogram creates, and the limits that stop a `#run` that never ends and a check that
+//! takes too long. Building it here,
 //! once, is what makes a file lint the same in the editor and on the command line; the tools add
 //! only what is theirs (their observer of the workspaces, their facts) before compiling.
 use crate::build::{BuildEnv, ReportSink, SharedWorkspaces, WorkspaceObserver, Workspaces};
@@ -10,8 +11,64 @@ use std::cell::RefCell;
 use std::path::Path;
 use std::rc::Rc;
 
-/// Basic blocks compile-time code may run per compile: a `#run` may loop forever.
-pub const BLOCK_BUDGET: u64 = 200_000_000;
+/// What bounds a check. The person who opens a project sets these (the editor's settings, the
+/// linter's command line), never the project: a project must not be able to raise them.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CheckLimits {
+    /// Basic blocks one top-level compile-time evaluation may run: a `#run` may loop forever.
+    pub eval_blocks: u64,
+    /// Seconds the whole check may take before it stops with partial results; `None`: no limit.
+    pub seconds: Option<f64>,
+    /// Evaluations that ran at least this many blocks are worth showing the cost of.
+    pub hint_blocks: u64,
+}
+
+impl CheckLimits {
+    /// The blocks one evaluation may run unless told otherwise.
+    pub const DEFAULT_EVAL_BLOCKS: u64 = 200_000_000;
+
+    /// The seconds a check may take unless told otherwise.
+    pub const DEFAULT_SECONDS: f64 = 10.0;
+
+    /// The blocks from which an evaluation shows its cost unless told otherwise.
+    pub const DEFAULT_HINT_BLOCKS: u64 = 1_000_000;
+
+    /// `blocks` per evaluation (`0`: no limit) and `seconds` per check (`0` or less, or not a
+    /// number: no limit); the cost threshold stays at its default.
+    pub fn new(blocks: u64, seconds: f64) -> Self {
+        Self {
+            eval_blocks: if blocks == 0 {
+                u64::MAX
+            } else {
+                blocks
+            },
+            seconds: (seconds > 0.0 && seconds.is_finite()).then_some(seconds),
+            ..Self::default()
+        }
+    }
+}
+
+impl Default for CheckLimits {
+    fn default() -> Self {
+        Self {
+            eval_blocks: Self::DEFAULT_EVAL_BLOCKS,
+            seconds: Some(Self::DEFAULT_SECONDS),
+            hint_blocks: Self::DEFAULT_HINT_BLOCKS,
+        }
+    }
+}
+
+impl CheckLimits {
+    /// The notice for a check that hit its wall-clock limit, at `span`.
+    pub fn stopped_notice(&self, span: crate::source::Span) -> crate::source::Diagnostic {
+        let seconds = self.seconds.unwrap_or_default();
+        crate::source::Diagnostic::warning(
+            span,
+            format!("checking stopped after {seconds} s; results are partial"),
+        )
+        .with_help("raise the check time limit to check for longer")
+    }
+}
 
 /// What a lint compile starts from.
 #[derive(Clone, Copy, Debug)]
@@ -30,6 +87,7 @@ pub struct LintCompile {
     pub workspaces: SharedWorkspaces,
     /// The host of the root's compile-time code and of every workspace's.
     pub host: Rc<RefCell<SandboxHost>>,
+    pub limits: CheckLimits,
 }
 
 /// What [`LintCompile::start`] needs.
@@ -43,6 +101,8 @@ pub struct LintSetup {
     pub observer: Option<Box<dyn WorkspaceObserver>>,
     /// Where diagnostics of the workspaces' compilations go.
     pub report: ReportSink,
+    /// What bounds the compile.
+    pub limits: CheckLimits,
 }
 
 impl LintCompile {
@@ -53,7 +113,14 @@ impl LintCompile {
             host,
             observer,
             report,
+            limits,
         } = setup;
+        let mut options = options;
+        options.eval_block_limit = Some(limits.eval_blocks);
+        if let Some(seconds) = limits.seconds {
+            host.borrow_mut()
+                .stop_after(std::time::Duration::from_secs_f64(seconds));
+        }
         let workspace_host = host.clone();
         let workspaces = Workspaces::new(BuildEnv {
             unwritten_output_hint: None,
@@ -67,13 +134,20 @@ impl LintCompile {
         });
         let mut compiler = Box::new(Compiler::new(options, fs));
         compiler.ct.interp.host = Box::new(SharedHost(host.clone()));
-        compiler.ct.interp.block_budget = Some(BLOCK_BUDGET);
+        compiler.ct.interp.block_budget = Some(limits.eval_blocks);
         compiler.attach_workspaces(workspaces.clone());
         Self {
             compiler,
             workspaces,
             host,
+            limits,
         }
+    }
+
+    /// Whether the wall-clock limit passed and the check stopped early: what it found is
+    /// partial, and the one notice for it is [`CheckLimits::stopped_notice`].
+    pub fn stopped(&self) -> bool {
+        self.host.borrow_mut().has_stopped()
     }
 
     /// Compile `root`, with `extra` sources in the program's scope.

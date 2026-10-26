@@ -274,9 +274,31 @@ pub struct SandboxHost {
     pub real_environment: bool,
     /// `getenv` results by (name, value); they stay valid for the whole run, like libc's.
     environment_texts: HashMap<(String, String), u64>,
+    /// When the wall-clock limit started and how long it is (`stop_after`).
+    time_limit: Option<(crate::platform::Stopwatch, std::time::Duration)>,
+    /// The limit passed: every interpreter on this host stops (`Host::stop_requested`).
+    stopped: bool,
 }
 
 impl SandboxHost {
+    /// Stop all code running on this host `limit` from now: the check it belongs to has a
+    /// wall-clock limit. Does nothing on a host without a clock (the browser's).
+    pub fn stop_after(&mut self, limit: std::time::Duration) {
+        if crate::platform::HAS_CLOCK {
+            self.time_limit = Some((crate::platform::Stopwatch::start(), limit));
+        }
+    }
+
+    /// Whether the limit set by `stop_after` has passed.
+    pub fn has_stopped(&mut self) -> bool {
+        if !self.stopped
+            && let Some((since, limit)) = self.time_limit
+        {
+            self.stopped = since.elapsed() >= limit;
+        }
+        self.stopped
+    }
+
     /// Free the blocks compile-time code allocated and never freed. Only once no code runs on
     /// this host again (`Interp::release_code` on every interpreter using it): pointers to
     /// them are left dangling in program memory.
@@ -514,6 +536,10 @@ fn cstr(ptr: u64) -> String {
 }
 
 impl Host for SandboxHost {
+    fn stop_requested(&mut self) -> bool {
+        self.has_stopped()
+    }
+
     fn write(&mut self, bytes: &[u8], to_stderr: bool) {
         if bytes.is_empty() {
             return;
@@ -638,6 +664,10 @@ impl Host for SharedHost {
 
     fn working_directory(&self) -> Option<String> {
         self.0.borrow().working_directory()
+    }
+
+    fn stop_requested(&mut self) -> bool {
+        self.0.borrow_mut().has_stopped()
     }
 
     fn service(&mut self, service: &str, request: &[u8]) -> crate::service::ServiceReply {

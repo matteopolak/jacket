@@ -11,7 +11,21 @@ enum Flow {
     Switch(usize),
 }
 
+/// Blocks between two asks of the host whether to stop.
+const STOP_CHECK_BLOCKS: u32 = 1024;
+
 impl Interp {
+    /// The trap for a budget that ran out. It names the limit when each evaluation has one.
+    #[cold]
+    fn budget_trap<T>(&mut self) -> Res<T> {
+        self.budget_traps += 1;
+        let message = match self.eval_blocks {
+            Some(limit) => format!("execution budget exhausted ({limit} basic blocks)"),
+            None => "execution budget exhausted".to_string(),
+        };
+        self.trap_of(TrapKind::BudgetExhausted, message)
+    }
+
     /// Does anything need to look at each basic block as it is entered?
     #[inline(always)]
     fn watches_blocks(&self) -> bool {
@@ -49,10 +63,14 @@ impl Interp {
             if *left == 0 {
                 match self.host.refill_budget() {
                     Some(more) => *left = more,
-                    None => return self.trap("execution budget exhausted"),
+                    None => return self.budget_trap(),
                 }
             }
             *left -= 1;
+        }
+        self.stop_ticks = self.stop_ticks.wrapping_add(1);
+        if self.stop_ticks.is_multiple_of(STOP_CHECK_BLOCKS) && self.host.stop_requested() {
+            return self.trap_of(TrapKind::Stopped, "checking stopped");
         }
         if self.multi {
             if self.host.cooperative_threads() {

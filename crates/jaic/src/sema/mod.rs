@@ -40,6 +40,7 @@ mod host_import;
 mod host_run;
 mod host_twin;
 mod import_trace;
+mod insert_eval;
 mod interfaces;
 mod interpolate;
 mod lambda;
@@ -248,6 +249,9 @@ pub struct Options {
     pub runtime_initialization: bool,
     /// `Build_Options.backtrace_on_crash`: `Runtime_Support` installs its crash handler.
     pub backtrace_on_crash: bool,
+    /// Basic blocks each top-level compile-time evaluation may run before it traps; `None`
+    /// is no limit (a build). Editors and linters set it (`ide::lint_compile`).
+    pub eval_block_limit: Option<u64>,
 }
 
 /// The C `long double` of a target, when wider than `float64`: x87 extended on x86-64 System V
@@ -374,6 +378,7 @@ impl Options {
             runtime_entry_point: true,
             runtime_initialization: true,
             backtrace_on_crash: false,
+            eval_block_limit: None,
         }
     }
 }
@@ -582,6 +587,11 @@ impl Compiler {
             namespace_check: std::cell::Cell::new((0, 0)),
             ct: CompileTime::default(),
         };
+        c.ct.interp.eval_blocks = c.options.eval_block_limit;
+        if c.ct.interp.eval_blocks.is_none() && crate::interp::profile::run_costs() {
+            // Blocks are counted when there is a budget; this one never runs out.
+            c.ct.interp.block_budget = Some(u64::MAX);
+        }
         c.ns.root_scope = c.new_scope(scope::ScopeKind::Root, None, ModuleId(u32::MAX), None);
         c.declare_builtins();
         c

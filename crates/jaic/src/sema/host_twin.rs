@@ -248,7 +248,8 @@ impl Compiler {
         let Some(twin_scope) = self.map_scope_to_twin(twin, scope, span) else {
             return Ok(None);
         };
-        twin.ct.interp.block_budget = self.ct.interp.block_budget;
+        let nested = self.meta.perf.running();
+        self.ct.interp.lend_budget(&mut twin.ct.interp, nested);
         let before = (
             twin.ct.executions,
             twin.ct.traps,
@@ -273,7 +274,7 @@ impl Compiler {
             // target compiler checks it against the target and reports what is really wrong.
             return Ok(None);
         }
-        self.ct.interp.block_budget = twin.ct.interp.block_budget;
+        self.ct.interp.take_back_budget(&twin.ct.interp);
         // A retry decision must see that code ran, and what it was waiting for.
         self.ct.executions += twin.ct.executions - before.0;
         self.ct.traps += twin.ct.traps - before.1;

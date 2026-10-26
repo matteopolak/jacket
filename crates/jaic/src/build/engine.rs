@@ -277,7 +277,7 @@ pub(super) fn next_event(
         }
         drop(reg);
         let mut budget = interp.block_budget;
-        let stepped = step(shared, id, &mut budget);
+        let stepped = step(shared, id, &mut budget, true);
         interp.block_budget = budget;
         stepped.map_err(trap)?;
     }

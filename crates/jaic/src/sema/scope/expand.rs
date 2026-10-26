@@ -91,12 +91,13 @@ impl Compiler {
                             .any(|p| p.body_state == crate::sema::procs::BodyState::Lowering));
                 let misses = self.epochs.placeholder_misses;
                 let executions = self.ct.executions;
+                let budget_traps = self.ct.interp.budget_traps;
                 let in_progress = self.epochs.in_progress_misses;
                 let result = self.expand_pending_item(scope, file_scope, &stmt, exported);
                 // Retry only unresolved semantic work. A generator that executed
                 // and failed is terminal, even while its enclosing body is lowering.
-                // Compile-time code that spent the whole budget fails the same way every time.
-                let spent = self.ct.interp.block_budget == Some(0);
+                // Compile-time code that spent its whole budget fails the same way every time.
+                let spent = self.ct.interp.budget_traps != budget_traps;
                 if result.is_err()
                     && !spent
                     && self.ct.executions == executions

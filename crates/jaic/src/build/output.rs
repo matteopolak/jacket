@@ -285,7 +285,7 @@ pub fn finish_all(shared: &SharedWorkspaces, budget: &mut Option<u64>) -> Result
             }
         }
         while shared.borrow().list[id as usize].stage != Stage::Done {
-            step(shared, id, budget)?;
+            step(shared, id, budget, false)?;
         }
         shared.borrow_mut().list[id as usize].events.clear();
         id += 1;

@@ -131,6 +131,13 @@ pub trait Host {
         None
     }
 
+    /// Asked now and then while code runs: whether the embedder wants execution to stop (the
+    /// wall-clock limit of an editor's check passed). Execution then traps with
+    /// `TrapKind::Stopped`, and so does every later run on the host.
+    fn stop_requested(&mut self) -> bool {
+        false
+    }
+
     /// The directory relative paths start from, when the host keeps its own (`chdir` in a
     /// sandbox); `None` is the process's.
     fn working_directory(&self) -> Option<String> {

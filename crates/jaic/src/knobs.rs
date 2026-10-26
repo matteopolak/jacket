@@ -32,6 +32,9 @@ pub struct Knobs {
     pub serial_parse: bool,
     /// `-profile`, `-profile_ops`.
     pub profile: Profile,
+    /// `-profile_runs`: count the blocks each top-level compile-time run executes and print the
+    /// costliest (`interp/profile.rs`).
+    pub run_costs: bool,
     /// `-coverage_file`: append the procedures that ran under `-interp` to this file.
     pub coverage_file: Option<PathBuf>,
     /// `-dev_body_probe`: print which shared tables each body mutates (`sema/body_probe.rs`).

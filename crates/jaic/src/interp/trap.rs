@@ -124,6 +124,11 @@ pub enum TrapKind {
     Suspended,
     /// A declared compile-time callee needs its body compiled by its owning compiler.
     CompileDependency(FuncId),
+    /// Execution ran past its basic-block budget (`Interp::block_budget`).
+    BudgetExhausted,
+    /// The host asked execution to stop (`Host::stop_requested`): the wall-clock limit of an
+    /// editor's check passed. Not a failure of the code, which is why nothing reports it.
+    Stopped,
 }
 
 /// What a load or store at an address in the never-mapped first page did (`Interp::null_trap`).

@@ -19,6 +19,11 @@ pub struct RunStat {
     /// How many times the run stopped for something that was not compiled yet and started over.
     pub stalls: u64,
     pub elapsed: Duration,
+    /// Basic blocks the code ran, when the interpreter counts them (it has a budget).
+    pub blocks: Option<u64>,
+    /// Not inside another compile-time run: nested runs are part of the cost of the one
+    /// around them, so a table of costs lists only the outermost.
+    pub outermost: bool,
 }
 
 /// The requests for instances of one polymorphic procedure.
@@ -50,6 +55,11 @@ pub struct PerfStats {
 }
 
 impl PerfStats {
+    /// Compile-time code is running (a `#run` is in progress).
+    pub fn running(&self) -> bool {
+        self.run_depth > 0
+    }
+
     /// The interpreter is about to execute compile-time code.
     pub fn start_run(&mut self) -> Stopwatch {
         self.run_depth += 1;

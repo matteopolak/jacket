@@ -10,6 +10,15 @@ use crate::source::{Diagnostic, DiagnosticKind, FileId, Span};
 /// Call stack lines shown before the rest are summarized.
 const MAX_STACK_LINES: usize = 12;
 
+/// Frames a budget failure names: enough to see the loop and who called it.
+const MAX_BUDGET_FRAMES: usize = 3;
+
+/// Compile-time code that did not run because the check it belongs to ran out of time. Its
+/// result is unknown, not wrong, so editors hide it; the check says once that it stopped.
+pub(crate) fn stopped(site: Span) -> Diagnostic {
+    Diagnostic::error(site, "checking stopped").with_kind(DiagnosticKind::Unknown)
+}
+
 impl Compiler {
     /// An unknown result is like refused code: what it would have declared is unknown, not
     /// missing, so the editor records the span.
@@ -82,6 +91,12 @@ impl Compiler {
             .map(|loc| self.src.statement_span(loc))
             .or(site)
             .unwrap_or(Span::NONE);
+        if trap.kind == Some(TrapKind::Stopped) {
+            return stopped(site.unwrap_or(span));
+        }
+        if trap.kind == Some(TrapKind::BudgetExhausted) {
+            return self.budget_diagnostic(trap, &frames, prefix, site.unwrap_or(span));
+        }
         // Not a failure: the code could not know its result here (a pending or unavailable
         // service). Reported where the compile-time code started.
         if trap.kind == Some(TrapKind::Unknown) {
@@ -178,6 +193,49 @@ impl Compiler {
         }
         if trap.kind == Some(TrapKind::Unavailable) {
             d = d.with_kind(DiagnosticKind::Unavailable);
+        }
+        d
+    }
+
+    /// A run that used up its block budget: reported at the directive that started it, with
+    /// where the code was when it stopped, since a loop that never ends is the usual cause.
+    fn budget_diagnostic(
+        &self,
+        trap: &Trap,
+        frames: &[&TrapFrame],
+        prefix: &str,
+        site: Span,
+    ) -> Diagnostic {
+        let mut d = Diagnostic::error(site, format!("{prefix}: {}", trap.message));
+        let running: Vec<&TrapFrame> = frames
+            .iter()
+            .copied()
+            .filter(|f| !is_internal_name(&f.name))
+            .collect();
+        for (i, frame) in running.iter().take(MAX_BUDGET_FRAMES).enumerate() {
+            let place = self.src.loc_suffix(frame.loc);
+            d = d.with_note(
+                Span::NONE,
+                if i == 0 {
+                    format!("still running {}{place}", display_name(frame))
+                } else {
+                    format!("called from {}{place}", display_name(frame))
+                },
+            );
+        }
+        if running.is_empty()
+            && let Some(loc) = trap.loc
+        {
+            d = d.with_note(
+                Span::NONE,
+                format!("still running{}", self.src.loc_suffix(Some(loc))),
+            );
+        }
+        if self.ct.interp.eval_blocks.is_some() {
+            d = d.with_help(
+                "a loop that never ends is the usual cause; if the work is expected, raise \
+                 the compile-time evaluation budget",
+            );
         }
         d
     }
@@ -312,6 +370,8 @@ fn help_for(kind: TrapKind) -> Option<String> {
         TrapKind::BareAssertion
         | TrapKind::Unavailable
         | TrapKind::Unknown
+        | TrapKind::BudgetExhausted
+        | TrapKind::Stopped
         | TrapKind::Suspended
         | TrapKind::CompileDependency(_)
         | TrapKind::Exit(_)

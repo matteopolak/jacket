@@ -16,6 +16,11 @@ pub(crate) fn enabled() -> bool {
     *ENABLED.get_or_init(|| crate::knobs::get().profile != crate::knobs::Profile::Off)
 }
 
+/// Whether the cost of each top-level compile-time run is recorded (`-profile_runs`).
+pub(crate) fn run_costs() -> bool {
+    crate::knobs::get().run_costs
+}
+
 /// Whether the counts are of the unoptimized control flow (the default): `-profile_ops` runs
 /// the straightened code instead, so the op counts show what really runs, but blocks and IR
 /// instructions are then counted only where a block is entered.
@@ -65,6 +70,16 @@ struct Totals {
     code_ops: HashMap<String, u64>,
     /// Adjacent op pairs executed within a block, by kind, to find what to fuse.
     code_pairs: HashMap<String, u64>,
+    /// The top-level compile-time runs, in the order they finished.
+    runs: Vec<RunCost>,
+}
+
+/// What one top-level compile-time run cost.
+struct RunCost {
+    /// `path:line:column` of the directive that started it.
+    place: String,
+    blocks: u64,
+    nanos: u128,
 }
 
 static TOTALS: LazyLock<Mutex<Totals>> = LazyLock::new(Mutex::default);
@@ -210,6 +225,50 @@ impl Counts {
             total.insts += row.insts;
         }
     }
+}
+
+/// Record that the top-level run started at `place` ran `blocks` basic blocks in `time`.
+pub(crate) fn record_run(place: String, blocks: u64, time: std::time::Duration) {
+    totals().runs.push(RunCost {
+        place,
+        blocks,
+        nanos: time.as_nanos(),
+    });
+}
+
+/// The `top` costliest top-level compile-time runs, or `None` when `-profile_runs` is off. A
+/// run inside another counts in the one around it, so the rows add up to the total.
+pub fn run_report(top: usize) -> Option<String> {
+    if !run_costs() {
+        return None;
+    }
+    let totals = totals();
+    let mut rows: Vec<&RunCost> = totals.runs.iter().collect();
+    rows.sort_by_key(|r| std::cmp::Reverse((r.blocks, r.nanos)));
+    let all: u64 = rows.iter().map(|r| r.blocks).sum();
+    let nanos: u128 = rows.iter().map(|r| r.nanos).sum();
+    let mut out = format!(
+        "compile-time runs: {} runs, {all} blocks, {}\n{:>6} {:>14} {:>10}  location\n",
+        rows.len(),
+        millis(nanos),
+        "%",
+        "blocks",
+        "time"
+    );
+    for r in rows.into_iter().take(top) {
+        out.push_str(&format!(
+            "{:>5.1}% {:>14} {:>10}  {}\n",
+            100.0 * r.blocks as f64 / all.max(1) as f64,
+            r.blocks,
+            millis(r.nanos),
+            r.place
+        ));
+    }
+    Some(out)
+}
+
+fn millis(nanos: u128) -> String {
+    format!("{:.1} ms", nanos as f64 / 1e6)
 }
 
 /// The `top` procedures by instructions executed, or `None` when profiling is off.
