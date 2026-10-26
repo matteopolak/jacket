@@ -14,7 +14,7 @@ jacket check                                              # jaic -check <entry>
 jacket run -- --port 8080                                 # jaic <entry>, then the executable it wrote, with --port 8080
 jacket run main.jai -interp -- one two                    # jaic main.jai -interp -- one two
 jacket lint --fix src                                     # jailint --fix src
-jacket fmt --check                                        # jaifmt --check <project>
+jacket fmt --check                                        # jaifmt --check on the project's files, settings resolved by jacket
 ```
 
 What `jacket` adds is only the project:
@@ -114,7 +114,7 @@ unused_variable = "deny"        # allow | warn | deny
 paths = ["tests/**"]
 rules = { unused_variable = "warn" }
 
-[format]                        # every jaifmt key, see jaifmt.md
+[format]                        # every jaifmt key, see jaifmt.md; `jacket fmt` resolves it and hands it to jaifmt
 indent_width = 4
 ignore = ["gen/**"]
 
@@ -145,7 +145,7 @@ Precedence: command-line flags, then `jacket.toml`, then defaults. Unknown secti
 - A new section read by a tool: add a typed struct in `schema.rs` (no catch-all map: unknown keys are collected by `parse_noting`, and the `known_keys` list there feeds the did-you-mean, which a test keeps in step with the struct), then read it from `Loaded`.
 - Entry inference is `jacket_config::first_entry` and `INFERRED_ENTRIES`; `jaic-cli` and `jailsp` both use it, so keep one order.
 - The compiler library (`crates/jaic`) never reads `jacket.toml` and stays dependency-free; `jaic` takes its settings as flags from `jacket`. Only the `jaic-cli` binary uses `jacket-config`, to suggest the project's entry when it is given a directory.
-- `jaifmt` is written in Jai and reads `[format]` itself (`Jai_Format`'s `parse_config`); a change to the format keys is made in `stdlib/Extensions/Jai_Format/config.jai`.
+- `[format]`: `FORMAT_SETTINGS` in `schema.rs` is the authority for the keys, ranges and defaults. `jacket fmt` (`crates/jacket/src/fmt.rs`) resolves them (nearest `jacket.toml` per file, `ignore` through `PathPattern`) and passes every setting to `jaifmt` as `--no-config --set key=value`; `jaifmt` does not read TOML on that path. The Jai TOML reader (`Jai_Format`'s `parse_config`, `config.jai`) remains for standalone `jaifmt` and the browser, and `crates/jacket-config/src/jai_format_sync.rs` fails when its keys, ranges, defaults or messages drift from the table. To add a key: the table, `Format` (and `raw`) in `schema.rs`, then `Format_Config`, `apply_key` and `FORMAT_KEYS` in `stdlib/Extensions/Jai_Format`.
 
 ## Configuration
 

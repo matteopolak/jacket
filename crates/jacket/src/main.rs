@@ -8,6 +8,7 @@
 mod cli;
 mod commands;
 mod compile;
+mod fmt;
 mod project;
 mod status;
 mod test;
@@ -17,7 +18,7 @@ mod upgrade;
 use clap::Parser;
 use cli::{Cli, Command, TOOL_COMMANDS};
 use jacket_config::Disk;
-use std::ffi::{OsStr, OsString};
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -106,10 +107,7 @@ fn tool_command(command: &str, args: &[OsString], cwd: &Path) -> ExitCode {
         "check" => run_jaic(true, args, &ctx),
         "run" => run_program(args, &ctx),
         "lint" => tools::exec(tools::find(tools::JAILINT).as_os_str(), args),
-        "fmt" => tools::exec(
-            tools::find(tools::JAIFMT).as_os_str(),
-            &fmt_args(args, &ctx),
-        ),
+        "fmt" => fmt::run(&fmt::plan(args, &ctx)),
         _ => tools::exec(tools::find(tools::JAILSP).as_os_str(), args),
     }
 }
@@ -177,79 +175,4 @@ fn run_program(args: &[OsString], ctx: &compile::Context) -> ExitCode {
         status::print("Running", &format!("`{}`", shown.display()), color);
     }
     tools::exec(exe.as_os_str(), program_args)
-}
-
-/// `jaifmt` takes paths and has no default: the project is the default.
-fn fmt_args(args: &[OsString], ctx: &compile::Context) -> Vec<OsString> {
-    let mut out = args.to_vec();
-    let value_flags = ["--config", "--color", "--is-ignored"].map(OsStr::new);
-    let mut skip = false;
-    let mut positional = false;
-    let mut informational = false;
-    for arg in args {
-        if skip {
-            skip = false;
-        } else if value_flags.contains(&arg.as_os_str()) {
-            // `--is-ignored FILE` asks about one file and takes no paths.
-            informational |= arg == "--is-ignored";
-            skip = true;
-        } else if matches!(
-            arg.to_str(),
-            Some("--stdin" | "-h" | "--help" | "--version" | "-V")
-        ) {
-            informational = true;
-        } else if !arg.to_string_lossy().starts_with('-') {
-            positional = true;
-        }
-    }
-    if !positional && !informational {
-        let root = ctx.loaded.map_or(ctx.cwd, |l| l.dir());
-        out.push(if root == ctx.cwd {
-            ".".into()
-        } else {
-            root.as_os_str().to_owned()
-        });
-    }
-    out
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    struct NoFiles;
-
-    impl jacket_config::Files for NoFiles {
-        fn is_file(&self, _: &Path) -> bool {
-            false
-        }
-
-        fn read(&self, _: &Path) -> std::io::Result<String> {
-            Err(std::io::ErrorKind::NotFound.into())
-        }
-    }
-
-    fn fmt(args: &[&str]) -> Vec<String> {
-        let args: Vec<OsString> = args.iter().map(OsString::from).collect();
-        let ctx = compile::Context {
-            loaded: None,
-            cwd: Path::new("/w"),
-            fs: &NoFiles,
-        };
-        fmt_args(&args, &ctx)
-            .iter()
-            .map(|a| a.to_string_lossy().into_owned())
-            .collect()
-    }
-
-    #[test]
-    fn flag_values_are_not_paths() {
-        assert_eq!(
-            fmt(&["--color", "never", "--check"]),
-            ["--color", "never", "--check", "."]
-        );
-        assert_eq!(fmt(&["--config", "a.toml"]), ["--config", "a.toml", "."]);
-        assert_eq!(fmt(&["src"]), ["src"]);
-        assert_eq!(fmt(&["--is-ignored", "a.jai"]), ["--is-ignored", "a.jai"]);
-    }
 }

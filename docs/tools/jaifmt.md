@@ -13,7 +13,9 @@ target/jaifmt --version                    # `jaifmt <release>`, from jaifmt/ver
 jaic jaifmt/main.jai -interp -- --check "$PWD/stdlib"   # interpreter: use absolute paths
 ```
 
-In a project, use `jacket fmt` (`jacket fmt --check` in CI): it runs `jaifmt` with the same arguments and formats the whole project when given no path ([jacket](jacket.md)).
+In a project, use `jacket fmt` (`jacket fmt --check` in CI) and give it the same flags and paths; with no path it formats the whole project ([jacket](jacket.md)). `jacket fmt` reads `jacket.toml` itself (`jacket-config` is the one authority for the `[format]` keys, ranges and defaults): for each file it finds the nearest `jacket.toml`, drops files its `ignore` patterns match, groups files by resolved settings and runs `jaifmt --no-config --set key=value ...` once per group (every setting is passed, so `jaifmt`'s own defaults and TOML reader are not used). `--stdin` uses the working directory's settings, `--config FILE` applies one file's `[format]` everywhere, and `--is-ignored FILE` is answered by `jacket` (same exit codes). `--verbose` summaries are printed per `jaifmt` run. Help, version, `--set` and `--no-config` go to `jaifmt` untouched.
+
+Standalone `jaifmt` (editors, CI without `jacket`, the browser) reads `jacket.toml` with its own small TOML reader (`config.jai`). `--no-config` skips that and starts from the defaults; `--set KEY=VALUE` (repeatable, values written as in the file: `--set indent_width=2 --set brace_style=\"preserve\"`) overrides one key and implies `--no-config`. A test in `crates/jacket-config` (`jai_format_sync.rs`) compares that reader's keys, ranges, defaults and messages with the Rust schema, so change them together.
 
 Flags are declared at the top of `jaifmt/main.jai` and parsed by [`Extensions/Args`](../extensions/args.md) (`--help` is generated from them). Paths are files or directories (searched for `*.jai`, skipping dot-directories and symlinked directories). Exit status: 0 success, 1 `--check` found files to change, 2 errors (usage, unreadable file, input that does not lex, unbalanced brackets, failed token check).
 
@@ -25,7 +27,7 @@ Flags are declared at the top of `jaifmt/main.jai` and parsed by [`Extensions/Ar
 
 - `lexer.jai`: same token boundaries as `crates/jaic/src/lexer.rs`, but comments are tokens and each token records the whitespace before it.
 - `format.jai`: `plan_lines` decides line breaks (`breaks[i]`), then the emit loop writes each line with indentation from a stack of `Frame`s and zero or one space between tokens (`spacing_rule`).
-- `config.jai`: `jacket.toml` `[format]` parsing and ignore globs.
+- `config.jai`: `jacket.toml` `[format]` parsing and ignore globs, for standalone use and the browser (`jacket fmt` passes resolved settings instead).
 
 Behaviour in short:
 
@@ -55,7 +57,7 @@ blank_line_after_declarations = false   # plus the five other opt-in options abo
 ignore = ["tests/corpus/**", "generated/*.jai"]   # globs relative to the file; `**` crosses directories
 ```
 
-Both tools match `ignore` patterns the same way for the forms `jaifmt` supports: `*` and `?` stay within one path component, `**` crosses components (`**/x` also matches `x` at the top), a trailing `/` is dropped, an empty pattern matches nothing, and a pattern that matches a directory covers everything in it. The definition is `PathPattern` in `crates/jacket-config/src/pattern.rs` (it also has `[...]`, `{a,b}` and `\`, which `jaifmt` does not read) and `glob_path_match` in `stdlib/Extensions/Jai_Format/config.jai`; both run every case in `tests/glob/cases.txt` (`pattern<TAB>path<TAB>match|nomatch`), so add a case there when changing either.
+`jacket fmt` matches `ignore` with `PathPattern`, standalone `jaifmt` with its own matcher, the same way for the forms `jaifmt` supports: `*` and `?` stay within one path component, `**` crosses components (`**/x` also matches `x` at the top), a trailing `/` is dropped, an empty pattern matches nothing, and a pattern that matches a directory covers everything in it. The definition is `PathPattern` in `crates/jacket-config/src/pattern.rs` (it also has `[...]`, `{a,b}` and `\`, which `jaifmt` does not read) and `glob_path_match` in `stdlib/Extensions/Jai_Format/config.jai`; both run every case in `tests/glob/cases.txt` (`pattern<TAB>path<TAB>match|nomatch`), so add a case there when changing either.
 
 The repository's config ignores pinned corpus fixtures, the formatter's golden inputs and `tests/compiler/native/debug-info/**` (fixed line numbers), and enables four of the opt-in blank-line options with `max_blank_lines = 1`. Colour follows `NO_COLOR`, `FORCE_COLOR`, `CLICOLOR_FORCE` as in jaic. CI builds jaifmt and runs `--check stdlib tests benchmarks tools jaifmt examples`.
 
@@ -77,7 +79,7 @@ Also `format_tokens_equivalent`, `format_is_ignored(config, path)` (set `config.
 ## How to change it
 
 - **Spacing:** add to `spacing_rule` above the rules it overrides, plus a line in `tests/cases/spacing.in.jai`. Return `.NONE` or `.SPACE`; `.PRESENCE` only where the parser looks at adjacency.
-- **Blank-line rule for code blocks:** `statement_wants_blank` (one `if` per option), a field in `Format_Config`, a key in `parse_config_into`, and a `stmt-*` golden case. It may only call `add_blank_line`. File-level items: `separate_pair`, `finish_item`, `block_ends_item`, `is_item_container`.
+- **Blank-line rule for code blocks:** `statement_wants_blank` (one `if` per option), a field in `Format_Config`, an `apply_key` arm and `FORMAT_KEYS` entry, the matching entry in `FORMAT_SETTINGS` and `Format` in `crates/jacket-config/src/schema.rs` (the sync test fails until they agree), and a `stmt-*` golden case. It may only call `add_blank_line`. File-level items: `separate_pair`, `finish_item`, `block_ends_item`, `is_item_container`.
 - **Line structure:** `plan_lines`; any break it adds or removes must be accepted by `break_change_allowed`, which must accept only breaks the parser ignores.
 - **Indentation:** `line_indent`, `track`, `starts_statement`.
 - **Lexer:** mirror `crates/jaic/src/lexer.rs`. If the parser starts depending on whitespace somewhere new (look for `newline_before` in `crates/jaic/src/parser/`), teach `check_equivalent` and keep that spacing.
