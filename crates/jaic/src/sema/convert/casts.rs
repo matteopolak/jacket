@@ -341,7 +341,7 @@ impl Compiler {
             {
                 // A raw address is a scalar bit pattern, not a request to capture
                 // pointed-to memory. Use the target width, never the host's usize.
-                let bits = (self.ty.types.pointer_size * 8) as u8;
+                let bits = (crate::layout::POINTER_SIZE * 8) as u8;
                 let address = crate::int_arith::wrap(*i, bits, false);
                 Some(if address == 0 {
                     Value::Null

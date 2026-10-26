@@ -6,9 +6,9 @@
 //! path it was built from is unchanged, so editing a stdlib file (or adding one) builds a new
 //! one. A file system without stamps gets an index of its own for each compile.
 use super::FileSystem;
-use super::suggestions::COMPILER_INTERNAL_MODULES;
 use crate::ast::{ScopeKind, Stmt, StmtKind};
 use crate::fxhash::{HashMap, HashSet};
+use crate::lang_items::modules;
 use crate::source::FileId;
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
@@ -211,7 +211,7 @@ impl StdlibIndex {
                 stdlib,
                 crate::STDLIB_EXTENSIONS_DIR,
             ))
-            .filter(|(m, _)| !COMPILER_INTERNAL_MODULES.contains(&m.as_str()));
+            .filter(|(m, _)| !modules::INTERNAL.contains(&m.as_str()));
         let mut index = Self {
             deps: None,
             modules: Vec::new(),

@@ -8,6 +8,8 @@ use super::{
 };
 
 use crate::ir::Ty;
+use crate::lang_items;
+use crate::layout;
 use crate::sema::CompileTime;
 use crate::sema::SourceState;
 use crate::types::{ArrayKind, TypeKind};
@@ -285,7 +287,7 @@ impl Compiler {
         });
         // Temporary storage backed by a static buffer.
         if let Some(rs) = self.ns.runtime_support
-            && let Ok(ts_ty) = self.module_type(rs, "Temporary_Storage", span)
+            && let Ok(ts_ty) = self.module_type(rs, lang_items::modules::TEMPORARY_STORAGE, span)
         {
             let ts_size = self.size_of(ts_ty, span)?;
             let buf_size = 1 << 20;
@@ -770,8 +772,8 @@ impl Compiler {
                 Ok(Value::Code(value::CodeId(id as u32)))
             }
             TypeKind::String => {
-                let count = self.ct.program_u64(addr, span)? as usize;
-                let data = self.ct.program_u64(addr + 8, span)?;
+                let count = self.ct.program_u64(addr + layout::view::COUNT, span)? as usize;
+                let data = self.ct.program_u64(addr + layout::view::DATA, span)?;
                 Ok(Value::String(
                     self.ct.program_bytes(data, count, span)?.into(),
                 ))
@@ -870,15 +872,15 @@ impl Compiler {
                 elem,
                 kind,
             } => {
-                let count = self.ct.program_u64(addr, span)?;
-                let data = self.ct.program_u64(addr + 8, span)?;
+                let count = self.ct.program_u64(addr + layout::view::COUNT, span)?;
+                let data = self.ct.program_u64(addr + layout::view::DATA, span)?;
                 let esize = self.size_of(elem, span)?;
                 // Only the elements in use: the unused capacity of a resizable array is memory the
                 // program never wrote, so copying it would put whatever the interpreter's heap held
                 // before into the output, differently from one run to the next.
                 self.freeze_pointer(
                     agg,
-                    offset + 8,
+                    offset + layout::view::DATA,
                     Run {
                         p: data,
                         elem,
@@ -889,17 +891,18 @@ impl Compiler {
                 )?;
                 if kind == ArrayKind::Resizable {
                     // The frozen copy is not owned by any allocator.
-                    agg.bytes[(offset + 16) as usize..(offset + 40) as usize].fill(0);
-                    agg.bytes[(offset + 16) as usize..(offset + 24) as usize]
-                        .copy_from_slice(&count.to_le_bytes());
+                    let allocated = (offset + layout::resizable::ALLOCATED) as usize;
+                    let end = (offset + layout::resizable::SIZE) as usize;
+                    agg.bytes[allocated..end].fill(0);
+                    agg.bytes[allocated..allocated + 8].copy_from_slice(&count.to_le_bytes());
                 }
             }
             TypeKind::String => {
-                let count = self.ct.program_u64(addr, span)?;
-                let data = self.ct.program_u64(addr + 8, span)?;
+                let count = self.ct.program_u64(addr + layout::view::COUNT, span)?;
+                let data = self.ct.program_u64(addr + layout::view::DATA, span)?;
                 self.freeze_pointer(
                     agg,
-                    offset + 8,
+                    offset + layout::view::DATA,
                     Run {
                         p: data,
                         elem: TypeId::U8,
@@ -962,9 +965,11 @@ impl Compiler {
                 }
             }
             TypeKind::Any => {
-                let t = self.ct.program_u64(addr, span)?;
-                let v = self.ct.program_u64(addr + 8, span)?;
-                agg.bytes[offset as usize..offset as usize + 16].fill(0);
+                let t = self.ct.program_u64(addr + layout::any::TYPE, span)?;
+                let v = self
+                    .ct
+                    .program_u64(addr + layout::any::VALUE_POINTER, span)?;
+                agg.bytes[offset as usize..(offset + layout::any::SIZE) as usize].fill(0);
                 if t != 0 {
                     let vt = self.type_at(t, span)?;
                     let g = self.type_info_global(vt, span)?;
@@ -976,7 +981,7 @@ impl Compiler {
                     let size = self.size_of(vt, span)?;
                     self.freeze_pointer(
                         agg,
-                        offset + 8,
+                        offset + layout::any::VALUE_POINTER,
                         Run {
                             p: v,
                             elem: vt,

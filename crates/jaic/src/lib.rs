@@ -27,6 +27,8 @@ pub mod interp;
 pub mod interpolate;
 pub mod ir;
 pub mod knobs;
+pub mod lang_items;
+pub mod layout;
 pub mod lexer;
 pub mod lexicon;
 mod macros;

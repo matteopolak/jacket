@@ -5,6 +5,8 @@ use super::{
     TypeId, Value, ast, err, ir, procs, value,
 };
 
+use crate::layout;
+
 impl Compiler {
     /// The value of a defaulted baked parameter. A declared type naming earlier bindings
     /// (`$compare: (T, T) -> bool = ...`) is read in a scope holding them.
@@ -194,8 +196,8 @@ impl Compiler {
             .interp
             .global_addr(&self.out.program, g)
             .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
-        let n = self.ct.program_u64(addr, span)?;
-        let data = self.ct.program_u64(addr + 8, span)?;
+        let n = self.ct.program_u64(addr + layout::view::COUNT, span)?;
+        let data = self.ct.program_u64(addr + layout::view::DATA, span)?;
         let esize = self.size_of(elem, span)?;
         let total = count
             .checked_add(n)

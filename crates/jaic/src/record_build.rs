@@ -9,6 +9,7 @@
 //! pointers to the same record stay the same pointer.
 use crate::fxhash::HashMap;
 use crate::interp::{Interp, Trap};
+use crate::lang_items;
 use crate::records::{FieldRef, Item, List, Name, Records};
 use std::rc::Rc;
 
@@ -344,12 +345,12 @@ impl Builder {
         let record = Some(record);
         if let Some(record) = record {
             // A descriptor of the program reading the records: the real one.
-            if let Some(FieldRef::Int(address)) = record.field("__address") {
+            if let Some(FieldRef::Int(address)) = record.field(lang_items::record_fields::ADDRESS) {
                 self.remember(id, address as u64);
                 fill.created.push(id);
                 return Ok(address as u64);
             }
-            if let Some(FieldRef::Str(name)) = record.field("__builtin")
+            if let Some(FieldRef::Str(name)) = record.field(lang_items::record_fields::BUILTIN)
                 && let Some(&info) = std::str::from_utf8(name)
                     .ok()
                     .and_then(|name| self.builtins.get(name))

@@ -75,6 +75,7 @@ use crate::ast;
 use crate::fxhash::{HashMap, HashSet};
 use crate::intern::Sym;
 use crate::ir;
+pub use crate::lang_items::PreludeType;
 use crate::source::{Diagnostic, DiagnosticKind, FileId, SourcePath, Span};
 use crate::types::{TypeId, Types};
 /// The `#asm` instruction table, for editors (`jailsp`).
@@ -84,7 +85,6 @@ pub use compile_time::CompileTime;
 pub use diagnostics::Diagnostics;
 pub use driver::ProgramSource;
 pub use epochs::Epochs;
-pub use expr::PreludeType;
 pub use import_trace::{FailedAssert, ImportEdge, ImportTrace};
 pub use meta_state::MetaState;
 pub use module_rank::{ModuleRanking, Rank, count_importers};
@@ -99,7 +99,6 @@ pub use scope::{EntityId, ScopeId};
 pub use source_state::SourceState;
 use std::path::PathBuf;
 use std::rc::Rc;
-pub use suggestions::COMPILER_INTERNAL_MODULES;
 pub use type_state::TypeState;
 pub use value::{ModuleId, ProcId, Value};
 

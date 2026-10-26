@@ -233,7 +233,7 @@ impl Sources<'_> {
             .modules_in(index, dir, "")
             .into_iter()
             .filter(|m| {
-                !jaic::sema::COMPILER_INTERNAL_MODULES.contains(&m.name.as_str())
+                !jaic::lang_items::modules::INTERNAL.contains(&m.name.as_str())
                     && preload
                         .as_ref()
                         .is_none_or(|preload| *preload != self.key(&m.file))

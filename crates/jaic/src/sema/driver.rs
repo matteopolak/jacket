@@ -6,6 +6,7 @@ use super::{
     BootstrapModule, Compiler, DeadCode, Diagnostic, DiagnosticKind, FileId, ModuleId, PathBuf,
     PreludeType, ProcId, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, ir, procs, value,
 };
+use crate::lang_items;
 use crate::sema::Diagnostics;
 use crate::sema::Output;
 use crate::types::TypeKind;
@@ -37,7 +38,7 @@ impl Compiler {
     pub fn load_bootstrap(&mut self) -> Result<()> {
         let span = Span::NONE;
         if let Some(preload) = self.options.preload.clone() {
-            let m = self.load_module("prelude", &preload, Vec::new(), span)?;
+            let m = self.load_module(lang_items::modules::PRELUDE, &preload, Vec::new(), span)?;
             self.ns.preload = Some(m);
         }
         if self.options.runtime_support {

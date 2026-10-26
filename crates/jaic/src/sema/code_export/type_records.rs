@@ -1,4 +1,5 @@
 //! Records for types, including polymorphic struct parameters.
+use crate::lang_items;
 use crate::records::{Item, Record, RecordTag, Records};
 use crate::sema::typeinfo::descriptor_of;
 use crate::sema::{Compiler, PreludeType, Span, TypeId, Value, value};
@@ -108,7 +109,10 @@ impl Compiler {
         let mut rec = Record::new(tag);
         rec.int("type", info_tag as i64).int("runtime_size", size);
         if builtin {
-            rec.str("__builtin", self.ty.types.name(ty).as_bytes());
+            rec.str(
+                lang_items::record_fields::BUILTIN,
+                self.ty.types.name(ty).as_bytes(),
+            );
         }
         match kind {
             TypeKind::Int {

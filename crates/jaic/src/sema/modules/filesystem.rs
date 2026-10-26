@@ -213,8 +213,8 @@ impl BootstrapModule {
     /// The name an `#import` writes.
     pub const fn name(self) -> &'static str {
         match self {
-            BootstrapModule::Preload => "Preload",
-            BootstrapModule::RuntimeSupport => "Runtime_Support",
+            BootstrapModule::Preload => crate::lang_items::modules::PRELOAD,
+            BootstrapModule::RuntimeSupport => crate::lang_items::modules::RUNTIME_SUPPORT,
         }
     }
 

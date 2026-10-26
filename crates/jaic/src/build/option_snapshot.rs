@@ -3,6 +3,7 @@
 //! layout is hardcoded here.
 //! Strings/views own their contents here; opaque user pointers retain borrowed identity.
 use crate::interp::{Interp, Trap};
+use crate::layout;
 
 #[derive(Clone)]
 pub(super) struct Snapshot {
@@ -81,16 +82,29 @@ impl Snapshot {
         let mut bytes = self.bytes.clone();
         for (offset, string) in &self.strings {
             let ptr = interp.register_data_global(string, 1, false, 1)?;
-            put_view(&mut bytes[*offset..*offset + 16], string.len(), ptr);
+            put_view(
+                &mut bytes[*offset..*offset + layout::view::SIZE as usize],
+                string.len(),
+                ptr,
+            );
         }
         for (offset, strings) in &self.arrays {
-            let mut items = vec![0; strings.len() * 16];
-            for (item, string) in items.as_chunks_mut::<16>().0.iter_mut().zip(strings) {
+            let mut items = vec![0; strings.len() * layout::view::SIZE as usize];
+            for (item, string) in items
+                .as_chunks_mut::<{ layout::view::SIZE as usize }>()
+                .0
+                .iter_mut()
+                .zip(strings)
+            {
                 let ptr = interp.register_data_global(string, 1, false, 1)?;
                 put_view(item, string.len(), ptr);
             }
             let ptr = interp.register_data_global(&items, 8, false, 1)?;
-            put_view(&mut bytes[*offset..*offset + 16], strings.len(), ptr);
+            put_view(
+                &mut bytes[*offset..*offset + layout::view::SIZE as usize],
+                strings.len(),
+                ptr,
+            );
         }
         if !interp.write(address, &bytes) {
             return Err(Trap::new("unwritable build options"));
@@ -100,6 +114,7 @@ impl Snapshot {
 }
 
 fn put_view(out: &mut [u8], count: usize, data: u64) {
-    out[..8].copy_from_slice(&(count as u64).to_le_bytes());
-    out[8..16].copy_from_slice(&data.to_le_bytes());
+    let (count_at, data_at) = (layout::view::COUNT as usize, layout::view::DATA as usize);
+    out[count_at..count_at + 8].copy_from_slice(&(count as u64).to_le_bytes());
+    out[data_at..data_at + 8].copy_from_slice(&data.to_le_bytes());
 }

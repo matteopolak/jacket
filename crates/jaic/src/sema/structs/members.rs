@@ -1,6 +1,7 @@
 //! Finding members by name: fields, constants and promoted members.
 use super::model::{MemberResolution, PathStep, UsingFilters, using_candidates};
 use crate::ir::Ty;
+use crate::layout;
 use crate::sema::lower::FnCtx;
 use crate::sema::scope::EntityKind;
 use crate::sema::{
@@ -17,13 +18,19 @@ impl Compiler {
     ) -> Result<Vec<(Sym, TypeId, u64)>> {
         let s = |n: &str| Sym::intern(n);
         Ok(match self.ty.types.kind(ty).clone() {
-            TypeKind::String => vec![(s("count"), TypeId::S64, 0), (s("data"), TypeId::U8_PTR, 8)],
+            TypeKind::String => vec![
+                (s("count"), TypeId::S64, layout::view::COUNT),
+                (s("data"), TypeId::U8_PTR, layout::view::DATA),
+            ],
             TypeKind::Array {
                 elem,
                 kind: ArrayKind::View,
             } => {
                 let p = self.ty.types.pointer(elem);
-                vec![(s("count"), TypeId::S64, 0), (s("data"), p, 8)]
+                vec![
+                    (s("count"), TypeId::S64, layout::view::COUNT),
+                    (s("data"), p, layout::view::DATA),
+                ]
             }
             TypeKind::Array {
                 elem,
@@ -32,16 +39,23 @@ impl Compiler {
                 let p = self.ty.types.pointer(elem);
                 let alloc = self.preload_type(PreludeType::Allocator, span)?;
                 vec![
-                    (s("count"), TypeId::S64, 0),
-                    (s("data"), p, 8),
-                    (s("allocated"), TypeId::S64, 16),
-                    (s("allocator"), alloc, 24),
+                    (s("count"), TypeId::S64, layout::resizable::COUNT),
+                    (s("data"), p, layout::resizable::DATA),
+                    (s("allocated"), TypeId::S64, layout::resizable::ALLOCATED),
+                    (s("allocator"), alloc, layout::resizable::ALLOCATOR),
                 ]
             }
             TypeKind::Any => {
                 let ti = self.preload_type(PreludeType::TypeInfo, span)?;
                 let p = self.ty.types.pointer(ti);
-                vec![(s("type"), p, 0), (s("value_pointer"), TypeId::VOID_PTR, 8)]
+                vec![
+                    (s("type"), p, layout::any::TYPE),
+                    (
+                        s("value_pointer"),
+                        TypeId::VOID_PTR,
+                        layout::any::VALUE_POINTER,
+                    ),
+                ]
             }
             _ => Vec::new(),
         })

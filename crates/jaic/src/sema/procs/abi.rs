@@ -1,5 +1,6 @@
 //! IR signatures and aggregate layouts for procedures.
 use crate::ir::{Conv, Sig, Ty};
+use crate::layout;
 use crate::sema::{Compiler, Result, Span, TypeId, err, ir};
 use crate::types::{ArrayKind, TypeKind};
 
@@ -114,12 +115,12 @@ impl Compiler {
                 kind: ArrayKind::View,
                 ..
             } => {
-                out.push((base, Ty::I64));
-                out.push((base + 8, Ty::Ptr));
+                out.push((base + layout::view::COUNT, Ty::I64));
+                out.push((base + layout::view::DATA, Ty::Ptr));
             }
             TypeKind::Any => {
-                out.push((base, Ty::Ptr));
-                out.push((base + 8, Ty::Ptr));
+                out.push((base + layout::any::TYPE, Ty::Ptr));
+                out.push((base + layout::any::VALUE_POINTER, Ty::Ptr));
             }
             TypeKind::Array {
                 kind: ArrayKind::Resizable,

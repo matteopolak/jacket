@@ -20,9 +20,6 @@ use std::rc::Rc;
 /// The most modules an unknown name's help offers to import.
 const MAX_IMPORTS: usize = 4;
 
-/// Modules the compiler loads itself; they are never imported by name.
-pub const COMPILER_INTERNAL_MODULES: &[&str] = &["prelude", "Preload", "Runtime_Support"];
-
 /// Whether `code`, parsed as top-level Jai, declares `name`.
 fn code_declares(code: &[u8], name: &str) -> bool {
     let Ok(code) = std::str::from_utf8(code) else {

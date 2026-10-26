@@ -3,6 +3,7 @@
 use crate::ast::AstId;
 use crate::fxhash::HashMap;
 use crate::intern::Sym;
+use crate::layout::{self, POINTER_SIZE};
 use crate::source::Span;
 use std::rc::Rc;
 
@@ -160,8 +161,6 @@ pub struct Types {
     pub structs: Vec<StructInfo>,
     pub enums: Vec<EnumInfo>,
     pub distincts: Vec<DistinctInfo>,
-    /// Pointer size in bytes (8 for every supported target layout).
-    pub pointer_size: u64,
 }
 
 macro_rules! builtin {
@@ -219,7 +218,6 @@ impl Types {
             structs: Vec::new(),
             enums: Vec::new(),
             distincts: Vec::new(),
-            pointer_size: 8,
         }
     }
 
@@ -381,7 +379,7 @@ impl Types {
     /// Size in bytes. Structs must already be laid out. Saturates instead of overflowing; sema
     /// rejects types larger than `MAX_SIZE` when it lays them out.
     pub fn size_of(&self, ty: TypeId) -> u64 {
-        let p = self.pointer_size;
+        let p = POINTER_SIZE;
         match self.kind(ty) {
             TypeKind::Void
             | TypeKind::CompileTimeOnly
@@ -397,18 +395,17 @@ impl Types {
                 bits,
             } => *bits as u64 / 8,
             TypeKind::WideFloat(_) => 16,
-            TypeKind::String => 16,
-            TypeKind::Type => 8,
-            TypeKind::Any => 16,
-            TypeKind::Code => 8,
+            TypeKind::String => layout::view::SIZE,
+            TypeKind::Type | TypeKind::Code => POINTER_SIZE,
+            TypeKind::Any => layout::any::SIZE,
             TypeKind::Pointer(_) | TypeKind::Proc(_) | TypeKind::Null => p,
             TypeKind::Array {
                 elem,
                 kind,
             } => match kind {
                 ArrayKind::Fixed(n) => self.size_of(*elem).saturating_mul(*n),
-                ArrayKind::View => 16,
-                ArrayKind::Resizable => 40,
+                ArrayKind::View => layout::view::SIZE,
+                ArrayKind::Resizable => layout::resizable::SIZE,
             },
             TypeKind::Struct(s) => {
                 debug_assert!(
@@ -438,15 +435,14 @@ impl Types {
                 bits,
             } => *bits as u64 / 8,
             TypeKind::WideFloat(_) => 16,
-            TypeKind::String | TypeKind::Any => 8,
-            TypeKind::Type | TypeKind::Code => 8,
-            TypeKind::Pointer(_) | TypeKind::Proc(_) | TypeKind::Null => self.pointer_size,
+            TypeKind::String | TypeKind::Any | TypeKind::Type | TypeKind::Code => POINTER_SIZE,
+            TypeKind::Pointer(_) | TypeKind::Proc(_) | TypeKind::Null => POINTER_SIZE,
             TypeKind::Array {
                 elem,
                 kind,
             } => match kind {
                 ArrayKind::Fixed(_) => self.align_of(*elem),
-                _ => 8,
+                _ => POINTER_SIZE,
             },
             TypeKind::Struct(s) => self.structs[s.0 as usize].align.max(1),
             TypeKind::Enum(e) => self.align_of(self.enums[e.0 as usize].base),

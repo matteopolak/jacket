@@ -6,6 +6,7 @@ use super::{
     Compiler, Diagnostic, EntityId, ModuleId, Rc, Result, ScopeId, SourcePath, Span, Sym, TypeId,
     Value, ast, err, ir, scope,
 };
+use crate::layout;
 use crate::types::{ArrayKind, TypeKind};
 
 pub(crate) fn filter_target(filter: &ast::UsingFilter, name: Sym) -> Option<Sym> {
@@ -115,10 +116,10 @@ impl Compiler {
         let (count, data) = if let ArrayKind::Fixed(n) = kind {
             (n, addr)
         } else {
-            let Some(n) = self.ct.interp.read_u64(addr) else {
+            let Some(n) = self.ct.interp.read_u64(addr + layout::view::COUNT) else {
                 return err(span, "unreadable using filter count");
             };
-            let Some(data) = self.ct.interp.read_u64(addr + 8) else {
+            let Some(data) = self.ct.interp.read_u64(addr + layout::view::DATA) else {
                 return err(span, "unreadable using filter data");
             };
             (n, data)

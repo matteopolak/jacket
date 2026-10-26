@@ -29,6 +29,7 @@ pub use self::procs::export_code;
 pub use self::state::{ExportState, FileEvent, Modification};
 use super::{Compiler, ProcId, ScopeId, Span, Sym, TypeId, ast};
 use crate::builtin_keys::SyntaxKey;
+use crate::lang_items;
 use crate::records::{FieldRef, Record, RecordTag, Records};
 
 
@@ -188,7 +189,7 @@ impl Exporter<'_> {
                 .and_then(|g| c.ct.interp.global_addr(&c.out.program, g).ok());
             if let Some(addr) = addr {
                 let mut rec = Record::new(RecordTag::TypeInfo);
-                rec.int("__address", addr as i64);
+                rec.int(lang_items::record_fields::ADDRESS, addr as i64);
                 let id = self.r.add(rec);
                 c.meta.export.own_types.insert(ty, id);
                 return id;

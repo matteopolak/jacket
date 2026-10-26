@@ -1,4 +1,5 @@
 //! Writing fields, pointers and views of the type information tables.
+use crate::layout;
 use crate::sema::value::Aggregate;
 use crate::sema::{Compiler, Rc, Result, Span, Sym, TypeId, Value, err, ir, structs};
 
@@ -156,8 +157,8 @@ impl Compiler {
                 }
             })
             .sum();
-        agg.bytes[offset as usize..offset as usize + 8]
-            .copy_from_slice(&(count as u64).to_le_bytes());
+        let count_at = (offset + layout::view::COUNT) as usize;
+        agg.bytes[count_at..count_at + 8].copy_from_slice(&(count as u64).to_le_bytes());
         if count > 0 {
             let g = self.out.program.add_global(ir::Global {
                 name: format!("type_info.{name}.{}", self.out.program.globals.len()),
@@ -169,7 +170,7 @@ impl Compiler {
                 export: None,
             });
             agg.relocs.push(ir::Reloc {
-                offset: offset + 8,
+                offset: offset + layout::view::DATA,
                 target: ir::RelocTarget::Global(g),
                 addend: 0,
             });
