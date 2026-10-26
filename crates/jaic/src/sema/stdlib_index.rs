@@ -6,6 +6,7 @@
 //! path it was built from is unchanged, so editing a stdlib file (or adding one) builds a new
 //! one. A file system without stamps gets an index of its own for each compile.
 use super::FileSystem;
+use super::modules::module_listed;
 use crate::ast::{ScopeKind, Stmt, StmtKind};
 use crate::fxhash::{HashMap, HashSet};
 use crate::lang_items::modules;
@@ -225,7 +226,7 @@ impl StdlibIndex {
             let (entry, files) = if is_dir {
                 let mut files = Vec::new();
                 module_files(&recorder, &stdlib.join(&name), &mut files, 0);
-                (stdlib.join(&name).join("module.jai"), files)
+                (crate::paths::module_entry(&stdlib.join(&name)), files)
             } else {
                 let entry = stdlib.join(format!("{name}.jai"));
                 (entry.clone(), vec![entry])
@@ -345,14 +346,7 @@ pub(super) fn modules_under(
     fs.list_dir(&dir)
         .into_iter()
         .filter_map(|(entry, is_dir)| {
-            if is_dir {
-                fs.is_file(&dir.join(&entry).join("module.jai"))
-                    .then(|| (format!("{prefix}{entry}"), true))
-            } else {
-                entry
-                    .strip_suffix(".jai")
-                    .map(|m| (format!("{prefix}{m}"), false))
-            }
+            module_listed(fs, &dir, &entry, is_dir).map(|m| (format!("{prefix}{m}"), is_dir))
         })
         .collect()
 }

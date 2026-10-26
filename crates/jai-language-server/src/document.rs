@@ -134,7 +134,7 @@ fn native_spelling(path: &str, windows: bool) -> Result<String, Error> {
             result = jaic::strip_verbatim(&result)
                 .ok_or(Error::Uri("unsupported verbatim file path"))?;
         }
-        result = result.replace('\\', "/");
+        result = jaic::paths::to_slash(&result);
         if drive(&result) {
             result.replace_range(0..1, &result[..1].to_ascii_uppercase());
         }

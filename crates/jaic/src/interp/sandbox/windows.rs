@@ -111,7 +111,7 @@ fn put_wide_path(text: &str, out: u64, room: u64) -> u64 {
 impl SandboxHost {
     /// A Windows path argument, resolved like the C library's.
     fn wide_path(&self, ptr: u64) -> String {
-        let path = wide_string(ptr).replace('\\', "/");
+        let path = crate::paths::to_slash(&wide_string(ptr));
         absolute(
             if self.cwd.is_empty() {
                 "/"

@@ -185,7 +185,8 @@ pub fn module_import(
     declares_parameters: bool,
     key: &dyn Fn(&Path) -> PathBuf,
 ) -> Option<(String, PathBuf)> {
-    let nested = root.file_name()? == "module.jai";
+    root.file_name()?;
+    let nested = crate::paths::is_module_entry(root);
     let module = if nested {
         root.parent()?.to_path_buf()
     } else {
@@ -587,23 +588,20 @@ pub fn module_of(fs: &dyn ProjectFs, file: &Path, import_dirs: &[PathBuf]) -> Op
     dirs.sort_by_key(|dir| std::cmp::Reverse(dir.components().count()));
     for dir in dirs {
         if let Ok(relative) = file.strip_prefix(&dir) {
-            let name = if relative
-                .file_name()
-                .is_some_and(|name| name == "module.jai")
-            {
+            let name = if crate::paths::is_module_entry(relative) {
                 relative.parent()?.to_path_buf()
             } else {
                 relative.with_extension("")
             };
             return Some(Root::Module {
                 entry: file.to_path_buf(),
-                name: name.to_string_lossy().replace('\\', "/"),
+                name: crate::paths::module_key(&name),
                 dir,
             });
         }
     }
     let dir = file.parent()?;
-    if file.file_name().is_some_and(|n| n == "module.jai") {
+    if crate::paths::is_module_entry(file) {
         return Some(Root::Module {
             entry: file.to_path_buf(),
             name: dir.file_name()?.to_string_lossy().into_owned(),
@@ -632,7 +630,7 @@ pub fn enclosing_module(
     cache: &mut LoadCache,
 ) -> Option<Root> {
     for dir in file.parent()?.ancestors() {
-        let entry = dir.join("module.jai");
+        let entry = crate::paths::module_entry(dir);
         if !fs.is_file(&entry) {
             continue;
         }
@@ -772,7 +770,7 @@ pub fn build_loader_graph(
 /// The loader order of preference for [`TieBreak::ModuleFirstShallowest`].
 fn preference(candidate: &Path) -> (bool, usize, PathBuf) {
     (
-        candidate.file_name().is_none_or(|n| n != "module.jai"),
+        !crate::paths::is_module_entry(candidate),
         candidate.components().count(),
         candidate.to_path_buf(),
     )
@@ -878,12 +876,7 @@ mod tests {
         let closure = load_closure(&DiskFs, &main, 100);
         let names: Vec<_> = closure
             .iter()
-            .map(|p| {
-                p.strip_prefix(&dir)
-                    .unwrap()
-                    .to_string_lossy()
-                    .replace('\\', "/")
-            })
+            .map(|p| crate::paths::slashed(p.strip_prefix(&dir).unwrap()))
             .collect();
         assert_eq!(names, ["a.jai", "main.jai", "sub/b.jai"]);
         // A cycle loads the root back; without one, the root is not among what it reaches.

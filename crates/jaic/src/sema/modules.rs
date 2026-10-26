@@ -8,6 +8,7 @@ mod not_found;
 mod parameters;
 
 pub(super) use self::declare::file_scope_for_eval;
+pub(super) use self::filesystem::module_listed;
 pub use self::filesystem::{
     BootstrapModule, FileSystem, NativeFs, VirtualFs, content_stamp, find_module_in, import_entry,
 };

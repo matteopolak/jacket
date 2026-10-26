@@ -6,6 +6,47 @@ use std::io;
 use std::path::{Component, Path, PathBuf};
 use std::sync::Mutex;
 
+/// The file a folder module is entered through: `Name/module.jai`.
+pub const MODULE_ENTRY: &str = "module.jai";
+
+/// Whether `path` is the entry file of a folder module.
+pub fn is_module_entry(path: &Path) -> bool {
+    path.file_name().is_some_and(|name| name == MODULE_ENTRY)
+}
+
+/// The entry file of the folder module `dir`.
+pub fn module_entry(dir: &Path) -> PathBuf {
+    dir.join(MODULE_ENTRY)
+}
+
+/// `path` with every `\` written `/`: the spelling paths take in program text, module keys and
+/// golden output, so they read the same on every host.
+pub fn to_slash(path: &str) -> String {
+    path.replace('\\', "/")
+}
+
+/// [`to_slash`] of a path, lossily.
+pub fn slashed(path: &Path) -> String {
+    to_slash(&path.to_string_lossy())
+}
+
+/// The name a module is known by: its path below an import directory, `/`-separated
+/// (`Extensions/SIMD`).
+pub fn module_key(relative: &Path) -> String {
+    slashed(relative)
+}
+
+/// A path as the program sees it (`#file`, `#filepath`): `/`-separated on Windows too, so a
+/// metaprogram can put it in a string literal or splice it into `#load "..."` without escaping
+/// backslashes.
+pub fn program_path(path: &str) -> String {
+    if cfg!(windows) {
+        to_slash(path)
+    } else {
+        path.to_string()
+    }
+}
+
 /// Lexically normalize `a/./b/../c` without touching the filesystem.
 pub fn normalize(path: &Path) -> PathBuf {
     let mut out = PathBuf::new();

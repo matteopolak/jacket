@@ -1,5 +1,5 @@
 //! Diagnostics for modules and files that cannot be found or read.
-use super::filesystem::modules_in;
+use super::filesystem::{module_file_in, modules_in};
 use crate::sema::SourceState;
 use crate::sema::{Compiler, Diagnostic, DiagnosticKind, PathBuf, Span};
 use std::path::Path;
@@ -44,8 +44,7 @@ impl Compiler {
             name
         };
         let path = format!("{folder}/{wanted}");
-        let exists = self.src.fs.is_file(&stdlib.join(&path).join("module.jai"))
-            || self.src.fs.is_file(&stdlib.join(format!("{path}.jai")));
+        let exists = module_file_in(&*self.src.fs, &stdlib.join(folder), wanted).is_some();
         if !exists {
             return Err(d);
         }
@@ -151,10 +150,7 @@ impl Compiler {
     /// A directory near `from_dir` (it, its parents up to three levels, and their immediate
     /// subdirectories) that holds the module `name`.
     fn module_nearby(&self, name: &str, from_dir: &Path) -> Option<PathBuf> {
-        let holds = |dir: &Path| {
-            self.src.fs.is_file(&dir.join(format!("{name}.jai")))
-                || self.src.fs.is_file(&dir.join(name).join("module.jai"))
-        };
+        let holds = |dir: &Path| module_file_in(&*self.src.fs, dir, name).is_some();
         let start = self.src.canon(from_dir);
         for ancestor in start.ancestors().take(4) {
             if holds(ancestor) {

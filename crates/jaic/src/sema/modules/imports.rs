@@ -334,7 +334,7 @@ impl Compiler {
             ProvidedKind::PathToFile => Some(self.src.canon(Path::new(&provided.value))),
             ProvidedKind::PathToDirectory => Some(
                 self.src
-                    .canon(&Path::new(&provided.value).join("module.jai")),
+                    .canon(&crate::paths::module_entry(Path::new(&provided.value))),
             ),
             ProvidedKind::FullText => {
                 if let Some(&id) = self.src.provided_texts.get(&provided.value) {

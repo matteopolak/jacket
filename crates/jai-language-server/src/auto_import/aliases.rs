@@ -65,7 +65,7 @@ impl Resolver<'_, '_> {
             .chain(self.import_dirs.iter())
             .flat_map(|dir| {
                 [
-                    dir.join(name).join("module.jai"),
+                    jaic::paths::module_entry(&dir.join(name)),
                     dir.join(format!("{name}.jai")),
                 ]
             })

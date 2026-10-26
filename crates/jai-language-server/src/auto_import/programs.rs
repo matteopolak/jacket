@@ -153,7 +153,7 @@ impl Sources<'_> {
                         .map(|p| self.key(&p)),
                 );
             }
-            if program.root.file_name().is_none_or(|n| n != "module.jai") {
+            if !jaic::paths::is_module_entry(&program.root) {
                 fallback.insert(program.root);
             }
         }

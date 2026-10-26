@@ -438,7 +438,7 @@ fn note_typechecked_name(usage: &TypecheckedUse, path: &SourcePath, text: &str) 
         return;
     }
     // The record type itself and the delivery code of the `Compiler` module.
-    let own = path.to_string().replace('\\', "/");
+    let own = crate::paths::to_slash(&path.to_string());
     if ["Compiler/contract-records.jai"]
         .iter()
         .any(|file| own.ends_with(file))

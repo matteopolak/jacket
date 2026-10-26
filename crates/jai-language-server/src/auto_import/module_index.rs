@@ -36,7 +36,7 @@ impl Sources<'_> {
                 for import in &self.scan(index, file).imports {
                     let found = module_dirs.iter().find_map(|dir| {
                         [
-                            dir.join(&import.path).join("module.jai"),
+                            jaic::paths::module_entry(&dir.join(&import.path)),
                             dir.join(format!("{}.jai", import.path)),
                         ]
                         .into_iter()

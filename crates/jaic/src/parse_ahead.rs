@@ -357,7 +357,7 @@ mod imp {
                             }
                             ast::ImportSource::File(path) => Some(dir.join(&**path)),
                             ast::ImportSource::Dir(path) => {
-                                Some(dir.join(&**path).join("module.jai"))
+                                Some(crate::paths::module_entry(&dir.join(&**path)))
                             }
                             ast::ImportSource::String(_) => None,
                         };

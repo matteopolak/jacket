@@ -220,7 +220,7 @@ impl<'a> Cx<'a> {
         let Some(root) = path
             .ancestors()
             .skip(1)
-            .find(|d| d.join("module.jai").is_file())
+            .find(|d| jaic::paths::module_entry(d).is_file())
         else {
             return false;
         };

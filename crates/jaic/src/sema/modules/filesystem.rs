@@ -226,6 +226,28 @@ impl BootstrapModule {
     }
 }
 
+/// The entry file of the module `name` directly under `dir`: `Name.jai`, else `Name/module.jai`.
+/// This is the one definition of what a module on disk looks like.
+pub fn module_file_in(fs: &dyn FileSystem, dir: &Path, name: &str) -> Option<PathBuf> {
+    let file = dir.join(format!("{name}.jai"));
+    if fs.is_file(&file) {
+        return Some(file);
+    }
+    let entry = crate::paths::module_entry(&dir.join(name));
+    fs.is_file(&entry).then_some(entry)
+}
+
+/// The module a directory listing entry is, if it is one: `Name.jai`, or a folder `Name` with a
+/// `module.jai`.
+pub fn module_listed(fs: &dyn FileSystem, dir: &Path, entry: &str, is_dir: bool) -> Option<String> {
+    if is_dir {
+        fs.is_file(&crate::paths::module_entry(&dir.join(entry)))
+            .then(|| entry.to_string())
+    } else {
+        entry.strip_suffix(".jai").map(str::to_string)
+    }
+}
+
 /// Find `Name.jai` or `Name/module.jai` in `from_dir/modules`, then on `import_paths`.
 /// A file under an import path's private `internal/` folder looks in that import path first,
 /// so a project's replacement for a module (its own `Windows`) never reaches the library's
@@ -247,12 +269,7 @@ pub fn find_module_in(
     );
     dirs.extend(import_paths.iter().cloned());
     for dir in &dirs {
-        let file = dir.join(format!("{name}.jai"));
-        if fs.is_file(&file) {
-            return Some(file);
-        }
-        let entry = dir.join(name).join("module.jai");
-        if fs.is_file(&entry) {
+        if let Some(entry) = module_file_in(fs, dir, name) {
             return Some(entry);
         }
     }
@@ -275,7 +292,7 @@ pub fn import_entry(
     match source {
         ast::ImportSource::Module(name) => find_module_in(fs, import_paths, name, dir),
         ast::ImportSource::File(path) => Some(dir.join(&**path)),
-        ast::ImportSource::Dir(path) => Some(dir.join(&**path).join("module.jai")),
+        ast::ImportSource::Dir(path) => Some(crate::paths::module_entry(&dir.join(&**path))),
         ast::ImportSource::String(_) => None,
     }
 }
@@ -284,14 +301,7 @@ pub fn import_entry(
 pub(super) fn modules_in(fs: &dyn FileSystem, dir: &Path) -> Vec<String> {
     fs.list_dir(dir)
         .into_iter()
-        .filter_map(|(name, is_dir)| {
-            if is_dir {
-                fs.is_file(&dir.join(&name).join("module.jai"))
-                    .then_some(name)
-            } else {
-                name.strip_suffix(".jai").map(str::to_string)
-            }
-        })
+        .filter_map(|(name, is_dir)| module_listed(fs, dir, &name, is_dir))
         .collect()
 }
 

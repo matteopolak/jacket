@@ -72,7 +72,7 @@ impl Compiler {
             .str("module_name", module.name.as_bytes())
             .str(
                 "fully_pathed_filename",
-                crate::sema::expr::forward_slashes(&entry).as_bytes(),
+                crate::paths::program_path(&entry).as_bytes(),
             )
             .int("__module", m.0 as i64);
         let id = r.add(rec);
@@ -106,7 +106,7 @@ impl Compiler {
             .int("workspace", self.meta.workspace)
             .str(
                 "fully_pathed_filename",
-                crate::sema::expr::forward_slashes(&path).as_bytes(),
+                crate::paths::program_path(&path).as_bytes(),
             )
             .ptr("enclosing_import", import)
             .int("from_a_string", virtual_source as i64)

@@ -651,7 +651,8 @@ impl Compiler {
             E::CallerLocation => self.location_operand(f, span),
             // `#file` is the full path of the file, as loaded.
             E::File => {
-                let path = forward_slashes(&self.src.sources.get(span.file).path.to_string());
+                let path =
+                    crate::paths::program_path(&self.src.sources.get(span.file).path.to_string());
                 Ok(Operand::Const {
                     ty: TypeId::STRING,
                     value: Value::String(path.as_bytes().into()),
@@ -662,7 +663,7 @@ impl Compiler {
                 let path = self.src.sources.get(span.file).path.to_path();
                 let dir = path
                     .parent()
-                    .map(|p| format!("{}/", forward_slashes(&p.display().to_string())))
+                    .map(|p| format!("{}/", crate::paths::program_path(&p.display().to_string())))
                     .unwrap_or_default();
                 Ok(Operand::Const {
                     ty: TypeId::STRING,
@@ -799,16 +800,6 @@ fn cast_operand_needs_target(e: &ast::Expr) -> bool {
             ..
         } => cast_operand_needs_target(a) && cast_operand_needs_target(b),
         _ => false,
-    }
-}
-
-/// Paths the program sees (`#file`, `#filepath`) use `/` on Windows too, so a metaprogram can put
-/// them in a string literal or splice them into `#load "..."` without escaping backslashes.
-pub(crate) fn forward_slashes(path: &str) -> String {
-    if cfg!(windows) {
-        path.replace('\\', "/")
-    } else {
-        path.to_string()
     }
 }
 

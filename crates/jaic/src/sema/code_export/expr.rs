@@ -622,7 +622,7 @@ impl Exporter<'_> {
                     }
                     kind => {
                         let text = if matches!(kind, E::File) {
-                            crate::sema::expr::forward_slashes(&src.path.to_string())
+                            crate::paths::program_path(&src.path.to_string())
                         } else {
                             src.path
                                 .to_path()
@@ -630,9 +630,7 @@ impl Exporter<'_> {
                                 .map(|p| {
                                     format!(
                                         "{}/",
-                                        crate::sema::expr::forward_slashes(
-                                            &p.display().to_string()
-                                        )
+                                        crate::paths::program_path(&p.display().to_string())
                                     )
                                 })
                                 .unwrap_or_default()

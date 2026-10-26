@@ -299,7 +299,7 @@ fn create_workspaces(
 /// `-no_check_bindings`: sets `CHECK_BINDINGS=false` on the plugins that resolve, on the import
 /// path, to the standard library's `Check` module (not on any module that merely has the name).
 pub(super) fn disable_check_bindings(cli: &mut Cli, options: &jaic::sema::Options, stdlib: &Path) {
-    let check = jaic::canonicalize(stdlib.join("Check").join("module.jai")).ok();
+    let check = jaic::canonicalize(jaic::paths::module_entry(&stdlib.join("Check"))).ok();
     for plugin in &mut cli.plugins {
         let entry = jaic::sema::find_module_in(
             &NativeFs,
