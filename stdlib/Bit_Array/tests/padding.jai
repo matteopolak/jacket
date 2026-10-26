@@ -7,9 +7,10 @@ set_all_bits_fills_every_slot :: () {
 
     defer Bits.deinit(*bits);
 
-    expect(bits.count == 65 && bits.allocator.proc != null);
+    assert_that(bits.count, is(65));
+    assert_that(bits.allocator.proc, not_null());
     Bits.set_all_bits(*bits);
-    expect_equal(bits.slots.count, 2);
+    assert_that(bits.slots, has_length(2));
     expect(bits.slots[0] == -1 && bits.slots[1] == -1);
 } @test
 

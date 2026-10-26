@@ -10,10 +10,13 @@ contains_nocase_returns_the_text_after_the_match :: () {
     text := "abcDEFghi";
     found, remainder := S.contains_nocase(text, "def");
 
-    expect(found && remainder == "ghi" && remainder.data == text.data + 6);
+    assert_that(found, is_true());
+    assert_that(remainder, is("ghi"));
+    expect(remainder.data == text.data + 6);
     absent, empty := S.contains(text, "");
 
-    expect(!absent && empty.count == 0);
+    assert_that(absent, is_false());
+    assert_that(empty, is_empty());
     index, indexed := S.index_of_string_nocase(text, "DEF");
 
     expect(indexed && index == 3);
