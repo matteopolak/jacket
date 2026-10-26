@@ -21,6 +21,9 @@ NATIVE_ABI_ADAPTERS = {
     ('SDL', 'SDL_GetWindowWMInfo'): 'SDL_GetWindowWMInfo',
     ('SDL', 'SDL_LoadBMP_RW'): 'SDL_LoadBMP_RW',
 }
+# Public modules that only re-export a private copy the library's own code imports, so a project's
+# replacement module never reaches the library internals (docs/compiler/project.md).
+REEXPORTED = {'Curl': 'curl-api', 'Objective_C': 'objc-api', 'POSIX': 'posix-api', 'Windows': 'windows-api'}
 NATIVE_SHAPE_DELEGATES = {'POSIX':'android-posix-shapes.json'}
 # Explicit private C SDK build profile, not reviewed public Jai option defaults.
 RPMALLOC_SDK_BUILD_OPTIONS = {

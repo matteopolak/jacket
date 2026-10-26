@@ -10,7 +10,7 @@ import re
 import subprocess
 
 from native_bindings.spec import parse_spec
-from native_bindings.config import IMPORTS, LIBRARIES, PARAMETERS, PRIVATE, TARGETS, NATIVE_ABI_ADAPTERS, NATIVE_SHAPE_DELEGATES, RPMALLOC_PUBLIC_CONSTRAINTS
+from native_bindings.config import REEXPORTED, IMPORTS, LIBRARIES, PARAMETERS, PRIVATE, TARGETS, NATIVE_ABI_ADAPTERS, NATIVE_SHAPE_DELEGATES, RPMALLOC_PUBLIC_CONSTRAINTS
 from wrappers import simple_body, forwarding_body
 from objc import materialize_methods
 from bitfields import body as bitfield_body
@@ -678,6 +678,12 @@ def main():
                                   for condition, message in RPMALLOC_PUBLIC_CONSTRAINTS)
         contextual = ROOT / 'stdlib' / module / 'context.jai'
         sources = MANUAL_FACADE_SOURCES.get(module, ('wrappers.jai',))
+        if module in REEXPORTED:
+            private = 'internal/bindings/' + REEXPORTED[module]
+            entry_code += ('\n// `' + private + '` loads the declarations; the library\'s own code imports it too,\n'
+                           '// so a project that ships its own `' + module + '` module never reaches the library internals.\n'
+                           'using Declarations :: #import "' + private + '";\n')
+            sources = ()
         if 'configuration.jai' in sources:
             entry_code += '#load "configuration.jai";\n'
         if module == 'rpmalloc':
@@ -689,7 +695,8 @@ def main():
                 contextual.write_text(contextual_code)
         if contextual.exists():
             entry_code += '#load "context.jai";\n'
-        entry_code += '#load "declarations.jai";\n'
+        if module not in REEXPORTED:
+            entry_code += '#load "declarations.jai";\n'
         for name in sources:
             if name!='configuration.jai' and (ROOT/'stdlib'/module/name).exists():
                 entry_code += '#load "'+name+'";\n'

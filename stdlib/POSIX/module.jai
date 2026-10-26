@@ -1,6 +1,5 @@
 #assert OS == .LINUX || OS == .MACOS || OS == .ANDROID || OS == .IOS, "POSIX requires its documented native platform";
 
-// The declarations and wrappers are loaded by `internal/bindings/posix-api`, the one copy the
-// library's own code imports too, so a project that ships its own `POSIX` module replaces this
-// module without reaching the library internals.
+// `internal/bindings/posix-api` loads the declarations; the library's own code imports it too,
+// so a project that ships its own `POSIX` module never reaches the library internals.
 using Declarations :: #import "internal/bindings/posix-api";
