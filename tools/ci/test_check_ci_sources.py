@@ -1,6 +1,10 @@
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+# Importable when the file is run directly (`python3 -m unittest tools/ci/test_check_ci_sources.py`), not only through discovery.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from check_ci_sources import inspect_includes
 
