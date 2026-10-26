@@ -200,7 +200,7 @@ fn run() -> Result<ExitCode, String> {
     } else {
         for (root, error) in &outcome.incomplete {
             eprintln!(
-                "jailint: {} did not compile completely ({error}); bodies that failed were not linted",
+                "jailint: {} did not compile completely; bodies that failed were not linted\n  {error}",
                 shown(&root.to_string_lossy())
             );
         }

@@ -132,7 +132,22 @@ pub(super) fn compile_root(
         workspaces: started.workspaces.clone(),
         done,
         reports,
-        error: result.err().map(|e| e.message.clone()),
+        error: result.err().map(|e| stopping_error(&e)),
         host: started.host.clone(),
     }
+}
+
+/// The error that stopped a root's compile, with its text notes and help lines (where a
+/// compile-time evaluation ran out of budget, and how to raise it).
+fn stopping_error(e: &jaic::source::Diagnostic) -> String {
+    let mut text = e.message.clone();
+    for (_, note) in &e.notes {
+        text.push_str("\n  note: ");
+        text.push_str(note);
+    }
+    for help in &e.help {
+        text.push_str("\n  help: ");
+        text.push_str(help);
+    }
+    text
 }
