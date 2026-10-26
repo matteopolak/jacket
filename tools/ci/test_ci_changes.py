@@ -109,5 +109,37 @@ class JobSelection(unittest.TestCase):
         self.assertFalse(ci_changes.matches(area, ["crates/jailint/src/lib.rs"], False))
 
 
+class Tiers(unittest.TestCase):
+    # GitHub runs at most five macOS jobs at once for the repository.
+    MACOS = ("macos-15", "macos-15-intel")
+
+    def test_every_shard_set_is_complete(self):
+        for full in (False, True):
+            legs = ci_changes.test_matrix(full)
+            groups = {}
+            for leg in legs:
+                groups.setdefault((leg["runner"], leg["part"]), []).append(leg["shard"])
+            for (runner, part), got in groups.items():
+                with self.subTest(full=full, runner=runner, part=part):
+                    self.assertEqual(got, ci_changes.shards(len(got)))
+
+    def test_the_fast_tier_fits_the_macos_limit(self):
+        tests = ci_changes.test_matrix(False)
+        stdlib = ci_changes.stdlib_matrix(False)
+        macos = [leg for leg in tests if leg["runner"] in self.MACOS]
+        macos += [leg for leg in stdlib if leg["platform"].startswith("macos")]
+        self.assertLessEqual(len(macos), 5)
+
+    def test_the_full_tier_covers_every_platform(self):
+        runners = {leg["runner"] for leg in ci_changes.test_matrix(True)}
+        self.assertEqual(
+            runners, {"ubuntu-24.04", "ubuntu-24.04-arm", "macos-15", "macos-15-intel"}
+        )
+        platforms = {leg["platform"] for leg in ci_changes.stdlib_matrix(True)}
+        self.assertEqual(
+            platforms, {"linux-x64", "linux-arm64", "macos-arm64", "macos-x64"}
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

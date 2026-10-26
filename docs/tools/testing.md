@@ -153,6 +153,8 @@ The test discovers `stdlib/X.jai` files and public `module.jai` facades (`stdlib
 cargo test -p jaic-cli --test stdlib_targets    # --release for speed, --no-default-features without LLVM
 ```
 
+`JACKET_STDLIB_TARGETS_PART=K/N` checks only every N-th module and target pair from the K-th (CI splits it this way) and compares only those pairs with the list; a listed pair that passes is still reported by the shard that checked it.
+
 Change it by editing `tests/compiler/stdlib-targets.txt` only after confirming the restriction is real (`skip Module`, `Module target: file: first error`; `#` comments). A new platform-only module should stop on the wrong target with an explanatory `#assert` and get one line per refused target. A new target extends `TARGETS` in the test. Source checks do not prove native SDK or runtime availability.
 
 ## Objective-C selector check

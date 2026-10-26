@@ -7,7 +7,7 @@
 //! a module fails that is not listed, fails differently, or passes although it is listed.
 //! The plugin loader's declared generated body needs its real empty compile-time initialization
 //! before unused-code checking, including when imported by `Default_Metaprogram`.
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
@@ -174,6 +174,21 @@ fn first_error(stderr: &str, stdlib: &str) -> String {
     format!("{file}: {message}")
 }
 
+/// The share of the module and target pairs this run checks: `JACKET_STDLIB_TARGETS_PART=K/N` takes
+/// every Nth pair from the Kth, so CI can spread the check over N jobs. Unset, it checks them all.
+fn part() -> (usize, usize) {
+    let Ok(value) = std::env::var("JACKET_STDLIB_TARGETS_PART") else {
+        return (0, 1);
+    };
+    let parsed = value
+        .split_once('/')
+        .and_then(|(k, n)| Some((k.parse::<usize>().ok()?, n.parse::<usize>().ok()?)));
+    match parsed {
+        Some((k, n)) if (1..=n).contains(&k) => (k - 1, n),
+        _ => panic!("JACKET_STDLIB_TARGETS_PART must be K/N with 1 <= K <= N, not `{value}`"),
+    }
+}
+
 #[test]
 fn every_stdlib_module_checks_for_every_target() {
     let root = root().canonicalize().unwrap();
@@ -186,10 +201,15 @@ fn every_stdlib_module_checks_for_every_target() {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
 
+    let (part, parts) = part();
     let jobs: Vec<(String, &str)> = modules(&stdlib, &skip)
         .into_iter()
         .flat_map(|m| TARGETS.map(|os| (m.clone(), os)))
+        .enumerate()
+        .filter(|(index, _)| index % parts == part)
+        .map(|(_, job)| job)
         .collect();
+    let checked: BTreeSet<String> = jobs.iter().map(|(m, os)| format!("{m} {os}")).collect();
     let next = Mutex::new(jobs.into_iter());
     let actual = Mutex::new(BTreeMap::new());
     let threads = std::thread::available_parallelism().map_or(4, std::num::NonZero::get);
@@ -258,7 +278,7 @@ fn every_stdlib_module_checks_for_every_target() {
     for (key, error) in &expected {
         // Listed from another host, where the foreign procedure is not available.
         let listed_for_another_host = error.contains("is not available here");
-        if !actual.contains_key(key) && !listed_for_another_host {
+        if checked.contains(key) && !actual.contains_key(key) && !listed_for_another_host {
             problems.push(format!(
                 "{key} passes now: remove it from tests/compiler/stdlib-targets.txt"
             ));

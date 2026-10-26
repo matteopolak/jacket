@@ -376,10 +376,15 @@ def cmd_test(args) -> int:
         # The `ci` profile (.config/nextest.toml) leaves out the tests that need the separately supplied
         # reference sources or run in their own CI step; naming a crate or filter runs those too.
         profile = ["--ignore-default-filter"] if narrowed else []
+        # CI spreads the tests over several jobs with --partition (nextest's `slice:K/N`) and narrows a
+        # job with --expr (a nextest filterset, applied on top of the profile's default filter).
+        part = ["--partition", args.partition] if args.partition else []
+        expr = ["-E", args.expr] if args.expr else []
         failed |= bool(run(["cargo", "nextest", "run", "--profile", "ci", "-j", args.jobs, "--locked", "--no-fail-fast",
-                            *profile, *scope, *args.filter]))
-        # nextest does not run doctests.
-        failed |= bool(run(["cargo", "test", "--doc", "-j", args.jobs, "--locked", *scope]))
+                            *profile, *part, *expr, *scope, *args.filter]))
+        # nextest does not run doctests; the first partition runs them.
+        if not args.partition or args.partition.split(":")[-1].startswith("1/"):
+            failed |= bool(run(["cargo", "test", "--doc", "-j", args.jobs, "--locked", *scope]))
     if args.suite in ("tools", "all") and not narrowed:
         failed |= bool(run([sys.executable, "tools/run_tests.py"]))
     return int(failed)
@@ -413,6 +418,8 @@ def main() -> int:
         if name == "test":
             p.add_argument("--suite", choices=["cargo", "tools", "all"], default="all")
             p.add_argument("-p", "--crate", default="")
+            p.add_argument("--partition", default="", help="run one part of the tests, e.g. slice:1/4")
+            p.add_argument("--expr", default="", help="a nextest filterset narrowing the tests")
             p.add_argument("filter", nargs="*")
     args = parser.parse_args()
     return args.fn(args)

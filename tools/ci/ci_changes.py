@@ -8,7 +8,8 @@ except those in OWN_PATHS_ONLY. `*` matches within a directory, `**` across them
 `code` is false when every changed file is prose (PROSE, minus the docs some test reads), so a
 docs-only push skips the build and test jobs.
 
-It also writes `jobs=<JSON array>`: the ids in JOBS that run, which are the jobs whose area is true
+It also writes `full=true|false` (the tier, see test_matrix) and the `test_matrix` and
+`stdlib_matrix` JSON the `test` and `stdlib-runtime` jobs expand, and `jobs=<JSON array>`: the ids in JOBS that run, which are the jobs whose area is true
 (or that have none), narrowed to the comma-separated `$JOBS` of a manual run. Every job of ci.yml
 tests `contains(fromJSON(needs.changes.outputs.jobs), '<id>')`; a new job gets a row in JOBS.
 
@@ -145,6 +146,55 @@ JOBS = {
     "windows-smoke": "windows",
 }
 
+# The two tiers. Pushes and pull requests run the fast tier, which aims to finish in ten minutes:
+# platform-neutral work runs once, on Linux x64, and the long suites are spread over several jobs.
+# The nightly run (and a manual run, unless its `tier` input is `fast`) is the full tier, which adds
+# everything the fast tier leaves out: Linux arm64 and macOS Intel, -O2 sweeps, sanitizer -O2, the
+# macOS tooling and language-server tests, and the native tests built in four parts.
+X64 = {"runner": "ubuntu-24.04", "architecture": "x86_64"}
+ARM = {"runner": "ubuntu-24.04-arm", "architecture": "aarch64"}
+MAC = {"runner": "macos-15", "architecture": "arm64"}
+INTEL = {"runner": "macos-15-intel", "architecture": "x86_64"}
+
+# On macOS the fast tier runs only the crates whose tests depend on the host: the compiler, its
+# backend and the test runner.
+HOST_CRATES = "package(jaic-cli) | package(jaic-llvm) | package(jaic) | package(jacket)"
+
+
+def shards(count):
+    return [f"{k}/{count}" for k in range(1, count + 1)]
+
+
+def test_matrix(full):
+    """The legs of the `test` job: `part` picks the steps, `shard` the share of them."""
+    legs = [dict(X64, part="rust", shard=s) for s in shards(4)]
+    legs += [dict(X64, part="targets", shard=s) for s in shards(2)]
+    legs += [dict(X64, part=part, shard="1/1") for part in ("jai", "lint", "lint-windows", "lint-macos", "diff")]
+    if not full:
+        return legs + [dict(MAC, part="rust", shard=s, expr=HOST_CRATES) for s in shards(2)]
+    legs.append(dict(X64, part="split", shard="1/1"))
+    for host in (ARM, MAC, INTEL):
+        legs += [dict(host, part="rust", shard=s) for s in shards(3)]
+        legs += [dict(host, part=part, shard="1/1") for part in ("targets", "jai", "lint", "diff", "split")]
+    return legs
+
+
+def stdlib_matrix(full):
+    """The legs of `stdlib-runtime`: `shard` is a share of the catalogue (or the `suites` or
+    `tooling` leg), `modes` its stdlib_runtime.py modes, `o2` whether it reruns them at -O2."""
+    everything = "interp,native,wasm-interp,wasm-native"
+    if not full:
+        legs = [dict(platform="linux-x64", shard=s, modes=everything, o2=False) for s in shards(3)]
+        legs += [dict(platform="macos-arm64", shard=s, modes="interp,native", o2=False) for s in shards(2)]
+        legs += [dict(platform=p, shard="suites", wasm=p == "linux-x64") for p in ("linux-x64", "macos-arm64")]
+        return legs + [dict(platform="linux-x64", shard="tooling")]
+    legs = []
+    for platform in ("linux-x64", "linux-arm64", "macos-arm64", "macos-x64"):
+        legs += [dict(platform=platform, shard=s, modes=everything, o2=True) for s in shards(2)]
+        legs += [dict(platform=platform, shard="suites", wasm=True), dict(platform=platform, shard="tooling")]
+    return legs
+
+
 # Areas too costly to run whenever the workflow itself changes.
 OWN_PATHS_ONLY = {"sdl3"}
 
@@ -227,6 +277,10 @@ def main():
         results["windows"] = False
     lines = [f"{area}={str(value).lower()}" for area, value in results.items()]
     lines.append("jobs=" + json.dumps(selected_jobs(results, env.get("JOBS", ""))))
+    full = event == "schedule" or (event == "workflow_dispatch" and env.get("TIER", "full") != "fast")
+    lines.append(f"full={str(full).lower()}")
+    lines.append("test_matrix=" + json.dumps(test_matrix(full)))
+    lines.append("stdlib_matrix=" + json.dumps(stdlib_matrix(full)))
     print("\n".join(lines))
     if env.get("GITHUB_OUTPUT"):
         with open(env["GITHUB_OUTPUT"], "a") as out:
