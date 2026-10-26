@@ -82,7 +82,7 @@ page, error2 := from_param(int, "42");
 
 ### Specialization and SIMD
 
-Straight-line code per struct and field, no runtime type switch. Keys match by length test then 8/4/2/1-byte word compares against compile-time constants; compact output appends prebuilt `"key":` constants. Constant documents can be decoded with `#run` and baked in. Float printing uses Schubfach (`number.jai`, table in `pow10.jai`); float parsing uses `pow5.jai`. Vector scans (`Extensions/SIMD`, `u8x16`) accelerate escaping and string scanning; for texts of at least `json_index_min_size` (256) bytes a simdjson-style stage 1 index (`index.jai`) finds string extents, abandoned when entries are too dense or sparse, and any anomaly re-parses with the scalar reader so errors are identical on every path. A full structural index for typed decoding was tried and dropped: the schema-guided single pass is as fast. Benchmarks: `stdlib/Extensions/Json/bench/bench.jai` (`-O2`); `tools/dev/json_bench_data.py` fetches the large documents. The vector scans are worth about 1.0 to 1.1x; the parser is bound by value construction, allocation and number conversion.
+Straight-line code per struct and field, no runtime type switch. Keys match by length test then 8/4/2/1-byte word compares against compile-time constants; compact output appends prebuilt `"key":` constants. Constant documents can be decoded with `#run` and baked in. Float printing uses Schubfach (`number.jai`, table in `pow10.jai`); float parsing uses `pow5.jai`. Vector scans (`Extensions/SIMD`, `u8x16`) accelerate escaping and string scanning; for texts of at least `json_index_min_size` (256) bytes a simdjson-style stage 1 index (`index.jai`) finds string extents, abandoned when entries are too dense (seen after 8 KB) or too sparse (after 32 KB), and any anomaly re-parses with the scalar reader so errors are identical on every path. A full structural index for typed decoding was tried and dropped: the schema-guided single pass is as fast. Benchmarks: `stdlib/Extensions/Json/bench/bench.jai` (`-O2`); `tools/dev/json_bench_data.py` fetches the large documents. The vector scans are worth about 1.0 to 1.1x; the parser is bound by value construction, allocation and number conversion.
 
 ## How to change it
 
@@ -169,26 +169,26 @@ Jacket's Json next to [`rluba--jaison`](https://github.com/rluba/jaison) and [`k
 
 `decode_*` is the document into typed values (`decode_tree_*`: into each library's untyped tree), `encode_*` writes values decoded before the timer started, `roundtrip_api` is decode then encode. The `borrow` column is Jacket with `Json_Options.borrow` (strings without escapes are slices of the input; strings with escapes are still unescaped into new memory). Each iteration allocates from a bump pool that is emptied afterwards, for every library, because jaison has no free procedure for a typed decode and the others free in different ways. Inputs and results go through `black_box`.
 
-Apple M5 (10 cores: 4 Super and 6 Efficiency), 16 GB, macOS 27.0 arm64. The machine was a working desktop, not an idle one: the load average when the run began was 4.13, so absolute times carry a few percent of noise (the intervals show the part that was measured within one run) and the ratios are the result to read.
+Apple M5 (10 cores: 4 Super and 6 Efficiency), 16 GB, macOS 27.0 arm64. The machine was a working desktop, not an idle one: the load average when the run began was 3.09, so absolute times carry a few percent of noise (the intervals show the part that was measured within one run) and the ratios are the result to read.
 
 Time per iteration, with the 95% interval of the bootstrap in brackets, and the ratio to Jacket (above 1: slower than Jacket).
 
 | Workload | jacket | borrow | jaison | contiguous |
 | --- | --- | --- | --- | --- |
-| decode_api | 153 us (152 us to 155 us) | 139 us (138 us to 140 us) 0.91x | 364 us (363 us to 364 us) 2.37x | 122 us (122 us to 122 us) 0.80x |
-| decode_records | 6.04 ms (6.03 ms to 6.05 ms) | 5.79 ms (5.77 ms to 5.8 ms) 0.96x | 16.5 ms (16.4 ms to 16.6 ms) 2.73x | 6.46 ms (6.44 ms to 6.47 ms) 1.07x |
-| decode_config | 74.3 us (73.6 us to 75.3 us) | 71.4 us (71.4 us to 71.5 us) 0.96x | 128 us (128 us to 129 us) 1.73x | n/a |
-| decode_tree_api | 226 us (226 us to 226 us) | 166 us (166 us to 167 us) 0.74x | 335 us (334 us to 335 us) 1.48x | 240 us (240 us to 240 us) 1.06x |
-| decode_tree_records | 9.88 ms (9.87 ms to 9.89 ms) | 6.9 ms (6.89 ms to 6.92 ms) 0.70x | 15.9 ms (15.9 ms to 15.9 ms) 1.61x | 11.9 ms (11.9 ms to 12 ms) 1.21x |
-| encode_api | 38.2 us (38.1 us to 38.3 us) | n/a | 118 us (117 us to 118 us) 3.08x | 59.3 us (59.2 us to 59.5 us) 1.55x |
-| encode_records | 2.94 ms (2.92 ms to 2.96 ms) | n/a | 9.92 ms (9.82 ms to 10 ms) 3.38x | 6.21 ms (6.2 ms to 6.23 ms) 2.11x |
-| encode_config | 8.65 us (8.61 us to 8.69 us) | n/a | 24.1 us (24 us to 24.2 us) 2.78x | n/a |
-| roundtrip_api | 188 us (188 us to 189 us) | 178 us (178 us to 178 us) 0.95x | 479 us (478 us to 479 us) 2.54x | 193 us (191 us to 196 us) 1.03x |
-| decode_tree_config | 85.7 us (85.5 us to 86 us) | 75.2 us (75.1 us to 75.3 us) 0.88x | 120 us (120 us to 120 us) 1.40x | 4.64 ms (4.63 ms to 4.66 ms) 54.15x |
+| decode_api | 97 us (96.7 us to 97.3 us) | 93.9 us (93.5 us to 94.4 us) 0.97x | 364 us (363 us to 367 us) 3.76x | 112 us (112 us to 113 us) 1.16x |
+| decode_records | 4.88 ms (4.87 ms to 4.9 ms) | 5.04 ms (4.99 ms to 5.1 ms) 1.03x | 15.8 ms (15.8 ms to 15.8 ms) 3.24x | 5.54 ms (5.52 ms to 5.55 ms) 1.13x |
+| decode_config | 51 us (50.9 us to 51.1 us) | 49.7 us (49.7 us to 49.8 us) 0.98x | 127 us (126 us to 127 us) 2.49x | n/a |
+| decode_tree_api | 164 us (163 us to 164 us) | 119 us (119 us to 119 us) 0.73x | 319 us (318 us to 319 us) 1.95x | 227 us (227 us to 228 us) 1.39x |
+| decode_tree_records | 8.7 ms (8.64 ms to 8.76 ms) | 5.97 ms (5.93 ms to 6.02 ms) 0.69x | 13.9 ms (13.9 ms to 14 ms) 1.60x | 10.3 ms (10.2 ms to 10.3 ms) 1.18x |
+| encode_api | 34.8 us (34.7 us to 34.8 us) | n/a | 115 us (115 us to 115 us) 3.31x | 57.1 us (56.9 us to 57.3 us) 1.64x |
+| encode_records | 2.6 ms (2.59 ms to 2.6 ms) | n/a | 7.53 ms (7.51 ms to 7.55 ms) 2.90x | 6.01 ms (5.99 ms to 6.02 ms) 2.31x |
+| encode_config | 7.4 us (7.38 us to 7.43 us) | n/a | 24.1 us (23.9 us to 24.4 us) 3.26x | n/a |
+| roundtrip_api | 138 us (138 us to 138 us) | 133 us (133 us to 133 us) 0.97x | 476 us (475 us to 476 us) 3.45x | 169 us (169 us to 170 us) 1.23x |
+| decode_tree_config | 61.6 us (61.5 us to 61.7 us) | 54 us (53.9 us to 54.1 us) 0.88x | 114 us (114 us to 114 us) 1.85x | 4.64 ms (4.63 ms to 4.65 ms) 75.36x |
 
 Reading the table:
 
-- **jaison walks the type information at run time.** `json_write_native` and `parse_value` branch on `Type_Info.type` for every value and, for every object, build a `Table` of the struct's member names (the source comment says "@Speed: Building this table every time is pretty silly"). Jacket's generated code has no such work, which is the 1.7x to 2.7x on typed decodes and about 3x on encoding.
-- **Contiguous does less work per string.** It does not unescape (escape sequences stay in the strings), only checks the input with `assert` (bad input stops the program instead of returning an error), and never copies a string. On `api`, whose bodies are long and full of escapes, it takes 0.80x of Jacket's default time and 0.88x of `borrow`'s; on `records` both Jacket columns are faster. On the untyped trees and on encoding Jacket is ahead, and on the nested configuration tree Contiguous is 50 times slower (relative offsets that are fixed up in a pass that depends on depth).
-- **`borrow` matters most for untyped trees** (0.70x to 0.88x), where every key and number is a slice too. Typed decodes gain 4% to 9%: member names are matched, not stored, and numbers are converted either way.
-- **Encoding** is 1.5x (`api`) to 2.1x (`records`) faster than Contiguous: Jacket prints floats with Schubfach and integers without going through `print`.
+- **jaison walks the type information at run time.** `json_write_native` and `parse_value` branch on `Type_Info.type` for every value and, for every object, build a `Table` of the struct's member names (the source comment says "@Speed: Building this table every time is pretty silly"). Jacket's generated code has no such work, which is the 2.5x to 3.8x on typed decodes and 2.9x to 3.3x on encoding.
+- **Contiguous does less work per string.** It does not unescape (escape sequences stay in the strings), only checks the input with `assert` (bad input stops the program instead of returning an error), and never copies a string. On `api`, whose bodies are long and full of escapes, Jacket's default takes 0.87x of its time and `borrow` 0.84x; on `records` both Jacket columns are faster too. On the untyped trees and on encoding Jacket is ahead, and on the nested configuration tree Contiguous is 75 times slower (relative offsets that are fixed up in a pass that depends on depth).
+- **`borrow` matters most for untyped trees** (0.69x to 0.88x), where every key and number is a slice too. Typed decodes differ by a few percent either way: member names are matched, not stored, and numbers are converted either way.
+- **Encoding** is 1.6x (`api`) to 2.3x (`records`) faster than Contiguous: Jacket prints floats with Schubfach and integers without going through `print`.
