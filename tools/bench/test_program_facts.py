@@ -1,6 +1,6 @@
 import unittest
 
-import program_facts as p
+from bench import program_facts as p
 
 
 class InstructionLines(unittest.TestCase):

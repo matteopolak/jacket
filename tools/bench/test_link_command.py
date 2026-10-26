@@ -3,7 +3,7 @@ import sys
 import unittest
 from pathlib import Path
 
-from common import default_binary
+from bench.common import default_binary
 
 HERE = Path(__file__).parent
 JAIC = default_binary('jaic')

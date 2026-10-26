@@ -6,7 +6,7 @@
     jaifmt_path()                        the repository formatter
     stdlib_env(**extra)                  the environment with `JAIC_STDLIB` set
 
-Scripts never read `CARGO_TARGET_DIR` or build `ROOT / "target"` themselves (tools/ci/check_tool_imports.py enforces it);
+Scripts never read `CARGO_TARGET_DIR` or build `ROOT / "target"` themselves (tools/ci/check_source_style.py enforces it);
 a test that wants another directory sets `CARGO_TARGET_DIR`. Host facts (`host_os`, `exe_name`, ...) are in `toolkit.host`.
 """
 
@@ -14,11 +14,8 @@ import functools
 import json
 import os
 import subprocess
-import sys
 from pathlib import Path
 
-# tools/, for folder-qualified imports
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from toolkit.host import exe_name
 

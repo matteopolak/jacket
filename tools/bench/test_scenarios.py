@@ -1,9 +1,9 @@
 import argparse
 import unittest
 
-import cmd_fmt
-import cmd_lint
-from scenarios import Scenario, measure, render_table, wanted
+from bench import cmd_fmt
+from bench import cmd_lint
+from bench.scenarios import Scenario, measure, render_table, wanted
 
 
 def args(repeat=2, warmup=1):

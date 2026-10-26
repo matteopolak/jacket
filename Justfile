@@ -7,6 +7,9 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 
 py := if os() == "windows" { "python" } else { "python3" }
 
+# The Python scripts import their cross-folder helpers as `from toolkit.repo import ROOT`; every recipe sees tools/ on the module path.
+export PYTHONPATH := justfile_directory() / "tools"
+
 # Parallel cargo jobs. 3 suits a 16 GiB machine; JAI_JOBS or --jobs overrides it.
 default_jobs := env("JAI_JOBS", "3")
 

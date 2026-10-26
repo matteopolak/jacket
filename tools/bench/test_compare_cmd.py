@@ -6,12 +6,12 @@ import unittest
 from collections import Counter
 from pathlib import Path
 
-import cmd_compare
-import pairing
-import provenance
-import quiet
-from cmd_compare import Observed, compare_outputs, plan_jobs, summarize_samples
-from workloads import RUNTIME_PROGRAMS
+from bench import cmd_compare
+from bench import pairing
+from bench import provenance
+from bench import quiet
+from bench.cmd_compare import Observed, compare_outputs, plan_jobs, summarize_samples
+from bench.workloads import RUNTIME_PROGRAMS
 
 
 class InterleaveTests(unittest.TestCase):
@@ -277,8 +277,8 @@ if __name__ == '__main__':
 
 class SameCommandLineTests(unittest.TestCase):
     def test_a_mixed_pair_runs_both_binaries_the_portable_way(self):
-        from dialects import Compiler, JaicDialect, PlainDialect
-        from cmd_compare import same_command_line
+        from bench.dialects import Compiler, JaicDialect, PlainDialect
+        from bench.cmd_compare import same_command_line
         mixed = {'baseline': Compiler('baseline', Path('/a'), PlainDialect()),
                  'candidate': Compiler('candidate', Path('/b'), JaicDialect())}
         self.assertEqual({c.dialect.name for c in same_command_line(mixed).values()}, {'plain'})

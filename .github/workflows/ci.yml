@@ -21,6 +21,8 @@ on:
 permissions:
   contents: read
 env:
+  # tools/ holds the folders the Python scripts import from (`from toolkit.repo import ROOT`).
+  PYTHONPATH: ${{ github.workspace }}/tools
   LLVM_VERSION: 23.1.2
   # llvm-mingw (https://github.com/mstorsjo/llvm-mingw): the MinGW-w64 toolchain for Windows arm64.
   LLVM_MINGW_VERSION: '20260922'
@@ -79,9 +81,6 @@ jobs:
         with:
           persist-credentials: false
       - run: python3 tools/dev/check_rule_coverage.py --list-uncovered
-      # Every tools/ script must resolve its imports when run directly and under tools/run_tests.py (docs/tools/tools-layout.md).
-      - name: Tool imports
-        run: python3 tools/ci/check_tool_imports.py
       # ruff's default rules over the Python tooling (ruff.toml; the version is pinned in .github/pins.json).
       - name: Python lint
         run: |

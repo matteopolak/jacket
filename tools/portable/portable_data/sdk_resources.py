@@ -5,8 +5,6 @@ import struct
 import subprocess
 import sys
 
-# tools/, for folder-qualified imports
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from toolkit.host import brew_prefix
 

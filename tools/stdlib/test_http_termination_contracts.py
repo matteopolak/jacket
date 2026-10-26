@@ -1,11 +1,5 @@
 """Required termination outcomes are protocols, not generic exit-zero cases."""
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import unittest
 
 from stdlib.stdlib_runtime import contract_result

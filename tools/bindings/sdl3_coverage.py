@@ -8,12 +8,6 @@ It does not derive ABI types from C text. Unknown core declarations are generati
 
 from __future__ import annotations
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import re
 from toolkit.hashing import sha256_bytes, sha256_file
 

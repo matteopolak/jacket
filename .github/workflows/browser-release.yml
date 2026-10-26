@@ -12,6 +12,9 @@ on:
         type: string
 permissions:
   contents: read
+env:
+  # tools/ holds the folders the Python scripts import from (`from toolkit.repo import ROOT`).
+  PYTHONPATH: ${{ github.workspace }}/tools
 concurrency:
   group: browser-compiler-${{ inputs.compiler_revision || github.sha }}
   cancel-in-progress: false

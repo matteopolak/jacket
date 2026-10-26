@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 """Retain both-cache-off public behavior, concurrency and canonical ABI controls."""
-import sys as _sys
-from pathlib import Path as _Path
 
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
 import importlib

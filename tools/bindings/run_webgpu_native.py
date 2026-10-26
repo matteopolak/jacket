@@ -17,23 +17,16 @@ cannot open a window. See docs/extensions/webgpu.md#tests.
 
 from __future__ import annotations
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import os
 import subprocess
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from native.build_native_libs import output_dir  # noqa: E402
-import repo_output  # noqa: E402
-from repo_output import host_platform  # noqa: E402
-from fetch_wgpu_native import fetch  # noqa: E402
+from native.build_native_libs import output_dir
+import repo_output
+from repo_output import host_platform
+from fetch_wgpu_native import fetch
 from toolkit.repo import ROOT
 
 TESTS = {

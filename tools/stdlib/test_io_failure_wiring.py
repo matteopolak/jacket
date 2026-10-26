@@ -1,11 +1,5 @@
 """Mocked original-workload wiring; no compiler, native or network execution."""
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import contextlib
 import io
 from itertools import product

@@ -1,12 +1,6 @@
 """`compare`: a fair head-to-head of two compiler binaries (baseline vs candidate) that take the same command line."""
 from __future__ import annotations
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import dataclasses
 import json
@@ -21,18 +15,18 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-import common
-import pairing
-import program_facts
-import provenance
-import quiet
-from cmd_compile import JobRunner, first_difference, normalized
-from dialects import Compiler, Mode, PlainDialect, Request, parse_compiler
-from measure import Run, run_measured, warm_file_cache
+from bench import common
+from bench import pairing
+from bench import program_facts
+from bench import provenance
+from bench import quiet
+from bench.cmd_compile import JobRunner, first_difference, normalized
+from bench.dialects import Compiler, Mode, PlainDialect, Request, parse_compiler
+from bench.measure import Run, run_measured, warm_file_cache
 from bench.sandbox import Sandbox
-from results import ROOT
-from stats import Stat
-from workloads import ALL_BUILD_MODES, Category, Generated, Workload, all_workloads, single
+from bench.results import ROOT
+from bench.stats import Stat
+from bench.workloads import ALL_BUILD_MODES, Category, Generated, Workload, all_workloads, single
 
 NAMES = ('baseline', 'candidate')
 DEFAULT_SIZES = '10000,100000,250000,500000'

@@ -1,11 +1,5 @@
 """Run clean-room numerics tests against an explicit locally source-built compiler."""
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 from pathlib import Path
 import argparse
 import json
@@ -13,10 +7,10 @@ import os
 import subprocess
 import sys
 import time
+from repo_output import output_dir
 from target_contracts import ORACLE, target_contract
 
 root = Path(__file__).resolve().parents[2]
-from repo_output import output_dir
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--compiler", type=Path, required=True)

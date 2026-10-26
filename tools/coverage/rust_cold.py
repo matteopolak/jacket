@@ -8,12 +8,6 @@ and the files with the most uncovered lines. `--functions` lists the functions t
 spans first, which is where a new test pays most (docs/tools/rust-coverage.md).
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import re
 import sys

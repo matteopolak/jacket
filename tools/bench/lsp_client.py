@@ -10,7 +10,7 @@ import threading
 import time
 from pathlib import Path
 
-from measure import kill_group
+from bench.measure import kill_group
 
 # ---------------------------------------------------------------------------------------- framing
 

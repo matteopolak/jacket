@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 """Reviewed Objective_C contracts plus independent SDK ABI/failure controls."""
-import sys as _sys
-from pathlib import Path as _Path
 
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
 import json

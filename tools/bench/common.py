@@ -1,21 +1,15 @@
 """What every subcommand shares: command-line options, output files, the regression check, tables."""
 from __future__ import annotations
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from compare import Limits, find_regressions
+from bench.compare import Limits, find_regressions
 from repo_output import output_dir
-from results import Report, Status, load_report
-from stats import Stat
+from bench.results import Report, Status, load_report
+from bench.stats import Stat
 from toolkit.repo import cargo_binary
 
 

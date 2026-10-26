@@ -1,12 +1,6 @@
 #!/usr/bin/env python3
 """Emit the runtime lexer's public data declarations from the reviewed API page."""
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import re
 
 from generators.jai_codegen import emit_generated, generator_parser

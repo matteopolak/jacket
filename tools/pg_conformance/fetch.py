@@ -14,11 +14,9 @@ from __future__ import annotations
 import argparse
 import re
 import shutil
-import sys
 import tarfile
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from repo_output import shared_output_dir
 from toolkit.download import pinned

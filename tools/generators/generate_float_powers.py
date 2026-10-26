@@ -6,12 +6,6 @@ is a lower bound of the exact scaled power. Parsing relies on that direction whe
 whether its product is close enough to a rounding boundary to need the exact path.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 from generators.jai_codegen import emit_generated, generator_parser
 from toolkit.repo import ROOT
 

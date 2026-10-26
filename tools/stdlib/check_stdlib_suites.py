@@ -6,12 +6,6 @@ continue after failures and the aggregate exit stays nonzero. Native dependencie
 and fonts must be real source-built or host assets.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import concurrent.futures
 import os

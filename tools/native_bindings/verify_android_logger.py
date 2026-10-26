@@ -5,11 +5,7 @@ Host output controls are independent of Android SDK/device execution. Required
 Android target failures remain failures. Native runs require the integrator's
 serialized native slot; omit --native for source/interpreter/lint checks only.
 """
-import sys as _sys
-from pathlib import Path as _Path
 
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
 import json

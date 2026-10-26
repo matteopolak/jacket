@@ -5,11 +5,11 @@ import time
 import unittest
 from pathlib import Path
 
-from cmd_compile import Attempt, Job, JobRunner, first_difference, normalized, plan_jobs, stage_stats
-from dialects import Compiler, JaicDialect, Mode, PlainDialect, Request, detect_dialect, parse_compiler
-from measure import Run, run_measured
-from stages import Bucket
-from workloads import Category, Plan, RepoDirectory, Workload, all_workloads
+from bench.cmd_compile import Attempt, Job, JobRunner, first_difference, normalized, plan_jobs, stage_stats
+from bench.dialects import Compiler, JaicDialect, Mode, PlainDialect, Request, detect_dialect, parse_compiler
+from bench.measure import Run, run_measured
+from bench.stages import Bucket
+from bench.workloads import Category, Plan, RepoDirectory, Workload, all_workloads
 
 
 def run(wall=1.0, returncode=0, stdout='', stderr='', timed_out=False):

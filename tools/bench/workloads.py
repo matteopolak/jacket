@@ -1,12 +1,6 @@
 """The compile benchmark's workloads: what they exercise, where their sources come from, how to build them."""
 from __future__ import annotations
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import json
 import shutil
 import subprocess
@@ -16,9 +10,9 @@ from pathlib import Path
 from typing import Protocol
 
 import benchgen
-from dialects import Mode
+from bench.dialects import Mode
 from repo_output import main_checkout
-from results import ROOT
+from bench.results import ROOT
 
 CORPUS = main_checkout() / 'corpus' / 'upstream'
 COMPILE_PROGRAMS = ROOT / 'benchmarks' / 'compile'

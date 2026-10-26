@@ -1,18 +1,11 @@
 #!/usr/bin/env python3
 """Select complete public SDK enum/macro definitions for a native math oracle."""
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import json
 import re
 from toolkit.hashing import sha256_bytes
 from toolkit.repo import ROOT
-
 
 
 def main():

@@ -1,16 +1,10 @@
-import sys as _sys
-from pathlib import Path as _Path
 
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 from toolkit.repo import ROOT
 
 import re
-import sys
 import unittest
 
-sys.path.insert(0, str(ROOT / "tools" / "native_bindings"))
 from generate import (generate_facade, split_arguments, authored_signatures, normalized_signature,
                       normalize_member_lines, member_declarations_with_owners)
 from native_bindings.spec import parse_spec

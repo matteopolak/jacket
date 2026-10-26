@@ -8,12 +8,6 @@ This is source/type/lint validation, never execution of foreign target binaries.
 
 from __future__ import annotations
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import os
 from pathlib import Path

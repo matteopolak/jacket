@@ -16,12 +16,6 @@ workflow puts them in each archive's native-libs/<platform>/).
 
 from __future__ import annotations
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import io
 import json
@@ -29,8 +23,8 @@ import sys
 import zipfile
 from pathlib import Path
 
-from native.build_native_libs import output_dir  # noqa: E402
-from repo_output import host_platform  # noqa: E402
+from native.build_native_libs import output_dir
+from repo_output import host_platform
 from toolkit.download import fetch as download
 from toolkit.hashing import sha256_bytes, sha256_file
 from toolkit.repo import ROOT

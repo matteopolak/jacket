@@ -1,12 +1,6 @@
 """How big a workload is, from the same lexer `tools/jaistats.py` uses on the corpus."""
 from __future__ import annotations
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 from dataclasses import asdict, dataclass
 from pathlib import Path
 

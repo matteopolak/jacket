@@ -7,8 +7,6 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-# tools/, for folder-qualified imports
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from toolkit import download
 from toolkit.cli import add_jaic_argument, default_jaic
@@ -112,7 +110,6 @@ class RunExpect(unittest.TestCase):
                 cwd=tmp,
             )
             self.assertTrue(result.stdout.startswith("v "))
-
 
 
 class PinnedDownloadTests(unittest.TestCase):

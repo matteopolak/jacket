@@ -6,12 +6,6 @@ checks, public-surface checks, and native executions. A declaration import that
 passes while a required wrapper is missing does not count as a complete module.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import json
 import os

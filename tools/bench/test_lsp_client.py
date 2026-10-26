@@ -2,13 +2,13 @@ import json
 import unittest
 from pathlib import Path
 
-import cmd_lsp
-import lsp_report
-import lsp_session
-from lsp_client import FrameDecoder, FrameError, capabilities, encode, parse_cpu_time
-from lsp_session import Document, Probe, ProbeFailed, Session, answer
-from results import Report, Result, Status
-from stats import Stat
+from bench import cmd_lsp
+from bench import lsp_report
+from bench import lsp_session
+from bench.lsp_client import FrameDecoder, FrameError, capabilities, encode, parse_cpu_time
+from bench.lsp_session import Document, Probe, ProbeFailed, Session, answer
+from bench.results import Report, Result, Status
+from bench.stats import Stat
 
 
 class FramingTests(unittest.TestCase):

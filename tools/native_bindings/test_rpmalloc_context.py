@@ -1,14 +1,10 @@
-import sys
 import os
-from pathlib import Path
 import unittest
 
 from rpmalloc_context import rewrite_records, render_context
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from toolkit.repo import ROOT
-
 
 
 class ReviewedAllocatorContextTests(unittest.TestCase):

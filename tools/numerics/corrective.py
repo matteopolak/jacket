@@ -1,21 +1,15 @@
 """Native integration and explicit unsupported-contract checks; no reference tools."""
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 from pathlib import Path
 import argparse
 import json
 import os
 import subprocess
 import sys
+from repo_output import output_dir
 from target_contracts import target_contract
 
 root = Path(__file__).resolve().parents[2]
-from repo_output import output_dir
 
 compiler = output_dir("numerics", "current-target", "debug", "jaic")
 parser = argparse.ArgumentParser()

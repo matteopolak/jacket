@@ -6,8 +6,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
-from lsp_client import (Client, Timeout, Unsupported, file_uri)
-from lsp_positions import delete_lines_edit, insert_edit, replace_edit
+from bench.lsp_client import (Client, Timeout, Unsupported, file_uri)
+from bench.lsp_positions import delete_lines_edit, insert_edit, replace_edit
 
 
 class ProbeFailed(RuntimeError):

@@ -4,12 +4,6 @@ This reads producer pins without editing shared manifests. No Jai source is
 downloaded, and no non-Windows execution is represented as a native build.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
-
 from pathlib import Path
 from repo_output import output_dir
 import argparse
@@ -17,13 +11,14 @@ import json
 import os
 import subprocess
 
+from native_bindings.build_dependencies import prepare_source
+
 if os.name != "nt":
     raise SystemExit("Native Windows is required")
 root = Path(__file__).resolve().parents[3]
 parser = argparse.ArgumentParser()
 parser.add_argument("--cpu", choices=("x64", "arm64"), default="x64")
 args = parser.parse_args()
-from native_bindings.build_dependencies import prepare_source
 
 pins = json.loads((root / "tools/native_bindings/dependencies.json").read_text())
 sdk = root / ".work/vendor"

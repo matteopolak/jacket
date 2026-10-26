@@ -1,18 +1,12 @@
 """The workspaces the language server benchmark opens."""
 from __future__ import annotations
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol
 
 import benchgen
-from results import ROOT
+from bench.results import ROOT
 
 
 @dataclass(frozen=True)

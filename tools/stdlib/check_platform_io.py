@@ -5,12 +5,6 @@ Run against an integrated stdlib using --stdlib. On Windows --native exercises
 actual OS behavior. Cross source checks never count as Windows execution.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import json
 import os

@@ -5,12 +5,6 @@ All downloads and outputs stay inside this clean-room workspace. No Git access,
 credentials, reference binaries, or reference Jai sources are involved.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import json
 from pathlib import Path
@@ -19,7 +13,7 @@ import shutil
 import tarfile
 import tempfile
 import urllib.request  # noqa: F401  (the tests patch urlopen through this module)
-from toolkit.download import fetch  # noqa: E402
+from toolkit.download import fetch
 from native_bindings.sdl_sdk_headers import prepare_runtime_headers
 from native_bindings.config import RPMALLOC_SDK_BUILD_OPTIONS
 from native_bindings.prepare_rpmalloc import prepare as prepare_rpmalloc

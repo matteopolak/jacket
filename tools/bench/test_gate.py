@@ -1,6 +1,6 @@
 import unittest
 
-import gate
+from bench import gate
 
 
 class Parsing(unittest.TestCase):

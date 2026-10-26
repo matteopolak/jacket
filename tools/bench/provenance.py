@@ -8,7 +8,7 @@ import platform
 import subprocess
 from pathlib import Path
 
-from results import machine_info, sh
+from bench.results import machine_info, sh
 
 
 def sha256_file(path: Path) -> str:

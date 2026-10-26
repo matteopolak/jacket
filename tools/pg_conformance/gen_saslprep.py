@@ -11,11 +11,8 @@ Python that runs this. Sequences of a base character and combining marks are not
 
 from __future__ import annotations
 
-import sys
 import unicodedata
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from toolkit.repo import ROOT
 

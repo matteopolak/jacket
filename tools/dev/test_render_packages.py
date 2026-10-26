@@ -1,9 +1,7 @@
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
 import render_packages
 
 SUMS = "\n".join([

@@ -1,11 +1,5 @@
 """Shared strict LP64 C record translation and active ABI assertion generation."""
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 from toolkit.process import run as toolkit_run
 from toolkit.hashing import sha256_bytes
 

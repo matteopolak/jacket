@@ -3,10 +3,10 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from common import machine_line, median_text, skipped_section, spread, table
-from results import Report, Result, Status
-from stages import Bucket
-from stats import Stat, ratio
+from bench.common import machine_line, median_text, skipped_section, spread, table
+from bench.results import Report, Result, Status
+from bench.stages import Bucket
+from bench.stats import Stat, ratio
 
 STAGE_ORDER = [Bucket.FRONT_END, Bucket.COMPILE_TIME, Bucket.CODEGEN, Bucket.LINK, Bucket.OTHER, Bucket.TOTAL]
 

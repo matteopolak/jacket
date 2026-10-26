@@ -1,9 +1,9 @@
 import unittest
 
-import compile_report
-from results import Report, Result
-from stages import Bucket
-from stats import Stat
+from bench import compile_report
+from bench.results import Report, Result
+from bench.stages import Bucket
+from bench.stats import Stat
 
 
 def stat(value):

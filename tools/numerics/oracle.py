@@ -1,19 +1,14 @@
 """Independent Python math and IEEE struct oracles; emits durable Jai assertions."""
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 from pathlib import Path
 import math
 import random
 import struct
 from fractions import Fraction
 
-root = Path(__file__).resolve().parents[2]
 from repo_output import output_dir
+
+root = Path(__file__).resolve().parents[2]
 
 rng = random.Random(0x986831)
 lines = [

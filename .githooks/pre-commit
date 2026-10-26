@@ -14,4 +14,4 @@ if ! command -v python3 >/dev/null 2>&1; then
     echo "pre-commit: warning: python3 not found; skipping the checks" >&2
     exit 0
 fi
-exec python3 tools/dev/dev.py precommit "$@"
+PYTHONPATH="$root/tools" exec python3 tools/dev/dev.py precommit "$@"

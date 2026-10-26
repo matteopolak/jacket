@@ -1,12 +1,8 @@
-import sys
-from pathlib import Path
 import unittest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from toolkit.repo import ROOT
 
-sys.path.insert(0,str(ROOT/'tools/native_bindings'))
 from rpmalloc_heap_facade import public_c_header, layout_probes, mirror_records
 
 

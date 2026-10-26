@@ -10,15 +10,15 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import common
-from common import Defaults
-from lsp_client import Client, MemoryLimit, ServerExited, Timeout, Unsupported, capabilities, file_uri
-from lsp_positions import delete_lines_edit, insert_edit, pick_positions
-from lsp_report import render
-from lsp_session import PROBES, SESSION_PROBES, Document, ProbeFailed, Session
-from lsp_workloads import WORKLOADS, Prepared
-from results import Report, Result, Status, checkout_info, tool_version
-from stats import Stat
+from bench import common
+from bench.common import Defaults
+from bench.lsp_client import Client, MemoryLimit, ServerExited, Timeout, Unsupported, capabilities, file_uri
+from bench.lsp_positions import delete_lines_edit, insert_edit, pick_positions
+from bench.lsp_report import render
+from bench.lsp_session import PROBES, SESSION_PROBES, Document, ProbeFailed, Session
+from bench.lsp_workloads import WORKLOADS, Prepared
+from bench.results import Report, Result, Status, checkout_info, tool_version
+from bench.stats import Stat
 
 DEFAULTS = Defaults(repeat=5, warmup=1, threshold=0.20, min_seconds=0.005, timeout=60)
 LONG_SESSION_EDITS = 100

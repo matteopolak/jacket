@@ -11,12 +11,6 @@ a sound device ("opened" or "unavailable"). This script is for a host that must 
 Without either flag it still runs the 6- and 8-channel variants and prints how many opened.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import os
 from pathlib import Path

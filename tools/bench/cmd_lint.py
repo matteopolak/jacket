@@ -1,12 +1,6 @@
 """`lint`: jailint on the whole repository, one large file, `--fix` on a copy, and `-j` scaling."""
 from __future__ import annotations
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import re
 import shutil
@@ -15,10 +9,10 @@ import tempfile
 from pathlib import Path
 
 import benchgen
-import common
-from common import Defaults
-from results import ROOT, Report, checkout_info
-from scenarios import Scenario, render_report, run_scenarios, wanted
+from bench import common
+from bench.common import Defaults
+from bench.results import ROOT, Report, checkout_info
+from bench.scenarios import Scenario, render_report, run_scenarios, wanted
 
 DEFAULTS = Defaults(repeat=3, warmup=1, threshold=0.10, min_seconds=0.20, timeout=1800)
 JOB_COUNTS = (1, 2, 4)

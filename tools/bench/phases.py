@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from stages import Bucket, Stages
+from bench.stages import Bucket, Stages
 
 TEMPLATE = Path(__file__).with_name('phase_timing.jai')
 WRAPPER_NAME = 'phase_timing.jai'

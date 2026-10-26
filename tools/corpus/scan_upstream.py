@@ -31,12 +31,9 @@ import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-# tools/, for fetch_upstreams and folder-qualified imports
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from fetch_upstreams import BINARY_MAGIC, OFFICIAL_MODULE_NAMES, cache_dir, is_forbidden_file, pinned_blobs  # noqa: E402
-from toolkit.repo import ROOT  # noqa: E402
-
+from fetch_upstreams import BINARY_MAGIC, OFFICIAL_MODULE_NAMES, cache_dir, is_forbidden_file, pinned_blobs
+from toolkit.repo import ROOT
 LEVEL = {"none": 0, "low": 1, "medium": 2, "high": 3}
 NATIVE_SUFFIXES = (".c", ".h", ".m", ".mm", ".cpp", ".cc", ".hpp", ".inl")
 BUILD_FILE_NAME = re.compile(

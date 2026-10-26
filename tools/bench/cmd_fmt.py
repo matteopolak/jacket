@@ -1,12 +1,6 @@
 """`fmt`: jaifmt on the repository, a very large file, stdin, formatted and unformatted input, native and wasm."""
 from __future__ import annotations
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import re
 import shutil
@@ -16,10 +10,10 @@ import tempfile
 from pathlib import Path
 
 import benchgen
-import common
-from common import Defaults
-from results import ROOT, Report, Result, checkout_info, sh
-from scenarios import Scenario, render_report, run_scenarios, wanted
+from bench import common
+from bench.common import Defaults
+from bench.results import ROOT, Report, Result, checkout_info, sh
+from bench.scenarios import Scenario, render_report, run_scenarios, wanted
 from toolkit.repo import cargo_target_dir, jaifmt_path
 
 DEFAULTS = Defaults(repeat=5, warmup=1, threshold=0.10, min_seconds=0.05, timeout=900)

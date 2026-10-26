@@ -15,12 +15,12 @@ from __future__ import annotations
 import argparse
 import sys
 
-# The modules here import each other by name: running this file puts its directory on sys.path.
-import cmd_compare
-import cmd_compile
-import cmd_fmt
-import cmd_lint
-import cmd_lsp
+# The commands are the cmd_*.py modules of this folder.
+from bench import cmd_compare
+from bench import cmd_compile
+from bench import cmd_fmt
+from bench import cmd_lint
+from bench import cmd_lsp
 
 COMMANDS = {'compile': cmd_compile, 'compare': cmd_compare, 'lsp': cmd_lsp, 'lint': cmd_lint, 'fmt': cmd_fmt}
 

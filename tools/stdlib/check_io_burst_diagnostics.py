@@ -5,13 +5,6 @@ Does not alter concurrency, deadlines, backend selection, or a program's result.
 Linux collection is for the root-owned CI gate; it refuses runtime on macOS.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
-
 import argparse
 import json
 import os

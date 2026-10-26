@@ -7,12 +7,6 @@ The SDL3 and native bindings generators are checked by their own CI steps, since
 fetched sources or their own working directory.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 from pathlib import Path
 import subprocess

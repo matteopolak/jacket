@@ -28,8 +28,6 @@ import sys
 import tarfile
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from fetch import VERSIONS, fetch, major_of
 from repo_output import output_dir, shared_output_dir

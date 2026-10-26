@@ -8,11 +8,9 @@ import os
 from pathlib import Path
 import re
 import time
-import sys
 import tomllib
 import urllib.parse
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from toolkit.download import fetch
 

@@ -1,11 +1,9 @@
 """Production verification must never overlay peer sources."""
-import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools/native_bindings"))
 from verify import select_stdlib
 from verify_rpmalloc_heaps import run_check
 

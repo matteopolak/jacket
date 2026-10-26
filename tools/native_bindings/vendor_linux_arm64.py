@@ -5,12 +5,6 @@ The Bionic archive carries the official exported Linux UAPI header graph.
 Only kernel structures/numbers are used, not Bionic userspace implementation.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import json
 from pathlib import Path

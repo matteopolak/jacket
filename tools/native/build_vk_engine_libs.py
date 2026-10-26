@@ -18,12 +18,6 @@ outputs are kept unless --force. Paths resolve through the git common dir, so it
 Needs a C++17/20 compiler, CMake and git (`brew install cmake`).
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import os
 import shutil

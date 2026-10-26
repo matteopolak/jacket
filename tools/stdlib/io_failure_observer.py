@@ -4,12 +4,6 @@ One sampler serves a copy group. Only a real failed copy and one passed control
 are retained. Namespace metrics remain explicitly separate from owned sockets.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 from collections import Counter, deque
 import json
 from itertools import islice

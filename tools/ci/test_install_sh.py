@@ -8,13 +8,11 @@ import json
 import os
 import platform
 import subprocess
-import sys
 import tarfile
 import tempfile
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from toolkit.repo import ROOT
 from toolkit.hashing import sha256_bytes

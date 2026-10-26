@@ -1,6 +1,6 @@
 import unittest
 
-import sizes
+from bench import sizes
 
 SOURCE = '''// comment :: () { not code }
 Vec :: struct { x: int; }

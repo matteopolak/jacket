@@ -1,12 +1,6 @@
 #!/usr/bin/env python3
 """Focused production-dependency checks; no reference inputs or skipped failures."""
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import json
 import os

@@ -1,11 +1,5 @@
 """Runner policy tests only; SDK/compiler/native execution is deliberately absent."""
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import ast
 import argparse
 from pathlib import Path

@@ -5,13 +5,6 @@ comes from Apple's public NSView header. Reviewed native-void/public-id
 operations dispatch as void and return the explicitly unspecified null slot.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
-
 import argparse
 import re
 from pathlib import Path

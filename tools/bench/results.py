@@ -1,13 +1,6 @@
 """The result format every subcommand writes, and how it is stored and shown."""
 from __future__ import annotations
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
-
 import json
 import os
 import platform
@@ -18,7 +11,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 
-from stats import Stat
+from bench.stats import Stat
 from toolkit.repo import ROOT
 
 FORMAT_VERSION = 3

@@ -4,12 +4,6 @@ No application, fault, GUI or device harness is executed here. Native build
 failures and incomplete/incorrect build receipts are fatal.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import json
 from pathlib import Path
 import subprocess

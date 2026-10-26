@@ -1,7 +1,7 @@
 import unittest
 
-from phases import PhaseTiming
-from stages import Bucket, JaicTimings, with_total
+from bench.phases import PhaseTiming
+from bench.stages import Bucket, JaicTimings, with_total
 
 JAIC = '''note: something
 jaic-timing: front end 3.0 1

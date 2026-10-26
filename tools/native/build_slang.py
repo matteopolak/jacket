@@ -10,12 +10,6 @@ Clones https://github.com/shader-slang/slang at a pinned tag into
 build directory, and skip the install when the files are already present (use --force to redo it).
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import glob
 import os

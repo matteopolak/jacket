@@ -11,6 +11,9 @@ on:
         default: 'stdlib,compiler,examples,jaigen'
 permissions:
   contents: read
+env:
+  # tools/ holds the folders the Python scripts import from (`from toolkit.repo import ROOT`).
+  PYTHONPATH: ${{ github.workspace }}/tools
 jobs:
   oracle:
     name: oracle shard ${{ matrix.shard }}/4

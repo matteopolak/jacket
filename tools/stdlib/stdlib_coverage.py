@@ -7,12 +7,6 @@ or completion gate. Macro name matches do not prove execution. Contract tests,
 producer suites, target checks and native ABI tests are required independently.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 from toolkit.repo import ROOT
 
 import argparse
@@ -20,9 +14,9 @@ import re
 import sys
 from pathlib import Path
 
-STDLIB = ROOT / "stdlib"
-from stdlib import stdlib_runtime  # noqa: E402
+from stdlib import stdlib_runtime
 
+STDLIB = ROOT / "stdlib"
 DECL = re.compile(r"^\s*(operator\s*\S+?|[A-Za-z_][A-Za-z0-9_]*)\s*::\s*(.*)$")
 PROC_START = re.compile(r"^(inline\s+|no_inline\s+)?\(")
 BODILESS = ("#foreign", "#compiler", "#intrinsic", "#runtime_support", "#elsewhere")

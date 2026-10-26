@@ -9,8 +9,6 @@ from collections.abc import Mapping
 from http.client import HTTPException, IncompleteRead
 from pathlib import Path
 
-# tools/, for folder-qualified imports
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from toolkit.hashing import sha256_file
 

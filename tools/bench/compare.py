@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from results import Report, Result, Status
+from bench.results import Report, Result, Status
 
 # A difference smaller than this many median absolute deviations is noise.
 NOISE_FACTOR = 3.0

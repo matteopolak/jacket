@@ -12,12 +12,6 @@ See docs/tools/stdlib-fuzzing.md.
 """
 from __future__ import annotations
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import json
 import os
@@ -31,8 +25,7 @@ from toolkit.cli import add_jaic_argument
 from toolkit.host import brew_prefix
 from toolkit.repo import ROOT
 
-from bench.sandbox import Sandbox, environment  # noqa: E402
-
+from bench.sandbox import Sandbox, environment
 LLVM_READS = [*([brew_prefix() / 'opt/llvm'] if brew_prefix() else []), Path('/usr/lib/llvm-23')]  # clang and the libFuzzer archive
 MAX_RESTARTS = 40
 MAX_AUTO_DENY = 20

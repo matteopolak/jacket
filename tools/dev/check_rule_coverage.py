@@ -14,12 +14,6 @@ Usage: check_rule_coverage.py [--list-uncovered] [--json]
 Exit status 1 on unknown or duplicate IDs, else 0.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import json
 import re

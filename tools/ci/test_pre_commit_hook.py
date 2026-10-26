@@ -1,11 +1,5 @@
 """Exercise .githooks/pre-commit (`dev.py precommit`) on a throwaway repository, with stand-in jaifmt and jailint."""
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import os
 import shutil
 import subprocess

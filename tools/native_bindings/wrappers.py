@@ -4,12 +4,6 @@ This module deliberately does not infer behavior from legacy tests. Native
 macro arithmetic follows the corresponding public C APIs.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import re
 from bitfields import body as bitfield_body
 

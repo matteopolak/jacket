@@ -1,6 +1,6 @@
 import unittest
 
-from stats import Stat, median_absolute_deviation, percentile, ratio
+from bench.stats import Stat, median_absolute_deviation, percentile, ratio
 
 
 class StatTests(unittest.TestCase):

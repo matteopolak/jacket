@@ -1,12 +1,6 @@
 """`compile`: time one or more compilers on the same workloads, interleaved and gated on correctness."""
 from __future__ import annotations
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import os
 import shutil
@@ -15,20 +9,20 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
-import common
-import phases
-from common import Defaults
-from compile_report import render
-from dialects import Compiler, Invocation, Mode, Request, parse_compiler
-from measure import Run, run_measured, warm_file_cache
-from provenance import binary_facts
+from bench import common
+from bench import phases
+from bench.common import Defaults
+from bench.compile_report import render
+from bench.dialects import Compiler, Invocation, Mode, Request, parse_compiler
+from bench.measure import Run, run_measured, warm_file_cache
+from bench.provenance import binary_facts
 from repo_output import shared_output_dir
-from results import ROOT, Report, Result, sh
+from bench.results import ROOT, Report, Result, sh
 from bench.sandbox import Sandbox, environment
-from sizes import facts_of
-from stages import Bucket, Stages, with_total
-from stats import Stat
-from workloads import Workload, all_workloads
+from bench.sizes import facts_of
+from bench.stages import Bucket, Stages, with_total
+from bench.stats import Stat
+from bench.workloads import Workload, all_workloads
 
 DEFAULTS = Defaults(repeat=5, warmup=1, threshold=0.10, min_seconds=0.10, timeout=900)
 

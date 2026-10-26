@@ -13,12 +13,6 @@ the normal build: `crates/jaic-cli/build.rs` embeds the same backends in jaic (d
 these are the same recipes for tools that need the libraries (and a hash receipt) as files.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import functools
 import json

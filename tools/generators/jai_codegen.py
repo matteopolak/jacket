@@ -4,12 +4,6 @@ Every generated file goes through the repository formatter (<cargo target>/jaifm
 jaifmt/main.jai), so the checked-in text is exactly what `--check` recomputes.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 from pathlib import Path
 import subprocess

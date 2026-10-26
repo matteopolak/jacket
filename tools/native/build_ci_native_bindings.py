@@ -1,12 +1,6 @@
 #!/usr/bin/env python3
 """Real pinned C provider closure for CI; no Jai implementation or staging overlay."""
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import ctypes
 import json
@@ -17,9 +11,9 @@ import shlex
 import subprocess
 import sys
 
-from native_bindings.build_dependencies import INPUTS  # noqa: E402
-from native_bindings.rpmalloc_profiles import PROFILES, c_definitions  # noqa: E402
-from native_bindings.build_rpmalloc import platform_c_flags  # noqa: E402
+from native_bindings.build_dependencies import INPUTS
+from native_bindings.rpmalloc_profiles import PROFILES, c_definitions
+from native_bindings.build_rpmalloc import platform_c_flags
 from toolkit.hashing import sha256_file
 from toolkit.repo import ROOT
 

@@ -1,10 +1,5 @@
-import sys as _sys
-from pathlib import Path as _Path
 
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
-import sys
 from pathlib import Path
 import unittest
 from contextlib import ExitStack
@@ -12,7 +7,6 @@ import tempfile
 import json
 import re
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'tools/native_bindings'))
 from repo_output import output_dir
 from vendor_rpmalloc import native_type, record
 from verify import ROOT, place_private_unit

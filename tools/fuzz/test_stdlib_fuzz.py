@@ -1,11 +1,6 @@
-import sys
 import unittest
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
-import stdlib_fuzz as sf  # noqa: E402
-
-
+import stdlib_fuzz as sf
 class SignatureTests(unittest.TestCase):
     def test_runtime_error_keeps_file_line_and_message(self):
         err = 'x/stdlib/internal/string/bytes.jai:6:5: error: runtime error: assertion failed: `a` is false\n  code\n'

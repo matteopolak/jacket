@@ -1,11 +1,5 @@
 """NEW receipt/protocol unit tests. These are not native SDK/device evidence."""
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import importlib.util
 import os
 from unittest import mock

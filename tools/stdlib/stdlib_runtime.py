@@ -10,12 +10,6 @@ Tool-driven integration suites (native SDK probes, generator workflows) are sepa
 anything: the cross-target source check. The other modes run on this host only.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import json
 import threading

@@ -8,4 +8,4 @@ cd "$root" || exit 0
 
 case " ${JAI_HOOK_SKIP:-} " in *" clippy "*) exit 0 ;; esac
 command -v cargo >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1 || exit 0
-exec python3 "$root/tools/dev/pre_push_clippy.py"
+PYTHONPATH="$root/tools" exec python3 "$root/tools/dev/pre_push_clippy.py"

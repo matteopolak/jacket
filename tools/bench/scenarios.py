@@ -6,10 +6,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
-import common
-from measure import Run, run_measured, warm_file_cache
-from results import Report, Result
-from stats import Stat
+from bench import common
+from bench.measure import Run, run_measured, warm_file_cache
+from bench.results import Report, Result
+from bench.stats import Stat
 
 
 @dataclass(frozen=True)

@@ -33,6 +33,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 env:
+  # tools/ holds the folders the Python scripts import from (`from toolkit.repo import ROOT`).
+  PYTHONPATH: ${{ github.workspace }}/tools
   CARGO_INCREMENTAL: '0'
   LLVM_VERSION: 23.1.2
 jobs:

@@ -18,11 +18,9 @@ import sys
 import tempfile
 from pathlib import Path
 
+from toolkit.repo import jaifmt_path
+
 TOOLS = Path(__file__).resolve().parent
-sys.path.insert(0, str(TOOLS))  # folder-qualified imports
-
-from toolkit.repo import jaifmt_path  # noqa: E402
-
 NO_TESTS_RAN = 5  # unittest's exit status when a folder has no file matching the pattern
 
 

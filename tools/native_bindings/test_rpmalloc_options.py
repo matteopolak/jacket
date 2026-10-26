@@ -1,16 +1,7 @@
 """Independent profile selection requirements for the reviewed cache option."""
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
-import sys
 import unittest
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]/'tools/native_bindings'))
 from native_bindings.rpmalloc_profiles import PROFILES
 
 

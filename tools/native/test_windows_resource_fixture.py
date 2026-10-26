@@ -1,11 +1,5 @@
 """Real SDK cross-build tests: no Windows runtime or host SDK execution proof."""
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 from pathlib import Path
 import struct
 import tempfile

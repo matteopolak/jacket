@@ -1,12 +1,6 @@
 #!/usr/bin/env python3
 """Verify bootstrap crash options using newly source-built Compiler workspaces."""
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import json
 import os
@@ -18,7 +12,6 @@ from portable_toolchain import checked_compiler
 from toolkit.cli import add_jaic_argument
 from toolkit.repo import ROOT
 from repo_output import output_dir
-
 
 
 def main():

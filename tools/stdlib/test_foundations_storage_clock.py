@@ -1,11 +1,5 @@
 """The native elapsed clock must not remove portable slice storage coverage."""
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import unittest
 
 from stdlib.stdlib_test_catalog import unavailable_reason, validated_entries

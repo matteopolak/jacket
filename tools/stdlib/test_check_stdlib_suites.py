@@ -9,10 +9,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import check_stdlib_suites as suites  # noqa: E402
-
-
+import check_stdlib_suites as suites
 class Driver(unittest.TestCase):
     def run_main(self, *extra, fail=()):
         started = []

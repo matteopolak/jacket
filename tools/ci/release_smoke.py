@@ -12,12 +12,6 @@ Usage:
 `fetch` and `vsix` use `gh release download` (GH_TOKEN in the environment).
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import hashlib
 import json

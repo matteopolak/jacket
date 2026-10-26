@@ -1,12 +1,10 @@
 import json
 import os
 import stat
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import compare_compilers as compare
 from toolkit.repo import cargo_binary

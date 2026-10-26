@@ -17,6 +17,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.workflow_run.head_branch || inputs.version || 'latest' }}
   cancel-in-progress: false
 env:
+  # tools/ holds the folders the Python scripts import from (`from toolkit.repo import ROOT`).
+  PYTHONPATH: ${{ github.workspace }}/tools
   NVIM_VERSION: v0.12.4
   NVIM_SHA256: 012bf3fcac5ade43914df3f174668bf64d05e049a4f032a388c027b1ebd78628
 jobs:

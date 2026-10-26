@@ -10,11 +10,7 @@ the region was reachable. Findings are compared with `tools/lsp/oracle-known.jso
     python3 tools/lsp/oracle.py --sets upstream            # inside tools/bench/sandbox.py
     python3 tools/lsp/oracle.py --sets stdlib --shard 1/4 --out target/lsp-oracle
 """
-import sys as _sys
-from pathlib import Path as _Path
 
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
 import sys

@@ -2,7 +2,6 @@ import sys
 import unittest
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
 import select_upstream_cases as sel
 
 CASES = [

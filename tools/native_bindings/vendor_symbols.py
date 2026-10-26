@@ -5,11 +5,7 @@ The symbol-only declaration is a public native method signature, with opaque
 scope/template declarations. It defines no SDK function and is never linked or
 executed. A full-header host AST validates its mangling against the real header.
 """
-import sys as _sys
-from pathlib import Path as _Path
 
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import json
 import subprocess

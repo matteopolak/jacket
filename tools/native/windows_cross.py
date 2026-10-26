@@ -14,12 +14,6 @@ expects a runtime error, a failing status and the error's message on stderr). Se
 docs/native/windows.md.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import concurrent.futures
 import json
@@ -31,7 +25,7 @@ import subprocess
 import sys
 import tempfile
 
-from stdlib import stdlib_runtime  # noqa: E402
+from stdlib import stdlib_runtime
 from toolkit.hashing import sha256_file
 from toolkit.cli import add_jaic_argument
 from toolkit.process import run as toolkit_run

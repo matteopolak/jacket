@@ -3,11 +3,8 @@
 Native stb dependencies must be built separately using the repository's reviewed
 native build tool. Nothing is fetched here; no shared manifests/staging are used.
 """
-import sys as _sys
 from pathlib import Path
 
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import argparse
 import os

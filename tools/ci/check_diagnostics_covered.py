@@ -18,12 +18,6 @@ list only shrinks:
 `--update` rewrites the list from the tree; review its diff, a new line is a diagnostic added without a test.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import re
 import subprocess

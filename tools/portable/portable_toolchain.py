@@ -4,12 +4,6 @@ The explicit CARGO_TARGET_DIR is the worker's authorized build storage. This doe
 not search peer/external build trees or fall back to a supplied compiler binary.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 from toolkit.repo import cargo_target_dir
 from repo_output import output_dir
 

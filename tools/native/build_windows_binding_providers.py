@@ -1,12 +1,6 @@
 #!/usr/bin/env python3
 """Build real ABI8 fixture archives for a selected Windows SDK, never the host."""
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import json
 import os
@@ -14,10 +8,10 @@ from pathlib import Path
 import shutil
 import subprocess
 
-from native_bindings.build_dependencies import prepare_source  # noqa: E402
-from native_bindings.prepare_rpmalloc import prepare  # noqa: E402
-from native_bindings.rpmalloc_profiles import PROFILES, c_definitions  # noqa: E402
-from native_bindings.config import RPMALLOC_SDK_BUILD_OPTIONS  # noqa: E402
+from native_bindings.build_dependencies import prepare_source
+from native_bindings.prepare_rpmalloc import prepare
+from native_bindings.rpmalloc_profiles import PROFILES, c_definitions
+from native_bindings.config import RPMALLOC_SDK_BUILD_OPTIONS
 from toolkit.hashing import sha256_bytes, sha256_file
 from toolkit.repo import ROOT
 

@@ -5,12 +5,6 @@ Uses repository dependency metadata; output stays inside this worker's target di
 Does not inspect worktree metadata, other checkouts, supplied binaries or credentials.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import json
 import platform
 import subprocess

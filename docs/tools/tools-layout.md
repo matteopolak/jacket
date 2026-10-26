@@ -36,7 +36,7 @@ Top level: `repo_output.py|mjs` (where output goes, `host_platform()`), `run_tes
 
 ## Shared helpers (`toolkit/`)
 
-`toolkit/` is the one place for helpers that were copied between scripts. Import them folder-qualified (`from toolkit.hashing import sha256_file`), after the `sys.path` lines of "How to add a tool".
+`toolkit/` is the one place for helpers that were copied between scripts. Import them folder-qualified (`from toolkit.hashing import sha256_file`); `tools/` is on the module path ([Module path](#module-path)).
 
 | Module | What it gives |
 |---|---|
@@ -49,7 +49,7 @@ Top level: `repo_output.py|mjs` (where output goes, `host_platform()`), `run_tes
 
 `developer_checks/dev_common.py` is that folder's single entry point: importing it puts `tools/` on `sys.path`, so the checks there carry no path lines of their own. It re-exports `ROOT`, `ENV` (the compiler environment), `JAIC`, `sha256_file` and `run_checked` (`run_expect` with the checks' defaults). The `run` function each check still defines only fixes its failure label and defaults.
 
-Script file names are `snake_case` (they are imported as modules). `check_tool_imports.py` also fails a script that reads `CARGO_TARGET_DIR` or builds `ROOT / "target"` itself; the few files that must (listed with reasons in `BUILD_PATH_ALLOWED`) are the exceptions. Add a helper to `toolkit/` when a third script needs it, with a test in `toolkit/test_toolkit.py`. A helper that is specific to one folder (`bench/common.py`, `native_bindings/verify.py`) stays in that folder.
+Script file names are `snake_case` (they are imported as modules). `tools/ci/check_source_style.py` also fails a script that reads `CARGO_TARGET_DIR` or builds `ROOT / "target"` itself; the few files that must (listed with reasons in `BUILD_PATH_ALLOWED`) are the exceptions. Add a helper to `toolkit/` when a third script needs it, with a test in `toolkit/test_toolkit.py`. A helper that is specific to one folder (`bench/common.py`, `native_bindings/verify.py`) stays in that folder.
 
 ## Generated files
 
@@ -61,28 +61,25 @@ Every generator of a checked-in file takes `--check` (exit 1 if the file differs
 
 ## How tests are discovered
 
-`tools/` has no `__init__.py`, so `unittest discover -s tools` skips subfolders. `python3 tools/run_tests.py [-p PATTERN] [-v]` runs one `discover` per folder at any depth that holds a matching file (including `native_bindings/`, `numerics/` and `bench/`) with `tools/` on `PYTHONPATH` (and unittest putting the folder under test on `sys.path`, so a test imports its sibling modules by bare name). CI, `just test` and the workflows that run a single test file all go through it. The SDL tests in `bindings/` need hash-pinned header inputs; CI prepares them with `bindings/prepare_sdl_python_tests.py` (which sets `SDL_TEST_TMPDIR`), and `run_tests.py` does it itself when the variable is unset (a download, cached under `target/sdl-python-cache`). `generators/` tests need a built `jaifmt_path()`; `run_tests.py` builds it (as `dev.py fmt` does, `ensure_jaifmt`) when it is missing and skips that folder with a message if it cannot. An import that only exists so tests can patch through the module (`urllib.request` in the native builders) carries `# noqa: F401`; `ruff check tools .github` is clean under ruff's default rules (`ruff.toml`; CI's rule coverage job runs it). Scripts that bootstrap `sys.path` before importing sibling packages get a per-file `E402` ignore there instead of per-line `noqa`. A script that only runs a suite by hand must not be named `test_*.py` (`bindings/run_sdl3.py`, `bindings/run_webgpu_native.py`), or discovery imports it. The Node tests (`tools/browser/test_*.mjs`) run with `node --test tools/browser/test_*.mjs` in the wasm CI job and in `browser-release.yml`.
+`tools/` has no `__init__.py`, so `unittest discover -s tools` skips subfolders. `python3 tools/run_tests.py [-p PATTERN] [-v]` runs one `discover` per folder at any depth that holds a matching file (including `native_bindings/`, `numerics/` and `bench/`) with `tools/` on `PYTHONPATH` (and unittest putting the folder under test on `sys.path`, so a test imports its sibling modules by bare name). CI, `just test` and the workflows that run a single test file all go through it. The SDL tests in `bindings/` need hash-pinned header inputs; CI prepares them with `bindings/prepare_sdl_python_tests.py` (which sets `SDL_TEST_TMPDIR`), and `run_tests.py` does it itself when the variable is unset (a download, cached under `target/sdl-python-cache`). `generators/` tests need a built `jaifmt_path()`; `run_tests.py` builds it (as `dev.py fmt` does, `ensure_jaifmt`) when it is missing and skips that folder with a message if it cannot. An import that only exists so tests can patch through the module (`urllib.request` in the native builders) carries `# noqa: F401`; `ruff check tools .github` is clean under ruff's default rules (`ruff.toml`; CI's rule coverage job runs it). A script that only runs a suite by hand must not be named `test_*.py` (`bindings/run_sdl3.py`, `bindings/run_webgpu_native.py`), or discovery imports it. The Node tests (`tools/browser/test_*.mjs`) run with `node --test tools/browser/test_*.mjs` in the wasm CI job and in `browser-release.yml`.
 
 ## How to add a tool
 
 1. Put it in the folder of its subsystem; name tests `test_<thing>.py` next to what they test.
-2. Imports across folders are qualified by folder: `from toolkit.download import fetch`, `from stdlib import stdlib_runtime`. The helpers at the top of `tools/` stay bare (`import repo_output`). A script that imports either way starts with the same three lines, before any other project import, so `tools/` is on `sys.path` when it runs directly (`python3 tools/<folder>/x.py` only puts `tools/<folder>/` there; the test runner and CI add nothing):
-
-   ```python
-   import sys as _sys
-   from pathlib import Path as _Path
-
-   # tools/, for folder-qualified imports
-   _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-   ```
-
-   Use `parents[2]` in a sub-sub-folder (`tools/portable/portable_data/`). Imports between modules of the same folder may stay bare, except for a module that other folders import (`stdlib/stdlib_runtime.py`, `native/build_native_libs.py`, ...): it and everything that touches it import its siblings qualified too, so there is only one copy of it in `sys.modules`. That includes `unittest.mock.patch("stdlib.stdlib_runtime.run_command")` target strings. `native_bindings/` keeps generic module names (`config`, `spec`), so it is never put on `sys.path` as a folder; import it as `native_bindings.config`.
+2. Imports across folders are qualified by folder: `from toolkit.download import fetch`, `from stdlib import stdlib_runtime`. The helpers at the top of `tools/` stay bare (`import repo_output`). A script carries no `sys.path` code of its own: `tools/` is on `PYTHONPATH` ([Module path](#module-path)), and `python3 tools/<folder>/x.py` adds `tools/<folder>/` itself. Imports between modules of the same folder may stay bare, except for a module that other folders import (`stdlib/stdlib_runtime.py`, `native/build_native_libs.py`, `bench/sandbox.py`, ...): it and everything that touches it import its siblings qualified too (`from bench import common`), so there is only one copy of it in `sys.modules`. That includes `unittest.mock.patch("stdlib.stdlib_runtime.run_command")` target strings. `native_bindings/` keeps generic module names (`config`, `spec`), so it is never put on `sys.path` as a folder; import it as `native_bindings.config`.
 3. A script at `tools/<folder>/x.py` finds the repo root with `Path(__file__).resolve().parents[2]`.
 4. Reference it by its full path (`tools/<folder>/x.py`) in workflows, the Justfile, docs and `tools/ci/ci_changes.py` path filters.
 
-## Import check
+## Module path
 
-`python3 tools/ci/check_tool_imports.py` (the `rule coverage` job in `ci.yml`) loads every `tools/**/*.py` in a fresh interpreter twice, the way CI runs a script (only its own folder on `sys.path`) and the way `run_tests.py` imports it, and fails on any project module that does not resolve. It runs the module body only up to its last top-level import, checks imports nested in functions statically, and skips optional third-party modules. Run it after moving or renaming anything under `tools/`.
+Scripts import each other folder-qualified (`from toolkit.repo import ROOT`), which needs `tools/` on the module search path. Every entry point sets `PYTHONPATH` to the absolute path of `tools/` once instead of each script patching `sys.path`:
+
+- the `justfile` exports it (so `just <recipe>` and everything a recipe spawns have it),
+- each workflow in `.github/workflows/` sets it in its top-level `env:` to `${{ github.workspace }}/tools`,
+- `.githooks/pre-commit` and `.githooks/pre-push` set it for the script they exec,
+- `run_tests.py` sets it for the test processes it starts.
+
+A script run by hand needs it too: `PYTHONPATH=tools python3 tools/<folder>/x.py` from the repository root, or `just` where a recipe exists. Without it the first folder-qualified import fails with `No module named 'toolkit'`.
 
 ## Configuration and dependencies
 

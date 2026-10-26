@@ -21,9 +21,9 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
-from measure import Run
-import phases
-from stages import JaicTimings, StageParser, Stages, with_total
+from bench.measure import Run
+from bench import phases
+from bench.stages import JaicTimings, StageParser, Stages, with_total
 
 
 class Mode(str, Enum):

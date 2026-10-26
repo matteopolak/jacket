@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from common import machine_line, median_text, skipped_section, table
-from results import Report, Result, Status
+from bench.common import machine_line, median_text, skipped_section, table
+from bench.results import Report, Result, Status
 
 
 def render(report: Report) -> str:

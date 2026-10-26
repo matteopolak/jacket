@@ -17,13 +17,6 @@ shell run the same commands. Runs on Python 3.9 (macOS /usr/bin/python3): no tom
 """
 from __future__ import annotations
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
-
 import argparse
 import json
 import os

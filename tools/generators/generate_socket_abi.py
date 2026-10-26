@@ -7,20 +7,6 @@ loads straight into its own scope, so the declarations are the public names. Aut
 hand-written socket-*.jai files next to the generated ones.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
-import sys as _sys
-from pathlib import Path as _Path
-
-_TOOLS = _Path(__file__).resolve().parents[1]
-_sys.path[:0] = [
-    str(_TOOLS / "native_bindings")
-]  # the spec parser shared with the bindings generator
-
 from collections import defaultdict
 import re
 

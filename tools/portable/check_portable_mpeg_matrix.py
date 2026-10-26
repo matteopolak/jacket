@@ -5,12 +5,6 @@ This validates the permitted C algorithm adaptation, not a Jai compatibility API
 The C executable is built here from source; no supplied reference binary is run.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import math
 import struct
 import subprocess

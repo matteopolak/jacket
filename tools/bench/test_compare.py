@@ -3,9 +3,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from compare import Limits, find_regressions
-from results import Report, Result, Status, load_report
-from stats import Stat
+from bench.compare import Limits, find_regressions
+from bench.results import Report, Result, Status, load_report
+from bench.stats import Stat
 
 
 def result(wall, rss=100.0, mad=0.0, cpu=None):

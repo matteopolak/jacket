@@ -7,12 +7,6 @@ OpenType head/hhea/maxp/glyf/loca/cmap/name/post/OS2/GSUB documentation. FreeTyp
 not this generator, supplies production glyph metrics and rasterization in tests.
 """
 
-import sys as _sys
-from pathlib import Path as _Path
-
-# tools/, for folder-qualified imports
-_sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
-
 import argparse
 import struct
 from toolkit.repo import ROOT
