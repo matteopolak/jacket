@@ -179,7 +179,18 @@ impl Compiler {
     /// Resolve only the actual callee at this call's opening parenthesis. The original
     /// program and its failed-body guards stay intact; no argument values are invented.
     pub fn ide_call_target_at(&mut self, file: FileId, open: u32) -> Option<IdeCallTarget> {
-        self.ed.facts()?;
+        // Code this compile skipped (an `#if` arm the target does not take) has no scope here:
+        // its names are declared in the arm, so checking the callee would bind them to whatever
+        // else is called that, and record the wrong reference for a later hover.
+        if self
+            .ed
+            .facts()?
+            .skipped
+            .iter()
+            .any(|s| s.file == file && s.start <= open && open <= s.end)
+        {
+            return None;
+        }
         let text = self.src.sources.get(file).text.clone();
         let callee = crate::parser::parse_callee_ide(file, &text, open)?;
         let scope = self.ide_scope_at(file, callee.span.start)?;
