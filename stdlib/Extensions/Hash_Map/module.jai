@@ -42,6 +42,10 @@ Map :: struct(Key: Type, Value: Type, hash: (Key) -> u32 = null, equal: (Key, Ke
 
     #if hash {
         hash_function :: hash;
+    } else #if Key == string {
+        hash_function :: (key: string) -> u32 {
+            return hash_text(key);
+        }
     } else {
         hash_function :: (key: Key) -> u32 {
             return Hash.get_hash(key);
@@ -297,6 +301,45 @@ max_load :: inline (capacity: s64) -> s64 {
 
 block_size :: inline (map: *Map) -> s64 {
     return map.capacity + map.capacity * size_of(map.Entry);
+}
+
+// The default hash of a string key: eight bytes per step, where `Hash.get_hash` takes one. The
+// length is part of the hash, and the last bytes are read as one overlapping word, so no byte
+// is visited twice by a loop.
+hash_text :: (text: string) -> u32 #no_aoc {
+    data := text.data;
+    count := text.count;
+    state: u64 = cast(u64) count * 0x9E3779B97F4A7C15 + 0x2545F4914F6CDD1D;
+
+    if count >= 8 {
+        at := 0;
+
+        while at + 8 < count {
+            state = (state ^ (cast(*u64) (data + at)).*) * 0xFF51AFD7ED558CCD;
+            state ^= state >> 32;
+            at += 8;
+        }
+
+        state = (state ^ (cast(*u64) (data + count - 8)).*) * 0xFF51AFD7ED558CCD;
+    } else if count >= 4 {
+        low: u64 = (cast(*u32) data).*;
+        high: u64 = (cast(*u32) (data + count - 4)).*;
+        word := low | (high << 32);
+
+        state = (state ^ word) * 0xFF51AFD7ED558CCD;
+    } else if count > 0 {
+        first: u64 = data[0];
+        middle: u64 = data[count / 2];
+        last: u64 = data[count - 1];
+        word := first | (middle << 8) | (last << 16);
+
+        state = (state ^ word) * 0xFF51AFD7ED558CCD;
+    }
+
+    state ^= state >> 32;
+    state *= 0xC4CEB9FE1A85EC53;
+
+    return cast(u32) (state >> 32);
 }
 
 // The hash is spread once more here, so that a weak user hash still gives a good first group

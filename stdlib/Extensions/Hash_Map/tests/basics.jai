@@ -211,6 +211,53 @@ string_keys :: () {
     check(Map.find(*map, "").* == -1, "empty string key");
 }
 
+// Strings of every length up to 40 that differ in one byte: the default string hash reads
+// them in words, with a different tail for each length class.
+string_lengths :: () {
+    map: Map.Map(string, s64);
+
+    defer Map.deinit(*map);
+    defer for map free(it_index);
+
+    expected := 0;
+
+    for length: 0..40 {
+        for position: -1..length - 1 {
+            text := alloc_string(length);
+
+            for 0..length - 1 text[it] = cast(u8) (#char "a" + (it * 7 + length) % 26);
+
+            if position >= 0 text[position] = #char "Z";
+
+            // Position -1 is the unchanged text; a length-1 text with its only byte changed is
+            // a different key, as is every other single change.
+            Map.insert(*map, text, length * 100 + position);
+            expected += 1;
+        }
+    }
+
+    check(map.count == expected, "every length and byte change is its own key");
+
+    for length: 0..40 {
+        for position: -1..length - 1 {
+            text := alloc_string(length);
+
+            for 0..length - 1 text[it] = cast(u8) (#char "a" + (it * 7 + length) % 26);
+
+            if position >= 0 text[position] = #char "Z";
+
+            value := Map.find(*map, text);
+
+            if !value || value.* != length * 100 + position {
+                check(false, "string of varied length found");
+                return;
+            }
+
+            free(text);
+        }
+    }
+}
+
 case_insensitive_hash :: (key: string) -> u32 {
     value: u32 = 17;
 
@@ -405,6 +452,7 @@ main :: () {
     growth();
     churn();
     string_keys();
+    string_lengths();
     custom_functions();
     iteration();
     remove_while_iterating();
