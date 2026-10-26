@@ -73,34 +73,7 @@ jobs:
           EDITOR_INPUT: ${{ inputs.editor_version }}
           PUBLISH_INTEGRATIONS: ${{ inputs.publish_integrations }}
           EVENT: ${{ github.event_name }}
-        run: |
-          version="$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["workspace"]["package"]["version"])')"
-          is_current=false
-          dry_run=false
-          publish_stores=false
-          publish_editor_stores=false
-          editor_pinned=false
-          editor_valid=false
-          if [ -z "$TAG" ]; then dry_run=true; elif [ "$TAG" = "v$version" ]; then is_current=true; fi
-          if [ "$EVENT" = push ] || [ "$PUBLISH_INTEGRATIONS" = true ]; then publish_stores=true; fi
-          editor_version="$EDITOR_INPUT"
-          if [ -n "$editor_version" ]; then editor_pinned=true; else editor_version="${TAG#v}"; fi
-          if [ -z "$editor_version" ]; then editor_version="$version"; fi
-          if [[ "$editor_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then editor_valid=true; fi
-          if [ "$is_current" = true ] && { [ "$EVENT" = push ] || { [ "$PUBLISH_INTEGRATIONS" = true ] && [ "$editor_pinned" = true ]; }; }; then
-            publish_editor_stores=true
-          fi
-          {
-            echo "version=$version"
-            echo "tag=$TAG"
-            echo "is_current_release=$is_current"
-            echo "dry_run=$dry_run"
-            echo "publish_stores=$publish_stores"
-            echo "publish_editor_stores=$publish_editor_stores"
-            echo "editor_version=$editor_version"
-            echo "editor_valid=$editor_valid"
-            echo "editor_pinned=$editor_pinned"
-          } >> "$GITHUB_OUTPUT"
+        run: bash tools/ci/release_meta.sh
 
   validate-release:
     needs: release-meta
@@ -191,20 +164,7 @@ jobs:
       # link the system's /usr/lib/libc++.1.dylib from the SDK.
       - name: Install static zstd and link with LLVM's lld (macOS arm64)
         if: runner.os == 'macOS' && matrix.llvm != 'conda-forge'
-        run: |
-          brew install zstd
-          ls -l /opt/homebrew/lib/libzstd.a
-          # llvm-sys turns that absolute path into `-L/opt/homebrew/lib -lzstd`, for which ld
-          # prefers the dylib beside the archive (and jaic would then need Homebrew's zstd at run
-          # time). Without the dylib links in that folder, the archive is linked.
-          rm -f /opt/homebrew/lib/libzstd*.dylib
-          ls "$RUNNER_TEMP/llvm/bin/ld64.lld"
-          find "$RUNNER_TEMP/llvm/lib" \( -name 'libc++*' -o -name 'libunwind*' \) -print -delete
-          {
-            echo "SDKROOT=$(xcrun --show-sdk-path)"
-            echo "CARGO_TARGET_AARCH64_APPLE_DARWIN_LINKER=$RUNNER_TEMP/llvm/bin/clang"
-            echo "CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS=-C link-arg=-fuse-ld=lld"
-          } >> "$GITHUB_ENV"
+        run: bash tools/ci/macos_static_zstd.sh
       # conda-forge's LLVM for osx-64 (static libraries of ordinary objects, which Xcode's ld
       # links) with its static zstd and libc++; the script deletes the environment's dylibs, so
       # `-lz -lxml2 -liconv` link the system's and `-lzstd -lc++` the archives. The static libc++ needs the system's libc++abi. Nothing points into the
@@ -250,240 +210,14 @@ jobs:
         if: failure() && steps.build.outcome == 'failure' && matrix.llvm != ''
         run: cargo rustc --release --locked -p jaic-cli --bin jaic --no-default-features --features static-llvm -- -C link-args=-v 2>&1 | tail -60
       - name: Package
-        run: |
-          exe=""
-          if [ "$RUNNER_OS" = "Windows" ]; then exe=".exe"; fi
-          dir="jacket-${{ matrix.name }}"
-          mkdir -p "$dir"
-          out="target/pgo/dist"
-          # Symbol tables are about a tenth of the macOS binary (docs/tools/releases.md,
-          # "Binary size"). Stripped after PGO and BOLT, which need them. macOS: local symbols
-          # only, then the ad-hoc signature arm64 requires is made again. Windows: the
-          # symbols are in the .pdb, which the archive does not ship.
-          case "$RUNNER_OS" in
-            macOS) for t in jaic jailsp jailint jacket; do strip -x "$out/$t"; codesign --force -s - "$out/$t"; done ;;
-            Linux) for t in jaic jailsp jailint jacket; do strip --strip-unneeded "$out/$t"; done ;;
-          esac
-          ls -l "$out"
-          cp "$out/jaic$exe" "$out/jailsp$exe" "$out/jailint$exe" "$out/jacket$exe" "$dir/"
-          # Bootstrap definitions are packaged with the standard library.
-          cp -R stdlib "$dir/stdlib"
-          # Windows: the crash runtime the standard library binds (crash-native/platform_io_windows_crash)
-          # is C built here, not stored in the repository. The DLL is what `jaic -interp` and a
-          # metaprogram load; the static archive is what built programs link, so they need no DLL.
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            cpu="${{ matrix.name == 'windows-arm64' && 'arm64' || 'x64' }}"
-            python3 tools/stdlib/build_platform_io_runtime.py --stdlib "$dir/stdlib" --cpu "$cpu" --static-library
-            ls -l "$dir/stdlib/internal/runtime/crash-native"
-          fi
-          cp README.md CHANGELOG.md "$dir/"
-          # wgpu-native for the WebGPU module (pinned and checksum-verified, tools/bindings/webgpu.json),
-          # where jaic looks for native libraries: <stdlib>/../native-libs/<platform>.
-          # The static library is what `jaic` links, the shared one what `jaic -interp` loads.
-          python3 tools/bindings/fetch_wgpu_native.py --platform "${{ matrix.name }}" --out "$dir/native-libs/${{ matrix.name }}"
-          # The C libraries the stdlib binds (stb_image, stb_image_write, stb_image_resize,
-          # stb_vorbis, lz4, meshoptimizer, pl_mpeg, FreeType, Dear ImGui and MojoShader; rpmalloc
-          # on macOS and Linux; SDL2 on Windows x64), built from the pinned, checksum-verified
-          # sources in tools/native/native-libs.json, static and shared like wgpu-native, each with its
-          # licence under licenses/. Simp, GetRect, Sound_Player and the other modules need them.
-          # The script stops when a file it should have left is missing. macOS: for the oldest
-          # macOS the jaic binary runs on, not the runner's.
-          if [ "$RUNNER_OS" = "macOS" ]; then
-            export MACOSX_DEPLOYMENT_TARGET="${{ matrix.name == 'macos-x64' && '10.12' || '11.0' }}"
-          fi
-          python3 tools/native/build_native_libs.py --platform "${{ matrix.name }}" --out "$dir/native-libs/${{ matrix.name }}"
-          # What Bindings_Generator's generate_bindings needs at run time: its helper library on every
-          # platform, and libclang from the pinned LLVM on Linux and Windows (macOS uses the Xcode
-          # toolchain's; docs/tools/releases.md, "Bindings_Generator"). Printed with its size.
-          python3 tools/ci/package_bindings_helpers.py --platform "${{ matrix.name }}" \
-            --llvm-prefix "${LLVM_SYS_231_PREFIX:-$RUNNER_TEMP/llvm}" --out "$dir/native-libs/${{ matrix.name }}"
-          unset MACOSX_DEPLOYMENT_TARGET
-          ls -l "$dir/native-libs/${{ matrix.name }}"
-          # Every library the packaged stdlib binds is either in the archive, built into jaic, or
-          # the system's on purpose (the audio output, clipboard and allocator libraries once
-          # went missing from all six archives).
-          python3 tools/ci/check_native_libs.py --stdlib "$dir/stdlib" --platform "${{ matrix.name }}" \
-            --native "$dir/native-libs/${{ matrix.name }}"
-          # jaifmt is a Jai program: built by the packaged jaic against the packaged stdlib, -O2
-          # with the default checks (not jaifmt/build.jai's unchecked build), no debug files.
-          "$dir/jaic$exe" jaifmt/main.jai -O2 -no_debug_info -exe "$dir/jaifmt"
-          # SDL3's generated source must satisfy the real repository formatter and linter.
-          # No missing dependency or syntax-only lint fallback is accepted by these checks.
-          "$dir/jaifmt$exe" --check stdlib/Extensions/SDL3 stdlib/Extensions/SDL3/tests
-          python3 tools/bindings/sdl3_gen.py --source target/sdl3/SDL3-3.4.18 --jaifmt "$PWD/$dir/jaifmt$exe" --check
-          python3 tools/bindings/sdl3_lint.py --jailint "$PWD/$dir/jailint$exe" --stdlib "$PWD/$dir/stdlib"
-          ls "$dir"
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            7z a -tzip "$dir.zip" "$dir" > /dev/null
-            echo "ARCHIVE=$dir.zip" >> "$GITHUB_ENV"
-          else
-            tar -czf "$dir.tar.gz" "$dir"
-            echo "ARCHIVE=$dir.tar.gz" >> "$GITHUB_ENV"
-          fi
-          echo "PACKAGE_DIR=$dir" >> "$GITHUB_ENV"
+        env:
+          NAME: ${{ matrix.name }}
+        run: bash tools/ci/package_release.sh
       - name: Smoke test the packaged compiler outside the checkout
-        run: |
-          exe=""
-          if [ "$RUNNER_OS" = "Windows" ]; then exe=".exe"; fi
-          work="$RUNNER_TEMP/smoke"
-          mkdir -p "$work"
-          cp examples/compile-time-record/main.jai "$work/main.jai"
-          jaic="$PWD/$PACKAGE_DIR/jaic$exe"
-          jailint="$PWD/$PACKAGE_DIR/jailint$exe"
-          jaifmt="$PWD/$PACKAGE_DIR/jaifmt$exe"
-          cd "$work"
-          # Input without a final newline, as Homebrew's formula test sends it; the exit status
-          # is checked too (a crash prints nothing, which an output check alone could miss).
-          set +e
-          printf 'main::(){x:=1;}' | "$jaifmt" --stdin > fmt.out
-          status=$?
-          set -e
-          formatted="$(tr -d '\r' < fmt.out)"
-          echo "$formatted"
-          test "$status" = 0
-          test "$formatted" = "$(printf 'main :: () {\n    x := 1;\n}')"
-          # Built for the baseline x86-64 CPU, not this runner's: the archive runs on machines
-          # without AVX (the 0.4.1 jaifmt had AVX-512 and died with SIGILL on other runners).
-          # The `*_wide` byte searches are the exception: they are AVX2 and only reached through
-          # a table that picks them when the CPU has AVX2 (Extensions/Byte_Search).
-          if [ "${{ matrix.name }}" = "linux-x64" ]; then
-            if objdump -d "$jaifmt" | awk '/>:$/ { symbol = $0; next }
-                symbol !~ /_wide/ && /%[yz]mm|\{%k[0-7]\}/ { print symbol; print; found = 1; exit }
-                END { exit !found }'; then
-              echo "jaifmt uses instructions beyond baseline x86-64"; exit 1
-            fi
-          fi
-          set +e
-          "$jaic" main.jai -interp
-          status=$?
-          set -e
-          test "$status" = 42
-          # jailint finds the packaged stdlib next to itself.
-          "$jailint" -D warnings main.jai
-          # Bindings_Generator runs from the archive alone: its helper library and libclang
-          # (the Xcode toolchain's on macOS) are found without a checkout (#26, #27).
-          printf 'typedef struct Pair { int a; float b; } Pair;\n' > bindings.h
-          printf '%s\n' '#import "Basic";' '#import "Bindings_Generator";' '#import "Compiler";' \
-            '#run {' '    set_build_options_dc(.{do_output = false});' '    options: Generate_Bindings_Options;' \
-            '    array_add(*options.source_files, "bindings.h");' '    options.generate_library_declarations = false;' \
-            '    assert(generate_bindings(options, "bindings.jai"));' '}' > generate.jai
-          "$jaic" generate.jai
-          grep -q 'Pair :: struct' bindings.jai
-          if [ -n "${{ matrix.llvm }}" ]; then
-            "$jaic" main.jai -exe main
-            set +e
-            ./main$exe
-            status=$?
-            set -e
-            test "$status" = 42
-          fi
-          # WebGPU programs need nothing beyond the archive: the triangle example links the
-          # packaged static wgpu-native, and `jaic -interp` loads the packaged shared one (exit 77:
-          # the runner has no GPU adapter, which still proves the library loaded).
-          cp "$GITHUB_WORKSPACE/examples/webgpu-triangle/main.jai" triangle.jai
-          cp "$GITHUB_WORKSPACE/stdlib/Extensions/WebGPU/tests/headless.jai" .
-          if [ -n "${{ matrix.llvm }}" ]; then
-            "$jaic" triangle.jai -exe triangle
-            ls -l triangle$exe
-          fi
-          set +e
-          "$jaic" headless.jai -interp
-          status=$?
-          set -e
-          test "$status" = 0 || test "$status" = 77
-          # SDL3 is source-built and packaged on all six current release targets. Audit every
-          # declared runtime export and artifact hash, then compile/run ABI + headless tests
-          # with the packaged static archive, outside the checkout and without system SDL3.
-          python3 "$GITHUB_WORKSPACE/tools/bindings/run_sdl3.py" --jaic "$jaic" \
-            --native "$GITHUB_WORKSPACE/$PACKAGE_DIR/native-libs/${{ matrix.name }}" \
-            --platform "${{ matrix.name }}" --work "$work/sdl3"
-          # Simp and the stb libraries need nothing beyond the archive either: `jaic -interp` loads
-          # the packaged shared libraries, and the built executable links the static ones.
-          cp "$GITHUB_WORKSPACE/stdlib/Simp/tests/image.jai" simp-image.jai
-          "$jaic" simp-image.jai -interp
-          if [ -n "${{ matrix.llvm }}" ]; then
-            "$jaic" simp-image.jai -exe simp-image
-            ./simp-image$exe
-          fi
-          # The other shipped libraries, with the stdlib's own runtime tests: FreeType (a BDF font
-          # in memory), Dear ImGui (frames with no window), MojoShader (bytecode to GLSL), and on
-          # Windows x64 SDL2 (its import library and DLL from the official release).
-          # Sound_Player's own device test also runs without a device (jai_audio_output).
-          libs=(stdlib/freetype/tests/bdf-glyph.jai stdlib/ImGui/tests/headless-frames.jai stdlib/MojoShader/tests/translate.jai stdlib/Sound_Player/tests/device-lifecycle.jai)
-          if [ "${{ matrix.name }}" = "windows-x64" ]; then libs+=(stdlib/SDL/tests/geometry-timer.jai); fi
-          for lib_path in "${libs[@]}"; do
-            lib_test=$(basename "$lib_path" .jai)
-            cp "$GITHUB_WORKSPACE/$lib_path" .
-            "$jaic" "$lib_test.jai" -interp
-            if [ -n "${{ matrix.llvm }}" ]; then
-              "$jaic" "$lib_test.jai" -exe "$lib_test"
-              # Executables load SDL2.dll from their own directory.
-              if [ -f "$GITHUB_WORKSPACE/$PACKAGE_DIR/native-libs/${{ matrix.name }}/SDL2.dll" ]; then
-                cp "$GITHUB_WORKSPACE/$PACKAGE_DIR/native-libs/${{ matrix.name }}/SDL2.dll" .
-              fi
-              "./$lib_test$exe"
-            fi
-          done
-          # The allocator (rpmalloc and the callback context it binds; macOS and Linux) and, on
-          # Linux, the X11 clipboard library, which needs a display to run, so it is only linked.
-          if [ "$RUNNER_OS" != "Windows" ]; then
-            cp "$GITHUB_WORKSPACE/tools/ci/native-smoke/rpmalloc.jai" rpmalloc-smoke.jai
-            "$jaic" rpmalloc-smoke.jai -interp
-            if [ -n "${{ matrix.llvm }}" ]; then
-              "$jaic" rpmalloc-smoke.jai -exe rpmalloc-smoke
-              ./rpmalloc-smoke
-            fi
-          fi
-          if [ "$RUNNER_OS" = "Linux" ] && [ -n "${{ matrix.llvm }}" ]; then
-            cp "$GITHUB_WORKSPACE/tools/ci/native-smoke/clipboard.jai" clipboard-link.jai
-            "$jaic" clipboard-link.jai -exe clipboard-link
-          fi
-          # Windows without Clang on PATH, where Git's coreutils `link` is in /usr/bin: jaic
-          # skips it and links with Visual Studio's link.exe (0.4.2: `link: extra operand`).
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            (
-              PATH="$(echo "$PATH" | tr ':' '\n' | grep -vi llvm | paste -sd:)"
-              export PATH
-              which -a link
-              "$jaic" simp-image.jai -exe simp-image-msvc
-              ./simp-image-msvc.exe
-            )
-          fi
-          # (`! cmd` would not stop the script: `set -e` ignores a negated command.)
-          if [ "$RUNNER_OS" = "macOS" ]; then
-            otool -L "$jaic"
-            if otool -L "$jaic" | grep -E '/opt/homebrew|/usr/local|@rpath'; then
-              echo "jaic links a library outside the system"; exit 1
-            fi
-          fi
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            ldd "$jaic"
-            if ldd "$jaic" | grep -i llvm; then echo "jaic links a shared LLVM"; exit 1; fi
-          fi
-          # Installed the usual way: unpacked elsewhere, linked from a bin folder, with no
-          # checkout to fall back on (the build's own stdlib path is baked in as the fallback).
-          if [ "$RUNNER_OS" != "Windows" ]; then
-            mv "$GITHUB_WORKSPACE/stdlib" "$GITHUB_WORKSPACE/stdlib.hidden"
-            cp -R "$GITHUB_WORKSPACE/$PACKAGE_DIR" "$RUNNER_TEMP/opt-jaic"
-            mkdir -p "$RUNNER_TEMP/bin"
-            ln -s "$RUNNER_TEMP/opt-jaic/jaic" "$RUNNER_TEMP/bin/jaic"
-            set +e
-            "$RUNNER_TEMP/bin/jaic" main.jai -interp
-            status=$?
-            # The native libraries are found beside the real stdlib behind the symlink.
-            "$RUNNER_TEMP/bin/jaic" simp-image.jai -interp
-            simp_status=$?
-            # jaifmt is self-contained: it needs neither the stdlib nor a checkout.
-            ln -s "$RUNNER_TEMP/opt-jaic/jaifmt" "$RUNNER_TEMP/bin/jaifmt"
-            linked_fmt="$(printf 'main::(){x:=1;}' | "$RUNNER_TEMP/bin/jaifmt" --stdin)"
-            fmt_status=$?
-            set -e
-            mv "$GITHUB_WORKSPACE/stdlib.hidden" "$GITHUB_WORKSPACE/stdlib"
-            test "$status" = 42
-            test "$simp_status" = 0
-            test "$fmt_status" = 0
-            test "$linked_fmt" = "$formatted"
-          fi
+        env:
+          NAME: ${{ matrix.name }}
+          LLVM: ${{ matrix.llvm }}
+        run: bash tools/ci/smoke_packaged_compiler.sh
       # What a user does first, on the archive that is about to be published: `jacket new`,
       # `build`, `run` and a language-server hover (the post-release smoke test's project check).
       # Catches a tool or library the archive lacks before the release exists.
@@ -574,28 +308,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           CURRENT_VERSION: ${{ needs.release-meta.outputs.version }}
-        run: |
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isImmutable > release.json 2> release-error.txt; then
-            if [ "$(node -p 'require("./release.json").isImmutable')" = "true" ]; then
-              echo "GitHub release $TAG is immutable; its archives and checksums cannot be replaced safely." >&2
-              exit 1
-            fi
-            gh release upload "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --clobber
-            if [ "$TAG" = "v$CURRENT_VERSION" ]; then
-              gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "Jacket ${TAG#v}" --notes-file notes.md --latest
-            else
-              gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --title "Jacket ${TAG#v}" --notes-file notes.md
-            fi
-          elif grep -qi 'release not found' release-error.txt; then
-            if [ "$TAG" = "v$CURRENT_VERSION" ]; then
-              gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --title "Jacket ${TAG#v}" --notes-file notes.md --latest --verify-tag
-            else
-              gh release create "$TAG" dist/* --repo "$GITHUB_REPOSITORY" --title "Jacket ${TAG#v}" --notes-file notes.md --latest=false --verify-tag
-            fi
-          else
-            cat release-error.txt >&2
-            exit 1
-          fi
+        run: bash tools/ci/publish_release.sh
 
   # Extension stores are only updated for the current compiler release. Historical compiler
   # rebuilds still attach a freshly checksum-pinned VSIX to GitHub, without republishing old,
@@ -645,18 +358,7 @@ jobs:
         if: matrix.store == 'open-vsx'
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
-        run: |
-          if [ -z "$OVSX_PAT" ]; then echo "OVSX_PAT is not set; skipping Open VSX"; exit 0; fi
-          vsix="$(ls ../../vsix/jacket-vscode-*.vsix)"
-          # The namespace (package.json's publisher) must exist before the first publish. Creating
-          # it again fails with "Namespace already exists", which is the state we want.
-          if ! out="$(pnpm exec ovsx create-namespace matteopolak -p "$OVSX_PAT" 2>&1)"; then
-            echo "$out"
-            echo "$out" | grep -qi "already exists" || exit 1
-          else
-            echo "$out"
-          fi
-          pnpm exec ovsx publish "$vsix" -p "$OVSX_PAT" --skip-duplicate
+        run: bash ../../tools/ci/open_vsx_publish.sh
 
   # Package managers (docs/tools/releases.md). After the GitHub release, the Homebrew
   # formula is rendered from the tag and the release's own SHA256SUMS
@@ -713,19 +415,7 @@ jobs:
       - name: Push the formula to matteopolak/homebrew-tap
         env:
           TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-        run: |
-          if [ -z "$TAG" ]; then echo "No tag (dry run); not pushing the formula"; exit 0; fi
-          if [ -z "$TAP_TOKEN" ]; then echo "HOMEBREW_TAP_TOKEN is not set; skipping the Homebrew tap"; exit 0; fi
-          git clone --depth 1 "https://x-access-token:${TAP_TOKEN}@github.com/matteopolak/homebrew-tap.git" "$RUNNER_TEMP/tap"
-          cd "$RUNNER_TEMP/tap"
-          mkdir -p Formula
-          cp "$RUNNER_TEMP/packages/homebrew/jacket.rb" Formula/jacket.rb
-          git add Formula/jacket.rb
-          if git diff --cached --quiet; then echo "Formula/jacket.rb is already at $VERSION"; exit 0; fi
-          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-            commit -q -m "jacket $VERSION"
-          git push origin HEAD
-          echo "Pushed jacket $VERSION to matteopolak/homebrew-tap"
+        run: bash tools/ci/homebrew_tap_push.sh
 
   # The Neovim plugin (editors/nvim) is mirrored to matteopolak/jacket.nvim, because vim.pack and
   # plugin managers need a repository whose root is the plugin. The mirror's main branch is
@@ -768,43 +458,4 @@ jobs:
       - name: Push to matteopolak/jacket.nvim
         env:
           DEPLOY_KEY: ${{ secrets.NVIM_MIRROR_DEPLOY_KEY }}
-        run: |
-          if [ -z "$TAG" ]; then echo "No tag (dry run); not pushing the plugin"; exit 0; fi
-          if [ -z "$DEPLOY_KEY" ]; then echo "NVIM_MIRROR_DEPLOY_KEY is not set; skipping the Neovim plugin mirror"; exit 0; fi
-          key="$RUNNER_TEMP/mirror_key"
-          known="$RUNNER_TEMP/known_hosts"
-          printf '%s\n' "$DEPLOY_KEY" > "$key"
-          chmod 600 "$key"
-          # GitHub's published ed25519 host key fingerprint, so the push cannot go to an impostor.
-          ssh-keyscan -t ed25519 github.com > "$known" 2> /dev/null
-          ssh-keygen -lf "$known" | grep -q 'SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU' || { echo "unexpected github.com host key"; exit 1; }
-          export GIT_SSH_COMMAND="ssh -i $key -o IdentitiesOnly=yes -o UserKnownHostsFile=$known -o StrictHostKeyChecking=yes"
-          git clone git@github.com:matteopolak/jacket.nvim.git "$RUNNER_TEMP/mirror"
-          cd "$RUNNER_TEMP/mirror"
-          git checkout -B main
-          git rm -rq --ignore-unmatch .
-          cp -R "$GITHUB_WORKSPACE/editors/nvim/." .
-          cp "$GITHUB_WORKSPACE/LICENSE" "$GITHUB_WORKSPACE/LICENSE-EXCEPTION" .
-          git add -A
-          if git diff --cached --quiet; then
-            echo "The mirror already has this content"
-          else
-            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-              commit -q -m "jacket.nvim $EDITOR_VERSION (toolchain $VERSION)"
-          fi
-          if git ls-remote --exit-code --tags origin "refs/tags/v$EDITOR_VERSION" > /dev/null; then
-            git fetch -q origin "refs/tags/v$EDITOR_VERSION:refs/tags/v$EDITOR_VERSION"
-            tagged_commit="$(git rev-parse "refs/tags/v$EDITOR_VERSION^{commit}")"
-            current_commit="$(git rev-parse HEAD)"
-            test "$tagged_commit" = "$current_commit" || {
-              echo "Mirror tag v$EDITOR_VERSION already points to different plugin content; publish a new editor_version instead of retagging." >&2
-              exit 1
-            }
-            echo "The mirror tag v$EDITOR_VERSION already points to this content"
-            git push origin main
-          else
-            git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
-              tag -a "v$EDITOR_VERSION" -m "jacket.nvim $EDITOR_VERSION (toolchain $VERSION)"
-            git push origin main "v$EDITOR_VERSION"
-          fi
-          echo "Pushed jacket.nvim $EDITOR_VERSION for toolchain $VERSION to matteopolak/jacket.nvim"
+        run: bash tools/ci/nvim_mirror_push.sh

@@ -513,18 +513,9 @@ jobs:
         # The modules under `[test] paths` in jacket.toml (stdlib_runtime.py skips them), once per
         # platform: native, interpreted and native -O2, and with `wasm`, wasm interpreted and built.
         if: ${{ always() && !cancelled() && matrix.shard == 'suites' }}
-        run: |
-          ulimit -c 0
-          jacket=target/release/jacket
-          status=0
-          "$jacket" test -q || status=1
-          "$jacket" test -q --interp || status=1
-          "$jacket" test -q -- -O2 || status=1
-          if [[ "${{ matrix.wasm }}" == true ]]; then
-            "$jacket" test -q --interp -os wasm || status=1
-            "$jacket" test -q -os wasm --runner "node tools/wasi_run.mjs" || status=1
-          fi
-          exit $status
+        env:
+          WASM: ${{ matrix.wasm }}
+        run: bash tools/ci/stdlib_jacket_test.sh
       # The `stdlib-coverage` job reports the interpreter reachability of all shards together.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ always() && !cancelled() && contains(matrix.shard, '/') }}
@@ -538,23 +529,9 @@ jobs:
         # suites share no scratch directory across groups (GROUPS in check_stdlib_suites.py).
         if: ${{ always() && !cancelled() && matrix.suites }}
         env:
+          SUITES: ${{ matrix.suites }}
           TOOLING_PART: ${{ matrix.tooling_part }}
-        run: |
-          suites=(--jobs 2)
-          for suite in ${{ matrix.suites }}; do suites+=(--suite "$suite"); done
-          [[ -n "$TOOLING_PART" ]] && suites+=(--tooling-part "$TOOLING_PART")
-          run=()
-          if [[ "$RUNNER_OS" == Linux ]]; then
-            run=(xvfb-run -a -s "-screen 0 1280x1024x24")
-            font=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
-          else
-            font="/System/Library/Fonts/Supplemental/Arial.ttf"
-          fi
-          display=()
-          [[ "$RUNNER_OS" == Linux ]] && display=(--private-x11-display)
-          native="$(python3 -c 'import sys;sys.path.insert(0,"tools");from native import build_native_libs;print(build_native_libs.output_dir())')"
-          "${run[@]}" python3 -u tools/stdlib/check_stdlib_suites.py --jaic target/release/jaic --stdlib stdlib \
-            --jailint target/debug/jailint --jaifmt target/jaifmt --native-libs "$native" --bindings-native-libs target/production-bindings/native --font "$font" "${display[@]}" "${suites[@]}"
+        run: bash tools/ci/stdlib_producer_suites.sh
       - name: WebGPU without a window (wgpu-native, interpreted and built)
         # Renders offscreen, runs a compute shader, uploads a texture, maps buffers and checks
         # an error scope (stdlib/Extensions/WebGPU/tests/headless.jai). Linux has Mesa's lavapipe; the macOS
@@ -839,19 +816,7 @@ jobs:
       - name: Build
         run: nix build --print-build-logs .#jaic .#jaifmt
       - name: Run the packaged compiler outside the checkout
-        run: |
-          work="$RUNNER_TEMP/smoke"
-          mkdir -p "$work"
-          printf '#import "Basic";\nmain :: () { print("hello from nix\\n"); }\n' > "$work/hello.jai"
-          nix run .# -- "$work/hello.jai" -interp
-          jaic="$PWD/result/bin/jaic"
-          cd "$work"
-          "$jaic" hello.jai -exe hello
-          ./hello
-          printf 'x:=1;\n' | "$GITHUB_WORKSPACE/result-1/bin/jaifmt" --stdin
-          # The inner shell expands $LLVM_SYS_231_PREFIX, not this one.
-          # shellcheck disable=SC2016
-          nix develop "$GITHUB_WORKSPACE" --command sh -c 'cargo --version && llvm-config --version && python3 --version && node --version && echo "$LLVM_SYS_231_PREFIX"'
+        run: bash tools/ci/nix_smoke.sh
   # Package channels against the latest published release: install.sh, install.ps1 and the
   # Homebrew formula rendered by tools/dev/render_packages.py, each installed for real and run. Nothing
   # is published from here (release.yml publishes); see docs/tools/releases.md.
@@ -899,18 +864,7 @@ jobs:
         if: steps.released.outputs.published == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          case "$(uname -s)-$(uname -m)" in
-            Darwin-arm64) plat=macos-arm64 ;;
-            Darwin-x86_64) plat=macos-x64 ;;
-            Linux-x86_64) plat=linux-x64 ;;
-            Linux-aarch64) plat=linux-arm64 ;;
-          esac
-          echo "PLATFORM=$plat" >> "$GITHUB_ENV"
-          assets="$(gh release view --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name')"
-          if echo "$assets" | grep -Eqx "jacket-$plat\.tar\.gz"; then has=true; else has=false; fi
-          echo "$plat in the latest release: $has"
-          echo "has=$has" >> "$GITHUB_OUTPUT"
+        run: bash tools/ci/install_sh_release_archive.sh
       # Stub toolchains in release-shaped archives, served through JAI_BASE_URL=file://...:
       # install, upgrade, a bad checksum and an occupied command, whether or not a release exists.
       - name: Install from locally built archives
@@ -925,22 +879,7 @@ jobs:
         if: steps.release.outputs.has == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          previous="$(gh release list --repo "$GITHUB_REPOSITORY" --exclude-drafts --exclude-pre-releases --json tagName -q '.[1].tagName')"
-          latest="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)"
-          echo "previous=$previous latest=$latest"
-          # With a single release there is nothing to upgrade from; install the latest only.
-          if [ -n "$previous" ]; then
-            JAI_VERSION="$previous" ./install.sh
-            test -d "$HOME/.local/share/jai/${previous#v}"
-          fi
-          # A PATH without the bin folder (the runners already have ~/.local/bin on theirs).
-          PATH=/usr/bin:/bin sh < install.sh | tee out.txt
-          grep -q "is not on your PATH" out.txt
-          test -d "$HOME/.local/share/jai/${latest#v}"
-          [ -z "$previous" ] || test ! -e "$HOME/.local/share/jai/${previous#v}"
-          test "$(readlink "$HOME/.local/bin/jaic")" = "$HOME/.local/share/jai/${latest#v}/jaic"
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+        run: bash tools/ci/install_sh_upgrade.sh
       - name: Run the installed toolchain outside the checkout
         if: steps.release.outputs.has == 'true'
         run: |
@@ -1259,41 +1198,7 @@ jobs:
         # `link` in /usr/bin, jaic must skip that `link` and use Visual Studio's link.exe with
         # the LIB it works out. The stb libraries come from the native libraries step.
         if: ${{ !cancelled() && matrix.cpu == 'x64' && matrix.part == 'graphics' }}
-        run: |
-          jaic="$PWD/$JAIC"
-          game="$RUNNER_TEMP/simp-game"
-          cp -R tests/compiler/native/simp-game "$game"
-          mkdir -p "$game/build"
-          cp "$MESA_DIR"/*.dll "$game/build/"
-          cd "$game"
-          PATH="$(echo "$PATH" | tr ':' '\n' | grep -vi llvm | paste -sd:)"
-          export PATH
-          if command -v clang; then echo "clang is still on PATH"; exit 1; fi
-          which -a link
-          # First with the runner's older Clang in Program Files\LLVM (found off PATH), then
-          # with that and Visual Studio's bundled Clang moved away, so link.exe links.
-          "$jaic" first.jai -interp
-          vs="$(cygpath -u "$("/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe" -latest -property installationPath)")"
-          # A rename fails while a process of the run before still holds a file inside open (Windows
-          # denies it), which ends in a moment, so it is retried.
-          rename() {
-            for _ in 1 2 3 4 5 6 7 8 9 10; do mv "$1" "$2" && return 0; sleep 3; done
-            mv "$1" "$2"
-          }
-          hidden=()
-          for dir in "/c/Program Files/LLVM" "$vs/VC/Tools/Llvm"; do
-            if [ -d "$dir" ]; then rename "$dir" "$dir.hidden"; hidden+=("$dir"); fi
-          done
-          rm -f build/game.exe
-          set +e
-          "$jaic" first.jai -interp
-          status=$?
-          set -e
-          for dir in "${hidden[@]}"; do rename "$dir.hidden" "$dir"; done
-          test "$status" = 0
-          ls -l build
-          # The same program under the interpreter (Mesa's opengl32.dll is beside jaic.exe).
-          "$jaic" src/main.jai -interp
+        run: bash tools/ci/simp_game_without_clang.sh
       - name: D3DCompiler provider and interpreter identity
         if: ${{ !cancelled() && matrix.part == 'graphics' }}
         shell: pwsh
