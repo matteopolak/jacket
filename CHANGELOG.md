@@ -18,6 +18,7 @@
 - A check that runs past its time limit gives one notice and stops running compile-time code.
 - `Expect: 100-continue` is answered when the handler first reads the body, so a refused request never uploads.
 - The HTTP server documentation gives the measured memory per idle connection (about 22 KiB for a plain route, 37 KiB for a JSON route).
+- `jacket test` finds tests and builds them in one compile in every mode; `--list` and `--interp -os wasm` no longer check the tests first. The Discovery plugin takes no options.
 
 ### Fixed
 

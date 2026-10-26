@@ -57,17 +57,18 @@ A `src/module.jai` next to `tests/` has no folder to name the module and is not 
 Per root, `jacket` writes `tests.jai` (one `#load` per unit test file) into a work folder under the system temp directory and compiles it with the Testing module's Discovery plugin:
 
 ```
-jaic tests.jai -quiet [-os/-cpu/flags] [-import_dir ROOT_PARENT] -exe tests \
-    +Extensions/Testing/Discovery -manifest manifest.tsv
+jaic tests.jai -quiet [-os/-cpu/flags] [-import_dir ROOT_PARENT] -exe tests +Extensions/Testing/Discovery
 ```
 
-With `--list` it also gets `-cases cases.tsv` and runs each `@cases` list at compile time to write `test<TAB>case` per case. The plugin writes `manifest.tsv` (`kind<TAB>name<TAB>file<TAB>line<TAB>notes...` per `@test` and `@bench`) and adds the test table and entry point; the plugin moves the manifest into place whole, so a reader that waits for it never sees half of it. Roots build in parallel (at most four at once). A root that does not compile stops the run before any test starts. A build that only finds the tests (`--list`, and the check below) gets `-no-compile-time`, so the `@compile_time` tests wait for the build that runs them.
+The plugin takes no options. It finds the `@test` and `@bench` procedures, adds the test table and the entry point, and prints what it found on standard output as records (`\x02`, the kind, each field after `\x1f`, then `\x03`, the framing of the [test program's records](#the-test-program-protocol)): one `manifest` record per test or bench (kind, name, file, line, then its notes), one `source` record per line of the code it added, and `discovered` last. jacket reads the records and ignores the rest of the output. One compile finds the tests and builds them, for every mode. Roots build in parallel (at most four at once). A root that does not compile stops the run before any test starts.
 
-Every mode compiles the root once, with the plugin:
+- **Native** and **`-os wasm`**: the build above writes the executable (`tests.wasm` for wasm) and jacket takes the manifest from its output. Compile-time code of a wasm target runs in jaic's sandbox, whose file writes stay in memory, which is why the plugin prints and never writes. Tests are found as the target sees them, so `#if OS` works.
+- **`--interp`**: there is no program to write, and every `jaic -interp` process compiles the root again. A plugin makes the compiler check all of the root, about three times the work of running it (0.54 s against 0.18 s for the `stdlib/Extensions/Testing` root, debug), so only the process that runs the first tests uses it. It is started at once, as `jaic tests.jai -interp ... +Extensions/Testing/Discovery -- --args-from plan.txt`, and jacket reads its records while it compiles (a process that ends first did not compile, and its output is the build error). jacket then writes `registry.jai` from the `source` records and `program.jai`, which `#load`s the tests and `registry.jai` and names the entry point in a `#run`, and plans the run. It writes the first job's arguments to `plan.txt`, which the waiting process runs. The other processes (the rest of the `-j` batches, retries after a crash) run `program.jai`, which compiles only what the tests reach.
+- **`--interp -os wasm`**: the program runs in the sandbox, which prints to jacket only when the program ends and has no `plan.txt`. So the first process is not kept: it runs `-- --list` (below) to its end, jacket reads the records, and every run is a `program.jai` process.
+- **`--list`**: the same, for the host (`-os` and `-cpu` are left out): `-- --list` makes the program name the cases of each `@cases` test as `case` records and run nothing, and the build errors of a program that does not compile are reported. Nothing is built or run.
+- **`--coverage`** builds natively with `-coverage`; it cannot be combined with `--interp`.
 
-- **Native**: the build above writes the manifest and the executable.
-- **`-os wasm`**: compile-time code of a wasm target runs in jaic's sandbox, whose file writes stay in memory, so the manifest goes to standard output instead (`-print-manifest`, each line after `jacket-manifest: `) and the same build writes `tests.wasm`. Tests are found as the target sees them, so `#if OS` works.
-- **`--interp`**: there is no program to write, and every `jaic -interp` process compiles the root again. So the process that will run the first tests is started at once, as `jaic tests.jai -interp ... +Extensions/Testing/Discovery -manifest manifest.tsv -- --args-from plan.txt`. jacket reads the manifest as soon as the plugin has moved it into place (a process that ends first did not compile, and its output is the build error), plans the run, and writes the first job's arguments to `plan.txt`. The process, which waits for that file after compiling, runs them. Other processes (the rest of the `-j` batches, retries after a crash) compile the root with the plugin themselves. With `-coverage` or `-os wasm` no process is started early: a `-check` with the plugin finds the tests, and every run compiles by itself.
+Why `--interp` keeps `program.jai` and does not start every process with the plugin, or run every test in the first process: measured over three runs on `stdlib/Extensions/Testing` and `stdlib/Hash_Table`, a plugin in every process took 0.51 s and 0.58 s in a release build against 0.36 s and 0.40 s; one process for the whole root (`-j1`) took 2.1 s and 2.7 s in a debug build against 1.3 s and 1.5 s. The processes run in parallel and the plugin's check is on the critical path of none but the first. Forking a compiled program or sharing one between processes needs support in `jaic` that does not exist.
 
 ### Running
 
@@ -318,11 +319,11 @@ The program Discovery builds (`stdlib/Extensions/Testing/runner.jai`) takes:
 
 ```
 tests                       run every test here and print a summary (for running by hand)
-tests --list                name<TAB>file<TAB>line per test
+tests --list                name the cases of each `@cases` test as `case` records on standard output, run nothing
 tests --run NAME... [--temp DIR]   run these tests, the I-th with temp folder DIR/I, and report
 tests --seed N              the seed property tests start from (jacket always passes one)
 tests --accept              snapshots that differ or are new replace the stored ones
-tests --args-from FILE      alone: wait for FILE, then take the arguments from it, one per line (`--interp`, below)
+tests --args-from FILE      alone: wait for FILE, then take the arguments from it, one per line (`--interp`, above)
 ```
 
 With `--run` it writes records to standard error: `\x02`, the kind, each field after `\x1f`, then `\x03` (field bytes `\x02`, `\x03`, `\x1f` are written `?`). The `start` record also goes to standard output, so `jacket` knows which test the output that follows belongs to.
@@ -334,6 +335,7 @@ With `--run` it writes records to standard error: `\x02`, the kind, each field a
 | `skip` | name, reason | the test skipped itself |
 | `end` | name, `pass` / `fail` / `skip` | it finished |
 | `missing` | name | no test has this name |
+| `case` | test, case | with `--list`, on standard output: one case of a `@cases` test |
 
 Everything else on either stream is the test's own output. A process that stops after `start` without `end` crashed in that test (`exec.rs` turns its exit status or signal into the reason).
 
