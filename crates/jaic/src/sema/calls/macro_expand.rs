@@ -92,7 +92,7 @@ impl Compiler {
             false,
         );
         self.pr.asm_regs.insert(entity, kind);
-        return Ok(());
+        Ok(())
     }
 
     /// A `Code` parameter: bound to the caller's code, or to a `Code` variable's value.
@@ -148,7 +148,7 @@ impl Compiler {
                 match named {
                     Some(code) => code,
                     None if runtime_code => {
-                        let v = self.param_value(f, sig, &param, slot, args, span)?;
+                        let v = self.param_value(f, sig, param, slot, args, span)?;
                         let addr = self.spill(f, param.ty, v, span)?;
                         let depth = self.scope(mscope).proc_depth;
                         self.add_entity(
@@ -191,7 +191,7 @@ impl Compiler {
             _ => return err(span, "Code parameter needs an argument"),
         };
         self.add_const(mscope, name, param.span, Value::Code(code), TypeId::CODE);
-        return Ok(());
+        Ok(())
     }
 
     /// A parameter that stays a constant inside the macro: `for_expansion`'s `flags`, or an

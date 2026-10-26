@@ -250,10 +250,10 @@ impl Compiler {
         {
             return Ok(convert::EXACT);
         }
-        return err(
+        err(
             arg.span,
             "expected an #asm register operand, not a scalar or memory value",
-        );
+        )
     }
 
     /// The cost of an argument that is not checked yet (a lambda, `.{...}`, `ifx`, a `Code`
@@ -348,7 +348,7 @@ impl Compiler {
                 format!("{CANNOT_INFER} {}", self.ty.types.name(param)),
             );
         }
-        return Ok(convert::LITERAL);
+        Ok(convert::LITERAL)
     }
 
     /// The cost of an operand with a conversion of its own (a type or procedure value, a

@@ -226,7 +226,7 @@ mod tests {
 
     #[test]
     fn no_symbol_is_claimed_by_two_apis() {
-        let mut seen = std::collections::HashSet::new();
+        let mut seen = crate::fxhash::HashSet::default();
         let names = LibcFn::ALL
             .iter()
             .map(|f| f.name())

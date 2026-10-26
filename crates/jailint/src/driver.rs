@@ -1021,7 +1021,7 @@ fn leak_lint(
         .unwrap_or(&assert.message);
     let notes = vec![format!(
         "the `#assert` at {}:{line}:{column} fails on {os_name}: {reason}",
-        jaic::paths::slashed(&shown)
+        jaic::paths::slashed(shown)
     )];
     match leak {
         Leak::Import {
