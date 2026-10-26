@@ -105,6 +105,52 @@ class PreCommitHookTests(unittest.TestCase):
         self.assertNotIn("not found", result.stderr)
         self.assertIn("a.jai: BAD", result.stderr)
 
+    def test_a_jaifmt_built_in_another_checkout_is_not_used(self):
+        self.tool("target/jaifmt")
+        self.write("target/jaifmt.checkout", "/some/deleted/worktree")
+        self.write("a.jai", "BAD\n")
+        sh(["git", "add", "a.jai"], self.repo)
+        result = self.commit()
+        # The stand-in would reject the file, so it was not run; the hook said why.
+        self.assertIn("built from another checkout", result.stderr)
+        self.assertNotIn("a.jai: BAD", result.stderr)
+
+    def test_a_jaifmt_built_in_this_checkout_is_used(self):
+        self.tool("target/jaifmt")
+        self.write("target/jaifmt.checkout", str(self.repo.resolve()))
+        self.write("a.jai", "BAD\n")
+        sh(["git", "add", "a.jai"], self.repo)
+        result = self.commit()
+        self.assertNotIn("another checkout", result.stderr)
+        self.assertIn("a.jai: BAD", result.stderr)
+
+    def test_jailint_comes_from_a_cargo_build_of_this_checkout(self):
+        # A binary already in the target directory (a deleted worktree's, newer than every source
+        # here) passes everything; the one cargo links for this checkout rejects BAD.
+        self.tool("target/debug/jailint")
+        (self.repo / "target/debug/jailint").write_text("#!/bin/sh\nexit 0\n")
+        fake = Path(self.tmp.name) / "bin"
+        fake.mkdir(exist_ok=True)
+        cargo = fake / "cargo"
+        cargo.write_text(
+            "#!/bin/sh\n"
+            'case "$*" in *"-p jailint"*)\n'
+            f"  cat > {self.repo}/target/debug/jailint <<'EOF'\n{FAKE_TOOL}EOF\n"
+            f"  chmod +x {self.repo}/target/debug/jailint ;;\n"
+            "esac\n"
+            "exit 0\n"
+        )
+        cargo.chmod(0o755)
+        (self.repo / "target/debug/jailint").write_text("#!/bin/sh\nexit 0\n")
+        self.env["PATH"] = os.pathsep.join([str(fake), self.env["PATH"]])
+        self.env.pop("JAI_HOOK_NO_BUILD")
+        self.env["JAI_HOOK_SKIP"] = "rustfmt jaifmt"
+        self.write("a.jai", "BAD\n")
+        sh(["git", "add", "a.jai"], self.repo)
+        result = self.commit()
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("a.jai: BAD", result.stderr)
+
     def test_install_sets_a_relative_hooks_path_over_an_absolute_one(self):
         other = Path(self.tmp.name) / "main-checkout" / ".githooks"
         other.mkdir(parents=True)

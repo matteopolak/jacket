@@ -37,7 +37,7 @@ TARGET = cargo_target_dir(resolve=True)
 JAI_DIRS = ["stdlib", "tests", "benchmarks", "tools", "jaifmt", "examples"]
 JAI_LINT_DIRS = ["stdlib", "examples", "tools", "jaifmt", "tests", "benchmarks"]
 JAIFMT_SOURCES = ["jaifmt", "stdlib/Extensions/Jai_Format", "stdlib/Extensions/Args"]
-# What a jailint binary is built from; the pre-commit hook rebuilds it when any of these is newer.
+# What a jailint binary is built from; the pre-commit hook uses an existing one only when cargo is unavailable, and then only if none of these is newer.
 JAILINT_SOURCES = ["crates/jailint", "crates/jaic", "crates/jaic-cli", "stdlib/prelude/module.jai", "Cargo.lock"]
 # Repository checks that read only the working tree (tools/ci/check_<name>.py), in `repo-checks` order.
 REPO_CHECKS = {"style": "check_source_style", "paths": "check_repo_paths", "ci-sources": "check_ci_sources"}
@@ -107,15 +107,36 @@ def ensure_jailint(jobs: str, release: bool = False) -> Path:
     return cargo_binary("jailint", "release" if release else "debug")
 
 
+def jaifmt_stamp(out: Path) -> Path:
+    """Next to a built jaifmt: the checkout it was built in. A shared cargo target directory can hold one
+    built in another checkout (a deleted worktree's), whose sources and mtimes mean nothing here."""
+    return out.with_name(out.name + ".checkout")
+
+
+def built_elsewhere(out: Path) -> bool:
+    """Was `out` built in a checkout other than this one? (False when it records no checkout.)"""
+    stamp = jaifmt_stamp(out)
+    return stamp.is_file() and stamp.read_text().strip() != str(ROOT)
+
+
+def stale_jaifmt(out: Path, jaic: Path) -> bool:
+    """Is jaifmt missing, older than `jaic` or its sources, or not recorded as built in this checkout?"""
+    return stale(out, jaic, *JAIFMT_SOURCES) or not jaifmt_stamp(out).is_file() or built_elsewhere(out)
+
+
 def rebuild_jaifmt(jaic: Path, quiet: bool = False) -> bool:
-    """Build target/jaifmt with `jaic` as CI does, unless it is newer than jaic and jaifmt's sources."""
+    """Build target/jaifmt with `jaic` as CI does, unless it was built from this checkout after `jaic` and jaifmt's sources."""
     out = jaifmt_path()
-    if not stale(out, jaic, *JAIFMT_SOURCES):
+    if not stale_jaifmt(out, jaic):
         return True
     cmd = [str(jaic), "jaifmt/main.jai", "-O2", "-exe", str(out)]
     if quiet:
-        return subprocess.run(cmd, cwd=ROOT, capture_output=True).returncode == 0 and out.exists()
-    return run(cmd) == 0
+        built = subprocess.run(cmd, cwd=ROOT, capture_output=True).returncode == 0 and out.exists()
+    else:
+        built = run(cmd) == 0
+    if built:
+        jaifmt_stamp(out).write_text(str(ROOT))
+    return built
 
 
 def ensure_jaifmt(jobs: str) -> Path:
@@ -508,29 +529,46 @@ def newest_jaic() -> Path | None:
     return max(found, key=lambda p: p.stat().st_mtime, default=None)
 
 
+def hook_jaic(hook: Hook) -> Path | None:
+    """The debug jaic cargo builds from this checkout (a no-op when current), else the newest existing one."""
+    if hook.no_build:
+        return None
+    if shutil.which("cargo"):
+        hook.say("building jaic")
+        if run_captured(["cargo", "build", "--quiet", "-p", "jaic-cli"])[0] == 0:
+            built = cargo_binary("jaic", "debug")
+            return built if built.is_file() else newest_jaic()
+        hook_warn("could not build jaic; using an existing one, which may not be this checkout's")
+    return newest_jaic()
+
+
 def hook_jaifmt(hook: Hook) -> str | None:
-    """target/jaifmt (rebuilt with an existing jaic when stale), else jaifmt on PATH."""
+    """target/jaifmt when built from this checkout (rebuilt when stale), else jaifmt on PATH."""
     out = jaifmt_path()
-    jaic = None if hook.no_build else newest_jaic()
-    if jaic is not None and stale(out, jaic, *JAIFMT_SOURCES):
+    jaic = hook_jaic(hook)
+    if jaic is not None and stale_jaifmt(out, jaic):
         hook.say("rebuilding jaifmt")
         if not rebuild_jaifmt(jaic, quiet=True):
             hook_warn("could not rebuild jaifmt; using the existing one")
+    if out.is_file() and built_elsewhere(out):
+        hook_warn(f"{out} was built from another checkout and could not be rebuilt here; using jaifmt on PATH")
+        return shutil.which("jaifmt")
     return str(out) if out.is_file() else shutil.which("jaifmt")
 
 
 def hook_jailint(hook: Hook) -> str | None:
-    """A jailint newer than its sources, else a debug build of it, else the existing or PATH one."""
-    binaries = [p for p in (cargo_binary("jailint", "release"), cargo_binary("jailint", "debug")) if p.is_file()]
-    for binary in binaries:
-        if not stale(binary, *JAILINT_SOURCES):
-            return str(binary)
+    """The debug jailint cargo builds from this checkout, else an existing one newer than its sources, else any
+    existing one, else PATH. Cargo links this checkout's build into the target directory even when nothing
+    changed, so a shared directory never keeps another checkout's binary under the name."""
     if not hook.no_build and shutil.which("cargo"):
-        hook.say("rebuilding jailint")
+        hook.say("building jailint")
         if run_captured(["cargo", "build", "--quiet", "-p", "jailint"])[0] == 0:
             return str(cargo_binary("jailint", "debug"))
-        hook_warn("could not rebuild jailint")
-    return str(binaries[0]) if binaries else shutil.which("jailint")
+        hook_warn("could not build jailint; using an existing one, which may not be this checkout's")
+    binaries = [p for p in (cargo_binary("jailint", "release"), cargo_binary("jailint", "debug")) if p.is_file()]
+    fresh = [p for p in binaries if not stale(p, *JAILINT_SOURCES)]
+    found = (fresh or binaries or [None])[0]
+    return str(found) if found else shutil.which("jailint")
 
 
 def check_jai(hook: Hook, jai: list[str]) -> None:
