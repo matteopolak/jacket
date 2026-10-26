@@ -95,6 +95,18 @@ impl Compiler {
         }
     }
 
+    /// The bodies of the polymorphic procedures the program declares (not their instances).
+    /// What they contain depends on the types a caller picks, so a branch no instance took
+    /// is not dead.
+    pub fn ide_polymorphic_bodies(&self) -> Vec<Span> {
+        self.pr
+            .procs
+            .iter()
+            .filter(|p| p.is_poly && p.bindings.is_none())
+            .filter_map(|p| p.lit.body.as_ref().map(|body| body.span))
+            .collect()
+    }
+
     /// All declarations, including imported ones, with only their real specializations.
     pub fn ide_polymorph_summaries(&self) -> Vec<IdePolymorph> {
         if let Some(rows) = self.ed.facts().and_then(|f| f.polymorph_summaries.as_ref()) {

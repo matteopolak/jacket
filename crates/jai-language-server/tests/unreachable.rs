@@ -651,3 +651,28 @@ main :: () { pick(.A); }
             .any(|d| d.message.contains("not all control paths return a value"))
     );
 }
+
+#[test]
+fn static_if_arms_in_a_polymorphic_procedure_do_not_fade() {
+    let source = r"describe :: (value: $T) -> int {
+    #if T == int {
+        return 1;
+    } else {
+        return 2;
+    }
+}
+plain :: () -> int {
+    #if false {
+        return 3;
+    }
+    return 4;
+}
+main :: () {
+    describe(5);
+    plain();
+}
+";
+    // Only `int` instantiates `describe`, which makes the `else` arm look dead; `plain` has
+    // no type to vary, so its dead arm fades as before.
+    assert_eq!(faded(source), ["#if false {\n        return 3;\n    }"]);
+}
