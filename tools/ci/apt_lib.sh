@@ -44,6 +44,10 @@ apt_configure() {
       'path-exclude=/usr/share/info/*' 'path-exclude=/usr/share/locale/*' \
       | sudo tee /etc/dpkg/dpkg.cfg.d/80jai-ci > /dev/null
     sudo rm -f /var/lib/man-db/auto-update
+    # Nor rebuild the boot image when an install upgrades systemd or udev: minutes, never booted.
+    if [[ -f /etc/initramfs-tools/update-initramfs.conf ]]; then
+      sudo sed -i 's/^update_initramfs=.*/update_initramfs=no/' /etc/initramfs-tools/update-initramfs.conf
+    fi
   fi
 }
 
