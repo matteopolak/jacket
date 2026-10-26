@@ -213,7 +213,7 @@ trim_trailing_slashes :: (path: string) -> string {
 config_for :: (path: string, explicit_config: *Format_Config, totals: *Totals) -> *Format_Config {
     if explicit_config return explicit_config;
 
-    config, ok, message := config_for_directory(parent_directory(path));
+    config, ok, message := config_for_directory(format_parent_directory(path));
     if !ok {
         report_error(message);
         totals.errors += 1;
@@ -387,31 +387,41 @@ read_all_stdin :: () -> string {
     }
 }
 
-// Finds the nearest config in `directory` or its parents and loads it; returns defaults when
-// there is none: a directory's jacket.toml (its `[format]` section). Results are cached per
-// directory.
+// The config for files in `directory`: the nearest jacket.toml's `[format]` in it or a parent,
+// else the defaults. Results are cached per directory.
 config_for_directory :: (directory: string) -> *Format_Config, ok: bool, error: string {
     for config_cache if it.directory == directory return it.config, it.ok, it.error;
 
     entry: Config_Cache_Entry;
     entry.directory = copy_string(directory);
-    jacket := tprint("%/%", directory, JACKET_CONFIG_FILE_NAME);
+    entry.config = New(Format_Config);
 
-    if file_exists(jacket) {
-        entry.config, entry.ok, entry.error = load_config(jacket);
+    config, file, ok, error := format_find_config(directory, read_config_file);
+
+    entry.config.* = config;
+    entry.ok = ok;
+
+    if !ok {
+        entry.error = sprint("in `%`, %", shown(file), error);
     } else {
-        parent := parent_directory(directory);
-        if parent.count && parent != directory {
-            entry.config, entry.ok, entry.error = config_for_directory(parent);
-        } else {
-            entry.config = New(Format_Config);
-            entry.ok = true;
-        }
+        report_unknown_keys(config, file);
     }
 
     array_add(*config_cache, entry);
 
     return entry.config, entry.ok, entry.error;
+}
+
+read_config_file :: (path: string) -> string, bool {
+    if !file_exists(path) return "", false;
+
+    return read_entire_file(path, log_errors = false);
+}
+
+report_unknown_keys :: (config: Format_Config, file: string) {
+    for config.unknown_keys {
+        print_error("jaifmt: warning: %\n", format_unknown_setting_note(it, shown(file)));
+    }
 }
 
 load_config :: (path: string) -> *Format_Config, ok: bool, error: string {
@@ -424,25 +434,10 @@ load_config :: (path: string) -> *Format_Config, ok: bool, error: string {
     if !ok return config, false, sprint("in `%`, %", shown(path), message);
 
     config.* = parsed;
-    config.root = copy_string(parent_directory(path));
-
-    for config.unknown_keys {
-        print_error("jaifmt: warning: %\n", format_unknown_setting_note(it, shown(path)));
-    }
+    config.root = copy_string(format_parent_directory(path));
+    report_unknown_keys(parsed, path);
 
     return config, true, "";
-}
-
-// `a/b/c` -> `a/b`; `/a` -> `/`; `a` -> "".
-parent_directory :: (path: string) -> string {
-    end := path.count;
-    while end > 1 && path[end - 1] == #char "/" end -= 1;
-
-    slash := find_index_from_right(slice(path, 0, end), #char "/");
-    if slash < 0 return "";
-    if slash == 0 return "/";
-
-    return slice(path, 0, slash);
 }
 
 Config_Cache_Entry :: struct {

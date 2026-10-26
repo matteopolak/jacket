@@ -13,24 +13,10 @@ main :: () -> int {
 
     if !read_ok return fail("%: cannot read the file", TARGET);
 
-    config: Format_Config;
-    directory := parent_directory(path);
+    directory := format_parent_directory(path);
+    config, file, config_ok, config_error := format_find_config(directory, read_config_file, WORKSPACE);
 
-    while true {
-        toml, has_config := read_entire_file(tprint("%/%", directory, JACKET_CONFIG_FILE_NAME), log_errors = false);
-
-        if has_config {
-            parsed, ok, error := parse_config(toml);
-            if !ok return fail("%/%: %", directory, JACKET_CONFIG_FILE_NAME, error);
-
-            config = parsed;
-            break;
-        }
-
-        if directory == WORKSPACE break;
-
-        directory = parent_directory(directory);
-    }
+    if !config_ok return fail("%: %", file, config_error);
 
     formatted, ok, error := format_source(source, config);
     if !ok return fail("%:%", TARGET, error);
@@ -53,10 +39,6 @@ fail :: (format: string, args: ..Any) -> int {
     return 1;
 }
 
-parent_directory :: (path: string) -> string {
-    for < path {
-        if it == #char "/" return ifx it_index == 0 then "/" else string.{ it_index, path.data };
-    }
-
-    return WORKSPACE;
+read_config_file :: (path: string) -> string, bool {
+    return read_entire_file(path, log_errors = false);
 }

@@ -53,5 +53,26 @@ main :: () {
     assert(!refused_ok && refused == "" && contains(refused_error, "unbalanced"), refused_error);
 
     assert(format_count_long_lines("short\nthis line is long\n", 10) == 1);
+
+    // The nearest jacket.toml above a directory, found through the caller's file reader.
+    found, file, found_ok := format_find_config("/proj/src/deep", memory_files);
+
+    assert(found_ok && file == "/proj/jacket.toml" && found.indent_width == 3 && found.root == "/proj");
+
+    _, stopped_file, stopped_ok := format_find_config("/proj/src/deep", memory_files, "/proj/src");
+
+    assert(stopped_ok && stopped_file == "");
+
+    _, broken_file, broken_ok, broken_error := format_find_config("/bad/x", memory_files);
+
+    assert(!broken_ok && broken_file == "/bad/jacket.toml" && begins_with(broken_error, "line 2:"), broken_error);
+    assert(format_parent_directory("/a/b/c") == "/a/b" && format_parent_directory("/a") == "/" && format_parent_directory("a") == "");
     print("ok\n");
+}
+
+memory_files :: (path: string) -> string, bool {
+    if path == "/proj/jacket.toml" return "[format]\nindent_width = 3\n", true;
+    if path == "/bad/jacket.toml" return "[format]\nindent_width = x\n", true;
+
+    return "", false;
 }

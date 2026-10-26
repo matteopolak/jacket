@@ -9,8 +9,8 @@ main :: () -> s32 {
 
     config: Format_Config;
 
-    if set.config {
-        parsed, ok, error := parse_config(options.config);
+    if set.config_text {
+        parsed, ok, error := parse_config(options.config_text);
         if !ok return fail("%: %", JACKET_CONFIG_FILE_NAME, error);
 
         config = parsed;
@@ -34,13 +34,13 @@ main :: () -> s32 {
 Args :: #import "Extensions/Args";
 
 Options :: struct {
-    config: string; @value=TEXT @env=JAIFMT_CONFIG
+    config_text: string; @value=TEXT @env=JAIFMT_CONFIG_TEXT
     name: string = "main.jai"; @value=FILE
 }
 
 HELP :: Args.Help(Options).{
     about = "Formats the Jai source on standard input and writes it to standard output.",
-    config = "The jacket.toml text, not a path (default: the built-in defaults)",
+    config_text = "The jacket.toml text, not a path (default: the built-in defaults)",
     name = "The input's name in messages",
 };
 

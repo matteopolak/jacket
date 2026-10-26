@@ -8,7 +8,7 @@
 //       staged directory with its own engine (default target/scripting-runtime).
 //   node --no-warnings tools/browser/check_jaifmt_wasm.mjs wasi <jaifmt.wasm> [native-jaifmt]
 //       jaifmt.wasm (jaifmt/wasm.jai compiled by `jaic -os wasm`) the way a page uses it: source
-//       on stdin, the jacket.toml text in --config, the result on stdout. Given a native jaifmt,
+//       on stdin, the jacket.toml text in --config-text, the result on stdout. Given a native jaifmt,
 //       every golden case must also match `jaifmt --stdin --config <file>`. Needs node 24 (Memory64).
 //
 // See docs/tools/jaifmt.md.
@@ -80,7 +80,7 @@ async function wasiBackend(wasmPath, nativePath) {
       const files = ["in", "out", "err"].map(f => path.join(scratch, f));
       writeFileSync(files[0], source);
       const [stdin, stdout, stderr] = [openSync(files[0], "r"), openSync(files[1], "w"), openSync(files[2], "w")];
-      const args = ["jaifmt.wasm", "--name", name, ...(config === undefined ? [] : ["--config", config])];
+      const args = ["jaifmt.wasm", "--name", name, ...(config === undefined ? [] : ["--config-text", config])];
       const wasi = new WASI({ version: "preview1", args, env: {}, stdin, stdout, stderr, returnOnExit: true });
       const started = performance.now();
       const instance = await WebAssembly.instantiate(module, wasi.getImportObject());

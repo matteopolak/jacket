@@ -1,6 +1,7 @@
 // Jai_Format: a source formatter for Jai (indentation, spacing, brace placement, blank lines).
-// Pure text in, text out: no file access, so it runs the same natively, under `jaic -interp` and in
-// the browser playground. `jaifmt/` is the command-line front end. See docs/tools/jaifmt.md.
+// Pure text in, text out: no file access (a front end passes a file reader to
+// `format_find_config`), so it runs the same natively, under `jaic -interp` and in the browser
+// playground. `jaifmt/` is the command-line front end. See docs/tools/jaifmt.md.
 //
 //     config, ok, error := parse_config(read_entire_file("jacket.toml"));
 //     formatted, ok, error := format_source(text, config);
@@ -98,6 +99,21 @@ format_glob_match :: (pattern: string, text: string) -> bool {
     return glob_path_match(pattern, text);
 }
 
+// Reads the file at `path` for `format_find_config`: its text, and whether it could be read.
+Format_File_Reader :: #type (path: string) -> text: string, ok: bool;
+
+// The settings for files in `directory`, from the nearest jacket.toml at or above it (up to
+// `stop`), with `read` supplying file contents; see `find_config` in project.jai.
+format_find_config :: (directory: string, read: Format_File_Reader, stop := "") -> config: Format_Config, file: string, ok: bool, error: string {
+    config, file, ok, error := find_config(directory, read, stop);
+    return config, file, ok, error;
+}
+
+// `a/b/c` -> `a/b`; `/a` -> `/`; `a` -> "".
+format_parent_directory :: (path: string) -> string {
+    return parent_directory_of(path);
+}
+
 // Lines in `text` longer than `max_width` code points.
 format_count_long_lines :: (text: string, max_width: int) -> int {
     return count_long_lines(text, max_width);
@@ -111,3 +127,4 @@ format_count_long_lines :: (text: string, max_width: int) -> int {
 #load "lexer.jai";
 #load "config.jai";
 #load "format.jai";
+#load "project.jai";

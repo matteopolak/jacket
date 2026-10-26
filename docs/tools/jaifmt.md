@@ -28,6 +28,9 @@ Flags are declared at the top of `jaifmt/main.jai` and parsed by [`Extensions/Ar
 - `lexer.jai`: same token boundaries as `crates/jaic/src/lexer.rs`, but comments are tokens and each token records the whitespace before it.
 - `format.jai`: `plan_lines` decides line breaks (`breaks[i]`), then the emit loop writes each line with indentation from a stack of `Frame`s and zero or one space between tokens (`spacing_rule`).
 - `config.jai`: `jacket.toml` `[format]` parsing and ignore globs, for standalone use and the browser (`jacket fmt` passes resolved settings instead).
+- `project.jai`: the upward search for the governing `jacket.toml` (`find_config`), with file reading left to the front end.
+
+The three front ends (`jaifmt/main.jai`, `wasm.jai`, `playground.jai`) only read input, call `format_find_config`/`format_source` and report; they hold no formatting or config logic of their own.
 
 Behaviour in short:
 
@@ -69,12 +72,12 @@ config, ok, error := parse_config(toml_text);
 formatted, ok, error := format_source(source, config);   // free `formatted`; on failure it is ""
 ```
 
-Also `format_tokens_equivalent`, `format_is_ignored(config, path)` (set `config.root` first), `format_glob_match`, `format_count_long_lines`. `Format_Config` fields mirror the TOML keys.
+Also `format_find_config(directory, reader, stop)` (the nearest `jacket.toml` at or above `directory`, up to `stop`, read through a caller-supplied `Format_File_Reader`; every driver uses it, so the upward search is the same natively and in the browser), `format_parent_directory`, `format_tokens_equivalent`, `format_is_ignored(config, path)` (set `config.root` first), `format_glob_match`, `format_count_long_lines`. `Format_Config` fields mirror the TOML keys.
 
 ## Browser
 
 - `jaifmt/playground.jai` runs in the wasm engine against `/workspace` (`TARGET` constant names the file); exit 0 means stdout is the formatted file, 1 means stderr has one `jaifmt: ...` line. `tools/browser/build_scripting_wasm.py` stages it as `jaifmt-playground.jai` in every browser bundle.
-- `jaifmt/wasm.jai` is a WASI command: `jaic jaifmt/wasm.jai -os wasm -O2 -no_debug_info -exe jaifmt.wasm`, run with `node --no-warnings tools/wasi_run.mjs jaifmt.wasm --config $'[format]\nindent_width = 2' < in.jai`. Source on stdin, config text from `--config` or `JAIFMT_CONFIG`, same exit contract. The text is a `jacket.toml`, whose `[format]` table is used. It is about 35 times faster than the engine path but needs Memory64 (Chrome 133, Firefox 134, node 24, not Safari); pages fall back to the engine driver when `WebAssembly.validate` rejects it. Its hash is recorded as `jaifmt_wasm_sha256` in the release bundle's `build-metadata.json`. `node tools/browser/check_jaifmt_wasm.mjs wasi jaifmt.wasm target/jaifmt` compares it with native on every golden case; `check_jaifmt_wasm.mjs engine` runs the same cases through the playground's interpreter path.
+- `jaifmt/wasm.jai` is a WASI command: `jaic jaifmt/wasm.jai -os wasm -O2 -no_debug_info -exe jaifmt.wasm`, run with `node --no-warnings tools/wasi_run.mjs jaifmt.wasm --config-text $'[format]\nindent_width = 2' < in.jai`. Source on stdin, config text from `--config-text` or `JAIFMT_CONFIG_TEXT` (the native `--config` takes a path; the two names differ because the values do), same exit contract. The text is a `jacket.toml`, whose `[format]` table is used. It is about 35 times faster than the engine path but needs Memory64 (Chrome 133, Firefox 134, node 24, not Safari); pages fall back to the engine driver when `WebAssembly.validate` rejects it. Its hash is recorded as `jaifmt_wasm_sha256` in the release bundle's `build-metadata.json`. `node tools/browser/check_jaifmt_wasm.mjs wasi jaifmt.wasm target/jaifmt` compares it with native on every golden case; `check_jaifmt_wasm.mjs engine` runs the same cases through the playground's interpreter path.
 
 ## How to change it
 
