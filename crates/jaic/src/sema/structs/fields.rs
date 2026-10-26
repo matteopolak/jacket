@@ -3,7 +3,7 @@ use super::model::{FieldDecl, FieldItem, MemberAlias, member_path};
 use crate::ast::ExprKind as E;
 use crate::sema::TypeState;
 use crate::sema::lower::Operand;
-use crate::sema::scope::{EntityKind, Resolved};
+use crate::sema::scope::{EntityKind, Resolved, ScopeKind};
 use crate::sema::{Compiler, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err};
 
 impl Compiler {
@@ -41,6 +41,11 @@ impl Compiler {
                     let crate::ast::InsertStmt {
                         value, ..
                     } = &**boxed;
+                    // The descriptors of this struct's variadic arguments must exist before the
+                    // inserted code reads them.
+                    if let ScopeKind::Struct(owner) = self.scope(scope).kind {
+                        self.build_variadic_cases(owner, value.span)?;
+                    }
                     let inserted = self.eval_insert_stmts(scope, value)?;
                     // Constants the inserted text declares are members like any written in the
                     // body, visible to the fields that follow and to the struct's users.

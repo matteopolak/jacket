@@ -226,6 +226,7 @@ impl Compiler {
         }
         let mut bindings = self.ty.poly_structs[ps.0 as usize].baked.clone();
         let mut key = Vec::new();
+        let mut cases = Vec::new();
         for (i, p) in lit.params.iter().enumerate() {
             let pname = p.name.map_or_else(|| Sym::intern("_"), |n| n.name);
             // `x: $T`: the argument's type binds `T` (also `[$N] $T` and other patterns).
@@ -273,14 +274,26 @@ impl Compiler {
                 let esize = self.size_of(elem, p.span)?;
                 let mut array =
                     value::Aggregate::zeroed(esize.saturating_mul(items.len() as u64), span)?;
-                for (k, op) in items.into_iter().enumerate() {
-                    let v = self.struct_arg_value(param_scope, op, elem, span)?;
-                    let v = match (v, self.ty.types.is_float(elem)) {
-                        (Value::Int(i), true) => Value::float(i as f64),
-                        (v, _) => v,
-                    };
-                    self.write_value(&mut array, k as u64 * esize, &v, elem, p.span)?;
-                }
+                // A pointer to a type that is still being declared does not need its size, so
+                // a case's descriptor may wait until the type exists.
+                let outer = (self.ty.defer_infos, self.ty.strict_sizes);
+                (self.ty.defer_infos, self.ty.strict_sizes) = (true, true);
+                let written = (|| -> Result<()> {
+                    for (k, op) in items.into_iter().enumerate() {
+                        let v = self.struct_arg_value(param_scope, op, elem, span)?;
+                        if let Value::Type(case) = v {
+                            cases.push(case);
+                        }
+                        let v = match (v, self.ty.types.is_float(elem)) {
+                            (Value::Int(i), true) => Value::float(i as f64),
+                            (v, _) => v,
+                        };
+                        self.write_value(&mut array, k as u64 * esize, &v, elem, p.span)?;
+                    }
+                    Ok(())
+                })();
+                (self.ty.defer_infos, self.ty.strict_sizes) = outer;
+                written?;
                 let value = self.const_pack(elem, array, count, p.span)?;
                 let ty = self.ty.types.array(elem, ArrayKind::View);
                 self.add_const(param_scope, pname, p.span, value.clone(), ty);
@@ -363,6 +376,9 @@ impl Compiler {
             return err(span, crate::sema::too_many_instances(name));
         }
         let t = self.new_struct_type(name, lit, def_scope, bindings, Some((ps, key.clone())));
+        if !cases.is_empty() {
+            self.ty.variadic_cases.insert(t, cases);
+        }
         self.ty.poly_structs[ps.0 as usize]
             .instances
             .insert(cache_key, t);

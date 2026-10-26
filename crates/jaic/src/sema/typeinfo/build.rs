@@ -25,7 +25,8 @@ impl Compiler {
         self.set_field(&mut agg, desc, "type", Value::Int(tag), span)?;
         let runtime_size = match &kind {
             TypeKind::Struct(s)
-                if self.ty.types.struct_info(*s).layout != crate::types::LayoutState::Done =>
+                if !self.ty.strict_sizes
+                    && self.ty.types.struct_info(*s).layout != crate::types::LayoutState::Done =>
             {
                 // A struct still being laid out (its own members ask for its type info): the
                 // size is not known yet, and `-1` marks it so until the layout is done.
@@ -48,7 +49,10 @@ impl Compiler {
             TypeKind::Int {
                 signed, ..
             } => self.set_field(&mut agg, desc, "signed", Value::Bool(signed), span)?,
-            TypeKind::Pointer(to) => self.set_info_ptr(&mut agg, desc, "pointer_to", to, span)?,
+            TypeKind::Pointer(to) => {
+                // The pointee is only referred to, so it may be described later.
+                self.set_info_ptr_later(&mut agg, desc, "pointer_to", to, span)?;
+            }
             TypeKind::Null => {
                 self.set_info_ptr(&mut agg, desc, "pointer_to", TypeId::VOID, span)?;
             }

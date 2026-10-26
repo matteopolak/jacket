@@ -62,6 +62,11 @@ impl Compiler {
         let values = self.out.end_runtime_storage_dependencies()?;
         if result.is_ok() {
             self.finish_runtime_storage_layout(s, &values);
+            // Descriptors that pointers to this struct were waiting for.
+            if !self.ty.deferred_infos.is_empty() && self.ty.building_infos.is_empty() {
+                let _ =
+                    self.flush_deferred_infos(span, crate::sema::typeinfo::InfoFlush::AfterLayout);
+            }
         }
         result
     }

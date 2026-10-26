@@ -61,6 +61,30 @@ impl Compiler {
         target: TypeId,
         span: Span,
     ) -> Result<()> {
+        self.set_info_ref(agg, desc, name, target, false, span)
+    }
+
+    /// Like `set_info_ptr`, for a pointer to a type that may still be laid out.
+    pub(super) fn set_info_ptr_later(
+        &mut self,
+        agg: &mut Aggregate,
+        desc: TypeId,
+        name: &str,
+        target: TypeId,
+        span: Span,
+    ) -> Result<()> {
+        self.set_info_ref(agg, desc, name, target, true, span)
+    }
+
+    fn set_info_ref(
+        &mut self,
+        agg: &mut Aggregate,
+        desc: TypeId,
+        name: &str,
+        target: TypeId,
+        later: bool,
+        span: Span,
+    ) -> Result<()> {
         let Some((path, _)) = self.find_member(desc, Sym::intern(name), span)? else {
             return err(
                 span,
@@ -77,7 +101,11 @@ impl Compiler {
                 }
             })
             .sum();
-        let g = self.type_info_global(target, span)?;
+        let g = if later {
+            self.type_info_global_later(target, span)?
+        } else {
+            self.type_info_global(target, span)?
+        };
         agg.relocs.push(ir::Reloc {
             offset,
             target: ir::RelocTarget::Global(g),

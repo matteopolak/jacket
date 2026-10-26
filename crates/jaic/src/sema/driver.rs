@@ -323,6 +323,7 @@ impl Compiler {
         // No more code is coming: items still waiting for a `#placeholder` fail now.
         self.epochs.placeholders_final = true;
         self.settle()?;
+        self.flush_deferred_infos(crate::sema::Span::NONE, super::typeinfo::InfoFlush::End)?;
         let lowered = match self.lower_reachable_inner(false) {
             Ok(lowered) => lowered,
             // A program its own metaprogram never writes can reach code that waits on a

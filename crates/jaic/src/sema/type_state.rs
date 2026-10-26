@@ -30,6 +30,17 @@ pub struct TypeState {
     pub infos: HashMap<TypeId, ir::GlobalId>,
     /// `Type_Info` globals whose descriptor could not be built yet (`type_info_global`).
     pub(in crate::sema) failed_infos: HashMap<TypeId, ir::GlobalId>,
+    /// While `defer_infos` is set, a descriptor that cannot be built yet keeps its global and
+    /// is queued in `deferred_infos`. `strict_sizes` makes a descriptor fail rather than
+    /// record an unknown size.
+    pub(in crate::sema) defer_infos: bool,
+    pub(in crate::sema) strict_sizes: bool,
+    pub(in crate::sema) deferred_infos: Vec<TypeId>,
+    /// The types in `types: ..Type` of each instance of a polymorphic struct.
+    pub(in crate::sema) variadic_cases: HashMap<TypeId, Vec<TypeId>>,
+    pub(in crate::sema) cases_building: Vec<TypeId>,
+    /// Descriptors being built right now: they are empty until the build ends.
+    pub(in crate::sema) building_infos: Vec<(TypeId, ir::GlobalId)>,
     /// Descriptors only a compile-time `get_type_table()` made (kept out of the runtime table
     /// until real code asks for them), the table's state when it was last built, and the
     /// public type-table primitives once the program references them.
@@ -75,6 +86,12 @@ impl Default for TypeState {
             context_type: None,
             infos: HashMap::default(),
             failed_infos: HashMap::default(),
+            defer_infos: false,
+            strict_sizes: false,
+            deferred_infos: Vec::new(),
+            variadic_cases: HashMap::default(),
+            cases_building: Vec::new(),
+            building_infos: Vec::new(),
             snapshot_infos: HashSet::default(),
             in_snapshot: false,
             snapshot_key: (usize::MAX, 0, 0),

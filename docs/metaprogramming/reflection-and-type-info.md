@@ -24,6 +24,7 @@ type_info(*int).type    // POINTER
 
 - `Type` values can be stored, compared, printed and put in arrays. A variable holding a type cannot be a declaration's type (`t := Inner; v: t;` fails with `type must be known at compile time`). `size_of(Type)` is 8, `size_of(Any)` is 16, and `Any.type` is a `*Type_Info`.
 - `type_info_global` (`sema/typeinfo.rs`) memoises one `ir::Global` named `type_info.<type>`. `type_info_struct_type` picks `Type_Info_Integer`, `_Float`, `_String`, `_Pointer`, `_Procedure`, `_Struct`, `_Array`, `_Enum`, `_Variant` (distinct types) or plain `Type_Info`; `build_type_info` fills fields by name with `set_field`. Every descriptor embeds the `Type_Info` header with `using #as`.
+- A pointer's `pointer_to` descriptor is not built eagerly when the pointee is a struct that is not laid out yet: the global is reserved and filled when that layout finishes (`type_info_global_later`, `deferred_infos`), so describing `*Tree` never needs `Tree`'s size. This is what lets a struct whose variadic `..Type` arguments include a type that points back at it (`Tree :: Box(Branch); Branch :: struct { c: *Tree; }`) resolve: the arguments' descriptors are written into the pack right away, deferred when they cannot be built yet, and built before the struct's `#insert` reads them (`build_variadic_cases`). A case that needs the struct by value is still `contains itself`.
 - Struct descriptors have `members` (`name`, `offset_in_bytes`, `type`, `flags` such as `USING`, `AS`, `OVERLAY`, `notes`), `textual_flags`, `polymorph_source_struct` and `specified_parameters`. Tagged unions are flattened ([unions](../language/unions.md)); enums are in [enums](../language/enums.md).
 - `get_runtime_info()` returns the `__runtime_info` global whose `type_table` lists every descriptor, filled once all descriptors exist. At compile time `get_type_table()` is a snapshot of declared types ([Compiler module](compiler-module.md)). Metaprograms see a target workspace's types through exported records, not these globals.
 
@@ -34,7 +35,7 @@ type_info(*int).type    // POINTER
 - New type kind: extend `TypeKind` and `size_of`/`align_of`/`name` in `types.rs`, then emit its info.
 - Descriptors are lazy, so `type_info` of a type forces its layout.
 
-Tests: `tests/compiler/regressions/compiler-reflection-pure.jai`, `type-field-constant.jai`, `poly-struct-type-names.jai`. Related: `intern.rs`, `sema/structs.rs`.
+Tests: `tests/compiler/regressions/compiler-reflection-pure.jai`, `crates/jaic/tests/recursive_variadic_struct.rs`, `type-field-constant.jai`, `poly-struct-type-names.jai`. Related: `intern.rs`, `sema/structs.rs`.
 
 ## Rules
 
