@@ -16,9 +16,12 @@ The root `Justfile` gives each dev command one name. CI's format and lint steps 
 | `nvim-test`, `editor` | Neovim plugin tests; VS Code generated-file checks (skipped with a note without nvim 0.11 / node 24) |
 | `repo-checks [style\|paths\|ci-sources]` | CI's text checks (`tools/ci/check_source_style.py`, `check_repo_paths.py`, `check_ci_sources.py`); names narrow the set. CI, `browser-release.yml` (`ci-sources` only) and the pre-commit hook all call it |
 | `hooks` | Sets the relative `core.hooksPath=.githooks` (`dev.py hooks`; `just build` does it too, except in CI) |
+| `profile-report PROFILE [--top N ...]` | `tools/profile_report.py`: a samply profile summarized by self and inclusive samples ([profiling](benchmarks.md#profiling)) |
 | `bump-version X.Y.Z` | `tools/bump_version.py`, the version step of [releases](releases.md) |
 | `fetch-upstreams`, `wasm`, `vscode` | `tools/fetch_upstreams.py`, `tools/browser/build_scripting_wasm.py --release`, `pnpm run <script>` in `editors/vscode` |
 | `vscode-try [FOLDER]` | Builds the tools (release; `--debug` for debug) and the extension, then opens VS Code with only that extension, in a throwaway profile whose settings point at the built `jailsp`, `jaic`, `jaifmt` and `stdlib/`. `FOLDER` opens in place; without it, a temporary copy of `examples/` |
+
+The recipes export `PYTHONPATH=<checkout>/tools`, which the Python scripts need to import their helpers; running a script by hand outside `just` takes `PYTHONPATH=tools python3 tools/<folder>/x.py` ([module path](tools-layout.md#module-path)).
 
 ### Building from source
 

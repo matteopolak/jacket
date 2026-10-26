@@ -99,6 +99,11 @@ fetch-upstreams *args:
 wasm *args:
     {{ py }} tools/browser/build_scripting_wasm.py --release --output target/wasm {{ args }}
 
+# Summarize a `samply record --save-only --unstable-presymbolicate` profile (docs/tools/benchmarks.md#profiling): hot functions by self and inclusive samples.
+[group('test')]
+profile-report profile *args:
+    {{ py }} tools/profile_report.py {{ profile }} {{ args }}
+
 # Open VS Code with only the freshly built extension, on FOLDER or a temporary copy of examples/.
 [group('web')]
 [arg("debug", long, value="true")]
