@@ -5,7 +5,7 @@ Usage: tools/differential/jaic_sweep.py [--jaic PATH] [--filter TEXT] [--verbose
 Sets: corpus (tests/corpus/positive with expected runtime), negative (tests/corpus/negative:
 `jaic -check` must fail and report the recorded text), regressions (tests/compiler/regressions), modules (the stdlib's own
 tests: every stdlib/**/tests directory, described by its manifest.json rows; run must succeed), examples (tests/corpus/examples.json:
-example programs such as examples/tour, whose stdout must contain the listed lines), upstream
+example workspaces (examples/<name>), whose stdout must contain the listed lines), upstream
 (tools/upstream-cases.json: upstream project entry points that must pass, with the output the
 project documents where a case has an `expect` record), or file paths.
 
@@ -174,16 +174,23 @@ def cases(name):
                 [],
             )
     elif name == "examples":
-        for c in json.loads((ROOT / "tests/corpus/examples.json").read_text())["cases"]:
+        cases = json.loads((ROOT / "tests/corpus/examples.json").read_text())["cases"]
+        folders = {d.name for d in (ROOT / "examples").iterdir() if d.is_dir()}
+        missing = folders - {Path(c["directory"]).name for c in cases}
+        if missing:
+            sys.exit(f"jaic_sweep: examples/{sorted(missing)[0]} has no case in tests/corpus/examples.json")
+        for c in cases:
+            mode = c.get("mode", "run")
             expect = {
                 "contains": c["stdout_contains"],
                 "excludes": c.get("stdout_excludes", []),
+                "exit_code": c.get("exit_code", 0),
             }
             yield (
                 c["id"],
                 ROOT / c["directory"] / c["main"],
-                "run",
-                expect,
+                mode,
+                expect if mode == "run" else None,
                 c.get("args", []),
             )
     elif name == "upstream":
@@ -785,8 +792,8 @@ def main():
         elif "contains" in expect:
             missing = [line for line in expect["contains"] if line not in out]
             present = [text for text in expect["excludes"] if text in out]
-            ok = code == 0 and not missing and not present
-            if code == 0 and not ok:
+            ok = code == expect.get("exit_code", 0) and not missing and not present
+            if code == expect.get("exit_code", 0) and not ok:
                 err += "".join(f"\nerror: stdout lacks {line!r}" for line in missing)
                 err += "".join(f"\nerror: stdout has {text!r}" for text in present)
         elif "error" in expect:

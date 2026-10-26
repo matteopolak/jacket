@@ -44,6 +44,7 @@ class ScriptingWasmBuildTests(unittest.TestCase):
             (example / "main.jai").write_text('#load "part/one.jai";\n')
             (example / "part/one.jai").write_text("// own nested example fixture\n")
             (example / ".hidden").write_text("editor state, not shipped\n")
+            (root / "examples/jacket.toml").write_text("[format]\nindent_width = 2\n")
             (root / "tests/corpus").mkdir(parents=True)
             (root / "tests/corpus/examples.json").write_text(
                 json.dumps(
@@ -51,9 +52,11 @@ class ScriptingWasmBuildTests(unittest.TestCase):
                         "cases": [
                             {
                                 "id": "walk",
-                                "bundle": "walk",
+                                "bundle": True,
                                 "directory": "examples/walk",
                                 "main": "main.jai",
+                                "title": "Walk",
+                                "summary": "Loads a nested file.",
                             },
                             {
                                 "id": "native-only",
@@ -110,10 +113,10 @@ class ScriptingWasmBuildTests(unittest.TestCase):
                     "README.md",
                     "build-metadata.json",
                     "engine.mjs",
+                    "examples.json",
                     "jai_wasm.wasm",
                     "jaifmt-playground.jai",
                     "walk",
-                    "walk.json",
                     "webgpu_bindings.generated.mjs",
                     "webgpu_host.mjs",
                 ],
@@ -124,12 +127,23 @@ class ScriptingWasmBuildTests(unittest.TestCase):
             )
             # Bundled examples are copied as a tree (without dotfiles) and indexed.
             self.assertEqual(
-                json.loads((output / "walk.json").read_text()),
+                json.loads((output / "examples.json").read_text()),
                 {
-                    "schema_version": 1,
-                    "main": "main.jai",
-                    "files": ["main.jai", "part/one.jai"],
+                    "schema_version": 2,
+                    "examples": [
+                        {
+                            "name": "walk",
+                            "title": "Walk",
+                            "summary": "Loads a nested file.",
+                            "main": "main.jai",
+                            "files": ["main.jai", "jacket.toml", "part/one.jai"],
+                            "assets": [],
+                        }
+                    ],
                 },
+            )
+            self.assertEqual(
+                (output / "walk/jacket.toml").read_text(), "[format]\nindent_width = 2\n"
             )
             self.assertEqual(
                 (output / "walk/part/one.jai").read_text(),
@@ -146,10 +160,9 @@ class ScriptingWasmBuildTests(unittest.TestCase):
             (source / "assets/texture.png").write_bytes(b"\x89PNG")
             output = base / "out"
             output.mkdir()
-            wasm.stage_example(source, output, "example", "main.jai")
-            index = json.loads((output / "example.json").read_text())
-            self.assertEqual(index["files"], ["main.jai"])
-            self.assertEqual(index["assets"], ["assets/texture.png"])
+            files, assets = wasm.stage_example(source, output, "example", "main.jai")
+            self.assertEqual(files, ["main.jai"])
+            self.assertEqual(assets, ["assets/texture.png"])
             self.assertEqual((output / "example/assets/texture.png").read_bytes(), b"\x89PNG")
 
             (source / "assets/notes.txt").write_text("not an asset type")

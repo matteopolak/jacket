@@ -324,8 +324,8 @@ fn type_variants() {
     big_stack(|| {
         check(
             "type-variants",
-            "examples/type-variants.jai",
-            "examples/type-variants.jai",
+            "examples/type-variants/main.jai",
+            "examples/type-variants/main.jai",
         );
     });
 }

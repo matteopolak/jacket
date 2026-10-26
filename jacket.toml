@@ -51,7 +51,7 @@ rules = { single_case_switch = "allow" }
 # Numbers that are the content rather than a choice. Each override names the files that still
 # need it; the named constants and the character literals of the other files are in the code.
 
-# Benchmark, example and library benchmark workloads: sizes, seeds and iteration counts are the content of the program.
+# Benchmark and library benchmark workloads: sizes, seeds and iteration counts are the content of the program.
 [[lint.overrides]]
 paths = [
     "benchmarks/compile/constant-tables.jai",
@@ -83,18 +83,6 @@ paths = [
     "benchmarks/stdlib/byte-search.jai",
     "benchmarks/stdlib/hash-map.jai",
     "benchmarks/stdlib/log-scan.jai",
-    "examples/foreign-libraries.jai",
-    "examples/http/client.jai",
-    "examples/tour/data/arrays.jai",
-    "examples/tour/data/strings.jai",
-    "examples/tour/finale/raymarch.jai",
-    "examples/tour/generics/polymorphism.jai",
-    "examples/tour/meta/compile_time.jai",
-    "examples/tour/meta/macros.jai",
-    "examples/tour/threads/native.jai",
-    "examples/tour/types/structs.jai",
-    "examples/using-records.jai",
-    "examples/webgpu/triangle.jai",
     "stdlib/Extensions/Http/bench/bench.jai",
     "stdlib/Extensions/Http/bench/client_bench.jai",
     "stdlib/Extensions/Http/bench/server_bench.jai",

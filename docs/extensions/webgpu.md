@@ -2,7 +2,7 @@
 
 ## What it is
 
-The standard WebGPU C API (`webgpu.h`): every type, enum, struct, callback and `wgpu*` procedure, plus helpers for windows, adapters, mapping and error scopes. Natively the procedures call [wgpu-native](https://github.com/gfx-rs/wgpu-native); in the browser playground they forward to the page's WebGPU. Both sides are generated from webgpu-headers' `webgpu.yml`, so code that only talks to the GPU (`examples/webgpu/compute.jai`) runs in both places. Surfaces differ: `webgpu_create_surface` takes a `Window_Creation` window and is native only, while the playground binds `wgpuInstanceCreateSurface(instance, null)` to its own canvas (`examples/tour/gpu/raymarch_gpu.jai`).
+The standard WebGPU C API (`webgpu.h`): every type, enum, struct, callback and `wgpu*` procedure, plus helpers for windows, adapters, mapping and error scopes. Natively the procedures call [wgpu-native](https://github.com/gfx-rs/wgpu-native); in the browser playground they forward to the page's WebGPU. Both sides are generated from webgpu-headers' `webgpu.yml`, so code that only talks to the GPU (`examples/webgpu-compute/main.jai`) runs in both places. Surfaces differ: `webgpu_create_surface` takes a `Window_Creation` window and is native only, while the playground binds `wgpuInstanceCreateSurface(instance, null)` to its own canvas (`examples/raymarch-gpu/raymarch_gpu.jai`).
 
 ```jai
 #import "Extensions/WebGPU";
@@ -14,7 +14,7 @@ format  := webgpu_surface_format(surface, adapter);  // pass srgb = true only if
 webgpu_present(surface);
 ```
 
-Examples: `examples/webgpu/triangle.jai` (window, pipeline) and `raymarch.jai` (fragment shader, uniforms, input), both native only, `compute.jai` (storage buffers, mapping), and `textured_cube/` (vertex and index buffers, depth, a PNG texture loaded with [Extensions/Assets](assets.md) and decoded with [Extensions/Image](image.md)), which runs natively and in the playground; the playground tour ends with `examples/tour/gpu/raymarch_gpu.jai`. In the browser `webgpu_canvas_size()` gives the canvas size, where native code uses `webgpu_window_size(window)`.
+Examples: `examples/webgpu-triangle` (window, pipeline) and `webgpu-raymarch` (fragment shader, uniforms, input), both native only, `webgpu-compute` (storage buffers, mapping), and `textured-cube` (vertex and index buffers, depth, a PNG texture loaded with [Extensions/Assets](assets.md) and decoded with [Extensions/Image](image.md)), which runs natively and in the playground; the playground also lists `examples/raymarch-gpu`. In the browser `webgpu_canvas_size()` gives the canvas size, where native code uses `webgpu_window_size(window)`.
 
 | Where | Backend | Surface |
 | --- | --- | --- |
@@ -59,7 +59,7 @@ webgpu.yml (pinned) --tools/webgpu_gen.py--> stdlib/Extensions/WebGPU/generated.
 ```sh
 python3 tools/bindings/webgpu_gen.py [--yml webgpu.yml] [--check-header webgpu.h]
 python3 tools/bindings/fetch_wgpu_native.py [--platform windows-arm64] [--out DIR] [--force]
-JAIC_NATIVE_LIBS=<checkout>/target/native-libs/macos-arm64 jaic examples/webgpu/triangle.jai -interp   # from a worktree
+JAIC_NATIVE_LIBS=<checkout>/target/native-libs/macos-arm64 jaic examples/webgpu-triangle/main.jai -interp   # from a worktree
 ```
 
 Browser embedders pass `createEngine(bytes, { host: createWebGPUHost({ canvas, output, onSurface }) })`, run with `playAsync`, and forward events with `host.input(event)`/`host.resize(w, h)`. Without a host or `navigator.gpu`, `webgpu_available()` is false.

@@ -325,7 +325,7 @@ jobs:
           if [ "$RUNNER_OS" = "Windows" ]; then exe=".exe"; fi
           work="$RUNNER_TEMP/smoke"
           mkdir -p "$work"
-          cp examples/compile-time-record.jai "$work/main.jai"
+          cp examples/compile-time-record/main.jai "$work/main.jai"
           jaic="$PWD/$PACKAGE_DIR/jaic$exe"
           jailint="$PWD/$PACKAGE_DIR/jailint$exe"
           jaifmt="$PWD/$PACKAGE_DIR/jaifmt$exe"
@@ -378,7 +378,8 @@ jobs:
           # WebGPU programs need nothing beyond the archive: the triangle example links the
           # packaged static wgpu-native, and `jaic -interp` loads the packaged shared one (exit 77:
           # the runner has no GPU adapter, which still proves the library loaded).
-          cp "$GITHUB_WORKSPACE/examples/webgpu/triangle.jai" "$GITHUB_WORKSPACE/stdlib/Extensions/WebGPU/tests/headless.jai" .
+          cp "$GITHUB_WORKSPACE/examples/webgpu-triangle/main.jai" triangle.jai
+          cp "$GITHUB_WORKSPACE/stdlib/Extensions/WebGPU/tests/headless.jai" .
           if [ -n "${{ matrix.llvm }}" ]; then
             "$jaic" triangle.jai -exe triangle
             ls -l triangle$exe

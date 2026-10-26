@@ -2,10 +2,9 @@
 // Execute the actual wasm module; a native-only test cannot satisfy this gate.
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
 import { createEngine } from "../../crates/jai-wasm/js/engine.mjs";
 import { checkScriptingIo } from "./scripting_io_wasm.mjs";
-import { checkSourceExamples, workspaceFiles } from "./examples_wasm.mjs";
+import { checkSourceExamples } from "./examples_wasm.mjs";
 const path = process.argv[2];
 if (!path) throw new Error("usage: node tools/browser/check_scripting_wasm.mjs <jai_wasm.wasm>");
 const engine = await createEngine(await readFile(path));
@@ -31,19 +30,12 @@ for (const [name, files, expected, stdout] of fixtures) {
 const missing = engine.play({ "main.jai": "main :: () -> int { return missing; }" }, "main.jai");
 assert.equal(missing.exitCode, null);
 assert(missing.diagnostics.some(item => /missing/.test(item.message)), "Unknown names are reported as diagnostics");
-// The example workspaces (examples/tour) run within the playground's budget.
+// The bundled example workspaces (examples/<name>) run within the playground's budget.
 const examples = await checkSourceExamples(engine);
 console.log(`PASS: real WebAssembly compiler (${fixtures.length} fixtures, repeated runs and diagnostics; examples: ${examples.join(", ")})`);
 
 // Keep supported C bridge I/O checks independently runnable from graphical examples.
 await checkScriptingIo(engine, async options => createEngine(await readFile(path), options));
-
-// The tour runs every stop with no arguments and no input.
-const tour = await workspaceFiles(fileURLToPath(new URL("../../examples/tour", import.meta.url)));
-const tourRun = engine.play(tour, "main.jai", { args: ["main"], budget: 200000000 });
-assert.equal(tourRun.exitCode, 0, tourRun.rendered);
-assert(tourRun.stdout.includes(" 1. Basics") && tourRun.stdout.includes("That's the tour."), tourRun.stdout);
-console.log("PASS: tour");
 
 // The language server in the same module: metaprogram expansions, inlay hints, format strings.
 assert(engine.lsp, "the module exports the language server");

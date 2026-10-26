@@ -202,19 +202,20 @@ class BrowserReleaseTests(unittest.TestCase):
             "index.html",
             "style.css",
             "texture.png",
-            "tour/texture.png",
+            "basics/texture.png",
             "assets/texture.png",
-            "textured_cube/assets/notes.txt",
+            "textured-cube/assets/notes.txt",
         ):
             with self.subTest(name=name), self.assertRaises(ValueError):
                 release.asset_path(name)
-        # The tour ships as a folder tree of sources and its index.
+        # Examples ship as folders of sources, their shared config and one index.
         for name in (
-            "tour.json",
-            "tour/main.jai",
-            "tour/meta/macros.jai",
-            "tour/tour.md",
-            "textured_cube/assets/jacket.png",
+            "examples.json",
+            "basics/main.jai",
+            "basics/jacket.toml",
+            "metaprogramming/macros.jai",
+            "basics/README.md",
+            "textured-cube/assets/jacket.png",
         ):
             self.assertEqual(release.asset_path(name), name)
         with tempfile.TemporaryDirectory() as temporary:

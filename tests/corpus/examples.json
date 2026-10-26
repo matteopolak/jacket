@@ -1,43 +1,104 @@
 {
-  "comment": "Example programs run by `tools/differential/jaic_sweep.py examples` (natively, with the case's args) and by tools/browser/check_scripting_wasm.mjs and tools/browser/check_browser_release.mjs (in the wasm engine, under `budget` basic blocks, the hosted playground's limit). Each line of stdout_contains must appear in stdout; stdout_excludes must not. A case with `bundle` is shipped in the browser bundle: tools/browser/build_scripting_wasm.py copies its directory to <bundle>/ and writes the <bundle>.json index (docs/browser/playground.md).",
+  "comment": "Example workspaces, one folder each under examples/. `tools/differential/jaic_sweep.py examples` runs every case natively with its `args` (`mode: check` only compiles it; `exit_code` is the status a program is expected to return), and tools/browser/check_scripting_wasm.mjs and tools/browser/check_browser_release.mjs run the bundled ones in the wasm engine under `budget` basic blocks, the hosted playground's limit. Each line of stdout_contains must appear in stdout; stdout_excludes must not. A case with `bundle: true` is listed in the browser bundle's examples.json, in this order, with its `title` and one-sentence `summary`: tools/browser/build_scripting_wasm.py copies its directory to <id>/ together with examples/jacket.toml (docs/browser/playground.md). Every folder of examples/ needs a case.",
   "cases": [
     {
-      "id": "textured_cube",
-      "bundle": "textured_cube",
-      "directory": "examples/webgpu/textured_cube",
+      "id": "basics",
+      "bundle": true,
+      "directory": "examples/basics",
       "main": "main.jai",
-      "args": ["-os", "wasm"],
+      "title": "Basics",
+      "summary": "Variables, procedures, structs, unions and enums, one section per file.",
+      "args": [
+        "-os",
+        "wasm"
+      ],
       "budget": 200000000,
       "stdout_contains": [
-        "No WebGPU here"
-      ]
-    },
-    {
-      "id": "tour",
-      "bundle": "tour",
-      "directory": "examples/tour",
-      "main": "main.jai",
-      "args": ["-os", "wasm"],
-      "budget": 200000000,
-      "stdout_contains": [
-        "A whirlwind tour of Jai, running in your browser.",
-        " 1. Basics",
+        " Structs, using and unions",
+        " Enums and flags",
         "47 / 5 is 9 remainder 2",
         "Hey Hey Hey Ford?!",
         "1.0 as raw IEEE-754 bits: 0x3f800000",
         "CLOUDY-ish? Pack: UMBRELLA | BOOTS",
-        "The bag holds SCARF | BOOTS (bits: 1100)",
+        "The bag holds SCARF | BOOTS (bits: 1100)"
+      ]
+    },
+    {
+      "id": "arrays-and-strings",
+      "bundle": true,
+      "directory": "examples/arrays-and-strings",
+      "main": "main.jai",
+      "title": "Arrays and strings",
+      "summary": "Fixed arrays, views and dynamic arrays, then strings and print formatting.",
+      "args": [
+        "-os",
+        "wasm"
+      ],
+      "budget": 200000000,
+      "stdout_contains": [
+        " Strings and formatting",
         "primes below 60 (17): [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59]",
         "times ten:      [40, 80, 150, 160, 230, 420]",
         "Knock, Knock. Who's there?",
         "1 2 Fizz 4 Buzz Fizz 7 8 Fizz Buzz 11 Fizz 13 14 FizzBuzz",
-        "upper: SIMPLE, FAST, AND FUN; split: [\"Simple\", \"fast\", \"and fun\"]; joined: Simple + fast + and fun",
+        "upper: SIMPLE, FAST, AND FUN; split: [\"Simple\", \"fast\", \"and fun\"]; joined: Simple + fast + and fun"
+      ]
+    },
+    {
+      "id": "memory",
+      "bundle": true,
+      "directory": "examples/memory",
+      "main": "main.jai",
+      "title": "Memory and the context",
+      "summary": "defer, New and free, temporary storage, and a custom allocator and logger in the context.",
+      "args": [
+        "-os",
+        "wasm"
+      ],
+      "budget": 200000000,
+      "stdout_contains": [
         "  ...and deferred 1 runs last.",
         "A hand-made linked list: 25 16 9 4 1 ",
-        "  LOG: THE LOGGER IS JUST A PROCEDURE IN THE CONTEXT!!!",
+        "  LOG: THE LOGGER IS JUST A PROCEDURE IN THE CONTEXT!!!"
+      ],
+      "stdout_excludes": [
+        "saw 0 allocations"
+      ]
+    },
+    {
+      "id": "polymorphism",
+      "bundle": true,
+      "directory": "examples/polymorphism",
+      "main": "main.jai",
+      "title": "Polymorphism",
+      "summary": "Generic procedures and structs, constraints, #modify and baked arguments.",
+      "args": [
+        "-os",
+        "wasm"
+      ],
+      "budget": 200000000,
+      "stdout_contains": [
         "  ring of 3 string (holds 3 of 3): three four five",
         "u8 total: 600 (an s64), float total: 0.75 (a float32)",
-        "power(2, 10) = 1024 (baked: true), power(3, n) = 243 (baked: false)",
+        "power(2, 10) = 1024 (baked: true), power(3, n) = 243 (baked: false)"
+      ]
+    },
+    {
+      "id": "metaprogramming",
+      "bundle": true,
+      "directory": "examples/metaprogramming",
+      "main": "main.jai",
+      "title": "Metaprogramming",
+      "summary": "Compile-time execution, macros and custom loops, reflection, and a metaprogram.",
+      "args": [
+        "-os",
+        "wasm"
+      ],
+      "budget": 200000000,
+      "stdout_contains": [
+        " Macros and custom loops",
+        " Reflection",
+        " A metaprogram",
         "Fibonacci, computed by the compiler: [0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584, 4181]",
         "compiled for WebAssembly: you are probably in a browser",
         "  JUPITER pulls at 24.8 m/s²",
@@ -49,24 +110,214 @@
         "  +56  secret_note: STRING  @NoSave",
         "  {\"player\": \"Zaphod\", \"level\": 42, \"position\": {\"x\": 1.5, \"y\": -2}, \"inventory\": [\"towel\", \"babel fish\", \"peanuts\"], \"weather\": \"RAINY\", \"hardcore\": true}",
         "    style: 'lengthSquared' should be snake_case",
-        "    note: 'origin' is marked @Todo",
-        " 12. Runtime safety",
+        "    note: 'origin' is marked @Todo"
+      ]
+    },
+    {
+      "id": "runtime-safety",
+      "bundle": true,
+      "directory": "examples/runtime-safety",
+      "main": "main.jai",
+      "title": "Runtime safety",
+      "summary": "The checks on casts, indexes and pointers, and the ways to opt out of them.",
+      "args": [
+        "-os",
+        "wasm"
+      ],
+      "budget": 200000000,
+      "stdout_contains": [
         "cast,trunc(u8) 300 = 44, cast,no_check(u8) 300 = 44",
-        "A view of 2 numbers, read past its end with #no_abc: sum 100",
+        "A view of 2 numbers, read past its end with #no_abc: sum 100"
+      ]
+    },
+    {
+      "id": "threads",
+      "bundle": true,
+      "directory": "examples/threads",
+      "main": "main.jai",
+      "title": "Threads",
+      "summary": "A Thread_Group sharing out work, and a producer and consumer passing items through semaphores.",
+      "args": [
+        "-os",
+        "wasm"
+      ],
+      "budget": 200000000,
+      "stdout_contains": [
         "3 workers counted the primes in 8 slices of 1000: 168 135 127 120 119 114 117 107",
-        "The consumer received: 1 4 9 16 25 36 49 64 81 100 (sum 385)",
-        "tour.md's headings: \"A tour of Jai\" \"Map\" \"Things to try\"",
+        "The consumer received: 1 4 9 16 25 36 49 64 81 100 (sum 385)"
+      ]
+    },
+    {
+      "id": "files",
+      "bundle": true,
+      "directory": "examples/files",
+      "main": "main.jai",
+      "title": "Files",
+      "summary": "Walking the workspace, reading a file, and writing and deleting one.",
+      "args": [
+        "-os",
+        "wasm"
+      ],
+      "budget": 200000000,
+      "stdout_contains": [
+        "README.md's headings: \"Files\" \"Map\" \"Things to try\"",
         "entry 3: 3 squared is 9",
-        "After file_delete, file_exists says false.",
+        "After file_delete, file_exists says false."
+      ]
+    },
+    {
+      "id": "machine",
+      "bundle": true,
+      "directory": "examples/machine",
+      "main": "main.jai",
+      "title": "Machine code",
+      "summary": "Inline assembly with #asm, and the 128-bit Long_Double.",
+      "args": [
+        "-os",
+        "wasm"
+      ],
+      "budget": 200000000,
+      "stdout_contains": [
         "bswap reverses the bytes: 0xefcdab8967452301",
         "(2^64 - 1) * 3 = 2 * 2^64 + 18446744073709551613",
-        "  sqrt(2) as Long_Double: 1.414213562373095048801688724209698",
-        " 16. Finale: a ray-marched scene",
-        "%%%%%%",
-        "No WebGPU in this browser, so this stop is skipped.",
-        "That's the tour. Now break something!"
+        "  sqrt(2) as Long_Double: 1.414213562373095048801688724209698"
+      ]
+    },
+    {
+      "id": "raymarch",
+      "bundle": true,
+      "directory": "examples/raymarch",
+      "main": "main.jai",
+      "title": "Ray marching in text",
+      "summary": "A ray marcher that draws a 3D scene with characters.",
+      "args": [
+        "-os",
+        "wasm"
       ],
-      "stdout_excludes": ["saw 0 allocations"]
+      "budget": 200000000,
+      "stdout_contains": [
+        "%%%%%%"
+      ]
+    },
+    {
+      "id": "raymarch-gpu",
+      "bundle": true,
+      "directory": "examples/raymarch-gpu",
+      "main": "main.jai",
+      "title": "Ray marching on the GPU",
+      "summary": "One ray per pixel in a WGSL fragment shader, drawn with WebGPU (Chrome and Edge).",
+      "args": [
+        "-os",
+        "wasm"
+      ],
+      "budget": 200000000,
+      "stdout_contains": [
+        "No WebGPU in this browser, so this example is skipped."
+      ]
+    },
+    {
+      "id": "webgpu-compute",
+      "bundle": true,
+      "directory": "examples/webgpu-compute",
+      "main": "main.jai",
+      "title": "WebGPU compute",
+      "summary": "A compute shader that finds the longest Collatz sequence below 100,000.",
+      "args": [
+        "-os",
+        "wasm"
+      ],
+      "budget": 200000000,
+      "stdout_contains": [
+        "This browser has no WebGPU."
+      ]
+    },
+    {
+      "id": "textured-cube",
+      "bundle": true,
+      "directory": "examples/textured-cube",
+      "main": "main.jai",
+      "title": "Textured cube",
+      "summary": "A spinning WebGPU cube with a PNG texture loaded as an asset.",
+      "args": [
+        "-os",
+        "wasm"
+      ],
+      "budget": 200000000,
+      "stdout_contains": [
+        "No WebGPU here"
+      ]
+    },
+    {
+      "id": "sum",
+      "directory": "examples/sum",
+      "main": "main.jai",
+      "title": "Sum",
+      "summary": "A while loop whose result is the exit status.",
+      "exit_code": 45,
+      "stdout_contains": []
+    },
+    {
+      "id": "compile-time-record",
+      "directory": "examples/compile-time-record",
+      "main": "main.jai",
+      "title": "Compile-time record",
+      "summary": "A polymorphic struct with a default value and a #run call.",
+      "exit_code": 42,
+      "stdout_contains": []
+    },
+    {
+      "id": "type-variants",
+      "directory": "examples/type-variants",
+      "main": "main.jai",
+      "title": "Type variants",
+      "summary": "Aliases and distinct handle types.",
+      "exit_code": 30,
+      "stdout_contains": []
+    },
+    {
+      "id": "using-records",
+      "directory": "examples/using-records",
+      "main": "main.jai",
+      "title": "Using records",
+      "summary": "Structs that borrow fields with using.",
+      "exit_code": 22,
+      "stdout_contains": []
+    },
+    {
+      "id": "foreign-libraries",
+      "directory": "examples/foreign-libraries",
+      "main": "main.jai",
+      "title": "Foreign libraries",
+      "summary": "Calling a C library function from Jai.",
+      "stdout_contains": []
+    },
+    {
+      "id": "http",
+      "directory": "examples/http",
+      "main": "crud_test.jai",
+      "title": "HTTP server and client",
+      "summary": "A notes API served and tested with Extensions/Http (native only: needs sockets).",
+      "stdout_contains": [
+        "7 tests, 40 checks, all passed"
+      ]
+    },
+    {
+      "id": "webgpu-triangle",
+      "directory": "examples/webgpu-triangle",
+      "main": "main.jai",
+      "title": "WebGPU triangle",
+      "summary": "A spinning triangle in a window (native only: needs a window).",
+      "mode": "check",
+      "stdout_contains": []
+    },
+    {
+      "id": "webgpu-raymarch",
+      "directory": "examples/webgpu-raymarch",
+      "main": "main.jai",
+      "title": "WebGPU ray marching",
+      "summary": "A full-screen ray marching shader in a window (native only: needs a window).",
+      "mode": "check",
+      "stdout_contains": []
     }
   ]
 }

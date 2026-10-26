@@ -186,14 +186,15 @@ fn wasm_allocation_heavy_program() {
     }
 }
 
-/// The playground's language tour as a WASI command: its threads stop runs on green threads
-/// (docs/native/wasm-threads.md) and prints what the browser prints. The WebGPU imports are
-/// left unresolved (`--unknown-imports-trap`); `Wasi_Runtime`'s `jai_host_provides` says there is
-/// no page, so the GPU stop is skipped without calling them.
+/// Playground examples as WASI commands: the threads example runs on green threads
+/// (docs/native/wasm-threads.md), the files example reads its own folder, and all print what the
+/// browser prints. The WebGPU imports are left unresolved (`--unknown-imports-trap`);
+/// `Wasi_Runtime`'s `jai_host_provides` says there is no page, so the GPU example skips itself
+/// without calling them.
 #[test]
-fn wasm_tour_runs_as_a_wasi_command() {
-    // The tour reads its own folder through `#filepath`, which on a Windows host is a drive
-    // path (`D:/...`); a WASI module has no drive letters, so it cannot open it there.
+fn wasm_examples_run_as_wasi_commands() {
+    // The files example reads its own folder through `#filepath`, which on a Windows host is a
+    // drive path (`D:/...`); a WASI module has no drive letters, so it cannot open it there.
     if cfg!(windows) {
         return;
     }
@@ -201,53 +202,54 @@ fn wasm_tour_runs_as_a_wasi_command() {
         &std::fs::read(repo_root().join("tests/corpus/examples.json")).unwrap(),
     )
     .unwrap();
-    let case = examples["cases"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|c| c["id"] == "tour")
-        .unwrap();
-    let tour = repo_root().join("examples/tour");
-    let dir = scratch("wasm-tour");
-    let module = dir.join("tour.wasm");
-    let main = tour.join("main.jai");
-    if jaic(
-        &tour,
-        &[
-            main.to_str().unwrap(),
-            "-os",
-            "wasm",
-            "-exe",
-            module.to_str().unwrap(),
-        ],
-    )
-    .is_none()
-    {
-        return;
-    }
-    let output = node()
-        .unwrap()
-        .arg(repo_root().join("tools/wasi_run.mjs"))
-        .arg("--unknown-imports-trap")
-        .arg(&module)
-        .current_dir(&tour)
-        .stdin(Stdio::null())
-        .output()
-        .unwrap();
-    let stdout = text(&output.stdout);
-    assert_eq!(
-        output.status.code(),
-        Some(0),
-        "{stdout}{}",
-        text(&output.stderr)
-    );
-    for line in case["stdout_contains"].as_array().unwrap() {
-        let line = line.as_str().unwrap();
-        assert!(stdout.contains(line), "missing {line:?} in:\n{stdout}");
-    }
-    for line in case["stdout_excludes"].as_array().unwrap() {
-        let line = line.as_str().unwrap();
-        assert!(!stdout.contains(line), "unexpected {line:?} in:\n{stdout}");
+    for id in ["threads", "files", "raymarch-gpu"] {
+        let case = examples["cases"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|c| c["id"] == id)
+            .unwrap();
+        let folder = repo_root().join("examples").join(id);
+        let dir = scratch(&format!("wasm-example-{id}"));
+        let module = dir.join(format!("{id}.wasm"));
+        let main = folder.join("main.jai");
+        if jaic(
+            &folder,
+            &[
+                main.to_str().unwrap(),
+                "-os",
+                "wasm",
+                "-exe",
+                module.to_str().unwrap(),
+            ],
+        )
+        .is_none()
+        {
+            return;
+        }
+        let output = node()
+            .unwrap()
+            .arg(repo_root().join("tools/wasi_run.mjs"))
+            .arg("--unknown-imports-trap")
+            .arg(&module)
+            .current_dir(&folder)
+            .stdin(Stdio::null())
+            .output()
+            .unwrap();
+        let stdout = text(&output.stdout);
+        assert_eq!(
+            output.status.code(),
+            Some(0),
+            "{id}: {stdout}{}",
+            text(&output.stderr)
+        );
+        for line in case["stdout_contains"].as_array().unwrap() {
+            let line = line.as_str().unwrap();
+            assert!(
+                stdout.contains(line),
+                "{id}: missing {line:?} in:\n{stdout}"
+            );
+        }
     }
 }
 
@@ -319,9 +321,9 @@ main :: () {
 /// Private runtime hooks keep real cooperative scheduling coverage independent
 /// of the public Thread module's legitimate desktop/Android target guard.
 #[test]
-fn tour_runtime_provider_runs_as_wasi_with_real_workers() {
-    let dir = scratch("wasm-tour-runtime");
-    let source = repo_root().join("tests/compiler/language/tour-runtime/main.jai");
+fn threads_runtime_provider_runs_as_wasi_with_real_workers() {
+    let dir = scratch("wasm-threads-runtime");
+    let source = repo_root().join("tests/compiler/language/threads-runtime/main.jai");
     for (flag, name) in [("-O0", "unoptimized"), ("-O2", "optimized")] {
         let module = dir.join(format!("{name}.wasm"));
         assert!(

@@ -106,7 +106,7 @@ rustPlatform.buildRustPackage {
   installCheckPhase = ''
     runHook preInstallCheck
     work=$(mktemp -d)
-    cp examples/compile-time-record.jai $work/record.jai
+    cp examples/compile-time-record/main.jai $work/record.jai
     printf '#import "Basic";\nmain :: () { print("hello from nix\\n"); }\n' > $work/hello.jai
     pushd $work
     status=0; $out/bin/jaic record.jai -interp || status=$?

@@ -1,52 +1,41 @@
 //! Every program in `examples/` passes `jaic -check` for each OS it supports. A file that another
-//! example `#load`s is part of that program and is checked through it (the tour's sections, the
-//! notes API of the HTTP examples). A new example must be added to `PROGRAMS`.
+//! example `#load`s is part of that program and is checked through it (a workspace's sections, the
+//! notes API of the HTTP examples). A new example must be added to `PROGRAMS` and have a case in
+//! `tests/corpus/examples.json`, which `tools/differential/jaic_sweep.py examples` runs.
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 const ALL: &[&str] = &["linux", "windows", "macos", "wasm"];
 const NATIVE: &[&str] = &["linux", "windows", "macos"];
+const NO_WINDOW: &str = "draws into a Window_Creation window; the browser has no Window_Type";
+const NO_SOCKETS: &str = "Extensions/Http needs sockets, which the browser has not";
 
 /// Each program, the OSes it is checked for, and why the others are left out.
 const PROGRAMS: &[(&str, &[&str], &str)] = &[
-    ("compile-time-record.jai", ALL, ""),
-    ("foreign-libraries.jai", ALL, ""),
-    ("sum.jai", ALL, ""),
-    ("type-variants.jai", ALL, ""),
-    ("using-records.jai", ALL, ""),
-    ("tour/main.jai", ALL, ""),
-    ("webgpu/compute.jai", ALL, ""),
-    ("webgpu/textured_cube/main.jai", ALL, ""),
-    (
-        "webgpu/triangle.jai",
-        NATIVE,
-        "draws into a Window_Creation window; the browser has no Window_Type",
-    ),
-    (
-        "webgpu/raymarch.jai",
-        NATIVE,
-        "draws into a Window_Creation window; the browser has no Window_Type",
-    ),
-    (
-        "http/client.jai",
-        NATIVE,
-        "Extensions/Http needs sockets, which the browser has not",
-    ),
-    (
-        "http/crud.jai",
-        NATIVE,
-        "Extensions/Http needs sockets, which the browser has not",
-    ),
-    (
-        "http/crud_test.jai",
-        NATIVE,
-        "Extensions/Http needs sockets, which the browser has not",
-    ),
-    (
-        "http/middleware.jai",
-        NATIVE,
-        "Extensions/Http needs sockets, which the browser has not",
-    ),
+    ("arrays-and-strings/main.jai", ALL, ""),
+    ("basics/main.jai", ALL, ""),
+    ("compile-time-record/main.jai", ALL, ""),
+    ("files/main.jai", ALL, ""),
+    ("foreign-libraries/main.jai", ALL, ""),
+    ("machine/main.jai", ALL, ""),
+    ("memory/main.jai", ALL, ""),
+    ("metaprogramming/main.jai", ALL, ""),
+    ("polymorphism/main.jai", ALL, ""),
+    ("raymarch/main.jai", ALL, ""),
+    ("raymarch-gpu/main.jai", ALL, ""),
+    ("runtime-safety/main.jai", ALL, ""),
+    ("sum/main.jai", ALL, ""),
+    ("textured-cube/main.jai", ALL, ""),
+    ("threads/main.jai", ALL, ""),
+    ("type-variants/main.jai", ALL, ""),
+    ("using-records/main.jai", ALL, ""),
+    ("webgpu-compute/main.jai", ALL, ""),
+    ("webgpu-raymarch/main.jai", NATIVE, NO_WINDOW),
+    ("webgpu-triangle/main.jai", NATIVE, NO_WINDOW),
+    ("http/client.jai", NATIVE, NO_SOCKETS),
+    ("http/crud.jai", NATIVE, NO_SOCKETS),
+    ("http/crud_test.jai", NATIVE, NO_SOCKETS),
+    ("http/middleware.jai", NATIVE, NO_SOCKETS),
 ];
 
 fn examples_dir() -> PathBuf {
@@ -145,4 +134,52 @@ fn every_example_program_checks_on_its_oses() {
     });
     let failures = failures.into_inner().unwrap();
     assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// Every folder of `examples/` is one workspace with a case of the same name in the corpus, which
+/// the sweep runs and (with `bundle`) the browser bundle lists.
+#[test]
+fn every_example_folder_has_a_corpus_case() {
+    let corpus: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(examples_dir().join("../tests/corpus/examples.json")).unwrap(),
+    )
+    .unwrap();
+    let cases = corpus["cases"].as_array().unwrap();
+    let mut folders = Vec::new();
+    for entry in std::fs::read_dir(examples_dir()).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() {
+            folders.push(path.file_name().unwrap().to_string_lossy().into_owned());
+        }
+    }
+    assert!(!folders.is_empty());
+    for folder in &folders {
+        let case = cases
+            .iter()
+            .find(|case| case["directory"] == format!("examples/{folder}"))
+            .unwrap_or_else(|| {
+                panic!("examples/{folder} has no case in tests/corpus/examples.json")
+            });
+        assert_eq!(
+            case["id"],
+            folder.as_str(),
+            "the case of examples/{folder} is named for it"
+        );
+        let main = case["main"].as_str().unwrap();
+        assert!(
+            PROGRAMS
+                .iter()
+                .any(|(program, ..)| *program == format!("{folder}/{main}")),
+            "examples/{folder}/{main} is not in PROGRAMS"
+        );
+    }
+    for case in cases {
+        let directory = case["directory"].as_str().unwrap();
+        assert!(
+            folders
+                .iter()
+                .any(|folder| directory == format!("examples/{folder}")),
+            "{directory} is gone"
+        );
+    }
 }

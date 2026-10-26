@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the real Rust compiler as wasm and stage the browser bundle (module, glue, formatter driver, tour).
+"""Build the real Rust compiler as wasm and stage the browser bundle (module, glue, formatter driver, examples).
 
 With --jaic (a native jaic with LLVM and wasm-ld), jaifmt compiled to a WASI module (jaifmt.wasm) is staged too.
 """
@@ -36,9 +36,9 @@ def storage_directory(path):
 
 
 def bundled_examples(root):
-    """(bundle directory, source directory, main file) of each example the bundle ships (tests/corpus/examples.json)."""
+    """The cases of tests/corpus/examples.json the bundle ships, in listing order (the first is the default)."""
     cases = json.loads((root / "tests/corpus/examples.json").read_text())["cases"]
-    return [(case["bundle"], root / case["directory"], case["main"]) for case in cases if "bundle" in case]
+    return [case for case in cases if case.get("bundle")]
 
 
 # Binary files an example loads at run time with Extensions/Assets. They live in its `assets/`
@@ -46,13 +46,20 @@ def bundled_examples(root):
 ASSET_SUFFIXES = {".png"}
 MAX_ASSET_BYTES = 256 * 1024
 
+# Version of the bundle's examples.json.
+EXAMPLES_SCHEMA_VERSION = 2
 
-def stage_example(source, output, name, main):
-    """Copy an example workspace to <output>/<name>/ and describe it in <output>/<name>.json.
+# The settings every example shares. jaifmt and jailint find them natively in the folder above a
+# workspace; a bundled workspace carries its own copy so it is self-contained.
+SHARED_CONFIG = "examples/jacket.toml"
 
-    Embedders (the hosted playground) fetch the index first, then each listed file; `assets` are
-    fetched by the program itself (load_asset, with the engine's asset base at <name>/). Dotfiles
-    are left out.
+
+def stage_example(source, output, name, main, config=None):
+    """Copy an example workspace to <output>/<name>/ and return its file lists for examples.json.
+
+    Embedders (the hosted playground) fetch examples.json first, then each listed file; `assets`
+    are fetched by the program itself (load_asset, with the engine's asset base at <name>/).
+    Dotfiles are left out. `config`, the shared jacket.toml, is copied in as <name>/jacket.toml.
     """
     destination = output / name
     if destination.is_symlink():
@@ -67,6 +74,8 @@ def stage_example(source, output, name, main):
         if path.is_symlink():
             raise SystemExit(f"example files cannot be symlinks: {path}")
         if path.is_file():
+            if config and relative.as_posix() == "jacket.toml":
+                raise SystemExit(f"example {source} has its own jacket.toml; every example shares {SHARED_CONFIG}")
             if relative.parts[0] == "assets":
                 if path.suffix not in ASSET_SUFFIXES or path.stat().st_size > MAX_ASSET_BYTES:
                     raise SystemExit(f"example asset must be {sorted(ASSET_SUFFIXES)} of at most {MAX_ASSET_BYTES} bytes: {path}")
@@ -77,10 +86,28 @@ def stage_example(source, output, name, main):
             shutil.copy2(path, destination / relative)
     if main not in files:
         raise SystemExit(f"example {source} has no {main}")
-    index = {"schema_version": 1, "main": main, "files": files}
-    if assets:
-        index["assets"] = assets
-    (output / f"{name}.json").write_text(json.dumps(index, indent=2) + "\n")
+    if config:
+        shutil.copy2(config, destination / "jacket.toml")
+        files.append("jacket.toml")
+    files.sort(key=lambda item: (item != main, item))
+    return files, assets
+
+
+def stage_examples(root, output):
+    """Stage every bundled example and write <output>/examples.json, the one index of them."""
+    config = root / SHARED_CONFIG
+    if not config.is_file():
+        raise SystemExit(f"missing {SHARED_CONFIG}")
+    entries = []
+    for case in bundled_examples(root):
+        name = case["id"]
+        if any(entry["name"] == name for entry in entries):
+            raise SystemExit(f"duplicate bundled example: {name}")
+        files, assets = stage_example(root / case["directory"], output, name, case["main"], config)
+        entries.append({"name": name, "title": case["title"], "summary": case["summary"],
+                        "main": case["main"], "files": files, "assets": assets})
+    index = {"schema_version": EXAMPLES_SCHEMA_VERSION, "examples": entries}
+    (output / "examples.json").write_text(json.dumps(index, indent=2) + "\n")
 
 
 def jaifmt_wasm_command(jaic, root, output):
@@ -141,9 +168,8 @@ def main():
         if formatter.read_bytes()[:8] != b"\x00asm\x01\x00\x00\x00":
             raise SystemExit("jaifmt.wasm is not a WebAssembly module")
         formatter_sha256 = sha256_file(formatter)
-    # Example workspaces the playground opens with (examples/tour as tour/).
-    for name, source, main in bundled_examples(root):
-        stage_example(source, output, name, main)
+    # The example workspaces the playground lists, and their index.
+    stage_examples(root, output)
     staged = output / "jai_wasm.wasm"
     shutil.copy2(wasm, staged)
     expected = sha256_file(wasm)

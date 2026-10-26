@@ -20,7 +20,7 @@ What jaic, its standard library and tools support, what is missing, and how fast
 - [`jailsp`](compiler/language-server.md) ([README](../crates/jai-language-server/README.md)): diagnostics, type-checked hover and completion with auto-import, definition, references, rename, signature help, semantic tokens, inlay hints, format-string checks, and views of what macros, `#insert`, `#run` and `#if` expanded to.
 - [`jaifmt`](tools/jaifmt.md) ([README](../jaifmt/README.md)): canonical, idempotent formatter that runs natively and in the browser (as a 283 KB `jaifmt.wasm`).
 - [`jailint`](tools/jailint.md) ([README](../crates/jailint/README.md)): rules that run on the type-checked program, covering unused code, index-only loops, likely bugs (`u >= 0` on unsigned, `1 << n - 1`, identical branches, dropped results, wrapping constants) and unidiomatic code. `--fix`, `[lint]` in `jacket.toml`, `// jailint: allow(rule)`, and the same findings in editors.
-- A [browser build](browser/playground.md) of the compiler and language server behind the [online playground](https://matteopolak.com/playground/jacket), which opens with a [tour of the language](../examples/tour/tour.md).
+- A [browser build](browser/playground.md) of the compiler and language server behind the [online playground](https://matteopolak.com/playground/jacket), where a visitor picks one of the [example workspaces](../examples/basics/README.md), small programs that each show one corner of the language.
 
 ## Performance
 

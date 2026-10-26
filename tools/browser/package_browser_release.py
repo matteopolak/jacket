@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Build, execute and package a clean exact-commit browser compiler bundle (Wasm, glue, formatter driver and
-jaifmt.wasm, tour)."""
+jaifmt.wasm, examples)."""
 
 import sys as _sys
 from pathlib import Path as _Path
@@ -29,10 +29,10 @@ from toolkit.repo import ROOT
 
 ARCHIVE = "jai-playground.zip"
 MANIFEST = "jai-playground.manifest.json"
-MAX_FILES = 64
+MAX_FILES = 160
 MAX_FILE_BYTES = 64 * 1024**2
 MAX_TOTAL_BYTES = 128 * 1024**2
-SUFFIXES = {".mjs", ".wasm", ".json", ".md", ".jai"}
+SUFFIXES = {".mjs", ".wasm", ".json", ".md", ".jai", ".toml"}
 # Example assets (build_scripting_wasm.ASSET_SUFFIXES), only inside an example's assets/ folder.
 ASSET_SUFFIXES = {".png"}
 FORBIDDEN = {
@@ -53,8 +53,9 @@ REQUIRED = {
     "jaifmt.wasm",
     "build-metadata.json",
     "README.md",
-    "tour.json",
-    "tour/main.jai",
+    "examples.json",
+    "basics/main.jai",
+    "basics/jacket.toml",
 }
 METADATA = "build-metadata.json"
 

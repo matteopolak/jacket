@@ -1035,10 +1035,10 @@ mod tests {
     }
 
     #[test]
-    fn tour_threads_use_the_private_runtime_and_join_real_workers() {
+    fn example_threads_use_the_private_runtime_and_join_real_workers() {
         let source = format!(
-            "#import \"Basic\";\n{}\nmain :: () {{ tour_threads(); }}",
-            include_str!("../../../examples/tour/threads/cooperative.jai")
+            "#import \"Basic\";\n{}\nmain :: () {{ demo_threads(); }}",
+            include_str!("../../../examples/threads/cooperative.jai")
         );
         let result = single(&source);
         assert_eq!(result.exit_code, Some(0), "{}", result.rendered);

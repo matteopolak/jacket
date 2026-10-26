@@ -1,0 +1,24 @@
+# Settings shared by every example workspace under examples/. jaifmt, jailint and jacket find the
+# nearest jacket.toml above a file, so a workspace here needs none of its own. The browser bundle
+# copies this file into each bundled workspace (tools/browser/build_scripting_wasm.py), which is
+# the configuration the playground's formatter reads.
+
+[format]
+indent_width = 4
+max_width = 100
+max_blank_lines = 1
+brace_style = "same_line"
+blank_line_after_declarations = true
+blank_lines_around_blocks = true
+blank_line_after_guards = true
+blank_line_before_return = true
+
+[lint]
+max_complexity = 100
+
+[lint.rules]
+excessive_nesting = "warn"
+leaked_allocation = "warn"
+cognitive_complexity = "warn"
+# Sizes, seeds and iteration counts are the content of a small program, not a choice to name.
+magic_number = "allow"

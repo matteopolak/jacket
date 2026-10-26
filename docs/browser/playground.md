@@ -2,7 +2,7 @@
 
 ## What it is
 
-`crates/jai-wasm` compiles the compiler core `crates/jaic` and the shared language server to `wasm32-unknown-unknown`, with the full `stdlib/` (including `stdlib/prelude/`) embedded, so `#import "Basic"` works offline. This repository ships the module, a small JavaScript glue file (`engine.mjs`), the default language tour and the release packaging, not a UI. The hosted playground at https://matteopolak.com/playground/jacket lives in the portfolio repository (`matteopolak/portfolio`), which has the editor, worker and engine wrapper.
+`crates/jai-wasm` compiles the compiler core `crates/jaic` and the shared language server to `wasm32-unknown-unknown`, with the full `stdlib/` (including `stdlib/prelude/`) embedded, so `#import "Basic"` works offline. This repository ships the module, a small JavaScript glue file (`engine.mjs`), the example workspaces and the release packaging, not a UI. The hosted playground at https://matteopolak.com/playground/jacket lives in the portfolio repository (`matteopolak/portfolio`), which has the editor, worker and engine wrapper.
 
 A bundle (`tools/browser/build_scripting_wasm.py --output <dir>`) holds:
 
@@ -14,8 +14,20 @@ A bundle (`tools/browser/build_scripting_wasm.py --output <dir>`) holds:
 | `jaifmt-playground.jai` | `jaifmt/playground.jai` | Formatter driver ([jaifmt](../tools/jaifmt.md#browser-playground)) |
 | `jaifmt.wasm` | `jaifmt/wasm.jai`, built by native `jaic -os wasm` (`--jaic`) | jaifmt as a wasm64 WASI module, about 35 times faster than the driver; needs Memory64 ([jaifmt](../tools/jaifmt.md#webassembly-build-jaifmtwasm)) |
 | `build-metadata.json` | build script / packager | commit, toolchain and Wasm SHA-256 |
-| `tour.json`, `tour/**` | `examples/tour/` | The [language tour](#language-tour) and its file index (`{schema_version, main, files[]}`) |
-| `textured_cube.json`, `textured_cube/**` | `examples/webgpu/textured_cube/` | A WebGPU example with a PNG in `assets/`, listed under `assets` in its index (`{schema_version, main, files[], assets[]}`) |
+| `examples.json`, `<name>/**` | `examples/<name>/` | The [example workspaces](#examples) the playground lists, one folder each with the shared `examples/jacket.toml` copied in as `<name>/jacket.toml`, and their one index |
+
+`examples.json` is `{"schema_version": 2, "examples": [...]}`, the default (first shown) example first. Each entry names a workspace and lists its files; `assets` are binary files the program fetches itself:
+
+```json
+{
+  "name": "textured-cube",
+  "title": "Textured cube",
+  "summary": "A spinning WebGPU cube with a PNG texture loaded as an asset.",
+  "main": "main.jai",
+  "files": ["main.jai", "jacket.toml"],
+  "assets": ["assets/jacket.png"]
+}
+```
 
 ## How it works
 
@@ -45,13 +57,13 @@ node tools/browser/check_playground_stdlib.mjs target/scripting-runtime
 
 `check_playground_stdlib.mjs` runs every case of the test catalogue (`stdlib/**/tests` and `tests/compiler/regressions`, see [testing](../tools/testing.md#stdlib-runtime-tests)) through `engine.play` with a fresh instance each, and every test must pass. A test needing something the browser lacks skips that part with a runtime `if OS == .WASM` (preferred over `#if`, so the code stays type-checked); a test with nothing left to run lists the browser modes in `unsupported_modes` of its row in the module's `tests/manifest.json`. `PLAYGROUND_VERBOSE=1 ... name.jai` prints one test's output.
 
-### Language tour
+### Examples
 
-`examples/tour/` is a multi-file Jai program, one topic per file (`basics`, `types`, `data`, `memory`, `generics`, `meta`, `safety`, `threads`, `files`, `machine` for `#asm` and `Long_Double`, `finale/raymarch.jai`, and `gpu/raymarch_gpu.jai` as a WebGPU encore), loaded by `main.jai` from a table of `{title, procedure}` stops, with `tour.md` as a plain-text guide. The playground opens it as the default workspace; it ships in the bundle as `tour/` plus `tour.json`:
+Every folder of `examples/` is a small, standalone workspace: a `main.jai`, usually a short `README.md` guide, more `.jai` files it `#load`s, and an optional `assets/` folder. Names are kebab-case. `examples/jacket.toml` is shared by all of them: the `[format]` settings the playground's formatter reads and the lint settings, found by `jaifmt`, `jailint` and `jacket` walking up from a workspace. The bundle copies it into each workspace so a browser workspace is self-contained.
 
-The tour's case in `tests/corpus/examples.json` has `bundle: "tour"`, which makes `build_scripting_wasm.py` copy the folder and write the index. `tools/differential/jaic_sweep.py examples` runs it natively (`jaic main.jai -interp -os wasm`); `check_scripting_wasm.mjs` and `check_browser_release.mjs` run it in the wasm engine under the case's `budget` via `tools/browser/examples_wasm.mjs`. The portfolio's `starter.ts::loadStarter` fetches `tour.json` and each listed file, falling back to a two-file starter on any failure.
+Each example has a case in `tests/corpus/examples.json` (`id` is the folder name). A case with `bundle: true` is listed in the bundle, in file order, with its `title` and one-sentence `summary`; `build_scripting_wasm.py` copies its folder and writes `examples.json`. Examples that cannot run in a browser (`http`, `foreign-libraries`, the windowed `webgpu-triangle` and `webgpu-raymarch`, programs that return a status) have no `bundle` and still run natively in `tools/differential/jaic_sweep.py examples` (`jaic main.jai -interp`, or only `-check` with `mode: "check"`). `check_scripting_wasm.mjs` and `check_browser_release.mjs` run the bundled ones in the wasm engine under the case's `budget` via `tools/browser/examples_wasm.mjs`. The portfolio's `starter.ts` fetches `examples.json`, then each listed file of the chosen example, falling back to a two-file starter on any failure.
 
-To add a stop: write `examples/tour/<topic>/<file>.jai` with a `tour_<topic> :: ()` procedure, `#load` it in `main.jai`, add `.{ "Title", tour_<topic> }` to `stops`, and mention it in `tour.md`. All files share one global scope, so helpers need distinct names (a helper named `scale` collides with `Math`'s). A stop that shows a failure must sit behind a constant the reader flips (`BREAK_ON_PURPOSE`) so the default run stays green. Keep it browser-safe (no processes, sockets, windows or native libraries), short-running (auto-run reruns on every edit) and short-lined, and run jaifmt on it: `jaic jaifmt/main.jai -interp -- --check "$PWD/examples/tour"`. Update `stdout_contains` in `tests/corpus/examples.json` when output changes. `builder_to_string`, `NewArray` and `String` helpers take no allocator argument; wrap them in `push_allocator(temp)`.
+To add an example: create `examples/<name>/main.jai` (plus a `README.md` if it needs a guide), add a row to `PROGRAMS` in `crates/jaic-cli/tests/examples.rs` and a case to `tests/corpus/examples.json` with `stdout_contains` lines, and for the browser set `bundle: true`, `title`, `summary` and `args: ["-os", "wasm"]`. All files of a workspace share one global scope, so helpers need distinct names (a helper named `scale` collides with `Math`'s). A section that shows a failure must sit behind a constant the reader flips (`BREAK_ON_PURPOSE`) so the default run stays green. Keep it browser-safe (no processes, sockets, windows or native libraries), short-running (auto-run reruns on every edit) and short-lined, and run jaifmt on it: `jaic jaifmt/main.jai -interp -- --check "$PWD/examples"`. `builder_to_string`, `NewArray` and `String` helpers take no allocator argument; wrap them in `push_allocator(temp)`.
 
 ### Browser releases
 
@@ -59,8 +71,8 @@ To add a stop: write `examples/tour/<topic>/<file>.jai` with a `tour_<topic> :: 
 
 1. The checkout must be clean, the pinned nightly in `rust-toolchain.toml` at least 14 days old, locked dependencies pass `tools/ci/check_dependency_age.py`, and `tools/ci/check_ci_sources.py` checks literal `include_*!` inputs.
 2. It runs `build_scripting_wasm.py --release` into a temporary stage and replaces the build metadata with a relocatable `build-metadata.json` (`commit`, `schema_version`, `toolchain`, `wasm_sha256`).
-3. The stage must contain `jai_wasm.wasm`, `engine.mjs`, `jaifmt-playground.jai`, `jaifmt.wasm`, `build-metadata.json`, `README.md`, `tour.json` and `tour/main.jai`. Only `.wasm`, `.mjs`, `.jai`, `.json` and `.md` files are accepted; at most 64 files, 64 MiB each, 128 MiB total.
-4. `node tools/browser/check_browser_release.mjs <stage>` runs the **staged** engine: the exact inventory, a `tour/` matching `tour.json`, execution probes (exit codes, phases, nested `#load`, diagnostics, a `#run` workspace message loop, the virtual clock, the budget, a refused `#foreign`), the tour, a format, the language server, and `check_playground_stdlib.mjs`. Any failure means nothing is published.
+3. The stage must contain `jai_wasm.wasm`, `engine.mjs`, `jaifmt-playground.jai`, `jaifmt.wasm`, `build-metadata.json`, `README.md`, `examples.json` and `basics/main.jai`. Only `.wasm`, `.mjs`, `.jai`, `.json`, `.md` and `.toml` files are accepted (and `.png` in an example's `assets/`); at most 160 files, 64 MiB each, 128 MiB total.
+4. `node tools/browser/check_browser_release.mjs <stage>` runs the **staged** engine: the exact inventory, every example folder matching `examples.json` (and carrying `jacket.toml`), execution probes (exit codes, phases, nested `#load`, diagnostics, a `#run` workspace message loop, the virtual clock, the budget, a refused `#foreign`), every bundled example, a format, the language server, and `check_playground_stdlib.mjs`. Any failure means nothing is published.
 5. The ZIP uses fixed timestamps and modes (identical inputs give identical bytes), is read back against the inventory, and is written with `jai-playground.manifest.json` (`schema_version: 2`, `commit`, `files: [{path, size, sha256}]`, `archive`, `capabilities`) into an absent or empty output directory.
 
 Run it with `python3 tools/browser/package_browser_release.py --output target/browser-release --jaic target/debug/jaic`; `--jaic` is required (it builds `jaifmt.wasm`, needing LLVM 23 and `wasm-ld`; [wasm target](../native/wasm-target.md)). `.github/workflows/browser-release.yml` does this for one full SHA on manual dispatch with read-only permissions and uploads the two files as a workflow artifact.
@@ -68,19 +80,19 @@ Run it with `python3 tools/browser/package_browser_release.py --output target/br
 ## How to change it
 
 - **Target or options**: `options()` in `play.rs`. **More host services** (files, time): `SharedHost`/`SandboxHost::foreign` in `crates/jaic/src/interp/`. **Result shape**: `PlayResult::to_json`, `engine.mjs` and the portfolio's `src/lib/jai/engine.ts` together.
-- **Bundle contents**: `BUNDLED_GLUE` in `build_scripting_wasm.py`, `REQUIRED` and `MAX_FILES` in `package_browser_release.py`, `BUNDLE_FILES`/`BUNDLE_EXAMPLES` in `check_browser_release.mjs` must agree; coordinate with the portfolio's verifier and sync script. Probes must run the staged files, not the source tree.
+- **Bundle contents**: `BUNDLED_GLUE` in `build_scripting_wasm.py`, `REQUIRED` and `MAX_FILES` in `package_browser_release.py`, `BUNDLE_FILES` in `check_browser_release.mjs` must agree; coordinate with the portfolio's verifier and sync script. Probes must run the staged files, not the source tree.
 - **Panics**: wasm32 panics abort, so a compiler bug traps the instance. `jai_play_reset` installs a panic hook that records the message; `engine.mjs::play` throws `The compiler crashed: <message>` with `compilerCrashed = true`, and the engine must be recreated.
 - **No real clock** on wasm32: `#cycle_counter` counts calls; `SandboxHost` provides a virtual deterministic clock (+1 microsecond per call), `nanosleep`/`usleep` that advance it and never block, and `wasm_debug_break`. Other native `#foreign` symbols fail with ``foreign procedure `x` is not available here`` or `unknown library`. Under `OS == .WASM`, Runtime_Support writes output through the foreign `wasm_write_string`.
 - **Files**: runtime reads see the workspace (cwd `/workspace`) and `/stdlib`; writes go to an in-memory overlay (`/tmp` exists) that lasts one `play`. `normalize` clamps `..` at the root.
-- **Example assets**: files in a bundled example's `assets/` folder (`.png`, at most 256 KiB each) are not workspace sources. The program fetches them with `load_asset` when the page creates the engine with `assets: { base: "<bundle>/<name>/" }` ([assets](../extensions/assets.md)).
+- **Example assets**: files in a bundled example's `assets/` folder (`.png`, at most 256 KiB each) are not workspace sources. The program fetches them with `load_asset` when the page creates the engine with `assets: { base: "<name>/" }` ([assets](../extensions/assets.md)).
 - **Threads** take turns on one host thread ([interpreter](../compiler/interpreter.md#threads)); a busy wait must poll (atomic read, `pause`, `sched_yield`) for others to run, and sleeping only moves the virtual clock. Public `Thread` and `POSIX` modules are not browser WASM APIs.
 
 ## Configuration
 
 - `cargo build -p jai-wasm --release --target wasm32-unknown-unknown`, or the build script to stage the bundle; `--target-dir` and `CARGO_TARGET_DIR` select the build directory.
 - Tests: `python3 tools/run_tests.py -p 'test_*.py'`, `node --test tools/browser/test_*.mjs`. CI (`.github/workflows/ci.yml`) runs the Node checks on a debug build.
-- Portfolio: `MAX_TOUR_FILES` (64) and `MAX_TOUR_BYTES` (1 MiB) in `starter.ts`.
-- `tests/corpus/examples.json` keys: `directory`, `main`, `args`, `budget`, `bundle`, `stdout_contains`, `stdout_excludes`.
+- Portfolio: per-example file and byte limits (`MAX_TOUR_FILES`, `MAX_TOUR_BYTES`) in `starter.ts`.
+- `tests/corpus/examples.json` keys: `id`, `directory`, `main`, `title`, `summary`, `args`, `budget`, `bundle`, `mode`, `exit_code`, `stdout_contains`, `stdout_excludes`.
 
 ## Dependencies
 

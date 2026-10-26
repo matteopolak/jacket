@@ -45,9 +45,9 @@ LLVM_FEATURES = {
 }
 # Files the scripted jailsp session opens: a program with imports, a generic module and tests.
 LSP_FILES = [
-    "examples/tour/main.jai",
-    "examples/tour/generics/polymorphism.jai",
-    "examples/compile-time-record.jai",
+    "examples/metaprogramming/main.jai",
+    "examples/polymorphism/polymorphism.jai",
+    "examples/compile-time-record/main.jai",
     "stdlib/Hash_Table/tests/duplicate-keys.jai",
     "stdlib/String/module.jai",
 ]
@@ -394,7 +394,7 @@ def train(bins, args, env, native):
     else:
         steps.append(("check jaifmt", [bins["jaic"], jaifmt, "-check"]))
     steps += [
-        ("check tour", [bins["jaic"], ROOT / "examples/tour/main.jai", "-check"]),
+        ("check examples", [bins["jaic"], ROOT / "examples/metaprogramming/main.jai", "-check"]),
         (
             "jailint stdlib",
             [bins["jailint"], "--color", "never", "-j", str(args.jobs), "stdlib"],

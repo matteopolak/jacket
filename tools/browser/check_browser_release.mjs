@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Checks a staged browser bundle and executes its own engine.mjs and Wasm, never a source-tree copy.
-// The bundle is the compiler module plus embedder glue and the tour workspace; there is no UI
+// The bundle is the compiler module plus embedder glue and the example workspaces; there is no UI
 // (docs/browser/playground.md).
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -10,10 +10,10 @@ import path from "node:path";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { checkExample, exampleCases } from "./examples_wasm.mjs";
 
-export const BUNDLE_FILES = ["README.md", "build-metadata.json", "engine.mjs", "jai_wasm.wasm", "jaifmt-playground.jai", "jaifmt.wasm", "textured_cube.json", "tour.json",
+export const BUNDLE_FILES = ["README.md", "build-metadata.json", "engine.mjs", "examples.json", "jai_wasm.wasm", "jaifmt-playground.jai", "jaifmt.wasm",
   "webgpu_bindings.generated.mjs", "webgpu_host.mjs"];
-/** Example workspaces shipped as folders, each described by `<name>.json` (tools/browser/build_scripting_wasm.py). */
-export const BUNDLE_EXAMPLES = ["textured_cube", "tour"];
+/** Version of examples.json, the index of the example workspaces (tools/browser/build_scripting_wasm.py). */
+export const EXAMPLES_SCHEMA_VERSION = 2;
 
 /** Relative paths of every regular file under `directory`; symlinks and other file types are rejected. */
 async function regularFiles(directory, prefix = "") {
@@ -31,26 +31,42 @@ async function regularFiles(directory, prefix = "") {
   return found;
 }
 
-/** The files of a staged example workspace, checked against its index. */
-export async function exampleFiles(directory, name) {
-  const index = JSON.parse(await readFile(path.join(directory, `${name}.json`), "utf8"));
-  assert.equal(index.schema_version, 1);
+/** The entries of a staged examples.json: `{name, title, summary, main, files, assets}` per example workspace. */
+export async function bundleExamples(directory) {
+  const index = JSON.parse(await readFile(path.join(directory, "examples.json"), "utf8"));
+  assert.equal(index.schema_version, EXAMPLES_SCHEMA_VERSION);
+  assert(Array.isArray(index.examples) && index.examples.length > 0, "examples.json must list at least one example");
+  const names = new Set();
+  for (const example of index.examples) {
+    assert.match(example.name, /^[a-z][a-z0-9]*(-[a-z0-9]+)*$/, "Example names are kebab-case");
+    assert(!names.has(example.name), `examples.json lists ${example.name} twice`);
+    names.add(example.name);
+    for (const key of ["title", "summary", "main"]) assert(typeof example[key] === "string" && example[key] !== "", `${example.name} needs a ${key}`);
+    assert(Array.isArray(example.files) && Array.isArray(example.assets), `${example.name} needs files and assets lists`);
+  }
+  return index.examples;
+}
+
+/** The files of a staged example workspace, checked against its examples.json entry. */
+export async function exampleFiles(directory, example) {
+  const { name, files: sources, assets } = example;
   const listed = (await regularFiles(directory, name)).map(file => file.slice(name.length + 1));
-  const assets = index.assets ?? [];
-  assert.deepEqual([...index.files, ...assets].sort(), listed, `${name}.json must list exactly the files under ${name}/`);
-  assert(index.files.includes(index.main), `${name}.json names a main file it does not list`);
-  for (const asset of assets) assert(asset.startsWith("assets/") && asset.endsWith(".png"), `${name}.json lists an unexpected asset: ${asset}`);
+  assert.deepEqual([...sources, ...assets].sort(), listed, `examples.json must list exactly the files under ${name}/`);
+  assert(sources.includes(example.main), `${name} names a main file it does not list`);
+  assert(sources.includes("jacket.toml"), `${name} carries the shared jacket.toml`);
+  for (const asset of assets) assert(asset.startsWith("assets/") && asset.endsWith(".png"), `${name} lists an unexpected asset: ${asset}`);
   const files = {};
-  for (const file of index.files) files[file] = await readFile(path.join(directory, name, file), "utf8");
-  return { main: index.main, files };
+  for (const file of sources) files[file] = await readFile(path.join(directory, name, file), "utf8");
+  return { main: example.main, files };
 }
 
 export async function inspectAssets(directory) {
   const entries = await regularFiles(directory);
   const nested = entries.filter(name => name.includes("/"));
-  assert.deepEqual(entries.filter(name => !name.includes("/")), BUNDLE_FILES, "The bundle holds exactly the Wasm module, its glue, the formatter driver, metadata, README and the tour index");
-  for (const name of nested) assert(BUNDLE_EXAMPLES.includes(name.split("/")[0]), `Unexpected bundle folder: ${name}`);
-  for (const name of BUNDLE_EXAMPLES) await exampleFiles(directory, name);
+  assert.deepEqual(entries.filter(name => !name.includes("/")), BUNDLE_FILES, "The bundle holds exactly the Wasm module, its glue, the formatter driver, metadata, README and the examples index");
+  const examples = await bundleExamples(directory);
+  for (const name of nested) assert(examples.some(example => example.name === name.split("/")[0]), `Unexpected bundle folder: ${name}`);
+  for (const example of examples) await exampleFiles(directory, example);
   const metadata = JSON.parse(await readFile(path.join(directory, "build-metadata.json"), "utf8"));
   assert.equal(metadata.schema_version, 1);
   assert.match(metadata.commit, /^[0-9a-f]{40}$/);
@@ -165,12 +181,15 @@ export async function checkRelease(directory, { stdlib = true } = {}) {
   assert.match(formatted.stdout, /^main :: \(\) \{\n\s+x := 1;\n\}\n$/);
   // So does jaifmt.wasm, the formatter compiled to WebAssembly, reading stdin under WASI.
   assert.equal(formatWithWasi(path.join(directory, "jaifmt.wasm"), "main::(){\nx:=1;\n}\n"), formatted.stdout);
-  // The staged tour runs as the playground opens it: its own files, under the playground's budget.
-  const tours = [];
-  for (const testCase of (await exampleCases()).filter(item => item.bundle)) {
-    const { main, files } = await exampleFiles(directory, testCase.bundle);
+  // The staged examples run as the playground opens them: their own files, under the playground's budget.
+  const examples = [];
+  const staged = await bundleExamples(directory);
+  const cases = (await exampleCases()).filter(item => item.bundle);
+  assert.deepEqual(staged.map(example => example.name), cases.map(item => item.id), "examples.json lists the corpus's bundled examples, in order");
+  for (const [position, testCase] of cases.entries()) {
+    const { main, files } = await exampleFiles(directory, staged[position]);
     assert.equal(main, testCase.main);
-    tours.push(`${testCase.bundle} ${Math.round(checkExample(engine, testCase, files))} ms`);
+    examples.push(`${testCase.id} ${Math.round(checkExample(engine, testCase, files))} ms`);
   }
   const lsp = typeof engine.lsp === "function";
   if (lsp) {
@@ -184,12 +203,12 @@ export async function checkRelease(directory, { stdlib = true } = {}) {
     assert.equal(sweep.status, 0, `stdlib tests failed in the browser engine:\n${sweep.stdout}${sweep.stderr}`);
     stdlibPassSet = sweep.stdout.trim();
   }
-  return { commit: metadata.commit, runtime: true, lsp, tours, stdlibPassSet };
+  return { commit: metadata.commit, runtime: true, lsp, examples, stdlibPassSet };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
   if (!(process.argv.length === 3 || (process.argv.length === 5 && process.argv[3] === "--report"))) throw new Error("usage: node tools/browser/check_browser_release.mjs <staged-directory> [--report <json-path>]");
   const result = await checkRelease(path.resolve(process.argv[2]));
   if (process.argv[3] === "--report") await writeFile(process.argv[4], JSON.stringify(result) + "\n");
-  console.log(`PASS: staged browser bundle ${result.commit}, runtime=true, lsp=${result.lsp}; ${result.tours.join(", ")}; ${result.stdlibPassSet}`);
+  console.log(`PASS: staged browser bundle ${result.commit}, runtime=true, lsp=${result.lsp}; ${result.examples.join(", ")}; ${result.stdlibPassSet}`);
 }

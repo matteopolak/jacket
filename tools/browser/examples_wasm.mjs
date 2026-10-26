@@ -1,6 +1,7 @@
-// Runs the example programs listed in tests/corpus/examples.json (examples/tour, ...) in a wasm engine, the
-// way the hosted playground does: every file of the example's directory as the workspace, its main
-// file as the entry point, and the case's `budget` (the playground's basic-block limit).
+// Runs the bundled example workspaces listed in tests/corpus/examples.json (examples/<name>) in a wasm
+// engine, the way the hosted playground does: every file of the example's directory plus the shared
+// jacket.toml as the workspace, its main file as the entry point, and the case's `budget` (the
+// playground's basic-block limit).
 import assert from "node:assert/strict";
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
@@ -40,8 +41,9 @@ export function checkExample(engine, testCase, files) {
 /** Source-tree example cases, for checks that run a freshly built module. */
 export async function checkSourceExamples(engine) {
   const timings = [];
-  for (const testCase of await exampleCases()) {
-    const files = await workspaceFiles(path.join(root, testCase.directory));
+  const config = await readFile(path.join(root, "examples/jacket.toml"), "utf8");
+  for (const testCase of (await exampleCases()).filter(item => item.bundle)) {
+    const files = { ...await workspaceFiles(path.join(root, testCase.directory)), "jacket.toml": config };
     timings.push(`${testCase.id} ${Math.round(checkExample(engine, testCase, files))} ms`);
   }
   return timings;

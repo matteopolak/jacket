@@ -20,14 +20,19 @@ async function fixture() {
   await writeFile(path.join(directory, "webgpu_host.mjs"), 'import { STRUCTS } from "./webgpu_bindings.generated.mjs";\nexport function createWebGPUHost() { return { functions: { STRUCTS } }; }\n');
   await writeFile(path.join(directory, "webgpu_bindings.generated.mjs"), "export const STRUCTS = {};\n");
   await writeFile(path.join(directory, "jaifmt.wasm"), formatter);
-  await mkdir(path.join(directory, "tour", "nested"), { recursive: true });
-  await writeFile(path.join(directory, "tour", "main.jai"), '#load "nested/part.jai";\n');
-  await writeFile(path.join(directory, "tour", "nested", "part.jai"), "main :: () {}\n");
-  await writeFile(path.join(directory, "tour.json"), JSON.stringify({ schema_version: 1, main: "main.jai", files: ["main.jai", "nested/part.jai"] }));
-  await mkdir(path.join(directory, "textured_cube", "assets"), { recursive: true });
-  await writeFile(path.join(directory, "textured_cube", "main.jai"), "main :: () {}\n");
-  await writeFile(path.join(directory, "textured_cube", "assets", "a.png"), Buffer.from([137, 80, 78, 71]));
-  await writeFile(path.join(directory, "textured_cube.json"), JSON.stringify({ schema_version: 1, main: "main.jai", files: ["main.jai"], assets: ["assets/a.png"] }));
+  await mkdir(path.join(directory, "walk", "nested"), { recursive: true });
+  await writeFile(path.join(directory, "walk", "main.jai"), '#load "nested/part.jai";\n');
+  await writeFile(path.join(directory, "walk", "nested", "part.jai"), "main :: () {}\n");
+  await writeFile(path.join(directory, "walk", "jacket.toml"), "[format]\n");
+  await mkdir(path.join(directory, "textured-cube", "assets"), { recursive: true });
+  await writeFile(path.join(directory, "textured-cube", "main.jai"), "main :: () {}\n");
+  await writeFile(path.join(directory, "textured-cube", "jacket.toml"), "[format]\n");
+  await writeFile(path.join(directory, "textured-cube", "assets", "a.png"), Buffer.from([137, 80, 78, 71]));
+  const examples = [
+    { name: "walk", title: "Walk", summary: "Loads a nested file.", main: "main.jai", files: ["main.jai", "jacket.toml", "nested/part.jai"], assets: [] },
+    { name: "textured-cube", title: "Cube", summary: "Loads an asset.", main: "main.jai", files: ["main.jai", "jacket.toml"], assets: ["assets/a.png"] },
+  ];
+  await writeFile(path.join(directory, "examples.json"), JSON.stringify({ schema_version: 2, examples }));
   const metadata = { schema_version: 1, commit: "a".repeat(40), toolchain: "nightly-2026-08-29", wasm_sha256: createHash("sha256").update(wasm).digest("hex"),
     jaifmt_wasm_sha256: createHash("sha256").update(formatter).digest("hex") };
   await writeFile(path.join(directory, "build-metadata.json"), JSON.stringify(metadata));
@@ -54,15 +59,18 @@ test("UI leftovers, a stale module digest and engine imports are rejected", asyn
   } finally { await rm(temporary, { recursive: true }); }
 });
 
-test("the tour index must list exactly the staged tour files, and no other folder is allowed", async () => {
+test("the examples index must list exactly the staged example files, and no other folder is allowed", async () => {
   const { temporary, directory } = await fixture();
   try {
-    await writeFile(path.join(directory, "tour", "extra.jai"), "x :: 1;\n");
+    await writeFile(path.join(directory, "walk", "extra.jai"), "x :: 1;\n");
     await assert.rejects(inspectAssets(directory), /list exactly the files/);
-    await rm(path.join(directory, "tour", "extra.jai"));
-    await writeFile(path.join(directory, "textured_cube", "assets", "b.png"), Buffer.from([137]));
+    await rm(path.join(directory, "walk", "extra.jai"));
+    await writeFile(path.join(directory, "textured-cube", "assets", "b.png"), Buffer.from([137]));
     await assert.rejects(inspectAssets(directory), /list exactly the files/);
-    await rm(path.join(directory, "textured_cube", "assets", "b.png"));
+    await rm(path.join(directory, "textured-cube", "assets", "b.png"));
+    await rm(path.join(directory, "walk", "jacket.toml"));
+    await assert.rejects(inspectAssets(directory), /list exactly the files/);
+    await writeFile(path.join(directory, "walk", "jacket.toml"), "[format]\n");
     await mkdir(path.join(directory, "ui"));
     await writeFile(path.join(directory, "ui", "index.mjs"), "");
     await assert.rejects(inspectAssets(directory), /Unexpected bundle folder/);

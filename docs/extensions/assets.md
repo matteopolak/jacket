@@ -2,7 +2,7 @@
 
 ## What it is
 
-`load_asset(path) -> bytes, ok` loads a file a program ships with (a texture, a sound, a level) by a relative path. The same call works natively, in compiled `-os wasm` programs and in the browser playground, where the page fetches it. `examples/webgpu/textured_cube` uses it to load its PNG texture.
+`load_asset(path) -> bytes, ok` loads a file a program ships with (a texture, a sound, a level) by a relative path. The same call works natively, in compiled `-os wasm` programs and in the browser playground, where the page fetches it. `examples/textured-cube` uses it to load its PNG texture.
 
 ```jai
 #import "Extensions/Assets";

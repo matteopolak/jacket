@@ -14,7 +14,7 @@ Runs `jaic` over sets of programs and reports pass/fail. Each case runs `jaic <m
 | `negative` | `kind: negative` manifest cases (run by CI in the O0 sanitizer sweep) | check mode, non-zero exit, recorded text in stderr; a `disabled` reason switches a case off and is reported |
 | `regressions` | `tests/compiler/regressions/*.jai`, refined by its `manifest.json` | run, exit 0 or the row's expectation |
 | `modules` | `stdlib/**/tests/*.jai`, refined by each directory's `manifest.json` | run, exit 0 or the row's expectation |
-| `examples` | `tests/corpus/examples.json` (`examples/tour`) | run with `args`, `stdout_contains`/`stdout_excludes` |
+| `examples` | `tests/corpus/examples.json` (one folder per example in `examples/`) | run with `args`, `stdout_contains`/`stdout_excludes` |
 | `upstream` | `tools/upstream-cases.json` ([upstream corpus](upstream-corpus.md)) | `run` or `check`, plus the case's `expect` record |
 | a path | that file | run |
 
@@ -27,7 +27,7 @@ Options: `--filter`, `--verbose`, `--timeout` (default 60; 900 for the full swee
 - The memory limit is passed to `jaic` as `JAIC_MEMORY_LIMIT`; `jaic` exits 120 at the first allocation past it (LLVM and child processes are not capped). The sweep refuses to run a `jaic` older than the sources in `crates/jaic`, `jaic-cli` or `jaic-llvm`, because a stale build may lack the limits that keep negative cases from exhausting memory.
 - The `upstream` set needs `python3 tools/fetch_upstreams.py` first. The sweep builds missing native libraries and sets `JAIC_NATIVE_LIBS`.
 
-Every program in `examples/` is also checked by `cargo test -p jaic-cli --test examples`: `jaic -check -os <os>` for each OS its row in `PROGRAMS` lists, with the reason when one is left out (the HTTP and window examples are native only). A file another example `#load`s (the tour's sections, `http/notes.jai`) is checked through that program; a new example fails the test until it has a row.
+Every program in `examples/` is also checked by `cargo test -p jaic-cli --test examples`: `jaic -check -os <os>` for each OS its row in `PROGRAMS` lists, with the reason when one is left out (the HTTP and window examples are native only). A file another example `#load`s (a workspace's sections, `http/notes.jai`) is checked through that program; a new example fails the test until it has a row and a case in `tests/corpus/examples.json`.
 
 **Adding cases:**
 
