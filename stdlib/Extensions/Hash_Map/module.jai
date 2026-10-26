@@ -241,6 +241,9 @@ for_expansion :: (map: *$T/Map, body: Code, flags: For_Flags) #expand {
 Hash :: #import "Hash";
 SIMD :: #import "Extensions/SIMD";
 
+// Groups up to which a rebuild keeps its fill counts on the stack.
+REBUILD_STACK_GROUPS :: 512;
+
 // A control byte is EMPTY (never used since the last rebuild), DELETED (held an entry once), or
 // the top seven bits of the spread hash of the entry in its slot. The top bit is what tells them apart.
 EMPTY: u8 : 0xFF;
@@ -446,16 +449,41 @@ rebuild :: (map: *Map, new_capacity: s64) {
     map.capacity = new_capacity;
     memset(map.control, EMPTY, new_capacity);
 
+    // The new block starts empty and only fills, so a group's next free slot is its fill count.
+    // Reading the control bytes back to find it would load a group right after a byte store to
+    // it, which the next entry of the same old group does (it lands in the same new group), and
+    // such a load has to wait for the store.
+    group_count := new_capacity / GROUP_SIZE;
+    group_mask := group_count - 1;
+    fill_stack: [REBUILD_STACK_GROUPS] u8 = ---;
+    fills := fill_stack.data;
+
+    if group_count > REBUILD_STACK_GROUPS fills = map.allocator.proc(.ALLOCATE, group_count, 0, null, map.allocator.data);
+
+    memset(fills, 0, group_count);
+
     for slot: 0..old_capacity - 1 {
         if (old_control[slot] & 0x80) != 0 continue;
 
         old := old_entries + slot;
         start, tag := split_hash(map, old.key);
-        target := first_free_slot(map, start);
+        group := start & group_mask;
+        stride: s64;
+
+        while fills[group] == GROUP_SIZE {
+            stride += 1;
+            group = (group + stride) & group_mask;
+        }
+
+        target := group * GROUP_SIZE + fills[group];
+
+        fills[group] += 1;
 
         map.control[target] = tag;
         (map.entries + target).* = old.*;
     }
+
+    if group_count > REBUILD_STACK_GROUPS map.allocator.proc(.FREE, 0, group_count, fills, map.allocator.data);
 
     map.growth_left = max_load(new_capacity) - map.count;
 
