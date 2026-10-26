@@ -38,7 +38,7 @@ describe("workspace trust", () => {
   it("restricts every setting that names a program, a directory it reads or compiler arguments", () => {
     const restricted: string[] = capability.restrictedConfigurations;
     for (const name of Object.keys(properties)) {
-      const executes = name.endsWith(".path") || name === "jai.stdlib.prelude" || name === "jai.run.arguments" || name === "jai.toolchain.autoDownload" || name === "jai.toolchain.preferDownloaded";
+      const executes = name.endsWith(".path") || name === "jai.stdlib.prelude" || name === "jai.run.arguments" || name === "jai.tests.arguments" || name === "jai.toolchain.autoDownload" || name === "jai.toolchain.preferDownloaded";
       assert.equal(restricted.includes(name), executes, name);
     }
     for (const name of restricted) assert.ok(name in properties, `${name} is not a setting`);

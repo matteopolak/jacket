@@ -146,7 +146,7 @@ function fakeRelease(files: Record<string, Uint8Array | string>) {
   return { fetcher, requests };
 }
 
-function fakeUnpack(asset: string, tools = ["jaic", "jailsp", "jailint", "jaifmt"]) {
+function fakeUnpack(asset: string, tools = ["jaic", "jailsp", "jailint", "jaifmt", "jacket"]) {
   return async (_archive: string, into: string) => {
     const dir = path.join(into, archiveRoot(asset));
     await fs.mkdir(path.join(dir, "stdlib", "prelude"), { recursive: true });
@@ -296,7 +296,7 @@ describe("install", () => {
       fetcher,
       pinned: { version: "0.4.0", sha256: { [zip]: sha256(archive) } },
       log: () => {},
-      unpack: fakeUnpack(zip, ["jaic.exe", "jailsp.exe", "jailint.exe", "jaifmt.exe"]),
+      unpack: fakeUnpack(zip, ["jaic.exe", "jailsp.exe", "jailint.exe", "jaifmt.exe", "jacket.exe"]),
     });
     assert.equal(store.toolPath("0.4.0", zip, "jailsp"), path.join(dir, "jailsp.exe"));
     assert.ok(store.isInstalled("0.4.0", zip));

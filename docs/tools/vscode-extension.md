@@ -14,6 +14,10 @@ src/toolchainManager.ts  prompts, progress, remembered answers
 src/jaifmt.ts            ignore query (`jaifmt --is-ignored`), minimal edit, jaifmt --stdin
 src/commands.ts          Run/Build/Check File as tasks
 src/expansion.ts         jai.showExpansion / jai.showPolymorphs, jai-expansion: documents
+src/testing.ts           the test explorer and the Run/Debug Test lens commands (VS Code side)
+src/testEvents.ts        `jacket test --format json` events and what they mean (pure; unit-tested)
+src/testTree.ts          the file -> test -> case tree from `--list` (pure)
+src/testProcess.ts       `jacket test` arguments, streaming its events, the PATH it runs with (pure)
 scripts/build-grammar.ts writes syntaxes/jai.tmLanguage.json
 scripts/build.ts schemas writes schemas/jailint.schema.json (from the `rules!` list in jailint's `rules/mod.rs` and each rule module's `INFO`) and jaifmt.schema.json
 ```
@@ -26,6 +30,8 @@ scripts/build.ts schemas writes schemas/jailint.schema.json (from the `rules!` l
 - **Old toolchain on PATH.** When the `jailsp` found on `PATH` reports (`--version`, `src/pathVersion.ts`) a version older than the extension's, `warnIfStale` warns with its path, both versions and a note that `PATH` wins over the download. *Download Latest Toolchain* runs the normal download, sets `jai.toolchain.preferDownloaded` (global) and restarts through the lifecycle queue. *Keep Using It* stores `path@version` in `jai.toolchain.acceptedStale` (global state), so only a newer version on that path warns again. Equal or newer versions never warn.
 - **Toolchain download.** With nothing found, `jai.toolchain.autoDownload` (`prompt`/`always`/`never`) decides. The archive name comes from `RELEASE_ASSETS` (`${platform}-${arch}` to `jacket-<platform>.tar.gz`, `.zip` on Windows). It is checked against `toolchain-manifest.json` (compiler version and SHA-256 of each archive, written at packaging time by `tools/ci/toolchain_manifest.py`; development builds fall back to the release's own manifest; see [releases](releases.md#toolchain-manifest)), unpacked with system `tar` into staging, then renamed to `<globalStorage>/toolchain/<version>/`. A cached folder whose recorded hash differs from the current pin is replaced; older versions are deleted only after the new one is installed.
 - **Formatting.** `jailsp` has no `textDocument/formatting`, so the extension runs `jaifmt --stdin` in the document's folder, first skipping files the config's `ignore` list covers (asked of `jaifmt --is-ignored <file>`; `--stdin` does not apply the list). It returns one edit covering the changed span; on failure it leaves the text alone and shows jaifmt's message.
+- **Test explorer.** `JacketTests` (`testing.ts`) is a `vscode.tests` controller. Opening the Testing view (or its refresh button) runs `jacket test --list --format json` in each workspace folder; `buildTree` makes files, their tests and under a `@cases` test one item per case. Saving a `.jai` file below a `tests/` folder or a known test file, or `jacket.toml`, lists again after 500 ms. Running (the *Run* profile) starts `jacket test --format json --exact NAME...` (no names for *Run All*) and maps each event as it streams: `passed`, `xfail` and `flaky` pass, `skipped` skips, `failed`, `timed_out` and `xpass` fail. A failed check becomes a `TestMessage` at its file and line (jacket gives no column), and a problem in the *jacket test* diagnostics collection, which each run clears for the files it covers. A test that crashes shows jacket's explanation and the program's last words. Discovery and runs are queued, never overlapping, and need a trusted workspace. `jacket` is found like `jaifmt` (`jai.jacket.path`), and the folder of the configured `jaic` goes first on its `PATH`.
+- **Test lenses.** `jailsp` puts *Run test* and *Debug test* over each `@test` procedure ([language server](../compiler/language-server.md)); they call `jai.runTest` and `jai.debugTest` with the lens argument. A test the explorer knows runs as an explorer item. Otherwise (a project below the workspace folder, or before discovery) a new item is added and `jacket test` runs from the lens' `projectRoot` with `--path testRoot` and the lens' filter. *Debug* shows a message: the extension has no debug configuration for Jai programs, and `jacket` builds the test program in a temporary folder.
 - **Commands.** *Run/Build/Check File* save and run `jaic <file> [-interp|-check] <jai.run.arguments>` as a task. Refactorings, call hierarchy and expand selection are plain `jailsp` capabilities with no extension code. `source.fixAll.jailint` works with `editor.codeActionsOnSave`.
 
 ## How to change it
@@ -44,6 +50,7 @@ To try a change by hand, `just vscode-try [FOLDER]` (from the repository root) b
 
 - **Grammar:** edit `build-grammar.ts`, rebuild, add assertions to `test/grammar/*.jai` (vscode-tmgrammar-test: `^` under tested columns). `scripts/tokenize-corpus.ts` tokenizes `examples/` and `stdlib/` and fails on a token left open; run it on the upstream corpus after big changes.
 - **New here-string language:** add the tags to `LANGUAGE_TAGS` in `crates/jaic/src/lexer/here.rs`, regenerate `editors/lexicon.json` (below) and add the language to `EMBEDDED_LANGUAGES` in `build-grammar.ts` (the build fails while they differ), and to the playground's table if supported. Avoid common generic terminators.
+- **Test explorer:** a new field of the JSON is read in `parseEvent` (`testEvents.ts`) and, to show it, mapped in `outcomeOf`; how items are laid out is `buildTree`; everything that touches VS Code is `testing.ts`. Add tests to `test/unit/test*.test.ts`. The lens argument is built in `crates/jai-language-server/src/test_lenses.rs`; keep `LensArgument` in step. Debugging needs a debug adapter for Jai programs and a way to keep the test program: `jacket` builds the test program in a temporary work folder, so both must exist before `debugUnavailable` can start a session.
 - **New jailint rule:** nothing; the schema regenerates and lint fails while stale. **New `[format]` key:** `scripts/build.ts` (`schemas`). **New release platform:** one row in `RELEASE_ASSETS` (a unit test compares it with the `release.yml` matrix).
 - **Icons:** `pnpm run icons` (`scripts/build.ts icon`) regenerates SVG/PNG icons from the playground glyph; lint fails when stale. **Screenshots** for the README: `pnpm run screenshots` on macOS (`test/screenshots/`).
 - **Dependencies:** pnpm is pinned by `packageManager`. Every npm package must be at least 14 days old ([development](development.md#dependency-policy)); `pnpm-workspace.yaml` sets `minimumReleaseAge` and `scripts/check-dependency-age.ts` rejects non-registry lockfile entries and ages pnpm itself in CI. `@types/vscode` must not be newer than `engines.vscode`.
@@ -69,8 +76,11 @@ Gotchas:
 | `jai.completion.callSnippets` | `addParentheses` | what accepting a procedure inserts: `addParentheses`, `fillArguments`, `none` |
 | `jai.inlayHints.closingBraceMinLines` | `25` | name the closing brace of procedures, structs and enums this many lines long (`0` is off) |
 | `jai.run.arguments` | `[]` | extra arguments for the commands |
+| `jai.jacket.path` | `""` | `jacket` location, for the test explorer |
+| `jai.tests.codeLens` | `true` | Run Test / Debug Test lenses over `@test` procedures |
+| `jai.tests.arguments` | `[]` | extra arguments for `jacket test` when the explorer lists and runs (`--interp`, `--`, `-O2`) |
 
-In an untrusted workspace `server.path`, `compiler.path`, `formatter.path`, `stdlib.path`, `toolchain.autoDownload`, `toolchain.preferDownloaded` and `run.arguments` are ignored when set by the workspace (`restrictedConfigurations`), jailsp is started with `trusted: false` (no `#run`, build metaprograms or computed `#insert`), Run/Build/Check File refuse, and granting trust restarts the client. See [workspace trust](workspace-trust.md).
+In an untrusted workspace `server.path`, `compiler.path`, `formatter.path`, `jacket.path`, `stdlib.path`, `toolchain.autoDownload`, `toolchain.preferDownloaded`, `run.arguments` and `tests.arguments` are ignored when set by the workspace (`restrictedConfigurations`), jailsp is started with `trusted: false` (no `#run`, build metaprograms or computed `#insert`), Run/Build/Check File refuse, the test explorer lists and runs nothing, and granting trust restarts the client. See [workspace trust](workspace-trust.md).
 | `jai.trace.server` | `off` | `messages`/`verbose` log LSP traffic |
 
 Test environment: `JAILSP`, `JAIFMT`, `VSCODE_EXECUTABLE`.
@@ -79,7 +89,7 @@ CI (`vscode-extension` job in `ci.yml`): dependency ages, `pnpm run lint`, `pnpm
 
 ## Dependencies
 
-VS Code 1.91+, `vscode-languageclient` (bundled), system `tar`, and the toolchain (`jailsp`, `jaic`, `jaifmt`). Development: pnpm, TypeScript, Rolldown, oxlint, `@vscode/test-electron`, `vscode-tmgrammar-test`, `@vscode/vsce`, `ovsx`, `@resvg/resvg-js`. Internal: the `jailsp` protocol (`crates/jai-language-server/src/protocol.rs`), jailint's rule table, jaifmt's `--stdin` contract and release archive names.
+VS Code 1.91+, `vscode-languageclient` (bundled), system `tar`, and the toolchain (`jailsp`, `jaic`, `jaifmt`, `jacket`). Development: pnpm, TypeScript, Rolldown, oxlint, `@vscode/test-electron`, `vscode-tmgrammar-test`, `@vscode/vsce`, `ovsx`, `@resvg/resvg-js`. Internal: the `jailsp` protocol (`crates/jai-language-server/src/protocol.rs`), jailint's rule table, jaifmt's `--stdin` contract and release archive names.
 
 
 ## Trying the development toolchain

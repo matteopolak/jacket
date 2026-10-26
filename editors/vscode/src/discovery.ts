@@ -1,4 +1,4 @@
-// Finding jailsp, jaic and jaifmt. Pure functions over an injectable file system and
+// Finding jailsp, jaic, jaifmt and jacket. Pure functions over an injectable file system and
 // environment, so the unit tests can describe any machine.
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -77,6 +77,7 @@ export interface Settings {
   serverPath?: string;
   compilerPath?: string;
   formatterPath?: string;
+  jacketPath?: string;
   /** Use the downloaded toolchain ahead of `PATH` (`jai.toolchain.preferDownloaded`). */
   preferToolchain?: boolean;
 }
@@ -134,19 +135,36 @@ export function findServer(settings: Settings, env: Environment, toolchainDir?: 
  * next to the server, else the downloaded toolchain.
  */
 export function findFormatter(settings: Settings, env: Environment, toolchainDir?: string): Found | undefined {
-  const fromSetting = configuredTool(settings.formatterPath, "jai.formatter.path", env);
+  return findCompanion("jaifmt", settings.formatterPath, "jai.formatter.path", settings, env, toolchainDir);
+}
+
+/** `jacket`, found as `jaifmt` is, from `jai.jacket.path`. */
+export function findJacket(settings: Settings, env: Environment, toolchainDir?: string): Found | undefined {
+  return findCompanion("jacket", settings.jacketPath, "jai.jacket.path", settings, env, toolchainDir);
+}
+
+/** A tool that ships beside the compiler and the server: its own setting, PATH, either neighbour, the toolchain. */
+function findCompanion(
+  tool: Tool,
+  configured: string | undefined,
+  setting: string,
+  settings: Settings,
+  env: Environment,
+  toolchainDir: string | undefined,
+): Found | undefined {
+  const fromSetting = configuredTool(configured, setting, env);
   if (fromSetting) return fromSetting;
-  const downloaded = settings.preferToolchain ? inToolchain("jaifmt", env, toolchainDir) : undefined;
+  const downloaded = settings.preferToolchain ? inToolchain(tool, env, toolchainDir) : undefined;
   if (downloaded) return downloaded;
-  const fromPath = onPath("jaifmt", env);
+  const fromPath = onPath(tool, env);
   if (fromPath) return { path: fromPath, source: "path" };
   const compiler = findCompiler(settings, env);
-  const besideCompiler = compiler && nextTo(compiler.path, "jaifmt", env);
+  const besideCompiler = compiler && nextTo(compiler.path, tool, env);
   if (besideCompiler) return { path: besideCompiler, source: "next to jaic" };
   const server = configuredTool(settings.serverPath, "jai.server.path", env) ?? optional(onPath("jailsp", env));
-  const besideServer = server && nextTo(server.path, "jaifmt", env);
+  const besideServer = server && nextTo(server.path, tool, env);
   if (besideServer) return { path: besideServer, source: "next to jailsp" };
-  return inToolchain("jaifmt", env, toolchainDir);
+  return inToolchain(tool, env, toolchainDir);
 }
 
 function optional(file: string | undefined): Found | undefined {

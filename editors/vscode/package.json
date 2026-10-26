@@ -49,16 +49,18 @@
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": "limited",
-      "description": "In an untrusted workspace the language server runs without compile-time execution (no #run, build metaprograms or computed #insert), the Run, Build and Check File commands are off, and workspace settings that name a program, a library directory or compiler arguments are ignored.",
+      "description": "In an untrusted workspace the language server runs without compile-time execution (no #run, build metaprograms or computed #insert), the Run, Build and Check File commands and the test explorer are off, and workspace settings that name a program, a library directory or compiler arguments are ignored.",
       "restrictedConfigurations": [
         "jai.server.path",
         "jai.compiler.path",
         "jai.formatter.path",
+        "jai.jacket.path",
         "jai.stdlib.path",
         "jai.stdlib.prelude",
         "jai.toolchain.autoDownload",
         "jai.toolchain.preferDownloaded",
-        "jai.run.arguments"
+        "jai.run.arguments",
+        "jai.tests.arguments"
       ]
     }
   },
@@ -257,6 +259,12 @@
           "scope": "machine-overridable",
           "markdownDescription": "Path to `jaifmt`. Empty: `jaifmt` on `PATH`, then next to `jaic`, then the downloaded toolchain."
         },
+        "jai.jacket.path": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "markdownDescription": "Path to `jacket`, which runs the tests of the test explorer. Empty: `jacket` on `PATH`, then next to `jaic`, then the downloaded toolchain."
+        },
         "jai.stdlib.path": {
           "type": "string",
           "default": "",
@@ -324,6 +332,19 @@
           },
           "default": [],
           "markdownDescription": "Extra arguments for the Run, Build and Check File commands, placed after the file and the mode option, such as `-O2`."
+        },
+        "jai.tests.codeLens": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show Run Test and Debug Test above each `@test` procedure."
+        },
+        "jai.tests.arguments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "markdownDescription": "Extra arguments for `jacket test` when the test explorer lists and runs tests, such as `--interp`, or `--`, `-O2` for the compiler."
         },
         "jai.trace.server": {
           "type": "string",

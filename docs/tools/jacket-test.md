@@ -304,6 +304,10 @@ jacket test -- -O2                                     # flags after `--` go to 
 
 `--junit FILE` also writes JUnit XML: a `<testsuite>` per root, a `<testcase>` per test with `<failure>`, `<skipped>` and the captured output.
 
+### Editors
+
+`jailsp` and the VS Code extension are built on the JSON above ([VS Code extension](vscode-extension.md#how-it-works), [language server](../compiler/language-server.md)). The language server puts a *Run test* lens over each `@test` procedure, from the parse of the open file, and gives the client the flags that select that test alone: `-E 'test(=NAME) and file(PATH)'` (path from the root, `/` separators), or `--exact NAME` when the path holds a glob or `)` character, after `--path ROOT` for a root `jacket.toml` does not list. The extension lists with `jacket test --list --format json`, builds a file, test, case tree from the `list` events (`subtest` events belong to the test on the same file and line) and runs with `jacket test --format json --exact NAME...`, reading `test` events as they stream. A `failures` entry has a file and line but no column, and the `failed` event of a crash has only `problems` and `stderr`.
+
 ### The test program protocol
 
 The program Discovery builds (`stdlib/Extensions/Testing/runner.jai`) takes:
@@ -394,7 +398,7 @@ Programs run from their own `tests/` folder, as the old runner did. Where a test
 - Doc tests: what counts as a doc comment and which files are read is `crates/jaic/src/doc_comments.rs` (printed by `jaic -doc_comments`); the fence options and the generated program are in `doctest.rs` (`fenced`, `generate`); checking a block is `doctest::check`.
 - Reviewing snapshots: `review.rs` (what `--review` finds, shows and renames). The program side, where a snapshot's file goes and how a value prints, is `snapshots.jai` in the Testing module.
 - Scheduling and batching: `jobs` and `run_jobs` in `jobs.rs`. Process handling, record parsing and timeouts: `exec.rs`. Output: `report.rs`.
-- The JSON fields are a format others read (CI, the language server): add fields freely, and change or remove one only with a changelog line.
+- The JSON fields are a format others read (CI, the language server, the VS Code extension: `editors/vscode/src/testEvents.ts`): add fields freely, and change or remove one only with a changelog line.
 - Unit tests for the runner are in each file; `cargo test -p jacket`. The Testing module's Jai tests run with `jacket test` in `stdlib/Extensions/Testing`.
 
 ## Configuration

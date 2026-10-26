@@ -4,11 +4,13 @@ import * as vscode from "vscode";
 import { DidOpenTextDocumentNotification, LanguageClient, type LanguageClientOptions, type ServerOptions, TransportKind } from "vscode-languageclient/node";
 import { type JaicCommand, runJaic } from "./commands";
 import { hasPendingOpens, orderPendingOpens } from "./openOrder";
-import { MissingConfiguredTool, type Settings, findCompiler, findFormatter, findServer, nodeEnvironment } from "./discovery";
+import { MissingConfiguredTool, type Settings, findCompiler, findFormatter, findJacket, findServer, nodeEnvironment } from "./discovery";
 import { EXPANSION_SCHEME, ExpansionDocuments } from "./expansion";
 import { toolEnvironment as configuredEnvironment } from "./toolEnvironment";
 import { CONFIG_FILE, isIgnored, minimalReplacement, runJaifmt } from "./jaifmt";
 import { acceptedKey, probeVersion, staleMessage, staleToolchain } from "./pathVersion";
+import { withToolFolder } from "./testProcess";
+import { JacketTests, type JacketTool, type LensArgument } from "./testing";
 import { ToolchainManager, type Installed } from "./toolchainManager";
 
 /** The editable config buffer; jailsp applies its contents on save. */
@@ -31,6 +33,7 @@ function settings(): Settings {
     serverPath: config.get<string>("server.path"),
     compilerPath: config.get<string>("compiler.path"),
     formatterPath: config.get<string>("formatter.path"),
+    jacketPath: config.get<string>("jacket.path"),
     preferToolchain: config.get<boolean>("toolchain.preferDownloaded", false),
   };
 }
@@ -39,6 +42,21 @@ function settings(): Settings {
 function toolEnvironment(): Record<string, string> {
   const config = vscode.workspace.getConfiguration("jai");
   return configuredEnvironment((setting) => config.get<string>(setting), process.env, os.homedir());
+}
+
+/** `jacket` and the environment to run it in: the compiler the editor is set to use comes first on its PATH. */
+function findJacketTool(): JacketTool | undefined {
+  const jacket = locate(() => findJacket(settings(), nodeEnvironment(), installed?.dir));
+  if (!jacket) {
+    void vscode.window
+      .showErrorMessage("Jai: jacket was not found. Set jai.jacket.path, put jacket on PATH, or run \"Jai: Download Toolchain\".", "Open Settings")
+      .then((choice) => {
+        if (choice) void vscode.commands.executeCommand("workbench.action.openSettings", "jai.jacket.path");
+      });
+    return undefined;
+  }
+  const compiler = locate(() => findCompiler(settings(), nodeEnvironment(), installed?.dir));
+  return { path: jacket.path, env: withToolFolder(toolEnvironment(), compiler?.path, process.platform) };
 }
 
 function locate<T>(find: () => T): T | undefined {
@@ -62,6 +80,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<{ clie
   serverOutput = vscode.window.createOutputChannel("Jai Language Server", { log: true });
   toolchain = new ToolchainManager(context, log);
   const expansions = new ExpansionDocuments(() => client);
+  const tests = new JacketTests({ log, jacket: findJacketTool });
 
   context.subscriptions.push(
     log,
@@ -88,6 +107,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<{ clie
         await runJaic(command, compiler?.path, toolEnvironment());
       }),
     ),
+    tests,
+    vscode.commands.registerCommand("jai.runTest", (argument: LensArgument) => tests.runLens(argument, false)),
+    vscode.commands.registerCommand("jai.debugTest", (argument: LensArgument) => tests.runLens(argument, true)),
     vscode.languages.registerDocumentFormattingEditProvider({ language: "jai" }, { provideDocumentFormattingEdits: formatDocument }),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (["jai.server.path", "jai.compiler.path", "jai.toolchain.preferDownloaded", "jai.stdlib.path", "jai.stdlib.prelude"].some((s) => event.affectsConfiguration(s))) {
@@ -255,6 +277,7 @@ function isSettingsFile(document: vscode.TextDocument): boolean {
 function serverSettings(): {
   completion: { autoImport: boolean; callSnippets: string };
   inlayHints: { closingBraceMinLines: number };
+  tests: { codeLens: boolean };
   trusted: boolean;
 } {
   const config = vscode.workspace.getConfiguration("jai");
@@ -264,6 +287,7 @@ function serverSettings(): {
       callSnippets: config.get<string>("completion.callSnippets", "addParentheses"),
     },
     inlayHints: { closingBraceMinLines: config.get<number>("inlayHints.closingBraceMinLines", 25) },
+    tests: { codeLens: config.get<boolean>("tests.codeLens", true) },
     // Untrusted workspaces: jailsp runs no `#run`, build metaprogram or computed `#insert`.
     trusted: vscode.workspace.isTrusted,
   };

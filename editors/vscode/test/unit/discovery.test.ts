@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { type Environment, MissingConfiguredTool, expandPath, findCompiler, findFormatter, findServer, onPath } from "../../src/discovery";
+import { type Environment, MissingConfiguredTool, expandPath, findCompiler, findFormatter, findJacket, findServer, onPath } from "../../src/discovery";
 
 function machine(files: string[], options: Partial<Environment> = {}): Environment {
   const set = new Set(files);
@@ -66,6 +66,18 @@ describe("binary discovery", () => {
     assert.deepEqual(findFormatter({ compilerPath: "/a/jaic" }, env), { path: "/a/jaifmt", source: "next to jaic" });
     const server = machine(["/b/jailsp", "/b/jaifmt"], { pathVariable: "" });
     assert.deepEqual(findFormatter({ serverPath: "/b/jailsp" }, server), { path: "/b/jaifmt", source: "next to jailsp" });
+  });
+
+  it("finds jacket like jaifmt: its setting, PATH, next to jaic, the toolchain", () => {
+    const env = machine(["/custom/jacket", "/usr/bin/jacket"]);
+    assert.deepEqual(findJacket({ jacketPath: "/custom/jacket" }, env), { path: "/custom/jacket", source: "setting" });
+    assert.throws(() => findJacket({ jacketPath: "/missing/jacket" }, env), MissingConfiguredTool);
+    assert.deepEqual(findJacket({}, env), { path: "/usr/bin/jacket", source: "path" });
+    const beside = machine(["/a/jaic", "/a/jacket"], { pathVariable: "" });
+    assert.deepEqual(findJacket({ compilerPath: "/a/jaic" }, beside), { path: "/a/jacket", source: "next to jaic" });
+    const toolchain = machine(["/t/jacket"], { pathVariable: "" });
+    assert.deepEqual(findJacket({}, toolchain, "/t"), { path: "/t/jacket", source: "toolchain" });
+    assert.equal(findJacket({}, machine([])), undefined);
   });
 
   it("uses .exe names and PATHEXT on Windows", () => {

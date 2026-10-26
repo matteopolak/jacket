@@ -35,7 +35,7 @@ The manifest declares `capabilities.untrustedWorkspaces` as `limited`, with `res
 
 `jai.server.path`, `jai.compiler.path`, `jai.formatter.path`, `jai.stdlib.path` (passed as `JAIC_STDLIB`, so it chooses the code jailsp loads), `jai.toolchain.autoDownload`, `jai.run.arguments`.
 
-Also, in an untrusted workspace: *Run/Build/Check File* refuse (they execute compile-time code), and `autoDownload: always` behaves as `prompt`. Formatting keeps working with `jaifmt` from the user's settings or `PATH`. The toolchain download source is not a setting: it is the pinned GitHub release with pinned checksums.
+Also, in an untrusted workspace: *Run/Build/Check File* refuse (they execute compile-time code), the test explorer lists and runs nothing, and `autoDownload: always` behaves as `prompt`. Formatting keeps working with `jaifmt` from the user's settings or `PATH`. The toolchain download source is not a setting: it is the pinned GitHub release with pinned checksums.
 
 `test/unit/manifest.test.ts` fails if a new `*.path` setting is not restricted.
 
