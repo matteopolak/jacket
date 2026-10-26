@@ -34,7 +34,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ci import pins
-from toolkit.download import fetch
+from toolkit.download import USER_AGENT, fetch
 from toolkit.hashing import sha256_bytes
 from toolkit.host import host_cpu, host_os
 from toolkit.repo import ROOT
@@ -166,7 +166,10 @@ def download(url: str, path: Path, attempts: int = 5, pause: int = 5) -> None:
     for attempt in range(1, attempts + 1):
         try:
             with (
-                urllib.request.urlopen(url, timeout=120) as response,
+                urllib.request.urlopen(
+                    urllib.request.Request(url, headers={"User-Agent": USER_AGENT}),
+                    timeout=120,
+                ) as response,
                 partial.open("wb") as out,
             ):
                 shutil.copyfileobj(response, out, 1 << 20)

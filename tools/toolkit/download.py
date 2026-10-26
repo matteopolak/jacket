@@ -43,6 +43,10 @@ def pinned(url: str, sha256: str, name: str, *, timeout: float = 120) -> Path:
     return path
 
 
+# Some hosts (get.nexte.st) refuse urllib's default "Python-urllib/x.y" agent with 403.
+USER_AGENT = "jacket-tools"
+
+
 def fetch(
     url: str,
     *,
@@ -53,15 +57,23 @@ def fetch(
 ) -> bytes:
     """The body of `url` (`ValueError` when it is longer than `max_bytes`, which is never read past). Rate limits, 5xx answers, dropped connections and truncated bodies are retried
     with a growing pause (honouring `Retry-After`); other 4xx answers (a wrong pin) fail at once."""
-    request = urllib.request.Request(url, headers=dict(headers)) if headers else url
+    request = urllib.request.Request(
+        url, headers={"User-Agent": USER_AGENT, **(headers or {})}
+    )
     for attempt in range(1, attempts + 1):
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
-                body = response.read() if max_bytes is None else response.read(max_bytes + 1)
+                body = (
+                    response.read()
+                    if max_bytes is None
+                    else response.read(max_bytes + 1)
+                )
                 # `read(amount)` does not notice a connection that closed early: compare with the header.
                 announced = response.headers.get("Content-Length", "")
                 wanted = int(announced) if announced.isdigit() else None
-                if wanted is not None and len(body) < min(wanted, (max_bytes or wanted) + 1):
+                if wanted is not None and len(body) < min(
+                    wanted, (max_bytes or wanted) + 1
+                ):
                     raise IncompleteRead(body, wanted - len(body))
             if max_bytes is not None and len(body) > max_bytes:
                 raise ValueError(f"{url}: more than {max_bytes} bytes")
