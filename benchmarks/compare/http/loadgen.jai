@@ -29,7 +29,15 @@ Worker :: struct {
 
     latencies: [..] s64;
     requests: s64;
-    errors: s64;
+    // Failures by kind: a connect that was refused or reset, one that did not finish within the
+    // request timeout, a request that failed on a connected socket (reset, closed early, malformed
+    // answer), and one that got no complete answer within the timeout.
+    connect_errors: s64;
+    connect_timeouts: s64;
+    request_errors: s64;
+    request_timeouts: s64;
+    connect_why: string;
+    request_why: string;
     reconnects: s64;
     body_bytes: s64;
     sample: string;
@@ -97,6 +105,8 @@ Exchange :: struct {
     // Whether the connection must be replaced before the next request.
     closed: bool;
     body: string;
+    // Why it failed, for the first failure of each kind that is reported on standard error.
+    why: string;
 }
 
 exchange :: (conn: Io.Tcp_Stream, request: string, buffer: [] u8) -> Exchange {
@@ -104,7 +114,10 @@ exchange :: (conn: Io.Tcp_Stream, request: string, buffer: [] u8) -> Exchange {
 
     _, error := Io.write(conn, request);
 
-    if error != .NONE return result;
+    if error != .NONE {
+        result.why = tprint("write: %", error);
+        return result;
+    }
 
     filled := 0;
     head_end := -1;
@@ -113,7 +126,10 @@ exchange :: (conn: Io.Tcp_Stream, request: string, buffer: [] u8) -> Exchange {
         if filled == buffer.count return result;
 
         count, error := Io.read(conn, array_view(buffer, filled, buffer.count - filled));
-        if error != .NONE || count == 0 return result;
+        if error != .NONE || count == 0 {
+            result.why = tprint("read of the head after % bytes: %", filled, ifx error != .NONE then tprint("%", error) else "closed by the server");
+            return result;
+        }
 
         filled += count;
 
@@ -127,7 +143,10 @@ exchange :: (conn: Io.Tcp_Stream, request: string, buffer: [] u8) -> Exchange {
 
     head := string.{ head_end, buffer.data };
 
-    if head.count < 12 || head[9] != #char "2" return result;
+    if head.count < 12 || head[9] != #char "2" {
+        result.why = tprint("status line: %", string.{ min(head.count, 20), head.data });
+        return result;
+    }
 
     length_text, has_length := header_value(head, "content-length:");
     connection, has_connection := header_value(head, "connection:");
@@ -168,7 +187,7 @@ exchange :: (conn: Io.Tcp_Stream, request: string, buffer: [] u8) -> Exchange {
     return result;
 }
 
-connect_with_deadline :: (address: string) -> Io.Tcp_Stream, bool {
+connect_with_deadline :: (address: string) -> Io.Tcp_Stream, Io.Io_Error {
     conn: Io.Tcp_Stream;
     error: Io.Io_Error;
 
@@ -176,7 +195,7 @@ connect_with_deadline :: (address: string) -> Io.Tcp_Stream, bool {
         conn, error = Io.connect(address);
     });
 
-    return conn, error == .NONE;
+    return conn, error;
 }
 
 connection :: (w: *Worker) {
@@ -190,11 +209,15 @@ connection :: (w: *Worker) {
         started := now_ns();
 
         if !connected {
-            ok: bool;
-            conn, ok = connect_with_deadline(w.address);
+            error: Io.Io_Error;
+            conn, error = connect_with_deadline(w.address);
 
-            if !ok {
-                w.errors += 1;
+            if error != .NONE {
+                if error == .TIMED_OUT w.connect_timeouts += 1;
+                else w.connect_errors += 1;
+
+                if !w.connect_why w.connect_why = copy_string(tprint("%", error));
+
                 Io.sleep(20);
                 continue;
             }
@@ -214,7 +237,12 @@ connection :: (w: *Worker) {
         finished := now_ns();
 
         if !result.ok {
-            w.errors += 1;
+            // The deadline cut the exchange short when it ran for the whole timeout.
+            if finished - started >= (REQUEST_TIMEOUT_MS - 100) * 1_000_000 w.request_timeouts += 1;
+            else w.request_errors += 1;
+
+            if !w.request_why w.request_why = copy_string(result.why);
+
             Io.close(conn, true);
             connected = false;
             continue;
@@ -304,18 +332,25 @@ main :: () {
     }
 
     all: [..] s64;
-    requests, errors, reconnects, body_bytes: s64;
+    requests, reconnects, body_bytes: s64;
+    connect_errors, connect_timeouts, request_errors, request_timeouts: s64;
     sample: string;
+    connect_why, request_why: string;
 
     for *workers {
         thread_is_done(*it.thread, -1);
         thread_deinit(*it.thread);
         array_add(*all, ..it.latencies);
         requests += it.requests;
-        errors += it.errors;
+        connect_errors += it.connect_errors;
+        connect_timeouts += it.connect_timeouts;
+        request_errors += it.request_errors;
+        request_timeouts += it.request_timeouts;
         reconnects += it.reconnects;
         body_bytes += it.body_bytes;
         if !sample sample = it.sample;
+        if !connect_why connect_why = it.connect_why;
+        if !request_why request_why = it.request_why;
     }
 
     quick_sort(all, (value: s64) -> s64 {
@@ -323,8 +358,11 @@ main :: () {
     });
 
     print("sample: %\n", sample, to_standard_error = true);
-    print("{\"connections\":%,\"threads\":%,\"seconds\":%,\"requests\":%,\"errors\":%,\"reconnects\":%,\"requests_per_second\":%,\"p50_ns\":%,\"p99_ns\":%,\"p999_ns\":%,\"max_ns\":%,\"sample_bytes\":%}\n",
-          connections, threads, seconds, requests, errors, reconnects,
+    if connect_why print("first connect failure: %\n", connect_why, to_standard_error = true);
+    if request_why print("first request failure: %\n", request_why, to_standard_error = true);
+
+    print("{\"connections\":%,\"threads\":%,\"seconds\":%,\"requests\":%,\"connect_errors\":%,\"connect_timeouts\":%,\"request_errors\":%,\"request_timeouts\":%,\"reconnects\":%,\"requests_per_second\":%,\"p50_ns\":%,\"p99_ns\":%,\"p999_ns\":%,\"max_ns\":%,\"sample_bytes\":%}\n",
+          connections, threads, seconds, requests, connect_errors, connect_timeouts, request_errors, request_timeouts, reconnects,
           cast(s64) (cast(float64) requests / cast(float64) seconds),
           percentile(all, 0.50), percentile(all, 0.99), percentile(all, 0.999), percentile(all, 1.0),
           sample.count);

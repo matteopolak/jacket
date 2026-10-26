@@ -77,7 +77,7 @@ A POST that returns a value is a 200 like any other: say `created(value)` for a 
 
 **Connections.** One fiber per connection, handler calls in order; responses are written when nothing is left to read, so pipelining costs few writes. Temporary storage resets after each response. A crashing handler is not caught; return `Http_Error`.
 
-**Memory.** An idle keep-alive connection holds no read buffer: with nothing pending the loop returns its buffer to a per-scheduler pool (64 kept) and waits with `Io.wait_readable`. A connection whose last two requests began less than 10 ms apart (`HOT_MS`) keeps its buffer. Response buffer and parser storage are trimmed when idle or oversized (`RETAIN_OUTPUT`, `RETAIN_HEAD`). What remains is mostly the fiber's stack, so the cost per idle connection depends on the build and the page size. Measured on macOS arm64 (16 KiB pages, `-o` build), 1,024 connections that each made a request and stayed open, resident set of the server process before and after: **about 22 KiB per connection for a plain-text route and about 37 KiB for a route that extracts a path parameter and answers with JSON** (the second handler's frames cross into a second 16 KiB stack page, so the cost steps in page-sized units). The previous implementation measured the same on both. The earlier figure of 16 KB in this document was not measured; `bench/idle_bench.jai` measures it on Linux. Anything held across a wait must not point into the read buffer.
+**Memory.** An idle keep-alive connection holds no read buffer: with nothing pending the loop returns its buffer to a per-scheduler pool (64 kept) and waits with `Io.wait_readable`. A connection whose last two requests began less than 10 ms apart (`HOT_MS`) keeps its buffer. Response buffer and parser storage are trimmed when idle or oversized (`RETAIN_OUTPUT`, `RETAIN_HEAD`). What remains is mostly the fiber's stack, so a connection that has served a request also gives back the stack pages its handler reached into before it waits (`Io.release_unused_stack`, once per idle period; connections that are hot do not call it, and neither does a new connection). Measured on macOS arm64 (16 KiB pages, `-o` build), 1,024 connections that each made a request and stayed open, resident set of the server process before and after: **about 22 KiB per connection on both a plain-text route and a route that extracts a path parameter and answers with JSON** (without the release the JSON route cost about 38 KiB, because its handler's frames cross into a second 16 KiB stack page). What is left is the top stack page and the connection's own state. `bench/idle_bench.jai` measures it on Linux (`/proc`) and macOS (`proc_pidinfo`): `idle_bench 1024 http` for the plain route, `idle_bench 1024 http json` for the JSON one. On Linux the release is `madvise(MADV_DONTNEED)`; it was not measured there. Anything held across a wait must not point into the read buffer.
 
 **Serving.** `serve(*app)` runs `config.threads` schedulers (default one per core) each with its own listener (`SO_REUSEPORT`). It returns a `Serve_Error` when the server could not start and `.{}` (kind `.NONE`) after a clean stop:
 
@@ -219,10 +219,10 @@ Jacket's server next to [`rluba--hyperserve`](https://github.com/rluba/hyperserv
 | Streaming and file responses | ✅ | ❌ | ❌ | ❌ |
 | Timeouts for slow clients | ✅ header, body, idle | ⚠ [6] | ❌ | ❌ |
 | HTTPS | ✅ [`Tls`](tls.md) | ❌ closes TLS clients | ❌ | ⚠ OpenSSL module [1] |
-| WebSockets | ❌ | ❌ | ⚠ [8] | ✅ |
+| WebSockets | ❌ | ❌ | ❌ [8] | ✅ |
 | Test client without a socket | ✅ | ❌ | ❌ | ❌ |
 | Errors as values (`Serve_Error`, `Http_Error`) | ✅ | ❌ | ⚠ `HTTPServerError` | ❌ |
-| Multi-threaded | ✅ schedulers | ✅ request threads | ⚠ [7] | ✅ epoll threads |
+| Multi-threaded | ✅ schedulers | ✅ request threads | ❌ [7] | ✅ epoll threads |
 
 1. farzher has an `epoll` backend (Linux) and a Windows backend and no macOS one, so the benchmark program stops at `http_listen` (unknown identifier). It was not measured; its numbers on Linux are not in this table.
 2. A handler takes a struct whose `path` and `query` members are filled and checked before the call.
@@ -230,35 +230,37 @@ Jacket's server next to [`rluba--hyperserve`](https://github.com/rluba/hyperserv
 4. Request and response middleware, switched off with `USE_MIDDLEWARE`.
 5. The source lists "decode bodies", "limit body size", "stream the body" and "chunked" as to-do items, and only reads bodies for GET.
 6. Fixed constants (30 s for header, body and send) that are not configurable.
-7. `http_server_run_single_threaded` is the documented entry point.
-8. `http_register_websocket_url` exists; it was not exercised.
+7. `http_server_run_single_threaded` is the only way the library runs a server.
+8. `http_register_websocket_url` has the same body as `http_register_url`: it adds a plain route, and nothing in the library answers an upgrade or reads frames (`USE_WEBSOCKETS` is declared and never used).
 
 ### How it was measured
 
-`benchmarks/compare/http/`, run by `PYTHONPATH=tools python3 tools/bench/http_compare.py`. Every server serves the same small JSON API: `GET /items/{id}` answers a 1,000-item in-memory store with one JSON object (`servers/store.jai` holds the shared data; each `servers/<name>.jai` is the same handler written on that library). `loadgen.jai` opens 1, 64 and 1,024 keep-alive connections over loopback and requests random ids for 5 s after a 1 s warm-up, three rounds, the median by requests per second reported. Latency is per request, from write to the last byte of the response. Memory is the resident set of the server at rest and with 1,024 idle connections held open, divided by 1,024. Jacket and hyperserve run with 4 threads; the load generator uses 2.
+`benchmarks/compare/http/`, run by `PYTHONPATH=tools python3 tools/bench/http_compare.py`. Every server serves the same small JSON API: `GET /items/{id}` answers a 1,000-item in-memory store with one JSON object (`servers/store.jai` holds the shared data; each `servers/<name>.jai` is the same handler written on that library). `loadgen.jai` opens 1, 64 and 1,024 keep-alive connections over loopback and requests random ids for 5 s after a 1 s warm-up, three rounds, the median by requests per second reported. Latency is per request, from write to the last byte of the response. Memory is the resident set of the server at rest and with 1,024 idle connections held open, divided by 1,024. Jacket and hyperserve run with 4 threads; the load generator uses 2. Failures are counted by kind: a connect that was refused or reset (`Connect errors`), a request on a connected socket that failed, mostly by the server resetting or closing it (`Request errors`), and anything that ran into the 5 s request timeout, connecting or waiting for the answer (`Timeouts`). The load generator also reports the first failure of each kind.
 
 All servers and the load generator are compiled with `-o` and run inside the `Sandbox` of `tools/bench/sandbox.py` with loopback-only networking, because the community servers are unreviewed code.
 
-Apple M5 (10 cores: 4 Super and 6 Efficiency), 16 GB, macOS 27.0 arm64. The machine was a working desktop: the load average when the run began was 4.96, and the load generator shares the cores with the server, so read the ratios, not the absolute numbers.
+Apple M5 (10 cores: 4 Super and 6 Efficiency), 16 GB, macOS 27.0 arm64. The machine was a working desktop: the load average when the run began was 4.97, and the load generator shares the cores with the server, so read the ratios, not the absolute numbers.
 
-| Server | Connections | Requests/s | p50 | p99 | p99.9 | Errors |
-| --- | --- | --- | --- | --- | --- | --- |
-| Jacket | 1 | 55,495 | 17 us | 34 us | 77 us | 0 |
-| Jacket | 64 | 151,363 | 414 us | 614 us | 744 us | 0 |
-| Jacket | 1024 | 131,651 | 7.74 ms | 8.96 ms | 10.7 ms | 0 |
-| hyperserve | 1 | 32,277 | 30 us | 47 us | 91 us | 0 |
-| hyperserve | 64 | 85,371 | 749 us | 1.04 ms | 1.18 ms | 0 |
-| hyperserve | 1024 | 76,992 | 13.3 ms | 16.6 ms | 18.5 ms | 387 |
-| simplehttp | 1 | 16,694 | 54 us | 94 us | 156 us | 0 |
-| simplehttp | 64 | 26,197 | 1.66 ms | 1.94 ms | 81.2 ms | 13,225 |
-| simplehttp | 1024 | 27,420 | 30.5 ms | 104 ms | 385 ms | 19,621 |
-| farzher | n/a | does not build on macOS | | | | |
+| Server | Connections | Requests/s | p50 | p99 | p99.9 | Connect errors | Request errors | Timeouts |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Jacket | 1 | 52,441 | 18 us | 36 us | 69 us | 0 | 0 | 0 |
+| Jacket | 64 | 151,347 | 410 us | 674 us | 823 us | 0 | 0 | 0 |
+| Jacket | 1024 | 137,675 | 6.99 ms | 12.5 ms | 22.9 ms | 0 | 0 | 0 |
+| hyperserve | 1 | 33,977 | 27 us | 58 us | 115 us | 0 | 0 | 0 |
+| hyperserve | 64 | 82,894 | 764 us | 1.17 ms | 1.46 ms | 0 | 0 | 0 |
+| hyperserve | 1024 | 74,469 | 13.8 ms | 18.5 ms | 19.5 ms | 234 | 176 | 0 |
+| simplehttp | 1 | 16,251 | 55 us | 107 us | 163 us | 0 | 0 | 0 |
+| simplehttp | 64 | 0 | 0 ns | 0 ns | 0 ns | 15,553 | 1,245 | 0 |
+| simplehttp | 1024 | 5,868 | 29 ms | 95 ms | 95.7 ms | 134,610 | 11,441 | 0 |
+| farzher | n/a | does not build on macOS | | | | | | |
 
 | Server | Resident at rest | With 1,024 idle connections | Per connection |
 | --- | --- | --- | --- |
-| Jacket | 2.6 MiB | 40.8 MiB | 38.3 KiB |
-| hyperserve | 6.4 MiB | 29.7 MiB | 23.3 KiB |
-| simplehttp | 1.9 MiB | 73.5 MiB | 71.6 KiB |
+| Jacket | 2.5 MiB | 24.8 MiB | 22.3 KiB |
+| hyperserve | 6.4 MiB | 29.1 MiB | 22.7 KiB |
+| simplehttp | 1.9 MiB | 69.9 MiB | 67.9 KiB |
 | farzher | n/a | n/a | n/a |
 
-Jacket handles about 1.7 to 1.8 times the requests per second of hyperserve and 5 to 6 times simplehttp's, with lower latency at every percentile. simplehttp is killed by `SIGPIPE` (signal 13) when 64 or more connections write to clients that have gone, which is why its error counts are high and its numbers are those of the runs that survived. hyperserve drops 387 requests at 1,024 connections. Jacket's memory per connection is higher than hyperserve's: the JSON route's fiber stack spans two 16 KiB pages (see [How it works](#how-it-works)).
+Jacket handles about 1.8 times the requests per second of hyperserve, with lower latency at every percentile, and both take about 22 KiB per idle connection. simplehttp is killed by `SIGPIPE` (signal 13) when 64 or more connections write to clients that have gone, which is why its error counts are high and its numbers are those of the runs that survived (its 64-connection row is the median of runs that did not finish).
+
+hyperserve loses 400 to 800 connections at 1,024 and none to a timeout: every failure is a reset (`CONNECTION_RESET`), about a quarter while connecting and the rest on the first read of a connection that had been accepted. The listen backlog does not explain it. hyperserve listens with `SOMAXCONN` and Jacket asks for 1,024, but macOS caps every backlog at `kern.ipc.somaxconn` (128 here), so both queues hold the same number of connections, and Jacket with a single listener still lost none. What differs is how fast the queue drains: Jacket's accept fiber only accepts and spawns, while hyperserve accepts one connection per pass of its one event loop, which also handles finished requests, so the burst of 1,024 connects outruns it and the kernel resets what does not fit. Jacket's four listeners add three more queues.

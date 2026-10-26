@@ -103,6 +103,8 @@ def load(sandbox, exe: Path, env: dict[str, str], port: int, connections: int, t
         return None
     document = json.loads(lines[-1])
     document['sample'] = next((line[8:] for line in result.stderr.splitlines() if line.startswith('sample: ')), '')
+    for key, prefix in (('connect_why', 'first connect failure: '), ('request_why', 'first request failure: ')):
+        document[key] = next((line[len(prefix):] for line in result.stderr.splitlines() if line.startswith(prefix)), '')
     return document
 
 
@@ -187,19 +189,21 @@ def measure(name: str, args, jacket: Path, upstream: Path, project: Path, scratc
 
 
 def report(results: list[dict], connections: list[int]) -> str:
-    lines = ['| Server | Connections | Requests/s | p50 | p99 | p99.9 | Errors |', '| --- | --- | --- | --- | --- | --- | --- |']
+    lines = ['| Server | Connections | Requests/s | p50 | p99 | p99.9 | Connect errors | Request errors | Timeouts |',
+             '| --- | --- | --- | --- | --- | --- | --- | --- | --- |']
     for result in results:
         if 'runs' not in result:
             reason = next((line for line in result.get('error', '').splitlines() if 'error' in line), result.get('error', ''))
-            lines.append(f"| {result['name']} | n/a | {reason.strip()} | | | | |")
+            lines.append(f"| {result['name']} | n/a | {reason.strip()} | | | | | | |")
             continue
         for count in connections:
             run = result['runs'].get(count, {})
             if 'requests_per_second' not in run:
-                lines.append(f"| {result['name']} | {count} | {run.get('error', 'not run')} | | | | |")
+                lines.append(f"| {result['name']} | {count} | {run.get('error', 'not run')} | | | | | | |")
                 continue
             lines.append(f"| {result['name']} | {count} | {run['requests_per_second']:,} | {scaled(run['p50_ns'])} | "
-                         f"{scaled(run['p99_ns'])} | {scaled(run['p999_ns'])} | {run['errors']} |")
+                         f"{scaled(run['p99_ns'])} | {scaled(run['p999_ns'])} | "
+                         f"{run['connect_errors']} | {run['request_errors']} | {run['connect_timeouts'] + run['request_timeouts']} |")
     lines += ['', '| Server | Resident at rest | With 1024 idle connections | Per connection |', '| --- | --- | --- | --- |']
     for result in results:
         idle = result.get('idle')
@@ -213,6 +217,11 @@ def report(results: list[dict], connections: list[int]) -> str:
         for where, how in (result.get('crashes') or {}).items():
             what = 'with 1024 idle connections' if where == 'idle' else f'under {where} connections'
             lines.append(f"\n{result['name']} died {what} in {len(how)} run(s): {', '.join(sorted(set(how)))}.")
+    for result in results:
+        for count, run in (result.get('runs') or {}).items():
+            for key, label in (('connect_why', 'connect'), ('request_why', 'request')):
+                if run.get(key):
+                    lines.append(f"\n{result['name']} at {count} connections, first failed {label}: {run[key]}")
     return '\n'.join(lines)
 
 
