@@ -8,6 +8,12 @@ return {
   cmd = require('jai').server_cmd,
   filetypes = { 'jai' },
   root_markers = { 'jacket.toml', '.git' },
+  handlers = {
+    -- A compile-time limit stopped code while checking: say how to raise it.
+    ['jai/compileTimeLimit'] = function(_, notice)
+      require('jai.limits').notice(notice)
+    end,
+  },
   before_init = function(params, cfg)
     -- Read when the server starts, so `setup()` and `vim.g.jai` may come later than this file.
     local settings = config.server_settings()

@@ -12,6 +12,7 @@
 
 ## How to change it
 
+- **Compile-time limits:** `compile_time.{evaluation_budget,check_time_limit,cost_lens_blocks}` go to `jailsp` as `compileTime` (with `limitNotices = true`) in `config.server_settings()`, like the VS Code `jai.compileTime.*` settings. `lsp/jailsp.lua` handles `jai/compileTimeLimit` with `lua/jai/limits.lua`, a `vim.notify` warning naming the place and the setting to raise; it is shown once per place until a buffer is written. See [compile-time limits](../compiler/compile-time-limits.md).
 - **Workspace trust:** `trusted` (default `true`) is sent to `jailsp` and gates `:Jai run/build/check`; see [workspace trust](workspace-trust.md).
 - **Setting:** add it to the defaults and `jai.Config` annotation in `config.lua` and the README table; if `jailsp` should receive it, add it to `config.server_settings()` after the server reads it (`JsonSession::configure` in `protocol.rs`).
 - **`:Jai` subcommand:** add to `subcommands` in `commands.lua`. **Platform:** a row in `install.asset_for` and the VS Code `RELEASE_ASSETS`. **Archive layout** (one top folder with the four executables and `stdlib/`): change it here, in the install scripts and in VS Code together.

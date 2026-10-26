@@ -84,11 +84,16 @@ All optional. Either `require('jai').setup({ ... })` or a `vim.g.jai = { ... }` 
 | `completion.call_snippets` | `'addParentheses'` | What accepting a procedure inserts: `'addParentheses'` (`name($0)`, `name()` without parameters), `'fillArguments'` (a placeholder per required parameter) or `'none'` |
 | `inlay_hints.closing_brace_min_lines` | `25` | Show `// name` after the closing brace of a procedure, struct or enum this many lines long; `0` turns it off |
 | `run.arguments` | `{}` | Extra `jaic` arguments, e.g. `{ '-O2' }` |
+| `compile_time.evaluation_budget` | `200000000` | Basic blocks one top-level compile-time evaluation (`#run` and so on) may run before it is stopped; `0` for no limit |
+| `compile_time.check_time_limit` | `10` | Seconds a whole check may take before the results are partial; `0` for no limit |
+| `compile_time.cost_lens_blocks` | `1000000` | Evaluations of at least this many blocks get a cost code lens |
 | `trusted` | `true` | Set `false` for code you did not write: `jailsp` runs no `#run`, build metaprogram or computed `#insert`, and `:Jai run`, `build` and `check` are off (see [workspace trust](../../docs/tools/workspace-trust.md)) |
 | `format_on_save` | `false` | Format with `jaifmt` before writing |
 | `lsp.enable` | `true` | Call `vim.lsp.enable('jailsp')` when the plugin loads |
 
 `trusted = false` reaches the server as `initializationOptions.trusted`; changing it with `setup()` later sends `workspace/didChangeConfiguration`, so a running server switches (and re-analyses) at once. Neovim has no workspace-trust prompt of its own for this; set it per project, for example from a trusted `.nvim.lua`, or start with `vim.g.jai = { trusted = false }` and call `require('jai').setup({ trusted = true })` once you have read the code.
+
+The `compile_time` settings reach the server as `initializationOptions.compileTime` and `workspace/didChangeConfiguration`, so `setup()` takes effect on a running server. They belong to you, not to a project: nothing in `jacket.toml` sets them. When a limit stops code, `jailsp` sends `jai/compileTimeLimit` and the plugin shows a warning with the place and the setting to raise (once per place until you next write a buffer); `:Jai costs` lists what is slow.
 
 `completion.auto_import` and `completion.call_snippets` reach the server as its initialization options and `workspace/didChangeConfiguration`, as in the VS Code extension. Change the server's client settings per project with `vim.lsp.config('jailsp', { ... })`; it is merged over `lsp/jailsp.lua`.
 

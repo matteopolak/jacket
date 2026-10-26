@@ -35,6 +35,9 @@ The limits protect whoever opens a project, so a project cannot set them: there 
 | VS Code | `jai.compileTime.evaluationBudget` | 200000000 | basic blocks one top-level evaluation may run; `0` for no limit |
 | VS Code | `jai.compileTime.checkTimeLimit` | 10 | seconds a whole check may take; `0` for no limit |
 | VS Code | `jai.compileTime.costLensBlocks` | 1000000 | evaluations of at least this many blocks get a cost lens |
+| Neovim | `compile_time.evaluation_budget` | 200000000 | as `jai.compileTime.evaluationBudget` |
+| Neovim | `compile_time.check_time_limit` | 10 | as `jai.compileTime.checkTimeLimit` |
+| Neovim | `compile_time.cost_lens_blocks` | 1000000 | as `jai.compileTime.costLensBlocks` |
 | `jailint` | `--compile-time-budget <blocks>` | 200000000 | as the budget above |
 | `jailint` | `--check-time-limit <seconds>` | 10 | as the time limit above, for each program checked |
 | `jaic` | `-profile_runs` | off | prints the cost table; a `jaic` build has no limits |
@@ -43,7 +46,7 @@ The VS Code settings are `"scope": "machine"`: VS Code reads them from the user'
 
 `jailsp` reads `compileTime.evaluationBudget`, `compileTime.checkTimeLimit`, `compileTime.costLensBlocks` and `compileTime.limitNotices` from `initializationOptions` and the `jai` section of `workspace/didChangeConfiguration` (`protocol/notifications.rs`, `Session::set_evaluation_budget` and friends); one the client leaves out keeps its default. A change drops the compiles kept and checks again.
 
-**The popup.** With `compileTime.limitNotices` the server sends `jai/compileTimeLimit` (`{kind: "budget" | "time", uri, range, message}`) for each fresh compile that hit a limit (`Cache::take_limit_hits`, drained with the other messages for the user). The VS Code extension (`limitPopups.ts`, the part without `vscode` imports; `limitUi.ts` is the glue) shows a warning naming the evaluation's place with three buttons: *Raise limit* doubles the setting in the user's settings, which makes the server check again; *Show compile-time costs* runs `jai.showCompileTimeCosts` at the evaluation; *Open settings* opens the setting. The same evaluation is not shown again until the user edits (a time limit, which is about the whole check, until any edit). Clients that do not ask get no notification.
+**The popup.** With `compileTime.limitNotices` the server sends `jai/compileTimeLimit` (`{kind: "budget" | "time", uri, range, message}`) for each fresh compile that hit a limit (`Cache::take_limit_hits`, drained with the other messages for the user). The VS Code extension (`limitPopups.ts`, the part without `vscode` imports; `limitUi.ts` is the glue) shows a warning naming the evaluation's place with three buttons: *Raise limit* doubles the setting in the user's settings, which makes the server check again; *Show compile-time costs* runs `jai.showCompileTimeCosts` at the evaluation; *Open settings* opens the setting. The same evaluation is not shown again until the user edits (a time limit, which is about the whole check, until any edit). Clients that do not ask get no notification. Neovim (`lua/jai/limits.lua`) shows a `vim.notify` warning with the place and the `compile_time.*` setting to raise, once per place until a buffer is written.
 
 ## Dependencies
 
