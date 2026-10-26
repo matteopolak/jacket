@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Installs LLVM 23 (and LLD for wasm-ld) on a CI macOS runner and exports LLVM_SYS_231_PREFIX
+# Installs LLVM 23 (and LLD, for wasm-ld and lld-link) on a CI macOS runner and exports LLVM_SYS_231_PREFIX
 # and PATH for later steps.
 #
 # arm64: Homebrew's llvm@23. Some runner images ship a Homebrew whose formula list predates the
@@ -72,7 +72,7 @@ if [[ "$(uname -m)" == x86_64 ]]; then
     mkdir -p "$path_dir"
     for tool in "$prefix"/bin/*; do
         case "$(basename "$tool")" in
-            llvm-* | clang | clang-[0-9]* | clang++ | dsymutil | wasm-ld | ld.lld | ld64.lld | lld | opt | llc)
+            llvm-* | clang | clang-[0-9]* | clang++ | dsymutil | wasm-ld | lld-link | ld.lld | ld64.lld | lld | opt | llc)
                 ln -sf "$tool" "$path_dir/" ;;
         esac
     done
