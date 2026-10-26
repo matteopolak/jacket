@@ -38,3 +38,6 @@ node_modules/
 /BUGS.md
 /CLEANROOM.md
 /playground/
+
+# Snapshots a test run left to be reviewed (jacket test --review).
+*.snap.new

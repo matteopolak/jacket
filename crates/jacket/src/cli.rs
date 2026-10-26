@@ -189,9 +189,16 @@ pub struct TestArgs {
     /// Keep every test's temporary folder (failed tests keep theirs anyway)
     #[arg(long)]
     pub keep_temp: bool,
-    /// Write what golden and compile-fail tests printed into their expected files
+    /// Write what golden and compile-fail tests printed into their expected files, and keep
+    /// the snapshots that differ or are new
     #[arg(long)]
     pub accept: bool,
+    /// Go through the pending `.snap.new` snapshots one by one (only lists them without a terminal)
+    #[arg(long, conflicts_with_all = ["list", "accept"])]
+    pub review: bool,
+    /// The seed property tests start from [default: random for each run, shown with a failure]
+    #[arg(long, value_name = "N")]
+    pub seed: Option<u64>,
     /// Flags for jaic, after `--`
     #[arg(last = true, value_name = "JAIC_FLAGS")]
     pub jaic_args: Vec<String>,

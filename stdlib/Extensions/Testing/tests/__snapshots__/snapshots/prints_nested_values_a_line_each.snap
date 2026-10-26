@@ -1,0 +1,19 @@
+Snap_Shape {
+  name = "triangle"
+  corners = [
+    Snap_Point {
+      x = 0
+      y = 0
+    },
+    Snap_Point {
+      x = 4
+      y = 0
+    },
+    Snap_Point {
+      x = 0
+      y = 3
+    },
+  ]
+  sides = [3, 4, 5]
+  tags = ["a", "b\n"]
+}

@@ -253,6 +253,15 @@ fn write(path: &Path, text: &str) -> Result<(), String> {
     std::fs::write(path, text).map_err(|e| format!("cannot write {}: {e}", path.display()))
 }
 
+/// What every run of a test program is told besides the tests to run.
+#[derive(Clone, Copy, Debug)]
+pub struct RunFlags {
+    /// The seed property tests start from.
+    pub seed: u64,
+    /// Snapshots that differ or are new replace the stored ones.
+    pub accept: bool,
+}
+
 /// The command that runs `names` of a built program, each with its temporary folder under
 /// `temp` (`temp/0`, `temp/1`, ...).
 pub fn invocation(
@@ -262,8 +271,13 @@ pub fn invocation(
     names: &[String],
     temp: &Path,
     cwd: &Path,
+    run: &RunFlags,
 ) -> Invocation {
-    let mut tail = vec!["--run".to_string()];
+    let mut tail = vec!["--seed".to_string(), run.seed.to_string()];
+    if run.accept {
+        tail.push("--accept".to_string());
+    }
+    tail.push("--run".to_string());
     tail.extend(names.iter().cloned());
     tail.extend(["--temp".to_string(), path_text(temp)]);
     let (program, mut args) = if toolchain.interp {
@@ -319,6 +333,43 @@ mod tests {
                 ("lengths".to_string(), "a,1".to_string()),
                 ("colors".to_string(), "RED".to_string()),
             ]
+        );
+    }
+
+    #[test]
+    fn the_seed_and_accept_reach_the_program() {
+        let built = Built {
+            entries: Vec::new(),
+            program: PathBuf::from("/b/tests"),
+            cases: Vec::new(),
+        };
+        let toolchain = Toolchain {
+            jaic: PathBuf::from("jaic"),
+            flags: Vec::new(),
+            interp: false,
+            runner: Vec::new(),
+            os: "linux".into(),
+        };
+        let names = ["a".to_string()];
+        let run = |accept| {
+            invocation(
+                &built,
+                &[],
+                &toolchain,
+                &names,
+                Path::new("/t"),
+                Path::new("/r"),
+                &RunFlags {
+                    seed: 42,
+                    accept,
+                },
+            )
+            .args
+        };
+        assert_eq!(run(false), ["--seed", "42", "--run", "a", "--temp", "/t"]);
+        assert_eq!(
+            run(true),
+            ["--seed", "42", "--accept", "--run", "a", "--temp", "/t"]
         );
     }
 

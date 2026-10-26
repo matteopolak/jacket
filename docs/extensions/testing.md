@@ -34,6 +34,7 @@ A test is a file-level procedure that takes nothing or a `*Test` (or the argumen
 | `expect_near(got, want, tolerance)` | `|got - want| > tolerance`, or either is NaN |
 | `expect_null(pointer)`, `expect_not_null(pointer)` | the pointer is (not) null |
 | `assert_that(value, matcher)`, `require_that` | the matcher does not hold; see [Matchers](../tools/jacket-test.md#matchers) |
+| `expect_snapshot(t, value, name = "")` | the printed form of `value` differs from its stored snapshot, or has none ([Snapshots](#snapshots)) |
 | `require`, `require_equal`, `require_near`, `require_not_null` | as the `expect` form, then `return` from the procedure they are written in (they are macros) |
 
 `expect_equal` compares by value (`compare.jai`): integers and enums of any width and signedness by their numeric value, floats exactly, strings by bytes, arrays of every kind element by element (a `[..] int` equals an `int.[...]` literal), structs member by member, pointers by address. A failure message says what differs:
@@ -96,6 +97,28 @@ shades :: (color: Color) {
 
 The list has to be reachable from file level (not under `#scope_file`) and a note cannot hold a space or a `{`, so give a table of structs a name (`@cases(PARSE)`) and write short lists of plain values in place. `run_cases(t, list, body)` does the same by hand, for lists built at run time; `case_names(list, body)` gives the names it would use.
 
+**Snapshots** (`snapshots.jai`). `expect_snapshot(t, value)` compares the printed form of a value with a file kept next to the test, which is how to check a large or awkward result (a printer's output, a parsed tree) without writing it out in the test.
+
+```jai
+Point :: struct { x, y: s32; }
+
+prints_a_point :: (t: *Test) {
+    expect_snapshot(t, Point.{ 1, 2 });
+    expect_snapshot(t, render(page), "page");
+} @test
+```
+
+The first time, the snapshot does not exist: the test fails and the printed form is written as `NAME.snap.new` beside where the snapshot goes. `jacket test --accept` keeps new and changed snapshots (`--exact prints_a_point` to keep one test's), and `jacket test --review` shows each `.snap.new` as a diff and asks whether to accept it. A snapshot that matches again deletes its stale `.snap.new`.
+
+| What | Where |
+| --- | --- |
+| a test | `tests/__snapshots__/<file>/<test>.snap` (`<file>`: the test file's name without `.jai`) |
+| a case of `@cases` or a subtest | `tests/__snapshots__/<file>/<test>/<case>.snap`, one file each |
+| the second snapshot of a test | `<test>.2.snap`, the third `<test>.3.snap`... |
+| a snapshot with a `name` | `<test>.<name>.snap` |
+
+A name that is not plain (`big/ger`, `what?`) has its other characters written `_` and a short hash added, so the file is legal on every OS. Strings are compared as they are; any other value is printed with one struct member or array element to a line (short arrays of numbers stay on one line), so a change shows as a line diff. Line endings and line breaks at the end of the text do not matter, so a snapshot checked out on Windows still matches. Pointers print as `null` or `<pointer>` since an address is not stable; keep them out of snapshotted values. Commit the `.snap` files; `*.snap.new` belongs in `.gitignore`.
+
 **Memory** (`tracking.jai`). Each test runs with a tracking allocator as `context.allocator`, over the allocator that was there. It records every live block with the first stack frames that made it; when the test returns, anything still live is a failure at the frame that allocated it, outside the standard library (`leaked 32 bytes in 1 allocation made here in make_list`). Freeing or resizing a block it does not own (freed twice, or allocated elsewhere) fails the test at the first one. `@allow_leaks` turns leak reports off for a test. Temporary storage is reset before each test, so `temp` memory is never a leak. Memory allocated with another allocator is not tracked.
 
 **Doc tests.** `jacket test` also runs the ```` ```jai ```` examples in a library's doc comments, each through this module, so `expect` and `assert` work in them (see [jacket test](../tools/jacket-test.md#doc-tests)).
@@ -107,6 +130,7 @@ The list has to be reachable from file level (not under `#scope_file`) and a not
 ## How to change it
 
 - A new check goes in `checks.jai`, built on `report_failure(loc, message)`; add a `require_` form if it can fail, and a test in `tests/checks.jai` with `@should_fail(word)` for its message.
+- How a value is printed for a snapshot, and where its file goes: `write_value` and `snapshot_path` in `snapshots.jai`. Changing either invalidates stored snapshots.
 - Comparison and messages for a new kind of value: `values_equal` and `describe_difference` in `compare.jai`.
 - What the tracker records (more frames, sizes): `SITE_FRAMES` and `remember` in `tracking.jai`. The tracker is never freed, because memory from a test can outlive it.
 - How a case is named or an entry turned into arguments: `case_names`, `label_source` and `call_source` in `cases.jai`. They run at compile time inside `#insert`, from the procedure's and the entry's type information. `jacket test --list` learns the cases from a `#run` Discovery adds (`-cases FILE`), which calls `list_cases`.

@@ -14,6 +14,7 @@ mod golden;
 mod jobs;
 mod options;
 mod report;
+mod review;
 
 use crate::cli::TestArgs;
 use crate::{project, tools};
@@ -156,6 +157,8 @@ struct Settings {
     needs: Vec<String>,
     keep_temp: bool,
     accept: bool,
+    /// The seed of property tests: `--seed`, else drawn once for the run.
+    seed: u64,
     isolate: bool,
     capture: bool,
 }
@@ -313,6 +316,21 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: bool) -> ExitCode {
         Ok(found) => found,
         Err(error) => return fail(error),
     };
+    let project_dir = loaded.as_ref().map_or(cwd, |l| l.dir()).to_path_buf();
+    let configured: Vec<PathBuf> = config
+        .map(|c| c.paths.0.iter().map(|p| project_dir.join(p)).collect())
+        .unwrap_or_default();
+    if args.review {
+        use std::io::IsTerminal;
+        let roots = discover::roots(&args.path, &configured, &project_dir, cwd);
+        return review::run(
+            &roots,
+            cwd,
+            std::io::stdin().is_terminal(),
+            &mut std::io::stdin().lock(),
+            &mut std::io::stdout(),
+        );
+    }
     let os = args.os.clone().unwrap_or_else(|| host_os().into());
     let cpu = args.cpu.clone().unwrap_or_else(|| host_cpu().into());
     let target = Target {
@@ -355,10 +373,6 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: bool) -> ExitCode {
     let cross_skip = (cross && toolchain.runner.is_empty())
         .then(|| format!("built for {os} {cpu}; `--runner <command>` runs it"));
 
-    let project_dir = loaded.as_ref().map_or(cwd, |l| l.dir()).to_path_buf();
-    let configured: Vec<PathBuf> = config
-        .map(|c| c.paths.0.iter().map(|p| project_dir.join(p)).collect())
-        .unwrap_or_default();
     let roots: Vec<discover::Root> = discover::roots(&args.path, &configured, &project_dir, cwd)
         .into_iter()
         .map(|dir| discover::Root::read(dir, &stdlib, &jaic, &mut doc_files))
@@ -487,6 +501,16 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: bool) -> ExitCode {
     execute(&plan, &target, cross_skip.as_deref(), &mut reporter)
 }
 
+/// A seed for a run that was not given one: the clock mixed with the process id.
+fn random_seed() -> u64 {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_nanos());
+    let mixed = (nanos as u64) ^ (u64::from(std::process::id()) << 32);
+    // Keep it short enough to type: a decimal number of at most nine digits.
+    mixed.wrapping_mul(0x9e37_79b9_7f4a_7c15) % 1_000_000_000
+}
+
 /// The run's settings from the flags over `[test]` (and the chosen profile), and the runner.
 fn settings(
     args: &TestArgs,
@@ -528,6 +552,7 @@ fn settings(
         },
         keep_temp: args.keep_temp,
         accept: args.accept,
+        seed: args.seed.unwrap_or_else(random_seed),
         isolate: !args.no_isolation,
         capture,
     };

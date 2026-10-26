@@ -2,6 +2,7 @@
 // `jacket test`. A jaic extension, not official Jai. See docs/extensions/testing.md.
 //
 //     #import "Basic";
+#import "File";
 //     #import "Extensions/Testing";
 //
 //     parses_numbers :: (t: *Test) {
@@ -24,6 +25,7 @@ Test :: struct {
     parent: *Test;
     cleanups: [..] Cleanup;
     temp_dir: string;
+    snapshots: s64;
 }
 
 // Reserved for `@bench` procedures, which `jacket test --list` lists; they do not run yet.
@@ -84,6 +86,7 @@ run :: (t: *Test, name: string, body: (t: *Test, data: *$T), data: *T) -> bool {
 #load "checks.jai";
 #load "cases.jai";
 #load "matchers.jai";
+#load "snapshots.jai";
 #load "compare.jai";
 #load "tracking.jai";
 #load "runner.jai";
@@ -96,3 +99,4 @@ Cleanup :: struct {
 }
 
 #import "Basic";
+#import "File";

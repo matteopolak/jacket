@@ -6,6 +6,8 @@
 //     --list                 print `name<TAB>file<TAB>line` per test
 //     --run NAME...          run these tests (`test` or `test/subtest`) and report to jacket
 //     --temp DIR             with --run: the I-th test's directory is DIR/I
+//     --accept               snapshots that differ or are new replace the stored ones
+//     --seed N               the seed property tests start from
 //
 // With `--run`, results go to jacket as records on standard error: `\x02` kind, fields after
 // `\x1f`, then `\x03`. A `start` record is also written to standard output, so jacket can tell
@@ -37,12 +39,26 @@ run_tests :: (cases: [] Test_Case) {
         } else if argument == "--temp" && i + 1 < arguments.count {
             i += 1;
             temp_root = arguments[i];
+        } else if argument == "--accept" {
+            accepting = true;
+        } else if argument == "--seed" && i + 1 < arguments.count {
+            i += 1;
+            seed_text := arguments[i];
+            value, ok := string_to_int(seed_text, 10, u64);
+
+            if !ok {
+                print("--seed takes a whole number, not '%'\n", seed_text, to_standard_error = true);
+                exit(2);
+            }
+
+            run_seed = value;
+            seed_given = true;
         } else if argument == "--run" {
             reporting = true;
         } else if reporting {
             array_add(*names, argument);
         } else {
-            print("unknown argument: %\nusage: [--list] [--run NAME... [--temp DIR]]\n", argument, to_standard_error = true);
+            print("unknown argument: %\nusage: [--list] [--accept] [--seed N] [--run NAME... [--temp DIR]]\n", argument, to_standard_error = true);
             exit(2);
         }
 
@@ -90,6 +106,9 @@ run_example :: (body: (t: *Test)) {
 
 #scope_module
 
+// The seed property tests start from: `--seed`, else one drawn from the clock.
+run_seed: u64;
+seed_given := false;
 // Whether the runner's own lines (`test ... ok`, the summary) are left out.
 quiet := false;
 // Whether results go to jacket as records (`--run`) or to a person (no arguments).

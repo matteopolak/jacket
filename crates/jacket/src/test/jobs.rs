@@ -216,6 +216,10 @@ fn run_unit(plan: &Plan, cases: &[usize], live: &mut dyn FnMut(Live)) -> Vec<Out
             &names,
             &temp,
             cwd,
+            &build::RunFlags {
+                seed: plan.settings.seed,
+                accept: plan.settings.accept,
+            },
         );
         let timeout = |name: &str| {
             remaining

@@ -94,7 +94,16 @@ bad.jai:3:12: error: type mismatch: expected `int`, got `string`
 ...
 ```
 
-`--accept` writes what was printed into the expected files instead of comparing: for a golden test, `.stdout` (created if missing) and the `.stderr`/`.exit` files that exist; for a compile-fail test, `.stderr`.
+`--accept` writes what was printed into the expected files instead of comparing: for a golden test, `.stdout` (created if missing) and the `.stderr`/`.exit` files that exist; for a compile-fail test, `.stderr`. Unit tests get it too, as the snapshots they take (below).
+
+### Snapshots
+
+A unit test can compare a value with a stored snapshot (`expect_snapshot`, see [Testing](../extensions/testing.md#how-it-works)). A snapshot that differs or does not exist fails the test and is written as `NAME.snap.new` next to where `NAME.snap` goes, under `__snapshots__` beside the test file. Two flags deal with them:
+
+- `--accept` runs the tests with snapshots replaced in place (the `.snap.new` is deleted), so the tests pass. Filters narrow it: `jacket test --accept --exact prints_a_point`.
+- `--review` runs nothing. It finds the `.snap.new` files below each root's `tests/` and, in a terminal, shows each as a diff against the stored snapshot (or the whole text when there is none) and asks `[a]ccept, [r]eject, [s]kip, [q]uit`. Without a terminal on standard input it only lists them and exits 1 when there are any. It exits 0 once none are left pending.
+
+Snapshots work the same natively, with `--interp`, and for `-os wasm` (the program reads and writes them itself, so the wasm runner needs access to the folder, which `tools/wasi_run.mjs` has).
 
 ### Doc tests
 
@@ -248,6 +257,8 @@ The program Discovery builds (`stdlib/Extensions/Testing/runner.jai`) takes:
 tests                       run every test here and print a summary (for running by hand)
 tests --list                name<TAB>file<TAB>line per test
 tests --run NAME... [--temp DIR]   run these tests, the I-th with temp folder DIR/I, and report
+tests --seed N              the seed property tests start from (jacket always passes one)
+tests --accept              snapshots that differ or are new replace the stored ones
 ```
 
 With `--run` it writes records to standard error: `\x02`, the kind, each field after `\x1f`, then `\x03` (field bytes `\x02`, `\x03`, `\x1f` are written `?`). The `start` record also goes to standard output, so `jacket` knows which test the output that follows belongs to.
@@ -322,6 +333,7 @@ Programs run from their own `tests/` folder, as the old runner did. Where a test
 - A new note: `TestOptions::apply` and `skip_reason` in `crates/jacket/src/test/options.rs`, then how it is used in `jobs.rs` (`resolve`, `expectations`) or `mod.rs`; list it in the table above.
 - A new kind of file test: `Root::read` (`discover.rs`), a `Kind`, and a runner in `golden.rs` called from `run_file_case` (`jobs.rs`).
 - Doc tests: what counts as a doc comment and which files are read is `crates/jaic/src/doc_comments.rs` (printed by `jaic -doc_comments`); the fence options and the generated program are in `doctest.rs` (`fenced`, `generate`); checking a block is `doctest::check`.
+- Reviewing snapshots: `review.rs` (what `--review` finds, shows and renames). The program side, where a snapshot's file goes and how a value prints, is `snapshots.jai` in the Testing module.
 - Scheduling and batching: `jobs` and `run_jobs` in `jobs.rs`. Process handling, record parsing and timeouts: `exec.rs`. Output: `report.rs`.
 - The JSON fields are a format others read (CI, the language server): add fields freely, and change or remove one only with a changelog line.
 - Unit tests for the runner are in each file; `cargo test -p jacket`. The Testing module's Jai tests run with `jacket test` in `stdlib/Extensions/Testing`.
