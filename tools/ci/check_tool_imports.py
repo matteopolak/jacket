@@ -14,6 +14,11 @@ and is skipped. Other exceptions raised while the imports run are not import err
 
     python3 tools/ci/check_tool_imports.py                          # every file, both loads
     python3 tools/ci/check_tool_imports.py tools/toolkit/download.py
+
+It also fails a script outside tools/toolkit/ that reads `CARGO_TARGET_DIR` from an environment or builds
+`ROOT / "target"...` by hand: use `toolkit.repo.cargo_target_dir()` / `cargo_binary()` for cargo's output and
+`repo_output.output_dir()` for scratch. Setting the variable for a child process is fine. `BUILD_PATH_ALLOWED`
+lists the few files that really resolve these paths themselves.
 """
 
 from __future__ import annotations
@@ -37,6 +42,17 @@ from toolkit.repo import ROOT
 TOOLS = ROOT / "tools"
 LOAD_TIMEOUT = 45  # seconds one load may take; a hang is reported against its module instead of stalling the job
 MISSING = 3  # the child's exit status for an import error; its stdout is "MISSING <module>" or "FAILED <detail>"
+
+# Files outside toolkit/ that may read CARGO_TARGET_DIR or build ROOT / "target" themselves, and why.
+BUILD_PATH_ALLOWED = {
+    "tools/toolkit/repo.py": "the one resolver",
+    "tools/repo_output.py": "scratch output directory (JACKET_OUTPUT_DIR, shared across worktrees), not cargo's",
+    "tools/browser/cargo_build_paths.py": "release packaging resolver: pinned toolchain, locked metadata and an injected environment",
+    "tools/browser/test_build_scripting_wasm.py": "asserts on the environment handed to the cargo child process",
+    "tools/dev/test_build_pgo.py": "asserts on the environment handed to the cargo child process",
+    "tools/ci/ci_test_scratch.py": "scratch selection from an injected environment, deliberately without cargo or defaults",
+}
+TARGET_ENV = "CARGO_TARGET_DIR"
 
 # Runs in the child interpreter. argv: <file> <mode> <tools dir>.
 LOADER = r"""
@@ -166,6 +182,52 @@ def nested_import_problems(path: Path) -> list[str]:
     return problems
 
 
+def _is_str(node: ast.AST, test) -> bool:
+    return isinstance(node, ast.Constant) and isinstance(node.value, str) and test(node.value)
+
+
+def _is_root(node: ast.AST) -> bool:
+    return (isinstance(node, ast.Name) and node.id == "ROOT") or (isinstance(node, ast.Attribute) and node.attr == "ROOT")
+
+
+def _is_target_part(node: ast.AST) -> bool:
+    is_target = lambda text: text == "target" or text.startswith("target/")  # noqa: E731
+    if isinstance(node, ast.JoinedStr) and node.values:
+        return _is_str(node.values[0], lambda text: text.startswith("target/"))
+    return _is_str(node, is_target)
+
+
+def build_path_problems(source: str, name: str = "") -> list[str]:
+    """Reads of CARGO_TARGET_DIR and hand-built `ROOT / "target"` paths in `source` (a file's text)."""
+    if name in BUILD_PATH_ALLOWED:
+        return []
+    problems = []
+    for node in ast.walk(ast.parse(source)):
+        reads_env = (
+            # env.get("CARGO_TARGET_DIR"), os.getenv(...)
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr in ("get", "getenv")
+            and any(_is_str(arg, TARGET_ENV.__eq__) for arg in node.args[:1])
+            # env["CARGO_TARGET_DIR"] when read
+            or isinstance(node, ast.Subscript)
+            and isinstance(node.ctx, ast.Load)
+            and _is_str(node.slice, TARGET_ENV.__eq__)
+            # "CARGO_TARGET_DIR" in env
+            or isinstance(node, ast.Compare)
+            and _is_str(node.left, TARGET_ENV.__eq__)
+            and isinstance(node.ops[0], (ast.In, ast.NotIn))
+        )
+        if reads_env:
+            problems.append(f"line {node.lineno}: reads {TARGET_ENV}; use toolkit.repo.cargo_target_dir() or cargo_binary()")
+        elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div) and _is_root(node.left) and _is_target_part(node.right):
+            problems.append(
+                'line %d: builds ROOT / "target" by hand; use toolkit.repo.cargo_target_dir()/cargo_binary() or repo_output.output_dir()'
+                % node.lineno
+            )
+    return problems
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -189,9 +251,10 @@ def main() -> int:
             skipped += 1
             print(f"skip {mode:6} {name}: {detail}")
     for path in files:
-        for problem in nested_import_problems(path):
+        relative = path.relative_to(ROOT).as_posix()
+        for problem in nested_import_problems(path) + build_path_problems(path.read_text(encoding="utf-8"), relative):
             failed += 1
-            print(f"FAIL static {path.relative_to(ROOT).as_posix()}\n    {problem}")
+            print(f"FAIL static {relative}\n    {problem}")
     print(
         f"check_tool_imports: {len(files)} files, {len(jobs) - skipped} loads, {skipped} skipped, {failed} failed"
     )
