@@ -23,3 +23,7 @@ not (
   | test(selectors_exist_in_the_objective_c_runtime)
 )
 """
+
+# Each test's duration, which CI uploads from its main Rust run (target/nextest/ci/junit.xml).
+[profile.ci.junit]
+path = "junit.xml"
