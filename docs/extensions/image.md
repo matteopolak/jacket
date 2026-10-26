@@ -104,7 +104,7 @@ To change it:
 | `malformed.jai` | every decoder on files cut at every byte and with every byte changed, under a tracking allocator (no leaks, no big allocation for a lying header) |
 | `module.jai` | detection, `decode_image`, `decode_image_as`, `make_image` |
 
-Regenerate the fixtures with `python3 stdlib/Extensions/Image/tests/fixtures/generate_png_cases.py`. The fuzz hooks (`tools/fuzz/properties/Image.jai`, target `Extensions/Image`) run the decoders on random and mutated bytes and check encode/decode and transform round trips: `python3 tools/fuzz/stdlib_fuzz.py Extensions/Image --jaic <jaic>` ([stdlib fuzzing](../tools/stdlib-fuzzing.md)).
+Regenerate the fixtures with `python3 stdlib/Extensions/Image/tests/fixtures/generate_png_cases.py`. The fuzz hooks (`tools/fuzz/properties/Image.jai`, target `Extensions/Image`) run the decoders on random and mutated bytes and check encode/decode and transform round trips: `PYTHONPATH=tools python3 tools/fuzz/stdlib_fuzz.py Extensions/Image --jaic <jaic>` ([stdlib fuzzing](../tools/stdlib-fuzzing.md)).
 
 ## Benchmarks
 

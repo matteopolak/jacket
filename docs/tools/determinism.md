@@ -7,9 +7,9 @@
 Only what a user sees has to agree everywhere: diagnostics and their order, `-check` output, what the program does, language-server answers. Symbols and syntax-node ids are numbered in whatever order threads reach them, so the IR and machine code of a parallel compile may differ between runs; byte-identical artifacts are promised only for single-threaded builds (`-threads 1`).
 
 ```sh
-python3 tools/differential/determinism.py --jaic target/release/jaic positive negative regressions semantics
-python3 tools/differential/determinism.py --jaic target/release/jaic --filter case- --jobs 1 positive   # a few files
-python3 tools/differential/determinism.py --jaic target/release/jaic --scramble 1,2 regressions        # number-order bugs
+PYTHONPATH=tools python3 tools/differential/determinism.py --jaic target/release/jaic positive negative regressions semantics
+PYTHONPATH=tools python3 tools/differential/determinism.py --jaic target/release/jaic --filter case- --jobs 1 positive   # a few files
+PYTHONPATH=tools python3 tools/differential/determinism.py --jaic target/release/jaic --scramble 1,2 regressions        # number-order bugs
 ```
 
 A full run with `--scramble 1,2` takes about an hour on an M-series laptop (`--jobs 4`). CI runs it nightly (`.github/workflows/determinism.yml`) and on demand, split into three `--shard`s per OS so each stays well inside the job's 120 minutes. Each finished file prints a progress line with its time.

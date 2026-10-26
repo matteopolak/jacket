@@ -26,7 +26,7 @@ When growth is intended (a feature that allocates more) or after a deliberate im
 2. Download the `gate-baseline` artifact and replace `tools/bench/gate-baseline.json` with it (or paste the printed JSON into the `linux-x86_64` entry).
 3. Commit it with the change that moved the numbers, and say why in the commit.
 
-Locally, `python3 tools/bench/gate.py --update --baseline /tmp/mine.json` records your own platform for investigating a change (`--baseline` keeps the committed file untouched).
+Locally, `PYTHONPATH=tools python3 tools/bench/gate.py --update --baseline /tmp/mine.json` records your own platform for investigating a change (`--baseline` keeps the committed file untouched).
 
 ## How to change it
 

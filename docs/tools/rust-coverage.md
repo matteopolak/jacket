@@ -22,7 +22,7 @@ The `rust-coverage` artifact holds `lcov.info`, `html/` (open `html/index.html`)
 - accepted code: a self-checking `tests/compiler/regressions/*.jai`;
 - interpreter or backend behaviour: add the program to the differential set ([testing](testing.md#differential-testing)).
 
-Run it locally with `cargo llvm-cov nextest --profile ci --html` (needs `cargo install --locked cargo-llvm-cov` and `rustup component add llvm-tools`), then `python3 tools/coverage/rust_cold.py` on `cargo llvm-cov report --lcov --output-path lcov.info`.
+Run it locally with `cargo llvm-cov nextest --profile ci --html` (needs `cargo install --locked cargo-llvm-cov` and `rustup component add llvm-tools`), then `PYTHONPATH=tools python3 tools/coverage/rust_cold.py` on `cargo llvm-cov report --lcov --output-path lcov.info`.
 
 Generic and macro-expanded code counts once per instantiation, and code reached only by the sweep's child processes needs the sweep step. Percentages are a guide, not a gate.
 

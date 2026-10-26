@@ -82,7 +82,7 @@ On macOS the override registers a malloc zone, and that zone leaves libmalloc's 
 
 ## How to change it
 
-- Measure with `jaic x.jai -exe out -timings` on an idle machine, 5 or more warm runs (a busy process moves results 10 to 20%). `python3 tools/bench/main.py compile` ([benchmarks](../tools/benchmarks.md)) runs corpus projects, the compile-time-heavy programs in `benchmarks/compile/` and corpus-shaped programs from `tools/benchgen.py` (`gen-2k`/`gen-10k`/`gen-60k`).
+- Measure with `jaic x.jai -exe out -timings` on an idle machine, 5 or more warm runs (a busy process moves results 10 to 20%). `PYTHONPATH=tools python3 tools/bench/main.py compile` ([benchmarks](../tools/benchmarks.md)) runs corpus projects, the compile-time-heavy programs in `benchmarks/compile/` and corpus-shaped programs from `tools/benchgen.py` (`gen-2k`/`gen-10k`/`gen-60k`).
 - To change what the parse crawl follows, edit `Shared::collect` in `parse_ahead.rs`; keep it a guess (never let it change what sema loads). The bit-exactness test is `parse_ahead::tests::relocated_parse_equals_serial_parse`; for end-to-end checks compare `jaic` output with and without `-serial_parse`. Parallel type checking could reuse the same parse cache.
 - To compare ISel strategies, run `llc -O0 -global-isel=0` on `-emit_ir` output.
 - Profile with samply ([benchmarks](../tools/benchmarks.md)). `Interp::run_code` is the main item left for metaprogram-heavy code, then `trace_enter`, then `build::call` and `write_item`.

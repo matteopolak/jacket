@@ -32,7 +32,7 @@ Compile times from a release `jaic` on an Apple M5 (LLVM 23, median of warm runs
 | [Jails](https://github.com/SogoCZE/Jails) | 4.0k | 0.23 s | 0.32 s | 0.86 s |
 | [jaison](https://github.com/rluba/jaison) (tests) | 1.7k | 0.07 s | 0.12 s | 0.44 s |
 
-About 4 s of Focus's release build is its build script packaging the app. Method and how to rerun them (`python3 tools/bench/main.py compile --categories real`): [benchmarks](tools/benchmarks.md).
+About 4 s of Focus's release build is its build script packaging the app. Method and how to rerun them (`PYTHONPATH=tools python3 tools/bench/main.py compile --categories real`): [benchmarks](tools/benchmarks.md).
 
 ## What is missing
 

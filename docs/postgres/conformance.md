@@ -72,7 +72,7 @@ its reason.
 
 ### The TAP suites
 
-`python3 tools/pg_conformance/run.py --tap` runs them. For each file it puts a bin directory first
+`PYTHONPATH=tools python3 tools/pg_conformance/run.py --tap` runs them. For each file it puts a bin directory first
 on `PATH` (the shim `psql` and `libpq_uri_regress`, then the server's programs), sets `PG_REGRESS`
 and runs `prove` with the fetched `src/test/perl` and IPC::Run on `PERL5LIB`. IPC::Run is taken
 from perl when it has it, else downloaded from CPAN (pinned by digest) into `target/pg-conformance`.
@@ -179,21 +179,21 @@ print "not in PostgreSQL <version>".
 - **A new suite:** add its pinned source to `tools/pg_conformance/fetch.py`, a runner step to
   `tools/pg_conformance/run.py` (TAP files go in `TAP_SUITES`, or `TAP_SKIPS` with a reason), and a
   row to the table above.
-- **SASLprep data:** `python3 tools/pg_conformance/gen_saslprep.py` regenerates
+- **SASLprep data:** `PYTHONPATH=tools python3 tools/pg_conformance/gen_saslprep.py` regenerates
   `stdlib/Extensions/Postgres/saslprep_data.jai`.
-- **A pipeline trace that differs:** `python3 tools/pg_conformance/run.py --pipeline-traces
+- **A pipeline trace that differs:** `PYTHONPATH=tools python3 tools/pg_conformance/run.py --pipeline-traces
   [--port <n>]` builds `pipeline_traces.jai`, starts a temporary cluster (or uses the running
   one) and prints the first differing line of each trace, libpq's and ours. The scenarios follow
   `libpq_pipeline.c` (fetched with the traces) step by step; the traces only hold messages, so
   the test also checks each step's result. Our trace is the connection's `set_trace` output in
   regress mode (`docs/extensions/postgres.md`).
-- **A failing regression file:** run `python3 tools/pg_conformance/run.py --only <name>`
+- **A failing regression file:** run `PYTHONPATH=tools python3 tools/pg_conformance/run.py --only <name>`
   (add `--port <n>` to use a running server instead of temporary clusters, and `--shim-only` to
   reuse the last real-psql results). Both outputs and the diffs stay under
   `target/pg-conformance/run/<major>/`; each run's `summary.txt` holds pg_regress's report,
   since it deletes `regression.out` when everything passes. Fix the client or the shim. Never
   edit `expected/`.
-- **A failing round-trip value:** `python3 tools/pg_conformance/roundtrip.py` prints the
+- **A failing round-trip value:** `PYTHONPATH=tools python3 tools/pg_conformance/roundtrip.py` prints the
   table, column, original text and what was sent back. It builds `roundtrip.jai` and keeps the
   JSON literals under `target/pg-conformance/roundtrip/<major>/`. `--skip-regress` checks the
   edge values and literals only; `--only int4 numeric` shortens the regression run. To run it by

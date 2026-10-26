@@ -38,7 +38,7 @@ Also `find_last_any`, `contains(*Byte_Set, byte)`, `find_triple(*a, *b, *c, gap_
 - **Keep vector loops `no_inline`.** SIMD lane operations are loops LLVM vectorizes after inlining; inlined into a big caller they can degrade to byte loads (`find_pair` went from 4 GB/s to 1 GB/s). Every procedure holding such a loop is `no_inline`.
 - **Rarity table:** only a rough order is needed; change `make_rarity`.
 - **Fallback threshold:** lowering `misses * 32 > scanned` moves adversarial needles to Two-Way sooner; raising it keeps typical text in the faster vector loop.
-- Tests: `tests/variants.jai` runs the 16- and 32-byte version of every dispatched search against naive loops (it `#load`s the module to reach them; the 32-byte one runs on any machine except x64 without AVX2). `tests/search.jai` checks every procedure against naive loops (random texts at every start/end, small alphabets, random sets with pairs/triples at every gap, periodic needles, a 2 MB linear-time check). Run with `python3 tools/stdlib/stdlib_runtime.py --filter Byte_Search`.
+- Tests: `tests/variants.jai` runs the 16- and 32-byte version of every dispatched search against naive loops (it `#load`s the module to reach them; the 32-byte one runs on any machine except x64 without AVX2). `tests/search.jai` checks every procedure against naive loops (random texts at every start/end, small alphabets, random sets with pairs/triples at every gap, periodic needles, a 2 MB linear-time check). Run with `PYTHONPATH=tools python3 tools/stdlib/stdlib_runtime.py --filter Byte_Search`.
 
 ## Configuration and dependencies
 

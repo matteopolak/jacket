@@ -21,7 +21,7 @@ Miri cannot call foreign functions, run inline assembly or switch stacks, so `fi
 
 - A module whose tests pass under Miri goes in `RUN` in `tools/ci/run_miri.py`; one that is too slow gets a `SKIP` entry with the reason.
 - A sanitizer report is a bug: fix it and add a test that fails without the fix (a misaligned store is found by a debug build, an unsynchronised access by the test that runs it twice). Suppressions are a last resort and need a comment saying why the report is wrong.
-- Run Miri locally with `rustup component add miri` for the pinned nightly, then `python3 tools/ci/run_miri.py`. A local ASan run: `RUSTFLAGS=-Zsanitizer=address cargo test -Zbuild-std --target <host triple> -p jaic --lib` with its own `CARGO_TARGET_DIR`.
+- Run Miri locally with `rustup component add miri` for the pinned nightly, then `PYTHONPATH=tools python3 tools/ci/run_miri.py`. A local ASan run: `RUSTFLAGS=-Zsanitizer=address cargo test -Zbuild-std --target <host triple> -p jaic --lib` with its own `CARGO_TARGET_DIR`.
 
 ## Configuration
 

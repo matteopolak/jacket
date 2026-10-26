@@ -9,10 +9,10 @@ A type-driven fuzzer for stdlib procedures. It reads a module's exported procedu
 Two modes share the generators: a seeded mode under `jaic -interp` (fast to start, deterministic, no native toolchain) and a coverage-guided mode (`--engine`) that builds the same harness natively with `-sanitize address,fuzzer` and lets libFuzzer mutate the input bytes the generators consume.
 
 ```sh
-python3 tools/fuzz/stdlib_fuzz.py String Unicode Base64 Hash Crc --jaic target/release/jaic --count 2000
-python3 tools/fuzz/stdlib_fuzz.py String --engine --time 300                           # coverage-guided
-python3 tools/fuzz/stdlib_fuzz.py String --only slice --seed 2 --count 1 --max-len 0   # reproduce
-python3 tools/fuzz/stdlib_fuzz.py --replay                                              # stored cases
+PYTHONPATH=tools python3 tools/fuzz/stdlib_fuzz.py String Unicode Base64 Hash Crc --jaic target/release/jaic --count 2000
+PYTHONPATH=tools python3 tools/fuzz/stdlib_fuzz.py String --engine --time 300                           # coverage-guided
+PYTHONPATH=tools python3 tools/fuzz/stdlib_fuzz.py String --only slice --seed 2 --count 1 --max-len 0   # reproduce
+PYTHONPATH=tools python3 tools/fuzz/stdlib_fuzz.py --replay                                              # stored cases
 ```
 
 Exit status is 1 when a finding is not listed as `known` for its module.

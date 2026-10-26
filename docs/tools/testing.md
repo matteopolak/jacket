@@ -19,13 +19,13 @@ Runs `jaic` over sets of programs and reports pass/fail. Each case runs `jaic <m
 | a path | that file | run |
 
 ```sh
-python3 tools/differential/jaic_sweep.py --jaic target/debug/jaic corpus negative regressions modules upstream examples --timeout 900
+PYTHONPATH=tools python3 tools/differential/jaic_sweep.py --jaic target/debug/jaic corpus negative regressions modules upstream examples --timeout 900
 ```
 
 Options: `--filter`, `--verbose`, `--timeout` (default 60; 900 for the full sweep), `--jobs` (default CPU count capped so jobs times memory limit fits in RAM), `--memory-limit GIB` (default 3), `--native` (build each run case and run the executable), `--opt O0..O3`, `--sanitize address,undefined` ([sanitizers](../native/sanitizers.md)), `--headless` (programs importing `Window_Creation` are only checked or built), `--allow-stale`.
 
 - The memory limit is passed to `jaic` as `JAIC_MEMORY_LIMIT`; `jaic` exits 120 at the first allocation past it (LLVM and child processes are not capped). The sweep refuses to run a `jaic` older than the sources in `crates/jaic`, `jaic-cli` or `jaic-llvm`, because a stale build may lack the limits that keep negative cases from exhausting memory.
-- The `upstream` set needs `python3 tools/fetch_upstreams.py` first. The sweep builds missing native libraries and sets `JAIC_NATIVE_LIBS`.
+- The `upstream` set needs `PYTHONPATH=tools python3 tools/fetch_upstreams.py` first. The sweep builds missing native libraries and sets `JAIC_NATIVE_LIBS`.
 
 Every program in `examples/` is also checked by `cargo test -p jaic-cli --test examples`: `jaic -check -os <os>` for each OS its row in `PROGRAMS` lists, with the reason when one is left out (the HTTP and window examples are native only). A file another example `#load`s (a workspace's sections, `http/notes.jai`) is checked through that program; a new example fails the test until it has a row and a case in `tests/corpus/examples.json`.
 
@@ -59,9 +59,9 @@ jaic has no independent implementation to compare with, so it is compared with i
 
 ```sh
 cargo build --release -p jaic-cli
-python3 tools/browser/build_scripting_wasm.py --release --output /tmp/wasm
-python3 tools/differential/jaic_diff.py --jaic target/release/jaic --wasm /tmp/wasm --jobs 3 corpus regressions modules
-python3 tools/differential/jaic_diff.py --jaic target/release/jaic --wasm /tmp/wasm --jobs 3 --keep /tmp/gen gen:70000:3000
+PYTHONPATH=tools python3 tools/browser/build_scripting_wasm.py --release --output /tmp/wasm
+PYTHONPATH=tools python3 tools/differential/jaic_diff.py --jaic target/release/jaic --wasm /tmp/wasm --jobs 3 corpus regressions modules
+PYTHONPATH=tools python3 tools/differential/jaic_diff.py --jaic target/release/jaic --wasm /tmp/wasm --jobs 3 --keep /tmp/gen gen:70000:3000
 ```
 
 Sets are `corpus`, `regressions`, `modules`, a file path, or `gen:SEED:COUNT` (programs from `tools/differential/jaigen.py`). A result is `(status, stdout, stderr)`: status is `exit N` or `runtime error` (only the fact is compared, since backends word failures differently); stdout must match exactly; stderr must match when all exited normally; paths are normalized (`/workspace`, `/stdlib`). Verdicts: `agree`, `DISAGREE` (also when one backend fails to compile what another compiled), `invalid` (no backend compiled it), `skip` (fewer than two ran). Exit 1 on any `DISAGREE` or `invalid`. Run it with one heavy job at a time (two native executables per program) and pick seeds no earlier campaign used.
@@ -70,7 +70,7 @@ A backend is declined for a case only for a stated reason taken from existing me
 
 **Generator.** `jaigen.py SEED [--size S]` prints one deterministic program that keeps an FNV checksum and prints it at the end. It covers integers and floats of every width, casts, structs, `using`, operator overloads, unions, arrays, loops, switches, enums, `defer`, strings, overloads, variadics, `Any`/reflection, polymorphism (procedures and structs, `#modify` binding a result type or rejecting a call, `#bake_arguments` of procedures and structs), `#run` constants, `#add_context` fields read through `push_context`, a counting allocator wrapped around the default one, and `print` of every type. Programs use only defined behaviour: wrapping integer arithmetic, masked shifts, no divisor of 0 or -1, in-range float to int, canonical NaN (bare float literals pass through `opaque_*` so the compiler cannot fold ones that overflow or divide by zero), pure procedures inside expressions (evaluation order is unspecified), constant trip counts, no pointer arithmetic or uninitialized reads. `Gen` has `expr_int/float/bool` per type, `stmt` and `program`; check a new form with `--backends interp` first.
 
-**Reducer.** `python3 tools/differential/jaic_reduce.py prog.jai --jaic ... --wasm ...` deletes lines and blocks while the backends still split the same way (default timeout 10 s) and writes `prog.reduced.jai`.
+**Reducer.** `PYTHONPATH=tools python3 tools/differential/jaic_reduce.py prog.jai --jaic ... --wasm ...` deletes lines and blocks while the backends still split the same way (default timeout 10 s) and writes `prog.reduced.jai`.
 
 **A found case:** reduce it, fix the wrong backend, and keep the reduced program as a `tests/corpus/positive` case (manifest entry with `sha256` and the interpreter's `runtime` output), plus a targeted test if only one backend or optimization level was wrong (e.g. in `crates/jaic-cli/tests/native.rs`). Differential testing cannot find a bug all backends share, because they share a front end: a cast's target type does not reach an untyped literal beside a typed operand (`cast(float32) (0 - w)` with `w: u16` subtracts in `u16`).
 
@@ -81,9 +81,9 @@ A backend is declined for a case only for a stated reason taken from existing me
 `tools/differential/compare_compilers.py` takes two opaque binaries, A and B, and reports where they disagree on many small programs: an old `jaic` against a new one, `-interp` against a native build of the same binary, or any other pair. It targets pairs of features (a `.{...}` literal as an operator operand, `ifx` with an enum shorthand) that random programs rarely combine.
 
 ```
-python3 tools/differential/compare_compilers.py --a OLD --b target/release/jaic --mode interp --jobs 4 grid
-python3 tools/differential/compare_compilers.py --a target/release/jaic --mode-a interp --b target/release/jaic --mode-b run grid
-python3 tools/differential/compare_compilers.py --a OLD --b NEW --reduce --sandbox rewrite:tests/compiler gen:90000:100 prog.jai dir/
+PYTHONPATH=tools python3 tools/differential/compare_compilers.py --a OLD --b target/release/jaic --mode interp --jobs 4 grid
+PYTHONPATH=tools python3 tools/differential/compare_compilers.py --a target/release/jaic --mode-a interp --b target/release/jaic --mode-b run grid
+PYTHONPATH=tools python3 tools/differential/compare_compilers.py --a OLD --b NEW --reduce --sandbox rewrite:tests/compiler gen:90000:100 prog.jai dir/
 ```
 
 Sets: `grid[:context,poly,using]` (the tables in `compare_grid.py`), `rewrite:PATHS` (text-level edits of existing programs from `compare_rewrite.py`: erase a literal's type, swap commutative operands, inline a single-use local, `x: T = e` to `cast`, `x := e` to `type_of`, ...; default paths `tests/compiler/{semantics,language}`; some rewrites are tagged `noisy:` because they can change meaning), `gen:SEED:COUNT` (`jaigen.py`), files and folders. `--mode` is `check` (default), `interp`, `run` or `run-opt` (build, then execute), per side with `--mode-a`/`--mode-b`; `--args-a`/`--args-b` add arguments; `--sandbox` runs every compile and program without network and with minimal file access (it cannot start inside another sandbox); `--only TEXT`, `--limit N` pick a subset. Each side's command line comes from `tools/bench/dialects.py`, chosen by probing the binary's `-help`, so a binary without jaic's flags gets the portable command line.
@@ -92,7 +92,7 @@ Per program each side records compiled or not, exit code, stdout and the first e
 
 Read `target/compare/report.md` (`--out` moves it; `results.json` has the same data): counts per class, disagreements clustered by error text with the smallest example of each (`--reduce` shrinks it by deleting lines while the pair still splits the same way), clusters by feature tag (`kind:`, `context:`, `form:`, `rewrite:` ...) with their share, and the programs both sides reject that were not marked `variant:near_miss`, which are either a template mistake or a gap both share.
 
-**To add a grid axis:** write a generator of `Program(name, source, tags)` in `compare_grid.py` (tags start with `axis:NAME`; every program prints a deterministic line) and list it in `AXES`. A new row or column of an existing table is one entry in `KINDS`/`CONTEXTS`, `FORMS`/`ARGS` or `SETUPS`/`ACCESSES`. Unit tests (`python3 tools/differential/test_compare_compilers.py`; the end-to-end ones need `JAIC` or a built `target/release/jaic`) check the grid is well formed. Limits: rewrites are regex based, so they miss multi-line constructs and can edit text inside block comments; classification compares stdout only (stderr of a program is not).
+**To add a grid axis:** write a generator of `Program(name, source, tags)` in `compare_grid.py` (tags start with `axis:NAME`; every program prints a deterministic line) and list it in `AXES`. A new row or column of an existing table is one entry in `KINDS`/`CONTEXTS`, `FORMS`/`ARGS` or `SETUPS`/`ACCESSES`. Unit tests (`PYTHONPATH=tools python3 tools/differential/test_compare_compilers.py`; the end-to-end ones need `JAIC` or a built `target/release/jaic`) check the grid is well formed. Limits: rewrites are regex based, so they miss multi-line constructs and can edit text inside block comments; classification compares stdout only (stderr of a program is not).
 
 ## Fuzzing
 
@@ -116,7 +116,7 @@ Coverage-guided fuzzing with cargo-fuzz (libFuzzer). Every panic, abort, stack o
 
 - **Sandbox.** Compile-time code and `main` run in the playground sandbox (target `wasm`, in-memory stdlib, `SandboxHost`). `BLOCK_BUDGET` (2M blocks) stops loops in `#run`/`main`. Compiling harnesses run on a 256 MiB thread. The interpreter uses real memory, so an input that builds a pointer from an integer (`cast(*T)`, `xx`, `---`) can crash the fuzzer without a compiler bug. The compiler's own reads of program memory (freezing `#run` results, metaprogram strings, `compiler_*` out-parameters) must go through `Interp::read`/`write` (`interp/probe.rs`); a SEGV with one of those on the stack is a compiler bug.
 - **Corpora.** `fuzz/seed_corpus.py` builds `fuzz/corpus/<target>/` from `tests/compiler/regressions`, `stdlib/**/tests`, `tests/corpus`, `examples`, `fuzz/seeds` and (for lexer/parser) `stdlib/`. Corpora are not committed; CI caches them. `fuzz/jai.dict` is the mutator dictionary.
-- **Targets.** `fuzz/targets.json` is the one list of targets, with each one's `-max_len`, `-timeout` and seed tree and size limit. `run.sh` and `seed_corpus.py` read it, and `fuzz.yml` builds its matrix from `python3 fuzz/seed_corpus.py --matrix`. `python3 tools/fuzz/sync_targets.py` generates the `[[bin]]` entries in `fuzz/Cargo.toml` and the per-target tests in `harness/tests/regressions.rs` from it (`--check` fails when they differ; the Python tool tests run it).
+- **Targets.** `fuzz/targets.json` is the one list of targets, with each one's `-max_len`, `-timeout` and seed tree and size limit. `run.sh` and `seed_corpus.py` read it, and `fuzz.yml` builds its matrix from `python3 fuzz/seed_corpus.py --matrix`. `PYTHONPATH=tools python3 tools/fuzz/sync_targets.py` generates the `[[bin]]` entries in `fuzz/Cargo.toml` and the per-target tests in `harness/tests/regressions.rs` from it (`--check` fails when they differ; the Python tool tests run it).
 - **Run:** `cargo install cargo-fuzz` (CI uses `taiki-e/install-action`), then `fuzz/run.sh check 1200 4` (target, seconds, workers). It builds without a sanitizer but with debug assertions (ASan is off on purpose) and collects findings in `fuzz/artifacts/<target>/`. Per-target `-max_len` and `-timeout` come from `targets.json`; `-rss_limit_mb=4096` is in `run.sh`. Throughput varies from about 10,000 executions per second (`lexer`) to under 20 (`jaifmt`); give slow targets longer runs.
 - **Triage:** `cargo run --release --manifest-path fuzz/harness/Cargo.toml --example replay -- check fuzz/artifacts/check/crash-*` (`JAI_FUZZ_VERBOSE=1` for diagnostics; `replay show <input>` prints a generated program). Minimize with `cargo fuzz tmin --sanitizer none --debug-assertions`, or by hand.
 - **Regressions.** Every fixed crash gets the minimized input in `fuzz/regressions/<target>/` (replayed on every push by `fuzz/harness/tests/regressions.rs`: `cargo test --manifest-path fuzz/harness/Cargo.toml`) and a test next to the fix.
@@ -125,16 +125,16 @@ Coverage-guided fuzzing with cargo-fuzz (libFuzzer). Every panic, abort, stack o
 
 Limits that exist because fuzzing found them (each has a regression): `MAX_NESTING` (parser, 1000), `MAX_SIZE` (types, 2^48 bytes), `MAX_IMAGE` (compile-time values, 4 GiB), `MAX_INSTANCES` (2000), `MAX_INSERT_DEPTH` (256), `#align` range 0..=2^30, `FORMAT_BUDGET` and `MAX_STEPS` (24, `lsp_edits`) in the harness. Span-reading code must use `SourceMap::snippet`/`try_get` because declaration spans can be `Span::NONE`; `jaic::docs` answers nothing for a stale offset that is not a character boundary.
 
-**To change it:** a new target needs `pub fn <name>(data: &[u8])` in `harness/src/lib.rs`, a file in `fuzz_targets/`, an entry in `fuzz/targets.json` (which feeds `run.sh`, `seed_corpus.py` and the CI matrix), then `python3 tools/fuzz/sync_targets.py` for the `[[bin]]` and the regression test, and the replay example's match. Generator: add statement kinds in `stmt`, expressions in `expr` (type-correct for the requested type) or declarations in `top_decl`; never generate pointers made from integers. `jaifmt` oracles go after the exit-code checks in `harness/src/jaifmt.rs`; rebuild after editing `stdlib/Extensions/Jai_Format`. A new `lsp_edits` request is an arm in `Script::step`. A target whose seeds are not Jai files names a seed group in `seed_corpus.py` (`configs` builds the `jacket_config` inputs from `fuzz/seeds_config/*.toml` and the repository's config files). `Meaning` in `harness/src/lib.rs` is the shared "what does this program do" oracle (compile errors plus `main`'s output); a program that names `alloc`, `reserve` or `New` is only compiled, because the sandbox has no memory cap.
+**To change it:** a new target needs `pub fn <name>(data: &[u8])` in `harness/src/lib.rs`, a file in `fuzz_targets/`, an entry in `fuzz/targets.json` (which feeds `run.sh`, `seed_corpus.py` and the CI matrix), then `PYTHONPATH=tools python3 tools/fuzz/sync_targets.py` for the `[[bin]]` and the regression test, and the replay example's match. Generator: add statement kinds in `stmt`, expressions in `expr` (type-correct for the requested type) or declarations in `top_decl`; never generate pointers made from integers. `jaifmt` oracles go after the exit-code checks in `harness/src/jaifmt.rs`; rebuild after editing `stdlib/Extensions/Jai_Format`. A new `lsp_edits` request is an arm in `Script::step`. A target whose seeds are not Jai files names a seed group in `seed_corpus.py` (`configs` builds the `jacket_config` inputs from `fuzz/seeds_config/*.toml` and the repository's config files). `Meaning` in `harness/src/lib.rs` is the shared "what does this program do" oracle (compile errors plus `main`'s output); a program that names `alloc`, `reserve` or `New` is only compiled, because the sandbox has no memory cap.
 
 ## Stdlib runtime tests
 
 Every top-level `*.jai` file of a `stdlib/**/tests/` directory, and of `tests/compiler/regressions/`, is a case that must build and exit 0 in each mode. A directory's optional `manifest.json` refines cases (expected output, required platform, native-only services) and can add cases that live in sub-directories; `tools/stdlib/stdlib_test_catalog.py` documents the row keys. Files in sub-directories (`support/`, `fixtures/`, `native/`) are helpers and never discovered on their own.
 
 ```sh
-python3 tools/native/build_native_libs.py
-python3 tools/stdlib/stdlib_runtime.py --jaic target/release/jaic --modes interp,native,wasm-interp,wasm-native --coverage target/stdlib-reachability.txt
-python3 tools/stdlib/check_stdlib_suites.py --jaic target/release/jaic --stdlib stdlib --jailint target/debug/jailint --jaifmt target/jaifmt
+PYTHONPATH=tools python3 tools/native/build_native_libs.py
+PYTHONPATH=tools python3 tools/stdlib/stdlib_runtime.py --jaic target/release/jaic --modes interp,native,wasm-interp,wasm-native --coverage target/stdlib-reachability.txt
+PYTHONPATH=tools python3 tools/stdlib/check_stdlib_suites.py --jaic target/release/jaic --stdlib stdlib --jailint target/debug/jailint --jaifmt target/jaifmt
 ```
 
 Modules whose tests run under `jacket test` (the `[test] paths` in `jacket.toml`, currently including Bit_Array, String, Hash_Table and System) have no `manifest.json`; the catalogue (`stdlib_test_catalog.py`) leaves their `tests/` folders out, so `stdlib_runtime.py`, `jaic_sweep.py` and the other tools that read it do not run them. A module that moves over is added to that list and its manifest deleted.

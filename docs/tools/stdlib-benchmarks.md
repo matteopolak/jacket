@@ -29,7 +29,7 @@ Retired instructions of every stdlib program, built by two compilers that each u
 
 ```sh
 cargo build --release -p jaic-cli
-python3 tools/bench/main.py compare --baseline OTHER/jai --candidate target/release/jaic \
+PYTHONPATH=tools python3 tools/bench/main.py compare --baseline OTHER/jai --candidate target/release/jaic \
     --modes optimized --sizes '' --no-corpus --only=stdlib- --programs-only
 ```
 

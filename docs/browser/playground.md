@@ -47,7 +47,7 @@ A bundle (`tools/browser/build_scripting_wasm.py --output <dir>`) holds:
 
 ```sh
 rustup target add wasm32-unknown-unknown --toolchain nightly-2026-08-29
-python3 tools/browser/build_scripting_wasm.py --release --output target/scripting-runtime
+PYTHONPATH=tools python3 tools/browser/build_scripting_wasm.py --release --output target/scripting-runtime
 node tools/browser/check_scripting_wasm.mjs target/scripting-runtime/jai_wasm.wasm
 node tools/browser/check_jaifmt_wasm.mjs engine target/scripting-runtime
 node tools/browser/check_playground_stdlib.mjs target/scripting-runtime
@@ -75,7 +75,7 @@ To add an example: create `examples/<name>/main.jai` (plus a `README.md` if it n
 4. `node tools/browser/check_browser_release.mjs <stage>` runs the **staged** engine: the exact inventory, every example folder matching `examples.json` (and carrying `jacket.toml`), execution probes (exit codes, phases, nested `#load`, diagnostics, a `#run` workspace message loop, the virtual clock, the budget, a refused `#foreign`), every bundled example, a format, the language server, and `check_playground_stdlib.mjs`. Any failure means nothing is published.
 5. The ZIP uses fixed timestamps and modes (identical inputs give identical bytes), is read back against the inventory, and is written with `jai-playground.manifest.json` (`schema_version: 2`, `commit`, `files: [{path, size, sha256}]`, `archive`, `capabilities`) into an absent or empty output directory.
 
-Run it with `python3 tools/browser/package_browser_release.py --output target/browser-release --jaic target/debug/jaic`; `--jaic` is required (it builds `jaifmt.wasm`, needing LLVM 23 and `wasm-ld`; [wasm target](../native/wasm-target.md)). `.github/workflows/browser-release.yml` does this for one full SHA on manual dispatch with read-only permissions and uploads the two files as a workflow artifact.
+Run it with `PYTHONPATH=tools python3 tools/browser/package_browser_release.py --output target/browser-release --jaic target/debug/jaic`; `--jaic` is required (it builds `jaifmt.wasm`, needing LLVM 23 and `wasm-ld`; [wasm target](../native/wasm-target.md)). `.github/workflows/browser-release.yml` does this for one full SHA on manual dispatch with read-only permissions and uploads the two files as a workflow artifact.
 
 ## How to change it
 

@@ -36,9 +36,9 @@ Expected values must come from the project (docs, tests, golden outputs written 
 `tools/corpus/upstream_smoke.py` builds each project with its own entry point and runs it unattended. Checks live in `tools/corpus/upstream-smoke.json` (validated by `tools/corpus/test_upstream_smoke.py`); CI runs them in the `upstream-smoke` job of `ci.yml` on linux-x64, linux-arm64, macos-arm64 and windows-x64.
 
 ```sh
-python3 tools/fetch_upstreams.py --only $(python3 tools/corpus/upstream_smoke.py --jaic x --projects)
-python3 tools/corpus/upstream_smoke.py --jaic target/release/jaic              # every check for this machine
-python3 tools/corpus/upstream_smoke.py --jaic target/release/jaic --filter focus -v
+PYTHONPATH=tools python3 tools/fetch_upstreams.py --only $(PYTHONPATH=tools python3 tools/corpus/upstream_smoke.py --jaic x --projects)
+PYTHONPATH=tools python3 tools/corpus/upstream_smoke.py --jaic target/release/jaic              # every check for this machine
+PYTHONPATH=tools python3 tools/corpus/upstream_smoke.py --jaic target/release/jaic --filter focus -v
 ```
 
 Each check copies its project into a scratch directory and runs steps in order. Step `kind`: `jaic` (`outputs` must exist, `contains`/`ordered`/`not_contains` check output), `run` (default; `stdin`, `exit`), `gui` (must still run after `seconds`, and the screen must change between screenshots taken before and after start), `serve` (free port via `{port}`, fetch `get`), `lsp` (`initialize` over stdio). `needs` runs a step only if a program was built, `only`/`skip` limit platforms, and a check with `only`/`skip` or no steps is a documented skip with a reason. Servers, editors and games need `serve` or `gui`, never a bare `run`. GUI programs run under `xvfb-run` on Linux; on Windows Mesa's software `opengl32.dll` is copied beside them.

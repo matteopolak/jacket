@@ -5,12 +5,12 @@
 One harness, `tools/bench/`, times the compiler (and, with `compare`, two compiler builds head to head), the language server, the linter and the formatter. Each subcommand writes JSON and a Markdown summary, takes the median of N runs, reports the spread, and can compare against an earlier run.
 
 ```sh
-python3 tools/bench/main.py compile --compiler jaic=target/release/jaic     # compile time, stages, generated-code speed
-python3 tools/bench/main.py lsp                                             # jailsp latency by request kind
-python3 tools/bench/main.py lint                                            # jailint
-python3 tools/bench/main.py fmt                                             # jaifmt, native and wasm
-python3 tools/bench/main.py compile --compare target/bench/old.json         # exit 1 on regressions
-python3 tools/bench/main.py compare --baseline OLD/jaic --candidate NEW/jaic # fair A/B of two binaries
+PYTHONPATH=tools python3 tools/bench/main.py compile --compiler jaic=target/release/jaic     # compile time, stages, generated-code speed
+PYTHONPATH=tools python3 tools/bench/main.py lsp                                             # jailsp latency by request kind
+PYTHONPATH=tools python3 tools/bench/main.py lint                                            # jailint
+PYTHONPATH=tools python3 tools/bench/main.py fmt                                             # jaifmt, native and wasm
+PYTHONPATH=tools python3 tools/bench/main.py compile --compare target/bench/old.json         # exit 1 on regressions
+PYTHONPATH=tools python3 tools/bench/main.py compare --baseline OLD/jaic --candidate NEW/jaic # fair A/B of two binaries
 ```
 
 `tools/regex_bench.py` with `benchmarks/regex/` is separate: `Extensions/Regex` against other engines (results in `benchmarks/results/regex.md`; `--jaic` defaults to the release build in the cargo target dir, built first when missing). `benchmarks/results/` holds only the regex numbers: the compile and language-server baselines the old harnesses wrote there were removed. They measured other workloads in another format, so nothing could compare against them, and a committed baseline goes stale with every change; keep a baseline per machine from `--out` and pass it to `--compare` (a report in any other format is refused up front).
@@ -33,9 +33,9 @@ Common options: `--repeat`, `--warmup`, `--only A,B` (substrings of result keys)
 
 ```sh
 cargo build --release -p jaic-cli
-python3 tools/bench/main.py compile --repeat 5
-python3 tools/bench/main.py compile --categories compile-time,startup --modes check,build
-python3 tools/bench/main.py compile --only focus/check --compare target/bench/old.json
+PYTHONPATH=tools python3 tools/bench/main.py compile --repeat 5
+PYTHONPATH=tools python3 tools/bench/main.py compile --categories compile-time,startup --modes check,build
+PYTHONPATH=tools python3 tools/bench/main.py compile --only focus/check --compare target/bench/old.json
 ```
 
 Result keys are `<workload>/<mode>/<compiler>`. Modes: `check` (`-check`), `build` (default build), `optimized` (`-o`), `interp` (`-interp`). The workloads (`tools/bench/workloads.py`):
@@ -44,7 +44,7 @@ Result keys are `<workload>/<mode>/<compiler>`. Modes: `check` (`-check`), `buil
 | --- | --- |
 | startup | `hello` |
 | lots of code | `gen-2k`, `gen-10k`, `gen-60k`: `tools/benchgen.py` programs, seed 1 (changing the generator makes old results incomparable) |
-| real projects | focus, Jails, sgpu examples, jaison tests, the open-jai drawing board, forbear from the [upstream corpus](upstream-corpus.md) (`python3 tools/fetch_upstreams.py`) |
+| real projects | focus, Jails, sgpu examples, jaison tests, the open-jai drawing board, forbear from the [upstream corpus](upstream-corpus.md) (`PYTHONPATH=tools python3 tools/fetch_upstreams.py`) |
 | compile-time heavy | `benchmarks/compile/`: `run-loops` (hot `#run` loops), `insert-meta` (`#insert` of generated procedures, structs and enums), `polymorph-explosion`, `constant-tables`; and `benchmarks/compile-time.jai` |
 | stdlib heavy | `stdlib-imports`: sixteen modules imported and used |
 | interpreter | `benchmarks/interp-*.jai` under `-interp` |
@@ -69,8 +69,8 @@ For a build metaprogram that compiles workspaces, backend time is also inside it
 
 ```sh
 cargo build --release -p jai-language-server
-python3 tools/bench/main.py lsp --repeat 5
-python3 tools/bench/main.py lsp --only gen-240k --diagnostics pull
+PYTHONPATH=tools python3 tools/bench/main.py lsp --repeat 5
+PYTHONPATH=tools python3 tools/bench/main.py lsp --only gen-240k --diagnostics pull
 ```
 
 Each session starts a fresh server over stdio, opens a workspace as an editor would and runs a fixed script on one document. `--repeat` sessions are pooled, so p50 and p95 are over every sample of every session. Workloads (`lsp_workloads.py`): `gen-60k` (12 files) and `large-25k` (one file) from benchgen, and `repo` (this repository, opened at its root, with `stdlib/Extensions/Jai_Format/format.jai` as the document); `gen-240k` and `large-100k` run when named with `--only`.
@@ -93,11 +93,11 @@ Two tools compare binaries that take the same command line, typically an older j
 
 ```sh
 # Release builds of jaic 0.21.1 (downloaded and unpacked) and the current build:
-python3 tools/bench/main.py compare \
+PYTHONPATH=tools python3 tools/bench/main.py compare \
     --baseline /path/to/v0.21.1/jacket-macos-arm64/jaic \
     --candidate target/release/jaic \
     --candidate-env JAIC_STDLIB=$PWD/stdlib        # only for a binary that cannot find its own stdlib
-python3 tools/bench/main.py compare --baseline A --candidate B --sizes 10000 --no-corpus --rounds 5 --cold-rounds 2   # quick look
+PYTHONPATH=tools python3 tools/bench/main.py compare --baseline A --candidate B --sizes 10000 --no-corpus --rounds 5 --cold-rounds 2   # quick look
 ```
 
 Defaults: generated programs of 10k, 100k, 250k and 500k lines (`--sizes`, seed `--seed`) plus every real-project workload of the [upstream corpus](upstream-corpus.md) (`--no-corpus` to skip), in check, build and optimized modes (`--modes`), 15 warm rounds (`--rounds`) and 5 cold rounds (`--cold-rounds`) per workload and mode. A full run takes a long time (the 500k-line optimized builds dominate); narrow it with `--only gen-100k,focus` (substrings of `<workload>/<mode>`) and use `--list` to see the plan.
@@ -130,7 +130,7 @@ Everything is written to `playground/bench/<timestamp>/` (`--out-dir` changes it
 ### compile with several binaries
 
 ```sh
-python3 tools/bench/main.py compile --compiler old=/path/to/old/jaic --compiler new=target/release/jaic
+PYTHONPATH=tools python3 tools/bench/main.py compile --compiler old=/path/to/old/jaic --compiler new=target/release/jaic
 ```
 
 Every `--compiler NAME=PATH` takes jaic's command line (see above for the two classes). Rules the harness enforces:

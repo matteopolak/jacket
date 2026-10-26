@@ -43,7 +43,7 @@ reply, _ := Io.read_all(Tls.reader_of(stream));
 - **Another mbedTLS function:** declare it in `bindings.jai` (opaque `*void` objects). A `static inline` function or struct field goes through `tools/native/mbedtls/jai_mbedtls.c`.
 - **SNI certificate selection, tickets, OCSP stapling, resumption:** `build_server`/`build_client` in `config.jai`; `sni_callback` in `stream.jai` already sees the name first.
 - **HTTP/2:** `choose_protocol` in `Http/server.jai`.
-- **Library options** (suites, record sizes, versions): `jai_mbedtls_config.h`, then `python3 tools/native/build_native_libs.py mbedtls`.
+- **Library options** (suites, record sizes, versions): `jai_mbedtls_config.h`, then `PYTHONPATH=tools python3 tools/native/build_native_libs.py mbedtls`.
 
 ## Configuration
 

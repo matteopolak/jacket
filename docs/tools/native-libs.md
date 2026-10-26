@@ -11,11 +11,11 @@ Not shipped (the OS's or the user's to install): SDL2 on macOS, Linux and Window
 ## How it works
 
 ```sh
-python3 tools/native/build_native_libs.py              # all libraries
-python3 tools/native/build_native_libs.py stb_image    # one (skips the completeness check)
-python3 tools/native/build_native_libs.py --platform windows-arm64   # needs clang, llvm-lib, llvm-nm
-python3 tools/native/build_native_libs.py --out pkg/native-libs/linux-x64   # into a package
-python3 tools/native/build_native_libs.py --missing    # only those not yet in target/native-libs (CI, after restoring its cache)
+PYTHONPATH=tools python3 tools/native/build_native_libs.py              # all libraries
+PYTHONPATH=tools python3 tools/native/build_native_libs.py stb_image    # one (skips the completeness check)
+PYTHONPATH=tools python3 tools/native/build_native_libs.py --platform windows-arm64   # needs clang, llvm-lib, llvm-nm
+PYTHONPATH=tools python3 tools/native/build_native_libs.py --out pkg/native-libs/linux-x64   # into a package
+PYTHONPATH=tools python3 tools/native/build_native_libs.py --missing    # only those not yet in target/native-libs (CI, after restoring its cache)
 ```
 
 - `tools/native/native-libs.json` pins each source: a GitHub repository and revision with a sha256 per file, or an `archive` URL with sha256 and top-level directory, plus the `license` files to copy. Each library is a one-line C unit (`code`) or a list of `units` with `include`, `defines`, `cflags`; optional `support` glue unit, `local`/`local_units` (repository files compiled with the library), `lemon` parser generation, `platforms`/`except` limits, `prebuilt` (install an official binary release). A full run checks that every file `shipped_files` expects was produced.

@@ -67,7 +67,7 @@ Plain :: #import "Extensions/Hash_Map"(SCALAR_GROUPS = true);
 - Changing the group size means changing `GROUP_SIZE`, the SIMD vector type and the `u32` bit masks together.
 - A new group scan needs a scalar and a vector version with the same results, and a check in `tests/agreement.jai`.
 - Not done: storing entries and control in separate allocations, in-place rehash, shrinking on remove, multiple values per key.
-- Tests: `python3 tools/stdlib/stdlib_runtime.py --jaic <jaic> --filter Hash_Map --modes interp,native,wasm-interp`. They cover basics, growth over many rebuilds, tombstone churn, string keys, custom hash and equal, iteration exactly once, removal during iteration, and the scalar/vector agreement.
+- Tests: `PYTHONPATH=tools python3 tools/stdlib/stdlib_runtime.py --jaic <jaic> --filter Hash_Map --modes interp,native,wasm-interp`. They cover basics, growth over many rebuilds, tombstone churn, string keys, custom hash and equal, iteration exactly once, removal during iteration, and the scalar/vector agreement.
 
 ## Configuration
 

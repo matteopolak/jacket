@@ -22,9 +22,9 @@ Findings are keyed `path|kind|name` and compared with `tools/lsp/oracle-known.js
 
 ```sh
 cargo build --release -p jaic-cli -p jai-language-server --example lsp_oracle
-python3 tools/lsp/oracle.py --sets examples,compiler --jobs 2
-python3 tools/lsp/oracle.py --sets upstream                 # sandboxed
-python3 tools/lsp/oracle.py path/to/file.jai                # just these files
+PYTHONPATH=tools python3 tools/lsp/oracle.py --sets examples,compiler --jobs 2
+PYTHONPATH=tools python3 tools/lsp/oracle.py --sets upstream                 # sandboxed
+PYTHONPATH=tools python3 tools/lsp/oracle.py path/to/file.jai                # just these files
 ```
 
 One file, by hand, with the hover, definition and completion at a position (1-based line, 0-based character):

@@ -30,7 +30,7 @@ The PowerShell installer's own tests (`tools/ci/test_install_ps1.ps1`: stub arch
 - A new channel: add a job that puts the tools in a folder and runs `version` and `project` on it.
 - A new platform: add its runner to the matrices; archive names come from `platform_name()` in `release_smoke.py`, like every other consumer ([releases](releases.md#install-channels)).
 - What the project check does: `project()` and `hover()` in `release_smoke.py`. They use `tools/toolkit/lsp.py`, a small standard-library JSON-RPC client.
-- Running a piece by hand needs `gh` and `GH_TOKEN`: `python3 tools/ci/release_smoke.py fetch --tag v0.20.0 --dest /tmp/smoke`, then `project --bin <printed folder>`.
+- Running a piece by hand needs `gh` and `GH_TOKEN`: `PYTHONPATH=tools python3 tools/ci/release_smoke.py fetch --tag v0.20.0 --dest /tmp/smoke`, then `project --bin <printed folder>`.
 
 ## Configuration
 
