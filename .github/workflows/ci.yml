@@ -232,6 +232,10 @@ jobs:
         id: lint
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part == 'rust' && startsWith(matrix.shard, '1/') }}
         run: just lint --lang rust
+      # The Seatbelt tests skip on every other host and the policy tests above run on Linux only.
+      - name: macOS sandbox tests
+        if: ${{ !cancelled() && matrix.runner == 'macos-15' && matrix.part == 'rust' && startsWith(matrix.shard, '1/') }}
+        run: python3 tools/run_tests.py -p test_sandbox.py -p test_upstream_sandbox.py
       - name: Rust and native execution tests
         id: correctness
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part == 'rust' }}
