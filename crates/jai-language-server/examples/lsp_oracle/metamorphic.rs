@@ -102,13 +102,33 @@ struct View {
 /// A token, the hover there and where definition goes.
 type Probe = (usize, Option<(Place, String)>, Vec<Place>);
 
-/// Hover text without whitespace, when the layout of what it quotes may differ.
+/// Hover text without whitespace, when the layout of what it quotes may differ. A `line:column`
+/// pair in an evaluated constant (a program that prints where a literal is) moves with the layout
+/// too, so its numbers are dropped.
 fn squeeze(s: &str, loose: bool) -> String {
-    if loose {
-        s.split_whitespace().collect()
-    } else {
-        s.to_owned()
+    if !loose {
+        return s.to_owned();
     }
+    let text: Vec<char> = s.split_whitespace().flat_map(str::chars).collect();
+    let mut out = String::with_capacity(text.len());
+    let mut i = 0;
+    while i < text.len() {
+        let digits = |from: usize| {
+            text[from..]
+                .iter()
+                .take_while(|c| c.is_ascii_digit())
+                .count()
+        };
+        let first = digits(i);
+        if first > 0 && text.get(i + first) == Some(&':') && digits(i + first + 1) > 0 {
+            out.push_str("#:#");
+            i += first + 1 + digits(i + first + 1);
+        } else {
+            out.push(text[i]);
+            i += 1;
+        }
+    }
+    out
 }
 
 /// `on line 353` moves with the text: compare messages without the number.
