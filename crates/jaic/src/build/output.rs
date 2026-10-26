@@ -55,6 +55,11 @@ pub(super) fn write_output(
     if !settings.do_output || settings.output_type == OutputType::NoOutput {
         return Ok(Written::Done(true));
     }
+    if shared.borrow().run_target == Some(id) {
+        // The embedder runs this program once the metaprogram is done.
+        shared.borrow_mut().run_ready = true;
+        return Ok(Written::Done(true));
+    }
     let output = output_path(&settings, compiler);
     let name = output.display().to_string().into_bytes();
     events.push(Event {
@@ -244,8 +249,9 @@ pub fn hand_over_kept(shared: &SharedWorkspaces) {
     while id < shared.borrow().list.len() as i64 {
         let kept = {
             let mut reg = shared.borrow_mut();
+            let running = reg.run_target == Some(id) && reg.run_ready;
             let ws = &mut reg.list[id as usize];
-            if ws.stage == Stage::Done {
+            if ws.stage == Stage::Done && !running {
                 let failed = ws.failed;
                 ws.compiler.take().map(|c| (c, failed))
             } else {

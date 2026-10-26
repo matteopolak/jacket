@@ -219,7 +219,7 @@ fn long_double_extension_on_wide_targets() {
 }
 
 /// `+Name` compiles the program in a workspace with the plugin's hooks; the arguments after it
-/// go to the plugin, and `-interp` refuses plugins.
+/// go to the plugin (`-interp` is in `plugin_interp.rs`).
 // rules: plugin.1 plugin.2 plugin.7 plugin.9 plugin.10
 #[test]
 fn plug_hooks_a_plugin_into_check() {
@@ -246,15 +246,8 @@ fn plug_hooks_a_plugin_into_check() {
     // Without the plugin the program does not compile; a refused option fails the build.
     assert!(!check(&[]).status.success());
     assert!(!check(&["+Echo_Plugin", "-refuse"]).status.success());
-    // Unknown options without plugins, and plugins with `-interp`, are usage errors.
+    // An unknown option without plugins is a usage error.
     assert_eq!(check(&["-shout"]).status.code(), Some(2));
-    let run = Command::new(JAIC)
-        .arg("-interp")
-        .arg(&source)
-        .arg("+Echo_Plugin")
-        .output()
-        .unwrap();
-    assert_eq!(run.status.code(), Some(2));
 }
 
 /// `-timings` prints one `jaic-timing: <phase> <seconds> <calls>` line per phase (read by

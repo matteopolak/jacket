@@ -129,6 +129,10 @@ pub(super) const PHASE_READY_FOR_CUSTOM_LINK_COMMAND: i64 = 5;
 /// The workspace registry of one top-level compilation.
 pub struct Workspaces {
     pub(super) env: BuildEnv,
+    /// The workspace whose program is run by the embedder (`jaic -interp` with plugins) instead
+    /// of being written.
+    pub(super) run_target: Option<i64>,
+    pub(super) run_ready: bool,
     /// What the first workspace a plugin metaprogram creates starts from: the build options the
     /// command line asked for.
     pub(super) first_created: Option<BuildSettings>,

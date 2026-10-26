@@ -378,7 +378,10 @@ fn store_step(
             });
             return Ok(());
         }
-        if next != Stage::Done || keep {
+        // The program the embedder runs keeps its compiler.
+        let run = reg.run_target == Some(id) && reg.run_ready && !failed;
+        let ws = reg.ws(id)?;
+        if next != Stage::Done || keep || run {
             ws.compiler = Some(compiler);
             return Ok(());
         }

@@ -31,7 +31,7 @@ With `do_output` set and `output_type != NO_OUTPUT`, `OutputBackend::write_outpu
 `jaic file.jai +Name` builds the target in a child workspace using the `Compiler.Metaprogram_Plugin` hooks; `-check` runs the same lifecycle without writing an executable. The CLI (privately, in `crates/jaic-cli/src/main.rs`) generates source that imports each plugin, creates a workspace, sets its options, calls `init` with each plugin's option array, then `before_intercept`, `add_source`, adds the target and CLI sources, dispatches messages until COMPLETE, and calls finish and shutdown. Null plugins and refused options fail; init failures shut down acquired plugins first. The wrapper requests `NO_OUTPUT`; the child keeps the real settings.
 
 - `+Name` may repeat; module parameters go in the name (`'+Check(CHECK_BINDINGS=false)'`). Arguments after a plugin up to the next plugin or separator belong to it; put compiler options first.
-- `-interp` with plugins is a usage error. `-exe`, `-output_path`, `-add` and `-run` apply to the child.
+- `-interp` with plugins runs the child's program in the interpreter instead of writing it, after the plugins' `finish` and `shutdown`: `main` (or the `entry_point_name` a plugin set) gets the arguments after `--`, and its status is jaic's. `-exe` and `-output_path` have no use then; `-add` and `-run` apply to the child.
 - Regression: `crates/jaic-cli/tests/plugins.rs`.
 
 ## How to change it
@@ -67,7 +67,7 @@ Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - `+Name` may repeat, and each plugin gets its own options {#plugin.5}. Module parameters are part of the name: `'+Check(CHECK_BINDINGS=false)'` {#plugin.6}.
 - Everything after `+Name` up to the next `+Name`, a lone `-` or `--` belongs to that plugin (`+tracy -min_size 1`) {#plugin.7}. jaic's own options before the first plugin stay jaic's {#plugin.8}.
-- An option jaic does not know, with no plugin to take it, is a usage error (exit 2) {#plugin.9}. Plugins do not combine with `-interp`: that is a usage error too {#plugin.10}.
+- An option jaic does not know, with no plugin to take it, is a usage error (exit 2) {#plugin.9}. With `-interp` the plugin workspace is compiled as for a build, but its program is run instead of written (the registry keeps its compiler: `Workspaces::run_instead_of_writing`, `take_program_to_run`); a workspace that asks for no output leaves nothing to run {#plugin.10}.
 - The plugin workspace's program is written to `-exe` (a bare name goes in the directory jaic was started in) or, without it, next to the source under the source's name {#plugin.11}.
 
 To add a hook, add the field to `Metaprogram_Plugin` and call it from `build_with_plugins`. Option delivery is `deliver_plugin_options` in the same file. Tests: `plug_hooks_a_plugin_into_check` in `crates/jaic-cli/tests/cli.rs` and the plugin tests in `crates/jaic-cli/tests/native.rs`.

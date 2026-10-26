@@ -189,13 +189,6 @@ fn command_line_mistakes_explain_themselves() {
             &["error: `-check` and `-interp` cannot be combined"],
         ),
         (
-            &["ok.jai", "-interp", "+X"],
-            &[
-                "error: plugins work with a build or `-check`, not `-interp`",
-                "help: use `jaic ok.jai +X ...` and run the executable",
-            ],
-        ),
-        (
             &["ok.jai", "--", "a"],
             &[
                 "error: `--` hands arguments to the program, which only `-interp` runs",

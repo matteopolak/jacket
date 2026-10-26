@@ -327,11 +327,8 @@ mod tests {
         assert_eq!(c.plugins[1].import_parameters(), "(A=1)");
         assert!(c.plugins[1].options.is_empty());
         assert_eq!(c.command_line, ["meta"]);
-        assert!(
-            error(&["a.jai", "-interp", "+One"])
-                .message
-                .contains("not `-interp`")
-        );
+        // `-interp` runs the program the plugins compile.
+        assert!(cli(&["a.jai", "-interp", "+One"]).mode == Mode::Interp);
         // Before the first plugin an unknown option is jaic's mistake.
         assert!(
             error(&["a.jai", "-bogus", "+One"])

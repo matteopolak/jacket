@@ -33,6 +33,8 @@ impl Workspaces {
         Rc::new(RefCell::new(Workspaces {
             env,
             first_created: None,
+            run_target: None,
+            run_ready: false,
             type_table_used: false,
             list: vec![
                 Workspace::new(String::new()),
@@ -49,20 +51,33 @@ impl Workspaces {
         }))
     }
 
-    /// The first workspace a metaprogram creates (the program the plugins of
-    /// `jaic file.jai +Plugin` compile).
-    pub const FIRST_CREATED_WORKSPACE: i64 = TOP_LEVEL_WORKSPACE + 1;
-
     /// Make `settings` what the top-level program starts from, before any `set_build_options`:
     /// the options the command line asked for, which `get_build_options` then reports.
     pub fn start_from(shared: &SharedWorkspaces, settings: BuildSettings) {
         shared.borrow_mut().list[TOP_LEVEL_WORKSPACE as usize].settings = settings;
     }
 
-    /// The same for the first workspace the metaprogram creates. Other workspaces start from
-    /// the defaults.
+    /// The same for the first workspace the metaprogram creates, which is the program the
+    /// plugins of `jaic file.jai +Plugin` compile. Other workspaces start from the defaults.
     pub fn start_first_created_from(shared: &SharedWorkspaces, settings: BuildSettings) {
         shared.borrow_mut().first_created = Some(settings);
+    }
+
+    /// Have the program of workspace `id` kept for the embedder to run (`jaic -interp` with
+    /// plugins) instead of written: the first workspace a metaprogram creates is the plugins'.
+    pub fn run_instead_of_writing(shared: &SharedWorkspaces, id: i64) {
+        shared.borrow_mut().run_target = Some(id);
+    }
+
+    /// The first workspace a metaprogram creates.
+    pub const FIRST_CREATED_WORKSPACE: i64 = TOP_LEVEL_WORKSPACE + 1;
+
+    /// The compiler of the workspace chosen with [`Workspaces::run_instead_of_writing`], once
+    /// it compiled and wants output; `None` for a failure or a workspace without output.
+    pub fn take_program_to_run(shared: &SharedWorkspaces) -> Option<Box<Compiler>> {
+        let mut reg = shared.borrow_mut();
+        let id = reg.run_target.filter(|_| reg.run_ready)?;
+        reg.ws(id).ok()?.compiler.take()
     }
 
     /// Settings of the top-level program (workspace 2).

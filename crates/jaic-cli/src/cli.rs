@@ -316,17 +316,6 @@ impl Cli {
                 "`-quiet` and `-verbose` contradict each other",
             ));
         }
-        // Plugins compile the program in a workspace of their own, which `-interp` cannot start.
-        if !self.plugins.is_empty() && self.mode == Mode::Interp {
-            return Err(
-                CliError::new("plugins work with a build or `-check`, not `-interp`").help(
-                    format!(
-                        "use `jaic {} +{} ...` and run the executable",
-                        self.file, self.plugins[0].module
-                    ),
-                ),
-            );
-        }
         Ok(())
     }
 

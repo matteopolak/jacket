@@ -78,7 +78,7 @@ jaic build.jai +Check - release -- arg1 arg2
 #                      program   (with -interp)
 ```
 
-- `+Name` loads the metaprogram plugin `Name`. Everything after it, up to the next `+Name`, `-` or `--`, is that plugin's own options. Module parameters go in the name: `'+Check(CHECK_BINDINGS=false)'`, quoted for the shell. Plugins can't be combined with `-interp`.
+- `+Name` loads the metaprogram plugin `Name`. Everything after it, up to the next `+Name`, `-` or `--`, is that plugin's own options. Module parameters go in the name: `'+Check(CHECK_BINDINGS=false)'`, quoted for the shell. With `-interp` the program the plugins compile is run, with the code they added.
 - A lone `-` starts the metaprogram's arguments. The metaprogram reads them with `compiler_get_command_line`.
 - `--` starts the program's arguments. Only `-interp` runs the program, so `--` with a build or `-check` is an error. The program's `argv[0]` is the source file.
 

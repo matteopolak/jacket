@@ -38,7 +38,7 @@ plugins:
   +Name                     run the metaprogram plugin module Name. Every argument after it, up
                             to the next +Name, `-` or `--`, is that plugin's own option.
                             Module parameters go in the name: '+Check(CHECK_BINDINGS=false)'
-                            (quote it in a shell). Plugins do not combine with -interp.
+                            (quote it in a shell). With -interp the program they compile is run.
   -                         the rest is for the metaprogram (`compiler_get_command_line`)
   --                        the rest is for the program (-interp only)
 

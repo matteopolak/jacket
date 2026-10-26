@@ -120,7 +120,15 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         Mode::Interp => {
             jaic::progress::finish("interp");
             jaic::progress::announce("Running", &shown(&path));
-            interpret(&mut compiler, &cli, &path, &main_dir, sandbox.as_ref())
+            if cli.plugins.is_empty() {
+                interpret(&mut compiler, &cli, &path, &main_dir, sandbox.as_ref())
+            } else if let Some(program) = Workspaces::take_program_to_run(&workspaces) {
+                let mut program = LeakOnExit::new(*program, |c| c.ct.interp.stop_for_exit());
+                interpret(&mut program, &cli, &path, &main_dir, sandbox.as_ref())
+            } else {
+                // The plugins asked for no output: there is no program to run.
+                ExitCode::SUCCESS
+            }
         }
         Mode::Build => {
             let optimized = !matches!(
@@ -296,6 +304,11 @@ fn create_workspaces(
         Workspaces::start_first_created_from(&workspaces, requested.clone());
     }
     Workspaces::start_from(&workspaces, requested);
+    if cli.mode == Mode::Interp && !cli.plugins.is_empty() {
+        // The program the plugins compile is interpreted, not written: it is the first
+        // workspace the plugin metaprogram creates.
+        Workspaces::run_instead_of_writing(&workspaces, Workspaces::FIRST_CREATED_WORKSPACE);
+    }
     workspaces
 }
 
