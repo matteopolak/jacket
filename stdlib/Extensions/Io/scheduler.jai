@@ -233,6 +233,21 @@ current :: () -> Fiber_Handle {
     return .{ fiber, fiber.generation };
 }
 
+// Gives the memory of the running fiber's stack that no frame uses any more back to the system: the
+// pages below the current frames that earlier, deeper calls touched. Call it before a long wait
+// (an idle connection) so those pages do not stay resident; it costs a system call, so not in a
+// hot path. The stack's contents below the caller are lost, which nothing can rely on anyway.
+// Does nothing outside a fiber or on a platform without a way to discard pages.
+release_unused_stack :: no_inline () {
+    if !in_scheduler() return;
+
+    fiber := current_fiber();
+    marker: u8;
+
+    // Calls made from here, and the system call, run just below this frame.
+    stack_discard_below(fiber.stack, *marker - 2048);
+}
+
 #scope_module
 
 // A procedure and its argument, copied to the heap for the new fiber to take.

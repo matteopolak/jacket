@@ -14,6 +14,7 @@ Stack :: struct {
     VirtualAlloc :: (address: *void, size: u64, allocation_type: u32, protect: u32) -> *void #foreign kernel32;
     VirtualProtect :: (address: *void, size: u64, new_protect: u32, old_protect: *u32) -> s32 #foreign kernel32;
     VirtualFree :: (address: *void, size: u64, free_type: u32) -> s32 #foreign kernel32;
+    DiscardVirtualMemory :: (address: *void, size: u64) -> u32 #foreign kernel32;
 
     MEM_COMMIT :: 0x1000;
     MEM_RESERVE :: 0x2000;
@@ -42,12 +43,17 @@ Stack :: struct {
     unmap_stack :: (base: *void, size: s64) {
         VirtualFree(base, 0, MEM_RELEASE);
     }
+
+    discard_pages :: (address: *void, size: s64) {
+        DiscardVirtualMemory(address, cast(u64) size);
+    }
 } else {
     libc :: #system_library "libc";
     getpagesize :: () -> s32 #foreign libc;
     mmap :: (address: *void, length: u64, protection: s32, flags: s32, descriptor: s32, offset: s64) -> *void #foreign libc;
     mprotect :: (address: *void, length: u64, protection: s32) -> s32 #foreign libc;
     munmap :: (address: *void, length: u64) -> s32 #foreign libc;
+    madvise :: (address: *void, length: u64, advice: s32) -> s32 #foreign libc;
 
     page_bytes :: () -> s64 {
         return cast(s64) getpagesize();
@@ -71,6 +77,14 @@ Stack :: struct {
     unmap_stack :: (base: *void, size: s64) {
         munmap(base, cast(u64) size);
     }
+
+    // The pages stay mapped and read back as zeros; the system takes their memory back at once.
+    discard_pages :: (address: *void, size: s64) {
+        // macOS keeps the pages of a madvise range resident until it is short of memory, so a fresh
+        // zero-fill mapping goes over the old one instead.
+        #if OS == .MACOS mmap(address, cast(u64) size, 3, 0x1002 | 0x40 | 0x10, -1, 0);
+        else madvise(address, cast(u64) size, 4); // MADV_DONTNEED
+    }
 }
 
 // A stack of at least `bytes` bytes (rounded up to whole pages), or a zero `base`.
@@ -92,3 +106,16 @@ stack_allocate :: (bytes: s64) -> Stack {
 stack_release :: (stack: Stack) {
     if stack.base unmap_stack(stack.base, stack.size);
 } @FreesArgument
+
+// Gives the memory of the stack's whole pages below `limit` back to the system. The pages stay mapped
+// (and the guard untouched); the next use of one finds zeros. `limit` is an address on the running
+// stack: everything below it must be dead, with room left for the calls that do this.
+stack_discard_below :: (stack: Stack, limit: *void) {
+    page := page_bytes();
+    low := cast(s64) stack.base + stack.guard;
+    high := (cast(s64) limit) / page * page;
+
+    if high <= low || high > cast(s64) stack.base + stack.size return;
+
+    discard_pages(cast(*void) low, high - low);
+}

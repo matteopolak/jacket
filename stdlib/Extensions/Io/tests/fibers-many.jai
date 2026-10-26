@@ -82,6 +82,52 @@ root :: () {
 
     Io.wait(*group);
     assert(finished == 2000, "finished again %", finished);
+
+    // Releasing the unused stack keeps what the fiber still uses and lets it grow again.
+    Io.add(*group, 1);
+    Io.spawn(releaser, 0);
+    Io.wait(*group);
+    assert(release_checks == 3, "release checks %", release_checks);
+}
+
+release_checks: int;
+
+// Touches a good part of the stack with a recursion, releases it, and does it again.
+deep :: (depth: int) -> int {
+    padding: [256] int;
+
+    for *padding it.* = depth;
+
+    if depth == 0 return 0;
+
+    return deep(depth - 1) + padding[depth % 256] - depth + 1;
+}
+
+releaser :: (unused: int) {
+    defer Io.done(*group);
+
+    local: [64] int;
+
+    for *local it.* = it_index * 3;
+
+    first := deep(40);
+
+    Io.release_unused_stack();
+
+    ok := true;
+
+    for local if it != it_index * 3 ok = false;
+
+    if ok release_checks += 1;
+
+    Io.yield();
+    Io.release_unused_stack();
+
+    if deep(40) == first release_checks += 1;
+
+    for local if it != it_index * 3 ok = false;
+
+    if ok release_checks += 1;
 }
 
 main :: () {

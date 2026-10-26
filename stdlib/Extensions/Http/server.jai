@@ -404,6 +404,9 @@ serve_connection :: (connection: *Connection) { // jailint: allow(cognitive_comp
                     trim(*out, 0);
                     trim(*body_buffer, 0);
                     parser_trim(parser, 0);
+
+                    // And none of the stack pages the last handler reached into.
+                    if last_started != 0 Io.release_unused_stack();
                 }
 
                 if hot {
