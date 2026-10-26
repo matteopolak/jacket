@@ -103,6 +103,7 @@ fn built(
                 program: toolchain.jaic.clone(),
                 args,
                 cwd: cwd.to_path_buf(),
+                ..Invocation::default()
             },
             stdout: Vec::new(),
             stderr: Vec::new(),
@@ -145,6 +146,7 @@ fn built(
                         program: exe.clone(),
                         args: Vec::new(),
                         cwd: cwd.to_path_buf(),
+                        ..Invocation::default()
                     },
                     stdout: checked.stdout,
                     stderr: checked.stderr,
@@ -170,6 +172,7 @@ fn built(
             program,
             args,
             cwd: cwd.to_path_buf(),
+            ..Invocation::default()
         },
         stdout: output.stdout,
         stderr: output.stderr,

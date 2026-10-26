@@ -25,6 +25,8 @@ pub struct Toolchain {
     pub runner: Vec<String>,
     /// The target OS (`wasm` programs are `.wasm` files).
     pub os: String,
+    /// Build the unit-test program with `-coverage`.
+    pub coverage: bool,
 }
 
 /// One `@test` or `@bench` the plugin found.
@@ -147,6 +149,9 @@ pub fn unit(
             .arg("-exe")
             .arg(&exe)
             .env("JAIC_REPORT_EXE", &report);
+        if toolchain.coverage {
+            command.arg("-coverage");
+        }
     }
     command
         .arg(PLUGIN)
@@ -298,6 +303,7 @@ pub fn invocation(
         program,
         args,
         cwd: cwd.to_path_buf(),
+        env: Vec::new(),
     }
 }
 
@@ -353,6 +359,7 @@ mod tests {
             interp: false,
             runner: Vec::new(),
             os: "linux".into(),
+            coverage: false,
         };
         let names = ["a".to_string()];
         let run = |accept| {

@@ -186,6 +186,22 @@ To add a matcher, add a `Matcher_Kind`, a constructor, and a case each in `holds
 
 `jacket test parse split` runs the tests whose name contains `parse` or `split`; `--exact` makes filters whole names. `name/sub` runs one subtest of `name` (subtests are reported under their test); the cases of a `@cases` test are subtests too. `--partition hash:K/N` keeps the tests whose name hashes (FNV-1a) to part K of N, stable across machines; `count:K/N` takes every Nth by position. `--list` prints `name: kind` per test without running anything (`--format json`: one `{"type":"list",...}` per test). A `@cases` test is followed by a `name/case: subtest` line per case (kind `subtest` in JSON); listing evaluates the lists, which runs their code at compile time.
 
+### Coverage
+
+`jacket test --coverage` reports which lines of the code under test the unit tests ran, and writes them as lcov for editors and CI (`--coverage-out FILE`; default `target/lcov.info` below the project, or `$JACKET_OUTPUT_DIR`).
+
+```
+$ jacket test --coverage
+...
+File                        Lines   Cover
+src/Mathy/module.jai          7/8   87.5%
+Total                         7/8   87.5%
+```
+
+The unit-test program is built with `jaic -coverage` ([coverage](coverage.md)), which makes every test process write the basic blocks it ran at exit. Each process gets its own `JAIC_COVERAGE_DIR` folder that jacket merges and deletes when the process ends. After the run, `llvm-dwarfdump --debug-line` maps blocks to lines (a line is covered when a block holding it ran) and the table is printed to standard output, or to standard error with `--format json`. A coverage error exits with status 2 if the tests passed.
+
+What is reported: files below the test roots and below the folders named by `-import_dir`/`-I` (the project's `import_path`), except the roots' `tests/` folders. A library root's parent folder is not one of them, so the standard library's other modules stay out. Limits: only unit tests are measured (golden, compile-fail and doc programs are not built with `-coverage`); `--interp`, another `-os`/`-cpu` and `jacket bench` are refused; a line is covered or not, with no count; only code compiled into the program shows up, so procedures nothing references are missing from the totals; build unoptimized (the default), since `-O2` merges and moves blocks. `llvm-dwarfdump` comes from `LLVM_SYS_231_PREFIX`, Homebrew's LLVM or `PATH`.
+
 ### Watching
 
 `jacket test --watch` runs the tests, then runs them again whenever a `.jai` file changes, until Ctrl-C. Each run clears the screen (on a terminal, for the `human` format) and prints its own summary; a compile error does not end the watch, the next save tries again.
@@ -370,6 +386,7 @@ Programs run from their own `tests/` folder, as the old runner did. Where a test
 
 - A new flag: `TestArgs` in `crates/jacket/src/cli.rs`, read in `settings` in `crates/jacket/src/test/mod.rs`; if it has a `jacket.toml` key, add it to the `test_settings!` list in `crates/jacket-config/src/schema.rs` (it defines `Test`, `TestRun` and the profile overlay) (and the known-keys lists and the VS Code schema in `editors/vscode/scripts/build.ts`).
 - A new note: `TestOptions::apply` and `skip_reason` in `crates/jacket/src/test/options.rs`, then how it is used in `jobs.rs` (`resolve`, `expectations`) or `mod.rs`; list it in the table above.
+- Coverage: `coverage.rs` (run files, the line table, the table and lcov), the `-coverage` build in `build::unit`, the per-process folder in `run_unit` (`jobs.rs`) and what is reported in `coverage_for` (`mod.rs`). Counting executions would need a counting runtime in `crates/jaic-llvm/runtime/coverage.c`.
 - What is watched, the debounce and which changes narrow a run: `watch.rs`; the run itself is `run_once` in `mod.rs`, which tells `Watched` the folders and test files it used.
 - What is watched, the debounce and which changes narrow a run: `watch.rs`; the run itself is `run_once` in `mod.rs`, which tells `Watched` the folders and test files it used.
 - A filter predicate: `Parser::predicate` and `eval` in `crates/jacket/src/test/filter.rs`, and what a test offers it in `expr_selects` and `kinds_of` (`mod.rs`).
@@ -403,4 +420,4 @@ Flags win over the profile, the profile over `[test]`. Unknown keys get the usua
 
 ## Dependencies
 
-`jaic` (found as for every jacket command) and the `Extensions/Testing` module in its standard library; `serde_json` for JSON output and `regex-lite` for `/regex/` filters. `--runner` programs, such as `node` for `tools/wasi_run.mjs`, are the user's.
+`jaic` (found as for every jacket command) and the `Extensions/Testing` module in its standard library; `serde_json` for JSON output and `regex-lite` for `/regex/` filters. `--coverage` needs `llvm-dwarfdump` (LLVM) and `jaic -coverage`. `--runner` programs, such as `node` for `tools/wasi_run.mjs`, are the user's.

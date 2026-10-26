@@ -100,6 +100,11 @@ fn xml(text: &str) -> String {
 }
 
 impl Reporter {
+    /// Whether results are text for people (so a coverage table can share standard output).
+    pub fn is_human(&self) -> bool {
+        self.format == OutputFormat::Human
+    }
+
     pub fn new(
         format: OutputFormat,
         junit: Option<PathBuf>,

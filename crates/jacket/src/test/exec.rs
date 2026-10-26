@@ -15,11 +15,13 @@ use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 /// A program to start.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Invocation {
     pub program: PathBuf,
     pub args: Vec<String>,
     pub cwd: PathBuf,
+    /// Environment variables set for it, over those it inherits.
+    pub env: Vec<(String, String)>,
 }
 
 /// One failed check, as the test program reported it.
@@ -224,6 +226,7 @@ fn spawn(invocation: &Invocation) -> std::io::Result<Child> {
     let mut command = Command::new(&invocation.program);
     command
         .args(&invocation.args)
+        .envs(invocation.env.iter().map(|(name, value)| (name, value)))
         .current_dir(&invocation.cwd)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -560,6 +563,7 @@ mod process_tests {
             program: PathBuf::from("/bin/sh"),
             args: vec!["-c".into(), body.into()],
             cwd: std::env::temp_dir(),
+            ..Invocation::default()
         }
     }
 

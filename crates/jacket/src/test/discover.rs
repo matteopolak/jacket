@@ -32,6 +32,26 @@ pub struct Root {
 
 pub const EXPECTED: [&str; 3] = ["stdout", "stderr", "exit"];
 
+/// The folders among jaic `flags` that `-import_dir` and `-I` name (`-I=dir` too), as they are
+/// on disk.
+pub fn import_folders(flags: &[String]) -> Vec<PathBuf> {
+    let mut folders = Vec::new();
+    let mut flags = flags.iter();
+    while let Some(flag) = flags.next() {
+        let value = match flag.split_once('=') {
+            Some(("-import_dir" | "-I", value)) => Some(value),
+            _ if flag == "-import_dir" || flag == "-I" => flags.next().map(String::as_str),
+            _ => None,
+        };
+        if let Some(folder) = value.map(|v| super::watch::canonical(Path::new(v)))
+            && folder.is_dir()
+        {
+            folders.push(folder);
+        }
+    }
+    folders
+}
+
 /// The `.jai` files below `dir` at any depth (`tests/` helper folders included), sorted.
 fn jai_files_below(dir: &Path) -> Vec<PathBuf> {
     let mut files = Vec::new();
@@ -165,6 +185,24 @@ pub fn roots(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn import_folders_are_the_existing_ones_flags_name() {
+        let here = std::env::temp_dir();
+        let flags: Vec<String> = [
+            "-O1".to_string(),
+            "-import_dir".into(),
+            here.to_string_lossy().into_owned(),
+            "-I".into(),
+            "/no/such/folder".into(),
+            format!("-I={}", here.display()),
+            "-import_dir".into(),
+        ]
+        .into();
+        let folders = import_folders(&flags);
+        assert_eq!(folders.len(), 2, "{folders:?}");
+        assert!(folders.iter().all(|f| f.is_dir()));
+    }
 
     #[test]
     fn the_current_directory_narrows_the_configured_roots() {

@@ -6,6 +6,7 @@
 //! its records, [`golden`] checks golden-output and compile-fail tests, and [`report`] prints
 //! results as text, JSON lines or `JUnit` XML. This file plans the run and schedules it.
 mod build;
+mod coverage;
 mod diff;
 mod discover;
 mod doctest;
@@ -177,6 +178,7 @@ struct Plan {
     stdlib: PathBuf,
     temp_counter: AtomicUsize,
     stop: AtomicBool,
+    coverage: Option<coverage::Coverage>,
 }
 
 /// What workers tell the reporter.
@@ -239,7 +241,8 @@ const PATH_FLAGS: [&str; 5] = [
 /// current directory is applied to them (`--path`, `--junit` and the paths among the jaic flags).
 fn resolve_paths(args: &TestArgs, cwd: &Path) -> TestArgs {
     let mut args = args.clone();
-    for path in args.path.iter_mut().chain(args.junit.iter_mut()) {
+    let outputs = args.junit.iter_mut().chain(args.coverage_out.iter_mut());
+    for path in args.path.iter_mut().chain(outputs) {
         *path = cwd.join(&*path);
     }
     let mut takes_path = false;
@@ -303,6 +306,38 @@ fn select(case: &Case, filters: &[String], exact: bool) -> Option<String> {
         let (top, sub) = f.split_once('/')?;
         matches(top, &case.name).then(|| format!("{}/{sub}", case.local))
     })
+}
+
+/// What `--coverage` records and where it goes, or why this run cannot.
+fn coverage_for(
+    args: &TestArgs,
+    cross: bool,
+    roots: &[discover::Root],
+    flags: &[String],
+    work: &Path,
+    project_dir: &Path,
+) -> Result<coverage::Coverage, String> {
+    if cross {
+        return Err("`--coverage` records programs that run on this machine; it does not work with another `-os` or `-cpu`".into());
+    }
+    let out = args.coverage_out.clone().unwrap_or_else(|| {
+        std::env::var_os("JACKET_OUTPUT_DIR")
+            .map_or_else(|| project_dir.join("target"), PathBuf::from)
+            .join("lcov.info")
+    });
+    let canonical = |dir: &Path| watch::canonical(dir);
+    let include = roots
+        .iter()
+        .map(|r| canonical(&r.dir))
+        .chain(discover::import_folders(flags));
+    let exclude = roots.iter().map(|r| canonical(&r.dir.join("tests")));
+    coverage::Coverage::new(
+        out,
+        work.join("coverage"),
+        coverage::outermost(include),
+        exclude.collect(),
+        project_dir.to_path_buf(),
+    )
 }
 
 /// The entries of [`filter::KINDS`] a case has.
@@ -451,6 +486,7 @@ fn run_once(
         interp: args.interp,
         runner,
         os: os.clone(),
+        coverage: args.coverage,
     };
     let cross = !args.interp && (os != host_os() || cpu != host_cpu());
     let cross_skip = (cross && toolchain.runner.is_empty())
@@ -477,6 +513,17 @@ fn run_once(
         watched.set_folders(&roots, &toolchain.flags, &root_flags);
     }
     let list = args.list || bench;
+    let coverage = match args
+        .coverage
+        .then(|| coverage_for(args, cross, &roots, &toolchain.flags, &work, &project_dir))
+    {
+        Some(Err(error)) => {
+            let _ = std::fs::remove_dir_all(&work);
+            return fail(error);
+        }
+        Some(Ok(coverage)) => Some(coverage),
+        None => None,
+    };
     let built = build_all(
         &roots,
         &root_flags,
@@ -596,6 +643,7 @@ fn run_once(
         work,
         temp_counter: AtomicUsize::new(0),
         stop: AtomicBool::new(false),
+        coverage,
     };
     execute(&plan, &target, cross_skip.as_deref(), &mut reporter)
 }
@@ -859,6 +907,13 @@ fn execute(
         started.elapsed(),
         plan.settings.flaky_fails,
     );
+    let mut coverage_failed = false;
+    if let Some(coverage) = &plan.coverage
+        && let Err(error) = coverage.report(reporter.is_human())
+    {
+        eprintln!("jacket: error: {error}");
+        coverage_failed = true;
+    }
     if outcomes.iter().all(|o| o.kept_temp.is_none()) {
         let _ = std::fs::remove_dir_all(&plan.work);
     } else {
@@ -875,6 +930,8 @@ fn execute(
     }
     if failed {
         ExitCode::from(1)
+    } else if coverage_failed {
+        ExitCode::from(2)
     } else {
         ExitCode::SUCCESS
     }

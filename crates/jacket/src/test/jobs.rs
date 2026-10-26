@@ -2,7 +2,7 @@
 //! workers, and how each run's records, exit and timeouts become an outcome.
 use super::exec::{self, Ending, Live};
 use super::options::TestOptions;
-use super::{Case, Kind, Message, Outcome, Plan, Status, build, doctest, golden};
+use super::{Case, Kind, Message, Outcome, Plan, Status, build, coverage, doctest, golden};
 use std::collections::{BTreeMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
@@ -209,7 +209,7 @@ fn run_unit(plan: &Plan, cases: &[usize], live: &mut dyn FnMut(Live)) -> Vec<Out
             .map(|&i| plan.cases[i].run_as.clone())
             .collect();
         let temp = temp_base(plan, names.len());
-        let invocation = build::invocation(
+        let mut invocation = build::invocation(
             built,
             &plan.root_flags[root],
             &plan.toolchain,
@@ -221,6 +221,13 @@ fn run_unit(plan: &Plan, cases: &[usize], live: &mut dyn FnMut(Live)) -> Vec<Out
                 accept: plan.settings.accept,
             },
         );
+        let run_dir = plan.coverage.as_ref().map(coverage::Coverage::run_dir);
+        if let Some(dir) = &run_dir {
+            invocation.env.push((
+                "JAIC_COVERAGE_DIR".into(),
+                dir.to_string_lossy().into_owned(),
+            ));
+        }
         let timeout = |name: &str| {
             remaining
                 .iter()
@@ -233,6 +240,9 @@ fn run_unit(plan: &Plan, cases: &[usize], live: &mut dyn FnMut(Live)) -> Vec<Out
             stream: !plan.settings.capture,
         };
         let run = exec::run(&invocation, &limits, live);
+        if let (Some(coverage), Some(dir)) = (&plan.coverage, &run_dir) {
+            coverage.collect(dir);
+        }
         let mut done = 0;
         for (n, raw) in run.tests.iter().enumerate() {
             let Some(position) = remaining

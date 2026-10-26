@@ -4,8 +4,8 @@
 //! crate would be a dependency (and a platform backend) for little more. A change is acted on
 //! once the files have been still for [`SETTLE`]. If every changed file is a test file the next
 //! run only runs that file's tests; any other change (code the tests import) runs all of them.
-use super::discover::Root;
-use super::run_once;
+use super::discover::{self, Root};
+use super::{coverage, run_once};
 use crate::cli::TestArgs;
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::IsTerminal;
@@ -40,30 +40,12 @@ impl Watched {
     pub fn set_folders(&mut self, roots: &[Root], flags: &[String], root_flags: &[Vec<String>]) {
         let imports = root_flags
             .iter()
-            .flatten()
-            .chain(flags)
-            .map(String::as_str)
-            .collect::<Vec<_>>();
-        let named = imports
-            .iter()
-            .enumerate()
-            .filter_map(|(i, flag)| match flag.split_once('=') {
-                Some(("-import_dir" | "-I", value)) => Some(value),
-                _ if matches!(*flag, "-import_dir" | "-I") => imports.get(i + 1).copied(),
-                _ => None,
-            });
-        let folders = roots
-            .iter()
-            .map(|r| r.dir.as_path())
-            .chain(named.map(Path::new));
-        self.folders = folders
-            .map(canonical)
-            .filter(|folder| folder.is_dir())
+            .flat_map(|f| discover::import_folders(f))
+            .chain(discover::import_folders(flags));
+        let roots = roots.iter().map(|r| canonical(&r.dir));
+        self.folders = coverage::outermost(roots.chain(imports).filter(|f| f.is_dir()))
+            .into_iter()
             .collect();
-        // A folder inside another is already walked.
-        let all = self.folders.clone();
-        self.folders
-            .retain(|f| !all.iter().any(|other| other != f && f.starts_with(other)));
     }
 
     pub fn set_tests<'a>(&mut self, files: impl Iterator<Item = &'a Path>) {
