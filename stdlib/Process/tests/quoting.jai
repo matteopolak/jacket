@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Public token splitting and command-line quoting contracts.
 #import "Basic";
 Process :: #import "Process";

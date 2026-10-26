@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 #import "Basic"()(MEMORY_DEBUGGER = true, REPLACEMENT_INTERFACE = Hooks, VISUALIZE_MEMORY_DEBUGGER = false);
 B :: #import "Basic";
 

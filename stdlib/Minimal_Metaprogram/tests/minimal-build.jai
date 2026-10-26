@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Real child workspace; no CLI replacement or private implementation access.
 #import "Basic";
 M :: #import "Minimal_Metaprogram";

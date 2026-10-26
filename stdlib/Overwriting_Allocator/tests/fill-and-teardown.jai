@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // The overwrite allocator poisons fresh bytes and is torn down after its clients.
 #import "Basic";
 Overwriting_Allocator :: #import "Overwriting_Allocator";

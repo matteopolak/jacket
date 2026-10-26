@@ -1,3 +1,4 @@
+// test: compile_fail
 R :: #import "RadixSort";
 
 main :: () {

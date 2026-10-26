@@ -1,3 +1,4 @@
+// test: only(.WINDOWS)
 #import "Basic";
 #import "File";
 

@@ -1,3 +1,4 @@
+// test: only(.WINDOWS) check_only
 // Public Windows process lifetime, capture, timeout and pipe ownership regression.
 #import "Basic";
 P :: #import "Process";

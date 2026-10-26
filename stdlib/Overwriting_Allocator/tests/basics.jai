@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 #import "Basic";
 O :: #import "Overwriting_Allocator";
 T :: #import "Thread";

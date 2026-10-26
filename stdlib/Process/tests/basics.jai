@@ -1,3 +1,4 @@
+// test: skip_on(.WASM) only(.LINUX,.MACOS)
 #import "Basic";
 P :: #import "Process";
 

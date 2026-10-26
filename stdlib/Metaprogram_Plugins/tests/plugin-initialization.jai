@@ -1,3 +1,4 @@
+// test: only(.WINDOWS)
 // Actual public loader initialization supplies its declared generated body.
 // Every original module procedure is still checked with -no_dce.
 Matrix_Basic :: #import "Basic";

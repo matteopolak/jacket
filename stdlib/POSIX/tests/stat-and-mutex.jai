@@ -1,3 +1,4 @@
+// test: skip_on(.WASM) only(.LINUX,.MACOS)
 // libc structures whose layout depends on the target CPU, used through the stdlib: stat()
 // results (directory bit, file size) and a mutex next to a guard value that glibc must not
 // overwrite. AArch64 Linux lays these out differently from x86-64, so a wrong binding reads

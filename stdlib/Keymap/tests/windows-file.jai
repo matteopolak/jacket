@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 K :: #import "Keymap";
 
 main :: () {

@@ -1,3 +1,4 @@
+// test: compile_fail
 #import "Metaprogram_Plugins";
 
 main :: () {
