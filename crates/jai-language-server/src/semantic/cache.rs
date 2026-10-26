@@ -1,9 +1,10 @@
 //! The cache of finished analyses.
-use super::compile::{Compiled, compile};
+use super::compile::{Compiled, Mode, compile};
 use super::parses::parse_error;
 use super::{
     ALTERNATES, Analysis, Buffers, BuildFacts, CACHED, Environment, SMALL_COST, SMALL_KEPT,
 };
+use jaic::ide::lint_compile::CheckLimits;
 use jaic::sema::TargetOs;
 use jaic::source::FileId;
 use std::cell::RefCell;
@@ -23,11 +24,16 @@ pub struct Cache {
     /// Workspace trust is withheld: compiles run no compile-time code (see
     /// `IdeFacts::untrusted`). Survives `reset`; change it with `set_trusted`.
     untrusted: bool,
+    /// What bounds a compile's compile-time code (the client's settings); change it with
+    /// `set_limits`.
+    limits: CheckLimits,
     /// The last good run of each build metaprogram (by its canonical root path). A run that
     /// fails or runs out of budget leaves these alone.
     pub(crate) recorded: BTreeMap<PathBuf, BuildFacts>,
     /// Moves on whenever `recorded` changes.
     pub(crate) recorded_version: u64,
+    /// Limits the compiles since the last `take_limit_hits` ran into.
+    limit_hits: Vec<super::queries::LimitHit>,
 }
 
 impl Default for Cache {
@@ -38,8 +44,10 @@ impl Default for Cache {
             compiles: 0,
             parses: shared_parses(),
             untrusted: false,
+            limits: CheckLimits::default(),
             recorded: BTreeMap::new(),
             recorded_version: 0,
+            limit_hits: Vec::new(),
         }
     }
 }
@@ -115,6 +123,20 @@ impl Cache {
             untrusted: !trusted,
             ..Self::default()
         };
+    }
+
+    /// The limits compiles run under. A change drops every compile kept: its errors and its
+    /// stopping point were those of the other limits.
+    pub fn set_limits(&mut self, limits: CheckLimits) {
+        if self.limits != limits {
+            self.entries.clear();
+            self.limits = limits;
+        }
+    }
+
+    /// The limits compiles ran into since the last call.
+    pub(crate) fn take_limit_hits(&mut self) -> Vec<super::queries::LimitHit> {
+        std::mem::take(&mut self.limit_hits)
     }
 
     pub fn trusted(&self) -> bool {
@@ -423,6 +445,7 @@ impl Cache {
             errors,
             others,
             facts,
+            stopped,
             reads,
         } = compile(
             env,
@@ -431,7 +454,10 @@ impl Cache {
             files,
             os,
             &self.parses,
-            self.untrusted,
+            Mode {
+                untrusted: self.untrusted,
+                limits: self.limits,
+            },
         );
         // Another target's compile says nothing new about what the metaprogram did.
         if let Some(facts) = facts.filter(|f| os.is_none() && !f.programs.is_empty()) {
@@ -441,6 +467,8 @@ impl Cache {
                 self.recorded_version += 1;
             }
         }
+        self.limit_hits
+            .extend(super::queries::limit_hits(&compiler, &errors));
         let cost = std::iter::once(&compiler)
             .chain(others.iter().map(|p| &p.compiler))
             .flat_map(|c| {
@@ -464,7 +492,7 @@ impl Cache {
             reads,
             usable,
             cost,
-            complete: errors.is_empty(),
+            complete: errors.is_empty() && !stopped,
             errors,
             lints: BTreeMap::new(),
             enriched: None,

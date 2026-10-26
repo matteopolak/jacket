@@ -3,7 +3,7 @@ use super::overlay::{OverlayFs, Reads};
 use super::{BuildFacts, BuiltProgram, Environment, Program};
 use jaic::build::WorkspaceObserver;
 use jaic::fxhash::HashSet;
-use jaic::ide::lint_compile::{BLOCK_BUDGET, LintCompile, LintRoot, LintSetup};
+use jaic::ide::lint_compile::{CheckLimits, LintCompile, LintRoot, LintSetup};
 use jaic::ide::{IdeFacts, IdeRoot};
 use jaic::interp::SandboxHost;
 use jaic::sema::{Compiler, FileSystem, TargetOs};
@@ -136,6 +136,15 @@ fn writes_module_parameters(text: &str) -> bool {
     )
 }
 
+/// The first line of `root`, or the start of the first file when it was not loaded.
+fn first_line(compiler: &Compiler, root: &Path) -> jaic::source::Span {
+    let Some(file) = find_file(compiler, root) else {
+        return jaic::source::Span::new(FileId(0), 0, 0);
+    };
+    let text = &compiler.src.sources.get(file).text;
+    jaic::source::Span::new(file, 0, text.find('\n').unwrap_or(text.len()))
+}
+
 /// What one compile produced.
 pub(super) struct Compiled {
     pub(super) compiler: Compiler,
@@ -144,8 +153,17 @@ pub(super) struct Compiled {
     pub(super) others: Vec<Program>,
     /// What the metaprogram did, when it ran to the end.
     pub(super) facts: Option<BuildFacts>,
+    /// The wall-clock limit passed: what the compile found is partial.
+    pub(super) stopped: bool,
     /// The paths it asked about (and later queries ask about).
     pub(super) reads: Rc<RefCell<Reads>>,
+}
+
+/// How much a compile is trusted and how far it may run compile-time code.
+#[derive(Clone, Copy)]
+pub(super) struct Mode {
+    pub(super) untrusted: bool,
+    pub(super) limits: CheckLimits,
 }
 
 /// Compile `root` with `files` over the environment's file system.
@@ -156,8 +174,12 @@ pub(super) fn compile(
     files: BTreeMap<PathBuf, Rc<[u8]>>,
     os: Option<TargetOs>,
     parses: &Rc<RefCell<jaic::parser::ParseReuse>>,
-    untrusted: bool,
+    mode: Mode,
 ) -> Compiled {
+    let Mode {
+        untrusted,
+        limits,
+    } = mode;
     let dir = root.parent().map(Path::to_path_buf).unwrap_or_default();
     let open: Vec<PathBuf> = files.keys().cloned().collect();
     let options = || {
@@ -215,8 +237,8 @@ pub(super) fn compile(
     let built = Rc::new(RefCell::new(Vec::new()));
     let added = Rc::new(RefCell::new(BTreeMap::new()));
     // Metaprograms may compile other programs (`compiler_create_workspace`): those are checked
-    // the same way, with no output and the same host, and their compile-time code draws from
-    // this compiler's budget.
+    // the same way, with no output and the same host, and their compile-time code is bounded
+    // by the same limits.
     let mut started = LintCompile::start(LintSetup {
         fs: fs.clone(),
         options: options(),
@@ -231,6 +253,7 @@ pub(super) fn compile(
             done: built.clone(),
         })),
         report: Box::new(|_, _| {}),
+        limits,
     });
     started
         .compiler
@@ -266,6 +289,13 @@ pub(super) fn compile(
     }
     let errors = check_rest(&mut compiler, errors);
     let errors = known(&compiler, errors);
+    // The wall-clock limit passed: the compile-time code that ran into it said nothing (its
+    // result is unknown, not wrong), and this is the one notice that results are partial.
+    let stopped = host.borrow_mut().has_stopped();
+    if stopped {
+        let notice = limits.stopped_notice(first_line(&compiler, root));
+        compiler.diag.warnings.push(notice);
+    }
     let base_paths = (env.options)(root).import_paths;
     let mut recorded: Vec<(i64, BuiltProgram)> = Vec::new();
     let mut others: Vec<Program> = built
@@ -292,8 +322,6 @@ pub(super) fn compile(
                 .map(|p| jaic::paths::file_identity(&*env.fs, p))
                 .collect();
             recorded.push((id, program));
-            // The metaprogram's code spent the budget; checking the rest gets its own.
-            compiler.ct.interp.block_budget = Some(BLOCK_BUDGET);
             let errors = check_rest(&mut compiler, Vec::new());
             let errors = known(&compiler, errors);
             Program {
@@ -320,7 +348,7 @@ pub(super) fn compile(
     // Every interpreter on the host is closed: what compile-time code left allocated goes too.
     host.borrow_mut().release_memory();
     recorded.sort_by_key(|(id, _)| *id);
-    let facts = ran_to_the_end.then(|| BuildFacts {
+    let facts = (ran_to_the_end && !stopped).then(|| BuildFacts {
         programs: recorded.into_iter().map(|(_, p)| p).collect(),
     });
     Compiled {
@@ -328,6 +356,7 @@ pub(super) fn compile(
         errors,
         others,
         facts,
+        stopped,
         reads,
     }
 }

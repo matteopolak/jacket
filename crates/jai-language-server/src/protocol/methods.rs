@@ -168,14 +168,16 @@ impl Notification {
 /// The commands `workspace/executeCommand` runs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum ServerCommand {
-    ShowExpansion,
-    ShowPolymorphs,
+    Expansion,
+    Polymorphs,
+    CompileTimeCosts,
 }
 
 impl ServerCommand {
     pub(super) const NAMES: &[(&str, Self)] = &[
-        ("jai.showExpansion", Self::ShowExpansion),
-        ("jai.showPolymorphs", Self::ShowPolymorphs),
+        ("jai.showExpansion", Self::Expansion),
+        ("jai.showPolymorphs", Self::Polymorphs),
+        ("jai.showCompileTimeCosts", Self::CompileTimeCosts),
     ];
 
     pub(super) fn parse(name: &str) -> Option<Self> {

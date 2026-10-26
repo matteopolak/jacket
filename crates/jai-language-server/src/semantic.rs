@@ -11,6 +11,8 @@ pub use self::cache::Cache;
 pub use self::overlay::Reads;
 pub(crate) use self::parses::text_key;
 pub use self::parses::{note_parse, parse_error};
+pub use self::queries::EvalCost;
+pub(crate) use self::queries::LimitKind;
 use jaic::ide::IdeLayout;
 use jaic::sema::{Compiler, FileSystem, Options, TargetOs};
 use jaic::source::FileId;

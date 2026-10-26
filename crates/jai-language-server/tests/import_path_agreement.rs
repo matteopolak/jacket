@@ -37,6 +37,7 @@ fn linter_options(dir: &Path) -> Options {
         compiler_options: jaic::sema::Options::host(),
         source: None,
         add_sources: Vec::new(),
+        limits: jaic::ide::lint_compile::CheckLimits::default(),
     }
 }
 

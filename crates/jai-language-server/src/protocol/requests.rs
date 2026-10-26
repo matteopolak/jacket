@@ -297,16 +297,23 @@ impl JsonSession {
         };
         let document = uri(&target.uri)?;
         match ServerCommand::parse(&p.command) {
-            Some(ServerCommand::ShowExpansion) => {
+            Some(ServerCommand::Expansion) => {
                 let expansion = self.session.expansion(&document, target.position);
                 Ok(expansion
                     .map_err(domain)?
                     .as_ref()
                     .map_or(Value::Null, expansion_wire))
             }
-            Some(ServerCommand::ShowPolymorphs) => {
+            Some(ServerCommand::Polymorphs) => {
                 Ok(json!(self.session.polymorphs(&document, target.position)))
             }
+            Some(ServerCommand::CompileTimeCosts) => Ok(Value::Array(
+                self.session
+                    .compile_time_costs(&document)
+                    .iter()
+                    .map(crate::compile_costs::CostRow::wire)
+                    .collect(),
+            )),
             None => Err(fail(ErrorCode::InvalidParams, "Unknown command")),
         }
     }

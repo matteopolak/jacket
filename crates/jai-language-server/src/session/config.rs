@@ -2,9 +2,48 @@
 use super::Session;
 use crate::semantic::{self, Environment};
 use crate::{DocumentUri, Error, Limits, VirtualSources};
+use jaic::ide::lint_compile::CheckLimits;
 use std::path::{Path, PathBuf};
 
 impl Session {
+    /// Basic blocks one compile-time evaluation may run before it fails (`0`: no limit).
+    pub fn set_evaluation_budget(&mut self, blocks: u64) {
+        let seconds = self.check_limits.seconds.unwrap_or(0.0);
+        self.change_limits(CheckLimits::new(blocks, seconds));
+    }
+
+    /// Seconds a whole check may take before it stops with partial results (`0`: no limit).
+    pub fn set_check_time_limit(&mut self, seconds: f64) {
+        let blocks = self.check_limits.eval_blocks;
+        let blocks = if blocks == u64::MAX {
+            0
+        } else {
+            blocks
+        };
+        self.change_limits(CheckLimits::new(blocks, seconds));
+    }
+
+    /// The blocks from which a compile-time evaluation shows its cost.
+    pub fn set_cost_lens_blocks(&mut self, blocks: u64) {
+        self.change_limits(CheckLimits {
+            hint_blocks: blocks,
+            ..self.check_limits
+        });
+    }
+
+    /// Whether to send `jai/compileTimeLimit` when a limit stops compile-time code.
+    pub fn set_limit_notices(&mut self, on: bool) {
+        self.limit_notices = on;
+    }
+
+    fn change_limits(&mut self, limits: CheckLimits) {
+        if self.check_limits != limits {
+            self.check_limits = limits;
+            self.polymorph_index.borrow_mut().clear();
+            self.semantic.borrow_mut().set_limits(limits);
+        }
+    }
+
     /// Turn auto-import completion on or off.
     pub fn set_auto_import(&mut self, on: bool) {
         self.auto_import = on;
@@ -76,6 +115,7 @@ impl Session {
         {
             let mut cache = self.semantic.borrow_mut();
             cache.set_trusted(trusted);
+            cache.set_limits(self.check_limits);
             cache.recorded = recorded;
             cache.recorded_version = version + 1;
         }

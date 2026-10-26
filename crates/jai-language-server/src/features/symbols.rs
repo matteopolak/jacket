@@ -145,6 +145,7 @@ impl Session {
     pub fn code_lenses(&self, uri: &DocumentUri) -> Result<Vec<CodeLens>, Error> {
         let mut lenses = self.polymorph_lenses(uri)?;
         lenses.extend(self.test_code_lenses(uri)?);
+        lenses.extend(self.cost_code_lenses(uri)?);
         lenses.sort_by_key(|lens| lens.range.start);
         Ok(lenses)
     }

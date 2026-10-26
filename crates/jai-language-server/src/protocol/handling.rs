@@ -319,6 +319,7 @@ impl JsonSession {
                 })
             })
             .chain(logs)
+            .chain(self.session.take_limit_notices())
             .collect()
     }
 

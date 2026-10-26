@@ -167,16 +167,18 @@ impl JsonSession {
         let settings = &params["settings"]["jai"];
         let trusted = self.session.trusted();
         let lenses = self.session.test_lenses_enabled();
+        let limits = self.session.check_limits;
         self.configure(settings);
         if let Some(on) = settings["trusted"].as_bool() {
             self.session.set_trusted(on);
         }
         // Trust decides what the compile may run, so every document's diagnostics change.
-        let mut messages = if trusted == self.session.trusted() {
-            Vec::new()
-        } else {
-            self.publications()
-        };
+        let mut messages =
+            if trusted == self.session.trusted() && limits == self.session.check_limits {
+                Vec::new()
+            } else {
+                self.publications()
+            };
         messages.extend(self.refresh());
         if lenses != self.session.test_lenses_enabled() {
             messages.extend(self.code_lens_refresh());
@@ -256,7 +258,8 @@ impl JsonSession {
 
     /// Apply the settings in `settings` (`initializationOptions`, or the `jai` section of
     /// `workspace/didChangeConfiguration`): `{ "completion": { "autoImport": false,
-    /// "callSnippets": "fillArguments" } }`.
+    /// "callSnippets": "fillArguments" }, "compileTime": { "evaluationBudget": 200000000,
+    /// "checkTimeLimit": 10 } }`. A setting the client leaves out keeps its default.
     pub(super) fn configure(&mut self, settings: &Value) {
         if let Some(on) = settings["completion"]["autoImport"].as_bool() {
             self.session.set_auto_import(on);
@@ -266,6 +269,19 @@ impl JsonSession {
         }
         if let Some(lines) = settings["inlayHints"]["closingBraceMinLines"].as_u64() {
             self.session.set_closing_brace_min_lines(lines as usize);
+        }
+        let compile_time = &settings["compileTime"];
+        if let Some(blocks) = compile_time["evaluationBudget"].as_u64() {
+            self.session.set_evaluation_budget(blocks);
+        }
+        if let Some(seconds) = compile_time["checkTimeLimit"].as_f64() {
+            self.session.set_check_time_limit(seconds);
+        }
+        if let Some(blocks) = compile_time["costLensBlocks"].as_u64() {
+            self.session.set_cost_lens_blocks(blocks);
+        }
+        if let Some(on) = compile_time["limitNotices"].as_bool() {
+            self.session.set_limit_notices(on);
         }
         if let Some(mode) = settings["completion"]["callSnippets"]
             .as_str()

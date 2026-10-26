@@ -38,7 +38,102 @@ pub struct Related {
     pub message: String,
 }
 
+/// What a compile-time evaluation (a `#run`, a constant that needed the interpreter...) of the
+/// program cost, summed over the times the compile ran it.
+pub struct EvalCost {
+    pub path: String,
+    pub text: Rc<str>,
+    /// The byte range of the code that was evaluated.
+    pub start: usize,
+    pub end: usize,
+    pub blocks: u64,
+    pub elapsed: std::time::Duration,
+}
+
+/// Which limit stopped compile-time code.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LimitKind {
+    /// One evaluation ran out of its block budget.
+    Budget,
+    /// The whole check ran past its time limit.
+    Time,
+}
+
+/// A compile-time evaluation or check that a limit stopped, found by a compile.
+pub struct LimitHit {
+    pub kind: LimitKind,
+    pub path: String,
+    pub text: Rc<str>,
+    pub start: usize,
+    pub end: usize,
+    /// The first line of the diagnostic.
+    pub message: String,
+}
+
+/// The limits `compiler` and `errors` (a compile's) ran into.
+pub(super) fn limit_hits(
+    compiler: &jaic::sema::Compiler,
+    errors: &[jaic::source::Diagnostic],
+) -> Vec<LimitHit> {
+    let found = errors
+        .iter()
+        .filter(|d| d.message.contains("execution budget exhausted"))
+        .map(|d| (LimitKind::Budget, d))
+        .chain(
+            compiler
+                .diag
+                .warnings
+                .iter()
+                .filter(|d| d.message.starts_with("checking stopped after"))
+                .map(|d| (LimitKind::Time, d)),
+        );
+    found
+        .filter_map(|(kind, d)| {
+            let file = compiler.src.sources.try_get(d.span.file)?;
+            Some(LimitHit {
+                kind,
+                path: file.path.to_string(),
+                text: file.text.clone(),
+                start: d.span.start as usize,
+                end: d.span.end as usize,
+                message: d.message.lines().next().unwrap_or_default().to_string(),
+            })
+        })
+        .collect()
+}
+
 impl Analysis {
+    /// The top-level compile-time evaluations of the program and of the programs its
+    /// metaprogram built, costliest first. A run inside another counts in the one around it.
+    pub fn evaluation_costs(&self) -> Vec<EvalCost> {
+        let mut sums: BTreeMap<(String, usize, usize), EvalCost> = BTreeMap::new();
+        for (compiler, _) in self.polymorph_compilers() {
+            for run in &compiler.meta.perf.runs {
+                let (Some(blocks), true) = (run.blocks, run.outermost) else {
+                    continue;
+                };
+                let Some(file) = compiler.src.sources.try_get(run.span.file) else {
+                    continue;
+                };
+                let path = file.path.to_string();
+                let key = (path.clone(), run.span.start as usize, run.span.end as usize);
+                let entry = sums.entry(key).or_insert_with(|| EvalCost {
+                    path,
+                    text: file.text.clone(),
+                    start: run.span.start as usize,
+                    end: run.span.end as usize,
+                    blocks: 0,
+                    elapsed: std::time::Duration::ZERO,
+                });
+                entry.blocks += blocks;
+                entry.elapsed += run.elapsed;
+            }
+        }
+        let mut costs: Vec<EvalCost> = sums.into_values().collect();
+        costs.sort_by_key(|c| std::cmp::Reverse((c.blocks, c.elapsed)));
+        costs
+    }
+
     /// The paths the compile asked about so far, and a hash of each open text among them.
     pub(crate) fn inputs_read(&self) -> (super::Reads, BTreeMap<PathBuf, u64>) {
         let reads = self.reads.borrow().clone();
@@ -265,11 +360,19 @@ impl Analysis {
             .iter()
             .filter(|((body, _), count)| ide.body_evals.get(body) == Some(*count))
             .map(|((_, run), _)| run);
+        // An `#if` in a polymorphic procedure may look dead only because the callers so far
+        // all pass types that rule an arm out.
+        let polymorphic = self.compiler.ide_polymorphic_bodies();
         let inactive = ide
             .static_branches
             .iter()
             .filter(|(_, ran)| !**ran)
-            .map(|(s, _)| s);
+            .map(|(s, _)| s)
+            .filter(|s| {
+                !polymorphic
+                    .iter()
+                    .any(|b| b.file == s.file && b.start <= s.start && s.end <= b.end)
+            });
         let mut found: Vec<(usize, usize)> = dead
             .chain(inactive)
             .filter(|s| s.file == file && s.start < s.end)

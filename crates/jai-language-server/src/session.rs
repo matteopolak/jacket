@@ -73,6 +73,10 @@ pub struct Session {
     pub(crate) saved_configs: BTreeMap<DocumentUri, String>,
     /// Auto-import completion is on (`jai.completion.autoImport`).
     pub(crate) auto_import: bool,
+    /// What bounds the compile-time code of a check (the client's settings).
+    pub(crate) check_limits: jaic::ide::lint_compile::CheckLimits,
+    /// Whether to tell the client when a limit stops a check (`jai/compileTimeLimit`).
+    pub(crate) limit_notices: bool,
     /// What accepting a procedure completion inserts (`jai.completion.callSnippets`).
     call_snippets: crate::call_snippets::CallSnippets,
     /// The client takes snippet completion items (`completionItem.snippetSupport`).
@@ -127,6 +131,8 @@ impl Session {
             lint_configs: BTreeMap::new(),
             saved_configs: BTreeMap::new(),
             auto_import: true,
+            check_limits: jaic::ide::lint_compile::CheckLimits::default(),
+            limit_notices: false,
             call_snippets: crate::call_snippets::CallSnippets::default(),
             snippet_support: false,
             closing_brace_min_lines: crate::closing_hints::DEFAULT_MIN_LINES,

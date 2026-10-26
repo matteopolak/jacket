@@ -4,6 +4,7 @@ mod asm;
 mod auto_import;
 mod call_snippets;
 mod closing_hints;
+mod compile_costs;
 mod completion_wire;
 mod config;
 mod doc_view;
