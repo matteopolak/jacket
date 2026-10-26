@@ -51,6 +51,8 @@ jobs:
       stdlib_matrix: ${{ steps.select.outputs.stdlib_matrix }}
       sanitizer_matrix: ${{ steps.select.outputs.sanitizer_matrix }}
       windows_stdlib_matrix: ${{ steps.select.outputs.windows_stdlib_matrix }}
+      windows_native_matrix: ${{ steps.select.outputs.windows_native_matrix }}
+      windows_cross_matrix: ${{ steps.select.outputs.windows_cross_matrix }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -1085,13 +1087,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cpu: [x64, arm64]
-        # A third of the programs each (windows_cross.py build --shard; the first also builds the
-        # shared fixtures). `windows-run-cross` runs each third; keep its `shard` list the same.
-        shard: ['1', '2', '3']
-        include:
-          - {cpu: x64, mingw: MinGW-w64}
-          - {cpu: arm64, mingw: llvm-mingw}
+        # From tools/ci/ci_changes.py (windows_cross_matrix): a third of the programs each, arm64
+        # only in the full tier. `windows-run-cross` runs the same legs.
+        include: ${{ fromJSON(needs.changes.outputs.windows_cross_matrix) }}
     concurrency:
       group: ${{ github.workflow }}-windows-cross-${{ github.ref }}-${{ matrix.cpu }}-${{ matrix.shard }}
       cancel-in-progress: true
@@ -1144,11 +1142,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cpu: [x64, arm64]
-        shard: ['1', '2', '3']
-        include:
-          - {cpu: x64, runner: windows-2025}
-          - {cpu: arm64, runner: windows-11-arm}
+        include: ${{ fromJSON(needs.changes.outputs.windows_cross_matrix) }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
     defaults:
@@ -1178,24 +1172,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cpu: [x64, arm64]
+        # From tools/ci/ci_changes.py (windows_native_matrix), arm64 only in the full tier.
         # `programs`: the C++ vtables, platform I/O, the test programs and the native backend
         # tests; `graphics`: everything that links the third-party libraries or draws (Mesa, WGL,
         # WebGPU, the data resource suite and File_Watcher).
-        part: [programs, graphics]
-        include:
-          - cpu: x64
-            runner: windows-2025
-            triple: x86_64-pc-windows-msvc
-            vs_arch: amd64
-            mesa_dir: target/mesa-driver
-            timeout: 30
-          - cpu: arm64
-            runner: windows-11-arm
-            triple: aarch64-pc-windows-msvc
-            vs_arch: arm64
-            mesa_dir: target/mesa-driver
-            timeout: 60
+        include: ${{ fromJSON(needs.changes.outputs.windows_native_matrix) }}
     concurrency:
       group: ${{ github.workflow }}-windows-native-${{ github.ref }}-${{ matrix.cpu }}-${{ matrix.part }}
       cancel-in-progress: true

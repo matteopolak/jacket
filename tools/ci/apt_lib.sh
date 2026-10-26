@@ -28,6 +28,14 @@ apt_configure() {
     'Dir::Etc::sourcelist "/dev/null";' \
     "Dir::Etc::sourceparts \"$parts\";" \
     | sudo tee "$apt_root/apt.conf.d/80jai-ci-network" > /dev/null
+  # Runners are thrown away after the job: skip fsync, the docs and man pages, and the man-db
+  # index rebuild, which take most of an install's time.
+  if [[ "$apt_root" == /etc/apt ]]; then
+    printf '%s\n' force-unsafe-io 'path-exclude=/usr/share/doc/*' 'path-exclude=/usr/share/man/*' \
+      'path-exclude=/usr/share/info/*' 'path-exclude=/usr/share/locale/*' \
+      | sudo tee /etc/dpkg/dpkg.cfg.d/80jai-ci > /dev/null
+    sudo rm -f /var/lib/man-db/auto-update
+  fi
 }
 
 # Run an apt-get command, giving up on an attempt after three minutes and trying up to five times.

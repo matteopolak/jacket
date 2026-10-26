@@ -226,14 +226,42 @@ def sanitizer_matrix(full, macos):
 
 
 def windows_stdlib_matrix(full):
-    """The legs of `windows-stdlib`: the fast tier skips the -O2 rerun and splits x64, the slower
-    runner, more finely."""
+    """The legs of `windows-stdlib`: the fast tier skips the -O2 rerun and arm64, and splits x64
+    more finely."""
     cpus = {
         "x64": dict(runner="windows-2025", triple="x86_64-pc-windows-msvc", timeout=40),
         "arm64": dict(runner="windows-11-arm", triple="aarch64-pc-windows-msvc", timeout=80),
     }
-    counts = {"x64": 2, "arm64": 2} if full else {"x64": 5, "arm64": 3}
-    return [dict(cpu=cpu, shard=s, o2=full, **cpus[cpu]) for cpu in cpus for s in shards(counts[cpu])]
+    counts = {"x64": 2, "arm64": 2} if full else {"x64": 5}
+    return [dict(cpu=cpu, shard=s, o2=full, **cpus[cpu]) for cpu in windows_cpus(full) for s in shards(counts[cpu])]
+
+
+WINDOWS = {
+    "x64": dict(runner="windows-2025", triple="x86_64-pc-windows-msvc", vs_arch="amd64", mingw="MinGW-w64"),
+    "arm64": dict(runner="windows-11-arm", triple="aarch64-pc-windows-msvc", vs_arch="arm64", mingw="llvm-mingw"),
+}
+
+
+def windows_cpus(full):
+    """Windows arm64 runs only in the full tier: the fast tier is bound by how many jobs GitHub
+    runs at once, and x64 covers the Windows code paths."""
+    return ["x64", "arm64"] if full else ["x64"]
+
+
+def windows_native_matrix(full):
+    """The legs of `windows-native`: `programs` and `graphics` per CPU."""
+    timeouts = {"x64": 30, "arm64": 60}
+    return [
+        dict(cpu=cpu, part=part, mesa_dir="target/mesa-driver", timeout=timeouts[cpu], **WINDOWS[cpu])
+        for cpu in windows_cpus(full)
+        for part in ("programs", "graphics")
+    ]
+
+
+def windows_cross_matrix(full):
+    """The legs of `windows-cross` and `windows-run-cross`: a third of the programs each
+    (windows_cross.py --shard; the first also builds the shared fixtures)."""
+    return [dict(cpu=cpu, shard=str(k), **WINDOWS[cpu]) for cpu in windows_cpus(full) for k in (1, 2, 3)]
 
 
 # Areas too costly to run whenever the workflow itself changes.
@@ -325,6 +353,8 @@ def main():
     macos_asan = "sanitizers-macos" in selected_jobs(results, env.get("JOBS", ""))
     lines.append("sanitizer_matrix=" + json.dumps(sanitizer_matrix(full, macos_asan)))
     lines.append("windows_stdlib_matrix=" + json.dumps(windows_stdlib_matrix(full)))
+    lines.append("windows_native_matrix=" + json.dumps(windows_native_matrix(full)))
+    lines.append("windows_cross_matrix=" + json.dumps(windows_cross_matrix(full)))
     print("\n".join(lines))
     if env.get("GITHUB_OUTPUT"):
         with open(env["GITHUB_OUTPUT"], "a") as out:
