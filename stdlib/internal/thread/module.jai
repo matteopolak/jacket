@@ -8,8 +8,8 @@ else #load "synchronization.jai";
 #if LOAD_THREAD_GROUP #load "group.jai";
 #scope_module
 #import "Basic";
-#if OS == .WINDOWS W :: #import "Windows";
-else P :: #import "POSIX";
+#if OS == .WINDOWS W :: #import "internal/bindings/windows-api";
+else P :: #import "internal/bindings/posix-api";
 #if OS == .MACOS M :: #import "internal/thread/native-macos";
 
 Crash :: #import "Runtime_Support_Crash_Handler";

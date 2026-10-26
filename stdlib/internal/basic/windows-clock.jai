@@ -30,7 +30,7 @@
 
 #scope_file
 #if OS == .WINDOWS {
-    Clock_Windows :: #import "Windows";
+    Clock_Windows :: #import "internal/bindings/windows-api";
     Counter_Kernel :: #import "internal/time/counter";
 
     counter_frequency: s64;

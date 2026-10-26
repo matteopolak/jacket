@@ -111,8 +111,8 @@ reader_release_channel :: (channel: *Read_Channel) -> bool {
 
 #scope_file
 #import "Basic";
-W :: #import "Windows";
-Utf8 :: #import "Windows_Utf8";
+W :: #import "internal/bindings/windows-api";
+Utf8 :: #import "internal/text/windows-utf8";
 
 kernel32 :: #system_library "kernel32";
 clear_last_error :: (code: u32) #foreign kernel32 "SetLastError";

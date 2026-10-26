@@ -108,7 +108,7 @@ create :: (window: W.HWND, share: W.HGLRC, major: s32, minor: s32,
 }
 
 #scope_file
-W :: #import "Windows";
+W :: #import "internal/bindings/windows-api";
 F :: #import "internal/bindings/wgl-format";
 
 libc :: #library,system "c";

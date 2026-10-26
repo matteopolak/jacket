@@ -54,7 +54,7 @@ read_pipe :: (pipe: *Process.Pipe, buffer: [] u8) -> success: bool, bytes_read: 
 #import "Basic";
 Types :: #import "internal/process/windows-types";
 Engine :: #import "internal/platform-io/windows-process";
-W :: #import "Windows";
+W :: #import "internal/bindings/windows-api";
 
 close_pipe :: (pipe: *Process.Pipe) {
     deinit(pipe);

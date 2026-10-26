@@ -144,7 +144,7 @@ reader_done_with_message :: (message: *Read_Message) -> bool {
 
 #scope_module
 #import "Basic";
-#if OS == .WINDOWS Channel_Windows :: #import "Windows";
+#if OS == .WINDOWS Channel_Windows :: #import "internal/bindings/windows-api";
 
 CHANNEL_WORD :: 0x436d6853;
 MESSAGE_WORD :: 0x323230324d6d6853;

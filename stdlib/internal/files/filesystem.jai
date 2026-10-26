@@ -155,7 +155,7 @@ how_much_of_path_exists_on_the_local_filesystem :: (path: Paths.Path) -> (fully_
 
 #scope_file
 #import "Basic";
-P :: #import "POSIX";
+P :: #import "internal/bindings/posix-api";
 F :: #import "File";
 S :: #import "String";
 Paths :: #import "internal/files/paths";

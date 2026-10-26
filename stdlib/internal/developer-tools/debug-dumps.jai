@@ -36,7 +36,7 @@
 #import "Basic";
 
 #if OS == .WINDOWS {
-    Windows :: #import "Windows";
+    Windows :: #import "internal/bindings/windows-api";
 
     native :: #foreign_library "debug-native/developer_tools_debug";
     dump_native :: (exception: *void, full: bool) -> *string #foreign native "developer_debug_dump";

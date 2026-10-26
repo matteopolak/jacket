@@ -72,4 +72,4 @@ append_link_arguments :: (args: *[..] string, compiler: string, staged: string, 
 
 #scope_file
 #import "Basic";
-Native :: #import "POSIX";
+Native :: #import "internal/bindings/posix-api";

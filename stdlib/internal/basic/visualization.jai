@@ -147,7 +147,7 @@ visualization_last_update: u64;
 
 #if VISUALIZATION_NATIVE {
     Visualization_Channel :: #import "Shared_Memory_Channel";
-    Visualization_POSIX :: #import "POSIX";
+    Visualization_POSIX :: #import "internal/bindings/posix-api";
 
     visualization_channel: Visualization_Channel.Write_Channel;
 }

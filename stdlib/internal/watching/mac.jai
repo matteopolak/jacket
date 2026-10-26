@@ -29,7 +29,7 @@ File_Watcher :: struct(User_Data: Type = void) {
     buffer_size: s32;
     pool: *Pool.Pool;
     changes: [..] File_Change;
-    event_streams: [..] Native.FSEventStreamRef;
+    event_streams: [..] *void;
 }
 
 init :: (watcher: *$T/File_Watcher, callback: T.File_Watcher_Callback, user_data: *T.User_Data = null, events_to_watch: File_Change_Event = .ALL_EVENTS, merge_window_seconds: float = 0.1, watch_recursively := true, verbose := false, event_buffer_size: s32 = DEFAULT_BUFFER_SIZE) -> success: bool {
@@ -110,7 +110,7 @@ add_directories :: (using watcher: *$T/File_Watcher, dir_paths: ..string) -> boo
         record.path = .{ cast(s64) bytes, name };
         record.next = state.roots;
         state.roots = record;
-        stream := cast(Native.FSEventStreamRef) c_stream(handle);
+        stream := c_stream(handle);
 
         B.array_add(*watcher.event_streams, stream);
     }
@@ -269,7 +269,6 @@ deinit :: (using watcher: $T/File_Watcher) {
 #scope_file
 B :: #import "Basic";
 Pool :: #import "Pool";
-Native :: #import "macOS";
 Math :: #import "Math";
 
 backend :: #library "native/portable_watch";

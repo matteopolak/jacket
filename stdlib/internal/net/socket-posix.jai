@@ -103,4 +103,4 @@ FD_CLR :: (fd: s32, set: *fd_set) {
 
 #scope_file
 #import "Basic";
-P :: #import "POSIX";
+P :: #import "internal/bindings/posix-api";

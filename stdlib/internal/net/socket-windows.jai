@@ -81,6 +81,6 @@ FD_CLR :: (fd: Socket, set: *fd_set) {
 
 #scope_file
 #import "Basic";
-W :: #import "Windows";
+W :: #import "internal/bindings/windows-api";
 
 Control :: #import "internal/net/winsock-control";

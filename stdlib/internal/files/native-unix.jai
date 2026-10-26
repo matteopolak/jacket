@@ -166,6 +166,6 @@ get_absolute_path :: inline (relative_path: string) -> string, success: bool {
 
 #scope_file
 #if OS == .WASM P :: #import "internal/files/wasi-libc";
-else P :: #import "POSIX";
+else P :: #import "internal/bindings/posix-api";
 
 #import "internal/libc";

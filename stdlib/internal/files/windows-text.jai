@@ -56,5 +56,5 @@ utf8_text :: (text: *u16, count: s64) -> string, bool {
 
 #scope_file
 #import "Basic";
-W :: #import "Windows";
+W :: #import "internal/bindings/windows-api";
 Native_Path :: #import "internal/native-path";

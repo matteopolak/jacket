@@ -110,7 +110,7 @@ diagnostic :: (text: *u8) {
 #scope_file
 #assert OS == .MACOS, "Native NSOpenGL requires macOS";
 
-O :: #import "Objective_C";
+O :: #import "internal/bindings/objc-api";
 
 #library,system,link_always "AppKit";
 libobjc :: #library,system "objc";

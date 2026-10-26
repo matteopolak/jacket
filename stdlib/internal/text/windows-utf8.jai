@@ -69,6 +69,6 @@
 
 #scope_file
 #if OS == .WINDOWS {
-    Native :: #import "Windows";
+    Native :: #import "internal/bindings/windows-api";
     B :: #import "Basic";
 }

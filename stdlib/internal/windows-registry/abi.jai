@@ -34,7 +34,7 @@ HKEY_PERFORMANCE_TEXT :: cast(HKEY) 0x80000050;
 HKEY_USERS :: cast(HKEY) 0x80000003;
 
 #scope_file
-W :: #import "Windows";
+W :: #import "internal/bindings/windows-api";
 
 HKEY :: W.HKEY;
 DWORD :: W.DWORD;

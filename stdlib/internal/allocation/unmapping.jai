@@ -95,7 +95,7 @@ Wrapper_Allocation :: struct {
 }
 
 #if OS == .WINDOWS {
-    W :: #import "Windows";
+    W :: #import "internal/bindings/windows-api";
     S :: #import "System";
 
     OS_Error_Code :: W.OS_Error_Code;
@@ -112,7 +112,7 @@ Wrapper_Allocation :: struct {
         return S.get_error_string(code);
     }
 } else {
-    P :: #import "POSIX";
+    P :: #import "internal/bindings/posix-api";
 
     OS_Error_Code :: P.OS_Error_Code;
     libc :: #system_library "libc";

@@ -117,8 +117,8 @@ shutdown :: (p: *Metaprogram_Plugin) {
 #import "Compiler";
 #import "File";
 Relative :: #import "Relative_Pointers";
-#if OS == .MACOS || OS == .LINUX || OS == .ANDROID Codex_POSIX :: #import "POSIX";
-#if OS == .WINDOWS Codex_Windows :: #import "Windows";
+#if OS == .MACOS || OS == .LINUX || OS == .ANDROID Codex_POSIX :: #import "internal/bindings/posix-api";
+#if OS == .WINDOWS Codex_Windows :: #import "internal/bindings/windows-api";
 
 Codex_State :: struct {
     base: Metaprogram_Plugin;

@@ -237,7 +237,7 @@ Lifecycle :: #import "internal/window/lifecycle";
 
 #if OS == .MACOS {
     Cocoa :: #import "internal/window/cocoa";
-    O :: #import "Objective_C";
+    O :: #import "internal/bindings/objc-api";
 
     objc :: #library,system "objc";
     message :: () #foreign objc "objc_msgSend";
@@ -255,7 +255,7 @@ Lifecycle :: #import "internal/window/lifecycle";
 }
 
 #if OS == .WINDOWS {
-    W :: #import "Windows";
+    W :: #import "internal/bindings/windows-api";
 
     context_user32 :: #library,system "user32";
     context_kernel32 :: #library,system "kernel32";

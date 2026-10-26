@@ -149,7 +149,7 @@ init_wave_format :: (using w: *Waveformatex, nchannels: s16) {
 }
 
 #scope_file
-W :: #import "Windows";
+W :: #import "internal/bindings/windows-api";
 
 GUID :: W.GUID;
 HWND :: W.HWND;

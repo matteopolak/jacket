@@ -1,6 +1,6 @@
 create_window :: (width: int, height: int, window_name: string, window_x := -1, window_y := -1, parent: Window_Type = null, background_color_rgb := DEFAULT_WINDOW_CREATION_COLOR, wanted_msaa := DEFAULT_MSAA) -> *ObjC.NSWindow {
     init_mac_app();
-    window := Cocoa.create_content_window(cast(s32) width, cast(s32) height, window_name, cast(s32) window_x, cast(s32) window_y);
+    window := cast(*ObjC.NSWindow) Cocoa.create_content_window(cast(s32) width, cast(s32) height, window_name, cast(s32) window_x, cast(s32) window_y);
     if window && window_x == -1 && window_y == -1 ObjC.NSWindow.center(window);
     return window;
 }

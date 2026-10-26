@@ -71,7 +71,7 @@ message :: (p: *C.Metaprogram_Plugin, message: *C.Message) {
 #scope_file
 B :: #import "Basic";
 C :: #import "Compiler";
-#if OS == .WINDOWS Resources :: #import "Windows_Resources";
+#if OS == .WINDOWS Resources :: #import "internal/windows-resources";
 
 Plugin_State :: struct {
     api: C.Metaprogram_Plugin;

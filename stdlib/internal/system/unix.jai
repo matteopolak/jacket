@@ -193,7 +193,7 @@ get_passwd_for_user :: (username := "") -> (success: bool, p: P.passwd) {
 
 #scope_file
 #import "Basic";
-P :: #import "POSIX";
+P :: #import "internal/bindings/posix-api";
 
 libc :: #system_library "libc";
 c_strerror :: (error: s32) -> *u8 #foreign libc "strerror";

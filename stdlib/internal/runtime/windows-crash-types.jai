@@ -58,4 +58,4 @@ else #assert size_of(CONTEXT) == 1232;
 #assert size_of(EXCEPTION_POINTERS) == 16;
 
 #scope_file
-#if CPU == .ARM64 Win :: #import "Windows";
+#if CPU == .ARM64 Win :: #import "internal/bindings/windows-api";

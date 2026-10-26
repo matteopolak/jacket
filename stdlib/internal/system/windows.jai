@@ -204,7 +204,7 @@ get_number_of_processors :: ($type: Processor_Query_Type = .PERFORMANCE_LOGICAL)
 ERROR_INSUFFICIENT_BUFFER :: 122;
 ERROR_BUFFER_OVERFLOW :: 111;
 
-W :: #import "Windows";
+W :: #import "internal/bindings/windows-api";
 Text :: #import "internal/files/windows-text";
 
 advapi32 :: #system_library "advapi32";

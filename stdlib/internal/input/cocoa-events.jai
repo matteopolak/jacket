@@ -52,7 +52,7 @@ update_window_events :: () {
 
 #scope_module
 Cocoa :: #import "internal/window/cocoa";
-O :: #import "Objective_C";
+O :: #import "internal/bindings/objc-api";
 
 mac_custom_cursor := false;
 window_observer: *void;

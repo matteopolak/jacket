@@ -154,4 +154,4 @@ reader_release_channel :: (channel: *Read_Channel) -> bool {
 
 #scope_file
 #import "Basic";
-P :: #import "POSIX";
+P :: #import "internal/bindings/posix-api";

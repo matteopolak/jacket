@@ -34,7 +34,7 @@ find_visual_studio_in_a_ridiculous_garbage_way :: () -> (library_path := "", lin
 }
 
 #scope_file
-R :: #import "Windows_Registry";
+R :: #import "internal/windows-registry/abi";
 Files :: #import "File";
 Utilities :: #import "File_Utilities";
 Strings :: #import "String";

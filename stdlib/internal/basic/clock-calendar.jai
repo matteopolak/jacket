@@ -118,7 +118,7 @@ calendar_failure :: (message: string, time_zone: Time_Zone) -> Calendar_Time {
 }
 
 #scope_file
-#if OS == .MACOS || OS == .LINUX || OS == .ANDROID Clock_Native :: #import "POSIX";
+#if OS == .MACOS || OS == .LINUX || OS == .ANDROID Clock_Native :: #import "internal/bindings/posix-api";
 #if OS == .WASM Clock_Native :: #import "internal/files/wasi-libc";
 
 add_clock_words :: (a: Apollo_Time, b: Apollo_Time) -> Apollo_Time #no_aoc {

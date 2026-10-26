@@ -136,7 +136,7 @@ compile :: (args: $T) -> [..] u8 {
 }
 
 #scope_file
-Win :: #import "Windows";
+Win :: #import "internal/bindings/windows-api";
 Basic :: #import "Basic";
 Options :: #import "internal/bindings/dxc-options";
 Wide :: #import "internal/bindings/dxc-wide";

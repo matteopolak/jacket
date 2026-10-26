@@ -62,7 +62,7 @@
 
 #scope_file
 #if OS == .WINDOWS {
-    Calendar_Windows :: #import "Windows";
+    Calendar_Windows :: #import "internal/bindings/windows-api";
     Calendar_Date :: #import "internal/time/gregorian";
 
     calendar_kernel32 :: #system_library "kernel32";

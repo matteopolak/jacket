@@ -18,7 +18,7 @@ Basic :: #import "Basic";
 listeners: [..] Closed_Proc;
 
 #if OS == .MACOS {
-    O :: #import "Objective_C";
+    O :: #import "internal/bindings/objc-api";
     Cocoa :: #import "internal/window/cocoa";
 
     observer: *void;

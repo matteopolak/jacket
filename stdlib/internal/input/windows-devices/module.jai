@@ -67,7 +67,7 @@ close :: (window: W.HWND) {
 }
 
 #scope_module
-W :: #import "Windows";
+W :: #import "internal/bindings/windows-api";
 Basic :: #import "Basic";
 
 Registration :: struct {

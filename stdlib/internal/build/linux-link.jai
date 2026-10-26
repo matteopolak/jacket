@@ -92,8 +92,8 @@ C :: #import "Compiler";
 S :: #import "String";
 F :: #import "File_Utilities";
 P :: #import "Process";
-#if OS == .WINDOWS Native :: #import "Windows";
-else Native :: #import "POSIX";
+#if OS == .WINDOWS Native :: #import "internal/bindings/windows-api";
+else Native :: #import "internal/bindings/posix-api";
 
 Link_Plugin :: struct {
     base: C.Metaprogram_Plugin;

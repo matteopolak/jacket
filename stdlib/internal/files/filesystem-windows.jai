@@ -146,7 +146,7 @@ FILETIME_TICKS_PER_SECOND :: 10000000;
 FILETIME_EPOCH_TO_UNIX_SECONDS :: 11644473600;
 NANOSECONDS_PER_FILETIME_TICK :: 100;
 
-W :: #import "Windows";
+W :: #import "internal/bindings/windows-api";
 Text :: #import "internal/files/windows-text";
 Visit :: #import "internal/files/visit-info";
 ABI :: #import "internal/files/windows-abi";

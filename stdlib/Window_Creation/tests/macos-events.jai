@@ -3,7 +3,7 @@ I :: #import "Input";
 WC :: #import "Window_Creation";
 #load "../../internal/window/cocoa.jai";
 
-post_key :: (window: *A.NSWindow, down: bool, characters: string, repeat := false) {
+post_key :: (window: *void, down: bool, characters: string, repeat := false) {
     Create :: #type (receiver: *void, selector: O.Selector, type: u64, location: O.NSPoint,
                      modifiers: u64, timestamp: float64, window_number: s64, context: *void,
                      characters: *void, unmodified: *void, repeat: s8, code: u16) -> *void #c_call;

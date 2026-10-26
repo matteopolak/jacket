@@ -253,10 +253,10 @@ S :: #import "String";
 Process :: #import "Process";
 
 #if OS == .WINDOWS {
-    Native :: #import "Windows";
+    Native :: #import "internal/bindings/windows-api";
     #load "cpp-windows.jai";
 } else {
-    Native :: #import "POSIX";
+    Native :: #import "internal/bindings/posix-api";
     #load "cpp-unix.jai";
 }
 

@@ -7,6 +7,6 @@
 
 #scope_module
 B :: #import "Basic";
-W :: #import "Windows";
+W :: #import "internal/bindings/windows-api";
 Paths :: #import "internal/files/windows-text";
 Icons :: #import "internal/resource-wire/icon-directory";

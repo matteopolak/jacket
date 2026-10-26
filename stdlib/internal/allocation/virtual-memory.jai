@@ -47,5 +47,5 @@
 }
 
 #scope_file
-#if OS == .WINDOWS W :: #import "Windows";
-#if OS == .MACOS || OS == .LINUX || OS == .ANDROID P :: #import "POSIX";
+#if OS == .WINDOWS W :: #import "internal/bindings/windows-api";
+#if OS == .MACOS || OS == .LINUX || OS == .ANDROID P :: #import "internal/bindings/posix-api";

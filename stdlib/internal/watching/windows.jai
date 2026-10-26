@@ -1,5 +1,5 @@
 #scope_module
-W :: #import "Windows";
+W :: #import "internal/bindings/windows-api";
 F :: #import "File";
 Text :: #import "internal/files/windows-text";
 R :: #import "internal/watching/event-records";

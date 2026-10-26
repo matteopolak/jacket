@@ -136,7 +136,7 @@ B :: #import "Basic";
     S :: #import "String";
     F :: #import "File";
     P :: #import "Process";
-    Native :: #import "POSIX";
+    Native :: #import "internal/bindings/posix-api";
 
     tool_path :: (path: string) -> string {
         if S.is_absolute_path(path) return B.copy_string(path);

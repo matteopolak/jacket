@@ -1,5 +1,6 @@
-// AppKit objects remain native objects of the canonical binding types. This
-// module owns native lifecycle glue; it never allocates class instance layouts.
+// Windows cross this module as *void: Window_Creation gives them its own AppKit class type, which
+// is the project's when a project ships its own Objective_C. This module owns native lifecycle
+// glue; it never allocates class instance layouts.
 initialize_application :: () -> bool {
     if application return true;
 
@@ -41,54 +42,56 @@ initialize_application :: () -> bool {
     return true;
 }
 
-create_content_window :: (width: s32, height: s32, title: string, x: s32, y: s32) -> *A.NSWindow {
+create_content_window :: (width: s32, height: s32, title: string, x: s32, y: s32) -> *void {
     if !initialize_application() return null;
 
     Basic.assert(width > 0 && height > 0, "native window dimensions must be positive");
     pool := autorelease_pool();
 
     defer release(pool);
-    allocated := result_message(native_class("NSWindow"), "alloc", *A.NSWindow);
+    allocated := result_message(native_class("NSWindow"), "alloc", *void);
 
     Basic.assert(allocated != null, "NSWindow allocation failed");
     rect: O.NSRect;
     rect.origin = .{ cast(O.CGFloat) x, cast(O.CGFloat) y };
     rect.size = .{ cast(O.CGFloat) width, cast(O.CGFloat) height };
-    window := A.NSWindow.initWithContentRect(allocated, rect,
-        .NSWindowStyleMaskTitled | .NSWindowStyleMaskClosable | .NSWindowStyleMaskMiniaturizable | .NSWindowStyleMaskResizable,
-        .NSBackingStoreBuffered, 0);
+
+    Init :: #type (receiver: *void, selector: O.Selector, rect: O.NSRect, style: u64, backing: u64, deferred: s8) -> *void #c_call;
+    init := cast(Init) native_send;
+    window := init(allocated, O.selector("initWithContentRect:styleMask:backing:defer:"), rect,
+                   STYLE_TITLED | STYLE_CLOSABLE | STYLE_MINIATURIZABLE | STYLE_RESIZABLE, BACKING_BUFFERED, 0);
+
     if !window return null;
 
-    A.NSWindow.setReleasedWhenClosed(window, 0);
-    // The contextual binding uses the native void ABI; its id result is unused.
-    A.NSWindow.setTitle(window, title);
-    A.NSWindow.makeKeyAndOrderFront(window, null);
+    argument_message(window, "setReleasedWhenClosed:", cast(s8) 0);
+    argument_message(window, "setTitle:", native_string(title));
+    argument_message(window, "makeKeyAndOrderFront:", cast(*void) null);
 
     return window;
 }
 
-close_window :: (window: *A.NSWindow) {
+close_window :: (window: *void) {
     if !window return;
     void_message(window, "close");
     release(window);
 } @FreesArgument
 
-attach_render_context :: (window: *A.NSWindow, native: *void) {
+attach_render_context :: (window: *void, native: *void) {
     Basic.assert(window != null && native != null);
-    argument_message(native, "setView:", A.NSWindow.contentView(window));
+    argument_message(native, "setView:", result_message(window, "contentView", *void));
     set_association(window, *render_context_key, native, 1);
 }
 
-detach_render_context :: (window: *A.NSWindow, native: *void) {
+detach_render_context :: (window: *void, native: *void) {
     void_message(native, "clearDrawable");
     set_association(window, *render_context_key, null, 1);
 }
 
-swap_window_buffers :: (window: *A.NSWindow) {
+swap_window_buffers :: (window: *void) {
     Basic.assert(window != null);
     native := get_association(window, *render_context_key);
     if !native {
-        view := A.NSWindow.contentView(window);
+        view := result_message(window, "contentView", *void);
         if argument_result_message(view, "respondsToSelector:", O.selector("openGLContext"), s8) != 0 {
             native = result_message(view, "openGLContext", *void);
         } else {
@@ -131,9 +134,9 @@ argument_result_message :: (receiver: *void, selector: string, value: $T, $Resul
     return send(receiver, O.selector(selector), value);
 }
 
-content_screen_rect :: (window: *A.NSWindow) -> O.NSRect {
+content_screen_rect :: (window: *void) -> O.NSRect {
     frame := result_message(window, "frame", O.NSRect);
-    Convert :: #type (receiver: *A.NSWindow, selector: O.Selector, frame: O.NSRect) -> O.NSRect #c_call;
+    Convert :: #type (receiver: *void, selector: O.Selector, frame: O.NSRect) -> O.NSRect #c_call;
     convert: Convert;
 
     #if CPU == .X64 convert = cast(Convert) native_send_stret;
@@ -153,12 +156,12 @@ mouse_location :: () -> O.NSPoint {
     return result_message(native_class("NSEvent"), "mouseLocation", O.NSPoint);
 }
 
-local_mouse_location :: (window: *A.NSWindow) -> O.NSPoint {
+local_mouse_location :: (window: *void) -> O.NSPoint {
     return result_message(window, "mouseLocationOutsideOfEventStream", O.NSPoint);
 }
 
-content_size :: (window: *A.NSWindow) -> O.NSSize {
-    view := A.NSWindow.contentView(window);
+content_size :: (window: *void) -> O.NSSize {
+    view := result_message(window, "contentView", *void);
     rect := result_message(view, "bounds", O.NSRect);
     return rect.size;
 }
@@ -209,11 +212,16 @@ application_error :: (message: string) {
     Basic.assert(false, message);
 }
 
-A :: #import "Objective_C/AppKit";
-O :: #import "Objective_C";
+O :: #import "internal/bindings/objc-api";
 Basic :: #import "Basic";
 
 application: *void;
+
+STYLE_TITLED :: 1;
+STYLE_CLOSABLE :: 2;
+STYLE_MINIATURIZABLE :: 4;
+STYLE_RESIZABLE :: 8;
+BACKING_BUFFERED :: 2;
 render_context_key: u64;
 
 objc :: #library,system "objc";

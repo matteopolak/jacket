@@ -423,8 +423,8 @@ random_bytes :: (algorithm: *void, buffer: *u8, count: u32, flags: u32) -> s32 #
 
 #scope_file
 #import "Basic";
-Native :: #import "Windows";
-Wide :: #import "Windows_Utf8";
+Native :: #import "internal/bindings/windows-api";
+Wide :: #import "internal/text/windows-utf8";
 U :: #import "File_Utilities";
 S :: #import "String";
 Process :: #import "Process";

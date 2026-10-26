@@ -105,7 +105,7 @@ os_clipboard_set_bitmap :: (width: s32, height: s32, pixels: *u8, channels: s32,
 }
 
 #scope_module
-O :: #import "Objective_C";
+O :: #import "internal/bindings/objc-api";
 
 NSBitmapFormatAlphaNonpremultiplied :: 1 << 1;
 objc :: #library,system "objc";

@@ -73,4 +73,4 @@ Read_Message :: struct {
 }
 
 #scope_file
-#if OS == .WINDOWS Channel_Native :: #import "Windows";
+#if OS == .WINDOWS Channel_Native :: #import "internal/bindings/windows-api";

@@ -40,4 +40,4 @@ Process_Argument_Quoting :: enum {
 }
 
 #scope_file
-W :: #import "Windows";
+W :: #import "internal/bindings/windows-api";

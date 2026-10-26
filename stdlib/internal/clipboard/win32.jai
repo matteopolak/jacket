@@ -126,7 +126,7 @@ os_clipboard_set_bitmap :: (width: s32, height: s32, pixels: *u8, channels: s32,
 }
 
 #scope_module
-#import "Windows";
+#import "internal/bindings/windows-api";
 
 kernel32_native :: #library,system "kernel32";
 user32_native :: #library,system "user32";

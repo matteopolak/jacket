@@ -3,10 +3,26 @@
 #scope_module
 evdev_library :: #library,system "evdev";
 
-Linux :: #import "Linux";
+Kernel_Time :: struct {
+    tv_sec: s64;
+    tv_usec: s64;
+}
 
-input_event :: Linux.input_event;
-input_absinfo :: Linux.input_absinfo;
+input_event :: struct {
+    time: Kernel_Time;
+    type: u16;
+    code: u16;
+    value: s32;
+}
+
+input_absinfo :: struct {
+    value: s32;
+    minimum: s32;
+    maximum: s32;
+    fuzz: s32;
+    flat: s32;
+    resolution: s32;
+}
 
 libevdev_read_flag :: enum_flags s32 {
     SYNC :: 1;

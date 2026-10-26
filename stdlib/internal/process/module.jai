@@ -5,4 +5,4 @@
 #load "run.jai";
 #scope_module
 #import "Basic";
-P :: #import "POSIX";
+P :: #import "internal/bindings/posix-api";

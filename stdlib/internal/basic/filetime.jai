@@ -20,6 +20,6 @@
 
 #scope_file
 #if OS == .WINDOWS {
-    Filetime_Native :: #import "Windows";
+    Filetime_Native :: #import "internal/bindings/windows-api";
     Filetime_Kernel :: #import "internal/time/filetime";
 }

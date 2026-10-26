@@ -44,5 +44,5 @@ sleep_milliseconds :: (milliseconds: s32) {
 }
 
 #scope_file
-W :: #import "Windows";
+W :: #import "internal/bindings/windows-api";
 Text :: #import "internal/files/windows-text";

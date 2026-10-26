@@ -45,7 +45,7 @@ sleep_milliseconds :: (milliseconds: s32) {
 }
 
 #scope_file
-P :: #import "POSIX";
+P :: #import "internal/bindings/posix-api";
 Native_Path :: #import "internal/native-path";
 
 libc :: #system_library "libc";

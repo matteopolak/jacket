@@ -324,7 +324,7 @@ get_path_os_saved_games :: () -> string {
 }
 
 #scope_file
-W :: #import "Windows";
+W :: #import "internal/bindings/windows-api";
 
 ERROR_HANDLE_EOF :: 38;
 

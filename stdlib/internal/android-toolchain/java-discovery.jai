@@ -42,7 +42,7 @@ find_java_bin_path_from_environment :: () -> bool, bin_path: string, exe_path: s
 
 tool_environment :: (variable: string) -> string {
     #if OS == .WINDOWS {
-        W :: #import "Windows_Utf8";
+        W :: #import "internal/text/windows-utf8";
         name, converted := W.utf8_to_wide(variable);
 
         defer free(name);

@@ -110,7 +110,7 @@ mail_send :: (smtp: Mail_Server, msg: Mail_Message) -> bool {
 
 #scope_file
 #import "Basic";
-C :: #import "Curl";
+C :: #import "internal/bindings/curl-api";
 R :: #import "Runtime_Support";
 
 #if OS == .WINDOWS Native_Long :: s32;

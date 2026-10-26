@@ -1,6 +1,6 @@
 #scope_module
-L :: #import "Linux";
-P :: #import "POSIX";
+L :: #import "internal/bindings/inotify";
+P :: #import "internal/bindings/posix-api";
 HT :: #import "Hash_Table";
 U :: #import "File_Utilities";
 R :: #import "internal/watching/event-records";

@@ -20,6 +20,6 @@ get_attributes :: (name: *u16, level: s32, data: *Attribute_Data) -> s32 #foreig
 replace_rename :: (source: *u16, dest: *u16, flags: u32) -> s32 #foreign kernel32 "MoveFileExW";
 
 #scope_file
-W :: #import "Windows";
+W :: #import "internal/bindings/windows-api";
 
 kernel32 :: #system_library "kernel32";

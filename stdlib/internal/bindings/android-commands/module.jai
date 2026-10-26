@@ -71,7 +71,7 @@ COMMAND_PAUSE :: 13;
 COMMAND_STOP :: 14;
 COMMAND_DESTROY :: 15;
 
-P :: #import "POSIX";
+P :: #import "internal/bindings/posix-api";
 Native :: #import "internal/bindings/native";
 
 libc :: #library,system "c";

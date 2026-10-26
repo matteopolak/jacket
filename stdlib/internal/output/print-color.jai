@@ -259,7 +259,7 @@ native_unlock :: () {
 }
 
 #if OS == .WINDOWS {
-    W :: #import "Windows";
+    W :: #import "internal/bindings/windows-api";
 
     default_console_backend :: () -> Console_Backend {
         return .{ windows_query, windows_apply };

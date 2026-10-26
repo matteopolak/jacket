@@ -1,8 +1,8 @@
 #scope_module
 #import "Basic";
 
-#if OS == .WINDOWS Profile_Windows :: #import "Windows";
-else #if OS == .MACOS || OS == .LINUX || OS == .ANDROID Profile_POSIX :: #import "POSIX";
+#if OS == .WINDOWS Profile_Windows :: #import "internal/bindings/windows-api";
+else #if OS == .MACOS || OS == .LINUX || OS == .ANDROID Profile_POSIX :: #import "internal/bindings/posix-api";
 
 profile_clock_frequency :: () -> s64, bool {
     #if OS == .WINDOWS {
