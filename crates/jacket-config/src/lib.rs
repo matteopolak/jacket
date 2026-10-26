@@ -4,8 +4,8 @@
 //! - [`locate`] / [`load`]: the nearest `jacket.toml` above a path, and its settings.
 //! - [`infer_entries`]: which file a project builds, shared by `jaic` and `jailsp`.
 //!
-//! Every Rust tool reads the file here; `jaifmt` (written in Jai) reads its `[format]` section
-//! itself. See `docs/tools/jacket.md`.
+//! Every Rust tool reads the file here; `jacket fmt` resolves `[format]` and hands it to `jaifmt`,
+//! whose own reader (standalone use, the browser) a test keeps in step. See `docs/tools/jacket.md`.
 #![forbid(unsafe_code)]
 use std::path::{Path, PathBuf};
 
@@ -14,8 +14,8 @@ pub mod schema;
 
 pub use pattern::{PathPattern, PatternError, relative_text};
 pub use schema::{
-    Config, Experimental, Format, Lint, LintOverride, Portability, Project, Test, TestRun,
-    Toolchain,
+    Config, Experimental, FORMAT_SETTINGS, Fallback, Format, Kind, Lint, LintOverride, Portability,
+    Project, Setting, Test, TestRun, Toolchain,
 };
 
 /// The configuration file name.
@@ -238,3 +238,6 @@ pub fn project_entry(fs: &dyn Files, dir: &Path) -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod jai_format_sync;

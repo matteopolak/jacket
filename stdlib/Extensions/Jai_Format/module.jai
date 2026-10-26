@@ -53,6 +53,27 @@ parse_config :: (text: string) -> config: Format_Config, ok: bool, error: string
     return config, ok, error;
 }
 
+// Sets one setting from `key=value`, the value written as in the TOML file (`4`, `true`,
+// `"preserve"`): how a caller that already resolved the settings passes them on. Unlike the file
+// parser, a key the formatter does not have is an error.
+format_apply_setting :: (config: *Format_Config, assignment: string) -> ok: bool, error: string {
+    split := find_index_from_left(assignment, #char "=");
+    if split < 0 return false, tprint("`%` is not key=value", assignment);
+
+    key := trim(slice(assignment, 0, split));
+    value := trim(slice(assignment, split + 1, assignment.count - split - 1));
+
+    known := false;
+
+    for FORMAT_KEYS if it == key known = true;
+    if !known return false, tprint("unknown setting `%`", key);
+
+    ok, message := apply_key(config, key, value, 0);
+    if !ok return false, without_line_prefix(message);
+
+    return true, "";
+}
+
 // The warning for an entry of `config.unknown_keys` found in the file `file`, with a suggestion
 // when a known key is close.
 format_unknown_setting_note :: (key: string, file: string) -> string {

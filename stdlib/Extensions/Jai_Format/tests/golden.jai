@@ -218,6 +218,28 @@ check_config_parsing :: () {
     if format_glob_match("*.jai", "dir/a.jai") fail("`*` must not cross directories");
 
     check_shared_globs();
+    check_applied_settings();
+}
+
+// Settings handed over as `key=value` (what `jacket fmt` does) read like the file's values.
+check_applied_settings :: () {
+    applied: Format_Config;
+
+    for string.["indent_width=2", "brace_style=\"preserve\"", "blank_line_before_return = true", "max_width=80"] {
+        ok, message := format_apply_setting(*applied, it);
+        if !ok fail("--set %: %", it, message);
+    }
+
+    if applied.indent_width != 2 || applied.brace_style != .PRESERVE || !applied.blank_line_before_return || applied.max_width != 80 fail("applied settings wrong: %", applied);
+
+    for string.["indent_width=0", "indent_width=x", "colour=1", "indent_width", "brace_style=same_line", "blank_lines_between_items=1"] {
+        ok, message := format_apply_setting(*applied, it);
+        if ok fail("--set % should be refused", it);
+        if !message.count fail("--set % needs a message", it);
+    }
+
+    ok, message := format_apply_setting(*applied, "indent_width=17");
+    if ok || message != "indent_width must be an integer from 1 to 16" fail("range message: %", message);
 }
 
 // The cases jailint's Rust tests run too: `pattern<TAB>path<TAB>match|nomatch`.

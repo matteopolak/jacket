@@ -4,6 +4,7 @@
 //     jaifmt [--check] [--config file] [--verbose] paths...
 //     jaifmt --stdin [--config file] < in.jai > out.jai
 //     jaifmt --is-ignored file [--config file]    (exit 0 ignored, 1 formatted, 2 error)
+//     jaifmt --no-config [--set key=value]... paths...    (the given settings, no jacket.toml read)
 
 #import "Basic";
 #import "String";
@@ -23,6 +24,8 @@ Options :: struct {
     stdin: bool;
     config: string; @value=FILE
     is_ignored: string; @value=FILE @conflicts=paths @conflicts=stdin @conflicts=check
+    set: [..] string; @value=KEY=VALUE
+    no_config: bool;
     verbose: bool; @short=v
     color: Args.Color_Mode = .AUTO;
 }
@@ -35,6 +38,8 @@ HELP :: Args.Help(Options).{
     stdin = "Format standard input to standard output",
     is_ignored = "Print nothing; exit 0 when FILE is ignored by the nearest config's ignore list, 1 when it is not (for editors)",
     config = "Use this jacket.toml instead of the nearest one",
+    set = "Set one [format] key, written as in jacket.toml (--set indent_width=2); implies --no-config. `jacket fmt` passes every resolved setting this way",
+    no_config = "Read no jacket.toml: start from the defaults, then --config and --set. Nothing is ignored, since the caller chooses the files",
     verbose = "Report every file, a summary, and lines over max_width",
     color = "Colour errors; auto means on a terminal, unless NO_COLOR is set",
 };
@@ -60,6 +65,15 @@ main :: () {
         }
 
         explicit_config = config;
+    }
+
+    if options.set.count || options.no_config {
+        if !explicit_config explicit_config = New(Format_Config);
+
+        for options.set {
+            ok, message := format_apply_setting(explicit_config, it);
+            if !ok fatal_usage(tprint("--set %: %", it, message));
+        }
     }
 
     if options.is_ignored.count {

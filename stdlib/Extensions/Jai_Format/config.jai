@@ -317,6 +317,12 @@ apply_key :: (config: *Format_Config, key: string, value: string, line_number: i
     return true, "";
 }
 
+// `line 0: message` -> `message`, for settings that did not come from a file.
+without_line_prefix :: (message: string) -> string {
+    if begins_with(message, "line 0: ") return slice(message, 8, message.count - 8);
+    return message;
+}
+
 FORMAT_KEYS :: string.["indent_width", "case_indent", "case_body_indent", "max_blank_lines", "max_width", "brace_style", "blank_lines_between_items", "blank_line_after_declarations", "blank_lines_around_blocks", "blank_line_between_cases", "blank_line_before_comments", "blank_line_after_guards", "blank_line_before_return", "ignore"];
 
 // The warning for an unknown `[format]` setting `key` found in the config file `file`: it is

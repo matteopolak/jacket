@@ -172,6 +172,181 @@ pub struct Format {
     pub ignore: Vec<String>,
 }
 
+/// How a `[format]` setting is typed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Kind {
+    /// An integer from `min` to `max`.
+    Int {
+        min: i64,
+        max: i64,
+    },
+    Flag,
+    /// One of these strings.
+    Choice(&'static [&'static str]),
+    /// A list of path patterns.
+    Globs,
+}
+
+/// What a `[format]` setting is when the file does not set it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Fallback {
+    Int(i64),
+    /// The value of `indent_width`.
+    IndentWidth,
+    Flag(bool),
+    Choice(&'static str),
+    /// An empty list.
+    Empty,
+}
+
+/// One `[format]` key: the authority for its type, range and default. `jaifmt` reads the same
+/// keys standalone, and a test keeps `stdlib/Extensions/Jai_Format` in step with this table.
+#[derive(Clone, Copy, Debug)]
+pub struct Setting {
+    pub name: &'static str,
+    pub kind: Kind,
+    pub default: Fallback,
+}
+
+const fn int(name: &'static str, min: i64, max: i64, default: Fallback) -> Setting {
+    Setting {
+        name,
+        kind: Kind::Int {
+            min,
+            max,
+        },
+        default,
+    }
+}
+
+const fn flag(name: &'static str, default: bool) -> Setting {
+    Setting {
+        name,
+        kind: Kind::Flag,
+        default: Fallback::Flag(default),
+    }
+}
+
+/// Every `[format]` key, in the order `jaifmt` lists them.
+pub const FORMAT_SETTINGS: &[Setting] = &[
+    int("indent_width", 1, 16, Fallback::Int(4)),
+    int("case_indent", 0, 16, Fallback::IndentWidth),
+    int("case_body_indent", 0, 16, Fallback::IndentWidth),
+    int("max_blank_lines", 0, 100, Fallback::Int(2)),
+    int("max_width", 10, 10000, Fallback::Int(100)),
+    Setting {
+        name: "brace_style",
+        kind: Kind::Choice(&["same_line", "preserve"]),
+        default: Fallback::Choice("same_line"),
+    },
+    flag("blank_lines_between_items", true),
+    flag("blank_line_after_declarations", false),
+    flag("blank_lines_around_blocks", false),
+    flag("blank_line_between_cases", false),
+    flag("blank_line_before_comments", false),
+    flag("blank_line_after_guards", false),
+    flag("blank_line_before_return", false),
+    Setting {
+        name: "ignore",
+        kind: Kind::Globs,
+        default: Fallback::Empty,
+    },
+];
+
+const FORMAT_KEYS: &[&str] = &[
+    "indent_width",
+    "case_indent",
+    "case_body_indent",
+    "max_blank_lines",
+    "max_width",
+    "brace_style",
+    "blank_lines_between_items",
+    "blank_line_after_declarations",
+    "blank_lines_around_blocks",
+    "blank_line_between_cases",
+    "blank_line_before_comments",
+    "blank_line_after_guards",
+    "blank_line_before_return",
+    "ignore",
+];
+
+impl Format {
+    /// Why a value is out of range, worded as `jaifmt` words it.
+    pub fn validate(&self) -> Result<(), String> {
+        for setting in FORMAT_SETTINGS {
+            match (setting.kind, self.raw(setting.name)) {
+                (
+                    Kind::Int {
+                        min,
+                        max,
+                    },
+                    Raw::Int(Some(v)),
+                ) if !(min..=max).contains(&v) => {
+                    return Err(format!(
+                        "{} must be an integer from {min} to {max}",
+                        setting.name
+                    ));
+                }
+                (Kind::Choice(choices), Raw::Text(Some(v))) if !choices.contains(&v) => {
+                    let quoted: Vec<String> = choices.iter().map(|c| format!("\"{c}\"")).collect();
+                    return Err(format!("{} must be {}", setting.name, quoted.join(" or ")));
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+
+    /// Every setting but `ignore` with its default filled in, as the name and a TOML-literal
+    /// value (`4`, `true`, `"same_line"`).
+    pub fn resolved(&self) -> Vec<(&'static str, String)> {
+        let Fallback::Int(default_indent) = FORMAT_SETTINGS[0].default else {
+            unreachable!("indent_width has an integer default");
+        };
+        let indent = self.indent_width.unwrap_or(default_indent);
+        let mut out = Vec::new();
+        for setting in FORMAT_SETTINGS {
+            let text = match (self.raw(setting.name), setting.default) {
+                (Raw::Int(Some(v)), _) | (Raw::Int(None), Fallback::Int(v)) => v.to_string(),
+                (Raw::Int(None), _) => indent.to_string(),
+                (Raw::Flag(Some(v)), _) | (Raw::Flag(None), Fallback::Flag(v)) => v.to_string(),
+                (Raw::Text(Some(v)), _) | (Raw::Text(None), Fallback::Choice(v)) => {
+                    format!("\"{v}\"")
+                }
+                _ => continue,
+            };
+            out.push((setting.name, text));
+        }
+        out
+    }
+
+    fn raw(&self, name: &str) -> Raw<'_> {
+        match name {
+            "indent_width" => Raw::Int(self.indent_width),
+            "case_indent" => Raw::Int(self.case_indent),
+            "case_body_indent" => Raw::Int(self.case_body_indent),
+            "max_blank_lines" => Raw::Int(self.max_blank_lines),
+            "max_width" => Raw::Int(self.max_width),
+            "brace_style" => Raw::Text(self.brace_style.as_deref()),
+            "blank_lines_between_items" => Raw::Flag(self.blank_lines_between_items),
+            "blank_line_after_declarations" => Raw::Flag(self.blank_line_after_declarations),
+            "blank_lines_around_blocks" => Raw::Flag(self.blank_lines_around_blocks),
+            "blank_line_between_cases" => Raw::Flag(self.blank_line_between_cases),
+            "blank_line_before_comments" => Raw::Flag(self.blank_line_before_comments),
+            "blank_line_after_guards" => Raw::Flag(self.blank_line_after_guards),
+            "blank_line_before_return" => Raw::Flag(self.blank_line_before_return),
+            _ => Raw::None,
+        }
+    }
+}
+
+enum Raw<'a> {
+    Int(Option<i64>),
+    Flag(Option<bool>),
+    Text(Option<&'a str>),
+    None,
+}
+
 /// Performance and debugging knobs; none changes what a program means.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct Experimental {
@@ -349,22 +524,7 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
             "portability",
         ],
         "lint.portability" => &["targets", "portable", "platforms"],
-        "format" => &[
-            "indent_width",
-            "case_indent",
-            "case_body_indent",
-            "max_blank_lines",
-            "max_width",
-            "brace_style",
-            "blank_lines_between_items",
-            "blank_line_after_declarations",
-            "blank_lines_around_blocks",
-            "blank_line_between_cases",
-            "blank_line_before_comments",
-            "blank_line_after_guards",
-            "blank_line_before_return",
-            "ignore",
-        ],
+        "format" => FORMAT_KEYS,
         "experimental" => &["parse_threads", "serial_parse", "codegen_units"],
         "postgres" => &["managed", "managed_version"],
         "test" => &[
