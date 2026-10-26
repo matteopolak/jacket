@@ -304,17 +304,17 @@ pub(crate) fn hash(text: &str) -> u64 {
 pub(crate) fn canonical_key(env: &Environment, path: &Path) -> PathBuf {
     let canonical = env.fs.canonical(path);
     if canonical != project::normalize(path) || env.fs.is_file(path) || env.fs.is_dir(path) {
-        return crate::document::path_key(&canonical);
+        return jaic::paths::identity_spelling(&canonical);
     }
     for parent in path.ancestors().skip(1) {
         if env.fs.is_dir(parent) {
             let suffix = path.strip_prefix(parent).expect("ancestor prefix");
-            return crate::document::path_key(
-                &crate::document::file_key(&*env.fs, parent).join(suffix),
+            return jaic::paths::identity_spelling(
+                &jaic::paths::file_identity(&*env.fs, parent).join(suffix),
             );
         }
     }
-    crate::document::path_key(&canonical)
+    jaic::paths::identity_spelling(&canonical)
 }
 
 impl Sources<'_> {

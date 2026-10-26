@@ -1,10 +1,11 @@
 //! Running a compile for an analysis.
 use super::overlay::{OverlayFs, Reads};
-use super::{BLOCK_BUDGET, BuildFacts, BuiltProgram, Environment, Program};
-use jaic::build::{BuildEnv, WorkspaceObserver, Workspaces};
+use super::{BuildFacts, BuiltProgram, Environment, Program};
+use jaic::build::WorkspaceObserver;
 use jaic::fxhash::HashSet;
+use jaic::ide::lint_compile::{BLOCK_BUDGET, LintCompile, LintRoot, LintSetup};
 use jaic::ide::{IdeFacts, IdeRoot};
-use jaic::interp::{SandboxHost, SharedHost};
+use jaic::interp::SandboxHost;
 use jaic::sema::{Compiler, FileSystem, TargetOs};
 use jaic::source::FileId;
 use std::cell::RefCell;
@@ -171,20 +172,19 @@ pub(super) fn compile(
     let mut files = files;
     let declares_parameters = files
         .iter()
-        .find(|(path, _)| path.as_path() == crate::document::file_key(&*env.fs, root))
+        .find(|(path, _)| path.as_path() == jaic::paths::file_identity(&*env.fs, root))
         .is_some_and(|(_, text)| writes_module_parameters(&String::from_utf8_lossy(text)));
     let stub = jaic::project::module_import(
         root,
         &options().import_paths,
         declares_parameters,
-        &|path| crate::document::file_key(&*env.fs, path),
+        &|path| jaic::paths::file_identity(&*env.fs, path),
     )
     .map(|(import, folder)| {
-        let stub = folder.join(".jailsp-module-root.jai");
-        let text = format!("{import}\nmain :: () {{}}\n");
+        let stub = jaic::project::module_root_stub(&folder);
         files.insert(
-            crate::document::file_key(&*env.fs, &stub),
-            Rc::from(text.into_bytes()),
+            jaic::paths::file_identity(&*env.fs, &stub),
+            Rc::from(jaic::project::module_root_stub_text(&import).into_bytes()),
         );
         stub
     });
@@ -196,40 +196,31 @@ pub(super) fn compile(
         canonical: jaic::paths::CanonCache::new(),
         reads: reads.clone(),
     });
-    let mut compiler = Compiler::new(options(), fs.clone());
-    // Compile-time output goes nowhere: stdout may be the protocol channel.
-    let host = Rc::new(RefCell::new(SandboxHost::with_files(
-        fs,
-        &dir.to_string_lossy(),
-    )));
     // Trusted compile-time code may ask services and read the real environment (a database
     // URL, say); the rest of the sandbox stays.
+    let host = Rc::new(RefCell::new(SandboxHost::with_files(
+        fs.clone(),
+        &dir.to_string_lossy(),
+    )));
     if !untrusted {
         let mut host = host.borrow_mut();
         host.services.clone_from(&env.services);
         host.real_environment = true;
     }
-    compiler.ct.interp.host = Box::new(SharedHost(host.clone()));
-    compiler.ct.interp.block_budget = Some(BLOCK_BUDGET);
     // Spelled like the compiler's source paths, which come through the overlay's keys.
-    let dir_key = crate::document::file_key(&*env.fs, &dir);
-    // Metaprograms may compile other programs (`compiler_create_workspace`): those are checked
-    // the same way, with no output and the same host, and their compile-time code draws from
-    // this compiler's budget.
-    let workspace_host = host.clone();
+    let dir_key = jaic::paths::file_identity(&*env.fs, &dir);
     // A compile for another target only answers hover and definition: lints come from the
     // environment's own.
     let lint = os.is_none();
     let built = Rc::new(RefCell::new(Vec::new()));
     let added = Rc::new(RefCell::new(BTreeMap::new()));
-    let workspaces = Workspaces::new(BuildEnv {
-        unwritten_output_hint: None,
-        fs: compiler.src.fs.clone(),
+    // Metaprograms may compile other programs (`compiler_create_workspace`): those are checked
+    // the same way, with no output and the same host, and their compile-time code draws from
+    // this compiler's budget.
+    let mut started = LintCompile::start(LintSetup {
+        fs: fs.clone(),
         options: options(),
-        backend: None,
-        command_line: Vec::new(),
-        make_host: Box::new(move |_| Box::new(SharedHost(workspace_host.clone()))),
-        report: Box::new(|_, _| {}),
+        host: host.clone(),
         observer: Some(Box::new(Built {
             added: added.clone(),
             root: dir_key.clone(),
@@ -239,15 +230,23 @@ pub(super) fn compile(
             untrusted,
             done: built.clone(),
         })),
+        report: Box::new(|_, _| {}),
     });
-    compiler.attach_workspaces(workspaces);
-    compiler
+    started
+        .compiler
         .ed
         .record(editor_facts(&dir_key, &open, &host, lint, untrusted));
     let number = parses.borrow_mut().begin();
-    compiler.ed.parse_reuse = Some((parses.clone(), number));
-    let errors = compiler
-        .compile_program(stub.as_deref().unwrap_or(root))
+    started.compiler.ed.parse_reuse = Some((parses.clone(), number));
+    let lint_root = match &stub {
+        Some(stub) => LintRoot::Module {
+            entry: root,
+            stub,
+        },
+        None => LintRoot::Program(root),
+    };
+    let errors = started
+        .compile(lint_root, &[])
         .err()
         .into_iter()
         .map(|e| *e)
@@ -257,11 +256,10 @@ pub(super) fn compile(
     let ran_to_the_end = errors.is_empty();
     // Workspaces no message loop drove compile once the metaprogram is done, as in a build.
     // Their stopping error is in their own facts, so the message here adds nothing.
-    if errors.is_empty()
-        && let Some(workspaces) = compiler.ct.interp.workspaces.clone()
-    {
-        let _ = jaic::build::finish_all(&workspaces, &mut compiler.ct.interp.block_budget);
+    if errors.is_empty() {
+        let _ = started.finish_workspaces();
     }
+    let mut compiler = *started.compiler;
     // Workspaces kept for `get_type_table` after they completed go to the observer now.
     if let Some(workspaces) = compiler.ct.interp.workspaces.clone() {
         jaic::build::hand_over_kept(&workspaces);
@@ -281,7 +279,7 @@ pub(super) fn compile(
                     jaic::sema::ProgramSource::File(path) => {
                         program
                             .files
-                            .push(crate::document::path_key(&env.fs.canonical(path)));
+                            .push(jaic::paths::file_identity(&*env.fs, path));
                     }
                     _ => program.strings += 1,
                 }
@@ -291,7 +289,7 @@ pub(super) fn compile(
                 .import_paths
                 .iter()
                 .filter(|p| !base_paths.contains(p))
-                .map(|p| crate::document::path_key(&env.fs.canonical(p)))
+                .map(|p| jaic::paths::file_identity(&*env.fs, p))
                 .collect();
             recorded.push((id, program));
             // The metaprogram's code spent the budget; checking the rest gets its own.

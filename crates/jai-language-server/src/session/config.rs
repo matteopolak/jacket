@@ -143,7 +143,7 @@ impl Session {
     pub fn set_workspace_folders(&mut self, folders: Vec<PathBuf>) {
         self.polymorph_index.borrow_mut().clear();
         let mut keys: Vec<_> = Vec::with_capacity(folders.len());
-        for key in folders.iter().map(|p| crate::document::path_key(p)) {
+        for key in folders.iter().map(|p| jaic::paths::identity_spelling(p)) {
             if !keys.contains(&key) {
                 keys.push(key);
             }
@@ -161,7 +161,7 @@ impl Session {
             self.semantic.borrow_mut().forget_paths();
         }
         let path = self.environment.as_ref().map_or_else(
-            || crate::document::path_key(path),
+            || jaic::paths::identity_spelling(path),
             |env| crate::auto_import::canonical_key(env, path),
         );
         let path = path.as_path();

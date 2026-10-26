@@ -1,7 +1,7 @@
 use crate::{Error, Range};
 use serde::Deserialize;
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct DocumentUri {
@@ -128,47 +128,8 @@ impl DocumentUri {
 }
 
 fn native_spelling(path: &str, windows: bool) -> Result<String, Error> {
-    let mut result = path.to_owned();
-    if windows {
-        if result.starts_with(r"\\?\") {
-            result = jaic::strip_verbatim(&result)
-                .ok_or(Error::Uri("unsupported verbatim file path"))?;
-        }
-        result = jaic::paths::to_slash(&result);
-        if drive(&result) {
-            result.replace_range(0..1, &result[..1].to_ascii_uppercase());
-        }
-    }
-    Ok(result)
+    jaic::paths::native_spelling(path, windows).ok_or(Error::Uri("unsupported verbatim file path"))
 }
-
-/// Normalize native spelling after filesystem canonicalization. Do not casefold filenames:
-/// canonicalization knows actual file identity, including case-sensitive Windows folders.
-pub(crate) fn path_key(path: &Path) -> PathBuf {
-    path_key_on(path, cfg!(windows))
-}
-
-fn path_key_on(path: &Path, windows: bool) -> PathBuf {
-    if windows
-        && let Some(text) = path.to_str()
-        && let Ok(key) = native_spelling(text, true)
-    {
-        return PathBuf::from(key);
-    }
-    path.to_owned()
-}
-
-/// The one spelling of a file the server compares, stores and hands the compiler: `fs`'s
-/// canonical path in `path_key` form. Paths from the client, the settings and the compiler
-/// all meet here, so a mix of separators, drive-letter case or verbatim prefixes still match.
-pub(crate) fn file_key(fs: &dyn jaic::sema::FileSystem, path: &Path) -> PathBuf {
-    file_key_on(fs, path, cfg!(windows))
-}
-
-fn file_key_on(fs: &dyn jaic::sema::FileSystem, path: &Path, windows: bool) -> PathBuf {
-    path_key_on(&fs.canonical(path), windows)
-}
-
 
 fn hex(c: u8) -> Option<u8> {
     match c {
@@ -259,6 +220,7 @@ impl VirtualSources {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     #[test]
     fn windows_drive_uri_maps_to_native_absolute_path() {
@@ -373,13 +335,14 @@ mod tests {
             let fs = WindowsFs {
                 verbatim,
             };
-            let root = file_key_on(&fs, Path::new(r"c:\Users\x\proj"), true);
+            let root = jaic::paths::file_identity_on(&fs, Path::new(r"c:\Users\x\proj"), true);
             assert_eq!(root, Path::new("C:/Users/x/proj"));
             for file in [r"C:\Users\x\proj\main.jai", "c:/Users/x/proj/src/a.jai"] {
-                let key = file_key_on(&fs, Path::new(file), true);
+                let key = jaic::paths::file_identity_on(&fs, Path::new(file), true);
                 assert!(key.starts_with(&root), "{key:?}");
             }
-            let sibling = file_key_on(&fs, Path::new(r"C:\Users\x\project\a.jai"), true);
+            let sibling =
+                jaic::paths::file_identity_on(&fs, Path::new(r"C:\Users\x\project\a.jai"), true);
             assert!(!sibling.starts_with(&root), "{sibling:?}");
         }
     }
@@ -390,7 +353,7 @@ mod tests {
             verbatim: true,
         };
         let stdlib = Path::new(r"C:\Users\x\jai-toolchain\stdlib");
-        let key = file_key_on(&fs, &stdlib.join("Basic").join("Print.jai"), true);
+        let key = jaic::paths::file_identity_on(&fs, &stdlib.join("Basic").join("Print.jai"), true);
         assert_eq!(
             key.to_str().unwrap(),
             "C:/Users/x/jai-toolchain/stdlib/Basic/Print.jai"

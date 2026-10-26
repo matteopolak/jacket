@@ -36,7 +36,7 @@ impl Session {
         let path = self
             .environment
             .as_ref()
-            .map_or(path.clone(), |e| crate::document::file_key(&*e.fs, &path));
+            .map_or(path.clone(), |e| jaic::paths::file_identity(&*e.fs, &path));
         self.client_uri(&path)
     }
 

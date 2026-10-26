@@ -118,11 +118,28 @@ pub struct ProgramInputs {
     pub stdlib: PathBuf,
 }
 
+impl ProgramInputs {
+    /// The inputs of the program whose main file is `main`. A file inside a standard library
+    /// (a folder with a prelude) is analysed against that library; any other file against
+    /// `default_stdlib`. Folders beyond those are set on the result. Every tool decides the library here, so they agree on which one a file
+    /// is compiled with.
+    pub fn for_file(fs: &dyn crate::sema::FileSystem, main: &Path, default_stdlib: &Path) -> Self {
+        Self {
+            configured: Vec::new(),
+            extra: Vec::new(),
+            stdlib: crate::enclosing_stdlib(fs, main, default_stdlib)
+                .unwrap_or_else(|| default_stdlib.to_path_buf()),
+        }
+    }
+}
+
 /// A root and the module search path it is compiled with.
 #[derive(Clone, Debug)]
 pub struct Program {
     pub root: Root,
     pub import_dirs: Vec<PathBuf>,
+    /// The standard library it is compiled against.
+    pub stdlib: PathBuf,
 }
 
 impl Program {
@@ -159,6 +176,7 @@ pub fn program_for(root: Root, inputs: &ProgramInputs) -> Program {
     Program {
         root,
         import_dirs,
+        stdlib: inputs.stdlib.clone(),
     }
 }
 
@@ -405,9 +423,8 @@ pub struct DiskFs;
 
 impl ProjectFs for DiskFs {
     fn key(&self, path: &Path) -> PathBuf {
-        crate::canonicalize(path)
-            .or_else(|_| std::path::absolute(path))
-            .unwrap_or_else(|_| path.to_path_buf())
+        let absolute = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
+        crate::paths::file_identity(&crate::sema::NativeFs, &absolute)
     }
 
     fn read(&self, path: &Path) -> Option<String> {
@@ -476,7 +493,37 @@ pub enum Root {
     Program(PathBuf),
 }
 
+/// The file name of the stub that imports a module root (see [`module_root_stub`]).
+pub const MODULE_ROOT_STUB: &str = ".jacket-module-root.jai";
+
+/// Where the stub importing a module root lives: in `dir`, the import folder holding the module,
+/// so it counts as part of that library (it may import the library's private sources). The file
+/// is virtual: the tool serves [`module_root_stub_text`] for the path.
+pub fn module_root_stub(dir: &Path) -> PathBuf {
+    dir.join(MODULE_ROOT_STUB)
+}
+
+/// The text of the stub: the `import` line (`#import "Name";`) and nothing else.
+pub fn module_root_stub_text(import: &str) -> String {
+    format!("{import}\n")
+}
+
 impl Root {
+    /// For a module, the stub file that imports it and the stub's text.
+    pub fn module_stub(&self) -> Option<(PathBuf, String)> {
+        match self {
+            Root::Module {
+                name,
+                dir,
+                ..
+            } => Some((
+                module_root_stub(dir),
+                module_root_stub_text(&format!("#import \"{name}\";")),
+            )),
+            Root::Program(_) => None,
+        }
+    }
+
     pub fn path(&self) -> &Path {
         match self {
             Root::Module {

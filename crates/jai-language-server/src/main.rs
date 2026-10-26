@@ -261,7 +261,6 @@ static ALLOCATOR: jai_language_server::large_alloc::LargeBlocksToOs =
 /// services run with the `jaic` next to this executable, else the first on `PATH`.
 #[cfg(not(target_arch = "wasm32"))]
 fn native_environment() -> jai_language_server::Environment {
-    use std::path::PathBuf;
     let stdlib = jaic::default_stdlib_dir();
     if let Some(message) = jaic::missing_stdlib(&stdlib) {
         eprintln!("warning: {message}");
@@ -274,14 +273,9 @@ fn native_environment() -> jai_language_server::Environment {
         )),
         fs: std::rc::Rc::new(jaic::sema::NativeFs),
         options: Box::new(move |main| {
-            let mut options = jaic::sema::Options::host();
-            let dir = main.parent().map(PathBuf::from).unwrap_or_default();
-            // A file inside a standard library is analysed against that library.
-            let stdlib = jaic::enclosing_stdlib(&jaic::sema::NativeFs, main)
-                .unwrap_or_else(|| stdlib.clone());
-            options.import_paths = jaic::project::import_paths(&dir, &[], &[], &stdlib);
-            options.set_stdlib(&jaic::sema::NativeFs, &stdlib);
-            options
+            let inputs =
+                jaic::project::ProgramInputs::for_file(&jaic::sema::NativeFs, main, &stdlib);
+            jaic::sema::Options::for_program(&jaic::sema::NativeFs, main, &inputs)
         }),
     }
 }

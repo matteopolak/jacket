@@ -48,7 +48,7 @@ impl OverlayFs {
 
     fn canonical_of(&self, path: &Path) -> PathBuf {
         self.canonical.get_or_insert_with(path, |path| {
-            crate::document::file_key(&*self.base, &self.at(path))
+            jaic::paths::file_identity(&*self.base, &self.at(path))
         })
     }
 }

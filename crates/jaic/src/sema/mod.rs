@@ -312,6 +312,39 @@ impl Options {
         self.preload_stdlib = Some(stdlib.to_path_buf());
     }
 
+    /// Host options for compiling the program whose main file is `main`, the way every tool
+    /// sets them up: the module search path in the one order ([`crate::project::import_paths`]),
+    /// the standard library `inputs` names and its prelude. The target stays the host's; a tool
+    /// that checks for another selects it with `crate::target::select_os_cpu`.
+    pub fn for_program(
+        fs: &dyn FileSystem,
+        main: &std::path::Path,
+        inputs: &crate::project::ProgramInputs,
+    ) -> Self {
+        let mut options = Self::host();
+        let main_dir = main
+            .parent()
+            .map(std::path::Path::to_path_buf)
+            .unwrap_or_default();
+        options.import_paths = crate::project::import_paths(
+            &main_dir,
+            &inputs.configured,
+            &inputs.extra,
+            &inputs.stdlib,
+        );
+        options.set_stdlib(fs, &inputs.stdlib);
+        options
+    }
+
+    /// Compile for an already planned program: its import folders and its library. A prelude
+    /// the caller already chose is kept.
+    pub fn use_program(&mut self, fs: &dyn FileSystem, program: &crate::project::Program) {
+        self.import_paths.clone_from(&program.import_dirs);
+        if self.preload.is_none() {
+            self.set_stdlib(fs, &program.stdlib);
+        }
+    }
+
     /// Does the program run somewhere other than where compile-time code does?
     pub fn is_cross_build(&self) -> bool {
         (self.os, self.cpu) != (self.host.os, self.host.cpu)

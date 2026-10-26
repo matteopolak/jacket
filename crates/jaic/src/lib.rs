@@ -129,17 +129,20 @@ fn enclosing_stdlib_with(
         .map(std::path::Path::to_path_buf)
 }
 
-/// The nearest enclosing library, using the same prelude selection as compilation.
+/// The nearest enclosing library, using the same prelude selection as compilation. With an
+/// explicit prelude (`JAIC_PRELUDE`) the only library is `configured`, the one the tool was
+/// started with.
 pub fn enclosing_stdlib(
     fs: &dyn sema::FileSystem,
     path: &std::path::Path,
+    configured: &std::path::Path,
 ) -> Option<std::path::PathBuf> {
     enclosing_stdlib_with(
         fs,
         path,
         PRELUDE_ENTRIES,
         prelude_override().as_deref(),
-        &default_stdlib_dir(),
+        configured,
     )
 }
 
@@ -398,9 +401,12 @@ mod tests {
     fn a_file_inside_a_stdlib_finds_that_stdlib() {
         let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
         let file = stdlib.join("internal/allocation/unmapping.jai");
-        let found = enclosing_stdlib(&crate::sema::NativeFs, &file).unwrap();
+        let found = enclosing_stdlib(&crate::sema::NativeFs, &file, &default_stdlib_dir()).unwrap();
         assert_eq!(found, stdlib);
         let outside = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/lib.rs");
-        assert_eq!(enclosing_stdlib(&crate::sema::NativeFs, &outside), None);
+        assert_eq!(
+            enclosing_stdlib(&crate::sema::NativeFs, &outside, &default_stdlib_dir()),
+            None
+        );
     }
 }

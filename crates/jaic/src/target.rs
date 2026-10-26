@@ -283,7 +283,9 @@ impl Target {
 
 /// Apply `-os` and `-cpu` for checking only: that OS and CPU, with its usual C compiler. A
 /// wasm target has its own CPU (`CUSTOM`), as a `-os wasm` build and the browser give it, and
-/// Windows on another host defaults to x64 with the MinGW-style `long double`.
+/// any other OS than the host's defaults to x64 (Windows with the MinGW-style `long double`).
+/// This is the one place that default is decided: the linter, the language server and the
+/// command line pass no CPU of their own.
 pub fn select_os_cpu(options: &mut Options, os: Option<TargetOs>, cpu: Option<TargetCpu>) {
     if os.is_none() && cpu.is_none() {
         return;
@@ -292,7 +294,7 @@ pub fn select_os_cpu(options: &mut Options, os: Option<TargetOs>, cpu: Option<Ta
     options.os = os.unwrap_or(options.os);
     options.cpu = cpu.unwrap_or(match options.os {
         TargetOs::Wasm => TargetCpu::Wasm,
-        TargetOs::Windows if host_os != TargetOs::Windows => TargetCpu::X64,
+        os if os != host_os => TargetCpu::X64,
         _ => options.cpu,
     });
     options.long_double = long_double_for(
@@ -319,6 +321,29 @@ mod tests {
         for cpu in [TargetCpu::X64, TargetCpu::Arm64, TargetCpu::Wasm] {
             assert_eq!(parse_cpu(cpu_name(cpu)), Some(cpu));
         }
+    }
+
+    #[test]
+    fn another_os_defaults_to_x64_and_the_hosts_os_keeps_its_cpu() {
+        let mut host = Options::host();
+        host.cpu = TargetCpu::Arm64;
+        let other = if host.os == TargetOs::Linux {
+            TargetOs::MacOS
+        } else {
+            TargetOs::Linux
+        };
+        let mut options = host.clone();
+        select_os_cpu(&mut options, Some(other), None);
+        assert_eq!((options.os, options.cpu), (other, TargetCpu::X64));
+        let mut options = host.clone();
+        select_os_cpu(&mut options, Some(host.os), None);
+        assert_eq!(options.cpu, TargetCpu::Arm64);
+        let mut options = host.clone();
+        select_os_cpu(&mut options, Some(TargetOs::Wasm), None);
+        assert_eq!(options.cpu, TargetCpu::Wasm);
+        let mut options = host;
+        select_os_cpu(&mut options, Some(other), Some(TargetCpu::Arm64));
+        assert_eq!(options.cpu, TargetCpu::Arm64);
     }
 
     #[test]

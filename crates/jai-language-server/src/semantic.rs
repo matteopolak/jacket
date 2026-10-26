@@ -107,9 +107,6 @@ pub struct HoverFacts {
     pub decls: Vec<Decl>,
 }
 
-/// Basic blocks compile-time code may run per analysis (an edit can make a `#run` loop forever).
-const BLOCK_BUDGET: u64 = 200_000_000;
-
 /// Compilers kept for reuse: the newest one that checked (what completion falls back to while
 /// the text does not parse) and the newest of all. A compile is hundreds of MiB for a large
 /// program, so room is made before the next one starts: at most `CACHED` are alive at once,

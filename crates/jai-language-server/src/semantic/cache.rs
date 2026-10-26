@@ -215,9 +215,9 @@ impl Cache {
     ) -> Option<&mut Analysis> {
         let canonical: BTreeMap<PathBuf, Rc<[u8]>> = files
             .iter()
-            .map(|(p, t)| (crate::document::file_key(&*env.fs, p), t.clone()))
+            .map(|(p, t)| (jaic::paths::file_identity(&*env.fs, p), t.clone()))
             .collect();
-        let path = crate::document::file_key(&*env.fs, path);
+        let path = jaic::paths::file_identity(&*env.fs, path);
         let at = self.entries.iter().rposition(|a| {
             a.usable
                 && a.os.is_none()
@@ -333,7 +333,7 @@ impl Cache {
             .map(|(p, t)| {
                 let canonical = self
                     .canonical
-                    .get_or_insert_with(p, |p| crate::document::file_key(&*env.fs, p));
+                    .get_or_insert_with(p, |p| jaic::paths::file_identity(&*env.fs, p));
                 (canonical, t.clone())
             })
             .collect();
@@ -412,7 +412,7 @@ impl Cache {
         // them again if it still does, and a removed `import_path` line must disappear.
         let past = self
             .recorded
-            .get(&crate::document::path_key(&env.fs.canonical(root)));
+            .get(&jaic::paths::file_identity(&*env.fs, root));
         let given_dirs: Vec<PathBuf> = dirs
             .iter()
             .filter(|d| !past.is_some_and(|f| f.programs.iter().any(|p| p.import_dirs.contains(d))))
@@ -435,7 +435,7 @@ impl Cache {
         );
         // Another target's compile says nothing new about what the metaprogram did.
         if let Some(facts) = facts.filter(|f| os.is_none() && !f.programs.is_empty()) {
-            let key = crate::document::path_key(&env.fs.canonical(root));
+            let key = jaic::paths::file_identity(&*env.fs, root);
             if self.recorded.get(&key) != Some(&facts) {
                 self.recorded.insert(key, facts);
                 self.recorded_version += 1;

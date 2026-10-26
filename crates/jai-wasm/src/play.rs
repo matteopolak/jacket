@@ -1,7 +1,8 @@
 //! Playground entry point: compile and run a set of files with the `jaic` core.
 use jaic::build::{BuildEnv, Workspaces};
 use jaic::interp::{Host, SandboxHost, SharedHost};
-use jaic::sema::{Compiler, FileSystem, Options, TargetCpu, TargetOs, VirtualFs};
+use jaic::project::ProgramInputs;
+use jaic::sema::{Compiler, FileSystem, Options, TargetOs, VirtualFs};
 use jaic::source::{Diagnostic, Severity, Span};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
@@ -136,18 +137,19 @@ fn workspace_fs(files: &BTreeMap<String, Vec<u8>>, bundled: bool) -> VirtualFs {
     fs
 }
 
-fn options(main: &str, fs: &dyn FileSystem, stdlib: &Path) -> Options {
-    let mut options = Options::host();
-    options.os = TargetOs::Wasm;
-    options.cpu = TargetCpu::Wasm;
-    // Like the command line: the `modules` folder next to the main file is searched before the
-    // stdlib.
-    let main_dir = PathBuf::from(format!("{WORKSPACE_ROOT}/{}", main.trim_start_matches('/')))
-        .parent()
-        .map_or_else(|| PathBuf::from(WORKSPACE_ROOT), PathBuf::from);
-    options.import_paths = jaic::project::import_paths(&main_dir, &[], &[], stdlib);
-    options.set_stdlib(fs, stdlib);
+/// The compiler options for the program whose main file is `main` (a path inside the workspace
+/// or a library root): the browser's target, and the module search path and library every tool
+/// uses.
+pub(crate) fn program_options(fs: &dyn FileSystem, main: &Path, stdlib: &Path) -> Options {
+    let inputs = ProgramInputs::for_file(fs, main, stdlib);
+    let mut options = Options::for_program(fs, main, &inputs);
+    jaic::target::select_os_cpu(&mut options, Some(TargetOs::Wasm), None);
     options
+}
+
+/// The main file named by the playground (relative to the workspace) as a workspace path.
+fn workspace_main(main: &str) -> PathBuf {
+    Path::new(WORKSPACE_ROOT).join(main.trim_start_matches('/'))
 }
 
 /// Split a `path:line:col: message` runtime-error string.
@@ -320,7 +322,7 @@ fn run_styled(
     let workspaces = Workspaces::new(BuildEnv {
         unwritten_output_hint: None,
         fs: fs.clone(),
-        options: options(main, &*fs, &stdlib),
+        options: program_options(&*fs, &workspace_main(main), &stdlib),
         backend: None,
         command_line: Vec::new(),
         make_host: Box::new(move |_| Box::new(SharedHost(workspace_host.clone()))),
@@ -331,7 +333,7 @@ fn run_styled(
         }),
         observer: None,
     });
-    let mut compiler = Compiler::new(options(main, &*fs, &stdlib), fs);
+    let mut compiler = Compiler::new(program_options(&*fs, &workspace_main(main), &stdlib), fs);
     compiler.ct.interp.host = Box::new(crate::host_bridge::PlayHost::new(
         SharedHost(host.clone()),
         limits.budget,

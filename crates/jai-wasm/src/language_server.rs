@@ -1,10 +1,9 @@
 //! Bounded byte channels for the shared language server; no pointers or IO.
-use crate::play::{STDLIB_ROOT, virtual_fs};
+use crate::play::{STDLIB_ROOT, program_options, virtual_fs};
 use jai_language_server::{Environment, JsonSession, Limits};
-use jaic::sema::{Options, TargetCpu, TargetOs};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::rc::Rc;
 
 const INPUT_LIMIT: usize = 1024 * 1024;
@@ -87,16 +86,7 @@ pub fn lsp_environment() -> Environment {
     Environment {
         services: None,
         fs,
-        options: Box::new(move |main| {
-            let mut options = Options::host();
-            options.os = TargetOs::Wasm;
-            options.cpu = TargetCpu::Wasm;
-            let dir = main.parent().map(PathBuf::from).unwrap_or_default();
-            options.import_paths =
-                jaic::project::import_paths(&dir, &[], &[], Path::new(STDLIB_ROOT));
-            options.set_stdlib(&*option_fs, Path::new(STDLIB_ROOT));
-            options
-        }),
+        options: Box::new(move |main| program_options(&*option_fs, main, Path::new(STDLIB_ROOT))),
     }
 }
 

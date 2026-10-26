@@ -103,6 +103,50 @@ pub fn strip_verbatim(path: &str) -> Option<String> {
     (!odd).then_some(plain)
 }
 
+/// A native path in the one spelling tools compare: on Windows without the verbatim prefix,
+/// `/`-separated, with an upper-case drive letter; elsewhere as it is. `None` for a verbatim path
+/// that has no plain form.
+pub fn native_spelling(path: &str, windows: bool) -> Option<String> {
+    if !windows {
+        return Some(path.to_owned());
+    }
+    let mut result = path.to_owned();
+    if result.starts_with(r"\\?\") {
+        result = strip_verbatim(&result)?;
+    }
+    result = to_slash(&result);
+    let bytes = result.as_bytes();
+    if bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
+        result.replace_range(0..1, &result[..1].to_ascii_uppercase());
+    }
+    Some(result)
+}
+
+/// The identity of the file at `path` on `fs`: its canonical path (links resolved when the file
+/// system can) in [`native_spelling`] form. File names keep their case, since canonicalization
+/// already knows the real spelling and some Windows folders are case-sensitive. The language
+/// server, the linter and the compiler's own file table all compare files through this, so one
+/// file reached through a link, a verbatim prefix or a different drive-letter case is one file.
+pub fn file_identity(fs: &dyn crate::sema::FileSystem, path: &Path) -> PathBuf {
+    file_identity_on(fs, path, cfg!(windows))
+}
+
+/// [`file_identity`] with the Windows rules chosen by `windows` (for tests on any host).
+pub fn file_identity_on(fs: &dyn crate::sema::FileSystem, path: &Path, windows: bool) -> PathBuf {
+    identity_spelling_on(&fs.canonical(path), windows)
+}
+
+/// [`native_spelling`] of an already canonical path, left as it is when it has no plain form.
+pub fn identity_spelling(path: &Path) -> PathBuf {
+    identity_spelling_on(path, cfg!(windows))
+}
+
+fn identity_spelling_on(path: &Path, windows: bool) -> PathBuf {
+    path.to_str()
+        .and_then(|text| native_spelling(text, windows))
+        .map_or_else(|| path.to_path_buf(), PathBuf::from)
+}
+
 /// Answers about paths, remembered: the file system does not change under one run, and a
 /// program names hundreds of the same files. Holds at most [`CanonCache::LIMIT`] paths and starts
 /// over beyond that.

@@ -130,6 +130,38 @@ impl Compiler {
         Ok(())
     }
 
+    /// Compile the module whose entry file is `entry` as the program a tool checks it in: an
+    /// empty `main` plus `extra`, then the import `stub` loads the module (see
+    /// `project::module_root_stub`) unless the bootstrap already imported it. The bootstrap
+    /// imports are discovered before the module is added, since their dependencies may carry
+    /// required parameters; nothing runs or finishes before the module is in, either of which
+    /// could freeze `Context` before the module registers its extensions. Every procedure of
+    /// the module is checked, called or not.
+    pub fn compile_module_root(
+        &mut self,
+        entry: &Path,
+        stub: &Path,
+        extra: &[ProgramSource],
+    ) -> Result<()> {
+        let sources: Vec<_> = std::iter::once(ProgramSource::String("main :: () {}".into()))
+            .chain(extra.iter().cloned())
+            .collect();
+        self.prepare_sources(&sources)?;
+        self.expand_all()?;
+        let entry = self.src.canon(entry);
+        let loaded = self.ns.modules.iter().any(|module| {
+            module
+                .path
+                .as_ref()
+                .is_some_and(|path| self.src.canon(path) == entry)
+        });
+        if !loaded {
+            self.add_source(&ProgramSource::File(stub.to_path_buf()))?;
+        }
+        self.settle()?;
+        self.finish_program()
+    }
+
     /// Load one more file or string into the main module; `settle` runs it.
     pub fn add_source(&mut self, source: &ProgramSource) -> Result<()> {
         self.share_source_with_twin(source);

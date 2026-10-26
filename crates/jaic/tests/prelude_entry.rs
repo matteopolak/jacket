@@ -14,7 +14,7 @@ fn explicit_prelude_selection() {
             (expected != "missing").then(|| expected.clone().into())
         );
         assert_eq!(
-            jaic::enclosing_stdlib(&fs, Path::new("/lib/internal/file.jai")),
+            jaic::enclosing_stdlib(&fs, Path::new("/lib/internal/file.jai"), Path::new("/lib")),
             (expected != "missing").then(|| "/lib".into())
         );
         let mut options = jaic::sema::Options::host();

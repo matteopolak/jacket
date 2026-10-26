@@ -335,8 +335,9 @@ mod tests {
     #[test]
     fn modules_folder_then_import_dirs_then_stdlib() {
         let c = cli(&["a.jai", "-import_dir", "/p/vendor", "-I", "/p/more"]);
-        let options = crate::run::compiler_options(&c, Path::new("/std"), Path::new("/p/app"))
-            .unwrap_or_else(|_| panic!("options"));
+        let options =
+            crate::run::compiler_options(&c, Path::new("/std"), Path::new("/p/app/a.jai"))
+                .unwrap_or_else(|_| panic!("options"));
         assert_eq!(
             options.import_paths,
             ["/p/app/modules", "/p/vendor", "/p/more", "/std"].map(PathBuf::from)

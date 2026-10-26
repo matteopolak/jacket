@@ -103,7 +103,7 @@ impl Session {
         );
         let open = buffers
             .iter()
-            .map(|(path, bytes)| (crate::document::file_key(&*env.fs, path), text_hash(bytes)))
+            .map(|(path, bytes)| (jaic::paths::file_identity(&*env.fs, path), text_hash(bytes)))
             .collect();
         (buffers, open)
     }
@@ -244,7 +244,7 @@ impl Session {
         }
         let (buffers, open) = self.polymorph_buffers();
         let path = self.sources(env).key(Path::new(uri.path()));
-        let file = crate::document::file_key(&*env.fs, Path::new(uri.path()));
+        let file = jaic::paths::file_identity(&*env.fs, Path::new(uri.path()));
         let built_child = |root: &PathBuf| {
             self.index.borrow().builds.iter().any(|(build, facts)| {
                 build != root

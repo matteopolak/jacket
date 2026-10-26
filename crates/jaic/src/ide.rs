@@ -10,6 +10,7 @@ mod editor;
 mod facts;
 mod hover;
 pub mod interval;
+pub mod lint_compile;
 mod member_notes;
 pub mod meta;
 mod never_returns;

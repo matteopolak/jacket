@@ -49,13 +49,14 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         Ok(located) => located,
         Err(code) => return code,
     };
-    let options = match compiler_options(&cli, &stdlib, &main_dir) {
+    let options = match compiler_options(&cli, &stdlib, &path) {
         Ok(options) => options,
         Err(code) => return code,
     };
     let fs: Rc<dyn FileSystem> = Rc::new(NativeFs);
     if cli.no_check_bindings {
-        disable_check_bindings(&mut cli, &options, &stdlib);
+        let library = options.stdlib_root().unwrap_or(&stdlib).to_path_buf();
+        disable_check_bindings(&mut cli, &options, &library);
     }
     // `OS == .WASM` code is written for the interpreter's sandbox host (virtual clock and files,
     // cooperative threads), so compile-time code of a wasm target runs there whatever the
@@ -208,12 +209,10 @@ fn enter_main_directory(cli: &mut Cli) -> Result<(PathBuf, PathBuf), ExitCode> {
 }
 
 /// The compiler options the command line asks for: checks, target and where imports are found.
-pub(super) fn compiler_options(
-    cli: &Cli,
-    stdlib: &Path,
-    main_dir: &Path,
-) -> Result<Options, ExitCode> {
-    let mut options = Options::host();
+pub(super) fn compiler_options(cli: &Cli, stdlib: &Path, main: &Path) -> Result<Options, ExitCode> {
+    let mut inputs = jaic::project::ProgramInputs::for_file(&NativeFs, main, stdlib);
+    inputs.extra.clone_from(&cli.imports);
+    let mut options = Options::for_program(&NativeFs, main, &inputs);
     if cli.no_dce {
         options.dead_code = DeadCode::None;
     }
@@ -246,8 +245,6 @@ pub(super) fn compiler_options(
             return Err(ExitCode::from(2));
         }
     }
-    options.import_paths = jaic::project::import_paths(main_dir, &[], &cli.imports, stdlib);
-    options.set_stdlib(&NativeFs, stdlib);
     Ok(options)
 }
 
