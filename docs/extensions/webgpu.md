@@ -26,7 +26,7 @@ Examples: `examples/webgpu-triangle` (window, pipeline) and `webgpu-raymarch` (f
 ## How it works
 
 ```
-webgpu.yml (pinned) --tools/webgpu_gen.py--> stdlib/Extensions/WebGPU/generated.jai       types + #foreign procs
+webgpu.yml (pinned) --tools/bindings/webgpu_gen.py--> stdlib/Extensions/WebGPU/generated.jai       types + #foreign procs
                                           --> stdlib/Extensions/WebGPU/generated_wasm.jai  callback dispatch (browser)
                                           --> crates/jai-wasm/js/webgpu_bindings.generated.mjs   struct layouts, enum strings
 ```

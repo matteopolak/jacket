@@ -50,7 +50,7 @@ jobs:
           FULL_SUITE: ${{ inputs.full_suite }}
         run: |
           if [ -z "$SCOPE" ]; then
-            SCOPE='crates/jaic/src/sema/calls/**/*.rs crates/jaic/src/sema/convert/**/*.rs crates/jaic/src/sema/convert.rs crates/jaic/src/sema/interval.rs crates/jaic/src/types.rs crates/jaic/src/interp/arith.rs crates/jaic/src/parser/**/*.rs'
+            SCOPE='crates/jaic/src/sema/calls/**/*.rs crates/jaic/src/sema/convert/**/*.rs crates/jaic/src/sema/convert.rs crates/jaic/src/ide/interval.rs crates/jaic/src/types.rs crates/jaic/src/interp/arith.rs crates/jaic/src/parser/**/*.rs'
           fi
           files=()
           # shellcheck disable=SC2086

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Fail when a doc or a tool/config header names a repo path that does not exist.
 
-Scans docs/**/*.md (whole files, plus relative link targets) and the leading comment block of
+Scans docs/**/*.md (whole files, plus relative link targets), the workflows and actions under
+.github/ (whole files) and the leading comment block of
 tools/**/*.{py,sh,mjs}, Justfile, .githooks/*, fuzz/jai.dict and editors/*/*.yaml. A mention is a
 token that starts with a top-level repo folder (`tools/x.py`, `docs/tools/y.md`). Tokens with a glob,
 placeholder or variable are skipped, as are paths under GENERATED (build products, fetched corpora)
@@ -61,11 +62,12 @@ GENERATED = (
     "benchmarks/regex/target",
     "node_modules/",
     "tools/corpus/regex_oracle/target",
+    "editors/vscode/jacket-vscode.vsix",
 )
 # Mentions of files that exist only in a user's project, or relative to some other folder.
 ALLOW = {"tools/build.jai", "tests/driven"}
 MENTION = re.compile(
-    r"(?<![\w./-])((?:%s)/[^\s`'\"()|,;:]*)" % "|".join(re.escape(t) for t in TOP)
+    r"(?<![\w./$-])((?:%s)/[^\s`'\"()|,;:]*)" % "|".join(re.escape(t) for t in TOP)
 )
 LINK = re.compile(r"\]\(([^)\s#]+)(?:#[^)]*)?\)")
 SKIP_CHARS = set("*<>{}$[]")
@@ -155,6 +157,8 @@ def run():
             errors += check_text(
                 rel, path.read_text(errors="replace"), doc_dir=path.parent
             )
+        elif rel.startswith(".github/") and rel.endswith((".yml", ".yaml")):
+            errors += check_text(rel, path.read_text(errors="replace"))
         elif headed(rel):
             errors += check_text(rel, header(path.read_text(errors="replace")))
     return errors
