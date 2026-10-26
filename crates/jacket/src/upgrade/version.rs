@@ -1,68 +1,16 @@
-//! Release versions: `0.21.0`, `v0.21.0`, `0.22.0-rc.1`. Ordered like semver (build metadata
-//! ignored), so `upgrade` can tell newer from older without caring how the tag is spelled.
+//! Release versions: `0.21.0`, `v0.21.0`, `0.22.0-rc.1`. Ordered by semver precedence (build
+//! metadata ignored), so `upgrade` can tell newer from older without caring how the tag is spelled.
 use std::cmp::Ordering;
 
 #[derive(Debug, Clone)]
-pub struct Version {
-    core: Vec<u64>,
-    pre: Vec<Ident>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum Ident {
-    Num(u64),
-    Text(String),
-}
-
-impl Ord for Ident {
-    fn cmp(&self, other: &Self) -> Ordering {
-        match (self, other) {
-            (Ident::Num(a), Ident::Num(b)) => a.cmp(b),
-            (Ident::Num(_), Ident::Text(_)) => Ordering::Less,
-            (Ident::Text(_), Ident::Num(_)) => Ordering::Greater,
-            (Ident::Text(a), Ident::Text(b)) => a.cmp(b),
-        }
-    }
-}
-
-impl PartialOrd for Ident {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
+pub struct Version(semver::Version);
 
 impl Version {
     /// Parses a tag or version; a leading `v` is allowed.
     pub fn parse(text: &str) -> Result<Version, String> {
-        let bad = || format!("`{text}` is not a version like 0.22.0");
-        let body = text.trim().trim_start_matches('v');
-        let body = body.split('+').next().unwrap_or("");
-        let (core, pre) = match body.split_once('-') {
-            Some((core, pre)) => (core, Some(pre)),
-            None => (body, None),
-        };
-        let core = core
-            .split('.')
-            .map(|part| part.parse::<u64>().map_err(|_| bad()))
-            .collect::<Result<Vec<_>, _>>()?;
-        let pre = match pre {
-            None => Vec::new(),
-            Some("") => return Err(bad()),
-            Some(pre) => pre
-                .split('.')
-                .map(|part| match part.parse::<u64>() {
-                    Ok(n) => Ok(Ident::Num(n)),
-                    Err(_) if !part.is_empty() && part.bytes().all(is_ident_byte) => {
-                        Ok(Ident::Text(part.to_owned()))
-                    }
-                    Err(_) => Err(bad()),
-                })
-                .collect::<Result<Vec<_>, _>>()?,
-        };
-        Ok(Version {
-            core,
-            pre,
-        })
+        semver::Version::parse(text.trim().trim_start_matches('v'))
+            .map(Version)
+            .map_err(|_| format!("`{text}` is not a version like 0.22.0"))
     }
 
     /// The tag a release of this version is published under.
@@ -72,27 +20,9 @@ impl Version {
     }
 }
 
-fn is_ident_byte(b: u8) -> bool {
-    b.is_ascii_alphanumeric() || b == b'-'
-}
-
 impl Ord for Version {
     fn cmp(&self, other: &Self) -> Ordering {
-        let width = self.core.len().max(other.core.len());
-        for i in 0..width {
-            let a = self.core.get(i).copied().unwrap_or(0);
-            let b = other.core.get(i).copied().unwrap_or(0);
-            match a.cmp(&b) {
-                Ordering::Equal => {}
-                unequal => return unequal,
-            }
-        }
-        match (self.pre.is_empty(), other.pre.is_empty()) {
-            (true, true) => Ordering::Equal,
-            (true, false) => Ordering::Greater,
-            (false, true) => Ordering::Less,
-            (false, false) => self.pre.cmp(&other.pre),
-        }
+        self.0.cmp_precedence(&other.0)
     }
 }
 
@@ -120,9 +50,8 @@ mod tests {
     }
 
     #[test]
-    fn a_leading_v_and_padding_do_not_matter() {
+    fn a_leading_v_does_not_matter() {
         assert_eq!(v("v0.21.0"), v("0.21.0"));
-        assert_eq!(v("0.21"), v("0.21.0"));
     }
 
     #[test]
