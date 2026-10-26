@@ -345,4 +345,5 @@ paths = [
     "stdlib/Wav_File",
     "stdlib/Xar",
     "stdlib/md5",
+    "stdlib/prelude",
 ]
