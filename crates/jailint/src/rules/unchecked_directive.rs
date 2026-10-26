@@ -16,6 +16,14 @@ use crate::syntax::Cx;
 use jaic::lexer::Tok;
 use jaic::source::Span;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "unchecked_directive",
+    category: crate::config::Category::Restriction,
+    summary: "`#no_abc`, `#no_aoc` or `#asm` with no comment saying why",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;

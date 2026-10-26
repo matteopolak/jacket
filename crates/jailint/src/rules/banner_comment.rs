@@ -15,6 +15,14 @@ use crate::syntax::Cx;
 use crate::{Edit, Finding, Fix};
 use jaic::lexer::CommentKind;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "banner_comment",
+    category: crate::config::Category::Style,
+    summary: "a comment that is only a line of `-`, `=` or `*` fencing off a section",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;

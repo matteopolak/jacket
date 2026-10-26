@@ -16,6 +16,14 @@ use crate::syntax::{Cx, walk};
 use jaic::ast::{AssignOp, BinOp, Expr, ExprKind as E, StmtKind as S};
 use jaic::source::Span;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "shift_overflow",
+    category: crate::config::Category::Suspicious,
+    summary: "a shift by at least the bit width of its operand (`x << 40` with `x: s32`)",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.typed() {

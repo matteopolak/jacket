@@ -43,6 +43,14 @@ enum Flow {
     Unsure,
 }
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "unpaired_lock",
+    category: crate::config::Category::Suspicious,
+    summary: "a `@Locks` call with a path that returns or ends without a matching `@Unlocks`",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.clean || p.is_macro {

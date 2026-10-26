@@ -23,6 +23,14 @@ use crate::{Edit, Finding};
 use jaic::ast::{Expr, ExprKind as E, Stmt, StmtKind as S};
 use jaic::sema::EntityId;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "defer_frees_returned",
+    category: crate::config::Category::Correctness,
+    summary: "`defer free(p);` followed by `return p;`, which hands back freed memory",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if p.is_macro || !p.typed() {

@@ -22,6 +22,14 @@ use jaic::intern::Sym;
 use jaic::lexer::{P, Tok};
 use jaic::sema::EntityId;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "self_assignment",
+    category: crate::config::Category::Suspicious,
+    summary: "a value assigned to itself (`x = x;`)",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         walk(&p.body.stmts, &mut |n, _| {

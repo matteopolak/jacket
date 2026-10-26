@@ -21,6 +21,14 @@ use crate::syntax::{Cx, walk};
 use crate::{Edit, Finding, Fix};
 use jaic::ast::{BinOp, Expr, ExprKind as E};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "bitwise_precedence",
+    category: crate::config::Category::Suspicious,
+    summary: "a bitwise operator that binds differently than in C (`1 << n - 1`)",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         walk(&p.body.stmts, &mut |n, _| {

@@ -28,6 +28,14 @@ use jaic::sema::EntityId;
 use jaic::sema::scope::EntityKind;
 use jaic::types::TypeKind;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "infinite_loop",
+    category: crate::config::Category::Suspicious,
+    summary: "a `while` whose condition nothing in the loop changes",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.typed() {

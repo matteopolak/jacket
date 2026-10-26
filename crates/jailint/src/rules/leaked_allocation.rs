@@ -33,6 +33,14 @@ use jaic::ast::{BinOp, Block, Decl, Expr, ExprKind as E, ProcHeader, Stmt, StmtK
 use jaic::sema::EntityId;
 use jaic::types::TypeKind;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "leaked_allocation",
+    category: crate::config::Category::Pedantic,
+    summary: "a local holding memory from an `@Allocates` call that is never freed, returned or handed on",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.clean || p.is_macro || changes_allocator(cx, p.header, &p.body.stmts) {

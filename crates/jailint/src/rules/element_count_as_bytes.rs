@@ -15,6 +15,14 @@ use crate::syntax::{Cx, walk};
 use jaic::ast::{Expr, ExprKind as E};
 use jaic::types::TypeKind;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "element_count_as_bytes",
+    category: crate::config::Category::Correctness,
+    summary: "`memcpy(d, xs.data, xs.count)` with elements wider than a byte",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.typed() {

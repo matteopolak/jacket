@@ -14,6 +14,14 @@ use crate::Finding;
 use crate::syntax::Cx;
 use jaic::ast::{ExprKind as E, Param};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "excessive_bools",
+    category: crate::config::Category::Restriction,
+    summary: "a procedure with more `bool` parameters than `max_bools` (default 3)",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;

@@ -12,6 +12,14 @@ use crate::syntax::{Cx, walk};
 use crate::{Edit, Finding};
 use jaic::ast::{Expr, ExprKind as E};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "min_max",
+    category: crate::config::Category::Correctness,
+    summary: "`min(0, max(100, x))`, a clamp that is always one bound",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.clean {

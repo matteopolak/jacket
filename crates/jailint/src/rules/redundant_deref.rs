@@ -12,6 +12,14 @@ use crate::{Edit, Finding, Fix};
 use jaic::ast::{ExprKind as E, UnOp};
 use jaic::types::TypeKind;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "redundant_deref",
+    category: crate::config::Category::Complexity,
+    summary: "`p.*.field` where `p.field` means the same",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let types = &cx.compiler.ty.types;
     for p in &cx.procs {

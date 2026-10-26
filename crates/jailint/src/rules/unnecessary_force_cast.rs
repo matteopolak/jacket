@@ -15,6 +15,14 @@ use crate::{Edit, Finding, Fix};
 use jaic::ast::{CastFlags, ExprKind as E};
 use jaic::types::{TypeId, TypeKind, Types};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "unnecessary_force_cast",
+    category: crate::config::Category::Complexity,
+    summary: "`cast,force` where the value already has the type or the conversion widens",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let types = &cx.compiler.ty.types;
     for p in &cx.procs {

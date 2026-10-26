@@ -17,6 +17,14 @@ use crate::{Edit, Finding};
 use jaic::ast::{Expr, StmtKind as S};
 use jaic::source::Span;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "duplicate_condition",
+    category: crate::config::Category::Suspicious,
+    summary: "an `else if` that repeats an earlier condition",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         walk(&p.body.stmts, &mut |n, chain| {

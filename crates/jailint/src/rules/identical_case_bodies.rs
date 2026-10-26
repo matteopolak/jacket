@@ -23,6 +23,14 @@ use crate::{Edit, Finding};
 use jaic::ast::{Case, Stmt, StmtKind as S};
 use jaic::source::Span;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "identical_case_bodies",
+    category: crate::config::Category::Pedantic,
+    summary: "two cases of a `switch` with the same body, which could list their values together",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     super::walk_code(cx, &mut |n, _| {
         let Some(s) = n.stmt() else {

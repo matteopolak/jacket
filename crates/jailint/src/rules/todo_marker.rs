@@ -14,7 +14,16 @@ use crate::Finding;
 use crate::syntax::Cx;
 use jaic::lexer::CommentKind;
 
-const MARKERS: [&str; 4] = ["TODO", "FIXME", "XXX", "HACK"];
+/// The markers a comment can carry; `detached_doc_comment` leaves comments that start with one.
+pub(crate) const MARKERS: [&str; 4] = ["TODO", "FIXME", "XXX", "HACK"];
+
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "todo_marker",
+    category: crate::config::Category::Restriction,
+    summary: "a comment with a `TODO`, `FIXME`, `XXX` or `HACK` marker",
+    check,
+};
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {

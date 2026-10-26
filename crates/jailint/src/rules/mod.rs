@@ -7,112 +7,11 @@ use jaic::ast::{BinOp, Expr, ExprKind as E, Stmt, StmtKind as S, UnOp};
 use jaic::sema::ProcId;
 use jaic::source::Span;
 
-mod absurd_comparison;
-mod almost_swapped;
-mod approx_constant;
-mod assert_constant;
-mod autocast_in_arg;
-mod autocast_used;
-mod bad_bit_mask;
-mod banner_comment;
-mod bitwise_precedence;
-mod bool_comparison;
-mod bool_to_int_with_if;
-pub(crate) mod broken_doc_link;
-mod cognitive_complexity;
-mod constant_condition;
-mod defer_frees_returned;
-mod defer_in_loop;
-mod detached_doc_comment;
-mod double_free;
-mod dropped_result;
-mod duplicate_condition;
-mod element_count_as_bytes;
-mod enum_member_prefix;
-mod erasing_op;
-mod excessive_bools;
-mod excessive_nesting;
-mod exit_in_module;
-mod field_reassign_with_default;
-mod float_equality;
-mod float_loop_counter;
-mod format_push_string;
+// Helpers shared by several rules; they are not rules themselves.
 mod frees;
-mod identical_branches;
-mod identical_case_bodies;
-mod identical_operands;
-mod identity_op;
-mod if_not_else;
-mod impossible_comparison;
-mod incomplete_enum_switch;
-mod index_only_loop;
-mod infinite_loop;
-mod int_plus_one;
-mod integer_division_in_float;
-mod large_stack_array;
-mod leaked_allocation;
-mod leaked_temporary;
 mod local_scopes;
-mod loop_with_break_condition;
-mod lossy_float_literal;
-mod lossy_xx;
-mod magic_number;
-mod manual_array_find;
-mod manual_assign_op;
-mod manual_clamp;
-mod manual_index_counter;
-mod manual_memcpy;
-mod min_max;
-mod misrefactored_assign_op;
-mod missing_doc;
-mod mixed_case_hex_literals;
-mod modified_range_bound;
-mod needless_bool;
-mod needless_continue;
-mod neg_cmp_float;
-mod neg_multiply;
-mod no_effect;
-pub(crate) mod platform_leak;
-mod pointer_into_resizable;
-mod print_in_module;
-mod range_past_count;
-mod redundant_alias;
-mod redundant_cast;
-mod redundant_deref;
-mod remove_in_for;
-mod returned_local_address;
-mod reversed_range;
-mod self_assignment;
-mod shadowed_it;
-mod shadowed_local;
-mod shift_overflow;
-mod single_case_switch;
-mod string_literal_write;
-mod temp_storage_escape;
-mod todo_marker;
-mod too_many_arguments;
-mod unchecked_directive;
-mod unclosed_resource;
-mod uninit_read;
-mod unknown_allow;
-mod unnecessary_force_cast;
-mod unnecessary_semicolon;
-mod unpaired_lock;
-mod unreadable_literal;
-mod unsigned_range_end_minus_one;
-pub(crate) mod unused_import;
-mod unused_parameter;
+
 pub(crate) use unused_parameter::RunState;
-mod unused_private_declaration;
-mod unused_result;
-mod unused_suppression;
-mod unused_variable;
-mod use_after_free;
-mod useless_format;
-mod useless_resizable;
-mod using_pollution;
-mod wrapping_constant;
-mod zero_ptr;
 
 pub struct RuleInfo {
     pub name: &'static str,
@@ -130,626 +29,125 @@ impl RuleInfo {
     }
 }
 
-pub static RULES: &[RuleInfo] = &[
-    RuleInfo {
-        name: "absurd_comparison",
-        category: Category::Correctness,
-        summary: "a comparison an unsigned value always passes or fails (`u >= 0`)",
-        check: absurd_comparison::check,
-    },
-    RuleInfo {
-        name: "autocast_in_arg",
-        category: Category::Restriction,
-        summary: "`xx`, the automatic cast, written as an argument of a call",
-        check: autocast_in_arg::check,
-    },
-    RuleInfo {
-        name: "almost_swapped",
-        category: Category::Correctness,
-        summary: "`a = b; b = a;`, a swap that sets both to `b`",
-        check: almost_swapped::check,
-    },
-    RuleInfo {
-        name: "autocast_used",
-        category: Category::Restriction,
-        summary: "`xx`, the automatic cast, outside a call's arguments",
-        check: autocast_used::check,
-    },
-    RuleInfo {
-        name: "approx_constant",
-        category: Category::Style,
-        summary: "a hand-typed `3.14159` or `1.4142` where `Math` has the constant",
-        check: approx_constant::check,
-    },
-    RuleInfo {
-        name: "bad_bit_mask",
-        category: Category::Correctness,
-        summary: "a mask test that can never match (`(x & 4) == 1`, `(x | 2) == 0`)",
-        check: bad_bit_mask::check,
-    },
-    RuleInfo {
-        name: "assert_constant",
-        category: Category::Style,
-        summary: "`assert(true)` or `#assert true`, which can never fail",
-        check: assert_constant::check,
-    },
-    RuleInfo {
-        name: "banner_comment",
-        category: Category::Style,
-        summary: "a comment that is only a line of `-`, `=` or `*` fencing off a section",
-        check: banner_comment::check,
-    },
-    RuleInfo {
-        name: "bitwise_precedence",
-        category: Category::Suspicious,
-        summary: "a bitwise operator that binds differently than in C (`1 << n - 1`)",
-        check: bitwise_precedence::check,
-    },
-    RuleInfo {
-        name: "bool_comparison",
-        category: Category::Complexity,
-        summary: "comparing a bool with `true` or `false`",
-        check: bool_comparison::check,
-    },
-    RuleInfo {
-        name: "bool_to_int_with_if",
-        category: Category::Pedantic,
-        summary: "`ifx c then 1 else 0`, a `bool` turned into an integer with a branch",
-        check: bool_to_int_with_if::check,
-    },
-    RuleInfo {
-        name: "broken_doc_link",
-        category: Category::Style,
-        summary: "a link in a doc comment (`[name]`) that names no declaration",
-        check: broken_doc_link::check,
-    },
-    RuleInfo {
-        name: "cognitive_complexity",
-        category: Category::Pedantic,
-        summary: "a procedure whose branching scores above `max_complexity` (default 25)",
-        check: cognitive_complexity::check,
-    },
-    RuleInfo {
-        name: "constant_condition",
-        category: Category::Suspicious,
-        summary: "an `if` or `while` whose condition the compiler shows is always true or false",
-        check: constant_condition::check,
-    },
-    RuleInfo {
-        name: "defer_frees_returned",
-        category: Category::Correctness,
-        summary: "`defer free(p);` followed by `return p;`, which hands back freed memory",
-        check: defer_frees_returned::check,
-    },
-    RuleInfo {
-        name: "defer_in_loop",
-        category: Category::Suspicious,
-        summary: "a `defer` in a loop body that cleans up something from outside the loop",
-        check: defer_in_loop::check,
-    },
-    RuleInfo {
-        name: "detached_doc_comment",
-        category: Category::Pedantic,
-        summary: "a comment that reads as a declaration's docs but has a blank line between it and the declaration",
-        check: detached_doc_comment::check,
-    },
-    RuleInfo {
-        name: "double_free",
-        category: Category::Correctness,
-        summary: "two `@FreesArgument` calls on the same variable with nothing in between",
-        check: double_free::check,
-    },
-    RuleInfo {
-        name: "dropped_result",
-        category: Category::Suspicious,
-        summary: "a call drops the `bool` that follows the values it keeps (`n := to_integer(s);`)",
-        check: dropped_result::check,
-    },
-    RuleInfo {
-        name: "duplicate_condition",
-        category: Category::Suspicious,
-        summary: "an `else if` that repeats an earlier condition",
-        check: duplicate_condition::check,
-    },
-    RuleInfo {
-        name: "element_count_as_bytes",
-        category: Category::Correctness,
-        summary: "`memcpy(d, xs.data, xs.count)` with elements wider than a byte",
-        check: element_count_as_bytes::check,
-    },
-    RuleInfo {
-        name: "enum_member_prefix",
-        category: Category::Style,
-        summary: "every member of an enum starts with the enum's name",
-        check: enum_member_prefix::check,
-    },
-    RuleInfo {
-        name: "erasing_op",
-        category: Category::Suspicious,
-        summary: "an operation that is always `0` (`x * 0`, `x & 0`)",
-        check: erasing_op::check,
-    },
-    RuleInfo {
-        name: "excessive_bools",
-        category: Category::Restriction,
-        summary: "a procedure with more `bool` parameters than `max_bools` (default 3)",
-        check: excessive_bools::check,
-    },
-    RuleInfo {
-        name: "excessive_nesting",
-        category: Category::Pedantic,
-        summary: "blocks nested deeper than `max_nesting` (default 6)",
-        check: excessive_nesting::check,
-    },
-    RuleInfo {
-        name: "field_reassign_with_default",
-        category: Category::Pedantic,
-        summary: "`x: T; x.a = 1; x.b = 2;` where a struct literal `x := T.{ a = 1, b = 2 }` sets the fields at the declaration",
-        check: field_reassign_with_default::check,
-    },
-    RuleInfo {
-        name: "float_loop_counter",
-        category: Category::Pedantic,
-        summary: "a `while` loop counted in floats (`while t < 1.0 { t += 0.1; }`)",
-        check: float_loop_counter::check,
-    },
-    RuleInfo {
-        name: "exit_in_module",
-        category: Category::Restriction,
-        summary: "a module ends the process",
-        check: exit_in_module::check,
-    },
-    RuleInfo {
-        name: "format_push_string",
-        category: Category::Perf,
-        summary: "`append(*b, tprint(...))`, which formats into a new string to add it to a builder",
-        check: format_push_string::check,
-    },
-    RuleInfo {
-        name: "float_equality",
-        category: Category::Pedantic,
-        summary: "`==` or `!=` between two computed floats",
-        check: float_equality::check,
-    },
-    RuleInfo {
-        name: "identical_branches",
-        category: Category::Suspicious,
-        summary: "an `if`/`else` or `ifx` whose branches are the same",
-        check: identical_branches::check,
-    },
-    RuleInfo {
-        name: "identical_case_bodies",
-        category: Category::Pedantic,
-        summary: "two cases of a `switch` with the same body, which could list their values together",
-        check: identical_case_bodies::check,
-    },
-    RuleInfo {
-        name: "identical_operands",
-        category: Category::Suspicious,
-        summary: "an operator with the same expression on both sides (`a == a`)",
-        check: identical_operands::check,
-    },
-    RuleInfo {
-        name: "identity_op",
-        category: Category::Complexity,
-        summary: "an operation that changes nothing (`x + 0`, `x * 1`)",
-        check: identity_op::check,
-    },
-    RuleInfo {
-        name: "if_not_else",
-        category: Category::Pedantic,
-        summary: "an `if` or `ifx` with a negated condition and an `else`",
-        check: if_not_else::check,
-    },
-    RuleInfo {
-        name: "incomplete_enum_switch",
-        category: Category::Pedantic,
-        summary: "a `switch` on an enum that neither covers every member nor has a default case",
-        check: incomplete_enum_switch::check,
-    },
-    RuleInfo {
-        name: "impossible_comparison",
-        category: Category::Correctness,
-        summary: "comparisons of one integer that never pass together (`x > 5 && x < 3`)",
-        check: impossible_comparison::check,
-    },
-    RuleInfo {
-        name: "index_only_loop",
-        category: Category::Complexity,
-        summary: "`for i: 0..xs.count-1` where `i` only indexes `xs`",
-        check: index_only_loop::check,
-    },
-    RuleInfo {
-        name: "infinite_loop",
-        category: Category::Suspicious,
-        summary: "a `while` whose condition nothing in the loop changes",
-        check: infinite_loop::check,
-    },
-    RuleInfo {
-        name: "int_plus_one",
-        category: Category::Complexity,
-        summary: "`x >= y + 1`, which is `x > y`",
-        check: int_plus_one::check,
-    },
-    RuleInfo {
-        name: "large_stack_array",
-        category: Category::Pedantic,
-        summary: "a local fixed array bigger than `max_stack_array_bytes` (default 64 KiB)",
-        check: large_stack_array::check,
-    },
-    RuleInfo {
-        name: "integer_division_in_float",
-        category: Category::Suspicious,
-        summary: "an integer division whose result is used as a float",
-        check: integer_division_in_float::check,
-    },
-    RuleInfo {
-        name: "leaked_allocation",
-        category: Category::Pedantic,
-        summary: "a local holding memory from an `@Allocates` call that is never freed, returned or handed on",
-        check: leaked_allocation::check,
-    },
-    RuleInfo {
-        name: "leaked_temporary",
-        category: Category::Suspicious,
-        summary: "an `@Allocates` result that is only compared, measured, indexed or printed, so nothing can free it",
-        check: leaked_temporary::check,
-    },
-    RuleInfo {
-        name: "lossy_float_literal",
-        category: Category::Style,
-        summary: "a `float32` literal with more digits than a `float32` keeps (`31415.92653`)",
-        check: lossy_float_literal::check,
-    },
-    RuleInfo {
-        name: "loop_with_break_condition",
-        category: Category::Complexity,
-        summary: "`while true { if !c break; ... }`, a loop whose condition is its first statement",
-        check: loop_with_break_condition::check,
-    },
-    RuleInfo {
-        name: "lossy_xx",
-        category: Category::Pedantic,
-        summary: "`xx` that narrows a number to a smaller type",
-        check: lossy_xx::check,
-    },
-    RuleInfo {
-        name: "manual_array_find",
-        category: Category::Complexity,
-        summary: "a loop that searches an array and breaks with a found flag or index, which `array_find` does",
-        check: manual_array_find::check,
-    },
-    RuleInfo {
-        name: "magic_number",
-        category: Category::Pedantic,
-        summary: "an unexplained number in arithmetic, a comparison or an assignment",
-        check: magic_number::check,
-    },
-    RuleInfo {
-        name: "manual_assign_op",
-        category: Category::Complexity,
-        summary: "`a = a + b` instead of `a += b`",
-        check: manual_assign_op::check,
-    },
-    RuleInfo {
-        name: "manual_clamp",
-        category: Category::Complexity,
-        summary: "a value kept between two constant bounds by hand instead of with `clamp`",
-        check: manual_clamp::check,
-    },
-    RuleInfo {
-        name: "manual_memcpy",
-        category: Category::Perf,
-        summary: "`for i: 0..n-1 { dst[i] = src[i]; }`, an element-by-element copy `memcpy` does at once",
-        check: manual_memcpy::check,
-    },
-    RuleInfo {
-        name: "manual_index_counter",
-        category: Category::Complexity,
-        summary: "a counter incremented in a `for` loop that always equals `it_index`",
-        check: manual_index_counter::check,
-    },
-    RuleInfo {
-        name: "min_max",
-        category: Category::Correctness,
-        summary: "`min(0, max(100, x))`, a clamp that is always one bound",
-        check: min_max::check,
-    },
-    RuleInfo {
-        name: "misrefactored_assign_op",
-        category: Category::Correctness,
-        summary: "`a += a + b`, an update that applies the operator to `a` twice",
-        check: misrefactored_assign_op::check,
-    },
-    RuleInfo {
-        name: "missing_doc",
-        category: Category::Restriction,
-        summary: "an exported procedure, struct or enum with no doc comment",
-        check: missing_doc::check,
-    },
-    RuleInfo {
-        name: "mixed_case_hex_literals",
-        category: Category::Style,
-        summary: "a hex literal with both upper and lower case digits (`0xDeadbeef`)",
-        check: mixed_case_hex_literals::check,
-    },
-    RuleInfo {
-        name: "modified_range_bound",
-        category: Category::Suspicious,
-        summary: "a variable bounding a `for` range assigned in the loop, which does not change it",
-        check: modified_range_bound::check,
-    },
-    RuleInfo {
-        name: "needless_bool",
-        category: Category::Complexity,
-        summary: "`ifx c then true else false` and `if c return true; else return false;`",
-        check: needless_bool::check,
-    },
-    RuleInfo {
-        name: "neg_cmp_float",
-        category: Category::Pedantic,
-        summary: "`!(a < b)` on floats, which differs from `a >= b` when a value is NaN",
-        check: neg_cmp_float::check,
-    },
-    RuleInfo {
-        name: "needless_continue",
-        category: Category::Style,
-        summary: "a `continue` as the last thing a loop body does",
-        check: needless_continue::check,
-    },
-    RuleInfo {
-        name: "neg_multiply",
-        category: Category::Style,
-        summary: "`x * -1`, which is `-x`",
-        check: neg_multiply::check,
-    },
-    RuleInfo {
-        name: "no_effect",
-        category: Category::Suspicious,
-        summary: "a statement that computes a value and drops it (`x == 5;`)",
-        check: no_effect::check,
-    },
-    RuleInfo {
-        name: "platform_leak",
-        category: Category::Restriction,
-        summary: "portable code imports something that asserts an operating system it is not built for",
-        check: platform_leak::check,
-    },
-    RuleInfo {
-        name: "pointer_into_resizable",
-        category: Category::Suspicious,
-        summary: "a pointer into a resizable array used after a `@GrowsArray` call may have moved the array (`p := *xs[i]; array_add(*xs, v); use(p);`)",
-        check: pointer_into_resizable::check,
-    },
-    RuleInfo {
-        name: "print_in_module",
-        category: Category::Restriction,
-        summary: "a module writes to the program's output",
-        check: print_in_module::check,
-    },
-    RuleInfo {
-        name: "range_past_count",
-        category: Category::Correctness,
-        summary: "`for i: 0..xs.count` indexing `xs[i]`, one past the end",
-        check: range_past_count::check,
-    },
-    RuleInfo {
-        name: "redundant_alias",
-        category: Category::Complexity,
-        summary: "a local that only exists to be copied into another local or returned",
-        check: redundant_alias::check,
-    },
-    RuleInfo {
-        name: "redundant_deref",
-        category: Category::Complexity,
-        summary: "`p.*.field` where `p.field` means the same",
-        check: redundant_deref::check,
-    },
-    RuleInfo {
-        name: "redundant_cast",
-        category: Category::Complexity,
-        summary: "a cast to the type the value already has",
-        check: redundant_cast::check,
-    },
-    RuleInfo {
-        name: "remove_in_for",
-        category: Category::Correctness,
-        summary: "removing from an array while a `for` walks it forward",
-        check: remove_in_for::check,
-    },
-    RuleInfo {
-        name: "returned_local_address",
-        category: Category::Correctness,
-        summary: "`return *x;` with `x` a local, a pointer into a stack frame that is gone",
-        check: returned_local_address::check,
-    },
-    RuleInfo {
-        name: "reversed_range",
-        category: Category::Correctness,
-        summary: "a range whose start is above its end, which never runs",
-        check: reversed_range::check,
-    },
-    RuleInfo {
-        name: "self_assignment",
-        category: Category::Suspicious,
-        summary: "a value assigned to itself (`x = x;`)",
-        check: self_assignment::check,
-    },
-    RuleInfo {
-        name: "shift_overflow",
-        category: Category::Suspicious,
-        summary: "a shift by at least the bit width of its operand (`x << 40` with `x: s32`)",
-        check: shift_overflow::check,
-    },
-    RuleInfo {
-        name: "shadowed_it",
-        category: Category::Suspicious,
-        summary: "a nested `for` hides an `it` the enclosing loop uses",
-        check: shadowed_it::check,
-    },
-    RuleInfo {
-        name: "shadowed_local",
-        category: Category::Pedantic,
-        summary: "a local variable named like a parameter or another local in an enclosing scope of the same procedure",
-        check: shadowed_local::check,
-    },
-    RuleInfo {
-        name: "single_case_switch",
-        category: Category::Style,
-        summary: "a `switch` with a single case, which is an `if`",
-        check: single_case_switch::check,
-    },
-    RuleInfo {
-        name: "string_literal_write",
-        category: Category::Correctness,
-        summary: "a write into a string literal, which is read-only (`s := \"abc\"; s[0] = x;`)",
-        check: string_literal_write::check,
-    },
-    RuleInfo {
-        name: "temp_storage_escape",
-        category: Category::Pedantic,
-        summary: "a `@TempAllocates` result (`tprint`, `talloc`) stored in a global or through a pointer, or returned",
-        check: temp_storage_escape::check,
-    },
-    RuleInfo {
-        name: "todo_marker",
-        category: Category::Restriction,
-        summary: "a comment with a `TODO`, `FIXME`, `XXX` or `HACK` marker",
-        check: todo_marker::check,
-    },
-    RuleInfo {
-        name: "too_many_arguments",
-        category: Category::Restriction,
-        summary: "a procedure with more parameters than `max_arguments` (default 7)",
-        check: too_many_arguments::check,
-    },
-    RuleInfo {
-        name: "unchecked_directive",
-        category: Category::Restriction,
-        summary: "`#no_abc`, `#no_aoc` or `#asm` with no comment saying why",
-        check: unchecked_directive::check,
-    },
-    RuleInfo {
-        name: "unclosed_resource",
-        category: Category::Suspicious,
-        summary: "a local opened by an `@Opens` call (`file_open`, `append(*builder, ..)`) that nothing closes",
-        check: unclosed_resource::check,
-    },
-    RuleInfo {
-        name: "uninit_read",
-        category: Category::Correctness,
-        summary: "a variable declared `= ---` read before anything is written to it",
-        check: uninit_read::check,
-    },
-    RuleInfo {
-        name: "unnecessary_force_cast",
-        category: Category::Complexity,
-        summary: "`cast,force` where the value already has the type or the conversion widens",
-        check: unnecessary_force_cast::check,
-    },
-    RuleInfo {
-        name: "unknown_allow",
-        category: Category::Suspicious,
-        summary: "a `// jailint: allow(...)` comment naming a rule that does not exist",
-        check: unknown_allow::check,
-    },
-    RuleInfo {
-        name: "unnecessary_semicolon",
-        category: Category::Style,
-        summary: "a `;` that ends nothing (`x = 1;;`, `if c { ... };`)",
-        check: unnecessary_semicolon::check,
-    },
-    RuleInfo {
-        name: "unpaired_lock",
-        category: Category::Suspicious,
-        summary: "a `@Locks` call with a path that returns or ends without a matching `@Unlocks`",
-        check: unpaired_lock::check,
-    },
-    RuleInfo {
-        name: "unsigned_range_end_minus_one",
-        category: Category::Suspicious,
-        summary: "`for 0..n-1` with an unsigned `n`, which wraps around when `n` is 0",
-        check: unsigned_range_end_minus_one::check,
-    },
-    RuleInfo {
-        name: "unreadable_literal",
-        category: Category::Pedantic,
-        summary: "a long number without `_` separators (`1000000`, `0xdeadbeef`)",
-        check: unreadable_literal::check,
-    },
-    RuleInfo {
-        name: "unused_import",
-        category: Category::Style,
-        summary: "an `#import` nothing in its scope uses",
-        check: unused_import::check,
-    },
-    RuleInfo {
-        name: "unused_parameter",
-        category: Category::Style,
-        summary: "a parameter the procedure never uses",
-        check: unused_parameter::check,
-    },
-    RuleInfo {
-        name: "unused_private_declaration",
-        category: Category::Suspicious,
-        summary: "a `#scope_file` declaration that nothing in its file uses",
-        check: unused_private_declaration::check,
-    },
-    RuleInfo {
-        name: "unused_result",
-        category: Category::Suspicious,
-        summary: "a call to a `@UseResult` procedure, as a statement",
-        check: unused_result::check,
-    },
-    RuleInfo {
-        name: "unused_suppression",
-        category: Category::Suspicious,
-        summary: "a name in a `// jailint: allow(...)` comment or `@jailint_allow` note that silences nothing",
-        check: unused_suppression::check,
-    },
-    RuleInfo {
-        name: "unused_variable",
-        category: Category::Style,
-        summary: "a local variable that is never used",
-        check: unused_variable::check,
-    },
-    RuleInfo {
-        name: "useless_format",
-        category: Category::Complexity,
-        summary: "`tprint(\"%\", s)` or `sprint(\"%\", s)` with a string `s`, which only copies it",
-        check: useless_format::check,
-    },
-    RuleInfo {
-        name: "useless_resizable",
-        category: Category::Perf,
-        summary: "a local `[..] T` that is only filled with a known number of `array_add` calls and never resized",
-        check: useless_resizable::check,
-    },
-    RuleInfo {
-        name: "use_after_free",
-        category: Category::Correctness,
-        summary: "a variable read after a `@FreesArgument` call freed it (`free(p); use(p);`)",
-        check: use_after_free::check,
-    },
-    RuleInfo {
-        name: "using_pollution",
-        category: Category::Pedantic,
-        summary: "a `using` of a struct whose members share names with parameters, locals or globals already in scope",
-        check: using_pollution::check,
-    },
-    RuleInfo {
-        name: "wrapping_constant",
-        category: Category::Correctness,
-        summary: "a constant that wraps to the type the other operand gives it (`(0xffff_ffff - 40) / h`)",
-        check: wrapping_constant::check,
-    },
-    RuleInfo {
-        name: "zero_ptr",
-        category: Category::Style,
-        summary: "`cast(*T) 0`, which is `null`",
-        check: zero_ptr::check,
-    },
-];
+macro_rules! rules {
+    ($($vis:vis $name:ident),* $(,)?) => {
+        $($vis mod $name;)*
+
+        /// The rules, in the order `--list` shows them. A rule is added by writing its module
+        /// here; the module exports its own [`RuleInfo`] as `INFO`.
+        pub static RULES: &[RuleInfo] = &[$($name::INFO),*];
+
+        /// The module of each rule in [`RULES`], for the test that names agree.
+        #[cfg(test)]
+        const RULE_MODULES: &[&str] = &[$(stringify!($name)),*];
+    };
+}
+
+rules! {
+    absurd_comparison,
+    autocast_in_arg,
+    almost_swapped,
+    autocast_used,
+    approx_constant,
+    bad_bit_mask,
+    assert_constant,
+    banner_comment,
+    bitwise_precedence,
+    bool_comparison,
+    bool_to_int_with_if,
+    pub(crate) broken_doc_link,
+    cognitive_complexity,
+    constant_condition,
+    defer_frees_returned,
+    defer_in_loop,
+    detached_doc_comment,
+    double_free,
+    dropped_result,
+    duplicate_condition,
+    element_count_as_bytes,
+    enum_member_prefix,
+    erasing_op,
+    excessive_bools,
+    excessive_nesting,
+    field_reassign_with_default,
+    float_loop_counter,
+    exit_in_module,
+    format_push_string,
+    float_equality,
+    identical_branches,
+    identical_case_bodies,
+    identical_operands,
+    identity_op,
+    if_not_else,
+    incomplete_enum_switch,
+    impossible_comparison,
+    index_only_loop,
+    infinite_loop,
+    int_plus_one,
+    large_stack_array,
+    integer_division_in_float,
+    leaked_allocation,
+    leaked_temporary,
+    lossy_float_literal,
+    loop_with_break_condition,
+    lossy_xx,
+    manual_array_find,
+    magic_number,
+    manual_assign_op,
+    manual_clamp,
+    manual_memcpy,
+    manual_index_counter,
+    min_max,
+    misrefactored_assign_op,
+    missing_doc,
+    mixed_case_hex_literals,
+    modified_range_bound,
+    needless_bool,
+    neg_cmp_float,
+    needless_continue,
+    neg_multiply,
+    no_effect,
+    pub(crate) platform_leak,
+    pointer_into_resizable,
+    print_in_module,
+    range_past_count,
+    redundant_alias,
+    redundant_deref,
+    redundant_cast,
+    remove_in_for,
+    returned_local_address,
+    reversed_range,
+    self_assignment,
+    shift_overflow,
+    shadowed_it,
+    shadowed_local,
+    single_case_switch,
+    string_literal_write,
+    temp_storage_escape,
+    todo_marker,
+    too_many_arguments,
+    unchecked_directive,
+    unclosed_resource,
+    uninit_read,
+    unnecessary_force_cast,
+    unknown_allow,
+    unnecessary_semicolon,
+    unpaired_lock,
+    unsigned_range_end_minus_one,
+    unreadable_literal,
+    pub(crate) unused_import,
+    unused_parameter,
+    unused_private_declaration,
+    unused_result,
+    unused_suppression,
+    unused_variable,
+    useless_format,
+    useless_resizable,
+    use_after_free,
+    using_pollution,
+    wrapping_constant,
+    zero_ptr,
+}
 
 /// How an expression that denotes a place is used.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1080,5 +478,14 @@ pub(crate) fn op_text(op: BinOp) -> &'static str {
         BinOp::Shr => ">>",
         BinOp::Rotl => "<<<",
         BinOp::Rotr => ">>>",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn each_rule_is_named_after_its_module() {
+        let names: Vec<_> = super::RULES.iter().map(|r| r.name).collect();
+        assert_eq!(names, super::RULE_MODULES);
     }
 }

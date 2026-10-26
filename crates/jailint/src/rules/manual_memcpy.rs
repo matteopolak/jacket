@@ -20,6 +20,14 @@ use jaic::ast::{AssignOp, BinOp, Expr, ExprKind as E, For, ForOver, Stmt, StmtKi
 use jaic::intern::Sym;
 use jaic::types::TypeKind;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "manual_memcpy",
+    category: crate::config::Category::Perf,
+    summary: "`for i: 0..n-1 { dst[i] = src[i]; }`, an element-by-element copy `memcpy` does at once",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.typed() {

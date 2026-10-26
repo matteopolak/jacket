@@ -23,6 +23,14 @@ use jaic::ast::{ExprKind as E, StmtKind as S};
 use jaic::fxhash::HashSet;
 use jaic::types::TypeKind;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "incomplete_enum_switch",
+    category: crate::config::Category::Pedantic,
+    summary: "a `switch` on an enum that neither covers every member nor has a default case",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let types = &cx.compiler.ty.types;
     for p in &cx.procs {

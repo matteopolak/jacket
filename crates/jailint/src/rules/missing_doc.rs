@@ -16,6 +16,14 @@ use crate::syntax::Cx;
 use jaic::ast::{DeclKind, ExprKind as E, ScopeKind, StmtKind as S};
 use jaic::docs;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "missing_doc",
+    category: crate::config::Category::Restriction,
+    summary: "an exported procedure, struct or enum with no doc comment",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;

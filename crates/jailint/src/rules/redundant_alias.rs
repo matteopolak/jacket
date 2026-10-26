@@ -36,6 +36,14 @@ use jaic::sema::scope::EntityKind;
 use jaic::source::Span;
 use jaic::types::TypeId;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "redundant_alias",
+    category: crate::config::Category::Complexity,
+    summary: "a local that only exists to be copied into another local or returned",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;

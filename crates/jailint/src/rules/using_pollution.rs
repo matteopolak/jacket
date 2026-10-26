@@ -34,6 +34,14 @@ use jaic::types::{TypeId, TypeKind};
 /// How far to follow structs that `using` other structs.
 const DEPTH: usize = 4;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "using_pollution",
+    category: crate::config::Category::Pedantic,
+    summary: "a `using` of a struct whose members share names with parameters, locals or globals already in scope",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;

@@ -43,6 +43,14 @@ struct Opened<'a> {
     after: u32,
 }
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "unclosed_resource",
+    category: crate::config::Category::Suspicious,
+    summary: "a local opened by an `@Opens` call (`file_open`, `append(*builder, ..)`) that nothing closes",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.clean || p.is_macro {

@@ -17,6 +17,14 @@ use jaic::sema::EntityId;
 use jaic::sema::scope::EntityKind;
 use jaic::source::Span;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "modified_range_bound",
+    category: crate::config::Category::Suspicious,
+    summary: "a variable bounding a `for` range assigned in the loop, which does not change it",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.clean || p.is_macro {

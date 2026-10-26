@@ -17,6 +17,14 @@ use crate::{Edit, Finding};
 use jaic::ast::{BinOp, Expr, ExprKind as E};
 use jaic::source::Span;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "int_plus_one",
+    category: crate::config::Category::Complexity,
+    summary: "`x >= y + 1`, which is `x > y`",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.typed() {

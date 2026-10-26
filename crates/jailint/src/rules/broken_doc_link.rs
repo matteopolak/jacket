@@ -109,6 +109,14 @@ pub(crate) fn prepare(compiler: &mut Compiler, file: FileId, text: &str) -> Vec<
     out
 }
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "broken_doc_link",
+    category: crate::config::Category::Style,
+    summary: "a link in a doc comment (`[name]`) that names no declaration",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for b in &cx.doc_links {
         let (help, fix) = match &b.suggestion {

@@ -12,6 +12,14 @@ use crate::Finding;
 use crate::syntax::{Cx, walk};
 use jaic::ast::{BinOp, ExprKind as E};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "float_equality",
+    category: crate::config::Category::Pedantic,
+    summary: "`==` or `!=` between two computed floats",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         // Equality operators compare exactly by definition.

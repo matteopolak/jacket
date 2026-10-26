@@ -20,6 +20,14 @@ use crate::syntax::{Cx, walk};
 use crate::{Edit, Finding, Fix};
 use jaic::ast::{Expr, ExprKind as E, Stmt, StmtKind as S, UnOp};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "loop_with_break_condition",
+    category: crate::config::Category::Complexity,
+    summary: "`while true { if !c break; ... }`, a loop whose condition is its first statement",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if p.is_macro {

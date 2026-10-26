@@ -13,6 +13,14 @@ use crate::Finding;
 use crate::syntax::{Cx, walk};
 use jaic::ast::{BinOp, ExprKind as E};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "bad_bit_mask",
+    category: crate::config::Category::Correctness,
+    summary: "a mask test that can never match (`(x & 4) == 1`, `(x | 2) == 0`)",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let types = &cx.compiler.ty.types;
     for p in &cx.procs {

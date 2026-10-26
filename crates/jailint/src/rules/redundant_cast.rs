@@ -15,6 +15,14 @@ use jaic::ast::{Expr, ExprKind as E, StmtKind as S};
 use jaic::fxhash::HashMap;
 use jaic::source::Span;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "redundant_cast",
+    category: crate::config::Category::Complexity,
+    summary: "a cast to the type the value already has",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let spelled = declared_types(cx);
     for p in &cx.procs {

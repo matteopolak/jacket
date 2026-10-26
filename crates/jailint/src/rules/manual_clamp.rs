@@ -26,6 +26,14 @@ use crate::syntax::{Cx, Node, walk};
 use crate::{Edit, Finding};
 use jaic::ast::{AssignOp, BinOp, Expr, ExprKind as E, Stmt, StmtKind as S};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "manual_clamp",
+    category: crate::config::Category::Complexity,
+    summary: "a value kept between two constant bounds by hand instead of with `clamp`",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.typed() {

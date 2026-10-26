@@ -12,6 +12,14 @@ use crate::syntax::Cx;
 use crate::{Edit, Finding};
 use jaic::ast::{AssignOp, Expr, Stmt, StmtKind as S};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "almost_swapped",
+    category: crate::config::Category::Correctness,
+    summary: "`a = b; b = a;`, a swap that sets both to `b`",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         statement_lists(&p.body.stmts, &mut |list| {

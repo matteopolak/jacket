@@ -26,6 +26,14 @@ use crate::{Edit, Finding, Fix};
 use jaic::ast::{DeclKind, ExprKind as E, StmtKind as S};
 use jaic::lexer::{Comment, CommentKind};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "detached_doc_comment",
+    category: crate::config::Category::Pedantic,
+    summary: "a comment that reads as a declaration's docs but has a blank line between it and the declaration",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;
@@ -135,7 +143,7 @@ fn reads_as_docs(text: &str, run: &[&Comment]) -> bool {
         .map(|l| l.split_whitespace().count())
         .sum::<usize>();
     let sentence = last.ends_with(['.', '!', '?']);
-    let marker = ["TODO", "FIXME", "XXX", "HACK"]
+    let marker = super::todo_marker::MARKERS
         .iter()
         .any(|m| lines.iter().any(|l| l.starts_with(m)));
     let directive = lines.iter().any(|l| l.starts_with("jailint:"));

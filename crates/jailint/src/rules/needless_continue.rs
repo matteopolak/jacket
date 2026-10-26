@@ -20,6 +20,14 @@ use crate::Finding;
 use crate::syntax::Cx;
 use jaic::ast::{Stmt, StmtKind as S};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "needless_continue",
+    category: crate::config::Category::Style,
+    summary: "a `continue` as the last thing a loop body does",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     super::walk_code(cx, &mut |n, _| {
         let Some(s) = n.stmt() else {

@@ -41,6 +41,14 @@ use jaic::types::TypeKind;
 /// Numbers allowed whatever the configuration says.
 const ALWAYS: &[f64] = &[10.0, 100.0, 1000.0];
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "magic_number",
+    category: crate::config::Category::Pedantic,
+    summary: "an unexplained number in arithmetic, a comparison or an assignment",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() || (!cx.magic_numbers.in_tests && in_tests(cx)) {
         return;

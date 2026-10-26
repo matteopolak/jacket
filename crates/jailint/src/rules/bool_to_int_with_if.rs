@@ -21,6 +21,14 @@ use jaic::ast::{AssignOp, Expr, ExprKind as E, Stmt, StmtKind as S};
 use jaic::source::Span;
 use jaic::types::TypeId;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "bool_to_int_with_if",
+    category: crate::config::Category::Pedantic,
+    summary: "`ifx c then 1 else 0`, a `bool` turned into an integer with a branch",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.typed() {

@@ -17,6 +17,14 @@ use jaic::ast::{Expr, ExprKind as E, Stmt, StmtKind as S, UnOp};
 use jaic::intern::Sym;
 use jaic::source::Span;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "string_literal_write",
+    category: crate::config::Category::Correctness,
+    summary: "a write into a string literal, which is read-only (`s := \"abc\"; s[0] = x;`)",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if p.is_macro {

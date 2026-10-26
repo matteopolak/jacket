@@ -15,6 +15,14 @@ use crate::Finding;
 use crate::syntax::{Cx, Node, is_atom, walk};
 use jaic::ast::{BinOp, Expr, ExprKind as E};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "identity_op",
+    category: crate::config::Category::Complexity,
+    summary: "an operation that changes nothing (`x + 0`, `x * 1`)",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.typed() {

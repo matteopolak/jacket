@@ -22,6 +22,14 @@ use jaic::ast::{AssignOp, BinOp, Decl, DeclKind, ExprKind as E, ForOver, Stmt, S
 use jaic::intern::Sym;
 use jaic::types::{TypeId, TypeKind};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "manual_index_counter",
+    category: crate::config::Category::Complexity,
+    summary: "a counter incremented in a `for` loop that always equals `it_index`",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.clean || p.is_macro {

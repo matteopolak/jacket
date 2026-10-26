@@ -31,6 +31,14 @@ use jaic::sema::{FailedAssert, ImportEdge, TargetOs};
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "platform_leak",
+    category: crate::config::Category::Restriction,
+    summary: "portable code imports something that asserts an operating system it is not built for",
+    check,
+};
+
 /// Registered so the rule has a name, a level and a summary; the driver does the work.
 pub(crate) fn check(_cx: &Cx, _out: &mut Vec<Finding>) {
 }

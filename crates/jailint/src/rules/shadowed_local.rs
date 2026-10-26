@@ -31,6 +31,14 @@ use crate::syntax::Cx;
 use jaic::ast::{Decl, Ident, Stmt, UsingStmt};
 use jaic::intern::Sym;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "shadowed_local",
+    category: crate::config::Category::Pedantic,
+    summary: "a local variable named like a parameter or another local in an enclosing scope of the same procedure",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;

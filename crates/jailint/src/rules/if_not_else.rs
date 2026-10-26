@@ -20,6 +20,14 @@ use crate::{Edit, Finding};
 use jaic::ast::{BinOp, Expr, ExprKind as E, Stmt, StmtKind as S, UnOp};
 use jaic::source::Span;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "if_not_else",
+    category: crate::config::Category::Pedantic,
+    summary: "an `if` or `ifx` with a negated condition and an `else`",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     super::walk_code(cx, &mut |n, _| match n {
         crate::syntax::Node::Stmt(s) => {

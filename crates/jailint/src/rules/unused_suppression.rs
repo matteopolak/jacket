@@ -26,5 +26,13 @@
 //! means running the rule it turns off on every file it matches, across the whole run.
 use crate::{Finding, syntax::Cx};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "unused_suppression",
+    category: crate::config::Category::Suspicious,
+    summary: "a name in a `// jailint: allow(...)` comment or `@jailint_allow` note that silences nothing",
+    check,
+};
+
 pub(crate) fn check(_cx: &Cx, _out: &mut Vec<Finding>) {
 }

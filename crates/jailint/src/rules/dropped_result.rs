@@ -24,6 +24,14 @@ use crate::{Edit, Finding};
 use jaic::ast::{AssignOp, Expr, ExprKind as E, StmtKind as S};
 use jaic::types::{TypeId, TypeKind};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "dropped_result",
+    category: crate::config::Category::Suspicious,
+    summary: "a call drops the `bool` that follows the values it keeps (`n := to_integer(s);`)",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.clean || p.is_macro {

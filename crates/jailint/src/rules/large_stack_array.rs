@@ -21,6 +21,14 @@ use jaic::ast::{DeclKind, StmtKind as S};
 use jaic::sema::scope::EntityKind;
 use jaic::types::{ArrayKind, TypeKind};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "large_stack_array",
+    category: crate::config::Category::Pedantic,
+    summary: "a local fixed array bigger than `max_stack_array_bytes` (default 64 KiB)",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;

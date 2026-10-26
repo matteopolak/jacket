@@ -22,6 +22,14 @@ use jaic::ast::{For, Stmt, StmtKind as S};
 use jaic::intern::Sym;
 use jaic::sema::EntityId;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "shadowed_it",
+    category: crate::config::Category::Suspicious,
+    summary: "a nested `for` hides an `it` the enclosing loop uses",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let it = Sym::intern("it");
     for p in &cx.procs {

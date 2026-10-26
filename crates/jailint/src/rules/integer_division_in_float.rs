@@ -18,6 +18,14 @@ use crate::syntax::{Cx, Node, walk};
 use crate::{Edit, Finding};
 use jaic::ast::{BinOp, Expr, ExprKind as E};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "integer_division_in_float",
+    category: crate::config::Category::Suspicious,
+    summary: "an integer division whose result is used as a float",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.typed() {

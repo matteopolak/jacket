@@ -21,6 +21,14 @@ use crate::syntax::{Cx, Node, is_atom, walk};
 use jaic::ast::{AssignOp, BinOp, Expr, ExprKind as E, Stmt, StmtKind as S};
 use jaic::types::{TypeId, TypeKind};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "needless_bool",
+    category: crate::config::Category::Complexity,
+    summary: "`ifx c then true else false` and `if c return true; else return false;`",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.typed() {

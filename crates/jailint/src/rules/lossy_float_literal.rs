@@ -20,6 +20,14 @@ use crate::{Edit, Finding, Fix};
 use jaic::ast::{AssignOp, BinOp, Expr, ExprKind as E, Stmt, StmtKind as S, UnOp};
 use jaic::types::TypeKind;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "lossy_float_literal",
+    category: crate::config::Category::Style,
+    summary: "a `float32` literal with more digits than a `float32` keeps (`31415.92653`)",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     look(cx, cx.stmts, out);
     for p in &cx.procs {

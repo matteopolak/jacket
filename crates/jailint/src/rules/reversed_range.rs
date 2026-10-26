@@ -11,6 +11,14 @@ use crate::syntax::{Cx, walk};
 use crate::{Edit, Finding, Fix};
 use jaic::ast::{ExprKind as E, ForOver, StmtKind as S};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "reversed_range",
+    category: crate::config::Category::Correctness,
+    summary: "a range whose start is above its end, which never runs",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         walk(&p.body.stmts, &mut |n, _| {

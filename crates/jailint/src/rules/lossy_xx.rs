@@ -15,6 +15,14 @@ use crate::{Edit, Finding, Fix};
 use jaic::ast::{BinOp, Expr, ExprKind as E};
 use jaic::types::{TypeId, TypeKind, Types};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "lossy_xx",
+    category: crate::config::Category::Pedantic,
+    summary: "`xx` that narrows a number to a smaller type",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let types = &cx.compiler.ty.types;
     for p in &cx.procs {

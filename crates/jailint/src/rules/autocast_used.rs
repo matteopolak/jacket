@@ -19,6 +19,14 @@ use crate::syntax::{Cx, Node, walk};
 use crate::{Edit, Finding};
 use jaic::ast::{CastFlags, Expr, ExprKind as E};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "autocast_used",
+    category: crate::config::Category::Restriction,
+    summary: "`xx`, the automatic cast, outside a call's arguments",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     each_autocast(cx, &mut |e, as_argument| {
         if !as_argument {

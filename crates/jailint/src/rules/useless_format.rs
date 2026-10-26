@@ -15,6 +15,14 @@ use crate::syntax::{Cx, is_atom, walk};
 use jaic::ast::ExprKind as E;
 use jaic::types::TypeId;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "useless_format",
+    category: crate::config::Category::Complexity,
+    summary: "`tprint(\"%\", s)` or `sprint(\"%\", s)` with a string `s`, which only copies it",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.typed() {

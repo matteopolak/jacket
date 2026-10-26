@@ -14,6 +14,14 @@ use crate::syntax::{Cx, Node, walk};
 use crate::{Edit, Finding};
 use jaic::ast::{BinOp, ExprKind as E, UnOp};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "neg_cmp_float",
+    category: crate::config::Category::Pedantic,
+    summary: "`!(a < b)` on floats, which differs from `a >= b` when a value is NaN",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let types = &cx.compiler.ty.types;
     for p in &cx.procs {

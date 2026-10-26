@@ -28,6 +28,14 @@ use crate::syntax::{Cx, Node, walk, walk_node};
 use jaic::ast::{ExprKind as E, Stmt, StmtKind as S};
 use jaic::sema::scope::EntityKind;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "defer_in_loop",
+    category: crate::config::Category::Suspicious,
+    summary: "a `defer` in a loop body that cleans up something from outside the loop",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.clean || p.is_macro {

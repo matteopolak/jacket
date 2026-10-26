@@ -16,6 +16,14 @@ use super::autocast_used::{each_autocast, report};
 use crate::Finding;
 use crate::syntax::Cx;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "autocast_in_arg",
+    category: crate::config::Category::Restriction,
+    summary: "`xx`, the automatic cast, written as an argument of a call",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     each_autocast(cx, &mut |e, as_argument| {
         if as_argument {

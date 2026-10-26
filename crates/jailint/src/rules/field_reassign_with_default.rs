@@ -21,6 +21,14 @@ use jaic::ast::{AssignOp, DeclKind, ExprKind as E, Stmt, StmtKind as S};
 use jaic::sema::scope::EntityKind;
 use jaic::types::TypeKind;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "field_reassign_with_default",
+    category: crate::config::Category::Pedantic,
+    summary: "`x: T; x.a = 1; x.b = 2;` where a struct literal `x := T.{ a = 1, b = 2 }` sets the fields at the declaration",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;

@@ -14,6 +14,14 @@ use crate::syntax::{Cx, walk};
 use crate::{Edit, Finding};
 use jaic::ast::{AssignOp, BinOp, ExprKind as E, StmtKind as S};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "misrefactored_assign_op",
+    category: crate::config::Category::Correctness,
+    summary: "`a += a + b`, an update that applies the operator to `a` twice",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.typed() {

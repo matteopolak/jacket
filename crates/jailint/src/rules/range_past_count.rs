@@ -15,6 +15,14 @@ use jaic::ast::{ExprKind as E, ForOver, StmtKind as S};
 use jaic::intern::Sym;
 use jaic::types::TypeKind;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "range_past_count",
+    category: crate::config::Category::Correctness,
+    summary: "`for i: 0..xs.count` indexing `xs[i]`, one past the end",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.clean || p.is_macro {

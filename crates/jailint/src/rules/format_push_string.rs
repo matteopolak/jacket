@@ -19,6 +19,14 @@ use crate::Finding;
 use crate::syntax::{Cx, walk};
 use jaic::ast::ExprKind as E;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "format_push_string",
+    category: crate::config::Category::Perf,
+    summary: "`append(*b, tprint(...))`, which formats into a new string to add it to a builder",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.typed() {

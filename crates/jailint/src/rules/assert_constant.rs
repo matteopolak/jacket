@@ -18,6 +18,14 @@ use crate::Finding;
 use crate::syntax::Cx;
 use jaic::ast::{Expr, ExprKind as E, StmtKind as S};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "assert_constant",
+    category: crate::config::Category::Style,
+    summary: "`assert(true)` or `#assert true`, which can never fail",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     walk_code(cx, &mut |n, up| {
         let Some(s) = n.stmt() else {

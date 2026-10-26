@@ -19,6 +19,14 @@ use crate::{Edit, Finding};
 use jaic::ast::{Case, Stmt, StmtKind as S};
 use jaic::source::Span;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "single_case_switch",
+    category: crate::config::Category::Style,
+    summary: "a `switch` with a single case, which is an `if`",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     super::walk_code(cx, &mut |n, _| {
         let Some(s) = n.stmt() else {

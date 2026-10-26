@@ -28,6 +28,14 @@ use crate::Finding;
 use crate::syntax::{Cx, Node, walk};
 use jaic::ast::{BinOp, Expr, ExprKind as E};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "leaked_temporary",
+    category: crate::config::Category::Suspicious,
+    summary: "an `@Allocates` result that is only compared, measured, indexed or printed, so nothing can free it",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.clean || p.is_macro || changes_allocator(cx, p.header, &p.body.stmts) {

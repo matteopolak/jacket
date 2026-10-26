@@ -16,6 +16,14 @@ use crate::syntax::{Cx, walk};
 use jaic::ast::{BinOp, ExprKind as E};
 use jaic::types::TypeKind;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "absurd_comparison",
+    category: crate::config::Category::Correctness,
+    summary: "a comparison an unsigned value always passes or fails (`u >= 0`)",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.typed() {

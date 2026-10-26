@@ -15,6 +15,14 @@ use crate::syntax::{Cx, Node, walk, walk_node};
 use jaic::ast::{AssignOp, BinOp, Expr, ExprKind as E, StmtKind as S};
 use jaic::intern::Sym;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "float_loop_counter",
+    category: crate::config::Category::Pedantic,
+    summary: "a `while` loop counted in floats (`while t < 1.0 { t += 0.1; }`)",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let types = &cx.compiler.ty.types;
     for p in &cx.procs {

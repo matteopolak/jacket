@@ -25,6 +25,14 @@ use crate::syntax::Cx;
 use jaic::lexer::Tok;
 use jaic::source::Span;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "unreadable_literal",
+    category: crate::config::Category::Pedantic,
+    summary: "a long number without `_` separators (`1000000`, `0xdeadbeef`)",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;

@@ -14,6 +14,14 @@ use crate::{Edit, Finding};
 use jaic::ast::{ExprKind as E, StmtKind as S};
 use jaic::types::{TypeId, TypeKind};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "unused_result",
+    category: crate::config::Category::Suspicious,
+    summary: "a call to a `@UseResult` procedure, as a statement",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;

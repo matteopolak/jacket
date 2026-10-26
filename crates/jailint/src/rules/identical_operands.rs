@@ -16,6 +16,14 @@ use crate::syntax::{Cx, walk};
 use jaic::ast::{BinOp, ExprKind as E};
 use jaic::types::TypeKind;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "identical_operands",
+    category: crate::config::Category::Suspicious,
+    summary: "an operator with the same expression on both sides (`a == a`)",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.typed() || p.header.operator.is_some() {

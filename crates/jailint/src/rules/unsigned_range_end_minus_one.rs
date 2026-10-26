@@ -11,6 +11,14 @@ use crate::Finding;
 use crate::syntax::{Cx, walk};
 use jaic::ast::{BinOp, ExprKind as E, ForOver, StmtKind as S};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "unsigned_range_end_minus_one",
+    category: crate::config::Category::Suspicious,
+    summary: "`for 0..n-1` with an unsigned `n`, which wraps around when `n` is 0",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let types = &cx.compiler.ty.types;
     for p in &cx.procs {

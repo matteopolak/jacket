@@ -19,6 +19,14 @@ use jaic::sema::EntityId;
 use jaic::sema::scope::EntityKind;
 use jaic::types::{ArrayKind, TypeKind};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "uninit_read",
+    category: crate::config::Category::Correctness,
+    summary: "a variable declared `= ---` read before anything is written to it",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.clean || p.is_macro || p.header.params.iter().any(|q| q.using) {

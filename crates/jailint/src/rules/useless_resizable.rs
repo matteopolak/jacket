@@ -25,6 +25,14 @@ use jaic::ast::{
 use jaic::fxhash::HashSet;
 use jaic::source::Span;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "useless_resizable",
+    category: crate::config::Category::Perf,
+    summary: "a local `[..] T` that is only filled with a known number of `array_add` calls and never resized",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;

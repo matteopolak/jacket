@@ -4,7 +4,7 @@
 //                                             the playground's Jai file icon, a rounded tile with a `J` cut
 //                                             out (16x16 units, even-odd fill); PNG rendered with resvg
 //   node scripts/build.ts schemas [--check]   schemas/jacket.schema.json from jailint's
-//                                             rule table (crates/jailint/src/rules/mod.rs) and the keys the
+//                                             rules (crates/jailint/src/rules) and the keys the
 //                                             config parsers accept, so a new rule or key is completed and
 //                                             validated in the TOML files without editing a schema by hand
 //   node scripts/build.ts license             copies the repository's LICENSE next to package.json (vsce wants
@@ -88,14 +88,25 @@ async function icon(check: boolean) {
 
 const DOCS = "https://github.com/matteopolak/jacket/blob/main/docs/tools";
 
-export function parseRules(source: string) {
+// The rules, in the order of the `rules!` list in rules/mod.rs; each rule's module exports its own
+// `INFO` (name, category, summary).
+export function parseRules(registry: string, moduleSource: (name: string) => string) {
+  const list = /rules!\s*\{([^}]*)\}/.exec(registry);
+  if (!list) throw new Error("no rules! list in crates/jailint/src/rules/mod.rs");
+  const names = list[1]!
+    .split(",")
+    .map((entry) => entry.replace(/^\s*pub\([a-z]+\)\s*/, "").trim())
+    .filter(Boolean);
   const rules: { name: string; level: string; summary: string }[] = [];
-  const entry = /RuleInfo\s*\{\s*name:\s*"([a-z_]+)",\s*category:\s*Category::(\w+),\s*summary:\s*"((?:[^"\\]|\\.)*)"/g;
-  for (const match of source.matchAll(entry)) {
+  const info = /INFO:\s*super::RuleInfo\s*=\s*super::RuleInfo\s*\{\s*name:\s*"([a-z_]+)",\s*category:\s*crate::config::Category::(\w+),\s*summary:\s*"((?:[^"\\]|\\.)*)"/;
+  for (const name of names) {
+    const match = info.exec(moduleSource(name));
+    if (!match) throw new Error(`rule module ${name} has no INFO`);
+    if (match[1] !== name) throw new Error(`rule module ${name} is named ${match[1]}`);
     const category = match[2]!.toLowerCase();
     const level = CATEGORIES[category];
-    if (level === undefined) throw new Error(`rule ${match[1]} has unknown category ${category}`);
-    rules.push({ name: match[1]!, level: level[0], summary: match[3]!.replace(/\\(.)/g, "$1") });
+    if (level === undefined) throw new Error(`rule ${name} has unknown category ${category}`);
+    rules.push({ name, level: level[0], summary: match[3]!.replace(/\\(.)/g, "$1") });
   }
   return rules;
 }
@@ -111,7 +122,10 @@ const CATEGORIES: Record<string, [string, string]> = {
   restriction: ["allow", "checks that forbid things a project may choose to avoid"],
 };
 
-const rules = parseRules(readFileSync(join(repository, "crates/jailint/src/rules/mod.rs"), "utf8"));
+const rulesDir = join(repository, "crates/jailint/src/rules");
+const rules = parseRules(readFileSync(join(rulesDir, "mod.rs"), "utf8"), (name) =>
+  readFileSync(join(rulesDir, `${name}.rs`), "utf8"),
+);
 if (rules.length < 10) throw new Error(`found only ${rules.length} rules in crates/jailint/src/rules/mod.rs`);
 
 const level = (rule: { name: string; level: string; summary: string }) => ({

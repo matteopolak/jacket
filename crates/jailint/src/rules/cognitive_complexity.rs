@@ -16,6 +16,14 @@ use crate::Finding;
 use crate::syntax::{Cx, Node, walk};
 use jaic::ast::{BinOp, ExprKind as E, Stmt, StmtKind as S};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "cognitive_complexity",
+    category: crate::config::Category::Pedantic,
+    summary: "a procedure whose branching scores above `max_complexity` (default 25)",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;

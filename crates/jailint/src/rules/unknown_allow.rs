@@ -18,6 +18,14 @@ use crate::syntax::Cx;
 use crate::{Edit, Finding, Fix};
 use jaic::lexer::CommentKind;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "unknown_allow",
+    category: crate::config::Category::Suspicious,
+    summary: "a `// jailint: allow(...)` comment naming a rule that does not exist",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for c in cx.comments {
         if c.kind != CommentKind::Line {

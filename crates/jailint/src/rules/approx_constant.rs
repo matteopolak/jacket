@@ -31,6 +31,14 @@ const KNOWN: &[(f64, &str, &str)] = &[
 /// Fewer digits than this are a rough value on purpose (`3.14`).
 const MIN_DIGITS: usize = 4;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "approx_constant",
+    category: crate::config::Category::Style,
+    summary: "a hand-typed `3.14159` or `1.4142` where `Math` has the constant",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         walk(&p.body.stmts, &mut |n, _| match n {

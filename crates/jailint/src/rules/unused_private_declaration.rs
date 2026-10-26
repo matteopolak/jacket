@@ -39,6 +39,14 @@ use jaic::lexer::Tok;
 /// Names the compiler, the build system or `for` look up without the program writing them.
 const READ_BY_NAME: &[&str] = &["main", "build", "get_plugin", "for_expansion", "_"];
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "unused_private_declaration",
+    category: crate::config::Category::Suspicious,
+    summary: "a `#scope_file` declaration that nothing in its file uses",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() || reads_names(cx) {
         return;

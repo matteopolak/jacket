@@ -23,6 +23,14 @@ use jaic::ide::interval::{self, Interval};
 use jaic::source::Span;
 use jaic::types::TypeKind;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "constant_condition",
+    category: crate::config::Category::Suspicious,
+    summary: "an `if` or `while` whose condition the compiler shows is always true or false",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let Some(ide) = cx.compiler.ed.facts() else {
         return;

@@ -33,6 +33,14 @@ use jaic::fxhash::HashSet;
 use jaic::intern::Sym;
 use jaic::sema::scope::EntityKind;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "temp_storage_escape",
+    category: crate::config::Category::Pedantic,
+    summary: "a `@TempAllocates` result (`tprint`, `talloc`) stored in a global or through a pointer, or returned",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     // File-scope variables: the value is made once, then lives for the whole run.
     for s in cx.stmts {

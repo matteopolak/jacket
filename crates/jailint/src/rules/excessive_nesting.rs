@@ -26,6 +26,14 @@ use crate::syntax::{Cx, Node, ProcSite, walk};
 use jaic::ast::StmtKind as S;
 use jaic::source::Span;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "excessive_nesting",
+    category: crate::config::Category::Pedantic,
+    summary: "blocks nested deeper than `max_nesting` (default 6)",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;

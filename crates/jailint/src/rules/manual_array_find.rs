@@ -26,6 +26,14 @@ use jaic::ast::{AssignOp, BinOp, Expr, ExprKind as E, For, ForOver, Stmt, StmtKi
 use jaic::intern::Sym;
 use jaic::types::TypeKind;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "manual_array_find",
+    category: crate::config::Category::Complexity,
+    summary: "a loop that searches an array and breaks with a found flag or index, which `array_find` does",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.typed() {

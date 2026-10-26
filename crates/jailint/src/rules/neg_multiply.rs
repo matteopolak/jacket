@@ -12,6 +12,14 @@ use crate::syntax::{Cx, is_atom, walk};
 use jaic::ast::{BinOp, Expr, ExprKind as E, UnOp};
 use jaic::source::Span;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "neg_multiply",
+    category: crate::config::Category::Style,
+    summary: "`x * -1`, which is `-x`",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.typed() {

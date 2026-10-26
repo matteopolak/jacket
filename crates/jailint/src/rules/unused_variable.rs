@@ -15,6 +15,14 @@ use crate::syntax::{Cx, Node, walk};
 use crate::{Edit, Finding, Fix};
 use jaic::ast::{DeclKind, Expr, ExprKind as E, StmtKind as S};
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "unused_variable",
+    category: crate::config::Category::Style,
+    summary: "a local variable that is never used",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;

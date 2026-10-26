@@ -25,6 +25,14 @@ use jaic::ast::{BinOp, Expr, ExprKind as E, For, ForOver, Stmt, StmtKind as S};
 use jaic::intern::Sym;
 use jaic::types::TypeKind;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "index_only_loop",
+    category: crate::config::Category::Complexity,
+    summary: "`for i: 0..xs.count-1` where `i` only indexes `xs`",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         if !p.clean || p.is_macro {

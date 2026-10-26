@@ -20,6 +20,14 @@ use super::calls_in_module;
 use crate::Finding;
 use crate::syntax::Cx;
 
+/// The rule's name, group and one-line summary, and its check.
+pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
+    name: "print_in_module",
+    category: crate::config::Category::Restriction,
+    summary: "a module writes to the program's output",
+    check,
+};
+
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     calls_in_module(
         cx,
