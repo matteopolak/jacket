@@ -79,7 +79,7 @@ class NativeProvisioning(unittest.TestCase):
         self.assertIn("set -euo pipefail", source)
         self.assertIn("apt_install.sh", source)
         apt = (ROOT / "tools/ci/apt_install.sh").read_text()
-        self.assertIn("apt_get update", apt)
+        self.assertIn("apt_update", apt)
         self.assertNotIn("SDL_", source)
         self.assertNotIn("|| true", source)
 

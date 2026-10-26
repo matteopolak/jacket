@@ -41,6 +41,17 @@ apt_configure() {
 # Run an apt-get command, giving up on an attempt after three minutes and trying up to five times.
 # An install cut off mid-way leaves dpkg half done, so finish that before the retry. Its output is
 # shown only when an attempt fails.
+# `apt-get update` once per job: later installs reuse the index unless a new source was added.
+apt_update() {
+  local stamp="${RUNNER_TEMP:-/tmp}/jai-ci-apt-updated" sources
+  sources=$(cat /etc/apt/jai-ci-sources.list.d/* 2> /dev/null | sha256sum)
+  if [[ -f "$stamp" && "$(cat "$stamp")" == "$sources" ]]; then
+    return 0
+  fi
+  apt_get update
+  printf '%s' "$sources" > "$stamp"
+}
+
 apt_get() {
   local attempt log
   log=$(mktemp)
@@ -58,7 +69,8 @@ apt_get() {
 }
 
 # Best-effort: fetch the packages an install would need over several connections into apt's archive
-# cache, so one slow connection cannot stall the whole install. The real install then finds the
+# cache, so one slow connection cannot stall the whole install (a transfer slower than 20 kB/s for
+# 15 seconds is restarted). The real install then finds the
 # files (apt checks their hashes and refetches anything bad). Never fails; apt_get does the work.
 apt_prefetch() {
   local uris
@@ -67,6 +79,6 @@ apt_prefetch() {
   [[ -n "$uris" ]] || return 0
   # shellcheck disable=SC2016 # $0 and $1 belong to the inner bash
   printf '%s\n' "$uris" \
-    | xargs -P 8 -L 1 bash -c 'sudo timeout 180 curl --fail --silent --location --retry 3 --connect-timeout 20 --output "/var/cache/apt/archives/$1" "$0"' \
+    | xargs -P 8 -L 1 bash -c 'sudo timeout 180 curl --fail --silent --location --retry 3 --retry-all-errors --connect-timeout 20 --speed-limit 20000 --speed-time 15 --output "/var/cache/apt/archives/$1" "$0"' \
     || true
 }

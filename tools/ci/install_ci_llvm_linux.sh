@@ -33,7 +33,8 @@ sudo install -m 0644 "$task_temp/llvm.gpg" /usr/share/keyrings/jai-ci-llvm.gpg
 printf '%s\n' \
   "deb [arch=$package_arch signed-by=/usr/share/keyrings/jai-ci-llvm.gpg] https://apt.llvm.org/noble/ llvm-toolchain-noble-23 main" \
   | sudo tee /etc/apt/jai-ci-sources.list.d/jai-ci-llvm.list > /dev/null
-apt_get update
+apt_update
+apt_prefetch llvm-23 llvm-23-tools llvm-23-dev clang-23 libclang-23-dev libpolly-23-dev libclang-rt-23-dev lld-23
 # libclang-rt-23-dev: the sanitizer runtimes `jaic -sanitize` links; lld-23: wasm-ld, for
 # `jaic -os wasm`.
 apt_get install --yes --no-install-recommends llvm-23 llvm-23-tools llvm-23-dev clang-23 libclang-23-dev libpolly-23-dev \
