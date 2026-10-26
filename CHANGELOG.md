@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.29.0] - 2026-10-26
+
+### New
+
+- The `Extensions/Variant` module: a tagged union over a list of types, with `set`, `get`, `is` and `unwrap`, printing, and support for recursive variants through pointers.
+- `Extensions/Json` encodes and decodes `Variant` values, including recursive ones.
+- The examples are standalone workspaces under `examples/`, each with its own `jacket.toml`.
+- Path patterns in `jacket.toml` (`exclude`, override `paths`, `portable`, `platforms`) accept `[abc]`, `[a-z]`, `[!x]`, `{a,b}` and `\` escapes, and an invalid pattern is reported at its line.
+
+### Improved
+
+- `jailint` uses the nearest `jacket.toml` for each file, so a nested project's settings apply when linting from a parent folder or several roots.
+- `jailint` searches the project's `import_path`, like `jaic`, and the language server and the command line now resolve modules in the same order.
+- `jacket fmt` reads `[format]` itself, reports a bad value with its file and exits with code 2, and passes the settings to `jaifmt`.
+
+### Fixed
+
+- A struct with a variadic `..Type` parameter can take a pointer to itself, as in `Tree :: Variant(Leaf, *Branch)`.
+- A signed constant shifted right by 128 or more folds to `-1`, as at run time.
+- A constant float cast to an integer saturates to the type's range, as at run time, instead of wrapping.
+- Tab, NUL and other control characters in strings passed to build metaprograms are escaped.
+
+### Breaking changes
+
+| Was | Now |
+| --- | --- |
+| `jailint` ignored `[project] import_path` | it searches it |
+
 ## [0.28.0] - 2026-10-25
 
 ### New
