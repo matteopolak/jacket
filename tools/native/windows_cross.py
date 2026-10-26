@@ -598,12 +598,13 @@ def build(args):
     build_host = stdlib_runtime.host_platform()
     catalogue = []
     negative_checks = 0
+    # --shard K/N builds every N-th case from the K-th; the shared fixtures go with the first.
+    part = getattr(args, "shard", None) or (1, 1)
     if args.stdlib:
         catalogue = stdlib_runtime.validated_entries()
         target = [] if args.host else ["-os", "windows", "-cpu", args.cpu]
-        for case in catalogue:
-            if not expects_rejection(case):
-                continue
+        negatives = [case for case in catalogue if expects_rejection(case)]
+        for case in stdlib_runtime.take_shard(negatives, part):
             reason = fixture_unavailable_reason(case, platform, build_host)
             if reason:
                 records.append(
@@ -718,7 +719,7 @@ def build(args):
             )
         else:
             supported.append(item)
-    all_cases = supported
+    all_cases = stdlib_runtime.take_shard(supported, part)
     if any(
         metadata.get(item[1], {}).get("id") == "Extensions/Tls/tests/windows-target"
         for item in all_cases
@@ -775,33 +776,34 @@ def build(args):
                 key: case[key] for key in ("id", "arguments", "input") if key in case
             }
         records.append({"id": case_id, "status": "built", "passed": None})
-    work = out / "c-structs-src"
-    shutil.copytree(ROOT / "tests/compiler/native/c-structs-by-value", work, dirs_exist_ok=True)
-    error = c_structs_library(args, work)
-    if error:
-        failures.append(f"c-structs library: {error}")
-        records.append(
-            {
-                "id": "c-structs-library",
-                "status": "failed",
-                "passed": None,
-                "reason": error,
-            }
-        )
-    else:
-        if (work / "libstructs.dll").exists():
-            shutil.copy(work / "libstructs.dll", out / "libstructs.dll")
-        for name, stdout in C_STRUCTS.items():
-            case_id = f"c-structs-{name}"
-            error = build_one(args, work / f"{name}.jai", out / case_id)
-            if error:
-                failures.append(f"{case_id}: {error}")
-                records.append(
-                    {"id": case_id, "status": "failed", "passed": None, "reason": error}
-                )
-                continue
-            expected[case_id] = {"exit_code": 0, "stdout": stdout}
-            records.append({"id": case_id, "status": "built", "passed": None})
+    if part[0] == 1:
+        work = out / "c-structs-src"
+        shutil.copytree(ROOT / "tests/compiler/native/c-structs-by-value", work, dirs_exist_ok=True)
+        error = c_structs_library(args, work)
+        if error:
+            failures.append(f"c-structs library: {error}")
+            records.append(
+                {
+                    "id": "c-structs-library",
+                    "status": "failed",
+                    "passed": None,
+                    "reason": error,
+                }
+            )
+        else:
+            if (work / "libstructs.dll").exists():
+                shutil.copy(work / "libstructs.dll", out / "libstructs.dll")
+            for name, stdout in C_STRUCTS.items():
+                case_id = f"c-structs-{name}"
+                error = build_one(args, work / f"{name}.jai", out / case_id)
+                if error:
+                    failures.append(f"{case_id}: {error}")
+                    records.append(
+                        {"id": case_id, "status": "failed", "passed": None, "reason": error}
+                    )
+                    continue
+                expected[case_id] = {"exit_code": 0, "stdout": stdout}
+                records.append({"id": case_id, "status": "built", "passed": None})
     for dll in CROSS_DLLS:
         shutil.copy2(dll, out / dll.name)
     (out / "expected.json").write_text(json.dumps(expected, indent=2))
@@ -958,6 +960,11 @@ def main():
     )
     b.add_argument(
         "--stdlib", action="store_true", help="also the stdlib runtime tests"
+    )
+    b.add_argument(
+        "--shard",
+        type=stdlib_runtime.shard,
+        help="build one share of the programs, K/N (the first also builds the shared fixtures)",
     )
     r = sub.add_parser("run")
     r.add_argument("--dir", required=True)

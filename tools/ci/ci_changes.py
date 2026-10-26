@@ -167,9 +167,10 @@ def shards(count):
 
 def test_matrix(full):
     """The legs of the `test` job: `part` picks the steps, `shard` the share of them."""
-    legs = [dict(X64, part="rust", shard=s) for s in shards(4)]
+    legs = [dict(X64, part="rust", shard=s) for s in shards(6)]
     legs += [dict(X64, part="targets", shard=s) for s in shards(2)]
-    legs += [dict(X64, part=part, shard="1/1") for part in ("jai", "lint", "lint-windows", "lint-macos", "diff")]
+    parts = ("jai", "lint", "portability", "lint-windows", "lint-macos", "diff")
+    legs += [dict(X64, part=part, shard="1/1") for part in parts]
     if not full:
         return legs + [dict(MAC, part="rust", shard=s, expr=HOST_CRATES) for s in shards(2)]
     legs.append(dict(X64, part="split", shard="1/1"))
@@ -179,20 +180,48 @@ def test_matrix(full):
     return legs
 
 
+# The producer suites (tools/stdlib/check_stdlib_suites.py) but `tooling` and `bindings`, which
+# take longest and have legs of their own.
+SUITES = "foundations portable platform audio window numerics numerics-native"
+
+
 def stdlib_matrix(full):
-    """The legs of `stdlib-runtime`: `shard` is a share of the catalogue (or the `suites` or
-    `tooling` leg), `modes` its stdlib_runtime.py modes, `o2` whether it reruns them at -O2."""
+    """The legs of `stdlib-runtime`: `shard` is a share of the catalogue, with `modes` its
+    stdlib_runtime.py modes and `o2` whether it reruns them at -O2, or names a leg that runs the
+    producer suites in `suites` (the `suites` leg also runs `jacket test` and the WebGPU checks)."""
     everything = "interp,native,wasm-interp,wasm-native"
+
+    def suite_legs(platform, names):
+        legs = [dict(platform=platform, shard="suites", suites=SUITES, wasm=platform == "linux-x64" or full)]
+        return legs + [dict(platform=platform, shard=name, suites=name) for name in names]
+
     if not full:
         legs = [dict(platform="linux-x64", shard=s, modes=everything, o2=False) for s in shards(3)]
         legs += [dict(platform="macos-arm64", shard=s, modes="interp,native", o2=False) for s in shards(2)]
-        legs += [dict(platform=p, shard="suites", wasm=p == "linux-x64") for p in ("linux-x64", "macos-arm64")]
-        return legs + [dict(platform="linux-x64", shard="tooling")]
+        return legs + suite_legs("linux-x64", ("bindings", "tooling")) + suite_legs("macos-arm64", ())
     legs = []
     for platform in ("linux-x64", "linux-arm64", "macos-arm64", "macos-x64"):
         legs += [dict(platform=platform, shard=s, modes=everything, o2=True) for s in shards(2)]
-        legs += [dict(platform=platform, shard="suites", wasm=True), dict(platform=platform, shard="tooling")]
+        legs += suite_legs(platform, ("bindings", "tooling"))
     return legs
+
+
+def sanitizer_matrix(full, macos):
+    """The legs of `sanitizers`: the fast tier runs -O0 only, so Linux takes three shards there."""
+    linux = shards(2 if full else 3)
+    legs = [dict(runner="ubuntu-24.04", shard=s) for s in linux]
+    return legs + ([dict(runner="macos-15", shard="1/1")] if full or macos else [])
+
+
+def windows_stdlib_matrix(full):
+    """The legs of `windows-stdlib`: the fast tier skips the -O2 rerun and splits x64, the slower
+    runner, more finely."""
+    cpus = {
+        "x64": dict(runner="windows-2025", triple="x86_64-pc-windows-msvc", timeout=40),
+        "arm64": dict(runner="windows-11-arm", triple="aarch64-pc-windows-msvc", timeout=80),
+    }
+    counts = {"x64": 2, "arm64": 2} if full else {"x64": 5, "arm64": 3}
+    return [dict(cpu=cpu, shard=s, o2=full, **cpus[cpu]) for cpu in cpus for s in shards(counts[cpu])]
 
 
 # Areas too costly to run whenever the workflow itself changes.
@@ -281,6 +310,9 @@ def main():
     lines.append(f"full={str(full).lower()}")
     lines.append("test_matrix=" + json.dumps(test_matrix(full)))
     lines.append("stdlib_matrix=" + json.dumps(stdlib_matrix(full)))
+    macos_asan = "sanitizers-macos" in selected_jobs(results, env.get("JOBS", ""))
+    lines.append("sanitizer_matrix=" + json.dumps(sanitizer_matrix(full, macos_asan)))
+    lines.append("windows_stdlib_matrix=" + json.dumps(windows_stdlib_matrix(full)))
     print("\n".join(lines))
     if env.get("GITHUB_OUTPUT"):
         with open(env["GITHUB_OUTPUT"], "a") as out:

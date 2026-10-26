@@ -99,7 +99,8 @@ class JobSelection(unittest.TestCase):
             r"contains\(fromJSON\(needs\.changes\.outputs\.jobs\), '([a-z0-9-]+)'\)",
             text,
         )
-        self.assertEqual(sorted(gated), sorted(ci_changes.JOBS))
+        # `sanitizers-macos` is no job: main() reads it to add the macOS leg to sanitizer_matrix.
+        self.assertEqual(sorted(gated), sorted(set(ci_changes.JOBS) - {"sanitizers-macos"}))
 
     def test_macos_asan_runs_on_pushes_only_for_sanitizer_relevant_paths(self):
         area = ci_changes.AREAS["sanitizers-macos"]

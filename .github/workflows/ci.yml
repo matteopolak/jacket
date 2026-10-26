@@ -49,6 +49,8 @@ jobs:
       full: ${{ steps.select.outputs.full }}
       test_matrix: ${{ steps.select.outputs.test_matrix }}
       stdlib_matrix: ${{ steps.select.outputs.stdlib_matrix }}
+      sanitizer_matrix: ${{ steps.select.outputs.sanitizer_matrix }}
+      windows_stdlib_matrix: ${{ steps.select.outputs.windows_stdlib_matrix }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -132,6 +134,9 @@ jobs:
           python3 tools/ci/check_dependency_age.py
           python3 tools/ci/check_ci_sources.py
           python3 tools/ci/check_repo_paths.py
+      - name: Fetch the locked crates
+        # The wasm build below runs offline.
+        run: cargo fetch --locked
       - name: Build and stage the real WebAssembly compiler without the native backend
         run: python3 tools/browser/build_scripting_wasm.py --release --output target/ci-wasm
       - name: Execute the real WebAssembly module
@@ -324,11 +329,13 @@ jobs:
       - name: Jai lint
         id: jai-lint
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part == 'lint' }}
+        run: just lint --lang jai --release
+      - name: Jai portability lint
+        id: jai-portability
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part == 'portability' }}
         run: |
-          just lint --lang jai --release
-          if [ "$RUNNER_OS" = Linux ] && [ "${{ matrix.architecture }}" = x86_64 ]; then
-            target/release/jailint -A all -D platform_leak -j "$(nproc)" --allow-incomplete stdlib
-          fi
+          cargo build --locked --release -p jailint
+          target/release/jailint -A all -D platform_leak -j "$(nproc)" --allow-incomplete stdlib
       # One runner lints each other target's modules: the host lint skips what only compiles for
       # another OS, so a Windows-only finding would otherwise never surface.
       - name: Jai lint for another target
@@ -454,8 +461,8 @@ jobs:
       matrix:
         # The legs come from tools/ci/ci_changes.py (stdlib_matrix). A K/N shard runs every Nth
         # stdlib test (tools/stdlib/stdlib_runtime.py --shard) in `modes`, and again at -O2 when
-        # `o2` is set; `suites` runs the producer suites but `tooling`, `jacket test` and the WebGPU
-        # checks; `tooling` runs the developer-tools suite (the longest, so it has its own leg).
+        # `o2` is set; the other legs run the producer suites in `suites`, and the `suites` leg also
+        # `jacket test` and the WebGPU checks.
         include: ${{ fromJSON(needs.changes.outputs.stdlib_matrix) }}
     concurrency:
       group: ${{ github.workflow }}-stdlib-runtime-${{ github.ref }}-${{ matrix.platform }}-${{ matrix.shard }}-${{ github.sha }}
@@ -530,12 +537,12 @@ jobs:
           retention-days: 3
           if-no-files-found: ignore
       - name: NEW producer behavior suites against production
-        # The `suites` leg runs every suite but `tooling`, two groups at a time; the independent
+        # The suite legs run the suites `matrix.suites` names, two groups at a time; the independent
         # suites share no scratch directory across groups (GROUPS in check_stdlib_suites.py).
-        if: ${{ always() && !cancelled() && (matrix.shard == 'suites' || matrix.shard == 'tooling') }}
+        if: ${{ always() && !cancelled() && matrix.suites }}
         run: |
-          suites=(--exclude tooling --jobs 2)
-          [[ "${{ matrix.shard }}" == suites ]] || suites=(--suite tooling)
+          suites=(--jobs 2)
+          for suite in ${{ matrix.suites }}; do suites+=(--suite "$suite"); done
           run=()
           if [[ "$RUNNER_OS" == Linux ]]; then
             run=(xvfb-run -a -s "-screen 0 1280x1024x24")
@@ -691,10 +698,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Linux takes longest, so its cases are split in two (tools/differential/jaic_sweep.py --shard).
-        # macOS only on nightly and manual runs, and on pushes that change what ASan builds
-        # (the `sanitizers-macos` area of tools/ci/ci_changes.py): its slot is the scarcest.
-        include: ${{ fromJSON((needs.changes.outputs.full == 'true' || contains(fromJSON(needs.changes.outputs.jobs), 'sanitizers-macos')) && '[{"runner":"ubuntu-24.04","shard":"1/2"},{"runner":"ubuntu-24.04","shard":"2/2"},{"runner":"macos-15","shard":"1/1"}]' || '[{"runner":"ubuntu-24.04","shard":"1/2"},{"runner":"ubuntu-24.04","shard":"2/2"}]') }}
+        # From tools/ci/ci_changes.py (sanitizer_matrix): Linux split in shards
+        # (tools/differential/jaic_sweep.py --shard); macOS in the full tier, and on pushes that
+        # change what ASan builds (the `sanitizers-macos` area): its slot is the scarcest.
+        include: ${{ fromJSON(needs.changes.outputs.sanitizer_matrix) }}
     concurrency:
       group: ${{ github.workflow }}-sanitizers-${{ github.ref }}-${{ matrix.runner }}-${{ matrix.shard }}
       cancel-in-progress: true
@@ -1069,17 +1076,21 @@ jobs:
   # Windows (docs/native/windows.md). Runs on manual runs, on the Windows work branches, and on
   # main when a path its coverage is about changes (tools/ci/ci_changes.py).
   windows-cross:
-    name: cross-build ${{ matrix.cpu }} (Linux, ${{ matrix.mingw }})
+    name: cross-build ${{ matrix.cpu }} ${{ matrix.shard }}/3 (Linux, ${{ matrix.mingw }})
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.jobs), 'windows-cross')
     strategy:
       fail-fast: false
       matrix:
+        cpu: [x64, arm64]
+        # A third of the programs each (windows_cross.py build --shard; the first also builds the
+        # shared fixtures). `windows-run-cross` runs each third; keep its `shard` list the same.
+        shard: ['1', '2', '3']
         include:
           - {cpu: x64, mingw: MinGW-w64}
           - {cpu: arm64, mingw: llvm-mingw}
     concurrency:
-      group: ${{ github.workflow }}-windows-cross-${{ github.ref }}-${{ matrix.cpu }}
+      group: ${{ github.workflow }}-windows-cross-${{ github.ref }}-${{ matrix.cpu }}-${{ matrix.shard }}
       cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 40
@@ -1117,19 +1128,21 @@ jobs:
       - name: Cross-build the Windows test programs
         # --stdlib first cross-builds the third-party C libraries (stb_*, FreeType, lz4, ...) with
         # MinGW-w64 or llvm-mingw as static archives (tools/native/build_native_libs.py).
-        run: python3 tools/native/windows_cross.py build --stdlib --cpu ${{ matrix.cpu }} --jaic target/debug/jaic --out cross-${{ matrix.cpu }}
+        run: python3 tools/native/windows_cross.py build --stdlib --cpu ${{ matrix.cpu }} --shard ${{ matrix.shard }}/3 --jaic target/debug/jaic --out cross-${{ matrix.cpu }}
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: cross-${{ matrix.cpu }}
+          name: cross-${{ matrix.cpu }}-${{ matrix.shard }}
           path: cross-${{ matrix.cpu }}
           if-no-files-found: error
   windows-run-cross:
     if: contains(fromJSON(needs.changes.outputs.jobs), 'windows-run-cross')
-    name: run cross-built programs (Windows ${{ matrix.cpu }})
+    name: run cross-built programs (Windows ${{ matrix.cpu }}, ${{ matrix.shard }}/3)
     needs: [changes, windows-cross]
     strategy:
       fail-fast: false
       matrix:
+        cpu: [x64, arm64]
+        shard: ['1', '2', '3']
         include:
           - {cpu: x64, runner: windows-2025}
           - {cpu: arm64, runner: windows-11-arm}
@@ -1144,7 +1157,7 @@ jobs:
           persist-credentials: false
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: cross-${{ matrix.cpu }}
+          name: cross-${{ matrix.cpu }}-${{ matrix.shard }}
           path: cross-${{ matrix.cpu }}
       - name: Install Mesa's software OpenGL
         run: |
@@ -1156,12 +1169,17 @@ jobs:
           export JAIC_TEST_WINDOWS_RESOURCE_DIR
           python tools/native/windows_cross.py run --dir cross-${{ matrix.cpu }}
   windows-native:
-    name: jaic on Windows ${{ matrix.cpu }} (MSVC)
+    name: jaic on Windows ${{ matrix.cpu }} (MSVC, ${{ matrix.part }})
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.jobs), 'windows-native')
     strategy:
       fail-fast: false
       matrix:
+        cpu: [x64, arm64]
+        # `programs`: the C++ vtables, platform I/O, the test programs and the native backend
+        # tests; `graphics`: everything that links the third-party libraries or draws (Mesa, WGL,
+        # WebGPU, the data resource suite and File_Watcher).
+        part: [programs, graphics]
         include:
           - cpu: x64
             runner: windows-2025
@@ -1176,7 +1194,7 @@ jobs:
             mesa_dir: target/mesa-driver
             timeout: 60
     concurrency:
-      group: ${{ github.workflow }}-windows-native-${{ github.ref }}-${{ matrix.cpu }}
+      group: ${{ github.workflow }}-windows-native-${{ github.ref }}-${{ matrix.cpu }}-${{ matrix.part }}
       cancel-in-progress: true
     runs-on: ${{ matrix.runner }}
     timeout-minutes: ${{ matrix.timeout }}
@@ -1207,40 +1225,44 @@ jobs:
           cpu: ${{ matrix.cpu }}
           triple: ${{ matrix.triple }}
       - name: Native C++ vtable generation and dispatch
+        if: ${{ matrix.part == 'programs' }}
         run: |
           python tools/developer_checks/build_generator_platform.py
           python tools/developer_checks/check_developer_tools.py --only check_developer_vtables
       - name: Windows dynamic package tests
+        if: ${{ matrix.part == 'programs' }}
         run: TMPDIR="$RUNNER_TEMP" PYTHONDONTWRITEBYTECODE=1 python3 tools/run_tests.py -p test_windows_dynamic_package.py -v
       - name: Platform I/O (interpreter and native O0/O2)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.part == 'programs' }}
         run: python -u tools/stdlib/check_platform_io.py --jaic "$JAIC" --stdlib stdlib --native --windows-crash
       - name: Build the caller-owned Windows resource fixture
         run: |
           python tools/native/build_windows_resource_fixture.py --cpu "$CPU" --out "$RUNNER_TEMP/windows-resources"
           printf 'JAIC_TEST_WINDOWS_RESOURCE_DIR=%s\n' "$(cygpath -m "$RUNNER_TEMP/windows-resources")" >> "$GITHUB_ENV"
       - name: Build and run the Windows test programs natively
+        if: ${{ matrix.part == 'programs' }}
         run: |
           mkdir -p native-exes
           "$JAIC" tests/corpus/positive/integer-control.jai -exe native-exes/smoke
           python -u tools/native/windows_cross.py build --jaic "$JAIC" --out native-exes --host --keep-going
           python -u tools/native/windows_cross.py run --dir native-exes
       - name: Interpreter variadic foreign calls
-        if: ${{ !cancelled() && matrix.cpu == 'arm64' }}
+        if: ${{ !cancelled() && matrix.cpu == 'arm64' && matrix.part == 'programs' }}
         run: test "$("$JAIC" tests/compiler/native/windows/variadic.jai -interp | tr -d '\r')" = ok
       - name: Install Mesa's software OpenGL
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.part == 'graphics' }}
         # Beside jaic.exe too, for the interpreter runs below.
         run: |
+          mkdir -p native-exes
           bash tools/ci/install_ci_mesa_windows.sh "$CPU" "$MESA_DIR"
           cp "$MESA_DIR"/*.dll "$(dirname "$JAIC")/"
       # The stdlib runtime tests run in `windows-stdlib`; the steps below link the third-party
       # libraries (FreeType, stb_*...) built here.
       - name: Build the native libraries
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.part == 'graphics' }}
         run: python -u tools/native/build_native_libs.py --platform windows-${{ matrix.cpu }} --missing
       - name: Data resource discovery and Icon effects
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.part == 'graphics' }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -1257,7 +1279,7 @@ jobs:
         # workspace and runs build/game.exe. Without LLVM on PATH, and with Git's coreutils
         # `link` in /usr/bin, jaic must skip that `link` and use Visual Studio's link.exe with
         # the LIB it works out. The stb libraries come from the native libraries step.
-        if: ${{ !cancelled() && matrix.cpu == 'x64' }}
+        if: ${{ !cancelled() && matrix.cpu == 'x64' && matrix.part == 'graphics' }}
         run: |
           jaic="$PWD/$JAIC"
           game="$RUNNER_TEMP/simp-game"
@@ -1294,7 +1316,7 @@ jobs:
           # The same program under the interpreter (Mesa's opengl32.dll is beside jaic.exe).
           "$jaic" src/main.jai -interp
       - name: D3DCompiler provider and interpreter identity
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.part == 'graphics' }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
@@ -1307,20 +1329,20 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'D3DCompiler provider interpreter/native check failed' }
       - name: WebGPU without a window (wgpu-native on D3D12's WARP adapter)
         # stdlib/Extensions/WebGPU/tests/headless.jai interpreted and built; docs/extensions/webgpu.md#tests.
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.part == 'graphics' }}
         run: python -u tools/bindings/run_webgpu_native.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --require-adapter
       - name: WebGPU in a window (HWND surface on WARP, presented)
         # stdlib/Extensions/WebGPU/tests/window.jai: a Window_Creation window in the runner's interactive desktop
         # session, a DXGI swap chain through wgpu-native's D3D12 backend, frames read back.
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.part == 'graphics' }}
         run: python -u tools/bindings/run_webgpu_native.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --require-adapter --test window --frames 120
       - name: Native WGL driver diagnostics and public rendering
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.part == 'graphics' }}
         run: |
           mkdir -p target/native-libs/windows-${{ matrix.cpu }}
           python -u tools/window_render/window_render_wgl_ci.py --jaic "$JAIC" --jailint "$JAILINT" --stdlib stdlib --native-libs target/native-libs/windows-${{ matrix.cpu }} --driver-dir "$MESA_DIR" --consumer-dir native-exes
       - name: Signed mouse wheel events reach the program (interpreter, O0, O2)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.part == 'graphics' }}
         run: |
           "$JAIC" stdlib/Input/tests/signed-wheel-windows.jai -interp
           "$JAIC" stdlib/Input/tests/signed-wheel-windows.jai -exe native-exes/signed-wheel
@@ -1331,10 +1353,10 @@ jobs:
             native-exes/render-wheel-$opt.exe
           done
       - name: Native backend tests
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.part == 'programs' }}
         run: cargo test --locked -p jaic-cli --no-default-features --features static-llvm --test native -- --test-threads 2
       - name: Native File_Watcher and Windows time-zone SDK ABI fixtures
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.part == 'graphics' }}
         shell: pwsh
         env:
           CARGO_TARGET_DIR: ${{ github.workspace }}/target
@@ -1355,11 +1377,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        cpu: [x64, arm64]
-        shard: ['1/2', '2/2']
-        include:
-          - {cpu: x64, runner: windows-2025, triple: x86_64-pc-windows-msvc, timeout: 40}
-          - {cpu: arm64, runner: windows-11-arm, triple: aarch64-pc-windows-msvc, timeout: 80}
+        # From tools/ci/ci_changes.py (windows_stdlib_matrix): more shards and no -O2 rerun in the
+        # fast tier.
+        include: ${{ fromJSON(needs.changes.outputs.windows_stdlib_matrix) }}
     concurrency:
       group: ${{ github.workflow }}-windows-stdlib-${{ github.ref }}-${{ matrix.cpu }}-${{ matrix.shard }}
       cancel-in-progress: true
@@ -1401,11 +1421,11 @@ jobs:
         # The third-party libraries (FreeType, stb_*...) are built first (tools/native/build_native_libs.py).
         run: python -u tools/stdlib/stdlib_runtime.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --shard ${{ matrix.shard }} --modes interp,native --strict --timeout 600 --coverage target/stdlib-coverage.txt --dlls "$MESA_DIR"
       - name: Stdlib tests, native O2
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.o2 }}
         run: python -u tools/stdlib/stdlib_runtime.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --shard ${{ matrix.shard }} --modes native --opt O2 --strict --dlls "$MESA_DIR"
       - name: Stdlib tests run by jacket test
         # The modules under `[test] paths` in jacket.toml, as in `stdlib-runtime`, without wasm.
-        if: ${{ !cancelled() && matrix.shard == '1/2' }}
+        if: ${{ !cancelled() && startsWith(matrix.shard, '1/') }}
         run: |
           jacket="$(dirname "$JAIC")/jacket.exe"
           status=0
