@@ -109,7 +109,6 @@ cannot convert {} to {}
 cannot infer `.{}` for type {}
 cannot use `using` on {}
 cannot use a struct literal for type {}
-circular dependency while resolving `{}`
 compare-exchange failure ordering cannot be stronger than success ordering
 could not parse inserted enum members
 could not parse inserted expression
