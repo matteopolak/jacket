@@ -14,6 +14,7 @@
 //! - A small function that a module calls but another module owns is defined in the caller's
 //!   module too, as `available_externally`: the optimizer may inline it, and the copy is never
 //!   written out. The functions that copy refers to become visible to the linker in turn.
+//!   A function declared `inline` is always copied, whatever its size and the budget.
 //!
 //! What is lost compared to one module: calls to larger functions of other modules are not
 //! inlined, nor optimized through their arguments, and constants stored in another module's
@@ -370,6 +371,14 @@ fn choose_imports(
     let nf = program.funcs.len();
     let nodes = owner.len();
     let units = need.len();
+    // A function declared `inline` has to be inlined at every call, which a call into another
+    // module cannot be: it is copied into each module that calls it, outside the budget.
+    let always_inline = |n: usize| -> bool {
+        n < nf
+            && program.funcs[n]
+                .as_ref()
+                .is_some_and(|f| f.inline == jaic::ir::InlineHint::Always)
+    };
     let importable = |n: usize| -> bool {
         if n >= nf {
             // Constant data folds into the code that reads it; a zero default value turns a copy
@@ -380,10 +389,10 @@ fn choose_imports(
                 && g.size <= GLOBAL_IMPORT_MAX
                 && !replicated(g);
         }
-        weight[n] <= IMPORT_MAX
-            && program.funcs[n]
-                .as_ref()
-                .is_some_and(|f| !matches!(f.linkage, Linkage::Export(_)))
+        program.funcs[n]
+            .as_ref()
+            .is_some_and(|f| !matches!(f.linkage, Linkage::Export(_)))
+            && (weight[n] <= IMPORT_MAX || always_inline(n))
     };
     let mut owned_weight = vec![0usize; units];
     for n in 0..nodes {
@@ -414,11 +423,11 @@ fn choose_imports(
         let mut imported = vec![false; nodes];
         while let Some((_, n)) = queue.pop() {
             let n = n as usize;
-            if imported[n] || (n < nf && used + weight[n] > budget) {
+            if imported[n] || (n < nf && !always_inline(n) && used + weight[n] > budget) {
                 continue;
             }
             imported[n] = true;
-            if n < nf {
+            if n < nf && !always_inline(n) {
                 used += weight[n];
             }
             imports[k].push(n as u32);
