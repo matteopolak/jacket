@@ -735,9 +735,17 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
+      - uses: ./.github/actions/apt-cache
+        if: runner.os == 'Linux'
+        with:
+          label: sdl3
       - name: Install the Linux backend SDKs
         if: runner.os == 'Linux'
-        run: bash tools/ci/install_ci_native_linux.sh
+        run: |
+          bash tools/ci/install_ci_native_linux.sh
+          sudo apt-get autoclean -qq
+          sudo rm -rf "$JAI_APT_ARCHIVES/partial"
+          sudo chown -R "$(id -u):$(id -g)" "$JAI_APT_ARCHIVES"
       - name: Prepare hash-pinned SDL Python test inputs
         run: python3 tools/bindings/prepare_sdl_python_tests.py --scratch "$RUNNER_TEMP/sdl-python" --cache "$RUNNER_TEMP/sdl-python-cache" >> "$GITHUB_ENV"
       - name: Generator and build tests

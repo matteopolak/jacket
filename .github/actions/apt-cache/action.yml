@@ -1,0 +1,35 @@
+name: Cache the Ubuntu packages
+description: Keeps the packages tools/ci/install_ci_*_linux.sh download between runs and points apt at them (JAI_APT_ARCHIVES, read by tools/ci/apt_lib.sh).
+inputs:
+  label:
+    description: Names the package set; one cache per label
+    required: true
+runs:
+  using: composite
+  steps:
+    # The runners' mirror sometimes slows to a crawl for minutes. Weekly keys, so the set follows
+    # package updates; main saves, other refs only restore. A job that installs with these
+    # archives runs `sudo chown -R "$(id -u):$(id -g)" "$JAI_APT_ARCHIVES"` afterwards, so the
+    # cache step can read what apt (as root) wrote.
+    - id: apt-key
+      if: runner.os == 'Linux'
+      shell: bash
+      env:
+        LABEL: ${{ inputs.label }}
+      run: |
+        echo "JAI_APT_ARCHIVES=$RUNNER_TEMP/jai-apt-archives" >> "$GITHUB_ENV"
+        prefix="apt-debs-$RUNNER_ARCH-$LABEL-${{ hashFiles('tools/ci/install_ci_llvm_linux.sh', 'tools/ci/install_ci_native_linux.sh') }}-"
+        echo "prefix=$prefix" >> "$GITHUB_OUTPUT"
+        echo "key=$prefix$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+    - if: runner.os == 'Linux' && github.ref == 'refs/heads/main'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ env.JAI_APT_ARCHIVES }}
+        key: ${{ steps.apt-key.outputs.key }}
+        restore-keys: ${{ steps.apt-key.outputs.prefix }}
+    - if: runner.os == 'Linux' && github.ref != 'refs/heads/main'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ env.JAI_APT_ARCHIVES }}
+        key: ${{ steps.apt-key.outputs.key }}
+        restore-keys: ${{ steps.apt-key.outputs.prefix }}
