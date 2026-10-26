@@ -130,7 +130,7 @@ def libpq_directory() -> str:
 
 
 # Comparisons that talk over the loopback interface (the sandbox allows nothing else).
-LOOPBACK = {'postgres'}
+LOOPBACK = {'postgres', 'http'}
 
 
 def scaled(ns: float) -> str:

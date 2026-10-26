@@ -33,8 +33,8 @@ class LibraryCompareTests(unittest.TestCase):
         document = {'results': [result('insert__ours', 1000.0, items=10)]}
         self.assertIn('100 ns', report(document, ['ours'], per_item=True))
 
-    def test_only_postgres_may_use_the_loopback_interface(self):
-        self.assertEqual(LOOPBACK, {'postgres'})
+    def test_only_postgres_and_http_may_use_the_loopback_interface(self):
+        self.assertEqual(LOOPBACK, {'postgres', 'http'})
 
 
 if __name__ == '__main__':

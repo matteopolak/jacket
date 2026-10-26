@@ -202,3 +202,63 @@ Also `app.state`, `app.on_error`, `app.json_options` (limits for `Json` and `rea
 ## Dependencies and tests
 
 [Io](io-engine.md), [Tls](tls.md), [Json](json.md), the [codec](http-codec.md), `Atomics`. Tests in `stdlib/Extensions/Http/tests/`: `server-routing`, `server-extractors`, `server-responses`, `testing` (the test client and exact failure text) on the in-memory client; `server-bodies` (streamed reads, route limits, unread bodies, `Expect`, streamed responses, files), `server-connections` (raw sockets, memory rules), `https`, `client`. Benchmarks in `bench/` (`server_bench.jai`, `idle_bench.jai`, build with `-O2`). `PYTHONPATH=tools python3 tools/stdlib/http_conformance.py` also builds `tools/stdlib/http_garden/server.jai`, an echo server to put in an http-garden image.
+
+## Compared with the community servers
+
+Jacket's server next to [`rluba--hyperserve`](https://github.com/rluba/hyperserve), [`smari--jai-simplehttp`](https://github.com/smari/jai-simplehttp) and [`farzher--Jai-HTTP-Server`](https://github.com/farzher/Jai-HTTP-Server), the HTTP servers in the upstream corpus. The cells come from reading each library's source and README; ⚠ has a note, and a `❌` means the source or README says so (hyperserve lists several of these as its own to-do items).
+
+| Feature | Jacket | hyperserve | simplehttp | farzher |
+| --- | --- | --- | --- | --- |
+| Builds and runs on macOS | ✅ | ✅ | ✅ | ❌ [1] |
+| Typed handler parameters (path, query, JSON, form) | ✅ extractors | ✅ typed `path` and `query` members [2] | ❌ | ❌ |
+| Route patterns with path parameters | ✅ | ✅ | ⚠ [3] | ✅ |
+| Middleware | ✅ | ⚠ authentication hooks only | ✅ [4] | ❌ |
+| Streaming request body | ✅ `*Body` | ❌ [5] | ❌ | ❌ |
+| Body size limit | ✅ per route | ❌ [5] | ⚠ one fixed 64 MiB constant | ❌ |
+| Chunked request bodies | ✅ | ❌ [5] | ❌ | ❌ |
+| Streaming and file responses | ✅ | ❌ | ❌ | ❌ |
+| Timeouts for slow clients | ✅ header, body, idle | ⚠ [6] | ❌ | ❌ |
+| HTTPS | ✅ [`Tls`](tls.md) | ❌ closes TLS clients | ❌ | ⚠ OpenSSL module [1] |
+| WebSockets | ❌ | ❌ | ⚠ [8] | ✅ |
+| Test client without a socket | ✅ | ❌ | ❌ | ❌ |
+| Errors as values (`Serve_Error`, `Http_Error`) | ✅ | ❌ | ⚠ `HTTPServerError` | ❌ |
+| Multi-threaded | ✅ schedulers | ✅ request threads | ⚠ [7] | ✅ epoll threads |
+
+1. farzher has an `epoll` backend (Linux) and a Windows backend and no macOS one, so the benchmark program stops at `http_listen` (unknown identifier). It was not measured; its numbers on Linux are not in this table.
+2. A handler takes a struct whose `path` and `query` members are filled and checked before the call.
+3. Routes are registered by path with `http_register_url`; the benchmark handler reads the id from the path by hand.
+4. Request and response middleware, switched off with `USE_MIDDLEWARE`.
+5. The source lists "decode bodies", "limit body size", "stream the body" and "chunked" as to-do items, and only reads bodies for GET.
+6. Fixed constants (30 s for header, body and send) that are not configurable.
+7. `http_server_run_single_threaded` is the documented entry point.
+8. `http_register_websocket_url` exists; it was not exercised.
+
+### How it was measured
+
+`benchmarks/compare/http/`, run by `PYTHONPATH=tools python3 tools/bench/http_compare.py`. Every server serves the same small JSON API: `GET /items/{id}` answers a 1,000-item in-memory store with one JSON object (`servers/store.jai` holds the shared data; each `servers/<name>.jai` is the same handler written on that library). `loadgen.jai` opens 1, 64 and 1,024 keep-alive connections over loopback and requests random ids for 5 s after a 1 s warm-up, three rounds, the median by requests per second reported. Latency is per request, from write to the last byte of the response. Memory is the resident set of the server at rest and with 1,024 idle connections held open, divided by 1,024. Jacket and hyperserve run with 4 threads; the load generator uses 2.
+
+All servers and the load generator are compiled with `-o` and run inside the `Sandbox` of `tools/bench/sandbox.py` with loopback-only networking, because the community servers are unreviewed code.
+
+Apple M5 (10 cores: 4 Super and 6 Efficiency), 16 GB, macOS 27.0 arm64. The machine was a working desktop: the load average when the run began was 4.96, and the load generator shares the cores with the server, so read the ratios, not the absolute numbers.
+
+| Server | Connections | Requests/s | p50 | p99 | p99.9 | Errors |
+| --- | --- | --- | --- | --- | --- | --- |
+| Jacket | 1 | 55,495 | 17 us | 34 us | 77 us | 0 |
+| Jacket | 64 | 151,363 | 414 us | 614 us | 744 us | 0 |
+| Jacket | 1024 | 131,651 | 7.74 ms | 8.96 ms | 10.7 ms | 0 |
+| hyperserve | 1 | 32,277 | 30 us | 47 us | 91 us | 0 |
+| hyperserve | 64 | 85,371 | 749 us | 1.04 ms | 1.18 ms | 0 |
+| hyperserve | 1024 | 76,992 | 13.3 ms | 16.6 ms | 18.5 ms | 387 |
+| simplehttp | 1 | 16,694 | 54 us | 94 us | 156 us | 0 |
+| simplehttp | 64 | 26,197 | 1.66 ms | 1.94 ms | 81.2 ms | 13,225 |
+| simplehttp | 1024 | 27,420 | 30.5 ms | 104 ms | 385 ms | 19,621 |
+| farzher | n/a | does not build on macOS | | | | |
+
+| Server | Resident at rest | With 1,024 idle connections | Per connection |
+| --- | --- | --- | --- |
+| Jacket | 2.6 MiB | 40.8 MiB | 38.3 KiB |
+| hyperserve | 6.4 MiB | 29.7 MiB | 23.3 KiB |
+| simplehttp | 1.9 MiB | 73.5 MiB | 71.6 KiB |
+| farzher | n/a | n/a | n/a |
+
+Jacket handles about 1.7 to 1.8 times the requests per second of hyperserve and 5 to 6 times simplehttp's, with lower latency at every percentile. simplehttp is killed by `SIGPIPE` (signal 13) when 64 or more connections write to clients that have gone, which is why its error counts are high and its numbers are those of the runs that survived. hyperserve drops 387 requests at 1,024 connections. Jacket's memory per connection is higher than hyperserve's: the JSON route's fiber stack spans two 16 KiB pages (see [How it works](#how-it-works)).

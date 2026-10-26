@@ -2,7 +2,7 @@
 
 ## What it is
 
-Benchmarks that run a Jacket library next to the community libraries it replaces, on the same inputs, with [`jacket bench`](jacket-bench.md). The programs are in `benchmarks/compare/<name>/` and `tools/bench/library_compare.py` runs them. The results, the feature matrices and the method of each comparison are in the module's own page: [Json](../extensions/json.md#compared-with-the-community-libraries), [Regex](../extensions/regex.md#compared-with-the-community-libraries), [Postgres](../extensions/postgres.md#compared-with-the-community-libraries), [Hash_Map](../extensions/hash-map.md#measured-against-hash_table-and-the-community-map). The HTTP server has no comparison yet.
+Benchmarks that run a Jacket library next to the community libraries it replaces, on the same inputs, with [`jacket bench`](jacket-bench.md). The programs are in `benchmarks/compare/<name>/` and `tools/bench/library_compare.py` runs them. The results, the feature matrices and the method of each comparison are in the module's own page: [Json](../extensions/json.md#compared-with-the-community-libraries), [Regex](../extensions/regex.md#compared-with-the-community-libraries), [Postgres](../extensions/postgres.md#compared-with-the-community-libraries), [Hash_Map](../extensions/hash-map.md#measured-against-hash_table-and-the-community-map). The [Http server](../extensions/http-server.md#compared-with-the-community-servers) comparison is run by `tools/bench/http_compare.py`.
 
 ```
 PYTHONPATH=tools python3 tools/bench/library_compare.py json --libraries jacket,borrow,jaison,contiguous --out target/compare/json.md
@@ -51,7 +51,7 @@ A sweep of `corpus/upstream` (183 projects) and `corpus/upstream/_modules` (link
 | Json | `rluba--jaison`, `kujukuju--ContiguousJsonJai` | `kujukuju--KodaSerializer` and `n00bmind--reflector` (binary serialisation, no JSON), `segcore--jai-protobuf` (protobuf) |
 | Regex | `rluba--uniform`, `Lunatoid--Rematch` | `isomorphic-tech--fuzzy-match-jai` and `sjorsdonkers--match-jai` (fuzzy matching and sum-type matching, not regular expressions) |
 | Postgres | `rluba--jai-postgres` | `rluba--jai-redis` (Redis, no Jacket module), `rezich--SQLite` and `isomorphic-tech--jai-sqlite` (SQLite bindings, an embedded database) |
-| Http server | none yet (`rluba--hyperserve`, `smari--jai-simplehttp` and `farzher--Jai-HTTP-Server`, which has no macOS backend, are the candidates) | `smari--Cavy` (a toy daemon its author advises against using), `rluba--cluster` (starts and restarts copies of a process, shares a listening socket; not a server) |
+| Http server | `rluba--hyperserve`, `smari--jai-simplehttp`, `farzher--Jai-HTTP-Server` (no macOS backend, so not measured) | `smari--Cavy` (a toy daemon its author advises against using), `rluba--cluster` (starts and restarts copies of a process, shares a listening socket; not a server) |
 | Hash_Map | `666rayen999--hash_map` (does not give correct answers, see the page) | |
 | Testing | none yet | `rluba--stubborn` (matchers), `n00bmind--unotest`, `dbechrd--jai-assertive` (assertions) |
 | Io fibers | none | `sjorsdonkers--yield-jai` (generators), `kujukuju--JaiParallel` (threads) |
