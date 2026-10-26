@@ -155,7 +155,7 @@ A matcher that cannot apply to the value (`contains` on an integer) does not hol
     8 | assert_that(5, not(is(5)));
 ```
 
-`explain(value, matcher)` returns the message instead of reporting it (an empty string when the value matches), which is how the matchers' own tests check message text. Operands are copied into temporary storage, so a matcher belongs to the test that built it. Names such as `contains` and `starts_with` also exist in `String`; a file importing both calls the `String` ones by their module name.
+`explain(value, matcher)` returns the message instead of reporting it (an empty string when the value matches), which is how the matchers' own tests check message text. Operands are copied into temporary storage, so a matcher belongs to the test that built it. `contains`, `starts_with` and `ends_with` also exist in `String`; both can be imported together, since the matcher versions take one argument and overloading picks the right one.
 
 To add a matcher, add a `Matcher_Kind`, a constructor, and a case each in `holds` and `phrase` (and `failure_message` if it can say more than "expected V to PHRASE") in `matchers.jai`, then a passing and a failing line in `tests/matchers.jai`.
 
