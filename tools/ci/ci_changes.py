@@ -83,6 +83,7 @@ AREAS = {
         "stdlib/Extensions/Io_Uring/**",
         "stdlib/Extensions/Http/**",
         "stdlib/Extensions/Json/**",
+        "stdlib/Extensions/Variant/**",
         "stdlib/Extensions/Tls/**",
         "tools/native/mbedtls/**",
         "stdlib/Windows/**",
