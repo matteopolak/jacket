@@ -1,7 +1,7 @@
 //! Constant folding of binary expressions.
 use super::num;
 use crate::ast::BinOp;
-use crate::sema::expr::wrap_int;
+use crate::int_arith::{DivideByZero, IntOp, int_binop};
 use crate::sema::lower::Operand;
 use crate::sema::{Compiler, Result, Span, TypeId, Value, err};
 use crate::types::TypeKind;
@@ -77,59 +77,42 @@ impl Compiler {
         let result = match (lv, rv) {
             (Value::Int(a), Value::Int(b)) if !self.ty.types.is_float(ty) => {
                 let (a, b) = (*a, *b);
-                let v = match op {
-                    BinOp::Add => Some(Value::Int(a.wrapping_add(b))),
-                    BinOp::Sub => Some(Value::Int(a.wrapping_sub(b))),
-                    BinOp::Mul => Some(Value::Int(a.wrapping_mul(b))),
-                    BinOp::Div => {
-                        if b == 0 {
-                            return err(span, "division by zero in constant expression");
-                        }
-                        Some(Value::Int(a.wrapping_div(b)))
-                    }
-                    BinOp::Rem => {
-                        if b == 0 {
-                            return err(span, "division by zero in constant expression");
-                        }
-                        Some(Value::Int(a.wrapping_rem(b)))
-                    }
-                    BinOp::BitAnd => Some(Value::Int(a & b)),
-                    BinOp::BitOr => Some(Value::Int(a | b)),
-                    BinOp::BitXor => Some(Value::Int(a ^ b)),
-                    BinOp::Shl | BinOp::Shr if b < 0 => {
-                        return err(
-                            span,
-                            format!("negative shift amount {b} in constant expression"),
-                        );
-                    }
-                    BinOp::Shl => Some(Value::Int(if b >= 128 {
-                        0
-                    } else {
-                        a << b
-                    })),
-                    BinOp::Shr => Some(Value::Int(if b >= 128 {
-                        // Every bit is the sign bit.
-                        if a < 0 {
-                            -1
-                        } else {
-                            0
-                        }
-                    } else {
-                        a >> b
-                    })),
-                    BinOp::Rotl | BinOp::Rotr => None,
-                    _ => cmp(a.cmp(&b)),
+                let int_op = match op {
+                    BinOp::Add => Some(IntOp::Add),
+                    BinOp::Sub => Some(IntOp::Sub),
+                    BinOp::Mul => Some(IntOp::Mul),
+                    BinOp::Div => Some(IntOp::Div),
+                    BinOp::Rem => Some(IntOp::Rem),
+                    BinOp::BitAnd => Some(IntOp::And),
+                    BinOp::BitOr => Some(IntOp::Or),
+                    BinOp::BitXor => Some(IntOp::Xor),
+                    BinOp::Shl => Some(IntOp::Shl),
+                    BinOp::Shr => Some(IntOp::Shr),
+                    _ => None,
                 };
-                // Wrap typed results to their width.
-                match v {
-                    Some(Value::Int(x)) if !untyped => {
-                        // A typed integer constant may carry a non-integer type (an enum value, a
-                        // `bool`); those wrap like a 64-bit signed integer.
-                        let (bits, signed) = self.ty.types.int_info(ty).unwrap_or((64, true));
-                        Some(Value::Int(wrap_int(x, bits, signed)))
-                    }
-                    Some(Value::Int(x)) => Some(Value::Int(x)),
-                    other => other,
+                if matches!(op, BinOp::Shl | BinOp::Shr) && b < 0 {
+                    return err(
+                        span,
+                        format!("negative shift amount {b} in constant expression"),
+                    );
+                }
+                // An untyped constant is as wide as a constant can be. A typed one may carry a
+                // non-integer type (an enum value, a `bool`); those wrap like a 64-bit signed
+                // integer.
+                let (bits, signed) = if untyped {
+                    (128, true)
+                } else {
+                    self.ty.types.int_info(ty).unwrap_or((64, true))
+                };
+                match int_op {
+                    Some(int_op) => match int_binop(int_op, a, b, bits, signed) {
+                        Ok(x) => Some(Value::Int(x)),
+                        Err(DivideByZero) => {
+                            return err(span, "division by zero in constant expression");
+                        }
+                    },
+                    None if matches!(op, BinOp::Rotl | BinOp::Rotr) => None,
+                    None => cmp(a.cmp(&b)),
                 }
             }
             (Value::Int(_) | Value::Float(_, _), Value::Int(_) | Value::Float(_, _)) => {

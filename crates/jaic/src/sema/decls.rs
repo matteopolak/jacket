@@ -440,7 +440,7 @@ impl Compiler {
                 {
                     // A bit pattern that fills a signed type (`0x8000_0000` for `s32`) is the
                     // negative number its sign bit makes.
-                    Value::Int(crate::sema::expr::wrap_int(i, bits, signed))
+                    Value::Int(crate::int_arith::wrap(i, bits, signed))
                 } else {
                     value
                 };

@@ -4,7 +4,7 @@ use super::lower::{FnCtx, Operand};
 use super::value::Aggregate;
 use super::{
     Compiler, Diagnostic, DiagnosticKind, FileId, ModuleId, Rc, Result, ScopeId, SourcePath, Span,
-    Sym, TypeId, Value, ast, err, expr, ir, scope, structs, value,
+    Sym, TypeId, Value, ast, err, ir, scope, structs, value,
 };
 
 use crate::ir::Ty;
@@ -436,7 +436,7 @@ impl Compiler {
             && matches!(types.kind(ty), TypeKind::Int { .. })
             && matches!(types.kind(to), TypeKind::Int { .. })
             && let Some((bits, signed)) = types.int_info(to)
-            && crate::sema::expr::wrap_int(v, bits, signed) == v
+            && crate::int_arith::wrap(v, bits, signed) == v
         {
             return Operand::Const {
                 ty: to,
@@ -730,7 +730,11 @@ impl Compiler {
                 let mut buf = [0u8; 8];
                 buf[..bytes.len()].copy_from_slice(&bytes);
                 let raw = u64::from_le_bytes(buf);
-                Ok(Value::Int(expr::wrap_int(raw as i128, bits, signed)))
+                Ok(Value::Int(crate::int_arith::wrap(
+                    raw as i128,
+                    bits,
+                    signed,
+                )))
             }
             TypeKind::Float {
                 bits: 32,

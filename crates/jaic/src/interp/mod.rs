@@ -44,7 +44,7 @@ mod threads;
 mod threads_inline;
 mod trap;
 pub(super) use self::arith::{bin_total, cmp_shifted, divides, shift_of};
-use self::arith::{conv, mask};
+use self::arith::{conv, int_bin, mask};
 use self::calls::{FrameExit, suspended};
 use self::frames::{ExecState, Frame, ValueStack};
 use self::globals::GlobalMem;

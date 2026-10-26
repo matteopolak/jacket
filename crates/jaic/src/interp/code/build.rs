@@ -212,7 +212,7 @@ pub(in crate::interp) fn build(
                 } if defs[dst.0 as usize] == 1 => {
                     if let (Known::Int(x), Known::Int(y)) =
                         (known[a.0 as usize], known[b.0 as usize])
-                        && let Some(value) = fold_bin(op, x, y)
+                        && let Some(value) = fold_bin(op, ty, x, y)
                     {
                         known[dst.0 as usize] = Known::Int(mask(ty, value));
                     }
@@ -492,16 +492,13 @@ fn specialize(op: Op) -> Op {
 
 /// `a op b` for the operators whose result, masked to the type, does not depend on
 /// signedness or width.
-fn fold_bin(op: BinOp, a: u64, b: u64) -> Option<u64> {
-    Some(match op {
-        BinOp::Add => a.wrapping_add(b),
-        BinOp::Sub => a.wrapping_sub(b),
-        BinOp::Mul => a.wrapping_mul(b),
-        BinOp::And => a & b,
-        BinOp::Or => a | b,
-        BinOp::Xor => a ^ b,
-        _ => return None,
-    })
+fn fold_bin(op: BinOp, ty: Ty, a: u64, b: u64) -> Option<u64> {
+    matches!(
+        op,
+        BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::And | BinOp::Or | BinOp::Xor
+    )
+    .then(|| super::super::int_bin(op, ty, a, b).ok())
+    .flatten()
 }
 
 pub(super) fn imm(value: u64, ty: Ty) -> Option<i32> {

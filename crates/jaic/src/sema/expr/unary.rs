@@ -1,6 +1,7 @@
 //! Unary operators, untyped constants, conditions and the traps checks emit.
-use super::{names_variable_path, wrap_int};
+use super::names_variable_path;
 use crate::ast::{ExprKind as E, UnOp};
+use crate::int_arith::wrap;
 use crate::ir::{CmpOp, Ty};
 use crate::sema::SourceState;
 use crate::sema::lower::{FnCtx, Operand};
@@ -211,7 +212,7 @@ impl Compiler {
                             } else {
                                 bits
                             };
-                            Some(Value::Int(wrap_int(!v, bits, signed && !*untyped)))
+                            Some(Value::Int(wrap(!v, bits, signed && !*untyped)))
                         }
                         _ => None,
                     };

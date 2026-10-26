@@ -7,6 +7,7 @@
 //! mathematical, so a caller must say when an operation may wrap in its type (it compares the
 //! result with the type's range, see `Interval::within`).
 use crate::ast::{BinOp, UnOp};
+use crate::int_arith::{IntOp, int_binop};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Interval {
@@ -157,6 +158,16 @@ fn corners(a: Interval, b: Interval, f: impl Fn(i128, i128) -> Option<i128>) -> 
     Interval::new(lo, hi)
 }
 
+/// `x op y` as the language computes it in a type wide enough to hold either, for the operators
+/// where an interval's endpoints decide the result. `None` for a division by zero or one that
+/// would wrap, which the arithmetic here does not model.
+fn scalar(op: IntOp, x: i128, y: i128) -> Option<i128> {
+    if op == IntOp::Div && x == i128::MIN && y == -1 {
+        return None;
+    }
+    int_binop(op, x, y, 128, true).ok()
+}
+
 /// The mathematical result of `a op b`, `None` when it is not known (rotates, overflow of the
 /// arithmetic here, a division that may be by zero). `&&` and `||` treat a nonzero operand as
 /// true and give `0..=1`.
@@ -182,7 +193,7 @@ pub fn binary(op: BinOp, a: Interval, b: Interval) -> Option<Interval> {
             if b.lo <= 0 && b.hi >= 0 {
                 return None;
             }
-            corners(a, b, i128::checked_div)
+            corners(a, b, |x, y| scalar(IntOp::Div, x, y))
         }
         BinOp::Rem => {
             let m = b.lo.checked_abs()?.max(b.hi.checked_abs()?);
@@ -231,7 +242,7 @@ pub fn binary(op: BinOp, a: Interval, b: Interval) -> Option<Interval> {
             if b.lo < 0 || b.hi > 126 {
                 return None;
             }
-            corners(a, b, |x, k| Some(x >> k))
+            corners(a, b, |x, k| scalar(IntOp::Shr, x, k))
         }
         _ => None,
     }
@@ -300,13 +311,14 @@ mod tests {
             BinOp::Add => x + y,
             BinOp::Sub => x - y,
             BinOp::Mul => x * y,
-            BinOp::Div => x.checked_div(y)?,
-            BinOp::Rem => x.checked_rem(y)?,
-            BinOp::BitAnd => x & y,
-            BinOp::BitOr => x | y,
-            BinOp::BitXor => x ^ y,
-            BinOp::Shl => x.checked_shl(u32::try_from(y).ok()?)?,
-            BinOp::Shr => x >> u32::try_from(y).ok()?,
+            BinOp::Div => scalar(IntOp::Div, x, y)?,
+            BinOp::Rem => scalar(IntOp::Rem, x, y)?,
+            BinOp::BitAnd => scalar(IntOp::And, x, y)?,
+            BinOp::BitOr => scalar(IntOp::Or, x, y)?,
+            BinOp::BitXor => scalar(IntOp::Xor, x, y)?,
+            // A negative amount is left to the program.
+            BinOp::Shl => scalar(IntOp::Shl, x, u32::try_from(y).ok()?.into())?,
+            BinOp::Shr => scalar(IntOp::Shr, x, u32::try_from(y).ok()?.into())?,
             BinOp::Eq => i128::from(x == y),
             BinOp::Ne => i128::from(x != y),
             BinOp::Lt => i128::from(x < y),

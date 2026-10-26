@@ -1,5 +1,6 @@
 //! Integer arithmetic, comparison and conversion on raw register words.
 use super::FUNC_TAG;
+use crate::int_arith::{DivideByZero, IntOp, float_to_int, int_binop};
 use crate::ir::{BinOp, CmpOp, ConvOp, Ty};
 
 
@@ -17,44 +18,69 @@ pub(crate) fn divides(op: BinOp) -> bool {
     matches!(op, BinOp::SDiv | BinOp::SRem | BinOp::UDiv | BinOp::URem)
 }
 
+/// The shared integer operation `op` is, and whether it is on signed values.
+#[inline(always)]
+pub(super) fn int_op(op: BinOp) -> Option<(IntOp, bool)> {
+    Some(match op {
+        BinOp::Add => (IntOp::Add, false),
+        BinOp::Sub => (IntOp::Sub, false),
+        BinOp::Mul => (IntOp::Mul, false),
+        BinOp::SDiv => (IntOp::Div, true),
+        BinOp::SRem => (IntOp::Rem, true),
+        BinOp::UDiv => (IntOp::Div, false),
+        BinOp::URem => (IntOp::Rem, false),
+        BinOp::And => (IntOp::And, false),
+        BinOp::Or => (IntOp::Or, false),
+        BinOp::Xor => (IntOp::Xor, false),
+        BinOp::Shl => (IntOp::Shl, false),
+        BinOp::LShr => (IntOp::Shr, false),
+        BinOp::AShr => (IntOp::Shr, true),
+        BinOp::Rotl => (IntOp::Rotl, false),
+        BinOp::Rotr => (IntOp::Rotr, false),
+        _ => return None,
+    })
+}
+
+/// `x op y` on register words of the integer type `ty`, through the shared definition.
+/// `Err` is a division by zero.
+#[inline(always)]
+pub(crate) fn int_bin(op: BinOp, ty: Ty, x: u64, y: u64) -> Result<u64, DivideByZero> {
+    let (iop, signed) = int_op(op).expect("an integer operation");
+    let operand = |w: u64| {
+        if signed {
+            sext(ty, w) as i128
+        } else {
+            mask(ty, w) as i128
+        }
+    };
+    // A shift amount is a count, never a signed number: a big word is a big shift.
+    let rhs = if matches!(iop, IntOp::Shl | IntOp::Shr | IntOp::Rotl | IntOp::Rotr) {
+        y as i128
+    } else {
+        operand(y)
+    };
+    let bits = ty.size() as u8 * 8;
+    int_binop(iop, operand(x), rhs, bits, signed).map(|r| mask(ty, r as u64))
+}
+
 /// A binary operation other than a division, which cannot fail.
 #[inline(always)]
 pub(crate) fn bin_total(op: BinOp, ty: Ty, x: u64, y: u64) -> u64 {
-    let bits = ty.size() as u32 * 8;
     match op {
-        BinOp::Add => mask(ty, x.wrapping_add(y)),
-        BinOp::Sub => mask(ty, x.wrapping_sub(y)),
-        BinOp::Mul => mask(ty, x.wrapping_mul(y)),
         BinOp::SDiv | BinOp::SRem | BinOp::UDiv | BinOp::URem => {
             unreachable!("divisions go through `Interp::divide`")
         }
-        BinOp::And => x & y,
-        BinOp::Or => x | y,
-        BinOp::Xor => x ^ y,
-        BinOp::Shl => {
-            if y >= bits as u64 {
-                0
-            } else {
-                mask(ty, x << y)
-            }
-        }
-        BinOp::LShr => {
-            if y >= bits as u64 {
-                0
-            } else {
-                x >> y
-            }
-        }
-        BinOp::AShr => mask(ty, (sext(ty, x) >> y.min(63)) as u64),
-        BinOp::Rotl | BinOp::Rotr => {
-            let s = (y % bits as u64) as u32;
-            let s = if op == BinOp::Rotr {
-                (bits - s) % bits
-            } else {
-                s
-            };
-            rotate_left(ty, x, s)
-        }
+        BinOp::Add
+        | BinOp::Sub
+        | BinOp::Mul
+        | BinOp::And
+        | BinOp::Or
+        | BinOp::Xor
+        | BinOp::Shl
+        | BinOp::LShr
+        | BinOp::AShr
+        | BinOp::Rotl
+        | BinOp::Rotr => int_bin(op, ty, x, y).unwrap_or_else(|_| unreachable!("cannot fail")),
         BinOp::FAdd | BinOp::FSub | BinOp::FMul | BinOp::FDiv => {
             if ty == Ty::F32 {
                 let (a, b) = (f32::from_bits(x as u32), f32::from_bits(y as u32));
@@ -77,15 +103,6 @@ pub(crate) fn bin_total(op: BinOp, ty: Ty, x: u64, y: u64) -> u64 {
             }
         }
     }
-}
-
-/// `x` rotated left by `s` bits (`s` below the width of `ty`).
-fn rotate_left(ty: Ty, x: u64, s: u32) -> u64 {
-    if s == 0 {
-        return x;
-    }
-    // The two halves share no bits, so joining them with `|` or `^` is the same.
-    mask(ty, (x << s) | (x >> (ty.size() as u32 * 8 - s)))
 }
 
 #[inline]
@@ -181,24 +198,8 @@ pub(super) fn conv(op: ConvOp, from: Ty, to: Ty, v: u64) -> u64 {
         ConvOp::Trunc => mask(to, v),
         ConvOp::ZExt => mask(from, v),
         ConvOp::SExt => mask(to, sext(from, v) as u64),
-        ConvOp::FToS => mask(
-            to,
-            match to {
-                Ty::I8 => f(v) as i8 as u64,
-                Ty::I16 => f(v) as i16 as u64,
-                Ty::I32 => f(v) as i32 as u64,
-                _ => f(v) as i64 as u64,
-            },
-        ),
-        ConvOp::FToU => mask(
-            to,
-            match to {
-                Ty::I8 => f(v) as u8 as u64,
-                Ty::I16 => f(v) as u16 as u64,
-                Ty::I32 => f(v) as u32 as u64,
-                _ => f(v) as u64,
-            },
-        ),
+        ConvOp::FToS => mask(to, float_to_int(f(v), to.size() as u8 * 8, true) as u64),
+        ConvOp::FToU => mask(to, float_to_int(f(v), to.size() as u8 * 8, false) as u64),
         // Straight to the target width: going through f64 first rounds twice, which is wrong
         // for 64-bit integers whose bits below f64's precision decide an f32 tie.
         ConvOp::SToF if to == Ty::F32 => (sext(from, v) as f32).to_bits() as u64,

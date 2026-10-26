@@ -1,5 +1,5 @@
 //! Executing one op of a procedure.
-use super::arith::{bin_total, cmp, conv, divides, mask, sext};
+use super::arith::{bin_total, cmp, conv, divides, int_bin, mask};
 use super::frames::Frame;
 use super::trap::TrapKind;
 use super::{FOREIGN_TAG, FUNC_TAG, Interp, Res, TAG_MASK};
@@ -251,30 +251,10 @@ impl Interp {
 
     /// `SDiv`, `SRem`, `UDiv` or `URem`: the binary operations that can fail.
     pub(super) fn divide(&self, op: BinOp, ty: Ty, x: u64, y: u64) -> Res<u64> {
-        Ok(match op {
-            BinOp::SDiv | BinOp::SRem => {
-                let (a, b) = (sext(ty, x), sext(ty, y));
-                if b == 0 {
-                    return self.check_trap(ir::CheckReason::DivideByZero, 0, 0);
-                }
-                let r = if op == BinOp::SDiv {
-                    a.wrapping_div(b)
-                } else {
-                    a.wrapping_rem(b)
-                };
-                mask(ty, r as u64)
-            }
-            _ => {
-                if y == 0 {
-                    return self.check_trap(ir::CheckReason::DivideByZero, 0, 0);
-                }
-                if op == BinOp::UDiv {
-                    x / y
-                } else {
-                    x % y
-                }
-            }
-        })
+        match int_bin(op, ty, x, y) {
+            Ok(r) => Ok(r),
+            Err(_) => self.check_trap(ir::CheckReason::DivideByZero, 0, 0),
+        }
     }
 
     /// `Intrinsic::CheckFailed` (reason, a, b, fatal): a trap, or a warning with the location

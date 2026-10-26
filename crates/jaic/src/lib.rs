@@ -21,6 +21,7 @@ pub mod fiber;
 pub mod format_string;
 pub mod fxhash;
 pub mod ide;
+pub mod int_arith;
 pub mod intern;
 pub mod interp;
 pub mod interpolate;

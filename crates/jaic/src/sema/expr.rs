@@ -785,19 +785,6 @@ impl Compiler {
     }
 }
 
-pub fn wrap_int(v: i128, bits: u8, signed: bool) -> i128 {
-    if bits >= 128 {
-        return v;
-    }
-    let mask = (1i128 << bits) - 1;
-    let x = v & mask;
-    if signed && bits > 0 && (x >> (bits - 1)) & 1 == 1 {
-        x - (1i128 << bits)
-    } else {
-        x
-    }
-}
-
 /// Whether a cast operand has no type without context: an inferred `.NAME`, an untyped `.{...}`
 /// or `.[...]`, or operators and `ifx` built only from those (`cast(Flags) (.A | .B)`).
 /// Everything else is typed bottom-up before the cast converts it {#cast.29}.

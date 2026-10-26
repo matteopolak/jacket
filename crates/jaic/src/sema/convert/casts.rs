@@ -3,7 +3,7 @@ use super::{int_constant_fits, int_to_float};
 use crate::ir::{ConvOp, Ty};
 use crate::sema::SourceState;
 use crate::sema::lower::{FnCtx, Operand};
-use crate::sema::{Compiler, Diagnostic, Result, Span, TypeId, Value, ast, expr, ir};
+use crate::sema::{Compiler, Diagnostic, Result, Span, TypeId, Value, ast, ir};
 use crate::source::{Applicability, Suggestion};
 use crate::types::{ArrayKind, TypeKind};
 
@@ -342,7 +342,7 @@ impl Compiler {
                 // A raw address is a scalar bit pattern, not a request to capture
                 // pointed-to memory. Use the target width, never the host's usize.
                 let bits = (self.ty.types.pointer_size * 8) as u8;
-                let address = expr::wrap_int(*i, bits, false);
+                let address = crate::int_arith::wrap(*i, bits, false);
                 Some(if address == 0 {
                     Value::Null
                 } else {
@@ -364,11 +364,11 @@ impl Compiler {
                     x.to_bits() as i128
                 };
                 let (width, signed) = self.ty.types.int_info(tr).unwrap();
-                Some(Value::Int(expr::wrap_int(bits, width, signed)))
+                Some(Value::Int(crate::int_arith::wrap(bits, width, signed)))
             }
             Value::Int(i) if self.ty.types.is_integer(tr) => {
                 let (bits, signed) = self.ty.types.int_info(tr).unwrap();
-                Some(Value::Int(expr::wrap_int(*i, bits, signed)))
+                Some(Value::Int(crate::int_arith::wrap(*i, bits, signed)))
             }
             Value::Int(i) if self.ty.types.is_float(tr) => Some(Value::float(int_to_float(*i, tr))),
             Value::Float(x, _) if self.ty.types.is_float(tr) => {
@@ -380,13 +380,7 @@ impl Compiler {
             }
             Value::Float(x, _) if self.ty.types.is_integer(tr) => {
                 let (bits, signed) = self.ty.types.int_info(tr).unwrap();
-                // Out of range saturates, as it does when the cast runs.
-                let (lo, hi) = if signed {
-                    (-(1i128 << (bits - 1)), (1i128 << (bits - 1)) - 1)
-                } else {
-                    (0, (1i128 << bits) - 1)
-                };
-                Some(Value::Int((*x as i128).clamp(lo, hi)))
+                Some(Value::Int(crate::int_arith::float_to_int(*x, bits, signed)))
             }
             Value::Bool(b) if self.ty.types.is_integer(tr) => Some(Value::Int(*b as i128)),
             Value::Int(i) if tr == TypeId::BOOL => Some(Value::Bool(*i != 0)),
