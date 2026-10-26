@@ -67,6 +67,11 @@ def main():
     )
     parser.add_argument("--native-libs", required=True, type=Path)
     parser.add_argument(
+        "--tooling-part",
+        metavar="K/N",
+        help="run only part K of N of the tooling suite's units (passed to check_developer_tools.py --part)",
+    )
+    parser.add_argument(
         "--verbose",
         "-v",
         action="store_true",
@@ -88,6 +93,10 @@ def main():
     args = parser.parse_args()
     if args.jobs < 1:
         parser.error("--jobs must be at least 1")
+    if args.tooling_part:
+        index, _, count = args.tooling_part.partition("/")
+        if not (index.isdecimal() and count.isdecimal() and 1 <= int(index) <= int(count)):
+            parser.error("--tooling-part must be K/N with 1 <= K <= N")
     selected = [s for s in (args.suite or SUITES) if s not in args.exclude]
     compiler, library = args.jaic.resolve(strict=True), args.stdlib.resolve(strict=True)
     lint, fmt = args.jailint.resolve(strict=True), args.jaifmt.resolve(strict=True)
@@ -199,6 +208,8 @@ def main():
         ],
         "tooling": ["tools/developer_checks/check_developer_tools.py"],
     }
+    if args.tooling_part:
+        commands["tooling"] += ["--part", args.tooling_part]
     if args.private_x11_display:
         commands["numerics-native"].append("--private-x11-display")
     failures = []

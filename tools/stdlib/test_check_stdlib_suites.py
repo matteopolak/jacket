@@ -57,6 +57,15 @@ class Driver(unittest.TestCase):
         self.assertEqual(len(started), len(suites.SUITES) - 1)
         self.assertEqual(peak, 1)
 
+    def test_tooling_part_reaches_only_the_tooling_command(self):
+        failed, started, _ = self.run_main("--tooling-part", "2/4")
+        self.assertFalse(failed)
+        tails = {str(command[1]): command[-2:] for command in started}
+        parted = [path for path, tail in tails.items() if tail == ["--part", "2/4"]]
+        self.assertEqual([Path(path).name for path in parted], ["check_developer_tools.py"])
+        with self.assertRaises(SystemExit):
+            self.run_main("--tooling-part", "5/4")
+
     def test_groups_run_concurrently(self):
         failed, started, peak = self.run_main("--jobs", "4")
         self.assertFalse(failed)
