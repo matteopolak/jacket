@@ -569,11 +569,7 @@ def runtime(target, output_dir):
         raise SystemExit(
             "native preparation requires the actual host; cross SDK builds are separate"
         )
-    temporary = (
-        cargo_target_dir()
-        / "native-helpers"
-        / target
-    )
+    temporary = cargo_target_dir() / "native-helpers" / target
     output = (output_dir or temporary / "crash-runtime").resolve()
     temporary.mkdir(parents=True, exist_ok=True)
     plan = build_plan(
@@ -606,11 +602,7 @@ def watcher(output_dir):
     `output_dir` (default: target/native-helpers/macos-watch)."""
     if platform.system() != "Darwin":
         raise SystemExit("native watcher backend currently supports macOS only")
-    output = (
-        output_dir
-        or cargo_target_dir()
-        / "native-helpers/macos-watch"
-    )
+    output = output_dir or cargo_target_dir() / "native-helpers/macos-watch"
     output.mkdir(parents=True, exist_ok=True)
     directory = ROOT / "stdlib/internal/watching/native"
     subprocess.run(

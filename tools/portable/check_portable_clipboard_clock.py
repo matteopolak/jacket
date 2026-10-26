@@ -58,7 +58,11 @@ def main():
 
     native = ROOT / "stdlib/internal/clipboard/native"
     test = ROOT / "stdlib/Clipboard/tests/native/clock-failure.c"
-    sdk = [f"-I{brew_prefix() / 'include'}", f"-L{brew_prefix() / 'lib'}"] if brew_prefix() else []
+    sdk = (
+        [f"-I{brew_prefix() / 'include'}", f"-L{brew_prefix() / 'lib'}"]
+        if brew_prefix()
+        else []
+    )
     for optimization in ["-O0", "-O2"]:
         program = work / ("clock" + optimization)
         if run(
