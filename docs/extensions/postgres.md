@@ -482,3 +482,69 @@ Tests (`stdlib/Extensions/Postgres/tests`):
   The script needs `initdb`, `pg_ctl` and `psql` (PostgreSQL 15 or later) on `PATH` or in
   `PG_BIN`. It creates the roles `jai_md5`, `jai_scram`, `jai_clear` and `jai_tls_scram`, with
   `pg_hba.conf` rules that force each method.
+
+## Compared with the community libraries
+
+Jacket's Postgres client next to [`rluba--jai-postgres`](https://github.com/rluba/jai-postgres), the PostgreSQL library in the upstream corpus: bindings to the C library `libpq` and a few typed helpers on top. The cells come from reading each library's source; ⚠ has a note. Where the right-hand column says "libpq", the feature is the C library's and the wrapper passes it through.
+
+| Feature | Jacket Postgres | jai-postgres |
+| --- | --- | --- |
+| How it talks to the server | the wire protocol, written in Jai, on `Io` fibers | `libpq` (a native library that must be installed and linked) |
+| Waiting for the server | ✅ a fiber waits, the thread runs others; deadlines and cancel | ❌ blocking calls ("only supports synchronous execution") |
+| Connect | ✅ `connect` | ⚠ [1] |
+| URL and `sslmode`, several hosts, `target_session_attrs` | ✅ | ✅ libpq |
+| TLS, client certificates | ✅ `Tls` module | ✅ libpq |
+| Password authentication (SCRAM-SHA-256 with and without channel binding, MD5, cleartext) | ✅ | ✅ libpq |
+| Kerberos/GSS and SSPI | ❌ | ✅ libpq |
+| Parameters in binary format | ⚠ [2] | ✅ |
+| Query parameter types | ✅ integers, floats, bool, strings, bytea, uuid, dates and times, intervals, numeric, json, enums, arrays | ⚠ [3] |
+| Prepared statements kept per connection | ✅ cache with least-recently-used closing | ❌ [4] |
+| Decode a row into a struct | ✅ `get` by column, typed queries | ✅ `execute(conn, T, ...)`, by walking `Type_Info` at run time |
+| NULL | ✅ `Nullable(T)`; into a plain type is an error | ⚠ [5] |
+| Column types | ✅ ints, floats, bool, text, bytea, uuid, dates, times, intervals, numeric, json/jsonb, enums, arrays | ⚠ [6] |
+| Errors | ✅ `Pg_Error` with kind, SQLSTATE, position, detail | ⚠ [7] |
+| Transactions | ✅ `transaction` with isolation level and retries | ⚠ `execute(conn, "begin")` |
+| Pipelining | ✅ | ❌ |
+| COPY in and out | ✅ | ❌ |
+| LISTEN/NOTIFY | ✅ `listen`, `Listener` that reconnects | ❌ |
+| Connection pool | ✅ | ❌ |
+| Cancel a running query | ✅ | ❌ |
+
+1. The wrapper's `connect` calls `PQconnectStart` and then `PQconnectPoll` in a loop without waiting for the socket. Inside the benchmark sandbox, where `psql` and `PQconnectdb` reach the same server, that loop ended with `CONNECTION_BAD`; the benchmark connects with `PQconnectdb` and uses the wrapper from there on.
+2. Floats, bytea, uuid, dates, times and arrays go as binary; integers, bools and strings go as text with type 0, so the server infers the type from the statement. The results can be asked for in binary (`query_binary`).
+3. Signed integers, `float`, `float64`, `string` and `bool`. An unsigned integer fails an `assert`; arrays are a `@ToDo` in the source; any other type logs "Unsupported param type".
+4. `PQsendQueryParams` with the unnamed statement: every call sends Parse, Bind and Execute.
+5. A NULL column leaves the member at its default, so it cannot be told from a stored default.
+6. Integers, floats, bool, char/varchar/text/name, date and timestamps, bytea, oid, uuid and enums. `numeric` only into a `string`; no arrays, json, intervals or times of day.
+7. `connect` and `execute` return a bool and log the server's message with `log_error`.
+
+### How it was measured
+
+`benchmarks/compare/postgres/benches/postgres.jai`, run by `tools/bench/library_compare.py postgres` against a PostgreSQL 17.11 server on `127.0.0.1` (installed with Homebrew, `fsync` on, default settings), with the tables of `setup.sql`; the sandbox allows the loopback interface only (see [library comparisons](../tools/library-comparisons.md)). The client and the server share the machine, so the numbers measure the client and the protocol, not the network.
+
+- **point_select**: one `select id, name, qty, price, active, note from items where id = $1` on a 100,000-row table (primary key), a random id each iteration, the row decoded into a struct. `point_select_prepared` is the same through the statement cache; `point_select_tls` repeats it over TLS (`sslmode=require`).
+- **bulk_insert**: 1,000 single-row `insert ... values ($1, $2, $3, $4)` inside one transaction, after `truncate`, into a temporary table (so the server's write-ahead log and its flushes are not what is measured). `bulk_insert_pipeline` queues the same inserts in a pipeline; `bulk_insert_copy` sends the 1,000 rows as one binary `COPY`. The last two have no counterpart in jai-postgres.
+- **wide_fetch**: `select * from wide`, 1,000 rows of 24 columns (integers, floats, booleans, text of different lengths, `numeric`), decoded into structs.
+
+Each iteration of the libpq benchmarks allocates from a bump pool that is emptied after the call. Both clients use one connection made before the timer starts.
+
+Apple M5 (10 cores: 4 Super and 6 Efficiency), 16 GB, macOS 27.0 arm64. The machine was a working desktop, not an idle one: the load average when the run began was 5.82, so absolute times carry a few percent of noise (the intervals show the part that was measured within one run) and the ratios are the result to read.
+
+Time per iteration with the 95% interval, and the ratio to Jacket (above 1: slower than Jacket). `bulk_insert` and `wide_fetch` are per 1,000 rows.
+
+| Workload | jacket | libpq |
+| --- | --- | --- |
+| point_select | 33.8 us (33.5 us to 34 us) | 32.8 us (32.6 us to 33 us) 0.97x |
+| point_select_prepared | 23.4 us (23.3 us to 23.7 us) | n/a |
+| point_select_tls | 37.3 us (37.2 us to 37.4 us) | 37.5 us (37.4 us to 37.6 us) 1.00x |
+| bulk_insert | 26.9 ms (26.8 ms to 27.1 ms) | 27.5 ms (27.2 ms to 27.8 ms) 1.02x |
+| bulk_insert_pipeline | 6.48 ms (6.28 ms to 6.72 ms) | n/a |
+| bulk_insert_copy | 3.19 ms (2.08 ms to 4.62 ms) | n/a |
+| wide_fetch | 1.46 ms (1.45 ms to 1.48 ms) | 1.3 ms (1.29 ms to 1.31 ms) 0.89x |
+
+Reading the table:
+
+- **Single statements are level.** A point select costs 33 us on both because the time is the round trip to the server; the wire protocol written in Jai neither helps nor hurts, and TLS adds the same 4 us to both. The prepared path saves another 10 us of parse and plan work on the server, which the wrapper can not do (note 4).
+- **`wide_fetch` is 1.1x slower than libpq** (1.46 ms against 1.30 ms for 24,000 values); this is the one row where the C library is ahead.
+- **Where the protocol allows it, Jacket is much faster than any single-statement loop.** The pipeline sends the 1,000 inserts without waiting for each answer (4x quicker than the loop) and binary `COPY` loads the same rows in 3 ms (8x). jai-postgres can do neither.
+- The libpq columns connect with `PQconnectdb` because the wrapper's own connect did not finish inside the sandbox (note 1).
