@@ -14,6 +14,9 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::rc::Rc;
 
+/// Compile-time runs listed by `-profile_runs`.
+const RUN_COST_ROWS: usize = 25;
+
 pub(super) fn run(cli: Cli) -> ExitCode {
     jaic::knobs::set(tuning::knobs(&cli));
     if cli.timings {
@@ -26,6 +29,9 @@ pub(super) fn run(cli: Cli) -> ExitCode {
     timings::report();
     // Interpreters flush their `-profile` counts when dropped, which has happened by now.
     if let Some(report) = jaic::interp::profile::report(40) {
+        eprint!("{report}");
+    }
+    if let Some(report) = jaic::interp::profile::run_report(RUN_COST_ROWS) {
         eprint!("{report}");
     }
     jaic::interp::profile::write_coverage();

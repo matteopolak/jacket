@@ -1,4 +1,4 @@
-//! The interpreter's opt-in counters: `-profile`, `-profile_ops` and `-coverage_file`.
+//! The interpreter's opt-in counters: `-profile`, `-profile_ops`, `-profile_runs` and `-coverage_file`.
 use std::path::Path;
 use std::process::Command;
 
@@ -105,4 +105,58 @@ fn coverage_file_lists_the_procedures_that_ran() {
         );
         assert!(!text.contains(" unused"), "{name}: {text}");
     }
+}
+
+/// `-profile_runs` lists the top-level compile-time runs by the blocks they ran, with their
+/// share and place, and prints nothing unless asked.
+#[test]
+fn profile_runs_lists_compile_time_runs_by_cost() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-profile-runs");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("runs.jai");
+    std::fs::write(
+        &source,
+        "count :: (n: int) -> int {\n\
+         \x20   total := 0;\n\
+         \x20   for 0..n { total += it; }\n\
+         \x20   return total;\n\
+         }\n\
+         #run count(10);\n\
+         #run count(30000);\n\
+         #run count(10000);\n\
+         main :: () {}\n",
+    )
+    .unwrap();
+    let output = Command::new(JAIC)
+        .args(["-check", "-profile_runs"])
+        .arg(&source)
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "{stderr}");
+    assert!(stderr.contains("compile-time runs: "), "{stderr}");
+    let rows: Vec<&str> = stderr
+        .lines()
+        .filter(|line| line.contains("runs.jai:"))
+        .collect();
+    assert_eq!(rows.len(), 3, "{stderr}");
+    // Costliest first: the 30000 loop (line 7), then 10000 (line 8), then 10 (line 6).
+    for (row, line) in rows.iter().zip([7, 8, 6]) {
+        assert!(row.contains(&format!("runs.jai:{line}:")), "{row}");
+    }
+    assert!(rows[0].trim_start().starts_with('7'), "{}", rows[0]);
+    assert!(
+        rows[0].contains('%') && rows[0].contains(" ms"),
+        "{}",
+        rows[0]
+    );
+    let plain = Command::new(JAIC)
+        .arg("-check")
+        .arg(&source)
+        .output()
+        .unwrap();
+    assert!(
+        !String::from_utf8_lossy(&plain.stderr).contains("compile-time runs"),
+        "the cost table is opt-in"
+    );
 }

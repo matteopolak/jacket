@@ -23,6 +23,8 @@ pub(super) struct Tuning {
     /// `-profile`, `-profile_ops`, `-coverage_file`: the interpreter's counters.
     pub profile_counts: bool,
     pub profile_ops: bool,
+    /// `-profile_runs`: the cost of each compile-time run.
+    pub profile_runs: bool,
     pub coverage_file: Option<PathBuf>,
     /// The `-dev_*` flags, for studying the compiler (unlisted in `-help`).
     pub body_probe: bool,
@@ -83,6 +85,7 @@ pub(super) fn knobs(cli: &Cli) -> jaic::knobs::Knobs {
             (_, true) => jaic::knobs::Profile::Counts,
             _ => jaic::knobs::Profile::Off,
         },
+        run_costs: t.profile_runs,
         coverage_file: t.coverage_file.clone(),
         body_probe: t.body_probe,
         body_fifo: t.body_fifo,
@@ -154,6 +157,15 @@ const OPTIONS: &[CliOption] = &[
         Diagnostics,
         "-profile",
         "count what the interpreter runs per procedure and print the busiest",
+    ),
+    CliOption::new(
+        &["-profile_runs"],
+        Action::Switch(|cli| &mut cli.tuning.profile_runs),
+    )
+    .help(
+        Diagnostics,
+        "-profile_runs",
+        "print the compile-time runs (#run, constants, metaprograms) by the work they did",
     ),
     CliOption::new(
         &["-profile_ops"],
