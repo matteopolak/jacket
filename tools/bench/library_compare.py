@@ -40,8 +40,20 @@ def default_jacket() -> Path:
     return cargo_binary('jacket', 'release')
 
 
+def jacket_stdlib(jacket: Path) -> list[Path]:
+    """The stdlib the jaic next to `jacket` uses. A build reads the stdlib of the checkout it was built
+    in, which need not be this one. Only our own jaic is asked: it is a build of this project, never the
+    reference compiler or community code."""
+    jaic = jacket.with_name('jaic')
+    if not jaic.is_file():
+        return []
+    result = subprocess.run([str(jaic), '-print_stdlib'], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+    folder = Path(result.stdout.strip()) if result.returncode == 0 else None
+    return [folder.resolve()] if folder and folder.is_dir() else []
+
+
 def sandbox_for(jacket: Path, upstream: Path, scratch: Path, extra_reads: list[Path], loopback: bool) -> Sandbox:
-    reads = [*install_reads(parse_compiler(f'jacket={jacket}')), upstream, Path(sys.base_prefix), *extra_reads]
+    reads = [*install_reads(parse_compiler(f'jacket={jacket}')), *jacket_stdlib(jacket), upstream, Path(sys.base_prefix), *extra_reads]
     return Sandbox(reads=reads, writes=[scratch], loopback=loopback)
 
 
