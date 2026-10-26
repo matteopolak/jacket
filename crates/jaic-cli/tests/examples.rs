@@ -65,10 +65,7 @@ fn loads(file: &Path) -> Vec<PathBuf> {
 
 fn relative(path: &Path) -> String {
     let root = examples_dir().canonicalize().unwrap();
-    path.strip_prefix(&root)
-        .unwrap()
-        .to_string_lossy()
-        .replace('\\', "/")
+    jacket_config::slashed(path.strip_prefix(&root).unwrap())
 }
 
 #[test]

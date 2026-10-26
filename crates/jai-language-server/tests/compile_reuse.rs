@@ -70,7 +70,7 @@ fn a_new_buffer_the_program_looks_for_recompiles_it() {
 fn a_buffer_compile_time_code_read_recompiles_the_program() {
     let main = "#import \"Basic\";\n#import \"File\";\nDATA :: #run read_entire_file(\"#DIR/data.txt\");\nmain :: () {\n    #assert DATA == \"one\";\n}\n";
     let dir = project("reuse-run-read", &[("data.txt", "one")]);
-    let main = main.replace("#DIR", &dir.to_string_lossy().replace('\\', "/"));
+    let main = main.replace("#DIR", &jacket_config::slashed(&dir));
     std::fs::write(dir.join("main.jai"), &main).unwrap();
     let um = uri_of(&dir.join("main.jai"));
     let ud = uri_of(&dir.join("data.txt"));

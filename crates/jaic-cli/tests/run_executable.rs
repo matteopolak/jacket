@@ -26,16 +26,14 @@ fn run_reports_the_built_executable_path() {
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    let printed = String::from_utf8_lossy(&output.stdout)
-        .trim()
-        .replace('\\', "/");
+    let printed = jacket_config::to_slash(String::from_utf8_lossy(&output.stdout).trim());
     let name = if cfg!(windows) {
         "game.exe"
     } else {
         "game"
     };
     let expected = std::fs::canonicalize(dir.join("src")).unwrap().join(name);
-    let expected = expected.display().to_string().replace('\\', "/");
+    let expected = jacket_config::slashed(&expected);
     assert_eq!(
         printed.trim_start_matches("//?/"),
         expected.trim_start_matches("//?/")

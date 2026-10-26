@@ -19,5 +19,8 @@ serde_json = "=1.0.151"
 # imports as safe functions taking addresses (host_bridge.rs). The playground and language-server
 # bridges use no unsafe blocks or raw host memory pointers (the jaic interpreter's own unsafe
 # stays inside that crate).
+[build-dependencies]
+jacket-config = { path = "../jacket-config" }
+
 [lints]
 workspace = true

@@ -19,16 +19,7 @@ pub fn module_entry(dir: &Path) -> PathBuf {
     dir.join(MODULE_ENTRY)
 }
 
-/// `path` with every `\` written `/`: the spelling paths take in program text, module keys and
-/// golden output, so they read the same on every host.
-pub fn to_slash(path: &str) -> String {
-    path.replace('\\', "/")
-}
-
-/// [`to_slash`] of a path, lossily.
-pub fn slashed(path: &Path) -> String {
-    to_slash(&path.to_string_lossy())
-}
+pub use jacket_config::{slashed, to_slash};
 
 /// The name a module is known by: its path below an import directory, `/`-separated
 /// (`Extensions/SIMD`).

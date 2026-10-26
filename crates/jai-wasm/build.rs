@@ -42,7 +42,7 @@ fn main() {
     let mut files = Vec::new();
     collect(&root, &root, &mut files);
     for relative in &files {
-        let name = format!("stdlib/{}", relative.to_string_lossy().replace('\\', "/"));
+        let name = format!("stdlib/{}", jacket_config::slashed(relative));
         let absolute = root.join(relative);
         println!("cargo:rerun-if-changed={}", absolute.display());
         let _ = writeln!(

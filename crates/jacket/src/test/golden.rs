@@ -354,7 +354,7 @@ pub fn normalize_paths(text: &str, dir: &Path, stdlib: &Path) -> String {
         for path in [Some(path), real.as_deref()].into_iter().flatten() {
             let plain = path.to_string_lossy().into_owned();
             let plain = plain.strip_prefix(r"\\?\").unwrap_or(&plain).to_string();
-            let forward = plain.replace('\\', "/");
+            let forward = jacket_config::to_slash(&plain);
             for form in [plain, forward] {
                 if !form.is_empty() {
                     text = text.replace(&form, name);
@@ -366,7 +366,7 @@ pub fn normalize_paths(text: &str, dir: &Path, stdlib: &Path) -> String {
     text.lines()
         .map(|line| {
             if line.contains("$DIR\\") || line.contains("$STDLIB\\") {
-                line.replace('\\', "/")
+                jacket_config::to_slash(line)
             } else {
                 line.to_string()
             }

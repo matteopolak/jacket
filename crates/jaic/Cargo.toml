@@ -10,6 +10,7 @@ description = "Jai compiler core: lexer, parser, demand-driven semantic analysis
 rayon.workspace = true
 find-msvc-tools.workspace = true
 pulldown-cmark.workspace = true
+jacket-config = { path = "../jacket-config" }
 
 [lints]
 workspace = true

@@ -253,6 +253,7 @@ dependencies = [
 name = "jai-wasm"
 version = "0.29.0"
 dependencies = [
+ "jacket-config",
  "jai-language-server",
  "jaic",
  "serde_json",
@@ -263,6 +264,7 @@ name = "jaic"
 version = "0.29.0"
 dependencies = [
  "find-msvc-tools",
+ "jacket-config",
  "pulldown-cmark",
  "rayon",
 ]

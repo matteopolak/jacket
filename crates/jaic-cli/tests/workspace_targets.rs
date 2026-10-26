@@ -106,7 +106,7 @@ fn workspace_options_emit_the_requested_object_format_and_machine() {
 }}
 main :: () {{}}
 "#,
-            directory.display().to_string().replace('\\', "/")
+            jacket_config::slashed(&directory)
         );
         std::fs::write(&source, text).unwrap();
         let result = Command::new(env!("CARGO_BIN_EXE_jaic"))

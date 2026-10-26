@@ -53,7 +53,7 @@ main :: () {}
 fn program(request: &str) -> String {
     let upper = common::repo_path("stdlib/Extensions/Service/tests/services/upper.jai");
     PROGRAM
-        .replace("{UPPER}", &upper.to_string_lossy().replace('\\', "/"))
+        .replace("{UPPER}", &jacket_config::slashed(&upper))
         .replace("{REQUEST}", request)
 }
 

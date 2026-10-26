@@ -61,7 +61,7 @@ fn path_text(path: &Path) -> String {
 
 /// `path` as a Jai string literal, with `/` separators.
 fn literal(path: &Path) -> String {
-    let text = path_text(path).replace('\\', "/");
+    let text = jacket_config::slashed(path);
     format!("\"{}\"", text.replace('"', "\\\""))
 }
 

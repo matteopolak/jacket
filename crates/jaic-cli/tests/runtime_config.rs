@@ -75,7 +75,7 @@ fn finalized_workspace_sizes_allocate_real_runtime_storage() {
             }}
         "#
         );
-        let path = dir.to_string_lossy().replace('\\', "/");
+        let path = jacket_config::slashed(&dir);
         build.push_str(&format!(
             r#"
             {{

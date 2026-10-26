@@ -31,6 +31,17 @@ pub const INFERRED_ENTRIES: &[&str] = &[
     "module.jai",
 ];
 
+/// `path` with every `\` written `/`: the spelling paths take in program text, module keys,
+/// golden output and generated sources, so they read the same on every host.
+pub fn to_slash(path: &str) -> String {
+    path.replace('\\', "/")
+}
+
+/// [`to_slash`] of a path, lossily.
+pub fn slashed(path: &Path) -> String {
+    to_slash(&path.to_string_lossy())
+}
+
 /// Whether `path` names a settings file (`jacket.toml`).
 pub fn is_config_file(path: &Path) -> bool {
     path.file_name().is_some_and(|name| name == FILE_NAME)

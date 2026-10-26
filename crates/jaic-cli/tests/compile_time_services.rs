@@ -33,7 +33,7 @@ fn jaic(dir: &Path, args: &[&str]) -> Output {
 /// A program whose compile-time code asks the toy service `services/upper.jai` with `body`.
 fn program(body: &str) -> String {
     let upper = tests_dir().join("services/upper.jai");
-    let upper = upper.to_string_lossy().replace('\\', "/");
+    let upper = jacket_config::slashed(&upper);
     format!(
         "#import \"Basic\";\nService :: #import \"Extensions/Service\";\n\
          UPPER :: \"{upper}\";\n{body}\nmain :: () {{}}\n"
