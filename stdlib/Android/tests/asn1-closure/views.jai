@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Caller storage owns both ASN.1 views; prefix lengths are explicitly LE u32.
 #import "Basic";
 A :: #import "Android/Toolchain";

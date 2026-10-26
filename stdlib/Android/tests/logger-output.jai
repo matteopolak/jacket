@@ -1,3 +1,4 @@
+// test: only(.LINUX,.MACOS)
 // Independent host control for the real shared Runtime queues and logger core.
 // The sink writes actual host descriptors; this is not an Android SDK mock.
 Log :: #import "internal/bindings/android-log";

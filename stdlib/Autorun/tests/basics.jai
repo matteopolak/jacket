@@ -1,3 +1,4 @@
+// test: skip_on(.WASM) only(.LINUX,.MACOS,.WINDOWS)
 #import "Basic";
 A :: #import "Autorun";
 C :: #import "Compiler";

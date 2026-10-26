@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Reviewed ZIP version/EOCD constants and standard ZIP CRC32 wire behavior.
 #import "Basic";
 using A :: #import "Android/Toolchain";

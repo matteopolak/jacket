@@ -1,3 +1,4 @@
+// test: warns("`operator *[]` is not in scope here")
 #import "Type_Only";
 
 verify :: () -> bool {

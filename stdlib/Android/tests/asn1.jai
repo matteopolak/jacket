@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Reviewed ASN.1 public shapes plus independent standard primitive wire vectors.
 #import "Basic";
 A :: #import "Android/Toolchain";

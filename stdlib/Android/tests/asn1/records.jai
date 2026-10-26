@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Refreshed reviewed ASN1_Value views/consumption, expected tags and u32 prefix.
 #import "Basic";
 A :: #import "Android/Toolchain";

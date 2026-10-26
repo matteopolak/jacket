@@ -1,3 +1,4 @@
+// test: skip_on(.WASM) should_fail("Deep_Copy does not support fixed arrays")
 D :: #import "Deep_Copy";
 
 main :: () {

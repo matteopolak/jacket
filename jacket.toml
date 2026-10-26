@@ -281,9 +281,24 @@ ignore = ["tests/corpus/**", "stdlib/Extensions/Jai_Format/tests/fixtures/**", "
 [test]
 # The folders `jacket test` runs (see docs/tools/jacket-test.md): each has a `tests/` folder.
 # Run inside one of them, it runs only that one. The other stdlib modules' runtime tests are in
-# their tests/manifest.json, run by tools/stdlib/stdlib_runtime.py, which skips these folders.
+# their tests/manifest.json, run by tools/stdlib/stdlib_runtime.py, which skips these folders
+# (migrating one: docs/tools/jacket-test.md, "Migrating from tests/manifest.json").
 paths = [
+    "stdlib/Adpcm",
+    "stdlib/Android",
+    "stdlib/Atomics",
+    "stdlib/Autorun",
+    "stdlib/Base64",
     "stdlib/Bit_Array",
+    "stdlib/Bucket_Array",
+    "stdlib/Code_Visit",
+    "stdlib/Color_Interpolation",
+    "stdlib/Command_Line",
+    "stdlib/Deep_Copy",
+    "stdlib/Default_Allocator",
+    "stdlib/Extensions/Args",
+    "stdlib/Extensions/Byte_Search",
+    "stdlib/Extensions/Deflate",
     "stdlib/Extensions/Testing",
     "stdlib/Hash_Table",
     "stdlib/String",

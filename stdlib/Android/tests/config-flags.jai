@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Reviewed Android/Toolchain Android_Config_Changes values; SDK pipe grammar.
 #import "Basic";
 A :: #import "Android/Toolchain";

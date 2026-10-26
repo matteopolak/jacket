@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Independent diagnosed unsupported inputs, with fatal result checks restored.
 #import "Basic";
 A :: #import "Android/Toolchain";

@@ -1,3 +1,4 @@
+// test: only(.ANDROID)
 // Exact reviewed public Android shapes; compile with the actual Android target.
 #import "Basic";
 S :: #import "Socket";

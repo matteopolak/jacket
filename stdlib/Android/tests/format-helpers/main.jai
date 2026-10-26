@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Reviewed baked aliases must retain the canonical Basic formatter and defaults.
 using #import "Basic";
 A :: #import "Android/Toolchain";

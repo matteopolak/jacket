@@ -1,3 +1,4 @@
+// test: should_fail("atomic bit index out of range")
 A :: #import "Atomics";
 
 main :: () {

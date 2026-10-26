@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Explicit traversal-stack safety and exact four-space indentation.
 #import "Basic";
 A :: #import "Android/Toolchain";

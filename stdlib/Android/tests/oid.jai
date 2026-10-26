@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Reviewed Android/Toolchain OID shape and complete-record equality.
 #import "Basic";
 A :: #import "Android/Toolchain";

@@ -1,0 +1,4 @@
+jks-magic-store.jai:5:5: error: cannot assign to constant `A.JKS_MAGIC`
+        A.JKS_MAGIC = 0;
+        ^^^^^^^^^^^
+

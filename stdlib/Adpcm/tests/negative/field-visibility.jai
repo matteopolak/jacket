@@ -1,3 +1,4 @@
+// test: compile_fail
 A :: #import "Adpcm";
 
 main :: () {

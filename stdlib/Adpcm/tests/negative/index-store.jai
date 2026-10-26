@@ -1,3 +1,4 @@
+// test: compile_fail
 // Reviewed Adpcm.index_table is an immutable typed constant.
 A :: #import "Adpcm";
 

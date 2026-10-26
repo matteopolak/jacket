@@ -1,3 +1,4 @@
+// test: skip_on(.WASM) only(.LINUX,.MACOS)
 // Reviewed Deep_Copy graph/callback API; independent timer side-effect regression.
 #import "Basic";
 D :: #import "Deep_Copy";

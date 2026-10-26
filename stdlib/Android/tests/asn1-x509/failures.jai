@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Safe structural diagnostics for incomplete/wrong certificate fields.
 #import "Basic";
 A :: #import "Android/Toolchain";

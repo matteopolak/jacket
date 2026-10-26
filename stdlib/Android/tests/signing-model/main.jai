@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Reviewed shared model: exact canonical records/enums and union storage.
 using #import "Basic";
 A :: #import "Android/Toolchain";

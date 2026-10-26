@@ -1,0 +1,5 @@
+crypto-private-provider.jai:6:5: error: unknown identifier `EVP_PKEY_free`
+        EVP_PKEY_free(null);
+        ^^^^^^^^^^^^^
+help: a similar name exists: `EVP_PKEY_CTX`
+

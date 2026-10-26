@@ -1,0 +1,4 @@
+index-store.jai:6:5: error: cannot assign into the constant `A.index_table`
+        A.index_table[0] = 0;
+        ^^^^^^^^^^^^^^^^
+

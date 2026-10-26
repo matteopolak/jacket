@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Reviewed Android/Toolchain digest signatures; standard SHA digest vectors.
 #import "Basic";
 A :: #import "Android/Toolchain";

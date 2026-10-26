@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Independent bounds/representation safety; restore fatal checks after each call.
 #import "Basic";
 A :: #import "Android/Toolchain";

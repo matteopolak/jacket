@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Reviewed lowercase encoding, numeric array order and independent allocations.
 #import "Basic";
 A :: #import "Android/Toolchain";

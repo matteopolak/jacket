@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Reviewed Android/Toolchain signature; official Android NDK ABI names.
 #import "Basic";
 A :: #import "Android/Toolchain";

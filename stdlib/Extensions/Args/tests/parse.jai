@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Args parse matrix: every syntax form, every field type, defaults, @env, @range, relations,
 // subcommands, and the errors each failure produces (kind, message, suggestion, usage).
 //

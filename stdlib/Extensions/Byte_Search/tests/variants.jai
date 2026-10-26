@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // The 16-byte and the 32-byte version of every dispatched search against a plain loop. The module
 // is loaded into this program instead of imported, to reach both versions; the program calls
 // them directly, so the 32-byte one runs here whatever the processor, and the table that picks

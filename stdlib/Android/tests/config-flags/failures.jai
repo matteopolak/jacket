@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Independent validation policy; fatal verification remains enabled after call.
 #import "Basic";
 A :: #import "Android/Toolchain";

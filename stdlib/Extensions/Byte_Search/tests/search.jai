@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Every search against a plain loop, on random texts, every start and end, and needles built to
 // defeat the vector loop.
 //

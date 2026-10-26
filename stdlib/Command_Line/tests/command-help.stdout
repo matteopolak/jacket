@@ -1,0 +1,5 @@
+configuration comment
+  --alpha 
+  --zeta  last option 
+  help: --help
+ok

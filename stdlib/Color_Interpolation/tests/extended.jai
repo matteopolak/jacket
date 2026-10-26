@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 #import "Basic";
 #import "Math";
 C :: #import "Color_Interpolation";

@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Invalid-domain policies diagnose and never mutate a rejected end record.
 #import "Basic";
 A :: #import "Android/Toolchain";

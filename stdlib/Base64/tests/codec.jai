@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Reviewed constants/tails/XSH-RR/CRC polynomial; explicit checks survive assertions off.
 #import "Basic";
 B :: #import "Base64";

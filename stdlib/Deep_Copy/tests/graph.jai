@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Real cyclic/shared graph regression against production reflection metadata.
 #import "Basic";
 D :: #import "Deep_Copy";
