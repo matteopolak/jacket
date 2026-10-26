@@ -111,9 +111,11 @@ run_fiber :: (b: *Bench, tls: bool, work: (b: *Bench, db: *Pg.Connection)) {
 
     Io.io_run(() {
         config, config_error := Pg.parse_url(url_for(fiber_tls));
+
         require_pg(config_error);
 
         db, error := Pg.connect(config);
+
         require_pg(error);
         defer Pg.close(db);
 
@@ -131,10 +133,12 @@ run_libpq :: (b: *Bench, tls: bool, work: (b: *Bench, conn: *libpq.PGconn)) {
     // PQconnectPoll without waiting for the socket.
     url := to_c_string(url_for(tls));
     conn := libpq.PQconnectdb(url);
+
     if libpq.PQstatus(conn) != libpq.ConnStatusType.CONNECTION_OK {
         print("libpq connect: %\n", to_string(libpq.PQerrorMessage(conn)));
         exit(1);
     }
+
     defer libpq.disconnect(conn);
 
     work(b, conn);
@@ -151,6 +155,7 @@ point_select__jacket :: (b: *Bench) {
 
         for 0..b.iterations - 1 {
             result, error := Pg.query_binary(db, SELECT_ITEM, 1 + next(100000));
+
             require_pg(error);
             item: Item;
             item.id, error = Pg.get(*result, 0, 0, s32);
@@ -173,6 +178,7 @@ point_select_prepared__jacket :: (b: *Bench) {
 
         for 0..b.iterations - 1 {
             result, error := Pg.query_cached(db, SELECT_ITEM, 1 + next(100000), binary = true);
+
             require_pg(error);
             item: Item;
             item.id, error = Pg.get(*result, 0, 0, s32);
@@ -195,8 +201,10 @@ point_select_tls__jacket :: (b: *Bench) {
 
         for 0..b.iterations - 1 {
             result, error := Pg.query_binary(db, SELECT_ITEM, 1 + next(100000));
+
             require_pg(error);
             name, name_error := Pg.get(*result, 0, 1, string);
+
             require_pg(name_error);
             black_box(name);
             Pg.free_result(*result);
@@ -212,6 +220,7 @@ point_select__libpq :: (b: *Bench) {
         for 0..b.iterations - 1 {
             push_allocator(flat_pool_allocator_proc, *pool);
             items, ok := libpq.execute(conn, Item, SELECT_ITEM, 1 + next(100000));
+
             require_ok(ok && items.count == 1, "libpq point select");
             black_box(items);
             reset(*pool);
@@ -227,6 +236,7 @@ point_select_tls__libpq :: (b: *Bench) {
         for 0..b.iterations - 1 {
             push_allocator(flat_pool_allocator_proc, *pool);
             items, ok := libpq.execute(conn, Item, SELECT_ITEM, 1 + next(100000));
+
             require_ok(ok && items.count == 1, "libpq point select");
             black_box(items);
             reset(*pool);
@@ -272,6 +282,7 @@ bulk_insert_pipeline__jacket :: (b: *Bench) {
             require_pg(Pg.execute_script(db, "truncate sink"));
 
             p, error := Pg.pipeline_enter(db);
+
             require_pg(error);
 
             for row: 0..ROWS - 1 {
@@ -293,8 +304,10 @@ bulk_insert_pipeline__jacket :: (b: *Bench) {
 drain :: (p: *Pg.Pipeline) {
     while p.queued > 0 {
         item, error := Pg.pipeline_next_result(p);
+
         require_pg(error);
         done := item.kind == .SYNC;
+
         Pg.free_pipeline_result(*item);
         if done break;
     }
@@ -331,6 +344,7 @@ bulk_insert__libpq :: (b: *Bench) {
     run_libpq(b, false, (b: *Bench, conn: *libpq.PGconn) {
         set_items(b, ROWS);
         ok, changed := libpq.execute(conn, TEMP_SINK);
+
         require_ok(ok, "libpq create temp table");
         reset_timer(b);
 
@@ -361,6 +375,7 @@ wide_fetch__jacket :: (b: *Bench) {
 
         for 0..b.iterations - 1 {
             result, error := Pg.query_binary(db, "select * from wide");
+
             require_pg(error);
             require_ok(result.row_count == ROWS, "wide row count");
 
@@ -392,6 +407,7 @@ wide_fetch__jacket :: (b: *Bench) {
                 w.t8, error = Pg.get(*result, row, 21, string);
                 n1, n1_error := Pg.get(*result, row, 22, Pg.Numeric);
                 n2, n2_error := Pg.get(*result, row, 23, Pg.Numeric);
+
                 w.n1 = n1.text;
                 w.n2 = n2.text;
                 require_pg(error);
@@ -414,6 +430,7 @@ wide_fetch__libpq :: (b: *Bench) {
         for 0..b.iterations - 1 {
             push_allocator(flat_pool_allocator_proc, *pool);
             rows, ok := libpq.execute(conn, Wide, "select * from wide");
+
             require_ok(ok && rows.count == ROWS, "libpq wide fetch");
             black_box(rows);
             reset(*pool);

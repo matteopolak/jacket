@@ -96,8 +96,10 @@ make_prose :: () -> string {
 make_lines :: () {
     for 0..19999 {
         builder: String_Builder;
+
         print(*builder, "%.%.%.% - - [%/Oct/2026:%:%:% +0000] \"% % HTTP/1.1\" % % \"-\" \"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36\"", 1 + next(254), next(256), next(256), 1 + next(254), 1 + next(28), 10 + next(14), 10 + next(50), 10 + next(50), METHODS[next(METHODS.count)], PATHS[next(PATHS.count)], STATUSES[next(STATUSES.count)], next(100000));
         line := builder_to_string(*builder);
+
         array_add(*lines, line);
         log_bytes += line.count;
     }
@@ -111,14 +113,17 @@ prepare :: () {
 
     for pattern, index: PATTERNS {
         re, ok, error := Regex.compile(pattern);
+
         assert(ok, "Jacket could not compile %", pattern);
         compiled[index].jacket = re;
 
         u, uniform_ok := uniform.compile(pattern);
+
         assert(uniform_ok, "uniform could not compile %", pattern);
         compiled[index].uniform = u;
 
         r, rematch_ok := rematch.compile(pattern, .GLOBAL);
+
         assert(rematch_ok, "Rematch could not compile %", pattern);
         compiled[index].rematch = r;
     }
@@ -172,6 +177,7 @@ static_find_all :: ($R: Type, text: string) -> int {
 
 jacket_lines_captured :: (re: *Regex.Regex) -> int {
     count := 0;
+
     for line: lines {
         _, ok := Regex.captures(re, line);
         if ok count += 1;
@@ -188,10 +194,12 @@ jacket_lines_matching :: (re: *Regex.Regex) -> int {
 
 static_lines_captured :: ($R: Type) -> int {
     count := 0;
+
     for line: lines {
         groups, ok := Regex.captures(R, line);
         if ok count += 1;
     }
+
     return count;
 }
 
@@ -227,9 +235,11 @@ uniform_find_all :: (re: *uniform.Regexp, text: string) -> int {
 
         count += 1;
         end := captures[0].data + captures[0].count;
+
         array_free(captures);
         advance := end - rest.data;
         if advance <= 0 advance = 1;
+
         rest.data += advance;
         rest.count -= advance;
     }
@@ -260,124 +270,172 @@ rematch_find_all :: (re: *rematch.Regex, text: string) -> int {
 
 log_parse__jacket_static :: (b: *Bench) {
     prepare();
-    over(b, log_bytes, () { require_count(static_lines_captured(Log_Static), compiled[LOG].expected); });
+    over(b, log_bytes, () {
+        require_count(static_lines_captured(Log_Static), compiled[LOG].expected);
+    });
 } @bench
 
 log_parse__jacket :: (b: *Bench) {
     prepare();
-    over(b, log_bytes, () { require_count(jacket_lines_captured(*compiled[LOG].jacket), compiled[LOG].expected); });
+    over(b, log_bytes, () {
+        require_count(jacket_lines_captured(*compiled[LOG].jacket), compiled[LOG].expected);
+    });
 } @bench
 
 log_parse__uniform :: (b: *Bench) {
     prepare();
-    over(b, log_bytes, () { require_count(uniform_lines_captured(*compiled[LOG].uniform), compiled[LOG].expected); });
+    over(b, log_bytes, () {
+        require_count(uniform_lines_captured(*compiled[LOG].uniform), compiled[LOG].expected);
+    });
 } @bench
 
 log_parse__rematch :: (b: *Bench) {
     prepare();
-    over(b, log_bytes, () { require_count(rematch_lines_captured(*compiled[LOG].rematch), compiled[LOG].expected); });
+    over(b, log_bytes, () {
+        require_count(rematch_lines_captured(*compiled[LOG].rematch), compiled[LOG].expected);
+    });
 } @bench
 
 log_filter__jacket_static :: (b: *Bench) {
     prepare();
-    over(b, log_bytes, () { require_count(static_lines_matching(Error_Static), compiled[ERROR].expected); });
+    over(b, log_bytes, () {
+        require_count(static_lines_matching(Error_Static), compiled[ERROR].expected);
+    });
 } @bench
 
 log_filter__jacket :: (b: *Bench) {
     prepare();
-    over(b, log_bytes, () { require_count(jacket_lines_matching(*compiled[ERROR].jacket), compiled[ERROR].expected); });
+    over(b, log_bytes, () {
+        require_count(jacket_lines_matching(*compiled[ERROR].jacket), compiled[ERROR].expected);
+    });
 } @bench
 
 log_filter__uniform :: (b: *Bench) {
     prepare();
-    over(b, log_bytes, () { require_count(uniform_lines_matching(*compiled[ERROR].uniform), compiled[ERROR].expected); });
+    over(b, log_bytes, () {
+        require_count(uniform_lines_matching(*compiled[ERROR].uniform), compiled[ERROR].expected);
+    });
 } @bench
 
 log_filter__rematch :: (b: *Bench) {
     prepare();
-    over(b, log_bytes, () { require_count(rematch_lines_captured(*compiled[ERROR].rematch), compiled[ERROR].expected); });
+    over(b, log_bytes, () {
+        require_count(rematch_lines_captured(*compiled[ERROR].rematch), compiled[ERROR].expected);
+    });
 } @bench
 
 // ----------------------------------------------------------------------------- extraction and search
 
 extract_emails__jacket_static :: (b: *Bench) {
     prepare();
-    over(b, prose.count, () { require_count(static_find_all(Email_Static, prose), compiled[EMAIL].expected); });
+    over(b, prose.count, () {
+        require_count(static_find_all(Email_Static, prose), compiled[EMAIL].expected);
+    });
 } @bench
 
 extract_emails__jacket :: (b: *Bench) {
     prepare();
-    over(b, prose.count, () { require_count(jacket_find_all(*compiled[EMAIL].jacket, prose), compiled[EMAIL].expected); });
+    over(b, prose.count, () {
+        require_count(jacket_find_all(*compiled[EMAIL].jacket, prose), compiled[EMAIL].expected);
+    });
 } @bench
 
 extract_emails__uniform :: (b: *Bench) {
     prepare();
-    over(b, prose.count, () { require_count(uniform_find_all(*compiled[EMAIL].uniform, prose), compiled[EMAIL].expected); });
+    over(b, prose.count, () {
+        require_count(uniform_find_all(*compiled[EMAIL].uniform, prose), compiled[EMAIL].expected);
+    });
 } @bench
 
 extract_emails__rematch :: (b: *Bench) {
     prepare();
-    over(b, prose.count, () { require_count(rematch_find_all(*compiled[EMAIL].rematch, prose), compiled[EMAIL].expected); });
+    over(b, prose.count, () {
+        require_count(rematch_find_all(*compiled[EMAIL].rematch, prose), compiled[EMAIL].expected);
+    });
 } @bench
 
 extract_urls__jacket_static :: (b: *Bench) {
     prepare();
-    over(b, prose.count, () { require_count(static_find_all(Url_Static, prose), compiled[URL].expected); });
+    over(b, prose.count, () {
+        require_count(static_find_all(Url_Static, prose), compiled[URL].expected);
+    });
 } @bench
 
 extract_urls__jacket :: (b: *Bench) {
     prepare();
-    over(b, prose.count, () { require_count(jacket_find_all(*compiled[URL].jacket, prose), compiled[URL].expected); });
+    over(b, prose.count, () {
+        require_count(jacket_find_all(*compiled[URL].jacket, prose), compiled[URL].expected);
+    });
 } @bench
 
 extract_urls__uniform :: (b: *Bench) {
     prepare();
-    over(b, prose.count, () { require_count(uniform_find_all(*compiled[URL].uniform, prose), compiled[URL].expected); });
+    over(b, prose.count, () {
+        require_count(uniform_find_all(*compiled[URL].uniform, prose), compiled[URL].expected);
+    });
 } @bench
 
 extract_urls__rematch :: (b: *Bench) {
     prepare();
-    over(b, prose.count, () { require_count(rematch_find_all(*compiled[URL].rematch, prose), compiled[URL].expected); });
+    over(b, prose.count, () {
+        require_count(rematch_find_all(*compiled[URL].rematch, prose), compiled[URL].expected);
+    });
 } @bench
 
 search_names__jacket_static :: (b: *Bench) {
     prepare();
-    over(b, prose.count, () { require_count(static_find_all(Names_Static, prose), compiled[NAMES].expected); });
+    over(b, prose.count, () {
+        require_count(static_find_all(Names_Static, prose), compiled[NAMES].expected);
+    });
 } @bench
 
 search_names__jacket :: (b: *Bench) {
     prepare();
-    over(b, prose.count, () { require_count(jacket_find_all(*compiled[NAMES].jacket, prose), compiled[NAMES].expected); });
+    over(b, prose.count, () {
+        require_count(jacket_find_all(*compiled[NAMES].jacket, prose), compiled[NAMES].expected);
+    });
 } @bench
 
 search_names__uniform :: (b: *Bench) {
     prepare();
-    over(b, prose.count, () { require_count(uniform_find_all(*compiled[NAMES].uniform, prose), compiled[NAMES].expected); });
+    over(b, prose.count, () {
+        require_count(uniform_find_all(*compiled[NAMES].uniform, prose), compiled[NAMES].expected);
+    });
 } @bench
 
 search_names__rematch :: (b: *Bench) {
     prepare();
-    over(b, prose.count, () { require_count(rematch_find_all(*compiled[NAMES].rematch, prose), compiled[NAMES].expected); });
+    over(b, prose.count, () {
+        require_count(rematch_find_all(*compiled[NAMES].rematch, prose), compiled[NAMES].expected);
+    });
 } @bench
 
 search_ing__jacket_static :: (b: *Bench) {
     prepare();
-    over(b, prose.count, () { require_count(static_find_all(Ing_Static, prose), compiled[ING].expected); });
+    over(b, prose.count, () {
+        require_count(static_find_all(Ing_Static, prose), compiled[ING].expected);
+    });
 } @bench
 
 search_ing__jacket :: (b: *Bench) {
     prepare();
-    over(b, prose.count, () { require_count(jacket_find_all(*compiled[ING].jacket, prose), compiled[ING].expected); });
+    over(b, prose.count, () {
+        require_count(jacket_find_all(*compiled[ING].jacket, prose), compiled[ING].expected);
+    });
 } @bench
 
 search_ing__uniform :: (b: *Bench) {
     prepare();
-    over(b, prose.count, () { require_count(uniform_find_all(*compiled[ING].uniform, prose), compiled[ING].expected); });
+    over(b, prose.count, () {
+        require_count(uniform_find_all(*compiled[ING].uniform, prose), compiled[ING].expected);
+    });
 } @bench
 
 search_ing__rematch :: (b: *Bench) {
     prepare();
-    over(b, prose.count, () { require_count(rematch_find_all(*compiled[ING].rematch, prose), compiled[ING].expected); });
+    over(b, prose.count, () {
+        require_count(rematch_find_all(*compiled[ING].rematch, prose), compiled[ING].expected);
+    });
 } @bench
 
 // ----------------------------------------------------------------------------- compiling
@@ -385,7 +443,7 @@ search_ing__rematch :: (b: *Bench) {
 compile_email__jacket :: (b: *Bench) {
     prepare();
     over(b, EMAIL_PATTERN.count, () {
-        re, ok, error := Regex.compile(black_box(EMAIL_PATTERN));
+        re, ok := Regex.compile(black_box(EMAIL_PATTERN));
         black_box(re);
         Regex.free_regex(*re);
         require_count(cast(int) ok, 1);

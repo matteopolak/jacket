@@ -59,6 +59,7 @@ dataset :: (index: int) -> *Data {
     if data.ready return data;
 
     size := SIZES[index];
+
     data.keys = make_keys(size);
     data.order = NewArray(size, s64);
     memcpy(data.order.data, data.keys.data, size * size_of(s64));
@@ -74,6 +75,7 @@ dataset :: (index: int) -> *Data {
 
     text := builder_to_string(*builder);
     lines := split(text, "\n");
+
     data.strings = array_view(lines, 0, size);
     data.shuffled = NewArray(size, string);
     memcpy(data.shuffled.data, data.strings.data, size * size_of(string));
@@ -138,6 +140,7 @@ hit_int :: ($T: Type, b: *Bench, data: *Data) {
     table := create(T);
 
     for key: data.keys set(table, key, key);
+
     set_items(b, data.keys.count);
     reset_timer(b);
 
@@ -154,6 +157,7 @@ miss_int :: ($T: Type, b: *Bench, data: *Data) {
     table := create(T);
 
     for key: data.keys set(table, key, key);
+
     set_items(b, data.keys.count);
     reset_timer(b);
 
@@ -172,6 +176,7 @@ churn_int :: ($T: Type, b: *Bench, data: *Data) {
     ring := data.ring.count;
 
     for key: data.keys set(table, key, key);
+
     set_items(b, size);
     reset_timer(b);
 
@@ -194,6 +199,7 @@ iterate_int :: ($T: Type, b: *Bench, data: *Data) {
     table := create(T);
 
     for key: data.keys set(table, key, key);
+
     set_items(b, data.keys.count);
     reset_timer(b);
 
@@ -222,6 +228,7 @@ hit_string :: ($T: Type, b: *Bench, data: *Data) {
     table := create(T);
 
     for key: data.strings set(table, key, key.count);
+
     set_items(b, data.strings.count);
     reset_timer(b);
 

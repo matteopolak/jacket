@@ -115,6 +115,7 @@ indent :: (builder: *String_Builder, count: int) {
 
 make_api :: () -> string {
     builder: String_Builder;
+
     append(*builder, "[");
 
     for 0..99 {
@@ -142,11 +143,13 @@ make_api :: () -> string {
     }
 
     append(*builder, "]");
+
     return builder_to_string(*builder);
 }
 
 make_records :: () -> string {
     builder: String_Builder;
+
     append(*builder, "[");
 
     for 0..19999 {
@@ -155,6 +158,7 @@ make_records :: () -> string {
     }
 
     append(*builder, "]");
+
     return builder_to_string(*builder);
 }
 
