@@ -4,6 +4,38 @@ use crate::sema::{Compiler, Span, TypeId};
 use crate::types::{ArrayKind, TypeKind};
 
 impl Compiler {
+    /// Whether an argument known only by its type fact may convert to `to`, for tools that
+    /// resolve a call without the operand itself (`literal`: an untyped literal; `constant`: a
+    /// compile-time value). Only a proven mismatch answers `false`: the conversions that depend
+    /// on the operand (code quotation, procedure values, auto-dereference, contextual aggregates,
+    /// constant arithmetic and one-byte strings) answer `true`.
+    pub fn may_convert_argument(
+        &mut self,
+        from: TypeId,
+        literal: bool,
+        constant: bool,
+        to: TypeId,
+    ) -> bool {
+        let scalar = |kind: &TypeKind| {
+            matches!(
+                kind,
+                TypeKind::Bool | TypeKind::Int { .. } | TypeKind::Float { .. } | TypeKind::String
+            )
+        };
+        if !scalar(self.ty.types.kind(from)) || !scalar(self.ty.types.kind(to)) {
+            return true;
+        }
+        let number =
+            |kind: &TypeKind| matches!(kind, TypeKind::Int { .. } | TypeKind::Float { .. });
+        if constant {
+            let numeric = number(self.ty.types.kind(from)) && number(self.ty.types.kind(to));
+            if (numeric && !literal) || (from == TypeId::STRING && to == TypeId::U8) {
+                return true;
+            }
+        }
+        self.implicit_cost(from, literal, to).is_some()
+    }
+
     /// Cost of implicitly converting a value of `from` to `to`, if allowed.
     /// `untyped` marks literals, which convert between numeric types freely.
     pub fn implicit_cost(&mut self, from: TypeId, untyped: bool, to: TypeId) -> Option<u32> {

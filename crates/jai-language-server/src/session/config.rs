@@ -149,7 +149,6 @@ impl Session {
             }
         }
         self.workspace_folders = keys;
-        self.index.borrow_mut().import_dirs.clear();
         self.touch();
     }
 

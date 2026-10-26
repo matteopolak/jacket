@@ -14,8 +14,8 @@
 //!    entry's folder and from the project base. Computed paths (a `%` format, a variable) are
 //!    not followed by this scan, but once the metaprogram has run (`semantic::BuildFacts`) its
 //!    recorded `import_path` replaces the scan for that entry, computed paths included.
-use crate::auto_import::{Index, Sources};
-use crate::project;
+use crate::auto_import::{ImportKey, Index, Sources};
+use crate::project::{self, ProjectConfig};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
@@ -34,13 +34,19 @@ impl Sources<'_> {
         let root = self.key(root);
         let root = root.as_path();
         let folders: Vec<_> = folders.iter().map(|folder| self.key(folder)).collect();
+        let config = self.config(index, root);
+        let key = ImportKey {
+            root: root.to_path_buf(),
+            folders: folders.clone(),
+            config: config.as_ref().map(|(dir, _)| dir.clone()),
+        };
         // Cached until a file it was read from changes: every semantic request asks, and
         // finding the folders lexes the root file (a large one is megabytes of tokens).
-        if let Some((dirs, deps)) = index.import_dirs.get(root) {
+        if let Some((dirs, deps)) = index.import_dirs.get(&key) {
             return (dirs.clone(), deps.clone());
         }
-        let found = self.find_import_dirs(index, root, &folders);
-        index.import_dirs.insert(root.to_path_buf(), found.clone());
+        let found = self.find_import_dirs(index, root, &folders, config);
+        index.import_dirs.insert(key, found.clone());
         found
     }
 
@@ -49,8 +55,8 @@ impl Sources<'_> {
         index: &mut Index,
         root: &Path,
         folders: &[PathBuf],
+        config: Option<(PathBuf, ProjectConfig)>,
     ) -> (Vec<PathBuf>, Vec<PathBuf>) {
-        let config = self.config(index, root);
         let base =
             project::project_base(config.as_ref().map(|(dir, _)| dir.as_path()), folders, root);
         let mut dirs: Vec<PathBuf> = Vec::new();

@@ -93,3 +93,38 @@ fn import_dir_flags_come_after_the_project_import_path() {
     );
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn changing_the_workspace_folders_changes_the_module_folders_served() {
+    let dir = project(
+        "import-folders-change",
+        &[
+            ("modules/Up/module.jai", "up :: 1;\n"),
+            ("sub/main.jai", "main :: () {}\n"),
+        ],
+    );
+    let mut session = Session::with_environment(Limits::default(), modules_environment(None));
+    session.set_workspace_folders(vec![dir.clone()]);
+    let uri = uri_of(&dir.join("sub/main.jai"));
+    session
+        .open(uri.clone(), 1, "main :: () {}\n".into())
+        .unwrap();
+    let served = |session: &mut Session| -> Vec<PathBuf> {
+        let coverage = session.semantic_coverage(&uri).unwrap().unwrap();
+        existing(
+            coverage
+                .analysis
+                .import_dirs
+                .unwrap()
+                .into_iter()
+                .map(|p| p.path),
+        )
+    };
+    let up = dir.join("modules").canonicalize().unwrap();
+    assert!(served(&mut session).contains(&up));
+    session.set_workspace_folders(vec![dir.join("sub")]);
+    assert!(!served(&mut session).contains(&up));
+    session.set_workspace_folders(vec![dir.clone()]);
+    assert!(served(&mut session).contains(&up));
+    let _ = std::fs::remove_dir_all(&dir);
+}

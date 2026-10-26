@@ -94,45 +94,6 @@ impl Callable {
     }
 }
 
-/// Expression facts lack operand flags/values: only prove scalar incompatibility.
-fn compatible(
-    compiler: &mut jaic::sema::Compiler,
-    argument: &CallArgument,
-    from: jaic::types::TypeId,
-    constant: bool,
-    to: jaic::types::TypeId,
-) -> bool {
-    // Expression facts lack operand flags/values. Only exclude a
-    // candidate when these facts prove scalar incompatibility. Code
-    // quotation, procedure values, auto-dereference, contextual
-    // aggregates and other operand-aware conversions stay unresolved.
-    use jaic::types::TypeKind;
-    let scalar = |kind: &TypeKind| {
-        matches!(
-            kind,
-            TypeKind::Bool | TypeKind::Int { .. } | TypeKind::Float { .. } | TypeKind::String
-        )
-    };
-    if !scalar(compiler.ty.types.kind(from)) || !scalar(compiler.ty.types.kind(to)) {
-        return true;
-    }
-    // Constants can carry untyped arithmetic or one-byte string
-    // conversions; the type fact cannot establish their value/flags.
-    if constant
-        && ((matches!(
-            compiler.ty.types.kind(from),
-            TypeKind::Int { .. } | TypeKind::Float { .. }
-        ) && matches!(
-            compiler.ty.types.kind(to),
-            TypeKind::Int { .. } | TypeKind::Float { .. }
-        ) && !argument.literal)
-            || (from == jaic::types::TypeId::STRING && to == jaic::types::TypeId::U8))
-    {
-        return true;
-    }
-    compiler.implicit_cost(from, argument.literal, to).is_some()
-}
-
 fn callback(
     compiler: &mut jaic::sema::Compiler,
     ty: jaic::types::TypeId,
@@ -198,7 +159,7 @@ fn callback(
                     {
                         to = *elem;
                     }
-                    compatible(compiler, &ctx.args[i], from, constant, to)
+                    compiler.may_convert_argument(from, ctx.args[i].literal, constant, to)
                 })
             })
             .collect(),
@@ -308,7 +269,7 @@ fn resolved(
                             {
                                 to = *elem;
                             }
-                            compatible(compiler, &ctx.args[i], from, constant, to)
+                            compiler.may_convert_argument(from, ctx.args[i].literal, constant, to)
                         })
                     })
                     .collect(),

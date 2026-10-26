@@ -75,10 +75,21 @@ struct ModuleCache {
     stale: BTreeSet<PathBuf>,
 }
 
+/// What the module folders of a program depend on: the root, the workspace folders that bound
+/// the search, and the project configuration in force. A change of any of them is a different
+/// key, so no entry has to be cleared by hand when they change.
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct ImportKey {
+    pub(crate) root: PathBuf,
+    pub(crate) folders: Vec<PathBuf>,
+    pub(crate) config: Option<PathBuf>,
+}
+
 #[derive(Default)]
 pub(crate) struct Index {
-    /// Module folders found for a program root (`modules.rs`), with the files they were read from.
-    pub(crate) import_dirs: BTreeMap<PathBuf, (Vec<PathBuf>, Vec<PathBuf>)>,
+    /// Module folders found for a program root (`modules.rs`), with the files they were read from,
+    /// by everything the answer depends on besides those files.
+    pub(crate) import_dirs: BTreeMap<ImportKey, (Vec<PathBuf>, Vec<PathBuf>)>,
     /// What each build metaprogram did when it last ran to the end (`semantic::BuildFacts`),
     /// by its canonical path. Where a metaprogram has an entry here, discovery follows it
     /// instead of reading the metaprogram's text.
