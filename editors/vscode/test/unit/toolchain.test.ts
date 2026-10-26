@@ -64,7 +64,9 @@ describe("platform to release archive", () => {
     const matrix = workflow.slice(matrixStart, matrixEnd);
     const built = [...matrix.matchAll(/- name: ([a-z0-9-]+)/g)].map((m) => m[1]);
     assert.ok(built.length >= 4, `found ${built.join(", ")}`);
-    assert.match(workflow, /dir="jacket-\$\{\{ matrix\.name \}\}"/, "release.yml packages jacket-<platform>");
+    const packaging = readFileSync(path.join(repository, "tools", "ci", "package_release.sh"), "utf8");
+    assert.match(workflow, /NAME: \$\{\{ matrix\.name \}\}/, "release.yml passes the platform name to the packaging script");
+    assert.match(packaging, /dir="jacket-\$NAME"/, "package_release.sh packages jacket-<platform>");
     for (const name of built) {
       const asset = `jacket-${name}.${name.startsWith("windows") ? "zip" : "tar.gz"}`;
       assert.ok(Object.values(RELEASE_ASSETS).includes(asset), `release.yml builds ${asset}; add it to RELEASE_ASSETS`);
