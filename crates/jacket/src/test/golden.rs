@@ -95,7 +95,7 @@ fn built(
     };
     if toolchain.interp {
         let mut args = vec![source.to_string_lossy().into_owned(), "-interp".into()];
-        args.extend(quiet.iter().map(|q| q.to_string()));
+        args.extend(quiet.iter().map(ToString::to_string));
         args.extend(unbuilt_flags(&toolchain.flags));
         args.extend(root_flags.iter().cloned());
         return Ok(Built {
