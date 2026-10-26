@@ -9,7 +9,7 @@ vim.api.nvim_create_user_command('Jai', function(opts)
   require('jai.commands').run(opts)
 end, {
   nargs = 1,
-  desc = 'Jai toolchain: install, restart, fix, lint, format, expand, polymorphs, run, build, check, health',
+  desc = 'Jai toolchain: install, restart, fix, lint, format, expand, polymorphs, costs, run, build, check, health',
   complete = function(lead)
     return require('jai.commands').complete(lead)
   end,

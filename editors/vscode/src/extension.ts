@@ -6,6 +6,8 @@ import { type JaicCommand, runJaic } from "./commands";
 import { hasPendingOpens, orderPendingOpens } from "./openOrder";
 import { MissingConfiguredTool, type Settings, findCompiler, findFormatter, findJacket, findServer, nodeEnvironment } from "./discovery";
 import { EXPANSION_SCHEME, ExpansionDocuments } from "./expansion";
+import { LimitPopups, type LimitNotice } from "./limitPopups";
+import { limitSettings, vscodeLimitUi } from "./limitUi";
 import { toolEnvironment as configuredEnvironment } from "./toolEnvironment";
 import { CONFIG_FILE, isIgnored, minimalReplacement, runJaifmt } from "./jaifmt";
 import { acceptedKey, probeVersion, staleMessage, staleToolchain } from "./pathVersion";
@@ -22,6 +24,9 @@ let serverOutput: vscode.LogOutputChannel;
 let toolchain: ToolchainManager;
 let installed: Installed | undefined;
 let lifecycle: Promise<void> = Promise.resolve();
+
+/** Tells the user when a compile-time limit stopped code, once for each evaluation until they edit. */
+const limitPopups = new LimitPopups(vscodeLimitUi);
 const ACCEPTED_KEY = "jai.toolchain.acceptedStale";
 let extensionContext: vscode.ExtensionContext;
 /** Per client: resolves once the didOpens it is sending are out (see `orderPendingOpens`). */
@@ -111,6 +116,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<{ clie
     vscode.commands.registerCommand("jai.runTest", (argument: LensArgument) => tests.runLens(argument, false)),
     vscode.commands.registerCommand("jai.debugTest", (argument: LensArgument) => tests.runLens(argument, true)),
     vscode.languages.registerDocumentFormattingEditProvider({ language: "jai" }, { provideDocumentFormattingEdits: formatDocument }),
+    vscode.workspace.onDidChangeTextDocument((event) => {
+      if (event.contentChanges.length > 0) limitPopups.edited(event.document.uri.toString());
+    }),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (["jai.server.path", "jai.compiler.path", "jai.toolchain.preferDownloaded", "jai.stdlib.path", "jai.stdlib.prelude"].some((s) => event.affectsConfiguration(s))) {
         void restart(expansions);
@@ -251,6 +259,7 @@ async function startServer(expansions: ExpansionDocuments): Promise<void> {
     },
   };
   const next = new LanguageClient("jai", "Jai Language Server", serverOptions, clientOptions);
+  next.onNotification("jai/compileTimeLimit", (notice: LimitNotice) => void limitPopups.notice(notice));
   const opens = next.getFeature(DidOpenTextDocumentNotification.method);
   if (hasPendingOpens(opens)) openings.set(next, orderPendingOpens(opens));
   client = next;
@@ -278,6 +287,7 @@ function serverSettings(): {
   completion: { autoImport: boolean; callSnippets: string };
   inlayHints: { closingBraceMinLines: number };
   tests: { codeLens: boolean };
+  compileTime: ReturnType<typeof limitSettings>;
   trusted: boolean;
 } {
   const config = vscode.workspace.getConfiguration("jai");
@@ -288,6 +298,8 @@ function serverSettings(): {
     },
     inlayHints: { closingBraceMinLines: config.get<number>("inlayHints.closingBraceMinLines", 25) },
     tests: { codeLens: config.get<boolean>("tests.codeLens", true) },
+    // The limits on compile-time code are the user's: machine-scoped, so a workspace cannot raise them.
+    compileTime: limitSettings(),
     // Untrusted workspaces: jailsp runs no `#run`, build metaprogram or computed `#insert`.
     trusted: vscode.workspace.isTrusted,
   };

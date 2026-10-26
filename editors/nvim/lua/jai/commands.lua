@@ -120,6 +120,35 @@ local function polymorphs()
   end)
 end
 
+---List the program's compile-time evaluations, costliest first.
+local function costs()
+  local client = server()
+  if not client then
+    return
+  end
+  local position = vim.lsp.util.make_position_params(0, client.offset_encoding).position
+  local target = { uri = vim.uri_from_bufnr(0), position = position }
+  client:exec_cmd({ title = 'Compile-time costs', command = 'jai.showCompileTimeCosts', arguments = { target } }, { bufnr = 0 }, function(err, result)
+    if err then
+      return notify(err.message, vim.log.levels.ERROR)
+    end
+    if type(result) ~= 'table' or #result == 0 then
+      return notify('no compile-time code has run in this program')
+    end
+    vim.ui.select(result, {
+      prompt = ('%d compile-time evaluations'):format(#result),
+      format_item = function(item)
+        return ('%s  %s:%d'):format(item.title, vim.fn.fnamemodify(vim.uri_to_fname(item.uri), ':~:.'), item.range.start.line + 1)
+      end,
+    }, function(item)
+      if item then
+        vim.cmd.edit(vim.uri_to_fname(item.uri))
+        vim.api.nvim_win_set_cursor(0, { item.range.start.line + 1, item.range.start.character })
+      end
+    end)
+  end)
+end
+
 ---`jaic <file> [-interp|-check]` in a terminal split.
 ---@param command 'run'|'build'|'check'
 local function compile(command)
@@ -167,6 +196,7 @@ local subcommands = {
   end,
   expand = expand,
   polymorphs = polymorphs,
+  costs = costs,
   run = function()
     compile('run')
   end,

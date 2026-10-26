@@ -325,6 +325,26 @@
           "default": 25,
           "markdownDescription": "Show `// name` as an inlay hint after the closing brace of a procedure, struct or enum at least this many lines long. `0` turns it off. Needs `editor.inlayHints.enabled`."
         },
+        "jai.compileTime.evaluationBudget": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 200000000,
+          "scope": "machine",
+          "markdownDescription": "Basic blocks one compile-time evaluation (a `#run`, a constant, an `#if` condition...) may run in the editor before it fails at its place and the rest of the program is checked without it. `0` for no limit. Only your user settings count: a workspace cannot raise it."
+        },
+        "jai.compileTime.checkTimeLimit": {
+          "type": "number",
+          "minimum": 0,
+          "default": 10,
+          "scope": "machine",
+          "markdownDescription": "Seconds a whole check of a program may spend running compile-time code before it stops with partial results and one notice. `0` for no limit. Only your user settings count: a workspace cannot raise it."
+        },
+        "jai.compileTime.costLensBlocks": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 1000000,
+          "markdownDescription": "Show what a compile-time evaluation costs above it when it ran at least this many basic blocks. `Jai: Show Compile-Time Costs` lists them all."
+        },
         "jai.run.arguments": {
           "type": "array",
           "items": {

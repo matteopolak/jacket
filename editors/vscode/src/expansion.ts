@@ -1,6 +1,8 @@
 // jailsp's own commands: `jai.showExpansion` (a code action for `#insert`, `#run` and macro calls)
 // returns the generated code, which opens as a read-only `jai-expansion:` document, and
-// `jai.showPolymorphs` (a code lens) returns the instances of a polymorphic procedure.
+// `jai.showPolymorphs` (a code lens) returns the instances of a polymorphic procedure, and
+// `jai.showCompileTimeCosts` (a code lens over costly `#run`s) returns every compile-time
+// evaluation of the program, costliest first.
 import * as vscode from "vscode";
 import type { LanguageClient } from "vscode-languageclient/node";
 
@@ -10,6 +12,14 @@ interface Expansion {
   uri: string;
   kind: string;
   text: string;
+}
+
+/** One row of the `jai.showCompileTimeCosts` answer. */
+interface CompileTimeCost {
+  uri: string;
+  range: { start: { line: number; character: number }; end: { line: number; character: number } };
+  title: string;
+  blocks: number;
 }
 
 export class ExpansionDocuments implements vscode.TextDocumentContentProvider {
@@ -54,7 +64,34 @@ export class ExpansionDocuments implements vscode.TextDocumentContentProvider {
           canPickMany: false,
         });
       }
+    } else if (command === "jai.showCompileTimeCosts" && Array.isArray(result)) {
+      await showCompileTimeCosts(result as CompileTimeCost[]);
     }
     return result;
   }
+}
+
+/** Pick one of the program's compile-time evaluations, costliest first, to go to it. */
+async function showCompileTimeCosts(costs: CompileTimeCost[]): Promise<void> {
+  if (costs.length === 0) {
+    void vscode.window.showInformationMessage("Jai: no compile-time code has run in this program.");
+    return;
+  }
+  const items = costs.map((cost) => {
+    const uri = vscode.Uri.parse(cost.uri);
+    return {
+      label: cost.title,
+      description: `${vscode.workspace.asRelativePath(uri)}:${cost.range.start.line + 1}`,
+      cost,
+      uri,
+    };
+  });
+  const picked = await vscode.window.showQuickPick(items, {
+    title: `${items.length} compile-time evaluation${items.length === 1 ? "" : "s"}, costliest first`,
+    matchOnDescription: true,
+  });
+  if (!picked) return;
+  const { start, end } = picked.cost.range;
+  const range = new vscode.Range(start.line, start.character, end.line, end.character);
+  await vscode.window.showTextDocument(picked.uri, { selection: range });
 }
