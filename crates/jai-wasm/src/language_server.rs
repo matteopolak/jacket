@@ -220,18 +220,17 @@ mod tests {
             "}\n",
             "Pair :: struct { a: u8; b: s32; }\n",
         );
-        let escaped = text
-            .replace('\\', "\\\\")
-            .replace('"', "\\\"")
-            .replace('\n', "\\n");
-        let open = format!(
-            concat!(
-                r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"#,
-                r#""uri":"file:///jai-script/main.jai","languageId":"jai","version":1,"#,
-                r#""text":"{escaped}"}}}}}}"#,
-            ),
-            escaped = escaped,
-        );
+        let open = serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {
+                "uri": "file:///jai-script/main.jai",
+                "languageId": "jai",
+                "version": 1,
+                "text": text,
+            }},
+        })
+        .to_string();
         send(&mut bridge, &open);
         let hover = send(
             &mut bridge,
@@ -285,18 +284,17 @@ mod tests {
             "    print(\"% %\\n\", count, twice);\n",
             "}\n",
         );
-        let escaped = text
-            .replace('\\', "\\\\")
-            .replace('"', "\\\"")
-            .replace('\n', "\\n");
-        let open = format!(
-            concat!(
-                r#"{{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{{"textDocument":{{"#,
-                r#""uri":"file:///jai-script/main.jai","languageId":"jai","version":1,"#,
-                r#""text":"{escaped}"}}}}}}"#,
-            ),
-            escaped = escaped,
-        );
+        let open = serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {"textDocument": {
+                "uri": "file:///jai-script/main.jai",
+                "languageId": "jai",
+                "version": 1,
+                "text": text,
+            }},
+        })
+        .to_string();
         send(&mut bridge, &open);
         // A format string with too few arguments is the compiler's warning.
         let bad = r##"{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file:///jai-script/bad.jai","languageId":"jai","version":1,"text":"#import \"Basic\";\nmain :: () { print(\"% %\\n\", 1); }\n"}}}"##;

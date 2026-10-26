@@ -4,9 +4,9 @@ use jaic::interp::{Host, SandboxHost, SharedHost};
 use jaic::project::ProgramInputs;
 use jaic::sema::{Compiler, FileSystem, Options, TargetOs, VirtualFs};
 use jaic::source::{Diagnostic, Severity, Span};
+use serde_json::json;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
-use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -47,74 +47,39 @@ pub struct PlayResult {
 
 impl PlayResult {
     pub fn to_json(&self) -> String {
-        let mut out = String::from("{\"exitCode\":");
-        match self.exit_code {
-            Some(code) => {
-                let _ = write!(out, "{code}");
-            }
-            None => out.push_str("null"),
-        }
-        out.push_str(",\"failurePhase\":");
-        if let Some(phase) = self.failure_phase {
-            json_string(&mut out, phase);
-        } else {
-            out.push_str("null");
-        }
-        out.push_str(",\"stdout\":");
-        json_string(&mut out, &self.stdout);
-        out.push_str(",\"stderr\":");
-        json_string(&mut out, &self.stderr);
-        out.push_str(",\"output\":[");
-        for (i, (stream, text)) in self.output.iter().enumerate() {
-            if i > 0 {
-                out.push(',');
-            }
-            let _ = write!(out, "{{\"stream\":\"{stream}\",\"text\":");
-            json_string(&mut out, text);
-            out.push('}');
-        }
-        out.push(']');
-        out.push_str(",\"rendered\":");
-        json_string(&mut out, &self.rendered);
-        out.push_str(",\"diagnostics\":[");
-        for (i, d) in self.diagnostics.iter().enumerate() {
-            if i > 0 {
-                out.push(',');
-            }
-            let _ = write!(out, "{{\"severity\":\"{}\",\"file\":", d.severity);
-            json_string(&mut out, &d.file);
-            let _ = write!(
-                out,
-                ",\"line\":{},\"column\":{},\"message\":",
-                d.line, d.column
-            );
-            json_string(&mut out, &d.message);
-            if let Some(code) = d.code {
-                let _ = write!(out, ",\"code\":\"{code}\"");
-            }
-            out.push('}');
-        }
-        out.push_str("]}");
-        out
+        let output: Vec<_> = self
+            .output
+            .iter()
+            .map(|(stream, text)| json!({ "stream": stream, "text": text }))
+            .collect();
+        let diagnostics: Vec<_> = self
+            .diagnostics
+            .iter()
+            .map(|d| {
+                let mut object = json!({
+                    "severity": d.severity,
+                    "file": d.file,
+                    "line": d.line,
+                    "column": d.column,
+                    "message": d.message,
+                });
+                if let Some(code) = d.code {
+                    object["code"] = code.into();
+                }
+                object
+            })
+            .collect();
+        json!({
+            "exitCode": self.exit_code,
+            "failurePhase": self.failure_phase,
+            "stdout": self.stdout,
+            "stderr": self.stderr,
+            "output": output,
+            "rendered": self.rendered,
+            "diagnostics": diagnostics,
+        })
+        .to_string()
     }
-}
-
-fn json_string(out: &mut String, text: &str) {
-    out.push('"');
-    for c in text.chars() {
-        match c {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\r' => out.push_str("\\r"),
-            '\t' => out.push_str("\\t"),
-            c if (c as u32) < 0x20 => {
-                let _ = write!(out, "\\u{:04x}", c as u32);
-            }
-            c => out.push(c),
-        }
-    }
-    out.push('"');
 }
 
 pub(crate) fn virtual_fs(files: &BTreeMap<String, Vec<u8>>) -> VirtualFs {
@@ -152,14 +117,6 @@ fn workspace_main(main: &str) -> PathBuf {
     Path::new(WORKSPACE_ROOT).join(main.trim_start_matches('/'))
 }
 
-/// Split a `path:line:col: message` runtime-error string.
-fn parse_located(message: &str) -> Option<(&str, u32, u32, &str)> {
-    let (path, rest) = message.split_once(':')?;
-    let (line, rest) = rest.split_once(':')?;
-    let (column, rest) = rest.split_once(": ")?;
-    Some((path, line.parse().ok()?, column.parse().ok()?, rest))
-}
-
 fn workspace_name(path: &str) -> String {
     let prefix = format!("{WORKSPACE_ROOT}/");
     path.strip_prefix(&prefix)
@@ -172,16 +129,6 @@ fn convert(compiler: &Compiler, d: &Diagnostic) -> PlayDiagnostic {
         Severity::Warning => "warning",
         Severity::Note => "note",
     };
-    if let Some((path, line, column, message)) = parse_located(&d.message) {
-        return PlayDiagnostic {
-            severity,
-            file: workspace_name(path),
-            line,
-            column,
-            message: message.to_string(),
-            code: d.kind.code(),
-        };
-    }
     if (d.span.file.0 as usize) < compiler.src.sources.len() {
         let file = compiler.src.sources.get(d.span.file);
         // Characters, as the command line counts them.
