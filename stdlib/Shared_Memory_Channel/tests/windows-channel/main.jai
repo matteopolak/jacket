@@ -1,3 +1,4 @@
+// test: only(.WINDOWS)
 #import "Basic";
 using C :: #import "Shared_Memory_Channel";
 

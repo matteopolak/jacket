@@ -1,0 +1,4 @@
+/Users/matthew/projects/jai/.claude/worktrees/agent-ad6ea7ed61fd98aa6/stdlib/internal/collections/xar.jai:81:5: error: #assert failed: reverse Xar iteration is unsupported
+        #assert (flags & .REVERSE) == 0, "reverse Xar iteration is unsupported";
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+

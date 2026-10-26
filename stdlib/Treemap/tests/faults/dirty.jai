@@ -1,3 +1,4 @@
+// test: should_fail("Treemap display requires clean weights")
 T :: #import "Treemap";
 
 main :: () {

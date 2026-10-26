@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 #import "Basic";
 S :: #import "Sort";
 I :: #import "IntroSort";

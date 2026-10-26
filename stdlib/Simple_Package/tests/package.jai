@@ -1,3 +1,4 @@
+// test: skip_on(.WASM) args("$TEMP")
 #import "Basic";
 P :: #import "Simple_Package";
 F :: #import "File";

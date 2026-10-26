@@ -1,3 +1,4 @@
+// test: compile_fail
 // Reviewed Unicode.firstByteMark is an immutable typed constant.
 U :: #import "Unicode";
 

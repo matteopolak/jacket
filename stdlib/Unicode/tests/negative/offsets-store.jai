@@ -1,3 +1,4 @@
+// test: compile_fail
 // Reviewed Unicode.offsetsFromUTF8 is an immutable typed constant.
 U :: #import "Unicode";
 

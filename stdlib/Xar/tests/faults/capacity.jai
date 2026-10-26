@@ -1,3 +1,4 @@
+// test: should_fail("Xar configured capacity exceeded")
 X :: #import "Xar";
 
 main :: () {
