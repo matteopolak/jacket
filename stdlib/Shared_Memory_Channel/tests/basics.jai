@@ -2,8 +2,6 @@
 #import "Basic";
 C :: #import "Shared_Memory_Channel";
 P :: #import "POSIX";
-F :: #import "File";
-S :: #import "String";
 
 Tracking :: struct {
     base: Allocator;
@@ -25,14 +23,6 @@ main :: () {
     name := sprint("portable-%-channel", P.getpid());
 
     defer free(name);
-    journal_name := sprint("%/../../../target/portable-tests/shared-owned-names.txt", S.path_strip_filename(#file));
-
-    defer free(journal_name);
-    journal, opened := F.file_open(journal_name, true, true);
-
-    assert(opened && F.file_seek(journal, 0, .END));
-    assert(F.file_write(*journal, name) && F.file_write(*journal, "\n") && F.file_flush(journal));
-    F.file_close(*journal);
     tracking := Tracking.{ base = context.allocator };
     scoped := context;
     scoped.allocator = .{ tracking_allocator, *tracking };
