@@ -1,6 +1,6 @@
 //! Output, exiting, and process-level procedures.
 
-use super::{EINVAL, EPERM, Host, LibcFn, SandboxHost, read_bytes, write_bytes};
+use super::{EINVAL, EPERM, Host, LibcFn, SandboxHost, read_bytes};
 
 impl SandboxHost {
     /// Program output, exiting, and the process-level procedures a sandboxed run answers with
@@ -51,7 +51,7 @@ impl SandboxHost {
             #[cfg(unix)]
             LibcFn::Getentropy => match host_entropy(arg(1) as usize) {
                 Some(bytes) => {
-                    write_bytes(arg(0), &bytes);
+                    super::write_bytes(arg(0), &bytes);
                     0
                 }
                 None => self.set_errno(EINVAL),
