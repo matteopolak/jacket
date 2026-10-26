@@ -281,6 +281,26 @@ impl Target {
     }
 }
 
+/// The target the `-os`, `-cpu` and `-target` flags of a checking tool select.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Selection {
+    pub os: Option<TargetOs>,
+    pub cpu: Option<TargetCpu>,
+    pub triple: Option<String>,
+}
+
+impl Selection {
+    /// Apply the selection to `options` as `jaic` would for the same flags: a triple wins over
+    /// the OS and CPU; otherwise [`select_os_cpu`]. Other options are kept.
+    pub fn apply(&self, options: &mut Options) -> Result<(), String> {
+        match &self.triple {
+            Some(triple) => Target::parse(triple)?.apply(options),
+            None => select_os_cpu(options, self.os, self.cpu),
+        }
+        Ok(())
+    }
+}
+
 /// Apply `-os` and `-cpu` for checking only: that OS and CPU, with its usual C compiler. A
 /// wasm target has its own CPU (`CUSTOM`), as a `-os wasm` build and the browser give it, and
 /// any other OS than the host's defaults to x64 (Windows with the MinGW-style `long double`).

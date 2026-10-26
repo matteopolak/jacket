@@ -213,7 +213,7 @@ fn triples_override_flags_and_invalid_targets_fail_as_usage_errors() {
             .output()
             .unwrap();
         let (_, stderr) = expect(output, 2);
-        assert!(stderr.contains("needs a value"), "{stderr}");
+        assert!(stderr.contains(&format!("`{flag}` needs ")), "{stderr}");
     }
 }
 
@@ -227,7 +227,7 @@ fn driver_preserves_supplied_source_runtime_and_target_options() {
     let mut compiler_options = jaic::sema::Options::host();
     compiler_options.preload = Some(preload);
     compiler_options.runtime_support = false;
-    jailint::target::Selection {
+    jaic::target::Selection {
         os: Some(jaic::sema::TargetOs::Linux),
         cpu: Some(jaic::sema::TargetCpu::Arm64),
         triple: None,

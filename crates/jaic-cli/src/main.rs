@@ -2,7 +2,7 @@
 #![forbid(unsafe_code)]
 use self::cli::Cli;
 use self::options::{Action, CliError, CliOption, OPTIONS, Request, Section};
-use self::parse::{parse, report_cli_error, wants_no_color};
+use self::parse::{color_choice, parse, report_cli_error};
 use self::run::run;
 use self::usage::usage_text;
 use std::process::ExitCode;
@@ -145,11 +145,7 @@ fn main() -> ExitCode {
     install_panic_hook();
     let args: Vec<String> = std::env::args().skip(1).collect();
     // Colour and layout first, so even command-line mistakes use them.
-    let color = if wants_no_color(&args) {
-        jaic::render::ColorChoice::Never
-    } else {
-        jaic::render::ColorChoice::Auto
-    };
+    let color = color_choice(&args);
     jaic::render::set_style(jaic::render::detect(color));
     if let Err(message) = jaic::memory_limit::arm_from_env() {
         eprint!(

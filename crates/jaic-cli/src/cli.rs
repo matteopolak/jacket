@@ -350,6 +350,21 @@ impl Cli {
     /// What to build for, `None` for the host. `-os windows` on another host cross-compiles
     /// with MinGW-w64 (x64 unless `-cpu arm64`); other cross targets need an explicit
     /// `-target`.
+    /// Fold a flag shared with the other tools into the command line.
+    pub(super) fn take_shared(&mut self, flag: jaic::flags::Shared) {
+        use jaic::flags::Shared;
+        match flag {
+            Shared::Os(os) => self.os = Some(os),
+            Shared::Cpu(cpu) => self.cpu = Some(cpu),
+            Shared::Triple(triple) => self.target = Some(triple),
+            Shared::ImportDir(dir) => self.imports.push(dir),
+            Shared::Add(code) => self.added.push(Added::Code(code)),
+            // 0 leaves the pool at one thread per core, as for no flag.
+            Shared::Jobs(n) => self.tuning.threads = (n > 0).then_some(n),
+            Shared::Color(choice) => self.no_color = choice == jaic::render::ColorChoice::Never,
+        }
+    }
+
     pub(super) fn build_target(&self) -> Result<Option<Target>, String> {
         self.build_target_from(Options::host().os, Options::host().cpu)
     }

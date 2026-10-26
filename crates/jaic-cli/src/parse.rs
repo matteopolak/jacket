@@ -81,6 +81,10 @@ pub(super) fn parse(args: &[String]) -> Result<Request, CliError> {
             Action::Interp => interp = true,
             Action::Switch(switch) => *switch(&mut cli) = true,
             Action::Ignore => {}
+            Action::Shared(flag) => {
+                let shared = flag.take(a, inline, || rest.next().cloned())?;
+                cli.take_shared(shared);
+            }
             Action::Value {
                 what,
                 store,
@@ -213,11 +217,17 @@ pub(super) fn print_cli_error(error: CliError) {
     eprint!("{}", report.render());
 }
 
-/// Whether `-no_color` is among jaic's own arguments, read before parsing so that even
-/// command-line mistakes are printed without colour. Plugin, metaprogram and program
-/// arguments (from the first `+Name`, `-` or `--`) are not jaic's.
-pub(super) fn wants_no_color(args: &[String]) -> bool {
-    args.iter()
+/// The colour choice among jaic's own arguments (`-no_color`, `--color <when>`), read before
+/// parsing so that even command-line mistakes are printed in it. Plugin, metaprogram and
+/// program arguments (from the first `+Name`, `-` or `--`) are not jaic's.
+pub(super) fn color_choice(args: &[String]) -> jaic::render::ColorChoice {
+    let own: Vec<String> = args
+        .iter()
         .take_while(|a| *a != "-" && *a != "--" && !a.starts_with('+'))
-        .any(|a| a == "-no_color")
+        .cloned()
+        .collect();
+    if own.iter().any(|a| a == "-no_color") {
+        return jaic::render::ColorChoice::Never;
+    }
+    jaic::render::ColorChoice::from_args(&own, jaic::flags::COLOR.names)
 }

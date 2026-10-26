@@ -18,6 +18,7 @@ pub mod build;
 pub mod builtin_keys;
 pub mod docs;
 pub mod fiber;
+pub mod flags;
 pub mod format_string;
 pub mod fxhash;
 pub mod ide;
@@ -401,11 +402,16 @@ mod tests {
     fn a_file_inside_a_stdlib_finds_that_stdlib() {
         let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
         let file = stdlib.join("internal/allocation/unmapping.jai");
-        let found = enclosing_stdlib(&crate::sema::NativeFs, &file, &default_stdlib_dir()).unwrap();
+        let found =
+            enclosing_stdlib(&crate::sema::NativeFs, &file, &crate::default_stdlib_dir()).unwrap();
         assert_eq!(found, stdlib);
         let outside = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/lib.rs");
         assert_eq!(
-            enclosing_stdlib(&crate::sema::NativeFs, &outside, &default_stdlib_dir()),
+            enclosing_stdlib(
+                &crate::sema::NativeFs,
+                &outside,
+                &crate::default_stdlib_dir()
+            ),
             None
         );
     }

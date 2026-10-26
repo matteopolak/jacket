@@ -50,7 +50,7 @@ fn command_line_mistakes_explain_themselves() {
             &["-j", "x"],
             "error: `-j` takes a number of jobs, such as `-j 4`",
         ),
-        (&["--config"], "error: `--config` needs a value"),
+        (&["--config"], "error: `--config` needs a file"),
         (
             &["gmae.jai"],
             "error: `gmae.jai` does not exist\nhelp: did you mean `game.jai`?",

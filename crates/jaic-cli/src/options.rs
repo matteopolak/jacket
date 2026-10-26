@@ -2,7 +2,7 @@
 use super::cli::{Added, Cli, Flavor};
 use super::tuning;
 use jaic::builtin_keys::BitcodeOptimization;
-use jaic::sema::TargetCpu;
+use jaic::flags::{self, FlagError, SharedFlag};
 use std::path::PathBuf;
 
 /// A build's exit status when the program has no `main` (its work is all `#run`s), so
@@ -13,6 +13,15 @@ pub(super) const NO_MAIN_STATUS: u8 = 3;
 pub(super) struct CliError {
     pub(super) message: String,
     pub(super) help: Vec<String>,
+}
+
+impl From<FlagError> for CliError {
+    fn from(error: FlagError) -> Self {
+        CliError {
+            message: error.message,
+            help: error.help,
+        }
+    }
 }
 
 impl CliError {
@@ -68,6 +77,8 @@ pub(super) enum Action {
     Switch(fn(&mut Cli) -> &mut bool),
     /// Accepted and ignored.
     Ignore,
+    /// A flag `jailint` and `jacket` take too, defined once in `jaic::flags`.
+    Shared(&'static SharedFlag),
     /// Takes the next argument (or the text after `=`): `what` says what it is for the
     /// "needs a value" error, `store` checks it and puts it in the `Cli`. `store` gets the
     /// option as it was spelt.
@@ -99,6 +110,21 @@ impl CliOption {
             build_only: false,
             help: None,
             action,
+        }
+    }
+
+    /// A flag from the table the tools share, listed under `section` in `-help`.
+    pub(super) const fn shared(flag: &'static SharedFlag, section: Section) -> Self {
+        CliOption {
+            names: flag.names,
+            aliases: &[],
+            build_only: false,
+            help: Some(Help {
+                section,
+                synopsis: flag.synopsis,
+                text: flag.help,
+            }),
+            action: Action::Shared(flag),
         }
     }
 
@@ -134,7 +160,8 @@ impl CliOption {
 
     /// The option spelt `name` if it takes a value.
     pub(super) fn find_value(name: &str) -> Option<&'static CliOption> {
-        Self::find(name).filter(|option| matches!(option.action, Action::Value { .. }))
+        Self::find(name)
+            .filter(|option| matches!(option.action, Action::Value { .. } | Action::Shared(_)))
     }
 }
 
@@ -166,17 +193,7 @@ pub(super) const OPTIONS: &[CliOption] = {
             "-interp",
             "run `main` in the interpreter (arguments after `--` go to the program)",
         ),
-        CliOption::new(
-            &["-add"],
-            store!("the code to add to the program", |cli, code| cli
-                .added
-                .push(Added::Code(code))),
-        )
-        .help(
-            Program,
-            "-add \"code\"",
-            "add the code to the target program (repeatable)",
-        ),
+        CliOption::shared(&flags::ADD, Program),
         CliOption::new(
             &["-run"],
             store!("the code to run at compile time", |cli, code| cli
@@ -188,49 +205,12 @@ pub(super) const OPTIONS: &[CliOption] = {
             "-run \"code\"",
             "run the code at compile time, as a `#run` (repeatable)",
         ),
-        CliOption::new(
-            &["-I", "-import_dir"],
-            store!("a directory", |cli, dir| cli
-                .imports
-                .push(PathBuf::from(dir))),
-        )
-        .help(
-            Program,
-            "-import_dir <dir>",
-            "also look for modules in <dir> (repeatable; short form -I)",
-        ),
-        CliOption::new(
-            &["-os"],
-            Action::Value {
-                what: "an OS name: linux, windows, macos or wasm",
-                store: store_os,
-            },
-        )
-        .help(
-            Program,
-            "-os <os>",
-            "target OS: linux, windows, macos or wasm",
-        ),
-        CliOption::new(
-            &["-cpu"],
-            Action::Value {
-                what: "a CPU name: x64 or arm64",
-                store: store_cpu,
-            },
-        )
-        .help(Program, "-cpu <cpu>", "target CPU: x64 or arm64"),
-        CliOption::new(
-            &["-target"],
-            store!(
-                "an LLVM target triple, such as x86_64-pc-windows-gnu",
-                |cli, triple| cli.target = Some(triple)
-            ),
-        )
-        .help(
-            Program,
-            "-target <triple>",
-            "build for an LLVM target triple",
-        ),
+        CliOption::shared(&flags::IMPORT_DIR, Program),
+        CliOption::shared(&flags::OS, Program),
+        CliOption::shared(&flags::CPU, Program),
+        CliOption::shared(&flags::TARGET, Program),
+        CliOption::shared(&flags::JOBS, Output),
+        CliOption::shared(&flags::COLOR, Diagnostics),
         CliOption::new(&["-no_dce"], Action::Switch(|cli| &mut cli.no_dce)).help(
             Program,
             "-no_dce",
@@ -411,29 +391,6 @@ pub(super) const OPTIONS: &[CliOption] = {
             .help(Diagnostics, "-V, -version, --version", "print the version"),
     ]
 };
-
-fn store_os(cli: &mut Cli, _: &str, os: String) -> Result<(), CliError> {
-    let Some(parsed) = jaic::target::parse_os(&os) else {
-        let mut error = CliError::new(format!("unknown OS `{os}` for `-os`"));
-        if let Some(near) = jaic::suggest::closest(&os, jaic::target::OS_NAMES) {
-            error = error.help(format!("did you mean `-os {near}`?"));
-        }
-        return Err(error.help("the OS names are linux, windows, macos and wasm"));
-    };
-    cli.os = Some(parsed);
-    Ok(())
-}
-
-fn store_cpu(cli: &mut Cli, _: &str, cpu: String) -> Result<(), CliError> {
-    match jaic::target::parse_cpu(&cpu) {
-        Some(parsed) if parsed != TargetCpu::Wasm => {
-            cli.cpu = Some(parsed);
-            Ok(())
-        }
-        _ => Err(CliError::new(format!("unknown CPU `{cpu}` for `-cpu`"))
-            .help("the CPU names are x64 (or x86_64) and arm64 (or aarch64)")),
-    }
-}
 
 fn store_sanitize(cli: &mut Cli, option: &str, list: String) -> Result<(), CliError> {
     if let Some(bad) = list
