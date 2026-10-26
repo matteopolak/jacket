@@ -439,110 +439,161 @@ impl Compiler {
             return Ok(());
         }
         if let ast::AssignOp::Op(bin) = op {
-            if lhs.len() > 1 && rhs.len() == 1 {
-                // `a, b += 1;` applies the operation to every target.
-                for target in lhs {
-                    self.check_assign(f, scope, op, std::slice::from_ref(target), rhs, span)?;
-                }
-                return Ok(());
+            return self.check_compound_assign(f, scope, op, bin, (lhs, rhs), span);
+        }
+        if lhs.len() == 1 && rhs.len() == 1 {
+            return self.check_single_assign(f, scope, &lhs[0], &rhs[0], span);
+        }
+        self.check_multi_assign(f, scope, lhs, rhs, span)
+    }
+
+    /// `a += b`, `a, b += 1` and `a, b += c, d`.
+    fn check_compound_assign(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        op: ast::AssignOp,
+        bin: ast::BinOp,
+        (lhs, rhs): (&[ast::Expr], &[ast::Expr]),
+        span: Span,
+    ) -> Result<()> {
+        if lhs.len() > 1 && rhs.len() == 1 {
+            // `a, b += 1;` applies the operation to every target.
+            for target in lhs {
+                self.check_assign(f, scope, op, std::slice::from_ref(target), rhs, span)?;
             }
-            if lhs.len() > 1 && lhs.len() == rhs.len() {
-                return self.check_assign_pairs(f, scope, op, lhs, rhs, span);
-            }
-            if lhs.len() != 1 || rhs.len() != 1 {
-                return err(span, "compound assignment takes one target and one value");
-            }
-            if self.try_operator_assign(f, scope, bin, &lhs[0], &rhs[0], span)? {
-                return Ok(());
-            }
-            // Evaluate the target once, then `*tmp = *tmp op rhs`.
-            let place = self.check_target(f, scope, &lhs[0])?.without_callable();
-            let Operand::Place {
-                ty,
-                addr,
-            } = place
-            else {
-                return Err(self.not_assignable(scope, &lhs[0], &place));
-            };
-            if self.is_plain_variable_target(scope, &lhs[0]) {
-                // A variable (or a field of one) has the same address every time it is named,
-                // so `x += y` is `x = x + y` without a hidden pointer to it.
-                let value = ast::Expr {
-                    kind: E::Binary(bin, Box::new(lhs[0].clone()), Box::new(rhs[0].clone())),
-                    span,
-                };
-                let result = self.check_expr(f, scope, &value, Some(ty))?;
-                let result = self.convert(f, result, ty, span)?;
-                let (_, v) = self.rvalue(f, result, span)?;
-                self.store_value(f, ty, addr, v, span)?;
-                return Ok(());
-            }
-            let inner = self.new_hidden_scope(scope);
-            let ptr_ty = self.ty.types.pointer(ty);
-            let slot = self.spill(f, ptr_ty, addr, span)?;
-            let tmp = Sym::intern("\u{0}lhs");
-            let depth = self.scope(inner).proc_depth;
-            self.add_entity(
-                inner,
-                tmp,
-                span,
-                EntityKind::Local {
-                    ty: ptr_ty,
-                    addr: slot,
-                    depth,
-                },
-                false,
-            );
-            // The hidden pointer gets an empty span at the target's start, so what is recorded
-            // for the target's own span (its type, the names it resolves to) stays the user's.
-            let at = lhs[0].span;
-            let target = ast::Expr {
-                kind: E::Unary(
-                    ast::UnOp::Deref,
-                    Box::new(ast::Expr {
-                        kind: E::Ident(tmp),
-                        span: Span::new(at.file, at.start as usize, at.start as usize),
-                    }),
-                ),
-                span: at,
-            };
+            return Ok(());
+        }
+        if lhs.len() > 1 && lhs.len() == rhs.len() {
+            return self.check_assign_pairs(f, scope, op, lhs, rhs, span);
+        }
+        if lhs.len() != 1 || rhs.len() != 1 {
+            return err(span, "compound assignment takes one target and one value");
+        }
+        if self.try_operator_assign(f, scope, bin, &lhs[0], &rhs[0], span)? {
+            return Ok(());
+        }
+        // Evaluate the target once, then `*tmp = *tmp op rhs`.
+        let place = self.check_target(f, scope, &lhs[0])?.without_callable();
+        let Operand::Place {
+            ty,
+            addr,
+        } = place
+        else {
+            return Err(self.not_assignable(scope, &lhs[0], &place));
+        };
+        if self.is_plain_variable_target(scope, &lhs[0]) {
+            // A variable (or a field of one) has the same address every time it is named,
+            // so `x += y` is `x = x + y` without a hidden pointer to it.
             let value = ast::Expr {
-                kind: E::Binary(bin, Box::new(target), Box::new(rhs[0].clone())),
+                kind: E::Binary(bin, Box::new(lhs[0].clone()), Box::new(rhs[0].clone())),
                 span,
             };
-            let result = self.check_expr(f, inner, &value, Some(ty))?;
+            let result = self.check_expr(f, scope, &value, Some(ty))?;
             let result = self.convert(f, result, ty, span)?;
             let (_, v) = self.rvalue(f, result, span)?;
             self.store_value(f, ty, addr, v, span)?;
             return Ok(());
         }
-        if lhs.len() == 1 && rhs.len() == 1 {
-            let place = self.check_target(f, scope, &lhs[0])?.without_callable();
-            let Operand::Place {
-                ty,
-                addr,
-            } = place
-            else {
-                return Err(self.not_assignable(scope, &lhs[0], &place));
-            };
-            let value = self.check_expr(f, scope, &rhs[0], Some(ty))?;
-            let value = self.convert(f, value, ty, rhs[0].span)?;
-            // A call's result is a temporary of its own and cannot overlap the target.
-            let fresh =
-                matches!(rhs[0].kind, E::Call { .. }) && matches!(value, Operand::Value { .. });
-            let (_, v) = self.rvalue(f, value, span)?;
-            // Copy through a temporary when the source may overlap the target.
-            if self.is_memory_type(ty) && !fresh {
-                let size = self.size_of(ty, span)?;
-                let align = self.align_of(ty, span)?;
-                let tmp = f.b.alloca(size.max(1), align);
-                f.b.copy(tmp, v, size);
-                f.b.copy(addr, tmp, size);
-            } else {
-                self.store_value(f, ty, addr, v, span)?;
-            }
-            return Ok(());
+        self.compound_assign_through_pointer(f, scope, bin, (&lhs[0], &rhs[0]), (ty, addr), span)
+    }
+
+    /// `target op= value` where the target's address is not the same every time it is named:
+    /// the address is evaluated once into a hidden pointer, then `*tmp = *tmp op value`.
+    fn compound_assign_through_pointer(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        bin: ast::BinOp,
+        (place_expr, operand): (&ast::Expr, &ast::Expr),
+        (ty, addr): (TypeId, ir::Val),
+        span: Span,
+    ) -> Result<()> {
+        let inner = self.new_hidden_scope(scope);
+        let ptr_ty = self.ty.types.pointer(ty);
+        let slot = self.spill(f, ptr_ty, addr, span)?;
+        let tmp = Sym::intern("\u{0}lhs");
+        let depth = self.scope(inner).proc_depth;
+        self.add_entity(
+            inner,
+            tmp,
+            span,
+            EntityKind::Local {
+                ty: ptr_ty,
+                addr: slot,
+                depth,
+            },
+            false,
+        );
+        // The hidden pointer gets an empty span at the target's start, so what is recorded
+        // for the target's own span (its type, the names it resolves to) stays the user's.
+        let at = place_expr.span;
+        let target = ast::Expr {
+            kind: E::Unary(
+                ast::UnOp::Deref,
+                Box::new(ast::Expr {
+                    kind: E::Ident(tmp),
+                    span: Span::new(at.file, at.start as usize, at.start as usize),
+                }),
+            ),
+            span: at,
+        };
+        let value = ast::Expr {
+            kind: E::Binary(bin, Box::new(target), Box::new(operand.clone())),
+            span,
+        };
+        let result = self.check_expr(f, inner, &value, Some(ty))?;
+        let result = self.convert(f, result, ty, span)?;
+        let (_, v) = self.rvalue(f, result, span)?;
+        self.store_value(f, ty, addr, v, span)?;
+        Ok(())
+    }
+
+    /// `target = value`.
+    fn check_single_assign(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        target: &ast::Expr,
+        value: &ast::Expr,
+        span: Span,
+    ) -> Result<()> {
+        let place = self.check_target(f, scope, target)?.without_callable();
+        let Operand::Place {
+            ty,
+            addr,
+        } = place
+        else {
+            return Err(self.not_assignable(scope, target, &place));
+        };
+        let operand = self.check_expr(f, scope, value, Some(ty))?;
+        let operand = self.convert(f, operand, ty, value.span)?;
+        // A call's result is a temporary of its own and cannot overlap the target.
+        let fresh =
+            matches!(value.kind, E::Call { .. }) && matches!(operand, Operand::Value { .. });
+        let (_, v) = self.rvalue(f, operand, span)?;
+        // Copy through a temporary when the source may overlap the target.
+        if self.is_memory_type(ty) && !fresh {
+            let size = self.size_of(ty, span)?;
+            let align = self.align_of(ty, span)?;
+            let tmp = f.b.alloca(size.max(1), align);
+            f.b.copy(tmp, v, size);
+            f.b.copy(addr, tmp, size);
+        } else {
+            self.store_value(f, ty, addr, v, span)?;
         }
+        Ok(())
+    }
+
+    /// `a, b = x, y` and `a, b = f()`.
+    fn check_multi_assign(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        lhs: &[ast::Expr],
+        rhs: &[ast::Expr],
+        span: Span,
+    ) -> Result<()> {
         // A list of values pairs with the targets one to one, as in `a, b := 1, 2;`.
         if rhs.len() > 1 && rhs.len() != lhs.len() {
             return err(
@@ -551,82 +602,14 @@ impl Compiler {
             );
         }
         // Multiple assignment: evaluate every value first.
-        let mut values: Vec<(TypeId, ir::Val)> = Vec::new();
-        if rhs.len() == 1 {
-            match self.check_expr(f, scope, &rhs[0], None)? {
-                Operand::Multi(v) => {
-                    for operand in v {
-                        values.push(self.rvalue(f, operand, rhs[0].span)?);
-                    }
-                }
-                other => {
-                    // `a, b = value;` assigns the one value to every target.
-                    if matches!(
-                        other,
-                        Operand::Callable { .. }
-                            | Operand::Value { .. }
-                            | Operand::Place { .. }
-                            | Operand::Const { .. }
-                            | Operand::Type(_)
-                    ) {
-                        for l in lhs {
-                            let place = self.check_target(f, scope, l)?.without_callable();
-                            let Operand::Place {
-                                ty,
-                                addr,
-                            } = place
-                            else {
-                                return Err(self.not_assignable(scope, l, &place));
-                            };
-                            let op = self.convert(f, other.clone(), ty, rhs[0].span)?;
-                            let (_, v) = self.rvalue(f, op, l.span)?;
-                            self.store_value(f, ty, addr, v, l.span)?;
-                        }
-                        return Ok(());
-                    }
-                    return err(
-                        rhs[0].span,
-                        format!(
-                            "expected {} values, found {}",
-                            lhs.len(),
-                            self.describe(&other)
-                        ),
-                    );
-                }
+        let values = if rhs.len() == 1 {
+            match self.multi_assign_one_source(f, scope, lhs, &rhs[0])? {
+                Some(values) => values,
+                None => return Ok(()),
             }
         } else {
-            for (r, l) in rhs.iter().zip(lhs) {
-                // The value is checked against its own target's type, so untyped constants,
-                // `xx` and inferred members follow it (`v.x, v.y = 42, 108;`, `= xx a, xx b;`).
-                let target = match &l.kind {
-                    E::Ident(name) if name.as_str() == "_" => None,
-                    _ => match self.check_expr(f, scope, l, None)? {
-                        Operand::Place {
-                            ty, ..
-                        } => Some(ty),
-                        _ => None,
-                    },
-                };
-                let op = self.check_expr(f, scope, r, target)?;
-                let op = match (&op, target) {
-                    (
-                        Operand::Const {
-                            untyped: true, ..
-                        },
-                        Some(ty),
-                    ) => self.convert(f, op, ty, r.span)?,
-                    _ => op,
-                };
-                let op = self.settle_untyped(op, None);
-                let (ty, v) = self.rvalue(f, op, r.span)?;
-                let tmp = self.spill(f, ty, v, r.span)?;
-                let v = match self.ir_ty(ty) {
-                    Some(t) => f.b.load(t, tmp),
-                    None => tmp,
-                };
-                values.push((ty, v));
-            }
-        }
+            self.multi_assign_paired_values(f, scope, lhs, rhs)?
+        };
         if values.len() < lhs.len() {
             return Err(self.count_mismatch(span, (lhs.len(), "targets"), values.len(), &[]));
         }
@@ -657,5 +640,103 @@ impl Compiler {
             self.store_value(f, ty, addr, v, l.span)?;
         }
         Ok(())
+    }
+
+    /// The values of `a, b = source` where one expression gives them all. `None`: it was one
+    /// value stored into every target already.
+    fn multi_assign_one_source(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        lhs: &[ast::Expr],
+        source: &ast::Expr,
+    ) -> Result<Option<Vec<(TypeId, ir::Val)>>> {
+        let rhs = std::slice::from_ref(source);
+        let mut values: Vec<(TypeId, ir::Val)> = Vec::new();
+        match self.check_expr(f, scope, &rhs[0], None)? {
+            Operand::Multi(v) => {
+                for operand in v {
+                    values.push(self.rvalue(f, operand, rhs[0].span)?);
+                }
+            }
+            other => {
+                // `a, b = value;` assigns the one value to every target.
+                if matches!(
+                    other,
+                    Operand::Callable { .. }
+                        | Operand::Value { .. }
+                        | Operand::Place { .. }
+                        | Operand::Const { .. }
+                        | Operand::Type(_)
+                ) {
+                    for l in lhs {
+                        let place = self.check_target(f, scope, l)?.without_callable();
+                        let Operand::Place {
+                            ty,
+                            addr,
+                        } = place
+                        else {
+                            return Err(self.not_assignable(scope, l, &place));
+                        };
+                        let op = self.convert(f, other.clone(), ty, rhs[0].span)?;
+                        let (_, v) = self.rvalue(f, op, l.span)?;
+                        self.store_value(f, ty, addr, v, l.span)?;
+                    }
+                    return Ok(None);
+                }
+                return err(
+                    rhs[0].span,
+                    format!(
+                        "expected {} values, found {}",
+                        lhs.len(),
+                        self.describe(&other)
+                    ),
+                );
+            }
+        }
+        Ok(Some(values))
+    }
+
+    /// The values of `a, b = x, y`: each checked against its own target.
+    fn multi_assign_paired_values(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        lhs: &[ast::Expr],
+        rhs: &[ast::Expr],
+    ) -> Result<Vec<(TypeId, ir::Val)>> {
+        let mut values: Vec<(TypeId, ir::Val)> = Vec::new();
+        for (r, l) in rhs.iter().zip(lhs) {
+            // The value is checked against its own target's type, so untyped constants,
+            // `xx` and inferred members follow it (`v.x, v.y = 42, 108;`, `= xx a, xx b;`).
+            let target = match &l.kind {
+                E::Ident(name) if name.as_str() == "_" => None,
+                _ => match self.check_expr(f, scope, l, None)? {
+                    Operand::Place {
+                        ty, ..
+                    } => Some(ty),
+                    _ => None,
+                },
+            };
+            let op = self.check_expr(f, scope, r, target)?;
+            let op = match (&op, target) {
+                (
+                    Operand::Const {
+                        untyped: true, ..
+                    },
+                    Some(ty),
+                ) => self.convert(f, op, ty, r.span)?,
+                _ => op,
+            };
+            let op = self.settle_untyped(op, None);
+            let (ty, v) = self.rvalue(f, op, r.span)?;
+            let tmp = self.spill(f, ty, v, r.span)?;
+            let v = match self.ir_ty(ty) {
+                Some(t) => f.b.load(t, tmp),
+                None => tmp,
+            };
+            values.push((ty, v));
+        }
+        Ok(values)
     }
 }

@@ -21,248 +21,304 @@ impl Compiler {
         };
         match b {
             BuiltinProc::SizeOf | BuiltinProc::AlignOf => {
-                let op = match self.type_field_type(scope, &arg.value)? {
-                    Some(t) => Operand::Type(t),
-                    None => self.check_expr_no_emit(scope, &arg.value)?,
-                };
-                let ty = match op {
-                    Operand::Type(t) => t,
-                    Operand::Const {
-                        value: Value::Type(t),
-                        ..
-                    } => t,
-                    Operand::Value {
-                        ty: TypeId::TYPE, ..
-                    }
-                    | Operand::Place {
-                        ty: TypeId::TYPE, ..
-                    } => {
-                        let name = if b == BuiltinProc::SizeOf {
-                            "size_of"
-                        } else {
-                            "align_of"
-                        };
-                        return Err(Box::new(
-                            Diagnostic::error(
-                                arg.value.span,
-                                format!(
-                                    "`{name}` needs a constant type, but this is a `Type` variable"
-                                ),
-                            )
-                            .with_label("not a compile-time constant")
-                            .with_help(
-                                "a variable's value is only known at run time; use \
-                                 `(cast(*Type_Info) t).runtime_size` (see `type_info(...)`) \
-                                 to read a type's size from a variable",
-                            ),
-                        ));
-                    }
-                    other => other.ty(),
-                };
-                let v = if b == BuiltinProc::SizeOf {
-                    self.size_of(ty, span)?
-                } else {
-                    self.align_of(ty, span)?
-                };
-                Ok(Operand::Const {
-                    ty: TypeId::S64,
-                    value: Value::Int(v as i128),
-                    untyped: true,
-                })
+                self.builtin_size_or_align(b, scope, arg, span)
             }
-            BuiltinProc::CodeOf => {
-                // The code of a procedure (its header and body), else of the expression.
-                let proc = match self.check_expr_no_emit(scope, &arg.value) {
-                    Ok(Operand::Procs(p)) if p.len() == 1 => Some(p[0]),
-                    Ok(Operand::Const {
-                        value: Value::Proc(p),
-                        ..
-                    }) => Some(p),
-                    _ => None,
-                };
-                let id = match proc {
-                    Some(p) => {
-                        let (lit, span, pscope) = (
-                            self.proc(p).lit.clone(),
-                            self.proc(p).span,
-                            self.proc(p).scope,
-                        );
-                        let expr = ast::Expr {
-                            kind: ast::ExprKind::Proc(lit),
-                            span,
-                        };
-                        let id = self.add_code(Rc::new(ast::CodeBody::Expr(expr)), pscope);
-                        self.pr.code_procs.insert(id.0 as usize, p);
-                        id
-                    }
-                    None => self.add_code(Rc::new(ast::CodeBody::Expr(arg.value.clone())), scope),
-                };
-                Ok(Operand::Const {
-                    ty: TypeId::CODE,
-                    value: Value::Code(id),
-                    untyped: false,
-                })
-            }
-            BuiltinProc::TypeOf => {
-                if let Some(t) = self.type_field_type(scope, &arg.value)? {
-                    return Ok(Operand::Type(t));
-                }
-                // Only the type is needed, so an enclosing procedure's local is fine
-                // (`#run f(type_of(local))` inside a body).
-                if let Some(t) = self.outer_local_type(scope, &arg.value)? {
-                    return Ok(Operand::Type(t));
-                }
-                let op = match self.check_expr_no_emit(scope, &arg.value) {
-                    Ok(op) => op,
-                    Err(e) => match self.enclosing_struct_field_type(scope, &arg.value)? {
-                        Some(t) => return Ok(Operand::Type(t)),
-                        None => return Err(e),
-                    },
-                };
-                let ty = match op {
-                    Operand::Type(_) | Operand::PolyStruct(_) => TypeId::TYPE,
-                    Operand::Const {
-                        ty,
-                        value,
-                        untyped: true,
-                    } => self.ty.default_untyped(ty, &value),
-                    Operand::Procs(p) if p.len() == 1 && self.proc(p[0]).is_poly => {
-                        self.poly_proc_type(p[0])
-                    }
-                    Operand::Procs(p) if p.len() == 1 => self.proc_type(p[0], span)?,
-                    other => other.ty(),
-                };
-                Ok(Operand::Type(ty))
-            }
-            BuiltinProc::TypeInfo => {
-                let op = self.check_expr(f, scope, &arg.value, Some(TypeId::TYPE))?;
-                if matches!(
-                    op,
-                    Operand::Value {
-                        ty: TypeId::TYPE,
-                        ..
-                    } | Operand::Place {
-                        ty: TypeId::TYPE,
-                        ..
-                    }
-                ) {
-                    // A runtime `Type` is already a `*Type_Info`.
-                    let (_, v) = self.rvalue(f, op, span)?;
-                    let info = self.preload_type(PreludeType::TypeInfo, span)?;
-                    return Ok(Operand::Value {
-                        ty: self.ty.types.pointer(info),
-                        val: v,
-                    });
-                }
-                // A generic struct named without arguments has the descriptor its instances
-                // carry as `polymorph_source_struct`.
-                if let Operand::PolyStruct(ps) = op
-                    && !self.ty.poly_structs[ps.0 as usize]
-                        .lit
-                        .params
-                        .iter()
-                        .all(|p| p.default.is_some())
-                {
-                    let desc = self.preload_type(PreludeType::TypeInfoStruct, span)?;
-                    let (key, name) = {
-                        let p = &self.ty.poly_structs[ps.0 as usize];
-                        (p.lit.id, p.name)
-                    };
-                    let global = self.generic_struct_info_global(key, name, desc, span)?;
-                    let v = f.b.global_addr(global);
-                    return Ok(Operand::Value {
-                        ty: self.ty.types.pointer(desc),
-                        val: v,
-                    });
-                }
-                let ty = self.operand_as_type(op, arg.value.span)?;
-                let info_ty = self.type_info_struct_type(ty, span)?;
-                let ptr = self.ty.types.pointer(info_ty);
-                let global = self.type_info_global(ty, span)?;
-                let v = f.b.global_addr(global);
-                Ok(Operand::Value {
-                    ty: ptr,
-                    val: v,
-                })
-            }
-            BuiltinProc::IsConstant => {
-                let op = self.check_expr_no_emit(scope, &arg.value)?;
-                let constant = op.is_const()
-                    || matches!(op, Operand::Procs(_))
-                    || self.is_constant_pointer(scope, &arg.value, &op);
-                Ok(Operand::bool(constant))
-            }
-            BuiltinProc::InitializerOf => {
-                let ty = self.eval_type_in(f, scope, &arg.value)?;
-                let proc = self.initializer_proc(ty, span)?;
-                // A type that is all zeroes by default has no initializer (`#if initializer_of(T)`).
-                if matches!(self.default_initializer(ty, span), Ok(None)) {
-                    return Ok(Operand::Const {
-                        ty: proc.1,
-                        value: Value::Null,
-                        untyped: false,
-                    });
-                }
-                Ok(Operand::Value {
-                    ty: proc.1,
-                    val: f.b.func_addr(proc.0),
-                })
-            }
-            BuiltinProc::OffsetOf => {
-                // `offset_of(T, "member")` or `offset_of(T.member)`; the member may be a dotted
-                // path (`"inner.x"`) and may come from a `using` member.
-                let (ty, path) = if let Some(second) = args.get(1) {
-                    let ty = self.eval_type_in(f, scope, &arg.value)?;
-                    let name = match self.check_expr_no_emit(scope, &second.value)? {
-                        Operand::Const {
-                            value: Value::String(s),
-                            ..
-                        } => String::from_utf8_lossy(&s).into_owned(),
-                        _ => {
-                            return err(
-                                second.value.span,
-                                "the member name of `offset_of` must be a constant string",
-                            );
-                        }
-                    };
-                    (ty, name)
-                } else {
-                    let E::Member(base, field) = &arg.value.kind else {
-                        return err(
-                            arg.value.span,
-                            "`offset_of` takes `(Type, \"member\")` or `Type.member`",
-                        );
-                    };
-                    let ty = self.eval_type_in(f, scope, base)?;
-                    (ty, field.name.as_str().to_string())
-                };
-                let mut offset = 0u64;
-                let mut cur = ty;
-                for part in path.split('.') {
-                    if let Some((o, t)) = self.member_offset(cur, part, span)? {
-                        offset += o;
-                        cur = t;
-                    } else {
-                        let tn = self.ty.types.name(cur);
-                        return err(
-                            span,
-                            format!("`{tn}` has no member `{part}` at a fixed offset"),
-                        );
-                    }
-                }
-                Ok(Operand::Const {
-                    ty: TypeId::S64,
-                    value: Value::Int(offset as i128),
-                    untyped: true,
-                })
-            }
-            BuiltinProc::IsValueType => {
-                let ty = self.eval_type_in(f, scope, &arg.value)?;
-                let v = self.is_value_type(ty, span)?;
-                Ok(Operand::bool(v))
-            }
+            BuiltinProc::CodeOf => self.builtin_code_of(scope, arg),
+            BuiltinProc::TypeOf => self.builtin_type_of(scope, arg, span),
+            BuiltinProc::TypeInfo => self.builtin_type_info(f, scope, arg, span),
+            BuiltinProc::IsConstant => self.builtin_is_constant(scope, arg),
+            BuiltinProc::InitializerOf => self.builtin_initializer_of(f, scope, arg, span),
+            BuiltinProc::OffsetOf => self.builtin_offset_of(f, scope, arg, args, span),
+            BuiltinProc::IsValueType => self.builtin_is_value_type(f, scope, arg, span),
         }
     }
+
+    /// `size_of(T)` and `align_of(T)`: a constant of the type, or an error for a `Type` variable.
+    fn builtin_size_or_align(
+        &mut self,
+        b: BuiltinProc,
+        scope: ScopeId,
+        arg: &ast::Arg,
+        span: Span,
+    ) -> Result<Operand> {
+        let op = match self.type_field_type(scope, &arg.value)? {
+            Some(t) => Operand::Type(t),
+            None => self.check_expr_no_emit(scope, &arg.value)?,
+        };
+        let ty = match op {
+            Operand::Type(t) => t,
+            Operand::Const {
+                value: Value::Type(t),
+                ..
+            } => t,
+            Operand::Value {
+                ty: TypeId::TYPE, ..
+            }
+            | Operand::Place {
+                ty: TypeId::TYPE, ..
+            } => {
+                let name = if b == BuiltinProc::SizeOf {
+                    "size_of"
+                } else {
+                    "align_of"
+                };
+                return Err(Box::new(
+                    Diagnostic::error(
+                        arg.value.span,
+                        format!("`{name}` needs a constant type, but this is a `Type` variable"),
+                    )
+                    .with_label("not a compile-time constant")
+                    .with_help(
+                        "a variable's value is only known at run time; use \
+                         `(cast(*Type_Info) t).runtime_size` (see `type_info(...)`) \
+                         to read a type's size from a variable",
+                    ),
+                ));
+            }
+            other => other.ty(),
+        };
+        let v = if b == BuiltinProc::SizeOf {
+            self.size_of(ty, span)?
+        } else {
+            self.align_of(ty, span)?
+        };
+        Ok(Operand::Const {
+            ty: TypeId::S64,
+            value: Value::Int(v as i128),
+            untyped: true,
+        })
+    }
+
+    /// `code_of(x)`: the code of a procedure (its header and body), else of the expression.
+    fn builtin_code_of(&mut self, scope: ScopeId, arg: &ast::Arg) -> Result<Operand> {
+        // The code of a procedure (its header and body), else of the expression.
+        let proc = match self.check_expr_no_emit(scope, &arg.value) {
+            Ok(Operand::Procs(p)) if p.len() == 1 => Some(p[0]),
+            Ok(Operand::Const {
+                value: Value::Proc(p),
+                ..
+            }) => Some(p),
+            _ => None,
+        };
+        let id = match proc {
+            Some(p) => {
+                let (lit, span, pscope) = (
+                    self.proc(p).lit.clone(),
+                    self.proc(p).span,
+                    self.proc(p).scope,
+                );
+                let expr = ast::Expr {
+                    kind: ast::ExprKind::Proc(lit),
+                    span,
+                };
+                let id = self.add_code(Rc::new(ast::CodeBody::Expr(expr)), pscope);
+                self.pr.code_procs.insert(id.0 as usize, p);
+                id
+            }
+            None => self.add_code(Rc::new(ast::CodeBody::Expr(arg.value.clone())), scope),
+        };
+        Ok(Operand::Const {
+            ty: TypeId::CODE,
+            value: Value::Code(id),
+            untyped: false,
+        })
+    }
+
+    /// `type_of(x)`: the type of an expression without evaluating it.
+    fn builtin_type_of(&mut self, scope: ScopeId, arg: &ast::Arg, span: Span) -> Result<Operand> {
+        if let Some(t) = self.type_field_type(scope, &arg.value)? {
+            return Ok(Operand::Type(t));
+        }
+        // Only the type is needed, so an enclosing procedure's local is fine
+        // (`#run f(type_of(local))` inside a body).
+        if let Some(t) = self.outer_local_type(scope, &arg.value)? {
+            return Ok(Operand::Type(t));
+        }
+        let op = match self.check_expr_no_emit(scope, &arg.value) {
+            Ok(op) => op,
+            Err(e) => match self.enclosing_struct_field_type(scope, &arg.value)? {
+                Some(t) => return Ok(Operand::Type(t)),
+                None => return Err(e),
+            },
+        };
+        let ty = match op {
+            Operand::Type(_) | Operand::PolyStruct(_) => TypeId::TYPE,
+            Operand::Const {
+                ty,
+                value,
+                untyped: true,
+            } => self.ty.default_untyped(ty, &value),
+            Operand::Procs(p) if p.len() == 1 && self.proc(p[0]).is_poly => {
+                self.poly_proc_type(p[0])
+            }
+            Operand::Procs(p) if p.len() == 1 => self.proc_type(p[0], span)?,
+            other => other.ty(),
+        };
+        Ok(Operand::Type(ty))
+    }
+
+    /// `type_info(T)`: a pointer to the type's descriptor.
+    fn builtin_type_info(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        arg: &ast::Arg,
+        span: Span,
+    ) -> Result<Operand> {
+        let op = self.check_expr(f, scope, &arg.value, Some(TypeId::TYPE))?;
+        if matches!(
+            op,
+            Operand::Value {
+                ty: TypeId::TYPE,
+                ..
+            } | Operand::Place {
+                ty: TypeId::TYPE,
+                ..
+            }
+        ) {
+            // A runtime `Type` is already a `*Type_Info`.
+            let (_, v) = self.rvalue(f, op, span)?;
+            let info = self.preload_type(PreludeType::TypeInfo, span)?;
+            return Ok(Operand::Value {
+                ty: self.ty.types.pointer(info),
+                val: v,
+            });
+        }
+        // A generic struct named without arguments has the descriptor its instances
+        // carry as `polymorph_source_struct`.
+        if let Operand::PolyStruct(ps) = op
+            && !self.ty.poly_structs[ps.0 as usize]
+                .lit
+                .params
+                .iter()
+                .all(|p| p.default.is_some())
+        {
+            let desc = self.preload_type(PreludeType::TypeInfoStruct, span)?;
+            let (key, name) = {
+                let p = &self.ty.poly_structs[ps.0 as usize];
+                (p.lit.id, p.name)
+            };
+            let global = self.generic_struct_info_global(key, name, desc, span)?;
+            let v = f.b.global_addr(global);
+            return Ok(Operand::Value {
+                ty: self.ty.types.pointer(desc),
+                val: v,
+            });
+        }
+        let ty = self.operand_as_type(op, arg.value.span)?;
+        let info_ty = self.type_info_struct_type(ty, span)?;
+        let ptr = self.ty.types.pointer(info_ty);
+        let global = self.type_info_global(ty, span)?;
+        let v = f.b.global_addr(global);
+        Ok(Operand::Value {
+            ty: ptr,
+            val: v,
+        })
+    }
+
+    /// `is_constant(x)`.
+    fn builtin_is_constant(&mut self, scope: ScopeId, arg: &ast::Arg) -> Result<Operand> {
+        let op = self.check_expr_no_emit(scope, &arg.value)?;
+        let constant = op.is_const()
+            || matches!(op, Operand::Procs(_))
+            || self.is_constant_pointer(scope, &arg.value, &op);
+        Ok(Operand::bool(constant))
+    }
+
+    /// `initializer_of(T)`: the type's initializer procedure, or null when it has none.
+    fn builtin_initializer_of(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        arg: &ast::Arg,
+        span: Span,
+    ) -> Result<Operand> {
+        let ty = self.eval_type_in(f, scope, &arg.value)?;
+        let proc = self.initializer_proc(ty, span)?;
+        // A type that is all zeroes by default has no initializer (`#if initializer_of(T)`).
+        if matches!(self.default_initializer(ty, span), Ok(None)) {
+            return Ok(Operand::Const {
+                ty: proc.1,
+                value: Value::Null,
+                untyped: false,
+            });
+        }
+        Ok(Operand::Value {
+            ty: proc.1,
+            val: f.b.func_addr(proc.0),
+        })
+    }
+
+    /// `offset_of(T, "member")` and `offset_of(T.member)`.
+    fn builtin_offset_of(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        arg: &ast::Arg,
+        args: &[ast::Arg],
+        span: Span,
+    ) -> Result<Operand> {
+        // `offset_of(T, "member")` or `offset_of(T.member)`; the member may be a dotted
+        // path (`"inner.x"`) and may come from a `using` member.
+        let (ty, path) = if let Some(second) = args.get(1) {
+            let ty = self.eval_type_in(f, scope, &arg.value)?;
+            let name = match self.check_expr_no_emit(scope, &second.value)? {
+                Operand::Const {
+                    value: Value::String(s),
+                    ..
+                } => String::from_utf8_lossy(&s).into_owned(),
+                _ => {
+                    return err(
+                        second.value.span,
+                        "the member name of `offset_of` must be a constant string",
+                    );
+                }
+            };
+            (ty, name)
+        } else {
+            let E::Member(base, field) = &arg.value.kind else {
+                return err(
+                    arg.value.span,
+                    "`offset_of` takes `(Type, \"member\")` or `Type.member`",
+                );
+            };
+            let ty = self.eval_type_in(f, scope, base)?;
+            (ty, field.name.as_str().to_string())
+        };
+        let mut offset = 0u64;
+        let mut cur = ty;
+        for part in path.split('.') {
+            if let Some((o, t)) = self.member_offset(cur, part, span)? {
+                offset += o;
+                cur = t;
+            } else {
+                let tn = self.ty.types.name(cur);
+                return err(
+                    span,
+                    format!("`{tn}` has no member `{part}` at a fixed offset"),
+                );
+            }
+        }
+        Ok(Operand::Const {
+            ty: TypeId::S64,
+            value: Value::Int(offset as i128),
+            untyped: true,
+        })
+    }
+
+    /// `is_value_type(T)`.
+    fn builtin_is_value_type(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        arg: &ast::Arg,
+        span: Span,
+    ) -> Result<Operand> {
+        let ty = self.eval_type_in(f, scope, &arg.value)?;
+        let v = self.is_value_type(ty, span)?;
+        Ok(Operand::bool(v))
+    }
+
 
     /// Whether copying a value of `ty` byte for byte copies all of it: no pointers, strings,
     /// array views, resizable arrays, procedures, `Any`, `Type` or `Code` inside.

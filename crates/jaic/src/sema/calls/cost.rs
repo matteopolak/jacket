@@ -195,111 +195,10 @@ impl Compiler {
         macro_call: bool,
     ) -> Result<u32> {
         if self.is_register_operand_type(param, arg.span) {
-            if !macro_call {
-                return err(arg.span, "register operands require an expanded procedure");
-            }
-            if let Some(expr) = &arg.expr
-                && self.asm_reg_named(arg.scope, expr)?.is_some()
-            {
-                return Ok(convert::EXACT);
-            }
-            return err(
-                arg.span,
-                "expected an #asm register operand, not a scalar or memory value",
-            );
+            return self.register_arg_cost(arg, macro_call);
         }
-
         let Some(op) = &arg.op else {
-            if let Some(ast::Expr {
-                kind: E::Lambda {
-                    header, ..
-                },
-                ..
-            }) = &arg.expr
-            {
-                match self.ty.types.kind(param) {
-                    TypeKind::Proc(pt) if pt.params.len() == header.params.len() => {}
-                    TypeKind::Proc(_) => {
-                        return Err(self.lambda_arity_error(header.params.len(), param, arg.span));
-                    }
-                    _ => {
-                        return err(
-                            arg.span,
-                            format!("a lambda cannot be passed as {}", self.ty.types.name(param)),
-                        );
-                    }
-                }
-            }
-            // Any expression converts to a `Code` parameter (plain procedures too).
-            if param == TypeId::CODE {
-                return Ok(convert::LITERAL);
-            }
-            // `ifx c then a else b`: each branch must fit (`"-->"` does not fit a `u8`).
-            if let Some(ast::Expr {
-                kind:
-                    E::Ifx {
-                        then_value,
-                        else_value,
-                        ..
-                    },
-                ..
-            }) = &arg.expr
-            {
-                let mut cost = convert::LITERAL;
-                for branch in [then_value, else_value].into_iter().flatten() {
-                    if is_deferred(branch) {
-                        continue;
-                    }
-                    let Ok(op) = self.check_expr_no_emit(arg.scope, branch) else {
-                        continue;
-                    };
-                    let probe = CallArg {
-                        op: Some(op),
-                        expr: Some((**branch).clone()),
-                        span: branch.span,
-                        ..arg.clone()
-                    };
-                    cost = cost.max(self.arg_cost(&probe, param, macro_call)?);
-                }
-                return Ok(cost);
-            }
-            // Deferred arguments fit any plausible target; prefer exact-looking ones.
-            let scalar = matches!(
-                self.ty.types.kind(self.ty.types.repr_struct(param)),
-                TypeKind::Bool
-                    | TypeKind::Int { .. }
-                    | TypeKind::Float { .. }
-                    | TypeKind::String
-                    | TypeKind::Type
-            );
-            let fits = match arg.expr.as_ref().map(|e| &e.kind) {
-                // `.{...}` and `.[...]` build aggregates, `.NAME` picks an enum member.
-                Some(E::StructLit {
-                    fields: lit_args, ..
-                }) => {
-                    (!scalar
-                        || !self
-                            .builtin_members(self.ty.types.repr(param), arg.span)?
-                            .is_empty())
-                        && self
-                            .struct_lit_fit(param, lit_args, arg.scope, arg.span)?
-                            .is_some()
-                }
-                Some(E::ArrayLit {
-                    ..
-                }) => !scalar,
-                Some(_) if arg.expr.as_ref().is_some_and(inferred_flags) => {
-                    matches!(self.ty.types.kind(param), TypeKind::Enum(_))
-                }
-                _ => true,
-            };
-            if !fits {
-                return err(
-                    arg.span,
-                    format!("{CANNOT_INFER} {}", self.ty.types.name(param)),
-                );
-            }
-            return Ok(convert::LITERAL);
+            return self.deferred_arg_cost(arg, param, macro_call);
         };
         let untyped = matches!(
             op,
@@ -308,105 +207,8 @@ impl Compiler {
                 ..
             }
         );
-        match op {
-            Operand::Void => return err(arg.span, "the argument has no value"),
-            Operand::Type(_) | Operand::PolyStruct(_) if param == TypeId::TYPE => {
-                return Ok(convert::EXACT);
-            }
-            Operand::PolyStruct(_) if param == TypeId::ANY => return Ok(convert::TO_ANY),
-            Operand::Type(_) if param == TypeId::ANY => return Ok(convert::TO_ANY),
-            Operand::Procs(procs) => {
-                if let TypeKind::Proc(_) = self.ty.types.kind(param) {
-                    for &p in &procs.clone() {
-                        if !self.proc(p).is_poly && self.proc_type(p, arg.span)? == param {
-                            return Ok(convert::EXACT);
-                        }
-                    }
-                    for &p in &procs.clone() {
-                        if self.proc(p).is_poly
-                            && self.instantiate_for_proc_type(p, param, arg.span).is_some()
-                        {
-                            return Ok(convert::WIDEN);
-                        }
-                    }
-                    if procs.len() == 1 && !self.proc(procs[0]).is_poly {
-                        let pt = self.proc_type(procs[0], arg.span)?;
-                        if let (TypeKind::Proc(a), TypeKind::Proc(b)) =
-                            (self.ty.types.kind(pt), self.ty.types.kind(param))
-                            && a.params == b.params
-                            && a.returns == b.returns
-                        {
-                            return Ok(convert::WIDEN);
-                        }
-                    }
-                    return err(
-                        arg.span,
-                        format!(
-                            "procedure does not match parameter type {}",
-                            self.ty.types.name(param)
-                        ),
-                    );
-                }
-                if param == TypeId::VOID_PTR || param == TypeId::ANY {
-                    return Ok(convert::POINTER);
-                }
-            }
-            // `split(s, ".")` into a `u8` parameter: a one-character string is that byte
-            // (`convert` makes the value). A `string` overload is still the closer match.
-            Operand::Const {
-                value: Value::String(s),
-                ..
-            } if s.len() == 1 && param == TypeId::U8 => return Ok(convert::WIDEN),
-            Operand::Const {
-                value: Value::Int(v),
-                untyped: true,
-                ..
-            } if self.ty.types.is_integer(param) => {
-                let (bits, signed) = self.ty.types.int_info(param).unwrap();
-                if !convert::int_constant_fits(*v, bits, signed, self.src.bit_pattern(arg.span)) {
-                    return err(
-                        arg.span,
-                        format!("constant {v} does not fit in {}", self.ty.types.name(param)),
-                    );
-                }
-                // Jai lets an untyped integer constant (`#char ","`, `3`) stand for an
-                // enum value; rank it below every ordinary integer conversion.
-                if matches!(self.ty.types.kind(param), TypeKind::Enum(_))
-                    && !self.ty.types.is_loose_enum(param)
-                {
-                    return Ok(convert::SUBTYPE);
-                }
-                return Ok(if param == TypeId::S64 {
-                    convert::EXACT
-                } else {
-                    convert::LITERAL
-                });
-            }
-            Operand::Const {
-                value: Value::Float(_, precision),
-                untyped: true,
-                ..
-            } if precision.requires_float64 && self.ty.types.repr(param) == TypeId::F32 => {
-                return err(
-                    arg.span,
-                    "this floating literal requires float64 precision (use an explicit cast to round it)",
-                );
-            }
-            // A string literal is NUL-terminated, so it converts to a C string.
-            Operand::Const {
-                value: Value::String(_),
-                ..
-            } if self.ty.types.pointee(param) == Some(TypeId::U8) => return Ok(convert::POINTER),
-            // A string literal converts to a `#type,distinct` / `#type,isa` string variant.
-            Operand::Const {
-                value: Value::String(_),
-                ..
-            } if matches!(self.ty.types.kind(param), TypeKind::Distinct(_))
-                && self.ty.types.repr(param) == TypeId::STRING =>
-            {
-                return Ok(convert::LITERAL);
-            }
-            _ => {}
+        if let Some(cost) = self.special_operand_cost(op, arg, param)? {
+            return Ok(cost);
         }
         let from = op.ty();
         if from == TypeId::F32 && untyped && param == TypeId::F32 {
@@ -436,5 +238,229 @@ impl Compiler {
             let at = arg.expr.as_ref().map_or(arg.span, |e| e.span);
             Box::new(self.with_conversion_hint(d, from, param, at))
         })
+    }
+
+    /// The cost of an `#asm` register operand argument, which only a macro takes.
+    fn register_arg_cost(&mut self, arg: &CallArg, macro_call: bool) -> Result<u32> {
+        if !macro_call {
+            return err(arg.span, "register operands require an expanded procedure");
+        }
+        if let Some(expr) = &arg.expr
+            && self.asm_reg_named(arg.scope, expr)?.is_some()
+        {
+            return Ok(convert::EXACT);
+        }
+        return err(
+            arg.span,
+            "expected an #asm register operand, not a scalar or memory value",
+        );
+    }
+
+    /// The cost of an argument that is not checked yet (a lambda, `.{...}`, `ifx`, a `Code`
+    /// argument): whether it fits at all, and how closely.
+    fn deferred_arg_cost(&mut self, arg: &CallArg, param: TypeId, macro_call: bool) -> Result<u32> {
+        if let Some(ast::Expr {
+            kind: E::Lambda {
+                header, ..
+            },
+            ..
+        }) = &arg.expr
+        {
+            match self.ty.types.kind(param) {
+                TypeKind::Proc(pt) if pt.params.len() == header.params.len() => {}
+                TypeKind::Proc(_) => {
+                    return Err(self.lambda_arity_error(header.params.len(), param, arg.span));
+                }
+                _ => {
+                    return err(
+                        arg.span,
+                        format!("a lambda cannot be passed as {}", self.ty.types.name(param)),
+                    );
+                }
+            }
+        }
+        // Any expression converts to a `Code` parameter (plain procedures too).
+        if param == TypeId::CODE {
+            return Ok(convert::LITERAL);
+        }
+        // `ifx c then a else b`: each branch must fit (`"-->"` does not fit a `u8`).
+        if let Some(ast::Expr {
+            kind:
+                E::Ifx {
+                    then_value,
+                    else_value,
+                    ..
+                },
+            ..
+        }) = &arg.expr
+        {
+            let mut cost = convert::LITERAL;
+            for branch in [then_value, else_value].into_iter().flatten() {
+                if is_deferred(branch) {
+                    continue;
+                }
+                let Ok(op) = self.check_expr_no_emit(arg.scope, branch) else {
+                    continue;
+                };
+                let probe = CallArg {
+                    op: Some(op),
+                    expr: Some((**branch).clone()),
+                    span: branch.span,
+                    ..arg.clone()
+                };
+                cost = cost.max(self.arg_cost(&probe, param, macro_call)?);
+            }
+            return Ok(cost);
+        }
+        // Deferred arguments fit any plausible target; prefer exact-looking ones.
+        let scalar = matches!(
+            self.ty.types.kind(self.ty.types.repr_struct(param)),
+            TypeKind::Bool
+                | TypeKind::Int { .. }
+                | TypeKind::Float { .. }
+                | TypeKind::String
+                | TypeKind::Type
+        );
+        let fits = match arg.expr.as_ref().map(|e| &e.kind) {
+            // `.{...}` and `.[...]` build aggregates, `.NAME` picks an enum member.
+            Some(E::StructLit {
+                fields: lit_args, ..
+            }) => {
+                (!scalar
+                    || !self
+                        .builtin_members(self.ty.types.repr(param), arg.span)?
+                        .is_empty())
+                    && self
+                        .struct_lit_fit(param, lit_args, arg.scope, arg.span)?
+                        .is_some()
+            }
+            Some(E::ArrayLit {
+                ..
+            }) => !scalar,
+            Some(_) if arg.expr.as_ref().is_some_and(inferred_flags) => {
+                matches!(self.ty.types.kind(param), TypeKind::Enum(_))
+            }
+            _ => true,
+        };
+        if !fits {
+            return err(
+                arg.span,
+                format!("{CANNOT_INFER} {}", self.ty.types.name(param)),
+            );
+        }
+        return Ok(convert::LITERAL);
+    }
+
+    /// The cost of an operand with a conversion of its own (a type or procedure value, a
+    /// literal that adapts to its parameter); `None` leaves it to the general rules.
+    fn special_operand_cost(
+        &mut self,
+        op: &Operand,
+        arg: &CallArg,
+        param: TypeId,
+    ) -> Result<Option<u32>> {
+        match op {
+            Operand::Void => return err(arg.span, "the argument has no value"),
+            Operand::Type(_) | Operand::PolyStruct(_) if param == TypeId::TYPE => {
+                return Ok(Some(convert::EXACT));
+            }
+            Operand::PolyStruct(_) if param == TypeId::ANY => return Ok(Some(convert::TO_ANY)),
+            Operand::Type(_) if param == TypeId::ANY => return Ok(Some(convert::TO_ANY)),
+            Operand::Procs(procs) => {
+                if let TypeKind::Proc(_) = self.ty.types.kind(param) {
+                    for &p in &procs.clone() {
+                        if !self.proc(p).is_poly && self.proc_type(p, arg.span)? == param {
+                            return Ok(Some(convert::EXACT));
+                        }
+                    }
+                    for &p in &procs.clone() {
+                        if self.proc(p).is_poly
+                            && self.instantiate_for_proc_type(p, param, arg.span).is_some()
+                        {
+                            return Ok(Some(convert::WIDEN));
+                        }
+                    }
+                    if procs.len() == 1 && !self.proc(procs[0]).is_poly {
+                        let pt = self.proc_type(procs[0], arg.span)?;
+                        if let (TypeKind::Proc(a), TypeKind::Proc(b)) =
+                            (self.ty.types.kind(pt), self.ty.types.kind(param))
+                            && a.params == b.params
+                            && a.returns == b.returns
+                        {
+                            return Ok(Some(convert::WIDEN));
+                        }
+                    }
+                    return err(
+                        arg.span,
+                        format!(
+                            "procedure does not match parameter type {}",
+                            self.ty.types.name(param)
+                        ),
+                    );
+                }
+                if param == TypeId::VOID_PTR || param == TypeId::ANY {
+                    return Ok(Some(convert::POINTER));
+                }
+            }
+            // `split(s, ".")` into a `u8` parameter: a one-character string is that byte
+            // (`convert` makes the value). A `string` overload is still the closer match.
+            Operand::Const {
+                value: Value::String(s),
+                ..
+            } if s.len() == 1 && param == TypeId::U8 => return Ok(Some(convert::WIDEN)),
+            Operand::Const {
+                value: Value::Int(v),
+                untyped: true,
+                ..
+            } if self.ty.types.is_integer(param) => {
+                let (bits, signed) = self.ty.types.int_info(param).unwrap();
+                if !convert::int_constant_fits(*v, bits, signed, self.src.bit_pattern(arg.span)) {
+                    return err(
+                        arg.span,
+                        format!("constant {v} does not fit in {}", self.ty.types.name(param)),
+                    );
+                }
+                // Jai lets an untyped integer constant (`#char ","`, `3`) stand for an
+                // enum value; rank it below every ordinary integer conversion.
+                if matches!(self.ty.types.kind(param), TypeKind::Enum(_))
+                    && !self.ty.types.is_loose_enum(param)
+                {
+                    return Ok(Some(convert::SUBTYPE));
+                }
+                return Ok(Some(if param == TypeId::S64 {
+                    convert::EXACT
+                } else {
+                    convert::LITERAL
+                }));
+            }
+            Operand::Const {
+                value: Value::Float(_, precision),
+                untyped: true,
+                ..
+            } if precision.requires_float64 && self.ty.types.repr(param) == TypeId::F32 => {
+                return err(
+                    arg.span,
+                    "this floating literal requires float64 precision (use an explicit cast to round it)",
+                );
+            }
+            // A string literal is NUL-terminated, so it converts to a C string.
+            Operand::Const {
+                value: Value::String(_),
+                ..
+            } if self.ty.types.pointee(param) == Some(TypeId::U8) => {
+                return Ok(Some(convert::POINTER));
+            }
+            // A string literal converts to a `#type,distinct` / `#type,isa` string variant.
+            Operand::Const {
+                value: Value::String(_),
+                ..
+            } if matches!(self.ty.types.kind(param), TypeKind::Distinct(_))
+                && self.ty.types.repr(param) == TypeId::STRING =>
+            {
+                return Ok(Some(convert::LITERAL));
+            }
+            _ => {}
+        }
+        Ok(None)
     }
 }

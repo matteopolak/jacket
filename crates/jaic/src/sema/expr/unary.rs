@@ -44,261 +44,320 @@ impl Compiler {
         span: Span,
     ) -> Result<Operand> {
         match op {
-            UnOp::Star => {
-                // `*Block.[a, b]` is an array literal whose element type is `*Block`.
-                if let E::ArrayLit {
-                    ty: Some(elem),
-                    elems,
-                } = &a.kind
-                    && self.eval_type_in(f, scope, elem).is_ok()
-                {
-                    let literal = ast::Expr {
-                        kind: E::ArrayLit {
-                            ty: Some(Box::new(ast::Expr {
-                                kind: E::Unary(UnOp::Star, elem.clone()),
-                                span: elem.span,
-                            })),
-                            elems: elems.clone(),
-                        },
-                        span: a.span,
-                    };
-                    return self.check_expr(f, scope, &literal, expected);
-                }
-                // Address-taking selects the pointer getter even when an ordinary
-                // getter is available. Reuse its place normalization, and evaluate
-                // each operand only once if builtin indexing is the fallback.
-                let inner = if let E::Index(base, index) = &a.kind
-                    && self.pointer_index_reachable_from(scope, base)?
-                {
-                    let base_op = self.check_expr(f, scope, base, None)?;
-                    let index_op = self.check_expr(f, scope, index, Some(TypeId::S64))?;
-                    match self.try_pointer_index_operator(f, scope, &base_op, &index_op, span)? {
-                        Some(place) => place,
-                        None => {
-                            self.index_operand(f, scope, base_op, index_op, index.span, a.span)?
-                        }
-                    }
-                } else {
-                    // The address of a variable (`*global`, `*global.field`) is constant even
-                    // though the variable is not: naming it reads no value.
-                    let constant_only = f.constant_only;
-                    if names_variable_path(a) {
-                        f.constant_only = None;
-                    }
-                    let inner = self.check_expr(f, scope, a, None);
-                    f.constant_only = constant_only;
-                    inner?
-                };
-                match inner {
-                    Operand::Type(t) => Ok(Operand::Type(self.ty.types.pointer(t))),
-                    // Concrete default pointees share the explicit instance's identity.
-                    // Required arguments still leave a source type for generic patterns.
-                    Operand::PolyStruct(ps) => {
-                        let t = if self.ty.poly_struct_has_defaults(ps) {
-                            self.instantiate_struct(ps, Vec::new(), span)?
-                        } else {
-                            self.ty.poly_struct_type(ps)
-                        };
-                        Ok(Operand::Type(self.ty.types.pointer(t)))
-                    }
-                    Operand::Place {
-                        ty,
-                        addr,
-                    } => Ok(Operand::Value {
-                        ty: self.ty.types.pointer(ty),
-                        val: addr,
-                    }),
-                    Operand::Procs(p) if p.len() == 1 => {
-                        let op = Operand::Procs(p);
-                        let parameters = self.callable_operand_parameters(&op)?;
-                        let (ty, v) = self.rvalue(f, op, span)?;
-                        Ok(Operand::Value {
-                            ty,
-                            val: v,
-                        }
-                        .with_callable(parameters))
-                    }
-                    Operand::Const {
-                        value: Value::Int(_) | Value::Float(_, _) | Value::Bool(_),
-                        ..
-                    } => err(
-                        span,
-                        "cannot take the address of a number or bool constant: it has no storage (assign it to a variable first)",
-                    ),
-                    // An aggregate constant lives in static data, so its address outlives the
-                    // procedure and is the same on every evaluation.
-                    Operand::Const {
-                        value: Value::Bytes(agg),
-                        ty,
-                        ..
-                    } if self.is_memory_type(ty) => {
-                        let key = (ty, agg.bytes.clone(), agg.relocs.clone());
-                        let global = if let Some(&g) = self.out.const_addr_globals.get(&key) {
-                            g
-                        } else {
-                            let size = self.size_of(ty, span)?;
-                            let align = self.align_of(ty, span)?;
-                            let g = self.out.program.add_global(ir::Global {
-                                name: format!("const.{}", self.out.program.globals.len()),
-                                size,
-                                align,
-                                init: agg.bytes.clone(),
-                                relocs: agg.relocs.clone(),
-                                read_only: false,
-                                export: None,
-                            });
-                            self.out.const_addr_globals.insert(key, g);
-                            g
-                        };
-                        let addr = f.b.global_addr(global);
-                        Ok(Operand::Value {
-                            ty: self.ty.types.pointer(ty),
-                            val: addr,
-                        })
-                    }
-                    other => {
-                        // Address of a temporary.
-                        let (ty, addr) = self.address_of(f, other, span)?;
-                        Ok(Operand::Value {
-                            ty: self.ty.types.pointer(ty),
-                            val: addr,
-                        })
-                    }
-                }
-            }
-            UnOp::Deref => {
-                let inner = self.check_expr(f, scope, a, None)?;
-                let (ty, v) = self.rvalue(f, inner, span)?;
-                let Some(pointee) = self.ty.types.pointee(ty) else {
-                    return Err(Box::new(self.cannot_dereference(ty, a.span, span)));
-                };
-                // `<< ptr` on a `*void` is a `void` place (it prints as `void`).
-                Ok(Operand::Place {
-                    ty: pointee,
-                    addr: v,
-                })
-            }
+            UnOp::Star => self.check_address_of(f, scope, a, expected, span),
+            UnOp::Deref => self.check_deref(f, scope, a, span),
             UnOp::Plus => self.check_expr(f, scope, a, expected),
             UnOp::Neg | UnOp::Not | UnOp::BitNot => {
-                let inner = self.check_expr(
-                    f,
-                    scope,
-                    a,
-                    if op == UnOp::Not {
-                        None
-                    } else {
-                        expected
-                    },
-                )?;
-                if let Operand::Const {
-                    ty,
-                    value,
-                    untyped,
-                } = &inner
-                {
-                    let folded = match (op, value) {
-                        (UnOp::Neg, Value::Int(v)) => Some(Value::Int(v.wrapping_neg())),
-                        (UnOp::Neg, Value::Float(v, required)) => Some(Value::Float(-v, *required)),
-                        (UnOp::Not, Value::Bool(v)) => Some(Value::Bool(!v)),
-                        (UnOp::Not, Value::Int(v)) => Some(Value::Bool(*v == 0)),
-                        (UnOp::Not, Value::Null) => Some(Value::Bool(true)),
-                        (UnOp::BitNot, Value::Int(v)) => {
-                            // Non-integer constant types (an enum value) complement as 64-bit signed.
-                            let (bits, signed) = self.ty.types.int_info(*ty).unwrap_or((64, true));
-                            let bits = if *untyped {
-                                expected
-                                    .and_then(|e| self.ty.types.int_info(e))
-                                    .map_or(bits, |i| i.0)
-                            } else {
-                                bits
-                            };
-                            Some(Value::Int(wrap(!v, bits, signed && !*untyped)))
-                        }
-                        _ => None,
-                    };
-                    if let Some(value) = folded {
-                        let ty = if op == UnOp::Not {
-                            TypeId::BOOL
-                        } else {
-                            *ty
-                        };
-                        return Ok(Operand::Const {
-                            ty,
-                            value,
-                            untyped: *untyped && op != UnOp::Not,
-                        });
-                    }
-                }
-                if let Some(result) =
-                    self.try_unary_operator_overload(f, scope, op, &inner, (span, a.span))?
-                {
-                    return Ok(result);
-                }
-                let inner = self.settle_untyped(inner, expected);
-                let (ty, v) = self.rvalue(f, inner, span)?;
-                // `-` and `~` are arithmetic: a `Type`, `bool`, pointer or other non-number has no meaning
-                // under them, and a `Type` would otherwise become a garbage type id at run time.
-                if op != UnOp::Not
-                    && !self.ty.types.is_integer(ty)
-                    && !self.ty.types.is_float(ty)
-                    && self.ty.types.wide_float(ty).is_none()
-                {
-                    let what = if op == UnOp::Neg {
-                        "negate"
-                    } else {
-                        "bit-complement"
-                    };
-                    return Err(Box::new(Diagnostic::error(
-                        span,
-                        format!("cannot {what} {}", self.ty.types.name(ty)),
-                    )));
-                }
-                match op {
-                    UnOp::Not => {
-                        let b = self.truthy(f, ty, v, span)?;
-                        let one = f.b.iconst(Ty::I8, 1);
-                        Ok(Operand::Value {
-                            ty: TypeId::BOOL,
-                            val: f.b.bin(ir::BinOp::Xor, Ty::I8, b, one),
-                        })
-                    }
-                    UnOp::Neg if self.ty.types.wide_float(ty).is_some() => {
-                        let fmt = self.ty.types.wide_float(ty).expect("checked above");
-                        Ok(self.wide_negate(f, fmt, ty, v))
-                    }
-                    UnOp::Neg => {
-                        let t = self.ir_ty(ty).ok_or_else(|| {
-                            Box::new(Diagnostic::error(
-                                span,
-                                format!("cannot negate {}", self.ty.types.name(ty)),
-                            ))
-                        })?;
-                        let op = if t.is_float() {
-                            ir::UnOp::FNeg
-                        } else {
-                            ir::UnOp::Neg
-                        };
-                        Ok(Operand::Value {
-                            ty,
-                            val: f.b.un(op, t, v),
-                        })
-                    }
-                    _ => {
-                        let t = self.ir_ty(ty).filter(|t| !t.is_float()).ok_or_else(|| {
-                            Box::new(Diagnostic::error(
-                                span,
-                                format!("cannot bit-complement {}", self.ty.types.name(ty)),
-                            ))
-                        })?;
-                        Ok(Operand::Value {
-                            ty,
-                            val: f.b.un(ir::UnOp::Not, t, v),
-                        })
-                    }
-                }
+                self.check_arithmetic_unary(f, scope, op, a, expected, span)
             }
         }
     }
+
+    /// `*x`: a pointer type for a type operand, the address of a place or procedure, or of a
+    /// temporary.
+    fn check_address_of(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        a: &ast::Expr,
+        expected: Option<TypeId>,
+        span: Span,
+    ) -> Result<Operand> {
+        // `*Block.[a, b]` is an array literal whose element type is `*Block`.
+        if let E::ArrayLit {
+            ty: Some(elem),
+            elems,
+        } = &a.kind
+            && self.eval_type_in(f, scope, elem).is_ok()
+        {
+            let literal = ast::Expr {
+                kind: E::ArrayLit {
+                    ty: Some(Box::new(ast::Expr {
+                        kind: E::Unary(UnOp::Star, elem.clone()),
+                        span: elem.span,
+                    })),
+                    elems: elems.clone(),
+                },
+                span: a.span,
+            };
+            return self.check_expr(f, scope, &literal, expected);
+        }
+        // Address-taking selects the pointer getter even when an ordinary
+        // getter is available. Reuse its place normalization, and evaluate
+        // each operand only once if builtin indexing is the fallback.
+        let inner = if let E::Index(base, index) = &a.kind
+            && self.pointer_index_reachable_from(scope, base)?
+        {
+            let base_op = self.check_expr(f, scope, base, None)?;
+            let index_op = self.check_expr(f, scope, index, Some(TypeId::S64))?;
+            match self.try_pointer_index_operator(f, scope, &base_op, &index_op, span)? {
+                Some(place) => place,
+                None => self.index_operand(f, scope, base_op, index_op, index.span, a.span)?,
+            }
+        } else {
+            // The address of a variable (`*global`, `*global.field`) is constant even
+            // though the variable is not: naming it reads no value.
+            let constant_only = f.constant_only;
+            if names_variable_path(a) {
+                f.constant_only = None;
+            }
+            let inner = self.check_expr(f, scope, a, None);
+            f.constant_only = constant_only;
+            inner?
+        };
+        self.address_of_operand(f, inner, span)
+    }
+
+    /// The pointer `*` makes of an already checked operand.
+    fn address_of_operand(&mut self, f: &mut FnCtx, inner: Operand, span: Span) -> Result<Operand> {
+        match inner {
+            Operand::Type(t) => Ok(Operand::Type(self.ty.types.pointer(t))),
+            // Concrete default pointees share the explicit instance's identity.
+            // Required arguments still leave a source type for generic patterns.
+            Operand::PolyStruct(ps) => {
+                let t = if self.ty.poly_struct_has_defaults(ps) {
+                    self.instantiate_struct(ps, Vec::new(), span)?
+                } else {
+                    self.ty.poly_struct_type(ps)
+                };
+                Ok(Operand::Type(self.ty.types.pointer(t)))
+            }
+            Operand::Place {
+                ty,
+                addr,
+            } => Ok(Operand::Value {
+                ty: self.ty.types.pointer(ty),
+                val: addr,
+            }),
+            Operand::Procs(p) if p.len() == 1 => {
+                let op = Operand::Procs(p);
+                let parameters = self.callable_operand_parameters(&op)?;
+                let (ty, v) = self.rvalue(f, op, span)?;
+                Ok(Operand::Value {
+                    ty,
+                    val: v,
+                }
+                .with_callable(parameters))
+            }
+            Operand::Const {
+                value: Value::Int(_) | Value::Float(_, _) | Value::Bool(_),
+                ..
+            } => err(
+                span,
+                "cannot take the address of a number or bool constant: it has no storage (assign it to a variable first)",
+            ),
+            // An aggregate constant lives in static data, so its address outlives the
+            // procedure and is the same on every evaluation.
+            Operand::Const {
+                value: Value::Bytes(agg),
+                ty,
+                ..
+            } if self.is_memory_type(ty) => {
+                let key = (ty, agg.bytes.clone(), agg.relocs.clone());
+                let global = if let Some(&g) = self.out.const_addr_globals.get(&key) {
+                    g
+                } else {
+                    let size = self.size_of(ty, span)?;
+                    let align = self.align_of(ty, span)?;
+                    let g = self.out.program.add_global(ir::Global {
+                        name: format!("const.{}", self.out.program.globals.len()),
+                        size,
+                        align,
+                        init: agg.bytes.clone(),
+                        relocs: agg.relocs.clone(),
+                        read_only: false,
+                        export: None,
+                    });
+                    self.out.const_addr_globals.insert(key, g);
+                    g
+                };
+                let addr = f.b.global_addr(global);
+                Ok(Operand::Value {
+                    ty: self.ty.types.pointer(ty),
+                    val: addr,
+                })
+            }
+            other => {
+                // Address of a temporary.
+                let (ty, addr) = self.address_of(f, other, span)?;
+                Ok(Operand::Value {
+                    ty: self.ty.types.pointer(ty),
+                    val: addr,
+                })
+            }
+        }
+    }
+
+    /// `x.*`: the place a pointer points at.
+    fn check_deref(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        a: &ast::Expr,
+        span: Span,
+    ) -> Result<Operand> {
+        let inner = self.check_expr(f, scope, a, None)?;
+        let (ty, v) = self.rvalue(f, inner, span)?;
+        let Some(pointee) = self.ty.types.pointee(ty) else {
+            return Err(Box::new(self.cannot_dereference(ty, a.span, span)));
+        };
+        // `<< ptr` on a `*void` is a `void` place (it prints as `void`).
+        Ok(Operand::Place {
+            ty: pointee,
+            addr: v,
+        })
+    }
+
+    /// `-x`, `!x` and `~x`: folded for a constant, an operator overload, or the IR operation.
+    fn check_arithmetic_unary(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        op: UnOp,
+        a: &ast::Expr,
+        expected: Option<TypeId>,
+        span: Span,
+    ) -> Result<Operand> {
+        let inner = self.check_expr(
+            f,
+            scope,
+            a,
+            if op == UnOp::Not {
+                None
+            } else {
+                expected
+            },
+        )?;
+        if let Operand::Const {
+            ty,
+            value,
+            untyped,
+        } = &inner
+            && let Some(folded) = self.fold_unary_const(op, *ty, value, *untyped, expected)
+        {
+            return Ok(folded);
+        }
+        if let Some(result) =
+            self.try_unary_operator_overload(f, scope, op, &inner, (span, a.span))?
+        {
+            return Ok(result);
+        }
+        let inner = self.settle_untyped(inner, expected);
+        let (ty, v) = self.rvalue(f, inner, span)?;
+        self.lower_unary(f, op, ty, v, span)
+    }
+
+    /// The constant `op value` folds to, if it does.
+    fn fold_unary_const(
+        &self,
+        op: UnOp,
+        ty: TypeId,
+        value: &Value,
+        untyped: bool,
+        expected: Option<TypeId>,
+    ) -> Option<Operand> {
+        let folded = match (op, value) {
+            (UnOp::Neg, Value::Int(v)) => Some(Value::Int(v.wrapping_neg())),
+            (UnOp::Neg, Value::Float(v, required)) => Some(Value::Float(-v, *required)),
+            (UnOp::Not, Value::Bool(v)) => Some(Value::Bool(!v)),
+            (UnOp::Not, Value::Int(v)) => Some(Value::Bool(*v == 0)),
+            (UnOp::Not, Value::Null) => Some(Value::Bool(true)),
+            (UnOp::BitNot, Value::Int(v)) => {
+                // Non-integer constant types (an enum value) complement as 64-bit signed.
+                let (bits, signed) = self.ty.types.int_info(ty).unwrap_or((64, true));
+                let bits = if untyped {
+                    expected
+                        .and_then(|e| self.ty.types.int_info(e))
+                        .map_or(bits, |i| i.0)
+                } else {
+                    bits
+                };
+                Some(Value::Int(wrap(!v, bits, signed && !untyped)))
+            }
+            _ => None,
+        }?;
+        Some(Operand::Const {
+            ty: if op == UnOp::Not {
+                TypeId::BOOL
+            } else {
+                ty
+            },
+            value: folded,
+            untyped: untyped && op != UnOp::Not,
+        })
+    }
+
+    /// The IR operation for `op` on the value `v` of type `ty`.
+    fn lower_unary(
+        &mut self,
+        f: &mut FnCtx,
+        op: UnOp,
+        ty: TypeId,
+        v: ir::Val,
+        span: Span,
+    ) -> Result<Operand> {
+        // `-` and `~` are arithmetic: a `Type`, `bool`, pointer or other non-number has no meaning
+        // under them, and a `Type` would otherwise become a garbage type id at run time.
+        if op != UnOp::Not
+            && !self.ty.types.is_integer(ty)
+            && !self.ty.types.is_float(ty)
+            && self.ty.types.wide_float(ty).is_none()
+        {
+            let what = if op == UnOp::Neg {
+                "negate"
+            } else {
+                "bit-complement"
+            };
+            return Err(Box::new(Diagnostic::error(
+                span,
+                format!("cannot {what} {}", self.ty.types.name(ty)),
+            )));
+        }
+        match op {
+            UnOp::Not => {
+                let b = self.truthy(f, ty, v, span)?;
+                let one = f.b.iconst(Ty::I8, 1);
+                Ok(Operand::Value {
+                    ty: TypeId::BOOL,
+                    val: f.b.bin(ir::BinOp::Xor, Ty::I8, b, one),
+                })
+            }
+            UnOp::Neg if self.ty.types.wide_float(ty).is_some() => {
+                let fmt = self.ty.types.wide_float(ty).expect("checked above");
+                Ok(self.wide_negate(f, fmt, ty, v))
+            }
+            UnOp::Neg => {
+                let t = self.ir_ty(ty).ok_or_else(|| {
+                    Box::new(Diagnostic::error(
+                        span,
+                        format!("cannot negate {}", self.ty.types.name(ty)),
+                    ))
+                })?;
+                let op = if t.is_float() {
+                    ir::UnOp::FNeg
+                } else {
+                    ir::UnOp::Neg
+                };
+                Ok(Operand::Value {
+                    ty,
+                    val: f.b.un(op, t, v),
+                })
+            }
+            _ => {
+                let t = self.ir_ty(ty).filter(|t| !t.is_float()).ok_or_else(|| {
+                    Box::new(Diagnostic::error(
+                        span,
+                        format!("cannot bit-complement {}", self.ty.types.name(ty)),
+                    ))
+                })?;
+                Ok(Operand::Value {
+                    ty,
+                    val: f.b.un(ir::UnOp::Not, t, v),
+                })
+            }
+        }
+    }
+
 
     /// Give an untyped constant a concrete type from context (or its default).
     pub fn settle_untyped(&self, op: Operand, expected: Option<TypeId>) -> Operand {

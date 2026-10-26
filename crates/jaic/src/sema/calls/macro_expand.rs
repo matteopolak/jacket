@@ -29,16 +29,7 @@ impl Compiler {
         slot: &Slot,
         param: procs::ParamInfo,
     ) -> Result<()> {
-        let MacroCall {
-            caller,
-            mscope,
-            sig,
-            args,
-            body,
-            header,
-            proc,
-            span,
-        } = *call;
+        let mscope = call.mscope;
         let Some(name) = param.name else {
             return Ok(());
         };
@@ -48,119 +39,178 @@ impl Compiler {
             return Ok(());
         }
         if self.is_register_operand_type(param.ty, param.span) {
-            let Slot::Arg(a) = slot else {
-                return err(param.span, "register operands need an explicit argument");
-            };
-            let Some(expr) = &args[*a].expr else {
-                return err(param.span, "register operands need a caller register");
-            };
-            let Some((kind, addr)) = self.asm_reg_named(args[*a].scope, expr)? else {
-                return err(args[*a].span, "expected an #asm register operand");
-            };
-            // A general-purpose or mask register is a 64-bit local, so the parameter is
-            // seen as such inside the body; only a vector register carries the marker type.
-            let ty = if kind == asm::AsmReg::Vec {
-                param.ty
-            } else {
-                TypeId::U64
-            };
-            let depth = self.scope(mscope).proc_depth;
-            let entity = self.add_entity(
-                mscope,
-                name,
-                param.span,
-                EntityKind::Local {
-                    ty,
-                    addr,
-                    depth,
-                },
-                false,
-            );
-            self.pr.asm_regs.insert(entity, kind);
-            return Ok(());
+            return self.bind_register_macro_param(call, slot, name, &param);
         }
         if param.ty == TypeId::CODE {
-            // Code arguments are passed unevaluated, bound to the caller's scope.
-            let code = match slot {
-                Slot::Arg(a)
-                    if let Some(Operand::Const {
-                        value: Value::Code(code),
-                        ..
-                    }) = &args[*a].op =>
-                {
-                    *code
-                }
-                Slot::Arg(a) => {
-                    let Some(expr) = args[*a].expr.clone() else {
-                        return err(args[*a].span, "Code parameter needs a code argument");
-                    };
-                    // A name of a `#code` constant passes that code; a name of a
-                    // `Code` variable passes its value.
-                    let mut runtime_code = false;
-                    let named = match &expr.kind {
-                        E::Ident(_) | E::Member(..) => {
-                            match self.check_expr_no_emit(args[*a].scope, &expr) {
-                                Ok(Operand::Const {
-                                    value: Value::Code(code),
-                                    ..
-                                }) => Some(code),
-                                Ok(op) if op.ty() == TypeId::CODE => {
-                                    runtime_code = true;
-                                    None
-                                }
-                                _ => None,
-                            }
-                        }
-                        _ => None,
-                    };
-                    match named {
-                        Some(code) => code,
-                        None if runtime_code => {
-                            let v = self.param_value(f, sig, &param, slot, args, span)?;
-                            let addr = self.spill(f, param.ty, v, span)?;
-                            let depth = self.scope(mscope).proc_depth;
-                            self.add_entity(
-                                mscope,
-                                name,
-                                param.span,
-                                EntityKind::Local {
-                                    ty: param.ty,
-                                    addr,
-                                    depth,
-                                },
-                                false,
-                            );
-                            return Ok(());
-                        }
-                        None => {
-                            let body = match &expr.kind {
-                                E::Code(c) => c.clone(),
-                                _ => Rc::new(ast::CodeBody::Expr(expr)),
-                            };
-                            self.add_code(body, caller)
-                        }
-                    }
-                }
-                Slot::Default
-                    if param
-                        .default
-                        .as_ref()
-                        .is_some_and(|d| matches!(d.kind, E::CallerCode)) =>
-                {
-                    let d = param.default.as_ref().unwrap();
-                    match self.check_expr(f, sig.scope, d, Some(TypeId::CODE))? {
-                        Operand::Const {
-                            value: Value::Code(code),
-                            ..
-                        } => code,
-                        _ => return err(d.span, "#caller_code did not produce Code"),
-                    }
-                }
-                _ => return err(span, "Code parameter needs an argument"),
-            };
-            self.add_const(mscope, name, param.span, Value::Code(code), TypeId::CODE);
+            return self.bind_code_macro_param(f, call, slot, name, &param);
+        }
+        if self.bind_literal_macro_param(call, i, slot, name, &param)? {
             return Ok(());
         }
+        self.bind_value_macro_param(f, call, i, slot, name, param)
+    }
+
+    /// An `#asm` register operand: the parameter names the caller's register.
+    fn bind_register_macro_param(
+        &mut self,
+        call: &MacroCall,
+        slot: &Slot,
+        name: Sym,
+        param: &procs::ParamInfo,
+    ) -> Result<()> {
+        let MacroCall {
+            mscope,
+            args,
+            ..
+        } = *call;
+        let Slot::Arg(a) = slot else {
+            return err(param.span, "register operands need an explicit argument");
+        };
+        let Some(expr) = &args[*a].expr else {
+            return err(param.span, "register operands need a caller register");
+        };
+        let Some((kind, addr)) = self.asm_reg_named(args[*a].scope, expr)? else {
+            return err(args[*a].span, "expected an #asm register operand");
+        };
+        // A general-purpose or mask register is a 64-bit local, so the parameter is
+        // seen as such inside the body; only a vector register carries the marker type.
+        let ty = if kind == asm::AsmReg::Vec {
+            param.ty
+        } else {
+            TypeId::U64
+        };
+        let depth = self.scope(mscope).proc_depth;
+        let entity = self.add_entity(
+            mscope,
+            name,
+            param.span,
+            EntityKind::Local {
+                ty,
+                addr,
+                depth,
+            },
+            false,
+        );
+        self.pr.asm_regs.insert(entity, kind);
+        return Ok(());
+    }
+
+    /// A `Code` parameter: bound to the caller's code, or to a `Code` variable's value.
+    fn bind_code_macro_param(
+        &mut self,
+        f: &mut FnCtx,
+        call: &MacroCall,
+        slot: &Slot,
+        name: Sym,
+        param: &procs::ParamInfo,
+    ) -> Result<()> {
+        let MacroCall {
+            caller,
+            mscope,
+            sig,
+            args,
+            span,
+            ..
+        } = *call;
+        // Code arguments are passed unevaluated, bound to the caller's scope.
+        let code = match slot {
+            Slot::Arg(a)
+                if let Some(Operand::Const {
+                    value: Value::Code(code),
+                    ..
+                }) = &args[*a].op =>
+            {
+                *code
+            }
+            Slot::Arg(a) => {
+                let Some(expr) = args[*a].expr.clone() else {
+                    return err(args[*a].span, "Code parameter needs a code argument");
+                };
+                // A name of a `#code` constant passes that code; a name of a
+                // `Code` variable passes its value.
+                let mut runtime_code = false;
+                let named = match &expr.kind {
+                    E::Ident(_) | E::Member(..) => {
+                        match self.check_expr_no_emit(args[*a].scope, &expr) {
+                            Ok(Operand::Const {
+                                value: Value::Code(code),
+                                ..
+                            }) => Some(code),
+                            Ok(op) if op.ty() == TypeId::CODE => {
+                                runtime_code = true;
+                                None
+                            }
+                            _ => None,
+                        }
+                    }
+                    _ => None,
+                };
+                match named {
+                    Some(code) => code,
+                    None if runtime_code => {
+                        let v = self.param_value(f, sig, &param, slot, args, span)?;
+                        let addr = self.spill(f, param.ty, v, span)?;
+                        let depth = self.scope(mscope).proc_depth;
+                        self.add_entity(
+                            mscope,
+                            name,
+                            param.span,
+                            EntityKind::Local {
+                                ty: param.ty,
+                                addr,
+                                depth,
+                            },
+                            false,
+                        );
+                        return Ok(());
+                    }
+                    None => {
+                        let body = match &expr.kind {
+                            E::Code(c) => c.clone(),
+                            _ => Rc::new(ast::CodeBody::Expr(expr)),
+                        };
+                        self.add_code(body, caller)
+                    }
+                }
+            }
+            Slot::Default
+                if param
+                    .default
+                    .as_ref()
+                    .is_some_and(|d| matches!(d.kind, E::CallerCode)) =>
+            {
+                let d = param.default.as_ref().unwrap();
+                match self.check_expr(f, sig.scope, d, Some(TypeId::CODE))? {
+                    Operand::Const {
+                        value: Value::Code(code),
+                        ..
+                    } => code,
+                    _ => return err(d.span, "#caller_code did not produce Code"),
+                }
+            }
+            _ => return err(span, "Code parameter needs an argument"),
+        };
+        self.add_const(mscope, name, param.span, Value::Code(code), TypeId::CODE);
+        return Ok(());
+    }
+
+    /// A parameter that stays a constant inside the macro: `for_expansion`'s `flags`, or an
+    /// untyped literal given for `$T`. Returns whether it bound the parameter.
+    fn bind_literal_macro_param(
+        &mut self,
+        call: &MacroCall,
+        i: usize,
+        slot: &Slot,
+        name: Sym,
+        param: &procs::ParamInfo,
+    ) -> Result<bool> {
+        let MacroCall {
+            mscope,
+            args,
+            header,
+            span,
+            ..
+        } = *call;
         // A for_expansion's `flags` is a compile-time constant (`#assert(flags == 0)`).
         if let Slot::Arg(a) = slot
             && let Some(Operand::Const {
@@ -170,7 +220,7 @@ impl Compiler {
             && self.preload_type(PreludeType::ForFlags, span).ok() == Some(param.ty)
         {
             self.add_const(mscope, name, param.span, value.clone(), param.ty);
-            return Ok(());
+            return Ok(true);
         }
         // `v: $T` given an untyped literal stays a literal inside the macro, so
         // `` `return ERR, v `` adapts `0` to the caller's (e.g. distinct) result type.
@@ -187,8 +237,32 @@ impl Compiler {
         {
             let e = self.add_const(mscope, name, param.span, value.clone(), param.ty);
             self.entity_mut(e).untyped_const = true;
-            return Ok(());
+            return Ok(true);
         }
+        Ok(false)
+    }
+
+    /// An ordinary parameter: a local holding the argument, plus the constant it is known to
+    /// be when the argument is one the body never writes.
+    fn bind_value_macro_param(
+        &mut self,
+        f: &mut FnCtx,
+        call: &MacroCall,
+        i: usize,
+        slot: &Slot,
+        name: Sym,
+        param: procs::ParamInfo,
+    ) -> Result<()> {
+        let MacroCall {
+            mscope,
+            sig,
+            args,
+            body,
+            header,
+            proc,
+            span,
+            ..
+        } = *call;
         let v = self.param_value(f, sig, &param, slot, args, span)?;
         let addr = if self.is_memory_type(param.ty) {
             v

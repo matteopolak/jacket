@@ -9,7 +9,8 @@ use super::state::{
     SharedWorkspaces, Stage,
 };
 use crate::records::Records;
-use crate::sema::{Compiler, ProgramSource};
+use crate::sema::{Compiler, Modification, ProgramSource};
+use crate::source::Diagnostic;
 
 /// Advance workspace `id` by one step, queueing the messages it produces:
 /// Open → (load, run directives) Checked → (more sources, or generate code
@@ -35,35 +36,103 @@ pub(super) fn step(
     if shared.borrow_mut().ws(id)?.failed_load.is_some() && resume_failed_load(shared, id)? {
         return Ok(());
     }
-    let (stage, mut compiler, pending, modifications) = {
-        let mut reg = shared.borrow_mut();
-        let ws = reg.ws(id)?;
-        if ws.stage == Stage::Done {
-            return Ok(());
-        }
-        (
-            ws.stage,
-            ws.compiler.take(),
-            std::mem::take(&mut ws.pending),
-            std::mem::take(&mut ws.modifications),
-        )
+    let Some(StepInputs {
+        stage,
+        compiler,
+        pending,
+        modifications,
+    }) = take_step_inputs(shared, id)?
+    else {
+        return Ok(());
     };
-    let mut lowering = false;
-    let mut compiler = match compiler.take() {
+    let mut compiler = match compiler {
         Some(c) => c,
         None => new_compiler(shared, id)?,
     };
     compiler.ct.interp.block_budget = *budget;
-    let mut events = Vec::new();
     // The registry borrow is released while the compiler runs: its
     // compile-time code may call back into the registry.
     shared.borrow_mut().current.push(id);
+    let original_sources = pending.clone();
+    let mut events = Vec::new();
+    let (result, lowering) = advance(
+        shared,
+        id,
+        &mut compiler,
+        stage,
+        (pending, modifications),
+        &mut events,
+    );
+    // Read after the compiler ran: its compile-time code may have asked for interception.
+    let intercepted = shared.borrow_mut().ws(id)?.intercepted;
+    let (mut file_events, reported) =
+        export_checked_events(shared, &mut compiler, &result, intercepted, &mut events);
+    let result = finish_lowering(
+        shared,
+        &mut compiler,
+        result,
+        (lowering, reported, intercepted),
+        &mut events,
+    );
+    shared.borrow_mut().current.pop();
+    *budget = compiler.ct.interp.block_budget;
+    let outcome = settle(
+        shared,
+        id,
+        &mut compiler,
+        (result, stage, intercepted),
+        &mut events,
+    )?;
+    file_events.extend(events);
+    store_step(shared, id, compiler, outcome, file_events, original_sources)
+}
+
+/// What the compiler of one step produced once its result was settled.
+struct Outcome {
+    next: Stage,
+    failed: bool,
+    /// The error text of a load that failed on imports a metaprogram may still provide.
+    held: Option<String>,
+}
+
+/// What a step takes out of the registry: the workspace's stage, its compiler (none before the
+/// first step), the sources queued since the last step and its procedure modifications.
+struct StepInputs {
+    stage: Stage,
+    compiler: Option<Box<Compiler>>,
+    pending: Vec<ProgramSource>,
+    modifications: Vec<Modification>,
+}
+
+/// `None` when the workspace is finished.
+fn take_step_inputs(shared: &SharedWorkspaces, id: i64) -> Result<Option<StepInputs>, String> {
+    let mut reg = shared.borrow_mut();
+    let ws = reg.ws(id)?;
+    if ws.stage == Stage::Done {
+        return Ok(None);
+    }
+    Ok(Some(StepInputs {
+        stage: ws.stage,
+        compiler: ws.compiler.take(),
+        pending: std::mem::take(&mut ws.pending),
+        modifications: std::mem::take(&mut ws.modifications),
+    }))
+}
+
+/// Apply the modifications and move the compiler through `stage`. The flag says the compiler
+/// ran out of sources and lowered what is reachable, so the program may now be complete.
+fn advance(
+    shared: &SharedWorkspaces,
+    id: i64,
+    compiler: &mut Compiler,
+    stage: Stage,
+    (mut pending, modifications): (Vec<ProgramSource>, Vec<Modification>),
+    events: &mut Vec<Event>,
+) -> (Result<Stage, Box<Diagnostic>>, bool) {
     let modified = modifications
         .into_iter()
         .try_for_each(|m| compiler.modify_procedure(m))
         .and_then(|()| compiler.relower_modified());
-    let mut pending = pending;
-    let original_sources = pending.clone();
     if stage == Stage::Open {
         let reg = shared.borrow();
         let settings = &reg.list[id as usize].settings;
@@ -71,6 +140,7 @@ pub(super) fn step(
             pending.push(ProgramSource::String(WASI_RUNTIME_IMPORT.into()));
         }
     }
+    let mut lowering = false;
     let result = modified.and_then(|()| match stage {
         Stage::Open => compiler.begin_sources(&pending).map(|()| {
             events.push(phase(PHASE_ALL_SOURCE_CODE_PARSED));
@@ -94,50 +164,73 @@ pub(super) fn step(
         }
         Stage::Done => unreachable!(),
     });
-    let intercepted = shared.borrow_mut().ws(id)?.intercepted;
-    let full = |shared: &SharedWorkspaces| {
-        shared.borrow().typechecked_use.get() & crate::source::TYPECHECKED_NAMED != 0
-    };
+    (result, lowering)
+}
+
+/// Whether the metaprogram asked for the full `TYPECHECKED` records (it names the message).
+fn typechecked_in_full(shared: &SharedWorkspaces) -> bool {
+    shared.borrow().typechecked_use.get() & crate::source::TYPECHECKED_NAMED != 0
+}
+
+fn file_event(kind: i64, record: i64) -> Event {
+    record_event(
+        if kind == crate::sema::code_export::message_kind::IMPORT {
+            EVENT_IMPORT
+        } else {
+            EVENT_FILE
+        },
+        record,
+    )
+}
+
+/// For a workspace the metaprogram intercepts: the file and import events the step loaded,
+/// and the `TYPECHECKED` message (inserted before the last phase event). Returns the file
+/// events, which go out first, and whether `TYPECHECKED` was sent.
+fn export_checked_events(
+    shared: &SharedWorkspaces,
+    compiler: &mut Compiler,
+    result: &Result<Stage, Box<Diagnostic>>,
+    intercepted: bool,
+    events: &mut Vec<Event>,
+) -> (Vec<Event>, bool) {
     let mut file_events = Vec::new();
     let mut reported = false;
-    if intercepted {
-        // The registry's records are taken out while the compiler exports:
-        // resolving declarations may run compile-time code.
-        let mut records = Records::lend(&mut shared.borrow_mut().records);
-        for (kind, record) in compiler.export_file_events(&mut records) {
-            file_events.push(record_event(
-                if kind == crate::sema::code_export::message_kind::IMPORT {
-                    EVENT_IMPORT
-                } else {
-                    EVENT_FILE
-                },
-                record,
-            ));
-        }
-        // After the final lowering too: procedure bodies are reported once lowered.
-        if matches!(result, Ok(Stage::Checked | Stage::Done))
-            && let Some(message) = compiler.export_typechecked_with(&mut records, full(shared))
-        {
-            reported = true;
-            // Before TYPECHECKED_ALL_WE_CAN, after any files the export loaded.
-            for (kind, record) in compiler.export_file_events(&mut records) {
-                file_events.push(record_event(
-                    if kind == crate::sema::code_export::message_kind::IMPORT {
-                        EVENT_IMPORT
-                    } else {
-                        EVENT_FILE
-                    },
-                    record,
-                ));
-            }
-            let at = events.len().saturating_sub(1);
-            events.insert(at, record_event(EVENT_TYPECHECKED, message));
-        }
-        Records::give_back(&mut shared.borrow_mut().records, records);
+    if !intercepted {
+        return (file_events, reported);
     }
-    // Lowering reported more: the metaprogram gets another TYPECHECKED_ALL_WE_CAN to
-    // add code. Otherwise the program is complete.
-    let result = match result {
+    // The registry's records are taken out while the compiler exports:
+    // resolving declarations may run compile-time code.
+    let mut records = Records::lend(&mut shared.borrow_mut().records);
+    for (kind, record) in compiler.export_file_events(&mut records) {
+        file_events.push(file_event(kind, record));
+    }
+    // After the final lowering too: procedure bodies are reported once lowered.
+    if matches!(result, Ok(Stage::Checked | Stage::Done))
+        && let Some(message) =
+            compiler.export_typechecked_with(&mut records, typechecked_in_full(shared))
+    {
+        reported = true;
+        // Before TYPECHECKED_ALL_WE_CAN, after any files the export loaded.
+        for (kind, record) in compiler.export_file_events(&mut records) {
+            file_events.push(file_event(kind, record));
+        }
+        let at = events.len().saturating_sub(1);
+        events.insert(at, record_event(EVENT_TYPECHECKED, message));
+    }
+    Records::give_back(&mut shared.borrow_mut().records, records);
+    (file_events, reported)
+}
+
+/// After lowering what is reachable: if that reported more, the metaprogram gets another
+/// `TYPECHECKED_ALL_WE_CAN` to add code; otherwise the program is generated.
+fn finish_lowering(
+    shared: &SharedWorkspaces,
+    compiler: &mut Compiler,
+    result: Result<Stage, Box<Diagnostic>>,
+    (lowering, reported, intercepted): (bool, bool, bool),
+    events: &mut Vec<Event>,
+) -> Result<Stage, Box<Diagnostic>> {
+    match result {
         Ok(_) if lowering && reported => {
             events.push(phase(PHASE_TYPECHECKED_ALL_WE_CAN));
             Ok(Stage::Checked)
@@ -148,7 +241,8 @@ pub(super) fn step(
             // last TYPECHECKED message.
             if finished.is_ok() && intercepted {
                 let mut records = Records::lend(&mut shared.borrow_mut().records);
-                if let Some(message) = compiler.export_typechecked_with(&mut records, full(shared))
+                if let Some(message) =
+                    compiler.export_typechecked_with(&mut records, typechecked_in_full(shared))
                 {
                     events.push(record_event(EVENT_TYPECHECKED, message));
                 }
@@ -157,9 +251,18 @@ pub(super) fn step(
             finished
         }
         other => other,
-    };
-    shared.borrow_mut().current.pop();
-    *budget = compiler.ct.interp.block_budget;
+    }
+}
+
+/// Turn the step's result into the next stage: write the output of a finished program, or
+/// report the error (or hold it back for imports the metaprogram may still provide).
+fn settle(
+    shared: &SharedWorkspaces,
+    id: i64,
+    compiler: &mut Compiler,
+    (result, stage, intercepted): (Result<Stage, Box<Diagnostic>>, Stage, bool),
+    events: &mut Vec<Event>,
+) -> Result<Outcome, String> {
     let mut failed = false;
     let mut held = None;
     let mut compiled = false;
@@ -176,7 +279,7 @@ pub(super) fn step(
                     });
                 }
             }
-            match write_output(shared, id, &mut compiler, &mut events)? {
+            match write_output(shared, id, compiler, events)? {
                 Written::Done(ok) => {
                     failed = !ok;
                     compiled = true;
@@ -224,7 +327,7 @@ pub(super) fn step(
     };
     if next == Stage::Done {
         if compiled {
-            events.extend(performance_event(shared, id, &mut compiler));
+            events.extend(performance_event(shared, id, compiler));
         }
         events.push(Event {
             kind: EVENT_COMPLETE,
@@ -232,7 +335,29 @@ pub(super) fn step(
             strings: Vec::new(),
         });
     }
-    file_events.extend(events);
+    Ok(Outcome {
+        next,
+        failed,
+        held,
+    })
+}
+
+/// Put the step's events and stage back in the registry, and the compiler with them unless the
+/// workspace is finished (an observer takes a finished compiler).
+fn store_step(
+    shared: &SharedWorkspaces,
+    id: i64,
+    compiler: Box<Compiler>,
+    outcome: Outcome,
+    file_events: Vec<Event>,
+    original_sources: Vec<ProgramSource>,
+) -> Result<(), String> {
+    let Outcome {
+        next,
+        failed,
+        held,
+        ..
+    } = outcome;
     {
         let mut reg = shared.borrow_mut();
         // A metaprogram that asks for type tables may ask after `COMPLETE`: a finished
