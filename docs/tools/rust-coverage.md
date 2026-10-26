@@ -30,7 +30,7 @@ Generic and macro-expanded code counts once per instantiation, and code reached 
 
 - Crates measured: the `-p` list in the workflow and the default `--root` list in `rust_cold.py`.
 - Exclusions: `--ignore-filename-regex` in the Reports step.
-- Version: `llvm_cov` and its checksums in `.github/pins.json`; `tools/ci/install_llvm_cov.sh` verifies the prebuilt archive (the release must be at least 14 days old).
+- Version: `llvm_cov` and its checksums in `.github/pins.json`; `tools/ci/install_pinned.py llvm-cov` verifies the prebuilt archive (the release must be at least 14 days old).
 
 ## Dependencies
 

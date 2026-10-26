@@ -13,6 +13,9 @@ on:
         default: '600'
 permissions:
   contents: read
+env:
+  # tools/ holds the folders the Python scripts import from (`from toolkit.repo import ROOT`).
+  PYTHONPATH: ${{ github.workspace }}/tools
 jobs:
   targets:
     name: list the targets
@@ -43,7 +46,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install the pinned toolchain
-        run: bash tools/ci/install_rust_toolchain.sh
+        run: python3 tools/ci/install_pinned.py rust
       - name: Install cargo-fuzz
         uses: taiki-e/install-action@ab6895351a88b908e96a4697860d4ffea5e57dbe # v2.87.27
         with:

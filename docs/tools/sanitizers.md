@@ -29,4 +29,4 @@ Miri cannot call foreign functions, run inline assembly or switch stacks, so `fi
 
 ## Dependencies
 
-The pinned nightly in `rust-toolchain.toml` with the `rust-src` and `miri` components (`tools/ci/install_rust_toolchain.sh --component`).
+The pinned nightly in `rust-toolchain.toml` with the `rust-src` and `miri` components (`tools/ci/install_pinned.py rust --component`).

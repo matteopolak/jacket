@@ -62,7 +62,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install the pinned toolchain with Miri
-        run: bash tools/ci/install_rust_toolchain.sh --component miri --component rust-src
+        run: python3 tools/ci/install_pinned.py rust --component miri --component rust-src
       - name: Miri
         env:
           MIRIFLAGS: -Zmiri-disable-isolation

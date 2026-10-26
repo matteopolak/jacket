@@ -21,10 +21,10 @@ runs:
   steps:
     - name: Install the pinned Rust toolchain
       shell: bash
-      run: bash tools/ci/install_rust_toolchain.sh --component rustfmt --component clippy
+      run: python3 tools/ci/install_pinned.py rust --component rustfmt --component clippy
     - name: Install cargo-nextest
       shell: bash
-      run: bash tools/ci/install_nextest.sh
+      run: python3 tools/ci/install_pinned.py nextest
     - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
       with:
         python-version: '3.14'

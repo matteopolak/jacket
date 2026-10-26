@@ -178,9 +178,7 @@ Workflow YAML calls scripts under `tools/ci/` instead of carrying shell logic, s
 - `.github/pins.json` is the one place for tool versions the workflows download (node, python, just, ruff, LLVM, llvm-mingw, mesa, nvim, with SHA-256s). `python3 tools/ci/pins.py check` fails when a workflow disagrees; `pins.py sync` rewrites them.
 - `published_release.py` is the "is this version published yet" check used by `install-sh`, `install-ps1` and `homebrew` (`--formula` for the formula).
 - `enter_vs_dev_shell.ps1` (dot-source it) loads the Visual Studio developer environment on Windows jobs.
-- `install_nextest.sh` installs the pinned cargo-nextest (checksums in `pins.json`); `test_install_sh.py` / `test_install_ps1.ps1` run the installers against stub archives.
-- `install_rust_toolchain.sh` installs the channel from `rust-toolchain.toml` (`--component`, `--target`).
-- `install_llvm_release.sh` downloads, caches and unpacks the pinned LLVM and exports `LLVM_SYS_231_PREFIX`.
+- `install_pinned.py <tool>` is the one installer for pinned downloads, reading `pins.json`: `nextest`, `llvm-cov` and `cargo-mutants` download the prebuilt archive for this platform, compare its SHA-256 with the pin and only then unpack it into `$CARGO_HOME/bin` (a platform without a pinned checksum fails and names the `cargo install --locked` command); `rust [--component NAME] [--target TRIPLE]` installs the channel from `rust-toolchain.toml`; `llvm-release ARCHIVE` downloads and unpacks the official LLVM release into `$RUNNER_TEMP/llvm` and exports `LLVM_SYS_231_PREFIX`. To add a prebuilt tool, add its `Prebuilt` entry (URL template, per-platform target and checksum key) and the pins; `test_install_pinned.py` runs it against stub archives. `test_install_sh.py` / `test_install_ps1.ps1` do the same for the user installers.
 - `apt_lib.sh` / `apt_install.sh` select the CI package repositories and provide bounded retries; `check_formula.sh <formula> <tap> audit|install` runs the brew checks.
 
 ### Ubuntu CI package sources

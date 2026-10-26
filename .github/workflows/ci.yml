@@ -98,7 +98,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Install the pinned toolchain
-        run: bash tools/ci/install_rust_toolchain.sh
+        run: python3 tools/ci/install_pinned.py rust
       - uses: ./.github/actions/rust-cache
         with:
           workspaces: fuzz
@@ -124,7 +124,7 @@ jobs:
         with:
           node-version: '24'
       - name: Install the pinned Rust toolchain and wasm target
-        run: bash tools/ci/install_rust_toolchain.sh --component rustfmt --component clippy --target wasm32-unknown-unknown
+        run: python3 tools/ci/install_pinned.py rust --component rustfmt --component clippy --target wasm32-unknown-unknown
       - uses: ./.github/actions/rust-cache
       - uses: ./.github/actions/dependency-age-cache
       - name: Validate dependency ages before building
@@ -385,7 +385,7 @@ jobs:
           node-version: '24'
       - name: Install the pinned toolchain
         working-directory: .
-        run: bash tools/ci/install_rust_toolchain.sh
+        run: python3 tools/ci/install_pinned.py rust
       - uses: ./.github/actions/dependency-age-cache
       - name: Validate dependency ages before installing or building
         env:
@@ -446,7 +446,7 @@ jobs:
         with:
           just-version: '1.58.0'
       - name: Install the pinned toolchain
-        run: bash tools/ci/install_rust_toolchain.sh
+        run: python3 tools/ci/install_pinned.py rust
       - name: Run the plugin tests (builds only jailsp)
         run: just nvim-test -j 2
   stdlib-runtime:

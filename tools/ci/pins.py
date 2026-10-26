@@ -4,7 +4,7 @@
 GitHub Actions cannot read a file for `with:` inputs or job-level `env:`, so each pin appears as a
 literal in the workflows. pins.json is the one place to change; `sync` rewrites the literals and `check`
 (run by the tools tests) fails when one differs or a rule matches nothing. The Rust nightly is not
-here: rust-toolchain.toml is its source, and tools/ci/install_rust_toolchain.sh reads it.
+here: rust-toolchain.toml is its source, and tools/ci/install_pinned.py rust reads it.
 
     python3 tools/ci/pins.py check
     python3 tools/ci/pins.py sync
@@ -50,16 +50,16 @@ RULES = {
 
 # pin -> the script that reads it from pins.json itself (so no literal is spelled out elsewhere).
 READ_BY = {
-    "nextest": "tools/ci/install_nextest.sh",
-    "nextest_sha256_linux_x64": "tools/ci/install_nextest.sh",
-    "nextest_sha256_linux_arm64": "tools/ci/install_nextest.sh",
-    "nextest_sha256_macos": "tools/ci/install_nextest.sh",
-    "llvm_cov": "tools/ci/install_llvm_cov.sh",
-    "llvm_cov_sha256_linux_x64": "tools/ci/install_llvm_cov.sh",
-    "llvm_cov_sha256_linux_arm64": "tools/ci/install_llvm_cov.sh",
-    "llvm_cov_sha256_macos": "tools/ci/install_llvm_cov.sh",
-    "cargo_mutants": "tools/ci/install_cargo_mutants.sh",
-    "cargo_mutants_sha256_linux_x64": "tools/ci/install_cargo_mutants.sh",
+    "nextest": "tools/ci/install_pinned.py",
+    "nextest_sha256_linux_x64": "tools/ci/install_pinned.py",
+    "nextest_sha256_linux_arm64": "tools/ci/install_pinned.py",
+    "nextest_sha256_macos": "tools/ci/install_pinned.py",
+    "llvm_cov": "tools/ci/install_pinned.py",
+    "llvm_cov_sha256_linux_x64": "tools/ci/install_pinned.py",
+    "llvm_cov_sha256_linux_arm64": "tools/ci/install_pinned.py",
+    "llvm_cov_sha256_macos": "tools/ci/install_pinned.py",
+    "cargo_mutants": "tools/ci/install_pinned.py",
+    "cargo_mutants_sha256_linux_x64": "tools/ci/install_pinned.py",
     "mini_test_commit": "tools/dev/fetch_mini_test.py",
 }
 

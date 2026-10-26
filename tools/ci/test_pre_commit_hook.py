@@ -56,6 +56,8 @@ class PreCommitHookTests(unittest.TestCase):
         (self.repo / "target").mkdir()
         self.env = dict(os.environ, JAI_HOOK_NO_BUILD="1", JAI_HOOK_SKIP="rustfmt")
         self.env.pop("CARGO_TARGET_DIR", None)
+        # The copy of tools/ in the throwaway repository is the one dev.py imports from, so ROOT is that repository.
+        self.env["PYTHONPATH"] = str(self.repo / "tools")
         # Keep any real jaifmt/jailint on the developer's PATH out of the tests.
         self.env["PATH"] = os.pathsep.join(
             p

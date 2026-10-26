@@ -42,7 +42,7 @@ jobs:
           node-version: '24'
       - name: Install cargo-llvm-cov and its LLVM tools
         run: |
-          bash tools/ci/install_llvm_cov.sh
+          python3 tools/ci/install_pinned.py llvm-cov
           rustup component add llvm-tools --toolchain "$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)"
       - uses: ./.github/actions/native-libs-cache
       - name: Build the native helper libraries

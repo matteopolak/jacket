@@ -21,7 +21,7 @@ runs:
           printf '%s\n' "$USERPROFILE\\.cargo\\bin" >> "$GITHUB_PATH"
           export PATH="$PATH:$(cygpath -u "$USERPROFILE")/.cargo/bin"
         fi
-        bash tools/ci/install_rust_toolchain.sh
+        python tools/ci/install_pinned.py rust
         # The official LLVM release is built against the static C runtime (/MT); mixing it with
         # Rust's default dynamic CRT crashes at run time. A target-specific flag keeps it off
         # build scripts and proc macros.
@@ -31,7 +31,7 @@ runs:
     - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
       with:
         node-version: '24'
-    # Downloaded each run (install_llvm_release.sh): the archive is ~0.9 GB and a cached copy buys nothing over the download.
+    # Downloaded each run (install_pinned.py llvm-release): the archive is ~0.9 GB and a cached copy buys nothing over the download.
     - id: llvm
       shell: bash
       env:
@@ -44,7 +44,7 @@ runs:
       env:
         ARCHIVE: ${{ steps.llvm.outputs.archive }}
       run: |
-        bash tools/ci/install_llvm_release.sh "$ARCHIVE"
+        python tools/ci/install_pinned.py llvm-release "$ARCHIVE"
         llvm="$(cygpath -u "$RUNNER_TEMP")/llvm"
         cygpath -w "$llvm/bin" >> "$GITHUB_PATH"
         test -x "$llvm/bin/wasm-ld.exe"

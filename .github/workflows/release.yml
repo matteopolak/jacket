@@ -166,11 +166,11 @@ jobs:
           persist-credentials: false
           ref: ${{ inputs.tag || github.ref }}
       # llvm-tools: the llvm-profdata that matches rustc's LLVM, to merge the PGO profiles.
-      - name: Install the pinned toolchain
-        run: bash tools/ci/install_rust_toolchain.sh --component llvm-tools
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.14'
+      - name: Install the pinned toolchain
+        run: python3 tools/ci/install_pinned.py rust --component llvm-tools
       - uses: ./.github/actions/dependency-age-cache
       - name: Validate dependency ages before building
         # Read-only GitHub API access for the commit dates of pinned git dependencies.
@@ -182,7 +182,7 @@ jobs:
         if: matrix.llvm != '' && matrix.llvm != 'conda-forge'
         env:
           ARCHIVE: ${{ matrix.llvm }}
-        run: bash tools/ci/install_llvm_release.sh "$ARCHIVE"
+        run: python3 tools/ci/install_pinned.py llvm-release "$ARCHIVE"
       # The official macOS LLVM names Homebrew's static zstd (/opt/homebrew/lib/libzstd.a) in its
       # system libraries; linking the archive leaves no runtime dependency on Homebrew.
       # Its static libraries are LTO bitcode that Xcode's ld cannot read, so link with the
