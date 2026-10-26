@@ -229,6 +229,7 @@ mod tests {
                 dir: "/w".into(),
             },
             notes: Vec::new(),
+            problems: Vec::new(),
         }
     }
 

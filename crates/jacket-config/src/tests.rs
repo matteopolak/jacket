@@ -286,3 +286,30 @@ fn test_profiles_lay_over_the_test_section() {
     known.sort_unstable();
     assert_eq!(keys, known);
 }
+
+#[test]
+fn checks_run_at_load_and_their_problems_are_recorded_not_fatal() {
+    fn max_nesting_is_small(config: &Config, dir: &Path) -> Result<(), String> {
+        match config.lint.max_nesting {
+            Some(n) if n > 3 => Err(format!(
+                "`max_nesting` {n} in {} is too deep",
+                dir.display()
+            )),
+            _ => Ok(()),
+        }
+    }
+    let files = Mem(vec![("/p/jacket.toml", "[lint]\nmax_nesting = 9\n")]);
+    let loaded = load_checked(&files, Path::new("/p"), &[max_nesting_is_small])
+        .unwrap()
+        .unwrap();
+    assert_eq!(loaded.problems, ["`max_nesting` 9 in /p is too deep"]);
+    assert_eq!(loaded.config.lint.max_nesting, Some(9));
+    let unchecked = load(&files, Path::new("/p")).unwrap().unwrap();
+    assert!(unchecked.problems.is_empty());
+}
+
+#[test]
+fn only_jacket_toml_is_a_settings_file() {
+    assert!(is_config_file(Path::new("/p/jacket.toml")));
+    assert!(!is_config_file(Path::new("/p/other.toml")));
+}

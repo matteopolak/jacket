@@ -222,7 +222,7 @@ impl Configs {
         if let Some(config) = found.get(&location.dir) {
             return config.clone();
         }
-        let loaded = jacket_config::load_at(&Disk, location.clone())
+        let loaded = jacket_config::load_at_checked(&Disk, location.clone(), CHECKS)
             .map_err(|e| e.to_string())
             .and_then(Config::from_loaded);
         let config = match loaded {
@@ -489,7 +489,7 @@ impl Config {
     /// The settings of the nearest config directory above `start`; `Ok(None)` when there is
     /// none. `files` is the disk, or an editor's buffers over it.
     pub fn find(files: &dyn Files, start: &Path) -> Result<Option<Config>, String> {
-        match jacket_config::load(files, start) {
+        match jacket_config::load_checked(files, start, CHECKS) {
             Ok(Some(loaded)) => Self::from_loaded(loaded).map(Some),
             Ok(None) => Ok(None),
             Err(e) => Err(e.to_string()),
@@ -537,6 +537,9 @@ impl Config {
 
     fn from_loaded(loaded: jacket_config::Loaded) -> Result<Config, String> {
         let source = loaded.file();
+        if let Some(problem) = loaded.problems.first() {
+            return Err(format!("in `{}`, {problem}", source.display()));
+        }
         let mut config = Config::from_lint(&loaded.config.lint, loaded.dir())
             .map_err(|e| format!("in `{}`, {e}", source.display()))?;
         config.source = Some(source);
@@ -561,6 +564,15 @@ impl Config {
         jacket_config::relative_text(path, &self.root)
     }
 }
+
+/// The check of `[lint]` that `jacket_config` runs as a file is loaded: rule, category and
+/// operating-system names must exist, paths must make sense.
+fn check_lint(config: &jacket_config::Config, dir: &Path) -> Result<(), String> {
+    Config::from_lint(&config.lint, dir).map(|_| ())
+}
+
+/// The checks a tool that reads `[lint]` passes to `jacket_config::load_checked`.
+pub const CHECKS: &[jacket_config::Check] = &[check_lint];
 
 /// Checked `[lint.portability]` settings.
 fn portability(settings: &jacket_config::Portability) -> Result<Portability, String> {

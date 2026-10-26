@@ -26,24 +26,27 @@ pub(crate) fn load(files: &dyn Files, index: &mut Index, start: &Path) -> Option
 }
 
 fn read(files: &dyn Files, index: &mut Index, location: jacket_config::Location) -> Option<Loaded> {
-    let mut loaded = match jacket_config::load_at(files, location.clone()) {
-        Ok(loaded) => loaded,
-        Err(error) => {
-            index.bad_config(&error.path, &error.message);
-            return Some(Loaded {
-                config: jacket_config::Config::default(),
-                location,
-                notes: Vec::new(),
-            });
-        }
-    };
+    let mut loaded =
+        match jacket_config::load_at_checked(files, location.clone(), jailint::config::CHECKS) {
+            Ok(loaded) => loaded,
+            Err(error) => {
+                index.bad_config(&error.path, &error.message);
+                return Some(Loaded {
+                    config: jacket_config::Config::default(),
+                    location,
+                    notes: Vec::new(),
+                    problems: Vec::new(),
+                });
+            }
+        };
     let source = loaded.file();
-    match jailint::config::Config::from_lint(&loaded.config.lint, loaded.dir()) {
-        Ok(_) => index.good_config(&source),
-        Err(problem) => {
-            index.bad_config(&source, &problem);
-            loaded.config.lint = jacket_config::Lint::default();
+    if loaded.problems.is_empty() {
+        index.good_config(&source);
+    } else {
+        for problem in &loaded.problems {
+            index.bad_config(&source, problem);
         }
+        loaded.config.lint = jacket_config::Lint::default();
     }
     for note in &loaded.notes {
         index.log_once(note);

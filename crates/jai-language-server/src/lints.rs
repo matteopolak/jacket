@@ -27,9 +27,7 @@ pub fn rule_url(rule: &str) -> String {
 
 /// A settings file (`jacket.toml`) rather than a Jai document.
 pub(crate) fn is_config(uri: &DocumentUri) -> bool {
-    Path::new(uri.path())
-        .file_name()
-        .is_some_and(|n| n == jacket_config::FILE_NAME)
+    jacket_config::is_config_file(Path::new(uri.path()))
 }
 
 /// What a code action request asks for, from its `context`.

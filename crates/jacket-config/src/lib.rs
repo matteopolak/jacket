@@ -31,6 +31,17 @@ pub const INFERRED_ENTRIES: &[&str] = &[
     "module.jai",
 ];
 
+/// Whether `path` names a settings file (`jacket.toml`).
+pub fn is_config_file(path: &Path) -> bool {
+    path.file_name().is_some_and(|name| name == FILE_NAME)
+}
+
+/// A tool's check of the settings it owns, run as the file is loaded: given the settings and the
+/// folder holding the file, why they are invalid, if they are (`jailint` knows which rule and
+/// operating-system names exist; this crate does not). A failed check does not fail the load: it
+/// is recorded in [`Loaded::problems`] for the tool to report as it sees fit.
+pub type Check = fn(&Config, &Path) -> Result<(), String>;
+
 /// The files a lookup sees: the disk, or an editor's open buffers over it.
 pub trait Files {
     fn is_file(&self, path: &Path) -> bool;
@@ -96,6 +107,8 @@ pub struct Loaded {
     pub location: Location,
     /// One-line notes for the user: keys the schema does not know.
     pub notes: Vec<String>,
+    /// What the [`Check`]s run at load found wrong, one message each.
+    pub problems: Vec<String>,
 }
 
 impl Loaded {
@@ -120,24 +133,47 @@ fn read(fs: &dyn Files, path: &Path) -> Result<String, ConfigError> {
 
 /// The settings of the nearest config directory above `start`; `Ok(None)` when there is none.
 pub fn load(fs: &dyn Files, start: &Path) -> Result<Option<Loaded>, ConfigError> {
+    load_checked(fs, start, &[])
+}
+
+/// [`load`], running `checks` on what is found.
+pub fn load_checked(
+    fs: &dyn Files,
+    start: &Path,
+    checks: &[Check],
+) -> Result<Option<Loaded>, ConfigError> {
     match locate(fs, start) {
-        Some(location) => load_at(fs, location).map(Some),
+        Some(location) => load_at_checked(fs, location, checks).map(Some),
         None => Ok(None),
     }
 }
 
 /// The settings of a located directory.
 pub fn load_at(fs: &dyn Files, location: Location) -> Result<Loaded, ConfigError> {
+    load_at_checked(fs, location, &[])
+}
+
+/// [`load_at`], running `checks` on what is found.
+pub fn load_at_checked(
+    fs: &dyn Files,
+    location: Location,
+    checks: &[Check],
+) -> Result<Loaded, ConfigError> {
     let path = location.file();
     let text = read(fs, &path)?;
     let (config, unknown) = parse_noting(&text).map_err(|message| ConfigError {
         path,
         message,
     })?;
+    let problems = checks
+        .iter()
+        .filter_map(|check| check(&config, &location.dir).err())
+        .collect();
     Ok(Loaded {
         config,
         location,
         notes: unknown.iter().map(|key| unknown_note(key)).collect(),
+        problems,
     })
 }
 
