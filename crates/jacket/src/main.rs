@@ -83,7 +83,10 @@ fn tool_command(command: &str, args: &[OsString], cwd: &Path) -> ExitCode {
         _ => None,
     };
     if let Some(tool) = raw {
-        return tools::exec(tools::find(tool).as_os_str(), args);
+        return match tools::require(tool) {
+            Some(program) => tools::exec(program.as_os_str(), args),
+            None => ExitCode::from(127),
+        };
     }
     // `jailint` reads the same file and prints its own notes.
     let loaded = match project::load_with(cwd, command != "lint") {
@@ -106,19 +109,26 @@ fn tool_command(command: &str, args: &[OsString], cwd: &Path) -> ExitCode {
         "build" => run_jaic(false, args, &ctx),
         "check" => run_jaic(true, args, &ctx),
         "run" => run_program(args, &ctx),
-        "lint" => tools::exec(tools::find(tools::JAILINT).as_os_str(), args),
+        "lint" => run_tool(tools::JAILINT, args),
         "fmt" => fmt::run(&fmt::plan(args, &ctx)),
-        _ => tools::exec(tools::find(tools::JAILSP).as_os_str(), args),
+        _ => run_tool(tools::JAILSP, args),
+    }
+}
+
+/// Starts `tool` with `args`, or says it cannot be found.
+fn run_tool(tool: &str, args: &[OsString]) -> ExitCode {
+    match tools::require(tool) {
+        Some(program) => tools::exec(program.as_os_str(), args),
+        None => ExitCode::from(127),
     }
 }
 
 fn run_jaic(check: bool, args: &[OsString], ctx: &compile::Context) -> ExitCode {
+    let Some(jaic) = tools::require(tools::JAIC) else {
+        return ExitCode::from(127);
+    };
     let argv = compile::jaic_argv(check, args, ctx);
-    tools::exec_with_env(
-        tools::find(tools::JAIC).as_os_str(),
-        &argv,
-        &project_name_env(ctx),
-    )
+    tools::exec_with_env(jaic.as_os_str(), &argv, &project_name_env(ctx))
 }
 
 /// `JACKET_PROJECT`: the name jaic's build status gives the project (its directory's).
@@ -134,7 +144,9 @@ fn project_name_env(ctx: &compile::Context) -> Vec<(&'static str, OsString)> {
 fn run_program(args: &[OsString], ctx: &compile::Context) -> ExitCode {
     let (jaic_args, program_args) = compile::split_run(args);
     let argv = compile::jaic_argv(false, jaic_args, ctx);
-    let jaic = tools::find(tools::JAIC);
+    let Some(jaic) = tools::require(tools::JAIC) else {
+        return ExitCode::from(127);
+    };
     let runs_itself = argv
         .iter()
         .any(|a| a == "-interp" || a == "-check" || a == "-help" || a == "-version");

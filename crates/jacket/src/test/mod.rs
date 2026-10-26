@@ -336,7 +336,9 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: bool) -> ExitCode {
             .map(|flag| flag.to_string_lossy().into_owned()),
     );
     flags.extend(args.jaic_args.iter().cloned());
-    let jaic = tools::find(tools::JAIC);
+    let Some(jaic) = tools::require(tools::JAIC) else {
+        return ExitCode::from(127);
+    };
     let stdlib = match stdlib_dir(&jaic) {
         Ok(dir) => dir,
         Err(error) => return fail(error),

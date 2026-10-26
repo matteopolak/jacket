@@ -205,15 +205,15 @@ pub fn clean(cwd: &Path) -> ExitCode {
 
 /// The first line a tool prints for its version flag.
 fn tool_version(tool: &str) -> String {
-    if !tools::exists(tool) {
+    let Ok(program) = tools::locate(tool) else {
         return "not found".into();
-    }
+    };
     let flag = if tool == tools::JAIC {
         "-version"
     } else {
         "--version"
     };
-    let output = Command::new(tools::find(tool))
+    let output = Command::new(program)
         .arg(flag)
         .stdin(Stdio::null())
         .output();

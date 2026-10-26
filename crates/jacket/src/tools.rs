@@ -2,7 +2,7 @@
 //! for each next to its own executable (a release archive or a Homebrew keg), then on `PATH`,
 //! and starts it with the arguments it was given. Exit codes and standard streams pass through.
 use std::ffi::{OsStr, OsString};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
 pub const JAIC: &str = "jaic";
@@ -15,30 +15,42 @@ fn file_name(tool: &str) -> String {
     format!("{tool}{}", std::env::consts::EXE_SUFFIX)
 }
 
-/// The program to start for `tool`: next to this executable if it is there, else the bare name
-/// (looked up on `PATH` when it starts).
-pub fn find(tool: &str) -> PathBuf {
+/// The file to start for `tool`: next to this executable, else the first match on `PATH`.
+pub fn locate(tool: &str) -> Result<PathBuf, String> {
+    let name = file_name(tool);
     // Through symlinks (`~/.local/bin/jacket` -> the installed release) to where the tools are.
     if let Ok(me) = std::env::current_exe().and_then(|me| me.canonicalize())
         && let Some(dir) = me.parent()
     {
-        let beside = dir.join(file_name(tool));
+        let beside = dir.join(&name);
         if beside.is_file() {
-            return beside;
+            return Ok(beside);
         }
     }
-    PathBuf::from(file_name(tool))
+    on_path(Path::new(&name)).ok_or_else(|| {
+        format!(
+            "cannot find `{tool}`\nhelp: jacket looks next to its own executable, then on PATH; install the toolchain archive or put `{tool}` on PATH"
+        )
+    })
 }
 
-/// Whether `tool` can be found at all.
-pub fn exists(tool: &str) -> bool {
-    let program = find(tool);
-    program.is_absolute() || on_path(&program)
+/// [`locate`], printing why it failed.
+pub fn require(tool: &str) -> Option<PathBuf> {
+    match locate(tool) {
+        Ok(path) => Some(path),
+        Err(message) => {
+            eprintln!("jacket: error: {message}");
+            None
+        }
+    }
 }
 
-fn on_path(program: &std::path::Path) -> bool {
-    std::env::var_os("PATH")
-        .is_some_and(|path| std::env::split_paths(&path).any(|dir| dir.join(program).is_file()))
+/// The file `program` names in a folder of `PATH`.
+fn on_path(program: &Path) -> Option<PathBuf> {
+    let path = std::env::var_os("PATH")?;
+    std::env::split_paths(&path)
+        .map(|dir| dir.join(program))
+        .find(|candidate| candidate.is_file())
 }
 
 fn missing(program: &OsStr, error: &std::io::Error) -> ExitCode {
@@ -94,7 +106,7 @@ pub fn external(name: &OsStr, args: &[OsString]) -> ExitCode {
     let mut program = OsString::from("jacket-");
     program.push(name);
     program.push(std::env::consts::EXE_SUFFIX);
-    if !on_path(std::path::Path::new(&program)) {
+    if on_path(Path::new(&program)).is_none() {
         eprintln!(
             "jacket: no such command: `{}`\nhelp: `jacket --help` lists the commands; other commands are programs called `jacket-<name>` on PATH",
             name.to_string_lossy()

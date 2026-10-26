@@ -404,7 +404,9 @@ pub fn run(plan: &Plan) -> std::process::ExitCode {
     if let Some(code) = plan.answer {
         return ExitCode::from(code);
     }
-    let jaifmt = crate::tools::find(crate::tools::JAIFMT);
+    let Some(jaifmt) = crate::tools::require(crate::tools::JAIFMT) else {
+        return ExitCode::from(127);
+    };
     let mut worst = if plan.failed {
         2
     } else {
