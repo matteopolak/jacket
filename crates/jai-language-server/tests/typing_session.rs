@@ -69,27 +69,35 @@ fn quick() -> Config {
     }
 }
 
+/// Each fixture and seed is a test of its own, so the sessions run side by side.
+fn typing_keeps_every_answer(file: &'static str, seed: u64) {
+    let problems = on_big_stack(move || check(file, seed..seed + 1, &quick()));
+    assert!(problems.is_empty(), "{}", problems.join("\n\n"));
+}
+
 #[test]
 fn typing_in_a_program_that_loads_another_file_keeps_every_answer() {
-    let problems = on_big_stack(|| check("tests/lsp/typing/main.jai", 0..2, &quick()));
-    assert!(problems.is_empty(), "{}", problems.join("\n\n"));
+    typing_keeps_every_answer("tests/lsp/typing/main.jai", 0);
+}
+
+#[test]
+fn typing_in_a_program_that_loads_another_file_keeps_every_answer_on_the_second_seed() {
+    typing_keeps_every_answer("tests/lsp/typing/main.jai", 1);
 }
 
 #[test]
 fn typing_in_the_loaded_file_keeps_every_answer() {
-    let problems = on_big_stack(|| check("tests/lsp/typing/lib.jai", 0..1, &quick()));
-    assert!(problems.is_empty(), "{}", problems.join("\n\n"));
+    typing_keeps_every_answer("tests/lsp/typing/lib.jai", 0);
 }
 
 #[test]
-fn typing_in_partial_fixtures_keeps_every_answer() {
-    let problems = on_big_stack(|| {
-        ["standalone.jai", "pending.jai"]
-            .iter()
-            .flat_map(|name| check(&format!("tests/lsp/partial/{name}"), 0..1, &quick()))
-            .collect::<Vec<_>>()
-    });
-    assert!(problems.is_empty(), "{}", problems.join("\n\n"));
+fn typing_in_a_standalone_fixture_keeps_every_answer() {
+    typing_keeps_every_answer("tests/lsp/partial/standalone.jai", 0);
+}
+
+#[test]
+fn typing_in_a_pending_fixture_keeps_every_answer() {
+    typing_keeps_every_answer("tests/lsp/partial/pending.jai", 0);
 }
 
 /// A statement typed at the end of a body has the body checked again, with fresh locals for

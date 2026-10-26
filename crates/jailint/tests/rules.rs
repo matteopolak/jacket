@@ -163,10 +163,12 @@ fn every_rule_is_documented() {
     }
 }
 
-#[test]
-fn rules_match_their_cases() {
+/// How many tests share the rules' cases (each takes every `RULE_PARTS`-th rule), so they run side by side.
+const RULE_PARTS: usize = 8;
+
+fn rules_match_their_cases(part: usize) {
     let dir = repo().join("tests/lint");
-    for r in RULES {
+    for r in RULES.iter().skip(part).step_by(RULE_PARTS) {
         let level = match r.default() {
             Level::Allow => Level::Warn,
             other => other,
@@ -198,6 +200,28 @@ fn rules_match_their_cases() {
         );
     }
 }
+
+macro_rules! rule_case_parts {
+    ($($name:ident: $part:expr),* $(,)?) => {
+        $(
+            #[test]
+            fn $name() {
+                rules_match_their_cases($part);
+            }
+        )*
+    };
+}
+
+rule_case_parts!(
+    rules_match_their_cases_part_1: 0,
+    rules_match_their_cases_part_2: 1,
+    rules_match_their_cases_part_3: 2,
+    rules_match_their_cases_part_4: 3,
+    rules_match_their_cases_part_5: 4,
+    rules_match_their_cases_part_6: 5,
+    rules_match_their_cases_part_7: 6,
+    rules_match_their_cases_part_8: 7,
+);
 
 #[test]
 fn suppressions_silence_every_rule() {
