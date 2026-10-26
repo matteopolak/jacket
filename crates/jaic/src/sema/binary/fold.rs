@@ -108,7 +108,12 @@ impl Compiler {
                         a << b
                     })),
                     BinOp::Shr => Some(Value::Int(if b >= 128 {
-                        0
+                        // Every bit is the sign bit.
+                        if a < 0 {
+                            -1
+                        } else {
+                            0
+                        }
                     } else {
                         a >> b
                     })),

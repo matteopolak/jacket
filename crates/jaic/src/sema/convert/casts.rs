@@ -380,7 +380,13 @@ impl Compiler {
             }
             Value::Float(x, _) if self.ty.types.is_integer(tr) => {
                 let (bits, signed) = self.ty.types.int_info(tr).unwrap();
-                Some(Value::Int(expr::wrap_int(*x as i128, bits, signed)))
+                // Out of range saturates, as it does when the cast runs.
+                let (lo, hi) = if signed {
+                    (-(1i128 << (bits - 1)), (1i128 << (bits - 1)) - 1)
+                } else {
+                    (0, (1i128 << bits) - 1)
+                };
+                Some(Value::Int((*x as i128).clamp(lo, hi)))
             }
             Value::Bool(b) if self.ty.types.is_integer(tr) => Some(Value::Int(*b as i128)),
             Value::Int(i) if tr == TypeId::BOOL => Some(Value::Bool(*i != 0)),
