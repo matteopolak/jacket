@@ -33,6 +33,7 @@ A test is a file-level procedure that takes nothing or a `*Test`, with `@test` a
 | `expect_equal(got, want)` | the values differ (below) |
 | `expect_near(got, want, tolerance)` | `|got - want| > tolerance`, or either is NaN |
 | `expect_null(pointer)`, `expect_not_null(pointer)` | the pointer is (not) null |
+| `assert_that(value, matcher)`, `require_that` | the matcher does not hold; see [Matchers](../tools/jacket-test.md#matchers) |
 | `require`, `require_equal`, `require_near`, `require_not_null` | as the `expect` form, then `return` from the procedure they are written in (they are macros) |
 
 `expect_equal` compares by value (`compare.jai`): integers and enums of any width and signedness by their numeric value, floats exactly, strings by bytes, arrays of every kind element by element (a `[..] int` equals an `int.[...]` literal), structs member by member, pointers by address. A failure message says what differs:

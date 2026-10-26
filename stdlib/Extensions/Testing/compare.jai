@@ -83,7 +83,7 @@ describe_difference :: (got: Any, want: Any) -> string {
     return builder_to_string(*builder,, temp);
 }
 
-#scope_file
+#scope_module
 
 // Variants compare as what they are variants of.
 underlying :: (original: Any) -> Any {

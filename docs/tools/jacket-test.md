@@ -112,6 +112,53 @@ The notes a `@test` takes are options too, without the `@`: ```` ```jai,only(lin
 
 An unknown option is a warning. Doc tests are named `doc: Module.symbol#N`, or `doc: Module#N` for the module's own docs, where N counts the symbol's blocks from 1. They carry the file and line of their fence. `--doc` runs only doc tests and `--no-doc` leaves them out. `no_run` and `compile_fail` blocks run for any `-os`/`-cpu`; the others need `--runner` on another target, as unit tests do.
 
+### Matchers
+
+`assert_that(value, matcher)` checks a value against a description of what it should be (`Extensions/Testing`, `matchers.jai`). Like `expect` it reports at the caller's line, lets the test go on and returns whether it held; `require_that` returns from the test procedure instead. Matchers compose with `not`, `all_of` and `any_of`, and operands may be any type `expect_equal` accepts (numbers of any width compare by value).
+
+```jai
+assert_that(count, is(3));
+assert_that(name, all_of(starts_with("jac"), has_length(6)));
+assert_that(ports, has_item(between(8000, 8999)));
+require_that(users, each(not_null()));
+```
+
+| Matcher | Holds when |
+| --- | --- |
+| `is(want)` | equal by value (the `expect_equal` rules); strings, arrays and structs fail with its diff |
+| `not(m)` | `m` does not hold |
+| `all_of(m...)`, `any_of(m...)` | every / at least one matcher holds |
+| `greater_than(v)`, `at_least(v)`, `less_than(v)`, `at_most(v)` | the number (or string, byte by byte) orders that way against `v` |
+| `between(low, high)` | `low <= value <= high` |
+| `near(want, tolerance)` | `abs(value - want) <= tolerance`; NaN is never near |
+| `contains(part)` | a string holds the substring, or an array holds the element |
+| `starts_with(x)`, `ends_with(x)` | a string begins / ends with the string, or an array with the elements of the array |
+| `is_empty()`, `has_length(n)` | a string or array has no / `n` bytes or elements |
+| `has_item(m)`, `each(m)` | some / every array element matches `m` (`each` holds for an empty array) |
+| `is_null()`, `not_null()` | a pointer or procedure is / is not null |
+| `is_true()`, `is_false()` | a `bool` is that value |
+| `of_type(T)` | the value's type is exactly `T` (for an `Any`, the type it holds) |
+
+A matcher that cannot apply to the value (`contains` on an integer) does not hold. A failing check reads like vitest's, naming the failing part of a composite:
+
+```
+--- demo (FAIL) ---
+  tests/demo.jai:4:
+    expected "hello" to contain "hi"
+    4 | assert_that("hello", contains("hi"));
+  tests/demo.jai:6:
+    expected [1, 2, 3] to have every item that should be less than 3
+      [2]: expected 3 to be less than 3
+    6 | assert_that(s32.[1, 2, 3], each(less_than(3)));
+  tests/demo.jai:8:
+    expected 5 not to equal 5
+    8 | assert_that(5, not(is(5)));
+```
+
+`explain(value, matcher)` returns the message instead of reporting it (an empty string when the value matches), which is how the matchers' own tests check message text. Operands are copied into temporary storage, so a matcher belongs to the test that built it. Names such as `contains` and `starts_with` also exist in `String`; a file importing both calls the `String` ones by their module name.
+
+To add a matcher, add a `Matcher_Kind`, a constructor, and a case each in `holds` and `phrase` (and `failure_message` if it can say more than "expected V to PHRASE") in `matchers.jai`, then a passing and a failing line in `tests/matchers.jai`.
+
 ### Filters
 
 `jacket test parse split` runs the tests whose name contains `parse` or `split`; `--exact` makes filters whole names. `name/sub` runs one subtest of `name` (subtests are reported under their test). `--partition hash:K/N` keeps the tests whose name hashes (FNV-1a) to part K of N, stable across machines; `count:K/N` takes every Nth by position. `--list` prints `name: kind` per test without running anything (`--format json`: one `{"type":"list",...}` per test).
