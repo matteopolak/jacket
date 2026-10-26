@@ -115,7 +115,7 @@ pub enum OutputFormat {
     Json,
 }
 
-#[derive(clap::Args, Debug)]
+#[derive(clap::Args, Clone, Debug)]
 pub struct TestArgs {
     /// Run the tests whose name contains one of these; `test/subtest` runs one subtest
     #[arg(value_name = "FILTER")]

@@ -219,6 +219,38 @@ fn stdlib_dir(jaic: &Path) -> Result<PathBuf, String> {
     Ok(PathBuf::from(line))
 }
 
+/// The jaic flags whose value is a path. jacket runs jaic in a folder of its own, so a relative
+/// value would be read from there.
+const PATH_FLAGS: [&str; 5] = [
+    "-import_dir",
+    "-I",
+    "-output_path",
+    "-emit_ir",
+    "-coverage_file",
+];
+
+/// `args` with every path the user wrote made absolute from `cwd`: the one place where the
+/// current directory is applied to them (`--path`, `--junit` and the paths among the jaic flags).
+fn resolve_paths(args: &TestArgs, cwd: &Path) -> TestArgs {
+    let mut args = args.clone();
+    for path in args.path.iter_mut().chain(args.junit.iter_mut()) {
+        *path = cwd.join(&*path);
+    }
+    let mut takes_path = false;
+    for flag in &mut args.jaic_args {
+        if std::mem::take(&mut takes_path) {
+            *flag = cwd.join(&*flag).to_string_lossy().into_owned();
+        } else if PATH_FLAGS.contains(&flag.as_str()) {
+            takes_path = true;
+        } else if let Some((name, value)) = flag.split_once('=')
+            && PATH_FLAGS.contains(&name)
+        {
+            *flag = format!("{name}={}", cwd.join(value).display());
+        }
+    }
+    args
+}
+
 /// `hash:K/N` or `count:K/N`: whether the `index`-th test named `name` is in this part.
 fn partition(spec: &str) -> Result<impl Fn(usize, &str) -> bool + use<>, String> {
     let bad = || format!("`--partition {spec}` is not `hash:K/N` or `count:K/N` with 1 <= K <= N");
@@ -268,6 +300,8 @@ fn select(case: &Case, filters: &[String], exact: bool) -> Option<String> {
 }
 
 pub fn run(args: &TestArgs, cwd: &Path, bench: bool) -> ExitCode {
+    let resolved = resolve_paths(args, cwd);
+    let args = &resolved;
     let loaded = match project::load(cwd) {
         Ok(loaded) => loaded,
         Err(error) => return fail(error),
@@ -408,6 +442,18 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: bool) -> ExitCode {
         args.quiet,
     );
     if list {
+        // Which folders were searched depends on the current directory, so say which.
+        for root in &roots {
+            eprintln!(
+                "jacket: root {}{}",
+                root.dir.display(),
+                if root.library {
+                    " (library)"
+                } else {
+                    ""
+                }
+            );
+        }
         reporter.list(&selected);
         let _ = std::fs::remove_dir_all(&work);
         if bench && !args.list {
@@ -792,6 +838,42 @@ mod tests {
         assert_eq!(select(&table, &["other".into()], false), None);
         let golden = case("A::compile_fail/bad", Kind::CompileFail);
         assert!(select(&golden, &["compile_fail/bad".into()], false).is_some());
+    }
+
+    #[test]
+    fn paths_among_the_flags_are_resolved_from_the_current_directory() {
+        let args = TestArgs {
+            path: vec![PathBuf::from("lib")],
+            junit: Some(PathBuf::from("out.xml")),
+            jaic_args: [
+                "-O2",
+                "-import_dir",
+                "vendor",
+                "-emit_ir=x.ll",
+                "-os",
+                "wasm",
+            ]
+            .map(String::from)
+            .into(),
+            ..<TestArgs as clap::Args>::augment_args(clap::Command::new("t"))
+                .try_get_matches_from(["t"])
+                .map(|m| <TestArgs as clap::FromArgMatches>::from_arg_matches(&m).unwrap())
+                .unwrap()
+        };
+        let resolved = resolve_paths(&args, Path::new("/w"));
+        assert_eq!(resolved.path, [PathBuf::from("/w/lib")]);
+        assert_eq!(resolved.junit, Some(PathBuf::from("/w/out.xml")));
+        assert_eq!(
+            resolved.jaic_args,
+            [
+                "-O2",
+                "-import_dir",
+                "/w/vendor",
+                "-emit_ir=/w/x.ll",
+                "-os",
+                "wasm"
+            ]
+        );
     }
 
     #[test]

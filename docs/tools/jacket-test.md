@@ -39,9 +39,18 @@ A test root is a folder with a `tests/` directory (`crates/jacket/src/test/disco
 | every other `tests/*.jai` | unit test file: all of them are `#load`ed into one program, whose `@test` procedures are the tests |
 | a ```` ```jai ```` block in a doc comment of the library (a root with `module.jai`) | doc test: built and run as a program of its own |
 
-The rest of the files below `tests/` are for what the tests `#load` or `#import`. When the root holds a `module.jai`, its parent folder is added as an import folder, so the tests `#import "Name"` the module they test from the working copy.
+The rest of the files below `tests/` are for what the tests `#load` or `#import`.
 
-The roots are `--path DIR` folders if given, else `[test] paths` in `jacket.toml` (only those the current directory is inside, when it is inside some), else the project's folder. With several roots, test names get the root's folder name as a prefix (`Bit_Array::finds_the_first_set`).
+**Layouts.** A root is the folder that holds `tests/`. Two layouts are supported:
+
+| Layout | How the tests reach the code |
+| --- | --- |
+| a library folder: `Name/module.jai`, `Name/tests/` | the root holds a `module.jai`, so its parent folder is added as an import folder and the tests `#import "Name"` the working copy. Only a library root has doc tests; `Name` is the folder's name (or, below the standard library, its path there) |
+| a project: `tests/` beside the code, no `module.jai` in the root | the project's `[project] import_path` folders are passed as `-import_dir`, as for `jacket build`, so `import_path = ["src"]` with `src/Name/module.jai` lets the tests `#import "Name"`; they `#load` anything else by path |
+
+A `src/module.jai` next to `tests/` has no folder to name the module and is not detected: put the module in `src/Name/` and list `src` in `import_path`. The library root is never guessed from names: it is the folder with `module.jai`, and everything else is on `import_path`.
+
+**Roots.** They are `--path DIR` folders if given, else `[test] paths` in `jacket.toml` (only those the current directory is inside, when it is inside some), else the project's folder. `--list` prints the roots it searched to standard error (`jacket: root /path (library)`), since the current directory can narrow them. With several roots, test names get the root's folder name as a prefix (`Bit_Array::finds_the_first_set`). Paths among the flags (`--path`, `--junit`, and `-import_dir`, `-I`, `-output_path`, `-emit_ir`, `-coverage_file` after `--`) are relative to the directory `jacket test` is run from; they are made absolute once, before any test builds in its own folder.
 
 ### Building
 
