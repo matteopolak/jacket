@@ -247,6 +247,16 @@ pub fn top_name(name: &str) -> &str {
 
 /// Runs `invocation` to its end, reading its records.
 pub fn run(invocation: &Invocation, limits: &Limits, live: &mut dyn FnMut(Live)) -> Outcome {
+    run_child(spawn(invocation), invocation, limits, live)
+}
+
+/// Reads the records of `child`, which was started for `invocation` (or failed to start).
+pub fn run_child(
+    child: std::io::Result<Child>,
+    invocation: &Invocation,
+    limits: &Limits,
+    live: &mut dyn FnMut(Live),
+) -> Outcome {
     let mut outcome = Outcome {
         tests: Vec::new(),
         ending: Ending::Exited(0),
@@ -254,7 +264,7 @@ pub fn run(invocation: &Invocation, limits: &Limits, live: &mut dyn FnMut(Live))
         preamble_stdout: Vec::new(),
         preamble: Vec::new(),
     };
-    let mut child = match spawn(invocation) {
+    let mut child = match child {
         Ok(child) => child,
         Err(error) => {
             outcome.ending = Ending::NotStarted(format!(

@@ -7,6 +7,8 @@
 //     --run NAME...          run these tests (`test` or `test/subtest`) and report to jacket
 //     --temp DIR             with --run: the I-th test's directory is DIR/I
 //     --accept               snapshots that differ or are new replace the stored ones
+//     --args-from FILE       alone: wait for FILE to exist, then take the arguments from it, one
+//                            per line (a program that is started before it is known what to run)
 //     --seed N               the seed property tests start from
 //     --bench NAME...        measure these benchmarks and print a `bench` record each to standard
 //                            output; --samples N, --warmup MS and --measure-ms MS change the run
@@ -33,6 +35,9 @@ run_tests :: (cases: [] Test_Case) {
 run_tests :: (cases: [] Test_Case, benches: [] Bench_Case) {
     runner_allocator = context.allocator;
     arguments := get_command_line_arguments();
+
+    if arguments.count == 3 && arguments[1] == "--args-from" arguments = arguments_from(arguments[0], arguments[2]);
+
     names: [..] string;
     bench_names: [..] string;
     bench_settings: Bench_Settings;
@@ -239,6 +244,34 @@ run_subtest :: (t: *Test, name: string, body: (t: *Test), body_with_data: (t: *T
 }
 
 #scope_file
+
+// The program's name, then the lines of `path` once it exists.
+arguments_from :: (program: string, path: string) -> [] string {
+    text, found := read_entire_file(path, log_errors = false);
+
+    while !found {
+        sleep_milliseconds(2);
+        text, found = read_entire_file(path, log_errors = false);
+    }
+
+    arguments: [..] string;
+
+    array_add(*arguments, program);
+    start := 0;
+
+    position := 0;
+
+    while position < text.count {
+        if text[position] == #char "\n" {
+            if position > start array_add(*arguments, string.{ position - start, text.data + start });
+            start = position + 1;
+        }
+
+        position += 1;
+    }
+
+    return arguments;
+}
 
 split_path :: (name: string) -> (string, string) {
     for name {

@@ -239,7 +239,20 @@ fn run_unit(plan: &Plan, cases: &[usize], live: &mut dyn FnMut(Live)) -> Vec<Out
             slow: (plan.settings.slow > 0).then(|| Duration::from_secs(plan.settings.slow)),
             stream: !plan.settings.capture,
         };
-        let run = exec::run(&invocation, &limits, live);
+        let run_flags = build::RunFlags {
+            seed: plan.settings.seed,
+            accept: plan.settings.accept,
+        };
+        // The first run of a root under `--interp` is the process that found its tests.
+        let warm = if run_dir.is_none() {
+            build::warm_start(built, &names, &temp, &run_flags)
+        } else {
+            None
+        };
+        let run = match warm {
+            Some(child) => exec::run_child(Ok(child), &invocation, &limits, live),
+            None => exec::run(&invocation, &limits, live),
+        };
         if let (Some(coverage), Some(dir)) = (&plan.coverage, &run_dir) {
             coverage.collect(dir);
         }

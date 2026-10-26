@@ -5,9 +5,13 @@
 //
 // Options:
 //     -manifest FILE   write one line per test and bench: kind, name, file, line, then its
-//                      notes, separated by tabs
-//     -registry FILE   also write the added source to FILE, for a build that adds it itself
-//                      (`jacket test --interp`, where plugins do not run)
+//                      notes, separated by tabs. The file appears whole or not at all
+//     -print-manifest  print the lines of the manifest to standard output instead, each after
+//                      the text `jacket-manifest: `, for a target whose compile-time code cannot
+//                      write files (`-os wasm`)
+//     -registry FILE   also write the added source to FILE, before the manifest, for a program
+//                      that adds it itself: `-interp` compiles much less of a program than a
+//                      build with a plugin does (`jacket test --interp`)
 //     -no-compile-time do not run the `@compile_time` tests in this build (a check that only
 //                      finds the tests: `-registry` still gets the code that runs them)
 //     -cases FILE      run each `@cases` list at compile time and write `test<TAB>case` per case
@@ -36,6 +40,7 @@ GENERATE_NOTE :: "generate(";
 Discovery :: struct {
     #as using base: Metaprogram_Plugin;
     manifest_path: string;
+    print_manifest: bool;
     registry_path: string;
     cases_path: string;
     skip_compile_time: bool;
@@ -64,6 +69,12 @@ init :: (plugin: *Metaprogram_Plugin, options: [] string) -> bool {
     while i < options.count {
         option := options[i];
 
+        if option == "-print-manifest" {
+            discovery.print_manifest = true;
+            i += 1;
+            continue;
+        }
+
         if option == "-no-compile-time" {
             discovery.skip_compile_time = true;
             i += 1;
@@ -88,7 +99,7 @@ init :: (plugin: *Metaprogram_Plugin, options: [] string) -> bool {
 }
 
 log_help :: (plugin: *Metaprogram_Plugin) {
-    print("Testing/Discovery: -manifest FILE writes the tests found; -registry FILE writes the added source; -cases FILE writes the cases of @cases tests.\n");
+    print("Testing/Discovery: -manifest FILE writes the tests found (-print-manifest prints them); -registry FILE writes the added source; -cases FILE writes the cases of @cases tests.\n");
 }
 
 add_source :: (plugin: *Metaprogram_Plugin) {
@@ -323,14 +334,28 @@ finish_discovery :: (discovery: *Discovery) {
         append(*manifest, "\n");
     }
 
-    if discovery.manifest_path && !write_entire_file(discovery.manifest_path, builder_to_string(*manifest)) {
-        compiler_report(tprint("Testing/Discovery: cannot write %", discovery.manifest_path));
-    }
-
     source := registry_source(discovery, true);
 
     if discovery.registry_path && !write_entire_file(discovery.registry_path, source) {
         compiler_report(tprint("Testing/Discovery: cannot write %", discovery.registry_path));
+    }
+
+    // The manifest comes last: a reader that waits for it finds the registry done.
+    if discovery.print_manifest {
+        text := builder_to_string(*manifest);
+
+        for line: split(text, "\n") {
+            if line print("jacket-manifest: %\n", line);
+        }
+    }
+
+    if discovery.manifest_path {
+        // Written beside the file and moved into place, so a reader that waits for it sees all of it.
+        partial := tprint("%.partial", discovery.manifest_path);
+
+        if !write_entire_file(partial, builder_to_string(*manifest)) || !file_move(partial, discovery.manifest_path) {
+            compiler_report(tprint("Testing/Discovery: cannot write %", discovery.manifest_path));
+        }
     }
 
     // A check that only finds the tests does not run the `@compile_time` ones.

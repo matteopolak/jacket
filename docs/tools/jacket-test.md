@@ -58,12 +58,16 @@ Per root, `jacket` writes `tests.jai` (one `#load` per unit test file) into a wo
 
 ```
 jaic tests.jai -quiet [-os/-cpu/flags] [-import_dir ROOT_PARENT] -exe tests \
-    +Extensions/Testing/Discovery -manifest manifest.tsv -registry registry.jai
+    +Extensions/Testing/Discovery -manifest manifest.tsv
 ```
 
-With `--list` it also gets `-cases cases.tsv` and runs each `@cases` list at compile time to write `test<TAB>case` per case. The plugin writes `manifest.tsv` (`kind<TAB>name<TAB>file<TAB>line<TAB>notes...` per `@test` and `@bench`) and adds the test table and entry point. Roots build in parallel (at most four at once). A root that does not compile stops the run before any test starts. A build that only finds the tests (`--list`, the host check below) gets `-no-compile-time`, so the `@compile_time` tests wait for the build that runs them.
+With `--list` it also gets `-cases cases.tsv` and runs each `@cases` list at compile time to write `test<TAB>case` per case. The plugin writes `manifest.tsv` (`kind<TAB>name<TAB>file<TAB>line<TAB>notes...` per `@test` and `@bench`) and adds the test table and entry point; the plugin moves the manifest into place whole, so a reader that waits for it never sees half of it. Roots build in parallel (at most four at once). A root that does not compile stops the run before any test starts. A build that only finds the tests (`--list`, and the check below) gets `-no-compile-time`, so the `@compile_time` tests wait for the build that runs them.
 
-Plugins do not run under `-interp`, and compile-time code of a wasm target runs in jaic's sandbox, whose file writes stay in memory. So with `--interp`, and for `-os wasm`, the plugin runs in a `-check` for the host and writes the code it adds to `registry.jai`; a second root file, `program.jai`, loads the tests and the registry and names the entry point in a `#run`. Workers run it with `jaic program.jai -interp`, or build it for wasm. This is a limit of the compiler, not a choice: `jaic -interp` runs no plugins (`-interp` with `+Plugin` is a usage error, see [workspaces](../metaprogramming/workspaces.md)), so the interpreted program cannot be built by Discovery itself and is built twice, once to find the tests and once to run them. A consequence: under `-os wasm` tests are found as the host sees them, so keep platform-specific tests apart with `@only`/`@skip_on`, not `#if OS`. The same holds for `--interp`: the tests found are the ones the host's build has. Removing the double build needs plugins in the interpreter.
+Every mode compiles the root once, with the plugin:
+
+- **Native**: the build above writes the manifest and the executable.
+- **`-os wasm`**: compile-time code of a wasm target runs in jaic's sandbox, whose file writes stay in memory, so the manifest goes to standard output instead (`-print-manifest`, each line after `jacket-manifest: `) and the same build writes `tests.wasm`. Tests are found as the target sees them, so `#if OS` works.
+- **`--interp`**: there is no program to write, and every `jaic -interp` process compiles the root again. So the process that will run the first tests is started at once, as `jaic tests.jai -interp ... +Extensions/Testing/Discovery -manifest manifest.tsv -- --args-from plan.txt`. jacket reads the manifest as soon as the plugin has moved it into place (a process that ends first did not compile, and its output is the build error), plans the run, and writes the first job's arguments to `plan.txt`. The process, which waits for that file after compiling, runs them. Other processes (the rest of the `-j` batches, retries after a crash) compile the root with the plugin themselves. With `-coverage` or `-os wasm` no process is started early: a `-check` with the plugin finds the tests, and every run compiles by itself.
 
 ### Running
 
@@ -318,6 +322,7 @@ tests --list                name<TAB>file<TAB>line per test
 tests --run NAME... [--temp DIR]   run these tests, the I-th with temp folder DIR/I, and report
 tests --seed N              the seed property tests start from (jacket always passes one)
 tests --accept              snapshots that differ or are new replace the stored ones
+tests --args-from FILE      alone: wait for FILE, then take the arguments from it, one per line (`--interp`, below)
 ```
 
 With `--run` it writes records to standard error: `\x02`, the kind, each field after `\x1f`, then `\x03` (field bytes `\x02`, `\x03`, `\x1f` are written `?`). The `start` record also goes to standard output, so `jacket` knows which test the output that follows belongs to.
