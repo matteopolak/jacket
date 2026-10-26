@@ -7,14 +7,14 @@ from pathlib import Path
 # tools/, for folder-qualified imports
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from toolkit.repo import cargo_target_dir
+from toolkit.repo import cargo_binary
 
 __all__ = ["add_jaic_argument", "default_jaic"]
 
 
 def default_jaic(profile: str = "debug") -> Path:
     """`<cargo target dir>/<profile>/jaic` (with `.exe` on Windows)."""
-    return cargo_target_dir() / profile / ("jaic.exe" if sys.platform == "win32" else "jaic")
+    return cargo_binary("jaic", profile)
 
 
 def add_jaic_argument(

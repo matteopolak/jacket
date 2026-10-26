@@ -1,4 +1,14 @@
-"""Where the repository and its build products are."""
+"""Where the repository and its build products are.
+
+    ROOT                                 the checkout
+    cargo_target_dir(resolve=False)      `$CARGO_TARGET_DIR`, else cargo's configured target directory, else `<repo>/target`
+    cargo_binary(name, profile, triple)  `<target dir>[/<triple>]/<profile>/<name>` (`.exe` on Windows), profile "debug" or "release"
+    jaifmt_path()                        the repository formatter
+    stdlib_env(**extra)                  the environment with `JAIC_STDLIB` set
+
+Scripts never read `CARGO_TARGET_DIR` or build `ROOT / "target"` themselves (tools/ci/check_tool_imports.py enforces it);
+a test that wants another directory sets `CARGO_TARGET_DIR`. Host facts (`host_os`, `exe_name`, ...) are in `toolkit.host`.
+"""
 
 import functools
 import json
@@ -7,9 +17,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+# tools/, for folder-qualified imports
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from toolkit.host import exe_name
+
 ROOT = Path(__file__).resolve().parents[2]
 
-__all__ = ["ROOT", "cargo_target_dir", "jaifmt_path", "stdlib_env"]
+__all__ = ["ROOT", "cargo_binary", "cargo_target_dir", "jaifmt_path", "stdlib_env"]
 
 
 @functools.cache
@@ -30,9 +45,15 @@ def cargo_target_dir(*, resolve: bool = False) -> Path:
     return path.resolve() if resolve else path
 
 
+def cargo_binary(name: str, profile: str = "debug", triple: str | None = None) -> Path:
+    """A cargo-built executable: `<target dir>[/<triple>]/<profile>/<name>`, with `.exe` when it runs on Windows."""
+    base = cargo_target_dir() / triple if triple else cargo_target_dir()
+    return base / profile / exe_name(name, ("windows" if "windows" in triple else "linux") if triple else None)
+
+
 def jaifmt_path() -> Path:
     """The one place the repository's own jaifmt is built and read: `<cargo target directory>/jaifmt`."""
-    return cargo_target_dir() / ("jaifmt.exe" if sys.platform == "win32" else "jaifmt")
+    return cargo_target_dir() / exe_name("jaifmt")
 
 
 def stdlib_env(**extra: str) -> dict[str, str]:

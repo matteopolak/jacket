@@ -14,7 +14,8 @@ from toolkit import download
 from toolkit.cli import add_jaic_argument, default_jaic
 from toolkit.hashing import sha256_bytes, sha256_file
 from toolkit.process import run, run_expect
-from toolkit.repo import ROOT, cargo_target_dir, jaifmt_path, stdlib_env
+from toolkit.host import brew_prefix, exe_name, host_cpu, host_os
+from toolkit.repo import ROOT, cargo_binary, cargo_target_dir, jaifmt_path, stdlib_env
 
 PY = sys.executable
 
@@ -48,6 +49,28 @@ class Repo(unittest.TestCase):
         with mock.patch.dict(os.environ, {"CARGO_TARGET_DIR": "/x/y"}):
             self.assertEqual(jaifmt_path().parent, Path("/x/y"))
             self.assertTrue(jaifmt_path().name.startswith("jaifmt"))
+
+    def test_cargo_binary(self):
+        with mock.patch.dict(os.environ, {"CARGO_TARGET_DIR": "/x/y"}):
+            self.assertEqual(cargo_binary("jaic", "release"), Path("/x/y/release") / exe_name("jaic"))
+            self.assertEqual(cargo_binary("jaic", triple="x86_64-pc-windows-msvc"),
+                             Path("/x/y/x86_64-pc-windows-msvc/debug/jaic.exe"))
+            self.assertEqual(cargo_binary("jaic", triple="aarch64-apple-darwin").name, "jaic")
+
+    def test_host_names(self):
+        self.assertIn(host_os(), {"macos", "linux", "windows"})
+        self.assertIn(host_cpu(), {"arm64", "x64"})
+        self.assertEqual(exe_name("a", "windows"), "a.exe")
+        self.assertEqual(exe_name("a", "linux"), "a")
+
+    def test_brew_prefix(self):
+        brew_prefix.cache_clear()
+        with mock.patch("toolkit.host.host_os", return_value="linux"):
+            self.assertIsNone(brew_prefix())
+        brew_prefix.cache_clear()
+        with mock.patch("toolkit.host.host_os", return_value="macos"), mock.patch.dict(os.environ, {"HOMEBREW_PREFIX": "/h"}):
+            self.assertEqual(brew_prefix(), Path("/h"))
+        brew_prefix.cache_clear()
 
     def test_stdlib_env(self):
         env = stdlib_env(EXTRA="1")

@@ -40,7 +40,8 @@ Top level: `repo_output.py|mjs` (where output goes, `host_platform()`), `run_tes
 
 | Module | What it gives |
 |---|---|
-| `toolkit.repo` | `ROOT` (the checkout; never recompute it from `__file__`), `cargo_target_dir()` (`$CARGO_TARGET_DIR` or `target/`), `stdlib_env()` (the environment with `JAIC_STDLIB` set). |
+| `toolkit.repo` | `ROOT` (the checkout; never recompute it from `__file__`), `cargo_target_dir(resolve=False)` (`$CARGO_TARGET_DIR`, else cargo's configured target directory, else `target/`), `cargo_binary(name, profile="debug", triple=None)` (a cargo-built executable, `.exe` on Windows), `jaifmt_path()`, `stdlib_env()` (the environment with `JAIC_STDLIB` set). Scratch output goes through `repo_output.output_dir()`, never `ROOT / "target"`. |
+| `toolkit.host` | `host_os()` (`macos`/`linux`/`windows`), `host_cpu()` (`arm64`/`x64`), `exe_name(name)`, `brew_prefix()` (Homebrew's prefix on macOS, else `None`; use it instead of `/opt/homebrew`). |
 | `toolkit.hashing` | `sha256_file(path)` (chunked), `sha256_bytes(data)`. |
 | `toolkit.download` | `fetch(url, timeout=, attempts=, headers=, max_bytes=)`: the body of a URL, retrying rate limits, 5xx answers and dropped connections (the one download path; do not call `urllib` directly). `pinned(url, sha256, name)`: the file cached as `$XDG_CACHE_HOME/jaic/<name>` (default `~/.cache/jaic/`), downloaded first if missing and retried with backoff on 408, 429 and 5xx; exits when the digest differs. The generators that read upstream data (`gen_io_uring.py`, `gen_regex_unicode.py`) use it. |
 | `toolkit.process` | `run(command, check=True, capture=False, echo=True, **subprocess_kwargs)`: a checked `subprocess.run` that `str()`s the items and echoes `+ command`. `run_expect(command, label=..., expected=..., code=..., stderr=..., env=..., timeout=...)`: run, then raise `RuntimeError` unless stdout, status and stderr match. |
@@ -48,7 +49,7 @@ Top level: `repo_output.py|mjs` (where output goes, `host_platform()`), `run_tes
 
 `developer_checks/dev_common.py` is that folder's single entry point: importing it puts `tools/` on `sys.path`, so the checks there carry no path lines of their own. It re-exports `ROOT`, `ENV` (the compiler environment), `JAIC`, `sha256_file` and `run_checked` (`run_expect` with the checks' defaults). The `run` function each check still defines only fixes its failure label and defaults.
 
-Script file names are `snake_case` (they are imported as modules). Add a helper to `toolkit/` when a third script needs it, with a test in `toolkit/test_toolkit.py`. A helper that is specific to one folder (`bench/common.py`, `native_bindings/verify.py`) stays in that folder.
+Script file names are `snake_case` (they are imported as modules). `check_tool_imports.py` also fails a script that reads `CARGO_TARGET_DIR` or builds `ROOT / "target"` itself; the few files that must (listed with reasons in `BUILD_PATH_ALLOWED`) are the exceptions. Add a helper to `toolkit/` when a third script needs it, with a test in `toolkit/test_toolkit.py`. A helper that is specific to one folder (`bench/common.py`, `native_bindings/verify.py`) stays in that folder.
 
 ## Generated files
 
