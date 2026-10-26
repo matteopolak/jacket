@@ -6,7 +6,7 @@ import json
 import re
 import shutil
 import struct
-from dev_common import ROOT, labeled_runner, sha256_bytes
+from dev_common import ROOT, labeled_runner, sha256_bytes, output_dir
 
 
 run = labeled_runner('MSF fixture command', expected=None, env=None, timeout=60, stdout=True)
@@ -21,7 +21,7 @@ def main():
         raise RuntimeError("MSF native fixtures require official lld-link (DEVELOPER_TOOLS_LLD_LINK)")
     page_evidence = {"format": "https://www.llvm.org/docs/PDB/MsfFile.html", "scope": "original native PDB active FPM SDK byte oracles; host public-map operations, not target execution or public parser initialization", "fixtures": []}
     for architecture, target in [("x64", "x86_64-pc-windows-msvc"), ("arm64", "aarch64-pc-windows-msvc")]:
-        base = ROOT / f"target/developer-tools-msf-{architecture}"
+        base = output_dir(f"developer-tools-msf-{architecture}")
         run([llvm / "clang", "-target", target, "-g", "-gcodeview", "-O0", "-std=c11",
              "-Wall", "-Wextra", "-Werror", "-c", "stdlib/Debug_Info/tests/driven/msf-native.c",
              "-o", base.with_suffix(".obj")])
@@ -51,7 +51,7 @@ def main():
         if len(streams) < 5 or [int(index) for index, _ in streams] != list(range(len(streams))):
             raise RuntimeError("Official PDB stream metadata is incomplete")
         for index, size in streams:
-            destination = ROOT / f"target/developer-tools-msf-{architecture}-stream-{index}.bin"
+            destination = output_dir(f"developer-tools-msf-{architecture}-stream-{index}.bin")
             run([llvm / "llvm-pdbutil", "export", f"--stream={index}", f"--out={destination}",
                  base.with_suffix(".pdb")])
             if destination.stat().st_size != int(size):
@@ -59,7 +59,7 @@ def main():
     # The compiler correctly prevents applications from loading stdlib internals.
     # Stage our NEW source for isolated private-unit evidence; no facade exports.
     shutil.copyfile(ROOT / "stdlib/internal/developer-tools/msf-wire.jai",
-                    ROOT / "target/developer-tools-msf-wire.jai")
+                    output_dir("developer-tools-msf-wire.jai"))
     # Original synthetic wire fixture: directory crosses a block boundary,
     # stream zero occupies reversed nonadjacent blocks, other streams are empty.
     block = 4096
@@ -77,8 +77,8 @@ def main():
     payload = bytes((index * 13 + 7) % 256 for index in range(5000))
     data[block * 10:block * 11] = payload[:block]
     data[block * 8:block * 8 + len(payload) - block] = payload[block:]
-    (ROOT / "target/developer-tools-msf-synthetic.bin").write_bytes(data)
-    (ROOT / "target/developer-tools-msf-page-evidence.json").write_text(json.dumps(page_evidence, indent=2) + "\n")
+    (output_dir("developer-tools-msf-synthetic.bin")).write_bytes(data)
+    (output_dir("developer-tools-msf-page-evidence.json")).write_text(json.dumps(page_evidence, indent=2) + "\n")
 
 
 if __name__ == "__main__":

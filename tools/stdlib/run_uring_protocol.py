@@ -14,7 +14,7 @@ from pathlib import Path
 import subprocess
 import sys
 from repo_output import output_dir
-from toolkit.repo import jaifmt_path
+from toolkit.repo import cargo_binary, jaifmt_path
 
 
 def main():
@@ -25,8 +25,8 @@ def main():
         type=Path,
         default=output_dir("extensions-dependencies", "uring-protocol"),
     )
-    parser.add_argument("--compiler", type=Path, default=root / "target/debug/jaic")
-    parser.add_argument("--linter", type=Path, default=root / "target/debug/jailint")
+    parser.add_argument("--compiler", type=Path, default=cargo_binary("jaic"))
+    parser.add_argument("--linter", type=Path, default=cargo_binary("jailint"))
     parser.add_argument("--formatter", type=Path, default=jaifmt_path())
     args = parser.parse_args()
     output = args.output.resolve()

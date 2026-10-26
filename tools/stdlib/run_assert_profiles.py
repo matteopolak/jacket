@@ -14,12 +14,12 @@ import platform
 import subprocess
 from repo_output import output_dir
 from toolkit.hashing import sha256_file
-from toolkit.repo import ROOT
+from toolkit.repo import ROOT, cargo_binary
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--compiler", type=Path, default=ROOT / "target/debug/jaic")
+    parser.add_argument("--compiler", type=Path, default=cargo_binary("jaic"))
     parser.add_argument(
         "--output", type=Path, default=output_dir("extensions-assert-profiles")
     )

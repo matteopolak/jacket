@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import re
 import struct
-from dev_common import JAIFMT, ROOT, labeled_runner, sha256_bytes
+from dev_common import JAIFMT, ROOT, labeled_runner, sha256_bytes, output_dir
 from build_developer_bindings import llvm_prefix
 
 
@@ -21,7 +21,7 @@ def main():
     evidence = {"scope": "original C Windows x64/arm64 O0/O2 C13 sections and SDK filename/file-ID/checksum oracles; host queries, no target execution or Jai symbol-parser claim", "fixtures": []}
     for architecture, target in [("x64", "x86_64-pc-windows-msvc"), ("arm64", "aarch64-pc-windows-msvc")]:
         for optimization in [0, 2]:
-            base = ROOT / f"target/developer-tools-codeview-strings-{architecture}-o{optimization}"
+            base = output_dir(f"developer-tools-codeview-strings-{architecture}-o{optimization}")
             run([prefix / "bin/clang", "-target", target, "-std=c11", "-g", "-gcodeview", f"-O{optimization}",
                  "-Wall", "-Wextra", "-Werror", "-c", source, "-o", base.with_suffix(".obj")])
             binary = base.with_suffix(".debug-s.bin")
@@ -88,10 +88,10 @@ def main():
             evidence["fixtures"].append({"architecture": architecture, "optimization": optimization, "files": records,
                                          "debug_s_sha256": sha256_bytes(data)})
     generated.append("}")
-    destination = ROOT / "target/developer-tools-codeview-string-oracle.jai"
+    destination = output_dir("developer-tools-codeview-string-oracle.jai")
     destination.write_text("\n".join(generated) + "\n")
     run([JAIFMT, "--config", ROOT / "jacket.toml", destination])
-    (ROOT / "target/developer-tools-codeview-string-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
+    (output_dir("developer-tools-codeview-string-evidence.json")).write_text(json.dumps(evidence, indent=2) + "\n")
 
 
 if __name__ == "__main__":

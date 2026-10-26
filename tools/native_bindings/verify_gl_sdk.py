@@ -13,6 +13,7 @@ import platform
 import sys
 
 from verify import ROOT, invoke
+from toolkit.repo import cargo_target_dir
 from toolkit.hashing import sha256_file
 
 
@@ -26,7 +27,7 @@ def main():
     if platform.system() != 'Darwin':
         raise SystemExit('The CGL runtime test requires the public macOS SDK and runtime')
     compiler = args.compiler.resolve(strict=True)
-    if not compiler.is_relative_to((ROOT / 'target').resolve()):
+    if not compiler.is_relative_to(cargo_target_dir(resolve=True)):
         parser.error('use a compiler source-built under this checkout target directory')
     stdlib = args.stdlib.resolve(strict=True)
     args.report = args.report.resolve()

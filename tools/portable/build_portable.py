@@ -35,9 +35,10 @@ from pathlib import Path
 
 from repo_output import host_platform
 from toolkit.hashing import sha256_bytes, sha256_file
-from toolkit.repo import ROOT
+from toolkit.repo import ROOT, cargo_target_dir
+from repo_output import output_dir
 
-ARCHIVE_OUT = ROOT / "target/portable-tests/archive-fixtures"
+ARCHIVE_OUT = output_dir("portable-tests", "archive-fixtures")
 
 
 def member(name, body):
@@ -137,7 +138,7 @@ def archive_fixtures():
 
 def zip_fixtures():
     """Construct independent classic ZIP fixtures using Python's archive writer."""
-    directory = ROOT / "target/portable-tests/zip"
+    directory = output_dir("portable-tests", "zip")
     directory.mkdir(parents=True, exist_ok=True)
     valid = directory / "valid.zip"
     with zipfile.ZipFile(valid, "w", compression=zipfile.ZIP_STORED) as archive:
@@ -182,7 +183,7 @@ def machine_fixtures():
     machine. Only x86-64 hosts have CPUID to read; other hosts write nothing (the test is x64-only too)."""
     if platform.machine().lower() not in ("x86_64", "amd64") or sys.platform == "win32":
         return 0
-    output = ROOT / "target/portable-machine/cpuid.bin"
+    output = output_dir("portable-machine", "cpuid.bin")
     output.parent.mkdir(parents=True, exist_ok=True)
     compiler = os.environ.get("CC", "cc")
     with tempfile.TemporaryDirectory() as scratch:
@@ -225,7 +226,7 @@ def meow_fixtures(verify_native):
     )
     (count,) = struct.unpack_from("<I", data, 4)
     assert data[:4] == b"MCV5" and count == 317 and len(data) == 136 + count * 304
-    output = ROOT / "target/portable-tests/meow-fixtures"
+    output = output_dir("portable-tests", "meow-fixtures")
     output.mkdir(parents=True, exist_ok=True)
     if verify_native:
         command = ["clang++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-O2"]
@@ -401,7 +402,7 @@ def audio_frame(mode, selected_subband, protected=False):
 
 def mpeg_fixtures():
     """Create original elementary test streams from reviewed MPEG VLC tables."""
-    output = ROOT / "target/portable-tests/mpeg"
+    output = output_dir("portable-tests", "mpeg")
     output.mkdir(parents=True, exist_ok=True)
     (output / "reordered.m1v").write_bytes(
         SEQUENCE + picture(1, 80, 0) + picture(2, 160, 2) + picture(3, 120, 1)
@@ -569,7 +570,7 @@ def runtime(target, output_dir):
             "native preparation requires the actual host; cross SDK builds are separate"
         )
     temporary = (
-        Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target"))
+        cargo_target_dir()
         / "native-helpers"
         / target
     )
@@ -607,7 +608,7 @@ def watcher(output_dir):
         raise SystemExit("native watcher backend currently supports macOS only")
     output = (
         output_dir
-        or Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target"))
+        or cargo_target_dir()
         / "native-helpers/macos-watch"
     )
     output.mkdir(parents=True, exist_ok=True)

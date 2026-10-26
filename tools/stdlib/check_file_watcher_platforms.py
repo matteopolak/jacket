@@ -15,7 +15,7 @@ import platform
 import subprocess
 import tempfile
 from toolkit.hashing import sha256_file
-from toolkit.repo import ROOT
+from toolkit.repo import ROOT, cargo_target_dir
 
 OWN = [
     "stdlib/File_Watcher/module.jai",
@@ -72,7 +72,7 @@ def main():
         parser.error(
             "platform runtime acceptance requires an actual Linux/Windows host"
         )
-    target = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")).resolve()
+    target = cargo_target_dir(resolve=True)
     work = Path(tempfile.mkdtemp(prefix="file-watcher-proof-", dir=target))
     temporary = work / "tmp"
     temporary.mkdir()

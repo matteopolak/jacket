@@ -7,9 +7,9 @@ import re
 import subprocess
 import build_generator_platform
 from build_developer_bindings import llvm_prefix
-from dev_common import JAIFMT, ROOT, run_checked, sha256_bytes, sha256_file, stdlib_env
+from dev_common import JAIFMT, ROOT, run_checked, sha256_bytes, sha256_file, stdlib_env, cargo_binary, output_dir
 
-ENV = stdlib_env(TMPDIR=str(ROOT / "target"))
+ENV = stdlib_env(TMPDIR=str(output_dir()))
 PREFIX = llvm_prefix()
 
 
@@ -22,13 +22,13 @@ def fixture_lint_config():
     the command line that the configuration excludes is skipped, but these fixtures are the point."""
     text = (ROOT / "jacket.toml").read_text()
     text = re.sub(r"^exclude = \[.*?^\]\n", "", text, flags=re.DOTALL | re.MULTILINE)
-    config = ROOT / "target/generator-platform-lint.toml"
+    config = output_dir("generator-platform-lint.toml")
     config.write_text(text)
     return config
 
 
 def configured_paths_environment():
-    base = ROOT / "target/generator-platform-configured-roots"
+    base = output_dir("generator-platform-configured-roots")
     for triple in ["x86_64-linux-gnu", "aarch64-linux-gnu"]:
         (base / "linux/usr/include" / triple).mkdir(parents=True, exist_ok=True)
     for triple in ["x86_64-linux-android", "aarch64-linux-android"]:
@@ -39,16 +39,16 @@ def configured_paths_environment():
 
 
 def check_copy_behavior():
-    source = ROOT / "target/generator-platform-copy-source/original.bin"
-    work = ROOT / "target/generator-platform-copy-work"
+    source = output_dir("generator-platform-copy-source", "original.bin")
+    work = output_dir("generator-platform-copy-work")
     source.parent.mkdir(parents=True, exist_ok=True)
     work.mkdir(parents=True, exist_ok=True)
     destination = work / source.name
     fixture = ROOT / "stdlib/Bindings_Generator/tests/driven/generator-platform-copy.jai"
-    modes = [[ROOT / "target/debug/jaic", fixture, "-interp"]]
+    modes = [[cargo_binary("jaic"), fixture, "-interp"]]
     for optimization in [0, 2]:
-        executable = ROOT / f"target/generator-platform-copy-o{optimization}"
-        run([ROOT / "target/debug/jaic", fixture, f"-O{optimization}", "-exe", executable], "")
+        executable = output_dir(f"generator-platform-copy-o{optimization}")
+        run([cargo_binary("jaic"), fixture, f"-O{optimization}", "-exe", executable], "")
         modes.append([executable])
     timestamp = 1700000000000000000
     cases = [("absent", None, 0, b"abcd"),
@@ -86,7 +86,7 @@ def check_copy_behavior():
 def main():
     if platform.system() != "Darwin":
         raise RuntimeError("This execution evidence requires a real macOS host")
-    (ROOT / "target").mkdir(exist_ok=True)
+    (output_dir()).mkdir(exist_ok=True)
     build_generator_platform.main()
     source = ROOT / "stdlib/Bindings_Generator/tests/driven/generator-platform.c"
     evidence = {"scope": "original objects; official SDK symbol tables; host interpreter/native O0/O2",
@@ -95,7 +95,7 @@ def main():
                 ("elf.o", "x86_64-unknown-linux-gnu", 0),
                 ("coff.o", "x86_64-pc-windows-msvc", 0)]
     for suffix, triple, optimization in variants:
-        output = ROOT / f"target/generator-platform-{suffix}"
+        output = output_dir(f"generator-platform-{suffix}")
         flags = ["-target", triple] if triple else []
         run([PREFIX / "bin/clang", *flags, f"-O{optimization}", "-Wall", "-Wextra", "-Werror",
              "-c", source, "-o", output])
@@ -103,15 +103,15 @@ def main():
         for symbol in ["gp_add", "gp_value", "gp_unresolved", "gp_external"]:
             if symbol not in oracle:
                 raise RuntimeError(f"SDK oracle lacks original symbol {symbol}")
-        (ROOT / f"target/generator-platform-{suffix}.symbols.txt").write_text(oracle)
+        (output_dir(f"generator-platform-{suffix}.symbols.txt")).write_text(oracle)
         evidence["objects"][suffix] = {"sha256": sha256_file(output),
                                        "oracle_sha256": sha256_bytes(oracle.encode())}
-    archive = ROOT / "target/generator-platform-a.a"
+    archive = output_dir("generator-platform-a.a")
     archive.unlink(missing_ok=True)
-    run([PREFIX / "bin/llvm-ar", "rcs", archive, ROOT / "target/generator-platform-macho.o",
-         ROOT / "target/generator-platform-macho-o2.o"])
+    run([PREFIX / "bin/llvm-ar", "rcs", archive, output_dir("generator-platform-macho.o"),
+         output_dir("generator-platform-macho-o2.o")])
     fixture = ROOT / "stdlib/Bindings_Generator/tests/driven/generator-platform.jai"
-    diagnostic_file = ROOT / "target/diagnostic-only.o"
+    diagnostic_file = output_dir("diagnostic-only.o")
     diagnostic_file.write_text("preserve diagnostic path content")
     owned = [fixture, ROOT / "stdlib/Bindings_Generator/tests/driven/generator-platform-target.jai",
              ROOT / "stdlib/Bindings_Generator/platform-helpers.jai",
@@ -128,9 +128,9 @@ def main():
     for path in owned:
         run([JAIFMT, "--config", ROOT / "jacket.toml", path])
         run([JAIFMT, "--config", ROOT / "jacket.toml", "--check", path])
-    checked = ROOT / "target/generator-platform-linted.txt"
+    checked = output_dir("generator-platform-linted.txt")
     programs = [path for path in owned if path.parent.name == "driven"]
-    run([ROOT / "target/debug/jailint", "-D", "warnings", "--config", fixture_lint_config(), "--checked-files", checked,
+    run([cargo_binary("jailint"), "-D", "warnings", "--config", fixture_lint_config(), "--checked-files", checked,
          *programs])
     linted = checked.read_text().splitlines()
     if any(str(path) not in linted for path in programs):
@@ -138,24 +138,24 @@ def main():
     for optimization in [0, 2]:
         run([PREFIX / "bin/clang", "-std=c11", f"-O{optimization}", "-Wall", "-Wextra", "-Werror", "-dynamiclib",
              ROOT / "stdlib/Bindings_Generator/tests/driven/generator-platform-shared.c",
-             "-o", ROOT / "target/libgenerator_platform_fixture.dylib"])
-        run([ROOT / "target/debug/jaic", fixture, "-interp"], "ok\n")
-        executable = ROOT / f"target/generator-platform-o{optimization}"
-        run([ROOT / "target/debug/jaic", fixture, f"-O{optimization}", "-exe", executable], "")
+             "-o", output_dir("libgenerator_platform_fixture.dylib")])
+        run([cargo_binary("jaic"), fixture, "-interp"], "ok\n")
+        executable = output_dir(f"generator-platform-o{optimization}")
+        run([cargo_binary("jaic"), fixture, f"-O{optimization}", "-exe", executable], "")
         run([executable], "ok\n")
         for support in [owned[-6], owned[-5], owned[-4], *owned[-2:]]:
             environment = configured_paths_environment() if support.stem == "generator-platform-configured-paths" else ENV
-            executable = ROOT / f"target/{support.stem}-o{optimization}"
-            run([ROOT / "target/debug/jaic", support, "-interp"], "ok\n", env=environment)
-            run([ROOT / "target/debug/jaic", support, f"-O{optimization}", "-exe", executable], "")
+            executable = output_dir(f"{support.stem}-o{optimization}")
+            run([cargo_binary("jaic"), support, "-interp"], "ok\n", env=environment)
+            run([cargo_binary("jaic"), support, f"-O{optimization}", "-exe", executable], "")
             run([executable], "ok\n", env=environment)
     for os_name in ["macos", "linux", "windows"]:
         for cpu in ["x64", "arm64"]:
-            run([ROOT / "target/debug/jaic", owned[1], "-check", "-os", os_name, "-cpu", cpu], "")
+            run([cargo_binary("jaic"), owned[1], "-check", "-os", os_name, "-cpu", cpu], "")
             for support in owned[-2:]:
-                run([ROOT / "target/debug/jaic", support, "-check", "-os", os_name, "-cpu", cpu], "")
+                run([cargo_binary("jaic"), support, "-check", "-os", os_name, "-cpu", cpu], "")
     evidence["libclang_copy"] = check_copy_behavior()
-    if list((ROOT / "target").glob("jai-symbols-*")):
+    if list((output_dir()).glob("jai-symbols-*")):
         raise RuntimeError("Object staging leaked temporary files")
     evidence["executed"] = ["interpreter", "Mac native O0", "Mac native O2"]
     if diagnostic_file.read_text() != "preserve diagnostic path content":
@@ -169,14 +169,14 @@ def main():
                                   "reviewed libclang copy/update/missing-source effects, including actual bundled SDK library bytes"]
     evidence["contextual_fixture_lint"] = "passed with warnings denied"
     try:
-        run([ROOT / "target/debug/jailint", "-D", "warnings", "--config", fixture_lint_config(), "--checked-files", checked,
+        run([cargo_binary("jailint"), "-D", "warnings", "--config", fixture_lint_config(), "--checked-files", checked,
              ROOT / "stdlib/Bindings_Generator/module.jai", *owned])
     except RuntimeError as error:
         evidence["module_root_lint"] = "failed; independent #add_context-after-bootstrap driver ordering reduction reported"
-        (ROOT / "target/generator-platform-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
+        (output_dir("generator-platform-evidence.json")).write_text(json.dumps(evidence, indent=2) + "\n")
         raise error
     evidence["module_root_lint"] = "passed with warnings denied"
-    (ROOT / "target/generator-platform-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
+    (output_dir("generator-platform-evidence.json")).write_text(json.dumps(evidence, indent=2) + "\n")
     print("Generator platform original-object/library effects passed interpreter/native Mac O0/O2; six desktop source checks passed")
 
 

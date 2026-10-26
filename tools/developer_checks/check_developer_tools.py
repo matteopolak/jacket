@@ -15,7 +15,7 @@ import build_developer_bindings
 from driven_sources import driven, driven_matching
 import platform
 import csv
-from dev_common import ENV, JAIC, JAIFMT, ROOT, run_checked, sha256_file
+from dev_common import ENV, JAIC, JAIFMT, ROOT, run_checked, sha256_file, cargo_binary, output_dir
 
 UNAVAILABLE_EVIDENCE = []
 RESULTS = {}  # {module: its main()'s result} of the manifest checks run so far
@@ -64,13 +64,13 @@ def check_framework_consumer(prefix, emitter):
         # macOS creates AppleDouble metadata files on external filesystems. The
         # framework is an owned generated fixture; remove metadata sidecars so
         # Clang's umbrella scan sees its actual header set. Keep -Werror intact.
-        run(["/usr/sbin/dot_clean", "-m", ROOT / "target/developer-tools-frameworks"])
+        run(["/usr/sbin/dot_clean", "-m", output_dir("developer-tools-frameworks")])
     for optimization in [0, 2]:
         tag = f"{emitter}-c{optimization}"
-        exe = ROOT / f"target/developer-tools-framework-{tag}"
+        exe = output_dir(f"developer-tools-framework-{tag}")
         run([prefix / "bin/clang", "-x", "objective-c", "-std=c11", "-fmodules", f"-O{optimization}",
-             f"-fmodules-cache-path={ROOT / ('target/developer-tools-module-cache-' + tag)}",
-             f"-F{ROOT / 'target/developer-tools-frameworks'}", "-Wall", "-Wextra", "-Werror",
+             f"-fmodules-cache-path={output_dir('developer-tools-module-cache-' + tag)}",
+             f"-F{output_dir("developer-tools-frameworks")}", "-Wall", "-Wextra", "-Werror",
              ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-module-consumer.m", "-o", exe])
         run([exe])
 
@@ -97,11 +97,11 @@ def prepare_clang_time_inputs():
 def prepare_cpp_visitors(prefix):
     run([prefix / "bin/clang", "-std=c11", "-Wall", "-Wextra", "-Werror", "-I", prefix / "include",
          ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-cpp-visitors.c", "-L", prefix / "lib", "-lclang",
-         f"-Wl,-rpath,{prefix / 'lib'}", "-o", ROOT / "target/developer-tools-cpp-visitors"])
-    visitor_results = run([ROOT / "target/developer-tools-cpp-visitors", ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-clang-cpp.h"]).split()
+         f"-Wl,-rpath,{prefix / 'lib'}", "-o", output_dir("developer-tools-cpp-visitors")])
+    visitor_results = run([output_dir("developer-tools-cpp-visitors"), ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-clang-cpp.h"]).split()
     if len(visitor_results) != 8 or any(not value.isdecimal() for value in visitor_results):
         raise RuntimeError("Independent C++ native visitor oracle is incomplete")
-    visitor_oracle = ROOT / "target/developer-tools-cpp-visitor-oracle.jai"
+    visitor_oracle = output_dir("developer-tools-cpp-visitor-oracle.jai")
     visitor_oracle.write_text("SDK_Visitor_Results :: u32.[" + ", ".join(visitor_results) + "];\n")
     run([JAIFMT, "--config", ROOT / "jacket.toml", visitor_oracle])
     visitor_names = ["fields_return", "fields_count", "bases_return", "bases_count", "methods_return", "methods_count", "stopped_return", "stopped_count"]
@@ -111,7 +111,7 @@ def prepare_cpp_visitors(prefix):
                         "sdk_evidence": "developer-tools-clang-evidence.json",
                         "original_fixture_sha256": {name: sha256_file(driven(name))
                                                    for name in ["bindings-clang-cpp.h", "bindings-cpp-visitors.c", "bindings-clang-cpp.jai"]}}
-    (ROOT / "target/developer-tools-cpp-evidence.json").write_text(json.dumps(visitor_evidence, indent=2) + "\n")
+    (output_dir("developer-tools-cpp-evidence.json")).write_text(json.dumps(visitor_evidence, indent=2) + "\n")
     for triple in ["x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc", "aarch64-pc-windows-msvc"]:
         run([prefix / "bin/clang++", "-target", triple, "-x", "c++", "-std=c++17", "-Wall", "-Wextra", "-Werror",
              "-fsyntax-only", ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-clang-cpp.h"])
@@ -125,28 +125,28 @@ def check_bridge_consumers(prefix, emitter, workflow=False):
         run([prefix / "bin/clang++", "-x", "c++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-fsyntax-only",
              ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-cpp-nonpod.h"])
         for suffix in ["generated", "linux", "windows"]:
-            generated = ROOT / f"target/developer-tools-cpp-workflow-{suffix}.jai"
+            generated = output_dir(f"developer-tools-cpp-workflow-{suffix}.jai")
             run([JAIFMT, "--config", ROOT / "jacket.toml", generated])
             run([JAIFMT, "--config", ROOT / "jacket.toml", "--check", generated])
-            run([ROOT / "target/debug/jailint", "-D", "warnings", generated])
+            run([cargo_binary("jailint"), "-D", "warnings", generated])
         for os_name in ["linux", "windows"]:
-            run([JAIC, "stdlib/Bindings_Generator/tests/driven/bindings-cpp-workflow-target.jai", "-check", "-os", os_name, "-cpu", "x64", "-I", ROOT / "target"])
+            run([JAIC, "stdlib/Bindings_Generator/tests/driven/bindings-cpp-workflow-target.jai", "-check", "-os", os_name, "-cpu", "x64", "-I", output_dir()])
     extension = "dylib" if platform.system() == "Darwin" else "so"
     flags = ["-dynamiclib"] if platform.system() == "Darwin" else ["-shared", "-fPIC"]
     for cpp_optimization in [0, 2]:
         run([prefix / "bin/clang++", "-std=c++17", f"-O{cpp_optimization}", "-Wall", "-Wextra", "-Werror",
-             *flags, ROOT / f"target/developer-tools-{stem}.cpp", driven(f"bindings-{stem}-native.cpp"),
-             "-o", ROOT / f"target/libdeveloper_tools_{library}.{extension}"])
+             *flags, output_dir(f"developer-tools-{stem}.cpp"), driven(f"bindings-{stem}-native.cpp"),
+             "-o", output_dir(f"libdeveloper_tools_{library}.{extension}")])
         source = driven(f"bindings-{stem}-roundtrip.jai")
-        run([JAIC, source, "-interp", "-I", ROOT / "target"], output="ok\n")
+        run([JAIC, source, "-interp", "-I", output_dir()], output="ok\n")
         for optimization in [0, 2]:
-            exe = ROOT / f"target/developer-tools-{stem}-{emitter}-cpp{cpp_optimization}-jai{optimization}"
-            run([JAIC, source, f"-O{optimization}", "-exe", exe, "-I", ROOT / "target"])
+            exe = output_dir(f"developer-tools-{stem}-{emitter}-cpp{cpp_optimization}-jai{optimization}")
+            run([JAIC, source, f"-O{optimization}", "-exe", exe, "-I", output_dir()])
             run([exe], output="ok\n")
 
 
 def check_measured_profiler_csv():
-    lines = (ROOT / "target/developer-tools-iprof-measured.csv").read_text().splitlines()
+    lines = (output_dir("developer-tools-iprof-measured.csv")).read_text().splitlines()
     rows = list(csv.DictReader(lines[1:]))
     if len(rows) != 2 or [row["name"] for row in rows] != ["original outer", "original inner"] or [float(row["calls"]) for row in rows] != [3, 1]:
         raise RuntimeError("Measured profiler CSV lacks actual runtime zones/call counts")
@@ -157,44 +157,44 @@ def check_measured_profiler_csv():
 def check_profiler_client_children():
     for configuration in range(8):
         for optimization in [0, 2]:
-            run([ROOT / f"target/developer-tools-iprof-client-c{configuration}-o{optimization}"], output="ok\n")
-        source = ROOT / f"target/developer-tools-iprof-client-input-c{configuration}.jai"
+            run([output_dir(f"developer-tools-iprof-client-c{configuration}-o{optimization}")], output="ok\n")
+        source = output_dir(f"developer-tools-iprof-client-input-c{configuration}.jai")
         run([JAIFMT, "--config", ROOT / "jacket.toml", source])
         run([JAIFMT, "--config", ROOT / "jacket.toml", "--check", source])
-        run([ROOT / "target/debug/jailint", "-D", "warnings", source])
+        run([cargo_binary("jailint"), "-D", "warnings", source])
 
 
 
-VISITOR_ORACLE = ROOT / "target/developer-tools-cpp-visitor-oracle.jai"
+VISITOR_ORACLE = output_dir("developer-tools-cpp-visitor-oracle.jai")
 
 
 def inline_setup():
     """The fixtures the cases and the format/lint step share: libraries, generated bindings and oracles under target/."""
     prefix = build_developer_bindings.llvm_prefix()
     prepare_cpp_visitors(prefix)
-    framework = ROOT / "target/developer-tools-frameworks/OriginalNative.framework"
+    framework = output_dir("developer-tools-frameworks", "OriginalNative.framework")
     (framework / "Modules").mkdir(parents=True, exist_ok=True)
     (framework / "Headers").mkdir(parents=True, exist_ok=True)
     shutil.copyfile(ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-module-header.h", framework / "Headers/OriginalNative.h")
     prepare_clang_time_inputs()
     run([prefix / "bin/clang", "-target", "x86_64-unknown-linux-gnu", "-g", "-fno-omit-frame-pointer",
-         "-c", "stdlib/Debug_Info/tests/driven/dwarf-native.c", "-o", "target/developer-tools-dwarf.o"])
-    run([prefix / "bin/llvm-objcopy", "--dump-section", ".eh_frame=target/developer-tools-eh-frame.bin",
-         "target/developer-tools-dwarf.o"])
+         "-c", "stdlib/Debug_Info/tests/driven/dwarf-native.c", "-o", output_dir("developer-tools-dwarf.o")])
+    run([prefix / "bin/llvm-objcopy", "--dump-section", f".eh_frame={output_dir('developer-tools-eh-frame.bin')}",
+         output_dir("developer-tools-dwarf.o")])
     for architecture, triple in [("x64", "x86_64-pc-windows-msvc"), ("arm64", "aarch64-pc-windows-msvc")]:
-        object_path = ROOT / f"target/developer-tools-codeview-{architecture}.obj"
-        data_path = ROOT / f"target/developer-tools-codeview-{architecture}.bin"
+        object_path = output_dir(f"developer-tools-codeview-{architecture}.obj")
+        data_path = output_dir(f"developer-tools-codeview-{architecture}.bin")
         run([prefix / "bin/clang", "-std=c11", "-Wall", "-Wextra", "-Werror", "-target", triple,
              "-c", "stdlib/Debug_Info/tests/driven/codeview-lines.c", "-o", object_path])
         run([prefix / "bin/llvm-objcopy", "--dump-section", f".data={data_path}", object_path])
-        register_object = ROOT / f"target/developer-tools-codeview-register-{architecture}.obj"
-        register_data = ROOT / f"target/developer-tools-codeview-register-{architecture}.bin"
+        register_object = output_dir(f"developer-tools-codeview-register-{architecture}.obj")
+        register_data = output_dir(f"developer-tools-codeview-register-{architecture}.bin")
         run([prefix / "bin/clang", "-std=c11", "-Wall", "-Wextra", "-Werror", "-target", triple,
              "-c", "stdlib/Debug_Info/tests/driven/codeview-register.c", "-o", register_object])
         run([prefix / "bin/llvm-objcopy", "--dump-section", f".data={register_data}", register_object])
     run([prefix / "bin/clang", "-std=c11", "-Wall", "-Wextra", "-Werror", "-I", prefix / "include",
-         "stdlib/Bindings_Generator/tests/driven/bindings-sdk-layout.c", "-o", "target/developer-tools-sdk-layout"])
-    run([ROOT / "target/developer-tools-sdk-layout"], output="CXString=16 CXCursor=32 CXType=24 CXUnsavedFile=24\nCXIndexOptions=24 PreambleStoragePath=8 InvocationEmissionPath=16\nCXToken=24 ptr_data=16 CXTokenKind=4\n")
+         "stdlib/Bindings_Generator/tests/driven/bindings-sdk-layout.c", "-o", output_dir("developer-tools-sdk-layout")])
+    run([output_dir("developer-tools-sdk-layout")], output="CXString=16 CXCursor=32 CXType=24 CXUnsavedFile=24\nCXIndexOptions=24 PreambleStoragePath=8 InvocationEmissionPath=16\nCXToken=24 ptr_data=16 CXTokenKind=4\n")
     run([JAIC, "stdlib/Generate_C_Header/tests/driven/c-header.jai", "-interp"], output="ok\n")
     run(["clang", "-std=c11", "-Wall", "-Wextra", "-Werror", *build_developer_bindings.shared_flags(), "-I", "target",
          "stdlib/Bindings_Generator/tests/driven/point.c", "-o", build_developer_bindings.shared_library("developer_tools_point")])
@@ -202,11 +202,11 @@ def inline_setup():
     for standard, source, exe in [("c11", "header-enum-normal.c", "enum-normal"),
                                    ("c23", "header-enum-fixed.c", "enum-fixed")]:
         run([prefix / "bin/clang", f"-std={standard}", "-Wall", "-Wextra", "-Werror", "-I", "target",
-             driven(f"{source}"), "-o", ROOT / f"target/developer-tools-{exe}"])
-        run([ROOT / f"target/developer-tools-{exe}"])
+             driven(f"{source}"), "-o", output_dir(f"developer-tools-{exe}")])
+        run([output_dir(f"developer-tools-{exe}")])
     run([prefix / "bin/clang++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-I", "target",
-         "stdlib/Bindings_Generator/tests/driven/header-enum-fixed.cpp", "-o", "target/developer-tools-enum-cpp"])
-    run([ROOT / "target/developer-tools-enum-cpp"])
+         "stdlib/Bindings_Generator/tests/driven/header-enum-fixed.cpp", "-o", output_dir("developer-tools-enum-cpp")])
+    run([output_dir("developer-tools-enum-cpp")])
     run([prefix / "bin/clang", "-std=c23", "-Wall", "-Wextra", "-Werror", *build_developer_bindings.shared_flags(), "-I", "target",
          "stdlib/Bindings_Generator/tests/driven/header-support.c", "-o", build_developer_bindings.shared_library("developer_tools_support")])
     run([prefix / "bin/clang++", "-x", "c++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-I", "target",
@@ -219,10 +219,10 @@ def inline_setup():
         run([prefix / "bin/clang++", "-x", "c++", "-std=c++17", *build_developer_bindings.shared_flags(),
              f"stdlib/Bindings_Generator/tests/driven/bindings-{stem}-native.cpp", "-o", build_developer_bindings.shared_library(f"developer_tools_{library}")])
     run([JAIC, "stdlib/Bindings_Generator/tests/driven/bindings-public.jai", "-interp"], output="ok\n")
-    generated_public = ROOT / "target/developer-tools-public-generated.jai"
+    generated_public = output_dir("developer-tools-public-generated.jai")
     run([JAIFMT, "--config", ROOT / "jacket.toml", generated_public])
     run([JAIFMT, "--config", ROOT / "jacket.toml", "--check", generated_public])
-    run([ROOT / "target/debug/jailint", "-D", "warnings", generated_public])
+    run([cargo_binary("jailint"), "-D", "warnings", generated_public])
     run([JAIC, "stdlib/Bindings_Generator/tests/driven/bindings-sdk-public.jai", "-interp"], output="ok\n")
     run([prefix / "bin/clang", "-std=c11", "-Wall", "-Wextra", "-Werror", *build_developer_bindings.shared_flags(),
          "stdlib/Bindings_Generator/tests/driven/bindings-sdk.c", "-o", build_developer_bindings.shared_library("developer_tools_sdk")])
@@ -241,23 +241,23 @@ def inline_setup():
     run([JAIC, "stdlib/Bindings_Generator/tests/driven/bindings-model-properties.jai", "-interp"], output="ok\n")
     run([JAIC, "stdlib/Bindings_Generator/tests/driven/bindings-custom.jai", "-interp"], output="ok\n")
     for name in ["custom", "model"]:
-        generated = ROOT / f"target/developer-tools-{name}-generated.jai"
+        generated = output_dir(f"developer-tools-{name}-generated.jai")
         run([JAIFMT, "--config", ROOT / "jacket.toml", generated])
         run([JAIFMT, "--config", ROOT / "jacket.toml", "--check", generated])
-        run([ROOT / "target/debug/jailint", "-D", "warnings", "-I", ROOT / "target", generated])
+        run([cargo_binary("jailint"), "-D", "warnings", "-I", output_dir(), generated])
     for os_name in ["linux", "windows"]:
-        run([JAIC, "target/developer-tools-model-generated.jai", "-check", "-os", os_name, "-cpu", "x64"])
+        run([JAIC, output_dir("developer-tools-model-generated.jai"), "-check", "-os", os_name, "-cpu", "x64"])
 
 
 def inline_case(case):
     """One driven case: interpreted, then native at O0 and O2."""
     prefix = build_developer_bindings.llvm_prefix()
-    source = ROOT / "target/developer-tools-native-abi.jai" if case == "bindings-native-abi" else driven(f"{case}.jai")
+    source = output_dir("developer-tools-native-abi.jai") if case == "bindings-native-abi" else driven(f"{case}.jai")
     error = "C header: C cannot project multiple return values\n" if case == "c-header-reject" else ""
     if case == "debug-native":
         error = "native debug output\n"
     expected = "x = 7 (s32)\nok\n" if case == "print-vars" else "ok\n"
-    run([JAIC, source, "-interp", "-I", ROOT / "target"], output=expected, error=error)
+    run([JAIC, source, "-interp", "-I", output_dir()], output=expected, error=error)
     if case == "bindings-clang-build-system":
         check_framework_consumer(prefix, "interp")
     if case == "bindings-bridge":
@@ -270,13 +270,13 @@ def inline_case(case):
         check_profiler_client_children()
     if case == "bindings-cpp-fragments":
         for cpp_optimization in [0, 2]:
-            cpp_exe = ROOT / f"target/developer-tools-cpp-fragments-interp-cxx{cpp_optimization}"
+            cpp_exe = output_dir(f"developer-tools-cpp-fragments-interp-cxx{cpp_optimization}")
             run([prefix / "bin/clang++", "-std=c++17", f"-O{cpp_optimization}", "-Wall", "-Wextra", "-Werror",
-                 ROOT / "target/developer-tools-cpp-fragments.cpp", "-o", cpp_exe])
+                 output_dir("developer-tools-cpp-fragments.cpp"), "-o", cpp_exe])
             run([cpp_exe])
     for optimization in [0, 2]:
-        exe = ROOT / f"target/developer-tools-{case}-o{optimization}"
-        run([JAIC, source, f"-O{optimization}", "-exe", exe, "-I", ROOT / "target"])
+        exe = output_dir(f"developer-tools-{case}-o{optimization}")
+        run([JAIC, source, f"-O{optimization}", "-exe", exe, "-I", output_dir()])
         run([exe], output=expected, error=error)
         if case == "bindings-clang-build-system":
             check_framework_consumer(prefix, f"o{optimization}")
@@ -290,15 +290,15 @@ def inline_case(case):
             check_profiler_client_children()
         if case == "bindings-cpp-fragments":
             for cpp_optimization in [0, 2]:
-                cpp_exe = ROOT / f"target/developer-tools-cpp-fragments-o{optimization}-cxx{cpp_optimization}"
+                cpp_exe = output_dir(f"developer-tools-cpp-fragments-o{optimization}-cxx{cpp_optimization}")
                 run([prefix / "bin/clang++", "-std=c++17", f"-O{cpp_optimization}", "-Wall", "-Wextra", "-Werror",
-                     ROOT / "target/developer-tools-cpp-fragments.cpp", "-o", cpp_exe])
+                     output_dir("developer-tools-cpp-fragments.cpp"), "-o", cpp_exe])
                 run([cpp_exe])
 
 
 def inline_performance():
     for optimization in [0, 2]:
-        exe = ROOT / f"target/developer-tools-performance-o{optimization}"
+        exe = output_dir(f"developer-tools-performance-o{optimization}")
         report = run([JAIC, "stdlib/Performance_Report/tests/driven/performance-target.jai", f"-O{optimization}",
                       "-exe", exe, "+Performance_Report"])
         for required in ["Compiler performance report", "#run time:", "Bytecode instructions:",
@@ -314,12 +314,12 @@ def inline_performance():
 def inline_debug():
     run(["clang", "-std=c11", "-Wall", "-Wextra", "-Werror", "stdlib/Debug/tests/driven/debug-protection.c",
          build_developer_bindings.shared_library("developer_tools_debug", ROOT / "stdlib/internal/developer-tools/debug-native"),
-         "-o", "target/developer-tools-debug-protection"])
-    run([ROOT / "target/developer-tools-debug-protection"])
+         "-o", output_dir("developer-tools-debug-protection")])
+    run([output_dir("developer-tools-debug-protection")])
     abort_source = ROOT / "stdlib/Debug/tests/driven/debug-abort.jai"
     abort_commands = [[JAIC, abort_source, "-interp"]]
     for optimization in [0, 2]:
-        exe = ROOT / f"target/developer-tools-debug-abort-o{optimization}"
+        exe = output_dir(f"developer-tools-debug-abort-o{optimization}")
         run([JAIC, abort_source, f"-O{optimization}", "-exe", exe])
         abort_commands.append([exe])
     for command in abort_commands:
@@ -337,14 +337,14 @@ def inline_missing_report():
 
 
 def inline_rewrite():
-    rewritten = ROOT / "target/developer-tools-rewrite-program.jai"
+    rewritten = output_dir("developer-tools-rewrite-program.jai")
     shutil.copyfile(ROOT / "stdlib/Rewrite/tests/driven/rewrite-input.jai", rewritten)
     rewrite_report = run([JAIC, "stdlib/Rewrite/tests/driven/rewrite-driver.jai", "-check"])
     if " -> (pointer).*" not in rewrite_report or "<<pointer" in rewritten.read_text():
         raise RuntimeError("Actual compiler-message rewrite did not replace the deprecated expression")
     run([JAIC, rewritten, "-interp"], output="ok\n")
     for optimization in [0, 2]:
-        exe = ROOT / f"target/developer-tools-rewritten-o{optimization}"
+        exe = output_dir(f"developer-tools-rewritten-o{optimization}")
         run([JAIC, rewritten, f"-O{optimization}", "-exe", exe])
         run([exe], output="ok\n")
     shutil.copyfile(ROOT / "stdlib/Rewrite/tests/driven/rewrite-input.jai", rewritten)
@@ -363,14 +363,14 @@ def inline_lint():
              *sorted((ROOT / "stdlib/Bindings_Generator").glob("*.jai")),
              *sorted((ROOT / "stdlib/internal/developer-tools").rglob("*.jai")),
              *driven_matching("*.jai"),
-             ROOT / "target/developer-tools-native-abi.jai", VISITOR_ORACLE,
-             ROOT / "target/developer-tools-dwarf-line-oracle.jai",
-             ROOT / "target/developer-tools-dwarf-frame-oracle.jai",
-             ROOT / "target/developer-tools-eh-frame-oracle.jai",
-             ROOT / "target/developer-tools-dwarf-type-oracle.jai",
-             ROOT / "target/developer-tools-codeview-string-oracle.jai",
-             ROOT / "target/developer-tools-dwarf-line-wire.jai",
-             ROOT / "target/developer-tools-dwarf-line-wire-oracle.jai"]
+             output_dir("developer-tools-native-abi.jai"), VISITOR_ORACLE,
+             output_dir("developer-tools-dwarf-line-oracle.jai"),
+             output_dir("developer-tools-dwarf-frame-oracle.jai"),
+             output_dir("developer-tools-eh-frame-oracle.jai"),
+             output_dir("developer-tools-dwarf-type-oracle.jai"),
+             output_dir("developer-tools-codeview-string-oracle.jai"),
+             output_dir("developer-tools-dwarf-line-wire.jai"),
+             output_dir("developer-tools-dwarf-line-wire-oracle.jai")]
     format_paths = [*paths, *sorted((ROOT / "tests/compiler/rejections").glob("*.jai")),
                     *sorted((ROOT / "tests/compiler/metaprograms").glob("*.jai")),
                     ROOT / "stdlib/Iprof/tests/driven/iprof-client-input.jai.inc"]
@@ -388,7 +388,7 @@ def inline_lint():
             return True  # Windows-only programs are linted on a Windows host.
         names = re.findall(r'#import "(developer-tools-[^"]+)"', path.read_text())
         loads = re.findall(r'#load "([^"]+)"', path.read_text())
-        return (any(not (ROOT / "target" / f"{name}.jai").exists() for name in names)
+        return (any(not (output_dir(f"{name}.jai")).exists() for name in names)
                 or any(not (path.parent / name).resolve().exists() for name in loads))
 
     # Generated oracle fragments are #loaded into the driven programs, which are linted with them;
@@ -396,22 +396,22 @@ def inline_lint():
     consumers = "".join(path.read_text() for path in driven_matching("*.jai"))
 
     def loaded_fragment(path):
-        return path.parent == ROOT / "target" and f'target/{path.name}"' in consumers
+        return path.parent == output_dir() and f'target/{path.name}"' in consumers
 
     host_lint_paths = [path for path in paths if path not in checker_contextual
                        and not not_lintable_on_host(path) and not loaded_fragment(path)]
-    run([ROOT / "target/debug/jailint", "-D", "warnings", "-I", ROOT / "target", *host_lint_paths])
+    run([cargo_binary("jailint"), "-D", "warnings", "-I", output_dir(), *host_lint_paths])
     print(f"Linted {len(host_lint_paths)} of {len(paths)} programs, format-checked {len(format_paths)} files", flush=True)
 
 
 def inline_windows_checks():
     check_paths = [ROOT / "stdlib/Check/module.jai", ROOT / "stdlib/internal/developer-tools/check-engine/module.jai",
                    ROOT / "stdlib/Check/tests/driven/check-porting.jai"]
-    run([ROOT / "target/debug/jailint", "-D", "warnings", "-os", "windows", "-cpu", "x64", *check_paths])
+    run([cargo_binary("jailint"), "-D", "warnings", "-os", "windows", "-cpu", "x64", *check_paths])
     run([JAIC, "stdlib/Check/tests/driven/check-porting.jai", "-check", "-os", "windows", "-cpu", "x64"])
     debug_windows = [ROOT / "stdlib/Debug/module.jai", ROOT / "stdlib/internal/developer-tools/debug-native.jai",
                      ROOT / "stdlib/Debug/tests/driven/debug-windows-contract.jai"]
-    run([ROOT / "target/debug/jailint", "-D", "warnings", "-os", "windows", "-cpu", "x64", *debug_windows])
+    run([cargo_binary("jailint"), "-D", "warnings", "-os", "windows", "-cpu", "x64", *debug_windows])
     for cpu in ["x64", "arm64"]:
         run([JAIC, "stdlib/Debug/tests/driven/debug-windows-contract.jai", "-check", "-os", "windows", "-cpu", cpu])
         for os_name in ["linux", "windows"]:
@@ -446,7 +446,7 @@ def inline_iprof_rejections():
                               ("msf-page-bounds", "Debug_Info: page outside initialized free-page map")]:
         fixture = ROOT / f"tests/compiler/rejections/{case}.jai"
         for mode in ["interp", "0", "2"]:
-            executable = ROOT / f"target/developer-tools-{case}-o{mode}"
+            executable = output_dir(f"developer-tools-{case}-o{mode}")
             if mode != "interp":
                 run([JAIC, fixture, f"-O{mode}", "-exe", executable])
             command = [str(JAIC), str(fixture), "-interp"] if mode == "interp" else [str(executable)]

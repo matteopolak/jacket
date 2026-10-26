@@ -13,12 +13,13 @@ import unittest
 from unittest.mock import patch
 
 from native import build_native_libs as builder
+from repo_output import output_dir
 from toolkit.hashing import sha256_bytes
 
 
 class XxhashBuildTests(unittest.TestCase):
     def setUp(self):
-        temporary = builder.ROOT / "target/xxhash-build-unit"
+        temporary = output_dir("xxhash-build-unit")
         temporary.mkdir(parents=True, exist_ok=True)
         self.temp = tempfile.TemporaryDirectory(dir=temporary)
         self.addCleanup(self.temp.cleanup)

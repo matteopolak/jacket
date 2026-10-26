@@ -9,6 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import compare_compilers as compare
+from toolkit.repo import cargo_binary
 import compare_grid as grid
 import compare_rewrite as rewrite
 from compare_core import (A_ONLY, AGREE, B_ONLY, BOTH_REJECT, CRASH, FAILURE, OK, OUTPUT_DIFFERS, REJECTED, RUNTIME,
@@ -20,8 +21,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def find_jaic():
     candidates = [os.environ.get('JAIC')]
-    for target in (os.environ.get('CARGO_TARGET_DIR'), str(ROOT / 'target')):
-        candidates += [f'{target}/release/jaic', f'{target}/debug/jaic'] if target else []
+    candidates += [str(cargo_binary('jaic', 'release')), str(cargo_binary('jaic'))]
     return next((c for c in candidates if c and Path(c).is_file()), None)
 
 

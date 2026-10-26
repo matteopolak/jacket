@@ -6,7 +6,7 @@ import platform
 import re
 import shutil
 import build_developer_bindings
-from dev_common import JAIFMT, ROOT, run_checked, sha256_file
+from dev_common import JAIFMT, ROOT, run_checked, sha256_file, cargo_binary, output_dir
 from build_developer_bindings import llvm_prefix
 
 
@@ -46,7 +46,7 @@ def main():
     if host not in {"Darwin", "Linux"}:
         raise RuntimeError("Configured SDK execution check currently requires macOS/Linux")
     primary = llvm_prefix().resolve()
-    sdk = ROOT / "target/developer-tools-configured-sdk"
+    sdk = output_dir("developer-tools-configured-sdk")
     if sdk.is_symlink():
         raise RuntimeError("Configured SDK fixture root must be an owned directory")
     # The builder resolves its prefix. Use that same directory identity when a
@@ -96,12 +96,12 @@ def main():
         extension = "dylib" if host == "Darwin" else "so"
         flags = ["-dynamiclib"] if host == "Darwin" else ["-shared", "-fPIC"]
         run([sdk / "bin/clang", "-std=c11", "-Wall", "-Wextra", "-Werror", *flags,
-             ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-configured-sdk.c", "-o", ROOT / f"target/libdeveloper_tools_configured.{extension}"])
-        jaic = ROOT / "target/debug/jaic"
+             ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-configured-sdk.c", "-o", output_dir(f"libdeveloper_tools_configured.{extension}")])
+        jaic = cargo_binary("jaic")
         for mode in ["interp", "o0", "o2"]:
             if marker.exists():
                 marker.unlink()
-            emitter = ROOT / f"target/developer-tools-configured-emitter-{mode}"
+            emitter = output_dir(f"developer-tools-configured-emitter-{mode}")
             fixture = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-configured-sdk.jai"
             if mode == "interp":
                 run([jaic, fixture, "-interp"], output="ok\n")
@@ -112,17 +112,17 @@ def main():
             if not marker.is_file():
                 raise RuntimeError("Production include discovery did not invoke the configured SDK compiler")
             roundtrip = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-configured-sdk-roundtrip.jai"
-            consumer = ROOT / f"target/developer-tools-configured-roundtrip-{mode}"
+            consumer = output_dir(f"developer-tools-configured-roundtrip-{mode}")
             if mode == "interp":
-                run([jaic, roundtrip, "-interp", "-I", ROOT / "target"], output="ok\n")
+                run([jaic, roundtrip, "-interp", "-I", output_dir()], output="ok\n")
             else:
-                run([jaic, roundtrip, f"-O{mode[1:]}", "-I", ROOT / "target", "-exe", consumer])
+                run([jaic, roundtrip, f"-O{mode[1:]}", "-I", output_dir(), "-exe", consumer])
                 run([consumer], output="ok\n")
-        generated = ROOT / "target/developer-tools-configured-generated.jai"
+        generated = output_dir("developer-tools-configured-generated.jai")
         run([JAIFMT, "--config", ROOT / "jacket.toml", generated])
         run([JAIFMT, "--config", ROOT / "jacket.toml", "--check", generated])
-        run([ROOT / "target/debug/jailint", "-D", "warnings", "-I", ROOT / "target", generated])
-        (ROOT / "target/developer-tools-configured-sdk-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
+        run([cargo_binary("jailint"), "-D", "warnings", "-I", output_dir(), generated])
+        (output_dir("developer-tools-configured-sdk-evidence.json")).write_text(json.dumps(evidence, indent=2) + "\n")
     finally:
         build_developer_bindings.build(primary)
     print("Configured SDK production helper/links/discovery and two public interpreter/native O0/O2 fixtures passed")

@@ -15,6 +15,7 @@ import argparse
 import os
 import subprocess
 from toolkit.repo import ROOT
+from repo_output import output_dir
 from toolkit.cli import add_jaic_argument
 
 parser = argparse.ArgumentParser(description=__doc__)
@@ -23,7 +24,7 @@ parser.add_argument("--stdlib", type=Path, default=ROOT / "stdlib")
 args = parser.parse_args()
 LIBRARY = args.stdlib.resolve(strict=True)
 COMPILER = args.jaic.resolve(strict=True)
-OUTPUT = ROOT / "target/portable-runtime-configuration"
+OUTPUT = output_dir("portable-runtime-configuration")
 
 
 def run(arguments, expected=None):

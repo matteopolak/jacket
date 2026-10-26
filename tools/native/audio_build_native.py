@@ -23,13 +23,13 @@ import subprocess
 from toolkit.download import fetch
 from repo_output import host_platform
 from toolkit.hashing import sha256_bytes, sha256_file
-from toolkit.repo import ROOT
+from toolkit.repo import ROOT, cargo_target_dir
 
 PLAN = json.loads((ROOT / "tools/native/audio_native_plan.json").read_text())
 
 
 def build_root():
-    return Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")).resolve()
+    return cargo_target_dir(resolve=True)
 
 
 def native_environment():
@@ -348,8 +348,7 @@ def main():
         parser.error("cross builds require --cc with the target SDK; no host substitution")
     native_root = build_root() / "audio-native"
     out = (args.out or (native_root / target if args.platform else native_root)).resolve()
-    allowed = build_root() if "CARGO_TARGET_DIR" in os.environ else ROOT
-    if not out.is_relative_to(allowed):
+    if not (out.is_relative_to(build_root()) or out.is_relative_to(ROOT)):
         parser.error("--out must remain inside the configured build root (or this worktree when unset)")
     cc = shlex.split(args.cc) if args.cc else ["clang"]
     ar = shlex.split(args.ar) if args.ar else [shutil.which("llvm-ar") or "ar"]

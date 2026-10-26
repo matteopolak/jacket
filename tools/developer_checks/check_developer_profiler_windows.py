@@ -2,7 +2,7 @@
 """Verify canonical Windows clock SDK ABI/import links; never claim target execution."""
 import json
 import re
-from dev_common import ROOT, labeled_runner, sha256_file
+from dev_common import ROOT, labeled_runner, sha256_file, output_dir
 from build_developer_bindings import llvm_prefix, mingw_prefix
 
 
@@ -17,7 +17,7 @@ def main():
     evidence = {"scope": "original Windows x64 C O0/O2 SDK ABI/executable/import-link checks and arm64 object; no Windows execution or Jai native timing claim", "imports": []}
     expected = {"QueryPerformanceCounter", "QueryPerformanceFrequency", "Sleep"}
     for optimization in [0, 2]:
-        executable = ROOT / f"target/developer-tools-iprof-windows-clock-o{optimization}.exe"
+        executable = output_dir(f"developer-tools-iprof-windows-clock-o{optimization}.exe")
         run([gcc, "-std=c11", f"-O{optimization}", "-Wall", "-Wextra", "-Werror", fixture, "-lkernel32", "-o", executable])
         metadata = run([llvm / "bin/llvm-readobj", "--coff-imports", executable])
         imports = set(re.findall(r"Symbol: (\S+)", metadata))
@@ -26,11 +26,11 @@ def main():
         evidence["imports"].append({"optimization": optimization, "verified": sorted(expected & imports)})
     run([llvm / "bin/clang", "--target=aarch64-w64-windows-gnu", f"--sysroot={sdk / 'x86_64-w64-mingw32'}",
          "-std=c11", "-O2", "-Wall", "-Wextra", "-Werror", "-c", fixture,
-         "-o", ROOT / "target/developer-tools-iprof-windows-clock-arm64.obj"])
+         "-o", output_dir("developer-tools-iprof-windows-clock-arm64.obj")])
     evidence["fixture_sha256"] = sha256_file(fixture)
     evidence["sdk_header_sha256"] = {name: sha256_file((sdk / "x86_64-w64-mingw32/include" / name))
                                       for name in ["windows.h", "profileapi.h", "winnt.h"]}
-    (ROOT / "target/developer-tools-profiler-windows-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
+    (output_dir("developer-tools-profiler-windows-evidence.json")).write_text(json.dumps(evidence, indent=2) + "\n")
     print("Windows profiler SDK ABI/import links passed; native timing execution pending")
 
 

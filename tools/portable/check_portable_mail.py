@@ -21,6 +21,7 @@ import threading
 from portable_toolchain import checked_compiler
 from toolkit.cli import add_jaic_argument
 from toolkit.repo import ROOT
+from repo_output import output_dir
 
 
 
@@ -85,11 +86,11 @@ def receive(listener, mode, outcome):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     add_jaic_argument(parser)
-    parser.add_argument("--stdlib", type=Path, default=ROOT / "target/portable-integration-stdlib")
+    parser.add_argument("--stdlib", type=Path, default=output_dir("portable-integration-stdlib"))
     parser.add_argument("--native", action="store_true")
     args = parser.parse_args()
     compiler = checked_compiler(args.jaic, parser)
-    output = ROOT / "target/mail-tests"
+    output = output_dir("mail-tests")
     output.mkdir(parents=True, exist_ok=True)
     attachment = output / "attachment.bin"
     content = b"\x00portable\xffattachment\r\n"

@@ -8,7 +8,6 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
-import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,6 +16,7 @@ from compare import Limits, find_regressions
 from repo_output import output_dir
 from results import Report, Status, load_report
 from stats import Stat
+from toolkit.repo import cargo_binary
 
 
 @dataclass(frozen=True)
@@ -49,8 +49,8 @@ def add_common_arguments(parser: argparse.ArgumentParser, tool: str, defaults: D
 
 
 def default_binary(name: str) -> Path:
-    """`<target>/release/<name>`, where target is $CARGO_TARGET_DIR or this checkout's target/."""
-    return Path(os.environ.get('CARGO_TARGET_DIR') or output_dir()) / 'release' / name
+    """The release build of `name` in cargo's target directory."""
+    return cargo_binary(name, 'release')
 
 
 def selected(only: str, key: str) -> bool:

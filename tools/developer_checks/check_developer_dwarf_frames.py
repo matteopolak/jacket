@@ -4,7 +4,7 @@ import json
 import build_developer_bindings
 import re
 from check_developer_dwarf_lines import run
-from dev_common import JAIFMT, ROOT, sha256_file
+from dev_common import JAIFMT, ROOT, sha256_file, output_dir
 
 
 def main():
@@ -15,7 +15,7 @@ def main():
     evidence = {"scope": "original x86/x64/arm64 Linux-target DWARF32 version4 debug_frame bytes, host decoder; no target executable run", "fixtures": []}
     for arch, target in [("x64", "x86_64-unknown-linux-gnu"), ("arm64", "aarch64-unknown-linux-gnu"), ("x86", "i386-unknown-linux-gnu")]:
         for optimization in [0, 2]:
-            base = ROOT / f"target/developer-tools-debug-frame-{arch}-o{optimization}"
+            base = output_dir(f"developer-tools-debug-frame-{arch}-o{optimization}")
             run([prefix / "bin/clang", "-target", target, "-gdwarf-4", "-g", "-fno-asynchronous-unwind-tables", "-fno-unwind-tables",
                  f"-O{optimization}", "-Wall", "-Wextra", "-Werror", "-c", ROOT / "stdlib/Debug_Info/tests/driven/dwarf-line-native.c", "-o", base.with_suffix('.o')])
             run([prefix / "bin/llvm-objcopy", "--dump-section", f".debug_frame={base.with_suffix('.bin')}", base.with_suffix('.o')])
@@ -38,10 +38,10 @@ def main():
                                          "instruction_types": names,
                                          "bytes_sha256": sha256_file(base.with_suffix('.bin'))})
     source.append("];")
-    path = ROOT / "target/developer-tools-dwarf-frame-oracle.jai"
+    path = output_dir("developer-tools-dwarf-frame-oracle.jai")
     path.write_text("\n".join(source) + "\n")
     run([JAIFMT, "--config", ROOT / "jacket.toml", path])
-    (ROOT / "target/developer-tools-dwarf-frames-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
+    (output_dir("developer-tools-dwarf-frames-evidence.json")).write_text(json.dumps(evidence, indent=2) + "\n")
 
 
 if __name__ == "__main__":

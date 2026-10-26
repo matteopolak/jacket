@@ -3,7 +3,7 @@
 import json
 import build_developer_bindings
 import re
-from dev_common import JAIFMT, ROOT, labeled_runner, sha256_file
+from dev_common import JAIFMT, ROOT, labeled_runner, sha256_file, output_dir
 
 
 run = labeled_runner('DWARF fixture command', expected=None, env=None, timeout=60, stdout=True)
@@ -15,7 +15,7 @@ def main():
     evidence = {"scope": "original Linux-target DWARF4 objects decoded by host SDK; no target executable run", "fixtures": []}
     for architecture, target in [("x86", "i386-unknown-linux-gnu"), ("x64", "x86_64-unknown-linux-gnu"), ("arm64", "aarch64-unknown-linux-gnu")]:
         for optimization in [0, 2]:
-            base = ROOT / f"target/developer-tools-dwarf-line-{architecture}-o{optimization}"
+            base = output_dir(f"developer-tools-dwarf-line-{architecture}-o{optimization}")
             run([prefix / "bin/clang", "-target", target, "-gdwarf-4", "-g", f"-O{optimization}",
                  "-Wall", "-Wextra", "-Werror", "-c", ROOT / "stdlib/Debug_Info/tests/driven/dwarf-line-native.c",
                  "-o", base.with_suffix(".o")])
@@ -62,11 +62,11 @@ def main():
             evidence["fixtures"].append({"target": target, "optimization": optimization, "rows": rows,
                                          "line_bytes_sha256": sha256_file(base.with_suffix('.bin'))})
     generated.append("}")
-    path = ROOT / "target/developer-tools-dwarf-line-oracle.jai"
+    path = output_dir("developer-tools-dwarf-line-oracle.jai")
     path.write_text("\n".join(generated) + "\n")
     run([JAIFMT, "--config", ROOT / "jacket.toml", path])
     evidence["clang_version"] = run([prefix / "bin/clang", "--version"])
-    (ROOT / "target/developer-tools-dwarf-lines-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
+    (output_dir("developer-tools-dwarf-lines-evidence.json")).write_text(json.dumps(evidence, indent=2) + "\n")
 
 
 if __name__ == "__main__":

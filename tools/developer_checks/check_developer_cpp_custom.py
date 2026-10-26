@@ -6,7 +6,7 @@ import subprocess
 import build_developer_bindings
 import build_generator_platform
 from driven_sources import driven
-from dev_common import ENV, JAIC, JAIFMT, ROOT, labeled_runner
+from dev_common import ENV, JAIC, JAIFMT, ROOT, labeled_runner, cargo_binary, output_dir
 
 
 
@@ -15,7 +15,7 @@ run = labeled_runner('Targeted C++ workflow')
 
 def prepare_callback_input(prefix, flags, suffix):
     """A real C pointer parameter for the ordinary Jai wrapper callback control."""
-    target = ROOT / "target"
+    target = output_dir()
     (target / "developer-tools-cpp-callback.h").write_text(
         "int original_callback_value(const int *value);\n"
     )
@@ -46,14 +46,14 @@ def reject_wrong_adapter_schema(consumer):
     import_line = 'G :: #import "developer-tools-cpp-custom-bridge";'
     if original.count(import_line) != 1:
         raise RuntimeError("Required bridge consumer import is missing or ambiguous")
-    negative = ROOT / "target/developer-tools-cpp-wrong-abi.jai"
+    negative = output_dir("developer-tools-cpp-wrong-abi.jai")
     negative.write_text(
         original.replace(
             import_line, 'G :: #import "developer-tools-cpp-custom-generated";'
         )
     )
     result = subprocess.run(
-        [str(JAIC), str(negative), "-check", "-I", str(ROOT / "target")],
+        [str(JAIC), str(negative), "-check", "-I", str(output_dir())],
         cwd=ROOT,
         env=ENV,
         text=True,
@@ -78,7 +78,7 @@ def check_cpp_custom():
     emitter = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-cpp-custom.jai"
     consumer = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-cpp-custom-roundtrip.jai"
     generated_schemas = [
-        ROOT / "target" / f"developer-tools-cpp-{name}.jai"
+        output_dir(f"developer-tools-cpp-{name}.jai")
         for name in ["custom-generated", "custom-bridge", "callback-generated"]
     ]
     flags = build_developer_bindings.shared_flags()
@@ -98,7 +98,7 @@ def check_cpp_custom():
             *flags,
             ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-cpp-custom-native.cpp",
             "-o",
-            ROOT / f"target/libdeveloper_tools_cpp_custom.{suffix}",
+            output_dir(f"libdeveloper_tools_cpp_custom.{suffix}"),
         ]
     )
     for name, source in [
@@ -118,14 +118,14 @@ def check_cpp_custom():
                 *flags,
                 driven(f"bindings-{source}.c"),
                 "-o",
-                ROOT / f"target/libdeveloper_tools_{name}.{suffix}",
+                output_dir(f"libdeveloper_tools_{name}.{suffix}"),
             ]
         )
     for mode in ["interp", "0", "2"]:
         if mode == "interp":
             run([JAIC, emitter, "-interp"], "ok\n")
         else:
-            executable = ROOT / f"target/developer-tools-cpp-custom-emitter-o{mode}"
+            executable = output_dir(f"developer-tools-cpp-custom-emitter-o{mode}")
             run([JAIC, emitter, f"-O{mode}", "-exe", executable])
             run([executable], "ok\n")
         for generated in generated_schemas:
@@ -139,7 +139,7 @@ def check_cpp_custom():
                     generated,
                 ]
             )
-            run([ROOT / "target/debug/jailint", "-D", "warnings", generated])
+            run([cargo_binary("jailint"), "-D", "warnings", generated])
         reject_wrong_adapter_schema(consumer)
         for optimization in [0, 2]:
             run(
@@ -151,16 +151,15 @@ def check_cpp_custom():
                     "-Wextra",
                     "-Werror",
                     *flags,
-                    ROOT / "target/developer-tools-cpp-custom.cpp",
+                    output_dir("developer-tools-cpp-custom.cpp"),
                     ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-cpp-custom-native.cpp",
                     "-o",
-                    ROOT / f"target/libdeveloper_tools_cpp_custom.{suffix}",
+                    output_dir(f"libdeveloper_tools_cpp_custom.{suffix}"),
                 ]
             )
-            run([JAIC, consumer, "-interp", "-I", ROOT / "target"], "ok\n")
-            executable = (
-                ROOT
-                / f"target/developer-tools-cpp-custom-consumer-{mode}-o{optimization}"
+            run([JAIC, consumer, "-interp", "-I", output_dir()], "ok\n")
+            executable = output_dir(
+                f"developer-tools-cpp-custom-consumer-{mode}-o{optimization}"
             )
             run(
                 [
@@ -170,7 +169,7 @@ def check_cpp_custom():
                     "-exe",
                     executable,
                     "-I",
-                    ROOT / "target",
+                    output_dir(),
                 ]
             )
             run([executable], "ok\n")
@@ -194,10 +193,10 @@ def check_c_model_regressions():
             raise RuntimeError(
                 f"Required existing model regression fixture is absent: {source}"
             )
-        run([JAIC, source, "-interp", "-I", ROOT / "target"], "ok\n")
+        run([JAIC, source, "-interp", "-I", output_dir()], "ok\n")
         for optimization in [0, 2]:
             executable = (
-                ROOT / f"target/developer-tools-cpp-regression-{name}-o{optimization}"
+                output_dir(f"developer-tools-cpp-regression-{name}-o{optimization}")
             )
             run(
                 [
@@ -207,7 +206,7 @@ def check_c_model_regressions():
                     "-exe",
                     executable,
                     "-I",
-                    ROOT / "target",
+                    output_dir(),
                 ]
             )
             run([executable], "ok\n")

@@ -17,6 +17,7 @@ import subprocess
 from toolkit.download import fetch
 from toolkit.hashing import sha256_file
 from toolkit.repo import ROOT
+from repo_output import output_dir
 
 
 def main():
@@ -24,8 +25,8 @@ def main():
         raise RuntimeError("this scoped native test builder supports macOS/Linux; Windows needs the coordinator's source-built native SDK libraries")
     metadata = json.loads((ROOT / "tools/native/native-libs.json").read_text())
     spec = metadata["sources"]["stb"]
-    source = ROOT / "target/window-native-source"
-    output = ROOT / "target/window-native"
+    source = output_dir("window-native-source")
+    output = output_dir("window-native")
     source.mkdir(parents=True, exist_ok=True)
     output.mkdir(parents=True, exist_ok=True)
     for name in ["stb_image.h", "stb_image_write.h", "deprecated/stb_image_resize.h", "LICENSE"]:

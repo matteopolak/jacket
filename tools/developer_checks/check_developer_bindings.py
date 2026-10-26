@@ -4,7 +4,7 @@ import json
 import subprocess
 import build_developer_bindings
 from driven_sources import driven
-from dev_common import ENV, JAIFMT, ROOT, sha256_file
+from dev_common import ENV, JAIFMT, ROOT, sha256_file, cargo_binary, output_dir
 
 
 def run(command, expected="", returncode=0, diagnostic=None):
@@ -23,7 +23,7 @@ def main():
     prefix = build_developer_bindings.llvm_prefix()
     tool = build_developer_bindings.build(prefix)
     source = ROOT / "stdlib/internal/developer-tools/clang-bindings/main.c"
-    output = ROOT / "target/developer-tools-generated.jai"
+    output = output_dir("developer-tools-generated.jai")
     header = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-input.h"
     run([tool, header, output, "developer_tools_bindings"])
     before = output.read_bytes()
@@ -32,14 +32,14 @@ def main():
         raise RuntimeError("Binding generation is not deterministic")
     run([prefix / "bin/clang", "-std=c11", "-Wall", "-Wextra", "-Werror", *build_developer_bindings.shared_flags(),
          ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-input.c", "-o", build_developer_bindings.shared_library("developer_tools_bindings")])
-    jaic = ROOT / "target/debug/jaic"
+    jaic = cargo_binary("jaic")
     fixture = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-roundtrip.jai"
-    run([jaic, fixture, "-interp", "-I", ROOT / "target"], "ok\n")
+    run([jaic, fixture, "-interp", "-I", output_dir()], "ok\n")
     for optimization in [0, 2]:
-        exe = ROOT / f"target/developer-tools-bindings-o{optimization}"
-        run([jaic, fixture, f"-O{optimization}", "-exe", exe, "-I", ROOT / "target"])
+        exe = output_dir(f"developer-tools-bindings-o{optimization}")
+        run([jaic, fixture, f"-O{optimization}", "-exe", exe, "-I", output_dir()])
         run([exe], "ok\n")
-    rejected = ROOT / "target/developer-tools-rejected.jai"
+    rejected = output_dir("developer-tools-rejected.jai")
     run([tool, ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-macro.h", output, "native"])
     if "NUMERIC_MACRO :: cast(s32) 17;" not in output.read_text():
         raise RuntimeError("Original numeric macro must now generate an actual typed constant")
@@ -66,25 +66,25 @@ def main():
         run([tool, header, output, "developer_tools_bindings", f"--target={triple}"])
         if spelling not in output.read_text():
             raise RuntimeError(f"Target-dependent C long ABI was not preserved: {triple}")
-        run([jaic, fixture, "-check", "-os", os_name, "-cpu", "x64", "-I", ROOT / "target"])
+        run([jaic, fixture, "-check", "-os", os_name, "-cpu", "x64", "-I", output_dir()])
     run([tool, header, output, "developer_tools_bindings"])
     run([JAIFMT, "--config", ROOT / "jacket.toml", output, fixture])
     run([JAIFMT, "--config", ROOT / "jacket.toml", "--check", output, fixture])
-    run([ROOT / "target/debug/jailint", "-D", "warnings", "-I", ROOT / "target", output, fixture])
+    run([cargo_binary("jailint"), "-D", "warnings", "-I", output_dir(), output, fixture])
     macro_header = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-macro-values.h"
-    macro_output = ROOT / "target/developer-tools-macros-generated.jai"
+    macro_output = output_dir("developer-tools-macros-generated.jai")
     macro_fixture = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-macros-roundtrip.jai"
     for triple, os_name, width in [("x86_64-unknown-linux-gnu", "linux", 8),
                                     ("x86_64-pc-windows-msvc", "windows", 4)]:
         run([tool, macro_header, macro_output, "developer_tools_macros", f"--target={triple}"])
         if f"ORIGINAL_LONG_BYTES :: cast(u64) {width};" not in macro_output.read_text():
             raise RuntimeError("Macro sizeof must use the requested target ABI")
-        run([jaic, macro_fixture, "-check", "-os", os_name, "-cpu", "x64", "-I", ROOT / "target"])
+        run([jaic, macro_fixture, "-check", "-os", os_name, "-cpu", "x64", "-I", output_dir()])
     run([tool, macro_header, macro_output, "developer_tools_macros"])
     run([tool, macro_header, macro_output, "developer_tools_macros", "-pedantic-errors", "-Wall", "-Wextra", "-Werror"])
     run([JAIFMT, "--config", ROOT / "jacket.toml", macro_output])
     run([JAIFMT, "--config", ROOT / "jacket.toml", "--check", macro_output])
-    run([ROOT / "target/debug/jailint", "-D", "warnings", "-I", ROOT / "target", macro_output])
+    run([cargo_binary("jailint"), "-D", "warnings", "-I", output_dir(), macro_output])
     inputs = {str(path): sha256_file(path)
               for path in [prefix / "include/clang-c/Index.h", prefix / "include/clang-c/CXString.h",
                            prefix / "include/clang-c/BuildSystem.h"]}
@@ -92,7 +92,7 @@ def main():
                 "sdk_headers_sha256": inputs, "clang_version": run([prefix / "bin/clang", "--version"], expected=None),
                 "source_sha256": sha256_file(source),
                 "tests": "interpreter/native O0/O2 call and mutation, callbacks, enum and record layout; rejection preserves output; Linux/Windows target-dependent long"}
-    (ROOT / "target/developer-tools-clang-evidence.json").write_text(json.dumps(metadata, indent=2) + "\n")
+    (output_dir("developer-tools-clang-evidence.json")).write_text(json.dumps(metadata, indent=2) + "\n")
     print("Private libclang pipeline: C/Jai effects and callback round trips, rejection preservation, deterministic output and two target ABI checks passed")
 
 

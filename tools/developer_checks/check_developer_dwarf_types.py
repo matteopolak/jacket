@@ -2,7 +2,7 @@
 """Original C DWARF type metadata drives public lookup; no Jai byte parser claim."""
 import json
 import re
-from dev_common import JAIFMT, ROOT, labeled_runner, sha256_file
+from dev_common import JAIFMT, ROOT, labeled_runner, sha256_file, output_dir
 from build_developer_bindings import llvm_prefix
 
 
@@ -15,7 +15,7 @@ def main():
     evidence = {"scope": "original C x86/x64/arm64 O0/O2 DWARF4 metadata decoded by official SDK; host public model lookup, not a Jai byte parser or target execution", "fixtures": []}
     for architecture, target in [("x86", "i386-unknown-linux-gnu"), ("x64", "x86_64-unknown-linux-gnu"), ("arm64", "aarch64-unknown-linux-gnu")]:
         for optimization in [0, 2]:
-            base = ROOT / f"target/developer-tools-dwarf-types-{architecture}-o{optimization}"
+            base = output_dir(f"developer-tools-dwarf-types-{architecture}-o{optimization}")
             run([prefix / "bin/clang", "-target", target, "-std=c11", "-gdwarf-4", "-g", f"-O{optimization}",
                  "-Wall", "-Wextra", "-Werror", "-c", ROOT / "stdlib/Debug_Info/tests/driven/dwarf-types-native.c", "-o", base.with_suffix(".o")])
             run([prefix / "bin/llvm-objcopy", "--dump-section", f".debug_info={base.with_suffix('.bin')}", base.with_suffix(".o")])
@@ -43,10 +43,10 @@ def main():
             evidence["fixtures"].append({"architecture": architecture, "optimization": optimization, "types": records,
                                          "debug_info_sha256": sha256_file(base.with_suffix('.bin'))})
     generated.append("}")
-    destination = ROOT / "target/developer-tools-dwarf-type-oracle.jai"
+    destination = output_dir("developer-tools-dwarf-type-oracle.jai")
     destination.write_text("\n".join(generated) + "\n")
     run([JAIFMT, "--config", ROOT / "jacket.toml", destination])
-    (ROOT / "target/developer-tools-dwarf-type-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
+    (output_dir("developer-tools-dwarf-type-evidence.json")).write_text(json.dumps(evidence, indent=2) + "\n")
 
 
 if __name__ == "__main__":

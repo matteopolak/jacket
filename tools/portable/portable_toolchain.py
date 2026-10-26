@@ -10,7 +10,8 @@ from pathlib import Path as _Path
 # tools/, for folder-qualified imports
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
-from toolkit.repo import ROOT, cargo_target_dir
+from toolkit.repo import cargo_target_dir
+from repo_output import output_dir
 
 
 def assigned_target():
@@ -19,6 +20,6 @@ def assigned_target():
 
 def checked_compiler(candidate, parser):
     compiler = candidate.resolve(strict=True)
-    if not (compiler.is_relative_to((ROOT / "target").resolve()) or compiler.is_relative_to(assigned_target())):
+    if not (compiler.is_relative_to(output_dir().resolve()) or compiler.is_relative_to(assigned_target())):
         parser.error("compiler must be an own source build under this checkout's target or its assigned CARGO_TARGET_DIR")
     return compiler

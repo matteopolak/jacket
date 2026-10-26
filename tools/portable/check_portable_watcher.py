@@ -15,6 +15,7 @@ import shutil
 import subprocess
 import sys
 from toolkit.repo import ROOT
+from repo_output import output_dir
 from toolkit.cli import add_jaic_argument
 
 
@@ -28,7 +29,7 @@ def main():
         raise RuntimeError("the implemented watcher backend currently requires macOS")
     compiler = args.jaic.resolve(strict=True)
     stdlib = args.stdlib.resolve(strict=True)
-    output = ROOT / "target/portable-tests"
+    output = output_dir("portable-tests")
     output.mkdir(parents=True, exist_ok=True)
     native = output / "watcher-c-check"
     subprocess.run(

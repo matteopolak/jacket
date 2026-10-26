@@ -124,6 +124,7 @@ class RuntimeSetup(unittest.TestCase):
                 with (
                     self.subTest(status=status, diagnostic=diagnostic),
                     patch.object(workflow, "ROOT", root),
+                    patch.object(workflow, "output_dir", lambda *parts: root.joinpath("target", *parts)),
                     patch.object(
                         workflow.subprocess,
                         "run",

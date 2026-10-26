@@ -18,6 +18,7 @@ from pathlib import Path
 
 from native import build_native_libs as native
 from repo_output import host_platform
+from toolkit.repo import cargo_target_dir
 from toolkit.hashing import sha256_bytes, sha256_file
 
 
@@ -89,7 +90,7 @@ def ensure_native_libraries(output=None, cache=None):
         for path in os.environ.get("JAIC_NATIVE_LIBS", "").split(os.pathsep)
         if path
     ]
-    target = Path(os.environ.get("CARGO_TARGET_DIR", native.ROOT / "target")).resolve()
+    target = cargo_target_dir(resolve=True)
     default = target / "http-native" / platform
     if output is None:
         # An explicit complete provider remains caller-owned. Prefer it as a

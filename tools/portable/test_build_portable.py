@@ -5,9 +5,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import build_portable as bp
-from toolkit.repo import ROOT
+from repo_output import output_dir
 
-OUT = ROOT / "target" / "portable-tests"
+OUT = output_dir("portable-tests")
 
 
 class Fixtures(unittest.TestCase):

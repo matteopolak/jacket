@@ -20,6 +20,7 @@ import common
 from common import Defaults
 from results import ROOT, Report, Result, checkout_info, sh
 from scenarios import Scenario, render_report, run_scenarios, wanted
+from toolkit.repo import cargo_target_dir, jaifmt_path
 
 DEFAULTS = Defaults(repeat=5, warmup=1, threshold=0.10, min_seconds=0.05, timeout=900)
 LARGE_FILE_LINES = 100_000
@@ -32,8 +33,8 @@ SPACE_RUNS = re.compile(r'(?<=\S)[ \t]{2,}')
 
 
 def add_arguments(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument('--jaifmt', type=Path, default=ROOT / 'target' / 'jaifmt', help='the native formatter (default: %(default)s)')
-    parser.add_argument('--wasm', type=Path, default=ROOT / 'target' / 'jaifmt.wasm', help='the WebAssembly build (default: %(default)s)')
+    parser.add_argument('--jaifmt', type=Path, default=jaifmt_path(), help='the native formatter (default: %(default)s)')
+    parser.add_argument('--wasm', type=Path, default=cargo_target_dir() / 'jaifmt.wasm', help='the WebAssembly build (default: %(default)s)')
     parser.add_argument('--node', default='node', help='node 24 or newer, to run the WebAssembly build')
     common.add_common_arguments(parser, 'fmt', DEFAULTS)
 

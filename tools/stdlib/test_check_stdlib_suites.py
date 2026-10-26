@@ -1,5 +1,6 @@
 """The suite driver selects, excludes and groups suites, and keeps failures nonzero."""
 
+import os
 import subprocess
 import sys
 import tempfile
@@ -45,7 +46,7 @@ class Driver(unittest.TestCase):
                 "--font", files[0],
                 *extra,
             ]
-            with mock.patch.object(sys, "argv", argv), mock.patch.object(
+            with mock.patch.dict(os.environ, {"CARGO_TARGET_DIR": tmp}), mock.patch.object(sys, "argv", argv), mock.patch.object(
                 suites.subprocess, "run", fake_run
             ):
                 failed = suites.main()

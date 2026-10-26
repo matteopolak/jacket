@@ -12,7 +12,8 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 from toolkit.hashing import sha256_bytes, sha256_file  # noqa: E402,F401
 from toolkit.process import run_expect  # noqa: E402
-from toolkit.repo import ROOT, cargo_target_dir, jaifmt_path, stdlib_env  # noqa: E402,F401
+from repo_output import output_dir  # noqa: E402,F401
+from toolkit.repo import ROOT, cargo_binary, cargo_target_dir, jaifmt_path, stdlib_env  # noqa: E402,F401
 
 ENV = stdlib_env()
 
@@ -21,7 +22,7 @@ def __getattr__(name):
     """`JAIC` and `JAIFMT` ask cargo where its target directory is, which can wait on a cargo lock, so
     they are resolved on first use rather than by every import of this module."""
     if name == "JAIC":
-        return cargo_target_dir() / "debug/jaic"
+        return cargo_binary("jaic")
     if name == "JAIFMT":
         return jaifmt_path()
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

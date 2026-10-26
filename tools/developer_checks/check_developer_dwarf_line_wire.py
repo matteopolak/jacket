@@ -3,17 +3,17 @@
 import json
 import shutil
 import subprocess
-from dev_common import JAIFMT, ROOT, sha256_file
+from dev_common import JAIFMT, ROOT, sha256_file, output_dir
 
 
 def main():
-    evidence = json.loads((ROOT / "target/developer-tools-dwarf-lines-evidence.json").read_text())
+    evidence = json.loads((output_dir("developer-tools-dwarf-lines-evidence.json")).read_text())
     output = ["check_native_line_wire :: () {"]
     flag_bits = {"is_stmt": 1, "basic_block": 2, "prologue_end": 4, "epilogue_begin": 8}
     for fixture in evidence["fixtures"]:
         architecture = "arm64" if fixture["target"].startswith("aarch64") else "x86" if fixture["target"].startswith("i386") else "x64"
         address_size = 4 if architecture == "x86" else 8
-        data = ROOT / f"target/developer-tools-dwarf-line-{architecture}-o{fixture['optimization']}.bin"
+        data = output_dir(f"developer-tools-dwarf-line-{architecture}-o{fixture['optimization']}.bin")
         if sha256_file(data) != fixture["line_bytes_sha256"]:
             raise RuntimeError("Native line section changed after official SDK decoding")
         output += ["    {", f"        bytes, bytes_ok := read_entire_file({json.dumps(str(data))});", "        assert(bytes_ok);", "        defer free(bytes);",
@@ -29,10 +29,10 @@ def main():
         output += ["        for prefix: 0..bytes.count - 1 {", f"            partial, partial_ok := line_wire_decode(.{{prefix, bytes.data}}, 0, {address_size});",
                    "            assert(!partial_ok && partial.rows.count == 0 && partial.files.count == 0 && partial.dirs.count == 0);", "        }", "    }"]
     output.append("}")
-    oracle = ROOT / "target/developer-tools-dwarf-line-wire-oracle.jai"
+    oracle = output_dir("developer-tools-dwarf-line-wire-oracle.jai")
     oracle.write_text("\n".join(output) + "\n")
     shutil.copyfile(ROOT / "stdlib/internal/developer-tools/debug-formats/dwarf-line-wire.jai",
-                    ROOT / "target/developer-tools-dwarf-line-wire.jai")
+                    output_dir("developer-tools-dwarf-line-wire.jai"))
     subprocess.run([str(JAIFMT), "--config", str(ROOT / "jacket.toml"), str(oracle)], cwd=ROOT, check=True)
 
 

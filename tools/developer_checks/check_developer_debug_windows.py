@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 """Cross-build owned Windows Debug code; never claim Windows execution on macOS."""
 import json
-import os
 import build_developer_bindings
 from build_developer_bindings import mingw_prefix
-from pathlib import Path
 import platform
 import re
 from driven_sources import driven
-from dev_common import JAIFMT, ROOT, labeled_runner, sha256_file
+from dev_common import JAIFMT, ROOT, labeled_runner, sha256_file, cargo_target_dir, output_dir
 
 EXPECTED = {"developer_debug_" + name for name in ["abort", "backtrace", "breakpoint", "debugger_present",
                                                  "free_symbols", "output", "readable", "symbols", "break_once",
@@ -26,8 +24,8 @@ def main():
     gcc = sdk / "bin/x86_64-w64-mingw32-gcc"
     llvm = build_developer_bindings.llvm_prefix()
     source = ROOT / "stdlib/internal/developer-tools/debug-native/runtime-windows.c"
-    dll = ROOT / "target/developer_tools_debug.dll"
-    import_library = ROOT / "target/libdeveloper_tools_debug.dll.a"
+    dll = output_dir("developer_tools_debug.dll")
+    import_library = output_dir("libdeveloper_tools_debug.dll.a")
     run([gcc, "-std=c11", "-O2", "-fno-omit-frame-pointer", "-Wall", "-Wextra", "-Werror", "-shared",
          source, "-ldbghelp", "-lkernel32", "-luser32", "-ladvapi32", f"-Wl,--out-implib,{import_library}", "-o", dll])
     exports = run([llvm / "bin/llvm-readobj", "--coff-exports", dll])
@@ -37,17 +35,17 @@ def main():
     fixture = ROOT / "stdlib/Debug/tests/driven/debug-windows-native.c"
     for optimization in [0, 2]:
         run([gcc, "-std=c11", f"-O{optimization}", "-Wall", "-Wextra", "-Werror", fixture,
-             import_library, "-o", ROOT / f"target/developer-tools-debug-windows-o{optimization}.exe"])
+             import_library, "-o", output_dir(f"developer-tools-debug-windows-o{optimization}.exe")])
         run([gcc, "-std=c11", f"-O{optimization}", "-Wall", "-Wextra", "-Werror",
              ROOT / "stdlib/Debug/tests/driven/debug-windows-final.c", import_library,
-             "-o", ROOT / f"target/developer-tools-debug-windows-final-o{optimization}.exe"])
+             "-o", output_dir(f"developer-tools-debug-windows-final-o{optimization}.exe")])
         run([gcc, "-std=c11", f"-O{optimization}", "-Wall", "-Wextra", "-Werror",
              ROOT / "stdlib/Debug/tests/driven/debug-windows-dialog.c", import_library, "-luser32",
-             "-o", ROOT / f"target/developer-tools-debug-windows-dialog-o{optimization}.exe"])
+             "-o", output_dir(f"developer-tools-debug-windows-dialog-o{optimization}.exe")])
     run([llvm / "bin/clang", "--target=aarch64-w64-windows-gnu",
          f"--sysroot={sdk / 'x86_64-w64-mingw32'}", "-std=c11", "-O2", "-Wall", "-Wextra", "-Werror",
-         "-c", source, "-o", ROOT / "target/developer-tools-debug-windows-arm64.obj"])
-    build = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target"))
+         "-c", source, "-o", output_dir("developer-tools-debug-windows-arm64.obj")])
+    build = cargo_target_dir()
     # Check both public signatures and a future native behavior fixture. These
     # are deliberately not counted as Windows runtime evidence.
     for cpu in ["x64", "arm64"]:
@@ -72,7 +70,7 @@ def main():
                 "sdk_header_sha256": {str(path): sha256_file(path) for path in headers},
                 "gcc_version": run([gcc, "--version"]).splitlines()[0],
                 "exports": sorted(names), "runtime_status": "pending coordinator Windows native CI"}
-    (ROOT / "target/developer-tools-windows-debug-evidence.json").write_text(json.dumps(metadata, indent=2) + "\n")
+    (output_dir("developer-tools-windows-debug-evidence.json")).write_text(json.dumps(metadata, indent=2) + "\n")
     print("Windows Debug x64 SDK DLL/import/export checks and arm64 compilation passed; native runtime evidence pending")
 
 

@@ -19,14 +19,15 @@ import subprocess
 from stdlib.stdlib_runtime import runtime_prefix
 from window_render_tests import WINDOW_RENDER_TESTS
 from toolkit.repo import ROOT
+from repo_output import output_dir
 from toolkit.cli import add_jaic_argument
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     add_jaic_argument(parser, required=True)
-    parser.add_argument("--stdlib", type=Path, default=ROOT / "target/window-integration-stdlib")
-    parser.add_argument("--native-libs", type=Path, default=ROOT / "target/window-native")
+    parser.add_argument("--stdlib", type=Path, default=output_dir("window-integration-stdlib"))
+    parser.add_argument("--native-libs", type=Path, default=output_dir("window-native"))
     parser.add_argument("--font", type=Path, help="caller-provided scalable font asset; never copied into the repository")
     args = parser.parse_args()
     compiler = args.jaic.resolve(strict=True)
@@ -34,7 +35,7 @@ def main():
                                        *filter(None, os.environ.get("JAIC_NATIVE_LIBS", "").split(os.pathsep))]))
     env = dict(os.environ, JAIC_STDLIB=str(args.stdlib.resolve()),
                JAIC_NATIVE_LIBS=os.pathsep.join(native_search))
-    output = ROOT / "target/window-test-binaries"
+    output = output_dir("window-test-binaries")
     output.mkdir(parents=True, exist_ok=True)
     count = 0
     failures = []

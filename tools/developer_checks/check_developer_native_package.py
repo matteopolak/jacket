@@ -5,7 +5,7 @@ import json
 import platform
 import shutil
 import subprocess
-from dev_common import run_checked, ROOT
+from dev_common import run_checked, ROOT, output_dir
 from build_developer_bindings import llvm_prefix
 
 
@@ -18,8 +18,8 @@ def main():
     if platform.system() != "Darwin":
         raise RuntimeError("This test requires actual Mac dyld execution")
     prefix = llvm_prefix()
-    original = ROOT / "target/developer-tools-package-before"
-    relocated = ROOT / "target/developer-tools-package-relocated"
+    original = output_dir("developer-tools-package-before")
+    relocated = output_dir("developer-tools-package-relocated")
     for directory in [original, relocated]:
         if directory.exists():
             shutil.rmtree(directory)

@@ -19,6 +19,8 @@ from pathlib import Path
 import subprocess
 import sys
 from toolkit.repo import ROOT
+from repo_output import output_dir
+from toolkit.repo import cargo_target_dir
 from toolkit.cli import add_jaic_argument
 
 SUITES = (
@@ -124,7 +126,7 @@ def main():
     env = dict(
         os.environ, JAIC_STDLIB=str(library), JAIC_NATIVE_LIBS=os.pathsep.join(search)
     )
-    env.setdefault("CARGO_TARGET_DIR", str(ROOT / "target"))
+    env["CARGO_TARGET_DIR"] = str(cargo_target_dir())
     if args.font:
         env["JAIC_TEST_FONT_PATH"] = str(args.font.resolve(strict=True))
     commands = {
@@ -202,9 +204,9 @@ def main():
             binding_native,
             "--runtime",
             "--work-dir",
-            ROOT / "target/production-bindings/checks",
+            output_dir("production-bindings", "checks"),
             "--report",
-            ROOT / "target/production-bindings/results.json",
+            output_dir("production-bindings", "results.json"),
         ],
         "tooling": ["tools/developer_checks/check_developer_tools.py"],
     }

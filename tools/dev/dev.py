@@ -31,9 +31,10 @@ import sys
 import tempfile
 from pathlib import Path
 from toolkit.process import run as toolkit_run
-from toolkit.repo import ROOT, cargo_target_dir, jaifmt_path
+from toolkit.host import exe_name
+from toolkit.repo import ROOT, cargo_binary, cargo_target_dir, jaifmt_path
 
-EXE = ".exe" if os.name == "nt" else ""
+EXE = exe_name("")
 
 # What CI formats and lints: every Jai tree the repository owns.
 JAI_DIRS = ["stdlib", "tests", "benchmarks", "tools", "jaifmt", "examples"]
@@ -88,14 +89,14 @@ def newest(paths: list[str]) -> float:
 def ensure_jailint(jobs: str, release: bool = False) -> Path:
     if cargo_build([*(["--release"] if release else []), "-p", "jailint"], jobs):
         sys.exit("could not build jailint")
-    return TARGET / ("release" if release else "debug") / ("jailint" + EXE)
+    return cargo_binary("jailint", "release" if release else "debug")
 
 
 def ensure_jaifmt(jobs: str) -> Path:
     """target/jaifmt, built by jaic as in CI; rebuilt when jaic or jaifmt's sources are newer."""
     if cargo_build(["-p", "jaic-cli"], jobs):
         sys.exit("could not build jaic")
-    jaic = TARGET / "debug" / ("jaic" + EXE)
+    jaic = cargo_binary("jaic")
     out = jaifmt_path()
     if not out.exists() or out.stat().st_mtime < max(newest(JAIFMT_SOURCES), jaic.stat().st_mtime):
         if run([str(jaic), "jaifmt/main.jai", "-O2", "-exe", str(out)]):
@@ -196,7 +197,7 @@ def cmd_build(args) -> int:
     if cargo_build([*flags, "-p", "jaic-cli", "-p", "jai-language-server", "-p", "jailint"],
                    args.jobs):
         return 1
-    jaic = TARGET / ("release" if args.release else "debug") / ("jaic" + EXE)
+    jaic = cargo_binary("jaic", "release" if args.release else "debug")
     if run([str(jaic), "jaifmt/main.jai", "-O2", "-exe", str(jaifmt_path())]):
         return 1
     return 0 if args.no_native else build_native()
@@ -284,7 +285,7 @@ def cmd_nvim(args) -> int:
     if not args.unit:
         if cargo_build(["-p", "jai-language-server"], args.jobs):
             return 1
-        env["JAILSP"] = str(TARGET / "debug" / ("jailsp" + EXE))
+        env["JAILSP"] = str(cargo_binary("jailsp"))
     print("+ nvim -n --headless --clean -u tests/minimal_init.lua -c 'luafile tests/run.lua'", file=sys.stderr, flush=True)
     return subprocess.run([nvim, "-n", "--headless", "--clean", "-u", "tests/minimal_init.lua", "-c", "luafile tests/run.lua"],
                           cwd=ROOT / "editors" / "nvim", env=env).returncode

@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 """Original POSIX SDK signal/assertion lifecycle effects, separate from Windows."""
 import os
-from pathlib import Path
 import platform
 import subprocess
 from build_developer_bindings import llvm_prefix
 from driven_sources import driven
-from dev_common import JAIFMT, ROOT
+from dev_common import JAIFMT, ROOT, cargo_target_dir, output_dir
 
 # No display: with one, a Linux assertion dialog would wait for a click instead of aborting.
 ENV = {name: value for name, value in os.environ.items() if name not in ("DISPLAY", "WAYLAND_DISPLAY")}
 ENV["JAIC_STDLIB"] = str(ROOT / "stdlib")
-BUILD = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target"))
+BUILD = cargo_target_dir()
 JAIC = BUILD / "debug/jaic"
 
 
@@ -33,13 +32,13 @@ def main():
     suffix = "dylib" if platform.system() == "Darwin" else "so"
     invoke([prefix / "bin/clang", "-std=c11", "-O2", "-Wall", "-Wextra", "-Werror", *flags,
             ROOT / "stdlib/Debug/tests/driven/debug-lifecycle-native.c", "-o",
-            ROOT / f"target/libdeveloper_tools_debug_lifecycle.{suffix}"])
+            output_dir(f"libdeveloper_tools_debug_lifecycle.{suffix}")])
     for name in ["debug-lifecycle", "debug-native", "debug-default-assert", "debug-ignored-locations", "debug-abort"]:
         source = driven(f"{name}.jai")
         for mode in ["interp", "0", "2"]:
             command = [JAIC, source, "-interp"]
             if mode != "interp":
-                executable = ROOT / f"target/developer-tools-{name}-o{mode}"
+                executable = output_dir(f"developer-tools-{name}-o{mode}")
                 invoke([JAIC, source, f"-O{mode}", "-exe", executable], output="")
                 command = [executable]
             if name == "debug-abort":
@@ -60,7 +59,7 @@ def main():
                              ("debug-lifecycle-concurrent", "original concurrent context callback")]:
         source = driven(f"{name}.jai")
         for mode in [0, 2]:
-            executable = ROOT / f"target/developer-tools-{name}-o{mode}"
+            executable = output_dir(f"developer-tools-{name}-o{mode}")
             invoke([JAIC, source, f"-O{mode}", "-exe", executable], output="")
             result = invoke([executable], code=4, output="", diagnostic=diagnostic)
             if result.stderr != diagnostic + "\n":

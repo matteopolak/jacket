@@ -31,6 +31,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from native.build_native_libs import output_dir  # noqa: E402
+import repo_output  # noqa: E402
 from repo_output import host_platform  # noqa: E402
 from fetch_wgpu_native import fetch  # noqa: E402
 from toolkit.repo import ROOT
@@ -93,7 +94,7 @@ def main() -> int:
     )
     args = ap.parse_args()
     test = TESTS[args.test]
-    out = args.out or ROOT / "target" / f"webgpu-{args.test}"
+    out = args.out or repo_output.output_dir(f"webgpu-{args.test}")
     program_args = ["frames", str(args.frames)] if args.frames else []
     plat = args.platform or host_platform()
     libs = output_dir(plat)

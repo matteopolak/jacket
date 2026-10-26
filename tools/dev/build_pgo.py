@@ -32,11 +32,12 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from toolkit.host import exe_name
 from toolkit.process import run as toolkit_run
-from toolkit.repo import ROOT
+from toolkit.repo import ROOT, cargo_target_dir
 
 TOOLS = ("jaic", "jailsp", "jailint")
-EXE = ".exe" if os.name == "nt" else ""
+EXE = exe_name("")
 # `jaic-cli` features per --llvm choice; the other two packages always use their defaults.
 LLVM_FEATURES = {
     "dynamic": [],
@@ -450,7 +451,7 @@ def main():
     )
     ap.add_argument(
         "--target-dir",
-        default=os.environ.get("CARGO_TARGET_DIR") or str(ROOT / "target"),
+        default=str(cargo_target_dir()),
     )
     ap.add_argument(
         "--target",

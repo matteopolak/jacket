@@ -23,6 +23,7 @@ from pathlib import Path
 import tempfile
 from toolkit.process import run as toolkit_run
 from toolkit.repo import ROOT
+from repo_output import output_dir
 from toolkit.cli import add_jaic_argument
 
 TESTS = ROOT / "stdlib/Sound_Player/tests"
@@ -55,7 +56,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     add_jaic_argument(parser)
     parser.add_argument(
-        "--native-libs", type=Path, default=ROOT / "target/audio-native"
+        "--native-libs", type=Path, default=output_dir("audio-native")
     )
     parser.add_argument("--require-device", action="store_true")
     parser.add_argument("--require-multichannel", action="store_true")

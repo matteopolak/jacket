@@ -2,7 +2,7 @@
 """Real persistent Check factory and compiler-message callback effects."""
 import build_developer_check
 from driven_sources import driven
-from dev_common import JAIC, JAIFMT, ROOT, run_checked
+from dev_common import JAIC, JAIFMT, ROOT, run_checked, cargo_binary, output_dir
 
 
 
@@ -16,7 +16,7 @@ def main():
         source = driven(f"{name}.jai")
         run([JAIC, source, "-interp"], expected="ok\n")
         for optimization in [0, 2]:
-            executable = ROOT / f"target/developer-tools-{name}-o{optimization}"
+            executable = output_dir(f"developer-tools-{name}-o{optimization}")
             run([JAIC, source, f"-O{optimization}", "-exe", executable])
             run([executable], expected="ok\n")
     for name, diagnostic in [("check-plugin-porting", "small integer addition requires an explicit intermediate integer cast"),
@@ -29,8 +29,8 @@ def main():
     run([JAIFMT, "--config", ROOT / "jacket.toml", "--check", *paths,
          ROOT / "stdlib/internal/developer-tools/porting-check.jai", ROOT / "stdlib/internal/developer-tools/check-bindings.jai",
          ROOT / "tests/compiler/rejections/check-plugin-porting.jai", ROOT / "tests/compiler/rejections/check-plugin-bindings.jai"])
-    run([ROOT / "target/debug/jailint", "-D", "warnings", *paths])
-    run([ROOT / "target/debug/jailint", "-D", "warnings", "-os", "windows", "-cpu", "x64", *paths])
+    run([cargo_binary("jailint"), "-D", "warnings", *paths])
+    run([cargo_binary("jailint"), "-D", "warnings", "-os", "windows", "-cpu", "x64", *paths])
     print("Check persistent factory and configured real callback effects passed interpreter/native Mac O0/O2, diagnosed rejections, formatting and strict lint")
 
 

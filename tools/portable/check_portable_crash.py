@@ -17,6 +17,7 @@ import subprocess
 from portable_toolchain import checked_compiler
 from toolkit.cli import add_jaic_argument
 from toolkit.repo import ROOT
+from repo_output import output_dir
 
 
 
@@ -29,7 +30,7 @@ def main():
     env = dict(os.environ, JAIC_STDLIB=str(args.stdlib.resolve()))
     fixtures = ROOT / "stdlib/Runtime_Support_Crash_Handler/tests/driven/startup-crash"
     for enabled in [False, True]:
-        output = ROOT / "target/portable-tests" / ("startup-on" if enabled else "startup-off")
+        output = output_dir("portable-tests") / ("startup-on" if enabled else "startup-off")
         output.mkdir(parents=True, exist_ok=True)
         executable = output / "startup-crash"
         executable.unlink(missing_ok=True)

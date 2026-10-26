@@ -7,13 +7,14 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import importlib.util
-import json
 import os
+from unittest import mock
+import json
 from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from toolkit.repo import ROOT
+from toolkit.repo import ROOT, cargo_target_dir
 
 spec = importlib.util.spec_from_file_location("audio_builder", ROOT / "tools/native/audio_build_native.py")
 builder = importlib.util.module_from_spec(spec)
@@ -21,6 +22,13 @@ spec.loader.exec_module(builder)
 
 
 class ReceiptTests(unittest.TestCase):
+    def setUp(self):
+        target = tempfile.TemporaryDirectory()
+        self.addCleanup(target.cleanup)
+        patched = mock.patch.dict(os.environ, {"CARGO_TARGET_DIR": target.name})
+        patched.start()
+        self.addCleanup(patched.stop)
+
     def test_child_scratch_uses_configured_build_root(self):
         environment = builder.native_environment()
         scratch = builder.build_root() / "audio-native/tmp"
@@ -28,7 +36,7 @@ class ReceiptTests(unittest.TestCase):
             self.assertEqual(environment[name], str(scratch))
 
     def test_failure_is_written_before_it_is_raised(self):
-        scratch = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")) / "audio-provider-proof/receipt-tests"
+        scratch = cargo_target_dir() / "audio-provider-proof/receipt-tests"
         scratch.mkdir(parents=True, exist_ok=True)
         record = {"kind": "receipt unit test (not native evidence)", "exit_code": 0,
                   "failure_reasons": ["stderr_nonempty"], "stderr": "unclassified diagnostic\n"}

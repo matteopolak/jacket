@@ -3,7 +3,7 @@
 import platform
 import re
 from driven_sources import driven
-from dev_common import JAIC, JAIFMT, ROOT, labeled_runner
+from dev_common import JAIC, JAIFMT, ROOT, labeled_runner, output_dir
 from build_developer_bindings import llvm_prefix
 
 run = labeled_runner("Bitfield layout", stdout=True)
@@ -37,7 +37,7 @@ def layout_assertions(generated, keywords):
 
 def main():
     prefix = llvm_prefix()
-    target = ROOT / "target"
+    target = output_dir()
     flags = ["-dynamiclib"] if platform.system() == "Darwin" else ["-shared", "-fPIC"]
     suffix = "dylib" if platform.system() == "Darwin" else "so"
     emitter = driven("bindings-bitfield-layout.jai")

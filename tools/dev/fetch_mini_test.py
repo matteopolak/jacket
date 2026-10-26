@@ -14,8 +14,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from toolkit.repo import ROOT
+from repo_output import output_dir
 
-DEST = ROOT / "target" / "nvim-deps" / "mini.test"
+DEST = output_dir("nvim-deps") / "mini.test"
 REPOSITORY = "https://github.com/echasnovski/mini.test"
 
 

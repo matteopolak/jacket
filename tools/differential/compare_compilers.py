@@ -34,6 +34,7 @@ ROOT = HERE.parents[1]
 for folder in (ROOT / 'tools' / 'bench', ROOT / 'tools', HERE):
     sys.path.insert(0, str(folder))
 
+from repo_output import output_dir                          # noqa: E402
 import compare_grid                                         # noqa: E402
 import compare_rewrite                                      # noqa: E402
 import jaigen                                               # noqa: E402
@@ -355,7 +356,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--args-b', default='', help='extra command-line arguments for B')
     p.add_argument('--jobs', type=int, default=3, help='programs compiled at once (default 3)')
     p.add_argument('--timeout', type=float, default=60, help='seconds per compile or run (default 60)')
-    p.add_argument('--out', type=Path, default=ROOT / 'target' / 'compare', help='output folder (default target/compare)')
+    p.add_argument('--out', type=Path, default=output_dir('compare'), help='output folder (default target/compare)')
     p.add_argument('--sandbox', action='store_true', help='run every compile and program without network and with minimal file access')
     p.add_argument('--sandbox-read', action='append', type=Path, default=[], metavar='PATH', help='another path the sandbox may read')
     p.add_argument('--reduce', nargs='?', const=5, type=int, default=0, metavar='N',

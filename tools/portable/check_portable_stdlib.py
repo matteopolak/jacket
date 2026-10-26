@@ -26,6 +26,7 @@ import time
 from portable_toolchain import checked_compiler
 from toolkit.cli import add_jaic_argument
 from toolkit.repo import ROOT
+from repo_output import output_dir
 
 
 # Fatal-signal programs: the process must die by the signal after printing both texts.
@@ -142,7 +143,7 @@ def main():
             parser.error(
                 "supply --stdlib for production or --posix-root for explicit staging"
             )
-        root = ROOT / "target/portable-integration-stdlib"
+        root = output_dir("portable-integration-stdlib")
         shutil.copytree(ROOT / "stdlib", root, dirs_exist_ok=True)
         shutil.copytree(args.posix_root, root / "POSIX", dirs_exist_ok=True)
         if args.hash_root:
@@ -172,7 +173,7 @@ def main():
         check=True,
     )
     env = dict(os.environ, JAIC_STDLIB=str(root))
-    output = ROOT / "target/portable-tests"
+    output = output_dir("portable-tests")
     output.mkdir(parents=True, exist_ok=True)
     if args.native:
         subprocess.run(

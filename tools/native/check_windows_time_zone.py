@@ -15,7 +15,7 @@ import platform
 import subprocess
 import tempfile
 from toolkit.hashing import sha256_file
-from toolkit.repo import ROOT
+from toolkit.repo import ROOT, cargo_target_dir
 
 FIXTURE = ROOT / "stdlib/Bindings_Generator/tests/driven/sdk/windows-time-zone-layout.jai"
 C_FIXTURE = ROOT / "stdlib/Bindings_Generator/tests/driven/sdk/windows_time_zone_sdk.c"
@@ -69,7 +69,7 @@ def main():
         parser.error("provide compiler, linter and formatter together")
     if args.sdk_runtime and platform.system() != "Windows":
         parser.error("actual Windows SDK/runtime checks require a Windows host")
-    target = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")).resolve()
+    target = cargo_target_dir(resolve=True)
     work = Path(tempfile.mkdtemp(prefix="windows-time-zone-", dir=target))
     temporary = work / "tmp"
     temporary.mkdir()

@@ -22,6 +22,7 @@ from compile_report import render
 from dialects import Compiler, Invocation, Mode, Request, parse_compiler
 from measure import Run, run_measured, warm_file_cache
 from provenance import binary_facts
+from repo_output import shared_output_dir
 from results import ROOT, Report, Result, sh
 from bench.sandbox import Sandbox, environment
 from sizes import facts_of
@@ -299,7 +300,7 @@ def install_reads(compiler: Compiler) -> list[Path]:
     unpacked next to it in a release. A binary in a `bin/` folder reads the whole install around it,
     where compilers keep their modules."""
     folder = compiler.path.parent
-    reads = [folder.parent if folder.name == 'bin' else folder, ROOT / 'stdlib', ROOT / 'target' / 'native-libs', *library_folders(compiler.path)]
+    reads = [folder.parent if folder.name == 'bin' else folder, ROOT / 'stdlib', shared_output_dir('native-libs'), *library_folders(compiler.path)]
     reads += [Path(os.environ[v]).resolve() for v in ('JAIC_STDLIB', 'JAIC_NATIVE_LIBS') if os.environ.get(v)]
     return [r for r in reads if r.exists()]
 

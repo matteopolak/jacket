@@ -13,7 +13,8 @@ import argparse
 import os
 import subprocess
 import sys
-from toolkit.repo import jaifmt_path
+from repo_output import output_dir
+from toolkit.repo import cargo_binary, jaifmt_path
 
 root = Path(__file__).resolve().parents[3]
 sources = [
@@ -30,7 +31,7 @@ windows_sources = ["stdlib/Windows_Resources", "stdlib/internal/windows-resource
                    "stdlib/Windows_Resources/tests/console-windows.jai",
                    "stdlib/Windows_Resources/tests/discovery-windows.jai"]
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("--output-root", type=Path, default=root / "target/portable-data")
+parser.add_argument("--output-root", type=Path, default=output_dir("portable-data"))
 parser.add_argument("--native-libs", type=Path)
 parser.add_argument("--compiler", type=Path)
 parser.add_argument("--formatter", type=Path)
@@ -44,7 +45,7 @@ native_libs = args.native_libs or output / "native"
 env = dict(os.environ, JAIC_NATIVE_LIBS=str(native_libs.resolve()), JAIC_STDLIB=str(root / "stdlib"))
 if os.name == "nt":
     env["PATH"] = str(native_libs.resolve()) + os.pathsep + env.get("PATH", "")
-linter = (args.linter or root / ("target/debug/jailint.exe" if os.name == "nt" else "target/debug/jailint")).resolve(strict=True)
+linter = (args.linter or cargo_binary("jailint")).resolve(strict=True)
 
 def context_lint():
     subprocess.run([sys.executable, str(root / "tools/portable/portable_data_context_lint.py"),
@@ -56,7 +57,7 @@ if args.lint_only:
     context_lint()
     raise SystemExit(0)
 
-compiler = (args.compiler or root / ("target/debug/jaic.exe" if os.name == "nt" else "target/debug/jaic")).resolve(strict=True)
+compiler = (args.compiler or cargo_binary("jaic")).resolve(strict=True)
 formatter = (args.formatter or jaifmt_path()).resolve(strict=True)
 
 failures = []

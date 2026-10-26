@@ -11,6 +11,7 @@ from pathlib import Path as _Path
 _sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
 
 from pathlib import Path
+from repo_output import output_dir
 import argparse
 import json
 import os
@@ -27,7 +28,7 @@ from native_bindings.build_dependencies import prepare_source
 pins = json.loads((root / "tools/native_bindings/dependencies.json").read_text())
 sdk = root / ".work/vendor"
 prepare_source("stb", pins["stb"], sdk)
-output = root / "target/portable-data/native"
+output = output_dir("portable-data", "native")
 output.mkdir(parents=True, exist_ok=True)
 triple = "x86_64-pc-windows-msvc" if args.cpu == "x64" else "aarch64-pc-windows-msvc"
 for name, macro, definition, header in (

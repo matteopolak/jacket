@@ -23,7 +23,8 @@ from cleanroom_lint_contexts import canonical, checked_coverage
 from window_render_tests import WINDOW_RENDER_TESTS
 from toolkit.hashing import sha256_file
 from toolkit.cli import add_jaic_argument
-from toolkit.repo import ROOT
+from toolkit.repo import ROOT, cargo_target_dir
+from repo_output import output_dir
 
 CASES = (
     "windows-wgl-driver",
@@ -183,12 +184,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     add_jaic_argument(parser, required=True)
     parser.add_argument("--jailint", required=True, type=Path)
-    parser.add_argument("--stdlib", type=Path, default=ROOT / "target/window-integration-stdlib")
+    parser.add_argument("--stdlib", type=Path, default=output_dir("window-integration-stdlib"))
     parser.add_argument("--native-libs", type=Path, required=True)
     parser.add_argument("--driver-dir", type=Path)
     parser.add_argument("--consumer-dir", action="append", type=Path, default=[],
                         help="also deploy the verified driver beside these checkout-local consumers")
-    parser.add_argument("--out", type=Path, default=ROOT / "target/window-wgl-ci")
+    parser.add_argument("--out", type=Path, default=output_dir("window-wgl-ci"))
     args = parser.parse_args()
     if platform.system() != "Windows":
         parser.error("actual Windows execution is required; source checking is not driver verification")
@@ -196,7 +197,7 @@ def main():
     linter = args.jailint.resolve(strict=True)
     output = args.out.resolve()
     for path in [compiler, linter, output]:
-        if not path.is_relative_to((ROOT / "target").resolve()):
+        if not any(path.is_relative_to(root) for root in (cargo_target_dir(resolve=True), output_dir().resolve())):
             parser.error(f"source-built compiler/output must stay under this checkout's target: {path}")
     consumers = [path.resolve() for path in args.consumer_dir]
     if consumers and not args.driver_dir:

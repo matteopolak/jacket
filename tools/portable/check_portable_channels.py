@@ -22,8 +22,9 @@ import threading
 from portable_toolchain import checked_compiler
 from toolkit.cli import add_jaic_argument
 from toolkit.repo import ROOT
+from repo_output import output_dir
 
-OUTPUT = ROOT / "target/portable-tests"
+OUTPUT = output_dir("portable-tests")
 JOURNAL = OUTPUT / "shared-owned-names.txt"
 
 

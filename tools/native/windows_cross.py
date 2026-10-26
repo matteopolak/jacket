@@ -35,7 +35,7 @@ from stdlib import stdlib_runtime  # noqa: E402
 from toolkit.hashing import sha256_file
 from toolkit.cli import add_jaic_argument
 from toolkit.process import run as toolkit_run
-from toolkit.repo import ROOT
+from toolkit.repo import ROOT, cargo_target_dir
 
 # Self-checking programs (each prints "ok") exercised on Windows besides the corpus.
 WINDOWS_PROGRAMS = [
@@ -411,12 +411,7 @@ def ensure_cross_host_bindings(host):
                 ]
             )
             return
-    assigned = os.environ.get("CARGO_TARGET_DIR") or os.environ.get("RUNNER_TEMP")
-    if not assigned:
-        raise ValueError(
-            "assign CARGO_TARGET_DIR or CI RUNNER_TEMP for real cross-host providers"
-        )
-    base = pathlib.Path(assigned).resolve()
+    base = cargo_target_dir(resolve=True)
     base.mkdir(parents=True, exist_ok=True)
     work = pathlib.Path(tempfile.mkdtemp(prefix="windows-cross-host-", dir=base))
     output = work / "native"

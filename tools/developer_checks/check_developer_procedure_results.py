@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """Generated functions that return procedures: parenthesized result, then real calls against C."""
-import os
-from pathlib import Path
 import platform
-from dev_common import JAIFMT, ROOT, labeled_runner
+from dev_common import JAIFMT, ROOT, labeled_runner, cargo_binary, output_dir
 from build_developer_bindings import llvm_prefix
 
 
@@ -12,14 +10,14 @@ run = labeled_runner('Procedure results')
 
 def main():
     prefix = llvm_prefix()
-    jaic = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")) / "debug/jaic"
+    jaic = cargo_binary("jaic")
     driven = ROOT / "stdlib/Bindings_Generator/tests/driven"
     source = driven / "bindings-procedure-results.jai"
     consumer = driven / "bindings-procedure-results-roundtrip.jai"
-    generated = ROOT / "target/developer-tools-procedure-results-generated.jai"
+    generated = output_dir("developer-tools-procedure-results-generated.jai")
     flags = ["-dynamiclib"] if platform.system() == "Darwin" else ["-shared", "-fPIC"]
     suffix = "dylib" if platform.system() == "Darwin" else "so"
-    library = ROOT / f"target/libdeveloper_tools_procedure_results.{suffix}"
+    library = output_dir(f"libdeveloper_tools_procedure_results.{suffix}")
 
     def build_library(optimization):
         run([prefix / "bin/clang", "-std=c11", f"-O{optimization}", "-Wall", "-Wextra", "-Werror", *flags,
@@ -31,14 +29,14 @@ def main():
     run([JAIFMT, "--config", ROOT / "jacket.toml", generated])
     for optimization in [0, 2]:
         build_library(optimization)
-        run([jaic, consumer, "-interp", "-I", ROOT / "target"], "ok\n")
-        executable = ROOT / f"target/developer-tools-procedure-results-consumer-o{optimization}"
-        run([jaic, consumer, f"-O{optimization}", "-exe", executable, "-I", ROOT / "target"])
+        run([jaic, consumer, "-interp", "-I", output_dir()], "ok\n")
+        executable = output_dir(f"developer-tools-procedure-results-consumer-o{optimization}")
+        run([jaic, consumer, f"-O{optimization}", "-exe", executable, "-I", output_dir()])
         run([executable], "ok\n")
     # The emitter is formatted here but linted with the rest of the stdlib: alone it does not compile.
     paths = [source, consumer, generated, ROOT / "stdlib/internal/developer-tools/binding-type-emission.jai"]
     run([JAIFMT, "--config", ROOT / "jacket.toml", "--check", *paths])
-    run([Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")) / "debug/jailint", "-D", "warnings", "-I", ROOT / "target", *paths[:3]])
+    run([cargo_binary("jailint"), "-D", "warnings", "-I", output_dir(), *paths[:3]])
     print("Functions returning procedures print the result in parentheses and call through real C in the interpreter and native O0/O2")
 
 

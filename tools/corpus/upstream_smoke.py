@@ -33,6 +33,7 @@ from stdlib.case_capabilities import user_deferred_reason
 import corpus.upstream_sandbox as usb
 from repo_output import host_platform
 from toolkit.repo import ROOT
+from repo_output import output_dir
 from toolkit.cli import add_jaic_argument
 
 UPSTREAM = ROOT / "corpus/upstream"
@@ -619,7 +620,7 @@ def main():
         default=[],
         help="only checks whose id contains this",
     )
-    ap.add_argument("--screenshots", default=str(ROOT / "target/smoke-screenshots"))
+    ap.add_argument("--screenshots", default=str(output_dir("smoke-screenshots")))
     ap.add_argument("--checks", default=str(CHECKS))
     ap.add_argument(
         "--report",

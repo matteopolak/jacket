@@ -15,8 +15,9 @@ import math
 import struct
 import subprocess
 from toolkit.repo import ROOT
+from repo_output import output_dir
 
-output = ROOT / "target/portable-tests/mpeg-matrix-check"
+output = output_dir("portable-tests", "mpeg-matrix-check")
 output.parent.mkdir(parents=True, exist_ok=True)
 subprocess.run(["clang", "-std=c11", "-Wall", "-Wextra", "-Werror",
                 str(ROOT / "stdlib/pl_mpeg/tests/native/matrix-check.c"),

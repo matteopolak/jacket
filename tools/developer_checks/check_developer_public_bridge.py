@@ -10,14 +10,14 @@ import tempfile
 
 from build_developer_bindings import llvm_prefix
 from driven_sources import driven, driven_matching
-from dev_common import ROOT, sha256_file
+from dev_common import ROOT, sha256_file, cargo_target_dir
 
 
 def main():
     host = platform.system()
     if host not in ["Darwin", "Linux"]:
         raise RuntimeError("Native bridge runner requires a configured macOS/Linux SDK")
-    target = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")).resolve()
+    target = cargo_target_dir(resolve=True)
     scratch = Path(tempfile.mkdtemp(prefix="canonical-public-bridge-", dir=target))
     compiler, formatter, linter = (
         target / "debug/jaic",

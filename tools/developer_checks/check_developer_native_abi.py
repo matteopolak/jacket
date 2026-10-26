@@ -11,7 +11,7 @@ from pathlib import Path
 import re
 import sys
 import generate_developer_binding_model as model
-from dev_common import JAIFMT, ROOT, labeled_runner, sha256_file
+from dev_common import JAIFMT, ROOT, labeled_runner, sha256_file, output_dir
 
 
 run = labeled_runner('Native ABI probe', expected=None, env=None, timeout=60, stdout=True)
@@ -60,9 +60,9 @@ def main():
     for expression, _ in expressions:
         source.append(f'    printf("%lld\\n", (long long) ({expression}));')
     source.append('    return 0;\n}')
-    c_path = ROOT / "target/developer-tools-native-abi.c"
+    c_path = output_dir("developer-tools-native-abi.c")
     c_path.write_text("\n".join(source) + "\n")
-    executable = ROOT / "target/developer-tools-native-abi"
+    executable = output_dir("developer-tools-native-abi")
     run([prefix / "bin/clang", "-std=c11", "-Wall", "-Wextra", "-Werror", "-I", prefix / "include", c_path, "-o", executable])
     values = run([executable]).splitlines()
     if len(values) != len(expressions):
@@ -71,7 +71,7 @@ def main():
     for (_, expression), value in zip(expressions, values):
         jai.append(f'    assert(({expression}) == {int(value)});')
     jai += ['    print("ok\\n");', '}']
-    jai_path = ROOT / "target/developer-tools-native-abi.jai"
+    jai_path = output_dir("developer-tools-native-abi.jai")
     jai_path.write_text("\n".join(jai) + "\n")
     run([JAIFMT, "--config", ROOT / "jacket.toml", jai_path])
     library_path = prefix / ("bin/libclang.dll" if sys.platform == "win32" else
@@ -95,7 +95,7 @@ def main():
                 "probe_generator_sha256": sha256_file(Path(__file__)),
                 "public_symbol_lookups": len(exports), "missing_public_symbols": missing,
                 "native_expressions": [{"c": c, "jai": j, "value": int(value)} for (c, j), value in zip(expressions, values)]}
-    (ROOT / "target/developer-tools-native-abi-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
+    (output_dir("developer-tools-native-abi-evidence.json")).write_text(json.dumps(evidence, indent=2) + "\n")
     print(f"Native SDK oracle prepared {len(expressions)} layout/enum comparisons; {len(exports)} public symbols resolve (not invoked)")
 
 

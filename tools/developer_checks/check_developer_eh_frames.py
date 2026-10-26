@@ -6,7 +6,7 @@ import build_developer_bindings
 import re
 import shutil
 from check_developer_dwarf_lines import run
-from dev_common import JAIFMT, ROOT, sha256_file
+from dev_common import JAIFMT, ROOT, sha256_file, output_dir
 
 
 def main():
@@ -23,11 +23,11 @@ def main():
     evidence = {"scope": "original C Linux ELF objects linked by official LLD; relocated eh_frame decoded on host; no ELF program executed", "fixtures": []}
     for arch, triple in [("x86", "i386-unknown-linux-gnu"), ("x64", "x86_64-unknown-linux-gnu"), ("arm64", "aarch64-unknown-linux-gnu")]:
         for optimization in [0, 2]:
-            obj = ROOT / f"target/developer-tools-eh-{arch}-o{optimization}.o"
+            obj = output_dir(f"developer-tools-eh-{arch}-o{optimization}.o")
             run([prefix / "bin/clang", "-target", triple, "-gdwarf-4", "-g", f"-O{optimization}", "-Wall", "-Wextra", "-Werror",
                  "-c", ROOT / "stdlib/Debug_Info/tests/driven/dwarf-line-native.c", "-o", obj])
             for placement in ["default", "negative"]:
-                base = ROOT / f"target/developer-tools-eh-{arch}-o{optimization}-{placement}"
+                base = output_dir(f"developer-tools-eh-{arch}-o{optimization}-{placement}")
                 args = [linker, "--entry=original_line_query", "-o", base.with_suffix('.elf'), obj]
                 if placement == "negative":
                     args += ["--image-base=0x10000", "--section-start=.text=0x20000", "--section-start=.eh_frame=0x40000"]
@@ -53,7 +53,7 @@ def main():
                                              "pc_begin": begin, "pc_range": end - begin, "instruction_types": names,
                                              "bytes_sha256": sha256_file(base.with_suffix('.bin'))})
     for optimization in [0, 2]:
-        base = ROOT / f"target/developer-tools-eh-absolute-o{optimization}"
+        base = output_dir(f"developer-tools-eh-absolute-o{optimization}")
         run([prefix / "bin/clang", "-target", "x86_64-unknown-linux-gnu", "-std=c11", f"-O{optimization}", "-fno-asynchronous-unwind-tables",
              "-fno-unwind-tables", "-Wall", "-Wextra", "-Werror", "-c", ROOT / "stdlib/Debug_Info/tests/driven/eh-absolute-native.c", "-o", base.with_suffix('.o')])
         run([linker, "--entry=original_absolute_frame", "-o", base.with_suffix('.elf'), base.with_suffix('.o')])
@@ -81,10 +81,10 @@ def main():
                                          "pc_range": end - begin, "instruction_types": names, "augmentation": augmentation, "encoding": 0,
                                          "bytes_sha256": sha256_file(base.with_suffix('.bin'))})
     source.append("];")
-    path = ROOT / "target/developer-tools-eh-frame-oracle.jai"
+    path = output_dir("developer-tools-eh-frame-oracle.jai")
     path.write_text("\n".join(source) + "\n")
     run([JAIFMT, "--config", ROOT / "jacket.toml", path])
-    (ROOT / "target/developer-tools-eh-frames-evidence.json").write_text(json.dumps(evidence, indent=2) + "\n")
+    (output_dir("developer-tools-eh-frames-evidence.json")).write_text(json.dumps(evidence, indent=2) + "\n")
 
 
 if __name__ == "__main__":

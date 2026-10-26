@@ -14,11 +14,12 @@ import platform
 import shutil
 import subprocess
 from toolkit.repo import ROOT
+from repo_output import output_dir
 
 
 def build_static(compiler, target, source, directory, native):
     """`platform_io_windows_crash.lib`: the same source as an archive, with DbgHelp as a default library."""
-    objects = ROOT / "target/windows-crash-runtime"
+    objects = output_dir("windows-crash-runtime")
     objects.mkdir(parents=True, exist_ok=True)
     obj = objects / "platform_io_windows_crash.obj"
     # `-DJAI_STATIC_CRASH_RUNTIME` makes the object ask the linker for dbghelp; the DLL links it itself.
@@ -88,7 +89,7 @@ def main():
         import_library = directory / "platform_io_windows_crash.lib"
         if args.static_library:
             # The static archive takes the import library's name, so the import library goes elsewhere.
-            scratch = ROOT / "target/windows-crash-runtime"
+            scratch = output_dir("windows-crash-runtime")
             scratch.mkdir(parents=True, exist_ok=True)
             import_library = scratch / "platform_io_windows_crash.lib"
         linker = [f"-Wl,/IMPLIB:{import_library}"]

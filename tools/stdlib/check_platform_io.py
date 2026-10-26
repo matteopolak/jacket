@@ -24,7 +24,8 @@ import time
 
 from stdlib.stdlib_test_catalog import unavailable_reason, validated_entries
 from toolkit.process import run as toolkit_run
-from toolkit.repo import ROOT
+from toolkit.repo import ROOT, cargo_target_dir
+from repo_output import output_dir
 from toolkit.cli import add_jaic_argument
 from toolkit.hashing import sha256_bytes
 
@@ -143,7 +144,7 @@ def run(command, env, expected=None, expected_stderr=b"", failure_directory=None
     ):
         key = sha256_bytes(repr(list(map(str, command))).encode())[:16]
         save_result(
-            (failure_directory or ROOT / "target/platform-io-tests/failures") / key,
+            (failure_directory or output_dir("platform-io-tests", "failures")) / key,
             result,
             [f"expected_stdout={expected!r}", f"expected_stderr={expected_stderr!r}"],
         )
@@ -220,13 +221,13 @@ def main():
     parser.add_argument(
         "--compiler-build-root",
         type=Path,
-        default=ROOT / "target",
+        default=cargo_target_dir(),
         help="directory containing the explicitly source-built compiler",
     )
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=ROOT / "target/platform-io-tests",
+        default=output_dir("platform-io-tests"),
         help="owned artifact/capture directory; defaults to checkout target",
     )
     parser.add_argument("--native", action="store_true")

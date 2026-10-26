@@ -13,7 +13,7 @@ import platform
 import shutil
 import subprocess
 import developer_native_runtime
-from dev_common import ROOT
+from dev_common import ROOT, output_dir
 
 
 def llvm_prefix(prefix=None):
@@ -50,7 +50,7 @@ def shared_flags():
 def shared_library(name, directory=None):
     suffix = "dylib" if platform.system() == "Darwin" else "so"
     shared_flags()  # Diagnose unsupported hosts before choosing a filename.
-    return (directory or ROOT / "target") / ("lib" + name + "." + suffix)
+    return (directory or output_dir()) / ("lib" + name + "." + suffix)
 
 
 def build(prefix=None):

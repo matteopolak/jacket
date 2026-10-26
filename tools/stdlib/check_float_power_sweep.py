@@ -12,7 +12,8 @@ from fractions import Fraction
 import os
 from pathlib import Path
 import subprocess
-from toolkit.repo import ROOT
+from toolkit.repo import ROOT, cargo_target_dir
+from repo_output import output_dir
 
 
 def verify(output):
@@ -71,10 +72,10 @@ def main():
     if args.interp_only and args.wasm:
         parser.error("--interp-only cannot select --wasm")
     compiler = args.jaic.resolve(strict=True)
-    if not compiler.is_relative_to((ROOT / "target").resolve()):
+    if not compiler.is_relative_to(cargo_target_dir(resolve=True)):
         parser.error("use a source-built independent compiler under target")
     env = dict(os.environ, JAIC_STDLIB=str(args.stdlib.resolve(strict=True)))
-    directory = ROOT / "target/foundations-tests"
+    directory = output_dir("foundations-tests")
     directory.mkdir(exist_ok=True, parents=True)
     if args.interp or args.interp_only:
         result = subprocess.run(
