@@ -51,7 +51,10 @@ class NativeReleaseInputs(unittest.TestCase):
             vendor = Path(temporary)
             with patch.object(builder.urllib.request, "urlopen", return_value=fake_http.response(data)) as fetch:
                 builder.prepare_source("native", source, vendor)
-            fetch.assert_called_once_with(source["archive"]["url"], timeout=60)
+            fetch.assert_called_once()
+            request = fetch.call_args.args[0]
+            self.assertEqual(getattr(request, "full_url", request), source["archive"]["url"])
+            self.assertEqual(fetch.call_args.kwargs, {"timeout": 60})
             self.assertEqual((vendor / "native/include/native.h").read_bytes(), header)
             with patch.object(builder.urllib.request, "urlopen", side_effect=AssertionError("unexpected network")):
                 builder.prepare_source("native", source, vendor)
