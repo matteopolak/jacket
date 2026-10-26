@@ -57,6 +57,11 @@ Connection :: struct {
     fiber: Io.Fiber_Handle;
     secure: bool; // the TLS handshake is still to be done (`config.tls`)
     idle: bool; // waiting for the first byte of a request: safe to cut off
+
+    // The request being handled. It lives here, not on the fiber's stack, so a connection that
+    // stays open does not touch one more page of stack for it (a page is 16 KiB on some systems).
+    frame: Request_Frame;
+    parser: Parser;
 }
 
 #scope_export
@@ -308,11 +313,13 @@ serve_connection :: (connection: *Connection) { // jailint: allow(cognitive_comp
     limits.max_headers = config.max_headers;
     limits.max_body_size = -1; // the route's limit is applied as the handler reads (see body.jai)
 
-    parser: Parser;
+    // In the connection, not on the fiber's stack: the stack of a connection that stays open is
+    // resident for as long as it is, and every 16 KiB page of it counts per connection.
+    parser := *connection.parser;
 
-    parser_init(*parser, .REQUEST, limits);
+    parser_init(parser, .REQUEST, limits);
 
-    defer parser_free(*parser);
+    defer parser_free(parser);
 
     // The read buffer comes from the scheduler's pool. A connection whose reader can wait for
     // readability (a TCP stream) holds none while it is idle or waiting for more of a head, and
@@ -359,7 +366,7 @@ serve_connection :: (connection: *Connection) { // jailint: allow(cognitive_comp
                     trim(*out, RETAIN_OUTPUT);
                 }
 
-                idle := parser_idle(*parser);
+                idle := parser_idle(parser);
 
                 connection.idle = idle;
 
@@ -396,7 +403,7 @@ serve_connection :: (connection: *Connection) { // jailint: allow(cognitive_comp
                 if can_wait && !hot {
                     trim(*out, 0);
                     trim(*body_buffer, 0);
-                    parser_trim(*parser, 0);
+                    parser_trim(parser, 0);
                 }
 
                 if hot {
@@ -462,7 +469,7 @@ serve_connection :: (connection: *Connection) { // jailint: allow(cognitive_comp
                 pending = .{ count, buffer.data };
             }
 
-            used, next := parse(*parser, pending);
+            used, next := parse(parser, pending);
 
             pending = advance(pending, used);
 
@@ -474,7 +481,7 @@ serve_connection :: (connection: *Connection) { // jailint: allow(cognitive_comp
         }
 
         if event.kind == .ERROR {
-            send_failure(server, stream, *out, parse_failure(*parser));
+            send_failure(server, stream, *out, parse_failure(parser));
 
             return;
         }
@@ -490,7 +497,10 @@ serve_connection :: (connection: *Connection) { // jailint: allow(cognitive_comp
 
         last_started = started;
 
-        frame: Request_Frame;
+        frame := *connection.frame;
+
+        frame.* = .{};
+
         request := *frame.request;
 
         request.method = head.method;
@@ -503,7 +513,7 @@ serve_connection :: (connection: *Connection) { // jailint: allow(cognitive_comp
         body := *frame.body;
 
         body.request = request;
-        body.parser = *parser;
+        body.parser = parser;
         body.link = stream;
         body.buffer = buffer;
         body.pending = *pending;
@@ -577,7 +587,7 @@ serve_connection :: (connection: *Connection) { // jailint: allow(cognitive_comp
 
         // One big request must not make the connection heavy for the rest of its life.
         trim(*body_buffer, RETAIN_OUTPUT);
-        parser_trim(*parser, RETAIN_HEAD);
+        parser_trim(parser, RETAIN_HEAD);
 
         if !keep_alive {
             Io.with_deadline(within(config.write_timeout), #code {
@@ -755,7 +765,7 @@ parse_failure :: (parser: *Parser) -> Http_Error {
 
 // Sends an error and closes (the connection cannot be trusted to carry another request).
 send_failure :: (server: *Server, stream: Link, out: *[..] u8, error: Http_Error) {
-    frame: Request_Frame;
+    frame := New(Request_Frame,, temp);
 
     frame.app = server.app;
     frame.request.version = .HTTP_1_1;

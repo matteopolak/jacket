@@ -144,7 +144,7 @@ flush :: (frame: *Stream_Frame, data: [] u8) -> bool {
 
 // Opens the file of a `file_response` and learns its size; false, with `error` the response to
 // send instead, when it cannot be.
-open_source :: (request: *Request, source: *Response_Source, error: *Http_Error) -> bool {
+open_source :: no_inline (request: *Request, source: *Response_Source, error: *Http_Error) -> bool {
     if source.file.count == 0 return true;
 
     file, open_error := Io.open_file(source.file);
@@ -174,7 +174,7 @@ open_source :: (request: *Request, source: *Response_Source, error: *Http_Error)
 
 // Sends the body of a streamed response after its head (already in `out`). False when the
 // connection cannot carry another request.
-send_source :: (server: *Server, link: Link, out: *[..] u8, source: *Response_Source, chunked: bool, send_body: bool) -> bool {
+send_source :: no_inline (server: *Server, link: Link, out: *[..] u8, source: *Response_Source, chunked: bool, send_body: bool) -> bool {
     config := *server.app.config;
 
     frame: Stream_Frame;
@@ -224,7 +224,7 @@ send_source :: (server: *Server, link: Link, out: *[..] u8, source: *Response_So
 
 FILE_PIECE :: 64 * 1024;
 
-send_file :: (frame: *Stream_Frame, source: *Response_Source) -> bool {
+send_file :: no_inline (frame: *Stream_Frame, source: *Response_Source) -> bool {
     piece := NewArray(FILE_PIECE, u8);
 
     defer array_free(piece);

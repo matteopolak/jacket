@@ -242,7 +242,7 @@ take_piece :: (frame: *Body_Frame) -> [] u8, Http_Error {
 
 // The next piece of the body as the parser finds it, reading from the connection when it needs
 // more. A view into the read buffer, valid until the next call.
-next_piece :: (frame: *Body_Frame) -> [] u8, Http_Error {
+next_piece :: no_inline (frame: *Body_Frame) -> [] u8, Http_Error {
     if frame.finished return .[], .{};
 
     if frame.failure.kind != .NONE return .[], frame.failure;
@@ -279,7 +279,7 @@ next_piece :: (frame: *Body_Frame) -> [] u8, Http_Error {
 }
 
 // Reads from the connection into the read buffer; everything the parser had is used up.
-fill :: (frame: *Body_Frame) -> Http_Error {
+fill :: no_inline (frame: *Body_Frame) -> Http_Error {
     config := frame.config;
 
     // The read below overwrites the buffer a `read_all` view points into.
@@ -343,7 +343,7 @@ fill :: (frame: *Body_Frame) -> Http_Error {
 // After the handler: reads and drops what it left of the body. False when the connection cannot
 // carry another request (the client is gone, the body was refused or is too large to be worth
 // reading).
-finish_body :: (frame: *Body_Frame) -> bool {
+finish_body :: no_inline (frame: *Body_Frame) -> bool {
     if frame.dead || frame.close return false;
 
     if frame.finished return true;
