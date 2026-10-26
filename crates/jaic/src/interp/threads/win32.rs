@@ -1077,7 +1077,9 @@ fn deadline_after(milliseconds: u32) -> Option<Instant> {
 #[cfg(test)]
 mod handle_registry_tests {
     use super::*;
-    use crate::interp::{NativeHost, native};
+    use crate::interp::NativeHost;
+    #[cfg(windows)]
+    use crate::interp::native;
 
     #[test]
     fn managed_thread_lookup_accepts_native_handle_range_without_events() {

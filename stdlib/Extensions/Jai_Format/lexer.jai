@@ -4,6 +4,11 @@
 // punctuation table (longest match first), `#string` here-strings, `@` notes, `\` identifier
 // separators and `.5` float literals. Unlike the compiler it keeps comments as tokens and
 // records the whitespace before every token, which is all the formatter needs.
+//
+// Why not Jai_Lexer: that module is the token contract a metaprogram reads (values, line and
+// column pairs, no comments, no whitespace), and it does not keep what the formatter must
+// reproduce byte for byte. So this is a second lexer by necessity; `PUNCTUATION` below is held to
+// jaic's table by crates/jaic/tests/formatter_lexer.rs, which fails when the two drift apart.
 
 #scope_module
 

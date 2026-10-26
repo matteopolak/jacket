@@ -146,6 +146,12 @@ pub(super) fn puncts_starting_with(c: u8) -> &'static [(&'static str, P)] {
     })[c as usize]
 }
 
+/// Every punctuation spelling, longest first within each starting character: the table a
+/// formatter's lexer must match (`crates/jaic/tests/formatter_lexer.rs` compares them).
+pub fn spellings() -> impl Iterator<Item = &'static str> {
+    PUNCT.iter().map(|(text, _)| *text)
+}
+
 impl P {
     pub fn text(self) -> &'static str {
         PUNCT
