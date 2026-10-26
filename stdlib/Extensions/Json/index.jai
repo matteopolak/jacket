@@ -30,6 +30,7 @@ BACKSLASH_FLAG :: 0x8000_0000;
 POSITION_MASK :: 0x3fff_ffff;
 LAST_CHUNK_AT :: 48;
 MIN_BYTES_PER_ENTRY :: 48;
+DENSE_CHECK_AT :: 8192;
 
 Block_State :: struct {
     prev_escaped: u64; // the last byte of the previous block was a backslash that escapes the next byte
@@ -176,8 +177,11 @@ build_index :: (text: string, index: *[..] u32) -> bool {
         // Strings that are short and numerous, or full of escapes, do not repay the index: the
         // reader scans them as fast as the index can be read. Neither does a text with hardly
         // any strings, such as an array of numbers. Judged on the first 32 KB: it pays between
-        // one entry per 48 bytes and one per 2 KB.
-        if at == 32768 && (index.count * MIN_BYTES_PER_ENTRY > at || index.count * 2048 < at) {
+        // one entry per 48 bytes and one per 2 KB. Too many entries already show in the first
+        // 8 KB, which saves indexing the next 24 KB of a text that will be refused.
+        dense := index.count * MIN_BYTES_PER_ENTRY > at;
+
+        if (at == DENSE_CHECK_AT && dense) || (at == 32768 && (dense || index.count * 2048 < at)) {
             json_index_stats.sparse += 1;
 
             return false;

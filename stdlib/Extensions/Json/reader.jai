@@ -545,7 +545,7 @@ unescape_into :: (raw: string, dest: *u8) -> int {
         next := find_backslash(raw, i);
 
         if next > i {
-            memcpy(dest + out, raw.data + i, next - i);
+            copy_bytes(dest + out, raw.data + i, next - i);
             out += next - i;
             i = next;
 
@@ -611,7 +611,7 @@ json_read_string :: (r: *Json_Reader) -> string, bool {
     memory := alloc_string(raw.count);
 
     if !escaped {
-        memcpy(memory.data, raw.data, raw.count);
+        copy_bytes(memory.data, raw.data, raw.count);
 
         return memory, true;
     }
