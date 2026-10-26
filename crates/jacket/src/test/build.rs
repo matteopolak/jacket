@@ -232,7 +232,12 @@ fn interpreted(
     let mut args = vec![path_text(root), "-interp".into(), "-quiet".into()];
     args.extend(flags);
     args.extend(root_flags.iter().cloned());
-    args.extend([PLUGIN.into(), "--".into()]);
+    args.push(PLUGIN.into());
+    if list {
+        // Nothing runs afterwards, so the plugin leaves the `@compile_time` tests unrun too.
+        args.push("list".into());
+    }
+    args.push("--".into());
     if waits {
         args.extend(["--args-from".into(), path_text(&plan)]);
     } else {

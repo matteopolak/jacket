@@ -3,7 +3,9 @@
 // the tests and an entry point, `__jacket_test_main`, that runs them (Testing's `run_tests`).
 // The program's own `main`, if it has one, stays as it is and does not run.
 //
-// It takes no options. It prints what it found on standard output as records, the framing the
+// Its one option, `list`, is for a program that is only listed (`jacket test --list`): the
+// `@compile_time` tests are named but not run, since nothing will replay what they report.
+// It prints what it found on standard output as records, the framing the
 // test program's own records use (`\x02`, the kind, each field after `\x1f`, then `\x03`):
 //     manifest    one per test and bench: kind, name, file, line, then its notes
 //     source      one per line of the code it adds, for a program that adds it itself, since
@@ -36,6 +38,7 @@ Discovery :: struct {
     #as using base: Metaprogram_Plugin;
     found: [..] Found;
     added: bool;
+    list: bool; // the `list` option
 }
 
 Found :: struct {
@@ -53,17 +56,21 @@ Found :: struct {
 }
 
 init :: (plugin: *Metaprogram_Plugin, options: [] string) -> bool {
-    if options.count {
-        print("Testing/Discovery: unknown option '%'\n", options[0]);
+    for options {
+        if it == "list" {
+            (cast(*Discovery) plugin).list = true;
+        } else {
+            print("Testing/Discovery: unknown option '%'\n", it);
 
-        return false;
+            return false;
+        }
     }
 
     return true;
 }
 
 log_help :: (plugin: *Metaprogram_Plugin) {
-    print("Testing/Discovery: takes no options; it prints the tests it found and the code it adds, for jacket test.\n");
+    print("Testing/Discovery: takes the option `list` (name the compile-time tests without running them); it prints the tests it found and the code it adds, for jacket test.\n");
 }
 
 add_source :: (plugin: *Metaprogram_Plugin) {
@@ -337,7 +344,9 @@ registry_source :: (discovery: *Discovery) -> string {
     compile_times := 0;
     for discovery.found if it.kind == "test" && it.compile_time compile_times += 1;
 
-    if compile_times {
+    if compile_times && discovery.list {
+        append(*registry, "__jacket_ct_results :: \"\";\n");
+    } else if compile_times {
         append(*registry, "__jacket_ct_results :: #run __jacket_testing.run_compile_time(__jacket_testing.Compile_Time_Case.[\n");
 
         for discovery.found {
