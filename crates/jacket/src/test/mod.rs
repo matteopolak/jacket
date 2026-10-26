@@ -16,6 +16,7 @@ mod jobs;
 mod options;
 mod report;
 mod review;
+mod watch;
 
 use crate::cli::TestArgs;
 use crate::{project, tools};
@@ -362,6 +363,25 @@ fn expr_selects(expr: &filter::FilterExpr, case: &Case, root: &discover::Root, c
 }
 
 pub fn run(args: &TestArgs, cwd: &Path, bench: bool) -> ExitCode {
+    if !args.watch {
+        return run_once(args, cwd, bench, &mut watch::Watched::default(), None);
+    }
+    if bench {
+        return fail("`jacket bench` has no --watch");
+    }
+    watch::run(args, cwd)
+}
+
+/// One run of the selected tests. `watched` is told which folders and test files the run
+/// used; `only` narrows the run to the cases of these test files.
+fn run_once(
+    args: &TestArgs,
+    cwd: &Path,
+    bench: bool,
+    watched: &mut watch::Watched,
+    only: Option<&std::collections::BTreeSet<PathBuf>>,
+) -> ExitCode {
+    watched.clear();
     let resolved = resolve_paths(args, cwd);
     let args = &resolved;
     let loaded = match project::load(cwd) {
@@ -453,6 +473,9 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: bool) -> ExitCode {
         .iter()
         .map(|r| build::root_flags(&r.dir, r.library))
         .collect();
+    if args.watch {
+        watched.set_folders(&roots, &toolchain.flags, &root_flags);
+    }
     let list = args.list || bench;
     let built = build_all(
         &roots,
@@ -484,6 +507,9 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: bool) -> ExitCode {
     }
 
     let cases = cases(&roots, &built);
+    if args.watch {
+        watched.set_tests(cases.iter().map(|c| c.file.as_path()));
+    }
     let in_expr = |case: &Case| {
         filter_expr
             .as_ref()
@@ -503,7 +529,9 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: bool) -> ExitCode {
         if (args.doc && !is_doc) || (args.no_doc && is_doc) {
             continue;
         }
-        if !in_expr(&case) {
+        if !in_expr(&case)
+            || only.is_some_and(|files| !files.contains(&watch::canonical(&case.file)))
+        {
             continue;
         }
         if let Some(run_as) = select(&case, &args.filters, args.exact) {

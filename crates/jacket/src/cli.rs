@@ -130,6 +130,9 @@ pub struct TestArgs {
     /// Print the tests (and benchmarks) instead of running them
     #[arg(long)]
     pub list: bool,
+    /// Run again whenever a `.jai` file of the tests or the code they import changes
+    #[arg(long, conflicts_with_all = ["list", "review"])]
+    pub watch: bool,
     /// Tests run at once, as jaic's -j [default: the machine's threads]
     #[arg(short = 'j', long, value_name = "N")]
     pub jobs: Option<usize>,

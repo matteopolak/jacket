@@ -186,6 +186,18 @@ To add a matcher, add a `Matcher_Kind`, a constructor, and a case each in `holds
 
 `jacket test parse split` runs the tests whose name contains `parse` or `split`; `--exact` makes filters whole names. `name/sub` runs one subtest of `name` (subtests are reported under their test); the cases of a `@cases` test are subtests too. `--partition hash:K/N` keeps the tests whose name hashes (FNV-1a) to part K of N, stable across machines; `count:K/N` takes every Nth by position. `--list` prints `name: kind` per test without running anything (`--format json`: one `{"type":"list",...}` per test). A `@cases` test is followed by a `name/case: subtest` line per case (kind `subtest` in JSON); listing evaluates the lists, which runs their code at compile time.
 
+### Watching
+
+`jacket test --watch` runs the tests, then runs them again whenever a `.jai` file changes, until Ctrl-C. Each run clears the screen (on a terminal, for the `human` format) and prints its own summary; a compile error does not end the watch, the next save tries again.
+
+Watched are the test roots and the folders the compiler imports from (`-import_dir`, `-I`, including a library root's parent and the project's `import_path`). Files are polled for a new modification time or size, and a run starts once they have been still for 200 ms, so a save that touches several files runs once. Folders named `target`, `node_modules` and `.git` are skipped, and only `.jai` files count, so the `.snap.new` and temporary files a run writes do not start another. When every changed file is a test file the run is only that file's tests; any other change runs all the selected tests. Filters, `-E`, `--interp` and the rest apply to every run. `--watch` does not combine with `--list` or `--review`, and `jacket bench` has no `--watch`.
+
+### Watching
+
+`jacket test --watch` runs the tests, then runs them again whenever a `.jai` file changes, until Ctrl-C. Each run clears the screen (on a terminal, for the `human` format) and prints its own summary; a compile error does not end the watch, the next save tries again.
+
+Watched are the test roots and the folders the compiler imports from (`-import_dir`, `-I`, including a library root's parent and the project's `import_path`). Files are polled for a new modification time or size, and a run starts once they have been still for 200 ms, so a save that touches several files runs once. Folders named `target`, `node_modules` and `.git` are skipped, and only `.jai` files count, so the `.snap.new` and temporary files a run writes do not start another. When every changed file is a test file the run is only that file's tests; any other change runs all the selected tests. Filters, `-E`, `--interp` and the rest apply to every run. `--watch` does not combine with `--list` or `--review`, and `jacket bench` has no `--watch`.
+
 ### Filter expressions
 
 `-E`/`--filter-expr EXPR` selects tests with predicates, as cargo-nextest's filtersets do. It is combined with the positional filters: a test must satisfy both.
@@ -358,6 +370,8 @@ Programs run from their own `tests/` folder, as the old runner did. Where a test
 
 - A new flag: `TestArgs` in `crates/jacket/src/cli.rs`, read in `settings` in `crates/jacket/src/test/mod.rs`; if it has a `jacket.toml` key, add it to the `test_settings!` list in `crates/jacket-config/src/schema.rs` (it defines `Test`, `TestRun` and the profile overlay) (and the known-keys lists and the VS Code schema in `editors/vscode/scripts/build.ts`).
 - A new note: `TestOptions::apply` and `skip_reason` in `crates/jacket/src/test/options.rs`, then how it is used in `jobs.rs` (`resolve`, `expectations`) or `mod.rs`; list it in the table above.
+- What is watched, the debounce and which changes narrow a run: `watch.rs`; the run itself is `run_once` in `mod.rs`, which tells `Watched` the folders and test files it used.
+- What is watched, the debounce and which changes narrow a run: `watch.rs`; the run itself is `run_once` in `mod.rs`, which tells `Watched` the folders and test files it used.
 - A filter predicate: `Parser::predicate` and `eval` in `crates/jacket/src/test/filter.rs`, and what a test offers it in `expr_selects` and `kinds_of` (`mod.rs`).
 - A new kind of file test: `Root::read` (`discover.rs`), a `Kind`, and a runner in `golden.rs` called from `run_file_case` (`jobs.rs`).
 - Doc tests: what counts as a doc comment and which files are read is `crates/jaic/src/doc_comments.rs` (printed by `jaic -doc_comments`); the fence options and the generated program are in `doctest.rs` (`fenced`, `generate`); checking a block is `doctest::check`.
