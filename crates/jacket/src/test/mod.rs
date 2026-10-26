@@ -833,6 +833,11 @@ fn build_all(
 mod tests {
     use super::*;
 
+    #[test]
+    fn a_run_without_a_seed_draws_a_short_one() {
+        assert!(random_seed() < 1_000_000_000);
+    }
+
     pub(super) fn case(name: &str, kind: Kind) -> Case {
         Case {
             name: name.into(),

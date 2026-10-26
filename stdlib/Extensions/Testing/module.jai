@@ -87,6 +87,8 @@ run :: (t: *Test, name: string, body: (t: *Test, data: *$T), data: *T) -> bool {
 #load "cases.jai";
 #load "matchers.jai";
 #load "snapshots.jai";
+#load "property.jai";
+#load "shrink.jai";
 #load "compare.jai";
 #load "tracking.jai";
 #load "runner.jai";

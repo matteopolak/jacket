@@ -21,7 +21,7 @@ splits_on_commas :: (t: *Test) {
 } @test @timeout(5)
 ```
 
-A test is a file-level procedure that takes nothing or a `*Test` (or the arguments of its `@cases`, below), with `@test` after its body. More notes after it set options for `jacket test` (`@timeout(5)`, `@only(.LINUX,.MACOS)`; the list is in [jacket test](../tools/jacket-test.md#notes)). Notes cannot contain spaces.
+A test is a file-level procedure that takes nothing or a `*Test` (or the arguments of its `@cases` or `@property`, below), with `@test` after its body. More notes after it set options for `jacket test` (`@timeout(5)`, `@only(.LINUX,.MACOS)`; the list is in [jacket test](../tools/jacket-test.md#notes)). Notes cannot contain spaces.
 
 ## How it works
 
@@ -119,6 +119,48 @@ The first time, the snapshot does not exist: the test fails and the printed form
 
 A name that is not plain (`big/ger`, `what?`) has its other characters written `_` and a short hash added, so the file is legal on every OS. Strings are compared as they are; any other value is printed with one struct member or array element to a line (short arrays of numbers stay on one line), so a change shows as a line diff. Line endings and line breaks at the end of the text do not matter, so a snapshot checked out on Windows still matches. Pointers print as `null` or `<pointer>` since an address is not stable; keep them out of snapshotted values. Commit the `.snap` files; `*.snap.new` belongs in `.gitignore`.
 
+**Property tests** (`property.jai`, `shrink.jai`). `@property` on a procedure runs it on generated arguments, 100 times by default (`@property(500)` for another count). The arguments may be integers, floats, `bool`s, strings, enums, arrays (fixed, view and resizable), structs of those, and pointers to them. A leading `*Test` is the test's, as in any `@test`.
+
+```jai
+reversing_twice_is_the_identity :: (items: [] s64) {
+    expect_equal(reversed(reversed(items)), items);
+} @test @property
+
+addition_commutes :: (a: s32, b: s32) -> bool {
+    return cast(s64) a + b == cast(s64) b + a;
+} @test @property(500)
+```
+
+A property passes when its checks hold on every input, or, when it returns a `bool`, when it returns true. `assume(condition)` ends a trial without failing it (a property that returns a value writes `if !condition return true;`). Early trials use small values (short strings and arrays, small integers, with 0, 1 and the extremes of the type mixed in) and later ones larger, up to 100 elements.
+
+When an input fails, it is shrunk: integers move toward 0, floats toward 0 and whole numbers, strings and arrays get shorter and their elements simpler, struct members shrink one at a time. What is reported is the smallest input found that still fails, then the failure itself at the line of the check that made it:
+
+```
+--- lists_shrink_to_one_element (FAIL) ---
+  tests/property.jai:79:
+    property failed on trial 4 (seed 10254160)
+    counterexample: lists_shrink_to_one_element([100])
+    shrunk from:    lists_shrink_to_one_element([1358734529538984603, 5, 6, -5]) in 57 steps
+    rerun: jacket test --seed 10254160 --exact 'lists_shrink_to_one_element'
+  tests/property.jai:80:
+    expected true, got false
+    80 | for items expect(it < 100);
+```
+
+The seed comes from `jacket test --seed N`; without it each run draws one and prints it only with a failure. A run with the same seed makes the same inputs on every OS and in every mode, so the rerun line repeats the failure. A failed `assert` inside a property stops the program, so that input is named but not shrunk.
+
+**Custom generators.** `@generate(NAME)` names a procedure `(rng: *Rng) -> T` whose values replace the built-in ones for every argument (or struct member, or element) of type `T`. `Rng` has `rng_u64`, `rng_below(rng, n)`, `rng_range(rng, low, high)`, `rng_chance(rng, one_in)`, `rng_unit` (a float from 0 to 1) and `rng.size`, which grows from 1 to 100 over the trials. Values from a custom generator are not shrunk, since the module cannot know what the generator guarantees.
+
+```jai
+even :: (rng: *Rng) -> s64 { return rng_range(rng, -500, 500) * 2; }
+
+doubling_keeps_parity :: (n: s64) {
+    expect_equal((n * 2) % 2, 0);
+} @test @property @generate(even)
+```
+
+`run_property(t, procedure, count, generators)` does the same by hand, with `Custom_Generator.[generator(even)]`. A procedure that needs a type the module cannot generate (a procedure pointer, `Any`) fails with a message naming the type and suggesting `@generate`. Properties do not combine with `@cases` and cannot use subtests.
+
 **Memory** (`tracking.jai`). Each test runs with a tracking allocator as `context.allocator`, over the allocator that was there. It records every live block with the first stack frames that made it; when the test returns, anything still live is a failure at the frame that allocated it, outside the standard library (`leaked 32 bytes in 1 allocation made here in make_list`). Freeing or resizing a block it does not own (freed twice, or allocated elsewhere) fails the test at the first one. `@allow_leaks` turns leak reports off for a test. Temporary storage is reset before each test, so `temp` memory is never a leak. Memory allocated with another allocator is not tracked.
 
 **Doc tests.** `jacket test` also runs the ```` ```jai ```` examples in a library's doc comments, each through this module, so `expect` and `assert` work in them (see [jacket test](../tools/jacket-test.md#doc-tests)).
@@ -131,6 +173,7 @@ A name that is not plain (`big/ger`, `what?`) has its other characters written `
 
 - A new check goes in `checks.jai`, built on `report_failure(loc, message)`; add a `require_` form if it can fail, and a test in `tests/checks.jai` with `@should_fail(word)` for its message.
 - How a value is printed for a snapshot, and where its file goes: `write_value` and `snapshot_path` in `snapshots.jai`. Changing either invalidates stored snapshots.
+- A new kind of generated value: `make_value` in `property.jai` (and `unsupported`, which lists what can be generated), then `smaller_values` in `shrink.jai`. The sequence of numbers must not change for existing seeds without a changelog line: people keep seeds in bug reports.
 - Comparison and messages for a new kind of value: `values_equal` and `describe_difference` in `compare.jai`.
 - What the tracker records (more frames, sizes): `SITE_FRAMES` and `remember` in `tracking.jai`. The tracker is never freed, because memory from a test can outlive it.
 - How a case is named or an entry turned into arguments: `case_names`, `label_source` and `call_source` in `cases.jai`. They run at compile time inside `#insert`, from the procedure's and the entry's type information. `jacket test --list` learns the cases from a `#run` Discovery adds (`-cases FILE`), which calls `list_cases`.

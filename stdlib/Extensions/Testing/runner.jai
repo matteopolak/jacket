@@ -65,6 +65,8 @@ run_tests :: (cases: [] Test_Case) {
         i += 1;
     }
 
+    if !seed_given run_seed = cast(u64) to_nanoseconds(current_time_consensus()) % 1_000_000_000;
+
     if listing {
         for cases print("%\t%\t%\n", it.name, it.location.fully_pathed_filename, it.location.line_number);
         return;
@@ -127,6 +129,12 @@ report_failure :: (loc: Source_Code_Location, message: string) {
         // A check outside a test (in a cleanup that outlived it, or in a program that never
         // started one): say so rather than lose it.
         print("%:%: % (outside a test)\n", loc.fully_pathed_filename, loc.line_number, message, to_standard_error = true);
+        return;
+    }
+
+    if capturing {
+        // A property is trying inputs: only whether this one failed matters.
+        trial_failed = true;
         return;
     }
 
@@ -250,8 +258,17 @@ run_cleanups :: (t: *Test) {
 }
 
 assertion_failed :: (loc: Source_Code_Location, message: string) -> bool {
+    // A property test stopped the program: say which input did.
+    if running_property {
+        capturing = false;
+        state := running_property;
+        running_property = null;
+        report_failure(running_location(), tprint("property failed on trial % (seed %) with %\nrerun: jacket test --seed % --exact '%'", state.trial, state.seed, describe_arguments(state.test, state.arguments), state.seed, state.test.name));
+    }
+
     // Alone, the usual handler's report is enough; jacket needs a record of it.
     if reporting report_failure(loc, ifx message then tprint("assertion failed: %", message) else "assertion failed");
+
     // The usual handler prints the stack trace and stops the program.
     return previous_assertion_handler(loc, message);
 }

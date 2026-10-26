@@ -186,6 +186,10 @@ To add a matcher, add a `Matcher_Kind`, a constructor, and a case each in `holds
 
 `jacket test parse split` runs the tests whose name contains `parse` or `split`; `--exact` makes filters whole names. `name/sub` runs one subtest of `name` (subtests are reported under their test); the cases of a `@cases` test are subtests too. `--partition hash:K/N` keeps the tests whose name hashes (FNV-1a) to part K of N, stable across machines; `count:K/N` takes every Nth by position. `--list` prints `name: kind` per test without running anything (`--format json`: one `{"type":"list",...}` per test). A `@cases` test is followed by a `name/case: subtest` line per case (kind `subtest` in JSON); listing evaluates the lists, which runs their code at compile time.
 
+### Seeds
+
+Property tests start from a seed. `--seed N` sets it; otherwise `jacket test` draws a number once per run and gives it to every test program, so all of a run's tests share it (each test mixes in its own name). A failing property prints the seed and `rerun: jacket test --seed N --exact 'name'`, which makes the same inputs again, natively, with `--interp` and for `-os wasm`. A retry (`--retries`) of a failed property uses the same seed and so fails again; a property that is flaky for other reasons is not helped by it.
+
 ### Notes
 
 Options for one test are notes after its body; a golden or compile-fail file, or every test of a unit test file, takes the same options from `// test:` lines in the comment block at the top of the file:
@@ -203,6 +207,8 @@ reads_proc_self :: () { ... } @test @serial
 | `@slow` | known to be slow: started first, no `SLOW` line |
 | `@serial` | runs while no other test does |
 | `@cases(LIST)` | run once per entry of `LIST`, each as a subtest named from its values; see [Testing](../extensions/testing.md#how-it-works) |
+| `@property`, `@property(N)` | run once per generated input (100 by default, or `N`); see [Testing](../extensions/testing.md#how-it-works) |
+| `@generate(NAME)` | with `@property`: the procedure `NAME` makes the values of the type it returns |
 | `@retries(N)` | retries for this test, over `--retries` |
 | `@only(...)` | run only on these targets: `.LINUX`, `.MACOS`, `.WINDOWS`, `.WASM`, `.ANDROID`, `.X64`, `.ARM64`, `.INTERP`, `.NATIVE`; every kind named must match (`only(.LINUX,.X64)`) |
 | `@skip_on(...)` | skip on any of these targets |

@@ -28,6 +28,8 @@ get_plugin :: () -> *Metaprogram_Plugin {
 
 ENTRY_POINT :: "__jacket_test_main";
 CASES_NOTE :: "cases(";
+PROPERTY_NOTE :: "property";
+GENERATE_NOTE :: "generate(";
 
 Discovery :: struct {
     #as using base: Metaprogram_Plugin;
@@ -46,6 +48,9 @@ Found :: struct {
     notes: [] string;
     arguments: s64;
     cases: string; // the list of a `@cases(LIST)` note
+    property: bool; // a `@property` test
+    trials: string; // the count of `@property(N)`, or nothing
+    generators: [] string; // the procedures of `@generate(NAME)` notes
 }
 
 init :: (plugin: *Metaprogram_Plugin, options: [] string) -> bool {
@@ -116,6 +121,31 @@ cases_of :: (notes: [] *Code_Note) -> string {
     return "";
 }
 
+// Whether there is a `@property` note, and its count if it has one.
+property_of :: (notes: [] *Code_Note) -> (found: bool, trials: string) {
+    for notes {
+        if it.text == PROPERTY_NOTE return true, "";
+
+        if begins_with(it.text, "property(") && ends_with(it.text, ")") {
+            return true, string.{ it.text.count - "property(".count - 1, it.text.data + "property(".count };
+        }
+    }
+
+    return false, "";
+}
+
+generators_of :: (notes: [] *Code_Note) -> [] string {
+    names: [..] string;
+
+    for notes {
+        if begins_with(it.text, GENERATE_NOTE) && ends_with(it.text, ")") {
+            array_add(*names, copy_string(string.{ it.text.count - GENERATE_NOTE.count - 1, it.text.data + GENERATE_NOTE.count }));
+        }
+    }
+
+    return names;
+}
+
 collect :: (discovery: *Discovery, typechecked: *Message_Typechecked) {
     for typechecked.declarations {
         declaration := it.expression;
@@ -141,7 +171,24 @@ collect :: (discovery: *Discovery, typechecked: *Message_Typechecked) {
 
         cases := ifx kind == "test" then cases_of(header.notes) else "";
 
-        if header.arguments.count > 1 && !cases {
+        property, trials := property_of(header.notes);
+
+        if kind != "test" property = false;
+
+        if property && cases {
+            compiler_report(file, line, declaration.c0, "a @test cannot have both @property and @cases: a property generates its arguments");
+            continue;
+        }
+
+        if property && trials {
+            count, ok := string_to_int(trials);
+            if !ok || count < 1 {
+                compiler_report(file, line, declaration.c0, tprint("@property takes a whole number of trials, as in `@property(500)`, not `%`", trials));
+                continue;
+            }
+        }
+
+        if header.arguments.count > 1 && !cases && !property {
             compiler_report(file, line, declaration.c0, tprint("a @% procedure takes no arguments or one `*%` (a @test with `@cases(LIST)` takes the entry as its arguments)", kind, ifx kind == "test" then "Test" else "Bench"));
             continue;
         }
@@ -152,8 +199,30 @@ collect :: (discovery: *Discovery, typechecked: *Message_Typechecked) {
             if it.text != kind array_add(*notes, copy_string(it.text));
         }
 
-        array_add(*discovery.found, .{ kind, copy_string(declaration.name), copy_string(file), line, notes, header.arguments.count, copy_string(cases) });
+        array_add(*discovery.found, .{ kind, copy_string(declaration.name), copy_string(file), line, notes, header.arguments.count, copy_string(cases), property, copy_string(trials), generators_of(header.notes) });
     }
+}
+
+// The call that runs a `@property` test.
+property_call :: (found: Found) -> string {
+    builder: String_Builder;
+    builder.allocator = temp;
+    print_to_builder(*builder, "__jacket_testing.run_property(t, %, %", found.name, ifx found.trials then found.trials else "__jacket_testing.DEFAULT_TRIALS");
+
+    if found.generators.count {
+        append(*builder, ", __jacket_testing.Custom_Generator.[");
+
+        for found.generators {
+            if it_index > 0 append(*builder, ", ");
+            print_to_builder(*builder, "__jacket_testing.generator(%)", it);
+        }
+
+        append(*builder, "]");
+    }
+
+    append(*builder, ");");
+
+    return builder_to_string(*builder,, temp);
 }
 
 // One field of the manifest: tabs and line breaks would split it.
@@ -206,7 +275,7 @@ finish_discovery :: (discovery: *Discovery) {
 
     for discovery.found {
         if it.kind != "test" continue;
-        call := ifx it.cases then tprint("__jacket_testing.run_cases(t, %, %);", it.cases, it.name) else ifx it.arguments then tprint("%(t);", it.name) else tprint("%();", it.name);
+        call := ifx it.property then property_call(it) else ifx it.cases then tprint("__jacket_testing.run_cases(t, %, %);", it.cases, it.name) else ifx it.arguments then tprint("%(t);", it.name) else tprint("%();", it.name);
         print_to_builder(*registry, "__jacket_test_% :: (t: *__jacket_testing.Test) { % }\n", it_index, call);
     }
 

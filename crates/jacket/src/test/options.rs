@@ -126,7 +126,15 @@ impl TestOptions {
             "args" => self.args = quoted_list(args.unwrap_or("")),
             "check_only" => self.check_only = true,
             // Discovery's own notes.
-            "test" | "bench" | "compile_fail" | "cases" => {}
+            "test" | "bench" | "compile_fail" | "cases" | "compile_time" | "generate" => {}
+            "property" => {
+                if args.is_some_and(|a| a.trim().parse::<u32>().unwrap_or(0) == 0) {
+                    return Err(
+                        "`@property` takes a number of trials, as in `@property(500)`, or none"
+                            .into(),
+                    );
+                }
+            }
             _ => return Err(format!("unknown note `@{note}` (ignored)")),
         }
         Ok(())
@@ -314,6 +322,30 @@ mod tests {
         let (options, warnings) = TestOptions::default().with_notes(&notes);
         assert!(warnings.is_empty(), "{warnings:?}");
         assert_eq!(options.xfail.as_deref(), Some(""));
+    }
+
+    #[test]
+    fn property_and_compile_time_notes_are_discoverys() {
+        let notes: Vec<String> = [
+            "property",
+            "property(500)",
+            "generate(even)",
+            "compile_time",
+        ]
+        .map(String::from)
+        .to_vec();
+        let (options, warnings) = TestOptions::default().with_notes(&notes);
+        assert!(warnings.is_empty(), "{warnings:?}");
+        assert_eq!(options, TestOptions::default());
+    }
+
+    #[test]
+    fn a_property_count_is_a_positive_number() {
+        for bad in ["property(0)", "property(many)", "property()"] {
+            let (_, warnings) = TestOptions::default().with_notes(&[bad.to_string()]);
+            assert_eq!(warnings.len(), 1, "{bad}: {warnings:?}");
+            assert!(warnings[0].contains("number of trials"), "{warnings:?}");
+        }
     }
 
     #[test]
