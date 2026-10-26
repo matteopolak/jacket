@@ -159,6 +159,8 @@ pub struct Config {
     pub source: Option<PathBuf>,
     /// One-line notes about the configuration (unknown keys).
     pub notes: Vec<String>,
+    /// `[project] import_path` of the file the settings came from, as absolute folders.
+    pub import_dirs: Vec<PathBuf>,
 }
 
 /// The settings of every file in a run: each file uses the nearest `jacket.toml` above it,
@@ -538,6 +540,7 @@ impl Config {
         let mut config = Config::from_lint(&loaded.config.lint, loaded.dir())
             .map_err(|e| format!("in `{}`, {e}", source.display()))?;
         config.source = Some(source);
+        config.import_dirs = loaded.config.project.import_dirs(loaded.dir());
         config.notes = loaded.notes;
         Ok(config)
     }

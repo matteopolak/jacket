@@ -25,7 +25,10 @@ use jaic::fxhash::{HashMap, HashSet};
 use jaic::ide::IdeRoot;
 use jaic::interp::{SandboxHost, SharedHost};
 use jaic::paths::CanonCache;
-use jaic::project::{self, DiskFs, LoadCache, ProjectFs, Root, RootOptions, resolve_root};
+use jaic::project::{
+    self, DiskFs, LoadCache, Program, ProgramInputs, ProjectFs, Root, RootOptions, program_for,
+    resolve_program,
+};
 use jaic::sema::{
     Compiler, FileSystem, ImportEdge, NativeFs, Options as CompilerOptions, ProgramSource, TargetOs,
 };
@@ -253,8 +256,39 @@ fn expand(path: &Path, config: &Configs, out: &mut BTreeSet<PathBuf>) {
     }
 }
 
+/// What the import folders of a program rooted at `path` are made of: the `import_path` of the
+/// nearest `jacket.toml`, the `-import_dir`s of the run and the standard library.
+fn program_inputs(options: &Options, configs: &Configs, path: &Path) -> ProgramInputs {
+    ProgramInputs {
+        configured: configs.at(path).import_dirs.clone(),
+        extra: options.import_dirs.clone(),
+        stdlib: options.stdlib.clone(),
+    }
+}
+
+/// The program the linter compiles `file` as, with its import folders.
+fn program_of(options: &Options, configs: &Configs, file: &Path, cache: &mut LoadCache) -> Program {
+    let inputs = program_inputs(options, configs, file);
+    let mut dirs = inputs.configured.clone();
+    dirs.extend(inputs.extra.iter().cloned());
+    dirs.push(inputs.stdlib.clone());
+    resolve_program(&DiskFs, file, &RootOptions::linter(dirs), &inputs, cache)
+}
+
+/// The module search path `file`'s program is compiled with, before the compiler gets it.
+pub fn root_import_paths(options: &Options, file: &Path) -> Vec<PathBuf> {
+    let configs = Configs::new(&options.config);
+    program_of(
+        options,
+        &configs,
+        &canonical(file),
+        &mut LoadCache::default(),
+    )
+    .import_dirs
+}
+
 /// Roots to compile and the files to report on.
-fn plan(options: &Options, configs: &Configs) -> (Vec<Root>, BTreeSet<PathBuf>) {
+fn plan(options: &Options, configs: &Configs) -> (Vec<Program>, BTreeSet<PathBuf>) {
     let mut listed = BTreeSet::new();
     for p in &options.paths {
         expand(p, configs, &mut listed);
@@ -263,21 +297,20 @@ fn plan(options: &Options, configs: &Configs) -> (Vec<Root>, BTreeSet<PathBuf>) 
     for f in &listed {
         loaded_by_listed.extend(project::reachable_loads(&DiskFs, f, usize::MAX));
     }
-    let mut import_dirs = options.import_dirs.clone();
-    import_dirs.push(options.stdlib.clone());
-    let root_options = RootOptions::linter(import_dirs);
     let mut loader_cache = LoadCache::default();
-    let mut roots: Vec<Root> = if let Some(source) = &options.source {
-        vec![Root::Program(canonical(source))]
+    let mut roots: Vec<Program> = if let Some(source) = &options.source {
+        let source = canonical(source);
+        let inputs = program_inputs(options, configs, &source);
+        vec![program_for(Root::Program(source), &inputs)]
     } else {
         listed
             .iter()
             .filter(|f| !loaded_by_listed.contains(*f))
-            .map(|f| resolve_root(&DiskFs, f, &root_options, &mut loader_cache))
+            .map(|f| program_of(options, configs, f, &mut loader_cache))
             .collect()
     };
-    roots.sort();
-    roots.dedup();
+    roots.sort_by(|a, b| a.root.cmp(&b.root));
+    roots.dedup_by(|a, b| a.root == b.root);
     let mut report = listed;
     report.extend(loaded_by_listed);
     report.retain(|f| !configs.excluded(f));
@@ -390,33 +423,19 @@ struct Compiled {
 /// records lint facts for those files; without one it records every failing `#assert` instead
 /// of stopping at the first and records no lint facts.
 fn compile_root(
-    root: &Root,
+    program: &Program,
     options: &Options,
     os: Option<TargetOs>,
     report: Option<&BTreeSet<PathBuf>>,
     canon: &CanonCache,
 ) -> Compiled {
-    let main_dir = match root {
-        Root::Module {
-            dir, ..
-        } => dir.clone(),
-        Root::Program(p) => p.parent().map(Path::to_path_buf).unwrap_or_default(),
-    };
+    let root = &program.root;
+    let main_dir = root.main_dir();
     let mut copts = options.compiler_options.clone();
     if let Some(os) = os {
         jaic::target::select_os_cpu(&mut copts, Some(os), Some(jaic::sema::TargetCpu::X64));
     }
-    copts.import_paths.insert(0, main_dir.join("modules"));
-    if let Root::Module {
-        dir, ..
-    } = root
-    {
-        copts.import_paths.push(dir.clone());
-    }
-    copts
-        .import_paths
-        .extend(options.import_dirs.iter().cloned());
-    copts.import_paths.push(options.stdlib.clone());
+    copts.import_paths.clone_from(&program.import_dirs);
     // RootedFs resolves program-generated relative paths from the source root. Import
     // directories are invocation configuration, so anchor them before that rebasing.
     // Also anchor nonexistent roots: they must not accidentally find a source-local shadow.
@@ -534,7 +553,7 @@ fn compile_root(
 /// Compile `root` with lint facts and lint the files in `report` it compiled, following the
 /// workspaces its metaprogram creates (`build.jai` compiling the real program).
 fn lint_root(
-    root: &Root,
+    root: &Program,
     index: usize,
     options: &Options,
     configs: &Configs,
@@ -808,7 +827,7 @@ type LeakRun = (usize, TargetOs, Vec<ImportEdge>, Vec<AssertFailure>);
 /// failing `#assert`s recorded rather than stopping the compile, and report the imports (or
 /// files) that portable code should not have, as [`rules::platform_leak`] explains.
 fn leak_pass(
-    (roots, report): (&[Root], &BTreeSet<PathBuf>),
+    (roots, report): (&[Program], &BTreeSet<PathBuf>),
     options: &Options,
     configs: &Configs,
     canon: &CanonCache,
