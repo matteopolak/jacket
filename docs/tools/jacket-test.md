@@ -316,7 +316,7 @@ Programs run from their own `tests/` folder, as the old runner did. Where a test
 
 ## How to change it
 
-- A new flag: `TestArgs` in `crates/jacket/src/cli.rs`, read in `settings` in `crates/jacket/src/test/mod.rs`; if it has a `jacket.toml` key, add it to `Test` and `TestRun` in `crates/jacket-config/src/schema.rs` (and the known-keys lists and the VS Code schema in `editors/vscode/scripts/build.ts`).
+- A new flag: `TestArgs` in `crates/jacket/src/cli.rs`, read in `settings` in `crates/jacket/src/test/mod.rs`; if it has a `jacket.toml` key, add it to the `test_settings!` list in `crates/jacket-config/src/schema.rs` (it defines `Test`, `TestRun` and the profile overlay) (and the known-keys lists and the VS Code schema in `editors/vscode/scripts/build.ts`).
 - A new note: `TestOptions::apply` and `skip_reason` in `crates/jacket/src/test/options.rs`, then how it is used in `jobs.rs` (`resolve`, `expectations`) or `mod.rs`; list it in the table above.
 - A new kind of file test: `Root::read` (`discover.rs`), a `Kind`, and a runner in `golden.rs` called from `run_file_case` (`jobs.rs`).
 - Doc tests: what counts as a doc comment and which files are read is `crates/jaic/src/doc_comments.rs` (printed by `jaic -doc_comments`); the fence options and the generated program are in `doctest.rs` (`fenced`, `generate`); checking a block is `doctest::check`.
