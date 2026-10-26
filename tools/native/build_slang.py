@@ -23,7 +23,9 @@ import shutil
 import subprocess
 import sys
 
+from pathlib import Path
 from repo_output import main_checkout, shared_output_dir
+from toolkit.host import brew_prefix
 from toolkit.process import run
 
 TAG = "v2025.24.2"
@@ -37,7 +39,7 @@ def build_vulkan_extras(root, mac, ext, sub):
     (Vulkan Memory Allocator compiled from the module's own vk_mem_alloc.cpp)."""
     mod = os.path.join(root, SGPU, "modules", "Vulkan_With_VMA")
     if mac:
-        loader = os.path.realpath("/opt/homebrew/lib/libvulkan.dylib")
+        loader = os.path.realpath(str((brew_prefix() or Path("/usr/local")) / "lib/libvulkan.dylib"))
         out = os.path.join(mod, "libs", "mac")
         if os.path.exists(loader) and not os.path.exists(os.path.join(out, "libvulkan.dylib")):
             os.makedirs(out, exist_ok=True)

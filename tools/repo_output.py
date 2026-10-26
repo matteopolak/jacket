@@ -5,9 +5,9 @@ Everything lives under `<repo>/target/` (already ignored, shared with cargo). Se
 through `shared_output_dir()`, which resolves to the main checkout's directory.
 """
 import os
-import platform
 import subprocess
 from pathlib import Path
+from toolkit.host import host_cpu, host_os
 from toolkit.repo import ROOT
 
 
@@ -34,15 +34,11 @@ def shared_output_dir(*parts: str) -> Path:
     return (_override() or main_checkout() / 'target').joinpath(*parts)
 
 
-_SYSTEMS = {"Darwin": "macos", "Linux": "linux", "Windows": "windows"}
-_CPUS = {"arm64": "arm64", "aarch64": "arm64", "amd64": "x64", "x86_64": "x64"}
-
 
 def host_platform() -> str:
     """`<os>-<cpu>` of this machine, e.g. `macos-arm64`, `linux-x64`, `windows-x64`: the names of
     the per-platform directories under `target/`."""
-    system = _SYSTEMS.get(platform.system())
-    cpu = _CPUS.get(platform.machine().lower())
-    if not system or not cpu:
-        raise ValueError(f"unsupported host {platform.system()} {platform.machine()}")
+    system, cpu = host_os(), host_cpu()
+    if system not in ("macos", "linux", "windows") or cpu not in ("arm64", "x64"):
+        raise ValueError(f"unsupported host {system} {cpu}")
     return f"{system}-{cpu}"

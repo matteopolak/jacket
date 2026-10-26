@@ -209,10 +209,10 @@ class ScriptingWasmBuildTests(unittest.TestCase):
     def test_explicit_external_target_is_in_the_pinned_build_command(self):
         prefix = ["own-rustup", "run", "nightly-2026-08-29", "cargo"]
         command = wasm.build_command(
-            prefix, Path("/Volumes/CodexBuilds/targets/jai"), False
+            prefix, Path("/build/target"), False
         )
         self.assertEqual(
             command[command.index("--target-dir") + 1],
-            "/Volumes/CodexBuilds/targets/jai",
+            "/build/target",
         )
         self.assertNotIn("--release", command)

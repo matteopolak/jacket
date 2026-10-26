@@ -32,6 +32,7 @@ import zipfile
 from pathlib import Path
 
 from toolkit.download import fetch as http_fetch
+from toolkit.host import exe_name
 from toolkit.lsp import Lsp
 
 TOOLS = ("jaic", "jailsp", "jailint", "jaifmt", "jacket")
@@ -52,7 +53,7 @@ def asset_name(name: str) -> str:
 
 
 def exe(tool: str) -> str:
-    return tool + (".exe" if platform.system() == "Windows" else "")
+    return exe_name(tool)
 
 
 def sha256(path: Path) -> str:

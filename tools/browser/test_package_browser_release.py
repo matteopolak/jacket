@@ -59,7 +59,7 @@ class BrowserReleaseTests(unittest.TestCase):
                 if "--release" in command:
                     self.assertEqual(
                         command[command.index("--target-dir") + 1],
-                        "/Volumes/CodexBuilds/targets/jai",
+                        "/build/target",
                     )
                     self.assertEqual(command[command.index("--jaic") + 1], str(JAIC))
                     staged(Path(command[command.index("--output") + 1]))
@@ -74,10 +74,10 @@ class BrowserReleaseTests(unittest.TestCase):
                 patch.object(release.subprocess, "run", side_effect=run) as calls,
             ):
                 one = release.package(
-                    root, base / "one", Path("/Volumes/CodexBuilds/targets/jai"), JAIC
+                    root, base / "one", Path("/build/target"), JAIC
                 )
                 two = release.package(
-                    root, base / "two", Path("/Volumes/CodexBuilds/targets/jai"), JAIC
+                    root, base / "two", Path("/build/target"), JAIC
                 )
             self.assertTrue(
                 any(

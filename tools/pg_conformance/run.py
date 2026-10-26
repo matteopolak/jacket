@@ -35,6 +35,7 @@ from fetch import VERSIONS, fetch, major_of
 from repo_output import output_dir, shared_output_dir
 from toolkit.cli import add_jaic_argument
 from toolkit.download import pinned
+from toolkit.host import brew_prefix
 from toolkit.repo import ROOT
 
 CONFORMANCE = ROOT / "stdlib" / "Extensions" / "Postgres" / "tests" / "conformance"
@@ -129,9 +130,10 @@ def build_regress_lib(source: Path, out: Path, config: str) -> Path:
     includes = ["-I" + pg_config(config, "--includedir-server")]
 
     if sys.platform == "darwin":
-        for extra in ("/opt/homebrew/include", "/opt/homebrew/opt/gettext/include", "/usr/local/include"):
-            if Path(extra).is_dir():
-                includes.append("-I" + extra)
+        brew = brew_prefix()
+        for extra in (*([brew / "include", brew / "opt/gettext/include"] if brew else []), Path("/usr/local/include")):
+            if extra.is_dir():
+                includes.append("-I" + str(extra))
         postgres = Path(pg_config(config, "--bindir")) / "postgres"
         link = ["-bundle", "-bundle_loader", str(postgres)]
         # macOS servers load ".so" up to PostgreSQL 15 and ".dylib" from 16.

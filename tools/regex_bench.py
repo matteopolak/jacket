@@ -24,6 +24,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from toolkit.cli import add_jaic_argument
 from toolkit.hashing import sha256_bytes
+from toolkit.host import brew_prefix
 from toolkit.process import run as toolkit_run
 from toolkit.repo import ROOT
 
@@ -111,12 +112,9 @@ def must(cmd, what: str, **kw) -> str:
 
 def prefixes() -> list[Path]:
     found = []
-    brew = shutil.which("brew")
-    if brew:
-        r = run([brew, "--prefix"])
-        if r.returncode == 0:
-            found.append(Path(r.stdout.strip()))
-    found += [Path("/opt/homebrew"), Path("/usr/local"), Path("/usr")]
+    if brew_prefix():
+        found.append(brew_prefix())
+    found += [Path("/usr/local"), Path("/usr")]
     return [p for p in dict.fromkeys(found) if p.exists()]
 
 

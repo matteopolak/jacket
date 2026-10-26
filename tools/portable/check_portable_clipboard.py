@@ -18,7 +18,8 @@ import tempfile
 
 from clipboard_linux_diagnostics import failure_diagnostic, report_failure
 from toolkit.hashing import sha256_file
-from toolkit.repo import ROOT
+from toolkit.host import brew_prefix
+from toolkit.repo import ROOT, cargo_target_dir
 
 JAI = [
     "stdlib/Clipboard/module.jai",
@@ -79,7 +80,7 @@ def main():
     args = parser.parse_args()
     if args.linux_runtime and platform.system() != "Linux":
         parser.error("Linux native execution requires an actual Linux host/display")
-    base = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")).resolve()
+    base = cargo_target_dir(resolve=True)
     work = Path(tempfile.mkdtemp(prefix="clipboard-proof-", dir=base))
     target = work / "tools"
     temporary = work / "tmp"
@@ -237,7 +238,7 @@ def main():
                     ROOT / JAI[2],
                 ],
             )
-    include = ["-I/opt/homebrew/include"] if platform.system() == "Darwin" else []
+    include = [f"-I{brew_prefix() / 'include'}"] if brew_prefix() else []
     run(
         "native-x11-sdk-source",
         [

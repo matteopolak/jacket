@@ -10,15 +10,15 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 import json
 import os
 from pathlib import Path
-import platform
 import subprocess
 import tempfile
 from toolkit.hashing import sha256_file
-from toolkit.repo import ROOT
+from toolkit.host import brew_prefix
+from toolkit.repo import ROOT, cargo_target_dir
 
 
 def main():
-    base = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")).resolve()
+    base = cargo_target_dir(resolve=True)
     work = Path(tempfile.mkdtemp(prefix="clipboard-clock-", dir=base))
     names = {
         "stdlib/Clipboard/tests/native/clock-failure.c",
@@ -58,11 +58,7 @@ def main():
 
     native = ROOT / "stdlib/internal/clipboard/native"
     test = ROOT / "stdlib/Clipboard/tests/native/clock-failure.c"
-    sdk = (
-        ["-I/opt/homebrew/include", "-L/opt/homebrew/lib"]
-        if platform.system() == "Darwin"
-        else []
-    )
+    sdk = [f"-I{brew_prefix() / 'include'}", f"-L{brew_prefix() / 'lib'}"] if brew_prefix() else []
     for optimization in ["-O0", "-O2"]:
         program = work / ("clock" + optimization)
         if run(
@@ -89,7 +85,7 @@ def main():
                 [program],
                 diagnostic="X11 clipboard monotonic clock failed: Input/output error (errno=5)",
             )
-    include = ["-I/opt/homebrew/include"] if platform.system() == "Darwin" else []
+    include = [f"-I{brew_prefix() / 'include'}"] if brew_prefix() else []
     run(
         "production-sdk-syntax",
         [

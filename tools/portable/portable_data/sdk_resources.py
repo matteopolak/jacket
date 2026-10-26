@@ -5,9 +5,15 @@ import struct
 import subprocess
 import sys
 
+# tools/, for folder-qualified imports
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from toolkit.host import brew_prefix
+
 root = Path(sys.argv[1]).resolve()
-rc = shutil.which("llvm-rc") or "/opt/homebrew/opt/llvm/bin/llvm-rc"
-linker = shutil.which("lld-link") or "/opt/homebrew/bin/lld-link"
+brew = brew_prefix()
+rc = shutil.which("llvm-rc") or str(brew / "opt/llvm/bin/llvm-rc" if brew else "llvm-rc")
+linker = shutil.which("lld-link") or str(brew / "bin/lld-link" if brew else "lld-link")
 icon_path = root / "resource.ico"
 rc_path = root / "resource.rc"
 res_path = root / "resource.res"

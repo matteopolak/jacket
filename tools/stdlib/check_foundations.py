@@ -15,8 +15,10 @@ import re
 import sys
 from pathlib import Path
 import subprocess
-from toolkit.repo import ROOT
+from toolkit.repo import ROOT, cargo_target_dir
+from repo_output import output_dir
 from toolkit.cli import add_jaic_argument
+from toolkit.host import host_cpu, host_os
 
 CASES = (
     "Basic/tests/builder-format",
@@ -185,11 +187,7 @@ def negative_lint_sources():
 
 def host_profile():
     """(os, cpu) of this machine in the names of LINT_PROFILES."""
-    system = {"darwin": "macos", "linux": "linux", "win32": "windows"}.get(
-        sys.platform, sys.platform
-    )
-    cpu = "arm64" if platform.machine().lower() in ("arm64", "aarch64") else "x64"
-    return system, cpu
+    return host_os(), host_cpu()
 
 
 def lint_profile_sources(target_os, target_cpu):
@@ -389,11 +387,11 @@ def main():
     parser.add_argument(
         "--build-root",
         type=Path,
-        default=ROOT / "target",
+        default=cargo_target_dir(),
         help="explicit source-built compiler/tool target directory",
     )
     parser.add_argument(
-        "--output-root", type=Path, default=ROOT / "target/foundations-tests"
+        "--output-root", type=Path, default=output_dir("foundations-tests")
     )
     parser.add_argument(
         "--lint-only",

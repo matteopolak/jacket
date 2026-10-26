@@ -30,12 +30,12 @@ class CargoBuildPathsTests(unittest.TestCase):
             with patch.object(paths.subprocess, "check_output") as cargo:
                 selected = paths.configured_target_directory(
                     None,
-                    {"CARGO_TARGET_DIR": "/Volumes/CodexBuilds/targets/jai"},
+                    {"CARGO_TARGET_DIR": "/build/target"},
                     ["unused-cargo"],
                     root,
                 )
                 self.assertEqual(
-                    selected.path, Path("/Volumes/CodexBuilds/targets/jai")
+                    selected.path, Path("/build/target")
                 )
                 self.assertEqual(selected.source, "environment")
                 cargo.assert_not_called()
@@ -55,12 +55,12 @@ class CargoBuildPathsTests(unittest.TestCase):
     def test_actual_cargo_metadata_uses_locked_offline_pinned_command(self):
         root = Path("/own/repo")
         prefix = ["/own/rustup", "run", "nightly-2026-08-29", "cargo"]
-        environment = {"CARGO_BUILD_TARGET_DIR": "/Volumes/CodexBuilds/targets/jai"}
+        environment = {"CARGO_BUILD_TARGET_DIR": "/build/target"}
         with patch.object(
             paths.subprocess,
             "check_output",
             return_value=json.dumps(
-                {"target_directory": "/Volumes/CodexBuilds/targets/jai"}
+                {"target_directory": "/build/target"}
             ),
         ) as cargo:
             selected = paths.configured_target_directory(
@@ -75,7 +75,7 @@ class CargoBuildPathsTests(unittest.TestCase):
             "--offline",
         ]
         cargo.assert_called_once_with(expected, cwd=root, env=environment, text=True)
-        self.assertEqual(selected.path, Path("/Volumes/CodexBuilds/targets/jai"))
+        self.assertEqual(selected.path, Path("/build/target"))
         self.assertEqual(selected.receipt()["metadata_command"], expected)
         self.assertEqual(selected.source, "cargo-metadata")
 

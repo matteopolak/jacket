@@ -30,6 +30,7 @@ import sys
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from toolkit.host import brew_prefix
 from toolkit.repo import ROOT
 from toolkit.cli import add_jaic_argument
 from corpus import select_upstream_cases
@@ -566,11 +567,9 @@ def main():
             # rpaths resolves from the ASan runtime instead (Homebrew's SDL2 is sdl2-compat, which
             # loads SDL3 that way and shows a modal dialog when it can't). Search Homebrew's lib
             # directory after dyld's defaults.
-            brew = os.environ.get("HOMEBREW_PREFIX") or (
-                "/opt/homebrew" if os.path.isdir("/opt/homebrew") else "/usr/local"
-            )
-            os.environ["DYLD_FALLBACK_LIBRARY_PATH"] = (
-                f"{Path.home()}/lib:/usr/local/lib:/usr/lib:{brew}/lib"
+            brew = brew_prefix()
+            os.environ["DYLD_FALLBACK_LIBRARY_PATH"] = ":".join(
+                [f"{Path.home()}/lib", "/usr/local/lib", "/usr/lib", *([f"{brew}/lib"] if brew else [])]
             )
     scratch = tempfile.mkdtemp(prefix="jaic_sweep-native-") if a.native else None
     limit_bytes = int(a.memory_limit * 2**30)

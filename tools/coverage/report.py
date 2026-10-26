@@ -27,14 +27,16 @@ import subprocess
 import sys
 from collections import defaultdict
 from pathlib import Path
+from toolkit.host import brew_prefix
 from toolkit.repo import ROOT
 
 
 def llvm_tool(name):
     """`name` from the LLVM jaic links against (LLVM_SYS_231_PREFIX), else Homebrew's, else PATH."""
+    brew = brew_prefix()
     prefixes = [
         os.environ.get("LLVM_SYS_231_PREFIX"),
-        "/opt/homebrew/opt/llvm",
+        brew and brew / "opt/llvm",
         "/usr/local/opt/llvm",
     ]
     for prefix in prefixes:
