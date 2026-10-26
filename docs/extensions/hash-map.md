@@ -45,13 +45,13 @@ A key is stored once, and iteration order is not stable: growing or rebuilding t
 
 One allocation holds `capacity` control bytes followed by `capacity` entries (`key`, `value`). `capacity` is zero, or a power of two of at least 16. A control byte is `EMPTY` (`0xFF`), `DELETED` (`0x80`), or the top seven bits of the key's spread hash (`0..127`), so the high bit says "not holding an entry".
 
-The user's 32-bit hash is multiplied once more and folded (`split_hash`) so a weak hash, such as `key % 4`, still gives a spread starting group (low bits) and a useful tag (top 7 bits).
+The default hash of a `string` key is the module's own `hash_text` (eight bytes per step, length included); every other key type uses `Hash.get_hash`. The user's 32-bit hash is multiplied once more and folded (`split_hash`) so a weak hash, such as `key % 4`, still gives a spread starting group (low bits) and a useful tag (top 7 bits).
 
 Lookup starts at the group chosen by the low bits and, for each group, compares all 16 control bytes with the tag in one SIMD compare. Each set bit is a candidate; the key compare runs only on those, which is rare for a miss. If the group has an `EMPTY` slot the key is absent; otherwise probing moves to the next group by triangular offsets (1, 3, 6, ...), which visits every group of a power-of-two map.
 
-Load limit is 7/8 of the slots. `growth_left` counts empty slots that may still be filled. Inserting into a `DELETED` slot does not spend it, which is how delete-heavy workloads stay put. Removing marks a slot `EMPTY` when its group already has an empty slot (no probe ever went past that group), and `DELETED` otherwise. When `growth_left` reaches zero the map is rebuilt: at the same size if at most half the load limit is live (this drops the tombstones), otherwise at double. Rebuilding allocates a new block and reinserts, so it is not in place and briefly needs both blocks. The tests assert that insert/remove churn does not grow the capacity.
+Load limit is 7/8 of the slots. `growth_left` counts empty slots that may still be filled. Inserting into a `DELETED` slot does not spend it, which is how delete-heavy workloads stay put. Removing marks a slot `EMPTY` when its group already has an empty slot (no probe ever went past that group), and `DELETED` otherwise. When `growth_left` reaches zero the map is rebuilt: at the same size if at most half the load limit is live (this drops the tombstones), otherwise at double. Rebuilding allocates a new block and reinserts, so it is not in place and briefly needs both blocks. The new block starts empty and only fills, so each entry's slot comes from a per-group fill count (a stack array, or a small allocation above 512 groups) instead of a vector load of the control bytes: entries of one old group land in the same one or two new groups, and a load right after a byte store to the same group has to wait for the store. The tests assert that insert/remove churn does not grow the capacity.
 
-`for` iterates by group, taking each group's occupied-slot bits, and skips empty groups whole. `remove it` clears the current slot the same way `delete` does; it never rebuilds, so the loop stays valid. Adding to the map inside the loop does not.
+`for` iterates by group, taking each group's occupied-slot bits, visiting only the set bits (lowest first, highest first for `<`) and skipping empty groups whole. `remove it` clears the current slot the same way `delete` does; it never rebuilds, so the loop stays valid. Adding to the map inside the loop does not.
 
 ### Scalar and vector paths
 
@@ -73,7 +73,7 @@ Plain :: #import "Extensions/Hash_Map"(SCALAR_GROUPS = true);
 
 - `SCALAR_GROUPS` (module parameter, default `false`): use plain loops for the group compares.
 - `GROUP_SIZE :: 16` and the 7/8 load limit are constants in `module.jai`.
-- `Map` parameters: `Key`, `Value`, optional `hash` `(Key) -> u32`, optional `equal` `(Key, Key) -> bool`. Defaults are `Hash.get_hash` and `==`.
+- `Map` parameters: `Key`, `Value`, optional `hash` `(Key) -> u32`, optional `equal` `(Key, Key) -> bool`. Defaults are `Hash.get_hash` (`hash_text` for strings) and `==`.
 - The allocator is `map.allocator`, defaulting to `context.allocator` at first use.
 
 ## Dependencies
@@ -119,32 +119,32 @@ Hash_Map next to the standard library's `Hash_Table` and [`666rayen999--hash_map
 
 An iteration is one pass over all entries; the table shows the time per entry. Results go through `black_box`. Allocation is the default allocator in both.
 
-Apple M5 (10 cores: 4 Super and 6 Efficiency), 16 GB, macOS 27.0 arm64. The machine was a working desktop, not an idle one: the load average when the run began was 6.82, so absolute times carry a few percent of noise (the intervals show the part that was measured within one run) and the ratios are the result to read.
+Apple M5 (10 cores: 4 Super and 6 Efficiency), 16 GB, macOS 27.0 arm64. The machine was a working desktop, not an idle one: the load average when the run began was 5.50, so absolute times carry a few percent of noise (the intervals show the part that was measured within one run) and the ratios are the result to read.
 
 Time per operation with the 95% interval, and the ratio of Hash_Table's time to Hash_Map's (above 1: Hash_Map is faster).
 
 | Workload | hash_map | hash_table |
 | --- | --- | --- |
-| insert_1k | 16.7 ns (16.6 ns to 16.8 ns) | 7.34 ns (7.23 ns to 7.49 ns) 0.44x |
-| insert_100k | 12 ns (11.8 ns to 12.2 ns) | 22.9 ns (22.5 ns to 23.2 ns) 1.91x |
-| insert_1m | 24.3 ns (22.4 ns to 26.6 ns) | 59.3 ns (53.5 ns to 65.7 ns) 2.44x |
-| hit_1k | 2.33 ns (2.3 ns to 2.36 ns) | 1.82 ns (1.77 ns to 1.86 ns) 0.78x |
-| hit_100k | 3.39 ns (3.35 ns to 3.44 ns) | 4.05 ns (3.85 ns to 4.37 ns) 1.20x |
-| hit_1m | 8.07 ns (7.96 ns to 8.19 ns) | 9.71 ns (9.53 ns to 9.91 ns) 1.20x |
-| miss_1k | 1.98 ns (1.97 ns to 2 ns) | 1.82 ns (1.81 ns to 1.82 ns) 0.92x |
-| miss_100k | 3.76 ns (3.75 ns to 3.78 ns) | 4.99 ns (4.88 ns to 5.1 ns) 1.33x |
-| miss_1m | 2.9 ns (2.84 ns to 2.96 ns) | 20.7 ns (20.4 ns to 21.1 ns) 7.15x |
-| churn_1k | 6.21 ns (6.13 ns to 6.29 ns) | 5.83 ns (5.74 ns to 5.92 ns) 0.94x |
-| churn_100k | 12 ns (10 ns to 14.8 ns) | 26.2 ns (25.9 ns to 26.5 ns) 2.18x |
-| churn_1m | 20.6 ns (20.2 ns to 21.1 ns) | 61.6 ns (56.2 ns to 71 ns) 2.99x |
-| iterate_1k | 1.16 ns (1.14 ns to 1.18 ns) | 0.668 ns (0.659 ns to 0.68 ns) 0.58x |
-| iterate_100k | 1.11 ns (1.11 ns to 1.11 ns) | 3.13 ns (3.06 ns to 3.21 ns) 2.82x |
-| iterate_1m | 1.68 ns (1.66 ns to 1.7 ns) | 4.21 ns (4.2 ns to 4.22 ns) 2.51x |
-| string_insert_1k | 26.7 ns (26.1 ns to 27.1 ns) | 16 ns (16 ns to 16 ns) 0.60x |
-| string_insert_100k | 26.8 ns (26.4 ns to 27.1 ns) | 39.1 ns (38.7 ns to 39.6 ns) 1.46x |
-| string_insert_1m | 70.9 ns (60 ns to 83.1 ns) | 64 ns (59.8 ns to 68.8 ns) 0.90x |
-| string_hit_1k | 8.95 ns (8.81 ns to 9.08 ns) | 8.79 ns (8.73 ns to 8.85 ns) 0.98x |
-| string_hit_100k | 16.2 ns (16.1 ns to 16.3 ns) | 14.3 ns (14.3 ns to 14.4 ns) 0.89x |
-| string_hit_1m | 49.5 ns (47.9 ns to 51.6 ns) | 32.8 ns (31.5 ns to 34.6 ns) 0.66x |
+| insert_1k | 13.4 ns (13.4 ns to 13.4 ns) | 11.8 ns (11.7 ns to 11.9 ns) 0.88x |
+| insert_100k | 12.8 ns (12.8 ns to 12.8 ns) | 24.3 ns (24.3 ns to 24.4 ns) 1.90x |
+| insert_1m | 16.7 ns (16.6 ns to 16.7 ns) | 34.8 ns (34.6 ns to 35 ns) 2.09x |
+| hit_1k | 4.91 ns (4.9 ns to 4.92 ns) | 6.43 ns (6.42 ns to 6.45 ns) 1.31x |
+| hit_100k | 6.61 ns (6.56 ns to 6.66 ns) | 7.4 ns (7.38 ns to 7.43 ns) 1.12x |
+| hit_1m | 17.5 ns (17.3 ns to 17.7 ns) | 19 ns (18.8 ns to 19.3 ns) 1.08x |
+| miss_1k | 5.06 ns (5.03 ns to 5.12 ns) | 5.73 ns (5.72 ns to 5.73 ns) 1.13x |
+| miss_100k | 9.31 ns (9.3 ns to 9.32 ns) | 11.6 ns (11.6 ns to 11.6 ns) 1.24x |
+| miss_1m | 6.83 ns (6.77 ns to 6.91 ns) | 26 ns (25.6 ns to 26.5 ns) 3.80x |
+| churn_1k | 18.4 ns (18.4 ns to 18.4 ns) | 16.9 ns (16.9 ns to 17 ns) 0.92x |
+| churn_100k | 19.6 ns (19.5 ns to 19.7 ns) | 29.8 ns (29.6 ns to 29.9 ns) 1.52x |
+| churn_1m | 39.5 ns (39 ns to 40 ns) | 61 ns (60.6 ns to 61.5 ns) 1.54x |
+| iterate_1k | 0.633 ns (0.588 ns to 0.684 ns) | 1.16 ns (1.15 ns to 1.17 ns) 1.83x |
+| iterate_100k | 0.964 ns (0.955 ns to 0.972 ns) | 5.55 ns (5.52 ns to 5.57 ns) 5.76x |
+| iterate_1m | 1.92 ns (1.91 ns to 1.92 ns) | 4.96 ns (4.95 ns to 4.97 ns) 2.59x |
+| string_insert_1k | 19.7 ns (19.4 ns to 20 ns) | 38.7 ns (36.8 ns to 40.5 ns) 1.97x |
+| string_insert_100k | 20.7 ns (20.5 ns to 21 ns) | 40.9 ns (40.8 ns to 41.1 ns) 1.98x |
+| string_insert_1m | 51.8 ns (43.9 ns to 61.6 ns) | 58.5 ns (58.2 ns to 58.8 ns) 1.13x |
+| string_hit_1k | 13.4 ns (13 ns to 14 ns) | 15.9 ns (15.8 ns to 15.9 ns) 1.18x |
+| string_hit_100k | 18.6 ns (18.6 ns to 18.7 ns) | 29.4 ns (24.7 ns to 35.8 ns) 1.58x |
+| string_hit_1m | 39.3 ns (38.8 ns to 39.8 ns) | 45 ns (44.6 ns to 45.8 ns) 1.15x |
 
-Reading it: Hash_Map wins most where the map outgrows the cache (a miss ends after one group instead of walking a cluster; removed slots are reused; iteration skips empty groups). At 1,000 entries insert is slower because small maps rebuild many times (16 slots up) and a rebuild rehashes every key. Hits on a large string map lose a little: a lookup touches the control byte, the entry and then the string, where `Hash_Table` reads the entry and the string.
+Reading it: Hash_Map wins most where the map outgrows the cache (a miss ends after one group instead of walking a cluster; removed slots are reused; iteration skips empty groups). At 1,000 entries insert and churn are close to even: a small map rebuilds eight times on the way up (16 slots to 2,048) and every rebuild rehashes every key, where `Hash_Table` keeps the hash in its entries. Hits on a large string map are a little faster than `Hash_Table`'s although a lookup touches the control byte, the entry and then the string, where `Hash_Table` reads the entry and the string; the string hash reads eight bytes per step.
