@@ -321,6 +321,73 @@ roundtrip_api__jacket :: (b: *Bench) {
     });
 } @bench
 
+// --------------------------------------------------------------------------- jacket, borrow
+// The same decodes with `borrow`: strings without escapes are slices of the input (the pool and
+// the text outlive each iteration), strings with escapes are still unescaped into new memory.
+
+decode_api__borrow :: (b: *Bench) {
+    prepare();
+    over_text(b, api_text, (text: string) {
+        value, error := from_json([..] Issue, text, .{ borrow = true });
+        black_box(value);
+        require(error.kind == .NONE);
+    });
+} @bench
+
+decode_records__borrow :: (b: *Bench) {
+    prepare();
+    over_text(b, records_text, (text: string) {
+        value, error := from_json([..] Record, text, .{ borrow = true });
+        black_box(value);
+        require(error.kind == .NONE);
+    });
+} @bench
+
+decode_config__borrow :: (b: *Bench) {
+    prepare();
+    over_text(b, config_text, (text: string) {
+        value, error := from_json(Node, text, .{ borrow = true });
+        black_box(value);
+        require(error.kind == .NONE);
+    });
+} @bench
+
+decode_tree_api__borrow :: (b: *Bench) {
+    prepare();
+    over_text(b, api_text, (text: string) {
+        value, error := from_json(Json_Value, text, .{ borrow = true });
+        black_box(value);
+        require(error.kind == .NONE);
+    });
+} @bench
+
+decode_tree_records__borrow :: (b: *Bench) {
+    prepare();
+    over_text(b, records_text, (text: string) {
+        value, error := from_json(Json_Value, text, .{ borrow = true });
+        black_box(value);
+        require(error.kind == .NONE);
+    });
+} @bench
+
+decode_tree_config__borrow :: (b: *Bench) {
+    prepare();
+    over_text(b, config_text, (text: string) {
+        value, error := from_json(Json_Value, text, .{ borrow = true });
+        black_box(value);
+        require(error.kind == .NONE);
+    });
+} @bench
+
+roundtrip_api__borrow :: (b: *Bench) {
+    prepare();
+    over_text(b, api_text, (text: string) {
+        value, error := from_json([..] Issue, text, .{ borrow = true });
+        require(error.kind == .NONE);
+        black_box(to_json(value));
+    });
+} @bench
+
 // ---------------------------------------------------------------------------------- jaison
 
 decode_api__jaison :: (b: *Bench) {

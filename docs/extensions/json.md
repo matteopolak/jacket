@@ -161,33 +161,34 @@ Jacket's Json next to [`rluba--jaison`](https://github.com/rluba/jaison) and [`k
 
 ### How it was measured
 
-`benchmarks/compare/json/benches/json.jai`, run by `tools/bench/library_compare.py json` (see [library comparisons](../tools/library-comparisons.md)). All three libraries decode the same text into the same Jai types and encode the same values. Documents are generated with a fixed seed:
+`benchmarks/compare/json/benches/json.jai`, run by `tools/bench/library_compare.py json` (see [library comparisons](../tools/library-comparisons.md)). Every library decodes the same text into the same Jai types and encode the same values. Documents are generated with a fixed seed:
 
 - **api**: a page of 100 issues as a service returns them (minified, about 69 KB): nested users and labels, an optional assignee, escape sequences and non-ASCII text in the bodies.
 - **records**: 20,000 telemetry records (about 2 MB, minified): numbers, short strings, an array of four integers.
 - **config**: a hand-written style configuration nested 100 levels deep, pretty-printed.
 
-`decode_*` is the document into typed values (`decode_tree_*`: into each library's untyped tree), `encode_*` writes values decoded before the timer started, `roundtrip_api` is decode then encode. Each iteration allocates from a bump pool that is emptied afterwards, for all three libraries, because jaison has no free procedure for a typed decode and the others free in different ways. Inputs and results go through `black_box`.
+`decode_*` is the document into typed values (`decode_tree_*`: into each library's untyped tree), `encode_*` writes values decoded before the timer started, `roundtrip_api` is decode then encode. The `borrow` column is Jacket with `Json_Options.borrow` (strings without escapes are slices of the input; strings with escapes are still unescaped into new memory). Each iteration allocates from a bump pool that is emptied afterwards, for every library, because jaison has no free procedure for a typed decode and the others free in different ways. Inputs and results go through `black_box`.
 
-Apple M5 (10 cores: 4 Super and 6 Efficiency), 16 GB, macOS 27.0 arm64. The machine was a working desktop, not an idle one: the load average when the run began was 8.66, so absolute times carry a few percent of noise (the intervals show the part that was measured within one run) and the ratios are the result to read.
+Apple M5 (10 cores: 4 Super and 6 Efficiency), 16 GB, macOS 27.0 arm64. The machine was a working desktop, not an idle one: the load average when the run began was 4.13, so absolute times carry a few percent of noise (the intervals show the part that was measured within one run) and the ratios are the result to read.
 
 Time per iteration, with the 95% interval of the bootstrap in brackets, and the ratio to Jacket (above 1: slower than Jacket).
 
-| Workload | jacket | jaison | contiguous |
-| --- | --- | --- | --- |
-| decode_api | 182 us (175 us to 192 us) | 295 us (283 us to 310 us) 1.62x | 122 us (121 us to 122 us) 0.67x |
-| decode_records | 8.65 ms (8.25 ms to 9.09 ms) | 12.9 ms (12.8 ms to 13 ms) 1.49x | 6.64 ms (6.59 ms to 6.7 ms) 0.77x |
-| decode_config | 75.3 us (74.6 us to 76 us) | 76.5 us (75.5 us to 77.9 us) 1.02x | n/a |
-| decode_tree_api | 221 us (220 us to 223 us) | 318 us (315 us to 321 us) 1.44x | 244 us (241 us to 248 us) 1.10x |
-| decode_tree_records | 11 ms (10.7 ms to 11.4 ms) | 13.2 ms (13.1 ms to 13.4 ms) 1.20x | 11.8 ms (11.7 ms to 11.9 ms) 1.07x |
-| encode_api | 40.6 us (40.4 us to 40.7 us) | 101 us (99 us to 102 us) 2.48x | 41.2 us (40.9 us to 41.5 us) 1.02x |
-| encode_records | 2.94 ms (2.9 ms to 2.99 ms) | 7.08 ms (7.01 ms to 7.16 ms) 2.41x | 5.5 ms (5.44 ms to 5.56 ms) 1.87x |
-| encode_config | 8.23 us (8.08 us to 8.38 us) | 21.4 us (21.2 us to 21.5 us) 2.59x | n/a |
-| roundtrip_api | 225 us (224 us to 227 us) | 370 us (367 us to 374 us) 1.64x | 168 us (167 us to 169 us) 0.75x |
-| decode_tree_config | 89.5 us (81.8 us to 100 us) | 86.9 us (85.5 us to 88.6 us) 0.97x | 4.66 ms (4.65 ms to 4.68 ms) 52.09x |
+| Workload | jacket | borrow | jaison | contiguous |
+| --- | --- | --- | --- | --- |
+| decode_api | 153 us (152 us to 155 us) | 139 us (138 us to 140 us) 0.91x | 364 us (363 us to 364 us) 2.37x | 122 us (122 us to 122 us) 0.80x |
+| decode_records | 6.04 ms (6.03 ms to 6.05 ms) | 5.79 ms (5.77 ms to 5.8 ms) 0.96x | 16.5 ms (16.4 ms to 16.6 ms) 2.73x | 6.46 ms (6.44 ms to 6.47 ms) 1.07x |
+| decode_config | 74.3 us (73.6 us to 75.3 us) | 71.4 us (71.4 us to 71.5 us) 0.96x | 128 us (128 us to 129 us) 1.73x | n/a |
+| decode_tree_api | 226 us (226 us to 226 us) | 166 us (166 us to 167 us) 0.74x | 335 us (334 us to 335 us) 1.48x | 240 us (240 us to 240 us) 1.06x |
+| decode_tree_records | 9.88 ms (9.87 ms to 9.89 ms) | 6.9 ms (6.89 ms to 6.92 ms) 0.70x | 15.9 ms (15.9 ms to 15.9 ms) 1.61x | 11.9 ms (11.9 ms to 12 ms) 1.21x |
+| encode_api | 38.2 us (38.1 us to 38.3 us) | n/a | 118 us (117 us to 118 us) 3.08x | 59.3 us (59.2 us to 59.5 us) 1.55x |
+| encode_records | 2.94 ms (2.92 ms to 2.96 ms) | n/a | 9.92 ms (9.82 ms to 10 ms) 3.38x | 6.21 ms (6.2 ms to 6.23 ms) 2.11x |
+| encode_config | 8.65 us (8.61 us to 8.69 us) | n/a | 24.1 us (24 us to 24.2 us) 2.78x | n/a |
+| roundtrip_api | 188 us (188 us to 189 us) | 178 us (178 us to 178 us) 0.95x | 479 us (478 us to 479 us) 2.54x | 193 us (191 us to 196 us) 1.03x |
+| decode_tree_config | 85.7 us (85.5 us to 86 us) | 75.2 us (75.1 us to 75.3 us) 0.88x | 120 us (120 us to 120 us) 1.40x | 4.64 ms (4.63 ms to 4.66 ms) 54.15x |
 
 Reading the table:
 
-- **jaison walks the type information at run time.** `json_write_native` and `parse_value` branch on `Type_Info.type` for every value and, for every object, build a `Table` of the struct's member names (the source comment says "@Speed: Building this table every time is pretty silly"). Jacket's generated code has no such work, which is the 1.4x to 1.6x on typed decodes of the api and records documents and 2.4x on encoding. The deeply nested `config` document has few values per object and short member names, and the two are level there.
-- **Contiguous is faster at typed decodes of flat documents** (0.67x and 0.77x of Jacket's time). It does less: no unescaping, no validation, and a single contiguous allocation. Its time for the same text is not for the same result, since escape sequences stay in the strings. On the untyped tree it is level with Jacket, and on the nested configuration tree it is 50 times slower (relative offsets that are fixed up in a pass that depends on depth).
-- Encoding is where the two generated-code libraries differ least on `api` (strings are short) and most on `records` (numbers): Jacket prints floats with Schubfach and integers without going through `print`.
+- **jaison walks the type information at run time.** `json_write_native` and `parse_value` branch on `Type_Info.type` for every value and, for every object, build a `Table` of the struct's member names (the source comment says "@Speed: Building this table every time is pretty silly"). Jacket's generated code has no such work, which is the 1.7x to 2.7x on typed decodes and about 3x on encoding.
+- **Contiguous does less work per string.** It does not unescape (escape sequences stay in the strings), only checks the input with `assert` (bad input stops the program instead of returning an error), and never copies a string. On `api`, whose bodies are long and full of escapes, it takes 0.80x of Jacket's default time and 0.88x of `borrow`'s; on `records` both Jacket columns are faster. On the untyped trees and on encoding Jacket is ahead, and on the nested configuration tree Contiguous is 50 times slower (relative offsets that are fixed up in a pass that depends on depth).
+- **`borrow` matters most for untyped trees** (0.70x to 0.88x), where every key and number is a slice too. Typed decodes gain 4% to 9%: member names are matched, not stored, and numbers are converted either way.
+- **Encoding** is 1.5x (`api`) to 2.1x (`records`) faster than Contiguous: Jacket prints floats with Schubfach and integers without going through `print`.

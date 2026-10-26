@@ -5,7 +5,7 @@
 Benchmarks that run a Jacket library next to the community libraries it replaces, on the same inputs, with [`jacket bench`](jacket-bench.md). The programs are in `benchmarks/compare/<name>/` and `tools/bench/library_compare.py` runs them. The results, the feature matrices and the method of each comparison are in the module's own page: [Json](../extensions/json.md#compared-with-the-community-libraries), [Regex](../extensions/regex.md#compared-with-the-community-libraries), [Postgres](../extensions/postgres.md#compared-with-the-community-libraries), [Hash_Map](../extensions/hash-map.md#measured-against-hash_table-and-the-community-map). The HTTP server has no comparison yet.
 
 ```
-PYTHONPATH=tools python3 tools/bench/library_compare.py json --libraries jacket,jaison,contiguous --out target/compare/json.md
+PYTHONPATH=tools python3 tools/bench/library_compare.py json --libraries jacket,borrow,jaison,contiguous --out target/compare/json.md
 PYTHONPATH=tools python3 tools/bench/library_compare.py regex --libraries jacket,uniform,rematch --bench-arguments "-E 'test(log_)'"
 ```
 
