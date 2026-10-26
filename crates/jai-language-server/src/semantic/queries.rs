@@ -488,9 +488,29 @@ impl Analysis {
             return Some(self.compiler.ide_visible(scope, file, offset as u32));
         }
         let names: Vec<Sym> = chain.iter().map(|n| Sym::intern(n)).collect();
-        let receiver = self
-            .compiler
-            .ide_receiver_at(scope, Some((file, offset as u32)), &names)?;
-        Some(self.compiler.ide_members(receiver))
+        // A polymorphic body is checked once per instance, and the receiver is a different type
+        // in each (`a.text` where `T` is `Numeric`, `a.count` where it is a string): offer the
+        // members of all of them.
+        let mut scopes = self.compiler.ide_innermost_scopes_at(file, offset as u32);
+        if !scopes.contains(&scope) {
+            scopes.insert(0, scope);
+        }
+        let mut members: Option<Vec<IdeName>> = None;
+        for scope in scopes {
+            let Some(receiver) =
+                self.compiler
+                    .ide_receiver_at(scope, Some((file, offset as u32)), &names)
+            else {
+                continue;
+            };
+            let found = self.compiler.ide_members(receiver);
+            let all = members.get_or_insert_with(Vec::new);
+            for name in found {
+                if !all.contains(&name) {
+                    all.push(name);
+                }
+            }
+        }
+        members
     }
 }

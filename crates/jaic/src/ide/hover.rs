@@ -30,6 +30,30 @@ impl Compiler {
         })
     }
 
+    /// Every recorded scope as small as the innermost one at `offset` of `file`: a polymorphic
+    /// body is checked once per instance, and each instance records scopes of its own for the
+    /// same text.
+    pub fn ide_innermost_scopes_at(&self, file: FileId, offset: u32) -> Vec<ScopeId> {
+        let Some(ide) = self.ed.facts() else {
+            return Vec::new();
+        };
+        let covering = || {
+            ide.scopes
+                .iter()
+                .filter(move |(s, _)| s.file == file && s.start <= offset && offset <= s.end)
+        };
+        let Some(smallest) = covering().map(|(s, _)| s.end - s.start).min() else {
+            return Vec::new();
+        };
+        let mut found: Vec<ScopeId> = covering()
+            .filter(|(s, _)| s.end - s.start == smallest)
+            .map(|(_, id)| *id)
+            .collect();
+        found.sort_by_key(|id| id.0);
+        found.dedup();
+        found
+    }
+
     /// The innermost recorded name at `offset` of `file`, and whether every record of that
     /// exact span agrees (a polymorphic body is checked once per instance).
     fn ide_hover_ref(&self, file: FileId, offset: u32) -> Option<(IdeRef, bool)> {

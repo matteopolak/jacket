@@ -46,3 +46,16 @@ fn a_name_shadowed_only_below_the_cursor() {
     assert!(labels.contains(&"step".to_string()), "{labels:?}");
     assert!(!labels.contains(&"b".to_string()), "{labels:?}");
 }
+
+/// A polymorphic body is checked once per instance: the members are those of every instance, so a
+/// branch only one instance takes still completes.
+#[test]
+fn a_parameter_of_a_polymorphic_procedure_offers_every_instance() {
+    let labels = labels(
+        "Pair :: struct { first: int; second: int; }\n\
+         Named :: struct { label: string; }\n\
+         pick :: (a: $T) {\n    #if T == Pair { x := a.|first; } else { y := a; }\n}\n\
+         main :: () { p: Pair; n: Named; pick(p); pick(n); }",
+    );
+    assert!(labels.contains(&"second".to_string()), "{labels:?}");
+}
