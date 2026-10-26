@@ -205,6 +205,8 @@ impl Compiler {
             },
         };
         let result = self.run_in_twin(&mut twin, scope, body, span);
+        // The twin ran this evaluation instead of the target compiler: its cost is recorded here.
+        self.meta.perf.runs.append(&mut twin.meta.perf.runs);
         if twin.ct.interp.twin_declined {
             // The run needed state of the target program, which the twin holds its own copy
             // of; whatever it wrote there is meaningless. Every later run stays on the target,

@@ -77,6 +77,8 @@ impl Compiler {
             Ok(result)
         })();
         self.ct.interp.take_back_budget(&host.ct.interp);
+        // The host compiler is dropped below: its runs are costs of this program's check.
+        self.meta.perf.runs.append(&mut host.meta.perf.runs);
         // Dependency retries must observe real execution in the isolated
         // compiler too. Otherwise an effectful host run followed by a missing
         // target binding is incorrectly classified as an unstarted attempt.

@@ -149,6 +149,48 @@ fn costly_evaluations_get_a_lens_and_a_ranked_list() {
 }
 
 #[test]
+fn an_isolated_host_run_is_in_the_cost_list_at_its_own_directive() {
+    let source = "#import \"Basic\";\n\n\n\n\nvalue :: #run,host (() -> int { total := 0; for 1..20000 total += it; return total; })();\nmain :: () { print(\"%\", value); }\n";
+    let dir = common::project("cost-host-run", &[("main.jai", source)]);
+    // A program for another OS: `#run,host` runs in a compiler of its own.
+    let other = if cfg!(windows) {
+        jaic::sema::TargetOs::Linux
+    } else {
+        jaic::sema::TargetOs::Windows
+    };
+    let mut s = Session::with_environment(
+        Limits::default(),
+        common::environment_at(common::stdlib(), Some(other)),
+    );
+    s.set_workspace_folders(vec![dir.clone()]);
+    let (uri, _) = common::open_from_disk(&mut s, &dir, "main.jai");
+    s.set_cost_lens_blocks(5000);
+    let costs = s.compile_time_costs(&uri);
+    assert!(
+        costs
+            .iter()
+            .any(|c| c.location.range.start.line == 5 && c.blocks >= 20_000),
+        "{:#?}",
+        costs
+            .iter()
+            .take(5)
+            .map(|c| (
+                c.location.uri.as_str().to_string(),
+                c.location.range.start.line,
+                c.blocks
+            ))
+            .collect::<Vec<_>>()
+    );
+    let lenses = s.code_lenses(&uri).unwrap();
+    assert!(
+        lenses
+            .iter()
+            .any(|l| l.command.command == "jai.showCompileTimeCosts" && l.range.start.line == 5),
+        "{lenses:#?}"
+    );
+}
+
+#[test]
 fn cheap_evaluations_show_no_lens_by_default() {
     let dir = common::project("cost-lens-default", &[("main.jai", HEAVY)]);
     let (s, uri, _) = common::open_file(&dir, "main.jai");
