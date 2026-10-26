@@ -1,5 +1,6 @@
 """CI package sources are explicit, and failed required updates stay fatal."""
 
+import os
 import subprocess
 import sys
 import tempfile
@@ -25,6 +26,8 @@ class AptConfiguration(unittest.TestCase):
             ],
             text=True,
             capture_output=True,
+            # CI's setup-unix sets it for the job; these tests choose their own.
+            env={k: v for k, v in os.environ.items() if k != "JAI_APT_ARCHIVES"},
         )
 
     def configure(self, root):
