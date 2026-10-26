@@ -122,7 +122,6 @@ expected a constant, found {}
 expected a general-purpose register or memory destination
 expected a general-purpose register or memory operand
 expected a mask register
-expected a name, or a variable's member, index or dereference
 expected a statement body before the next sibling declaration
 expected a vector register or memory operand
 expected an 8-bit immediate as the last operand
