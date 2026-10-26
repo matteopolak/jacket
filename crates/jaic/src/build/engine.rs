@@ -3,7 +3,6 @@
 //! `public_api` reads each operation's arguments through the caller's declarations and calls
 //! these; nothing here knows a Jai layout.
 
-#[cfg(target_arch = "wasm32")]
 use super::state::{INTERCEPT_REPORT_POLYMORPHS, INTERCEPT_REPORT_RUNS};
 use super::{
     DataSegment, Event, Interp, ProgramSource, ProvidedImport, ReportSeverity, SharedWorkspaces,
@@ -88,8 +87,9 @@ impl Workspaces {
     }
 
     pub(super) fn begin_intercept(&mut self, id: i64, flags: i64) -> Result<(), Trap> {
-        #[cfg(target_arch = "wasm32")]
-        if flags & (INTERCEPT_REPORT_RUNS | INTERCEPT_REPORT_POLYMORPHS) != 0 {
+        if !crate::platform::HAS_CLOCK
+            && flags & (INTERCEPT_REPORT_RUNS | INTERCEPT_REPORT_POLYMORPHS) != 0
+        {
             return Err(trap(
                 "performance reporting requires a host monotonic clock; this WASM compiler host \
                  does not provide one"

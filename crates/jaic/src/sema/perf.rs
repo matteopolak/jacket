@@ -6,28 +6,9 @@
 //! `code_export.rs`) turns the counts into the message's records when the workspace finishes.
 use super::procs::{BodyState, ProcTarget};
 use super::{Compiler, HashMap, HashSet, ProcId, Span, ir};
+use crate::platform::Stopwatch;
 use crate::sema::Output;
 use std::time::Duration;
-
-/// A point in time that reads as zero where the platform has no clock (the browser build).
-#[derive(Clone, Copy)]
-pub struct Stopwatch(#[cfg(not(target_arch = "wasm32"))] std::time::Instant);
-
-impl Stopwatch {
-    pub fn start() -> Self {
-        #[cfg(not(target_arch = "wasm32"))]
-        return Stopwatch(std::time::Instant::now());
-        #[cfg(target_arch = "wasm32")]
-        return Stopwatch();
-    }
-
-    pub fn elapsed(self) -> Duration {
-        #[cfg(not(target_arch = "wasm32"))]
-        return self.0.elapsed();
-        #[cfg(target_arch = "wasm32")]
-        return Duration::ZERO;
-    }
-}
 
 /// One execution of compile-time code (a `#run`, or a constant that needed the interpreter).
 #[derive(Clone)]

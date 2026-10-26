@@ -38,6 +38,7 @@ pub mod msvc;
 pub mod parse_ahead;
 pub mod parser;
 pub mod paths;
+pub mod platform;
 pub mod pool;
 pub mod progress;
 pub mod project;
