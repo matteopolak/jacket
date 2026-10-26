@@ -6,13 +6,6 @@
 root=$(git rev-parse --show-toplevel) || exit 0
 cd "$root" || exit 0
 
-# Hand over to this worktree's own copy, as the pre-commit hook does.
-hook_dir=$(cd "$(dirname "$0")" 2>/dev/null && pwd -P)
-own_dir=$(cd "$root/.githooks" 2>/dev/null && pwd -P)
-if [ -n "$own_dir" ] && [ "$hook_dir" != "$own_dir" ] && [ -f "$own_dir/pre-push" ]; then
-    exec sh "$own_dir/pre-push" "$@"
-fi
-
 case " ${JAI_HOOK_SKIP:-} " in *" clippy "*) exit 0 ;; esac
 command -v cargo >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1 || exit 0
 exec python3 "$root/tools/dev/pre_push_clippy.py"

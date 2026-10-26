@@ -204,9 +204,7 @@ jobs:
       - name: Validate public checkout compilation inputs
         if: ${{ matrix.runner == 'ubuntu-24.04' && matrix.part == 'jai' }}
         run: |
-          python3 tools/ci/check_ci_sources.py
-          python3 tools/ci/check_repo_paths.py
-          python3 tools/ci/check_source_style.py
+          just repo-checks
           python3 tools/ci/check_diagnostics_covered.py
       - name: Verify native host and LLVM
         run: |

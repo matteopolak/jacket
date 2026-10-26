@@ -51,7 +51,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           test "$(git rev-parse HEAD)" = "$COMPILER_REVISION"
-          python3 tools/ci/check_ci_sources.py
+          python3 tools/dev/dev.py repo-checks ci-sources
           python3 tools/ci/check_dependency_age.py
       - name: Validate and install the aged pinned Rust/Wasm toolchain
         id: toolchain

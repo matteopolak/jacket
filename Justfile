@@ -71,10 +71,15 @@ check jobs=default_jobs:
 test suite="all" crate="" jobs=default_jobs *filter:
     {{ py }} tools/dev/dev.py test -j {{ jobs }} --suite {{ suite }} {{ if crate != "" { "-p " + crate } else { "" } }} {{ filter }}
 
-# Turn on the pre-commit hook (.githooks/pre-commit) for this clone.
+# Turn on the hooks in .githooks for this clone and its worktrees (a relative core.hooksPath).
 [group('setup')]
 hooks:
-    git config core.hooksPath .githooks
+    {{ py }} tools/dev/dev.py hooks
+
+# The text checks CI runs on every push: style (file length, banners), paths (repo paths named in docs), ci-sources (include_str! inputs). Names narrow them.
+[group('check')]
+repo-checks *names:
+    {{ py }} tools/dev/dev.py repo-checks {{ names }}
 
 # Set the compiler version in Cargo.toml, both lock files, the Neovim plugin and the CHANGELOG header (tools/bump_version.py).
 [group('setup')]

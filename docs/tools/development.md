@@ -14,7 +14,8 @@ The root `Justfile` gives each dev command one name. CI's format and lint steps 
 | `check` | `fmt --check`, `lint`, `editor`, `nvim-test --unit` |
 | `test` | `cargo nextest run --profile ci` (plus `cargo test --doc`; needs [cargo-nextest](https://nexte.st): `brew install cargo-nextest`) and the `tools/` unittests (`--suite cargo\|tools\|all`, `--crate NAME`, `--partition slice:K/N` for one share, `--expr FILTERSET` to narrow it) |
 | `nvim-test`, `editor` | Neovim plugin tests; VS Code generated-file checks (skipped with a note without nvim 0.11 / node 24) |
-| `hooks` | `git config core.hooksPath .githooks` |
+| `repo-checks [style\|paths\|ci-sources]` | CI's text checks (`tools/ci/check_source_style.py`, `check_repo_paths.py`, `check_ci_sources.py`); names narrow the set. CI, `browser-release.yml` (`ci-sources` only) and the pre-commit hook all call it |
+| `hooks` | Sets the relative `core.hooksPath=.githooks` (`dev.py hooks`; `just build` does it too, except in CI) |
 | `bump-version X.Y.Z` | `tools/bump_version.py`, the version step of [releases](releases.md) |
 | `fetch-upstreams`, `wasm`, `vscode` | `tools/fetch_upstreams.py`, `tools/browser/build_scripting_wasm.py --release`, `pnpm run <script>` in `editors/vscode` |
 | `vscode-try [FOLDER]` | Builds the tools (release; `--debug` for debug) and the extension, then opens VS Code with only that extension, in a throwaway profile whose settings point at the built `jailsp`, `jaic`, `jaifmt` and `stdlib/`. `FOLDER` opens in place; without it, a temporary copy of `examples/` |
@@ -36,18 +37,20 @@ To add a recipe: give it a doc comment (it becomes the `--list` text) and a `[gr
 
 ## Pre-commit hook
 
-`.githooks/pre-commit` (POSIX `sh`) checks staged files so failures show before CI. Enable with `just hooks`; skip once with `git commit --no-verify`. It exports the staged contents (`git checkout-index`) into a temp directory, so a partly staged file is checked as staged and nothing in the working tree is touched. When `core.hooksPath` is an absolute path into another checkout (agent worktrees get the main checkout's), that copy hands over with `exec` to the current worktree's own `.githooks/pre-commit`, so the checks always match the tree being committed.
+`.githooks/pre-commit` is a few lines of `sh` that run `python3 tools/dev/dev.py precommit`; it skips with a warning when `python3` is missing. The checks live in `dev.py` and reuse its helpers (`stale`/`newest`, `rebuild_jaifmt`, `repo_check_failures`, `editor_skip_reason`), so `just fmt`, `just build` and the hook share one copy of each rule. Enable with `just hooks`; skip once with `git commit --no-verify`. The hook exports the staged contents (`git checkout-index`) into a temp directory, so a partly staged file is checked as staged and nothing in the working tree is touched.
+
+`just hooks` (and `just build`) set a *relative* `core.hooksPath=.githooks` in the shared git config and remove any worktree-level override. Git resolves a relative path against each worktree's root, so a linked worktree runs its own tree's hooks and no hook needs to hand over to another checkout. An absolute path into the main checkout (which agent worktrees used to get) is replaced the next time `just hooks` runs.
 
 | Staged files | Check |
 | --- | --- |
 | `*.jai` | `jaifmt --check` on the export; `jailint -D warnings` on the working tree files (it needs the surrounding loaders and modules; a file another program `#load`s is linted through that program) |
 | `crates/**/*.rs` | `rustfmt --check --edition 2024` per staged blob (stdin mode, pinned nightly); `tools/dev/rust_item_spacing.py --check` |
 | `*.sh`, files with a `sh`/`bash` shebang | `shellcheck` on the export (`tools/dev/staged-files.sh shell` picks the files; CI lints every one: `shell-all`). Skipped with a warning when `shellcheck` is not installed |
-| anything | `tools/ci/check_source_style.py` (file length allowlist, banners), `check_repo_paths.py`, `check_ci_sources.py` on the working tree |
+| anything | `just repo-checks` (`check_source_style.py`: file length allowlist, banners; `check_repo_paths.py`; `check_ci_sources.py`) on the working tree |
 | `Cargo.toml`, `Cargo.lock` | `cargo metadata --locked --offline` for the workspace and `fuzz/`, so a stale lock file fails here, not in CI's `--locked` builds |
 | `crates/**`, `editors/vscode/**` | `node scripts/build-grammar.ts --check` and `node scripts/build.ts schemas --check` in `editors/vscode` (needs node 24) |
 
-Tools are found in cargo's target directory (`$CARGO_TARGET_DIR`, else what `cargo metadata` reports from `.cargo/config.toml`, else `target/`), the same one `tools/dev/dev.py` builds into: `<target>/jaifmt` (rebuilt with `jaic jaifmt/main.jai -O2 -exe <target>/jaifmt` when sources are newer and a `jaic` exists), `<target>/{release,debug}/jailint` (else `cargo build -p jailint`), then `PATH`. `toolkit.repo.jaifmt_path()` is the single Python definition of that jaifmt location: `dev.py`, `run_tests.py`, the generators and the developer checks all read it. A missing tool prints a warning and skips its check. Clippy runs in the pre-push hook instead. `rustfmt --check` in stdin mode exits 0 on a diff, so any output counts as failure. To add a check, add a file filter and a block appending to `fixes`; keep it fast. A CI check that takes about a second and needs no build belongs here too.
+Tools are found in cargo's target directory (`$CARGO_TARGET_DIR`, else what `cargo metadata` reports from `.cargo/config.toml`, else `target/`), the same one `tools/dev/dev.py` builds into: `<target>/jaifmt` (rebuilt with `jaic jaifmt/main.jai -O2 -exe <target>/jaifmt` when sources are newer and a `jaic` exists), `<target>/{release,debug}/jailint` (rebuilt with `cargo build -p jailint` when older than `JAILINT_SOURCES`), then `PATH`. `toolkit.repo.jaifmt_path()` is the single Python definition of that jaifmt location: `dev.py`, `run_tests.py`, the generators and the developer checks all read it. A missing tool prints a warning and skips its check. Clippy runs in the pre-push hook instead. `rustfmt --check` in stdin mode exits 0 on a diff, so any output counts as failure. To add a check, add a `check_*` function in `dev.py` that calls `hook.fail(fix, output)` and call it from `cmd_precommit` with its file filter; keep it fast. A CI check that takes about a second and needs no build belongs here too.
 
 | Variable | Effect |
 | --- | --- |
@@ -55,7 +58,7 @@ Tools are found in cargo's target directory (`$CARGO_TARGET_DIR`, else what `car
 | `JAI_HOOK_NO_BUILD=1` | never rebuild a stale tool |
 | `JAI_HOOK_VERBOSE=1` | say which checks run |
 
-Tested by `tools/ci/test_pre_commit_hook.py` on a temporary repository with stand-in tools.
+Tested by `tools/ci/test_pre_commit_hook.py` (also the `hooks` install and `repo-checks`) on a temporary repository with stand-in tools.
 
 ## Pre-push hook
 

@@ -5,6 +5,9 @@
     python3 tools/dev/dev.py fmt  [--check] [--lang jai|rust|all] [--staged] [-j N] [paths...]
     python3 tools/dev/dev.py lint [--fix] [--lang jai|rust|all] [--os linux|windows|macos|wasm] [--staged] [-j N] [paths...]
     python3 tools/dev/dev.py editor
+    python3 tools/dev/dev.py repo-checks [style|paths|ci-sources ...]
+    python3 tools/dev/dev.py precommit
+    python3 tools/dev/dev.py hooks
     python3 tools/dev/dev.py nvim [--unit] [-j N]
     python3 tools/dev/dev.py vscode-try [--debug] [-j N] [folder]
     python3 tools/dev/dev.py test [--suite cargo|tools|all] [-p CRATE] [-j N] [filter...]
@@ -35,14 +38,16 @@ from toolkit.host import exe_name
 from toolkit.repo import ROOT, cargo_binary, cargo_target_dir, jaifmt_path
 
 EXE = exe_name("")
+TARGET = cargo_target_dir(resolve=True)
 
 # What CI formats and lints: every Jai tree the repository owns.
 JAI_DIRS = ["stdlib", "tests", "benchmarks", "tools", "jaifmt", "examples"]
 JAI_LINT_DIRS = ["stdlib", "examples", "tools", "jaifmt", "tests", "benchmarks"]
 JAIFMT_SOURCES = ["jaifmt", "stdlib/Extensions/Jai_Format", "stdlib/Extensions/Args"]
-
-
-TARGET = cargo_target_dir(resolve=True)
+# What a jailint binary is built from; the pre-commit hook rebuilds it when any of these is newer.
+JAILINT_SOURCES = ["crates/jailint", "crates/jaic", "crates/jaic-cli", "stdlib/prelude/module.jai", "Cargo.lock"]
+# Repository checks that read only the working tree (tools/ci/check_<name>.py), in `repo-checks` order.
+REPO_CHECKS = {"style": "check_source_style", "paths": "check_repo_paths", "ci-sources": "check_ci_sources"}
 
 
 def run(cmd: list[str], cwd: Path = ROOT) -> int:
@@ -75,15 +80,23 @@ def wants(lang: str, which: str) -> bool:
     return lang in ("all", which)
 
 
-def newest(paths: list[str]) -> float:
+def newest(paths: list[str | Path]) -> float:
+    """The latest mtime among the files named, and the sources (.jai, .toml, .rs) under the directories."""
     latest = 0.0
     for p in paths:
         base = ROOT / p
-        files = [base] if base.is_file() else [f for f in base.rglob("*") if f.is_file()]
-        for f in files:
-            if f.suffix in (".jai", ".toml", ".rs"):
+        if base.is_file():
+            latest = max(latest, base.stat().st_mtime)
+            continue
+        for f in base.rglob("*") if base.is_dir() else []:
+            if f.suffix in (".jai", ".toml", ".rs") and f.is_file():
                 latest = max(latest, f.stat().st_mtime)
     return latest
+
+
+def stale(output: Path, *sources: str | Path) -> bool:
+    """Is `output` missing, or older than any of the files and directories in `sources`?"""
+    return not output.exists() or output.stat().st_mtime < newest(list(sources))
 
 
 def ensure_jailint(jobs: str, release: bool = False) -> Path:
@@ -92,24 +105,28 @@ def ensure_jailint(jobs: str, release: bool = False) -> Path:
     return cargo_binary("jailint", "release" if release else "debug")
 
 
+def rebuild_jaifmt(jaic: Path, quiet: bool = False) -> bool:
+    """Build target/jaifmt with `jaic` as CI does, unless it is newer than jaic and jaifmt's sources."""
+    out = jaifmt_path()
+    if not stale(out, jaic, *JAIFMT_SOURCES):
+        return True
+    cmd = [str(jaic), "jaifmt/main.jai", "-O2", "-exe", str(out)]
+    if quiet:
+        return subprocess.run(cmd, cwd=ROOT, capture_output=True).returncode == 0 and out.exists()
+    return run(cmd) == 0
+
+
 def ensure_jaifmt(jobs: str) -> Path:
     """target/jaifmt, built by jaic as in CI; rebuilt when jaic or jaifmt's sources are newer."""
     if cargo_build(["-p", "jaic-cli"], jobs):
         sys.exit("could not build jaic")
-    jaic = cargo_binary("jaic")
-    out = jaifmt_path()
-    if not out.exists() or out.stat().st_mtime < max(newest(JAIFMT_SOURCES), jaic.stat().st_mtime):
-        if run([str(jaic), "jaifmt/main.jai", "-O2", "-exe", str(out)]):
-            sys.exit("could not build jaifmt")
-    return out
+    if not rebuild_jaifmt(cargo_binary("jaic")):
+        sys.exit("could not build jaifmt")
+    return jaifmt_path()
 
 
 DEVELOPER_TOOLS = ROOT / "stdlib" / "internal" / "developer-tools"
 HELPER_SUFFIX = {"darwin": "dylib", "win32": "dll"}.get(sys.platform, "so")
-
-
-def stale(output: Path, *sources: Path) -> bool:
-    return not output.exists() or output.stat().st_mtime < max(s.stat().st_mtime for s in sources)
 
 
 LLVM_HELP = ("install LLVM 23.1 and point LLVM_SYS_231_PREFIX at it (macOS: `brew install llvm@23` then "
@@ -243,12 +260,14 @@ def cmd_lint(args) -> int:
     return int(failed)
 
 
-def cmd_editor(args) -> int:
-    """Check that the VS Code extension's generated grammar and schemas are current (needs node)."""
+EDITOR_SCRIPTS = [["build-grammar.ts"], ["build.ts", "schemas"]]
+
+
+def editor_skip_reason() -> str | None:
+    """Why the VS Code generated-file checks cannot run here (they need node 24), or None."""
     node = shutil.which("node")
     if node is None:
-        print("node not found: skipping the VS Code grammar and schema checks (CI runs them)")
-        return 0
+        return "node not found: skipping the VS Code grammar and schema checks (CI runs them)"
     version = subprocess.run([node, "--version"], capture_output=True, text=True).stdout.strip()
     try:
         major = int(version.lstrip("v").split(".")[0])
@@ -256,11 +275,19 @@ def cmd_editor(args) -> int:
         major = 0
     if major < 24:
         # The scripts are TypeScript run by node itself, which needs type stripping.
-        print(f"node {version} cannot run the .ts scripts (needs 24): skipping the VS Code checks")
+        return f"node {version} cannot run the .ts scripts (needs 24): skipping the VS Code checks"
+    return None
+
+
+def cmd_editor(args) -> int:
+    """Check that the VS Code extension's generated grammar and schemas are current (needs node)."""
+    reason = editor_skip_reason()
+    if reason:
+        print(reason)
         return 0
     failed = False
-    for script in (["build-grammar.ts"], ["build.ts", "schemas"]):
-        failed |= bool(run([node, f"scripts/{script[0]}", *script[1:], "--check"], cwd=ROOT / "editors" / "vscode"))
+    for script in EDITOR_SCRIPTS:
+        failed |= bool(run(["node", f"scripts/{script[0]}", *script[1:], "--check"], cwd=ROOT / "editors" / "vscode"))
     return int(failed)
 
 
@@ -332,10 +359,8 @@ def cmd_vscode_try(args) -> int:
         return 1
     bin_dir = TARGET / profile
     jaifmt = jaifmt_path()
-    jaic = bin_dir / ("jaic" + EXE)
-    if not jaifmt.exists() or jaifmt.stat().st_mtime < max(newest(JAIFMT_SOURCES), jaic.stat().st_mtime):
-        if run([str(jaic), "jaifmt/main.jai", "-O2", "-exe", str(jaifmt)]):
-            return 1
+    if not rebuild_jaifmt(bin_dir / ("jaic" + EXE)):
+        return 1
     extension = ROOT / "editors" / "vscode"
     pnpm = shutil.which("pnpm")
     if pnpm is None:
@@ -391,11 +416,270 @@ def cmd_test(args) -> int:
     return int(failed)
 
 
+def run_captured(cmd: list[str], cwd: Path = ROOT, stdin: str | None = None) -> tuple[int, str]:
+    """Run `cmd`, returning its exit status and its output (stdout and stderr together)."""
+    try:
+        done = subprocess.run(cmd, cwd=cwd, input=stdin, capture_output=True, text=True)
+    except OSError as error:
+        return 127, f"{cmd[0]}: {error}\n"
+    return done.returncode, done.stdout + done.stderr
+
+
+def repo_check_failures(names: list[str], skip_missing: bool = False) -> dict[str, str]:
+    """Run the named repository checks (all when empty); the output of each one that failed, by script."""
+    failures = {}
+    for name in names or list(REPO_CHECKS):
+        script = f"tools/ci/{REPO_CHECKS[name]}.py"
+        if skip_missing and not (ROOT / script).is_file():
+            continue
+        status, output = run_captured([sys.executable, script])
+        if status:
+            failures[script] = output
+    return failures
+
+
+def cmd_repo_checks(args) -> int:
+    """The text checks CI runs on every push (and the pre-commit hook): file length and banners,
+    repo paths named in docs and headers, and `include_str!` inputs. Every check runs."""
+    failures = repo_check_failures(args.names)
+    for script, output in failures.items():
+        print(f"{script} failed:", file=sys.stderr)
+        sys.stderr.write(output)
+    return int(bool(failures))
+
+
+def install_hooks() -> bool:
+    """Point core.hooksPath at the relative `.githooks`, so every worktree runs its own tree's hooks.
+
+    Set in the shared config; a worktree-level value (extensions.worktreeConfig) would override it,
+    so that one is removed. Does nothing in CI or outside a git checkout."""
+    if os.environ.get("CI") or not (ROOT / ".githooks").is_dir():
+        return False
+    if run_captured(["git", "rev-parse", "--git-dir"])[0]:
+        return False
+    current = run_captured(["git", "config", "--local", "--get", "core.hooksPath"])[1].strip()
+    if run_captured(["git", "config", "--worktree", "--get", "core.hooksPath"])[0] == 0:
+        run_captured(["git", "config", "--worktree", "--unset", "core.hooksPath"])
+    if current != ".githooks":
+        if run_captured(["git", "config", "--local", "core.hooksPath", ".githooks"])[0]:
+            return False
+        print(f"core.hooksPath set to .githooks (was {current or 'unset'})", file=sys.stderr)
+    return True
+
+
+def cmd_hooks(args) -> int:
+    return 0 if install_hooks() else 1
+
+
+class Hook:
+    """State of one pre-commit run: the temp export of the staged files and the failures so far."""
+
+    def __init__(self, tmp: Path):
+        self.tmp = tmp
+        self.failed = False
+        self.fixes: list[str] = []
+        self.skip = os.environ.get("JAI_HOOK_SKIP", "").split()
+        self.verbose = bool(os.environ.get("JAI_HOOK_VERBOSE"))
+        self.no_build = bool(os.environ.get("JAI_HOOK_NO_BUILD"))
+
+    def skipped(self, name: str) -> bool:
+        return name in self.skip
+
+    def say(self, message: str) -> None:
+        if self.verbose:
+            print(f"pre-commit: {message}", file=sys.stderr)
+
+    def fail(self, fix: str, output: str = "") -> None:
+        if output:
+            sys.stderr.write(output if output.endswith("\n") else output + "\n")
+        self.failed = True
+        self.fixes.append(fix)
+
+
+def hook_warn(message: str) -> None:
+    print(f"pre-commit: warning: {message}", file=sys.stderr)
+
+
+def newest_jaic() -> Path | None:
+    """The newer of the release and debug jaic builds: a stale one may not compile the current jaifmt."""
+    found = [p for p in (cargo_binary("jaic", "release"), cargo_binary("jaic", "debug")) if p.is_file()]
+    return max(found, key=lambda p: p.stat().st_mtime, default=None)
+
+
+def hook_jaifmt(hook: Hook) -> str | None:
+    """target/jaifmt (rebuilt with an existing jaic when stale), else jaifmt on PATH."""
+    out = jaifmt_path()
+    jaic = None if hook.no_build else newest_jaic()
+    if jaic is not None and stale(out, jaic, *JAIFMT_SOURCES):
+        hook.say("rebuilding jaifmt")
+        if not rebuild_jaifmt(jaic, quiet=True):
+            hook_warn("could not rebuild jaifmt; using the existing one")
+    return str(out) if out.is_file() else shutil.which("jaifmt")
+
+
+def hook_jailint(hook: Hook) -> str | None:
+    """A jailint newer than its sources, else a debug build of it, else the existing or PATH one."""
+    binaries = [p for p in (cargo_binary("jailint", "release"), cargo_binary("jailint", "debug")) if p.is_file()]
+    for binary in binaries:
+        if not stale(binary, *JAILINT_SOURCES):
+            return str(binary)
+    if not hook.no_build and shutil.which("cargo"):
+        hook.say("rebuilding jailint")
+        if run_captured(["cargo", "build", "--quiet", "-p", "jailint"])[0] == 0:
+            return str(cargo_binary("jailint", "debug"))
+        hook_warn("could not rebuild jailint")
+    return str(binaries[0]) if binaries else shutil.which("jailint")
+
+
+def check_jai(hook: Hook, jai: list[str]) -> None:
+    if not hook.skipped("jaifmt"):
+        jaifmt = hook_jaifmt(hook)
+        if jaifmt is None:
+            hook_warn("jaifmt not found (build jaifmt into the cargo target directory, see "
+                      "docs/tools/development.md#pre-commit-hook); skipping the Jai format check")
+        else:
+            hook.say("jaifmt --check")
+            # The export of the staged blobs, as it will be committed.
+            status, output = run_captured([jaifmt, "--check", *jai], cwd=hook.tmp)
+            if status:
+                hook.fail("jaifmt <files>", output)
+    if not hook.skipped("jailint"):
+        jailint = hook_jailint(hook)
+        if jailint is None:
+            hook_warn("jailint not found (cargo build -p jailint, see "
+                      "docs/tools/development.md#pre-commit-hook); skipping the Jai lint check")
+            return
+        # Linting needs the whole program around a file, so it reads the working tree.
+        _, changed = run_captured(["git", "diff", "--name-only", "--", *jai])
+        if changed.split():
+            hook_warn("partially staged, linted as in the working tree: " + " ".join(changed.split()))
+        # A platform's modules (Windows, Linux, X11, ...) cannot compile on another host, as in `just lint`.
+        hook.say("jailint -D warnings")
+        status, output = run_captured([jailint, "-D", "warnings", "--allow-incomplete", *jai])
+        if status:
+            hook.fail("jailint --fix <files>   (then fix the rest by hand)", output)
+
+
+def check_rust(hook: Hook, rust: list[str]) -> None:
+    if not hook.skipped("rustfmt"):
+        if not shutil.which("rustfmt"):
+            hook_warn("rustfmt not found; skipping the Rust format check")
+        else:
+            bad = False
+            for f in rust:
+                # Stdin mode: no module following, and the staged text is what is read. It reports a
+                # diff but still exits 0, so any output counts as a failure.
+                _, blob = run_captured(["git", "show", f":{f}"])
+                status, output = run_captured(["rustfmt", "--check", "--edition", "2024"], stdin=blob)
+                if status or output.strip():
+                    print(f"rustfmt: {f} would change", file=sys.stderr)
+                    sys.stderr.write(output.replace("<stdin>", f))
+                    bad = True
+            if bad:
+                hook.failed = True
+                hook.fixes.append("cargo fmt --all")
+    if not hook.skipped("spacing"):
+        spacing = ROOT / "tools" / "dev" / "rust_item_spacing.py"
+        if not spacing.is_file():
+            hook_warn("tools/dev/rust_item_spacing.py not found; skipping the Rust item spacing check")
+        else:
+            status, output = run_captured([sys.executable, str(spacing), "--check", *rust], cwd=hook.tmp)
+            if status:
+                hook.fail("python3 tools/dev/rust_item_spacing.py <files>", output.replace(f"{hook.tmp}/", ""))
+
+
+def check_shell(hook: Hook, shell: list[str]) -> None:
+    if hook.skipped("shellcheck"):
+        return
+    if not shutil.which("shellcheck"):
+        hook_warn("shellcheck not found; skipping the shell lint check")
+        return
+    hook.say("shellcheck")
+    # The staged copies, so the findings are about what will be committed.
+    status, output = run_captured(["shellcheck", *shell], cwd=hook.tmp)
+    if status:
+        hook.fail("shellcheck <files>", output)
+
+
+def check_locks(hook: Hook) -> None:
+    """A manifest change must come with its lock files (CI builds with --locked)."""
+    for manifest in ("Cargo.toml", "fuzz/Cargo.toml"):
+        if not (ROOT / manifest).is_file():
+            continue
+        hook.say(f"checking the lock file of {manifest}")
+        status, output = run_captured(["cargo", "metadata", "--locked", "--offline", "--format-version", "1",
+                                       "--manifest-path", str(ROOT / manifest)])
+        if status and "cannot update the lock file" in output:
+            print(f"pre-commit: {os.path.dirname(manifest) or '.'}/Cargo.lock is out of date", file=sys.stderr)
+            hook.failed = True
+            hook.fixes.append(f"cargo metadata --format-version 1 --manifest-path {manifest} >/dev/null")
+
+
+def check_editor(hook: Hook) -> None:
+    """The VS Code grammar and schemas are generated from the compiler and config sources."""
+    if editor_skip_reason():
+        hook_warn("node 24 not found; skipping the VS Code generated-file check")
+        return
+    for script in EDITOR_SCRIPTS:
+        hook.say(f"running {' '.join(script)} --check")
+        status, output = run_captured(["node", f"scripts/{script[0]}", *script[1:], "--check"],
+                                      cwd=ROOT / "editors" / "vscode")
+        if status:
+            hook.fail(f"(cd editors/vscode && node scripts/{' '.join(script)})", output)
+
+
+def cmd_precommit(args) -> int:
+    """Format and lint the staged files only (the git pre-commit hook; docs/tools/development.md#pre-commit-hook)."""
+    listed = run_captured(["git", "-c", "core.quotepath=off", "diff", "--cached", "--name-only", "--diff-filter=ACMR"])
+    everything = [f for f in listed[1].split("\n") if f] if listed[0] == 0 else []
+    if not everything:
+        return 0
+    jai, rust, shell = staged("jai"), staged("rust"), staged("shell")
+    with tempfile.TemporaryDirectory(prefix="jai-pre-commit.") as tmp:
+        hook = Hook(Path(tmp))
+        # Check what will be committed, not what is in the working tree: export the staged blobs.
+        exported = "".join(f + "\0" for f in (*jai, *rust, *shell))
+        done = subprocess.run(["git", "checkout-index", f"--prefix={tmp}/", "-z", "--stdin"], cwd=ROOT,
+                              input=exported, text=True, capture_output=True)
+        if done.returncode:
+            hook_warn("could not export the staged files; skipping the checks")
+            return 0
+        for cfg in ("jacket.toml", "rustfmt.toml", "rust-toolchain.toml"):
+            status, text = run_captured(["git", "show", f":{cfg}"])
+            if status == 0:
+                (hook.tmp / cfg).write_text(text)
+        if jai:
+            check_jai(hook, jai)
+        if rust:
+            check_rust(hook, rust)
+        if shell:
+            check_shell(hook, shell)
+        # They read the working tree, so a partly staged file is checked as it is on disk.
+        if not hook.skipped("repo"):
+            hook.say("repo checks")
+            for script, output in repo_check_failures([], skip_missing=True).items():
+                hook.fail(f"python3 {script}", output)
+        staged_text = "\n".join(everything)
+        if (not hook.skipped("locks") and shutil.which("cargo")
+                and re.search(r"Cargo\.(toml|lock)$", staged_text, re.M)):
+            check_locks(hook)
+        if (not hook.skipped("editor") and (ROOT / "editors" / "vscode" / "scripts").is_dir()
+                and re.search(r"^(crates/|editors/vscode/)", staged_text, re.M)):
+            check_editor(hook)
+        if hook.failed:
+            print("\npre-commit: checks failed. Fix, re-stage (git add) and commit again:" +
+                  "".join(f"\n  {fix}" for fix in hook.fixes), file=sys.stderr)
+            print("pre-commit: or skip the hook once with: git commit --no-verify", file=sys.stderr)
+            return 1
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
     for name, fn in (("build", cmd_build), ("fmt", cmd_fmt), ("lint", cmd_lint), ("editor", cmd_editor),
-                     ("nvim", cmd_nvim), ("vscode-try", cmd_vscode_try), ("test", cmd_test)):
+                     ("nvim", cmd_nvim), ("vscode-try", cmd_vscode_try), ("test", cmd_test),
+                     ("repo-checks", cmd_repo_checks), ("precommit", cmd_precommit), ("hooks", cmd_hooks)):
         p = sub.add_parser(name)
         p.set_defaults(fn=fn)
         p.add_argument("-j", "--jobs", default="3")
@@ -411,6 +695,10 @@ def main() -> int:
                 p.add_argument("--os", choices=["linux", "windows", "macos", "wasm"], default="")
             p.add_argument("paths", nargs="*")
             p.add_argument("--check" if name == "fmt" else "--fix", action="store_true")
+        if name == "repo-checks":
+            p.add_argument("names", nargs="*", choices=list(REPO_CHECKS), help="default: all")
+        if name == "precommit":
+            p.add_argument("hook_args", nargs="*", help="what git passes the hook (unused)")
         if name == "nvim":
             p.add_argument("--unit", action="store_true")
         if name == "vscode-try":

@@ -1,4 +1,4 @@
-"""Exercise .githooks/pre-commit on a throwaway repository, with stand-in jaifmt and jailint."""
+"""Exercise .githooks/pre-commit (`dev.py precommit`) on a throwaway repository, with stand-in jaifmt and jailint."""
 
 import sys as _sys
 from pathlib import Path as _Path
@@ -9,6 +9,7 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 import os
 import shutil
 import subprocess
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -51,7 +52,7 @@ class PreCommitHookTests(unittest.TestCase):
         (self.repo / ".githooks").mkdir()
         shutil.copy(REPO / ".githooks/pre-commit", self.repo / ".githooks/pre-commit")
         (self.repo / "tools/dev").mkdir(parents=True)
-        for script in ("rust_item_spacing.py", "staged-files.sh"):
+        for script in ("dev.py", "rust_item_spacing.py", "staged-files.sh"):
             shutil.copy(REPO / "tools/dev" / script, self.repo / "tools/dev" / script)
         shutil.copytree(
             REPO / "tools/toolkit",
@@ -60,6 +61,7 @@ class PreCommitHookTests(unittest.TestCase):
         )
         (self.repo / "target").mkdir()
         self.env = dict(os.environ, JAI_HOOK_NO_BUILD="1", JAI_HOOK_SKIP="rustfmt")
+        self.env.pop("CARGO_TARGET_DIR", None)
         # Keep any real jaifmt/jailint on the developer's PATH out of the tests.
         self.env["PATH"] = os.pathsep.join(
             p
@@ -107,18 +109,95 @@ class PreCommitHookTests(unittest.TestCase):
         self.assertNotIn("not found", result.stderr)
         self.assertIn("a.jai: BAD", result.stderr)
 
-    def test_a_hooks_path_into_another_checkout_runs_this_trees_hook(self):
+    def test_install_sets_a_relative_hooks_path_over_an_absolute_one(self):
         other = Path(self.tmp.name) / "main-checkout" / ".githooks"
         other.mkdir(parents=True)
-        shutil.copy(REPO / ".githooks/pre-commit", other / "pre-commit")
-        # This tree's copy is the one that must run: make it fail, which the other one would not.
-        (self.repo / ".githooks/pre-commit").write_text("#!/bin/sh\necho own hook ran >&2\nexit 1\n")
         sh(["git", "config", "core.hooksPath", str(other)], self.repo)
+        env = {k: v for k, v in self.env.items() if k != "CI"}
+        result = sh([sys.executable, "tools/dev/dev.py", "hooks"], self.repo, env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        value = sh(["git", "config", "--local", "core.hooksPath"], self.repo).stdout.strip()
+        self.assertEqual(value, ".githooks")
+
+    def test_install_drops_a_worktree_level_hooks_path(self):
+        sh(["git", "config", "extensions.worktreeConfig", "true"], self.repo)
+        sh(["git", "config", "--worktree", "core.hooksPath", "/elsewhere"], self.repo)
+        env = {k: v for k, v in self.env.items() if k != "CI"}
+        sh([sys.executable, "tools/dev/dev.py", "hooks"], self.repo, env)
+        value = sh(["git", "config", "core.hooksPath"], self.repo).stdout.strip()
+        self.assertEqual(value, ".githooks")
+
+    def test_missing_python_skips_the_checks(self):
+        self.tool("target/jaifmt")
+        self.write("a.jai", "BAD\n")
+        sh(["git", "add", "a.jai"], self.repo)
+        # A PATH of symlinks to git and the shell tools only, without python3.
+        bin_dir = Path(self.tmp.name) / "nopython"
+        bin_dir.mkdir()
+        for name in ("git", "sh", "dirname", "env", "cat", "rm", "mkdir", "grep", "sed", "uname"):
+            found = shutil.which(name)
+            if found:
+                (bin_dir / name).symlink_to(found)
+        self.env["PATH"] = str(bin_dir)
+        result = self.commit()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("python3 not found", result.stderr)
+
+    def test_only_matching_staged_files_reach_each_tool(self):
+        self.tool("target/jaifmt")
+        self.tool("target/debug/jailint")
+        # Staged files no tool takes, and a Jai-looking file that is not staged, are not checked.
+        self.write("old.jai", "BAD\n")
+        self.write("notes.txt", "BAD\n")
+        self.write("scripts/x.rs", "BAD\n")  # Rust outside crates/ is not the workspace
+        sh(["git", "add", "notes.txt", "scripts"], self.repo)
+        result = self.commit()
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_skip_names_turn_off_only_those_checks(self):
+        self.tool("target/jaifmt")
+        self.tool("target/debug/jailint")
+        self.write("a.jai", "BAD\n")
+        sh(["git", "add", "a.jai"], self.repo)
+        env = dict(self.env, JAI_HOOK_SKIP="rustfmt jaifmt")
+        result = sh(["git", "commit", "-q", "-m", "x"], self.repo, env, check=False)
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertNotIn("jaifmt <files>", result.stderr)
+        self.assertIn("jailint --fix <files>", result.stderr)
+        env = dict(self.env, JAI_HOOK_SKIP="rustfmt jaifmt jailint")
+        result = sh(["git", "commit", "-q", "-m", "x"], self.repo, env, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_verbose_says_what_runs(self):
+        self.tool("target/jaifmt")
+        self.tool("target/debug/jailint")
         self.write("a.jai", "main :: () {}\n")
         sh(["git", "add", "a.jai"], self.repo)
+        env = dict(self.env, JAI_HOOK_VERBOSE="1")
+        result = sh(["git", "commit", "-q", "-m", "x"], self.repo, env, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("pre-commit: jaifmt --check", result.stderr)
+        self.assertIn("pre-commit: jailint -D warnings", result.stderr)
+
+    def test_a_partly_staged_jai_file_is_warned_about(self):
+        self.tool("target/jaifmt")
+        self.tool("target/debug/jailint")
+        self.write("a.jai", "main :: () {}\n")
+        sh(["git", "add", "a.jai"], self.repo)
+        self.write("a.jai", "main :: () { x := 1; }\n")
         result = self.commit()
-        self.assertEqual(result.returncode, 1, result.stderr)
-        self.assertIn("own hook ran", result.stderr)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("partially staged", result.stderr)
+
+    def test_repo_checks_take_names(self):
+        self.write("tools/ci/check_source_style.py", "import sys\nprint('style bad')\nsys.exit(1)\n")
+        self.write("tools/ci/check_repo_paths.py", "print('paths fine')\n")
+        self.write("tools/ci/check_ci_sources.py", "print('sources fine')\n")
+        result = sh([sys.executable, "tools/dev/dev.py", "repo-checks"], self.repo, self.env, check=False)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("style bad", result.stderr)
+        result = sh([sys.executable, "tools/dev/dev.py", "repo-checks", "paths", "ci-sources"], self.repo, self.env, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_failures_name_the_fix_commands(self):
         self.tool("target/jaifmt")
