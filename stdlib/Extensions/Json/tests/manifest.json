@@ -84,6 +84,10 @@
     "stdout": "ok\n"
   },
   {
+    "name": "variant-recursive",
+    "stdout": "ok\n"
+  },
+  {
     "name": "variant-notes",
     "stdout": "ok\n"
   },
