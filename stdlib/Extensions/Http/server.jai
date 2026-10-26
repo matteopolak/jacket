@@ -2,12 +2,34 @@
 // codec and answered one after another on the connection (pipelined requests are answered in
 // order and their responses written together).
 //
-//     serve(*app);                       // production: every core, Ctrl-C drains connections
+//     error := serve(*app);              // production: every core, Ctrl-C drains connections
+//     if error.kind != .NONE { print("%\n", error_text(error)); exit(1); }
 //
 //     server, error := start(*app);      // inside Io.io_run: tests and programs that do more
 //     ...
 //     stop(server);
 //     wait(server);
+
+Serve_Error_Kind :: enum u8 {
+    NONE;
+    INVALID_ROUTES; // two routes match the same requests; `message` names them
+    INVALID_TLS; // `config.tls` has no certificate and key, or `Tls.tls_config_init` was not called on it
+    CANNOT_LISTEN; // the address is taken, malformed or not allowed; `io_error` says why
+}
+
+// Why a server did not start. A `kind` of `.NONE` is success.
+Serve_Error :: struct {
+    kind: Serve_Error_Kind;
+    message: string; // in the temporary allocator of the caller
+    io_error: Io.Io_Error; // for `.CANNOT_LISTEN`
+}
+
+// A one-line description of why the server did not start.
+error_text :: (error: Serve_Error) -> string {
+    if error.kind == .NONE return "no error";
+
+    return error.message;
+}
 
 // One scheduler's listener and its connections.
 Server :: struct {
@@ -41,23 +63,23 @@ Connection :: struct {
 
 // Starts listening on the running scheduler (call it inside `Io.io_run`, from a fiber) and
 // returns at once; connections are served by fibers of this scheduler. Fails if the address
-// cannot be bound or the routes conflict. `stop` and `wait` end it.
-start :: (app: *App, reuse_port := false) -> *Server, Io.Io_Error {
-    if app.setup_errors.count {
-        for app.setup_errors print("Http: %\n", it, to_standard_error = true);
+// cannot be bound, the routes conflict or `config.tls` is not usable. `stop` and `wait` end it.
+start :: (app: *App, reuse_port := false) -> *Server, Serve_Error {
+    invalid := check_app(app);
 
-        return null, .INVALID;
-    }
-
-    if app.config.tls && !Tls.can_accept(app.config.tls) {
-        print("Http: config.tls has no certificate and key, or Tls.tls_config_init was not called on it\n", to_standard_error = true);
-
-        return null, .INVALID;
-    }
+    if invalid.kind != .NONE return null, invalid;
 
     listener, error := Io.tcp_listen(app.config.address, reuse_port = reuse_port);
 
-    if error != .NONE return null, error;
+    if error != .NONE {
+        failure: Serve_Error;
+
+        failure.kind = .CANNOT_LISTEN;
+        failure.io_error = error;
+        failure.message = tprint("cannot listen on %: %", app.config.address, error);
+
+        return null, failure;
+    }
 
     server := New(Server);
 
@@ -72,7 +94,7 @@ start :: (app: *App, reuse_port := false) -> *Server, Io.Io_Error {
 
     Io.spawn(accept_loop, server);
 
-    return server, .NONE;
+    return server, .{};
 }
 
 // The `http://host:port` (`https://` with `config.tls`) the server is reachable at (a wildcard
@@ -109,6 +131,30 @@ wait :: (server: *Server) {
 }
 
 #scope_module
+
+// Whether the app can be served at all: no route conflicts and a usable TLS configuration.
+check_app :: (app: *App) -> Serve_Error {
+    error: Serve_Error;
+
+    if app.setup_errors.count {
+        error.kind = .INVALID_ROUTES;
+
+        builder: String_Builder;
+
+        for app.setup_errors {
+            if it_index > 0 append(*builder, "; ");
+
+            append(*builder, it);
+        }
+
+        error.message = builder_to_string(*builder,, temp);
+    } else if app.config.tls && !Tls.can_accept(app.config.tls) {
+        error.kind = .INVALID_TLS;
+        error.message = "config.tls has no certificate and key, or Tls.tls_config_init was not called on it";
+    }
+
+    return error;
+}
 
 accept_loop :: (server: *Server) {
     while !server.stopping {
@@ -260,7 +306,7 @@ serve_connection :: (connection: *Connection) { // jailint: allow(cognitive_comp
     limits.max_line_size = config.max_line_size;
     limits.max_head_size = config.max_head_size;
     limits.max_headers = config.max_headers;
-    limits.max_body_size = config.max_body_size;
+    limits.max_body_size = -1; // the route's limit is applied as the handler reads (see body.jai)
 
     parser: Parser;
 
@@ -439,119 +485,73 @@ serve_connection :: (connection: *Connection) { // jailint: allow(cognitive_comp
 
         if head.upgrade && upgrade_connection(connection, head) return;
 
-        // ---- The body.
-        if head.expect_continue {
-            if out.count > 0 {
-                Io.with_deadline(within(config.write_timeout), #code {
-                    _, write_error = Io.write(stream.writer, out);
-                });
-
-                if write_error != .NONE return;
-
-                out.count = 0;
-            }
-
-            write_continue(*out);
-
-            Io.with_deadline(within(config.write_timeout), #code {
-                _, write_error = Io.write(stream.writer, out);
-            });
-
-            if write_error != .NONE return;
-
-            out.count = 0;
-        }
-
-        body_buffer.count = 0;
-
-        body: [] u8;
-        in_buffer := false;
-
-        while true {
-            used, next := parse(*parser, pending);
-
-            pending = advance(pending, used);
-
-            if next.kind == .BODY {
-                if body_buffer.count == 0 && !in_buffer {
-                    body = next.data;
-                    in_buffer = true;
-                } else {
-                    if body_buffer.count == 0 append_bytes(*body_buffer, body.data, body.count);
-
-                    append_bytes(*body_buffer, next.data.data, next.data.count);
-                }
-
-                continue;
-            }
-
-            if next.kind == .END break;
-
-            if next.kind == .NEED_MORE {
-                // The next read overwrites the buffer the body so far points into.
-                if in_buffer && body_buffer.count == 0 && body.count > 0 append_bytes(*body_buffer, body.data, body.count);
-
-                count: s64;
-                error: Io.Io_Error;
-
-                Io.with_deadline(within(config.body_timeout), #code {
-                    count, error = Io.read(stream.reader, buffer);
-                });
-
-                if error == .TIMED_OUT {
-                    send_failure(server, stream, *out, http_error(408, "the request body was not received in time"));
-
-                    return;
-                }
-
-                if error != .NONE || count == 0 return;
-
-                pending = .{ count, buffer.data };
-
-                continue;
-            }
-
-            if next.kind == .ERROR {
-                send_failure(server, stream, *out, parse_failure(*parser));
-
-                return;
-            }
-
-            return;
-        }
-
-        if body_buffer.count > 0 body = body_buffer;
-
-        // ---- The request and its response.
+        // ---- The request. The handler reads its body, if it wants it.
         started := now_ms();
 
         last_started = started;
 
-        request: Request;
+        frame: Request_Frame;
+        request := *frame.request;
 
         request.method = head.method;
         request.method_text = head.method_text;
         request.target = head.target;
         request.version = head.version;
         request.headers = head.headers;
-        request.body = body;
         request.peer = peer;
 
-        split_target(*request);
+        body := *frame.body;
 
-        response := handle_request(app, *request);
+        body.request = request;
+        body.parser = *parser;
+        body.link = stream;
+        body.buffer = buffer;
+        body.pending = *pending;
+        body.out = *out;
+        body.collected = *body_buffer;
+        body.config = config;
+        body.limit = config.max_body_size;
+        body.length = ifx head.body == .LENGTH then head.content_length else -1;
+        body.body.content_length = body.length;
+        body.continue_pending = head.expect_continue;
+
+        body_buffer.count = 0;
+
+        split_target(request);
+
+        response := handle_request(app, request);
+
+        // What the handler left of the body is read and dropped, or the connection closes.
+        reusable := finish_body(body);
+
+        if body.dead return;
+
+        if response.source {
+            problem: Http_Error;
+
+            if !open_source(request, response.source, *problem) response = error_response(request, problem);
+        }
 
         served_here += 1;
         server.served += 1;
 
-        keep_alive := head.keep_alive && !server.stopping;
+        keep_alive := head.keep_alive && !server.stopping && reusable;
 
         if config.max_requests_per_connection > 0 && served_here >= config.max_requests_per_connection keep_alive = false;
 
-        if !append_response(server, *out, *response, *request, keep_alive) return;
+        sent, kind := append_response(server, *out, *response, request, keep_alive);
+
+        if !sent return;
 
         if config.log_requests {
             print("% % % (% ms)\n", request.method_text, request.target, response.status, now_ms() - started);
+        }
+
+        if response.source {
+            if !send_source(server, stream, *out, response.source, kind == .CHUNKED, kind != .NONE) return;
+
+            // No length to promise on HTTP/1.0: the end of the body is the end of the connection.
+            if kind == .UNTIL_CLOSE keep_alive = false;
         }
 
         // A big body goes out from where it is instead of being copied after the head.
@@ -682,9 +682,10 @@ body_allowed :: (status: int) -> bool {
 }
 
 // Puts the head and body of `response` into `out`. A large body is left for the caller to send
-// (the head only goes in); `append_response` then reports the body as pending through `out`'s
-// framing: the caller checks `response.body.count >= LARGE_BODY`. False when nothing can be sent.
-append_response :: (server: *Server, out: *[..] u8, response: *Response, request: *Request, keep_alive: bool) -> bool {
+// (the head only goes in); the caller checks `response.body.count >= LARGE_BODY`. A streamed
+// response puts only its head; the caller sends the rest. Returns false when nothing can be
+// sent, and how the body is framed.
+append_response :: (server: *Server, out: *[..] u8, response: *Response, request: *Request, keep_alive: bool) -> bool, Body_Kind {
     options: Response_Options;
 
     options.version = request.version;
@@ -695,18 +696,24 @@ append_response :: (server: *Server, out: *[..] u8, response: *Response, request
 
     mark := out.count;
 
-    kind, ok := write_response_head(out, response.status, response.headers, response.body.count, options);
+    length := cast(s64) response.body.count;
+
+    if response.source length = response.source.length;
+
+    kind, ok := write_response_head(out, response.status, response.headers, length, options);
 
     if !ok {
         // A handler built a response the writer refuses (a bad header, a status outside 100-599).
         out.count = mark;
+
+        if response.source close_source(response.source);
 
         failure := internal_error("the handler produced an invalid response");
         replacement := problem_response(request, failure);
 
         kind, ok = write_response_head(out, 500, replacement.headers, replacement.body.count, options);
 
-        if !ok return false;
+        if !ok return false, .NONE;
 
         response.* = replacement;
     }
@@ -715,7 +722,7 @@ append_response :: (server: *Server, out: *[..] u8, response: *Response, request
         append_bytes(out, response.body.data, response.body.count);
     }
 
-    return true;
+    return true, kind;
 }
 
 // Fills in `path` and `query` from the target (an absolute-form target keeps only its path).
@@ -748,14 +755,16 @@ parse_failure :: (parser: *Parser) -> Http_Error {
 
 // Sends an error and closes (the connection cannot be trusted to carry another request).
 send_failure :: (server: *Server, stream: Link, out: *[..] u8, error: Http_Error) {
-    request: Request;
+    frame: Request_Frame;
 
-    request.app = server.app;
-    request.version = .HTTP_1_1;
+    frame.app = server.app;
+    frame.request.version = .HTTP_1_1;
 
-    response := error_response(*request, error);
+    request := *frame.request;
 
-    append_response(server, out, *response, *request, false);
+    response := error_response(request, error);
+
+    append_response(server, out, *response, request, false);
 
     if response.body.count >= LARGE_BODY && body_allowed(response.status) append_bytes(out, response.body.data, response.body.count);
 
@@ -775,20 +784,21 @@ Serve_State :: struct {
     ok: s32 = 1;
     announced: s32;
     threads: int;
+    address: string;
+    error: Io.Io_Error; // why the first thread that failed could not listen
 }
 
 #scope_export
 
 // Runs the app until it is stopped: SIGINT or SIGTERM (when `config.handle_signals`), or
 // `shutdown(*app)` from another thread. One scheduler per `config.threads` (default: the
-// processor count), each with its own listener on the same port. Returns false if it could not
-// start (the port is taken, two routes conflict), after saying why on standard error.
-serve :: (app: *App) -> bool {
-    if app.setup_errors.count {
-        for app.setup_errors print("Http: %\n", it, to_standard_error = true);
+// processor count), each with its own listener on the same port. Returns once the servers have
+// stopped; the error says why it could not start (the port is taken, two routes conflict, the TLS
+// configuration is unusable) and is `.NONE` for a clean stop.
+serve :: (app: *App) -> Serve_Error {
+    invalid := check_app(app);
 
-        return false;
-    }
+    if invalid.kind != .NONE return invalid;
 
     if app.config.handle_signals Io.catch_interrupts();
 
@@ -799,13 +809,15 @@ serve :: (app: *App) -> bool {
 
     Io.io_run_threads(state.threads, serve_thread, *state);
 
-    return state.ok != 0;
-}
+    if state.ok != 0 return .{};
 
-serve :: (app: *App, address: string) -> bool {
-    app.config.address = address;
+    failure: Serve_Error;
 
-    return serve(app);
+    failure.kind = .CANNOT_LISTEN;
+    failure.io_error = state.error;
+    failure.message = tprint("cannot listen on %: %", app.config.address, state.error);
+
+    return failure;
 }
 
 #scope_module
@@ -813,10 +825,8 @@ serve :: (app: *App, address: string) -> bool {
 serve_thread :: (state: *Serve_State) {
     server, error := start(state.app, reuse_port = state.threads > 1);
 
-    if error != .NONE {
-        if compare_and_swap(*state.ok, 1, 0) {
-            print("Http: cannot listen on %: %\n", state.app.config.address, error, to_standard_error = true);
-        }
+    if error.kind != .NONE {
+        if compare_and_swap(*state.ok, 1, 0) state.error = error.io_error;
 
         return;
     }

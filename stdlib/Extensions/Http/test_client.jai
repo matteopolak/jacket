@@ -127,16 +127,20 @@ test_host :: (target: *Test_Target) -> *Test_Host, Io.Io_Error {
     if target.over_tcp {
         server, error := start(target.app);
 
-        if error != .NONE {
+        if error.kind != .NONE {
+            print("Http: %\n", error_text(error), to_standard_error = true);
+
             free(host);
 
-            return null, error;
+            return null, ifx error.kind == .CANNOT_LISTEN then error.io_error else Io.Io_Error.INVALID;
         }
 
         host.server = server;
     } else {
-        if target.app.setup_errors.count {
-            for target.app.setup_errors print("Http: %\n", it, to_standard_error = true);
+        invalid := check_app(target.app);
+
+        if invalid.kind != .NONE {
+            print("Http: %\n", error_text(invalid), to_standard_error = true);
 
             free(host);
 

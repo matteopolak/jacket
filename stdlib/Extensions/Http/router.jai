@@ -141,6 +141,7 @@ Route :: struct {
     method: Method;
     template: string;
     handler: Handler;
+    max_body: s64; // 0: the limit of the server config, -1: none
     middleware: [] Middleware;
     names: [..] string;
 }

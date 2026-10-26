@@ -1,5 +1,5 @@
 // Every extractor through the test client (no socket), with the errors they give: Path, Params, Rest, Query,
-// Json, Form, Header, Header_Optional, Bytes, Text, *Request and *State.
+// Json, Form, Header, Header_Optional, *Body, *Request and *State.
 #load "support/server_support.jai";
 
 Color :: enum {
@@ -68,39 +68,39 @@ path_string :: (s: Path("s", string)) -> string {
 }
 
 params :: (key: Params(Key)) -> string {
-    return tprint("% %", key.org, key.id);
+    return tprint("% %", key.temporary.org, key.temporary.id);
 }
 
 // ---- Query
 
 search :: (query: Query(Search)) -> string {
-    return tprint("q=% size=% tags=% color=%", query.q, query.page_size, query.tags.count, query.color);
+    return tprint("q=% size=% tags=% color=%", query.temporary.q, query.temporary.page_size, query.temporary.tags.count, query.temporary.color);
 }
 
 strict :: (query: Query(Strict)) -> string {
-    return tprint("a=%", query.a);
+    return tprint("a=%", query.temporary.a);
 }
 
 // ---- Json
 
 create_item :: (body: Json(New_Item)) -> New_Item {
-    return body.value;
+    return body.temporary;
 }
 
 echo_point :: (body: Json(Point)) -> Point {
-    return .{ body.y, body.x };
+    return .{ body.temporary.y, body.temporary.x };
 }
 
 sum_numbers :: (body: Json([] int)) -> int {
     total := 0;
-    for body.value total += it;
+    for body.temporary total += it;
     return total;
 }
 
 // ---- Form, Header, bodies
 
 login :: (form: Form(Login)) -> string {
-    return tprint("%:%", form.user, form.remember);
+    return tprint("%:%", form.temporary.user, form.temporary.remember);
 }
 
 need_agent :: (agent: Header("user-agent", string)) -> string {
@@ -115,12 +115,20 @@ maybe_trace :: (trace: Header_Optional("x-trace", string)) -> string {
     return ifx trace.present then tprint("trace=%", trace.value) else "no trace";
 }
 
-raw_bytes :: (body: Bytes) -> string {
-    return tprint("% bytes", body.value.count);
+raw_bytes :: (body: *Body) -> string, Http_Error {
+    bytes, error := read_all(body);
+
+    if error.kind != .NONE return "", error;
+
+    return tprint("% bytes", bytes.count), .{};
 }
 
-raw_text :: (body: Text) -> string {
-    return tprint("<%>", body.value);
+raw_text :: (body: *Body) -> string, Http_Error {
+    bytes, error := read_all(body);
+
+    if error.kind != .NONE return "", error;
+
+    return tprint("<%>", string.{ bytes.count, bytes.data }), .{};
 }
 
 about_request :: (request: *Request) -> string {
@@ -135,7 +143,7 @@ bump :: (counter: *State(Counter)) -> string {
 }
 
 mixed :: (id: Path("id", int), query: Query(Search), body: Json(Point), counter: *State(Counter), request: *Request) -> string {
-    return tprint("id=% q=% x=% label=% method=%", id.value, query.q, body.x, counter.label, request.method_text);
+    return tprint("id=% q=% x=% label=% method=%", id.value, query.temporary.q, body.temporary.x, counter.label, request.method_text);
 }
 
 counter: Counter;
@@ -207,15 +215,15 @@ extractors :: (api: *Client) {
 
     // ---- Json
     response = post_body(api, "/items", "{\"name\":\"pen\",\"tags\":[\"a\",\"b\"],\"point\":{\"x\":1,\"y\":2}}");
-    check(response.status == 201, "POST of a value is 201: %", response.status);
+    check(response.status == 200, "POST of a value is 200: %", response.status);
     check(header_of(response, "Content-Type") == "application/json", "JSON content type: %", header_of(response, "Content-Type"));
     check(contains(body_of(response), "\"name\":\"pen\"") && contains(body_of(response), "\"tags\":[\"a\",\"b\"]"), "item echoed: %", body_of(response));
 
     response = post_body(api, "/items", "{\"name\":\"pen\"}", "application/json; charset=utf-8");
-    check(response.status == 201, "Content-Type with a charset: %", response.status);
+    check(response.status == 200, "Content-Type with a charset: %", response.status);
 
     response = post_body(api, "/items", "{\"name\":\"pen\"}", "application/vnd.api+json");
-    check(response.status == 201, "a +json media type: %", response.status);
+    check(response.status == 200, "a +json media type: %", response.status);
 
     response = post_body(api, "/items", "{\"name\":\"pen\"}", "text/plain");
     check(response.status == 415 && contains(body_of(response), "text/plain"), "wrong media type: % %", response.status, body_of(response));
@@ -239,7 +247,7 @@ extractors :: (api: *Client) {
     check(body_of(response) == "{\"x\":2,\"y\":1}", "Json(Point) using: %", body_of(response));
 
     response = post_body(api, "/sum", "[1,2,3,4]");
-    check(response.status == 201 && body_of(response) == "10", "Json of an array: % %", response.status, body_of(response));
+    check(response.status == 200 && body_of(response) == "10", "Json of an array: % %", response.status, body_of(response));
 
     // ---- Form
     response = post_body(api, "/login", "user=ada%40example.com&remember=true", "application/x-www-form-urlencoded");

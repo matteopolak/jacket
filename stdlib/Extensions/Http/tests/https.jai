@@ -25,8 +25,12 @@ echo_path :: (request: *Request) -> string {
     return request.path;
 }
 
-echo_size :: (body: Text) -> string {
-    return tprint("%", body.value.count);
+echo_size :: (body: *Body) -> string, Http_Error {
+    bytes, error := read_all(body);
+
+    if error.kind != .NONE return "", error;
+
+    return tprint("%", bytes.count), .{};
 }
 
 // Built once, before any server runs: filling 3 MB in the interpreter takes seconds on a slow machine,
@@ -516,7 +520,7 @@ bad_server_config :: () {
     Io.io_run((app: *App) {
         server, error := start(app);
 
-        check(server == null && error == .INVALID, "a config that was never set up cannot serve: %", error);
+        check(server == null && error.kind == .INVALID_TLS, "a config that was never set up cannot serve: %", error_text(error));
     }, *bad);
 }
 

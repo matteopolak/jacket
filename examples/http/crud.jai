@@ -22,5 +22,10 @@ main :: () {
 
     print("listening on http://localhost:8080 (Ctrl-C to stop)\n");
 
-    serve(*app);
+    error := serve(*app);
+
+    if error.kind != .NONE {
+        print("%\n", error_text(error));
+        exit(1);
+    }
 }

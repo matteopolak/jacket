@@ -101,8 +101,8 @@ run :: (duration: *int) {
 
     server, error := start(*app);
 
-    if error != .NONE {
-        print("cannot listen: %\n", error);
+    if error.kind != .NONE {
+        print("cannot listen: %\n", error_text(error));
         exit(1);
     }
 

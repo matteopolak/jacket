@@ -55,6 +55,7 @@ HTTP_CONFORMANCE_CASE_IDS = tuple(
         "codec-roundtrip",
         "https",
         "llhttp",
+        "server-bodies",
         "server-connections",
         "server-extractors",
         "server-responses",

@@ -7,16 +7,20 @@
 #import "Basic";
 #import "Extensions/Http";
 
-echo :: (request: *Request) -> string {
+echo :: (request: *Request, body: *Body) -> string, Http_Error {
     builder: String_Builder;
 
     print(*builder, "% % %\n", request.method_text, request.target, version_name(request.version));
 
     for request.headers print(*builder, "%: %\n", it.name, it.value);
 
-    print(*builder, "\n%", body_text(request));
+    bytes, error := read_all(body);
 
-    return builder_to_string(*builder,, temp);
+    if error.kind != .NONE return "", error;
+
+    print(*builder, "\n%", string.{ bytes.count, bytes.data });
+
+    return builder_to_string(*builder,, temp), .{};
 }
 
 main :: () {
@@ -37,5 +41,10 @@ main :: () {
     get(*app, "/", echo);
     post(*app, "/", echo);
 
-    if !serve(*app) exit(1);
+    error := serve(*app);
+
+    if error.kind != .NONE {
+        print("%\n", error_text(error), to_standard_error = true);
+        exit(1);
+    }
 }

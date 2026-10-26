@@ -5,8 +5,11 @@
 //
 //     get_user :: (id: Path("id", int), search: Query(Search), request: *Request) -> User, Http_Error { ... }
 //
-// Each extractor is a polymorphic struct with a `value`. The ones that hold a struct also
-// `using` it, so `body.name` works as well as `body.value.name`.
+// Each extractor is a polymorphic struct with the decoded value in a member. `Path`, `Rest`,
+// `Header` and `Header_Optional` name it `value`. The ones that decode a whole `T` (`Params`,
+// `Query`, `Json`, `Form`) name it `temporary`, because that is what it is: the `T` is built in
+// the temporary allocator, so strings and arrays in it are gone once the response is written.
+// `body.temporary.name` reads that way on purpose; `copy_string` what has to outlive the request.
 
 // One `{name}` of the route, parsed as a `T`: integers, floats, bools, strings and enums (by
 // member name). A value that does not parse is a 400 that names the parameter.
@@ -14,12 +17,13 @@ Path :: struct(NAME: string, T: Type) {
     value: T;
 }
 
-// Several `{params}` at once: every field of `T` names a parameter of the route.
+// Several `{params}` at once: every field of `T` names a parameter of the route. The `T` lives in
+// temporary storage for the request.
 //
 //     Post_Key :: struct { user: int; post: string; }
-//     get_post :: (key: Params(Post_Key)) { ... key.user ... }
+//     get_post :: (key: Params(Post_Key)) { ... key.temporary.user ... }
 Params :: struct(T: Type) {
-    using value: T;
+    temporary: T;
 }
 
 // The `{name...}` tail of the route as one string (the rest of the path, percent-decoded).
@@ -28,20 +32,29 @@ Rest :: struct(NAME: string) {
 }
 
 // The query string, decoded into a `T` with the rules and notes of JSON (`default`, `rename`,
-// `alias`...): a field without `default` is required, repeated keys fill arrays.
+// `alias`...): a field without `default` is required, repeated keys fill arrays. The `T` lives in
+// temporary storage for the request.
 Query :: struct(T: Type) {
-    using value: T;
+    temporary: T;
 }
 
-// The request body as JSON. `Content-Type: application/json` is required (415 otherwise), a body
-// that is not valid JSON is a 400 and one of the wrong shape a 422; both name the JSON path.
+// The whole request body as JSON, read before the handler runs (`read_json` does the same from a
+// `*Body`). `Content-Type: application/json` is required (415 otherwise), a body that is not
+// valid JSON is a 400 and one of the wrong shape a 422; both name the JSON path. A body over the
+// route's `max_body` is a 413. The `T` lives in temporary storage for the request: copy the
+// strings you keep.
+//
+//     create :: (body: Json(New_User)) -> User {
+//         return .{ id = next_id(), name = copy_string(body.temporary.name) };
+//     }
 Json :: struct(T: Type) {
-    using value: T;
+    temporary: T;
 }
 
-// An `application/x-www-form-urlencoded` body, decoded like a query string.
+// An `application/x-www-form-urlencoded` body, read before the handler runs and decoded like a
+// query string. The same limit and the same lifetime as `Json`.
 Form :: struct(T: Type) {
-    using value: T;
+    temporary: T;
 }
 
 // One request header, parsed as a `T`. A missing header is a 400; `Header_Optional` allows it.
@@ -52,16 +65,6 @@ Header :: struct(NAME: string, T: Type) {
 Header_Optional :: struct(NAME: string, T: Type) {
     value: T;
     present: bool;
-}
-
-// The raw body.
-Bytes :: struct {
-    value: [] u8;
-}
-
-// The body as text.
-Text :: struct {
-    value: string;
 }
 
 // The shared state set with `app.state = *my_state`. Take it as `*State(My_State)`; the fields
@@ -76,7 +79,7 @@ State :: struct(T: Type) {
 // Run time: one procedure per extractor. The generated thunk of a route calls them.
 
 extract_path :: (request: *Request, position: int, name: string, $T: Type) -> T, Http_Error {
-    text := request.params[position].value;
+    text := frame_of(request).params[position].value;
 
     #if T == string {
         return text, .{};
@@ -92,7 +95,7 @@ extract_path :: (request: *Request, position: int, name: string, $T: Type) -> T,
 }
 
 extract_params :: (request: *Request, $T: Type) -> T, Http_Error {
-    value, failure := from_query(T, request.params,, temp);
+    value, failure := from_query(T, frame_of(request).params,, temp);
 
     if failure.kind != .NONE {
         return .{}, input_error(400, "path", failure.path, tprint("invalid path parameter%: %", ifx failure.path.count then tprint(" `%`", failure.path) else "", failure.message));
@@ -113,39 +116,23 @@ extract_query :: (request: *Request, $T: Type) -> T, Http_Error {
     return value, .{};
 }
 
-extract_form :: (request: *Request, $T: Type) -> T, Http_Error {
-    content_type, found := header(request, .CONTENT_TYPE);
+extract_form :: (request: *Request, body: *Body, $T: Type) -> T, Http_Error {
+    content_type, found := header(request, "Content-Type");
 
     if !found || !media_type_is(content_type, "application/x-www-form-urlencoded") {
         return .{}, input_error(415, "body", "", ifx found then tprint("expected a form body (Content-Type: application/x-www-form-urlencoded), got `%`", content_type) else "expected a form body (Content-Type: application/x-www-form-urlencoded), but there was no Content-Type header");
     }
 
-    pairs := parse_query(body_text(request),, temp);
+    bytes, error := read_all(body);
+
+    if error.kind != .NONE return .{}, error;
+
+    pairs := parse_query(string.{ bytes.count, bytes.data },, temp);
 
     value, failure := from_query(T, pairs,, temp);
 
     if failure.kind != .NONE {
         return .{}, input_error(400, "form", failure.path, bad_pairs_detail("form field", failure, pairs));
-    }
-
-    return value, .{};
-}
-
-extract_json :: (request: *Request, $T: Type) -> T, Http_Error {
-    content_type, found := header(request, .CONTENT_TYPE);
-
-    if !found || !(media_type_is(content_type, "application/json") || media_type_has_suffix(content_type, "+json")) {
-        return .{}, input_error(415, "body", "", ifx found then tprint("expected a JSON body (Content-Type: application/json), got `%`", content_type) else "expected a JSON body (Content-Type: application/json), but there was no Content-Type header");
-    }
-
-    value, failure := from_json(T, body_text(request), request.app.json_options,, temp);
-
-    if failure.kind != .NONE {
-        status := ifx failure.kind == .SYNTAX || failure.kind == .LIMIT then 400 else 422;
-
-        where := ifx failure.path.count then tprint("%: ", failure.path) else "";
-
-        return .{}, input_error(status, "body", failure.path, tprint("%%, at line %, column %", where, failure.message, failure.line, failure.column));
     }
 
     return value, .{};
@@ -194,33 +181,6 @@ bad_pairs_detail :: (what: string, failure: Json_Error, pairs: [] Pair) -> strin
     return tprint("% `%`: %", what, failure.path, failure.message);
 }
 
-// `application/json; charset=utf-8` is the media type `application/json`.
-media_type_is :: (value: string, wanted: string) -> bool {
-    return equal_nocase(media_type_of(value), wanted);
-}
-
-media_type_has_suffix :: (value: string, suffix: string) -> bool {
-    media := media_type_of(value);
-
-    return media.count > suffix.count && equal_nocase(slice(media, media.count - suffix.count, suffix.count), suffix);
-}
-
-media_type_of :: (value: string) -> string {
-    media := value;
-    semicolon := find_index_from_left(media, #char ";");
-
-    if semicolon >= 0 media = slice(media, 0, semicolon);
-
-    while media.count > 0 && is_ows(media[media.count - 1]) media.count -= 1;
-
-    while media.count > 0 && is_ows(media[0]) {
-        media.data += 1;
-        media.count -= 1;
-    }
-
-    return media;
-}
-
 // The value a handler returned, as a response
 
 respond :: (request: *Request, value: Response) -> Response {
@@ -239,12 +199,12 @@ respond :: (request: *Request, value: [] u8) -> Response {
 respond :: (request: *Request, value: Http_Error) -> Response {
     if value.kind != .NONE return error_response(request, value);
 
-    return no_content();
+    return status_only(204);
 }
 
-// Anything else is JSON: 201 Created for a POST, 200 otherwise.
+// Anything else is JSON with status 200 (`created(value)` for a 201).
 respond :: (request: *Request, value: $T) -> Response {
-    return json(value, ifx request.method == .POST then 201 else 200);
+    return json(value);
 }
 
 // Compile time: what a route registration checks and generates
@@ -259,8 +219,7 @@ Param_Kind :: enum u8 {
     HEADER;
     HEADER_OPTIONAL;
     FORM;
-    BYTES;
-    TEXT;
+    BODY;
     REQUEST;
     STATE;
 }
@@ -277,8 +236,6 @@ classify :: (info: *Type_Info) -> Param_Kind {
         if name == "Header" return .HEADER;
         if name == "Header_Optional" return .HEADER_OPTIONAL;
         if name == "Form" return .FORM;
-        if name == "Bytes" return .BYTES;
-        if name == "Text" return .TEXT;
     }
 
     if info.type == .POINTER {
@@ -288,6 +245,7 @@ classify :: (info: *Type_Info) -> Param_Kind {
             name := (cast(*Type_Info_Struct) pointee).name;
 
             if name == "Request" return .REQUEST;
+            if name == "Body" return .BODY;
             if name == "State" return .STATE;
         }
     }
@@ -296,7 +254,7 @@ classify :: (info: *Type_Info) -> Param_Kind {
 }
 
 is_body_kind :: (kind: Param_Kind) -> bool {
-    return kind == .JSON || kind == .FORM || kind == .BYTES || kind == .TEXT;
+    return kind == .JSON || kind == .FORM || kind == .BODY;
 }
 
 // The type of the `index`th parameter of the procedure type `H`.
@@ -309,7 +267,7 @@ arg_type :: (H: Type, index: int) -> Type {
 // The T of an extractor that holds a struct in its `value` member.
 value_info :: (info: *Type_Info) -> *Type_Info {
     for (cast(*Type_Info_Struct) info).members {
-        if it.name == "value" return it.type;
+        if it.name == "value" || it.name == "temporary" return it.type;
     }
 
     return null;
@@ -406,11 +364,11 @@ check_scalar :: (info: *Type_Info, template: string, method: Method, loc: Source
 }
 
 report_parameter :: (loc: Source_Code_Location, method: Method, template: string, index: int, type_name: string) {
-    report(loc, method, template, tprint("handler parameter % has type `%`, which is not an extractor. Use Path(\"name\", T), Params(T), Rest(\"name\"), Query(T), Json(T), Form(T), Header(\"name\", T), Header_Optional(\"name\", T), Bytes, Text, *Request or *State(T)", index + 1, type_name));
+    report(loc, method, template, tprint("handler parameter % has type `%`, which is not an extractor. Use Path(\"name\", T), Params(T), Rest(\"name\"), Query(T), Json(T), Form(T), Header(\"name\", T), Header_Optional(\"name\", T), *Body, *Request or *State(T)", index + 1, type_name));
 }
 
 report_bodies :: (loc: Source_Code_Location, method: Method, template: string) {
-    report(loc, method, template, "the handler has more than one body extractor (Json, Form, Bytes, Text), but a request has one body");
+    report(loc, method, template, "the handler has more than one body extractor (Json, Form, *Body), but a request has one body");
 }
 
 report_returns :: (loc: Source_Code_Location, method: Method, template: string, message: string) {
@@ -490,19 +448,19 @@ generate_call :: (H: Type) -> string {
                 print(*out, "a%: A%;\n{ value, error := extract_path(request, PI%, A%.NAME, A%.T); if error.kind != .NONE return error_response(request, error); a%.value = value; }\n", index, index, index, index, index, index);
                 print(*arguments, "a%", index);
             case .PARAMS;
-                print(*out, "a%: A%;\n{ value, error := extract_params(request, A%.T); if error.kind != .NONE return error_response(request, error); a%.value = value; }\n", index, index, index, index);
+                print(*out, "a%: A%;\n{ value, error := extract_params(request, A%.T); if error.kind != .NONE return error_response(request, error); a%.temporary = value; }\n", index, index, index, index);
                 print(*arguments, "a%", index);
             case .REST;
-                print(*out, "a%: A%;\na%.value = request.params[PI%].value;\n", index, index, index, index);
+                print(*out, "a%: A%;\na%.value = frame_of(request).params[PI%].value;\n", index, index, index, index);
                 print(*arguments, "a%", index);
             case .QUERY;
-                print(*out, "a%: A%;\n{ value, error := extract_query(request, A%.T); if error.kind != .NONE return error_response(request, error); a%.value = value; }\n", index, index, index, index);
+                print(*out, "a%: A%;\n{ value, error := extract_query(request, A%.T); if error.kind != .NONE return error_response(request, error); a%.temporary = value; }\n", index, index, index, index);
                 print(*arguments, "a%", index);
             case .JSON;
-                print(*out, "a%: A%;\n{ value, error := extract_json(request, A%.T); if error.kind != .NONE return error_response(request, error); a%.value = value; }\n", index, index, index, index);
+                print(*out, "a%: A%;\n{ value, error := read_json(body_of(request), A%.T); if error.kind != .NONE return error_response(request, error); a%.temporary = value; }\n", index, index, index, index);
                 print(*arguments, "a%", index);
             case .FORM;
-                print(*out, "a%: A%;\n{ value, error := extract_form(request, A%.T); if error.kind != .NONE return error_response(request, error); a%.value = value; }\n", index, index, index, index);
+                print(*out, "a%: A%;\n{ value, error := extract_form(request, body_of(request), A%.T); if error.kind != .NONE return error_response(request, error); a%.temporary = value; }\n", index, index, index, index);
                 print(*arguments, "a%", index);
             case .HEADER;
                 print(*out, "a%: A%;\n{ value, error := extract_header(request, A%.NAME, A%.T); if error.kind != .NONE return error_response(request, error); a%.value = value; }\n", index, index, index, index, index);
@@ -510,17 +468,13 @@ generate_call :: (H: Type) -> string {
             case .HEADER_OPTIONAL;
                 print(*out, "a%: A%;\n{ value, present, error := extract_header_optional(request, A%.NAME, A%.T); if error.kind != .NONE return error_response(request, error); a%.value = value; a%.present = present; }\n", index, index, index, index, index, index);
                 print(*arguments, "a%", index);
-            case .BYTES;
-                print(*out, "a%: A%;\na%.value = request.body;\n", index, index, index);
-                print(*arguments, "a%", index);
-            case .TEXT;
-                print(*out, "a%: A%;\na%.value = body_text(request);\n", index, index, index);
-                print(*arguments, "a%", index);
+            case .BODY;
+                print(*arguments, "body_of(request)");
             case .REQUEST;
                 print(*arguments, "request");
             case .STATE;
-                print(*out, "if !request.app.state return error_response(request, internal_error(\"this route takes a State, but app.state was never set\"));\n");
-                print(*out, "s%: A% = cast(A%) request.app.state;\n", index, index, index);
+                print(*out, "if !frame_of(request).app.state return error_response(request, internal_error(\"this route takes a State, but app.state was never set\"));\n");
+                print(*out, "s%: A% = cast(A%) frame_of(request).app.state;\n", index, index, index);
                 print(*arguments, "s%", index);
             case;
                 // Reported by the prelude; keep the generated code well formed.
@@ -533,7 +487,7 @@ generate_call :: (H: Type) -> string {
     count := info.return_types.count;
 
     if count == 0 {
-        print(*out, "handler(%);\nreturn no_content();\n", call);
+        print(*out, "handler(%);\nreturn status_only(204);\n", call);
     } else if count == 1 {
         print(*out, "r0 := handler(%);\nreturn respond(request, r0);\n", call);
     } else {

@@ -25,20 +25,20 @@ get_user :: (id: Path("id", int)) -> User, Http_Error {
     return .{}, not_found("No user with id %", id.value);
 }
 
-create_user :: (body: Json(New_User)) -> User, Http_Error {
-    if !body.name return .{}, bad_request("name is required");
+create_user :: (body: Json(New_User)) -> Response, Http_Error {
+    if !body.temporary.name return .{}, bad_request("name is required");
 
-    user := User.{ users.count + 1, copy_string(body.name) };
+    user := User.{ users.count + 1, copy_string(body.temporary.name) };
 
     array_add(*users, user);
 
-    return user, .{};
+    return created(user), .{};
 }
 
 rename_user :: (id: Path("id", int), body: Json(New_User)) -> User, Http_Error {
     for *users {
         if it.id == id.value {
-            it.name = copy_string(body.name);
+            it.name = copy_string(body.temporary.name);
 
             return it.*, .{};
         }
@@ -85,13 +85,14 @@ slow :: (ms: Path("ms", int)) -> string {
 }
 
 // What the server received, as text: method, target, body, and some headers.
-inspect :: (request: *Request) -> string {
+inspect :: (request: *Request, body: *Body) -> string {
+    bytes, _ := read_all(body);
     auth, _ := header(request, "Authorization");
     ctype, _ := header(request, "Content-Type");
     custom, _ := header(request, "X-Custom");
     agent, _ := header(request, "User-Agent");
 
-    return tprint("% % body=[%] auth=[%] ctype=[%] custom=[%] agent=[%]", request.method_text, request.target, body_text(request), auth, ctype, custom, agent);
+    return tprint("% % body=[%] auth=[%] ctype=[%] custom=[%] agent=[%]", request.method_text, request.target, string.{ bytes.count, bytes.data }, auth, ctype, custom, agent);
 }
 
 moved :: (request: *Request) -> Response {

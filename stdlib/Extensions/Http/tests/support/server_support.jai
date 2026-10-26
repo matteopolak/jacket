@@ -46,8 +46,8 @@ run_server :: (app: *App, body: Server_Test) {
 
         server, error := start(data.app);
 
-        if error != .NONE {
-            print("FAIL: cannot listen: %\n", error);
+        if error.kind != .NONE {
+            print("FAIL: cannot listen: %\n", error_text(error));
             exit(1);
         }
 

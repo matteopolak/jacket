@@ -126,7 +126,7 @@ fn path_type_that_text_cannot_become() {
 fn two_body_extractors() {
     rejected(
         "two_bodies",
-        "h :: (a: Json(User), b: Text) -> User { return .{}; }",
+        "h :: (a: Json(User), b: *Body) -> User { return .{}; }",
         "\"/users\", h",
         "more than one body extractor",
     );

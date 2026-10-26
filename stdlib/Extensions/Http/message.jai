@@ -2,8 +2,8 @@
 // with instead. Everything here is plain data plus small builders.
 
 // A parsed request, as handlers and middleware see it. The strings (target, header names and
-// values) stay valid until the response has been written; the body is a view of the buffered
-// request body. Copy what has to outlive the request.
+// values) stay valid until the response has been written: copy what has to outlive the request.
+// The body is not here: take a `*Body` parameter to read it (see `Body`), or `Json(T)`, `Form(T)`.
 Request :: struct {
     method: Method;
     method_text: string; // the spelling on the wire, for methods the codec does not know
@@ -12,21 +12,7 @@ Request :: struct {
     query: string; // the text after `?`, still percent-encoded
     version: Version;
     headers: [] Header_Field;
-    body: [] u8; // the whole body (a limit from the server config keeps it bounded)
     peer: Io.Address;
-
-    // The values of the route's `{params}`, in template order, percent-decoded.
-    params: [] Pair;
-
-    // The app that is serving it, for state and configuration.
-    app: *App;
-
-    // Internal: middleware chain position and the decoded query.
-    chain: [] Middleware;
-    cursor: int;
-    endpoint: Handler;
-    query_pairs: [] Pair;
-    query_parsed: bool;
 }
 
 // A handler after its extractors are built: `(request) -> Response`. Routes store one per route.
@@ -51,21 +37,7 @@ header :: (request: *Request, name: string) -> string, bool {
     return find_header(request.headers, name);
 }
 
-header :: (request: *Request, id: Header_Name) -> string, bool {
-    return find_header(request.headers, id);
-}
-
-// The decoded pairs of the query string (`?a=1&b=two`), parsed on first use.
-query_pairs :: (request: *Request) -> [] Pair {
-    if !request.query_parsed {
-        request.query_pairs = parse_query(request.query,, temp);
-        request.query_parsed = true;
-    }
-
-    return request.query_pairs;
-}
-
-// The first query parameter called `name`, and whether it was given.
+// The first query parameter called `name`, percent-decoded, and whether it was given.
 query_param :: (request: *Request, name: string) -> string, bool {
     for query_pairs(request) {
         if it.key == name return it.value, true;
@@ -74,23 +46,15 @@ query_param :: (request: *Request, name: string) -> string, bool {
     return "", false;
 }
 
-// The value of a `{param}` of the matched route.
-path_param :: (request: *Request, name: string) -> string, bool {
-    for request.params {
-        if it.key == name return it.value, true;
-    }
-
-    return "", false;
+// The state of the app that serves `request` (`app.state`), or null when it was never set. For
+// middleware; handlers take a `*State(T)` instead.
+app_state :: (request: *Request, $T: Type) -> *T {
+    return cast(*T) frame_of(request).app.state;
 }
 
 // `1.2.3.4:5678` or `[::1]:5678`.
 peer_text :: (request: *Request) -> string {
     return Io.address_to_string(request.peer);
-}
-
-// The body as text (a view of the same bytes).
-body_text :: (request: *Request) -> string {
-    return string.{ request.body.count, request.body.data };
 }
 
 // Responses
@@ -102,20 +66,13 @@ Response :: struct {
     status := 200;
     headers: [..] Header_Field;
     body: [] u8;
+
+    // Set by `stream_response` and `file_response`: the body is produced while it is sent.
+    source: *Response_Source;
 }
 
-// Adds a header. The name and value must stay valid until the response is written.
-add_header :: (response: *Response, name: string, value: string) {
-    header: Header_Field;
-
-    header.name = name;
-    header.value = value;
-    header.id = lookup_header_name(name);
-
-    array_add(*response.headers, header,, temp);
-}
-
-// `response` with one more header: `with_header(json(user), "ETag", tag)`.
+// `response` with one more header: `with_header(json(user), "ETag", tag)`. The name and value
+// must stay valid until the response is written.
 with_header :: (response: Response, name: string, value: string) -> Response {
     result := response;
 
@@ -129,7 +86,7 @@ with_header :: (response: Response, name: string, value: string) -> Response {
     return result;
 }
 
-// An empty response with only a status.
+// An empty response with only a status (`status_only(204)`).
 status_only :: (status: int) -> Response {
     response: Response;
 
@@ -153,6 +110,18 @@ json :: (value: $T, status := 200) -> Response {
     return response;
 }
 
+// `value` as JSON with status 201 and, when `location` is given, a `Location` header: the answer
+// to a request that made something.
+//
+//     return created(user, tprint("/users/%", user.id));
+created :: (value: $T, location := "") -> Response {
+    response := json(value, 201);
+
+    if location.count add_header(*response, "Location", location);
+
+    return response;
+}
+
 // Plain text with `Content-Type: text/plain; charset=utf-8`.
 text :: (body: string, status := 200) -> Response {
     return bytes_response(body, "text/plain; charset=utf-8", status);
@@ -163,23 +132,18 @@ html :: (body: string, status := 200) -> Response {
     return bytes_response(body, "text/html; charset=utf-8", status);
 }
 
-// Raw bytes with a content type of your choice.
-bytes_response :: (body: string, content_type: string, status := 200) -> Response {
+// Raw bytes (a `[] u8` or a `string`) with a content type of your choice. The bytes must stay
+// valid until the response is written.
+bytes_response :: (body: $T, content_type: string, status := 200) -> Response {
     response: Response;
 
     response.status = status;
-    response.body = .{ body.count, body.data };
 
-    add_header(*response, "Content-Type", content_type);
-
-    return response;
-}
-
-bytes_response :: (body: [] u8, content_type: string, status := 200) -> Response {
-    response: Response;
-
-    response.status = status;
-    response.body = body;
+    #if T == string {
+        response.body = .{ body.count, body.data };
+    } else {
+        response.body = body;
+    }
 
     add_header(*response, "Content-Type", content_type);
 
@@ -195,11 +159,6 @@ redirect :: (location: string, status := 302) -> Response {
     add_header(*response, "Location", location);
 
     return response;
-}
-
-// 204 with no body.
-no_content :: () -> Response {
-    return status_only(204);
 }
 
 // Errors
@@ -316,7 +275,9 @@ error_text :: (error: Http_Error) -> string {
 // The response for an error: what `app.on_error` returns, or the problem document. Middleware use
 // it to answer without calling `next`.
 error_response :: (request: *Request, error: Http_Error) -> Response {
-    if request.app && request.app.on_error return request.app.on_error(error, request);
+    app := frame_of(request).app;
+
+    if app && app.on_error return app.on_error(error, request);
 
     return problem_response(request, error);
 }
@@ -383,3 +344,56 @@ input_error :: (status: int, location: string, field: string, detail: string) ->
 
     return error;
 }
+
+#scope_module
+
+// The request as the server keeps it: the public `Request` is its first member, so a `*Request`
+// handed to a handler or middleware is also a `*Request_Frame`. Only the server makes requests.
+Request_Frame :: struct {
+    request: Request;
+
+    // The values of the route's `{params}`, in template order, percent-decoded.
+    params: [] Pair;
+
+    // The app that is serving it, for state and configuration.
+    app: *App;
+
+    // Middleware chain position and the decoded query.
+    chain: [] Middleware;
+    cursor: int;
+    endpoint: Handler;
+    query_pairs: [] Pair;
+    query_parsed: bool;
+
+    body: Body_Frame;
+}
+
+frame_of :: (request: *Request) -> *Request_Frame {
+    return cast(*Request_Frame) request;
+}
+
+// The decoded pairs of the query string (`?a=1&b=two`), parsed on first use.
+query_pairs :: (request: *Request) -> [] Pair {
+    frame := frame_of(request);
+
+    if !frame.query_parsed {
+        frame.query_pairs = parse_query(request.query,, temp);
+        frame.query_parsed = true;
+    }
+
+    return frame.query_pairs;
+}
+
+// Adds a header to a response being built. The name and value must stay valid until the response
+// is written.
+add_header :: (response: *Response, name: string, value: string) {
+    header: Header_Field;
+
+    header.name = name;
+    header.value = value;
+    header.id = lookup_header_name(name);
+
+    array_add(*response.headers, header,, temp);
+}
+
+#scope_export

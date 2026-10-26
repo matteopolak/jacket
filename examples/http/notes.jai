@@ -2,7 +2,9 @@
 // serve it and crud_test.jai can test it.
 //
 // Handlers declare what they need as parameters. A bad id, a body that is not JSON or a missing
-// field is answered with a 400/415/422 problem document before the handler runs.
+// field is answered with a 400/415/422 problem document before the handler runs. The decoded
+// `Query`, `Json` and `Form` values live in temporary storage until the response is written, which
+// is why they are read through `.temporary`: copy the strings a handler keeps.
 #import "Basic";
 #import "Extensions/Http";
 
@@ -29,12 +31,14 @@ Store :: struct {
 }
 
 list_notes :: (filter: Query(Filter), store: *State(Store)) -> [] Note {
-    if filter.status == "all" return store.notes;
+    status := filter.temporary.status;
+
+    if status == "all" return store.notes;
 
     matching: [..] Note;
     matching.allocator = temp;
 
-    for store.notes if it.done == (filter.status == "done") array_add(*matching, it);
+    for store.notes if it.done == (status == "done") array_add(*matching, it);
 
     return matching;
 }
@@ -45,22 +49,22 @@ get_note :: (id: Path("id", int), store: *State(Store)) -> Note, Http_Error {
     return .{}, not_found("No note with id %", id.value);
 }
 
-create_note :: (body: Json(New_Note), store: *State(Store)) -> Note, Http_Error {
-    if !body.title return .{}, unprocessable("title must not be empty");
+create_note :: (body: Json(New_Note), store: *State(Store)) -> Response, Http_Error {
+    if !body.temporary.title return .{}, unprocessable("title must not be empty");
 
-    note := Note.{ store.next_id, copy_string(body.title), body.done };
+    note := Note.{ store.next_id, copy_string(body.temporary.title), body.temporary.done };
 
     store.next_id += 1;
     array_add(*store.notes, note);
 
-    return note, .{}; // a value from POST is sent as 201 Created
+    return created(note, tprint("/notes/%", note.id)), .{}; // 201 Created with a Location header
 }
 
 replace_note :: (id: Path("id", int), body: Json(New_Note), store: *State(Store)) -> Note, Http_Error {
     for *store.notes {
         if it.id == id.value {
-            it.title = copy_string(body.title);
-            it.done = body.done;
+            it.title = copy_string(body.temporary.title);
+            it.done = body.temporary.done;
 
             return it.*, .{};
         }

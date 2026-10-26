@@ -40,10 +40,10 @@ find_user :: (id: Path("id", int)) -> User, Http_Error {
     return .{}, not_found("No user with id %", id.value);
 }
 
-add_user :: (body: Json(New_User)) -> User, Http_Error {
-    if !body.name return .{}, unprocessable("name must not be empty");
+add_user :: (body: Json(New_User)) -> Response, Http_Error {
+    if !body.temporary.name return .{}, unprocessable("name must not be empty");
 
-    return User.{ 2, copy_string(body.name) }, .{};
+    return created(User.{ 2, copy_string(body.temporary.name) }), .{};
 }
 
 rest_for :: (ms: Path("ms", int)) -> string {
@@ -87,8 +87,10 @@ through_backend :: (state: *State(World)) -> string, Http_Error {
     return tprint("backend: %", text), .{};
 }
 
-length_of :: (body: Bytes) -> int {
-    return body.value.count;
+length_of :: (body: *Body) -> int, Http_Error {
+    bytes, error := read_all(body);
+
+    return bytes.count, error;
 }
 
 big :: () -> [] u8 {

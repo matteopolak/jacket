@@ -80,7 +80,7 @@ App :: struct {
     // Replaces the problem+json format of error responses.
     on_error: Error_Handler;
 
-    // Limits for the JSON bodies `Json(T)` reads.
+    // Limits for the JSON bodies `Json(T)` and `read_json` read.
     json_options: Json_Options;
 
     // Middleware that wraps every request, including ones no route answers.
@@ -173,71 +173,74 @@ use :: (group: *Group($P), middleware: Middleware) {
 
 // Routes
 
-// `get(*app, "/users/{id}", handler)`. The template and the handler are compile-time arguments:
+// `get(*app, "/users/{id}", handler)`. `max_body` (all the verbs take it) is the most request body
+// bytes the route reads: 0 uses `config.max_body_size`, -1 allows any size (for a handler that
+// streams its `*Body`); a body over it is a 413 from `Json`, `Form`, `read` and `read_all`. The
+// template and the handler are compile-time arguments:
 // the template is parsed and every extractor of the handler is checked against it while the
 // program compiles, and the code that fills them in is generated for this route. A route that
 // does not fit is an error that points at the call.
-get :: (app: *App, $template: string, $handler: $H, $loc := #caller_location) {
-    add_route(app, .[], .GET, "", template, handler, loc);
+get :: (app: *App, $template: string, $handler: $H, max_body := 0, $loc := #caller_location) {
+    add_route(app, .[], .GET, "", template, handler, max_body, loc);
 }
 
-get :: (group: *Group($P), $template: string, $handler: $H, $loc := #caller_location) {
-    add_route(group.app, group.middleware, .GET, P, template, handler, loc);
+get :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $loc := #caller_location) {
+    add_route(group.app, group.middleware, .GET, P, template, handler, max_body, loc);
 }
 
-post :: (app: *App, $template: string, $handler: $H, $loc := #caller_location) {
-    add_route(app, .[], .POST, "", template, handler, loc);
+post :: (app: *App, $template: string, $handler: $H, max_body := 0, $loc := #caller_location) {
+    add_route(app, .[], .POST, "", template, handler, max_body, loc);
 }
 
-post :: (group: *Group($P), $template: string, $handler: $H, $loc := #caller_location) {
-    add_route(group.app, group.middleware, .POST, P, template, handler, loc);
+post :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $loc := #caller_location) {
+    add_route(group.app, group.middleware, .POST, P, template, handler, max_body, loc);
 }
 
-put :: (app: *App, $template: string, $handler: $H, $loc := #caller_location) {
-    add_route(app, .[], .PUT, "", template, handler, loc);
+put :: (app: *App, $template: string, $handler: $H, max_body := 0, $loc := #caller_location) {
+    add_route(app, .[], .PUT, "", template, handler, max_body, loc);
 }
 
-put :: (group: *Group($P), $template: string, $handler: $H, $loc := #caller_location) {
-    add_route(group.app, group.middleware, .PUT, P, template, handler, loc);
+put :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $loc := #caller_location) {
+    add_route(group.app, group.middleware, .PUT, P, template, handler, max_body, loc);
 }
 
-patch :: (app: *App, $template: string, $handler: $H, $loc := #caller_location) {
-    add_route(app, .[], .PATCH, "", template, handler, loc);
+patch :: (app: *App, $template: string, $handler: $H, max_body := 0, $loc := #caller_location) {
+    add_route(app, .[], .PATCH, "", template, handler, max_body, loc);
 }
 
-patch :: (group: *Group($P), $template: string, $handler: $H, $loc := #caller_location) {
-    add_route(group.app, group.middleware, .PATCH, P, template, handler, loc);
+patch :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $loc := #caller_location) {
+    add_route(group.app, group.middleware, .PATCH, P, template, handler, max_body, loc);
 }
 
-delete :: (app: *App, $template: string, $handler: $H, $loc := #caller_location) {
-    add_route(app, .[], .DELETE, "", template, handler, loc);
+delete :: (app: *App, $template: string, $handler: $H, max_body := 0, $loc := #caller_location) {
+    add_route(app, .[], .DELETE, "", template, handler, max_body, loc);
 }
 
-delete :: (group: *Group($P), $template: string, $handler: $H, $loc := #caller_location) {
-    add_route(group.app, group.middleware, .DELETE, P, template, handler, loc);
+delete :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $loc := #caller_location) {
+    add_route(group.app, group.middleware, .DELETE, P, template, handler, max_body, loc);
 }
 
 // HEAD and OPTIONS are answered for every route by default (HEAD by the GET handler without the
 // body, OPTIONS with an `Allow` list); register them only to change that.
-head :: (app: *App, $template: string, $handler: $H, $loc := #caller_location) {
-    add_route(app, .[], .HEAD, "", template, handler, loc);
+head :: (app: *App, $template: string, $handler: $H, max_body := 0, $loc := #caller_location) {
+    add_route(app, .[], .HEAD, "", template, handler, max_body, loc);
 }
 
-head :: (group: *Group($P), $template: string, $handler: $H, $loc := #caller_location) {
-    add_route(group.app, group.middleware, .HEAD, P, template, handler, loc);
+head :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $loc := #caller_location) {
+    add_route(group.app, group.middleware, .HEAD, P, template, handler, max_body, loc);
 }
 
-options :: (app: *App, $template: string, $handler: $H, $loc := #caller_location) {
-    add_route(app, .[], .OPTIONS, "", template, handler, loc);
+options :: (app: *App, $template: string, $handler: $H, max_body := 0, $loc := #caller_location) {
+    add_route(app, .[], .OPTIONS, "", template, handler, max_body, loc);
 }
 
-options :: (group: *Group($P), $template: string, $handler: $H, $loc := #caller_location) {
-    add_route(group.app, group.middleware, .OPTIONS, P, template, handler, loc);
+options :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $loc := #caller_location) {
+    add_route(group.app, group.middleware, .OPTIONS, P, template, handler, max_body, loc);
 }
 
 #scope_module
 
-add_route :: (app: *App, middleware: [] Middleware, $METHOD: Method, $PREFIX: string, $TEMPLATE: string, $handler: $H, $LOC: Source_Code_Location) {
+add_route :: (app: *App, middleware: [] Middleware, $METHOD: Method, $PREFIX: string, $TEMPLATE: string, $handler: $H, max_body: s64, $LOC: Source_Code_Location) {
     FULL :: #run join_template(PREFIX, TEMPLATE);
 
     #insert #run generate_prelude(H);
@@ -246,7 +249,7 @@ add_route :: (app: *App, middleware: [] Middleware, $METHOD: Method, $PREFIX: st
         #insert #run generate_call(H);
     }
 
-    register_route(app, METHOD, FULL, thunk, middleware);
+    register_route(app, METHOD, FULL, thunk, middleware, max_body);
 }
 
 // `/admin` + `/users/{id}` is `/admin/users/{id}`. Runs at compile time.
@@ -260,12 +263,13 @@ join_template :: (prefix: string, template: string) -> string {
     return tprint("%%", prefix, template);
 }
 
-register_route :: (app: *App, method: Method, template: string, handler: Handler, middleware: [] Middleware) {
+register_route :: (app: *App, method: Method, template: string, handler: Handler, middleware: [] Middleware, max_body: s64) {
     route := New(Route);
 
     route.method = method;
     route.template = template;
     route.handler = handler;
+    route.max_body = max_body;
 
     if middleware.count {
         copy := NewArray(middleware.count, Middleware);
@@ -290,28 +294,34 @@ register_route :: (app: *App, method: Method, template: string, handler: Handler
 
 // Runs `request` through the app's middleware and then the routes.
 handle_request :: (app: *App, request: *Request) -> Response {
-    request.app = app;
-    request.chain = app.middleware;
-    request.cursor = 0;
-    request.endpoint = dispatch_route;
+    frame := frame_of(request);
+
+    frame.app = app;
+    frame.chain = app.middleware;
+    frame.cursor = 0;
+    frame.endpoint = dispatch_route;
+    frame.body.limit = app.config.max_body_size;
 
     return call_next(request);
 }
 
 call_next :: (request: *Request) -> Response {
-    if request.cursor < request.chain.count {
-        middleware := request.chain[request.cursor];
+    frame := frame_of(request);
 
-        request.cursor += 1;
+    if frame.cursor < frame.chain.count {
+        middleware := frame.chain[frame.cursor];
+
+        frame.cursor += 1;
 
         return middleware(request, call_next);
     }
 
-    return request.endpoint(request);
+    return frame.endpoint(request);
 }
 
 dispatch_route :: (request: *Request) -> Response {
-    app := request.app;
+    frame := frame_of(request);
+    app := frame.app;
 
     // Methods this server has no route kind for.
     if request.method == .OTHER || request.method == .CONNECT || request.method == .TRACE {
@@ -372,10 +382,12 @@ dispatch_route :: (request: *Request) -> Response {
         values[it_index].value = it;
     }
 
-    request.params = values;
-    request.chain = route.middleware;
-    request.cursor = 0;
-    request.endpoint = route.handler;
+    frame.params = values;
+    frame.chain = route.middleware;
+    frame.cursor = 0;
+    frame.endpoint = route.handler;
+
+    if route.max_body != 0 frame.body.limit = route.max_body;
 
     return call_next(request);
 }

@@ -26,8 +26,8 @@ class HttpCoverageTests(unittest.TestCase):
     def test_exact_discovery_and_single_roundtrip(self):
         cases = self.http_cases()
         self.assertEqual(set(cases), set(http_conformance.HTTP_CONFORMANCE_CASE_IDS))
-        self.assertEqual(len(cases), 12)
-        self.assertEqual(len(http_conformance.HTTP_CONFORMANCE_CASE_IDS), 12)
+        self.assertEqual(len(cases), 13)
+        self.assertEqual(len(http_conformance.HTTP_CONFORMANCE_CASE_IDS), 13)
         entries = catalog.validated_entries()
         roundtrip = [
             case
@@ -45,6 +45,7 @@ class HttpCoverageTests(unittest.TestCase):
         native = {
             "client",
             "https",
+            "server-bodies",
             "server-connections",
             "server-extractors",
             "server-responses",
@@ -136,15 +137,15 @@ class HttpCoverageTests(unittest.TestCase):
             ):
                 self.assertEqual(stdlib_runtime.main(), 0)
             result = json.loads(report.read_text())
-        self.assertEqual(dispatch.call_count, 34)
+        self.assertEqual(dispatch.call_count, 36)
         for mode in ["interp", "native"]:
-            self.assertEqual(result["counts"][mode]["passed"], 12)
+            self.assertEqual(result["counts"][mode]["passed"], 13)
             self.assertEqual(result["counts"][mode]["platform_unavailable"], 0)
         for mode in ["wasm-interp", "wasm-native"]:
             self.assertEqual(result["counts"][mode]["passed"], 5)
-            self.assertEqual(result["counts"][mode]["platform_unavailable"], 7)
+            self.assertEqual(result["counts"][mode]["platform_unavailable"], 8)
         unavailable = [row for row in result["results"] if row["platform_unavailable"]]
-        self.assertEqual(len(unavailable), 14)
+        self.assertEqual(len(unavailable), 16)
         self.assertTrue(all(row["passed"] is None for row in unavailable))
 
     def test_supported_failure_remains_fatal(self):

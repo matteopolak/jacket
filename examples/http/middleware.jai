@@ -15,7 +15,7 @@ timing :: (request: *Request, next: Next) -> Response {
     started := current_time_monotonic();
     response := next(request);
 
-    add_header(*response, "X-Elapsed-Us", tprint("%", to_microseconds(current_time_monotonic() - started)));
+    response = with_header(response, "X-Elapsed-Us", tprint("%", to_microseconds(current_time_monotonic() - started)));
 
     return response;
 }
@@ -62,5 +62,10 @@ main :: () {
 
     get(teams, "/members/{id}", member);
 
-    serve(*app);
+    error := serve(*app);
+
+    if error.kind != .NONE {
+        print("%\n", error_text(error));
+        exit(1);
+    }
 }

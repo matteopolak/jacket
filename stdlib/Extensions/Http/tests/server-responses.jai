@@ -45,8 +45,12 @@ as_redirect :: () -> Response {
     return redirect("/elsewhere", 307);
 }
 
-as_created :: (body: Text) -> User {
-    return .{ 9, body.value };
+as_created :: (body: *Body) -> Response, Http_Error {
+    bytes, error := read_all(body);
+
+    if error.kind != .NONE return .{}, error;
+
+    return created(User.{ 9, string.{ bytes.count, bytes.data } }, "/users/9"), .{};
 }
 
 as_error_only :: (flag: Path("flag", bool)) -> Http_Error {
@@ -108,7 +112,7 @@ log_calls :: (request: *Request, next: Next) -> Response {
 add_header_mw :: (request: *Request, next: Next) -> Response {
     array_add(*trace, "header mw");
     response := next(request);
-    add_header(*response, "X-Seen", "yes");
+    response = with_header(response, "X-Seen", "yes");
 
     return response;
 }
@@ -126,7 +130,7 @@ require_token :: (request: *Request, next: Next) -> Response {
 stamp :: (request: *Request, next: Next) -> Response {
     array_add(*trace, "stamp");
     response := next(request);
-    add_header(*response, "X-Stamp", "v1");
+    response = with_header(response, "X-Stamp", "v1");
 
     return response;
 }
@@ -148,7 +152,7 @@ org_order :: (org: Path("org", string), id: Path("id", int)) -> string {
 }
 
 org_both :: (order: Params(Order)) -> Order {
-    return order.value;
+    return order.temporary;
 }
 
 public_home :: () -> string {
@@ -186,7 +190,7 @@ responses :: (api: *Client) {
     check(response.status == 307 && header_of(response, "Location") == "/elsewhere", "redirect: % %", response.status, header_of(response, "Location"));
 
     response = post_body(api, "/created", "Hopper", "text/plain");
-    check(response.status == 201 && contains(body_of(response), "Hopper"), "POST value is 201: %", response.status);
+    check(response.status == 201 && contains(body_of(response), "Hopper") && header_of(response, "Location") == "/users/9", "created(value, location): % %", response.status, header_of(response, "Location"));
 
     response = get_path(api, "/error-only/false");
     check(response.status == 204, "no error and nothing else is 204: %", response.status);

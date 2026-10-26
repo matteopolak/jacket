@@ -178,7 +178,24 @@ conflicts :: () {
 
     server, error := start(*clash);
 
-    check(server == null && error == .INVALID, "a conflicting app does not start: %", error);
+    check(server == null && error.kind == .INVALID_ROUTES, "a conflicting app does not start: %", error_text(error));
+
+    // `serve` reports the same thing as a value instead of a message on standard error.
+    clash.config.handle_signals = false;
+
+    failure := serve(*clash);
+
+    check(failure.kind == .INVALID_ROUTES && contains(error_text(failure), "GET /a/{y}"), "serve returns the conflict: %", error_text(failure));
+
+    unreachable: App;
+
+    unreachable.config.handle_signals = false;
+    unreachable.config.threads = 1;
+    unreachable.config.address = "not an address";
+
+    failure = serve(*unreachable);
+
+    check(failure.kind == .CANNOT_LISTEN && failure.io_error != .NONE && contains(error_text(failure), "not an address"), "serve returns a listen failure: % %", failure.kind, error_text(failure));
 }
 
 by_id_x :: (x: Path("x", int)) -> string {

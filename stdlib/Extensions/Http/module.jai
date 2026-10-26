@@ -32,6 +32,8 @@ http_use_simd := true;
     #load "url.jai";
     #load "message.jai";
     #load "router.jai";
+    #load "body.jai";
+    #load "stream.jai";
     #load "extract.jai";
     #load "app.jai";
     #load "link.jai";

@@ -11,8 +11,12 @@ echo_path :: (request: *Request) -> string {
     return request.path;
 }
 
-echo_text :: (body: Text) -> string {
-    return tprint("%:%", body.value.count, body.value);
+echo_text :: (body: *Body) -> string, Http_Error {
+    bytes, error := read_all(body);
+
+    if error.kind != .NONE return "", error;
+
+    return tprint("%:%", bytes.count, string.{ bytes.count, bytes.data }), .{};
 }
 
 slow_entered := 0;

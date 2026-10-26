@@ -57,7 +57,7 @@ hello :: () -> string {
 }
 
 add :: (body: Json(Point)) -> Sum {
-    return .{ body.x + body.y, "sum" };
+    return .{ body.temporary.x + body.temporary.y, "sum" };
 }
 
 Round :: struct {
@@ -273,8 +273,8 @@ thread_main :: (run: *Run) {
 
     server, error := start(app);
 
-    if error != .NONE {
-        print("cannot listen: %\n", error);
+    if error.kind != .NONE {
+        print("cannot listen: %\n", error_text(error));
         exit(1);
     }
 

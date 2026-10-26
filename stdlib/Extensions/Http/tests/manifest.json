@@ -76,6 +76,17 @@
     ]
   },
   {
+    "name": "server-bodies",
+    "unsupported_modes": [
+      "wasm-interp",
+      "wasm-native"
+    ],
+    "required_capabilities": [
+      "native Io providers",
+      "fiber context switching"
+    ]
+  },
+  {
     "name": "server-connections",
     "unsupported_modes": [
       "wasm-interp",
