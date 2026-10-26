@@ -248,33 +248,34 @@ pub fn module_listed(fs: &dyn FileSystem, dir: &Path, entry: &str, is_dir: bool)
     }
 }
 
-/// Find `Name.jai` or `Name/module.jai` in `from_dir/modules`, then on `import_paths`.
-/// A file under an import path's private `internal/` folder looks in that import path first,
-/// so a project's replacement for a module (its own `Windows`) never reaches the library's
-/// internals. Public modules see the replacement like any other import does, so a project's
-/// `Objective_C` is the one the library's `GL` uses too and the two share its types.
-/// The public `Preload` protocol name also aliases the single bootstrap entry.
+/// The folders an `#import "Name"` written in a file of `from_dir` searches, in order: the
+/// `modules` folder next to that file, then each of `import_paths` (a project's own folders,
+/// then `-import_dir` folders, then the standard library last; see `docs/compiler/project.md`).
+/// The same list serves every file: a file of the standard library resolves a name exactly as
+/// the module that loads it does, so a project's replacement for a library module is seen by
+/// all of the library or by none of it.
+pub fn search_roots(import_paths: &[PathBuf], from_dir: &Path) -> Vec<PathBuf> {
+    let mut roots = Vec::with_capacity(import_paths.len() + 1);
+    roots.push(from_dir.join("modules"));
+    roots.extend(import_paths.iter().cloned());
+    roots
+}
+
+/// Find `Name.jai` or `Name/module.jai` in the [`search_roots`], first match wins. The public
+/// `Preload` protocol name also aliases the single bootstrap entry, found in the first root
+/// that has one, when no module of that name exists.
 pub fn find_module_in(
     fs: &dyn FileSystem,
     import_paths: &[PathBuf],
     name: &str,
     from_dir: &Path,
 ) -> Option<PathBuf> {
-    let mut dirs: Vec<PathBuf> = vec![from_dir.join("modules")];
-    dirs.extend(
-        import_paths
-            .iter()
-            .find(|root| from_dir.starts_with(root.join("internal")))
-            .cloned(),
-    );
-    dirs.extend(import_paths.iter().cloned());
-    for dir in &dirs {
-        if let Some(entry) = module_file_in(fs, dir, name) {
-            return Some(entry);
-        }
+    let roots = search_roots(import_paths, from_dir);
+    if let Some(entry) = roots.iter().find_map(|dir| module_file_in(fs, dir, name)) {
+        return Some(entry);
     }
     if BootstrapModule::named(name) == Some(BootstrapModule::Preload) {
-        dirs.iter().find_map(|dir| crate::find_preload(fs, dir))
+        roots.iter().find_map(|dir| crate::find_preload(fs, dir))
     } else {
         None
     }
@@ -309,37 +310,89 @@ pub(super) fn modules_in(fs: &dyn FileSystem, dir: &Path) -> Vec<String> {
 mod tests {
     use super::*;
 
+    /// Every row is one lookup: what is searched for, from which folder, and the file found.
+    /// The files are `/project/modules` (the project's own `Windows`), `/project/src/modules`
+    /// (a module private to that folder), `/libs` (an `-import_dir` folder) and `/std` (the
+    /// library, last).
     #[test]
-    fn a_library_file_finds_its_siblings_before_other_import_paths() {
+    fn search_roots_in_order() {
         let mut fs = VirtualFs::default();
-        fs.insert("/std/Windows/module.jai", b"".to_vec());
-        fs.insert("/std/Basic/module.jai", b"".to_vec());
-        fs.insert("/project/libs/Windows.jai", b"".to_vec());
-        let paths = [PathBuf::from("/project/libs"), PathBuf::from("/std")];
-        let found = |name, dir| find_module_in(&fs, &paths, name, Path::new(dir));
+        for file in [
+            "/project/modules/Windows/module.jai",
+            "/project/src/modules/Local.jai",
+            "/libs/Shared.jai",
+            "/libs/Windows.jai",
+            "/std/Windows/module.jai",
+            "/std/Basic/module.jai",
+            "/std/Shared/module.jai",
+            "/std/Objective_C/module.jai",
+            "/std/prelude/module.jai",
+        ] {
+            fs.insert(file, b"".to_vec());
+        }
+        let paths = [
+            PathBuf::from("/project/modules"),
+            PathBuf::from("/libs"),
+            PathBuf::from("/std"),
+        ];
+        let table: &[(&str, &str, Option<&str>)] = &[
+            // The folder's own `modules` comes before the import paths.
+            (
+                "Local",
+                "/project/src",
+                Some("/project/src/modules/Local.jai"),
+            ),
+            ("Local", "/project/other", None),
+            // Import paths in the order given: the project, `-import_dir`, the library.
+            (
+                "Windows",
+                "/project/src",
+                Some("/project/modules/Windows/module.jai"),
+            ),
+            ("Shared", "/project/src", Some("/libs/Shared.jai")),
+            ("Basic", "/project/src", Some("/std/Basic/module.jai")),
+            // A file of the library searches the same roots as any other file: a project's
+            // replacement is seen by the whole library.
+            (
+                "Windows",
+                "/std/internal/files",
+                Some("/project/modules/Windows/module.jai"),
+            ),
+            (
+                "Windows",
+                "/std/Thread",
+                Some("/project/modules/Windows/module.jai"),
+            ),
+            (
+                "Objective_C",
+                "/std/GL",
+                Some("/std/Objective_C/module.jai"),
+            ),
+            // A name no root has.
+            ("Missing", "/project/src", None),
+            // The `Preload` protocol name aliases the prelude, wherever it is written.
+            ("Preload", "/project/src", Some("/std/prelude/module.jai")),
+            (
+                "Preload",
+                "/std/internal/files",
+                Some("/std/prelude/module.jai"),
+            ),
+        ];
+        for (name, from, expected) in table {
+            assert_eq!(
+                find_module_in(&fs, &paths, name, Path::new(from)),
+                expected.map(PathBuf::from),
+                "`#import \"{name}\"` from {from}"
+            );
+        }
         assert_eq!(
-            found("Windows", "/std/internal/files"),
-            Some(PathBuf::from("/std/Windows/module.jai"))
-        );
-        assert_eq!(
-            found("Windows", "/project/src"),
-            Some(PathBuf::from("/project/libs/Windows.jai"))
-        );
-        assert_eq!(
-            found("Basic", "/project/libs"),
-            Some(PathBuf::from("/std/Basic/module.jai"))
-        );
-    }
-
-    #[test]
-    fn a_public_library_module_sees_a_project_replacement() {
-        let mut fs = VirtualFs::default();
-        fs.insert("/std/Objective_C/module.jai", b"".to_vec());
-        fs.insert("/project/modules/Objective_C/module.jai", b"".to_vec());
-        let paths = [PathBuf::from("/project/modules"), PathBuf::from("/std")];
-        assert_eq!(
-            find_module_in(&fs, &paths, "Objective_C", Path::new("/std/GL")),
-            Some(PathBuf::from("/project/modules/Objective_C/module.jai"))
+            search_roots(&paths, Path::new("/project/src")),
+            [
+                PathBuf::from("/project/src/modules"),
+                PathBuf::from("/project/modules"),
+                PathBuf::from("/libs"),
+                PathBuf::from("/std"),
+            ]
         );
     }
 
