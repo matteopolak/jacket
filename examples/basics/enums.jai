@@ -53,6 +53,4 @@ pack_for :: (weather: Weather) -> Gear {
         case .THUNDERSTORM;
             return 0; // Better stay inside.
     }
-
-    return 0;
 }
