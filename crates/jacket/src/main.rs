@@ -44,8 +44,8 @@ fn main() -> ExitCode {
     };
     let cli = Cli::parse_from(std::iter::once(OsString::from("jacket")).chain(args));
     match cli.command {
-        Command::Test(test) => test::run(&test, &cwd, false),
-        Command::Bench(bench) => test::run(&bench, &cwd, true),
+        Command::Test(test) => test::run(&test, &cwd, None),
+        Command::Bench(bench) => test::run(&bench.test, &cwd, Some(&bench)),
         Command::New {
             name,
             lib,

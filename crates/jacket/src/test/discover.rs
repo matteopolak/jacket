@@ -23,6 +23,8 @@ pub struct Root {
     pub unit: Vec<PathBuf>,
     pub golden: Vec<PathBuf>,
     pub compile_fail: Vec<PathBuf>,
+    /// What `jacket bench` builds: `benches/*.jai`, and the `tests/*.jai` that hold a `@bench`.
+    pub bench: Vec<PathBuf>,
     /// The name a program imports the library by: its path in the standard library
     /// (`Extensions/Testing`), else its folder's name, found through `-import_dir`.
     pub module: String,
@@ -101,6 +103,11 @@ fn module_name(dir: &Path, stdlib: &Path) -> Option<String> {
     (!parts.is_empty()).then(|| parts.join("/"))
 }
 
+/// Whether the file has a procedure with a `@bench` note.
+fn holds_bench(source: &Path) -> bool {
+    std::fs::read_to_string(source).is_ok_and(|text| text.contains("@bench"))
+}
+
 /// Whether `source` has an expected-output file beside it.
 pub fn is_golden(source: &Path) -> bool {
     EXPECTED.iter().any(|e| source.with_extension(e).is_file())
@@ -108,7 +115,13 @@ pub fn is_golden(source: &Path) -> bool {
 
 impl Root {
     /// `seen` holds the files earlier roots read doc tests from; a file is read for one root.
-    pub fn read(dir: PathBuf, stdlib: &Path, jaic: &Path, seen: &mut BTreeSet<PathBuf>) -> Root {
+    pub fn read(
+        dir: PathBuf,
+        stdlib: &Path,
+        jaic: &Path,
+        seen: &mut BTreeSet<PathBuf>,
+        doc_tests: bool,
+    ) -> Root {
         let tests = dir.join("tests");
         let compile_dir = tests.join("compile_fail");
         let (mut unit, mut golden) = (Vec::new(), Vec::new());
@@ -132,8 +145,11 @@ impl Root {
             .map_or_else(|| "tests".into(), |n| n.to_string_lossy().into_owned());
         let library = dir.join("module.jai").is_file();
         let module = module_name(&dir, stdlib).unwrap_or_else(|| label.clone());
+        let mut bench = jai_files(&dir.join("benches"));
+        bench.extend(unit.iter().filter(|file| holds_bench(file)).cloned());
         Root {
-            docs: if library {
+            bench,
+            docs: if library && doc_tests {
                 super::doctest::blocks(&dir, &module, jaic, seen)
             } else {
                 Vec::new()
@@ -153,6 +169,7 @@ impl Root {
             && self.golden.is_empty()
             && self.compile_fail.is_empty()
             && self.docs.is_empty()
+            && self.bench.is_empty()
     }
 }
 
@@ -260,6 +277,7 @@ mod tests {
             Path::new("/nowhere"),
             Path::new("jaic"),
             &mut BTreeSet::new(),
+            true,
         );
         assert_eq!(root.module, root.label);
         assert!(root.library);

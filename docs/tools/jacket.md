@@ -34,7 +34,7 @@ jacket build   Compile a program: `jaic <args>`, flags untouched
 jacket check   Type-check without writing anything: `jaic -check <args>`
 jacket run     Build, then run the program; arguments after `--` go to it
 jacket test    Build the tests once and run each in its own process (jacket-test.md)
-jacket bench   Reserved for benchmarks; `--list` lists them
+jacket bench   Build and measure the `@bench` procedures (jacket-bench.md)
 jacket lint    Lint with `jailint` (`--fix`, `-D warnings`, paths)
 jacket fmt     Format with `jaifmt` (`--check`, paths; the project by default)
 jacket lsp     Run the language server over stdio (`jailsp`)

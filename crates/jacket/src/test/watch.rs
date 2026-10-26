@@ -130,7 +130,7 @@ pub fn run(args: &TestArgs, cwd: &Path) -> ExitCode {
             // Clear the screen and the scrollback, and go to the top.
             print!("\x1b[2J\x1b[3J\x1b[H");
         }
-        let code = run_once(args, cwd, false, &mut watched, only.as_ref());
+        let code = run_once(args, cwd, None, &mut watched, only.as_ref());
         if watched.folders.is_empty() {
             return code;
         }

@@ -18,7 +18,7 @@ Start with [features](features.md), [the command line](tools/cli.md) and [instal
 
 ## Tools and editors
 
-[jacket](tools/jacket.md), [jacket test](tools/jacket-test.md) (and its matchers), [jaifmt](tools/jaifmt.md), [jailint](tools/jailint.md), [VS Code](tools/vscode-extension.md), [Neovim](tools/neovim-plugin.md), [workspace trust](tools/workspace-trust.md).
+[jacket](tools/jacket.md), [jacket test](tools/jacket-test.md) (and its matchers), [jacket bench](tools/jacket-bench.md), [jaifmt](tools/jaifmt.md), [jailint](tools/jailint.md), [VS Code](tools/vscode-extension.md), [Neovim](tools/neovim-plugin.md), [workspace trust](tools/workspace-trust.md).
 
 ## Standard library
 

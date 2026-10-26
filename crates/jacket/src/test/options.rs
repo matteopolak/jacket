@@ -127,6 +127,8 @@ impl TestOptions {
             "check_only" => self.check_only = true,
             // Discovery's own notes.
             "test" | "bench" | "compile_fail" | "cases" | "compile_time" | "generate" => {}
+            // A bench's own notes; Discovery checks them and the program reads them.
+            "samples" | "min_time" => {}
             "property" => {
                 if args.is_some_and(|a| a.trim().parse::<u32>().unwrap_or(0) == 0) {
                     return Err(

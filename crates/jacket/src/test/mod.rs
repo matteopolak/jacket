@@ -5,6 +5,7 @@
 //! unit tests with the Testing module's Discovery plugin, [`exec`] runs a test program and reads
 //! its records, [`golden`] checks golden-output and compile-fail tests, and [`report`] prints
 //! results as text, JSON lines or `JUnit` XML. This file plans the run and schedules it.
+mod bench;
 mod build;
 mod coverage;
 mod diff;
@@ -19,7 +20,7 @@ mod report;
 mod review;
 mod watch;
 
-use crate::cli::TestArgs;
+use crate::cli::{BenchArgs, TestArgs};
 use crate::{project, tools};
 use build::{Built, Toolchain};
 use exec::{Failure, Subtest};
@@ -397,11 +398,11 @@ fn expr_selects(expr: &filter::FilterExpr, case: &Case, root: &discover::Root, c
     })
 }
 
-pub fn run(args: &TestArgs, cwd: &Path, bench: bool) -> ExitCode {
+pub fn run(args: &TestArgs, cwd: &Path, bench: Option<&BenchArgs>) -> ExitCode {
     if !args.watch {
         return run_once(args, cwd, bench, &mut watch::Watched::default(), None);
     }
-    if bench {
+    if bench.is_some() {
         return fail("`jacket bench` has no --watch");
     }
     watch::run(args, cwd)
@@ -412,11 +413,12 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: bool) -> ExitCode {
 fn run_once(
     args: &TestArgs,
     cwd: &Path,
-    bench: bool,
+    bench_args: Option<&BenchArgs>,
     watched: &mut watch::Watched,
     only: Option<&std::collections::BTreeSet<PathBuf>>,
 ) -> ExitCode {
     watched.clear();
+    let bench = bench_args.is_some();
     let resolved = resolve_paths(args, cwd);
     let args = &resolved;
     let loaded = match project::load(cwd) {
@@ -472,6 +474,12 @@ fn run_once(
             .map(|flag| flag.to_string_lossy().into_owned()),
     );
     flags.extend(args.jaic_args.iter().cloned());
+    if bench && !args.list && (args.interp || os == "wasm") {
+        return fail("`jacket bench` measures native builds: drop `--interp` and `-os wasm`");
+    }
+    // Benchmarks are optimized, without runtime checks, unless a flag after `--` chooses.
+    let optimize =
+        bench && !args.list && !args.jaic_args.iter().any(|flag| sets_optimization(flag));
     let Some(jaic) = tools::require(tools::JAIC) else {
         return ExitCode::from(127);
     };
@@ -487,6 +495,7 @@ fn run_once(
         runner,
         os: os.clone(),
         coverage: args.coverage,
+        optimize,
     };
     let cross = !args.interp && (os != host_os() || cpu != host_cpu());
     let cross_skip = (cross && toolchain.runner.is_empty())
@@ -494,7 +503,7 @@ fn run_once(
 
     let roots: Vec<discover::Root> = discover::roots(&args.path, &configured, &project_dir, cwd)
         .into_iter()
-        .map(|dir| discover::Root::read(dir, &stdlib, &jaic, &mut doc_files))
+        .map(|dir| discover::Root::read(dir, &stdlib, &jaic, &mut doc_files, !bench))
         .filter(|r| !r.is_empty())
         .collect();
     if roots.is_empty() {
@@ -512,7 +521,7 @@ fn run_once(
     if args.watch {
         watched.set_folders(&roots, &toolchain.flags, &root_flags);
     }
-    let list = args.list || bench;
+    let list = args.list;
     let coverage = match args
         .coverage
         .then(|| coverage_for(args, cross, &roots, &toolchain.flags, &work, &project_dir))
@@ -530,6 +539,7 @@ fn run_once(
         &work,
         &toolchain,
         list,
+        bench,
         settings.jobs.min(4),
     );
     let mut broken = false;
@@ -619,17 +629,30 @@ fn run_once(
         }
         reporter.list(&selected);
         let _ = std::fs::remove_dir_all(&work);
-        if bench && !args.list {
-            eprintln!(
-                "jacket: `jacket bench` only lists benchmarks for now (`--list`); running them is not supported yet"
-            );
-            return ExitCode::from(2);
-        }
         return ExitCode::SUCCESS;
     }
     if selected.is_empty() {
         let _ = std::fs::remove_dir_all(&work);
-        return fail("no tests match");
+        return fail(if bench {
+            "no benchmarks match"
+        } else {
+            "no tests match"
+        });
+    }
+    if let Some(bench_args) = bench_args {
+        let code = bench::run(&bench::Run {
+            cases: &selected,
+            roots: &roots,
+            built: &built,
+            toolchain: &toolchain,
+            settings: &settings,
+            target: &target,
+            needs: &settings.needs,
+            project_dir: &project_dir,
+            args: bench_args,
+        });
+        let _ = std::fs::remove_dir_all(&work);
+        return code;
     }
 
     let plan = Plan {
@@ -646,6 +669,16 @@ fn run_once(
         coverage,
     };
     execute(&plan, &target, cross_skip.as_deref(), &mut reporter)
+}
+
+/// Whether a jaic flag chooses how much the build is optimized.
+fn sets_optimization(flag: &str) -> bool {
+    matches!(
+        flag,
+        "-o" | "-optimized" | "-od" | "-optimized_debug" | "-very_debug"
+    ) || flag
+        .strip_prefix("-O")
+        .is_some_and(|level| level.len() == 1 && level.bytes().all(|b| b.is_ascii_digit()))
 }
 
 /// A seed for a run that was not given one: the clock mixed with the process id.
@@ -947,6 +980,7 @@ fn build_all(
     work: &Path,
     toolchain: &Toolchain,
     list: bool,
+    bench: bool,
     parallel: usize,
 ) -> Vec<BuildResult> {
     let next = AtomicUsize::new(0);
@@ -960,11 +994,16 @@ fn build_all(
                     let Some(root) = roots.get(i) else {
                         break;
                     };
-                    let result = if root.unit.is_empty() {
+                    let files = if bench {
+                        &root.bench
+                    } else {
+                        &root.unit
+                    };
+                    let result = if files.is_empty() {
                         Ok(None)
                     } else {
                         build::unit(
-                            &root.unit,
+                            files,
                             &root_flags[i],
                             &work.join(format!("build-{i}")),
                             toolchain,

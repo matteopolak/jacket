@@ -222,7 +222,7 @@ fn kill_group_args(pid: u32) -> [String; 4] {
     ["-s".into(), "KILL".into(), "--".into(), format!("-{pid}")]
 }
 
-fn spawn(invocation: &Invocation) -> std::io::Result<Child> {
+pub(super) fn spawn(invocation: &Invocation) -> std::io::Result<Child> {
     let mut command = Command::new(&invocation.program);
     command
         .args(&invocation.args)

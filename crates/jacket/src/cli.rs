@@ -69,8 +69,9 @@ pub enum Command {
     /// Build the tests once, then run each in its own process (`-os`/`-cpu` as in jaic; flags
     /// after `--` go to jaic)
     Test(TestArgs),
-    /// List benchmarks (`--list`); running them is reserved for a later release
-    Bench(TestArgs),
+    /// Build and measure the `@bench` procedures (optimized by default; the options of `test`
+    /// select and build them)
+    Bench(BenchArgs),
     /// Show the configuration
     Config {
         #[command(subcommand)]
@@ -215,6 +216,32 @@ pub struct TestArgs {
     /// Flags for jaic, after `--`
     #[arg(last = true, value_name = "JAIC_FLAGS")]
     pub jaic_args: Vec<String>,
+}
+
+/// `jacket bench`: the selection and build options of `jacket test`, and how to measure.
+#[derive(clap::Args, Clone, Debug)]
+pub struct BenchArgs {
+    #[command(flatten)]
+    pub test: TestArgs,
+    /// Samples per benchmark, over `@samples` [default: 30]
+    #[arg(long, value_name = "N", value_parser = clap::value_parser!(u32).range(1..))]
+    pub samples: Option<u32>,
+    /// Warm-up per benchmark in milliseconds [default: 100]
+    #[arg(long, value_name = "MS", value_parser = clap::value_parser!(u32).range(1..))]
+    pub warmup: Option<u32>,
+    /// Target time of one sample in milliseconds [default: 10]
+    #[arg(long, value_name = "MS", value_parser = clap::value_parser!(u32).range(1..))]
+    pub sample_ms: Option<u32>,
+    /// Write the results to `target/bench-baselines/NAME.json`
+    #[arg(long, value_name = "NAME")]
+    pub save_baseline: Option<String>,
+    /// Compare with the results saved as NAME and show the change per benchmark
+    #[arg(long, value_name = "NAME")]
+    pub baseline: Option<String>,
+    /// Exit 1 when a median is more than PCT percent slower than the baseline and the change is
+    /// outside the noise
+    #[arg(long, value_name = "PCT", requires = "baseline")]
+    pub max_regression: Option<f64>,
 }
 
 /// A CPU name as jaic's `-cpu` takes it, in the spelling the tests use (`x64`, `arm64`).

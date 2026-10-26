@@ -330,7 +330,7 @@ Everything else on either stream is the test's own output. A process that stops 
 
 ### `jacket bench`
 
-Reserved. `jacket bench --list` lists `@bench` procedures (`name :: (b: *Bench) { ... } @bench`); running them is not supported yet, and `jacket bench` without `--list` exits 2 saying so. `jacket test --list` lists them with kind `bench`.
+Measures the `@bench` procedures; see [jacket bench](jacket-bench.md). `jacket test --list` lists them with kind `bench`; `jacket test` does not run them.
 
 ## Migrating from `tests/manifest.json`
 
