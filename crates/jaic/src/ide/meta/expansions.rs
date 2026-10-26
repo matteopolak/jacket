@@ -1,7 +1,8 @@
 //! Recording macro and `#insert` expansions and the output a metaprogram produced.
-use super::text::{bounded, dedent, quote};
+use super::text::{bounded, dedent};
 use super::{IdeExpansion, IdeExpansionKind, MAX_EXPANSIONS, MAX_VARIANTS};
 use crate::ast;
+use crate::lexer::{QuoteMode, quote};
 use crate::sema::lower::Operand;
 use crate::sema::value::CodeId;
 use crate::sema::{Compiler, Value};
@@ -219,7 +220,7 @@ impl Compiler {
             }
             Value::Bool(b) => b.to_string(),
             Value::Null => "null".into(),
-            Value::String(s) => quote(&String::from_utf8_lossy(s)),
+            Value::String(s) => quote(&String::from_utf8_lossy(s), QuoteMode::FormatString),
             Value::Type(t) => self.ty.types.name(*t),
             _ => return None,
         })

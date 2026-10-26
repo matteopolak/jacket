@@ -1,5 +1,6 @@
 //! The generated metaprogram behind `jaic +Plugin file.jai`.
 
+use crate::lexer::QuoteMode;
 use std::path::{Path, PathBuf};
 
 /// One `+Plugin` the metaprogram imports.
@@ -29,14 +30,8 @@ pub struct PluginProgram<'a> {
     pub wasi: bool,
 }
 
-/// A Jai string literal with `text` as its value.
 fn quote(text: &str) -> String {
-    let escaped = text
-        .replace('\\', "\\\\")
-        .replace('"', "\\\"")
-        .replace('\n', "\\n")
-        .replace('\r', "\\r");
-    format!("\"{escaped}\"")
+    crate::lexer::quote(text, QuoteMode::Plain)
 }
 
 /// The metaprogram `+Plugin` stands for: import each plugin module, then compile the main file
@@ -209,10 +204,5 @@ mod tests {
         assert!(file < extra && extra < wasi);
         let without = generate(&plugins, None, None, &[], false);
         assert_eq!(without.matches("add_build_string").count(), 0);
-    }
-
-    #[test]
-    fn quoting_escapes_what_a_string_literal_cannot_hold() {
-        assert_eq!(quote("a\\b\"c\nd\re"), "\"a\\\\b\\\"c\\nd\\re\"");
     }
 }

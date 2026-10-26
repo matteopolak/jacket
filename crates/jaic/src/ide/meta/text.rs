@@ -14,26 +14,6 @@ pub(super) fn bounded(mut text: String) -> String {
     text
 }
 
-/// `text` as a Jai string literal.
-pub(super) fn quote(text: &str) -> String {
-    let mut out = String::with_capacity(text.len() + 2);
-    out.push('"');
-    for c in text.chars() {
-        match c {
-            '"' => out.push_str("\\\""),
-            '\\' => out.push_str("\\\\"),
-            '\n' => out.push_str("\\n"),
-            '\t' => out.push_str("\\t"),
-            '\r' => out.push_str("\\r"),
-            '\0' => out.push_str("\\0"),
-            '%' => out.push_str("\\%"),
-            c => out.push(c),
-        }
-    }
-    out.push('"');
-    out
-}
-
 /// `text` without the indentation its lines share (the first line, often unindented after a
 /// brace, does not count).
 pub fn dedent(text: &str) -> String {

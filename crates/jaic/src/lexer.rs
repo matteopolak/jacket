@@ -6,6 +6,7 @@ mod here;
 #[cfg(test)]
 mod platform_tests;
 mod punct;
+mod quote;
 mod scan;
 mod value_map;
 
@@ -16,6 +17,7 @@ pub use self::api::{
 pub use self::floats::{FloatLiteralPrecision, float_literal_precision, has_big_float32_exponent};
 pub use self::here::{LANGUAGE_TAGS, here_string_tag, names_language};
 pub use self::punct::P;
+pub use self::quote::{QuoteMode, quote, quote_bytes};
 pub(crate) use self::scan::is_ident_char;
 pub use self::value_map::string_value_map;
 use crate::intern::Sym;

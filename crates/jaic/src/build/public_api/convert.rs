@@ -533,18 +533,5 @@ impl<'a, 'b> Convert<'a, 'b> {
 
 /// A string literal's spelling.
 fn quote_bytes(value: &[u8]) -> String {
-    let mut result = String::from("\"");
-    for &byte in value {
-        match byte {
-            b'"' => result += "\\\"",
-            b'\\' => result += "\\\\",
-            b'\n' => result += "\\n",
-            b'\r' => result += "\\r",
-            b'\t' => result += "\\t",
-            32..=126 => result.push(byte as char),
-            _ => result += &format!("\\x{byte:02x}"),
-        }
-    }
-    result.push('"');
-    result
+    crate::lexer::quote_bytes(value, crate::lexer::QuoteMode::Plain)
 }
