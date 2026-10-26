@@ -123,6 +123,10 @@ pub struct TestArgs {
     /// Filters are whole names, not parts of names
     #[arg(long)]
     pub exact: bool,
+    /// Run the tests a filter expression selects, as `module(Sort) and not kind(property)`; with
+    /// FILTERs, the tests both select (predicates: test, module, file, kind, all, none)
+    #[arg(short = 'E', long, value_name = "EXPR")]
+    pub filter_expr: Option<String>,
     /// Print the tests (and benchmarks) instead of running them
     #[arg(long)]
     pub list: bool,

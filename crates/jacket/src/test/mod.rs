@@ -10,6 +10,7 @@ mod diff;
 mod discover;
 mod doctest;
 mod exec;
+mod filter;
 mod golden;
 mod jobs;
 mod options;
@@ -303,6 +304,63 @@ fn select(case: &Case, filters: &[String], exact: bool) -> Option<String> {
     })
 }
 
+/// The entries of [`filter::KINDS`] a case has.
+fn kinds_of(case: &Case, snapshot: bool) -> Vec<&'static str> {
+    let has_note = |name: &str| case.notes.iter().any(|n| n.split('(').next() == Some(name));
+    match case.kind {
+        Kind::Test => {
+            let mut kinds = Vec::new();
+            let property = has_note("property");
+            let compile_time = has_note("compile_time");
+            if !property && !compile_time {
+                kinds.push("unit");
+            }
+            if property {
+                kinds.push("property");
+            }
+            if compile_time {
+                kinds.push("compile_time");
+            }
+            if snapshot && uses_snapshots(&case.file, case.line) {
+                kinds.push("snapshot");
+            }
+            kinds
+        }
+        Kind::Golden => vec!["golden"],
+        Kind::CompileFail => vec!["compile_fail"],
+        Kind::Doc => vec!["doc"],
+        Kind::Bench => vec!["bench"],
+    }
+}
+
+/// Whether the procedure that starts at `line` of `file` calls `expect_snapshot`: its text runs
+/// to the first line that starts with `}`.
+fn uses_snapshots(file: &Path, line: u32) -> bool {
+    let source = std::fs::read_to_string(file).unwrap_or_default();
+    source
+        .lines()
+        .skip(line.saturating_sub(1) as usize)
+        .take_while(|l| !l.starts_with('}'))
+        .any(|l| l.contains("expect_snapshot("))
+}
+
+/// Whether `expr` selects `case`.
+fn expr_selects(expr: &filter::FilterExpr, case: &Case, root: &discover::Root, cwd: &Path) -> bool {
+    let kinds = kinds_of(case, expr.uses_snapshot_kind());
+    let files: Vec<String> = [&root.dir, cwd]
+        .iter()
+        .filter_map(|base| case.file.strip_prefix(base).ok())
+        .map(jacket_config::slashed)
+        .chain([jacket_config::slashed(&case.file)])
+        .collect();
+    expr.matches(&filter::Subject {
+        names: [&case.name, &case.local],
+        modules: [&root.module, &root.label],
+        files: &files,
+        kinds: &kinds,
+    })
+}
+
 pub fn run(args: &TestArgs, cwd: &Path, bench: bool) -> ExitCode {
     let resolved = resolve_paths(args, cwd);
     let args = &resolved;
@@ -331,6 +389,11 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: bool) -> ExitCode {
             &mut std::io::stdout(),
         );
     }
+    let filter_expr = match args.filter_expr.as_deref().map(filter::FilterExpr::parse) {
+        Some(Ok(expr)) => Some(expr),
+        Some(Err(error)) => return fail(error),
+        None => None,
+    };
     let os = args.os.clone().unwrap_or_else(|| host_os().into());
     let cpu = args.cpu.clone().unwrap_or_else(|| host_cpu().into());
     let target = Target {
@@ -421,6 +484,11 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: bool) -> ExitCode {
     }
 
     let cases = cases(&roots, &built);
+    let in_expr = |case: &Case| {
+        filter_expr
+            .as_ref()
+            .is_none_or(|expr| expr_selects(expr, case, &roots[case.root], cwd))
+    };
     let in_part = match args.partition.as_deref().map(partition).transpose() {
         Ok(p) => p,
         Err(error) => return fail(error),
@@ -433,6 +501,9 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: bool) -> ExitCode {
         }
         let is_doc = case.kind == Kind::Doc;
         if (args.doc && !is_doc) || (args.no_doc && is_doc) {
+            continue;
+        }
+        if !in_expr(&case) {
             continue;
         }
         if let Some(run_as) = select(&case, &args.filters, args.exact) {
