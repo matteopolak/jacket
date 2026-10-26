@@ -114,10 +114,17 @@ apply_rule :: (name: string, rule: Rename_Rule) -> string {
 
 // ---- analysis ----
 
-// What a field says about the enums inside its type (an enum has no notes of its own).
+// What a field says about the enums and variants inside its type (neither has notes of its own).
 Enum_Style :: struct {
     rule: Rename_Rule;
     as_number: bool;
+
+    // For a Variant: how its case is named and tagged (see variant.jai).
+    variant_rule: Rename_Rule;
+    tag: string;
+    content: string;
+    untagged: bool;
+    tags: [] string;
 }
 
 Leaf :: struct {
@@ -184,7 +191,13 @@ read_options :: (notes: [] string) -> [..] Option {
                 option.name = piece;
             }
 
-            if option.name.count array_add(*options, option);
+            // `tags=circle,rect` is one option whose value has commas.
+            if !option.has_value && options.count && options[options.count - 1].name == "tags" {
+                names := *options[options.count - 1].value;
+                names.* = string.{ names.count + 1 + piece.count, names.data };
+            } else if option.name.count {
+                array_add(*options, option);
+            }
 
             rest = after;
         }
@@ -324,11 +337,54 @@ read_leaf :: (plan: *Plan, leaf: *Leaf, member: *Type_Info_Struct_Member, struct
             }
         } else if name == "as_number" {
             leaf.style.as_number = true;
+        } else if name == "tag" || name == "content" {
+            if !option.has_value || !option.value.count {
+                complain(plan.type_name, member.name, tprint("`%=` needs a key name, as in `@json(tag=kind)`", name));
+                ok = false;
+            } else if name == "tag" {
+                leaf.style.tag = copy_string(option.value,, temp);
+            } else {
+                leaf.style.content = copy_string(option.value,, temp);
+            }
+        } else if name == "untagged" {
+            leaf.style.untagged = true;
+        } else if name == "tags" {
+            if !option.has_value || !option.value.count {
+                complain(plan.type_name, member.name, "`tags=` needs the tag of each case, as in `@json(tags=circle,rect)`");
+                ok = false;
+            } else {
+                names: [..] string;
+
+                rest := option.value;
+
+                while true {
+                    found, piece, after := split_from_left(rest, #char ",");
+
+                    if !found piece = rest;
+
+                    if !piece.count {
+                        complain(plan.type_name, member.name, "`tags=` has an empty tag name");
+                        ok = false;
+                    }
+
+                    array_add(*names, copy_string(piece,, temp));
+
+                    if !found break;
+
+                    rest = after;
+                }
+
+                leaf.style.tags = names;
+            }
         } else {
-            complain(plan.type_name, member.name, tprint("unknown option `%` in @json. The options are rename=, alias=, rename_all=, skip, skip_serializing, skip_deserializing, skip_serializing_if=, default, flatten, with= and as_number", name));
+            complain(plan.type_name, member.name, tprint("unknown option `%` in @json. The options are rename=, alias=, rename_all=, skip, skip_serializing, skip_deserializing, skip_serializing_if=, default, flatten, with=, as_number, tag=, content=, untagged and tags=", name));
             ok = false;
         }
     }
+
+    if !check_variant_notes(plan, member, leaf.style) ok = false;
+
+    leaf.style.variant_rule = ifx leaf.style.rule != .NONE then leaf.style.rule else struct_rule;
 
     if !renamed leaf.key = apply_rule(member.name, struct_rule);
 
@@ -424,8 +480,11 @@ collect_leaves :: (plan: *Plan, info: *Type_Info_Struct, path_prefix: string, st
 }
 
 analyze :: (T: Type) -> Plan {
+    return analyze_info(cast(*Type_Info_Struct) type_info(T));
+}
+
+analyze_info :: (info: *Type_Info_Struct) -> Plan {
     plan: Plan;
-    info := cast(*Type_Info_Struct) type_info(T);
 
     plan.type_name = info.name;
 
@@ -594,6 +653,8 @@ emit_encode :: (g: *Gen, value: string, info: *Type_Info, style: Enum_Style) {
                 print(out, "if %.state == .SET {\n", value);
                 emit_encode(g, tprint("%.value", value), maybe_value(info), style);
                 print(out, "} else json_write_null(w);\n");
+            } else if is_variant(info) {
+                emit_encode_variant(g, value, info, style);
             } else if is_table(info) {
                 key, element := table_entry(info);
 
@@ -684,10 +745,10 @@ skip_condition :: (g: *Gen, leaf: *Leaf, value: string) -> string {
 // The condition that `key` equals `text`: a length test, then whole words compared against
 // constants built here, so no bytes are walked at run time. (Little-endian loads, which every
 // supported target uses.)
-key_match :: (text: string) -> string {
+key_match :: (text: string, key := "key") -> string {
     builder: String_Builder;
 
-    print(*builder, "key.count == %", text.count);
+    print(*builder, "%.count == %", key, text.count);
 
     at := 0;
 
@@ -702,7 +763,7 @@ key_match :: (text: string) -> string {
 
         for 0..step - 1 word |= (cast(u64) text[at + it]) << (8 * it);
 
-        print(*builder, " && json_load%(key.data + %) == %", step * 8, at, word);
+        print(*builder, " && json_load%(%.data + %) == %", step * 8, key, at, word);
 
         at += step;
     }
@@ -710,11 +771,12 @@ key_match :: (text: string) -> string {
     return builder_to_string(*builder,, temp);
 }
 
-generate_encoder :: (T: Type) -> string {
+// `tag_key` is the key of an internally tagged variant, which the encoder writes first.
+generate_encoder :: (T: Type, tag_key := "") -> string {
     g: Gen;
     info := type_info(T);
 
-    if info.type != .STRUCT || is_json_value(info) || is_table(info) || is_maybe(info) {
+    if info.type != .STRUCT || is_json_value(info) || is_table(info) || is_maybe(info) || is_variant(info) {
         g.type_name = tprint("%", T);
         emit_encode(*g, "value.*", info, .{});
 
@@ -729,6 +791,8 @@ generate_encoder :: (T: Type) -> string {
 
     if !plan.ok return "";
 
+    if tag_key.count && !check_tagged_plan(*plan, tag_key) return "";
+
     if plan.transparent {
         leaf := *plan.leaves[0];
 
@@ -741,6 +805,8 @@ generate_encoder :: (T: Type) -> string {
     }
 
     print(*g.out, "json_begin_object(w);\nfirst := true;\n");
+
+    if tag_key.count print(*g.out, "json_key_dynamic(w, *first, tag_key);\njson_write_string(w, tag);\n");
 
     for *leaf: plan.leaves {
         if leaf.skip_serializing continue;
@@ -864,6 +930,8 @@ emit_free :: (g: *Gen, out: *String_Builder, target: string, info: *Type_Info, d
         case .STRUCT;
             if is_json_value(info) {
                 print(out, "free_json(%);\n", address_of(target));
+            } else if is_variant(info) {
+                emit_free_variant(g, out, target, info, default);
             } else if is_maybe(info) {
                 inner := maybe_value(info);
 
@@ -898,7 +966,7 @@ generate_freer :: (T: Type) -> string {
     g: Gen;
     info := type_info(T);
 
-    if info.type != .STRUCT || is_json_value(info) || is_table(info) || is_maybe(info) {
+    if info.type != .STRUCT || is_json_value(info) || is_table(info) || is_maybe(info) || is_variant(info) {
         g.type_name = tprint("%", T);
         emit_free(*g, *g.out, "value.*", info, "defaults.*");
 
@@ -980,6 +1048,8 @@ emit_decode :: (g: *Gen, target: string, info: *Type_Info, style: Enum_Style, on
         case .STRUCT;
             if is_json_value(info) {
                 print(out, "if !json_read_value(r, %) { free_json(%); % }\n", address_of(target), address_of(target), on_fail);
+            } else if is_variant(info) {
+                emit_decode_variant(g, target, info, style, on_fail);
             } else if is_maybe(info) {
                 print(out, "if json_next_is_null(r) {\nif !json_read_null(r) { % }\n%.state = .NULL;\n} else {\n", on_fail, target);
                 emit_decode(g, tprint("%.value", target), maybe_value(info), style, on_fail);
@@ -1139,11 +1209,13 @@ emit_decode_table :: (g: *Gen, target: string, info: *Type_Info, style: Enum_Sty
     print(out, "existing_%.* = item_%;\n} else table_add(%, json_keep_key(r, key_%), item_%);\n}\n}\n", id, id, address_of(target), id, id);
 }
 
-generate_decoder :: (T: Type) -> string {
+// `tag_key` is the key of an internally tagged variant, which the decoder skips: the variant has
+// read it already.
+generate_decoder :: (T: Type, tag_key := "") -> string {
     g: Gen;
     info := type_info(T);
 
-    if info.type != .STRUCT || is_json_value(info) || is_table(info) || is_maybe(info) {
+    if info.type != .STRUCT || is_json_value(info) || is_table(info) || is_maybe(info) || is_variant(info) {
         g.type_name = tprint("%", T);
         emit_decode(*g, "out.*", info, .{}, "return false;");
         print(*g.out, "return true;\n");
@@ -1158,6 +1230,8 @@ generate_decoder :: (T: Type) -> string {
     g.type_name = plan.type_name;
 
     if !plan.ok return "return false;";
+
+    if tag_key.count && !check_tagged_plan(*plan, tag_key) return "return false;";
 
     if plan.transparent {
         leaf := *plan.leaves[0];
@@ -1195,6 +1269,11 @@ generate_decoder :: (T: Type) -> string {
     print(out, "first := true;\nwhile true {\nkey, status := json_object_next(r, *first);\nif status == .ERROR return false;\nif status == .END break;\n");
 
     chain := false;
+
+    if tag_key.count {
+        print(out, "if % { if !json_skip_value(r) return false; }\n", key_match(tag_key));
+        chain = true;
+    }
 
     for *leaf: plan.leaves {
         if leaf.skip_deserializing continue;

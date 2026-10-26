@@ -28,6 +28,7 @@ Json_Error_Kind :: enum u8 {
     DUPLICATE_FIELD;
     LIMIT; // too deep, or too large
     READ; // the source of a stream failed before the document ended
+    UNKNOWN_VARIANT; // a tag that names none of a Variant's cases
 }
 
 // Why decoding failed and where. `path` names the value inside the document (`tags[2]`,
@@ -371,9 +372,24 @@ json_decode :: (r: *Json_Reader, out: *$T) -> bool {
 #load "reader.jai";
 #load "index.jai";
 #load "generate.jai";
+#load "variant.jai";
 #load "query.jai";
 
 #scope_module
+
+// An internally tagged variant's case: an object of the struct's fields with the tag first
+// (encoding), or an object that has a member `tag_key` to ignore (decoding).
+json_encode_tagged :: (w: *Json_Writer, value: *$T, $tag_key: string, tag: string) {
+    #insert -> string {
+        return generate_encoder(T, tag_key);
+    };
+}
+
+json_decode_tagged :: (r: *Json_Reader, out: *$T, $tag_key: string) -> bool {
+    #insert -> string {
+        return generate_decoder(T, tag_key);
+    };
+}
 
 free_json_fields :: (value: *$T, defaults: *T) {
     #insert -> string {

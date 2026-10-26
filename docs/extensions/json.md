@@ -24,7 +24,7 @@ free_json(*user);                               // one overload set: values, Jso
 
 - `from_json($T, text, options)` returns `T, Json_Error` (`kind`, `message`, `offset`, `line`, `column`, `path` such as `tags[2]`). `json_path_text(error)` renders the path as jsonpath (`$.tags[2]`; keys that are not plain identifiers quoted, `$."we ird".a`; `$` for the document). `Json_Options`: `max_depth` 256, `max_size` 1 GiB (`.LIMIT`), plus the strictness and ownership options below. `write_json(*builder, value)` encodes into a builder. `Json_Value` is built with `json_null/bool/int/...`, `json_push`, `json_set`, read with `json_get`, `json_at`, `json_count`, `json_as_*`.
 - **From a stream.** `Json_Source { data, fill }` gives the document in pieces; `from_json(T, source)` gathers it in one buffer then decodes, so any cut gives the same value or error. Json does not import Io; `Io.read_json(reader, T)` and the HTTP client's `read_json` build a source.
-- **Types.** Integers are exact over their range (`.OUT_OF_RANGE` otherwise). Floats print as the shortest round-trip string; NaN/infinity encode as `null`; decoding is correctly rounded (direct conversion for up to 19 digits, Eisel-Lemire, else Basic's conversion; `1e999999` is `.OUT_OF_RANGE`). Supported: strings, bools, enums (by name), arrays, pointers, nested/recursive structs, `Hash_Table` with string keys, `Json_Value`. Not 128-bit integers.
+- **Types.** Integers are exact over their range (`.OUT_OF_RANGE` otherwise). Floats print as the shortest round-trip string; NaN/infinity encode as `null`; decoding is correctly rounded (direct conversion for up to 19 digits, Eisel-Lemire, else Basic's conversion; `1e999999` is `.OUT_OF_RANGE`). Supported: strings, bools, enums (by name), arrays, pointers, nested/recursive structs, `Hash_Table` with string keys, `Json_Value`, `Variant` (below). Not 128-bit integers.
 - **Parsing** is strict RFC 8259 (no BOM, trailing commas, lone surrogates, bad UTF-8). A failed decode frees everything it allocated and returns a default `T`. Unknown fields are ignored unless denied; a missing field without `default` is an error; duplicate keys are an error (see the options below).
 - **Freeing.** `free_json(*value)` calls `free_json_fields(value, defaults)`, generated per type by `generate_freer`. It skips fields still holding their declared default (a string literal would crash `free`) and resets what it frees, so a second call is harmless. Fields with a `with=` handler belong to the handler. Never call it on values that were not decoded.
 
@@ -37,6 +37,7 @@ free_json(*user);                               // one overload set: values, Jso
 | `flatten` | member | inline a struct member's fields |
 | `with=name` | member | `T.name_encode(w, *field)` / `T.name_decode(r, *field)` declared inside the struct (generated code cannot see file-scope names) |
 | `as_number` | enum member | encode as the number |
+| `tag=k`, `content=c`, `untagged`, `tags=a,b` | Variant member | how a [Variant](variant.md) is tagged; see Variants |
 | `deny_unknown_fields`, `transparent` | struct | unknown keys are errors; one-field struct encodes as its field |
 
 Runtime options on `Json_Options`, tested by the generated decoders through the reader (`r.deny_unknown`, `r.missing_default`, `r.duplicate_last`, `r.borrow`):
@@ -54,6 +55,21 @@ Runtime options on `Json_Options`, tested by the generated decoders through the 
 
 Written as a note after the member's `;` (struct-level before `{`). Mistakes are compile errors.
 
+### Variants
+
+A [`Variant`](variant.md) (a tagged union whose cases are types) is encoded by its live case. A case is named by its type's name (`Circle`, `s64`), run through the struct's `rename_all` (or the member's own `rename_all=`).
+
+| Form | Note on the member | Text for `Circle{ radius = 1 }` |
+| --- | --- | --- |
+| externally tagged (default) | none | `{"Circle":{"radius":1}}` |
+| internally tagged | `@json(tag=kind)`, every case a struct | `{"kind":"Circle","radius":1}` |
+| adjacently tagged | `@json(tag=t,content=c)` | `{"t":"Circle","c":{"radius":1}}` |
+| untagged | `@json(untagged)`; the default when every case is an integer, float, bool, string or enum | `{"radius":1}` or the bare scalar |
+
+`@json(tags=circle,rect)` names the tags in case order (the count must match; no spaces, as in every note). A note on an array, `Json_Maybe`, pointer or `Hash_Table` member reaches the variants inside. A top-level `to_json(variant)`/`from_json(Shape, text)` uses the default form. A payload-less case is an empty struct (`Empty :: struct {}`), written `{}`.
+
+Decoding reads the tag from anywhere in an internally or adjacently tagged object (it looks ahead, then decodes), ignores the tag key in the case's fields, and takes the content key once (a repeat is `.DUPLICATE_FIELD`, or the last wins with `duplicate_keys = .LAST`). An unknown tag is `.UNKNOWN_VARIANT` with the tag and the choices in the message (`unknown variant `Oval`, expected one of: Circle, Rect`) and the path of the variant; a missing tag key is `.MISSING_FIELD`. An untagged variant tries each case in order on the same text: the first that decodes wins, and when none does the `.TYPE` error lists each case's failure briefly. A failed attempt frees what it allocated, so nothing leaks. `free_json` frees the live case and zeroes the variant, except one that still holds its declared default. Bad notes (`tag=` with a case that is not a struct, `tags=` of the wrong count or with repeats, `content=` without `tag=`, a case with a field named like the tag, a note on a field without a variant) are compile errors.
+
 ### Query and form text
 
 `from_query($T, pairs)` and `from_param($T, text)` (`query.jai`) decode URL query/form pairs and single strings (path segment, header) by the type of the field each key names, with the same `@json` notes and errors as `from_json` (the pairs become the equivalent JSON object). A repeated key fills an array field and is a "duplicate field" error otherwise. The HTTP server's `Query`, `Form`, `Path` and `Params` use them.
@@ -70,7 +86,7 @@ Straight-line code per struct and field, no runtime type switch. Keys match by l
 
 ## How to change it
 
-- **New runtime option:** add the field to `Json_Options`, copy it onto `Json_Reader` in `reader_init`, and test `r.<field>` in the code `generate_decoder` emits (keep it to one branch). **New wrapper type** (like `Json_Maybe`): recognise it with an `is_*` helper and add cases in `emit_encode`, `emit_decode` and `emit_free`, and in the top-level checks of `generate_encoder`/`generate_decoder`/`generate_freer`.
+- **New runtime option:** add the field to `Json_Options`, copy it onto `Json_Reader` in `reader_init`, and test `r.<field>` in the code `generate_decoder` emits (keep it to one branch). **New wrapper type** (like `Json_Maybe`): recognise it with an `is_*` helper and add cases in `emit_encode`, `emit_decode` and `emit_free`, and in the top-level checks of `generate_encoder`/`generate_decoder`/`generate_freer`. `Variant` is one: `variant.jai` has its `emit_*_variant` generators, the tag notes (`Enum_Style` carries them down to the variant), and the reader helpers `json_mark`/`json_rewind`/`json_find_tag`/`json_note_attempt`. An internally tagged case is coded by `json_encode_tagged`/`json_decode_tagged`, the struct coders with the tag key written first or skipped; an untagged attempt is a local procedure per case so that the decoders' `return false` can leave it.
 - **New attribute:** parse in `collect_leaves` (`generate.jai`), carry on `Leaf`, emit in `generate_encoder`/`generate_decoder`. **New type:** cases in `emit_encode` and `emit_decode`; a new owning type also needs `emit_free` or failed decodes leak (`tests/leaks.jai`).
 - `query.jai` field kinds need a `Pair_Kind` and a case in `generate_pair_kinds`. Runtime helpers are in `reader.jai`/`writer.jai`; stage 1 in `index.jai`.
 - Writer pieces (`put`, `builder_reserve`, `copy_bytes`): a reserved window is valid only until the next append; write at most what you reserved, then `builder_commit`. `tests/encode.jai` pins output text exactly.
@@ -83,4 +99,4 @@ Straight-line code per struct and field, no runtime type switch. Keys match by l
 
 ## Dependencies
 
-`Basic`, `String`, `Compiler`, `Hash_Table`, `Extensions/SIMD`. Nothing from Io (`Io.read_json` imports Json). The structural-index design follows simdjson (Langdale and Lemire); the code is written for this repo.
+`Basic`, `String`, `Compiler`, `Hash_Table`, `Extensions/SIMD`, `Extensions/Variant`. Nothing from Io (`Io.read_json` imports Json). The structural-index design follows simdjson (Langdale and Lemire); the code is written for this repo.
