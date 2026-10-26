@@ -32,6 +32,7 @@ _sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 import argparse
 import hashlib
+import re
 import shutil
 import json
 import subprocess
@@ -74,6 +75,8 @@ BUILD_CONFIGS = [SINGLE_THREADED, ["-parse_threads", "8"], []]
 TIMEOUT = 120
 # Programs whose output holds a host address by design (a pointer the compile-time interpreter returned is
 # written into the program); their IR legitimately differs between runs, so only their diagnostics are compared.
+# Programs that merely keep compile-time data (code values, node lists) in a global are found by the IR instead
+# (`strip_global_data`), so they need not be listed.
 HOST_ADDRESS_CASES = {"ctdata-opaque-pointer.jai", "rules-compiler-module.jai"}
 
 
@@ -87,11 +90,25 @@ def scrambled(seed: str | None) -> dict:
 
 def run(argv, cwd, timeout=TIMEOUT, seed=None):
     """(exit code, stdout, stderr) of a command; a timeout is reported as a result, not raised."""
-    try:
-        p = subprocess.run(argv, cwd=cwd, capture_output=True, env=scrambled(seed), timeout=timeout)
-    except subprocess.TimeoutExpired:
-        return (-1, b"", b"timeout")
-    return (p.returncode, p.stdout, p.stderr)
+    for attempt in range(2):
+        try:
+            p = subprocess.run(argv, cwd=cwd, capture_output=True, env=scrambled(seed), timeout=timeout)
+        except subprocess.TimeoutExpired:
+            # A loaded CI machine can stall one process (macOS holds an aborting process while it reports the
+            # crash); a program that hangs again is reported.
+            continue
+        return (p.returncode, p.stdout, p.stderr)
+    return (-1, b"", b"timeout")
+
+
+GLOBAL_DATA = re.compile(rb"^(@compiler\.global_data\.\d+ = [^<]*)<\{.*$", re.MULTILINE)
+
+
+def strip_global_data(ir: bytes) -> bytes:
+    """The IR without the contents of `@compiler.global_data.*`: compile-time values placed in the program
+    (a `Code` or a node list the metaprogram built) hold addresses of the compiler's own memory, which differ
+    from process to process."""
+    return GLOBAL_DATA.sub(rb"\1", ir)
 
 
 def digest(data: bytes) -> str:
@@ -166,10 +183,17 @@ def build_case(jaic, path: Path, repeat: int, seeds: list[str], report: Report):
                             # debug map and keeps the objects (`.build/`): compare those instead of the link.
                             objects = sorted(kept.glob("*.o")) if kept.is_dir() else []
                             linked = b"".join(o.read_bytes() for o in objects) if objects else (exe.read_bytes() if exe.exists() else b"")
-                            single.append((name, (digest(ll.read_bytes()) if ll.exists() else "", digest(linked))))
+                            ir = ll.read_bytes() if ll.exists() else b""
+                            single.append((name, (digest(strip_global_data(ir)), digest(linked), digest(ir))))
                         if exe.exists() and (label == "run 1" or seed is not None):
                             outputs.append((name, run([exe], scratch, timeout=20)))
                 report.compare(f"build {path.name}", builds)
+                if len({raw for _, (_, _, raw) in single}) > 1:
+                    # Only compile-time addresses in global data differ (the rest of the IR is equal, or the
+                    # comparison below fails on it): the machine code holds them too, so it cannot be compared.
+                    single = [(name, (ir, "", "")) for name, (ir, _, _) in single]
+                else:
+                    single = [(name, (ir, linked, "")) for name, (ir, linked, _) in single]
                 report.compare(f"single-threaded bytes {path.name}", single)
         if outputs:
             report.compare(f"run {path.name}", outputs)
@@ -201,6 +225,9 @@ def lsp_session(jailsp, path: Path, seed=None) -> str:
             if line.strip():
                 hovers.append(client.request("textDocument/hover", {**document, "position": {"line": number, "character": column + 1}}))
         answers["hovers"] = hovers
+        if path.name in HOST_ADDRESS_CASES:
+            # The hints show the pointer the compile-time interpreter returned.
+            del answers["hints"]
         return json.dumps(answers, sort_keys=True)
     finally:
         client.close()

@@ -32,7 +32,9 @@ Rust seeds hash maps per process, so two runs of the same binary already differ 
 
 **Machine code.** The linked executable is compared byte for byte, with one exception: an unoptimized macOS link stores the modification time of each object in its debug map, so the check hashes the kept objects (`.build/*.o`) instead. The optimized variant is built with `-no_debug_info` for the same reason (its objects are deleted, but their times would still be in the debug map). Every build writes to the same output name, because the output path is embedded in the executable.
 
-**Host addresses.** `ctdata-opaque-pointer.jai` and `rules-compiler-module.jai` put an address from the compile-time interpreter into the program by design, so the check compares only their diagnostics (`HOST_ADDRESS_CASES` in `tools/differential/determinism.py`).
+**Host addresses.** A compile-time value placed in the program (a `Code` value or node list a metaprogram built, a pointer a `#run` returned) holds an address of the compiler's own memory, so `@compiler.global_data.*` initializers differ from process to process. The check compares the IR with those initializers blanked (`strip_global_data`); when the raw IR differs between repeats only there, the machine code is not compared for that program either, since it embeds the same addresses. The run output is still compared. `ctdata-opaque-pointer.jai` and `rules-compiler-module.jai` put such an address into the program on purpose, so only their diagnostics are compared (`HOST_ADDRESS_CASES` in `tools/differential/determinism.py`, which also drops the language server's inlay hints for them: they show the pointer).
+
+**Timeouts.** A run that exceeds the time limit is repeated once; only a second timeout counts as the result.
 
 ## How to change it
 
