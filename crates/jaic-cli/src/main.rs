@@ -168,6 +168,14 @@ fn main() -> ExitCode {
             println!("{}", jaic::paths::default_stdlib_dir().display());
             return ExitCode::SUCCESS;
         }
+        Ok(Request::DocComments(dir)) => {
+            let docs = jaic::doc_comments::library_docs(
+                std::path::Path::new(&dir),
+                &jaic::paths::default_stdlib_dir(),
+            );
+            print!("{}", jaic::doc_comments::records(&docs));
+            return ExitCode::SUCCESS;
+        }
         Err(error) => return report_cli_error(error),
     };
     if cli.msvc_format {

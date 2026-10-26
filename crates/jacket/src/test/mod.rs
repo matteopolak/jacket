@@ -216,7 +216,8 @@ fn stdlib_dir(jaic: &Path) -> Result<PathBuf, String> {
             jaic.display()
         ));
     }
-    Ok(PathBuf::from(line))
+    let dir = PathBuf::from(line);
+    Ok(dir.canonicalize().unwrap_or(dir))
 }
 
 /// The jaic flags whose value is a path. jacket runs jaic in a folder of its own, so a relative

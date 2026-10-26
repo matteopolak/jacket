@@ -45,6 +45,8 @@ pub(super) enum Request {
     Version,
     /// Print the standard library folder in use.
     Stdlib,
+    /// Print the doc comments of the library in a folder.
+    DocComments(String),
 }
 
 /// Where `jaic -help` lists an option.
@@ -72,6 +74,7 @@ pub(super) enum Action {
     Help,
     Version,
     PrintStdlib,
+    DocComments,
     Check,
     Interp,
     Flavor(Flavor),
@@ -370,6 +373,11 @@ pub(super) const OPTIONS: &[CliOption] = {
             Diagnostics,
             "-print_stdlib",
             "print the standard library folder jaic uses and exit",
+        ),
+        CliOption::new(&["-doc_comments"], Action::DocComments).help(
+            Diagnostics,
+            "-doc_comments <dir>",
+            "print the doc comments of the library in <dir> as records, for `jacket test`",
         ),
         CliOption::new(&["-version"], Action::Version)
             .aliases(&["-V", "--version"])

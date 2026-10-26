@@ -12,7 +12,7 @@ pub(super) fn parse(args: &[String]) -> Result<Request, CliError> {
     let mut cli = Cli::default();
     let mut file: Option<String> = None;
     let mut extra: Option<String> = None;
-    let (mut check, mut interp) = (false, false);
+    let (mut check, mut interp, mut doc_comments) = (false, false, false);
     let mut rest = args.iter();
     while let Some(arg) = rest.next() {
         match arg.as_str() {
@@ -73,6 +73,7 @@ pub(super) fn parse(args: &[String]) -> Result<Request, CliError> {
             Action::Help => return Ok(Request::Help),
             Action::Version => return Ok(Request::Version),
             Action::PrintStdlib => return Ok(Request::Stdlib),
+            Action::DocComments => doc_comments = true,
             Action::Check => check = true,
             Action::Interp => interp = true,
             Action::Switch(switch) => *switch(&mut cli) = true,
@@ -104,6 +105,9 @@ pub(super) fn parse(args: &[String]) -> Result<Request, CliError> {
     let Some(file) = file else {
         return Err(no_file_error());
     };
+    if doc_comments {
+        return Ok(Request::DocComments(file));
+    }
     cli.file = file;
     if check && interp {
         return Err(CliError::new("`-check` and `-interp` cannot be combined")

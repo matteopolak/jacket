@@ -1161,5 +1161,8 @@ pub fn signature_line(text: &str, at: usize) -> String {
 }
 
 
+mod located;
+pub use located::{Located, located_above, opening};
+
 #[cfg(test)]
 mod tests;
