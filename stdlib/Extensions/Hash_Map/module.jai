@@ -169,22 +169,25 @@ deinit :: (map: *Map) {
 // loop, adding included, invalidates the loop.
 for_expansion :: (map: *$T/Map, body: Code, flags: For_Flags) #expand {
     #if (flags & .REVERSE) != 0 {
-        slot := map.capacity;
-        full: u32;
+        next_group := map.capacity / GROUP_SIZE;
+        base: s64;
+        bits: u32;
 
-        while slot > 0 {
-            slot -= 1;
-            index := slot;
-
-            if (index & (GROUP_SIZE - 1)) == GROUP_SIZE - 1 {
-                full = match_full(map.control + (index - (GROUP_SIZE - 1)));
-                if full == 0 {
-                    slot -= GROUP_SIZE - 1;
-                    continue;
+        while true {
+            if bits == 0 {
+                while next_group > 0 {
+                    next_group -= 1;
+                    base = next_group * GROUP_SIZE;
+                    bits = match_full(map.control + base);
+                    if bits != 0 break;
                 }
+
+                if bits == 0 break;
             }
 
-            if ((full >> (index & (GROUP_SIZE - 1))) & 1) == 0 continue;
+            index := base + highest(bits);
+
+            bits &= ~(cast(u32) 1 << (index - base));
 
             item := map.entries + index;
 
@@ -203,23 +206,26 @@ for_expansion :: (map: *$T/Map, body: Code, flags: For_Flags) #expand {
             }
         }
     } else {
-        slot: s64;
-        full: u32;
+        next_group: s64;
+        groups := map.capacity / GROUP_SIZE;
+        base: s64;
+        bits: u32;
 
-        while slot < map.capacity {
-            index := slot;
-
-            slot += 1;
-
-            if (index & (GROUP_SIZE - 1)) == 0 {
-                full = match_full(map.control + index);
-                if full == 0 {
-                    slot += GROUP_SIZE - 1;
-                    continue;
+        while true {
+            if bits == 0 {
+                while next_group < groups {
+                    base = next_group * GROUP_SIZE;
+                    next_group += 1;
+                    bits = match_full(map.control + base);
+                    if bits != 0 break;
                 }
+
+                if bits == 0 break;
             }
 
-            if ((full >> (index & (GROUP_SIZE - 1))) & 1) == 0 continue;
+            index := base + lowest(bits);
+
+            bits &= bits - 1;
 
             item := map.entries + index;
 
@@ -292,6 +298,10 @@ match_full :: inline (group: *u8) -> u32 {
 
 lowest :: inline (bits: u32) -> s64 {
     return SIMD.trailing_zeros(cast(u64) bits);
+}
+
+highest :: inline (bits: u32) -> s64 {
+    return 63 - SIMD.leading_zeros(cast(u64) bits);
 }
 
 // Entries a map of this many slots holds before it is rebuilt: seven eighths.

@@ -379,6 +379,48 @@ iteration :: () {
 
     check(!first, "break leaves the loop");
 
+    steps := 0;
+
+    for map {
+        steps += 1;
+        if steps == 3 break;
+    }
+
+    check(steps == 3, "break stops the forward loop");
+
+    steps = 0;
+
+    for < map {
+        steps += 1;
+        if steps == 3 break;
+    }
+
+    check(steps == 3, "break stops the reverse loop");
+
+    kept := 0;
+
+    for map {
+        if it_index % 2 == 0 continue;
+        kept += 1;
+    }
+
+    skipped := 0;
+
+    for < map {
+        if it_index % 2 != 0 continue;
+        skipped += 1;
+    }
+
+    odd := 0;
+    even := 0;
+
+    for value, key: map {
+        if key % 2 != 0 odd += 1;
+        else even += 1;
+    }
+
+    check(kept == odd && skipped == even, "continue goes to the next entry in both directions");
+
     empty: Map.Map(s64, s64);
     for empty check(false, "empty map has nothing to visit");
 }
