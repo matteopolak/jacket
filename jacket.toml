@@ -82,7 +82,7 @@ paths = [
     "benchmarks/runtime/stdlib-table.jai",
     "benchmarks/runtime/stdlib-utf8.jai",
     "benchmarks/stdlib/byte-search.jai",
-    "benchmarks/stdlib/hash-map.jai",
+    "benchmarks/compare/**",
     "benchmarks/stdlib/log-scan.jai",
     "stdlib/Extensions/Http/bench/bench.jai",
     "stdlib/Extensions/Http/bench/client_bench.jai",

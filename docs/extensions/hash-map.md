@@ -80,20 +80,71 @@ Plain :: #import "Extensions/Hash_Map"(SCALAR_GROUPS = true);
 
 `Basic`, `Hash` (default hash) and `Extensions/SIMD`.
 
-## Measured against Hash_Table
+## Measured against Hash_Table and the community map
 
-`benchmarks/stdlib/hash-map.jai`, built with `-O2` on an Apple M-series Mac (arm64, NEON), median of seven runs of each workload, `s64` keys unless noted. Speedup is `Hash_Table` time over `Hash_Map` time, so above 1 means `Hash_Map` is faster. Numbers move by 10 to 20 percent from run to run on a busy machine.
+Hash_Map next to the standard library's `Hash_Table` and [`666rayen999--hash_map`](https://github.com/666rayen999/hash_map), the only other hash-map module in the upstream corpus. The cells come from reading each library's source; ⚠ has a note.
 
-| Workload (ns/op, Hash_Table / Hash_Map) | 1k entries | 100k entries | 1M entries |
+| Feature | Hash_Map | Hash_Table | rayen999 hash_map |
 | --- | --- | --- | --- |
-| insert (including growth) | 20.0 / 24.2 (0.83x) | 40.1 / 21.0 (1.9x) | 56.2 / 31.9 (1.8x) |
-| lookup hit | 2.7 / 3.2 (0.83x) | 7.3 / 5.8 (1.3x) | 14.0 / 12.7 (1.1x) |
-| lookup miss | 3.4 / 3.1 (1.1x) | 12.5 / 7.0 (1.8x) | 29.2 / 4.6 (6.4x) |
-| remove + insert (steady size) | 37.5 / 16.8 (2.2x) | 58.6 / 23.4 (2.5x) | 79.9 / 50.4 (1.6x) |
-| iterate | 1.5 / 1.4 (1.06x) | 6.4 / 1.3 (4.9x) | 5.7 / 2.0 (2.8x) |
-| string insert | 44.2 / 44.6 (0.99x) | 73.4 / 40.6 (1.8x) | 105.3 / 84.5 (1.25x) |
-| string lookup hit | 12.0 / 11.5 (1.04x) | 26.3 / 22.0 (1.2x) | 55.1 / 73.0 (0.75x) |
+| Layout | one allocation: control bytes, then `key, value` entries; 16 slots compared per step | one array of `hash, key, value` entries, linear probing | three arrays inside the struct (`control`, `keys`, `values`), Robin Hood probing |
+| Grows | ✅ at 7/8 load | ✅ at 70% load | ❌ [1] |
+| Capacity | any, from 16 slots | any, from 32 | fixed per type (`$C`, a power of two) |
+| Keys | any type, optional hash and equality procedures | any type, optional hash and equality procedures | ⚠ [2] |
+| Insert, replace | ✅ returns the old value | ✅ | ⚠ [3] |
+| Lookup | ✅ pointer or `null`, `get` with a default | ✅ | ❌ [4] |
+| Remove | ✅ slots are reused | ✅ slots are reused (`REFILL_REMOVED`) | ❌ [5] |
+| Remove while iterating | ✅ `remove it` | ✅ | ❌ |
+| Iterate | ✅ forward, reverse, by pointer | ✅ | ⚠ forward, by value only |
+| Entry that is created on first use | ✅ `entry` | ✅ `find_or_add` | ❌ |
+| Reserve, clear | ✅ | ✅ | ❌ |
+| Custom allocator | ✅ | ✅ | not applicable |
+| Builds under jaic | ✅ | ✅ | ⚠ [6] |
+| Tests that compare it with another map | ✅ `tests/agreement.jai`, also the scalar and vector paths | ✅ | ❌ |
 
-Reading it: `Hash_Map` wins most where the map outgrows the cache (misses end after one group instead of walking a cluster; deleted slots are reused; iteration skips empty groups). At 1k entries insert is slower because small maps rebuild many times (16 slots up) and a rebuild rehashes every key. Hits on a large string map lose a little: a lookup touches the control byte, the entry and then the string, where `Hash_Table` reads the entry and the string.
+1. `insert` returns `false` when it has probed every slot, and nothing makes room. The tables live in the struct, so `Hash_Map(string, float, 256)` is on the stack.
+2. Enums, integers and strings only (`Is_Valid_Type`), hashed with the module's own XXH3.
+3. `insert` swaps entries on the way (Robin Hood) but writes the new entry's probe distance into the control byte only when it stops at an empty slot. After a swap the slot's control byte keeps the previous owner's distance.
+4. `get` ends a probe when the distance exceeds the control byte, so it misses a key that was swapped into a slot. Probing 200 random `s64` keys into 256 slots, 38 of them were not found again (162 of 200 were).
+5. `delete` marks the slot `DELETED`, and `insert` only reuses `EMPTY` slots. Inserting one key and deleting it again, a table of 256 slots reported full after 256 pairs.
+6. `xxh3.jai` declares `xxh64 :: (count: u64, ptr: *u8, $$ seed: u64)` and jaic types the call's argument as `s64`, so the module does not compile unchanged ("argument of type `s64` does not match parameter type `u64`"). The checks of notes 3 to 5 were made on a copy with `$$` removed from that signature.
 
-A word-frequency count over 6 million tokens (200k distinct strings, `entry` then an increment) took about 10 percent less time with `Hash_Map` (roughly 430 to 540 ms against 480 to 650 ms; the machine was loaded). `benchmarks/runtime/stdlib-table.jai` times `Hash_Table` on its own.
+### How it was measured
+
+`benchmarks/compare/hash-map/benches/hash_map.jai`, run by `tools/bench/library_compare.py hash-map --per-item` (see [library comparisons](../tools/library-comparisons.md)). The community map is not measured: it returns wrong answers (notes 3 to 5), so a speed would be for a different job. Keys are random `s64` values (a fixed xorshift) or strings of the form `key-N-M` that live in one buffer, at 1,000, 100,000 and 1,000,000 entries.
+
+- **insert**: a fresh table, every key inserted, growth included. **string_insert**: the same with string keys.
+- **hit**, **miss**: lookups of keys in the table / not in it, after it was built before the timer started; hits in a shuffled order. **string_hit** is the same for strings.
+- **churn**: a sliding window of constant size: each step removes the oldest key and inserts a new one.
+- **iterate**: the sum of all values.
+
+An iteration is one pass over all entries; the table shows the time per entry. Results go through `black_box`. Allocation is the default allocator in both.
+
+Apple M5 (10 cores: 4 Super and 6 Efficiency), 16 GB, macOS 27.0 arm64. The machine was a working desktop, not an idle one: the load average when the run began was 6.82, so absolute times carry a few percent of noise (the intervals show the part that was measured within one run) and the ratios are the result to read.
+
+Time per operation with the 95% interval, and the ratio of Hash_Table's time to Hash_Map's (above 1: Hash_Map is faster).
+
+| Workload | hash_map | hash_table |
+| --- | --- | --- |
+| insert_1k | 16.7 ns (16.6 ns to 16.8 ns) | 7.34 ns (7.23 ns to 7.49 ns) 0.44x |
+| insert_100k | 12 ns (11.8 ns to 12.2 ns) | 22.9 ns (22.5 ns to 23.2 ns) 1.91x |
+| insert_1m | 24.3 ns (22.4 ns to 26.6 ns) | 59.3 ns (53.5 ns to 65.7 ns) 2.44x |
+| hit_1k | 2.33 ns (2.3 ns to 2.36 ns) | 1.82 ns (1.77 ns to 1.86 ns) 0.78x |
+| hit_100k | 3.39 ns (3.35 ns to 3.44 ns) | 4.05 ns (3.85 ns to 4.37 ns) 1.20x |
+| hit_1m | 8.07 ns (7.96 ns to 8.19 ns) | 9.71 ns (9.53 ns to 9.91 ns) 1.20x |
+| miss_1k | 1.98 ns (1.97 ns to 2 ns) | 1.82 ns (1.81 ns to 1.82 ns) 0.92x |
+| miss_100k | 3.76 ns (3.75 ns to 3.78 ns) | 4.99 ns (4.88 ns to 5.1 ns) 1.33x |
+| miss_1m | 2.9 ns (2.84 ns to 2.96 ns) | 20.7 ns (20.4 ns to 21.1 ns) 7.15x |
+| churn_1k | 6.21 ns (6.13 ns to 6.29 ns) | 5.83 ns (5.74 ns to 5.92 ns) 0.94x |
+| churn_100k | 12 ns (10 ns to 14.8 ns) | 26.2 ns (25.9 ns to 26.5 ns) 2.18x |
+| churn_1m | 20.6 ns (20.2 ns to 21.1 ns) | 61.6 ns (56.2 ns to 71 ns) 2.99x |
+| iterate_1k | 1.16 ns (1.14 ns to 1.18 ns) | 0.668 ns (0.659 ns to 0.68 ns) 0.58x |
+| iterate_100k | 1.11 ns (1.11 ns to 1.11 ns) | 3.13 ns (3.06 ns to 3.21 ns) 2.82x |
+| iterate_1m | 1.68 ns (1.66 ns to 1.7 ns) | 4.21 ns (4.2 ns to 4.22 ns) 2.51x |
+| string_insert_1k | 26.7 ns (26.1 ns to 27.1 ns) | 16 ns (16 ns to 16 ns) 0.60x |
+| string_insert_100k | 26.8 ns (26.4 ns to 27.1 ns) | 39.1 ns (38.7 ns to 39.6 ns) 1.46x |
+| string_insert_1m | 70.9 ns (60 ns to 83.1 ns) | 64 ns (59.8 ns to 68.8 ns) 0.90x |
+| string_hit_1k | 8.95 ns (8.81 ns to 9.08 ns) | 8.79 ns (8.73 ns to 8.85 ns) 0.98x |
+| string_hit_100k | 16.2 ns (16.1 ns to 16.3 ns) | 14.3 ns (14.3 ns to 14.4 ns) 0.89x |
+| string_hit_1m | 49.5 ns (47.9 ns to 51.6 ns) | 32.8 ns (31.5 ns to 34.6 ns) 0.66x |
+
+Reading it: Hash_Map wins most where the map outgrows the cache (a miss ends after one group instead of walking a cluster; removed slots are reused; iteration skips empty groups). At 1,000 entries insert is slower because small maps rebuild many times (16 slots up) and a rebuild rehashes every key. Hits on a large string map lose a little: a lookup touches the control byte, the entry and then the string, where `Hash_Table` reads the entry and the string.
