@@ -366,9 +366,14 @@ pub fn normalize_paths(text: &str, dir: &Path, stdlib: &Path) -> String {
     text.lines()
         .map(|line| {
             if line.contains("$DIR\\") || line.contains("$STDLIB\\") {
-                jacket_config::to_slash(line)
-            } else {
-                line.to_string()
+                return jacket_config::to_slash(line);
+            }
+            // A relative location such as `..\..\layout.jai:67:13:` gets `/` in its path only.
+            match line.find(".jai:") {
+                Some(end) if !line[..end].contains(' ') && line[..end].contains('\\') => {
+                    format!("{}{}", jacket_config::to_slash(&line[..end]), &line[end..])
+                }
+                _ => line.to_string(),
             }
         })
         .collect::<Vec<_>>()
@@ -449,6 +454,14 @@ mod tests {
                 Path::new("C:\\s")
             ),
             "$DIR/bad.jai:1: e\n"
+        );
+        assert_eq!(
+            normalize_paths(
+                "..\\..\\layout.jai:67:13: error: a\\b\n",
+                Path::new("C:\\r\\t"),
+                Path::new("C:\\s")
+            ),
+            "../../layout.jai:67:13: error: a\\b\n"
         );
     }
 }
