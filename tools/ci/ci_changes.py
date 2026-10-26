@@ -183,6 +183,8 @@ def test_matrix(full):
 # The producer suites (tools/stdlib/check_stdlib_suites.py) but `tooling` and `bindings`, which
 # take longest and have legs of their own.
 SUITES = "foundations portable platform audio window numerics numerics-native"
+# The tooling suite runs in this many parts, each about five minutes on CI.
+TOOLING_PARTS = 4
 
 
 def stdlib_matrix(full):
@@ -193,7 +195,16 @@ def stdlib_matrix(full):
 
     def suite_legs(platform, names):
         legs = [dict(platform=platform, shard="suites", suites=SUITES, wasm=platform == "linux-x64" or full)]
-        return legs + [dict(platform=platform, shard=name, suites=name) for name in names]
+        for name in names:
+            if name == "tooling":
+                # check_developer_tools.py --part balances these by measured cost.
+                legs += [
+                    dict(platform=platform, shard=f"tooling {k} of {TOOLING_PARTS}", suites=name, tooling_part=f"{k}/{TOOLING_PARTS}")
+                    for k in range(1, TOOLING_PARTS + 1)
+                ]
+            else:
+                legs.append(dict(platform=platform, shard=name, suites=name))
+        return legs
 
     if not full:
         legs = [dict(platform="linux-x64", shard=s, modes=everything, o2=False) for s in shards(3)]

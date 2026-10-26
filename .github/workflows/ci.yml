@@ -540,9 +540,12 @@ jobs:
         # The suite legs run the suites `matrix.suites` names, two groups at a time; the independent
         # suites share no scratch directory across groups (GROUPS in check_stdlib_suites.py).
         if: ${{ always() && !cancelled() && matrix.suites }}
+        env:
+          TOOLING_PART: ${{ matrix.tooling_part }}
         run: |
           suites=(--jobs 2)
           for suite in ${{ matrix.suites }}; do suites+=(--suite "$suite"); done
+          [[ -n "$TOOLING_PART" ]] && suites+=(--tooling-part "$TOOLING_PART")
           run=()
           if [[ "$RUNNER_OS" == Linux ]]; then
             run=(xvfb-run -a -s "-screen 0 1280x1024x24")
