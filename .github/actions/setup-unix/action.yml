@@ -16,6 +16,9 @@ inputs:
   font:
     description: Export JAIC_TEST_FONT_PATH
     default: 'true'
+  apt-label:
+    description: Extra name for the Ubuntu package cache, for a job that installs more packages after this step
+    default: ''
 runs:
   using: composite
   steps:
@@ -44,7 +47,7 @@ runs:
     # The Ubuntu packages the Linux install below downloads, kept between runs (./.github/actions/apt-cache).
     - uses: ./.github/actions/apt-cache
       with:
-        label: native${{ inputs.native-libs }}
+        label: native${{ inputs.native-libs }}${{ inputs.apt-label }}
     - name: Install LLVM 23 (Linux)
       if: runner.os == 'Linux'
       shell: bash

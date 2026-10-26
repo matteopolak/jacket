@@ -1049,11 +1049,15 @@ jobs:
       - uses: ./.github/actions/setup-unix
         with:
           font: 'false'
+          # Its own package cache, so the MinGW packages are kept between runs too.
+          apt-label: -mingw-${{ matrix.cpu }}
       - name: Install MinGW-w64
         if: matrix.cpu == 'x64'
         run: |
           bash tools/ci/apt_install.sh gcc-mingw-w64-x86-64 g++-mingw-w64-x86-64
           x86_64-w64-mingw32-gcc --version
+          sudo rm -rf "$JAI_APT_ARCHIVES/partial"
+          sudo chown -R "$(id -u):$(id -g)" "$JAI_APT_ARCHIVES"
       - name: Install llvm-mingw
         if: matrix.cpu == 'arm64'
         run: |
