@@ -3,6 +3,8 @@ mod api;
 mod conditions;
 mod floats;
 mod here;
+#[cfg(test)]
+mod platform_tests;
 mod punct;
 mod scan;
 mod value_map;

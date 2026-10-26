@@ -23,22 +23,6 @@ fn fold_and(t: &[Token], at: &mut usize, target: PlatformTarget) -> Option<bool>
 
 /// `!(..)`, `(..)` or `OS == .TAG` / `CPU != .TAG`.
 fn fold_test(t: &[Token], at: &mut usize, target: PlatformTarget) -> Option<bool> {
-    const OS_TAGS: &[&str] = &[
-        "NONE",
-        "KRAMPOS",
-        "WINDOWS",
-        "LINUX",
-        "ANDROID",
-        "IOS",
-        "MACOS",
-        "NN_SWITCH",
-        "PS4",
-        "PS5",
-        "XBOX",
-        "WASM",
-        "NN_SWITCH2",
-    ];
-    const CPU_TAGS: &[&str] = &["UNINITIALIZED", "KRAMPU", "CUSTOM", "X64", "ARM64"];
     let tok = |i: usize| t.get(i).map(|x| &x.tok);
     match tok(*at)? {
         Tok::Punct(P::Bang) if matches!(tok(*at + 1), Some(Tok::Punct(P::LParen))) => {
@@ -55,11 +39,6 @@ fn fold_test(t: &[Token], at: &mut usize, target: PlatformTarget) -> Option<bool
             Some(value)
         }
         Tok::Ident(name) => {
-            let (chosen, tags) = match name.as_str() {
-                "OS" => (target.os, OS_TAGS),
-                "CPU" => (target.cpu, CPU_TAGS),
-                _ => return None,
-            };
             let equal = match tok(*at + 1)? {
                 Tok::Punct(P::EqEq) => true,
                 Tok::Punct(P::Ne) => false,
@@ -71,9 +50,6 @@ fn fold_test(t: &[Token], at: &mut usize, target: PlatformTarget) -> Option<bool
             let Some(Tok::Ident(tag)) = tok(*at + 3) else {
                 return None;
             };
-            if !tags.contains(&tag.as_str()) {
-                return None;
-            }
             // A further `.member`, call or index would make this something else.
             if matches!(
                 tok(*at + 4),
@@ -81,8 +57,9 @@ fn fold_test(t: &[Token], at: &mut usize, target: PlatformTarget) -> Option<bool
             ) {
                 return None;
             }
+            let value = target.compare(name.as_str(), tag.as_str(), equal)?;
             *at += 4;
-            Some((tag.as_str() == chosen) == equal)
+            Some(value)
         }
         _ => None,
     }

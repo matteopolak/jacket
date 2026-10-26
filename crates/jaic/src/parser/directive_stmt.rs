@@ -10,26 +10,6 @@ use crate::lexer::{P, Tok};
 use crate::source::Span;
 use std::rc::Rc;
 
-/// The `Operating_System_Tag` and `CPU_Tag` members of `stdlib/prelude/platform.jai`: a test
-/// against any other name is left for type checking to reject.
-const OS_TAGS: &[&str] = &[
-    "NONE",
-    "KRAMPOS",
-    "WINDOWS",
-    "LINUX",
-    "ANDROID",
-    "IOS",
-    "MACOS",
-    "NN_SWITCH",
-    "PS4",
-    "PS5",
-    "XBOX",
-    "WASM",
-    "NN_SWITCH2",
-];
-
-const CPU_TAGS: &[&str] = &["UNINITIALIZED", "KRAMPU", "CUSTOM", "X64", "ARM64"];
-
 /// Directive statements that take a plain list of expressions up to the `;`.
 pub(crate) const GENERIC_DIRECTIVES: &[&str] = &[
     "library",
@@ -204,16 +184,7 @@ impl Parser<'_> {
                 else {
                     return None;
                 };
-                let (target, tags): (&str, &[&str]) = match name.as_str() {
-                    "OS" => (platform.os, OS_TAGS),
-                    "CPU" => (platform.cpu, CPU_TAGS),
-                    _ => return None,
-                };
-                let tag = tag.name.as_str();
-                if !tags.contains(&tag) {
-                    return None;
-                }
-                Some((tag == target) == (*op == BinOp::Eq))
+                platform.compare(name.as_str(), tag.name.as_str(), *op == BinOp::Eq)
             }
             _ => None,
         }

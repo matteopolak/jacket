@@ -36,6 +36,40 @@ pub struct PlatformTarget {
     pub cpu: &'static str,
 }
 
+/// The `Operating_System_Tag` members of `stdlib/prelude/platform.jai`.
+pub const OS_TAGS: &[&str] = &[
+    "NONE",
+    "KRAMPOS",
+    "WINDOWS",
+    "LINUX",
+    "ANDROID",
+    "IOS",
+    "MACOS",
+    "NN_SWITCH",
+    "PS4",
+    "PS5",
+    "XBOX",
+    "WASM",
+    "NN_SWITCH2",
+];
+
+/// The `CPU_Tag` members of `stdlib/prelude/platform.jai`.
+pub const CPU_TAGS: &[&str] = &["UNINITIALIZED", "KRAMPU", "CUSTOM", "X64", "ARM64"];
+
+impl PlatformTarget {
+    /// Whether `subject == .tag` (or `!=` when `equal` is false) holds, for `subject` `OS` or
+    /// `CPU`. `None` for any other subject, and for a tag the prelude does not name, which type
+    /// checking reports.
+    pub fn compare(self, subject: &str, tag: &str, equal: bool) -> Option<bool> {
+        let (chosen, tags) = match subject {
+            "OS" => (self.os, OS_TAGS),
+            "CPU" => (self.cpu, CPU_TAGS),
+            _ => return None,
+        };
+        tags.contains(&tag).then(|| (tag == chosen) == equal)
+    }
+}
+
 /// `lex`, for a library file (see [`PlatformTarget`]). A dead branch is not checked for lexical
 /// errors, so use it only for files the project ships and tests on every platform.
 pub fn lex_for_target(
