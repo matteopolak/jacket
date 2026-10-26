@@ -39,7 +39,7 @@ The limits protect whoever opens a project, so a project cannot set them: there 
 | Neovim | `compile_time.check_time_limit` | 10 | as `jai.compileTime.checkTimeLimit` |
 | Neovim | `compile_time.cost_lens_blocks` | 1000000 | as `jai.compileTime.costLensBlocks` |
 | `jailint` | `--compile-time-budget <blocks>` | 200000000 | as the budget above |
-| `jailint` | `--check-time-limit <seconds>` | 10 | as the time limit above, for each program checked |
+| `jailint` | `--check-time-limit <seconds>` | 10 | as the time limit above, for each program checked separately (every program gets the whole limit; the run as a whole has none) |
 | `jaic` | `-profile_runs` | off | prints the cost table (the program's runs, then the standard library as one line); a `jaic` build has no limits |
 
 The VS Code settings are `"scope": "machine"`: VS Code reads them from the user's settings only (or the remote machine's), and ignores a workspace's `.vscode/settings.json` for them.

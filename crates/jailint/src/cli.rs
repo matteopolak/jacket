@@ -129,7 +129,7 @@ const OWN: &[Own] = &[
         names: &["--check-time-limit"],
         what: Some("seconds"),
         synopsis: "--check-time-limit <seconds>",
-        help: "seconds the check of one program may take before it stops with partial results (default: 10; 0: no limit)",
+        help: "seconds each program may take to check before its check stops with partial results; every program gets the whole limit, and the run as a whole has none (default: 10; 0: no limit)",
         apply: |args, name, value| {
             args.check_time_limit =
                 Some(value.parse().map_err(|_| {

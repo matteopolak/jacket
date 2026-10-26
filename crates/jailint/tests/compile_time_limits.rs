@@ -109,3 +109,38 @@ fn the_wall_clock_limit_gives_one_notice() {
     );
     assert!(!text.contains("execution budget"), "{text}");
 }
+
+/// The time limit belongs to each program checked, not to the run: two runaway programs one
+/// after the other each get the whole limit.
+#[test]
+fn the_wall_clock_limit_is_each_programs_own() {
+    let dir = project("seconds-per-program", None);
+    std::fs::write(dir.join("other.jai"), SOURCE).unwrap();
+    let started = std::time::Instant::now();
+    let output = Command::new(env!("CARGO_BIN_EXE_jailint"))
+        .args([
+            "--compile-time-budget",
+            "0",
+            "--check-time-limit",
+            "0.3",
+            "-j",
+            "1",
+            "main.jai",
+            "other.jai",
+        ])
+        .current_dir(&dir)
+        .env("NO_COLOR", "1")
+        .output()
+        .unwrap();
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        text.matches("checking stopped after 0.3 s").count(),
+        2,
+        "{text}"
+    );
+    assert!(started.elapsed().as_secs_f64() >= 0.55, "{text}");
+}
