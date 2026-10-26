@@ -6,6 +6,8 @@
 
 ## How it works
 
+`jaic::target::Selection` (os, cpu, triple) is what the command-line flags `-os`, `-cpu` and `-target` produce, with `apply` setting them on `sema::Options`; `jaic`, `jailint` and `jacket test` forwarding use it. `select_os_cpu` is the one default: the CPU is the host's when the OS is the host's, x64 for any other OS, and Wasm for the wasm OS, whichever tool asks.
+
 It is parsed once, then passed on:
 
 - `-os`/`-cpu` give `TargetOs`/`TargetCpu` (`parse_os`, `parse_cpu`; bad values keep the same error text). `-target <triple>` and a workspace's `llvm_target_system_triple` go through `Target::parse`, which rejects what jaic cannot build for (`unsupported target architecture in ...`).

@@ -58,7 +58,7 @@ These only affect the main workspace, not other workspaces a metaprogram creates
 
 ### Adding code from the command line
 
-`-add "code"` adds code to the program, and `-run "code"` runs code at compile time, like a `#run`. Both can be repeated. `-I dir` (or `-import_dir dir`) adds a folder to search for modules.
+`-add "code"` adds code to the program, and `-run "code"` runs code at compile time, like a `#run`. Both can be repeated. `-I dir` (or `-import_dir dir`) adds a folder to search for modules. `-j <n>` (`--jobs`) sets the number of worker threads. The compile and target flags, `-j` and `--color` are one table (`jaic::flags`) that `jailint` parses too; `jaic` also accepts them as `-os=linux`.
 
 Less common options:
 
@@ -113,6 +113,7 @@ The implementation is `jaic::progress` (`crates/jaic/src/progress.rs`). The phas
 | `-quiet` (`--quiet`) | print nothing but errors, and no build status |
 | `-verbose` | say what is being done |
 | `-no_color` | plain diagnostics. `NO_COLOR` does the same; `FORCE_COLOR` and `CLICOLOR_FORCE` force colour on |
+| `--color <auto|always|never>` | choose colour explicitly; `-no_color` is `--color never`. Shared with `jailint` |
 | `-msvc_format` | one `path(line,col): error: message` line per diagnostic, for IDEs that parse that format |
 | `-timings` | print each phase's time on stderr as `jaic-timing: <phase> <seconds> <calls>`: `front end`, `workspaces`, `run`, `prepare output`, `codegen`, `link`, `debug info`, `total`, and `interp`, the time compile-time code (`#run`, metaprograms, macros) spent executing, which overlaps `front end`. Each phase also gets `jaic-alloc: <phase> <blocks> <bytes>`: the allocations Rust code requested during it, worker threads included (phases nest, so `total` holds the others); C and LLVM allocations are not counted |
 

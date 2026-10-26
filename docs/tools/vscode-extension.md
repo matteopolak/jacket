@@ -15,7 +15,7 @@ src/jaifmt.ts            ignore query (`jaifmt --is-ignored`), minimal edit, jai
 src/commands.ts          Run/Build/Check File as tasks
 src/expansion.ts         jai.showExpansion / jai.showPolymorphs, jai-expansion: documents
 scripts/build-grammar.ts writes syntaxes/jai.tmLanguage.json
-scripts/build.ts schemas writes schemas/jailint.schema.json (from jailint's RULES) and jaifmt.schema.json
+scripts/build.ts schemas writes schemas/jailint.schema.json (from the `rules!` list in jailint's `rules/mod.rs` and each rule module's `INFO`) and jaifmt.schema.json
 ```
 
 - **Highlighting.** The grammar is generated from the keyword and directive lists at the top of `build-grammar.ts` and written from the compiler's lexer and parser, not another editor's files. It is the fast baseline; `jailsp` semantic tokens refine it. Doc comments get Markdown styling from a hand-written injection grammar (`syntaxes/jai-doc-comments.tmLanguage.json`, tests in `test/grammar/doc-comments.jai`).
