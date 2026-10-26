@@ -6,15 +6,37 @@
 
 - `jai.compileTime.evaluationBudget` and `jai.compileTime.checkTimeLimit` set the compile-time limits of the editor (user settings only, so a project cannot raise them); when one is hit, a message offers to raise it, show the costs or open the settings. `jailint` takes `--compile-time-budget` and `--check-time-limit`.
 - A code lens shows what slow compile-time code costs, `Jai: Show compile-time costs` lists it all, and `jaic -profile_runs` prints the same table.
+- HTTP handlers can take a `*Body` and read the request body as it arrives with `read`, `read_all` and `read_json`, so uploads need not fit in memory.
+- `max_body` on `get`, `post` and the other route functions sets a body size limit per route; `Json(T)` and `Form(T)` respect it.
+- `file_response` and `stream_response` send a file or pushed chunks without buffering the body.
+- `created(value, location)` answers 201 with an optional `Location` header.
+- `serve` and `start` return a `Serve_Error` that says why a server did not start.
 
 ### Improved
 
 - A runaway `#run` is reported once, at the `#run`, with where it was running, instead of failing everything after it.
 - A check that runs past its time limit gives one notice and stops running compile-time code.
+- `Expect: 100-continue` is answered when the handler first reads the body, so a refused request never uploads.
+- The HTTP server documentation gives the measured memory per idle connection (about 21 KiB optimized, 37 KiB not).
 
 ### Fixed
 
 - Static `#if` arms inside a polymorphic procedure are no longer greyed out.
+
+### Breaking changes
+
+| Was | Now |
+| --- | --- |
+| `Bytes`, `Text`, `request.body`, `body_text(request)` | a `*Body` parameter and `read_all` |
+| `body.name` on `Json(T)`, `Form(T)`, `Query(T)`, `Params(T)` | `body.temporary.name` (the value lives in temporary storage until the response is written) |
+| a POST returning a value answers 201 | 200; return `created(value)` for 201 |
+| `serve(app)` returned a `bool` and printed the reason | returns a `Serve_Error`; print it with `error_text` |
+| `serve(app, address)` | set `app.config.address`, then `serve(app)` |
+| `start` returned an `Io_Error` | returns a `Serve_Error` |
+| `path_param(request, name)`, `add_header`, `no_content()` | `Path("name", T)`, `with_header`, `status_only(204)` |
+| two `bytes_response` and `header` overloads | one `bytes_response` taking a string or bytes; `header(request, name)` by name only |
+| `Request` fields `params`, `app`, `chain`, `cursor`, `endpoint`, `query_pairs`, `body` | private; use `query_param`, `header`, `app_state` |
+| `config.max_body_size` refused a body in the parser, before routing | it is the default `max_body` of a route |
 
 ## [0.29.0] - 2026-10-26
 
