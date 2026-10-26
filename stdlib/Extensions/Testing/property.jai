@@ -86,15 +86,8 @@ Property_Arg :: struct {
 // While the trials run, checks that fail are counted and not reported.
 capturing := false;
 trial_failed := false;
-// What the running property tried last, to name in an assertion that stops the program.
-running_property: *Property_State;
-
-Property_State :: struct {
-    test: *Test;
-    arguments: [] Property_Arg;
-    seed: u64;
-    trial: s64;
-}
+// Whether a property runs: a failed `assert` in it fails the input and the run goes on.
+in_property := false;
 
 // The type of the `index`-th generated argument of the procedure type `B`.
 property_argument :: (B: Type, index: s64) -> Type {
@@ -222,14 +215,13 @@ check_property :: (t: *Test, slots: [] Property_Arg, invoke: (t: *Test, slots: [
     }
 
     rng := rng_seeded(run_seed ^ name_hash(t.name));
-    state := Property_State.{ t, slots, run_seed, 0 };
 
-    running_property = *state;
+    in_property = true;
+    defer in_property = false;
 
     for trial: 1..count {
         mark := get_temporary_storage_mark();
 
-        state.trial = trial;
         size := 1 + (trial - 1) * (MAX_SIZE - 1) / max(count - 1, 1);
 
         rng.size = size;
@@ -244,13 +236,11 @@ check_property :: (t: *Test, slots: [] Property_Arg, invoke: (t: *Test, slots: [
         original := describe_arguments(t, slots);
         steps := shrink(t, invoke, slots, generators);
 
-        running_property = null;
         report_counterexample(t, invoke, slots, original, trial, steps);
 
         return;
     }
 
-    running_property = null;
 }
 
 name_hash :: (name: string) -> u64 {

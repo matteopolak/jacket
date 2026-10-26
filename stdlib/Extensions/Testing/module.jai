@@ -42,6 +42,12 @@ Bench :: struct {
 // ```
 log :: (t: *Test, format: string, args: ..Any) {
     text := tprint(format, ..args);
+
+    if events {
+        add_event("log", text);
+        return;
+    }
+
     print("%\n", text);
 }
 
@@ -89,6 +95,7 @@ run :: (t: *Test, name: string, body: (t: *Test, data: *$T), data: *T) -> bool {
 #load "snapshots.jai";
 #load "property.jai";
 #load "shrink.jai";
+#load "compile_time.jai";
 #load "compare.jai";
 #load "tracking.jai";
 #load "runner.jai";

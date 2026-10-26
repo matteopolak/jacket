@@ -61,7 +61,7 @@ jaic tests.jai -quiet [-os/-cpu/flags] [-import_dir ROOT_PARENT] -exe tests \
     +Extensions/Testing/Discovery -manifest manifest.tsv -registry registry.jai
 ```
 
-With `--list` it also gets `-cases cases.tsv`, and runs each `@cases` list at compile time to write `test<TAB>case` per case. The plugin writes `manifest.tsv` (`kind<TAB>name<TAB>file<TAB>line<TAB>notes...` per `@test` and `@bench`) and adds the test table and entry point. Roots build in parallel (at most four at once). A root that does not compile stops the run before any test starts.
+With `--list` it also gets `-cases cases.tsv` and runs each `@cases` list at compile time to write `test<TAB>case` per case. The plugin writes `manifest.tsv` (`kind<TAB>name<TAB>file<TAB>line<TAB>notes...` per `@test` and `@bench`) and adds the test table and entry point. Roots build in parallel (at most four at once). A root that does not compile stops the run before any test starts. A build that only finds the tests (`--list`, the host check below) gets `-no-compile-time`, so the `@compile_time` tests wait for the build that runs them.
 
 Plugins do not run under `-interp`, and compile-time code of a wasm target runs in jaic's sandbox, whose file writes stay in memory. So with `--interp`, and for `-os wasm`, the plugin runs in a `-check` for the host and writes the code it adds to `registry.jai`; a second root file, `program.jai`, loads the tests and the registry and names the entry point in a `#run`. Workers run it with `jaic program.jai -interp`, or build it for wasm. This is a limit of the compiler, not a choice: `jaic -interp` runs no plugins (`-interp` with `+Plugin` is a usage error, see [workspaces](../metaprogramming/workspaces.md)), so the interpreted program cannot be built by Discovery itself and is built twice, once to find the tests and once to run them. A consequence: under `-os wasm` tests are found as the host sees them, so keep platform-specific tests apart with `@only`/`@skip_on`, not `#if OS`. The same holds for `--interp`: the tests found are the ones the host's build has. Removing the double build needs plugins in the interpreter.
 
@@ -209,6 +209,7 @@ reads_proc_self :: () { ... } @test @serial
 | `@cases(LIST)` | run once per entry of `LIST`, each as a subtest named from its values; see [Testing](../extensions/testing.md#how-it-works) |
 | `@property`, `@property(N)` | run once per generated input (100 by default, or `N`); see [Testing](../extensions/testing.md#how-it-works) |
 | `@generate(NAME)` | with `@property`: the procedure `NAME` makes the values of the type it returns |
+| `@compile_time` | run inside the compiler, once per build, and replayed by the program; see [Testing](../extensions/testing.md#how-it-works) |
 | `@retries(N)` | retries for this test, over `--retries` |
 | `@only(...)` | run only on these targets: `.LINUX`, `.MACOS`, `.WINDOWS`, `.WASM`, `.ANDROID`, `.X64`, `.ARM64`, `.INTERP`, `.NATIVE`; every kind named must match (`only(.LINUX,.X64)`) |
 | `@skip_on(...)` | skip on any of these targets |

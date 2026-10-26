@@ -145,6 +145,8 @@ report_failure :: (loc: Source_Code_Location, message: string) {
 
     if reporting {
         record("fail", current.name, loc.fully_pathed_filename, tprint("%", loc.line_number), message);
+    } else if events {
+        add_event("fail", loc.fully_pathed_filename, tprint("%", loc.line_number), message);
     } else if quiet {
         print("%:%: %\n", loc.fully_pathed_filename, loc.line_number, message, to_standard_error = true);
     } else {
@@ -155,6 +157,18 @@ report_failure :: (loc: Source_Code_Location, message: string) {
 mark_skipped :: (t: *Test, reason: string) {
     t.skipped = true;
     if reporting record("skip", t.name, reason);
+    else if events add_event("skip", reason);
+}
+
+run_cleanups :: (t: *Test) {
+    i := t.cleanups.count - 1;
+    while i >= 0 {
+        c := t.cleanups[i];
+        c.callback(c.data);
+        i -= 1;
+    }
+
+    array_reset(*t.cleanups);
 }
 
 running_location :: () -> Source_Code_Location {
@@ -246,24 +260,16 @@ finish :: (t: *Test) {
     }
 }
 
-run_cleanups :: (t: *Test) {
-    i := t.cleanups.count - 1;
-    while i >= 0 {
-        c := t.cleanups[i];
-        c.callback(c.data);
-        i -= 1;
-    }
-
-    array_reset(*t.cleanups);
-}
-
 assertion_failed :: (loc: Source_Code_Location, message: string) -> bool {
-    // A property test stopped the program: say which input did.
-    if running_property {
-        capturing = false;
-        state := running_property;
-        running_property = null;
-        report_failure(running_location(), tprint("property failed on trial % (seed %) with %\nrerun: jacket test --seed % --exact '%'", state.trial, state.seed, describe_arguments(state.test, state.arguments), state.seed, state.test.name));
+    // A property keeps going after a failed assert: the input fails, and may be shrunk.
+    if in_property {
+        if capturing {
+            trial_failed = true;
+        } else {
+            report_failure(loc, ifx message then tprint("assertion failed: %", message) else "assertion failed");
+        }
+
+        return false;
     }
 
     // Alone, the usual handler's report is enough; jacket needs a record of it.

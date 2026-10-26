@@ -107,3 +107,7 @@ failures_say_how_to_rerun :: (n: bool) {
 returning_false_fails :: (n: s64) -> bool {
     return n < 5;
 } @test @property @should_fail(returned)
+
+asserts_fail_the_input_and_shrink :: (n: s64) {
+    assert(n < 50, "too big");
+} @test @property @should_fail(asserts_fail_the_input_and_shrink(50))

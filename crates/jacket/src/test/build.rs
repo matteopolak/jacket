@@ -158,6 +158,10 @@ pub fn unit(
     if list {
         command.arg("-cases").arg(&case_file);
     }
+    if list || from_registry {
+        // This build only finds the tests: `@compile_time` ones run where the program is built.
+        command.arg("-no-compile-time");
+    }
     run_jaic(&mut command, toolchain)?;
     let entries = parse_manifest(&std::fs::read_to_string(&manifest).unwrap_or_default());
     if list {

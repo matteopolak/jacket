@@ -8,6 +8,8 @@
 //                      notes, separated by tabs
 //     -registry FILE   also write the added source to FILE, for a build that adds it itself
 //                      (`jacket test --interp`, where plugins do not run)
+//     -no-compile-time do not run the `@compile_time` tests in this build (a check that only
+//                      finds the tests: `-registry` still gets the code that runs them)
 //     -cases FILE      run each `@cases` list at compile time and write `test<TAB>case` per case
 //                      to FILE (for `jacket test --list`)
 //
@@ -36,6 +38,7 @@ Discovery :: struct {
     manifest_path: string;
     registry_path: string;
     cases_path: string;
+    skip_compile_time: bool;
     found: [..] Found;
     added: bool;
 }
@@ -51,6 +54,7 @@ Found :: struct {
     property: bool; // a `@property` test
     trials: string; // the count of `@property(N)`, or nothing
     generators: [] string; // the procedures of `@generate(NAME)` notes
+    compile_time: bool; // a `@compile_time` test
 }
 
 init :: (plugin: *Metaprogram_Plugin, options: [] string) -> bool {
@@ -59,6 +63,13 @@ init :: (plugin: *Metaprogram_Plugin, options: [] string) -> bool {
 
     while i < options.count {
         option := options[i];
+
+        if option == "-no-compile-time" {
+            discovery.skip_compile_time = true;
+            i += 1;
+            continue;
+        }
+
         if (option == "-manifest" || option == "-registry" || option == "-cases") && i + 1 < options.count {
             if option == "-manifest" discovery.manifest_path = options[i + 1];
             else if option == "-registry" discovery.registry_path = options[i + 1];
@@ -121,6 +132,12 @@ cases_of :: (notes: [] *Code_Note) -> string {
     return "";
 }
 
+has_note :: (notes: [] *Code_Note, text: string) -> bool {
+    for notes if it.text == text return true;
+
+    return false;
+}
+
 // Whether there is a `@property` note, and its count if it has one.
 property_of :: (notes: [] *Code_Note) -> (found: bool, trials: string) {
     for notes {
@@ -172,8 +189,14 @@ collect :: (discovery: *Discovery, typechecked: *Message_Typechecked) {
         cases := ifx kind == "test" then cases_of(header.notes) else "";
 
         property, trials := property_of(header.notes);
+        compile_time := kind == "test" && has_note(header.notes, "compile_time");
 
         if kind != "test" property = false;
+
+        if compile_time && (property || cases) {
+            compiler_report(file, line, declaration.c0, "a @compile_time test cannot have @property or @cases: it runs once, in the compiler");
+            continue;
+        }
 
         if property && cases {
             compiler_report(file, line, declaration.c0, "a @test cannot have both @property and @cases: a property generates its arguments");
@@ -199,7 +222,7 @@ collect :: (discovery: *Discovery, typechecked: *Message_Typechecked) {
             if it.text != kind array_add(*notes, copy_string(it.text));
         }
 
-        array_add(*discovery.found, .{ kind, copy_string(declaration.name), copy_string(file), line, notes, header.arguments.count, copy_string(cases), property, copy_string(trials), generators_of(header.notes) });
+        array_add(*discovery.found, .{ kind, copy_string(declaration.name), copy_string(file), line, notes, header.arguments.count, copy_string(cases), property, copy_string(trials), generators_of(header.notes), compile_time });
     }
 }
 
@@ -269,14 +292,60 @@ finish_discovery :: (discovery: *Discovery) {
         compiler_report(tprint("Testing/Discovery: cannot write %", discovery.manifest_path));
     }
 
+    source := registry_source(discovery, true);
+
+    if discovery.registry_path && !write_entire_file(discovery.registry_path, source) {
+        compiler_report(tprint("Testing/Discovery: cannot write %", discovery.registry_path));
+    }
+
+    // A check that only finds the tests does not run the `@compile_time` ones.
+    add_build_string(ifx discovery.skip_compile_time then registry_source(discovery, false) else source, discovery.workspace);
+
+    if discovery.cases_path add_build_string(list_cases_source(discovery), discovery.workspace);
+}
+
+// The code that is added to the program: the test table and the entry point. `run_compile_time`
+// says whether it runs the `@compile_time` tests (a `#run`) or leaves their results empty.
+registry_source :: (discovery: *Discovery, run_compile_time: bool) -> string {
     registry: String_Builder;
 
     append(*registry, "#scope_file\n__jacket_testing :: #import \"Extensions/Testing\";\n");
 
+    // The compile-time tests: run now, in the compiler, and replayed by the program.
+    compile_times := 0;
+    for discovery.found if it.kind == "test" && it.compile_time compile_times += 1;
+
+    if compile_times {
+        append(*registry, "__jacket_ct_results :: ");
+
+        if run_compile_time {
+            append(*registry, "#run __jacket_testing.run_compile_time(__jacket_testing.Compile_Time_Case.[\n");
+
+            for discovery.found {
+                if it.kind != "test" || !it.compile_time continue;
+                print_to_builder(*registry, "    .{ %, __jacket_ct_% },\n", quote(it.name), it_index);
+            }
+
+            append(*registry, "]);\n");
+        } else {
+            append(*registry, "\"\";\n");
+        }
+    }
+
+    position := 0;
+
     for discovery.found {
         if it.kind != "test" continue;
+
         call := ifx it.property then property_call(it) else ifx it.cases then tprint("__jacket_testing.run_cases(t, %, %);", it.cases, it.name) else ifx it.arguments then tprint("%(t);", it.name) else tprint("%();", it.name);
-        print_to_builder(*registry, "__jacket_test_% :: (t: *__jacket_testing.Test) { % }\n", it_index, call);
+
+        if it.compile_time {
+            print_to_builder(*registry, "__jacket_ct_% :: (t: *__jacket_testing.Test) { % }\n", it_index, call);
+            print_to_builder(*registry, "__jacket_test_% :: (t: *__jacket_testing.Test) { __jacket_testing.replay_compile_time(t, __jacket_ct_results, %); }\n", it_index, position);
+            position += 1;
+        } else {
+            print_to_builder(*registry, "__jacket_test_% :: (t: *__jacket_testing.Test) { % }\n", it_index, call);
+        }
     }
 
     append(*registry, "__jacket_tests :: __jacket_testing.Test_Case.[\n");
@@ -290,14 +359,8 @@ finish_discovery :: (discovery: *Discovery) {
 
     append(*registry, "];\n#scope_export\n");
     print_to_builder(*registry, "% :: () { __jacket_testing.run_tests(__jacket_tests); }\n", ENTRY_POINT);
-    source := builder_to_string(*registry);
-    if discovery.registry_path && !write_entire_file(discovery.registry_path, source) {
-        compiler_report(tprint("Testing/Discovery: cannot write %", discovery.registry_path));
-    }
 
-    add_build_string(source, discovery.workspace);
-
-    if discovery.cases_path add_build_string(list_cases_source(discovery), discovery.workspace);
+    return builder_to_string(*registry);
 }
 
 // Code that runs at compile time and writes the cases of every `@cases` test.
