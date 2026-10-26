@@ -1,0 +1,22 @@
+[1]
+: s1
+= ALICE
+: s2
+= ALICE
+Line1
+Line2
+: s3
+= BOB
+++ dir first
+spoken after
+: s4
+= A
+one
+= B
+three
+= A
+four
+: s5
+= A
++ fade soft
+Hello <b> & co

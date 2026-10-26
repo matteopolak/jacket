@@ -1,0 +1,51 @@
+<head><style>.title          {text-align:left; margin-inline: 15vw; font-weight:800;    font-size:24px; }</style>
+<style>.speaker-bold   {text-align:left; margin-inline: 35vw; font-weight:750;    font-size:16px;}</style>
+<style>.speaker-nonbold{text-align:left; margin-inline: 35vw; font-weight:400;    font-size:16px;}</style>
+<style>.dialog-bold    {text-align:left; margin-inline: 25vw; font-weight:400;    font-size:16px;}</style>
+<style>.dialog-nonbold {text-align:left; margin-inline: 25vw; font-weight:100;    font-size:16px;}</style>
+<style>.direction      {text-align:left; margin-inline: 15vw; font-style:italic;}</style>
+<style>.keep-together  {break-inside:avoid;}</style>
+</head>
+<body>
+<br><p></p><br>
+<div class="keep-together">
+
+<p class="title">s1</p>
+
+<p class="speaker-nonbold"><b>ALICE</b></p>
+</div><br><p></p><br>
+<div class="keep-together">
+
+<p class="title">s2</p>
+
+<p class="speaker-nonbold"><b>ALICE</b></p>
+<p class="dialog-nonbold">Line1<br>Line2</p>
+</div><br><p></p><br>
+<div class="keep-together">
+
+<p class="title">s3</p>
+
+<p class="speaker-nonbold"><b>BOB</b></p>
+<p class="direction">dir first</p><p class="dialog-nonbold">spoken after</p>
+</div><br><p></p><br>
+<div class="keep-together">
+
+<p class="title">s4</p>
+
+<p class="speaker-nonbold"><b>A</b></p>
+<p class="dialog-nonbold">one</p>
+
+<p class="speaker-nonbold"><b>B</b></p>
+<p class="dialog-nonbold">three</p>
+
+<p class="speaker-nonbold"><b>A</b></p>
+<p class="dialog-nonbold">four</p>
+</div><br><p></p><br>
+<div class="keep-together">
+
+<p class="title">s5</p>
+
+<p class="speaker-nonbold"><b>A</b></p>
+<p class="dialog-nonbold">Hello &lt;b&gt; &amp; co</p>
+</div>
+</body>

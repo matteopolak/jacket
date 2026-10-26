@@ -1,0 +1,8 @@
+Line #,Conversation,Character,Dialogue,Directions,Wav Filename,Conversation Filename
+262,s2,"ALICE","Line1
+Line2","",s2_01.wav,s2.wav
+263,s3,"BOB","spoken after","dir first",s3_01.wav,s3.wav
+264,s4,"A","one","",s4_01.wav,s4.wav
+265,s4,"B","three","",s4_02.wav,s4.wav
+266,s4,"A","four","",s4_03.wav,s4.wav
+267,s5,"A","Hello <b> & co","",s5_01.wav,s5.wav
