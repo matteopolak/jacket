@@ -302,6 +302,8 @@ Programs run from their own `tests/` folder, as the old runner did. Where a test
 
 **Other consumers.** `jaic_sweep.py` (differential sweeps), `windows_cross.py` (Windows cross builds), the determinism tool and the browser runner read the catalogue only, so a migrated module leaves their input. Until each reads `jacket test --list --format json` (golden and compile-fail tests carry `file`), migrated modules are covered by the `jacket test` legs of CI (native, `--interp`, `-O2`, and with `WASM=true` both wasm modes under node) and not by those tools: the browser engine and Windows cross builds no longer run them.
 
+**Suites that build a migrated test themselves.** `tools/stdlib/check_foundations.py` and `tools/numerics/run.py` compile some of these programs with their own flags. `tools/stdlib/jacket_tests.py` gives them what the manifest row gave: `expected_output(source)` / `golden_row(source)` read the `.stdout`, `.stderr` and `.exit` beside the program, and `exact_command(source, compiler, env, mode=..., jaic_flags=..., runner=...)` builds the `jacket test --exact` command for a file of `@test` procedures (no `main`, so there is no program to build), in the suite's modes (`--interp`, `-- -O2`, `--os wasm --runner ...`). It starts the `jacket` next to the compiler under test, so build both. `tools/native/windows_cross.py` builds its Windows SDK control once, in the first shard, since the Tls Windows program is no longer one of its cases.
+
 **Leniency.** A fault test no longer checks the exact status or that stdout stayed empty; a program without `main` is type-checked, not run.
 
 ## Design decisions

@@ -13,6 +13,7 @@ from toolkit.repo import ROOT, cargo_target_dir
 from repo_output import output_dir
 from toolkit.cli import add_jaic_argument
 from toolkit.host import host_cpu, host_os
+from stdlib import jacket_tests
 
 CASES = (
     "Basic/tests/builder-format",
@@ -100,10 +101,13 @@ def check_division_output(output):
 
 
 def expected_output(name):
-    """(stdout, stderr, exit code) of a case, from its row in the module's test manifest."""
+    """(stdout, stderr, exit code) of a case: its row in the module's test manifest, or the
+    expected-output files beside the program when `jacket test` runs the module."""
     module, _, case = name.partition("/tests/")
-    rows = json.loads((ROOT / "stdlib" / module / "tests/manifest.json").read_text())
-    row = next(row for row in rows if row["name"] == case)
+    manifest = ROOT / "stdlib" / module / "tests/manifest.json"
+    if not manifest.is_file():
+        return jacket_tests.expected_output(ROOT / "stdlib" / f"{name}.jai")
+    row = next(row for row in json.loads(manifest.read_text()) if row["name"] == case)
     return row.get("stdout", ""), row.get("stderr", ""), row.get("exit_code", 0)
 
 

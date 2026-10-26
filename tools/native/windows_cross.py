@@ -704,10 +704,9 @@ def build(args):
         else:
             supported.append(item)
     all_cases = stdlib_runtime.take_shard(supported, part)
-    if any(
-        metadata.get(item[1], {}).get("id") == "Extensions/Tls/tests/windows-target"
-        for item in all_cases
-    ):
+    # The Tls windows-target program is a `jacket test` now, so the SDK control no longer rides
+    # on a catalogue case: it is built once, by the first shard.
+    if part[0] == 1:
         probe_id = "socket-inet-pton-sdk"
         error = build_socket_sdk_probe(args, out / (probe_id + ".exe"))
         if error:

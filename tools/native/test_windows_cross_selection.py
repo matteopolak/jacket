@@ -262,6 +262,7 @@ class Selection(unittest.TestCase):
                 ) as build,
                 patch.object(cross.shutil, "copytree"),
                 patch.object(cross, "c_structs_library", return_value=None),
+                patch.object(cross, "build_socket_sdk_probe", return_value=None),
                 patch.object(cross, "C_STRUCTS", {}),
                 contextlib.redirect_stdout(io.StringIO()),
             ):
@@ -270,7 +271,8 @@ class Selection(unittest.TestCase):
             report = json.loads((root / "build-report.json").read_text())
             self.assertEqual(report["counts"]["platform_unavailable"], 1)
             self.assertEqual(report["counts"]["failed"], 1)
-            self.assertEqual(len(report["results"]), 2)
+            # The two cases and the SDK control the first shard builds.
+            self.assertEqual(len(report["results"]), 3)
             self.assertTrue(all(r["passed"] is None for r in report["results"]))
 
     def test_native_run_keeps_arguments_and_stderr_assertions(self):

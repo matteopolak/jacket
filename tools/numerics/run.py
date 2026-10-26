@@ -8,6 +8,7 @@ import subprocess
 import sys
 import time
 from repo_output import output_dir
+from stdlib.jacket_tests import exact_command
 from target_contracts import ORACLE, target_contract
 
 root = Path(__file__).resolve().parents[2]
@@ -79,6 +80,42 @@ def run(label, cmd, sentinel=None, expect_fail=False):
     return passed
 
 
+def is_test_file(source):
+    """A file of `@test` procedures (no `main`): `jacket test` runs it, there is no program."""
+    text = (root / source).read_text(encoding="utf-8") if source != ORACLE else ""
+    return "main ::" not in text and "@test" in text
+
+
+def run_test_file(name, source, sentinel, quick):
+    """The modes of the loop below for an `@test` file, each a `jacket test` run of its tests."""
+
+    def run_mode(label, mode, flags=(), runner=None):
+        command = exact_command(
+            root / source, compiler, env, mode=mode, jaic_flags=flags, runner=runner
+        )
+        return run(label, command, sentinel)
+
+    run_mode(name + "-interp", ["--interp"])
+    if quick:
+        return
+    for level in ["O0", "O2"]:
+        run_mode(name + "-" + level, [], ["-" + level])
+    contract = target_contract(source, "wasm")
+    if not contract.available:
+        records.append(
+            dict(
+                label=name + "-wasm",
+                passed=None,
+                classification="unavailable target",
+                reason=contract.reason,
+            )
+        )
+        (out / "results.json").write_text(json.dumps(records, indent=2) + "\n")
+        return
+    runner = f"node --no-warnings {root / 'tools/wasi_run.mjs'}"
+    run_mode(name + "-wasm", ["--os", "wasm"], ["-O2"], runner)
+
+
 run("inventory", [sys.executable, "tools/numerics/numerics_surface.py"])
 run("generate-oracle", [sys.executable, "tools/numerics/oracle.py"])
 tests = {
@@ -145,6 +182,9 @@ tests = {
     "public-contract": ("stdlib/Math/tests/float16-edge-vectors.jai", "ok"),
 }
 for name, (source, sentinel) in tests.items():
+    if is_test_file(source):
+        run_test_file(name, source, "passed", args.quick)
+        continue
     common = [
         compiler,
         str(output_dir("numerics", "numeric_oracle.jai"))

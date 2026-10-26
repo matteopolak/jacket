@@ -39,6 +39,9 @@ class ContractStreams(unittest.TestCase):
                 patch.object(windows_cross, "cases", return_value=[]),
                 patch.object(windows_cross.shutil, "copytree"),
                 patch.object(windows_cross, "c_structs_library", return_value=None),
+                patch.object(
+                    windows_cross, "build_socket_sdk_probe", return_value=None
+                ),
                 patch.object(windows_cross, "build_one", return_value=None),
                 patch.object(windows_cross, "C_STRUCTS", {}),
                 contextlib.redirect_stdout(output),
