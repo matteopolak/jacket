@@ -32,6 +32,7 @@ fn options(root: &std::path::Path, path: PathBuf) -> Options {
         paths: vec![path],
         import_dirs: Vec::new(),
         add_sources: Vec::new(),
+        limits: jaic::ide::lint_compile::CheckLimits::default(),
         stdlib: root.join("stdlib"),
         config: Config::default(),
         jobs: 1,

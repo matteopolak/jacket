@@ -114,6 +114,7 @@ fn run() -> Result<ExitCode, String> {
     let stdlib = jaic::canonicalize(&stdlib).unwrap_or(stdlib);
     let mut compiler_options = jaic::sema::Options::host();
     args.common.target.apply(&mut compiler_options)?;
+    let limits = args.limits();
     let options = jailint::driver::Options {
         compiler_options,
         source: args.context,
@@ -124,6 +125,7 @@ fn run() -> Result<ExitCode, String> {
         jobs: args.common.jobs.unwrap_or(0),
         verbose: args.verbose,
         add_sources: args.common.add,
+        limits,
     };
     let outcome = jailint::driver::run(&options);
     for note in &outcome.config_notes {

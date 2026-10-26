@@ -37,13 +37,15 @@ pub(super) fn lint_root(
         claims,
         index,
     };
+    let limits = options.limits;
     let Compiled {
         mut compiler,
         workspaces,
         done,
         reports,
         error,
-    } = compile_root(root, options, None, Some(report), canon);
+        host,
+    } = compile_root(root, options, None, Some(report), canon, limits);
     let mut error = error;
     let top_complete = error.is_none();
     if top_complete
@@ -65,6 +67,11 @@ pub(super) fn lint_root(
     }
     compilers.reverse();
     compilers.push((compiler, !top_complete));
+    // One notice for the root, whatever the evaluation that ran into the limit was.
+    let stopped = host.borrow_mut().has_stopped();
+    if stopped {
+        error = Some(limits.stopped_notice(jaic::source::Span::NONE).message);
+    }
     // Check every program first: which files this root compiled settles which it reports.
     struct Checked {
         compiler: Box<Compiler>,

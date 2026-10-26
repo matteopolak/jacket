@@ -62,6 +62,7 @@ fn lint_with(file: &Path, levels: &[(&str, Level)], mut config: Config) -> (Vec<
         jobs: 1,
         verbose: false,
         add_sources: Vec::new(),
+        limits: jaic::ide::lint_compile::CheckLimits::default(),
     };
     let outcome = jailint::driver::run(&options);
     assert!(

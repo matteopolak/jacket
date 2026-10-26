@@ -244,6 +244,7 @@ fn driver_preserves_supplied_source_runtime_and_target_options() {
         jobs: 2,
         verbose: false,
         add_sources: Vec::new(),
+        limits: jaic::ide::lint_compile::CheckLimits::default(),
     };
     let result = jailint::driver::run(&options);
     assert!(result.incomplete.is_empty(), "{:?}", result.incomplete);

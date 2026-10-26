@@ -65,6 +65,9 @@ pub struct Options {
     pub verbose: bool,
     /// Additional source strings, in the program's scope (same as jaic -add).
     pub add_sources: Vec<String>,
+    /// What bounds the compile-time code of each root: set by whoever runs the linter, never
+    /// by the project.
+    pub limits: jaic::ide::lint_compile::CheckLimits,
 }
 
 pub struct Outcome {

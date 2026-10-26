@@ -51,6 +51,7 @@ fn flagged(root: &Path, paths: &[&str]) -> Vec<String> {
         config,
         jobs: 1,
         verbose: false,
+        limits: jaic::ide::lint_compile::CheckLimits::default(),
     });
     assert!(outcome.incomplete.is_empty(), "{:?}", outcome.incomplete);
     assert!(outcome.config_errors.is_empty());

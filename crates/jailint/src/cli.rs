@@ -18,8 +18,25 @@ pub struct Args {
     pub levels: Vec<(String, Level)>,
     pub max_nesting: Option<usize>,
     pub verbose: bool,
+    /// `--compile-time-budget`: blocks one compile-time evaluation may run (0: no limit).
+    pub compile_time_budget: Option<u64>,
+    /// `--check-time-limit`: seconds one program's check may take (0: no limit).
+    pub check_time_limit: Option<f64>,
     /// The flags shared with `jaic`: target, import folders, added source, jobs, colour.
     pub common: Common,
+}
+
+impl Args {
+    /// The limits the flags set, over the defaults.
+    pub fn limits(&self) -> jaic::ide::lint_compile::CheckLimits {
+        use jaic::ide::lint_compile::CheckLimits;
+        CheckLimits::new(
+            self.compile_time_budget
+                .unwrap_or(CheckLimits::DEFAULT_EVAL_BLOCKS),
+            self.check_time_limit
+                .unwrap_or(CheckLimits::DEFAULT_SECONDS),
+        )
+    }
 }
 
 /// What parsing a flag leads to.
@@ -93,6 +110,31 @@ const OWN: &[Own] = &[
                     .parse()
                     .map_err(|_| format!("`{name}` takes a whole number, such as `{name} 6`"))?,
             );
+            Ok(Flow::Continue)
+        },
+    },
+    Own {
+        names: &["--compile-time-budget"],
+        what: Some("blocks"),
+        synopsis: "--compile-time-budget <blocks>",
+        help: "basic blocks one compile-time evaluation may run before it fails (default: 200000000; 0: no limit)",
+        apply: |args, name, value| {
+            args.compile_time_budget = Some(value.parse().map_err(|_| {
+                format!("`{name}` takes a whole number, such as `{name} 50000000`")
+            })?);
+            Ok(Flow::Continue)
+        },
+    },
+    Own {
+        names: &["--check-time-limit"],
+        what: Some("seconds"),
+        synopsis: "--check-time-limit <seconds>",
+        help: "seconds the check of one program may take before it stops with partial results (default: 10; 0: no limit)",
+        apply: |args, name, value| {
+            args.check_time_limit =
+                Some(value.parse().map_err(|_| {
+                    format!("`{name}` takes a number of seconds, such as `{name} 30`")
+                })?);
             Ok(Flow::Continue)
         },
     },

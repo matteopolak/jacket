@@ -30,6 +30,7 @@ fn module_context_additions_precede_program_finalization() {
         compiler_options: jaic::sema::Options::host(),
         source: None,
         add_sources: Vec::new(),
+        limits: jaic::ide::lint_compile::CheckLimits::default(),
     };
     let result = run(&options);
     assert!(result.incomplete.is_empty(), "{:?}", result.incomplete);
@@ -61,6 +62,7 @@ fn context_fix_preserves_lazy_configured_bootstrap_dependencies() {
         compiler_options: jaic::sema::Options::host(),
         source: None,
         add_sources: Vec::new(),
+        limits: jaic::ide::lint_compile::CheckLimits::default(),
     };
     let result = run(&options);
     assert!(result.incomplete.is_empty(), "{:?}", result.incomplete);

@@ -4,7 +4,7 @@ use super::plan::canonical;
 use super::rooted_fs::RootedFs;
 use jaic::build::{SharedWorkspaces, WorkspaceObserver};
 use jaic::ide::IdeRoot;
-use jaic::ide::lint_compile::{LintCompile, LintRoot, LintSetup};
+use jaic::ide::lint_compile::{CheckLimits, LintCompile, LintRoot, LintSetup};
 use jaic::interp::SandboxHost;
 use jaic::paths::CanonCache;
 use jaic::project::{Program, Root};
@@ -47,6 +47,8 @@ pub(super) struct Compiled {
     pub(super) reports: Rc<RefCell<Vec<String>>>,
     /// The first error of the root's own compile.
     pub(super) error: Option<String>,
+    /// The host of every compiler of the root, which knows when the wall-clock limit passed.
+    pub(super) host: Rc<RefCell<SandboxHost>>,
 }
 
 /// Compile `root` for `os` (the options' own when `None`; the compiler picks the CPU). With a
@@ -58,6 +60,7 @@ pub(super) fn compile_root(
     os: Option<TargetOs>,
     report: Option<&BTreeSet<PathBuf>>,
     canon: &CanonCache,
+    limits: CheckLimits,
 ) -> Compiled {
     let root = &program.root;
     let main_dir = root.main_dir();
@@ -97,6 +100,7 @@ pub(super) fn compile_root(
             done: done.clone(),
         })),
         report: Box::new(move |_, text| sink.borrow_mut().push(text.to_string())),
+        limits,
     });
     if lint {
         crate::facts::enable(&mut started.compiler, roots);
@@ -125,9 +129,10 @@ pub(super) fn compile_root(
     let result = started.compile(lint_root, &extra);
     Compiled {
         compiler: started.compiler,
-        workspaces: started.workspaces,
+        workspaces: started.workspaces.clone(),
         done,
         reports,
         error: result.err().map(|e| e.message.clone()),
+        host: started.host.clone(),
     }
 }
