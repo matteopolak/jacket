@@ -127,7 +127,7 @@ fn unknown_keys_are_dropped_and_named_by_path() {
         ]
     );
     assert_eq!(config.project.entry.0, ["a.jai"]);
-    assert_eq!(config.lint.exclude, ["x"]);
+    assert_eq!(config.lint.exclude[0].as_str(), "x");
     assert_eq!(config.lint.max_nesting, None);
 }
 

@@ -1,5 +1,6 @@
 //! The `jacket.toml` schema. Every section is optional and every key in it too. Keys the schema
 //! does not know are dropped while parsing (see [`crate::parse_noting`]), never kept.
+use crate::pattern::PathPattern;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -59,9 +60,9 @@ pub struct Toolchain {
 
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct Lint {
-    /// Glob patterns of paths not to lint, relative to the file.
+    /// Patterns of paths not to lint, relative to the file.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub exclude: Vec<String>,
+    pub exclude: Vec<PathPattern>,
     /// How many blocks deep code may nest before `excessive_nesting` fires.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_nesting: Option<usize>,
@@ -104,22 +105,22 @@ pub struct Portability {
     /// all three.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub targets: Vec<String>,
-    /// Globs (relative to the file) of the code that must build on every target.
+    /// Patterns (relative to the file) of the code that must build on every target.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub portable: Vec<String>,
+    pub portable: Vec<PathPattern>,
     /// Globs of files that build only on the operating systems listed (none: on no target). When
     /// several match a file, the most specific one (the most characters besides `*` and `?`)
     /// decides.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub platforms: BTreeMap<String, Vec<String>>,
+    pub platforms: BTreeMap<PathPattern, Vec<String>>,
 }
 
 /// Rule levels for the files under some paths.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 pub struct LintOverride {
-    /// Globs of the files these levels apply to, relative to the file.
+    /// Patterns of the files these levels apply to, relative to the file.
     #[serde(default)]
-    pub paths: Vec<String>,
+    pub paths: Vec<PathPattern>,
     /// Rule or category name and level text, as in `[lint.rules]`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub rules: BTreeMap<String, String>,

@@ -439,11 +439,11 @@ Rules are comma-separated; `all` means every rule. A name that is neither a rule
 
 ## Configuration
 
-The `[lint]` table of `jacket.toml` ([jacket](jacket.md)), found by walking up from the first path (or `--config`). Unknown settings are dropped with a warning (`unknown setting ... (ignored)`); unknown rules or levels are errors so a typo cannot leave a rule on. `-A`/`-W`/`-D` override the file, overrides included.
+The `[lint]` table of `jacket.toml` ([jacket](jacket.md)), found by walking up from the first path (or `--config`, which then holds for every file). Each other file listed or found under a listed directory uses the nearest `jacket.toml` above it, so `jailint stdlib examples` applies `examples/jacket.toml` to the examples; `-A`/`-W`/`-D` and `--max-nesting` apply on top of every one, and a file the first root's `exclude` names stays excluded. `platform_leak`'s `[lint.portability]` is the first root's alone. Unknown settings are dropped with a warning (`unknown setting ... (ignored)`); unknown rules or levels are errors so a typo cannot leave a rule on. `-A`/`-W`/`-D` override the file, overrides included.
 
 ```toml
 [lint]
-exclude = ["tests/corpus/negative/**", "generated/**"]   # globs relative to this file
+exclude = ["tests/corpus/negative/**", "generated/**"]   # patterns relative to this file
 max_nesting = 6                                          # blocks `excessive_nesting` allows
 max_complexity = 25                                      # score `cognitive_complexity` allows
 max_arguments = 7                                        # parameters `too_many_arguments` allows
@@ -467,7 +467,7 @@ rules = { float_equality = "allow", magic_number = "allow" }
 ```toml
 [lint.portability]
 targets = ["linux", "macos", "windows"]                  # the default
-portable = ["stdlib/**"]                                 # globs that must build on every target
+portable = ["stdlib/**"]                                 # patterns that must build on every target
 
 [lint.portability.platforms]                             # files limited to some systems
 "stdlib/POSIX/**" = ["linux", "macos"]
@@ -477,9 +477,9 @@ portable = ["stdlib/**"]                                 # globs that must build
 
 The repository's `jacket.toml` holds `stdlib/` to it: OS modules and the per-system halves of modules (`internal/files/filesystem-windows.jai`, `internal/process/windows.jai`) are listed, stdlib tests are not checked (`"stdlib/**/tests/**" = []`), and CI runs the rule in its own step on Linux (a `just lint --os` run leaves it out, since it compiles every target itself). When the rule reports a stdlib import, guard it with `#if OS ==` (or move it into the per-system file) if portable code should not reach it; list the file under `platforms` if it really is for one system.
 
-Both tools match globs the same way: `*` and `?` stay within one path component, `**` crosses components (`**/x` also matches `x` at the top), a trailing `/` is dropped, an empty pattern matches nothing, and a pattern that matches a directory covers everything in it. The definition is `glob` in `crates/jailint/src/config.rs` and `glob_path_match` in `stdlib/Extensions/Jai_Format/config.jai`; both run every case in `tests/glob/cases.txt` (`pattern<TAB>path<TAB>match|nomatch`), so add a case there when changing either.
+Path patterns (`exclude`, override `paths`, `portable`, `platforms` keys) are compiled when the file is read, and one that is malformed (an unclosed `[` or `{`, a trailing `\`) is a configuration error at its line. `*` and `?` stay within one path component, `**` crosses components (`**/x` also matches `x` at the top), `[abc]`, `[a-z]` and `[!abc]` match one character, `{a,b}` is one of its alternatives (they nest, and expand to at most 256 patterns), and `\` makes the next character literal. A trailing `/` is dropped, an empty pattern matches nothing, and a pattern that matches a directory covers everything in it. Matching takes time proportional to the path times the pattern, so many `**` stay fast. Paths are matched as `/` separated text; a `\` is a separator only where the platform uses it. The definition is `PathPattern` in `crates/jacket-config/src/pattern.rs`; `jaifmt` matches the forms without `[]`, `{}` and `\` in `glob_path_match` in `stdlib/Extensions/Jai_Format/config.jai`. Both run every case in `tests/glob/cases.txt` (`pattern<TAB>path<TAB>match|nomatch`), so add a case there when changing either.
 
-`[[lint.overrides]]` entries set rule or category levels for the files their `paths` globs match. For a file, the last matching entry that names the rule (or, failing that, its category) wins over `[lint.rules]`; `-A`/`-W`/`-D` win over both. `Config::level_at` resolves it, and the editor schema reuses the `[lint.rules]` schema for each entry's `rules`. The other `[lint]` settings (`max_complexity`, `max_arguments`, `max_bools`, `max_stack_array_bytes`, `magic_number_*`) are not per path.
+`[[lint.overrides]]` entries set rule or category levels for the files their `paths` patterns match. For a file, the last matching entry that names the rule (or, failing that, its category) wins over `[lint.rules]`; `-A`/`-W`/`-D` win over both. `Config::level_at` resolves it, and the editor schema reuses the `[lint.rules]` schema for each entry's `rules`. The other `[lint]` settings (`max_complexity`, `max_arguments`, `max_bools`, `max_stack_array_bytes`, `magic_number_*`) are not per path.
 
 The formatter is written in Jai and reads the `[format]` table itself; both tables live in one file. The repository's `jacket.toml` excludes negative compiler cases, `tests/lint` bad cases, formatter golden inputs and fuzzer seeds. CI runs `just lint` (`jailint -D warnings -j <cores> --allow-incomplete stdlib examples tools jaifmt tests benchmarks`); deliberate findings in tests carry an `allow` with the reason. It also holds the repository to `magic_number` (time units allowed) and, under `stdlib/`, to `float_equality`; `[[lint.overrides]]` turn `magic_number` off for benchmarks, examples and binary-format, numeric and OS-binding code, and `float_equality` off in stdlib tests.
 

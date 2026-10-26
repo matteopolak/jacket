@@ -23,7 +23,7 @@
 //!
 //! Anything the schema does not know under `[lint]` is an error, so a typo does not silently
 //! keep a rule on.
-use jacket_config::{Disk, Files, Lint};
+use jacket_config::{Disk, Files, Lint, PathPattern};
 use jaic::fxhash::HashMap;
 use jaic::sema::TargetOs;
 use std::path::{Path, PathBuf};
@@ -133,8 +133,8 @@ pub struct Config {
     /// Each file uses the nearest `jacket.toml` above it (see [`Configs`]); `--config` leaves
     /// this off so that one file settles everything.
     pub discover: bool,
-    /// Glob patterns of paths not to lint, relative to `root`.
-    pub exclude: Vec<String>,
+    /// Patterns of paths not to lint, relative to `root`.
+    pub exclude: Vec<PathPattern>,
     /// How many blocks deep code may nest before `excessive_nesting` fires.
     pub max_nesting: Option<usize>,
     /// The score above which `cognitive_complexity` fires.
@@ -259,8 +259,8 @@ impl Configs {
 /// Rule levels for the files matching some globs (`[[lint.overrides]]`).
 #[derive(Clone, Debug, Default)]
 pub struct Override {
-    /// Glob patterns relative to the config's `root`.
-    pub paths: Vec<String>,
+    /// Patterns relative to the config's `root`.
+    pub paths: Vec<PathPattern>,
     /// Levels by rule or category name; a rule's own entry wins over its category's.
     pub levels: HashMap<String, Level>,
 }
@@ -274,10 +274,10 @@ pub const DEFAULT_PORTABILITY_TARGETS: [TargetOs; 3] =
 pub struct Portability {
     /// The systems portable code is built for; empty means [`DEFAULT_PORTABILITY_TARGETS`].
     pub targets: Vec<TargetOs>,
-    /// Globs relative to `Config::root` of the code that must build on every target.
-    pub portable: Vec<String>,
-    /// Globs of files that build only on the listed systems.
-    pub platforms: Vec<(String, Vec<TargetOs>)>,
+    /// Patterns relative to `Config::root` of the code that must build on every target.
+    pub portable: Vec<PathPattern>,
+    /// Patterns of files that build only on the listed systems.
+    pub platforms: Vec<(PathPattern, Vec<TargetOs>)>,
 }
 
 impl Portability {
@@ -404,7 +404,7 @@ impl Config {
             self.overrides
                 .iter()
                 .rev()
-                .filter(|o| o.paths.iter().any(|p| glob(p, &text)))
+                .filter(|o| o.paths.iter().any(|p| p.is_match(&text)))
                 .find_map(|o| named(&o.levels))
         });
         let level = self
@@ -426,7 +426,7 @@ impl Config {
         if let Some(i) = lint
             .exclude
             .iter()
-            .position(|p| p.trim_matches('/').is_empty())
+            .position(|p| p.as_str().trim_matches('/').is_empty())
         {
             return Err(format!(
                 "`exclude` entry {} is empty and would match nothing\nhelp: write a path or glob such as \"tests/**\", or remove the entry",
@@ -463,7 +463,7 @@ impl Config {
     /// Whether the file at `path` is held to every target: it matches a `portable` glob.
     pub fn is_portable(&self, path: &Path) -> bool {
         let text = self.relative(path);
-        self.portability.portable.iter().any(|p| glob(p, &text))
+        self.portability.portable.iter().any(|p| p.is_match(&text))
     }
 
     /// Whether the file at `path` builds on `os` as the configuration says: the `platforms` glob
@@ -472,17 +472,15 @@ impl Config {
     /// comment in the file restricts it further; see [`file_platforms`].)
     pub fn builds_on(&self, path: &Path, os: TargetOs) -> bool {
         let text = self.relative(path);
-        let specificity =
-            |pattern: &str| pattern.chars().filter(|c| !matches!(c, '*' | '?')).count();
         let matching = || {
             self.portability
                 .platforms
                 .iter()
-                .filter(|(pattern, _)| glob(pattern, &text))
+                .filter(|(pattern, _)| pattern.is_match(&text))
         };
-        let best = matching().map(|(pattern, _)| specificity(pattern)).max();
+        let best = matching().map(|(pattern, _)| pattern.specificity()).max();
         matching()
-            .filter(|(pattern, _)| Some(specificity(pattern)) == best)
+            .filter(|(pattern, _)| Some(pattern.specificity()) == best)
             .all(|(_, systems)| systems.contains(&os))
     }
 
@@ -552,13 +550,12 @@ impl Config {
     /// Whether `path` matches an `exclude` pattern.
     pub fn excluded(&self, path: &Path) -> bool {
         let text = self.relative(path);
-        self.exclude.iter().any(|p| glob(p, &text))
+        self.exclude.iter().any(|p| p.is_match(&text))
     }
 
     /// `path` relative to `root`, with `/` separators, for matching globs.
     fn relative(&self, path: &Path) -> String {
-        let relative = path.strip_prefix(&self.root).unwrap_or(path);
-        relative.to_string_lossy().replace('\\', "/")
+        jacket_config::relative_text(path, &self.root)
     }
 }
 
@@ -629,46 +626,6 @@ fn check_rule(rule: &str, value: &str) -> Result<(), String> {
     })
 }
 
-/// Glob match: `*` is any run of characters but `/`, `**` any run including `/`, `?` one
-/// character. A pattern naming a directory also matches what is inside it.
-pub fn glob(pattern: &str, path: &str) -> bool {
-    fn go(p: &[u8], s: &[u8]) -> bool {
-        match p.first() {
-            None => s.is_empty(),
-            Some(b'*') if p.get(1) == Some(&b'*') => {
-                // `**/x` matches `x` at the top or after any `/`, never mid-name.
-                let rest = &p[2..];
-                rest.strip_prefix(b"/").is_some_and(|top| go(top, s))
-                    || (0..=s.len()).any(|i| go(rest, &s[i..]))
-            }
-            Some(b'*') => {
-                let mut i = 0;
-                loop {
-                    if go(&p[1..], &s[i..]) {
-                        return true;
-                    }
-                    if i == s.len() || s[i] == b'/' {
-                        return false;
-                    }
-                    i += 1;
-                }
-            }
-            Some(b'?') => !s.is_empty() && s[0] != b'/' && go(&p[1..], &s[1..]),
-            Some(c) => s.first() == Some(c) && go(&p[1..], &s[1..]),
-        }
-    }
-    let pattern = pattern.trim_end_matches('/');
-    // An empty pattern names nothing; without this it would match the root every path is under.
-    if pattern.is_empty() {
-        return false;
-    }
-    go(pattern.as_bytes(), path.as_bytes())
-        || path
-            .char_indices()
-            .filter(|&(_, c)| c == '/')
-            .any(|(i, _)| go(pattern.as_bytes(), &path.as_bytes()[..i]))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -682,7 +639,14 @@ mod tests {
     fn parses_rules_and_excludes() {
         let text = "[lint]\n# settings\nexclude = [\n  \"tests/**\", # fixtures\n  \"a.jai\",\n]\n\n[lint.rules]\nfloat_equality = \"deny\" # strict\n";
         let config = parse(text).unwrap();
-        assert_eq!(config.exclude, ["tests/**", "a.jai"]);
+        assert_eq!(
+            config
+                .exclude
+                .iter()
+                .map(PathPattern::as_str)
+                .collect::<Vec<_>>(),
+            ["tests/**", "a.jai"]
+        );
         assert_eq!(config.level(rule("float_equality")), Level::Deny);
         assert_eq!(config.level(rule("lossy_xx")), Level::Allow);
     }
@@ -782,46 +746,22 @@ mod tests {
             parse("[lint]\nexclude = [\"a.jai\", \"\"]\n").is_err_and(|e| e.contains("entry 2"))
         );
         assert!(parse("[lint]\nexclude = [\"/\"]\n").is_err());
-        assert!(!glob("", "a/b.jai"));
-        assert!(!glob("", "/abs/b.jai"));
-        assert!(!glob("/", "a/b.jai"));
     }
 
     #[test]
-    fn globs() {
-        assert!(glob("tests/**", "tests/corpus/a.jai"));
-        assert!(glob("tests/corpus", "tests/corpus/a.jai"));
-        assert!(glob("*.jai", "a.jai"));
-        assert!(!glob("*.jai", "dir/a.jai"));
-        assert!(glob("**/gen_*.jai", "x/y/gen_a.jai"));
-        assert!(glob("**/gen_*.jai", "gen_a.jai"));
-        assert!(!glob("**/gen_*.jai", "x/my_gen_a.jai"));
-        assert!(!glob("**/test.jai", "latest.jai"));
-        assert!(glob("a/**/b", "a/x/y/b"));
-        assert!(glob("a/**/b", "a/b"));
-        assert!(!glob("a/**/b", "a/xb"));
-        assert!(!glob("tests/**", "stdlib/a.jai"));
-    }
-
-    /// The cases in `tests/glob/cases.txt` are shared with jaifmt's tests.
-    #[test]
-    fn golden_globs() {
-        let cases = include_str!("../../../tests/glob/cases.txt");
-        let mut count = 0;
-        for line in cases
-            .lines()
-            .filter(|l| !l.starts_with('#') && !l.is_empty())
-        {
-            let [pattern, path, expected] = line.split('\t').collect::<Vec<_>>()[..] else {
-                panic!("bad glob case: {line:?}");
-            };
-            assert_eq!(
-                glob(pattern, path),
-                expected == "match",
-                "glob({pattern:?}, {path:?})"
-            );
-            count += 1;
-        }
-        assert!(count > 30);
+    fn rejects_invalid_patterns_with_their_line() {
+        let error = parse("[lint]\nmax_nesting = 3\nexclude = [\"a[\"]\n").unwrap_err();
+        assert!(
+            error.contains("line 3") && error.contains("`a[`"),
+            "{error}"
+        );
+        assert!(parse("[[lint.overrides]]\npaths = [\"{a\"]\nrules = {}\n").is_err());
+        let config = parse(
+            "[[lint.overrides]]\npaths = [\"src/*.{jai,c}\"]\nrules = { lossy_xx = \"deny\" }\n",
+        )
+        .unwrap();
+        let at = |p: &str| config.level_at(rule("lossy_xx"), Path::new(p));
+        assert_eq!(at("/r/src/a.c"), Level::Deny);
+        assert_eq!(at("/r/src/a.h"), Level::Allow);
     }
 }

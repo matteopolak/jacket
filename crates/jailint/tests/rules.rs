@@ -40,9 +40,9 @@ fn lint_with(file: &Path, levels: &[(&str, Level)], mut config: Config) -> (Vec<
     // `platform_leak`'s cases: their folder is held to every system, and POSIX is Unix only.
     config.portability = jailint::config::Portability {
         targets: Vec::new(),
-        portable: vec!["tests/lint/platform_leak/**".into()],
+        portable: vec!["tests/lint/platform_leak/**".parse().unwrap()],
         platforms: vec![(
-            "stdlib/POSIX/**".into(),
+            "stdlib/POSIX/**".parse().unwrap(),
             vec![jaic::sema::TargetOs::Linux, jaic::sema::TargetOs::MacOS],
         )],
     };
