@@ -86,11 +86,12 @@ impl Session {
                 title: what.clone(),
                 kind: None,
                 edit: None,
-                command: Some(Command {
-                    title: what,
-                    command: "jai.showExpansion".into(),
-                    target: Some((uri.as_str().into(), at.start)),
-                }),
+                command: Some(Command::at(
+                    what,
+                    "jai.showExpansion",
+                    uri.as_str(),
+                    at.start,
+                )),
                 ..CodeAction::default()
             });
         }

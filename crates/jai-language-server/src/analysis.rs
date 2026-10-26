@@ -84,6 +84,8 @@ pub(crate) struct Analysis {
     pub format_calls: Vec<crate::format::FormatCall>,
     /// Names this document declares with the `@PrintLike` note.
     pub print_like: jaic::fxhash::HashSet<String>,
+    /// The procedures this document declares with a `@test` note.
+    pub test_procedures: Vec<crate::test_lenses::TestProcedure>,
     /// The `$` names of each procedure this document declares.
     pub type_parameters: Vec<TypeParameter>,
     /// The compiler's tokens of the text (after parse recovery), for the features that read
@@ -160,6 +162,7 @@ impl Analysis {
             opaque_scopes: vec![],
             format_calls: vec![],
             print_like: jaic::fxhash::HashSet::default(),
+            test_procedures: vec![],
             type_parameters: vec![],
             syntax_tokens: Rc::from([]),
             lex_errors: vec![],
@@ -323,13 +326,15 @@ impl Analysis {
         Some(id)
     }
 
-    /// The `@PrintLike` names and `$` parameters of the document's procedures.
+    /// The `@PrintLike` names, `@test` procedures and `$` parameters of the document's procedures.
     fn procedure_facts(&mut self, file: &jaic::ast::File) {
         for procedure in ide_facts::procedures(file) {
             if procedure.has_note(jaic::format_string::PRINT_LIKE_NOTE) {
                 self.print_like
                     .insert(procedure.name.name.as_str().to_owned());
             }
+            self.test_procedures
+                .extend(crate::test_lenses::TestProcedure::of(&procedure));
             let scope = span_of(procedure.span);
             self.type_parameters.extend(
                 ide_facts::type_parameters(procedure.header)

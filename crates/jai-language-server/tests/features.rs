@@ -268,7 +268,9 @@ fn code_actions_show_and_inline_expansions() {
     assert_eq!(edits[0].range.end, at_nth(PROGRAM, "();\n    #if", 0, 3));
     let command = actions[0].command.as_ref().unwrap();
     assert_eq!(command.command, "jai.showExpansion");
-    let (target, position) = command.target.clone().unwrap();
+    let target = command.arguments[0]["uri"].as_str().unwrap().to_owned();
+    let position: Position =
+        serde_json::from_value(command.arguments[0]["position"].clone()).unwrap();
     let expansion = s
         .expansion(&DocumentUri::parse(&target).unwrap(), position)
         .unwrap()

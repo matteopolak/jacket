@@ -166,6 +166,7 @@ impl JsonSession {
     fn did_change_configuration(&mut self, params: &Value) -> Vec<Value> {
         let settings = &params["settings"]["jai"];
         let trusted = self.session.trusted();
+        let lenses = self.session.test_lenses_enabled();
         self.configure(settings);
         if let Some(on) = settings["trusted"].as_bool() {
             self.session.set_trusted(on);
@@ -177,6 +178,9 @@ impl JsonSession {
             self.publications()
         };
         messages.extend(self.refresh());
+        if lenses != self.session.test_lenses_enabled() {
+            messages.extend(self.code_lens_refresh());
+        }
         messages
     }
 
@@ -256,6 +260,9 @@ impl JsonSession {
     pub(super) fn configure(&mut self, settings: &Value) {
         if let Some(on) = settings["completion"]["autoImport"].as_bool() {
             self.session.set_auto_import(on);
+        }
+        if let Some(on) = settings["tests"]["codeLens"].as_bool() {
+            self.session.set_test_lenses(on);
         }
         if let Some(lines) = settings["inlayHints"]["closingBraceMinLines"].as_u64() {
             self.session.set_closing_brace_min_lines(lines as usize);

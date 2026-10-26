@@ -140,8 +140,16 @@ impl Session {
         out
     }
 
-    /// Over each polymorphic procedure: how many instances checking created, and of what.
+    /// Over each polymorphic procedure, how many instances checking created and of what, and
+    /// over each test the lenses that run it.
     pub fn code_lenses(&self, uri: &DocumentUri) -> Result<Vec<CodeLens>, Error> {
+        let mut lenses = self.polymorph_lenses(uri)?;
+        lenses.extend(self.test_code_lenses(uri)?);
+        lenses.sort_by_key(|lens| lens.range.start);
+        Ok(lenses)
+    }
+
+    fn polymorph_lenses(&self, uri: &DocumentUri) -> Result<Vec<CodeLens>, Error> {
         self.document(uri)?;
         Ok(self
             .polymorph_rows(uri)
@@ -161,11 +169,7 @@ impl Session {
                 };
                 CodeLens {
                     range,
-                    command: Command {
-                        title,
-                        command: "jai.showPolymorphs".into(),
-                        target: Some((uri.as_str().into(), range.start)),
-                    },
+                    command: Command::at(title, "jai.showPolymorphs", uri.as_str(), range.start),
                 }
             })
             .collect())

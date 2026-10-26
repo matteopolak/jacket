@@ -37,6 +37,7 @@ pub mod services;
 mod session;
 mod struct_literal;
 mod suggestion_fixes;
+mod test_lenses;
 
 pub use call_snippets::CallSnippets;
 pub use document::{DocumentUri, TextChange, VirtualSources};

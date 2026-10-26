@@ -93,16 +93,22 @@ impl JsonSession {
         };
         if self.lenses_changed && !self.session.has_background_work() {
             self.lenses_changed = false;
-            if self.refresh_code_lenses {
-                self.refreshes += 1;
-                messages.push(json!({
-                    "jsonrpc": "2.0",
-                    "id": format!("jai-code-lens-refresh-{}", self.refreshes),
-                    "method": "workspace/codeLens/refresh",
-                }));
-            }
+            messages.extend(self.code_lens_refresh());
         }
         self.encode_unprompted(messages)
+    }
+
+    /// The request to fetch the code lenses again, when the client supports being asked.
+    pub(super) fn code_lens_refresh(&mut self) -> Option<Value> {
+        if !self.refresh_code_lenses {
+            return None;
+        }
+        self.refreshes += 1;
+        Some(json!({
+            "jsonrpc": "2.0",
+            "id": format!("jai-code-lens-refresh-{}", self.refreshes),
+            "method": "workspace/codeLens/refresh",
+        }))
     }
 
     /// A compile-time service answer is pending: poll `service_arrivals` now and then.

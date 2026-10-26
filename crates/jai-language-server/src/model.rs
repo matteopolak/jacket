@@ -278,13 +278,24 @@ pub struct TextEdit {
     pub new_text: String,
 }
 
-/// A command the client runs with `workspace/executeCommand`; `target` is its argument
-/// `{uri, position}`.
+/// A command the client runs (`workspace/executeCommand` for the server's own, else one the
+/// client registered), called with `arguments`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Command {
     pub title: String,
     pub command: String,
-    pub target: Option<(String, Position)>,
+    pub arguments: Vec<serde_json::Value>,
+}
+
+impl Command {
+    /// A command of the server that works on the place `{uri, position}`.
+    pub fn at(title: String, command: &str, uri: &str, position: Position) -> Self {
+        Self {
+            title,
+            command: command.into(),
+            arguments: vec![serde_json::json!({ "uri": uri, "position": position })],
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

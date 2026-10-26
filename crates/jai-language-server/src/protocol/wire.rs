@@ -221,12 +221,7 @@ pub(super) fn signature_wire(help: &SignatureHelp, kind: MarkupKind) -> Value {
 }
 
 fn command_wire(command: &Command) -> Value {
-    let arguments: Vec<Value> = command
-        .target
-        .iter()
-        .map(|(uri, position)| json!({ "uri": uri, "position": position }))
-        .collect();
-    json!({ "title": command.title, "command": command.command, "arguments": arguments })
+    json!({ "title": command.title, "command": command.command, "arguments": command.arguments })
 }
 
 pub(super) fn code_action_wire(action: &CodeAction) -> Value {
