@@ -3,8 +3,7 @@ use super::pthread;
 #[cfg(not(windows))]
 use super::sched::NATIVE_STACK;
 use super::sched::{
-    Block, EBUSY, EINVAL, EPERM, ETIMEDOUT, GThread, MutexState, PREEMPT_TICKS, Sched, Shared,
-    THREAD_STACK,
+    Block, EBUSY, EINVAL, ETIMEDOUT, GThread, PREEMPT_TICKS, Sched, Shared, THREAD_STACK,
 };
 #[cfg(windows)]
 use super::win32;
@@ -85,11 +84,11 @@ impl Interp {
             ThreadFn::SelfId => Ok(self.me() as u64 + 1),
             ThreadFn::SetName | ThreadFn::GetName => self.pthread_name(program, fun, args),
             ThreadFn::MutexInit => {
-                self.with_sched(|s| s.mutexes.insert(arg(0), MutexState::default()));
+                self.with_sched(|s| s.mutexes.init(arg(0)));
                 Ok(0)
             }
             ThreadFn::MutexDestroy => {
-                self.with_sched(|s| s.mutexes.remove(&arg(0)));
+                self.with_sched(|s| s.mutexes.destroy(arg(0)));
                 Ok(0)
             }
             ThreadFn::MutexLock => self.lock_mutex(arg(0), 1).map(|()| 0),
@@ -100,7 +99,7 @@ impl Interp {
             }),
             ThreadFn::MutexUnlock => Ok(self.unlock_mutex(arg(0)).err().unwrap_or(0)),
             ThreadFn::CondInit | ThreadFn::CondDestroy => {
-                self.with_sched(|s| s.cond_waiters.remove(&arg(0)));
+                self.with_sched(|s| s.cond_waiters.clear(arg(0)));
                 Ok(0)
             }
             ThreadFn::CondSignal => {
@@ -340,33 +339,12 @@ impl Interp {
     }
 
     pub(super) fn try_lock_mutex(&mut self, addr: u64) -> bool {
-        self.with_sched(|s| {
-            let me = s.current.unwrap_or(0);
-            let state = s.mutexes.entry(addr).or_default();
-            if state.owner.is_none() || state.owner == Some(me) {
-                state.owner = Some(me);
-                state.count += 1;
-                true
-            } else {
-                false
-            }
-        })
+        self.with_sched(|s| s.mutexes.try_lock(addr, s.current.unwrap_or(0), 1))
     }
 
     pub(super) fn lock_mutex(&mut self, addr: u64, count: u32) -> Res<()> {
         loop {
-            let taken = self.with_sched(|s| {
-                let me = s.current.unwrap_or(0);
-                let state = s.mutexes.entry(addr).or_default();
-                if state.owner.is_none() || state.owner == Some(me) {
-                    state.owner = Some(me);
-                    state.count += count;
-                    true
-                } else {
-                    false
-                }
-            });
-            if taken {
+            if self.with_sched(|s| s.mutexes.try_lock(addr, s.current.unwrap_or(0), count)) {
                 return Ok(());
             }
             self.block(Block::Mutex(addr))?;
@@ -376,16 +354,7 @@ impl Interp {
     /// Release one level of the mutex; `Err(EPERM)` when the caller does not hold it.
     pub(super) fn unlock_mutex(&mut self, addr: u64) -> Result<(), u64> {
         self.with_sched(|s| {
-            let me = s.current.unwrap_or(0);
-            let Some(state) = s.mutexes.get_mut(&addr) else {
-                return Err(EPERM);
-            };
-            if state.owner != Some(me) {
-                return Err(EPERM);
-            }
-            state.count -= 1;
-            if state.count == 0 {
-                state.owner = None;
+            if s.mutexes.unlock(addr, s.current.unwrap_or(0))? {
                 s.wake(Block::Mutex(addr));
             }
             Ok(())
@@ -401,18 +370,13 @@ impl Interp {
         // Give the mutex up completely while waiting, and take it back as it was.
         let (me, held) = self.with_sched(|s| {
             let me = s.current.unwrap_or(0);
-            let held = match s.mutexes.get(&mutex) {
-                Some(state) if state.owner == Some(me) => state.count,
-                _ => 0,
-            };
-            (me, held)
-        });
-        for _ in 0..held {
-            let _ = self.unlock_mutex(mutex);
-        }
-        self.with_sched(|s| {
-            s.cond_waiters.entry(cond).or_default().push_back(me);
+            let held = s.mutexes.release_all(mutex, me);
+            if held > 0 {
+                s.wake(Block::Mutex(mutex));
+            }
+            s.cond_waiters.enqueue(cond, me);
             s.threads[me].timed_out = false;
+            (me, held)
         });
         self.block(Block::Cond(cond, deadline))?;
         let timed_out = self.with_sched(|s| std::mem::take(&mut s.threads[me].timed_out));
@@ -428,18 +392,18 @@ impl Interp {
 
     pub(super) fn wake_cond(&mut self, cond: u64, all: bool) {
         self.with_sched(|s| {
-            let Some(waiters) = s.cond_waiters.get_mut(&cond) else {
-                return;
-            };
-            while let Some(id) = waiters.pop_front() {
-                if matches!(s.threads[id].block, Block::Cond(c, _) if c == cond) {
-                    s.threads[id].block = Block::None;
-                    s.woke = true;
+            let Sched {
+                threads,
+                cond_waiters,
+                woke,
+                ..
+            } = s;
+            cond_waiters.dequeue(cond, all, |id| {
+                if matches!(threads[id].block, Block::Cond(c, _) if c == cond) {
+                    threads[id].block = Block::None;
+                    *woke = true;
                 }
-                if !all {
-                    break;
-                }
-            }
+            });
         });
     }
 

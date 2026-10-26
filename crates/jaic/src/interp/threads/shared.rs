@@ -3,6 +3,7 @@ use super::pthread;
 use super::sched::{Block, DEADLOCK_GRACE, GThread, NATIVE_SLICE, Sched, Shared, WorkerCancelled};
 #[cfg(windows)]
 use super::win32;
+use crate::interp::thread_sync::{CondQueues, Mutexes};
 use crate::interp::{HashMap, Interp, Program, Trap, native};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::Instant;
@@ -22,8 +23,8 @@ impl Shared {
                 urgent: 0,
                 callbacks: false,
                 woke: false,
-                mutexes: HashMap::default(),
-                cond_waiters: HashMap::default(),
+                mutexes: Mutexes::default(),
+                cond_waiters: CondQueues::default(),
                 objects: HashMap::default(),
                 next_object: 0,
                 spare: Vec::new(),

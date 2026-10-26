@@ -22,14 +22,14 @@
 //! The native interpreter uses real OS threads instead (`threads.rs`).
 #![allow(unsafe_code)]
 
+use super::thread_sync::{CondQueues, Mutexes};
 use super::{
-    ExecState, Frame, FrameExit, FuncId, HashMap, Interp, Program, Res, Rets, Trap, TrapKind,
-    ValueStack, suspended,
+    ExecState, Frame, FrameExit, FuncId, Interp, Program, Res, Rets, Trap, TrapKind, ValueStack,
+    suspended,
 };
 use crate::fxhash::HashSet;
 use crate::interp::word_or_zero;
 use crate::macros::raw_enum;
-use std::collections::VecDeque;
 
 raw_enum! {
     /// A foreign procedure the thread schedulers (`threads` and the inline one here) implement.
@@ -61,7 +61,7 @@ raw_enum! {
     }
 }
 
-use super::errno::{EBUSY, EINVAL, EPERM, ETIMEDOUT_LINUX as ETIMEDOUT};
+use super::errno::{EBUSY, EINVAL, ETIMEDOUT_LINUX as ETIMEDOUT};
 
 /// Polls (see `inline_poll`) after which a running thread lets the others run.
 const POLLS_BEFORE_SWITCH: u64 = 1_000;
@@ -159,18 +159,12 @@ impl ThreadRec {
     }
 }
 
-#[derive(Default)]
-struct MutexState {
-    owner: Option<usize>,
-    count: u32,
-}
-
 pub(super) struct InlineSched {
     threads: Vec<ThreadRec>,
     /// The thread running now. Thread 0 is the one `Interp::call` started with.
     current: usize,
-    mutexes: HashMap<u64, MutexState>,
-    cond_waiters: HashMap<u64, VecDeque<u64>>,
+    mutexes: Mutexes,
+    cond_waiters: CondQueues<u64>,
     woken: HashSet<u64>,
     next_token: u64,
     /// Polls since the running thread last let the others run.
@@ -184,8 +178,8 @@ impl InlineSched {
         InlineSched {
             threads: vec![ThreadRec::new(FuncId(0), 0, State::Running)],
             current: 0,
-            mutexes: HashMap::default(),
-            cond_waiters: HashMap::default(),
+            mutexes: Mutexes::default(),
+            cond_waiters: CondQueues::default(),
             woken: HashSet::default(),
             next_token: 1,
             polls: 0,
@@ -197,10 +191,7 @@ impl InlineSched {
         match wait {
             Wait::None => true,
             Wait::Join(t) => self.threads[t].state == State::Finished,
-            Wait::Mutex(addr) => self
-                .mutexes
-                .get(&addr)
-                .is_none_or(|m| m.owner.is_none() || m.owner == Some(thread)),
+            Wait::Mutex(addr) => self.mutexes.available_to(addr, thread),
             Wait::Cond(token) => self.woken.contains(&token),
             Wait::Time => false,
             Wait::Host => true,
@@ -333,20 +324,17 @@ impl Interp {
                 "pthread naming is unsupported by the inline scheduler (no OS pthread identity)",
             ),
             ThreadFn::MutexInit => {
-                self.isched().mutexes.insert(arg(0), MutexState::default());
+                self.isched().mutexes.init(arg(0));
                 Ok(0)
             }
             ThreadFn::MutexDestroy => {
-                self.isched().mutexes.remove(&arg(0));
+                self.isched().mutexes.destroy(arg(0));
                 Ok(0)
             }
             ThreadFn::MutexLock => self.inline_lock(arg(0), 1).map(|()| 0),
             ThreadFn::MutexTryLock => {
                 let me = self.isched().current;
-                let state = self.isched().mutexes.entry(arg(0)).or_default();
-                if state.owner.is_none() || state.owner == Some(me) {
-                    state.owner = Some(me);
-                    state.count += 1;
+                if self.isched().mutexes.try_lock(arg(0), me, 1) {
                     Ok(0)
                 } else {
                     self.inline_poll();
@@ -358,7 +346,7 @@ impl Interp {
                 Err(code) => code,
             }),
             ThreadFn::CondInit | ThreadFn::CondDestroy => {
-                self.isched().cond_waiters.remove(&arg(0));
+                self.isched().cond_waiters.clear(arg(0));
                 Ok(0)
             }
             ThreadFn::CondSignal => {
@@ -435,10 +423,7 @@ impl Interp {
     fn inline_lock(&mut self, addr: u64, count: u32) -> Res<()> {
         loop {
             let me = self.isched().current;
-            let state = self.isched().mutexes.entry(addr).or_default();
-            if state.owner.is_none() || state.owner == Some(me) {
-                state.owner = Some(me);
-                state.count += count;
+            if self.isched().mutexes.try_lock(addr, me, count) {
                 return Ok(());
             }
             self.wait_until(Wait::Mutex(addr), None)?;
@@ -448,17 +433,7 @@ impl Interp {
     /// Release one level of the mutex; `Err(EPERM)` when the caller does not hold it.
     fn inline_unlock(&mut self, addr: u64) -> Result<(), u64> {
         let me = self.isched().current;
-        let Some(state) = self.isched().mutexes.get_mut(&addr) else {
-            return Err(EPERM);
-        };
-        if state.owner != Some(me) {
-            return Err(EPERM);
-        }
-        state.count -= 1;
-        if state.count == 0 {
-            state.owner = None;
-        }
-        Ok(())
+        self.isched().mutexes.unlock(addr, me).map(|_| ())
     }
 
     fn inline_cond_wait(&mut self, cond: u64, mutex: u64, deadline: Option<u64>) -> Res<u64> {
@@ -485,9 +460,7 @@ impl Interp {
                 }
                 let sched = self.isched();
                 sched.woken.remove(&token);
-                if let Some(waiters) = sched.cond_waiters.get_mut(&cond) {
-                    waiters.retain(|&t| t != token);
-                }
+                sched.cond_waiters.remove(cond, token);
                 (held, outcome?)
             }
         };
@@ -511,31 +484,23 @@ impl Interp {
     /// Release the mutex completely and queue a wait on `cond`: its token and the levels held.
     fn inline_cond_enter(&mut self, cond: u64, mutex: u64) -> (u64, u32) {
         let me = self.isched().current;
-        let held = match self.isched().mutexes.get(&mutex) {
-            Some(state) if state.owner == Some(me) => state.count,
-            _ => 0,
-        };
-        for _ in 0..held {
-            let _ = self.inline_unlock(mutex);
-        }
         let sched = self.isched();
+        let held = sched.mutexes.release_all(mutex, me);
         let token = sched.next_token;
         sched.next_token += 1;
-        sched.cond_waiters.entry(cond).or_default().push_back(token);
+        sched.cond_waiters.enqueue(cond, token);
         (token, held)
     }
 
     fn inline_wake(&mut self, cond: u64, all: bool) {
-        let sched = self.isched();
-        let Some(waiters) = sched.cond_waiters.get_mut(&cond) else {
-            return;
-        };
-        while let Some(token) = waiters.pop_front() {
-            sched.woken.insert(token);
-            if !all {
-                break;
-            }
-        }
+        let InlineSched {
+            cond_waiters,
+            woken,
+            ..
+        } = self.isched();
+        cond_waiters.dequeue(cond, all, |token| {
+            woken.insert(token);
+        });
     }
 
     /// Sleeping waits until the virtual clock reaches the deadline, which happens once no

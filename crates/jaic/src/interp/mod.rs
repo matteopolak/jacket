@@ -39,6 +39,7 @@ pub mod profile;
 mod read_only;
 mod rets;
 mod sandbox;
+mod thread_sync;
 #[cfg(not(target_arch = "wasm32"))]
 mod threads;
 mod threads_inline;

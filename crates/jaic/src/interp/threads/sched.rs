@@ -1,7 +1,7 @@
 //! Scheduler state: thread slots, blocking reasons and the shared baton.
 use super::{pthread, win32};
+use crate::interp::thread_sync::{CondQueues, Mutexes};
 use crate::interp::{ExecState, HashMap};
-use std::collections::VecDeque;
 use std::sync::{Condvar, Mutex};
 use std::time::{Duration, Instant};
 
@@ -22,7 +22,7 @@ pub(super) const NATIVE_SLICE: Duration = Duration::from_millis(1);
 /// blocked threads: every thread must stay blocked this long before that counts as a deadlock.
 pub const DEADLOCK_GRACE: Duration = Duration::from_secs(1);
 
-pub(super) use crate::interp::errno::{EBUSY, EINVAL, EPERM, ETIMEDOUT_HOST as ETIMEDOUT};
+pub(super) use crate::interp::errno::{EBUSY, EINVAL, ETIMEDOUT_HOST as ETIMEDOUT};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum Block {
@@ -106,12 +106,6 @@ impl GThread {
     }
 }
 
-#[derive(Default)]
-pub(super) struct MutexState {
-    pub(super) owner: Option<usize>,
-    pub(super) count: u32,
-}
-
 pub(in crate::interp) struct Sched {
     pub(super) threads: Vec<GThread>,
     /// The thread holding the baton (`None`: free, nothing runnable yet).
@@ -132,8 +126,8 @@ pub(in crate::interp) struct Sched {
     /// A blocked thread became runnable: its OS thread must be woken to wait for its turn
     /// (`with_sched`).
     pub(super) woke: bool,
-    pub(super) mutexes: HashMap<u64, MutexState>,
-    pub(super) cond_waiters: HashMap<u64, VecDeque<usize>>,
+    pub(super) mutexes: Mutexes,
+    pub(super) cond_waiters: CondQueues<usize>,
     /// Win32 handles the scheduler made (threads, semaphores, events).
     pub(super) objects: HashMap<u64, win32::Object>,
     pub(super) next_object: u64,
@@ -163,9 +157,7 @@ impl Sched {
                 Block::Cond(c, Some(d)) if d <= now => {
                     self.threads[t].block = Block::None;
                     self.threads[t].timed_out = true;
-                    if let Some(waiters) = self.cond_waiters.get_mut(&c) {
-                        waiters.retain(|&w| w != t);
-                    }
+                    self.cond_waiters.remove(c, t);
                 }
                 _ => {}
             }

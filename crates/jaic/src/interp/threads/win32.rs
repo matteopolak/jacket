@@ -690,7 +690,7 @@ impl Interp {
             | "InitializeCriticalSectionEx"
             | "InitializeSRWLock"
             | "DeleteCriticalSection" => {
-                self.with_sched(|s| s.mutexes.remove(&arg(0)));
+                self.with_sched(|s| s.mutexes.destroy(arg(0)));
                 return None;
             }
             "EnterCriticalSection" | "AcquireSRWLockExclusive" | "AcquireSRWLockShared" => {
@@ -706,7 +706,7 @@ impl Interp {
 
             // Condition variables.
             "InitializeConditionVariable" => {
-                self.with_sched(|s| s.cond_waiters.remove(&arg(0)));
+                self.with_sched(|s| s.cond_waiters.clear(arg(0)));
                 Ok(0)
             }
             "WakeConditionVariable" => {
