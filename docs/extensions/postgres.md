@@ -298,7 +298,7 @@ error := Pg.transaction(pool, user_id, (tx: *Pg.Connection, id: s64) -> Pg.Pg_Er
 }, .SERIALIZABLE, retries = 3);
 ```
 
-**Notices** (`RAISE NOTICE`, warnings) go to `connection.on_notice`, by default `log`.
+**Notices** (`RAISE NOTICE`, warnings) go to `connection.on_notice`, by default `log` with the warning and error flags, which the default logger writes to standard error.
 `connection.user_data` is there for the handler's state. Set `Config.on_notice` and
 `Config.user_data` instead to also catch notices sent while logging in.
 
