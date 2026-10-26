@@ -247,6 +247,10 @@ next_piece :: no_inline (frame: *Body_Frame) -> [] u8, Http_Error {
 
     if frame.failure.kind != .NONE return .[], frame.failure;
 
+    sent := send_continue(frame);
+
+    if sent.kind != .NONE return .[], sent;
+
     while true {
         used, event := parse(frame.parser, frame.pending.*);
 
@@ -278,6 +282,44 @@ next_piece :: no_inline (frame: *Body_Frame) -> [] u8, Http_Error {
     return .[], .{};
 }
 
+// Answers `Expect: 100-continue` the first time the handler asks for the body, whether or not the
+// client already sent the body along with the head. A request refused first never gets it.
+send_continue :: no_inline (frame: *Body_Frame) -> Http_Error {
+    if !frame.continue_pending return .{};
+
+    frame.continue_pending = false;
+
+    config := frame.config;
+    write_error: Io.Io_Error;
+    out := frame.out;
+
+    if out.count > 0 {
+        Io.with_deadline(within(config.write_timeout), #code {
+            _, write_error = Io.write(frame.link.writer, out.*);
+        });
+
+        out.count = 0;
+    }
+
+    if write_error == .NONE {
+        write_continue(out);
+
+        Io.with_deadline(within(config.write_timeout), #code {
+            _, write_error = Io.write(frame.link.writer, out.*);
+        });
+
+        out.count = 0;
+    }
+
+    if write_error != .NONE {
+        frame.dead = true;
+
+        return refuse(frame, http_error(400, "the connection closed"));
+    }
+
+    return .{};
+}
+
 // Reads from the connection into the read buffer; everything the parser had is used up.
 fill :: no_inline (frame: *Body_Frame) -> Http_Error {
     config := frame.config;
@@ -289,36 +331,9 @@ fill :: no_inline (frame: *Body_Frame) -> Http_Error {
         frame.hold = .[];
     }
 
-    if frame.continue_pending {
-        frame.continue_pending = false;
+    sent := send_continue(frame);
 
-        write_error: Io.Io_Error;
-        out := frame.out;
-
-        if out.count > 0 {
-            Io.with_deadline(within(config.write_timeout), #code {
-                _, write_error = Io.write(frame.link.writer, out.*);
-            });
-
-            out.count = 0;
-        }
-
-        if write_error == .NONE {
-            write_continue(out);
-
-            Io.with_deadline(within(config.write_timeout), #code {
-                _, write_error = Io.write(frame.link.writer, out.*);
-            });
-
-            out.count = 0;
-        }
-
-        if write_error != .NONE {
-            frame.dead = true;
-
-            return refuse(frame, http_error(400, "the connection closed"));
-        }
-    }
+    if sent.kind != .NONE return sent;
 
     count: s64;
     error: Io.Io_Error;

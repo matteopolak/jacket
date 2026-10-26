@@ -237,6 +237,15 @@ unread :: (base: string, server: *Server) {
     check(responses.count == 1 && responses[0].status == 200 && responses[0].body == "5", "then the answer: %", responses.count);
     Io.close(stream);
 
+    // The same with the body already sent along with the head: 100 still comes, then the answer.
+    stream = raw_connect(server);
+
+    send_text(stream, "POST /whole HTTP/1.1\r\nHost: t\r\nContent-Length: 5\r\nExpect: 100-continue\r\n\r\nhello");
+
+    responses = read_responses(stream, 2, 2000);
+    check(responses.count == 2 && responses[0].status == 100 && responses[1].status == 200 && responses[1].body == "5", "100 Continue even when the body came with the head: %", responses.count);
+    Io.close(stream);
+
     // A body too large to be worth skipping: the response goes out and the connection closes.
     stream = raw_connect(server);
 
