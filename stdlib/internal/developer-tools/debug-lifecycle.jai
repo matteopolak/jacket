@@ -73,8 +73,6 @@ trace_assert :: (loc: Source_Code_Location, message: string) {
 #import "Basic";
 Runtime :: #import "Runtime_Support";
 
-State :: #import "internal/debug-state";
-
 lifecycle_native :: #foreign_library "debug-native/developer_tools_debug";
 Lifecycle_Callback :: #type (trace: *string, count: s64, data: *void) #c_call;
 lifecycle_enable :: (callback: Lifecycle_Callback, data: *void, count: s64) -> s32 #foreign lifecycle_native "developer_debug_enable_handlers";
