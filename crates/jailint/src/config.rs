@@ -27,6 +27,7 @@ use jacket_config::{Disk, Files, Lint};
 use jaic::fxhash::HashMap;
 use jaic::sema::TargetOs;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 pub const FILE_NAME: &str = jacket_config::FILE_NAME;
 
@@ -127,6 +128,11 @@ pub struct Config {
     pub flags: HashMap<String, Level>,
     /// Warnings become errors (`-D warnings`).
     pub deny_warnings: bool,
+    /// `--max-nesting` from the command line: it wins over every `jacket.toml`.
+    pub flag_max_nesting: Option<usize>,
+    /// Each file uses the nearest `jacket.toml` above it (see [`Configs`]); `--config` leaves
+    /// this off so that one file settles everything.
+    pub discover: bool,
     /// Glob patterns of paths not to lint, relative to `root`.
     pub exclude: Vec<String>,
     /// How many blocks deep code may nest before `excessive_nesting` fires.
@@ -153,6 +159,101 @@ pub struct Config {
     pub source: Option<PathBuf>,
     /// One-line notes about the configuration (unknown keys).
     pub notes: Vec<String>,
+}
+
+/// The settings of every file in a run: each file uses the nearest `jacket.toml` above it,
+/// whichever roots were listed, with the command-line levels on top. When the base [`Config`] is
+/// not `discover`ing (`--config`), it holds for every file.
+pub struct Configs {
+    base: Arc<Config>,
+    /// Settings by the directory they were asked for.
+    found: Mutex<HashMap<PathBuf, Arc<Config>>>,
+    /// Notes and errors of the nested files, for the caller to report.
+    notes: Mutex<Vec<String>>,
+    errors: Mutex<Vec<String>>,
+}
+
+impl Configs {
+    pub fn new(base: &Config) -> Configs {
+        Configs {
+            base: Arc::new(base.clone()),
+            found: Mutex::default(),
+            notes: Mutex::default(),
+            errors: Mutex::default(),
+        }
+    }
+
+    /// The settings of the run's first root (or the file given with `--config`).
+    pub fn base(&self) -> &Config {
+        &self.base
+    }
+
+    /// The settings that hold for the file or directory at `path`.
+    pub fn at(&self, path: &Path) -> Arc<Config> {
+        if !self.base.discover {
+            return self.base.clone();
+        }
+        let dir = if path.is_dir() {
+            Some(path)
+        } else {
+            path.parent()
+        };
+        let Some(dir) = dir else {
+            return self.base.clone();
+        };
+        let mut found = self.found.lock().expect("configs lock");
+        if let Some(config) = found.get(dir) {
+            return config.clone();
+        }
+        let config = self.load_near(dir, &mut found);
+        found.insert(dir.to_path_buf(), config.clone());
+        config
+    }
+
+    fn load_near(&self, dir: &Path, found: &mut HashMap<PathBuf, Arc<Config>>) -> Arc<Config> {
+        let Some(location) = jacket_config::locate(&Disk, dir) else {
+            return self.base.clone();
+        };
+        if location.dir == self.base.root {
+            return self.base.clone();
+        }
+        if let Some(config) = found.get(&location.dir) {
+            return config.clone();
+        }
+        let loaded = jacket_config::load_at(&Disk, location.clone())
+            .map_err(|e| e.to_string())
+            .and_then(Config::from_loaded);
+        let config = match loaded {
+            Ok(mut config) => {
+                self.notes
+                    .lock()
+                    .expect("configs lock")
+                    .append(&mut config.notes);
+                self.base.invocation_over(config)
+            }
+            Err(e) => {
+                self.errors.lock().expect("configs lock").push(e);
+                self.base.clone()
+            }
+        };
+        found.insert(location.dir, config.clone());
+        config
+    }
+
+    /// Whether `path` is excluded by the run's settings or those nearest to it.
+    pub fn excluded(&self, path: &Path) -> bool {
+        self.base.excluded(path) || self.at(path).excluded(path)
+    }
+
+    /// Notes about the nested configuration files read so far.
+    pub fn take_notes(&self) -> Vec<String> {
+        std::mem::take(&mut self.notes.lock().expect("configs lock"))
+    }
+
+    /// Nested configuration files that could not be read; their files used the base settings.
+    pub fn take_errors(&self) -> Vec<String> {
+        std::mem::take(&mut self.errors.lock().expect("configs lock"))
+    }
 }
 
 /// Rule levels for the files matching some globs (`[[lint.overrides]]`).
@@ -420,6 +521,18 @@ impl Config {
             .collect();
         config.source = Some(path.to_path_buf());
         Ok(config)
+    }
+
+    /// `config` with this run's command-line levels on top.
+    fn invocation_over(&self, mut config: Config) -> Arc<Config> {
+        config.flags.clone_from(&self.flags);
+        config.deny_warnings = self.deny_warnings;
+        config.discover = true;
+        if self.flag_max_nesting.is_some() {
+            config.max_nesting = self.flag_max_nesting;
+            config.flag_max_nesting = self.flag_max_nesting;
+        }
+        Arc::new(config)
     }
 
     fn from_loaded(loaded: jacket_config::Loaded) -> Result<Config, String> {

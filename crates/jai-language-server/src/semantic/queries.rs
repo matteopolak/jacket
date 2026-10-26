@@ -92,7 +92,12 @@ impl Analysis {
         if let Some(found) = self.lints.get(&file) {
             return Some(found.clone());
         }
-        let found = jailint::lint_files(&mut self.compiler, &[file], config, self.complete);
+        let found = jailint::lint_files(
+            &mut self.compiler,
+            &[file],
+            &jailint::config::Configs::new(config),
+            self.complete,
+        );
         self.lints.insert(file, found.clone());
         Some(found)
     }

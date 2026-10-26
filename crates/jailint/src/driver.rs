@@ -18,7 +18,7 @@
 //!
 //! Lints are reported for the listed files and the files listed files `#load`. A file several
 //! roots compile is reported from the first root (modules before programs, then by path).
-use crate::config::Config;
+use crate::config::{Config, Configs};
 use crate::{Level, Lint, lint_files};
 use jaic::build::{BuildEnv, WorkspaceObserver, Workspaces};
 use jaic::fxhash::{HashMap, HashSet};
@@ -75,6 +75,10 @@ pub struct Outcome {
     /// Every `#assert` that failed in a compile, with the imports that led to its file. A normal
     /// compile stops at its first; the `platform_leak` compiles keep going.
     pub failed_asserts: Vec<AssertFailure>,
+    /// Notes about the `jacket.toml` files nested below the first root.
+    pub config_notes: Vec<String>,
+    /// Nested `jacket.toml` files that could not be read; their files used the first root's settings.
+    pub config_errors: Vec<String>,
 }
 
 /// An `#assert` that failed while compiling `root` for `os`.
@@ -237,7 +241,7 @@ impl Drop for Release<'_> {
 }
 
 /// The `.jai` files under `path`, sorted, excluding what the configuration excludes.
-fn expand(path: &Path, config: &Config, out: &mut BTreeSet<PathBuf>) {
+fn expand(path: &Path, config: &Configs, out: &mut BTreeSet<PathBuf>) {
     if config.excluded(&canonical(path)) {
         return;
     }
@@ -250,10 +254,10 @@ fn expand(path: &Path, config: &Config, out: &mut BTreeSet<PathBuf>) {
 }
 
 /// Roots to compile and the files to report on.
-fn plan(options: &Options) -> (Vec<Root>, BTreeSet<PathBuf>) {
+fn plan(options: &Options, configs: &Configs) -> (Vec<Root>, BTreeSet<PathBuf>) {
     let mut listed = BTreeSet::new();
     for p in &options.paths {
-        expand(p, &options.config, &mut listed);
+        expand(p, configs, &mut listed);
     }
     let mut loaded_by_listed = BTreeSet::new();
     for f in &listed {
@@ -276,7 +280,7 @@ fn plan(options: &Options) -> (Vec<Root>, BTreeSet<PathBuf>) {
     roots.dedup();
     let mut report = listed;
     report.extend(loaded_by_listed);
-    report.retain(|f| !options.config.excluded(f));
+    report.retain(|f| !configs.excluded(f));
     (roots, report)
 }
 
@@ -533,6 +537,7 @@ fn lint_root(
     root: &Root,
     index: usize,
     options: &Options,
+    configs: &Configs,
     report: &BTreeSet<PathBuf>,
     canon: &CanonCache,
     claims: &Claims,
@@ -638,7 +643,7 @@ fn lint_root(
             .map(|&(f, _)| f)
             .collect();
         if !own.is_empty() {
-            let mut found = lint_files(&mut compiler, &own, &options.config, complete);
+            let mut found = lint_files(&mut compiler, &own, configs, complete);
             for l in &mut found {
                 l.path = canon
                     .get_or_insert_with(Path::new(&l.path), canonical)
@@ -670,7 +675,8 @@ type Sent = (
 
 /// Lint what `options` names.
 pub fn run(options: &Options) -> Outcome {
-    let (roots, report) = plan(options);
+    let configs = Configs::new(&options.config);
+    let (roots, report) = plan(options, &configs);
     let mut results: Vec<Option<Sent>> = (0..roots.len()).map(|_| None).collect();
     let next = std::sync::atomic::AtomicUsize::new(0);
     let collected = std::sync::Mutex::new(Vec::new());
@@ -688,7 +694,7 @@ pub fn run(options: &Options) -> Outcome {
     jaic::pool::get().scope(|s| {
         for _ in 0..jobs {
             let (roots, report, next, collected) = (&roots, &report, &next, &collected);
-            let (canon, claims) = (&canon, &claims);
+            let (canon, claims, configs) = (&canon, &claims, &configs);
             s.spawn(move |_| {
                 loop {
                     let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -698,7 +704,7 @@ pub fn run(options: &Options) -> Outcome {
                     if options.verbose {
                         eprintln!("jailint: checking {}", root.path().display());
                     }
-                    let r = lint_root(root, i, options, report, canon, claims);
+                    let r = lint_root(root, i, options, configs, report, canon, claims);
                     // Texts cross threads as `String` (`Rc` cannot).
                     let texts = r
                         .texts
@@ -751,9 +757,9 @@ pub fn run(options: &Options) -> Outcome {
         }
     }
     leak_pass(
-        &roots,
+        (&roots, &report),
         options,
-        &report,
+        &configs,
         &canon,
         &mut lints,
         &mut texts,
@@ -790,6 +796,8 @@ pub fn run(options: &Options) -> Outcome {
         contexts,
         unvisited_files,
         failed_asserts,
+        config_notes: configs.take_notes(),
+        config_errors: configs.take_errors(),
     }
 }
 
@@ -800,9 +808,9 @@ type LeakRun = (usize, TargetOs, Vec<ImportEdge>, Vec<AssertFailure>);
 /// failing `#assert`s recorded rather than stopping the compile, and report the imports (or
 /// files) that portable code should not have, as [`rules::platform_leak`] explains.
 fn leak_pass(
-    roots: &[Root],
+    (roots, report): (&[Root], &BTreeSet<PathBuf>),
     options: &Options,
-    report: &BTreeSet<PathBuf>,
+    configs: &Configs,
     canon: &CanonCache,
     lints: &mut Vec<Lint>,
     texts: &mut BTreeMap<String, Rc<str>>,
@@ -816,7 +824,7 @@ fn leak_pass(
     if config.portability.portable.is_empty()
         || !report
             .iter()
-            .any(|f| config.level_at(rule, f) != Level::Allow)
+            .any(|f| configs.at(f).level_at(rule, f) != Level::Allow)
     {
         return;
     }
@@ -824,7 +832,7 @@ fn leak_pass(
     let mut jobs: Vec<(usize, TargetOs)> = Vec::new();
     for (i, root) in roots.iter().enumerate() {
         let entry = root.path();
-        if config.level_at(rule, entry) == Level::Allow {
+        if configs.at(entry).level_at(rule, entry) == Level::Allow {
             continue;
         }
         for &os in config.portability.targets() {
@@ -928,7 +936,7 @@ fn leak_pass(
             };
             if !report.contains(path)
                 || !seen.insert((path.clone(), start, os as u8))
-                || config.level_at(rule, path) == Level::Allow
+                || configs.at(path).level_at(rule, path) == Level::Allow
             {
                 continue;
             }
@@ -940,7 +948,7 @@ fn leak_pass(
             if allowed_by_comment(rule, &text, start) {
                 continue;
             }
-            let lint = leak_lint(&leak, os, &probe, config, rule, &assert_text);
+            let lint = leak_lint(&leak, os, &probe, configs, rule, &assert_text);
             texts
                 .entry(path.to_string_lossy().into_owned())
                 .or_insert(text);
@@ -969,7 +977,7 @@ fn leak_lint(
     leak: &crate::rules::platform_leak::Leak,
     os: TargetOs,
     probe: &crate::rules::platform_leak::Probe,
-    config: &Config,
+    configs: &Configs,
     rule: &'static crate::RuleInfo,
     assert_text: &str,
 ) -> Lint {
@@ -986,7 +994,7 @@ fn leak_lint(
     let (line, column) = line_col(assert_text, assert.start);
     let shown = assert
         .path
-        .strip_prefix(&config.root)
+        .strip_prefix(&configs.base().root)
         .unwrap_or(&assert.path);
     let reason = assert
         .message
@@ -1005,7 +1013,7 @@ fn leak_lint(
             ..
         } => Lint {
             rule: rule.name,
-            level: config.level_at(rule, from),
+            level: configs.at(from).level_at(rule, from),
             path: from.to_string_lossy().into_owned(),
             start: *start,
             end: *end,
@@ -1025,7 +1033,7 @@ fn leak_lint(
             assert,
         } => Lint {
             rule: rule.name,
-            level: config.level_at(rule, &assert.path),
+            level: configs.at(&assert.path).level_at(rule, &assert.path),
             path: assert.path.to_string_lossy().into_owned(),
             start: assert.start,
             end: assert.end,

@@ -68,7 +68,7 @@ pub struct Lint {
 pub fn lint_files(
     compiler: &mut Compiler,
     files: &[FileId],
-    config: &Config,
+    configs: &config::Configs,
     complete: bool,
 ) -> Vec<Lint> {
     let mut out = Vec::new();
@@ -92,6 +92,7 @@ pub fn lint_files(
         // Override globs are matched against the canonical path, as `exclude` is.
         let at = std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone().into());
         let at = at.as_path();
+        let config = &*configs.at(at);
         let wanted: Vec<(&RuleInfo, Level)> = RULES
             .iter()
             .map(|r| (r, config.level_at(r, at)))

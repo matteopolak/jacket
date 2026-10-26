@@ -256,8 +256,10 @@ fn run() -> Result<ExitCode, String> {
     for note in &config.notes {
         eprintln!("jailint: {note}");
     }
+    config.discover = args.config.is_none();
     if args.max_nesting.is_some() {
         config.max_nesting = args.max_nesting;
+        config.flag_max_nesting = args.max_nesting;
     }
     for (rule, level) in &args.levels {
         if rule == "warnings" && *level == Level::Deny {
@@ -300,6 +302,12 @@ fn run() -> Result<ExitCode, String> {
         add_sources: args.add_sources,
     };
     let outcome = jailint::driver::run(&options);
+    for note in &outcome.config_notes {
+        eprintln!("jailint: {note}");
+    }
+    if let Some(error) = outcome.config_errors.first() {
+        return Err(error.clone());
+    }
     if let Some(path) = &args.checked_files {
         let mut paths = outcome.texts.keys().cloned().collect::<Vec<_>>().join("\n");
         paths.push('\n');

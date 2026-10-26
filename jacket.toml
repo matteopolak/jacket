@@ -48,12 +48,6 @@ rules = { float_equality = "allow" }
 paths = ["tests/corpus/positive/case-selection.jai"]
 rules = { single_case_switch = "allow" }
 
-# The examples are small programs whose numbers are their content; examples/jacket.toml says the
-# same for a lint run inside an example, and this applies it to a run from the root.
-[[lint.overrides]]
-paths = ["examples/**"]
-rules = { magic_number = "allow" }
-
 # Numbers that are the content rather than a choice. Each override names the files that still
 # need it; the named constants and the character literals of the other files are in the code.
 
