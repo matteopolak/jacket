@@ -435,10 +435,11 @@ fn run_file_case(plan: &Plan, index: usize) -> Outcome {
         let mut quiet = |_: Live| {};
         golden::golden(
             &case.file,
+            &case.options,
             &plan.root_flags[case.root],
             &plan.toolchain,
             &work,
-            &root.dir,
+            case.file.parent().unwrap_or(&root.dir),
             timeout_of(plan, &case.options),
             plan.settings.accept,
             &mut quiet,

@@ -10,6 +10,6 @@ status=0
 "$jacket" test -q -- -O2 || status=1
 if [[ "${WASM:-}" == true ]]; then
   "$jacket" test -q --interp -os wasm || status=1
-  "$jacket" test -q -os wasm --runner "node tools/wasi_run.mjs" || status=1
+  "$jacket" test -q -os wasm --runner "node --no-warnings tools/wasi_run.mjs" || status=1
 fi
 exit $status

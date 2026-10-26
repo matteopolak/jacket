@@ -9,6 +9,7 @@
 use super::build::{Toolchain, compile_output, program_and_args, unbuilt_flags};
 use super::exec::{self, Ending, Invocation, Limits, Live};
 use super::jobs::ending_text;
+use super::options::TestOptions;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
@@ -63,18 +64,49 @@ pub(super) fn invocation(
     work: &Path,
     cwd: &Path,
 ) -> Result<Invocation, String> {
+    built(source, root_flags, toolchain, work, cwd, true).map(|built| built.invocation)
+}
+
+/// A golden program ready to run, and what the compiler printed building it.
+struct Built {
+    invocation: Invocation,
+    /// The compiler's standard output and error (the warnings); empty when interpreted.
+    stdout: Vec<u8>,
+    stderr: Vec<u8>,
+    /// Building made no executable: the program did all its work at compile time (a metaprogram
+    /// with `#run` and no `main`), so what the compiler printed is its output.
+    compile_time_only: bool,
+}
+
+/// `invocation`, with the compiler's output when the program was built. `quiet` is jaic's
+/// `-quiet`, which also hides warnings.
+fn built(
+    source: &Path,
+    root_flags: &[String],
+    toolchain: &Toolchain,
+    work: &Path,
+    cwd: &Path,
+    quiet: bool,
+) -> Result<Built, String> {
+    let quiet: Vec<&str> = if quiet {
+        vec!["-quiet"]
+    } else {
+        Vec::new()
+    };
     if toolchain.interp {
-        let mut args = vec![
-            source.to_string_lossy().into_owned(),
-            "-interp".into(),
-            "-quiet".into(),
-        ];
+        let mut args = vec![source.to_string_lossy().into_owned(), "-interp".into()];
+        args.extend(quiet.iter().map(|q| q.to_string()));
         args.extend(unbuilt_flags(&toolchain.flags));
         args.extend(root_flags.iter().cloned());
-        return Ok(Invocation {
-            program: toolchain.jaic.clone(),
-            args,
-            cwd: cwd.to_path_buf(),
+        return Ok(Built {
+            invocation: Invocation {
+                program: toolchain.jaic.clone(),
+                args,
+                cwd: cwd.to_path_buf(),
+            },
+            stdout: Vec::new(),
+            stderr: Vec::new(),
+            compile_time_only: false,
         });
     }
     let stem = file_name(&source.with_extension(""));
@@ -82,7 +114,7 @@ pub(super) fn invocation(
     let report = work.join(format!("golden-{stem}.txt"));
     let output = Command::new(&toolchain.jaic)
         .arg(source)
-        .arg("-quiet")
+        .args(&quiet)
         .args(&toolchain.flags)
         .args(root_flags)
         .arg("-exe")
@@ -92,18 +124,56 @@ pub(super) fn invocation(
         .output()
         .map_err(|error| format!("could not start `{}`: {error}", toolchain.jaic.display()))?;
     if !output.status.success() {
-        return Err(format!("it does not compile:\n{}", compile_output(&output)));
+        let text = compile_output(&output);
+        // A program without `main` that does its work at compile time: it only has to
+        // type-check, and what the compiler printed is its output.
+        if text.contains("has no `main` procedure") || text.contains("no exported 'main'") {
+            let checked = Command::new(&toolchain.jaic)
+                .arg(source)
+                .args(&quiet)
+                .args(unbuilt_flags(&toolchain.flags))
+                .args(root_flags)
+                .arg("-check")
+                .current_dir(work)
+                .output()
+                .map_err(|error| {
+                    format!("could not start `{}`: {error}", toolchain.jaic.display())
+                })?;
+            if checked.status.success() {
+                return Ok(Built {
+                    invocation: Invocation {
+                        program: exe.clone(),
+                        args: Vec::new(),
+                        cwd: cwd.to_path_buf(),
+                    },
+                    stdout: checked.stdout,
+                    stderr: checked.stderr,
+                    compile_time_only: true,
+                });
+            }
+            return Err(format!(
+                "it does not type-check:\n{}",
+                compile_output(&checked)
+            ));
+        }
+        return Err(format!("it does not compile:\n{text}"));
     }
     let exe = std::fs::read_to_string(&report)
         .ok()
         .and_then(|t| t.lines().last().map(PathBuf::from))
         .filter(|p| p.is_file())
         .unwrap_or(exe);
+    let compile_time_only = !exe.is_file();
     let (program, args) = program_and_args(&exe, &toolchain.runner);
-    Ok(Invocation {
-        program,
-        args,
-        cwd: cwd.to_path_buf(),
+    Ok(Built {
+        invocation: Invocation {
+            program,
+            args,
+            cwd: cwd.to_path_buf(),
+        },
+        stdout: output.stdout,
+        stderr: output.stderr,
+        compile_time_only,
     })
 }
 
@@ -122,10 +192,38 @@ pub(super) fn run_plain(
     exec::run(invocation, &limits, live)
 }
 
-/// Builds and runs the golden test `source`.
+/// Type-checks the golden test `source` (`check_only`): it must pass.
+fn check_only(source: &Path, root_flags: &[String], toolchain: &Toolchain, cwd: &Path) -> Checked {
+    let mut checked = Checked::default();
+    let output = Command::new(&toolchain.jaic)
+        .arg(source)
+        .arg("-check")
+        .arg("-quiet")
+        .args(unbuilt_flags(&toolchain.flags))
+        .args(root_flags)
+        .current_dir(cwd)
+        .output();
+    match output {
+        Ok(output) if output.status.success() => {}
+        Ok(output) => checked.problems.push(format!(
+            "it does not type-check:\n{}",
+            compile_output(&output)
+        )),
+        Err(error) => checked.problems.push(format!(
+            "could not start `{}`: {error}",
+            toolchain.jaic.display()
+        )),
+    }
+    checked.passed = checked.problems.is_empty();
+    checked
+}
+
+/// Builds and runs the golden test `source`; `options` set its arguments (`$TEMP` is a fresh
+/// folder in `work`) and the warning it must produce.
 #[allow(clippy::too_many_arguments)]
 pub fn golden(
     source: &Path,
+    options: &TestOptions,
     root_flags: &[String],
     toolchain: &Toolchain,
     work: &Path,
@@ -134,15 +232,59 @@ pub fn golden(
     accept: bool,
     live: &mut dyn FnMut(Live),
 ) -> Checked {
+    if options.check_only {
+        return check_only(source, root_flags, toolchain, cwd);
+    }
     let mut checked = Checked::default();
-    let invocation = match invocation(source, root_flags, toolchain, work, cwd) {
-        Ok(invocation) => invocation,
+    let Built {
+        mut invocation,
+        stdout: build_stdout,
+        stderr: build_stderr,
+        compile_time_only,
+    } = match built(
+        source,
+        root_flags,
+        toolchain,
+        work,
+        cwd,
+        options.warns.is_none(),
+    ) {
+        Ok(built) => built,
         Err(problem) => {
             checked.problems.push(problem);
             return checked;
         }
     };
-    let outcome = run_plain(&invocation, timeout, live);
+    let build_output = format!(
+        "{}{}",
+        String::from_utf8_lossy(&build_stderr),
+        String::from_utf8_lossy(&build_stdout)
+    );
+    if !options.args.is_empty() {
+        let temp = work.join("temp");
+        let _ = std::fs::create_dir_all(&temp);
+        let temp = temp.to_string_lossy().into_owned();
+        let args: Vec<String> = options
+            .args
+            .iter()
+            .map(|a| a.replace("$TEMP", &temp))
+            .collect();
+        if toolchain.interp {
+            invocation.args.push("--".into());
+        }
+        invocation.args.extend(args);
+    }
+    let outcome = if compile_time_only {
+        exec::Outcome {
+            ending: Ending::Exited(0),
+            preamble_stdout: build_stdout,
+            preamble: build_stderr,
+            tests: Vec::new(),
+            missing: Vec::new(),
+        }
+    } else {
+        run_plain(&invocation, timeout, live)
+    };
     checked.stdout = outcome.preamble_stdout;
     checked.stderr = outcome.preamble;
     if outcome.ending == Ending::TimedOut {
@@ -180,6 +322,14 @@ pub fn golden(
             accept,
             &mut checked,
         );
+    }
+    if let Some(warning) = &options.warns {
+        let seen = format!("{build_output}{}", normalized(&checked.stderr));
+        if !seen.contains(warning.as_str()) {
+            checked.problems.push(format!(
+                "no warning contains `{warning}`; the compiler said:\n{seen}"
+            ));
+        }
     }
     let stderr_file = source.with_extension("stderr");
     if stderr_file.is_file() {

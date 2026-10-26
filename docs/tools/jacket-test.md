@@ -35,10 +35,11 @@ A test root is a folder with a `tests/` directory (`crates/jacket/src/test/disco
 | --- | --- |
 | `tests/name.jai` with `name.stdout`, `name.stderr` or `name.exit` beside it | golden test: built and run alone, output compared |
 | `tests/compile_fail/name.jai` (with `name.stderr`) | compile-fail test: must fail to type-check with exactly those diagnostics |
+| a `.jai` file in a folder below `tests/` with `name.stdout`, `name.stderr` or `name.exit` beside it | golden test too (named `folder/name`); with `// test: compile_fail` on top, a compile-fail test whose `name.stderr` holds the diagnostics |
 | every other `tests/*.jai` | unit test file: all of them are `#load`ed into one program, whose `@test` procedures are the tests |
 | a ```` ```jai ```` block in a doc comment of the library (a root with `module.jai`) | doc test: built and run as a program of its own |
 
-Folders below `tests/` are for files the tests `#load` or `#import`. When the root holds a `module.jai`, its parent folder is added as an import folder, so the tests `#import "Name"` the module they test from the working copy.
+The rest of the files below `tests/` are for what the tests `#load` or `#import`. When the root holds a `module.jai`, its parent folder is added as an import folder, so the tests `#import "Name"` the module they test from the working copy.
 
 The roots are `--path DIR` folders if given, else `[test] paths` in `jacket.toml` (only those the current directory is inside, when it is inside some), else the project's folder. With several roots, test names get the root's folder name as a prefix (`Bit_Array::finds_the_first_set`).
 
@@ -71,7 +72,9 @@ Each test gets a fresh `temp_dir` under the work folder. Folders of passing test
 
 ### Golden and compile-fail tests
 
-A golden test is built (or run with `-interp`) with the same flags as the unit tests, from the folder `jacket test` was started in. It passes when its exit status equals `name.exit` (default 0), its standard output equals `name.stdout` when that file exists, and its standard error equals `name.stderr` when that file exists. Line endings are compared as `\n`; differences are shown as a line diff.
+A golden test is built (or run with `-interp`) with the same flags as the unit tests, from its own folder. It passes when its exit status equals `name.exit` (default 0), its standard output equals `name.stdout` when that file exists, and its standard error equals `name.stderr` when that file exists. Line endings are compared as `\n`; differences are shown as a line diff.
+
+A golden program that has no `main` and does its work at compile time (`#run`, a metaprogram) is only type-checked, and what the compiler prints is its output. A program with `@warns(text)` is built without `-quiet` and passes when the compiler's output (interpreted: standard error) contains the text.
 
 A compile-fail test is type-checked with `jaic name.jai -check -quiet -no_color` from its own folder. It passes when the check fails and the diagnostics equal `name.stderr`, with the folder written `$DIR` and the standard library `$STDLIB`:
 
@@ -180,7 +183,7 @@ reads_proc_self :: () { ... } @test @serial
 | `@slow` | known to be slow: started first, no `SLOW` line |
 | `@serial` | runs while no other test does |
 | `@retries(N)` | retries for this test, over `--retries` |
-| `@only(...)` | run only on these targets: `.LINUX`, `.MACOS`, `.WINDOWS`, `.WASM`, `.X64`, `.ARM64`, `.INTERP`, `.NATIVE`; every kind named must match (`only(.LINUX,.X64)`) |
+| `@only(...)` | run only on these targets: `.LINUX`, `.MACOS`, `.WINDOWS`, `.WASM`, `.ANDROID`, `.X64`, `.ARM64`, `.INTERP`, `.NATIVE`; every kind named must match (`only(.LINUX,.X64)`) |
 | `@skip_on(...)` | skip on any of these targets |
 | `@needs(.NETWORK)` | skip unless the run has the capability (`--needs network`, `[test] needs`); any name works |
 | `@interp_only`, `@native_only` | run only with (without) `--interp` |
@@ -188,6 +191,12 @@ reads_proc_self :: () { ... } @test @serial
 | `@should_fail`, `@should_fail(word)` | must fail (a check, a crash or a timeout); with a word, a failure message or the test's standard error must contain it |
 | `@xfail`, `@xfail(reason)` | a known failure, reported `XFAIL`; passing is an error |
 | `@allow_leaks` | the tracking allocator reports no leaks |
+| `@args("a", "b $TEMP/x")` | golden tests: the program's command-line arguments (case kept); `$TEMP` is a fresh folder |
+| `@warns("text")` | golden tests: the compiler must warn with this text (see above) |
+| `@check_only` | golden tests: only type-check the program (`jaic -check`); for code that cannot run on this host |
+| `@compile_fail` | file header only: the file below `tests/` is a compile-fail test |
+
+A target may also name an OS and a CPU together (`skip_on(.WINDOWS-ARM64)`), and `.ANDROID` is an OS no host is, so such tests never run here.
 
 An unknown note or a bad argument is a warning naming the file and line; the note is ignored. The target is the host, or `-os`/`-cpu`; a cross-built test is skipped unless `--runner` can run it (compile-fail tests still run).
 
@@ -196,7 +205,7 @@ An unknown note or a bad argument is a warning naming the file and line; the not
 ```
 jacket test --interp                                   # in jaic's interpreter
 jacket test -os wasm --interp                          # in jaic's wasm sandbox
-jacket test -os wasm --runner "node tools/wasi_run.mjs" # a wasm build under node
+jacket test -os wasm --runner "node --no-warnings tools/wasi_run.mjs" # a wasm build under node
 jacket test -- -O2                                     # flags after `--` go to jaic
 ```
 
@@ -245,6 +254,44 @@ Everything else on either stream is the test's own output. A process that stops 
 
 Reserved. `jacket bench --list` lists `@bench` procedures (`name :: (b: *Bench) { ... } @bench`); running them is not supported yet, and `jacket bench` without `--list` exits 2 saying so. `jacket test --list` lists them with kind `bench`.
 
+## Migrating from `tests/manifest.json`
+
+Every stdlib module's tests are moving from a `tests/manifest.json` (run by `tools/stdlib/stdlib_runtime.py`) to `jacket test`. A migrated folder is listed under `[test] paths` in `jacket.toml` and loses its manifest; the Python catalogue (`stdlib_test_catalog.py`) skips listed folders, so `stdlib_runtime.py`, `jaic_sweep.py`, `windows_cross.py`, the determinism tool and the browser runner keep working for the rest and stop seeing the migrated ones. `tools/stdlib/migrate_to_jacket_test.py` does the mechanical part.
+
+**Recipe.**
+
+1. `PYTHONPATH=tools python3 tools/stdlib/migrate_to_jacket_test.py --dry-run stdlib/Module`, then without `--dry-run`. It lists what it cannot express and leaves that module alone. Files stay where they are: each case gets a `// test:` header line and expected-output files beside it, and the manifest is deleted.
+2. Write the diagnostics of the new compile-fail tests with `jacket test --accept --exact NAME...` (never a bare `--accept`: it also rewrites golden outputs) and read the `.stderr` files.
+3. Run `jacket test` for the module in every mode it ran before: native, `--interp`, `--interp -os wasm`, `-os wasm --runner "node --no-warnings tools/wasi_run.mjs"`, and `-- -O2`. Native libraries come from `JAIC_NATIVE_LIBS` as for the old runner.
+4. `jaifmt --check`, `jailint -D warnings` on the folder.
+
+Programs run from their own `tests/` folder, as the old runner did. Where a test reads better as `@test` procedures with matchers, rewrite it and delete the program; the move itself does not need that.
+
+| Manifest row | In `jacket test` |
+| --- | --- |
+| a case (any `tests/*.jai`, or a row with a `source`) | golden test: the file with an expected-output file beside it (`.exit` holding `0` when the row checked nothing else) |
+| `stdout`, `stderr`, `exit_code` | `name.stdout`, `name.stderr`, `name.exit`, compared whole |
+| `mode: "check-fail"`, `diagnostic_contains` | compile-fail test (`// test: compile_fail`, or a file in `tests/compile_fail/`); the whole diagnostics in `name.stderr` replace the substring |
+| `positive_baseline` | dropped: the exact diagnostics show the right error, and the positive case is an ordinary test |
+| `mode: "fault"`, `error_contains` | `// test: should_fail("text")`; the exact exit status is not checked (a native abort and the interpreter's status differ) |
+| `warning_contains` | `warns("text")` |
+| `source_check_only` | `check_only` |
+| `required_os`, `required_cpu` | `only(.LINUX,.MACOS)`, `only(.X64)` |
+| `unsupported_platforms` (`windows-arm64`) | `skip_on(.WINDOWS-ARM64)` |
+| `unsupported_modes` naming both wasm modes, with its `required_capabilities` text | `skip_on(.WASM)` (the wasm legs are `-os wasm --interp` and `-os wasm --runner node`); other combinations: rewrite as `@test`s with `@only`/`@skip_on` notes |
+| `arguments`, `input: scratch-file` / `scratch-directory` | `args("literal", "$TEMP/data")` |
+| `requires_display` | `needs(.DISPLAY)` (`--needs display`) |
+| `window_lease` | `serial` |
+| `clipboard_guard` | the test saves and restores the clipboard itself (`defer`) and is `serial`; the Python wrapper is dropped |
+| `stdout_one_of` | rewrite as a `@test` that accepts each host's output |
+| `input: font` / `ico-fixtures` / `windows-resource-directory`, `fixture_libraries`, `numerics_target_source`, `mode_contracts`, `required_browser_host_capabilities` | not yet: the module stays on the old runner until a feature or fixture step exists |
+| the old runner's `-check -no_dce` pass | dropped: every test is built or interpreted |
+| `disabled` | fix or delete the case before migrating |
+
+**Other consumers.** `jaic_sweep.py` (differential sweeps), `windows_cross.py` (Windows cross builds), the determinism tool and the browser runner read the catalogue only, so a migrated module leaves their input. Until each reads `jacket test --list --format json` (golden and compile-fail tests carry `file`), migrated modules are covered by the `jacket test` legs of CI (native, `--interp`, `-O2`, and with `WASM=true` both wasm modes under node) and not by those tools: the browser engine and Windows cross builds no longer run them.
+
+**Leniency.** A fault test no longer checks the exact status or that stdout stayed empty; a program without `main` is type-checked, not run.
+
 ## Design decisions
 
 - **Notes are lowercase (`@test`)**, like the language's other notes, and go after the procedure body, where Jai puts them. There is no `test "name" { }` macro: the procedure's name is the test's name, which filters, rerun lines and the editor use. A macro would be a second spelling for the same thing.
@@ -276,7 +323,7 @@ slow = 30                # seconds before a SLOW line
 retries = 0              # --retries
 fail_fast = false        # --fail-fast
 flaky_fails = false      # FLAKY fails the run
-runner = "node tools/wasi_run.mjs"   # --runner
+runner = "node --no-warnings tools/wasi_run.mjs"   # --runner
 needs = ["network"]      # --needs
 
 [test.profile.ci]        # --profile ci: these over [test]

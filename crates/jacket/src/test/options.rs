@@ -30,6 +30,13 @@ pub struct TestOptions {
     pub allow_leaks: bool,
     /// A doc test marked `ignore`.
     pub ignore: bool,
+    /// Golden tests: the program's command-line arguments. `$TEMP` is a fresh folder.
+    pub args: Vec<String>,
+    /// Golden tests: only type-check the program (`jaic -check`); it must pass.
+    pub check_only: bool,
+    /// Golden tests: the build output (compiled) or standard error (interpreted) must contain
+    /// this compiler warning.
+    pub warns: Option<String>,
 }
 
 /// Where tests run: the target and how.
@@ -40,11 +47,14 @@ pub struct Target {
     pub interp: bool,
 }
 
-const OS_NAMES: [&str; 4] = ["linux", "macos", "windows", "wasm"];
+const OS_NAMES: [&str; 5] = ["linux", "macos", "windows", "wasm", "android"];
 const CPU_NAMES: [&str; 2] = ["x64", "arm64"];
 const MODE_NAMES: [&str; 2] = ["interp", "native"];
 
 fn is_target(name: &str) -> bool {
+    if let Some((os, cpu)) = name.split_once('-') {
+        return OS_NAMES.contains(&os) && CPU_NAMES.contains(&cpu);
+    }
     OS_NAMES.contains(&name) || CPU_NAMES.contains(&name) || MODE_NAMES.contains(&name)
 }
 
@@ -102,10 +112,21 @@ impl TestOptions {
                 }
             }
             "needs" => self.needs = list(),
-            "should_fail" => self.should_fail = Some(list().join(",")),
-            "xfail" => self.xfail = Some(list().join(",")),
+            "should_fail" => self.should_fail = Some(text(args)),
+            "xfail" => self.xfail = Some(text(args)),
+            "warns" => {
+                let want = text(args);
+                if want.is_empty() {
+                    return Err(
+                        "`@warns` needs the warning text, as in `@warns(\"not in scope\")`".into(),
+                    );
+                }
+                self.warns = Some(want);
+            }
+            "args" => self.args = quoted_list(args.unwrap_or("")),
+            "check_only" => self.check_only = true,
             // Discovery's own notes.
-            "test" | "bench" => {}
+            "test" | "bench" | "compile_fail" => {}
             _ => return Err(format!("unknown note `@{note}` (ignored)")),
         }
         Ok(())
@@ -138,13 +159,16 @@ impl TestOptions {
         } else {
             "native"
         };
-        let matches = |t: &String| *t == target.os || *t == target.cpu || t == mode;
+        let matches = |t: &String| match t.split_once('-') {
+            Some((os, cpu)) => os == target.os && cpu == target.cpu,
+            None => *t == target.os || *t == target.cpu || t == mode,
+        };
         // Each kind of target `only` names must match: `only(.LINUX, .X64)` is Linux on x64.
         let misses = |names: &[&str]| {
             let named: Vec<&String> = self
                 .only
                 .iter()
-                .filter(|t| names.contains(&t.as_str()))
+                .filter(|t| names.contains(&t.as_str()) || (names == OS_NAMES && t.contains('-')))
                 .collect();
             !named.is_empty() && !named.iter().any(|t| matches(t))
         };
@@ -165,6 +189,35 @@ impl TestOptions {
         }
         None
     }
+}
+
+/// A note's argument as written (case kept), without the quotes around it.
+fn text(args: Option<&str>) -> String {
+    let args = args.unwrap_or("").trim();
+    args.strip_prefix('"')
+        .and_then(|a| a.strip_suffix('"'))
+        .unwrap_or(args)
+        .to_string()
+}
+
+/// `"a b", c` as `["a b", "c"]`: commas inside quotes do not split; case is kept.
+fn quoted_list(args: &str) -> Vec<String> {
+    let mut items = Vec::new();
+    let mut current = String::new();
+    let mut quoted = false;
+    for c in args.chars() {
+        match c {
+            '"' => quoted = !quoted,
+            ',' if !quoted => items.push(std::mem::take(&mut current)),
+            _ => current.push(c),
+        }
+    }
+    items.push(current);
+    items
+        .into_iter()
+        .map(|i| i.trim().to_string())
+        .filter(|i| !i.is_empty())
+        .collect()
 }
 
 /// `.LINUX, .MACOS` or `"text"` as lowercase names without the dots and quotes.
@@ -206,8 +259,8 @@ fn split_notes(items: &str) -> Vec<String> {
             ')' => depth = depth.saturating_sub(1),
             _ => {}
         }
-        if c.is_whitespace() {
-            if depth == 0 && !current.is_empty() {
+        if c.is_whitespace() && depth == 0 {
+            if !current.is_empty() {
                 notes.push(std::mem::take(&mut current));
             }
             continue;
@@ -253,6 +306,39 @@ mod tests {
         assert_eq!(options.should_fail.as_deref(), Some("bounds"));
         assert!(options.serial);
         assert_eq!(options.exit, Some(3));
+    }
+
+    #[test]
+    fn file_notes_keep_the_case_and_spaces_of_their_text() {
+        let source = "// test: should_fail(\"Index out of range\") args(\"a b\", \"$TEMP/Data\") warns(\"not in scope\")\n// test: check_only compile_fail\nmain :: () {}\n";
+        let notes = header_notes(source);
+        let (options, warnings) = TestOptions::default().with_notes(&notes);
+        assert!(warnings.is_empty(), "{warnings:?}");
+        assert_eq!(options.should_fail.as_deref(), Some("Index out of range"));
+        assert_eq!(options.args, ["a b", "$TEMP/Data"]);
+        assert_eq!(options.warns.as_deref(), Some("not in scope"));
+        assert!(options.check_only);
+    }
+
+    #[test]
+    fn a_target_can_name_the_os_and_cpu_together() {
+        let notes = ["skip_on(.WINDOWS-ARM64)".to_string()];
+        let (options, warnings) = TestOptions::default().with_notes(&notes);
+        assert!(warnings.is_empty(), "{warnings:?}");
+        let on = |os: &str, cpu: &str| Target {
+            os: os.into(),
+            cpu: cpu.into(),
+            interp: false,
+        };
+        assert!(options.skip_reason(&on("windows", "arm64"), &[]).is_some());
+        assert_eq!(options.skip_reason(&on("windows", "x64"), &[]), None);
+        assert_eq!(options.skip_reason(&on("macos", "arm64"), &[]), None);
+        let only = TestOptions {
+            only: vec!["windows-arm64".into()],
+            ..TestOptions::default()
+        };
+        assert_eq!(only.skip_reason(&on("windows", "arm64"), &[]), None);
+        assert!(only.skip_reason(&on("windows", "x64"), &[]).is_some());
     }
 
     #[test]
@@ -308,6 +394,9 @@ mod tests {
     #[test]
     fn header_comments_hold_notes() {
         let source = "// A golden test.\n// test: only(.LINUX, .MACOS) timeout(10)\n\n#import \"Basic\";\n// test: serial\n";
-        assert_eq!(header_notes(source), ["only(.LINUX,.MACOS)", "timeout(10)"]);
+        assert_eq!(
+            header_notes(source),
+            ["only(.LINUX, .MACOS)", "timeout(10)"]
+        );
     }
 }

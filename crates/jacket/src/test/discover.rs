@@ -1,10 +1,11 @@
 //! Where tests are. A test root is a folder with a `tests/` directory:
 //!
-//! - `tests/*.jai` with a `.stdout`, `.stderr` or `.exit` file beside it is a golden-output test,
-//!   a program built and run alone;
+//! - a `.jai` file anywhere below `tests/` with a `.stdout`, `.stderr` or `.exit` file beside it is a
+//!   golden-output test, a program built and run alone; with `// test: compile_fail` on top it
+//!   must instead fail to compile, with the diagnostics in its `.stderr`;
 //! - `tests/compile_fail/*.jai` must fail to compile, with the diagnostics in its `.stderr`;
 //! - every other `tests/*.jai` goes into one build, whose `@test` procedures are the unit tests;
-//! - folders below `tests/` hold what those files `#load` or `#import`.
+//! - the rest of the files below `tests/` are what those files `#load` or `#import`.
 //!
 //! The roots are `[test] paths` in jacket.toml (only those the current directory is in, when it
 //! is in some), else the project's folder.
@@ -30,6 +31,32 @@ pub struct Root {
 }
 
 pub const EXPECTED: [&str; 3] = ["stdout", "stderr", "exit"];
+
+/// The `.jai` files below `dir` at any depth (`tests/` helper folders included), sorted.
+fn jai_files_below(dir: &Path) -> Vec<PathBuf> {
+    let mut files = Vec::new();
+    let mut pending = vec![dir.to_path_buf()];
+    while let Some(dir) = pending.pop() {
+        for entry in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                pending.push(path);
+            } else if path.extension().is_some_and(|e| e == "jai") {
+                files.push(path);
+            }
+        }
+    }
+    files.sort();
+    files
+}
+
+/// Whether the file's top comment block holds `// test: compile_fail`.
+fn marked_compile_fail(source: &Path) -> bool {
+    let text = std::fs::read_to_string(source).unwrap_or_default();
+    super::options::header_notes(&text)
+        .iter()
+        .any(|n| n == "compile_fail")
+}
 
 fn jai_files(dir: &Path) -> Vec<PathBuf> {
     let mut files: Vec<PathBuf> = std::fs::read_dir(dir)
@@ -63,7 +90,23 @@ impl Root {
     /// `seen` holds the files earlier roots read doc tests from; a file is read for one root.
     pub fn read(dir: PathBuf, stdlib: &Path, seen: &mut BTreeSet<PathBuf>) -> Root {
         let tests = dir.join("tests");
-        let (golden, unit) = jai_files(&tests).into_iter().partition(|f| is_golden(f));
+        let compile_dir = tests.join("compile_fail");
+        let (mut unit, mut golden) = (Vec::new(), Vec::new());
+        let mut compile_fail = jai_files(&compile_dir);
+        for file in jai_files_below(&tests) {
+            if file.starts_with(&compile_dir) {
+                continue;
+            }
+            if !is_golden(&file) {
+                if file.parent() == Some(tests.as_path()) {
+                    unit.push(file);
+                }
+            } else if marked_compile_fail(&file) {
+                compile_fail.push(file);
+            } else {
+                golden.push(file);
+            }
+        }
         let label = dir
             .file_name()
             .map_or_else(|| "tests".into(), |n| n.to_string_lossy().into_owned());
@@ -77,7 +120,7 @@ impl Root {
             },
             module,
             library,
-            compile_fail: jai_files(&tests.join("compile_fail")),
+            compile_fail,
             dir,
             label,
             unit,
@@ -156,6 +199,8 @@ mod tests {
         let tests = dir.join("tests");
         std::fs::create_dir_all(tests.join("compile_fail")).unwrap();
         std::fs::create_dir_all(tests.join("helpers")).unwrap();
+        std::fs::create_dir_all(tests.join("faults")).unwrap();
+        std::fs::create_dir_all(tests.join("negative")).unwrap();
         for file in [
             "unit.jai",
             "hello.jai",
@@ -163,16 +208,30 @@ mod tests {
             "compile_fail/bad.jai",
             "compile_fail/bad.stderr",
             "helpers/h.jai",
+            "faults/f.jai",
+            "faults/f.exit",
+            "negative/n.jai",
+            "negative/n.stderr",
         ] {
             std::fs::write(tests.join(file), "").unwrap();
         }
+        std::fs::write(tests.join("negative/n.jai"), "// test: compile_fail\n").unwrap();
         std::fs::write(dir.join("module.jai"), "").unwrap();
         let root = Root::read(dir.clone(), Path::new("/nowhere"), &mut BTreeSet::new());
         assert_eq!(root.module, root.label);
         assert!(root.library);
         assert_eq!(root.unit, [tests.join("unit.jai")]);
-        assert_eq!(root.golden, [tests.join("hello.jai")]);
-        assert_eq!(root.compile_fail, [tests.join("compile_fail/bad.jai")]);
+        assert_eq!(
+            root.golden,
+            [tests.join("faults/f.jai"), tests.join("hello.jai")]
+        );
+        assert_eq!(
+            root.compile_fail,
+            [
+                tests.join("compile_fail/bad.jai"),
+                tests.join("negative/n.jai")
+            ]
+        );
         std::fs::remove_dir_all(dir).unwrap();
     }
 }

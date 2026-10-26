@@ -549,15 +549,20 @@ fn cases(roots: &[discover::Root], built: &[Option<Built>]) -> Vec<Case> {
                 });
             }
         }
-        for (files, kind, prefix) in [
-            (&root.golden, Kind::Golden, ""),
-            (&root.compile_fail, Kind::CompileFail, "compile_fail/"),
+        for (files, kind) in [
+            (&root.golden, Kind::Golden),
+            (&root.compile_fail, Kind::CompileFail),
         ] {
             for file in files {
-                let stem = file
-                    .file_stem()
-                    .map_or_else(String::new, |s| s.to_string_lossy().into_owned());
-                let local = format!("{prefix}{stem}");
+                // The path below `tests/`, so `compile_fail/bad` and `faults/overflow`.
+                let local = file
+                    .strip_prefix(root.dir.join("tests"))
+                    .unwrap_or(file)
+                    .with_extension("")
+                    .components()
+                    .map(|c| c.as_os_str().to_string_lossy().into_owned())
+                    .collect::<Vec<_>>()
+                    .join("/");
                 cases.push(Case {
                     name: name(&local),
                     local: local.clone(),
