@@ -22,7 +22,13 @@ impl Workspaces {
     }
 
     pub(super) fn create_workspace(&mut self, name: String) -> i64 {
-        self.list.push(Workspace::new(name));
+        let mut workspace = Workspace::new(name);
+        if self.list.len() as i64 == Self::FIRST_CREATED_WORKSPACE
+            && let Some(settings) = self.first_created.take()
+        {
+            workspace.settings = settings;
+        }
+        self.list.push(workspace);
         self.list.len() as i64 - 1
     }
 

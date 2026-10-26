@@ -267,7 +267,7 @@ fn create_workspaces(
         writes_workspaces.then(|| Box::new(native_backend(cli)) as Box<dyn OutputBackend>);
     let workspace_sandbox = shared_sandbox.clone();
     let quiet = cli.quiet;
-    Workspaces::new(BuildEnv {
+    let workspaces = Workspaces::new(BuildEnv {
         fs: fs.clone(),
         options: options.clone(),
         backend,
@@ -290,7 +290,41 @@ fn create_workspaces(
             }
         }),
         observer: None,
-    })
+    });
+    let requested = requested_settings(cli, options);
+    if !cli.plugins.is_empty() {
+        Workspaces::start_first_created_from(&workspaces, requested.clone());
+    }
+    Workspaces::start_from(&workspaces, requested);
+    workspaces
+}
+
+/// The build options the command line asks for, which the top-level program and the program the
+/// plugins compile start from (`get_build_options` reports them, and a plugin or metaprogram that
+/// sets its own options replaces them): the optimization level, what `-o` turns off, and the
+/// debug information, crash handler and dead code switches.
+fn requested_settings(cli: &Cli, options: &Options) -> BuildSettings {
+    let mut settings = BuildSettings::default();
+    if let Some(level) = cli.opt_level.or(cli.flavor.map(Flavor::level)) {
+        settings.optimization = level;
+    }
+    if cli.flavor == Some(Flavor::Optimized) {
+        settings.array_bounds_check = Some(false);
+        settings.null_pointer_check = Some(false);
+        settings.arithmetic_overflow_check = Some(0);
+        settings.cast_bounds_check = Some(0);
+        settings.stack_trace = Some(false);
+    }
+    if cli.no_debug_info {
+        settings.emit_debug_info = Some(false);
+    }
+    if cli.no_backtrace_on_crash {
+        settings.backtrace_on_crash = Some(false);
+    }
+    if options.dead_code == DeadCode::None {
+        settings.dead_code_elimination = Some(DeadCode::None);
+    }
+    settings
 }
 
 /// `-no_check_bindings`: sets `CHECK_BINDINGS=false` on the plugins that resolve, on the import

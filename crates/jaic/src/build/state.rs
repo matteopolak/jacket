@@ -129,6 +129,9 @@ pub(super) const PHASE_READY_FOR_CUSTOM_LINK_COMMAND: i64 = 5;
 /// The workspace registry of one top-level compilation.
 pub struct Workspaces {
     pub(super) env: BuildEnv,
+    /// What the first workspace a plugin metaprogram creates starts from: the build options the
+    /// command line asked for.
+    pub(super) first_created: Option<BuildSettings>,
     /// Some compile-time code can ask for a type table (`get_type_table`).
     pub(super) type_table_used: bool,
     /// Index = workspace id; 0 and 1 are unused (`jai` reserves workspace 1, so the top-level

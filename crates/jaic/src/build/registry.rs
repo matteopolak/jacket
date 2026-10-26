@@ -32,6 +32,7 @@ impl Workspaces {
         top.stage = Stage::Checked;
         Rc::new(RefCell::new(Workspaces {
             env,
+            first_created: None,
             type_table_used: false,
             list: vec![
                 Workspace::new(String::new()),
@@ -46,6 +47,22 @@ impl Workspaces {
             data_segments: Vec::new(),
             typechecked_use: Rc::default(),
         }))
+    }
+
+    /// The first workspace a metaprogram creates (the program the plugins of
+    /// `jaic file.jai +Plugin` compile).
+    pub const FIRST_CREATED_WORKSPACE: i64 = TOP_LEVEL_WORKSPACE + 1;
+
+    /// Make `settings` what the top-level program starts from, before any `set_build_options`:
+    /// the options the command line asked for, which `get_build_options` then reports.
+    pub fn start_from(shared: &SharedWorkspaces, settings: BuildSettings) {
+        shared.borrow_mut().list[TOP_LEVEL_WORKSPACE as usize].settings = settings;
+    }
+
+    /// The same for the first workspace the metaprogram creates. Other workspaces start from
+    /// the defaults.
+    pub fn start_first_created_from(shared: &SharedWorkspaces, settings: BuildSettings) {
+        shared.borrow_mut().first_created = Some(settings);
     }
 
     /// Settings of the top-level program (workspace 2).

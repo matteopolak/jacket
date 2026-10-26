@@ -5,11 +5,12 @@ use super::{Kind, Operation};
 use crate::{
     build::{Snapshot, engine},
     builtin_keys::{
-        WorkspaceFlag as Flag, WorkspaceList as List, WorkspaceNumber as Number,
-        WorkspaceText as Text,
+        BitcodeOptimization, DeadCodeSetting, DebugInfoSetting, WorkspaceFlag as Flag,
+        WorkspaceList as List, WorkspaceNumber as Number, WorkspaceText as Text,
     },
     interp::{Interp, Rets, Trap},
     ir,
+    sema::DeadCode,
     types::TypeId,
 };
 
@@ -267,6 +268,60 @@ fn get(cx: &Call, interp: &mut Interp, ws: i64, at: u64) -> Result<TypeId, Trap>
         };
         cx.set_number(interp, ty, at, "os_target", os)?;
         cx.set_number(interp, ty, at, "cpu_target", cpu)?;
+        // What the command line asked for (`-o`, `-O2`, `-no_debug_info`...).
+        let asked = cx
+            .registry()
+            .workspace_settings(ws)
+            .map_err(Trap::new)?
+            .clone();
+        let checks = [
+            (
+                "array_bounds_check",
+                asked.array_bounds_check.map(u64::from),
+            ),
+            (
+                "null_pointer_check",
+                asked.null_pointer_check.map(u64::from),
+            ),
+            (
+                "arithmetic_overflow_check",
+                asked.arithmetic_overflow_check.map(u64::from),
+            ),
+            ("cast_bounds_check", asked.cast_bounds_check.map(u64::from)),
+            ("stack_trace", asked.stack_trace.map(u64::from)),
+            (
+                "backtrace_on_crash",
+                asked.backtrace_on_crash.map(u64::from),
+            ),
+            (
+                "emit_debug_info",
+                asked.emit_debug_info.map(|on| {
+                    if on {
+                        DebugInfoSetting::Default as u64
+                    } else {
+                        DebugInfoSetting::None as u64
+                    }
+                }),
+            ),
+            (
+                "dead_code_elimination",
+                asked.dead_code_elimination.map(|mode| match mode {
+                    DeadCode::None => DeadCodeSetting::None as u64,
+                    DeadCode::All => DeadCodeSetting::All as u64,
+                    DeadCode::ModulesOnly => DeadCodeSetting::ModulesOnly as u64,
+                }),
+            ),
+            (
+                "llvm_options.bitcode_optimization_setting",
+                (asked.optimization != BitcodeOptimization::Unset)
+                    .then_some(asked.optimization as u64),
+            ),
+        ];
+        for (name, value) in checks {
+            if let Some(value) = value {
+                cx.set_number(interp, ty, at, name, value)?;
+            }
+        }
     }
     if !saved && ws == cx.shared.borrow().current_id() {
         let arguments = cx.shared.borrow().env.command_line.clone();
