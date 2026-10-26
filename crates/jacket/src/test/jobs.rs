@@ -250,7 +250,7 @@ fn run_unit(plan: &Plan, cases: &[usize], live: &mut dyn FnMut(Live)) -> Vec<Out
             None
         };
         let run = match warm {
-            Some(child) => exec::run_child(Ok(child), &invocation, &limits, live),
+            Some(process) => exec::run_child(Ok(process), &invocation, &limits, live),
             None => exec::run(&invocation, &limits, live),
         };
         if let (Some(coverage), Some(dir)) = (&plan.coverage, &run_dir) {

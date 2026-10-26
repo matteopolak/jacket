@@ -3,19 +3,14 @@
 // the tests and an entry point, `__jacket_test_main`, that runs them (Testing's `run_tests`).
 // The program's own `main`, if it has one, stays as it is and does not run.
 //
-// Options:
-//     -manifest FILE   write one line per test and bench: kind, name, file, line, then its
-//                      notes, separated by tabs. The file appears whole or not at all
-//     -print-manifest  print the lines of the manifest to standard output instead, each after
-//                      the text `jacket-manifest: `, for a target whose compile-time code cannot
-//                      write files (`-os wasm`)
-//     -registry FILE   also write the added source to FILE, before the manifest, for a program
-//                      that adds it itself: `-interp` compiles much less of a program than a
-//                      build with a plugin does (`jacket test --interp`)
-//     -no-compile-time do not run the `@compile_time` tests in this build (a check that only
-//                      finds the tests: `-registry` still gets the code that runs them)
-//     -cases FILE      run each `@cases` list at compile time and write `test<TAB>case` per case
-//                      to FILE (for `jacket test --list`)
+// It takes no options. It prints what it found on standard output as records, the framing the
+// test program's own records use (`\x02`, the kind, each field after `\x1f`, then `\x03`):
+//     manifest    one per test and bench: kind, name, file, line, then its notes
+//     source      one per line of the code it adds, for a program that adds it itself, since
+//                 `-interp` compiles much less of a program than a build with a plugin does
+//                 (`jacket test --interp`)
+//     discovered  last: everything above is out
+// Printing works for a target whose compile-time code cannot write files (`-os wasm`).
 //
 // Only procedures of the main program are collected, and only those at file level outside
 // `#scope_file`, since the table is added at the top level and has to name them.
@@ -39,11 +34,6 @@ GENERATE_NOTE :: "generate(";
 
 Discovery :: struct {
     #as using base: Metaprogram_Plugin;
-    manifest_path: string;
-    print_manifest: bool;
-    registry_path: string;
-    cases_path: string;
-    skip_compile_time: bool;
     found: [..] Found;
     added: bool;
 }
@@ -63,34 +53,8 @@ Found :: struct {
 }
 
 init :: (plugin: *Metaprogram_Plugin, options: [] string) -> bool {
-    discovery := cast(*Discovery) plugin;
-    i := 0;
-
-    while i < options.count {
-        option := options[i];
-
-        if option == "-print-manifest" {
-            discovery.print_manifest = true;
-            i += 1;
-            continue;
-        }
-
-        if option == "-no-compile-time" {
-            discovery.skip_compile_time = true;
-            i += 1;
-            continue;
-        }
-
-        if (option == "-manifest" || option == "-registry" || option == "-cases") && i + 1 < options.count {
-            if option == "-manifest" discovery.manifest_path = options[i + 1];
-            else if option == "-registry" discovery.registry_path = options[i + 1];
-            else discovery.cases_path = options[i + 1];
-
-            i += 2;
-            continue;
-        }
-
-        print("Testing/Discovery: unknown option '%'\n", option);
+    if options.count {
+        print("Testing/Discovery: unknown option '%'\n", options[0]);
 
         return false;
     }
@@ -99,7 +63,7 @@ init :: (plugin: *Metaprogram_Plugin, options: [] string) -> bool {
 }
 
 log_help :: (plugin: *Metaprogram_Plugin) {
-    print("Testing/Discovery: -manifest FILE writes the tests found (-print-manifest prints them); -registry FILE writes the added source; -cases FILE writes the cases of @cases tests.\n");
+    print("Testing/Discovery: takes no options; it prints the tests it found and the code it adds, for jacket test.\n");
 }
 
 add_source :: (plugin: *Metaprogram_Plugin) {
@@ -294,11 +258,11 @@ property_call :: (found: Found) -> string {
     return builder_to_string(*builder,, temp);
 }
 
-// One field of the manifest: tabs and line breaks would split it.
+// One field of a record: the bytes that frame records would split it.
 field :: (text: string) -> string {
     copy := copy_string(text,, temp);
     for *copy {
-        if it.* == #char "\t" || it.* == #char "\n" || it.* == #char "\r" it.* = #char " ";
+        if it.* == 0x02 || it.* == 0x03 || it.* == 0x1f || it.* == #char "\n" || it.* == #char "\r" it.* = #char " ";
     }
 
     return copy;
@@ -326,47 +290,45 @@ finish_discovery :: (discovery: *Discovery) {
         if a.file != b.file return compare(a.file, b.file);
         return a.line - b.line;
     });
-    manifest: String_Builder;
+
+    source := registry_source(discovery);
+
+    output: String_Builder;
+    output.allocator = temp;
+
+    for split(source, "\n") emit(*output, "source", it);
 
     for discovery.found {
-        print_to_builder(*manifest, "%\t%\t%\t%", it.kind, it.name, field(it.file), it.line);
-        for note: it.notes print_to_builder(*manifest, "\t%", field(note));
-        append(*manifest, "\n");
+        fields: [..] string;
+        fields.allocator = temp;
+        array_add(*fields, it.kind, it.name, it.file, tprint("%", it.line));
+        for note: it.notes array_add(*fields, note);
+
+        emit(*output, "manifest", ..fields);
     }
 
-    source := registry_source(discovery, true);
-
-    if discovery.registry_path && !write_entire_file(discovery.registry_path, source) {
-        compiler_report(tprint("Testing/Discovery: cannot write %", discovery.registry_path));
-    }
-
-    // The manifest comes last: a reader that waits for it finds the registry done.
-    if discovery.print_manifest {
-        text := builder_to_string(*manifest);
-
-        for line: split(text, "\n") {
-            if line print("jacket-manifest: %\n", line);
-        }
-    }
-
-    if discovery.manifest_path {
-        // Written beside the file and moved into place, so a reader that waits for it sees all of it.
-        partial := tprint("%.partial", discovery.manifest_path);
-
-        if !write_entire_file(partial, builder_to_string(*manifest)) || !file_move(partial, discovery.manifest_path) {
-            compiler_report(tprint("Testing/Discovery: cannot write %", discovery.manifest_path));
-        }
-    }
-
-    // A check that only finds the tests does not run the `@compile_time` ones.
-    add_build_string(ifx discovery.skip_compile_time then registry_source(discovery, false) else source, discovery.workspace);
-
-    if discovery.cases_path add_build_string(list_cases_source(discovery), discovery.workspace);
+    // Last: a reader that waits for it finds everything else out.
+    emit(*output, "discovered");
+    print("%", builder_to_string(*output,, temp));
+    add_build_string(source, discovery.workspace);
 }
 
-// The code that is added to the program: the test table and the entry point. `run_compile_time`
-// says whether it runs the `@compile_time` tests (a `#run`) or leaves their results empty.
-registry_source :: (discovery: *Discovery, run_compile_time: bool) -> string {
+// Appends a record to `output`.
+emit :: (output: *String_Builder, kind: string, fields: ..string) {
+    append(output, "\x02");
+    append(output, kind);
+
+    for fields {
+        append(output, "\x1f");
+        append(output, field(it));
+    }
+
+    append(output, "\x03");
+}
+
+// The code that is added to the program: the test table and the entry point. The `@compile_time`
+// tests run now, in the compiler (a `#run`), and the program replays what they reported.
+registry_source :: (discovery: *Discovery) -> string {
     registry: String_Builder;
 
     append(*registry, "#scope_file\n__jacket_testing :: #import \"Extensions/Testing\";\n");
@@ -376,20 +338,14 @@ registry_source :: (discovery: *Discovery, run_compile_time: bool) -> string {
     for discovery.found if it.kind == "test" && it.compile_time compile_times += 1;
 
     if compile_times {
-        append(*registry, "__jacket_ct_results :: ");
+        append(*registry, "__jacket_ct_results :: #run __jacket_testing.run_compile_time(__jacket_testing.Compile_Time_Case.[\n");
 
-        if run_compile_time {
-            append(*registry, "#run __jacket_testing.run_compile_time(__jacket_testing.Compile_Time_Case.[\n");
-
-            for discovery.found {
-                if it.kind != "test" || !it.compile_time continue;
-                print_to_builder(*registry, "    .{ %, __jacket_ct_% },\n", quote(it.name), it_index);
-            }
-
-            append(*registry, "]);\n");
-        } else {
-            append(*registry, "\"\";\n");
+        for discovery.found {
+            if it.kind != "test" || !it.compile_time continue;
+            print_to_builder(*registry, "    .{ %, __jacket_ct_% },\n", quote(it.name), it_index);
         }
+
+        append(*registry, "]);\n");
     }
 
     position := 0;
@@ -412,9 +368,13 @@ registry_source :: (discovery: *Discovery, run_compile_time: bool) -> string {
 
     for discovery.found {
         if it.kind != "test" continue;
-        flags := "0";
-        for note: it.notes if note == "allow_leaks" flags = ".ALLOW_LEAKS";
-        print_to_builder(*registry, "    .{ %, __jacket_test_%, .{ %, %, 0 }, % },\n", quote(it.name), it_index, quote(it.file), it.line, flags);
+
+        flags: [..] string;
+        flags.allocator = temp;
+        for note: it.notes if note == "allow_leaks" array_add(*flags, ".ALLOW_LEAKS");
+        if it.cases array_add(*flags, ".CASES");
+
+        print_to_builder(*registry, "    .{ %, __jacket_test_%, .{ %, %, 0 }, % },\n", quote(it.name), it_index, quote(it.file), it.line, ifx flags.count then join(..flags, separator = " | ") else "0");
     }
 
     append(*registry, "];\n");
@@ -438,26 +398,7 @@ registry_source :: (discovery: *Discovery, run_compile_time: bool) -> string {
     return builder_to_string(*registry);
 }
 
-// Code that runs at compile time and writes the cases of every `@cases` test.
-list_cases_source :: (discovery: *Discovery) -> string {
-    source: String_Builder;
-
-    append(*source, "#scope_file\n__jacket_testing :: #import \"Extensions/Testing\";\n__jacket_files :: #import \"File\";\n__jacket_builder_module :: #import \"Basic\";\n");
-    append(*source, "__jacket_list :: () {\n    builder: __jacket_builder_module.String_Builder;\n");
-
-    for discovery.found {
-        if it.kind != "test" || !it.cases continue;
-        print_to_builder(*source, "    __jacket_testing.list_cases(*builder, %, %, %);\n", quote(it.name), it.cases, it.name);
-    }
-
-    print_to_builder(*source, "    __jacket_files.write_entire_file(%, __jacket_builder_module.builder_to_string(*builder));\n}\n", quote(discovery.cases_path));
-    append(*source, "#run __jacket_list();\n");
-
-    return builder_to_string(*source);
-}
-
 #import "Basic";
 #import "Compiler";
-#import "File";
 #import "String";
 #import "Sort";

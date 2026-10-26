@@ -3,7 +3,8 @@
 //
 // Command line of a test program:
 //     (nothing)              run every test here, one after another, and print a summary
-//     --list                 print `name<TAB>file<TAB>line` per test
+//     --list                 print a `case` record (test, case) to standard output per case of
+//                            each `@cases` test, and run nothing
 //     --run NAME...          run these tests (`test` or `test/subtest`) and report to jacket
 //     --temp DIR             with --run: the I-th test's directory is DIR/I
 //     --accept               snapshots that differ or are new replace the stored ones
@@ -26,6 +27,7 @@ Test_Case :: struct {
 
 Test_Flags :: enum_flags u32 {
     ALLOW_LEAKS;
+    CASES; // a `@cases` test: its body is `run_cases`
 }
 
 run_tests :: (cases: [] Test_Case) {
@@ -98,7 +100,17 @@ run_tests :: (cases: [] Test_Case, benches: [] Bench_Case) {
     if !seed_given run_seed = cast(u64) to_nanoseconds(current_time_consensus()) % 1_000_000_000;
 
     if listing {
-        for cases print("%\t%\t%\n", it.name, it.location.fully_pathed_filename, it.location.line_number);
+        // The body of a `@cases` test is `run_cases`, which names its cases instead of running them.
+        listing_cases = true;
+
+        for cases {
+            if !(it.flags & .CASES) continue;
+
+            lister: Test;
+            lister.name = it.name;
+            it.body(*lister);
+        }
+
         return;
     }
 
@@ -161,6 +173,8 @@ seed_given := false;
 quiet := false;
 // Whether results go to jacket as records (`--run`) or to a person (no arguments).
 reporting := false;
+// Whether `run_cases` names its cases (`--list`) instead of running them.
+listing_cases := false;
 // The subtest path asked for under the test that runs (`a/b` asks for `b` under `a`).
 requested := "";
 current: *Test;
@@ -215,6 +229,11 @@ run_cleanups :: (t: *Test) {
     }
 
     array_reset(*t.cleanups);
+}
+
+// Tells jacket the cases of the test being listed (`--list`).
+list_case_names :: (t: *Test, names: [] string) {
+    for names write_record(to_standard_error = false, "case", t.name, it);
 }
 
 running_location :: () -> Source_Code_Location {

@@ -1,32 +1,28 @@
 //! Building a root's unit tests: one program from all of its unit test files.
 //!
 //! jacket writes a root file that `#load`s them and compiles it with the Testing module's
-//! Discovery plugin (`+Extensions/Testing/Discovery`), which writes the manifest of tests and
-//! adds the table of tests and the entry point. One compile does both, for every mode:
+//! Discovery plugin (`+Extensions/Testing/Discovery`), which prints the tests it found and the
+//! code it adds (the table of tests and the entry point) as records on standard output. One
+//! compile finds the tests and builds them, for every mode:
 //!
-//! - a native build writes the manifest to a file and the program to an executable;
-//! - a wasm build prints the manifest on standard output (`-print-manifest`), since compile-time
-//!   code of a wasm target cannot write files, and writes the module;
+//! - a build (native or `-os wasm`) writes the program to an executable or module;
 //! - `--interp` has no program to build, and every process compiles by itself. A plugin makes
 //!   the compiler check all of the root, which costs about three times as much as running it
-//!   does, so the plugin also writes the added code to a file, and a second root file loads the
-//!   tests and that code and names the entry point in a `#run`: `program.jai`, which the
-//!   processes run. The process that will run the first tests is the one with the plugin: it is
-//!   started at once and compiles while jacket reads the manifest, then waits for a file with
-//!   its arguments (`--args-from`), which jacket writes when it hands the process its first
-//!   tests.
-use super::exec::{Invocation, kill_tree};
+//!   does, so a second root file loads the tests and the code the plugin printed and names the
+//!   entry point in a `#run`: `program.jai`, which all processes but the first run. The first
+//!   is started at once with the plugin: it compiles while jacket reads what it printed, then
+//!   waits for a file with its arguments (`--args-from`), which jacket writes when it hands the
+//!   process its first tests;
+//! - `--list` is that first process too, told to name the cases of the `@cases` tests (`--list`)
+//!   and not to run anything.
+use super::exec::{self, Demux, Invocation, Piece, Started};
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command};
+use std::process::Command;
 use std::sync::Mutex;
-use std::time::Duration;
 
 pub const PLUGIN: &str = "+Extensions/Testing/Discovery";
 
-/// The line of standard output that carries a manifest line (`-print-manifest`).
 const ENTRY_POINT: &str = "__jacket_test_main";
-
-const MANIFEST_LINE: &str = "jacket-manifest: ";
 
 /// How to compile: the compiler, the flags every compile gets, and how tests run.
 #[derive(Clone, Debug)]
@@ -61,7 +57,7 @@ pub struct Built {
     pub program: PathBuf,
     /// `(test, case)` per case of the `@cases` tests, found when only listing.
     pub cases: Vec<(String, String)>,
-    /// With `--interp`, the process that compiled while the manifest was read, waiting for the
+    /// With `--interp`, the process that compiled while its records were read, waiting for the
     /// tests it runs. The first run of the root takes it.
     pub warm: Mutex<Option<Warm>>,
 }
@@ -69,16 +65,15 @@ pub struct Built {
 /// A test program that is already compiling and waits for its arguments.
 #[derive(Debug)]
 pub struct Warm {
-    child: Option<Child>,
+    process: Option<Started>,
     plan: PathBuf,
 }
 
 impl Drop for Warm {
     fn drop(&mut self) {
         // Nothing took it: stop it and what it started.
-        if let Some(child) = self.child.as_mut() {
-            kill_tree(child);
-            let _ = child.wait();
+        if let Some(process) = self.process.as_mut() {
+            process.kill();
         }
     }
 }
@@ -101,31 +96,58 @@ fn literal(path: &Path) -> String {
     format!("\"{}\"", text.replace('"', "\\\""))
 }
 
-pub fn parse_manifest(text: &str) -> Vec<Entry> {
-    text.lines()
-        .filter_map(|line| {
-            let mut fields = line.split('\t');
-            let kind = fields.next()?.to_string();
-            let name = fields.next()?.to_string();
-            let file = PathBuf::from(fields.next()?);
-            let line = fields.next()?.parse().ok()?;
+/// What the plugin printed: the records of standard output, the fields of each (the kind first).
+pub fn records(output: &[u8]) -> Vec<Vec<String>> {
+    Demux::default()
+        .feed(output)
+        .into_iter()
+        .filter_map(|piece| match piece {
+            Piece::Record(fields) => Some(fields),
+            Piece::Text(_) => None,
+        })
+        .collect()
+}
+
+/// The tests and benches among the plugin's `manifest` records.
+fn manifest(records: &[Vec<String>]) -> Vec<Entry> {
+    records
+        .iter()
+        .filter(|fields| fields[0] == "manifest")
+        .filter_map(|fields| {
+            let line = fields.get(4)?.parse().ok()?;
             Some(Entry {
-                kind,
-                name,
-                file,
+                kind: fields.get(1)?.clone(),
+                name: fields.get(2)?.clone(),
+                file: PathBuf::from(fields.get(3)?),
                 line,
-                notes: fields.map(String::from).collect(),
+                notes: fields[5..].to_vec(),
             })
         })
         .collect()
 }
 
-/// `test<TAB>case` per line.
-pub fn parse_cases(text: &str) -> Vec<(String, String)> {
-    text.lines()
-        .filter_map(|line| line.split_once('\t'))
-        .map(|(test, case)| (test.to_string(), case.to_string()))
+/// The code the plugin added, from its `source` records.
+fn added_source(records: &[Vec<String>]) -> String {
+    let lines: Vec<&str> = records
+        .iter()
+        .filter(|fields| fields[0] == "source")
+        .map(|fields| fields.get(1).map_or("", String::as_str))
+        .collect();
+    lines.join("\n")
+}
+
+/// `(test, case)` per `case` record the test program wrote.
+fn cases(records: &[Vec<String>]) -> Vec<(String, String)> {
+    records
+        .iter()
+        .filter(|fields| fields[0] == "case" && fields.len() == 3)
+        .map(|fields| (fields[1].clone(), fields[2].clone()))
         .collect()
+}
+
+/// Whether the plugin ran to its end.
+fn discovered(records: &[Vec<String>]) -> bool {
+    records.iter().any(|fields| fields[0] == "discovered")
 }
 
 /// The output of a compile that failed, for the user.
@@ -135,8 +157,8 @@ pub fn compile_output(output: &std::process::Output) -> String {
     text
 }
 
-/// Builds the unit tests of `files` in `work` (a fresh folder). `list` only type-checks: the
-/// manifest is all that is needed.
+/// Builds the unit tests of `files` in `work` (a fresh folder). With `list` nothing is built:
+/// the tests and the cases of the `@cases` tests are found.
 pub fn unit(
     files: &[PathBuf],
     root_flags: &[String],
@@ -150,57 +172,20 @@ pub fn unit(
         loads.push_str(&format!("#load {};\n", literal(file)));
     }
     let root = work.join("tests.jai");
-    let manifest = work.join("manifest.tsv");
     write(&root, &loads)?;
-    // Compile-time code of a wasm target runs in the interpreter's sandbox, whose files are not
-    // the disk's: its manifest goes to standard output.
+    if list || toolchain.interp {
+        return interpreted(&loads, &root, work, root_flags, toolchain, list);
+    }
     let wasm = targets_wasm(toolchain);
-    let built = |entries: Vec<Entry>, program: PathBuf| Built {
-        entries,
-        program,
-        cases: Vec::new(),
-        warm: Mutex::new(None),
-    };
-    let mut command = Command::new(&toolchain.jaic);
-    command.current_dir(work);
-    if list {
-        // Finds the tests (and the cases of `@cases` tests, which a wasm target could not write
-        // out): the host's view of them.
-        let case_file = work.join("cases.tsv");
-        let flags = if wasm {
-            host_flags(&toolchain.flags)
-        } else {
-            toolchain.flags.clone()
-        };
-        command
-            .arg(&root)
-            .arg("-quiet")
-            .args(&flags)
-            .args(root_flags)
-            .args(["-check", PLUGIN, "-manifest"])
-            .arg(&manifest)
-            .arg("-cases")
-            .arg(&case_file)
-            .arg("-no-compile-time");
-        run_jaic(&mut command, toolchain)?;
-        return Ok(Built {
-            cases: parse_cases(&std::fs::read_to_string(&case_file).unwrap_or_default()),
-            ..built(
-                parse_manifest(&std::fs::read_to_string(&manifest).unwrap_or_default()),
-                PathBuf::new(),
-            )
-        });
-    }
-    if toolchain.interp {
-        return interpreted(&loads, &root, work, root_flags, toolchain, built);
-    }
     let exe = work.join(if wasm {
         "tests.wasm"
     } else {
         "tests"
     });
     let report = work.join("exe.txt");
+    let mut command = Command::new(&toolchain.jaic);
     command
+        .current_dir(work)
         .arg(&root)
         .arg("-quiet")
         .args(&toolchain.flags)
@@ -212,136 +197,111 @@ pub fn unit(
         command.arg("-coverage");
     }
     command.arg(PLUGIN);
-    let entries = if wasm {
-        parse_manifest(&manifest_lines(&run_jaic_output(
-            command.arg("-print-manifest"),
-            toolchain,
-        )?))
-    } else {
-        run_jaic(command.arg("-manifest").arg(&manifest), toolchain)?;
-        parse_manifest(&std::fs::read_to_string(&manifest).unwrap_or_default())
-    };
-    Ok(built(entries, reported_exe(&report, exe)))
+    let found = records(&run_jaic(&mut command, toolchain)?);
+    Ok(Built {
+        entries: manifest(&found),
+        program: reported_exe(&report, exe),
+        cases: Vec::new(),
+        warm: Mutex::new(None),
+    })
 }
 
-/// The unit tests of a root under `--interp`. Without a program to build, jacket needs the
-/// manifest to plan the run: the process that will run the first tests is started now and
-/// writes it as soon as the plugin has found the tests.
+/// The unit tests of a root under `--interp`, or listed. Without a program to build, jacket
+/// needs the tests to plan the run: the process that will run the first tests is started now and
+/// prints them as soon as the plugin has found them.
 fn interpreted(
     loads: &str,
     root: &Path,
     work: &Path,
     root_flags: &[String],
     toolchain: &Toolchain,
-    built: impl Fn(Vec<Entry>, PathBuf) -> Built,
+    list: bool,
 ) -> Result<Built, String> {
-    let manifest = work.join("manifest.tsv");
-    let registry = work.join("registry.jai");
-    let program = work.join("program.jai");
-    let source = format!(
-        "{loads}#load {};\n#run {{\n    C :: #import \"Compiler\";\n    options := C.get_build_options();\n    options.entry_point_name = \"{ENTRY_POINT}\";\n    C.set_build_options(options);\n}}\n",
-        literal(&registry)
-    );
-    let wasm = targets_wasm(toolchain);
-    if wasm || toolchain.coverage {
-        // Every run gets its own coverage folder in its environment, which a process started now
-        // would not have; compile-time code of a wasm target cannot write the files. A check for
-        // the host finds the tests and writes the code, and each run compiles by itself.
-        let flags = if wasm {
-            host_flags(&toolchain.flags)
-        } else {
-            toolchain.flags.clone()
-        };
-        let mut command = Command::new(&toolchain.jaic);
-        command
-            .arg(root)
-            .arg("-quiet")
-            .args(&flags)
-            .args(root_flags)
-            .args(["-check", PLUGIN, "-no-compile-time", "-manifest"])
-            .arg(&manifest)
-            .arg("-registry")
-            .arg(&registry)
-            .current_dir(work);
-        run_jaic(&mut command, toolchain)?;
-        write(&program, &source)?;
-        if wasm {
-            // The check was for the host: check the program for its target too, so a compile
-            // error is reported once and not by every test.
-            let mut command = Command::new(&toolchain.jaic);
-            command
-                .arg(&program)
-                .arg("-check")
-                .arg("-quiet")
-                .args(&toolchain.flags)
-                .args(root_flags)
-                .current_dir(work);
-            run_jaic(&mut command, toolchain)?;
-        }
-        let entries = parse_manifest(&std::fs::read_to_string(&manifest).unwrap_or_default());
-        return Ok(built(entries, program));
-    }
     let plan = work.join("plan.txt");
+    // A process can wait for its arguments only if what it prints reaches jacket before it ends
+    // and it can read the file: neither holds for a wasm target, whose program runs in the
+    // interpreter's sandbox. That one, and a listing, run to their end with `--list` and
+    // compile again for each run.
+    let waits = !list && !targets_wasm(toolchain);
+    // A listing is of the tests, not of a target: the host's view of them.
+    let flags = if list {
+        host_flags(&toolchain.flags)
+    } else {
+        toolchain.flags.clone()
+    };
     let mut args = vec![path_text(root), "-interp".into(), "-quiet".into()];
-    args.extend(toolchain.flags.iter().cloned());
+    args.extend(flags);
     args.extend(root_flags.iter().cloned());
-    args.extend([PLUGIN.into(), "-manifest".into(), path_text(&manifest)]);
-    args.extend(["-registry".into(), path_text(&registry)]);
-    args.extend(["--".into(), "--args-from".into(), path_text(&plan)]);
-    let mut child = super::exec::spawn(&Invocation {
+    args.extend([PLUGIN.into(), "--".into()]);
+    if waits {
+        args.extend(["--args-from".into(), path_text(&plan)]);
+    } else {
+        args.push("--list".into());
+    }
+    let mut process = exec::start(&Invocation {
         program: toolchain.jaic.clone(),
         args,
         cwd: work.to_path_buf(),
         env: Vec::new(),
     })
     .map_err(|e| format!("could not start `{}`: {e}", toolchain.jaic.display()))?;
-    // The plugin moves the manifest into place whole, after the code it adds, once it has found
-    // the tests; a process that ends first did not compile.
-    let entries = loop {
-        if let Ok(text) = std::fs::read_to_string(&manifest) {
-            break parse_manifest(&text);
-        }
-        match child.try_wait() {
-            Ok(Some(_)) => {
-                let output = child.wait_with_output().map_err(|e| e.to_string())?;
-                return Err(compile_output(&output));
-            }
-            Ok(None) => std::thread::sleep(Duration::from_millis(3)),
-            Err(e) => return Err(e.to_string()),
-        }
+    let found = process.records(waits.then_some("discovered"));
+    // A process that ends first did not compile.
+    if !discovered(&found) {
+        return Err(process.failure());
+    }
+    let mut result = Built {
+        entries: manifest(&found),
+        program: PathBuf::new(),
+        cases: Vec::new(),
+        warm: Mutex::new(None),
     };
-    write(&program, &source)?;
-    let result = built(entries, program);
-    *result.warm.lock().expect("lock") = Some(Warm {
-        child: Some(child),
-        plan,
-    });
+    let warm = if waits {
+        Some(process)
+    } else {
+        process.finish()?;
+        None
+    };
+    if list {
+        result.cases = cases(&found);
+        return Ok(result);
+    }
+    let registry = work.join("registry.jai");
+    result.program = work.join("program.jai");
+    write(&registry, &added_source(&found))?;
+    write(
+        &result.program,
+        &format!(
+            "{loads}#load {};\n#run {{\n    C :: #import \"Compiler\";\n    options := C.get_build_options();\n    options.entry_point_name = \"{ENTRY_POINT}\";\n    C.set_build_options(options);\n}}\n",
+            literal(&registry)
+        ),
+    )?;
+    if warm.is_some() {
+        *result.warm.lock().expect("lock") = Some(Warm {
+            process: warm,
+            plan,
+        });
+    }
     Ok(result)
 }
 
-/// The manifest lines a compile printed (`-print-manifest`).
-fn manifest_lines(output: &str) -> String {
-    output
-        .lines()
-        .filter_map(|line| line.strip_prefix(MANIFEST_LINE))
-        .fold(String::new(), |mut text, line| {
-            text.push_str(line);
-            text.push('\n');
-            text
-        })
-}
-
-fn run_jaic(command: &mut Command, toolchain: &Toolchain) -> Result<(), String> {
-    run_jaic_output(command, toolchain).map(|_| ())
+/// Hands the process waiting for `--args-from plan` its arguments, one per line. The file is
+/// moved into place whole, for a process that waits for it.
+fn write_plan(plan: &Path, arguments: &[String]) -> Result<(), String> {
+    let mut text = arguments.join("\n");
+    text.push('\n');
+    let partial = plan.with_extension("partial");
+    write(&partial, &text)?;
+    std::fs::rename(&partial, plan).map_err(|e| format!("cannot write {}: {e}", plan.display()))
 }
 
 /// Runs a compile and returns what it printed on standard output.
-fn run_jaic_output(command: &mut Command, toolchain: &Toolchain) -> Result<String, String> {
+fn run_jaic(command: &mut Command, toolchain: &Toolchain) -> Result<Vec<u8>, String> {
     let output = command
         .output()
         .map_err(|e| format!("could not start `{}`: {e}", toolchain.jaic.display()))?;
     if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+        Ok(output.stdout)
     } else {
         Err(compile_output(&output))
     }
@@ -375,6 +335,7 @@ fn host_flags(flags: &[String]) -> Vec<String> {
 fn write(path: &Path, text: &str) -> Result<(), String> {
     std::fs::write(path, text).map_err(|e| format!("cannot write {}: {e}", path.display()))
 }
+
 
 /// What every run of a test program is told besides the tests to run.
 #[derive(Clone, Copy, Debug)]
@@ -435,17 +396,13 @@ pub fn invocation(
     }
 }
 
+
 /// With `--interp`, the process that compiled the root while jacket planned, told to run `names`
 /// (once; later runs compile by themselves). `None` when there is no such process.
-pub fn warm_start(built: &Built, names: &[String], temp: &Path, run: &RunFlags) -> Option<Child> {
+pub fn warm_start(built: &Built, names: &[String], temp: &Path, run: &RunFlags) -> Option<Started> {
     let mut warm = built.warm.lock().ok()?.take()?;
-    let mut text = run_arguments(names, temp, run).join("\n");
-    text.push('\n');
-    // Moved into place whole, for a process that waits for the file.
-    let partial = warm.plan.with_extension("partial");
-    std::fs::write(&partial, text).ok()?;
-    std::fs::rename(&partial, &warm.plan).ok()?;
-    warm.child.take()
+    write_plan(&warm.plan, &run_arguments(names, temp, run)).ok()?;
+    warm.process.take()
 }
 
 /// `exe`, or the runner with `exe` as its first argument.
@@ -464,21 +421,51 @@ pub fn program_and_args(exe: &Path, runner: &[String]) -> (PathBuf, Vec<String>)
 mod tests {
     use super::*;
 
+    fn record(fields: &[&str]) -> Vec<String> {
+        fields.iter().map(ToString::to_string).collect()
+    }
+
     #[test]
-    fn manifest_lines_are_entries() {
-        let entries = parse_manifest(
-            "test\tadds\t/a/t.jai\t4\ttimeout(5)\tserial\nbench\tb\t/a/t.jai\t9\n\n",
-        );
+    fn manifest_records_are_entries() {
+        let entries = manifest(&[
+            record(&[
+                "manifest",
+                "test",
+                "adds",
+                "/a/t.jai",
+                "4",
+                "timeout(5)",
+                "serial",
+            ]),
+            record(&["source", "x"]),
+            record(&["manifest", "bench", "b", "/a/t.jai", "9"]),
+            record(&["manifest", "test", "short"]),
+        ]);
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].notes, ["timeout(5)", "serial"]);
         assert_eq!((entries[1].kind.as_str(), entries[1].line), ("bench", 9));
     }
 
     #[test]
-    fn case_lines_pair_a_test_with_a_case() {
-        let cases = parse_cases("lengths\t\"\",0\nlengths\ta,1\nnoise\ncolors\tRED\n");
+    fn the_plugins_output_is_records_among_noise() {
+        let output = b"noise\n\x02source\x1f#scope_file\x03\x02source\x1f\x03\x02source\x1fx :: 1;\x03more\x02manifest\x1ftest\x1fadds\x1f/a/t.jai\x1f4\x03\x02discovered\x03";
+        let found = records(output);
+        assert_eq!(manifest(&found).len(), 1);
+        assert_eq!(added_source(&found), "#scope_file\n\nx :: 1;");
+        assert!(discovered(&found));
+        assert!(!discovered(&records(b"nothing here\n")));
+    }
+
+    #[test]
+    fn case_records_pair_a_test_with_a_case() {
+        let named = cases(&[
+            record(&["case", "lengths", "\"\",0"]),
+            record(&["case", "lengths", "a,1"]),
+            record(&["start", "noise"]),
+            record(&["case", "colors", "RED"]),
+        ]);
         assert_eq!(
-            cases,
+            named,
             [
                 ("lengths".to_string(), "\"\",0".to_string()),
                 ("lengths".to_string(), "a,1".to_string()),
@@ -527,16 +514,6 @@ mod tests {
     }
 
     #[test]
-    fn printed_manifest_lines_are_picked_out_of_the_output() {
-        let output = "noise\njacket-manifest: test\tadds\t/a/t.jai\t4\nmore noise\njacket-manifest: bench\tb\t/a/t.jai\t9\t\n";
-        let entries = parse_manifest(&manifest_lines(output));
-        assert_eq!(entries.len(), 2);
-        assert_eq!(entries[0].name, "adds");
-        assert_eq!(entries[1].kind, "bench");
-        assert!(manifest_lines("nothing here\n").is_empty());
-    }
-
-    #[test]
     fn a_wasm_target_is_found_in_the_flags_too() {
         let toolchain = |os: &str, flags: &[&str]| Toolchain {
             jaic: PathBuf::from("jaic"),
@@ -566,7 +543,7 @@ mod tests {
             program: PathBuf::from("/b/program.jai"),
             cases: Vec::new(),
             warm: Mutex::new(Some(Warm {
-                child: None,
+                process: None,
                 plan: plan.clone(),
             })),
         };

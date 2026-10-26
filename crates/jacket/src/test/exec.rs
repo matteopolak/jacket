@@ -103,7 +103,7 @@ pub enum Piece {
 }
 
 /// Splits a stream into text and records, across reads.
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct Demux {
     pending: Vec<u8>,
     in_record: bool,
@@ -163,6 +163,7 @@ impl Demux {
     }
 }
 
+#[derive(Debug)]
 enum Chunk {
     Out(Vec<u8>),
     Err(Vec<u8>),
@@ -245,14 +246,104 @@ pub fn top_name(name: &str) -> &str {
     name.split('/').next().unwrap_or(name)
 }
 
-/// Runs `invocation` to its end, reading its records.
-pub fn run(invocation: &Invocation, limits: &Limits, live: &mut dyn FnMut(Live)) -> Outcome {
-    run_child(spawn(invocation), invocation, limits, live)
+/// A started process whose output is being read. Its first records can be taken before the rest
+/// goes to [`run_child`].
+#[derive(Debug)]
+pub struct Started {
+    child: Child,
+    rx: mpsc::Receiver<Chunk>,
+    open: usize,
+    out: Demux,
+    /// What was read while taking records, for `run_child` to see in its turn.
+    backlog: Vec<Chunk>,
 }
 
-/// Reads the records of `child`, which was started for `invocation` (or failed to start).
+/// Starts `invocation` and begins reading its output.
+pub fn start(invocation: &Invocation) -> std::io::Result<Started> {
+    let mut child = spawn(invocation)?;
+    let (tx, rx) = mpsc::channel();
+    reader(child.stdout.take().expect("piped"), true, tx.clone());
+    reader(child.stderr.take().expect("piped"), false, tx);
+    Ok(Started {
+        child,
+        rx,
+        open: 2,
+        out: Demux::default(),
+        backlog: Vec::new(),
+    })
+}
+
+impl Started {
+    /// Reads standard output's records until one of kind `until`, or to the end of the process's
+    /// output without one. Everything else it prints is kept for `run_child`.
+    pub fn records(&mut self, until: Option<&str>) -> Vec<Vec<String>> {
+        let mut records = Vec::new();
+        let mut done = false;
+        while self.open > 0 && !done {
+            match self.rx.recv() {
+                Ok(Chunk::Closed) => self.open -= 1,
+                Ok(chunk @ Chunk::Err(_)) => self.backlog.push(chunk),
+                Ok(Chunk::Out(bytes)) => {
+                    for piece in self.out.feed(&bytes) {
+                        match piece {
+                            Piece::Text(text) => self.backlog.push(Chunk::Out(text)),
+                            // What follows the record asked for is for the run, as it was.
+                            Piece::Record(fields) if done => {
+                                let text = format!("\x02{}\x03", fields.join("\x1f"));
+                                self.backlog.push(Chunk::Out(text.into_bytes()));
+                            }
+                            Piece::Record(fields) => {
+                                done = until.is_some_and(|kind| fields[0] == kind);
+                                records.push(fields);
+                            }
+                        }
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+        records
+    }
+
+    /// What the process printed besides records, once it has ended: its errors, then the rest.
+    pub fn failure(mut self) -> String {
+        let _ = self.child.wait();
+        let mut text = Vec::new();
+        for want_err in [true, false] {
+            for chunk in &self.backlog {
+                match chunk {
+                    Chunk::Err(bytes) if want_err => text.extend_from_slice(bytes),
+                    Chunk::Out(bytes) if !want_err => text.extend_from_slice(bytes),
+                    _ => {}
+                }
+            }
+        }
+        String::from_utf8_lossy(&text).into_owned()
+    }
+
+    /// Waits for the process to end: `Err` with what it printed besides records if it failed.
+    pub fn finish(mut self) -> Result<(), String> {
+        match self.child.wait() {
+            Ok(status) if status.success() => Ok(()),
+            _ => Err(self.failure()),
+        }
+    }
+
+    /// Stops it and what it started.
+    pub fn kill(&mut self) {
+        kill_tree(&mut self.child);
+        let _ = self.child.wait();
+    }
+}
+
+/// Runs `invocation` to its end, reading its records.
+pub fn run(invocation: &Invocation, limits: &Limits, live: &mut dyn FnMut(Live)) -> Outcome {
+    run_child(start(invocation), invocation, limits, live)
+}
+
+/// Reads the records of a process started for `invocation` (or that failed to start).
 pub fn run_child(
-    child: std::io::Result<Child>,
+    process: std::io::Result<Started>,
     invocation: &Invocation,
     limits: &Limits,
     live: &mut dyn FnMut(Live),
@@ -264,8 +355,14 @@ pub fn run_child(
         preamble_stdout: Vec::new(),
         preamble: Vec::new(),
     };
-    let mut child = match child {
-        Ok(child) => child,
+    let Started {
+        mut child,
+        rx,
+        mut open,
+        backlog,
+        ..
+    } = match process {
+        Ok(process) => process,
         Err(error) => {
             outcome.ending = Ending::NotStarted(format!(
                 "could not start `{}`: {error}",
@@ -274,14 +371,17 @@ pub fn run_child(
             return outcome;
         }
     };
-    let (tx, rx) = mpsc::channel();
-    reader(child.stdout.take().expect("piped"), true, tx.clone());
-    reader(child.stderr.take().expect("piped"), false, tx);
     let mut state = State {
         last_end: Some(Instant::now()),
         ..State::default()
     };
-    let mut open = 2;
+    for chunk in backlog {
+        match chunk {
+            Chunk::Out(bytes) => state.stdout(&bytes, &mut outcome, limits.stream, live),
+            Chunk::Err(bytes) => state.stderr(&bytes, &mut outcome, limits.stream, live),
+            Chunk::Closed => {}
+        }
+    }
     let mut timed_out = false;
     while open > 0 {
         let now = Instant::now();
@@ -597,6 +697,33 @@ mod process_tests {
         assert_eq!(outcome.tests[0].failures[0].line, 7);
         assert_eq!(outcome.tests[1].end, None);
         assert_eq!(outcome.ending, Ending::Exited(3));
+    }
+
+    #[test]
+    fn records_taken_first_leave_the_rest_for_the_run() {
+        let limits = Limits {
+            timeout: &no_limit,
+            slow: None,
+            stream: false,
+        };
+        let body = r"printf 'noise\002manifest\037t\003\002done\003'; printf 'warn' >&2; printf '\002start\037a\003out'; printf '\002start\037a\003\002end\037a\037pass\003' >&2";
+        let mut process = start(&script(body)).unwrap();
+        let taken = process.records(Some("done"));
+        assert_eq!(taken[0], ["manifest", "t"]);
+        assert_eq!(taken.last().unwrap(), &["done"]);
+        let outcome = run_child(Ok(process), &script(body), &limits, &mut |_| {});
+        assert_eq!(outcome.tests.len(), 1, "{outcome:?}");
+        assert_eq!(outcome.tests[0].end.as_deref(), Some("pass"));
+        // What the process printed before the record is still seen, ahead of the test's own.
+        assert_eq!(outcome.tests[0].stdout, b"noiseout");
+        assert_eq!(outcome.tests[0].stderr, b"warn");
+    }
+
+    #[test]
+    fn a_process_that_ends_without_the_record_says_what_it_printed() {
+        let mut process = start(&script("echo out; echo bad >&2; exit 1")).unwrap();
+        assert!(process.records(Some("done")).is_empty());
+        assert_eq!(process.failure(), "bad\nout\n");
     }
 
     #[test]

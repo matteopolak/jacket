@@ -21,6 +21,13 @@
 // ```
 run_cases :: (t: *Test, cases: [] $T, $body: $B) -> bool {
     names := case_names(cases, body);
+
+    if listing_cases {
+        list_case_names(t, names);
+
+        return true;
+    }
+
     passed := true;
 
     for cases {
@@ -76,13 +83,6 @@ case_names :: (cases: [] $T, body: $B) -> [] string {
     }
 
     return names;
-}
-
-#scope_module
-
-// Appends `test<TAB>case` per case, for `jacket test --list`.
-list_cases :: (builder: *String_Builder, test: string, cases: [] $T, body: $B) {
-    for case_names(cases, body) print_to_builder(builder, "%\t%\n", test, it);
 }
 
 #scope_file
