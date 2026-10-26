@@ -1,7 +1,7 @@
 //! Compiler intrinsics and wide-float operations.
 use super::rets::Rets;
 use super::trap::null_access;
-use super::{Interp, Res, machine, native};
+use super::{Interp, Res, host_insts, native};
 use crate::ir::{self, CmpOp, Ty};
 
 impl Interp {
@@ -133,7 +133,7 @@ impl Interp {
             I::ReturnAddress => Rets::one(0),
             I::CycleCounter => {
                 self.effects += 1;
-                Rets::one(machine::cycle_counter()?)
+                Rets::one(host_insts::cycle_counter()?)
             }
             I::X86Timestamp {
                 ..
@@ -146,7 +146,7 @@ impl Interp {
             | I::X86Pause
             | I::X86Prefetch(_) => {
                 self.effects += 1;
-                let results = machine::execute(op, a)?;
+                let results = host_insts::execute(op, a)?;
                 if op == I::X86Pause && self.multi && self.host.cooperative_threads() {
                     self.inline_poll();
                 }

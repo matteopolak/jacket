@@ -1,4 +1,8 @@
-//! Executing one op of a procedure.
+//! The slow path of interpretation: runs one IR instruction directly.
+//!
+//! `code::build` lowers the common instructions to `Op`s; whatever it does not lower
+//! (calls through values, intrinsics, rare shapes) stays an `Ir` op and runs here, so this
+//! is the fallback of the op loop and not a second interpreter.
 use super::arith::{bin_total, cmp, conv, divides, int_bin, mask};
 use super::frames::Frame;
 use super::trap::TrapKind;
@@ -6,7 +10,7 @@ use super::{FOREIGN_TAG, FUNC_TAG, Interp, Res, TAG_MASK};
 use crate::ir::{self, BinOp, Callee, ForeignId, FuncId, Inst, Program, Ty, UnOp};
 
 impl Interp {
-    pub(super) fn step(
+    pub(super) fn exec_ir(
         &mut self,
         program: &Program,
         inst: &Inst,

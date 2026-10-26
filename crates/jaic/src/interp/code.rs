@@ -14,7 +14,7 @@
 //! - a comparison feeding only the block's branch becomes part of the branch, and
 //! - instructions whose results end up unused (the folded constants) are dropped.
 //!
-//! Calls and intrinsics, which are rare and slow anyway, run through `Interp::step` on the
+//! Calls and intrinsics, which are rare and slow anyway, run through `Interp::exec_ir` on the
 //! original instruction. Profile counts (`-profile`) stay in IR instructions.
 //!
 //! Folding a value into a later instruction reads its operands later than the IR would.

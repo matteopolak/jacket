@@ -1,4 +1,5 @@
-//! Architectural host execution, separated from portable scheduler hints and compiler API hooks.
+//! Architectural host instructions (`rdtsc`, `cpuid`, `xgetbv`, ...) run for the program,
+//! separated from portable scheduler hints and compiler API hooks.
 use super::{Res, Rets, Trap};
 use crate::ir::Intrinsic;
 #[cfg(target_arch = "x86_64")]

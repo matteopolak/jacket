@@ -560,7 +560,8 @@ impl Interp {
                     let inst = &func.blocks[block as usize].insts[inst as usize];
                     // SAFETY: the same registers, borrowed for this one step only.
                     let vals = unsafe { std::slice::from_raw_parts_mut(regs, code.regs) };
-                    if let Err(trap) = self.step(program, inst, vals, frame, stack_base, &func.vals)
+                    if let Err(trap) =
+                        self.exec_ir(program, inst, vals, frame, stack_base, &func.vals)
                     {
                         if trap.suspends_frames() {
                             self.suspend_at = Some(here);
