@@ -38,9 +38,16 @@ CONTRACTS = (
 
 
 def wasm_contract_reason(source):
-    """Why `source` cannot run under Wasm, from its manifest row, or None."""
-    case = next(c for c in validated_entries() if c["path"] == source)
-    return unavailable_reason(case, "wasm-interp")
+    """Why `source` cannot run under Wasm, from its manifest row or its `jacket test` header."""
+    case = next((c for c in validated_entries() if c["path"] == source), None)
+    if case is not None:
+        return unavailable_reason(case, "wasm-interp")
+    for line in source.read_text(encoding="utf-8").splitlines():
+        if not line.startswith("//"):
+            break
+        if "skip_on(" in line and ".WASM" in line:
+            return "the test skips Wasm (`skip_on(.WASM)`)"
+    return None
 
 
 def fault_failures(result, enabled, symbols=(), overflow=False):

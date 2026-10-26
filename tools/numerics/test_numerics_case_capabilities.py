@@ -76,10 +76,7 @@ class NumericsCaseCapabilities(unittest.TestCase):
             unavailable_reason(case, "native", "macos-arm64")
 
     def test_unrelated_cases_and_missing_providers_remain_required(self):
-        for name in (
-            "Math/tests/float16-edge-vectors",
-            "Extensions/Byte_Search/tests/search",
-        ):
+        for name in ("Math/tests/float16-edge-vectors",):
             self.assertIsNone(
                 unavailable_reason(self.cases[name], "native", "macos-arm64")
             )

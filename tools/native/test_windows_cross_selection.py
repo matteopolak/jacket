@@ -126,7 +126,7 @@ class Selection(unittest.TestCase):
                     cross.fixture_unavailable_reason(cases[name], target, "linux-x64")
                 )
             for name in (
-                "Program_Print/tests/plugin-file-output",
+                "Basic/tests/corpus-api/file-compile-time-qualified",
                 "compiler/rules-compile-time-execution",
             ):
                 self.assertIn(
@@ -151,7 +151,6 @@ class Selection(unittest.TestCase):
             "compiler/static-switch-add-context",
             "Extensions/Io/tests/configured-production",
             "Extensions/Json/tests/windows-host-provider",
-            "Extensions/Tls/tests/windows-target",
         )
         for cpu in ("x64", "arm64"):
             for name in required:
@@ -200,7 +199,9 @@ class Selection(unittest.TestCase):
                 patch.object(cross.stdlib_runtime, "use_native_libs") as host,
                 patch.object(cross, "ensure_cross_host_bindings") as bindings,
                 patch.object(cross.subprocess, "run") as build,
-                patch("native.build_native_libs.output_dir", return_value=Path(directory)),
+                patch(
+                    "native.build_native_libs.output_dir", return_value=Path(directory)
+                ),
                 patch.dict(os.environ, {}, clear=False),
             ):
                 cross.use_cross_libs(args)
@@ -217,7 +218,9 @@ class Selection(unittest.TestCase):
                 crash_command = build.call_args_list[2].args[0]
                 self.assertIn("build_platform_io_runtime.py", crash_command[1])
                 self.assertNotIn("--static-library", crash_command)
-                self.assertEqual(crash_command[crash_command.index("--cpu") + 1], "arm64")
+                self.assertEqual(
+                    crash_command[crash_command.index("--cpu") + 1], "arm64"
+                )
                 self.assertEqual(os.environ["JAIC_CROSS_LIBS"], directory)
 
     def test_build_reports_unavailable_and_retains_failure_even_keep_going(self):

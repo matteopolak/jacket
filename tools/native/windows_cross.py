@@ -48,11 +48,8 @@ WINDOWS_PROGRAMS = [
 WINDOWS_BUILD_HOST_CASES = frozenset(
     {
         "Basic/tests/corpus-api/file-compile-time-qualified",
-        "Program_Print/tests/plugin-file-output",
         "compiler/rules-compile-time-execution",
-        "Minimal_Metaprogram/tests/minimal-build",
         "Basic/tests/checked-narrow-cast",
-        "Autorun/tests/basics",
         "BuildCpp/tests/windows",
         "BuildCpp/tests/negative/windows-machine",
         "BuildCpp/tests/negative/compile",
@@ -83,7 +80,6 @@ WINDOWS_HOST_LIBRARY_CASES = frozenset(
         "Extensions/WebGPU/tests/window",
         "Runtime_Support_Crash_Handler/tests/windows-native-sections",
         "Runtime_Support_Crash_Handler/tests/windows-records",
-        "Flat_Pool/tests/release/main",
         "SDL/tests/geometry-timer",
         "Gamepad/tests/shared-sdk",
         "Gamepad/tests/virtual",
@@ -143,7 +139,8 @@ def locates_files_by_source_path(case):
         seen.add(source)
         text = source.read_text(encoding="utf-8", errors="replace")
         if re.search(r"#file(path)?\b", text) and re.search(
-            r"read_entire_file|write_entire_file|set_input_from_file|bitmap_load|bitmap_save|target/|fixtures", text
+            r"read_entire_file|write_entire_file|set_input_from_file|bitmap_load|bitmap_save|target/|fixtures",
+            text,
         ):
             return True
         for name in re.findall(r'#(?:load|import)\s+"([^"]+)"', text):
@@ -178,7 +175,9 @@ def fixture_disabled_reason(case):
 
 def fixture_unavailable_reason(case, platform, build_host):
     # The catalogue knows `windows-arm64`; the `-mingw` suffix only names the cross toolchain.
-    reason = stdlib_runtime.unavailable_reason(case, "native", "-".join(platform.split("-")[:2]))
+    reason = stdlib_runtime.unavailable_reason(
+        case, "native", "-".join(platform.split("-")[:2])
+    )
     if reason:
         return reason
     if (
@@ -254,7 +253,9 @@ def cases(stdlib, platform=None):
             yield (
                 "stdlib-" + case["id"].replace("/", "-"),
                 case["path"],
-                case["error_contains"] if case.get("mode") == "fault" else case.get("exit_code", 0),
+                case["error_contains"]
+                if case.get("mode") == "fault"
+                else case.get("exit_code", 0),
                 case.get("stdout"),
                 True,
             )
@@ -422,10 +423,7 @@ def ensure_cross_host_bindings(host):
     if receipt["native_abi"] != 8 or len(receipt["profiles"]) != 23:
         raise ValueError("cross-host provider build did not verify all23 ABI8 profiles")
     for name, digest in receipt["assets"].items():
-        if (
-            pathlib.Path(name).name != name
-            or sha256_file((output / name)) != digest
-        ):
+        if pathlib.Path(name).name != name or sha256_file((output / name)) != digest:
             raise ValueError(
                 "cross-host provider artifact differs from its build receipt"
             )
@@ -502,10 +500,7 @@ def verified_cross_host_bindings(directory, profiles, required, suffix):
             )
         ):
             raise ValueError("invalid cross-host provider source receipt path")
-        if (
-            not (ROOT / path).is_file()
-            or sha256_file((ROOT / path)) != digest
-        ):
+        if not (ROOT / path).is_file() or sha256_file((ROOT / path)) != digest:
             return False
     assets = receipt.get("assets", {})
     if any("lib" + name + suffix not in assets for name in required):
@@ -570,7 +565,9 @@ def use_cross_libs(args):
         ],
         check=True,
     )
-    CROSS_DLLS.append(ROOT / "stdlib/internal/runtime/crash-native/platform_io_windows_crash.dll")
+    CROSS_DLLS.append(
+        ROOT / "stdlib/internal/runtime/crash-native/platform_io_windows_crash.dll"
+    )
     os.environ["JAIC_CROSS_LIBS"] = str(target_libraries)
     # SDL2 is linked through its import library, so its DLL goes beside the executables.
     CROSS_DLLS.extend(build_native_libs.output_dir(platform).glob("SDL2.dll"))
@@ -625,9 +622,7 @@ def build(args):
             output = stdout + stderr
             if case.get("positive_baseline_id"):
                 baseline = next(
-                    c
-                    for c in catalogue
-                    if c["id"] == case["positive_baseline_id"]
+                    c for c in catalogue if c["id"] == case["positive_baseline_id"]
                 )
                 bcode, bout, berr = stdlib_runtime.run_command(
                     [
@@ -767,7 +762,9 @@ def build(args):
         records.append({"id": case_id, "status": "built", "passed": None})
     if part[0] == 1:
         work = out / "c-structs-src"
-        shutil.copytree(ROOT / "tests/compiler/native/c-structs-by-value", work, dirs_exist_ok=True)
+        shutil.copytree(
+            ROOT / "tests/compiler/native/c-structs-by-value", work, dirs_exist_ok=True
+        )
         error = c_structs_library(args, work)
         if error:
             failures.append(f"c-structs library: {error}")
@@ -788,7 +785,12 @@ def build(args):
                 if error:
                     failures.append(f"{case_id}: {error}")
                     records.append(
-                        {"id": case_id, "status": "failed", "passed": None, "reason": error}
+                        {
+                            "id": case_id,
+                            "status": "failed",
+                            "passed": None,
+                            "reason": error,
+                        }
                     )
                     continue
                 expected[case_id] = {"exit_code": 0, "stdout": stdout}
@@ -848,7 +850,9 @@ def run_environment():
     caller-owned font (Simp/tests/glyph-atlas) get it unless the caller named another."""
     env = dict(os.environ)
     if not env.get("JAIC_TEST_FONT_PATH"):
-        windir = pathlib.Path(env.get("WINDIR") or env.get("SystemRoot") or r"C:\Windows")
+        windir = pathlib.Path(
+            env.get("WINDIR") or env.get("SystemRoot") or r"C:\Windows"
+        )
         font = windir / "Fonts" / "arial.ttf"
         if font.is_file():
             env["JAIC_TEST_FONT_PATH"] = str(font)

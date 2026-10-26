@@ -12,9 +12,11 @@ from stdlib.stdlib_test_catalog import unavailable_reason, validated_entries
 from toolkit.repo import ROOT
 
 CASES = {c["id"]: c for c in validated_entries()}
-SOURCES = {name: CASES[name]["path"] for name in CONTRACTS}
+SOURCES = {name: ROOT / "stdlib" / f"{name}.jai" for name in CONTRACTS}
 NATIVE_ONLY = [n for n in CONTRACTS if wasm_contract_reason(SOURCES[n])]
 SUPPORTED = [n for n in CONTRACTS if n not in NATIVE_ONLY]
+# Contracts whose module moved to `jacket test` have no catalogue row.
+CATALOGUED_SUPPORTED = [n for n in SUPPORTED if n in CASES]
 
 
 class PlatformCapabilityTests(unittest.TestCase):
@@ -119,6 +121,8 @@ class PlatformCapabilityTests(unittest.TestCase):
 
     def test_exact_catalogue_cases_remain_required_on_native_hosts(self):
         for name in NATIVE_ONLY:
+            if name not in CASES:
+                continue
             case = CASES[name]
             for mode in ("wasm-interp", "wasm-native"):
                 self.assertIsNotNone(unavailable_reason(case, mode, "linux-arm64"))
@@ -133,7 +137,9 @@ class PlatformCapabilityTests(unittest.TestCase):
                     self.assertIsNone(unavailable_reason(case, mode, host))
         # The metadata must not become a blanket native-family/module skip.
         self.assertIsNone(
-            unavailable_reason(CASES[SUPPORTED[0]], "wasm-native", "linux-arm64")
+            unavailable_reason(
+                CASES[CATALOGUED_SUPPORTED[0]], "wasm-native", "linux-arm64"
+            )
         )
 
 
