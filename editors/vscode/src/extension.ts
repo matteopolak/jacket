@@ -100,7 +100,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<{ clie
         const server = locate(() => findServer(settings(), nodeEnvironment(), installed?.dir));
         if (server && server.source !== "toolchain") {
           void vscode.window.showInformationMessage(
-            `Jai: downloaded jaic ${result.version}. The ${server.source === "setting" ? "configured" : "PATH"} jailsp (${server.path}) still takes precedence.`,
+            `Jai: downloaded Jacket ${result.version}. The ${server.source === "setting" ? "configured" : "PATH"} jailsp (${server.path}) still takes precedence.`,
           );
         }
         await restart(expansions);

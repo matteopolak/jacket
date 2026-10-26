@@ -103,8 +103,8 @@ export class ToolchainManager {
         return undefined;
       }
       const question = current
-        ? `Download jaic ${this.version} from github.com/${REPOSITORY} to replace the downloaded ${current.version}?`
-        : `Jai: no jailsp was found on PATH or in the settings. Download jaic ${this.version} (jaic, jailsp, jailint, jaifmt and the stdlib) from github.com/${REPOSITORY}?`;
+        ? `Download Jacket ${this.version} from github.com/${REPOSITORY} to replace the downloaded ${current.version}?`
+        : `Jai: no jailsp was found on PATH or in the settings. Download Jacket ${this.version} (jaic, jailsp, jailint, jaifmt, jacket and the stdlib) from github.com/${REPOSITORY}?`;
       const choice = await vscode.window.showInformationMessage(question, "Download", "Cancel", "Don't Ask Again");
       if (choice === "Don't Ask Again") {
         await vscode.workspace.getConfiguration("jai").update("toolchain.autoDownload", "never", vscode.ConfigurationTarget.Global);
@@ -130,7 +130,7 @@ export class ToolchainManager {
       this.showUnsupported();
       return undefined;
     }
-    const title = `Downloading jaic ${this.version} for ${platformName(process.platform, process.arch)}`;
+    const title = `Downloading Jacket ${this.version} for ${platformName(process.platform, process.arch)}`;
     try {
       const dir = await vscode.window.withProgress(
         { location: vscode.ProgressLocation.Notification, title, cancellable: true },
@@ -162,7 +162,7 @@ export class ToolchainManager {
         },
       );
       await this.context.globalState.update(DECLINED_KEY, undefined);
-      this.log.info(`installed jaic ${this.version} in ${dir}`);
+      this.log.info(`installed Jacket ${this.version} in ${dir}`);
       return { version: this.version, dir };
     } catch (error) {
       this.report(error);

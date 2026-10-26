@@ -80,7 +80,7 @@ function M.offer_install(problem)
       return M.install()
     end
     vim.ui.select({ 'Download', 'Not now', "Don't ask again" }, {
-      prompt = ('Jai: no jailsp was found. Download jaic %s (jaic, jailsp, jailint, jaifmt, stdlib) from github.com/%s?'):format(version, install.REPOSITORY),
+      prompt = ('Jai: no jailsp was found. Download Jacket %s (jaic, jailsp, jailint, jaifmt, stdlib) from github.com/%s?'):format(version, install.REPOSITORY),
     }, function(choice)
       if choice == 'Download' then
         M.install()
@@ -107,7 +107,7 @@ function M.install(opts)
     return opts.on_done and opts.on_done(msg)
   end
   local platform = asset:gsub('^jai%-', ''):gsub('%.tar%.gz$', ''):gsub('%.zip$', '')
-  notify(('downloading jaic %s for %s...'):format(version, platform))
+  notify(('downloading Jacket %s for %s...'):format(version, platform))
   install.install({
     version = version,
     asset = asset,
@@ -116,7 +116,7 @@ function M.install(opts)
     if err then
       notify('could not install the toolchain: ' .. err, vim.log.levels.ERROR)
     else
-      notify('installed jaic ' .. version .. ' in ' .. dir)
+      notify('installed Jacket ' .. version .. ' in ' .. dir)
       offered = false
       M.restart()
     end

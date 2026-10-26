@@ -32,7 +32,7 @@ export function assetFor(platform: NodeJS.Platform, arch: string): string | unde
 /** Why there is no download for a platform, and what to do instead. */
 export function unsupportedMessage(platform: NodeJS.Platform, arch: string): string {
   return (
-    `There is no prebuilt Jai toolchain for ${platformName(platform, arch)}. Build jaic, jailsp and jailint from source ` +
+    `There is no prebuilt Jacket toolchain for ${platformName(platform, arch)}. Build jaic, jailsp and jailint from source ` +
     `(https://github.com/${REPOSITORY}#install) and put them on PATH, or set jai.server.path and jai.compiler.path.`
   );
 }
@@ -184,7 +184,7 @@ export async function expectedChecksum(
   if (pinned && pinned.version === version) {
     const sum = pinned.sha256[asset];
     if (!sum) {
-      throw new ToolchainError(`jaic ${version} has no ${asset} release archive`, "unsupported");
+      throw new ToolchainError(`Jacket ${version} has no ${asset} release archive`, "unsupported");
     }
     return sum;
   }

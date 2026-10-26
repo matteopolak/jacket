@@ -51,7 +51,7 @@ describe("platform to release archive", () => {
     assert.equal(assetFor("freebsd", "x64"), undefined);
     assert.equal(assetFor("linux", "ia32"), undefined);
     assert.equal(assetFor("win32", "ia32"), undefined);
-    assert.match(unsupportedMessage("freebsd", "x64"), /no prebuilt Jai toolchain for freebsd x64/);
+    assert.match(unsupportedMessage("freebsd", "x64"), /no prebuilt Jacket toolchain for freebsd x64/);
     assert.match(unsupportedMessage("darwin", "x64"), /jai\.server\.path/);
   });
 

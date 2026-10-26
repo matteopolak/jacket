@@ -235,7 +235,7 @@ function M.install(opts, done)
   local pinned = opts.pinned
   if pinned and pinned.version == opts.version then
     if not pinned.sha256[asset] then
-      return fail(('jaic %s has no %s release archive'):format(opts.version, asset))
+      return fail(('Jacket %s has no %s release archive'):format(opts.version, asset))
     end
     return download_and_check(pinned.sha256[asset])
   end
