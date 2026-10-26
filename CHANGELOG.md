@@ -1,5 +1,21 @@
 # Changelog
 
+## [Unreleased]
+
+### New
+
+- `jai.compileTime.evaluationBudget` and `jai.compileTime.checkTimeLimit` set the compile-time limits of the editor (user settings only, so a project cannot raise them); when one is hit, a message offers to raise it, show the costs or open the settings. `jailint` takes `--compile-time-budget` and `--check-time-limit`.
+- A code lens shows what slow compile-time code costs, `Jai: Show compile-time costs` lists it all, and `jaic -profile_runs` prints the same table.
+
+### Improved
+
+- A runaway `#run` is reported once, at the `#run`, with where it was running, instead of failing everything after it.
+- A check that runs past its time limit gives one notice and stops running compile-time code.
+
+### Fixed
+
+- Static `#if` arms inside a polymorphic procedure are no longer greyed out.
+
 ## [0.29.0] - 2026-10-26
 
 ### New
