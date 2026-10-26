@@ -95,6 +95,30 @@ pub enum Passing {
     Indirect,
 }
 
+impl Passing {
+    /// Whether this argument is written as one LLVM array of its pieces (`AArch64` coerces a
+    /// multi-register aggregate to `[N x iM]`) rather than as one element per piece. Windows on
+    /// `AArch64` does not for a variadic procedure, whose arguments straddle registers and the
+    /// stack.
+    pub fn as_array(&self, arch: Arch, variadic: bool) -> bool {
+        arch.is_aarch64()
+            && !(variadic && arch == Arch::Win64Arm)
+            && matches!(self, Passing::Registers(p) if p.len() > 1)
+    }
+}
+
+/// Whether the hidden result pointer carries `inreg`: MSVC on arm64 passes a forced (non-POD C++)
+/// result pointer in `x0`, not `x8`, and `inreg` selects that.
+pub fn sret_is_inreg(arch: Arch, forced: bool) -> bool {
+    forced && arch == Arch::Win64Arm
+}
+
+/// Whether the hidden result pointer takes the first integer argument register, leaving one
+/// fewer for the parameters (x86-64 always; arm64 only where it is `inreg`).
+pub fn sret_takes_int_register(arch: Arch, forced: bool) -> bool {
+    arch.is_x86_64() || sret_is_inreg(arch, forced)
+}
+
 /// Classify a by-value aggregate argument.
 pub fn classify_arg(arch: Arch, layout: &AggLayout) -> Passing {
     match classify_registers(arch, layout) {

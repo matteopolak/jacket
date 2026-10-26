@@ -6,7 +6,7 @@ use inkwell::attributes::{Attribute, AttributeLoc};
 use inkwell::types::{
     AnyType, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FloatType, FunctionType, PointerType,
 };
-use jaic::abi::{self, Arch, Passing, PieceTy};
+use jaic::abi::{self, Passing, PieceTy};
 use jaic::ir::{Conv, Sig, Ty, WideFloat};
 
 impl<'ctx> Backend<'ctx, '_> {
@@ -71,8 +71,7 @@ impl<'ctx> Backend<'ctx, '_> {
                     RetPlan::Registers(layout.clone(), pieces)
                 } else {
                     attrs.push((0, ParamAttr::Sret(layout.size)));
-                    if forced_sret && self.arch == Arch::Win64Arm {
-                        // MSVC on arm64 passes this pointer in x0, not x8; `inreg` selects it.
+                    if abi::sret_is_inreg(self.arch, forced_sret) {
                         attrs.push((0, ParamAttr::InReg));
                     }
                     llvm_params.push(self.ptr_ty().into());
@@ -84,8 +83,7 @@ impl<'ctx> Backend<'ctx, '_> {
         let mut params = Vec::new();
         let mut budget = abi::RegBudget::new(
             self.arch,
-            matches!(ret, RetPlan::Sret)
-                && (self.arch.is_x86_64() || forced_sret && self.arch == Arch::Win64Arm),
+            matches!(ret, RetPlan::Sret) && abi::sret_takes_int_register(self.arch, forced_sret),
         );
         // Variadic arguments are not part of the LLVM function type.
         let mut fixed = None;
@@ -105,10 +103,7 @@ impl<'ctx> Backend<'ctx, '_> {
                     abi::classify_arg(self.arch, &layout)
                 };
                 let passing = budget.aggregate(passing);
-                // Win64Arm's variadic arguments straddle registers and the stack.
-                let array = self.arch.is_aarch64()
-                    && !(sig.c_varargs && self.arch == Arch::Win64Arm)
-                    && matches!(&passing, Passing::Registers(p) if p.len() > 1);
+                let array = passing.as_array(self.arch, sig.c_varargs);
                 match &passing {
                     Passing::Registers(pieces) if array => {
                         let elem = self.piece_ty(pieces[0].ty);
