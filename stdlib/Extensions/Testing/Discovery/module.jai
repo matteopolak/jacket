@@ -8,6 +8,8 @@
 //                      notes, separated by tabs
 //     -registry FILE   also write the added source to FILE, for a build that adds it itself
 //                      (`jacket test --interp`, where plugins do not run)
+//     -cases FILE      run each `@cases` list at compile time and write `test<TAB>case` per case
+//                      to FILE (for `jacket test --list`)
 //
 // Only procedures of the main program are collected, and only those at file level outside
 // `#scope_file`, since the table is added at the top level and has to name them.
@@ -25,11 +27,13 @@ get_plugin :: () -> *Metaprogram_Plugin {
 #scope_file
 
 ENTRY_POINT :: "__jacket_test_main";
+CASES_NOTE :: "cases(";
 
 Discovery :: struct {
     #as using base: Metaprogram_Plugin;
     manifest_path: string;
     registry_path: string;
+    cases_path: string;
     found: [..] Found;
     added: bool;
 }
@@ -41,6 +45,7 @@ Found :: struct {
     line: s64;
     notes: [] string;
     arguments: s64;
+    cases: string; // the list of a `@cases(LIST)` note
 }
 
 init :: (plugin: *Metaprogram_Plugin, options: [] string) -> bool {
@@ -49,9 +54,11 @@ init :: (plugin: *Metaprogram_Plugin, options: [] string) -> bool {
 
     while i < options.count {
         option := options[i];
-        if (option == "-manifest" || option == "-registry") && i + 1 < options.count {
+        if (option == "-manifest" || option == "-registry" || option == "-cases") && i + 1 < options.count {
             if option == "-manifest" discovery.manifest_path = options[i + 1];
-            else discovery.registry_path = options[i + 1];
+            else if option == "-registry" discovery.registry_path = options[i + 1];
+            else discovery.cases_path = options[i + 1];
+
             i += 2;
             continue;
         }
@@ -65,7 +72,7 @@ init :: (plugin: *Metaprogram_Plugin, options: [] string) -> bool {
 }
 
 log_help :: (plugin: *Metaprogram_Plugin) {
-    print("Testing/Discovery: -manifest FILE writes the tests found; -registry FILE writes the added source.\n");
+    print("Testing/Discovery: -manifest FILE writes the tests found; -registry FILE writes the added source; -cases FILE writes the cases of @cases tests.\n");
 }
 
 add_source :: (plugin: *Metaprogram_Plugin) {
@@ -98,6 +105,17 @@ kind_of :: (notes: [] *Code_Note) -> string {
     return "";
 }
 
+// The list of a `@cases(LIST)` note, or nothing.
+cases_of :: (notes: [] *Code_Note) -> string {
+    for notes {
+        if begins_with(it.text, CASES_NOTE) && ends_with(it.text, ")") {
+            return string.{ it.text.count - CASES_NOTE.count - 1, it.text.data + CASES_NOTE.count };
+        }
+    }
+
+    return "";
+}
+
 collect :: (discovery: *Discovery, typechecked: *Message_Typechecked) {
     for typechecked.declarations {
         declaration := it.expression;
@@ -121,8 +139,10 @@ collect :: (discovery: *Discovery, typechecked: *Message_Typechecked) {
 
         if !(declaration.flags & .IS_GLOBAL) || header.procedure_flags & .POLYMORPHIC continue;
 
-        if header.arguments.count > 1 {
-            compiler_report(file, line, declaration.c0, tprint("a @% procedure takes no arguments or one `*%`", kind, ifx kind == "test" then "Test" else "Bench"));
+        cases := ifx kind == "test" then cases_of(header.notes) else "";
+
+        if header.arguments.count > 1 && !cases {
+            compiler_report(file, line, declaration.c0, tprint("a @% procedure takes no arguments or one `*%` (a @test with `@cases(LIST)` takes the entry as its arguments)", kind, ifx kind == "test" then "Test" else "Bench"));
             continue;
         }
 
@@ -132,7 +152,7 @@ collect :: (discovery: *Discovery, typechecked: *Message_Typechecked) {
             if it.text != kind array_add(*notes, copy_string(it.text));
         }
 
-        array_add(*discovery.found, .{ kind, copy_string(declaration.name), copy_string(file), line, notes, header.arguments.count });
+        array_add(*discovery.found, .{ kind, copy_string(declaration.name), copy_string(file), line, notes, header.arguments.count, copy_string(cases) });
     }
 }
 
@@ -186,7 +206,7 @@ finish_discovery :: (discovery: *Discovery) {
 
     for discovery.found {
         if it.kind != "test" continue;
-        call := ifx it.arguments then tprint("%(t);", it.name) else tprint("%();", it.name);
+        call := ifx it.cases then tprint("__jacket_testing.run_cases(t, %, %);", it.cases, it.name) else ifx it.arguments then tprint("%(t);", it.name) else tprint("%();", it.name);
         print_to_builder(*registry, "__jacket_test_% :: (t: *__jacket_testing.Test) { % }\n", it_index, call);
     }
 
@@ -207,6 +227,26 @@ finish_discovery :: (discovery: *Discovery) {
     }
 
     add_build_string(source, discovery.workspace);
+
+    if discovery.cases_path add_build_string(list_cases_source(discovery), discovery.workspace);
+}
+
+// Code that runs at compile time and writes the cases of every `@cases` test.
+list_cases_source :: (discovery: *Discovery) -> string {
+    source: String_Builder;
+
+    append(*source, "#scope_file\n__jacket_testing :: #import \"Extensions/Testing\";\n__jacket_files :: #import \"File\";\n__jacket_builder_module :: #import \"Basic\";\n");
+    append(*source, "__jacket_list :: () {\n    builder: __jacket_builder_module.String_Builder;\n");
+
+    for discovery.found {
+        if it.kind != "test" || !it.cases continue;
+        print_to_builder(*source, "    __jacket_testing.list_cases(*builder, %, %, %);\n", quote(it.name), it.cases, it.name);
+    }
+
+    print_to_builder(*source, "    __jacket_files.write_entire_file(%, __jacket_builder_module.builder_to_string(*builder));\n}\n", quote(discovery.cases_path));
+    append(*source, "#run __jacket_list();\n");
+
+    return builder_to_string(*source);
 }
 
 #import "Basic";

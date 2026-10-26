@@ -67,6 +67,22 @@ fn quoted(name: &str) -> String {
     format!("'{}'", name.replace('\'', "'\\''"))
 }
 
+/// What `--exact` is given to run a failed test again: one to three failed subtests by name,
+/// more of them (or none) the whole test.
+fn rerun_names(case: &Case, failed_subtests: &[&str]) -> String {
+    if !(1..=3).contains(&failed_subtests.len()) {
+        return quoted(&case.name);
+    }
+    failed_subtests
+        .iter()
+        .map(|sub| match sub.strip_prefix(case.local.as_str()) {
+            Some(rest) => quoted(&format!("{}{rest}", case.name)),
+            None => quoted(&case.name),
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 fn xml(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     for c in text.chars() {
@@ -149,6 +165,19 @@ impl Reporter {
                     "notes": case.notes,
                 })),
                 OutputFormat::Human => println!("{}: {}", case.name, case.kind.as_str()),
+            }
+            for sub in &case.cases {
+                match self.format {
+                    OutputFormat::Json => self.json(&json!({
+                        "type": "list",
+                        "kind": "subtest",
+                        "name": format!("{}/{sub}", case.name),
+                        "file": case.file,
+                        "line": case.line,
+                        "notes": case.notes,
+                    })),
+                    OutputFormat::Human => println!("{}/{sub}: subtest", case.name),
+                }
             }
         }
     }
@@ -304,10 +333,8 @@ impl Reporter {
         } else {
             ""
         };
-        out.push_str(&format!(
-            "  rerun: jacket test{interp} --exact {}\n",
-            quoted(&case.name)
-        ));
+        let reruns = rerun_names(case, &failed_subtests);
+        out.push_str(&format!("  rerun: jacket test{interp} --exact {reruns}\n"));
         out
     }
 
@@ -492,6 +519,7 @@ mod tests {
             options: TestOptions::default(),
             run_as: name.into(),
             doc: None,
+            cases: Vec::new(),
         };
         let cases = [case("a"), case("b<c>")];
         let mut failed = Outcome::new(1, Status::Fail);
@@ -506,5 +534,29 @@ mod tests {
         assert!(xml.contains("name=\"b&lt;c&gt;\""));
         assert!(xml.contains("<failure message=\"bad &amp; worse\">"));
         assert!(xml.contains("<skipped message=\"only on linux\"/>"));
+    }
+
+    #[test]
+    fn failed_subtests_are_rerun_by_name() {
+        let case = Case {
+            name: "Root::table".into(),
+            local: "table".into(),
+            kind: Kind::Test,
+            root: 0,
+            file: PathBuf::from("/t.jai"),
+            line: 3,
+            notes: Vec::new(),
+            options: TestOptions::default(),
+            run_as: "table".into(),
+            doc: None,
+            cases: Vec::new(),
+        };
+        assert_eq!(rerun_names(&case, &[]), "'Root::table'");
+        assert_eq!(
+            rerun_names(&case, &["table/a,1", "table/it's"]),
+            "'Root::table/a,1' 'Root::table/it'\\''s'"
+        );
+        let many = ["table/a", "table/b", "table/c", "table/d"];
+        assert_eq!(rerun_names(&case, &many), "'Root::table'");
     }
 }

@@ -69,6 +69,8 @@ pub struct Case {
     pub run_as: String,
     /// A doc test's block, in its root's `docs`.
     pub doc: Option<usize>,
+    /// The cases of a `@cases` test, known when only listing.
+    pub cases: Vec<String>,
 }
 
 impl Case {
@@ -546,6 +548,12 @@ fn cases(roots: &[discover::Root], built: &[Option<Built>]) -> Vec<Case> {
                     options,
                     run_as: entry.name.clone(),
                     doc: None,
+                    cases: built
+                        .cases
+                        .iter()
+                        .filter(|(test, _)| *test == entry.name)
+                        .map(|(_, case)| case.clone())
+                        .collect(),
                 });
             }
         }
@@ -576,6 +584,7 @@ fn cases(roots: &[discover::Root], built: &[Option<Built>]) -> Vec<Case> {
                     options: header_of(file, &mut warnings),
                     run_as: local,
                     doc: None,
+                    cases: Vec::new(),
                 });
             }
         }
@@ -600,6 +609,7 @@ fn cases(roots: &[discover::Root], built: &[Option<Built>]) -> Vec<Case> {
                 options: block.options.clone(),
                 run_as: local,
                 doc: Some(doc),
+                cases: Vec::new(),
             });
         }
     }
@@ -747,6 +757,7 @@ mod tests {
             options: TestOptions::default(),
             run_as: String::new(),
             doc: None,
+            cases: Vec::new(),
         }
     }
 

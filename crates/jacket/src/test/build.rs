@@ -43,6 +43,8 @@ pub struct Built {
     pub entries: Vec<Entry>,
     /// The executable, or (with `--interp`) the root file `jaic -interp` runs.
     pub program: PathBuf,
+    /// `(test, case)` per case of the `@cases` tests, found when only listing.
+    pub cases: Vec<(String, String)>,
 }
 
 /// Flags of a root: its import folder when it is a library.
@@ -79,6 +81,14 @@ pub fn parse_manifest(text: &str) -> Vec<Entry> {
                 notes: fields.map(String::from).collect(),
             })
         })
+        .collect()
+}
+
+/// `test<TAB>case` per line.
+pub fn parse_cases(text: &str) -> Vec<(String, String)> {
+    text.lines()
+        .filter_map(|line| line.split_once('\t'))
+        .map(|(test, case)| (test.to_string(), case.to_string()))
         .collect()
 }
 
@@ -134,6 +144,7 @@ pub fn unit(
         "tests"
     });
     let report = work.join("exe.txt");
+    let case_file = work.join("cases.tsv");
     if list || from_registry {
         command.arg("-check");
     } else {
@@ -149,12 +160,16 @@ pub fn unit(
         .arg("-registry")
         .arg(&registry)
         .current_dir(work);
+    if list {
+        command.arg("-cases").arg(&case_file);
+    }
     run_jaic(&mut command, toolchain)?;
     let entries = parse_manifest(&std::fs::read_to_string(&manifest).unwrap_or_default());
     if list {
         return Ok(Built {
             entries,
             program: PathBuf::new(),
+            cases: parse_cases(&std::fs::read_to_string(&case_file).unwrap_or_default()),
         });
     }
     let program = if from_registry {
@@ -199,6 +214,7 @@ pub fn unit(
     Ok(Built {
         entries,
         program,
+        cases: Vec::new(),
     })
 }
 
@@ -343,6 +359,19 @@ mod tests {
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].notes, ["timeout(5)", "serial"]);
         assert_eq!((entries[1].kind.as_str(), entries[1].line), ("bench", 9));
+    }
+
+    #[test]
+    fn case_lines_pair_a_test_with_a_case() {
+        let cases = parse_cases("lengths\t\"\",0\nlengths\ta,1\nnoise\ncolors\tRED\n");
+        assert_eq!(
+            cases,
+            [
+                ("lengths".to_string(), "\"\",0".to_string()),
+                ("lengths".to_string(), "a,1".to_string()),
+                ("colors".to_string(), "RED".to_string()),
+            ]
+        );
     }
 
     #[test]

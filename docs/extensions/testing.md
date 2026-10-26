@@ -21,7 +21,7 @@ splits_on_commas :: (t: *Test) {
 } @test @timeout(5)
 ```
 
-A test is a file-level procedure that takes nothing or a `*Test`, with `@test` after its body. More notes after it set options for `jacket test` (`@timeout(5)`, `@only(.LINUX,.MACOS)`; the list is in [jacket test](../tools/jacket-test.md#notes)). Notes cannot contain spaces.
+A test is a file-level procedure that takes nothing or a `*Test` (or the arguments of its `@cases`, below), with `@test` after its body. More notes after it set options for `jacket test` (`@timeout(5)`, `@only(.LINUX,.MACOS)`; the list is in [jacket test](../tools/jacket-test.md#notes)). Notes cannot contain spaces.
 
 ## How it works
 
@@ -72,6 +72,30 @@ parses_each_case :: (t: *Test) {
 
 A failed subtest fails its test. `jacket test parses_each_case/-7` runs one subtest.
 
+**Tests with cases** (`cases.jai`). `@cases(LIST)` runs a test once per entry of a list (a constant or any expression, with no spaces), each entry a subtest named from its values. A test with one argument gets the entry; a test with several gets the members of a struct entry, in order. A leading `*Test` is still the subtest's.
+
+```jai
+Parse :: struct { text: string; want: s64; }
+PARSE :: Parse.[.{ "1", 1 }, .{ "-7", -7 }, .{ "+0", 0 }];
+
+parses :: (text: string, want: s64) {
+    value := string_to_int(text);
+    expect_equal(value, want);
+} @test @cases(PARSE)
+
+fits_a_byte :: (n: s64) {
+    expect(n >= 0 && n < 256);
+} @test @cases(s64.[0,1,255])
+
+shades :: (color: Color) {
+    expect(shade(color) > 0);
+} @test @cases(all_values(Color))
+```
+
+`jacket test parses` reports `parses/1,1`, `parses/-7,-7` and `parses/+0,0` as subtests; `--exact 'parses/-7,-7'` runs one. Names are the values, joined with `,` (strings as they are, `""` when empty), `/` written `|`, cut to 60 bytes, and a repeated name gets ` #N` (N: the entry's position). `all_values(T)` is the list of an enum's members in declaration order, in temporary storage. Notes such as `@xfail` and `@skip_on` apply to the whole test; inside a case, `skip(t, ...)` and `require` end that case only. A failed case fails the test but the other cases still run.
+
+The list has to be reachable from file level (not under `#scope_file`) and a note cannot hold a space or a `{`, so give a table of structs a name (`@cases(PARSE)`) and write short lists of plain values in place. `run_cases(t, list, body)` does the same by hand, for lists built at run time; `case_names(list, body)` gives the names it would use.
+
 **Memory** (`tracking.jai`). Each test runs with a tracking allocator as `context.allocator`, over the allocator that was there. It records every live block with the first stack frames that made it; when the test returns, anything still live is a failure at the frame that allocated it, outside the standard library (`leaked 32 bytes in 1 allocation made here in make_list`). Freeing or resizing a block it does not own (freed twice, or allocated elsewhere) fails the test at the first one. `@allow_leaks` turns leak reports off for a test. Temporary storage is reset before each test, so `temp` memory is never a leak. Memory allocated with another allocator is not tracked.
 
 **Doc tests.** `jacket test` also runs the ```` ```jai ```` examples in a library's doc comments, each through this module, so `expect` and `assert` work in them (see [jacket test](../tools/jacket-test.md#doc-tests)).
@@ -85,6 +109,7 @@ A failed subtest fails its test. `jacket test parses_each_case/-7` runs one subt
 - A new check goes in `checks.jai`, built on `report_failure(loc, message)`; add a `require_` form if it can fail, and a test in `tests/checks.jai` with `@should_fail(word)` for its message.
 - Comparison and messages for a new kind of value: `values_equal` and `describe_difference` in `compare.jai`.
 - What the tracker records (more frames, sizes): `SITE_FRAMES` and `remember` in `tracking.jai`. The tracker is never freed, because memory from a test can outlive it.
+- How a case is named or an entry turned into arguments: `case_names`, `label_source` and `call_source` in `cases.jai`. They run at compile time inside `#insert`, from the procedure's and the entry's type information. `jacket test --list` learns the cases from a `#run` Discovery adds (`-cases FILE`), which calls `list_cases`.
 - A new `*Test` procedure: `module.jai`. A new note is read by `jacket test` (`crates/jacket/src/test/options.rs`), except `@allow_leaks`, which Discovery also turns into a `Test_Flags` bit because the program needs it.
 - A new record kind: `record` in `runner.jai`, `Demux` and `State` in `crates/jacket/src/test/exec.rs`, and the table in [jacket test](../tools/jacket-test.md#the-test-program-protocol).
 - The module's own tests are in `stdlib/Extensions/Testing/tests`; run `jacket test` there (natively, with `--interp`, and for wasm).

@@ -126,7 +126,7 @@ impl TestOptions {
             "args" => self.args = quoted_list(args.unwrap_or("")),
             "check_only" => self.check_only = true,
             // Discovery's own notes.
-            "test" | "bench" | "compile_fail" => {}
+            "test" | "bench" | "compile_fail" | "cases" => {}
             _ => return Err(format!("unknown note `@{note}` (ignored)")),
         }
         Ok(())
@@ -306,6 +306,14 @@ mod tests {
         assert_eq!(options.should_fail.as_deref(), Some("bounds"));
         assert!(options.serial);
         assert_eq!(options.exit, Some(3));
+    }
+
+    #[test]
+    fn the_cases_note_is_discoverys() {
+        let notes = ["cases(all_values(Color))".to_string(), "xfail".to_string()];
+        let (options, warnings) = TestOptions::default().with_notes(&notes);
+        assert!(warnings.is_empty(), "{warnings:?}");
+        assert_eq!(options.xfail.as_deref(), Some(""));
     }
 
     #[test]

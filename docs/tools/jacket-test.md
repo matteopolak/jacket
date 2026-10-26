@@ -52,7 +52,7 @@ jaic tests.jai -quiet [-os/-cpu/flags] [-import_dir ROOT_PARENT] -exe tests \
     +Extensions/Testing/Discovery -manifest manifest.tsv -registry registry.jai
 ```
 
-The plugin writes `manifest.tsv` (`kind<TAB>name<TAB>file<TAB>line<TAB>notes...` per `@test` and `@bench`) and adds the test table and entry point. Roots build in parallel (at most four at once). A root that does not compile stops the run before any test starts.
+With `--list` it also gets `-cases cases.tsv`, and runs each `@cases` list at compile time to write `test<TAB>case` per case. The plugin writes `manifest.tsv` (`kind<TAB>name<TAB>file<TAB>line<TAB>notes...` per `@test` and `@bench`) and adds the test table and entry point. Roots build in parallel (at most four at once). A root that does not compile stops the run before any test starts.
 
 Plugins do not run under `-interp`, and compile-time code of a wasm target runs in jaic's sandbox, whose file writes stay in memory. So with `--interp`, and for `-os wasm`, the plugin runs in a `-check` for the host and writes the code it adds to `registry.jai`; a second root file, `program.jai`, loads the tests and the registry and names the entry point in a `#run`. Workers run it with `jaic program.jai -interp`, or build it for wasm. A consequence: under `-os wasm` tests are found as the host sees them, so keep platform-specific tests apart with `@only`/`@skip_on`, not `#if OS`.
 
@@ -61,6 +61,8 @@ Plugins do not run under `-interp`, and compile-time code of a wasm target runs 
 Each unit test runs as `tests --run NAME --temp DIR` in its own process, `-j` at a time (default: the machine's threads). Golden and compile-fail tests are jobs of their own. `@slow` tests start first; `@serial` tests run after the rest, one at a time.
 
 With `--interp` or `--no-isolation`, a root's tests are split into `-j` batches and each batch runs in one process, because every `-interp` process compiles the program again. A crash or `exit` in a batch fails that test and a new process starts at the next one.
+
+A failed test with one to three failed subtests prints a `rerun:` line naming those subtests.
 
 The test's own output on both streams is captured and shown with its failure; `--no-capture` streams it instead and runs one test at a time. A test that runs past its timeout has its process group killed (`kill -s KILL -- -PID`; the `--` keeps procps `kill` from reading `-PID` as an option and signalling every process, `taskkill /T` on Windows) and is reported `TIMEOUT`; one still running after the `slow` time gets a `SLOW` line. `--quiet` (`-q`) prints only the tests that fail, time out or are flaky, then the summary; CI uses it.
 
@@ -164,7 +166,7 @@ To add a matcher, add a `Matcher_Kind`, a constructor, and a case each in `holds
 
 ### Filters
 
-`jacket test parse split` runs the tests whose name contains `parse` or `split`; `--exact` makes filters whole names. `name/sub` runs one subtest of `name` (subtests are reported under their test). `--partition hash:K/N` keeps the tests whose name hashes (FNV-1a) to part K of N, stable across machines; `count:K/N` takes every Nth by position. `--list` prints `name: kind` per test without running anything (`--format json`: one `{"type":"list",...}` per test).
+`jacket test parse split` runs the tests whose name contains `parse` or `split`; `--exact` makes filters whole names. `name/sub` runs one subtest of `name` (subtests are reported under their test); the cases of a `@cases` test are subtests too. `--partition hash:K/N` keeps the tests whose name hashes (FNV-1a) to part K of N, stable across machines; `count:K/N` takes every Nth by position. `--list` prints `name: kind` per test without running anything (`--format json`: one `{"type":"list",...}` per test). A `@cases` test is followed by a `name/case: subtest` line per case (kind `subtest` in JSON); listing evaluates the lists, which runs their code at compile time.
 
 ### Notes
 
@@ -182,6 +184,7 @@ reads_proc_self :: () { ... } @test @serial
 | `@timeout(N)` | kill after N seconds (0: no limit); default `--timeout`, else `[test] timeout`, else 120 |
 | `@slow` | known to be slow: started first, no `SLOW` line |
 | `@serial` | runs while no other test does |
+| `@cases(LIST)` | run once per entry of `LIST`, each as a subtest named from its values; see [Testing](../extensions/testing.md#how-it-works) |
 | `@retries(N)` | retries for this test, over `--retries` |
 | `@only(...)` | run only on these targets: `.LINUX`, `.MACOS`, `.WINDOWS`, `.WASM`, `.ANDROID`, `.X64`, `.ARM64`, `.INTERP`, `.NATIVE`; every kind named must match (`only(.LINUX,.X64)`) |
 | `@skip_on(...)` | skip on any of these targets |
@@ -224,7 +227,7 @@ jacket test -- -O2                                     # flags after `--` go to 
 | `run`, `finished` | `passed`, `failed`, `skipped`, `timed_out`, `xfail`, `xpass`, `flaky`, `not_run`, `duration` |
 | `list` | `name`, `kind`, `file`, `line`, `notes` (with `--list`) |
 
-`kind` is `test`, `golden`, `compile_fail`, `doc` or `bench`. `type: "bench"` is reserved for benchmark results. Warnings and build errors stay on standard error.
+`kind` is `test`, `golden`, `compile_fail`, `doc` or `bench` (`subtest` in `list` events for the cases of a `@cases` test). `type: "bench"` is reserved for benchmark results. Warnings and build errors stay on standard error.
 
 `--junit FILE` also writes JUnit XML: a `<testsuite>` per root, a `<testcase>` per test with `<failure>`, `<skipped>` and the captured output.
 
