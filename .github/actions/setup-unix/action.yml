@@ -41,6 +41,31 @@ runs:
         brew install openssl@3 pkg-config
         for package in $BREW; do brew list "$package" > /dev/null 2>&1 || brew install "$package"; done
         if [ "$FONT" = true ]; then echo 'JAIC_TEST_FONT_PATH=/System/Library/Fonts/Supplemental/Arial.ttf' >> "$GITHUB_ENV"; fi
+    # The Ubuntu packages the Linux install below downloads, kept between runs: the runners' mirror
+    # sometimes slows to a crawl for minutes. Weekly keys, so the set follows package updates; main
+    # saves, other refs only restore. tools/ci/apt_lib.sh points apt at JAI_APT_ARCHIVES.
+    - id: apt-key
+      if: runner.os == 'Linux'
+      shell: bash
+      env:
+        NATIVE: ${{ inputs.native-libs }}
+      run: |
+        echo "JAI_APT_ARCHIVES=$RUNNER_TEMP/jai-apt-archives" >> "$GITHUB_ENV"
+        prefix="apt-debs-$RUNNER_ARCH-native$NATIVE-${{ hashFiles('tools/ci/install_ci_llvm_linux.sh', 'tools/ci/install_ci_native_linux.sh') }}-"
+        echo "prefix=$prefix" >> "$GITHUB_OUTPUT"
+        echo "key=$prefix$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+    - if: runner.os == 'Linux' && github.ref == 'refs/heads/main'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ env.JAI_APT_ARCHIVES }}
+        key: ${{ steps.apt-key.outputs.key }}
+        restore-keys: ${{ steps.apt-key.outputs.prefix }}
+    - if: runner.os == 'Linux' && github.ref != 'refs/heads/main'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ env.JAI_APT_ARCHIVES }}
+        key: ${{ steps.apt-key.outputs.key }}
+        restore-keys: ${{ steps.apt-key.outputs.prefix }}
     - name: Install LLVM 23 (Linux)
       if: runner.os == 'Linux'
       shell: bash
@@ -56,6 +81,10 @@ runs:
         # Vulkan adapter of the WebGPU tests).
         if [ "$NATIVE" = true ]; then bash tools/ci/install_ci_native_linux.sh; fi
         if [ "$FONT" = true ]; then echo 'JAIC_TEST_FONT_PATH=/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf' >> "$GITHUB_ENV"; fi
+        # Drop superseded package versions, and let the cache step read what apt (as root) wrote.
+        sudo apt-get autoclean -qq
+        sudo rm -rf "$JAI_APT_ARCHIVES/partial"
+        sudo chown -R "$(id -u):$(id -g)" "$JAI_APT_ARCHIVES"
     - name: Configure the headless ALSA provider
       if: runner.os == 'Linux' && inputs.alsa == 'true'
       shell: bash

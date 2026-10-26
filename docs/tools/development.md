@@ -182,7 +182,7 @@ Workflow YAML calls scripts under `tools/ci/` instead of carrying shell logic, s
 
 ### Ubuntu CI package sources
 
-`apt_configure` in `tools/ci/apt_lib.sh` copies the runner’s Ubuntu `ubuntu.sources` file (or legacy `sources.list`) into `/etc/apt/jai-ci-sources.list.d`. A job-local APT configuration selects that directory and keeps request timeouts, retries and signature verification. Unrelated vendor feeds preinstalled on hosted images are left intact but are not dependencies of our package updates. Missing Ubuntu sources and failed updates to selected repositories remain fatal.
+`apt_configure` in `tools/ci/apt_lib.sh` copies the runner’s Ubuntu `ubuntu.sources` file (or legacy `sources.list`) into `/etc/apt/jai-ci-sources.list.d`. A job-local APT configuration selects that directory and keeps request timeouts, retries and signature verification. Unrelated vendor feeds preinstalled on hosted images are left intact but are not dependencies of our package updates. Missing Ubuntu sources and failed updates to selected repositories remain fatal. When `JAI_APT_ARCHIVES` is set, apt downloads into and installs from that directory; `setup-unix` sets it and caches the directory weekly per CPU and package set (saved from main), so Linux jobs rarely touch the runners' sometimes-crawling Ubuntu mirror.
 
 `install_ci_llvm_linux.sh` adds its fingerprint-checked, signed LLVM source to the same directory. To add a required repository, register it there before updating; do not re-enable all inherited feeds or ignore update errors. Both helpers configure the selection, so later direct `apt-get` calls in a job use it too. See APT’s [source file configuration](https://manpages.debian.org/bookworm/apt/apt-get.8.en.html#FILES).
 

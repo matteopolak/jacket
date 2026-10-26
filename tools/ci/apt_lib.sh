@@ -28,6 +28,15 @@ apt_configure() {
     'Dir::Etc::sourcelist "/dev/null";' \
     "Dir::Etc::sourceparts \"$parts\";" \
     | sudo tee "$apt_root/apt.conf.d/80jai-ci-network" > /dev/null
+  # JAI_APT_ARCHIVES: a directory the job caches between runs (setup-unix), so packages come from
+  # the cache instead of the mirror. apt keeps what it downloads there.
+  if [[ -n "${JAI_APT_ARCHIVES:-}" ]]; then
+    sudo install -d "$JAI_APT_ARCHIVES/partial"
+    printf '%s\n' "Dir::Cache::Archives \"$JAI_APT_ARCHIVES/\";" \
+      'APT::Keep-Downloaded-Packages "true";' 'Binary::apt::APT::Keep-Downloaded-Packages "true";' \
+      'APT::Sandbox::User "root";' \
+      | sudo tee "$apt_root/apt.conf.d/81jai-ci-archives" > /dev/null
+  fi
   # Runners are thrown away after the job: skip fsync, the docs and man pages, and the man-db
   # index rebuild, which take most of an install's time.
   if [[ "$apt_root" == /etc/apt ]]; then
@@ -77,8 +86,9 @@ apt_prefetch() {
   uris=$(sudo apt-get install --yes --no-install-recommends --print-uris "$@" 2> /dev/null \
     | sed -n "s/^'\([^']*\)' \([^ ]*\) .*/\1 \2/p") || return 0
   [[ -n "$uris" ]] || return 0
+  local archives=${JAI_APT_ARCHIVES:-/var/cache/apt/archives}
   # shellcheck disable=SC2016 # $0 and $1 belong to the inner bash
   printf '%s\n' "$uris" \
-    | xargs -P 8 -L 1 bash -c 'sudo timeout 180 curl --fail --silent --location --retry 3 --retry-all-errors --connect-timeout 20 --speed-limit 20000 --speed-time 15 --output "/var/cache/apt/archives/$1" "$0"' \
+    | ARCHIVES=$archives xargs -P 8 -L 1 bash -c 'sudo timeout 180 curl --fail --silent --location --retry 3 --retry-all-errors --connect-timeout 20 --speed-limit 20000 --speed-time 15 --output "$ARCHIVES/$1" "$0"' \
     || true
 }

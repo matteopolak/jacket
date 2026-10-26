@@ -121,6 +121,21 @@ apt_prefetch pkg""")
         self.assertIn("/var/cache/apt/archives/a_1.deb http://m/a_1.deb", result.stdout)
         self.assertIn("/var/cache/apt/archives/b_2.deb http://m/b_2.deb", result.stdout)
 
+    def test_prefetch_writes_into_the_cached_archive_directory(self):
+        result = self.run_bash("""source "$1"
+sudo() {
+  if [[ "$1" == apt-get ]]; then
+    printf "'http://m/a_1.deb' a_1.deb 10 SHA256:x\\n"
+  else
+    shift 2
+    [[ "$1" != curl ]] || { shift; printf 'curl %s\\n' "$*"; }
+  fi
+}
+export -f sudo
+JAI_APT_ARCHIVES=/cache/apt apt_prefetch pkg""")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("/cache/apt/a_1.deb http://m/a_1.deb", result.stdout)
+
     def test_prefetch_tolerates_a_failed_plan(self):
         result = self.run_bash("""source "$1"
 sudo() { return 100; }
