@@ -137,6 +137,13 @@
 
 ### New
 
+- The `Extensions/Postgres` module: a PostgreSQL client with TLS, SCRAM, pooling, pipelining, `COPY`, `LISTEN/NOTIFY`, deadlines and cancellation.
+- Postgres queries are checked against a real database at compile time, which supplies row types, nullability and argument types.
+- Postgres migrations are embedded in the program; `generate` writes table structs for an ORM, and `diff` drafts migrations from edited structs.
+- Without a database URL, Postgres starts a private throwaway server for compile-time checks.
+- The `Extensions/Service` module runs long-lived services that compile-time code can call, such as one holding a database connection.
+- The `Extensions/String_Literal` module finds where a byte of a string literal sits in the source, so compile-time checks can point at the exact character.
+- The `Extensions/Environment` module reads environment variables, with UTF-8 values on Windows.
 - `Objective_C/AppKit` adds `NSWindow.close`, `NSCursor`, `NSSavePanel`, `NSOpenPanel` and `NSPasteboardTypeFileURL`.
 - The `Codex` module takes the `USAGE_MODE` parameter, `#import "Codex"(USAGE_MODE = .READ)`.
 - `jailint` warns about a `// jailint: allow(...)` comment that names a rule that does not exist (`unknown_allow`), and suggests the closest rule name.
