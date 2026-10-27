@@ -6,7 +6,7 @@
 Each case stays where it is and becomes a golden test (a program with `.stdout`/`.stderr`/`.exit` files
 beside it) or, for a check-fail row, a compile-fail test (`// test: compile_fail` and a `.stderr` that
 `jacket test --accept --exact NAME` fills in), with the row's gating as `// test:` notes on the file's
-first line. The module is added to `[test] paths` in
+first line (a row's `input` becomes `args(...)`; see the docs for the environment and fixture inputs). The module is added to `[test] paths` in
 jacket.toml and its manifest is deleted. The migration section of docs/tools/jacket-test.md
 says what every row key becomes.
 
@@ -29,6 +29,7 @@ HANDLED = {
     "name",
     "source",
     "stdout",
+    "stdout_one_of",
     "stderr",
     "exit_code",
     "error_contains",
@@ -50,6 +51,20 @@ HANDLED = {
 }
 WASM_MODES = {"wasm-interp", "wasm-native"}
 SCRATCH_INPUTS = {"scratch-file": "$TEMP/data", "scratch-directory": "$TEMP"}
+# Inputs the machine provides, named by the environment variable that holds their path.
+ENVIRONMENT_INPUTS = {
+    "font": "JAIC_TEST_FONT_PATH",
+    "windows-resource-directory": "JAIC_TEST_WINDOWS_RESOURCE_DIR",
+}
+# Inputs that are files beside the tests, in a folder of that name.
+FIXTURE_INPUTS = {"ico-fixtures": "$DIR/ico-fixtures"}
+# A mode the row cannot run in, as the target note that skips it.
+MODE_TARGETS = {
+    "interp": ".INTERP",
+    "native": ".NATIVE",
+    "wasm-interp": ".WASM-INTERP",
+    "wasm-native": ".WASM-NATIVE",
+}
 
 
 def as_list(value):
@@ -58,30 +73,42 @@ def as_list(value):
     return [value] if isinstance(value, str) else list(value)
 
 
+def wasm_only_contract(row):
+    """The one contract that both wasm modes of `mode_contracts` share, if that is all it says."""
+    contracts = row.get("mode_contracts")
+    if not contracts or set(contracts) != WASM_MODES:
+        return None
+    first = contracts["wasm-interp"]
+    return first if first == contracts["wasm-native"] else None
+
+
 def notes_of(row):
     """The `// test:` notes of a row, and the reasons it cannot be expressed."""
     notes, problems = [], []
+    only, skip_on = [], []
+    contract = wasm_only_contract(row)
     for key in sorted(set(row) - HANDLED):
+        if key == "mode_contracts" and contract is not None:
+            continue
         problems.append(f"row key `{key}` has no jacket test equivalent")
+    if contract is not None:
+        if contract.get("mode") != "check-fail" or not contract.get("diagnostic_contains"):
+            problems.append("mode_contracts other than a wasm check-fail")
+        only.append(".WASM")
+        notes.append("compile_fail")
     unsupported = set(row.get("unsupported_modes", []))
-    if unsupported == WASM_MODES:
-        notes.append("skip_on(.WASM)")
-    elif unsupported:
-        problems.append(f"unsupported_modes {sorted(unsupported)} is not all of wasm")
-    if row.get("required_os"):
-        notes.append(
-            "only("
-            + ",".join("." + os.upper() for os in as_list(row["required_os"]))
-            + ")"
-        )
+    if unsupported >= WASM_MODES:
+        skip_on.append(".WASM")
+        unsupported -= WASM_MODES
+    skip_on.extend(MODE_TARGETS[mode] for mode in sorted(unsupported))
+    only.extend("." + os.upper() for os in as_list(row.get("required_os")))
     if row.get("required_cpu"):
-        notes.append(
-            "only("
-            + ",".join("." + cpu.upper() for cpu in as_list(row["required_cpu"]))
-            + ")"
-        )
-    for platform in row.get("unsupported_platforms", []):
-        notes.append("skip_on(." + platform.upper() + ")")
+        only.extend("." + cpu.upper() for cpu in as_list(row["required_cpu"]))
+    skip_on.extend("." + p.upper() for p in row.get("unsupported_platforms", []))
+    if only:
+        notes.append("only(" + ",".join(only) + ")")
+    if skip_on:
+        notes.append("skip_on(" + ",".join(skip_on) + ")")
     if row.get("requires_display"):
         notes.append("needs(.DISPLAY)")
     if row.get("window_lease"):
@@ -99,12 +126,15 @@ def notes_of(row):
     if "arguments" in row:
         notes.append("args(" + ",".join(f'"{a}"' for a in row["arguments"]) + ")")
     elif "input" in row:
-        if row["input"] not in SCRATCH_INPUTS:
-            problems.append(
-                f"input `{row['input']}` needs fixtures only the old runner makes"
-            )
+        kind = row["input"]
+        if kind in SCRATCH_INPUTS:
+            notes.append(f'args("{SCRATCH_INPUTS[kind]}")')
+        elif kind in ENVIRONMENT_INPUTS:
+            notes.append(f'args("${{{ENVIRONMENT_INPUTS[kind]}}}")')
+        elif kind in FIXTURE_INPUTS:
+            notes.append(f'args("{FIXTURE_INPUTS[kind]}")')
         else:
-            notes.append(f'args("{SCRATCH_INPUTS[row["input"]]}")')
+            problems.append(f"input `{kind}` has no jacket test equivalent")
     if "fixture_libraries" in row:
         problems.append("fixture_libraries")
     if row.get("mode") == "check-fail" and not row.get("diagnostic_contains"):
@@ -143,15 +173,24 @@ def plan(directory):
 def write_expected(row, source):
     """The files beside `source` that make it a golden (or compile-fail) test."""
     wrote = False
-    if row.get("mode") == "check-fail":
+    if row.get("mode") == "check-fail" or wasm_only_contract(row) is not None:
         # `jacket test --accept` fills in the diagnostics; an empty file makes the test discoverable.
         source.with_suffix(".stderr").write_text("")
         return
     if "stdout" in row:
         source.with_suffix(".stdout").write_text(row["stdout"])
         wrote = True
+    for number, text in enumerate(row.get("stdout_one_of", []), 1):
+        # The first output is `name.stdout`; the others are `name.stdout.2`, `name.stdout.3`, ...
+        suffix = ".stdout" if number == 1 else f".stdout.{number}"
+        source.with_name(source.stem + suffix).write_text(text)
+        wrote = True
     if "stderr" in row:
         source.with_suffix(".stderr").write_text(row["stderr"])
+        wrote = True
+    elif ("stdout" in row or "stdout_one_of" in row) and "warning_contains" not in row:
+        # A row that names its output also meant the program printed nothing else.
+        source.with_suffix(".stderr").write_text("")
         wrote = True
     code = row.get("exit_code")
     if code not in (None, 0) and row.get("mode") != "fault":
