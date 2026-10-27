@@ -152,11 +152,6 @@ jobs:
         # Some tests are skipped because they need what the browser lacks (native libraries, windows); a test that only
         # partly does skips that part itself under `OS == .WASM`. The browser release runs the same check.
         run: node tools/browser/check_playground_stdlib.mjs target/ci-wasm
-      - name: Interpreter and browser engine agree (corpus and generated programs)
-        # docs/tools/testing.md; the host jaic needs no LLVM to interpret.
-        run: |
-          cargo build --locked -j 2 -p jaic-cli --no-default-features
-          python3 tools/differential/jaic_diff.py --jaic target/debug/jaic --backends interp,wasm --wasm target/ci-wasm corpus gen:1:40
   test:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.jobs), 'test')
@@ -345,16 +340,28 @@ jobs:
         run: just lint --lang jai --release --os "${MATRIX_PART#lint-}"
         env:
           MATRIX_PART: ${{ matrix.part }}
+      # The browser engine is part of the agreement check below; like the wasm target tests, it
+      # runs on Linux x64 only.
+      - name: Build the browser engine bundle
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part == 'diff' && runner.os == 'Linux' && matrix.architecture == 'x86_64' }}
+        run: |
+          python3 tools/ci/install_pinned.py rust --component rustfmt --component clippy --target wasm32-unknown-unknown
+          python3 tools/browser/build_scripting_wasm.py --release --output target/ci-wasm
       - name: Backend agreement
         id: backends
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part == 'diff' }}
-        # The interpreter, -O0 and -O2 native builds and (on Linux x64) wasm must print the same for
-        # the corpus and a fixed set of generated programs (docs/tools/testing.md has the full run).
+        # The interpreter, -O0 and -O2 native builds and (on Linux x64) the browser engine and wasm
+        # must print the same for the corpus and a fixed set of generated programs
+        # (docs/tools/testing.md has the full run).
         run: |
           cargo build --locked -p jaic-cli
           backends=interp,native,native-O2
-          if [ "$RUNNER_OS" = Linux ] && [ "${{ matrix.architecture }}" = x86_64 ]; then backends=$backends,wasm-native; fi
-          python3 tools/differential/jaic_diff.py --jaic target/debug/jaic --backends "$backends" corpus gen:1:40
+          wasm=()
+          if [ "$RUNNER_OS" = Linux ] && [ "${{ matrix.architecture }}" = x86_64 ]; then
+            backends=$backends,wasm,wasm-native
+            wasm=(--wasm target/ci-wasm)
+          fi
+          python3 tools/differential/jaic_diff.py --jaic target/debug/jaic --backends "$backends" "${wasm[@]}" corpus gen:1:40
       - name: WebAssembly target
         id: wasm-target
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part == 'diff' && runner.os == 'Linux' && matrix.architecture == 'x86_64' }}
