@@ -65,16 +65,19 @@ CASES = (
 
 
 def manifest_rejections(modules):
-    """(case id, diagnostic) for every check-fail row of the modules' test manifests."""
+    """(case id, diagnostic) for every compile-fail test of the modules: the message of the first
+    error in the `.stderr` beside the program."""
     found = []
     for module in modules:
-        for row in json.loads(
-            (ROOT / "stdlib" / module / "tests/manifest.json").read_text()
-        ):
-            if row.get("mode") == "check-fail" and row.get("diagnostic_contains"):
-                found.append(
-                    (f"{module}/tests/{row['name']}", row["diagnostic_contains"])
-                )
+        tests = ROOT / "stdlib" / module / "tests"
+        for source in sorted(tests.rglob("*.jai")):
+            expected = source.with_suffix(".stderr")
+            if "compile_fail" not in jacket_tests.header_notes(source) or not expected.is_file():
+                continue
+            message = re.search(r"error: (.*)", expected.read_text(encoding="utf-8"))
+            if message:
+                name = source.relative_to(ROOT / "stdlib").with_suffix("").as_posix()
+                found.append((name, message.group(1)))
     return found
 
 

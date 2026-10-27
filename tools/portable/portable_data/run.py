@@ -85,11 +85,13 @@ PROGRAMS = {
 }
 for name in ("ico-wire", "ico-filename", "package-contract", "subtitles-contract", "icon-plugin", "icon-phase"):
     source = PROGRAMS[name]
-    run(compiler, "-interp", source, "--", output)
+    # ico-filename reads its bitmaps from one folder and writes to another; both are `output` here.
+    arguments = (output, output) if name == "ico-filename" else (output,)
+    run(compiler, "-interp", source, "--", *arguments)
     for mode in ("O0", "O2"):
         binary = output / f"{name}-{mode}"
         run(compiler, f"-{mode}", source, "-exe", binary)
-        run(binary, output)
+        run(binary, *arguments)
 for name in ("package-contract", "subtitles-contract", "icon-plugin", "icon-phase"):
     wasm_test(PROGRAMS[name], name)
 resource_test = "stdlib/Ico_File/tests/resource.jai"
