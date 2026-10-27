@@ -409,6 +409,21 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: Option<&BenchArgs>) -> ExitCode {
     watch::run(args, cwd)
 }
 
+/// The OS and CPU the tests are built for: the flags', else the host's. A wasm program has no CPU
+/// of the host's kind, so `only(.X64)` never runs under `-os wasm`.
+fn target_of(args: &TestArgs) -> (String, String) {
+    let os = args.os.clone().unwrap_or_else(|| host_os().into());
+    let cpu = args.cpu.clone().unwrap_or_else(|| {
+        if os == "wasm" {
+            "wasm"
+        } else {
+            host_cpu()
+        }
+        .into()
+    });
+    (os, cpu)
+}
+
 /// One run of the selected tests. `watched` is told which folders and test files the run
 /// used; `only` narrows the run to the cases of these test files.
 fn run_once(
@@ -452,16 +467,7 @@ fn run_once(
         Some(Err(error)) => return fail(error),
         None => None,
     };
-    let os = args.os.clone().unwrap_or_else(|| host_os().into());
-    // A wasm program has no CPU of the host's kind: `only(.X64)` never runs under `-os wasm`.
-    let cpu = args.cpu.clone().unwrap_or_else(|| {
-        if os == "wasm" {
-            "wasm"
-        } else {
-            host_cpu()
-        }
-        .into()
-    });
+    let (os, cpu) = target_of(args);
     let target = Target {
         os: os.clone(),
         cpu: cpu.clone(),

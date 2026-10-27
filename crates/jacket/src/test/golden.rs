@@ -33,7 +33,7 @@ fn normalized(bytes: &[u8]) -> String {
 /// The other outputs a test may print instead of the one in `path`: `path.2`, `path.3`, ... in
 /// order, for output that depends on the host (a sound device that is or is not present).
 fn alternatives(path: &Path) -> Vec<PathBuf> {
-    (2..)
+    (2..100)
         .map(|n| PathBuf::from(format!("{}.{n}", path.display())))
         .take_while(|p| p.is_file())
         .collect()
