@@ -140,36 +140,48 @@ OS_NAMES = ("linux", "macos", "windows", "wasm")
 CPU_NAMES = ("x64", "arm64", "wasm")
 
 
-def note_targets(notes, name):
-    """The lowercase targets of the `name(...)` note among `notes` (`only(.LINUX,.X64)`)."""
-    targets = []
+def note_calls(notes, name):
+    """The `name(...)` calls among `notes` as (names, mode, cpu): the lowercase positional
+    targets, and the `mode =` and `cpu =` values (None when absent)."""
+    calls = []
     for note in notes:
         match = re.fullmatch(name + r"\(([^)]*)\)", note)
-        if match:
-            targets += [
-                part.strip().lstrip(".").lower()
-                for part in match.group(1).split(",")
-                if part.strip()
-            ]
-    return targets
+        if not match:
+            continue
+        names, narrow = [], {"mode": None, "cpu": None}
+        for part in match.group(1).split(","):
+            part = part.strip()
+            if "=" in part:
+                key, _, value = part.partition("=")
+                narrow[key.strip()] = value.strip().lstrip(".").lower()
+            elif part:
+                names.append(part.lstrip(".").lower())
+        calls.append((names, narrow["mode"], narrow["cpu"]))
+    return calls
 
 
 def runs_on(notes, os_name, cpu):
     """Whether a native run of a test with these `// test:` notes is allowed on `os_name` and
-    `cpu`: every kind of target `only` names must match, and no `skip_on` target may."""
+    `cpu`: every `only` call must pass (each kind of target it names must match, and its `mode =`
+    and `cpu =`), and no `skip_on` call may match (any name, and its `mode =` and `cpu =`)."""
 
-    def matches(target):
-        system, dash, rest = target.partition("-")
-        if dash:
-            return system == os_name and rest in (cpu, "native")
+    def named(target):
         return target in (os_name, cpu, "native")
 
-    only = note_targets(notes, "only")
-    for names in (OS_NAMES, CPU_NAMES, ("interp", "native")):
-        named = [t for t in only if t in names or (names is OS_NAMES and "-" in t)]
-        if named and not any(matches(t) for t in named):
+    def narrowed(mode, wanted_cpu):
+        return mode in (None, "native") and wanted_cpu in (None, cpu)
+
+    for names, mode, wanted_cpu in note_calls(notes, "only"):
+        for kind in (OS_NAMES, CPU_NAMES, ("interp", "native")):
+            of_kind = [t for t in names if t in kind]
+            if of_kind and not any(named(t) for t in of_kind):
+                return False
+        if not narrowed(mode, wanted_cpu):
             return False
-    return not any(matches(t) for t in note_targets(notes, "skip_on"))
+    for names, mode, wanted_cpu in note_calls(notes, "skip_on"):
+        if (not names or any(named(t) for t in names)) and narrowed(mode, wanted_cpu):
+            return False
+    return True
 
 
 # Programs that build and run other programs while compiling, which a type check cannot do.

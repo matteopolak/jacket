@@ -1,4 +1,4 @@
-// test: skip_on(.WASM-NATIVE)
+// test: skip_on(.WASM, mode = .NATIVE)
 #import "Basic";
 M :: #import "meow_hash";
 Again :: #import "meow_hash";

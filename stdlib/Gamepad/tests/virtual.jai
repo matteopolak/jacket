@@ -1,4 +1,4 @@
-// test: skip_on(.WASM,.WINDOWS-ARM64)
+// test: skip_on(.WASM) skip_on(.WINDOWS, cpu = .ARM64)
 #import "Basic";
 G :: #import "Gamepad";
 I :: #import "Input";

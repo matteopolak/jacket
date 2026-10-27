@@ -279,7 +279,7 @@ reads_proc_self :: () { ... } @test @serial
 | `@check_only` | golden tests: only type-check the program (`jaic -check`); for code that cannot run on this host |
 | `@compile_fail` | file header only: the file below `tests/` is a compile-fail test |
 
-A target may also name an OS with a CPU (`skip_on(.WINDOWS-ARM64)`) or with a mode (`skip_on(.WASM-NATIVE)`: a wasm build run by `--runner`, not `--interp`; `only(.WASM-INTERP)`). `.ANDROID` is an OS no host is, so such tests never run here. Under `-os wasm` the CPU is `wasm` unless `-cpu` says otherwise, so `only(.X64)` never runs a test as wasm.
+`mode = .NATIVE` (or `.INTERP`) and `cpu = .ARM64` (or `.X64`) narrow a whole call: a target matches when it matches one of the names and the given mode and CPU, as in `skip_on(.WINDOWS, cpu = .ARM64)` or `skip_on(.WASM, mode = .NATIVE)` (a wasm build run by `--runner`, not `--interp`) or `only(.WASM, mode = .INTERP)`. Without names they mean any OS: `skip_on(mode = .NATIVE)`. Only these two keys and these values exist. A header may hold several calls: `skip_on(.WASM) skip_on(.WINDOWS, cpu = .ARM64)` skips on either, and every `only(...)` call must pass. In a `@test` note list, the first `only` or `skip_on` replaces the file's and later ones add to it. `.ANDROID` is an OS no host is, so such tests never run here. Under `-os wasm` the CPU is `wasm` unless `-cpu` says otherwise, so `only(.X64)` never runs a test as wasm.
 
 An unknown note or a bad argument is a warning naming the file and line; the note is ignored. The target is the host, or `-os`/`-cpu`; a cross-built test is skipped unless `--runner` can run it (compile-fail tests still run).
 
@@ -370,8 +370,8 @@ Programs run from their own `tests/` folder, as the old runner did. Where a test
 | `warning_contains` | `warns("text")` |
 | `source_check_only` | `check_only` |
 | `required_os`, `required_cpu` | `only(.LINUX,.MACOS)`, `only(.X64)` |
-| `unsupported_platforms` (`windows-arm64`) | `skip_on(.WINDOWS-ARM64)` |
-| `unsupported_modes` naming both wasm modes, with its `required_capabilities` text | `skip_on(.WASM)` (the wasm legs are `-os wasm --interp` and `-os wasm --runner node`); one mode: `skip_on(.INTERP)`, `skip_on(.NATIVE)` or an `os-mode` pair such as `skip_on(.WASM-NATIVE)` |
+| `unsupported_platforms` (`windows-arm64`) | `skip_on(.WINDOWS, cpu = .ARM64)`, one call per platform |
+| `unsupported_modes` naming both wasm modes, with its `required_capabilities` text | `skip_on(.WASM)` (the wasm legs are `-os wasm --interp` and `-os wasm --runner node`); one mode: `skip_on(.INTERP)`, `skip_on(.NATIVE)` or a wasm mode, `skip_on(.WASM, mode = .NATIVE)` |
 | `arguments` | `args("literal", "quote\" and slash\\", "")` |
 | `input: scratch-file` / `scratch-directory` | `args("$TEMP/data")` / `args("$TEMP")` |
 | `input: font`, `windows-resource-directory` | `args("${JAIC_TEST_FONT_PATH}")`, `args("${JAIC_TEST_WINDOWS_RESOURCE_DIR}")`: a test fails with a message when the variable is not set |
@@ -385,7 +385,7 @@ Programs run from their own `tests/` folder, as the old runner did. Where a test
 | the old runner's `-check -no_dce` pass | dropped from the runs; `check_portable_stdlib.py --check-target OS/CPU` type-checks the golden tests that apply to another target (without `-no_dce`) |
 | `disabled` | fix or delete the case before migrating |
 
-The target names in `only` and `skip_on` take an OS and a mode or CPU joined by a dash (`.WINDOWS-NATIVE`, `.WASM-INTERP`, `.WINDOWS-ARM64`); a wasm build has the CPU `wasm`, so `only(.X64)` never selects it. Arguments expand `$TEMP`, `$DIR` and `${NAME}` (an environment variable), and `\"` and `\\` inside quotes are a quote and a backslash.
+The target names in `only` and `skip_on` take `mode =` and `cpu =` to narrow an OS (`only(.WINDOWS, mode = .NATIVE)`, `skip_on(.WASM, mode = .INTERP)`, `skip_on(.WINDOWS, cpu = .ARM64)`); a wasm build has the CPU `wasm`, so `only(.X64)` never selects it. Arguments expand `$TEMP`, `$DIR` and `${NAME}` (an environment variable), and `\"` and `\\` inside quotes are a quote and a backslash.
 
 **Other consumers.** `jaic_sweep.py` (differential sweeps), `windows_cross.py` (Windows cross builds), the determinism tool and the browser runner read the catalogue only, so they no longer see the stdlib modules. The modules are covered by the `jacket test` legs of CI (native, `--interp`, `-O2`, and with `WASM=true` both wasm modes under node), by the sanitizer legs (`tools/ci/stdlib_jacket_sanitize.sh`), and on Windows by the `windows-stdlib` job's `jacket test` step. The browser engine, the Windows cross builds and the backend differential run (`jaic_diff.py`) no longer run them, and the interpreter-reachability report that the Python runner's coverage record fed is gone. Some tests are Windows- or Linux-only and can only run in CI on that host; `jacket_tests.cross_check` (`check_portable_stdlib.py --check-target`) type-checks them for the target from any host.
 

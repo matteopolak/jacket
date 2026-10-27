@@ -2,6 +2,8 @@
 //! same options in a `// test: timeout(5) only(.LINUX)` comment at the top of a file, which sets
 //! them for every test the file holds.
 
+use std::fmt;
+
 /// What a test asks for. `None` and empty lists leave the run-wide setting in charge.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct TestOptions {
@@ -12,12 +14,10 @@ pub struct TestOptions {
     /// Runs while no other test does.
     pub serial: bool,
     pub retries: Option<u32>,
-    /// Targets (`linux`, `macos`, `windows`, `wasm`, `x64`, `arm64`, and `interp` or `native`
-    /// for how it runs; an OS with a CPU or a mode, as in `windows-arm64` or `wasm-native`)
-    /// the test runs on.
-    pub only: Vec<String>,
-    /// Targets the test is skipped on.
-    pub skip_on: Vec<String>,
+    /// One filter per `only(...)` call; the test runs on a target that passes every one.
+    pub only: Vec<TargetFilter>,
+    /// One filter per `skip_on(...)` call; the test is skipped on a target that matches any.
+    pub skip_on: Vec<TargetFilter>,
     /// Capabilities (`network`, `gpu`) the test is skipped without.
     pub needs: Vec<String>,
     pub interp_only: bool,
@@ -52,11 +52,107 @@ const OS_NAMES: [&str; 5] = ["linux", "macos", "windows", "wasm", "android"];
 const CPU_NAMES: [&str; 2] = ["x64", "arm64"];
 const MODE_NAMES: [&str; 2] = ["interp", "native"];
 
-fn is_target(name: &str) -> bool {
-    if let Some((os, rest)) = name.split_once('-') {
-        return OS_NAMES.contains(&os) && (CPU_NAMES.contains(&rest) || MODE_NAMES.contains(&rest));
+/// The arguments of one `only(...)` or `skip_on(...)` call: target names (an OS, a CPU or a
+/// mode, as in `.WASM`, `.ARM64`, `.INTERP`), and `mode = .NATIVE` or `cpu = .ARM64`, which
+/// narrow the whole call.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct TargetFilter {
+    pub names: Vec<String>,
+    pub mode: Option<String>,
+    pub cpu: Option<String>,
+}
+
+impl TargetFilter {
+    /// `.WASM, .WINDOWS, cpu = .ARM64` as a filter. `call` is `only` or `skip_on`.
+    fn parse(call: &str, args: &str) -> Result<TargetFilter, String> {
+        let mut filter = TargetFilter::default();
+        for item in args.split(',').map(str::trim).filter(|i| !i.is_empty()) {
+            if let Some((key, value)) = item.split_once('=') {
+                let key = key.trim();
+                let value = value.trim().trim_start_matches('.').to_ascii_lowercase();
+                let (slot, allowed) = match key {
+                    "mode" => (&mut filter.mode, &MODE_NAMES),
+                    "cpu" => (&mut filter.cpu, &CPU_NAMES),
+                    _ => {
+                        return Err(format!(
+                            "`@{call}` does not know the argument `{key}`; use `mode =` or `cpu =`"
+                        ));
+                    }
+                };
+                if !allowed.contains(&value.as_str()) {
+                    return Err(format!(
+                        "`@{call}` does not know the {key} `{value}`; use {}",
+                        dotted(allowed)
+                    ));
+                }
+                if slot.replace(value).is_some() {
+                    return Err(format!("`@{call}` gives `{key} =` twice"));
+                }
+                continue;
+            }
+            let name = item.trim_start_matches('.').to_ascii_lowercase();
+            if ![&OS_NAMES[..], &CPU_NAMES[..], &MODE_NAMES[..]]
+                .iter()
+                .any(|names| names.contains(&name.as_str()))
+            {
+                return Err(format!(
+                    "`@{call}` does not know the target `{name}`; use .LINUX, .MACOS, .WINDOWS, .WASM, .ANDROID, .X64, .ARM64, .INTERP or .NATIVE, and `mode =` or `cpu =` to narrow them"
+                ));
+            }
+            filter.names.push(name);
+        }
+        if filter.names.is_empty() && filter.mode.is_none() && filter.cpu.is_none() {
+            return Err(format!("`@{call}` needs targets, as in `@{call}(.LINUX)`"));
+        }
+        Ok(filter)
     }
-    OS_NAMES.contains(&name) || CPU_NAMES.contains(&name) || MODE_NAMES.contains(&name)
+
+    fn named(target: &Target, mode: &str, name: &str) -> bool {
+        name == target.os || name == target.cpu || name == mode
+    }
+
+    /// `mode =` and `cpu =`, which every target of the call must satisfy.
+    fn narrowed(&self, target: &Target, mode: &str) -> bool {
+        self.mode.as_deref().is_none_or(|m| m == mode)
+            && self.cpu.as_deref().is_none_or(|c| c == target.cpu)
+    }
+
+    /// Whether `target` is one the call names: any of the names (any OS if there are none), and
+    /// the mode and CPU.
+    fn matches(&self, target: &Target, mode: &str) -> bool {
+        (self.names.is_empty() || self.names.iter().any(|n| Self::named(target, mode, n)))
+            && self.narrowed(target, mode)
+    }
+
+    /// Whether `target` passes an `only` call: each kind of name given (OS, CPU, mode) must
+    /// match one of that kind, so `only(.LINUX, .X64)` is Linux on x64.
+    fn allows(&self, target: &Target, mode: &str) -> bool {
+        [&OS_NAMES[..], &CPU_NAMES[..], &MODE_NAMES[..]]
+            .iter()
+            .all(|kind| {
+                let mut named = self
+                    .names
+                    .iter()
+                    .filter(|n| kind.contains(&n.as_str()))
+                    .peekable();
+                named.peek().is_none() || named.any(|n| Self::named(target, mode, n))
+            })
+            && self.narrowed(target, mode)
+    }
+}
+
+impl fmt::Display for TargetFilter {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut parts = self.names.clone();
+        parts.extend(self.mode.iter().map(|m| format!("mode = {m}")));
+        parts.extend(self.cpu.iter().map(|c| format!("cpu = {c}")));
+        f.write_str(&parts.join(", "))
+    }
+}
+
+fn dotted(names: &[&str]) -> String {
+    let named: Vec<String> = names.iter().map(|n| n.to_ascii_uppercase()).collect();
+    format!(".{}", named.join(" or ."))
 }
 
 impl TestOptions {
@@ -97,19 +193,11 @@ impl TestOptions {
             "native_only" => self.native_only = true,
             "allow_leaks" => self.allow_leaks = true,
             "only" | "skip_on" => {
-                let targets = list();
-                if let Some(bad) = targets.iter().find(|t| !is_target(t)) {
-                    return Err(format!(
-                        "`@{name}` does not know the target `{bad}`; use .LINUX, .MACOS, .WINDOWS, .WASM, .X64, .ARM64, .INTERP or .NATIVE, or an OS with a CPU or mode (.WASM-NATIVE)"
-                    ));
-                }
-                if targets.is_empty() {
-                    return Err(format!("`@{name}` needs targets, as in `@{name}(.LINUX)`"));
-                }
+                let filter = TargetFilter::parse(name, args.unwrap_or(""))?;
                 if name == "only" {
-                    self.only = targets;
+                    self.only.push(filter);
                 } else {
-                    self.skip_on = targets;
+                    self.skip_on.push(filter);
                 }
             }
             "needs" => self.needs = list(),
@@ -147,9 +235,20 @@ impl TestOptions {
     /// as warnings.
     pub fn with_notes(&self, notes: &[String]) -> (TestOptions, Vec<String>) {
         let mut options = self.clone();
+        // The first `only` or `skip_on` among `notes` replaces what `self` had; later ones add
+        // to it, so a file can carry several `skip_on(...)` calls.
+        let (mut only, mut skip_on) = (false, false);
         let warnings = notes
             .iter()
-            .filter_map(|n| options.apply(n).err())
+            .filter_map(|n| {
+                let call = n.split('(').next().unwrap_or("");
+                if call == "only" && !std::mem::replace(&mut only, true) {
+                    options.only.clear();
+                } else if call == "skip_on" && !std::mem::replace(&mut skip_on, true) {
+                    options.skip_on.clear();
+                }
+                options.apply(n).err()
+            })
             .collect();
         (options, warnings)
     }
@@ -170,24 +269,21 @@ impl TestOptions {
         } else {
             "native"
         };
-        let matches = |t: &String| match t.split_once('-') {
-            Some((os, rest)) => os == target.os && (rest == target.cpu || rest == mode),
-            None => *t == target.os || *t == target.cpu || t == mode,
-        };
-        // Each kind of target `only` names must match: `only(.LINUX, .X64)` is Linux on x64.
-        let misses = |names: &[&str]| {
-            let named: Vec<&String> = self
-                .only
-                .iter()
-                .filter(|t| names.contains(&t.as_str()) || (names == OS_NAMES && t.contains('-')))
-                .collect();
-            !named.is_empty() && !named.iter().any(|t| matches(t))
-        };
-        if misses(&OS_NAMES) || misses(&CPU_NAMES) || misses(&MODE_NAMES) {
-            return Some(format!("only on {}", self.only.join(", ")));
+        if let Some(filter) = self.only.iter().find(|f| !f.allows(target, mode)) {
+            return Some(format!("only on {filter}"));
         }
-        if let Some(t) = self.skip_on.iter().find(|t| matches(t)) {
-            return Some(format!("skipped on {t}"));
+        if let Some(filter) = self.skip_on.iter().find(|f| f.matches(target, mode)) {
+            // Name the targets that matched, not every one the call lists.
+            let matched = TargetFilter {
+                names: filter
+                    .names
+                    .iter()
+                    .filter(|n| TargetFilter::named(target, mode, n))
+                    .cloned()
+                    .collect(),
+                ..filter.clone()
+            };
+            return Some(format!("skipped on {matched}"));
         }
         let missing: Vec<&String> = self.needs.iter().filter(|n| !have.contains(n)).collect();
         if !missing.is_empty() {
@@ -328,7 +424,8 @@ mod tests {
         let (options, warnings) = TestOptions::default().with_notes(&notes);
         assert!(warnings.is_empty(), "{warnings:?}");
         assert_eq!(options.timeout, Some(5));
-        assert_eq!(options.only, ["linux", "macos"]);
+        assert_eq!(options.only.len(), 1);
+        assert_eq!(options.only[0].names, ["linux", "macos"]);
         assert_eq!(options.should_fail.as_deref(), Some("bounds"));
         assert!(options.serial);
         assert_eq!(options.exit, Some(3));
@@ -380,7 +477,7 @@ mod tests {
 
     #[test]
     fn a_target_can_name_the_os_and_cpu_together() {
-        let notes = ["skip_on(.WINDOWS-ARM64)".to_string()];
+        let notes = ["skip_on(.WINDOWS, cpu = .ARM64)".to_string()];
         let (options, warnings) = TestOptions::default().with_notes(&notes);
         assert!(warnings.is_empty(), "{warnings:?}");
         let on = |os: &str, cpu: &str| Target {
@@ -391,10 +488,8 @@ mod tests {
         assert!(options.skip_reason(&on("windows", "arm64"), &[]).is_some());
         assert_eq!(options.skip_reason(&on("windows", "x64"), &[]), None);
         assert_eq!(options.skip_reason(&on("macos", "arm64"), &[]), None);
-        let only = TestOptions {
-            only: vec!["windows-arm64".into()],
-            ..TestOptions::default()
-        };
+        let mut only = TestOptions::default();
+        only.apply("only(.WINDOWS, cpu = .ARM64)").unwrap();
         assert_eq!(only.skip_reason(&on("windows", "arm64"), &[]), None);
         assert!(only.skip_reason(&on("windows", "x64"), &[]).is_some());
     }
@@ -402,14 +497,113 @@ mod tests {
     #[test]
     fn a_target_can_name_the_os_and_mode_together() {
         let mut options = TestOptions::default();
-        options.apply("skip_on(.WASM-NATIVE)").unwrap();
+        options.apply("skip_on(.WASM, mode = .NATIVE)").unwrap();
         assert!(options.skip_reason(&target("wasm", false), &[]).is_some());
         assert_eq!(options.skip_reason(&target("wasm", true), &[]), None);
         assert_eq!(options.skip_reason(&target("linux", false), &[]), None);
         let mut only = TestOptions::default();
-        only.apply("only(.WINDOWS-NATIVE)").unwrap();
+        only.apply("only(.WINDOWS, mode = .NATIVE)").unwrap();
         assert_eq!(only.skip_reason(&target("windows", false), &[]), None);
         assert!(only.skip_reason(&target("windows", true), &[]).is_some());
+    }
+
+    #[test]
+    fn mode_and_cpu_narrow_the_whole_call() {
+        let on = |os: &str, cpu: &str, interp: bool| Target {
+            os: os.into(),
+            cpu: cpu.into(),
+            interp,
+        };
+        // Any of the names, and the mode.
+        let mut options = TestOptions::default();
+        options
+            .apply("skip_on(.WASM, .WINDOWS, mode = .NATIVE)")
+            .unwrap();
+        assert!(
+            options
+                .skip_reason(&on("wasm", "wasm", false), &[])
+                .is_some()
+        );
+        assert!(
+            options
+                .skip_reason(&on("windows", "x64", false), &[])
+                .is_some()
+        );
+        assert_eq!(options.skip_reason(&on("windows", "x64", true), &[]), None);
+        assert_eq!(options.skip_reason(&on("linux", "x64", false), &[]), None);
+        // No names: any OS.
+        let mut any = TestOptions::default();
+        any.apply("skip_on(mode = .NATIVE)").unwrap();
+        assert!(any.skip_reason(&on("linux", "x64", false), &[]).is_some());
+        assert_eq!(any.skip_reason(&on("linux", "x64", true), &[]), None);
+        let mut cpu = TestOptions::default();
+        cpu.apply("only(cpu = .X64)").unwrap();
+        assert_eq!(cpu.skip_reason(&on("linux", "x64", false), &[]), None);
+        assert!(cpu.skip_reason(&on("linux", "arm64", false), &[]).is_some());
+        // Both together.
+        let mut both = TestOptions::default();
+        both.apply("only(.MACOS, mode = .INTERP, cpu = .ARM64)")
+            .unwrap();
+        assert_eq!(both.skip_reason(&on("macos", "arm64", true), &[]), None);
+        assert!(
+            both.skip_reason(&on("macos", "arm64", false), &[])
+                .is_some()
+        );
+        assert!(both.skip_reason(&on("macos", "x64", true), &[]).is_some());
+    }
+
+    #[test]
+    fn several_skip_on_calls_each_skip() {
+        let notes = [
+            "skip_on(.WASM)".to_string(),
+            "skip_on(.WINDOWS, cpu = .ARM64)".to_string(),
+        ];
+        let (options, warnings) = TestOptions::default().with_notes(&notes);
+        assert!(warnings.is_empty(), "{warnings:?}");
+        let on = |os: &str, cpu: &str| Target {
+            os: os.into(),
+            cpu: cpu.into(),
+            interp: false,
+        };
+        assert!(options.skip_reason(&on("wasm", "wasm"), &[]).is_some());
+        assert!(options.skip_reason(&on("windows", "arm64"), &[]).is_some());
+        assert_eq!(options.skip_reason(&on("windows", "x64"), &[]), None);
+        // A later batch of notes replaces them.
+        let (later, _) = options.with_notes(&["skip_on(.LINUX)".to_string()]);
+        assert_eq!(later.skip_on.len(), 1);
+    }
+
+    #[test]
+    fn bad_target_arguments_are_warnings() {
+        for (note, expect) in [
+            (
+                "skip_on(.WASM-NATIVE)",
+                "does not know the target `wasm-native`",
+            ),
+            (
+                "only(.WINDOWS-ARM64)",
+                "does not know the target `windows-arm64`",
+            ),
+            (
+                "skip_on(.WASM, os = .LINUX)",
+                "does not know the argument `os`",
+            ),
+            (
+                "skip_on(.WASM, mode = .ARM64)",
+                "does not know the mode `arm64`",
+            ),
+            (
+                "skip_on(.WASM, cpu = .NATIVE)",
+                "does not know the cpu `native`",
+            ),
+            ("skip_on(cpu = .X64, cpu = .ARM64)", "gives `cpu =` twice"),
+            ("skip_on()", "needs targets"),
+        ] {
+            let (options, warnings) = TestOptions::default().with_notes(&[note.to_string()]);
+            assert_eq!(options, TestOptions::default(), "{note}");
+            assert_eq!(warnings.len(), 1, "{note}: {warnings:?}");
+            assert!(warnings[0].contains(expect), "{note}: {warnings:?}");
+        }
     }
 
     #[test]

@@ -67,18 +67,26 @@ ENVIRONMENT_INPUTS = {
 }
 # Inputs that are files beside the tests, in a folder of that name, and a folder to write to.
 FIXTURE_INPUTS = {"ico-fixtures": ["$DIR/ico-fixtures", "$TEMP"]}
-# A mode the row cannot run in, as the target note that skips it.
+# A mode the row cannot run in, as the arguments of the `skip_on` call that skips it.
 MODE_TARGETS = {
     "interp": ".INTERP",
     "native": ".NATIVE",
-    "wasm-interp": ".WASM-INTERP",
-    "wasm-native": ".WASM-NATIVE",
+    "wasm-interp": ".WASM, mode = .INTERP",
+    "wasm-native": ".WASM, mode = .NATIVE",
 }
 
 
 def quoted(argument):
     """An argument as the `args(...)` note spells it: quotes and backslashes escaped."""
     return '"' + argument.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def platform_target(platform):
+    """`windows-arm64` as the arguments of a `skip_on` call: `.WINDOWS, cpu = .ARM64`."""
+    system, dash, cpu = platform.partition("-")
+    if not dash:
+        return "." + system.upper()
+    return f".{system.upper()}, cpu = .{cpu.upper()}"
 
 
 def as_list(value):
@@ -118,11 +126,14 @@ def notes_of(row):
     only.extend("." + os.upper() for os in as_list(row.get("required_os")))
     if row.get("required_cpu"):
         only.extend("." + cpu.upper() for cpu in as_list(row["required_cpu"]))
-    skip_on.extend("." + p.upper() for p in row.get("unsupported_platforms", []))
+    skip_on.extend(platform_target(p) for p in row.get("unsupported_platforms", []))
     if only:
         notes.append("only(" + ",".join(only) + ")")
-    if skip_on:
-        notes.append("skip_on(" + ",".join(skip_on) + ")")
+    # One call for each target that names more than an OS, CPU or mode.
+    plain = [t for t in skip_on if "=" not in t]
+    if plain:
+        notes.append("skip_on(" + ",".join(plain) + ")")
+    notes.extend(f"skip_on({t})" for t in skip_on if "=" in t)
     if row.get("requires_display"):
         notes.append("needs(.DISPLAY)")
     systems = [o.lower() for o in as_list(row.get("required_os"))]

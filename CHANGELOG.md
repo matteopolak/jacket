@@ -31,6 +31,7 @@
 
 | Was | Now |
 | --- | --- |
+| `only(.WASM-NATIVE)`, `skip_on(.WINDOWS-ARM64)` in a `jacket test` target list | `only(.WASM, mode = .NATIVE)`, `skip_on(.WINDOWS, cpu = .ARM64)`; `skip_on(mode = .NATIVE)` means any OS |
 | `Bytes`, `Text`, `request.body`, `body_text(request)` | a `*Body` parameter and `read_all` |
 | `body.name` on `Json(T)`, `Form(T)`, `Query(T)`, `Params(T)` | `body.temporary.name` (the value lives in temporary storage until the response is written) |
 | a POST returning a value answers 201 | 200; return `created(value)` for 201 |
