@@ -90,6 +90,8 @@ Each test gets a fresh `temp_dir` under the work folder. Folders of passing test
 
 A golden test is built (or run with `-interp`) with the same flags as the unit tests, from its own folder. It passes when its exit status equals `name.exit` (default 0), its standard output equals `name.stdout` when that file exists, and its standard error equals `name.stderr` when that file exists. Line endings are compared as `\n`; differences are shown as a line diff.
 
+Output that depends on the machine (a sound device that is or is not present) can have more than one right answer: `name.stdout.2`, `name.stdout.3`, ... (and the same for `.stderr`) are other outputs that pass, in addition to `name.stdout`. `--accept` writes `name.stdout` only when the output matches none of them.
+
 A golden program that has no `main` and does its work at compile time (`#run`, a metaprogram) is only type-checked, and what the compiler prints is its output. A program with `@warns(text)` is built without `-quiet` and passes when the compiler's output (interpreted: standard error) contains the text.
 
 A compile-fail test is type-checked with `jaic name.jai -check -quiet -no_color` from its own folder. It passes when the check fails and the diagnostics equal `name.stderr`, with the folder written `$DIR` and the standard library `$STDLIB`:
@@ -272,7 +274,7 @@ reads_proc_self :: () { ... } @test @serial
 | `@should_fail`, `@should_fail(word)` | must fail (a check, a crash or a timeout); with a word, a failure message or the test's standard error must contain it |
 | `@xfail`, `@xfail(reason)` | a known failure, reported `XFAIL`; passing is an error |
 | `@allow_leaks` | the tracking allocator reports no leaks |
-| `@args("a", "b $TEMP/x")` | golden tests: the program's command-line arguments (case kept); `$TEMP` is a fresh folder |
+| `@args("a", "b $TEMP/x")` | golden tests: the program's command-line arguments (case kept). `$TEMP` is a fresh folder, `$DIR` the folder of the test file (for fixture files beside it: `args("$DIR/fixtures")`) and `${NAME}` the environment variable `NAME` (`args("${JAIC_TEST_FONT_PATH}")`), which must be set: a test that needs a file the machine provides fails with a message naming the variable, so a missing input is never a silent pass |
 | `@warns("text")` | golden tests: the compiler must warn with this text (see above) |
 | `@check_only` | golden tests: only type-check the program (`jaic -check`); for code that cannot run on this host |
 | `@compile_fail` | file header only: the file below `tests/` is a compile-fail test |

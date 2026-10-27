@@ -30,9 +30,24 @@ fn normalized(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes).replace("\r\n", "\n")
 }
 
-/// Compares `got` to the expected file at `path`, or writes it there with `accept`.
+/// The other outputs a test may print instead of the one in `path`: `path.2`, `path.3`, ... in
+/// order, for output that depends on the host (a sound device that is or is not present).
+fn alternatives(path: &Path) -> Vec<PathBuf> {
+    (2..)
+        .map(|n| PathBuf::from(format!("{}.{n}", path.display())))
+        .take_while(|p| p.is_file())
+        .collect()
+}
+
+/// Compares `got` to the expected file at `path` (or to any of its `alternatives`), or writes it
+/// there with `accept`; with alternatives, `accept` writes only a new output that none of them has.
 fn expect_text(path: &Path, got: &str, what: &str, accept: bool, checked: &mut Checked) {
+    let others = alternatives(path);
+    let matches = |file: &Path| std::fs::read(file).is_ok_and(|b| normalized(&b) == got);
     if accept {
+        if !others.is_empty() && (matches(path) || others.iter().any(|f| matches(f))) {
+            return;
+        }
         if std::fs::write(path, got).is_ok() {
             checked.accepted.push(path.to_path_buf());
         }
@@ -41,9 +56,14 @@ fn expect_text(path: &Path, got: &str, what: &str, accept: bool, checked: &mut C
     let want = std::fs::read(path)
         .map(|b| normalized(&b))
         .unwrap_or_default();
-    if want != got {
+    if want != got && !others.iter().any(|f| matches(f)) {
+        let more = if others.is_empty() {
+            String::new()
+        } else {
+            format!(" and {} alternative output(s)", others.len())
+        };
         checked.problems.push(format!(
-            "{what} differs from {}:\n{}",
+            "{what} differs from {}{more}:\n{}",
             file_name(path),
             super::diff::lines(&want, got)
         ));
@@ -221,8 +241,39 @@ fn check_only(source: &Path, root_flags: &[String], toolchain: &Toolchain, cwd: 
     checked
 }
 
-/// Builds and runs the golden test `source`; `options` set its arguments (`$TEMP` is a fresh
-/// folder in `work`) and the warning it must produce.
+/// The program's arguments: `$TEMP` is a fresh folder, `$DIR` the test's folder (for fixture
+/// files beside it) and `${NAME}` the environment variable `NAME`, which must be set: a test
+/// that needs a file the machine provides (a font) fails, instead of running without it.
+fn expand_args(
+    args: &[String],
+    temp: &str,
+    dir: &str,
+    env: &dyn Fn(&str) -> Option<String>,
+) -> Result<Vec<String>, String> {
+    let mut expanded = Vec::new();
+    for arg in args {
+        let mut text = arg.replace("$TEMP", temp).replace("$DIR", dir);
+        while let Some(start) = text.find("${") {
+            let Some(length) = text[start..].find('}') else {
+                return Err(format!(
+                    "the argument `{arg}` has `${{` without a closing `}}`"
+                ));
+            };
+            let name = &text[start + 2..start + length];
+            let Some(value) = env(name).filter(|v| !v.is_empty()) else {
+                return Err(format!(
+                    "the argument `{arg}` needs the environment variable {name}, which is not set"
+                ));
+            };
+            text.replace_range(start..=start + length, &value);
+        }
+        expanded.push(text);
+    }
+    Ok(expanded)
+}
+
+/// Builds and runs the golden test `source`; `options` set its arguments and the warning it
+/// must produce.
 #[allow(clippy::too_many_arguments)]
 pub fn golden(
     source: &Path,
@@ -267,11 +318,17 @@ pub fn golden(
         let temp = work.join("temp");
         let _ = std::fs::create_dir_all(&temp);
         let temp = temp.to_string_lossy().into_owned();
-        let args: Vec<String> = options
-            .args
-            .iter()
-            .map(|a| a.replace("$TEMP", &temp))
-            .collect();
+        let dir = source.parent().unwrap_or(Path::new("."));
+        let dir = std::path::absolute(dir).unwrap_or_else(|_| dir.to_path_buf());
+        let args = match expand_args(&options.args, &temp, &dir.to_string_lossy(), &|name| {
+            std::env::var(name).ok()
+        }) {
+            Ok(args) => args,
+            Err(problem) => {
+                checked.problems.push(problem);
+                return checked;
+            }
+        };
         if toolchain.interp {
             invocation.args.push("--".into());
         }
@@ -466,5 +523,52 @@ mod tests {
             ),
             "../../layout.jai:67:13: error: a\\b\n"
         );
+    }
+
+    #[test]
+    fn arguments_expand_folders_and_environment_variables() {
+        let env = |name: &str| (name == "FONT").then(|| "/fonts/a.ttf".to_string());
+        let args = [
+            "$TEMP/data".to_string(),
+            "$DIR/x.bmp".into(),
+            "${FONT}".into(),
+        ];
+        assert_eq!(
+            expand_args(&args, "/t", "/d", &env).unwrap(),
+            ["/t/data", "/d/x.bmp", "/fonts/a.ttf"]
+        );
+        let missing = expand_args(&["${NOPE}".to_string()], "/t", "/d", &env).unwrap_err();
+        assert!(missing.contains("NOPE"), "{missing}");
+        assert!(expand_args(&["${NOPE".to_string()], "/t", "/d", &env).is_err());
+    }
+
+    #[test]
+    fn any_alternative_output_passes() {
+        let dir = std::env::temp_dir().join(format!("jacket-alt-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let expected = dir.join("t.stdout");
+        std::fs::write(&expected, "opened\n").unwrap();
+        std::fs::write(dir.join("t.stdout.2"), "unavailable\n").unwrap();
+        for (got, passes) in [
+            ("opened\n", true),
+            ("unavailable\n", true),
+            ("other\n", false),
+        ] {
+            let mut checked = Checked::default();
+            expect_text(&expected, got, "standard output", false, &mut checked);
+            assert_eq!(checked.problems.is_empty(), passes, "{got}");
+        }
+        // Accepting keeps the outputs that exist and adds nothing for them.
+        let mut checked = Checked::default();
+        expect_text(
+            &expected,
+            "unavailable\n",
+            "standard output",
+            true,
+            &mut checked,
+        );
+        assert!(checked.accepted.is_empty());
+        assert_eq!(std::fs::read_to_string(&expected).unwrap(), "opened\n");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
