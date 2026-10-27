@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Target-availability reducer: custom rendering types do not replace Input.Event.
 #import "Basic";
 G :: #import "GetRect"()(Type_Indicator = Renderer);

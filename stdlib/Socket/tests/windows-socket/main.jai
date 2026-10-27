@@ -1,3 +1,4 @@
+// test: only(.WINDOWS)
 #import "Basic";
 S :: #import "Socket";
 

@@ -1,0 +1,4 @@
+window-store.jai:6:5: error: cannot assign into the constant `M.SYNTHESIS_WINDOW`
+        M.SYNTHESIS_WINDOW[0] = 1.0;
+        ^^^^^^^^^^^^^^^^^^^^^
+

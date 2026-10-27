@@ -1,3 +1,4 @@
+// test: skip_on(.MACOS,.WINDOWS)
 // Explicit unsupported-provider contract; this does not claim native cursor creation.
 #import "Basic";
 Cursor :: #import "internal/numerics/platform_cursors";

@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // The SQL scanner behind typed queries: placeholders, skipped text and position maps. Needs no
 // server.
 #import "Basic";

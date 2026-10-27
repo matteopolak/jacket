@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Mutex initialization and semaphore permit/timeout transitions.
 #import "Basic";
 Thread :: #import "Thread";

@@ -1,3 +1,4 @@
+// test: warns("`operator <` is not in scope here")
 B :: #import "Basic";
 
 main :: () {

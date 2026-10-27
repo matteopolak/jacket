@@ -1,0 +1,70 @@
+reverse-vector-negative.jai:5:15: error: no `operator *` for `Vector2` and `Matrix2`
+        result := Vector2.{ 3, 5 } * Matrix2_Identity;
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_vectors.jai:45:15: note: `operator *` is declared here
+    operator * :: (a: Vector2, k: float) -> Vector2 #symmetric {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_vectors.jai:53:15: note: `operator *` is declared here
+    operator * :: (a: Vector2, b: Vector2) -> Vector2 {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_vectors.jai:141:15: note: `operator *` is declared here
+    operator * :: (a: Vector3, b: float) -> Vector3 {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_vectors.jai:149:15: note: `operator *` is declared here
+    operator * :: (a: Vector3, b: Vector3) -> Vector3 {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_vectors.jai:165:15: note: `operator *` is declared here
+    operator * :: (b: float, a: Vector3) -> Vector3 {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_vectors.jai:241:15: note: `operator *` is declared here
+    operator * :: (a: Vector4, b: float) -> Vector4 {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_vectors.jai:249:15: note: `operator *` is declared here
+    operator * :: (a: Vector4, b: Vector4) -> Vector4 {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_vectors.jai:265:15: note: `operator *` is declared here
+    operator * :: (b: float, a: Vector4) -> Vector4 {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_quaternion.jai:17:15: note: `operator *` is declared here
+    operator * :: (a: Quaternion, k: float) -> Quaternion #symmetric {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_quaternion.jai:22:15: note: `operator *` is declared here
+    operator * :: (a: Quaternion, b: Quaternion) -> Quaternion {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_matrix.jai:36:15: note: `operator *` is declared here
+    operator * :: (a: Matrix2, b: Vector2) -> Vector2 {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_matrix.jai:509:15: note: `operator *` is declared here
+    operator * :: (m: Matrix4, v: Vector4) -> Vector4 {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_matrix.jai:513:15: note: `operator *` is declared here
+    operator * :: (m: Matrix4x3, v: Vector4) -> Vector3 {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_matrix.jai:517:15: note: `operator *` is declared here
+    operator * :: (m: Matrix3, v: Vector3) -> Vector3 {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_matrix.jai:521:15: note: `operator *` is declared here
+    operator * :: (a: Matrix4, b: Matrix4) -> Matrix4 #no_alias {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_matrix.jai:525:15: note: `operator *` is declared here
+    operator * :: (a: Matrix4x3, b: Matrix4x3) -> Matrix4x3 {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_matrix.jai:529:15: note: `operator *` is declared here
+    operator * :: (a: Matrix4, b: Matrix4x3) -> Matrix4 {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_matrix.jai:533:15: note: `operator *` is declared here
+    operator * :: (a: Matrix4x3, b: Matrix4) -> Matrix4 {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_matrix.jai:537:15: note: `operator *` is declared here
+    operator * :: (a: Matrix4, b: Matrix3) -> Matrix4 {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_matrix.jai:541:15: note: `operator *` is declared here
+    operator * :: (a: Matrix3, b: Matrix3) -> Matrix3 {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_matrix.jai:545:15: note: `operator *` is declared here
+    operator * :: (a: Matrix2, b: Matrix2) -> Matrix2 {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_matrix.jai:549:15: note: `operator *` is declared here
+    operator * :: (a: $T/interface AnyMatrix, t: float) -> T #symmetric {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+

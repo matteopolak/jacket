@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Extensions/Io over loopback TCP on the default backend: addresses, an echo server with many
 // client fibers, a transfer far larger than the socket buffers, end of stream, resets, refused
 // connections, closing under a waiting reader, and name lookups. The same checks run once per

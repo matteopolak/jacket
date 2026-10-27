@@ -1,0 +1,7 @@
+program-parameter-nominal.jai:14:13: error: in call to `consume`: argument of type `Apollo_Time` does not match parameter type `Unrelated`
+        consume(modification);
+                ^^^^^^^^^^^^
+program-parameter-nominal.jai:10:12: note: `consume` is declared here
+    consume :: (value: Unrelated) {}
+               ^^^^^^^^^^^^^^^^^^
+

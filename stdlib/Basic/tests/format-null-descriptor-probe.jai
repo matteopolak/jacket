@@ -1,3 +1,4 @@
+// test: should_fail("a null type descriptor has no type name")
 // Official native observation: explicit null descriptor is invalid (SEGV).
 // Keep descriptor validation; this is distinct from a default Type value.
 #import "Basic";

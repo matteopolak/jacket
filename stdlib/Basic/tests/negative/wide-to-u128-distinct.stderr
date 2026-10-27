@@ -1,0 +1,7 @@
+wide-to-u128-distinct.jai:7:14: error: in call to `to_u128`: #modify rejected the arguments to `to_u128`: to_u128 requires a built-in unsigned integer type
+        value := to_u128(cast(Identifier) 1);
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/basic/integer128.jai:70:12: note: `to_u128` is declared here
+    to_u128 :: (a: $T) -> U128 #modify {
+               ^^^^^^^^^^^^^^^^^^^^^^^^^
+

@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // PNG against the C stb libraries: ours decodes what stb_image_write encodes, stb_image decodes
 // what ours encodes, and both decoders agree on every fixture. Native and interpreted only.
 

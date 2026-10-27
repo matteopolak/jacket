@@ -1,3 +1,4 @@
+// test: compile_fail
 // Check the enabled Windows startup path without requiring a native cross-linker.
 #import "Basic";
 R :: #import "Runtime_Support"(DEFINE_SYSTEM_ENTRY_POINT = false, DEFINE_INITIALIZATION = true, ENABLE_BACKTRACE_ON_CRASH = true);

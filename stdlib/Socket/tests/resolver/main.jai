@@ -1,3 +1,4 @@
+// test: only(.MACOS) skip_on(.WASM) serial
 // Reviewed macOS addrinfo shape, canonical metadata and real numeric resolver.
 #import "Basic";
 S :: #import "Socket";

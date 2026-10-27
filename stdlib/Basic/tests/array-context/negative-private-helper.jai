@@ -1,3 +1,4 @@
+// test: compile_fail
 B :: #import "Basic";
 
 main :: () {

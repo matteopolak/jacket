@@ -1,3 +1,4 @@
+// test: compile_fail
 // Expected: a compile-time rejection, preserving the public constant table.
 M :: #import "pl_mpeg";
 

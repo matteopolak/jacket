@@ -1,3 +1,4 @@
+// test: only(.LINUX,.MACOS) skip_on(.WASM)
 #import "Basic";
 T :: #import "Thread";
 P :: #import "POSIX";

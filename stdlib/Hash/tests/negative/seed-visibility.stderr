@@ -1,0 +1,4 @@
+seed-visibility.jai:6:14: error: module `Hash` has no exported member `HASH_INIT`
+        assert(H.HASH_INIT == 5381);
+                 ^^^^^^^^^
+

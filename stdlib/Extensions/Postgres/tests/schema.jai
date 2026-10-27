@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // `generate` and the schema check. The text of the generated file for a hand-made catalog, the
 // enum spellings and the staleness check run anywhere; with JAI_PG_TEST_PORT set (see
 // start_server.sh) it also migrates tests/schema/migrations into a scratch database, compares the

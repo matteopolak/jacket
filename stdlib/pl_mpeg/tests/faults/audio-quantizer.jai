@@ -1,3 +1,4 @@
+// test: should_fail("invalid MPEG grouped quantizer value")
 M :: #import "pl_mpeg";
 
 main :: () {

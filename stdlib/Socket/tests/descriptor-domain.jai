@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Reviewed descriptor domain. Cross-target #run uses no native Winsock calls.
 #import "Basic";
 S :: #import "Socket";

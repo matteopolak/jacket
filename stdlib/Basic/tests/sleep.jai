@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 #import "Basic";
 #if OS == .WINDOWS W :: #import "Windows";
 else P :: #import "POSIX";

@@ -1,3 +1,4 @@
+// test: skip_on(.WASM) should_fail("em requires a font")
 // Metrics require an actual canonical font pointer.
 G :: #import "GetRect";
 

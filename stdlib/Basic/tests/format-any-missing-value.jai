@@ -1,3 +1,4 @@
+// test: should_fail("cannot format an Any without payload storage")
 #import "Basic";
 
 main :: () {

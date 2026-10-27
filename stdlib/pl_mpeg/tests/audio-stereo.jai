@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 #import "Basic";
 M :: #import "pl_mpeg";
 S :: #import "String";

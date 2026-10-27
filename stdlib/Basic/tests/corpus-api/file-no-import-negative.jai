@@ -1,3 +1,4 @@
+// test: compile_fail
 #import "Basic";
 #import "Compiler";
 #import "String";

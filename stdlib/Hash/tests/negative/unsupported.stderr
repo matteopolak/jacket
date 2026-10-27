@@ -1,0 +1,13 @@
+unsupported.jai:9:5: error: no overload of `get_hash` matches these arguments
+        H.get_hash(Thing.{ 1 });
+        ^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/hash/module.jai:81:13: note: argument of type `Thing` does not match parameter type `string`
+    get_hash :: (s: string, h := HASH_INIT) -> u32 {
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/hash/module.jai:85:13: note: expected an array, found Thing
+    get_hash :: (array: [] $T, h := HASH_INIT) -> u32 {
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/hash/module.jai:89:13: note: #modify rejected the arguments to `get_hash`: get_hash requires an integer, boolean, enum, pointer, or float
+    get_hash :: (x: $T, h := HASH_INIT) -> u32 #modify {
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+

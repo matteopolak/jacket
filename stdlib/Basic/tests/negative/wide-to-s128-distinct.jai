@@ -1,3 +1,4 @@
+// test: compile_fail
 #import "Basic";
 
 Identifier :: #type,distinct u64;

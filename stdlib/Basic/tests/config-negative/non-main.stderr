@@ -1,0 +1,4 @@
+modules/Non_Main_Basic_Parameters/module.jai:1:1: error: PROGRAM parameters may only be supplied by the main program of this workspace
+    #import "Basic"()(ENABLE_ASSERT = false);
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+

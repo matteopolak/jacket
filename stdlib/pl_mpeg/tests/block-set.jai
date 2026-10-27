@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Reviewed caller di/si mutation, row strides and expression truncation.
 #import "Basic";
 M :: #import "pl_mpeg";

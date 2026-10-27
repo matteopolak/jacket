@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Channels between fibers (unbuffered and buffered), wait groups and fiber mutexes.
 #import "Basic";
 Io :: #import "Extensions/Io";

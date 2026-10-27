@@ -1,3 +1,4 @@
+// test: only(.WINDOWS)
 // Executes only public record accessors in the host interpreter; no Windows syscall.
 S :: #import "Socket";
 

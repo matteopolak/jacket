@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Migrations against a live server (tests/start_server.sh); skipped when JAI_PG_TEST_PORT is not
 // set. The split and naming checks run without one.
 #import "Basic";

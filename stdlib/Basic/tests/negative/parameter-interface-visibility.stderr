@@ -1,0 +1,5 @@
+parameter-interface-visibility.jai:4:13: error: module `Basic` has no exported member `Memory_Debugger_Interface`
+    Leaked :: B.Memory_Debugger_Interface;
+                ^^^^^^^^^^^^^^^^^^^^^^^^^
+help: `Memory_Debugger_Interface` is declared in `Basic` but is not exported: it is private to the module
+

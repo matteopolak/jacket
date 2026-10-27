@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Extensions/Io files: whole-file reads and writes, modes, positions and offsets, errors, and
 // several fibers using files at once.
 #load "support/suite.jai";

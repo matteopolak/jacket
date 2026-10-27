@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Socket over loopback with OS-assigned ports: TCP listen/connect/accept, a 300 KiB echo pumped
 // through non-blocking sockets with select, partial and peeked reads, end of stream, a refused
 // connection, a send to a closed peer, UDP datagrams, IPv6 when the host has ::1, and the pure

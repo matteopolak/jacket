@@ -1,3 +1,4 @@
+// test: only(.MACOS) serial
 // This private named native pasteboard never accesses the user's global clipboard.
 #assert OS == .MACOS, "The private named-pasteboard lifecycle fixture requires macOS";
 

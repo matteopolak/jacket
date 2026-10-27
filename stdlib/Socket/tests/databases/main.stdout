@@ -1,0 +1,5 @@
+hostent 32 0 8 16 20 24
+netent 24 0 8 16 20
+protoent 24 0 8 16
+servent 32 0 8 16 24
+rpcent 24 0 8 16

@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // The client against a scripted server on a local socket: no PostgreSQL needed. After a normal
 // startup, each case answers one query with a reply that is valid, cut short at every byte,
 // interleaved with unsolicited messages, or mutated from a seed. The client must give the right

@@ -1,3 +1,4 @@
+// test: should_fail("cannot format an Any without type metadata")
 #import "Basic";
 
 main :: () {

@@ -1,3 +1,4 @@
+// test: only(.LINUX,.MACOS) skip_on(.WASM)
 S :: #import "Socket";
 
 #assert OS == .MACOS || OS == .LINUX || OS == .ANDROID;

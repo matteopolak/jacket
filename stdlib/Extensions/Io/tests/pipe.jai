@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // In-memory pipes (Io.make_pipe): bytes in order between two fibers, end of stream, half close,
 // closing under a waiting reader, deadlines, cancellation and a transfer big enough to make the
 // buffer compact. Nothing here touches the network.

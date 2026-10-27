@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // ui_init() without callbacks installs the Simp-backed drawing callbacks; explicit ones replace them.
 #import "Basic";
 G :: #import "GetRect";

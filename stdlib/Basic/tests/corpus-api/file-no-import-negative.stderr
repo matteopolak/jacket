@@ -1,0 +1,6 @@
+file-no-import-negative.jai:7:17: error: unknown identifier `get_absolute_path`
+        path, ok := get_absolute_path(".");
+                    ^^^^^^^^^^^^^^^^^
+help: a similar name exists: `is_absolute_path`
+help: `get_absolute_path` is declared in the `File` module: add `#import "File";` to this file
+

@@ -1,3 +1,4 @@
+// test: compile_fail
 // Expected: a compile-time rejection, as for unqualified constant-array stores.
 M :: #import "pl_mpeg";
 

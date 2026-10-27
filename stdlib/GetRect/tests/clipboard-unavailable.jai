@@ -1,3 +1,4 @@
+// test: skip_on(.MACOS)
 // This private named-pasteboard provider is macOS-only; no substitute clipboard.
 #import "Basic";
 Transport :: #import "internal/numerics/platform_clipboard";

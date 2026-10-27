@@ -1,3 +1,4 @@
+// test: only(.WINDOWS,.MACOS) skip_on(.WASM) serial
 #assert OS == .WINDOWS || OS == .MACOS, "Native UI cursor lifecycle requires the Windows/macOS provider; caller callbacks remain supported";
 
 #import "Basic";

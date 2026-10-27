@@ -1,3 +1,4 @@
+// test: should_fail("MPEG sequence dimension/rate changes are unsupported")
 M :: #import "pl_mpeg";
 #import "Basic";
 

@@ -1,0 +1,4 @@
+scalar-store.jai:5:5: error: cannot assign to constant `M.QUANT_TAB_A`
+        M.QUANT_TAB_A = 9;
+        ^^^^^^^^^^^^^
+

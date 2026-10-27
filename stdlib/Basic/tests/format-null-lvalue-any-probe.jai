@@ -1,3 +1,4 @@
+// test: should_fail("cannot format an Any without payload storage")
 // Sanitized independent shape provided by root. Official native verdict: output 7 and true, then fault; no continuation.
 #import "Basic";
 

@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 B :: #import "Basic";
 D :: #import "Basic"()(MEMORY_DEBUGGER = true, VISUALIZE_MEMORY_DEBUGGER = false);
 Pools :: #import "Pool";

@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Reviewed public ancillary signatures; independent layout and extent safety.
 #import "Basic";
 S :: #import "Socket";

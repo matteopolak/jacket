@@ -1,3 +1,4 @@
+// test: only(.WINDOWS)
 #import "Basic";
 
 #assert OS == .WINDOWS, "this regression requires a Windows host";

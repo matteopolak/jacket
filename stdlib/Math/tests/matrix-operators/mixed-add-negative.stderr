@@ -1,0 +1,19 @@
+mixed-add-negative.jai:5:15: error: no `operator +` for `Matrix2` and `Matrix3`
+        result := Matrix2_Identity + Matrix3_Identity;
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_vectors.jai:37:15: note: `operator +` is declared here
+    operator + :: (a: Vector2, b: Vector2) -> Vector2 {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_vectors.jai:133:15: note: `operator +` is declared here
+    operator + :: (a: Vector3, b: Vector3) -> Vector3 {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_vectors.jai:233:15: note: `operator +` is declared here
+    operator + :: (a: Vector4, b: Vector4) -> Vector4 {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_quaternion.jai:5:15: note: `operator +` is declared here
+    operator + :: (a: Quaternion, b: Quaternion) -> Quaternion {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/numerics/math_matrix.jai:555:15: note: `operator +` is declared here
+    operator + :: (a: $T/interface AnyMatrix, b: T) -> T {
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+

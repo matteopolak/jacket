@@ -1,0 +1,5 @@
+private-check-handler.jai:5:7: error: module `Runtime_Support` has no exported member `__jaic_check_failed`
+        R.__jaic_check_failed(0, 0, 0, true, 0, null);
+          ^^^^^^^^^^^^^^^^^^^
+help: `__jaic_check_failed` is declared in `Runtime_Support` but is not exported: it is private to the module
+

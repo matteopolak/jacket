@@ -1,3 +1,4 @@
+// test: only(.LINUX,.MACOS) skip_on(.WASM)
 B :: #import "Basic";
 Off :: #import "Basic"()(ENABLE_ASSERT = false);
 P :: #import "POSIX";

@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // The parts of the client that need no server: URLs, SQLSTATEs, UUIDs and calendar arithmetic.
 #import "Basic";
 #import "String";

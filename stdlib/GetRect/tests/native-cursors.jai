@@ -1,3 +1,4 @@
+// test: only(.MACOS,.WINDOWS) serial
 #assert OS == .WINDOWS || OS == .MACOS, "Native cursor lifecycle requires the Windows/macOS provider";
 
 #import "Basic";

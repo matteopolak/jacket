@@ -1,3 +1,4 @@
+// test: compile_fail
 H :: #import "Hash";
 
 Thing :: struct {

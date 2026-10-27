@@ -1,3 +1,4 @@
+// test: compile_fail
 B :: #import "Basic"()(FOUNDATIONS_UNDECLARED_PARAMETER = true);
 
 main :: () {

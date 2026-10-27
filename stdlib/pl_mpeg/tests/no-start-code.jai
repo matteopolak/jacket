@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Reviewed availability/refill and rounded cursor contract, not a scanning API.
 #import "Basic";
 M :: #import "pl_mpeg";

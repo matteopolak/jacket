@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Configure the child MAIN's canonical Basic before Io/Thread imports it.
 #import "Basic";
 C :: #import "Compiler";

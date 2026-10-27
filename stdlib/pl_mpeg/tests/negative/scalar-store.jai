@@ -1,3 +1,4 @@
+// test: compile_fail
 M :: #import "pl_mpeg";
 
 main :: () {

@@ -1,3 +1,4 @@
+// test: should_fail("invalid workspace 999")
 C :: #import "Compiler";
 
 #run {

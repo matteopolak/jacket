@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Ten thousand fibers alive at once, each switching several times, plus fibers that spawn fibers.
 // Fibers share one thread and run in turn, so plain globals need no locks.
 #import "Basic";

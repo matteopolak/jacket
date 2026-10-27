@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 #import "Basic";
 BG :: #import "Bindings_Generator";
 

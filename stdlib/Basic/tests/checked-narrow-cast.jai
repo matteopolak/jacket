@@ -1,3 +1,4 @@
+// test: should_fail("cast of 65416 to `s16` overflows")
 // Original ABI mistake must remain a checked-cast error outside the decoder.
 #import "Basic";
 

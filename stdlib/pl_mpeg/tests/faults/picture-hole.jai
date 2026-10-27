@@ -1,3 +1,4 @@
+// test: should_fail("incomplete MPEG picture coverage")
 M :: #import "pl_mpeg";
 
 main :: () {

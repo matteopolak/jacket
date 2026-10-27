@@ -1,3 +1,4 @@
+// test: only(.LINUX)
 // Reviewed Socket API; official glibc TCP bit positions.
 #import "Basic";
 S :: #import "Socket";

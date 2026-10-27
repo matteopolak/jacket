@@ -1,3 +1,4 @@
+// test: warns("`operator -` is not in scope here")
 Basic :: #import "Basic";
 
 using,only(.["operator-"]) Basic;

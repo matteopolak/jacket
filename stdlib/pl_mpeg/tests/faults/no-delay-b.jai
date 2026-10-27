@@ -1,3 +1,4 @@
+// test: skip_on(.WASM) should_fail("MPEG B picture violates no-delay assumption")
 #import "Basic";
 M :: #import "pl_mpeg";
 S :: #import "String";

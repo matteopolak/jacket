@@ -1,3 +1,4 @@
+// test: should_fail("truncated MPEG VLC code")
 M :: #import "pl_mpeg";
 
 main :: () {

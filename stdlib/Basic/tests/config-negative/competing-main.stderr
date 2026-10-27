@@ -1,0 +1,4 @@
+competing-main.jai:3:1: error: module parameter `ENABLE_ASSERT` is set here after the module already used another value
+    B :: #import "Basic"()(ENABLE_ASSERT = true);
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+

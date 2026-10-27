@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 #import "Basic";
 Z :: #import "Zip_File_Directory";
 F :: #import "File";

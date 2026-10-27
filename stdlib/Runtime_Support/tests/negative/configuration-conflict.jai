@@ -1,3 +1,4 @@
+// test: compile_fail
 #import "Basic";
 R :: #import "Runtime_Support"(DEFINE_SYSTEM_ENTRY_POINT = false, DEFINE_INITIALIZATION = true, ENABLE_BACKTRACE_ON_CRASH = false);
 

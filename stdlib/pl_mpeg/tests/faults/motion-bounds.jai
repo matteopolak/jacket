@@ -1,3 +1,4 @@
+// test: should_fail("MPEG motion region out of bounds")
 M :: #import "pl_mpeg";
 
 main :: () {

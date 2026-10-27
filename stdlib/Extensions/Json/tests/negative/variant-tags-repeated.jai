@@ -1,3 +1,4 @@
+// test: compile_fail
 #import "Basic";
 #import "Extensions/Json";
 #import "Extensions/Variant";

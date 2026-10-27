@@ -1,0 +1,7 @@
+scalar-bool.jai:5:5: error: in call to `clamp`: #modify rejected the arguments to `clamp`: clamp requires a scalar type
+        clamp(true, false, true);
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+$STDLIB/internal/basic/scalar.jai:64:10: note: `clamp` is declared here
+    clamp :: (x: $T, a: T, b: T) -> T #modify {
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+

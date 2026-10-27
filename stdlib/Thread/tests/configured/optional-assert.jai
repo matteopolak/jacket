@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Reviewed thread.md native synchronization/lifecycle. Verification stays enabled
 // while the runner independently changes Thread's DEFAULT Basic specialization.
 #import "Basic"()(ENABLE_ASSERT = true);

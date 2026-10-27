@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Reviewed raw byte-domain luma and integer contributions; alpha is untouched.
 #import "Basic";
 M :: #import "pl_mpeg";

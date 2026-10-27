@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // A zero IPv4 endpoint has stable numeric formatting independent of DNS.
 #import "Basic";
 Socket :: #import "Socket";

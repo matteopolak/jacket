@@ -1,3 +1,4 @@
+// test: skip_on(.WASM) args("$TEMP/data")
 // Worker threads must finish before their contexts, pools and stacks are freed.
 #import "Basic";
 Atomics :: #import "Atomics";

@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Cursor callbacks work without allocating or changing any system cursor.
 #import "Basic";
 G :: #import "GetRect";

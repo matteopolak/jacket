@@ -1,3 +1,4 @@
+// test: skip_on(.WASM) should_fail("MPEG audio checksum mismatch")
 #import "Basic";
 M :: #import "pl_mpeg";
 F :: #import "File";

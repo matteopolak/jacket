@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // One actual winner publishes initialized data to four real native workers.
 #import "Basic";
 R :: #import "Runtime_Support";

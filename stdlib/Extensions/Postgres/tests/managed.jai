@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Managed PostgreSQL. The pure logic (platform choice, cache paths, the checksum table) always
 // runs; with JAI_PG_TEST_MANAGED=1 it also downloads the pinned release into a temporary cache,
 // starts a server, queries it, stops it, and starts it again on the same data folder.

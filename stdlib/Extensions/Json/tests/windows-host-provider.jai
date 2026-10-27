@@ -1,3 +1,4 @@
+// test: only(.WINDOWS) skip_on(.WASM)
 Json :: #import "Extensions/Json";
 Tls :: #import "Extensions/Tls"; // jailint: allow(unused_import) the import pulls in the provider under test
 

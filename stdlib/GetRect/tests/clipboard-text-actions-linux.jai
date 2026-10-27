@@ -1,3 +1,4 @@
+// test: only(.LINUX) needs(.DISPLAY) args("--private-x11-display")
 // Run only inside the CI-owned private X11 display, never a user's clipboard.
 #import "Basic";
 G :: #import "GetRect";

@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 using Basic :: #import "Basic"()(MEMORY_DEBUGGER = true, VISUALIZE_MEMORY_DEBUGGER = false);
 #import "File_Utilities";
 

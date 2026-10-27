@@ -1,3 +1,4 @@
+// test: skip_on(.WASM) should_fail("text input capacity exceeded")
 #import "Basic";
 G :: #import "GetRect";
 

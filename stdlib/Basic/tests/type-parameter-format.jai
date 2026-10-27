@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 #import "Basic";
 
 Box :: struct(T: Type = int, amount: int = 3) {

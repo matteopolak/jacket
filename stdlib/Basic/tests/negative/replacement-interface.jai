@@ -1,3 +1,4 @@
+// test: compile_fail
 Broken :: struct {}
 
 B :: #import "Basic"()(MEMORY_DEBUGGER = true, REPLACEMENT_INTERFACE = Broken);

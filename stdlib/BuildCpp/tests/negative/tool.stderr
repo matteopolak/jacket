@@ -1,0 +1,4 @@
+tool.jai:19:13: error: BuildCpp tool failed (/missing-portable-c-compiler): -1
+        assert(!B.build_cpp_executable(output, source, compiler_executable_path = "/missing-portable-c-compiler"));
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+

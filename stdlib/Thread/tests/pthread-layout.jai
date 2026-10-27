@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Native SDK ABI constants, independently checked against glibc public headers.
 #if OS != .WINDOWS P :: #import "POSIX";
 T :: #import "Thread";

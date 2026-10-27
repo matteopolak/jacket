@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 #import "Basic";
 Io :: #import "Extensions/Io";
 A :: #import "Atomics";

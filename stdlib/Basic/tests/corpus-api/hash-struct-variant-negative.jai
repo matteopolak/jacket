@@ -1,3 +1,4 @@
+// test: skip_on(.WASM) compile_fail
 #import "Hash";
 
 Payload :: struct {

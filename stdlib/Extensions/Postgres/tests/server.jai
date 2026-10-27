@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Runs against a live server started by tests/start_server.sh; skipped when JAI_PG_TEST_PORT is
 // not set.
 #import "Basic";

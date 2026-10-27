@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 #import "Basic";
 G :: #import "GetRect";
 I :: #import "Input";
