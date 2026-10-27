@@ -754,13 +754,20 @@ mod process_tests {
         // The grandchild is gone too, and this test process is still here to check.
         let pid = std::fs::read_to_string(&sleeper).unwrap();
         let _ = std::fs::remove_file(&sleeper);
-        let alive = Command::new("kill")
-            .args(["-0", pid.trim()])
-            .status()
-            .unwrap();
-        assert!(
-            !alive.success(),
-            "the sleep the test started is still running"
-        );
+        // SIGKILL lands asynchronously and a killed process stays a zombie until it is reaped,
+        // so wait for it to go or to be a zombie.
+        let running = || {
+            let state = Command::new("ps")
+                .args(["-o", "stat=", "-p", pid.trim()])
+                .output()
+                .unwrap();
+            let state = String::from_utf8_lossy(&state.stdout);
+            !state.trim().is_empty() && !state.trim().starts_with('Z')
+        };
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while running() && Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        assert!(!running(), "the sleep the test started is still running");
     }
 }
