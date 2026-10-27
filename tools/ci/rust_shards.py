@@ -76,8 +76,10 @@ def load_plan(path=PLAN):
 
 
 def test_filter(tests):
-    """A nextest filterset naming exactly `tests`."""
-    return " | ".join(f"(binary_id(={binary}) & test(={name}))" for binary, name in tests)
+    """A nextest filterset naming `tests` by test name alone: `binary_id(=...)` is an error when
+    no binary has that id, which a renamed binary or one another host lacks would trigger. A
+    name shared by two binaries pins both to the same shard, so every test still runs once."""
+    return " | ".join(f"test(={name})" for name in sorted({name for _, name in tests}))
 
 
 def shard_filters(shard, plan=None):

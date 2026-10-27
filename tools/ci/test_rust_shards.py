@@ -29,7 +29,7 @@ class ShardFilters(unittest.TestCase):
 
     def test_a_shard_pass_names_its_own_tests_and_the_other_pass_excludes_all_pinned(self):
         own, every = rust_shards.shard_filters("2/2", self.plan)
-        self.assertEqual(own, "(binary_id(=y) & test(=t2)) | (binary_id(=y) & test(=t3))")
+        self.assertEqual(own, "test(=t2) | test(=t3)")
         for name in ("t1", "t2", "t3"):
             self.assertIn(f"test(={name})", every)
 
