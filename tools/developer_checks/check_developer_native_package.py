@@ -5,6 +5,7 @@ import json
 import platform
 import shutil
 import subprocess
+from developer_checks import build_developer_check
 from developer_checks.dev_common import run_checked, ROOT, output_dir
 from developer_checks.build_developer_bindings import llvm_prefix
 
@@ -17,6 +18,8 @@ def run(command):
 def main():
     if platform.system() != "Darwin":
         raise RuntimeError("This test requires actual Mac dyld execution")
+    # The package holds the Check demangler adapter: build it, so that this check works alone.
+    build_developer_check.main()
     prefix = llvm_prefix()
     original = output_dir("developer-tools-package-before")
     relocated = output_dir("developer-tools-package-relocated")
