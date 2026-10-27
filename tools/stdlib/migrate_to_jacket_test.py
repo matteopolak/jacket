@@ -46,6 +46,7 @@ HANDLED = {
     "input",
     "requires_display",
     "window_lease",
+    "clipboard_guard",
     "source_check_only",
     "warning_contains",
 }
@@ -56,8 +57,8 @@ ENVIRONMENT_INPUTS = {
     "font": "JAIC_TEST_FONT_PATH",
     "windows-resource-directory": "JAIC_TEST_WINDOWS_RESOURCE_DIR",
 }
-# Inputs that are files beside the tests, in a folder of that name.
-FIXTURE_INPUTS = {"ico-fixtures": "$DIR/ico-fixtures"}
+# Inputs that are files beside the tests, in a folder of that name, and a folder to write to.
+FIXTURE_INPUTS = {"ico-fixtures": ["$DIR/ico-fixtures", "$TEMP"]}
 # A mode the row cannot run in, as the target note that skips it.
 MODE_TARGETS = {
     "interp": ".INTERP",
@@ -111,7 +112,7 @@ def notes_of(row):
         notes.append("skip_on(" + ",".join(skip_on) + ")")
     if row.get("requires_display"):
         notes.append("needs(.DISPLAY)")
-    if row.get("window_lease"):
+    if row.get("window_lease") or row.get("clipboard_guard"):
         notes.append("serial")
     if row.get("source_check_only"):
         notes.append("check_only")
@@ -132,7 +133,7 @@ def notes_of(row):
         elif kind in ENVIRONMENT_INPUTS:
             notes.append(f'args("${{{ENVIRONMENT_INPUTS[kind]}}}")')
         elif kind in FIXTURE_INPUTS:
-            notes.append(f'args("{FIXTURE_INPUTS[kind]}")')
+            notes.append("args(" + ",".join(f'"{a}"' for a in FIXTURE_INPUTS[kind]) + ")")
         else:
             problems.append(f"input `{kind}` has no jacket test equivalent")
     if "fixture_libraries" in row:
