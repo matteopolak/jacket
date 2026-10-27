@@ -47,7 +47,7 @@ class Fixtures(unittest.TestCase):
         self.assertEqual(len(built["stereo.mp2"]), 2 * 417)
 
     def test_every_subcommand_is_documented_in_the_module_help(self):
-        for command in ("zip", "archive", "mpeg", "machine", "meow", "clipboard", "runtime", "watcher"):
+        for command in ("zip", "archive", "mpeg", "machine", "data", "meow", "clipboard", "runtime", "watcher"):
             self.assertIn(command, bp.__doc__)
 
 

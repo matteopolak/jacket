@@ -3,6 +3,7 @@
 the small native helper libraries built from our own C sources. One subcommand per output:
 
     build_portable.py zip | archive | mpeg | machine         # fixtures under target/portable-tests/
+    build_portable.py data                                   # all of those and the Meow vectors (what `jacket test` reads)
     build_portable.py meow [--verify-native]                 # stage (and optionally re-derive) the Meow vectors
     build_portable.py clipboard --output DIR                 # Linux X11 clipboard service (libX11)
     build_portable.py runtime [--platform P] [--output-dir D]  # private POSIX crash libraries
@@ -628,6 +629,13 @@ def watcher(output_dir):
     print("Built independent native FSEvents lifecycle/queue backend from source")
 
 
+def data_fixtures():
+    """Every fixture the stdlib tests read from target/portable-tests, in one go."""
+    for build in (zip_fixtures, archive_fixtures, mpeg_fixtures, machine_fixtures):
+        build()
+    meow_fixtures(False)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -642,6 +650,9 @@ def main(argv=None):
         commands.add_parser(name, help=function.__doc__.split("\n")[0]).set_defaults(
             run=lambda args, f=function: f()
         )
+    commands.add_parser("data", help="All the fixtures the stdlib tests read").set_defaults(
+        run=lambda args: data_fixtures()
+    )
     meow = commands.add_parser("meow", help=meow_fixtures.__doc__.split("\n")[0])
     meow.add_argument("--verify-native", action="store_true")
     meow.set_defaults(run=lambda args: meow_fixtures(args.verify_native))

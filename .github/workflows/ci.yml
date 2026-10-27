@@ -1341,6 +1341,7 @@ jobs:
         run: |
           jacket="$(dirname "$JAIC")/jacket.exe"
           status=0
+          PYTHONPATH=tools python -B tools/portable/build_portable.py data
           "$jacket" test -q --needs display --partition "hash:${{ matrix.shard }}" || status=1
           "$jacket" test -q --needs display --partition "hash:${{ matrix.shard }}" --interp || status=1
           "$jacket" test -q --needs display --partition "hash:${{ matrix.shard }}" -- -O2 || status=1
