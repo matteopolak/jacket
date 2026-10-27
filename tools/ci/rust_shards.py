@@ -12,8 +12,12 @@ does not name, so a new test needs no edit here.
 
 `plan` reads the junit files that CI uploads (the `rust-test-durations-*` artifacts of a
 passing run on `main`, from `gh run download RUN -p 'rust-test-durations-ubuntu-24.04-*'`; one
-directory per shard, each holding `junit.xml` and, when tests are pinned, `junit-pinned.xml`) and rewrites the file. `show` prints the load of each
-shard in those files before and after the pinning.
+directory per shard, each holding `junit.xml` and, when tests are pinned, `junit-pinned.xml`) and rewrites the
+entry for `--shards`. `show` prints the load of each shard in those files before and after the pinning.
+
+Plans per count: 6 from Linux x64 (`ubuntu-24.04-*`), 2 from the fast-tier macOS legs, and 3 from
+the full tier's Linux arm64, macOS arm64 and macOS x64 legs together (a nightly run), since those
+hosts share the count.
 """
 
 from __future__ import annotations
@@ -28,11 +32,13 @@ MIN_SECONDS = 5.0
 
 
 def read_durations(directory):
-    """{(binary id, test name): seconds} from every junit.xml below `directory`."""
+    """{(binary id, test name): seconds} from every junit.xml below `directory`. A test seen more than
+    once (the full tier runs the same shards on three hosts) keeps its slowest time."""
     durations = {}
     for path in sorted(Path(directory).rglob("junit*.xml")):
         for case in ET.parse(path).getroot().iter("testcase"):
-            durations[(case.get("classname"), case.get("name"))] = float(case.get("time", 0))
+            test = (case.get("classname"), case.get("name"))
+            durations[test] = max(durations.get(test, 0.0), float(case.get("time", 0)))
     return durations
 
 
