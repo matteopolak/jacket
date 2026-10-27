@@ -31,6 +31,8 @@ fn errors(diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
 #[test]
 fn only_the_runaway_run_is_reported_where_it_was_started() {
     let mut s = common::session();
+    // The budget must run out first; on a slow machine 200M blocks outlast the default time limit.
+    s.set_check_time_limit(0.0);
     s.open(common::uri(), 1, SOURCE.into()).unwrap();
     let errors = errors(s.diagnostics(&common::uri()).unwrap());
     let lines: Vec<u32> = errors.iter().map(|d| d.range.start.line).collect();

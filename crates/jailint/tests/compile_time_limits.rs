@@ -50,7 +50,8 @@ fn lint(dir: &PathBuf, flags: &[&str]) -> String {
 
 #[test]
 fn a_runaway_run_does_not_hide_the_code_after_it() {
-    let text = lint(&project("budget", None), &[]);
+    // The budget must run out first; on a slow machine 200M blocks outlast the default time limit.
+    let text = lint(&project("budget", None), &["--check-time-limit", "0"]);
     assert!(
         text.contains("execution budget exhausted (200000000 basic blocks)"),
         "{text}"
