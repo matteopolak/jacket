@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.30.1] - 2026-10-27
+
+### Fixed
+
+- On Windows, C libraries built against the DLL C runtime (`/MD`, the Visual Studio default) link again when Clang is on `PATH`, instead of failing with unresolved `__imp_` symbols.
+
 ## [0.30.0] - 2026-10-27
 
 ### New
