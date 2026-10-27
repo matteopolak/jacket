@@ -170,6 +170,15 @@ The native libraries are the cache that matters (SDL3 alone takes about three mi
 
 Long sweeps are split with `--shard K/N` (`tools/stdlib/stdlib_runtime.py` and `tools/differential/jaic_sweep.py`): shard K runs every N-th selected case from the K-th, so a module's neighbouring tests land in different shards and the split is the same on every run. To change the count, edit `shards(N)` in `test_matrix`/`stdlib_matrix` or the job's matrix. The matrix `shard` values are passed to `--shard` as written (`'1/2'`).
 
+**Rust test shards.** `nextest --partition slice:K/N` deals the tests out one at a time by name, which ignores how long they take, so a few slow tests can end up in one shard. `tools/ci/rust-test-shards.json` pins the slow tests (5 seconds or more) to shards for a given shard count: `dev.py test --partition slice:K/N` first runs the tests pinned to shard K, then deals out all the unpinned tests with `slice` (`shard_runs` in `tools/dev/dev.py`), so a test the file does not name still runs in exactly one shard, and a count with no entry (the macOS and full-tier legs) uses `slice` alone. The pinned tests also write `target/nextest/ci/junit-pinned.xml`, uploaded with `junit.xml` as `rust-test-durations-*`. To rebalance after the tests change, download the artifacts of a passing `main` run and rewrite the file:
+
+```sh
+gh run download RUN_ID -D /tmp/durations -p 'rust-test-durations-ubuntu-24.04-*'
+python3 tools/ci/rust_shards.py plan /tmp/durations --shards 6
+```
+
+`plan` prints the load of each shard under plain `slice` and under the pinning (use `show` to print without writing), longest test first onto the lightest shard. When the test job's `rust` shard count changes in `test_matrix`, run it again for the new count.
+
 A push or pull request that only changes prose (`docs/**`, top-level `*.md`, `.github/*.md`) sets `code=false` and skips every build and test job; `docs` still runs. Docs that a test or generator reads (`docs/specs/**`, `docs/tools/jailint.md`) count as code: add others to `READ_BY_TESTS` in `tools/ci/ci_changes.py`. Markdown elsewhere (test fixtures) is code.
 
 `release.yml` has one concurrency group per tag (a tag push and a dispatch for that tag share it) that never cancels: a second run waits for the first instead of publishing alongside it. GitHub keeps one waiting run per group, so a third replaces the waiting one.

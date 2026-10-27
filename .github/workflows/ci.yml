@@ -249,7 +249,7 @@ jobs:
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part == 'rust' }}
         with:
           name: rust-test-durations-${{ matrix.runner }}-${{ strategy.job-index }}
-          path: target/nextest/ci/junit.xml
+          path: target/nextest/ci/*.xml
           retention-days: 14
           if-no-files-found: ignore
       - name: Native tests with every program divided into parts
