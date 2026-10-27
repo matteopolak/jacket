@@ -274,7 +274,7 @@ reads_proc_self :: () { ... } @test @serial
 | `@should_fail`, `@should_fail(word)` | must fail (a check, a crash or a timeout); with a word, a failure message or the test's standard error must contain it |
 | `@xfail`, `@xfail(reason)` | a known failure, reported `XFAIL`; passing is an error |
 | `@allow_leaks` | the tracking allocator reports no leaks |
-| `@args("a", "b $TEMP/x")` | golden tests: the program's command-line arguments (case kept). `$TEMP` is a fresh folder, `$DIR` the folder of the test file (for fixture files beside it: `args("$DIR/fixtures")`) and `${NAME}` the environment variable `NAME` (`args("${JAIC_TEST_FONT_PATH}")`), which must be set: a test that needs a file the machine provides fails with a message naming the variable, so a missing input is never a silent pass |
+| `@args("a", "b $TEMP/x")` | golden tests: the program's command-line arguments (case kept; `\"` and `\\` inside quotes are a quote and a backslash, and `""` is an empty argument). `$TEMP` is a fresh folder, `$DIR` the folder of the test file (for fixture files beside it: `args("$DIR/fixtures")`) and `${NAME}` the environment variable `NAME` (`args("${JAIC_TEST_FONT_PATH}")`), which must be set: a test that needs a file the machine provides fails with a message naming the variable, so a missing input is never a silent pass |
 | `@warns("text")` | golden tests: the compiler must warn with this text (see above) |
 | `@check_only` | golden tests: only type-check the program (`jaic -check`); for code that cannot run on this host |
 | `@compile_fail` | file header only: the file below `tests/` is a compile-fail test |

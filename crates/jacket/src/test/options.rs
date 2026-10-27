@@ -211,24 +211,39 @@ fn text(args: Option<&str>) -> String {
         .to_string()
 }
 
-/// `"a b", c` as `["a b", "c"]`: commas inside quotes do not split; case is kept.
+/// `"a b", c` as `["a b", "c"]`: commas inside quotes do not split; case is kept. Inside quotes,
+/// `\"` is a quote and `\\` a backslash, and `""` is an empty argument.
 fn quoted_list(args: &str) -> Vec<String> {
     let mut items = Vec::new();
     let mut current = String::new();
     let mut quoted = false;
-    for c in args.chars() {
+    let mut had_quote = false;
+    let mut finish = |current: &mut String, had_quote: &mut bool| {
+        let text = std::mem::take(current);
+        if *had_quote {
+            items.push(text);
+        } else if !text.trim().is_empty() {
+            items.push(text.trim().to_string());
+        }
+        *had_quote = false;
+    };
+    let mut chars = args.chars().peekable();
+    while let Some(c) = chars.next() {
         match c {
-            '"' => quoted = !quoted,
-            ',' if !quoted => items.push(std::mem::take(&mut current)),
+            '\\' if quoted && matches!(chars.peek(), Some('"' | '\\')) => {
+                current.extend(chars.next());
+            }
+            '"' => {
+                quoted = !quoted;
+                had_quote = true;
+            }
+            ',' if !quoted => finish(&mut current, &mut had_quote),
+            _ if !quoted && c.is_whitespace() && (had_quote || current.is_empty()) => {}
             _ => current.push(c),
         }
     }
-    items.push(current);
+    finish(&mut current, &mut had_quote);
     items
-        .into_iter()
-        .map(|i| i.trim().to_string())
-        .filter(|i| !i.is_empty())
-        .collect()
 }
 
 /// `.LINUX, .MACOS` or `"text"` as lowercase names without the dots and quotes.
@@ -395,6 +410,14 @@ mod tests {
         only.apply("only(.WINDOWS-NATIVE)").unwrap();
         assert_eq!(only.skip_reason(&target("windows", false), &[]), None);
         assert!(only.skip_reason(&target("windows", true), &[]).is_some());
+    }
+
+    #[test]
+    fn quoted_arguments_keep_quotes_backslashes_and_empty_strings() {
+        assert_eq!(
+            quoted_list(r#""a b", "", "q\" and s\\", plain"#),
+            ["a b", "", "q\" and s\\", "plain"]
+        );
     }
 
     #[test]
