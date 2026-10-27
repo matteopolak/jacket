@@ -105,6 +105,7 @@ AREAS = {
         "tools/corpus/select_upstream_cases.py",
         "tools/corpus/upstream_sandbox.py",
         "tools/differential/jaic_sweep.py",
+        "tools/ci/stdlib_jacket_sanitize.sh",
         "tools/ci/enter_vs_dev_shell.ps1",
         "tools/portable/build_portable.py",
         "tools/native/audio_build_native.py",
