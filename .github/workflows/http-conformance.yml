@@ -1,8 +1,8 @@
 name: http conformance
 # The HTTP codec against llhttp's fixtures, the smuggling table and the chunking tests, in all four
-# stdlib runtime modes (tools/stdlib/http_conformance.py, docs/extensions/http-codec.md). It runs when the
+# `jacket test` modes (tools/stdlib/http_conformance.py, docs/extensions/http-codec.md). It runs when the
 # Http module or this harness changes, and by hand; every push already runs the same tests among
-# the stdlib runtime tests, so this adds the focused report and the optional external suites.
+# the stdlib `jacket test` legs, so this adds the focused report and the optional external suites.
 on:
   push:
     branches: [main]
@@ -36,7 +36,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macOS only by hand (every push already runs these tests on macOS among the stdlib runtime tests)
+        # macOS only by hand (every push already runs these tests on macOS among the stdlib `jacket test` legs)
         runner: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '["ubuntu-24.04","macos-15"]' || '["ubuntu-24.04"]') }}
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 40
@@ -70,8 +70,8 @@ jobs:
         run: python3 tools/run_tests.py -p test_http_native.py
       - name: Build pinned HTTP TLS SDK (static and shared)
         run: python3 tools/native/http_native.py --out "$JAIC_NATIVE_LIBS"
-      - name: Build jaic
-        run: cargo build --locked -p jaic-cli
+      - name: Build jaic and jacket
+        run: cargo build --locked -p jaic-cli -p jacket
       - name: Corpus, llhttp fixtures, smuggling and chunking tests
         run: python3 -u tools/stdlib/http_conformance.py --jaic target/debug/jaic --modes interp,native,wasm-interp,wasm-native
       - name: Io and Http tests under load (default, -O2, ASan on Linux)

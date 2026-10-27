@@ -180,9 +180,6 @@ class HttpNativeSetupTests(unittest.TestCase):
         self.assertEqual(
             harness.call_args.args[1], "interp,native,wasm-interp,wasm-native"
         )
-        self.assertEqual(
-            harness.call_args.args[2], http_conformance.HTTP_CONFORMANCE_CASE_IDS
-        )
 
     def test_success_status_without_shared_artifact_remains_failure(self):
         with (

@@ -11,9 +11,8 @@ What it does:
 
 1. Checks that stdlib/Extensions/Http/tests/fixtures/llhttp_cases.jai is what tools/corpus/gen_http_corpus.py
    writes from the vendored llhttp fixtures (so a changed fixture or deviation file is not forgotten).
-2. Runs every Http test (stdlib/Extensions/Http/tests/*.jai)
-   through tools/stdlib/stdlib_runtime.py in the requested modes: the llhttp fixtures, the smuggling
-   table, the case-by-case codec tests and the chunking tests.
+2. Runs every Http test (stdlib/Extensions/Http/tests/*.jai) with `jacket test` in the requested
+   modes: the llhttp fixtures, the smuggling table, the case-by-case codec tests and the chunking tests.
 3. Prints how many llhttp fixtures matched, deviate on purpose or need a lenient mode.
 4. Builds the echo server (tools/stdlib/http_garden/server.jai), starts it and probes it over TCP with
    hostile and awkward requests: request smuggling shapes (Content-Length with Transfer-Encoding,
@@ -38,32 +37,42 @@ import tempfile
 import time
 from pathlib import Path
 from native.http_native import ensure_native_libraries
-from stdlib.stdlib_test_catalog import validated_entries
+from stdlib.jacket_tests import jacket_binary
 from toolkit.cli import add_jaic_argument
 from toolkit.repo import ROOT
 
 HTTP_TESTS = ROOT / "stdlib" / "Extensions" / "Http" / "tests"
 
-# Reviewed Http test inventory. Exact IDs make a missing standalone test fail dispatch rather than
-# disappear behind a successful substring filter.
-HTTP_CONFORMANCE_CASE_IDS = tuple(
-    "Extensions/Http/tests/" + name
-    for name in (
-        "chunking",
-        "client",
-        "codec",
-        "codec-roundtrip",
-        "https",
-        "llhttp",
-        "server-bodies",
-        "server-connections",
-        "server-extractors",
-        "server-responses",
-        "server-routing",
-        "smuggling",
-        "testing",
-    )
+# Reviewed Http test inventory: a missing standalone test fails the run instead of disappearing
+# from the folder `jacket test` runs.
+HTTP_CONFORMANCE_TESTS = (
+    "chunking",
+    "client",
+    "codec",
+    "codec-roundtrip",
+    "https",
+    "llhttp",
+    "server-bodies",
+    "server-connections",
+    "server-extractors",
+    "server-responses",
+    "server-routing",
+    "smuggling",
+    "testing",
 )
+
+# The `jacket test` options of each mode this harness runs (the same legs as CI's stdlib job).
+MODE_OPTIONS = {
+    "interp": ["--interp"],
+    "native": [],
+    "wasm-interp": ["--interp", "-os", "wasm"],
+    "wasm-native": [
+        "-os",
+        "wasm",
+        "--runner",
+        "node --no-warnings tools/wasi_run.mjs",
+    ],
+}
 
 
 def check_corpus():
@@ -104,30 +113,31 @@ def check_corpus():
     return True
 
 
-def run_harness(jaic, modes, case_ids, jobs):
-    discovered = {case["id"] for case in validated_entries()}
-    missing = set(case_ids) - discovered
+def run_harness(jaic, modes, jobs):
+    missing = [name for name in HTTP_CONFORMANCE_TESTS if not (HTTP_TESTS / (name + ".jai")).is_file()]
     if missing:
         raise RuntimeError(
-            "HTTP conformance cases missing from catalogue: "
-            + ", ".join(sorted(missing))
+            "HTTP conformance tests missing from stdlib/Extensions/Http/tests: "
+            + ", ".join(missing)
         )
-    print(f"== {len(case_ids)} exact HTTP conformance cases ({modes})")
-    cmd = [
-        sys.executable,
-        str(ROOT / "tools" / "stdlib" / "stdlib_runtime.py"),
-        "--jaic",
-        str(jaic),
-        "--modes",
-        modes,
-        "-j",
-        str(jobs),
-        "--timeout",
-        "900",
-    ]
-    for name in case_ids:
-        cmd.extend(["--case", name])
-    return subprocess.run(cmd, cwd=ROOT).returncode == 0
+    unknown = [mode for mode in modes.split(",") if mode not in MODE_OPTIONS]
+    if unknown:
+        raise RuntimeError("unknown HTTP conformance modes: " + ", ".join(unknown))
+    jacket = jacket_binary(jaic)
+    ok = True
+    for mode in modes.split(","):
+        print(f"== {len(HTTP_CONFORMANCE_TESTS)} HTTP conformance tests ({mode})")
+        command = [
+            str(jacket),
+            "test",
+            "--path",
+            str(HTTP_TESTS.parent),
+            "-j",
+            str(jobs),
+            *MODE_OPTIONS[mode],
+        ]
+        ok = subprocess.run(command, cwd=ROOT).returncode == 0 and ok
+    return ok
 
 
 def exchange(port, data, wait=1.0, shutdown_write=False):
@@ -442,7 +452,7 @@ def main():
     ap.add_argument(
         "--modes",
         default="interp,native",
-        help="stdlib_runtime.py modes (default interp,native)",
+        help="comma-separated: interp, native, wasm-interp, wasm-native (default interp,native)",
     )
     ap.add_argument("--garden", help="a checkout of http-garden (needs Docker)")
     ap.add_argument("-j", "--jobs", type=int, default=2)
@@ -457,7 +467,7 @@ def main():
     # supply the following echo-server/llhttp compiler processes.
     ensure_native_libraries()
     ok = check_corpus()
-    ok = run_harness(jaic, args.modes, HTTP_CONFORMANCE_CASE_IDS, args.jobs) and ok
+    ok = run_harness(jaic, args.modes, args.jobs) and ok
     ok = check_server(jaic) and ok
     llhttp_summary(jaic)
     ok = external_suites(args.garden) and ok
