@@ -1310,6 +1310,9 @@ jobs:
         run: |
           jacket="$(dirname "$JAIC")/jacket.exe"
           status=0
+          # The programs are built in temporary folders: jacket puts these folders' DLLs next to each
+          # one, Mesa's opengl32.dll (the system's is a GDI driver without OpenGL 3.3) and SDL3.
+          export JACKET_TEST_DLLS="$(cygpath -w "$PWD/$MESA_DIR");$(cygpath -w "$PWD/target/native-libs/windows-${{ matrix.cpu }}")"
           PYTHONPATH=tools python -B tools/portable/build_portable.py data
           "$jacket" test -q --needs display --partition "hash:${{ matrix.shard }}" || status=1
           "$jacket" test -q --needs display --partition "hash:${{ matrix.shard }}" --interp || status=1
