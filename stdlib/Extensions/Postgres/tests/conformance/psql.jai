@@ -835,7 +835,9 @@ build_error_message :: (error: Pg.Pg_Error, query: string, is_error: bool) -> st
         return builder_to_string(*builder,, temp);
     }
 
-    if error.severity print_to_builder(*builder, "%:  ", error.severity);
+    fields := Pg.error_fields(error);
+
+    if fields.severity print_to_builder(*builder, "%:  ", fields.severity);
 
     if verbosity == .SQLSTATE {
         if error.code != .NONE {
@@ -853,19 +855,19 @@ build_error_message :: (error: Pg.Pg_Error, query: string, is_error: bool) -> st
     cursor_query: string;
     cursor_position := 0;
 
-    if error.position > 0 {
+    if fields.position > 0 {
         if verbosity != .TERSE && query {
             cursor_query = query;
-            cursor_position = error.position;
+            cursor_position = fields.position;
         } else {
-            print_to_builder(*builder, " at character %", error.position);
+            print_to_builder(*builder, " at character %", fields.position);
         }
-    } else if error.internal_position > 0 {
-        if verbosity != .TERSE && error.internal_query {
-            cursor_query = error.internal_query;
-            cursor_position = error.internal_position;
+    } else if fields.internal_position > 0 {
+        if verbosity != .TERSE && fields.internal_query {
+            cursor_query = fields.internal_query;
+            cursor_position = fields.internal_position;
         } else {
-            print_to_builder(*builder, " at character %", error.internal_position);
+            print_to_builder(*builder, " at character %", fields.internal_position);
         }
     }
 
@@ -873,26 +875,26 @@ build_error_message :: (error: Pg.Pg_Error, query: string, is_error: bool) -> st
 
     if verbosity != .TERSE {
         if cursor_query report_error_position(*builder, cursor_query, cursor_position);
-        if error.detail print_to_builder(*builder, "DETAIL:  %\n", error.detail);
-        if error.hint print_to_builder(*builder, "HINT:  %\n", error.hint);
-        if error.internal_query print_to_builder(*builder, "QUERY:  %\n", error.internal_query);
+        if fields.detail print_to_builder(*builder, "DETAIL:  %\n", fields.detail);
+        if fields.hint print_to_builder(*builder, "HINT:  %\n", fields.hint);
+        if fields.internal_query print_to_builder(*builder, "QUERY:  %\n", fields.internal_query);
 
         if psql.show_context == .ALWAYS || (psql.show_context == .ERRORS && is_error) {
-            if error.where print_to_builder(*builder, "CONTEXT:  %\n", error.where);
+            if fields.where print_to_builder(*builder, "CONTEXT:  %\n", fields.where);
         }
     }
 
     if verbosity == .VERBOSE {
-        if error.schema print_to_builder(*builder, "SCHEMA NAME:  %\n", error.schema);
-        if error.table print_to_builder(*builder, "TABLE NAME:  %\n", error.table);
-        if error.column print_to_builder(*builder, "COLUMN NAME:  %\n", error.column);
-        if error.data_type print_to_builder(*builder, "DATATYPE NAME:  %\n", error.data_type);
-        if error.constraint print_to_builder(*builder, "CONSTRAINT NAME:  %\n", error.constraint);
+        if fields.schema print_to_builder(*builder, "SCHEMA NAME:  %\n", fields.schema);
+        if fields.table print_to_builder(*builder, "TABLE NAME:  %\n", fields.table);
+        if fields.column print_to_builder(*builder, "COLUMN NAME:  %\n", fields.column);
+        if fields.data_type print_to_builder(*builder, "DATATYPE NAME:  %\n", fields.data_type);
+        if fields.constraint print_to_builder(*builder, "CONSTRAINT NAME:  %\n", fields.constraint);
 
-        if error.routine || error.file || error.line {
+        if fields.routine || fields.file || fields.line {
             append(*builder, "LOCATION:  ");
-            if error.routine print_to_builder(*builder, "%, ", error.routine);
-            if error.file && error.line print_to_builder(*builder, "%:%", error.file, error.line);
+            if fields.routine print_to_builder(*builder, "%, ", fields.routine);
+            if fields.file && fields.line print_to_builder(*builder, "%:%", fields.file, fields.line);
             append(*builder, "\n");
         }
     }

@@ -282,13 +282,13 @@ byte_to_character_count :: (text: string, from: s64, to: s64) -> s64 {
 // without a transaction.
 migration_failure :: (name: string, index: s64, whole: string, statement: string, error: Pg_Error) -> Migration_Failure {
     failure := Migration_Failure.{ name = name, index = index, message = copy_string(error.message) };
-    if error.kind != .SERVER || error.position <= 0 return failure;
+    if error.kind != .SERVER || error_fields(error).position <= 0 return failure;
 
     inside := cast(s64) (statement.data - whole.data);
     if inside < 0 || inside > whole.count inside = 0;
 
     prefix := slice(whole, 0, inside);
-    line, column := line_column_of_position(statement, error.position);
+    line, column := line_column_of_position(statement, error_fields(error).position);
 
     failure.line = line + count_lines(prefix);
     failure.column = column;
@@ -472,7 +472,7 @@ failed_migration :: (migration: Migration, error: Pg_Error) -> Pg_Error {
 
     named := make_error(.SERVER, "migration % failed: %", migration.name, error.message);
     named.code = error.code;
-    named.position = error.position;
+    named.owner.position = error_fields(error).position;
     free_error(*error);
 
     return named;

@@ -1972,7 +1972,7 @@ run_minimal :: (sql: string) -> *Pg.Result {
 
     error := Pg.run_script(psql.db, sql, *hooks);
     if error.kind != .NONE {
-        severity := ifx error.kind == .SERVER && error.severity.count then error.severity else "ERROR";
+        severity := ifx error.kind == .SERVER && Pg.error_fields(error).severity.count then Pg.error_fields(error).severity else "ERROR";
         message := ifx error.message.count then error.message else "(not available)";
 
         print_error(tprint("%:  %", severity, message));

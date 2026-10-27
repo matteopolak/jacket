@@ -113,13 +113,24 @@ Sqlstate :: enum u64 {
     DATA_CORRUPTED :: 0x3130305858; // XX001
 }
 
+// What a call returns. It is small on purpose (the hot calls hand it back by value): the kind, the
+// SQLSTATE and the primary message. The rest of an ErrorResponse is in `error_fields(error)`.
 Pg_Error :: struct {
     kind: Error_Kind;
     io: Io.Io_Error; // IO, TIMED_OUT, CANCELED: the Io error behind it
 
     code: Sqlstate; // SERVER
-    severity: string; // "ERROR", "FATAL", "PANIC" (localized when the server is)
     message: string; // the primary message; for client errors, what happened
+
+    // Owns `message` and the strings of the fields: release it with `free_error`. Null when the
+    // error holds nothing (no error).
+    owner: *Error_Fields;
+}
+
+// The other fields of an ErrorResponse or NoticeResponse. Empty strings and zeros for the ones the
+// server did not send, and for errors that did not come from the server.
+Error_Fields :: struct {
+    severity: string; // "ERROR", "FATAL", "PANIC" (never localized), "NOTICE", ...
     detail: string;
     hint: string;
     position: s32; // 1-based character in the query the error points at, or 0
@@ -135,9 +146,16 @@ Pg_Error :: struct {
     line: string;
     routine: string;
 
-    // Every string above points into this, which belongs to the error: release it with
-    // `free_error` (empty for errors that only hold literals).
+    // The bytes every string of the error points into, stored after this struct in the same block.
     storage: [] u8;
+}
+
+NO_FIELDS: Error_Fields;
+
+// The fields of the error, never null: `Pg.error_fields(error).constraint`.
+error_fields :: (error: Pg_Error) -> *Error_Fields {
+    if error.owner return error.owner;
+    return *NO_FIELDS;
 }
 
 // One line describing the error, in temporary storage.
@@ -148,9 +166,11 @@ error_text :: (error: Pg_Error) -> string {
     builder.allocator = temp;
 
     if error.kind == .SERVER {
-        print_to_builder(*builder, "% %: %", ifx error.severity else "ERROR", sqlstate_text(error.code), error.message);
-        if error.detail print_to_builder(*builder, " (detail: %)", error.detail);
-        if error.hint print_to_builder(*builder, " (hint: %)", error.hint);
+        fields := error_fields(error);
+
+        print_to_builder(*builder, "% %: %", ifx fields.severity else "ERROR", sqlstate_text(error.code), error.message);
+        if fields.detail print_to_builder(*builder, " (detail: %)", fields.detail);
+        if fields.hint print_to_builder(*builder, " (hint: %)", fields.hint);
     } else {
         print_to_builder(*builder, "%: %", kind_text(error.kind), error.message);
 
@@ -163,7 +183,7 @@ error_text :: (error: Pg_Error) -> string {
 }
 
 free_error :: (error: *Pg_Error) {
-    if error.storage.data free(error.storage.data);
+    if error.owner free(error.owner);
     error.* = .{};
 }
 
@@ -210,13 +230,24 @@ kind_text :: (kind: Error_Kind) -> string {
     return "error";
 }
 
+// One block: the fields, then `size` bytes of storage after them.
+new_fields :: (size: int) -> *Error_Fields {
+    fields := cast(*Error_Fields) alloc(size_of(Error_Fields) + size);
+
+    fields.* = .{};
+    fields.storage = .{ size, cast(*u8) fields + size_of(Error_Fields) };
+
+    return fields;
+}
+
 // A client-side error. `message` is copied into the error's own storage.
 make_error :: (kind: Error_Kind, message: string, io := Io.Io_Error.NONE) -> Pg_Error {
     error: Pg_Error;
     error.kind = kind;
     error.io = io;
-    error.storage = cast([] u8) copy_string(message);
-    error.message = cast(string) error.storage;
+    error.owner = new_fields(message.count);
+    memcpy(error.owner.storage.data, message.data, message.count);
+    error.message = cast(string) error.owner.storage;
 
     return error;
 }
@@ -237,41 +268,45 @@ io_failure :: (io: Io.Io_Error, what: string) -> Pg_Error {
 parse_server_error :: (body: [] u8) -> Pg_Error {
     error: Pg_Error;
     error.kind = .SERVER;
-    error.storage = NewArray(body.count, u8, initialized = false);
-    memcpy(error.storage.data, body.data, body.count);
+    fields := new_fields(body.count);
+
+    error.owner = fields;
+    memcpy(fields.storage.data, body.data, body.count);
+    storage := fields.storage;
     at := 0;
-    while at < error.storage.count {
-        field := error.storage[at];
+
+    while at < storage.count {
+        field := storage[at];
         if field == 0 break;
 
         at += 1;
         start := at;
 
-        while at < error.storage.count && error.storage[at] != 0 at += 1;
+        while at < storage.count && storage[at] != 0 at += 1;
 
-        value := string.{ at - start, error.storage.data + start };
+        value := string.{ at - start, storage.data + start };
 
         at += 1;
 
         if field == {
-            case #char "V"; error.severity = value; // never localized
-            case #char "S"; if !error.severity error.severity = value;
+            case #char "V"; fields.severity = value; // never localized
+            case #char "S"; if !fields.severity fields.severity = value;
             case #char "C"; error.code = sqlstate_of(value);
             case #char "M"; error.message = value;
-            case #char "D"; error.detail = value;
-            case #char "H"; error.hint = value;
-            case #char "P"; error.position = cast(s32) string_to_int(value);
-            case #char "p"; error.internal_position = cast(s32) string_to_int(value);
-            case #char "q"; error.internal_query = value;
-            case #char "W"; error.where = value;
-            case #char "s"; error.schema = value;
-            case #char "t"; error.table = value;
-            case #char "c"; error.column = value;
-            case #char "d"; error.data_type = value;
-            case #char "n"; error.constraint = value;
-            case #char "F"; error.file = value;
-            case #char "L"; error.line = value;
-            case #char "R"; error.routine = value;
+            case #char "D"; fields.detail = value;
+            case #char "H"; fields.hint = value;
+            case #char "P"; fields.position = cast(s32) string_to_int(value);
+            case #char "p"; fields.internal_position = cast(s32) string_to_int(value);
+            case #char "q"; fields.internal_query = value;
+            case #char "W"; fields.where = value;
+            case #char "s"; fields.schema = value;
+            case #char "t"; fields.table = value;
+            case #char "c"; fields.column = value;
+            case #char "d"; fields.data_type = value;
+            case #char "n"; fields.constraint = value;
+            case #char "F"; fields.file = value;
+            case #char "L"; fields.line = value;
+            case #char "R"; fields.routine = value;
         }
     }
 

@@ -183,7 +183,7 @@ parameter :: (c: *Connection, name: string) -> string {
 
 log_notice :: (c: *Connection, notice: *Pg_Error) {
     // Standard error, not standard output: a program's output is not the place for server chatter.
-    log("postgres %: %", notice.severity, notice.message, flags = .WARNING | .ERROR);
+    log("postgres %: %", error_fields(notice.*).severity, notice.message, flags = .WARNING | .ERROR);
 }
 
 #scope_module

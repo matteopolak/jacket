@@ -22,6 +22,7 @@
 
 ### Fixed
 
+- Server notices of the Postgres client go to standard error by default, not standard output.
 - Static `#if` arms inside a polymorphic procedure are no longer greyed out.
 
 ### Breaking changes
@@ -38,6 +39,7 @@
 | two `bytes_response` and `header` overloads | one `bytes_response` taking a string or bytes; `header(request, name)` by name only |
 | `Request` fields `params`, `app`, `chain`, `cursor`, `endpoint`, `query_pairs`, `body` | private; use `query_param`, `header`, `app_state` |
 | `config.max_body_size` refused a body in the parser, before routing | it is the default `max_body` of a route |
+| `error.detail`, `error.hint`, `error.position`, `error.table`, `error.constraint` and the other `Pg_Error` fields besides `kind`, `io`, `code` and `message` (a 300-byte struct) | `Pg.error_fields(error).detail` and so on; `Pg_Error` is 40 bytes and `get` and the other hot calls return it faster |
 
 ## [0.29.0] - 2026-10-26
 

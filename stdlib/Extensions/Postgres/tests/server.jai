@@ -648,7 +648,7 @@ test_errors :: () {
                 error = Pg.execute_script(doomed, sql);
             }
 
-            assert(error.kind == .SERVER && error.code == .ADMIN_SHUTDOWN && error.severity == "FATAL", "%", Pg.error_text(error));
+            assert(error.kind == .SERVER && error.code == .ADMIN_SHUTDOWN && Pg.error_fields(error).severity == "FATAL", "%", Pg.error_text(error));
             assert(doomed.broken);
             Pg.free_error(*error);
             if it_index == 0 Pg.close(doomed);
@@ -663,17 +663,19 @@ test_errors :: () {
     result, error := Pg.query_dynamic(db, "insert into people values ($1, $2), ($1, $2)", 1, "a");
 
     assert(error.kind == .SERVER && error.code == .UNIQUE_VIOLATION);
-    assert(error.table == "people" && error.constraint == "people_pkey" && error.severity == "ERROR");
+    fields := Pg.error_fields(error);
+
+    assert(fields.table == "people" && fields.constraint == "people_pkey" && fields.severity == "ERROR");
     assert(Pg.sqlstate_class(error.code) == .INTEGRITY_CONSTRAINT_VIOLATION);
     Pg.free_error(*error);
     assert(db.status == .IDLE && !db.broken);
 
     result, error = Pg.query_dynamic(db, "selec 1");
-    assert(error.code == .SYNTAX_ERROR && error.position == 1);
+    assert(error.code == .SYNTAX_ERROR && Pg.error_fields(error).position == 1);
     Pg.free_error(*error);
 
     result, error = Pg.query_dynamic(db, "insert into people values (1, null)");
-    assert(error.code == .NOT_NULL_VIOLATION && error.column == "name");
+    assert(error.code == .NOT_NULL_VIOLATION && Pg.error_fields(error).column == "name");
     Pg.free_error(*error);
 
     // The connection is still usable after errors.
@@ -698,7 +700,7 @@ test_errors :: () {
 
     db.on_notice = (c: *Pg.Connection, notice: *Pg.Pg_Error) {
         (cast(*int) c.user_data).* += 1;
-        assert(notice.message == "hello from plpgsql" && notice.severity == "NOTICE");
+        assert(notice.message == "hello from plpgsql" && Pg.error_fields(notice.*).severity == "NOTICE");
     };
 
     db.user_data = *notices;

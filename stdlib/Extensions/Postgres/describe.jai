@@ -354,11 +354,14 @@ sql_error_answer :: (db: *Connection, sql: string, error: Pg_Error) -> Json_Valu
 
     json_set(*details, "code", json_string(sqlstate_text(error.code)));
     json_set(*details, "message", json_string(error.message));
-    if error.detail json_set(*details, "detail", json_string(error.detail));
-    if error.hint json_set(*details, "hint", json_string(error.hint));
-    if error.position > 0 json_set(*details, "position", json_int(error.position));
 
-    json_set(*details, "byte", json_int(byte_of_character(sql, error.position)));
+    fields := error_fields(error);
+
+    if fields.detail json_set(*details, "detail", json_string(fields.detail));
+    if fields.hint json_set(*details, "hint", json_string(fields.hint));
+    if fields.position > 0 json_set(*details, "position", json_int(fields.position));
+
+    json_set(*details, "byte", json_int(byte_of_character(sql, fields.position)));
 
     suggestion := suggest_name(db, error);
     if suggestion json_set(*details, "suggestion", json_string(suggestion));

@@ -35,7 +35,18 @@ main :: () {
     test_numerics();
     test_dotenv();
     test_json_options();
+    test_error_size();
     print("ok\n");
+}
+
+// The hot calls return the error by value: it stays small, and its extra fields are always readable.
+test_error_size :: () {
+    assert(size_of(Pg.Pg_Error) <= 48, "Pg_Error grew to % bytes", size_of(Pg.Pg_Error));
+
+    none: Pg.Pg_Error;
+    fields := Pg.error_fields(none);
+
+    assert(fields && !fields.constraint && fields.position == 0);
 }
 
 Theme_Only :: struct {

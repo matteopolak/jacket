@@ -241,11 +241,13 @@ that of `PQTRACE_SUPPRESS_TIMESTAMPS | PQTRACE_REGRESS_MODE`: OIDs and process i
 to stop. Tracing costs nothing when off (one pointer test per message).
 
 **Errors.** `Pg_Error.kind` says where the failure came from: `CONFIG`, `IO`, `TIMED_OUT`,
-`CANCELED`, `CLOSED`, `TLS`, `AUTH`, `PROTOCOL`, `SERVER`, `DECODE`, `USAGE` or `NOT_FOUND` (a typed `query_one` with no row). Server errors carry
-every `ErrorResponse` field (`code`, `detail`, `hint`, `position`, `table`, `column`,
-`constraint`, ...). `code` is a `Sqlstate`: an enum over the five characters, so
+`CANCELED`, `CLOSED`, `TLS`, `AUTH`, `PROTOCOL`, `SERVER`, `DECODE`, `USAGE` or `NOT_FOUND` (a typed `query_one` with no row). `Pg_Error` is 40 bytes (kind, `io`, `code`,
+`message` and one pointer), because the hot calls return it by value. The other `ErrorResponse`
+fields (`severity`, `detail`, `hint`, `position`, `table`, `column`, `constraint`, ...) are in the
+`Error_Fields` that `Pg.error_fields(error)` returns, never null: `Pg.error_fields(error).constraint`
+(empty for an error that did not come from the server). `code` is a `Sqlstate`: an enum over the five characters, so
 `error.code == .UNIQUE_VIOLATION` works, and `sqlstate_class` keeps only the class. An error owns
-its text: call `free_error` when done. A failure that leaves the stream out of step (I/O, a
+its text (the fields and the message share one allocation): call `free_error` when done. A failure that leaves the stream out of step (I/O, a
 protocol error, a FATAL) sets `connection.broken`, and later calls fail with `CLOSED`. When the
 server sends a FATAL error and then closes (a crash, `pg_terminate_backend`), the call returns that
 error rather than the close.
