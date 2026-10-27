@@ -97,22 +97,22 @@ Jacket's Regex next to [`rluba--uniform`](https://github.com/rluba/uniform) (a p
 
 `jacket` compiles each pattern at run time, as the others do, before the timer starts; `jacket_static` is `Regex.Static`, compiled while the program compiled. Everything allocates from the default allocator and frees what it was given. Inputs go through `black_box`.
 
-Apple M5 (10 cores: 4 Super and 6 Efficiency), 16 GB, macOS 27.0 arm64. The machine was a working desktop, not an idle one: the load average when the run began was 8.89, so absolute times carry a few percent of noise (the intervals show the part that was measured within one run) and the ratios are the result to read.
+Apple M5 (10 cores: 4 Super and 6 Efficiency), 16 GB, macOS 27.0 arm64. The machine was a working desktop, not an idle one: the load average when the run began was 3.07, so absolute times carry a few percent of noise (the intervals show the part that was measured within one run) and the ratios are the result to read.
 
 Time per iteration with the 95% interval, and the ratio to `jacket_static` (above 1: slower).
 
 | Workload | jacket_static | jacket | uniform | rematch |
 | --- | --- | --- | --- | --- |
-| log_parse | 9.71 ms (9.61 ms to 9.89 ms) | 13.4 ms (11.7 ms to 15.7 ms) 1.38x | 95.6 ms (93.2 ms to 99.2 ms) 9.85x | 82.3 ms (69.9 ms to 93.7 ms) 8.48x |
-| log_filter | 1.55 ms (1.54 ms to 1.56 ms) | 2.2 ms (2.12 ms to 2.29 ms) 1.42x | 12.2 ms (11.7 ms to 12.6 ms) 7.87x | 74.2 ms (70.8 ms to 77.8 ms) 47.96x |
-| extract_emails | 793 us (758 us to 836 us) | 790 us (767 us to 813 us) 1.00x | 115 ms (112 ms to 118 ms) 145.28x | 129 ms (125 ms to 133 ms) 162.56x |
-| extract_urls | 766 us (747 us to 786 us) | 804 us (788 us to 820 us) 1.05x | 10.3 ms (9.94 ms to 10.8 ms) 13.49x | 19.6 ms (19 ms to 20.2 ms) 25.54x |
-| search_names | 1.61 ms (1.57 ms to 1.66 ms) | 1.7 ms (1.65 ms to 1.75 ms) 1.05x | 59.6 ms (58.1 ms to 61.3 ms) 36.89x | 252 ms (247 ms to 259 ms) 156.22x |
-| search_ing | 1.51 ms (1.51 ms to 1.52 ms) | 1.51 ms (1.5 ms to 1.51 ms) 1.00x | 44.9 ms (44.5 ms to 45.3 ms) 29.65x | 88.5 ms (87.8 ms to 89.3 ms) 58.48x |
-| compile_email | n/a | 5.91 us (5.86 us to 5.97 us) | 5.63 us (5.6 us to 5.66 us) | 384 ns (382 ns to 386 ns) |
+| log_parse | 10.1 ms (10.1 ms to 10.2 ms) | 9.67 ms (9.62 ms to 9.73 ms) 0.95x | 142 ms (141 ms to 143 ms) 13.99x | 42.9 ms (42.8 ms to 43.1 ms) 4.23x |
+| log_filter | 1.24 ms (1.24 ms to 1.24 ms) | 1.2 ms (1.2 ms to 1.2 ms) 0.97x | 10.4 ms (10.4 ms to 10.4 ms) 8.43x | 56.2 ms (56.1 ms to 56.2 ms) 45.41x |
+| extract_emails | 381 us (379 us to 384 us) | 377 us (376 us to 378 us) 0.99x | 125 ms (125 ms to 125 ms) 328.39x | 95.1 ms (94.8 ms to 95.3 ms) 249.23x |
+| extract_urls | 410 us (409 us to 411 us) | 409 us (409 us to 410 us) 1.00x | 10.9 ms (10.9 ms to 10.9 ms) 26.55x | 17.8 ms (17.8 ms to 17.8 ms) 43.42x |
+| search_names | 723 us (722 us to 724 us) | 727 us (725 us to 728 us) 1.00x | 75.6 ms (75.4 ms to 75.9 ms) 104.58x | 258 ms (257 ms to 259 ms) 356.38x |
+| search_ing | 1.05 ms (1.05 ms to 1.06 ms) | 1.07 ms (1.06 ms to 1.07 ms) 1.01x | 54.9 ms (54.8 ms to 55 ms) 52.06x | 84.7 ms (84 ms to 85.5 ms) 80.36x |
+| compile_email | n/a | 6.18 us (6.18 us to 6.19 us) | 6.62 us (6.61 us to 6.63 us) | 318 ns (316 ns to 320 ns) |
 
 Reading the table:
 
-- **The gap is the engine.** Uniform runs its NFA over every byte of the text, with a copy of every thread's captures; Rematch backtracks from every start position. Jacket's DFA skips to the places a match can start (a rare byte, a required byte), which is why `extract_emails` takes 0.8 ms where the others take over 100. On the log lines, where every line matches from its first byte and six groups are captured, the gap is 8 to 10x.
+- **The gap is the engine.** Uniform runs its NFA over every byte of the text, with a copy of every thread's captures; Rematch backtracks from every start position. Jacket's DFA skips to the places a match can start (a rare byte, a required byte), which is why `extract_emails` takes 0.4 ms where the others take about 100. On the log lines, where every line matches from its first byte and six groups are captured, the gap is 4x to 14x on `log_parse` and 8x to 45x on `log_filter`.
 - `jacket` against `jacket_static` is the run-time cache against the frozen tables built at compile time; the two are level except in the capture-heavy `log_parse`, where the lazily built DFA has to be filled from the first line.
 - Compiling is the one place the others win: Jacket builds the byte-level program and both automata's start states (6 us for the e-mail pattern, level with Uniform); Rematch only parses (0.4 us) and does its work during matching.

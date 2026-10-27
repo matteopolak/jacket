@@ -530,23 +530,23 @@ Jacket's Postgres client next to [`rluba--jai-postgres`](https://github.com/rlub
 
 Each iteration of the libpq benchmarks allocates from a bump pool that is emptied after the call. Both clients use one connection made before the timer starts.
 
-Apple M5 (10 cores: 4 Super and 6 Efficiency), 16 GB, macOS 27.0 arm64. The machine was a working desktop, not an idle one: the load average when the run began was 5.53, so absolute times carry a few percent of noise (the intervals show the part that was measured within one run) and the ratios are the result to read.
+Apple M5 (10 cores: 4 Super and 6 Efficiency), 16 GB, macOS 27.0 arm64. The machine was a working desktop, not an idle one: the load average when the run began was 3.24, so absolute times carry a few percent of noise (the intervals show the part that was measured within one run) and the ratios are the result to read.
 
 Time per iteration with the 95% interval, and the ratio to Jacket (above 1: slower than Jacket). `bulk_insert` and `wide_fetch` are per 1,000 rows.
 
 | Workload | jacket | libpq |
 | --- | --- | --- |
-| point_select | 43.6 us (42.3 us to 44.5 us) | 43.7 us (43.5 us to 44 us) 1.00x |
-| point_select_prepared | 34 us (33.8 us to 34.3 us) | n/a |
-| point_select_tls | 50.5 us (50.1 us to 50.9 us) | 49.9 us (49.5 us to 50.3 us) 0.99x |
-| bulk_insert | 36.2 ms (35.9 ms to 36.6 ms) | 35.8 ms (35.4 ms to 36.2 ms) 0.99x |
-| bulk_insert_pipeline | 6.93 ms (6.85 ms to 7.02 ms) | n/a |
-| bulk_insert_copy | 3.09 ms (2.29 ms to 4.08 ms) | n/a |
-| wide_fetch | 1.03 ms (1.01 ms to 1.06 ms) | 1.33 ms (1.32 ms to 1.34 ms) 1.29x |
+| point_select | 33.8 us (33.5 us to 34.1 us) | 32.9 us (32.8 us to 33 us) 0.97x |
+| point_select_prepared | 24 us (23.9 us to 24.1 us) | n/a |
+| point_select_tls | 38.4 us (38.3 us to 38.5 us) | 39.1 us (38.9 us to 39.4 us) 1.02x |
+| bulk_insert | 27.3 ms (27.2 ms to 27.4 ms) | 28.2 ms (28 ms to 28.3 ms) 1.03x |
+| bulk_insert_pipeline | 6.19 ms (6.14 ms to 6.24 ms) | n/a |
+| bulk_insert_copy | 3.9 ms (2.42 ms to 5.78 ms) | n/a |
+| wide_fetch | 1.02 ms (1.01 ms to 1.03 ms) | 1.28 ms (1.27 ms to 1.29 ms) 1.25x |
 
 Reading the table:
 
-- **Single statements are level.** A point select costs 44 us on both because the time is the round trip to the server; the wire protocol written in Jai neither helps nor hurts, and TLS adds the same 6 us to both. The prepared path saves another 10 us of parse and plan work on the server, which the wrapper can not do (note 4).
-- **`wide_fetch` is 1.29x faster than libpq** (1.03 ms against 1.33 ms for 24,000 values). About 0.7 ms of it is the server producing the rows, the same for both; the rest is reading the rows into the result and decoding the cells. Each DataRow is copied into the result in one piece, `get` of a number, bool or string sets up neither an allocator nor JSON options, and a `numeric` is written as text straight into one buffer. `Pg_Error`, which every `get` returns, is 40 bytes, so a call that succeeds clears 40 bytes, not a few hundred.
-- **Where the protocol allows it, Jacket is much faster than any single-statement loop.** The pipeline sends the 1,000 inserts without waiting for each answer (5x quicker than the loop) and binary `COPY` loads the same rows in 3 ms (12x). jai-postgres can do neither.
+- **Single statements are level.** A point select costs about 33 us on both because the time is the round trip to the server; the wire protocol written in Jai neither helps nor hurts, and TLS adds about 5 us to both. The prepared path saves another 10 us of parse and plan work on the server, which the wrapper can not do (note 4).
+- **`wide_fetch` is 1.25x faster than libpq** (1.02 ms against 1.28 ms for 24,000 values). About 0.7 ms of it is the server producing the rows, the same for both; the rest is reading the rows into the result and decoding the cells. Each DataRow is copied into the result in one piece, `get` of a number, bool or string sets up neither an allocator nor JSON options, and a `numeric` is written as text straight into one buffer. `Pg_Error`, which every `get` returns, is 40 bytes, so a call that succeeds clears 40 bytes, not a few hundred.
+- **Where the protocol allows it, Jacket is much faster than any single-statement loop.** The pipeline sends the 1,000 inserts without waiting for each answer (4x quicker than the loop) and binary `COPY` loads the same rows in about 4 ms (7x). jai-postgres can do neither.
 - The libpq columns connect with `PQconnectdb` because the wrapper's own connect did not finish inside the sandbox (note 1).

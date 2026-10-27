@@ -119,32 +119,32 @@ Hash_Map next to the standard library's `Hash_Table` and [`666rayen999--hash_map
 
 An iteration is one pass over all entries; the table shows the time per entry. Results go through `black_box`. Allocation is the default allocator in both.
 
-Apple M5 (10 cores: 4 Super and 6 Efficiency), 16 GB, macOS 27.0 arm64. The machine was a working desktop, not an idle one: the load average when the run began was 5.50, so absolute times carry a few percent of noise (the intervals show the part that was measured within one run) and the ratios are the result to read.
+Apple M5 (10 cores: 4 Super and 6 Efficiency), 16 GB, macOS 27.0 arm64. The machine was a working desktop, not an idle one: the load average when the run began was 3.43, so absolute times carry a few percent of noise (the intervals show the part that was measured within one run) and the ratios are the result to read.
 
 Time per operation with the 95% interval, and the ratio of Hash_Table's time to Hash_Map's (above 1: Hash_Map is faster).
 
 | Workload | hash_map | hash_table |
 | --- | --- | --- |
-| insert_1k | 13.4 ns (13.4 ns to 13.4 ns) | 11.8 ns (11.7 ns to 11.9 ns) 0.88x |
-| insert_100k | 12.8 ns (12.8 ns to 12.8 ns) | 24.3 ns (24.3 ns to 24.4 ns) 1.90x |
-| insert_1m | 16.7 ns (16.6 ns to 16.7 ns) | 34.8 ns (34.6 ns to 35 ns) 2.09x |
-| hit_1k | 4.91 ns (4.9 ns to 4.92 ns) | 6.43 ns (6.42 ns to 6.45 ns) 1.31x |
-| hit_100k | 6.61 ns (6.56 ns to 6.66 ns) | 7.4 ns (7.38 ns to 7.43 ns) 1.12x |
-| hit_1m | 17.5 ns (17.3 ns to 17.7 ns) | 19 ns (18.8 ns to 19.3 ns) 1.08x |
-| miss_1k | 5.06 ns (5.03 ns to 5.12 ns) | 5.73 ns (5.72 ns to 5.73 ns) 1.13x |
-| miss_100k | 9.31 ns (9.3 ns to 9.32 ns) | 11.6 ns (11.6 ns to 11.6 ns) 1.24x |
-| miss_1m | 6.83 ns (6.77 ns to 6.91 ns) | 26 ns (25.6 ns to 26.5 ns) 3.80x |
-| churn_1k | 18.4 ns (18.4 ns to 18.4 ns) | 16.9 ns (16.9 ns to 17 ns) 0.92x |
-| churn_100k | 19.6 ns (19.5 ns to 19.7 ns) | 29.8 ns (29.6 ns to 29.9 ns) 1.52x |
-| churn_1m | 39.5 ns (39 ns to 40 ns) | 61 ns (60.6 ns to 61.5 ns) 1.54x |
-| iterate_1k | 0.633 ns (0.588 ns to 0.684 ns) | 1.16 ns (1.15 ns to 1.17 ns) 1.83x |
-| iterate_100k | 0.964 ns (0.955 ns to 0.972 ns) | 5.55 ns (5.52 ns to 5.57 ns) 5.76x |
-| iterate_1m | 1.92 ns (1.91 ns to 1.92 ns) | 4.96 ns (4.95 ns to 4.97 ns) 2.59x |
-| string_insert_1k | 19.7 ns (19.4 ns to 20 ns) | 38.7 ns (36.8 ns to 40.5 ns) 1.97x |
-| string_insert_100k | 20.7 ns (20.5 ns to 21 ns) | 40.9 ns (40.8 ns to 41.1 ns) 1.98x |
-| string_insert_1m | 51.8 ns (43.9 ns to 61.6 ns) | 58.5 ns (58.2 ns to 58.8 ns) 1.13x |
-| string_hit_1k | 13.4 ns (13 ns to 14 ns) | 15.9 ns (15.8 ns to 15.9 ns) 1.18x |
-| string_hit_100k | 18.6 ns (18.6 ns to 18.7 ns) | 29.4 ns (24.7 ns to 35.8 ns) 1.58x |
-| string_hit_1m | 39.3 ns (38.8 ns to 39.8 ns) | 45 ns (44.6 ns to 45.8 ns) 1.15x |
+| insert_1k | 13.4 ns (13.4 ns to 13.4 ns) | 12.2 ns (12.2 ns to 12.2 ns) 0.91x |
+| insert_100k | 12.7 ns (12.7 ns to 12.7 ns) | 24.6 ns (24.6 ns to 24.7 ns) 1.94x |
+| insert_1m | 16.3 ns (16.2 ns to 16.4 ns) | 35.2 ns (35 ns to 35.5 ns) 2.16x |
+| hit_1k | 4.89 ns (4.88 ns to 4.9 ns) | 6.59 ns (6.57 ns to 6.6 ns) 1.35x |
+| hit_100k | 6.51 ns (6.5 ns to 6.53 ns) | 7.3 ns (7.29 ns to 7.31 ns) 1.12x |
+| hit_1m | 17.7 ns (17.5 ns to 17.9 ns) | 18.6 ns (18.5 ns to 18.7 ns) 1.05x |
+| miss_1k | 5.05 ns (5.04 ns to 5.06 ns) | 5.76 ns (5.74 ns to 5.77 ns) 1.14x |
+| miss_100k | 9.28 ns (9.27 ns to 9.28 ns) | 11.6 ns (11.5 ns to 11.6 ns) 1.25x |
+| miss_1m | 6.5 ns (6.38 ns to 6.61 ns) | 25.6 ns (25.4 ns to 25.8 ns) 3.95x |
+| churn_1k | 18.3 ns (18.2 ns to 18.3 ns) | 17.7 ns (17.5 ns to 17.7 ns) 0.97x |
+| churn_100k | 19.5 ns (19.4 ns to 19.5 ns) | 29.7 ns (29.5 ns to 29.9 ns) 1.53x |
+| churn_1m | 37.9 ns (37.2 ns to 38.7 ns) | 60.8 ns (60.2 ns to 61.3 ns) 1.60x |
+| iterate_1k | 0.575 ns (0.574 ns to 0.575 ns) | 1.12 ns (1.11 ns to 1.12 ns) 1.94x |
+| iterate_100k | 0.853 ns (0.851 ns to 0.856 ns) | 5.28 ns (5.25 ns to 5.3 ns) 6.18x |
+| iterate_1m | 1.83 ns (1.82 ns to 1.83 ns) | 4.76 ns (4.73 ns to 4.79 ns) 2.61x |
+| string_insert_1k | 18.9 ns (18.9 ns to 19 ns) | 22.6 ns (22.5 ns to 22.7 ns) 1.19x |
+| string_insert_100k | 19.8 ns (19.6 ns to 19.9 ns) | 39 ns (38.8 ns to 39.1 ns) 1.97x |
+| string_insert_1m | 34.3 ns (34.1 ns to 34.5 ns) | 56 ns (55.7 ns to 56.5 ns) 1.63x |
+| string_hit_1k | 12.9 ns (12.9 ns to 12.9 ns) | 15.5 ns (15.5 ns to 15.5 ns) 1.20x |
+| string_hit_100k | 18.7 ns (18.6 ns to 18.8 ns) | 21.3 ns (21.2 ns to 21.4 ns) 1.14x |
+| string_hit_1m | 38.4 ns (38.1 ns to 38.7 ns) | 43.7 ns (43.4 ns to 44 ns) 1.14x |
 
 Reading it: Hash_Map wins most where the map outgrows the cache (a miss ends after one group instead of walking a cluster; removed slots are reused; iteration skips empty groups). At 1,000 entries insert and churn are close to even: a small map rebuilds eight times on the way up (16 slots to 2,048) and every rebuild rehashes every key, where `Hash_Table` keeps the hash in its entries. Hits on a large string map are a little faster than `Hash_Table`'s although a lookup touches the control byte, the entry and then the string, where `Hash_Table` reads the entry and the string; the string hash reads eight bytes per step.

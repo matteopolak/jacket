@@ -239,26 +239,26 @@ Jacket's server next to [`rluba--hyperserve`](https://github.com/rluba/hyperserv
 
 All servers and the load generator are compiled with `-o` and run inside the `Sandbox` of `tools/bench/sandbox.py` with loopback-only networking, because the community servers are unreviewed code.
 
-Apple M5 (10 cores: 4 Super and 6 Efficiency), 16 GB, macOS 27.0 arm64. The machine was a working desktop: the load average when the run began was 4.97, and the load generator shares the cores with the server, so read the ratios, not the absolute numbers.
+Apple M5 (10 cores: 4 Super and 6 Efficiency), 16 GB, macOS 27.0 arm64. The machine was a working desktop: the load average when the run began was 3.69, and the load generator shares the cores with the server, so read the ratios, not the absolute numbers.
 
 | Server | Connections | Requests/s | p50 | p99 | p99.9 | Connect errors | Request errors | Timeouts |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| Jacket | 1 | 52,441 | 18 us | 36 us | 69 us | 0 | 0 | 0 |
-| Jacket | 64 | 151,347 | 410 us | 674 us | 823 us | 0 | 0 | 0 |
-| Jacket | 1024 | 137,675 | 6.99 ms | 12.5 ms | 22.9 ms | 0 | 0 | 0 |
-| hyperserve | 1 | 33,977 | 27 us | 58 us | 115 us | 0 | 0 | 0 |
-| hyperserve | 64 | 82,894 | 764 us | 1.17 ms | 1.46 ms | 0 | 0 | 0 |
-| hyperserve | 1024 | 74,469 | 13.8 ms | 18.5 ms | 19.5 ms | 234 | 176 | 0 |
-| simplehttp | 1 | 16,251 | 55 us | 107 us | 163 us | 0 | 0 | 0 |
-| simplehttp | 64 | 0 | 0 ns | 0 ns | 0 ns | 15,553 | 1,245 | 0 |
-| simplehttp | 1024 | 5,868 | 29 ms | 95 ms | 95.7 ms | 134,610 | 11,441 | 0 |
+| Jacket | 1 | 51,945 | 18 us | 35 us | 53 us | 0 | 0 | 0 |
+| Jacket | 64 | 175,958 | 357 us | 506 us | 670 us | 0 | 0 | 0 |
+| Jacket | 1024 | 149,674 | 6.87 ms | 7.81 ms | 9.01 ms | 0 | 4 | 0 |
+| hyperserve | 1 | 32,794 | 29 us | 48 us | 77 us | 0 | 0 | 0 |
+| hyperserve | 64 | 94,869 | 670 us | 887 us | 1.01 ms | 0 | 0 | 0 |
+| hyperserve | 1024 | 87,134 | 11.8 ms | 14.1 ms | 14.7 ms | 0 | 26 | 0 |
+| simplehttp | 1 | 16,360 | 56 us | 73 us | 110 us | 0 | 0 | 0 |
+| simplehttp | 64 | 1,808 | 1.65 ms | 1.76 ms | 2.43 ms | 12,762 | 1,007 | 0 |
+| simplehttp | 1024 | 30,659 | 30.5 ms | 97.3 ms | 99.3 ms | 1,049 | 10,490 | 0 |
 | farzher | n/a | does not build on macOS | | | | | | |
 
 | Server | Resident at rest | With 1,024 idle connections | Per connection |
 | --- | --- | --- | --- |
-| Jacket | 2.5 MiB | 24.8 MiB | 22.3 KiB |
-| hyperserve | 6.4 MiB | 29.1 MiB | 22.7 KiB |
-| simplehttp | 1.9 MiB | 69.9 MiB | 67.9 KiB |
+| Jacket | 2.6 MiB | 24.8 MiB | 22.3 KiB |
+| hyperserve | 6.4 MiB | 29.6 MiB | 23.2 KiB |
+| simplehttp | 1.9 MiB | 69.9 MiB | 68.0 KiB |
 | farzher | n/a | n/a | n/a |
 
 Jacket handles about 1.8 times the requests per second of hyperserve, with lower latency at every percentile, and both take about 22 KiB per idle connection. simplehttp is killed by `SIGPIPE` (signal 13) when 64 or more connections write to clients that have gone, which is why its error counts are high and its numbers are those of the runs that survived (its 64-connection row is the median of runs that did not finish).
