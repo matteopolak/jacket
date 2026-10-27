@@ -277,7 +277,7 @@ reads_proc_self :: () { ... } @test @serial
 | `@check_only` | golden tests: only type-check the program (`jaic -check`); for code that cannot run on this host |
 | `@compile_fail` | file header only: the file below `tests/` is a compile-fail test |
 
-A target may also name an OS and a CPU together (`skip_on(.WINDOWS-ARM64)`), and `.ANDROID` is an OS no host is, so such tests never run here.
+A target may also name an OS with a CPU (`skip_on(.WINDOWS-ARM64)`) or with a mode (`skip_on(.WASM-NATIVE)`: a wasm build run by `--runner`, not `--interp`; `only(.WASM-INTERP)`). `.ANDROID` is an OS no host is, so such tests never run here. Under `-os wasm` the CPU is `wasm` unless `-cpu` says otherwise, so `only(.X64)` never runs a test as wasm.
 
 An unknown note or a bad argument is a warning naming the file and line; the note is ignored. The target is the host, or `-os`/`-cpu`; a cross-built test is skipped unless `--runner` can run it (compile-fail tests still run).
 

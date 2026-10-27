@@ -13,7 +13,8 @@ pub struct TestOptions {
     pub serial: bool,
     pub retries: Option<u32>,
     /// Targets (`linux`, `macos`, `windows`, `wasm`, `x64`, `arm64`, and `interp` or `native`
-    /// for how it runs) the test runs on.
+    /// for how it runs; an OS with a CPU or a mode, as in `windows-arm64` or `wasm-native`)
+    /// the test runs on.
     pub only: Vec<String>,
     /// Targets the test is skipped on.
     pub skip_on: Vec<String>,
@@ -52,8 +53,8 @@ const CPU_NAMES: [&str; 2] = ["x64", "arm64"];
 const MODE_NAMES: [&str; 2] = ["interp", "native"];
 
 fn is_target(name: &str) -> bool {
-    if let Some((os, cpu)) = name.split_once('-') {
-        return OS_NAMES.contains(&os) && CPU_NAMES.contains(&cpu);
+    if let Some((os, rest)) = name.split_once('-') {
+        return OS_NAMES.contains(&os) && (CPU_NAMES.contains(&rest) || MODE_NAMES.contains(&rest));
     }
     OS_NAMES.contains(&name) || CPU_NAMES.contains(&name) || MODE_NAMES.contains(&name)
 }
@@ -99,7 +100,7 @@ impl TestOptions {
                 let targets = list();
                 if let Some(bad) = targets.iter().find(|t| !is_target(t)) {
                     return Err(format!(
-                        "`@{name}` does not know the target `{bad}`; use .LINUX, .MACOS, .WINDOWS, .WASM, .X64, .ARM64, .INTERP or .NATIVE"
+                        "`@{name}` does not know the target `{bad}`; use .LINUX, .MACOS, .WINDOWS, .WASM, .X64, .ARM64, .INTERP or .NATIVE, or an OS with a CPU or mode (.WASM-NATIVE)"
                     ));
                 }
                 if targets.is_empty() {
@@ -170,7 +171,7 @@ impl TestOptions {
             "native"
         };
         let matches = |t: &String| match t.split_once('-') {
-            Some((os, cpu)) => os == target.os && cpu == target.cpu,
+            Some((os, rest)) => os == target.os && (rest == target.cpu || rest == mode),
             None => *t == target.os || *t == target.cpu || t == mode,
         };
         // Each kind of target `only` names must match: `only(.LINUX, .X64)` is Linux on x64.
@@ -381,6 +382,19 @@ mod tests {
         };
         assert_eq!(only.skip_reason(&on("windows", "arm64"), &[]), None);
         assert!(only.skip_reason(&on("windows", "x64"), &[]).is_some());
+    }
+
+    #[test]
+    fn a_target_can_name_the_os_and_mode_together() {
+        let mut options = TestOptions::default();
+        options.apply("skip_on(.WASM-NATIVE)").unwrap();
+        assert!(options.skip_reason(&target("wasm", false), &[]).is_some());
+        assert_eq!(options.skip_reason(&target("wasm", true), &[]), None);
+        assert_eq!(options.skip_reason(&target("linux", false), &[]), None);
+        let mut only = TestOptions::default();
+        only.apply("only(.WINDOWS-NATIVE)").unwrap();
+        assert_eq!(only.skip_reason(&target("windows", false), &[]), None);
+        assert!(only.skip_reason(&target("windows", true), &[]).is_some());
     }
 
     #[test]

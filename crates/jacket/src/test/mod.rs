@@ -453,7 +453,15 @@ fn run_once(
         None => None,
     };
     let os = args.os.clone().unwrap_or_else(|| host_os().into());
-    let cpu = args.cpu.clone().unwrap_or_else(|| host_cpu().into());
+    // A wasm program has no CPU of the host's kind: `only(.X64)` never runs under `-os wasm`.
+    let cpu = args.cpu.clone().unwrap_or_else(|| {
+        if os == "wasm" {
+            "wasm"
+        } else {
+            host_cpu()
+        }
+        .into()
+    });
     let target = Target {
         os: os.clone(),
         cpu: cpu.clone(),
