@@ -388,28 +388,66 @@ read_all_stdin :: () -> string {
 }
 
 // The config for files in `directory`: the nearest jacket.toml's `[format]` in it or a parent,
-// else the defaults. Results are cached per directory.
+// else the defaults. Results are cached per directory, and each jacket.toml is parsed once however
+// many directories use it.
 config_for_directory :: (directory: string) -> *Format_Config, ok: bool, error: string {
     for config_cache if it.directory == directory return it.config, it.ok, it.error;
 
     entry: Config_Cache_Entry;
     entry.directory = copy_string(directory);
-    entry.config = New(Format_Config);
 
-    config, file, ok, error := format_find_config(directory, read_config_file);
+    owner, found := nearest_config_directory(directory);
 
-    entry.config.* = config;
-    entry.ok = ok;
-
-    if !ok {
-        entry.error = sprint("in `%`, %", shown(file), error);
+    if !found {
+        entry.config = New(Format_Config);
+        entry.ok = true;
     } else {
-        report_unknown_keys(config, file);
+        for config_cache {
+            if it.owner == owner {
+                entry.owner = it.owner;
+                entry.config = it.config;
+                entry.ok = it.ok;
+                entry.error = it.error;
+                break;
+            }
+        }
+
+        if !entry.config {
+            entry.owner = copy_string(owner);
+            entry.config = New(Format_Config);
+
+            config, file, ok, error := format_find_config(owner, read_config_file, owner);
+
+            entry.config.* = config;
+            entry.ok = ok;
+
+            if !ok {
+                entry.error = sprint("in `%`, %", shown(file), error);
+            } else {
+                report_unknown_keys(config, file);
+            }
+        }
     }
 
     array_add(*config_cache, entry);
 
     return entry.config, entry.ok, entry.error;
+}
+
+// The closest directory at or above `directory` that holds a jacket.toml.
+nearest_config_directory :: (directory: string) -> string, bool {
+    current := directory;
+
+    while true {
+        if file_exists(tprint("%/%", ifx current == "/" then "" else current, JACKET_CONFIG_FILE_NAME)) return current, true;
+
+        parent := format_parent_directory(current);
+        if !parent.count || parent == current break;
+
+        current = parent;
+    }
+
+    return "", false;
 }
 
 read_config_file :: (path: string) -> string, bool {
@@ -442,6 +480,7 @@ load_config :: (path: string) -> *Format_Config, ok: bool, error: string {
 
 Config_Cache_Entry :: struct {
     directory: string;
+    owner: string;
     config: *Format_Config;
     ok: bool;
     error: string;
