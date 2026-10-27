@@ -292,7 +292,7 @@ class Selection(unittest.TestCase):
                         return_value=subprocess.CompletedProcess(
                             [], 0, b"ok\n", stderr
                         ),
-                    ) as run,
+                    ),
                     contextlib.redirect_stdout(io.StringIO()),
                 ):
                     self.assertEqual(cross.run(args), expected)

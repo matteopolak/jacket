@@ -650,9 +650,9 @@ def main(argv=None):
         commands.add_parser(name, help=function.__doc__.split("\n")[0]).set_defaults(
             run=lambda args, f=function: f()
         )
-    commands.add_parser("data", help="All the fixtures the stdlib tests read").set_defaults(
-        run=lambda args: data_fixtures()
-    )
+    commands.add_parser(
+        "data", help="All the fixtures the stdlib tests read"
+    ).set_defaults(run=lambda args: data_fixtures())
     meow = commands.add_parser("meow", help=meow_fixtures.__doc__.split("\n")[0])
     meow.add_argument("--verify-native", action="store_true")
     meow.set_defaults(run=lambda args: meow_fixtures(args.verify_native))
