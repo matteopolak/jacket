@@ -346,6 +346,7 @@ jobs:
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part == 'diff' && runner.os == 'Linux' && matrix.architecture == 'x86_64' }}
         run: |
           python3 tools/ci/install_pinned.py rust --component rustfmt --component clippy --target wasm32-unknown-unknown
+          cargo fetch --locked
           python3 tools/browser/build_scripting_wasm.py --release --output target/ci-wasm
       - name: Backend agreement
         id: backends

@@ -26,7 +26,6 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from ci.rust_shards import shard_filters
 from toolkit.process import run as toolkit_run
 from toolkit.host import exe_name
 from toolkit.repo import ROOT, cargo_binary, cargo_target_dir, jaifmt_path
@@ -412,12 +411,17 @@ def cmd_vscode_try(args) -> int:
 def shard_runs(partition: str, expr: str) -> list[tuple[str, str]]:
     """The (partition, filterset) of each nextest pass for `--partition`: one pass, or when the shard
     has slow tests pinned to it, a pass over those and a pass over the others."""
+    from ci.rust_shards import shard_filters  # only `test` needs it; hook tests copy dev.py alone
+
     match = re.fullmatch(r"slice:(\d+/\d+)", partition or "")
     filters = shard_filters(match.group(1)) if match else None
     if not filters:
         return [(partition, expr)]
     pinned, every = filters
-    scoped = lambda extra: f"({expr}) & ({extra})" if expr else extra
+
+    def scoped(extra: str) -> str:
+        return f"({expr}) & ({extra})" if expr else extra
+
     return [("", scoped(pinned)), (partition, scoped(f"not ({every})"))]
 
 
