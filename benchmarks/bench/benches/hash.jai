@@ -46,3 +46,24 @@ hash_integer :: (b: *Bench) {
         black_box(get_hash(black_box(it)));
     }
 } @bench @samples(20)
+
+// The five hashes over suffixes of the text of 47 to 78 bytes, and over an integer.
+hash_mixed :: (b: *Bench) {
+    checksum: u64 = 1469598103934665603;
+
+    mix :: (value: u64) #expand {
+        checksum = (checksum ^ value) * 1099511628211;
+    }
+
+    for 0..b.iterations - 1 {
+        piece := string.{ TEXT.count - it % 32, TEXT.data + it % 32 };
+
+        mix(fnv1a_hash(piece.data, piece.count));
+        mix(sdbm_hash(piece.data, piece.count));
+        mix(djb2_hash(piece));
+        mix(get_hash(it));
+        mix(get_hash(piece));
+    }
+
+    black_box(checksum);
+} @bench

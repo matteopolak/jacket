@@ -187,7 +187,7 @@ def interpreter_programs() -> list[Workload]:
 
 
 def runtime_programs() -> list[Workload]:
-    """One program per kind of work, built and run: names starting with `stdlib-` time library code."""
+    """One program per kind of work, built and run: the library is timed by `jacket bench`, see `benchmarks/bench`."""
     return [program(path.stem, Category.GENERATED_CODE, RUNTIME_PROGRAMS, (Mode.BUILD, Mode.OPTIMIZED), runtime=True)
             for path in sorted(RUNTIME_PROGRAMS.glob('*.jai'))]
 
