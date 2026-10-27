@@ -79,6 +79,13 @@ class Runs(unittest.TestCase):
         self.assertEqual((outcome.status, outcome.name), ("ok", "ci"))
         self.assertGreater(outcome.tests, 0)
 
+    def test_a_pattern_may_be_a_path_to_the_test_file(self):
+        for given in ("tools/ci/test_pins.py", "ci/test_pins.py", "./tools/ci/test_pins.py"):
+            (outcome,) = self.run_folder(given, only=())
+            self.assertEqual((outcome.status, outcome.name), ("ok", "ci"), given)
+            self.assertGreater(outcome.tests, 0)
+        self.assertEqual(self.run_folder("tools/stdlib/test_pins.py", only=()), [])
+
     def test_a_skipped_fixture_skips_the_folder(self):
         def refuse():
             raise run_tests.Skip("not here")

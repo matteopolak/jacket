@@ -10,6 +10,7 @@ imports its siblings by bare name), with tools/ on PYTHONPATH so cross-folder im
     python3 tools/run_tests.py -p 'test_sdl*.py' -v             # only the matching files, verbosely
     python3 tools/run_tests.py -p test_a.py -p test_b.py        # several patterns, one run
     python3 tools/run_tests.py ci native_bindings -j 1         # only these folders, one at a time
+    python3 tools/run_tests.py -p tools/ci/test_pins.py         # a pattern may be a path: that folder's file
 
 A folder runs in its own process and is killed after `--timeout` seconds (FOLDER_TIMEOUTS raises the limit of
 the slow ones). Folders that need prepared inputs have a fixture (FIXTURES below): it runs once, in the worker
@@ -98,6 +99,18 @@ FIXTURES = {
     "bindings": Fixture(("test_sdl*.py",), sdl_environment),
     "generators": Fixture(("test_*.py",), formatter),
 }
+
+
+def split_path(pattern: str) -> tuple[str | None, str]:
+    """A pattern given as a path (`tools/ci/test_a.py`, `ci/test_a.py`) as the folder it names, relative to tools/,
+    and the file pattern; a bare file pattern names no folder."""
+    if "/" not in pattern:
+        return None, pattern
+    directory, _, name = pattern.rpartition("/")
+    parts = [part for part in directory.split("/") if part not in ("", ".")]
+    if parts[:1] == ["tools"]:
+        parts = parts[1:]
+    return ("/".join(parts) or "tools"), name
 
 
 def folders(pattern: str = "test_*.py") -> list[Path]:
@@ -218,16 +231,20 @@ def run_all(
     base = dict(os.environ if base_env is None else base_env)
     base["PYTHONPATH"] = os.pathsep.join(filter(None, [str(TOOLS), base.get("PYTHONPATH", "")]))
     fixtures = Fixtures(FIXTURES if table is None else table)
+    plain = [split_path(given)[1] for given in patterns]
     tasks = []
-    for pattern in patterns:
+    for given in patterns:
+        directory, pattern = split_path(given)
         for folder in folders(pattern):
+            if directory is not None and label(folder) != directory:
+                continue
             if not only or label(folder) in only or folder.name in only:
                 tasks.append((folder, pattern))
     # The slowest folders start first so they overlap the rest instead of ending the run alone.
     tasks.sort(key=lambda task: -FOLDER_TIMEOUTS.get(task[0].name, 0))
     outcomes = []
     with ThreadPoolExecutor(max_workers=max(1, jobs)) as pool:
-        futures = [pool.submit(run_task, folder, pattern, verbose, timeout, fixtures, patterns, base) for folder, pattern in tasks]
+        futures = [pool.submit(run_task, folder, pattern, verbose, timeout, fixtures, plain, base) for folder, pattern in tasks]
         for future in futures:
             outcome = future.result()
             outcomes.append(outcome)

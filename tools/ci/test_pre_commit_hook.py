@@ -59,11 +59,20 @@ class PreCommitHookTests(unittest.TestCase):
         # The copy of tools/ in the throwaway repository is the one dev.py imports from, so ROOT is that repository.
         self.env["PYTHONPATH"] = str(self.repo / "tools")
         # Keep any real jaifmt/jailint on the developer's PATH out of the tests.
-        self.env["PATH"] = os.pathsep.join(
-            p
-            for p in self.env["PATH"].split(os.pathsep)
-            if not (Path(p) / "jaifmt").exists() and not (Path(p) / "jailint").exists()
-        )
+        # A directory that holds one of them (Homebrew's bin) also holds tools cargo needs, such as
+        # the `sccache` a rustc-wrapper names, so its other entries stay reachable through links.
+        kept, dropped = [], []
+        for p in self.env["PATH"].split(os.pathsep):
+            has_ours = (Path(p) / "jaifmt").exists() or (Path(p) / "jailint").exists()
+            (dropped if has_ours else kept).append(p)
+        others = Path(self.tmp.name) / "path-others"
+        others.mkdir()
+        for p in dropped:
+            for entry in Path(p).iterdir() if Path(p).is_dir() else ():
+                link = others / entry.name
+                if entry.name not in ("jaifmt", "jailint") and not link.exists():
+                    link.symlink_to(entry)
+        self.env["PATH"] = os.pathsep.join([*kept, str(others)])
 
     def tool(self, rel):
         path = self.repo / rel
