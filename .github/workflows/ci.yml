@@ -24,6 +24,9 @@ env:
   # tools/ holds the folders the Python scripts import from (`from toolkit.repo import ROOT`).
   PYTHONPATH: ${{ github.workspace }}/tools
   LLVM_VERSION: 23.1.2
+  # No wall-clock limit on jailint and jailsp checks: shared runners are too slow and uneven for
+  # one; the block budget still stops runaway compile-time code.
+  JACKET_CHECK_TIME_LIMIT: '0'
   # llvm-mingw (https://github.com/mstorsjo/llvm-mingw): the MinGW-w64 toolchain for Windows arm64.
   LLVM_MINGW_VERSION: '20260922'
   # Mesa's llvmpipe software OpenGL for the Windows window tests (the runners only have GDI's

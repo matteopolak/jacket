@@ -34,7 +34,7 @@ impl Args {
             self.compile_time_budget
                 .unwrap_or(CheckLimits::DEFAULT_EVAL_BLOCKS),
             self.check_time_limit
-                .unwrap_or(CheckLimits::DEFAULT_SECONDS),
+                .unwrap_or_else(CheckLimits::default_seconds),
         )
     }
 }
