@@ -227,7 +227,8 @@ def migrate(directory, dry):
     if dry:
         return True
     manifest = directory / "tests" / "manifest.json"
-    subprocess.run(["git", "rm", "-q", "-f", str(manifest)], check=True, cwd=ROOT)
+    if manifest.is_file():
+        subprocess.run(["git", "rm", "-q", "-f", str(manifest)], check=True, cwd=ROOT)
     config = ROOT / "jacket.toml"
     relative = directory.resolve().relative_to(ROOT).as_posix()
     text = config.read_text()
