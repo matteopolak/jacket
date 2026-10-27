@@ -377,7 +377,7 @@ pub fn output_extension(target: Option<BuildTarget>, kind: OutputKind) -> Option
 }
 
 /// Whether a Jai library name means the C runtime (or a POSIX library that is part of it) when
-/// targeting Windows: the toolchain links it, statically for MSVC (`libcmt`).
+/// targeting Windows: the link names the C runtime itself (the DLL one for MSVC, see `link`).
 pub(crate) fn is_windows_c_runtime(name: &str) -> bool {
     matches!(
         name.to_ascii_lowercase().as_str(),

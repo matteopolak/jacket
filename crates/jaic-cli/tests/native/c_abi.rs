@@ -878,3 +878,65 @@ fn c_variadic_calls() {
         String::from_utf8_lossy(&output.stderr)
     );
 }
+
+/// A static library compiled against the DLL CRT (`/MD`, as Visual Studio builds them) links into
+/// a native build: its calls go through `__imp_` pointers that only the DLL CRT's import
+/// libraries define, so the link must not fall back to the static CRT Clang's driver names.
+#[cfg(windows)]
+#[test]
+fn dll_crt_static_library_links_on_windows() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-dll-crt");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("crtuser.c"),
+        "#include <stdio.h>\n#include <stdlib.h>\n\
+         int crtuser_lines(const char *path) {\n\
+             FILE *f = fopen(path, \"r\");\n\
+             char line[128];\n\
+             int n = 0;\n\
+             if (!f) return -1;\n\
+             while (!feof(f) && fgets(line, sizeof line, f)) n++;\n\
+             fclose(f);\n\
+             if (n < 0) system(\"exit\");\n\
+             return n;\n\
+         }\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("main.jai"),
+        "#import \"Basic\";\n\
+         crtuser :: #library,no_dll \"crtuser\";\n\
+         crtuser_lines :: (path: *u8) -> s32 #foreign crtuser;\n\
+         main :: () {\n    print(\"lines: %\\n\", crtuser_lines(temp_c_string(#file)));\n}\n",
+    )
+    .unwrap();
+    for (program, args) in [
+        (
+            "clang",
+            &["-c", "-fms-runtime-lib=dll", "crtuser.c", "-o", "crtuser.o"][..],
+        ),
+        ("llvm-ar", &["rcs", "crtuser.lib", "crtuser.o"][..]),
+    ] {
+        let output = Command::new(program)
+            .args(args)
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    let output =
+        build_and_run(&dir.join("main.jai"), &dir, "main").unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "lines: 6\n");
+    // The DLL CRT, not a static copy: the executable imports the UCRT's stdio set.
+    let imports = Command::new("llvm-readobj")
+        .args(["--coff-imports"])
+        .arg(exe_path(&dir, "main"))
+        .output()
+        .unwrap();
+    let imports = String::from_utf8_lossy(&imports.stdout).to_ascii_lowercase();
+    assert!(imports.contains("api-ms-win-crt-stdio"), "{imports}");
+}

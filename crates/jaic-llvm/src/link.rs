@@ -191,8 +191,15 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
             coverage_source = Some(source);
         }
         if flavor == LinkFlavor::Msvc {
-            // Clang's MSVC driver: the dynamic CRT, as above.
-            cmd.args(["-fms-runtime-lib=dll", "-llegacy_stdio_definitions"]);
+            // Clang's MSVC driver: the dynamic CRT, as above. `-fms-runtime-lib` only steers
+            // what Clang compiles; its link step always adds `-defaultlib:libcmt`, the static
+            // CRT, which leaves a `/MD` library's `__imp_` references unresolved.
+            cmd.args([
+                "-fms-runtime-lib=dll",
+                "-Wl,/NODEFAULTLIB:libcmt",
+                "-Wl,/DEFAULTLIB:msvcrt",
+                "-llegacy_stdio_definitions",
+            ]);
         }
     }
     // Windows reserves 1 MiB for the main thread's stack (and threads created without a
