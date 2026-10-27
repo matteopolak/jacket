@@ -512,7 +512,7 @@ jobs:
           run=()
           [[ "$RUNNER_OS" == Linux ]] && run=(xvfb-run -a -s "-screen 0 1280x1024x24")
           "${run[@]}" python3 -u tools/stdlib/stdlib_runtime.py --jaic target/release/jaic --platform ${{ matrix.platform }} --shard ${{ matrix.shard }} \
-            --modes ${{ matrix.modes }} --strict --timeout 600 --coverage target/stdlib-coverage.txt
+            --modes ${{ matrix.modes }} --strict --timeout 600
       - name: Stdlib tests, native O2
         if: ${{ always() && !cancelled() && matrix.o2 }}
         run: |
@@ -531,14 +531,6 @@ jobs:
           WASM: ${{ matrix.wasm }}
           JACKET_TEST_PARTITION: ${{ matrix.jacket_test }}
         run: bash tools/ci/stdlib_jacket_test.sh
-      # The `stdlib-coverage` job reports the interpreter reachability of all shards together.
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: ${{ always() && !cancelled() && contains(matrix.shard, '/') }}
-        with:
-          name: stdlib-coverage-${{ matrix.platform }}-${{ strategy.job-index }}
-          path: target/stdlib-coverage.txt
-          retention-days: 3
-          if-no-files-found: ignore
       - name: NEW producer behavior suites against production
         # The suite legs run the suites `matrix.suites` names, two groups at a time; the independent
         # suites share no scratch directory across groups (GROUPS in check_stdlib_suites.py).
@@ -564,37 +556,6 @@ jobs:
           run=() require=()
           [[ "$RUNNER_OS" == Linux ]] && run=(xvfb-run -a -s "-screen 0 1280x1024x24") require=(--require-adapter)
           "${run[@]}" python3 -u tools/bindings/run_webgpu_native.py --jaic target/debug/jaic --test window --frames 120 "${require[@]}"
-  stdlib-coverage:
-    # Informational: the stdlib procedures the interpreter reached across a platform's shards
-    # (tools/stdlib/stdlib_coverage.py).
-    name: stdlib interpreter reachability
-    needs: [changes, stdlib-runtime, windows-stdlib]
-    # Not on pushes: it only reports, and waiting for it adds a minute to the run.
-    if: ${{ always() && !cancelled() && needs.changes.outputs.full == 'true' && needs.stdlib-runtime.result != 'skipped' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.14'
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          pattern: stdlib-coverage-*
-          path: target/coverage
-      - name: Report each platform
-        run: |
-          # One artifact per shard, named stdlib-coverage-<platform>-<job index>.
-          shopt -s nullglob
-          for shard in target/coverage/*/; do
-            platform="$(basename "$shard" | sed -E 's/^stdlib-coverage-(.*)-[0-9]+$/\1/')"
-            cat "$shard/stdlib-coverage.txt" >> "target/$platform.coverage"
-          done
-          for record in target/*.coverage; do
-            python3 tools/stdlib/stdlib_coverage.py --record "$record" --platform "$(basename "$record" .coverage)"
-          done
   upstream-smoke:
     needs: changes
     if: contains(fromJSON(needs.changes.outputs.jobs), 'upstream-smoke')
@@ -715,18 +676,26 @@ jobs:
           helpers: 'true'
       - name: Build the native helper libraries
         run: bash tools/native/ci_native_deps.sh full
-      - name: Build jaic
+      - name: Build jaic and jacket
         id: build-jaic
-        run: cargo build --locked -p jaic-cli
-      # Runners have no display or GPU, so programs that open windows are built but not run
-      # (--headless). Unoptimized code keeps every value in memory, so ASan sees each access;
-      # -O2 is where LLVM acts on undefined behaviour and the bounds checks see the most objects.
-      - name: Corpus, stdlib and module tests under ASan and UBSan (-O0)
-        run: python3 tools/differential/jaic_sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O0 --headless --sanitize address,undefined --shard ${{ matrix.shard }} corpus modules regressions negative
-      - name: Corpus, stdlib and module tests under ASan and UBSan (-O2)
+        run: cargo build --locked -p jaic-cli -p jacket
+      # The corpus and compiler regressions run through the sweep, whose programs that open windows
+      # are built but not run (--headless: runners have no display or GPU). Unoptimized code keeps
+      # every value in memory, so ASan sees each access; -O2 is where LLVM acts on undefined
+      # behaviour and the bounds checks see the most objects. The stdlib modules' tests run through
+      # `jacket test` (tools/ci/stdlib_jacket_sanitize.sh), on a virtual display on Linux.
+      - name: Corpus and compiler tests under ASan and UBSan (-O0)
+        run: python3 tools/differential/jaic_sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O0 --headless --sanitize address,undefined --shard ${{ matrix.shard }} corpus regressions negative
+      - name: Stdlib module tests under ASan and UBSan (-O0)
+        if: ${{ always() && !cancelled() && steps.build-jaic.outcome == 'success' }}
+        run: tools/ci/stdlib_jacket_sanitize.sh O0 ${{ matrix.shard }}
+      - name: Corpus and compiler tests under ASan and UBSan (-O2)
         # Full tier only (tools/ci/ci_changes.py).
         if: ${{ always() && !cancelled() && steps.build-jaic.outcome == 'success' && needs.changes.outputs.full == 'true' }}
-        run: python3 tools/differential/jaic_sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O2 --headless --sanitize address,undefined --shard ${{ matrix.shard }} --modules-from tests/compiler/optimized-modules.txt corpus modules regressions
+        run: python3 tools/differential/jaic_sweep.py --jaic target/debug/jaic --jobs 4 --timeout 300 --opt O2 --headless --sanitize address,undefined --shard ${{ matrix.shard }} corpus regressions
+      - name: Stdlib module tests under ASan and UBSan (-O2)
+        if: ${{ always() && !cancelled() && steps.build-jaic.outcome == 'success' && needs.changes.outputs.full == 'true' }}
+        run: tools/ci/stdlib_jacket_sanitize.sh O2 ${{ matrix.shard }}
   sdl3:
     # SDL3 built from the pinned source on every platform, its installed SDK audited and the
     # generated bindings checked (docs/extensions/sdl3.md).
@@ -1330,7 +1299,7 @@ jobs:
           cp "$MESA_DIR"/*.dll "$(dirname "$JAIC")/"
       - name: Stdlib runtime tests (interpreter and native)
         # The third-party libraries (FreeType, stb_*...) are built first (tools/native/build_native_libs.py).
-        run: python -u tools/stdlib/stdlib_runtime.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --shard ${{ matrix.shard }} --modes interp,native --strict --timeout 600 --coverage target/stdlib-coverage.txt --dlls "$MESA_DIR"
+        run: python -u tools/stdlib/stdlib_runtime.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --shard ${{ matrix.shard }} --modes interp,native --strict --timeout 600 --dlls "$MESA_DIR"
       - name: Stdlib tests, native O2
         if: ${{ !cancelled() && matrix.o2 }}
         run: python -u tools/stdlib/stdlib_runtime.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --shard ${{ matrix.shard }} --modes native --opt O2 --strict --dlls "$MESA_DIR"
@@ -1346,13 +1315,6 @@ jobs:
           "$jacket" test -q --needs display --partition "hash:${{ matrix.shard }}" --interp || status=1
           "$jacket" test -q --needs display --partition "hash:${{ matrix.shard }}" -- -O2 || status=1
           exit $status
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: ${{ always() && !cancelled() }}
-        with:
-          name: stdlib-coverage-windows-${{ matrix.cpu }}-${{ strategy.job-index }}
-          path: target/stdlib-coverage.txt
-          retention-days: 3
-          if-no-files-found: ignore
   windows-smoke:
     # The third-party projects of `upstream-smoke`, built and run on Windows with the interactive
     # desktop and Mesa's software OpenGL (docs/tools/upstream-corpus.md).
