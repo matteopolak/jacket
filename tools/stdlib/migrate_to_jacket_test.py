@@ -68,6 +68,11 @@ MODE_TARGETS = {
 }
 
 
+def quoted(argument):
+    """An argument as the `args(...)` note spells it: quotes and backslashes escaped."""
+    return '"' + argument.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
 def as_list(value):
     if value is None:
         return []
@@ -112,7 +117,10 @@ def notes_of(row):
         notes.append("skip_on(" + ",".join(skip_on) + ")")
     if row.get("requires_display"):
         notes.append("needs(.DISPLAY)")
-    if row.get("window_lease") or row.get("clipboard_guard"):
+    systems = [o.lower() for o in as_list(row.get("required_os"))]
+    # A test that runs only on macOS and Windows hosts opens windows there: one at a time.
+    gui = "macos" in systems and "linux" not in systems
+    if row.get("window_lease") or row.get("clipboard_guard") or gui:
         notes.append("serial")
     if row.get("source_check_only"):
         notes.append("check_only")
@@ -125,7 +133,7 @@ def notes_of(row):
     ):
         notes.append(f'should_fail("{row["error_contains"]}")')
     if "arguments" in row:
-        notes.append("args(" + ",".join(f'"{a}"' for a in row["arguments"]) + ")")
+        notes.append("args(" + ",".join(quoted(a) for a in row["arguments"]) + ")")
     elif "input" in row:
         kind = row["input"]
         if kind in SCRATCH_INPUTS:

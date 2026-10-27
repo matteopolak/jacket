@@ -1,4 +1,4 @@
-// test: only(.MACOS)
+// test: only(.MACOS) serial
 #import "Basic";
 WC :: #import "Window_Creation";
 WT :: #import "Window_Type";

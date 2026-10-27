@@ -1,4 +1,4 @@
-// test: only(.MACOS) skip_on(.WASM) args("enabled")
+// test: only(.MACOS) skip_on(.WASM) args("enabled") serial
 // Independent SDK ownership regression; no reads through the protected pointer.
 // TEST_VM is the source-built Mach test helper (native/unmapping-protection.c), found through
 // JAIC_NATIVE_LIBS.

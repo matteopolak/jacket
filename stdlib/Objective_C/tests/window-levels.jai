@@ -1,4 +1,4 @@
-// test: only(.MACOS) skip_on(.WASM)
+// test: only(.MACOS) skip_on(.WASM) serial
 // Independent SDK ABI regression: CGWindowLevel.h keys/results are int32_t.
 // No unreviewed Jai initializer or mutable globals are required.
 #import "Basic";

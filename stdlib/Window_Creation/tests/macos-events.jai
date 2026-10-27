@@ -1,4 +1,4 @@
-// test: only(.MACOS)
+// test: only(.MACOS) serial
 #import "Basic";
 I :: #import "Input";
 WC :: #import "Window_Creation";

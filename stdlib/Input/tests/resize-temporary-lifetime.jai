@@ -1,4 +1,4 @@
-// test: only(.MACOS) skip_on(.WASM)
+// test: only(.MACOS) skip_on(.WASM) serial
 // Original safety reduction: real native window, private resize storage first
 // used under temp, no event pump/resize notification priming before allocation.
 #import "Basic";
