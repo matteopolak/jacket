@@ -12,6 +12,7 @@ import os
 import re
 import shutil
 import subprocess
+import tomllib
 from pathlib import Path
 
 from toolkit.repo import ROOT, cargo_target_dir
@@ -135,11 +136,93 @@ def exact_command(
     return command
 
 
+OS_NAMES = ("linux", "macos", "windows", "wasm")
+CPU_NAMES = ("x64", "arm64", "wasm")
+
+
+def note_targets(notes, name):
+    """The lowercase targets of the `name(...)` note among `notes` (`only(.LINUX,.X64)`)."""
+    targets = []
+    for note in notes:
+        match = re.fullmatch(name + r"\(([^)]*)\)", note)
+        if match:
+            targets += [
+                part.strip().lstrip(".").lower()
+                for part in match.group(1).split(",")
+                if part.strip()
+            ]
+    return targets
+
+
+def runs_on(notes, os_name, cpu):
+    """Whether a native run of a test with these `// test:` notes is allowed on `os_name` and
+    `cpu`: every kind of target `only` names must match, and no `skip_on` target may."""
+
+    def matches(target):
+        system, dash, rest = target.partition("-")
+        if dash:
+            return system == os_name and rest in (cpu, "native")
+        return target in (os_name, cpu, "native")
+
+    only = note_targets(notes, "only")
+    for names in (OS_NAMES, CPU_NAMES, ("interp", "native")):
+        named = [t for t in only if t in names or (names is OS_NAMES and "-" in t)]
+        if named and not any(matches(t) for t in named):
+            return False
+    return not any(matches(t) for t in note_targets(notes, "skip_on"))
+
+
+# Programs that build and run other programs while compiling, which a type check cannot do.
+COMPILE_TIME_DRIVERS = frozenset({"stdlib/Autorun/tests/basics.jai"})
+
+
+def golden_sources(root=ROOT):
+    """The golden test programs of every folder under `[test] paths` in jacket.toml: the
+    `tests/*.jai` files with an expected-output file beside them that are not compile-fail tests."""
+    config = root / "jacket.toml"
+    paths = tomllib.loads(config.read_text(encoding="utf-8")).get("test", {}).get("paths", [])
+    for path in sorted(paths):
+        for source in sorted((root / path / "tests").glob("*.jai")):
+            expected = any(
+                source.with_suffix(suffix).is_file()
+                for suffix in (".stdout", ".stderr", ".exit")
+            )
+            notes = " ".join(header_notes(source))
+            # Tests that expect a compile-time failure or only check themselves say so in a note.
+            driver = source.relative_to(root).as_posix() in COMPILE_TIME_DRIVERS
+            if expected and not driver and not re.search(r"compile_fail|should_fail|check_only", notes):
+                yield source
+
+
+def cross_check(compiler, os_name, cpu, env=None):
+    """Type-check (`jaic -check`) every golden test that runs on `os_name`/`cpu`, without running
+    anything. Returns (checked count, failure texts)."""
+    flags = ["-target", "wasm64-unknown-wasi"] if os_name == "wasm" else ["-os", os_name, "-cpu", cpu]
+    checked, failures = 0, []
+    for source in golden_sources():
+        if not runs_on(header_notes(source), os_name, "wasm" if os_name == "wasm" else cpu):
+            continue
+        result = subprocess.run(
+            [str(compiler), source.name, "-check", "-quiet", "-no_color", *flags],
+            cwd=source.parent,
+            env=env,
+            capture_output=True,
+            text=True,
+        )
+        checked += 1
+        if result.returncode:
+            failures.append(f"{source.relative_to(ROOT)}\n{result.stdout}{result.stderr}")
+    return checked, failures
+
+
 __all__ = [
+    "cross_check",
     "expected_output",
     "exact_command",
     "golden_row",
+    "golden_sources",
     "header_notes",
     "jacket_binary",
+    "runs_on",
     "test_names",
 ]

@@ -2,11 +2,12 @@
 """Build the portable stdlib's native fixtures and run its integration checks.
 
 The module tests themselves (including every expected runtime fault and compile-time
-rejection) are catalogued under stdlib/**/tests and run by tools/stdlib/stdlib_runtime.py; this
-driver builds the fixtures they read from target/portable-tests, then runs what a catalogued
-case cannot: the generated-data cross-checks, parent-exit cancellation, the fatal-signal
-crash handlers and the float power audit. `--check-target OS/CPU` type-checks the whole
-catalogue for that target through `stdlib_runtime.py --modes check`.
+rejection) run under `jacket test`; this driver builds the fixtures they read from
+target/portable-tests, then runs what a test cannot: the generated-data cross-checks,
+parent-exit cancellation, the fatal-signal crash handlers and the float power audit.
+`--check-target OS/CPU` type-checks, for that target, the compiler regressions
+(`stdlib_runtime.py --modes check`) and the modules' golden tests that apply to it
+(`jacket_tests.cross_check`).
 """
 
 import argparse
@@ -18,6 +19,7 @@ import subprocess
 import sys
 import time
 from portable_toolchain import checked_compiler
+from stdlib.jacket_tests import cross_check
 from toolkit.cli import add_jaic_argument
 from toolkit.repo import ROOT
 from repo_output import output_dir
@@ -375,12 +377,16 @@ def main():
             cwd=ROOT,
             env=env,
         )
-        if checked.returncode:
+        target_os, _, cpu = target.partition("/")
+        count, problems = cross_check(compiler, target_os, cpu, env)
+        for problem in problems:
+            print("FAILED:", problem, file=sys.stderr)
+        if checked.returncode or problems:
             if not args.keep_going:
                 raise RuntimeError(f"target source checks failed: {target}")
             failures.append(f"target {target}")
         print(
-            "checked the stdlib catalogue for"
+            f"checked the stdlib catalogue and {count} module tests for"
             if len(failures) == before
             else "FAILED target source checks for",
             target,
