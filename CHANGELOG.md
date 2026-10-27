@@ -15,6 +15,7 @@
 
 ### Improved
 
+- The Neovim plugin's `:Jai install` also installs `jacket`, and its prompt names all five tools.
 - A runaway `#run` is reported once, at the `#run`, with where it was running, instead of failing everything after it.
 - A check that runs past its time limit gives one notice and stops running compile-time code.
 - `Expect: 100-continue` is answered when the handler first reads the body, so a refused request never uploads.

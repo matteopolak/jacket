@@ -110,7 +110,7 @@ local function run_install(opts)
   return result[1], result[2]
 end
 
-local ALL = { 'jaic', 'jailsp', 'jailint', 'jaifmt' }
+local ALL = { 'jaic', 'jailsp', 'jailint', 'jaifmt', 'jacket' }
 
 T['an archive with the right checksum from the release manifest is unpacked into <root>/<version>'] = function()
   local base = fake_release(ALL)
@@ -159,6 +159,14 @@ T['an archive without a tool is refused'] = function()
   local root = h.tmpdir() .. '/jai'
   local err = run_install({ version = '9.9.9', asset = 'jacket-linux-x64.tar.gz', root = root, base_url = base })
   assert(err and err:find('has no jailint'), tostring(err))
+  assert(#vim.fn.readdir(root) == 0)
+end
+
+T['an archive without jacket is refused'] = function()
+  local base = fake_release({ 'jaic', 'jailsp', 'jailint', 'jaifmt' })
+  local root = h.tmpdir() .. '/jai'
+  local err = run_install({ version = '9.9.9', asset = 'jacket-linux-x64.tar.gz', root = root, base_url = base })
+  assert(err and err:find('has no jacket'), tostring(err))
   assert(#vim.fn.readdir(root) == 0)
 end
 

@@ -80,7 +80,7 @@ function M.offer_install(problem)
       return M.install()
     end
     vim.ui.select({ 'Download', 'Not now', "Don't ask again" }, {
-      prompt = ('Jai: no jailsp was found. Download Jacket %s (jaic, jailsp, jailint, jaifmt, stdlib) from github.com/%s?'):format(version, install.REPOSITORY),
+      prompt = ('Jai: no jailsp was found. Download Jacket %s (jaic, jailsp, jailint, jaifmt, jacket and the stdlib) from github.com/%s?'):format(version, install.REPOSITORY),
     }, function(choice)
       if choice == 'Download' then
         M.install()

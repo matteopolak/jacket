@@ -1,10 +1,10 @@
----Finding `jailsp`, `jaic`, `jaifmt` and `jailint`: the configured path, then `PATH`, then next
+---Finding `jailsp`, `jaic`, `jaifmt`, `jailint` and `jacket`: the configured path, then `PATH`, then next
 ---to the compiler, then the toolchain this plugin downloaded.
 local config = require('jai.config')
 
 local M = {}
 
----@alias jai.Tool 'jaic'|'jailsp'|'jailint'|'jaifmt'
+---@alias jai.Tool 'jaic'|'jailsp'|'jailint'|'jaifmt'|'jacket'
 ---@alias jai.Source 'setting'|'path'|'next to jaic'|'toolchain'
 
 ---@class jai.Found

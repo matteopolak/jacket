@@ -41,7 +41,7 @@ function M.check()
   if not install.asset_for(vim.uv.os_uname().sysname, vim.uv.os_uname().machine) then
     health.warn('there is no prebuilt toolchain for this platform; build from source and put the tools on PATH')
   end
-  for _, tool in ipairs({ 'jailsp', 'jaic', 'jaifmt', 'jailint' }) do
+  for _, tool in ipairs({ 'jailsp', 'jaic', 'jaifmt', 'jailint', 'jacket' }) do
     local found, err = toolchain.find(tool)
     if found then
       local version = version_of(found.path)

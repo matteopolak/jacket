@@ -58,14 +58,14 @@ vim.lsp.enable('jailsp')
 
 ## The toolchain
 
-The plugin looks for each tool (`jailsp`, `jaic`, `jaifmt`, `jailint`) in this order and uses the first match:
+The plugin looks for each tool (`jailsp`, `jaic`, `jaifmt`, `jailint`, `jacket`) in this order and uses the first match:
 
 1. the setting (`server.path`, `compiler.path`, `formatter.path`); a path that does not exist is an error, not a fallback;
 2. `PATH`;
 3. next to `jaic` (from `compiler.path` or `PATH`);
 4. the toolchain downloaded by `:Jai install`, in `stdpath('data')/jai/<version>`.
 
-When no `jailsp` is found, the plugin asks once per session whether to download the toolchain (`toolchain.auto_download = 'prompt'`); `'always'` downloads without asking and `'never'` only prints how to install it. `:Jai install` downloads the release that matches the plugin's version from GitHub with `curl`, checks its SHA-256 (the `toolchain-manifest.json` shipped with the plugin, else the release's own), and unpacks it with `tar`. Older downloaded versions are removed.
+When no `jailsp` is found, the plugin asks once per session whether to download the toolchain (`toolchain.auto_download = 'prompt'`); `'always'` downloads without asking and `'never'` only prints how to install it. `:Jai install` downloads the release that matches the plugin's version from GitHub with `curl`, checks its SHA-256 (the `toolchain-manifest.json` shipped with the plugin, else the release's own), and unpacks it with `tar`. It installs `jaic`, `jailsp`, `jailint`, `jaifmt`, `jacket` and the stdlib; an archive that lacks a tool is refused. Older downloaded versions are removed.
 
 ## Settings
 
@@ -122,7 +122,7 @@ The `compile_time` settings reach the server as `initializationOptions.compileTi
 
 ## `:checkhealth jai`
 
-Reports the Neovim version, which of `jailsp`, `jaic`, `jaifmt` and `jailint` were found (where, and their versions), whether `jailsp` is enabled, and the clients attached.
+Reports the Neovim version, which of `jailsp`, `jaic`, `jaifmt`, `jailint` and `jacket` were found (where, and their versions), whether `jailsp` is enabled, and the clients attached.
 
 ## Tests
 
