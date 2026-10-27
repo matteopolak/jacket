@@ -1,3 +1,4 @@
+// test: only(.LINUX,.MACOS) skip_on(.WASM)
 // Reviewed conditional public fields and actual private native accounting.
 RPM :: #import "rpmalloc"(ENABLE_STATISTICS = false, ENABLE_ADAPTIVE_THREAD_CACHE = true);
 Stats :: #import "rpmalloc"(ENABLE_ADAPTIVE_THREAD_CACHE = true);

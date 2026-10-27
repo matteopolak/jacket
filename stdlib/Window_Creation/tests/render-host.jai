@@ -1,3 +1,4 @@
+// test: only(.MACOS) skip_on(.WASM)
 #import "Basic";
 W :: #import "Window_Creation";
 I :: #import "Input";

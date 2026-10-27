@@ -1,3 +1,4 @@
+// test: only(.X64)
 #import "Basic";
 M :: #import "Machine_X64";
 C :: #import "Compiler";

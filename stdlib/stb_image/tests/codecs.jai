@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // stb_image, stb_image_write and stb_image_resize against the pinned C libraries: encode a small
 // picture to PNG, BMP, TGA, JPEG and HDR in memory, decode each back, inspect headers, resize, and
 // check that corrupt input fails with a reason instead of crashing.

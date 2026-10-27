@@ -1,3 +1,4 @@
+// test: only(.WINDOWS)
 #import "Basic";
 #load "../../internal/input/windows-devices/module.jai";
 

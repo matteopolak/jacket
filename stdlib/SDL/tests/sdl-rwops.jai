@@ -1,3 +1,4 @@
+// test: only(.LINUX,.MACOS) skip_on(.WASM) args("$TEMP/data")
 // Real SDK-owned native pointers; never call C through public Jai callbacks.
 #import "Basic";
 S :: #import "SDL";

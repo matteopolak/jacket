@@ -1,3 +1,4 @@
+// test: only(.LINUX,.MACOS) skip_on(.WASM)
 // Reviewed rpmalloc.md: paired callbacks, retry/decline, matching lifetime,
 // and bounded mapping offsets. Native fixture uses libc.
 #import "Basic";

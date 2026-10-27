@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // lz4 against the pinned C library (tools/native/build_native_libs.py): compress and decompress buffers of
 // different shapes (repetitive, text-like, incompressible), the bound on the compressed size, the
 // fast and high-compression modes, a destination that is too small, truncated and corrupt input,

@@ -1,3 +1,4 @@
+// test: only(.LINUX,.MACOS) skip_on(.WASM) needs(.DISPLAY)
 S :: #import "SDL";
 #import "Basic";
 #load "../../internal/bindings/sdl-native/module.jai";

@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 #import "Basic";
 WT :: #import "Window_Type";
 I :: #import "Input";

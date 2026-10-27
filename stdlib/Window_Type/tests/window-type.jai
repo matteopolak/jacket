@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Canonical dependency reproducer: no numerics types or test fixtures.
 WT :: #import "Window_Type";
 

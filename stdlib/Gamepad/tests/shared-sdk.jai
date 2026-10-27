@@ -1,3 +1,4 @@
+// test: skip_on(.WASM,.WINDOWS-ARM64)
 #import "Basic";
 G :: #import "Gamepad";
 SDL :: #import "SDL";

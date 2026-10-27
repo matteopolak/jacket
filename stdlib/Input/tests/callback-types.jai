@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 #import "Basic";
 K :: #import "Keymap";
 G :: #import "Gamepad";

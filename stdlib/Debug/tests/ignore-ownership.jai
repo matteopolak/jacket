@@ -1,3 +1,4 @@
+// test: only(.MACOS,.LINUX,.WINDOWS) skip_on(.WASM)
 #import "Basic";
 D :: #import "Debug";
 

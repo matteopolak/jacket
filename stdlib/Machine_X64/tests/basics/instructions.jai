@@ -1,3 +1,4 @@
+// test: only(.X64)
 // Reviewed machine-x64.md macros; hardware prerequisites from actual CPUID.
 #import "Basic";
 M :: #import "Machine_X64";

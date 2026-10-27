@@ -1,3 +1,4 @@
+// test: only(.WINDOWS)
 // Issue #1: the high word of WM_MOUSEWHEEL is a signed 16-bit delta.
 // This must run through the public native handler and shared event queue.
 #assert OS == .WINDOWS, "signed wheel regression requires Windows";

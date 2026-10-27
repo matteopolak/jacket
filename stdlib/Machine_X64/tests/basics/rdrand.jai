@@ -1,3 +1,4 @@
+// test: only(.X64)
 // Reviewed public hardware attempt; runner must check the actual CPUID prerequisite.
 #import "Basic";
 M :: #import "Machine_X64";

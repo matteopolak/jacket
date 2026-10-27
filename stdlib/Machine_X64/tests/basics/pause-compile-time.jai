@@ -1,3 +1,4 @@
+// test: only(.X64)
 M :: #import "Machine_X64";
 
 #assert #run verify();

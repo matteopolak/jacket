@@ -1,3 +1,4 @@
+// test: only(.X64)
 // Same imports/runtime/output, without invoking the public spin hint.
 #import "Basic";
 M :: #import "Machine_X64";

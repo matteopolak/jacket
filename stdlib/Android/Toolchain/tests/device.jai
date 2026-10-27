@@ -1,3 +1,4 @@
+// test: only(.LINUX,.MACOS) skip_on(.WASM)
 #import "Basic";
 AT :: #import "Android/Toolchain";
 F :: #import "File";

@@ -1,3 +1,4 @@
+// test: skip_on(.WASM) compile_fail
 // Original scalar probe reclassified: the reviewed __reg contract requires a SIMD operand.
 #import "Basic";
 

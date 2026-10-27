@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 #import "Basic";
 #import "String";
 A :: #import "Android/Toolchain";

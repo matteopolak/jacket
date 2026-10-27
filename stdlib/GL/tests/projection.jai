@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Root-reviewed public projection; no graphics operation for address identity.
 #import "Basic";
 G :: #import "GL";

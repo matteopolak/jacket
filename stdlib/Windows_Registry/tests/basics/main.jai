@@ -1,3 +1,4 @@
+// test: only(.WINDOWS)
 // Reviewed windows-registry.md; official SDK private test setup/cleanup only.
 #import "Basic";
 R :: #import "Windows_Registry";

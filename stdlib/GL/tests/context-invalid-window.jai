@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 GL :: #import "GL";
 WT :: #import "Window_Type";
 

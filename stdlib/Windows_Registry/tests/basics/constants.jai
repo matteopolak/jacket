@@ -1,3 +1,4 @@
+// test: only(.WINDOWS)
 // Exact reviewed scalar/type ABI; no registry access in compile-time checking.
 R :: #import "Windows_Registry";
 W :: #import "Windows";

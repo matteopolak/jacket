@@ -1,3 +1,4 @@
+// test: skip_on(.WASM) serial
 // Window_Creation against the real window system: a window goes fullscreen and back with
 // toggle_fullscreen, reporting its client size each time. On macOS swap_view_buffers
 // presents a real Simp render target. On Linux the request goes to the window

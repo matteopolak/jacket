@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 #import "Basic";
 A :: #import "Android/Toolchain"(SDK_LEVEL = 31, ENABLE_ARM_LSE = false);
 

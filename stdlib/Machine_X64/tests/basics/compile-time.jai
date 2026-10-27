@@ -1,3 +1,4 @@
+// test: only(.X64)
 // Actual x64 interpreter test, without linter-sandbox native file operations.
 M :: #import "Machine_X64";
 

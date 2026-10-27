@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Trusted independent unit tests; public facade intentionally rejects this Mac host.
 #load "../../internal/build/linux-link.jai";
 

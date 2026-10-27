@@ -1,3 +1,4 @@
+// test: only(.MACOS) skip_on(.WASM) serial
 // Reviewed Window_Creation/Simp/Input API with real SDK close notifications.
 // Readback must survive closing the current drawable and reopening a window.
 #import "Basic";

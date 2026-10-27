@@ -1,3 +1,4 @@
+// test: skip_on(.WASM,.WINDOWS-ARM64)
 // SDL2 without a window: the library version and platform name, the rectangle and line geometry
 // helpers, hints, the timer subsystem and its clocks, and the error string. SDL2 is the installed
 // library on macOS and Linux (Homebrew's `sdl2`, the distribution's libsdl2) and the official

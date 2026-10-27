@@ -1,3 +1,4 @@
+// test: only(.LINUX)
 // Extensions/Io_Uring through its raw ring: a NOP, a batch, a full submission queue, a file written
 // and read back with IORING_OP_WRITE and IORING_OP_READ, the opcode probe, a timed wait, and a ring
 // with 128-byte entries and 32-byte completions.

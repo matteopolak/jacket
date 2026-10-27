@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Public callback's real required backend. Expected current compiler dependency.
 #load "../../internal/build/linux-link.jai";
 

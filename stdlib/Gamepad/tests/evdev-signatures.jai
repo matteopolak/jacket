@@ -1,3 +1,4 @@
+// test: only(.LINUX) skip_on(.WASM)
 #import "Basic";
 G :: #import "Gamepad";
 

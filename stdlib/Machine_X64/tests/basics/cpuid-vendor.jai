@@ -1,3 +1,4 @@
+// test: only(.X64)
 #import "Basic";
 
 main :: () {

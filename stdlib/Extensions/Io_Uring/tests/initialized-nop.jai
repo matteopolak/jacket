@@ -1,3 +1,4 @@
+// test: only(.LINUX)
 // Source control only on this worker: Linux io_uring syscalls must not run on Mac.
 // A runtime consumer must initialize successfully before submission/queue reads.
 #import "Basic";

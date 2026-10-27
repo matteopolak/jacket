@@ -1,3 +1,4 @@
+// test: only(.LINUX,.MACOS) compile_fail
 // Reviewed linux_build requires a Windows host, even when targeting Windows.
 L :: #import "linux_build";
 

@@ -1,3 +1,4 @@
+// test: only(.MACOS) skip_on(.WASM)
 #import "Basic";
 O :: #import "Objective_C";
 

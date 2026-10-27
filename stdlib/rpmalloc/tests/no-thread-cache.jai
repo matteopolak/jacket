@@ -1,3 +1,4 @@
+// test: only(.LINUX,.MACOS) skip_on(.WASM)
 // Reviewed rpmalloc.md conditional Heap fields and generic allocator protocol.
 // Private test boundary uses actual independently generated C mirror offsets;
 // public heap pointers are never passed as native SDK heap pointers.

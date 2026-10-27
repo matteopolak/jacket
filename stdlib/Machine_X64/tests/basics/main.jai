@@ -1,3 +1,4 @@
+// test: only(.LINUX,.MACOS,.X64)
 // Reviewed Machine_X64 records/feature masks, plus official native C CPUID oracle.
 #import "Basic";
 M :: #import "Machine_X64";

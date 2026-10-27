@@ -1,0 +1,17 @@
+lexer:1:1: error: unterminated string
+lexer:1:1: error: unknown string escape
+lexer:1:1: error: invalid Unicode scalar
+lexer:1:1: error: malformed number
+lexer:1:1: error: malformed number
+lexer:1:1: error: malformed number
+lexer:1:16: error: unterminated block comment
+lexer:1:16: error: token lookahead capacity exceeded
+lexer:1:16: error: token lookahead index out of range
+lexer:1:16: error: token lookahead index out of range
+lexer:1:1: error: value 7
+lexer:1:1: detail: detail 8
+lexer:3:4: error: position
+lexer:5:6: error: token
+lexer:7:8: detail: tail
+lexer:1:1: error: invalid identifier length
+ok

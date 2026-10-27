@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Execute the actual userspace protocol on caller-owned memory on this host.
 // No kernel call, substituted syscall, or fabricated kernel result is involved.
 // Direct source loads test portable queue operations without changing the Linux

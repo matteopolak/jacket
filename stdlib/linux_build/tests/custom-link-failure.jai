@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Real missing-tool failure of the private callback; not Windows public workflow proof.
 #load "../../internal/build/linux-link.jai";
 

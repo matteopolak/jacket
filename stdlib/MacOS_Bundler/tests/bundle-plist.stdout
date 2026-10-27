@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>a&lt;&amp;&quot;&apos;</key>
+  <string>value&lt;&amp;&quot;&apos;&#13;
+é</string>
+  <key>true</key>
+  <true/>
+  <key>false</key>
+  <false/>
+  <key>negative</key>
+  <integer>-9223372036854775808</integer>
+  <key>unsigned</key>
+  <integer>18446744073709551615</integer>
+  <key>real</key>
+  <real>0.125</real>
+  <key>large-real</key>
+  <real>1.25e+100</real>
+</dict>
+</plist>

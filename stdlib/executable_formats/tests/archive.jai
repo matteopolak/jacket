@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 #import "Basic";
 E :: #import "executable_formats";
 S :: #import "String";

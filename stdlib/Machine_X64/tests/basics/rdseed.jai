@@ -1,3 +1,4 @@
+// test: only(.X64)
 // Reviewed public hardware attempt; no success rate or entropy promise is invented.
 #import "Basic";
 M :: #import "Machine_X64";

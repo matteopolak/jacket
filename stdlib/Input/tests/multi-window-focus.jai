@@ -1,3 +1,4 @@
+// test: only(.MACOS) skip_on(.WASM) serial
 // Reviewed native focus and global key state, with public Event.window identity.
 // Run only under the serialized macOS native-runtime lease.
 #assert OS == .MACOS, "Input fixture requires macOS AppKit native focus injection";

@@ -1,3 +1,4 @@
+// test: only(.MACOS) skip_on(.WASM) serial
 // A program that sets context.allocator = temp and resets temporary storage every frame, without
 // choosing an allocator for the Input arrays: the frame arrays must not grow in temporary memory,
 // or the next frame's cleanup frees file lists read from reused memory.
