@@ -6,7 +6,7 @@
 //! depend on where the repository is. `--accept` writes what the program printed into the
 //! expected files instead of comparing (for a golden test, into those that exist, `.stdout` at
 //! least).
-use super::build::{Toolchain, compile_output, program_and_args};
+use super::build::{Toolchain, compile_output, program_and_args, stage_dlls};
 use super::exec::{self, Ending, Invocation, Limits, Live};
 use super::jobs::ending_text;
 use super::options::TestOptions;
@@ -186,6 +186,9 @@ fn built(
         .filter(|p| p.is_file())
         .unwrap_or(exe);
     let compile_time_only = !exe.is_file();
+    if !compile_time_only && toolchain.runner.is_empty() {
+        stage_dlls(&exe)?;
+    }
     let (program, args) = program_and_args(&exe, &toolchain.runner);
     Ok(Built {
         invocation: Invocation {
@@ -445,9 +448,11 @@ pub fn normalize_paths(text: &str, dir: &Path, stdlib: &Path) -> String {
         }
 }
 
-/// Type-checks the compile-fail test `source`: it must fail, printing its `.stderr`.
+/// Type-checks the compile-fail test `source`: it must fail, printing its `.stderr` (or, with
+/// `compile_fail(text)`, diagnostics that contain the text).
 pub fn compile_fail(
     source: &Path,
+    options: &TestOptions,
     root_flags: &[String],
     toolchain: &Toolchain,
     stdlib: &Path,
@@ -484,7 +489,13 @@ pub fn compile_fail(
     }
     let got = normalize_paths(&compile_output(&output), dir, stdlib);
     let expected = source.with_extension("stderr");
-    if expected.is_file() || accept {
+    if let Some(part) = &options.diagnostic_contains {
+        if !got.contains(part.as_str()) {
+            checked
+                .problems
+                .push(format!("the diagnostics do not contain `{part}`:\n{got}"));
+        }
+    } else if expected.is_file() || accept {
         expect_text(&expected, &got, "the diagnostics", accept, &mut checked);
     } else {
         checked.problems.push(format!(

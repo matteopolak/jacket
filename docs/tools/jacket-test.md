@@ -94,7 +94,7 @@ Output that depends on the machine (a sound device that is or is not present) ca
 
 A golden program that has no `main` and does its work at compile time (`#run`, a metaprogram) is only type-checked, and what the compiler prints is its output. A program with `@warns(text)` is built without `-quiet` and passes when the compiler's output (interpreted: standard error) contains the text.
 
-A compile-fail test is type-checked with `jaic name.jai -check -quiet -no_color` from its own folder. It passes when the check fails and the diagnostics equal `name.stderr`, with the folder written `$DIR` and the standard library `$STDLIB`:
+A compile-fail test is type-checked with `jaic name.jai -check -quiet -no_color` from its own folder. It passes when the check fails and the diagnostics equal `name.stderr`, with the folder written `$DIR` and the standard library `$STDLIB`. Diagnostics that name the host's tools (the C compiler `BuildCpp` found) cannot be written down once: `// test: compile_fail("text")` takes no `.stderr` and passes when the diagnostics contain the text.
 
 ```
 bad.jai:3:12: error: type mismatch: expected `int`, got `string`
@@ -437,7 +437,7 @@ retries = 2
 fail_fast = true
 ```
 
-Flags win over the profile, the profile over `[test]`. Unknown keys get the usual `jacket.toml` warning. Environment: `JAIC_STDLIB` (where jaic finds its standard library, which `$STDLIB` stands for; jacket asks `jaic -print_stdlib`), `TMPDIR` (the work folder).
+Flags win over the profile, the profile over `[test]`. Unknown keys get the usual `jacket.toml` warning. Environment: `JAIC_STDLIB` (where jaic finds its standard library, which `$STDLIB` stands for; jacket asks `jaic -print_stdlib`), `TMPDIR` (the work folder). `JACKET_TEST_DLLS` is a path list of folders whose `.dll` files are put next to every native test program (hard links, or copies across volumes; a file already there stays, so the first folder wins). Windows looks in the program's folder before the system's, and tests are built in temporary folders, so this is how a test finds `SDL3.dll` and how a driver replaces the system's: CI lists Mesa's folder, whose `opengl32.dll` gives OpenGL 3.3 where the system's GDI one has 1.1, before the native libraries.
 
 ## Dependencies
 

@@ -474,6 +474,7 @@ fn run_file_case(plan: &Plan, index: usize) -> Outcome {
     } else {
         golden::compile_fail(
             &case.file,
+            &case.options,
             &plan.root_flags[case.root],
             &plan.toolchain,
             &plan.stdlib,

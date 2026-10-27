@@ -72,12 +72,12 @@ fn jai_files_below(dir: &Path) -> Vec<PathBuf> {
     files
 }
 
-/// Whether the file's top comment block holds `// test: compile_fail`.
+/// Whether the file's top comment block holds `// test: compile_fail` (or `compile_fail(text)`).
 fn marked_compile_fail(source: &Path) -> bool {
     let text = std::fs::read_to_string(source).unwrap_or_default();
     super::options::header_notes(&text)
         .iter()
-        .any(|n| n == "compile_fail")
+        .any(|n| n == "compile_fail" || n.starts_with("compile_fail("))
 }
 
 fn jai_files(dir: &Path) -> Vec<PathBuf> {
@@ -108,9 +108,13 @@ fn holds_bench(source: &Path) -> bool {
     std::fs::read_to_string(source).is_ok_and(|text| text.contains("@bench"))
 }
 
-/// Whether `source` has an expected-output file beside it.
+/// Whether `source` has an expected-output file beside it, or says in its header what the
+/// diagnostics contain (`compile_fail("text")`), which needs none.
 pub fn is_golden(source: &Path) -> bool {
     EXPECTED.iter().any(|e| source.with_extension(e).is_file())
+        || super::options::header_notes(&std::fs::read_to_string(source).unwrap_or_default())
+            .iter()
+            .any(|n| n.starts_with("compile_fail("))
 }
 
 impl Root {

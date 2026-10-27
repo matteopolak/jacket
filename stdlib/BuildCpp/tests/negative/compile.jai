@@ -1,4 +1,4 @@
-// test: only(.LINUX,.MACOS,.WINDOWS) skip_on(.WASM) compile_fail
+// test: only(.LINUX,.MACOS,.WINDOWS) skip_on(.WASM) compile_fail("BuildCpp tool failed")
 #import "Basic";
 B :: #import "BuildCpp";
 F :: #import "File";

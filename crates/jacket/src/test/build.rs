@@ -198,9 +198,13 @@ pub fn unit(
     }
     command.arg(PLUGIN);
     let found = records(&run_jaic(&mut command, toolchain)?);
+    let program = reported_exe(&report, exe);
+    if !wasm && toolchain.runner.is_empty() {
+        stage_dlls(&program)?;
+    }
     Ok(Built {
         entries: manifest(&found),
-        program: reported_exe(&report, exe),
+        program,
         cases: Vec::new(),
         warm: Mutex::new(None),
     })
@@ -319,6 +323,54 @@ fn reported_exe(report: &Path, fallback: PathBuf) -> PathBuf {
         .and_then(|t| t.lines().last().map(PathBuf::from))
         .filter(|p| p.is_file())
         .unwrap_or(fallback)
+}
+
+/// The folders of libraries test programs load by name: `JACKET_TEST_DLLS`, a path list.
+const DLL_FOLDERS: &str = "JACKET_TEST_DLLS";
+
+/// Puts the `.dll` files of the folders in `JACKET_TEST_DLLS` next to `exe`, because Windows
+/// looks in the executable's folder before the system's: a program built in a temporary folder
+/// finds a library that way (SDL3) and gets a driver in place of the system's (Mesa's
+/// `opengl32.dll` for the software OpenGL). Hard links where the folders share a volume, copies
+/// otherwise; a file that is already there stays, so the folder listed first wins.
+pub fn stage_dlls(exe: &Path) -> Result<(), String> {
+    match std::env::var_os(DLL_FOLDERS) {
+        Some(folders) => stage_dlls_from(exe, &folders),
+        None => Ok(()),
+    }
+}
+
+fn stage_dlls_from(exe: &Path, folders: &std::ffi::OsStr) -> Result<(), String> {
+    let Some(target) = exe.parent() else {
+        return Ok(());
+    };
+    for folder in std::env::split_paths(folders) {
+        let entries = std::fs::read_dir(&folder)
+            .map_err(|e| format!("{DLL_FOLDERS}: cannot read {}: {e}", folder.display()))?;
+        for entry in entries.flatten() {
+            let from = entry.path();
+            let is_dll = from
+                .extension()
+                .is_some_and(|e| e.eq_ignore_ascii_case("dll"));
+            let to = target.join(entry.file_name());
+            if !is_dll || to.exists() {
+                continue;
+            }
+            // Another test building in the same folder may have put it there meanwhile.
+            let placed =
+                std::fs::hard_link(&from, &to).or_else(|_| std::fs::copy(&from, &to).map(|_| ()));
+            if let Err(error) = placed
+                && !to.exists()
+            {
+                return Err(format!(
+                    "{DLL_FOLDERS}: cannot place {} next to {}: {error}",
+                    from.display(),
+                    exe.display()
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 /// `flags` without the target (`-os X`, `-cpu X`).
@@ -477,6 +529,40 @@ mod tests {
                 ("colors".to_string(), "RED".to_string()),
             ]
         );
+    }
+
+    #[test]
+    fn dlls_are_staged_next_to_the_executable_first_folder_first() {
+        let root = std::env::temp_dir().join(format!("jacket-dlls-{}", std::process::id()));
+        let (first, second, out) = (root.join("a"), root.join("b"), root.join("out"));
+        for dir in [&first, &second, &out] {
+            std::fs::create_dir_all(dir).unwrap();
+        }
+        std::fs::write(first.join("gl.DLL"), "first").unwrap();
+        std::fs::write(second.join("gl.dll"), "second").unwrap();
+        std::fs::write(second.join("sdl.dll"), "sdl").unwrap();
+        std::fs::write(second.join("notes.txt"), "no").unwrap();
+        let folders = std::env::join_paths([&first, &second]).unwrap();
+        stage_dlls_from(&out.join("tests"), &folders).unwrap();
+        stage_dlls_from(&out.join("tests"), &folders).unwrap();
+        assert_eq!(std::fs::read_to_string(out.join("sdl.dll")).unwrap(), "sdl");
+        assert!(!out.join("notes.txt").exists());
+        let gl = std::fs::read_dir(&out)
+            .unwrap()
+            .flatten()
+            .filter(|e| {
+                e.file_name()
+                    .to_string_lossy()
+                    .eq_ignore_ascii_case("gl.dll")
+            })
+            .count();
+        assert_eq!(gl, 1);
+        assert!(
+            stage_dlls_from(&out.join("tests"), root.join("missing").as_os_str())
+                .unwrap_err()
+                .contains("cannot read")
+        );
+        std::fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]

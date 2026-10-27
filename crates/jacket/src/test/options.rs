@@ -38,6 +38,9 @@ pub struct TestOptions {
     /// Golden tests: the build output (compiled) or standard error (interpreted) must contain
     /// this compiler warning.
     pub warns: Option<String>,
+    /// Compile-fail tests: the diagnostics need only contain this text, for output that depends
+    /// on the host (the C compiler `BuildCpp` found).
+    pub diagnostic_contains: Option<String>,
 }
 
 /// Where tests run: the target and how.
@@ -214,8 +217,17 @@ impl TestOptions {
             }
             "args" => self.args = quoted_list(args.unwrap_or("")),
             "check_only" => self.check_only = true,
+            "compile_fail" => {
+                let want = text(args);
+                if args.is_some() && want.is_empty() {
+                    return Err(
+                        "`compile_fail(text)` needs the text the diagnostics contain".into(),
+                    );
+                }
+                self.diagnostic_contains = (!want.is_empty()).then_some(want);
+            }
             // Discovery's own notes.
-            "test" | "bench" | "compile_fail" | "cases" | "compile_time" | "generate" => {}
+            "test" | "bench" | "cases" | "compile_time" | "generate" => {}
             // A bench's own notes; Discovery checks them and the program reads them.
             "samples" | "min_time" => {}
             "property" => {
@@ -473,6 +485,18 @@ mod tests {
         assert_eq!(options.args, ["a b", "$TEMP/Data"]);
         assert_eq!(options.warns.as_deref(), Some("not in scope"));
         assert!(options.check_only);
+    }
+
+    #[test]
+    fn a_compile_fail_note_can_name_the_text_the_diagnostics_contain() {
+        let notes = ["compile_fail(\"tool failed\")".to_string()];
+        let (options, warnings) = TestOptions::default().with_notes(&notes);
+        assert!(warnings.is_empty(), "{warnings:?}");
+        assert_eq!(options.diagnostic_contains.as_deref(), Some("tool failed"));
+        let (plain, _) = TestOptions::default().with_notes(&["compile_fail".to_string()]);
+        assert_eq!(plain.diagnostic_contains, None);
+        let (_, warnings) = TestOptions::default().with_notes(&["compile_fail()".to_string()]);
+        assert_eq!(warnings.len(), 1);
     }
 
     #[test]
