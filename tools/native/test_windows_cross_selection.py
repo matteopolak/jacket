@@ -118,17 +118,11 @@ class Selection(unittest.TestCase):
         cases = {c["id"]: c for c in cross.stdlib_runtime.validated_entries()}
         for cpu in ("x64", "arm64"):
             target = "windows-" + cpu + "-mingw"
-            for name in (
-                "compiler/socket-select-canonical-timeval",
-                "Extensions/Io_Uring/tests/dependency",
-            ):
+            for name in ("compiler/socket-select-canonical-timeval",):
                 self.assertIsNotNone(
                     cross.fixture_unavailable_reason(cases[name], target, "linux-x64")
                 )
-            for name in (
-                "Basic/tests/corpus-api/file-compile-time-qualified",
-                "compiler/rules-compile-time-execution",
-            ):
+            for name in ("compiler/rules-compile-time-execution",):
                 self.assertIn(
                     "build host",
                     cross.fixture_unavailable_reason(cases[name], target, "linux-x64"),
@@ -138,19 +132,12 @@ class Selection(unittest.TestCase):
                         cases[name], "windows-" + cpu, "windows-" + cpu
                     )
                 )
-            self.assertIsNotNone(
-                cross.fixture_unavailable_reason(
-                    cases["ImGui/tests/headless-frames"], target, "linux-x64"
-                ),
-            )
 
     def test_real_compiler_and_provider_failures_stay_required(self):
         cases = {c["id"]: c for c in cross.stdlib_runtime.validated_entries()}
         required = (
             "compiler/proc-type-defaults-ifx",
             "compiler/static-switch-add-context",
-            "Extensions/Io/tests/configured-production",
-            "Extensions/Json/tests/windows-host-provider",
         )
         for cpu in ("x64", "arm64"):
             for name in required:
@@ -275,7 +262,7 @@ class Selection(unittest.TestCase):
             self.assertEqual(len(report["results"]), 3)
             self.assertTrue(all(r["passed"] is None for r in report["results"]))
 
-    def test_native_run_keeps_arguments_and_stderr_assertions(self):
+    def test_native_run_keeps_stderr_assertions(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "expected.json").write_text(
@@ -288,7 +275,6 @@ class Selection(unittest.TestCase):
                                 "stdout": "ok\n",
                                 "stderr": "owned diagnostic\n",
                             },
-                            "fixture": {"arguments": ["enabled"]},
                         }
                     }
                 )
@@ -310,7 +296,6 @@ class Selection(unittest.TestCase):
                     contextlib.redirect_stdout(io.StringIO()),
                 ):
                     self.assertEqual(cross.run(args), expected)
-                self.assertEqual(run.call_args.args[0][-1], "enabled")
 
 
 if __name__ == "__main__":

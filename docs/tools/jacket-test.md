@@ -347,13 +347,13 @@ Measures the `@bench` procedures; see [jacket bench](jacket-bench.md). `jacket t
 
 ## Migrating from `tests/manifest.json`
 
-Every stdlib module's tests are moving from a `tests/manifest.json` (run by `tools/stdlib/stdlib_runtime.py`) to `jacket test`. A migrated folder is listed under `[test] paths` in `jacket.toml` and loses its manifest; the Python catalogue (`stdlib_test_catalog.py`) skips listed folders, so `stdlib_runtime.py`, `jaic_sweep.py`, `windows_cross.py`, the determinism tool and the browser runner keep working for the rest and stop seeing the migrated ones. `tools/stdlib/migrate_to_jacket_test.py` does the mechanical part.
+Every stdlib module's tests have moved from a `tests/manifest.json` (run by `tools/stdlib/stdlib_runtime.py`) to `jacket test`: each is listed under `[test] paths` in `jacket.toml` and has no manifest. The Python catalogue (`stdlib_test_catalog.py`) skips listed folders. The one manifest left is `tests/compiler/regressions/`, the compiler's own regressions: the sweep, the differential tester, the Windows cross build and the browser runner read its rows, so it moves when each of those has another source. `tools/stdlib/migrate_to_jacket_test.py` does the mechanical part for a folder.
 
 **Recipe.**
 
 1. `PYTHONPATH=tools python3 tools/stdlib/migrate_to_jacket_test.py --dry-run stdlib/Module`, then without `--dry-run`. It lists what it cannot express and leaves that module alone. Files stay where they are: each case gets a `// test:` header line and expected-output files beside it, and the manifest is deleted.
 2. Write the diagnostics of the new compile-fail tests with `jacket test --accept --exact NAME...` (never a bare `--accept`: it also rewrites golden outputs) and read the `.stderr` files.
-3. Run `jacket test` for the module in every mode it ran before: native, `--interp`, `--interp -os wasm`, `-os wasm --runner "node --no-warnings tools/wasi_run.mjs"`, and `-- -O2`. Native libraries come from `JAIC_NATIVE_LIBS` as for the old runner.
+3. Run `jacket test` for the module in every mode it ran before: native, `--interp`, `--interp -os wasm`, `-os wasm --runner "node --no-warnings tools/wasi_run.mjs"`, and `-- -O2`. Native libraries come from `JAIC_NATIVE_LIBS` as for the old runner; tests that open windows need `--needs display`; the font tests read `JAIC_TEST_FONT_PATH`.
 4. `jaifmt --check`, `jailint -D warnings` on the folder.
 
 Programs run from their own `tests/` folder, as the old runner did. Where a test reads better as `@test` procedures with matchers, rewrite it and delete the program; the move itself does not need that.
@@ -361,29 +361,37 @@ Programs run from their own `tests/` folder, as the old runner did. Where a test
 | Manifest row | In `jacket test` |
 | --- | --- |
 | a case (any `tests/*.jai`, or a row with a `source`) | golden test: the file with an expected-output file beside it (`.exit` holding `0` when the row checked nothing else) |
-| `stdout`, `stderr`, `exit_code` | `name.stdout`, `name.stderr`, `name.exit`, compared whole |
+| `stdout`, `stderr`, `exit_code` | `name.stdout`, `name.stderr`, `name.exit`, compared whole; a row that named a stdout also meant an empty stderr, so `name.stderr` is written empty |
+| `stdout_one_of` | `name.stdout`, `name.stdout.2`, ...: the output must equal one of them |
 | `mode: "check-fail"`, `diagnostic_contains` | compile-fail test (`// test: compile_fail`, or a file in `tests/compile_fail/`); the whole diagnostics in `name.stderr` replace the substring |
+| `mode_contracts` (a check-fail on both wasm modes) | `only(.WASM)` with `compile_fail` |
 | `positive_baseline` | dropped: the exact diagnostics show the right error, and the positive case is an ordinary test |
 | `mode: "fault"`, `error_contains` | `// test: should_fail("text")`; the exact exit status is not checked (a native abort and the interpreter's status differ) |
 | `warning_contains` | `warns("text")` |
 | `source_check_only` | `check_only` |
 | `required_os`, `required_cpu` | `only(.LINUX,.MACOS)`, `only(.X64)` |
 | `unsupported_platforms` (`windows-arm64`) | `skip_on(.WINDOWS-ARM64)` |
-| `unsupported_modes` naming both wasm modes, with its `required_capabilities` text | `skip_on(.WASM)` (the wasm legs are `-os wasm --interp` and `-os wasm --runner node`); other combinations: rewrite as `@test`s with `@only`/`@skip_on` notes |
-| `arguments`, `input: scratch-file` / `scratch-directory` | `args("literal", "$TEMP/data")` |
+| `unsupported_modes` naming both wasm modes, with its `required_capabilities` text | `skip_on(.WASM)` (the wasm legs are `-os wasm --interp` and `-os wasm --runner node`); one mode: `skip_on(.INTERP)`, `skip_on(.NATIVE)` or an `os-mode` pair such as `skip_on(.WASM-NATIVE)` |
+| `arguments` | `args("literal", "quote\" and slash\\", "")` |
+| `input: scratch-file` / `scratch-directory` | `args("$TEMP/data")` / `args("$TEMP")` |
+| `input: font`, `windows-resource-directory` | `args("${JAIC_TEST_FONT_PATH}")`, `args("${JAIC_TEST_WINDOWS_RESOURCE_DIR}")`: a test fails with a message when the variable is not set |
+| `input: ico-fixtures` | `args("$DIR/ico-fixtures", "$TEMP")`, with the fixture files committed beside the test |
+| `fixture_libraries` | the test declares its own `#library` |
 | `requires_display` | `needs(.DISPLAY)` (`--needs display`) |
-| `window_lease` | `serial` |
+| `window_lease` and macOS-only GUI tests | `serial` |
 | `clipboard_guard` | the test saves and restores the clipboard itself (`defer`) and is `serial`; the Python wrapper is dropped |
-| `stdout_one_of` | rewrite as a `@test` that accepts each host's output |
-| `input: font` / `ico-fixtures` / `windows-resource-directory`, `fixture_libraries`, `numerics_target_source`, `mode_contracts`, `required_browser_host_capabilities` | not yet: the module stays on the old runner until a feature or fixture step exists |
-| the old runner's `-check -no_dce` pass | dropped: every test is built or interpreted |
+| `numerics_target_source` (GetRect programs that exist only on some systems) | `only(...)` / `skip_on(...)` notes on the program |
+| `required_browser_host_capabilities` | dropped: the browser runner reads only the compiler regressions |
+| the old runner's `-check -no_dce` pass | dropped from the runs; `check_portable_stdlib.py --check-target OS/CPU` type-checks the golden tests that apply to another target (without `-no_dce`) |
 | `disabled` | fix or delete the case before migrating |
 
-**Other consumers.** `jaic_sweep.py` (differential sweeps), `windows_cross.py` (Windows cross builds), the determinism tool and the browser runner read the catalogue only, so a migrated module leaves their input. Until each reads `jacket test --list --format json` (golden and compile-fail tests carry `file`), migrated modules are covered by the `jacket test` legs of CI (native, `--interp`, `-O2`, and with `WASM=true` both wasm modes under node) and not by those tools: the browser engine and Windows cross builds no longer run them.
+The target names in `only` and `skip_on` take an OS and a mode or CPU joined by a dash (`.WINDOWS-NATIVE`, `.WASM-INTERP`, `.WINDOWS-ARM64`); a wasm build has the CPU `wasm`, so `only(.X64)` never selects it. Arguments expand `$TEMP`, `$DIR` and `${NAME}` (an environment variable), and `\"` and `\\` inside quotes are a quote and a backslash.
 
-**Suites that build a migrated test themselves.** `tools/stdlib/check_foundations.py` and `tools/numerics/run.py` compile some of these programs with their own flags. `tools/stdlib/jacket_tests.py` gives them what the manifest row gave: `expected_output(source)` / `golden_row(source)` read the `.stdout`, `.stderr` and `.exit` beside the program, and `exact_command(source, compiler, env, mode=..., jaic_flags=..., runner=...)` builds the `jacket test --exact` command for a file of `@test` procedures (no `main`, so there is no program to build), in the suite's modes (`--interp`, `-- -O2`, `--os wasm --runner ...`). It starts the `jacket` next to the compiler under test, so build both. `tools/native/windows_cross.py` builds its Windows SDK control once, in the first shard, since the Tls Windows program is no longer one of its cases.
+**Other consumers.** `jaic_sweep.py` (differential sweeps), `windows_cross.py` (Windows cross builds), the determinism tool and the browser runner read the catalogue only, so they no longer see the stdlib modules. The modules are covered by the `jacket test` legs of CI (native, `--interp`, `-O2`, and with `WASM=true` both wasm modes under node), by the sanitizer legs (`tools/ci/stdlib_jacket_sanitize.sh`), and on Windows by the `windows-stdlib` job's `jacket test` step. The browser engine, the Windows cross builds and the backend differential run (`jaic_diff.py`) no longer run them, and the interpreter-reachability report that the Python runner's coverage record fed is gone. Some tests are Windows- or Linux-only and can only run in CI on that host; `jacket_tests.cross_check` (`check_portable_stdlib.py --check-target`) type-checks them for the target from any host.
 
-**Leniency.** A fault test no longer checks the exact status or that stdout stayed empty; a program without `main` is type-checked, not run.
+**Suites that build a migrated test themselves.** `tools/stdlib/check_foundations.py` and `tools/numerics/run.py` compile some of these programs with their own flags. `tools/stdlib/jacket_tests.py` gives them what the manifest row gave: `expected_output(source)` / `golden_row(source)` read the `.stdout`, `.stderr` and `.exit` beside the program, and `exact_command(source, compiler, env, mode=..., jaic_flags=..., runner=...)` builds the `jacket test --exact` command for a file of `@test` procedures (no `main`, so there is no program to build), in the suite's modes (`--interp`, `-- -O2`, `--os wasm --runner ...`). It starts the `jacket` next to the compiler under test, so build both. `tools/stdlib/http_conformance.py` runs the Http folder with `jacket test` in each of its modes. `tools/native/windows_cross.py` builds its Windows SDK control once, in the first shard, since the Tls Windows program is no longer one of its cases.
+
+**Leniency.** A fault test no longer checks the exact status or that stdout stayed empty; a program without `main` is type-checked, not run. The clipboard tests overwrite the system clipboard of the machine that runs them (macOS ones restore its text); `tools/window_render/check_window_render.py` still wraps its macOS clipboard case in `JAIC_CLIPBOARD_GUARD`, which `tools/native/ci_native_deps.sh` builds.
 
 ## Design decisions
 

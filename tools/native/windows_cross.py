@@ -45,60 +45,7 @@ WINDOWS_PROGRAMS = [
 # These exact fixtures execute target File/Process operations during ordinary
 # #run. The reviewed cross-execution contract does not remap arbitrary Win32
 # calls to the build host. They remain required in native Windows build jobs.
-WINDOWS_BUILD_HOST_CASES = frozenset(
-    {
-        "Basic/tests/corpus-api/file-compile-time-qualified",
-        "compiler/rules-compile-time-execution",
-        "Basic/tests/checked-narrow-cast",
-        "BuildCpp/tests/windows",
-        "BuildCpp/tests/negative/windows-machine",
-        "BuildCpp/tests/negative/compile",
-        "BuildCpp/tests/negative/target",
-        "BuildCpp/tests/negative/tool",
-    }
-)
-
-
-# Programs linked against fixture or developer-tool libraries that only the Windows host jobs build
-# (tools/native/build_ci_native_bindings.py, tools/build_developer_*.py); the cross jobs build no such
-# library, so these stay required in the native Windows jobs.
-WINDOWS_HOST_LIBRARY_CASES = frozenset(
-    {
-        "SDL/tests/sdl-layout",
-        "SDL/tests/sdl-rwops",
-        "SDL/tests/sdl-wm",
-        "native/sdl2-geometry-timer",
-        "Debug/tests/ignore-ownership",
-        "Bindings_Generator/tests/generator-run-macro-print",
-        "Bindings_Generator/tests/generator-run-toplevel",
-        "Android/Toolchain/tests/device",
-        "Android/Toolchain/tests/manifest",
-        "Extensions/SDL3/tests/callbacks",
-        "Extensions/SDL3/tests/entry",
-        "Extensions/SDL3/tests/headless",
-        "Runtime_Support_Crash_Handler/tests/windows-native-sections",
-        "Runtime_Support_Crash_Handler/tests/windows-records",
-        "SDL/tests/geometry-timer",
-        "Gamepad/tests/shared-sdk",
-        "Gamepad/tests/virtual",
-        "Sound_Player/tests/assertion-independent",
-        "Sound_Player/tests/compressed-stream",
-        "Sound_Player/tests/concurrent-factories",
-        "Sound_Player/tests/concurrent-render-stop",
-        "Sound_Player/tests/controlled-output",
-        "Sound_Player/tests/decode-queue",
-        "Sound_Player/tests/device-lifecycle",
-        "Sound_Player/tests/entity-lifecycle",
-        "Sound_Player/tests/entity-phase",
-        "Sound_Player/tests/failed-init",
-        "Sound_Player/tests/queue-retirement",
-        "Sound_Player/tests/region-lifetime",
-        "Sound_Player/tests/signatures",
-        "Sound_Player/tests/streams",
-        "Sound_Player/tests/verbose-config",
-        "Unmapping_Allocator/tests/unmapping-protection-retention",
-    }
-)
+WINDOWS_BUILD_HOST_CASES = frozenset({"compiler/rules-compile-time-execution"})
 
 
 # In a cross build plain `#run` executes on the host twin (docs/compiler/compile-time-host-execution.md).
@@ -108,8 +55,6 @@ WINDOWS_HOST_LIBRARY_CASES = frozenset(
 # where no twin is involved.
 WINDOWS_HOST_TWIN_CASES = frozenset(
     {
-        "Socket/tests/windows-socket/scope-compile-time",
-        "Windows_Resources/tests/console-windows",
         "compiler/build-options-main-defaults",
         "compiler/compiler-performance-and-dump-messages",
         "compiler/compiler-resolved-nodes",
@@ -117,10 +62,6 @@ WINDOWS_HOST_TWIN_CASES = frozenset(
         "compiler/unrun-plugin-initialization",
     }
 )
-
-
-# Posted wheel messages carry modifier flags that Input reads back from the session's keyboard state.
-WINDOWS_SESSION_INPUT_CASES = frozenset({"Windows/tests/events"})
 
 
 def locates_files_by_source_path(case):
@@ -190,27 +131,13 @@ def fixture_unavailable_reason(case, platform, build_host):
         and not build_host.startswith("windows-")
     ):
         return "its compile-time code needs the target environment, which a cross build's host twin does not reproduce; native Windows coverage remains required"
-    if (
-        case["id"] in WINDOWS_HOST_LIBRARY_CASES
-        and platform.startswith("windows-")
-        and not build_host.startswith("windows-")
-    ):
-        return "links native fixture libraries that only the Windows host jobs build; native Windows coverage remains required"
     if platform.startswith("windows-") and not build_host.startswith("windows-"):
         if case.get("source_check_only") is True:
             return "compile-only fixture: its source check runs in the stdlib runtime jobs, and it is never executed"
-        if case["id"] in WINDOWS_SESSION_INPUT_CASES:
-            return "depends on the keyboard state of an interactive Windows session; native Windows coverage remains required"
         if locates_files_by_source_path(case):
             return "finds its fixture files through its build-time source path, which does not exist on the Windows runner; native Windows coverage remains required"
     if case["id"] == "compiler/lang-asm" and platform.split("-")[1] != "x64":
         return "fixture contains architectural x86 CPUID/PAUSE/fences; requires x64, not an ARM64 instruction-emulation claim"
-    if case["id"] == "ImGui/tests/headless-frames":
-        profile = json.loads((ROOT / "tools/native/native-libs.json").read_text())[
-            "libraries"
-        ]["imgui"]
-        if platform in profile.get("except", []):
-            return "pinned imgui native profile excludes this MinGW target (Windows bindings use MSVC C++ ABI); native Windows MSVC fixture remains required"
     return None
 
 
@@ -753,9 +680,6 @@ def build(args):
                 for key in ("mode", "stdout", "stderr", "error_contains", "exit_code")
                 if key in case
             }
-            expected[case_id]["fixture"] = {
-                key: case[key] for key in ("id", "arguments", "input") if key in case
-            }
         records.append({"id": case_id, "status": "built", "passed": None})
     if part[0] == 1:
         work = out / "c-structs-src"
@@ -842,23 +766,8 @@ def build(args):
     return 1 if failures else 0
 
 
-def run_environment():
-    """The environment fixtures see: a Windows runner always has Arial, so fixtures that need a
-    caller-owned font (Simp/tests/glyph-atlas) get it unless the caller named another."""
-    env = dict(os.environ)
-    if not env.get("JAIC_TEST_FONT_PATH"):
-        windir = pathlib.Path(
-            env.get("WINDIR") or env.get("SystemRoot") or r"C:\Windows"
-        )
-        font = windir / "Fonts" / "arial.ttf"
-        if font.is_file():
-            env["JAIC_TEST_FONT_PATH"] = str(font)
-    return env
-
-
 def run(args):
     directory = pathlib.Path(args.dir).resolve()
-    environment = run_environment()
     expected = json.loads((directory / "expected.json").read_text())
     failures = []
     unrunnable = []
@@ -866,24 +775,15 @@ def run(args):
         exe = directory / f"{case_id}.exe"
         cwd = ROOT / want.get("cwd", ".")
         try:
-            with tempfile.TemporaryDirectory(
-                prefix="windows-fixture-", dir=directory
-            ) as scratch:
-                arguments = stdlib_runtime.program_arguments(
-                    want.get("fixture", {}), scratch, environment
-                )
-                result = toolkit_run(
-                    [exe, *arguments],
-                    check=False,
-                    capture=True,
-                    echo=False,
-                    text=False,
-                    cwd=cwd if cwd.is_dir() else directory,
-                    timeout=60,
-                )
-        except ValueError as error:
-            failures.append(f"{case_id}: fixture input: {error}")
-            continue
+            result = toolkit_run(
+                [exe],
+                check=False,
+                capture=True,
+                echo=False,
+                text=False,
+                cwd=cwd if cwd.is_dir() else directory,
+                timeout=60,
+            )
         except subprocess.TimeoutExpired:
             failures.append(f"{case_id}: timed out")
             continue

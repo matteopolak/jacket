@@ -1,6 +1,6 @@
 # Testing tools
 
-Regression sweeps, differential testing, fuzzing and the stdlib checks. Which one to run: `jaic_sweep` for any compiler or stdlib change; `jaic_diff` after touching the interpreter, constant folding, lowering or the LLVM backend; `stdlib_runtime.py` for stdlib behaviour; the two `jaic-cli` checks run in `cargo test`; fuzzing is mostly nightly CI.
+Regression sweeps, differential testing, fuzzing and the stdlib checks. Which one to run: `jaic_sweep` for any compiler change; `jaic_diff` after touching the interpreter, constant folding, lowering or the LLVM backend; [`jacket test`](jacket-test.md) for stdlib module behaviour; `stdlib_runtime.py` for the compiler regressions; the two `jaic-cli` checks run in `cargo test`; fuzzing is mostly nightly CI.
 
 ## jaic sweep
 
@@ -13,13 +13,12 @@ Runs `jaic` over sets of programs and reports pass/fail. Each case runs `jaic <m
 | `corpus` | `tests/corpus/manifest.json` cases with a `runtime` record | exact stdout and exit code; a record with `error` expects any failing status and that text on stderr |
 | `negative` | `kind: negative` manifest cases (run by CI in the O0 sanitizer sweep) | check mode, non-zero exit, recorded text in stderr; a `disabled` reason switches a case off and is reported |
 | `regressions` | `tests/compiler/regressions/*.jai`, refined by its `manifest.json` | run, exit 0 or the row's expectation |
-| `modules` | `stdlib/**/tests/*.jai`, refined by each directory's `manifest.json` | run, exit 0 or the row's expectation |
 | `examples` | `tests/corpus/examples.json` (one folder per example in `examples/`) | run with `args`, `stdout_contains`/`stdout_excludes` |
 | `upstream` | `tools/upstream-cases.json` ([upstream corpus](upstream-corpus.md)) | `run` or `check`, plus the case's `expect` record |
 | a path | that file | run |
 
 ```sh
-PYTHONPATH=tools python3 tools/differential/jaic_sweep.py --jaic target/debug/jaic corpus negative regressions modules upstream examples --timeout 900
+PYTHONPATH=tools python3 tools/differential/jaic_sweep.py --jaic target/debug/jaic corpus negative regressions upstream examples --timeout 900
 ```
 
 Options: `--filter`, `--verbose`, `--timeout` (default 60; 900 for the full sweep), `--jobs` (default CPU count capped so jobs times memory limit fits in RAM), `--memory-limit GIB` (default 3), `--native` (build each run case and run the executable), `--opt O0..O3`, `--sanitize address,undefined` ([sanitizers](../native/sanitizers.md)), `--headless` (programs importing `Window_Creation` are only checked or built), `--allow-stale`.
@@ -60,7 +59,7 @@ jaic has no independent implementation to compare with, so it is compared with i
 ```sh
 cargo build --release -p jaic-cli
 PYTHONPATH=tools python3 tools/browser/build_scripting_wasm.py --release --output /tmp/wasm
-PYTHONPATH=tools python3 tools/differential/jaic_diff.py --jaic target/release/jaic --wasm /tmp/wasm --jobs 3 corpus regressions modules
+PYTHONPATH=tools python3 tools/differential/jaic_diff.py --jaic target/release/jaic --wasm /tmp/wasm --jobs 3 corpus regressions
 PYTHONPATH=tools python3 tools/differential/jaic_diff.py --jaic target/release/jaic --wasm /tmp/wasm --jobs 3 --keep /tmp/gen gen:70000:3000
 ```
 
@@ -129,19 +128,19 @@ Limits that exist because fuzzing found them (each has a regression): `MAX_NESTI
 
 ## Stdlib runtime tests
 
-Every top-level `*.jai` file of a `stdlib/**/tests/` directory, and of `tests/compiler/regressions/`, is a case that must build and exit 0 in each mode. A directory's optional `manifest.json` refines cases (expected output, required platform, native-only services) and can add cases that live in sub-directories; `tools/stdlib/stdlib_test_catalog.py` documents the row keys. Files in sub-directories (`support/`, `fixtures/`, `native/`) are helpers and never discovered on their own. A row with `"interpreter_only": true` marks a metaprogram that does all its work at compile time (it creates workspaces of its own): the `interp` mode, the interpreted sweep and the browser run include it, the native, wasm, differential and cross-build runs do not. Every regression that calls `compiler_create_workspace` or `compiler_begin_intercept` carries it (`test_stdlib_runtime.py` checks).
+The stdlib modules' tests run under [`jacket test`](jacket-test.md): every folder under `[test] paths` in `jacket.toml`. CI runs them natively, interpreted, at `-O2` and, on Linux x64, as WebAssembly (`tools/ci/stdlib_jacket_test.sh`), and under the sanitizers (`tools/ci/stdlib_jacket_sanitize.sh`). Tests that open windows or use the clipboard run with `--needs display` (Linux gets a virtual display), and the data files some tests read are written first (`python3 tools/portable/build_portable.py data`). `tools/portable/check_portable_stdlib.py --check-target OS/CPU` type-checks the modules' golden tests that apply to another target without running them.
+
+`tools/stdlib/stdlib_runtime.py` is the Python runner that is left. It runs the compiler regressions in `tests/compiler/regressions/` (and any `stdlib/**/tests/` folder that is not under `[test] paths`; there is none now) in the modes `interp`, `native`, `wasm-interp` and `wasm-native`, plus `check` for a cross-target source check. Every top-level `*.jai` file of the folder is a case that must build and exit 0 in each mode. The folder's `manifest.json` refines cases (expected output, required platform and CPU, unsupported modes) and can add cases that live in sub-directories; `tools/stdlib/stdlib_test_catalog.py` documents the row keys. Files in sub-directories (`support/`, `fixtures/`, `native/`) are helpers and never discovered on their own. A row with `"interpreter_only": true` marks a metaprogram that does all its work at compile time (it creates workspaces of its own): the `interp` mode, the interpreted sweep and the browser run include it, the native, wasm, differential and cross-build runs do not. Every regression that calls `compiler_create_workspace` or `compiler_begin_intercept` carries it (`test_stdlib_runtime.py` checks). The regressions stay here because the sweep, the differential tester, the Windows cross build and the browser runner share their manifest; moving them to `jacket test` means giving each of those a new source first.
 
 ```sh
 PYTHONPATH=tools python3 tools/native/build_native_libs.py
-PYTHONPATH=tools python3 tools/stdlib/stdlib_runtime.py --jaic target/release/jaic --modes interp,native,wasm-interp,wasm-native --coverage target/stdlib-reachability.txt
+PYTHONPATH=tools python3 tools/stdlib/stdlib_runtime.py --jaic target/release/jaic --modes interp,native,wasm-interp,wasm-native
 PYTHONPATH=tools python3 tools/stdlib/check_stdlib_suites.py --jaic target/release/jaic --stdlib stdlib --jailint target/debug/jailint --jaifmt target/jaifmt
 ```
 
-Modules whose tests run under `jacket test` (the `[test] paths` in `jacket.toml`, currently including Bit_Array, String, Hash_Table and System) have no `manifest.json`; the catalogue (`stdlib_test_catalog.py`) leaves their `tests/` folders out, so `stdlib_runtime.py`, `jaic_sweep.py` and the other tools that read it do not run them. A module that moves over is added to that list and its manifest deleted.
+`check_stdlib_suites.py` runs every module driver with native setup, child processes or target matrices, continues after a failure and exits nonzero if any failed. `--suite NAME` (repeatable) and `--exclude NAME` choose suites; `--jobs N` runs up to N independent groups at once (`GROUPS` in the script: suites that share scratch directories, the X display or the audio device stay serial inside one group; output of a concurrent group is printed when it ends). Put a new suite in the group whose scratch directories it shares, or in its own. `stdlib_runtime.py` takes `--filter`, `--modes`, `--opt O0|O2` and `--report FILE`. Native-only cases are reported as unavailable under WASM, never as passed. Positive cases compare exact stdout (and stderr when a contract is given); check-fail cases need a nonzero status and a `diagnostic_contains`, and a `positive_baseline` case in the same folder must still check clean. Tests can read the mode to avoid what a mode cannot do. Export counts are not a completeness measure. `--tooling-part K/N` hands `--part K/N` to the `tooling` suite alone, so CI can run its units on N jobs (see [tools layout](tools-layout.md)).
 
-`check_stdlib_suites.py` runs every module driver with native setup, child processes or target matrices, continues after a failure and exits nonzero if any failed. `--suite NAME` (repeatable) and `--exclude NAME` choose suites; `--jobs N` runs up to N independent groups at once (`GROUPS` in the script: suites that share scratch directories, the X display or the audio device stay serial inside one group; output of a concurrent group is printed when it ends). Put a new suite in the group whose scratch directories it shares, or in its own. `stdlib_runtime.py` takes `--filter`, `--modes`, `--opt O0|O2` and `--report FILE`. Native SDK and graphics families are reported as unavailable under WASM, never as passed; missing SDKs, fonts or display servers on an applicable host are failures. Positive cases compare exact stdout (and stderr when a contract is given); check-fail cases need a nonzero status and a `diagnostic_contains`; privacy cases also compile a positive import baseline. Tests can read the mode to avoid what a mode cannot do. Export counts and `tools/stdlib/stdlib_coverage.py` reachability are not completeness measures. `--tooling-part K/N` hands `--part K/N` to the `tooling` suite alone, so CI can run its units on N jobs (see [tools layout](tools-layout.md)).
-
-Put a module's cases in its `tests/` directory (a manifest row for anything beyond "builds and exits 0"), keep compiler and ABI regressions in `tests/compiler/regressions/`, and put specialised cases in their module driver so native preparation and O0/O2 coverage stay required. Linux needs native headers, Xvfb/Mesa, fonts and audio backends; Windows needs MSVC/LLVM and Mesa.
+Put a module's tests in its `tests/` directory as `jacket test` goldens or `@test`s, keep compiler and ABI regressions in `tests/compiler/regressions/`, and put specialised cases in their module driver so native preparation and O0/O2 coverage stay required. Linux needs native headers, Xvfb/Mesa, fonts and audio backends; Windows needs MSVC/LLVM and Mesa.
 
 ## Stdlib target check
 
@@ -166,4 +165,4 @@ Selectors are strings (`sel_registerName("setTitle:")`), so a typo or missing `:
 
 Calls on local objects get the arity check but not the existence check, and selectors stored in variables are not checked at all, so pass selectors as literals. When it reports a missing method, fix the binding; if the method only exists on newer macOS than CI or the class is private, list it in `tests/compiler/objc-selectors.txt` (`missing <class> <instance|class> <selector>`, `unknown <class>`; `#` reason). Remove a listed line once it is found. Run with `cargo test -p jaic-cli --test objc_selectors`.
 
-The optimized (`--opt O2`) sanitizer sweep in CI passes `--modules-from tests/compiler/optimized-modules.txt`: of the `modules` set it runs only the modules listed there (code generation that differs from -O0); `corpus` and `regressions` run whole.
+The optimized (`-O2`) sanitizer run of the stdlib modules (`tools/ci/stdlib_jacket_sanitize.sh O2`) covers only the modules in `tests/compiler/optimized-modules.txt` (code generation that differs from -O0); the sweep's `corpus` and `regressions` run whole.

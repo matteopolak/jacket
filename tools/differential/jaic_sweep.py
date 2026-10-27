@@ -3,8 +3,7 @@
 
 Usage: tools/differential/jaic_sweep.py [--jaic PATH] [--filter TEXT] [--verbose] SET...
 Sets: corpus (tests/corpus/positive with expected runtime), negative (tests/corpus/negative:
-`jaic -check` must fail and report the recorded text), regressions (tests/compiler/regressions), modules (the stdlib's own
-tests: every stdlib/**/tests directory, described by its manifest.json rows; run must succeed), examples (tests/corpus/examples.json:
+`jaic -check` must fail and report the recorded text), regressions (tests/compiler/regressions, described by its manifest.json rows; run must succeed), examples (tests/corpus/examples.json:
 example workspaces (examples/<name>), whose stdout must contain the listed lines), upstream
 (tools/upstream-cases.json: upstream project entry points that must pass, with the output the
 project documents where a case has an `expect` record), or file paths.
@@ -143,19 +142,17 @@ def cases(name):
                     {"negative": next(iter(c["negative"].values()))},
                     [],
                 )
-    elif name in ("regressions", "modules"):
+    elif name == "regressions":
         from stdlib.stdlib_test_catalog import validated_entries
 
-        wanted = "compiler" if name == "regressions" else "modules"
         for c in validated_entries():
-            if c["family"] != wanted:
+            if c["family"] != "compiler":
                 continue
             CASE_METADATA[c["id"]] = c
             expect = (
                 c
                 if (
                     "stdout" in c
-                    or "stdout_one_of" in c
                     or "error_contains" in c
                     or c.get("mode") == "check-fail"
                 )
@@ -307,32 +304,6 @@ def run_limited(command, cwd, timeout, limit_bytes, jaic=True, environment=None)
     return out, err, code
 
 
-def run_fixture(command, cwd, timeout, limit_bytes, metadata, jaic=True, extra_env=None):
-    from stdlib.stdlib_runtime import runtime_prefix, CLIPBOARD_LOCK
-
-    try:
-        prefix = runtime_prefix(metadata or {}, os.environ)
-    except ValueError as error:
-        return "", "error: fixture setup: " + str(error), 1
-    if not prefix:
-        return run_limited(
-            command, cwd, timeout, limit_bytes, jaic=jaic, environment=extra_env
-        )
-    environment = {
-        "JAIC_TEST_CHILD_TIMEOUT_MS": str(max(1, round(timeout * 1000))),
-        **(extra_env or {}),
-    }
-    with CLIPBOARD_LOCK:
-        return run_limited(
-            [*prefix, *command],
-            cwd,
-            timeout + 30,
-            limit_bytes,
-            jaic=jaic,
-            environment=environment,
-        )
-
-
 # Runtime options for sanitized executables. Leaks are not reported: programs routinely leave
 # their memory to the OS at exit, and a leak is not the codegen or memory-safety bug the
 # sanitizer run looks for. Every other report stops the program with a failing status.
@@ -412,7 +383,6 @@ def run_native(
     timeout,
     limit_bytes,
     run=True,
-    metadata=None,
 ):
     """Build `path` natively with `build_flags` and run the executable in the source's directory.
     Returns (stdout, stderr, code) like `run_limited`; a failed build or a sanitizer report puts
@@ -424,12 +394,11 @@ def run_native(
         return "", "", NO_EXECUTABLE  # built for another platform
     exe = Path(tempfile.mkdtemp(dir=scratch)) / path.stem
     try:
-        _, err, code = run_fixture(
+        _, err, code = run_limited(
             [jaic, str(path), "-exe", str(exe), *build_flags, *jaic_args],
             path.parent,
             timeout,
             limit_bytes,
-            metadata,
         )
         # A program without `main` (its checks are `#run` directives), or whose metaprogram asks
         # for no output, did all its work at compile time.
@@ -445,14 +414,13 @@ def run_native(
             return "", "", NO_EXECUTABLE
         if not run:
             return "", "", 0
-        out, err, code = run_fixture(
+        out, err, code = run_limited(
             [str(exe), *program_args],
             path.parent,
             timeout,
             limit_bytes,
-            metadata,
             jaic=False,
-            extra_env={"JAIC_COVERAGE_DIR": str(exe.parent)} if COVERAGE_DIR else None,
+            environment={"JAIC_COVERAGE_DIR": str(exe.parent)} if COVERAGE_DIR else None,
         )
         if COVERAGE_DIR:
             ingest_coverage(exe, path)
@@ -462,17 +430,6 @@ def run_native(
         return out, err, code
     finally:
         shutil.rmtree(exe.parent, ignore_errors=True)
-
-
-def listed_modules(path):
-    """The module names in `path`: one per line, `#` starts a comment."""
-    lines = (line.split("#", 1)[0].strip() for line in path.read_text().splitlines())
-    return {line for line in lines if line}
-
-
-def module_listed(case_id, listed):
-    """Whether a `modules` case (`Extensions/Json/tests/x`) belongs to a listed module."""
-    return case_id.split("/tests/", 1)[0] in listed
 
 
 def main():
@@ -539,13 +496,6 @@ def main():
         default=(1, 1),
         metavar="K/N",
         help="run only the K-th of N equal parts of the selected cases (CI splits sweeps this way)",
-    )
-    ap.add_argument(
-        "--modules-from",
-        type=Path,
-        metavar="FILE",
-        help="the `modules` set keeps only the stdlib modules FILE lists, one name per line (`#` starts a comment); "
-        "the optimized sweep names the modules whose code generation differs from -O0 (tests/compiler/optimized-modules.txt)",
     )
     ap.add_argument(
         "--coverage",
@@ -636,17 +586,12 @@ def main():
                         capture_output=True,
                         stdin=subprocess.DEVNULL,
                     )
-    if "modules" in a.sets:
-        from stdlib.stdlib_runtime import build_data_fixtures
-
-        build_data_fixtures()
-    listed = listed_modules(a.modules_from) if a.modules_from else None
     todo = take_shard(
         [
             c
             for s in a.sets
             for c in cases(s)
-            if a.filter in c[0] and wanted(c[0]) and (s != "modules" or listed is None or module_listed(c[0], listed))
+            if a.filter in c[0] and wanted(c[0])
         ],
         a.shard,
     )
@@ -680,7 +625,7 @@ def main():
                 unavailable_reason,
                 disabled_reason,
             )
-            from stdlib.stdlib_runtime import host_platform, program_arguments, prepare_program
+            from stdlib.stdlib_runtime import host_platform
 
             rejected = disabled_reason(metadata)
             if rejected:
@@ -692,29 +637,12 @@ def main():
             )
             if reason:
                 return cid, None, "", reason, PLATFORM_UNAVAILABLE
-            try:
-                arguments = program_arguments(
-                    metadata, scratch or tempfile.gettempdir(), os.environ
-                )
-                path = prepare_program(metadata, path, scratch or tempfile.gettempdir())
-            except ValueError as error:
-                return cid, False, "", "error: fixture setup: " + str(error), 1
-            if arguments:
-                if "--" in extra:
-                    return (
-                        cid,
-                        False,
-                        "",
-                        "error: conflicting fixture argument providers",
-                        1,
-                    )
-                extra = [*extra, "--", *arguments]
         # Source-check-only programs must never run (an uninitialized ring, say): they only build.
         windowed = mode == "run" and (
             metadata.get("source_check_only") is True
             or (
                 a.headless
-                and (metadata.get("requires_display") or metadata.get("window_lease") or opens_windows(path))
+                and (metadata.get("requires_display") or opens_windows(path))
             )
         )
         if windowed and expect is not None:
@@ -729,7 +657,6 @@ def main():
                 a.timeout,
                 limit_bytes,
                 run=not windowed,
-                metadata=metadata,
             )
             if code == NO_EXECUTABLE:
                 return cid, None, out, err, code
@@ -740,12 +667,11 @@ def main():
             mode_flag = {"run": ["-interp"], "check": ["-check"], "build": []}[mode]
             if windowed:
                 mode_flag = ["-check"]
-            out, err, code = run_fixture(
+            out, err, code = run_limited(
                 [a.jaic, str(path), *mode_flag, *quiet, *extra],
                 path.parent,
                 a.timeout,
                 limit_bytes,
-                metadata,
             )
         # `run_after`: the program the build produced is run, and the expectations apply to it.
         if windowed and code == 0:
@@ -784,8 +710,6 @@ def main():
             from stdlib.stdlib_runtime import contract_result
 
             ok = contract_result(expect, code, out, err, native=a.native and mode == "run")
-        elif expect and "stdout_one_of" in expect:
-            ok = code == expect.get("exit_code", 0) and out in expect["stdout_one_of"]
         elif expect is None:
             ok = code == 0
         elif "upstream" in expect:

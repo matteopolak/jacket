@@ -32,7 +32,7 @@ Top level: `repo_output.py|mjs` (where output goes, `host_platform()`), `run_tes
 ## Layered pieces worth knowing
 
 - **Native dependency stages** (`native/`): `build_native_libs.py` builds the pinned third-party C libraries from `native-libs.json`; `build_ci_native_bindings.py` builds the rpmalloc/SDK probe providers for the bindings checks; `upstream_native.py` prepares the helpers the upstream smoke run needs; `ci_native_deps.sh` is the CI entry that calls them in order. They overlap only in host detection, now shared as `repo_output.host_platform()`.
-- **Stdlib runners** (`stdlib/`, `portable/`): `stdlib_runtime.py` runs the catalogued `stdlib/**/tests` cases; `check_portable_stdlib.py` builds fixtures and runs what a catalogued case cannot; `check_stdlib_suites.py` is the orchestrator that invokes every suite. Orchestrator, suite and engine are separate layers, so they are not merged.
+- **Stdlib runners** (`stdlib/`, `portable/`): `stdlib_runtime.py` runs the compiler regressions (the stdlib modules' tests run under `jacket test`); `check_portable_stdlib.py` builds fixtures and runs what a test cannot; `check_stdlib_suites.py` is the orchestrator that invokes every suite. Orchestrator, suite and engine are separate layers, so they are not merged.
 
 ## Shared helpers (`toolkit/`)
 

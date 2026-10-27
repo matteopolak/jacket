@@ -1,11 +1,13 @@
-"""Discovery and per-case metadata for every runnable stdlib and compiler regression test.
+"""Discovery and per-case metadata for the compiler regression tests the Python runner executes.
 
-A test directory is `stdlib/**/tests/` (module tests) or `tests/compiler/regressions/`.
+The stdlib modules' tests run under `jacket test` (`[test] paths` in jacket.toml, see
+docs/tools/jacket-test.md) and are skipped here. What is left is `tests/compiler/regressions/`
+and any `stdlib/**/tests/` folder that is not under `[test] paths`.
 Every top-level `*.jai` file of a test directory is a case that must build and exit 0 in each
 mode; sub-directories hold helpers and fixtures and are never discovered.
 
 A test directory may carry a `manifest.json`: a list of rows `{"name": ..., ...}` that refine
-a case with the keys in ROW_KEYS (expected output, required platform, native-only services,
+a case with the keys in ROW_KEYS (expected output, required platform, unsupported modes,
 ...). A row for a name that is not a top-level file adds a case from a sub-directory:
 `"name": "negative/private-name"` runs `negative/private-name.jai`, and `"source"` names a
 different entry file (`"name": "scoped", "source": "scoped/main.jai"`). The same rows drive
@@ -21,10 +23,6 @@ import tomllib
 from pathlib import Path
 
 from stdlib.case_capabilities import user_deferred_reason
-from numerics.numerics_case_capabilities import (
-    apply_numerics_capabilities,
-    numerics_unavailable_reason,
-)
 from toolkit.repo import ROOT
 
 COMPILER_REGRESSIONS = "tests/compiler/regressions"
@@ -35,9 +33,6 @@ ROW_KEYS = frozenset(
         "source",
         # What the program must print and how it must end.
         "stdout",
-        # For output that depends on the host (a sound device that is or is not present): the
-        # exact stdout must be one of these, with the same empty stderr and exit code as `stdout`.
-        "stdout_one_of",
         "stderr",
         # A compiler warning the case must produce (on stderr when interpreted, in the build
         # output when compiled); the program's own stderr must otherwise be empty.
@@ -53,7 +48,6 @@ ROW_KEYS = frozenset(
         "mode",
         "diagnostic_contains",
         "positive_baseline",
-        "mode_contracts",
         # A reason the case is switched off: the source has a genuine error.
         "disabled",
         # Where the case can run.
@@ -64,16 +58,8 @@ ROW_KEYS = frozenset(
         "unsupported_modes",
         "required_capabilities",
         "required_browser_host_capabilities",
-        # How the runner starts it.
-        "arguments",
-        "input",
-        "fixture_libraries",
         "requires_display",
-        # macOS GUI programs run one at a time (stdlib_runtime.py WINDOW_LEASE).
-        "window_lease",
-        "clipboard_guard",
         "source_check_only",
-        "numerics_target_source",
         # The program does its work at compile time (a metaprogram that builds and checks other
         # workspaces): the interpreter runs all of it, and the native, wasm and cross builds would
         # only repeat that, so only the `interp` mode and the sweep's interpreted run include it.
@@ -172,9 +158,6 @@ def validated_entries(root=ROOT):
         if case["id"] in by_id:
             raise ValueError("duplicate test ID: " + case["id"])
         by_id[case["id"]] = case
-        apply_numerics_capabilities(case)
-        if "macos" in (case.get("required_os") or ()):
-            case["window_lease"] = True
         if not case["path"].is_file():
             raise ValueError("missing test source: " + str(case["path"]))
         if not case["path"].resolve().is_relative_to(root.resolve()):
@@ -198,31 +181,7 @@ def validated_entries(root=ROOT):
     return result
 
 
-def case_for_mode(case, mode):
-    """Return the explicit mode contract without mutating the discovered source.
-
-    Selectors must use this result for dispatch AND expected-result accounting.
-    A required negative is a real check with a precise diagnostic, never a pass
-    inferred from target unavailability or an arbitrary compilation failure.
-    """
-    contract = case.get("mode_contracts", {}).get(mode, {})
-    if contract and (
-        set(contract) != {"mode", "diagnostic_contains"}
-        or contract.get("mode") != "check-fail"
-        or not isinstance(contract.get("diagnostic_contains"), str)
-        or not contract["diagnostic_contains"].strip()
-    ):
-        raise ValueError("mode contract requires check-fail and a precise diagnostic")
-    if contract and mode in case.get("unsupported_modes", ()):
-        raise ValueError("required mode rejection conflicts with unavailable metadata")
-    return {**case, **contract}
-
-
 def unavailable_reason(case, mode, actual_platform=None):
-    case = case_for_mode(case, mode)
-    numerics_reason = numerics_unavailable_reason(case, mode, actual_platform)
-    if numerics_reason:
-        return numerics_reason
     if mode in case.get("unsupported_modes", []):
         required = ", ".join(case["required_capabilities"])
         return f"{mode} platform unavailable: requires {required}; actual native execution remains required, not passed"
@@ -272,7 +231,7 @@ if __name__ == "__main__":
     if arguments.mode:
         entries = [
             {
-                **case_for_mode(case, arguments.mode),
+                **case,
                 "selected_unavailable_reason": unavailable_reason(
                     case, arguments.mode, arguments.platform
                 ),

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""Run every stdlib module test and compiler regression through one catalogue.
+"""Run the compiler regressions (and any stdlib test folder not under `jacket test`) through one catalogue.
 
-No inherited compatibility skip/coverage baseline is consulted. Native-only SDK
+The stdlib modules' tests run under `jacket test` (docs/tools/jacket-test.md).
+
+No inherited compatibility skip baseline is consulted. Native-only SDK
 and graphics cases are reported unavailable in WASM modes, not counted passed.
 Tool-driven integration suites (native SDK probes, generator workflows) are separate gates.
 
@@ -12,7 +14,6 @@ anything: the cross-target source check. The other modes run on this host only.
 
 import argparse
 import json
-import threading
 import os
 import shutil
 import subprocess
@@ -23,7 +24,6 @@ from stdlib.stdlib_test_catalog import (
     validated_entries,
     unavailable_reason,
     disabled_reason,
-    case_for_mode,
 )
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from repo_output import host_platform
@@ -33,11 +33,6 @@ from toolkit.hashing import sha256_file
 from toolkit.repo import ROOT
 
 MODES = ["interp", "native", "wasm-interp", "wasm-native", "check"]
-COVERAGE_LOCK = threading.Lock()
-CLIPBOARD_LOCK = threading.Lock()
-# Only one application at a time is active on a Mac, and a program's windows are key (and its
-# focus events arrive) only while it is: GUI programs would otherwise take focus from each other.
-WINDOW_LEASE = threading.Lock()
 
 
 def shard(text):
@@ -89,8 +84,6 @@ def contract_result(case, code, output, error="", native=False):
         error_ok = error == case.get("stderr", "")
     if "stdout" in case:
         return code == case.get("exit_code", 0) and output == case["stdout"] and error_ok
-    if "stdout_one_of" in case:
-        return code == case.get("exit_code", 0) and output in case["stdout_one_of"] and error_ok
     return code == 0
 
 
@@ -171,173 +164,6 @@ def describe_stuck_process(pid):
     return "\n[timed out] " + "\n[timed out] ".join(lines) + "\n"
 
 
-def write_ico_fixtures(directory, env):
-    """The bitmaps the Ico_File filename test reads, and the 16x16 gradient resized by the real
-    stb_image_resize library (the reference its encoder output is compared against)."""
-    import ctypes
-    import struct
-
-    # Public BMP file format: BITMAPFILEHEADER + BITMAPINFOHEADER, 16x16 BGR.
-    pixels = bytes((30, 20, 10)) * (16 * 16)
-    header = struct.pack("<2sIHHI", b"BM", 54 + len(pixels), 0, 0, 54)
-    dib = struct.pack("<IiiHHIIiiII", 40, 16, 16, 1, 24, 0, len(pixels), 0, 0, 0, 0)
-    (directory / "bitmap-\u00fc.bmp").write_bytes(header + dib + pixels)
-    gradient = bytes(
-        value
-        for row in range(16)
-        for column in range(16)
-        for value in (row * 10, column * 10, 60 + row)
-    )
-    (directory / "gradient.bmp").write_bytes(header + dib + gradient)
-    suffix = (
-        ".dll" if os.name == "nt" else (".dylib" if sys.platform == "darwin" else ".so")
-    )
-    library = next(
-        (
-            Path(folder) / ("libstb_image_resize" + suffix)
-            for folder in env.get("JAIC_NATIVE_LIBS", "").split(os.pathsep)
-            if folder and (Path(folder) / ("libstb_image_resize" + suffix)).is_file()
-        ),
-        None,
-    )
-    if library is None:
-        raise ValueError(
-            "the stb_image_resize library is missing from JAIC_NATIVE_LIBS"
-        )
-    resize = ctypes.CDLL(str(library)).stbir_resize_uint8_srgb
-    resize.argtypes = [
-        ctypes.c_void_p,
-        ctypes.c_int,
-        ctypes.c_int,
-        ctypes.c_int,
-    ] * 2 + [ctypes.c_int] * 3
-    resize.restype = ctypes.c_int
-    bgra = bytes(
-        value
-        for row in range(16)
-        for column in range(16)
-        for value in (row * 10, column * 10, 60 + row, 255)
-    )
-    source = ctypes.create_string_buffer(bgra)
-    destination = ctypes.create_string_buffer(16 * 16 * 4)
-    if resize(source, 16, 16, 64, destination, 16, 16, 64, 4, 3, 0) != 1:
-        raise ValueError("stb_image_resize failed to build the gradient fixture")
-    (directory / "gradient-resized.bgra").write_bytes(destination.raw)
-
-
-def program_arguments(case, scratch, env):
-    if "arguments" in case:
-        arguments = case["arguments"]
-        if (
-            "input" in case
-            or not isinstance(arguments, list)
-            or not all(isinstance(a, str) for a in arguments)
-        ):
-            raise ValueError(
-                "literal fixture arguments must be a string list without a separate input provider"
-            )
-        return arguments.copy()
-    kind = case.get("input")
-    if kind is None:
-        return []
-    if kind == "font":
-        font = env.get("JAIC_TEST_FONT_PATH")
-        if not font or not Path(font).is_file():
-            raise ValueError(
-                "fixture requires JAIC_TEST_FONT_PATH naming a real caller-owned font"
-            )
-        return [str(Path(font).resolve())]
-    if kind == "windows-resource-directory":
-        directory = env.get("JAIC_TEST_WINDOWS_RESOURCE_DIR")
-        if not directory or not all(
-            (Path(directory) / name).is_file()
-            for name in ("resource-only.dll", "resource.ico")
-        ):
-            raise ValueError(
-                "Windows resource fixture requires JAIC_TEST_WINDOWS_RESOURCE_DIR with the real source-built resource-only.dll and resource.ico"
-            )
-        return [str(Path(directory).resolve())]
-    if kind not in {"scratch-file", "scratch-directory", "ico-fixtures"}:
-        raise ValueError("unknown fixture input: " + kind)
-    directory = Path(scratch) / "inputs" / case["id"].replace("/", "-")
-    directory.mkdir(parents=True, exist_ok=True)
-    if kind == "ico-fixtures":
-        write_ico_fixtures(directory, env)
-    return [str(directory / "data" if kind == "scratch-file" else directory)]
-
-
-def initialize_coverage(path):
-    """An empty run has zero recorded hits, even when every compilation fails."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("")
-
-
-def prepare_program(case, source, scratch):
-    """Bind a caller-supplied native probe without modifying its fixture body."""
-    libraries = case.get("fixture_libraries")
-    if not libraries:
-        return source
-    if not isinstance(libraries, dict) or not all(
-        isinstance(name, str) and name.isidentifier() and isinstance(library, str)
-        for name, library in libraries.items()
-    ):
-        raise ValueError(
-            "fixture library bindings must map identifiers to native library names"
-        )
-    directory = Path(scratch) / "fixture-programs" / case["id"].replace("/", "-")
-    directory.mkdir(parents=True, exist_ok=True)
-    wrapper = directory / "main.jai"
-    text = "".join(
-        name + " :: #library " + json.dumps(library) + ";\n"
-        for name, library in libraries.items()
-    )
-    wrapper.write_text(text + "#load " + json.dumps(str(source.resolve())) + ";\n")
-    return wrapper
-
-
-def runtime_prefix(case, env, host=sys.platform):
-    if not case.get("clipboard_guard") or host != "darwin":
-        return []
-    guard = env.get("JAIC_CLIPBOARD_GUARD")
-    if not guard or not Path(guard).is_file() or not os.access(guard, os.X_OK):
-        raise ValueError(
-            "Mac clipboard fixture requires source-built JAIC_CLIPBOARD_GUARD for native restoration"
-        )
-    return [str(Path(guard).resolve())]
-
-
-def run_program(command, cwd, timeout, env, case):
-    """Run one test program; macOS GUI programs one at a time (see WINDOW_LEASE)."""
-    if case.get("window_lease") and sys.platform == "darwin":
-        with WINDOW_LEASE:
-            return run_unleased(command, cwd, timeout, env, case)
-    return run_unleased(command, cwd, timeout, env, case)
-
-
-def uses_clipboard(case):
-    """Clipboard tests share the one system clipboard (on Linux, the Xvfb display's selection),
-    so two running at once, such as a test's interp and native runs, overwrite each other."""
-    return bool(case.get("clipboard_guard")) or case.get("id", "").startswith(
-        "Clipboard/"
-    )
-
-
-def run_unleased(command, cwd, timeout, env, case):
-    prefix = runtime_prefix(case, env)
-    if not prefix:
-        if uses_clipboard(case):
-            with CLIPBOARD_LOCK:
-                return run_command(command, cwd, timeout, env)
-        return run_command(command, cwd, timeout, env)
-    guarded_env = dict(
-        env, JAIC_TEST_CHILD_TIMEOUT_MS=str(max(1, round(timeout * 1000)))
-    )
-    # The native guard enforces the child deadline, reaps it and restores before
-    # returning. Give that cleanup time; serialize clipboard fixtures in this run.
-    with CLIPBOARD_LOCK:
-        return run_command([*prefix, *command], cwd, timeout + 30, guarded_env)
-
-
 def windows_library_dirs(directories):
     result = []
     for directory in directories:
@@ -394,12 +220,6 @@ def run_mode(args, test, path, mode, scratch, metadata=None):
     # Tests may read the mode (docs/tools/testing.md), for example to avoid what the
     # interpreter cannot do yet.
     env["JAIC_STDLIB_TEST_MODE"] = mode
-    try:
-        path = prepare_program(metadata or {}, path, scratch)
-        arguments = program_arguments(metadata or {}, scratch, env)
-        runtime_prefix(metadata or {}, env)
-    except ValueError as error:
-        return False, str(error)
     if mode == "check":
         code, stdout, stderr = run_command(
             [args.jaic, str(path), "-check", "-no_dce", *target_flags(args.platform)],
@@ -435,27 +255,12 @@ def run_mode(args, test, path, mode, scratch, metadata=None):
             detail = f"timed out after {args.timeout:.0f}s\n{detail}"
         return (None if code == 0 else False), detail
     if mode in ("interp", "wasm-interp"):
-        record = Path(scratch) / f"{test.replace('/', '-')}-{mode}.coverage"
-        coverage_flags = ["-coverage_file", str(record)] if args.coverage else []
-        code, stdout, stderr = run_program(
-            [
-                args.jaic,
-                str(path),
-                "-interp",
-                *coverage_flags,
-                *target,
-                *(["--", *arguments] if arguments else []),
-            ],
+        code, stdout, stderr = run_command(
+            [args.jaic, str(path), "-interp", *target],
             path.parent,
             args.timeout,
             env,
-            metadata or {},
         )
-        if args.coverage and record.exists():
-            # One file per run, gathered under a lock: concurrent appends could interleave.
-            with COVERAGE_LOCK, open(args.coverage, "a", encoding="utf-8") as into:
-                into.write(record.read_text(encoding="utf-8", errors="replace"))
-            record.unlink()
         out = stdout + stderr
         return contract_result(
             metadata or {}, code, stdout, stderr
@@ -534,9 +339,7 @@ def run_mode(args, test, path, mode, scratch, metadata=None):
             if wasm
             else [str(built[0])]
         )
-        code, stdout, stderr = run_program(
-            [*command, *arguments], path.parent, args.timeout, env, metadata or {}
-        )
+        code, stdout, stderr = run_command(command, path.parent, args.timeout, env)
         out = stdout + stderr
         return contract_result(
             metadata or {}, code, stdout, stderr, native=True
@@ -563,31 +366,6 @@ def modes_given_cross(args):
     return any(m.strip() not in ("check", "") for m in args.modes.split(","))
 
 
-DATA_FIXTURE_BUILDERS = (
-    "zip",
-    "archive",
-    "mpeg",
-    "meow",
-    "machine",
-)  # tools/portable/build_portable.py subcommands
-
-
-def build_data_fixtures():
-    """Write the generated inputs (ZIP, archive, MPEG, Meow and CPUID data) the tests read from
-    target/portable-tests; each builder is deterministic and takes no compiler."""
-    for builder in DATA_FIXTURE_BUILDERS:
-        subprocess.run(
-            [
-                sys.executable,
-                "-B",
-                str(ROOT / "tools/portable/build_portable.py"),
-                builder,
-            ],
-            cwd=ROOT,
-            check=True,
-        )
-
-
 def main():
     # Test output may hold any Unicode text; the Windows console codec cannot print it.
     if hasattr(sys.stdout, "reconfigure"):
@@ -609,11 +387,6 @@ def main():
         action="append",
         default=[],
         help="select an exact catalogue ID (repeatable)",
-    )
-    ap.add_argument(
-        "--coverage",
-        type=Path,
-        help="append the procedures the interpreter runs to this file",
     )
     ap.add_argument(
         "--report",
@@ -665,13 +438,8 @@ def main():
     modes = [m.strip() for m in args.modes.split(",") if m.strip()]
     if any(m not in MODES for m in modes):
         sys.exit(f"stdlib_runtime: modes are {', '.join(MODES)}")
-    if args.coverage:
-        args.coverage = args.coverage.resolve()
-        initialize_coverage(args.coverage)
     if "native" in modes:
         use_native_libs(args.platform)
-    if modes_given_cross(args):
-        build_data_fixtures()
     catalogue = validated_entries()
     unknown = set(args.case) - {case["id"] for case in catalogue}
     if unknown:
@@ -690,9 +458,7 @@ def main():
     def run_test(case):
         test, path = case["id"], case["path"]
         results = []
-        source_case = case
         for mode in modes:
-            case = case_for_mode(source_case, mode)
             if case.get("interpreter_only") and mode not in ("interp", "check"):
                 continue
             rejected = disabled_reason(case)

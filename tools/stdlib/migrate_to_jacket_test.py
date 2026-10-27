@@ -21,7 +21,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-from stdlib.stdlib_test_catalog import ROW_KEYS
 from toolkit.repo import ROOT
 
 # Keys with a direct equivalent, or that carry no behaviour of their own.
@@ -49,6 +48,15 @@ HANDLED = {
     "clipboard_guard",
     "source_check_only",
     "warning_contains",
+}
+# Every key a manifest row may carry (the old runner's vocabulary), handled or reported below.
+ROW_KEYS = HANDLED | {
+    "disabled",
+    "fixture_libraries",
+    "interpreter_only",
+    "mode_contracts",
+    "numerics_target_source",
+    "unsupported_platforms",
 }
 WASM_MODES = {"wasm-interp", "wasm-native"}
 SCRATCH_INPUTS = {"scratch-file": "$TEMP/data", "scratch-directory": "$TEMP"}

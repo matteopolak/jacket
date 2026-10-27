@@ -18,9 +18,9 @@ class BrowserPolicy(unittest.TestCase):
             )
         self.assertIn(
             "compiler-monotonic-clock",
-            cases["Compiler/tests/measured-performance-reports"]["required_browser_host_capabilities"],
+            cases["compiler/compiler-performance-and-dump-messages"]["required_browser_host_capabilities"],
         )
-        negative = cases["Extensions/Http/tests/date-now-wasm"]
+        negative = cases["compiler/negative/inserted-procedure-called"]
         self.assertIsNone(negative["browser_unavailable_reason"])
         self.assertEqual(negative["mode"], "check-fail")
 
@@ -33,29 +33,6 @@ class BrowserPolicy(unittest.TestCase):
         }
         with patch.object(browser, "validated_entries", return_value=[case]):
             self.assertIsNone(browser.browser_cases(root)[0]["browser_unavailable_reason"])
-
-    def test_mode_overlay_and_eligibility_use_the_shared_catalogue(self):
-        root = Path("/own/workspace")
-        original = {
-            "id": "example",
-            "family": "compiler",
-            "path": root / "main.jai",
-            "mode_contracts": {
-                "wasm-interp": {
-                    "mode": "check-fail",
-                    "diagnostic_contains": "precise rejection",
-                }
-            },
-            "peer_metadata": {"preserved": True},
-        }
-        with patch.object(browser, "validated_entries", return_value=[original]):
-            selected = browser.browser_cases(root)[0]
-        self.assertEqual(selected["mode"], "check-fail")
-        self.assertEqual(selected["diagnostic_contains"], "precise rejection")
-        self.assertIsNone(selected["browser_unavailable_reason"])
-        self.assertEqual(selected["path"], "main.jai")
-        self.assertEqual(selected["peer_metadata"], {"preserved": True})
-        self.assertNotIn("mode", original)
 
     def test_explicit_capability_os_cpu_and_family_policy_precedes_execution(self):
         root = Path("/own/workspace")
@@ -83,30 +60,17 @@ class BrowserPolicy(unittest.TestCase):
 
     def test_actual_admitted_catalogue_preserves_controls_and_required_negatives(self):
         cases = {case["id"]: case for case in browser.browser_cases()}
-        negative = cases["Extensions/Http/tests/date-now-wasm"]
+        negative = cases["compiler/negative/inserted-procedure-called"]
         self.assertEqual(negative["mode"], "check-fail")
         self.assertIsNone(negative["browser_unavailable_reason"])
-        self.assertIn("http_date_now", negative["diagnostic_contains"])
-        for name in (
-            "Extensions/Http/tests/date-target",
-            "Ico_File/tests/resource-wire",
-            "compiler/foundations-portable-compile-time",
-        ):
-            self.assertIsNone(cases[name]["browser_unavailable_reason"], name)
-        self.assertTrue(cases["Ico_File/tests/resource"]["browser_unavailable_reason"])
-
-    def test_invalid_mode_contracts_are_errors_not_unavailable(self):
-        case = {
-            "id": "example",
-            "family": "compiler",
-            "path": Path("/own/main.jai"),
-            "mode_contracts": {"wasm-interp": {"mode": "check-fail"}},
-        }
-        with (
-            patch.object(browser, "validated_entries", return_value=[case]),
-            self.assertRaises(ValueError),
-        ):
-            browser.browser_cases(Path("/own"))
+        self.assertIn("Missing_Buffer", negative["diagnostic_contains"])
+        self.assertIsNone(
+            cases["compiler/foundations-portable-compile-time"]["browser_unavailable_reason"]
+        )
+        # Native services are declared per case, not for a whole family.
+        self.assertTrue(
+            cases["compiler/socket-select-canonical-timeval"]["browser_unavailable_reason"]
+        )
 
 
 if __name__ == "__main__":

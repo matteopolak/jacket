@@ -6,13 +6,7 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from stdlib.stdlib_coverage import code_lines, declarations
-from stdlib.stdlib_runtime import (
-    contract_result,
-    run_mode,
-    program_arguments,
-    runtime_prefix,
-)
+from stdlib.stdlib_runtime import contract_result, run_mode
 from stdlib.stdlib_test_catalog import validated_entries, unavailable_reason
 
 
@@ -33,20 +27,6 @@ class CatalogueTests(unittest.TestCase):
                 {"compiler/actual", "Real/tests/actual"},
             )
 
-    def test_cocoa_unit_receives_its_actual_default_configuration(self):
-        case = next(
-            c
-            for c in validated_entries()
-            if c["id"] == "Clipboard/tests/cocoa-operations"
-        )
-        self.assertEqual(program_arguments(case, ".", {}), ["enabled"])
-        self.assertEqual(case["required_os"], "macos")
-
-    def test_mac_clipboard_requires_a_restoration_guard(self):
-        with self.assertRaises(ValueError):
-            runtime_prefix({"clipboard_guard": True}, {}, "darwin")
-        self.assertEqual(runtime_prefix({}, {}, "darwin"), [])
-
     def test_native_platform_requirement_is_not_a_success(self):
         case = {"family": "modules", "required_os": "windows"}
         self.assertIsNotNone(unavailable_reason(case, "native", "macos-arm64"))
@@ -56,25 +36,10 @@ class CatalogueTests(unittest.TestCase):
         self.assertIsNone(unavailable_reason(case, "native", "macos-arm64"))
         self.assertIsNotNone(unavailable_reason(case, "native", "windows-x64"))
 
-    def test_prepared_inputs_are_real_and_isolated(self):
-        with TemporaryDirectory() as temporary:
-            directory = program_arguments(
-                {"id": "resource", "input": "scratch-directory"}, temporary, {}
-            )[0]
-            self.assertTrue(Path(directory).is_dir())
-            file = program_arguments(
-                {"id": "io", "input": "scratch-file"}, temporary, {}
-            )[0]
-            self.assertTrue(Path(file).parent.is_dir())
-            self.assertFalse(Path(file).exists())
-            self.assertNotEqual(Path(file).parent, Path(directory))
-            with self.assertRaises(ValueError):
-                program_arguments({"id": "glyph", "input": "font"}, temporary, {})
-
     def test_reviewed_and_independent_families_are_discovered(self):
         cases = validated_entries()
-        self.assertEqual({c["family"] for c in cases}, {"compiler", "modules"})
-        self.assertTrue(any(c["id"].startswith("Hash/tests/") for c in cases))
+        # Module tests run under `jacket test`, so only the compiler regressions are left.
+        self.assertEqual({c["family"] for c in cases}, {"compiler"})
         self.assertTrue(
             any(c["id"] == "compiler/array-bounds-check-opt-out" for c in cases)
         )
@@ -148,37 +113,21 @@ class CatalogueTests(unittest.TestCase):
                 )
                 self.assertIs(passed, False, detail)
 
+    def test_nonzero_stdout_contract_is_supported_generally(self):
+        case = {"exit_code": 23, "stdout": "done\n", "stderr": ""}
+        self.assertTrue(contract_result(case, 23, "done\n", ""))
+        self.assertFalse(contract_result(case, 0, "done\n", ""))
+        self.assertFalse(contract_result(case, 23, "done\n", "extra"))
 
-class CoverageParserTests(unittest.TestCase):
-    def test_comments_and_strings_are_blanked(self):
-        lines = code_lines(
-            'x :: "a { b"; // c :: () {}\n/* d :: () {} */ e :: 1;\n#string END\nf :: () {}\nEND\ng :: 2;'
-        )
-        self.assertEqual(lines[0].strip(), 'x :: "";')
-        self.assertEqual(lines[1].strip(), "e :: 1;")
-        self.assertEqual(lines[3], "")
-        self.assertEqual(lines[5], "g :: 2;")
-
-    def test_public_procedures_follow_scopes_loads_and_ifs(self):
-        with TemporaryDirectory() as d:
-            root = Path(d)
-            (root / "part.jai").write_text("loaded :: () {}\n")
-            (root / "module.jai").write_text(
-                '#load "part.jai";\n'
-                "public :: (x: int) -> int { return x; }\n"
-                "#if OS == .LINUX {\n    in_if :: () {\n        nested :: () {}\n    }\n}\n"
-                "foreign :: () #foreign libc;\n"
-                "header :: (a: int,\n    b: int) {\n}\n"
-                "macro :: () #expand {}\n"
-                "Type :: #type () -> int;\n"
-                "#scope_file\nhidden :: () {}\n"
-            )
-            found = {p["name"]: p for p in declarations(root / "module.jai", set())}
-            self.assertEqual(
-                sorted(found), ["header", "in_if", "loaded", "macro", "public"]
-            )
-            self.assertTrue(found["macro"]["macro"])
-            self.assertEqual(found["header"]["line"], 9)
+    def test_ordinary_positive_and_precise_negative_contracts_are_preserved(self):
+        self.assertTrue(contract_result({}, 0, "ordinary output", ""))
+        self.assertFalse(contract_result({}, 37, "ordinary output", ""))
+        self.assertTrue(contract_result({"stdout": "ok\n"}, 0, "ok\n", ""))
+        self.assertFalse(contract_result({"stdout": "ok\n"}, 1, "ok\n", ""))
+        case = {"mode": "check-fail", "diagnostic_contains": "needs fibers"}
+        self.assertTrue(contract_result(case, 1, "", "needs fibers"))
+        self.assertFalse(contract_result(case, 1, "", "unrelated compiler failure"))
+        self.assertFalse(contract_result(case, 0, "", "needs fibers"))
 
 
 if __name__ == "__main__":

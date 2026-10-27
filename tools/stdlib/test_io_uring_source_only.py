@@ -12,21 +12,10 @@ from unittest.mock import patch
 
 from ci.ci_test_scratch import assigned_scratch
 from stdlib import stdlib_runtime as runtime
-from stdlib.stdlib_test_catalog import validated_entries
 from toolkit.repo import ROOT
 
 
 class IoUringSourceOnly(unittest.TestCase):
-    def test_only_authored_source_reducer_gets_source_only_metadata(self):
-        cases = {c["id"]: c for c in validated_entries(ROOT)}
-        self.assertIs(
-            cases["Extensions/Io_Uring/tests/dependency"].get("source_check_only"), True
-        )
-        for name in ("raw", "protocol", "initialized-nop"):
-            self.assertNotIn(
-                "source_check_only", cases["Extensions/Io_Uring/tests/" + name]
-            )
-
     def test_source_only_never_builds_or_executes_main(self):
         args = argparse.Namespace(
             jaic="metadata-only", timeout=12, coverage=None, platform="linux-x64"
@@ -36,11 +25,6 @@ class IoUringSourceOnly(unittest.TestCase):
             with (
                 self.subTest(mode=mode),
                 patch.object(runtime, "run_command", return_value=(0, "", "")) as check,
-                patch.object(
-                    runtime,
-                    "run_program",
-                    side_effect=AssertionError("main must never run"),
-                ),
             ):
                 passed, _ = runtime.run_mode(
                     args,
@@ -66,11 +50,6 @@ class IoUringSourceOnly(unittest.TestCase):
                 self.subTest(status=status),
                 patch.object(
                     runtime, "run_command", return_value=(status, "", "source error")
-                ),
-                patch.object(
-                    runtime,
-                    "run_program",
-                    side_effect=AssertionError("main must never run"),
                 ),
             ):
                 passed, _ = runtime.run_mode(
@@ -123,11 +102,6 @@ class IoUringSourceOnly(unittest.TestCase):
                     patch.object(runtime, "use_native_libs"),
                     patch.object(
                         runtime, "run_command", return_value=(compiler_status, "", "")
-                    ),
-                    patch.object(
-                        runtime,
-                        "run_program",
-                        side_effect=AssertionError("main must never run"),
                     ),
                     contextlib.redirect_stdout(io.StringIO()),
                 ):

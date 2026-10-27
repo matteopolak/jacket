@@ -8,15 +8,11 @@ from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
 
 from check_platform_io import CONTRACTS, main, run_wasm_contract, wasm_contract_reason
-from stdlib.stdlib_test_catalog import unavailable_reason, validated_entries
 from toolkit.repo import ROOT
 
-CASES = {c["id"]: c for c in validated_entries()}
 SOURCES = {name: ROOT / "stdlib" / f"{name}.jai" for name in CONTRACTS}
 NATIVE_ONLY = [n for n in CONTRACTS if wasm_contract_reason(SOURCES[n])]
 SUPPORTED = [n for n in CONTRACTS if n not in NATIVE_ONLY]
-# Contracts whose module moved to `jacket test` have no catalogue row.
-CATALOGUED_SUPPORTED = [n for n in SUPPORTED if n in CASES]
 
 
 class PlatformCapabilityTests(unittest.TestCase):
@@ -69,7 +65,7 @@ class PlatformCapabilityTests(unittest.TestCase):
             self.assertEqual(len(rows), 8)
             self.assertTrue(all(row["passed"] is None for row in rows))
 
-    def test_every_contract_is_a_catalogue_case(self):
+    def test_every_contract_has_a_source(self):
         for name, path in SOURCES.items():
             self.assertTrue(path.is_file(), name)
         self.assertTrue(NATIVE_ONLY)
@@ -118,29 +114,6 @@ class PlatformCapabilityTests(unittest.TestCase):
         self.assertEqual([r["passed"] for r in rows], [True, False, False, False])
         self.assertEqual(attempt.call_count, 5)
         self.assertTrue(all(r["status"] == "failed" for r in rows[1:]))
-
-    def test_exact_catalogue_cases_remain_required_on_native_hosts(self):
-        for name in NATIVE_ONLY:
-            if name not in CASES:
-                continue
-            case = CASES[name]
-            for mode in ("wasm-interp", "wasm-native"):
-                self.assertIsNotNone(unavailable_reason(case, mode, "linux-arm64"))
-            for host in (
-                "linux-arm64",
-                "linux-x64",
-                "windows-x64",
-                "windows-arm64",
-                "macos-arm64",
-            ):
-                for mode in ("interp", "native"):
-                    self.assertIsNone(unavailable_reason(case, mode, host))
-        # The metadata must not become a blanket native-family/module skip.
-        self.assertIsNone(
-            unavailable_reason(
-                CASES[CATALOGUED_SUPPORTED[0]], "wasm-native", "linux-arm64"
-            )
-        )
 
 
 if __name__ == "__main__":

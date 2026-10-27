@@ -3,7 +3,6 @@
 import json
 from stdlib.stdlib_test_catalog import (
     ROOT,
-    case_for_mode,
     unavailable_reason,
     validated_entries,
 )
@@ -17,9 +16,8 @@ BROWSER_HOST_CAPABILITIES = frozenset()
 
 def browser_cases(root=ROOT):
     result = []
-    for original in validated_entries(root):
-        case = case_for_mode(original, BROWSER_MODE)
-        reason = unavailable_reason(original, BROWSER_MODE)
+    for case in validated_entries(root):
+        reason = unavailable_reason(case, BROWSER_MODE)
         required_host = sorted(set(case.get("required_browser_host_capabilities", ())))
         missing_host = set(required_host) - BROWSER_HOST_CAPABILITIES
         if reason is None and missing_host:

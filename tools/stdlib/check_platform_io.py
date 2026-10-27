@@ -16,7 +16,6 @@ import subprocess
 import sys
 import time
 
-from stdlib.stdlib_test_catalog import unavailable_reason, validated_entries
 from toolkit.process import run as toolkit_run
 from toolkit.repo import ROOT, cargo_target_dir
 from repo_output import output_dir
@@ -24,8 +23,8 @@ from toolkit.cli import add_jaic_argument
 from toolkit.hashing import sha256_bytes
 
 
-# The platform programs this driver builds for Windows and runs through the Wasm checks, as ids
-# of the stdlib test catalogue (modules that `jacket test` runs are not in it).
+# The platform programs this driver builds for Windows and runs through the Wasm checks, as
+# paths below stdlib/ without the extension.
 CONTRACTS = (
     "File/tests/unicode-paths",
     "Process/tests/lifecycle",
@@ -38,10 +37,7 @@ CONTRACTS = (
 
 
 def wasm_contract_reason(source):
-    """Why `source` cannot run under Wasm, from its manifest row or its `jacket test` header."""
-    case = next((c for c in validated_entries() if c["path"] == source), None)
-    if case is not None:
-        return unavailable_reason(case, "wasm-interp")
+    """Why `source` cannot run under Wasm, from its `jacket test` header."""
     for line in source.read_text(encoding="utf-8").splitlines():
         if not line.startswith("//"):
             break

@@ -3,7 +3,7 @@
 
 Usage: tools/differential/jaic_diff.py [--backends interp,native,native-O2,wasm,wasm-native] [--wasm BUNDLE] SET...
 Sets: corpus (tests/corpus/positive cases with a runtime expectation), stdlib (reviewed positive contracts), regressions (independent compiler/Extensions/ABI/graphics),
-modules (every stdlib/**/tests directory), gen:SEED:COUNT (COUNT programs from tools/differential/jaigen.py starting at
+gen:SEED:COUNT (COUNT programs from tools/differential/jaigen.py starting at
 SEED; reproduce one with `tools/differential/jaigen.py SEED`), or file paths.
 
 Backends:
@@ -89,22 +89,17 @@ def cases(name, gen_dir, gen_size=1.0):
         for c in m["cases"]:
             if "runtime" in c:
                 yield Case(c["id"], ROOT / "tests/corpus" / c["source"])
-    elif name in ("regressions", "modules"):
+    elif name == "regressions":
         from stdlib.stdlib_test_catalog import validated_entries
 
-        wanted = "compiler" if name == "regressions" else "modules"
         for c in validated_entries():
-            if c["family"] != wanted:
+            if c["family"] != "compiler":
                 continue
             # Expected compiler rejections have precise diagnostic oracles in the runtime runner.
             # Differential execution compares successful/runtime-fault programs only.
             if c.get("mode") == "check-fail" or "error_contains" in c or c.get("interpreter_only"):
                 continue
-            if wanted == "compiler":
-                yield Case(c["id"], c["path"], ROOT / "tests/compiler/regressions")
-            else:
-                # The whole stdlib is the workspace: tests `#load` their module's files by relative path.
-                yield Case(c["id"], c["path"], ROOT / "stdlib")
+            yield Case(c["id"], c["path"], ROOT / "tests/compiler/regressions")
     elif name.startswith("gen:"):
         _, seed, count = (name.split(":") + ["1"])[:3]
         import jaigen

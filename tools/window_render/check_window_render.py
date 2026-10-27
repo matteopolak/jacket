@@ -10,11 +10,22 @@ import os
 from pathlib import Path
 import platform
 import subprocess
-from stdlib.stdlib_runtime import runtime_prefix
+import sys
 from window_render_tests import WINDOW_RENDER_TESTS
 from toolkit.repo import ROOT
 from repo_output import output_dir
 from toolkit.cli import add_jaic_argument
+
+
+def clipboard_guard(env):
+    """The macOS program that runs a clipboard test and then restores the user's clipboard
+    (`JAIC_CLIPBOARD_GUARD`, built by tools/native/ci_native_deps.sh); empty elsewhere."""
+    if sys.platform != "darwin":
+        return []
+    guard = env.get("JAIC_CLIPBOARD_GUARD")
+    if not guard or not Path(guard).is_file() or not os.access(guard, os.X_OK):
+        raise SystemExit("the macOS clipboard case needs JAIC_CLIPBOARD_GUARD to restore the clipboard")
+    return [str(Path(guard).resolve())]
 
 
 def main():
@@ -44,7 +55,7 @@ def main():
 
     def run(command, expected=None, restore_clipboard=False):
         nonlocal count
-        prefix = runtime_prefix({"clipboard_guard": restore_clipboard}, env)
+        prefix = clipboard_guard(env) if restore_clipboard else []
         child_env = dict(env, JAIC_TEST_CHILD_TIMEOUT_MS="60000") if prefix else env
         result = subprocess.run([*prefix, *map(str, command)], cwd=ROOT, env=child_env,
                                 capture_output=True, text=True, timeout=90 if prefix else 60)
