@@ -6,9 +6,9 @@
 Each case stays where it is and becomes a golden test (a program with `.stdout`/`.stderr`/`.exit` files
 beside it) or, for a check-fail row, a compile-fail test (`// test: compile_fail` and a `.stderr` that
 `jacket test --accept --exact NAME` fills in), with the row's gating as `// test:` notes on the file's
-first line (a row's `input` becomes `args(...)`; see the docs for the environment and fixture inputs). The module is added to `[test] paths` in
-jacket.toml and its manifest is deleted. The migration section of docs/tools/jacket-test.md
-says what every row key becomes.
+first line (a row's `input` becomes `args(...)`; see the docs for the environment and fixture
+inputs). The module is added to `[test] paths` in jacket.toml and its manifest is deleted. The
+migration section of docs/tools/jacket-test.md says what every row key becomes.
 
 Cases it cannot express are listed and the module is left untouched: run it again after
 converting those by hand (or leaving the module on the old runner).
