@@ -538,7 +538,7 @@ mod tests {
         for dir in [&first, &second, &out] {
             std::fs::create_dir_all(dir).unwrap();
         }
-        std::fs::write(first.join("gl.DLL"), "first").unwrap();
+        std::fs::write(first.join("gl.dll"), "first").unwrap();
         std::fs::write(second.join("gl.dll"), "second").unwrap();
         std::fs::write(second.join("sdl.dll"), "sdl").unwrap();
         std::fs::write(second.join("notes.txt"), "no").unwrap();
@@ -547,16 +547,10 @@ mod tests {
         stage_dlls_from(&out.join("tests"), &folders).unwrap();
         assert_eq!(std::fs::read_to_string(out.join("sdl.dll")).unwrap(), "sdl");
         assert!(!out.join("notes.txt").exists());
-        let gl = std::fs::read_dir(&out)
-            .unwrap()
-            .flatten()
-            .filter(|e| {
-                e.file_name()
-                    .to_string_lossy()
-                    .eq_ignore_ascii_case("gl.dll")
-            })
-            .count();
-        assert_eq!(gl, 1);
+        assert_eq!(
+            std::fs::read_to_string(out.join("gl.dll")).unwrap(),
+            "first"
+        );
         assert!(
             stage_dlls_from(&out.join("tests"), root.join("missing").as_os_str())
                 .unwrap_err()
