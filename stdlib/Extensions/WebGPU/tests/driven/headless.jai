@@ -4,8 +4,8 @@
 // which finish through callbacks. Run by CI on every platform with a (software) adapter
 // (docs/extensions/webgpu.md#tests):
 //
-//     jaic stdlib/Extensions/WebGPU/tests/headless.jai -interp                   # interpreted
-//     jaic stdlib/Extensions/WebGPU/tests/headless.jai -exe ./headless && ./headless
+//     jaic stdlib/Extensions/WebGPU/tests/driven/headless.jai -interp                   # interpreted
+//     jaic stdlib/Extensions/WebGPU/tests/driven/headless.jai -exe ./headless && ./headless
 //
 // Exit codes: 0 passed, 1 a check failed, 77 no adapter here (CI decides whether that is fine).
 // `fallback` as an argument (`jaic headless.jai -interp -- fallback`) asks for the fallback (software)

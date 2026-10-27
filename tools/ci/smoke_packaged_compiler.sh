@@ -61,7 +61,7 @@ fi
 # packaged static wgpu-native, and `jaic -interp` loads the packaged shared one (exit 77:
 # the runner has no GPU adapter, which still proves the library loaded).
 cp "$GITHUB_WORKSPACE/examples/webgpu-triangle/main.jai" triangle.jai
-cp "$GITHUB_WORKSPACE/stdlib/Extensions/WebGPU/tests/headless.jai" .
+cp "$GITHUB_WORKSPACE/stdlib/Extensions/WebGPU/tests/driven/headless.jai" .
 if [ -n "$LLVM" ]; then
   "$jaic" triangle.jai -exe triangle
   ls -l triangle$exe

@@ -549,7 +549,7 @@ jobs:
         run: bash tools/ci/stdlib_producer_suites.sh
       - name: WebGPU without a window (wgpu-native, interpreted and built)
         # Renders offscreen, runs a compute shader, uploads a texture, maps buffers and checks
-        # an error scope (stdlib/Extensions/WebGPU/tests/headless.jai). Linux has Mesa's lavapipe; the macOS
+        # an error scope (stdlib/Extensions/WebGPU/tests/driven/headless.jai). Linux has Mesa's lavapipe; the macOS
         # runners are VMs whose Metal device may be missing, so there no adapter is a skip.
         if: ${{ always() && !cancelled() && matrix.shard == 'suites' }}
         run: |
@@ -557,7 +557,7 @@ jobs:
           [[ "$RUNNER_OS" == Linux ]] && require=(--require-adapter)
           python3 -u tools/bindings/run_webgpu_native.py --jaic target/debug/jaic "${require[@]}"
       - name: WebGPU in a window (surface, configure, present, read back)
-        # stdlib/Extensions/WebGPU/tests/window.jai opens a Window_Creation window and presents frames to its
+        # stdlib/Extensions/WebGPU/tests/driven/window.jai opens a Window_Creation window and presents frames to its
         # surface: on Linux an X11 surface on Xvfb, presented by lavapipe through Vulkan's Xlib WSI.
         if: ${{ always() && !cancelled() && matrix.shard == 'suites' }}
         run: |
@@ -1239,11 +1239,11 @@ jobs:
           python -u tools/native/check_windows_d3dcompiler_provider.py --jaic $env:JAIC --stdlib stdlib --import-library "$importLibrary" --report "target/d3dcompiler-$env:CPU/provider.json"
           if ($LASTEXITCODE -ne 0) { throw 'D3DCompiler provider interpreter/native check failed' }
       - name: WebGPU without a window (wgpu-native on D3D12's WARP adapter)
-        # stdlib/Extensions/WebGPU/tests/headless.jai interpreted and built; docs/extensions/webgpu.md#tests.
+        # stdlib/Extensions/WebGPU/tests/driven/headless.jai interpreted and built; docs/extensions/webgpu.md#tests.
         if: ${{ !cancelled() && matrix.part == 'graphics' }}
         run: python -u tools/bindings/run_webgpu_native.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --require-adapter
       - name: WebGPU in a window (HWND surface on WARP, presented)
-        # stdlib/Extensions/WebGPU/tests/window.jai: a Window_Creation window in the runner's interactive desktop
+        # stdlib/Extensions/WebGPU/tests/driven/window.jai: a Window_Creation window in the runner's interactive desktop
         # session, a DXGI swap chain through wgpu-native's D3D12 backend, frames read back.
         if: ${{ !cancelled() && matrix.part == 'graphics' }}
         run: python -u tools/bindings/run_webgpu_native.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --require-adapter --test window --frames 120

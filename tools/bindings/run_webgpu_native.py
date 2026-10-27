@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run stdlib/Extensions/WebGPU/tests/headless.jai (or, with --test window, stdlib/Extensions/WebGPU/tests/window.jai) natively:
+"""Run stdlib/Extensions/WebGPU/tests/driven/headless.jai (or, with --test window, stdlib/Extensions/WebGPU/tests/driven/window.jai) natively:
 interpreted (`jaic -interp`, which loads the shared wgpu-native) and built (`jaic`, which links
 the static one), on this host's GPU or a software adapter (Mesa's lavapipe on Linux, WARP on
 Windows).
@@ -30,7 +30,7 @@ from fetch_wgpu_native import fetch
 from toolkit.repo import ROOT
 
 TESTS = {
-    name: ROOT / "stdlib/Extensions/WebGPU/tests" / f"{name}.jai"
+    name: ROOT / "stdlib/Extensions/WebGPU/tests/driven" / f"{name}.jai"
     for name in ("headless", "window")
 }
 NO_ADAPTER = 77

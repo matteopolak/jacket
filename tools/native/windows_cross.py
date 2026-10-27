@@ -76,8 +76,6 @@ WINDOWS_HOST_LIBRARY_CASES = frozenset(
         "Extensions/SDL3/tests/callbacks",
         "Extensions/SDL3/tests/entry",
         "Extensions/SDL3/tests/headless",
-        "Extensions/WebGPU/tests/headless",
-        "Extensions/WebGPU/tests/window",
         "Runtime_Support_Crash_Handler/tests/windows-native-sections",
         "Runtime_Support_Crash_Handler/tests/windows-records",
         "SDL/tests/geometry-timer",
