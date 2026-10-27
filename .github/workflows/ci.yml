@@ -1341,9 +1341,9 @@ jobs:
         run: |
           jacket="$(dirname "$JAIC")/jacket.exe"
           status=0
-          "$jacket" test -q --partition "hash:${{ matrix.shard }}" || status=1
-          "$jacket" test -q --partition "hash:${{ matrix.shard }}" --interp || status=1
-          "$jacket" test -q --partition "hash:${{ matrix.shard }}" -- -O2 || status=1
+          "$jacket" test -q --needs display --partition "hash:${{ matrix.shard }}" || status=1
+          "$jacket" test -q --needs display --partition "hash:${{ matrix.shard }}" --interp || status=1
+          "$jacket" test -q --needs display --partition "hash:${{ matrix.shard }}" -- -O2 || status=1
           exit $status
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ always() && !cancelled() }}
