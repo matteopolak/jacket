@@ -123,6 +123,7 @@ windows_thread_entry :: (data: *void) -> u32 #c_call {
     state := cast(*Thread_State) data;
     thread := state.thread;
 
+    Windows_Stack.reserve();
     Crash.attach_thread();
 
     push_context thread.starting_context {

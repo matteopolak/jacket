@@ -13,6 +13,7 @@ else P :: #import "internal/bindings/posix-api";
 #if OS == .MACOS M :: #import "internal/thread/native-macos";
 
 Crash :: #import "Runtime_Support_Crash_Handler";
+#if OS == .WINDOWS Windows_Stack :: #import "internal/runtime/windows-stack-guarantee";
 
 THREAD_DEBUG :: #exists(DEBUG) && DEBUG;
 #assert !THREAD_DEBUG;

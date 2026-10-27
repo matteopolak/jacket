@@ -65,6 +65,7 @@ Default_Allocator :: #import "Default_Allocator";
 program_entry :: () -> s32 #entry_point;
 
 #if OS == .WINDOWS Windows_Arguments :: #import "internal/runtime/windows-arguments";
+#if OS == .WINDOWS Windows_Stack :: #import "internal/runtime/windows-stack-guarantee";
 
 #if DEFINE_SYSTEM_ENTRY_POINT && ENABLE_BACKTRACE_ON_CRASH {
     Crash :: #import "Runtime_Support_Crash_Handler";
@@ -75,6 +76,8 @@ program_entry :: () -> s32 #entry_point;
     #program_export "main"
     runtime_entry :: (argc: s32, argv: **u8) -> s32 #c_call #no_debug {
         #if OS == .WINDOWS {
+            Windows_Stack.reserve();
+
             arguments, acquired := Windows_Arguments.acquire();
             if !acquired {
                 write_string("Windows command line conversion failed\n", true);
