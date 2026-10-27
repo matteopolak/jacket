@@ -1,0 +1,4 @@
+private-mutex.jai:5:17: error: unknown identifier `sound_mutex`
+        pointer := *sound_mutex;
+                    ^^^^^^^^^^^
+

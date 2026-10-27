@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Original reduction of the production client-context diagnostic. Compile and
 // interpreter accept the App overload; lint must not encode its handler as a
 // client POST payload while inspecting a rejected candidate.

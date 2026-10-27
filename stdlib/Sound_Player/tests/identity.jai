@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 #import "Basic";
 #import "Sound_Player";
 Again :: #import "Sound_Player";

@@ -1,0 +1,4 @@
+$STDLIB/internal/hash/meow/registers.jai:4:5: error: #assert failed: `INDEX >= 0 && INDEX < 2` is false
+        #assert INDEX >= 0 && INDEX < 2;
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+

@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // HTTPS: the client and the server over TLS on loopback, with the test CA of Extensions/Tls
 // (../../Tls/tests/data): a round trip, keep-alive across requests, certificate failures, client
 // certificates, ALPN, handshakes that never finish, idle connections holding no read buffer, large

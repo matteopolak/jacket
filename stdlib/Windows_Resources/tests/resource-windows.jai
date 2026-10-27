@@ -1,3 +1,4 @@
+// test: only(.WINDOWS) args("${JAIC_TEST_WINDOWS_RESOURCE_DIR}")
 // Library-owned native test entry: uses private mechanics without exporting test APIs.
 #import "Basic";
 F :: #import "File";

@@ -1,3 +1,4 @@
+// test: only(.LINUX,.MACOS) skip_on(.WASM)
 #import "Basic";
 C :: #import "Runtime_Support_Crash_Handler";
 P :: #import "POSIX";

@@ -1,3 +1,4 @@
+// test: check_only
 #import "Basic";
 #if OS == .WINDOWS C :: #import "Runtime_Support_Crash_Handler";
 

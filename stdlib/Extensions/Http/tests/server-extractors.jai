@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Every extractor through the test client (no socket), with the errors they give: Path, Params, Rest, Query,
 // Json, Form, Header, Header_Optional, *Body, *Request and *State.
 #load "support/server_support.jai";

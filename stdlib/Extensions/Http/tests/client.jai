@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // The client against the server and against hand-made servers: the body readers and their
 // errors, how a response holds and releases its connection, the pool (reuse, eviction, stale
 // connections), redirects, timeouts, refused connections, https URLs and URL errors, chunked and

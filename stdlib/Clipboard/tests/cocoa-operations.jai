@@ -1,3 +1,4 @@
+// test: only(.MACOS) args("enabled") serial
 // Native SDK unit: a uniquely named pasteboard, never the user's general board.
 #load "../../internal/clipboard/cocoa.jai";
 

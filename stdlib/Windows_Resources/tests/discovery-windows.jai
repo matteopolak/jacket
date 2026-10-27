@@ -1,3 +1,4 @@
+// test: only(.WINDOWS) check_only
 #import "Basic";
 R :: #import "Windows_Resources";
 F :: #import "File";

@@ -1,3 +1,4 @@
+// test: should_fail("MeowHash invalid source/length")
 M :: #import "meow_hash";
 
 main :: () {

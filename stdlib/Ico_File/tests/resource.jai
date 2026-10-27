@@ -1,3 +1,4 @@
+// test: skip_on(.WASM) args("$TEMP")
 #import "Basic";
 F :: #import "File";
 I :: #import "Ico_File";

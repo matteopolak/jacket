@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Request bodies read by the handler (`*Body`: `read`, `read_all`, `read_json`), the per-route
 // body limit, bodies a handler leaves unread, `created`, and streamed responses
 // (`stream_response`, `file_response`).

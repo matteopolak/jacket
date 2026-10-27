@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // The test client (test_client.jai) and the expectations (expect.jai): an app driven in memory
 // through its real connection loop, outside and inside a scheduler, over a socket too, and the
 // wording of what a failed expectation prints.

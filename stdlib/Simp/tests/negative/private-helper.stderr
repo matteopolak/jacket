@@ -1,0 +1,4 @@
+private-helper.jai:5:5: error: unknown identifier `pack_bitmap`
+        pack_bitmap(null);
+        ^^^^^^^^^^^
+

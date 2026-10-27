@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 #import "Basic";
 Http :: #import "Extensions/Http";
 

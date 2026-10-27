@@ -1,3 +1,4 @@
+// test: only(.MACOS) skip_on(.WASM) serial
 // Reviewed Clipboard API; UTF-8 and embedded NUL use explicit byte lengths.
 #import "Basic";
 #import "Clipboard";

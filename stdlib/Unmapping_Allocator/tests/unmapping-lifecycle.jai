@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Reviewed portable lifecycle; Windows additionally checks actual SDK page states.
 #import "Basic";
 U :: #import "Unmapping_Allocator";

@@ -1,3 +1,4 @@
+// test: skip_on(.WASM) should_fail("audio sample input/channel range invalid")
 A :: #import "Sound_Player";
 
 main :: () {

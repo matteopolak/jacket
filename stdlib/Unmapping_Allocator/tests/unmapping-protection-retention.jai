@@ -1,5 +1,9 @@
+// test: only(.MACOS) skip_on(.WASM) args("enabled")
 // Independent SDK ownership regression; no reads through the protected pointer.
-// TEST_VM names the own source-built Mach test helper supplied by the runner.
+// TEST_VM is the source-built Mach test helper (native/unmapping-protection.c), found through
+// JAIC_NATIVE_LIBS.
+TEST_VM :: #library "unmapping_protection";
+
 #import "Basic";
 U :: #import "Unmapping_Allocator";
 H :: #import "Hash_Table";

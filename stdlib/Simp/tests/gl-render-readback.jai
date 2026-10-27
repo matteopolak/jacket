@@ -1,3 +1,4 @@
+// test: skip_on(.WASM) serial
 // Simp's OpenGL backend in a real window: triangles, fans, textured quads and text drawn into a render-target texture are read back and checked pixel by pixel;
 // the window itself is prepared, cleared, presented and remeasured. Fonts come from the operating system (no font ships with
 // the repository); without one the text part is left out. Needs OpenGL 3.3 (Windows CI runners

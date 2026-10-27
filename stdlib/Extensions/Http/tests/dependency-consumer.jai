@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Real enclosing consumer for contextual lint of Http's loaded dependencies.
 #import "Basic";
 Http :: #import "Extensions/Http";

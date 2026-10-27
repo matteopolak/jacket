@@ -1,3 +1,4 @@
+// test: only(.LINUX,.MACOS) skip_on(.WASM)
 #import "Basic";
 U :: #import "Unmapping_Allocator";
 P :: #import "POSIX";

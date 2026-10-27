@@ -1,3 +1,4 @@
+// test: compile_fail only(.WASM)
 Http :: #import "Extensions/Http";
 
 // Reviewed native adapter only; a WASM request must diagnose the missing export.

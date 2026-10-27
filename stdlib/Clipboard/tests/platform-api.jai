@@ -1,3 +1,4 @@
+// test: skip_on(.WASM) serial
 #import "Basic";
 #import "Clipboard";
 

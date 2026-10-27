@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 #import "Basic";
 #import "Math";
 S :: #import "Simp";

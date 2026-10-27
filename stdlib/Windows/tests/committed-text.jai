@@ -1,3 +1,4 @@
+// test: only(.WINDOWS)
 #import "Basic";
 I :: #import "Input";
 W :: #import "Windows";

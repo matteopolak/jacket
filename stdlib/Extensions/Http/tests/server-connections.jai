@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Connections: keep-alive, pipelining, bodies in pieces and chunked, limits (body, head, request
 // line), timeouts (head, body, idle), Expect: 100-continue, malformed requests, the request cap
 // per connection and graceful shutdown.

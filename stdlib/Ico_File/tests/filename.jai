@@ -1,3 +1,4 @@
+// test: only(.LINUX,.MACOS) skip_on(.WASM) args("$DIR/ico-fixtures","$TEMP")
 #import "Basic";
 I :: #import "Ico_File";
 F :: #import "File";
@@ -12,7 +13,8 @@ capture :: (message: string, data: *void, info: Log_Info) {
 main :: () {
     args := get_command_line_arguments();
 
-    assert(args.count == 2);
+    // args[1] holds the input bitmaps (read-only, in the repository); args[2] is a folder to write to.
+    assert(args.count == 3);
     bitmap := sprint("%/bitmap-ü.bmp", args[1]);
 
     defer free(bitmap);
@@ -21,7 +23,7 @@ main :: () {
     defer free(encoded);
     assert(encoded[4] == 5);
     assert(encoded[126] == 30 && encoded[127] == 20 && encoded[128] == 10 && encoded[129] == 255);
-    path := sprint("%/filename.ico", args[1]);
+    path := sprint("%/filename.ico", args[2]);
 
     defer free(path);
     assert(F.write_entire_file(path, encoded));
@@ -45,7 +47,7 @@ main :: () {
     for byte, index: expected assert(gradient[offset + 40 + index] == byte);
 
     missing := sprint("%/absent-ü.bmp", args[1]);
-    malformed := sprint("%/invalid.bmp", args[1]);
+    malformed := sprint("%/invalid.bmp", args[2]);
 
     defer free(missing);
     defer free(malformed);

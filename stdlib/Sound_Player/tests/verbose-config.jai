@@ -1,3 +1,4 @@
+// test: only(.LINUX,.MACOS) skip_on(.WASM)
 #import "Basic";
 Verbose :: #import "Sound_Player"(VERBOSE = true);
 Silent :: #import "Sound_Player";

@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 #import "Basic"()(MEMORY_DEBUGGER = true, VISUALIZE_MEMORY_DEBUGGER = false);
 H :: #import "Extensions/Http";
 

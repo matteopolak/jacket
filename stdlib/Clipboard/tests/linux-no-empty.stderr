@@ -1,0 +1,5 @@
+linux-no-empty.jai:5:7: error: module `Clipboard` has no exported member `os_clipboard_empty`
+        C.os_clipboard_empty();
+          ^^^^^^^^^^^^^^^^^^
+help: a member with a similar name exists: `os_clipboard_get_text`
+

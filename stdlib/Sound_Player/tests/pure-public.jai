@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Pure Sound_Player contracts; this case does not initialize a native audio device.
 #import "Basic";
 Sound_Player :: #import "Sound_Player";

@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Reviewed pool.md allocator selection/reset/ownership contracts.
 #import "Basic";
 P :: #import "Pool"(USE_UNMAPPING_ALLOCATOR = true);

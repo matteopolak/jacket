@@ -1,3 +1,4 @@
+// test: only(.WINDOWS)
 #import "Basic";
 C :: #import "Compiler";
 R :: #import "Windows_Resources";

@@ -1,3 +1,4 @@
+// test: only(.LINUX,.MACOS) skip_on(.WASM)
 #import "Basic"()(ENABLE_ASSERT = false);
 #import "File";
 #import "Sound_Player";

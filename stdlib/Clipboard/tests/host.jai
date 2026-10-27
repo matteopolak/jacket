@@ -1,3 +1,4 @@
+// test: only(.MACOS,.WINDOWS) skip_on(.WASM) serial
 #import "Basic";
 C :: #import "Clipboard";
 

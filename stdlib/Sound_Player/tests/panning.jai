@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 #import "Basic";
 #import "Math";
 #import "Sound_Player";

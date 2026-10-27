@@ -1,3 +1,4 @@
+// test: only(.WINDOWS) skip_on(.WASM,.INTERP)
 // Native-executable assertions: compiled code/globals must really be PE sections.
 #assert OS == .WINDOWS;
 

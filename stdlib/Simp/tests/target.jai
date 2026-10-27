@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 // Canonical dependency check, independent of GetRect and rendering callbacks.
 S :: #import "Simp";
 #import "Basic";

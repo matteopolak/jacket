@@ -1,0 +1,5 @@
+date-now-wasm.jai:7:18: error: module `Extensions/Http` has no exported member `http_date_now`
+        text := Http.http_date_now(*cache); // jailint: allow(unused_variable) the call itself is what must be diagnosed
+                     ^^^^^^^^^^^^^
+help: a member with a similar name exists: `http_date`
+

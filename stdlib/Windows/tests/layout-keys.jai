@@ -1,3 +1,4 @@
+// test: only(.WINDOWS) skip_on(.INTERP)
 #import "Basic";
 W :: #import "Windows";
 WC :: #import "Window_Creation";

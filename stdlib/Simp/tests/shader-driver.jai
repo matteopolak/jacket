@@ -1,3 +1,4 @@
+// test: only(.MACOS) skip_on(.WASM)
 #import "Basic";
 S :: #import "Simp";
 GL :: #import "GL";

@@ -1,3 +1,4 @@
+// test: only(.LINUX) check_only
 #import "Clipboard";
 #import "Basic";
 X :: #import "X11";

@@ -1,3 +1,4 @@
+// test: skip_on(.WASM)
 #import "Basic";
 #import "Sound_Player"; // jailint: allow(unused_import) only the Windows branch uses it
 

@@ -1,3 +1,4 @@
+// test: only(.WINDOWS)
 // Original native SDK probe: prints actual driver identity and each failure stage.
 // No version override, GL substitute, skipped rendering assertion or hidden retry.
 #import "Basic";
