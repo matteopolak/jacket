@@ -1090,7 +1090,7 @@ test_pool :: () {
     assert(scalar(killer, tprint("select pg_terminate_backend(%)", dead_pid), bool));
     Pg.release(pool, killer);
     pool.settings.health_check_after = 0;
-    Io.sleep(50);
+    wait_for_exit(dead_pid);
     // Both idle now; the newest (killer) comes first, then the dead one is checked and dropped.
     first := acquire_ok(pool);
     second := acquire_ok(pool);
@@ -1141,6 +1141,26 @@ pool_waiter :: () {
     c, error := Pg.acquire(waiting_pool);
     assert_ok(error, "acquire while waiting");
     waiter_got = c;
+}
+
+// Waits until the server has finished a terminated backend. A backend on its way out does not
+// answer, and keeps its socket open while it removes its temporary tables (slow on a busy server),
+// so a health check of its connection would run into the borrower's deadline.
+wait_for_exit :: (pid: s32) {
+    watcher := connect_ok(config_for("postgres"));
+
+    defer Pg.close(watcher);
+
+    for 1..500 {
+        if scalar(watcher, tprint("select count(*) from pg_stat_activity where pid = %", pid), s64) == 0 {
+            Io.sleep(20); // the socket closes just after the backend leaves the list
+            return;
+        }
+
+        Io.sleep(10);
+    }
+
+    assert(false, "backend % did not exit", pid);
 }
 
 acquire_ok :: (pool: *Pg.Pool) -> *Pg.Connection {
