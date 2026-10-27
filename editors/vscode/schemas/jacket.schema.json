@@ -785,6 +785,16 @@
               "default": "allow",
               "markdownDescription": "a module writes to the program's output (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#print_in_module)"
             },
+            "push_in_static_if": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "warn",
+              "markdownDescription": "a scoped push directly in an `#if` arm, which lasts past the arm (default `warn`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#push_in_static_if)"
+            },
             "range_past_count": {
               "type": "string",
               "enum": [

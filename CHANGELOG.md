@@ -11,6 +11,7 @@
 - `file_response` and `stream_response` send a file or pushed chunks without buffering the body.
 - `created(value, location)` answers 201 with an optional `Location` header.
 - `serve` and `start` return a `Serve_Error` that says why a server did not start.
+- `jailint` warns about `push_allocator` placed directly in an `#if` arm, where it lasts to the end of the procedure (`push_in_static_if`). Mark your own scoped-push macros with `@PushesContext`.
 
 ### Improved
 

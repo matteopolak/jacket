@@ -110,6 +110,7 @@ rules! {
     pub(crate) platform_leak,
     pointer_into_resizable,
     print_in_module,
+    push_in_static_if,
     range_past_count,
     redundant_alias,
     redundant_deref,

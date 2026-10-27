@@ -97,10 +97,10 @@ push_allocator :: (allocator: Allocator) #expand #no_debug {
     previous_allocator := context.allocator;
     context.allocator = allocator;
     `defer context.allocator = previous_allocator;
-}
+} @PushesContext
 
 push_allocator :: (proc: Allocator_Proc, data: *void) #expand #no_debug {
     previous_allocator := context.allocator;
     context.allocator = Allocator.{ proc, data };
     `defer context.allocator = previous_allocator;
-}
+} @PushesContext

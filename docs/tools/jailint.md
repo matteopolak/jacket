@@ -57,6 +57,7 @@ Several rules decide what a call means from a note on the procedure's declaratio
 | `@Locks` | `unpaired_lock` | takes the lock its first argument names (`lock(*mutex)`); a procedure with this note is a wrapper and is not checked itself |
 | `@Unlocks` | `unpaired_lock` | gives back the lock its first argument names |
 | `@AssertsArgument` | `assert_constant` | stops the program unless its first argument is true (the library's `assert`) |
+| `@PushesContext` | `push_in_static_if` | a macro that changes the context and restores it when the caller's scope ends (`push_allocator`) |
 | `@WritesOutput` | `print_in_module` | writes to the program's standard output or error (`print`, `write_string`, `write_strings`, `write_builder`) |
 | `@Exits` | `exit_in_module` | ends the process (`exit`) |
 | `@PrintLike` | `leaked_temporary` | its `string` parameter is a format string, followed by the values it formats (`print`, `log`, `sprint`, `tprint`) |
@@ -162,6 +163,7 @@ Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comme
 | `platform_leak` | restriction | allow | no | `#import "POSIX";` in code held to every operating system: it fails to compile on Windows |
 | `pointer_into_resizable` | suspicious | warn | no | `p := *xs[i]; array_add(*xs, v); use(p);`: a pointer into a resizable array used after the array may have moved |
 | `print_in_module` | restriction | allow | no | `print(...)` or `write_string(...)` in a file that belongs to a module |
+| `push_in_static_if` | suspicious | warn | no | `push_allocator(a);` directly in an `#if` arm: it lasts to the end of the procedure, not the arm |
 | `range_past_count` | correctness | deny | editor | `for i: 0..xs.count` indexing `xs[i]`: one past the end |
 | `redundant_alias` | complexity | warn | yes | a local only copied into another local (`a := f(); b := a;`) or returned right away |
 | `redundant_cast` | complexity | warn | yes | a cast to the type the value already has |
@@ -344,6 +346,8 @@ Code meant to build everywhere that imports a module asserting an operating syst
 A resizable array that outgrows its storage gets a new block and frees the old one, so a pointer taken into the old block dangles. Fires on a local initialised with the address of an element (`p := *xs[i];`, `*xs[i].field`) or with the pointer a growing call returns (`p := array_add(*xs);`) when a later statement of the same block calls a `@GrowsArray` procedure on the same array and a statement after it mentions `p`; and on the iterator of `for *xs` when a statement of the body grows `xs` and a later one mentions the iterator. Arrays are compared as written. Growing inside a by-value `for xs` is fine (each iteration reads the count and data again), and the rule is quiet when the growing statement can leave the block (`return`, `break`, `continue`, `remove`) or the pointer is assigned a new value. A pointer that is still valid because the array was reserved first is reported too; take it again after growing, or keep the index. No fix.
 ### print_in_module
 A file belongs to a module when it or a directory above it holds a `module.jai`, with no `tests` or `test` folder in between (those hold programs that use the module). A call is reported when the procedure it calls has the `@WritesOutput` note (the library's `print`, `write_string`, `write_strings` and `write_builder`). A library does not know where output belongs: return the text or log it, and let the program print. Programs, macros and generated files are not checked. No fix.
+### push_in_static_if
+`#if` adds no scope, so `push_allocator(a);` directly in an `#if` or `#else` arm lasts to the end of the enclosing block or procedure, not the arm. Fires on a call of a `@PushesContext` procedure (a macro that changes the context and restores it with a backtick `defer`; the library's `push_allocator` carries it) and on `push_context,defer_pop`. A push inside a nested `{ }` block of the arm, or outside any `#if`, is fine. Macros are not checked. No fix: the block must cover the code the push was meant for.
 ### range_past_count
 Ranges include their end. Quiet when the body mentions `xs.count` (it may guard the index). The `- 1` fix changes behaviour, so it is editor-only.
 ### redundant_alias
