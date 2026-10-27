@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.30.0] - 2026-10-27
 
 ### New
 
@@ -12,6 +12,11 @@
 - `created(value, location)` answers 201 with an optional `Location` header.
 - `serve` and `start` return a `Serve_Error` that says why a server did not start.
 - `jailint` warns about `push_allocator` placed directly in an `#if` arm, where it lasts to the end of the procedure (`push_in_static_if`). Mark your own scoped-push macros with `@PushesContext`.
+- `jacket bench` runs `@bench` procedures and compares results against saved baselines, with intervals and allocation counts.
+- `black_box` keeps the compiler from optimizing away a value in a benchmark.
+- `jaic -doc_comments` prints a library's doc comments.
+- `jacket test` takes `compile_fail("text")` to match an expected error by substring, and `JACKET_TEST_DLLS` to put DLLs next to Windows test programs.
+- `JACKET_CHECK_TIME_LIMIT` changes the default check time limit of `jailint` and the language server.
 
 ### Improved
 
@@ -21,11 +26,19 @@
 - `Expect: 100-continue` is answered when the handler first reads the body, so a refused request never uploads.
 - The HTTP server documentation gives the measured memory per idle connection (about 22 KiB for a plain route, 37 KiB for a JSON route).
 - `jacket test` finds tests and builds them in one compile in every mode; `--list` and `--interp -os wasm` no longer check the tests first. The Discovery plugin takes no options.
+- Faster Json decoding of short strings, faster Hash_Map iteration, string keys and growth, and faster Postgres row fetches.
+- Small `inline` procedures are inlined across modules in optimized builds.
+- Idle fibers and idle HTTP connections give their unused stack memory back to the system.
+- `jaifmt` reads each `jacket.toml` once, so formatting a large tree is much faster.
+- `jailint` shows where and why a program stopped compiling.
+- Plugin programs run under `-interp`.
 
 ### Fixed
 
 - Server notices of the Postgres client go to standard error by default, not standard output.
 - Static `#if` arms inside a polymorphic procedure are no longer greyed out.
+- Fibers and deep recursion no longer crash with an access violation on some Windows machines.
+- Member completion offers the members of every instance of a polymorphic struct, and auto-import follows `using` re-exports.
 
 ### Breaking changes
 
