@@ -10,6 +10,10 @@
 # if any test failed.
 set -e
 ulimit -c 0
+# The sweep's options (SANITIZER_ENV in tools/differential/jaic_sweep.py): leaks are not reported,
+# every other report stops the program.
+export ASAN_OPTIONS=detect_leaks=0:halt_on_error=1:abort_on_error=0:detect_stack_use_after_return=1:strict_string_checks=1:check_initialization_order=1
+export UBSAN_OPTIONS=print_stacktrace=1:halt_on_error=1
 level=${1:?usage: stdlib_jacket_sanitize.sh O0|O2 [K/N]}
 share=${2:-1/1}
 jacket=${JACKET:-target/debug/jacket}
