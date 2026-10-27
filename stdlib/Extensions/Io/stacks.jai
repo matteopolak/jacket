@@ -107,13 +107,24 @@ stack_release :: (stack: Stack) {
     if stack.base unmap_stack(stack.base, stack.size);
 } @FreesArgument
 
-// Gives the memory of the stack's whole pages below `limit` back to the system. The pages stay mapped
-// (and the guard untouched); the next use of one finds zeros. `limit` is an address on the running
-// stack: everything below it must be dead, with room left for the calls that do this.
-stack_discard_below :: (stack: Stack, limit: *void) {
+// How far below the caller's frame a discard starts. The calls that discard run in that space, so it
+// must stay untouched. 2 KiB is enough on macOS and Linux; `DiscardVirtualMemory` goes deeper than
+// that into the stack (a margin of 2 KiB crashed on Windows, 6 KiB did not).
+#if OS == .WINDOWS {
+    DISCARD_MARGIN :: 16384;
+} else {
+    DISCARD_MARGIN :: 2048;
+}
+
+// Gives the memory of the stack's whole pages that lie `DISCARD_MARGIN` bytes or more below `frame`
+// back to the system. The pages stay mapped (and the guard untouched); their next use finds zeros on
+// macOS and Linux and unspecified contents on Windows. `frame` is an address in the frame of the
+// running procedure: everything below it must be dead, and the margin is left for the calls that
+// do this.
+stack_discard_below :: (stack: Stack, frame: *void) {
     page := page_bytes();
     low := cast(s64) stack.base + stack.guard;
-    high := (cast(s64) limit) / page * page;
+    high := (cast(s64) frame - DISCARD_MARGIN) / page * page;
 
     if high <= low || high > cast(s64) stack.base + stack.size return;
 

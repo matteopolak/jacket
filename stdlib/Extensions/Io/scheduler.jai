@@ -244,8 +244,8 @@ release_unused_stack :: no_inline () {
     fiber := current_fiber();
     marker: u8;
 
-    // Calls made from here, and the system call, run just below this frame.
-    stack_discard_below(fiber.stack, *marker - 2048);
+    // The calls made from here, and the system call, run just below this frame.
+    stack_discard_below(fiber.stack, *marker);
 }
 
 #scope_module
