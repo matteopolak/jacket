@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.30.2] - 2026-10-28
+
+### Improved
+
+- A decimal literal that becomes a `float32` with a different value (`x := 16777217.0;`) gets a warning naming the value it becomes.
+
+### Fixed
+
+- Float literals below one no longer count their leading zeros as digits, so `x < 0.000000001` with a `float32` `x` compiles.
+- `*(float.[1.5, 3.5])` takes the address of an array literal instead of making an array of pointers.
+- `long double` math functions such as `sqrtl` link again on Windows.
+- Renaming an enum member also renames its uses through another enum's `using`.
+
 ## [0.30.1] - 2026-10-27
 
 ### Fixed
