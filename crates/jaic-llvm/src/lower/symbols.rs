@@ -178,9 +178,20 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             g.as_pointer_value()
         } else {
             let lowered = self.lower_sig(sig);
-            let f = self
-                .module
-                .add_function(symbol, lowered.fn_ty, Some(Linkage::External));
+            // An MSVC C runtime exports no `sqrtl` and the like; call the `double` function,
+            // which is the same thing there.
+            let name = match self.target.abi {
+                jaic::target::TargetAbi::Msvc => jaic::abi::msvc_double_math(symbol),
+                _ => None,
+            };
+            let f = match name.and_then(|name| self.module.get_function(name)) {
+                Some(f) => f,
+                None => self.module.add_function(
+                    name.unwrap_or(symbol),
+                    lowered.fn_ty,
+                    Some(Linkage::External),
+                ),
+            };
             if self.arch.is_wasm() && !symbol.starts_with("llvm.") {
                 self.wasm_import(f, symbol, foreign.library);
             }

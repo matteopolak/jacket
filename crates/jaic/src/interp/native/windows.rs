@@ -265,19 +265,8 @@ pub fn lookup(lib: Option<usize>, symbol: &str) -> Option<u64> {
     }
     // `long double` is `double` on Windows, and the C runtime's `<math.h>` makes `sqrtl` and
     // friends inline calls of the `double` functions instead of exporting them.
-    let stem = symbol.strip_suffix('l')?;
-    if !LONG_DOUBLE_MATH.split_whitespace().any(|name| name == stem) {
-        return None;
-    }
-    lookup(lib, stem)
+    lookup(lib, crate::abi::msvc_double_math(symbol)?)
 }
-
-/// The `double` functions of `<math.h>` whose `long double` forms (`name` + `l`) the C runtime
-/// does not export.
-const LONG_DOUBLE_MATH: &str = "acos acosh asin asinh atan atan2 atanh cbrt ceil copysign cos \
-    cosh erf erfc exp exp2 expm1 fabs fdim floor fma fmax fmin fmod frexp hypot ilogb ldexp lgamma \
-    llrint llround log log10 log1p log2 logb lrint lround modf nearbyint nextafter pow remainder \
-    remquo rint round scalbln scalbn sin sinh sqrt tan tanh tgamma trunc";
 
 /// The UCRT's printf family. Its DLLs export only the `__stdio_common_*` workers; `snprintf`,
 /// `vsnprintf` and the rest are inline functions of `<stdio.h>` that call them with an options

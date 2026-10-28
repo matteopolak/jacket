@@ -940,3 +940,37 @@ fn dll_crt_static_library_links_on_windows() {
     let imports = String::from_utf8_lossy(&imports.stdout).to_ascii_lowercase();
     assert!(imports.contains("api-ms-win-crt-stdio"), "{imports}");
 }
+
+/// An MSVC C runtime exports no `long double` math (`sqrtl` is an inline call of `sqrt` in its
+/// headers, `long double` being `double`), so an MSVC build calls the `double` functions.
+#[test]
+fn msvc_long_double_math_calls_the_double_functions() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-msvc-long-double");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("main.jai"),
+        "#import \"Extensions/Long_Double\";\n\
+         libm :: #system_library \"libm\";\n\
+         sqrtl :: (x: Long_Double) -> Long_Double #foreign libm;\n\
+         sqrt :: (x: float64) -> float64 #foreign libm;\n\
+         main :: () {\n    x := sqrtl(2) + sqrt(2);\n}\n",
+    )
+    .unwrap();
+    // Only the IR matters: the link needs a Windows toolchain this host may lack.
+    jaic()
+        .args([
+            "main.jai",
+            "-target",
+            "x86_64-pc-windows-msvc",
+            "-emit_ir",
+            "main.ll",
+            "-exe",
+            "main",
+        ])
+        .current_dir(&dir)
+        .output()
+        .unwrap();
+    let ir = std::fs::read_to_string(dir.join("main.ll")).unwrap();
+    assert!(ir.contains("declare double @sqrt(double)"), "{ir}");
+    assert!(!ir.contains("@sqrtl"), "{ir}");
+}
