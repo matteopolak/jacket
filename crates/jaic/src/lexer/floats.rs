@@ -3,8 +3,9 @@
 /// Default precision of a floating literal.
 ///
 /// A decimal literal counts its fractional digits (trailing zeros ignored, integer digits
-/// excluded): more than eight require `float64`, exactly eight default to `float64`, fewer
-/// default to `float32`; a normal binary exponent outside -126..=127 also requires `float64`.
+/// excluded): eight or more default to `float64`, fewer to `float32`. More than eight
+/// significant ones (leading zeros of a literal below one do not count, so `0.000000001` is
+/// one digit) require `float64`, as does a normal binary exponent outside -126..=127.
 /// This is independent of whether rounding to `float32` happens to preserve the value.
 ///
 /// A `0h` bit-pattern literal is `float64` when it has 16 hex digits and `float32` otherwise;
@@ -32,8 +33,19 @@ pub fn float_literal_precision(text: &str, value: f64) -> FloatLiteralPrecision 
     let fractional = mantissa
         .split_once('.')
         .map_or("", |(_, fraction)| fraction);
-    let counted = fractional.trim_end_matches('0').len();
-    let significant = counted > 8;
+    let fractional = fractional.trim_end_matches('0');
+    let counted = fractional.len();
+    let integer_part_zero = mantissa
+        .split('.')
+        .next()
+        .unwrap_or("")
+        .bytes()
+        .all(|b| b == b'0');
+    let significant = if integer_part_zero {
+        fractional.trim_start_matches('0').len()
+    } else {
+        counted
+    } > 8;
     let required = significant || has_big_float32_exponent(value);
     FloatLiteralPrecision {
         defaults_to_float64: !required && counted >= 8,
