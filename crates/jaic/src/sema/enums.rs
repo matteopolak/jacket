@@ -219,8 +219,8 @@ impl Compiler {
         let TypeKind::Enum(enum_id) = *self.ty.types.kind(ty) else {
             unreachable!()
         };
-        for (name, member_value) in members {
-            let Some(name) = super::using::filter_target(&filter, name) else {
+        for (source_name, member_value) in members {
+            let Some(name) = super::using::filter_target(&filter, source_name) else {
                 continue;
             };
             if self.scope(scope).names.get(&name).is_some_and(|ids| {
@@ -239,7 +239,13 @@ impl Compiler {
                 },
                 true,
             );
-            self.ide_note_enum_member(enum_id, name, value.span);
+            // `E.name` names `Other`'s member: go to definition and rename reach it.
+            let declared = self
+                .ed
+                .facts()
+                .and_then(|ide| ide.enum_decls.get(&(source_id, source_name)).copied())
+                .unwrap_or(value.span);
+            self.ide_note_enum_member(enum_id, name, declared);
             // Reachable as `E.name`, but not a member of `E`: it is not listed or counted.
             self.ty
                 .enum_borrowed
