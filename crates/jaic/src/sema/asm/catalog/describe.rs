@@ -182,7 +182,7 @@ fn describe_core(name: &str, op: Op) -> String {
             "One RDRAND attempt: CF=1 on success, other arithmetic flags clear; no automatic retry."
         }
         Op::Syscall => {
-            "Linux x86-64 system call: rax is the number in and the raw result out, with arguments in the registers pinned to di, si, d, 10, 8 and 9; clobbers rcx and r11."
+            "Linux x86-64 system call: rax is the number in and the raw result out, with arguments in the registers pinned to di, si, d, 10, 8 and 9 (optionally listed after rax, in any order); clobbers rcx and r11."
         }
         Op::Cpuid => {
             "Query the executing x86-64 processor: a/eax and c/ecx select leaf/subleaf; a,b,c,d receive the actual 32-bit registers, zero-extended into 64-bit destinations."

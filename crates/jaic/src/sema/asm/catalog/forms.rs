@@ -62,7 +62,10 @@ pub(super) fn forms(name: &str, kind: Kind, vex: bool) -> Vec<String> {
             Op::Rdtscp => vec!["hi: gpr, lo: gpr, id: gpr"],
             Op::Rdrand | Op::Rdseed => vec!["dst: gpr"],
             Op::Cpuid => vec!["a: gpr, b: gpr, c: gpr, d: gpr"],
-            Op::Syscall => vec!["rcx_out: gpr, r11_out: gpr, rax_inout: gpr"],
+            Op::Syscall => vec![
+                "rcx_out: gpr, r11_out: gpr, rax_inout: gpr",
+                "rcx_out: gpr, r11_out: gpr, rax_inout: gpr, args: gpr...",
+            ],
         },
         Kind::Scalar(op) => match op {
             XOp::Div(_) => vec![

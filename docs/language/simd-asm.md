@@ -36,7 +36,7 @@ Add a mnemonic in `sema/asm.rs` or `asm/scalar.rs`, `asm/mask.rs`, or `lookup_si
 
 Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
-- Operands are Jai variables (read and written in place), immediates, `[base + index*scale + disp]` memory operands, and declared registers {#asm.1}. Registers are not modelled: pinning (`=== rax`) is accepted and ignored {#asm.2}, except that `syscall` reads the registers pinned to its arguments (Linux x86-64 hosts and targets only), and a declared `gpr` is a zero-initialised 64-bit local {#asm.3}.
+- Operands are Jai variables (read and written in place), immediates, `[base + index*scale + disp]` memory operands, and declared registers {#asm.1}. Registers are not modelled: pinning (`=== rax`) is accepted and ignored {#asm.2}, except that `syscall` reads the registers pinned to its arguments (Linux x86-64 hosts and targets only; the argument registers may also be listed after the rax operand, in any order), and a declared `gpr` is a zero-initialised 64-bit local {#asm.3}.
 - The first block leaves `x == 12` {#asm.4}; afterwards `a` holds `10, 40, 90, 160` {#asm.5}.
 - Operand size comes from the `.b/.w/.d/.q` suffix, else the first Jai variable operand, else 64 bits {#asm.6}. 32-bit writes zero-extend {#asm.7}; 8- and 16-bit writes merge into the low bits {#asm.8}.
 - Vector width comes from `.x/.y/.z` (16/32/64 bytes), else the block default (256 bits under an `AVX` feature modifier) {#asm.9}. A leading `v` (`vaddps`) is accepted {#asm.10}. Two operands mean `dst op= src`, three mean `dst = a op b` {#asm.11}.

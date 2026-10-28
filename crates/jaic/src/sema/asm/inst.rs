@@ -234,16 +234,39 @@ impl Compiler {
                 }
             }
             Op::Syscall => {
-                // `syscall rcx_out, r11_out, rax_inout`: rax is the number in and the raw result
-                // out; rdi, rsi, rdx, r10, r8 and r9 are the pinned registers; rcx and r11 are
-                // clobbered (they read 0 afterwards).
-                want(3, 3)?;
+                // `syscall rcx_out, r11_out, rax_inout [, args...]`: rax is the number in and the
+                // raw result out; rcx and r11 are clobbered (they read 0 afterwards). The
+                // arguments are the registers pinned to rdi, rsi, rdx, r10, r8 and r9. Listing
+                // them as extra operands (in any order) names which pinned registers are read.
+                const ARGS: [u8; 6] = [7, 6, 2, 10, 8, 9];
+                want(3, 3 + ARGS.len())?;
+                let mut listed = [None; ARGS.len()];
+                for &o in &opds[3..] {
+                    let slot = match o {
+                        Opd::Reg(r) => self
+                            .pr
+                            .asm_pins
+                            .iter()
+                            .rev()
+                            .find(|&&(_, addr)| addr == r.addr)
+                            .and_then(|&(reg, _)| ARGS.iter().position(|&a| a == reg)),
+                        _ => None,
+                    };
+                    let Some(slot) = slot else {
+                        return err(
+                            span,
+                            "a `syscall` argument operand must be a register pinned to di, si, d, 10, 8 or 9",
+                        );
+                    };
+                    listed[slot] = Some(self.asm_read(f, o, Ty::I64, span)?);
+                }
                 let mut args = vec![self.asm_read(f, opds[2], Ty::I64, span)?];
-                for reg in [7u8, 6, 2, 10, 8, 9] {
+                for (reg, listed) in ARGS.into_iter().zip(listed) {
                     let pinned = self.pr.asm_pins.iter().rev().find(|(r, _)| *r == reg);
-                    args.push(match pinned {
-                        Some(&(_, addr)) => f.b.load(Ty::I64, addr),
-                        None => konst(f, Ty::I64, 0),
+                    args.push(match (listed, pinned) {
+                        (Some(value), _) => value,
+                        (None, Some(&(_, addr))) => f.b.load(Ty::I64, addr),
+                        (None, None) => konst(f, Ty::I64, 0),
                     });
                 }
                 let ret = f.b.intrinsic(Intrinsic::Syscall, args, &[Ty::I64])[0];
