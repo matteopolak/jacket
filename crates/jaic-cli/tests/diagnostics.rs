@@ -128,6 +128,32 @@ main :: () {
 }
 
 #[test]
+fn a_float_literal_that_float32_changes_gets_a_warning() {
+    let dir = scratch("float32-rounding-warning");
+    let source = "\
+main :: () {
+    a := 12342345234.0;
+    b: float = 16777217.0;
+    c: float = 0.000000001;
+    d := 0.1;
+    e: float = 1.0 / 3.0;
+    f: float64 = 16777217.0;
+}
+";
+    let output = jaic_on(&dir, "t.jai", source, "-check", &[]);
+    assert!(output.status.success(), "{}", stderr(&output));
+    let text = stderr(&output);
+    assert_in_order(
+        &text,
+        &[
+            "t.jai:2:10: warning: this literal is 12342345728 as a float32",
+            "t.jai:3:16: warning: this literal is 16777216 as a float32",
+        ],
+    );
+    assert_eq!(text.matches("as a float32").count(), 2, "{text}");
+}
+
+#[test]
 fn a_body_that_can_fall_off_its_end_gets_a_warning() {
     let dir = scratch("missing-return-warning");
     let source = "\

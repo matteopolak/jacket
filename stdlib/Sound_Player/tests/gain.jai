@@ -4,8 +4,8 @@
 #import "Sound_Player";
 
 main :: () {
-    assert(abs(perceptual_to_linear(0.5) - 0.31622777) < 0.000001);
-    assert(abs(perceptual_to_linear(2) - 3.16227766) < 0.00001);
+    assert(abs(perceptual_to_linear(0.5) - 0.3162278) < 0.000001);
+    assert(abs(perceptual_to_linear(2) - 3.162278) < 0.00001);
     data: Sound_Data;
     data.nsamples_times_nchannels = 40;
     data.nchannels = 2;

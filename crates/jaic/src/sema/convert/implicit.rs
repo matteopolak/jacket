@@ -222,6 +222,9 @@ impl Compiler {
                             ),
                         );
                     }
+                    if untyped {
+                        self.warn_float32_rounding(*x, span);
+                    }
                     Value::float(*x as f32 as f64)
                 } else {
                     Value::float(*x)
@@ -258,5 +261,30 @@ impl TypeState {
             }
             _ => false,
         }
+    }
+}
+
+impl Compiler {
+    /// A decimal literal that becomes a `float32` with a different value (`16777217.0` is
+    /// 16777216 there): the digits written are not the number the program gets.
+    fn warn_float32_rounding(&mut self, value: f64, span: Span) {
+        let text = self.src.sources.snippet(span);
+        let literal = !text.is_empty()
+            && text.bytes().all(|b| {
+                b.is_ascii_digit() || matches!(b, b'.' | b'_' | b'e' | b'E' | b'-' | b'+')
+            })
+            && text.bytes().any(|b| b == b'.');
+        let rounded = value as f32;
+        if !literal || !rounded.is_finite() || rounded.to_string().parse::<f64>() == Ok(value) {
+            return;
+        }
+        self.warn(
+            Diagnostic::warning(
+                span,
+                format!("this literal is {} as a float32", rounded as f64),
+            )
+            .with_label("float32 cannot hold these digits")
+            .with_help("make it a float64, or write the float32 value"),
+        );
     }
 }
