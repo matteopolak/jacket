@@ -150,8 +150,35 @@ impl Parser<'_> {
             _ => return self.parse_postfix(true),
         };
         self.bump();
+        let parenthesized = self.at(P::LParen);
         let operand = self.parse_unary()?;
         let span = start.to(operand.span);
+        // `*Block.[a, b]` is an array literal of `*Block`; `*(Block.[a, b])` takes the address of
+        // an array literal.
+        if op == UnOp::Star
+            && !parenthesized
+            && matches!(
+                &operand.kind,
+                ExprKind::ArrayLit {
+                    ty: Some(_),
+                    ..
+                }
+            )
+            && let ExprKind::ArrayLit {
+                ty: Some(elem),
+                elems,
+            } = operand.kind
+        {
+            let elem_span = start.to(elem.span);
+            let pointer = mk(ExprKind::Unary(UnOp::Star, elem), elem_span);
+            return Ok(mk(
+                ExprKind::ArrayLit {
+                    ty: Some(Box::new(pointer)),
+                    elems,
+                },
+                span,
+            ));
+        }
         Ok(mk(ExprKind::Unary(op, Box::new(operand)), span))
     }
 
