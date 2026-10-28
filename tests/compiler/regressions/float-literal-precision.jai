@@ -16,8 +16,9 @@ main :: () {
     eight := 0.12345678;
     nine := 0.123456789;
     contextual: float32 = 0.12345678;
+    // Below one, leading zeros do not count: these are one and eight digits.
     small := 0.000000001;
-    // Leading zeros of a literal below one are not significant: it fits a float32.
+    small_eight := 0.012345678;
     small_contextual: float32 = 0.000000001;
 
     #assert type_of(a) == float32;
@@ -31,7 +32,8 @@ main :: () {
     #assert type_of(eight) == float64;
     #assert type_of(nine) == float64;
     #assert type_of(contextual) == float32;
-    #assert type_of(small) == float64; // nine fractional digits still default to float64
+    #assert type_of(small) == float32;
+    #assert type_of(small_eight) == float64;
     #assert type_of(small_contextual) == float32;
     f: float32 = 2;
     g := f * cast(float32) PI_LONG;
