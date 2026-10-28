@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.30.3] - 2026-10-28
+
+### Fixed
+
+- `#asm` `syscall` accepts its argument registers listed after `rax`.
+
 ## [0.30.2] - 2026-10-28
 
 ### Improved
