@@ -1,5 +1,5 @@
-//! `#asm` `syscall`: type-checking for Linux x86-64, the sandbox refusing it, and real calls on a
-//! Linux x86-64 host.
+//! `#asm` `syscall`: type-checking for Linux x86-64, the sandbox refusing it (memory mapping
+//! aside), and real calls on a Linux x86-64 host.
 use std::path::Path;
 use std::process::Command;
 
@@ -206,4 +206,57 @@ fn asm_syscall_listed_arguments_reach_the_kernel() {
         String::from_utf8_lossy(&output.stderr)
     );
     assert_eq!(String::from_utf8_lossy(&output.stdout), "listed\n7\n");
+}
+
+/// On a Linux x86-64 host the sandbox (`-os wasm`) makes anonymous `mmap` and `munmap`, so
+/// allocators built on raw system calls work, and still refuses calls with outside effects.
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+#[test]
+fn asm_syscall_sandbox_maps_anonymous_memory() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-asm-syscall-sandbox-mmap");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = dir.join("mmap.jai");
+    std::fs::write(
+        &source,
+        r#"#import "Basic";
+raw :: (number: s64, a1: s64, a2: s64, a3: s64, a4: s64, a5: s64, a6: s64) -> s64 {
+    result: s64 = ---;
+    #asm SYSCALL_SYSRET {
+        mov.q call: gpr === a, number;
+        mov.q r1:   gpr === di, a1;
+        mov.q r2:   gpr === si, a2;
+        mov.q r3:   gpr === d, a3;
+        mov.q r4:   gpr === 10, a4;
+        mov.q r5:   gpr === 8, a5;
+        mov.q r6:   gpr === 9, a6;
+        syscall t1:, t2:, call, r1, r2, r3, r4, r5, r6;
+        mov result, call;
+    }
+    return result;
+}
+main :: () {
+    // mmap(null, 4096, READ|WRITE, PRIVATE|ANONYMOUS, -1, 0)
+    address := raw(9, 0, 4096, 3, 0x22, -1, 0);
+    page := cast(*s64) address;
+    page.* = 42;
+    value := page.*;
+    print("% %\n", value, raw(11, address, 4096, 0, 0, 0, 0));
+    // getpid is not a memory call, so the sandbox refuses it.
+    print("%\n", raw(39, 0, 0, 0, 0, 0, 0));
+}
+"#,
+    )
+    .unwrap();
+    let output = Command::new(JAIC)
+        .arg("-interp")
+        .arg(&source)
+        .args(["-os", "wasm"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "42 0\n-1\n");
 }

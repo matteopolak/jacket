@@ -168,15 +168,22 @@ impl Interp {
                 return self.trap("CPUID execution requires an x86-64 interpreter host");
             }
             I::Syscall => {
-                if !self.host.native_linking() {
-                    // The sandbox never runs a system call: EPERM.
-                    Rets::one(-1i64 as u64)
-                } else if let Some(ret) = native::syscall(a) {
-                    Rets::one(ret as u64)
+                // The sandbox makes only system calls that map or release memory; any other
+                // gets EPERM.
+                let sandboxed = !self.host.native_linking();
+                let ret = if sandboxed && !native::memory_only_syscall(a) {
+                    None
                 } else {
-                    return self.trap(
-                        "a `syscall` runs only on a Linux x86-64 host (compile-time execution here cannot make system calls)",
-                    );
+                    native::syscall(a)
+                };
+                match ret {
+                    Some(ret) => Rets::one(ret as u64),
+                    None if sandboxed => Rets::one(-1i64 as u64),
+                    None => {
+                        return self.trap(
+                            "a `syscall` runs only on a Linux x86-64 host (compile-time execution here cannot make system calls)",
+                        );
+                    }
                 }
             }
             I::BlackBox => Rets::one(a[0]),

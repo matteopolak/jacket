@@ -133,6 +133,26 @@ pub fn syscall(_args: &[u64]) -> Option<i64> {
     None
 }
 
+/// Whether the Linux x86-64 system call in `args` only maps or releases memory, so a sandbox
+/// may make it: anonymous `mmap` (not `MAP_FIXED`), `munmap`, `mremap` (not `MREMAP_FIXED`)
+/// and `madvise`. Allocators built on raw system calls need these to run at all.
+pub fn memory_only_syscall(args: &[u64]) -> bool {
+    const MMAP: u64 = 9;
+    const MUNMAP: u64 = 11;
+    const MREMAP: u64 = 25;
+    const MADVISE: u64 = 28;
+    const MAP_FIXED: u64 = 0x10;
+    const MAP_ANONYMOUS: u64 = 0x20;
+    const MREMAP_FIXED: u64 = 2;
+    let arg = |i: usize| crate::interp::word_or_zero(args, i);
+    match arg(0) {
+        MMAP => arg(4) & MAP_ANONYMOUS != 0 && arg(4) & MAP_FIXED == 0,
+        MREMAP => arg(4) & MREMAP_FIXED == 0,
+        MUNMAP | MADVISE => true,
+        _ => false,
+    }
+}
+
 impl Library {
     /// Open a library by Jai name (`"c"`, `"SDL2"`, `"libs/foo"`...).
     #[cfg(unix)]
