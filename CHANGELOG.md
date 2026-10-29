@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.30.4] - 2026-10-28
+
+### Fixed
+
+- The language server and `jailint` no longer crash on programs whose compile-time code allocates with raw `mmap` system calls on Linux x86-64.
+
 ## [0.30.3] - 2026-10-28
 
 ### Fixed
