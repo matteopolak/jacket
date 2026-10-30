@@ -756,6 +756,42 @@ pub fn directives_of(role: DirectiveRole) -> impl Iterator<Item = &'static str> 
         .map(|d| d.name)
 }
 
+macro_rules! known_directives {
+    ($($id:ident => $name:literal),* $(,)?) => {
+        /// The names (without the `#`) of directives the tools match on, as patterns and
+        /// comparisons: `Tok::Directive(d)` carries one of these.
+        pub mod directive {
+            $(pub const $id: &str = $name;)*
+            /// Every name above.
+            pub const ALL: &[&str] = &[$($name),*];
+        }
+
+        /// The same directives as written in source, `#` included, for searching text.
+        pub mod spelled {
+            $(pub const $id: &str = concat!("#", $name);)*
+        }
+    };
+}
+
+known_directives! {
+    ASM => "asm",
+    ASSERT => "assert",
+    CHAR => "char",
+    EXPAND => "expand",
+    IF => "if",
+    IMPORT => "import",
+    INSERT => "insert",
+    LOAD => "load",
+    MODULE_PARAMETERS => "module_parameters",
+    NO_ABC => "no_abc",
+    NO_AOC => "no_aoc",
+    PLACEHOLDER => "placeholder",
+    PROCEDURE_OF_CALL => "procedure_of_call",
+    PROGRAM_EXPORT => "program_export",
+    RUN => "run",
+    TYPE => "type",
+}
+
 /// The text of `editors/lexicon.json`.
 pub fn to_json() -> String {
     use std::fmt::Write;
@@ -818,6 +854,14 @@ pub fn to_json() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn named_directives_are_in_the_table() {
+        for name in directive::ALL {
+            assert!(DIRECTIVES.iter().any(|d| d.name == *name), "{name}");
+        }
+        assert_eq!(spelled::INSERT, "#insert");
+    }
 
     #[test]
     fn editors_lexicon_json_is_current() {

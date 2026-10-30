@@ -37,11 +37,13 @@ fn target_kind(names: usize, text: &str, start: usize, end: usize) -> (SemanticT
             .next()
             .unwrap_or("");
         return match word {
-            "struct" | "enum" | "enum_flags" | "union" | "#type" => {
+            "struct" | "enum" | "enum_flags" | "union" | jaic::lexicon::spelled::TYPE => {
                 (SemanticTokenKind::Type, false)
             }
-            "#import" => (SemanticTokenKind::Namespace, false),
-            "inline" | "no_inline" | "#expand" => (SemanticTokenKind::Function, false),
+            jaic::lexicon::spelled::IMPORT => (SemanticTokenKind::Namespace, false),
+            "inline" | "no_inline" | jaic::lexicon::spelled::EXPAND => {
+                (SemanticTokenKind::Function, false)
+            }
             _ if value.starts_with('(') => (SemanticTokenKind::Function, false),
             _ if names > 1 && (value.is_empty() || value.starts_with(';')) => {
                 (SemanticTokenKind::EnumMember, true)

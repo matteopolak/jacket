@@ -176,7 +176,7 @@ const SUFFIXES: &[(&str, &str)] = &[
 impl Session {
     /// Hover on a mnemonic or a declared register inside an `#asm` block.
     pub(crate) fn asm_hover(&self, text: &str, byte: usize) -> Option<(usize, usize, HoverText)> {
-        if !text.contains("#asm") {
+        if !text.contains(jaic::lexicon::spelled::ASM) {
             return None;
         }
         let blocks = asm_blocks(text);
@@ -220,7 +220,7 @@ impl Session {
 
     /// The operand forms of the instruction whose operands are being typed.
     pub(crate) fn asm_signature_help(&self, text: &str, byte: usize) -> Option<SignatureHelp> {
-        if !text.contains("#asm") {
+        if !text.contains(jaic::lexicon::spelled::ASM) {
             return None;
         }
         let blocks = asm_blocks(text);

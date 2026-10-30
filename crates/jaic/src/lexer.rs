@@ -38,6 +38,16 @@ pub enum Tok {
     Eof,
 }
 
+impl Tok {
+    /// The name of a directive token, without the `#`.
+    pub fn directive(&self) -> Option<&str> {
+        match self {
+            Tok::Directive(name) => Some(name.as_str()),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct Token {
     pub tok: Tok,

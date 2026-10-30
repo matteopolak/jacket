@@ -241,7 +241,9 @@ impl Session {
                 continue;
             }
             // `#run 3` needs no hint.
-            let operand = text[span.start..span.end].trim_start_matches("#run").trim();
+            let operand = text[span.start..span.end]
+                .trim_start_matches(jaic::lexicon::spelled::RUN)
+                .trim();
             if operand == e.texts[0] {
                 continue;
             }

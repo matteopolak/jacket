@@ -20,7 +20,7 @@ impl Session {
         text: &str,
         byte: usize,
     ) -> Option<CompletionList> {
-        if !text.contains("#asm") {
+        if !text.contains(jaic::lexicon::spelled::ASM) {
             return None;
         }
         let blocks = asm_blocks(text);

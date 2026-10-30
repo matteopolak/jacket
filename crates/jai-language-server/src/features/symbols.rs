@@ -84,7 +84,10 @@ impl Session {
         let mut run: Option<(u32, u32)> = None;
         for token in &analysis.tokens {
             if token.kind != TokenKind::Directive
-                || !matches!(token.spelling(text), "#import" | "#load")
+                || !matches!(
+                    token.spelling(text),
+                    jaic::lexicon::spelled::IMPORT | jaic::lexicon::spelled::LOAD
+                )
             {
                 continue;
             }

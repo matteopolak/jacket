@@ -266,7 +266,7 @@ impl<'a> Cx<'a> {
         self.tokens[first..]
             .iter()
             .take_while(|t| t.span.end <= end)
-            .any(|t| matches!(&t.tok, Tok::Directive(d) if d.as_str() == "insert"))
+            .any(|t| t.tok.directive() == Some(jaic::lexicon::directive::INSERT))
     }
 
     /// A `$` or `$$` token is written within `span` (a polymorphic declaration).

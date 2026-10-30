@@ -254,7 +254,7 @@ impl FileFacts {
             links,
             program_export: tokens
                 .iter()
-                .any(|t| matches!(&t.tok, Tok::Directive(d) if d.as_str() == "program_export")),
+                .any(|t| t.tok.directive() == Some(jaic::lexicon::directive::PROGRAM_EXPORT)),
         }
     }
 }

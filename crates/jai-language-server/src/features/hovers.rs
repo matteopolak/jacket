@@ -37,9 +37,9 @@ impl Session {
         match e.kind {
             IdeExpansionKind::Insert => {
                 if e.texts.iter().all(|t| t.trim().is_empty()) {
-                    directive_said("insert", " inserts nothing")
+                    directive_said(jaic::lexicon::directive::INSERT, " inserts nothing")
                 } else {
-                    let mut blocks = vec![Block::Code("#insert".into())];
+                    let mut blocks = vec![Block::Code(jaic::lexicon::spelled::INSERT.into())];
                     blocks.extend(produced("expands to"));
                     HoverText::new(blocks)
                 }
@@ -51,11 +51,11 @@ impl Session {
             }
             IdeExpansionKind::Run => {
                 let mut blocks = if e.texts.iter().all(String::is_empty) {
-                    directive_said("run", " returns nothing").blocks
+                    directive_said(jaic::lexicon::directive::RUN, " returns nothing").blocks
                 } else if e.texts.len() > 1 {
                     vec![
                         Block::Para(vec![
-                            Inline::Code("#run".into()),
+                            Inline::Code(jaic::lexicon::spelled::RUN.into()),
                             Inline::Text(" values (".into()),
                             Inline::Code(e.detail.clone()),
                             Inline::Text("):".into()),
@@ -72,10 +72,11 @@ impl Session {
                 HoverText::new(blocks)
             }
             IdeExpansionKind::If => {
-                let directive = directive_at(text, e.span.start as usize).unwrap_or("if");
+                let directive = directive_at(text, e.span.start as usize)
+                    .unwrap_or(jaic::lexicon::directive::IF);
                 let said = if e.texts.len() > 1 {
                     ": the condition is true for some instances and false for others"
-                } else if directive == "assert" {
+                } else if directive == jaic::lexicon::directive::ASSERT {
                     match e.texts[0].as_str() {
                         "true" => ": the condition holds",
                         _ => ": the condition fails",
@@ -137,14 +138,21 @@ impl Session {
         let (_, token) = crate::session::tokens_at(&analysis.tokens, byte)
             .find(|(_, t)| t.kind == TokenKind::Directive)?;
         let word = directive_at(&doc.text, token.span.start)?;
-        let expansion = matches!(word, "insert" | "run" | "if" | "ifx" | "assert")
-            .then(|| {
-                self.expansions(uri)
-                    .into_iter()
-                    .filter(|e| e.span.start as usize == token.span.start)
-                    .min_by_key(|e| e.span.end - e.span.start)
-            })
-            .flatten();
+        let expansion = matches!(
+            word,
+            jaic::lexicon::directive::INSERT
+                | jaic::lexicon::directive::RUN
+                | jaic::lexicon::directive::IF
+                | "ifx"
+                | jaic::lexicon::directive::ASSERT
+        )
+        .then(|| {
+            self.expansions(uri)
+                .into_iter()
+                .filter(|e| e.span.start as usize == token.span.start)
+                .min_by_key(|e| e.span.end - e.span.start)
+        })
+        .flatten();
         let text = if let Some(e) = expansion {
             self.describe(uri, &e)
         } else {

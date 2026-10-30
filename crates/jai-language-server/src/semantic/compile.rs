@@ -116,7 +116,12 @@ fn known(
             .ed
             .facts()
             .is_some_and(|ide| ide.refused.iter().any(|s| s.file == file))
-            && compiler.src.sources.get(file).text.contains("#insert")
+            && compiler
+                .src
+                .sources
+                .get(file)
+                .text
+                .contains(jaic::lexicon::spelled::INSERT)
     };
     errors.retain(|e| {
         !(e.kind.is_unknown_result()
@@ -128,12 +133,13 @@ fn known(
 /// Whether `text` uses the directive `#module_parameters` (a mention in a comment or string
 /// does not make a file a module).
 fn writes_module_parameters(text: &str) -> bool {
-    if !text.contains("#module_parameters") {
+    if !text.contains(jaic::lexicon::spelled::MODULE_PARAMETERS) {
         return false;
     }
-    jaic::lexer::Lexed::new(FileId(0), text).tokens.iter().any(
-        |t| matches!(&t.tok, jaic::lexer::Tok::Directive(d) if d.as_str() == "module_parameters"),
-    )
+    jaic::lexer::Lexed::new(FileId(0), text)
+        .tokens
+        .iter()
+        .any(|t| t.tok.directive() == Some(jaic::lexicon::directive::MODULE_PARAMETERS))
 }
 
 /// The first line of `root`, or the start of the first file when it was not loaded.

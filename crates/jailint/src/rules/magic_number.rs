@@ -332,7 +332,7 @@ fn char_literal(value: f64) -> Option<String> {
         ' '..='~' => c.to_string(),
         _ => return None,
     };
-    Some(format!("#char \"{text}\""))
+    Some(format!("{} \"{text}\"", jaic::lexicon::spelled::CHAR))
 }
 
 /// The file sits in a `tests` or `test` folder.

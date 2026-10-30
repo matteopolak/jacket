@@ -175,7 +175,7 @@ fn literal(source: &str) -> bool {
     s.starts_with(|c: char| c.is_ascii_digit())
         || s.starts_with('"')
         || matches!(s, "true" | "false" | "null")
-        || s.starts_with("#char")
+        || s.starts_with(jaic::lexicon::spelled::CHAR)
         || (s.starts_with('.') && s[1..].chars().all(jaic::lexicon::is_identifier_char))
 }
 
@@ -321,7 +321,7 @@ mod tests {
     #[test]
     fn inline_insert_keeps_indentation() {
         let text = "f :: () {\n    #insert \"a := 1;\\nb := 2;\";\n}";
-        let start = text.find("#insert").unwrap();
+        let start = text.find(jaic::lexicon::spelled::INSERT).unwrap();
         let end = text.find(";\n}").unwrap();
         let (span, body) = inline_insert(text, Span::new(start, end), "a := 1;\nb := 2;").unwrap();
         assert_eq!(&text[span.end - 1..span.end], ";");

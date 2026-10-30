@@ -14,6 +14,7 @@ use super::finding;
 use crate::Finding;
 use crate::syntax::Cx;
 use jaic::lexer::Tok;
+use jaic::lexicon::directive;
 use jaic::source::Span;
 
 /// The rule's name, group and one-line summary, and its check.
@@ -33,10 +34,12 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             continue;
         };
         let name = d.as_str();
-        if !matches!(name, "no_abc" | "no_aoc" | "asm") || explained(cx, t.span) {
+        if !matches!(name, directive::NO_ABC | directive::NO_AOC | directive::ASM)
+            || explained(cx, t.span)
+        {
             continue;
         }
-        let help = if name == "asm" {
+        let help = if name == directive::ASM {
             "add a `//` comment on this line or the line above: what the assembly does that Jai cannot"
         } else {
             "add a `//` comment on this line or the line above: why the checks are not needed here"

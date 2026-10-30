@@ -34,7 +34,6 @@ use super::finding;
 use crate::Finding;
 use crate::syntax::Cx;
 use jaic::ast::{DeclKind, ExprKind as E, ScopeKind, StmtKind as S};
-use jaic::lexer::Tok;
 
 /// Names the compiler, the build system or `for` look up without the program writing them.
 const READ_BY_NAME: &[&str] = &["main", "build", "get_plugin", "for_expansion", "_"];
@@ -110,7 +109,10 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 /// The file writes code or names out of strings (`#insert`) or leaves a name to be provided
 /// elsewhere (`#placeholder`).
 fn reads_names(cx: &Cx) -> bool {
-    cx.tokens.iter().any(
-        |t| matches!(&t.tok, Tok::Directive(d) if matches!(d.as_str(), "insert" | "placeholder")),
-    )
+    cx.tokens.iter().any(|t| {
+        matches!(
+            t.tok.directive(),
+            Some(jaic::lexicon::directive::INSERT | jaic::lexicon::directive::PLACEHOLDER)
+        )
+    })
 }

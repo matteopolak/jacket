@@ -30,7 +30,9 @@ impl Document {
     }
 
     pub(crate) fn has_asm(&self) -> bool {
-        *self.asm.get_or_init(|| self.text.contains("#asm"))
+        *self
+            .asm
+            .get_or_init(|| self.text.contains(jaic::lexicon::spelled::ASM))
     }
 
     pub(crate) fn sites(&self) -> &[jaic::docs::Site] {

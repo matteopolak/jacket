@@ -73,7 +73,7 @@ pub(crate) fn site(text: &str, lexed: &Lexed, start: usize, end: usize) -> Site 
         .iter()
         .any(|&p| punct(next, p));
     let procedure_of_call = |t: Option<&Token>| {
-        t.is_some_and(|t| matches!(&t.tok, Tok::Directive(n) if n.as_str() == "procedure_of_call"))
+        t.is_some_and(|t| matches!(&t.tok, Tok::Directive(n) if n.as_str() == jaic::lexicon::directive::PROCEDURE_OF_CALL))
     };
     let named = procedure_of_call(prev)
         || (punct(prev, P::LParen)
