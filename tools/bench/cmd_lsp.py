@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import shlex
 import shutil
 import sys
 import tempfile
@@ -250,7 +249,7 @@ def parse_servers(specs: list[str]) -> dict[str, list[str]]:
         name, separator, command = spec.partition('=')
         if not separator or not name or not command.strip():
             sys.exit(f'--server wants NAME=COMMAND, got {spec!r}')
-        servers[name] = shlex.split(command)
+        servers[name] = common.split_command(command)
     return servers
 
 

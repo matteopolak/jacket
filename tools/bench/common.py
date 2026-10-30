@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import argparse
+import shlex
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -45,6 +47,20 @@ def add_common_arguments(parser: argparse.ArgumentParser, tool: str, defaults: D
 def default_binary(name: str) -> Path:
     """The release build of `name` in cargo's target directory."""
     return cargo_binary(name, 'release')
+
+
+def join_command(argv: list[str]) -> str:
+    """`argv` as one line to paste into the OS shell: POSIX quoting, or the Windows rules (`list2cmdline`) there."""
+    return subprocess.list2cmdline(argv) if sys.platform == 'win32' else shlex.join(argv)
+
+
+def split_command(text: str) -> list[str]:
+    """The reverse of `join_command` for a command typed on the command line (`--server NAME=COMMAND`). On
+    Windows a backslash is a path separator, not an escape, and quotes are removed after splitting."""
+    if sys.platform != 'win32':
+        return shlex.split(text)
+    return [part[1:-1] if len(part) > 1 and part[0] == part[-1] and part[0] in '"\'' else part
+            for part in shlex.split(text, posix=False)]
 
 
 def selected(only: str, key: str) -> bool:

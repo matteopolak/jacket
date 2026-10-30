@@ -13,6 +13,7 @@ To support a different command line, subclass `Dialect`.
 """
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import subprocess
@@ -24,6 +25,15 @@ from pathlib import Path
 from bench.measure import Run
 from bench import phases
 from bench.stages import JaicTimings, StageParser, Stages, with_total
+
+
+# Executables carry this suffix on Windows. Compilers add it to a name that has none (`-exe program`),
+# so command lines name the program without it and paths to the file are built with it.
+EXE_SUFFIX = '.exe' if os.name == 'nt' else ''
+
+
+def executable_file(folder: Path, name: str = 'program') -> Path:
+    return folder / (name + EXE_SUFFIX)
 
 
 class Mode(str, Enum):
@@ -52,7 +62,7 @@ class Request:
 
     @property
     def executable(self) -> Path:
-        return self.scratch / 'program'
+        return executable_file(self.scratch)
 
     @property
     def entry_arg(self) -> str:
@@ -97,7 +107,7 @@ class Dialect(ABC):
                                 import_dirs=request.import_dirs)
         (where / phases.WRAPPER_NAME).write_text(source)
         shutil.copy(phases.LINK_COMMAND, where / phases.LINK_COMMAND.name)
-        executable = where / 'program' if request.mode.writes_executable else None
+        executable = executable_file(where) if request.mode.writes_executable else None
         return Invocation(self.source_command(compiler, phases.WRAPPER_NAME), where, executable)
 
     def instruction_count(self, run: Run) -> int | None:
@@ -121,7 +131,7 @@ class JaicDialect(Dialect):
                    *self.import_flags(request.import_dirs)]
         executable = request.executable if request.mode.writes_executable else None
         if executable and request.redirect_output:
-            command += ['-exe', str(executable)]
+            command += ['-exe', str(executable.with_suffix(''))]
         if request.metaprogram_args:
             command += ['-', *request.metaprogram_args]
         return Invocation(command, request.workdir, executable if request.redirect_output else None)
@@ -169,7 +179,7 @@ class PlainDialect(Dialect):
             command.append('-o')
         executable = request.executable
         if request.redirect_output:
-            command += ['-exe', executable.name, '-output_path', str(executable.parent)]
+            command += ['-exe', executable.stem, '-output_path', str(executable.parent)]
         if request.metaprogram_args:
             command += ['-', *request.metaprogram_args]
         return Invocation(command, request.workdir, executable if request.redirect_output else None)
