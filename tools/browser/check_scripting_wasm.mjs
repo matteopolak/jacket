@@ -22,7 +22,8 @@ const fixtures = [
 for (const [name, files, expected, stdout] of fixtures) {
   for (const label of [name, `${name}, repeat run`]) {
     const result = engine.play(files, "main.jai");
-    assert.deepEqual(result.diagnostics, [], label);
+    // An `int` entry point is how these fixtures return an exit code; the compiler warns about it.
+    assert.deepEqual(result.diagnostics.filter(item => item.code !== "main-returns-value"), [], label);
     assert.equal(result.exitCode, expected, label);
     if (stdout !== undefined) assert.equal(result.stdout, stdout, label);
   }
