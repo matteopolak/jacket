@@ -58,10 +58,9 @@ mod imp {
 mod imp {
     use crate::ast::{self, StmtKind, relocate};
     use crate::fxhash::HashMap;
-    use crate::sema::{
-        BootstrapModule, FileSystem, NativeFs, Options, TargetCpu, TargetOs, find_module_in,
-    };
+    use crate::sema::{BootstrapModule, FileSystem, NativeFs, Options, find_module_in};
     use crate::source::{FileId, LineIndex};
+    use crate::target::{TargetCpu, TargetOs};
     use std::collections::VecDeque;
     use std::path::{Path, PathBuf};
     use std::rc::Rc;

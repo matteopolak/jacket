@@ -3,7 +3,8 @@
 //! Needs the `lsp` feature.
 
 use jai_language_server::{DocumentUri, Environment, Limits, Position, Range, Session};
-use jaic::sema::{FileSystem, Options, TargetOs, VirtualFs};
+use jaic::sema::{FileSystem, Options, VirtualFs};
+use jaic::target::TargetOs;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 

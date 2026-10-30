@@ -17,12 +17,13 @@ use super::procs::{ProcTarget, Signature};
 use super::scope::{BuiltinProc, EntityKind, ScopeKind, UsingEntry};
 use super::{
     Compiler, Diagnostic, DiagnosticKind, PackKey, PreludeType, ProcId, ProcTypeParams, Rc, Result,
-    ScopeId, Span, Sym, TargetCpu, TypeId, Value, asm, ast, err, ir, procs, scope, value,
+    ScopeId, Span, Sym, TypeId, Value, asm, ast, err, ir, procs, scope, value,
 };
 use crate::ast::ExprKind as E;
 use crate::ir::Ty;
 use crate::macros::raw_enum;
 use crate::source::{Applicability, Suggestion};
+use crate::target::TargetCpu;
 use crate::types::{ArrayKind, TypeKind};
 
 mod as_bases;

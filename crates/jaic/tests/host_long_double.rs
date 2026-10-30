@@ -1,7 +1,8 @@
 //! A `long double` computed by compile-time code has the host's format; the program being built
 //! gets the same number in the target's format. The host is replaced (`Options::host`) so the two
 //! formats differ whatever machine runs the test.
-use jaic::sema::{Compiler, HostPlatform, Options, TargetCpu, TargetOs, VirtualFs};
+use jaic::sema::{Compiler, HostPlatform, Options, VirtualFs};
+use jaic::target::{TargetCpu, TargetOs};
 use jaic::wide_float::WideFloat;
 use std::{path::Path, rc::Rc};
 

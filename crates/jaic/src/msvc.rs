@@ -14,9 +14,9 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 /// The CPU folder name of `cpu` in the MSVC and Windows SDK layouts.
-pub fn arch_dir(cpu: crate::sema::TargetCpu) -> &'static str {
+pub fn arch_dir(cpu: crate::target::TargetCpu) -> &'static str {
     match cpu {
-        crate::sema::TargetCpu::Arm64 => "arm64",
+        crate::target::TargetCpu::Arm64 => "arm64",
         _ => "x64",
     }
 }
@@ -150,7 +150,7 @@ mod tests {
         assert!(is_microsoft_linker_banner(
             "Microsoft (R) Incremental Linker Version 14.44.35215.0\nCopyright (C) Microsoft Corporation.  All rights reserved.\n"
         ));
-        assert_eq!(arch_dir(crate::sema::TargetCpu::Arm64), "arm64");
-        assert_eq!(arch_dir(crate::sema::TargetCpu::X64), "x64");
+        assert_eq!(arch_dir(crate::target::TargetCpu::Arm64), "arm64");
+        assert_eq!(arch_dir(crate::target::TargetCpu::X64), "x64");
     }
 }

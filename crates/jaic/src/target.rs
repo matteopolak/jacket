@@ -1,6 +1,23 @@
 //! Target selection shared by the command-line tools: `-os`, `-cpu` and `-target` names, and
 //! the `Options` they imply when a program is only checked.
-use crate::sema::{Options, TargetCpu, TargetOs, long_double_for};
+use crate::sema::{Options, long_double_for};
+
+/// The operating system a program is built for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TargetOs {
+    Windows,
+    Linux,
+    MacOS,
+    Wasm,
+}
+
+/// The CPU a program is built for (`Wasm` is the CPU of a WebAssembly target).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TargetCpu {
+    X64,
+    Arm64,
+    Wasm,
+}
 
 /// The names `-os` accepts.
 pub const OS_NAMES: [&str; 4] = ["linux", "windows", "macos", "wasm"];

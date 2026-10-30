@@ -3,7 +3,7 @@ use super::cli::{Added, Cli, Flavor};
 use super::tuning;
 use jaic::builtin_keys::BitcodeOptimization;
 use jaic::flags::{self, FlagError, SharedFlag};
-use jaic::sema::{TargetCpu, TargetOs};
+use jaic::target::{TargetCpu, TargetOs};
 use std::path::PathBuf;
 
 /// A build's exit status when the program has no `main` (its work is all `#run`s), so

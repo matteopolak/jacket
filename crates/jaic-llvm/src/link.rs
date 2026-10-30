@@ -49,8 +49,8 @@ impl LinkFlavor {
     pub fn for_target(target: Option<BuildTarget>) -> LinkFlavor {
         let target = target.unwrap_or_else(BuildTarget::host);
         match (target.os, target.abi) {
-            (jaic::sema::TargetOs::Windows, TargetAbi::Gnu) => LinkFlavor::MinGw,
-            (jaic::sema::TargetOs::Windows, _) => LinkFlavor::Msvc,
+            (jaic::target::TargetOs::Windows, TargetAbi::Gnu) => LinkFlavor::MinGw,
+            (jaic::target::TargetOs::Windows, _) => LinkFlavor::Msvc,
             _ => LinkFlavor::Unix,
         }
     }

@@ -1,5 +1,6 @@
 //! Constant immutability and documented foreign storage reexport regressions.
-use jaic::sema::{Compiler, Options, ProgramSource, TargetCpu, TargetOs, VirtualFs};
+use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+use jaic::target::{TargetCpu, TargetOs};
 use std::rc::Rc;
 
 #[path = "support/reflection_bootstrap.rs"]

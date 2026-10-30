@@ -5,8 +5,8 @@ use super::{
     ALTERNATES, Analysis, Buffers, BuildFacts, CACHED, Environment, SMALL_COST, SMALL_KEPT,
 };
 use jaic::ide::lint_compile::CheckLimits;
-use jaic::sema::TargetOs;
 use jaic::source::FileId;
+use jaic::target::TargetOs;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};

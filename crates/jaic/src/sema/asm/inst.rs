@@ -6,7 +6,8 @@ use super::model::{Alu, AsmArgs, AsmCtx, Flags, Op, Opd, Site, lookup_op};
 use crate::ast::{AsmInst, AsmSize};
 use crate::ir::{BinOp, CmpOp, Intrinsic, Ty, UnOp};
 use crate::sema::lower::{FnCtx, Operand};
-use crate::sema::{Compiler, Result, Span, TargetCpu, Value, err};
+use crate::sema::{Compiler, Result, Span, Value, err};
+use crate::target::TargetCpu;
 
 impl Compiler {
     pub(super) fn asm_inst(

@@ -10,9 +10,8 @@ use crate::builtin_keys::{
 };
 use crate::interp::Host;
 use crate::records::Records;
-use crate::sema::{
-    Compiler, DeadCode, FileSystem, Options, ProgramSource, ProvidedImport, TargetCpu, TargetOs,
-};
+use crate::sema::{Compiler, DeadCode, FileSystem, Options, ProgramSource, ProvidedImport};
+use crate::target::{TargetCpu, TargetOs};
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;

@@ -1,7 +1,7 @@
 //! A name used only in an `#if` arm the target skips is described the same however often, and
 //! after whatever else, it is asked about.
 use jai_language_server::{Limits, Position, Session};
-use jaic::sema::TargetOs;
+use jaic::target::TargetOs;
 use test_support::lsp::{file_uri, modules_environment, uri};
 
 const SOURCE: &str = r#"#import "Basic";

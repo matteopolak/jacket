@@ -2,8 +2,9 @@
 use jaic::build::{BuildEnv, Workspaces};
 use jaic::interp::{Host, SandboxHost, SharedHost};
 use jaic::project::ProgramInputs;
-use jaic::sema::{Compiler, FileSystem, Options, TargetOs, VirtualFs};
+use jaic::sema::{Compiler, FileSystem, Options, VirtualFs};
 use jaic::source::{Diagnostic, Severity, Span};
+use jaic::target::TargetOs;
 use serde_json::json;
 use std::cell::RefCell;
 use std::collections::BTreeMap;

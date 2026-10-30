@@ -256,15 +256,15 @@ fn get(cx: &Call, interp: &mut Interp, ws: i64, at: u64) -> Result<TypeId, Trap>
             (os.unwrap_or(options.os), cpu.unwrap_or(options.cpu))
         };
         let os = match os {
-            crate::sema::TargetOs::Windows => crate::builtin_keys::OsTag::Windows as u64,
-            crate::sema::TargetOs::Linux => crate::builtin_keys::OsTag::Linux as u64,
-            crate::sema::TargetOs::MacOS => crate::builtin_keys::OsTag::MacOS as u64,
-            crate::sema::TargetOs::Wasm => crate::builtin_keys::OsTag::Wasm as u64,
+            crate::target::TargetOs::Windows => crate::builtin_keys::OsTag::Windows as u64,
+            crate::target::TargetOs::Linux => crate::builtin_keys::OsTag::Linux as u64,
+            crate::target::TargetOs::MacOS => crate::builtin_keys::OsTag::MacOS as u64,
+            crate::target::TargetOs::Wasm => crate::builtin_keys::OsTag::Wasm as u64,
         };
         let cpu = match cpu {
-            crate::sema::TargetCpu::X64 => crate::builtin_keys::CpuTag::X64 as u64,
-            crate::sema::TargetCpu::Arm64 => crate::builtin_keys::CpuTag::Arm64 as u64,
-            crate::sema::TargetCpu::Wasm => crate::builtin_keys::CpuTag::Custom as u64,
+            crate::target::TargetCpu::X64 => crate::builtin_keys::CpuTag::X64 as u64,
+            crate::target::TargetCpu::Arm64 => crate::builtin_keys::CpuTag::Arm64 as u64,
+            crate::target::TargetCpu::Wasm => crate::builtin_keys::CpuTag::Custom as u64,
         };
         cx.set_number(interp, ty, at, "os_target", os)?;
         cx.set_number(interp, ty, at, "cpu_target", cpu)?;

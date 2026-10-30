@@ -1,5 +1,5 @@
 //! Module names and ranks for auto-import.
-use jaic::sema::TargetOs;
+use jaic::target::TargetOs;
 use std::path::Path;
 
 /// Whether a module asserting `only_os` builds for `os`.

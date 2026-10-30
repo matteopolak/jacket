@@ -1,5 +1,6 @@
 //! Startup options checked against the actual runtime library.
-use jaic::sema::{Compiler, NativeFs, Options, ProgramSource, TargetCpu, TargetOs};
+use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
+use jaic::target::{TargetCpu, TargetOs};
 use std::{path::Path, rc::Rc};
 
 fn compile(entry: bool, backtrace: bool) -> (Compiler, jaic::sema::Result<()>) {

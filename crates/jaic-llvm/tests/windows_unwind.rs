@@ -1,5 +1,6 @@
 //! Required Windows ABI unwind tables survive optimization and PE linking.
-use jaic::sema::{Compiler, Options, ProgramSource, TargetCpu, TargetOs, VirtualFs};
+use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+use jaic::target::{TargetCpu, TargetOs};
 use jaic_llvm::{Codegen, OptLevel, emit_object};
 use std::{
     path::{Path, PathBuf},

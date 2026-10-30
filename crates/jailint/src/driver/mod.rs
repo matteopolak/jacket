@@ -93,8 +93,8 @@ pub struct Outcome {
 #[derive(Clone, Debug)]
 pub struct CheckedContext {
     pub root: PathBuf,
-    pub os: jaic::sema::TargetOs,
-    pub cpu: jaic::sema::TargetCpu,
+    pub os: jaic::target::TargetOs,
+    pub cpu: jaic::target::TargetCpu,
     pub complete: bool,
     /// Source files visited by linting; complete=false never establishes full body coverage.
     pub visited_files: Vec<PathBuf>,

@@ -12,9 +12,10 @@ use jaic::builtin_keys::MachineCodeOptimization;
 use jaic::builtin_keys::{BitcodeOptimization, WorkspaceFlag};
 use jaic::sema::Compiler;
 #[cfg(feature = "llvm")]
-use jaic::sema::{Options, TargetCpu, TargetOs};
+use jaic::sema::Options;
 #[cfg(feature = "llvm")]
 use jaic::target::Target;
+use jaic::target::{TargetCpu, TargetOs};
 use std::path::{Path, PathBuf};
 
 /// Write the top-level program. `-exe`, `-output_path` and the optimization options override

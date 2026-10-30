@@ -3,7 +3,8 @@ use test_support::backend;
 
 #[test]
 fn host_constants_execute_native_and_wasm_at_o0_and_o2() {
-    use jaic::sema::{Options, TargetCpu, TargetOs};
+    use jaic::sema::Options;
+    use jaic::target::{TargetCpu, TargetOs};
     let host = Options::host();
     let os = match host.os {
         TargetOs::Windows => "WINDOWS",

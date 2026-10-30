@@ -27,7 +27,8 @@
 use crate::config::{Config, file_platforms};
 use crate::{Finding, syntax::Cx};
 use jaic::fxhash::{HashMap, HashSet};
-use jaic::sema::{FailedAssert, ImportEdge, TargetOs};
+use jaic::sema::{FailedAssert, ImportEdge};
+use jaic::target::TargetOs;
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 

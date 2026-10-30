@@ -348,7 +348,7 @@ fn msvc_linker_command(target: BuildTarget) -> Result<(String, Command), String>
 /// The CPU prefix of the MinGW-w64 tool names for `target` (`None`: the host).
 pub(super) fn mingw_cpu(target: Option<BuildTarget>) -> &'static str {
     match target.unwrap_or_else(BuildTarget::host).cpu {
-        jaic::sema::TargetCpu::Arm64 => "aarch64",
+        jaic::target::TargetCpu::Arm64 => "aarch64",
         _ => "x86_64",
     }
 }

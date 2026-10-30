@@ -46,7 +46,7 @@ fn lint_with(file: &Path, levels: &[(&str, Level)], mut config: Config) -> (Vec<
         portable: vec!["tests/lint/platform_leak/**".parse().unwrap()],
         platforms: vec![(
             "stdlib/POSIX/**".parse().unwrap(),
-            vec![jaic::sema::TargetOs::Linux, jaic::sema::TargetOs::MacOS],
+            vec![jaic::target::TargetOs::Linux, jaic::target::TargetOs::MacOS],
         )],
     };
     for r in RULES {

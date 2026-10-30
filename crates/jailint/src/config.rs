@@ -25,7 +25,7 @@
 //! keep a rule on.
 use jacket_config::{Disk, Files, Lint, PathPattern};
 use jaic::fxhash::HashMap;
-use jaic::sema::TargetOs;
+use jaic::target::TargetOs;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 

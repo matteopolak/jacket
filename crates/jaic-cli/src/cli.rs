@@ -2,8 +2,9 @@
 use super::options::CliError;
 use super::{crash_runtime, tuning};
 use jaic::builtin_keys::BitcodeOptimization;
-use jaic::sema::{Options, TargetCpu, TargetOs};
+use jaic::sema::Options;
 use jaic::target::Target;
+use jaic::target::{TargetCpu, TargetOs};
 use std::path::{Path, PathBuf};
 
 /// Where `tools/native/build_native_libs.py` (or a release package) puts third-party libraries for this

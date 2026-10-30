@@ -245,7 +245,7 @@ impl Session {
         }
         // Always in the same order, so the answer does not depend on which target answered
         // an earlier question: code several targets check is described as the first sees it.
-        let order: Vec<jaic::sema::TargetOs> = semantic::OTHER_TARGETS
+        let order: Vec<jaic::target::TargetOs> = semantic::OTHER_TARGETS
             .into_iter()
             .filter(|&os| {
                 os != own

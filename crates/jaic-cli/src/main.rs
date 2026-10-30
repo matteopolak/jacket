@@ -275,9 +275,9 @@ mod tests {
     use jaic::build::BuildSettings;
     #[cfg(feature = "llvm")]
     use jaic::sema::Options;
-    use jaic::sema::{TargetCpu, TargetOs};
     #[cfg(feature = "llvm")]
     use jaic::target::Target;
+    use jaic::target::{TargetCpu, TargetOs};
     use std::path::{Path, PathBuf};
 
     fn triple(args: &[&str], host_os: TargetOs, host_cpu: TargetCpu) -> Option<String> {

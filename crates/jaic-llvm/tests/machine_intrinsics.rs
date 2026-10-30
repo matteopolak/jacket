@@ -3,7 +3,8 @@ mod registers_source;
 
 mod cpuid {
     //! Real x64 instruction execution, compared to independent native C SDK queries.
-    use jaic::sema::{Compiler, Options, ProgramSource, TargetCpu, VirtualFs};
+    use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+    use jaic::target::TargetCpu;
     use jaic_llvm::{OptLevel, emit_object};
     use std::{process::Command, rc::Rc};
     use test_support::{TempDir, process::checked, toolchain};
@@ -142,7 +143,8 @@ mod cpuid {
 mod cpuid_leaf_zero {
     //! O0/O2 CPUID codegen and native comparison against the public C intrinsic.
     #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
-    use jaic::sema::{Compiler, Options, ProgramSource, TargetCpu, VirtualFs};
+    use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+    use jaic::target::TargetCpu;
     #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
     use jaic_llvm::{OptLevel, emit_object};
     #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
@@ -227,7 +229,8 @@ mod cpuid_leaf_zero {
 
 mod xgetbv {
     //! Real XGETBV object code across x64 ABIs, plus CPUID-guarded native controls.
-    use jaic::sema::{Compiler, Options, ProgramSource, TargetCpu, VirtualFs};
+    use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+    use jaic::target::TargetCpu;
     use jaic_llvm::{OptLevel, emit_object};
     use std::rc::Rc;
     use test_support::{TempDir, process::checked, toolchain};
@@ -386,7 +389,8 @@ mod registers {
 
 mod x86_machine {
     //! Explicit architectural opcodes and actual CPUID-guarded native x64 execution.
-    use jaic::sema::{Compiler, Options, ProgramSource, TargetCpu, VirtualFs};
+    use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+    use jaic::target::TargetCpu;
     use jaic_llvm::{OptLevel, emit_object};
     use std::{process::Command, rc::Rc};
     use test_support::{TempDir, ir, process::checked, toolchain};

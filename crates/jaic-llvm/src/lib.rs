@@ -42,8 +42,8 @@ mod tests {
     use inkwell::context::Context;
     use inkwell::targets::TargetMachine;
     use jaic::ir::Library;
-    use jaic::sema::TargetCpu;
     use jaic::target::Target as BuildTarget;
+    use jaic::target::TargetCpu;
     use std::path::Path;
     use std::process::Command;
 

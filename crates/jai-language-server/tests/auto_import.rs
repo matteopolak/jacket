@@ -10,7 +10,7 @@ use test_support::lsp::{end_of, environment_at, modules_environment, project, ur
 fn session() -> Session {
     Session::with_environment(
         Limits::default(),
-        modules_environment(Some(jaic::sema::TargetOs::Linux)),
+        modules_environment(Some(jaic::target::TargetOs::Linux)),
     )
 }
 
@@ -351,7 +351,7 @@ fn only_modules_for_the_target_os() {
     );
     let mut windows = Session::with_environment(
         Limits::default(),
-        modules_environment(Some(jaic::sema::TargetOs::Windows)),
+        modules_environment(Some(jaic::target::TargetOs::Windows)),
     );
     let list = complete_at(&mut windows, path, text, "GetModuleHandl");
     assert_eq!(
@@ -431,7 +431,7 @@ fn user_module_and_project_files() {
 fn session_with_stdlib(stdlib: PathBuf) -> Session {
     Session::with_environment(
         Limits::default(),
-        environment_at(stdlib, Some(jaic::sema::TargetOs::Linux)),
+        environment_at(stdlib, Some(jaic::target::TargetOs::Linux)),
     )
 }
 
@@ -681,7 +681,7 @@ fn notify(session: &mut JsonSession, method: &str, params: Value) {
 fn json_protocol_and_settings() {
     let mut s = JsonSession::with_environment(
         Limits::default(),
-        modules_environment(Some(jaic::sema::TargetOs::Linux)),
+        modules_environment(Some(jaic::target::TargetOs::Linux)),
     );
     request(
         &mut s,
@@ -786,7 +786,7 @@ fn workspace_symbols_include_project_files_that_are_not_open() {
             symbols: 2,
             ..Limits::default()
         },
-        modules_environment(Some(jaic::sema::TargetOs::Linux)),
+        modules_environment(Some(jaic::target::TargetOs::Linux)),
     );
     small.set_workspace_folders(vec![dir.to_path_buf()]);
     small

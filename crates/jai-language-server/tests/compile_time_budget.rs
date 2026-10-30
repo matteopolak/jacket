@@ -155,9 +155,9 @@ fn an_isolated_host_run_is_in_the_cost_list_at_its_own_directive() {
     let dir = test_support::lsp::project("cost-host-run", &[("main.jai", source)]);
     // A program for another OS: `#run,host` runs in a compiler of its own.
     let other = if cfg!(windows) {
-        jaic::sema::TargetOs::Linux
+        jaic::target::TargetOs::Linux
     } else {
-        jaic::sema::TargetOs::Windows
+        jaic::target::TargetOs::Windows
     };
     let mut s = Session::with_environment(
         Limits::default(),

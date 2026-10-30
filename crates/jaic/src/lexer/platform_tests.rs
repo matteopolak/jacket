@@ -1,5 +1,5 @@
 use super::api::{CPU_TAGS, OS_TAGS, PlatformTarget};
-use crate::sema::{TargetCpu, TargetOs};
+use crate::target::{TargetCpu, TargetOs};
 use crate::target::{cpu_member, os_member};
 
 const PLATFORM: &str = include_str!("../../../../stdlib/prelude/platform.jai");

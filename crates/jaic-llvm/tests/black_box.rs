@@ -1,5 +1,6 @@
 //! `black_box` survives optimization: no folding through it, and no deleting what feeds it.
-use jaic::sema::{Compiler, Options, ProgramSource, TargetCpu, TargetOs, VirtualFs};
+use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+use jaic::target::{TargetCpu, TargetOs};
 use jaic_llvm::{Codegen, OptLevel, emit_object};
 use std::rc::Rc;
 use test_support::TempDir;

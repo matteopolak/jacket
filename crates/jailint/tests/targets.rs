@@ -103,15 +103,15 @@ fn selected_target_branches_check_with_unchanged_compiler_host() {
     let root = fixture("matrix");
     let host = jaic::sema::Options::host();
     let host_os = match host.os {
-        jaic::sema::TargetOs::Windows => "WINDOWS",
-        jaic::sema::TargetOs::Linux => "LINUX",
-        jaic::sema::TargetOs::MacOS => "MACOS",
-        jaic::sema::TargetOs::Wasm => "WASM",
+        jaic::target::TargetOs::Windows => "WINDOWS",
+        jaic::target::TargetOs::Linux => "LINUX",
+        jaic::target::TargetOs::MacOS => "MACOS",
+        jaic::target::TargetOs::Wasm => "WASM",
     };
     let host_cpu = match host.cpu {
-        jaic::sema::TargetCpu::X64 => "X64",
-        jaic::sema::TargetCpu::Arm64 => "ARM64",
-        jaic::sema::TargetCpu::Wasm => "CUSTOM",
+        jaic::target::TargetCpu::X64 => "X64",
+        jaic::target::TargetCpu::Arm64 => "ARM64",
+        jaic::target::TargetCpu::Wasm => "CUSTOM",
     };
     for (flags, os, cpu) in [
         (vec!["-os", "windows", "-cpu", "x64"], "WINDOWS", "X64"),
@@ -224,8 +224,8 @@ fn driver_preserves_supplied_source_runtime_and_target_options() {
     compiler_options.preload = Some(preload);
     compiler_options.runtime_support = false;
     jaic::target::Selection {
-        os: Some(jaic::sema::TargetOs::Linux),
-        cpu: Some(jaic::sema::TargetCpu::Arm64),
+        os: Some(jaic::target::TargetOs::Linux),
+        cpu: Some(jaic::target::TargetCpu::Arm64),
         triple: None,
     }
     .apply(&mut compiler_options)
@@ -246,8 +246,8 @@ fn driver_preserves_supplied_source_runtime_and_target_options() {
     assert!(result.incomplete.is_empty(), "{:?}", result.incomplete);
     assert_eq!(result.contexts.len(), 1);
     assert!(result.contexts[0].complete);
-    assert_eq!(result.contexts[0].os, jaic::sema::TargetOs::Linux);
-    assert_eq!(result.contexts[0].cpu, jaic::sema::TargetCpu::Arm64);
+    assert_eq!(result.contexts[0].os, jaic::target::TargetOs::Linux);
+    assert_eq!(result.contexts[0].cpu, jaic::target::TargetCpu::Arm64);
 }
 
 #[test]

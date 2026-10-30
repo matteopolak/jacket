@@ -1,5 +1,6 @@
 //! Compiler-host constants must remain independent of the selected output target.
-use jaic::sema::{Compiler, Options, ProgramSource, TargetCpu, TargetOs, VirtualFs};
+use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+use jaic::target::{TargetCpu, TargetOs};
 use std::rc::Rc;
 
 fn os_name(os: TargetOs) -> &'static str {

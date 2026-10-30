@@ -4,7 +4,7 @@ use jai_language_server::{DiagnosticCode, DiagnosticSeverity, DocumentUri, Limit
 use jaic::fxhash::HashSet;
 use jaic::{
     lexer::{P, Tok},
-    sema::{TargetCpu, TargetOs},
+    target::{TargetCpu, TargetOs},
 };
 use std::io::Write;
 use std::path::{Path, PathBuf};

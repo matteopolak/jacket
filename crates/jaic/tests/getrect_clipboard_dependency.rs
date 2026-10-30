@@ -1,5 +1,6 @@
 //! The text actions compile to the clipboard calls of the Linux backend; nothing is executed.
-use jaic::sema::{Compiler, NativeFs, Options, TargetCpu, TargetOs};
+use jaic::sema::{Compiler, NativeFs, Options};
+use jaic::target::{TargetCpu, TargetOs};
 use std::{path::PathBuf, rc::Rc};
 
 #[test]

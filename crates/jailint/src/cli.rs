@@ -324,7 +324,7 @@ mod tests {
         ])
         .unwrap()
         .unwrap();
-        assert_eq!(args.common.target.os, Some(jaic::sema::TargetOs::Linux));
+        assert_eq!(args.common.target.os, Some(jaic::target::TargetOs::Linux));
         assert_eq!(args.common.jobs, Some(3));
         assert_eq!(args.common.color, Some(jaic::render::ColorChoice::Never));
         assert_eq!(args.common.imports, [PathBuf::from("libs")]);

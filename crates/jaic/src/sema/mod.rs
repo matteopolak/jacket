@@ -79,6 +79,7 @@ use crate::intern::Sym;
 use crate::ir;
 pub use crate::lang_items::PreludeType;
 use crate::source::{Diagnostic, DiagnosticKind, FileId, SourcePath, Span};
+use crate::target::{TargetCpu, TargetOs};
 use crate::types::{TypeId, Types};
 /// The `#asm` instruction table, for editors (`jailsp`).
 pub use asm::catalog as asm_catalog;
@@ -111,21 +112,6 @@ pub type ConstArg = (Sym, Value, TypeId);
 
 pub fn err<T>(span: Span, message: impl Into<String>) -> Result<T> {
     Err(Box::new(Diagnostic::error(span, message)))
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TargetOs {
-    Windows,
-    Linux,
-    MacOS,
-    Wasm,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum TargetCpu {
-    X64,
-    Arm64,
-    Wasm,
 }
 
 /// Platform on which this compiler binary executes, independent of output options.

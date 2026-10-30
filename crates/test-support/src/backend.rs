@@ -18,7 +18,8 @@
 //! Needs the `backend` feature.
 
 use crate::{process, toolchain};
-use jaic::sema::{Compiler, Options, TargetCpu, TargetOs, VirtualFs};
+use jaic::sema::{Compiler, Options, VirtualFs};
+use jaic::target::{TargetCpu, TargetOs};
 use jaic_llvm::OptLevel;
 use std::path::{Path, PathBuf};
 use std::process::Command;

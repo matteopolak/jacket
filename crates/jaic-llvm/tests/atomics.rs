@@ -1,5 +1,6 @@
 //! Backend/runtime regressions using original declarations and a native C driver.
-use jaic::sema::{Compiler, Options, ProgramSource, TargetCpu, TargetOs, VirtualFs};
+use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+use jaic::target::{TargetCpu, TargetOs};
 use jaic_llvm::{OptLevel, emit_object};
 use std::{path::PathBuf, process::Command, rc::Rc};
 use test_support::process::succeeded as run;

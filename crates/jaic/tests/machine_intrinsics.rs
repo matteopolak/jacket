@@ -3,7 +3,8 @@ mod registers_source;
 
 mod cpuid {
     //! Architectural CPU data must never be substituted with fabricated zero features.
-    use jaic::sema::{Compiler, Options, ProgramSource, TargetCpu, VirtualFs};
+    use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+    use jaic::target::TargetCpu;
     use std::rc::Rc;
 
     const SOURCE: &str = include_str!("../../../tests/compiler/semantics/cpuid.jai");
@@ -98,7 +99,8 @@ mod cpuid {
 
 mod cpuid_leaf_zero {
     //! Stable CPUID fields compared with an independent host intrinsic.
-    use jaic::sema::{Compiler, Options, ProgramSource, TargetCpu, VirtualFs};
+    use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+    use jaic::target::TargetCpu;
     use std::rc::Rc;
 
     #[test]
@@ -164,7 +166,7 @@ mod cpuid_leaf_zero {
 mod xgetbv {
     //! XGETBV source/IR controls; no unguarded optional host instruction is executed.
     use jaic::ir::{Inst, Intrinsic, Linkage};
-    use jaic::sema::TargetCpu;
+    use jaic::target::TargetCpu;
     use test_support::compiler::compile_for_cpu as compile;
 
 
@@ -439,7 +441,7 @@ mod registers {
 
 mod x86_machine {
     //! ISA prerequisites and operand diagnostics; ARM hosts never report synthetic x86 results.
-    use jaic::sema::TargetCpu;
+    use jaic::target::TargetCpu;
     use test_support::compiler::compile_for_cpu as compile;
 
 

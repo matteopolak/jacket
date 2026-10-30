@@ -5,7 +5,8 @@ use crate::builtin_keys::{
 };
 use crate::interp::Host;
 use crate::ir;
-use crate::sema::{Compiler, DeadCode, FileSystem, Options, ProgramSource, TargetCpu, TargetOs};
+use crate::sema::{Compiler, DeadCode, FileSystem, Options, ProgramSource};
+use crate::target::{TargetCpu, TargetOs};
 use std::path::PathBuf;
 use std::rc::Rc;
 

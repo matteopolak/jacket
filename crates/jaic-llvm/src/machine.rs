@@ -129,7 +129,7 @@ pub(super) fn cpu_and_features(
 /// macOS (macOS 11, the deployment target, runs only on Apple silicon there), and LLVM's
 /// `generic` (armv8-a, the wasm MVP) elsewhere.
 pub(super) fn baseline_cpu(target: BuildTarget) -> &'static str {
-    use jaic::sema::TargetCpu;
+    use jaic::target::TargetCpu;
     match (target.cpu, target.is_apple()) {
         // Every Intel Mac (and Rosetta) has SSSE3.
         (TargetCpu::X64, true) => "core2",
