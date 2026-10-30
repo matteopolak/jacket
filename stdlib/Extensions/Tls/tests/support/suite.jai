@@ -1087,6 +1087,36 @@ test_name_check_off :: () {
     Tls.tls_config_free(*client_config);
 }
 
+// A certificate that is not self-signed is no trust anchor when it is the server's own (leaf) one: listing it in `roots_pem` does
+// not make a client accept it, as with OpenSSL's default rule. The CA that signed it does.
+test_leaf_is_not_a_root :: () {
+    server_config := make_config("server", "");
+
+    init(*server_config);
+
+    leaf_only := make_config("", "server");
+
+    init(*leaf_only);
+
+    pair := connect_pair(*server_config, *leaf_only);
+
+    assert(pair.client.error.kind == .VERIFY, "the leaf as the only root: %", Tls.error_text(pair.client.error));
+
+    ca_only := make_config("", "ca");
+
+    init(*ca_only);
+
+    pair = connect_pair(*server_config, *ca_only);
+
+    expect_connected(pair);
+
+    close_pair(*pair);
+
+    Tls.tls_config_free(*server_config);
+    Tls.tls_config_free(*leaf_only);
+    Tls.tls_config_free(*ca_only);
+}
+
 test_root_must_be_self_signed :: () {
     // The leaf is signed by the intermediate, which is signed by the root; the server sends the
     // leaf and the intermediate.
@@ -1873,6 +1903,8 @@ run_all :: () {
     test_certificate_names();
     progress("test_name_check_off");
     test_name_check_off();
+    progress("test_leaf_is_not_a_root");
+    test_leaf_is_not_a_root();
     progress("test_root_must_be_self_signed");
     test_root_must_be_self_signed();
     progress("test_revocation_lists");

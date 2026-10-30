@@ -43,7 +43,9 @@ Tls_Config :: struct {
     private_key_password: string;
 
     // The certificate authorities to trust, as PEM (any number of certificates). Empty: the system's
-    // (see docs/extensions/tls.md for where each OS keeps them).
+    // (see docs/extensions/tls.md for where each OS keeps them). They must be authorities: the server's own certificate listed
+    // here does not make a client trust it unless it is self-signed (the usual rule), so a certificate that a CA signed is
+    // trusted by giving that CA, or an intermediate (see `root_must_be_self_signed`).
     roots_pem: string;
 
     // Client with `roots_pem`: certificate revocation lists as PEM (any number, or one DER). The
