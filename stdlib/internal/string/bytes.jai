@@ -269,14 +269,15 @@ find_index_from_right :: (s: string, substring: string) -> s64 {
 } @UseResult
 
 // The index where `substring` first appears in `s` when ASCII letters are matched in either case, and
-// whether it was found. When it is not found the index is -1. An empty `substring` is never found.
+// whether it was found. When it is not found the index is -1. An empty `substring`, or one longer than `s`,
+// is never found.
 //
 // ```jai
 // index, found := index_of_string_nocase("Hello World", "WORLD");
 // assert(found && index == 6);
 // ```
 index_of_string_nocase :: (s: string, substring: string) -> int, found: bool {
-    if substring.count == 0 return -1, false;
+    if substring.count == 0 || substring.count > s.count return -1, false;
     for i: 0..s.count - substring.count if equal_nocase(slice(s, i, substring.count), substring) return i, true;
     return -1, false;
 }

@@ -405,6 +405,8 @@ procedure_matches :: (info: *Stack_Trace_Procedure_Info, procedures: [] Procedur
         if fragment.count == 0 return true;
 
         path := info.location.fully_pathed_filename;
+        if fragment.count > path.count continue;
+
         for start: 0..path.count - fragment.count {
             matches := true;
 

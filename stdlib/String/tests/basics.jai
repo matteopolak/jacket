@@ -23,6 +23,16 @@ contains_nocase_returns_the_text_after_the_match :: () {
     expect(S.begins_with(text, "") && S.ends_with_nocase(text, ""));
 } @test
 
+case_insensitive_search_for_a_needle_longer_than_the_text :: () {
+    index, found := S.index_of_string_nocase("ab", "ABCDEF");
+
+    expect(!found && index == -1);
+    index, found = S.index_of_string_nocase("", "a");
+    expect(!found && index == -1);
+    index, found = S.index_of_string_nocase("xAb", "aB");
+    expect(found && index == 1);
+} @test
+
 split_from_right_returns_all_of_the_text_first_when_nothing_matches :: () {
     missing, left, right := S.split_from_right("abc", cast(u8) 124);
 

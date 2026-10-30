@@ -62,6 +62,8 @@ reduce_path :: (path: Path) -> Path {
 }
 
 path_contains :: (path: Path, words: [] string) -> (contains: bool, position: s32) {
+    if words.count > path.words.count return false, 0;
+
     for i: 0..path.words.count - words.count {
         same := true;
 

@@ -194,6 +194,8 @@ header_identifier :: (name: string) -> bool {
     keywords := " auto break case char const continue default do double else enum extern float for goto if inline int long register restrict return short signed sizeof static struct switch typedef union unsigned void volatile while _Alignas _Alignof _Atomic _Bool _Complex _Generic _Imaginary _Noreturn _Static_assert _Thread_local ";
     needle := tprint(" % ", name);
 
+    if needle.count > keywords.count return true;
+
     for index: 0..keywords.count - needle.count {
         if slice(keywords, index, needle.count) == needle return false;
     }

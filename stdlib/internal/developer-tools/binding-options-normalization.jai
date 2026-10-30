@@ -38,6 +38,8 @@ binding_release_normalized_options :: (state: *Binding_Options_Normalization) {
 
 binding_normalization_library_root :: (headers: string) -> string {
     marker := "/usr/include";
+    if headers.count < marker.count return "";
+
     for index: 0..headers.count - marker.count {
         if string.{ marker.count, headers.data + index } != marker continue;
         before := string.{ index, headers.data };
