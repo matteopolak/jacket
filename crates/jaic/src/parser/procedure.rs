@@ -448,12 +448,17 @@ impl Parser<'_> {
             if matches!(self.tok_at(i), Tok::Punct(P::Dollar | P::DollarDollar)) {
                 i += 1;
             }
-            if !matches!(self.tok_at(i), Tok::Ident(_)) {
+            let Tok::Ident(word) = self.tok_at(i) else {
                 return false;
-            }
+            };
+            let builtin = super::is_builtin_type_name(word.as_str());
             i += 1;
             if !matches!(self.tok_at(i), Tok::Punct(P::Comma)) {
                 return matches!(self.tok_at(i), Tok::Punct(P::Colon | P::ColonEq));
+            }
+            // `string,` between names is a nameless parameter of that type, not a name.
+            if builtin {
+                return false;
             }
             i += 1;
         }

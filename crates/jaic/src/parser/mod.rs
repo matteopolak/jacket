@@ -353,26 +353,7 @@ impl<'a> Parser<'a> {
     /// variable, constant or parameter of that name could never be used.
     fn reject_literal_name(&self, name: Ident) -> PResult<Ident> {
         let word = name.name.as_str();
-        if matches!(
-            word,
-            "int"
-                | "float"
-                | "bool"
-                | "string"
-                | "void"
-                | "Any"
-                | "Code"
-                | "s8"
-                | "s16"
-                | "s32"
-                | "s64"
-                | "u8"
-                | "u16"
-                | "u32"
-                | "u64"
-                | "float32"
-                | "float64"
-        ) {
+        if is_builtin_type_name(word) {
             return Err(Diagnostic::error(
                 name.span,
                 format!("`{word}` is the name of a builtin type and cannot be declared"),
@@ -516,4 +497,28 @@ fn describe(tok: &Tok) -> String {
         Tok::Punct(p) => format!("`{}`", p.text()),
         Tok::Eof => "end of file".into(),
     }
+}
+
+/// Whether `word` names a builtin type, which no declaration may take as its name.
+pub(super) fn is_builtin_type_name(word: &str) -> bool {
+    matches!(
+        word,
+        "int"
+            | "float"
+            | "bool"
+            | "string"
+            | "void"
+            | "Any"
+            | "Code"
+            | "s8"
+            | "s16"
+            | "s32"
+            | "s64"
+            | "u8"
+            | "u16"
+            | "u32"
+            | "u64"
+            | "float32"
+            | "float64"
+    )
 }
