@@ -65,6 +65,7 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 
 | Variable | Meaning | When unset | Read by |
 | --- | --- | --- | --- |
+| `ANSICON` | Set by ANSICON; marks a Windows console that takes ANSI control codes. | unset | jaic, jacket |
 | `CC` | The C compiler the native tests build their helper libraries with. | `cc` | tests |
 | `CI` | Set by CI services: the build status lines are plain, and a missing test tool fails instead of skipping. | unset | jaic, jacket, tests |
 | `CLICOLOR_FORCE` | The same as `FORCE_COLOR`. | unset | jaic, jailint |

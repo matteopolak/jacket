@@ -387,6 +387,11 @@ vars! {
         default: "unset",
         summary: "`ON` marks a Windows console that takes ANSI control codes.",
     }
+    ANSICON {
+        name: "ANSICON", group: Standard, readers: [Jaic, Jacket],
+        default: "unset",
+        summary: "Set by ANSICON; marks a Windows console that takes ANSI control codes.",
+    }
     WT_SESSION {
         name: "WT_SESSION", group: Standard, readers: [Jaic, Jailint],
         default: "unset",
@@ -542,7 +547,8 @@ mod tests {
         }
     }
 
-    /// The quoted `JAIC_*`, `JACKET_*` and `JAI_*` names in `text`.
+    /// The quoted `JAIC_*`, `JACKET_*` and `JAI_*` names in `text`, and any name handed straight
+    /// to an `env("…")` or `lookup("…")` call, which panics at run time when it is undeclared.
     fn quoted_names(text: &str) -> Vec<&str> {
         let mut found = Vec::new();
         for (start, _) in text.match_indices('"') {
@@ -551,13 +557,17 @@ mod tests {
                 continue;
             };
             let word = &rest[..end];
+            let before = &text[..start];
+            // `.env("X", value)` sets a child's environment, which needs no declaration.
+            let read = (before.ends_with("env(") && !before.ends_with(".env("))
+                || before.ends_with("lookup(");
             let ours = ["JAIC_", "JACKET_", "JAI_"]
                 .iter()
                 .any(|prefix| word.starts_with(prefix));
-            let shaped = word
-                .bytes()
-                .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || b == b'_');
-            if ours && shaped && word.len() > 5 {
+            let shaped = !word.is_empty()
+                && word.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
+                && (read || !word.bytes().any(|b| b.is_ascii_lowercase()));
+            if shaped && (read || (ours && word.len() > 5)) {
                 found.push(word);
             }
         }
