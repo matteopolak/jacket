@@ -355,7 +355,7 @@ mod xgetbv {
                 .arg("-o")
                 .arg(&exe);
             checked(&mut driver);
-            let result = Command::new(&exe).output().unwrap();
+            let result = std::process::Command::new(&exe).output().unwrap();
             assert!(
                 result.status.success(),
                 "required native XGETBV proof unavailable or failed: status={:?}, stdout={}, stderr={}",
