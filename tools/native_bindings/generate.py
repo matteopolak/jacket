@@ -671,6 +671,10 @@ def main():
             path.write_text(code)
         entry = ROOT / 'stdlib' / module / 'module.jai'
         entry_code = '\n'.join(spec.parameter_blocks or [PARAMETERS.get(module, '')]) + '\n'
+        # A hand-written module doc comment (with its examples) leads the generated entry file.
+        module_doc = Path(__file__).parent / 'module_docs' / (module + '.jai')
+        if module_doc.exists():
+            entry_code = module_doc.read_text() + '\n' + entry_code
         if module in TARGETS:
             entry_code += '#assert ' + TARGETS[module] + ', "' + module + ' requires its documented native platform";\n'
         if module == 'rpmalloc':
