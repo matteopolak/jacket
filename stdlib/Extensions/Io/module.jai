@@ -1,20 +1,30 @@
 // Io: fibers and a cooperative scheduler. A jaic extension, not official Jai: other Jai compilers
 // have no such module, and it may change between jaic releases. See docs/extensions/io-engine.md.
 //
-//     Io :: #import "Extensions/Io";
+// ```jai
+// Io :: #import "Extensions/Io";
 //
-//     main :: () {
-//         Io.io_run(() {                          // the scheduler runs on this thread
-//             results := Io.make_channel(int, 4);
+// results: *Io.Channel(int); // a fiber's procedure cannot capture locals: share through a global or pass data
 //
-//             for 1..4 Io.spawn((n: int) { Io.sleep(10 * n); Io.send(results, n); }, it);
+// main :: () {
+//     Io.io_run(() { // the scheduler runs on this thread
+//         results = Io.make_channel(int, 4);
+//         defer Io.free_channel(results);
 //
-//             for 1..4 {
-//                 value, err := Io.recv(results);
-//                 print("%\n", value);
-//             }
-//         });
-//     }
+//         for 1..4 Io.spawn((n: int) { Io.sleep(10 * n); Io.send(results, n); }, it);
+//
+//         total := 0;
+//
+//         for 1..4 {
+//             value, err := Io.recv(results);
+//             assert(err == .NONE);
+//             total += value;
+//         }
+//
+//         assert(total == 10);
+//     });
+// }
+// ```
 //
 // A fiber is a lightweight thread that the program switches itself: it has its own small stack,
 // and runs until it blocks (`sleep`, `yield`, a channel, a `Wait_Group`, a `Fiber_Mutex`), when the

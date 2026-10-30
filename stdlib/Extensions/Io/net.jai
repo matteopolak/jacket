@@ -10,6 +10,19 @@
 //         spawn(handle, conn);
 //     }
 
+// The IP version of an `Address`: `IPV4`, `IPV6`, or `NONE` for an `Address` that was never filled in (and for what
+// `parse_address` returns when the text is not an address).
+//
+// ```jai
+// address, ok := parse_address("[::1]:8080");
+// assert(ok && address.family == .IPV6 && address.port == 8080);
+//
+// address, ok = parse_address("127.0.0.1:80");
+// assert(ok && address.family == .IPV4);
+//
+// address, ok = parse_address("not an address");
+// assert(!ok && address.family == .NONE);
+// ```
 Address_Family :: enum u8 {
     NONE;
     IPV4;
@@ -36,6 +49,15 @@ Tcp_Stream :: struct {
     handle: Handle;
 }
 
+// An IPv4 address from its four octets, `a.b.c.d`, and a port in host order. `address_to_string` turns it back into text.
+//
+// ```jai
+// address := address_v4(127, 0, 0, 1, 8080);
+//
+// assert(address.family == .IPV4);
+// assert(address.bytes[0] == 127 && address.bytes[3] == 1);
+// assert(address_to_string(address) == "127.0.0.1:8080");
+// ```
 address_v4 :: (a: u8, b: u8, c: u8, d: u8, port: u16) -> Address {
     address: Address;
     address.family = .IPV4;
@@ -193,6 +215,24 @@ last_platform_code :: () -> s32 {
 // Listens on `address` (a literal such as `":8080"`, port 0 picks a free one; see
 // `local_address`). `reuse_port` lets several listeners, one per thread, share the port; the
 // kernel then spreads the connections between them.
+//
+// ```jai
+// Io :: #import "Extensions/Io";
+//
+// main :: () {
+//     Io.io_run(() {
+//         listener, error := Io.tcp_listen("127.0.0.1:0");
+//         assert(error == .NONE);
+//         defer Io.close(listener);
+//
+//         address, _ := Io.local_address(listener);
+//         assert(address.port != 0); // the system picked a free port
+//
+//         _, bad := Io.tcp_listen("not an address");
+//         assert(bad == .INVALID);
+//     });
+// }
+// ```
 tcp_listen :: (text: string, backlog := 1024, reuse_port := false) -> Tcp_Listener, Io_Error {
     address, ok := parse_address(text);
     if !ok return .{}, .INVALID;
@@ -200,6 +240,10 @@ tcp_listen :: (text: string, backlog := 1024, reuse_port := false) -> Tcp_Listen
     return tcp_listen(address, backlog, reuse_port);
 }
 
+// The `tcp_listen` for an `Address` already built (`address_v4`, `parse_address`, `resolve`). It returns `.INVALID` for an address
+// with no family, and the system's error (`.ADDRESS_IN_USE`, `.PERMISSION_DENIED`, ...) when the bind or listen fails. The
+// listener is owned by the caller, who closes it with `close`. Its sockets are non-blocking and belong to the scheduler that
+// made them.
 tcp_listen :: (address: Address, backlog := 1024, reuse_port := false) -> Tcp_Listener, Io_Error {
     current_fiber();
 
@@ -408,14 +452,58 @@ connect :: (target: string) -> Tcp_Stream, Io_Error {
 }
 
 // The address this socket is bound to; with `tcp_listen(":0")`, which port it got.
+//
+// ```jai
+// Io :: #import "Extensions/Io";
+//
+// main :: () {
+//     Io.io_run(() {
+//         listener, _ := Io.tcp_listen("127.0.0.1:0");
+//         defer Io.close(listener);
+//
+//         address, error := Io.local_address(listener);
+//         assert(error == .NONE);
+//         assert(address.family == .IPV4 && address.port != 0);
+//     });
+// }
+// ```
 local_address :: (listener: Tcp_Listener) -> Address, Io_Error {
     return socket_address(listener.handle, false);
 }
 
+// The local end of a connected stream: the address and port this side of the connection uses.
 local_address :: (stream: Tcp_Stream) -> Address, Io_Error {
     return socket_address(stream.handle, false);
 }
 
+// The far end of a connected stream. On the accepting side this is the client's address and its ephemeral port; on the connecting
+// side it is the server's.
+//
+// ```jai
+// Io :: #import "Extensions/Io";
+//
+// main :: () {
+//     Io.io_run(() {
+//         listener, _ := Io.tcp_listen("127.0.0.1:0");
+//         defer Io.close(listener);
+//
+//         address, _ := Io.local_address(listener);
+//         client, connect_error := Io.connect(address);
+//         assert(connect_error == .NONE);
+//         defer Io.close(client);
+//
+//         server, accept_error := Io.accept(listener);
+//         assert(accept_error == .NONE);
+//         defer Io.close(server);
+//
+//         far, _ := Io.peer_address(client);
+//         assert(far.port == address.port); // the client's peer is the listener
+//         near, _ := Io.local_address(client);
+//         seen, _ := Io.peer_address(server);
+//         assert(seen.port == near.port); // the server sees the client's own port
+//     });
+// }
+// ```
 peer_address :: (stream: Tcp_Stream) -> Address, Io_Error {
     return socket_address(stream.handle, true);
 }
@@ -483,6 +571,7 @@ write :: (stream: Tcp_Stream, data: [] u8) -> s64, Io_Error {
     return write(writer_of(stream), data);
 }
 
+// The `write` for a `string`: sends all of `text`.
 write :: (stream: Tcp_Stream, text: string) -> s64, Io_Error {
     return write(stream, ([] u8).{ text.count, text.data });
 }
@@ -508,6 +597,8 @@ close :: (stream: Tcp_Stream, now := false) -> Io_Error {
     return close_handle(stream.handle);
 } @FreesArgument
 
+// Closes the listening socket. A fiber waiting in `accept` on it returns `.CLOSED`. The listener must not be used afterwards.
+// With `now` it closes at once without waiting and without waking such fibers; use it only where the code cannot block.
 close :: (listener: Tcp_Listener, now := false) -> Io_Error {
     if now {
         close_without_waiting(listener.handle);

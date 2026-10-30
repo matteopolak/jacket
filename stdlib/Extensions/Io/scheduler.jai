@@ -45,6 +45,8 @@ Io_Error :: enum u8 {
 
 Spawn_Entry :: #type (data: *void);
 
+// Where a fiber is in its life: waiting in the pool, ready, running, blocked on a timer, channel or mutex, or finished. It is the
+// scheduler's own bookkeeping; programs rarely need it.
 Fiber_State :: enum u8 {
     // Waiting in the pool for `spawn` to reuse it.
     FREE;
@@ -96,6 +98,8 @@ Fiber :: struct {
     temporary_ready: bool;
 }
 
+// A name for one fiber, returned by `spawn`. It stays safe to use after the fiber has ended: the `generation` tells a reused fiber
+// slot from the one the handle named, so `cancel` and `join` on a stale handle do nothing.
 Fiber_Handle :: struct {
     fiber: *Fiber;
     generation: u64;
@@ -151,10 +155,31 @@ Scheduler :: struct {
 
 // Runs `proc` as the first fiber of a new scheduler on this thread and returns when it has
 // returned. Fibers it started that are still alive then are canceled, and run until they end.
+//
+// Runs `proc` as the first fiber of a new scheduler on this thread and returns when it has returned. Fibers it started that
+// are still alive then are canceled, and run until they end. Everything that waits (`sleep`, `accept`, `read`, channels) runs
+// inside it, and only the calling fiber waits, never the thread. The scheduler's memory is released when the call returns; the
+// caller keeps what `proc` allocated. Do not call it from inside another `io_run` on the same thread.
+//
+// ```jai
+// Io :: #import "Extensions/Io";
+//
+// done: bool;
+//
+// main :: () {
+//     Io.io_run(() {
+//         Io.sleep(1);
+//         done = true;
+//     });
+//
+//     assert(done);
+// }
+// ```
 io_run :: (proc: $P) {
     run_scheduler(spawn_block(proc));
 }
 
+// The `io_run` for a procedure that takes one argument: `data` is copied and handed to `proc`.
 io_run :: (proc: $P, data: $T) {
     run_scheduler(spawn_block(proc, data));
 }
@@ -162,10 +187,33 @@ io_run :: (proc: $P, data: $T) {
 // Starts `proc` as a new fiber on the current scheduler; it first runs when the caller blocks or
 // yields. It gets a copy of the caller's `context` (with temporary storage of its own) and
 // `data` is copied for it.
+//
+// Starts `proc` as a new fiber on the current scheduler and returns its handle. It first runs when the calling fiber blocks or
+// yields, and not at all if the scheduler ends first. The new fiber starts with a copy of the caller's `context` and temporary
+// storage of its own. Fibers share one OS thread, so they can use shared data without locks as long as they do not block in
+// the middle of updating it.
+//
+// ```jai
+// Io :: #import "Extensions/Io";
+//
+// main :: () {
+//     Io.io_run(() {
+//         results := Io.make_channel(int, 1);
+//         defer Io.free_channel(results);
+//
+//         Io.spawn((out: *Io.Channel(int)) { Io.send(out, 42); }, results);
+//
+//         value, error := Io.recv(results); // waits for the spawned fiber
+//         assert(error == .NONE && value == 42);
+//     });
+// }
+// ```
 spawn :: (proc: $P) -> Fiber_Handle {
     return start_fiber(current_scheduler(), spawn_block(proc));
 }
 
+// The `spawn` for a procedure that takes one argument: `data` is copied for the new fiber, so a pointer in it must stay valid
+// until the fiber is done with it.
 spawn :: (proc: $P, data: $T) -> Fiber_Handle {
     return start_fiber(current_scheduler(), spawn_block(proc, data));
 }

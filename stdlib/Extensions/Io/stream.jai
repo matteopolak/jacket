@@ -45,6 +45,37 @@ Wait_Proc :: #type (data: *void) -> Io_Error;
 // Closes the source. `now` asks for a close that does not wait, for code that cannot block.
 Close_Proc :: #type (data: *void, now: bool) -> Io_Error;
 
+// A source of bytes: a pointer to its data and the procedures to use on it. `reader_of` makes one for a file, a TCP stream or
+// a pipe end, and a struct of your own can fill in `read_proc` (and optionally `close_proc` and `wait_proc`). A `Reader` is a
+// handle: copy it freely, it owns nothing, and the source must stay alive while it is used. `close` on it closes the source.
+//
+// ```jai
+// Counter :: struct {
+//     next: u8;
+// }
+//
+// count_up :: (data: *void, buffer: [] u8) -> s64, Io_Error {
+//     counter := cast(*Counter) data;
+//
+//     for 0..buffer.count - 1 {
+//         buffer[it] = counter.next;
+//         counter.next += 1;
+//     }
+//
+//     return buffer.count, .NONE;
+// }
+//
+// main :: () {
+//     counter: Counter;
+//     source := Reader.{ data = *counter, read_proc = count_up };
+//
+//     bytes: [4] u8;
+//     count, error := read(source, bytes);
+//
+//     assert(error == .NONE && count == 4);
+//     assert(bytes[0] == 0 && bytes[3] == 3);
+// }
+// ```
 Reader :: struct {
     data: *void;
     read_proc: Read_Proc;
@@ -55,6 +86,8 @@ Reader :: struct {
     wait_proc: Wait_Proc;
 }
 
+// A sink for bytes, the counterpart of `Reader`: a pointer to its data, a `write_proc` and an optional `close_proc`. `writer_of`
+// makes one for a file, a TCP stream or a pipe end. It is a handle that owns nothing; `close` on it closes the sink.
 Writer :: struct {
     data: *void;
     write_proc: Write_Proc;
@@ -82,6 +115,22 @@ wait_readable :: (reader: Reader) -> Io_Error {
     return reader.wait_proc(reader.data);
 }
 
+// Whether `wait_readable` works on `reader`, which is when its source supplies a `wait_proc` (a TCP stream does; a file or a pipe
+// end does not). When it is false, `wait_readable` returns `.UNSUPPORTED`.
+//
+// ```jai
+// Io :: #import "Extensions/Io";
+//
+// main :: () {
+//     Io.io_run(() {
+//         near, far := Io.make_pipe();
+//         defer Io.close(near);
+//         defer Io.close(far);
+//
+//         assert(!Io.can_wait_readable(Io.reader_of(near)));
+//     });
+// }
+// ```
 can_wait_readable :: (reader: Reader) -> bool {
     return reader.wait_proc != null;
 }
@@ -157,6 +206,7 @@ write :: (writer: Writer, data: [] u8) -> s64, Io_Error {
     return total, .NONE;
 }
 
+// The `write` for a `string`: sends all of `text` and returns how many bytes went out.
 write :: (writer: Writer, text: string) -> s64, Io_Error {
     return write(writer, ([] u8).{ text.count, text.data });
 }
@@ -172,6 +222,8 @@ close :: (reader: Reader, now := false) -> Io_Error {
     return reader.close_proc(reader.data, now);
 } @FreesArgument
 
+// Closes the sink behind a writer. A TCP stream or pipe end has a reader and a writer over one connection, so close only one
+// of them.
 close :: (writer: Writer, now := false) -> Io_Error {
     if !writer.close_proc return .NONE;
 
@@ -180,26 +232,58 @@ close :: (writer: Writer, now := false) -> Io_Error {
 
 // The built-in sources
 
+// The file as a `Reader`. Reading advances the file's position. The reader points at the `Io_File`, which must outlive it.
 reader_of :: (file: *Io_File) -> Reader {
     return .{ file, file_read_proc, file_close_proc, null };
 }
 
+// The TCP stream as a `Reader`; it can `wait_readable`. The reader carries the socket handle, so closing the reader closes the
+// stream.
 reader_of :: (stream: Tcp_Stream) -> Reader {
     return .{ cast(*void) stream.handle.fd, tcp_read_proc, tcp_close_proc, tcp_wait_proc };
 }
 
+// One end of a pipe from `make_pipe` as a `Reader`. The reader points at the pipe end, which must outlive it.
 reader_of :: (stream: *Pipe_Stream) -> Reader {
     return .{ stream, pipe_read_proc, pipe_close_proc, null };
 }
 
+// The file as a `Writer`. Writing advances the file's position. The writer points at the `Io_File`, which must outlive it.
 writer_of :: (file: *Io_File) -> Writer {
     return .{ file, file_write_proc, file_close_proc };
 }
 
+// The TCP stream as a `Writer`. `write` through it waits as long as it takes for the peer to take the bytes. Closing the writer
+// closes the stream.
+//
+// ```jai
+// Io :: #import "Extensions/Io";
+//
+// main :: () {
+//     Io.io_run(() {
+//         listener, _ := Io.tcp_listen("127.0.0.1:0");
+//         defer Io.close(listener);
+//
+//         address, _ := Io.local_address(listener);
+//         client, _ := Io.connect(address);
+//         server, _ := Io.accept(listener);
+//
+//         Io.write(Io.writer_of(client), "hello");
+//
+//         buffer: [8] u8;
+//         count, error := Io.read(Io.reader_of(server), buffer);
+//         assert(error == .NONE && string.{ count, buffer.data } == "hello");
+//
+//         Io.close(client);
+//         Io.close(server);
+//     });
+// }
+// ```
 writer_of :: (stream: Tcp_Stream) -> Writer {
     return .{ cast(*void) stream.handle.fd, tcp_write_proc, tcp_close_proc };
 }
 
+// One end of a pipe from `make_pipe` as a `Writer`. The writer points at the pipe end, which must outlive it.
 writer_of :: (stream: *Pipe_Stream) -> Writer {
     return .{ stream, pipe_write_proc, pipe_close_proc };
 }

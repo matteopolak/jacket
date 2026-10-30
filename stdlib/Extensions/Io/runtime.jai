@@ -35,6 +35,10 @@ with_grace :: (milliseconds: s64, body: Code) #expand {
 // A `with_deadline` argument that adds no limit.
 NO_DEADLINE :: -1;
 
+// The system facility a scheduler waits on: `IO_URING` or `EPOLL` on Linux, `KQUEUE` on macOS, `IOCP` or `IORING` on Windows. The
+// scheduler picks the best one the machine offers; the `JAI_IO_BACKEND` environment variable names another (`io_uring`, `epoll`,
+// `kqueue`, `iocp`, `ioring`). `NONE` is a system with no IO, where every operation fails with `.UNSUPPORTED`. Behaviour seen
+// through the API is the same on all of them; they differ in speed and in the kernel versions they need.
 Backend :: enum u8 {
     // No IO on this system: every operation fails with `.UNSUPPORTED`.
     NONE;
@@ -47,6 +51,12 @@ Backend :: enum u8 {
     IORING;
 }
 
+// The name of a backend as `JAI_IO_BACKEND` spells it, such as `"epoll"`, or `"none"` for `.NONE`. The string is a constant.
+//
+// ```jai
+// assert(name_of_backend(.EPOLL) == "epoll");
+// assert(name_of_backend(.NONE) == "none");
+// ```
 name_of_backend :: (backend: Backend) -> string {
     if backend == {
         case .IO_URING; return "io_uring";
@@ -116,6 +126,21 @@ processor_count :: () -> s64 {
 //     });
 //
 // `count` 0 means one per processor. Call it from outside any `io_run`.
+//
+// ```jai
+// Io :: #import "Extensions/Io";
+// Atomics :: #import "Atomics";
+//
+// started: s32;
+//
+// main :: () {
+//     Io.io_run_threads(2, () {
+//         Atomics.atomic_add(*started, 1);
+//     });
+//
+//     assert(started == 2);
+// }
+// ```
 io_run_threads :: (count: s64, proc: $P) {
     Block :: struct {
         proc: P;
@@ -134,6 +159,7 @@ io_run_threads :: (count: s64, proc: $P) {
     run_threads(count, entry, *block);
 }
 
+// The `io_run_threads` for a procedure that takes one argument: `data` is copied for the first fiber of every scheduler.
 io_run_threads :: (count: s64, proc: $P, data: $T) {
     Block :: struct {
         proc: P;

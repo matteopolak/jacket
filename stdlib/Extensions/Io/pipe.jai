@@ -144,6 +144,27 @@ write_some :: (stream: *Pipe_Stream, data: [] u8) -> s64, Io_Error {
     return data.count, .NONE;
 }
 
+// The `write` for a `string`: sends all of `text` into the pipe, to be read at the other end.
+//
+// ```jai
+// Io :: #import "Extensions/Io";
+//
+// main :: () {
+//     Io.io_run(() {
+//         near, far := Io.make_pipe();
+//
+//         Io.write(near, "hello");
+//         Io.shutdown_write(near);
+//
+//         text, error := Io.read_all(Io.reader_of(far));
+//         assert(error == .NONE && string.{ text.count, text.data } == "hello");
+//         free(text.data);
+//
+//         Io.close(near);
+//         Io.close(far);
+//     });
+// }
+// ```
 write :: (stream: *Pipe_Stream, text: string) -> s64, Io_Error {
     return write(stream, ([] u8).{ text.count, text.data });
 }
