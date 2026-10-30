@@ -233,6 +233,7 @@ class MeasureTests(unittest.TestCase):
         time.sleep(0.1)
         with self.assertRaises(ProcessLookupError):
             os.kill(child, 0)
+
     def test_failure_text_is_the_last_lines(self):
         self.assertEqual(run(returncode=1, stderr='a\nb\nc\n').failure(), 'exit 1: b | c')
 
