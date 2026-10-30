@@ -8,6 +8,7 @@
 mod cli;
 mod commands;
 mod compile;
+mod doc;
 mod fmt;
 mod project;
 mod status;
@@ -53,6 +54,7 @@ fn main() -> ExitCode {
         Command::Init {
             lib,
         } => commands::init(lib),
+        Command::Doc(args) => doc::run(&args, &cwd),
         Command::Config {
             action,
         } => commands::config(action, &cwd),

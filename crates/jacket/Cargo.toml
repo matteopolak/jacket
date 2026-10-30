@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+documentation.workspace = true
 description = "The jacket command: one front door to the Jai compiler, linter, formatter and language server."
 
 [[bin]]
@@ -17,6 +18,7 @@ serde_json = "=1.0.151"
 toml = "=1.1.2"
 regex-lite = "=0.1.9"
 semver = "=1.0.28"
+pulldown-cmark = { workspace = true, features = ["html"] }
 sha2 = "=0.10.9"
 
 [dev-dependencies]

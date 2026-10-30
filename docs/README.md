@@ -18,7 +18,7 @@ Start with [features](features.md), [the command line](tools/cli.md) (every flag
 
 ## Tools and editors
 
-[jacket](tools/jacket.md), [jacket test](tools/jacket-test.md) (and its matchers), [jacket bench](tools/jacket-bench.md), [jaifmt](tools/jaifmt.md), [jailint](tools/jailint.md), [VS Code](tools/vscode-extension.md), [Neovim](tools/neovim-plugin.md), [workspace trust](tools/workspace-trust.md), [environment variables](tools/environment.md).
+[jacket](tools/jacket.md), [jacket test](tools/jacket-test.md) (and its matchers), [jacket doc](tools/jacket-doc.md) (the API reference site), [jacket bench](tools/jacket-bench.md), [jaifmt](tools/jaifmt.md), [jailint](tools/jailint.md), [VS Code](tools/vscode-extension.md), [Neovim](tools/neovim-plugin.md), [workspace trust](tools/workspace-trust.md), [environment variables](tools/environment.md).
 
 ## Standard library
 

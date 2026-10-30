@@ -148,6 +148,7 @@ Commands:
   init     Create a project in the current directory
   test     Build the tests once, then run each in its own process (`-os`/`-cpu` as in jaic; flags after `--` go to jaic)
   bench    Build and measure the `@bench` procedures (optimized by default; the options of `test` select and build them)
+  doc      Build the standard library's API documentation as a static website
   config   Show the configuration
   clean    Remove the executable `jacket build` writes
   version  Print the version of jacket and of every tool it fronts
@@ -541,6 +542,26 @@ Options:
 
   -h, --help
           Print help (see a summary with '-h')
+```
+
+### jacket doc
+
+```text
+Build the standard library's API documentation as a static website
+
+Usage: jacket doc [OPTIONS]
+
+Options:
+      --out <DIR>             Where to write the site [default: target/doc-site]
+      --base-url <PATH>       The path the site is served under, with the slashes around it (`/docs/jai/`) [default: /]
+      --runtime <DIR>         A folder with `jai_wasm.wasm` and `engine.mjs` (a browser bundle) to copy into the site, so the Run buttons work; without it they are shown disabled
+      --playground-url <URL>  Where "open in playground" and the Playground link go [default: https://matteopolak.com/playground/jacket]
+      --guide-url <URL>       Where the Guide link goes [default: https://github.com/matteopolak/jacket/tree/main/docs]
+      --source-ref <REF>      The tag or branch Source links point at [default: v<this version>]
+      --module <NAME>         Document only these modules (`String`, `Extensions/Http`); repeatable
+      --check                 Build and check the links without writing the site
+      --allow-broken-links    Report broken intra-doc links as warnings instead of failing
+  -h, --help                  Print help
 ```
 
 ### jacket config

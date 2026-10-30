@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 /// the project's own `stdlib/` when it holds the library (the Jacket repository, or a checkout
 /// of it such as a git worktree, tests itself and not the checkout its binaries were built in);
 /// else the one jaic reports (`jaic -print_stdlib`).
-pub(super) fn stdlib_dir(jaic: &Path, project: &Path) -> Result<PathBuf, String> {
+pub(crate) fn stdlib_dir(jaic: &Path, project: &Path) -> Result<PathBuf, String> {
     let canonical = |dir: PathBuf| dir.canonicalize().unwrap_or(dir);
     if let Some(dir) = jacket_config::env::STDLIB
         .os()

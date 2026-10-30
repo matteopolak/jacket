@@ -202,7 +202,7 @@ fn declared(line: &str) -> Option<&str> {
 }
 
 /// The ```` ```jai ```` blocks of a doc comment's lines, with the line each fence opens on.
-fn fenced(lines: &[&str]) -> Vec<(usize, Block)> {
+pub(crate) fn fenced(lines: &[&str]) -> Vec<(usize, Block)> {
     let mut out = Vec::new();
     let mut i = 0;
     while i < lines.len() {
@@ -271,7 +271,7 @@ fn imports(code: &str, module: &str) -> bool {
 
 /// The program that runs `block` of the library `module`, and for each of its lines the doc comment line it came from (0 for a line
 /// jacket added).
-fn generate(block: &Block, module: &str) -> (String, Vec<u32>) {
+pub(crate) fn generate(block: &Block, module: &str) -> (String, Vec<u32>) {
     let mut out = String::new();
     let mut lines = Vec::new();
     let mut push = |text: &str, from: u32| {
@@ -339,6 +339,54 @@ fn generate(block: &Block, module: &str) -> (String, Vec<u32>) {
         0,
     );
     (out, lines)
+}
+
+/// The program that shows `block` of the library `module` on its own, for a reader to open in a
+/// playground: the example as `main` (its lines become the body of one when it has none), with
+/// the imports it needs. `None` when the example leans on the test harness (`expect`, `t.`).
+pub(crate) fn standalone(block: &Block, module: &str) -> Option<String> {
+    // `t.` as a whole word is the harness's test handle.
+    let leans = |line: &str| {
+        let code = line.split("//").next().unwrap_or("");
+        code.contains("expect")
+            || code.match_indices("t.").any(|(i, _)| {
+                !code[..i].ends_with(|c: char| c.is_alphanumeric() || c == '_' || c == '.')
+            })
+    };
+    if block.code.lines().any(leans) {
+        return None;
+    }
+    let mut out = String::new();
+    if !imports(&block.code, "Basic") {
+        out.push_str("#import \"Basic\";\n");
+    }
+    if !imports(&block.code, module) {
+        out.push_str(&format!("#import \"{module}\";\n"));
+    }
+    if has_main(&block.code) {
+        out.push_str(&block.code);
+        return Some(out);
+    }
+    let (header, body): (Vec<&str>, Vec<&str>) = block.code.lines().partition(|l| {
+        let t = l.trim_start();
+        t.starts_with("#import") || t.starts_with("#load")
+    });
+    for line in header {
+        out.push_str(line.trim_start());
+        out.push('\n');
+    }
+    out.push_str("\nmain :: () {\n");
+    for line in body {
+        if line.is_empty() {
+            out.push('\n');
+        } else {
+            out.push_str("    ");
+            out.push_str(line);
+            out.push('\n');
+        }
+    }
+    out.push_str("}\n");
+    Some(out)
 }
 
 /// `text` with each `.../doc.jai:N` that came from the doc comment written as its place there.

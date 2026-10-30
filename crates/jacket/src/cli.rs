@@ -72,6 +72,8 @@ pub enum Command {
     /// Build and measure the `@bench` procedures (optimized by default; the options of `test`
     /// select and build them)
     Bench(BenchArgs),
+    /// Build the standard library's API documentation as a static website
+    Doc(DocArgs),
     /// Show the configuration
     Config {
         #[command(subcommand)]
@@ -266,6 +268,47 @@ pub struct TestArgs {
     /// Flags for jaic, after `--`
     #[arg(last = true, value_name = "FLAGS")]
     pub jaic_args: Vec<String>,
+}
+
+/// `jacket doc`: where the site goes and where it will be served from.
+#[derive(clap::Args, Clone, Debug)]
+pub struct DocArgs {
+    /// Where to write the site
+    #[arg(long, value_name = "DIR", default_value = "target/doc-site")]
+    pub out: std::path::PathBuf,
+    /// The path the site is served under, with the slashes around it (`/docs/jai/`)
+    #[arg(long, value_name = "PATH", default_value = "/")]
+    pub base_url: String,
+    /// A folder with `jai_wasm.wasm` and `engine.mjs` (a browser bundle) to copy into the site, so
+    /// the Run buttons work; without it they are shown disabled
+    #[arg(long, value_name = "DIR")]
+    pub runtime: Option<std::path::PathBuf>,
+    /// Where "open in playground" and the Playground link go
+    #[arg(
+        long,
+        value_name = "URL",
+        default_value = "https://matteopolak.com/playground/jacket"
+    )]
+    pub playground_url: String,
+    /// Where the Guide link goes
+    #[arg(
+        long,
+        value_name = "URL",
+        default_value = "https://github.com/matteopolak/jacket/tree/main/docs"
+    )]
+    pub guide_url: String,
+    /// The tag or branch Source links point at [default: v<this version>]
+    #[arg(long, value_name = "REF")]
+    pub source_ref: Option<String>,
+    /// Document only these modules (`String`, `Extensions/Http`); repeatable
+    #[arg(long = "module", value_name = "NAME")]
+    pub modules: Vec<String>,
+    /// Build and check the links without writing the site
+    #[arg(long)]
+    pub check: bool,
+    /// Report broken intra-doc links as warnings instead of failing
+    #[arg(long)]
+    pub allow_broken_links: bool,
 }
 
 /// `jacket bench`: the selection and build options of `jacket test`, and how to measure.
