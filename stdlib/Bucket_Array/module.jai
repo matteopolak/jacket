@@ -35,8 +35,10 @@ Bucket :: Impl.Bucket;
 // Where an element lives: the number of its bucket and its slot in that bucket.
 //
 // A locator stays valid, and keeps naming the same element, until that element is removed or the array is
-// reset. A locator for a removed element is not detected as stale once the slot is reused: it then names
-// the new occupant.
+// reset. Using a locator whose element was removed fails an assert for as long as the slot stays free
+// (`bucket_array_find`, `bucket_array_find_pointer` and `bucket_array_remove` all check it). Once a later
+// add reuses the slot the locator is not detected as stale: it then names the new occupant, so drop
+// locators when you remove their elements.
 Bucket_Locator :: Impl.Bucket_Locator;
 // Frees every bucket through the array's allocator and empties the array, ready for reuse.
 //
@@ -92,7 +94,10 @@ bucket_array_remove :: Impl.bucket_array_remove;
 // The element is set to the default value of the type, or left uninitialized with `$initialize` set to
 // `false`, in which case the caller must write all of it.
 find_and_occupy_empty_slot :: Impl.find_and_occupy_empty_slot;
-// Lets a `Bucket_Array` be used in a `for` loop over its live elements, in bucket and slot order; `it_index` counts the elements visited.
+// Lets a `Bucket_Array` be used in a `for` loop over its live elements, in bucket and slot order; `it_index` numbers the elements visited, `0`, `1`, `2`, ... with free slots skipped.
+//
+// `it_index` is a visit count, not a slot number: after a removal it no longer matches what `array[n]`
+// accepts. Keep the `Bucket_Locator` from `bucket_array_add` when you need to address an element.
 //
 // `for *` gives pointers, `for <` goes backwards, and `remove it;` deletes the current element (as
 // `bucket_array_remove`). Adding while iterating may or may not visit the new element.

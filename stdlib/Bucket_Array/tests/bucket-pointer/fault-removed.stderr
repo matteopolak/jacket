@@ -1,0 +1,12 @@
+$STDLIB/internal/collections/bucket-array.jai:66:5: error: error during compile-time execution: assertion failed: `locator.slot_index >= 0 && locator.slot_index < array.items_per_bucket && bucket.occupied[locator.slot_index]` is false
+        assert(locator.slot_index >= 0 && locator.slot_index < array.items_per_bucket && bucket.occupied[locator.slot_index]);
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+fault-removed.jai:15:9: note: while running compile-time code started here
+    #assert removed_find();
+            ^^^^^^^^^^^^^^
+note: call stack (innermost first):
+    `bucket_array_find_pointer` at $STDLIB/internal/collections/bucket-array.jai:66
+    `bucket_array_find` at $STDLIB/internal/collections/bucket-array.jai:84
+    `removed_find` at fault-removed.jai:12
+    a constant's compile-time initializer
+
