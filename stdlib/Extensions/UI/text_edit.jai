@@ -535,7 +535,7 @@ paste_clipboard :: (ui: *UI_State, edit: *Text_Edit) {
 // - edit: the text being edited.
 // - options: font, size, line numbers, highlighting, marks, read-only mode and tab width.
 //
-// ```jai
+// ```jai,ignore
 // if text_editor(*doc.edit, .{line_numbers = true, highlight = highlight_jai}) doc.dirty = true;
 // ```
 text_editor :: (edit: *Text_Edit, options: Editor_Options = .{}, loc := #caller_location) -> changed: bool {

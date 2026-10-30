@@ -26,7 +26,7 @@ App_Window :: struct {
 // - app: your app state, passed to `build` each frame.
 // - build: declares the widgets for a frame.
 //
-// ```jai
+// ```jai,ignore
 // run_app(.{title = "Counter", width = 320, height = 200}, *app, build);
 // ```
 run_app :: (options: App_Options, app: *$T, build: (app: *T)) -> bool {
