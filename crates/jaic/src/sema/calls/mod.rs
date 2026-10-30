@@ -107,7 +107,7 @@ fn is_untyped_argument(arg: &CallArg) -> bool {
     }
 }
 
-fn is_deferred(expr: &ast::Expr) -> bool {
+pub(in crate::sema) fn is_deferred(expr: &ast::Expr) -> bool {
     takes_context_type(expr)
         || matches!(
             &expr.kind,

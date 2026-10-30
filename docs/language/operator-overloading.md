@@ -35,5 +35,5 @@ Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 - With these, `a + b` {#opov.3}, `a == b` {#opov.4} and `v[0]` {#opov.5} on `Vec` values call the overloads.
 - `a != b` becomes `!(a == b)` when no `operator !=` matches {#opov.6}.
 - `x[i]` uses `operator []` if one matches, else dereferences `operator *[]` {#opov.7}, which also makes it assignable {#opov.8}.
-- `g[i] = v` calls `operator []=` {#opov.9}.
+- `g[i] = v` calls `operator []=` {#opov.9}. A value with no type of its own (`g[i] = .{1, 2};`, `g[i] = .NAME;`) is built as the setter's value parameter, which may name the container's own parameters (`value: S.T`) {#opov.12}.
 - `enum_flags` values have builtin `&`, `|` and `~` that keep the enum type {#opov.10}, and compare with a literal zero {#opov.11}:

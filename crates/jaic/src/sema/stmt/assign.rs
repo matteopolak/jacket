@@ -78,7 +78,10 @@ impl Compiler {
             span,
             scope,
         };
+        // A value with no type of its own (`.{1, 2}`, `.NAME`) takes the setter's parameter type.
+        let deferred = matches!(op, ast::AssignOp::Assign) && calls::is_deferred(rhs);
         let value = match op {
+            ast::AssignOp::Assign if deferred => Operand::Void,
             ast::AssignOp::Assign => self.check_expr(f, scope, rhs, None)?,
             ast::AssignOp::Op(bin) => {
                 let (getters, lenient) = self.operator_candidates_for(scope, "[]", st)?;
@@ -126,7 +129,19 @@ impl Compiler {
                 self.check_expr(f, inner, &expr, Some(old_ty))?
             }
         };
-        let args = vec![arg(ptr_op), arg(index_op), arg(value)];
+        let value_arg = if deferred {
+            CallArg {
+                name: None,
+                spread: false,
+                expr: Some(rhs.clone()),
+                op: None,
+                span: rhs.span,
+                scope,
+            }
+        } else {
+            arg(value)
+        };
+        let args = vec![arg(ptr_op), arg(index_op), value_arg];
         self.call_procs(f, scope, &setters, args, None, span)?;
         Ok(true)
     }
