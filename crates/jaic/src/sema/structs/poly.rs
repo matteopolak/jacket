@@ -163,6 +163,34 @@ impl Compiler {
         self.eval_type(scope, ty).ok()
     }
 
+    /// Whether a polymorphic struct's value parameter is declared as an array of `Code`
+    /// (`$systems: [$N]Code`): an array literal argument is then typed by that element type, as
+    /// its length is what binds `N`.
+    pub fn poly_struct_param_is_code_array(
+        &self,
+        ps: PolyStructId,
+        index: usize,
+        name: Option<Sym>,
+    ) -> bool {
+        let lit = &self.ty.poly_structs[ps.0 as usize].lit;
+        let param = match name {
+            Some(n) => lit
+                .params
+                .iter()
+                .find(|p| p.name.map(|i| i.name) == Some(n)),
+            None => lit.params.get(index),
+        };
+        let Some(ast::ExprKind::ArrayType {
+            size,
+            elem,
+        }) = param.and_then(|p| p.ty.as_ref()).map(|t| &t.kind)
+        else {
+            return false;
+        };
+        matches!(size, ast::ArraySize::Fixed(_))
+            && matches!(&elem.kind, ast::ExprKind::Ident(word) if word.as_str() == "Code")
+    }
+
     pub fn instantiate_struct(
         &mut self,
         ps: PolyStructId,

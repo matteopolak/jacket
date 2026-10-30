@@ -315,10 +315,18 @@ impl Compiler {
     ) -> Result<Operand> {
         let mut values = Vec::new();
         for (i, a) in args.iter().enumerate() {
-            let expected = if matches!(a.value.kind, E::InferredMember(_)) {
-                self.poly_struct_param_type(ps, i, a.name.map(|n| n.name))
-            } else {
-                None
+            let expected = match &a.value.kind {
+                E::InferredMember(_) => self.poly_struct_param_type(ps, i, a.name.map(|n| n.name)),
+                E::ArrayLit {
+                    ty: None,
+                    elems,
+                } if self.poly_struct_param_is_code_array(ps, i, a.name.map(|n| n.name)) => {
+                    Some(self.ty.types.array(
+                        TypeId::CODE,
+                        crate::types::ArrayKind::Fixed(elems.len() as u64),
+                    ))
+                }
+                _ => None,
             };
             values.push((
                 a.name.map(|n| n.name),

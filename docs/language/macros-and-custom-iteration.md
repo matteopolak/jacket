@@ -52,3 +52,4 @@ Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 - Naming the index hides the macro's `it_index` from the body {#macro.10}.
 - An expansion can forward its body to another one {#macro.11}, and overloads on different types coexist {#macro.12}.
 - `#code return` with no value is the code of a bare `return`, and ends at the `)` or `,` that closes the argument it is in: `check(cond, #code return)` {#macro.13}.
+- In an array literal whose element type is `Code` (`[2] Code = .[a, b]`, an argument for `[] Code`, or a polymorphic struct argument for `$systems: [$N] Code`), a bare name is the code of that name, not its value. The struct parameter's `N` is the literal's length {#macro.14}.

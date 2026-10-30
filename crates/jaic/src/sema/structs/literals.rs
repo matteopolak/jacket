@@ -263,6 +263,30 @@ impl Compiler {
         }
     }
 
+    /// An element naming something (`.[sys_a, sys_b]` against `[N] Code`) in an array of `Code`
+    /// is the code of that name, as an argument for a `Code` parameter is.
+    fn quoted_code_element(
+        &mut self,
+        scope: ScopeId,
+        element: &ast::Expr,
+        elem_ty: Option<TypeId>,
+    ) -> Option<Operand> {
+        if elem_ty != Some(TypeId::CODE) || !matches!(element.kind, E::Ident(_) | E::Member(..)) {
+            return None;
+        }
+        if let Ok(op) = self.check_expr_no_emit(scope, element)
+            && op.ty() == TypeId::CODE
+        {
+            return None;
+        }
+        let id = self.add_code(Rc::new(ast::CodeBody::Expr(element.clone())), scope);
+        Some(Operand::Const {
+            ty: TypeId::CODE,
+            value: Value::Code(id),
+            untyped: false,
+        })
+    }
+
     pub fn check_array_literal(
         &mut self,
         f: &mut FnCtx,
@@ -283,7 +307,10 @@ impl Compiler {
         let mut ops = Vec::new();
         let mut elem_ty = elem_ty;
         for e in elems {
-            let op = self.check_expr(f, scope, e, elem_ty)?;
+            let op = match self.quoted_code_element(scope, e, elem_ty) {
+                Some(code) => code,
+                None => self.check_expr(f, scope, e, elem_ty)?,
+            };
             if elem_ty.is_none() {
                 let settled = self.settle_untyped(op.clone(), None);
                 elem_ty = Some(match &settled {
