@@ -314,6 +314,25 @@ impl Compiler {
                 {
                     return Ok(op);
                 }
+                // Code nested in a procedure may also ask for the count of an enclosing
+                // procedure's fixed array (`#insert -> string { ... result.base.count ... }`):
+                // only its type is read.
+                if member.name.as_str() == "count"
+                    && names_variable_path(base)
+                    && matches!(base.kind, E::Member(..))
+                    && self.path_starts_at_outer_local(scope, base)?
+                    && let Ok(named) = self.check_expr_no_emit(scope, base)
+                    && let TypeKind::Array {
+                        kind: ArrayKind::Fixed(n),
+                        ..
+                    } = self.ty.types.kind(self.ty.types.repr(named.ty()))
+                {
+                    return Ok(Operand::Const {
+                        ty: TypeId::S64,
+                        value: Value::Int(*n as i128),
+                        untyped: true,
+                    });
+                }
                 // A fixed array's count is part of its type, so `variable.count` is constant
                 // although the variable is not: naming it reads no value.
                 if f.constant_only.is_some()
@@ -832,6 +851,15 @@ fn cast_operand_needs_target(e: &ast::Expr) -> bool {
 }
 
 /// `name` or `name.member.member`: a path that only names storage.
+/// The identifier a variable path (`a.b.c`) starts at.
+fn path_root(expr: &ast::Expr) -> Option<&ast::Expr> {
+    match &expr.kind {
+        E::Ident(_) => Some(expr),
+        E::Member(base, _) => path_root(base),
+        _ => None,
+    }
+}
+
 fn names_variable_path(expr: &ast::Expr) -> bool {
     match &expr.kind {
         E::Ident(_) => true,

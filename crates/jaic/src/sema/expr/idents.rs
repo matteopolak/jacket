@@ -79,6 +79,27 @@ impl Compiler {
         Ok(op)
     }
 
+    /// Whether the variable path `expr` (`a.b.c`) starts at a runtime local of an enclosing procedure.
+    pub(in crate::sema) fn path_starts_at_outer_local(
+        &mut self,
+        scope: ScopeId,
+        expr: &ast::Expr,
+    ) -> Result<bool> {
+        let Some(root) = super::path_root(expr) else {
+            return Ok(false);
+        };
+        let E::Ident(name) = &root.kind else {
+            return Ok(false);
+        };
+        Ok(match self.lookup(scope, *name)?.as_slice() {
+            [id] => matches!(
+                self.entity(*id).kind,
+                EntityKind::Local { depth, .. } if depth != self.scope(scope).proc_depth
+            ),
+            _ => false,
+        })
+    }
+
     /// The type of `expr` if it names a runtime local of an enclosing procedure.
     pub(in crate::sema) fn outer_local_type(
         &mut self,
