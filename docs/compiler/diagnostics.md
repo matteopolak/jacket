@@ -8,7 +8,7 @@ Every message `jaic`, `jailint`, `jaifmt` and `jailsp` show: compile errors, war
 
 Each diagnostic says what the problem is in the user's terms, points at the user's own code (the wrong argument, not the whole call; the user's call into the stdlib, not a line deep inside it), and adds a `help:` with a concrete fix when one is clear, or a `note:` explaining why when there is none. A message the user cannot act on is a bug.
 
-- rustc's layout: `error:` / `warning:`, location, snippet, then `note:` and `help:`.
+- rustc's layout: `error[code]:` / `warning[code]:`, location, snippet, then `note:` and `help:`. The code is always shown; notes and help lines carry none.
 - Messages start in lowercase with no trailing period. Several sentences go in separate `note:`/`help:` lines.
 - Names, types, tokens and code are quoted with backticks, not single quotes: `` unknown identifier `countr` ``.
 - Types are shown as jaic names them (`s64`); a help that is a code change is a `Suggestion` (`with_suggestion`, or `with_replacement` for one replaced span), advice uses `with_help`.
@@ -17,13 +17,42 @@ Each diagnostic says what the problem is in the user's terms, points at the user
 
 ## How it works
 
-### `Diagnostic` (compiler)
+### `Diagnostic` and its code
 
-`source::Diagnostic` holds severity, primary `span`, `message`, optional `label`, `notes` (with a span, or `Span::NONE` for text only), `help` lines and `suggestions`.
+One type, `jaic::diagnostics::Diagnostic`, serves the compiler, `jailint`, `jailsp`, the playground and the command-line tools. It holds a `code`, a `severity`, the primary `span` and `message`, an optional `label`, `notes` (with a span, or `Span::NONE` for text only), `help` lines, `suggestions`, and a small `data` payload (the scope or module an editor needs to find a better hint later).
 
 ```rust
-Diagnostic::error(span, msg).with_label(..).with_note(span, ..).with_help(..).with_replacement(title, span, text)
+Diagnostic::new(Code::TypeMismatch, span, msg).with_label(..).with_note(span, ..).with_help(..).with_replacement(title, span, text)
 ```
+
+The severity comes from the code (`Code::severity`); a flag can change how a warning is shown (see below) but not the code.
+
+#### The catalog
+
+Every code is defined once, in `crates/jaic/src/diagnostics/catalog.rs`:
+
+```rust
+"types" => {
+    TypeMismatch = "type-mismatch", Error,
+        "a value whose type does not convert to the type expected there",
+        explain = "The place that receives the value expects one type ...",
+        example = "x: int = \"hello\";";
+}
+```
+
+The `Variant` is what Rust code writes (`Code::TypeMismatch`). The kebab-case name is what users see in `error[type-mismatch]`, what `jacket explain`, the `-A`/`-W`/`-D` flags and the test coverage check take, and what the playground and the language server carry as the diagnostic's `code`. The quoted area is how `jacket explain` groups the list. The one-line summary says what the code means in general; the message at the call site says what happened this time. `explain` (a short paragraph) and `example` (a few lines of Jai) are optional and only for codes where they help.
+
+`jailint`'s rules are codes too, as `Code::Lint(rule)` with the rule's own name, so a lint finding and a compiler diagnostic render, suppress and count the same way. Retiring a code means moving its name to `RETIRED`: `jacket explain` and the flags still know it and say it is retired.
+
+The 24 leniency codes (`Code::LENIENCIES`, listed in [leniencies](../language/leniencies.md)) are the warnings for code the official compiler rejects; their names never change.
+
+#### Choosing how loud a warning is
+
+`jaic` and `jailint` share the flag shape: `-A <code>` allows (hides) a warning, `-W <code>` warns (the default), `-D <code>` denies it (printed as an error, and the exit status is 1). `-D warnings` denies every warning, `-A leniencies` hides the leniency warnings; a later flag wins over an earlier one. `jaic` takes them in the same single-dash style as its other options, attached or separate (`-Dwarnings`, `-A cast-shift-precedence`); `jailint` also reads them from `jacket.toml`. A typo is refused with the nearest code. Errors cannot be allowed or warned, only denied (which is already the case). The levels live in `jaic::diagnostics::Level` and `Levels`; the same `Level` type is `jailint`'s.
+
+#### Explaining a code
+
+`jacket explain <code>` prints the summary, the explanation and the example of a code; with no argument it lists every code grouped by area, and a mistyped code gets the nearest suggestion. `error[type-mismatch]` can be pasted whole. The text is read from the catalog through the `jaic` crate, so there is no second copy. When stderr is a terminal and a reported code has an explanation, `jaic` ends with `help: run `jacket explain <code>` for more about `<code>``; piped output is left as the diagnostics themselves.
 
 ### Suggestions
 
@@ -52,7 +81,7 @@ d.with_suggestion(Suggestion::insert("add `;`", end_of_previous, ";", Applicabil
 
 Gotchas: take edit spans and the text between them from `self.src.sources.snippet(span)`, and parenthesise an operand when the new text changes precedence. A suggestion never goes with a span from another file than the diagnostic's (editors drop it). Order: suggestions print before plain `help:` lines, in the order added. Add several suggestions for alternatives rather than one with a choice in the title.
 
-Sema returns `Err(Box<Diagnostic>)`; `err(span, msg)` is the short form. Extra suggestions are computed at render time, not creation, because failed lookups are routine during overload and `#if` checks (`sema/suggestions.rs`): unknown identifiers (a build metaprogram that adds the name, close names, a namespaced import such as `M :: #import "Math"` that exports it, which gets an insert-`M.` suggestion and a `using M;` one in place of a duplicate `#import` (`sema/namespace_hints.rs`), stdlib modules declaring it, one `Edit::Import` suggestion each, the first listed and machine-applicable when it is the only module), missing modules and `#load` files (searched directories, close names), unknown members (the closest field, `using` member, constant or procedure of a type, the closest export of a module with `UnknownModuleMember`, "is not exported" for a `#scope_file` name, and the other modules that declare it), call mismatches (`call_mismatch` moves the error to the argument and notes the declaration; a `DiagnosticKind::ArgumentCount` error also notes the callee's parameters, and extra arguments get a removal suggestion, `sema/calls/count_hints.rs`), and type mismatches (`conversion_hint` suggests `cast`, `.data`, `tprint`, ...).
+Sema returns `Err(Box<Diagnostic>)`; `err(code, span, msg)` is the short form. Extra suggestions are computed at render time, not creation, because failed lookups are routine during overload and `#if` checks (`sema/suggestions.rs`): unknown identifiers (a build metaprogram that adds the name, close names, a namespaced import such as `M :: #import "Math"` that exports it, which gets an insert-`M.` suggestion and a `using M;` one in place of a duplicate `#import` (`sema/namespace_hints.rs`), stdlib modules declaring it, one `Edit::Import` suggestion each, the first listed and machine-applicable when it is the only module), missing modules and `#load` files (searched directories, close names), unknown members (the closest field, `using` member, constant or procedure of a type, the closest export of a module with `UnknownModuleMember`, "is not exported" for a `#scope_file` name, and the other modules that declare it; a name declared under `#scope_file` in another file of the same module turns an unknown identifier into `scope-file-name` with a note at that declaration and a hint to use `#scope_module`), call mismatches (`call_mismatch` moves the error to the argument and notes the declaration; an `ArgumentCount` error also notes the callee's parameters, and extra arguments get a removal suggestion, `sema/calls/count_hints.rs`), and type mismatches (`conversion_hint` suggests `cast`, `.data`, `tprint`, ...).
 
 Conversion and cast errors rewrite the code through one helper, `sema/convert/wrap.rs`: `wrap_suggestion` puts `cast(T)`, `.*`, `*` or `!= 0` around the expression at a span, parenthesising anything that is not a single primary expression (`cast(s32) (a + 1)`). It is used for assignments and returns (`implicit.rs`), call arguments (`calls/cost.rs`), binary operands (`binary/typing.rs`, which also passes the operand spans so the edit never covers the whole expression) and `s32(x)` calls (`calls/mod.rs`). The same area suggests `for 0..n - 1` for `for n`, drops extra `return` values, removes a `.*` on a non-pointer, and adds `,trunc` or `,force` to a `cast`. All of them are `MaybeIncorrect`: a cast can drop bits and a dereference can read null, so editors offer them but never apply them on their own. A new wrap form goes in `Wrap` and `wrapped_text`; code from a macro has no source text and gets the advice without an edit.
 
@@ -75,18 +104,18 @@ Line and column numbers come from `jaic::source::LineIndex` (see [source positio
 
 | Layout | When |
 |---|---|
-| `plain` | stderr not a terminal, or `TERM=dumb`: `path:line:col: error: message`, line, carets, `note:`/`help:`. Stable: tests and tools match it. |
+| `plain` | stderr not a terminal, or `TERM=dumb`: `path:line:col: error[code]: message`, line, carets, `note:`/`help:`. Stable: tests and tools match it. |
 | `ascii` | terminal without UTF-8 locale |
 | `unicode` | terminal with UTF-8 locale, or Windows Terminal (box drawing) |
-| `msvc` | `jaic -msvc_format`: `path(line,col): error: message`, no snippet or colour |
+| `msvc` | `jaic -msvc_format`: `path(line,col): error[code]: message`, no snippet or colour |
 
 `jailsp` and the browser playground always use plain text. Layout is separate from colour (errors red, warnings yellow, notes cyan, helps green).
 
 ### Warnings
 
-Code jaic accepts although the official compiler rejects it is a warning of its own kind (`DiagnosticKind::Lenient`) with a shared note; see [leniencies](../language/leniencies.md).
+Code jaic accepts although the official compiler rejects it is a warning with one of the leniency codes and a shared note (`diagnostics::LENIENCY_NOTE`); see [leniencies](../language/leniencies.md).
 
-`Compiler::warn` records a warning once per span and message; every `jaic` mode prints them before any error and they never change the exit status. `sema/flow.rs` reads procedure body shape for two of them: ``not all control paths return a value`` (a `return` counts, an `if` only with a returning `else`, a `switch` only with a default or `#complete`; `while true {}` warns, `while cond { return x; }` does not, as in Jai) and ``statements in block after `return` are never reached``. It runs from `lower_proc_body` and does not evaluate conditions.
+`Compiler::warn` records a warning once per span and message; every `jaic` mode prints them before any error and they do not change the exit status unless `-D` denies them. `sema/flow.rs` reads procedure body shape for two of them: ``not all control paths return a value`` (a `return` counts, an `if` only with a returning `else`, a `switch` only with a default or `#complete`; `while true {}` warns, `while cond { return x; }` does not, as in Jai) and ``statements in block after `return` are never reached``. It runs from `lower_proc_body` and does not evaluate conditions.
 
 ### Format string check
 
@@ -97,7 +126,7 @@ Code jaic accepts although the official compiler rejects it is a warning of its 
 When interpreted code fails a check (bounds, narrowing cast, `#complete` switch, null pointer, stack overflow, divide by zero, missing return, `#asm` fault, assertion), the interpreter returns a `Trap` with the message, statement and unwound procedures (`Trap::frames`, capped at 64). `Compiler::trap_diagnostic` makes the primary location the innermost frame in user code, adds `note: call stack (innermost first):` and a `help:` for common checks:
 
 ```
-bounds.jai:4:5: error: runtime error: array bounds check failed: index 3 is outside an array of 3 elements
+bounds.jai:4:5: error[runtime-error]: runtime error: array bounds check failed: index 3 is outside an array of 3 elements
 note: call stack (innermost first):
     `get` at bounds.jai:4
     `main` at bounds.jai:9
@@ -120,7 +149,7 @@ No unwinding runs, so values owned by the abandoned frames leak, and a lock the 
 
 ### Command-line errors
 
-`CliError` (message + helps): unknown commands and options get the closest match, missing input files suggest `suggest::similar_sibling`, build problems (output path is a directory, no `main`, unknown sanitizer) are caught before the backend, and a missing linker says how to install one. A Rust panic prints `error: internal compiler error: ...` with the issue tracker link (`install_panic_hook`).
+`CliError` (message + helps): unknown commands and options get the closest match, missing input files suggest `suggest::similar_sibling`, build problems (output path is a directory, no `main`, unknown sanitizer) are caught before the backend, and a missing linker says how to install one. They are diagnostics like the rest, with the codes `cli-usage` (a mistake in the command line) and `cli-failure` (the tool could not do what was asked); a hit memory limit is `memory-limit`. A Rust panic prints `error[internal-error]: internal compiler error: ...` with the issue tracker link (`install_panic_hook`).
 
 ### Exit status
 
@@ -128,9 +157,10 @@ No unwinding runs, so values owned by the abandoned frames leak, and a lock the 
 
 ## How to change it
 
-- **New error**: build the `Diagnostic` at the narrowest span the user wrote; add `with_help` when the fix is clear and `with_note(span, ..)` for a related place. Add a case to `crates/jaic-cli/tests/diagnostics.rs`.
-- **Rewording a message** breaks substring checks in `tests/corpus/manifest.json` (`PYTHONPATH=tools python3 tools/differential/jaic_sweep.py negative`), `tests/compiler/stdlib-targets.txt`, `parser/tests.rs`, `crates/jaic-cli/tests/cli.rs`, language server tests and docs. Code never matches message text: sema reacts to `Diagnostic::kind`.
-- **Errors other code reacts to** get a `DiagnosticKind` (`source.rs`, `with_kind`); `kind.code()` is the stable name the playground carries as `code`.
+- **New error or warning**: add a variant to the catalog in the right area (name the problem, not the message; keep the summary general), build the `Diagnostic::new(Code::..)` at the narrowest span the user wrote, add `with_help` when the fix is clear and `with_note(span, ..)` for a related place. Write `explain` and `example` when the code deserves more than a line. A test must name the code: a `tests/corpus/negative` case with its `code` in the manifest, or a case in `crates/jaic-cli/tests/diagnostics.rs` expecting `error[code]`; `tools/ci/check_diagnostics_covered.py` enforces it ([coverage](../tools/diagnostic-coverage.md)).
+- **Rewording a message** is free: tests that match message text still need updating (`tests/corpus/manifest.json` via `PYTHONPATH=tools python3 tools/differential/jaic_sweep.py negative`, `tests/compiler/stdlib-targets.txt`, `parser/tests.rs`, `crates/jaic-cli/tests/cli.rs`, language server tests and docs) but code never matches message text: sema and the editors react to `Diagnostic::code` and `data`.
+- **Errors other code reacts to** are told apart by their `Code`, with `data` for a payload (`Data::Scope`, `Data::Module`). Do not search `message`.
+- **Splitting or renaming a code** is a breaking change for anyone who passes it to `-A`/`-D` or suppresses it: move the old name to `RETIRED` and update the tests.
 - **New runtime check**: add an `ir::CheckReason` variant with wording in `ir::check_message` (and the same in `runtime_support_check_failed` for executables), raise it with `Interp::check_trap`, and add a help in `help_for` if common. Notes and helps key off `Trap::kind`, never message text.
 - **Layout/colour**: `render.rs`, tests in `render/tests.rs`. The plain layout must stay byte-for-byte stable (`tests/lint/*/bad.snap` depend on it).
 - A command-line tool should call `jaic::render::set_style(detect(choice))` once and print `Report`s. Code rendering for a caller with its own style (the playground's `run_with`) uses `render::with_style(style, || ...)`.
@@ -148,7 +178,7 @@ No unwinding runs, so values owned by the abandoned frames leak, and a lock the 
 
 ## Dependencies
 
-Standard library only: `render.rs`, `suggest.rs` (edit distance), `sema/suggestions.rs`, `sema/trap_report.rs`, `interp::Trap`, `stdlib/Runtime_Support/module.jai` (assertion reports in executables).
+Standard library only: `diagnostics.rs` and `diagnostics/catalog.rs` (the model), `render.rs`, `suggest.rs` (edit distance), `sema/suggestions.rs`, `sema/trap_report.rs`, `interp::Trap`, `stdlib/Runtime_Support/module.jai` (assertion reports in executables).
 
 ## Type names
 
