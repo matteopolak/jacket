@@ -41,6 +41,8 @@ impl Compiler {
 
     fn lookup_full_raw(&mut self, scope: ScopeId, name: Sym) -> Result<Found> {
         let mut found: Vec<EntityId> = Vec::new();
+        // Has a scope's own declaration (not an import or a `using`) been collected yet?
+        let mut declared = false;
         let mut current = Some(scope);
         while let Some(sid) = current {
             // A name this scope already binds to a non-procedure is final (another
@@ -64,8 +66,20 @@ impl Compiler {
                     let defined = ids.iter().any(|e| !is_placeholder(e));
                     ids.retain(|e| !is_placeholder(e) || (!defined && found.is_empty()));
                 }
-                if !ids.is_empty() && self.collect(&mut found, ids) {
-                    return Ok(Found::Entities(found));
+                if !ids.is_empty() {
+                    // What a module declares itself beats what its files import, though a file
+                    // is nearer: only procedures from both sides form one overload set.
+                    if !declared
+                        && self.scope(sid).kind == ScopeKind::Module
+                        && !found.is_empty()
+                        && !ids.iter().all(|&e| self.overloadable_or_alias(e))
+                    {
+                        return Ok(Found::Entities(ids));
+                    }
+                    declared = true;
+                    if self.collect(&mut found, ids) {
+                        return Ok(Found::Entities(found));
+                    }
                 }
             }
             // What `sid`'s `using`s, imports and the implicit modules hold under `name` can

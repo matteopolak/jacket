@@ -193,3 +193,24 @@ main :: () { a, b := take(); }
         ],
     );
 }
+
+// rules: scope.18
+#[test]
+fn variable_a_module_declares_beats_a_procedure_its_file_imports() {
+    accepted_with_modules(
+        "own-variable-beats-import",
+        &[
+            (
+                "main.jai",
+                "#import \"Holder\";\nmain :: () { set_it(); }\n",
+            ),
+            ("Sys/module.jai", "errno :: () -> s32 { return 0; }\n"),
+            ("Holder/module.jai", "#load \"a.jai\";\n#load \"b.jai\";\n"),
+            ("Holder/a.jai", "errno: s32;\n"),
+            (
+                "Holder/b.jai",
+                "set_it :: () {\n    errno = 5;\n}\n\n#scope_file\n#import \"Sys\";\n",
+            ),
+        ],
+    );
+}
