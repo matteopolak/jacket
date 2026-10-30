@@ -3,7 +3,7 @@ use super::{Binary, Unified, arith_op, cmp_op, is_comparison, is_shift};
 use crate::ast::BinOp;
 use crate::ir::{CmpOp, Ty};
 use crate::sema::calls::binop_text;
-use crate::sema::lower::{FnCtx, Operand};
+use crate::sema::lower::{FnCtx, Operand, Origin};
 use crate::sema::scope::Resolved;
 use crate::sema::{Compiler, Diagnostic, Rc, Result, Span, Sym, TypeId, Value, ast, err, ir};
 use crate::types::TypeKind;
@@ -136,6 +136,25 @@ impl Compiler {
         if !is_shift {
             lhs = self.ty.literal_as_bits(lhs, ty);
             rhs = self.ty.literal_as_bits(rhs, ty);
+        }
+        // A negative untyped shift amount is a bit pattern of the amount's type, which shifts every
+        // bit out: `a << (64 - x)` with a baked `x` of 127 sits in code that never runs but still
+        // has to compile.
+        if is_shift
+            && let Operand::Const {
+                ty,
+                value: value @ Value::Int(v),
+                untyped: true,
+                ..
+            } = &rhs
+            && *v < 0
+        {
+            rhs = Operand::Const {
+                ty: *ty,
+                value: value.clone(),
+                untyped: true,
+                origin: Origin::Named,
+            };
         }
         let rhs_ty = if is_shift {
             self.ty.shift_amount_type(&rhs, ty)
