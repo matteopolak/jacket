@@ -553,9 +553,8 @@ pub enum DiagnosticKind {
     /// The parser gave up past `MAX_NESTING` levels. Error recovery stops at it rather than
     /// rebuilding the enclosing blocks; it has no code of its own.
     NestingLimit,
-    /// An operator overload that is not in scope, accepted because the operand type's own
-    /// module declares it.
-    OperatorOutOfScope,
+    /// Code Jacket accepts although the official compiler rejects it (see [`crate::leniency::Leniency`]).
+    Lenient(crate::leniency::Leniency),
     /// A call passes more arguments than the callee takes, or leaves out one it needs. A
     /// call's mismatch note shows the callee's parameters for it.
     ArgumentCount,
@@ -600,7 +599,7 @@ impl DiagnosticKind {
             DiagnosticKind::UnboundGenericParameter => Some("unbound-generic-parameter"),
             DiagnosticKind::ModifyWithoutPolymorphs => Some("modify-without-polymorphs"),
             DiagnosticKind::Runtime => Some("runtime-error"),
-            DiagnosticKind::OperatorOutOfScope => Some("operator-out-of-scope"),
+            DiagnosticKind::Lenient(leniency) => Some(leniency.code()),
             DiagnosticKind::ArgumentCount => Some("argument-count"),
             DiagnosticKind::Untrusted => Some("untrusted"),
             DiagnosticKind::Unknown => Some("unknown-result"),

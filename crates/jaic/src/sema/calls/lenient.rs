@@ -1,5 +1,10 @@
-//! Operators found through the operand type's own module, and the help for operators nothing
-//! reaches.
+//! Warnings for code Jacket accepts and the official compiler rejects, and operators found
+//! through the operand type's own module.
+//!
+//! Every leniency is reported through `leniency_warning`/`warn_leniency`: one diagnostic kind
+//! per [`Leniency`], one shared note, and silence for code that is not the user's (an imported
+//! module, the standard library). The rest of this file is the operator case: the help for
+//! operators nothing reaches.
 //!
 //! A namespaced import (`Math :: #import "Math"`) does not bring `operator +` into scope, so
 //! `u + v` on `Math.Vector2` does not compile where the portable spelling is
@@ -12,6 +17,7 @@ use super::{
     Compiler, Diagnostic, DiagnosticKind, Operand, ProcId, Result, ScopeId, Span, Sym, TypeId,
     TypeKind, scope,
 };
+use crate::leniency::{Leniency, NOTE};
 use crate::sema::ModuleId;
 use crate::sema::binary::Binary;
 use crate::source::{Applicability, Edit, ImportSuggestion, Suggestion};
@@ -35,6 +41,34 @@ pub(in crate::sema) struct Rewrite {
 }
 
 impl Compiler {
+    /// A warning for a leniency at `span` in `module`, to add help to and hand to
+    /// `warn_leniency`; `None` where nothing is reported: outside the program's own files (an
+    /// imported module, the standard library, text with no file), because the author of a
+    /// library cannot act on it from a program that uses the library.
+    pub(in crate::sema) fn leniency_warning(
+        &self,
+        module: ModuleId,
+        span: Span,
+        leniency: Leniency,
+        message: impl Into<String>,
+    ) -> Option<Diagnostic> {
+        if Some(module) != self.ns.main_module || self.is_library_file(span.file) {
+            return None;
+        }
+        Some(
+            Diagnostic::warning(span, message)
+                .with_kind(DiagnosticKind::Lenient(leniency))
+                .with_note(Span::NONE, NOTE),
+        )
+    }
+
+    /// Record the warning `leniency_warning` made, if it made one.
+    pub(in crate::sema) fn warn_leniency(&mut self, warning: Option<Diagnostic>) {
+        if let Some(warning) = warning {
+            self.warn(warning);
+        }
+    }
+
     /// The overloads of `operator <text>` declared in the modules of the struct types `tys`
     /// that `scoped` does not already hold, with the module and type that supplied them.
     pub(in crate::sema) fn home_operator_candidates(
@@ -158,12 +192,16 @@ impl Compiler {
             }
         }
         let qualifier = alias.clone().or_else(|| self.module_name(used.module));
-        let mut d = Diagnostic::warning(
+        let module_id = self.scope(scope).module;
+        let Some(d) = self.leniency_warning(
+            module_id,
             span,
+            Leniency::OperatorOutOfScope,
             format!("`operator {text}` is not in scope here: using the one declared with `{ty}`"),
-        )
-        .with_kind(DiagnosticKind::OperatorOutOfScope)
-        .with_label("found through the operand type's module");
+        ) else {
+            return;
+        };
+        let mut d = d.with_label("found through the operand type's module");
         if let Some(q) = &qualifier {
             if let Some(Rewrite {
                 span: at,

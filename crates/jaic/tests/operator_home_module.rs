@@ -30,11 +30,16 @@ const OTHER: &str = "Thing :: struct { n: int; }";
 const OPS: &str = "O :: #import \"Other\";
 operator + :: (a: O.Thing, b: O.Thing) -> O.Thing { return .{a.n + b.n}; }";
 
+/// A module that adds two vectors without the operator in scope.
+const CALC: &str = "V :: #import \"Vec\";
+add :: (a: V.Vec2, b: V.Vec2) -> V.Vec2 { return a + b; }";
+
 fn compile(main: &str) -> (Result<(), Box<Diagnostic>>, Vec<Diagnostic>, Compiler) {
     let mut fs = VirtualFs::default();
     fs.insert("/modules/Vec/module.jai", VEC.as_bytes());
     fs.insert("/modules/Other/module.jai", OTHER.as_bytes());
     fs.insert("/modules/Ops/module.jai", OPS.as_bytes());
+    fs.insert("/modules/Calc/module.jai", CALC.as_bytes());
     fs.insert("/main.jai", main.as_bytes());
     let mut options = Options::host();
     options.runtime_support = false;
@@ -339,4 +344,35 @@ fn the_pointer_index_operator_in_scope_is_not_a_warning() {
         main :: () { g: Grid; g[1] = 5; x := g[1]; }",
     );
     assert!(warnings.is_empty(), "{warnings:?}");
+}
+
+#[test]
+fn the_warning_says_the_official_compiler_rejects_it() {
+    let (result, warnings, compiler) = compile(
+        "V :: #import \"Vec\";
+        main :: () { a, b: V.Vec2; c := a + b; }",
+    );
+    result.expect("the operator of the type module is accepted");
+    let text = compiler.render(&warnings[0]);
+    assert!(
+        text.contains(
+            "the official Jai compiler rejects this; Jacket accepts it but may stop in a future release"
+        ),
+        "{text}"
+    );
+}
+
+#[test]
+fn the_same_use_inside_an_imported_module_is_silent() {
+    let (result, warnings, _) = compile(
+        "C :: #import \"Calc\"; V :: #import \"Vec\";
+        main :: () { a, b: V.Vec2; c := C.add(a, b); }",
+    );
+    result.expect("the module checks");
+    assert!(
+        warnings
+            .iter()
+            .all(|w| !w.message.contains("is not in scope")),
+        "{warnings:?}"
+    );
 }

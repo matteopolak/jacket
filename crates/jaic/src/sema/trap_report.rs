@@ -303,7 +303,7 @@ impl Compiler {
 
     /// Whether `file` belongs to the standard library, including bootstrap support,
     /// canonical through the compiler's file system (the browser's is virtual).
-    fn is_library_file(&self, file: FileId) -> bool {
+    pub(in crate::sema) fn is_library_file(&self, file: FileId) -> bool {
         if self.src.sources.try_get(file).is_none() {
             return true;
         }

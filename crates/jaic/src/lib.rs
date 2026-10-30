@@ -31,6 +31,7 @@ pub mod ir;
 pub mod knobs;
 pub mod lang_items;
 pub mod layout;
+pub mod leniency;
 pub mod lexer;
 pub mod lexicon;
 mod macros;
