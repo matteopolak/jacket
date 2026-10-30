@@ -315,6 +315,28 @@
     if (button.getAttribute('data-act') === 'run') run(button); else if (button.getAttribute('data-act') === 'copy') copy(button);
   });
 
+  // Clicking anywhere on an item card opens the item, except on links, buttons, examples and when selecting text.
+  function cardLink(e) {
+    var t = e.target;
+    if (!t.closest || t.closest('a, button, summary, input, textarea, .ex')) return null;
+    var row = t.closest('.row');
+    var name = row && row.querySelector('.row-head a.name');
+    if (!name) return null;
+    var sel = window.getSelection && window.getSelection();
+    if (sel && !sel.isCollapsed && row.contains(sel.anchorNode)) return null;
+    return name;
+  }
+  document.addEventListener('click', function (e) {
+    if (e.button !== 0) return;
+    var name = cardLink(e);
+    if (!name) return;
+    if (e.metaKey || e.ctrlKey || e.shiftKey) window.open(name.href, '_blank'); else name.click();
+  });
+  document.addEventListener('auxclick', function (e) {
+    var name = e.button === 1 && cardLink(e);
+    if (name) window.open(name.href, '_blank');
+  });
+
   // Version menu. versions.json, when the host serves one, is [{"version": "0.31.0", "url": "/docs/jai/0.31.0/"}, ...].
   (function () {
     var btn = document.getElementById('ver'), menu = document.getElementById('ver-menu');

@@ -158,6 +158,8 @@ h2:hover .anchor, h3:hover .anchor, .anchor:focus-visible { opacity: 1; }
 .row { --px: 24px; --py: 22px; overflow: hidden; padding: var(--py) var(--px); margin-bottom: 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
 .row, .overload { transition: border-color 0.15s; }
 .row:hover, .overload:hover { border-color: color-mix(in srgb, var(--border), var(--fg) 10%); }
+.row:has(.row-head a.name) { cursor: pointer; }
+.row .ex { cursor: auto; }
 .row-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin-bottom: 8px; }
 .row .name { overflow-wrap: anywhere; min-width: 0; font-family: var(--mono); font-size: 15px; font-weight: 500; }
 .sig-line { font-family: var(--mono); font-size: 13px; color: var(--muted); margin-bottom: 12px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
