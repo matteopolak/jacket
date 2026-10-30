@@ -43,7 +43,7 @@ class RealWorkflow(unittest.TestCase):
             "crates/jaic-llvm/src/lower/symbols.rs",
             "crates/jaic-llvm/src/link.rs",
             "crates/jaic/src/abi.rs",
-            "crates/jaic/src/msvc.rs",
+            "crates/jaic/src/toolchain/discover.rs",
             "crates/jaic/src/ir/lower.rs",
             "crates/jacket/src/main.rs",
             "stdlib/Basic/module.jai",

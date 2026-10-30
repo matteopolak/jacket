@@ -47,7 +47,7 @@ fn default_modules() -> [&'static str; 5] {
     let dlls = runtime_dlls();
     [
         dlls.c,
-        dlls.ucrt,
+        dlls.stdio,
         "kernel32.dll",
         // Windows 10 1607 / Server 2016 expose thread descriptions only here.
         "kernelbase.dll",
@@ -97,13 +97,13 @@ pub fn open(name: &str, system: bool, base_dir: &str) -> Result<Library, String>
     }
     let (arch, machine) = match crate::sema::Options::host().cpu {
         crate::target::TargetCpu::Arm64 => (
-            crate::msvc::arch_dir(crate::target::TargetCpu::Arm64),
+            crate::toolchain::discover::arch_dir(crate::target::TargetCpu::Arm64),
             0xaa64,
         ),
-        cpu => (crate::msvc::arch_dir(cpu), 0x8664),
+        cpu => (crate::toolchain::discover::arch_dir(cpu), 0x8664),
     };
     let mut dirs = super::library_dirs();
-    for dir in crate::msvc::library_dirs(arch) {
+    for dir in crate::toolchain::discover::library_dirs(arch) {
         if !dirs.contains(&dir) {
             dirs.push(dir);
         }
@@ -314,7 +314,7 @@ mod stdio {
 
     /// A function of the universal runtime DLL by name.
     fn runtime_export(name: &str) -> Option<u64> {
-        let module = super::load(super::runtime_dlls().ucrt)?;
+        let module = super::load(super::runtime_dlls().stdio)?;
         let name: Vec<u8> = name.bytes().chain(Some(0)).collect();
         // SAFETY: `module` is a loaded module handle and `name` is NUL-terminated.
         let p = unsafe { super::GetProcAddress(module as *mut c_void, name.as_ptr()) };

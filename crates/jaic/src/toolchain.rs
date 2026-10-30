@@ -7,6 +7,7 @@
 //! a separate concern and lives in `discover`. See `docs/compiler/toolchain.md`.
 use crate::target::{Target, TargetAbi, TargetOs};
 
+pub mod discover;
 mod linux;
 mod macos;
 mod wasm;
@@ -70,8 +71,8 @@ pub struct RuntimeLib {
 pub struct RuntimeDlls {
     /// The one named libraries (`libc`, `libm`, `msvcrt`) resolve to.
     pub c: &'static str,
-    /// The universal runtime, which exports the `__stdio_common_*` workers behind `printf`.
-    pub ucrt: &'static str,
+    /// The DLL that exports the `__stdio_common_*` workers behind `printf`.
+    pub stdio: &'static str,
 }
 
 /// How a runtime library's variables are imported.

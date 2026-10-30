@@ -2,8 +2,8 @@
 use super::link::{LinkArg, toolchain_for};
 use super::{link_options, wasm};
 use jaic::ir::Library;
-use jaic::msvc;
 use jaic::target::Target as BuildTarget;
+use jaic::toolchain::discover;
 use jaic::toolchain::{Linker, Toolchain};
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -109,11 +109,11 @@ pub fn archive(
         }
         None if toolchain_for(target).linker.is_windows() => {
             let mingw_ar = format!("{}-w64-mingw32-ar", mingw_cpu(target));
-            let arch = msvc::arch_dir(target.unwrap_or_else(BuildTarget::host).cpu);
+            let arch = discover::arch_dir(target.unwrap_or_else(BuildTarget::host).cpu);
             find_program(&[&mingw_ar, "llvm-ar", "llvm-lib", "lib"])
                 // Visual Studio's lib.exe when no developer prompt put it on PATH.
                 .or_else(|| {
-                    msvc::find_tool("lib.exe", arch)
+                    discover::find_tool("lib.exe", arch)
                         .map(|tool| tool.program.to_string_lossy().into_owned())
                 })
                 .ok_or("no archiver for Windows libraries found: install LLVM or mingw-w64")?
@@ -234,7 +234,7 @@ pub(super) fn linker_command(
         if linker == Linker::Msvc {
             if !is_msvc_linker(&program) {
                 cmd.arg(format!("--target={msvc_triple}"));
-            } else if let Some(lib) = msvc::lib_env(msvc::arch_dir(resolved.cpu)) {
+            } else if let Some(lib) = discover::lib_env(discover::arch_dir(resolved.cpu)) {
                 // As for a `link.exe` jaic finds itself: without a developer prompt nothing
                 // else tells it where `user32.lib` and the C runtime are.
                 cmd.env("LIB", lib);
@@ -293,10 +293,10 @@ pub(super) fn linker_command(
 /// Visual Studio installation (or the developer prompt) with `LIB` filled in when no prompt set
 /// it, then from `PATH`, where a `link` that is not Microsoft's (the coreutils `link` of Git for
 /// Windows and MSYS2, which stops with `extra operand`) is skipped. Without Visual Studio: Clang's
-/// driver on `PATH`, `lld-link` on `PATH`, then a Clang installed elsewhere. See `msvc.rs` and
+/// driver on `PATH`, `lld-link` on `PATH`, then a Clang installed elsewhere. See `toolchain/discover.rs` and
 /// `docs/native/windows.md`.
 fn msvc_linker_command(target: BuildTarget) -> Result<(String, Command), String> {
-    let arch = msvc::arch_dir(target.cpu);
+    let arch = discover::arch_dir(target.cpu);
     let triple = target.to_string();
     let clang = |program: String| {
         let mut cmd = Command::new(&program);
@@ -316,23 +316,23 @@ fn msvc_linker_command(target: BuildTarget) -> Result<(String, Command), String>
         )
     };
     // No process is started to find this one; the `PATH` check below runs `link /?`.
-    if let Some(tool) = msvc::find_tool("link.exe", arch) {
+    if let Some(tool) = discover::find_tool("link.exe", arch) {
         return Ok(with_env(&tool.program, tool.env));
     }
     let mut skipped = Vec::new();
-    for program in msvc::on_path("link") {
-        if msvc::is_microsoft_linker(&program) {
-            return Ok(with_lib(&program, msvc::lib_env(arch)));
+    for program in discover::on_path("link") {
+        if discover::is_microsoft_linker(&program) {
+            return Ok(with_lib(&program, discover::lib_env(arch)));
         }
         skipped.push(program);
     }
     if let Some(program) = find_program(&["clang"]) {
         return Ok(clang(program));
     }
-    if let Some(program) = msvc::on_path("lld-link").first() {
-        return Ok(with_lib(program, msvc::lib_env(arch)));
+    if let Some(program) = discover::on_path("lld-link").first() {
+        return Ok(with_lib(program, discover::lib_env(arch)));
     }
-    if let Some(program) = msvc::find_clang() {
+    if let Some(program) = discover::find_clang() {
         return Ok(clang(program.to_string_lossy().into_owned()));
     }
     let mut message = String::from("no MSVC linker found to link for Windows");

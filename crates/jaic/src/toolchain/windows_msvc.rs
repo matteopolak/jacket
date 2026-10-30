@@ -43,7 +43,7 @@ pub(super) const RUNTIME: Runtime = Runtime {
     cc_flag: Some("-fms-runtime-lib=dll"),
     dlls: Some(RuntimeDlls {
         c: "msvcrt.dll",
-        ucrt: "ucrtbase.dll",
+        stdio: "ucrtbase.dll",
     }),
 };
 

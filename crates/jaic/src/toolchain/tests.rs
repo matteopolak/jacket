@@ -141,7 +141,7 @@ fn the_interpreter_resolves_five_names_to_the_runtime_dll() {
     }
     assert!(!toolchain.is_interpreter_runtime("ucrt"));
     let dlls = toolchain.runtime.dlls.unwrap();
-    assert_eq!((dlls.c, dlls.ucrt), ("msvcrt.dll", "ucrtbase.dll"));
+    assert_eq!((dlls.c, dlls.stdio), ("msvcrt.dll", "ucrtbase.dll"));
 }
 
 #[test]
