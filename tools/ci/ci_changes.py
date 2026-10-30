@@ -168,23 +168,38 @@ def shards(count):
     return [f"{k}/{count}" for k in range(1, count + 1)]
 
 
+# GitHub runs only a few macOS jobs at once, and every job repeats the setup and the build, so each
+# macOS host runs few, long jobs: one job per host takes the work that shares a build (below). The
+# timeout is the job's, in minutes.
+MACOS_TIMEOUT = 150
+
+
+def leg(host, part, shard="1/1", parts=None, **extra):
+    """A leg of the `test` job. `parts` lists the parts whose steps the leg runs, as ",a,b," (the
+    steps test `contains(matrix.parts, ',a,')`); it is the leg's own `part` unless a leg merges several."""
+    return dict(host, part=part, shard=shard, parts=f",{parts or part},", **extra)
+
+
 def test_matrix(full):
-    """The legs of the `test` job: `part` picks the steps, `shard` the share of them. The other
-    hosts leave out what does not depend on the host: the WebAssembly target tests (NOT_WASM), the
-    policy tests and Jai format check (the `jai` leg) and the native tests built in four parts
-    (`split`, on Linux arm64 only)."""
-    legs = [dict(X64, part="rust", shard=s) for s in shards(6)]
-    legs += [dict(X64, part="targets", shard=s) for s in shards(3)]
+    """The legs of the `test` job: `part` names the leg and `parts` picks its steps, `shard` is the
+    share of the tests. The other hosts leave out what does not depend on the host: the WebAssembly
+    target tests (NOT_WASM), the policy tests and Jai format check (the `jai` leg) and the native
+    tests built in four parts (`split`, on Linux arm64 only). A macOS host runs two jobs: `rust`
+    (the whole test suite, formatted and linted once) and `checks` (the stdlib target checks, the
+    Jai lint and the backend agreement, which share one debug build of jaic)."""
+    legs = [leg(X64, "rust", s) for s in shards(6)]
+    legs += [leg(X64, "targets", s) for s in shards(3)]
     parts = ("jai", "lint", "portability", "lint-windows", "lint-macos", "diff")
-    legs += [dict(X64, part=part, shard="1/1") for part in parts]
+    legs += [leg(X64, part) for part in parts]
     if not full:
         return legs + [
-            dict(MAC, part="rust", shard=s, expr=f"({HOST_CRATES}) & {NOT_WASM}") for s in shards(2)
+            leg(MAC, "rust", s, expr=f"({HOST_CRATES}) & {NOT_WASM}") for s in shards(2)
         ]
-    for host in (ARM, MAC, INTEL):
-        legs += [dict(host, part="rust", shard=s, expr=NOT_WASM) for s in shards(3)]
-        legs += [dict(host, part=part, shard="1/1") for part in ("targets", "lint", "diff")]
-    legs.append(dict(ARM, part="split", shard="1/1"))
+    legs += [leg(ARM, "rust", s, expr=NOT_WASM) for s in shards(3)]
+    legs += [leg(ARM, part) for part in ("targets", "lint", "diff", "split")]
+    for host in (MAC, INTEL):
+        legs.append(leg(host, "rust", expr=NOT_WASM, timeout=MACOS_TIMEOUT))
+        legs.append(leg(host, "checks", parts="targets,lint,diff", timeout=MACOS_TIMEOUT))
     return legs
 
 
@@ -232,10 +247,18 @@ def stdlib_matrix(full):
         legs += [dict(platform="macos-arm64", shard=s, modes="interp,native", o2=False) for s in shards(2)]
         return legs + suite_legs("linux-x64", ("bindings", "tooling")) + suite_legs("macos-arm64", ())
     legs = []
-    for platform in ("linux-x64", "linux-arm64", "macos-arm64", "macos-x64"):
+    for platform in ("linux-x64", "linux-arm64"):
         modes = everything if platform == "linux-x64" else "interp,native"
         legs += [dict(platform=platform, shard=s, modes=modes, o2=True) for s in shards(2)]
         legs += suite_legs(platform, ("bindings", "tooling"))
+    for platform in ("macos-arm64", "macos-x64"):
+        # Two jobs per Mac: the whole catalogue, and every producer suite with all the
+        # `jacket test` runs (they share the production build, and their parts only exist to
+        # shorten Linux jobs).
+        legs.append(dict(platform=platform, shard="1/1", modes="interp,native", o2=True, timeout=MACOS_TIMEOUT))
+        legs.append(
+            dict(platform=platform, shard="suites", suites=f"{SUITES} bindings tooling", jacket_test="all", timeout=MACOS_TIMEOUT)
+        )
     return legs
 
 

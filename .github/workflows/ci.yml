@@ -185,7 +185,7 @@ jobs:
       group: ${{ github.workflow }}-test-${{ github.ref }}-${{ matrix.runner }}-${{ matrix.part }}-${{ matrix.shard }}-${{ github.sha }}
       cancel-in-progress: true
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
+    timeout-minutes: ${{ matrix.timeout || 45 }}
     env:
       CARGO_INCREMENTAL: '0'
       # The wasm target tests fail, rather than skip, without node or wasm-ld.
@@ -205,14 +205,14 @@ jobs:
         with: {node-version: '24'}
       # Platform-neutral checks run once, on the Linux x64 `jai` leg.
       - uses: ./.github/actions/dependency-age-cache
-        if: ${{ matrix.runner == 'ubuntu-24.04' && matrix.part == 'jai' }}
+        if: ${{ matrix.runner == 'ubuntu-24.04' && contains(matrix.parts, ',jai,') }}
       - name: Validate dependency ages before building
-        if: ${{ matrix.runner == 'ubuntu-24.04' && matrix.part == 'jai' }}
+        if: ${{ matrix.runner == 'ubuntu-24.04' && contains(matrix.parts, ',jai,') }}
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python3 tools/ci/check_dependency_age.py
       - name: Validate public checkout compilation inputs
-        if: ${{ matrix.runner == 'ubuntu-24.04' && matrix.part == 'jai' }}
+        if: ${{ matrix.runner == 'ubuntu-24.04' && contains(matrix.parts, ',jai,') }}
         run: |
           just repo-checks
           python3 tools/ci/check_diagnostics_covered.py
@@ -237,19 +237,19 @@ jobs:
       # The Rust format and clippy checks run on the first Rust shard of each platform.
       - name: Format check
         id: format
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part == 'rust' && startsWith(matrix.shard, '1/') }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',rust,') && startsWith(matrix.shard, '1/') }}
         run: just fmt --check --lang rust
       - name: Lint
         id: lint
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part == 'rust' && startsWith(matrix.shard, '1/') }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',rust,') && startsWith(matrix.shard, '1/') }}
         run: just lint --lang rust
       # The Seatbelt tests skip on every other host and the policy tests above run on Linux only.
       - name: macOS sandbox tests
-        if: ${{ !cancelled() && matrix.runner == 'macos-15' && matrix.part == 'rust' && startsWith(matrix.shard, '1/') }}
+        if: ${{ !cancelled() && matrix.runner == 'macos-15' && contains(matrix.parts, ',rust,') && startsWith(matrix.shard, '1/') }}
         run: python3 tools/run_tests.py -p test_sandbox.py -p test_upstream_sandbox.py
       - name: Rust and native execution tests
         id: correctness
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part == 'rust' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',rust,') }}
         # One share of the tests (nextest's slice partition; doctests run in the first). The full
         # reference lexer requires the separately supplied sources. On Linux the step stops itself
         # before the job's timeout and runs under a memory limit, so a runaway test fails by name
@@ -262,7 +262,7 @@ jobs:
             --partition "slice:${{ matrix.shard }}" --expr "$EXPR"
       # Per-test durations, for planning the shards (docs/tools/testing.md).
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part == 'rust' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',rust,') }}
         with:
           name: rust-test-durations-${{ matrix.runner }}-${{ strategy.job-index }}
           path: target/nextest/ci/*.xml
@@ -270,14 +270,14 @@ jobs:
           if-no-files-found: ignore
       - name: Native tests with every program divided into parts
         id: split-native
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part == 'split' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',split,') }}
         # JACKET_TEST_CODEGEN_UNITS=4 (the tests start jaic with -codegen_units 4) divides each native build into four codegen units (call-graph parts
         # when optimized), so a code generation bug that only shows across parts fails here
         # (docs/native/llvm-backend.md). Tests about a single module pin one unit themselves.
         run: JACKET_TEST_CODEGEN_UNITS=4 cargo nextest run --profile ci -p jaic-cli --locked --test native --test optimized_split --test debug_info --test embedded_data
       - name: Stdlib type-checks and Objective-C selectors
         id: stdlib-targets
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part == 'targets' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',targets,') }}
         # Every stdlib module with -no_dce for linux, macos, windows and wasm, against
         # tests/compiler/stdlib-targets.txt, one share of the module and target pairs per shard
         # (JACKET_STDLIB_TARGETS_PART); every Objective-C selector against its arguments and, on
@@ -289,31 +289,31 @@ jobs:
           [[ "$JACKET_STDLIB_TARGETS_PART" == 1/* ]] && objc=(--test objc_selectors)
           cargo nextest run --profile ci --ignore-default-filter -p jaic-cli --locked --test stdlib_targets "${objc[@]}"
       - name: Prepare hash-pinned SDL Python test inputs
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part == 'jai' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',jai,') }}
         run: python3 tools/bindings/prepare_sdl_python_tests.py --scratch "$RUNNER_TEMP/sdl-python" --cache "$RUNNER_TEMP/sdl-python-cache" >> "$GITHUB_ENV"
       # The repository's Jai code must be formatted (settings: jacket.toml).
       - name: Jai format check
         id: jai-format
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part == 'jai' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',jai,') }}
         run: just fmt --check --lang jai
       # After the Jai format check, which builds the jaifmt binary the generator tests format with.
       - name: Policy tests
         id: policy
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part == 'jai' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',jai,') }}
         # tools/run_tests.py discovers each tools/ folder (tools/ has no __init__.py), native_bindings/ and bench/ included.
         run: |
           python3 tools/run_tests.py
       # The checked-in native bindings must be exactly what the reviewed specs generate.
       - name: Generated bindings check
         id: bindings-check
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part == 'jai' && matrix.runner == 'ubuntu-24.04' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',jai,') && matrix.runner == 'ubuntu-24.04' }}
         working-directory: tools/native_bindings
         run: python3 generate.py --check --formatter ../../target/jaifmt
       # Every other generator must reproduce its checked-in files (docs/tools/tools-layout.md).
       # The generators' pinned downloads (toolkit.download), kept between runs because
       # raw.githubusercontent.com and unicode.org rate-limit runners.
       - name: Cache generator downloads
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part == 'jai' && matrix.runner == 'ubuntu-24.04' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',jai,') && matrix.runner == 'ubuntu-24.04' }}
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/generator-downloads
@@ -321,12 +321,12 @@ jobs:
           restore-keys: generator-downloads-
       - name: Generated sources check
         id: generated-check
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part == 'jai' && matrix.runner == 'ubuntu-24.04' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',jai,') && matrix.runner == 'ubuntu-24.04' }}
         env:
           XDG_CACHE_HOME: ${{ runner.temp }}/generator-downloads
         run: python3 tools/generators/check_generated.py --formatter target/jaifmt
       - name: Native Linux File_Watcher ownership and notifications
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && runner.os == 'Linux' && matrix.part == 'jai' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && runner.os == 'Linux' && contains(matrix.parts, ',jai,') }}
         id: file-watcher-native
         env:
           CARGO_TARGET_DIR: ${{ github.workspace }}/target
@@ -340,11 +340,11 @@ jobs:
       # OS, so an import of an OS-only module fails here rather than in a build for that OS.
       - name: Jai lint
         id: jai-lint
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part == 'lint' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',lint,') }}
         run: just lint --lang jai --release
       - name: Jai portability lint
         id: jai-portability
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part == 'portability' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',portability,') }}
         run: |
           cargo build --locked --release -p jailint
           target/release/jailint -A all -D platform_leak -j "$(nproc)" --allow-incomplete stdlib
@@ -359,14 +359,14 @@ jobs:
       # The browser engine is part of the agreement check below; like the wasm target tests, it
       # runs on Linux x64 only.
       - name: Build the browser engine bundle
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part == 'diff' && runner.os == 'Linux' && matrix.architecture == 'x86_64' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',diff,') && runner.os == 'Linux' && matrix.architecture == 'x86_64' }}
         run: |
           python3 tools/ci/install_pinned.py rust --component rustfmt --component clippy --target wasm32-unknown-unknown
           cargo fetch --locked
           python3 tools/browser/build_scripting_wasm.py --release --output target/ci-wasm
       - name: Backend agreement
         id: backends
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part == 'diff' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',diff,') }}
         # The interpreter, -O0 and -O2 native builds and (on Linux x64) the browser engine and wasm
         # must print the same for the corpus and a fixed set of generated programs
         # (docs/tools/testing.md has the full run).
@@ -381,7 +381,7 @@ jobs:
           python3 tools/differential/jaic_diff.py --jaic target/debug/jaic --backends "$backends" "${wasm[@]}" corpus gen:1:40
       - name: WebAssembly target
         id: wasm-target
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && matrix.part == 'diff' && runner.os == 'Linux' && matrix.architecture == 'x86_64' }}
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',diff,') && runner.os == 'Linux' && matrix.architecture == 'x86_64' }}
         # jaifmt compiled to wasm64 must format every golden case exactly like native jaifmt, and WASI
         # modules must behave like the interpreter (docs/native/wasm-target.md).
         run: |
@@ -489,7 +489,7 @@ jobs:
       group: ${{ github.workflow }}-stdlib-runtime-${{ github.ref }}-${{ matrix.platform }}-${{ matrix.shard }}-${{ github.sha }}
       cancel-in-progress: true
     runs-on: ${{ fromJSON('{"macos-arm64":"macos-15","macos-x64":"macos-15-intel","linux-x64":"ubuntu-24.04","linux-arm64":"ubuntu-24.04-arm"}')[matrix.platform] }}
-    timeout-minutes: 60
+    timeout-minutes: ${{ matrix.timeout || 60 }}
     env:
       CARGO_INCREMENTAL: '0'
     steps:

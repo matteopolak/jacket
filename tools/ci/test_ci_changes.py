@@ -149,6 +149,35 @@ class Tiers(unittest.TestCase):
         macos += [leg for leg in stdlib if leg["platform"].startswith("macos")]
         self.assertLessEqual(len(macos), 5)
 
+    def test_each_mac_runs_few_long_jobs_in_the_full_tier(self):
+        tests = ci_changes.test_matrix(True)
+        stdlib = ci_changes.stdlib_matrix(True)
+        for runner in self.MACOS:
+            legs = [leg for leg in tests if leg["runner"] == runner]
+            self.assertEqual([leg["part"] for leg in legs], ["rust", "checks"])
+            self.assertEqual({leg["parts"] for leg in legs}, {",rust,", ",targets,lint,diff,"})
+        macos = [leg for leg in tests if leg["runner"] in self.MACOS]
+        macos += [leg for leg in stdlib if leg["platform"].startswith("macos")]
+        self.assertEqual(len(macos), 8)
+        for leg in macos:
+            self.assertGreaterEqual(leg["timeout"], 120, leg)
+
+    def test_every_test_leg_names_its_parts_with_delimiters(self):
+        for full in (False, True):
+            for leg in ci_changes.test_matrix(full):
+                with self.subTest(leg=leg):
+                    self.assertTrue(leg["parts"].startswith(",") and leg["parts"].endswith(","))
+                    # `checks` is the one leg that merges parts under a name of its own.
+                    self.assertTrue(f",{leg['part']}," in leg["parts"] or leg["part"] == "checks")
+
+    def test_the_test_job_selects_steps_by_parts(self):
+        from pathlib import Path
+
+        text = (Path(__file__).resolve().parents[2] / ".github/workflows/ci.yml").read_text()
+        job = text[text.index("\n  test:\n") : text.index("\n  vscode-extension:\n")]
+        self.assertNotIn("matrix.part ==", job)
+        self.assertIn("contains(matrix.parts, ',rust,')", job)
+
     def test_the_full_tier_covers_every_platform(self):
         runners = {leg["runner"] for leg in ci_changes.test_matrix(True)}
         self.assertEqual(
