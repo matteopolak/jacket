@@ -95,15 +95,13 @@ for_expansion :: (using array: *$T/Xar, body: Code, flags: For_Flags) #expand {
     }
 }
 
-quick_sort :: quick_sort_iter;
-
-quick_sort_simple :: (array: $T/Xar, f: (T.Element_Type, T.Element_Type) -> $R) {
-    sort_in_place(array, f);
-}
-
+// All three public names are this one heap sort.
 quick_sort_iter :: (array: $T/Xar, f: (T.Element_Type, T.Element_Type) -> $R) {
     sort_in_place(array, f);
 }
+
+quick_sort :: quick_sort_iter;
+quick_sort_simple :: quick_sort_iter;
 
 #scope_file
 #import "Basic";

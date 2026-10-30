@@ -67,7 +67,11 @@ xar_prev :: Impl.xar_prev;
 //
 // Reverse iteration is not supported and is rejected at compile time. Do not add during the loop.
 for_expansion :: Impl.for_expansion;
-// Sorts a `Xar` in place with a three-way comparator, as `Sort.quick_sort` does. The sort is by heap sort, so it is `O(n log n)` and does not keep the order of equal elements.
+// Sorts a `Xar` in place with a three-way comparator (negative, zero or positive). Despite the name it is a heap sort, not a quicksort.
+//
+// It is `O(n log n)` in the worst case and unstable: equal elements may change their relative order. The
+// comparator should be a strict weak order; an inconsistent one only gives an unspecified order. Unlike
+// `Sort.quick_sort` it has no key form and no insertion-sort fast path, and it returns nothing.
 //
 // ```jai
 // array: Xar(int, 2, 4);
@@ -77,9 +81,9 @@ for_expansion :: Impl.for_expansion;
 // xar_reset(*array);
 // ```
 quick_sort :: Impl.quick_sort;
-// Same as `quick_sort`; kept so that code written for either name keeps working.
+// The same heap sort as `quick_sort` (unstable, `O(n log n)`); the name is kept so that code written for either works.
 quick_sort_simple :: Impl.quick_sort_simple;
-// The implementation behind `quick_sort`, with the same behavior.
+// The same heap sort as `quick_sort` (unstable, `O(n log n)`); the name is kept so that code written for either works.
 quick_sort_iter :: Impl.quick_sort_iter;
 
 using,only(.["*[]"]) #import "internal/collections/xar";

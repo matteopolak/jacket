@@ -16,7 +16,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - `xar_prev :: (using array: *Xar, iterator: *array.Iterator) -> *array.Element_Type`
 - `xar_get :: inline (using array: *Xar, iterator: array.Iterator) -> *array.Element_Type`
 - `quick_sort :: quick_sort_iter`
-- `quick_sort_simple :: (array: $T/Xar, f: (array.Element_Type, array.Element_Type) -> $R)`
+- `quick_sort_simple :: quick_sort_iter`
 - `quick_sort_iter :: (array: $T/Xar, f: (array.Element_Type, array.Element_Type) -> $R)`
 
 
