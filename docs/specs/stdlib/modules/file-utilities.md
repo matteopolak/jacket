@@ -5,6 +5,7 @@
 Visible public declarations and module-conditional variants are listed below. Procedure bodies and aggregate initializers are omitted; complete public type members are listed separately.
 
 - `copy_directory :: (source: string, dest: string) -> bool`
+- `delete_directory_tree :: (path: string) -> bool`
 - `file_list :: (path: string, recursive := false, follow_directory_symlinks := true) -> [] string`
 - `File_Visit_Info :: struct`
 - `Path :: struct`

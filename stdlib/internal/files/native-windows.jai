@@ -211,6 +211,7 @@ file_link :: (link: string, filepath: string) -> bool {
 }
 
 // Removes the directory `dirname` if it is empty. Returns `false` if it is missing, not empty, or not a directory.
+// To remove a folder with its content, see `File_Utilities.delete_directory_tree`.
 delete_directory :: (dirname: string) -> bool {
     path := Text.utf16_path(dirname);
     defer free(path);

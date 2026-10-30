@@ -14,7 +14,7 @@ Modules used: Basic, Math, Hash_Table, Flat_Pool, File, File_Utilities, File_Wat
 
 - Math has no `round`; the UI library defines its own.
 - Fixed by "fix(file): stop logging ordinary open failures": `read_entire_file` printed "file_open failed" to stderr for a missing file; `log_errors` now defaults to `false` (also for `file_open`, `map_entire_file_start`, `map_file`, `copy_file`'s `silent`).
-- `delete_directory` is not recursive; the smoke test deletes its files one by one.
+- Fixed by "feat(file-utilities): add delete_directory_tree": `delete_directory` is not recursive; `File_Utilities.delete_directory_tree` removes a folder with its content (links are removed, not followed).
 - Temp directory lookup is manual (`TMPDIR`, then a fallback); there is no helper.
 
 ## Library design notes

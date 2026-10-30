@@ -194,12 +194,7 @@ main :: () {
     close_editor(*ed);
     free(clipboard_text.data);
 
-    file_delete(shot);
-    file_delete(hello);
-    file_delete(notes);
-    file_delete(config);
-    file_delete(tprint("%/later.jai", root));
-    delete_directory(root);
+    delete_directory_tree(root);
 
     if failures {
         print("\n% check(s) failed\n", failures);
