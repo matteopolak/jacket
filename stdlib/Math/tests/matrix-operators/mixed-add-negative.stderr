@@ -7,7 +7,7 @@ $STDLIB/internal/numerics/math_vectors.jai:37:15: note: `operator +` is declared
 $STDLIB/internal/numerics/math_vectors.jai:133:15: note: `operator +` is declared here
     operator + :: (a: Vector3, b: Vector3) -> Vector3 {
                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-$STDLIB/internal/numerics/math_vectors.jai:233:15: note: `operator +` is declared here
+$STDLIB/internal/numerics/math_vectors.jai:242:15: note: `operator +` is declared here
     operator + :: (a: Vector4, b: Vector4) -> Vector4 {
                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 $STDLIB/internal/numerics/math_quaternion.jai:5:15: note: `operator +` is declared here
