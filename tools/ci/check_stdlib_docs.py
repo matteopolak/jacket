@@ -23,7 +23,6 @@ import argparse
 import os
 import subprocess
 import sys
-from collections import defaultdict
 from pathlib import Path
 from toolkit.repo import ROOT, cargo_binary, stdlib_env
 
