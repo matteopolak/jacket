@@ -35,6 +35,12 @@ class PureHelperTests(unittest.TestCase):
         self.assertEqual(winapi.mib(3 * 2**20), 3)
         self.assertEqual([winapi.power_source_from_line_status(n) for n in (0, 1, 255)], ['battery', 'ac', 'unknown'])
 
+    def test_windows_11_is_told_from_the_build_not_the_product_name(self):
+        self.assertEqual(winapi.os_release('Windows 10 Pro', '25H2', '26200'), '11 Pro 25H2')
+        self.assertEqual(winapi.os_release('Windows 10 Pro', '22H2', '19045'), '10 Pro 22H2')
+        self.assertEqual(winapi.os_release('Windows 11 Home', '', ''), '11 Home')
+        self.assertEqual(winapi.os_release('', '', ''), '')
+
     def test_the_power_plan_is_read_from_powercfg_output(self):
         text = 'Power Scheme GUID: 381b4222-f694-41f0-9685-ff5bb260df2e  (Balanced)\n'
         self.assertEqual(winapi.parse_power_scheme(text), 'Balanced')

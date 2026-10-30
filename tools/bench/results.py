@@ -129,6 +129,7 @@ def machine_info() -> dict:
     if platform.system() == 'Windows':
         from bench import winapi
         facts = winapi.machine_facts()
+        info['release'] = facts['os_version'] or info['release']  # e.g. '11 Pro 25H2', read after "Windows"
         info['cpu'] = facts['cpu'] or platform.processor()
         memory = str(facts['memory_bytes'])
         info['power_plan'] = facts['power_plan']

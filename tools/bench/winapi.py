@@ -294,6 +294,15 @@ def registry_value(path: str, name: str) -> str:
         return ''
 
 
+def os_release(product: str, display: str, build: str) -> str:
+    """'11 Pro 25H2' from the registry's ProductName, DisplayVersion and build. ProductName still says
+    'Windows 10' on Windows 11, which starts at build 22000; the 'Windows' prefix is left to the caller."""
+    name = product.removeprefix('Windows').strip()
+    if build.isdigit() and int(build) >= 22000 and name.split(' ')[0] == '10':
+        name = '11' + name[2:]
+    return ' '.join(part for part in (name, display) if part)
+
+
 def machine_facts() -> dict:
     """CPU name, installed RAM, OS build and active power plan."""
     cpu = registry_value(r'HARDWARE\DESCRIPTION\System\CentralProcessor\0', 'ProcessorNameString')
@@ -312,5 +321,5 @@ def machine_facts() -> dict:
     except (OSError, subprocess.TimeoutExpired):
         scheme = ''
     return {'cpu': cpu, 'memory_bytes': memory,
-            'os_version': ' '.join(part for part in (product, display) if part),
+            'os_version': os_release(product, display, build),
             'os_build': f'{build}.{revision}' if build and revision else build, 'power_plan': scheme}
