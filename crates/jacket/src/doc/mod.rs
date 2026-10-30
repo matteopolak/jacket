@@ -152,6 +152,42 @@ fn builds_for_wasm(jaic: &Path, stdlib: &Path, module: &Module, n: usize) -> boo
     ok
 }
 
+/// A warning for each indented code block in a doc comment of `modules`, with where to find it.
+fn indented_code_warnings(modules: &[Module]) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut note = |what: String, file: &str, line: usize, docs: &str| {
+        for first in markdown::indented_blocks(docs) {
+            out.push(format!(
+                "{what}: indented code block in the doc comment at {file}:{line} (starts `{first}`); fence it with ```jai, or ```text for output"
+            ));
+        }
+    };
+    for module in modules {
+        note(
+            module.id.clone(),
+            &module.file,
+            module.docs_line.max(1),
+            &module.docs,
+        );
+        for item in &module.items {
+            let what = format!("{}.{}", module.id, item.name);
+            note(what.clone(), &item.file, item.line, &item.docs);
+            for o in &item.overloads {
+                note(what.clone(), &o.file, o.docs_line.max(o.line), &o.docs);
+            }
+            for member in &item.members {
+                note(
+                    format!("{what}.{}", member.name),
+                    &item.file,
+                    item.line,
+                    &member.doc,
+                );
+            }
+        }
+    }
+    out
+}
+
 /// The commit of the checkout `stdlib` is the `stdlib/` folder of, and the files below it that
 /// differ from it. Nothing when it is not such a checkout, or `git` is missing.
 fn git_state(stdlib: &Path) -> (Option<String>, std::collections::BTreeSet<String>) {
@@ -302,6 +338,10 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
     let broken = site.broken_links();
     for link in &broken {
         eprintln!("jacket: warning: intra-doc link to `{link}` leads nowhere");
+    }
+    let unfenced = indented_code_warnings(&site.modules);
+    for warning in &unfenced {
+        eprintln!("jacket: warning: {warning}");
     }
     let procedures = site
         .modules

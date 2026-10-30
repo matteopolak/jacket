@@ -90,6 +90,26 @@ fn flush(buf: &mut Vec<Event<'_>>, out: &mut Vec<Segment>) {
     out.push(Segment::Html(html));
 }
 
+/// The first line of each indented code block of `md`: Markdown makes one of a paragraph's
+/// worth of lines after a blank line that start four spaces in, and that is almost never what a
+/// doc comment means, since only a fenced block can be run.
+pub fn indented_blocks(md: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut open = false;
+    for event in Parser::new_ext(md, Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH) {
+        match event {
+            Event::Start(Tag::CodeBlock(CodeBlockKind::Indented)) => open = true,
+            Event::End(TagEnd::CodeBlock) => open = false,
+            Event::Text(t) if open => {
+                out.push(t.lines().next().unwrap_or("").trim().to_owned());
+                open = false;
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
 pub fn segments(md: &str, settings: &Settings<'_>) -> Vec<Segment> {
     let options = Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH;
     let events: Vec<Event<'_>> = Parser::new_ext(md, options).collect();
@@ -241,5 +261,12 @@ mod tests {
     #[test]
     fn anchors_follow_githubs_rule() {
         assert_eq!(slug("Per-test options (v2)"), "per-test-options-v2");
+    }
+
+    #[test]
+    fn indented_blocks_are_found_and_fenced_ones_are_not() {
+        let md =
+            "Text.\n\n    a := 1;\n    b := 2;\n\n```jai\nc := 3;\n```\n\n- item\n\n  continued\n";
+        assert_eq!(indented_blocks(md), ["a := 1;"]);
     }
 }

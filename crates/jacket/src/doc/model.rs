@@ -19,6 +19,8 @@ pub struct Overload {
     pub params: Vec<Param>,
     pub returns: Vec<Param>,
     pub docs: String,
+    /// The line of the doc comment above it, 0 when it has none.
+    pub docs_line: usize,
     pub flags: Vec<String>,
 }
 
@@ -98,6 +100,8 @@ pub struct Module {
     pub id: String,
     pub file: String,
     pub docs: String,
+    /// The line the module's own doc comment starts on, 0 when it has none.
+    pub docs_line: usize,
     pub platforms: Vec<String>,
     pub items: Vec<Item>,
     /// From `stdlib/categories.toml`; set once every module is read.
@@ -224,6 +228,7 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
                     params: params(o, "params"),
                     returns: params(o, "returns"),
                     docs: text(o, "docs"),
+                    docs_line: number(o, "docs_line"),
                     flags: list(o, "flags")
                         .iter()
                         .filter_map(|f| f.as_str().map(str::to_owned))
@@ -259,6 +264,7 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
         id: id.to_owned(),
         file: below(stdlib, &text(&v, "file")),
         docs: text(&v, "docs"),
+        docs_line: number(&v, "docs_line"),
         platforms: list(&v, "platforms")
             .iter()
             .filter_map(|p| p.as_str().map(str::to_owned))

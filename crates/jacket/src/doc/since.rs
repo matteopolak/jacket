@@ -96,6 +96,7 @@ mod tests {
             id: id.into(),
             file: String::new(),
             docs: String::new(),
+            docs_line: 0,
             platforms: Vec::new(),
             items: names
                 .iter()
