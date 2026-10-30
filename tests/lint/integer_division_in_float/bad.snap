@@ -1,0 +1,38 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[integer_division_in_float]: integer division `done / total` is converted to a float: the remainder is lost first
+  --> tests/lint/integer_division_in_float/bad.jai:6:27
+   |
+ 6 |     ratio := cast(float) (done / total);
+   |                           ^^^^^^^^^^^^
+   |
+help: divide as floats: `cast(float) done / total`
+   |
+ 6 ~     ratio := cast(float) (cast(float) done / total);
+   |
+   = note: `integer_division_in_float` is `warn` by default
+
+warning[integer_division_in_float]: integer division `1 / 2` is used in float arithmetic: the remainder is lost first
+  --> tests/lint/integer_division_in_float/bad.jai:8:13
+   |
+ 8 |     half := 1 / 2 * width;
+   |             ^^^^^
+   |
+help: divide as floats: `1.0 / 2`
+   |
+ 8 ~     half := 1.0 / 2 * width;
+   |
+   = note: `integer_division_in_float` is `warn` by default
+
+warning[integer_division_in_float]: integer division `(done + total) / total` is used in float arithmetic: the remainder is lost first
+  --> tests/lint/integer_division_in_float/bad.jai:10:13
+   |
+10 |     sum := (done + total) / total * 0.5;
+   |             ^^^^^^^^^^^^^^^^^^^^^
+   |
+help: divide as floats: `cast(float) (done + total) / total`
+   |
+10 ~     sum := cast(float) (done + total) / total * 0.5;
+   |
+   = note: `integer_division_in_float` is `warn` by default

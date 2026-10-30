@@ -1,0 +1,287 @@
+---
+source: crates/jaic/tests/ide_facts_golden.rs
+---
+## errors (0)
+## refs (94)
+tests/compiler/regressions/poly-infer-from-ifx.jai:1000..1007 Entity(E(type_of@-)) (compile-time entity) decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:1008..1009 Entity(E(h@tests/compiler/regressions/poly-infer-from-ifx.jai:889)) u64 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:1014..1017 Type(T(u64)) Type decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:1021..1022 Entity(E(h@tests/compiler/regressions/poly-infer-from-ifx.jai:889)) u64 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:1036..1041 Procs([P(print@stdlib/internal/basic/scalar.jai:973), P(print_to_builder@stdlib/internal/basic/format.jai:6161)]) (compile-time entity) decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:131..138 Entity(E(combine@tests/compiler/regressions/poly-infer-from-ifx.jai:131)) (compile-time entity) decl=true
+tests/compiler/regressions/poly-infer-from-ifx.jai:143..144 Entity(E(a@tests/compiler/regressions/poly-infer-from-ifx.jai:143)) float32 decl=true
+tests/compiler/regressions/poly-infer-from-ifx.jai:143..144 Entity(E(a@tests/compiler/regressions/poly-infer-from-ifx.jai:143)) s16 decl=true
+tests/compiler/regressions/poly-infer-from-ifx.jai:143..144 Entity(E(a@tests/compiler/regressions/poly-infer-from-ifx.jai:143)) s64 decl=true
+tests/compiler/regressions/poly-infer-from-ifx.jai:143..144 Entity(E(a@tests/compiler/regressions/poly-infer-from-ifx.jai:143)) u64 decl=true
+tests/compiler/regressions/poly-infer-from-ifx.jai:147..148 Entity(E(T@tests/compiler/regressions/poly-infer-from-ifx.jai:147)) Type decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:147..148 Entity(E(T@tests/compiler/regressions/poly-infer-from-ifx.jai:147)) Type decl=true
+tests/compiler/regressions/poly-infer-from-ifx.jai:150..151 Entity(E(b@tests/compiler/regressions/poly-infer-from-ifx.jai:150)) float32 decl=true
+tests/compiler/regressions/poly-infer-from-ifx.jai:150..151 Entity(E(b@tests/compiler/regressions/poly-infer-from-ifx.jai:150)) s16 decl=true
+tests/compiler/regressions/poly-infer-from-ifx.jai:150..151 Entity(E(b@tests/compiler/regressions/poly-infer-from-ifx.jai:150)) s64 decl=true
+tests/compiler/regressions/poly-infer-from-ifx.jai:150..151 Entity(E(b@tests/compiler/regressions/poly-infer-from-ifx.jai:150)) u64 decl=true
+tests/compiler/regressions/poly-infer-from-ifx.jai:153..154 Entity(E(T@tests/compiler/regressions/poly-infer-from-ifx.jai:147)) Type decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:153..154 Type(T(float32)) Type decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:153..154 Type(T(s16)) Type decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:153..154 Type(T(s64)) Type decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:153..154 Type(T(u64)) Type decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:159..160 Entity(E(T@tests/compiler/regressions/poly-infer-from-ifx.jai:147)) Type decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:159..160 Type(T(float32)) Type decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:159..160 Type(T(s16)) Type decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:159..160 Type(T(s64)) Type decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:159..160 Type(T(u64)) Type decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:174..175 Entity(E(a@tests/compiler/regressions/poly-infer-from-ifx.jai:143)) float32 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:174..175 Entity(E(a@tests/compiler/regressions/poly-infer-from-ifx.jai:143)) s16 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:174..175 Entity(E(a@tests/compiler/regressions/poly-infer-from-ifx.jai:143)) s64 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:174..175 Entity(E(a@tests/compiler/regressions/poly-infer-from-ifx.jai:143)) u64 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:178..179 Entity(E(b@tests/compiler/regressions/poly-infer-from-ifx.jai:150)) float32 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:178..179 Entity(E(b@tests/compiler/regressions/poly-infer-from-ifx.jai:150)) s16 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:178..179 Entity(E(b@tests/compiler/regressions/poly-infer-from-ifx.jai:150)) s64 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:178..179 Entity(E(b@tests/compiler/regressions/poly-infer-from-ifx.jai:150)) u64 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:188..192 Entity(E(main@tests/compiler/regressions/poly-infer-from-ifx.jai:188)) (compile-time entity) decl=true
+tests/compiler/regressions/poly-infer-from-ifx.jai:205..206 Entity(E(x@tests/compiler/regressions/poly-infer-from-ifx.jai:205)) s16 decl=true
+tests/compiler/regressions/poly-infer-from-ifx.jai:208..211 Type(T(s16)) Type decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:223..224 Entity(E(y@tests/compiler/regressions/poly-infer-from-ifx.jai:223)) s16 decl=true
+tests/compiler/regressions/poly-infer-from-ifx.jai:226..229 Type(T(s16)) Type decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:239..243 Entity(E(flag@tests/compiler/regressions/poly-infer-from-ifx.jai:239)) bool decl=true
+tests/compiler/regressions/poly-infer-from-ifx.jai:247..248 Entity(E(x@tests/compiler/regressions/poly-infer-from-ifx.jai:205)) s16 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:251..252 Entity(E(y@tests/compiler/regressions/poly-infer-from-ifx.jai:223)) s16 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:258..259 Entity(E(r@tests/compiler/regressions/poly-infer-from-ifx.jai:258)) s16 decl=true
+tests/compiler/regressions/poly-infer-from-ifx.jai:263..270 Procs([P(combine@tests/compiler/regressions/poly-infer-from-ifx.jai:142)]) (compile-time entity) decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:275..279 Entity(E(flag@tests/compiler/regressions/poly-infer-from-ifx.jai:239)) bool decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:285..286 Entity(E(x@tests/compiler/regressions/poly-infer-from-ifx.jai:205)) s16 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:292..293 Entity(E(y@tests/compiler/regressions/poly-infer-from-ifx.jai:223)) s16 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:295..296 Entity(E(y@tests/compiler/regressions/poly-infer-from-ifx.jai:223)) s16 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:304..310 Procs([P(assert@stdlib/internal/basic/scalar.jai:195)]) (compile-time entity) decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:311..318 Entity(E(type_of@-)) (compile-time entity) decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:319..320 Entity(E(r@tests/compiler/regressions/poly-infer-from-ifx.jai:258)) s16 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:325..328 Type(T(s16)) Type decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:332..333 Entity(E(r@tests/compiler/regressions/poly-infer-from-ifx.jai:258)) s16 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:415..416 Entity(E(q@tests/compiler/regressions/poly-infer-from-ifx.jai:415)) s16 decl=true
+tests/compiler/regressions/poly-infer-from-ifx.jai:420..427 Procs([P(combine@tests/compiler/regressions/poly-infer-from-ifx.jai:142)]) (compile-time entity) decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:433..437 Entity(E(flag@tests/compiler/regressions/poly-infer-from-ifx.jai:239)) bool decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:443..444 Entity(E(y@tests/compiler/regressions/poly-infer-from-ifx.jai:223)) s16 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:454..455 Entity(E(y@tests/compiler/regressions/poly-infer-from-ifx.jai:223)) s16 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:463..469 Procs([P(assert@stdlib/internal/basic/scalar.jai:195)]) (compile-time entity) decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:470..477 Entity(E(type_of@-)) (compile-time entity) decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:478..479 Entity(E(q@tests/compiler/regressions/poly-infer-from-ifx.jai:415)) s16 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:484..487 Type(T(s16)) Type decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:491..492 Entity(E(q@tests/compiler/regressions/poly-infer-from-ifx.jai:415)) s16 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:589..590 Entity(E(n@tests/compiler/regressions/poly-infer-from-ifx.jai:589)) s64 decl=true
+tests/compiler/regressions/poly-infer-from-ifx.jai:594..601 Procs([P(combine@tests/compiler/regressions/poly-infer-from-ifx.jai:142)]) (compile-time entity) decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:606..610 Entity(E(flag@tests/compiler/regressions/poly-infer-from-ifx.jai:239)) bool decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:635..641 Procs([P(assert@stdlib/internal/basic/scalar.jai:195)]) (compile-time entity) decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:642..649 Entity(E(type_of@-)) (compile-time entity) decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:650..651 Entity(E(n@tests/compiler/regressions/poly-infer-from-ifx.jai:589)) s64 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:656..659 Type(T(s64)) Type decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:663..664 Entity(E(n@tests/compiler/regressions/poly-infer-from-ifx.jai:589)) s64 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:677..678 Entity(E(f@tests/compiler/regressions/poly-infer-from-ifx.jai:677)) float32 decl=true
+tests/compiler/regressions/poly-infer-from-ifx.jai:680..687 Type(T(float32)) Type decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:699..700 Entity(E(g@tests/compiler/regressions/poly-infer-from-ifx.jai:699)) float32 decl=true
+tests/compiler/regressions/poly-infer-from-ifx.jai:704..711 Procs([P(combine@tests/compiler/regressions/poly-infer-from-ifx.jai:142)]) (compile-time entity) decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:716..720 Entity(E(flag@tests/compiler/regressions/poly-infer-from-ifx.jai:239)) bool decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:733..734 Entity(E(f@tests/compiler/regressions/poly-infer-from-ifx.jai:677)) float32 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:736..737 Entity(E(f@tests/compiler/regressions/poly-infer-from-ifx.jai:677)) float32 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:745..751 Procs([P(assert@stdlib/internal/basic/scalar.jai:195)]) (compile-time entity) decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:752..759 Entity(E(type_of@-)) (compile-time entity) decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:760..761 Entity(E(g@tests/compiler/regressions/poly-infer-from-ifx.jai:699)) float32 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:766..773 Type(T(float32)) Type decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:777..778 Entity(E(g@tests/compiler/regressions/poly-infer-from-ifx.jai:699)) float32 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:873..874 Entity(E(u@tests/compiler/regressions/poly-infer-from-ifx.jai:873)) u64 decl=true
+tests/compiler/regressions/poly-infer-from-ifx.jai:876..879 Type(T(u64)) Type decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:889..890 Entity(E(h@tests/compiler/regressions/poly-infer-from-ifx.jai:889)) u64 decl=true
+tests/compiler/regressions/poly-infer-from-ifx.jai:894..901 Procs([P(combine@tests/compiler/regressions/poly-infer-from-ifx.jai:142)]) (compile-time entity) decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:906..910 Entity(E(flag@tests/compiler/regressions/poly-infer-from-ifx.jai:239)) bool decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:922..926 Entity(E(flag@tests/compiler/regressions/poly-infer-from-ifx.jai:239)) bool decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:932..933 Entity(E(u@tests/compiler/regressions/poly-infer-from-ifx.jai:873)) u64 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:953..957 Entity(E(flag@tests/compiler/regressions/poly-infer-from-ifx.jai:239)) bool decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:968..971 Type(T(u64)) Type decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:984..985 Entity(E(u@tests/compiler/regressions/poly-infer-from-ifx.jai:873)) u64 decl=false
+tests/compiler/regressions/poly-infer-from-ifx.jai:993..999 Procs([P(assert@stdlib/internal/basic/scalar.jai:195)]) (compile-time entity) decl=false
+## scopes (2)
+tests/compiler/regressions/poly-infer-from-ifx.jai:161..186 S(tests/compiler/regressions/poly-infer-from-ifx.jai:161..186)
+tests/compiler/regressions/poly-infer-from-ifx.jai:199..1052 S(tests/compiler/regressions/poly-infer-from-ifx.jai:199..1052)
+## calls (11)
+IdeCall { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 1036, end: 1049 }, candidates: [P(print@stdlib/internal/basic/scalar.jai:973), P(print_to_builder@stdlib/internal/basic/format.jai:6161)], chosen: P(print@stdlib/internal/basic/scalar.jai:973), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 1042, end: 1048 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(string)) }] }
+IdeCall { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 263, end: 297 }, candidates: [P(combine@tests/compiler/regressions/poly-infer-from-ifx.jai:142)], chosen: P(combine@tests/compiler/regressions/poly-infer-from-ifx.jai:142), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 271, end: 293 }, param: 0, named: false, variadic: false, spread: false, ty: None }, IdeArg { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 295, end: 296 }, param: 1, named: false, variadic: false, spread: false, ty: Some(T(s16)) }] }
+IdeCall { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 304, end: 342 }, candidates: [P(assert@stdlib/internal/basic/scalar.jai:195)], chosen: P(assert@stdlib/internal/basic/scalar.jai:195), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 311, end: 341 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(bool)) }] }
+IdeCall { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 420, end: 456 }, candidates: [P(combine@tests/compiler/regressions/poly-infer-from-ifx.jai:142)], chosen: P(combine@tests/compiler/regressions/poly-infer-from-ifx.jai:142), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 429, end: 451 }, param: 0, named: false, variadic: false, spread: false, ty: None }, IdeArg { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 454, end: 455 }, param: 1, named: false, variadic: false, spread: false, ty: Some(T(s16)) }] }
+IdeCall { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 463, end: 499 }, candidates: [P(assert@stdlib/internal/basic/scalar.jai:195)], chosen: P(assert@stdlib/internal/basic/scalar.jai:195), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 470, end: 498 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(bool)) }] }
+IdeCall { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 594, end: 628 }, candidates: [P(combine@tests/compiler/regressions/poly-infer-from-ifx.jai:142)], chosen: P(combine@tests/compiler/regressions/poly-infer-from-ifx.jai:142), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 602, end: 624 }, param: 0, named: false, variadic: false, spread: false, ty: None }, IdeArg { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 626, end: 627 }, param: 1, named: false, variadic: false, spread: false, ty: Some(T(s64)) }] }
+IdeCall { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 635, end: 671 }, candidates: [P(assert@stdlib/internal/basic/scalar.jai:195)], chosen: P(assert@stdlib/internal/basic/scalar.jai:195), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 642, end: 670 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(bool)) }] }
+IdeCall { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 704, end: 738 }, candidates: [P(combine@tests/compiler/regressions/poly-infer-from-ifx.jai:142)], chosen: P(combine@tests/compiler/regressions/poly-infer-from-ifx.jai:142), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 712, end: 734 }, param: 0, named: false, variadic: false, spread: false, ty: None }, IdeArg { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 736, end: 737 }, param: 1, named: false, variadic: false, spread: false, ty: Some(T(float32)) }] }
+IdeCall { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 745, end: 784 }, candidates: [P(assert@stdlib/internal/basic/scalar.jai:195)], chosen: P(assert@stdlib/internal/basic/scalar.jai:195), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 752, end: 783 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(bool)) }] }
+IdeCall { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 894, end: 986 }, candidates: [P(combine@tests/compiler/regressions/poly-infer-from-ifx.jai:142)], chosen: P(combine@tests/compiler/regressions/poly-infer-from-ifx.jai:142), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 902, end: 982 }, param: 0, named: false, variadic: false, spread: false, ty: None }, IdeArg { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 984, end: 985 }, param: 1, named: false, variadic: false, spread: false, ty: Some(T(u64)) }] }
+IdeCall { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 993, end: 1030 }, candidates: [P(assert@stdlib/internal/basic/scalar.jai:195)], chosen: P(assert@stdlib/internal/basic/scalar.jai:195), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 1000, end: 1029 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(bool)) }] }
+## expansions (5)
+IdeExpansion { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 304, end: 342 }, kind: Macro, texts: ["if !(type_of(r) == s16 && r == 2101) assert_helper(\"\", ..args, (#caller_location) = (#caller_location));"], detail: "assert", output: "", literal: None }
+IdeExpansion { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 463, end: 499 }, kind: Macro, texts: ["if !(type_of(q) == s16 && q == 50) assert_helper(\"\", ..args, (#caller_location) = (#caller_location));"], detail: "assert", output: "", literal: None }
+IdeExpansion { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 635, end: 671 }, kind: Macro, texts: ["if !(type_of(n) == s64 && n == 16) assert_helper(\"\", ..args, (#caller_location) = (#caller_location));"], detail: "assert", output: "", literal: None }
+IdeExpansion { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 745, end: 784 }, kind: Macro, texts: ["if !(type_of(g) == float32 && g == 2) assert_helper(\"\", ..args, (#caller_location) = (#caller_location));"], detail: "assert", output: "", literal: None }
+IdeExpansion { span: Span { file: tests/compiler/regressions/poly-infer-from-ifx.jai, start: 993, end: 1030 }, kind: Macro, texts: ["if !(type_of(h) == u64 && h == 120) assert_helper(\"\", ..args, (#caller_location) = (#caller_location));"], detail: "assert", output: "", literal: None }
+## skipped (0)
+## static_branches (14)
+tests/compiler/regressions/poly-infer-from-ifx.jai:285..286 true
+tests/compiler/regressions/poly-infer-from-ifx.jai:292..293 true
+tests/compiler/regressions/poly-infer-from-ifx.jai:443..444 true
+tests/compiler/regressions/poly-infer-from-ifx.jai:450..451 true
+tests/compiler/regressions/poly-infer-from-ifx.jai:616..617 true
+tests/compiler/regressions/poly-infer-from-ifx.jai:623..624 true
+tests/compiler/regressions/poly-infer-from-ifx.jai:726..727 true
+tests/compiler/regressions/poly-infer-from-ifx.jai:733..734 true
+tests/compiler/regressions/poly-infer-from-ifx.jai:917..941 true
+tests/compiler/regressions/poly-infer-from-ifx.jai:932..933 true
+tests/compiler/regressions/poly-infer-from-ifx.jai:939..941 true
+tests/compiler/regressions/poly-infer-from-ifx.jai:949..981 true
+tests/compiler/regressions/poly-infer-from-ifx.jai:963..974 true
+tests/compiler/regressions/poly-infer-from-ifx.jai:980..981 true
+## body_evals (2)
+tests/compiler/regressions/poly-infer-from-ifx.jai:161..186 4
+tests/compiler/regressions/poly-infer-from-ifx.jai:199..1052 1
+## dead_runs (0)
+## exprs (121)
+tests/compiler/regressions/poly-infer-from-ifx.jai:1000..1007 (compile-time entity) false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:1000..1010 Type false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:1000..1017 bool true false
+tests/compiler/regressions/poly-infer-from-ifx.jai:1000..1029 bool false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:1008..1009 u64 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:1014..1017 Type false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:1021..1022 u64 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:1021..1029 bool false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:1026..1029 s64 true false
+tests/compiler/regressions/poly-infer-from-ifx.jai:1036..1041 (compile-time entity) false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:1036..1049 s64 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:1042..1048 string true false
+tests/compiler/regressions/poly-infer-from-ifx.jai:146..148 Type false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:153..154 Type false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:159..160 Type false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:174..175 u64 false true
+tests/compiler/regressions/poly-infer-from-ifx.jai:174..179 u64 false true
+tests/compiler/regressions/poly-infer-from-ifx.jai:174..183 u64 false true
+tests/compiler/regressions/poly-infer-from-ifx.jai:178..179 u64 false true
+tests/compiler/regressions/poly-infer-from-ifx.jai:182..183 s64 true true
+tests/compiler/regressions/poly-infer-from-ifx.jai:208..211 Type false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:214..217 s64 true false
+tests/compiler/regressions/poly-infer-from-ifx.jai:226..229 Type false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:232..233 s64 true false
+tests/compiler/regressions/poly-infer-from-ifx.jai:247..248 s16 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:247..252 bool false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:251..252 s16 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:263..270 (compile-time entity) false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:263..297 s16 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:271..293 s16 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:275..279 bool false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:285..286 s16 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:292..293 s16 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:295..296 s16 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:304..310 (compile-time entity) false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:304..342 void false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:311..318 (compile-time entity) false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:311..321 Type false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:311..328 bool true false
+tests/compiler/regressions/poly-infer-from-ifx.jai:311..341 bool false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:319..320 s16 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:325..328 Type false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:332..333 s16 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:332..341 bool false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:337..341 s64 true false
+tests/compiler/regressions/poly-infer-from-ifx.jai:420..427 (compile-time entity) false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:420..456 s16 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:429..451 s16 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:433..437 bool false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:443..444 s16 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:450..451 s64 true false
+tests/compiler/regressions/poly-infer-from-ifx.jai:454..455 s16 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:463..469 (compile-time entity) false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:463..499 void false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:470..477 (compile-time entity) false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:470..480 Type false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:470..487 bool true false
+tests/compiler/regressions/poly-infer-from-ifx.jai:470..498 bool false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:478..479 s16 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:484..487 Type false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:491..492 s16 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:491..498 bool false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:496..498 s64 true false
+tests/compiler/regressions/poly-infer-from-ifx.jai:594..601 (compile-time entity) false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:594..628 s64 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:602..624 s64 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:606..610 bool false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:616..617 s64 true false
+tests/compiler/regressions/poly-infer-from-ifx.jai:623..624 s64 true false
+tests/compiler/regressions/poly-infer-from-ifx.jai:626..627 s64 true false
+tests/compiler/regressions/poly-infer-from-ifx.jai:635..641 (compile-time entity) false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:635..671 void false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:642..649 (compile-time entity) false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:642..652 Type false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:642..659 bool true false
+tests/compiler/regressions/poly-infer-from-ifx.jai:642..670 bool false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:650..651 s64 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:656..659 Type false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:663..664 s64 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:663..670 bool false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:668..670 s64 true false
+tests/compiler/regressions/poly-infer-from-ifx.jai:680..687 Type false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:690..693 float32 true false
+tests/compiler/regressions/poly-infer-from-ifx.jai:704..711 (compile-time entity) false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:704..738 float32 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:712..734 float32 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:716..720 bool false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:726..727 s64 true true
+tests/compiler/regressions/poly-infer-from-ifx.jai:733..734 float32 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:736..737 float32 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:745..751 (compile-time entity) false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:745..784 void false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:752..759 (compile-time entity) false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:752..762 Type false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:752..773 bool true false
+tests/compiler/regressions/poly-infer-from-ifx.jai:752..783 bool false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:760..761 float32 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:766..773 Type false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:777..778 float32 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:777..783 bool false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:782..783 float32 true false
+tests/compiler/regressions/poly-infer-from-ifx.jai:876..879 Type false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:882..883 s64 true false
+tests/compiler/regressions/poly-infer-from-ifx.jai:894..901 (compile-time entity) false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:894..986 u64 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:902..982 u64 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:906..910 bool false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:917..941 u64 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:921..926 bool false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:922..926 bool false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:932..933 u64 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:939..941 s64 true false
+tests/compiler/regressions/poly-infer-from-ifx.jai:949..981 u64 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:953..957 bool false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:963..974 u64 true false
+tests/compiler/regressions/poly-infer-from-ifx.jai:968..971 Type false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:973..974 s64 true false
+tests/compiler/regressions/poly-infer-from-ifx.jai:980..981 s64 true false
+tests/compiler/regressions/poly-infer-from-ifx.jai:984..985 u64 false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:993..1030 void false false
+tests/compiler/regressions/poly-infer-from-ifx.jai:993..999 (compile-time entity) false false
+## casts (1)
+tests/compiler/regressions/poly-infer-from-ifx.jai:963..974 u64 s64 true false
+## used (14)
+E(T@tests/compiler/regressions/poly-infer-from-ifx.jai:147)
+E(a@tests/compiler/regressions/poly-infer-from-ifx.jai:143)
+E(b@tests/compiler/regressions/poly-infer-from-ifx.jai:150)
+E(combine@tests/compiler/regressions/poly-infer-from-ifx.jai:131)
+E(f@tests/compiler/regressions/poly-infer-from-ifx.jai:677)
+E(flag@tests/compiler/regressions/poly-infer-from-ifx.jai:239)
+E(g@tests/compiler/regressions/poly-infer-from-ifx.jai:699)
+E(h@tests/compiler/regressions/poly-infer-from-ifx.jai:889)
+E(n@tests/compiler/regressions/poly-infer-from-ifx.jai:589)
+E(q@tests/compiler/regressions/poly-infer-from-ifx.jai:415)
+E(r@tests/compiler/regressions/poly-infer-from-ifx.jai:258)
+E(u@tests/compiler/regressions/poly-infer-from-ifx.jai:873)
+E(x@tests/compiler/regressions/poly-infer-from-ifx.jai:205)
+E(y@tests/compiler/regressions/poly-infer-from-ifx.jai:223)
+## used_imports (2)
+(S(Module), 0)
+(S(Module), 1)
+## receivers (0)
+## instances (0)
+## fields (0)
+## member_uses (0)
+## refused (0)

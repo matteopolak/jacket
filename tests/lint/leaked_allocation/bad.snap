@@ -1,0 +1,36 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[leaked_allocation]: `parser` holds memory from `New` that is never freed, returned or handed on
+  --> tests/lint/leaked_allocation/bad.jai:8:5
+   |
+ 8 |     parser := New(Parser);
+   |     ^^^^^^
+   |
+help: free it when done, for example `defer free(parser);` right after this line
+   |
+ 8 -     parser := New(Parser);
+ 8 +     parser := New(Parser);
+ 9 +     defer free(parser);
+   |
+
+warning[leaked_allocation]: `buffer` holds memory from `alloc` that is never freed, returned or handed on
+  --> tests/lint/leaked_allocation/bad.jai:12:5
+   |
+12 |     buffer := cast(*u8) alloc(64);
+   |     ^^^^^^
+   |
+help: free it when done, for example `defer free(buffer);` right after this line
+   |
+12 -     buffer := cast(*u8) alloc(64);
+12 +     buffer := cast(*u8) alloc(64);
+13 +     defer free(buffer);
+   |
+
+warning[leaked_allocation]: `name` holds memory from `copy_string` that is never freed, returned or handed on
+  --> tests/lint/leaked_allocation/bad.jai:15:5
+   |
+15 |     name := copy_string("name");
+   |     ^^^^
+   |
+   = help: free it when done, for example `defer free(name);` right after this line

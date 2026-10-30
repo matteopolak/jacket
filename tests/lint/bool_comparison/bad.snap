@@ -1,0 +1,74 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[bool_comparison]: comparing a bool with `true`: `ready == true`
+  --> tests/lint/bool_comparison/bad.jai:9:8
+   |
+ 9 |     if ready == true print("ready\n");
+   |        ^^^^^^^^^^^^^
+   |
+help: write `ready`
+   |
+ 9 ~     if ready print("ready\n");
+   |
+   = note: `bool_comparison` is `warn` by default
+
+warning[bool_comparison]: comparing a bool with `false`: `ready != false`
+  --> tests/lint/bool_comparison/bad.jai:10:8
+   |
+10 |     if ready != false print("still ready\n");
+   |        ^^^^^^^^^^^^^^
+   |
+help: write `ready`
+   |
+10 ~     if ready print("still ready\n");
+   |
+   = note: `bool_comparison` is `warn` by default
+
+warning[bool_comparison]: comparing a bool with `false`: `false == ready`
+  --> tests/lint/bool_comparison/bad.jai:11:8
+   |
+11 |     if false == ready print("not ready\n");
+   |        ^^^^^^^^^^^^^^
+   |
+help: write `!ready`
+   |
+11 ~     if !ready print("not ready\n");
+   |
+   = note: `bool_comparison` is `warn` by default
+
+warning[bool_comparison]: comparing a bool with `false`: `is_ready() == false`
+  --> tests/lint/bool_comparison/bad.jai:13:16
+   |
+13 |     waiting := is_ready() == false;
+   |                ^^^^^^^^^^^^^^^^^^^
+   |
+help: write `!is_ready()`
+   |
+13 ~     waiting := !is_ready();
+   |
+   = note: `bool_comparison` is `warn` by default
+
+warning[bool_comparison]: comparing a bool with `false`: `(a < b) == false`
+  --> tests/lint/bool_comparison/bad.jai:16:9
+   |
+16 |     if (a < b) == false print("not less\n");
+   |         ^^^^^^^^^^^^^^^
+   |
+help: write `!(a < b)`
+   |
+16 ~     if !(a < b) print("not less\n");
+   |
+   = note: `bool_comparison` is `warn` by default
+
+warning[bool_comparison]: comparing a bool with `true`: `(a < b) == true`
+  --> tests/lint/bool_comparison/bad.jai:17:9
+   |
+17 |     if (a < b) == true print("less\n");
+   |         ^^^^^^^^^^^^^^
+   |
+help: write `(a < b)`
+   |
+17 ~     if (a < b) print("less\n");
+   |
+   = note: `bool_comparison` is `warn` by default

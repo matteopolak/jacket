@@ -1,0 +1,38 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[useless_format]: `tprint("%", name)` only copies a string
+  --> tests/lint/useless_format/bad.jai:4:10
+   |
+ 4 |     a := tprint("%", name);
+   |          ^^^^^^^^^^^^^^^^^
+   |
+help: use the string itself, or `copy_string` for a copy you own
+   |
+ 4 ~     a := name;
+   |
+   = note: `useless_format` is `warn` by default
+
+warning[useless_format]: `sprint("%", other)` only copies a string
+  --> tests/lint/useless_format/bad.jai:6:10
+   |
+ 6 |     b := sprint("%", other);
+   |          ^^^^^^^^^^^^^^^^^^
+   |
+help: use `copy_string` for a copy you own, or the string itself
+   |
+ 6 ~     b := copy_string(other);
+   |
+   = note: `useless_format` is `warn` by default
+
+warning[useless_format]: `tprint("%", a)` only copies a string
+  --> tests/lint/useless_format/bad.jai:9:12
+   |
+ 9 |     return tprint("%", a);
+   |            ^^^^^^^^^^^^^^
+   |
+help: use the string itself, or `copy_string` for a copy you own
+   |
+ 9 ~     return a;
+   |
+   = note: `useless_format` is `warn` by default

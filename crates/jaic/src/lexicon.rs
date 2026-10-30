@@ -867,12 +867,10 @@ mod tests {
     fn editors_lexicon_json_is_current() {
         let path =
             std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../editors/lexicon.json");
-        if std::env::var_os("JAI_BLESS").is_some() {
-            std::fs::write(&path, to_json()).unwrap();
-        }
-        assert!(
-            std::fs::read_to_string(&path).is_ok_and(|current| current == to_json()),
-            "editors/lexicon.json is stale: run `JAI_BLESS=1 cargo test -p jaic --lib lexicon`, then `node editors/vscode/scripts/build-grammar.ts`"
+        test_support::snapshot::assert_generated_file(
+            &path,
+            &to_json(),
+            ", then run `node editors/vscode/scripts/build-grammar.ts`",
         );
     }
 

@@ -1,0 +1,42 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[temp_storage_escape]: `tprint` holds temporary storage, which is reset, but it is kept in a global variable
+  --> tests/lint/temp_storage_escape/bad.jai:9:10
+   |
+ 9 | title := tprint("title %", 1);
+   |          ^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: copy it first (`copy_string`) so it outlives the reset
+
+warning[temp_storage_escape]: `tprint` holds temporary storage, which is reset, but it is kept in a global
+  --> tests/lint/temp_storage_escape/bad.jai:13:21
+   |
+13 |     current_label = tprint("item %", id);
+   |                     ^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: copy it first (`copy_string`) so it outlives the reset
+
+warning[temp_storage_escape]: `name` holds temporary storage, which is reset, but it is kept in a place reached through a pointer
+  --> tests/lint/temp_storage_escape/bad.jai:18:18
+   |
+18 |     entry.name = name;
+   |                  ^^^^
+   |
+   = help: copy it first (`copy_string`) so it outlives the reset
+
+warning[temp_storage_escape]: `tprint` holds temporary storage, which is reset, but it is kept in a global
+  --> tests/lint/temp_storage_escape/bad.jai:22:26
+   |
+22 |     array_add(*registry, tprint("id %", id));
+   |                          ^^^^^^^^^^^^^^^^^^
+   |
+   = help: copy it first (`copy_string`) so it outlives the reset
+
+warning[temp_storage_escape]: `tprint` holds temporary storage, which is reset, but it is returned here
+  --> tests/lint/temp_storage_escape/bad.jai:26:12
+   |
+26 |     return tprint("<%>", id);
+   |            ^^^^^^^^^^^^^^^^^
+   |
+   = help: copy it (`copy_string`), or declare this procedure `@TempAllocates` so its callers know

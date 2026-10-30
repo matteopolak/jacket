@@ -1,0 +1,59 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+error[impossible_comparison]: `code != 404 || code != 410` is always `true`
+  --> tests/lint/impossible_comparison/bad.jai:4:8
+   |
+ 4 |     if code != 404 || code != 410 print("gone\n");
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: every integer passes one of these comparisons: was `&&` meant?
+   |
+ 4 ~     if code != 404 && code != 410 print("gone\n");
+   |
+   = note: `impossible_comparison` is `deny` by default
+
+error[impossible_comparison]: `n > 10 && n < 5` is always `false`
+  --> tests/lint/impossible_comparison/bad.jai:5:8
+   |
+ 5 |     if n > 10 && n < 5 print("never\n");
+   |        ^^^^^^^^^^^^^^^
+   |
+help: no integer passes all of these comparisons: was `||` or another bound meant?
+   |
+ 5 ~     if n > 10 || n < 5 print("never\n");
+   |
+   = note: `impossible_comparison` is `deny` by default
+
+error[impossible_comparison]: `b == 1 && b == 2` is always `false`
+  --> tests/lint/impossible_comparison/bad.jai:6:8
+   |
+ 6 |     if b == 1 && b == 2 print("never\n");
+   |        ^^^^^^^^^^^^^^^^
+   |
+help: no integer passes all of these comparisons: was `||` or another bound meant?
+   |
+ 6 ~     if b == 1 || b == 2 print("never\n");
+   |
+   = note: `impossible_comparison` is `deny` by default
+
+error[impossible_comparison]: `3 > code && code > 7` is always `false`
+  --> tests/lint/impossible_comparison/bad.jai:7:8
+   |
+ 7 |     if 3 > code && code > 7 print("never\n");
+   |        ^^^^^^^^^^^^^^^^^^^^
+   |
+help: no integer passes all of these comparisons: was `||` or another bound meant?
+   |
+ 7 ~     if 3 > code || code > 7 print("never\n");
+   |
+   = note: `impossible_comparison` is `deny` by default
+
+error[impossible_comparison]: `n >= 0 || n < 0` is always `true`
+  --> tests/lint/impossible_comparison/bad.jai:8:8
+   |
+ 8 |     if n >= 0 || n < 0 print("always\n");
+   |        ^^^^^^^^^^^^^^^
+   |
+   = help: every integer passes one of these comparisons: was `&&` meant?
+   = note: `impossible_comparison` is `deny` by default

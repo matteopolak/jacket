@@ -1,0 +1,20 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[unsigned_range_end_minus_one]: `n` is unsigned, so this range runs past the end when it is 0
+  --> tests/lint/unsigned_range_end_minus_one/bad.jai:6:15
+   |
+ 6 |     for i: 0..n - 1 {
+   |               ^^^^^
+   |
+   = help: `n` has type `u32` and `- 1` wraps around at 0: check for 0 first, or count with a signed integer
+   = note: `unsigned_range_end_minus_one` is `warn` by default
+
+warning[unsigned_range_end_minus_one]: `count` is unsigned, so this range runs past the end when it is 0
+  --> tests/lint/unsigned_range_end_minus_one/bad.jai:14:12
+   |
+14 |     for 1..count - 1 {
+   |            ^^^^^^^^^
+   |
+   = help: `count` has type `u64` and `- 1` wraps around at 0: check for 0 first, or count with a signed integer
+   = note: `unsigned_range_end_minus_one` is `warn` by default

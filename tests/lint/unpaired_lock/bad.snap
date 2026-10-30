@@ -1,0 +1,25 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[unpaired_lock]: this `return` leaves `*state.mutex` locked
+  --> tests/lint/unpaired_lock/bad.jai:13:21
+   |
+13 |     if state.closed return false;
+   |                     ^^^^^^^^^^^^^
+   |
+   = help: unlock it before returning, or `defer` the unlock right after locking
+   = note: `unpaired_lock` is `warn` by default
+
+warning[unpaired_lock]: `*state.mutex` is locked here but the procedure can end without unlocking it
+  --> tests/lint/unpaired_lock/bad.jai:23:5
+   |
+23 |     lock(*state.mutex);
+   |     ^^^^^^^^^^^^^^^^^^
+   |
+help: unlock it on every path, or `defer` the unlock right after locking
+   |
+23 -     lock(*state.mutex);
+23 +     lock(*state.mutex);
+24 +     defer unlock(*state.mutex);
+   |
+   = note: `unpaired_lock` is `warn` by default

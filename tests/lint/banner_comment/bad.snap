@@ -1,0 +1,62 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[banner_comment]: this comment is only a line of rule characters
+  --> tests/lint/banner_comment/bad.jai:3:1
+   |
+ 3 | // -----------------------------------------------------------------------------
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: drop the line, and name the section in one plain `//` line if it needs a name; a long section can move to its own file
+   |
+ 3 - // -----------------------------------------------------------------------------
+   |
+   = note: `banner_comment` is `warn` by default
+
+warning[banner_comment]: this comment is only a line of rule characters
+  --> tests/lint/banner_comment/bad.jai:5:1
+   |
+ 5 | // -----------------------------------------------------------------------------
+   | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: drop the line, and name the section in one plain `//` line if it needs a name; a long section can move to its own file
+   |
+ 5 - // -----------------------------------------------------------------------------
+   |
+   = note: `banner_comment` is `warn` by default
+
+warning[banner_comment]: this comment is only a line of rule characters
+  --> tests/lint/banner_comment/bad.jai:11:1
+   |
+11 | /* ===== */
+   | ^^^^^^^^^^^
+   |
+help: drop the line, and name the section in one plain `//` line if it needs a name; a long section can move to its own file
+   |
+11 - /* ===== */
+   |
+   = note: `banner_comment` is `warn` by default
+
+warning[banner_comment]: this comment is only a line of rule characters
+  --> tests/lint/banner_comment/bad.jai:13:5
+   |
+13 |     //-----
+   |     ^^^^^^^
+   |
+help: drop the line, and name the section in one plain `//` line if it needs a name; a long section can move to its own file
+   |
+13 -     //-----
+   |
+   = note: `banner_comment` is `warn` by default
+
+warning[banner_comment]: this comment is only a line of rule characters
+  --> tests/lint/banner_comment/bad.jai:17:1
+   |
+17 | // ***
+   | ^^^^^^
+   |
+help: drop the line, and name the section in one plain `//` line if it needs a name; a long section can move to its own file
+   |
+17 - // ***
+   |
+   = note: `banner_comment` is `warn` by default

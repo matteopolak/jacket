@@ -3,8 +3,9 @@
 //! as what they name (`E(name@file:offset)`), never as numbers: those depend on what the
 //! host's library declared first.
 //!
-//! After an intended change to what is recorded, rewrite the dumps with
-//! `JAIC_BLESS=1 cargo test -p jaic --test ide_facts_golden`.
+//! The dumps are `insta` snapshots in `tests/snapshots/`. After an intended change to what is
+//! recorded, rewrite them with `INSTA_UPDATE=always cargo test -p jaic --test ide_facts_golden`
+//! (or `cargo insta review`) and read the diff.
 use jaic::fxhash::HashMap;
 use jaic::ide::{IdeFacts, IdeRoot};
 use jaic::sema::{Compiler, EntityId, NativeFs, Options, ProcId, ProgramSource, ScopeId};
@@ -15,10 +16,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 fn repo() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap()
+    test_support::repo::root()
 }
 
 /// The facts recorded for `entry` and the files under `root`, as an editor analysis records
@@ -283,30 +281,7 @@ fn dump(c: &Compiler, errors: Vec<String>) -> String {
 fn check(name: &str, entry: &str, root: &str) {
     let repo = repo();
     let actual = facts(&repo.join(entry), &repo.join(root));
-    let golden = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/golden/ide_facts")
-        .join(format!("{name}.txt"));
-    if std::env::var_os("JAIC_BLESS").is_some() {
-        std::fs::create_dir_all(golden.parent().unwrap()).unwrap();
-        std::fs::write(&golden, &actual).unwrap();
-        return;
-    }
-    let expected = std::fs::read_to_string(&golden)
-        .unwrap_or_else(|e| panic!("{}: {e} (bless with JAIC_BLESS=1)", golden.display()));
-    if actual != expected {
-        let first = actual
-            .lines()
-            .zip(expected.lines())
-            .position(|(a, e)| a != e)
-            .unwrap_or(actual.lines().count().min(expected.lines().count()));
-        panic!(
-            "{name}: facts differ from {} at line {}:\n  actual:   {:?}\n  expected: {:?}",
-            golden.display(),
-            first + 1,
-            actual.lines().nth(first),
-            expected.lines().nth(first),
-        );
-    }
+    test_support::assert_snapshot!(name, actual);
 }
 
 /// Runs `body` on a thread with room for deep checking.

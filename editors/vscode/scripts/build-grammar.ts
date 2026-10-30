@@ -22,7 +22,7 @@ const words = (list: string[]) => `${B}(?:${list.join("|")})${E}`;
 const namesThen = (op: string) => `(?=(?:\\s*,\\s*${ID})*\\s*${op})`;
 
 // The word lists come from jaic (`crates/jaic/src/lexicon.rs`, written to editors/lexicon.json
-// by `cargo test -p jaic --lib lexicon` with JAI_BLESS=1); only how they are grouped is chosen here.
+// by `INSTA_UPDATE=always cargo test -p jaic --lib lexicon`); only how they are grouped is chosen here.
 const lexicon: {
   words: Record<string, string[]>;
   reserved: string[];

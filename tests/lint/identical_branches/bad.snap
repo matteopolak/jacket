@@ -1,0 +1,33 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[identical_branches]: both branches of this `if` are the same
+  --> tests/lint/identical_branches/bad.jai:5:5
+   |
+ 5 |     if n > 2 {
+   |     ^^^^^^^^^^
+   |
+help: the condition decides nothing: was one branch meant to differ?
+   |
+ 5 -     if n > 2 {
+ 6 -         print("big\n");
+ 7 -     } else {
+ 8 -         print("big\n");
+ 9 -     }
+ 5 +     {
+ 6 +         print("big\n");
+ 7 +     }
+   |
+   = note: `identical_branches` is `warn` by default
+
+warning[identical_branches]: both branches of this `ifx` are the same
+  --> tests/lint/identical_branches/bad.jai:11:14
+   |
+11 |     label := ifx n > 0 then "pos" else "pos";
+   |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: the condition decides nothing: was one branch meant to differ?
+   |
+11 ~     label := "pos";
+   |
+   = note: `identical_branches` is `warn` by default

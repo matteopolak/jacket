@@ -17,14 +17,14 @@
 ## How to change it
 
 1. Edit `crates/jaic/src/lexicon.rs` (or `LANGUAGE_TAGS` in `lexer/here.rs`).
-2. `JAI_BLESS=1 cargo test -p jaic --lib lexicon` rewrites `editors/lexicon.json`.
+2. `INSTA_UPDATE=always cargo test -p jaic --lib lexicon` rewrites `editors/lexicon.json` (the same switch that rewrites snapshots; see [the test harness](../tools/test-harness.md)).
 3. `node editors/vscode/scripts/build-grammar.ts` regenerates the grammar and the Neovim lists.
 
 Keep `DIRECTIVES` sorted by name (a test checks it). A new here-string language also needs an `EMBEDDED_LANGUAGES` entry.
 
 ## Configuration
 
-`JAI_BLESS=1` makes the lexicon test rewrite the JSON.
+`INSTA_UPDATE=always` makes the lexicon test rewrite the JSON.
 
 ## Dependencies
 

@@ -1,0 +1,29 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[manual_array_find]: this loop looks for `wanted` in `names` by hand
+  --> tests/lint/manual_array_find/bad.jai:10:5
+   |
+10 |     for names {
+   |     ^^^^^^^^^^
+   |
+   = help: `array_find(names, wanted)` returns whether it was found, and the index after that
+   = note: `manual_array_find` is `warn` by default
+
+warning[manual_array_find]: this loop looks for `wanted` in `values` by hand
+  --> tests/lint/manual_array_find/bad.jai:23:5
+   |
+23 |     for v: values {
+   |     ^^^^^^^^^^^^^^
+   |
+   = help: `found, index := array_find(values, wanted);` returns whether it was found and where
+   = note: `manual_array_find` is `warn` by default
+
+warning[manual_array_find]: this loop looks for `wanted` in `values` by hand
+  --> tests/lint/manual_array_find/bad.jai:37:5
+   |
+37 |     for values if it == wanted {
+   |     ^^^^^^^^^^^
+   |
+   = help: `found, index := array_find(values, wanted);` returns whether it was found and where
+   = note: `manual_array_find` is `warn` by default

@@ -174,7 +174,7 @@ TEXT_SUFFIXES = (
     ".lua",
     ".ts",
     ".mjs",
-    ".expected",
+    ".snap",
     ".out",
 )
 

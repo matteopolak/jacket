@@ -1,0 +1,34 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[unchecked_directive]: `#no_abc` has no comment saying why it is needed
+  --> tests/lint/unchecked_directive/bad.jai:3:31
+   |
+ 3 | sum :: (items: [] int) -> int #no_abc {
+   |                               ^^^^^^^
+   |
+   = help: add a `//` comment on this line or the line above: why the checks are not needed here
+
+warning[unchecked_directive]: `#asm` has no comment saying why it is needed
+  --> tests/lint/unchecked_directive/bad.jai:13:9
+   |
+13 |         #asm { add x, 1; }
+   |         ^^^^
+   |
+   = help: add a `//` comment on this line or the line above: what the assembly does that Jai cannot
+
+warning[unchecked_directive]: `#no_abc` has no comment saying why it is needed
+  --> tests/lint/unchecked_directive/bad.jai:22:5
+   |
+22 |     #no_abc {
+   |     ^^^^^^^
+   |
+   = help: add a `//` comment on this line or the line above: why the checks are not needed here
+
+warning[unchecked_directive]: `#no_aoc` has no comment saying why it is needed
+  --> tests/lint/unchecked_directive/bad.jai:26:14
+   |
+26 |     for 0..2 #no_aoc {
+   |              ^^^^^^^
+   |
+   = help: add a `//` comment on this line or the line above: why the checks are not needed here

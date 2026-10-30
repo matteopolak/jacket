@@ -1,0 +1,62 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[zero_ptr]: `cast(*Node) 0` is a null pointer
+  --> tests/lint/zero_ptr/bad.jai:7:17
+   |
+ 7 | global: *Node = cast(*Node) 0;
+   |                 ^^^^^^^^^^^^^
+   |
+help: write `null`
+   |
+ 7 ~ global: *Node = null;
+   |
+   = note: `zero_ptr` is `warn` by default
+
+warning[zero_ptr]: `cast(*Node) 0` is a null pointer
+  --> tests/lint/zero_ptr/bad.jai:11:17
+   |
+11 |     node.next = cast(*Node) 0;
+   |                 ^^^^^^^^^^^^^
+   |
+help: write `null`
+   |
+11 ~     node.next = null;
+   |
+   = note: `zero_ptr` is `warn` by default
+
+warning[zero_ptr]: `cast(*u8) 0` is a null pointer
+  --> tests/lint/zero_ptr/bad.jai:12:10
+   |
+12 |     p := cast(*u8) 0;
+   |          ^^^^^^^^^^^
+   |
+help: write `null`
+   |
+12 ~     p := null;
+   |
+   = note: `zero_ptr` is `warn` by default
+
+warning[zero_ptr]: `cast(*void) 0x0` is a null pointer
+  --> tests/lint/zero_ptr/bad.jai:13:10
+   |
+13 |     q := cast(*void) 0x0;
+   |          ^^^^^^^^^^^^^^^
+   |
+help: write `null`
+   |
+13 ~     q := null;
+   |
+   = note: `zero_ptr` is `warn` by default
+
+warning[zero_ptr]: `cast(*Node) 0` is a null pointer
+  --> tests/lint/zero_ptr/bad.jai:15:21
+   |
+15 |     if node.next == cast(*Node) 0 print("end\n");
+   |                     ^^^^^^^^^^^^^
+   |
+help: write `null`
+   |
+15 ~     if node.next == null print("end\n");
+   |
+   = note: `zero_ptr` is `warn` by default

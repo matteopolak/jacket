@@ -130,7 +130,7 @@ No unwinding runs, so values owned by the abandoned frames leak, and a lock the 
 - **Rewording a message** breaks substring checks in `tests/corpus/manifest.json` (`PYTHONPATH=tools python3 tools/differential/jaic_sweep.py negative`), `tests/compiler/stdlib-targets.txt`, `parser/tests.rs`, `crates/jaic-cli/tests/cli.rs`, language server tests and docs. Code never matches message text: sema reacts to `Diagnostic::kind`.
 - **Errors other code reacts to** get a `DiagnosticKind` (`source.rs`, `with_kind`); `kind.code()` is the stable name the playground carries as `code`.
 - **New runtime check**: add an `ir::CheckReason` variant with wording in `ir::check_message` (and the same in `runtime_support_check_failed` for executables), raise it with `Interp::check_trap`, and add a help in `help_for` if common. Notes and helps key off `Trap::kind`, never message text.
-- **Layout/colour**: `render.rs`, tests in `render/tests.rs`. The plain layout must stay byte-for-byte stable (`tests/lint/*/bad.expected` depend on it).
+- **Layout/colour**: `render.rs`, tests in `render/tests.rs`. The plain layout must stay byte-for-byte stable (`tests/lint/*/bad.snap` depend on it).
 - A command-line tool should call `jaic::render::set_style(detect(choice))` once and print `Report`s. Code rendering for a caller with its own style (the playground's `run_with`) uses `render::with_style(style, || ...)`.
 
 ## Configuration

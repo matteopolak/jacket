@@ -30,7 +30,7 @@ def densest_case() -> Path:
     """The `bad.jai` of tests/lint whose expected output reports the most findings: one file that
     triggers many rules' worth of diagnostics."""
     def findings(case: Path) -> int:
-        return len(FINDING.findall((case.parent / 'bad.expected').read_text()))
+        return len(FINDING.findall((case.parent / 'bad.snap').read_text()))
     return max(sorted(LINT_CASES.glob('*/bad.jai')), key=findings)
 
 

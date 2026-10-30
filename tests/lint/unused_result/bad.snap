@@ -1,0 +1,44 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[unused_result]: the result of `trim` is discarded; it does not change its arguments
+  --> tests/lint/unused_result/bad.jai:8:5
+   |
+ 8 |     trim(line);
+   |     ^^^^^^^^^^
+   |
+help: to update the argument, write `line = trim(line);`
+   |
+ 8 ~     line = trim(line);
+   |
+   = note: `unused_result` is `warn` by default
+
+warning[unused_result]: the result of `min` is discarded; it does not change its arguments
+  --> tests/lint/unused_result/bad.jai:11:5
+   |
+11 |     min(a, 4);
+   |     ^^^^^^^^^
+   |
+help: to update the argument, write `a = min(a, 4);`
+   |
+11 ~     a = min(a, 4);
+   |
+   = note: `unused_result` is `warn` by default
+
+warning[unused_result]: the result of `sqrt` is discarded; it does not change its arguments
+  --> tests/lint/unused_result/bad.jai:12:5
+   |
+12 |     sqrt(2.0);
+   |     ^^^^^^^^^
+   |
+   = help: keep the result in a variable, or remove the call
+   = note: `unused_result` is `warn` by default
+
+warning[unused_result]: the result of `shout` is discarded; it does not change its arguments
+  --> tests/lint/unused_result/bad.jai:22:5
+   |
+22 |     shout("quiet");
+   |     ^^^^^^^^^^^^^^
+   |
+   = help: keep the result in a variable, or remove the call
+   = note: `unused_result` is `warn` by default

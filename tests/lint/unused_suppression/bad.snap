@@ -1,0 +1,38 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[unused_suppression]: `todo_marker` allows nothing here
+  --> tests/lint/unused_suppression/bad.jai:3:24
+   |
+ 3 | // jailint: allow-file(todo_marker)
+   |                        ^^^^^^^^^^^
+   |
+   = help: nothing it covers is reported any more; remove it
+   = note: `unused_suppression` is `warn` by default
+
+warning[unused_suppression]: `float_equality` allows nothing here
+  --> tests/lint/unused_suppression/bad.jai:9:40
+   |
+ 9 |     // jailint: allow(unused_variable, float_equality)
+   |                                        ^^^^^^^^^^^^^^
+   |
+   = help: nothing it covers is reported any more; remove it
+   = note: `unused_suppression` is `warn` by default
+
+warning[unused_suppression]: `float_equality` allows nothing here
+  --> tests/lint/unused_suppression/bad.jai:12:39
+   |
+12 |     total := a * 2; // jailint: allow(float_equality)
+   |                                       ^^^^^^^^^^^^^^
+   |
+   = help: nothing it covers is reported any more; remove it
+   = note: `unused_suppression` is `warn` by default
+
+warning[unused_suppression]: `unused_variable` allows nothing here
+  --> tests/lint/unused_suppression/bad.jai:19:3
+   |
+19 | } @jailint_allow(unused_variable)
+   |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: nothing it covers is reported any more; remove it
+   = note: `unused_suppression` is `warn` by default

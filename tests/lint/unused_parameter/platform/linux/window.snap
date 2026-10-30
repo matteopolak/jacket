@@ -1,0 +1,14 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[unused_parameter]: unused parameter `flags`
+  --> tests/lint/unused_parameter/platform/linux/window.jai:5:28
+   |
+ 5 | set_title :: (handle: int, flags: int) {
+   |                            ^^^^^
+   |
+help: start its name with `_` if the signature must stay, or remove it
+   |
+ 5 ~ set_title :: (handle: int, _flags: int) {
+   |
+   = note: `unused_parameter` is `warn` by default

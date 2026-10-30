@@ -1,18 +1,21 @@
 //! Each rule against its cases in `tests/lint/<rule>/`:
 //!
-//! - `bad.jai` must produce exactly the diagnostics in `bad.expected` (rendered without
-//!   color), with only that rule enabled.
+//! - `bad.jai` must produce exactly the diagnostics in the snapshot `bad.snap` (rendered
+//!   without color), with only that rule enabled.
 //! - `bad.fixed.jai`, when present, is `bad.jai` with the machine-applicable fixes applied.
+//!   It stays a Jai file because `fixed_cases_are_clean` lints it again.
 //! - `good.jai` must produce nothing for that rule.
 //!
 //! `tests/lint/suppressed/` holds code every rule would fire on, silenced in source: it must
 //! produce nothing with every rule enabled.
 //!
-//! Set `JAILINT_BLESS=1` to rewrite the expected files from the current output.
+//! Run with `INSTA_UPDATE=always` to rewrite the snapshots and `bad.fixed.jai` files from the
+//! current output.
 use jailint::config::{Config, Level};
 use jailint::render::{Style, render};
 use jailint::{Lint, RULES};
 use std::path::{Path, PathBuf};
+use test_support::TempDir;
 
 fn repo() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -76,11 +79,7 @@ fn lint_with(file: &Path, levels: &[(&str, Level)], mut config: Config) -> (Vec<
 }
 
 fn rendered(lints: &[Lint], text: &str, file: &Path) -> String {
-    let shown = file
-        .strip_prefix(repo())
-        .unwrap_or(file)
-        .to_string_lossy()
-        .into_owned();
+    let shown = test_support::snapshot::slashed(file.strip_prefix(repo()).unwrap_or(file));
     let mut out = String::new();
     let lines = jaic::source::LineIndex::new(text);
     for l in lints {
@@ -94,15 +93,9 @@ fn rendered(lints: &[Lint], text: &str, file: &Path) -> String {
     out
 }
 
-/// Compare `actual` with the file at `path` (or write it when blessing).
-fn expect(path: &Path, actual: &str) {
-    if std::env::var_os("JAILINT_BLESS").is_some() {
-        std::fs::write(path, actual).expect("write the expected file");
-        return;
-    }
-    let expected = std::fs::read_to_string(path)
-        .unwrap_or_else(|_| panic!("missing {} (run with JAILINT_BLESS=1)", path.display()));
-    assert_eq!(actual, expected, "{} differs", path.display());
+/// Compare `actual` with the Jai file at `path` (or rewrite it when updating snapshots).
+fn expect_file(path: &Path, actual: &str) {
+    test_support::snapshot::assert_generated_file(path, actual, "");
 }
 
 /// Rules a case needs on besides its own: a suppression is only unused when the rules it
@@ -182,12 +175,12 @@ fn rules_match_their_cases(part: usize) {
             "{} finds nothing in its bad case",
             r.name
         );
-        expect(&case.join("bad.expected"), &rendered(&lints, &text, &bad));
+        test_support::assert_snapshot_in!(&case, "bad", rendered(&lints, &text, &bad));
         let refs: Vec<&Lint> = lints.iter().collect();
         let (fixed, applied) = jailint::fix::apply(&text, &refs);
         let fixed_path = case.join("bad.fixed.jai");
         if applied > 0 {
-            expect(&fixed_path, &fixed);
+            expect_file(&fixed_path, &fixed);
         } else {
             assert!(!fixed_path.exists(), "{} has no fixes to apply", r.name);
         }
@@ -320,9 +313,10 @@ fn unused_parameter_variants_one_directory_over() {
     let linux = dir.join("linux/window.jai");
     let (lints, text) = lint(&linux, &levels);
     assert_eq!(lints.len(), 1);
-    expect(
-        &dir.join("linux/window.expected"),
-        &rendered(&lints, &text, &linux),
+    test_support::assert_snapshot_in!(
+        &dir.join("linux"),
+        "window",
+        rendered(&lints, &text, &linux)
     );
 }
 
@@ -331,8 +325,7 @@ fn runs_in_one_process_share_no_state() {
     // `a/win.jai` has an unused parameter that `b/win.jai` (not loaded) also takes: a variant,
     // so no lint. Rewriting `b/win.jai` to other parameters and linting `a/win.jai` again
     // must see the new file, not what the first run read.
-    let root = std::env::temp_dir().join(format!("jailint-runs-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
+    let root = TempDir::new("jailint-runs");
     std::fs::create_dir_all(root.join("a")).unwrap();
     std::fs::create_dir_all(root.join("b")).unwrap();
     let a = root.join("a/win.jai");
@@ -356,7 +349,6 @@ fn runs_in_one_process_share_no_state() {
     )
     .unwrap();
     let (second, _) = lint(&a, &levels);
-    let _ = std::fs::remove_dir_all(&root);
     assert_eq!(second.len(), 1, "{second:?}");
     assert!(second[0].message.contains("title"));
 }

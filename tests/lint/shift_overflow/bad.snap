@@ -1,0 +1,47 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[shift_overflow]: shifting a `s32` by 40 shifts out all 32 of its bits
+  --> tests/lint/shift_overflow/bad.jai:4:10
+   |
+ 4 |     a := x << 40;
+   |          ^^^^^^^
+   |
+   = help: the shift count must be below 32; widen the value first, `(cast(u64) x) << 40`, if more bits are needed
+   = note: `shift_overflow` is `warn` by default
+
+warning[shift_overflow]: shifting a `s32` by 32 shifts out all 32 of its bits
+  --> tests/lint/shift_overflow/bad.jai:6:10
+   |
+ 6 |     b := x >> 32;
+   |          ^^^^^^^
+   |
+   = help: the shift count must be below 32; widen the value first, `(cast(u64) x) << 32`, if more bits are needed
+   = note: `shift_overflow` is `warn` by default
+
+warning[shift_overflow]: shifting a `u8` by 8 shifts out all 8 of its bits
+  --> tests/lint/shift_overflow/bad.jai:8:10
+   |
+ 8 |     c := small << 8;
+   |          ^^^^^^^^^^
+   |
+   = help: the shift count must be below 8; widen the value first, `(cast(u64) x) << 8`, if more bits are needed
+   = note: `shift_overflow` is `warn` by default
+
+warning[shift_overflow]: shifting a `u64` by 64 shifts out all 64 of its bits
+  --> tests/lint/shift_overflow/bad.jai:10:10
+   |
+10 |     d := wide >> 64;
+   |          ^^^^^^^^^^
+   |
+   = help: the shift count must be below 64; widen the value first, `(cast(u64) x) << 64`, if more bits are needed
+   = note: `shift_overflow` is `warn` by default
+
+warning[shift_overflow]: shifting a `s32` by 33 shifts out all 32 of its bits
+  --> tests/lint/shift_overflow/bad.jai:13:5
+   |
+13 |     e <<= 33;
+   |     ^^^^^^^^
+   |
+   = help: the shift count must be below 32; widen the value first, `(cast(u64) x) << 33`, if more bits are needed
+   = note: `shift_overflow` is `warn` by default

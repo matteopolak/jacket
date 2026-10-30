@@ -1,0 +1,26 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[excessive_nesting]: this block is nested 7 deep, past the limit of 6
+  --> tests/lint/excessive_nesting/bad.jai:13:39
+   |
+13 |                             if it > 3 {
+   |                                       ^
+   |
+   = help: return or `continue` early, or move the inner part into its own procedure
+
+warning[excessive_nesting]: this block is nested 7 deep, past the limit of 6
+  --> tests/lint/excessive_nesting/bad.jai:37:42
+   |
+37 |                                 if x > 8 {
+   |                                          ^
+   |
+   = help: return or `continue` early, or move the inner part into its own procedure
+
+warning[excessive_nesting]: this block is nested 7 deep, past the limit of 6
+  --> tests/lint/excessive_nesting/bad.jai:44:29
+   |
+44 |                             if n == {
+   |                             ^^^^
+   |
+   = help: return or `continue` early, or move the inner part into its own procedure

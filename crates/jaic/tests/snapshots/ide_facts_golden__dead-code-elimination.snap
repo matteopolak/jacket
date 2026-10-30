@@ -1,0 +1,219 @@
+---
+source: crates/jaic/tests/ide_facts_golden.rs
+---
+## errors (1)
+error during compile-time execution: this build has no compiler workspaces (Compiler module)
+## refs (67)
+tests/compiler/regressions/dead-code-elimination.jai:1112..1123 Entity(E(UNUSED_BODY@tests/compiler/regressions/dead-code-elimination.jai:1112)) (compile-time entity) decl=true
+tests/compiler/regressions/dead-code-elimination.jai:1193..1197 Entity(E(Mode@tests/compiler/regressions/dead-code-elimination.jai:1193)) (compile-time entity) decl=true
+tests/compiler/regressions/dead-code-elimination.jai:1201..1208 Entity(E(type_of@-)) (compile-time entity) decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1209..1222 Type(T(Build_Options)) Type decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1338..1346 Entity(E(compiles@tests/compiler/regressions/dead-code-elimination.jai:1338)) (compile-time entity) decl=true
+tests/compiler/regressions/dead-code-elimination.jai:1351..1357 Entity(E(source@tests/compiler/regressions/dead-code-elimination.jai:1351)) string decl=true
+tests/compiler/regressions/dead-code-elimination.jai:1359..1365 Type(T(string)) Type decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1367..1371 Entity(E(mode@tests/compiler/regressions/dead-code-elimination.jai:1367)) enum decl=true
+tests/compiler/regressions/dead-code-elimination.jai:1373..1377 Type(T(enum)) Type decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1382..1386 Type(T(bool)) Type decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1393..1394 Entity(E(w@tests/compiler/regressions/dead-code-elimination.jai:1393)) s64 decl=true
+tests/compiler/regressions/dead-code-elimination.jai:1398..1423 Procs([P(compiler_create_workspace@stdlib/Compiler/workspace.jai:29)]) (compile-time entity) decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1436..1443 Entity(E(options@tests/compiler/regressions/dead-code-elimination.jai:1436)) Build_Options decl=true
+tests/compiler/regressions/dead-code-elimination.jai:1447..1464 Procs([P(get_build_options@stdlib/Compiler/workspace.jai:304)]) (compile-time entity) decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1465..1466 Entity(E(w@tests/compiler/regressions/dead-code-elimination.jai:1393)) s64 decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1473..1480 Entity(E(options@tests/compiler/regressions/dead-code-elimination.jai:1436)) Build_Options decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1481..1492 Member(`output_type`) Output_Type decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1496..1505 Member(`NO_OUTPUT`) Output_Type decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1511..1518 Entity(E(options@tests/compiler/regressions/dead-code-elimination.jai:1436)) Build_Options decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1519..1540 Member(`dead_code_elimination`) enum decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1543..1547 Entity(E(mode@tests/compiler/regressions/dead-code-elimination.jai:1367)) enum decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1553..1570 Procs([P(set_build_options@stdlib/Compiler/workspace.jai:374)]) (compile-time entity) decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1571..1578 Entity(E(options@tests/compiler/regressions/dead-code-elimination.jai:1436)) Build_Options decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1580..1581 Entity(E(w@tests/compiler/regressions/dead-code-elimination.jai:1393)) s64 decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1588..1612 Procs([P(compiler_begin_intercept@stdlib/Compiler/workspace.jai:2522)]) (compile-time entity) decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1613..1614 Entity(E(w@tests/compiler/regressions/dead-code-elimination.jai:1393)) s64 decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1621..1637 Procs([P(add_build_string@stdlib/Compiler/workspace.jai:658), P(add_build_string@stdlib/Compiler/workspace.jai:798)]) (compile-time entity) decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1638..1644 Entity(E(source@tests/compiler/regressions/dead-code-elimination.jai:1351)) string decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1646..1647 Entity(E(w@tests/compiler/regressions/dead-code-elimination.jai:1393)) s64 decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1654..1656 Entity(E(ok@tests/compiler/regressions/dead-code-elimination.jai:1654)) bool decl=true
+tests/compiler/regressions/dead-code-elimination.jai:1693..1700 Entity(E(message@tests/compiler/regressions/dead-code-elimination.jai:1693)) *Message decl=true
+tests/compiler/regressions/dead-code-elimination.jai:1704..1729 Procs([P(compiler_wait_for_message@stdlib/Compiler/workspace.jai:2750)]) (compile-time entity) decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1744..1751 Entity(E(message@tests/compiler/regressions/dead-code-elimination.jai:1693)) *Message decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1752..1756 Member(`kind`) enum decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1761..1769 Member(`COMPLETE`) enum decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1784..1786 Entity(E(ok@tests/compiler/regressions/dead-code-elimination.jai:1654)) bool decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1796..1812 Type(T(Message_Complete)) Type decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1814..1821 Entity(E(message@tests/compiler/regressions/dead-code-elimination.jai:1693)) *Message decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1823..1833 Member(`error_code`) enum decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1838..1842 Member(`NONE`) enum decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1884..1906 Procs([P(compiler_end_intercept@stdlib/Compiler/workspace.jai:2603)]) (compile-time entity) decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1907..1908 Entity(E(w@tests/compiler/regressions/dead-code-elimination.jai:1393)) s64 decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1923..1925 Entity(E(ok@tests/compiler/regressions/dead-code-elimination.jai:1654)) bool decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1941..1947 Procs([P(assert@stdlib/internal/basic/scalar.jai:195)]) (compile-time entity) decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1948..1965 Procs([P(get_build_options@stdlib/Compiler/workspace.jai:304)]) (compile-time entity) decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1968..1989 Member(`dead_code_elimination`) enum decl=false
+tests/compiler/regressions/dead-code-elimination.jai:1994..2006 Member(`MODULES_ONLY`) enum decl=false
+tests/compiler/regressions/dead-code-elimination.jai:2071..2077 Procs([P(assert@stdlib/internal/basic/scalar.jai:195)]) (compile-time entity) decl=false
+tests/compiler/regressions/dead-code-elimination.jai:2078..2086 Procs([P(compiles@tests/compiler/regressions/dead-code-elimination.jai:1350)]) (compile-time entity) decl=false
+tests/compiler/regressions/dead-code-elimination.jai:2087..2098 Entity(E(UNUSED_BODY@tests/compiler/regressions/dead-code-elimination.jai:1112)) string decl=false
+tests/compiler/regressions/dead-code-elimination.jai:2101..2104 Member(`ALL`) enum decl=false
+tests/compiler/regressions/dead-code-elimination.jai:2111..2115 Entity(E(main@tests/compiler/regressions/dead-code-elimination.jai:2111)) (compile-time entity) decl=true
+tests/compiler/regressions/dead-code-elimination.jai:2128..2134 Procs([P(assert@stdlib/internal/basic/scalar.jai:195)]) (compile-time entity) decl=false
+tests/compiler/regressions/dead-code-elimination.jai:2135..2140 Procs([P(twice@tests/compiler/regressions/modules/Dce_Unreferenced/module.jai:242)]) (compile-time entity) decl=false
+tests/compiler/regressions/dead-code-elimination.jai:2157..2162 Procs([P(print@stdlib/internal/basic/scalar.jai:973), P(print_to_builder@stdlib/internal/basic/format.jai:6161)]) (compile-time entity) decl=false
+tests/compiler/regressions/dead-code-elimination.jai:685..699 Entity(E(generic_unused@tests/compiler/regressions/dead-code-elimination.jai:685)) (compile-time entity) decl=true
+tests/compiler/regressions/dead-code-elimination.jai:704..705 Entity(E(x@tests/compiler/regressions/dead-code-elimination.jai:704)) T decl=true
+tests/compiler/regressions/dead-code-elimination.jai:708..709 Entity(E(T@tests/compiler/regressions/dead-code-elimination.jai:708)) Type decl=false
+tests/compiler/regressions/dead-code-elimination.jai:708..709 Entity(E(T@tests/compiler/regressions/dead-code-elimination.jai:708)) Type decl=true
+tests/compiler/regressions/dead-code-elimination.jai:714..715 Entity(E(T@tests/compiler/regressions/dead-code-elimination.jai:708)) Type decl=false
+tests/compiler/regressions/dead-code-elimination.jai:714..715 Type(T(T)) Type decl=false
+tests/compiler/regressions/dead-code-elimination.jai:722..727 Entity(E(wrong@tests/compiler/regressions/dead-code-elimination.jai:722)) s64 decl=true
+tests/compiler/regressions/dead-code-elimination.jai:729..732 Type(T(s64)) Type decl=false
+tests/compiler/regressions/dead-code-elimination.jai:792..793 Entity(E(x@tests/compiler/regressions/dead-code-elimination.jai:704)) T decl=false
+tests/compiler/regressions/dead-code-elimination.jai:798..811 Entity(E(expand_unused@tests/compiler/regressions/dead-code-elimination.jai:798)) (compile-time entity) decl=true
+tests/compiler/regressions/dead-code-elimination.jai:832..837 Entity(E(wrong@tests/compiler/regressions/dead-code-elimination.jai:832)) s64 decl=true
+tests/compiler/regressions/dead-code-elimination.jai:839..842 Type(T(s64)) Type decl=false
+## scopes (7)
+tests/compiler/regressions/dead-code-elimination.jai:1387..1928 S(tests/compiler/regressions/dead-code-elimination.jai:1387..1928)
+tests/compiler/regressions/dead-code-elimination.jai:1683..1878 S(tests/compiler/regressions/dead-code-elimination.jai:1683..1878)
+tests/compiler/regressions/dead-code-elimination.jai:1770..1872 S(tests/compiler/regressions/dead-code-elimination.jai:1770..1872)
+tests/compiler/regressions/dead-code-elimination.jai:1935..2109 S(tests/compiler/regressions/dead-code-elimination.jai:1935..2109)
+tests/compiler/regressions/dead-code-elimination.jai:2122..2173 S(tests/compiler/regressions/dead-code-elimination.jai:2122..2173)
+tests/compiler/regressions/dead-code-elimination.jai:716..796 S(tests/compiler/regressions/dead-code-elimination.jai:716..796)
+tests/compiler/regressions/dead-code-elimination.jai:826..887 S(tests/compiler/regressions/dead-code-elimination.jai:826..887)
+## calls (14)
+IdeCall { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 1398, end: 1430 }, candidates: [P(compiler_create_workspace@stdlib/Compiler/workspace.jai:29)], chosen: P(compiler_create_workspace@stdlib/Compiler/workspace.jai:29), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 1424, end: 1429 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(string)) }] }
+IdeCall { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 1447, end: 1467 }, candidates: [P(get_build_options@stdlib/Compiler/workspace.jai:304)], chosen: P(get_build_options@stdlib/Compiler/workspace.jai:304), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 1465, end: 1466 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(s64)) }] }
+IdeCall { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 1553, end: 1582 }, candidates: [P(set_build_options@stdlib/Compiler/workspace.jai:374)], chosen: P(set_build_options@stdlib/Compiler/workspace.jai:374), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 1571, end: 1578 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(Build_Options)) }, IdeArg { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 1580, end: 1581 }, param: 1, named: false, variadic: false, spread: false, ty: Some(T(s64)) }] }
+IdeCall { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 1588, end: 1615 }, candidates: [P(compiler_begin_intercept@stdlib/Compiler/workspace.jai:2522)], chosen: P(compiler_begin_intercept@stdlib/Compiler/workspace.jai:2522), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 1613, end: 1614 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(s64)) }] }
+IdeCall { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 1621, end: 1648 }, candidates: [P(add_build_string@stdlib/Compiler/workspace.jai:658), P(add_build_string@stdlib/Compiler/workspace.jai:798)], chosen: P(add_build_string@stdlib/Compiler/workspace.jai:658), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 1638, end: 1644 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(string)) }, IdeArg { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 1646, end: 1647 }, param: 1, named: false, variadic: false, spread: false, ty: Some(T(s64)) }] }
+IdeCall { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 1704, end: 1731 }, candidates: [P(compiler_wait_for_message@stdlib/Compiler/workspace.jai:2750)], chosen: P(compiler_wait_for_message@stdlib/Compiler/workspace.jai:2750), ambiguous: false, args: [] }
+IdeCall { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 1884, end: 1909 }, candidates: [P(compiler_end_intercept@stdlib/Compiler/workspace.jai:2603)], chosen: P(compiler_end_intercept@stdlib/Compiler/workspace.jai:2603), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 1907, end: 1908 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(s64)) }] }
+IdeCall { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 1941, end: 2007 }, candidates: [P(assert@stdlib/internal/basic/scalar.jai:195)], chosen: P(assert@stdlib/internal/basic/scalar.jai:195), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 1948, end: 2006 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(bool)) }] }
+IdeCall { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 1948, end: 1967 }, candidates: [P(get_build_options@stdlib/Compiler/workspace.jai:304)], chosen: P(get_build_options@stdlib/Compiler/workspace.jai:304), ambiguous: false, args: [] }
+IdeCall { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 2071, end: 2106 }, candidates: [P(assert@stdlib/internal/basic/scalar.jai:195)], chosen: P(assert@stdlib/internal/basic/scalar.jai:195), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 2078, end: 2105 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(bool)) }] }
+IdeCall { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 2078, end: 2105 }, candidates: [P(compiles@tests/compiler/regressions/dead-code-elimination.jai:1350)], chosen: P(compiles@tests/compiler/regressions/dead-code-elimination.jai:1350), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 2087, end: 2098 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(string)) }, IdeArg { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 2100, end: 2104 }, param: 1, named: false, variadic: false, spread: false, ty: None }] }
+IdeCall { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 2128, end: 2151 }, candidates: [P(assert@stdlib/internal/basic/scalar.jai:195)], chosen: P(assert@stdlib/internal/basic/scalar.jai:195), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 2135, end: 2150 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(bool)) }] }
+IdeCall { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 2135, end: 2144 }, candidates: [P(twice@tests/compiler/regressions/modules/Dce_Unreferenced/module.jai:242)], chosen: P(twice@tests/compiler/regressions/modules/Dce_Unreferenced/module.jai:242), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 2141, end: 2143 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(s64)) }] }
+IdeCall { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 2157, end: 2170 }, candidates: [P(print@stdlib/internal/basic/scalar.jai:973), P(print_to_builder@stdlib/internal/basic/format.jai:6161)], chosen: P(print@stdlib/internal/basic/scalar.jai:973), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 2163, end: 2169 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(string)) }] }
+## expansions (4)
+IdeExpansion { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 1941, end: 2007 }, kind: Macro, texts: ["if !(get_build_options().dead_code_elimination == .MODULES_ONLY) assert_helper(\"\", ..args, (#caller_location) = (#caller_location));"], detail: "assert", output: "", literal: None }
+IdeExpansion { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 2071, end: 2106 }, kind: Macro, texts: ["if !compiles(UNUSED_BODY, .ALL) assert_helper(\"\", ..args, (#caller_location) = (#caller_location));"], detail: "assert", output: "", literal: None }
+IdeExpansion { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 2128, end: 2151 }, kind: Macro, texts: ["if !(twice(21) == 42) assert_helper(\"\", ..args, (#caller_location) = (#caller_location));"], detail: "assert", output: "", literal: None }
+IdeExpansion { span: Span { file: tests/compiler/regressions/dead-code-elimination.jai, start: 948, end: 957 }, kind: If, texts: ["false"], detail: "", output: "", literal: None }
+## skipped (0)
+## static_branches (1)
+tests/compiler/regressions/dead-code-elimination.jai:948..1048 false
+## body_evals (2)
+tests/compiler/regressions/dead-code-elimination.jai:1387..1928 1
+tests/compiler/regressions/dead-code-elimination.jai:2122..2173 1
+## dead_runs (0)
+## exprs (74)
+tests/compiler/regressions/dead-code-elimination.jai:1127..1191 string true false
+tests/compiler/regressions/dead-code-elimination.jai:1201..1208 (compile-time entity) false false
+tests/compiler/regressions/dead-code-elimination.jai:1201..1245 Type false false
+tests/compiler/regressions/dead-code-elimination.jai:1209..1222 Type false false
+tests/compiler/regressions/dead-code-elimination.jai:1359..1365 Type false false
+tests/compiler/regressions/dead-code-elimination.jai:1373..1377 Type false false
+tests/compiler/regressions/dead-code-elimination.jai:1382..1386 Type false false
+tests/compiler/regressions/dead-code-elimination.jai:1398..1423 (compile-time entity) false false
+tests/compiler/regressions/dead-code-elimination.jai:1398..1430 s64 false false
+tests/compiler/regressions/dead-code-elimination.jai:1424..1429 string true false
+tests/compiler/regressions/dead-code-elimination.jai:1447..1464 (compile-time entity) false false
+tests/compiler/regressions/dead-code-elimination.jai:1447..1467 Build_Options false false
+tests/compiler/regressions/dead-code-elimination.jai:1465..1466 s64 false false
+tests/compiler/regressions/dead-code-elimination.jai:1473..1480 Build_Options false false
+tests/compiler/regressions/dead-code-elimination.jai:1473..1492 Output_Type false false
+tests/compiler/regressions/dead-code-elimination.jai:1495..1505 Output_Type true false
+tests/compiler/regressions/dead-code-elimination.jai:1511..1518 Build_Options false false
+tests/compiler/regressions/dead-code-elimination.jai:1511..1540 enum false false
+tests/compiler/regressions/dead-code-elimination.jai:1543..1547 enum false false
+tests/compiler/regressions/dead-code-elimination.jai:1553..1570 (compile-time entity) false false
+tests/compiler/regressions/dead-code-elimination.jai:1553..1582 void false false
+tests/compiler/regressions/dead-code-elimination.jai:1571..1578 Build_Options false false
+tests/compiler/regressions/dead-code-elimination.jai:1580..1581 s64 false false
+tests/compiler/regressions/dead-code-elimination.jai:1588..1612 (compile-time entity) false false
+tests/compiler/regressions/dead-code-elimination.jai:1588..1615 void false false
+tests/compiler/regressions/dead-code-elimination.jai:1613..1614 s64 false false
+tests/compiler/regressions/dead-code-elimination.jai:1621..1637 (compile-time entity) false false
+tests/compiler/regressions/dead-code-elimination.jai:1621..1648 void false false
+tests/compiler/regressions/dead-code-elimination.jai:1638..1644 string false false
+tests/compiler/regressions/dead-code-elimination.jai:1646..1647 s64 false false
+tests/compiler/regressions/dead-code-elimination.jai:1660..1665 bool true false
+tests/compiler/regressions/dead-code-elimination.jai:1678..1682 bool true false
+tests/compiler/regressions/dead-code-elimination.jai:1704..1729 (compile-time entity) false false
+tests/compiler/regressions/dead-code-elimination.jai:1704..1731 *Message false false
+tests/compiler/regressions/dead-code-elimination.jai:1744..1751 *Message false false
+tests/compiler/regressions/dead-code-elimination.jai:1744..1756 enum false false
+tests/compiler/regressions/dead-code-elimination.jai:1744..1769 bool false false
+tests/compiler/regressions/dead-code-elimination.jai:1760..1769 enum true false
+tests/compiler/regressions/dead-code-elimination.jai:1784..1786 bool false false
+tests/compiler/regressions/dead-code-elimination.jai:1790..1821 *Message_Complete false false
+tests/compiler/regressions/dead-code-elimination.jai:1790..1833 enum false false
+tests/compiler/regressions/dead-code-elimination.jai:1790..1842 bool false false
+tests/compiler/regressions/dead-code-elimination.jai:1795..1812 Type false false
+tests/compiler/regressions/dead-code-elimination.jai:1796..1812 Type false false
+tests/compiler/regressions/dead-code-elimination.jai:1814..1821 *Message false false
+tests/compiler/regressions/dead-code-elimination.jai:1837..1842 enum true false
+tests/compiler/regressions/dead-code-elimination.jai:1884..1906 (compile-time entity) false false
+tests/compiler/regressions/dead-code-elimination.jai:1884..1909 void false false
+tests/compiler/regressions/dead-code-elimination.jai:1907..1908 s64 false false
+tests/compiler/regressions/dead-code-elimination.jai:1923..1925 bool false false
+tests/compiler/regressions/dead-code-elimination.jai:1941..1947 (compile-time entity) false false
+tests/compiler/regressions/dead-code-elimination.jai:1941..2007 void false false
+tests/compiler/regressions/dead-code-elimination.jai:1948..1965 (compile-time entity) false false
+tests/compiler/regressions/dead-code-elimination.jai:1948..1967 Build_Options false false
+tests/compiler/regressions/dead-code-elimination.jai:1948..1989 enum false false
+tests/compiler/regressions/dead-code-elimination.jai:1948..2006 bool false false
+tests/compiler/regressions/dead-code-elimination.jai:1993..2006 enum true false
+tests/compiler/regressions/dead-code-elimination.jai:2071..2077 (compile-time entity) false false
+tests/compiler/regressions/dead-code-elimination.jai:2071..2106 void false false
+tests/compiler/regressions/dead-code-elimination.jai:2078..2086 (compile-time entity) false false
+tests/compiler/regressions/dead-code-elimination.jai:2078..2105 bool false false
+tests/compiler/regressions/dead-code-elimination.jai:2087..2098 string true false
+tests/compiler/regressions/dead-code-elimination.jai:2100..2104 enum true false
+tests/compiler/regressions/dead-code-elimination.jai:2128..2134 (compile-time entity) false false
+tests/compiler/regressions/dead-code-elimination.jai:2128..2151 void false false
+tests/compiler/regressions/dead-code-elimination.jai:2135..2140 (compile-time entity) false false
+tests/compiler/regressions/dead-code-elimination.jai:2135..2144 s64 false false
+tests/compiler/regressions/dead-code-elimination.jai:2135..2150 bool false false
+tests/compiler/regressions/dead-code-elimination.jai:2141..2143 s64 true false
+tests/compiler/regressions/dead-code-elimination.jai:2148..2150 s64 true false
+tests/compiler/regressions/dead-code-elimination.jai:2157..2162 (compile-time entity) false false
+tests/compiler/regressions/dead-code-elimination.jai:2157..2170 s64 false false
+tests/compiler/regressions/dead-code-elimination.jai:2163..2169 string true false
+tests/compiler/regressions/dead-code-elimination.jai:952..957 bool true false
+## casts (1)
+tests/compiler/regressions/dead-code-elimination.jai:1790..1821 *Message_Complete *Message false false
+## used (9)
+E(Mode@tests/compiler/regressions/dead-code-elimination.jai:1193)
+E(UNUSED_BODY@tests/compiler/regressions/dead-code-elimination.jai:1112)
+E(compiles@tests/compiler/regressions/dead-code-elimination.jai:1338)
+E(message@tests/compiler/regressions/dead-code-elimination.jai:1693)
+E(mode@tests/compiler/regressions/dead-code-elimination.jai:1367)
+E(ok@tests/compiler/regressions/dead-code-elimination.jai:1654)
+E(options@tests/compiler/regressions/dead-code-elimination.jai:1436)
+E(source@tests/compiler/regressions/dead-code-elimination.jai:1351)
+E(w@tests/compiler/regressions/dead-code-elimination.jai:1393)
+## used_imports (3)
+(S(Module), 0)
+(S(Module), 1)
+(S(Module), 2)
+## receivers (5)
+tests/compiler/regressions/dead-code-elimination.jai:1481..1492 Build_Options
+tests/compiler/regressions/dead-code-elimination.jai:1519..1540 Build_Options
+tests/compiler/regressions/dead-code-elimination.jai:1752..1756 *Message
+tests/compiler/regressions/dead-code-elimination.jai:1823..1833 *Message_Complete
+tests/compiler/regressions/dead-code-elimination.jai:1968..1989 Build_Options
+## instances (0)
+## fields (0)
+## member_uses (10)
+tests/compiler/regressions/dead-code-elimination.jai:1481..1492 stdlib/Compiler/contract-records.jai:1182..1193
+tests/compiler/regressions/dead-code-elimination.jai:1496..1505 stdlib/Compiler/contract-records.jai:973..982
+tests/compiler/regressions/dead-code-elimination.jai:1519..1540 stdlib/Compiler/contract-records.jai:2581..2602
+tests/compiler/regressions/dead-code-elimination.jai:1752..1756 stdlib/Compiler/contract-records.jai:6431..6435
+tests/compiler/regressions/dead-code-elimination.jai:1761..1769 stdlib/Compiler/contract-records.jai:6572..6580
+tests/compiler/regressions/dead-code-elimination.jai:1823..1833 stdlib/Compiler/contract-records.jai:6740..6750
+tests/compiler/regressions/dead-code-elimination.jai:1838..1842 stdlib/Compiler/contract-records.jai:6770..6774
+tests/compiler/regressions/dead-code-elimination.jai:1968..1989 stdlib/Compiler/contract-records.jai:2581..2602
+tests/compiler/regressions/dead-code-elimination.jai:1994..2006 stdlib/Compiler/contract-records.jai:2661..2673
+tests/compiler/regressions/dead-code-elimination.jai:2101..2104 stdlib/Compiler/contract-records.jai:2644..2647
+## refused (0)

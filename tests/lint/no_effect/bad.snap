@@ -1,0 +1,50 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[no_effect]: this statement has no effect
+  --> tests/lint/no_effect/bad.jai:10:5
+   |
+10 |     x == 5;
+   |     ^^^^^^
+   |
+help: to assign, write `x = 5;`
+   |
+10 ~     x = 5;
+   |
+   = note: `no_effect` is `warn` by default
+
+warning[no_effect]: this statement has no effect
+  --> tests/lint/no_effect/bad.jai:11:5
+   |
+11 |     x + 1;
+   |     ^^^^^
+   |
+help: to update `x`, write `x += 1;`
+   |
+11 ~     x += 1;
+   |
+   = note: `no_effect` is `warn` by default
+
+warning[no_effect]: this statement has no effect
+  --> tests/lint/no_effect/bad.jai:12:5
+   |
+12 |     flush;
+   |     ^^^^^
+   |
+help: to call it, write `flush();`
+   |
+12 ~     flush();
+   |
+   = note: `no_effect` is `warn` by default
+
+warning[no_effect]: this statement has no effect
+  --> tests/lint/no_effect/bad.jai:13:5
+   |
+13 |     x;
+   |     ^
+   |
+help: remove it, or use its value
+   |
+13 -     x;
+   |
+   = note: `no_effect` is `warn` by default

@@ -1,0 +1,42 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[print_in_module]: a module should not write to the program's output
+  --> tests/lint/print_in_module/bad.jai:4:5
+   |
+ 4 |     print("parsing %\n", text);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return the text or an error, or log it, and let the program decide what to print
+
+warning[print_in_module]: a module should not write to the program's output
+  --> tests/lint/print_in_module/bad.jai:9:5
+   |
+ 9 |     write_string("banner\n");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return the text or an error, or log it, and let the program decide what to print
+
+warning[print_in_module]: a module should not write to the program's output
+  --> tests/lint/print_in_module/bad.jai:10:5
+   |
+10 |     write_strings("a", "b", "\n");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return the text or an error, or log it, and let the program decide what to print
+
+warning[print_in_module]: a module should not write to the program's output
+  --> tests/lint/print_in_module/bad.jai:14:5
+   |
+14 |     write_builder(builder);
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return the text or an error, or log it, and let the program decide what to print
+
+warning[print_in_module]: a module should not write to the program's output
+  --> tests/lint/print_in_module/bad.jai:18:5
+   |
+18 |     print("warning: %\n", text, to_standard_error = true);
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = help: return the text or an error, or log it, and let the program decide what to print

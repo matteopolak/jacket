@@ -1,0 +1,35 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[neg_cmp_float]: `!(x < limit)` is not `x >= limit` when a float is NaN
+  --> tests/lint/neg_cmp_float/bad.jai:4:8
+   |
+ 4 |     if !(x < limit) return false;
+   |        ^^^^^^^^^^^
+   |
+help: write the inverted comparison if NaN should not take the branch, or test for NaN explicitly if it should
+   |
+ 4 ~     if x >= limit return false;
+   |
+
+warning[neg_cmp_float]: `!(x >= lo * 2)` is not `x < lo * 2` when a float is NaN
+  --> tests/lint/neg_cmp_float/bad.jai:6:11
+   |
+ 6 |     ok := !(x >= lo * 2) && true;
+   |           ^^^^^^^^^^^^^
+   |
+help: write the inverted comparison if NaN should not take the branch, or test for NaN explicitly if it should
+   |
+ 6 ~     ok := x < lo * 2 && true;
+   |
+
+warning[neg_cmp_float]: `!(lo <= 1.5)` is not `lo > 1.5` when a float is NaN
+  --> tests/lint/neg_cmp_float/bad.jai:8:14
+   |
+ 8 |     wide := (!(lo <= 1.5)) == ok;
+   |              ^^^^^^^^^^^
+   |
+help: write the inverted comparison if NaN should not take the branch, or test for NaN explicitly if it should
+   |
+ 8 ~     wide := (lo > 1.5) == ok;
+   |

@@ -93,7 +93,7 @@ A category name works wherever a rule name does: `[lint.rules] pedantic = "warn"
 
 Columns: `yes` means `--fix` applies the fix; `editor` means the fix may change behaviour, so it is only a quick fix in the editor; `no` means none. "Side-effect-free" below means names, member paths, literals, indexing, casts and operators: no calls. Rules that compare expressions compare them as written, ignoring whitespace. A rule is removed once `jaic` rejects what it found; a `[lint.rules]` table naming a removed rule fails with `unknown rule`.
 
-Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comment saying exactly when it fires, and `tests/lint/<rule>/` has `bad.jai` (+ `bad.expected`, `bad.fixed.jai`) and `good.jai`. The `every_rule_is_documented` test requires a table row and a `### <rule>` section here, because editors link to the anchor.
+Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comment saying exactly when it fires, and `tests/lint/<rule>/` has `bad.jai` (+ the snapshot `bad.snap`, `bad.fixed.jai`) and `good.jai`. The `every_rule_is_documented` test requires a table row and a `### <rule>` section here, because editors link to the anchor.
 
 | Rule | Category | Default | Fix | Finds |
 | --- | --- | --- | --- | --- |
@@ -490,7 +490,7 @@ The formatter is written in Jai and reads the `[format]` table itself; both tabl
 | Setting | Effect |
 | --- | --- |
 | `JAIC_STDLIB` | stdlib directory (default: next to the executable, else the checkout's) |
-| `JAILINT_BLESS=1` | with `cargo test -p jailint`, rewrite `bad.expected` and `bad.fixed.jai` |
+| `INSTA_UPDATE=always` | with `cargo test -p jailint`, rewrite the `bad.snap` snapshots and the `bad.fixed.jai` files (see [the test harness](test-harness.md)) |
 | `--compile-time-budget`, `--check-time-limit` (`jaic::ide::lint_compile::CheckLimits`) | blocks per evaluation and seconds per program checked (each compile has its own clock, the leak pass's extra compiles too); the language server takes the same limits from the editor's settings |
 
 ## How to change it
@@ -499,7 +499,7 @@ The formatter is written in Jai and reads the `[format]` table itself; both tabl
 
 1. Create `crates/jailint/src/rules/<name>.rs` with a doc comment (what, why, exactly when), `pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>)` and `pub(crate) const INFO: super::RuleInfo` (name, default level, summary; the file name is the rule name, which a test checks).
 2. Add `<name>` to the `rules!` list in `rules/mod.rs`; that one list declares the module, adds `INFO` to `RULES` and the module to the tests. The schema build (`editors/vscode/scripts/build.ts schemas`) reads the same list and each module's `INFO`.
-3. Add `tests/lint/<name>/bad.jai` and `good.jai` (whole programs with `main`), then `JAILINT_BLESS=1 cargo test -p jailint` and read the output.
+3. Add `tests/lint/<name>/bad.jai` and `good.jai` (whole programs with `main`), then `INSTA_UPDATE=always cargo test -p jailint` and read the output.
 4. Run it over the repository and the upstream corpus with `-W <name>` and check every hit; a rule that is sometimes wrong costs more trust than it earns.
 5. Add the table row and a `### <name>` section here.
 

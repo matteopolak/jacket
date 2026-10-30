@@ -1,0 +1,18 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[float_equality]: comparing floats for exact equality
+  --> tests/lint/float_equality/bad.jai:10:8
+   |
+10 |     if total == expected print("equal\n");
+   |        ^^^^^^^^^^^^^^^^^
+   |
+   = help: compare the difference with a tolerance: `abs(a - b) < epsilon`
+
+warning[float_equality]: comparing floats for exact equality
+  --> tests/lint/float_equality/bad.jai:11:8
+   |
+11 |     if sqrt(a) != b print("different\n");
+   |        ^^^^^^^^^^^^
+   |
+   = help: compare the difference with a tolerance: `abs(a - b) < epsilon`
