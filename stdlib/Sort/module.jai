@@ -32,13 +32,18 @@
 quick_sort :: Impl.quick_sort;
 // A three-way comparator for `quick_sort` and `intro_sort`: `-1`, `0` or `1` for `a < b`, a tie and `a > b`.
 //
-// A `NaN` ties with every number, which breaks the consistency a sort needs, so remove NaNs first or sort
-// with your own rule. `-0.0` and `0.0` tie.
+// The order is total: every `NaN` goes after all numbers (infinities included) and ties only with other
+// `NaN`s, so a sort puts NaNs last. `-0.0` and `0.0` tie.
 //
 // ```jai
 // values := float.[2.5, -1, 9];
 // quick_sort(values, compare_floats);
 // assert(values[0] == -1 && values[2] == 9);
+//
+// #import "Math";
+// with_nan := float.[FLOAT32_NAN, 3, -2];
+// quick_sort(with_nan, compare_floats);
+// assert(with_nan[0] == -2 && with_nan[1] == 3 && with_nan[2] != with_nan[2]);
 // ```
 compare_floats :: Impl.compare_floats;
 // A three-way comparator for strings, `-1`, `0` or `1`, comparing bytes in order, so UTF-8 text sorts by code point and upper case comes before lower case. A string that is a prefix of another goes first.

@@ -92,8 +92,16 @@ quick_sort :: (array: [] $T, f: (T) -> $R) -> [] T {
 }
 
 compare_floats :: (a: float, b: float) -> s64 {
+    // NaN is placed after every number and ties only with other NaNs, so the order is total.
+    a_nan := a != a;
+    b_nan := b != b;
+
+    if a_nan return ifx b_nan then 0 else 1;
+    if b_nan return -1;
+
     if a < b return -1;
     if a > b return 1;
+
     return 0;
 }
 
