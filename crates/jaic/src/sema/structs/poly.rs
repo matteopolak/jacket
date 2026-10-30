@@ -191,6 +191,72 @@ impl Compiler {
             && matches!(&elem.kind, ast::ExprKind::Ident(word) if word.as_str() == "Code")
     }
 
+    /// A constant view given for a fixed-size array pattern (`[$N] T`) as the fixed-size array of
+    /// the elements it holds, whose length can bind `N`.
+    fn constant_view_as_fixed(
+        &mut self,
+        pattern: &ast::Expr,
+        op: &Operand,
+        span: Span,
+    ) -> Result<Option<Operand>> {
+        let ast::ExprKind::ArrayType {
+            size: ast::ArraySize::Fixed(_),
+            ..
+        } = &pattern.kind
+        else {
+            return Ok(None);
+        };
+        let Operand::Const {
+            ty,
+            value: view @ Value::Bytes(_),
+            ..
+        } = op
+        else {
+            return Ok(None);
+        };
+        let TypeKind::Array {
+            elem,
+            kind: ArrayKind::View,
+        } = self.ty.types.kind(*ty).clone()
+        else {
+            return Ok(None);
+        };
+        let mut image = value::Aggregate::zeroed(crate::layout::view::SIZE, span)?;
+        self.write_value(&mut image, 0, view, *ty, span)?;
+        let global = self.out.program.add_global(crate::ir::Global {
+            name: "constant.view".into(),
+            size: crate::layout::view::SIZE,
+            align: 8,
+            init: image.bytes,
+            relocs: image.relocs,
+            read_only: true,
+            export: None,
+        });
+        let addr = self
+            .ct
+            .interp
+            .global_addr(&self.out.program, global)
+            .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
+        let count = self
+            .ct
+            .program_u64(addr + crate::layout::view::COUNT, span)?;
+        let data = self
+            .ct
+            .program_u64(addr + crate::layout::view::DATA, span)?;
+        let esize = self.size_of(elem, span)?;
+        let mut array = value::Aggregate::zeroed(esize.saturating_mul(count), span)?;
+        for k in 0..count {
+            let item = self.read_value(data + k * esize, elem, span)?;
+            self.write_value(&mut array, k * esize, &item, elem, span)?;
+        }
+        let fixed = self.ty.types.array(elem, ArrayKind::Fixed(count));
+        Ok(Some(Operand::Const {
+            ty: fixed,
+            value: Value::Bytes(Rc::new(array)),
+            untyped: false,
+        }))
+    }
+
     pub fn instantiate_struct(
         &mut self,
         ps: PolyStructId,
@@ -260,8 +326,12 @@ impl Compiler {
             // `x: $T`: the argument's type binds `T` (also `[$N] $T` and other patterns).
             if let Some(t) = &p.ty
                 && crate::sema::procs::has_poly(t)
-                && let Some(op) = &values[i]
+                && let Some(op) = values[i].clone()
             {
+                // A constant view given for `[$N] T` has the fixed length it was built with.
+                let op = self.constant_view_as_fixed(t, &op, span)?.unwrap_or(op);
+                values[i] = Some(op.clone());
+                let op = &op;
                 let arg_ty = match op {
                     Operand::Const {
                         ty,
