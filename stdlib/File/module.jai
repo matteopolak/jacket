@@ -1,3 +1,25 @@
+// File: opening, reading, writing and managing files and directories by path.
+//
+// A `File` is a handle from `file_open`; `read_entire_file` and `write_entire_file` do a whole file in one call, and
+// `map_entire_file_start` borrows the content. Names are UTF-8 paths, with `/` as separator on every target (Windows
+// accepts `\` as well). Every procedure reports failure by its result and does not stop the program. Memory a procedure
+// returns comes from `context.allocator` and the caller frees it. Walking directories, copying and metadata are in
+// `File_Utilities`.
+//
+// ```jai
+// #import "Extensions/Environment";
+// base := environment_variable("TMPDIR");
+// if base == "" base = environment_variable("TEMP");
+// if base == "" base = "/tmp";
+// path := tprint("%/jai-doc-file-module.txt", base);
+// defer file_delete(path);
+//
+// assert(write_entire_file(path, "hello\n"));
+// text, ok := read_entire_file(path);
+// assert(ok && text == "hello\n");
+// free(text);
+// ```
+
 File :: Impl.File;
 USE_MAP_FILE :: Impl.USE_MAP_FILE;
 STORE_MAPPED_FILENAMES :: Impl.STORE_MAPPED_FILENAMES;
