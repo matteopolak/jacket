@@ -1,5 +1,3 @@
-#module_parameters(DEBUG_WARNINGS := true);
-
 // A native user interface library for jaic programs. A jaic extension, not official Jai: other
 // Jai compilers have no such module, and it may change between jaic releases. See
 // docs/extensions/ui.md.
@@ -29,8 +27,7 @@
 //
 // Tests drive the same `build` procedures without a window or a GPU (`headless`, `frame`, `click`,
 // `layout_dump`).
-
-#assert OS != .WASM "Extensions/UI needs a native window and GPU, and has no WebAssembly backend yet";
+#module_parameters(DEBUG_WARNINGS := true);
 
 #import "Basic";
 #import "Math";
@@ -46,6 +43,8 @@
 #import "Window_Creation";
 #import "Clipboard";
 #import "Extensions/Image";
+
+#assert OS != .WASM "Extensions/UI needs a native window and GPU, and has no WebAssembly backend yet";
 
 #load "types.jai";
 #load "theme.jai";

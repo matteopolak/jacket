@@ -1,0 +1,12 @@
+[
+  {
+    "name": "editing",
+    "unsupported_modes": ["wasm-interp", "wasm-native"],
+    "required_capabilities": ["a native window and GPU"]
+  },
+  {
+    "name": "layout",
+    "unsupported_modes": ["wasm-interp", "wasm-native"],
+    "required_capabilities": ["a native window and GPU"]
+  }
+]
