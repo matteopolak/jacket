@@ -387,6 +387,10 @@ impl Parser<'_> {
         }
         let start = self.bump();
         let cond = self.parse_expr()?;
+        // `ifx value == { case ...; }` is a switch, as `if` is.
+        if self.at(P::EqEq) {
+            return self.parse_switch(start, cond, false);
+        }
         if !self.eat_kw("then") {
             let ifx = self.parse_ifx_after(start, cond, false)?;
             return self.finish_expr_stmt(start, ifx);
@@ -439,7 +443,48 @@ impl Parser<'_> {
             let span = value.span;
             return Ok(stmt(StmtKind::Expr(value), span));
         }
+        if self.paren_assignment_ahead() {
+            // `ifx c then (a = 1) else (a = 2);`
+            self.bump();
+            let inner = self.parse_simple_stmt()?;
+            self.expect(P::RParen, "after the assignment")?;
+            return Ok(inner);
+        }
         self.parse_simple_stmt()
+    }
+
+    /// Whether the `(` ahead encloses an assignment (`(a = 1)`), as opposed to an expression.
+    fn paren_assignment_ahead(&self) -> bool {
+        if !self.at(P::LParen) {
+            return false;
+        }
+        let Some(close) = self.matching_paren(0) else {
+            return false;
+        };
+        let mut depth = 0usize;
+        for token in &self.toks[self.pos + 1..close] {
+            match &token.tok {
+                Tok::Punct(P::LParen | P::LBracket | P::LBrace) => depth += 1,
+                Tok::Punct(P::RParen | P::RBracket | P::RBrace) => {
+                    depth = depth.saturating_sub(1);
+                }
+                Tok::Punct(
+                    P::Eq
+                    | P::AddAssign
+                    | P::SubAssign
+                    | P::MulAssign
+                    | P::DivAssign
+                    | P::RemAssign
+                    | P::AndAssign
+                    | P::OrAssign
+                    | P::XorAssign
+                    | P::ShlAssign
+                    | P::ShrAssign,
+                ) if depth == 0 => return true,
+                _ => {}
+            }
+        }
+        false
     }
 
     /// The rest of a simple statement whose first operand, `first`, is parsed already.
