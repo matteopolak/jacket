@@ -352,7 +352,7 @@ path_status :: (path: *u8, follow: bool, status: *Wasi_File_Status) -> s32 #no_c
     target := wasi_path(path, first_path.data);
     if target.directory < 0 return -1;
 
-    code := wasi_path_filestat_get(target.directory, ifx follow then LOOKUP_FOLLOW else 0, target.path, target.bytes, offset32(status));
+    code := wasi_path_filestat_get(target.directory, cast(s32) ifx follow then LOOKUP_FOLLOW else 0, target.path, target.bytes, offset32(status));
     if code != 0 return failed(code);
 
     return 0;
@@ -404,14 +404,14 @@ open_path :: (path: *u8, flags: s32) -> s32 #no_context {
     if (flags & O_EXCL) != 0 open_flags |= 4;
     if (flags & O_TRUNC) != 0 open_flags |= 8;
 
-    fd_flags: s32 = ifx (flags & O_APPEND) != 0 then 1 else 0;
+    fd_flags: s32 = cast(s32) ifx (flags & O_APPEND) != 0 then 1 else 0;
     rights := target.rights;
     access := flags & O_ACCESS_MODE;
 
     if access == 0 || (flags & O_DIRECTORY) != 0 rights &= ~RIGHTS_WRITING;
     else if access == O_WRONLY rights &= ~RIGHTS_READING;
 
-    lookup: s32 = ifx (flags & O_NOFOLLOW) != 0 then 0 else LOOKUP_FOLLOW;
+    lookup: s32 = cast(s32) ifx (flags & O_NOFOLLOW) != 0 then 0 else LOOKUP_FOLLOW;
     fd: s32;
     code := wasi_path_open(target.directory, lookup, target.path, target.bytes, open_flags, rights, target.rights, fd_flags, offset32(*fd));
 
@@ -960,12 +960,12 @@ wasi_rewind :: (stream: *Stream) #c_call {
 
 #program_export "feof"
 wasi_feof :: (stream: *Stream) -> s32 #c_call {
-    return ifx stream && stream.at_end then 1 else 0;
+    return cast(s32) ifx stream && stream.at_end then 1 else 0;
 }
 
 #program_export "ferror"
 wasi_ferror :: (stream: *Stream) -> s32 #c_call {
-    return ifx stream && stream.had_error then 1 else 0;
+    return cast(s32) ifx stream && stream.had_error then 1 else 0;
 }
 
 #program_export "clearerr"

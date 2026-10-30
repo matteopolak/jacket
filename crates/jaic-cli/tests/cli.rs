@@ -33,7 +33,7 @@ fn native_root_foreign_calls_route_without_symbol_name_hints() {
         String::from_utf8_lossy(&built.stderr)
     );
     let source = dir.join("main.jai");
-    std::fs::write(&source, "lib :: #library \"main-route-probe\";\nprobe :: () -> s32 #foreign lib \"root_thread_probe\";\nmain :: () -> s32 { return ifx probe() == 1 then 0 else 1; }\n").unwrap();
+    std::fs::write(&source, "lib :: #library \"main-route-probe\";\nprobe :: () -> s32 #foreign lib \"root_thread_probe\";\nmain :: () -> s32 { return cast(s32) ifx probe() == 1 then 0 else 1; }\n").unwrap();
     let output = Command::new(JAIC)
         .arg(&source)
         .arg("-interp")

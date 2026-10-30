@@ -250,15 +250,15 @@ quad_compare :: (a_low: u64, a_high: u64, b_low: u64, b_high: u64) -> s32 #no_co
 
     if a.kind == .NAN || b.kind == .NAN return 2;
     if a.kind == .ZERO && b.kind == .ZERO return 0;
-    if a.negative != b.negative return ifx a.negative then -1 else 1;
+    if a.negative != b.negative return cast(s32) ifx a.negative then -1 else 1;
 
     // Same sign: the bit patterns order the magnitudes.
     a_magnitude := a_high & ~SIGN_BIT;
     b_magnitude := b_high & ~SIGN_BIT;
     order: s32;
 
-    if a_magnitude != b_magnitude order = ifx a_magnitude < b_magnitude then -1 else 1;
-    else if a_low != b_low order = ifx a_low < b_low then -1 else 1;
+    if a_magnitude != b_magnitude order = cast(s32) ifx a_magnitude < b_magnitude then -1 else 1;
+    else if a_low != b_low order = cast(s32) ifx a_low < b_low then -1 else 1;
 
     return ifx a.negative then -order else order;
 }
@@ -353,7 +353,7 @@ wasi_getf2 :: (a_low: u64, a_high: u64, b_low: u64, b_high: u64) -> s32 #c_call 
 
 #program_export "__unordtf2"
 wasi_unordtf2 :: (a_low: u64, a_high: u64, b_low: u64, b_high: u64) -> s32 #c_call {
-    return ifx quad_compare(a_low, a_high, b_low, b_high) == 2 then 1 else 0;
+    return cast(s32) ifx quad_compare(a_low, a_high, b_low, b_high) == 2 then 1 else 0;
 }
 
 // Widening is exact.

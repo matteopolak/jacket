@@ -83,7 +83,7 @@ fn retained_startup_configuration_executes_on_native_and_wasm() {
         #no_reset getter: () -> s64 #no_context;
         #run {getter=read_size;}
         #program_export "configuration_startup_check"
-        startup :: () -> s32 #c_call {return ifx getter()==1048576 then 0 else 1;}
+        startup :: () -> s32 #c_call {return cast(s32) ifx getter()==1048576 then 0 else 1;}
     "#;
     execute_startup_runtime("retained-startup", runtime, false);
 }

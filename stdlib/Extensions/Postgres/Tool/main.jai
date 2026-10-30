@@ -102,7 +102,7 @@ main :: () {
 
     Io.io_run(work);
 
-    exit(ifx failures then 1 else 0);
+    exit(cast(s32) ifx failures then 1 else 0);
 }
 
 // jaic runs the tool from the tool's own folder, so a relative path is taken from the folder the

@@ -367,7 +367,7 @@ main :: () {
 
     post_key :: (window: Window, down: bool) {
         event: XEvent;
-        event.xkey.type = ifx down then KeyPress else KeyRelease;
+        event.xkey.type = cast(s32) ifx down then KeyPress else KeyRelease;
         event.xkey.display = x_global_display;
         event.xkey.window = window;
         event.xkey.root = XDefaultRootWindow(x_global_display);
@@ -383,7 +383,7 @@ main :: () {
 
     post_click :: (window: Window, down: bool) {
         event: XEvent;
-        event.xbutton.type = ifx down then ButtonPress else ButtonRelease;
+        event.xbutton.type = cast(s32) ifx down then ButtonPress else ButtonRelease;
         event.xbutton.display = x_global_display;
         event.xbutton.window = window;
         event.xbutton.root = XDefaultRootWindow(x_global_display);
