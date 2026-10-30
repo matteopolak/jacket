@@ -3,8 +3,7 @@
 //
 // Bytes of `format` must appear in the text as they are. `%d` and `%i` read a whole number (an `s64`),
 // `%f` a `float`, `%b` `true` or `false`, and `%s` a string in double quotes, returned without the
-// quotes. A `%%` checks that the text has a `%` there but does not consume it, so the call fails;
-// use `scan2` for formats with a literal percent sign.
+// quotes. A `%%` matches and consumes a literal `%` and produces no value.
 //
 // On a mismatch the result is `false` and the values read so far are returned. The values and the
 // array are allocated in temporary storage, so they are only valid until it is reset. Nothing is
@@ -15,6 +14,9 @@
 // assert(ok && values.count == 2);
 // assert((cast(*s64) values[0].value_pointer).* == -8);
 // assert((cast(*string) values[1].value_pointer).* == "yes");
+//
+// percent_ok, percent_values := scan("%d%%", "50%");
+// assert(percent_ok && percent_values.count == 1);
 // ```
 scan :: (format: string, text: string) -> bool, [] Any {
     push_allocator(temp);
@@ -41,7 +43,7 @@ scan :: (format: string, text: string) -> bool, [] Any {
 
         if directive == #char "%" {
             if rest.count == 0 || rest[0] != #char "%" return false, values;
-            // The scan contract intentionally leaves this byte unconsumed.
+            advance(*rest);
             continue;
         }
 
@@ -57,7 +59,7 @@ scan :: (format: string, text: string) -> bool, [] Any {
 // Reads values from `text` as `format` describes, storing them through the pointers in `args`.
 // Returns whether the whole text matched.
 //
-// The directives are those of `scan`, except that `%%` matches and consumes a literal `%`. Each
+// The directives are those of `scan`. Each
 // directive stores into the next argument, which must be a pointer to a number, a `bool` or a string.
 // A number that does not fit the target (a `256` into a `u8`) makes the call fail, as does a missing
 // or null argument. On failure the targets read before the mismatch keep their new values and the

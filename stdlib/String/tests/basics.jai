@@ -92,7 +92,11 @@ scan_stops_at_the_first_mismatch :: () {
     expect(!scanned && values.count == 1 && values[0].type == type_info(int));
     expect_equal((cast(*int) values[0].value_pointer).*, 12);
     scanned, values = S.scan("%%", "%");
-    expect(!scanned && values.count == 0);
+    expect(scanned && values.count == 0);
+    scanned, values = S.scan("%d%%", "50%");
+    expect(scanned && values.count == 1);
+    scanned, values = S.scan("%%", "%x");
+    expect(!scanned);
     expect(S.scan2("%", "%%"));
     first: int = -1;
     second: int = -2;

@@ -37,7 +37,7 @@ scan_returns_the_values_it_read :: () {
     expect(!failed && partial.count == 1);
     percent, unused := scan("%%", "%");
 
-    expect(!percent && unused.count == 0);
+    expect(percent && unused.count == 0);
 } @test
 
 #scope_file

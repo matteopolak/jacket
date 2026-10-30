@@ -1,5 +1,5 @@
-// Not-found results of the splits differ by overload, `%%` is checked but left unconsumed by
-// `scan`, and substring search finds matches from any start offset.
+// Not-found results of the splits differ by overload, `scan` consumes a literal `%%`, and substring
+// search finds matches from any start offset.
 #import "Extensions/Testing";
 
 not_found_results_differ_by_overload :: () {
@@ -21,11 +21,13 @@ substring_search_honors_the_start_offset :: () {
     expect_equal(Str.find_index_from_left("abcabc", cast(u8) 99, -5), 2);
 } @test
 
-scan_checks_percent_but_does_not_consume_it :: () {
+scan_consumes_a_literal_percent :: () {
     ok, values := Str.scan("%%", "%");
 
-    expect(!ok && values.count == 0);
+    expect(ok && values.count == 0);
     ok, values = Str.scan("%%", "x");
+    expect(!ok);
+    ok, values = Str.scan("%%", "%%");
     expect(!ok);
 
     expect(Str.scan2("%", "%%"));
