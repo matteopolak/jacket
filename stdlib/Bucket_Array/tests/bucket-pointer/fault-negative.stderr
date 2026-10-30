@@ -1,11 +1,11 @@
-$STDLIB/internal/collections/bucket-array.jai:71:5: error: error during compile-time execution: assertion failed: `index >= 0` is false
+$STDLIB/internal/collections/bucket-array.jai:77:5: error: error during compile-time execution: assertion failed: `index >= 0` is false
         assert(index >= 0);
         ^^^^^^^^^^^^^^^^^^
 fault-negative.jai:5:9: note: while running compile-time code started here
     #assert invalid_index(-1, true, true);
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 note: call stack (innermost first):
-    `operator*[]` at $STDLIB/internal/collections/bucket-array.jai:71
+    `operator*[]` at $STDLIB/internal/collections/bucket-array.jai:77
     `invalid_index` at fault-setup.jai:18
     a constant's compile-time initializer
 

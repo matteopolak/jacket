@@ -1,11 +1,11 @@
-$STDLIB/internal/collections/bucket-array.jai:78:5: error: error during compile-time execution: assertion failed: `bucket.occupied[slot_index]` is false
+$STDLIB/internal/collections/bucket-array.jai:84:5: error: error during compile-time execution: assertion failed: `bucket.occupied[slot_index]` is false
         assert(bucket.occupied[slot_index]);
         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 fault-hole.jai:5:9: note: while running compile-time code started here
     #assert invalid_index(1, false, true);
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 note: call stack (innermost first):
-    `operator*[]` at $STDLIB/internal/collections/bucket-array.jai:78
+    `operator*[]` at $STDLIB/internal/collections/bucket-array.jai:84
     `invalid_index` at fault-setup.jai:18
     a constant's compile-time initializer
 

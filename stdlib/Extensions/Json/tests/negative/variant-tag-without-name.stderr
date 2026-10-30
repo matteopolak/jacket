@@ -1,7 +1,7 @@
 ../../generate.jai:155:5: error: Json: Doc.shape: `tag=` needs a key name, as in `@json(tag=kind)`
         compiler_report(tprint("Json: %: %", where, message));
         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-../../module.jai:355:13: note: while running compile-time code started here
+../../module.jai:362:13: note: while running compile-time code started here
         #insert -> string {
                 ^^^^^^^^^^^
 
