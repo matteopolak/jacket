@@ -141,7 +141,7 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `make_string_literal :: (s: string) -> *Code_Literal`
 - `is_subclass_of :: (info: *Type_Info, base_name: string, first_call := true) -> bool`
 - `make_location :: (c: *Code_Node) -> Source_Code_Location`
-- `get_basename_and_path :: (input_name: string) -> (basename: string, path: string)`
+- `get_basename_and_path :: (input_name: string) -> (basename: string, path: string)` (the basename has its last extension removed, except that a leading dot is kept; the path ends with its separator)
 - `get_filename :: (node: *Code_Node) -> string`
 - `copy_commonly_propagated_fields :: (a: Build_Options, b: *Build_Options)`
 - `developer_debug :: (x: *void) #compiler`

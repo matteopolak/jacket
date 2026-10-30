@@ -14,7 +14,7 @@ main :: () {
     assert(C.operator_to_string(.LOGICAL_OR_ASSIGN) == "||=");
     base, path := C.get_basename_and_path("garden/flowers.jai");
 
-    assert(base == "flowers.jai" && path == "garden/");
+    assert(base == "flowers" && path == "garden/");
     a: C.Build_Options;
     b: C.Build_Options;
 

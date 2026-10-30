@@ -75,8 +75,19 @@ get_filename :: (node: *C.Code_Node) -> string {
 get_basename_and_path :: (input_name: string) -> (basename: string, path: string) {
     split: s64 = -1;
     for c, i: input_name if c == #char "/" || c == #char "\\" split = i;
-    if split < 0 return input_name, "";
-    return .{ input_name.count - split - 1, input_name.data + split + 1 }, .{ split + 1, input_name.data };
+
+    name := string.{ input_name.count - split - 1, input_name.data + split + 1 };
+    path := string.{ split + 1, input_name.data };
+
+    // The extension is dropped; a leading dot is part of the name, not an extension.
+    for < index: 1..name.count - 1 {
+        if name[index] == #char "." {
+            name.count = index;
+            break;
+        }
+    }
+
+    return name, path;
 }
 
 is_subclass_of :: (info: *Type_Info, base_name: string, first_call := true) -> bool {

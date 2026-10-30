@@ -32,7 +32,7 @@ F :: #import "File";
     }
 
     plugin.finish(plugin);
-    text, success := F.read_entire_file("pp_inspected.jai.txt");
+    text, success := F.read_entire_file("pp_inspected.txt");
 
     assert(success);
     expected :: "bloom:: 47;";
