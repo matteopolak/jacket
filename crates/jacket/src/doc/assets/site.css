@@ -54,8 +54,10 @@ html:not(.js) .js-only { display: none !important; }
 
 /* Header */
 .top { position: sticky; top: 0; z-index: 5; background: var(--glass); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }
-.top-in { max-width: 1360px; margin: 0 auto; padding: 10px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
-.logo { display: inline-flex; align-items: center; width: 36px; height: 36px; }
+.top-in { max-width: 1400px; margin: 0 auto; padding: 10px 32px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+.logo { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding-left: 10px; color: var(--fg); text-decoration: none; }
+.logo:hover { text-decoration: none; }
+.wordmark { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
 /* The version menu: plain text in the nav; the chevron and menu only show when there are other versions to pick. */
 .ver { position: relative; }
 #ver { display: inline-flex; align-items: center; gap: 4px; font: inherit; color: var(--fg2); background: none; border: 0; padding: 4px 0; cursor: pointer; }
@@ -182,7 +184,7 @@ h2:hover .anchor, h3:hover .anchor, .anchor:focus-visible { opacity: 1; }
 .toc li a:hover { color: var(--fg); text-decoration: none; }
 .toc li a.active { color: var(--link); }
 @media (min-width: 1200px) {
-  .wrap { max-width: 1520px; }
+  .wrap, .top-in { max-width: 1520px; }
   .side { flex-basis: 272px; max-width: 272px; }
 }
 @media (min-width: 1280px) {
@@ -255,6 +257,7 @@ a.btn:hover { text-decoration: none; border-color: var(--link); }
 @media (max-width: 899px) {
   .wrap { padding: 0 16px; }
   .top-in { padding: 10px 16px; }
+  .logo { padding-left: 0; }
   .side { flex: 1 1 100%; max-width: none; position: static; max-height: none; overflow: visible; padding: 16px 0 0; }
   .side > summary { display: block; }
   .side[open] > summary { margin-bottom: 12px; }

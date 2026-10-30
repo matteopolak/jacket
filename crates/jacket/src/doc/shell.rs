@@ -73,7 +73,7 @@ fn header(site: &Site) -> String {
     let base = &site.base;
     format!(
         "<header class=\"top\"><div class=\"top-in\">\n\
-         <a class=\"logo\" href=\"{base}\" aria-label=\"Jacket API documentation\">{logo}</a>\n\
+         <a class=\"logo\" href=\"{base}\" aria-label=\"Jacket API documentation\">{logo}<span class=\"wordmark\">jacket</span></a>\n\
          <div class=\"search-wrap js-only\">\n\
          <label class=\"sr\" for=\"q\">Search the docs</label>\n\
          <div class=\"search\"><svg aria-hidden=\"true\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><circle cx=\"11\" cy=\"11\" r=\"7\"/><path d=\"M20 20l-3.5-3.5\"/></svg>\
