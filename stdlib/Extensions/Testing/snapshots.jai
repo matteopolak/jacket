@@ -18,15 +18,26 @@
 //     expect_snapshot(t, "a block of text\nwith two lines", "text");
 // } @test
 // ```
+//
+// - t: the running test.
+// - value: what to snapshot.
+// - name: tells snapshots of one test apart; empty numbers them.
 expect_snapshot :: (t: *Test, value: Any, name := "", loc := #caller_location) -> bool {
     return check_snapshot(t, snapshot_text(value), name, loc);
 }
 
+// `expect_snapshot` for text already in hand.
+//
+// - t: the running test.
+// - text: the text to compare, as it is.
+// - name: tells snapshots of one test apart; empty numbers them.
 expect_snapshot :: (t: *Test, text: string, name := "", loc := #caller_location) -> bool {
     return check_snapshot(t, text, name, loc);
 }
 
 // `value` as the text a snapshot of it holds.
+//
+// - value: the value to print.
 snapshot_text :: (value: Any) -> string {
     builder: String_Builder;
     builder.allocator = temp;

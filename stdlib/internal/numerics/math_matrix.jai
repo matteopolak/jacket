@@ -1,7 +1,15 @@
+// The `i`th row of the matrix, counting from 0.
+//
+// - m: the matrix.
+// - i: the row index, 0 to 3.
 row :: (m: Matrix4, i: int) -> Vector4 {
     return m.v[i];
 }
 
+// The `i`th column of the matrix, counting from 0.
+//
+// - m: the matrix.
+// - i: the column index, 0 to 3.
 column :: (m: Matrix4, i: int) -> Vector4 {
     return .{ m.coef[0][i], m.coef[1][i], m.coef[2][i], m.coef[3][i] };
 }
@@ -41,10 +49,18 @@ multiply :: (m: $T/interface AnyMatrix3, v: Vector3) -> Vector3 {
     return .{ m._11 * v.x + m._12 * v.y + m._13 * v.z, m._21 * v.x + m._22 * v.y + m._23 * v.z, m._31 * v.x + m._32 * v.y + m._33 * v.z };
 }
 
+// Applies the matrix to `v`, ignoring any translation.
+//
+// - m: the matrix.
+// - v: the vector to transform.
 transform_vector :: (m: $T/interface AnyMatrix3, v: Vector3) -> Vector3 {
     return multiply(m, v);
 }
 
+// Applies the matrix to `v` and then adds its translation column.
+//
+// - m: the matrix.
+// - v: the point to transform.
 transform_point :: (m: $T/interface AnyMatrix4x3, v: Vector3) -> Vector3 {
     r := multiply(m, v);
     return r + xyz(m._14, m._24, m._34);
@@ -95,40 +111,64 @@ multiply :: (m: Matrix4x3, n: Matrix4x3) -> Matrix4x3 {
     return r.mat4x3;
 }
 
+// The upper-left 3x3 part of `m`.
+//
+// - m: the matrix to copy from.
 make_matrix3 :: (m: $T/interface AnyMatrix3) -> Matrix3 {
     return .{ m._11, m._12, m._13, m._21, m._22, m._23, m._31, m._32, m._33 };
 }
 
+// `m` as a 4x4 matrix. The extra row and column are those of the identity.
+//
+// - m: the matrix to copy from.
 make_matrix4 :: (m: $T/interface AnyMatrix3) -> Matrix4 {
     return .{ m._11, m._12, m._13, 0, m._21, m._22, m._23, 0, m._31, m._32, m._33, 0, 0, 0, 0, 1 };
 }
 
+// The matrix with rows and columns swapped.
+//
+// - m: the matrix.
 transpose :: (m: Matrix3) -> Matrix3 {
     r: Matrix3;
     for i: 0..2 for j : 0..2 r.coef[i][j] = m.coef[j][i];
     return r;
 }
 
+// The matrix with rows and columns swapped.
+//
+// - m: the matrix.
 transpose :: (m: Matrix4) -> Matrix4 {
     r: Matrix4;
     for i: 0..3 for j : 0..3 r.coef[i][j] = m.coef[j][i];
     return r;
 }
 
+// Swaps rows and columns in place.
+//
+// - m: the matrix to change.
 transpose :: (m: *Matrix3) {
     m.* = transpose(m.*);
 }
 
+// Swaps rows and columns in place.
+//
+// - m: the matrix to change.
 transpose :: (m: *Matrix4) {
     m.* = transpose(m.*);
 }
 
+// An identity matrix of type `T`.
+//
+// - T: the matrix type.
 identity_of :: ($T: Type) -> T {
     r: T;
     identity(*r);
     return r;
 }
 
+// Sets the matrix to the identity, in place.
+//
+// - m: the matrix to change.
 identity :: (m: *$T/interface AnyMatrix) {
     m.* = .{};
     m._11 = 1;
@@ -137,6 +177,9 @@ identity :: (m: *$T/interface AnyMatrix) {
     #if T == Matrix4 m._44 = 1;
 }
 
+// A matrix that scales each axis by the matching part of `v`.
+//
+// - v: the scale on x, y and z.
 make_scale_matrix4 :: (v: Vector3) -> Matrix4 {
     r := Matrix4_Identity;
     r._11 = v.x;
@@ -146,14 +189,26 @@ make_scale_matrix4 :: (v: Vector3) -> Matrix4 {
     return r;
 }
 
+// `m` scaled by the same factor on all three axes.
+//
+// - m: the matrix.
+// - s: the scale factor.
 scale :: (m: $T/interface AnyMatrix3, s: float) -> T {
     return scale(m, xyz(s));
 }
 
+// Scales the matrix by the same factor on all three axes, in place.
+//
+// - m: the matrix to change.
+// - s: the scale factor.
 scale :: (m: *$T/interface AnyMatrix3, s: float) {
     m.* = scale(m.*, s);
 }
 
+// `m` scaled per axis.
+//
+// - m: the matrix.
+// - v: the scale on x, y and z.
 scale :: (m: $T/interface AnyMatrix3, v: Vector3) -> T {
     r := m;
     r._11 *= v.x;
@@ -175,10 +230,17 @@ scale :: (m: $T/interface AnyMatrix3, v: Vector3) -> T {
     return r;
 }
 
+// Scales the matrix per axis, in place.
+//
+// - m: the matrix to change.
+// - v: the scale on x, y and z.
 scale :: (m: *$T/interface AnyMatrix3, v: Vector3) {
     m.* = scale(m.*, v);
 }
 
+// A matrix that moves points by `v`.
+//
+// - v: the offset on x, y and z.
 make_translation_matrix4 :: (v: Vector3) -> Matrix4 {
     r := Matrix4_Identity;
     r._14 = v.x;
@@ -188,6 +250,10 @@ make_translation_matrix4 :: (v: Vector3) -> Matrix4 {
     return r;
 }
 
+// `m` with `t` added to its translation.
+//
+// - m: the matrix.
+// - t: the offset on x, y and z.
 translate :: (using m: Matrix4, t: Vector3) -> Matrix4 {
     r := m;
     r._14 += t.x;
@@ -197,6 +263,10 @@ translate :: (using m: Matrix4, t: Vector3) -> Matrix4 {
     return r;
 }
 
+// Adds `t` to the translation of the matrix, in place.
+//
+// - m: the matrix to change.
+// - t: the offset on x, y and z.
 translate :: (using m: *Matrix4, t: Vector3) {
     m.* = translate(m.*, t);
 }
@@ -209,6 +279,12 @@ rotate :: (m: Matrix4, q: Quaternion) -> Matrix4 {
     return multiply(m, rotation_matrix(Matrix4, q));
 }
 
+// A matrix whose upper-left 3x3 has the given vectors as its rows. The rest is the identity.
+//
+// - xprime: the first row.
+// - yprime: the second row.
+// - zprime: the third row.
+// - T: the matrix type to make.
 make_matrix_from_rows :: (xprime: Vector3, yprime: Vector3, zprime: Vector3, $T := Matrix4) -> T {
     r := identity_of(T);
     r._11 = xprime.x;
@@ -224,10 +300,22 @@ make_matrix_from_rows :: (xprime: Vector3, yprime: Vector3, zprime: Vector3, $T 
     return r;
 }
 
+// A matrix whose upper-left 3x3 has the given vectors as its columns. The rest is the identity.
+//
+// - xprime: the first column.
+// - yprime: the second column.
+// - zprime: the third column.
+// - T: the matrix type to make.
 make_matrix_from_columns :: (xprime: Vector3, yprime: Vector3, zprime: Vector3, $T := Matrix4) -> T {
     return make_matrix_from_rows(xyz(xprime.x, yprime.x, zprime.x), xyz(xprime.y, yprime.y, zprime.y), xyz(xprime.z, yprime.z, zprime.z), T);
 }
 
+// A view matrix for a camera at `viewpoint` looking at `look_at`.
+//
+// - viewpoint: where the camera is.
+// - look_at: the point it looks at.
+// - reference_up_vector: roughly which way is up. Must not be parallel to the view direction.
+// - x_is_forward: true makes the camera look down the x axis, false down the negative z axis.
 make_look_at_matrix :: (viewpoint: Vector3, look_at: Vector3, reference_up_vector: Vector3, $x_is_forward := true) -> Matrix4 {
     f := unit_vector(look_at - viewpoint);
     side := unit_vector(cross(f, reference_up_vector));
@@ -243,6 +331,15 @@ make_look_at_matrix :: (viewpoint: Vector3, look_at: Vector3, reference_up_vecto
     return r;
 }
 
+// An orthographic projection for the box between the six planes.
+//
+// - left: the left plane.
+// - right: the right plane.
+// - bottom: the bottom plane.
+// - top: the top plane.
+// - near: distance to the near plane.
+// - far: distance to the far plane.
+// - depth_range_01: true maps depth to `0..1`, false to `-1..1`.
 orthographic_projection_matrix :: (left: float, right: float, bottom: float, top: float, near: float, far: float, depth_range_01 := false) -> Matrix4 {
     r := Matrix4_Identity;
     r._11 = 2 / (right - left);
@@ -261,6 +358,15 @@ orthographic_projection_matrix :: (left: float, right: float, bottom: float, top
     return r;
 }
 
+// A perspective projection from the rectangle on the near plane.
+//
+// - l: left edge of the near rectangle.
+// - r: right edge of the near rectangle.
+// - b: bottom edge of the near rectangle.
+// - t: top edge of the near rectangle.
+// - n: distance to the near plane.
+// - f: distance to the far plane.
+// - depth_range_01: true maps depth to `0..1`, false to `-1..1`.
 make_frustum_matrix :: (l: float, r: float, b: float, t: float, n: float, f: float, depth_range_01 := false) -> Matrix4 {
     m: Matrix4;
     m._11 = 2 * n / (r - l);
@@ -280,6 +386,15 @@ make_frustum_matrix :: (l: float, r: float, b: float, t: float, n: float, f: flo
     return m;
 }
 
+// A perspective projection from a field of view.
+//
+// - fov_vertical: the vertical field of view in radians.
+// - aspect_ratio_horizontal_over_vertical: width divided by height.
+// - z_near: distance to the near plane.
+// - z_far: distance to the far plane.
+// - x_offset: shifts the view centre horizontally.
+// - y_offset: shifts the view centre vertically.
+// - depth_range_01: true maps depth to `0..1`, false to `-1..1`.
 make_projection_matrix :: (fov_vertical: float, aspect_ratio_horizontal_over_vertical: float, z_near: float, z_far: float, x_offset := 0.0, y_offset := 0.0, depth_range_01 := false) -> Matrix4 {
     t := z_near * tan(fov_vertical / 2);
     r := t * aspect_ratio_horizontal_over_vertical;
@@ -296,10 +411,17 @@ lerp :: (a: Matrix3, b: Matrix3, t: float) -> Matrix3 {
     return r;
 } @UseResult
 
+// The transpose of the adjugate: its rows are the cross products of the other two rows.
+//
+// - m: the matrix.
 adjoint_transpose :: (m: Matrix3) -> Matrix3 {
     return make_matrix_from_rows(cross(m.v[1], m.v[2]), cross(m.v[2], m.v[0]), cross(m.v[0], m.v[1]), Matrix3);
 }
 
+// The inverse, or false and the input back when there is none.
+//
+// - a: the matrix.
+// - epsilon: a determinant closer to 0 than this counts as having no inverse.
 inverse :: (a: Matrix3, epsilon := 0.001) -> (success: bool, result: Matrix3) {
     co := adjoint_transpose(a);
     d := dot(a.v[0], co.v[0]);
@@ -312,10 +434,17 @@ inverse :: (a: Matrix3, epsilon := 0.001) -> (success: bool, result: Matrix3) {
     return true, r;
 }
 
+// The inverse, or false and the identity when there is none.
+//
+// - m: the matrix.
 inverse :: (m: Matrix4) -> (success: bool, result: Matrix4) {
     return inverse_gaussian_elimination(m);
 }
 
+// The inverse by Gauss-Jordan elimination with row pivoting. False and the identity when there
+// is none.
+//
+// - m: the matrix.
 inverse_gaussian_elimination :: (m: Matrix4) -> (success: bool, result: Matrix4) {
     a := m;
     b := Matrix4_Identity;
@@ -350,6 +479,9 @@ inverse_gaussian_elimination :: (m: Matrix4) -> (success: bool, result: Matrix4)
     return true, b;
 }
 
+// The adjugate (transposed cofactor matrix).
+//
+// - m: the matrix.
 adjugate_lengyel :: (m: Matrix4) -> Matrix4 {
     r: Matrix4;
 
@@ -364,6 +496,9 @@ adjugate_lengyel :: (m: Matrix4) -> Matrix4 {
 
 adjugate :: adjugate_lengyel;
 
+// The determinant.
+//
+// - m: the matrix.
 determinant :: (m: Matrix4) -> float {
     d: float = 0;
 
@@ -376,6 +511,10 @@ determinant :: (m: Matrix4) -> float {
     return d;
 }
 
+// The inverse from the adjugate and determinant. False and the identity when there is none.
+//
+// - m: the matrix.
+// - epsilon: a determinant with a smaller magnitude counts as having no inverse.
 inverse_lengyel :: (m: Matrix4, epsilon := 0.0001) -> (success: bool, result: Matrix4) {
     d := determinant(m);
     if abs(d) < epsilon return false, Matrix4_Identity;
@@ -386,6 +525,9 @@ inverse_lengyel :: (m: Matrix4, epsilon := 0.0001) -> (success: bool, result: Ma
     return true, r;
 }
 
+// The inverse of a matrix that is only a rotation and a translation.
+//
+// - m: the matrix. Anything else gives a wrong result.
 isometry_inverse :: (m: Matrix4) -> Matrix4 {
     r := make_matrix4(transpose(make_matrix3(m)));
     t := -multiply(r, xyz(m._14, m._24, m._34));
@@ -397,6 +539,10 @@ isometry_inverse :: (m: Matrix4) -> Matrix4 {
     return r;
 }
 
+// The largest sum of absolute values over the rows, or over the columns.
+//
+// - M: the matrix.
+// - tpose: true sums down columns, false across rows.
 mat_norm :: (M: Matrix3, tpose: bool) -> float {
     result: float = 0;
 
@@ -417,6 +563,9 @@ mat_norm :: (M: Matrix3, tpose: bool) -> float {
 norm_inf :: #bake_arguments mat_norm(tpose = false);
 norm_one :: #bake_arguments mat_norm(tpose = true);
 
+// A vector `u` for a reflection that sends `v` onto the z axis. Zero gives zero.
+//
+// - v: the vector to reflect.
 make_reflector :: (v: Vector3) -> (u: Vector3) {
     u := v;
     n := length(v);
@@ -428,16 +577,28 @@ make_reflector :: (v: Vector3) -> (u: Vector3) {
     return normalize(u) * cast(float) SQRT2;
 }
 
+// Reflects each of the matrix's row vectors `M.v[i]` in place.
+//
+// - M: the matrix to change.
+// - u: the reflector, from `make_reflector`.
 reflect_cols :: (M: *Matrix3, u: Vector3) {
     for i: 0..2 M.v[i] -= u * dot(M.v[i], u);
 }
 
+// Reflects each column of the matrix in place.
+//
+// - M: the matrix to change.
+// - u: the reflector, from `make_reflector`.
 reflect_rows :: (M: *Matrix3, u: Vector3) {
     r := transpose(M.*);
     reflect_cols(*r, u);
     M.* = transpose(r);
 }
 
+// Splits the matrix into an orthogonal `Q` and a symmetric `S` with `M = Q * S`, and also
+// returns the determinant of `M`.
+//
+// - M: the matrix to split.
 polar_decomp :: (M: Matrix3) -> (Q: Matrix3, S: Matrix3, det: float) {
     // Jacobi eigensystem of M^T M: singular values, then an orthogonal completion.
     OFF_DIAGONAL_EPSILON :: 0.00000001;

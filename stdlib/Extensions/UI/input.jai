@@ -21,6 +21,8 @@ Modifiers :: struct {
 }
 
 // Whether the platform's main shortcut modifier is held.
+//
+// - mods: the modifiers to check.
 primary :: (mods: Modifiers) -> bool {
     #if OS == .MACOS return mods.super;
     else return mods.ctrl;
@@ -68,31 +70,53 @@ Input_State :: struct {
 }
 
 // Queue a pointer move to (`x`, `y`) in points.
+//
+// - ui: the UI to queue the event on.
+// - x: the new horizontal position.
+// - y: the new vertical position.
 send_mouse_move :: (ui: *UI_State, x: float, y: float) {
     array_add(*ui.input.events, .{ kind = .MOUSE_MOVE, x = x, y = y });
 }
 
 // Queue a button press at the position of the last queued move.
+//
+// - ui: the UI to queue the event on.
+// - button: which button went down.
 send_mouse_down :: (ui: *UI_State, button: Mouse_Button = .LEFT) {
     array_add(*ui.input.events, .{ kind = .MOUSE_DOWN, button = button });
 }
 
 // Queue a button release at the position of the last queued move.
+//
+// - ui: the UI to queue the event on.
+// - button: which button was released.
 send_mouse_up :: (ui: *UI_State, button: Mouse_Button = .LEFT) {
     array_add(*ui.input.events, .{ kind = .MOUSE_UP, button = button });
 }
 
 // Queue wheel or trackpad scrolling; positive `dy` scrolls the content up (towards its end).
+//
+// - ui: the UI to queue the event on.
+// - dx: horizontal scroll in points.
+// - dy: vertical scroll in points.
 send_scroll :: (ui: *UI_State, dx: float, dy: float) {
     array_add(*ui.input.events, .{ kind = .SCROLL, dx = dx, dy = dy });
 }
 
 // Queue a key press.
+//
+// - ui: the UI to queue the event on.
+// - key: the key pressed.
+// - mods: the modifiers held.
+// - repeat: true for an auto-repeat rather than a fresh press.
 send_key :: (ui: *UI_State, key: Key_Code, mods: Modifiers = .{}, repeat: bool = false) {
     array_add(*ui.input.events, .{ kind = .KEY, key = key, mods = mods, repeat = repeat });
 }
 
 // Queue typed text, one event per code point.
+//
+// - ui: the UI to queue the events on.
+// - text: the UTF-8 text typed.
 send_text :: (ui: *UI_State, text: string) {
     i := 0;
 

@@ -25,6 +25,8 @@ Json_Column :: struct {
 // The Jai type a json or jsonb column holds, from the `Json_Columns` visible where this is
 // called (a macro, so the generated file sees the user's list), else `Json_Raw`. A mapping can
 // change without generating the schema again.
+//
+// - column: "table.column", as in `Json_Column`.
 json_column_type :: (column: string) -> Type #expand {
     for `Json_Columns if it.column == column return it.type;
 
@@ -33,6 +35,8 @@ json_column_type :: (column: string) -> Type #expand {
 
 // The options of the `Json_Columns` entry for `column`, packed as the second parameter of
 // `Json(T, OPTIONS)`; 0 when it has none.
+//
+// - column: "table.column", as in `Json_Column`.
 json_column_options :: (column: string) -> u32 #expand {
     for `Json_Columns if it.column == column return pack_json_options(it.options);
 
@@ -41,6 +45,9 @@ json_column_options :: (column: string) -> u32 #expand {
 
 // Does a file called `name` sit in the folder of `file`? For the generated file to load
 // `json_columns.jai` when there is one.
+//
+// - file: a file in the folder to look in.
+// - name: the file name to look for.
 file_exists_beside :: (file: string, name: string) -> bool {
     return Schema_Files.file_exists(join(path_strip_filename(file), name,, temp));
 }
@@ -49,6 +56,8 @@ SCHEMA_HASH_MARKER :: "// schema hash: ";
 
 // Stops the compile when `file` (the generated schema) was made from other migrations than the
 // ones in the project now. Needs no server: it compares hashes of `db/migrations/*.sql`.
+//
+// - file: the generated schema file.
 check_schema :: (file: string, location := #caller_location) {
     problem := schema_problem(file);
     if !problem return;
@@ -58,6 +67,8 @@ check_schema :: (file: string, location := #caller_location) {
 }
 
 // Why `file` no longer matches the migrations, or an empty string when it does.
+//
+// - file: the generated schema file.
 schema_problem :: (file: string) -> string {
     text, read := read_entire_file(file,, temp);
     if !read return tprint("cannot read %", file);
@@ -72,6 +83,8 @@ schema_problem :: (file: string) -> string {
 }
 
 // The hash a generated file records in its header, or an empty string.
+//
+// - text: the text of a generated schema file.
 recorded_schema_hash :: (text: string) -> string {
     for line: split(text, "\n") {
         if begins_with(line, SCHEMA_HASH_MARKER) return trim(advance(line, SCHEMA_HASH_MARKER.count));
@@ -82,6 +95,9 @@ recorded_schema_hash :: (text: string) -> string {
 
 // Stops the compile when a `Json_Columns` entry names something that is not a json or jsonb
 // column. `known` is every json column of the schema, as the generated file lists them.
+//
+// - mappings: the `Json_Columns` list.
+// - known: "table.column" of every json or jsonb column in the schema.
 check_json_columns :: (mappings: [] Json_Column, known: [] string, location := #caller_location) {
     for mapping: mappings {
         if array_find(known, mapping.column) continue;
@@ -97,6 +113,8 @@ check_json_columns :: (mappings: [] Json_Column, known: [] string, location := #
 // name is used as it is, so `'pending'` is `.pending`. Any other (spaces, dashes, a leading
 // digit, a Jai keyword, a double underscore) becomes `__` followed by its letters and digits,
 // with every other byte as `_` and two hex digits: `'in progress'` is `__in_20progress`.
+//
+// - label: the label as the server has it.
 enum_member_name :: (label: string) -> string {
     if plain_label(label) return label;
 
@@ -116,6 +134,8 @@ enum_member_name :: (label: string) -> string {
 }
 
 // The label an enum member name stands for: the inverse of `enum_member_name`.
+//
+// - name: the member name `enum_member_name` made.
 enum_label :: (name: string) -> string {
     if !begins_with(name, "__") return name;
 

@@ -52,6 +52,9 @@ Catalog :: struct {
 // Reads the catalog of the migrations' schema database (see schema_databases.jai) on the server
 // `config` names, building it first when there is none, and returns the text of `db/schema.jai`;
 // or what went wrong. Runs on a fiber, like every call that talks to the server.
+//
+// - config: the server to build the migrations' schema database on.
+// - migrations_folder: the folder of migration `.sql` files.
 generate_schema :: (config: Config, migrations_folder: string) -> source: string, problem: string {
     catalog, hash, problem := migrated_catalog(config, migrations_folder);
     if problem return "", problem;
@@ -62,6 +65,9 @@ generate_schema :: (config: Config, migrations_folder: string) -> source: string
 // The catalog of the migrations in `migrations_folder` and their schema hash, read from the
 // schema database on the server `config` names (built first when there is none); or what went
 // wrong. Runs on a fiber, like every call that talks to the server.
+//
+// - config: the server to build the migrations' schema database on.
+// - migrations_folder: the folder of migration `.sql` files.
 migrated_catalog :: (config: Config, migrations_folder: string) -> Catalog, hash: string, problem: string {
     migrations, problem := read_migrations(migrations_folder);
     if problem return .{}, "", problem;
@@ -101,6 +107,9 @@ migrated_catalog :: (config: Config, migrations_folder: string) -> Catalog, hash
 
 // The text of `db/schema.jai` for a catalog made from migrations with this schema hash, or a
 // problem such as a column that cannot be a field name. Laid out as the formatter would.
+//
+// - catalog: the migrated schema.
+// - hash: its schema hash, written into the file.
 schema_source :: (catalog: Catalog, hash: string) -> source: string, problem: string {
     names, problem := assign_names(catalog);
     if problem return "", problem;
@@ -145,6 +154,8 @@ schema_source :: (catalog: Catalog, hash: string) -> source: string, problem: st
 }
 
 // Everything the generator needs from a migrated database.
+//
+// - db: a connection to the migrated database.
 load_catalog :: (db: *Connection) -> Catalog, Pg_Error {
     catalog: Catalog;
 
@@ -353,6 +364,8 @@ Names :: struct {
 
 // The Jai names of the catalog's types. One whose preferred name is taken falls back to a longer
 // one, so two tables never collapse into one struct.
+//
+// - catalog: the schema to name.
 assign_names :: (catalog: Catalog) -> Names, problem: string {
     taken: [..] string;
     taken.allocator = temp;
@@ -481,6 +494,11 @@ pg_type_text :: (base: string) -> string {
 #scope_export
 
 // The type of a column's field, or a problem: an enum the catalog does not list.
+//
+// - relation: the table or view the column is in.
+// - column: the column to type.
+// - catalog: where enums are looked up.
+// - names: the Jai names `assign_names` gave.
 field_type :: (relation: Catalog_Relation, column: Catalog_Column, catalog: Catalog, names: Names) -> string, problem: string {
     text: string;
 

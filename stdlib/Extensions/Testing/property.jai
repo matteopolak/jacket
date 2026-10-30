@@ -11,10 +11,16 @@ Rng :: struct {
     size: s64 = 1;
 }
 
+// A generator started from `seed`.
+//
+// - seed: the starting state; one seed always gives the same numbers.
 rng_seeded :: (seed: u64) -> Rng {
     return .{ state = seed };
 }
 
+// The next 64 random bits.
+//
+// - rng: the generator to draw from and advance.
 rng_u64 :: (rng: *Rng) -> u64 {
     rng.state += 0x9e3779b97f4a7c15;
     z := rng.state;
@@ -25,6 +31,9 @@ rng_u64 :: (rng: *Rng) -> u64 {
 }
 
 // A number from 0 to `count - 1`; 0 when `count` is 0.
+//
+// - rng: the generator to draw from.
+// - count: how many values to choose from.
 rng_below :: (rng: *Rng, count: u64) -> u64 {
     if count == 0 return 0;
 
@@ -32,6 +41,10 @@ rng_below :: (rng: *Rng, count: u64) -> u64 {
 }
 
 // A number from `low` to `high`, both included.
+//
+// - rng: the generator to draw from.
+// - low: the smallest result.
+// - high: the largest result.
 rng_range :: (rng: *Rng, low: s64, high: s64) -> s64 {
     if high <= low return low;
 
@@ -42,11 +55,16 @@ rng_range :: (rng: *Rng, low: s64, high: s64) -> s64 {
 }
 
 // True once in `one_in` calls on average.
+//
+// - rng: the generator to draw from.
+// - one_in: the odds, 1 in this many; below 1 counts as 1.
 rng_chance :: (rng: *Rng, one_in: s64) -> bool {
     return rng_below(rng, cast(u64) max(one_in, 1)) == 0;
 }
 
 // A number from 0 up to, not including, 1.
+//
+// - rng: the generator to draw from.
 rng_unit :: (rng: *Rng) -> float64 {
     return cast(float64) (rng_u64(rng) >> 11) / 9007199254740992.0;
 }
@@ -65,6 +83,9 @@ Custom_Generator :: struct {
     make: (rng: *Rng, destination: *void);
 }
 
+// Wraps `make` as a `Custom_Generator` for `run_property`.
+//
+// - $make: draws one value from the `Rng`; its return type is the type the generator serves.
 generator :: ($make: (rng: *Rng) -> $T) -> Custom_Generator {
     return .{ type_info(T), (rng: *Rng, destination: *void) {
         (cast(*T) destination).* = make(rng);
@@ -73,6 +94,8 @@ generator :: ($make: (rng: *Rng) -> $T) -> Custom_Generator {
 
 // Checks the arguments of a property: skips the trial, without failing it, when `condition`
 // does not hold. A property that returns a value writes `if !condition return true;`.
+//
+// - condition: the trial is skipped when this is false.
 assume :: (condition: bool) #expand {
     if !condition `return;
 }
@@ -150,6 +173,11 @@ property_source :: (B: Type) -> string {
 
 // What a `@property` test runs: `body` on `count` generated inputs. Call it by hand to give
 // the arguments custom generators or another count.
+//
+// - t: the running test.
+// - $body: the property; its arguments are generated.
+// - count: how many trials to run.
+// - generators: custom generators that replace the built-in ones for their types.
 run_property :: (t: *Test, $body: $B, count: s64 = DEFAULT_TRIALS, generators: [] Custom_Generator = .[]) {
     #insert -> string {
         return property_source(B);

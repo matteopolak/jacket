@@ -16,6 +16,10 @@ AUTH_SASL :: 10;
 AUTH_SASL_CONTINUE :: 11;
 AUTH_SASL_FINAL :: 12;
 
+// Connects `c` to the server: transport, TLS, the startup message and authentication.
+//
+// - c: the connection to set up.
+// - config: the settings to connect with.
 open :: (c: *Connection, config: Config) -> Pg_Error {
     user := config.user;
     if !user user = environment_variable("USER");
@@ -122,6 +126,10 @@ open :: (c: *Connection, config: Config) -> Pg_Error {
     return authenticate(c, effective, user);
 }
 
+// Opens the TCP or Unix socket and sets up the reader and writer.
+//
+// - c: the connection; its `host` and `port` say where to connect. A host starting with `/` is
+//   a Unix socket folder.
 open_transport :: (c: *Connection) -> Pg_Error {
     io: Io.Io_Error;
 
@@ -142,6 +150,10 @@ open_transport :: (c: *Connection) -> Pg_Error {
     return .{};
 }
 
+// Asks for TLS and starts it, as `ssl_mode` requires. Does nothing for a Unix socket.
+//
+// - c: the connection to upgrade.
+// - config: the settings: `ssl_mode`, `ssl_direct` and the TLS options.
 negotiate_tls :: (c: *Connection, config: Config) -> Pg_Error {
     if config.ssl_mode == .DISABLE || config.ssl_mode == .ALLOW || c.unix_socket return .{};
 
@@ -187,6 +199,10 @@ negotiate_tls :: (c: *Connection, config: Config) -> Pg_Error {
 }
 
 #if TLS {
+    // Sets up the TLS configuration from the settings and runs the handshake.
+    //
+    // - c: the connection to upgrade.
+    // - config: the settings: `ssl_mode` and the TLS options.
     start_tls :: (c: *Connection, config: Config) -> Pg_Error {
         verifying := config.ssl_mode == .VERIFY_CA || config.ssl_mode == .VERIFY_FULL;
 
@@ -237,6 +253,9 @@ negotiate_tls :: (c: *Connection, config: Config) -> Pg_Error {
 
     // Appends a line to the connection's key log file, which only its owner may read. A file that
     // cannot be opened or written is reported, as libpq does, and the connection goes on.
+    //
+    // - line: one line of key log text, without its newline.
+    // - data: the `Connection`, whose `key_log_file` is appended to.
     append_key_log :: (line: string, data: *void) {
         c := cast(*Connection) data;
         path := c.key_log_file;
@@ -270,11 +289,17 @@ negotiate_tls :: (c: *Connection, config: Config) -> Pg_Error {
         }
     }
 
+    // Prints a line to standard error.
+    //
+    // - text: the line to print; a newline is added.
     print_error_line :: (text: string) {
         write_string(tprint("%\n", text), to_standard_error = true);
     }
 
     // The handshake over the connection's reader and writer, the stream becoming theirs.
+    //
+    // - c: the connection to run the handshake on.
+    // - config: the TLS configuration to use.
     connect_tls :: (c: *Connection, config: *Tls.Tls_Config) -> Pg_Error {
         stream, tls_error := Tls.tls_connect(config, c.reader, c.writer, c.tls_sni);
 
@@ -303,6 +328,8 @@ negotiate_tls :: (c: *Connection, config: Config) -> Pg_Error {
     }
 
     // What libpq prints for a failed handshake, or a TLS failure afterwards.
+    //
+    // - error: the TLS error.
     tls_failure_text :: (error: Tls.Tls_Error) -> string {
         if error.kind == .VERIFY {
             detail := Tls.detail(*error);
@@ -319,6 +346,8 @@ negotiate_tls :: (c: *Connection, config: Config) -> Pg_Error {
 }
 
 // The alerts OpenSSL words as "ssl/tls alert ..." (those of SSL 3.0); the others it calls TLS 1.0's.
+//
+// - alert: a TLS alert code.
 is_sslv3_alert :: (alert: u8) -> bool {
     SSLV3_ALERTS :: u8.[10, 20, 30, 40, 41, 42, 43, 44, 45, 46, 47];
 
@@ -329,6 +358,8 @@ is_sslv3_alert :: (alert: u8) -> bool {
 
 // Whether `host` is written as an address (only digits and dots, or with a colon), which libpq
 // never sends as SNI.
+//
+// - host: the host as configured.
 looks_like_address :: (host: string) -> bool {
     for host {
         if it == #char ":" return true;
@@ -344,6 +375,8 @@ looks_like_address :: (host: string) -> bool {
 // Asks the server to stop what `c` is running: a CancelRequest on a connection of its own, over
 // TLS when `c` uses it. The server answers nothing and closes that connection once it has acted.
 // Whether a statement was stopped shows on `c` (`QUERY_CANCELED`), not here.
+//
+// - c: the connection whose statement is to be stopped.
 send_cancel_request :: (c: *Connection) -> Pg_Error {
     if !c.cancel_key.count return make_error(.USAGE, "the server sent no cancel key");
 
@@ -402,6 +435,11 @@ send_cancel_request :: (c: *Connection) -> Pg_Error {
     return .{};
 }
 
+// Reads the server's replies to the startup message until ReadyForQuery, answering authentication requests.
+//
+// - c: the connection being set up.
+// - config: the settings: `require_auth`, `channel_binding`, `password` and the like.
+// - user: the role name sent in the startup message.
 authenticate :: (c: *Connection, config: Config, user: string) -> Pg_Error {
     scram: Scram;
     policy, _ := parse_require_auth(config.require_auth);
@@ -485,6 +523,14 @@ authenticate :: (c: *Connection, config: Config, user: string) -> Pg_Error {
     return .{};
 }
 
+// Answers one AuthenticationRequest: sends the password or the next SCRAM step.
+//
+// - c: the connection being set up.
+// - config: the settings: `password`, `channel_binding` and the like.
+// - user: the role name sent in the startup message.
+// - code: the code of the AuthenticationRequest.
+// - r: the rest of the request message, after the code.
+// - scram: the SCRAM state, kept across the steps of one login.
 answer_authentication :: (c: *Connection, config: Config, user: string, code: u32, r: *Cursor, scram: *Scram) -> Pg_Error {
     if config.channel_binding == .REQUIRE && (code == AUTH_CLEARTEXT || code == AUTH_MD5) {
         return auth_error(c, "channel binding required but not supported by server's authentication request");
@@ -554,22 +600,36 @@ answer_authentication :: (c: *Connection, config: Config, user: string, code: u3
     return auth_error(c, tprint("the server asked for an unknown authentication method %", code));
 }
 
+// The transaction status ReadyForQuery reports.
+//
+// - byte: the status byte of ReadyForQuery.
 transaction_status :: (byte: u8) -> Transaction_Status {
     if byte == #char "T" return .IN_TRANSACTION;
     if byte == #char "E" return .FAILED;
     return .IDLE;
 }
 
+// A `.PROTOCOL` error for `what`.
+//
+// - c: the connection, which is marked broken.
+// - what: what was wrong.
 protocol_error :: (c: *Connection, what: string) -> Pg_Error {
     c.broken = true;
     return make_error(.PROTOCOL, what);
 }
 
+// An `.AUTH` error for `what`.
+//
+// - c: the connection, which is marked broken.
+// - what: why the login failed.
 auth_error :: (c: *Connection, what: string) -> Pg_Error {
     c.broken = true;
     return make_error(.AUTH, what);
 }
 
+// Whether `text` has a zero byte, which a startup parameter cannot hold.
+//
+// - text: the text to look in.
 contains_zero :: (text: string) -> bool {
     for text if it == 0 return true;
     return false;
@@ -581,6 +641,8 @@ contains_zero :: (text: string) -> bool {
 // another fiber than the one waiting for the statement (a signal handler's, say): the waiting
 // call then returns the server's "canceling statement due to user request". Does nothing useful
 // when no statement is running.
+//
+// - c: the connection whose statement is to be stopped.
 cancel_query :: (c: *Connection) -> Pg_Error {
     return send_cancel_request(c);
 }

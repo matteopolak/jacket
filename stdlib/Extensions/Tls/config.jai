@@ -128,6 +128,8 @@ Tls_Native :: struct {
 // Returns `.CONFIG` with a reason for a certificate or key that does not parse, a version range
 // that is empty, or a server certificate without its key. A config with no certificate is a
 // client; one with a certificate and key can also accept.
+//
+// - config: the filled-in config. The native state is attached to it.
 tls_config_init :: (config: *Tls_Config) -> Tls_Error {
     if config.native return .{};
 
@@ -150,6 +152,8 @@ tls_config_init :: (config: *Tls_Config) -> Tls_Error {
 }
 
 // Releases what `tls_config_init` built. Streams made from the config must be closed first.
+//
+// - config: the config to release. It can be initialised again afterwards.
 tls_config_free :: (config: *Tls_Config) {
     if !config.native return;
 
@@ -159,6 +163,8 @@ tls_config_free :: (config: *Tls_Config) {
 } @FreesArgument
 
 // Whether `tls_accept` works with this config: it was set up, and has a certificate and key.
+//
+// - config: the config to check.
 can_accept :: (config: *Tls_Config) -> bool {
     return config.native != null && config.native.server != null;
 }

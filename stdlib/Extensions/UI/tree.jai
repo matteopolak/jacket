@@ -128,6 +128,8 @@ current_ui :: () -> *UI_State {
 }
 
 // Release everything a UI owns.
+//
+// - ui: the UI to release. It is reset to empty.
 free_ui :: (ui: *UI_State) {
     for ui.nodes free_node(it);
 
@@ -141,6 +143,8 @@ free_ui :: (ui: *UI_State) {
 }
 
 // Start a frame: reset the per-frame arena, clear the display list and open the root container.
+//
+// - ui: the UI to start a frame on.
 begin_frame :: (ui: *UI_State) {
     ui.frame += 1;
     ui.wants_frame = false;
@@ -162,6 +166,8 @@ begin_frame :: (ui: *UI_State) {
 }
 
 // Finish the frame: drop nodes nobody declared, lay the tree out and fix focus.
+//
+// - ui: the UI whose frame is done.
 end_frame :: (ui: *UI_State) {
     while ui.stack.count > 1 end_container(ui);
 
@@ -179,6 +185,10 @@ end_frame :: (ui: *UI_State) {
 // it builds once more with the input spent: what you queued shows in the tree and the layout when
 // `frame` returns. `build` therefore runs twice on such a frame, and the second run sees no clicks,
 // keys or focus changes. A frame without input builds once.
+//
+// - ui: the UI to run the frame on.
+// - app: your app state, passed to `build`.
+// - build: declares the widgets for the frame.
 frame :: (ui: *UI_State, app: *$T, build: (app: *T)) {
     push_ui(ui);
     defer pop_ui();
@@ -201,6 +211,8 @@ frame :: (ui: *UI_State, app: *$T, build: (app: *T)) {
 }
 
 // Make `ui` the current UI for the code that follows (a second window, or tests).
+//
+// - ui: the UI to make current.
 push_ui :: (ui: *UI_State) {
     ui.outer = context.ui;
     context.ui = ui;
@@ -213,6 +225,8 @@ pop_ui :: () {
 
 // Give the next widget an explicit key, for items in a list whose order changes. Without it a
 // widget in a loop is identified by its position in the loop.
+//
+// - value: anything that identifies the item and stays the same as the list changes.
 key :: (value: $T) {
     ui := context.ui;
     ui.key_pending = true;
@@ -222,6 +236,9 @@ key :: (value: $T) {
 
 // The retained value of type `T` stored on a node, created zeroed on first use and kept until the
 // node leaves the tree.
+//
+// - node: the node that keeps the value.
+// - $T: the type stored. A node holding a value of another size has it replaced by a zeroed one.
 state :: (node: *Node, $T: Type) -> *T {
     if node.state && node.state_size == size_of(T) return cast(*T) node.state;
 
@@ -236,6 +253,12 @@ state :: (node: *Node, $T: Type) -> *T {
 
 // Declare a widget: find or create its node, make it the next child of the open container and
 // return it. This is what the library's own widgets use; a custom widget calls it too.
+//
+// - kind: whether the node is text, a leaf with a paint callback, or a container.
+// - role: what the widget is.
+// - style: layout and paint options.
+// - loc: the call site. It identifies the node from one frame to the next, so pass the caller's
+//   location.
 widget :: (kind: Node_Kind, role: Role, style: Style, loc: Source_Code_Location) -> *Node {
     ui := context.ui;
     parent := ui.stack[ui.stack.count - 1];
@@ -259,6 +282,12 @@ widget :: (kind: Node_Kind, role: Role, style: Style, loc: Source_Code_Location)
 }
 
 // Open a container as the current parent; `end_container` closes it. Containers written with `for` do both.
+//
+// - axis: which way the children are laid out.
+// - role: what the container is.
+// - style: layout and paint options.
+// - loc: the call site. It identifies the node from one frame to the next, so pass the caller's
+//   location.
 begin_container :: (axis: Axis, role: Role, style: Style, loc: Source_Code_Location) -> *Node {
     node := widget(.CONTAINER, role, style, loc);
     node.axis = axis;
@@ -267,16 +296,23 @@ begin_container :: (axis: Axis, role: Role, style: Style, loc: Source_Code_Locat
 }
 
 // Close the innermost open container.
+//
+// - ui: the UI whose innermost container to close. The root is never closed.
 end_container :: (ui: *UI_State) {
     if ui.stack.count > 1 pop(*ui.stack);
 }
 
 // The allocator of the per-frame arena: memory that lives until the next frame begins.
+//
+// - ui: the UI whose frame arena to use.
 frame_allocator :: (ui: *UI_State) -> Allocator {
     return .{ flat_pool_allocator_proc, *ui.frame_pool };
 }
 
 // A copy of `text` that lives until the next frame, for strings a node keeps.
+//
+// - ui: the UI whose frame arena holds the copy.
+// - text: the string to copy.
 frame_string :: (ui: *UI_State, text: string) -> string {
     if !text.count return "";
 
@@ -289,6 +325,9 @@ frame_string :: (ui: *UI_State, text: string) -> string {
 }
 
 // What happened to `node` this frame.
+//
+// - ui: the UI the node belongs to.
+// - node: the node to look up.
 events_of :: (ui: *UI_State, node: *Node) -> Node_Events {
     events: Node_Events;
     events.hovered = ui.hover == node.id;
@@ -303,6 +342,9 @@ events_of :: (ui: *UI_State, node: *Node) -> Node_Events {
 }
 
 // Give keyboard focus to `node`.
+//
+// - ui: the UI the node belongs to.
+// - node: the node to focus.
 focus_node :: (ui: *UI_State, node: *Node) {
     if ui.focus == node.id return;
     ui.focus = node.id;

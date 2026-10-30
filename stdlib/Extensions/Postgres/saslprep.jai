@@ -11,6 +11,8 @@
 
 // The prepared password and true, or `password` and false when it cannot be prepared. ASCII
 // passwords come back unchanged. The result is in temporary storage unless it is `password`.
+//
+// - password: the password as the user gave it.
 saslprep :: (password: string) -> string, bool {
     ascii := true;
 

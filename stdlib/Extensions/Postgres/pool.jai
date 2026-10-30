@@ -41,6 +41,9 @@ Idle_Connection :: struct {
 }
 
 // The config is copied. Nothing connects until the first `acquire`, or `min_idle` asks for it.
+//
+// - config: how to connect. It is copied.
+// - settings: size and timeouts.
 create_pool :: (config: Config, settings := Pool_Config.{}) -> *Pool, Pg_Error {
     if !Io.in_scheduler() return null, make_error(.USAGE, "Postgres calls must run on a fiber: call them inside Io.io_run");
     if settings.max_size < 1 return null, make_error(.CONFIG, "max_size must be at least 1");
@@ -57,6 +60,8 @@ create_pool :: (config: Config, settings := Pool_Config.{}) -> *Pool, Pg_Error {
 }
 
 // Closes the idle connections and frees the pool once every borrowed one is back.
+//
+// - pool: the pool.
 close_pool :: (pool: *Pool) {
     if !pool || pool.closed return;
 
@@ -74,6 +79,8 @@ close_pool :: (pool: *Pool) {
 
 // A connection for this fiber alone, until `release`. Waits for one when `max_size` are in use,
 // up to `acquire_timeout` (and any `Io.with_deadline` around the call).
+//
+// - pool: the pool.
 acquire :: (pool: *Pool) -> *Connection, Pg_Error {
     if !pool return null, make_error(.USAGE, "no pool");
     if !Io.in_scheduler() return null, make_error(.USAGE, "Postgres calls must run on a fiber: call them inside Io.io_run");
@@ -92,6 +99,9 @@ acquire :: (pool: *Pool) -> *Connection, Pg_Error {
 
 // Gives a connection back. One left inside a transaction is rolled back first; a broken one, or
 // one past `max_lifetime`, is closed instead.
+//
+// - pool: the pool.
+// - c: a connection from `acquire` on this pool.
 release :: (pool: *Pool, c: *Connection) {
     if !c return;
 
@@ -127,6 +137,8 @@ release :: (pool: *Pool, c: *Connection) {
 }
 
 // A round trip that runs nothing: an empty Sync. Fails if the connection is dead.
+//
+// - c: the connection.
 ping :: (c: *Connection) -> Pg_Error {
     error := begin_request(c, "");
     if error.kind != .NONE return error;
@@ -170,6 +182,13 @@ Isolation :: enum u8 {
 // to `retries` more times, so `body` must be safe to repeat. `data` is passed through, as Jai
 // procedures capture nothing.
 //
+// - pool: the pool to borrow a connection from.
+// - data: passed to `body`.
+// - body: the work, run on the transaction's connection.
+// - isolation: the transaction's isolation level.
+// - retries: how many more times to run `body` after a serialization failure or deadlock.
+// - read_only: start the transaction READ ONLY.
+//
 // ```jai,ignore
 // Transfer :: struct { from: s64; to: s64; amount: s64; }
 // error := Pg.transaction(pool, Transfer.{ 1, 2, 10 }, (tx: *Pg.Connection, t: Transfer) -> Pg.Pg_Error {
@@ -188,6 +207,13 @@ transaction :: (pool: *Pool, data: $T, body: (tx: *Connection, data: T) -> Pg_Er
     return transaction(c, data, body, isolation, retries, read_only);
 }
 
+// `transaction` for a `body` that needs no `data`.
+//
+// - pool: the pool to borrow a connection from.
+// - body: the work, run on the transaction's connection.
+// - isolation: the transaction's isolation level.
+// - retries: how many more times to run `body` after a serialization failure or deadlock.
+// - read_only: start the transaction READ ONLY.
 transaction :: (pool: *Pool, body: (tx: *Connection) -> Pg_Error, isolation := Isolation.DEFAULT, retries := 0, read_only := false) -> Pg_Error {
     return transaction(pool, body, (tx: *Connection, body: (tx: *Connection) -> Pg_Error) -> Pg_Error {
         return body(tx);
@@ -195,6 +221,13 @@ transaction :: (pool: *Pool, body: (tx: *Connection) -> Pg_Error, isolation := I
 }
 
 // The same on a connection of your own.
+//
+// - c: the connection. It must not be in a transaction.
+// - data: passed to `body`.
+// - body: the work, run on `c`.
+// - isolation: the transaction's isolation level.
+// - retries: how many more times to run `body` after a serialization failure or deadlock.
+// - read_only: start the transaction READ ONLY.
 transaction :: (c: *Connection, data: $T, body: (tx: *Connection, data: T) -> Pg_Error, isolation := Isolation.DEFAULT, retries := 0, read_only := false) -> Pg_Error {
     for attempt: 0..retries {
         error := begin_transaction(c, isolation, read_only);
@@ -209,6 +242,13 @@ transaction :: (c: *Connection, data: $T, body: (tx: *Connection, data: T) -> Pg
     return .{};
 }
 
+// `transaction` on your own connection, for a `body` that needs no `data`.
+//
+// - c: the connection. It must not be in a transaction.
+// - body: the work, run on `c`.
+// - isolation: the transaction's isolation level.
+// - retries: how many more times to run `body` after a serialization failure or deadlock.
+// - read_only: start the transaction READ ONLY.
 transaction :: (c: *Connection, body: (tx: *Connection) -> Pg_Error, isolation := Isolation.DEFAULT, retries := 0, read_only := false) -> Pg_Error {
     return transaction(c, body, (tx: *Connection, body: (tx: *Connection) -> Pg_Error) -> Pg_Error {
         return body(tx);

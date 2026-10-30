@@ -51,6 +51,10 @@ Migration_Proposal :: struct {
 // Reads the catalog of the migrations' schema database (see schema_databases.jai), compares it
 // with the structs in `schema_file`, and returns the proposed SQL; or what went wrong. An empty
 // `sql` means nothing differs. Runs on a fiber, like every call that talks to the server.
+//
+// - config: the server to build the migrations' schema database on.
+// - migrations_folder: the folder of migration `.sql` files.
+// - schema_file: the path of `db/schema.jai`.
 diff_schema :: (config: Config, migrations_folder: string, schema_file: string) -> Migration_Proposal, problem: string {
     text, read := read_entire_file(schema_file);
     if !read return .{}, tprint("cannot read %", schema_file);
@@ -68,6 +72,8 @@ diff_schema :: (config: Config, migrations_folder: string, schema_file: string) 
 // declaration per line of the form `Name :: struct @note(...) {`, then `name: Type; @note` per
 // field line, then a `}` in the first column. Structs without `@pg_table` are not tables and are
 // skipped. Anything else in a table struct or an enum is a problem naming the line.
+//
+// - text: the contents of the schema file.
 parse_schema_text :: (text: string) -> Schema_Description, problem: string {
     structs: [..] Schema_Struct;
     enums: [..] Schema_Enum;
@@ -153,6 +159,9 @@ parse_schema_text :: (text: string) -> Schema_Description, problem: string {
 
 // Compares the structs with the catalog and writes the SQL that would bring the migrated schema
 // to what the structs say. See docs/postgres/diff.md for what it covers.
+//
+// - catalog: the migrated schema.
+// - description: the structs and enums read from the schema file.
 propose_migration :: (catalog: Catalog, description: Schema_Description) -> Migration_Proposal, problem: string {
     names, problem := assign_names(catalog);
     if problem return .{}, problem;
@@ -211,6 +220,9 @@ propose_migration :: (catalog: Catalog, description: Schema_Description) -> Migr
 
 // The Jai type text of a field as the Postgres type that would hold it, or an empty string for a
 // type that has no mapping. `refs` resolves the names of enums.
+//
+// - text: the field's type as written in Jai.
+// - refs: the schema file's enums and the Postgres enums they stand for.
 sql_type_of_text :: (text: string, refs: [] Enum_Ref) -> string {
     type := normal_type(text);
 

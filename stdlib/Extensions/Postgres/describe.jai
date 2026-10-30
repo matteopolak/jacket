@@ -22,6 +22,9 @@ Describe_Request :: struct {
 }
 
 // The complaint for a server older than the request allows, or an empty string.
+//
+// - db: the connection, read for the server version.
+// - request: its `min_server_version` is the limit.
 server_too_old :: (db: *Connection, request: Describe_Request) -> string {
     major := db.server_version / VERSION_MAJOR;
     if major >= request.min_server_version return "";
@@ -29,6 +32,9 @@ server_too_old :: (db: *Connection, request: Describe_Request) -> string {
     return tprint("the server is PostgreSQL %, but this project needs at least % (MIN_SERVER_VERSION)", major, request.min_server_version);
 }
 
+// The request as JSON text.
+//
+// - request: the request to write.
 describe_request_json :: (request: Describe_Request) -> string {
     return Json_Module.to_json(request);
 }
@@ -41,6 +47,9 @@ describe_request_json :: (request: Describe_Request) -> string {
 // "ok" and "sql_error" carry `"stale_schema": {"name","file","line","column","message"}` when a
 // migration failed and the statement was described against the schema before it. A failure with no
 // schema to fall back on is `{"kind":"migration_error","migration":{...}}` (see migration_error_answer).
+//
+// - db: the connection to describe on.
+// - request: what to describe.
 describe_answer :: (db: *Connection, request: Describe_Request) -> string {
     answer := describe_value(db, request);
     text := Json_Module.to_json(answer);
@@ -50,6 +59,9 @@ describe_answer :: (db: *Connection, request: Describe_Request) -> string {
 }
 
 // The answer to a `fingerprints` request: {"kind":"ok","server_major":17,"fingerprints":{key: hash}}.
+//
+// - db: the connection to read the fingerprints from.
+// - request: its `keys` are what to fingerprint.
 fingerprints_answer :: (db: *Connection, request: Describe_Request) -> string {
     answer := json_object();
     too_old := server_too_old(db, request);
@@ -123,6 +135,9 @@ fingerprints_answer :: (db: *Connection, request: Describe_Request) -> string {
 }
 
 // The answer for migrations that do not build and leave no earlier schema to describe against.
+//
+// - failure: the migration that failed.
+// - folder: the migrations folder the file is in.
 migration_error_text :: (failure: Migration_Failure, folder: string) -> string {
     answer := migration_error_answer(failure, folder);
     text := Json_Module.to_json(answer);

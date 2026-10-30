@@ -9,6 +9,11 @@ Trace_Proc :: #type (connection: *Connection, line: string);
 // server's source locations are replaced by fixed text, and an error's length by NN, so a trace
 // is the same from one server run to the next. Without it they show as they are.
 //
+// - c: the connection to trace.
+// - proc: gets each line; null stops tracing.
+// - data: kept in the connection's `trace_data`, for `proc` to read.
+// - regress: replace values that change between runs with fixed text.
+//
 // ```text
 // F<TAB>21<TAB>Parse<TAB> "" "SELECT $1" 1 NNNN
 // B<TAB>5<TAB>ReadyForQuery<TAB> I

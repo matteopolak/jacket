@@ -153,12 +153,16 @@ Error_Fields :: struct {
 NO_FIELDS: Error_Fields;
 
 // The fields of the error, never null: `Pg.error_fields(error).constraint`.
+//
+// - error: the error to read. One that did not come from the server has empty fields.
 error_fields :: (error: Pg_Error) -> *Error_Fields {
     if error.owner return error.owner;
     return *NO_FIELDS;
 }
 
 // One line describing the error, in temporary storage.
+//
+// - error: the error to describe.
 error_text :: (error: Pg_Error) -> string {
     if error.kind == .NONE return "no error";
 
@@ -182,12 +186,17 @@ error_text :: (error: Pg_Error) -> string {
     return builder_to_string(*builder,, temp);
 }
 
+// Frees what the error owns.
+//
+// - error: the error to free. It is empty afterwards.
 free_error :: (error: *Pg_Error) {
     if error.owner free(error.owner);
     error.* = .{};
 }
 
 // The five characters of a code, in temporary storage.
+//
+// - code: the code to spell out.
 sqlstate_text :: (code: Sqlstate) -> string {
     text := talloc_string(SQLSTATE_LENGTH);
     for 0..SQLSTATE_LENGTH - 1 text[it] = cast,trunc(u8) ((cast(u64) code) >> (8 * it));
@@ -195,12 +204,17 @@ sqlstate_text :: (code: Sqlstate) -> string {
 }
 
 // The code with only its class kept: `sqlstate_class(.UNIQUE_VIOLATION) == .INTEGRITY_CONSTRAINT_VIOLATION`.
+//
+// - code: the full code.
 sqlstate_class :: (code: Sqlstate) -> Sqlstate {
     return cast(Sqlstate) ((cast(u64) code & 0xffff) | (0x3030303030 & ~cast(u64) 0xffff));
 }
 
 SQLSTATE_LENGTH :: 5;
 
+// The code written as `text`.
+//
+// - text: five characters, like `23505`. Any other length gives `.NONE`.
 sqlstate_of :: (text: string) -> Sqlstate {
     if text.count != SQLSTATE_LENGTH return .NONE;
     value: u64;

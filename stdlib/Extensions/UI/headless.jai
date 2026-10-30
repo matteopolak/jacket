@@ -12,6 +12,8 @@ Headless_Options :: struct {
 // A UI that is not attached to a window. Fonts are synthetic (every character is 0.6 of the font
 // size wide) unless `system_fonts` is set, so layouts are the same on every machine. Release it
 // with `free_ui`.
+//
+// - options: window size, scale, fonts and theme.
 headless :: (options: Headless_Options = .{}) -> UI_State {
     ui: UI_State;
 
@@ -31,6 +33,10 @@ headless :: (options: Headless_Options = .{}) -> UI_State {
 }
 
 // Change the logical size of the window a UI draws into.
+//
+// - ui: the UI to resize.
+// - width: the new width in points.
+// - height: the new height in points.
 resize :: (ui: *UI_State, width: float, height: float) {
     ui.size = .{ width, height };
     ui.wants_frame = true;
@@ -46,23 +52,36 @@ Find_Query :: struct {
 }
 
 // The first node matching `query`, in tree order, or null.
+//
+// - ui: the UI to search.
+// - query: what the node must match.
 find :: (ui: *UI_State, query: Find_Query) -> *Node {
     skipped := 0;
     return find_in(ui.root, query, *skipped);
 }
 
 // The first node with this label.
+//
+// - ui: the UI to search.
+// - label: the label to match exactly.
 find_label :: (ui: *UI_State, label: string) -> *Node {
     return find(ui, .{ label = label });
 }
 
 // The nth node with this role.
+//
+// - ui: the UI to search.
+// - role: the role to match.
+// - index: which match to take, from 0.
 find_role :: (ui: *UI_State, role: Role, index: int = 0) -> *Node {
     return find(ui, .{ role = role, match_role = true, index = index });
 }
 
 // Move the pointer to the centre of `node` and click it. The next `frame` applies it and shows the result. `node` must come
 // from a frame that has already laid it out.
+//
+// - ui: the UI to send the click to.
+// - node: the node to click. Null does nothing.
 click :: (ui: *UI_State, node: *Node) {
     if !node return;
 
@@ -72,6 +91,10 @@ click :: (ui: *UI_State, node: *Node) {
 }
 
 // Click at a point in the window.
+//
+// - ui: the UI to send the click to.
+// - x: horizontal position in points.
+// - y: vertical position in points.
 click_at :: (ui: *UI_State, x: float, y: float) {
     send_mouse_move(ui, x, y);
     send_mouse_down(ui);
@@ -80,6 +103,8 @@ click_at :: (ui: *UI_State, x: float, y: float) {
 
 // The tree as indented text: role, label or text, and the rectangle of each node. Useful as a
 // snapshot of a layout.
+//
+// - ui: the UI to dump.
 layout_dump :: (ui: *UI_State) -> string {
     builder: String_Builder;
     dump_node(*builder, ui.root, 0);

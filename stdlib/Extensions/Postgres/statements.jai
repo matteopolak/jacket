@@ -16,6 +16,12 @@ Plan :: enum u8 {
 // Runs one statement like `query_dynamic`, prepared under a name and kept in the connection's cache
 // (unless `plan` is `.CUSTOM` or the cache is off): the first run parses it, later runs with the
 // same text and parameter types only bind. Typed queries do this on their own.
+//
+// - c: the connection to run on.
+// - sql: the statement text, with `$1`, `$2`, ... for the arguments.
+// - args: one value per parameter, in order.
+// - plan: `.AUTO` prepares and caches the statement; `.CUSTOM` uses the unnamed statement.
+// - binary: return result values in the binary format instead of text.
 query_cached :: (c: *Connection, sql: string, args: ..Any, plan := Plan.AUTO, binary := false) -> Result, Pg_Error {
     values := args; // `sql` is not a print format: keep it and `args` out of one call
     result, error := run_extended(c, sql, values, ifx binary then Format.BINARY else .TEXT, plan == .AUTO);
@@ -24,12 +30,17 @@ query_cached :: (c: *Connection, sql: string, args: ..Any, plan := Plan.AUTO, bi
 }
 
 // How many statements the connection has prepared on the server and remembers.
+//
+// - c: the connection to ask about.
 statement_cache_count :: (c: *Connection) -> s64 {
     return c.statements.entries.count;
 }
 
 // The server name of the statement a query with this text and these parameter types is prepared
 // as (`j` and 16 hex digits), for looking it up in `pg_prepared_statements`.
+//
+// - sql: the statement text as sent to the server.
+// - parameter_types: the parameter type OIDs it was prepared with; none by default.
 statement_name :: (sql: string, parameter_types: [] u32 = .[]) -> string {
     return join("j", id_hex(cache_id(sql, parameter_types)),, temp);
 }

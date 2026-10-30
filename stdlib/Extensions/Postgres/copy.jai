@@ -6,6 +6,11 @@
 // binary forms exactly (an `s32` for `int4`, an `s64` for `int8`): COPY casts nothing. A `Json(T)`
 // member goes as `jsonb` unless it has the `@pg_json` note, which sends it as `json`.
 //
+// - c: the connection to run on.
+// - sql: the `copy ... from stdin (format binary)` statement.
+// - rows: the structs to send, one per row.
+// - columns: the members to send, in column order. Empty sends every member.
+//
 // ```jai,ignore
 // stored, error := Pg.copy_in(db, "copy users (email, score) from stdin (format binary)", users, .["email", "score"]);
 // ```
@@ -33,6 +38,12 @@ copy_in :: (c: *Connection, sql: string, rows: [] $Row, columns: [] string = .[]
     return state.stored, .{};
 }
 
+// `copy_in` on a connection from the pool.
+//
+// - pool: the pool to take a connection from. It is returned afterwards.
+// - sql: the `copy ... from stdin (format binary)` statement.
+// - rows: the structs to send, one per row.
+// - columns: the members to send, in column order. Empty sends every member.
 copy_in :: (pool: *Pool, sql: string, rows: [] $Row, columns: [] string = .[]) -> s64, Pg_Error {
     c, error := acquire(pool);
     if error.kind != .NONE return 0, error;
@@ -51,6 +62,11 @@ Copy_Out_Proc :: #type (data: [] u8, user_data: *void);
 // Runs a `COPY <table or (query)> TO STDOUT` statement and calls `proc` with each piece of its
 // data, as it arrives, so a table of any size streams through. Returns how many rows the server
 // sent. Any format works: text, CSV or binary.
+//
+// - c: the connection to run on.
+// - sql: the `copy ... to stdout` statement, in any format.
+// - proc: called with each piece of data as it arrives.
+// - user_data: handed to `proc` as it is.
 //
 // ```jai,ignore
 // count, error := Pg.copy_out(db, "copy (select email from users) to stdout (format csv)", write_chunk, file);
@@ -73,6 +89,12 @@ copy_out :: (c: *Connection, sql: string, proc: Copy_Out_Proc, user_data: *void 
     return state.sent, .{};
 }
 
+// `copy_out` to a callback, on a connection from the pool.
+//
+// - pool: the pool to take a connection from. It is returned afterwards.
+// - sql: the `copy ... to stdout` statement, in any format.
+// - proc: called with each piece of data as it arrives.
+// - user_data: handed to `proc` as it is.
 copy_out :: (pool: *Pool, sql: string, proc: Copy_Out_Proc, user_data: *void = null) -> s64, Pg_Error {
     c, error := acquire(pool);
     if error.kind != .NONE return 0, error;
@@ -91,6 +113,9 @@ Copy_Rows :: struct(Row: Type) {
     result: Result;
 }
 
+// Frees the rows of a binary COPY and everything they point to.
+//
+// - copied: the rows to free. It is empty afterwards.
 free_copy_rows :: (copied: *Copy_Rows($Row)) {
     array_free(copied.rows);
     free_result(*copied.result);
@@ -102,6 +127,11 @@ free_copy_rows :: (copied: *Copy_Rows($Row)) {
 // statement's column order, or every member when `columns` is empty. A member needs the type
 // `copy_in` would send for the column (an `s32` for `int4`, a `Nullable` for a column that can be
 // NULL, `@pg_json` for `json`). The whole result is read into memory.
+//
+// - c: the connection to run on.
+// - sql: the `copy ... to stdout (format binary)` statement.
+// - $Row: the struct each row is decoded into.
+// - columns: the members to fill, in the statement's column order. Empty fills every member.
 //
 // ```jai,ignore
 // copied, error := Pg.copy_out(db, "copy users (email, score) to stdout (format binary)", User_Row, .["email", "score"]);
@@ -142,6 +172,12 @@ copy_out :: (c: *Connection, sql: string, $Row: Type, columns: [] string = .[]) 
     return copied, .{};
 }
 
+// `copy_out` into structs, on a connection from the pool.
+//
+// - pool: the pool to take a connection from. It is returned afterwards.
+// - sql: the `copy ... to stdout (format binary)` statement.
+// - $Row: the struct each row is decoded into.
+// - columns: the members to fill, in the statement's column order. Empty fills every member.
 copy_out :: (pool: *Pool, sql: string, $Row: Type, columns: [] string = .[]) -> Copy_Rows(Row), Pg_Error {
     c, error := acquire(pool);
     if error.kind != .NONE return .{}, error;

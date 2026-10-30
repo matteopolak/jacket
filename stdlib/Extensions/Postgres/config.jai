@@ -173,6 +173,8 @@ Host_Port :: struct {
 // `postgres://user:password@host:port/database?sslmode=verify-full&application_name=api`.
 // `postgresql://` works too. A Unix socket directory goes in `host`, percent-encoded or as a
 // parameter: `postgres:///app?host=/var/run/postgresql`. It is `parse_conninfo` for a URI.
+//
+// - url: a `postgres://` or `postgresql://` URL.
 parse_url :: (url: string) -> Config, Pg_Error {
     if conninfo_uri_prefix(url) == 0 {
         return .{}, make_error(.CONFIG, "a URL must start with postgres:// or postgresql://, not %", url);
@@ -194,6 +196,9 @@ parse_url :: (url: string) -> Config, Pg_Error {
 // With `use_environment` the keywords that were not given come from `PGHOST`, `PGPORT`,
 // `PGUSER`, `PGPASSWORD`, `PGDATABASE` and the other variables libpq reads; otherwise only the
 // text counts. The config owns its strings: `free_config`.
+//
+// - text: a URI or a `key=value` list.
+// - use_environment: fill the keywords left unset from the `PG*` environment variables.
 parse_conninfo :: (text: string, use_environment := false) -> Config, Pg_Error {
     info, error := parse_conninfo_options(text);
     if error.kind != .NONE return .{}, error;
@@ -206,6 +211,9 @@ parse_conninfo :: (text: string, use_environment := false) -> Config, Pg_Error {
 // The `Config` for the options of a connection string, as `parse_conninfo` makes it. Programs
 // that combine several sources (a command line and a connection string) set the options
 // themselves with `conninfo_set` first.
+//
+// - info: the options to build from. It is not freed.
+// - use_environment: fill the keywords left unset from the `PG*` environment variables.
 config_from_conninfo :: (info: Conninfo, use_environment := false) -> Config, Pg_Error {
     config: Config;
     config.owned = true;
@@ -437,6 +445,8 @@ config_from_conninfo :: (info: Conninfo, use_environment := false) -> Config, Pg
 }
 
 // A config that owns copies of its strings, for keeping beyond the original (`free_config`).
+//
+// - config: the config to copy.
 copy_config :: (config: Config) -> Config {
     copy := config;
     copy.owned = true;
@@ -473,6 +483,8 @@ copy_config :: (config: Config) -> Config {
 
 // Frees the strings of a config from `parse_conninfo`, `parse_url` or `copy_config`; does nothing
 // for one the program built.
+//
+// - config: the config to free. A config that does not own its strings is left alone.
 free_config :: (config: *Config) {
     if !config.owned return;
 

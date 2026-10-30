@@ -12,6 +12,9 @@
 
 #if TLS {
     // "" when the certificate is for `host`, else why not.
+    //
+    // - stream: the finished TLS handshake, whose peer certificate is checked.
+    // - host: the host name or address the client connected to.
     verify_server_name :: (stream: *Tls.Tls_Stream, host: string) -> string {
         der := Tls.peer_certificate_der(stream);
         names: Tls.Certificate_Names;
@@ -68,6 +71,9 @@
         return tprint("server certificate for \"%\" (and % other name%) does not match host name \"%\"", first, examined - 1, ifx examined == 2 then "" else "s", host);
     }
 
+    // The address `host` stands for and true, or false when `host` is a name.
+    //
+    // - host: the host name or address, without a trailing dot.
     host_address :: (host: string) -> Io.Address, bool {
         colons := 0;
 
@@ -95,10 +101,17 @@
         return address, true;
     }
 
+    // Whether `c` is `a` to `f` in either case.
+    //
+    // - c: the byte to test.
     is_hex_letter :: (c: u8) -> bool {
         return (c >= #char "a" && c <= #char "f") || (c >= #char "A" && c <= #char "F");
     }
 
+    // Whether the certificate entry is `address`, byte for byte.
+    //
+    // - raw: an iPAddress entry of the certificate: 4 or 16 bytes.
+    // - address: the address the client connected to.
     address_matches :: (raw: string, address: Io.Address) -> bool {
         length := ifx address.family == .IPV4 then 4 else 16;
 
@@ -112,6 +125,8 @@
     }
 
     // The text of a raw address, as libpq shows it in its messages.
+    //
+    // - raw: an iPAddress entry of the certificate: 4 or 16 bytes.
     address_text :: (raw: string) -> string {
         address: Io.Address;
         address.family = ifx raw.count == 4 then .IPV4 else .IPV6;
@@ -131,6 +146,10 @@
 
     // A name from the certificate against the host: equal without regard to case, or a wildcard
     // `*.rest` for a host with exactly one more label in front of `.rest`.
+    //
+    // - certificate_name: a dNSName entry or common name from the certificate.
+    // - host: the host name or address the client connected to.
+    // - host_is_address: `host` is an address: a wildcard name never matches it.
     name_matches :: (certificate_name: string, host: string, host_is_address: bool) -> bool {
         name := certificate_name;
 

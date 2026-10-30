@@ -13,26 +13,44 @@ Rect :: struct {
 Color :: Vector4;
 
 // A colour from 0 to 255 channels.
+//
+// - r: red, 0 to 255.
+// - g: green, 0 to 255.
+// - b: blue, 0 to 255.
+// - a: alpha, 0 (clear) to 255 (opaque).
 rgb :: (r: int, g: int, b: int, a: int = 255) -> Color {
     return .{ r / 255.0, g / 255.0, b / 255.0, a / 255.0 };
 }
 
 // A colour from a `0xRRGGBB` number.
+//
+// - value: the colour as `0xRRGGBB`.
+// - alpha: alpha, 0 to 1.
 hex :: (value: u32, alpha: float = 1) -> Color {
     return .{ ((value >> 16) & 0xFF) / 255.0, ((value >> 8) & 0xFF) / 255.0, (value & 0xFF) / 255.0, alpha };
 }
 
 // `color` with its alpha replaced.
+//
+// - color: the colour to start from.
+// - alpha: the new alpha, 0 to 1.
 with_alpha :: (color: Color, alpha: float) -> Color {
     return .{ color.x, color.y, color.z, alpha };
 }
 
 // Whether the point lies inside `rect`.
+//
+// - rect: the rectangle. Its left and top edges count as inside, its right and bottom edges do not.
+// - x: the point's horizontal position.
+// - y: the point's vertical position.
 contains :: (rect: Rect, x: float, y: float) -> bool {
     return x >= rect.x && y >= rect.y && x < rect.x + rect.w && y < rect.y + rect.h;
 }
 
 // The overlap of two rectangles (zero-sized when they do not touch).
+//
+// - a: the first rectangle.
+// - b: the second rectangle.
 intersect :: (a: Rect, b: Rect) -> Rect {
     x0 := max(a.x, b.x);
     y0 := max(a.y, b.y);
@@ -43,6 +61,9 @@ intersect :: (a: Rect, b: Rect) -> Rect {
 }
 
 // `rect` shrunk by `amount` on every side.
+//
+// - rect: the rectangle to shrink.
+// - amount: how far to move each edge in. The size stops at zero instead of going negative.
 inset :: (rect: Rect, amount: float) -> Rect {
     return .{ rect.x + amount, rect.y + amount, max(rect.w - 2 * amount, 0), max(rect.h - 2 * amount, 0) };
 }
@@ -110,6 +131,8 @@ Style :: struct {
 }
 
 // `value` rounded to the nearest whole number (halves go up).
+//
+// - value: the number to round.
 round :: (value: float) -> float {
     return floor(value + 0.5);
 }

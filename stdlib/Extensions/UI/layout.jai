@@ -4,6 +4,8 @@
 
 // Measure and arrange the whole tree for the window's size. `end_frame` calls it; call it again
 // only after changing a node by hand.
+//
+// - ui: the UI whose tree to lay out.
 layout_tree :: (ui: *UI_State) {
     root := ui.root;
 
@@ -16,6 +18,8 @@ layout_tree :: (ui: *UI_State) {
 // A focusable widget with no room is reported once: it cannot be seen or clicked, and nothing else says why. The usual cause is
 // a column or row that is not given `grow`, so its children get only their natural size and a widget that has none (a text
 // editor) gets nothing. Called by `end_frame` when `DEBUG_WARNINGS` is on.
+//
+// - ui: the UI whose nodes to check.
 warn_zero_size_focusables :: (ui: *UI_State) {
     for node: ui.nodes {
         if !node.focusable || node.warned_zero_size continue;

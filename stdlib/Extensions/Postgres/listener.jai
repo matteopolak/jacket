@@ -39,6 +39,10 @@ LISTENER_QUEUE :: 256; // notifications held before the reader waits for the pro
 LISTENER_RETRY_FIRST :: 100; // ms before the first reconnect attempt, doubling
 LISTENER_RETRY_LAST :: 5_000;
 
+// Starts a listener on `channels`, holding a connection from `pool`.
+//
+// - pool: the pool the connection is taken from and returned to.
+// - channels: the channels to LISTEN on.
 listen :: (pool: *Pool, channels: ..string) -> *Listener, Pg_Error {
     if !pool return null, make_error(.USAGE, "no pool");
     if !channels.count return null, make_error(.USAGE, "listen needs at least one channel");
@@ -70,6 +74,8 @@ listen :: (pool: *Pool, channels: ..string) -> *Listener, Pg_Error {
 // The next notification, in order. Blocks the fiber until one arrives, within any `Io.with_deadline`
 // or `Io.cancel` (`.TIMED_OUT` or `.CANCELED`); `.CLOSED` once the listener is closed and what it
 // held is taken. Free the notification with `free_notification`.
+//
+// - listener: the listener to read from.
 receive :: (listener: *Listener) -> Notification, Pg_Error {
     while !listener.queue.count {
         if listener.closed return .{}, make_error(.CLOSED, "the listener is closed");
@@ -88,6 +94,8 @@ receive :: (listener: *Listener) -> Notification, Pg_Error {
 
 // Stops listening: the connection goes back to the pool without its subscriptions, and the
 // listener is freed. Notifications not taken yet are dropped.
+//
+// - listener: the listener to close. Null does nothing.
 close_listener :: (listener: *Listener) {
     if !listener return;
 

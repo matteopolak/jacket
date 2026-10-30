@@ -49,6 +49,8 @@ Tls_Error :: struct {
 // The sentence behind an error ("the certificate has expired"), or "". It is a copy in temporary
 // storage, so it stays valid when the error is copied or goes out of scope, until the temporary
 // storage is reset; copy it with `copy_string` to keep it longer.
+//
+// - error: the error to read the sentence from.
 detail :: (error: *Tls_Error) -> string {
     if error.detail_count == 0 return "";
 
@@ -56,6 +58,8 @@ detail :: (error: *Tls_Error) -> string {
 }
 
 // The name of an alert description ("unknown_ca"), or "" for a number the module does not know.
+//
+// - alert: the alert description number, as in `Tls_Error.alert`.
 alert_name :: (alert: u8) -> string {
     if alert == {
         case 0; return "close_notify";
@@ -99,6 +103,8 @@ alert_name :: (alert: u8) -> string {
 
 // One line for logs and messages: "certificate verification failed: the certificate has expired".
 // Like `detail`, the text is in temporary storage, never inside the error.
+//
+// - error: the error to describe.
 error_text :: (error: Tls_Error) -> string {
     if error.kind == .NONE return "no error";
 

@@ -18,6 +18,16 @@ NO_ORDER :: #code null;
 // your own that returns its columns, with `%name` / `%(expression)` parameters:
 // `from_sql = "select * from users_visible_to(%viewer)"`. `fields = "id, email"` selects only
 // those columns, and the rows are then `Partial(T, "id, email")`.
+//
+// - db: a connection or pool.
+// - T: the table struct.
+// - where: the filter. Every row by default.
+// - order_by: the sort key. No order by default.
+// - desc: sort descending.
+// - limit: the most rows to return. -1 for all.
+// - offset: how many rows to skip first.
+// - from_sql: a query to select from instead of the table.
+// - fields: the comma-separated columns to select. All by default.
 select :: (db: $D, $T: Type, $where: Code = EVERY_ROW, $order_by: Code = NO_ORDER, $desc := false, $limit := -1, $offset := 0, $from_sql := "", $fields := "", $call := #caller_code) -> Rows(#insert #run orm_select_row(fields)), Pg_Error #expand {
     #insert #run orm_statement_code(T, .SELECT, where, order_by, where, desc, limit, offset, from_sql, fields, call);
 }
@@ -34,12 +44,21 @@ Partial :: struct(T: Type, fields: string) {
 
 // Sets fields of the rows that pass `where`: `set = #code it.score = score + 1` (or a block of such
 // assignments). Returns the number of rows changed.
+//
+// - db: a connection or pool.
+// - T: the table struct.
+// - set: the assignments to make.
+// - where: the filter.
 update :: (db: $D, $T: Type, $set: Code, $where: Code, $call := #caller_code) -> s64, Pg_Error #expand {
     #insert #run orm_statement_code(T, .UPDATE, where, where, set, false, -1, 0, "", "", call);
 }
 
 // Deletes the rows that pass `where` and returns how many there were. `where` is required: pass
 // `#code true` to delete every row.
+//
+// - db: a connection or pool.
+// - T: the table struct.
+// - where: the filter.
 delete :: (db: $D, $T: Type, $where: Code, $call := #caller_code) -> s64, Pg_Error #expand {
     #insert #run orm_statement_code(T, .DELETE, where, where, where, false, -1, 0, "", "", call);
 }
@@ -47,12 +66,18 @@ delete :: (db: $D, $T: Type, $where: Code, $call := #caller_code) -> s64, Pg_Err
 // Inserts `value` and returns the row the table now holds (with its defaults and generated
 // columns). Fields with a database default (`@pg_default`) or a generated value
 // (`@pg_generated`) are left to the database.
+//
+// - db: a connection or pool.
+// - value: the row to insert.
 insert :: (db: $D, value: $T, $call := #caller_code) -> T, Pg_Error #expand {
     #insert #run orm_insert_code(T, call);
 }
 
 // Inserts each value in turn (one statement each), stopping at the first error. Returns the rows
 // inserted so far, from context.allocator.
+//
+// - db: a connection or pool.
+// - values: the rows to insert.
 insert_many :: (db: $D, values: [] $T, $call := #caller_code) -> [] T, Pg_Error {
     rows: [..] T;
 
@@ -74,6 +99,17 @@ insert_many :: (db: $D, values: [] $T, $call := #caller_code) -> [] T, Pg_Error 
 // starts, and a failure lands in `error` (which is cleared first). Strings in `it` read from the
 // result, which is freed when the loop ends: copy what you keep.
 //
+// - db: a connection or pool.
+// - T: the table struct.
+// - error: set to the failure, if any, once the loop starts.
+// - where: the filter. Every row by default.
+// - order_by: the sort key. No order by default.
+// - desc: sort descending.
+// - limit: the most rows to read. -1 for all.
+// - offset: how many rows to skip first.
+// - from_sql: a query to select from instead of the table.
+// - strategy: how to load has-many relations the body reads.
+//
 // ```jai,ignore
 // error: Pg.Pg_Error;
 // for Pg.each(db, User, *error, where = #code it.score > min) print("%\n", it.email);   // select "id", "email" ...
@@ -94,6 +130,11 @@ Orm_Each :: struct(D: Type, T: Type, where: Code, order_by: Code, desc: bool, li
     error: *Pg_Error;
 }
 
+// Makes `Pg.each` loopable.
+//
+// - q: the `Pg.each` call.
+// - body: the loop body.
+// - flags: the loop's flags.
 for_expansion :: (q: *Orm_Each($D, $T, $where, $order_by, $desc, $limit, $offset, $from_sql, $strategy, $call), body: Code, flags: For_Flags) #expand {
     #insert #run orm_each_code(T, where, order_by, desc, limit, offset, from_sql, strategy, body, call);
 }
@@ -101,6 +142,9 @@ for_expansion :: (q: *Orm_Each($D, $T, $where, $order_by, $desc, $limit, $offset
 // Stores `values` with one binary COPY and returns how many rows the server stored. Much faster
 // than `insert_many` for many rows, but it reads nothing back: fields marked `@pg_default` or
 // `@pg_generated` are left to the database, as in `insert`, and their values are not returned.
+//
+// - db: a connection or pool.
+// - values: the rows to store.
 copy_many :: (db: $D, values: [] $T) -> s64, Pg_Error {
     #insert #run orm_copy_code(T);
 }
@@ -128,19 +172,38 @@ Loaded_One :: struct(Item: Type) {
     result: Result;
 }
 
+// Loads a has-many relation for several rows; see `Loaded_Many`.
+//
+// - db: a connection or pool.
+// - parents: the rows to load for.
+// - relation: the name of the `@pg_has_many` relation.
 load_many :: (db: $D, parents: [] $T, $relation: string, $call := #caller_code) -> Loaded_Many(#insert,scope(call) #run orm_relation_target(T, relation, .HAS_MANY)), Pg_Error #expand {
     #insert #run orm_load_code(T, relation, .HAS_MANY, "", orm_project_argument(call));
 }
 
+// Loads a to-one relation for several rows; see `Loaded_One`.
+//
+// - db: a connection or pool.
+// - parents: the rows to load for.
+// - relation: the name of the `@pg_belongs_to` relation.
 load_one :: (db: $D, parents: [] $T, $relation: string, $call := #caller_code) -> Loaded_One(#insert,scope(call) #run orm_relation_target(T, relation, .BELONGS_TO)), Pg_Error #expand {
     #insert #run orm_load_code(T, relation, .BELONGS_TO, "", orm_project_argument(call));
 }
 
 // `load_many` with the related struct given, for `Pg.each`, whose loop knows it already.
+//
+// - db: a connection or pool.
+// - parents: the rows to load for.
+// - relation: the name of the `@pg_has_many` relation.
+// - Target: the related struct.
+// - project_file: the file the loop is in.
 orm_load_many_as :: (db: $D, parents: [] $T, $relation: string, $Target: Type, $project_file: string) -> Loaded_Many(Target), Pg_Error {
     #insert #run orm_load_code(T, relation, .HAS_MANY, "Target", ", project_file = project_file");
 }
 
+// Frees what `load_many` returned.
+//
+// - loaded: the loaded rows. They are zeroed.
 free_loaded :: (loaded: *Loaded_Many($Item)) {
     array_free(loaded.items);
     array_free(loaded.rows);
@@ -148,6 +211,9 @@ free_loaded :: (loaded: *Loaded_Many($Item)) {
     loaded.* = .{};
 }
 
+// Frees what `load_one` returned.
+//
+// - loaded: the loaded rows. They are zeroed.
 free_loaded :: (loaded: *Loaded_One($Item)) {
     array_free(loaded.items);
     array_free(loaded.rows);
@@ -165,42 +231,64 @@ free_loaded :: (loaded: *Loaded_One($Item)) {
 //   string literal.
 
 // `like`: `Pg.like(it.email, "%@example.com")`.
+//
+// - value: the text to test.
+// - pattern: the `like` pattern.
 like :: (value: string, pattern: string) -> bool {
     return false;
 }
 
 // `ilike`: case-insensitive `like`.
+//
+// - value: the text to test.
+// - pattern: the `like` pattern.
 ilike :: (value: string, pattern: string) -> bool {
     return false;
 }
 
 // `= any(values)`: `Pg.in(it.id, ids)`.
+//
+// - value: the value to look for.
+// - values: the values it may be.
 in :: (value: $T, values: [] T) -> bool {
     return false;
 }
 
 // `lower(value)`.
+//
+// - value: the text.
 lower :: (value: string) -> string {
     return "";
 }
 
 // `upper(value)`.
+//
+// - value: the text.
 upper :: (value: string) -> string {
     return "";
 }
 
 // `(value is null or condition)`: an optional filter, `Pg.if_some(team, #code it.team_id == team)`
 // with `team: Nullable(s64)`, where `team` stands for its value inside the condition.
+//
+// - value: the optional value.
+// - condition: the filter used when `value` is set.
 if_some :: (value: $T, condition: Code) -> bool {
     return false;
 }
 
 // `?`: the jsonb document has the top-level key: `Pg.has_key(it.settings, "beta")`.
+//
+// - document: the jsonb column.
+// - key: the top-level key.
 has_key :: (document: $T, key: string) -> bool {
     return false;
 }
 
 // `@?`: the jsonpath matches: `Pg.json_path(it.settings, "$.tags[*] ? (@ == \"x\")")`.
+//
+// - document: the jsonb column.
+// - path: the jsonpath.
 json_path :: (document: $T, path: string) -> bool {
     return false;
 }

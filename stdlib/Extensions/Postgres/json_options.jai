@@ -43,6 +43,8 @@ Json_Options :: struct {
 
 // A `Json_Columns` entry's three options as the second parameter of `Json(T, OPTIONS)`: two bits
 // each, in the order of the enums.
+//
+// - options: the options to pack. `max_depth` and `max_size` are not part of it.
 pack_json_options :: (options: Json_Options) -> u32 {
     unknown: u32 = xx options.unknown_fields;
     missing: u32 = xx options.missing_fields;
@@ -51,6 +53,9 @@ pack_json_options :: (options: Json_Options) -> u32 {
     return unknown | (missing << 2) | (duplicate << 4);
 }
 
+// The options `pack_json_options` packed.
+//
+// - packed: the value `pack_json_options` made.
 unpack_json_options :: (packed: u32) -> Json_Options {
     options: Json_Options;
 

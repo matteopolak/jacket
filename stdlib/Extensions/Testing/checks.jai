@@ -4,6 +4,9 @@
 // ```jai
 // expect(1 + 1 == 2);
 // ```
+//
+// - condition: what must be true.
+// - message: what to report instead of the default.
 expect :: (condition: bool, message := "", loc := #caller_location) -> bool {
     if condition return true;
     report_failure(loc, ifx message then message else "expected true, got false");
@@ -13,6 +16,9 @@ expect :: (condition: bool, message := "", loc := #caller_location) -> bool {
 // `got` and `want` are compared by value: numbers of any width, strings, enums, arrays element
 // by element (fixed, view and resizable alike) and structs member by member. Strings and arrays
 // that differ get a diff.
+//
+// - got: the value under test.
+// - want: the value it must equal.
 expect_equal :: (got: $T, want: $U, loc := #caller_location) -> bool {
     if values_equal(got, want) return true;
     report_failure(loc, describe_difference(got, want));
@@ -28,6 +34,10 @@ expect_equal :: (got: $T, want: $U, loc := #caller_location) -> bool {
 // ```jai,compile_fail
 // expect_near("half", 0.5, 0.1);
 // ```
+//
+// - got: the value under test.
+// - want: the value it should be close to.
+// - tolerance: the largest allowed difference.
 expect_near :: (got: float64, want: float64, tolerance: float64, loc := #caller_location) -> bool {
     difference := got - want;
     if difference < 0 difference = -difference;
@@ -38,12 +48,18 @@ expect_near :: (got: float64, want: float64, tolerance: float64, loc := #caller_
     return false;
 }
 
+// Checks that `pointer` is null.
+//
+// - pointer: the pointer that must be null.
 expect_null :: (pointer: *$T, loc := #caller_location) -> bool {
     if pointer == null return true;
     report_failure(loc, tprint("expected null, got %", cast(*void) pointer));
     return false;
 }
 
+// Checks that `pointer` is not null.
+//
+// - pointer: the pointer that must not be null.
 expect_not_null :: (pointer: *$T, loc := #caller_location) -> bool {
     if pointer != null return true;
     report_failure(loc, "expected a pointer, got null");
@@ -52,18 +68,33 @@ expect_not_null :: (pointer: *$T, loc := #caller_location) -> bool {
 
 // The `require` forms check the same way and, when the check fails, return from the procedure
 // they are written in (which must return nothing).
+//
+// - condition: what must be true.
+// - message: what to report instead of the default.
 require :: (condition: bool, message := "", loc := #caller_location) #expand {
     if !expect(condition, message, loc) `return;
 }
 
+// `expect_equal`, then returns from the calling procedure on a failure.
+//
+// - got: the value under test.
+// - want: the value it must equal.
 require_equal :: (got: $T, want: $U, loc := #caller_location) #expand {
     if !expect_equal(got, want, loc) `return;
 }
 
+// `expect_near`, then returns from the calling procedure on a failure.
+//
+// - got: the value under test.
+// - want: the value it should be close to.
+// - tolerance: the largest allowed difference.
 require_near :: (got: float64, want: float64, tolerance: float64, loc := #caller_location) #expand {
     if !expect_near(got, want, tolerance, loc) `return;
 }
 
+// `expect_not_null`, then returns from the calling procedure on a failure.
+//
+// - pointer: the pointer that must not be null.
 require_not_null :: (pointer: *$T, loc := #caller_location) #expand {
     if !expect_not_null(pointer, loc) `return;
 }

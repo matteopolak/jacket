@@ -18,6 +18,9 @@ Tls :: #import "Extensions/Tls";
 
 #load "../tests/fixtures/certs.jai";
 
+// The text of the test file called `name`.
+//
+// - name: a file name from the fixtures, such as "ca.pem".
 load :: (name: string) -> string {
     for DATA if it.name == name return it.text;
 
@@ -60,6 +63,9 @@ Acceptor :: struct {
     done: *Io.Channel(bool);
 }
 
+// Accepts one connection (and finishes the TLS handshake when `job.tls`).
+//
+// - job: the listener, config and result slots to use.
 accept_one :: (job: *Acceptor) {
     error: Io.Io_Error;
 
@@ -77,6 +83,11 @@ accept_one :: (job: *Acceptor) {
 }
 
 // Connects a client to a server over a fresh listener. `client_sends` says which end writes.
+//
+// - tls: wrap the connection in TLS, or leave it plain.
+// - server_config: the server's config.
+// - client_config: the client's config.
+// - client_sends: true if the client writes and the server reads, false for the reverse.
 connect :: (tls: bool, server_config: *Tls.Tls_Config, client_config: *Tls.Tls_Config, client_sends: bool) -> Pair {
     pair: Pair;
     job: Acceptor;
@@ -132,6 +143,9 @@ connect :: (tls: bool, server_config: *Tls.Tls_Config, client_config: *Tls.Tls_C
     return pair;
 }
 
+// Closes both ends of the pair.
+//
+// - pair: the pair to close.
 close_pair :: (pair: *Pair) {
     for pair.streams if it Tls.close(it);
 
@@ -150,6 +164,9 @@ Transfer :: struct {
     done: *Io.Channel(bool);
 }
 
+// Writes `job.bytes` bytes to `job.writer` in chunks, then signals `job.done`.
+//
+// - job: where to write, how much, and the channel to signal.
 send_bytes :: (job: *Transfer) {
     buffer := alloc_array(CHUNK);
 
@@ -172,6 +189,9 @@ send_bytes :: (job: *Transfer) {
     Io.send(job.done, true);
 }
 
+// A fresh byte array of `count` bytes.
+//
+// - count: the number of bytes.
 alloc_array :: (count: int) -> [] u8 {
     data := cast(*u8) alloc(count);
 
@@ -179,6 +199,9 @@ alloc_array :: (count: int) -> [] u8 {
 }
 
 // Moves `bytes` through the pair and returns the MiB/s the receiver saw.
+//
+// - pair: the connected pair to send through.
+// - bytes: how many bytes to move.
 transfer :: (pair: Pair, bytes: int) -> float64 {
     job := Transfer.{ writer = pair.sender, bytes = bytes, done = Io.make_channel(bool, 1) };
 
@@ -216,6 +239,9 @@ Shaker :: struct {
     count: int;
 }
 
+// Accepts `job.count` connections and closes each after its handshake.
+//
+// - job: the listener, config and count.
 shake_server :: (job: *Shaker) {
     for 1..job.count {
         tcp, error := Io.accept(job.listener);
@@ -231,6 +257,11 @@ shake_server :: (job: *Shaker) {
     }
 }
 
+// Runs `count` full handshakes in a row and returns how many completed per second.
+//
+// - server_config: the server's config.
+// - client_config: the client's config.
+// - count: how many handshakes to run.
 handshakes_per_second :: (server_config: *Tls.Tls_Config, client_config: *Tls.Tls_Config, count: int) -> float64 {
     job := Shaker.{ config = server_config, count = count };
     error: Io.Io_Error;
@@ -264,6 +295,9 @@ handshakes_per_second :: (server_config: *Tls.Tls_Config, client_config: *Tls.Tl
     return cast(float64) count / (elapsed / 1000.0);
 }
 
+// The middle value of `values`.
+//
+// - values: the samples. Must not be empty.
 median :: (values: [] float64) -> float64 {
     sorted := NewArray(values.count, float64,, temp);
 
@@ -274,6 +308,9 @@ median :: (values: [] float64) -> float64 {
     return sorted[sorted.count / 2];
 }
 
+// The largest of `values`.
+//
+// - values: the samples. Must not be empty.
 best :: (values: [] float64) -> float64 {
     result := values[0];
 
@@ -282,6 +319,11 @@ best :: (values: [] float64) -> float64 {
     return result;
 }
 
+// Prints the median and best of `values`.
+//
+// - name: the label for the line.
+// - values: the samples, one per round.
+// - unit: the unit printed after each number.
 report :: (name: string, values: [] float64, unit: string) {
     print("%  median % %, best % %\n", name, formatFloat(median(values), 0, 1), unit, formatFloat(best(values), 0, 1), unit);
 }
@@ -358,6 +400,10 @@ main :: () {
     Io.io_run(run);
 }
 
+// `text` as an integer, or `fallback` when it is not one.
+//
+// - text: the argument to read.
+// - fallback: the value to use when `text` is not a number.
 number_or :: (text: string, fallback: int) -> int {
     value, ok := to_integer(text);
 

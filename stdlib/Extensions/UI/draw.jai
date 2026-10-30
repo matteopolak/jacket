@@ -26,18 +26,29 @@ Draw_List :: struct {
 }
 
 // Release the display list.
+//
+// - list: the display list to release.
 free_draw_list :: (list: *Draw_List) {
     array_free(list.cmds);
     array_free(list.clips);
 }
 
 // Empty the display list for a new frame.
+//
+// - list: the display list to empty. Its memory is kept.
 reset_draw_list :: (list: *Draw_List) {
     array_reset(*list.cmds);
     array_reset(*list.clips);
 }
 
 // Fill `rect` with `color`; `radius` rounds the corners and `border` draws an outline inside.
+//
+// - ui: the UI whose display list gets the entry.
+// - rect: the area to fill, in points.
+// - color: the fill colour.
+// - radius: corner radius in points.
+// - border: outline width in points.
+// - border_color: outline colour.
 draw_rect :: (ui: *UI_State, rect: Rect, color: Color, radius: float = 0, border: float = 0, border_color: Color = .{}) {
     if rect.w <= 0 || rect.h <= 0 return;
     if color.w <= 0 && (border <= 0 || border_color.w <= 0) return;
@@ -46,12 +57,24 @@ draw_rect :: (ui: *UI_State, rect: Rect, color: Color, radius: float = 0, border
 }
 
 // Draw one line of `text` with its top left at (`x`, `y`) and return its width in points.
+//
+// - ui: the UI whose display list gets the glyphs.
+// - x: left edge of the line.
+// - y: top edge of the line.
+// - text: the UTF-8 text. Control characters other than tab are skipped.
+// - style: font, size and colour.
 draw_text :: (ui: *UI_State, x: float, y: float, text: string, style: Text_Style) -> float {
     metrics := font_metrics(*ui.text, style.font, style.size);
     return draw_text_baseline(ui, x, y + metrics.ascent, text, style);
 }
 
 // Draw one line of `text` with its baseline at `baseline`, returning its width in points.
+//
+// - ui: the UI whose display list gets the glyphs.
+// - x: left edge of the line.
+// - baseline: vertical position of the baseline.
+// - text: the UTF-8 text. Control characters other than tab are skipped.
+// - style: font, size and colour.
 draw_text_baseline :: (ui: *UI_State, x: float, baseline: float, text: string, style: Text_Style) -> float {
     scale := ui.text.scale;
     pen := x;
@@ -85,6 +108,9 @@ draw_text_baseline :: (ui: *UI_State, x: float, baseline: float, text: string, s
 }
 
 // Restrict drawing to `rect` (intersected with the clip already in force) until `pop_clip`.
+//
+// - ui: the UI whose display list gets the clip.
+// - rect: the area to keep, in points.
 push_clip :: (ui: *UI_State, rect: Rect) {
     current := rect;
     if ui.draw.clips.count current = intersect(current, ui.draw.clips[ui.draw.clips.count - 1]);
@@ -94,6 +120,8 @@ push_clip :: (ui: *UI_State, rect: Rect) {
 }
 
 // End the innermost `push_clip`.
+//
+// - ui: the UI whose innermost clip to end.
 pop_clip :: (ui: *UI_State) {
     if !ui.draw.clips.count return;
 

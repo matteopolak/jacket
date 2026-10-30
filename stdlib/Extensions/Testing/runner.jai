@@ -30,10 +30,17 @@ Test_Flags :: enum_flags u32 {
     CASES; // a `@cases` test: its body is `run_cases`
 }
 
+// Runs `cases` without benchmarks.
+//
+// - cases: the tests to run.
 run_tests :: (cases: [] Test_Case) {
     run_tests(cases, Bench_Case.[]);
 }
 
+// Runs the tests and benchmarks selected by the command line.
+//
+// - cases: the tests to run.
+// - benches: the benchmarks to run.
 run_tests :: (cases: [] Test_Case, benches: [] Bench_Case) {
     runner_allocator = context.allocator;
     arguments := get_command_line_arguments();
@@ -155,6 +162,8 @@ run_tests :: (cases: [] Test_Case, benches: [] Bench_Case) {
 
 // Runs `body` as a test that prints nothing of its own: a failed check prints its message, and
 // the program exits with status 1. `jacket test` runs a doc comment's example with it.
+//
+// - body: the example to run.
 run_example :: (body: (t: *Test)) {
     runner_allocator = context.allocator;
     quiet = true;

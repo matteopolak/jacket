@@ -49,6 +49,9 @@ Stream :: enum u8 {
     ERROR;
 }
 
+// Whether output to `stream` should be coloured, by the colour mode and then the environment.
+//
+// - stream: the stream the output goes to.
 color_enabled :: (stream: Stream) -> bool {
     if color_mode == .ALWAYS return true;
     if color_mode == .NEVER return false;
@@ -313,6 +316,8 @@ render_help :: (root: *Command_Spec, path: [] string, color: bool) -> string {
 // usage: jaifmt [OPTIONS] [PATHS]...
 // For more information, run `jaifmt --help`.
 // ```
+//
+// - error: the error from `try_parse`. `.NONE` prints nothing.
 report :: (error: Error) {
     if error.kind == .NONE return;
 

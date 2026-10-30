@@ -82,6 +82,9 @@ Query_Entry :: struct {
     columns: [..] Query_Column;
 }
 
+// The JSON document of a cache entry.
+//
+// - entry: the cache entry to write.
 entry_to_json :: (entry: Query_Entry) -> Json_Value {
     object := json_object();
 
@@ -130,6 +133,8 @@ entry_to_json :: (entry: Query_Entry) -> Json_Value {
 }
 
 // Reads an entry back from its JSON. False when the document is not shaped like one.
+//
+// - document: the parsed JSON of a cache entry.
 entry_from_json :: (document: *Json_Value) -> Query_Entry, bool {
     entry: Query_Entry;
     if document.kind != .OBJECT return entry, false;

@@ -18,6 +18,8 @@ Auth_Policy :: struct {
 
 // Reads a `require_auth` value (libpq's syntax: see `Config.require_auth`). The errors are
 // libpq's.
+//
+// - text: a `require_auth` value such as `scram-sha-256,md5` or `!password`. Empty allows everything.
 parse_require_auth :: (text: string) -> Auth_Policy, Pg_Error {
     policy: Auth_Policy;
     if !text return policy, .{};
@@ -67,6 +69,11 @@ parse_require_auth :: (text: string) -> Auth_Policy, Pg_Error {
 
 // Fails the login when the server's way of authenticating is not one `require_auth` allows.
 // `code` is the AuthenticationRequest the server sent.
+//
+// - c: the connection, for the error.
+// - config: its `require_auth` is quoted in the error.
+// - policy: what `parse_require_auth` made of `config.require_auth`.
+// - code: the AuthenticationRequest code the server sent.
 check_auth_method :: (c: *Connection, config: Config, policy: Auth_Policy, code: u32) -> Pg_Error {
     if !policy.restricted return .{};
 
@@ -108,6 +115,12 @@ check_auth_method :: (c: *Connection, config: Config, policy: Auth_Policy, code:
 
 // The password for a login from the password file, or an empty string. `host` is the name
 // connected to; a socket directory or no name searches for `localhost`.
+//
+// - config: its `passfile` names the file. Empty falls back to `PGPASSFILE`, then the default location.
+// - host: the name connected to.
+// - port: the port connected to.
+// - database: the database logged into.
+// - user: the role logged in as.
 passfile_password :: (config: Config, host: string, port: u16, database: string, user: string) -> string {
     path := config.passfile;
 

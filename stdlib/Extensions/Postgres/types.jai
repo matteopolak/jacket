@@ -7,12 +7,17 @@ Nullable :: struct(T: Type) {
 }
 
 // The value, or `default` when it is NULL.
+//
+// - n: the value, which may be NULL.
+// - default: what to return for NULL.
 or_else :: (n: Nullable($T), default: T) -> T {
     if n.null return default;
     return n.value;
 }
 
 // A non-null `Nullable` holding `value`.
+//
+// - value: what the `Nullable` holds.
 some :: (value: $T) -> Nullable(T) {
     return .{ value = value };
 }
@@ -33,6 +38,8 @@ Json :: struct(T: Type, OPTIONS: u32 = 0) {
 }
 
 // `value` as a `json`/`jsonb` parameter.
+//
+// - value: the document to encode.
 json :: (value: $T) -> Json(T) {
     return .{ value = value };
 }
@@ -43,6 +50,11 @@ Json_Raw :: struct {
     text: string;
 }
 
+// Decodes a document into a `T`.
+//
+// - T: the type to decode into.
+// - raw: the document.
+// - options: decoding options for this call; the defaults leave the Json module's own.
 decode_json :: ($T: Type, raw: Json_Raw, options := Json_Options.{}) -> T, Json_Module.Json_Error {
     value, error := Json_Module.from_json(T, raw.text, module_json_options(.{ connection = options }, 0));
     return value, error;
@@ -50,6 +62,9 @@ decode_json :: ($T: Type, raw: Json_Raw, options := Json_Options.{}) -> T, Json_
 
 // The document as a `Json_Value` tree, which the caller releases with `free_json` (from
 // Extensions/Json); any JSON can be read this way, whatever `T` a column would map it to.
+//
+// - raw: the document.
+// - options: decoding options for this call.
 json_value :: (raw: Json_Raw, options := Json_Options.{}) -> Json_Module.Json_Value, Json_Module.Json_Error {
     value, error := Json_Module.from_json(Json_Module.Json_Value, raw.text, module_json_options(.{ connection = options }, 0));
     return value, error;
@@ -112,10 +127,14 @@ MICROSECONDS_PER_DAY :: 86_400_000_000;
 // Microseconds from 1970-01-01 (the Unix epoch) to 2000-01-01.
 UNIX_TO_POSTGRES_MICROSECONDS :: 946_684_800_000_000;
 
+// - microseconds: microseconds since 1970-01-01 00:00:00 UTC.
 timestamp_from_unix_microseconds :: (microseconds: s64) -> Timestamp {
     return .{ microseconds - UNIX_TO_POSTGRES_MICROSECONDS };
 }
 
+// Microseconds since 1970-01-01 00:00:00 UTC.
+//
+// - t: the instant.
 unix_microseconds :: (t: Timestamp) -> s64 {
     return t.microseconds + UNIX_TO_POSTGRES_MICROSECONDS;
 }
@@ -126,15 +145,31 @@ now :: () -> Timestamp {
 }
 
 // The date of a proleptic Gregorian calendar day. Year 0 is 1 BC, as in ISO 8601.
+//
+// - year: the year; 0 is 1 BC.
+// - month: 1 to 12.
+// - day: the day of the month, from 1.
 date_from_civil :: (year: s64, month: s64, day: s64) -> Date {
     return .{ cast(s32) (days_from_civil(year, month, day) - DAYS_1970_TO_2000) };
 }
 
+// The year, month and day of a date.
+//
+// - date: the date, which must not be infinite.
 civil_from_date :: (date: Date) -> year: s64, month: s64, day: s64 {
     year, month, day := civil_from_days(cast(s64) date.days + DAYS_1970_TO_2000);
     return year, month, day;
 }
 
+// The instant at that wall-clock reading, taken as UTC.
+//
+// - year: the year; 0 is 1 BC.
+// - month: 1 to 12.
+// - day: the day of the month, from 1.
+// - hour: 0 to 23.
+// - minute: 0 to 59.
+// - second: 0 to 59.
+// - microsecond: 0 to 999999.
 timestamp_from_civil :: (year: s64, month: s64, day: s64, hour := 0, minute := 0, second := 0, microsecond := 0) -> Timestamp {
     days := cast(s64) date_from_civil(year, month, day).days;
     return .{ days * MICROSECONDS_PER_DAY + ((hour * 60 + minute) * 60 + second) * 1_000_000 + microsecond };
@@ -142,36 +177,61 @@ timestamp_from_civil :: (year: s64, month: s64, day: s64, hour := 0, minute := 0
 
 // Spans of time as an `Interval`, for arithmetic on timestamps: `Pg.now() - Pg.days(7)`. A day is
 // a calendar day, not 24 hours, as in Postgres; the rest are exact.
+//
+// - count: how many calendar days; negative for the past.
 days :: (count: s32) -> Interval {
     return .{ days = count };
 }
 
+// An interval of exact hours.
+//
+// - count: how many hours; negative for the past.
 hours :: (count: s64) -> Interval {
     return .{ microseconds = count * MICROSECONDS_PER_HOUR };
 }
 
+// An interval of exact minutes.
+//
+// - count: how many minutes; negative for the past.
 minutes :: (count: s64) -> Interval {
     return .{ microseconds = count * MICROSECONDS_PER_MINUTE };
 }
 
+// An interval of exact seconds.
+//
+// - count: how many seconds; negative for the past.
 seconds :: (count: s64) -> Interval {
     return .{ microseconds = count * MICROSECONDS_PER_SECOND };
 }
 
+// Every field negated.
+//
+// - interval: the interval to negate.
 operator - :: (interval: Interval) -> Interval {
     return .{ -interval.months, -interval.days, -interval.microseconds };
 }
 
+// Months, days and microseconds added field by field.
+//
+// - a: the first interval.
+// - b: the second interval.
 operator + :: (a: Interval, b: Interval) -> Interval {
     return .{ a.months + b.months, a.days + b.days, a.microseconds + b.microseconds };
 }
 
+// Months, days and microseconds subtracted field by field.
+//
+// - a: the interval to take from.
+// - b: the interval to take away.
 operator - :: (a: Interval, b: Interval) -> Interval {
     return .{ a.months - b.months, a.days - b.days, a.microseconds - b.microseconds };
 }
 
 // The months come first, clamping the day to the end of the month ("Jan 31 + 1 month" is the end of
 // February), then the days and the rest, all on the UTC calendar. An infinite timestamp stays as it is.
+//
+// - t: the instant.
+// - interval: the span to add.
 operator + :: (t: Timestamp, interval: Interval) -> Timestamp {
     if t.microseconds == TIMESTAMP_INFINITY || t.microseconds == TIMESTAMP_MINUS_INFINITY return t;
 
@@ -192,15 +252,25 @@ operator + :: (t: Timestamp, interval: Interval) -> Timestamp {
     return .{ microseconds + interval.days * MICROSECONDS_PER_DAY + interval.microseconds };
 }
 
+// `t + interval`.
+//
+// - interval: the span to add.
+// - t: the instant.
 operator + :: (interval: Interval, t: Timestamp) -> Timestamp {
     return t + interval;
 }
 
+// `t` plus the negated interval.
+//
+// - t: the instant.
+// - interval: the span to take away.
 operator - :: (t: Timestamp, interval: Interval) -> Timestamp {
     return t + (-interval);
 }
 
 // `Uuid` from "0f8fad5b-d9cb-469f-a165-70867728950e" (dashes optional, any case).
+//
+// - text: the uuid in hex, with or without dashes.
 parse_uuid :: (text: string) -> Uuid, bool {
     u: Uuid;
     count := 0;
@@ -228,6 +298,8 @@ parse_uuid :: (text: string) -> Uuid, bool {
 }
 
 // "0f8fad5b-d9cb-469f-a165-70867728950e", in temporary storage.
+//
+// - u: the uuid.
 uuid_text :: (u: Uuid) -> string {
     DIGITS :: "0123456789abcdef";
     out := talloc_string(36);
@@ -251,6 +323,8 @@ uuid_text :: (u: Uuid) -> string {
 
 // The integer part of a numeric; false for NaN, the infinities, or one out of range. A fraction
 // is truncated toward zero.
+//
+// - n: the numeric.
 numeric_to_s64 :: (n: Numeric) -> s64, bool {
     text := n.text;
     dot := find_index_from_left(text, #char ".");
@@ -263,6 +337,9 @@ numeric_to_s64 :: (n: Numeric) -> s64, bool {
     return value, valid && !rest;
 }
 
+// The numeric as a float, and false if its text does not read as a number.
+//
+// - n: the numeric.
 numeric_to_float64 :: (n: Numeric) -> float64, bool {
     if n.text == "NaN" return FLOAT64_NAN, true;
     if n.text == "Infinity" return FLOAT64_INFINITY, true;

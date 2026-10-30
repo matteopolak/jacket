@@ -52,12 +52,17 @@ Editor_Options :: struct {
 }
 
 // Release the text and its history.
+//
+// - edit: the text to release. It is reset to empty.
 free_text_edit :: (edit: *Text_Edit) {
     free_buffer(*edit.buffer);
     edit.* = .{};
 }
 
 // Replace everything with `text` and put the caret at the start. History is cleared.
+//
+// - edit: the text being edited.
+// - text: the new text.
 set_contents :: (edit: *Text_Edit, text: string) {
     set_text(*edit.buffer, text);
     edit.cursor = 0;
@@ -68,33 +73,47 @@ set_contents :: (edit: *Text_Edit, text: string) {
 }
 
 // The whole text, as a copy in temporary storage.
+//
+// - edit: the text being edited.
 contents :: (edit: *Text_Edit) -> string {
     return buffer_to_string(*edit.buffer,, temp);
 }
 
 // Whether any text is selected.
+//
+// - edit: the text being edited.
 has_selection :: (edit: *Text_Edit) -> bool {
     return edit.cursor != edit.anchor;
 }
 
 // The selected range as (start, end) byte offsets.
+//
+// - edit: the text being edited.
 selection_range :: (edit: *Text_Edit) -> start: int, end: int {
     return min(edit.cursor, edit.anchor), max(edit.cursor, edit.anchor);
 }
 
 // The selected text, valid until the next edit.
+//
+// - edit: the text being edited.
 selected_text :: (edit: *Text_Edit) -> string {
     start, end := selection_range(edit);
     return text_range(*edit.buffer, start, end);
 }
 
 // Where the caret is, as a zero-based line and a byte column within it.
+//
+// - edit: the text being edited.
 caret_position :: (edit: *Text_Edit) -> line: int, column: int {
     line := line_of_offset(*edit.buffer, edit.cursor);
     return line, edit.cursor - line_start(*edit.buffer, line);
 }
 
 // Put the caret at `offset` (clamped), selecting from the old anchor when `extend` is set.
+//
+// - edit: the text being edited.
+// - offset: the new byte offset.
+// - extend: keep the anchor, so the selection grows or shrinks.
 move_caret :: (edit: *Text_Edit, offset: int, extend: bool = false) {
     edit.cursor = clamp(offset, 0, edit.buffer.length);
     if !extend edit.anchor = edit.cursor;
@@ -103,6 +122,8 @@ move_caret :: (edit: *Text_Edit, offset: int, extend: bool = false) {
 }
 
 // Select all the text.
+//
+// - edit: the text being edited.
 select_all :: (edit: *Text_Edit) {
     edit.anchor = 0;
     edit.cursor = edit.buffer.length;
@@ -110,6 +131,9 @@ select_all :: (edit: *Text_Edit) {
 }
 
 // Replace the selection (or insert at the caret) with `text`.
+//
+// - edit: the text being edited.
+// - text: the text to insert. Line breaks are removed in a single-line edit.
 insert_text :: (edit: *Text_Edit, text: string) {
     if !text.count && !has_selection(edit) return;
 
@@ -131,6 +155,8 @@ insert_text :: (edit: *Text_Edit, text: string) {
 }
 
 // Delete the selection. Returns whether there was one.
+//
+// - edit: the text being edited.
 delete_selection :: (edit: *Text_Edit) -> bool {
     if !has_selection(edit) return false;
 
@@ -153,6 +179,11 @@ Unit :: enum u8 {
 }
 
 // Offset one `unit` to the left (`direction` -1) or right (1) of `from`.
+//
+// - edit: the text being edited.
+// - from: the byte offset to start from.
+// - unit: how far to go.
+// - direction: -1 for left, 1 for right.
 offset_by :: (edit: *Text_Edit, from: int, unit: Unit, direction: int) -> int {
     buffer := *edit.buffer;
 
@@ -205,6 +236,11 @@ offset_by :: (edit: *Text_Edit, from: int, unit: Unit, direction: int) -> int {
 }
 
 // Move the caret one `unit` left or right.
+//
+// - edit: the text being edited.
+// - unit: how far to go.
+// - direction: -1 for left, 1 for right.
+// - extend: keep the anchor, so the selection grows or shrinks.
 move_by :: (edit: *Text_Edit, unit: Unit, direction: int, extend: bool = false) {
     // With a selection, a plain left or right collapses to that side of it.
     if !extend && has_selection(edit) && unit == .CHARACTER {
@@ -217,6 +253,10 @@ move_by :: (edit: *Text_Edit, unit: Unit, direction: int, extend: bool = false) 
 }
 
 // Delete one `unit` before (`direction` -1) or after (1) the caret, or the selection if there is one.
+//
+// - edit: the text being edited.
+// - unit: how much to delete.
+// - direction: -1 for before the caret, 1 for after.
 delete_by :: (edit: *Text_Edit, unit: Unit, direction: int) {
     if delete_selection(edit) return;
 
@@ -233,6 +273,12 @@ delete_by :: (edit: *Text_Edit, unit: Unit, direction: int) {
 }
 
 // Move the caret `lines` lines up (negative) or down, keeping its horizontal position.
+//
+// - ui: the UI whose text system measures the lines.
+// - edit: the text being edited.
+// - lines: how many lines to move. Past either end the caret goes to the start or end of the text.
+// - style: the style the lines are drawn in.
+// - extend: keep the anchor, so the selection grows or shrinks.
 move_vertically :: (ui: *UI_State, edit: *Text_Edit, lines: int, style: Text_Style, extend: bool = false) {
     buffer := *edit.buffer;
     line := line_of_offset(buffer, edit.cursor);
@@ -260,6 +306,9 @@ move_vertically :: (ui: *UI_State, edit: *Text_Edit, lines: int, style: Text_Sty
 }
 
 // Select the word around `offset`.
+//
+// - edit: the text being edited.
+// - offset: a byte offset in the word.
 select_word_at :: (edit: *Text_Edit, offset: int) {
     buffer := *edit.buffer;
     line := line_of_offset(buffer, offset);
@@ -275,6 +324,9 @@ select_word_at :: (edit: *Text_Edit, offset: int) {
 }
 
 // Select the whole line containing `offset`, including its line break.
+//
+// - edit: the text being edited.
+// - offset: a byte offset in the line.
 select_line_at :: (edit: *Text_Edit, offset: int) {
     buffer := *edit.buffer;
     line := line_of_offset(buffer, offset);
@@ -283,6 +335,8 @@ select_line_at :: (edit: *Text_Edit, offset: int) {
 }
 
 // Undo the last step and put the caret where it belongs. Returns whether anything changed.
+//
+// - edit: the text being edited.
 undo_edit :: (edit: *Text_Edit) -> bool {
     ok, cursor := undo(*edit.buffer);
     if ok {
@@ -294,6 +348,8 @@ undo_edit :: (edit: *Text_Edit) -> bool {
 }
 
 // Redo the last undone step. Returns whether anything changed.
+//
+// - edit: the text being edited.
 redo_edit :: (edit: *Text_Edit) -> bool {
     ok, cursor := redo(*edit.buffer);
     if ok {
@@ -305,6 +361,8 @@ redo_edit :: (edit: *Text_Edit) -> bool {
 }
 
 // Insert a line break, repeating the current line's leading blanks.
+//
+// - edit: the text being edited.
 insert_newline :: (edit: *Text_Edit) {
     line := line_of_offset(*edit.buffer, min(edit.cursor, edit.anchor));
     text := line_text(*edit.buffer, line);
@@ -321,6 +379,9 @@ insert_newline :: (edit: *Text_Edit) {
 }
 
 // Insert spaces up to the next multiple of `width` columns.
+//
+// - edit: the text being edited.
+// - width: the tab stop spacing in columns.
 insert_tab :: (edit: *Text_Edit, width: int) {
     _, column := caret_position(edit);
     count := width - column % max(width, 1);
@@ -337,6 +398,13 @@ Key_Result :: struct {
 
 // Apply one KEY or TEXT input event to `edit`. `style` is the text style the lines are drawn in
 // (vertical movement measures with it); `page_lines` is how many lines a page is.
+//
+// - ui: the UI, used for measuring and the clipboard.
+// - edit: the text being edited.
+// - event: the KEY or TEXT event.
+// - style: the text style the lines are drawn in, used to measure vertical moves.
+// - options: read-only mode and the tab width.
+// - page_lines: how many lines Page Up and Page Down move.
 handle_key :: (ui: *UI_State, edit: *Text_Edit, event: Input_Event, style: Text_Style, options: Editor_Options, page_lines: int) -> Key_Result {
     result: Key_Result;
     version := edit.buffer.version;
@@ -433,12 +501,18 @@ handle_key :: (ui: *UI_State, edit: *Text_Edit, event: Input_Event, style: Text_
 }
 
 // Copy the selection to the clipboard.
+//
+// - ui: the UI whose clipboard hooks and text measuring to use.
+// - edit: the text being edited.
 copy_selection :: (ui: *UI_State, edit: *Text_Edit) {
     if !has_selection(edit) || !ui.hooks.clipboard_set return;
     ui.hooks.clipboard_set(selected_text(edit));
 }
 
 // Copy the selection to the clipboard and delete it.
+//
+// - ui: the UI whose clipboard hooks and text measuring to use.
+// - edit: the text being edited.
 cut_selection :: (ui: *UI_State, edit: *Text_Edit) {
     if !has_selection(edit) return;
     copy_selection(ui, edit);
@@ -446,6 +520,9 @@ cut_selection :: (ui: *UI_State, edit: *Text_Edit) {
 }
 
 // Replace the selection with the clipboard's text.
+//
+// - ui: the UI whose clipboard hooks and text measuring to use.
+// - edit: the text being edited.
 paste_clipboard :: (ui: *UI_State, edit: *Text_Edit) {
     if !ui.hooks.clipboard_get return;
     text := ui.hooks.clipboard_get();
@@ -454,6 +531,9 @@ paste_clipboard :: (ui: *UI_State, edit: *Text_Edit) {
 
 // A multi-line text editor over `edit`: line numbers, selection, scrolling, undo and the clipboard.
 // Returns true on the frame the text changed. It fills the space it is given.
+//
+// - edit: the text being edited.
+// - options: font, size, line numbers, highlighting, marks, read-only mode and tab width.
 //
 // ```jai
 // if text_editor(*doc.edit, .{line_numbers = true, highlight = highlight_jai}) doc.dirty = true;
@@ -466,6 +546,10 @@ text_editor :: (edit: *Text_Edit, options: Editor_Options = .{}, loc := #caller_
 
 // A single-line text field over `edit`. Returns whether the text changed and whether Enter was
 // pressed.
+//
+// - edit: the text being edited.
+// - options: placeholder, size and read-only mode. The font is always the sans one, with no line
+//   numbers and no growing.
 text_field :: (edit: *Text_Edit, options: Editor_Options = .{}, loc := #caller_location) -> changed: bool, submitted: bool {
     edit.single_line = true;
     opts := options;
@@ -477,6 +561,11 @@ text_field :: (edit: *Text_Edit, options: Editor_Options = .{}, loc := #caller_l
 }
 
 // The visible rows of an editor as (first line, last line, line height), from its last layout.
+//
+// - ui: the UI whose text system measures the lines.
+// - edit: the text being edited.
+// - node: the editor's node, whose height says how much fits.
+// - options: the editor's font and size.
 visible_lines :: (ui: *UI_State, edit: *Text_Edit, node: *Node, options: Editor_Options) -> first: int, last: int, line_height: float {
     style := editor_text_style(ui, options);
     line_height := font_metrics(*ui.text, style.font, style.size).line_height;
@@ -487,6 +576,9 @@ visible_lines :: (ui: *UI_State, edit: *Text_Edit, node: *Node, options: Editor_
 }
 
 // Ask for a frame in `seconds` even if no input arrives (animation, a blinking caret).
+//
+// - ui: the UI to ask a frame on.
+// - seconds: how long from now. An earlier wake time already asked for is kept.
 wake_in :: (ui: *UI_State, seconds: float64) {
     at := ui.now + seconds;
     if ui.wake_time == 0 || at < ui.wake_time ui.wake_time = at;

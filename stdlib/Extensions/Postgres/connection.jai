@@ -98,6 +98,8 @@ Connection :: struct {
 // With several hosts (`Config.hosts`) they are tried in order, or in a random order with
 // `load_balance_hosts` RANDOM, until one accepts the login and has the role `target_session_attrs`
 // asks for. `connect_timeout` limits each attempt.
+//
+// - config: where to connect and how to log in.
 connect :: (config: Config) -> *Connection, Pg_Error {
     if !Io.in_scheduler() {
         return null, make_error(.CONFIG, "Postgres calls must run on a fiber: call them inside Io.io_run");
@@ -140,6 +142,9 @@ connect :: (config: Config) -> *Connection, Pg_Error {
 }
 
 // Ends the session (Terminate) and frees the connection. `now` skips the goodbye.
+//
+// - c: the connection. Null does nothing.
+// - now: skip the Terminate message and close the socket right away.
 close :: (c: *Connection, now := false) {
     if !c return;
 
@@ -176,11 +181,18 @@ close :: (c: *Connection, now := false) {
 }
 
 // A ParameterStatus value, or "" if the server did not report it.
+//
+// - c: the connection to ask.
+// - name: a ParameterStatus name, such as `TimeZone`.
 parameter :: (c: *Connection, name: string) -> string {
     for c.parameters if it.name == name return it.value;
     return "";
 }
 
+// Writes a server notice to the log.
+//
+// - c: the connection the notice arrived on.
+// - notice: the notice. Its severity and message are logged.
 log_notice :: (c: *Connection, notice: *Pg_Error) {
     // Standard error, not standard output: a program's output is not the place for server chatter.
     log("postgres %: %", error_fields(notice.*).severity, notice.message, flags = .WARNING | .ERROR);

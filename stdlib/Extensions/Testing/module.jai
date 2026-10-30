@@ -46,6 +46,10 @@ Bench :: struct {
 //     log(t, "step % of %", 1, 3);
 // }
 // ```
+//
+// - t: the running test.
+// - format: the format string, as for `tprint`.
+// - args: the values to print into it.
 log :: (t: *Test, format: string, args: ..Any) {
     text := tprint(format, ..args);
 
@@ -58,18 +62,26 @@ log :: (t: *Test, format: string, args: ..Any) {
 }
 
 // Ends the test as skipped, from the procedure it is written in.
+//
+// - t: the running test.
+// - reason: why it is skipped; shown in the report.
 skip :: (t: *Test, reason := "") #expand {
     mark_skipped(t, reason);
     `return;
 }
 
 // Marks the test as failed and lets it go on.
+//
+// - t: the running test.
+// - message: what to report.
 fail :: (t: *Test, message := "failed", loc := #caller_location) {
     report_failure(loc, message);
 }
 
 // A directory for this test's files. `jacket test` creates it and deletes it after a pass
 // (`--keep-temp` keeps it); subtests share their test's directory.
+//
+// - t: the running test, or any of its subtests.
 temp_dir :: (t: *Test, loc := #caller_location) -> string {
     root := t;
     while root.parent root = root.parent;
@@ -78,12 +90,20 @@ temp_dir :: (t: *Test, loc := #caller_location) -> string {
 }
 
 // Calls `callback(data)` when the test ends, after its body; the last registered runs first.
+//
+// - t: the running test.
+// - callback: called with `data` when the test ends.
+// - data: passed to `callback`.
 cleanup :: (t: *Test, callback: (data: *void), data: *void = null) {
     array_add(*t.cleanups, .{ callback, data });
 }
 
 // Runs `body` as the subtest `name`, reported and filtered as `test/name`. Returns whether it
 // passed.
+//
+// - t: the parent test.
+// - name: the subtest's name.
+// - body: the subtest.
 run :: (t: *Test, name: string, body: (t: *Test)) -> bool {
     return run_subtest(t, name, body, null, null);
 }
@@ -93,6 +113,11 @@ run :: (t: *Test, name: string, body: (t: *Test)) -> bool {
 // ```jai,ignore
 // for CASES run(t, it.name, check_case, *it);
 // ```
+//
+// - t: the parent test.
+// - name: the subtest's name.
+// - body: the subtest, called with `data`.
+// - data: handed to `body`.
 run :: (t: *Test, name: string, body: (t: *Test, data: *$T), data: *T) -> bool {
     return run_subtest(t, name, null, cast((t: *Test, data: *void)) body, data);
 }

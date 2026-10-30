@@ -30,6 +30,8 @@ Theme :: struct {
 }
 
 // The built-in theme for `mode`.
+//
+// - mode: dark or light colours.
 default_theme :: (mode: Theme_Mode = .DARK) -> Theme {
     theme: Theme;
 
@@ -69,6 +71,8 @@ default_theme :: (mode: Theme_Mode = .DARK) -> Theme {
 }
 
 // Replace the theme of the UI being built.
+//
+// - theme: the theme to use from now on.
 set_theme :: (theme: Theme) {
     context.ui.theme = theme;
 }

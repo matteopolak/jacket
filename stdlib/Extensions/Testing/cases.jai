@@ -19,6 +19,10 @@
 //     expect(passed);
 // }
 // ```
+//
+// - t: the running test.
+// - cases: the entries to run, one subtest each.
+// - $body: the procedure each entry is passed to.
 run_cases :: (t: *Test, cases: [] $T, $body: $B) -> bool {
     names := case_names(cases, body);
 
@@ -47,11 +51,18 @@ run_cases :: (t: *Test, cases: [] $T, $body: $B) -> bool {
 
 // Every member of the enum `T`, in declaration order, as a list for `@cases`:
 //
-// ```jai,ignore
-// @cases(all_values(Color))
+// ```jai
+// Color :: enum { RED; GREEN; BLUE; }
+//
+// values := all_values(Color);
+//
+// assert(values.count == 3);
+// assert(values[0] == .RED && values[2] == .BLUE);
 // ```
 //
-// The array is in temporary storage, so it lasts for the test that asked for it.
+// Pass it to a test as `@cases(all_values(Color))`. The array is in temporary storage, so it lasts for the test that asked for it.
+//
+// - $T: the enum type.
 all_values :: ($T: Type) -> [] T #modify {
     return (cast(*Type_Info) T).type == .ENUM;
 } {
@@ -66,6 +77,9 @@ all_values :: ($T: Type) -> [] T #modify {
 
 // The names `run_cases` gives the subtests of `cases`: the entry's values, without `/`, shortened,
 // repeats numbered. In temporary storage.
+//
+// - cases: the entries to name.
+// - body: the procedure they are passed to.
 case_names :: (cases: [] $T, body: $B) -> [] string {
     names: [..] string;
     names.allocator = temp;

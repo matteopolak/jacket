@@ -25,6 +25,8 @@ Conninfo :: struct {
 
 // Parses a URI (`postgresql://` or `postgres://`) or a `key=value` list. The strings in the
 // result belong to it: `free_conninfo`.
+//
+// - text: a URI or a `key=value` list.
 parse_conninfo_options :: (text: string) -> Conninfo, Pg_Error {
     info: Conninfo;
     info.values = NewArray(CONNINFO_KEYWORDS.count, string);
@@ -43,6 +45,9 @@ parse_conninfo_options :: (text: string) -> Conninfo, Pg_Error {
     return info, .{};
 }
 
+// Frees the strings of the options.
+//
+// - info: the options to free. They are empty afterwards.
 free_conninfo :: (info: *Conninfo) {
     for info.values free(it);
 
@@ -53,11 +58,16 @@ free_conninfo :: (info: *Conninfo) {
 
 // Whether `text` is something a program should hand to `parse_conninfo`: a URI or a list with
 // an `=` in it. psql and libpq use this to tell a connection string from a database name.
+//
+// - text: the argument to classify.
 is_conninfo :: (text: string) -> bool {
     return conninfo_uri_prefix(text) > 0 || contains(text, "=");
 }
 
 // The value of `keyword` and whether it was set.
+//
+// - info: the options to read.
+// - keyword: a libpq keyword.
 conninfo_get :: (info: Conninfo, keyword: string) -> string, bool {
     index := conninfo_index(keyword);
     if index < 0 || !info.is_set[index] return "", false;
@@ -67,6 +77,10 @@ conninfo_get :: (info: Conninfo, keyword: string) -> string, bool {
 
 // Sets `keyword` to a copy of `value`, replacing what was there. False for a keyword libpq does
 // not know.
+//
+// - info: the options to change.
+// - keyword: a libpq keyword.
+// - value: the new value, copied.
 conninfo_set :: (info: *Conninfo, keyword: string, value: string) -> bool {
     index := conninfo_index(keyword);
     if index < 0 return false;

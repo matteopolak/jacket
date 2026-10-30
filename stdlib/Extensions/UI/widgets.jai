@@ -10,27 +10,39 @@ Container :: struct {
 }
 
 // Close the container when its `for` body is done.
+//
+// - container: the container to close afterwards.
+// - body: the `for` body, run once.
+// - flags: the `for` flags. Unused.
 for_expansion :: (container: Container, body: Code, flags: For_Flags) #expand {
     defer end_container(context.ui);
     #insert body;
 }
 
 // A container that lays its children out left to right.
+//
+// - style: layout and paint options for the container.
 row :: (style: Style = .{}, loc := #caller_location) -> Container {
     return .{ begin_container(.HORIZONTAL, .GROUP, style, loc) };
 }
 
 // A container that lays its children out top to bottom.
+//
+// - style: layout and paint options for the container.
 column :: (style: Style = .{}, loc := #caller_location) -> Container {
     return .{ begin_container(.VERTICAL, .GROUP, style, loc) };
 }
 
 // A container whose children overlap, each filling it (or placed by `align`).
+//
+// - style: layout and paint options for the container.
 stack :: (style: Style = .{}, loc := #caller_location) -> Container {
     return .{ begin_container(.STACK, .GROUP, style, loc) };
 }
 
 // A column on the theme's panel colour.
+//
+// - style: layout and paint options. A `background` set here replaces the panel colour.
 panel :: (style: Style = .{}, loc := #caller_location) -> Container {
     s := style;
     if s.background.w == 0 s.background = context.ui.theme.surface;
@@ -39,6 +51,9 @@ panel :: (style: Style = .{}, loc := #caller_location) -> Container {
 
 // A column whose content scrolls vertically (horizontally with `axis = .HORIZONTAL`) when it is
 // larger than the space it is given. Give it `grow = 1` or a fixed size.
+//
+// - style: layout and paint options for the container.
+// - axis: the scrolling direction.
 scroll :: (style: Style = .{}, axis: Axis = .VERTICAL, loc := #caller_location) -> Container {
     node := begin_container(axis, .SCROLL, style, loc);
     node.scrolls = true;
@@ -57,6 +72,9 @@ Text_Options :: struct {
 }
 
 // One line of text.
+//
+// - text: the text to show. It is copied for the frame.
+// - options: size, colour, font and spacing.
 label :: (text: string, options: Text_Options = .{}, loc := #caller_location) -> *Node {
     ui := context.ui;
     style: Style;
@@ -87,6 +105,9 @@ Button_Options :: struct {
 }
 
 // A push button. Returns true on the frame it was clicked (or Enter or Space pressed while focused).
+//
+// - text: the caption. It is copied for the frame.
+// - options: look, size and whether it is enabled.
 button :: (text: string, options: Button_Options = .{}, loc := #caller_location) -> clicked: bool {
     ui := context.ui;
     t := *ui.theme;
@@ -139,6 +160,9 @@ button :: (text: string, options: Button_Options = .{}, loc := #caller_location)
 }
 
 // A checkbox with a caption. Returns true on the frame the value changed.
+//
+// - value: the flag to show and toggle. It is changed in place.
+// - text: a caption next to the box. Empty for none.
 checkbox :: (value: *bool, text: string = "", loc := #caller_location) -> changed: bool {
     ui := context.ui;
     t := *ui.theme;
@@ -172,6 +196,10 @@ checkbox :: (value: *bool, text: string = "", loc := #caller_location) -> change
 
 // A row in a list or tree: highlighted when `selected`, indented by `indent` points. Returns true
 // when clicked.
+//
+// - text: the row's text. It is copied for the frame.
+// - selected: whether to draw it highlighted.
+// - indent: extra space on the left, in points.
 list_item :: (text: string, selected: bool = false, indent: float = 0, loc := #caller_location) -> clicked: bool {
     ui := context.ui;
     t := *ui.theme;
@@ -214,6 +242,8 @@ separator :: (loc := #caller_location) {
 }
 
 // Empty space that grows to fill what is left in its row or column.
+//
+// - grow: its share of the leftover space.
 spacer :: (grow: float = 1, loc := #caller_location) {
     style: Style;
     style.grow = grow;
@@ -221,6 +251,8 @@ spacer :: (grow: float = 1, loc := #caller_location) {
 }
 
 // A row of tabs.
+//
+// - style: layout and paint options for the container.
 tab_bar :: (style: Style = .{}, loc := #caller_location) -> Container {
     s := style;
     if s.background.w == 0 s.background = context.ui.theme.surface;
@@ -242,6 +274,10 @@ Tab_Options :: struct {
 }
 
 // One tab in a `tab_bar`, drawn selected when `active`.
+//
+// - text: the tab's title. It is copied for the frame.
+// - active: whether this is the selected tab.
+// - options: whether it shows an unsaved dot or a close button.
 tab :: (text: string, active: bool, options: Tab_Options = .{}, loc := #caller_location) -> Tab_Result {
     ui := context.ui;
     t := *ui.theme;
@@ -305,6 +341,11 @@ Split_Options :: struct {
 // Two panes with a draggable divider. `position` is the first pane's size along `axis`
 // (HORIZONTAL puts the panes side by side); the app keeps it so it can be saved. Use
 // `for pane: split(.HORIZONTAL, *width) { if pane == 0 { ... } else { ... } }`.
+//
+// - axis: the direction the panes sit in.
+// - position: the first pane's size in points. It is clamped to the options' limits and updated
+//   while the divider is dragged.
+// - options: the smallest and largest size of the first pane.
 split :: (axis: Axis, position: *float, options: Split_Options = .{}, loc := #caller_location) -> Split {
     node := begin_container(axis, .SPLIT, .{}, loc);
     node.style.grow = 1;
@@ -318,6 +359,10 @@ split :: (axis: Axis, position: *float, options: Split_Options = .{}, loc := #ca
 }
 
 // Visit pane 0, the divider, then pane 1; `it` is the pane number.
+//
+// - s: the split being visited.
+// - body: the `for` body. It runs once per pane, with `it` set to the pane number.
+// - flags: the `for` flags. Unused.
 for_expansion :: (s: Split, body: Code, flags: For_Flags) #expand {
     ui := context.ui;
 
@@ -344,6 +389,8 @@ for_expansion :: (s: Split, body: Code, flags: For_Flags) #expand {
 }
 
 // Draws and drags the divider between split panes.
+//
+// - s: the split the divider belongs to.
 divider :: (s: Split, loc := #caller_location) {
     ui := context.ui;
     horizontal := s.axis == .HORIZONTAL;

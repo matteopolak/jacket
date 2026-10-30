@@ -38,6 +38,8 @@ MIGRATIONS_TABLE :: "jacket_migrations";
 // The migrations in `folder`, sorted by version, for embedding: `#run load_migrations(...)`.
 // A relative folder starts at the calling file's folder. A badly named file or a repeated version
 // stops the compile.
+//
+// - folder: the migrations folder.
 load_migrations :: (folder: string, location := #caller_location) -> [] Migration {
     migrations, problem := read_migrations(folder, location.fully_pathed_filename);
     if problem {
@@ -50,6 +52,9 @@ load_migrations :: (folder: string, location := #caller_location) -> [] Migratio
 
 // `load_migrations` for tools: the migrations, or a message saying what is wrong with the folder.
 // `relative_to` is a file whose folder relative paths start at; empty for the working directory.
+//
+// - folder: the migrations folder.
+// - relative_to: a file whose folder relative paths start at; empty for the working directory.
 read_migrations :: (folder: string, relative_to := "") -> [] Migration, problem: string {
     path := folder;
 
@@ -94,6 +99,8 @@ read_migrations :: (folder: string, relative_to := "") -> [] Migration, problem:
 
 // The schema hash: SHA-256 chained over each migration's name and digest, in order, so it changes
 // when any file is renamed, edited, added or removed. Hex.
+//
+// - migrations: the migrations, in order.
 schema_hash :: (migrations: [] Migration) -> string {
     if !migrations.count return "";
 
@@ -102,6 +109,8 @@ schema_hash :: (migrations: [] Migration) -> string {
 }
 
 // The schema hash of each prefix of `migrations`: entry i covers migrations 0 to i.
+//
+// - migrations: the migrations, in order.
 prefix_hashes :: (migrations: [] Migration) -> [] string {
     hashes := NewArray(migrations.count, string,, temp);
     chained := "";
@@ -133,6 +142,10 @@ Migration_Status :: struct {
 // applied. An advisory lock keeps two processes from migrating at once. It refuses (applying
 // nothing) when an applied migration changed or disappeared, or a pending one is numbered below
 // the newest applied one, unless `options` allows it.
+//
+// - c: the connection to migrate.
+// - migrations: all the migrations, applied or not.
+// - options: what to allow.
 migrate :: (c: *Connection, migrations: [] Migration, options := Migrate_Options.{}) -> applied: s64, Pg_Error {
     failure: Migration_Failure;
 
@@ -140,6 +153,11 @@ migrate :: (c: *Connection, migrations: [] Migration, options := Migrate_Options
 }
 
 // `migrate`, and when a migration fails, `failure` says which one and where in its file.
+//
+// - c: the connection to migrate.
+// - migrations: all the migrations, applied or not.
+// - failure: set when a migration fails.
+// - options: what to allow.
 migrate_reporting :: (c: *Connection, migrations: [] Migration, failure: *Migration_Failure, options := Migrate_Options.{}) -> applied: s64, Pg_Error {
     error := execute_script(c, "select pg_advisory_lock(hashtext('jacket_migrations'))");
     if error.kind != .NONE return 0, error;
@@ -173,6 +191,9 @@ migrate_reporting :: (c: *Connection, migrations: [] Migration, failure: *Migrat
 
 // Each migration's state, in the list's order, then the applied ones missing from the list.
 // Creates the migrations table if it does not exist.
+//
+// - c: the connection to check.
+// - migrations: all the migrations, applied or not.
 migration_status :: (c: *Connection, migrations: [] Migration) -> [] Migration_Status, Pg_Error {
     // `if not exists` alone would send a notice on every run.
     error := execute_script(c, #string SQL
@@ -229,6 +250,8 @@ migration_status :: (c: *Connection, migrations: [] Migration) -> [] Migration_S
 
 // Splits a script into its statements, skipping quoted text, dollar quotes and comments, so a `;`
 // inside them does not end a statement. Empty statements are dropped. The pieces point into `sql`.
+//
+// - sql: the script to split.
 split_statements :: (sql: string) -> [] string {
     statements: [..] string;
     statements.allocator = temp;
@@ -252,6 +275,9 @@ split_statements :: (sql: string) -> [] string {
 }
 
 // The line and column of a 1-based character position in `text`, or 0 and 0 for no position.
+//
+// - text: the text the position counts into.
+// - position: 1-based, in characters. 0 or less means no position.
 line_column_of_position :: (text: string, position: s64) -> line: s64, column: s64 {
     if position <= 0 return 0, 0;
 
@@ -270,6 +296,10 @@ line_column_of_position :: (text: string, position: s64) -> line: s64, column: s
 }
 
 // Characters between two byte offsets of `text`.
+//
+// - text: the text to count in.
+// - from: first byte offset.
+// - to: byte offset to stop before.
 byte_to_character_count :: (text: string, from: s64, to: s64) -> s64 {
     count := 0;
     for from..to - 1 if (text[it] & 0xc0) != 0x80 count += 1;
@@ -280,6 +310,12 @@ byte_to_character_count :: (text: string, from: s64, to: s64) -> s64 {
 // Where `error` stopped in the file `whole` of migration `name`. `statement` is the text the
 // server was sent: the whole file, or one statement inside it (a slice of `whole`) for a migration
 // without a transaction.
+//
+// - name: the migration's name.
+// - index: its place in the list, from 0.
+// - whole: the migration's file.
+// - statement: the text that was sent to the server.
+// - error: what the server answered.
 migration_failure :: (name: string, index: s64, whole: string, statement: string, error: Pg_Error) -> Migration_Failure {
     failure := Migration_Failure.{ name = name, index = index, message = copy_string(error.message) };
     if error.kind != .SERVER || error_fields(error).position <= 0 return failure;
@@ -307,6 +343,13 @@ migration_failure :: (name: string, index: s64, whole: string, statement: string
 // state the migration started from, and leaves it in that state (a savepoint is rolled back to).
 // Gives `failure` back unchanged when no single statement reproduces the error, which happens when
 // the file's `;` splitting is not how the server saw it.
+//
+// - c: the connection, inside the open transaction.
+// - name: the migration's name.
+// - index: its place in the list, from 0.
+// - whole: the migration's file.
+// - message: the server's message to reproduce.
+// - failure: what is returned when no statement reproduces it.
 locate_failing_statement :: (c: *Connection, name: string, index: s64, whole: string, message: string, failure: Migration_Failure) -> Migration_Failure {
     marked := execute_script(c, "savepoint locate_failing_statement");
 
@@ -346,6 +389,9 @@ locate_failing_statement :: (c: *Connection, name: string, index: s64, whole: st
     return located;
 }
 
+// How many newlines `text` has.
+//
+// - text: the text to count in.
 count_lines :: (text: string) -> s64 {
     lines := 0;
     for text if it == #char "\n" lines += 1;
@@ -354,6 +400,8 @@ count_lines :: (text: string) -> s64 {
 }
 
 // "migration 0007_add_teams.sql failed at line 3: relation ... does not exist".
+//
+// - failure: the failure to describe.
 describe_failure :: (failure: Migration_Failure) -> string {
     if failure.line > 0 return tprint("migration %.sql failed at line %: %", failure.name, failure.line, failure.message);
 

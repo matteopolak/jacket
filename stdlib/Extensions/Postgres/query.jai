@@ -44,6 +44,10 @@ Value_Span :: struct {
 // text format. Arguments may be integers, floats, bools, strings, `[] u8` (bytea), `Uuid`,
 // `Timestamp`, `Local_Timestamp`, `Date`, `Time`, `Interval`, `Numeric`, `Nullable` of any of
 // those, and one-dimensional arrays of them.
+//
+// - c: the connection.
+// - sql: one statement, with `$1`, `$2`, ... for the parameters.
+// - args: the parameter values, `$1` first.
 query_dynamic :: (c: *Connection, sql: string, args: ..Any) -> Result, Pg_Error {
     values := args; // `sql` is not a print format: keep it and `args` out of one call
     result, error := run_extended(c, sql, values, .TEXT);
@@ -52,6 +56,10 @@ query_dynamic :: (c: *Connection, sql: string, args: ..Any) -> Result, Pg_Error 
 
 // `query_dynamic` with binary results: smaller and faster to decode, but every column's type must
 // be one `get` can decode in binary (see `Oid`).
+//
+// - c: the connection.
+// - sql: one statement, with `$1`, `$2`, ... for the parameters.
+// - args: the parameter values, `$1` first.
 query_binary :: (c: *Connection, sql: string, args: ..Any) -> Result, Pg_Error {
     values := args; // `sql` is not a print format: keep it and `args` out of one call
     result, error := run_extended(c, sql, values, .BINARY);
@@ -67,6 +75,9 @@ Statement_Info :: struct {
 
 // Parses `sql` as the unnamed prepared statement and describes it (Parse, Describe, Sync). Free
 // the result with `free_statement_info`.
+//
+// - c: the connection.
+// - sql: one statement; it may use `$1`, `$2`, ... without values.
 describe_statement :: (c: *Connection, sql: string) -> Statement_Info, Pg_Error {
     error := begin_request(c, sql);
     if error.kind != .NONE return .{}, error;
@@ -159,6 +170,9 @@ describe_statement :: (c: *Connection, sql: string) -> Statement_Info, Pg_Error 
     return .{}, .{};
 }
 
+// Frees what `describe_statement` returned.
+//
+// - info: the info to free. It is zeroed.
 free_statement_info :: (info: *Statement_Info) {
     for info.columns free(it.name);
     array_free(info.columns);
@@ -169,6 +183,9 @@ free_statement_info :: (info: *Statement_Info) {
 // Runs SQL that may hold several statements, without parameters (the simple query protocol), and
 // discards any rows. For migrations and scripts. Without an explicit BEGIN the whole string runs
 // as one implicit transaction, so the first error stops it and undoes the statements before it.
+//
+// - c: the connection.
+// - sql: the statements, separated by semicolons.
 execute_script :: (c: *Connection, sql: string) -> Pg_Error {
     return run_script(c, sql, null);
 }
@@ -212,6 +229,10 @@ Copy_Info :: struct {
 // statement's outcome to `hooks`. The returned error is the one that stopped the script, after the
 // results of the statements before it were reported. Without an explicit BEGIN the whole string
 // runs as one implicit transaction.
+//
+// - c: the connection.
+// - sql: the statements, separated by semicolons.
+// - hooks: what to do with results and COPY data. Null discards all rows.
 run_script :: (c: *Connection, sql: string, hooks: *Script_Hooks) -> Pg_Error {
     error := begin_request(c, sql);
     if error.kind != .NONE return error;
@@ -329,6 +350,11 @@ run_script :: (c: *Connection, sql: string, hooks: *Script_Hooks) -> Pg_Error {
 }
 
 // The value at `row` and `column` as a `T`. NULL is an error unless `T` is a `Nullable`.
+//
+// - r: the result.
+// - row: the row, counting from 0.
+// - column: the column, counting from 0.
+// - T: the type to decode to.
 get :: (r: *Result, row: s64, column: s64, $T: Type) -> T, Pg_Error {
     value: T;
 
@@ -382,6 +408,12 @@ get :: (r: *Result, row: s64, column: s64, $T: Type) -> T, Pg_Error {
     return value, .{};
 }
 
+// `get` with the column given by name (see `column_index`).
+//
+// - r: the result.
+// - row: the row, counting from 0.
+// - column_name: the column's name. The first one with it is used.
+// - T: the type to decode to.
 get :: (r: *Result, row: s64, column_name: string, $T: Type) -> T, Pg_Error {
     column := column_index(r, column_name);
     if column < 0 {
@@ -394,18 +426,30 @@ get :: (r: *Result, row: s64, column_name: string, $T: Type) -> T, Pg_Error {
     return value, error;
 }
 
+// Whether the value is NULL. False when the row or column does not exist.
+//
+// - r: the result.
+// - row: the row, counting from 0.
+// - column: the column, counting from 0.
 is_null :: (r: *Result, row: s64, column: s64) -> bool {
     if row < 0 || row >= r.row_count || column < 0 || column >= r.columns.count return false;
     return r.values[row * r.columns.count + column].length < 0;
 }
 
 // The first column with this name, or -1.
+//
+// - r: the result.
+// - name: the column's name.
 column_index :: (r: *Result, name: string) -> s64 {
     for r.columns if it.name == name return it_index;
     return -1;
 }
 
 // The undecoded bytes of a value, in the column's format; `is_null` for NULL.
+//
+// - r: the result.
+// - row: the row, counting from 0.
+// - column: the column, counting from 0.
 raw_value :: (r: *Result, row: s64, column: s64) -> bytes: [] u8, is_null: bool {
     if row < 0 || row >= r.row_count || column < 0 || column >= r.columns.count return .[], true;
     span := r.values[row * r.columns.count + column];
@@ -414,6 +458,8 @@ raw_value :: (r: *Result, row: s64, column: s64) -> bytes: [] u8, is_null: bool 
 }
 
 // Drops the rows of a result and what was decoded from them, keeping its columns.
+//
+// - r: the result.
 clear_rows :: (r: *Result) {
     r.row_count = 0;
     r.values.count = 0;
@@ -424,6 +470,9 @@ clear_rows :: (r: *Result) {
     r.allocations.count = 0;
 }
 
+// Frees a result and everything decoded from it. It is zeroed.
+//
+// - r: the result.
 free_result :: (r: *Result) {
     for r.columns free(it.name);
 

@@ -10,6 +10,9 @@ Scram :: struct {
     server_signature: [32] u8;
 }
 
+// Frees what a SCRAM exchange holds.
+//
+// - s: the exchange state to release; it is reset.
 free_scram :: (s: *Scram) {
     free(s.nonce);
     free(s.client_first_bare);
@@ -17,6 +20,12 @@ free_scram :: (s: *Scram) {
     s.* = .{};
 }
 
+// Picks a mechanism from the server's offer and sends the client-first message.
+//
+// - c: the connection to answer on.
+// - config: the connection settings; `channel_binding` decides whether -PLUS is used.
+// - s: the exchange state, filled in for the later steps.
+// - mechanisms: the SASL mechanism names the server offered.
 scram_start :: (c: *Connection, config: Config, s: *Scram, mechanisms: [] string) -> Pg_Error {
     offers_plain := array_find(mechanisms, "SCRAM-SHA-256");
     offers_plus := array_find(mechanisms, "SCRAM-SHA-256-PLUS");
@@ -68,6 +77,12 @@ scram_start :: (c: *Connection, config: Config, s: *Scram, mechanisms: [] string
     return send(c);
 }
 
+// Answers the server-first message with the client-final message.
+//
+// - c: the connection to answer on.
+// - config: the connection settings: `password` and `max_scram_iterations` matter here.
+// - s: the exchange state from `scram_start`.
+// - data: the server-first message.
 scram_continue :: (c: *Connection, config: Config, s: *Scram, data: [] u8) -> Pg_Error {
     if !s.started return protocol_error(c, "a SASL continuation without a SASL start");
 
@@ -142,6 +157,11 @@ unlock_salted :: () {
     atomic_store(*salted_lock, cast(s32) 0);
 }
 
+// PBKDF2 of the password, taken from the cache when it was computed before.
+//
+// - password: the password, already prepared.
+// - salt: the decoded salt from the server.
+// - iterations: the PBKDF2 iteration count from the server.
 salted_password :: (password: string, salt: string, iterations: s64) -> [32] u8 {
     key := Sha.sha256(tprint("%:%:%:%", password.count, password, iterations, Base64.base64_encode(salt,, temp)));
 
@@ -184,6 +204,11 @@ salted_password :: (password: string, salt: string, iterations: s64) -> [32] u8 
     return salted;
 }
 
+// Checks the server-final message: its signature proves the server knows the password.
+//
+// - c: the connection the exchange runs on.
+// - s: the exchange state, marked verified when the signature is right.
+// - data: the server-final message.
 scram_finish :: (c: *Connection, s: *Scram, data: [] u8) -> Pg_Error {
     if !s.started return protocol_error(c, "a SASL final message without a SASL start");
 
@@ -209,6 +234,8 @@ scram_finish :: (c: *Connection, s: *Scram, data: [] u8) -> Pg_Error {
 
 // The password as SCRAM uses it: SASLprep (saslprep.jai), or its own bytes when that cannot be
 // done, like libpq.
+//
+// - password: the password as the user gave it.
 prepare_password :: (password: string) -> string {
     prepared, _ := saslprep(password);
     return prepared;
@@ -218,6 +245,8 @@ prepare_password :: (password: string) -> string {
     // The hash of the server's certificate for tls-server-end-point: the certificate's own
     // signature hash, with MD5 and SHA-1 raised to SHA-256. Empty when the signature uses no hash
     // (Ed25519) or one this client cannot compute.
+    //
+    // - stream: the TLS stream whose peer certificate is hashed.
     tls_server_end_point :: (stream: *Tls.Tls_Stream) -> string {
         text := cast(string) Tls.peer_certificate_der(stream);
         if !text return "";
@@ -244,6 +273,8 @@ prepare_password :: (password: string) -> string {
 // without the server seeing the password (libpq's PQencryptPasswordConn does the same). The
 // password is prepared with SASLprep. `iterations` is what the server reports as
 // `scram_iterations`, 4096 by default.
+//
+// - password: the plain password.
 scram_secret :: (password: string, iterations := 4096) -> string {
     salt: [16] u8;
 
@@ -261,6 +292,14 @@ scram_secret :: (password: string, iterations := 4096) -> string {
 // The client-final-message for a server-first-message, and the signature the server must prove it
 // knows in its final message. `binding` is the GS2 header (plus the certificate hash for -PLUS),
 // `salt` the decoded salt. Exported so the RFC 7677 example can be checked.
+//
+// - password: the plain password.
+// - client_first_bare: the client-first message without its GS2 header.
+// - binding: the GS2 header, plus the certificate hash for -PLUS.
+// - server_first: the server-first message, as received.
+// - server_nonce: the `r=` value of the server-first message.
+// - salt: the decoded `s=` value.
+// - iterations: the `i=` value.
 scram_client_proof :: (password: string, client_first_bare: string, binding: string, server_first: string, server_nonce: string, salt: string, iterations: s64) -> final: string, server_signature: [32] u8 {
     salted := salted_password(prepare_password(password), salt, iterations);
     salted_text := string.{ 32, salted.data };
@@ -292,6 +331,9 @@ scram_pbkdf2_runs :: () -> s64 {
 }
 
 // The MD5 secret for a password and a role name: `md5` and the hash of the two joined.
+//
+// - password: the plain password.
+// - user: the role name.
 md5_secret :: (password: string, user: string) -> string {
     hash := Md5.md5(join(password, user,, temp));
 

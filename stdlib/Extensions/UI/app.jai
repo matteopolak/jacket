@@ -22,6 +22,10 @@ App_Window :: struct {
 // Open a window and run `build` for every frame until the window closes. `app` is passed to `build`
 // each frame. Returns false when the window or the GPU could not be set up.
 //
+// - options: window title, size, theme, fonts and an optional frame limit.
+// - app: your app state, passed to `build` each frame.
+// - build: declares the widgets for a frame.
+//
 // ```jai
 // run_app(.{title = "Counter", width = 320, height = 200}, *app, build);
 // ```
@@ -37,6 +41,11 @@ run_app :: (options: App_Options, app: *$T, build: (app: *T)) -> bool {
 }
 
 // Like `run_app`, for a UI the caller owns (to set the theme or hooks first, or to inspect it after).
+//
+// - options: window title, size, theme, fonts and an optional frame limit.
+// - ui: the UI to run. It is not freed on return.
+// - app: your app state, passed to `build` each frame.
+// - build: declares the widgets for a frame.
 run_app_with :: (options: App_Options, ui: *UI_State, app: *$T, build: (app: *T)) -> bool {
     window := create_window(options.width, options.height, options.title);
     if !window return false;

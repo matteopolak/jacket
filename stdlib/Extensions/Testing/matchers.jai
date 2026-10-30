@@ -50,6 +50,9 @@ Matcher :: struct {
 // ```jai,should_fail
 // assert_that(4, greater_than(5));
 // ```
+//
+// - value: the value to check.
+// - matcher: what it should be.
 assert_that :: (value: $T, matcher: Matcher, loc := #caller_location) -> bool {
     if holds(value, matcher) return true;
     report_failure(loc, failure_message(value, matcher, false));
@@ -58,73 +61,111 @@ assert_that :: (value: $T, matcher: Matcher, loc := #caller_location) -> bool {
 
 // `assert_that`, then returns from the procedure it is written in (which must return nothing)
 // when the check fails.
+//
+// - value: the value to check.
+// - matcher: what it should be.
 require_that :: (value: $T, matcher: Matcher, loc := #caller_location) #expand {
     if !assert_that(value, matcher, loc) `return;
 }
 
 // The message `assert_that` would report, or an empty string when `value` matches.
+//
+// - value: the value to check.
+// - matcher: what it should be.
 explain :: (value: $T, matcher: Matcher) -> string {
     if holds(value, matcher) return "";
     return failure_message(value, matcher, false);
 }
 
 // Equal by value, as `expect_equal` compares; strings, arrays and structs fail with its diff.
+//
+// - want: the value to compare with.
 is :: (want: $T) -> Matcher {
     return .{ kind = .EQUAL, first = capture(want) };
 }
 
+// Holds when `matcher` does not.
+//
+// - matcher: the matcher to turn around.
 not :: (matcher: Matcher) -> Matcher {
     return .{ kind = .NOT, children = copy_matchers(.[matcher]) };
 }
 
 // Every matcher holds.
+//
+// - matchers: the matchers that must all hold.
 all_of :: (matchers: ..Matcher) -> Matcher {
     return .{ kind = .ALL_OF, children = copy_matchers(matchers) };
 }
 
 // At least one matcher holds.
+//
+// - matchers: the matchers, one of which must hold.
 any_of :: (matchers: ..Matcher) -> Matcher {
     return .{ kind = .ANY_OF, children = copy_matchers(matchers) };
 }
 
 // Numbers of any width compare by value, strings byte by byte.
+//
+// - limit: the value must be above it.
 greater_than :: (limit: $T) -> Matcher {
     return .{ kind = .GREATER, first = capture(limit) };
 }
 
+// The value is at least `limit`.
+//
+// - limit: the value must be at or above it.
 at_least :: (limit: $T) -> Matcher {
     return .{ kind = .AT_LEAST, first = capture(limit) };
 }
 
+// The value is less than `limit`.
+//
+// - limit: the value must be below it.
 less_than :: (limit: $T) -> Matcher {
     return .{ kind = .LESS, first = capture(limit) };
 }
 
+// The value is at most `limit`.
+//
+// - limit: the value must be at or below it.
 at_most :: (limit: $T) -> Matcher {
     return .{ kind = .AT_MOST, first = capture(limit) };
 }
 
 // `low <= value <= high`.
+//
+// - low: the smallest allowed value.
+// - high: the largest allowed value.
 between :: (low: $T, high: $U) -> Matcher {
     return .{ kind = .BETWEEN, first = capture(low), second = capture(high) };
 }
 
 // `|value - want| <= tolerance`. NaN is never near anything.
+//
+// - want: the value to be close to.
+// - tolerance: the largest allowed difference.
 near :: (want: float64, tolerance: float64) -> Matcher {
     return .{ kind = .NEAR, first = capture(want), second = capture(tolerance) };
 }
 
 // A string holds `part` as a substring; an array holds `part` as an element.
+//
+// - part: the substring or element to look for.
 contains :: (part: $T) -> Matcher {
     return .{ kind = .CONTAINS, first = capture(part) };
 }
 
 // A string begins with `prefix`; an array begins with the elements of the array `prefix`.
+//
+// - prefix: the text or elements it must begin with.
 starts_with :: (prefix: $T) -> Matcher {
     return .{ kind = .STARTS_WITH, first = capture(prefix) };
 }
 
 // A string ends with `suffix`; an array ends with the elements of the array `suffix`.
+//
+// - suffix: the text or elements it must end with.
 ends_with :: (suffix: $T) -> Matcher {
     return .{ kind = .ENDS_WITH, first = capture(suffix) };
 }
@@ -135,16 +176,22 @@ is_empty :: () -> Matcher {
 }
 
 // A string with `count` bytes or an array with `count` elements.
+//
+// - count: the exact number of bytes or elements.
 has_length :: (count: s64) -> Matcher {
     return .{ kind = .HAS_LENGTH, first = capture(count) };
 }
 
 // An array with an element `matcher` holds for.
+//
+// - matcher: must hold for at least one element.
 has_item :: (matcher: Matcher) -> Matcher {
     return .{ kind = .HAS_ITEM, children = copy_matchers(.[matcher]) };
 }
 
 // An array whose every element `matcher` holds for (an empty array qualifies).
+//
+// - matcher: must hold for every element.
 each :: (matcher: Matcher) -> Matcher {
     return .{ kind = .EACH, children = copy_matchers(.[matcher]) };
 }
@@ -166,6 +213,8 @@ is_false :: () -> Matcher {
 }
 
 // The value's type is `T` exactly; for an `Any`, the type of what it holds.
+//
+// - $T: the type the value must have.
 of_type :: ($T: Type) -> Matcher {
     return .{ kind = .OF_TYPE, type = type_info(T) };
 }

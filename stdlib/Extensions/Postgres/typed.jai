@@ -34,6 +34,9 @@ Rows :: struct(T: Type) {
 // block from `allocator`. The rows stay valid after `free_rows`; `array_free(items)` frees all of
 // it (with `temp`, nothing needs freeing). Check `rows.error` afterwards.
 //
+// - rows: the rows to decode; they are read from the start.
+// - allocator: where the block of rows goes.
+//
 // ```jai,ignore
 // users := Pg.fetch_all(*rows);   // or Pg.fetch_all(*rows, temp)
 // Pg.free_rows(*rows);
@@ -185,12 +188,21 @@ array_parts :: (value: *void, array: *Type_Info_Array) -> count: s64, data: *u8 
 
 #scope_export
 
+// Frees the result data of `rows`.
+//
+// - rows: the rows to release; they are reset.
 free_rows :: (rows: *Rows($T)) {
     free_result(*rows.result);
     free_error(*rows.error);
     rows.* = .{};
 }
 
+// Loops over the rows, decoding each into `it`. A row that fails to decode stops the loop and
+// sets `rows.error`.
+//
+// - rows: the rows to loop over.
+// - body: the loop body.
+// - flags: the loop's flags.
 for_expansion :: (rows: *Rows($T), body: Code, flags: For_Flags) #expand {
     for `it_index: 0..rows.result.row_count - 1 {
         `it: T;
@@ -208,6 +220,12 @@ for_expansion :: (rows: *Rows($T), body: Code, flags: For_Flags) #expand {
 // Runs the statement and returns its rows. `Rows(Row(...))` has one field per column; when the
 // columns are exactly one table's, it is `Rows(Table)` with that table's struct from db/schema.jai
 // (row type identity, see `row_type`).
+//
+// - db: a `*Connection` or a `*Pool`.
+// - sql: the statement, written at the call as a string: `%` marks each argument, `%%` is a literal `%`.
+// - args: one value per `%`, in order.
+// - plan: `.AUTO` runs it as a cached named statement; `.CUSTOM` plans it again on every run.
+// - json: decoding options for json columns in this query; they apply over the connection's and the column's.
 query :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $call := #caller_code) -> Rows(#run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1)))), Pg_Error #expand {
     #run check_statement(sql, call, 1, true);
 
@@ -220,6 +238,12 @@ query :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Opt
 
 // The only row, or a `.NOT_FOUND` error when there is none. More rows are a `.USAGE` error. The row
 // lives in temporary storage (until `reset_temporary_storage`).
+//
+// - db: a `*Connection` or a `*Pool`.
+// - sql: the statement, written at the call as a string: `%` marks each argument, `%%` is a literal `%`.
+// - args: one value per `%`, in order.
+// - plan: `.AUTO` runs it as a cached named statement; `.CUSTOM` plans it again on every run.
+// - json: decoding options for json columns in this query; they apply over the connection's and the column's.
 query_one :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $call := #caller_code) -> #run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1))), Pg_Error #expand {
     #run check_statement(sql, call, 1, true);
 
@@ -245,6 +269,12 @@ query_one :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json
 } @Interpolates("sql")
 
 // The first row and whether there was one.
+//
+// - db: a `*Connection` or a `*Pool`.
+// - sql: the statement, written at the call as a string: `%` marks each argument, `%%` is a literal `%`.
+// - args: one value per `%`, in order.
+// - plan: `.AUTO` runs it as a cached named statement; `.CUSTOM` plans it again on every run.
+// - json: decoding options for json columns in this query; they apply over the connection's and the column's.
 query_opt :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $call := #caller_code) -> #run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1))), bool, Pg_Error #expand {
     #run check_statement(sql, call, 1, true);
 
@@ -269,6 +299,13 @@ query_opt :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json
 //
 // `project_file` names the file whose project (migrations, query cache, `.env`) the statement
 // belongs to, when it is not the file of the call: for code that writes statements for others.
+//
+// - db: a `*Connection` or a `*Pool`.
+// - sql: the statement, written at the call as a string: `%` marks each argument, `%%` is a literal `%`.
+// - args: one value per `%`, in order.
+// - plan: `.AUTO` runs it as a cached named statement; `.CUSTOM` plans it again on every run.
+// - json: decoding options for json columns in this query; they apply over the connection's and the column's.
+// - project_file: the file whose project the statement belongs to; empty for the file of the call.
 execute :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $project_file := "", $call := #caller_code) -> s64, Pg_Error #expand {
     #run check_statement(sql, call, 1, false, project_file);
 
@@ -284,6 +321,10 @@ execute :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_O
 
 // `query` on a pipeline: the statement is queued, checked like `query`, and its rows come later
 // from `take`. Queue several, then take them: they share one round trip.
+//
+// - p: the pipeline to queue on.
+// - sql: the statement, as for `query`.
+// - args: one value per `%`, in order.
 //
 // ```jai,ignore
 // p := Pg.pipeline_enter(c);
@@ -304,6 +345,10 @@ queue :: (p: *Pipeline, $sql: string, args: ..Any, $call := #caller_code) -> Pen
 } @Interpolates("sql")
 
 // `execute` on a pipeline: `take` gives the count of rows the statement changed.
+//
+// - p: the pipeline to queue on.
+// - sql: the statement, as for `execute`.
+// - args: one value per `%`, in order.
 queue_execute :: (p: *Pipeline, $sql: string, args: ..Any, $call := #caller_code) -> Pending(s64), Pg_Error #expand {
     #run check_statement(sql, call, 1, false);
 
@@ -319,6 +364,12 @@ queue_execute :: (p: *Pipeline, $sql: string, args: ..Any, $call := #caller_code
 // busy until the loop ends; leaving the loop early cancels the rest. A failure, before or during the
 // loop, lands in `error` (cleared first). Strings in `it` live until the next batch: copy what you
 // keep.
+//
+// - c: the connection to run on; it is busy until the loop ends.
+// - error: set to the failure, if any, once the loop ends.
+// - sql: the statement, as for `query`.
+// - args: one value per `%`, in order.
+// - batch: how many rows arrive at a time.
 //
 // ```jai,ignore
 // error: Pg.Pg_Error;
@@ -347,6 +398,11 @@ Row_Stream :: struct(T: Type) {
     meta: Statement_Meta;
 }
 
+// Loops over the streamed rows, fetching a batch when the last one is used up.
+//
+// - stream: the stream to loop over.
+// - body: the loop body.
+// - flags: the loop's flags.
 for_expansion :: (stream: *Row_Stream($T), body: Code, flags: For_Flags) #expand {
     rows: Rows(T);
     row := 0;
@@ -397,6 +453,12 @@ for_expansion :: (stream: *Row_Stream($T), body: Code, flags: For_Flags) #expand
 }
 
 // The first column of the only row.
+//
+// - db: a `*Connection` or a `*Pool`.
+// - sql: the statement, written at the call as a string: `%` marks each argument, `%%` is a literal `%`.
+// - args: one value per `%`, in order.
+// - plan: `.AUTO` runs it as a cached named statement; `.CUSTOM` plans it again on every run.
+// - json: decoding options for json columns in this query; they apply over the connection's and the column's.
 query_scalar :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $call := #caller_code) -> type_of(Scalar(#run scalar_type(sql, call, 1)).value), Pg_Error #expand {
     #run check_statement(sql, call, 1, true);
 
@@ -423,6 +485,14 @@ query_scalar :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := J
 // `query` into your own struct. The columns are matched to fields by name, and checked: a column
 // that can be NULL needs a `Nullable` field, the types must be assignable, and a `Json(T)` field
 // says which type a json column holds. `project_file` is as for `execute`.
+//
+// - T: the struct each row is read into.
+// - db: a `*Connection` or a `*Pool`.
+// - sql: the statement, written at the call as a string: `%` marks each argument, `%%` is a literal `%`.
+// - args: one value per `%`, in order.
+// - plan: `.AUTO` runs it as a cached named statement; `.CUSTOM` plans it again on every run.
+// - json: decoding options for json columns in this query; they apply over the connection's and the column's.
+// - project_file: the file whose project the statement belongs to; empty for the file of the call.
 query_as :: ($T: Type, db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $project_file := "", $call := #caller_code) -> Rows(T), Pg_Error #expand {
     #run check_statement_as(T, sql, call, 2, project_file);
 

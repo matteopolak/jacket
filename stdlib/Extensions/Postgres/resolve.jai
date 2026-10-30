@@ -86,14 +86,22 @@ call_of :: (call: Code) -> *Code_Procedure_Call {
 
 // The project's migrations folder, schema file and query cache, from the module parameters
 // MIGRATIONS, SCHEMA and QUERY_CACHE (paths relative to the project root).
+//
+// - root: the project root, as `find_project_root` returns it.
 migrations_path :: (root: string) -> string {
     return join(root, "/", MIGRATIONS,, temp);
 }
 
+// The path of the schema file.
+//
+// - root: the project root.
 schema_path :: (root: string) -> string {
     return join(root, "/", SCHEMA,, temp);
 }
 
+// The path of the query cache folder.
+//
+// - root: the project root.
 query_cache_path :: (root: string) -> string {
     return join(root, "/", QUERY_CACHE,, temp);
 }
@@ -106,6 +114,8 @@ min_server_version :: () -> s64 {
 // The folder that holds the project's files: from the file with the query, the nearest folder up
 // the tree with a `jacket.toml` or the first folder of MIGRATIONS (`db`, by default); if there is
 // none, that file's own folder. JACKET_PG_ROOT overrides it.
+//
+// - file: the source file with the query.
 find_project_root :: (file: string) -> string {
     forced := environment_variable("JACKET_PG_ROOT");
     if forced return forced;
@@ -132,6 +142,8 @@ find_project_root :: (file: string) -> string {
 
 // The compile-time database's URL: JACKET_DATABASE_URL, else DATABASE_URL, from the environment;
 // when it has neither, the same two names in the project's `.env` file. Empty when there is none.
+//
+// - root: the project root, where the `.env` file is looked for.
 database_url :: (root: string) -> string {
     url := environment_variable("JACKET_DATABASE_URL");
     if !url url = environment_variable("DATABASE_URL");
@@ -182,6 +194,8 @@ typed_settings :: (file: string) -> Typed_Settings {
 
 // The project's migrations folder and their schema hash (see `schema_hash`), or empty strings when
 // there are none.
+//
+// - root: the project root.
 migrations_of :: (root: string) -> folder: string, hash: string {
     folder := migrations_path(root);
     is_dir, ok := Typed_Files.is_directory(folder);
@@ -207,6 +221,8 @@ read_if_exists :: (path: string) -> string, bool {
 #scope_export
 
 // `id_hex` read back.
+//
+// - text: the hex digits of a statement id.
 statement_id_of_hex :: (text: string) -> u64 {
     id: u64;
 
@@ -218,10 +234,18 @@ statement_id_of_hex :: (text: string) -> u64 {
     return id;
 }
 
+// The path of the cache file for a statement.
+//
+// - root: the project root.
+// - id: a statement id.
 cache_file :: (root: string, id: u64) -> string {
     return join(query_cache_path(root), "/", id_hex(id), ".json",, temp);
 }
 
+// The entry in a cache file and true, or false when there is none, it cannot be read, or it is for another statement.
+//
+// - path: the cache file.
+// - sql: the statement the entry must be for.
 read_cache_entry :: (path: string, sql: string) -> Query_Entry, bool {
     if !Typed_Files.file_exists(path) return .{}, false;
 
@@ -240,6 +264,11 @@ read_cache_entry :: (path: string, sql: string) -> Query_Entry, bool {
     return entry, true;
 }
 
+// Writes a statement's cache entry, leaving the file alone if it would not change.
+//
+// - root: the project root.
+// - id: the statement id, which names the file.
+// - entry: what to store.
 write_cache_entry :: (root: string, id: u64, entry: Query_Entry) {
     make_cache_folder(root);
 

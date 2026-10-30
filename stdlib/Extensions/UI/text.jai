@@ -69,6 +69,9 @@ Text_System :: struct {
 }
 
 // Open the font file at `path` into the next slot. Returns false when it cannot be read or parsed.
+//
+// - text: the text system to add the font to.
+// - path: the font file to read.
 load_font :: (text: *Text_System, path: string) -> bool {
     data, ok := read_entire_file(path);
     if !ok return false;
@@ -77,6 +80,11 @@ load_font :: (text: *Text_System, path: string) -> bool {
 }
 
 // Open a font from bytes (which the text system keeps and frees).
+//
+// - text: the text system to add the font to.
+// - data: the font file's bytes. The call takes ownership: it copies them and frees `data`, even on
+//   failure.
+// - name: a label for the font, copied.
 load_font_data :: (text: *Text_System, data: string, name: string = "") -> bool {
     if !text.library {
         if FT_Init_FreeType(*text.library) != 0 {
@@ -104,6 +112,8 @@ load_font_data :: (text: *Text_System, data: string, name: string = "") -> bool 
 }
 
 // Add a fixed-metrics font (no glyphs are drawn) to the next slot.
+//
+// - text: the text system to add the font to.
 add_synthetic_font :: (text: *Text_System) {
     array_add(*text.fonts, New(Font));
 }
@@ -112,6 +122,8 @@ add_synthetic_font :: (text: *Text_System) {
 // few fallbacks for symbols and CJK. Any that are missing are replaced by synthetic fonts for the
 // first two slots. The environment variables `JAI_UI_FONT` and `JAI_UI_MONO_FONT` name font files
 // that replace the sans and monospace choices.
+//
+// - text: the text system to fill.
 load_system_fonts :: (text: *Text_System) {
     sans := environment_variable("JAI_UI_FONT");
     mono := environment_variable("JAI_UI_MONO_FONT");
@@ -163,6 +175,8 @@ load_system_fonts :: (text: *Text_System) {
 }
 
 // Release every font and the glyph cache.
+//
+// - text: the text system to release. It is reset to empty.
 free_text_system :: (text: *Text_System) {
     for text.fonts {
         if it.face FT_Done_Face(it.face);
@@ -181,11 +195,18 @@ free_text_system :: (text: *Text_System) {
 }
 
 // Set the device scale; glyphs rasterized at another scale stay in the cache under their own size.
+//
+// - text: the text system to change.
+// - scale: device pixels per point. Values under 0.25 are raised to 0.25.
 set_scale :: (text: *Text_System, scale: float) {
     text.scale = max(scale, 0.25);
 }
 
 // Ascent, descent and line height of a font slot at `size` points.
+//
+// - text: the text system holding the fonts.
+// - slot: which font to measure.
+// - size: the font size in points.
 font_metrics :: (text: *Text_System, slot: Font_Slot, size: float) -> Font_Metrics {
     index := font_index(text, slot);
     pixels := pixel_size(text, size);
@@ -214,6 +235,10 @@ font_metrics :: (text: *Text_System, slot: Font_Slot, size: float) -> Font_Metri
 }
 
 // The width in points of `string` drawn with `style`, without kerning.
+//
+// - text: the text system holding the fonts.
+// - string_to_measure: the UTF-8 text to measure.
+// - style: the font and size to measure with.
 text_width :: (text: *Text_System, string_to_measure: string, style: Text_Style) -> float {
     total := 0.0;
     i := 0;
@@ -228,6 +253,10 @@ text_width :: (text: *Text_System, string_to_measure: string, style: Text_Style)
 }
 
 // Horizontal advance of one code point in points (a tab is four spaces).
+//
+// - text: the text system holding the fonts.
+// - code: the code point.
+// - style: the font and size to measure with.
 glyph_advance :: (text: *Text_System, code: u32, style: Text_Style) -> float {
     if code == #char "\t" return 4 * glyph_advance(text, #char " ", style);
 
@@ -241,6 +270,11 @@ glyph_advance :: (text: *Text_System, code: u32, style: Text_Style) -> float {
 }
 
 // The byte offset in `string_to_measure` of the grapheme boundary nearest to horizontal position `x`.
+//
+// - text: the text system holding the fonts.
+// - string_to_measure: the UTF-8 text.
+// - style: the font and size the text is drawn with.
+// - x: the position in points from the start of the text. Zero or less gives 0.
 index_at_x :: (text: *Text_System, string_to_measure: string, style: Text_Style, x: float) -> int {
     if x <= 0 return 0;
 
@@ -262,6 +296,11 @@ index_at_x :: (text: *Text_System, string_to_measure: string, style: Text_Style,
 
 // The glyph for `code` in a font slot at `size` points, rasterized into the atlas on first use.
 // Falls back through the later fonts when the slot's font has no glyph for it.
+//
+// - text: the text system holding the fonts and atlas.
+// - code: the code point.
+// - slot: which font to prefer.
+// - size: the font size in points.
 get_glyph :: (text: *Text_System, code: u32, slot: Font_Slot, size: float) -> Glyph {
     index := font_index(text, slot);
     pixels := pixel_size(text, size);
@@ -279,6 +318,8 @@ get_glyph :: (text: *Text_System, code: u32, slot: Font_Slot, size: float) -> Gl
 }
 
 // Forget the cached glyphs and clear the atlas, when it ran out of room. Called at the start of a frame.
+//
+// - text: the text system whose atlas to check.
 reset_atlas_if_full :: (text: *Text_System) {
     if !text.atlas.full return;
 

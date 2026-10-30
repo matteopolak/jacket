@@ -23,6 +23,8 @@ Rewrite :: struct {
 
 // Rewrites `%` to `$1`, `$2`, ... in order and `%%` to `%`. A `$n` of Postgres' own in the source
 // is an error: one style only. Text inside quotes and comments is copied as it is.
+//
+// - source: the statement as the user wrote it, with `%` holes.
 rewrite_placeholders :: (source: string) -> Rewrite {
     result: Rewrite;
     out: [..] u8;
@@ -104,6 +106,9 @@ rewrite_placeholders :: (source: string) -> Rewrite {
 
 // The offset in the source of a byte of the rewritten statement. Inside a replaced `%` it is
 // that `%`.
+//
+// - rewrite: the result of `rewrite_placeholders`.
+// - rewritten_offset: a byte offset in `rewrite.sql`.
 source_offset_of :: (rewrite: *Rewrite, rewritten_offset: s64) -> s64 {
     shift := 0; // rewritten minus source, after the edits passed so far
 
@@ -119,6 +124,9 @@ source_offset_of :: (rewrite: *Rewrite, rewritten_offset: s64) -> s64 {
 
 // The byte offset in `text` of a 1-based character position (what an ErrorResponse's `P` field
 // counts, in characters, not bytes). Past the end, the end.
+//
+// - text: the statement.
+// - character: the position, counted from 1.
 byte_of_character :: (text: string, character: s64) -> s64 {
     seen := 0;
 
@@ -133,6 +141,8 @@ byte_of_character :: (text: string, character: s64) -> s64 {
 }
 
 // A 64-bit statement id: the first eight bytes of SHA-256 of the rewritten statement.
+//
+// - rewritten_sql: the statement with `$n` in place of `%`.
 statement_id :: (rewritten_sql: string) -> u64 {
     digest := Sha.sha256(rewritten_sql);
     id: u64;
@@ -143,12 +153,17 @@ statement_id :: (rewritten_sql: string) -> u64 {
 }
 
 // The full SHA-256 of a text, as lower-case hex.
+//
+// - text: the bytes to hash.
 statement_digest_hex :: (text: string) -> string {
     digest := Sha.sha256(text);
 
     return scan_hex_text(digest.data, digest.count);
 }
 
+// The 16 lower-case hex digits of a statement id.
+//
+// - id: a statement id.
 id_hex :: (id: u64) -> string {
     bytes: [8] u8;
     for 0..7 bytes[it] = cast,no_check(u8) (id >> ((7 - it) * 8));
@@ -156,6 +171,10 @@ id_hex :: (id: u64) -> string {
     return scan_hex_text(bytes.data, 8);
 }
 
+// Lower-case hex of `count` bytes at `data`, twice as long.
+//
+// - data: the first byte.
+// - count: how many bytes to show.
 scan_hex_text :: (data: *u8, count: s64) -> string {
     DIGITS :: "0123456789abcdef";
     out := alloc_string(count * 2);

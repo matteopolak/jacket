@@ -81,6 +81,9 @@ Pending :: struct(R: Type) {
 // The answer to a statement queued with `queue` or `queue_execute`: its rows, or the count of rows
 // it changed. The statements queued so far get a sync point first if they have none, so the batch
 // ends. Pendings may be taken in any order; results read on the way are kept for their own `take`.
+//
+// - p: the pipeline the statement was queued on.
+// - pending: what `queue` or `queue_execute` returned.
 take :: (p: *Pipeline, pending: Pending($R)) -> R, Pg_Error {
     out: R;
 
@@ -101,6 +104,8 @@ take :: (p: *Pipeline, pending: Pending($R)) -> R, Pg_Error {
 }
 
 // Starts pipeline mode on a connection. Entering again returns the same pipeline.
+//
+// - c: the connection.
 pipeline_enter :: (c: *Connection) -> *Pipeline, Pg_Error {
     if !c return null, make_error(.USAGE, "no connection");
     if c.pipeline.active return *c.pipeline, .{};
@@ -116,6 +121,8 @@ pipeline_enter :: (c: *Connection) -> *Pipeline, Pg_Error {
 }
 
 // Ends pipeline mode. It fails, and the pipeline stays, while results are unread.
+//
+// - p: the pipeline from `pipeline_enter`.
 pipeline_exit :: (p: *Pipeline) -> Pg_Error {
     if !p.active return .{};
 
@@ -128,18 +135,28 @@ pipeline_exit :: (p: *Pipeline) -> Pg_Error {
 }
 
 // Statements waiting for their results, sync points included.
+//
+// - p: the pipeline from `pipeline_enter`.
 pipeline_pending :: (p: *Pipeline) -> s64 {
     return p.steps.count - p.head;
 }
 
 // Queues a statement with parameters `$1`, `$2`, ... from `args` (see `query_dynamic` for the types),
 // results in text format.
+//
+// - p: the pipeline from `pipeline_enter`.
+// - sql: one statement.
+// - args: the parameter values, `$1` first.
 pipeline_query :: (p: *Pipeline, sql: string, args: ..Any) -> Pg_Error {
     values := args; // `sql` is not a print format: keep it and `args` out of one call
     return queue_typed(p, sql, "", values, .TEXT);
 }
 
 // `pipeline_query` with results in binary format.
+//
+// - p: the pipeline from `pipeline_enter`.
+// - sql: one statement.
+// - args: the parameter values, `$1` first.
 pipeline_query_binary :: (p: *Pipeline, sql: string, args: ..Any) -> Pg_Error {
     values := args;
     return queue_typed(p, sql, "", values, .BINARY);
@@ -147,11 +164,22 @@ pipeline_query_binary :: (p: *Pipeline, sql: string, args: ..Any) -> Pg_Error {
 
 // Queues a statement whose parameters are already text. `types` are the parameter OIDs to declare
 // (0, or fewer than `values`, leaves the rest to the server).
+//
+// - p: the pipeline from `pipeline_enter`.
+// - sql: one statement.
+// - types: the parameter type OIDs.
+// - values: the parameters in text format, `$1` first.
+// - result_format: the format of the returned rows.
 pipeline_query_text :: (p: *Pipeline, sql: string, types: [] u32, values: [] string, result_format := Format.TEXT) -> Pg_Error {
     return queue_text(p, sql, "", types, values, result_format);
 }
 
 // Prepares a named statement. `types` are the parameter OIDs to declare.
+//
+// - p: the pipeline from `pipeline_enter`.
+// - name: the statement's name.
+// - sql: one statement.
+// - types: the parameter type OIDs.
 pipeline_prepare :: (p: *Pipeline, name: string, sql: string, types: [] u32 = .[]) -> Pg_Error {
     error := check_queue(p);
     if error.kind != .NONE return error;
@@ -164,36 +192,61 @@ pipeline_prepare :: (p: *Pipeline, name: string, sql: string, types: [] u32 = .[
 }
 
 // Runs a prepared statement with `args` (see `pipeline_query`), results in text format.
+//
+// - p: the pipeline from `pipeline_enter`.
+// - name: the prepared statement's name.
+// - args: the parameter values, `$1` first.
 pipeline_execute_prepared :: (p: *Pipeline, name: string, args: ..Any) -> Pg_Error {
     values := args;
     return queue_typed(p, "", name, values, .TEXT);
 }
 
 // Runs a prepared statement with parameters that are already text.
+//
+// - p: the pipeline from `pipeline_enter`.
+// - name: the prepared statement's name.
+// - values: the parameters in text format, `$1` first.
+// - result_format: the format of the returned rows.
 pipeline_execute_prepared_text :: (p: *Pipeline, name: string, values: [] string, result_format := Format.TEXT) -> Pg_Error {
     return queue_text(p, "", name, .[], values, result_format);
 }
 
 // The result of these four is `.RESULT`; a describe also fills `result.columns`, and a statement
 // describe `parameter_types`.
+//
+// - p: the pipeline from `pipeline_enter`.
+// - name: the prepared statement's name.
 pipeline_describe_statement :: (p: *Pipeline, name: string) -> Pg_Error {
     return queue_named(p, .DESCRIBE_STATEMENT, name);
 }
 
+// Queues a describe of a portal.
+//
+// - p: the pipeline from `pipeline_enter`.
+// - name: the portal's name.
 pipeline_describe_portal :: (p: *Pipeline, name: string) -> Pg_Error {
     return queue_named(p, .DESCRIBE_PORTAL, name);
 }
 
 // Closing a statement or portal that does not exist is not an error.
+//
+// - p: the pipeline from `pipeline_enter`.
+// - name: the prepared statement's name.
 pipeline_close_statement :: (p: *Pipeline, name: string) -> Pg_Error {
     return queue_named(p, .CLOSE, name, #char "S");
 }
 
+// Queues a close of a portal.
+//
+// - p: the pipeline from `pipeline_enter`.
+// - name: the portal's name.
 pipeline_close_portal :: (p: *Pipeline, name: string) -> Pg_Error {
     return queue_named(p, .CLOSE, name, #char "P");
 }
 
 // Queues a sync point and sends everything queued.
+//
+// - p: the pipeline from `pipeline_enter`.
 pipeline_sync :: (p: *Pipeline) -> Pg_Error {
     error := pipeline_queue_sync(p);
     if error.kind != .NONE return error;
@@ -202,6 +255,8 @@ pipeline_sync :: (p: *Pipeline) -> Pg_Error {
 }
 
 // Queues a sync point without sending.
+//
+// - p: the pipeline from `pipeline_enter`.
 pipeline_queue_sync :: (p: *Pipeline) -> Pg_Error {
     error := check_queue(p);
     if error.kind != .NONE return error;
@@ -215,6 +270,8 @@ pipeline_queue_sync :: (p: *Pipeline) -> Pg_Error {
 
 // Asks the server to send the answers so far without ending the batch, and sends everything
 // queued. Without a sync point, a batch that fails is not rolled back until the next one.
+//
+// - p: the pipeline from `pipeline_enter`.
 pipeline_flush_request :: (p: *Pipeline) -> Pg_Error {
     error := check_queue(p);
     if error.kind != .NONE return error;
@@ -225,6 +282,8 @@ pipeline_flush_request :: (p: *Pipeline) -> Pg_Error {
 }
 
 // Sends everything queued.
+//
+// - p: the pipeline from `pipeline_enter`.
 pipeline_flush :: (p: *Pipeline) -> Pg_Error {
     error := check_queue(p);
     if error.kind != .NONE return error;
@@ -236,6 +295,9 @@ pipeline_flush :: (p: *Pipeline) -> Pg_Error {
 // may have fewer), then end with a `.RESULT` that has no rows but the command tag, so a large
 // result never has to fit in memory. It only works before the statement's first result is read.
 // Reverts at the statement's end.
+//
+// - p: the pipeline from `pipeline_enter`.
+// - count: rows per result.
 pipeline_chunked_rows :: (p: *Pipeline, count: s64) -> bool {
     if !p.active || p.head >= p.steps.count || count < 1 return false;
     if p.steps[p.head] != .QUERY || p.current.result.row_count > 0 return false;
@@ -246,6 +308,8 @@ pipeline_chunked_rows :: (p: *Pipeline, count: s64) -> bool {
 }
 
 // `pipeline_chunked_rows` with one row per result.
+//
+// - p: the pipeline from `pipeline_enter`.
 pipeline_single_row :: (p: *Pipeline) -> bool {
     return pipeline_chunked_rows(p, 1);
 }
@@ -255,6 +319,8 @@ pipeline_single_row :: (p: *Pipeline) -> bool {
 // the pipeline keeps what it had read, and the call can be repeated. The result's kind is NONE
 // when nothing is queued. The returned error is for failures of the connection; the server's
 // errors come as `.ERROR` results. Free the result with `free_pipeline_result`.
+//
+// - p: the pipeline from `pipeline_enter`.
 pipeline_next_result :: (p: *Pipeline) -> Pipeline_Result, Pg_Error {
     error := check_queue(p);
     if error.kind != .NONE return .{}, error;
@@ -319,6 +385,9 @@ pipeline_next_result :: (p: *Pipeline) -> Pipeline_Result, Pg_Error {
     return .{}, .{};
 }
 
+// Frees a result from `pipeline_next_result`.
+//
+// - item: the result. It is zeroed.
 free_pipeline_result :: (item: *Pipeline_Result) {
     free_result(*item.result);
     array_free(item.parameter_types);
@@ -329,6 +398,8 @@ free_pipeline_result :: (item: *Pipeline_Result) {
 // Gives up on everything queued: asks the server to cancel what runs, reads and drops all answers
 // up to the last sync point (queuing one if needed), and leaves pipeline mode. The connection
 // breaks if the server does not finish within `cancel_timeout`.
+//
+// - p: the pipeline from `pipeline_enter`.
 pipeline_abandon :: (p: *Pipeline) {
     if !p.active return;
 
@@ -363,6 +434,9 @@ pipeline_abandon :: (p: *Pipeline) {
 }
 
 // Describes a prepared statement by name, without a pipeline (Describe, Sync).
+//
+// - c: the connection.
+// - name: the prepared statement's name.
 describe_prepared :: (c: *Connection, name: string) -> Statement_Info, Pg_Error {
     item, error := run_named(c, .DESCRIBE_STATEMENT, name);
     if error.kind != .NONE return .{}, error;
@@ -378,6 +452,9 @@ describe_prepared :: (c: *Connection, name: string) -> Statement_Info, Pg_Error 
 }
 
 // Describes a portal (a cursor, say) by name: the columns it returns.
+//
+// - c: the connection.
+// - name: the portal's name.
 describe_portal :: (c: *Connection, name: string) -> Statement_Info, Pg_Error {
     item, error := run_named(c, .DESCRIBE_PORTAL, name);
     if error.kind != .NONE return .{}, error;
@@ -391,6 +468,9 @@ describe_portal :: (c: *Connection, name: string) -> Statement_Info, Pg_Error {
 }
 
 // Drops a prepared statement by name. One that does not exist is not an error.
+//
+// - c: the connection.
+// - name: the prepared statement's name.
 close_prepared :: (c: *Connection, name: string) -> Pg_Error {
     item, error := run_named(c, .CLOSE, name, #char "S");
     free_pipeline_result(*item);
@@ -399,6 +479,9 @@ close_prepared :: (c: *Connection, name: string) -> Pg_Error {
 }
 
 // Drops a portal by name. One that does not exist is not an error.
+//
+// - c: the connection.
+// - name: the portal's name.
 close_portal :: (c: *Connection, name: string) -> Pg_Error {
     item, error := run_named(c, .CLOSE, name, #char "P");
     free_pipeline_result(*item);

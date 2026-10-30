@@ -38,6 +38,9 @@ RECONNECT_MAX :: 30_000;
 
 schemas: Pg.Schema_Databases;
 
+// The service's answer to one request.
+//
+// - request_text: a `Describe_Request` as JSON text.
 answer :: (request_text: string) -> Service.Status, string {
     request, error := Json.from_json(Pg.Describe_Request, request_text, .{ missing_fields_default = true },, temp);
     if error.kind != .NONE return .FAILED, tprint("malformed request: %", error.message);
@@ -135,6 +138,9 @@ Managed_State :: struct {
 
 managed: Managed_State;
 
+// The URL of the managed server, starting it if needed, or why it cannot.
+//
+// - version: the release the managed server should run. Empty takes the default.
 managed_url :: (version: string) -> url: string, failure: string {
     if managed.ready return managed.url, "";
 
@@ -162,6 +168,10 @@ now_milliseconds :: () -> s64 {
     return to_milliseconds(current_time_monotonic());
 }
 
+// The slot holding the connection for this pair, added if there is none.
+//
+// - url: the database URL.
+// - database: a database name to use instead of the URL's. Empty keeps the URL's.
 slot_for :: (url: string, database: string) -> *Held {
     for *held if it.url == url && it.database == database return it;
 
@@ -170,6 +180,10 @@ slot_for :: (url: string, database: string) -> *Held {
     return *held[held.count - 1];
 }
 
+// Closes the held connection for this pair, if any.
+//
+// - url: the database URL.
+// - database: a database name to use instead of the URL's. Empty keeps the URL's.
 drop_connection :: (url: string, database: string) {
     slot := slot_for(url, database);
 
@@ -179,6 +193,10 @@ drop_connection :: (url: string, database: string) {
     }
 }
 
+// The held connection for this pair, connecting when there is none, or why it cannot. Failures are remembered for a while.
+//
+// - url: the database URL.
+// - database: a database name to use instead of the URL's. Empty keeps the URL's.
 connection_for :: (url: string, database: string) -> *Pg.Connection, string {
     slot := slot_for(url, database);
     if slot.db && !slot.db.broken return slot.db, "";

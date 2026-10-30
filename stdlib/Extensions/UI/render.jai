@@ -57,6 +57,10 @@ Rendered_Image :: struct {
 }
 
 // Create a renderer drawing into `window`'s surface. Returns null if no GPU or surface is available.
+//
+// - window: the window to draw into.
+// - width: the drawable width in pixels.
+// - height: the drawable height in pixels.
 create_window_renderer :: (window: Window_Type, width: int, height: int) -> *Renderer {
     r := New(Renderer);
     r.instance = wgpuCreateInstance(null);
@@ -89,6 +93,9 @@ create_window_renderer :: (window: Window_Type, width: int, height: int) -> *Ren
 
 // Create a renderer drawing into an offscreen texture of `width` by `height` pixels, for tests and
 // screenshots. Returns null if no adapter is available.
+//
+// - width: the target width in pixels.
+// - height: the target height in pixels.
 create_offscreen_renderer :: (width: int, height: int) -> *Renderer {
     r := New(Renderer);
     r.instance = wgpuCreateInstance(null);
@@ -112,6 +119,8 @@ create_offscreen_renderer :: (width: int, height: int) -> *Renderer {
 }
 
 // Release the renderer and its GPU objects.
+//
+// - r: the renderer to release.
 destroy_renderer :: (r: *Renderer) {
     if r.target_view wgpuTextureViewRelease(r.target_view);
     if r.target wgpuTextureRelease(r.target);
@@ -134,6 +143,10 @@ destroy_renderer :: (r: *Renderer) {
 }
 
 // Match the target to a new size in pixels (a window resize).
+//
+// - r: the renderer to resize.
+// - width: the new width in pixels. Zero or less does nothing.
+// - height: the new height in pixels. Zero or less does nothing.
 resize_target :: (r: *Renderer, width: int, height: int) {
     if width <= 0 || height <= 0 return;
 
@@ -166,6 +179,10 @@ resize_target :: (r: *Renderer, width: int, height: int) {
 
 // Draw the UI's display list into the window. Returns false when there was nothing to draw into
 // (the window is hidden) and the frame should be tried again.
+//
+// - r: the window renderer.
+// - ui: the UI whose display list to draw.
+// - clear: the colour the window is cleared to first.
 present :: (r: *Renderer, ui: *UI_State, clear: Color) -> bool {
     frame: WGPUSurfaceTexture;
 
@@ -189,6 +206,10 @@ present :: (r: *Renderer, ui: *UI_State, clear: Color) -> bool {
 }
 
 // Draw the UI's display list offscreen and read the pixels back. Free `pixels` with `array_free`.
+//
+// - r: the offscreen renderer.
+// - ui: the UI whose display list to draw.
+// - clear: the colour the target is cleared to first.
 render_to_image :: (r: *Renderer, ui: *UI_State, clear: Color) -> Rendered_Image {
     encode(r, ui, r.target_view, clear);
 
@@ -241,6 +262,9 @@ render_to_image :: (r: *Renderer, ui: *UI_State, clear: Color) -> Rendered_Image
 // Draw the UI's last frame offscreen and write it to `path` as a PNG. Needs a GPU; build the UI
 // with `system_fonts` for readable text. Returns false when there is no adapter or the file
 // cannot be written.
+//
+// - ui: the UI whose last frame to draw.
+// - path: where to write the PNG.
 write_screenshot :: (ui: *UI_State, path: string) -> bool {
     width := cast(int) ceil(ui.size.x * ui.text.scale);
     height := cast(int) ceil(ui.size.y * ui.text.scale);

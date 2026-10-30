@@ -90,6 +90,11 @@ Tls_Stream :: struct {
 // `server_name` (which is also sent as the SNI name; "" sends none, and with `verify_name` off the
 // name is not checked). On success the stream owns the connection:
 // `close` closes it. On an error nothing is closed, the connection is the caller's to close.
+//
+// - config: an initialised config (`tls_config_init`).
+// - reader: where the bytes from the server come from.
+// - writer: where the bytes to the server go.
+// - server_name: the host name to check the certificate against and send as SNI.
 tls_connect :: (config: *Tls_Config, reader: Io.Reader, writer: Io.Writer, server_name: string) -> *Tls_Stream, Tls_Error {
     native := config.native;
 
@@ -142,6 +147,10 @@ tls_connect :: (config: *Tls_Config, reader: Io.Reader, writer: Io.Writer, serve
 
 // Runs the server handshake. The config needs a certificate and key. On success the stream owns
 // the connection; on an error the caller closes it.
+//
+// - config: an initialised config with a certificate and key.
+// - reader: where the bytes from the client come from.
+// - writer: where the bytes to the client go.
 tls_accept :: (config: *Tls_Config, reader: Io.Reader, writer: Io.Writer) -> *Tls_Stream, Tls_Error {
     native := config.native;
 
@@ -166,12 +175,16 @@ tls_accept :: (config: *Tls_Config, reader: Io.Reader, writer: Io.Writer) -> *Tl
 }
 
 // The ALPN protocol both sides chose ("" when none was).
+//
+// - stream: an established stream.
 alpn_protocol :: (stream: *Tls_Stream) -> string {
     return c_text(mbedtls_ssl_get_alpn_protocol(stream.ssl));
 }
 
 // The cipher suite in use, by mbedTLS's name ("TLS1-3-AES-128-GCM-SHA256",
 // "TLS-ECDHE-ECDSA-WITH-CHACHA20-POLY1305-SHA256").
+//
+// - stream: an established stream.
 cipher_suite :: (stream: *Tls_Stream) -> string {
     return c_text(mbedtls_ssl_get_ciphersuite(stream.ssl));
 }
@@ -179,6 +192,8 @@ cipher_suite :: (stream: *Tls_Stream) -> string {
 // The DER of the certificate the peer proved itself with (the first of its chain): the server's
 // on a client stream, the client's on a server stream that asked for one. The bytes belong to the
 // stream and stay valid until `close`. Empty before the handshake or when the peer sent none.
+//
+// - stream: the stream to ask.
 peer_certificate_der :: (stream: *Tls_Stream) -> [] u8 {
     certificate := mbedtls_ssl_get_peer_cert(stream.ssl);
     if !certificate return .[];
@@ -192,6 +207,8 @@ peer_certificate_der :: (stream: *Tls_Stream) -> [] u8 {
 // The hash the peer certificate's signature uses, by lower-case name: "md5", "sha1", "sha224",
 // "sha256", "sha384" or "sha512". "" when there is no certificate or the algorithm names no hash
 // (Ed25519, unknown OIDs). It reads the certificate's own DER, not the library's view of it.
+//
+// - stream: the stream whose peer certificate to look at.
 peer_certificate_signature_hash :: (stream: *Tls_Stream) -> string {
     der := peer_certificate_der(stream);
 
@@ -263,16 +280,22 @@ peer_certificate_signature_hash :: (stream: *Tls_Stream) -> string {
 
 // The name a client asked for in its SNI extension, on a stream from `tls_accept` ("" if it sent
 // none). It points into the stream.
+//
+// - stream: a stream from `tls_accept`.
 server_name :: (stream: *Tls_Stream) -> string {
     return string.{ stream.peer_name_count, stream.peer_name_bytes.data };
 }
 
 // "TLSv1.3" or "TLSv1.2".
+//
+// - stream: an established stream.
 version :: (stream: *Tls_Stream) -> string {
     return c_text(mbedtls_ssl_get_version(stream.ssl));
 }
 
 // Why the last call that failed did (`.NONE` before any failure).
+//
+// - stream: the stream to ask.
 last_error :: (stream: *Tls_Stream) -> Tls_Error {
     return stream.failure;
 }
@@ -282,6 +305,9 @@ last_error :: (stream: *Tls_Stream) -> Tls_Error {
 // Waits for data and reads what is there, up to `buffer.count` bytes. 0 is the end: the peer sent
 // close_notify. A connection that ends without it is an error (`.CONNECTION_RESET`, and
 // `last_error` says `.TRUNCATED`): the data may have been cut off.
+//
+// - stream: the stream to read from.
+// - buffer: where the bytes go. Empty returns 0 at once.
 read :: (stream: *Tls_Stream, buffer: [] u8) -> s64, Io.Io_Error {
     if buffer.count == 0 return 0, .NONE;
     if !enter(stream) return 0, .CLOSED;
@@ -335,6 +361,9 @@ BATCH_BYTES :: 64 * 1024;
 
 // Waits until the library has accepted at least one byte of `bytes` and sends it, together with the
 // records of as many more bytes as fit in `BATCH_BYTES`; returns how many it took.
+//
+// - stream: the stream to write to.
+// - bytes: the data to send. Only a part may be taken.
 write_some :: (stream: *Tls_Stream, bytes: [] u8) -> s64, Io.Io_Error {
     if bytes.count == 0 return 0, .NONE;
     if !enter(stream) return 0, .CLOSED;
@@ -402,17 +431,25 @@ write_some :: (stream: *Tls_Stream, bytes: [] u8) -> s64, Io.Io_Error {
 // is `bytes.count`; on an error it is the bytes that were already sent. It is the same as `write_some` repeated, so a large
 // write is split into records and may take several scheduler turns. Use `write_some` to send what fits without
 // looping.
+//
+// - stream: the stream to write to.
+// - bytes: the data to send.
 write :: (stream: *Tls_Stream, bytes: [] u8) -> s64, Io.Io_Error {
     return Io.write(writer_of(stream), bytes);
 }
 
 // The `write` for a `string`: sends all of `text` and returns how many bytes went out.
+//
+// - stream: the stream to write to.
+// - text: the string to send.
 write :: (stream: *Tls_Stream, text: string) -> s64, Io.Io_Error {
     return Io.write(writer_of(stream), text);
 }
 
 // Waits until `read` would not have to wait for the network: decrypted bytes are waiting, or
 // something has arrived (which may still be only part of a record).
+//
+// - stream: the stream to wait on.
 wait_readable :: (stream: *Tls_Stream) -> Io.Io_Error {
     if !enter(stream) return .CLOSED;
 
@@ -430,6 +467,9 @@ wait_readable :: (stream: *Tls_Stream) -> Io.Io_Error {
 // Ends the stream: sends close_notify (unless `now`, which does not wait and sends nothing) and
 // closes the connection under it, which wakes fibers still waiting on it with `.CLOSED`. The stream is
 // freed once those fibers have left, so it must not be used after `close`; close it once.
+//
+// - stream: the stream to end.
+// - now: skip close_notify and the wait; just close the connection.
 close :: (stream: *Tls_Stream, now := false) -> Io.Io_Error {
     if stream.closing return .NONE;
 
@@ -458,6 +498,8 @@ close :: (stream: *Tls_Stream, now := false) -> Io.Io_Error {
 // Whether `reader` is a TLS stream's reader (from `reader_of`) whose connection ended without the
 // peer's close_notify (`last_error(stream).kind == .TRUNCATED`). For a protocol that frames its own
 // messages, such as HTTP, where that end is no failure once the message is complete.
+//
+// - reader: the reader to test. Any reader is fine; others give false.
 ended_without_close_notify :: (reader: Io.Reader) -> bool {
     if reader.read_proc != read_proc return false;
 
@@ -468,6 +510,8 @@ ended_without_close_notify :: (reader: Io.Reader) -> bool {
 
 // The stream as an `Io.Reader`, for code written against readers (`Io.read_all`, the Http client). Reading it is `read`;
 // closing it closes the whole stream, once. The reader points at the stream, so it is only valid until `close`.
+//
+// - stream: the stream to read through.
 reader_of :: (stream: *Tls_Stream) -> Io.Reader {
     reader: Io.Reader;
 
@@ -482,6 +526,8 @@ reader_of :: (stream: *Tls_Stream) -> Io.Reader {
 
 // The stream as an `Io.Writer`, for code written against writers. Writing it is `write_some`; closing it closes the whole
 // stream, once, so close either the reader or the writer of a stream and not both. It is only valid until `close`.
+//
+// - stream: the stream to write through.
 writer_of :: (stream: *Tls_Stream) -> Io.Writer {
     writer: Io.Writer;
 

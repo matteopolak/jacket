@@ -19,6 +19,9 @@ Notification :: struct {
     backend_pid: s32; // the session that sent it
 }
 
+// Frees a notification's strings. It is zeroed.
+//
+// - n: the notification.
 free_notification :: (n: *Notification) {
     free(n.channel);
     free(n.payload);
@@ -27,6 +30,8 @@ free_notification :: (n: *Notification) {
 
 // The oldest queued notification, without waiting. `found` is false when none is queued. Free it
 // with `free_notification`.
+//
+// - c: the connection.
 next_notification :: (c: *Connection) -> n: Notification, found: bool {
     if !c || !c.notifications.count return .{}, false;
 
@@ -37,6 +42,8 @@ next_notification :: (c: *Connection) -> n: Notification, found: bool {
 }
 
 // Frees every queued notification.
+//
+// - c: the connection.
 drop_notifications :: (c: *Connection) {
     for *c.notifications free_notification(it);
 
@@ -48,6 +55,8 @@ drop_notifications :: (c: *Connection) {
 // connection stays usable). Free the notification with `free_notification`. Nothing else may use
 // the connection while a fiber waits on it. With `on_notification` set, notifications never queue,
 // so there is nothing to wait for.
+//
+// - c: the connection that LISTENs.
 wait_for_notification :: (c: *Connection) -> Notification, Pg_Error {
     if !c return .{}, make_error(.USAGE, "no connection");
 
@@ -86,21 +95,34 @@ wait_for_notification :: (c: *Connection) -> Notification, Pg_Error {
 }
 
 // LISTEN on a channel. The name is quoted, so any text is a channel.
+//
+// - c: the connection.
+// - channel: the channel's name.
 listen :: (c: *Connection, channel: string) -> Pg_Error {
     return execute_script(c, tprint("LISTEN %", quote_identifier(channel)));
 }
 
+// Stops listening to one channel.
+//
+// - c: the connection.
+// - channel: the channel's name.
 unlisten :: (c: *Connection, channel: string) -> Pg_Error {
     return execute_script(c, tprint("UNLISTEN %", quote_identifier(channel)));
 }
 
 // Stops listening to every channel.
+//
+// - c: the connection.
 unlisten_all :: (c: *Connection) -> Pg_Error {
     return execute_script(c, "UNLISTEN *");
 }
 
 // NOTIFY a channel, with a payload of up to 7999 bytes. Delivered to the listeners when the
 // transaction commits; inside none, at once. A connection also hears its own notifications.
+//
+// - c: the connection.
+// - channel: the channel's name.
+// - payload: the text sent along. Empty for none.
 notify :: (c: *Connection, channel: string, payload := "") -> Pg_Error {
     result, error := query_dynamic(c, "SELECT pg_notify($1, $2)", channel, payload);
     free_result(*result);
@@ -109,6 +131,8 @@ notify :: (c: *Connection, channel: string, payload := "") -> Pg_Error {
 }
 
 // The text as an SQL identifier: in double quotes, with embedded quotes doubled.
+//
+// - name: the text to quote.
 quote_identifier :: (name: string) -> string {
     builder: String_Builder;
     builder.allocator = temp;

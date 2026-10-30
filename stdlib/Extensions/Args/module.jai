@@ -61,6 +61,9 @@ Color_Mode :: enum u8 {
 
 color_mode := Color_Mode.AUTO;
 
+// Sets the colour mode for help and error output from now on.
+//
+// - mode: the mode to use.
 set_color_mode :: (mode: Color_Mode) {
     color_mode = mode;
 }
@@ -125,6 +128,11 @@ Is_Set :: struct(T: Type) {
 //     assert(error.kind == .HELP && error.text.count > 0);
 // }
 // ```
+//
+// - $T: the struct whose fields are the options.
+// - $help: the help strings for `T`.
+// - argv: the arguments, program name first.
+// - environment: "NAME=value" entries that override the process environment for `@env` lookups.
 try_parse :: ($T: Type, $help: Help(T), argv: [] string, environment: [] string = .[]) -> T, Error, Is_Set(T) {
     out: T;
     set: Is_Set(T);
@@ -147,6 +155,9 @@ try_parse :: ($T: Type, $help: Help(T), argv: [] string, environment: [] string 
 
 // Parses the process's arguments. `--help` and `--version` print and exit 0; a bad command
 // line prints the error with a usage hint to stderr and exits 2.
+//
+// - $T: the struct whose fields are the options.
+// - $help: the help strings for `T`.
 parse :: ($T: Type, $help: Help(T)) -> T, Is_Set(T) {
     argv := get_command_line_arguments();
     out, error, set := try_parse(T, help, argv);
@@ -166,12 +177,22 @@ parse :: ($T: Type, $help: Help(T)) -> T, Is_Set(T) {
 
 // The completion script for `shell`, to be saved where that shell loads completions from. The
 // program name is argv[0]'s basename unless `program` says otherwise.
+//
+// - $T: the struct whose fields are the options.
+// - $help: the help strings for `T`.
+// - shell: the shell to write the script for.
+// - program: the command name to complete; "" uses argv[0]'s basename.
 completions :: ($T: Type, $help: Help(T), shell: Shell, program := "") -> string {
     spec := describe(T, help, ifx program.count then program else program_name(get_command_line_arguments()));
     return completion_script(*spec, shell);
 }
 
 // The help text of the whole program (what `--help` prints), for tools that show it themselves.
+//
+// - $T: the struct whose fields are the options.
+// - $help: the help strings for `T`.
+// - program: the name shown in the usage line; "" uses argv[0]'s basename.
+// - color: whether to include ANSI colour codes.
 help_text :: ($T: Type, $help: Help(T), program := "", color := false) -> string {
     spec := describe(T, help, ifx program.count then program else program_name(get_command_line_arguments()));
     return render_help(*spec, .[], color);

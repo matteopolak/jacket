@@ -59,12 +59,20 @@ SCHEMA_BUILD_DELAY_MS :: 2_000;
 // Schema databases kept on the server, newest first.
 SCHEMA_DATABASES_KEPT :: 3;
 
+// The name of the database for a schema hash.
+//
+// - hash: the schema hash of a set of migrations.
 schema_database_name :: (hash: string) -> string {
     return tprint("jacket_%", slice(hash, 0, 12));
 }
 
 // Picks (and builds when it is time) the schema database for the migrations in `folder`. `db` is
 // connected to the server's own database and `config` is how it was reached.
+//
+// - state: what earlier calls learned; updated here.
+// - db: a connection to the server's own database.
+// - config: how `db` was reached; a database that gets built is connected to the same way.
+// - folder: the project's migrations folder.
 schema_target :: (state: *Schema_Databases, db: *Connection, config: Config, folder: string) -> Schema_Target, problem: string {
     migrations, problem := read_migrations(folder,, temp);
     if problem return .{}, problem;
@@ -155,6 +163,8 @@ schema_target :: (state: *Schema_Databases, db: *Connection, config: Config, fol
 
 // Drops schema databases beyond the newest `SCHEMA_DATABASES_KEPT`. One still in use (by another
 // editor, say) is left for next time.
+//
+// - db: a connection to the server's own database.
 prune_schema_databases :: (db: *Connection) {
     names, error := schema_database_names(db);
 

@@ -14,6 +14,9 @@
 
 // The value `key` gets in the text of a `.env` file, and whether it is assigned at all. The last
 // assignment wins. The result lives in temporary storage.
+//
+// - text: the contents of a `.env` file.
+// - key: the variable name.
 dotenv_value :: (text: string, key: string) -> string, bool {
     value: string;
     found := false;
@@ -32,6 +35,8 @@ dotenv_value :: (text: string, key: string) -> string, bool {
 
 // The database URL the project's `.env` file gives: JACKET_DATABASE_URL, else DATABASE_URL. Empty
 // when there is no file or neither is assigned.
+//
+// - root: the project folder that holds `.env`.
 dotenv_database_url :: (root: string) -> string {
     path := join(root, "/.env",, temp);
     if !Typed_Files.file_exists(path) return "";
