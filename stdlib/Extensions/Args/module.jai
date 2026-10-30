@@ -95,6 +95,34 @@ Is_Set :: struct(T: Type) {
 // On any error the returned struct holds what was parsed so far. `environment` holds
 // "NAME=value" entries that win over the process environment when an `@env` option is looked
 // up (for tests; leave it empty to read the real one).
+//
+// ```jai
+// Args :: #import "Extensions/Args";
+//
+// Cli :: struct {
+//     paths: [..] string; @positional
+//     check: bool; @short=c
+//     jobs: int = 4; @short=j @env=TOOL_JOBS @range(1,64)
+// }
+// HELP :: Args.Help(Cli).{ about = "Does things.", paths = "Files to read", check = "Only check", jobs = "Parallel jobs" };
+//
+// main :: () {
+//     cli, error, set := Args.try_parse(Cli, HELP, .["tool", "-c", "--jobs=8", "a.jai", "b.jai"]);
+//     assert(error.kind == .NONE);
+//     assert(cli.check && cli.jobs == 8 && cli.paths.count == 2 && cli.paths[1] == "b.jai");
+//     assert(set.jobs && set.check && set.paths);
+//
+//     // The environment argument stands in for the process's own, and the option given on the line wins.
+//     cli, error, set = Args.try_parse(Cli, HELP, .["tool"], .["TOOL_JOBS=16"]);
+//     assert(error.kind == .NONE && cli.jobs == 16 && set.jobs);
+//
+//     // A failure is returned, never printed: the kind says what went wrong, the message says it in words.
+//     cli, error, set = Args.try_parse(Cli, HELP, .["tool", "--jobs", "100"]);
+//     assert(error.kind != .NONE && error.message.count > 0);
+//     cli, error, set = Args.try_parse(Cli, HELP, .["tool", "--help"]);
+//     assert(error.kind == .HELP && error.text.count > 0);
+// }
+// ```
 try_parse :: ($T: Type, $help: Help(T), argv: [] string, environment: [] string = .[]) -> T, Error, Is_Set(T) {
     out: T;
     set: Is_Set(T);
