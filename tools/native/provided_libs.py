@@ -24,7 +24,6 @@ import re
 from dataclasses import dataclass
 
 from native.build_native_libs import MANIFEST, rpmalloc_libraries
-from toolkit.repo import ROOT
 
 KINDS = ("embedded", "fetched", "runtime", "packaged", "developer", "external")
 # A binding: the directive, then (up to the `;`) the quoted library name.
