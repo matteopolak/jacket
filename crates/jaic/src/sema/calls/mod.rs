@@ -14,7 +14,7 @@ use super::convert;
 use super::expr::takes_context_type;
 use super::lower::{FnCtx, MacroFrame, Operand};
 use super::procs::{ProcTarget, Signature};
-use super::scope::{BuiltinProc, EntityKind, ScopeKind};
+use super::scope::{BuiltinProc, EntityKind, ScopeKind, UsingEntry};
 use super::{
     Compiler, Diagnostic, DiagnosticKind, PackKey, PreludeType, ProcId, ProcTypeParams, Rc, Result,
     ScopeId, Span, Sym, TargetCpu, TypeId, Value, asm, ast, err, ir, procs, scope, value,
@@ -389,6 +389,32 @@ impl Compiler {
         d
     }
 
+    /// Is `proc` brought into the call's scope by a `using` of a module in a body (a procedure,
+    /// block or the like) rather than by what a file or the module imports? That `using` is
+    /// nearer than anything the module declares, so it is not outranked by the module's own.
+    /// A body's `#import` is not a `using`: it ranks with the file's imports.
+    fn brought_by_nearer_using(&self, scope: ScopeId, proc: ProcId) -> bool {
+        let provider = self.scope(self.proc(proc).scope).module;
+        let mut current = Some(scope);
+        while let Some(sid) = current {
+            let s = self.scope(sid);
+            if matches!(
+                s.kind,
+                ScopeKind::Module | ScopeKind::File | ScopeKind::Root
+            ) {
+                return false;
+            }
+            if s.usings
+                .iter()
+                .any(|u| matches!(u, UsingEntry::Module(m, _) if *m == provider))
+            {
+                return true;
+            }
+            current = s.parent;
+        }
+        false
+    }
+
     /// The best of the ranked candidates, and whether another is as good (the editor keeps the
     /// whole overload set then). Equally good candidates declared together as different
     /// procedures are an error when the call does not say which one it means: an argument has no
@@ -396,7 +422,7 @@ impl Compiler {
     /// parameter alike, and declaration order settles that). One in an inner scope is nearer, as
     /// an inner declaration is to a name of an outer one, and two candidates of one declaration
     /// are not rivals. A procedure the calling module declares itself is preferred to one it
-    /// imports, however the two are scoped (`scope` is where the call is).
+    /// imports, unless a `using` in a body nearer to the call (`scope`) brings the import in.
     fn choose_candidate(
         &self,
         mut best: Vec<Candidate>,
@@ -414,7 +440,10 @@ impl Compiler {
                 .take_while(|c| self.candidate_rank(c) == rank)
                 .count();
             let own_count = best[..tied_run].iter().filter(|c| own(c)).count();
-            if own_count > 0 && own_count < tied_run {
+            let nearer = best[..tied_run]
+                .iter()
+                .any(|c| !own(c) && self.brought_by_nearer_using(scope, c.proc));
+            if own_count > 0 && own_count < tied_run && !nearer {
                 best[..tied_run].sort_by_key(|c| !own(c));
                 return Ok((best.swap_remove(0), true));
             }

@@ -52,7 +52,6 @@ Looked at and not a leniency, so there is no warning:
 - `get_plugin` in a file run as a program: it is the `declaration-hides-import` case (the `Program_Print` module exports a `get_plugin` with the same parameters).
 - A procedure of the program and an imported one that an untyped literal fits alike (`f(x: float32)` against `f(x: float64)`, called with `1`): both compilers accept it.
 - Divergences where jaic fixes a bug of the official compiler (`ifx c 1 else 0` for an unsigned target, recursive structs with a variadic parameter, a procedure returning a procedure type with a body) are decisions to differ, not code the official compiler is expected to accept later, and carry no warning.
-- A body that calls an overload of its own module while it also has a named import in `using` scope picks the nearer one in the official compiler and the module's own here; neither is rejected, so it is not reported.
 
 ## How to change it
 

@@ -168,18 +168,49 @@ fn own_procedure_wins_over_an_imported_one_that_fits_alike() {
         &[
             (
                 "main.jai",
-                r#"S :: #import "Sys";
+                "Mod :: #import \"Mod\";\nmain :: () { a, b := Mod.take(); }\n",
+            ),
+            (
+                "Mod/module.jai",
+                r#"#import "Sys";
 grab :: (size: s64, flags: s32) -> *void, s64 { return null, 0; }
 
 take :: () -> *void, s64 {
-    using S;
     ptr: *void;
     count: s64;
     ptr, count = grab(8, 3);
     return ptr, count;
 }
+"#,
+            ),
+            (
+                "Sys/module.jai",
+                "grab :: (size: s64, flags: s32) -> s32 { return 0; }\n",
+            ),
+        ],
+    );
+}
 
-main :: () { a, b := take(); }
+#[test]
+fn imported_procedure_a_body_uses_wins_over_the_modules_own() {
+    accepted_with_modules(
+        "using-beats-own-overload",
+        &[
+            (
+                "main.jai",
+                "Mod :: #import \"Mod\";\nmain :: () { a := Mod.take(); }\n",
+            ),
+            (
+                "Mod/module.jai",
+                r#"#import "Sys";
+grab :: (size: s64, flags: s32) -> *void, s64 { return null, 0; }
+
+take :: () -> s32 {
+    S :: #import "Sys";
+    using S;
+    n: s32 = grab(8, 3);
+    return n;
+}
 "#,
             ),
             (
