@@ -32,6 +32,7 @@ backend_init :: (info: *Window_Info) {
     assert(ok, "native render window dimension query failed");
     info.window_width = width;
     info.window_height = height;
+    info.pixel_scale = Windows_API.get_pixel_scale(info.window);
     info.backend_initted_for_this_window = true;
 }
 
@@ -64,7 +65,7 @@ backend_set_render_target :: (info: *Window_Info) {
     if !Contexts.make_current(info.window) return;
     require_gl_texture_context();
     GL.gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0);
-    GL.gl.glViewport(0, 0, cast(GL.GLsizei) info.window_width, cast(GL.GLsizei) info.window_height);
+    GL.gl.glViewport(0, 0, cast(GL.GLsizei) (info.window_width * info.pixel_scale + 0.5), cast(GL.GLsizei) (info.window_height * info.pixel_scale + 0.5));
 }
 
 backend_set_render_target :: (texture: *Texture) {
@@ -97,6 +98,7 @@ update_window :: (window: Window_Type) {
         assert(ok);
         info.window_width = width;
         info.window_height = height;
+        info.pixel_scale = Windows_API.get_pixel_scale(window);
         Contexts.update(window);
 
         if immediate_state.texture_render_target == null && immediate_state.current_window_info.window == window {
@@ -118,6 +120,18 @@ get_render_dimensions :: (window: Window_Type) -> (width: s32, height: s32) {
     return width, height;
 }
 
+/// The size of the window's framebuffer in device pixels.
+get_pixel_dimensions :: (window: Window_Type) -> (width: s32, height: s32) {
+    width, height := get_render_dimensions(window);
+    scale := Windows_API.get_pixel_scale(window);
+    return cast(s32) (width * scale + 0.5), cast(s32) (height * scale + 0.5);
+}
+
+/// Device pixels per window coordinate unit (2 on a Retina display).
+get_pixel_scale :: (window: Window_Type) -> float {
+    return Windows_API.get_pixel_scale(window);
+}
+
 disable_window :: (window: Window_Type) {
     for item: disabled_windows if item == window return;
     Basic.array_add(*disabled_windows, window);
@@ -137,7 +151,7 @@ swap_buffers :: (window: Window_Type, vsync := true) {
 }
 
 backend_resize_render_target :: (info: Window_Info) {
-    GL.gl.glViewport(0, 0, cast(GL.GLsizei) info.window_width, cast(GL.GLsizei) info.window_height);
+    GL.gl.glViewport(0, 0, cast(GL.GLsizei) (info.window_width * info.pixel_scale + 0.5), cast(GL.GLsizei) (info.window_height * info.pixel_scale + 0.5));
 }
 
 backend_flush :: () {
@@ -163,8 +177,20 @@ set_scissor :: (x0: s32, y0: s32, x1: s32, y1: s32) {
     immediate_flush();
     assert(x1 >= x0 && y1 >= y0);
 
+    // Window targets take logical coordinates; the scissor box is in device pixels.
+    if !immediate_state.texture_render_target {
+        scale := immediate_state.current_window_info.pixel_scale;
+
+        if scale != 1 {
+            x0 = cast(s32) (x0 * scale + 0.5);
+            x1 = cast(s32) (x1 * scale + 0.5);
+            y0 = cast(s32) (y0 * scale + 0.5);
+            y1 = cast(s32) (y1 * scale + 0.5);
+        }
+    }
+
     if immediate_state.coordinate_system == .LEFT_HANDED {
-        height := immediate_state.current_window_info.window_height;
+        height := cast(s32) (immediate_state.current_window_info.window_height * immediate_state.current_window_info.pixel_scale + 0.5);
         if immediate_state.texture_render_target height = immediate_state.texture_render_target.height;
 
         bottom := height - y1;

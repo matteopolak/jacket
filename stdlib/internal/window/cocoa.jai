@@ -78,7 +78,13 @@ close_window :: (window: *void) {
 
 attach_render_context :: (window: *void, native: *void) {
     Basic.assert(window != null && native != null);
-    argument_message(native, "setView:", result_message(window, "contentView", *void));
+    view := result_message(window, "contentView", *void);
+    // Without this the surface stays at one pixel per point and the system stretches it on Retina displays.
+    if argument_result_message(view, "respondsToSelector:", O.selector("setWantsBestResolutionOpenGLSurface:"), s8) != 0 {
+        argument_message(view, "setWantsBestResolutionOpenGLSurface:", cast(s8) 1);
+    }
+
+    argument_message(native, "setView:", view);
     set_association(window, *render_context_key, native, 1);
 }
 
@@ -160,6 +166,12 @@ local_mouse_location :: (window: *void) -> O.NSPoint {
     return result_message(window, "mouseLocationOutsideOfEventStream", O.NSPoint);
 }
 
+backing_scale :: (window: *void) -> float {
+    scale := cast(float) result_message(window, "backingScaleFactor", O.CGFloat);
+    if scale < 1 return 1;
+    return scale;
+}
+
 content_size :: (window: *void) -> O.NSSize {
     view := result_message(window, "contentView", *void);
     rect := result_message(view, "bounds", O.NSRect);
@@ -228,6 +240,7 @@ objc :: #library,system "objc"; @native(external)
 appkit :: #library,system "AppKit"; @native(external)
 foundation :: #library,system "Foundation"; @native(external)
 default_runloop_mode: *void #elsewhere foundation "NSDefaultRunLoopMode";
+
 application_load :: () -> s8 #foreign appkit "NSApplicationLoad";
 native_class :: (name: *u8) -> *void #foreign objc "objc_getClass";
 native_send :: () #foreign objc "objc_msgSend";

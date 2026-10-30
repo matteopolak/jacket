@@ -16,12 +16,27 @@ isLegalUTF8 :: (source: *u8, length: s64) -> bool {
     return result == .CONVERSION_OK && consumed == length;
 }
 
-get_font_at_size :: (path: string, name: string, pixel_height: int) -> *Dynamic_Font {
-    for entry: dynamic_fonts if entry.key == name && entry.font.character_height == pixel_height return entry.font;
-    return load_font(path, name, pixel_height);
+/// Sizes are in drawing units. With `pixel_scale` above 1 (a Retina window) the glyphs are rasterized
+/// at `pixel_height * pixel_scale` device pixels and drawn at 1/`pixel_scale`, so text stays sharp.
+get_font_at_size :: (path: string, name: string, pixel_height: int, pixel_scale := 1.0) -> *Dynamic_Font {
+    device_height := device_font_height(pixel_height, pixel_scale);
+    for entry: dynamic_fonts if entry.key == name && entry.font.character_height == device_height && same_scale(entry.font.pixel_scale, pixel_scale) return entry.font;
+    return load_font(path, name, pixel_height, pixel_scale);
 }
 
-load_font :: (path: string, basename: string, pixel_height: int) -> font: *Dynamic_Font {
+SCALE_TOLERANCE :: 0.001;
+
+same_scale :: (a: float, b: float) -> bool {
+    return a - b < SCALE_TOLERANCE && b - a < SCALE_TOLERANCE;
+}
+
+device_font_height :: (pixel_height: int, pixel_scale: float) -> int {
+    height := cast(int) (pixel_height * pixel_scale + 0.5);
+    if height < 1 height = 1;
+    return height;
+}
+
+load_font :: (path: string, basename: string, pixel_height: int, pixel_scale := 1.0) -> font: *Dynamic_Font {
     persistent := font_context();
 
     push_context, defer_pop persistent;
@@ -38,20 +53,23 @@ load_font :: (path: string, basename: string, pixel_height: int) -> font: *Dynam
 
     result := Basic.New(Dynamic_Font);
 
-    if !initialize_dynamic_font(result, loaded.*, pixel_height) {
+    if !initialize_dynamic_font(result, loaded.*, device_font_height(pixel_height, pixel_scale)) {
         Basic.free(result.name);
         Basic.free(result);
         return null;
     }
 
+    result.pixel_scale = pixel_scale;
     Basic.array_add(*dynamic_fonts, Dynamic_Storage.{ result, loaded, Basic.copy_string(basename) });
 
     return result;
 }
 
-get_font_at_size :: (memory: [] u8, pixel_height: int) -> *Dynamic_Font {
+get_font_at_size :: (memory: [] u8, pixel_height: int, pixel_scale := 1.0) -> *Dynamic_Font {
+    device_height := device_font_height(pixel_height, pixel_scale);
+
     for entry: dynamic_fonts {
-        if entry.loaded.data.data == memory.data && entry.loaded.data.count == memory.count && entry.font.character_height == pixel_height return entry.font;
+        if entry.loaded.data.data == memory.data && entry.loaded.data.count == memory.count && entry.font.character_height == device_height && same_scale(entry.font.pixel_scale, pixel_scale) return entry.font;
     }
 
     persistent := font_context();
@@ -69,12 +87,13 @@ get_font_at_size :: (memory: [] u8, pixel_height: int) -> *Dynamic_Font {
 
     result := Basic.New(Dynamic_Font);
 
-    if !initialize_dynamic_font(result, loaded.*, pixel_height) {
+    if !initialize_dynamic_font(result, loaded.*, device_font_height(pixel_height, pixel_scale)) {
         Basic.free(result.name);
         Basic.free(result);
         return null;
     }
 
+    result.pixel_scale = pixel_scale;
     Basic.array_add(*dynamic_fonts, Dynamic_Storage.{ result, loaded, "" });
 
     return result;
@@ -99,7 +118,7 @@ set_unknown_character :: (using font: *Dynamic_Font, utf32: u32) -> bool {
 }
 
 get_baseline_height :: (font: *Dynamic_Font) -> s64 {
-    return font.typical_ascender;
+    return cast(s64) (cast(float) font.typical_ascender / font.pixel_scale + 0.5);
 }
 
 get_glyph_width_in_pixels :: (glyph: *Glyph_Data) -> s64 {
@@ -125,12 +144,12 @@ get_character_width_in_pixels :: (using font: *Dynamic_Font, utf8: *u8, effect_f
     glyph := font_glyph(font, code, effect_flags);
     if !glyph return 0;
 
-    return cast(u32) glyph.advance;
+    return cast(u32) (cast(float) glyph.advance / font.pixel_scale + 0.5);
 }
 
 prepare_text :: (font: *Dynamic_Font, text: string, effect_flags: Font_Effects = 0) -> (width: s64) {
     convert_to_temporary_glyphs(font, text, effect_flags);
-    return font.temporary_glyphs_width_in_pixels;
+    return cast(s64) (cast(float) font.temporary_glyphs_width_in_pixels / font.pixel_scale + 0.5);
 }
 
 convert_to_temporary_glyphs :: (using font: *Dynamic_Font, s: string, effect_flags: Font_Effects) {
@@ -196,13 +215,16 @@ generate_quads_for_prepared_text :: (font: *Dynamic_Font, x: s64, y: s64, effect
 
     push_context, defer_pop persistent;
     Basic.array_reset_keeping_memory(*font.current_quads);
-    pen := x;
+    scale := font.pixel_scale;
+    inverse := 1.0 / scale;
+    pen := cast(s64) (x * scale + 0.5);
+    baseline := cast(s64) (y * scale + (ifx y < 0 then -0.5 else 0.5));
 
     for glyph: font.temporary_glyphs {
-        x0 := cast(float) (pen + glyph.offset_x);
-        y1 := cast(float) (y + glyph.offset_y);
-        x1 := x0 + cast(float) glyph.width;
-        y0 := y1 - cast(float) glyph.height;
+        x0 := cast(float) (pen + glyph.offset_x) * inverse;
+        y1 := cast(float) (baseline + glyph.offset_y) * inverse;
+        x1 := x0 + cast(float) glyph.width * inverse;
+        y0 := y1 - cast(float) glyph.height * inverse;
         quad: Font_Quad;
         quad.glyph = glyph;
         quad.p0 = .{ x0, y0 };

@@ -1,3 +1,8 @@
+/// Device pixels per window coordinate unit; window sizes here are already in pixels.
+get_pixel_scale :: (hwnd: Windows.HWND) -> float {
+    return 1;
+}
+
 get_dimensions :: (hwnd: Windows.HWND, right_handed: bool) -> (x: s32, y: s32, width: s32, height: s32, success := true) {
     rect: Windows.RECT;
     origin: Windows.POINT;

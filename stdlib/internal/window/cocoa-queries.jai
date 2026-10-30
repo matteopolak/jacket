@@ -24,6 +24,12 @@ get_dimensions :: (window: *ObjC.NSWindow, right_handed: bool) -> (x: s32, y: s3
     return cast(s32) rect.origin.x, cast(s32) y, cast(s32) rect.size.width, cast(s32) rect.size.height, true;
 }
 
+/// Device pixels per window coordinate unit: 2 on a Retina display, 1 elsewhere.
+get_pixel_scale :: (window: *ObjC.NSWindow) -> float {
+    if !window return 1;
+    return Cocoa.backing_scale(window);
+}
+
 get_mouse_pointer_position :: (window: *ObjC.NSWindow, right_handed: bool) -> x: int, y: int, success: bool {
     if !window return 0, 0, false;
     point := Cocoa.local_mouse_location(window);

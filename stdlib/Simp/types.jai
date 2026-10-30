@@ -15,6 +15,12 @@ Texture_Flags :: enum_flags u16 {
     Display_Target;
 }
 
+/// How a texture is sampled when drawn larger or smaller than its size.
+Texture_Filter :: enum u8 {
+    LINEAR;
+    NEAREST;
+}
+
 Texture :: struct {
     width, height, depth: s32 = 1;
     mipmap_count: u16 = 1;
@@ -30,7 +36,8 @@ Window_Info_Platform_Specific :: struct {}
 
 Window_Info :: struct {
     window: Window_Type;
-    window_width, window_height: s32;
+    window_width, window_height: s32; // in window coordinate units (what the application draws in)
+    pixel_scale: float = 1; // device pixels per unit; the framebuffer is window size times this
     wanted_msaa: s32;
     msaa: s32;
 
@@ -169,7 +176,8 @@ Dynamic_Font :: struct {
     character_range_low: int;
     character_range_high: int;
 
-    character_height: int;
+    character_height: int; // in device pixels: the requested size times `pixel_scale`
+    pixel_scale: float = 1; // device pixels per drawing unit; glyphs are rasterized at this scale and drawn at 1/scale
     default_line_spacing: int;
     max_ascender: int;
     max_descender: int;

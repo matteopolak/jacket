@@ -26,6 +26,33 @@ texture_load_from_memory :: (texture: *Texture, memory: [] u8, srgb := false, bu
     return upload_bitmap(texture, *bitmap);
 }
 
+/// Chooses between smooth (`.LINEAR`, the default) and hard-edged (`.NEAREST`, for pixel art) sampling.
+texture_set_filter :: (texture: *Texture, filter: Texture_Filter) {
+    if texture.gl_handle == 0 return;
+
+    immediate_flush();
+    require_gl_texture_context();
+    previous := save_texture_state();
+
+    defer restore_texture_state(previous);
+    GL.gl.glBindTexture(GL.GL_TEXTURE_2D, texture.gl_handle);
+
+    mag: u32 = GL.GL_LINEAR;
+    min: u32 = GL.GL_LINEAR;
+
+    if filter == .NEAREST {
+        mag = GL.GL_NEAREST;
+        min = GL.GL_NEAREST;
+    }
+
+    if texture.mipmap_count > 1 {
+        min = ifx filter == .NEAREST then GL.GL_NEAREST_MIPMAP_NEAREST else GL.GL_LINEAR_MIPMAP_LINEAR;
+    }
+
+    GL.gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MIN_FILTER, cast(s32) min);
+    GL.gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, cast(s32) mag);
+}
+
 texture_destroy :: (texture: *Texture) {
     if texture.gl_handle != 0 {
         require_gl_texture_context();
