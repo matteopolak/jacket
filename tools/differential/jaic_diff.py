@@ -61,6 +61,9 @@ OUTPUT_VARIES = {
 
 # A native build of a program whose `main` calls a `#compiler` primitive stops with this message:
 # those primitives (the Bindings_Generator's libclang bridge, for one) exist only inside the compiler.
+# A compile warning (with its source line, note and help) in a host backend's stderr: the wasm engine
+# reports warnings as diagnostics, not as program output, so they are left out of the comparison.
+COMPILE_WARNING = re.compile(r"^\S+:\d+:\d+: warning: .*(?:\n(?!\n).*)*(?:\n\n|\n?\Z)", re.MULTILINE)
 COMPILE_TIME_ONLY = "is a compiler primitive; it runs only at compile time"
 
 
@@ -216,6 +219,7 @@ class Runner:
     def run_interp(self, case):
         out, err, code = self.capped([self.jaic, case.path, "-interp", *(["--", *case.args] if case.args else [])],
                                      case.path.parent)
+        err = COMPILE_WARNING.sub("", err)
         if code == 1 and "runtime error" not in err and re.search(r"(^|\n)\S*:\d+:\d+: error:|^error:", err):
             return Result("compile error", note=err.strip()[:300])
         return self.classify(out, err, code)
@@ -225,6 +229,7 @@ class Runner:
         exe.parent.mkdir(parents=True, exist_ok=True)
         target = ["-os", "wasm"] if wasm else []
         bout, berr, bcode = self.capped([self.jaic, case.path, "-exe", exe, f"-{opt}", *target], case.path.parent)
+        berr = COMPILE_WARNING.sub("", berr)
         if bcode != 0:
             if bcode == -1:
                 return Result("timeout" if berr == "timeout" else "memory", note=berr)
