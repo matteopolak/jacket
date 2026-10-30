@@ -26,7 +26,7 @@ Process_Result_Type :: enum s32 {
 // How a process ended: the `type`, the `exit_code` when it `.EXITED` (`-1` otherwise) and the `signal` when it was `.SIGNALED`.
 // A zero `Process_Result` says `UNSTARTED`.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // result: Process_Result;
 // assert(result.type == .UNSTARTED && result.exit_code == -1 && result.signal == 0);
 // ```
@@ -61,7 +61,7 @@ Process_Platform :: struct {
 // address, so copying or moving a running process breaks it. A zero `Process` has not started, and `get_process_result` says
 // `UNSTARTED` for it.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // process: Process;
 // ok, result := get_process_result(*process, 0);
 // assert(ok && result.type == .UNSTARTED);

@@ -7,7 +7,7 @@
 // answer `false` for one with a NUL byte in it. Strings that a procedure returns come from `context.allocator` and
 // are the caller's to free. There is no wasm backend.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // #import "Extensions/Environment";
 // #import "File";
 // base := environment_variable("TMPDIR");

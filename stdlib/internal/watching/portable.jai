@@ -13,7 +13,7 @@
 // It returns `false`, and leaves the watcher empty, for a `null` callback, a negative or non-finite window, a buffer size of `0` or
 // less, or when the system refuses. Calling it on a watcher that is already set up fails an assertion. Pair each successful call with `deinit`.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // on_change :: (watcher: *File_Watcher(void), change: *File_Change, data: *void) {}
 //
 // watcher: File_Watcher;

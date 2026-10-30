@@ -6,7 +6,7 @@
 // has settled. Changes to one path within a short window are merged into one `File_Change` with the events combined.
 // Other targets do not have this module.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // on_change :: (watcher: *File_Watcher(void), change: *File_Change, data: *void) {}
 //
 // watcher: File_Watcher;

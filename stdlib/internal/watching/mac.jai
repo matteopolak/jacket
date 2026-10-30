@@ -49,7 +49,7 @@ DEFAULT_BUFFER_SIZE :: 8000;
 // platform fields are the module's own. Memory comes from the `context.allocator` in force at `init`. Needs Linux, macOS or Windows
 // (inotify, FSEvents and `ReadDirectoryChangesW` underneath); other targets stop at compile time.
 //
-// ```jai,no_run
+// ```jai,no_run,skip_on(wasm)
 // #import "Extensions/Environment";
 // #import "File";
 // #import "String";
@@ -118,7 +118,7 @@ File_Watcher :: struct(User_Data: Type = void) {
 // It returns `false`, and leaves the watcher empty, for a `null` callback, a negative or non-finite window, a buffer size of `0` or
 // less, or when the system refuses. Calling it on a watcher that is already set up fails an assertion. Pair each successful call with `deinit`.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // on_change :: (watcher: *File_Watcher(void), change: *File_Change, data: *void) {}
 //
 // watcher: File_Watcher;

@@ -3,7 +3,7 @@
 // There are no escapes and no other separators. The words are slices of `input`, valid as long as it is, and the array is in
 // temporary storage (`temp`), so neither is freed. An empty line gives no words; an unclosed quote runs to the end of the line.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // words := break_command_into_strings(" maple   \"red tree\" cedar ");
 // assert(words.count == 3);
 // assert(words[0] == "maple" && words[1] == "red tree" && words[2] == "cedar");
@@ -38,7 +38,7 @@ break_command_into_strings :: (input: string) -> [..] string {
 // A quote inside is escaped with a backslash, and backslashes before a quote or before the closing quote are doubled, which are
 // the rules of the Windows command line, so the program at the other end splits it back into the same text.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // builder: String_Builder;
 // append_quoted(*builder, "plain");
 // append(*builder, " ");
@@ -83,7 +83,7 @@ append_quoted :: (builder: *String_Builder, s: string) {
 // Joins `args` into one command line with a space between them, each quoted as `append_quoted` does. The string is new, from
 // `context.allocator`, and the caller frees it. Use it to show or log a command, or to build a Windows command line.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // line := get_quoted_command_string(.["plain", "two words", "say\"hi"]);
 // assert(line == "plain \"two words\" \"say\\\"hi\"");
 // free(line);

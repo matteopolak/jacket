@@ -4,7 +4,7 @@
 // procedure has no way to report failure: if the system cannot give the directory (it was deleted while the program was in
 // it), the program stops with a failed assertion. Not available on wasm.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // original := get_working_directory();
 // defer free(original);
 // assert(original.count > 0);
@@ -46,7 +46,7 @@ get_working_directory :: () -> result: string {
 // Makes `s` the working directory of the whole program, for every thread, and returns whether it worked. A missing path, a
 // file, a directory without permission to enter, an empty path and a path with a NUL byte give `false` and change nothing.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // assert(!set_working_directory("jai-doc-no-such-directory/inner"));
 // ```
 set_working_directory :: (s: string) -> bool {

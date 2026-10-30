@@ -49,7 +49,7 @@ DEFAULT_BUFFER_SIZE :: 8000;
 // platform fields are the module's own. Memory comes from the `context.allocator` in force at `init`. Needs Linux, macOS or Windows
 // (inotify, FSEvents and `ReadDirectoryChangesW` underneath); other targets stop at compile time.
 //
-// ```jai,no_run
+// ```jai,no_run,skip_on(wasm)
 // #import "Extensions/Environment";
 // #import "File";
 // #import "String";

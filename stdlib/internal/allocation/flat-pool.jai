@@ -18,7 +18,7 @@ CAPS_VERSION_STRING :: "modules/Flat_Pool";
 // Module parameters: `DEFAULT_VIRTUAL_MEMORY_RESERVE` is the default reserve, and `OVERWRITE_ALL_POOLS_ON_RESET`
 // fills reset memory with `0xcc` for every pool.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // pool: Flat_Pool;
 // init(*pool, 1024 * 1024);
 // defer fini(*pool);
