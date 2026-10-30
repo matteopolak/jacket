@@ -1,0 +1,4 @@
+GROUP [0 0 200 60]
+  GROUP [0 0 200 60]
+    TEXT "Clicked 0 times" [16 16 168 18]
+    BUTTON "Click me" [16 42 168 26]
