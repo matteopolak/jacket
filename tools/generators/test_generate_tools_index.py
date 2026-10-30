@@ -50,6 +50,14 @@ class ToolsIndexTests(unittest.TestCase):
         ]
         self.assertEqual(index.callers(self.root, files, [script])[script], ["CI", "just", "tools"])
 
+    def test_a_script_loaded_by_module_name_counts_when_the_name_has_an_underscore(self):
+        checker = write(self.root, "tools/a/check_paths.py", SCRIPT)
+        plain = write(self.root, "tools/a/run.py", SCRIPT)
+        files = [checker, plain, write(self.root, "tools/b/dev.py", 'CHECKS = {"paths": "check_paths", "run": "run"}\n')]
+        result = index.callers(self.root, files, [checker, plain])
+        self.assertEqual(result[checker], ["tools"])
+        self.assertEqual(result[plain], [])
+
     def test_a_script_nothing_names_has_no_caller(self):
         script = write(self.root, "tools/a/run.py", SCRIPT)
         files = [script, write(self.root, "tools/a/gen_run.py", "# gen_run.py runs alone\n")]
