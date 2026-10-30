@@ -296,3 +296,14 @@ fn fields_after_assignments_through_paths() {
     );
     assert!(has(&l, "extra") && has(&l, "base"), "{l:?}");
 }
+
+#[test]
+fn the_return_types_of_a_procedure_value_do_not_count_as_positional_values() {
+    let l = labels(
+        "Handler :: struct { run: (n: int) -> bool, int; other: int; }\n\
+         make :: () -> Handler {\n\
+             return Handler.{ run = (n: int) -> bool, int { return true, 1; }, | };\n\
+         }",
+    );
+    assert!(has(&l, "other") && !has(&l, "run"), "{l:?}");
+}

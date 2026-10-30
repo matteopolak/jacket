@@ -70,16 +70,27 @@ fn site(text: &str, lexed: &Lexed, byte: usize) -> Option<Site> {
         }
     }
     let open = open?;
-    // The literal's arguments, as ranges of tokens.
+    // The literal's arguments, as ranges of tokens. The commas at depth zero separate them, except
+    // those between the return types of a procedure literal (`-> bool, Pad {`).
     let mut args: Vec<std::ops::Range<usize>> = Vec::new();
+    let mut commas: Vec<usize> = Vec::new();
     let mut depth = 0usize;
+    let mut returns = false;
     let mut from = open + 1;
     for k in open + 1..=tokens.len() {
         match tokens.get(k).map(|t| &t.tok) {
+            Some(Tok::Punct(P::Arrow)) if depth == 0 => returns = true,
+            Some(Tok::Punct(P::LBrace)) => {
+                if depth == 0 {
+                    returns = false;
+                }
+                depth += 1;
+            }
             Some(Tok::Punct(p)) if is_open(*p) => depth += 1,
             Some(Tok::Punct(p)) if is_close(*p) && depth > 0 => depth -= 1,
-            Some(Tok::Punct(P::Comma)) if depth == 0 => {
+            Some(Tok::Punct(P::Comma)) if depth == 0 && !returns => {
                 args.push(from..k);
+                commas.push(k);
                 from = k + 1;
             }
             Some(Tok::Punct(p)) if is_close(*p) => {
@@ -97,25 +108,8 @@ fn site(text: &str, lexed: &Lexed, byte: usize) -> Option<Site> {
         },
         _ => None,
     };
-    // The argument holding the cursor: one per comma between the opening token and the word.
-    let current = tokens[open + 1..before]
-        .iter()
-        .scan(0usize, |depth, t| {
-            Some(match t.tok {
-                Tok::Punct(p) if is_open(p) => {
-                    *depth += 1;
-                    false
-                }
-                Tok::Punct(p) if is_close(p) => {
-                    *depth -= 1;
-                    false
-                }
-                Tok::Punct(P::Comma) => *depth == 0,
-                _ => false,
-            })
-        })
-        .filter(|&comma| comma)
-        .count();
+    // The argument holding the cursor: one per separating comma between the opening token and the word.
+    let current = commas.iter().filter(|&&k| k < before).count();
     // `base.x = v` and `xs[1] = w` assign a field by a path; they are not positional values.
     let is_target = |range: &std::ops::Range<usize>| {
         let mut depth = 0usize;
