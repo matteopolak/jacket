@@ -1,5 +1,4 @@
 [
- "jaigen/jaigen_8.jai|d-member|arr",
  "stdlib/Basic/tests/config-negative/modules/Non_Main_Basic_Parameters/module.jai|a-error|",
  "stdlib/Basic/tests/config-negative/modules/Non_Main_Basic_Parameters/module.jai|b-definition|ENABLE_ASSERT",
  "stdlib/Basic/tests/config-negative/modules/Non_Main_Basic_Parameters/module.jai|b-definition|print",
@@ -21,9 +20,10 @@
  "tests/compiler/language/json-numeric-progress/main.jai|d-member|bits",
  "tests/compiler/language/json-numeric-progress/main.jai|d-member|text",
  "tests/compiler/regressions/baked-dependent-type-and-member.jai|d-literal|Inner",
- "tests/compiler/regressions/bare-poly-struct-derived-argument.jai|d-member|buffer",
+ "tests/compiler/regressions/code-array-of-names.jai|b-definition|count",
  "tests/compiler/regressions/for-expansion-pointer-among-poly-overloads.jai|c-blank|count",
  "tests/compiler/regressions/for-expansion-pointer-among-poly-overloads.jai|c-edit|count",
  "tests/compiler/regressions/howto-type-variant-literals.jai|b-definition|count",
- "tests/compiler/regressions/rules-modules-and-imports.jai|b-definition|str_twice"
+ "tests/compiler/regressions/rules-modules-and-imports.jai|b-definition|str_twice",
+ "tests/compiler/regressions/view-for-fixed-array-struct-parameter.jai|b-definition|count"
 ]
