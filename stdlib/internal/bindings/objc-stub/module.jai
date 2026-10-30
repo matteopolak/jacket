@@ -36,8 +36,8 @@ Strings :: #import "String";
 Encoding :: #import "internal/bindings/objc-encoding";
 Native :: #import "internal/bindings/native";
 
-system :: #library,system "System";
-objc :: #library,system "objc";
+system :: #library,system "System"; @native(external)
+objc :: #library,system "objc"; @native(external)
 open_library :: (path: *u8, mode: s32) -> *void #foreign system "dlopen";
 close_library :: (handle: *void) -> s32 #foreign system "dlclose";
 lookup_class :: (name: *u8) -> *void #foreign objc "objc_lookUpClass";

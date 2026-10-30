@@ -80,9 +80,9 @@ tool_environment :: (variable: string) -> string {
 }
 
 #if OS == .WINDOWS {
-    java_environment_library :: #system_library "kernel32";
+    java_environment_library :: #system_library "kernel32"; @native(external)
     java_get_environment :: (lpName: *u16, lpBuffer: *u16, nSize: u32) -> u32 #foreign java_environment_library "GetEnvironmentVariableW";
 } else {
-    java_environment_library :: #system_library "libc";
+    java_environment_library :: #system_library "libc"; @native(external)
     java_get_environment :: (name: *u8) -> *u8 #foreign java_environment_library "getenv";
 }

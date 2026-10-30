@@ -3,7 +3,7 @@
 #scope_module
 
 #if OS == .WASM {
-    wasi :: #system_library "wasi_snapshot_preview1";
+    wasi :: #system_library "wasi_snapshot_preview1"; @native(external)
     wasi_proc_exit :: (status: u32) #foreign wasi "proc_exit";
 }
 
@@ -19,7 +19,7 @@ Env :: #import "Extensions/Environment";
 #if OS == .WINDOWS {
     Windows :: #import "Windows";
 } else {
-    libc :: #system_library "libc";
+    libc :: #system_library "libc"; @native(external)
 
     #if OS != .WASM {
         c_isatty :: (fd: s32) -> s32 #foreign libc "isatty";

@@ -82,5 +82,5 @@ CWBackPixel :: cast(u64) 1 << 1;
 
 Basic :: #import "Basic";
 
-glx_native :: #library,system "GLX";
+glx_native :: #library,system "GLX"; @native(external)
 visual_for_config :: (display: *Display, config: GLXFBConfig) -> *XVisualInfo #foreign glx_native "glXGetVisualFromFBConfig";

@@ -22,7 +22,7 @@ ERROR_OPERATION_ABORTED :: 995;
 ERROR_IO_INCOMPLETE :: 996;
 ERROR_NOTIFY_ENUM_DIR :: 1022;
 ERROR_NOT_FOUND :: 1168;
-watch_kernel32 :: #library,system "kernel32";
+watch_kernel32 :: #library,system "kernel32"; @native(external)
 cancel_io :: (handle: W.HANDLE, operation: *W.OVERLAPPED) -> W.BOOL #foreign watch_kernel32 "CancelIoEx";
 
 backend_init :: (watcher: *$T/File_Watcher, state: *State) -> bool {

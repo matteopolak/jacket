@@ -36,7 +36,7 @@ ERR_OPNOTSUPP :: 95;
 
 #scope_file
 
-libc :: #system_library "libc";
+libc :: #system_library "libc"; @native(external)
 
 // libc's variadic syscall() called with six fixed arguments: the same registers on x86-64 and arm64.
 raw_syscall :: (number: s64, a1: s64, a2: s64, a3: s64, a4: s64, a5: s64, a6: s64) -> s64 #foreign libc "syscall";

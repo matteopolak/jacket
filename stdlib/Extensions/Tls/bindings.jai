@@ -6,9 +6,9 @@ libmbedtls :: #system_library "mbedtls";
 
 #if OS == .WINDOWS {
     // mbedTLS's entropy source on Windows (BCryptGenRandom).
-    #library,system,link_always "bcrypt";
+    #library,system,link_always "bcrypt"; @native(external)
     // x509 name matching parses addresses with inet_pton.
-    #library,system,link_always "ws2_32";
+    #library,system,link_always "ws2_32"; @native(external)
 }
 
 // What the library returns, by name (all negative).

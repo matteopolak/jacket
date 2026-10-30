@@ -15,7 +15,7 @@ handle_signal :: (sig: s32, info: *siginfo_t, secret: *void) #c_call {
 #scope_file
 #import "Basic";
 
-native_runtime :: #library "crash-native/portable_crash";
+native_runtime :: #library "crash-native/portable_crash"; @native(embedded)
 native_init :: () -> s32 #foreign native_runtime "portable_crash_init";
 native_attach :: () -> s32 #foreign native_runtime "portable_crash_attach_thread";
 native_handle :: (sig: s32, info: *void, secret: *void) #foreign native_runtime "portable_crash_handle";

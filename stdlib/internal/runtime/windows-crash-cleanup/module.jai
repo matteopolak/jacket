@@ -11,5 +11,5 @@ fini :: () {
 #import "Basic";
 Crash :: #import "Runtime_Support_Crash_Handler";
 
-native_runtime :: #library "../crash-native/platform_io_windows_crash";
+native_runtime :: #library "../crash-native/platform_io_windows_crash"; @native(runtime,windows)
 native_finish :: () -> u32 #foreign native_runtime "platform_io_windows_crash_finish";

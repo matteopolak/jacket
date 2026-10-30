@@ -207,9 +207,9 @@ ERROR_BUFFER_OVERFLOW :: 111;
 W :: #import "internal/bindings/windows-api";
 Text :: #import "internal/files/windows-text";
 
-advapi32 :: #system_library "advapi32";
-userenv :: #system_library "userenv";
-kernel32 :: #system_library "kernel32";
+advapi32 :: #system_library "advapi32"; @native(external)
+userenv :: #system_library "userenv"; @native(external)
+kernel32 :: #system_library "kernel32"; @native(external)
 #if CPU == .X64 rdtsc :: () -> u64 #intrinsic;
 
 OpenProcessToken :: (process: W.HANDLE, access: u32, token: *W.HANDLE) -> s32 #foreign advapi32;

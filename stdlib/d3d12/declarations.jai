@@ -7,7 +7,7 @@
 #import "d3d_compiler";
 Binding_Math :: #import "internal/bindings/graphics-math";
 
-d3d12 :: #library,system "d3d12";
+d3d12 :: #library,system "d3d12"; @native(external)
 #scope_export
 
 // Types and layouts

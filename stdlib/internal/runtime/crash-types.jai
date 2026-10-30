@@ -91,4 +91,4 @@ sigaction_t :: struct {
 }
 
 #scope_module
-libc :: #system_library "libc";
+libc :: #system_library "libc"; @native(external)

@@ -1216,8 +1216,8 @@ initialize_selectors :: () {
 #scope_file
 O :: #import "Objective_C";
 
-libobjc :: #library,system "objc";
-CoreGraphics :: #library,system "CoreGraphics";
+libobjc :: #library,system "objc"; @native(external)
+CoreGraphics :: #library,system "CoreGraphics"; @native(external)
 binding_class :: (name: *u8) -> *void #foreign libobjc "objc_getClass";
 binding_selector :: (name: *u8) -> O.Selector #foreign libobjc "sel_registerName";
 binding_send :: () #foreign libobjc "objc_msgSend";

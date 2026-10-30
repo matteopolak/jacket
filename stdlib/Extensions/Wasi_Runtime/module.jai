@@ -28,8 +28,8 @@
 #load "quad.jai";
 #load "threads.jai";
 
-c_runtime :: #system_library "libc";
-wasi :: #system_library "wasi_snapshot_preview1";
+c_runtime :: #system_library "libc"; @native(external)
+wasi :: #system_library "wasi_snapshot_preview1"; @native(external)
 
 // Runtime_Support's entry point, `#program_export "main"`.
 program_main :: (argc: s32, argv: **u8) -> s32 #foreign c_runtime "main";

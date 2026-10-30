@@ -19,4 +19,4 @@ semaphore_signal :: (semaphore: semaphore_t) -> kern_return_t #foreign libc;
 semaphore_wait :: (semaphore: semaphore_t) -> kern_return_t #foreign libc;
 semaphore_timedwait :: (semaphore: semaphore_t, interval: mach_timespec_t) -> kern_return_t #foreign libc;
 #scope_file
-libc :: #system_library "libc";
+libc :: #system_library "libc"; @native(external)

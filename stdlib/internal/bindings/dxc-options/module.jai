@@ -53,7 +53,7 @@ release :: (arguments: [..] string) {
 #scope_file
 Basic :: #import "Basic";
 
-libc :: #library,system "c";
+libc :: #library,system "c"; @native(external)
 abort :: () #foreign libc;
 
 add :: (arguments: *[..] string, text: string) {

@@ -7,12 +7,12 @@
 }
 
 #if OS == .MACOS {
-    #library,system,link_always "c++";
+    #library,system,link_always "c++"; @native(external)
 } else #if OS == .LINUX {
-    #library,system,link_always "stdc++";
+    #library,system,link_always "stdc++"; @native(external)
 }
 
-libnvtt :: #library,system "nvtt";
+libnvtt :: #library,system "nvtt"; @native(external)
 #scope_export
 
 // Types and layouts

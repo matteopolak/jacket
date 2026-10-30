@@ -3,9 +3,9 @@
 
 #scope_file
 #if OS == .MACOS {
-    #library,system,link_always "c++";
+    #library,system,link_always "c++"; @native(external)
 } else #if OS == .LINUX {
-    #library,system,link_always "stdc++";
+    #library,system,link_always "stdc++"; @native(external)
 }
 
 meshopt_lib :: #library,system "meshoptimizer";

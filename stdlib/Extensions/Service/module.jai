@@ -113,7 +113,7 @@ compile_time_unknown :: (message: string) #compiler #no_context {}
         return true;
     }
 
-    kernel32 :: #library,system "kernel32";
+    kernel32 :: #library,system "kernel32"; @native(external)
     SetStdHandle :: (handle: s32, value: Windows.HANDLE) -> s32 #foreign kernel32;
 
     answers: Windows.HANDLE;
@@ -138,7 +138,7 @@ compile_time_unknown :: (message: string) #compiler #no_context {}
         return true;
     }
 } else {
-    libc :: #system_library "libc";
+    libc :: #system_library "libc"; @native(external)
     c_read :: (fd: s32, buffer: *void, count: u64) -> s64 #foreign libc "read";
     c_write :: (fd: s32, buffer: *void, count: u64) -> s64 #foreign libc "write";
     c_dup :: (fd: s32) -> s32 #foreign libc "dup";

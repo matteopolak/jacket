@@ -38,7 +38,7 @@
 #if OS == .WINDOWS {
     Windows :: #import "internal/bindings/windows-api";
 
-    native :: #library "debug-native/developer_tools_debug";
+    native :: #library "debug-native/developer_tools_debug"; @native(developer)
     dump_native :: (exception: *void, full: bool) -> *string #foreign native "developer_debug_dump";
     free_dump_native :: (value: *string) #foreign native "developer_debug_free_symbols";
     set_dump_native :: (state: s32) -> s32 #foreign native "developer_debug_set_dump_state";

@@ -28,7 +28,7 @@ sockaddr :: struct {
     sa_data: [14] u8;
 }
 
-libcurl :: #library,system "curl";
+libcurl :: #library,system "curl"; @native(external)
 #scope_export
 
 // Types and layouts

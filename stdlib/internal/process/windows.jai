@@ -108,5 +108,5 @@ clock_milliseconds :: () -> s64, bool #no_context {
 }
 
 #scope_file
-kernel32 :: #system_library "kernel32";
+kernel32 :: #system_library "kernel32"; @native(external)
 GetTickCount64 :: () -> u64 #foreign kernel32;

@@ -5,7 +5,7 @@
 #import "Windows";
 #import "d3d12";
 
-nvidia_aftermath :: #library,system "nvidia_aftermath";
+nvidia_aftermath :: #library,system "nvidia_aftermath"; @native(external)
 #scope_export
 
 // Types and layouts

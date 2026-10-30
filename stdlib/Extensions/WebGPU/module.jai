@@ -24,7 +24,7 @@
 }
 
 // wgpu-native, from target/native-libs (see docs/extensions/webgpu.md). Unused in the browser.
-libwgpu :: #library "libwgpu_native";
+libwgpu :: #library "libwgpu_native"; @native(fetched)
 
 // Whether WebGPU can be used here. Natively wgpu-native is linked, so this is true (an adapter
 // may still be missing: webgpu_request_adapter returns null then). In the browser it is false

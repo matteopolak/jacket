@@ -182,7 +182,7 @@ run_bench :: (bench_case: *Bench_Case, settings: Bench_Settings) {
 #scope_file
 
 #if OS == .LINUX {
-    libc :: #system_library "libc";
+    libc :: #system_library "libc"; @native(external)
 
     sched_getcpu :: () -> s32 #foreign libc;
     sched_setaffinity :: (pid: s32, size: u64, mask: *u64) -> s32 #foreign libc;

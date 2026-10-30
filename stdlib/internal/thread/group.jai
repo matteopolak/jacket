@@ -178,7 +178,7 @@ shutdown :: (using group: *Thread_Group, timeout_milliseconds: s32 = -1) -> bool
 
 #scope_file
 #if OS != .WINDOWS {
-    thread_libc :: #system_library "libc";
+    thread_libc :: #system_library "libc"; @native(external)
     thread_abort :: () #foreign thread_libc "abort";
 }
 

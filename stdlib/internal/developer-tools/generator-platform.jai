@@ -493,7 +493,7 @@ GP_Process :: #import "Process";
 GP_String :: #import "String";
 GP_FS :: #import "File_Utilities";
 
-gp_native :: #library "generator_platform";
+gp_native :: #library "generator_platform"; @native(packaged)
 gp_write_temp :: (data: *void, size: u64, path: *u8, capacity: u64) -> s32 #foreign gp_native;
 gp_library_open :: (path: *u8) -> *void #foreign gp_native;
 gp_library_symbol :: (handle: *void, name: *u8) -> s32 #foreign gp_native;

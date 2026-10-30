@@ -195,7 +195,7 @@ get_passwd_for_user :: (username := "") -> (success: bool, p: P.passwd) {
 #import "Basic";
 P :: #import "internal/bindings/posix-api";
 
-libc :: #system_library "libc";
+libc :: #system_library "libc"; @native(external)
 c_strerror :: (error: s32) -> *u8 #foreign libc "strerror";
 
 native_failure :: (message: string) {

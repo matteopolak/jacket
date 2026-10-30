@@ -7,7 +7,7 @@
 // Windows may download missing intermediates or roots while it builds the chain, so this can block
 // the scheduler thread for a moment (there is no way to run it asynchronously).
 
-crypt32 :: #system_library "crypt32";
+crypt32 :: #system_library "crypt32"; @native(external)
 
 X509_ASN_ENCODING :: 0x00000001;
 CERT_STORE_PROV_MEMORY :: 2;

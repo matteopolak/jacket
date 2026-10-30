@@ -1,7 +1,7 @@
 // Contextual ABI types from libevdev 1.13.3 and Linux v6.12 public C headers.
 // These support exported native signatures without adding facade exports.
 #scope_module
-evdev_library :: #library,system "evdev";
+evdev_library :: #library,system "evdev"; @native(external)
 
 Kernel_Time :: struct {
     tv_sec: s64;

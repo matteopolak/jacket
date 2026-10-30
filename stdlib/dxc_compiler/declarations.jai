@@ -7,7 +7,7 @@
 IMalloc :: struct {};
 IStream :: struct {};
 BSTR :: *u16;
-dxcompiler :: #library,system "dxcompiler";
+dxcompiler :: #library,system "dxcompiler"; @native(external)
 #scope_export
 
 // Types and layouts

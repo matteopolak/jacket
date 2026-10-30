@@ -26,4 +26,4 @@ inotify_add_watch :: (descriptor: s32, path: *u8, mask: u32) -> s32 #foreign lib
 inotify_rm_watch :: (descriptor: s32, watch: s32) -> s32 #foreign libc;
 
 #scope_file
-libc :: #library,system "c";
+libc :: #library,system "c"; @native(external)

@@ -128,8 +128,8 @@ os_clipboard_set_bitmap :: (width: s32, height: s32, pixels: *u8, channels: s32,
 #scope_module
 #import "internal/bindings/windows-api";
 
-kernel32_native :: #library,system "kernel32";
-user32_native :: #library,system "user32";
+kernel32_native :: #library,system "kernel32"; @native(external)
+user32_native :: #library,system "user32"; @native(external)
 global_size :: (handle: HGLOBAL) -> SIZE_T #foreign kernel32_native "GlobalSize";
 global_free :: (handle: HGLOBAL) -> HGLOBAL #foreign kernel32_native "GlobalFree";
 set_last_error :: (code: u32) #foreign kernel32_native "SetLastError";

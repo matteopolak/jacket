@@ -75,12 +75,12 @@ set :: (handle: *void) -> (success: bool, message: string) {
 #import "Basic";
 
 #if OS == .WINDOWS {
-    user32 :: #system_library "user32";
+    user32 :: #system_library "user32"; @native(external)
     LoadCursorW :: (instance: *void, name: *u16) -> *void #foreign user32;
     SetCursor :: (cursor: *void) -> *void #foreign user32;
 } else #if OS == .MACOS {
-    appkit :: #system_library "AppKit";
-    objc :: #system_library "objc";
+    appkit :: #system_library "AppKit"; @native(external)
+    objc :: #system_library "objc"; @native(external)
     // NSApplicationLoad ensures AppKit is linked and initialized before class lookup.
     NSApplicationLoad :: () -> u8 #foreign appkit;
     objc_getClass :: (name: *u8) -> *void #foreign objc;

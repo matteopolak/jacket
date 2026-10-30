@@ -65,7 +65,7 @@
     Calendar_Windows :: #import "internal/bindings/windows-api";
     Calendar_Date :: #import "internal/time/gregorian";
 
-    calendar_kernel32 :: #system_library "kernel32";
+    calendar_kernel32 :: #system_library "kernel32"; @native(external)
     // Official timezoneapi.h ABI; private completion, no new public binding.
     // The optional dynamic-zone pointer is opaque here: every caller passes null.
     utc_to_local :: (zone: *void, utc: *Calendar_Windows.SYSTEMTIME, local: *Calendar_Windows.SYSTEMTIME) -> s32 #foreign calendar_kernel32 "SystemTimeToTzSpecificLocalTimeEx";

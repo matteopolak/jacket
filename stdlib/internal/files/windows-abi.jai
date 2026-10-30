@@ -22,4 +22,4 @@ replace_rename :: (source: *u16, dest: *u16, flags: u32) -> s32 #foreign kernel3
 #scope_file
 W :: #import "internal/bindings/windows-api";
 
-kernel32 :: #system_library "kernel32";
+kernel32 :: #system_library "kernel32"; @native(external)

@@ -265,7 +265,7 @@ Startup_Extended :: struct {
 #assert size_of(W.SECURITY_ATTRIBUTES) == 24;
 #assert size_of(W.JOBOBJECT_EXTENDED_LIMIT_INFORMATION) == 144;
 
-kernel32 :: #system_library "kernel32";
+kernel32 :: #system_library "kernel32"; @native(external)
 InitializeProcThreadAttributeList :: (list: *void, count: u32, flags: u32, size: *u64) -> s32 #foreign kernel32;
 UpdateProcThreadAttribute :: (list: *void, flags: u32, attribute: u64, value: *void, size: u64, previous: *void, returned_size: *u64) -> s32 #foreign kernel32;
 DeleteProcThreadAttributeList :: (list: *void) #foreign kernel32;

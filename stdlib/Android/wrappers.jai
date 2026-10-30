@@ -101,12 +101,12 @@ Basic :: #import "Basic";
     Log :: #import "internal/bindings/android-log";
 }
 
-libc :: #library,system "c";
+libc :: #library,system "c"; @native(external)
 binding_exit :: (status: s32) #foreign libc "exit";
 binding_abort :: () #foreign libc "abort";
 
 #if !USE_GLUE_NATIVE_PORT {
-    binding_glue :: #library,system "android_native_app_glue";
+    binding_glue :: #library,system "android_native_app_glue"; @native(external)
     binding_sdk_pre_exec_cmd :: (app: *Android_App, cmd: s8) #foreign binding_glue "android_app_pre_exec_cmd";
 }
 

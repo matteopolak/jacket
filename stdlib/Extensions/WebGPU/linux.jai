@@ -11,7 +11,7 @@ webgpu_x11_display :: () -> *void {
     return X11.x_global_display;
 }
 
-wgpu_libm :: #system_library,link_always "libm";
-wgpu_libdl :: #system_library,link_always "libdl";
-wgpu_libpthread :: #system_library,link_always "libpthread";
-wgpu_libgcc_s :: #system_library,link_always "libgcc_s";
+wgpu_libm :: #system_library,link_always "libm"; @native(external)
+wgpu_libdl :: #system_library,link_always "libdl"; @native(external)
+wgpu_libpthread :: #system_library,link_always "libpthread"; @native(external)
+wgpu_libgcc_s :: #system_library,link_always "libgcc_s"; @native(external)

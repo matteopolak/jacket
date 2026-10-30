@@ -416,8 +416,8 @@ append_link_arguments :: (args: *[..] string, compiler: string, staged: string, 
 #scope_file
 WIN32_ALREADY_EXISTS :: 183;
 
-kernel :: #system_library "kernel32";
-bcrypt :: #system_library "bcrypt";
+kernel :: #system_library "kernel32"; @native(external)
+bcrypt :: #system_library "bcrypt"; @native(external)
 get_environment :: (name: *u16, buffer: *u16, capacity: u32) -> u32 #foreign kernel "GetEnvironmentVariableW";
 random_bytes :: (algorithm: *void, buffer: *u8, count: u32, flags: u32) -> s32 #foreign bcrypt "BCryptGenRandom";
 
@@ -432,5 +432,5 @@ Process :: #import "Process";
 #scope_file
 F :: #import "File";
 
-advapi :: #system_library "advapi32";
+advapi :: #system_library "advapi32"; @native(external)
 get_registry :: (key: *void, subkey: *u16, value: *u16, flags: u32, kind: *u32, data: *void, bytes: *u32) -> s32 #foreign advapi "RegGetValueW";

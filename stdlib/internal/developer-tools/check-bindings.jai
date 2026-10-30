@@ -94,7 +94,7 @@ Binding_Signature :: struct {
 #assert size_of(Binding_Native_Type) == 48;
 #assert size_of(Binding_Signature) == 48;
 
-binding_native :: #library "check-native/developer_tools_check";
+binding_native :: #library "check-native/developer_tools_check"; @native(developer)
 binding_parse :: (name: *u8, count: s64, windows: s32, long_bytes: s32, char_signed: s32) -> *Binding_Signature #foreign binding_native "developer_check_parse";
 binding_pool_peak: s64;
 binding_pool_total: s64;

@@ -126,7 +126,7 @@ crypto_check :: (result: s32, loc: Source_Code_Location) -> bool {
 }
 
 #scope_file
-android_crypto :: #library "android-crypto/crypto";
+android_crypto :: #library "android-crypto/crypto"; @native(external)
 #if OS == .WINDOWS Crypto_Long :: s32;
 else Crypto_Long :: s64;
 

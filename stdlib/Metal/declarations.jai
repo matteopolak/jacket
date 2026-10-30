@@ -12,7 +12,7 @@ binding_objc_send :: () #foreign libobjc "objc_msgSend";
     binding_objc_send_stret :: () #foreign libobjc "objc_msgSend_stret";
 }
 
-#library,system,link_always "Metal";
+#library,system,link_always "Metal"; @native(external)
 uint64_t :: u64;
 uint32_t :: u32;
 int32_t :: s32;
@@ -25,9 +25,9 @@ CFTimeInterval :: float64;
 __IOSurface :: struct {};
 IOSurfaceRef :: *__IOSurface;
 binding_abort :: () #foreign libc "abort";
-Metal :: #library,system "Metal";
-libc :: #library,system "c";
-libobjc :: #library,system "objc";
+Metal :: #library,system "Metal"; @native(external)
+libc :: #library,system "c"; @native(external)
+libobjc :: #library,system "objc"; @native(external)
 #scope_export
 
 // Types and layouts

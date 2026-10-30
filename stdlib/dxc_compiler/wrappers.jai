@@ -81,8 +81,8 @@ ID3D12ShaderReflection :: D3D.ID3D12ShaderReflection;
 VersionBasic :: #import "Basic";
 VersionBytes :: #import "internal/bindings/shader-bytes";
 
-VersionCOM :: #library,system "ole32";
-VersionC :: #library,system "c";
+VersionCOM :: #library,system "ole32"; @native(external)
+VersionC :: #library,system "c"; @native(external)
 version_free_custom :: (memory: *void) #foreign VersionCOM "CoTaskMemFree";
 version_text_length :: (text: *u8) -> u64 #foreign VersionC "strlen";
 

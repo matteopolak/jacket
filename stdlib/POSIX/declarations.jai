@@ -12,10 +12,10 @@ U128 :: [2] u64;
     binding_errno_address :: () -> *s32 #foreign libc "__errno_location";
 }
 
-libc :: #library,system "c";
-libdl :: #library,system "dl";
-libpthread :: #library,system "pthread";
-librt :: #library,system "librt";
+libc :: #library,system "c"; @native(external)
+libdl :: #library,system "dl"; @native(external)
+libpthread :: #library,system "pthread"; @native(external)
+librt :: #library,system "librt"; @native(external)
 #scope_export
 
 // Types and layouts

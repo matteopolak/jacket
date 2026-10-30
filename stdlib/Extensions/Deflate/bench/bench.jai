@@ -16,7 +16,7 @@
 
 // stb_image frees its own buffers. stb_image_write exports no free, and on Windows its static C
 // runtime keeps a heap of its own, so there its compressed streams are left allocated.
-libc :: #system_library "libc";
+libc :: #system_library "libc"; @native(external)
 c_free :: (memory: *void) #foreign libc "free";
 
 free_compressed :: (memory: *void) {

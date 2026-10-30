@@ -39,8 +39,8 @@ os_clipboard_set_bitmap :: (width: s32, height: s32, pixels: *u8, channels: s32,
 backend :: #library,system "portable_clipboard";
 // Native archive references are not Jai foreign roots. Retain its real SDK
 // dependencies even when the canonical X11 import is used only for XID types.
-#library,system,link_always "X11";
-thread_backend :: #library,system,link_always "pthread";
+#library,system,link_always "X11"; @native(external)
+thread_backend :: #library,system,link_always "pthread"; @native(external)
 native_read :: (parent: Window, text: **u8, size: *u64) -> s32 #foreign backend "portable_clipboard_read";
 native_text :: (parent: Window, text: *u8, size: u64) -> s32 #foreign backend "portable_clipboard_text";
 native_bitmap :: (parent: Window, width: s32, height: s32, pixels: *u8, channels: s32, flip: s32) -> s32 #foreign backend "portable_clipboard_bitmap";

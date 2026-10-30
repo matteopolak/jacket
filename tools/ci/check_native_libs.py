@@ -3,17 +3,19 @@
 
     python3 tools/ci/check_native_libs.py --stdlib stdlib --platform linux-x64 [--native DIR]
 
-Scans `stdlib/` (not `tests/`) for `#library` and `#system_library` names and looks each up in
-tools/native/native-libs.json and tools/native/provided-libs.json (docs/tools/native-libs.md):
+Scans `stdlib/` (not `tests/`) for `#library`, `#system_library`, `#foreign_library` and `#foreign_system_library`
+names and looks each up in tools/native/native-libs.json or in the `@native(<kind>)` note on the line that binds it
+(docs/tools/native-libs.md, tools/native/provided_libs.py):
 
 - `libraries` (native-libs.json): built from pinned sources for the release (including the rpmalloc profile libraries).
   With `--native`, its static archive must be in that directory (the archive's `native-libs/<platform>`),
-  when the library is built for the platform.
-- `provided` (provided-libs.json): declared on purpose as `embedded` in `jaic`, `fetched` prebuilt (wgpu-native, whose archive
-  must then be present), built into `stdlib/` by a `runtime` step, `packaged` by a script, or `external`
-  (the operating system's, the SDK's or the user's).
+  when the library is built for the platform. Its binding carries no note.
+- a note: `embedded` in `jaic`, `fetched` prebuilt (wgpu-native, whose archive must then be present), built into
+  `stdlib/` by a `runtime` step, `packaged` by a script (its static and shared library must be present), built by the
+  `developer` checks, or `external` (the operating system's, the SDK's or the user's).
 
-A name in none of these fails, and so does a `provided` entry (other than `packaged`) that nothing binds.
+A name that is neither built nor carries a note fails, and so does a note that does not parse, one that disagrees with
+another note of the same name, or a name that is built and also carries one.
 """
 
 import argparse
@@ -33,25 +35,26 @@ def shared_name(name: str, platform: str) -> str:
 def check(stdlib: Path, platform: str, native: Path | None, manifest: dict | None = None) -> list[str]:
     manifest = manifest or load_manifest()
     libraries = manifest["libraries"]
-    declared = providers(manifest)
-    problems = []
-    bound = bound_names(stdlib)
-    for name, path in bound.items():
+    declared, problems = providers(stdlib)
+    for name, path in bound_names(stdlib).items():
         provider = provider_of(name, manifest, declared)
         if provider is None:
-            problems.append(f"{path}: `{name}` is bound but neither built by `libraries` nor declared in "
-                            "tools/native/provided-libs.json")
-        elif native is not None and expected_static(provider, libraries, platform) and not (native / static_name(name, platform)).is_file():
+            problems.append(f"{path}: `{name}` is bound but neither built by `libraries` nor declared by an `@native(<kind>)` "
+                            "note on the line that binds it")
+            continue
+        if provider.kind == "built" and name in declared:
+            problems.append(f"{path}: `{name}` is built by tools/native/native-libs.json and also declared "
+                            f"`@native({declared[name].kind})`")
+        if native is None:
+            continue
+        if expected_static(provider, libraries, platform) and not (native / static_name(name, platform)).is_file():
             problems.append(f"{path}: `{name}` is not in {native} ({static_name(name, platform)})")
-    for name, provider in declared.items():
-        if name not in bound and provider.kind != "packaged":
-            problems.append(f"tools/native/provided-libs.json: declares `{name}` ({provider.kind}) but the stdlib does not bind it")
-        if provider.kind == "packaged" and native is not None:
-            # Libraries a script packages that the sources reach by other means than `#library`
-            # (Bindings_Generator's helper, tools/ci/package_bindings_helpers.py).
+        if provider.kind == "packaged" and on_platform(provider, platform):
+            # Shipped as static and shared libraries by a script (Bindings_Generator's helper,
+            # tools/ci/package_bindings_helpers.py).
             for file in (static_name(name, platform), shared_name(name, platform)):
                 if not (native / file).is_file():
-                    problems.append(f"`{name}` is not in {native} ({file})")
+                    problems.append(f"{path}: `{name}` is not in {native} ({file})")
     return problems
 
 

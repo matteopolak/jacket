@@ -3,10 +3,10 @@
 #scope_module
 #if OS == .WINDOWS {
     AM_Z_Long :: u32;
-    am_zlib :: #library,system "zlib1";
+    am_zlib :: #library,system "zlib1"; @native(external)
 } else {
     AM_Z_Long :: u64;
-    am_zlib :: #library,system "z";
+    am_zlib :: #library,system "z"; @native(external)
 }
 
 AM_Z_Stream :: struct {

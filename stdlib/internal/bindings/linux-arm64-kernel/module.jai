@@ -14,5 +14,5 @@ read_fd :: (fd: s32, result: *Kernel_Stat) -> s64 {
 }
 
 #scope_file
-libc :: #library,system "c";
+libc :: #library,system "c"; @native(external)
 native_syscall :: (number: s64, args: ..Any) -> s64 #foreign libc "syscall";

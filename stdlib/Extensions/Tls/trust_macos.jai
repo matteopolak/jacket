@@ -8,8 +8,8 @@
 // The evaluation may fetch missing intermediates over the network and so can block the scheduler
 // thread for a moment (there is no way to run it asynchronously).
 
-security :: #system_library "Security";
-core_foundation :: #system_library "CoreFoundation";
+security :: #system_library "Security"; @native(external)
+core_foundation :: #system_library "CoreFoundation"; @native(external)
 
 CFTypeRef :: *void;
 

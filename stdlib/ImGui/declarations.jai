@@ -5,9 +5,9 @@
 #import "Math";
 
 #if OS == .MACOS {
-    #library,system,link_always "c++";
+    #library,system,link_always "c++"; @native(external)
 } else #if OS == .LINUX {
-    #library,system,link_always "stdc++";
+    #library,system,link_always "stdc++"; @native(external)
 }
 
 imgui :: #library,system "imgui";

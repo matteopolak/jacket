@@ -48,5 +48,5 @@ to_string :: (cfstring: CFStringRef) -> string {
 #scope_file
 NativeEvents :: #import "internal/bindings/fsevents-context";
 
-libc :: #library,system "c";
+libc :: #library,system "c"; @native(external)
 binding_abort :: () #foreign libc "abort";

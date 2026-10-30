@@ -14,7 +14,7 @@
 Io :: #import "Extensions/Io";
 
 #if OS != .WINDOWS {
-    libc :: #system_library "libc";
+    libc :: #system_library "libc"; @native(external)
 
     c_fork :: () -> s32 #foreign libc "fork";
     c_pipe :: (fds: *s32) -> s32 #foreign libc "pipe";

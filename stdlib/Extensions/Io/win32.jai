@@ -8,7 +8,7 @@
 
 #if OS == .WINDOWS {
     // `kernel32` is declared in stacks.jai.
-    ws2_32 :: #system_library "ws2_32";
+    ws2_32 :: #system_library "ws2_32"; @native(external)
 
     // kernel32
 

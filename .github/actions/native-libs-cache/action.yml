@@ -23,7 +23,7 @@ runs:
     - id: key
       shell: bash
       run: |
-        key="native-libs-$RUNNER_OS-$RUNNER_ARCH-${{ inputs.variant }}-llvm$(PYTHONPATH=tools python3 tools/ci/pins.py get llvm)-${{ hashFiles('tools/native/native-libs.json', 'tools/native/**', '!tools/native/test_*.py', '!tools/native/windows_cross.py', '!tools/native/provided-libs.json', '!tools/native/provided_libs.py', '!tools/native/package_native_libs.py', 'tools/native/build_native_libs.py', 'tools/bindings/sdl3_native.py', 'tools/repo_output.py') }}"
+        key="native-libs-$RUNNER_OS-$RUNNER_ARCH-${{ inputs.variant }}-llvm$(PYTHONPATH=tools python3 tools/ci/pins.py get llvm)-${{ hashFiles('tools/native/native-libs.json', 'tools/native/**', '!tools/native/test_*.py', '!tools/native/windows_cross.py', '!tools/native/provided_libs.py', '!tools/native/package_native_libs.py', 'tools/native/build_native_libs.py', 'tools/bindings/sdl3_native.py', 'tools/repo_output.py') }}"
         if [ "${{ inputs.helpers }}" = true ]; then
           key="$key-helpers-${{ hashFiles('tools/window_render/**', 'tools/native_bindings/**', 'tools/portable/**', 'tools/toolkit/**', 'stdlib/Clipboard/**', 'stdlib/GL/tests/native/**', 'stdlib/Unmapping_Allocator/tests/native/**', 'stdlib/Thread/tests/sdk-identity.c', 'stdlib/Bindings_Generator/tests/driven/sdk/**', 'stdlib/internal/**') }}"
         fi

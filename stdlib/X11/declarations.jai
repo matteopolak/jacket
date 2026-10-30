@@ -5,8 +5,8 @@
 #import "POSIX";
 
 wchar_t :: s32;
-glx :: #library,system "GLX";
-libX11 :: #library,system "X11";
+glx :: #library,system "GLX"; @native(external)
+libX11 :: #library,system "X11"; @native(external)
 #scope_export
 
 // Types and layouts

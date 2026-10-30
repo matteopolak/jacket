@@ -77,7 +77,7 @@ Registration :: struct {
 
 registrations: [..] Registration;
 
-user32 :: #library,system "user32";
+user32 :: #library,system "user32"; @native(external)
 unregister :: (handle: W.HDEVNOTIFY) -> W.BOOL #foreign user32 "UnregisterDeviceNotification";
 
 same_guid :: (a: W.GUID, b: W.GUID) -> bool {

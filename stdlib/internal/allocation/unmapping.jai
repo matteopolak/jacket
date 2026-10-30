@@ -115,7 +115,7 @@ Wrapper_Allocation :: struct {
     P :: #import "internal/bindings/posix-api";
 
     OS_Error_Code :: P.OS_Error_Code;
-    libc :: #system_library "libc";
+    libc :: #system_library "libc"; @native(external)
     c_strerror :: (error: s32) -> *u8 #foreign libc "strerror";
 
     last_error :: () -> OS_Error_Code {

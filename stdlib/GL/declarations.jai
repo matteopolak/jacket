@@ -16,11 +16,11 @@
 }
 
 #if OS == .WINDOWS {
-    gl_lib :: #library,system "opengl32";
+    gl_lib :: #library,system "opengl32"; @native(external)
 } else #if OS == .MACOS {
-    gl_lib :: #library,system "OpenGL";
+    gl_lib :: #library,system "OpenGL"; @native(external)
 } else {
-    gl_lib :: #library,system "GL";
+    gl_lib :: #library,system "GL"; @native(external)
 }
 #scope_export
 

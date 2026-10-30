@@ -224,9 +224,9 @@ STYLE_RESIZABLE :: 8;
 BACKING_BUFFERED :: 2;
 render_context_key: u64;
 
-objc :: #library,system "objc";
-appkit :: #library,system "AppKit";
-foundation :: #library,system "Foundation";
+objc :: #library,system "objc"; @native(external)
+appkit :: #library,system "AppKit"; @native(external)
+foundation :: #library,system "Foundation"; @native(external)
 default_runloop_mode: *void #elsewhere foundation "NSDefaultRunLoopMode";
 application_load :: () -> s8 #foreign appkit "NSApplicationLoad";
 native_class :: (name: *u8) -> *void #foreign objc "objc_getClass";

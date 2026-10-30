@@ -27,10 +27,10 @@ random_bytes :: (out: [] u8) -> bool {
 #scope_file
 
 #if OS == .WINDOWS {
-    bcrypt :: #system_library "bcrypt";
+    bcrypt :: #system_library "bcrypt"; @native(external)
     bcrypt_fill :: (algorithm: *void, buffer: *u8, count: u32, flags: u32) -> s32 #foreign bcrypt "BCryptGenRandom";
     USE_SYSTEM_PREFERRED_RNG: u32 : 0x2;
 } else {
-    libc :: #library,system "c";
+    libc :: #library,system "c"; @native(external)
     getentropy :: (buffer: *void, length: u64) -> s32 #foreign libc;
 }

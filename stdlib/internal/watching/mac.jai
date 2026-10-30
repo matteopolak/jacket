@@ -382,7 +382,7 @@ B :: #import "Basic";
 Pool :: #import "Pool";
 Math :: #import "Math";
 
-backend :: #library "native/portable_watch";
+backend :: #library "native/portable_watch"; @native(embedded)
 c_create :: (path: *u8, latency: float64, limit: u64) -> *void #foreign backend "portable_watch_create";
 c_stream :: (handle: *void) -> *void #foreign backend "portable_watch_stream";
 c_root :: (handle: *void, bytes: *u64) -> *u8 #foreign backend "portable_watch_root";
@@ -392,7 +392,7 @@ c_free :: (path: *void) #foreign backend "portable_watch_free";
 c_time :: () -> float64 #foreign backend "portable_watch_time";
 c_error :: (handle: *void) -> s32 #foreign backend "portable_watch_error";
 c_classify :: (flags: u32) -> u32 #foreign backend "portable_watch_classify";
-watcher_libc :: #system_library "libc";
+watcher_libc :: #system_library "libc"; @native(external)
 c_strerror :: (error: s32) -> *u8 #foreign watcher_libc "strerror";
 
 #assert cast(u64) File_Change_Event.ADDED == 1;

@@ -72,5 +72,5 @@ CHECK_NULL_DEREFERENCE :: 7;
 CHECK_ATOMIC_ALIGNMENT :: 8;
 CHECK_VARIADIC_CAPACITY :: 9;
 
-check_libc :: #system_library "libc";
+check_libc :: #system_library "libc"; @native(external)
 check_exit :: (status: s32) #foreign check_libc "exit";

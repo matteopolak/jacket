@@ -248,6 +248,6 @@ monotonic_milliseconds :: () -> s64, bool #no_context {
 
 #scope_file
 #if OS == .MACOS {
-    libc :: #system_library "libc";
+    libc :: #system_library "libc"; @native(external)
     mach_task_self_: M.task_t #elsewhere libc;
 }

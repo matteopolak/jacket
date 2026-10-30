@@ -93,8 +93,8 @@ Instance_Table :: struct {
     path: (this: *Instance, result: **u16) -> s32 #cpp_method;
 }
 
-ole :: #library,system "ole32";
-automation :: #library,system "oleaut32";
+ole :: #library,system "ole32"; @native(external)
+automation :: #library,system "oleaut32"; @native(external)
 CoInitializeEx :: (reserved: *void, mode: u32) -> s32 #foreign ole;
 CoUninitialize :: () #foreign ole;
 CoCreateInstance :: (class_id: *W.GUID, outer: *W.IUnknown, context: u32, interface_id: *W.GUID, result: **void) -> s32 #foreign ole;

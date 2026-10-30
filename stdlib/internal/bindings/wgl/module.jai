@@ -111,7 +111,7 @@ create :: (window: W.HWND, share: W.HGLRC, major: s32, minor: s32,
 W :: #import "internal/bindings/windows-api";
 F :: #import "internal/bindings/wgl-format";
 
-libc :: #library,system "c";
+libc :: #library,system "c"; @native(external)
 abort :: () #foreign libc;
 strlen :: (text: *u8) -> u64 #foreign libc;
 Choose :: #type (dc: W.HDC, integers: *s32, floats: *float, limit: u32, formats: *s32, count: *u32) -> s32 #c_call;

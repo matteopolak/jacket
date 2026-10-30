@@ -58,8 +58,8 @@ binding_abort :: () #foreign libc "abort";
     binding_vkGetQueueCheckpointDataNV :: (queue: VkQueue, pCheckpointDataCount: *u32, pCheckpointData: *VkCheckpointDataNV) -> void #foreign libvulkan "vkGetQueueCheckpointDataNV";
 }
 
-libc :: #library,system "c";
-libvulkan :: #library,system "vulkan";
+libc :: #library,system "c"; @native(external)
+libvulkan :: #library,system "vulkan"; @native(external)
 #scope_export
 
 // Types and layouts

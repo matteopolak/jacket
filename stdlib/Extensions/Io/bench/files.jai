@@ -8,7 +8,7 @@
 #import "Basic";
 Io :: #import "Extensions/Io";
 
-libc :: #system_library "libc";
+libc :: #system_library "libc"; @native(external)
 setenv :: (name: *u8, value: *u8, overwrite: s32) -> s32 #foreign libc;
 mkdir :: (path: *u8, mode: u32) -> s32 #foreign libc;
 

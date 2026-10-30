@@ -108,7 +108,7 @@ egl_get_error_string :: () -> string, string #expand {
 #scope_file
 #import "Android";
 
-binding_android :: #library,system "android";
+binding_android :: #library,system "android"; @native(external)
 // Official NDK C signature; the public Android facade's camera-context alias
 // and enum spelling are not required by this private native operation.
 binding_window_geometry :: (window: *ANativeWindow, width: s32, height: s32, format: s32) -> s32 #foreign binding_android "ANativeWindow_setBuffersGeometry";

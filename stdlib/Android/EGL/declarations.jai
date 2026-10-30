@@ -4,7 +4,7 @@
 #scope_file
 #import "Android";
 
-libegl :: #library,system "EGL";
+libegl :: #library,system "EGL"; @native(external)
 #scope_export
 
 // Types and layouts

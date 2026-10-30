@@ -10,7 +10,7 @@ Stack :: struct {
 }
 
 #if OS == .WINDOWS {
-    kernel32 :: #system_library "kernel32";
+    kernel32 :: #system_library "kernel32"; @native(external)
     VirtualAlloc :: (address: *void, size: u64, allocation_type: u32, protect: u32) -> *void #foreign kernel32;
     VirtualProtect :: (address: *void, size: u64, new_protect: u32, old_protect: *u32) -> s32 #foreign kernel32;
     VirtualFree :: (address: *void, size: u64, free_type: u32) -> s32 #foreign kernel32;
@@ -48,7 +48,7 @@ Stack :: struct {
         DiscardVirtualMemory(address, cast(u64) size);
     }
 } else {
-    libc :: #system_library "libc";
+    libc :: #system_library "libc"; @native(external)
     getpagesize :: () -> s32 #foreign libc;
     mmap :: (address: *void, length: u64, protection: s32, flags: s32, descriptor: s32, offset: s64) -> *void #foreign libc;
     mprotect :: (address: *void, length: u64, protection: s32) -> s32 #foreign libc;

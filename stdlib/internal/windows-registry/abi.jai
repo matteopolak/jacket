@@ -39,4 +39,4 @@ W :: #import "internal/bindings/windows-api";
 HKEY :: W.HKEY;
 DWORD :: W.DWORD;
 FILETIME :: W.FILETIME;
-advapi :: #system_library "advapi32";
+advapi :: #system_library "advapi32"; @native(external)

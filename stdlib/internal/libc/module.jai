@@ -1,7 +1,7 @@
 // The C library calls the runtime, the allocators and the file backends make directly, declared once.
 // They have no dependency on Basic, so the runtime can use them before any context exists.
 #scope_file
-libc :: #system_library "libc";
+libc :: #system_library "libc"; @native(external)
 
 #scope_export
 c_malloc :: (size: u64) -> *void #foreign libc "malloc";

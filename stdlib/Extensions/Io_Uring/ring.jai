@@ -398,7 +398,7 @@ supports :: (probe: *Probe, opcode: io_uring_op) -> bool {
 
 #scope_file
 
-libc :: #system_library "libc";
+libc :: #system_library "libc"; @native(external)
 
 mmap :: (address: *void, length: u64, protection: s32, flags: s32, descriptor: s32, offset: s64) -> *void #foreign libc;
 munmap :: (address: *void, length: u64) -> s32 #foreign libc;

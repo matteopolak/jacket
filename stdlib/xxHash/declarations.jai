@@ -12,7 +12,7 @@ binding_XXH64_update :: (state: *XXH64_state_t, input: *void, len: u64) -> s32 #
 binding_XXH32_digest :: (state: *XXH32_state_t) -> u32 #foreign xxh_vendor "XXH32_digest";
 binding_XXH64_digest :: (state: *XXH64_state_t) -> u64 #foreign xxh_vendor "XXH64_digest";
 binding_abort :: () #foreign libc "abort";
-libc :: #library,system "c";
+libc :: #library,system "c"; @native(external)
 xxh_vendor :: #library,system "xxhash070";
 #scope_export
 

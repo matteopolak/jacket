@@ -222,5 +222,5 @@ protected_write :: (fd: s32, data: *void, count: s64) -> bool, s64 {
 }
 
 #scope_file
-libpthread :: #system_library "pthread";
+libpthread :: #system_library "pthread"; @native(external)
 c_pthread_sigmask :: (how: s32, set: *P.sigset_t, old: *P.sigset_t) -> s32 #foreign libpthread "pthread_sigmask";

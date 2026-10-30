@@ -10,7 +10,7 @@ __MIDL___MIDL_itf_d3d11_0000_0034_0001 :: struct {
     __bitfield: u32;
 }
 
-d3d11 :: #library,system "d3d11";
+d3d11 :: #library,system "d3d11"; @native(external)
 #scope_export
 
 // Types and layouts

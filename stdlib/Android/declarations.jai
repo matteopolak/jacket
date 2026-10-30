@@ -4,11 +4,11 @@
 #scope_file
 #import "POSIX";
 
-lib_glue :: #library,system "android_native_app_glue";
-libandroid :: #library,system "android";
-libcamera2ndk :: #library,system "camera2ndk";
-liblog :: #library,system "log";
-libmediandk :: #library,system "mediandk";
+lib_glue :: #library,system "android_native_app_glue"; @native(external)
+libandroid :: #library,system "android"; @native(external)
+libcamera2ndk :: #library,system "camera2ndk"; @native(external)
+liblog :: #library,system "log"; @native(external)
+libmediandk :: #library,system "mediandk"; @native(external)
 #scope_export
 
 // Types and layouts

@@ -4,7 +4,7 @@
 #scope_file
 #import "Windows";
 
-dxgi :: #library,system "dxgi";
+dxgi :: #library,system "dxgi"; @native(external)
 #scope_export
 
 // Types and layouts

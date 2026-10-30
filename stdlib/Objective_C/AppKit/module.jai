@@ -234,13 +234,13 @@ NSDefaultRunLoopMode: O.NSRunLoopMode #elsewhere Cocoa;
 NSApplicationMain :: (argc: s32, argv: **u8) -> s32 #foreign AppKit;
 
 #scope_file
-AppKit :: #library,system "AppKit";
-Cocoa :: #library,system "Cocoa";
+AppKit :: #library,system "AppKit"; @native(external)
+Cocoa :: #library,system "Cocoa"; @native(external)
 
 O :: #import "Objective_C";
 
-#library,system,link_always "AppKit";
-libobjc :: #library,system "objc";
+#library,system,link_always "AppKit"; @native(external)
+libobjc :: #library,system "objc"; @native(external)
 binding_send :: () #foreign libobjc "objc_msgSend";
 #if CPU == .X64 binding_send_stret :: () #foreign libobjc "objc_msgSend_stret";
 

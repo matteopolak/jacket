@@ -18,7 +18,7 @@ Native :: #import "internal/bindings/native";
 
 ios_path: string;
 simulator_path: string;
-libc :: #library,system "c";
+libc :: #library,system "c"; @native(external)
 sdk_popen :: (command: *u8, mode: *u8) -> *void #foreign libc "popen";
 sdk_pclose :: (stream: *void) -> s32 #foreign libc "pclose";
 sdk_fread :: (ptr: *void, size: u64, count: u64, stream: *void) -> u64 #foreign libc "fread";

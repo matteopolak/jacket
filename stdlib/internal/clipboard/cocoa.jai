@@ -108,8 +108,8 @@ os_clipboard_set_bitmap :: (width: s32, height: s32, pixels: *u8, channels: s32,
 O :: #import "internal/bindings/objc-api";
 
 NSBitmapFormatAlphaNonpremultiplied :: 1 << 1;
-objc :: #library,system "objc";
-appkit :: #library,system "AppKit";
+objc :: #library,system "objc"; @native(external)
+appkit :: #library,system "AppKit"; @native(external)
 application_load :: () -> s8 #foreign appkit "NSApplicationLoad";
 objc_send :: () #foreign objc "objc_msgSend";
 objc_class :: (name: *u8) -> *void #foreign objc "objc_getClass";

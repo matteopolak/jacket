@@ -150,7 +150,7 @@ reader_release_channel :: (channel: *Read_Channel) -> bool {
 W :: #import "internal/bindings/windows-api";
 Utf8 :: #import "internal/text/windows-utf8";
 
-kernel32 :: #system_library "kernel32";
+kernel32 :: #system_library "kernel32"; @native(external)
 clear_last_error :: (code: u32) #foreign kernel32 "SetLastError";
 
 pending_cleanup: *Registration;

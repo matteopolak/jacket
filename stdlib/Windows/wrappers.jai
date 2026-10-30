@@ -26,7 +26,7 @@ uid :: (str: string) -> GUID {
 }
 
 #scope_file
-libc :: #library,system "c";
+libc :: #library,system "c"; @native(external)
 guid_invalid :: () #foreign libc "abort";
 
 guid_nibble :: (c: u8) -> u8 {

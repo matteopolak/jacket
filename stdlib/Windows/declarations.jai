@@ -3,20 +3,20 @@
 
 #scope_file
 
-Advapi32 :: #library,system "Advapi32";
-Crt :: #library,system "ucrt";
-DbgHelp :: #library,system "DbgHelp";
-Dwmapi :: #library,system "Dwmapi";
-Shlwapi :: #library,system "Shlwapi";
-comdlg32 :: #library,system "comdlg32";
-gdi :: #library,system "gdi32";
-gl :: #library,system "opengl32";
-kernel32 :: #library,system "kernel32";
-ntdll :: #library,system "ntdll";
-setupapi :: #library,system "setupapi";
-shell32 :: #library,system "shell32";
-user32 :: #library,system "user32";
-winmm :: #library,system "winmm";
+Advapi32 :: #library,system "Advapi32"; @native(external)
+Crt :: #library,system "ucrt"; @native(external)
+DbgHelp :: #library,system "DbgHelp"; @native(external)
+Dwmapi :: #library,system "Dwmapi"; @native(external)
+Shlwapi :: #library,system "Shlwapi"; @native(external)
+comdlg32 :: #library,system "comdlg32"; @native(external)
+gdi :: #library,system "gdi32"; @native(external)
+gl :: #library,system "opengl32"; @native(external)
+kernel32 :: #library,system "kernel32"; @native(external)
+ntdll :: #library,system "ntdll"; @native(external)
+setupapi :: #library,system "setupapi"; @native(external)
+shell32 :: #library,system "shell32"; @native(external)
+user32 :: #library,system "user32"; @native(external)
+winmm :: #library,system "winmm"; @native(external)
 #scope_export
 
 // Types and layouts

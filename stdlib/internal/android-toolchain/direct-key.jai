@@ -131,7 +131,7 @@ direct_key_command :: (arguments: [] string) -> bool {
 }
 
 #if OS == .MACOS || OS == .LINUX || OS == .ANDROID {
-    key_libc :: #system_library "libc";
+    key_libc :: #system_library "libc"; @native(external)
     key_mkdtemp :: (template: *u8) -> *u8 #foreign key_libc "mkdtemp";
     #if OS == .MACOS Key_Mode :: u16;
     else Key_Mode :: u32;

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Put the native libraries a release archive needs into it, as native-libs.json and provided-libs.json declare.
+"""Put the native libraries a release archive needs into it, as native-libs.json and the stdlib's `@native` notes declare.
 
     python3 tools/native/package_native_libs.py --platform linux-x64 --package jacket-linux-x64 --llvm-prefix DIR [--dry-run]
 
@@ -8,12 +8,13 @@ For the unpacked archive `--package` (its `stdlib/` and `native-libs/<platform>/
 1. `runtime` libraries: C the standard library binds that is built into `stdlib/` (the Windows crash runtime).
 2. `fetched` libraries: prebuilt, pinned and checksum-verified downloads (wgpu-native).
 3. every library of `libraries`: built from pinned sources by tools/native/build_native_libs.py.
-4. `packaged` libraries: built by their own script (Bindings_Generator's helper, and libclang where shipped).
+4. `packaged` libraries: built by their own script (Bindings_Generator's helper).
 5. tools/ci/check_native_libs.py: every library the packaged stdlib binds is in the archive, or declared
-   embedded or external on purpose.
+   by a note (embedded, developer or external) on purpose.
 
-A declaration's `script` runs with its `args`, in which `{platform}`, `{cpu}`, `{stdlib}`, `{out}` and
-`{llvm_prefix}` are replaced. `--dry-run` prints the commands.
+A `runtime`, `fetched` or `packaged` library has a recipe in tools/native/provided_libs.py: its `script` runs with
+its `args`, in which `{platform}`, `{cpu}`, `{stdlib}`, `{out}` and `{llvm_prefix}` are replaced. `--dry-run` prints
+the commands.
 """
 
 import argparse
@@ -21,7 +22,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from native.provided_libs import load_manifest, on_platform, providers
+from native.provided_libs import on_platform, providers
 from toolkit.repo import ROOT
 
 
@@ -31,8 +32,9 @@ def expand(args, values):
 
 def commands(platform, package, llvm_prefix):
     """The command lines that fill the archive directory `package`, in order."""
-    manifest = load_manifest()
-    declared = providers(manifest)
+    declared, problems = providers(ROOT / "stdlib")
+    if problems:
+        raise SystemExit("\n".join(problems))
     out = package / "native-libs" / platform
     values = {
         "platform": platform,

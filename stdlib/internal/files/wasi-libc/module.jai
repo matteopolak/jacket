@@ -103,4 +103,4 @@ DAYS_FROM_YEAR_ZERO_TO_EPOCH :: 719468;
 SECONDS_PER_DAY :: 86400;
 SECONDS_PER_HOUR :: 3600;
 
-libc :: #system_library "libc";
+libc :: #system_library "libc"; @native(external)

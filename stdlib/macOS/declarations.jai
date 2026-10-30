@@ -15,9 +15,9 @@ LangCode :: s16;
 RegionCode :: s16;
 ScriptCode :: s16;
 Block :: *Objective_C_Block_Basic;
-CoreServices :: #library,system "CoreServices";
-corefoundation :: #library,system "corefoundation";
-libc :: #library,system "c";
+CoreServices :: #library,system "CoreServices"; @native(external)
+corefoundation :: #library,system "corefoundation"; @native(external)
+libc :: #library,system "c"; @native(external)
 #scope_export
 
 // Types and layouts

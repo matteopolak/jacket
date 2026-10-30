@@ -239,9 +239,9 @@ Lifecycle :: #import "internal/window/lifecycle";
     Cocoa :: #import "internal/window/cocoa";
     O :: #import "internal/bindings/objc-api";
 
-    objc :: #library,system "objc";
+    objc :: #library,system "objc"; @native(external)
     message :: () #foreign objc "objc_msgSend";
-    native_gl :: #library,system "OpenGL";
+    native_gl :: #library,system "OpenGL"; @native(external)
     native_current_context :: () -> *void #foreign native_gl "CGLGetCurrentContext";
     native_set_context :: (native: *void) -> s32 #foreign native_gl "CGLSetCurrentContext";
 }
@@ -249,7 +249,7 @@ Lifecycle :: #import "internal/window/lifecycle";
 #if OS == .LINUX {
     X :: #import "X11";
 
-    native_glx :: #library,system "GLX";
+    native_glx :: #library,system "GLX"; @native(external)
     current_display :: () -> *X.Display #foreign native_glx "glXGetCurrentDisplay";
     current_drawable :: () -> X.GLXDrawable #foreign native_glx "glXGetCurrentDrawable";
 }
@@ -257,8 +257,8 @@ Lifecycle :: #import "internal/window/lifecycle";
 #if OS == .WINDOWS {
     W :: #import "internal/bindings/windows-api";
 
-    context_user32 :: #library,system "user32";
-    context_kernel32 :: #library,system "kernel32";
+    context_user32 :: #library,system "user32"; @native(external)
+    context_kernel32 :: #library,system "kernel32"; @native(external)
     native_class_style :: (window: W.HWND, index: s32) -> u32 #foreign context_user32 "GetClassLongW";
     native_clear_error :: (error: u32) #foreign context_kernel32 "SetLastError";
 

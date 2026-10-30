@@ -385,7 +385,7 @@ binding_typelist_allocator: Allocator;
 ClipboardOwned :: #import "internal/bindings/clipboard-owned-data";
 Native :: #import "internal/bindings/native";
 
-libc :: #library,system "c";
+libc :: #library,system "c"; @native(external)
 binding_abort :: () #foreign libc "abort";
 
 Binding_Message_Choices :: struct {

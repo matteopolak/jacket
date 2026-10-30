@@ -458,7 +458,7 @@ File_Utilities :: #import "File_Utilities";
 #if OS == .WINDOWS {
     MANAGED_EXE :: ".exe";
 
-    kernel32_managed :: #system_library "kernel32";
+    kernel32_managed :: #system_library "kernel32"; @native(external)
     GetCurrentProcessId :: () -> u32 #foreign kernel32_managed;
 
     managed_process_id :: () -> s64 {
@@ -479,7 +479,7 @@ File_Utilities :: #import "File_Utilities";
 } else {
     MANAGED_EXE :: "";
 
-    libc_managed :: #system_library "libc";
+    libc_managed :: #system_library "libc"; @native(external)
     getpid_managed :: () -> s32 #foreign libc_managed "getpid";
 
     managed_process_id :: () -> s64 {

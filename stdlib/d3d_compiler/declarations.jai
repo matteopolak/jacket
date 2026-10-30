@@ -4,7 +4,7 @@
 #scope_file
 #import "Windows";
 
-d3dcompiler :: #library,system "d3dcompiler";
+d3dcompiler :: #library,system "d3dcompiler"; @native(external)
 #scope_export
 
 // Types and layouts

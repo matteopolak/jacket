@@ -194,7 +194,7 @@ Runtime_Context_Header :: struct {
     allocation: *void;
 }
 
-libc :: #system_library "libc";
+libc :: #system_library "libc"; @native(external)
 #if OS != .WINDOWS c_write :: (fd: s32, data: *u8, count: u64) -> s64 #foreign libc "write";
 
 #import "internal/libc";

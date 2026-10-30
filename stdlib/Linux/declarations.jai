@@ -4,7 +4,7 @@
 #scope_file
 #import "POSIX";
 
-libc :: #library,system "c";
+libc :: #library,system "c"; @native(external)
 #scope_export
 
 // Types and layouts

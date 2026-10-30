@@ -118,7 +118,7 @@ Basic :: #import "Basic";
 Encoding :: #import "internal/bindings/objc-encoding";
 Native :: #import "internal/bindings/native";
 
-objc :: #library,system "objc";
+objc :: #library,system "objc"; @native(external)
 
 #if CPU == .ARM64 || OS == .IOS {
     NativeBool :: bool;

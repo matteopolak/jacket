@@ -18,4 +18,4 @@ Context :: struct {
 create :: (allocator: *void, callback: Callback, context: *Context, paths: *void, since: u64, latency: float64, flags: u32) -> *void #foreign library "FSEventStreamCreate";
 
 #scope_file
-library :: #library,system "CoreServices";
+library :: #library,system "CoreServices"; @native(external)

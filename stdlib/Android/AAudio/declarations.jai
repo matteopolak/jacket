@@ -3,7 +3,7 @@
 
 #scope_file
 
-libaaudio :: #library,system "aaudio";
+libaaudio :: #library,system "aaudio"; @native(external)
 #scope_export
 
 // Types and layouts

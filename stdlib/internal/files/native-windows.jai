@@ -391,8 +391,8 @@ ERROR_HANDLE_EOF :: 38;
 
 Text :: #import "internal/files/windows-text";
 
-shell32 :: #system_library "shell32";
-ole32 :: #system_library "ole32";
+shell32 :: #system_library "shell32"; @native(external)
+ole32 :: #system_library "ole32"; @native(external)
 SHGetKnownFolderPath :: (id: *W.GUID, flags: u32, token: W.HANDLE, path: **u16) -> s32 #foreign shell32;
 CoTaskMemFree :: (memory: *void) #foreign ole32;
 

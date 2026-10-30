@@ -113,10 +113,10 @@ toggle_fullscreen :: (hwnd: Windows.HWND, desire_fullscreen: bool, saved: *Saved
 }
 
 #scope_module
-kernel32 :: #library,system "kernel32";
+kernel32 :: #library,system "kernel32"; @native(external)
 win_set_last_error :: (value: u32) #foreign kernel32 "SetLastError";
 win_get_last_error :: () -> u32 #foreign kernel32 "GetLastError";
-user32 :: #library,system "user32";
+user32 :: #library,system "user32"; @native(external)
 win_get_class_info :: (instance: Windows.HINSTANCE, name: *u16, info: *Windows.WNDCLASSEXW) -> s32 #foreign user32 "GetClassInfoExW";
 
 Basic :: #import "Basic";

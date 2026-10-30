@@ -35,7 +35,7 @@ get_vk :: (key: Key_Code) -> VK: u64 {
 #scope_module
 #import "internal/bindings/windows-api";
 
-key_user32 :: #library,system "user32";
+key_user32 :: #library,system "user32"; @native(external)
 native_key_character :: (code: u32, kind: u32) -> u32 #foreign key_user32 "MapVirtualKeyW";
 native_character_key :: (character: u16) -> s16 #foreign key_user32 "VkKeyScanW";
 

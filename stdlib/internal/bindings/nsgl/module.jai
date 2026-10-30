@@ -112,10 +112,10 @@ diagnostic :: (text: *u8) {
 
 O :: #import "internal/bindings/objc-api";
 
-#library,system,link_always "AppKit";
-libobjc :: #library,system "objc";
+#library,system,link_always "AppKit"; @native(external)
+libobjc :: #library,system "objc"; @native(external)
 message :: () #foreign libobjc "objc_msgSend";
-libc :: #library,system "c";
+libc :: #library,system "c"; @native(external)
 native_printf :: (fmt: *u8, args: ..Any) -> s32 #foreign libc "printf";
 native_fflush :: (stream: *void) -> s32 #foreign libc "fflush";
 native_abort :: () #foreign libc "abort";

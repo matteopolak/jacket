@@ -16,5 +16,5 @@ reserve :: () #c_call {
 }
 
 #scope_file
-kernel32 :: #system_library "kernel32";
+kernel32 :: #system_library "kernel32"; @native(external)
 SetThreadStackGuarantee :: (bytes: *u32) -> s32 #foreign kernel32;

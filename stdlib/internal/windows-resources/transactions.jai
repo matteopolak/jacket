@@ -78,7 +78,7 @@ write_manifest_resource :: (filename: string, manifest: string, id: u16, languag
 }
 
 #scope_file
-kernel :: #library,system "kernel32";
+kernel :: #library,system "kernel32"; @native(external)
 BeginUpdateResourceW :: (filename: W.LPCWSTR, delete_existing: W.BOOL) -> W.HANDLE #foreign kernel;
 UpdateResourceW :: (transaction: W.HANDLE, resource_type: W.LPCWSTR, name: W.LPCWSTR, language: W.WORD, data: *void, byte_count: W.DWORD) -> W.BOOL #foreign kernel;
 EndUpdateResourceW :: (transaction: W.HANDLE, discard_changes: W.BOOL) -> W.BOOL #foreign kernel;

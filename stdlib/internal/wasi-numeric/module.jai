@@ -2,7 +2,7 @@
 #scope_module
 B :: #import "Basic";
 
-libc :: #system_library "libc";
+libc :: #system_library "libc"; @native(external)
 errno_location :: () -> *s32 #foreign libc "__errno_location";
 
 c_text :: (text: *u8) -> string #no_context {

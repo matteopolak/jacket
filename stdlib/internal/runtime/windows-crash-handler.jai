@@ -30,7 +30,7 @@ handle_exception :: (using pExceptionInfo: *EXCEPTION_POINTERS) -> s32 #c_call {
 #scope_file
 #import "Basic";
 
-native_runtime :: #library "crash-native/platform_io_windows_crash";
+native_runtime :: #library "crash-native/platform_io_windows_crash"; @native(runtime,windows)
 native_prepare :: (process: *void) -> u32 #foreign native_runtime "platform_io_windows_crash_prepare";
 native_install :: (handler: *void) #foreign native_runtime "platform_io_windows_crash_install";
 native_backtrace :: (ctx: *void, skips: s32, process: *void) #foreign native_runtime "platform_io_windows_crash_backtrace";

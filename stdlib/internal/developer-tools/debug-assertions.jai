@@ -56,7 +56,7 @@ State :: #import "internal/debug-state";
 Tables :: #import "Hash_Table";
 
 #if OS == .WINDOWS {
-    native :: #library "debug-native/developer_tools_debug";
+    native :: #library "debug-native/developer_tools_debug"; @native(developer)
     attach_native :: (graphics: bool) -> s32 #foreign native "developer_debug_attach";
     dialog_native :: (text: *u8, count: s64) -> s32 #foreign native "developer_debug_dialog";
 }

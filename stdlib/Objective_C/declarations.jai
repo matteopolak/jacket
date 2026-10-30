@@ -16,12 +16,12 @@ binding_strlen :: (text: *u8) -> u64 #foreign libc "strlen";
     binding_objc_send_stret :: () #foreign libobjc "objc_msgSend_stret";
 }
 
-#library,system,link_always "Foundation";
-#library,system,link_always "QuartzCore";
-Foundation_Framework :: #library,system "Foundation_Framework";
-libSystem :: #library,system "System";
-libc :: #library,system "c";
-libobjc :: #library,system "objc";
+#library,system,link_always "Foundation"; @native(external)
+#library,system,link_always "QuartzCore"; @native(external)
+Foundation_Framework :: #library,system "Foundation_Framework"; @native(external)
+libSystem :: #library,system "System"; @native(external)
+libc :: #library,system "c"; @native(external)
+libobjc :: #library,system "objc"; @native(external)
 #scope_export
 
 // Types and layouts

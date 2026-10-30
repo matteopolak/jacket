@@ -510,5 +510,5 @@ supervise :: (handles: Launch_Handles, argv: **u8, directory: *u8, change_direct
     }
 }
 
-libc :: #system_library "libc";
+libc :: #system_library "libc"; @native(external)
 c_signal :: (signal: s32, handler: *void) -> *void #foreign libc "signal";

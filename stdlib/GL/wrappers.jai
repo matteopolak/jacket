@@ -409,7 +409,7 @@ binding_context_failure :: () {
     Window_Type :: WT.Window_Type;
     GLXContext :: X.GLXContext;
     GLXFBConfig :: X.GLXFBConfig;
-    binding_glx_lib :: #library,system "GLX";
+    binding_glx_lib :: #library,system "GLX"; @native(external)
     binding_glx_visual :: (display: *X.Display, config: X.GLXFBConfig) -> *X.XVisualInfo #foreign binding_glx_lib "glXGetVisualFromFBConfig";
     binding_glx_extensions :: (display: *X.Display, screen: s32) -> *u8 #foreign binding_glx_lib "glXQueryExtensionsString";
     binding_glx_version :: (display: *X.Display, major: *s32, minor: *s32) -> s32 #foreign binding_glx_lib "glXQueryVersion";
@@ -436,7 +436,7 @@ binding_context_failure :: () {
     }
 }
 
-libc :: #library,system "c";
+libc :: #library,system "c"; @native(external)
 binding_sscanf :: (text: *u8, format: *u8, args: ..Any) -> s32 #foreign libc "sscanf";
 binding_printf :: (format: *u8, args: ..Any) -> s32 #foreign libc "printf";
 binding_fflush :: (stream: *void) -> s32 #foreign libc "fflush";

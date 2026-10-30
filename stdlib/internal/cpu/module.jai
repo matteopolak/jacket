@@ -150,7 +150,7 @@ detect :: () {
     }
 
     #if OS == .LINUX || OS == .ANDROID {
-        libc :: #system_library "libc";
+        libc :: #system_library "libc"; @native(external)
         c_getauxval :: (kind: u64) -> u64 #foreign libc "getauxval";
     }
 }

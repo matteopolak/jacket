@@ -98,8 +98,8 @@ read_synchronized :: (board: *void, flavor: *void) -> (success: bool, text: stri
     return false, "", "The native clipboard contains no UTF-8 text flavor", false;
 }
 
-core_foundation :: #system_library "CoreFoundation";
-application_services :: #system_library "ApplicationServices";
+core_foundation :: #system_library "CoreFoundation"; @native(external)
+application_services :: #system_library "ApplicationServices"; @native(external)
 
 make_cf_string :: (text: string) -> *void {
     return CFStringCreateWithBytes(null, text.data, text.count, 0x08000100, 0);

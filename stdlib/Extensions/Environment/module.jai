@@ -43,7 +43,7 @@ has_environment_variable :: (name: string) -> bool {
     Windows :: #import "Windows";
     #import "Windows_Utf8";
 } else {
-    libc :: #system_library "libc";
+    libc :: #system_library "libc"; @native(external)
     c_getenv :: (name: *u8) -> *u8 #foreign libc "getenv";
 }
 

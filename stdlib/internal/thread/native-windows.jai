@@ -146,8 +146,8 @@ WAIT_RESULT_TIMEOUT :: 258;
 
 Text :: #import "internal/files/windows-text";
 
-kernel32 :: #system_library "kernel32";
-libc :: #system_library "libc";
+kernel32 :: #system_library "kernel32"; @native(external)
+libc :: #system_library "libc"; @native(external)
 begin_thread :: (security: *void, stack_size: u32, entry: *void, argument: *void, flags: u32, id: *s32) -> u64 #foreign libc "_beginthreadex";
 GetTickCount64 :: () -> u64 #foreign kernel32;
 InitializeCriticalSectionEx :: (section: *W.CRITICAL_SECTION, spin_count: u32, flags: u32) -> s32 #foreign kernel32;

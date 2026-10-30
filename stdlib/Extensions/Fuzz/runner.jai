@@ -134,7 +134,7 @@ run_engine :: (cases: [] Case) -> s32 {
 
 #scope_file
 
-engine_runtime :: #system_library "libc";
+engine_runtime :: #system_library "libc"; @native(external)
 engine_abort :: () #foreign engine_runtime "abort";
 
 LLVMFuzzerRunDriver :: (argc: *s32, argv: ***u8, callback: (data: *u8, size: u64) -> s32 #c_call) -> s32 #foreign engine_runtime;

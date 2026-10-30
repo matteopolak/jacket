@@ -31,7 +31,7 @@ Json :: #import "Extensions/Json";
 Pg :: #import "Extensions/Postgres";
 #import "Extensions/Environment";
 
-libc :: #system_library "libc";
+libc :: #system_library "libc"; @native(external)
 system :: (command: *u8) -> s32 #foreign libc;
 
 Options :: struct {

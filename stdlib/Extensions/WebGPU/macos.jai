@@ -46,7 +46,7 @@ objc_getClass :: (name: string) -> *void {
     return objc_getClass_c(buffer.data);
 }
 
-objc :: #system_library "libobjc";
+objc :: #system_library "libobjc"; @native(external)
 
 sel_registerName :: (name: *u8) -> *void #foreign objc;
 objc_getClass_c :: (name: *u8) -> *void #foreign objc "objc_getClass";
@@ -57,8 +57,8 @@ msg_set_bool :: (receiver: *void, selector: *void, value: s8) #foreign objc "obj
 msg_set_f64 :: (receiver: *void, selector: *void, value: float64) #foreign objc "objc_msgSend";
 
 // What the static libwgpu_native.a needs when `jaic` links it.
-wgpu_metal :: #system_library,link_always "Metal";
-wgpu_quartz_core :: #system_library,link_always "QuartzCore";
-wgpu_foundation :: #system_library,link_always "Foundation";
-wgpu_core_foundation :: #system_library,link_always "CoreFoundation";
-wgpu_iconv :: #system_library,link_always "iconv";
+wgpu_metal :: #system_library,link_always "Metal"; @native(external)
+wgpu_quartz_core :: #system_library,link_always "QuartzCore"; @native(external)
+wgpu_foundation :: #system_library,link_always "Foundation"; @native(external)
+wgpu_core_foundation :: #system_library,link_always "CoreFoundation"; @native(external)
+wgpu_iconv :: #system_library,link_always "iconv"; @native(external)

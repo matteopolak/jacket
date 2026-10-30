@@ -268,19 +268,19 @@ output_sampling_rate :: () -> s64 {
 native :: #library "jai_audio_output";
 
 #if OS == .MACOS {
-    #library,system,link_always "AudioToolbox";
-    #library,system,link_always "CoreAudio";
-    #library,system,link_always "CoreFoundation";
-    #library,system,link_always "AppKit";
-    #library,system,link_always "CoreGraphics";
+    #library,system,link_always "AudioToolbox"; @native(external)
+    #library,system,link_always "CoreAudio"; @native(external)
+    #library,system,link_always "CoreFoundation"; @native(external)
+    #library,system,link_always "AppKit"; @native(external)
+    #library,system,link_always "CoreGraphics"; @native(external)
 }
 
 #if OS == .WINDOWS {
-    #library,system,link_always "winmm";
-    #library,system,link_always "user32";
+    #library,system,link_always "winmm"; @native(external)
+    #library,system,link_always "user32"; @native(external)
 }
 
-#if OS == .LINUX #library,system,link_always "asound";
+#if OS == .LINUX #library,system,link_always "asound"; @native(external)
 audio_output_open :: (rate: s32, channels: s32, error: *s32) -> *void #foreign native;
 audio_output_close :: (output: *void) -> s32 #foreign native;
 audio_output_device :: (index: s32, name: *u8, capacity: s32) -> s32 #foreign native;

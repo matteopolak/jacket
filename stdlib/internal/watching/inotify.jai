@@ -6,7 +6,7 @@ U :: #import "File_Utilities";
 R :: #import "internal/watching/event-records";
 Strings :: #import "String";
 
-inotify_libc :: #library,system "c";
+inotify_libc :: #library,system "c"; @native(external)
 system_free :: (memory: *void) #foreign inotify_libc "free";
 
 Pending_Move :: struct {

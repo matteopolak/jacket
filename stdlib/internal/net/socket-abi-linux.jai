@@ -5,7 +5,7 @@
 
 // Unix select takes the native timeval through a private spelling.
 TIMEVAL :: timeval;
-libc :: #system_library "libc";
+libc :: #system_library "libc"; @native(external)
 #scope_export
 
 addrinfo :: struct {

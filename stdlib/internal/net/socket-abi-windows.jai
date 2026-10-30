@@ -12,7 +12,7 @@ OS_Error_Code :: Windows_Native.OS_Error_Code;
 OVERLAPPED :: Windows_Native.OVERLAPPED;
 SIZE_T :: Windows_Native.SIZE_T;
 WPARAM :: Windows_Native.WPARAM;
-ws2_32 :: #system_library "ws2_32";
+ws2_32 :: #system_library "ws2_32"; @native(external)
 #scope_export
 
 addrinfo :: struct {

@@ -4,7 +4,7 @@
 
 The stdlib binds libraries no system ships: `stb_image`, `stb_image_write`, `stb_image_resize`, `stb_vorbis`, `lz4`, `meshoptimizer`, `pl_mpeg`, FreeType, Dear ImGui, MojoShader, the allocator profile libraries `rpmalloc` binds (`binding_rpmalloc_sdk*` and `binding_rpmalloc_callbacks*`, macOS and Linux only), the callback context (`binding_callback_context`), the audio output behind `Sound_Player` (`jai_audio_output`), the Linux X11 clipboard (`portable_clipboard`), xxHash 0.7.0 (`xxhash070`), mbedTLS (for [`Extensions/Tls`](../extensions/tls.md)), SDL3 and, on Windows, SDL2. `tools/native/build_native_libs.py` builds them from pinned, hash-checked sources into `target/native-libs/<os>-<arch>/`. `jaic` searches that directory when resolving a library name, for foreign calls under `-interp` and when linking. Without it, programs using those modules type-check but cannot call or link. Release archives ship the libraries for their platform (built by `release.yml` from the same sources) with licence files under `licenses/<source>/`.
 
-`tools/native/provided-libs.json` declares who provides every other library the stdlib binds ([below](#what-provided-libsjson-declares)); it is separate from `native-libs.json` so that editing it does not invalidate the CI cache of built libraries. `tools/ci/check_native_libs.py` ties it together: every `#library` and `#system_library` name under `stdlib/` (not `tests/`) must be built by `libraries` or declared in `provided-libs.json`, a declaration nothing binds fails, and with `--native DIR` the built and fetched ones must be in the archive. `tools/native/package_native_libs.py` fills an archive from the same declarations, and `tools/ci/package_release.sh` (run by `release.yml`) calls it.
+Every other library the stdlib binds says who provides it in an `@native(<kind>)` note on the line that binds it ([below](#what-the-native-notes-declare)); the notes live in the sources, so editing the declarations never invalidates the CI cache of built libraries. `tools/ci/check_native_libs.py` ties it together: every `#library`, `#system_library`, `#foreign_library` and `#foreign_system_library` name under `stdlib/` (not `tests/`) must be built by `libraries` or carry a note, notes of one name must agree, and with `--native DIR` the built, fetched and packaged ones must be in the archive. `tools/native/package_native_libs.py` fills an archive from the same declarations, and `tools/ci/package_release.sh` (run by `release.yml`) calls it.
 
 Not shipped (the OS's or the user's to install): SDL2 on macOS, Linux and Windows arm64, `nvtt`, `thekla_baker`, libcurl, Vulkan, GL/EGL, Metal and Apple frameworks, X11, ALSA, Windows system libraries. wgpu-native is downloaded rather than built (below).
 
@@ -37,25 +37,34 @@ Per-library notes:
 - **Slang for the sgpu examples**: `tools/native/build_slang.py` builds `libslang` (pinned `TAG`, CMake) and `libVkMemAlloc.a` into the upstream project's `modules/` and `libs/mac/`, and copies Homebrew's Vulkan loader. Idempotent; `--force` reinstalls. Examples need MoltenVK and the validation layers via `VK_ICD_FILENAMES`, `VK_LAYER_PATH`, `DYLD_FALLBACK_LIBRARY_PATH`.
 - **Vk-Engine**: `tools/native/build_vk_engine_libs.py` builds ImGui, VMA and JoltC for its `Build.jai`.
 
-### What `provided-libs.json` declares
+### What the native notes declare
 
-Each library the stdlib binds that `libraries` does not build is declared under one kind:
+A binding names its library after the folder and `lib` prefix are dropped (`../internal/developer-tools/clang-bindings/clang` is `clang`, `libm` is `m`). One note per name is enough (the stdlib puts one on every line), and notes of a name must not disagree:
+
+```jai
+libm :: #library,system "m"; @native(external)
+backend :: #library "native/portable_watch"; @native(embedded)
+native_runtime :: #library "crash-native/platform_io_windows_crash"; @native(runtime,windows)
+```
+
+`@native(<kind>[,<os>...])` takes one kind; the OS names (`macos`, `linux`, `windows`) limit the archives it applies to. A library `libraries` builds carries no note.
 
 | Kind | Meaning | Packaging |
 | --- | --- | --- |
 | `embedded` | compiled into `jaic` (`portable_crash`, `portable_watch`, [crash runtime build](../native/crash-runtime-build.md)) | none |
-| `fetched` | a pinned, checksum-verified prebuilt download (wgpu-native) | runs its `script` with `args` |
-| `runtime` | C built into `stdlib/` while packaging (the Windows crash runtime), for the OSes in `platforms` | runs its `script` with `args`, before the rest |
-| `packaged` | built by a `script` that places several files (Bindings_Generator's helper, bound by `#foreign_library`, so the scan cannot see it) | runs its `script` with `args`; the archive must hold its static and shared library |
-| `external` | the operating system's, the SDK's or the user's, grouped by reason (system and Apple frameworks, X11, libcurl, GPU APIs, Android, NVIDIA SDKs) | none |
+| `fetched` | a pinned, checksum-verified prebuilt download (wgpu-native) | runs its recipe |
+| `runtime` | C built into `stdlib/` while packaging (the Windows crash runtime), for the OSes listed | runs its recipe, before the rest |
+| `packaged` | built by a script that places several files (Bindings_Generator's helper, `generator_platform`); the archive must hold its static and shared library | runs its recipe |
+| `developer` | built by the developer checks (`tools/developer_checks`) next to their sources (`developer_tools_check`, `developer_tools_debug`, `clang`) | none |
+| `external` | the operating system's, the SDK's or the user's (system and Apple frameworks, X11, libcurl, GPU APIs, Android, NVIDIA SDKs) | none |
 
-`args` may use `{platform}`, `{cpu}`, `{stdlib}`, `{out}` and `{llvm_prefix}`. `package_native_libs.py --dry-run` prints the commands for a platform. The stdlib sources carry no per-declaration annotation: `jaifmt` lays out a declaration followed by a note differently, so `provided-libs.json` is the one place a library's provider is written down.
+The recipe of a `fetched`, `runtime` or `packaged` library is its entry in `RECIPES` in `tools/native/provided_libs.py`: a `script` and its `args`, which may use `{platform}`, `{cpu}`, `{stdlib}`, `{out}` and `{llvm_prefix}`. `package_native_libs.py --dry-run` prints the commands for a platform. A note without a recipe fails the check.
 
 ## How to change it
 
 - **A library written in this repository** (`jai_audio_output`, `binding_callback_context`, `portable_clipboard`) has `"source": "repo"`: `local` is its directory under the repository, `local_units` the C files, `platform_units` those only one OS compiles (`focus.m`), and `link` the extra arguments per OS (`macos`, `linux`, `windows`) for its shared library. It needs no download or licence entry.
 - **rpmalloc** has `"builder": "rpmalloc"`: it calls `tools/native_bindings/build_rpmalloc.py` for every profile in `ci-rpmalloc-profiles.json` and copies only the `lib<profile>.a`/shared libraries. A new profile needs no change here. Windows has no rpmalloc archive in the release.
-- **A new binding of a system library** (a framework, a Windows DLL, an OS library): add its name to a group under `external` in `provided-libs.json`. `check_native_libs.py` names the file that binds anything undeclared, and a name nothing binds any more.
+- **A new binding of a system library** (a framework, a Windows DLL, an OS library): put `@native(external)` after the `;` of its `#library` line. `check_native_libs.py` names the file that binds anything undeclared. `jaifmt` keeps the note on the declaration's line.
 - **New library:** add the source under `sources` (`shasum -a 256`, licence files) and an entry under `libraries` whose `code` or `units` compile the implementation. The name must match the Jai `#system_library` name without `lib`. Add a runtime test (`tests/compiler/regressions/<name>-....jai`). A C++ library must build without the C++ runtime or document its link requirement here.
 - Libraries a project builds itself are not listed here; `tools/fetch_upstreams.py` fetches C-family sources for that, never prebuilt binaries.
 
