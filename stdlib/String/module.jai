@@ -1,3 +1,17 @@
+// Searching, comparing, splitting, trimming and scanning strings, and working with file paths.
+//
+// Strings are bytes. Case-insensitive procedures fold only the ASCII letters, and nothing here
+// decodes UTF-8; use `Unicode` for that. Procedures that return a part of their input (`trim`,
+// the splits, `path_filename`) return a view into it, not a copy. Procedures that build a new string
+// (`join`, `replace`, `to_lower_copy`, `path_join`) allocate it with the context allocator, and the
+// caller frees it. A search that finds nothing returns -1, or `false` with an empty or whole string.
+//
+// ```jai
+// assert(trim("  hello  ") == "hello");
+// found, key, value := split_from_left("name=jai", #char "=");
+// assert(found && key == "name" && value == "jai");
+// ```
+
 parse_token :: Impl.parse_token;
 match_token :: Impl.match_token;
 match_token_nocase :: Impl.match_token_nocase;
@@ -57,6 +71,16 @@ split_from_right_by_any :: Impl.split_from_right_by_any;
 // parts := split("a,b,c", ",");
 // assert(parts.count == 3 && parts[1] == "b");
 // ```
+//
+// Empty pieces are kept: `;a;;` split at `;` gives four pieces, and an empty string gives one
+// empty piece. The array is allocated with the context allocator and the caller frees it with
+// `array_free`; the pieces point into `s` and are not freed.
+//
+// ```jai
+// parts := split(";a;;", #char ";");
+// defer array_free(parts);
+// assert(parts.count == 4 && parts[0] == "" && parts[1] == "a" && parts[3] == "");
+// ```
 split :: Impl.split;
 // The strings one after another, with `separator` between them.
 //
@@ -70,6 +94,7 @@ scan :: Impl.scan;
 scan2 :: Impl.scan2;
 string_tests :: Impl.string_tests;
 starts_with :: begins_with;
+// The separator a path joined on this platform uses: `\` on Windows and `/` elsewhere.
 PATH_SEPARATOR :: Impl.PATH_SEPARATOR;
 #if OS != .NN_SWITCH2 is_absolute_path :: Impl.is_absolute_path;
 decomp_filename :: path_decomp;

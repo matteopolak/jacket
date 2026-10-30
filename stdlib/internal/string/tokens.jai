@@ -1,3 +1,17 @@
+// Reads the next token from `line` and removes it, with any spaces before it, from `line`.
+//
+// A token is a run of bytes up to the next space or delimiter. A delimiter that starts a token is a
+// token of one byte. The result is the token and `true`; when only spaces are left, it is an empty
+// string and `false` and `line` is not changed. The token points into the original text.
+//
+// ```jai
+// line := "  name =value";
+// token, ok := parse_token(*line);
+// assert(ok && token == "name" && line == " =value");
+//
+// token, ok = parse_token(*line);
+// assert(ok && token == "=" && line == "value");
+// ```
 parse_token :: (line: *string, delimiters := DEFAULT_DELIMITERS, spaces := DEFAULT_SPACES) -> value: string, success: bool {
     rest := trim_left(line.*, spaces);
     if rest.count == 0 return "", false;
@@ -13,16 +27,39 @@ parse_token :: (line: *string, delimiters := DEFAULT_DELIMITERS, spaces := DEFAU
     return slice(rest, 0, count), true;
 }
 
+// Reads the next token as `parse_token` does and returns it with whether it is equal to `match`.
+// The token is removed from `line` whether or not it matches.
+//
+// ```jai
+// line := "if (x)";
+// _, matched := match_token(*line, "if");
+// assert(matched && line == " (x)");
+// ```
 match_token :: (line: *string, match: string, delimiters := DEFAULT_DELIMITERS, spaces := DEFAULT_SPACES) -> value: string, success: bool {
     token, ok := parse_token(line, delimiters, spaces);
     return token, ok && token == match;
 }
 
+// Like `match_token`, with ASCII letters matched in either case.
+//
+// ```jai
+// line := "IF x";
+// _, matched := match_token_nocase(*line, "if");
+// assert(matched);
+// ```
 match_token_nocase :: (line: *string, match: string, delimiters := DEFAULT_DELIMITERS, spaces := DEFAULT_SPACES) -> value: string, success: bool {
     token, ok := parse_token(line, delimiters, spaces);
     return token, ok && equal_nocase(token, match);
 }
 
+// Reads the next token and reads it as `true` or `false`, in either case. The second result is `false`
+// when the token is anything else or there is none; the token is removed from `line` anyway.
+//
+// ```jai
+// line := "True rest";
+// value, ok := parse_bool(*line);
+// assert(ok && value && line == " rest");
+// ```
 parse_bool :: (line: *string, delimiters := DEFAULT_DELIMITERS, spaces := DEFAULT_SPACES) -> value: bool, success: bool {
     token, ok := parse_token(line, delimiters, spaces);
     if !ok return false, false;
@@ -32,6 +69,16 @@ parse_bool :: (line: *string, delimiters := DEFAULT_DELIMITERS, spaces := DEFAUL
     return false, false;
 }
 
+// Reads the next token and looks it up by name among the values of the enum type `T`. The second result is
+// `false` when no value has that name, and then the value is zero. The name is case sensitive.
+//
+// ```jai
+// Color :: enum { RED; GREEN; }
+//
+// line := "GREEN;";
+// value, ok := parse_enum(*line, Color);
+// assert(ok && value == .GREEN && line == ";");
+// ```
 parse_enum :: (line: *string, $T: Type, delimiters := DEFAULT_DELIMITERS, spaces := DEFAULT_SPACES) -> value: T, success: bool {
     token, ok := parse_token(line, delimiters, spaces);
     if !ok return cast(T) 0, false;
@@ -42,6 +89,17 @@ parse_enum :: (line: *string, $T: Type, delimiters := DEFAULT_DELIMITERS, spaces
     return cast(T) 0, false;
 }
 
+// Reads the next token as a whole number of type `T` (`int` by default). Only space and tab are skipped
+// in front of it unless you pass `spaces`.
+//
+// The second result is `false` when the token is not entirely a number, or there is none. A number
+// too large for `T` is cut to its low bits and still counts as valid.
+//
+// ```jai
+// line := " 42;7";
+// value, ok := parse_int(*line);
+// assert(ok && value == 42);
+// ```
 parse_int :: (line: *string, $T: Type = int, spaces := " \t", delimiters := DEFAULT_DELIMITERS) -> value: T, success: bool {
     token, ok := parse_token(line, delimiters, spaces);
     if !ok return cast(T) 0, false;
@@ -49,6 +107,14 @@ parse_int :: (line: *string, $T: Type = int, spaces := " \t", delimiters := DEFA
     return cast,trunc(T) value, valid && rest.count == 0;
 }
 
+// Reads the next token as a decimal number. The second result is `false` when the token is not entirely a
+// number, or there is none.
+//
+// ```jai
+// line := "2.5 rest";
+// value, ok := parse_float(*line);
+// assert(ok && value == 2.5);
+// ```
 parse_float :: (line: *string, delimiters := DEFAULT_DELIMITERS, spaces := DEFAULT_SPACES) -> value: float, success: bool {
     token, ok := parse_token(line, delimiters, spaces);
     if !ok return 0, false;

@@ -1,3 +1,4 @@
+// Runs a few checks of the module with asserts. A smoke test; the real tests are in the module's test folder.
 string_tests :: () {
     assert(compare("a", "b") < 0 && compare("b", "a") > 0);
     assert(compare("ab", "ab") == 0 && compare("a", "ab") < 0);

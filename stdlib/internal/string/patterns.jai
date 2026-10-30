@@ -1,3 +1,15 @@
+// Whether the whole of `s` matches the pattern `pat`.
+//
+// In the pattern `*` matches any run of bytes (also none), `?` matches any one byte, and `[a-c]`
+// matches one byte in a set of bytes and ranges (`[abc]`, `[0-9]`). There is no negation or escape; put
+// `*` in brackets to match it literally. A `[` with no closing `]` matches nothing. Matching works on
+// bytes, not characters.
+//
+// ```jai
+// assert(wildcard_match("main.jai", "*.jai"));
+// assert(wildcard_match("v2", "v[0-9]"));
+// assert(!wildcard_match("ab", "a?b"));
+// ```
 wildcard_match :: (s: string, pat: string) -> bool {
     cursor: s64;
     pattern: s64;

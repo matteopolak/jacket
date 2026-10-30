@@ -1,3 +1,21 @@
+// Reads values from `text` as `format` describes. Returns whether the whole text matched, and the values
+// read, as `Any`s.
+//
+// Bytes of `format` must appear in the text as they are. `%d` and `%i` read a whole number (an `s64`),
+// `%f` a `float`, `%b` `true` or `false`, and `%s` a string in double quotes, returned without the
+// quotes. A `%%` checks that the text has a `%` there but does not consume it, so the call fails;
+// use `scan2` for formats with a literal percent sign.
+//
+// On a mismatch the result is `false` and the values read so far are returned. The values and the
+// array are allocated in temporary storage, so they are only valid until it is reset. Nothing is
+// freed by the caller.
+//
+// ```jai
+// ok, values := scan("%d %s", "-8 \"yes\"");
+// assert(ok && values.count == 2);
+// assert((cast(*s64) values[0].value_pointer).* == -8);
+// assert((cast(*string) values[1].value_pointer).* == "yes");
+// ```
 scan :: (format: string, text: string) -> bool, [] Any {
     push_allocator(temp);
     values: [..] Any;
@@ -36,6 +54,31 @@ scan :: (format: string, text: string) -> bool, [] Any {
     return rest.count == 0, values;
 }
 
+// Reads values from `text` as `format` describes, storing them through the pointers in `args`.
+// Returns whether the whole text matched.
+//
+// The directives are those of `scan`, except that `%%` matches and consumes a literal `%`. Each
+// directive stores into the next argument, which must be a pointer to a number, a `bool` or a string.
+// A number that does not fit the target (a `256` into a `u8`) makes the call fail, as does a missing
+// or null argument. On failure the targets read before the mismatch keep their new values and the
+// others are not touched. A string result points into `text`.
+//
+// ```jai
+// count: int;
+// flag: bool;
+// name: string;
+// ok := scan2("7 true \"bob\"", "%d %b %s", *count, *flag, *name);
+// assert(ok && count == 7 && flag && name == "bob");
+// ```
+//
+// Floats read into a `float` or a `float64`, and a literal percent sign is written `%%`:
+//
+// ```jai
+// ratio: float;
+// precise: float64;
+// assert(scan2("1.25%", "%f%%", *ratio) && ratio == 1.25);
+// assert(scan2("1.23456789012345", "%f", *precise) && precise == 1.23456789012345);
+// ```
 scan2 :: (text: string, format: string, args: ..Any) -> bool {
     rest := text;
     cursor: s64;
