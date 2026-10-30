@@ -153,12 +153,12 @@ main :: () -> int {
 
     if size_of_thing(Vec.{ 3, 4 }) != 12 || size_of_thing(2, 5) != 10 return 15;
 
-    // Constants declared later in a block are visible earlier.
-    if later(3) != 6 return 16;
-
+    // A constant declared above its use in a block.
     later :: (n: int) -> int {
         return n * 2;
     }
+
+    if later(3) != 6 return 16;
 
     return 0;
 }

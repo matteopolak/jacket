@@ -272,7 +272,7 @@ fn a_leniency_in_the_program_file_warns_with_the_note_and_the_exit_status_stays_
     let output = jaic_on(
         &dir,
         "main.jai",
-        "S :: struct { a: u16; #place a; b: float64; }\nmain :: () { s: S; s.b = 1; foo(); foo :: () { } }\n",
+        "S :: struct { a: u16; #place a; b: float64; }\nmain :: () { s: S; s.b = 1; }\n",
         "-check",
         &[],
     );
@@ -286,10 +286,6 @@ fn a_leniency_in_the_program_file_warns_with_the_note_and_the_exit_status_stays_
             "help: write `#overlay(member)`",
         ],
     );
-    assert!(
-        text.contains("`foo` is used before its declaration"),
-        "{text}"
-    );
 }
 
 #[test]
@@ -298,7 +294,7 @@ fn a_leniency_in_an_imported_module_is_not_reported() {
     std::fs::create_dir_all(dir.join("Lib")).unwrap();
     std::fs::write(
         dir.join("Lib/module.jai"),
-        "S :: struct { a: u16; #place a; b: float64; }\ngo :: () { s: S; s.b = 1; foo(); foo :: () { } }\n",
+        "S :: struct { a: u16; #place a; b: float64; }\ngo :: () { s: S; s.b = 1; }\n",
     )
     .unwrap();
     let output = jaic_on(
@@ -311,6 +307,52 @@ fn a_leniency_in_an_imported_module_is_not_reported() {
     assert!(output.status.success(), "{}", stderr(&output));
     assert!(
         !stderr(&output).contains("official Jai compiler"),
+        "{}",
+        stderr(&output)
+    );
+}
+
+#[test]
+fn a_body_constant_used_above_its_declaration_is_an_error() {
+    let dir = scratch("use-before-declaration");
+    let output = jaic_on(
+        &dir,
+        "main.jai",
+        "main :: () { foo(); foo :: () { } }\n",
+        "-check",
+        &[],
+    );
+    assert!(!output.status.success());
+    let text = stderr(&output);
+    assert_in_order(
+        &text,
+        &[
+            "error: `foo` is used above its declaration",
+            "declared here",
+            "help: move the declaration of `foo` above its first use",
+        ],
+    );
+}
+
+#[test]
+fn a_body_constant_used_above_its_declaration_is_an_error_in_a_module_too() {
+    let dir = scratch("use-before-declaration-module");
+    std::fs::create_dir_all(dir.join("Lib")).unwrap();
+    std::fs::write(
+        dir.join("Lib/module.jai"),
+        "go :: () { foo(); foo :: () { } }\n",
+    )
+    .unwrap();
+    let output = jaic_on(
+        &dir,
+        "main.jai",
+        "#import \"Lib\";\nmain :: () { go(); }\n",
+        "-check",
+        &["-I", dir.to_str().unwrap()],
+    );
+    assert!(!output.status.success());
+    assert!(
+        stderr(&output).contains("`foo` is used above its declaration"),
         "{}",
         stderr(&output)
     );

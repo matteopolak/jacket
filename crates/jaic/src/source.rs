@@ -555,6 +555,8 @@ pub enum DiagnosticKind {
     NestingLimit,
     /// Code Jacket accepts although the official compiler rejects it (see [`crate::leniency::Leniency`]).
     Lenient(crate::leniency::Leniency),
+    /// A constant, procedure or type of a body named above the line that declares it.
+    UseBeforeDeclaration,
     /// A call passes more arguments than the callee takes, or leaves out one it needs. A
     /// call's mismatch note shows the callee's parameters for it.
     ArgumentCount,
@@ -600,6 +602,7 @@ impl DiagnosticKind {
             DiagnosticKind::ModifyWithoutPolymorphs => Some("modify-without-polymorphs"),
             DiagnosticKind::Runtime => Some("runtime-error"),
             DiagnosticKind::Lenient(leniency) => Some(leniency.code()),
+            DiagnosticKind::UseBeforeDeclaration => Some("use-before-declaration"),
             DiagnosticKind::ArgumentCount => Some("argument-count"),
             DiagnosticKind::Untrusted => Some("untrusted"),
             DiagnosticKind::Unknown => Some("unknown-result"),

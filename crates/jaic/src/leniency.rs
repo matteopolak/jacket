@@ -26,8 +26,6 @@ pub enum Leniency {
     IfxThenSemicolon,
     /// `*T.{...}`, the address of a struct literal.
     AddressOfLiteral,
-    /// A local declaration used above the line that declares it.
-    UseBeforeDeclaration,
 }
 
 /// What every leniency warning says besides its own message.
@@ -36,11 +34,10 @@ pub const NOTE: &str =
 
 impl Leniency {
     /// Every leniency, in the order `docs/language/leniencies.md` lists them.
-    pub const ALL: [Leniency; 11] = [
+    pub const ALL: [Leniency; 10] = [
         Leniency::OperatorOutOfScope,
         Leniency::HidesImport,
         Leniency::NamespacedForExpansion,
-        Leniency::UseBeforeDeclaration,
         Leniency::PlaceDirective,
         Leniency::LooseEnum,
         Leniency::ForeignLibrary,
@@ -63,7 +60,6 @@ impl Leniency {
             Leniency::MustAfterReturnType => "must-after-return-type",
             Leniency::IfxThenSemicolon => "ifx-then-semicolon",
             Leniency::AddressOfLiteral => "address-of-struct-literal",
-            Leniency::UseBeforeDeclaration => "use-before-declaration",
         }
     }
 }

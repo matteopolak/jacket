@@ -336,22 +336,22 @@ impl Compiler {
         self.warn(d);
     }
 
-    /// Warn when `id`, found for `name` at `span`, is a constant of a procedure body that the
-    /// code declares further down: Jacket sees a body's constants throughout their block, the
-    /// official compiler only below the line that declares them.
+    /// Reject `id`, found for `name` at `span`, when it is a constant of a procedure body that
+    /// the code declares further down: a body's constants, procedures and types are visible only
+    /// below the line that declares them, in imported modules as in the program. A use inside a
+    /// procedure nested in another local procedure is not checked (the official compiler reads
+    /// such a body once the procedure around it is used). The use and the declaration may sit in
+    /// text an `#insert` produced; each stands where its `#insert` is.
     pub(in crate::sema) fn note_use_before_declaration(
         &mut self,
         scope: ScopeId,
         id: scope::EntityId,
         name: Sym,
         span: Span,
-    ) {
-        let declared = self.entity(id).span;
-        if declared.file != span.file || span.start >= declared.start {
-            return;
-        }
+    ) -> Result<()> {
+        let home = self.entity(id).scope;
         let local = matches!(
-            self.scope(self.entity(id).scope).kind,
+            self.scope(home).kind,
             scope::ScopeKind::Proc | scope::ScopeKind::Block
         );
         let constant = matches!(
@@ -359,23 +359,72 @@ impl Compiler {
             scope::EntityKind::Decl { decl, .. } if decl.kind == ast::DeclKind::Const
         );
         if !local || !constant {
-            return;
+            return Ok(());
         }
-        let Some(d) = self.leniency_warning(
-            self.scope(scope).module,
-            span,
-            Leniency::UseBeforeDeclaration,
-            format!("`{name}` is used before its declaration"),
-        ) else {
-            return;
+        let declared = self.entity(id).span;
+        let (used_at, declared_at) = (self.insert_origin(span), self.insert_origin(declared));
+        if declared_at.file != used_at.file || used_at.start >= declared_at.start {
+            return Ok(());
+        }
+        // Only a use the declaration's own scope encloses is read in order: a macro body or code
+        // inserted into another scope reaches the name by another route.
+        let mut procedures = 0;
+        let mut current = Some(scope);
+        loop {
+            let Some(sid) = current else {
+                return Ok(());
+            };
+            if sid == home {
+                break;
+            }
+            if self.scope(sid).inserted_into.is_some() || !self.scope(sid).fallbacks.is_empty() {
+                return Ok(());
+            }
+            match self.scope(sid).kind {
+                scope::ScopeKind::Macro => return Ok(()),
+                scope::ScopeKind::Proc if self.scope(sid).proc.is_some() => {
+                    // Text outside the procedure's body (its header, written elsewhere than
+                    // the code it is read in) has no reading order against the body.
+                    if procedures == 0 && !self.in_body_of(sid, used_at) {
+                        return Ok(());
+                    }
+                    procedures += 1;
+                }
+                _ => {}
+            }
+            current = self.scope(sid).parent;
+        }
+        if procedures >= 2 {
+            return Ok(());
+        }
+        Err(Box::new(
+            Diagnostic::error(span, format!("`{name}` is used above its declaration"))
+                .with_kind(DiagnosticKind::UseBeforeDeclaration)
+                .with_label("declared further down")
+                .with_note(declared, "declared here")
+                .with_help(format!(
+                    "move the declaration of `{name}` above its first use"
+                )),
+        ))
+    }
+
+    /// Does the body of the procedure `sid` holds contain `at`?
+    fn in_body_of(&self, sid: ScopeId, at: Span) -> bool {
+        let Some(proc) = self.scope(sid).proc else {
+            return false;
         };
-        let d = d
-            .with_label("declared further down")
-            .with_note(declared, "declared here")
-            .with_help(format!(
-                "move the declaration of `{name}` above its first use"
-            ));
-        self.warn(d);
+        self.proc(proc).lit.body.as_ref().is_some_and(|body| {
+            body.span.file == at.file && body.span.start <= at.start && at.start < body.span.end
+        })
+    }
+
+    /// Where `span` stands in a real file: a span in text an `#insert` produced stands at the
+    /// `#insert`.
+    fn insert_origin(&self, mut span: Span) -> Span {
+        while let Some(&site) = self.src.insert_sites.get(&span.file) {
+            span = site;
+        }
+        span
     }
 
     /// Warn that `for` found the `for_expansion` of `ty` through the module of the type

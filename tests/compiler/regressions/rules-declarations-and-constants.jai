@@ -48,11 +48,11 @@ OUTER_CONST :: 11;
 outer_global := 5;
 
 main :: () {
-    // decl.1: block constants are visible before their declaration.
-    early_use := HOISTED + 1;
+    // decl.1: a block constant is visible below its declaration.
     HOISTED :: 9;
+    early_use := HOISTED + 1;
 
-    assert(early_use == 10, "hoisted block constant");
+    assert(early_use == 10, "block constant");
     assert(EARLY == 42, "file-level order independence");
 
     // decl.3
@@ -64,24 +64,24 @@ main :: () {
     assert(table.count == 4, "constant array size");
     assert(squares[0] == 0 && squares[3] == 9, "#run global");
 
-    // decl.4: local types, constants and procedures refer to each other regardless of order.
-    Count :: Later + 1;
+    // decl.4: local types, constants and procedures refer to the ones declared above them.
     Later :: 2;
+    Count :: Later + 1;
 
     Local :: struct {
         values: [Count] int;
     }
-    local_total :: () -> int {
-        return helper() + Count;
-    }
     helper :: () -> int {
         return 10;
+    }
+    local_total :: () -> int {
+        return helper() + Count;
     }
 
     l: Local;
 
-    assert(l.values.count == 3, "local struct uses a later constant");
-    assert(local_total() == 13, "local procedure calls a later one");
+    assert(l.values.count == 3, "local struct uses a constant above it");
+    assert(local_total() == 13, "local procedure calls one above it");
 
     // decl.5: struct constants and procedures are namespace members.
     r: Rec;
