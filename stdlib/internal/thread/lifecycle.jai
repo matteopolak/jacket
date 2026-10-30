@@ -145,11 +145,14 @@ thread_is_done :: (thread: *Thread, milliseconds: s32 = 0) -> bool {
     }
 }
 
+// What `thread_deinit` says when the thread is still running or was never started.
+DEINIT_UNFINISHED :: "thread_deinit needs a thread that has finished: wait for it first with thread_is_done(*thread, -1), which blocks until it ends";
+
 thread_deinit :: (thread: *Thread) {
     state := lookup_thread(thread);
 
     #if OS == .WINDOWS {
-        if !windows_thread_check(state != null && read_done(thread), "thread_deinit requires a completed thread") return;
+        if !windows_thread_check(state != null && read_done(thread), DEINIT_UNFINISHED) return;
 
         closed := W.CloseHandle(thread.windows_thread);
         if !windows_thread_check(closed != 0, "thread handle cleanup failed") return;
@@ -158,7 +161,7 @@ thread_deinit :: (thread: *Thread) {
         thread.windows_thread_id = 0;
     } else {
         if !state || (state.native_created && !read_done(thread)) {
-            sdk_ok(-1, "thread_deinit requires a completed thread");
+            sdk_ok(-1, DEINIT_UNFINISHED);
             return;
         }
 
