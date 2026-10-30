@@ -1,7 +1,28 @@
-// The process environment.
+// Environment: reading the variables the program was started with.
+//
+// The values are text in the environment as the system hands it over; this module only reads. Setting variables is not
+// part of it.
+//
+// ```jai,skip_on(wasm)
+// assert(has_environment_variable("PATH"));
+// assert(!has_environment_variable("JAI_DOC_SURELY_UNSET_VARIABLE"));
+// ```
 
 // The value of the environment variable `name`, in temporary storage, or "" when it is not set.
 // On Windows the name and value go through UTF-16, so non-ASCII values come back as UTF-8.
+//
+// The string is valid until the temporary storage is reset: use `copy_string` to keep it. A name that is not set,
+// and one that cannot be looked up (an empty name or, on Windows, text that is not valid UTF-8), give "" as well; use
+// `has_environment_variable` to tell an empty value from an unset variable.
+//
+// ```jai,skip_on(wasm)
+// assert(environment_variable("PATH").count > 0); // set on every desktop platform
+// assert(environment_variable("JAI_DOC_SURELY_UNSET_VARIABLE") == "");
+//
+// kept := copy_string(environment_variable("PATH"));
+// defer free(kept);
+// assert(kept.count > 0);
+// ```
 environment_variable :: (name: string) -> string {
     value, _ := read_variable(name);
     return value;
