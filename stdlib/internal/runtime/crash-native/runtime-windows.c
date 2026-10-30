@@ -246,6 +246,10 @@ __declspec(dllexport) DWORD platform_io_windows_crash_prepare(HANDLE process) {
     }
     AcquireSRWLockExclusive(&symbol_lock);
     DWORD error = ERROR_SUCCESS;
+    // Deferred loads: the modules are registered now, but their symbols are read only when a
+    // crash first looks one up. Loading them all here cost every program ~25 ms and ~10 MiB at
+    // start-up, even one that never crashes.
+    SymSetOptions(SymGetOptions() | SYMOPT_DEFERRED_LOADS);
     if (!SymInitialize(session, NULL, TRUE)) {
         error = GetLastError();
         if (error == ERROR_SUCCESS) error = ERROR_GEN_FAILURE;
