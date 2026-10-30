@@ -2,6 +2,9 @@
 #import "Basic";
 Io :: #import "Extensions/Io";
 Pg :: #import "Extensions/Postgres";
+
+using Pg; // `for` over a result finds its `for_expansion` only with the namespace in scope
+
 #import "Extensions/Environment";
 #load "db/schema.jai";
 

@@ -4,6 +4,10 @@
 #import "String";
 Io :: #import "Extensions/Io";
 Pg :: #import "Extensions/Postgres";
+
+// `for` over a result finds its `for_expansion` only when the namespace is in scope.
+using Pg;
+
 #import "Extensions/Json";
 #import "Extensions/Environment";
 
