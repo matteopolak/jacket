@@ -89,6 +89,17 @@ Client_Response :: struct {
     source: *Body_Source;
 }
 
+// What went wrong when the client did not get, or could not read, an answer (`Client_Error.kind`), with `.NONE` for success. A
+// response with any HTTP status, a 404 included, is not an error; `error_for_status` turns a non-2xx status into `.STATUS`.
+//
+// ```jai
+// // A URL the client cannot request is refused before anything is sent.
+// api: Client;
+// response, error := get(*api, "ftp://example.com/file");
+//
+// assert(error.kind == .INVALID_URL);
+// assert(response.status == 0);
+// ```
 Client_Error_Kind :: enum u8 {
     NONE; // no error: `.{}`
     TRANSPORT; // connecting, sending or receiving failed (`transport` says how)
@@ -292,32 +303,40 @@ get :: (client: *Client, url: string, headers: [] Header_Field = .[]) -> Client_
     return send(client, .{ method = .GET, url = url, headers = headers });
 }
 
+// `HEAD`: the headers a `GET` would get, and no body. The response is returned as `get` does.
 head :: (client: *Client, url: string, headers: [] Header_Field = .[]) -> Client_Response, Client_Error {
     return send(client, .{ method = .HEAD, url = url, headers = headers });
 }
 
+// `OPTIONS`: asks what the server allows at `url`; the `Allow` header of the response lists the methods.
 options :: (client: *Client, url: string, headers: [] Header_Field = .[]) -> Client_Response, Client_Error {
     return send(client, .{ method = .OPTIONS, url = url, headers = headers });
 }
 
+// `DELETE` with no body.
 delete :: (client: *Client, url: string, headers: [] Header_Field = .[]) -> Client_Response, Client_Error {
     return send(client, .{ method = .DELETE, url = url, headers = headers });
 }
 
 // `POST` with `value` as a JSON body (`Content-Type: application/json`). `post(client, url)`
 // sends no body. A request with any other body is a `send`.
+// `POST` with `value` as a JSON body (`Content-Type: application/json`); a struct, array or string is encoded with
+// `Extensions/Json`.
 post :: (client: *Client, url: string, value: $V, headers: [] Header_Field = .[]) -> Client_Response, Client_Error {
     return send_with_json(client, .POST, url, value, headers);
 }
 
+// `POST` with no body.
 post :: (client: *Client, url: string, headers: [] Header_Field = .[]) -> Client_Response, Client_Error {
     return send(client, .{ method = .POST, url = url, headers = headers });
 }
 
+// `PUT` with `value` as a JSON body, as `post` sends it.
 put :: (client: *Client, url: string, value: $V, headers: [] Header_Field = .[]) -> Client_Response, Client_Error {
     return send_with_json(client, .PUT, url, value, headers);
 }
 
+// `PATCH` with `value` as a JSON body, as `post` sends it.
 patch :: (client: *Client, url: string, value: $V, headers: [] Header_Field = .[]) -> Client_Response, Client_Error {
     return send_with_json(client, .PATCH, url, value, headers);
 }
@@ -414,6 +433,8 @@ Body_Reader :: struct {
     failure: Client_Error;
 }
 
+// The `Io.Reader` read procedure over a response body: it reads through `read_some`, stops at the request's
+// `max_response_size`, and keeps the client error it ran into in the `Body_Reader` (it can report only an `Io_Error`).
 body_read_proc :: (data: *void, buffer: [] u8) -> s64, Io.Io_Error {
     body := cast(*Body_Reader) data;
 
@@ -587,6 +608,21 @@ Http_Statistics :: struct {
     body_sources_created: int; // response states allocated over the scheduler's life
 }
 
+// The counts of the running scheduler's pools, for tests and diagnostics. Call it on a scheduler, inside `Io.io_run` or a
+// test client call. A program that closes or reads every response to the end shows no open responses.
+//
+// ```jai
+// Io :: #import "Extensions/Io";
+//
+// main :: () {
+//     Io.io_run(() {
+//         statistics := http_statistics();
+//
+//         assert(statistics.open_responses == 0);
+//         assert(statistics.idle_connections == 0);
+//     });
+// }
+// ```
 http_statistics :: () -> Http_Statistics {
     statistics: Http_Statistics;
 

@@ -1,19 +1,28 @@
-// Http: HTTP/1.0 and HTTP/1.1 message codecs with no IO of their own. A jaic extension, not
-// official Jai: other Jai compilers have no such module, and it may change between jaic
-// releases. See docs/extensions/http-codec.md.
+// Http: HTTP/1.0 and HTTP/1.1 message codecs, plus a server, a client and test tools on top of them for fibers. A jaic
+// extension, not official Jai: other Jai compilers have no such module, and it may change between jaic releases. See
+// docs/extensions/http-codec.md, http-server.md and http-client.md.
 //
-//     #import "Extensions/Http";
+// The codec has no IO of its own. A `Parser` reads requests or responses from byte buffers the caller fills, in pieces of
+// any size, and reports the head, the body in pieces and the end of each message with strict RFC 9112 framing; the writers
+// build heads and chunked bodies. Nothing in it touches a socket, so it runs on every target, wasm included. The server
+// (`App`, `serve`) and the client (`Client`, `get`, `send`) need fibers and `Extensions/Io`, and are not built for wasm.
+// Failures are values: the parser's `.ERROR` event and `Parser.error`, an `Http_Error` returned by a handler, a
+// `Client_Error` returned by a client call. Memory the parser or a response owns is released with `parser_free` and
+// `close`; everything else is borrowed or in the temporary allocator, as each procedure says.
 //
-//     parser: Parser;
-//     parser_init(*parser, .REQUEST);
+// ```jai
+// parser: Parser;
+// parser_init(*parser, .REQUEST);
+// defer parser_free(*parser);
 //
-//     used, event := parse(*parser, bytes);     // any chunking: the result is the same
-//     if event.kind == .HEAD print("% %\n", parser.head.method_text, parser.head.target);
+// request := "GET /users?id=7 HTTP/1.1\r\nHost: example.com\r\n\r\n";
+// bytes: [] u8 = .{ request.count, request.data };
 //
-// The parser reads requests or responses from byte buffers the caller fills, in pieces of any
-// size, and reports the head, the body in pieces and the end of each message, with strict
-// RFC 9112 framing. The writers build heads and chunked bodies. Nothing here touches a socket,
-// so the same code runs on every target, wasm included.
+// used, event := parse(*parser, bytes); // any chunking gives the same result
+// assert(event.kind == .HEAD);
+// assert(parser.head.method == .GET);
+// assert(parser.head.target == "/users?id=7");
+// ```
 
 // Switches for the vector code paths, which give the same results as the scalar ones. Set
 // http_use_simd to false to force the scalar paths (the tests run both).

@@ -118,6 +118,20 @@ Url :: struct {
     ipv6: bool;
 }
 
+// Why `parse_url` refused a text, with `.NONE` for success.
+//
+// ```jai
+// url, problem := parse_url("https://example.com:8443/a/b?x=1");
+// assert(problem == .NONE);
+// assert(url.secure && url.host == "example.com" && url.port == 8443);
+// assert(url.target == "/a/b?x=1");
+//
+// _, problem = parse_url("ftp://example.com/");
+// assert(problem == .UNSUPPORTED_SCHEME);
+//
+// _, problem = parse_url("/relative/path");
+// assert(problem == .NOT_A_URL);
+// ```
 Url_Problem :: enum u8 {
     NONE;
     NOT_A_URL; // no `scheme://`

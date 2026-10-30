@@ -22,6 +22,36 @@
 // `over_tcp` serves the app on a free loopback port instead, for tests where the network path
 // matters.
 
+// How `test_client` reaches the app: in memory (the default) or over a loopback socket, whether redirects are followed, and the
+// timeout of a request.
+//
+// ```jai
+// go_home :: () -> Response {
+//     return redirect("/home");
+// }
+//
+// home :: () -> string {
+//     return "home";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/", go_home);
+//     get(*app, "/home", home);
+//
+//     plain := test_client(*app);
+//     first, _ := get(plain, "/");
+//     assert(first.status == 302); // the default hands the redirect back
+//     close(*first);
+//
+//     following := test_client(*app, .{ follow_redirects = true });
+//     second, _ := get(following, "/");
+//     assert(second.status == 200);
+//     close(*second);
+// }
+// ```
 Test_Options :: struct {
     // Serve the app on a loopback socket (a free port, started on first use) instead of in
     // memory. This sets `app.config.address` and turns `handle_signals` off.
@@ -62,6 +92,8 @@ test_client :: (app: *App, options := Test_Options.{}) -> *Client {
     return client;
 }
 
+// Releases a client made by `test_client` before the test ends. `run_tests` frees the clients of a test by itself, so call this
+// only for a client that should not live until then. The client and its responses must not be used afterwards.
 free_test_client :: (client: *Client) {
     for test_clients {
         if it == client {

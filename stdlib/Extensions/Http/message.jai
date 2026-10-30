@@ -163,6 +163,7 @@ redirect :: (location: string, status := 302) -> Response {
 
 // Errors
 
+// Whether an `Http_Error` is set: `.NONE` (a handler's `.{}`) or `.STATUS`, an HTTP status to answer with.
 Http_Error_Kind :: enum u8 {
     NONE; // no error: `.{}`
     STATUS; // an HTTP status, from a handler
@@ -199,42 +200,77 @@ http_error :: (status: int, detail := "") -> Http_Error {
     return error;
 }
 
+// An `Http_Error` with status 400, for when the request is malformed or its content is invalid.
+// `format` and `args` make the detail text as `tprint` does, in the temporary allocator.
 bad_request :: (format := "", args: ..Any) -> Http_Error {
     return http_error(400, tprint(format, ..args));
 }
 
+// An `Http_Error` with status 401, for when the caller has not authenticated. Add `WWW-Authenticate` with `with_header`.
+// `format` and `args` make the detail text as `tprint` does, in the temporary allocator.
+//
+// ```jai
+// error := with_header(unauthorized("a token is required"), "WWW-Authenticate", "Bearer");
+//
+// assert(error.status == 401);
+// assert(error.headers.count == 1);
+// ```
 unauthorized :: (format := "", args: ..Any) -> Http_Error {
     return http_error(401, tprint(format, ..args));
 }
 
+// An `Http_Error` with status 403, for when the caller is known but not allowed.
+// `format` and `args` make the detail text as `tprint` does, in the temporary allocator.
 forbidden :: (format := "", args: ..Any) -> Http_Error {
     return http_error(403, tprint(format, ..args));
 }
 
+// An `Http_Error` with status 404, for when there is nothing at the requested resource.
+// `format` and `args` make the detail text as `tprint` does, in the temporary allocator.
+//
+// ```jai
+// error := not_found("No user %", 7);
+//
+// assert(error.status == 404);
+// assert(error.title == "Not Found");
+// assert(error.detail == "No user 7");
+// ```
 not_found :: (format := "", args: ..Any) -> Http_Error {
     return http_error(404, tprint(format, ..args));
 }
 
+// An `Http_Error` with status 409, for when the request clashes with the current state, such as a duplicate.
+// `format` and `args` make the detail text as `tprint` does, in the temporary allocator.
 conflict :: (format := "", args: ..Any) -> Http_Error {
     return http_error(409, tprint(format, ..args));
 }
 
+// An `Http_Error` with status 410, for when the resource existed and has been removed for good.
+// `format` and `args` make the detail text as `tprint` does, in the temporary allocator.
 gone :: (format := "", args: ..Any) -> Http_Error {
     return http_error(410, tprint(format, ..args));
 }
 
+// An `Http_Error` with status 422, for when the request is well-formed but its content cannot be processed.
+// `format` and `args` make the detail text as `tprint` does, in the temporary allocator.
 unprocessable :: (format := "", args: ..Any) -> Http_Error {
     return http_error(422, tprint(format, ..args));
 }
 
+// An `Http_Error` with status 429, for when the caller is over a rate limit; add `Retry-After` with `with_header`.
+// `format` and `args` make the detail text as `tprint` does, in the temporary allocator.
 too_many_requests :: (format := "", args: ..Any) -> Http_Error {
     return http_error(429, tprint(format, ..args));
 }
 
+// An `Http_Error` with status 500, for when something failed that is not the caller's fault.
+// `format` and `args` make the detail text as `tprint` does, in the temporary allocator.
 internal_error :: (format := "", args: ..Any) -> Http_Error {
     return http_error(500, tprint(format, ..args));
 }
 
+// An `Http_Error` with status 503, for when the service cannot answer now; add `Retry-After` with `with_header`.
+// `format` and `args` make the detail text as `tprint` does, in the temporary allocator.
 unavailable :: (format := "", args: ..Any) -> Http_Error {
     return http_error(503, tprint(format, ..args));
 }

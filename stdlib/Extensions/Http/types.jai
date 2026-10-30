@@ -1,6 +1,14 @@
 // The vocabulary of the codec: methods, versions, well-known header names, errors, limits and the
 // head of a message.
 
+// The request methods the codec knows. A token that is not one of them is `.OTHER` and its spelling stays in
+// `Head.method_text`. `parse_method` turns text into a `Method` and `method_name` turns it back.
+//
+// ```jai
+// assert(parse_method("PATCH") == .PATCH);
+// assert(parse_method("get") == .OTHER); // method names are case-sensitive
+// assert(method_name(.DELETE) == "DELETE");
+// ```
 Method :: enum u8 {
     OTHER; // any other token: the spelling is in Head.method_text
     GET;
@@ -14,6 +22,13 @@ Method :: enum u8 {
     PATCH;
 }
 
+// The spelling of `method` on the wire, such as `"GET"`. `.OTHER` has no spelling of its own and gives `""`; use
+// `Head.method_text` for the token a request actually carried. The string is a constant.
+//
+// ```jai
+// assert(method_name(.GET) == "GET");
+// assert(method_name(.OTHER) == "");
+// ```
 method_name :: (method: Method) -> string {
     if method == {
         case .GET; return "GET";
@@ -47,11 +62,19 @@ parse_method :: (text: string) -> Method {
     return .OTHER;
 }
 
+// The HTTP versions the codec speaks: `HTTP_1_0` and `HTTP_1_1`. Anything else in a start line is refused as
+// `.VERSION_NOT_SUPPORTED` (or `.BAD_VERSION` when it is not shaped like a version).
 Version :: enum u8 {
     HTTP_1_0;
     HTTP_1_1;
 }
 
+// The text of `version` as it appears in a start line, `"HTTP/1.0"` or `"HTTP/1.1"`. The string is a constant.
+//
+// ```jai
+// assert(version_name(.HTTP_1_0) == "HTTP/1.0");
+// assert(version_name(.HTTP_1_1) == "HTTP/1.1");
+// ```
 version_name :: (version: Version) -> string {
     if version == .HTTP_1_0 return "HTTP/1.0";
 
@@ -226,10 +249,19 @@ HEADER_NAMES :: string.[
     "X-Request-Id",
 ];
 
+// The number of entries in `Header_Name`, `.UNKNOWN` included. Use it to size a table indexed by header id.
 HEADER_NAME_COUNT :: HEADER_NAMES.count;
 
 #assert HEADER_NAME_COUNT == 71;
 
+// The canonical spelling of a well-known header, as the writers send it. `.UNKNOWN` has no spelling and gives `""`. The string
+// is a constant.
+//
+// ```jai
+// assert(header_name_string(.CONTENT_TYPE) == "Content-Type");
+// assert(header_name_string(.WWW_AUTHENTICATE) == "WWW-Authenticate");
+// assert(HEADER_NAME_COUNT == 71);
+// ```
 header_name_string :: (id: Header_Name) -> string {
     return HEADER_NAMES[cast(int) id];
 }
@@ -326,6 +358,21 @@ find_header :: (headers: [] Header_Field, name: string) -> value: string, found:
     return "", false;
 }
 
+// The first header whose `id` is `id`, as the value and whether there was one. This is the quick form for well-known headers:
+// it compares ids, not strings. `found` is false when there is none and the value is then `""`.
+//
+// ```jai
+// headers := Header_Field.[
+//     .{ name = "Host", value = "example.com", id = .HOST },
+//     .{ name = "X-Custom", value = "padded" },
+// ];
+//
+// value, found := find_header(headers, .HOST);
+// assert(found && value == "example.com");
+//
+// _, found = find_header(headers, .CONTENT_TYPE);
+// assert(!found);
+// ```
 find_header :: (headers: [] Header_Field, id: Header_Name) -> value: string, found: bool {
     for headers {
         if it.id == id return it.value, true;
@@ -367,6 +414,22 @@ has_token :: (value: string, token: string) -> bool {
     return false;
 }
 
+// Why the parser refused a message, one value per rule it enforces. The comments give the status a server answers with
+// (`error_status` returns the same number). The kind is in `Parser.error` after an `.ERROR` event, and a failed parser stays failed.
+//
+// ```jai
+// parser: Parser;
+// parser_init(*parser, .REQUEST);
+// defer parser_free(*parser);
+//
+// // An HTTP/1.1 request without a Host header.
+// text := "GET / HTTP/1.1\r\n\r\n";
+// _, event := parse(*parser, .{ text.count, text.data });
+//
+// assert(event.kind == .ERROR);
+// assert(parser.error.kind == .MISSING_HOST);
+// assert(error_status(parser.error.kind) == 400);
+// ```
 Parse_Error_Kind :: enum u8 {
     NONE;
     BAD_START_LINE; // 400: not `METHOD target HTTP/1.x` (or a status line)
@@ -435,6 +498,7 @@ Limits :: struct {
     skip_leading_empty_lines := true; // ignore CRLFs before the start line (RFC 9112 2.2 asks it of servers; clients benefit too)
 }
 
+// Whether a `Parser` reads requests (as a server does) or responses (as a client does). Set once by `parser_init`.
 Parser_Kind :: enum u8 {
     REQUEST;
     RESPONSE;
@@ -465,6 +529,36 @@ Head :: struct {
     upgrade: bool; // Connection: upgrade with an Upgrade header
 }
 
+// What `parse` found. Loop on the event, not on the number of bytes used: `HEAD` and `END` can come with none. The comments
+// say where the data of each kind lives.
+//
+// ```jai
+// parser: Parser;
+// parser_init(*parser, .RESPONSE);
+// defer parser_free(*parser);
+//
+// text := "HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nhello";
+// data: [] u8 = .{ text.count, text.data };
+//
+// kinds: [..] Event_Kind;
+// defer array_free(kinds);
+//
+// body: [..] u8;
+// defer array_free(body);
+//
+// while true {
+//     used, event := parse(*parser, data);
+//     data = advance(data, used);
+//     array_add(*kinds, event.kind);
+//
+//     if event.kind == .BODY array_add(*body, ..event.data);
+//     if event.kind == .END || event.kind == .NEED_MORE || event.kind == .ERROR break;
+// }
+//
+// assert(kinds.count == 3 && kinds[0] == .HEAD && kinds[1] == .BODY && kinds[2] == .END);
+// assert(parser.head.status == 200);
+// assert(string.{ body.count, body.data } == "hello");
+// ```
 Event_Kind :: enum u8 {
     NEED_MORE; // all of the input was used; give more
     HEAD; // parser.head is filled in
@@ -475,6 +569,8 @@ Event_Kind :: enum u8 {
     ERROR; // parser.error says why; the parser stays failed
 }
 
+// One result of `parse`: its `kind` and, for `.BODY`, `data`, a slice of the input that was handed to `parse` (not a copy), so it
+// is valid only as long as that input is. For the other kinds `data` is empty.
 Event :: struct {
     kind: Event_Kind;
     data: [] u8;

@@ -42,6 +42,7 @@ Ext_State :: enum u8 {
     AFTER_VALUE;
 }
 
+// Where a `Parser` is in a message. It is bookkeeping for the parser itself; callers watch the events `parse` returns instead.
 Parser_State :: enum u8 {
     START; // reading the start line and the headers
     BODY_NONE; // the head is out and there is no body: END is next
@@ -59,6 +60,41 @@ Parser_State :: enum u8 {
     FAILED;
 }
 
+// An incremental HTTP/1.x parser for one direction of a connection. Start it with `parser_init`, feed it with `parse` in
+// pieces of any size, and release it with `parser_free`. The result does not depend on how the bytes were split.
+//
+// The head (`head`), the trailers and the error are valid as the events say, and the strings in them point into the
+// parser's own buffers, so copy what must outlive the next message. One parser handles the messages of one connection one
+// after another; it is not safe to use from two threads. The buffers come from `context.allocator`. The fields under
+// `Internal` are the parser's state and are not for callers.
+//
+// ```jai
+// parser: Parser;
+// parser_init(*parser, .REQUEST);
+// defer parser_free(*parser);
+//
+// text := "POST /items HTTP/1.1\r\nHost: example.com\r\nContent-Length: 2\r\n\r\nhi";
+// data: [] u8 = .{ text.count, text.data };
+//
+// body: [..] u8;
+// defer array_free(body);
+//
+// while true {
+//     used, event := parse(*parser, data);
+//     data = advance(data, used);
+//
+//     if event.kind == .HEAD {
+//         assert(parser.head.method == .POST);
+//         assert(parser.head.target == "/items");
+//         assert(parser.head.content_length == 2);
+//     }
+//
+//     if event.kind == .BODY array_add(*body, ..event.data);
+//     if event.kind == .END || event.kind == .NEED_MORE || event.kind == .ERROR break;
+// }
+//
+// assert(string.{ body.count, body.data } == "hi");
+// ```
 Parser :: struct {
     kind: Parser_Kind;
     limits: Limits;
@@ -121,6 +157,33 @@ Parser :: struct {
     tlist: [..] Header_Field;
 }
 
+// Prepares `p` to read requests or responses. Any state the parser had is released first, so it is safe to call on a parser
+// that was used. `limits` caps line, head and body sizes (the defaults are in `Limits`); a message over a limit is refused with
+// the error kind that maps to the matching status. For a response parser, set `p.response_to` to the request's method before
+// the response head arrives.
+//
+// ```jai
+// limits := Limits.{ max_body_size = 4 };
+//
+// parser: Parser;
+// parser_init(*parser, .REQUEST, limits);
+// defer parser_free(*parser);
+//
+// text := "POST / HTTP/1.1\r\nHost: a\r\nContent-Length: 10\r\n\r\n0123456789";
+// data: [] u8 = .{ text.count, text.data };
+//
+// failed := false;
+// while true {
+//     used, event := parse(*parser, data);
+//     data = advance(data, used);
+//
+//     if event.kind == .ERROR failed = true;
+//     if event.kind == .ERROR || event.kind == .END || event.kind == .NEED_MORE break;
+// }
+//
+// assert(failed);
+// assert(parser.error.kind == .BODY_TOO_LARGE);
+// ```
 parser_init :: (p: *Parser, kind: Parser_Kind, limits := Limits.{}) {
     parser_free(p);
     p.* = .{};
@@ -157,6 +220,8 @@ parser_reset :: (p: *Parser) {
     p.tlist.count = 0;
 }
 
+// Releases the parser's buffers. The parser must not be used afterwards, except to start again with `parser_init`. Strings taken
+// from its head, trailers or events are invalid after this.
 parser_free :: (p: *Parser) {
     array_reset(*p.bytes);
     array_reset(*p.spans);

@@ -62,6 +62,9 @@ Header :: struct(NAME: string, T: Type) {
     value: T;
 }
 
+// One request header that may be missing, parsed as a `T` when it is there. `present` says which; when it is false `value` is
+// the zero value. A header that is present but does not parse as `T` is still a 400. Strings point into the request and
+// last as long as it does.
 Header_Optional :: struct(NAME: string, T: Type) {
     value: T;
     present: bool;

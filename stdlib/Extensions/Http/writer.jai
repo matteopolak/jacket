@@ -221,6 +221,19 @@ write_continue :: (out: *[..] u8) {
 
 // Appends `data` as one chunk. An empty `data` writes nothing: a chunk of size 0 would end the
 // body (use write_last_chunk).
+// Appends `data` to `out` as one chunk of a chunked body: the size in hex, CRLF, the bytes, CRLF. Nothing is written for empty
+// data. `out` is a growing array the caller owns (it uses the context allocator); end the body with `write_last_chunk`.
+//
+// ```jai
+// out: [..] u8;
+// defer array_free(out);
+//
+// write_chunk(*out, "hello");
+// write_chunk(*out, ""); // empty: nothing is written
+// assert(write_last_chunk(*out));
+//
+// assert(string.{ out.count, out.data } == "5\r\nhello\r\n0\r\n\r\n");
+// ```
 write_chunk :: (out: *[..] u8, data: [] u8) {
     if data.count == 0 return;
 
@@ -230,6 +243,7 @@ write_chunk :: (out: *[..] u8, data: [] u8) {
     put(out, "\r\n");
 }
 
+// The `write_chunk` for a `string`.
 write_chunk :: (out: *[..] u8, data: string) {
     bytes: [] u8;
     bytes.count = data.count;
@@ -240,12 +254,31 @@ write_chunk :: (out: *[..] u8, data: string) {
 
 // The zero-size chunk with optional trailers, which ends a chunked body. False, with nothing
 // written, when a trailer is not valid or is a field a trailer may not be (framing, Host).
+// Appends the zero-size chunk that ends a chunked body, with no trailers. Returns true.
 write_last_chunk :: (out: *[..] u8) -> bool {
     trailers: [] Header_Field;
 
     return write_last_chunk(out, trailers);
 }
 
+// Appends the zero-size chunk that ends a chunked body, followed by `trailers`. Returns false and writes nothing when a trailer
+// is not a valid field, or is one a trailer may not be (`Content-Length`, `Transfer-Encoding`, `Host`).
+//
+// ```jai
+// out: [..] u8;
+// defer array_free(out);
+//
+// write_chunk(*out, "ab");
+// trailers := Header_Field.[.{ name = "X-Checksum", value = "7" }];
+// assert(write_last_chunk(*out, trailers));
+// assert(string.{ out.count, out.data } == "2\r\nab\r\n0\r\nX-Checksum: 7\r\n\r\n");
+//
+// // Framing fields cannot be trailers, and a refused call leaves the output alone.
+// before := out.count;
+// bad := Header_Field.[.{ name = "Content-Length", value = "2", id = .CONTENT_LENGTH }];
+// assert(!write_last_chunk(*out, bad));
+// assert(out.count == before);
+// ```
 write_last_chunk :: (out: *[..] u8, trailers: [] Header_Field) -> bool {
     if !fields_ok(trailers) return false;
 

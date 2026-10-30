@@ -121,6 +121,27 @@ expect_header :: (response: Client_Response, name: string, loc := #caller_locati
     return false;
 }
 
+// The response has no header called `name` (any case). A failure names the header and its value.
+//
+// ```jai
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/hello", hello);
+//
+//     api := test_client(*app);
+//     response, _ := get(api, "/hello");
+//     defer close(*response);
+//
+//     assert(expect_no_header(response, "Set-Cookie"));
+//     assert(expect_header(response, "Content-Type"));
+// }
+// ```
 expect_no_header :: (response: Client_Response, name: string, loc := #caller_location) -> bool {
     test_state.checks += 1;
 
@@ -287,6 +308,18 @@ expect_problem :: (response: Client_Response, status: int, detail := "", loc := 
 
 Test_Proc :: #type ();
 
+// One test for `run_tests`: a name to print and a procedure to run. The procedure makes its checks with the `expect_` calls;
+// a failed one is printed and counted, and the test goes on.
+//
+// ```jai
+// check_math :: () {
+//     expect_equal(1 + 1, 2, "addition");
+// }
+//
+// main :: () {
+//     run_tests(.[.{ name = "math", run = check_math }]);
+// }
+// ```
 Test_Case :: struct {
     name: string;
     run: Test_Proc;
@@ -339,6 +372,19 @@ begin_failure_capture :: () {
     test_state.captured = 0;
 }
 
+// Ends a `begin_failure_capture` and returns the failure text collected since, in the temporary allocator, and how many
+// expectations failed. Failures that were captured are not counted against the run.
+//
+// ```jai
+// main :: () {
+//     begin_failure_capture();
+//     expect_equal(1, 2, "numbers");
+//     text, count := end_failure_capture();
+//
+//     assert(count == 1);
+//     assert(text.count > 0);
+// }
+// ```
 end_failure_capture :: () -> string, int {
     text := builder_to_string(test_state.capture,, temp);
     count := test_state.captured;

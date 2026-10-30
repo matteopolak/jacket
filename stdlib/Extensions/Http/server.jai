@@ -10,6 +10,8 @@
 //     stop(server);
 //     wait(server);
 
+// Why a server did not start (`Serve_Error.kind`), with `.NONE` for success. The comments say what each kind points at. Routes are
+// checked when the server starts, not when they are added, so a conflict shows up here.
 Serve_Error_Kind :: enum u8 {
     NONE;
     INVALID_ROUTES; // two routes match the same requests; `message` names them
