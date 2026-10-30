@@ -26,6 +26,7 @@
 | `Byte_Search` | vectorized `memchr`/`memmem` | [byte-search](byte-search.md) |
 | `Jai_Format` | the formatter behind `jaifmt` and the playground's Format button | [jaifmt](../tools/jaifmt.md) |
 | `WebGPU` | the standard `webgpu.h` API: wgpu-native natively, the page's WebGPU in the playground | [webgpu](webgpu.md) |
+| `Text_Buffer` | piece-table text buffer with lines, undo and redo, grapheme and word movement | [text-buffer](text-buffer.md) |
 | `SDL3` | the SDL3 C API (`SDL` stays SDL2) | [sdl3](sdl3.md) |
 | `Io` | fibers, channels, TCP, files, deadlines over a completion engine | [io-engine](io-engine.md) |
 | `Io_Uring` | Linux io_uring bindings and a `Ring` helper | [io-uring](io-uring.md) |

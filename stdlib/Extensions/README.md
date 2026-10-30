@@ -19,6 +19,7 @@ their path, so the import says the code is jaic-only:
 | `#import "Extensions/Hash_Map";` | An opt-in hash map that stores each key once and probes sixteen slots per step (`Map.insert`, `find`, `get`, `entry`, `delete`) |
 | `#import "Extensions/Jai_Format";` | The Jai source formatter behind `jaifmt` (text in, text out) |
 | `#import "Extensions/WebGPU";` | The standard WebGPU C API (`webgpu.h`): wgpu-native natively, the page's WebGPU in the browser |
+| `#import "Extensions/Text_Buffer";` | An editable text buffer: piece table, line index, undo and redo, grapheme and word movement |
 | `#import "Extensions/Io";` | Cooperative fibers: a per-thread scheduler, `spawn`/`sleep`/`cancel`, bounded channels, wait groups (not on wasm) |
 | `#import "Extensions/Io_Uring";` | Linux io_uring: kernel constants and structs generated from the UAPI header, the three system calls, and a mapped `Ring` (Linux only) |
 | `#import "Extensions/Tls";` | TLS 1.2 and 1.3 on a vendored mbedTLS: client and server handshakes over any `Io` reader/writer pair, system or private roots, ALPN; used by Http for HTTPS (not on wasm) |
