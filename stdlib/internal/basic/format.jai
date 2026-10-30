@@ -203,6 +203,17 @@ render_item :: (builder: *String_Builder, item: Any, inside: bool, may_be_uninit
 }
 
 #scope_export
+// Appends text to `builder` as `format_string` describes, and returns whether it worked. Each `%` takes
+// the next of `args` and writes it in its default form; `%1`, `%2`, ... pick an argument by position.
+// A format with too few arguments logs an error. Returns `false` if the builder ran out of memory.
+//
+// ```jai
+// builder: String_Builder;
+// print_to_builder(*builder, "% + % = %", 1, 2, 3);
+// result := builder_to_string(*builder);
+// defer free(result);
+// assert(result == "1 + 2 = 3");
+// ```
 print_to_builder :: (builder: *String_Builder, format_string: string, args: ..Any) -> bool {
     arg: s64;
     cursor: s64;
@@ -276,6 +287,15 @@ parse_number :: (s: string, cursor: s64) -> (end_cursor: s64, sum: s64) {
     return index, value;
 }
 
+// The text `format_string` makes with `args`, in a new string. See `print_to_builder` for the format. When
+// the formatting fails the result is an empty string and an error has been logged. It is allocated
+// with the context allocator and the caller frees it with `free`. Use `tprint` to avoid freeing.
+//
+// ```jai
+// s := sprint("% is %", "x", 5);
+// defer free(s);
+// assert(s == "x is 5");
+// ```
 sprint :: (format_string: string, args: ..Any) -> string {
     builder: String_Builder;
     defer free_buffers(*builder);
@@ -285,6 +305,13 @@ sprint :: (format_string: string, args: ..Any) -> string {
 
 print :: print_to_builder;
 
+// Like `sprint`, but the string is in temporary storage. It must not be freed; it lasts until the temporary
+// storage is reset.
+//
+// ```jai
+// assert(tprint("%-%", 1, 2) == "1-2");
+// reset_temporary_storage();
+// ```
 tprint :: (format_string: string, args: ..Any) -> string {
     builder: String_Builder;
 
@@ -296,6 +323,7 @@ tprint :: (format_string: string, args: ..Any) -> string {
     return builder_to_string(*builder);
 } @UseResult @PrintLike @FormatsToString @TempAllocates
 
+// Writes the byte `_c` to standard output.
 print_character :: (_c: u8) {
     write_string(string.{ 1, *_c });
 }

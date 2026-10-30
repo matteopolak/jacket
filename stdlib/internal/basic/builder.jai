@@ -1,5 +1,23 @@
 Builder_Types :: #import "internal/basic-builder-types"(ENABLE_ASSERT = ENABLE_ASSERT);
 
+// Builds a string from many pieces without copying it each time. Declare a `String_Builder`, `append` or
+// `print_to_builder` to it, then take the text with `builder_to_string` or print it with `write_builder`.
+//
+// A builder starts with 4 KiB of room inside it and takes more from the context allocator in effect
+// when it is first used. It must not be copied while in use. Call `free_buffers` when done with it,
+// unless `builder_to_string` or `write_builder` has just emptied it. If memory runs out the builder is
+// marked failed and ignores further appends.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// append(*builder, "a");
+// append(*builder, #char "b");
+// print_to_builder(*builder, "%", 3);
+// text := builder_to_string(*builder);
+// defer free(text);
+// assert(text == "ab3");
+// ```
 String_Builder :: Builder_Types.String_Builder;
 STRING_BUILDER_BUFFER_SIZE :: Builder_Types.STRING_BUILDER_BUFFER_SIZE;
 
@@ -16,6 +34,9 @@ get_buffer_data :: inline (using buffer: *String_Builder.Buffer) -> *u8 {
     return cast(*u8) buffer + size_of(String_Builder.Buffer);
 }
 
+// Prepares `builder` for use. Called by the other procedures when needed, so you rarely call it. `buffer_size`
+// sets the size of the buffers allocated after the first (the default is 4 KiB); the builder takes the
+// current context allocator. Does nothing when already prepared.
 init_string_builder :: (using builder: *String_Builder, buffer_size := -1) {
     if initialized return;
     if !allocator.proc allocator = context.allocator;
@@ -111,6 +132,8 @@ advance_through_ensured_space :: (using builder: *String_Builder, bytes: s64) {
     current_buffer.count += bytes;
 }
 
+// Appends `length` bytes at `s` to `builder`. A negative `length` is an error and sets the builder to
+// failed.
 append :: (using builder: *String_Builder, s: *u8, length: s64) {
     // The common case: the text fits in the buffer being filled.
     if initialized && !failed && length >= 0 && length <= current_buffer.allocated - current_buffer.count {
@@ -127,10 +150,12 @@ append :: (using builder: *String_Builder, s: *u8, length: s64) {
     advance_through_ensured_space(builder, length);
 } @Opens
 
+// Appends the string `s` to `builder`.
 append :: inline (builder: *String_Builder, s: string) {
     append(builder, s.data, s.count);
 } @AppendsString @Opens
 
+// Appends one byte to `builder`.
 append :: inline (using builder: *String_Builder, byte: u8) {
     if initialized && !failed && current_buffer.allocated > current_buffer.count {
         get_buffer_data(current_buffer)[current_buffer.count] = byte;
@@ -141,6 +166,7 @@ append :: inline (using builder: *String_Builder, byte: u8) {
     }
 } @Opens
 
+// Appends the bytes of the value `pointer` points to, as they are in memory.
 append_by_pointer :: inline (builder: *String_Builder, pointer: *$T) {
     append(builder, cast(*u8) pointer, size_of(T));
 }
@@ -149,6 +175,7 @@ simple_memcpy :: inline (using builder: *String_Builder, x: $T) {
     append_by_pointer(builder, *x);
 }
 
+// The number of bytes appended to `builder` since it was last reset.
 builder_string_length :: (using builder: *String_Builder) -> int {
     if !initialized return 0;
 
@@ -163,6 +190,8 @@ builder_string_length :: (using builder: *String_Builder) -> int {
     return total;
 }
 
+// Frees the memory `builder` took from its allocator and returns it to its empty state, also clearing
+// the failed state. The builder can be used again afterwards.
 free_buffers :: (using builder: *String_Builder) {
     if !initialized return;
 
@@ -181,6 +210,7 @@ free_buffers :: (using builder: *String_Builder) {
     failed = false;
 } @FreesArgument @Closes
 
+// Empties `builder`, freeing its extra memory, so it can be used again.
 reset :: (using builder: *String_Builder) {
     #if ENABLE_ASSERT {
         // Space ensured in the inline buffer survives a reset, so code that ensures space, takes
@@ -195,6 +225,10 @@ reset :: (using builder: *String_Builder) {
     #if ENABLE_ASSERT get_base_buffer(builder).ensured_count = ensured;
 } @Closes
 
+// The text in `builder`, in a new string; the string is allocated with the context allocator, not the
+// builder's, and the caller frees it. With `do_reset` (the default) the builder is emptied afterwards,
+// otherwise it keeps its text. `extra_bytes_to_prepend` leaves that many unwritten bytes in front of the text.
+// A builder that has failed gives an empty string.
 builder_to_string :: (builder: *String_Builder, extra_bytes_to_prepend := 0, do_reset := true) -> string {
     assert(extra_bytes_to_prepend >= 0);
     if builder.failed return "";
@@ -216,6 +250,8 @@ builder_to_string :: (builder: *String_Builder, extra_bytes_to_prepend := 0, do_
     return result;
 } @Allocates @Closes
 
+// Writes the text in `builder` to standard output, or standard error with `to_standard_error`, and returns the
+// number of bytes. With `do_reset` (the default) the builder is emptied afterwards.
 write_builder :: (using builder: *String_Builder, do_reset := true, to_standard_error := false) -> s64 {
     if failed return 0;
 

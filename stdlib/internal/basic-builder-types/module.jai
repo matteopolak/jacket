@@ -1,5 +1,6 @@
 #module_parameters(ENABLE_ASSERT := true);
 
+// The room, in bytes, a `String_Builder` has inside it and the default size of each buffer it adds later.
 STRING_BUILDER_BUFFER_SIZE :: 4096 - size_of(String_Builder.Buffer);
 
 String_Builder :: struct {

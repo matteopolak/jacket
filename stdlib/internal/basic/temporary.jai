@@ -36,18 +36,30 @@ temporary_alloc :: inline (size: s64) -> *void {
     return talloc(size);
 } @TempAllocates
 
+// A string of `count` bytes in temporary storage. It must not be freed; it lasts until the temporary storage
+// is reset. The bytes are not cleared.
 talloc_string :: (count: int) -> string {
     data := cast(*u8) talloc(count);
     assert(data != null || count == 0);
     return .{ count, data };
 } @TempAllocates
 
+// A copy of `s` in temporary storage. It must not be freed; it lasts until the temporary storage is
+// reset.
+//
+// ```jai
+// copy := copy_temporary_string("scratch");
+// assert(copy == "scratch");
+// reset_temporary_storage();
+// ```
 copy_temporary_string :: inline (s: string) -> string {
     result := talloc_string(s.count);
     memcpy(result.data, s.data, s.count);
     return result;
 } @TempAllocates
 
+// A copy of `s` in temporary storage followed by a zero byte, for passing to C. It must not be freed; it lasts
+// until the temporary storage is reset.
 temp_c_string :: (s: string) -> *u8 {
     result := cast(*u8) talloc(s.count + 1);
 

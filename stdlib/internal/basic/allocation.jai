@@ -9,6 +9,9 @@ get_capabilities :: (b: Allocator) -> (caps: Allocator_Caps, name: string) {
     return cast(Allocator_Caps) cast(u64) flags, name;
 }
 
+// Gives memory back to the context allocator. `memory` must come from `alloc`, `New`, `realloc` or another
+// procedure that allocates with the context allocator, and must not be freed twice. Freeing a null
+// pointer is up to the allocator; do not rely on it.
 free :: (memory: *void) {
     allocator_call(context.allocator, .FREE, 0, 0, memory);
 } @FreesArgument
@@ -18,32 +21,79 @@ realloc :: (memory: *void, size: s64, old_size: s64) -> *void {
     return allocator_call(context.allocator, .RESIZE, size, old_size, memory);
 }
 
+// Frees the memory a string points to. The string must have been allocated with the context allocator
+// in effect now, for example by `alloc_string`, `copy_string` or `sprint`. Never free a string literal,
+// a slice of another string or a string from temporary storage.
 free :: inline (s: string) {
     free(s.data);
 } @FreesArgument
 
+// A string of `count` bytes in newly allocated memory, with the context allocator. The bytes are not
+// cleared, so write all of them before reading. Free it with `free`. With a `count` of 0 the string is
+// empty and may have no data.
+//
+// ```jai
+// s := alloc_string(3);
+// defer free(s);
+// memcpy(s.data, "abc".data, 3);
+// assert(s == "abc");
+// ```
 alloc_string :: (count: int) -> string {
     memory := alloc(count);
     assert(memory != null || count == 0);
     return .{ count, cast(*u8) memory };
 } @Allocates
 
+// A copy of `s` in newly allocated memory, with the context allocator. Free it with `free`. Use
+// `copy_temporary_string` for a copy that needs no freeing.
+//
+// ```jai
+// original := "text";
+// copy := copy_string(original);
+// defer free(copy);
+// assert(copy == original && copy.data != original.data);
+// ```
 copy_string :: (s: string) -> string {
     result := alloc_string(s.count);
     memcpy(result.data, s.data, s.count);
     return result;
 } @UseResult @Allocates
 
+// A string that views `length` bytes at `s`, without copying them. Nothing is allocated, so the string
+// is valid as long as the bytes are.
+//
+// ```jai
+// bytes := "hello".data;
+// view := to_string(bytes, 4);
+// assert(view == "hell");
+// ```
 to_string :: inline (s: *u8, length: s64) -> string {
     return .{ length, s };
 }
 
+// A string that views the bytes of `c_string` up to the first zero byte, or all of them when there is none.
+// The bytes are not copied.
+//
+// ```jai
+// buffer: [8] u8;
+// buffer[0] = #char "h";
+// buffer[1] = #char "i";
+// assert(to_string(buffer) == "hi");
+// ```
 to_string :: (c_string: [] u8) -> string {
     i: s64 = 0;
     while i < c_string.count && c_string[i] != 0 i += 1;
     return .{ i, c_string.data };
 }
 
+// A copy of `s` in newly allocated memory, followed by a zero byte, for passing to C. It is allocated with
+// the context allocator; free it with `free`. A zero byte inside `s` ends the string for the C side.
+//
+// ```jai
+// c := to_c_string("abc");
+// defer free(c);
+// assert(c[3] == 0 && to_string(c, 3) == "abc");
+// ```
 to_c_string :: (s: string) -> *u8 {
     result := cast(*u8) alloc(s.count + 1);
 

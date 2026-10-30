@@ -73,41 +73,81 @@ swap :: inline (a: *$T, b: *T) {
     b.* = t;
 }
 
+// The capital for an ASCII lower case letter `c`; any other byte is returned as it is, so non-ASCII text is
+// not changed.
+//
+// ```jai
+// assert(to_upper(#char "a") == #char "A");
+// assert(to_upper(#char "1") == #char "1");
+// ```
 to_upper :: (c: u8) -> u8 {
     if c >= #char "a" && c <= #char "z" return c - 32;
     return c;
 } @UseResult
 
+// The lower case letter for an ASCII capital `c`; any other byte is returned as it is.
+//
+// ```jai
+// assert(to_lower(#char "Q") == #char "q");
+// ```
 to_lower :: (c: u8) -> u8 {
     if c >= #char "A" && c <= #char "Z" return c + 32;
     return c;
 } @UseResult
 
+// Whether `c` is an ASCII letter. Bytes of UTF-8 text above 127 are not letters.
+//
+// ```jai
+// assert(is_alpha(#char "x") && !is_alpha(#char "7") && !is_alpha(#char "_"));
+// ```
 is_alpha :: (c: u8) -> bool {
     x := to_lower(c);
     return x >= #char "a" && x <= #char "z";
 } @UseResult
 
+// Whether `c` is an ASCII digit, `0` to `9`.
 is_digit :: (c: u8) -> bool {
     return c >= #char "0" && c <= #char "9";
 } @UseResult
 
+// Whether `c` is an ASCII letter or digit, or an underscore: whether it can appear in an identifier.
+//
+// ```jai
+// assert(is_alnum(#char "a") && is_alnum(#char "9") && is_alnum(#char "_"));
+// assert(!is_alnum(#char "-"));
+// ```
 is_alnum :: (c: u8) -> bool {
     return is_alpha(c) || is_digit(c) || c == #char "_";
 } @UseResult
 
+// Whether `c` is white space: a space, tab, line feed, vertical tab, form feed or carriage return.
 is_space :: (c: u8) -> bool {
     return c == #char " " || (c >= #char "\t" && c <= #char "\r");
 } @UseResult
 
+// Whether `c` is a printable ASCII character, from the space to `~`.
 is_print :: (c: u8) -> bool {
     return c >= 32 && c <= #char "~";
 }
 
+// Removes the first `amount` bytes (one by default) from the string `s` points to. `amount` must not be
+// negative or more than the length of the string, or an assert fails.
+//
+// ```jai
+// text := "hello";
+// advance(*text, 2);
+// assert(text == "llo");
+// ```
 advance :: inline (s: *string, amount: s64 = 1) {
     s.* = advance(s.*, amount);
 }
 
+// The string `s` without its first `amount` bytes (one by default), pointing into the same memory.
+// `amount` must not be negative or more than the length of `s`, or an assert fails.
+//
+// ```jai
+// assert(advance("hello", 2) == "llo");
+// ```
 advance :: inline (s: string, amount: s64 = 1) -> string {
     assert(amount >= 0 && amount <= s.count);
     return .{ s.count - amount, s.data + amount };
