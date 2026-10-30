@@ -23,10 +23,10 @@ contains_nocase_returns_the_text_after_the_match :: () {
     expect(S.begins_with(text, "") && S.ends_with_nocase(text, ""));
 } @test
 
-split_from_right_reports_what_is_left_when_nothing_matches :: () {
+split_from_right_returns_all_of_the_text_first_when_nothing_matches :: () {
     missing, left, right := S.split_from_right("abc", cast(u8) 124);
 
-    expect(!missing && left == "" && right == "abc");
+    expect(!missing && left == "abc" && right == "");
     missing, left, right = S.split_from_right("abc", "|");
     expect(!missing && left == "abc" && right == "");
     missing, left, right = S.split_from_right_by_any("abc", "|;");

@@ -1,11 +1,11 @@
-// Not-found results of the splits differ by overload, `scan` consumes a literal `%%`, and substring
-// search finds matches from any start offset.
+// Not-found results of the splits are the same for every overload, `scan` consumes a literal `%%`,
+// and substring search finds matches from any start offset.
 #import "Extensions/Testing";
 
-not_found_results_differ_by_overload :: () {
+not_found_results_are_the_same_for_every_overload :: () {
     found, left, right := Str.split_from_right("abc", cast(u8) 124);
 
-    expect(!found && left == "" && right == "abc");
+    expect(!found && left == "abc" && right == "");
     found, left, right = Str.split_from_right("abc", "|");
     expect(!found && left == "abc" && right == "");
     found, left, right = Str.split_from_left("abc", cast(u8) 124);

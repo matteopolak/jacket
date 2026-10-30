@@ -524,19 +524,19 @@ split_from_left :: (s: string, byte: u8) -> (found: bool, left: string, right: s
 
 // Splits `s` at the last `byte`. Returns whether it was found, the part before it and the part after it.
 //
-// When the byte is not found the result is `false`, an empty string and all of `s`. This differs from the
-// string overload, which returns all of `s` first. Both parts point into `s`.
+// When the byte is not found the result is `false`, all of `s` and an empty string, as for
+// `split_from_left` and the string overload. Both parts point into `s`.
 //
 // ```jai
 // found, left, right := split_from_right("a.b.c", #char ".");
 // assert(found && left == "a.b" && right == "c");
 //
 // found, left, right = split_from_right("abc", #char ".");
-// assert(!found && left == "" && right == "abc");
+// assert(!found && left == "abc" && right == "");
 // ```
 split_from_right :: (s: string, byte: u8) -> (found: bool, left: string, right: string) {
     i := find_index_from_right(s, byte);
-    if i < 0 return false, "", s;
+    if i < 0 return false, s, "";
     return true, slice(s, 0, i), slice(s, i + 1, s.count);
 }
 
