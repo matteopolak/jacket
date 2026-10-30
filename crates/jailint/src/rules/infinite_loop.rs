@@ -128,7 +128,7 @@ fn collect(cx: &Cx, e: &Expr, vars: &mut Vec<EntityId>) -> bool {
             ) {
                 return false;
             }
-            vars.extend_from_slice(found);
+            vars.extend_from_slice(&found);
             true
         }
         // A member of a local struct (not through a pointer).

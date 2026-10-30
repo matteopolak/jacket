@@ -73,9 +73,9 @@ pub fn lint_files(
     let mut out = Vec::new();
     let mut module_facts = rules::unused_import::ModuleFacts::default();
     let run = rules::RunState::default();
-    let Some(facts) = facts::Facts::collect(compiler, files) else {
+    if !compiler.ed.facts().is_some_and(|ide| ide.lint) {
         return out;
-    };
+    }
     for &file in files {
         let path = compiler.src.sources.get(file).path.to_string();
         let text = compiler.src.sources.get(file).text.clone();
@@ -111,9 +111,7 @@ pub fn lint_files(
             Vec::new()
         };
         let suppressions = suppress::Suppressions::new(&text, &tokens, &comments, &ast);
-        let mut cx = syntax::Cx::new(
-            compiler, &facts, &text, &ast, &tokens, &comments, imports, &run,
-        );
+        let mut cx = syntax::Cx::new(compiler, &text, &ast, &tokens, &comments, imports, &run);
         cx.complete = complete;
         cx.max_nesting = config.max_nesting();
         cx.magic_numbers = config.magic_numbers();

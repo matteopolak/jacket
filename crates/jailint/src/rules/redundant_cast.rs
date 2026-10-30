@@ -8,8 +8,8 @@
 //! or parameter declared with the very same type spelling as the cast's (`int` and `s64`,
 //! `float` and `float32` count as the same), or another cast to that spelling. Polymorphic
 //! bodies, macros and cast modifiers (`,trunc`, `,no_check`, `,force`) are left alone.
-use crate::facts::Recorded;
 use crate::syntax::Cx;
+use crate::syntax::Recorded;
 use crate::{Edit, Finding, Fix};
 use jaic::ast::walk::{Node, walk};
 use jaic::ast::{Expr, ExprKind as E, StmtKind as S};

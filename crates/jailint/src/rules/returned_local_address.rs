@@ -42,9 +42,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 && d.kind != DeclKind::Const
             {
                 for name in &d.names {
-                    if let Some(ents) = cx.facts.locals.get(&name.span) {
-                        locals.extend_from_slice(ents);
-                    }
+                    locals.extend_from_slice(&cx.locals(name.span));
                 }
             }
             true

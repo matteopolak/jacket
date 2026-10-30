@@ -75,7 +75,11 @@ fn examine(cx: &Cx, body: &[Stmt], list: &[Stmt], at: usize, d: &Decl) -> Option
         return None;
     }
     let name = d.names[0];
-    let entities: HashSet<_> = cx.facts.locals.get(&name.span)?.iter().copied().collect();
+    let declared = cx.locals(name.span);
+    if declared.is_empty() {
+        return None;
+    }
+    let entities: HashSet<_> = declared.iter().copied().collect();
     let is_it = |e: &Expr| {
         matches!(e.kind, E::Ident(_)) && cx.entities(e.span).iter().any(|x| entities.contains(x))
     };

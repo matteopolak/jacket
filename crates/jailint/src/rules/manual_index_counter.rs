@@ -72,7 +72,7 @@ fn counter(cx: &Cx, d: &Decl) -> Option<Sym> {
         _ => return None,
     }
     // An `s64`, as `it_index` is.
-    let ents = cx.facts.locals.get(&name.span)?;
+    let ents = cx.locals(name.span);
     let all_s64 = ents.iter().all(|&e| {
         matches!(cx.compiler.entity(e).kind, jaic::sema::scope::EntityKind::Local { ty, .. } if ty == TypeId::S64)
     });

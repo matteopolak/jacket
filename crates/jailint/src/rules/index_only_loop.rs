@@ -120,16 +120,11 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
     let constant = cx.constant(arr);
     let var = f.it.map_or_else(|| Sym::intern("it"), |i| i.name);
     let loop_vars: Vec<_> = cx
-        .facts
-        .locals
-        .get(&stmt.span)
-        .map(|v| {
-            v.iter()
-                .copied()
-                .filter(|&e| cx.compiler.entity(e).name == var)
-                .collect()
-        })
-        .unwrap_or_default();
+        .locals(stmt.span)
+        .iter()
+        .copied()
+        .filter(|&e| cx.compiler.entity(e).name == var)
+        .collect();
     if loop_vars.is_empty() {
         return None;
     }

@@ -1,17 +1,17 @@
 //! The file a rule looks at: its syntax tree, tokens and text, the procedures in it, and
 //! helpers to walk statements and expressions and to read source text.
-use crate::facts::{Facts, Recorded};
 use jaic::ast::walk::{Node, walk_node};
 use jaic::ast::{Block, Decl, Expr, ExprKind as E, File, ProcHeader, Stmt, StmtKind as S};
+use jaic::ide::{Found, IdeCast, IdeExprFact};
 use jaic::intern::Sym;
 use jaic::lexer::{Comment, P, Tok, Token};
 use jaic::lexicon::WordClass;
-use jaic::sema::{Compiler, EntityId};
+use jaic::sema::{Compiler, EntityId, ProcId};
 use jaic::source::{FileId, LineIndex, Span};
+use jaic::types::TypeId;
 
 pub(crate) struct Cx<'a> {
     pub compiler: &'a Compiler,
-    pub facts: &'a Facts,
     pub file: FileId,
     pub text: &'a str,
     /// The line index of `text`.
@@ -67,13 +67,8 @@ impl ProcSite<'_> {
 }
 
 impl<'a> Cx<'a> {
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "one argument per analysis product the rules read; `Syntax` is a plain bundle of them"
-    )]
     pub fn new(
         compiler: &'a Compiler,
-        facts: &'a Facts,
         text: &'a str,
         ast: &'a File,
         tokens: &'a [Token],
@@ -82,10 +77,9 @@ impl<'a> Cx<'a> {
         run: &'a crate::rules::RunState,
     ) -> Self {
         let mut procs = Vec::new();
-        collect_procs(&ast.stmts, None, false, false, facts, &mut procs);
+        collect_procs(&ast.stmts, None, false, false, compiler, &mut procs);
         Self {
             compiler,
-            facts,
             file: ast.file,
             text,
             lines: compiler.src.sources.get(ast.file).lines(),
@@ -235,8 +229,18 @@ impl<'a> Cx<'a> {
     }
 
     /// The entities the identifier at `span` resolved to.
-    pub fn entities(&self, span: Span) -> &[EntityId] {
-        self.facts.idents.get(&span).map_or(&[], |v| v.as_slice())
+    pub fn entities(&self, span: Span) -> Found<EntityId> {
+        self.compiler.ide_entities_at(span)
+    }
+
+    /// The variables declared at `span` (see `Compiler::ide_locals_declared_at`).
+    pub fn locals(&self, span: Span) -> Found<EntityId> {
+        self.compiler.ide_locals_declared_at(span)
+    }
+
+    /// The procedures made from the header at `span`.
+    pub fn procs_with_header(&self, header: Span) -> Found<ProcId> {
+        self.compiler.ide_procs_with_header(header)
     }
 
     /// The type recorded for an expression, if all its checks agreed.
@@ -425,7 +429,7 @@ fn collect_procs<'a>(
     decl: Option<&'a Decl>,
     poly: bool,
     is_macro: bool,
-    facts: &Facts,
+    compiler: &Compiler,
     out: &mut Vec<ProcSite<'a>>,
 ) {
     for s in list {
@@ -434,7 +438,15 @@ fn collect_procs<'a>(
             _ => decl.filter(|_| false),
         };
         let mut stack = Vec::new();
-        find_procs(Node::Stmt(s), decl, poly, is_macro, facts, out, &mut stack);
+        find_procs(
+            Node::Stmt(s),
+            decl,
+            poly,
+            is_macro,
+            compiler,
+            out,
+            &mut stack,
+        );
     }
 }
 
@@ -443,7 +455,7 @@ fn find_procs<'a>(
     decl: Option<&'a Decl>,
     poly: bool,
     is_macro: bool,
-    facts: &Facts,
+    compiler: &Compiler,
     out: &mut Vec<ProcSite<'a>>,
     stack: &mut Vec<Node<'a>>,
 ) {
@@ -465,14 +477,14 @@ fn find_procs<'a>(
                         decl: named,
                         poly: p,
                         is_macro: m,
-                        clean: facts.clean(body.span),
+                        clean: compiler.ide_body_is_clean(body.span),
                     });
-                    collect_procs(&body.stmts, None, p, m, facts, out);
+                    collect_procs(&body.stmts, None, p, m, compiler, out);
                 }
                 false
             }
             E::Struct(st) => {
-                collect_procs(&st.body, None, poly, is_macro, facts, out);
+                collect_procs(&st.body, None, poly, is_macro, compiler, out);
                 false
             }
             _ => true,
@@ -512,5 +524,33 @@ pub(crate) fn is_path(e: &Expr) -> bool {
         E::Ident(_) => true,
         E::Member(base, _) => is_path(base),
         _ => false,
+    }
+}
+
+/// Lookups on the compiler's records.
+pub trait Recorded {
+    fn expr_fact(&self, span: Span) -> Option<IdeExprFact>;
+    fn cast_fact(&self, span: Span) -> Option<IdeCast>;
+    fn is_used(&self, e: EntityId) -> bool;
+
+    /// The type of the expression at `span`, when every check of it agreed.
+    fn type_at(&self, span: Span) -> Option<TypeId> {
+        self.expr_fact(span)
+            .filter(|f| !f.conflicting)
+            .map(|f| f.ty)
+    }
+}
+
+impl Recorded for Compiler {
+    fn expr_fact(&self, span: Span) -> Option<IdeExprFact> {
+        self.ed.facts()?.exprs.get(&span).copied()
+    }
+
+    fn cast_fact(&self, span: Span) -> Option<IdeCast> {
+        self.ed.facts()?.casts.get(&span).copied()
+    }
+
+    fn is_used(&self, e: EntityId) -> bool {
+        self.ed.facts().is_some_and(|i| i.used.contains(&e))
     }
 }

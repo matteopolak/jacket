@@ -98,16 +98,11 @@ fn binds_it(f: &For, it: Sym) -> bool {
 }
 
 fn loop_vars(cx: &Cx, stmt: &Stmt, it: Sym) -> Vec<EntityId> {
-    cx.facts
-        .locals
-        .get(&stmt.span)
-        .map(|v| {
-            v.iter()
-                .copied()
-                .filter(|&e| cx.compiler.entity(e).name == it)
-                .collect()
-        })
-        .unwrap_or_default()
+    cx.locals(stmt.span)
+        .iter()
+        .copied()
+        .filter(|&e| cx.compiler.entity(e).name == it)
+        .collect()
 }
 
 /// Some identifier under `body` resolved to one of `vars`.

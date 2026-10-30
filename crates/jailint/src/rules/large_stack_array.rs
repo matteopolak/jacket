@@ -50,11 +50,12 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 return true;
             }
             for name in &d.names {
-                let Some(entities) = cx.facts.locals.get(&name.span) else {
+                let entities = cx.locals(name.span);
+                if entities.is_empty() {
                     continue;
-                };
+                }
                 let mut found = None;
-                for &e in entities {
+                for &e in &*entities {
                     let EntityKind::Local {
                         ty, ..
                     } = cx.compiler.entity(e).kind

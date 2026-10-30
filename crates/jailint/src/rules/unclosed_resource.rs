@@ -66,12 +66,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                             && let Some(call) = opening(cx, value)
                             && let Some(name) = d.names.first()
                             && name.name.as_str() != "_"
-                            && let Some(var) = single(
-                                cx.facts
-                                    .locals
-                                    .get(&name.span)
-                                    .map_or(&[], |v| v.as_slice()),
-                            )
+                            && let Some(var) = single(&cx.locals(name.span))
                         {
                             opened.push(Opened {
                                 name: name.name,
@@ -90,7 +85,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                             && !first.spread
                             && let E::Unary(UnOp::Star, target) = &first.value.kind
                             && let E::Ident(name) = &target.kind
-                            && let Some(var) = single(cx.entities(target.span))
+                            && let Some(var) = single(&cx.entities(target.span))
                             && declared_in(cx, var, p.body)
                             && !opened.iter().any(|o| o.var == var)
                         {

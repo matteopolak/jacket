@@ -14,8 +14,8 @@
 //! Fires on every `xx` that is not directly an argument of a call. When the compiler resolved
 //! the cast, the message names both types and the editor offers `cast(T)` for plain `xx`; it is
 //! not applied by `--fix`. Off by default (`allow`): `xx` is idiomatic Jai.
-use crate::facts::Recorded;
 use crate::syntax::Cx;
+use crate::syntax::Recorded;
 use crate::{Edit, Finding};
 use jaic::ast::walk::{Node, walk};
 use jaic::ast::{CastFlags, Expr, ExprKind as E};

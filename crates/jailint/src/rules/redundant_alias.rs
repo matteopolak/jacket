@@ -135,7 +135,10 @@ fn alias_candidate<'a>(
     if cx.name_tokens(name.name, body.start, body.end).count() != 2 {
         return None;
     }
-    let ents = cx.facts.locals.get(&name.span)?.clone();
+    let ents = cx.locals(name.span).to_vec();
+    if ents.is_empty() {
+        return None;
+    }
     let tys = local_types(cx, &ents)?;
     Some(Candidate {
         decl: d,
@@ -204,11 +207,10 @@ fn copy(cx: &Cx, a: Candidate, b: &Decl, out: &mut Vec<Finding>) {
     {
         return;
     }
-    let Some(btys) = cx
-        .facts
-        .locals
-        .get(&bname.span)
-        .and_then(|e| local_types(cx, e))
+    let bents = cx.locals(bname.span);
+    let Some(btys) = (!bents.is_empty())
+        .then(|| local_types(cx, &bents))
+        .flatten()
     else {
         return;
     };
@@ -305,9 +307,12 @@ fn push(span: Span, message: String, help: String, edits: Vec<Edit>, out: &mut V
 /// The type of the procedure's only return value, per check; `None` for any other shape
 /// (several returns, a named one, an unresolved signature).
 fn return_types(cx: &Cx, header: Span) -> Option<Vec<TypeId>> {
-    let procs = cx.facts.procs_by_header.get(&header)?;
+    let procs = cx.procs_with_header(header);
+    if procs.is_empty() {
+        return None;
+    }
     let mut tys = Vec::new();
-    for &p in procs {
+    for &p in &*procs {
         let info = &cx.compiler.pr.procs[p.0 as usize];
         let sig = info.sig.as_ref()?;
         if sig.returns.len() != 1 || sig.return_names.iter().any(std::option::Option::is_some) {

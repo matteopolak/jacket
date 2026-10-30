@@ -10,8 +10,8 @@
 //! (`M :: #import "X"`) is used when `M` is. Imports with module parameters, imports of
 //! modules with `#program_export` (they add entry points), and files with bodies the
 //! compiler could not check completely are not reported, except for named imports.
-use crate::facts::Recorded;
 use crate::syntax::Cx;
+use crate::syntax::Recorded;
 use crate::{Edit, Finding, Fix};
 use jaic::ast::{File, Import, ImportSource, StmtKind as S};
 use jaic::fxhash::{HashMap, HashSet};

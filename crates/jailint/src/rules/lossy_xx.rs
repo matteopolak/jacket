@@ -9,8 +9,8 @@
 //! (`xx,trunc` says what it means), nor values masked or shifted to fit (`xx (v & 0xFF)`,
 //! `xx (v >> 56)`). Off by default (`allow`): narrowing `xx` is common and deliberate in
 //! code that talks to C APIs.
-use crate::facts::Recorded;
 use crate::syntax::Cx;
+use crate::syntax::Recorded;
 use crate::{Edit, Finding, Fix};
 use jaic::ast::walk::walk;
 use jaic::ast::{BinOp, Expr, ExprKind as E};

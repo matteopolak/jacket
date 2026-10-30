@@ -22,7 +22,7 @@
 //! not load: first the siblings in the file's directory, then the files of the directory above
 //! and of its immediate subdirectories, parsed once per directory. Overload sets are skipped
 //! by the compiler's own view of the scope.
-use crate::facts::Recorded;
+use crate::syntax::Recorded;
 use crate::syntax::{Cx, ProcSite};
 use crate::{Edit, Finding, Fix};
 use jaic::ast::walk::Node;
@@ -77,9 +77,10 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             if cx.has_dollar(param.span) {
                 continue;
             }
-            let Some(ents) = cx.facts.locals.get(&param.span) else {
+            let ents = cx.locals(param.span);
+            if ents.is_empty() {
                 continue;
-            };
+            }
             if ents.iter().any(|&e| cx.compiler.is_used(e))
                 || cx.mentions(name.name, h.span.start, p.body.span.end, name.span)
             {
@@ -137,16 +138,17 @@ fn eligible(cx: &Cx, p: &ProcSite) -> bool {
     if name == cx.compiler.options.entry_point {
         return false;
     }
-    let Some(ids) = cx.facts.procs_by_header.get(&h.span) else {
+    let ids = cx.procs_with_header(h.span);
+    if ids.is_empty() {
         return false;
-    };
+    }
     let compiler = cx.compiler;
     let Some(file) = compiler.src.files.iter().find(|f| f.id == cx.file) else {
         return false;
     };
     let module_scope = compiler.ns.modules[file.module.0 as usize].scope;
     let in_main = Some(file.module) == compiler.ns.main_module;
-    for &id in ids {
+    for &id in &*ids {
         let info = compiler.proc(id);
         // The name as the file and its module see it (a `#scope_file` overload lives in the
         // file's scope, a public one in the module's).
@@ -179,8 +181,8 @@ fn eligible(cx: &Cx, p: &ProcSite) -> bool {
     }
     // Every mention is a call, and there is at least one.
     let mut calls = 0;
-    for &id in ids {
-        for use_ in cx.facts.proc_uses.get(&id).into_iter().flatten() {
+    for &id in &*ids {
+        for use_ in &*cx.compiler.ide_uses_of_proc(id) {
             if !is_callee(cx, *use_) {
                 return false;
             }

@@ -60,12 +60,10 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         });
         for (d, call) in decls {
             let name = d.names[0];
-            let Some(var) = cx.facts.locals.get(&name.span).and_then(|v| {
-                if let [only] = v.as_slice() {
-                    Some(*only)
-                } else {
-                    None
-                }
+            let Some(var) = (if let [only] = &*cx.locals(name.span) {
+                Some(*only)
+            } else {
+                None
             }) else {
                 continue;
             };

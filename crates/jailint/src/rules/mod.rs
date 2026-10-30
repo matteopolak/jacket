@@ -5,6 +5,7 @@ use crate::syntax::Cx;
 use crate::{Edit, Finding, Fix, Level};
 use jaic::ast::walk::Node;
 use jaic::ast::{BinOp, Expr, ExprKind as E, Stmt, StmtKind as S, UnOp};
+use jaic::ide::Found;
 use jaic::sema::ProcId;
 use jaic::source::Span;
 
@@ -240,13 +241,13 @@ pub(crate) fn int_literal(e: &Expr) -> Option<i128> {
 }
 
 /// The procedures a call's callee named, when it is a plain name or `Module.name`.
-pub(crate) fn callee_procs<'c>(cx: &'c Cx, callee: &Expr) -> &'c [ProcId] {
+pub(crate) fn callee_procs(cx: &Cx, callee: &Expr) -> Found<ProcId> {
     let span = match &callee.kind {
         E::Ident(_) => callee.span,
         E::Member(_, name) => name.span,
-        _ => return &[],
+        _ => return Found::default(),
     };
-    cx.facts.procs_at(span)
+    cx.compiler.ide_procs_named_at(span)
 }
 
 /// The procedure is declared with the note `@name`, on its header or after its body.
@@ -263,7 +264,7 @@ pub(crate) fn calls_noted(cx: &Cx, callee: &Expr, name: &str) -> bool {
         _ => callee.span,
     };
     // Of an overload set, the one this call chose says what the call means.
-    if let Some(chosen) = cx.compiler.ide_resolved_overload(span, procs) {
+    if let Some(chosen) = cx.compiler.ide_resolved_overload(span, &procs) {
         return has_note(cx, chosen, name);
     }
     !procs.is_empty() && procs.iter().all(|&p| has_note(cx, p, name))

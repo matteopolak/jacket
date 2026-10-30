@@ -9,8 +9,8 @@
 //!
 //! Fires on a `cast,force(T)` with no other modifier when the operand is not a constant and its
 //! type is `T` or converts to `T` without losing anything. `--fix` removes the `,force`.
-use crate::facts::Recorded;
 use crate::syntax::Cx;
+use crate::syntax::Recorded;
 use crate::{Edit, Finding, Fix};
 use jaic::ast::walk::walk;
 use jaic::ast::{CastFlags, ExprKind as E};

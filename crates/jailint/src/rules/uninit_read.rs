@@ -88,8 +88,8 @@ fn uninitialized<'a>(cx: &'a Cx, s: &Stmt) -> Option<(EntityId, &'a str)> {
         return None;
     }
     let name = &d.names[0];
-    let ents = cx.facts.locals.get(&name.span)?;
-    let [var] = ents.as_slice() else {
+    let ents = cx.locals(name.span);
+    let [var] = &*ents else {
         return None;
     };
     Some((*var, name.name.as_str()))

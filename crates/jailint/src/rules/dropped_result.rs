@@ -108,7 +108,7 @@ fn examine(cx: &Cx, value: &Expr, kept: usize, after: Option<usize>, out: &mut V
         }
     } else {
         let mut lists = Vec::new();
-        for &p in named {
+        for &p in &*named {
             match &cx.compiler.pr.procs[p.0 as usize].sig {
                 Some(sig) => lists.push(sig.returns.clone()),
                 None => return,

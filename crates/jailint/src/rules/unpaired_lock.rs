@@ -58,10 +58,9 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             continue;
         }
         let wrapper = cx
-            .facts
-            .procs_by_header
-            .get(&p.header.span)
-            .is_some_and(|ids| ids.iter().any(|&id| has_note(cx, id, "Locks")));
+            .procs_with_header(p.header.span)
+            .iter()
+            .any(|&id| has_note(cx, id, "Locks"));
         if wrapper {
             continue;
         }

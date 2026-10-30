@@ -196,14 +196,15 @@ impl Scopes for Scan<'_, '_> {
     fn using(&mut self, stmt: &Stmt, using: &UsingStmt) {
         let Some(ty) = self.cx.ty(&using.value).or_else(|| {
             // The statement's operand may carry no type of its own; the variable it names does.
-            let mut types = self.cx.entities(using.value.span).iter().filter_map(|&e| {
-                match self.cx.compiler.entity(e).kind {
+            let named = self.cx.entities(using.value.span);
+            let mut types = named
+                .iter()
+                .filter_map(|&e| match self.cx.compiler.entity(e).kind {
                     EntityKind::Local {
                         ty, ..
                     } => Some(ty),
                     _ => None,
-                }
-            });
+                });
             let first = types.next()?;
             types.all(|t| t == first).then_some(first)
         }) else {
@@ -220,7 +221,11 @@ impl Scopes for Scan<'_, '_> {
 /// The type of the local or parameter declared at `key`, if every check agrees.
 fn local_type(cx: &Cx, key: jaic::source::Span) -> Option<TypeId> {
     let mut found = None;
-    for &e in cx.facts.locals.get(&key)? {
+    let declared = cx.locals(key);
+    if declared.is_empty() {
+        return None;
+    }
+    for &e in &*declared {
         let EntityKind::Local {
             ty, ..
         } = cx.compiler.entity(e).kind

@@ -66,8 +66,7 @@ fn examine(cx: &Cx, list: &[Stmt], at: usize, s: &Stmt) -> Option<Finding> {
         return None;
     }
     // A struct (not a union, whose literal sets one member).
-    let entities = cx.facts.locals.get(&name.span)?;
-    let &first = entities.first()?;
+    let &first = cx.locals(name.span).first()?;
     let EntityKind::Local {
         ty: local, ..
     } = cx.compiler.entity(first).kind

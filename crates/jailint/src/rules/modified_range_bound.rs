@@ -102,7 +102,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 fn named_locals<'a>(cx: &'a Cx, e: &Expr, out: &mut Vec<(EntityId, &'a str)>) {
     match &e.kind {
         E::Ident(_) => {
-            if let [only] = cx.entities(e.span)
+            if let [only] = &*cx.entities(e.span)
                 && matches!(cx.compiler.entity(*only).kind, EntityKind::Local { .. })
             {
                 out.push((*only, cx.src(e.span).trim()));

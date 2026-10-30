@@ -10,8 +10,8 @@
 //! for code the compiler did not check (`#if` branches left out, `#asm`), a variable whose
 //! name appears anywhere else in its block is never reported. Bodies that failed to check
 //! and `#expand` macros are skipped.
-use crate::facts::Recorded;
 use crate::syntax::Cx;
+use crate::syntax::Recorded;
 use crate::{Edit, Finding, Fix};
 use jaic::ast::walk::{Node, walk};
 use jaic::ast::{DeclKind, Expr, ExprKind as E, StmtKind as S};
@@ -76,10 +76,12 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 .map(|(j, name)| {
                     d.existing().get(j) != Some(&true)
                         && !name.name.as_str().starts_with('_')
-                        && cx.facts.locals.get(&name.span).is_some_and(|ents| {
-                            !ents.iter().any(|&e| cx.compiler.is_used(e))
-                                && !cx.mentions(name.name, block.start, block.end, name.span)
-                        })
+                        && Some(cx.locals(name.span))
+                            .filter(|e| !e.is_empty())
+                            .is_some_and(|ents| {
+                                !ents.iter().any(|&e| cx.compiler.is_used(e))
+                                    && !cx.mentions(name.name, block.start, block.end, name.span)
+                            })
                 })
                 .collect();
             // `a, b := f();` where `b` and everything after it is unused: a call's later

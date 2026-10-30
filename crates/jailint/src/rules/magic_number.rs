@@ -294,9 +294,8 @@ fn text_bytes(cx: &Cx, stmts: &[Stmt]) -> Vec<EntityId> {
             && d.value
                 .as_ref()
                 .is_some_and(|v| string_index(cx, uncast(v)))
-            && let Some(ents) = cx.facts.locals.get(&name.span)
         {
-            out.extend_from_slice(ents);
+            out.extend_from_slice(&cx.locals(name.span));
         }
         true
     });

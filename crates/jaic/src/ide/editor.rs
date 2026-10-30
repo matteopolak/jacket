@@ -42,19 +42,19 @@ impl Editor {
     /// Starts recording into `facts`.
     pub fn record(&mut self, facts: IdeFacts) {
         self.facts = Some(Box::new(facts));
-        *self.index.get_mut() = Default::default();
+        *self.index.get_mut() = super::span_index::SpanIndex::default();
     }
 
     /// Stops recording and hands back what was recorded.
     pub fn stop(&mut self) -> Option<Box<IdeFacts>> {
-        *self.index.get_mut() = Default::default();
+        *self.index.get_mut() = super::span_index::SpanIndex::default();
         self.facts.take()
     }
 
     /// Records into `facts` again, after `stop`.
     pub(crate) fn resume(&mut self, facts: Box<IdeFacts>) {
         self.facts = Some(facts);
-        *self.index.get_mut() = Default::default();
+        *self.index.get_mut() = super::span_index::SpanIndex::default();
     }
 
     #[inline]

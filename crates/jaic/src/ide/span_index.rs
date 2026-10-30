@@ -58,6 +58,12 @@ pub struct SpanIndex {
 /// What a lookup found: a view of the index that stays valid whatever is asked next.
 pub struct Found<V>(Option<Rc<[V]>>);
 
+impl<V> Default for Found<V> {
+    fn default() -> Self {
+        Found(None)
+    }
+}
+
 impl<V> Deref for Found<V> {
     type Target = [V];
 

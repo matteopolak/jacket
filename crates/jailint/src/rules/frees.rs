@@ -27,6 +27,7 @@ use super::{PlaceUse, callee_procs, calls_noted, place_use, statement_lists};
 use crate::syntax::Cx;
 use jaic::ast::walk::{Node, walk, walk_node};
 use jaic::ast::{BinOp, Expr, ExprKind as E, Stmt, StmtKind as S, UnOp};
+use jaic::ide::Found;
 use jaic::sema::scope::EntityKind;
 use jaic::sema::{EntityId, ProcId};
 use jaic::source::Span;
@@ -51,7 +52,7 @@ struct Free<'a> {
     var: EntityId,
     name: &'a str,
     span: Span,
-    procs: &'a [ProcId],
+    procs: Found<ProcId>,
     /// The parameter is the thing released (a raw pointer, string, array or handle) rather than
     /// a struct whose contents are released.
     whole: bool,
@@ -76,7 +77,7 @@ pub(super) fn scan<'a>(cx: &'a Cx, report: &mut dyn FnMut(Freed<'a>)) {
                 && let E::Ident(_) = e.kind
                 && place_use(e, chain) == PlaceUse::Address
             {
-                addressed.extend_from_slice(cx.entities(e.span));
+                addressed.extend_from_slice(&cx.entities(e.span));
             }
             true
         });
@@ -128,8 +129,8 @@ fn direct_free<'a>(cx: &'a Cx, s: &Stmt) -> Option<Free<'a>> {
         var: local_of(cx, &first.value)?,
         name: cx.src(first.value.span).trim(),
         span: e.span,
-        procs,
         whole: procs.iter().all(|&p| releases_whole_argument(cx, p)),
+        procs,
     })
 }
 
@@ -160,7 +161,7 @@ fn releases_whole_argument(cx: &Cx, proc: ProcId) -> bool {
 
 /// The one local variable or parameter an identifier names.
 pub(super) fn local_of(cx: &Cx, e: &Expr) -> Option<EntityId> {
-    match cx.entities(e.span) {
+    match &*cx.entities(e.span) {
         [only] if matches!(cx.compiler.entity(*only).kind, EntityKind::Local { .. }) => Some(*only),
         _ => None,
     }
@@ -201,7 +202,7 @@ fn next_event(cx: &Cx, free: &Free, rest: &[Stmt]) -> Option<After> {
         if let Some(again) = direct_free(cx, s)
             && again.var == free.var
         {
-            return (again.procs == free.procs).then_some(After::Free(again.span));
+            return (*again.procs == *free.procs).then_some(After::Free(again.span));
         }
         let mut event: Option<Option<After>> = None;
         let mut stack = Vec::new();

@@ -99,7 +99,7 @@ fn examine(
         if let Some(e) = n.expr()
             && let E::Ident(name) = e.kind
         {
-            for &ent in cx.entities(e.span) {
+            for &ent in &*cx.entities(e.span) {
                 let entity = cx.compiler.entity(ent);
                 if matches!(entity.kind, EntityKind::Local { .. }) {
                     if entity.span.file != cx.file {
