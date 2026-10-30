@@ -556,7 +556,6 @@ Options:
       --base-url <PATH>       The path the site is served under, with the slashes around it (`/docs/jai/`) [default: /]
       --runtime <DIR>         A folder with `jai_wasm.wasm` and `engine.mjs` (a browser bundle) to copy into the site, so the Run buttons work; without it they are shown disabled
       --playground-url <URL>  Where "open in playground" and the Playground link go [default: https://matteopolak.com/playground/jacket]
-      --guide-url <URL>       Where the Guide link goes [default: https://github.com/matteopolak/jacket/tree/main/docs]
       --source-ref <REF>      The tag or branch Source links point at [default: v<this version>]
       --module <NAME>         Document only these modules (`String`, `Extensions/Http`); repeatable
       --check                 Build and check the links without writing the site
