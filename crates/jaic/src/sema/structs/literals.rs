@@ -14,11 +14,13 @@ impl Compiler {
             Some(st) if !self.ty.types.struct_info(st).is_union => {
                 let fields = &self.ty.types.struct_info(st).fields;
                 let inits = &self.ty.struct_asts[&st].inits;
+                // Overlays take no positional value, so they do not count toward the position.
                 fields
                     .iter()
                     .zip(inits)
+                    .filter(|(field, _)| !field.overlay)
                     .enumerate()
-                    .filter(|(_, (field, (init, _)))| !field.overlay && init.is_none())
+                    .filter(|(_, (_, (init, _)))| init.is_none())
                     .map(|(i, _)| i + 1)
                     .max()
                     .unwrap_or(0)
