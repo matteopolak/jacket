@@ -283,6 +283,65 @@ fn quiet_procedures_push_no_stack_trace_node() {
     assert_eq!(String::from_utf8_lossy(&run.stdout), "7 true -1 55 7\n");
 }
 
+/// A procedure that returns early without calling anything pushes its stack trace node only on the
+/// paths that go on: what the callees see (names, call lines, depth; after a branch, in a loop,
+/// through recursion) is what it was when every procedure pushed on entry.
+#[test]
+fn stack_trace_node_is_pushed_before_the_first_use() {
+    let dir = TempDir::new("native-late-trace-push");
+    let source = dir.join("late.jai");
+    std::fs::write(
+        &source,
+        "#import \"Basic\";\n\
+         trace :: () {\n\
+             node := context.stack_trace;\n\
+             while node { print(\"%:%/% \", node.info.name, node.line_number, node.call_depth); node = node.next; }\n\
+             print(\"\\n\");\n\
+         }\n\
+         early :: (n: int) {\n\
+             if n == 0 return;\n\
+             if n == 1 {\n\
+                 trace();\n\
+                 return;\n\
+             }\n\
+             early(n - 1);\n\
+         }\n\
+         looped :: (n: int) {\n\
+             if n < 0 return;\n\
+             for 0..n {\n\
+                 trace();\n\
+             }\n\
+         }\n\
+         branchy :: (n: int) {\n\
+             total := 0;\n\
+             if n > 5 {\n\
+                 total = n * 2;\n\
+             } else {\n\
+                 trace();\n\
+             }\n\
+             if total > 0 trace();\n\
+         }\n\
+         main :: () {\n\
+             early(0);\n\
+             early(3);\n\
+             looped(-1);\n\
+             looped(1);\n\
+             branchy(2);\n\
+             branchy(9);\n\
+         }\n",
+    )
+    .unwrap();
+    let output = build_and_run(&source, &dir, "late").unwrap();
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "trace:4/5 early:10/4 early:13/3 early:13/2 main:32/1 \n\
+         trace:4/3 looped:18/2 main:34/1 \n\
+         trace:4/3 looped:18/2 main:34/1 \n\
+         trace:4/3 branchy:26/2 main:35/1 \n\
+         trace:4/3 branchy:28/2 main:36/1 \n"
+    );
+}
+
 /// info's prologue spill of parameters must store only scalars: storing that pointer into the
 /// parameter's slot wrote 8 bytes into a smaller slot, which corrupted neighbouring locals
 /// (crashes at -O0 on Linux) and tripped the sanitizers' bounds checks.

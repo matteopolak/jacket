@@ -7,9 +7,9 @@
 //! address.
 
 use crate::ir::{
-    BinOp, Block, BlockId, Callee, CmpOp, ConvOp, Func, FuncId, Global, GlobalId, Inst, Program,
-    Reloc, RelocTarget, Slot, SlotId, Term, TraceInfo, TraceInfoLayout, TraceLayout, Ty, Val,
-    inst_vals, term_uses,
+    BinOp, Block, BlockId, Callee, CmpOp, ConvOp, Func, FuncId, Global, GlobalId, Inst, Intrinsic,
+    Program, Reloc, RelocTarget, Slot, SlotId, Term, TraceInfo, TraceInfoLayout, TraceLayout, Ty,
+    Val, inst_vals, term_uses,
 };
 
 const HASH_SEED: u64 = 0xcbf2_9ce4_8422_2325;
@@ -107,23 +107,7 @@ fn quiet_but_for_callees(func: &Func) -> Option<Vec<u32>> {
     // there at entry, and calls pass on what they load back), so mentioning the parameter is
     // not a use by itself. The context counts as used when anything but a quiet callee gets
     // hold of it: the parameter, the slot's address or a value loaded from the slot.
-    let slot_addr = context_slot_addr(func);
-    let mut loaded = crate::fxhash::HashSet::default();
-    if let Some(slot_addr) = slot_addr {
-        for block in &func.blocks {
-            for inst in &block.insts {
-                if let Inst::Load {
-                    dst,
-                    addr,
-                    ..
-                } = inst
-                    && *addr == slot_addr
-                {
-                    loaded.insert(*dst);
-                }
-            }
-        }
-    }
+    let (slot_addr, loaded) = context_values(func);
     let is_context = |v: Val| v == Val(0) || Some(v) == slot_addr || loaded.contains(&v);
     let mut uses_context = false;
     let mut callees = Vec::new();
@@ -156,6 +140,28 @@ fn quiet_but_for_callees(func: &Func) -> Option<Vec<u32>> {
         term_uses(&block.term, &mut |v| uses_context |= is_context(v));
     }
     (!uses_context).then_some(callees)
+}
+
+/// The slot the context parameter lives in (its address) and the values loaded back from it.
+fn context_values(func: &Func) -> (Option<Val>, crate::fxhash::HashSet<Val>) {
+    let slot_addr = context_slot_addr(func);
+    let mut loaded = crate::fxhash::HashSet::default();
+    if let Some(slot_addr) = slot_addr {
+        for block in &func.blocks {
+            for inst in &block.insts {
+                if let Inst::Load {
+                    dst,
+                    addr,
+                    ..
+                } = inst
+                    && *addr == slot_addr
+                {
+                    loaded.insert(*dst);
+                }
+            }
+        }
+    }
+    (slot_addr, loaded)
 }
 
 /// The address of the slot the context parameter is stored in, when there is exactly one.
@@ -319,6 +325,10 @@ fn instrument_func(
     }
     let n = &layout.node;
     let original_blocks = func.blocks.len();
+    // Where the node goes up, and which statements record their line, are decided on the code as
+    // it was written.
+    let line_stores = line_stores(&func.blocks);
+    let push_at = push_block(func, &line_stores);
     func.slots.push(Slot {
         size: n.size,
         align: 8,
@@ -328,7 +338,7 @@ fn instrument_func(
         func,
     };
 
-    // The original entry moves to a new block; the new entry pushes the node.
+    // The original entry moves to a new block; the new entry finds the previous node.
     let body = std::mem::replace(
         &mut e.func.blocks[0],
         Block {
@@ -341,6 +351,24 @@ fn instrument_func(
     for b in 1..e.func.blocks.len() {
         retarget(&mut e.func.blocks[b].term, BlockId(0), body_id);
     }
+    // The push sits in front of `push_at`, wherever the paths to the first thing that can see the
+    // node meet: procedures that return early without a call never pay for it. Everything that
+    // enters `push_at` goes through it.
+    let target = if push_at == 0 {
+        body_id
+    } else {
+        BlockId(push_at as u32)
+    };
+    let push_id = BlockId(e.func.blocks.len() as u32);
+    e.func.blocks.push(Block {
+        insts: Vec::new(),
+        term: Term::Unreachable,
+    });
+    if push_at != 0 {
+        for b in (1..original_blocks).chain(std::iter::once(body_id.0 as usize)) {
+            retarget(&mut e.func.blocks[b].term, target, push_id);
+        }
+    }
 
     let mut entry = Vec::new();
     let node = e.val(Ty::Ptr);
@@ -349,10 +377,22 @@ fn instrument_func(
         slot,
     });
     let top = e.offset(&mut entry, Val(0), layout.context);
+    // Popping stores this back unconditionally: with no node pushed it is what is already there.
     let previous = e.load(&mut entry, Ty::Ptr, top);
-    let null = e.iconst(&mut entry, Ty::Ptr, 0);
+    let line_addr = e.offset(&mut entry, node, n.line_number);
+    e.func.blocks[0] = Block {
+        insts: entry,
+        term: Term::Jump(if push_at == 0 {
+            push_id
+        } else {
+            body_id
+        }),
+    };
+
+    let mut dispatch = Vec::new();
+    let null = e.iconst(&mut dispatch, Ty::Ptr, 0);
     let is_first = e.val(Ty::I8);
-    entry.push(Inst::Cmp {
+    dispatch.push(Inst::Cmp {
         dst: is_first,
         op: CmpOp::Eq,
         ty: Ty::Ptr,
@@ -369,7 +409,6 @@ fn instrument_func(
         global: info_global,
     });
     e.store_at(&mut link, Ty::Ptr, node, n.info, info_addr);
-    let line_addr = e.offset(&mut link, node, n.line_number);
     let line = e.iconst(&mut link, Ty::I32, info.line as u64);
     link.push(Inst::Store {
         ty: Ty::I32,
@@ -381,7 +420,7 @@ fn instrument_func(
         addr: top,
         value: node,
     });
-    let link_id = e.block(link, Term::Jump(body_id));
+    let link_id = e.block(link, Term::Jump(target));
 
     // First node: depth 1, seed hash.
     let mut first = Vec::new();
@@ -425,8 +464,8 @@ fn instrument_func(
     e.store_at(&mut nested, Ty::I64, node, n.hash, hash);
     let nested_id = e.block(nested, Term::Jump(link_id));
 
-    e.func.blocks[0] = Block {
-        insts: entry,
+    e.func.blocks[push_id.0 as usize] = Block {
+        insts: dispatch,
         term: Term::Branch {
             cond: is_first,
             then_block: first_id,
@@ -435,22 +474,16 @@ fn instrument_func(
     };
 
     // The original code (its entry now lives at `body_id`): record call lines, pop on return.
-    let reaches_call = reaches_call_from_entry(&e.func.blocks);
     let originals = (1..original_blocks).chain(std::iter::once(body_id.0 as usize));
-    for b in originals.collect::<Vec<_>>() {
+    for (b, original) in originals.zip((1..original_blocks).chain(std::iter::once(0))) {
         let old = std::mem::take(&mut e.func.blocks[b].insts);
-        let term_calls = e.func.blocks[b]
-            .term
-            .successors()
-            .iter()
-            .any(|s| reaches_call[s.0 as usize]);
         let mut insts = Vec::with_capacity(old.len() + 4);
         for (k, inst) in old.iter().enumerate() {
             insts.push(inst.clone());
             if let Inst::Loc {
                 line, ..
             } = inst
-                && calls_before_next_loc(&old[k + 1..], term_calls)
+                && line_stores[original].contains(&k)
             {
                 let value = e.iconst(&mut insts, Ty::I32, *line as u64);
                 insts.push(Inst::Store {
@@ -469,6 +502,195 @@ fn instrument_func(
         }
         e.func.blocks[b].insts = insts;
     }
+}
+
+/// Per block, the positions of the `Loc`s whose line must be recorded: the statement makes a call.
+fn line_stores(blocks: &[Block]) -> Vec<Vec<usize>> {
+    let reaches_call = reaches_call_from_entry(blocks);
+    blocks
+        .iter()
+        .map(|block| {
+            let term_calls = block
+                .term
+                .successors()
+                .iter()
+                .any(|s| reaches_call[s.0 as usize]);
+            block
+                .insts
+                .iter()
+                .enumerate()
+                .filter(|(k, inst)| {
+                    matches!(inst, Inst::Loc { .. })
+                        && calls_before_next_loc(&block.insts[k + 1..], term_calls)
+                })
+                .map(|(k, _)| k)
+                .collect()
+        })
+        .collect()
+}
+
+/// The block the node must be pushed in front of: the closest one that every path to a use of the
+/// node goes through and that runs at most once per call (the entry when there is no such block).
+/// A procedure's early exits that touch nothing the node is for then skip the push and the pop's
+/// effect. It is the entry for anything that is not plainly shaped.
+fn push_block(func: &Func, line_stores: &[Vec<usize>]) -> usize {
+    let blocks = &func.blocks;
+    let (slot_addr, loaded) = context_values(func);
+    let is_context = |v: Val| v == Val(0) || Some(v) == slot_addr || loaded.contains(&v);
+    let needs_node = |b: usize| {
+        let block = &blocks[b];
+        if !line_stores[b].is_empty() {
+            return true;
+        }
+        for inst in &block.insts {
+            match inst {
+                // Callees, and what reports a failure or the place it happened, can read the node.
+                Inst::Call(_) => return true,
+                Inst::Intrinsic(call)
+                    if matches!(
+                        call.op,
+                        Intrinsic::Trap
+                            | Intrinsic::BoundsCheck
+                            | Intrinsic::CheckFailed
+                            | Intrinsic::DebugBreak
+                            | Intrinsic::ReturnAddress
+                    ) =>
+                {
+                    return true;
+                }
+                // Keeping the parameter, or a value read back, in the slot.
+                Inst::Store {
+                    addr,
+                    value,
+                    ..
+                } if Some(*addr) == slot_addr && Some(*value) != slot_addr => continue,
+                Inst::Load {
+                    addr, ..
+                } if Some(*addr) == slot_addr => continue,
+                _ => {}
+            }
+            let mut used = false;
+            inst_vals(inst, &mut |_| {}, &mut |v| used |= is_context(v));
+            if used {
+                return true;
+            }
+        }
+        let mut used = false;
+        term_uses(&block.term, &mut |v| used |= is_context(v));
+        used
+    };
+
+    // Reverse post-order of the blocks reachable from the entry.
+    let count = blocks.len();
+    let mut order = Vec::with_capacity(count);
+    let mut seen = vec![false; count];
+    let mut stack = vec![(0usize, 0usize)];
+    seen[0] = true;
+    while let Some((b, i)) = stack.pop() {
+        let successors = blocks[b].term.successors();
+        if let Some(next) = successors.get(i) {
+            stack.push((b, i + 1));
+            let next = next.0 as usize;
+            if !seen[next] {
+                seen[next] = true;
+                stack.push((next, 0));
+            }
+        } else {
+            order.push(b);
+        }
+    }
+    order.reverse();
+    let mut rank = vec![usize::MAX; count];
+    for (r, &b) in order.iter().enumerate() {
+        rank[b] = r;
+    }
+    let mut preds: Vec<Vec<usize>> = vec![Vec::new(); count];
+    for &b in &order {
+        for s in blocks[b].term.successors() {
+            preds[s.0 as usize].push(b);
+        }
+    }
+    // Immediate dominators.
+    let mut idom = vec![usize::MAX; count];
+    idom[0] = 0;
+    let mut changed = true;
+    while changed {
+        changed = false;
+        for &b in order.iter().skip(1) {
+            let mut new = usize::MAX;
+            for &p in &preds[b] {
+                if idom[p] == usize::MAX {
+                    continue;
+                }
+                new = if new == usize::MAX {
+                    p
+                } else {
+                    let (mut x, mut y) = (p, new);
+                    while x != y {
+                        while rank[x] > rank[y] {
+                            x = idom[x];
+                        }
+                        while rank[y] > rank[x] {
+                            y = idom[y];
+                        }
+                    }
+                    x
+                };
+            }
+            if new != idom[b] {
+                idom[b] = new;
+                changed = true;
+            }
+        }
+    }
+    let mut target = usize::MAX;
+    for &b in &order {
+        if !needs_node(b) {
+            continue;
+        }
+        target = if target == usize::MAX {
+            b
+        } else {
+            let (mut x, mut y) = (b, target);
+            while x != y {
+                while rank[x] > rank[y] {
+                    x = idom[x];
+                }
+                while rank[y] > rank[x] {
+                    y = idom[y];
+                }
+            }
+            x
+        };
+    }
+    if target == usize::MAX {
+        return 0;
+    }
+    // A block inside a loop would push again on every pass.
+    while target != 0 && on_cycle(blocks, target) {
+        target = idom[target];
+    }
+    target
+}
+
+/// Whether `block` can be reached again after leaving it.
+fn on_cycle(blocks: &[Block], block: usize) -> bool {
+    let mut seen = vec![false; blocks.len()];
+    let mut work: Vec<usize> = blocks[block]
+        .term
+        .successors()
+        .iter()
+        .map(|s| s.0 as usize)
+        .collect();
+    while let Some(b) = work.pop() {
+        if b == block {
+            return true;
+        }
+        if !std::mem::replace(&mut seen[b], true) {
+            work.extend(blocks[b].term.successors().iter().map(|s| s.0 as usize));
+        }
+    }
+    false
 }
 
 /// A statement's line matters only if it makes a call (the callee reads it from our node).
