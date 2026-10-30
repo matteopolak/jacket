@@ -1726,14 +1726,6 @@ File_Watcher.add_directories
 File_Watcher.deinit
 File_Watcher.init
 File_Watcher.process_changes
-Flat_Pool
-Flat_Pool.Flat_Pool
-Flat_Pool.example
-Flat_Pool.fini
-Flat_Pool.flat_pool_allocator_proc
-Flat_Pool.get
-Flat_Pool.init
-Flat_Pool.reset
 Float16
 Float16.Float16
 Float16.Matrix3_Float16

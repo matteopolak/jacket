@@ -2,6 +2,35 @@
 
 CAPS_VERSION_STRING :: "modules/Flat_Pool";
 
+// A bump allocator over one contiguous range of reserved address space, committed page by page as it is used.
+//
+// `init` reserves `reserve` bytes of address space (256 MiB by default, rounded up to whole pages) without
+// using memory; `get` hands out aligned slices of it from the start, committing pages when the bump point
+// crosses into them. Everything stays at a fixed address, so growth never moves earlier allocations, which
+// makes it suitable for data that points into itself. Running out of the reserved range fails an assert,
+// so choose `reserve` for the largest use. Memory is not zeroed, nor is it ever freed piecemeal:
+// the allocator interface ignores free, and a resize copies.
+//
+// `reset` rewinds to the start and keeps the committed pages for reuse; `fini` releases the whole range back
+// to the OS. A zeroed `Flat_Pool` is initialized by the first `get`. Not thread safe. Only available where the
+// platform has virtual memory (macOS, Linux, Android and Windows).
+//
+// Module parameters: `DEFAULT_VIRTUAL_MEMORY_RESERVE` is the default reserve, and `OVERWRITE_ALL_POOLS_ON_RESET`
+// fills reset memory with `0xcc` for every pool.
+//
+// ```jai
+// pool: Flat_Pool;
+// init(*pool, 1024 * 1024);
+// defer fini(*pool);
+//
+// first := cast(*int) get(*pool, size_of(int));
+// first.* = 7;
+// for 0..9999 get(*pool, 64); // growing never moves `first`
+// assert(first.* == 7);
+//
+// reset(*pool);
+// assert(get(*pool, size_of(int)) == first); // the same memory comes back
+// ```
 Flat_Pool :: struct {
     alignment: s32 = 8;
     current_point: *u8;
@@ -11,6 +40,10 @@ Flat_Pool :: struct {
 }
 
 #if OS == .MACOS || OS == .LINUX || OS == .ANDROID || OS == .WINDOWS {
+    // Reserves `reserve` bytes of address space for the pool, rounded up to a whole number of pages, and starts it empty.
+    //
+    // The pool must not be initialized already (`fini` it first). An unusable reservation, a size of zero or
+    // less, or a failed OS call fails an assert.
     init :: (using pool: *Flat_Pool, reserve := DEFAULT_VIRTUAL_MEMORY_RESERVE) {
         assert(memory_base == null, "flat pool must be finalized before initialization");
         assert(reserve > 0, "flat-pool reservation must be positive");
@@ -32,6 +65,9 @@ Flat_Pool :: struct {
         address_limit = base + extent;
     }
 
+    // Returns `nbytes` bytes aligned to the pool's `alignment`, initializing the pool first if needed, or `null` if the OS refuses to commit the pages.
+    //
+    // Exhausting the reserved range fails an assert instead. The memory is uninitialized.
     get :: (using pool: *Flat_Pool, nbytes: s64) -> *void {
         assert(nbytes >= 0 && alignment > 0 && (alignment & (alignment - 1)) == 0, "invalid flat-pool request/alignment");
         if !memory_base init(pool);
@@ -70,6 +106,10 @@ Flat_Pool :: struct {
         return cast(*void) aligned;
     }
 
+    // Rewinds the pool so the next `get` starts at the beginning; the committed pages stay committed.
+    //
+    // With `overwrite_memory`, or the module parameter `OVERWRITE_ALL_POOLS_ON_RESET`, the used part is first filled with
+    // `0xcc`. All earlier pointers are invalid. Does nothing on an uninitialized pool.
     reset :: (using pool: *Flat_Pool, overwrite_memory := false) {
         if !memory_base return;
         assert(current_point >= memory_base && current_point <= first_uncommitted_page, "invalid flat-pool allocated extent");
@@ -77,6 +117,7 @@ Flat_Pool :: struct {
         current_point = memory_base;
     }
 
+    // Returns the whole reservation to the OS and leaves the pool uninitialized, so a later `get` starts over. Safe on a pool that never allocated.
     fini :: (using pool: *Flat_Pool) {
         if !memory_base return;
 
@@ -94,6 +135,10 @@ Flat_Pool :: struct {
         address_limit = null;
     }
 
+    // The `Allocator_Proc` for a flat pool: use it as `Allocator.{ flat_pool_allocator_proc, *pool }`.
+    //
+    // Allocate and resize take from the pool (resize copies); free does nothing; startup initializes it and shutdown
+    // calls `fini`. It reports `IS_THIS_YOURS` for addresses in the part of the range used so far.
     flat_pool_allocator_proc :: (mode: Allocator_Mode, requested_size: s64, old_size: s64, old_memory: *void, allocator_data: *void) -> *void {
         if mode == .CAPS {
             if old_memory {
@@ -138,6 +183,7 @@ Flat_Pool :: struct {
         return null;
     }
 
+    // A small demonstration: initialize, allocate, reset with overwrite, finalize. It exists as a smoke test and is not part of the API.
     example :: () {
         pool: Flat_Pool;
 
