@@ -82,6 +82,19 @@ impl Compiler {
                         }
                     }
                     let matching = unique;
+                    // A procedure declared inside a procedure hides module-level ones of its name.
+                    let depth = |c: &Self, p: ProcId| c.scope(c.proc(p).scope).proc_depth;
+                    let deepest = matching.iter().map(|&p| depth(self, p)).max().unwrap_or(0);
+                    let nearest: Vec<ProcId> = matching
+                        .iter()
+                        .copied()
+                        .filter(|&p| depth(self, p) == deepest)
+                        .collect();
+                    let matching = if deepest > 0 && nearest.len() == 1 {
+                        nearest
+                    } else {
+                        matching
+                    };
                     return match matching.as_slice() {
                         [one] => Ok(Operand::Procs(vec![*one])),
                         [] => err(
