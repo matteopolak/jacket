@@ -15,7 +15,8 @@ UNI_REPLACEMENT_CHAR :: 0x0000fffd;
 UNI_MAX_BMP :: 0x0000ffff;
 // The highest code point Unicode defines, U+10FFFF. Strict decoding and encoding reject anything above it.
 UNI_MAX_UTF16 :: 0x0010ffff;
-// The highest value non-strict decoding returns, 0x7FFFFFFF. A larger value decodes as `UNI_REPLACEMENT_CHAR`.
+// The highest value the six byte form of UTF-8 can carry, 0x7FFFFFFF. No decoder here returns a value above
+// `UNI_MAX_UTF16`; the longer forms decode as `UNI_REPLACEMENT_CHAR`.
 UNI_MAX_UTF32 :: 0x7fffffff;
 // For a sequence of n + 1 bytes, the amount that classic decoders subtract after adding up the bytes
 // shifted by six bits each. A table for hand-written decoders; the procedures here do not need it.
@@ -49,10 +50,10 @@ trailingBytesForUTF8 :: #run trailing_table();
 // `UNI_REPLACEMENT_CHAR` with `SOURCE_ILLEGAL`, and the bytes consumed are the lead byte and the continuation
 // bytes that were fine, so decoding can resume at the offending byte (a stray continuation byte takes just itself).
 //
-// Without `strict`, which is the default, a well-formed sequence is decoded as it is even when its value
-// is overlong, a surrogate or above `UNI_MAX_UTF16`; values above `UNI_MAX_UTF32` become `UNI_REPLACEMENT_CHAR`
-// with `CONVERSION_OK`. With `strict`, such a value gives `SOURCE_ILLEGAL` with the replacement character and
-// the whole sequence consumed.
+// A well-formed sequence with no character behind it (an overlong encoding, a surrogate from `0xD800` to
+// `0xDFFF`, or a value above `UNI_MAX_UTF16`) gives `UNI_REPLACEMENT_CHAR` and takes the whole sequence. With
+// `strict` the result is `SOURCE_ILLEGAL`; without it, which is the default, the sequence is replaced quietly with
+// `CONVERSION_OK`, so the result is always a Unicode scalar value.
 //
 // ```jai
 // code, size, status := character_utf8_to_utf32("\xe2\x82\xac".data, 3);
@@ -65,6 +66,9 @@ trailingBytesForUTF8 :: #run trailing_table();
 // stray := "\x80";
 // code, size, status = character_utf8_to_utf32(stray.data, stray.count);
 // assert(status == .SOURCE_ILLEGAL && code == UNI_REPLACEMENT_CHAR && size == 1);
+//
+// code, size, status = character_utf8_to_utf32(bad.data, bad.count);
+// assert(status == .CONVERSION_OK && code == UNI_REPLACEMENT_CHAR && size == 2);
 // ```
 character_utf8_to_utf32 :: (s: *u8, source_length: s64, $strict := false) -> u32, s64, Unicode_Result #no_aoc {
     if source_length <= 0 return UNI_REPLACEMENT_CHAR, 0, .SOURCE_EXHAUSTED;
@@ -96,13 +100,12 @@ character_utf8_to_utf32 :: (s: *u8, source_length: s64, $strict := false) -> u32
         for i: 1..trailing value = (value << 6) | continuation(s[i]);
     }
 
-    #if strict {
-        minimum: [6] u32 : .[0, 0x80, 0x800, 0x10000, 0x200000, 0x4000000];
-        if value < minimum[trailing] || value > UNI_MAX_UTF16 || (value >= 0xd800 && value <= 0xdfff)
-            return UNI_REPLACEMENT_CHAR, length, .SOURCE_ILLEGAL;
+    // Overlong forms, surrogates and values past U+10FFFF are well-formed bytes with no character behind them.
+    minimum: [6] u32 : .[0, 0x80, 0x800, 0x10000, 0x200000, 0x4000000];
+    if value < minimum[trailing] || value > UNI_MAX_UTF16 || (value >= 0xd800 && value <= 0xdfff) {
+        #if strict return UNI_REPLACEMENT_CHAR, length, .SOURCE_ILLEGAL;
+        else return UNI_REPLACEMENT_CHAR, length, .CONVERSION_OK;
     }
-
-    if value > UNI_MAX_UTF32 value = UNI_REPLACEMENT_CHAR;
 
     return value, length, .CONVERSION_OK;
 }

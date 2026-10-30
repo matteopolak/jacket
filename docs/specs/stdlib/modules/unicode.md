@@ -9,7 +9,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - `UNI_REPLACEMENT_CHAR :: 0x0000FFFD`
 - `UNI_MAX_BMP :: 0x0000FFFF`
 - `UNI_MAX_UTF16 :: 0x0010FFFF`
-- `UNI_MAX_UTF32 :: 0x7FFFFFFF`
+- `UNI_MAX_UTF32 :: 0x7FFFFFFF` (the most a six byte sequence can carry; decoding never returns a value above `UNI_MAX_UTF16`)
 - `character_utf8_to_utf32 :: (s: *u8, source_length: s64, $strict := false) -> u32, s64, Unicode_Result`
 - `character_utf32_to_utf8 :: (ch: u32, preallocated_string: *string)`
 - `character_utf32_to_utf8 :: (ch: u32) -> string`
@@ -43,7 +43,7 @@ Unicode_Result :: enum {
 `offsetsFromUTF8` and `firstByteMark` are typed initialized constants (the declarations use `: Type : initializer`), with values `[0x00000000, 0x00003080, 0x000E2080, 0x03C82080, 0xFA082080, 0x82082080]` and `[0x00, 0x00, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC]` respectively. Encoding consults `firstByteMark`; decoding keeps only the payload bits of each byte (the lead byte masked by its sequence length, each continuation byte's low six bits), so `offsetsFromUTF8` is informational. These lookup tables are not caller-mutable storage.
 ## Behavioral contract
 
-UTF-8 decoding returns a code point, consumed byte count, and `Unicode_Result`. A broken byte structure (a continuation byte where a character should start, or a non-continuation byte inside a character) is `SOURCE_ILLEGAL` with U+FFFD in both modes; the consumed count is the lead byte plus the good continuation bytes before the bad one, so it is never 0 and decoding can resume at the bad byte (a stray continuation byte consumes just itself). Strict mode additionally reports overlong encodings, surrogates, and scalar values above U+10FFFF as `SOURCE_ILLEGAL`, consuming the complete sequence; non-strict mode decodes such well-formed sequences as they are (values above `UNI_MAX_UTF32` become U+FFFD). If the input ends before the expected sequence length and the bytes present are fine, the decoder returns `SOURCE_EXHAUSTED`, U+FFFD, and consumes all remaining input bytes.
+UTF-8 decoding returns a code point, consumed byte count, and `Unicode_Result`. A broken byte structure (a continuation byte where a character should start, or a non-continuation byte inside a character) is `SOURCE_ILLEGAL` with U+FFFD in both modes; the consumed count is the lead byte plus the good continuation bytes before the bad one, so it is never 0 and decoding can resume at the bad byte (a stray continuation byte consumes just itself). A well-formed sequence with no character behind it (an overlong encoding, a surrogate U+D800 to U+DFFF, or a value above U+10FFFF, including the five and six byte forms) consumes the complete sequence and gives U+FFFD in both modes; strict mode reports it as `SOURCE_ILLEGAL`, non-strict mode as `CONVERSION_OK`, so a non-strict result is always a Unicode scalar value. The official decoder returns the raw value in non-strict mode; Jacket does not. If the input ends before the expected sequence length and the bytes present are fine, the decoder returns `SOURCE_EXHAUSTED`, U+FFFD, and consumes all remaining input bytes.
 
 `utf8_next_character` calls the decoder in its non-strict default mode, then advances `s.data` and reduces `s.count` by exactly the returned byte count regardless of status. Consequently an incomplete trailing sequence is replaced and consumes the entire remainder. This helper returns zero consumed bytes only for an empty string; callers must use the status.
 
