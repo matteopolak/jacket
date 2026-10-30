@@ -67,6 +67,8 @@ Any script under `tools/` that defines `OUTPUTS` is run (that is how `tools/corp
 
 `generate_version_files.py` writes `jaifmt/version.jai` and `editors/nvim/lua/jai/version.lua` from the `Cargo.toml` version; `tools/bump_version.py` runs it.
 
+`generate_reference_docs.py` writes `docs/reference/` (the environment variables, the lint rules and the command-line help) from the tools themselves: it builds and runs `jacket-config`'s `env_reference` and `jailint`'s `lint_reference` examples and the `--help` of `jaic`, `jailint` and `jacket`, so a CI run builds those binaries. Edit the code that defines a variable, rule or flag, not the pages.
+
 `generate_socket_abi.py` reads `docs/specs/stdlib/modules/socket.md` with the spec parser of `native_bindings/spec.py`, so a parser change can move the Socket ABI files too.
 
 ## How tests are discovered

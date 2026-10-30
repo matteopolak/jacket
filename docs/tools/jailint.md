@@ -19,7 +19,7 @@ Other options (see `--help`): `--compile-time-budget <steps>` (steps one compile
 ## How it works
 
 1. **Plan** (`driver/plan.rs`, with `driver/claims.rs` for which root owns a file). Paths become `.jai` files minus `exclude`. `module.jai` and files directly in an import directory are modules, compiled by importing them from an empty program so every procedure is checked. A file that a module (or a nearby program) `#load`s is compiled as part of that module or program (`enclosing_module`, `enclosing_program`); otherwise `unused_parameter` would flag a module's exported interface. Only the listed files are reported. Each root is compiled with `jaic::project::program_for`'s import folders ([project](../compiler/project.md#import-paths)): the root's `modules/`, the `import_path` of the nearest `jacket.toml` (as `jacket` passes it to `jaic`), `-I` folders, the stdlib.
-2. **Compile** (`driver/compile.rs`, over `jaic::ide::LintCompile`, the same lint compile the language server uses, so both lint one compile) with lint facts on (`IdeFacts::lint`): per-expression types and constness, cast types, every entity a name resolved to, and which import answered each lookup. Compile-time code runs in the sandboxed host with a block budget per evaluation and a wall-clock limit per root (`--compile-time-budget`, `--check-time-limit`, [limits](../compiler/compile-time-limits.md); a stopped root is reported as incomplete); workspaces a metaprogram creates are linted too (`jaic::build::WorkspaceObserver`).
+2. **Compile** (`driver/compile.rs`, over `jaic::ide::lint_compile::LintCompile`, the same lint compile the language server uses, so both lint one compile) with lint facts on (`IdeFacts::lint`): per-expression types and constness, cast types, every entity a name resolved to, and which import answered each lookup. Compile-time code runs in the sandboxed host with a block budget per evaluation and a wall-clock limit per root (`--compile-time-budget`, `--check-time-limit`, [limits](../compiler/compile-time-limits.md); a stopped root is reported as incomplete); workspaces a metaprogram creates are linted too (`jaic::build::WorkspaceObserver`).
 3. **Lint** (`lib.rs`, driven from `driver/lint_root.rs`). Re-parse, build suppressions, collect procedure bodies and whether every instance checked fully, then run each enabled rule. Where the compiler did not look (an `#if` branch left out, a failed body) rules fall back to text and stay quiet.
 4. **Leak pass** (`driver/leak.rs`, only when `platform_leak` is on). Each root whose entry file is portable is compiled again for every target system with `Compiler::keep_going_past_asserts`; `jaic` notes each `#import`/`#load` it meets and each failing `#assert` (`sema/import_trace.rs`). `rules::platform_leak::analyze` turns those into findings. The failed asserts, with the chain of import sites to each, are also in `Outcome::failed_asserts`.
 5. **Report.** `--fix` applies non-overlapping machine-applicable fixes and re-lints, up to 5 passes (`fix.rs`). The language server's `source.fixAll.jailint` applies one pass. A file reached from several roots is reported once.
@@ -77,130 +77,15 @@ To change what a rule recognises, annotate the declaration; `jailint` has no nam
 
 ## Rules
 
-Every rule belongs to one category, and the category sets its default level, as in clippy:
-
-| Category | Default | What |
-| --- | --- | --- |
-| `correctness` | deny | code that is wrong: it does not do what it says |
-| `suspicious` | warn | code that is most likely wrong, or does nothing |
-| `complexity` | warn | code that says something in a roundabout way |
-| `style` | warn | code that works but is not written the usual way |
-| `perf` | warn | code that could be faster |
-| `pedantic` | allow | stricter checks with more false positives |
-| `restriction` | allow | checks that forbid things a project may choose to avoid |
+Every rule belongs to one category, and the category sets its default level, as in clippy: `correctness` denies, `suspicious`, `complexity`, `style` and `perf` warn, `pedantic` and `restriction` are off. [The lint reference](../reference/lint-rules.md) lists the categories and every rule with its category, default and a one-line summary.
 
 A category name works wherever a rule name does: `[lint.rules] pedantic = "warn"`, `-W pedantic`, `// jailint: allow(suspicious)`. In `[lint.rules]` a rule's own entry wins over its category's; on the command line later flags win (`-W pedantic -A magic_number`). `deny` findings are errors: the run exits 1 and editors show them as errors. `jailint --list` prints each rule's category and default.
 
-Columns: `yes` means `--fix` applies the fix; `editor` means the fix may change behaviour, so it is only a quick fix in the editor; `no` means none. "Side-effect-free" below means names, member paths, literals, indexing, casts and operators: no calls. Rules that compare expressions compare them as written, ignoring whitespace. A rule is removed once `jaic` rejects what it found; a `[lint.rules]` table naming a removed rule fails with `unknown rule`.
+"Side-effect-free" below means names, member paths, literals, indexing, casts and operators: no calls. Rules that compare expressions compare them as written, ignoring whitespace. A rule is removed once `jaic` rejects what it found; a `[lint.rules]` table naming a removed rule fails with `unknown rule`.
 
-Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comment saying exactly when it fires, and `tests/lint/<rule>/` has `bad.jai` (+ the snapshot `bad.snap`, `bad.fixed.jai`) and `good.jai`. The `every_rule_is_documented` test requires a table row and a `### <rule>` section here, because editors link to the anchor.
+Each rule's source (`crates/jailint/src/rules/<rule>.rs`) opens with a doc comment saying exactly when it fires, and `tests/lint/<rule>/` has `bad.jai` (+ the snapshot `bad.snap`, `bad.fixed.jai`) and `good.jai`. The `every_rule_is_documented` test requires a `### <rule>` section here, because editors link to the anchor.
 
-| Rule | Category | Default | Fix | Finds |
-| --- | --- | --- | --- | --- |
-| `absurd_comparison` | correctness | deny | editor | `u >= 0`, `u < 0` with an unsigned `u`: always true or false |
-| `almost_swapped` | correctness | deny | editor | `a = b; b = a;`, a swap that sets both to `b` |
-| `approx_constant` | style | warn | editor | `3.14159`, `6.2832`, `1.4142`: a hand-typed approximation of a constant `Math` has (`PI`, `TAU`, `SQRT2`, ...) |
-| `assert_constant` | style | warn | yes | `assert(true, "...")`, `#assert true;`: an assertion whose condition is the literal `true`. `assert(false, ...)` is a deliberate failure and is not reported |
-| `autocast_in_arg` | restriction | allow | editor | `draw(xx width, xx height)`: the callee's parameter types decide the conversions |
-| `autocast_used` | restriction | allow | editor | `small: u8 = xx big;`, `return xx count;`: a conversion whose target type is left to the context |
-| `bad_bit_mask` | correctness | deny | editor | `(x & 4) == 1`, `(x | 2) == 0`: a comparison of a masked value with a constant the mask makes unreachable |
-| `banner_comment` | style | warn | yes | a comment that is only a line of `-`, `=` or `*` fencing off a section |
-| `bitwise_precedence` | suspicious | warn | yes | `1 << n - 1`, `flags \| 1 << 3`: bitwise operators that group unlike C |
-| `bool_comparison` | complexity | warn | yes | `x == true`, `x != false`, `false == x` |
-| `bool_to_int_with_if` | pedantic | allow | editor | `ifx flag then 1 else 0`, `if flag n = 1; else n = 0;`: a `bool` converted to an integer by a branch rather than `cast(int) flag` |
-| `broken_doc_link` | style | warn | editor | a doc-comment link (`[prnt]`, `[Type.fild]`) that names no declaration |
-| `cognitive_complexity` | pedantic | allow | no | a procedure whose branching, weighted by how deeply it nests, scores above `max_complexity` (default 25) |
-| `constant_condition` | suspicious | warn | no | an `if` or `while` whose condition is always true or always false, by the compiler's value ranges |
-| `defer_frees_returned` | correctness | deny | editor | `defer free(p);` then `return p;`: the caller gets memory the `defer` already released |
-| `defer_in_loop` | suspicious | warn | no | a `defer` in a loop body that cleans up something from outside the loop |
-| `detached_doc_comment` | pedantic | allow | editor | `// Adds one to n.` and a blank line before `bump :: (n: int) -> int`: a comment that reads as docs but is not attached |
-| `double_free` | correctness | deny | editor | `free(p); free(p);`: a variable freed twice by the same procedure with nothing in between |
-| `dropped_result` | suspicious | warn | editor | `n := to_integer(s);`: a call that keeps fewer values than it returns and whose next value is a `bool`, usually "did it work" |
-| `duplicate_condition` | suspicious | warn | editor | an `else if` that repeats an earlier condition and can never run |
-| `element_count_as_bytes` | correctness | deny | yes | `memcpy(d, xs.data, xs.count)` with `xs: [] s32`: an element count passed where a `@TakesByteCount` procedure wants bytes |
-| `enum_member_prefix` | style | warn | no | `Color :: enum { COLOR_RED; COLOR_GREEN; }`: members that repeat the enum's name, which `Color.RED` already says |
-| `erasing_op` | suspicious | warn | editor | `x * 0`, `x & 0`, `x % 1`: always `0` |
-| `excessive_bools` | restriction | allow | no | `open :: (path: string, read: bool, write: bool, create: bool, truncate: bool)` |
-| `excessive_nesting` | pedantic | allow | no | blocks nested deeper than `max_nesting` (default 6) |
-| `exit_in_module` | restriction | allow | no | `exit(1)` in a file that belongs to a module |
-| `field_reassign_with_default` | pedantic | allow | editor | `config: Config; config.width = 80; config.height = 24;` |
-| `float_equality` | pedantic | allow | no | `==` or `!=` between two computed floats |
-| `float_loop_counter` | pedantic | allow | no | `while t < 1.0 { ...; t += 0.1; }`: rounding error decides how many times it runs |
-| `format_push_string` | perf | warn | editor | `append(*builder, tprint("%: %\n", name, value))`: `print_to_builder` writes into the builder directly |
-| `identical_branches` | suspicious | warn | editor | `if c { A } else { A }`, `ifx c then a else a` |
-| `identical_case_bodies` | pedantic | allow | editor | `case .PNG; return "image"; case .JPEG; return "image";`: cases that do the same thing and could be `case .PNG, .JPEG;` |
-| `identical_operands` | suspicious | warn | no | `a == a`, `x - x`, `ok && ok` |
-| `identity_op` | complexity | warn | yes | `x + 0`, `x * 1`, `x / 1` |
-| `if_not_else` | pedantic | allow | editor | `if !ready { ... } else { ... }`, `if a != b { ... } else { ... }`, `ifx !c then x else y`: a negation the swapped branches would not need |
-| `impossible_comparison` | correctness | deny | editor | `x > 5 && x < 3`, `x != 1 \|\| x != 2`: comparisons of one integer that never pass together, or always pass between them |
-| `incomplete_enum_switch` | pedantic | allow | no | `if kind == { case .CIRCLE; ...; case .SQUARE; ...; }` with `TRIANGLE` left out and no `#complete` or `case;` |
-| `index_only_loop` | complexity | warn | yes | `for i: 0..xs.count-1` where `i` only indexes the array or string `xs` |
-| `infinite_loop` | suspicious | warn | no | a `while` whose condition nothing in the loop changes |
-| `int_plus_one` | complexity | warn | editor | `x >= y + 1`, `x - 1 >= y`, `x + 1 <= y`, `x <= y - 1`: an integer comparison with `1` added or taken off, which is a strict comparison |
-| `integer_division_in_float` | suspicious | warn | editor | `cast(float)(a / b)`, `1 / 2 * w`: an integer quotient used as a float |
-| `large_stack_array` | pedantic | allow | no | `scratch: [1 << 20] u8;` as a local: a megabyte of stack |
-| `leaked_allocation` | pedantic | allow | editor | `p := New(T);` that is never freed, returned or handed on |
-| `loop_with_break_condition` | complexity | warn | yes | `while true { if i >= n break; ... }`: a loop that opens by leaving when a test fails, which is the `while` condition |
-| `leaked_temporary` | suspicious | warn | no | `if sprint("%", n) == "7"`, `print("%", sprint(...))`: an `@Allocates` result that is compared, measured, indexed or printed and nothing can free |
-| `lossy_float_literal` | style | warn | yes | `pi: float32 = 31415.92653;`: digits a `float32` cannot hold |
-| `lossy_xx` | pedantic | allow | yes | `xx` that narrows a number to a smaller type |
-| `magic_number` | pedantic | allow | no | `if x > 37`, `y * 1.0472`, `timeout = 8640`: an unexplained number where a named constant would read better |
-| `manual_array_find` | complexity | warn | no | `for xs { if it == wanted { found = true; break; } }` |
-| `manual_assign_op` | complexity | warn | yes | `a = a + b` to `a += b` |
-| `manual_clamp` | complexity | warn | editor | `max(0, min(100, x))`, `if x < 0 { x = 0; } else if x > 100 { x = 100; }`, `ifx v < lo then lo else ifx v > hi then hi else v`: a hand-written `clamp` |
-| `manual_index_counter` | complexity | warn | yes | a counter kept next to a `for` loop that always equals `it_index` |
-| `manual_memcpy` | perf | warn | no | `for i: 0..count-1 { dst[i] = src[i]; }` |
-| `min_max` | correctness | deny | editor | `min(0, max(100, x))`: a clamp with swapped bounds |
-| `misrefactored_assign_op` | correctness | deny | editor | `total += total + x;`: a compound assignment whose right side repeats the target and the operator, which was probably `total = total + x;` rewritten halfway |
-| `missing_doc` | restriction | allow | no | `parse :: (text: string) -> Tree { ... }` with no comment above it |
-| `mixed_case_hex_literals` | style | warn | editor | `0xDeadbeef`, `0xFFfF`: a hex literal whose letters are in both cases |
-| `modified_range_bound` | suspicious | warn | no | `for 0..n-1 { ...; n -= 1; }`: the range was fixed before the first iteration, so the change does not reach the loop |
-| `needless_bool` | complexity | warn | yes | `ifx c then true else false`, `if c return true; else return false;` |
-| `needless_continue` | style | warn | yes | `for xs { work(it); continue; }`, `if c { work(); continue; }` ending a loop: a `continue` the loop would have done anyway |
-| `neg_cmp_float` | pedantic | allow | editor | `!(x < limit)` with floats: not the same as `x >= limit` for NaN |
-| `neg_multiply` | style | warn | yes | `x * -1`, `-1 * x`, `f * -1.0`: a multiplication by minus one, which is a negation |
-| `no_effect` | suspicious | warn | editor | `x == 5;`, `count + 1;`, `flush;`: a statement that does nothing |
-| `platform_leak` | restriction | allow | no | `#import "POSIX";` in code held to every operating system: it fails to compile on Windows |
-| `pointer_into_resizable` | suspicious | warn | no | `p := *xs[i]; array_add(*xs, v); use(p);`: a pointer into a resizable array used after the array may have moved |
-| `print_in_module` | restriction | allow | no | `print(...)` or `write_string(...)` in a file that belongs to a module |
-| `push_in_static_if` | suspicious | warn | no | `push_allocator(a);` directly in an `#if` arm: it lasts to the end of the procedure, not the arm |
-| `range_past_count` | correctness | deny | editor | `for i: 0..xs.count` indexing `xs[i]`: one past the end |
-| `redundant_alias` | complexity | warn | yes | a local only copied into another local (`a := f(); b := a;`) or returned right away |
-| `redundant_cast` | complexity | warn | yes | a cast to the type the value already has |
-| `redundant_deref` | complexity | warn | yes | `p.*.field` with `p: *Point`: member access already looks through a pointer to a struct |
-| `remove_in_for` | correctness | deny | editor | `array_*_remove_*` on the array a `for` is walking |
-| `returned_local_address` | correctness | deny | no | `return *x;`, `return *x.field;`, `return buffer.data;` with `x` or `buffer` a local: a pointer into a stack frame that is gone |
-| `reversed_range` | correctness | deny | editor | `for i: 10..0`: a range that never runs |
-| `self_assignment` | suspicious | warn | editor | `x = x;` |
-| `shadowed_it` | suspicious | warn | no | a nested `for` hides an `it` the enclosing loop still uses |
-| `shadowed_local` | pedantic | allow | no | `count := 10;` inside an `if` in a procedure with a parameter `count`: a local that hides another of the same procedure |
-| `shift_overflow` | suspicious | warn | no | `x << 40` with `x: s32`, `small << 8` with `small: u8`: a shift that moves every bit out |
-| `single_case_switch` | style | warn | editor | `if mode == { case .VERBOSE; ...; }`, with at most a default case: an `if` written as a `switch` |
-| `string_literal_write` | correctness | deny | editor | `s := "abc"; s[0] = x;`: a write into a string literal, which is read-only |
-| `temp_storage_escape` | pedantic | allow | no | `label = tprint("item %", id);` with `label` a global: temporary-storage memory kept past the next reset |
-| `todo_marker` | restriction | allow | no | `// TODO: handle the empty list` |
-| `too_many_arguments` | restriction | allow | no | `draw :: (x: int, y: int, w: int, h: int, r: u8, g: u8, b: u8, a: u8)` |
-| `unchecked_directive` | restriction | allow | no | `f :: () #no_abc { ... }` or `#asm { ... }` with no `//` comment on the line or the line above |
-| `unclosed_resource` | suspicious | warn | no | `builder: String_Builder; append(*builder, "x");` or `file, ok := file_open(p);` with nothing that closes it |
-| `uninit_read` | correctness | deny | editor | `total: int = ---; for xs total += it;`: a variable read before anything is written to it |
-| `unknown_allow` | suspicious | warn | editor | a `// jailint: allow(...)` comment naming a rule that does not exist |
-| `unnecessary_force_cast` | complexity | warn | yes | `cast,force(s64) a` with `a: s32`: nothing is reinterpreted and there is no range to check |
-| `unnecessary_semicolon` | style | warn | yes | `x = 1;;`, `if ready { ... };`: an empty statement |
-| `unpaired_lock` | suspicious | warn | editor | `lock(*m);` with a `return`, or the end of the procedure, reached before the matching unlock |
-| `unreadable_literal` | pedantic | allow | yes | `1000000`, `0xdeadbeef`, `1234567.5`: a long literal with no `_` between its digits |
-| `unsigned_range_end_minus_one` | suspicious | warn | no | `for i: 0..n-1` with `n: u32`: when `n` is `0`, `n - 1` wraps to the largest value |
-| `unused_import` | style | warn | yes | an `#import` nothing in its scope uses |
-| `unused_parameter` | style | warn | editor | a parameter the procedure never uses |
-| `unused_private_declaration` | suspicious | warn | no | `#scope_file` followed by `helper :: () { ... }` that nothing in the file mentions |
-| `unused_result` | suspicious | warn | editor | `trim(line);`: a call to a `@UseResult` procedure, as a statement |
-| `unused_suppression` | suspicious | warn | no | `x := 1; // jailint: allow(float_equality)`: a name in an allow comment or note that silences nothing |
-| `unused_variable` | style | warn | yes | a local variable that is never used |
-| `use_after_free` | correctness | deny | no | `free(p); print("%", p.x);`: a variable read after a `@FreesArgument` call freed it |
-| `useless_format` | complexity | warn | editor | `tprint("%", name)`, `sprint("%", name)` with `name: string`: a copy made through a string builder |
-| `useless_resizable` | perf | warn | no | `parts: [..] string;` followed by `array_add(*parts, "a"); array_add(*parts, "b");` and only reads |
-| `using_pollution` | pedantic | allow | no | `draw :: (count: int, using style: Style)` where `Style` has a `count` member: a `using` that brings in a name already in scope |
-| `wrapping_constant` | correctness | deny | editor | `(0xffff_ffff - 40) / h`, `h < 0x8000_0000` with `h: s32`: a constant that wraps |
-| `zero_ptr` | style | warn | editor | `cast(*u8) 0`: a null pointer written as a cast of zero |
+Each rule's section below says why it exists and what its fix does, if it has one (`--fix` applies a fix only when it cannot change behaviour; the editor offers the others as quick fixes).
 
 ### absurd_comparison
 An unsigned value is never below zero, so counting down an unsigned `i` with `while i >= 0` never stops. Only the bottom of a type is checked: aliases like `c_ulong` change width per platform.
@@ -489,8 +374,7 @@ The formatter is written in Jai and reads the `[format]` table itself; both tabl
 
 | Setting | Effect |
 | --- | --- |
-| `JAIC_STDLIB` | stdlib directory (default: next to the executable, else the checkout's) |
-| `INSTA_UPDATE=always` | with `cargo test -p jailint`, rewrite the `bad.snap` snapshots and the `bad.fixed.jai` files (see [the test harness](test-harness.md)) |
+| `JAIC_STDLIB`, `INSTA_UPDATE=always` | [environment variables](../reference/environment-variables.md): the stdlib directory, and with `cargo test -p jailint`, rewriting the `bad.snap` snapshots and the `bad.fixed.jai` files (see [the test harness](test-harness.md)) |
 | `--compile-time-budget`, `--check-time-limit` (`jaic::ide::lint_compile::CheckLimits`) | blocks per evaluation and seconds per program checked (each compile has its own clock, the leak pass's extra compiles too); the language server takes the same limits from the editor's settings |
 
 ## How to change it
@@ -501,7 +385,7 @@ The formatter is written in Jai and reads the `[format]` table itself; both tabl
 2. Add `<name>` to the `rules!` list in `rules/mod.rs`; that one list declares the module, adds `INFO` to `RULES` and the module to the tests. The schema build (`editors/vscode/scripts/build.ts schemas`) reads the same list and each module's `INFO`.
 3. Add `tests/lint/<name>/bad.jai` and `good.jai` (whole programs with `main`), then `INSTA_UPDATE=always cargo test -p jailint` and read the output.
 4. Run it over the repository and the upstream corpus with `-W <name>` and check every hit; a rule that is sometimes wrong costs more trust than it earns.
-5. Add the table row and a `### <name>` section here.
+5. Add a `### <name>` section here (the anchor editors link to), then regenerate the reference: `PYTHONPATH=tools python3 tools/generators/generate_reference_docs.py`. The rule's table row comes from its `INFO` summary.
 
 Inside a rule: `cx.procs` lists bodies (trust facts only for `p.clean` / `p.typed()`); `cx.ty`, `cx.constant`, `cx.entities(span)` and `cx.compiler.is_used` read facts; `cx.mentions` is the textual guard for unchecked code; `syntax::walk` does not enter nested procedures or struct bodies. A fix is byte edits; mark it `machine_applicable` only if it cannot change behaviour and the result still compiles (`fixed_cases_are_clean` re-lints `bad.fixed.jai`). New facts go in `IdeFacts` (`crates/jaic/src/ide/facts.rs`) behind `lint`.
 
@@ -513,4 +397,4 @@ Gotchas:
 
 ## Dependencies
 
-`crates/jaic` (parser, checker with lint facts, workspace observer, sandboxed host). `crates/jai-language-server` depends on `jailint` and shares `jailint::format_string`.
+`crates/jaic` (parser, checker with lint facts, workspace observer, sandboxed host). `crates/jai-language-server` depends on `jailint` and shares `jaic::format_string`.

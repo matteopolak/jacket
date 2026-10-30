@@ -29,24 +29,7 @@ What `jacket` adds is only the project:
 
 ## Commands
 
-```
-jacket build   Compile a program: `jaic <args>`, flags untouched
-jacket check   Type-check without writing anything: `jaic -check <args>`
-jacket run     Build, then run the program; arguments after `--` go to it
-jacket test    Build the tests once and run each in its own process (jacket-test.md)
-jacket bench   Build and measure the `@bench` procedures (jacket-bench.md)
-jacket lint    Lint with `jailint` (`--fix`, `-D warnings`, paths)
-jacket fmt     Format with `jaifmt` (`--check`, paths; the project by default)
-jacket lsp     Run the language server over stdio (`jailsp`)
-jacket new     Create a project in a new directory        (--lib for a library)
-jacket init    Create a project in the current directory  (--lib for a library)
-jacket config  show
-jacket clean   Remove the executable `jacket build` writes
-jacket version Print the version of jacket and of every tool it fronts
-jacket upgrade Install the latest release over this installation [--version TAG] [--check] [--yes]
-jacket jaic|jailint|jailsp|jaifmt <args>   The tool with exactly these arguments
-jacket <other> ...                         Runs `jacket-<other>` from PATH, as cargo does
-```
+`build`, `check`, `run`, `lint`, `fmt` and `lsp` front the tools of the same name; `test` and `bench` are [jacket test](jacket-test.md) and [jacket bench](jacket-bench.md); `new`, `init`, `config`, `clean`, `version` and `upgrade` are `jacket`'s own; `jacket jaic|jailint|jailsp|jaifmt <args>` runs that tool with exactly those arguments, and any other command runs `jacket-<command>` from `PATH`, as cargo does. Every command and flag is in [the command-line reference](../reference/command-line.md).
 
 `new`, `init`, `config`, `clean`, `version` and `upgrade` are `jacket`'s own commands and use `--long` flags. Tools are found next to the `jacket` executable (symlinks are followed, so a `~/.local/bin/jacket` link finds the installed release), else on `PATH`.
 
@@ -149,7 +132,7 @@ Precedence: command-line flags, then `jacket.toml`, then defaults. Unknown secti
 
 ## Configuration
 
-Environment variables `jacket` reads: `CI` (makes the build status plain); `JAIC_PROGRESS`, `NO_COLOR` and `TERM` (the `Running` line); for `upgrade`, `GITHUB_TOKEN` and the proxy variables `curl` reads. Everything else is jaic's, such as `JAIC_STDLIB` ([native linking](../native/native-linking.md)).
+The environment variables `jacket` reads are in [the environment variable reference](../reference/environment-variables.md) (filter the *Read by* column for `jacket`); for `upgrade` it also honours the proxy variables `curl` reads.
 
 ## Dependencies
 

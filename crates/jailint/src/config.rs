@@ -61,19 +61,12 @@ impl Level {
 /// Its level is the default of every rule in it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Category {
-    /// Code that is wrong: it does not do what it says.
     Correctness,
-    /// Code that is most likely wrong or does nothing.
     Suspicious,
-    /// Code that says something in a roundabout way.
     Complexity,
-    /// Code that is fine but not written the usual way.
     Style,
-    /// Code that could be faster.
     Perf,
-    /// Stricter checks with more false positives: off by default.
     Pedantic,
-    /// Checks that forbid things a project may choose to avoid: off by default.
     Restriction,
 }
 
@@ -97,6 +90,19 @@ impl Category {
             Category::Perf => "perf",
             Category::Pedantic => "pedantic",
             Category::Restriction => "restriction",
+        }
+    }
+
+    /// What the category holds, for `docs/reference/lint-rules.md`.
+    pub fn about(self) -> &'static str {
+        match self {
+            Category::Correctness => "code that is wrong: it does not do what it says",
+            Category::Suspicious => "code that is most likely wrong, or does nothing",
+            Category::Complexity => "code that says something in a roundabout way",
+            Category::Style => "code that works but is not written the usual way",
+            Category::Perf => "code that could be faster",
+            Category::Pedantic => "stricter checks with more false positives",
+            Category::Restriction => "checks that forbid things a project may choose to avoid",
         }
     }
 

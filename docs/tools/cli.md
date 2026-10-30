@@ -32,13 +32,7 @@ The file you name is the only source file on the command line. Other files come 
 
 ### Build flavors
 
-| Option | What you get |
-| --- | --- |
-| *(none)* | unoptimized, with stack traces and runtime checks |
-| `-od`, `-optimized_debug` | lightly optimized (LLVM O1), checks kept |
-| `-o`, `-optimized` | fully optimized (LLVM O2), no stack traces or runtime checks |
-| `-very_debug` | unoptimized, with every runtime check on |
-| `-O0` to `-O3` | pick the LLVM level yourself. Don't combine these with the flavors above |
+No flavor option builds unoptimized with stack traces and runtime checks. `-od` keeps the checks and lightly optimizes (LLVM O1), `-o` optimizes fully (O2) and drops stack traces and runtime checks, and `-very_debug` turns every runtime check on. `-O0` to `-O3` pick the LLVM level yourself; don't combine them with a flavor. The full flag list is in [the command-line reference](../reference/command-line.md).
 
 A few switches turn off one thing each: `-no_inline`, `-no_split` (generate one code module instead of several), `-no_debug_info` and `-no_backtrace_on_crash`. `-sanitize address,undefined,fuzzer` builds with the sanitizers (`fuzzer` adds libFuzzer coverage instrumentation), and `-emit_ir out.ll` also writes the LLVM IR.
 
@@ -108,14 +102,9 @@ The implementation is `jaic::progress` (`crates/jaic/src/progress.rs`). The phas
 
 ### Output and diagnostics
 
-| Option | Effect |
-| --- | --- |
-| `-quiet` (`--quiet`) | print nothing but errors, and no build status |
-| `-verbose` | say what is being done |
-| `-no_color` | plain diagnostics. `NO_COLOR` does the same; `FORCE_COLOR` and `CLICOLOR_FORCE` force colour on |
-| `--color <auto|always|never>` | choose colour explicitly; `-no_color` is `--color never`. Shared with `jailint` |
-| `-msvc_format` | one `path(line,col): error: message` line per diagnostic, for IDEs that parse that format |
-| `-timings` | print each phase's time on stderr as `jaic-timing: <phase> <seconds> <calls>`: `front end`, `workspaces`, `run`, `prepare output`, `codegen`, `link`, `debug info`, `total`, and `interp`, the time compile-time code (`#run`, metaprograms, macros) spent executing, which overlaps `front end`. Each phase also gets `jaic-alloc: <phase> <blocks> <bytes>`: the allocations Rust code requested during it, worker threads included (phases nest, so `total` holds the others); C and LLVM allocations are not counted |
+`-quiet`, `-verbose`, `-no_color` / `--color`, `-msvc_format` and `-timings` are listed in [the command-line reference](../reference/command-line.md). `-no_color` is `--color never`, and `NO_COLOR`, `FORCE_COLOR` and `CLICOLOR_FORCE` do what they usually do. `-msvc_format` prints one `path(line,col): error: message` line per diagnostic, for IDEs that parse that format.
+
+`-timings` prints each phase on stderr as `jaic-timing: <phase> <seconds> <calls>`: `front end`, `workspaces`, `run`, `prepare output`, `codegen`, `link`, `debug info`, `total`, and `interp`, the time compile-time code (`#run`, metaprograms, macros) spent executing, which overlaps `front end`. Each phase also gets `jaic-alloc: <phase> <blocks> <bytes>`: the allocations Rust code requested during it, worker threads included (phases nest, so `total` holds the others); C and LLVM allocations are not counted.
 
 ### Exit status
 
@@ -137,14 +126,7 @@ An unknown option suggests the closest known one. After a `+Plugin`, options are
 
 ## Configuration
 
-| Variable | Effect |
-| --- | --- |
-| `JAIC_MEMORY_LIMIT` | stop with status 120 once this much memory is allocated (`512M`, `2G`, ...) |
-| `JAIC_DIAGNOSTICS` | diagnostic layout: `plain`, `ascii` or `unicode` (default: chosen by terminal) |
-| `JAIC_PROGRESS` | [build status](#build-status): `off`, `plain` or `live` (default: chosen by terminal) |
-| `JACKET_PROJECT` | the name the build status gives the program (default: the main file's name); `jacket` sets it to the project directory's name |
-| `JAIC_REPORT_EXE` | a file path: jaic appends the absolute path of every executable it writes, one per line. `jacket run` uses it, because a build metaprogram picks the executable's name |
-| `NO_COLOR`, `FORCE_COLOR`, `CLICOLOR_FORCE` | turn colour off or on |
+The environment variables jaic reads (`JAIC_MEMORY_LIMIT`, `JAIC_DIAGNOSTICS`, `JAIC_PROGRESS`, `JACKET_PROJECT`, `JAIC_REPORT_EXE`, `NO_COLOR` and the rest) are in [the environment variable reference](../reference/environment-variables.md); [environment variables](environment.md) says how they are declared. [Build status](#build-status) explains `JAIC_PROGRESS`.
 
 ## How to change it
 

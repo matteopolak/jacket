@@ -134,21 +134,11 @@ fn every_rule_has_cases() {
 
 #[test]
 fn every_rule_is_documented() {
-    // Each rule has a row in the table and its own section, whose anchor editors link to
-    // (`codeDescription` of the language server's diagnostics).
+    // Each rule has its own section, whose anchor editors link to (`codeDescription` of the
+    // language server's diagnostics). The table of rules is generated: docs/reference/lint-rules.md.
     let doc = std::fs::read_to_string(repo().join("docs/tools/jailint.md"))
         .expect("docs/tools/jailint.md is readable");
     for r in RULES {
-        assert!(
-            doc.contains(&format!(
-                "\n| `{}` | {} | {} |",
-                r.name,
-                r.category.as_str(),
-                r.default().as_str()
-            )),
-            "docs/tools/jailint.md: the rules table needs a row for `{}` with its category and default",
-            r.name
-        );
         assert!(
             doc.contains(&format!("\n### {}\n", r.name)),
             "docs/tools/jailint.md needs a `### {}` section",
