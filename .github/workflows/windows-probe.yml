@@ -1,0 +1,127 @@
+name: windows probe
+# Reproduce a Windows report on a real runner: compile and run one Jai program with a release or with
+# a build of the dispatched ref, and print the output and exit code into the job summary
+# (docs/tools/windows-probe.md).
+on:
+  # A workflow can be dispatched only once it is on the default branch. To probe a change to this
+  # workflow or to the compiler before that, push a `tmp/win-probe-*` branch: it builds the branch and runs
+  # `probe.jai` from its root on both architectures.
+  push:
+    branches: ['tmp/win-probe-**']
+  workflow_dispatch:
+    inputs:
+      source:
+        description: 'release: install the published tag below (about a minute); branch: build the dispatched ref (a few minutes)'
+        type: choice
+        options: [branch, release]
+        default: branch
+      tag:
+        description: 'Release tag for source=release, e.g. v0.30.4 (empty: the latest release)'
+        default: ''
+      arch:
+        description: Runner architecture
+        type: choice
+        options: [x64, arm64]
+        default: x64
+      snippet:
+        description: Inline Jai source (used when path is empty)
+        type: string
+        default: ''
+      path:
+        description: A .jai file in the repository (wins over the snippet)
+        type: string
+        default: ''
+      args:
+        description: Extra jaic arguments, e.g. -O2
+        type: string
+        default: ''
+permissions:
+  contents: read
+env:
+  PYTHONPATH: ${{ github.workspace }}/tools
+  PYTHONUTF8: '1'
+  LLVM_VERSION: 23.1.2
+jobs:
+  probe:
+    name: probe (${{ inputs.source || 'branch' }}, ${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: ${{ fromJSON(inputs.arch && format('["{0}"]', inputs.arch) || '["x64","arm64"]') }}
+    runs-on: ${{ matrix.arch == 'arm64' && 'windows-11-arm' || 'windows-2025' }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      CPU: ${{ matrix.arch }}
+      TRIPLE: ${{ matrix.arch == 'arm64' && 'aarch64-pc-windows-msvc' || 'x86_64-pc-windows-msvc' }}
+      SNIPPET: ${{ inputs.snippet }}
+      SOURCE_PATH: ${{ inputs.path || (github.event_name == 'push' && 'probe.jai') || '' }}
+      EXTRA_ARGS: ${{ inputs.args }}
+      RELEASE_TAG: ${{ inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.14'
+      # The release archive carries jaic.exe and the stdlib. jaic finds the MSVC linker and the
+      # Windows SDK itself, as in the other Windows jobs, so no developer prompt is entered.
+      - name: Install the release
+        if: inputs.source == 'release'
+        run: |
+          tag="$RELEASE_TAG"
+          if [ -z "$tag" ]; then tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)"; fi
+          dir="$(python tools/ci/release_smoke.py fetch --tag "$tag" --dest "$RUNNER_TEMP/archive")"
+          echo "JAIC=$dir/jaic.exe" >> "$GITHUB_ENV"
+          echo "WHAT=release $tag" >> "$GITHUB_ENV"
+      - uses: ./.github/actions/setup-windows
+        if: inputs.source != 'release'
+        with:
+          cpu: ${{ matrix.arch }}
+          triple: ${{ env.TRIPLE }}
+      - uses: ./.github/actions/native-libs-cache
+        if: inputs.source != 'release'
+      - name: Build jaic
+        if: inputs.source != 'release'
+        run: |
+          cargo build --locked -p jaic-cli --no-default-features --features static-llvm
+          echo "JAIC=target/$TRIPLE/debug/jaic.exe" >> "$GITHUB_ENV"
+          echo "WHAT=branch $GITHUB_REF_NAME ($(git rev-parse --short HEAD))" >> "$GITHUB_ENV"
+      - name: Compile and run
+        run: |
+          mkdir -p "$RUNNER_TEMP/probe"
+          src="$RUNNER_TEMP/probe/probe.jai"
+          if [ -n "$SOURCE_PATH" ]; then cp "$SOURCE_PATH" "$src"; else printf '%s\n' "$SNIPPET" > "$src"; fi
+          {
+            echo "## Windows probe: $WHAT, $CPU"
+            echo '```'
+            cat "$src"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          set +e
+          # Word-splitting of EXTRA_ARGS is intended.
+          # shellcheck disable=SC2086
+          "$JAIC" "$src" -exe "$RUNNER_TEMP/probe/probe.exe" $EXTRA_ARGS > "$RUNNER_TEMP/probe/compile.txt" 2>&1
+          compile=$?
+          run=-
+          if [ $compile -eq 0 ]; then
+            "$RUNNER_TEMP/probe/probe.exe" > "$RUNNER_TEMP/probe/run.txt" 2>&1
+            run=$?
+          else
+            : > "$RUNNER_TEMP/probe/run.txt"
+          fi
+          {
+            echo "### Compile (exit $compile)"
+            echo '```'
+            cat "$RUNNER_TEMP/probe/compile.txt"
+            echo '```'
+            echo "### Run (exit $run)"
+            echo '```'
+            cat "$RUNNER_TEMP/probe/run.txt"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          [ $compile -eq 0 ] && [ "$run" = 0 ]
