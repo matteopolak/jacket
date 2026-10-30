@@ -32,7 +32,6 @@ RULES = {
         (WORKFLOWS, r"python-version: '([\d.]+)'"),
         (ACTIONS, r"python-version: '([\d.]+)'"),
     ],
-    "just": [(WORKFLOWS, r"just-version: '([\d.]+)'")],
     "cargo_fuzz": [(WORKFLOWS, r"tool: cargo-fuzz@([\d.]+)")],
     "ruff": [(WORKFLOWS, r"ruff==([\d.]+)")],
     "llvm": [
@@ -50,6 +49,11 @@ RULES = {
 
 # pin -> the script that reads it from pins.json itself (so no literal is spelled out elsewhere).
 READ_BY = {
+    "just": "tools/ci/install_pinned.py",
+    "just_sha256_linux_x64": "tools/ci/install_pinned.py",
+    "just_sha256_linux_arm64": "tools/ci/install_pinned.py",
+    "just_sha256_macos_x64": "tools/ci/install_pinned.py",
+    "just_sha256_macos_arm64": "tools/ci/install_pinned.py",
     "nextest": "tools/ci/install_pinned.py",
     "nextest_sha256_linux_x64": "tools/ci/install_pinned.py",
     "nextest_sha256_linux_arm64": "tools/ci/install_pinned.py",

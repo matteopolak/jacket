@@ -1,0 +1,19 @@
+name: Cache the upstream mirrors
+description: >-
+  Restores the blobless mirrors tools/fetch_upstreams.py keeps in target/cache/upstream, saved from
+  main. Every blob is checked against its pinned git id, so a restored mirror only saves the clone.
+runs:
+  using: composite
+  steps:
+    - if: github.ref == 'refs/heads/main'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: target/cache/upstream
+        key: upstream-mirrors-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('corpus/upstreams.json', 'tools/upstream-cases.json') }}
+        restore-keys: upstream-mirrors-${{ runner.os }}-${{ runner.arch }}-
+    - if: github.ref != 'refs/heads/main'
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: target/cache/upstream
+        key: upstream-mirrors-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('corpus/upstreams.json', 'tools/upstream-cases.json') }}
+        restore-keys: upstream-mirrors-${{ runner.os }}-${{ runner.arch }}-

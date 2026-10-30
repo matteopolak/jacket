@@ -81,8 +81,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+        with: {persist-credentials: false}
       - run: python3 tools/dev/check_rule_coverage.py --list-uncovered
       # ruff's default rules over the Python tooling (ruff.toml; the version is pinned in .github/pins.json).
       - name: Python lint
@@ -98,8 +97,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+        with: {persist-credentials: false}
       - name: Install the pinned toolchain
         run: python3 tools/ci/install_pinned.py rust
       - uses: ./.github/actions/rust-cache
@@ -120,12 +118,10 @@ jobs:
       CARGO_INCREMENTAL: '0'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+        with: {persist-credentials: false}
       # node 24: JSPI's WebAssembly.Suspending (behind --experimental-wasm-jspi) for the WebGPU host test.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: '24'
+        with: {node-version: '24'}
       - name: Install the pinned Rust toolchain and wasm target
         run: python3 tools/ci/install_pinned.py rust --component rustfmt --component clippy --target wasm32-unknown-unknown
       - uses: ./.github/actions/rust-cache
@@ -176,20 +172,17 @@ jobs:
       JAIC_REQUIRE_WASM_TESTS: '1'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+        with: {persist-credentials: false}
       - uses: ./.github/actions/setup-unix
         with:
           lld: 'true'
           font: 'false'
       # The format and lint steps below run the Justfile's recipes (docs/tools/development.md).
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
-        with:
-          just-version: '1.58.0'
+      - uses: ./.github/actions/install-tool
+        with: {tool: just}
       # node 24: Memory64 without a flag, for the wasm64 modules `jaic -os wasm` writes.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: '24'
+        with: {node-version: '24'}
       # Platform-neutral checks run once, on the Linux x64 `jai` leg.
       - uses: ./.github/actions/dependency-age-cache
         if: ${{ matrix.runner == 'ubuntu-24.04' && matrix.part == 'jai' }}
@@ -393,11 +386,9 @@ jobs:
         working-directory: editors/vscode
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+        with: {persist-credentials: false}
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: '24'
+        with: {node-version: '24'}
       - name: Install the pinned toolchain
         working-directory: .
         run: python3 tools/ci/install_pinned.py rust
@@ -448,8 +439,7 @@ jobs:
       NVIM_SHA256: 012bf3fcac5ade43914df3f174668bf64d05e049a4f032a388c027b1ebd78628
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+        with: {persist-credentials: false}
       - name: Install Neovim (pinned release, checksum verified)
         run: |
           curl -fsSL -o "$RUNNER_TEMP/nvim.tar.gz" "https://github.com/neovim/neovim/releases/download/${NVIM_VERSION}/nvim-linux-x86_64.tar.gz"
@@ -457,9 +447,8 @@ jobs:
           mkdir -p "$RUNNER_TEMP/nvim"
           tar -xzf "$RUNNER_TEMP/nvim.tar.gz" -C "$RUNNER_TEMP/nvim" --strip-components=1
           echo "$RUNNER_TEMP/nvim/bin" >> "$GITHUB_PATH"
-      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
-        with:
-          just-version: '1.58.0'
+      - uses: ./.github/actions/install-tool
+        with: {tool: just}
       - name: Install the pinned toolchain
         run: python3 tools/ci/install_pinned.py rust
       - name: Run the plugin tests (builds only jailsp)
@@ -485,8 +474,7 @@ jobs:
       CARGO_INCREMENTAL: '0'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+        with: {persist-credentials: false}
       - uses: ./.github/actions/setup-unix
         with:
           lld: 'true'
@@ -496,8 +484,7 @@ jobs:
           brew: freetype sdl2 mingw-w64
           alsa: 'true'
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: '24'
+        with: {node-version: '24'}
       - name: Build production compiler and lint tools
         run: |
           cargo build --locked -p jaic-cli -p jailint
@@ -582,8 +569,7 @@ jobs:
       CARGO_INCREMENTAL: '0'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+        with: {persist-credentials: false}
       - uses: ./.github/actions/setup-unix
         with:
           brew: freetype
@@ -602,22 +588,7 @@ jobs:
         run: |
           if [ "$RUNNER_OS" = Linux ]; then bash tools/native/ci_native_deps.sh clipboard; fi
           bash tools/native/ci_native_deps.sh developer
-      # The blobless mirrors the fetch keeps (tools/fetch_upstreams.py); every blob is checked
-      # against its pinned git id, so a restored mirror only saves the clone.
-      - name: Cache the upstream mirrors
-        if: ${{ github.ref == 'refs/heads/main' }}
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: target/cache/upstream
-          key: upstream-mirrors-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('corpus/upstreams.json', 'tools/upstream-cases.json') }}
-          restore-keys: upstream-mirrors-${{ runner.os }}-${{ runner.arch }}-
-      - name: Restore the upstream mirrors
-        if: ${{ github.ref != 'refs/heads/main' }}
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: target/cache/upstream
-          key: upstream-mirrors-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('corpus/upstreams.json', 'tools/upstream-cases.json') }}
-          restore-keys: upstream-mirrors-${{ runner.os }}-${{ runner.arch }}-
+      - uses: ./.github/actions/upstream-mirrors-cache
       - name: Fetch the pinned projects
         run: |
           project_list="$(python3 tools/corpus/upstream_smoke.py --jaic x --projects)"
@@ -667,8 +638,7 @@ jobs:
       CARGO_INCREMENTAL: '0'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+        with: {persist-credentials: false}
       - uses: ./.github/actions/setup-unix
         with:
           # stdlib/SDL/tests/geometry-timer.jai links the installed SDL2.
@@ -717,11 +687,9 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+        with: {persist-credentials: false}
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.14'
+        with: {python-version: '3.14'}
       - uses: ./.github/actions/apt-cache
         if: runner.os == 'Linux'
         with:
@@ -771,8 +739,7 @@ jobs:
       CARGO_BUILD_JOBS: '2'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+        with: {persist-credentials: false}
       - uses: ./.github/actions/setup-unix
         with:
           native-libs: 'false'
@@ -801,8 +768,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+        with: {persist-credentials: false}
       - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
       - name: Check the lock file is current
         run: nix flake lock --no-update-lock-file
@@ -822,8 +788,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+        with: {persist-credentials: false}
       - name: Lint every shell script
         # *.sh and files with a sh/bash shebang, as the pre-commit hook picks them.
         run: |
@@ -842,8 +807,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+        with: {persist-credentials: false}
       # No release yet (a new repository, or before the first tag): the steps that install a
       # published release are skipped with a notice. Any other failure of `gh` still fails the job.
       - name: Is there a published release?
@@ -908,8 +872,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+        with: {persist-credentials: false}
       # No release yet (a new repository, or before the first tag): the steps that install a
       # published release are skipped with a notice. Any other failure of `gh` still fails the job.
       - name: Is there a published release?
@@ -967,11 +930,9 @@ jobs:
       HOMEBREW_NO_ENV_HINTS: '1'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+        with: {persist-credentials: false}
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.14'
+        with: {python-version: '3.14'}
       # No release yet (a new repository, or before the first tag): the steps that install a
       # published release are skipped with a notice. Any other failure of `gh` still fails the job.
       - name: Is there a published release?
@@ -1028,8 +989,7 @@ jobs:
       CARGO_TARGET_DIR: target
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+        with: {persist-credentials: false}
       - uses: ./.github/actions/setup-unix
         with:
           font: 'false'
@@ -1083,8 +1043,7 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+        with: {persist-credentials: false}
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: cross-${{ matrix.cpu }}-${{ matrix.shard }}
@@ -1126,8 +1085,7 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+        with: {persist-credentials: false}
       - uses: ./.github/actions/setup-windows
         with:
           cpu: ${{ matrix.cpu }}
@@ -1277,8 +1235,7 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+        with: {persist-credentials: false}
       - uses: ./.github/actions/setup-windows
         with:
           cpu: ${{ matrix.cpu }}
@@ -1337,8 +1294,7 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+        with: {persist-credentials: false}
       - uses: ./.github/actions/setup-windows
         with:
           cpu: x64
@@ -1354,20 +1310,7 @@ jobs:
         run: bash tools/ci/install_ci_mesa_windows.sh x64 "$RUNNER_TEMP/mesa"
       - name: Prepare Bindings_Generator runtime
         run: python tools/ci/package_bindings_helpers.py --platform windows-x64 --llvm-prefix "$LLVM_SYS_231_PREFIX" --out target/native-libs/windows-x64
-      - name: Cache the upstream mirrors
-        if: ${{ github.ref == 'refs/heads/main' }}
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: target/cache/upstream
-          key: upstream-mirrors-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('corpus/upstreams.json', 'tools/upstream-cases.json') }}
-          restore-keys: upstream-mirrors-${{ runner.os }}-${{ runner.arch }}-
-      - name: Restore the upstream mirrors
-        if: ${{ github.ref != 'refs/heads/main' }}
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: target/cache/upstream
-          key: upstream-mirrors-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('corpus/upstreams.json', 'tools/upstream-cases.json') }}
-          restore-keys: upstream-mirrors-${{ runner.os }}-${{ runner.arch }}-
+      - uses: ./.github/actions/upstream-mirrors-cache
       - name: Fetch the pinned projects
         run: |
           project_list="$(python tools/corpus/upstream_smoke.py --jaic x --projects)"

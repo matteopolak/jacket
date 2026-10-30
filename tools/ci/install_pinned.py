@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Install a tool at the version .github/pins.json pins, verifying what it downloads.
 
-    install_pinned.py nextest | llvm-cov | cargo-mutants   prebuilt cargo subcommand into $CARGO_HOME/bin
+    install_pinned.py just | nextest | llvm-cov | cargo-mutants   prebuilt tool into $CARGO_HOME/bin
     install_pinned.py rust [--component NAME]... [--target TRIPLE]...
     install_pinned.py llvm-release ARCHIVE
 
@@ -50,9 +50,24 @@ class Prebuilt:
     hosts: dict[str, tuple[str, str]]
     binary: str
     version_command: list[str]
+    # Archive members to unpack (None: all). `just`'s archive also holds docs and completions.
+    members: tuple[str, ...] | None = None
 
 
 PREBUILT = {
+    "just": Prebuilt(
+        version_pin="just",
+        url="https://github.com/casey/just/releases/download/{version}/just-{version}-{target}.tar.gz",
+        hosts={
+            "linux-x64": ("x86_64-unknown-linux-musl", "just_sha256_linux_x64"),
+            "linux-arm64": ("aarch64-unknown-linux-musl", "just_sha256_linux_arm64"),
+            "macos-x64": ("x86_64-apple-darwin", "just_sha256_macos_x64"),
+            "macos-arm64": ("aarch64-apple-darwin", "just_sha256_macos_arm64"),
+        },
+        binary="just",
+        version_command=["--version"],
+        members=("just",),
+    ),
     "nextest": Prebuilt(
         version_pin="nextest",
         url="https://get.nexte.st/{version}/{target}",
@@ -88,8 +103,8 @@ PREBUILT = {
 
 
 def host_key() -> str:
-    system = host_os()
-    return "macos" if system == "macos" else f"{system}-{host_cpu()}"
+    """"linux-x64", "linux-arm64", "macos-x64" or "macos-arm64"."""
+    return f"{host_os()}-{host_cpu()}"
 
 
 def cargo_bin() -> Path:
@@ -100,11 +115,14 @@ def install_prebuilt(name: str, manifest: dict, dest: Path) -> None:
     tool = PREBUILT[name]
     version = manifest[tool.version_pin]
     host = host_key()
-    if host not in tool.hosts:
+    # A tool with one archive for every Mac (a universal binary) lists the host as "macos".
+    entry = tool.hosts.get(host) or tool.hosts.get(host.split("-")[0])
+    if entry is None:
+        crate = name if name.startswith("cargo-") else f"cargo-{name}"
         sys.exit(
-            f"no prebuilt cargo-{name} pinned for {host}; use cargo install --locked cargo-{name.removeprefix('cargo-')}@{version}"
+            f"no prebuilt {name} pinned for {host}; use cargo install --locked {crate}@{version}"
         )
-    target, key = tool.hosts[host]
+    target, key = entry
     body = fetch(tool.url.format(version=version, target=target), attempts=4)
     actual = sha256_bytes(body)
     if actual != manifest[key]:
@@ -116,17 +134,23 @@ def install_prebuilt(name: str, manifest: dict, dest: Path) -> None:
         archive.write(body)
     try:
         with tarfile.open(archive.name, "r:gz") as tar:
-            extract(tar, dest)
+            extract(tar, dest, members=tool.members)
     finally:
         os.unlink(archive.name)
     subprocess.run([str(dest / tool.binary), *tool.version_command], check=True)
 
 
-def extract(tar: tarfile.TarFile, dest: Path, strip: int = 0) -> None:
-    """Unpack `tar` into `dest`, dropping `strip` leading path components of every member (symbolic links stay as they are)."""
+def extract(
+    tar: tarfile.TarFile,
+    dest: Path,
+    strip: int = 0,
+    members: tuple[str, ...] | None = None,
+) -> None:
+    """Unpack `tar` into `dest`, dropping `strip` leading path components of every member (symbolic links stay as they are).
+    With `members`, only the entries of those names are unpacked."""
     for member in tar:
         parts = Path(member.name).parts[strip:]
-        if not parts:
+        if not parts or (members is not None and Path(*parts).as_posix() not in members):
             continue
         member.name = Path(*parts).as_posix()
         if member.islnk():  # a hard link names another member of the archive

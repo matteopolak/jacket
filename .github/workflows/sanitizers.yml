@@ -36,8 +36,7 @@ jobs:
       TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+        with: {persist-credentials: false}
       - uses: ./.github/actions/setup-unix
         with:
           native-libs: 'false'
@@ -59,8 +58,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+        with: {persist-credentials: false}
       - name: Install the pinned toolchain with Miri
         run: python3 tools/ci/install_pinned.py rust --component miri --component rust-src
       - name: Miri

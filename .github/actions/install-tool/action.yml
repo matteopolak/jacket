@@ -1,0 +1,15 @@
+name: Install a pinned tool
+description: >-
+  Downloads a prebuilt tool at the version .github/pins.json pins, checks its SHA-256 and unpacks it
+  into $CARGO_HOME/bin (tools/ci/install_pinned.py; download errors are retried).
+inputs:
+  tool:
+    description: just, nextest, llvm-cov or cargo-mutants
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        TOOL: ${{ inputs.tool }}
+      run: python3 tools/ci/install_pinned.py "$TOOL"

@@ -55,13 +55,11 @@ jobs:
       PG_BIN: /usr/lib/postgresql/${{ matrix.postgres }}/bin
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+        with: {persist-credentials: false}
       - name: Install the pinned toolchain
         run: python3 tools/ci/install_pinned.py rust
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.14'
+        with: {python-version: '3.14'}
       # The packages of the LLVM and PostgreSQL installs below, kept between runs (the mirrors stall).
       - uses: ./.github/actions/apt-cache
         with:
@@ -157,8 +155,7 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+        with: {persist-credentials: false}
       - uses: ./.github/actions/setup-unix
         if: runner.os != 'Windows'
         with:

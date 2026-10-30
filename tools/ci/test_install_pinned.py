@@ -138,6 +138,35 @@ class Prebuilt(unittest.TestCase):
                 )
         self.assertIn("cargo install --locked cargo-mutants@", str(caught.exception))
 
+    def test_only_the_named_members_are_unpacked(self):
+        archive = script_archive(
+            {"just": "#!/bin/sh\necho just $*\n", "README.md": "docs", "completions/x": "x"}
+        )
+        manifest = dict(
+            install_pinned.pins.load(),
+            just="1.2.3",
+            just_sha256_macos_arm64=sha256_bytes(archive),
+        )
+        urls = []
+
+        def fake_fetch(url, **kwargs):
+            urls.append(url)
+            return archive
+
+        with (
+            mock.patch.object(install_pinned, "fetch", fake_fetch),
+            mock.patch.object(install_pinned, "host_key", return_value="macos-arm64"),
+            redirect_stdout(io.StringIO()),
+        ):
+            install_pinned.install_prebuilt("just", manifest, self.dest)
+        self.assertEqual(
+            urls,
+            [
+                "https://github.com/casey/just/releases/download/1.2.3/just-1.2.3-aarch64-apple-darwin.tar.gz"
+            ],
+        )
+        self.assertEqual([p.name for p in self.dest.iterdir()], ["just"])
+
     def test_every_pin_the_table_names_is_in_the_manifest(self):
         manifest = install_pinned.pins.load()
         for tool in install_pinned.PREBUILT.values():
