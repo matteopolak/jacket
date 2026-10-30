@@ -3077,10 +3077,6 @@ Socket.set_th_x2
 Socket.sockaddr
 Socket.socket_init
 Socket.to_string
-Sort
-Sort.compare_floats
-Sort.compare_strings
-Sort.quick_sort
 Sound_Player
 Sound_Player.Adpcm_Decoder
 Sound_Player.Audio_Channel
