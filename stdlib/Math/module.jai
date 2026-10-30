@@ -942,11 +942,12 @@ get_normal :: Impl.get_normal;
 // assert(p.normal == xyz(0, 0, 1) && p.d == 0);
 // ```
 normalized_plane_from_points :: Impl.normalized_plane_from_points;
-// `dot(plane.normal, v) + plane.d`: the signed distance from point `v` to the plane if the normal has unit length (positive on the side of the normal, zero on the plane), otherwise that distance times the normal's length.
+// `dot(plane.normal, v) + plane.d`: the signed distance from point `v` to the plane if the normal has unit length (positive on the side of the normal, zero on the plane), otherwise that distance times the normal's length. The procedure is `#symmetric`, so the point may come first.
 //
 // ```jai
 // p := make_plane(xyz(0, 1, 0), xyz(0, 2, 0));
 // assert(plane_dot(p, xyz(0, 5, 0)) == 3 && plane_dot(p, xyz(0, 0, 0)) == -2);
+// assert(plane_dot(xyz(0, 5, 0), p) == 3);
 // ```
 plane_dot :: Impl.plane_dot;
 // A struct printer that prints a `Matrix2`, `Matrix3`, `Matrix4` or `Matrix4x3` as one row per line, each row as `(a, b, c)` with six decimal places and followed by a newline. Returns false for any other type. See `math_struct_printer` for how to install it.

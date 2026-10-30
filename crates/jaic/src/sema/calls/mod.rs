@@ -558,6 +558,23 @@ impl Compiler {
                 (best, errors, args) = (b, e, spread);
             }
         }
+        // Two positional arguments that match no overload may match a `#symmetric` one with
+        // the arguments exchanged.
+        if best.is_empty() && args.len() == 2 && args.iter().all(|a| a.name.is_none() && !a.spread)
+        {
+            let symmetric: Vec<ProcId> = procs
+                .iter()
+                .copied()
+                .filter(|&p| self.proc(p).lit.header.flags.symmetric())
+                .collect();
+            if !symmetric.is_empty() {
+                let swapped = vec![args[1].clone(), args[0].clone()];
+                let (b, e) = self.rank_candidates(&symmetric, &swapped, span);
+                if !b.is_empty() {
+                    (best, errors, args) = (b, e, swapped);
+                }
+            }
+        }
         if best.is_empty() {
             if self.ed.is_live() {
                 self.ide_note_unmatched_inferred(procs, &args, span);
