@@ -55,6 +55,7 @@ pub mod source;
 pub mod stack_trace;
 pub mod suggest;
 pub mod target;
+pub mod toolchain;
 pub use paths::{canonicalize, default_stdlib_dir, stdlib_dir, strip_verbatim};
 pub mod types;
 pub mod wide_float;

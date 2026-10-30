@@ -232,6 +232,11 @@ impl Target {
         options.long_double = long_double_for(self.os, self.cpu, self.abi == TargetAbi::Gnu);
     }
 
+    /// The C environment this target is built for and linked against.
+    pub fn toolchain(self) -> &'static crate::toolchain::Toolchain {
+        crate::toolchain::Toolchain::for_target(self)
+    }
+
     pub fn is_windows(self) -> bool {
         self.os == TargetOs::Windows
     }
