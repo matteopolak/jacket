@@ -2709,15 +2709,6 @@ Protocol_For_Memory_Visualization.Summary_Info
 Protocol_For_Memory_Visualization.VIS_PROTOCOL_VERSION
 Protocol_For_Memory_Visualization.Vis_Protocol_Tag
 Protocol_For_Memory_Visualization.compare_alloc_and_free_traces
-RadixSort
-RadixSort.RadixSort
-RadixSort.free_resources
-RadixSort.radix_tests
-RadixSort.rank
-RadixSort.reorder
-RadixSort.reset
-RadixSort.resize
-RadixSort.sort
 Random
 Random.Random_State
 Random.Some_Big_Time_Value
