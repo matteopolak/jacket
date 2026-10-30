@@ -6,9 +6,10 @@
     python3 tools/bump_version.py --check         # only fail when the copies disagree
 
 Updates the root Cargo.toml `[workspace.package] version`, the path packages of Cargo.lock and
-fuzz/Cargo.lock that carry that version, editors/nvim/lua/jai/version.lua, jaifmt/version.jai, and renames
-CHANGELOG.md's `## [Unreleased]` heading to `## [X.Y.Z] - <today>` (or adds that header when there is
-no such section and none for X.Y.Z yet). editors/vscode/package.json is left
+fuzz/Cargo.lock that carry that version, and renames CHANGELOG.md's `## [Unreleased]` heading to
+`## [X.Y.Z] - <today>` (or adds that header when there is no such section and none for X.Y.Z yet).
+The generated copies (jaifmt/version.jai, editors/nvim/lua/jai/version.lua) are rewritten by
+tools/generators/generate_version_files.py, which this runs last. editors/vscode/package.json is left
 alone: the release workflow stamps its version (docs/tools/releases.md).
 """
 import argparse
@@ -16,29 +17,19 @@ import datetime
 import re
 import subprocess
 import sys
+from generators import generate_version_files
 from toolkit.repo import ROOT
+from toolkit.version import WORKSPACE_VERSION, workspace_version
 
 SEMVER = re.compile(r"\d+\.\d+\.\d+")
 LOCKS = ("Cargo.lock", "fuzz/Cargo.lock")
 MANIFESTS = ("Cargo.toml", "fuzz/Cargo.toml")
-VERSION_LUA = "editors/nvim/lua/jai/version.lua"
-VERSION_JAIFMT = "jaifmt/version.jai"
-WORKSPACE_VERSION = re.compile(r'(\[workspace\.package\][^\[]*?^version = ")([^"]+)(")', re.M | re.S)
-LUA_VERSION = re.compile(r"^return '([^']*)'$", re.M)
-JAIFMT_VERSION = re.compile(r'^JAIFMT_VERSION :: "([^"]*)";$', re.M)
 # A lock entry for a path package has no `source =` line right after its version.
 PATH_PACKAGE = re.compile(r'(\[\[package\]\]\nname = "[^"]+"\nversion = ")([^"]+)("\n)(?!source)')
 
 
 def read(root, rel):
     return (root / rel).read_text()
-
-
-def workspace_version(root):
-    match = WORKSPACE_VERSION.search(read(root, "Cargo.toml"))
-    if not match:
-        raise SystemExit("Cargo.toml has no [workspace.package] version")
-    return match.group(2)
 
 
 def lock_versions(text):
@@ -49,12 +40,8 @@ def disagreements(root):
     """Where a hand-written copy of the version differs from Cargo.toml."""
     version = workspace_version(root)
     problems = []
-    lua = LUA_VERSION.search(read(root, VERSION_LUA))
-    if not lua or lua.group(1) != version:
-        problems.append(f"{VERSION_LUA} says {lua.group(1) if lua else 'nothing'}, Cargo.toml says {version}")
-    fmt = JAIFMT_VERSION.search(read(root, VERSION_JAIFMT))
-    if not fmt or fmt.group(1) != version:
-        problems.append(f"{VERSION_JAIFMT} says {fmt.group(1) if fmt else 'nothing'}, Cargo.toml says {version}")
+    for rel in generate_version_files.stale(root):
+        problems.append(f"{rel} does not match Cargo.toml's {version}; run tools/generators/generate_version_files.py")
     for lock in LOCKS:
         if (root / lock).exists():
             stale = sorted({v for v in lock_versions(read(root, lock)) if v not in (version, "0.0.0")})
@@ -96,17 +83,10 @@ def bump(root, new, today=None):
     for lock in LOCKS:
         if (root / lock).exists():
             edits[lock] = bump_lock(read(root, lock), old, new)
-    lua = read(root, VERSION_LUA)
-    if not LUA_VERSION.search(lua):
-        raise SystemExit(f"{VERSION_LUA} has no `return '<version>'` line")
-    edits[VERSION_LUA] = LUA_VERSION.sub(f"return '{new}'", lua, count=1)
-    fmt = read(root, VERSION_JAIFMT)
-    if not JAIFMT_VERSION.search(fmt):
-        raise SystemExit(f'{VERSION_JAIFMT} has no `JAIFMT_VERSION :: "<version>";` line')
-    edits[VERSION_JAIFMT] = JAIFMT_VERSION.sub(f'JAIFMT_VERSION :: "{new}";', fmt, count=1)
     edits["CHANGELOG.md"] = bump_changelog(read(root, "CHANGELOG.md"), new, today)
     for rel, text in edits.items():
         (root / rel).write_text(text)
+    generate_version_files.write(root)
     return old
 
 

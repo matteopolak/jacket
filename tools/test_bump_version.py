@@ -3,13 +3,12 @@ import unittest
 from pathlib import Path
 
 import bump_version as bv
+from generators import generate_version_files as gen
 
 MANIFEST = '[workspace]\nmembers = ["a"]\n\n[workspace.package]\nversion = "0.1.0"\nrust-version = "1.95"\n'
 LOCK = ('[[package]]\nname = "a"\nversion = "0.1.0"\ndependencies = [\n "serde",\n]\n\n'
         '[[package]]\nname = "serde"\nversion = "0.1.0"\nsource = "registry+https://example.test/index"\n\n'
         '[[package]]\nname = "fuzz"\nversion = "0.0.0"\n')
-LUA = "---doc\nreturn '0.1.0'\n"
-JAIFMT = '// doc\nJAIFMT_VERSION :: "0.1.0";\n'
 CHANGELOG = "# Changelog\n\n## [0.1.0] - 2026-01-01\n\nOld.\n"
 
 
@@ -18,11 +17,13 @@ class Bump(unittest.TestCase):
         scratch = tempfile.TemporaryDirectory()
         self.addCleanup(scratch.cleanup)
         self.root = Path(scratch.name)
-        files = {"Cargo.toml": MANIFEST, "Cargo.lock": LOCK, "fuzz/Cargo.lock": LOCK,
-                 bv.VERSION_LUA: LUA, bv.VERSION_JAIFMT: JAIFMT, "CHANGELOG.md": CHANGELOG}
+        files = {"Cargo.toml": MANIFEST, "Cargo.lock": LOCK, "fuzz/Cargo.lock": LOCK, "CHANGELOG.md": CHANGELOG}
+        for rel in gen.OUTPUTS:
+            files[rel] = ""
         for rel, text in files.items():
             (self.root / rel).parent.mkdir(parents=True, exist_ok=True)
             (self.root / rel).write_text(text)
+        gen.write(self.root)
 
     def test_every_copy_moves_and_registry_packages_stay(self):
         self.assertEqual(bv.bump(self.root, "0.2.0", "2026-02-02"), "0.1.0")
@@ -32,8 +33,8 @@ class Bump(unittest.TestCase):
             self.assertIn('name = "a"\nversion = "0.2.0"', text)
             self.assertIn('name = "serde"\nversion = "0.1.0"', text)
             self.assertIn('name = "fuzz"\nversion = "0.0.0"', text)
-        self.assertIn("return '0.2.0'", bv.read(self.root, bv.VERSION_LUA))
-        self.assertIn('JAIFMT_VERSION :: "0.2.0";', bv.read(self.root, bv.VERSION_JAIFMT))
+        self.assertIn("return '0.2.0'", bv.read(self.root, "editors/nvim/lua/jai/version.lua"))
+        self.assertIn('JAIFMT_VERSION :: "0.2.0";', bv.read(self.root, "jaifmt/version.jai"))
         changelog = bv.read(self.root, "CHANGELOG.md")
         self.assertTrue(changelog.startswith("# Changelog\n\n## [0.2.0] - 2026-02-02\n\n## [0.1.0]"))
         self.assertEqual(bv.disagreements(self.root), [])
@@ -58,16 +59,29 @@ class Bump(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 bv.bump(self.root, bad)
 
-    def test_check_flags_a_stale_plugin_version_or_lock(self):
-        (self.root / bv.VERSION_LUA).write_text("return '0.0.9'\n")
+    def test_bump_edits_only_the_manifest_locks_changelog_and_generated_copies(self):
+        before = {p: p.read_text() for p in self.root.rglob("*") if p.is_file()}
+        bv.bump(self.root, "0.2.0", "2026-02-02")
+        changed = {str(p.relative_to(self.root)) for p, text in before.items() if p.read_text() != text}
+        self.assertEqual(changed, {"Cargo.toml", "Cargo.lock", "fuzz/Cargo.lock", "CHANGELOG.md", *gen.OUTPUTS})
+
+    def test_check_flags_a_stale_generated_copy_or_lock(self):
+        (self.root / "editors/nvim/lua/jai/version.lua").write_text("return '0.0.9'\n")
         (self.root / "fuzz/Cargo.lock").write_text(LOCK.replace('name = "a"\nversion = "0.1.0"', 'name = "a"\nversion = "0.0.9"'))
         problems = bv.disagreements(self.root)
-        (self.root / bv.VERSION_JAIFMT).write_text('JAIFMT_VERSION :: "0.0.9";\n')
-        problems = bv.disagreements(self.root)
-        self.assertEqual(len(problems), 3)
+        self.assertEqual(len(problems), 2)
         self.assertIn("version.lua", problems[0])
-        self.assertIn("version.jai", problems[1])
-        self.assertIn("fuzz/Cargo.lock", problems[2])
+        self.assertIn("fuzz/Cargo.lock", problems[1])
+
+
+class Generator(unittest.TestCase):
+    def test_checked_in_copies_match_cargo_toml(self):
+        self.assertEqual(gen.stale(bv.ROOT), [])
+
+    def test_output_is_what_the_readers_parse(self):
+        text = gen.render("1.2.3")
+        self.assertRegex(text[gen.OUTPUTS[0]], r'(?m)^JAIFMT_VERSION :: "1\.2\.3";$')
+        self.assertRegex(text[gen.OUTPUTS[1]], r"(?m)^return '1\.2\.3'$")
 
 
 class Repository(unittest.TestCase):

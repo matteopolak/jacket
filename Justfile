@@ -84,7 +84,7 @@ hooks:
 repo-checks *names:
     {{ py }} tools/dev/dev.py repo-checks {{ names }}
 
-# Set the compiler version in Cargo.toml, both lock files, the Neovim plugin and the CHANGELOG header (tools/bump_version.py).
+# Set the compiler version in Cargo.toml, both lock files and the CHANGELOG header, then regenerate the jaifmt and Neovim version files (tools/bump_version.py).
 [group('setup')]
 bump-version version:
     {{ py }} tools/bump_version.py {{ version }}

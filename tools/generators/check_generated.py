@@ -30,6 +30,7 @@ FORMATTED = [
 # Generators that write their output verbatim.
 VERBATIM = [
     "tools/generators/window_render_feature_font.py",
+    "tools/generators/generate_version_files.py",
     "tools/corpus/gen_json_corpus.py",
     "tools/corpus/gen_http_corpus.py",
 ]

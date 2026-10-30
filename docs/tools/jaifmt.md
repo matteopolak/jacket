@@ -9,7 +9,7 @@ jaic jaifmt/build.jai                      # optimised build -> target/jaifmt (a
 target/jaifmt stdlib tests                 # rewrite in place
 target/jaifmt --check stdlib tests         # CI: list files that would change, exit 1
 target/jaifmt --stdin < in.jai > out.jai   # editors
-target/jaifmt --version                    # `jaifmt <release>`, from jaifmt/version.jai (bumped by `just bump-version`)
+target/jaifmt --version                    # `jaifmt <release>`, from jaifmt/version.jai (generated from `Cargo.toml` by `tools/generators/generate_version_files.py`)
 jaic jaifmt/main.jai -interp -- --check "$PWD/stdlib"   # interpreter: use absolute paths
 ```
 

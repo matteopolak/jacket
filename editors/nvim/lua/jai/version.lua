@@ -1,4 +1,4 @@
----The toolchain release this plugin downloads. The release workflow rewrites it from the tag
----when it publishes the plugin, so a checkout of the jacket repository carries the version it was
----last released at.
+---The toolchain release this plugin downloads. Generated from Cargo.toml by
+---tools/generators/generate_version_files.py; the release workflow stamps the release's version into
+---the published plugin.
 return '0.30.4'
