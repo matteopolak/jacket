@@ -53,7 +53,7 @@ Backend :: enum u8 {
 
 // The name of a backend as `JAI_IO_BACKEND` spells it, such as `"epoll"`, or `"none"` for `.NONE`. The string is a constant.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // assert(name_of_backend(.EPOLL) == "epoll");
 // assert(name_of_backend(.NONE) == "none");
 // ```
@@ -127,7 +127,7 @@ processor_count :: () -> s64 {
 //
 // `count` 0 means one per processor. Call it from outside any `io_run`.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // Io :: #import "Extensions/Io";
 // Atomics :: #import "Atomics";
 //

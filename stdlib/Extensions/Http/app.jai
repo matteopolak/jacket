@@ -77,7 +77,7 @@ Error_Handler :: #type (error: Http_Error, request: *Request) -> Response;
 // the router, groups and setup errors it builds: release them with `free_app` after the servers have stopped. Strings you
 // store in its fields (`config.address`, ...) are yours and are not copied.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // hello :: () -> string {
 //     return "hello";
 // }
@@ -174,7 +174,7 @@ Group :: struct(PREFIX: string) {
 // a handler's `Path(...)` is checked against the whole route. The group belongs to the app and is released with it: do not
 // free it. Groups nest with `group(parent, "/more")`, and the middleware add up.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // guard :: (request: *Request, next: Next) -> Response {
 //     _, found := header(request, "Authorization");
 //
@@ -251,7 +251,7 @@ use :: (group: *Group($P), middleware: Middleware) {
 // The handler returns a value, a `Response`, or either one with an `Http_Error`; a `HEAD` request is answered from the
 // `GET` route without the body. `get(group, ...)` adds the route under a group's prefix.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // find_user :: (id: Path("id", int)) -> string, Http_Error {
 //     if id.value != 1 return "", not_found("No user %", id.value);
 //
@@ -287,7 +287,7 @@ get :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $loc 
 // Adds a `POST` route; the template, handler and `max_body` work as for `get`. A handler reads the body through `Json(T)`,
 // `Form(T)` or a `*Body` parameter.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // Item :: struct {
 //     name: string;
 // }
@@ -344,7 +344,7 @@ patch :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $lo
 // Adds a `DELETE` route; the template, handler and `max_body` work as for `get`. A handler that answers with nothing to say
 // can return `status_only(204)`.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // discard :: (id: Path("id", int)) -> Response {
 //     return status_only(204);
 // }
@@ -387,7 +387,7 @@ head :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $loc
 // Adds an `OPTIONS` route. Register one only to change the default, which answers with an `Allow` list of the methods the path
 // has. The template, handler and `max_body` work as for `get`.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // choices :: () -> Response {
 //     return with_header(status_only(204), "Allow", "GET, POST");
 // }

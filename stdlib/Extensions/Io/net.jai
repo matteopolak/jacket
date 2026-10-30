@@ -13,7 +13,7 @@
 // The IP version of an `Address`: `IPV4`, `IPV6`, or `NONE` for an `Address` that was never filled in (and for what
 // `parse_address` returns when the text is not an address).
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // address, ok := parse_address("[::1]:8080");
 // assert(ok && address.family == .IPV6 && address.port == 8080);
 //
@@ -51,7 +51,7 @@ Tcp_Stream :: struct {
 
 // An IPv4 address from its four octets, `a.b.c.d`, and a port in host order. `address_to_string` turns it back into text.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // address := address_v4(127, 0, 0, 1, 8080);
 //
 // assert(address.family == .IPV4);
@@ -216,7 +216,7 @@ last_platform_code :: () -> s32 {
 // `local_address`). `reuse_port` lets several listeners, one per thread, share the port; the
 // kernel then spreads the connections between them.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // Io :: #import "Extensions/Io";
 //
 // main :: () {
@@ -453,7 +453,7 @@ connect :: (target: string) -> Tcp_Stream, Io_Error {
 
 // The address this socket is bound to; with `tcp_listen(":0")`, which port it got.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // Io :: #import "Extensions/Io";
 //
 // main :: () {
@@ -479,7 +479,7 @@ local_address :: (stream: Tcp_Stream) -> Address, Io_Error {
 // The far end of a connected stream. On the accepting side this is the client's address and its ephemeral port; on the connecting
 // side it is the server's.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // Io :: #import "Extensions/Io";
 //
 // main :: () {

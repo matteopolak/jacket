@@ -123,7 +123,7 @@ expect_header :: (response: Client_Response, name: string, loc := #caller_locati
 
 // The response has no header called `name` (any case). A failure names the header and its value.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // hello :: () -> string {
 //     return "hello";
 // }
@@ -311,7 +311,7 @@ Test_Proc :: #type ();
 // One test for `run_tests`: a name to print and a procedure to run. The procedure makes its checks with the `expect_` calls;
 // a failed one is printed and counted, and the test goes on.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // check_math :: () {
 //     expect_equal(1 + 1, 2, "addition");
 // }
@@ -375,7 +375,7 @@ begin_failure_capture :: () {
 // Ends a `begin_failure_capture` and returns the failure text collected since, in the temporary allocator, and how many
 // expectations failed. Failures that were captured are not counted against the run.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // main :: () {
 //     begin_failure_capture();
 //     expect_equal(1, 2, "numbers");

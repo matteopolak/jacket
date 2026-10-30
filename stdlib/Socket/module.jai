@@ -14,7 +14,7 @@
 // Windows needs `socket_init` before the first call, and the descriptor-set and control-message helpers differ by
 // platform (`CMSG_*` exist on Unix only).
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // assert(socket_init());
 //
 // listener := socket(AF_INET, .SOCK_STREAM, .TCP);

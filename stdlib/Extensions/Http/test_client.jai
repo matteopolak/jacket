@@ -25,7 +25,7 @@
 // How `test_client` reaches the app: in memory (the default) or over a loopback socket, whether redirects are followed, and the
 // timeout of a request.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // go_home :: () -> Response {
 //     return redirect("/home");
 // }

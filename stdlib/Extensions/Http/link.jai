@@ -28,7 +28,7 @@ tcp_link :: (tcp: Io.Tcp_Stream) -> Link {
 // A `Link` over one end of an in-memory pipe from `Io.make_pipe`; the test client connects an `App` this way. `peer` is the
 // loopback address with port 0.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // Io :: #import "Extensions/Io";
 //
 // main :: () {

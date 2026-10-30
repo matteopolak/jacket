@@ -22,7 +22,7 @@ SOCKET_WOULDBLOCK_CONNECT :: cast(P.OS_Error_Code) P.EINPROGRESS;
 // is logged through `context.logger` and returns false. Call it once before the first socket call in portable code; calling
 // it again is harmless.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // assert(socket_init());
 // ```
 // Prepares the socket layer and returns whether it is ready.
@@ -31,7 +31,7 @@ SOCKET_WOULDBLOCK_CONNECT :: cast(P.OS_Error_Code) P.EINPROGRESS;
 // is logged through `context.logger` and returns false. Call it once before the first socket call in portable code; calling
 // it again is harmless.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // assert(socket_init());
 // ```
 socket_init :: inline () -> bool {
@@ -43,7 +43,7 @@ socket_init :: inline () -> bool {
 // Read it straight after the call that failed, before any other call can replace it. Compare it with `SOCKET_WOULDBLOCK`,
 // `SOCKET_WOULDBLOCK_CONNECT` or the platform's own error constants.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // assert(socket_init());
 //
 // // A port that was bound and then released has nobody listening on it.
@@ -66,7 +66,7 @@ socket_init :: inline () -> bool {
 // Read it straight after the call that failed, before any other call can replace it. Compare it with `SOCKET_WOULDBLOCK`,
 // `SOCKET_WOULDBLOCK_CONNECT` or the platform's own error constants.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // assert(socket_init());
 //
 // // A port that was bound and then released has nobody listening on it.
@@ -95,7 +95,7 @@ get_last_socket_error :: inline () -> P.OS_Error_Code {
 // writes can then move fewer bytes than asked for. A failure is logged through `context.logger`, and the mode is left as it
 // was. New sockets start in blocking mode.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // assert(socket_init());
 //
 // s := socket(AF_INET, .SOCK_STREAM, .TCP);
@@ -111,7 +111,7 @@ get_last_socket_error :: inline () -> P.OS_Error_Code {
 // writes can then move fewer bytes than asked for. A failure is logged through `context.logger`, and the mode is left as it
 // was. New sockets start in blocking mode.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // assert(socket_init());
 //
 // s := socket(AF_INET, .SOCK_STREAM, .TCP);
@@ -148,7 +148,7 @@ set_blocking :: (s: Socket, blocking: bool) -> bool {
 // On Windows the two timings are handed to Winsock unchanged, which reads them as milliseconds, and the probe count is
 // ignored.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // assert(socket_init());
 //
 // s := socket(AF_INET, .SOCK_STREAM, .TCP);
@@ -168,7 +168,7 @@ set_blocking :: (s: Socket, blocking: bool) -> bool {
 // On Windows the two timings are handed to Winsock unchanged, which reads them as milliseconds, and the probe count is
 // ignored.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // assert(socket_init());
 //
 // s := socket(AF_INET, .SOCK_STREAM, .TCP);
@@ -222,7 +222,7 @@ set_keepalive :: (s: Socket, keepalive: bool, idle_seconds_before_keepalive: s32
 // anyway. Data still queued for sending is delivered in the background where the system allows it; call `shutdown` first to
 // signal the end of a stream to the peer in order.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // assert(socket_init());
 //
 // s := socket(AF_INET, .SOCK_STREAM, .TCP);
@@ -240,7 +240,7 @@ set_keepalive :: (s: Socket, keepalive: bool, idle_seconds_before_keepalive: s32
 // anyway. Data still queued for sending is delivered in the background where the system allows it; call `shutdown` first to
 // signal the end of a stream to the peer in order.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // assert(socket_init());
 //
 // s := socket(AF_INET, .SOCK_STREAM, .TCP);
@@ -271,7 +271,7 @@ check_fd_set :: (fd: s32, set: *fd_set) -> bool {
 // Returns 1 when descriptor `fd` is in `set` and 0 when it is not. A null set, a negative descriptor and one past the
 // set's capacity (usually 1024) count as not in the set. After `select` returns, use it to ask which descriptors are ready.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // set: fd_set;
 //
 // FD_SET(7, *set);
@@ -282,7 +282,7 @@ check_fd_set :: (fd: s32, set: *fd_set) -> bool {
 // Returns 1 when descriptor `fd` is in `set` and 0 when it is not. A null set, a negative descriptor and one past the
 // set's capacity (usually 1024) count as not in the set. After `select` returns, use it to ask which descriptors are ready.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // set: fd_set;
 //
 // FD_SET(7, *set);
@@ -301,7 +301,7 @@ FD_ISSET :: (fd: s32, set: *fd_set) -> s32 {
 // an error, so a program with many descriptors should poll with a different mechanism. A negative descriptor or a null
 // set fails an assertion.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // set: fd_set;
 //
 // FD_SET(7, *set);
@@ -313,7 +313,7 @@ FD_ISSET :: (fd: s32, set: *fd_set) -> s32 {
 // an error, so a program with many descriptors should poll with a different mechanism. A negative descriptor or a null
 // set fails an assertion.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // set: fd_set;
 //
 // FD_SET(7, *set);
@@ -330,7 +330,7 @@ FD_SET :: (fd: s32, set: *fd_set) {
 // Removes descriptor `fd` from `set`. Clearing a descriptor that is not in the set, or one at or beyond the set's capacity,
 // does nothing. A negative descriptor or a null set fails an assertion.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // set: fd_set;
 //
 // FD_SET(7, *set);
@@ -342,7 +342,7 @@ FD_SET :: (fd: s32, set: *fd_set) {
 // Removes descriptor `fd` from `set`. Clearing a descriptor that is not in the set, or one at or beyond the set's capacity,
 // does nothing. A negative descriptor or a null set fails an assertion.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // set: fd_set;
 //
 // FD_SET(7, *set);

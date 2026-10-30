@@ -92,7 +92,7 @@ Client_Response :: struct {
 // What went wrong when the client did not get, or could not read, an answer (`Client_Error.kind`), with `.NONE` for success. A
 // response with any HTTP status, a 404 included, is not an error; `error_for_status` turns a non-2xx status into `.STATUS`.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // // A URL the client cannot request is refused before anything is sent.
 // api: Client;
 // response, error := get(*api, "ftp://example.com/file");
@@ -611,7 +611,7 @@ Http_Statistics :: struct {
 // The counts of the running scheduler's pools, for tests and diagnostics. Call it on a scheduler, inside `Io.io_run` or a
 // test client call. A program that closes or reads every response to the end shows no open responses.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // Io :: #import "Extensions/Io";
 //
 // main :: () {

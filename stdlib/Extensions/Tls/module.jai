@@ -19,7 +19,7 @@
 // The example runs a client and a server on loopback. The certificates and the key are throwaway ones made for
 // tests, and the certificate is valid for `localhost`. Never use them for anything else.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // Io :: #import "Extensions/Io";
 //
 // ROOT :: #string END

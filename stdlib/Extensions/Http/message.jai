@@ -209,7 +209,7 @@ bad_request :: (format := "", args: ..Any) -> Http_Error {
 // An `Http_Error` with status 401, for when the caller has not authenticated. Add `WWW-Authenticate` with `with_header`.
 // `format` and `args` make the detail text as `tprint` does, in the temporary allocator.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // error := with_header(unauthorized("a token is required"), "WWW-Authenticate", "Bearer");
 //
 // assert(error.status == 401);
@@ -228,7 +228,7 @@ forbidden :: (format := "", args: ..Any) -> Http_Error {
 // An `Http_Error` with status 404, for when there is nothing at the requested resource.
 // `format` and `args` make the detail text as `tprint` does, in the temporary allocator.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // error := not_found("No user %", 7);
 //
 // assert(error.status == 404);

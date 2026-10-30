@@ -120,7 +120,7 @@ Url :: struct {
 
 // Why `parse_url` refused a text, with `.NONE` for success.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // url, problem := parse_url("https://example.com:8443/a/b?x=1");
 // assert(problem == .NONE);
 // assert(url.secure && url.host == "example.com" && url.port == 8443);

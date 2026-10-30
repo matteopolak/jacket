@@ -49,7 +49,7 @@ Close_Proc :: #type (data: *void, now: bool) -> Io_Error;
 // a pipe end, and a struct of your own can fill in `read_proc` (and optionally `close_proc` and `wait_proc`). A `Reader` is a
 // handle: copy it freely, it owns nothing, and the source must stay alive while it is used. `close` on it closes the source.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // Counter :: struct {
 //     next: u8;
 // }
@@ -118,7 +118,7 @@ wait_readable :: (reader: Reader) -> Io_Error {
 // Whether `wait_readable` works on `reader`, which is when its source supplies a `wait_proc` (a TCP stream does; a file or a pipe
 // end does not). When it is false, `wait_readable` returns `.UNSUPPORTED`.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // Io :: #import "Extensions/Io";
 //
 // main :: () {
@@ -256,7 +256,7 @@ writer_of :: (file: *Io_File) -> Writer {
 // The TCP stream as a `Writer`. `write` through it waits as long as it takes for the peer to take the bytes. Closing the writer
 // closes the stream.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // Io :: #import "Extensions/Io";
 //
 // main :: () {

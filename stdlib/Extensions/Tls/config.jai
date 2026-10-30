@@ -7,7 +7,7 @@
 // `version(stream)` as `"TLSv1.2"` or `"TLSv1.3"`. Older versions are not supported. `tls_config_init` fails with `.CONFIG` when the range
 // is empty (`min_version` above `max_version`).
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // config: Tls_Config;
 // config.min_version = .TLS_1_3;
 // config.max_version = .TLS_1_2;

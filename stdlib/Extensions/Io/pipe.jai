@@ -146,7 +146,7 @@ write_some :: (stream: *Pipe_Stream, data: [] u8) -> s64, Io_Error {
 
 // The `write` for a `string`: sends all of `text` into the pipe, to be read at the other end.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // Io :: #import "Extensions/Io";
 //
 // main :: () {

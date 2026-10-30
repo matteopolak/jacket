@@ -161,7 +161,7 @@ Scheduler :: struct {
 // inside it, and only the calling fiber waits, never the thread. The scheduler's memory is released when the call returns; the
 // caller keeps what `proc` allocated. Do not call it from inside another `io_run` on the same thread.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // Io :: #import "Extensions/Io";
 //
 // done: bool;
@@ -193,7 +193,7 @@ io_run :: (proc: $P, data: $T) {
 // storage of its own. Fibers share one OS thread, so they can use shared data without locks as long as they do not block in
 // the middle of updating it.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // Io :: #import "Extensions/Io";
 //
 // main :: () {

@@ -6,7 +6,7 @@
 // for the specifics. Calls that return `Io.Io_Error` instead (`read`, `write`) leave the TLS reason in
 // `last_error(stream)`.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // config: Tls_Config;
 // config.certificate_chain_pem = "this is not a certificate";
 // config.private_key_pem = "this is not a key";

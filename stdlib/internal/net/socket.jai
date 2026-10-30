@@ -30,7 +30,7 @@
 // `address` is in network byte order, the way it is stored in `sockaddr_in.sin_addr`: the first octet is the first byte
 // in memory, so loopback is `htonl(INADDR_LOOPBACK)`. The caller releases the builder with `free_buffers`.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // builder: String_Builder;
 // defer free_buffers(*builder);
 //
@@ -57,7 +57,7 @@ append_address :: (builder: *String_Builder, address: u32) {
 // zero groups are not shortened to `::`, and there are no brackets. An IPv4-mapped address prints as plain hex groups,
 // not as dotted decimal.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // loopback: [16] u8;
 // loopback[15] = 1;
 //
@@ -83,7 +83,7 @@ append_address :: (builder: *String_Builder, address: [16] u8) {
 // The port is read in network order and printed in decimal; the address is never resolved to a name. The result is
 // allocated with `context.allocator` and the caller frees it.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // address: sockaddr_in;
 // address.sin_family = AF_INET;
 // address.sin_port = htons(8080);
@@ -123,7 +123,7 @@ to_string :: (addr: sockaddr_in) -> string {
 // separated from the last group by the same `:` that separates the groups. The scope id and flow label are not shown.
 // The result is allocated with `context.allocator` and the caller frees it.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // address: sockaddr_in6;
 // address.sin6_family = AF_INET6;
 // address.sin6_port = htons(443);
@@ -167,7 +167,7 @@ to_string :: (addr: sockaddr_in6) -> string {
 // starts in non-blocking mode depends on the platform, so call `set_blocking` to pick one explicitly. Use `accept_v6`
 // for a listener bound to an IPv6 address; an IPv4 record cannot hold an IPv6 peer.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // assert(socket_init());
 //
 // listener := socket(AF_INET, .SOCK_STREAM, .TCP);
@@ -202,7 +202,7 @@ accept :: (s: Socket) -> Socket, sockaddr_in {
 // Blocking, the `INVALID_SOCKET` result and ownership of the returned socket are as for `accept`. The listener must
 // be an `AF_INET6` socket; a host without IPv6 fails at `socket` or `bind` before this is reached.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // assert(socket_init());
 //
 // listener := socket(AF_INET6, .SOCK_STREAM, .TCP);
@@ -245,7 +245,7 @@ accept_v6 :: (s: Socket) -> Socket, sockaddr_in6 {
 // neither all return -1 without touching the socket and without setting the socket error. A failure of the bind itself
 // returns the native error value, and `get_last_socket_error()` says why (`EADDRINUSE` for a taken port).
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // assert(socket_init());
 //
 // s := socket(AF_INET, .SOCK_STREAM, .TCP);
@@ -280,7 +280,7 @@ bind :: (s: Socket, address: string, port: u16, family: type_of(sockaddr_in.sin_
 // `address` is in network byte order (`htonl(INADDR_LOOPBACK)`, or 0 for every interface) and `port` is in host order,
 // where 0 asks the OS for a free port. The cause of a failure is in `get_last_socket_error()`.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // assert(socket_init());
 //
 // s := socket(AF_INET, .SOCK_DGRAM, .UDP);
@@ -305,7 +305,7 @@ bind :: (s: Socket, address: u32, port: u16) -> s32 {
 // zero array with the last byte set to 1. The cause of a failure is in `get_last_socket_error()`; a host without IPv6
 // fails when the socket is created.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // assert(socket_init());
 //
 // s := socket(AF_INET6, .SOCK_STREAM, .TCP);

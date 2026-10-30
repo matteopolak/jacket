@@ -1,7 +1,7 @@
 // Io: fibers and a cooperative scheduler. A jaic extension, not official Jai: other Jai compilers
 // have no such module, and it may change between jaic releases. See docs/extensions/io-engine.md.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // Io :: #import "Extensions/Io";
 //
 // results: *Io.Channel(int); // a fiber's procedure cannot capture locals: share through a global or pass data
