@@ -342,6 +342,7 @@ impl Compiler {
             value,
             ty,
             untyped,
+            ..
         } = op
         {
             let v = match value {

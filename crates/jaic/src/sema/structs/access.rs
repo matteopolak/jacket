@@ -1,6 +1,6 @@
 //! Member access expressions and the types of promoted and pending members.
 use super::model::FieldUsing;
-use crate::sema::lower::{FnCtx, Operand};
+use crate::sema::lower::{FnCtx, Operand, Origin};
 use crate::sema::scope::{EntityId, EntityKind, Found, ScopeKind};
 use crate::sema::{Compiler, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, scope};
 use crate::types::{ArrayKind, LayoutState, TypeKind};
@@ -53,6 +53,7 @@ impl Compiler {
                         ty,
                         value,
                         untyped: true,
+                        ..
                     } => self.ty.default_untyped(ty, &value),
                     other => other.ty(),
                 };
@@ -100,6 +101,7 @@ impl Compiler {
                             ty: p,
                             value: Value::Null,
                             untyped: false,
+                            origin: Origin::Computed,
                         });
                     }
                     let (_, addr) = self.address_of(f, base, span)?;
@@ -386,6 +388,7 @@ impl Compiler {
                         ty: t,
                         value: Value::Int(v),
                         untyped: false,
+                        origin: Origin::Computed,
                     });
                 }
                 if let Some(&(_, v)) = self
@@ -398,6 +401,7 @@ impl Compiler {
                         ty: t,
                         value: Value::Int(v),
                         untyped: false,
+                        origin: Origin::Computed,
                     });
                 }
                 Err(Box::new(self.no_member(t, name, span)))

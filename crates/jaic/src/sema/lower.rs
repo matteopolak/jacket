@@ -10,6 +10,41 @@ use crate::sema::Output;
 use crate::sema::TypeState;
 use crate::types::{ArrayKind, TypeKind};
 
+/// Where a numeric constant came from: what is known about how it was written. Reading the
+/// source text for this would break on macro output and on constants with no text, so the
+/// fact travels with the value, and folding two values yields `Computed`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Origin {
+    /// Folded or synthesised: nothing is known about its spelling.
+    #[default]
+    Computed,
+    /// A literal, with the spelling it was parsed from.
+    Literal(ast::Spelling),
+    /// The complement of a constant (`~0`).
+    Complement,
+    /// A `#char` literal.
+    Char,
+    /// A declared constant, read by name.
+    Named,
+}
+
+impl Origin {
+    /// The constant may stand for a bit pattern of the type it meets: a hex or binary literal, a
+    /// complement or a named constant, which are all written to say which bits are wanted.
+    pub fn bit_pattern(self) -> bool {
+        match self {
+            Origin::Literal(spelling) => spelling == ast::Spelling::Radix,
+            Origin::Complement | Origin::Char | Origin::Named => true,
+            Origin::Computed => false,
+        }
+    }
+
+    /// A decimal literal with a point (`16777217.0`): the digits written are the digits meant.
+    pub fn decimal_fraction(self) -> bool {
+        self == Origin::Literal(ast::Spelling::Fractional)
+    }
+}
+
 /// Result of checking an expression.
 #[derive(Clone, Debug)]
 pub enum Operand {
@@ -36,6 +71,7 @@ pub enum Operand {
         ty: TypeId,
         value: Value,
         untyped: bool,
+        origin: Origin,
     },
     Type(TypeId),
     /// Candidates for a call (overload set).
@@ -118,6 +154,39 @@ impl Operand {
             ty,
             value: Value::Int(value),
             untyped: false,
+            origin: Origin::Computed,
+        }
+    }
+
+    /// A constant integer read through a name keeps no spelling, but a named constant may be
+    /// written to say which bits it holds.
+    pub(super) fn named_constant(self) -> Operand {
+        match self {
+            Operand::Const {
+                ty,
+                value: value @ Value::Int(_),
+                untyped,
+                origin: Origin::Computed,
+            } => Operand::Const {
+                ty,
+                value,
+                untyped,
+                origin: Origin::Named,
+            },
+            other => other,
+        }
+    }
+
+    /// The operand is a constant that may stand for a bit pattern (see [`Origin::bit_pattern`]).
+    pub fn bit_pattern(&self) -> bool {
+        match self {
+            Operand::Callable {
+                operand, ..
+            } => operand.bit_pattern(),
+            Operand::Const {
+                origin, ..
+            } => origin.bit_pattern(),
+            _ => false,
         }
     }
 
@@ -126,6 +195,7 @@ impl Operand {
             ty: TypeId::S64,
             value: Value::Int(value),
             untyped: true,
+            origin: Origin::Computed,
         }
     }
 
@@ -134,6 +204,7 @@ impl Operand {
             ty: TypeId::BOOL,
             value: Value::Bool(value),
             untyped: false,
+            origin: Origin::Computed,
         }
     }
 }
@@ -533,6 +604,7 @@ impl Compiler {
                 ty,
                 value,
                 untyped,
+                ..
             } => {
                 let ty = if untyped {
                     self.ty.default_untyped(ty, &value)

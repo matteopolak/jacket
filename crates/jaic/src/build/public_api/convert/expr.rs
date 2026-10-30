@@ -388,7 +388,7 @@ impl Convert<'_, '_> {
             else {
                 return Err(Trap::new("edited float literal does not spell a float"));
             };
-            (negate, mk(ExprKind::Float(value), span))
+            (negate, mk(ExprKind::float_literal(value, &digits), span))
         } else if self.has(at, ty, "value_flags", "HEX")?
             || self.has(at, ty, "value_flags", "BINARY")?
         {
@@ -408,7 +408,10 @@ impl Convert<'_, '_> {
             let span = self.word(&spelling);
             (
                 negative,
-                mk(ExprKind::Int(Int128::new(magnitude.into())), span),
+                mk(
+                    ExprKind::Int(Int128::new(magnitude.into()), ast::Spelling::Radix),
+                    span,
+                ),
             )
         } else {
             let negate = negative && (value as i64) < 0;
@@ -423,7 +426,10 @@ impl Convert<'_, '_> {
             let span = self.word(&magnitude.to_string());
             (
                 negate,
-                mk(ExprKind::Int(Int128::new(magnitude.into())), span),
+                mk(
+                    ExprKind::Int(Int128::new(magnitude.into()), ast::Spelling::Decimal),
+                    span,
+                ),
             )
         };
         Ok(if negate {

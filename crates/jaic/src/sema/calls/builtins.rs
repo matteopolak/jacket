@@ -4,6 +4,7 @@ use super::{
     ArrayKind, BuiltinProc, CallArg, Compiler, Diagnostic, E, FnCtx, Operand, PreludeType, ProcId,
     Rc, Result, ScopeId, ScopeKind, Span, Ty, TypeId, TypeKind, Value, ast, err, ir, procs,
 };
+use crate::sema::lower::Origin;
 
 impl Compiler {
     pub(super) fn check_builtin(
@@ -86,6 +87,7 @@ impl Compiler {
             ty: TypeId::S64,
             value: Value::Int(v as i128),
             untyped: true,
+            origin: Origin::Computed,
         })
     }
 
@@ -122,6 +124,7 @@ impl Compiler {
             ty: TypeId::CODE,
             value: Value::Code(id),
             untyped: false,
+            origin: Origin::Computed,
         })
     }
 
@@ -148,6 +151,7 @@ impl Compiler {
                 ty,
                 value,
                 untyped: true,
+                ..
             } => self.ty.default_untyped(ty, &value),
             Operand::Procs(p) if p.len() == 1 && self.proc(p[0]).is_poly => {
                 self.poly_proc_type(p[0])
@@ -242,6 +246,7 @@ impl Compiler {
                 ty: proc.1,
                 value: Value::Null,
                 untyped: false,
+                origin: Origin::Computed,
             });
         }
         Ok(Operand::Value {
@@ -304,6 +309,7 @@ impl Compiler {
             ty: TypeId::S64,
             value: Value::Int(offset as i128),
             untyped: true,
+            origin: Origin::Computed,
         })
     }
 
@@ -484,6 +490,7 @@ impl Compiler {
                                 ty,
                                 value,
                                 untyped: true,
+                                ..
                             } => self.ty.default_untyped(ty, &value),
                             other => other.ty(),
                         })

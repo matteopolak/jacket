@@ -220,8 +220,8 @@ fn may_have_effects(expr: &ast::Expr) -> bool {
     use ast::ExprKind as E;
     match &expr.kind {
         E::Ident(_)
-        | E::Int(_)
-        | E::Float(_)
+        | E::Int(..)
+        | E::Float(..)
         | E::Str(_)
         | E::Bool(_)
         | E::Null

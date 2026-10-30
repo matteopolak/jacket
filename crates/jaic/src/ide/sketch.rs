@@ -9,7 +9,7 @@
 use crate::ast;
 use crate::fxhash::HashMap;
 use crate::intern::Sym;
-use crate::sema::lower::{FnCtx, Operand};
+use crate::sema::lower::{FnCtx, Operand, Origin};
 use crate::sema::procs::{self, BodyState, ProcTarget};
 use crate::sema::scope;
 use crate::sema::value::PolyStructId;
@@ -353,6 +353,7 @@ impl Compiler {
                     ty,
                     value: Value::Int(4),
                     untyped: false,
+                    origin: Origin::Computed,
                 },
                 _ => return None,
             };

@@ -99,8 +99,8 @@ impl Exporter<'_> {
                 e.kind,
                 E::Binary(..)
                     | E::Unary(..)
-                    | E::Int(_)
-                    | E::Float(_)
+                    | E::Int(..)
+                    | E::Float(..)
                     | E::Str(_)
                     | E::Char(_)
                     | E::Bool(_)
@@ -122,7 +122,7 @@ impl Exporter<'_> {
         use ast::ExprKind as E;
         let span = e.span;
         Ok(match &e.kind {
-            E::Int(v) => {
+            E::Int(v, ..) => {
                 let mut rec = self.literal(span, 1);
                 rec.int("_s64", v.get() as i64)
                     .int("value_flags", self.literal_number_flags(span, None, false));
@@ -133,7 +133,7 @@ impl Exporter<'_> {
                 rec.int("_s64", *v as i64).int("value_flags", 0x1);
                 rec
             }
-            E::Float(v) => {
+            E::Float(v, ..) => {
                 let mut rec = self.literal(span, 1);
                 rec.int("_float64", v.to_bits() as i64).int(
                     "value_flags",
@@ -218,15 +218,15 @@ impl Exporter<'_> {
             }
             // Jai folds a negated number literal into one literal (`#code case -1` is a
             // Code_Literal whose `_s64` metaprograms overwrite).
-            E::Unary(ast::UnOp::Neg, a) if matches!(a.kind, E::Int(_) | E::Float(_)) => {
+            E::Unary(ast::UnOp::Neg, a) if matches!(a.kind, E::Int(..) | E::Float(..)) => {
                 match &a.kind {
-                    E::Int(v) => {
+                    E::Int(v, ..) => {
                         let mut rec = self.literal(span, 1);
                         rec.int("_s64", (v.get() as i64).wrapping_neg())
                             .int("value_flags", self.literal_number_flags(span, None, true));
                         rec
                     }
-                    E::Float(v) => {
+                    E::Float(v, ..) => {
                         let mut rec = self.literal(span, 1);
                         rec.int("_float64", (-v).to_bits() as i64).int(
                             "value_flags",

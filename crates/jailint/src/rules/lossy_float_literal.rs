@@ -17,7 +17,7 @@
 //! alone.
 use crate::syntax::{Cx, Node, walk};
 use crate::{Edit, Finding, Fix};
-use jaic::ast::{AssignOp, BinOp, Expr, ExprKind as E, Stmt, StmtKind as S, UnOp};
+use jaic::ast::{AssignOp, BinOp, Expr, ExprKind as E, Spelling, Stmt, StmtKind as S, UnOp};
 use jaic::types::TypeKind;
 
 /// The rule's name, group and one-line summary, and its check.
@@ -40,10 +40,10 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 fn look(cx: &Cx, stmts: &[Stmt], out: &mut Vec<Finding>) {
     walk(stmts, &mut |n, chain| {
         if let Node::Expr(e) = n
-            && let E::Float(value) = e.kind
+            && let E::Float(value, _, written) = e.kind
             && in_float32_context(cx, e, chain)
         {
-            examine(cx, e, value, out);
+            examine(cx, e, value, written, out);
         }
         true
     });
@@ -107,15 +107,15 @@ fn in_float32_context(cx: &Cx, lit: &Expr, chain: &[Node<'_>]) -> bool {
             } else {
                 a
             };
-            !matches!(other.kind, E::Float(_) | E::Int(_)) && float32(other)
+            !matches!(other.kind, E::Float(..) | E::Int(..)) && float32(other)
         }
         _ => false,
     }
 }
 
-fn examine(cx: &Cx, e: &Expr, value: f64, out: &mut Vec<Finding>) {
+fn examine(cx: &Cx, e: &Expr, value: f64, written: Spelling, out: &mut Vec<Finding>) {
     let text = cx.src(e.span).trim();
-    if text.is_empty() || text.contains(['h', 'x', 'X', 'H']) || !value.is_finite() {
+    if text.is_empty() || written == Spelling::Radix || !value.is_finite() {
         return;
     }
     let narrow = value as f32;

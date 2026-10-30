@@ -150,8 +150,8 @@ impl Relocator {
             ExprKind::PolyRestricted {
                 restriction, ..
             } => self.expr(restriction),
-            ExprKind::Int(_)
-            | ExprKind::Float(_)
+            ExprKind::Int(..)
+            | ExprKind::Float(..)
             | ExprKind::Str(_)
             | ExprKind::Bool(_)
             | ExprKind::Null

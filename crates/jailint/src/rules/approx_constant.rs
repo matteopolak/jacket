@@ -44,7 +44,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         walk(&p.body.stmts, &mut |n, _| match n {
             Node::Stmt(s) => !matches!(&s.kind, S::Decl(d) if d.kind == DeclKind::Const),
             Node::Expr(e) => {
-                if let E::Float(v) = e.kind {
+                if let E::Float(v, ..) = e.kind {
                     let text = cx.src(e.span).trim();
                     if let Some((name, wide)) = known(text, v) {
                         let help = if name == wide {

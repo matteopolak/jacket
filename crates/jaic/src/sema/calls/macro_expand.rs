@@ -292,6 +292,7 @@ impl Compiler {
                     value,
                     ty,
                     untyped,
+                    ..
                 }) => Some((value.clone(), *ty, *untyped)),
                 Some(Operand::Procs(p)) if p.len() == 1 => {
                     Some((Value::Proc(p[0]), param.ty, false))
@@ -303,13 +304,14 @@ impl Compiler {
                 _ => None,
             },
             Slot::Default => match &header.params[i].default {
-                Some(d) if matches!(d.kind, E::Str(_) | E::Int(_) | E::Float(_) | E::Bool(_)) => {
+                Some(d) if matches!(d.kind, E::Str(_) | E::Int(..) | E::Float(..) | E::Bool(_)) => {
                     let pscope = self.proc(proc).scope;
                     match self.eval_const(pscope, d, Some(param.ty)) {
                         Ok(Operand::Const {
                             value,
                             ty,
                             untyped,
+                            ..
                         }) => Some((value, ty, untyped)),
                         _ => None,
                     }

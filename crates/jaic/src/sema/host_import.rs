@@ -1,6 +1,6 @@
 //! Results of a run in the host twin, brought into the target compiler: types matched by
 //! declaration, values checked to have the same layout on both sides, data copied.
-use super::lower::Operand;
+use super::lower::{Operand, Origin};
 use super::{
     Compiler, HashMap, HashSet, ProcId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, err, ir,
     procs::ProcTarget, scope::Resolved,
@@ -77,6 +77,7 @@ impl Importer<'_> {
                 ty,
                 value,
                 untyped,
+                ..
             } => {
                 let imported = self.ty(ty)?;
                 // A bare `long double` is converted to the target's format; inside another
@@ -91,6 +92,7 @@ impl Importer<'_> {
                     ty: imported,
                     value,
                     untyped,
+                    origin: Origin::Computed,
                 })
             }
             _ => self.fail(

@@ -1,7 +1,7 @@
 //! Identifiers, entities and `#this`: resolving a name to an operand.
 use crate::ast::ExprKind as E;
 use crate::ir::Ty;
-use crate::sema::lower::{FnCtx, Operand};
+use crate::sema::lower::{FnCtx, Operand, Origin};
 use crate::sema::scope::{EntityKind, Found, Resolved, ScopeKind};
 use crate::sema::{
     Compiler, Diagnostic, DiagnosticKind, EntityId, PreludeType, Rc, Result, ScopeId, Span, Sym,
@@ -388,6 +388,7 @@ impl Compiler {
                         ty,
                         value,
                         untyped: false,
+                        origin: Origin::Computed,
                     }
                     .with_callable(self.pr.callable_entities.get(&id).cloned()));
                 }
@@ -397,6 +398,7 @@ impl Compiler {
                             ty,
                             value,
                             untyped: false,
+                            origin: Origin::Computed,
                         }
                         .with_callable(self.pr.callable_entities.get(&id).cloned()));
                     }
@@ -447,6 +449,7 @@ impl Compiler {
                 ty,
                 value,
                 untyped: self.entity(id).untyped_const,
+                origin: Origin::Computed,
             },
             Resolved::Proc(p) => Operand::Procs(vec![p]),
             Resolved::ProcSet(set) => Operand::Procs(set),
@@ -738,6 +741,7 @@ impl Compiler {
             ty,
             value,
             untyped: false,
+            origin: Origin::Computed,
         })
     }
 

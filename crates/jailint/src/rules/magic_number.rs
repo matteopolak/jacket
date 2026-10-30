@@ -34,7 +34,7 @@ use super::{finding, replacing};
 use crate::Finding;
 use crate::syntax::{Cx, Node, walk};
 use jaic::ast::{AssignOp, BinOp, ExprKind as E, StmtKind as S, UnOp};
-use jaic::ast::{DeclKind, Expr, ForOver, Stmt};
+use jaic::ast::{DeclKind, Expr, ForOver, Spelling, Stmt};
 use jaic::sema::EntityId;
 use jaic::types::TypeKind;
 
@@ -62,7 +62,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let Some(e) = n.expr() else {
                 return true;
             };
-            let Some(value) = number(cx, e) else {
+            let Some(value) = number(e) else {
                 return true;
             };
             let Some(place) = ancestors.last().and_then(|parent| place(*parent, e)) else {
@@ -170,19 +170,13 @@ fn equality(parent: Option<Node>) -> bool {
 }
 
 /// The value of a decimal number literal, with any sign in front of it.
-fn number(cx: &Cx, e: &Expr) -> Option<f64> {
+fn number(e: &Expr) -> Option<f64> {
     match &e.kind {
-        E::Unary(UnOp::Neg, inner) => number(cx, inner).map(|v| -v),
-        E::Unary(UnOp::Plus, inner) => number(cx, inner),
-        E::Int(v) => {
-            // `0xFF`, `0b1010`: written as a bit pattern on purpose.
-            let text = cx.src(e.span);
-            let radix = text.len() > 1
-                && text.starts_with('0')
-                && text[1..].starts_with(|c: char| c.is_ascii_alphabetic());
-            (!radix).then_some(v.get() as f64)
-        }
-        E::Float(v) => Some(*v),
+        E::Unary(UnOp::Neg, inner) => number(inner).map(|v| -v),
+        E::Unary(UnOp::Plus, inner) => number(inner),
+        // `0xFF`, `0b1010`: written as a bit pattern on purpose.
+        E::Int(v, spelling) => (*spelling != Spelling::Radix).then_some(v.get() as f64),
+        E::Float(v, ..) => Some(*v),
         _ => None,
     }
 }

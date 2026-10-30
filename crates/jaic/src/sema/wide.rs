@@ -5,7 +5,7 @@
 //! values, and every operation is one `ir::Intrinsic::Wide`, which the LLVM backend lowers to
 //! native `x86_fp80`/`fp128` arithmetic and the interpreter runs in software
 //! (`crate::wide_float`). Constants are encoded at compile time into `Value::Bytes`.
-use super::lower::{FnCtx, Operand};
+use super::lower::{FnCtx, Operand, Origin};
 use super::value::Aggregate;
 use super::{Compiler, Rc, Result, Span, TypeId, Value, convert, err};
 use crate::ast::BinOp;
@@ -82,6 +82,7 @@ impl Compiler {
                     ty: to,
                     value,
                     untyped: false,
+                    origin: Origin::Computed,
                 }));
             }
         }
@@ -275,6 +276,7 @@ impl Compiler {
                 relocs: Vec::new(),
             })),
             untyped: false,
+            origin: Origin::Computed,
         })
     }
 }

@@ -205,7 +205,7 @@ fn is_complement_literal(e: &ast::Expr) -> bool {
 /// an expression that is an untyped constant whatever the context.
 fn is_number_literal(e: &ast::Expr) -> bool {
     match &e.kind {
-        E::Int(_) | E::Float(_) => true,
+        E::Int(..) | E::Float(..) => true,
         E::Unary(ast::UnOp::Neg | ast::UnOp::Plus | ast::UnOp::BitNot, x) => is_number_literal(x),
         E::Binary(_, a, b) => is_number_literal(a) && is_number_literal(b),
         _ => false,

@@ -1,5 +1,5 @@
 //! Isolated host-workspace evaluation and explicit primitive result transfer.
-use super::lower::Operand;
+use super::lower::{Operand, Origin};
 use super::{
     Compiler, Diagnostic, FileId, HashMap, Rc, Result, Span, TypeId, Value, ast, err, ir, scope,
 };
@@ -97,6 +97,7 @@ impl Compiler {
                     ty,
                     value,
                     untyped,
+                    ..
                 } = op
                 else {
                     return err(
@@ -130,6 +131,7 @@ impl Compiler {
                     ty,
                     value,
                     untyped,
+                    origin: Origin::Computed,
                 })
             })
             .collect()

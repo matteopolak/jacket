@@ -38,7 +38,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let E::Binary(BinOp::Sub, count, one) = &hi.kind else {
                 return true;
             };
-            if !matches!(one.kind, E::Int(v) if v.get() == 1) || cx.constant(count) {
+            if !matches!(one.kind, E::Int(v, ..) if v.get() == 1) || cx.constant(count) {
                 return true;
             }
             let Some(ty) = cx.ty(count) else {

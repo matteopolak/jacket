@@ -43,8 +43,8 @@ pub(super) fn only(branch: &Stmt) -> Option<&Stmt> {
 pub(super) fn hoistable(e: &Expr) -> bool {
     match &e.kind {
         E::Ident(_)
-        | E::Int(_)
-        | E::Float(_)
+        | E::Int(..)
+        | E::Float(..)
         | E::Str(_)
         | E::Bool(_)
         | E::Null
@@ -125,8 +125,8 @@ pub(super) fn atomic(e: &Expr) -> bool {
     matches!(
         e.kind,
         E::Ident(_)
-            | E::Int(_)
-            | E::Float(_)
+            | E::Int(..)
+            | E::Float(..)
             | E::Str(_)
             | E::Bool(_)
             | E::Null

@@ -36,7 +36,7 @@ impl Compiler {
             });
         }
         let message = match &target.kind {
-            E::Int(_) | E::Float(_) | E::Str(_) | E::Bool(_) | E::Null => {
+            E::Int(..) | E::Float(..) | E::Str(_) | E::Bool(_) | E::Null => {
                 "cannot assign to a literal".to_string()
             }
             E::Call {

@@ -1,7 +1,7 @@
 //! Implicit conversions of operands and constants.
 use super::{int_constant_fits, int_to_float};
 use crate::sema::TypeState;
-use crate::sema::lower::{FnCtx, Operand};
+use crate::sema::lower::{FnCtx, Operand, Origin};
 use crate::sema::{Compiler, Diagnostic, DiagnosticKind, ProcId, Result, Span, TypeId, Value, err};
 use crate::types::TypeKind;
 
@@ -152,8 +152,10 @@ impl Compiler {
                 ty,
                 ref value,
                 untyped,
+                origin,
+                ..
             } => {
-                if let Some(c) = self.convert_const(ty, value, untyped, to, span)? {
+                if let Some(c) = self.convert_const((ty, value, untyped, origin), to, span)? {
                     return Ok(c);
                 }
             }
@@ -197,9 +199,7 @@ impl Compiler {
     /// Constant-to-constant conversions (returns None when a runtime conversion is needed).
     pub(in crate::sema) fn convert_const(
         &mut self,
-        ty: TypeId,
-        value: &Value,
-        untyped: bool,
+        (ty, value, untyped, origin): (TypeId, &Value, bool, Origin),
         to: TypeId,
         span: Span,
     ) -> Result<Option<Operand>> {
@@ -213,6 +213,7 @@ impl Compiler {
                     ty: to,
                     value,
                     untyped: false,
+                    origin: Origin::Computed,
                 }));
             }
             return Ok(None);
@@ -223,7 +224,7 @@ impl Compiler {
                     && (untyped || self.implicit_cost(ty, false, to).is_some()) =>
             {
                 let (bits, signed) = self.ty.types.int_info(tr).unwrap();
-                if untyped && !int_constant_fits(*i, bits, signed, self.src.bit_pattern(span)) {
+                if untyped && !int_constant_fits(*i, bits, signed, origin.bit_pattern()) {
                     return err(
                         span,
                         format!("constant {i} does not fit in {}", self.ty.types.name(to)),
@@ -266,7 +267,7 @@ impl Compiler {
                         );
                     }
                     if untyped {
-                        self.warn_float32_rounding(*x, span);
+                        self.warn_float32_rounding(*x, origin, span);
                     }
                     Value::float(*x as f32 as f64)
                 } else {
@@ -291,6 +292,7 @@ impl Compiler {
             ty: to,
             value: result,
             untyped: false,
+            origin: Origin::Computed,
         }))
     }
 }
@@ -310,15 +312,12 @@ impl TypeState {
 impl Compiler {
     /// A decimal literal that becomes a `float32` with a different value (`16777217.0` is
     /// 16777216 there): the digits written are not the number the program gets.
-    fn warn_float32_rounding(&mut self, value: f64, span: Span) {
-        let text = self.src.sources.snippet(span);
-        let literal = !text.is_empty()
-            && text.bytes().all(|b| {
-                b.is_ascii_digit() || matches!(b, b'.' | b'_' | b'e' | b'E' | b'-' | b'+')
-            })
-            && text.bytes().any(|b| b == b'.');
+    fn warn_float32_rounding(&mut self, value: f64, origin: Origin, span: Span) {
         let rounded = value as f32;
-        if !literal || !rounded.is_finite() || rounded.to_string().parse::<f64>() == Ok(value) {
+        if !origin.decimal_fraction()
+            || !rounded.is_finite()
+            || rounded.to_string().parse::<f64>() == Ok(value)
+        {
             return;
         }
         self.warn(

@@ -1,6 +1,8 @@
 //! `#insert` statements and the scopes they publish into.
 use crate::ast::StmtKind as S;
-use crate::sema::lower::{FnCtx, InsertReplacements, LoopFrame, LoopRemove, MacroFrame, Operand};
+use crate::sema::lower::{
+    FnCtx, InsertReplacements, LoopFrame, LoopRemove, MacroFrame, Operand, Origin,
+};
 use crate::sema::scope::{EntityId, EntityKind, ScopeKind};
 use crate::sema::{
     Compiler, Diagnostic, HashMap, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, scope,
@@ -43,6 +45,7 @@ impl Compiler {
                 ty: TypeId::CODE,
                 value: Value::Code(code),
                 untyped: false,
+                origin: Origin::Computed,
             };
         }
         if let Operand::Const {

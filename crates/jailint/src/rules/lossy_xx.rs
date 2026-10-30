@@ -41,7 +41,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             else {
                 return true;
             };
-            if *flags != jaic::ast::CastFlags::default() || !cx.src(e.span).starts_with("xx") {
+            if *flags != jaic::ast::CastFlags::default() {
                 return true;
             }
             let Some(c) = cx.compiler.cast_fact(e.span) else {
@@ -142,12 +142,12 @@ fn fits(value: &Expr, bits: u8) -> bool {
     };
     match &value.kind {
         E::Binary(BinOp::BitAnd, a, b) => {
-            matches!(b.kind, E::Int(m) if m.get() < limit)
-                || matches!(a.kind, E::Int(m) if m.get() < limit)
+            matches!(b.kind, E::Int(m, ..) if m.get() < limit)
+                || matches!(a.kind, E::Int(m, ..) if m.get() < limit)
         }
-        E::Binary(BinOp::Rem, _, b) => matches!(b.kind, E::Int(m) if m.get() <= limit),
+        E::Binary(BinOp::Rem, _, b) => matches!(b.kind, E::Int(m, ..) if m.get() <= limit),
         E::Binary(BinOp::Shr, _, b) => {
-            matches!(b.kind, E::Int(s) if 64 - s.get().min(64) <= bits as u128)
+            matches!(b.kind, E::Int(s, ..) if 64 - s.get().min(64) <= bits as u128)
         }
         _ => false,
     }

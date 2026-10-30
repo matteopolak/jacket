@@ -189,6 +189,7 @@ impl Compiler {
                         ty,
                         value,
                         untyped: true,
+                        ..
                     } => self.ty.default_untyped(ty, &value),
                     Operand::Type(_) => TypeId::TYPE,
                     Operand::Procs(p) if p.len() == 1 => self.proc_type(p[0], v.span)?,

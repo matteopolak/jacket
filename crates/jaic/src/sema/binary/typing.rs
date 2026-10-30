@@ -2,7 +2,7 @@
 use crate::int_arith::wrap;
 use crate::sema::TypeState;
 use crate::sema::convert::{Wrap, wrap_suggestion};
-use crate::sema::lower::Operand;
+use crate::sema::lower::{Operand, Origin};
 use crate::sema::{Compiler, Diagnostic, Result, Span, TypeId, Value};
 use crate::types::TypeKind;
 
@@ -31,10 +31,7 @@ impl Compiler {
             }
         );
         let (lt, rt) = (lhs.ty(), rhs.ty());
-        let patterns = (
-            self.src.bit_pattern(operands.0),
-            self.src.bit_pattern(operands.1),
-        );
+        let patterns = (lhs.bit_pattern(), rhs.bit_pattern());
         if is_shift {
             if lu {
                 return Ok(expected
@@ -250,6 +247,7 @@ impl TypeState {
                     ty,
                     value: Value::Int(wrap(v, bits, signed)),
                     untyped: false,
+                    origin: Origin::Computed,
                 }
             }
             op => op,

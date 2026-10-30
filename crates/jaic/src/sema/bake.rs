@@ -176,6 +176,7 @@ impl Compiler {
                     value,
                     ty,
                     untyped,
+                    ..
                 } => {
                     let ty = if untyped {
                         self.ty.default_untyped(ty, &value)
@@ -320,6 +321,7 @@ impl Compiler {
                             ty,
                             value,
                             untyped: true,
+                            ..
                         } => self.ty.default_untyped(ty, &value),
                         other => other.ty(),
                     })

@@ -65,7 +65,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             };
             let a_text = cx.whole_src(a.span).trim();
             let float_a = match a.kind {
-                E::Int(_) => format!("{a_text}.0"),
+                E::Int(..) => format!("{a_text}.0"),
                 E::Ident(_)
                 | E::Member(..)
                 | E::Index(..)

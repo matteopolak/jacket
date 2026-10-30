@@ -54,7 +54,7 @@ fn grouped(expr: &str) -> String {
                 format!("({ty} {})", show(value))
             }
             ExprKind::Ident(name) => name.as_str().to_string(),
-            ExprKind::Int(v) => v.get().to_string(),
+            ExprKind::Int(v, ..) => v.get().to_string(),
             ExprKind::Member(base, field) => format!("{}.{}", show(base), field.name.as_str()),
             other => format!("{other:?}"),
         }
@@ -476,6 +476,30 @@ fn parentheses_are_recorded_on_the_expression_they_enclose() {
     let src = "x := (a + b);";
     let e = value(src);
     assert_eq!(&src[e.span.start as usize..e.span.end as usize], "a + b");
+}
+
+#[test]
+fn numeric_literals_record_how_they_were_written() {
+    let int = |src: &str| match value(src).kind {
+        ExprKind::Int(_, spelling) => spelling,
+        other => panic!("{other:?}"),
+    };
+    let float = |src: &str| match value(src).kind {
+        ExprKind::Float(_, _, spelling) => spelling,
+        other => panic!("{other:?}"),
+    };
+    assert_eq!(int("x := 255;"), Spelling::Decimal);
+    assert_eq!(int("x := 0xff;"), Spelling::Radix);
+    assert_eq!(int("x := 0B101;"), Spelling::Radix);
+    assert_eq!(float("x := 1.5;"), Spelling::Fractional);
+    assert_eq!(float("x := .5;"), Spelling::Fractional);
+    assert_eq!(float("x := 1e9;"), Spelling::Decimal);
+    assert_eq!(float("x := 0h3f800000;"), Spelling::Radix);
+    // The digits requested travel with the literal.
+    let ExprKind::Float(_, precision, _) = value("x := 1.12345678;").kind else {
+        panic!()
+    };
+    assert!(precision.defaults_to_float64);
 }
 
 // -- declarations ---------------------------------------------------------------

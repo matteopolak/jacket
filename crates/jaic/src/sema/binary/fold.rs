@@ -2,7 +2,7 @@
 use super::num;
 use crate::ast::BinOp;
 use crate::int_arith::{DivideByZero, IntOp, int_binop};
-use crate::sema::lower::Operand;
+use crate::sema::lower::{Operand, Origin};
 use crate::sema::{Compiler, Result, Span, TypeId, Value, err};
 use crate::types::TypeKind;
 
@@ -19,11 +19,13 @@ impl Compiler {
                 ty: lt,
                 value: lv,
                 untyped: lu,
+                ..
             },
             Operand::Const {
                 ty: rt,
                 value: rv,
                 untyped: ru,
+                ..
             },
         ) = (lhs, rhs)
         else {
@@ -207,6 +209,7 @@ impl Compiler {
             ty: rty,
             value,
             untyped: untyped && !is_bool,
+            origin: Origin::Computed,
         }))
     }
 }

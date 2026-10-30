@@ -166,8 +166,8 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 /// Evaluating `e` has no effect beyond its value.
 fn pure(e: &Expr) -> bool {
     match &e.kind {
-        E::Int(_)
-        | E::Float(_)
+        E::Int(..)
+        | E::Float(..)
         | E::Str(_)
         | E::Bool(_)
         | E::Null

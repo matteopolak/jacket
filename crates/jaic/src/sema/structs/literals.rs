@@ -1,7 +1,7 @@
 //! Struct and array literals, and writing values into constant images.
 use super::model::PathStep;
 use crate::ast::ExprKind as E;
-use crate::sema::lower::{FnCtx, Operand};
+use crate::sema::lower::{FnCtx, Operand, Origin};
 use crate::sema::value::Aggregate;
 use crate::sema::{Compiler, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, ir, procs};
 use crate::types::{ArrayKind, TypeKind};
@@ -189,6 +189,7 @@ impl Compiler {
                 ty,
                 value: Value::Bytes(Rc::new(agg)),
                 untyped: false,
+                origin: Origin::Computed,
             });
         }
         let align = self.align_of(ty, span)?;
@@ -284,6 +285,7 @@ impl Compiler {
             ty: TypeId::CODE,
             value: Value::Code(id),
             untyped: false,
+            origin: Origin::Computed,
         })
     }
 
@@ -354,6 +356,7 @@ impl Compiler {
                 ty,
                 value: Value::Bytes(Rc::new(agg)),
                 untyped: false,
+                origin: Origin::Computed,
             });
         }
         let align = self.align_of(elem, span)?;
@@ -485,6 +488,7 @@ pub(super) fn const_operand(value: Value, ty: TypeId) -> Operand {
             ty,
             value,
             untyped: false,
+            origin: Origin::Computed,
         },
     }
 }

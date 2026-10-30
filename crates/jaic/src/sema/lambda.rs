@@ -214,6 +214,7 @@ impl Compiler {
                 ty,
                 value,
                 untyped: true,
+                ..
             } => self.ty.default_untyped(ty, &value),
             Operand::Procs(p) if p.len() == 1 && !self.proc(p[0]).is_poly => {
                 self.proc_type(p[0], value.span)?

@@ -3,7 +3,7 @@ use crate::ast::ExprKind as E;
 use crate::ir::{CmpOp, Ty};
 use crate::sema::calls::CallArg;
 use crate::sema::convert::is_primary;
-use crate::sema::lower::{FnCtx, ForBody, Immutable, LoopFrame, LoopRemove, Operand};
+use crate::sema::lower::{FnCtx, ForBody, Immutable, LoopFrame, LoopRemove, Operand, Origin};
 use crate::sema::scope::{EntityKind, Resolved};
 use crate::sema::{
     Compiler, Diagnostic, PreludeType, ProcId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast,
@@ -913,6 +913,7 @@ impl Compiler {
                     ty: TypeId::CODE,
                     value: Value::Code(code),
                     untyped: false,
+                    origin: Origin::Computed,
                 }),
                 span,
                 scope,
@@ -925,6 +926,7 @@ impl Compiler {
                     ty: flags_ty,
                     value: Value::Int(flags_value),
                     untyped: false,
+                    origin: Origin::Computed,
                 }),
                 span,
                 scope,

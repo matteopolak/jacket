@@ -1,6 +1,7 @@
 //! Inferring `$T` bindings of a polymorphic procedure from its arguments, and matching type
 //! patterns.
 
+use crate::sema::lower::Origin;
 use crate::types::Types;
 
 use super::poly_hints::{Binders, CONFLICT};
@@ -176,6 +177,7 @@ impl Compiler {
                             ty: t,
                             value,
                             untyped: false,
+                            origin: Origin::Computed,
                         }
                     }
                     None => op,
@@ -187,6 +189,7 @@ impl Compiler {
                     ty,
                     value,
                     untyped: true,
+                    ..
                 } => self.ty.default_untyped(*ty, value),
                 Operand::Const {
                     ..
@@ -210,6 +213,7 @@ impl Compiler {
                             ty,
                             value,
                             untyped: true,
+                            ..
                         } => self.ty.default_untyped(ty, &value),
                         other => other.ty(),
                     })
@@ -250,6 +254,7 @@ impl Compiler {
                         ty: dt,
                         value,
                         untyped: false,
+                        origin: Origin::Computed,
                     }
                 }
                 _ => op,
@@ -420,6 +425,7 @@ impl Compiler {
                     ty,
                     value,
                     untyped: true,
+                    ..
                 } => self.ty.default_untyped(*ty, value),
                 Operand::Type(_) => TypeId::TYPE,
                 // An overload set binds the type of its first member.
@@ -680,6 +686,7 @@ impl Compiler {
                     ty,
                     value,
                     untyped: true,
+                    ..
                 } => self.ty.default_untyped(ty, &value),
                 Operand::Type(_) => TypeId::TYPE,
                 other => other.ty(),

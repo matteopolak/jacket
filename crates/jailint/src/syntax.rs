@@ -866,8 +866,8 @@ pub(crate) fn is_atom(e: &Expr) -> bool {
             | E::Member(..)
             | E::Call { .. }
             | E::Index(..)
-            | E::Int(_)
-            | E::Float(_)
+            | E::Int(..)
+            | E::Float(..)
             | E::Str(_)
             | E::Bool(_)
             | E::Null

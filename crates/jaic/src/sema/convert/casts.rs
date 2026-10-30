@@ -1,8 +1,7 @@
 //! Checked and explicit casts.
 use super::{int_constant_fits, int_to_float};
 use crate::ir::{ConvOp, Ty};
-use crate::sema::SourceState;
-use crate::sema::lower::{FnCtx, Operand};
+use crate::sema::lower::{FnCtx, Operand, Origin};
 use crate::sema::{Compiler, Diagnostic, Result, Span, TypeId, Value, ast, ir};
 use crate::source::{Applicability, Suggestion};
 use crate::types::{ArrayKind, TypeKind};
@@ -138,7 +137,7 @@ impl Compiler {
         let Some((bits, signed)) = self.ty.types.int_info(to) else {
             return Ok(());
         };
-        let bit_pattern = self.src.bit_pattern(span);
+        let bit_pattern = op.bit_pattern();
         if int_constant_fits(*v, bits, signed, bit_pattern) {
             return Ok(());
         }
@@ -279,6 +278,7 @@ impl Compiler {
                     ty: to,
                     value,
                     untyped: false,
+                    origin: Origin::Computed,
                 });
             }
         }
@@ -445,6 +445,7 @@ impl Compiler {
                     relocs: Vec::new(),
                 })),
                 untyped: false,
+                origin: Origin::Computed,
             });
         }
         // Strings and arrays cast to `bool` as "is non-empty".
@@ -575,15 +576,5 @@ impl Compiler {
             d = d.with_help(help);
         }
         Err(Box::new(d))
-    }
-}
-
-impl SourceState {
-    /// Whether the integer constant at `span` may stand for a bit pattern: it is not a plain
-    /// decimal expression. Hex and binary literals, `~` and named constants count; a constant
-    /// without source text is given the benefit of the doubt.
-    pub(crate) fn bit_pattern(&self, span: Span) -> bool {
-        let text = self.sources.snippet(span);
-        text.is_empty() || text.bytes().any(|b| b.is_ascii_alphabetic() || b == b'~')
     }
 }

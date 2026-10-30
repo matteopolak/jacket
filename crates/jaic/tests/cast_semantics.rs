@@ -148,6 +148,15 @@ fn hex_binary_and_named_constants_may_stand_for_bit_patterns() {
 }
 
 #[test]
+fn folding_constants_forgets_how_they_were_written() {
+    holds("#assert(cast(s8) (0xff) == -1);");
+    holds("#assert(cast(s8) -0x80 == -128);");
+    holds("#assert(cast(s8) ~0 == -1);");
+    rejected("x := cast(s8) (200 + 55);", "out of range for s8");
+    rejected("K :: 0xff;\nx := cast(s8) (K + 0);", "out of range for s8");
+}
+
+#[test]
 fn constant_casts_to_an_enum_are_not_range_checked() {
     holds("E :: enum u8 { A :: 0; B :: 1; }\n#assert(cast(E) 1 == E.B);");
     holds("E :: enum u8 { A :: 0; B :: 1; }\n#assert(cast(u8) E.B == 1);");

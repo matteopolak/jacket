@@ -3,8 +3,7 @@ use super::names_variable_path;
 use crate::ast::{ExprKind as E, UnOp};
 use crate::int_arith::wrap;
 use crate::ir::{CmpOp, Ty};
-use crate::sema::SourceState;
-use crate::sema::lower::{FnCtx, Operand};
+use crate::sema::lower::{FnCtx, Operand, Origin};
 use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, TypeId, Value, ast, err, ir};
 use crate::source::{Applicability, Suggestion};
 use crate::types::{ArrayKind, TypeKind};
@@ -222,8 +221,10 @@ impl Compiler {
             ty,
             value,
             untyped,
+            origin,
         } = &inner
-            && let Some(folded) = self.fold_unary_const(op, *ty, value, *untyped, expected)
+            && let Some(folded) =
+                self.fold_unary_const(op, (*ty, value, *untyped, *origin), expected)
         {
             return Ok(folded);
         }
@@ -241,9 +242,7 @@ impl Compiler {
     fn fold_unary_const(
         &self,
         op: UnOp,
-        ty: TypeId,
-        value: &Value,
-        untyped: bool,
+        (ty, value, untyped, origin): (TypeId, &Value, bool, Origin),
         expected: Option<TypeId>,
     ) -> Option<Operand> {
         let folded = match (op, value) {
@@ -274,6 +273,13 @@ impl Compiler {
             },
             value: folded,
             untyped: untyped && op != UnOp::Not,
+            // A sign keeps the spelling of the number it applies to, a complement is a pattern
+            // by its operator; any other operator leaves nothing to say.
+            origin: match op {
+                UnOp::Neg => origin,
+                UnOp::BitNot => Origin::Complement,
+                _ => Origin::Computed,
+            },
         })
     }
 
@@ -356,6 +362,7 @@ impl Compiler {
                 ty,
                 value,
                 untyped: true,
+                ..
             } => {
                 let target = expected.filter(|&e| {
                     let r = self.ty.types.repr(e);
@@ -380,6 +387,7 @@ impl Compiler {
                     ty,
                     value,
                     untyped: false,
+                    origin: Origin::Computed,
                 }
             }
             other => other,
@@ -535,15 +543,12 @@ impl Compiler {
     }
 }
 
-impl SourceState {
-    /// Default precision follows `lexer::float_literal_precision`: the fractional-digit count for
-    /// decimal spellings and the digit width for `0h` bit patterns.
-    pub(super) fn float_literal_type(&self, v: f64, span: Span) -> TypeId {
-        let precision = crate::lexer::float_literal_precision(self.sources.snippet(span), v);
-        if precision.defaults_to_float64 || precision.requires_float64 {
-            TypeId::F64
-        } else {
-            TypeId::F32
-        }
+/// Default precision follows `lexer::float_literal_precision`: the fractional-digit count for
+/// decimal spellings and the digit width for `0h` bit patterns.
+pub(super) fn float_literal_type(precision: crate::lexer::FloatLiteralPrecision) -> TypeId {
+    if precision.defaults_to_float64 || precision.requires_float64 {
+        TypeId::F64
+    } else {
+        TypeId::F32
     }
 }

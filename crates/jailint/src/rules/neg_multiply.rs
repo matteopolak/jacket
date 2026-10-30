@@ -73,8 +73,8 @@ fn minus_one(e: &Expr) -> bool {
         return false;
     };
     match &inner.kind {
-        E::Int(v) => v.get() == 1,
-        E::Float(v) => v.to_bits() == 1.0_f64.to_bits(),
+        E::Int(v, ..) => v.get() == 1,
+        E::Float(v, ..) => v.to_bits() == 1.0_f64.to_bits(),
         _ => false,
     }
 }

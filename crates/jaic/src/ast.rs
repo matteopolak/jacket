@@ -10,7 +10,9 @@ use crate::intern::Sym;
 use crate::source::Span;
 mod flags;
 pub mod relocate;
+mod spelling;
 pub use flags::{CallHintFlag, CheckBits, ProcBits, ProcFlags, StructBits, StructFlags};
+pub use spelling::Spelling;
 use std::cell::Cell;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -263,8 +265,10 @@ pub enum ExprKind {
         restriction: Box<Expr>,
         interface: bool,
     },
-    Int(Int128),
-    Float(f64),
+    /// An integer literal and how it was written.
+    Int(Int128, Spelling),
+    /// A float literal, how many digits it asked for and how it was written.
+    Float(f64, crate::lexer::FloatLiteralPrecision, Spelling),
     Str(Rc<[u8]>),
     Bool(bool),
     Null,

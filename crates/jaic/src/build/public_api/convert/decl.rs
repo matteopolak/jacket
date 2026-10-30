@@ -571,7 +571,10 @@ impl Convert<'_, '_> {
         flags.align = if alignment > 0 {
             self.word("#align");
             let span = self.word(&alignment.to_string());
-            Some(mk(ExprKind::Int(Int128::new(alignment.into())), span))
+            Some(mk(
+                ExprKind::Int(Int128::new(alignment.into()), ast::Spelling::Decimal),
+                span,
+            ))
         } else {
             self.extra_expr(at, SyntaxKey::Alignment)?
         };

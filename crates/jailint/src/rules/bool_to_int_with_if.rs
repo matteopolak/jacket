@@ -119,7 +119,7 @@ fn assignment(s: &Stmt) -> Option<(&Expr, &Expr)> {
 /// condition inverted).
 fn zero_one(a: &Expr, b: &Expr) -> Option<bool> {
     let value = |e: &Expr| match &e.kind {
-        E::Int(v) => Some(v.get()),
+        E::Int(v, ..) => Some(v.get()),
         _ => None,
     };
     match (value(a)?, value(b)?) {

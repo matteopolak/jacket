@@ -535,14 +535,16 @@ impl Parser<'_> {
         match self.tok().clone() {
             Tok::Int(v) => {
                 self.bump();
-                Ok(mk(ExprKind::Int(crate::ast::Int128::new(v)), span))
+                let text = self.literal_text(span);
+                Ok(mk(ExprKind::int_literal(v, text), span))
             }
             Tok::Float(v) => {
                 self.bump();
                 if self.is_exponent_without_fraction(span) {
                     self.note_lenient(crate::leniency::Leniency::FloatExponent, span);
                 }
-                Ok(mk(ExprKind::Float(v), span))
+                let text = self.literal_text(span);
+                Ok(mk(ExprKind::float_literal(v, text), span))
             }
             Tok::Str(s) => {
                 self.bump();
@@ -555,11 +557,16 @@ impl Parser<'_> {
         }
     }
 
+    /// The source text of the literal token at `span`; empty when the parser has no source.
+    fn literal_text(&self, span: Span) -> &str {
+        self.src
+            .get(span.start as usize..span.end as usize)
+            .unwrap_or("")
+    }
+
     /// Whether the float literal at `span` is decimal, has an exponent and no `.`: `1e20`.
     fn is_exponent_without_fraction(&self, span: Span) -> bool {
-        let Some(text) = self.src.get(span.start as usize..span.end as usize) else {
-            return false;
-        };
+        let text = self.literal_text(span);
         let hex = text.starts_with("0x") || text.starts_with("0X");
         !hex && !text.contains('.') && text.contains(['e', 'E'])
     }

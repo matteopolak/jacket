@@ -99,7 +99,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 /// An integer or float literal's value.
 pub(super) fn literal(e: &Expr) -> Option<f64> {
     match &e.kind {
-        E::Float(v) => Some(*v),
+        E::Float(v, ..) => Some(*v),
         E::Unary(jaic::ast::UnOp::Neg, inner) => literal(inner).map(|v| -v),
         _ => int_literal(e).map(|v| v as f64),
     }

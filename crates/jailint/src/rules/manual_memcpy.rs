@@ -71,7 +71,7 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
     let ForOver::Range(lo, hi) = &f.over else {
         return None;
     };
-    if !matches!(lo.kind, E::Int(n) if n.get() == 0) {
+    if !matches!(lo.kind, E::Int(n, ..) if n.get() == 0) {
         return None;
     }
     let var = f.it.map_or_else(|| Sym::intern("it"), |i| i.name);
@@ -104,10 +104,10 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
         return None;
     }
     let count = match &hi.kind {
-        E::Binary(BinOp::Sub, c, one) if matches!(one.kind, E::Int(n) if n.get() == 1) => {
+        E::Binary(BinOp::Sub, c, one) if matches!(one.kind, E::Int(n, ..) if n.get() == 1) => {
             cx.whole_src(c.span).trim().to_string()
         }
-        E::Int(n) => (n.get() + 1).to_string(),
+        E::Int(n, ..) => (n.get() + 1).to_string(),
         _ => format!("({} + 1)", cx.whole_src(hi.span).trim()),
     };
     let (d, s) = (cx.src(dst.span).trim(), cx.src(src.span).trim());

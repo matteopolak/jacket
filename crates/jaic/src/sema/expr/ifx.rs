@@ -222,11 +222,12 @@ impl Compiler {
                 ty,
                 value: value @ Value::Int(_),
                 untyped: true,
+                origin,
             },
         ) = (expected, &other)
             && self.ty.types.is_integer(self.ty.types.repr(e))
         {
-            self.convert_const(*ty, value, true, e, other_e.span)?;
+            self.convert_const((*ty, value, true, *origin), e, other_e.span)?;
         }
         // A one-character string only becomes a byte where a string is converted directly,
         // not through `ifx`.

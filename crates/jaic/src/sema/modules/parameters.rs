@@ -1,4 +1,5 @@
 //! Module parameters and program parameters: declaring them, binding arguments and checking their contracts.
+use crate::sema::lower::Origin;
 use crate::sema::scope::EntityKind;
 use crate::sema::{
     Compiler, Diagnostic, EntityId, ModuleId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast,
@@ -325,6 +326,7 @@ impl Compiler {
                         ty: actual,
                         value,
                         untyped: ty == TypeId::VOID,
+                        origin: Origin::Computed,
                     },
                     expected,
                     param.span,
@@ -468,8 +470,8 @@ impl ValueClass {
         match expr.kind {
             E::Bool(_) => Some(ValueClass::Bool),
             E::Str(_) => Some(ValueClass::String),
-            E::Int(_) => Some(ValueClass::Integer),
-            E::Float(_) => Some(ValueClass::Float),
+            E::Int(..) => Some(ValueClass::Integer),
+            E::Float(..) => Some(ValueClass::Float),
             _ => None,
         }
     }
@@ -547,7 +549,10 @@ fn literal_sized_type(param: &ast::Param) -> Option<ast::Expr> {
     Some(ast::Expr {
         kind: ast::ExprKind::ArrayType {
             size: ast::ArraySize::Fixed(Box::new(ast::Expr {
-                kind: ast::ExprKind::Int(ast::Int128::new(elems.len() as u128)),
+                kind: ast::ExprKind::Int(
+                    ast::Int128::new(elems.len() as u128),
+                    ast::Spelling::Decimal,
+                ),
                 span: size.span,
                 parenthesized: false,
             })),

@@ -1,6 +1,6 @@
 //! Compile-time execution: `#run`, constant thunks, global initializers,
 //! `#insert`, and reading interpreter memory back into constant values.
-use super::lower::{FnCtx, Operand};
+use super::lower::{FnCtx, Operand, Origin};
 use super::value::Aggregate;
 use super::{
     Compiler, Diagnostic, DiagnosticKind, FileId, ModuleId, Rc, Result, ScopeId, SourcePath, Span,
@@ -109,6 +109,7 @@ impl Compiler {
                         ty,
                         value,
                         untyped: false,
+                        origin: Origin::Computed,
                     },
                 })
                 .with_callable(parameters),
@@ -461,6 +462,7 @@ impl Compiler {
             ty,
             value: Value::Int(v),
             untyped: false,
+            ..
         } = op
         else {
             return op;
@@ -477,6 +479,7 @@ impl Compiler {
                 ty: to,
                 value: Value::Int(v),
                 untyped: false,
+                origin: Origin::Computed,
             };
         }
         op

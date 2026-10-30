@@ -424,6 +424,7 @@ impl Compiler {
                 ty,
                 value,
                 untyped,
+                ..
             } => {
                 let ty = match expected {
                     Some(t) => t,
@@ -514,6 +515,7 @@ impl Compiler {
                         ty,
                         value,
                         untyped,
+                        ..
                     } => {
                         if *untyped {
                             self.ty.default_untyped(*ty, value)
@@ -744,6 +746,7 @@ impl Compiler {
                 value,
                 ty,
                 untyped,
+                ..
             } => Ok((value, ty, untyped)),
             Operand::Procs(p) if p.len() == 1 => Ok((Value::Proc(p[0]), TypeId::VOID, false)),
             other => err(

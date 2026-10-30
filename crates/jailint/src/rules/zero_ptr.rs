@@ -31,7 +31,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         } = &e.kind
             && *flags == CastFlags::default()
             && matches!(ty.kind, E::Unary(UnOp::Star, _))
-            && matches!(&value.kind, E::Int(v) if v.get() == 0)
+            && matches!(&value.kind, E::Int(v, ..) if v.get() == 0)
         {
             out.push(suggesting(
                 e.span,

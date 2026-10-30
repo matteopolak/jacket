@@ -206,8 +206,8 @@ pub(crate) fn is_call_argument(e: &Expr, chain: &[Node<'_>]) -> bool {
 pub(crate) fn pure(e: &Expr) -> bool {
     match &e.kind {
         E::Ident(_)
-        | E::Int(_)
-        | E::Float(_)
+        | E::Int(..)
+        | E::Float(..)
         | E::Bool(_)
         | E::Null
         | E::Str(_)
@@ -231,7 +231,7 @@ pub(crate) fn same_pure(cx: &Cx, a: &Expr, b: &Expr) -> bool {
 /// An integer literal, possibly negated: its value.
 pub(crate) fn int_literal(e: &Expr) -> Option<i128> {
     match &e.kind {
-        E::Int(v) => i128::try_from(v.get()).ok(),
+        E::Int(v, ..) => i128::try_from(v.get()).ok(),
         E::Unary(UnOp::Neg, inner) => int_literal(inner).map(|v| -v),
         E::Unary(UnOp::Plus, inner) => int_literal(inner),
         _ => None,

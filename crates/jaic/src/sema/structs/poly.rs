@@ -2,7 +2,7 @@
 use super::literals::const_operand;
 use super::model::{PolyStruct, StructSource};
 use crate::sema::TypeState;
-use crate::sema::lower::Operand;
+use crate::sema::lower::{Operand, Origin};
 use crate::sema::scope::{EntityKind, ScopeKind};
 use crate::sema::value::PolyStructId;
 use crate::sema::{
@@ -254,6 +254,7 @@ impl Compiler {
             ty: fixed,
             value: Value::Bytes(Rc::new(array)),
             untyped: false,
+            origin: Origin::Computed,
         }))
     }
 
@@ -337,6 +338,7 @@ impl Compiler {
                         ty,
                         value,
                         untyped: true,
+                        ..
                     } => self.ty.default_untyped(*ty, value),
                     Operand::Procs(procs) if procs.len() == 1 => self.proc_type(procs[0], span)?,
                     Operand::Type(_) => TypeId::TYPE,
@@ -422,6 +424,7 @@ impl Compiler {
                     ty,
                     value,
                     untyped: true,
+                    ..
                 } => self.ty.default_untyped(*ty, value),
                 other => other.ty(),
             };

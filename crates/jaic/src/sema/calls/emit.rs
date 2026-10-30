@@ -8,6 +8,7 @@ use super::{
 };
 use crate::sema::DiagnosticKind;
 use crate::sema::TypeState;
+use crate::sema::lower::Origin;
 use crate::source::{Applicability, Suggestion};
 
 impl Compiler {
@@ -309,6 +310,7 @@ impl Compiler {
                             ty: TypeId::CODE,
                             value: Value::Code(self.add_code(body, arg.scope)),
                             untyped: false,
+                            origin: Origin::Computed,
                         }
                     }
                 }

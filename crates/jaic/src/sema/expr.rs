@@ -5,7 +5,7 @@ mod indexing;
 mod unary;
 
 use super::binary::Binary;
-use super::lower::{FnCtx, Operand};
+use super::lower::{FnCtx, Operand, Origin};
 use super::{Compiler, Rc, Result, ScopeId, Sym, TypeId, Value, ast, err, ir};
 use crate::ast::{BinOp, ExprKind as E};
 use crate::ir::Ty;
@@ -75,6 +75,9 @@ impl Compiler {
     ) -> Result<Operand> {
         self.ed.sketch_tried(expr.span);
         let mut result = self.check_expr_kind(f, scope, expr, expected);
+        if matches!(expr.kind, E::Ident(..) | E::Member(..)) {
+            result = result.map(Operand::named_constant);
+        }
         self.ed.expr_checked(expr.span, result.is_ok());
         if result.is_err()
             && self.ed.recovers_exprs()
@@ -206,40 +209,48 @@ impl Compiler {
             E::PolyRestricted {
                 name, ..
             } => self.check_ident(f, scope, *name, span),
-            E::Int(v) => {
+            E::Int(v, spelling) => {
                 let v = v.get() as i128;
+                let origin = Origin::Literal(*spelling);
                 match expected.map(|t| self.ty.types.repr(t)) {
                     Some(t) if self.ty.types.is_float(t) => Ok(Operand::Const {
                         ty: t,
                         value: Value::float(v as f64),
                         untyped: true,
+                        origin,
                     }),
-                    _ => Ok(Operand::untyped_int(v)),
+                    _ => Ok(Operand::Const {
+                        ty: TypeId::S64,
+                        value: Value::Int(v),
+                        untyped: true,
+                        origin,
+                    }),
                 }
             }
-            E::Float(v) => Ok(Operand::Const {
-                ty: self.src.float_literal_type(*v, expr.span),
-                value: Value::Float(
-                    *v,
-                    crate::lexer::float_literal_precision(self.src.sources.snippet(span), *v),
-                ),
+            E::Float(v, precision, spelling) => Ok(Operand::Const {
+                ty: unary::float_literal_type(*precision),
+                value: Value::Float(*v, *precision),
                 untyped: true,
+                origin: Origin::Literal(*spelling),
             }),
             E::Char(c) => Ok(Operand::Const {
                 ty: TypeId::U8,
                 value: Value::Int(*c as i128),
                 untyped: true,
+                origin: Origin::Char,
             }),
             E::Str(s) => Ok(Operand::Const {
                 ty: TypeId::STRING,
                 value: Value::String(s.clone()),
                 untyped: false,
+                origin: Origin::Computed,
             }),
             E::Bool(b) => Ok(Operand::bool(*b)),
             E::Null => Ok(Operand::Const {
                 ty: TypeId::NULL,
                 value: Value::Null,
                 untyped: true,
+                origin: Origin::Computed,
             }),
             E::Uninit => err(span, "`---` is only allowed as a declaration initializer"),
             E::Context => {
@@ -297,6 +308,7 @@ impl Compiler {
                         ty: TypeId::S64,
                         value: Value::Int(count as i128),
                         untyped: true,
+                        origin: Origin::Computed,
                     });
                 }
                 // Compile-time code may read type-level constants through a runtime local
@@ -331,6 +343,7 @@ impl Compiler {
                         ty: TypeId::S64,
                         value: Value::Int(*n as i128),
                         untyped: true,
+                        origin: Origin::Computed,
                     });
                 }
                 // A fixed array's count is part of its type, so `variable.count` is constant
@@ -352,6 +365,7 @@ impl Compiler {
                             ty: TypeId::S64,
                             value: Value::Int(*n as i128),
                             untyped: true,
+                            origin: Origin::Computed,
                         });
                     }
                 }
@@ -640,6 +654,7 @@ impl Compiler {
                     ty: TypeId::CODE,
                     value: Value::Code(id),
                     untyped: false,
+                    origin: Origin::Computed,
                 })
             }
             E::Insert(boxed) => {
@@ -695,6 +710,7 @@ impl Compiler {
                     ty: TypeId::STRING,
                     value: Value::String(path.as_bytes().into()),
                     untyped: false,
+                    origin: Origin::Computed,
                 })
             }
             E::Filepath => {
@@ -707,6 +723,7 @@ impl Compiler {
                     ty: TypeId::STRING,
                     value: Value::String(dir.as_bytes().into()),
                     untyped: false,
+                    origin: Origin::Computed,
                 })
             }
             E::Line => {
@@ -722,6 +739,7 @@ impl Compiler {
                     ty: TypeId::STRING,
                     value: Value::String(name.as_bytes().into()),
                     untyped: false,
+                    origin: Origin::Computed,
                 })
             }
             E::This => {
@@ -776,7 +794,7 @@ impl Compiler {
                     let bytes: Vec<u128> = elems
                         .iter()
                         .filter_map(|el| match el.kind {
-                            E::Int(v) => Some(v.get()),
+                            E::Int(v, ..) => Some(v.get()),
                             _ => None,
                         })
                         .collect();
@@ -812,6 +830,7 @@ impl Compiler {
                     ty: TypeId::CODE,
                     value: Value::Code(id),
                     untyped: false,
+                    origin: Origin::Computed,
                 })
             }
             E::UnknownDirective(d) if d.kind == ast::DirectiveKind::Context => {

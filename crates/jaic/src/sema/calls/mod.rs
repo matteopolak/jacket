@@ -173,7 +173,7 @@ fn autocast_arithmetic(expr: &ast::Expr) -> bool {
             }
         ) || autocast_arithmetic(e)
     };
-    let literal = |e: &ast::Expr| matches!(e.kind, E::Int(_) | E::Float(_) | E::Char(_));
+    let literal = |e: &ast::Expr| matches!(e.kind, E::Int(..) | E::Float(..) | E::Char(_));
     (autocast(a) && (literal(b) || autocast(b))) || (literal(a) && autocast(b))
 }
 

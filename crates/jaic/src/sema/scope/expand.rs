@@ -36,7 +36,7 @@ pub(super) fn decl_is_proc(decl: &ast::Decl) -> bool {
 fn plain_condition(expr: &ast::Expr) -> bool {
     use ast::ExprKind as E;
     match &expr.kind {
-        E::Ident(_) | E::Int(_) | E::Bool(_) | E::Str(_) | E::InferredMember(_) | E::Null => true,
+        E::Ident(_) | E::Int(..) | E::Bool(_) | E::Str(_) | E::InferredMember(_) | E::Null => true,
         E::Member(base, _) => plain_condition(base),
         E::Unary(_, a) => plain_condition(a),
         E::Binary(_, a, b) => plain_condition(a) && plain_condition(b),
