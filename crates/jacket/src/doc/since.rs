@@ -1,7 +1,7 @@
 //! The release each item first appeared in. `since.tsv` is written by
 //! `tools/generators/generate_doc_since.py` from the release tags; see `docs/tools/jacket-doc.md`.
 use super::model::Module;
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 const DATA: &str = include_str!("since.tsv");
 
@@ -19,12 +19,12 @@ struct Data {
     /// The releases the data covers, as `0.30.4`.
     covered: Vec<String>,
     /// Module, then item name, then the version it first appeared in.
-    versions: HashMap<String, HashMap<String, String>>,
+    versions: BTreeMap<String, BTreeMap<String, String>>,
 }
 
 fn read(text: &str) -> Data {
     let mut covered = Vec::new();
-    let mut versions: HashMap<String, HashMap<String, String>> = HashMap::new();
+    let mut versions: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
     for line in text.lines() {
         if let Some(rest) = line.strip_prefix("# covers:") {
             covered = rest
