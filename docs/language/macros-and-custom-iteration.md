@@ -51,3 +51,4 @@ Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 - `for :walk x, i: b` selects a named expansion `walk` {#macro.9}.
 - Naming the index hides the macro's `it_index` from the body {#macro.10}.
 - An expansion can forward its body to another one {#macro.11}, and overloads on different types coexist {#macro.12}.
+- `#code return` with no value is the code of a bare `return`, and ends at the `)` or `,` that closes the argument it is in: `check(cond, #code return)` {#macro.13}.

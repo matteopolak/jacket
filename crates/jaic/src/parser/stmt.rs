@@ -780,7 +780,12 @@ impl Parser<'_> {
     fn parse_return(&mut self, backtick: bool) -> PResult<Stmt> {
         let start = self.bump();
         let mut values = Vec::new();
-        while !matches!(self.tok(), Tok::Punct(P::Semi | P::RBrace)) {
+        // `f(#code return)`: the code ends at the argument list's `)` or `,`.
+        let ends_code = |parser: &Self| {
+            parser.in_code_stmt
+                && matches!(parser.tok(), Tok::Punct(P::RParen | P::RBracket | P::Comma))
+        };
+        while !matches!(self.tok(), Tok::Punct(P::Semi | P::RBrace)) && !ends_code(self) {
             values.push(self.parse_arg()?);
             if !self.eat(P::Comma) {
                 break;
