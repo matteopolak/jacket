@@ -362,7 +362,7 @@ fn memory_limit_stops_unbounded_allocation() {
             source.display()
         );
         assert!(
-            stderr.contains("error: memory limit of 128 MiB exceeded"),
+            stderr.contains("error[memory-limit]: memory limit of 128 MiB exceeded"),
             "{stderr}"
         );
     }

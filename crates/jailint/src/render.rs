@@ -18,7 +18,7 @@
 //!
 //! On a terminal it gains context lines, multi-line spans, colour and (with UTF-8) box drawing.
 use crate::{Level, Lint};
-use jaic::diagnostics::Severity;
+use jaic::diagnostics::{Code, Severity};
 pub use jaic::render::Style;
 use jaic::render::{Fix, Help, Label, Report};
 use jaic::source::{LineIndex, SourcePath};
@@ -33,14 +33,13 @@ pub fn render(
     default: Level,
     style: &Style,
 ) -> String {
-    let severity = match lint.level {
+    let path = SourcePath::from(path);
+    let mut report = Report::new(Code::Lint(lint.rule), lint.message.clone());
+    report.severity = match lint.level {
         Level::Deny => Severity::Error,
         _ => Severity::Warning,
     };
-    let path = SourcePath::from(path);
-    let mut report = Report::new(severity, lint.message.clone());
     report.compact = false;
-    report.code = Some(lint.rule);
     report.primary = Some(Label {
         path: &path,
         text,

@@ -1,4 +1,4 @@
-register-scalar.jai:11:15: error: in call to `increment`: expected an #asm register operand, not a scalar or memory value
+register-scalar.jai:11:15: error[call-mismatch]: in call to `increment`: expected an #asm register operand, not a scalar or memory value
         increment(value);
                   ^^^^^
 register-scalar.jai:5:14: note: `increment` is declared here

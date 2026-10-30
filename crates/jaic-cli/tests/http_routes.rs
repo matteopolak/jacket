@@ -49,7 +49,8 @@ fn rejected(name: &str, defs: &str, route: &str, message: &str) {
     let text = String::from_utf8_lossy(&output.stderr).into_owned();
     let first = text.lines().next().unwrap_or("");
     assert!(
-        first.starts_with("case.jai:") && first.contains(":5: error: Http: route `GET "),
+        first.starts_with("case.jai:")
+            && first.contains(":5: error[metaprogram-report]: Http: route `GET "),
         "{name}: the error should point at the route:\n{text}"
     );
     assert!(

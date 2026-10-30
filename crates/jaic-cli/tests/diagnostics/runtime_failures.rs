@@ -16,7 +16,7 @@ fn runtime_bounds_check_names_the_check_and_the_call_stack() {
     assert_in_order(
         &text,
         &[
-            "bounds.jai:2:5: error: runtime error: array bounds check failed: index 5 is outside an array of 3 elements",
+            "bounds.jai:2:5: error[runtime-error]: runtime error: array bounds check failed: index 5 is outside an array of 3 elements",
             "    return a[i];",
             "note: call stack (innermost first):",
             "`get` at ",
@@ -45,7 +45,7 @@ fn failure_inside_the_stdlib_points_at_the_users_call() {
     assert_in_order(
         &stderr(&output),
         &[
-            "copy.jai:5:5: error: runtime error: null pointer dereference: memcpy through a null pointer",
+            "copy.jai:5:5: error[runtime-error]: runtime error: null pointer dereference: memcpy through a null pointer",
             "    t := copy_string(s);",
             "note: this call failed inside `copy_string` at ",
             "allocation.jai",
@@ -147,7 +147,7 @@ fn cast_and_switch_checks_say_which_value() {
     assert_in_order(
         &stderr(&cast),
         &[
-            "cast.jai:3:5: error: runtime error: cast of 300 to `u8` overflows",
+            "cast.jai:3:5: error[runtime-error]: runtime error: cast of 300 to `u8` overflows",
             "    c := cast(u8) w;",
             "help: `u8` holds 0 to 255; write `cast,trunc(u8)` (or `xx,trunc`) to keep the low bits, or `cast,no_check(u8)` to skip the check",
         ],
@@ -162,7 +162,7 @@ fn cast_and_switch_checks_say_which_value() {
     assert_in_order(
         &stderr(&signed),
         &[
-            "signed.jai:3:5: error: runtime error: cast of -200 to `s8` overflows",
+            "signed.jai:3:5: error[runtime-error]: runtime error: cast of -200 to `s8` overflows",
             "help: `s8` holds -128 to 127;",
         ],
     );
@@ -200,7 +200,7 @@ fn cast_and_switch_checks_say_which_value() {
     assert_in_order(
         &stderr(&switch),
         &[
-            "switch.jai:4:5: error: runtime error: no case of the `#complete` switch matches its value, 7",
+            "switch.jai:4:5: error[runtime-error]: runtime error: no case of the `#complete` switch matches its value, 7",
             "help: the value is not one of the enum's members",
         ],
     );
@@ -219,7 +219,7 @@ fn null_pointer_and_missing_return_and_recursion() {
     assert_in_order(
         &stderr(&null),
         &[
-            "null.jai:4:5: error: runtime error: null pointer dereference: read through a null pointer",
+            "null.jai:4:5: error[runtime-error]: runtime error: null pointer dereference: read through a null pointer",
         ],
     );
     // Boxing an lvalue records its address/type without loading it. Test the
@@ -244,7 +244,7 @@ fn null_pointer_and_missing_return_and_recursion() {
     assert_in_order(
         &stderr(&missing),
         &[
-            "error: runtime error: `sign` reached the end of its body without returning a value",
+            "error[runtime-error]: runtime error: `sign` reached the end of its body without returning a value",
             "help: every path through a procedure with results must end in `return`",
         ],
     );
@@ -259,7 +259,7 @@ fn null_pointer_and_missing_return_and_recursion() {
     assert_in_order(
         &text,
         &[
-            "error: runtime error: stack overflow (recursion too deep)",
+            "error[runtime-error]: runtime error: stack overflow (recursion too deep)",
             "`down` at ",
             "... the same call ",
             " more frames",
@@ -283,7 +283,7 @@ fn compile_time_failure_shows_user_code_and_the_run_site() {
     assert_in_order(
         &text,
         &[
-            "ct.jai:2:5: error: error during compile-time execution: array bounds check failed: index 7",
+            "ct.jai:2:5: error[runtime-trap]: error during compile-time execution: array bounds check failed: index 7",
             "ct.jai:4:6: note: while running compile-time code started here",
             "X :: #run get(int.[1, 2, 3], 7);",
             "`get` at ",
@@ -307,7 +307,7 @@ fn failed_assert_reports_the_users_line_not_debug_break() {
     let text = stderr(&output);
     assert_eq!(
         text.lines().next().map(|l| l.rsplit('/').next().unwrap()),
-        Some("a.jai:4:5: error: runtime error: assertion failed: x was 3"),
+        Some("a.jai:4:5: error[runtime-error]: runtime error: assertion failed: x was 3"),
         "{text}"
     );
     assert_in_order(&text, &["    assert(x == 4, \"x was %\", x);"]);
@@ -331,7 +331,7 @@ fn failed_assert_reports_the_users_line_not_debug_break() {
     assert_in_order(
         &stderr(&output),
         &[
-            "b.jai:3:2: error: runtime error: assertion failed: `ok` is false",
+            "b.jai:3:2: error[runtime-error]: runtime error: assertion failed: `ok` is false",
             "\tassert(ok);",
             "note: call stack (innermost first):",
             "`load` at ",
@@ -350,7 +350,7 @@ fn failed_assert_reports_the_users_line_not_debug_break() {
     assert_in_order(
         &stderr(&output),
         &[
-            "d.jai:4:13: error: runtime error: assertion failed: `f(\"a,b\") == 1 && (2 > 1)` is false",
+            "d.jai:4:13: error[runtime-error]: runtime error: assertion failed: `f(\"a,b\") == 1 && (2 > 1)` is false",
         ],
     );
     // An assert inside the stdlib: the user's call is the primary location.
@@ -365,7 +365,7 @@ fn failed_assert_reports_the_users_line_not_debug_break() {
     assert_in_order(
         &text,
         &[
-            "c.jai:5:5: error: runtime error: assertion failed: ",
+            "c.jai:5:5: error[runtime-error]: runtime error: assertion failed: ",
             "note: an assertion failed inside `array_unordered_remove_by_index` at ",
         ],
     );
@@ -381,7 +381,7 @@ fn failed_assert_reports_the_users_line_not_debug_break() {
     assert_in_order(
         &stderr(&output),
         &[
-            "d.jai:3:5: error: error during compile-time execution: assertion failed: compile-time check",
+            "d.jai:3:5: error[runtime-trap]: error during compile-time execution: assertion failed: compile-time check",
             "d.jai:2:1: note: while running compile-time code started here",
         ],
     );

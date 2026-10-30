@@ -160,7 +160,8 @@ impl Diagnostic {
                 }
             })
         };
-        let mut report = Report::new(self.severity, self.message.clone());
+        let mut report = Report::new(self.code, self.message.clone());
+        report.severity = self.severity;
         report.primary = label(self.span, self.label.as_deref().map(String::from));
         for (span, note) in &self.notes {
             match label(*span, Some(note.clone())) {

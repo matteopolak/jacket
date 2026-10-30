@@ -48,7 +48,7 @@ fn a_replacement_is_a_help_line() {
     assert_in_order(
         &plain,
         &[
-            "t.jai:4:18: error: unknown identifier `countr`",
+            "t.jai:4:18: error[unknown-identifier]: unknown identifier `countr`",
             "help: a similar name exists: `counter`",
         ],
     );
@@ -73,7 +73,7 @@ fn an_import_is_a_help_line_and_the_other_modules_one_more() {
     assert_in_order(
         &output,
         &[
-            "error: unknown identifier `log`",
+            "error[unknown-identifier]: unknown identifier `log`",
             "help: `log` is declared in the `Basic` module: add `#import \"Basic\";` to this file",
             "help: other modules that declare `log`: `Math`, `Extensions/Testing`",
         ],
@@ -88,6 +88,9 @@ fn a_diagnostic_without_suggestions_keeps_its_plain_help() {
         "main :: () {\n    x: s32 = 1;\n    y: s64 = x;\n    z: string = y;\n}\n",
         "",
     );
-    assert!(output.contains("error: type mismatch"), "{output}");
+    assert!(
+        output.contains("error[type-mismatch]: type mismatch"),
+        "{output}"
+    );
     assert!(!output.contains(" ~ "), "{output}");
 }

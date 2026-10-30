@@ -1,4 +1,4 @@
-facade-private-negative.jai:5:14: error: module `Bucket_Array` has no exported member `Impl`
+facade-private-negative.jai:5:14: error[unknown-module-member]: module `Bucket_Array` has no exported member `Impl`
         value: B.Impl.Bucket(s64, 1);
                  ^^^^
 help: `Impl` is declared in `Bucket_Array` but is not exported: it is private to the module

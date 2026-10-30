@@ -174,9 +174,16 @@ fn exceeded(limit: usize) -> ! {
         len: 0,
     };
     let _ = if limit.is_multiple_of(1 << 20) {
-        writeln!(buf, "error: memory limit of {} MiB exceeded", limit >> 20)
+        writeln!(
+            buf,
+            "error[memory-limit]: memory limit of {} MiB exceeded",
+            limit >> 20
+        )
     } else {
-        writeln!(buf, "error: memory limit of {limit} bytes exceeded")
+        writeln!(
+            buf,
+            "error[memory-limit]: memory limit of {limit} bytes exceeded"
+        )
     };
     sys::write_stderr(&buf.bytes[..buf.len]);
     sys::exit_now(EXIT_CODE as i32)

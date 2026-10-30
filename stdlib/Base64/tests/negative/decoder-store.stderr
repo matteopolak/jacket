@@ -1,4 +1,4 @@
-decoder-store.jai:5:5: error: cannot assign into the constant `B.BASE64_DECODER_TABLE`
+decoder-store.jai:5:5: error[cannot-assign-constant]: cannot assign into the constant `B.BASE64_DECODER_TABLE`
         B.BASE64_DECODER_TABLE[0] = 0;
         ^^^^^^^^^^^^^^^^^^^^^^^^^
 

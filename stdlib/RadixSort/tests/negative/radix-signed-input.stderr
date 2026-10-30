@@ -1,4 +1,4 @@
-radix-signed-input.jai:7:5: error: no overload of `sort` matches these arguments
+radix-signed-input.jai:7:5: error[call-no-overload-matches-arguments]: no overload of `sort` matches these arguments
         R.sort(*sorter, input);
         ^^^^^^^^^^^^^^^^^^^^^^
 $STDLIB/internal/collections/radixsort.jai:39:9: note: argument of type `[2] s32` does not match parameter type `*u32`

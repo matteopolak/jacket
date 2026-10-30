@@ -1,4 +1,4 @@
-$STDLIB/internal/collections/bucket-array.jai:72:5: error: error during compile-time execution: assertion failed: `locator.slot_index >= 0 && locator.slot_index < array.items_per_bucket && bucket.occupied[locator.slot_index]` is false
+$STDLIB/internal/collections/bucket-array.jai:72:5: error[runtime-trap]: error during compile-time execution: assertion failed: `locator.slot_index >= 0 && locator.slot_index < array.items_per_bucket && bucket.occupied[locator.slot_index]` is false
         assert(locator.slot_index >= 0 && locator.slot_index < array.items_per_bucket && bucket.occupied[locator.slot_index]);
         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 fault-removed.jai:15:9: note: while running compile-time code started here

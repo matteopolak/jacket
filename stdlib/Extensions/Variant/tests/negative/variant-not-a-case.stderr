@@ -1,4 +1,4 @@
-../../layout.jai:116:13: error: variant: `bool` is not a case of `Variant(s64, string)`. The cases are s64, string
+../../layout.jai:116:13: error[metaprogram-report]: variant: `bool` is not a case of `Variant(s64, string)`. The cases are s64, string
                 compiler_report(tprint("%: `%` is not a case of `%`. The cases are %", user, T, variant_name(V), type_list_text(V.types)));
                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ../../module.jai:40:13: note: while running compile-time code started here

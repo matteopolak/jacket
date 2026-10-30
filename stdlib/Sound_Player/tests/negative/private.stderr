@@ -1,4 +1,4 @@
-private.jai:5:5: error: unknown identifier `lock_producer`
+private.jai:5:5: error[unknown-identifier]: unknown identifier `lock_producer`
         lock_producer();
         ^^^^^^^^^^^^^
 help: a similar name exists: `unlock_producer`

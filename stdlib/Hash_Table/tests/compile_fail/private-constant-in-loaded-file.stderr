@@ -1,4 +1,4 @@
-private-constant-in-loaded-file.jai:6:16: error: unknown identifier `private_number`
+private-constant-in-loaded-file.jai:6:16: error[unknown-identifier]: unknown identifier `private_number`
         print("%", private_number);
                    ^^^^^^^^^^^^^^
 help: a similar name exists: `write_number`

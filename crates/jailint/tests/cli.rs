@@ -33,28 +33,28 @@ fn command_line_mistakes_explain_themselves() {
     let cases: &[(&[&str], &str)] = &[
         (
             &["--fx"],
-            "error: unknown option `--fx`\nhelp: did you mean `--fix`?",
+            "error[cli-failure]: unknown option `--fx`\nhelp: did you mean `--fix`?",
         ),
         (
             &["-D", "float_equalty"],
-            "error: unknown rule `float_equalty`\nhelp: did you mean `float_equality`?",
+            "error[cli-failure]: unknown rule `float_equalty`\nhelp: did you mean `float_equality`?",
         ),
         (
             &["--color", "sometimes"],
-            "error: unknown `--color` value `sometimes`\nhelp: use auto, always or never",
+            "error[cli-failure]: unknown `--color` value `sometimes`\nhelp: use auto, always or never",
         ),
         (
             &["-j", "x"],
-            "error: `-j` takes a number of jobs, such as `-j 4`",
+            "error[cli-failure]: `-j` takes a number of jobs, such as `-j 4`",
         ),
-        (&["--config"], "error: `--config` needs a file"),
+        (&["--config"], "error[cli-failure]: `--config` needs a file"),
         (
             &["gmae.jai"],
-            "error: `gmae.jai` does not exist\nhelp: did you mean `game.jai`?",
+            "error[cli-failure]: `gmae.jai` does not exist\nhelp: did you mean `game.jai`?",
         ),
         (
             &["nothing_like_it.jai"],
-            "error: `nothing_like_it.jai` does not exist\nhelp: pass .jai files",
+            "error[cli-failure]: `nothing_like_it.jai` does not exist\nhelp: pass .jai files",
         ),
     ];
     for (args, expected) in cases {
@@ -83,7 +83,10 @@ fn config_mistakes_name_the_line_and_the_fix() {
         std::fs::write(dir.join("jacket.toml"), config).unwrap();
         let (text, code) = jailint(&dir, &["game.jai"]);
         assert_eq!(code, Some(2), "{config:?}: {text}");
-        assert!(text.starts_with("error: in `"), "{config:?}: {text}");
+        assert!(
+            text.starts_with("error[cli-failure]: in `"),
+            "{config:?}: {text}"
+        );
         assert!(text.contains(expected), "{config:?}: {text}");
     }
     // An unknown setting is a warning, with the near key named, and the run goes on.
@@ -98,7 +101,9 @@ fn config_mistakes_name_the_line_and_the_fix() {
     let (text, code) = jailint(&dir, &["--config", "missing.toml", "game.jai"]);
     assert_eq!(code, Some(2));
     assert!(
-        text.contains("error: could not read config `missing.toml`: no such file or directory"),
+        text.contains(
+            "error[cli-failure]: could not read config `missing.toml`: no such file or directory"
+        ),
         "{text}"
     );
 }

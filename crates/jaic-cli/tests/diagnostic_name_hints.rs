@@ -54,7 +54,7 @@ fn a_name_a_namespaced_import_exports_is_written_through_it() {
     assert_in_order(
         &plain,
         &[
-            "t.jai:4:10: error: unknown identifier `sqrt`",
+            "t.jai:4:10: error[unknown-identifier]: unknown identifier `sqrt`",
             "help: `sqrt` is in the namespaced import `M`; write `M.sqrt`",
             "help: or bring every name of `Math` into scope with `using M;`",
         ],
@@ -99,7 +99,7 @@ fn a_misspelled_module_member_suggests_the_closest_export() {
     assert_in_order(
         &plain,
         &[
-            "error: module `Basic` has no exported member `printt`",
+            "error[unknown-module-member]: module `Basic` has no exported member `printt`",
             "help: a member with a similar name exists: `print`",
         ],
     );
@@ -117,7 +117,7 @@ fn a_module_member_from_another_module_suggests_that_module() {
     assert_in_order(
         &output,
         &[
-            "error: module `Basic` has no exported member `sqrt`",
+            "error[unknown-module-member]: module `Basic` has no exported member `sqrt`",
             "help: `sqrt` is declared in the `Math` module: add `#import \"Math\";` to this file and write `sqrt` without the `Basic` qualifier",
         ],
     );
@@ -140,7 +140,7 @@ fn a_private_module_member_is_not_exported() {
     assert_in_order(
         &output,
         &[
-            "error: module `Gadgets` has no exported member `hidden`",
+            "error[unknown-module-member]: module `Gadgets` has no exported member `hidden`",
             "help: `hidden` is declared in `Gadgets` but is not exported",
         ],
     );
@@ -157,7 +157,7 @@ fn a_type_member_suggestion_covers_using_members_constants_and_procedures() {
     assert_in_order(
         &member_check("member-using", "s.gama = 1;"),
         &[
-            "error: type `S` has no member `gama`",
+            "error[no-member]: type `S` has no member `gama`",
             "help: a member with a similar name exists: `gamma`",
         ],
     );
@@ -181,7 +181,7 @@ fn an_enum_member_suggests_the_closest_member() {
     assert_in_order(
         &output,
         &[
-            "error: enum `E` has no member `frist`",
+            "error[no-member]: enum `E` has no member `frist`",
             "help: a member with a similar name exists: `first`",
         ],
     );
@@ -193,7 +193,7 @@ fn an_inferred_member_without_a_type_says_to_name_the_type() {
     assert_in_order(
         &output,
         &[
-            "error: cannot infer the type of `.foo` here",
+            "error[cannot-infer-type]: cannot infer the type of `.foo` here",
             "help: nothing here says which type declares `foo`: write `Type.foo`",
         ],
     );
@@ -208,7 +208,7 @@ fn a_misspelled_named_argument_replaces_only_its_name() {
     assert_in_order(
         &plain,
         &[
-            "error: in call to `f`: no parameter named `cuont`",
+            "error[call-mismatch]: in call to `f`: no parameter named `cuont`",
             "note: parameter `count` is declared here",
             "help: did you mean `count`?",
         ],

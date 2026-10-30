@@ -45,7 +45,7 @@ fn default_assertions_report_faults_and_custom_callbacks_can_continue() {
             assert!(stderr.is_empty(), "{stderr}");
         } else {
             assert!(stderr.contains(diagnostic), "{name}: {stderr}");
-            assert!(stderr.contains("error:"), "{name}: {stderr}");
+            assert!(stderr.contains("error["), "{name}: {stderr}");
             if name == "hidden-frame" {
                 assert!(stderr.contains("`visible` at"), "{stderr}");
                 assert!(!stderr.contains("`hidden` at"), "{stderr}");
@@ -82,7 +82,10 @@ main :: () {
         .unwrap();
     assert_eq!(result.status.code(), Some(1), "{result:?}");
     let stderr = String::from_utf8_lossy(&result.stderr);
-    assert!(stderr.contains("lines.jai:9:9: error:"), "{stderr}");
+    assert!(
+        stderr.contains("lines.jai:9:9: error[runtime-error]:"),
+        "{stderr}"
+    );
     assert!(
         stderr.contains("assert(code == 2 && code > 0);"),
         "{stderr}"

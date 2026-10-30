@@ -16,7 +16,7 @@
 //! by each command-line tool; libraries and the language server leave it at `Style::PLAIN`.
 //! A caller that renders for someone else (the browser playground, one run per request)
 //! uses `with_style`, which applies to its own thread only.
-use crate::diagnostics::Severity;
+use crate::diagnostics::{Code, Severity};
 use crate::source::{LineIndex, SourcePath};
 use std::borrow::Cow;
 use std::cell::Cell;
@@ -279,8 +279,8 @@ pub struct Help<'a> {
 #[derive(Clone, Debug)]
 pub struct Report<'a> {
     pub severity: Severity,
-    /// `[name]` after the severity (a lint's rule).
-    pub code: Option<&'a str>,
+    /// `[name]` after the severity.
+    pub code: Code,
     pub message: String,
     /// Where it happened; `None` for problems without a place in a file.
     pub primary: Option<Label<'a>>,
@@ -294,10 +294,10 @@ pub struct Report<'a> {
 }
 
 impl Report<'_> {
-    pub fn new(severity: Severity, message: impl Into<String>) -> Self {
+    pub fn new(code: Code, message: impl Into<String>) -> Self {
         Report {
-            severity,
-            code: None,
+            severity: code.severity(),
+            code,
             message: message.into(),
             primary: None,
             secondary: Vec::new(),
@@ -309,8 +309,8 @@ impl Report<'_> {
 
     /// A report from plain text: the first line and any lines up to the first `help: ` or
     /// `note: ` line are the message; each `help: `/`note: ` line after that is one of those.
-    pub fn from_text(severity: Severity, text: &str) -> Self {
-        let mut report = Report::new(severity, "");
+    pub fn from_text(code: Code, text: &str) -> Self {
+        let mut report = Report::new(code, "");
         let mut message: Vec<&str> = Vec::new();
         for line in text.trim_end().lines() {
             if let Some(help) = line.strip_prefix("help: ").filter(|_| !message.is_empty()) {
@@ -499,11 +499,7 @@ impl Renderer {
             )
         }));
         for (n, (severity, message, label)) in items.into_iter().enumerate() {
-            let code = if n == 0 {
-                report.code
-            } else {
-                None
-            };
+            let code = (n == 0).then(|| report.code.name());
             let Some(label) = label else {
                 let head = self.header(severity, code, message);
                 self.line(&head);
@@ -557,10 +553,7 @@ impl Renderer {
             })
         };
         let flat = |text: &str| text.replace('\n', " ");
-        let head = match report.code {
-            Some(code) => format!("{}[{code}]", report.severity.as_str()),
-            None => report.severity.as_str().to_string(),
-        };
+        let head = format!("{}[{}]", report.severity.as_str(), report.code.name());
         let at = place(report.primary.as_ref());
         self.line(&format!("{at}{head}: {}", flat(&report.message)));
         for label in &report.secondary {
@@ -578,7 +571,11 @@ impl Renderer {
     /// The block form: header, `-->` line, numbered source lines with labels, then notes and
     /// help.
     fn block(&mut self, report: &Report) {
-        let head = self.header(report.severity.into(), report.code, &report.message);
+        let head = self.header(
+            report.severity.into(),
+            Some(report.code.name()),
+            &report.message,
+        );
         self.line(&head);
         let mut labels: Vec<(&Label, bool)> = report.primary.iter().map(|l| (l, true)).collect();
         labels.extend(report.secondary.iter().map(|l| (l, false)));

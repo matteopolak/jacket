@@ -216,7 +216,7 @@ pub(super) fn shown(path: &Path) -> String {
 
 /// Print an error given as text, its `help: `/`note: ` lines rendered as such.
 pub(super) fn print_error(message: &str) {
-    let report = jaic::render::Report::from_text(jaic::diagnostics::Severity::Error, message);
+    let report = jaic::render::Report::from_text(jaic::diagnostics::Code::CliFailure, message);
     eprint!("{}", report.render());
 }
 
@@ -227,7 +227,7 @@ pub(super) fn report_cli_error(error: CliError) -> ExitCode {
 }
 
 pub(super) fn print_cli_error(error: CliError) {
-    let mut report = jaic::render::Report::new(jaic::diagnostics::Severity::Error, error.message);
+    let mut report = jaic::render::Report::new(jaic::diagnostics::Code::CliUsage, error.message);
     for help in error.help {
         report = report.help(help);
     }

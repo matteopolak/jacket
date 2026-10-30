@@ -1,4 +1,4 @@
-../../switch.jai:69:17: error: variant_switch: handler 3 takes a pointer to a type that is not a case of `Variant(s64, string)`. The cases are s64, string
+../../switch.jai:69:17: error[metaprogram-report]: variant_switch: handler 3 takes a pointer to a type that is not a case of `Variant(s64, string)`. The cases are s64, string
                     compiler_report(tprint("variant_switch: handler % takes a pointer to a type that is not a case of `%`. The cases are %", handler_index + 1, variant_name(V), type_list_text(cases)));
                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 <#insert at $STDLIB/Extensions/Variant/switch.jai>:22:13: note: while running compile-time code started here

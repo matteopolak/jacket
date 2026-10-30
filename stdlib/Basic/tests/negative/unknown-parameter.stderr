@@ -1,4 +1,4 @@
-unknown-parameter.jai:2:24: error: argument `FOUNDATIONS_UNDECLARED_PARAMETER` is not a parameter of this module
+unknown-parameter.jai:2:24: error[module-parameter-invalid]: argument `FOUNDATIONS_UNDECLARED_PARAMETER` is not a parameter of this module
     B :: #import "Basic"()(FOUNDATIONS_UNDECLARED_PARAMETER = true);
                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

@@ -1,4 +1,4 @@
-$STDLIB/internal/collections/bucket-array.jai:77:5: error: error during compile-time execution: assertion failed: `index >= 0` is false
+$STDLIB/internal/collections/bucket-array.jai:77:5: error[runtime-trap]: error during compile-time execution: assertion failed: `index >= 0` is false
         assert(index >= 0);
         ^^^^^^^^^^^^^^^^^^
 fault-negative.jai:5:9: note: while running compile-time code started here

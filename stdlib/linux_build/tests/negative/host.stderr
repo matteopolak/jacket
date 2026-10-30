@@ -1,4 +1,4 @@
-../../module.jai:13:9: error: #assert failed: `WINDOWS_HOST` is false
+../../module.jai:13:9: error[static-assert]: #assert failed: `WINDOWS_HOST` is false
     #assert WINDOWS_HOST;
             ^^^^^^^^^^^^
 

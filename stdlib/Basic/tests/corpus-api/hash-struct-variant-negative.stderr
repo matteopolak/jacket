@@ -1,4 +1,4 @@
-hash-struct-variant-negative.jai:12:5: error: no overload of `get_hash` matches these arguments
+hash-struct-variant-negative.jai:12:5: error[call-no-overload-matches-arguments]: no overload of `get_hash` matches these arguments
         get_hash(key);
         ^^^^^^^^^^^^^
 $STDLIB/internal/hash/module.jai:81:13: note: argument of type `Wrapped` does not match parameter type `string`

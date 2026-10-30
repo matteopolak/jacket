@@ -1,4 +1,4 @@
-field-visibility.jai:5:16: error: module `Adpcm` has no exported member `nChannels`
+field-visibility.jai:5:16: error[unknown-module-member]: module `Adpcm` has no exported member `nChannels`
         value := A.nChannels;
                    ^^^^^^^^^
 

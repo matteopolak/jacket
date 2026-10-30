@@ -150,7 +150,7 @@ fn main() -> ExitCode {
     if let Err(message) = jaic::memory_limit::arm_from_env() {
         eprint!(
             "{}",
-            jaic::render::Report::new(jaic::diagnostics::Severity::Error, message).render()
+            jaic::render::Report::new(jaic::diagnostics::Code::MemoryLimit, message).render()
         );
         return ExitCode::from(2);
     }
@@ -249,7 +249,7 @@ fn install_panic_hook() {
             .map(|l| format!(" (at {}:{})", l.file(), l.line()))
             .unwrap_or_default();
         let report = jaic::render::Report::new(
-            jaic::diagnostics::Severity::Error,
+            jaic::diagnostics::Code::InternalError,
             format!("internal compiler error: {message}"),
         )
         .note(format!("this is a bug in jaic{at}, not in your program"))

@@ -1,4 +1,4 @@
-reverse-vector-negative.jai:5:15: error: no `operator *` for `Vector2` and `Matrix2`
+reverse-vector-negative.jai:5:15: error[call-no-operator]: no `operator *` for `Vector2` and `Matrix2`
         result := Vector2.{ 3, 5 } * Matrix2_Identity;
                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 $STDLIB/internal/numerics/math_vectors.jai:45:15: note: `operator *` is declared here

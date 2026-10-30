@@ -1,4 +1,4 @@
-../../layout.jai:109:9: error: variant: `s64` is not a Variant
+../../layout.jai:109:9: error[metaprogram-report]: variant: `s64` is not a Variant
             compiler_report(tprint("%: `%` is not a Variant", user, V));
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ../../module.jai:40:13: note: while running compile-time code started here

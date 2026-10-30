@@ -1,4 +1,4 @@
-switch-too-many-handlers.jai:9:5: error: no overload of `variant_switch` matches these arguments
+switch-too-many-handlers.jai:9:5: error[call-no-overload-matches-arguments]: no overload of `variant_switch` matches these arguments
         variant_switch(*v,
         ^^^^^^^^^^^^^^^^^^
 <#insert at $STDLIB/Extensions/Variant/switch.jai>:1:19: note: too many arguments: it takes at most 2

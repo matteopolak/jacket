@@ -1,4 +1,4 @@
-private-name.jai:5:14: error: unknown identifier `initialization_requested`
+private-name.jai:5:14: error[unknown-identifier]: unknown identifier `initialization_requested`
         value := initialization_requested;
                  ^^^^^^^^^^^^^^^^^^^^^^^^
 help: a similar name exists: `initialize_requested`

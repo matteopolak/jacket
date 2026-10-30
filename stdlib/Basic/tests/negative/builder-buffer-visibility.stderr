@@ -1,4 +1,4 @@
-builder-buffer-visibility.jai:6:22: error: module `Basic` has no exported member `Buffer`
+builder-buffer-visibility.jai:6:22: error[unknown-module-member]: module `Basic` has no exported member `Buffer`
         assert(size_of(B.Buffer) > 0);
                          ^^^^^^
 

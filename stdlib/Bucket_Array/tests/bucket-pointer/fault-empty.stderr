@@ -1,4 +1,4 @@
-$STDLIB/internal/collections/bucket-array.jai:81:5: error: error during compile-time execution: assertion failed: `bucket_index < all_buckets.count` is false
+$STDLIB/internal/collections/bucket-array.jai:81:5: error[runtime-trap]: error during compile-time execution: assertion failed: `bucket_index < all_buckets.count` is false
         assert(bucket_index < all_buckets.count);
         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 fault-empty.jai:5:9: note: while running compile-time code started here

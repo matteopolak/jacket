@@ -1,4 +1,4 @@
-target.jai:23:13: error: BuildCpp object target validation failed
+target.jai:23:13: error[metaprogram-report]: BuildCpp object target validation failed
         assert(!B.build_cpp_executable(output, source, compiler_executable_path = "clang", extra = flags));
                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

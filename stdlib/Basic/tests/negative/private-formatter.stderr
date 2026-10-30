@@ -1,4 +1,4 @@
-private-formatter.jai:5:14: error: unknown identifier `portable_float`
+private-formatter.jai:5:14: error[unknown-identifier]: unknown identifier `portable_float`
         value := portable_float(1.0, 102, 6);
                  ^^^^^^^^^^^^^^
 

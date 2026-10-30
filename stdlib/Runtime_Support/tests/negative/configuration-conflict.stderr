@@ -1,4 +1,4 @@
-configuration-conflict.jai:3:1: error: argument `DEFINE_SYSTEM_ENTRY_POINT` conflicts with the configured runtime instance
+configuration-conflict.jai:3:1: error[module-parameter-invalid]: argument `DEFINE_SYSTEM_ENTRY_POINT` conflicts with the configured runtime instance
     R :: #import "Runtime_Support"(DEFINE_SYSTEM_ENTRY_POINT = false, DEFINE_INITIALIZATION = true, ENABLE_BACKTRACE_ON_CRASH = false);
     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

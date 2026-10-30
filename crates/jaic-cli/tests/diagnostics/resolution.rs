@@ -14,7 +14,7 @@ fn unknown_identifier_suggests_a_visible_name() {
     assert_in_order(
         &stderr(&output),
         &[
-            "u.jai:4:18: error: unknown identifier",
+            "u.jai:4:18: error[unknown-identifier]: unknown identifier",
             "countr",
             "help: a similar name exists: `counter`",
         ],
@@ -51,7 +51,7 @@ fn unknown_identifier_names_the_module_or_metaprogram_that_declares_it() {
     assert_in_order(
         &stderr(&output),
         &[
-            "i.jai:2:5: error: unknown identifier `print`",
+            "i.jai:2:5: error[unknown-identifier]: unknown identifier `print`",
             "help: `print` is declared in the `Basic` module: add `#import \"Basic\";` to this file",
         ],
     );
@@ -106,7 +106,7 @@ fn unknown_identifier_names_the_module_or_metaprogram_that_declares_it() {
     assert_in_order(
         &stderr(&output),
         &[
-            "error: unknown identifier `MODE`",
+            "error[unknown-identifier]: unknown identifier `MODE`",
             "help: `MODE` is added by `build.jai` (with `add_build_string`) when it builds this file: build through it, as in `jaic build.jai`",
         ],
     );
@@ -119,14 +119,14 @@ fn mismatches_point_at_the_value_and_say_what_was_expected() {
         (
             "main :: () {\n    x: int = \"hello\";\n}\n",
             &[
-                "m.jai:2:14: error: type mismatch: expected `s64`, found `string`",
+                "m.jai:2:14: error[type-mismatch]: type mismatch: expected `s64`, found `string`",
                 "m.jai:2:8: note: expected because of this type",
             ],
         ),
         (
             "f :: (x: int) -> string {\n    return x;\n}\nmain :: () { f(1); }\n",
             &[
-                "m.jai:2:12: error: type mismatch: expected `string`, found `s64`",
+                "m.jai:2:12: error[type-mismatch]: type mismatch: expected `string`, found `s64`",
                 "m.jai:1:18: note: expected because of this return type",
                 "help: to turn a number into text, format it",
             ],
@@ -134,35 +134,35 @@ fn mismatches_point_at_the_value_and_say_what_was_expected() {
         (
             "g :: () -> int, bool {\n    return 1, \"no\";\n}\nmain :: () { g(); }\n",
             &[
-                "m.jai:2:15: error: type mismatch: expected `bool`, found `string`",
+                "m.jai:2:15: error[type-mismatch]: type mismatch: expected `bool`, found `string`",
                 "m.jai:1:17: note: expected because of this return type",
             ],
         ),
         (
             "main :: () { a := 1.5; b: int = a; }\n",
             &[
-                "error: type mismatch: expected `s64`, found `float32`",
+                "error[type-mismatch]: type mismatch: expected `s64`, found `float32`",
                 "help: convert with `cast(s64)`, which drops the fraction",
             ],
         ),
         (
             "f :: (a: int, b: float) {}\nmain :: () {\n    f(1, 2.0, 3);\n}\n",
             &[
-                "m.jai:3:15: error: in call to `f`: too many arguments: it takes at most 2",
+                "m.jai:3:15: error[argument-count]: in call to `f`: too many arguments: it takes at most 2",
                 "m.jai:1:6: note: `f` is declared here",
             ],
         ),
         (
             "f :: (count: int) {}\nmain :: () { f(cuont = 1); }\n",
             &[
-                "error: in call to `f`: no parameter named `cuont`",
+                "error[call-mismatch]: in call to `f`: no parameter named `cuont`",
                 "help: did you mean `count`?",
             ],
         ),
         (
             "f :: (a: int, b: int) {}\nmain :: () { f(1); }\n",
             &[
-                "error: in call to `f`: missing argument for parameter `b`",
+                "error[argument-count]: in call to `f`: missing argument for parameter `b`",
                 "note: `f` is declared here",
                 "help: pass a value for `b`",
             ],
@@ -170,14 +170,14 @@ fn mismatches_point_at_the_value_and_say_what_was_expected() {
         (
             "P :: struct { width: int; }\nmain :: () { p: P; p.widht = 1; }\n",
             &[
-                "error: type `P` has no member `widht`",
+                "error[no-member]: type `P` has no member `widht`",
                 "help: a member with a similar name exists: `width`",
             ],
         ),
         (
             "main :: () { x := 1; x := 2; }\n",
             &[
-                "m.jai:1:22: error: `x` is already declared in this scope",
+                "m.jai:1:22: error[proc-already-declared-scope]: `x` is already declared in this scope",
                 "m.jai:1:14: note: `x` is first declared here",
                 "help: to change its value, assign with `x = ...`",
             ],
@@ -186,13 +186,13 @@ fn mismatches_point_at_the_value_and_say_what_was_expected() {
             // `n + "0"` is a byte; `*` takes no one-character string.
             "twice :: (n: u8) -> u8 { return n * \"2\"; }\nmain :: () {}\n",
             &[
-                "error: type mismatch: `u8` and `string` cannot be combined",
+                "error[binary-type-mismatch]: type mismatch: `u8` and `string` cannot be combined",
                 "help: `\"2\"` is a string; for the character's code write `#char \"2\"`",
             ],
         ),
         (
             "#assert size_of(int) == 4;\nmain :: () {}\n",
-            &["error: #assert failed: `size_of(int) == 4` is false"],
+            &["error[static-assert]: #assert failed: `size_of(int) == 4` is false"],
         ),
     ];
     for (source, expected) in cases {
@@ -210,7 +210,7 @@ fn modify_without_polymorph_variables_is_reported_at_the_block() {
             // Called: the error is the declaration's, not the call's.
             "main :: () {\n    foo(5);\n}\nfoo :: (x: int) -> int #modify {\n    print(\"%\", x);\n    return x > 5;\n} {\n    return x + 1;\n}\n",
             &[
-                "m.jai:4:24: error: `#modify` needs polymorph variables to modify, but `foo` has none",
+                "m.jai:4:24: error[modify-without-polymorphs]: `#modify` needs polymorph variables to modify, but `foo` has none",
                 "help: if `x` should be known at compile time, bake it: `$x: int`",
                 "help: `#modify` runs at compile time, once per polymorph, over the `$` parameters",
                 "`x: int` is a runtime value",
@@ -220,14 +220,14 @@ fn modify_without_polymorph_variables_is_reported_at_the_block() {
             // Never called.
             "main :: () {}\nbar :: () #modify { return true; } {}\n",
             &[
-                "m.jai:2:11: error: `#modify` needs polymorph variables to modify, but `bar` has none",
+                "m.jai:2:11: error[modify-without-polymorphs]: `#modify` needs polymorph variables to modify, but `bar` has none",
                 "add one for it to work on, or remove the block",
             ],
         ),
         (
             "main :: () {}\nFoo :: struct #modify { return true; } { a: int; }\n",
             &[
-                "m.jai:2:15: error: `#modify` needs polymorph variables to modify, but `Foo` has none",
+                "m.jai:2:15: error[modify-without-polymorphs]: `#modify` needs polymorph variables to modify, but `Foo` has none",
                 "help: a struct's `#modify` runs at compile time over the struct's parameters",
             ],
         ),
@@ -273,7 +273,13 @@ fn an_extension_module_without_its_path_names_the_extensions_import() {
         );
         assert_eq!(output.status.code(), Some(1), "{name}");
         let text = stderr(&output);
-        assert_in_order(&text, &[&format!("error: module `{name}` not found"), help]);
+        assert_in_order(
+            &text,
+            &[
+                &format!("error[module-not]: module `{name}` not found"),
+                help,
+            ],
+        );
         assert!(!text.contains("looked for"), "{text}");
     }
     // With the path it resolves.
@@ -302,7 +308,7 @@ fn missing_module_lists_where_it_looked_and_a_close_name() {
     assert_in_order(
         &text,
         &[
-            "m.jai:1:1: error: module `Basik` not found",
+            "m.jai:1:1: error[module-not]: module `Basik` not found",
             "note: looked for `Basik.jai` and `Basik/module.jai` in:",
             "/modules",
             "/stdlib",
@@ -347,21 +353,24 @@ fn missing_import_folder_names_its_path() {
     for (source, expected) in [
         (
             "#import,dir \"gone\";",
-            "error: folder `gone` does not exist",
+            "error[missing-file]: folder `gone` does not exist",
         ),
-        ("#import,dir \"empty\";", "error: `empty` has no module.jai"),
+        (
+            "#import,dir \"empty\";",
+            "error[missing-file]: `empty` has no module.jai",
+        ),
         (
             "#import,file \"gone.jai\";",
-            "error: file `gone.jai` does not exist",
+            "error[missing-file]: file `gone.jai` does not exist",
         ),
         // Module arguments after the path are not part of the path.
         (
             "#import,file \"../gone.jai\"(VALIDATION = true);",
-            "error: file `../gone.jai` does not exist",
+            "error[missing-file]: file `../gone.jai` does not exist",
         ),
         (
             "#import,dir \"gone\"(VALIDATION = true);",
-            "error: folder `gone` does not exist",
+            "error[missing-file]: folder `gone` does not exist",
         ),
     ] {
         let output = jaic_on(
@@ -397,7 +406,7 @@ fn missing_load_file_says_where_it_looked() {
     assert_in_order(
         &stderr(&output),
         &[
-            "l.jai:1:7: error: file `helpers.jai` does not exist",
+            "l.jai:1:7: error[missing-file]: file `helpers.jai` does not exist",
             "note: looked for ",
             "helpers.jai",
             "help: a file with a similar name exists: `helper.jai`",

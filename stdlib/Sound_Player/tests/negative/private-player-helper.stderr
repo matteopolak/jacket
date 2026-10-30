@@ -1,4 +1,4 @@
-private-player-helper.jai:5:5: error: unknown identifier `lock_player`
+private-player-helper.jai:5:5: error[unknown-identifier]: unknown identifier `lock_player`
         lock_player();
         ^^^^^^^^^^^
 help: a similar name exists: `unlock_player`

@@ -22,7 +22,7 @@ fn label(text: &str, needle: &str, message: Option<&str>) -> Label<'static> {
 fn unknown_name() -> Report<'static> {
     let primary = label(SOURCE, "countr)", Some("not found in this scope"));
     let at = primary.start;
-    let mut report = Report::new(Severity::Error, "unknown identifier `countr`");
+    let mut report = Report::new(Code::TypeMismatch, "unknown identifier `countr`");
     report.primary = Some(Label {
         end: at + 6,
         ..primary
@@ -54,7 +54,7 @@ fn plain_compact_is_the_long_standing_layout() {
     let text = unknown_name().render_with(Style::PLAIN);
     assert_eq!(
         text,
-        "u.jai:3:18: error: unknown identifier `countr`\n\
+        "u.jai:3:18: error[type-mismatch]: unknown identifier `countr`\n\
          \x20       print(\"%\\n\", countr);\n\
          \x20                    ^^^^^^\n\
          note: names are case-sensitive\n\
@@ -70,12 +70,12 @@ fn msvc_layout_is_one_located_line_per_item_and_never_coloured() {
     };
     assert_eq!(
         unknown_name().render_with(style),
-        "u.jai(3,18): error: unknown identifier `countr`\n\
+        "u.jai(3,18): error[type-mismatch]: unknown identifier `countr`\n\
          u.jai(3,18): note: names are case-sensitive\n\
          u.jai(3,18): note: help: a similar name exists: `counter`\n"
     );
-    let bare = Report::new(Severity::Error, "no place").render_with(style);
-    assert_eq!(bare, "error: no place\n");
+    let bare = Report::new(Code::TypeMismatch, "no place").render_with(style);
+    assert_eq!(bare, "error[type-mismatch]: no place\n");
 }
 
 #[test]
@@ -83,7 +83,7 @@ fn ascii_block_has_line_numbers_context_labels_and_the_fix() {
     let text = unknown_name().render_with(ASCII_STYLE);
     assert_eq!(
         text,
-        "error: unknown identifier `countr`\n\
+        "error[type-mismatch]: unknown identifier `countr`\n\
          \x20 --> u.jai:3:18\n\
          \x20  |\n\
          \x202 |     counter := 1;\n\
@@ -104,7 +104,7 @@ fn unicode_block_draws_boxes() {
     let text = unknown_name().render_with(UNICODE_STYLE);
     assert_eq!(
         text,
-        "error: unknown identifier `countr`\n\
+        "error[type-mismatch]: unknown identifier `countr`\n\
          \x20  ╭─[u.jai:3:18]\n\
          \x202 │     counter := 1;\n\
          \x203 │     print(\"%\\n\", countr);\n\
@@ -126,7 +126,7 @@ fn colour_marks_severity_gutter_and_labels() {
         color: true,
     });
     assert!(
-        text.starts_with("\x1b[1;31merror\x1b[0m\x1b[1m: unknown identifier"),
+        text.starts_with("\x1b[1;31merror[type-mismatch]\x1b[0m\x1b[1m: unknown identifier"),
         "{text}"
     );
     assert!(text.contains("\x1b[34m│\x1b[0m"), "{text}");
@@ -138,7 +138,7 @@ fn colour_marks_severity_gutter_and_labels() {
 fn secondary_labels_and_other_files() {
     let source = "x: int = 1;\nmain :: () {\n    x = \"text\";\n}\n";
     let mut report = Report::new(
-        Severity::Error,
+        Code::TypeMismatch,
         "type mismatch: expected `int`, found `string`",
     );
     report.primary = Some(label(source, "\"text\"", Some("this is a `string`")));
@@ -151,7 +151,7 @@ fn secondary_labels_and_other_files() {
     let text = report.render_with(ASCII_STYLE);
     assert_eq!(
         text,
-        "error: type mismatch: expected `int`, found `string`\n\
+        "error[type-mismatch]: type mismatch: expected `int`, found `string`\n\
          \x20 --> u.jai:3:9\n\
          \x20  |\n\
          \x201 | x: int = 1;\n\
@@ -178,7 +178,7 @@ fn secondary_labels_and_other_files() {
 #[test]
 fn multi_line_spans_get_a_connector() {
     let source = "f :: () {\n    a := 1;\n    b := 2;\n}\nmain :: () {}\n";
-    let mut report = Report::new(Severity::Warning, "`f` is never used");
+    let mut report = Report::new(Code::ShadowsBuiltinType, "`f` is never used");
     let start = 0;
     let end = source.find("}\n").unwrap() + 1;
     report.primary = Some(Label {
@@ -192,7 +192,7 @@ fn multi_line_spans_get_a_connector() {
     let text = report.render_with(UNICODE_STYLE);
     assert_eq!(
         text,
-        "warning: `f` is never used\n\
+        "warning[shadows-builtin-type]: `f` is never used\n\
          \x20  ╭─[m.jai:1:1]\n\
          \x201 │ ╭ f :: () {\n\
          \x202 │ │     a := 1;\n\
@@ -214,7 +214,7 @@ fn long_spans_show_their_edges_and_long_lines_are_cut() {
         source += &format!("    x{i} := {i};\n");
     }
     source += "}\n";
-    let mut report = Report::new(Severity::Error, "long");
+    let mut report = Report::new(Code::TypeMismatch, "long");
     report.primary = Some(Label {
         path: leak_path("l.jai"),
         text: Box::leak(source.clone().into_boxed_str()),
@@ -229,7 +229,7 @@ fn long_spans_show_their_edges_and_long_lines_are_cut() {
     assert!(text.contains("x19"), "{text}");
 
     let long = format!("x := {}needle{};\n", "a".repeat(200), "b".repeat(200));
-    let mut report = Report::new(Severity::Error, "cut");
+    let mut report = Report::new(Code::TypeMismatch, "cut");
     report.primary = Some(label(&long, "needle", None));
     let text = report.render_with(UNICODE_STYLE);
     let line = text.lines().find(|l| l.contains("needle")).unwrap();
@@ -245,7 +245,7 @@ fn long_spans_show_their_edges_and_long_lines_are_cut() {
 #[test]
 fn tabs_are_expanded_outside_the_plain_layout() {
     let source = "main :: () {\n\tx := y;\n}\n";
-    let mut report = Report::new(Severity::Error, "unknown identifier `y`");
+    let mut report = Report::new(Code::TypeMismatch, "unknown identifier `y`");
     report.primary = Some(label(source, "y;", None));
     report.primary.as_mut().unwrap().end -= 1;
     let text = report.render_with(ASCII_STYLE);
@@ -259,12 +259,12 @@ fn tabs_are_expanded_outside_the_plain_layout() {
 
 #[test]
 fn reports_without_a_place() {
-    let report = Report::new(Severity::Error, "file `nope.jai` does not exist")
+    let report = Report::new(Code::TypeMismatch, "file `nope.jai` does not exist")
         .help("did you mean `nop.jai`?");
     for style in [Style::PLAIN, ASCII_STYLE, UNICODE_STYLE] {
         assert_eq!(
             report.render_with(style),
-            "error: file `nope.jai` does not exist\nhelp: did you mean `nop.jai`?\n"
+            "error[type-mismatch]: file `nope.jai` does not exist\nhelp: did you mean `nop.jai`?\n"
         );
     }
 }
@@ -329,7 +329,7 @@ fn detection_follows_terminal_flags_and_environment() {
 #[test]
 fn reports_from_text_split_help_and_note_lines() {
     let report = Report::from_text(
-        Severity::Error,
+        Code::CliFailure,
         "linking failed\nld: oops\nhelp: install it\nnote: why\n",
     );
     assert_eq!(report.message, "linking failed\nld: oops");
@@ -338,7 +338,7 @@ fn reports_from_text_split_help_and_note_lines() {
     assert_eq!(report.notes, ["why"]);
     assert_eq!(
         report.render_with(Style::PLAIN),
-        "error: linking failed\nld: oops\nnote: why\nhelp: install it\n"
+        "error[cli-failure]: linking failed\nld: oops\nnote: why\nhelp: install it\n"
     );
 }
 

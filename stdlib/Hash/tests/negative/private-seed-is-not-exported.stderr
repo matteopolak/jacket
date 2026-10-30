@@ -1,4 +1,4 @@
-private-seed-is-not-exported.jai:6:27: error: module `Hash` has no exported member `HASH_INIT`
+private-seed-is-not-exported.jai:6:27: error[unknown-module-member]: module `Hash` has no exported member `HASH_INIT`
         private_value := Hash.HASH_INIT;
                               ^^^^^^^^^
 

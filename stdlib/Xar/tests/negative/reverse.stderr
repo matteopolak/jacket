@@ -1,4 +1,4 @@
-$STDLIB/internal/collections/xar.jai:81:5: error: #assert failed: reverse Xar iteration is unsupported
+$STDLIB/internal/collections/xar.jai:81:5: error[static-assert]: #assert failed: reverse Xar iteration is unsupported
         #assert (flags & .REVERSE) == 0, "reverse Xar iteration is unsupported";
         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

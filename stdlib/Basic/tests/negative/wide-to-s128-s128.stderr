@@ -1,4 +1,4 @@
-wide-to-s128-s128.jai:5:14: error: in call to `to_s128`: #modify rejected the arguments to `to_s128`: to_s128 requires a reflected integer type
+wide-to-s128-s128.jai:5:14: error[call-mismatch]: in call to `to_s128`: #modify rejected the arguments to `to_s128`: to_s128 requires a reflected integer type
         value := to_s128(S128.{});
                  ^^^^^^^^^^^^^^^^
 $STDLIB/internal/basic/integer128.jai:76:12: note: `to_s128` is declared here

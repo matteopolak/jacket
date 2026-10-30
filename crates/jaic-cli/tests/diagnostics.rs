@@ -74,7 +74,7 @@ fn format_string_argument_count_is_checked() {
     assert_in_order(
         &stderr(&few),
         &[
-            "few.jai:4:5: warning: incorrect number of arguments supplied to `print`: the format string requires 2 arguments, but 1 argument is given",
+            "few.jai:4:5: warning[format-missing-argument]: incorrect number of arguments supplied to `print`: the format string requires 2 arguments, but 1 argument is given",
             "help: pass a value for every `%`",
         ],
     );
@@ -84,7 +84,7 @@ fn format_string_argument_count_is_checked() {
     assert_in_order(
         &stderr(&many),
         &[
-            "many.jai:4:10: warning: incorrect number of arguments supplied to `tprint`: the format string requires 0 arguments, but 2 arguments are given",
+            "many.jai:4:10: warning[format-extra-argument]: incorrect number of arguments supplied to `tprint`: the format string requires 0 arguments, but 2 arguments are given",
             "help: add a `%` for each argument",
         ],
     );
@@ -116,8 +116,8 @@ main :: () {
     assert_in_order(
         &text,
         &[
-            "t.jai:2:26: warning: statements in block after `return` are never reached",
-            "t.jai:3:26: warning: statements in block after `continue` are never reached",
+            "t.jai:2:26: warning[unreachable-statements]: statements in block after `return` are never reached",
+            "t.jai:3:26: warning[unreachable-statements]: statements in block after `continue` are never reached",
         ],
     );
     assert_eq!(text.matches("never reached").count(), 2, "{text}");
@@ -142,8 +142,8 @@ main :: () {
     assert_in_order(
         &text,
         &[
-            "t.jai:2:10: warning: this literal is 12342345728 as a float32",
-            "t.jai:3:16: warning: this literal is 16777216 as a float32",
+            "t.jai:2:10: warning[convert-literal-float32]: this literal is 12342345728 as a float32",
+            "t.jai:3:16: warning[convert-literal-float32]: this literal is 16777216 as a float32",
         ],
     );
     assert_eq!(text.matches("as a float32").count(), 2, "{text}");
@@ -182,7 +182,10 @@ main :: () {
     for at in ["t.jai:2:", "t.jai:11:"] {
         assert_in_order(
             &text,
-            &[at, "warning: not all control paths return a value"],
+            &[
+                at,
+                "warning[proc-not-all-control]: not all control paths return a value",
+            ],
         );
     }
     assert_eq!(text.matches("not all control paths").count(), 2, "{text}");
@@ -209,7 +212,7 @@ fn a_failed_initializer_reports_its_own_error_and_nothing_after_it() {
     let output = jaic_on(&dir, "main.jai", source, "-check", &[]);
     assert!(!output.status.success());
     let text = stderr(&output);
-    assert_eq!(text.matches("error:").count(), 1, "{text}");
+    assert_eq!(text.matches("error[").count(), 1, "{text}");
     assert!(text.contains("unknown identifier `Nope`"), "{text}");
     assert!(
         !text.contains("`owner`") && !text.contains("`size`"),
@@ -239,7 +242,7 @@ fn report_inside_a_string_underlines_the_word() {
         let lines: Vec<&str> = stderr.lines().collect();
         let at = lines
             .iter()
-            .position(|l| l.contains("error: no such column"))
+            .position(|l| l.contains("error[metaprogram-report]: no such column"))
             .unwrap_or_else(|| panic!("{stderr}"));
         (
             lines[at + 1].trim().to_string(),
@@ -281,7 +284,7 @@ fn a_leniency_in_the_program_file_warns_with_the_note_and_the_exit_status_stays_
     assert_in_order(
         &text,
         &[
-            "warning: `#place` is a deprecated directive",
+            "warning[place-directive]: `#place` is a deprecated directive",
             "note: the official Jai compiler rejects this; Jacket accepts it but may stop in a future release",
             "help: write `#overlay(member)`",
         ],
@@ -327,7 +330,7 @@ fn a_body_constant_used_above_its_declaration_is_an_error() {
     assert_in_order(
         &text,
         &[
-            "error: `foo` is used above its declaration",
+            "error[use-before-declaration]: `foo` is used above its declaration",
             "declared here",
             "help: move the declaration of `foo` above its first use",
         ],

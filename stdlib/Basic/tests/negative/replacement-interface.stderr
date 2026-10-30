@@ -1,4 +1,4 @@
-../../module.jai:1:94: error: Broken does not satisfy interface Memory_Debugger_Interface: missing member `check_alloc`
+../../module.jai:1:94: error[interface-constraint]: Broken does not satisfy interface Memory_Debugger_Interface: missing member `check_alloc`
     #module_parameters()(MEMORY_DEBUGGER := false, ENABLE_ASSERT := true, REPLACEMENT_INTERFACE: $I/interface Memory_Debugger_Interface = Memory_Debugger_Interface, VISUALIZE_MEMORY_DEBUGGER := true, TEMP_ALLOCATOR_OVERWRITE_MEMORY := false) {
                                                                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

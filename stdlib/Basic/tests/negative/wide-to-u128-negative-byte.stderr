@@ -1,4 +1,4 @@
-wide-to-u128-negative-byte.jai:5:14: error: in call to `to_u128`: #modify rejected the arguments to `to_u128`: to_u128 requires a built-in unsigned integer type
+wide-to-u128-negative-byte.jai:5:14: error[call-mismatch]: in call to `to_u128`: #modify rejected the arguments to `to_u128`: to_u128 requires a built-in unsigned integer type
         value := to_u128(cast(s8) -1);
                  ^^^^^^^^^^^^^^^^^^^^
 $STDLIB/internal/basic/integer128.jai:70:12: note: `to_u128` is declared here

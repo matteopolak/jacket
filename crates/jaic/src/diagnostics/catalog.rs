@@ -214,6 +214,16 @@ catalog! {
     ParseKeywordDeclared = "parse-keyword-declared", Error,
         "a keyword used as the name of a declaration";
 
+    // -- the tools around the compiler -------------------------------------------------
+    CliUsage = "cli-usage", Error,
+        "a command-line mistake: an unknown flag, a missing value, or flags that contradict each other";
+    CliFailure = "cli-failure", Error,
+        "a tool could not do what it was asked, for a reason outside the program's code";
+    MemoryLimit = "memory-limit", Error,
+        "the process hit the memory limit set for it";
+    InternalError = "internal-error", Error,
+        "a bug in the compiler itself";
+
     // -- the playground ------------------------------------------------------------------
     PlaygroundInput = "playground-input", Error,
         "the playground was given input it cannot run";

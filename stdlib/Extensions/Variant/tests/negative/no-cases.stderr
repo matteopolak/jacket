@@ -1,4 +1,4 @@
-../../layout.jai:50:9: error: Variant needs at least one case type
+../../layout.jai:50:9: error[metaprogram-report]: Variant needs at least one case type
             compiler_report("Variant needs at least one case type");
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ../../module.jai:33:13: note: while running compile-time code started here

@@ -1,4 +1,4 @@
-file-no-import-negative.jai:7:17: error: unknown identifier `get_absolute_path`
+file-no-import-negative.jai:7:17: error[unknown-identifier]: unknown identifier `get_absolute_path`
         path, ok := get_absolute_path(".");
                     ^^^^^^^^^^^^^^^^^
 help: a similar name exists: `is_absolute_path`

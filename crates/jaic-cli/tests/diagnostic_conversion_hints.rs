@@ -51,7 +51,7 @@ fn a_conversion_error_names_the_cast() {
     assert_in_order(
         &plain,
         &[
-            "t.jai:3:14: error: type mismatch: expected `s32`, found `s64`",
+            "t.jai:3:14: error[type-mismatch]: type mismatch: expected `s32`, found `s64`",
             "help: convert with `cast(s32)` if every value fits",
         ],
     );
@@ -76,7 +76,7 @@ fn a_loop_over_a_number_shows_the_range() {
     assert_in_order(
         &rich,
         &[
-            "error: cannot iterate over a value of type s64",
+            "error[cannot-iterate-over]: cannot iterate over a value of type s64",
             "help: to repeat n times, loop over a range: `for 0..n - 1`",
             " 3 ~     for 0..n - 1 { }",
         ],
@@ -90,7 +90,7 @@ fn a_return_with_too_many_values_names_the_results() {
     assert_in_order(
         &plain,
         &[
-            "error: too many return values (procedure returns 1)",
+            "error[too-many-return-values]: too many return values (procedure returns 1)",
             "help: return only the first 1 value",
             "help: the procedure returns `s64`",
         ],

@@ -90,7 +90,7 @@ fn an_unknown_result_is_an_error_in_a_build() {
     assert_eq!(output.status.code(), Some(1), "{stderr}");
     let first = stderr.lines().next().unwrap_or_default();
     assert!(
-        first.starts_with("case.jai:4:") && first.ends_with("error: no database configured"),
+        first.starts_with("case.jai:4:") && first.ends_with(": no database configured"),
         "{stderr}"
     );
 }

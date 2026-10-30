@@ -1,4 +1,4 @@
-../../layout.jai:67:13: error: Variant(s64, string, s64): the case `s64` appears twice. A Variant picks its case by the value's type, so use a wrapper struct per case
+../../layout.jai:67:13: error[metaprogram-report]: Variant(s64, string, s64): the case `s64` appears twice. A Variant picks its case by the value's type, so use a wrapper struct per case
                 compiler_report(tprint("%: the case `%` appears twice. A Variant picks its case by the value's type, so use a wrapper struct per case", name, it));
                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 ../../module.jai:33:13: note: while running compile-time code started here

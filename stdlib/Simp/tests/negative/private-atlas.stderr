@@ -1,4 +1,4 @@
-private-atlas.jai:5:5: error: unknown identifier `atlas_create_page`
+private-atlas.jai:5:5: error[unknown-identifier]: unknown identifier `atlas_create_page`
         atlas_create_page(64, 64);
         ^^^^^^^^^^^^^^^^^
 

@@ -1,4 +1,4 @@
-negative-private-helper.jai:6:7: error: module `Basic` has no exported member `copy_array_elements`
+negative-private-helper.jai:6:7: error[unknown-module-member]: module `Basic` has no exported member `copy_array_elements`
         B.copy_array_elements(data.data, data);
           ^^^^^^^^^^^^^^^^^^^
 help: `copy_array_elements` is declared in `Basic` but is not exported: it is private to the module

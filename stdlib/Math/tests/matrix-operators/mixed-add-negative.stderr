@@ -1,4 +1,4 @@
-mixed-add-negative.jai:5:15: error: no `operator +` for `Matrix2` and `Matrix3`
+mixed-add-negative.jai:5:15: error[call-no-operator]: no `operator +` for `Matrix2` and `Matrix3`
         result := Matrix2_Identity + Matrix3_Identity;
                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 $STDLIB/internal/numerics/math_vectors.jai:37:15: note: `operator +` is declared here

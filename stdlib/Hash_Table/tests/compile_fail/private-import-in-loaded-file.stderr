@@ -1,4 +1,4 @@
-private-import-in-loaded-file.jai:6:17: error: unknown identifier `File`
+private-import-in-loaded-file.jai:6:17: error[unknown-identifier]: unknown identifier `File`
         path, ok := File.get_absolute_path(".");
                     ^^^^
 help: `File` is the name of a module: import it under that name with `File :: #import "File";`

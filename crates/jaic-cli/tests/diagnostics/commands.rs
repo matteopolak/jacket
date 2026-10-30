@@ -12,28 +12,28 @@ fn input_file_problems() {
         (
             &["-interp", "gmae.jai"],
             &[
-                "error: file `gmae.jai` does not exist",
+                "error[cli-usage]: file `gmae.jai` does not exist",
                 "help: did you mean `game.jai`?",
             ],
         ),
         (
             &["-interp", "game"],
             &[
-                "error: file `game` does not exist",
+                "error[cli-usage]: file `game` does not exist",
                 "help: did you mean `game.jai`?",
             ],
         ),
         (
             &["-interp", "nothing_like_it.jai"],
             &[
-                "error: file `nothing_like_it.jai` does not exist",
+                "error[cli-usage]: file `nothing_like_it.jai` does not exist",
                 "help: relative paths start from the current directory",
             ],
         ),
         (
             &["-check", "proj"],
             &[
-                "error: `proj` is a directory, not a .jai file",
+                "error[cli-usage]: `proj` is a directory, not a .jai file",
                 "help: did you mean `proj/first.jai`?",
             ],
         ),
@@ -59,7 +59,7 @@ fn build_problems_say_what_to_change() {
             &["lib.jai"],
             Some(3),
             &[
-                "error: `lib.jai` has no `main` procedure, so there is no program to write",
+                "error[cli-failure]: `lib.jai` has no `main` procedure, so there is no program to write",
                 "help: add `main :: () { ... }`",
             ],
         ),
@@ -67,7 +67,7 @@ fn build_problems_say_what_to_change() {
             &["ok.jai", "-exe", "out"],
             Some(1),
             &[
-                "error: the output path `out` is a directory",
+                "error[cli-failure]: the output path `out` is a directory",
                 "help: name the file to write inside it, as in `-exe out/program`",
             ],
         ),
@@ -75,7 +75,7 @@ fn build_problems_say_what_to_change() {
             &["ok.jai", "-sanitize", "adress"],
             Some(2),
             &[
-                "error: unknown sanitizer `adress` for `-sanitize`",
+                "error[cli-usage]: unknown sanitizer `adress` for `-sanitize`",
                 "help: use address, undefined, fuzzer or a list: `-sanitize address,fuzzer`",
             ],
         ),
@@ -98,7 +98,7 @@ fn build_problems_say_what_to_change() {
     assert_in_order(
         &stderr(&output),
         &[
-            "error: could not find the linker `no-such-linker-for-jaic-tests`",
+            "error[cli-failure]: could not find the linker `no-such-linker-for-jaic-tests`",
             "help: ",
             "JAIC_LINKER",
             "help: `jaic file.jai -interp` needs no linker",
@@ -115,7 +115,7 @@ fn build_problems_say_what_to_change() {
     assert_in_order(
         &stderr(&output),
         &[
-            "f.jai:1:18: error: unknown library `nothere`",
+            "f.jai:1:18: error[unknown-library]: unknown library `nothere`",
             "help: declare it with `nothere :: #library",
         ],
     );
@@ -130,82 +130,87 @@ fn command_line_mistakes_explain_themselves() {
         (
             &[],
             &[
-                "error: no file to compile",
+                "error[cli-usage]: no file to compile",
                 "help: usage: jaic [options] file.jai [options]",
                 "help: `jaic -help` lists the options",
             ],
         ),
-        (&["-check"], &["error: no file to compile"]),
+        (&["-check"], &["error[cli-usage]: no file to compile"]),
         (
             &["ok.jai", "-os"],
-            &["error: `-os` needs an OS name: linux, windows, macos or wasm"],
+            &["error[cli-usage]: `-os` needs an OS name: linux, windows, macos or wasm"],
         ),
         (
             &["ok.jai", "-os", "linus"],
             &[
-                "error: unknown OS `linus` for `-os`",
+                "error[cli-usage]: unknown OS `linus` for `-os`",
                 "help: did you mean `-os linux`?",
             ],
         ),
         (
             &["ok.jai", "-cpu", "z80"],
-            &["error: unknown CPU `z80` for `-cpu`"],
+            &["error[cli-usage]: unknown CPU `z80` for `-cpu`"],
         ),
-        (&["ok.jai", "-I"], &["error: `-I` needs a directory"]),
+        (
+            &["ok.jai", "-I"],
+            &["error[cli-usage]: `-I` needs a directory"],
+        ),
         (
             &["ok.jai", "-timing"],
             &[
-                "error: unknown option `-timing`",
+                "error[cli-usage]: unknown option `-timing`",
                 "help: did you mean `-timings`?",
             ],
         ),
         (
             &["ok.jai", "-O7"],
             &[
-                "error: unknown optimization level `-O7`",
+                "error[cli-usage]: unknown optimization level `-O7`",
                 "help: use -O0, -O1, -O2 or -O3",
             ],
         ),
         (
             &["ok.jai", "-o", "-O2"],
-            &["error: `-O0`..`-O3` and `-o`, `-od` or `-very_debug` both set the optimization"],
+            &[
+                "error[cli-usage]: `-O0`..`-O3` and `-o`, `-od` or `-very_debug` both set the optimization",
+            ],
         ),
         (
             &["ok.jai", "-interp", "extra"],
             &[
-                "error: unexpected argument `extra`",
+                "error[cli-usage]: unexpected argument `extra`",
                 "help: arguments for the program go after `--`: `jaic ok.jai -interp -- extra`",
             ],
         ),
         (
             &["ok.jai", "two.jai"],
             &[
-                "error: jaic compiles one file, but got `ok.jai` and `two.jai`",
+                "error[cli-usage]: jaic compiles one file, but got `ok.jai` and `two.jai`",
                 "help: `#load` or `#import` the others from the first",
             ],
         ),
         (
             &["ok.jai", "-check", "-interp"],
-            &["error: `-check` and `-interp` cannot be combined"],
+            &["error[cli-usage]: `-check` and `-interp` cannot be combined"],
         ),
         (
             &["ok.jai", "--", "a"],
             &[
-                "error: `--` hands arguments to the program, which only `-interp` runs",
+                "error[cli-usage]: `--` hands arguments to the program, which only `-interp` runs",
                 "help: use `jaic ok.jai -interp -- ...`",
             ],
         ),
         (
             &["ok.jai", "-check", "-", "--", "a"],
-            &["error: `--` hands arguments to the program, which only `-interp` runs"],
+            &["error[cli-usage]: `--` hands arguments to the program, which only `-interp` runs"],
         ),
         (
             &["ok.jai", "-no_workspace_output"],
-            &["error: `-no_workspace_output` only applies to `-interp`"],
+            &["error[cli-usage]: `-no_workspace_output` only applies to `-interp`"],
         ),
         (
             &["ok.jai", "-quiet", "-verbose"],
-            &["error: `-quiet` and `-verbose` contradict each other"],
+            &["error[cli-usage]: `-quiet` and `-verbose` contradict each other"],
         ),
     ];
     for (args, expected) in cases {
@@ -291,8 +296,8 @@ fn plugin_arguments_help_version_and_colour() {
         }
         stderr(&command.output().unwrap())
     };
-    assert!(colored(&["-bogus"], true).starts_with("\x1b[1;31merror\x1b[0m"));
-    assert!(colored(&["-bogus", "-no_color"], true).starts_with("error: "));
+    assert!(colored(&["-bogus"], true).starts_with("\x1b[1;31merror["));
+    assert!(colored(&["-bogus", "-no_color"], true).starts_with("error[cli-usage]: "));
     // After a lone `-` or a `+Plugin`, `-no_color` is not jaic's.
     assert!(colored(&["-bogus", "-", "-no_color"], true).starts_with("\x1b[1;31merror"));
 }
@@ -321,7 +326,7 @@ fn rich_layouts_on_request() {
     assert_in_order(
         &unicode,
         &[
-            "error: unknown identifier",
+            "error[unknown-identifier]: unknown identifier",
             "╭─[",
             "u.jai:4:18]",
             " 3 │     counter := 1;",
@@ -344,7 +349,7 @@ fn rich_layouts_on_request() {
     );
     assert!(ascii.is_ascii(), "{ascii}");
     let colored = rich("unicode", true);
-    assert!(colored.contains("\x1b[1;31merror\x1b[0m"), "{colored}");
+    assert!(colored.contains("\x1b[1;31merror["), "{colored}");
     // NO_COLOR is honoured when the choice is left to jaic.
     let output = Command::new(JAIC)
         .args(["-check", "u.jai"])
@@ -367,7 +372,7 @@ fn rich_layouts_on_request() {
     assert_in_order(
         &msvc,
         &[
-            "u.jai(4,18): error: unknown identifier `countr`\n",
+            "u.jai(4,18): error[unknown-identifier]: unknown identifier `countr`\n",
             "u.jai(4,18): note: help: a similar name exists: `counter`\n",
         ],
     );

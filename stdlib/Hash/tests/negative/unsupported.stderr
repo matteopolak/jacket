@@ -1,4 +1,4 @@
-unsupported.jai:9:5: error: no overload of `get_hash` matches these arguments
+unsupported.jai:9:5: error[call-no-overload-matches-arguments]: no overload of `get_hash` matches these arguments
         H.get_hash(Thing.{ 1 });
         ^^^^^^^^^^^^^^^^^^^^^^^
 $STDLIB/internal/hash/module.jai:81:13: note: argument of type `Thing` does not match parameter type `string`

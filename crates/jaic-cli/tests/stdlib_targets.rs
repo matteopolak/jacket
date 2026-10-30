@@ -163,10 +163,11 @@ fn expectations(text: &str) -> (Vec<String>, BTreeMap<String, String>) {
 fn first_error(stderr: &str, stdlib: &str) -> String {
     let line = stderr
         .lines()
-        .find(|l| l.contains("error: "))
+        .find(|l| l.contains(": error["))
         .unwrap_or("no error message");
     let line = line.replace(stdlib, "");
-    let (location, message) = line.split_once(": error: ").unwrap_or(("", &line));
+    let (location, rest) = line.split_once(": error[").unwrap_or(("", &line));
+    let message = rest.split_once("]: ").map_or(rest, |(_, m)| m);
     let file = location.split(':').next().unwrap_or("");
     format!("{file}: {message}")
 }

@@ -1,4 +1,4 @@
-$STDLIB/internal/collections/bucket-array.jai:84:5: error: error during compile-time execution: assertion failed: `bucket.occupied[slot_index]` is false
+$STDLIB/internal/collections/bucket-array.jai:84:5: error[runtime-trap]: error during compile-time execution: assertion failed: `bucket.occupied[slot_index]` is false
         assert(bucket.occupied[slot_index]);
         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 fault-hole.jai:5:9: note: while running compile-time code started here

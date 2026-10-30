@@ -29,7 +29,7 @@ fn accepts(name: &str, body: &str) {
 /// `source` must fail with `message` reported at the 1-based `line:col`.
 fn rejects(name: &str, source: &str, line: usize, col: usize, message: &str) {
     let e = compile(source).expect_err(name);
-    let at = format!("main.jai:{line}:{col}: error: ");
+    let at = format!("main.jai:{line}:{col}: error[");
     assert!(e.contains(&at), "{name}: no error at {line}:{col}:\n{e}");
     assert!(e.contains(message), "{name}: missing `{message}`:\n{e}");
 }

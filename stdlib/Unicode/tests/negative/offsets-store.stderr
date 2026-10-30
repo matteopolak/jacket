@@ -1,4 +1,4 @@
-offsets-store.jai:6:5: error: cannot assign into the constant `U.offsetsFromUTF8`
+offsets-store.jai:6:5: error[cannot-assign-constant]: cannot assign into the constant `U.offsetsFromUTF8`
         U.offsetsFromUTF8[0] = 1;
         ^^^^^^^^^^^^^^^^^^^^
 
