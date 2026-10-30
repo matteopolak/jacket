@@ -11,3 +11,7 @@ BuildType :: enum u8 {
 BUILD_TYPE :: BuildType.DEBUG;
 
 #load "main.jai";
+
+// The project's build program writes this one (it lists the command options); the check has no build
+// program.
+register_options :: () {}
