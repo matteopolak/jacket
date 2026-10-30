@@ -32,12 +32,12 @@ Visible public declarations and module-conditional variants are listed below. Pr
 
 ### Unix-specific declarations
 
-- `visit_files :: (dir_name: string, recursive: bool, user_data: $T, proc: (info: *File_Visit_Info, user_data: T), visit_files := true, visit_directories := false, visit_symlinks := true, follow_directory_symlinks := true) -> bool` (alias of `posix_visit_files`)
-- `add_modtime_and_size_if_missing :: inline (info: *File_Visit_Info) -> bool` (alias of `posix_add_modtime_and_size_if_missing`)
-- `file_exists :: (path: string) -> bool` (alias of `posix_file_exists`)
-- `file_modtime :: (file_path: string) -> (modtime: Apollo_Time, file_exists: bool)` (alias of `posix_file_modtime`)
-- `file_modtime_and_size :: (file_path: string) -> (modtime: Apollo_Time, size: s64, file_exists: bool)` (alias of `posix_file_modtime_and_size`)
-- `is_directory :: (path: string) -> bool, success: bool` (alias of `posix_is_directory`)
+- `visit_files :: (dir_name: string, recursive: bool, user_data: $T, proc: (info: *File_Visit_Info, user_data: T), visit_files := true, visit_directories := false, visit_symlinks := true, follow_directory_symlinks := true) -> bool`
+- `add_modtime_and_size_if_missing :: inline (info: *File_Visit_Info) -> bool`
+- `file_exists :: (path: string) -> bool`
+- `file_modtime :: (file_path: string) -> (modtime: Apollo_Time, file_exists: bool)`
+- `file_modtime_and_size :: (file_path: string) -> (modtime: Apollo_Time, size: s64, file_exists: bool)`
+- `is_directory :: (path: string) -> bool, success: bool`
 
 ### Windows-specific declarations
 

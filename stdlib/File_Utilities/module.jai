@@ -1,3 +1,26 @@
+// File_Utilities: asking about files, walking and copying folders, and taking paths apart.
+//
+// Where `File` opens and reads single files, this module looks at the file system as a whole: `file_exists`,
+// `is_directory` and `file_modtime_and_size` examine a path, `visit_files` and `file_list` walk a folder,
+// `copy_file` and `copy_directory` copy, and `parse_path` turns text into a `Path` of names that `reduce_path`,
+// `path_contains` and `path_to_string` work on without touching the disk. The procedures that take a path
+// answer `false` for one with a NUL byte in it. Strings that a procedure returns come from `context.allocator` and
+// are the caller's to free. There is no wasm backend.
+//
+// ```jai
+// #import "Extensions/Environment";
+// #import "File";
+// base := environment_variable("TMPDIR");
+// if base == "" base = environment_variable("TEMP");
+// if base == "" base = "/tmp";
+// path := tprint("%/jai-doc-file-utilities.txt", base);
+// defer file_delete(path);
+//
+// assert(!file_exists(path));
+// assert(write_entire_file(path, "x"));
+// assert(file_exists(path));
+// ```
+
 Path :: Paths.Path;
 parse_path :: Paths.parse_path;
 reduce_path :: Paths.reduce_path;
@@ -8,9 +31,9 @@ free_permanent :: Paths.free_permanent;
 File_Visit_Info :: Visit.File_Visit_Info;
 
 #if OS_IS_UNIX {
-    visit_files :: Files.posix_visit_files;
-    is_directory :: Files.posix_is_directory;
-    add_modtime_and_size_if_missing :: Files.posix_add_modtime_and_size_if_missing;
+    visit_files :: Files.visit_files;
+    is_directory :: Files.is_directory;
+    add_modtime_and_size_if_missing :: Files.add_modtime_and_size_if_missing;
     file_exists :: Files.file_exists;
     file_modtime :: Files.file_modtime;
     file_modtime_and_size :: Files.file_modtime_and_size;

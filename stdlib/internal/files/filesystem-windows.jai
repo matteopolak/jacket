@@ -1,10 +1,13 @@
 File_Visit_Info :: Visit.File_Visit_Info;
 
+// Whether something exists at `path`: a file or a directory. `false` for an empty path, a path with a NUL byte, or text that is not valid UTF-8.
 file_exists :: (file_path: string) -> bool {
     _, success := is_directory(file_path);
     return success;
 }
 
+// Whether `path` is a directory, as `(is_directory, success)`. A path that cannot be examined (missing, no permission, or not valid
+// UTF-8) gives `(false, false)`, so `success` tells a file from nothing at all.
 is_directory :: (path: string) -> bool, success: bool {
     name := Text.to_utf16(path);
     if !name return false, false;
@@ -16,6 +19,9 @@ is_directory :: (path: string) -> bool, success: bool {
     return (attributes & W.FILE_ATTRIBUTE_DIRECTORY) != 0, true;
 }
 
+// When the file was last written, how many bytes it holds, and whether it exists: `(modtime, size, file_exists)`.
+// For a missing file or an invalid path it returns `APOLLO_TIME_INVALID`, `0` and `false`. The time has the file system's
+// resolution (100 ns ticks); compare two with `compare_apollo_times`.
 file_modtime_and_size :: (file_path: string) -> (modtime: Apollo_Time, size: s64, success: bool) {
     name := Text.to_utf16(file_path);
     if !name return APOLLO_TIME_INVALID, 0, false;
@@ -30,11 +36,15 @@ file_modtime_and_size :: (file_path: string) -> (modtime: Apollo_Time, size: s64
     return filetime_to_apollo(data.written), cast(s64) size, true;
 }
 
+// When the file was last written, and whether it exists; the same as `file_modtime_and_size` without the size.
 file_modtime :: (file_path: string) -> (modtime: Apollo_Time, success: bool) {
     time, _, success := file_modtime_and_size(file_path);
     return time, success;
 }
 
+// Fills in `modification_time` and `size` of `info` from `info.full_name` when the time is still `APOLLO_TIME_INVALID`.
+// Returns whether the details are known: `false`, with `had_error` set, when they cannot be read. A record that already has
+// a time is left alone and the answer is `!had_error`. `visit_files` fills these in itself on this target.
 add_modtime_and_size_if_missing :: inline (info: *File_Visit_Info) -> bool {
     if info.modification_time.low != APOLLO_TIME_INVALID.low || info.modification_time.high != APOLLO_TIME_INVALID.high return !info.had_error;
 
@@ -47,6 +57,11 @@ add_modtime_and_size_if_missing :: inline (info: *File_Visit_Info) -> bool {
     return success;
 }
 
+// Copies the file `source` to `dest`, replacing `dest` if it exists. Returns whether it worked.
+//
+// The system's copy is used, so the attributes of the file come along with the content. It fails when `source` is missing or
+// is a directory, when the parent folder of `dest` is missing, or when `dest` is read-only. A failure is logged through
+// `context.logger` unless `silent` is `true`.
 copy_file :: (source: string, dest: string, silent := false) -> bool {
     from := Text.to_utf16(source);
     if !from return false;
@@ -62,6 +77,9 @@ copy_file :: (source: string, dest: string, silent := false) -> bool {
     return success;
 }
 
+// Moves `old_filename` to `new_filename`, replacing a file already there. Returns whether it worked.
+// It is a replacing move, so a reader sees the old file or the new one. To change a file safely, write the new content
+// to a second file in the same folder and move it over the old one.
 atomic_file_replace_or_just_rename_if_destination_file_does_not_exist :: (old_filename: string, new_filename: string) -> bool {
     from := Text.to_utf16(old_filename);
     if !from return false;
@@ -75,6 +93,20 @@ atomic_file_replace_or_just_rename_if_destination_file_does_not_exist :: (old_fi
     return ABI.replace_rename(from, to, 1) != 0;
 }
 
+// Calls `proc` with `user_data` for each entry of the directory `dir_name`, and returns `true` if every entry could be examined.
+// With `recursive` the walk goes into sub-directories too.
+//
+// - The order is the file system's and is not sorted. `.` and `..` are skipped.
+// - `visit_files`, `visit_directories` and `visit_symlinks` pick what `proc` hears about. Symbolic links and junctions count as
+//   links whatever they point at.
+// - A directory is entered whether or not it is reported. `proc` can stop that by setting `info.descend_into_directory` to
+//   `false`, which needs `visit_directories` so that `proc` sees the directory.
+// - `follow_directory_symlinks` decides whether links to directories are entered. A directory that is already being walked
+//   further up is not entered again, so link cycles end.
+// - `info` and its strings are valid only during the call. `full_name` joins with `/`.
+//
+// A missing or unreadable `dir_name` returns `false` without calling `proc`. An entry whose details cannot be read is reported
+// with `had_error` set and makes the result `false`, but the walk goes on.
 visit_files :: (dir_name: string, recursive: bool, user_data: $T, proc: (info: *File_Visit_Info, user_data: T), visit_files := true, visit_directories := false, visit_symlinks := true, follow_directory_symlinks := true) -> bool {
     ancestors: [..] ABI.File_Identity;
     defer array_free(ancestors);
@@ -82,6 +114,11 @@ visit_files :: (dir_name: string, recursive: bool, user_data: $T, proc: (info: *
     return walk_directory(dir_name, recursive, user_data, proc, options, *ancestors);
 }
 
+// The files below the folder `path`, as full paths: `path` joined with each name with `/`. Directories are not listed.
+// With `recursive` it also lists the files of every sub-folder. `follow_directory_symlinks` is as in `visit_files`.
+//
+// The order is the file system's. The array and every string in it are new allocations from `context.allocator`: free each
+// string and then the array. A missing folder or a read error is logged, and the files found before it are still returned.
 file_list :: (path: string, recursive := false, follow_directory_symlinks := true) -> [] string {
     result: [..] string;
     collector :: (info: *File_Visit_Info, result: *[..] string) {
@@ -95,6 +132,11 @@ file_list :: (path: string, recursive := false, follow_directory_symlinks := tru
     return result;
 }
 
+// Copies the folder `source` and everything in it to `dest`, including empty sub-folders. Returns whether it all worked.
+//
+// `dest` and any missing parents are created; an existing `dest` is merged into, and files with the same names are replaced.
+// It refuses (`false`, nothing copied) when `dest` is `source` or inside it, since that would never end. A failure
+// part-way leaves what was copied so far.
 copy_directory :: (source: string, dest: string) -> bool {
     source_id, valid := directory_identity(source);
     if !valid || dest.count == 0 return false;
@@ -123,6 +165,9 @@ copy_directory :: (source: string, dest: string) -> bool {
     return copy_tree(source, destination, *ancestors);
 }
 
+// How many leading words of `path` exist: `(fully_exists, how_much_exists)`. It checks `a`, then `a/b`, then `a/b/c` and so on, and
+// stops at the first that is missing. The count is `0` when even the first is missing and the number of words when all of them exist.
+// An empty path is `(true, 0)`.
 how_much_of_path_exists_on_the_local_filesystem :: (path: Paths.Path) -> (fully_exists: bool, how_much_exists: s32) {
     found: s32;
 
