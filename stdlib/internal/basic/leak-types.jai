@@ -47,6 +47,7 @@ Leak_Combiner_Record :: struct {
     summary: *Leak_Summary;
     owner: *void;
     reachable: bool;
+    exempt: bool;
 }
 
 #scope_file

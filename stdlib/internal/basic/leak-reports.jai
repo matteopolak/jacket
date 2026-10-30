@@ -113,13 +113,14 @@ build_leak_report_locked :: (options: Leak_Report_Options, for_visualizer: bool)
     for *item: work {
         item.entry = RT.table_find_pointer(*report.leak_combiner_table, item.allocation.memory);
         a := item.allocation;
-        item.entry.reachable = a.exempt || (!for_visualizer && a.ordinal <= debug_baseline);
+        item.entry.exempt = a.exempt || (!for_visualizer && a.ordinal <= debug_baseline);
+        item.entry.reachable = item.entry.exempt;
     }
 
     if !for_visualizer && options.scan_global_memory_to_remove_leaks {
         runtime := LC.get_runtime_info();
         assert(runtime.global_data_info != null, "compiler runtime global-data metadata is required for leak scanning");
-        for segment: runtime.global_data_info.segment_info mark_range(segment.data.data, segment.data.count, work);
+        for segment: runtime.global_data_info.segment_info mark_range(segment.data.data, segment.data.count, work, root = true);
     }
 
     changed := !for_visualizer;
@@ -137,7 +138,8 @@ build_leak_report_locked :: (options: Leak_Report_Options, for_visualizer: bool)
         }
     }
 
-    for item: work if item.entry.reachable {
+    // Only the allocations marked or predating the baseline are counted; what they reach is merely hidden.
+    for item: work if item.entry.exempt {
         report.marked_as_non_leak_allocations += 1;
         report.marked_as_non_leak_bytes += item.allocation.size;
     }
@@ -155,7 +157,7 @@ build_leak_report_locked :: (options: Leak_Report_Options, for_visualizer: bool)
                 memcpy(*pointer, cast(*u8) a.memory + offset, size_of(*void));
                 child := containing_allocation(pointer, work);
                 if !child || child.allocation == a || child.entry.owner continue;
-                if child.entry.reachable && !for_visualizer continue;
+                if child.entry.exempt && !for_visualizer continue;
 
                 parent := item.entry;
                 cycle := false;
@@ -227,7 +229,7 @@ build_leak_report_locked :: (options: Leak_Report_Options, for_visualizer: bool)
     }
 
     for item: work {
-        if (item.entry.reachable && !for_visualizer) || !item.entry.owner continue;
+        if !item.entry.owner continue;
 
         parent := item.entry;
         while parent.owner parent = RT.table_find_pointer(*report.leak_combiner_table, parent.owner);
@@ -444,12 +446,16 @@ containing_allocation :: (pointer: *void, work: [] Report_Allocation) -> *Report
     return null;
 }
 
-mark_range :: (data: *u8, size: s64, work: [] Report_Allocation) {
+mark_range :: (data: *u8, size: s64, work: [] Report_Allocation, root := false) {
     for offset: 0..size - size_of(*void) {
         pointer: *void;
+
         memcpy(*pointer, data + offset, size_of(*void));
         target := containing_allocation(pointer, work);
-        if target target.entry.reachable = true;
+        if !target continue;
+
+        target.entry.reachable = true;
+        if root target.entry.exempt = true;
     }
 }
 

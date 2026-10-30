@@ -39,8 +39,8 @@ main :: () {
     count, bytes := totals(report);
 
     B.assert(count == 1 && bytes == 16);
-    B.assert(report.marked_as_non_leak_allocations == 4);
-    B.assert(report.marked_as_non_leak_bytes == 8 + 24 + size_of(*void) + 32);
+    B.assert(report.marked_as_non_leak_allocations == 3);
+    B.assert(report.marked_as_non_leak_bytes == 8 + 24 + size_of(*void));
     D.deinit(*report);
     B.assert(report.sorted_summaries.count == 0 && report.leak_combiner_table.count == 0);
     visual := D.make_leak_report(for_visualizer = true);
