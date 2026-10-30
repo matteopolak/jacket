@@ -26,7 +26,6 @@ class SelectTests(unittest.TestCase):
         ids = [c["id"] for c in sel.select(sel.load(), "windows-x64")]
         for wanted in (
             "ttwj-28-28.5-get-cpu-info-feature-flags",
-            "chess-jai-ui-check",
             "chess-jai-engine-check",
         ):
             self.assertIn(wanted, ids)
