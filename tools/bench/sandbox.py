@@ -6,8 +6,15 @@ repository. Reads are allowed from the system, the developer tools, the compiler
 the paths given; writes only to the given paths (the run's scratch directory). Every compiler gets
 the same sandbox, so its small start-up cost is shared equally.
 
-macOS uses `sandbox-exec` (Seatbelt), Linux `bwrap` (bubblewrap). Elsewhere, or with `--no-sandbox`,
-commands run as they are.
+macOS uses `sandbox-exec` (Seatbelt), Linux `bwrap` (bubblewrap), Windows an AppContainer
+(`winsandbox.py`: no capabilities, so no network, with `icacls` grants on the paths given). Elsewhere, or
+with `--no-sandbox`, commands run as they are.
+
+A Windows sandbox cannot be a command prefix: the AppContainer is a property of the process being
+created. `wrap` returns the command as a `SandboxedCommand` (a list that remembers its sandbox), and
+`measure.run_measured` creates it inside the container. Code that hands a wrapped command to some other
+launcher would run it unsandboxed, so `sandbox_for` and the commands built on `run_measured` are the
+supported paths on Windows.
 """
 from __future__ import annotations
 
@@ -32,6 +39,14 @@ MACOS_SYSTEM_READS = [
 LINUX_SYSTEM_READS = ['/usr', '/bin', '/sbin', '/lib', '/lib64', '/etc']
 
 
+class SandboxedCommand(list):
+    """A command line that must run in `sandbox` (Windows; elsewhere the sandbox is part of the line)."""
+
+    def __init__(self, command, sandbox: 'Sandbox'):
+        super().__init__(command)
+        self.sandbox = sandbox
+
+
 @dataclass
 class Sandbox:
     reads: list[Path] = field(default_factory=list)
@@ -39,8 +54,11 @@ class Sandbox:
     # A server under test and its client share the loopback interface: on macOS only loopback
     # traffic is allowed; Linux shares the host network namespace, since the client runs outside.
     loopback: bool = False
+    container: object = field(default=None, repr=False, compare=False)
 
     def wrap(self, command: list[str]) -> list[str]:
+        if sys.platform == 'win32':
+            return SandboxedCommand(command, self)
         if sys.platform == 'darwin':
             return ['/usr/bin/sandbox-exec', '-p', self.seatbelt_profile(), *command]
         if sys.platform.startswith('linux'):
@@ -84,9 +102,26 @@ class Sandbox:
             arguments += ['--bind', str(path), str(path)]
         return arguments
 
+    def container_sid(self):
+        """The AppContainer SID pointer for this sandbox (Windows). The container and its folder grants
+        are made on first use and removed by `close()`."""
+        if self.container is None:
+            from bench.winsandbox import AppContainer
+            self.container = AppContainer(self.reads, self.writes, self.loopback)
+        return self.container.sid_pointer
+
+    def close(self) -> None:
+        """Remove what the sandbox set up outside the process (the Windows container and its grants)."""
+        if self.container is not None:
+            self.container.close()
+            self.container = None
+
     @staticmethod
     def available() -> str:
         """'' when this platform can sandbox, otherwise why not."""
+        if sys.platform == 'win32':
+            from bench.winsandbox import unavailable_reason
+            return unavailable_reason()
         if sys.platform == 'darwin':
             return '' if Path('/usr/bin/sandbox-exec').exists() else '/usr/bin/sandbox-exec is missing'
         if sys.platform.startswith('linux'):
@@ -118,9 +153,13 @@ def quote(path: str) -> str:
 
 def environment(scratch: Path) -> dict[str, str]:
     """The environment for sandboxed runs: the caller's, with temporary files and jaic's cache (the
-    helpers it unpacks before linking) inside the scratch folder, since the home directory is unreadable."""
+    helpers it unpacks before linking) inside the scratch folder, since the home directory is unreadable.
+    Windows programs read `TEMP` and `TMP`."""
     tmp = scratch / 'tmp'
     cache = scratch / 'cache'
     tmp.mkdir(parents=True, exist_ok=True)
     cache.mkdir(parents=True, exist_ok=True)
-    return {**os.environ, 'TMPDIR': str(tmp), 'JAIC_CACHE_DIR': str(cache)}
+    env = {**os.environ, 'TMPDIR': str(tmp), 'JAIC_CACHE_DIR': str(cache)}
+    if sys.platform == 'win32':
+        env.update(TEMP=str(tmp), TMP=str(tmp))
+    return env

@@ -98,6 +98,11 @@ class JobRunner:
             writes=[scratch])
         self.env = environment(scratch) if self.sandbox else None
 
+    def close(self) -> None:
+        """Release what the sandbox set up outside the process (Windows: the container and its grants)."""
+        if self.sandbox:
+            self.sandbox.close()
+
     def measure(self, command: list[str], cwd: Path | None, env: dict[str, str] | None = None) -> Run:
         """Run a compiler or a built program, inside the sandbox unless `--no-sandbox`."""
         if self.sandbox:
@@ -357,13 +362,14 @@ def run(args: argparse.Namespace) -> int:
     report = Report('compile', {'repeat': args.repeat, 'warmup': args.warmup, 'modes': args.modes},
                     {c.name: compiler_info(c) for c in compilers})
     scratch = Path(tempfile.mkdtemp(prefix='bench-compile-'))
+    runner = JobRunner(compilers, scratch, args)
     try:
-        runner = JobRunner(compilers, scratch, args)
         for job in jobs:
             results = runner.run(job)
             report.results.update(results)
             common.print_progress(job.key, progress_text(results))
     finally:
+        runner.close()
         shutil.rmtree(scratch, ignore_errors=True)
     return common.finish(report, render(report), args)
 

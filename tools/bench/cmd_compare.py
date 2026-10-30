@@ -5,7 +5,6 @@ import argparse
 import dataclasses
 import json
 import os
-import shlex
 import shutil
 import statistics
 import sys
@@ -67,7 +66,8 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument('--only', default='', help='comma-separated substrings; run only workload/mode keys matching one')
     parser.add_argument('--timeout', type=float, default=900, help='seconds before a single run is killed')
     parser.add_argument('--max-load', type=float, default=None,
-                        help='highest 1-minute load average accepted (default: a quarter of the cores, at least 1)')
+                        help='highest 1-minute load average accepted (default: a quarter of the cores, at least 1); on Windows, the '
+                             'number of busy cores sampled over half a second')
     parser.add_argument('--force', action='store_true',
                         help='start even though the machine is loaded or thermally limited (blocks stay flagged)')
     parser.add_argument('--no-purge', action='store_true', help='do not drop the OS file cache before cold runs')
@@ -295,8 +295,9 @@ class Comparison:
         state = self.scratch / 'state' / tag / name
         (state / 'cache').mkdir(parents=True, exist_ok=True)
         (state / 'tmp').mkdir(exist_ok=True)
+        temporary = {'TEMP': str(state / 'tmp'), 'TMP': str(state / 'tmp')} if sys.platform == 'win32' else {}
         return {**(self.runner.env or os.environ), 'JAIC_CACHE_DIR': str(state / 'cache'),
-                'TMPDIR': str(state / 'tmp'), **self.envs[name]}
+                'TMPDIR': str(state / 'tmp'), **temporary, **self.envs[name]}
 
     def invocation(self, job: Job, name: str, workdir: Path, tag: str):
         plan = job.workload.plans[job.mode]
@@ -493,11 +494,12 @@ def run(args: argparse.Namespace) -> int:
 
     out_dir = args.out_dir or default_out_dir()
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / 'command.txt').write_text(shlex.join([sys.executable, *sys.argv]) + '\n')
+    (out_dir / 'command.txt').write_text(common.join_command([sys.executable, *sys.argv]) + '\n')
     binaries = {name: {'path': str(c.path), 'dialect': c.dialect.name, 'env': envs[name],
                        **provenance.binary_facts(c.path, {**os.environ, **envs[name]})}
                 for name, c in compilers.items()}
     scratch = Path(tempfile.mkdtemp(prefix='bench-compare-'))
+    comparison = None
     try:
         comparison = Comparison(compilers, envs, scratch, args)
         results = {'format': FORMAT, 'date': datetime.now().astimezone().isoformat(timespec='seconds'),
@@ -525,6 +527,8 @@ def run(args: argparse.Namespace) -> int:
         (out_dir / 'inputs.json').write_text(json.dumps(results['inputs'], indent=2) + '\n')
         save(comparison.blocks, comparison.samples, comparison.programs)
     finally:
+        if comparison:
+            comparison.runner.close()
         shutil.rmtree(scratch, ignore_errors=True)
     markdown = render(results)
     (out_dir / 'summary.md').write_text(markdown)
