@@ -1,0 +1,44 @@
+# cargo-deny policy for the workspace's Cargo.lock (docs/tools/development.md, "Dependency hygiene").
+# `cargo deny check` runs in CI (the `dependency-hygiene` job of ci.yml); the fuzz workspace and
+# the regex benchmark have lock files of their own and are not covered.
+
+[graph]
+all-features = true
+
+[advisories]
+version = 2
+# A yanked crate is an error: the lock file pins exact versions, so a yank is an actionable signal.
+yanked = "deny"
+ignore = [
+    # pulldown-cmark's wikilink parsing (`Options::ENABLE_WIKILINKS`) grows exponentially on a
+    # crafted link. jaic parses doc comments with `Options::empty()` (jaic::docs), so the option
+    # is never on. The fix (0.13.5) is not 14 days old yet (tools/ci/check_dependency_age.py);
+    # update the crate and drop this entry once it is.
+    "RUSTSEC-2026-0414",
+]
+
+[licenses]
+version = 2
+# What the locked dependencies use, plus the workspace's own license. A new license in the tree
+# fails here until someone has read it and decided to allow it.
+allow = ["MIT", "Apache-2.0", "Unicode-3.0", "AGPL-3.0-or-later"]
+confidence-threshold = 0.9
+
+[bans]
+# Two versions of one crate cost compile time and binary size. Each `skip` entry names a
+# duplicate that a dependency holds back, with the dependency to wait for.
+multiple-versions = "deny"
+# Workspace crates depend on each other by path, without a version, and none is published, so
+# cargo-deny's wildcard rule would only flag those; versions of registry crates are exact in
+# Cargo.lock, which `tools/ci/check_dependency_age.py` reads.
+wildcards = "allow"
+highlight = "all"
+skip = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+# inkwell is a git dependency until a crates.io release supports the pinned LLVM
+# (tools/ci/check_dependency_age.py verifies the commit's age).
+allow-git = ["https://github.com/TheDan64/inkwell"]

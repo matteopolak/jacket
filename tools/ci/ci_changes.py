@@ -122,6 +122,7 @@ AREAS = {
 JOBS = {
     "docs": None,
     "fuzz-regressions": "code",
+    "dependency-hygiene": "code",
     "scripting-wasm": "code",
     "test": "code",
     "vscode-extension": "code",

@@ -4,7 +4,7 @@ description: >-
   into $CARGO_HOME/bin (tools/ci/install_pinned.py; download errors are retried).
 inputs:
   tool:
-    description: just, nextest, llvm-cov or cargo-mutants
+    description: just, nextest, llvm-cov, cargo-mutants, cargo-machete or cargo-deny
     required: true
 runs:
   using: composite

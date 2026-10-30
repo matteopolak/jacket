@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Install a tool at the version .github/pins.json pins, verifying what it downloads.
 
-    install_pinned.py just | nextest | llvm-cov | cargo-mutants   prebuilt tool into $CARGO_HOME/bin
+    install_pinned.py just | nextest | llvm-cov | cargo-mutants | cargo-machete | cargo-deny   prebuilt tool into $CARGO_HOME/bin
     install_pinned.py rust [--component NAME]... [--target TRIPLE]...
     install_pinned.py llvm-release ARCHIVE   ({version} in ARCHIVE is the pinned LLVM version)
 
@@ -52,6 +52,8 @@ class Prebuilt:
     version_command: list[str]
     # Archive members to unpack (None: all). `just`'s archive also holds docs and completions.
     members: tuple[str, ...] | None = None
+    # Leading path components to drop from every member (the archive's top directory).
+    strip: int = 0
 
 
 PREBUILT = {
@@ -78,6 +80,24 @@ PREBUILT = {
         },
         binary="cargo-nextest",
         version_command=["nextest", "--version"],
+    ),
+    "cargo-machete": Prebuilt(
+        version_pin="cargo_machete",
+        url="https://github.com/bnjbvr/cargo-machete/releases/download/v{version}/cargo-machete-v{version}-{target}.tar.gz",
+        hosts={"linux-x64": ("x86_64-unknown-linux-musl", "cargo_machete_sha256_linux_x64")},
+        binary="cargo-machete",
+        version_command=["--version"],
+        members=("cargo-machete",),
+        strip=1,
+    ),
+    "cargo-deny": Prebuilt(
+        version_pin="cargo_deny",
+        url="https://github.com/EmbarkStudios/cargo-deny/releases/download/{version}/cargo-deny-{version}-{target}.tar.gz",
+        hosts={"linux-x64": ("x86_64-unknown-linux-musl", "cargo_deny_sha256_linux_x64")},
+        binary="cargo-deny",
+        version_command=["--version"],
+        members=("cargo-deny",),
+        strip=1,
     ),
     "llvm-cov": Prebuilt(
         version_pin="llvm_cov",
@@ -134,7 +154,7 @@ def install_prebuilt(name: str, manifest: dict, dest: Path) -> None:
         archive.write(body)
     try:
         with tarfile.open(archive.name, "r:gz") as tar:
-            extract(tar, dest, members=tool.members)
+            extract(tar, dest, strip=tool.strip, members=tool.members)
     finally:
         os.unlink(archive.name)
     subprocess.run([str(dest / tool.binary), *tool.version_command], check=True)
