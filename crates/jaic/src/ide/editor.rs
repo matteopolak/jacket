@@ -27,6 +27,8 @@ pub(crate) enum StmtRecovery {
 pub struct Editor {
     /// What the analysis has recorded so far; `None` outside the language server and linter.
     facts: Option<Box<IdeFacts>>,
+    /// Lookups over `facts` and the compiler's tables, built on first use (see `span_index`).
+    pub(super) index: RefCell<super::span_index::SpanIndex>,
     /// Contextual type probes may inspect signatures but must never execute code.
     pub(crate) type_probe: bool,
     /// Parses shared with other compiles, and this compile's number in it (see
@@ -40,16 +42,19 @@ impl Editor {
     /// Starts recording into `facts`.
     pub fn record(&mut self, facts: IdeFacts) {
         self.facts = Some(Box::new(facts));
+        *self.index.get_mut() = Default::default();
     }
 
     /// Stops recording and hands back what was recorded.
     pub fn stop(&mut self) -> Option<Box<IdeFacts>> {
+        *self.index.get_mut() = Default::default();
         self.facts.take()
     }
 
     /// Records into `facts` again, after `stop`.
     pub(crate) fn resume(&mut self, facts: Box<IdeFacts>) {
         self.facts = Some(facts);
+        *self.index.get_mut() = Default::default();
     }
 
     #[inline]

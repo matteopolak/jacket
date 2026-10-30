@@ -134,17 +134,29 @@ impl Compiler {
     }
 
     pub(super) fn ide_wants(&mut self, file: FileId) -> bool {
-        let Some(ide) = self.ed.facts_mut() else {
+        let Some(ide) = self.ed.facts() else {
             return false;
         };
         if let Some(&w) = ide.wanted.get(&file) {
             return w;
         }
+        let w = self.ide_wants_now(file);
+        if let Some(ide) = self.ed.facts_mut() {
+            ide.wanted.insert(file, w);
+        }
+        w
+    }
+
+    /// Whether the roots of the analysis cover `file`, worked out afresh.
+    pub(super) fn ide_wants_now(&self, file: FileId) -> bool {
+        let Some(ide) = self.ed.facts() else {
+            return false;
+        };
         // Builtins such as `OS` are declared in no file (`Span::NONE`).
         let Some(source) = self.src.sources.try_get(file) else {
             return false;
         };
-        let w = match &source.path {
+        match &source.path {
             SourcePath::Virtual(_) => ide.roots.contains(&IdeRoot::Virtual),
             SourcePath::File(path) => {
                 // Identity, not spelling: `./a`, `a//b/../b`, a symlink or another case of a
@@ -155,9 +167,7 @@ impl Compiler {
                     IdeRoot::Virtual => false,
                 }) || ide.files.contains(&key)
             }
-        };
-        ide.wanted.insert(file, w);
-        w
+        }
     }
 
     pub(crate) fn ide_note_expr(&mut self, expr: &ast::Expr, op: &Operand) {

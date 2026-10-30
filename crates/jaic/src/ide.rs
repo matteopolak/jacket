@@ -19,6 +19,8 @@ mod polymorphs;
 pub use self::polymorphs::{IdePolymorph, IdeSpecialization};
 mod recording;
 mod sketch;
+mod span_index;
+pub use self::span_index::Found;
 mod values;
 
 pub use self::editor::Editor;
