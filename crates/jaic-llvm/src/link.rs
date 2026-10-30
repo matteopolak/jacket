@@ -1,4 +1,4 @@
-//! Link flavors, the link driver and its inputs.
+//! The link driver and its inputs.
 use super::link_options;
 use super::linker::{
     check_sanitizer_target, library_args, link_failure, linker_command, linker_not_run, pdb_args,
@@ -7,57 +7,14 @@ use super::linker::{
 use super::machine::fuzzer_runtime;
 use super::options::Sanitize;
 use jaic::ir::Library;
-use jaic::target::{Target as BuildTarget, TargetAbi};
+use jaic::target::Target as BuildTarget;
+use jaic::toolchain::{Driver, Linker, Toolchain};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-/// The dynamic CRT for a link that speaks MSVC `link` syntax; `oldnames` maps POSIX names
-/// (`write`) to the CRT's underscored ones, `legacy_stdio_definitions` keeps `printf` and friends
-/// linkable as functions. Every MSVC link uses the DLL runtime, so a C-runtime variable is
-/// imported (`dllimport`, see `declare_foreign`).
-pub(super) const MSVC_RUNTIME_LIBS: [&str; 3] = [
-    "/DEFAULTLIB:msvcrt",
-    "/DEFAULTLIB:oldnames",
-    "/DEFAULTLIB:legacy_stdio_definitions",
-];
-
-/// The same through Clang's MSVC driver. `-fms-runtime-lib` only steers what Clang compiles; its
-/// link step always adds `-defaultlib:libcmt`, the static CRT, which leaves a `/MD` library's
-/// `__imp_` references unresolved.
-pub(super) const CLANG_MSVC_RUNTIME_ARGS: [&str; 4] = [
-    "-fms-runtime-lib=dll",
-    "-Wl,/NODEFAULTLIB:libcmt",
-    "-Wl,/DEFAULTLIB:msvcrt",
-    "-llegacy_stdio_definitions",
-];
-
-/// The linker family a target uses.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum LinkFlavor {
-    /// macOS and Linux: the system `cc` driver (Clang or GCC).
-    Unix,
-    /// Windows with the MinGW-w64 runtime (`x86_64-pc-windows-gnu`): a MinGW GCC or Clang
-    /// driver. This is what cross builds from macOS and Linux use.
-    MinGw,
-    /// Windows with the Microsoft toolchain (`x86_64-pc-windows-msvc`, the default on a
-    /// Windows host): Clang's driver, `lld-link` or `link.exe`.
-    Msvc,
-}
-
-impl LinkFlavor {
-    /// The flavor for a target (`None`: the host).
-    pub fn for_target(target: Option<BuildTarget>) -> LinkFlavor {
-        let target = target.unwrap_or_else(BuildTarget::host);
-        match (target.os, target.abi) {
-            (jaic::target::TargetOs::Windows, TargetAbi::Gnu) => LinkFlavor::MinGw,
-            (jaic::target::TargetOs::Windows, _) => LinkFlavor::Msvc,
-            _ => LinkFlavor::Unix,
-        }
-    }
-
-    pub fn is_windows(self) -> bool {
-        self != LinkFlavor::Unix
-    }
+/// The toolchain of `target` (`None`: the host).
+pub(super) fn toolchain_for(target: Option<BuildTarget>) -> &'static Toolchain {
+    target.unwrap_or_else(BuildTarget::host).toolchain()
 }
 
 /// One linker input, rendered per linker style.
@@ -88,10 +45,14 @@ pub(super) fn order_link_groups(groups: &mut [Vec<LinkArg>]) {
 /// `library_args`, kept in the link when nothing references the library: with `--as-needed`
 /// (Ubuntu's default) the linker drops a shared library no symbol needs, and a
 /// `#library,link_always` one exists for its constructor.
-fn library_group(lib: &Library, flavor: LinkFlavor, cross: bool) -> Result<Vec<LinkArg>, String> {
-    let mut args = library_args(lib, flavor, cross)?;
+fn library_group(
+    lib: &Library,
+    toolchain: &Toolchain,
+    cross: bool,
+) -> Result<Vec<LinkArg>, String> {
+    let mut args = library_args(lib, toolchain, cross)?;
     if lib.link_always
-        && flavor == LinkFlavor::Unix
+        && toolchain.linker == Linker::Unix
         && !args.is_empty()
         && !cfg!(target_os = "macos")
     {
@@ -118,7 +79,7 @@ pub struct LinkRequest<'a> {
 
 /// Link object files into an executable (or shared library) for `target` (`None`: the
 /// host). macOS and Linux use the system `cc`; Windows uses a MinGW or MSVC toolchain,
-/// see [`LinkFlavor`] and `docs/native/windows.md`. With `debug_info`, MSVC targets also get
+/// see [`Toolchain`] and `docs/native/windows.md`. With `debug_info`, MSVC targets also get
 /// a PDB next to the output (`foo.exe` -> `foo.pdb`).
 pub fn link(request: &LinkRequest) -> Result<(), String> {
     let LinkRequest {
@@ -131,15 +92,16 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
         sanitize,
         debug_info,
     } = *request;
-    let flavor = LinkFlavor::for_target(target);
-    let cross = target.is_some() && flavor != LinkFlavor::for_target(None);
+    let toolchain = toolchain_for(target);
+    let linker = toolchain.linker;
+    let cross = target.is_some() && linker != toolchain_for(None).linker;
     if sanitize.any() {
         check_sanitizer_target(target)?;
     }
     // Each library's argument group is added once (`-framework X` is two arguments).
     let mut seen: Vec<Vec<LinkArg>> = Vec::new();
     for lib in libraries {
-        let args = library_group(lib, flavor, cross)?;
+        let args = library_group(lib, toolchain, cross)?;
         if !args.is_empty() && !seen.contains(&args) {
             seen.push(args);
         }
@@ -147,9 +109,11 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
     // LLVM lowers float rounding (`llvm.trunc`, `floor`, `ceil`, `round`, from `#asm` and
     // casts) to libm calls on CPUs without SSE4.1 (baseline x86-64), so libm is always linked;
     // on macOS it is part of libSystem and `-lm` is a no-op.
-    let libm = vec![LinkArg::Lib("m".into())];
-    if flavor == LinkFlavor::Unix && !seen.contains(&libm) {
-        seen.push(libm);
+    for name in toolchain.implicit_libraries {
+        let implicit = vec![LinkArg::Lib((*name).into())];
+        if !seen.contains(&implicit) {
+            seen.push(implicit);
+        }
     }
     order_link_groups(&mut seen);
     let (program, mut cmd) = if sanitize.any() {
@@ -166,23 +130,24 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
         }
         (program, cmd)
     } else {
-        linker_command(flavor, target)?
+        linker_command(linker, target)?
     };
     let mut coverage_source = None;
-    let driver = link_options::Driver::for_command(&program, extra_args);
-    let extra_args = link_options::render(extra_args, flavor, driver)?;
-    let msvc_style = driver != link_options::Driver::C;
-    if driver == link_options::Driver::ClangCl {
+    let driver = link_options::driver_for_command(&program, extra_args);
+    let extra_args = link_options::render(extra_args, linker, driver)?;
+    let msvc_style = driver != Driver::C;
+    let runtime = toolchain.runtime_args(driver);
+    if driver == Driver::ClangCl {
         // CL's /link consumes everything after it. Keep compiler options and
         // actual driver inputs before the delimiter; the rest uses LINK syntax.
         cmd.args(objects)
-            .arg("/MD")
+            .args(&runtime.compile)
             .args(&extra_args.driver)
             .arg("/link");
     }
     if msvc_style {
         cmd.arg("/NOLOGO").arg(format!("/OUT:{}", output.display()));
-        if driver == link_options::Driver::MsvcLink {
+        if driver == Driver::MsvcLink {
             cmd.args(objects);
         }
         cmd.arg(if dynamic_library {
@@ -190,7 +155,7 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
         } else {
             "/SUBSYSTEM:CONSOLE"
         });
-        cmd.args(MSVC_RUNTIME_LIBS);
+        cmd.args(&runtime.link);
     } else {
         if dynamic_library {
             cmd.arg("-shared");
@@ -204,20 +169,12 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
             cmd.args(["-w", "-O1"]).arg(&source);
             coverage_source = Some(source);
         }
-        if flavor == LinkFlavor::Msvc {
-            cmd.args(CLANG_MSVC_RUNTIME_ARGS);
-        }
+        cmd.args(&runtime.link);
     }
-    // Windows reserves 1 MiB for the main thread's stack (and threads created without a
-    // size); reserve the 8 MiB macOS and Linux give, so deep recursion behaves the same.
-    if flavor.is_windows() && !dynamic_library {
-        cmd.arg(match (msvc_style, flavor) {
-            (true, _) => "/STACK:8388608",
-            (false, LinkFlavor::Msvc) => "-Wl,/STACK:8388608",
-            _ => "-Wl,--stack,8388608",
-        });
+    if !dynamic_library && let Some(stack) = toolchain.stack_arg(driver) {
+        cmd.arg(stack);
     }
-    if debug_info && flavor == LinkFlavor::Msvc {
+    if debug_info && linker == Linker::Msvc {
         let prefix = if msvc_style {
             ""
         } else {
@@ -228,7 +185,7 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
     for arg in seen.concat() {
         render_link_arg(&mut cmd, &arg, msvc_style);
     }
-    if driver == link_options::Driver::C {
+    if driver == Driver::C {
         cmd.args(extra_args.driver);
     } else {
         cmd.args(extra_args.linker);
@@ -265,28 +222,18 @@ pub struct LinkInputs {
     pub user_libraries: Vec<String>,
 }
 
-/// The C runtime libraries an MSVC link names by default (`msvcrt` brings in `vcruntime` and `ucrt`
-/// through its own directives, which `/NODEFAULTLIB` would drop).
-const MSVC_RUNTIME_LIBRARIES: &[&str] = &[
-    "msvcrt.lib",
-    "vcruntime.lib",
-    "ucrt.lib",
-    "oldnames.lib",
-    "legacy_stdio_definitions.lib",
-    "legacy_stdio_wide_specifiers.lib",
-];
-
 /// [`LinkInputs`] for `libraries` on `target` (`None`: the host), rendered as [`link`] would
 /// pass them: `cc`-style arguments, or `name.lib` for an MSVC target.
 pub fn link_inputs(
     libraries: &[Library],
     target: Option<BuildTarget>,
 ) -> Result<LinkInputs, String> {
-    let flavor = LinkFlavor::for_target(target);
-    let cross = target.is_some() && flavor != LinkFlavor::for_target(None);
+    let toolchain = toolchain_for(target);
+    let linker = toolchain.linker;
+    let cross = target.is_some() && linker != toolchain_for(None).linker;
     let mut seen: Vec<Vec<LinkArg>> = Vec::new();
     for lib in libraries {
-        let args = library_group(lib, flavor, cross)?;
+        let args = library_group(lib, toolchain, cross)?;
         if !args.is_empty() && !seen.contains(&args) {
             seen.push(args);
         }
@@ -295,7 +242,7 @@ pub fn link_inputs(
     let mut inputs = LinkInputs::default();
     for arg in seen.concat() {
         match arg {
-            LinkArg::Lib(name) if flavor == LinkFlavor::Msvc => {
+            LinkArg::Lib(name) if linker == Linker::Msvc => {
                 inputs.system_libraries.push(format!("{name}.lib"));
             }
             LinkArg::Lib(name) => inputs.system_libraries.push(format!("-l{name}")),
@@ -305,42 +252,19 @@ pub fn link_inputs(
             }
             LinkArg::File(path) => inputs.user_libraries.push(path),
             LinkArg::Rpath(dir) => inputs.user_libraries.push(format!("-Wl,-rpath,{dir}")),
-            LinkArg::SearchDir(dir) if flavor == LinkFlavor::Msvc => {
+            LinkArg::SearchDir(dir) if linker == Linker::Msvc => {
                 inputs.user_libraries.push(format!("/LIBPATH:{dir}"));
             }
             LinkArg::SearchDir(dir) => inputs.user_libraries.push(format!("-L{dir}")),
             LinkArg::Option(option) => inputs.user_libraries.push(option),
         }
     }
-    if flavor == LinkFlavor::Msvc {
-        // What `link` adds with /DEFAULTLIB. A custom link command often passes /NODEFAULTLIB
-        // (to swap in the static runtime), which then needs every one of them named.
-        for name in MSVC_RUNTIME_LIBRARIES {
-            if !inputs.system_libraries.iter().any(|l| l == name) {
-                inputs.system_libraries.push((*name).to_string());
-            }
+    // What `link` adds with /DEFAULTLIB. A custom link command often passes /NODEFAULTLIB
+    // (to swap in the static runtime), which then needs every one of them named.
+    for name in toolchain.runtime_inputs() {
+        if !inputs.system_libraries.contains(&name) {
+            inputs.system_libraries.push(name);
         }
     }
     Ok(inputs)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// The DLL C runtime is what every MSVC link names, in both driver styles; the static one
-    /// must not come back by either spelling.
-    #[test]
-    fn msvc_links_default_to_the_dll_c_runtime() {
-        assert!(MSVC_RUNTIME_LIBS.contains(&"/DEFAULTLIB:msvcrt"));
-        assert!(MSVC_RUNTIME_LIBS.contains(&"/DEFAULTLIB:legacy_stdio_definitions"));
-        assert!(CLANG_MSVC_RUNTIME_ARGS.contains(&"-fms-runtime-lib=dll"));
-        assert!(CLANG_MSVC_RUNTIME_ARGS.contains(&"-Wl,/NODEFAULTLIB:libcmt"));
-        for arg in MSVC_RUNTIME_LIBS.iter().chain(&CLANG_MSVC_RUNTIME_ARGS) {
-            assert!(
-                !arg.contains("libcmt") || arg.contains("NODEFAULTLIB"),
-                "{arg}"
-            );
-        }
-    }
 }

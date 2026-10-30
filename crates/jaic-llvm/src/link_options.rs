@@ -1,45 +1,36 @@
 //! Build-option arguments cross two boundaries: compiler driver and target linker.
-use super::LinkFlavor;
+use jaic::toolchain::{Driver, Linker};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum Driver {
-    C,
-    ClangCl,
-    MsvcLink,
-}
-
-impl Driver {
-    pub(super) fn for_command(program: &str, args: &[String]) -> Self {
-        let mut driver = Self::for_program(program);
-        if driver != Self::MsvcLink && is_clang(program) {
-            let mut args = args.iter();
-            while let Some(arg) = args.next() {
-                if takes_driver_operand(arg) {
-                    args.next();
-                    continue;
-                }
-                if driver == Self::ClangCl && arg.eq_ignore_ascii_case("/link") {
-                    break;
-                }
-                match arg.as_str() {
-                    "--driver-mode=cl" => driver = Self::ClangCl,
-                    "--driver-mode=gcc" | "--driver-mode=g++" => driver = Self::C,
-                    _ => {}
-                }
+pub(super) fn driver_for_command(program: &str, args: &[String]) -> Driver {
+    let mut driver = driver_for_program(program);
+    if driver != Driver::MsvcLink && is_clang(program) {
+        let mut args = args.iter();
+        while let Some(arg) = args.next() {
+            if takes_driver_operand(arg) {
+                args.next();
+                continue;
+            }
+            if driver == Driver::ClangCl && arg.eq_ignore_ascii_case("/link") {
+                break;
+            }
+            match arg.as_str() {
+                "--driver-mode=cl" => driver = Driver::ClangCl,
+                "--driver-mode=gcc" | "--driver-mode=g++" => driver = Driver::C,
+                _ => {}
             }
         }
-        driver
     }
+    driver
+}
 
-    pub(super) fn for_program(program: &str) -> Self {
-        let name = program.rsplit(['/', '\\']).next().unwrap_or(program);
-        let name = name.to_ascii_lowercase();
-        let name = name.strip_suffix(".exe").unwrap_or(&name);
-        match name {
-            "link" | "lld-link" => Self::MsvcLink,
-            "clang-cl" => Self::ClangCl,
-            _ => Self::C,
-        }
+pub(super) fn driver_for_program(program: &str) -> Driver {
+    let name = program.rsplit(['/', '\\']).next().unwrap_or(program);
+    let name = name.to_ascii_lowercase();
+    let name = name.strip_suffix(".exe").unwrap_or(&name);
+    match name {
+        "link" | "lld-link" => Driver::MsvcLink,
+        "clang-cl" => Driver::ClangCl,
+        _ => Driver::C,
     }
 }
 
@@ -86,18 +77,14 @@ pub(super) struct ExtraArgs {
     pub linker: Vec<String>,
 }
 
-pub(super) fn render(
-    args: &[String],
-    flavor: LinkFlavor,
-    driver: Driver,
-) -> Result<ExtraArgs, String> {
+pub(super) fn render(args: &[String], linker: Linker, driver: Driver) -> Result<ExtraArgs, String> {
     if driver == Driver::MsvcLink {
         return Ok(ExtraArgs {
             driver: Vec::new(),
             linker: args.to_vec(),
         });
     }
-    if driver == Driver::ClangCl && flavor != LinkFlavor::Msvc {
+    if driver == Driver::ClangCl && linker != Linker::Msvc {
         return Err("clang-cl linking requires an MSVC target; use a GNU-style compiler driver for MinGW targets".into());
     }
     let mut output = ExtraArgs::default();
@@ -136,10 +123,10 @@ pub(super) fn render(
                     .ok_or_else(|| format!("driver option `{arg}` requires an argument"))?
                     .clone(),
             );
-        } else if flavor.is_windows()
+        } else if linker.is_windows()
             && let Some((name, value)) = msvc_option(arg)
         {
-            let value = if flavor == LinkFlavor::MinGw {
+            let value = if linker == Linker::MinGw {
                 mingw_option(arg, &name, value)?
             } else {
                 arg.clone()
@@ -270,7 +257,7 @@ mod tests {
             "second.obj",
         ]);
         assert_eq!(
-            render(&input, LinkFlavor::Msvc, Driver::C).unwrap().driver,
+            render(&input, Linker::Msvc, Driver::C).unwrap().driver,
             args(&[
                 "-flto",
                 "-Xlinker",
@@ -300,7 +287,7 @@ mod tests {
             "--trace",
         ]);
         assert_eq!(
-            render(&input, LinkFlavor::MinGw, Driver::C).unwrap().driver,
+            render(&input, Linker::MinGw, Driver::C).unwrap().driver,
             args(&[
                 "-fuse-ld=lld",
                 "-Xlinker",
@@ -333,7 +320,7 @@ mod tests {
             "/PDB:C:\\symbols with spaces\\app.pdb",
         ]);
         assert_eq!(
-            render(&input, LinkFlavor::Msvc, Driver::ClangCl).unwrap(),
+            render(&input, Linker::Msvc, Driver::ClangCl).unwrap(),
             ExtraArgs {
                 driver: args(&["/MD", "-fuse-ld=lld", "extra object.obj"]),
                 linker: args(&[
@@ -354,20 +341,20 @@ mod tests {
             "object with spaces.obj",
         ]);
         assert_eq!(
-            render(&input, LinkFlavor::Msvc, Driver::MsvcLink)
+            render(&input, Linker::Msvc, Driver::MsvcLink)
                 .unwrap()
                 .linker,
             input
         );
         assert_eq!(
-            render(&input, LinkFlavor::Unix, Driver::C).unwrap().driver,
+            render(&input, Linker::Unix, Driver::C).unwrap().driver,
             input
         );
     }
 
     #[test]
     fn unsupported_mingw_dialect_options_are_diagnosed() {
-        let error = render(&args(&["/PDB:file.pdb"]), LinkFlavor::MinGw, Driver::C).unwrap_err();
+        let error = render(&args(&["/PDB:file.pdb"]), Linker::MinGw, Driver::C).unwrap_err();
         assert!(error.contains("/PDB:file.pdb") && error.contains("MinGW"));
     }
 
@@ -378,10 +365,10 @@ mod tests {
             "C:\\LLVM tools\\CLANG-CL.EXE",
             "/LLVM tools/clang-cl.exe",
         ] {
-            assert_eq!(Driver::for_program(program), Driver::ClangCl);
+            assert_eq!(driver_for_program(program), Driver::ClangCl);
         }
-        assert_eq!(Driver::for_program("lld-link.exe"), Driver::MsvcLink);
-        assert_eq!(Driver::for_program("aarch64-w64-mingw32-clang"), Driver::C);
+        assert_eq!(driver_for_program("lld-link.exe"), Driver::MsvcLink);
+        assert_eq!(driver_for_program("aarch64-w64-mingw32-clang"), Driver::C);
         assert!(is_clang("C:\\LLVM tools\\clang.exe"));
         assert!(is_clang("aarch64-w64-mingw32-clang"));
         assert!(is_clang("clang-23"));
@@ -402,36 +389,36 @@ mod tests {
             "/ENTRY:explicit",
         ]);
         assert_eq!(
-            render(&input, LinkFlavor::MinGw, Driver::C).unwrap().driver,
+            render(&input, Linker::MinGw, Driver::C).unwrap().driver,
             input
         );
-        assert!(render(&args(&["-Xlinker"]), LinkFlavor::Msvc, Driver::C).is_err());
+        assert!(render(&args(&["-Xlinker"]), Linker::Msvc, Driver::C).is_err());
     }
 
     #[test]
     fn explicit_clang_driver_mode_selects_the_actual_argument_boundary() {
         assert_eq!(
-            Driver::for_command("clang", &args(&["--driver-mode=cl"])),
+            driver_for_command("clang", &args(&["--driver-mode=cl"])),
             Driver::ClangCl
         );
         assert_eq!(
-            Driver::for_command("clang-cl", &args(&["--driver-mode=gcc"])),
+            driver_for_command("clang-cl", &args(&["--driver-mode=gcc"])),
             Driver::C
         );
         assert_eq!(
-            Driver::for_command("clang", &args(&["--driver-mode=cl", "--driver-mode=g++"])),
+            driver_for_command("clang", &args(&["--driver-mode=cl", "--driver-mode=g++"])),
             Driver::C
         );
         assert_eq!(
-            Driver::for_command("lld-link", &args(&["--driver-mode=cl"])),
+            driver_for_command("lld-link", &args(&["--driver-mode=cl"])),
             Driver::MsvcLink
         );
         assert_eq!(
-            Driver::for_command("clang", &args(&["-Xlinker", "--driver-mode=cl"])),
+            driver_for_command("clang", &args(&["-Xlinker", "--driver-mode=cl"])),
             Driver::C
         );
         assert_eq!(
-            Driver::for_command("clang-cl", &args(&["/link", "--driver-mode=gcc"])),
+            driver_for_command("clang-cl", &args(&["/link", "--driver-mode=gcc"])),
             Driver::ClangCl
         );
     }

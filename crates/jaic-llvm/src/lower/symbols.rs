@@ -165,40 +165,20 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         } else if *is_data {
             let g = self.module.add_global(self.ctx.i8_type(), None, symbol);
             g.set_linkage(Linkage::External);
-            // A Windows DLL exports a variable only as `__imp_<name>`, a pointer to it:
-            // import libraries define no `<name>` for data. System libraries are DLLs there.
-            // The C runtime is a DLL on MSVC too (see `link`), but only a library named for
-            // the DLL runtime (`ucrt`) promises its data comes from the DLL: the generic names
-            // (`libc`, `msvcrt`) also reach `msvcrt.lib`, which defines some data (`_HUGE`)
-            // statically, and a `dllimport` reference to that cannot link. MinGW links its C
-            // runtime statically.
-            let msvc = matches!(self.target.abi, jaic::target::TargetAbi::Msvc);
+            // A Windows DLL exports a variable only as `__imp_<name>`, a pointer to it: import
+            // libraries define no `<name>` for data. The toolchain says which libraries are DLLs.
             let dll = foreign
                 .library
                 .and_then(|l| self.program.libraries.get(l))
-                .is_some_and(|l| {
-                    l.system
-                        && if crate::is_windows_c_runtime(&l.name) {
-                            msvc && matches!(
-                                l.name.to_ascii_lowercase().as_str(),
-                                "ucrt" | "ucrtbase"
-                            )
-                        } else {
-                            true
-                        }
-                });
-            if self.arch.is_windows() && dll {
+                .is_some_and(|l| self.target.toolchain().imports_data(&l.name, l.system));
+            if dll {
                 g.set_dll_storage_class(DLLStorageClass::Import);
             }
             g.as_pointer_value()
         } else {
             let lowered = self.lower_sig(sig);
-            // An MSVC C runtime exports no `sqrtl` and the like; call the `double` function,
-            // which is the same thing there.
-            let name = match self.target.abi {
-                jaic::target::TargetAbi::Msvc => jaic::abi::msvc_double_math(symbol),
-                _ => None,
-            };
+            // A runtime may export a function under another name (see `Toolchain::renames`).
+            let name = self.target.toolchain().rename(symbol);
             let f = match name.and_then(|name| self.module.get_function(name)) {
                 Some(f) => f,
                 None => self.module.add_function(
@@ -224,7 +204,8 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
     pub(super) fn wasm_import(&self, f: FunctionValue<'ctx>, symbol: &str, library: Option<usize>) {
         let module = library
             .and_then(|i| self.program.libraries.get(i))
-            .map_or("env", |lib| wasm_import_module(&lib.name));
+            .and_then(|lib| self.target.toolchain().import_module(&lib.name))
+            .unwrap_or("env");
         for (key, value) in [("wasm-import-module", module), ("wasm-import-name", symbol)] {
             f.add_attribute(
                 AttributeLoc::Function,
@@ -381,14 +362,4 @@ enum Segment {
     Bytes(u64, u64),
     /// Index into `Global::relocs`.
     Reloc(usize),
-}
-
-/// The wasm import module for a `#library`: its file name, except that the C and math
-/// libraries (whose functions a wasm runtime supplies) map to `env`.
-fn wasm_import_module(library: &str) -> &str {
-    let name = library.rsplit(['/', '\\']).next().unwrap_or(library);
-    match name {
-        "" | "c" | "libc" | "crt" | "msvcrt" | "m" | "libm" => "env",
-        other => other,
-    }
 }

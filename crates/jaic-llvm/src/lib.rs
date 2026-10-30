@@ -23,8 +23,7 @@ pub use wasm::{WasmLink, find_wasm_ld, link_wasm};
 
 
 pub use self::emit::{emit_object, emit_objects, fix_malloc_zone_for_fork, used_libraries};
-pub use self::link::{LinkFlavor, LinkInputs, LinkRequest, link, link_inputs};
-pub(crate) use self::linker::is_windows_c_runtime;
+pub use self::link::{LinkInputs, LinkRequest, link, link_inputs};
 pub use self::linker::{
     OutputKind, archive, check_sanitizer_target, link_failure, linker_not_run, output_extension,
     write_dsym,
@@ -35,7 +34,7 @@ pub use self::options::{Codegen, OptLevel, Options, SANCOV_PASS, Sanitize};
 mod tests {
     use super::*;
     use crate::emit::{apply_abi_unwind_attributes, apply_codegen_attributes, unit_path};
-    use crate::link::{LinkArg, order_link_groups};
+    use crate::link::{LinkArg, order_link_groups, toolchain_for};
     use crate::linker::{library_args, mingw_cpu, render_link_arg};
     use crate::machine::{baseline_cpu, cpu_and_features, target_machine};
     use inkwell::attributes::{Attribute, AttributeLoc};
@@ -44,6 +43,7 @@ mod tests {
     use jaic::ir::Library;
     use jaic::target::Target as BuildTarget;
     use jaic::target::TargetCpu;
+    use jaic::toolchain::Linker;
     use std::path::Path;
     use std::process::Command;
 
@@ -180,18 +180,10 @@ mod tests {
     #[test]
     fn windows_targets_pick_windows_linkers() {
         let target = |triple: &str| Some(BuildTarget::parse(triple).unwrap());
-        assert_eq!(
-            LinkFlavor::for_target(target("x86_64-pc-windows-gnu")),
-            LinkFlavor::MinGw
-        );
-        assert_eq!(
-            LinkFlavor::for_target(target("x86_64-pc-windows-msvc")),
-            LinkFlavor::Msvc
-        );
-        assert_eq!(
-            LinkFlavor::for_target(target("x86_64-unknown-linux-gnu")),
-            LinkFlavor::Unix
-        );
+        let linker = |triple: &str| toolchain_for(target(triple)).linker;
+        assert_eq!(linker("x86_64-pc-windows-gnu"), Linker::MinGw);
+        assert_eq!(linker("x86_64-pc-windows-msvc"), Linker::Msvc);
+        assert_eq!(linker("x86_64-unknown-linux-gnu"), Linker::Unix);
         let cross = Some(BuildTarget::windows(TargetCpu::X64, false));
         assert_eq!(output_extension(cross, OutputKind::Executable), Some("exe"));
         assert_eq!(
@@ -204,11 +196,11 @@ mod tests {
     fn windows_arm64_targets_pick_windows_linkers() {
         let target = |triple: &str| Some(BuildTarget::parse(triple).unwrap());
         assert_eq!(
-            LinkFlavor::for_target(target("aarch64-pc-windows-msvc")),
-            LinkFlavor::Msvc
+            toolchain_for(target("aarch64-pc-windows-msvc")).linker,
+            Linker::Msvc
         );
         for mingw in ["aarch64-pc-windows-gnu", "aarch64-w64-mingw32"] {
-            assert_eq!(LinkFlavor::for_target(target(mingw)), LinkFlavor::MinGw);
+            assert_eq!(toolchain_for(target(mingw)).linker, Linker::MinGw);
             assert_eq!(mingw_cpu(target(mingw)), "aarch64");
         }
         assert_eq!(
@@ -229,17 +221,18 @@ mod tests {
             link_always: false,
             base_dir: String::new(),
         };
-        let args = |name: &str, flavor| library_args(&lib(name), flavor, true).unwrap();
+        let msvc = BuildTarget::windows(TargetCpu::X64, true).toolchain();
+        let mingw = BuildTarget::windows(TargetCpu::X64, false).toolchain();
+        let args = |name: &str, toolchain| library_args(&lib(name), toolchain, true).unwrap();
         assert_eq!(
-            args("kernel32", LinkFlavor::MinGw),
+            args("kernel32", mingw),
             vec![LinkArg::Lib("kernel32".into())]
         );
-        assert!(args("msvcrt", LinkFlavor::Msvc).is_empty());
-        assert_eq!(
-            args("Gdi32", LinkFlavor::MinGw),
-            vec![LinkArg::Lib("gdi32".into())]
-        );
-        assert!(args("libc", LinkFlavor::MinGw).is_empty());
+        for name in msvc.runtime_names {
+            assert!(args(name, msvc).is_empty(), "{name}");
+            assert!(args(name, mingw).is_empty(), "{name}");
+        }
+        assert_eq!(args("Gdi32", mingw), vec![LinkArg::Lib("gdi32".into())]);
         let mut cmd = Command::new("link");
         render_link_arg(&mut cmd, &LinkArg::Lib("user32".into()), true);
         assert_eq!(cmd.get_args().next().unwrap(), "user32.lib");

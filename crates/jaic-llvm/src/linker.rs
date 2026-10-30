@@ -1,9 +1,10 @@
 //! Finding and running linkers, archives, output names and library arguments.
-use super::link::{LinkArg, LinkFlavor};
+use super::link::{LinkArg, toolchain_for};
 use super::{link_options, wasm};
 use jaic::ir::Library;
 use jaic::msvc;
 use jaic::target::Target as BuildTarget;
+use jaic::toolchain::{Linker, Toolchain};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -106,7 +107,7 @@ pub fn archive(
             wasm::find_llvm_tool("llvm-ar")
                 .ok_or("no llvm-ar found for a WebAssembly archive; set JAIC_AR")?
         }
-        None if LinkFlavor::for_target(target).is_windows() => {
+        None if toolchain_for(target).linker.is_windows() => {
             let mingw_ar = format!("{}-w64-mingw32-ar", mingw_cpu(target));
             let arch = msvc::arch_dir(target.unwrap_or_else(BuildTarget::host).cpu);
             find_program(&[&mingw_ar, "llvm-ar", "llvm-lib", "lib"])
@@ -221,7 +222,7 @@ fn find_program(names: &[&str]) -> Option<String> {
 /// The linker program and its base command. `JAIC_LINKER` overrides the choice: a program
 /// named `link` or `lld-link` gets MSVC-style arguments, anything else C-driver arguments.
 pub(super) fn linker_command(
-    flavor: LinkFlavor,
+    linker: Linker,
     target: Option<BuildTarget>,
 ) -> Result<(String, Command), String> {
     let resolved = target.unwrap_or_else(BuildTarget::host);
@@ -230,7 +231,7 @@ pub(super) fn linker_command(
     if let Some(program) = jacket_config::env::LINKER.os().filter(|v| !v.is_empty()) {
         let program = program.to_string_lossy().into_owned();
         let mut cmd = Command::new(&program);
-        if flavor == LinkFlavor::Msvc {
+        if linker == Linker::Msvc {
             if !is_msvc_linker(&program) {
                 cmd.arg(format!("--target={msvc_triple}"));
             } else if let Some(lib) = msvc::lib_env(msvc::arch_dir(resolved.cpu)) {
@@ -238,13 +239,13 @@ pub(super) fn linker_command(
                 // else tells it where `user32.lib` and the C runtime are.
                 cmd.env("LIB", lib);
             }
-        } else if flavor == LinkFlavor::MinGw && link_options::is_clang(&program) {
+        } else if linker == Linker::MinGw && link_options::is_clang(&program) {
             cmd.arg(format!("--target={msvc_triple}"));
         }
         return Ok((program, cmd));
     }
-    match flavor {
-        LinkFlavor::Unix => {
+    match linker {
+        Linker::Unix => {
             let mut cmd = Command::new("cc");
             // The other architecture of a Mac (`x86_64-apple-darwin` on arm64, run through
             // Rosetta, and the reverse): Apple's `cc` is clang and links either.
@@ -256,7 +257,7 @@ pub(super) fn linker_command(
             }
             Ok(("cc".into(), cmd))
         }
-        LinkFlavor::MinGw => {
+        Linker::MinGw => {
             // GCC only targets x64; llvm-mingw provides `-clang` (and a `-gcc` alias of it)
             // for both CPUs.
             let cpu = mingw_cpu(target);
@@ -282,7 +283,7 @@ pub(super) fn linker_command(
             }
             Ok((program, cmd))
         }
-        LinkFlavor::Msvc => msvc_linker_command(resolved),
+        Linker::Msvc => msvc_linker_command(resolved),
     }
 }
 
@@ -370,7 +371,7 @@ pub fn output_extension(target: Option<BuildTarget>, kind: OutputKind) -> Option
             _ => "wasm",
         });
     }
-    if !LinkFlavor::for_target(target).is_windows() {
+    if !toolchain_for(target).linker.is_windows() {
         return None;
     }
     Some(match kind {
@@ -380,46 +381,20 @@ pub fn output_extension(target: Option<BuildTarget>, kind: OutputKind) -> Option
     })
 }
 
-/// Whether a Jai library name means the C runtime (or a POSIX library that is part of it) when
-/// targeting Windows: the link names the C runtime itself (the DLL one for MSVC, see `link`).
-pub(crate) fn is_windows_c_runtime(name: &str) -> bool {
-    matches!(
-        name.to_ascii_lowercase().as_str(),
-        "c" | "libc"
-            | "crt"
-            | "msvcrt"
-            | "ucrt"
-            | "ucrtbase"
-            | "vcruntime"
-            | "libcmt"
-            | "m"
-            | "libm"
-            | "pthread"
-            | "libpthread"
-            | "dl"
-            | "libdl"
-            | "rt"
-            | "librt"
-    )
-}
-
 /// Linker inputs for one Jai library reference. `cross`: the target is not the host, so the
 /// host's library directories (Homebrew, native-libs builds, frameworks) do not apply.
 pub(super) fn library_args(
     lib: &Library,
-    flavor: LinkFlavor,
+    toolchain: &Toolchain,
     cross: bool,
 ) -> Result<Vec<LinkArg>, String> {
     let name = lib.name.as_str();
-    // libc and friends are always linked implicitly.
-    if matches!(name, "c" | "libc") {
+    // The C runtime is linked by the toolchain itself (see `link`); on Windows the POSIX-only
+    // names are not libraries either.
+    if toolchain.is_runtime(name) {
         return Ok(Vec::new());
     }
-    // On Windows the toolchain picks the C runtime (see `link`); POSIX-only names are not
-    // libraries there.
-    if flavor.is_windows() && is_windows_c_runtime(name) {
-        return Ok(Vec::new());
-    }
+    let linker = toolchain.linker;
     if !lib.system {
         // A library shipped next to the source: link it by path when found.
         let path = Path::new(name);
@@ -429,8 +404,8 @@ pub(super) fn library_args(
             .unwrap_or_default();
         let dir = Path::new(&lib.base_dir).join(path.parent().unwrap_or(Path::new("")));
         // Like `jai`, a static archive wins over a shared library.
-        let candidates: Vec<String> = match flavor {
-            LinkFlavor::Unix => {
+        let candidates: Vec<String> = match linker {
+            Linker::Unix => {
                 let ext = if cfg!(target_os = "macos") {
                     "dylib"
                 } else {
@@ -445,7 +420,7 @@ pub(super) fn library_args(
             }
             // `name.lib` is a static library or a DLL's import library; MinGW's `ld` also
             // reads GNU archives and links against a DLL directly.
-            LinkFlavor::MinGw => vec![
+            Linker::MinGw => vec![
                 format!("{file}.lib"),
                 format!("{file}.a"),
                 format!("lib{file}.a"),
@@ -453,7 +428,7 @@ pub(super) fn library_args(
                 format!("lib{file}.dll.a"),
                 format!("{file}.dll"),
             ],
-            LinkFlavor::Msvc => vec![format!("{file}.lib"), format!("lib{file}.lib")],
+            Linker::Msvc => vec![format!("{file}.lib"), format!("lib{file}.lib")],
         };
         for candidate in &candidates {
             let full = dir.join(candidate);
@@ -469,7 +444,7 @@ pub(super) fn library_args(
         }
         // Not beside the source: a helper the compiler provides (the crash runtime) is found
         // by file name in the library directories, as the interpreter does.
-        if name.contains('/') && !cross && flavor == LinkFlavor::Unix {
+        if name.contains('/') && !cross && linker == Linker::Unix {
             for lib_dir in jaic::interp::library_dirs() {
                 for candidate in &candidates {
                     let full = lib_dir.join(candidate);
@@ -508,7 +483,7 @@ pub(super) fn library_args(
     }
     // Built third-party libraries (`tools/native/build_native_libs.py`: `freetype.lib`...) link
     // statically, as on macOS and Linux below.
-    if flavor == LinkFlavor::Msvc && !cross {
+    if linker == Linker::Msvc && !cross {
         let bare = name.strip_prefix("lib").unwrap_or(name);
         for dir in jaic::interp::library_dirs() {
             let archive = dir.join(format!("{bare}.lib"));
@@ -520,7 +495,7 @@ pub(super) fn library_args(
     // A MinGW cross build links third-party libraries cross-built for it
     // (`tools/native/build_native_libs.py --platform windows-<cpu>-mingw`) from the directories in
     // `JAIC_CROSS_LIBS`, not from the host's native-libs directory, whose archives are for the host.
-    if flavor == LinkFlavor::MinGw && cross {
+    if linker == Linker::MinGw && cross {
         let bare = name.strip_prefix("lib").unwrap_or(name);
         if let Some(dirs) = jacket_config::env::CROSS_LIBS.os() {
             for dir in std::env::split_paths(&dirs) {
@@ -531,7 +506,7 @@ pub(super) fn library_args(
             }
         }
     }
-    if flavor.is_windows() {
+    if linker.is_windows() {
         // Import libraries of system DLLs (`kernel32`, `user32`...) come with the toolchain.
         // Windows file names ignore case, but a MinGW toolchain on Linux or macOS has
         // `libgdi32.a`, not `libGdi32.a`, and its names are all lowercase.
