@@ -512,7 +512,7 @@
       "latest_jai_change": "2025-03-18T14:41:27-04:00",
       "source_of_truth": "https://github.com/nick-celestin-zizic/joogle/tree/bb71ab5c05eb81204ffb3c913da96387d8f1e5a7",
       "selection": "recent-source",
-      "file_count": 21
+      "file_count": 16
     },
     {
       "repository": "isaplane/sdl3-jai",
@@ -840,7 +840,7 @@
       "latest_jai_change": "2026-08-03T23:38:46-04:00",
       "source_of_truth": "https://github.com/farzher/clipman/tree/e90cf13da9f729229d4e9f3af43dc6fcdc82beb9",
       "selection": "recent-source",
-      "file_count": 23
+      "file_count": 22
     },
     {
       "repository": "qiekn/ootss-cmd",
@@ -1272,7 +1272,7 @@
       "latest_jai_change": "2023-01-05T22:05:33-08:00",
       "source_of_truth": "https://github.com/forrestthewoods/aoc2022/tree/087bb6c109cc0b801112bf477e79539a5c31698e",
       "selection": "recent-source",
-      "file_count": 2
+      "file_count": 1
     },
     {
       "repository": "contextfreecode/jai-comparisons",
