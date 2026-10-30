@@ -6,6 +6,7 @@
     python3 tools/bench/main.py lsp     [--server NAME=COMMAND ...]
     python3 tools/bench/main.py lint
     python3 tools/bench/main.py fmt
+    python3 tools/bench/main.py probe [--reference PATH] [--x64] [--json] FILE.jai...
     python3 tools/bench/main.py wsb --out-dir DIR [--map NAME=FOLDER ...] -- compare ...   (Windows Sandbox config)
 
 Every subcommand writes JSON and a Markdown summary (default: target/bench/<subcommand>.{json,md}) and,
@@ -22,10 +23,11 @@ from bench import cmd_compile
 from bench import cmd_fmt
 from bench import cmd_lint
 from bench import cmd_lsp
+from bench import cmd_probe
 from bench import cmd_wsb
 
 COMMANDS = {'compile': cmd_compile, 'compare': cmd_compare, 'lsp': cmd_lsp, 'lint': cmd_lint, 'fmt': cmd_fmt,
-            'wsb': cmd_wsb}
+            'probe': cmd_probe, 'wsb': cmd_wsb}
 
 
 def build_parser() -> argparse.ArgumentParser:

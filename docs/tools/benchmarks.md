@@ -9,6 +9,7 @@ PYTHONPATH=tools python3 tools/bench/main.py compile --compiler jaic=target/rele
 PYTHONPATH=tools python3 tools/bench/main.py lsp                                             # jailsp latency by request kind
 PYTHONPATH=tools python3 tools/bench/main.py lint                                            # jailint
 PYTHONPATH=tools python3 tools/bench/main.py fmt                                             # jaifmt, native and wasm
+PYTHONPATH=tools python3 tools/bench/main.py probe --reference PATH FILE.jai                           # jaic and a reference compiler side by side
 PYTHONPATH=tools python3 tools/bench/main.py compile --compare target/bench/old.json         # exit 1 on regressions
 PYTHONPATH=tools python3 tools/bench/main.py compare --baseline OLD/jaic --candidate NEW/jaic # fair A/B of two binaries
 ```
@@ -150,6 +151,22 @@ Every `--compiler NAME=PATH` takes jaic's command line (see above for the two cl
   - A binary with the extra reporting flags has a second table from its own `-timings` (`detail` in the JSON), without ratios: it is finer (it splits `#run` time out) but is not the same measurement.
 - **Sandboxed.** `compile` runs every binary and every program it builds through `tools/bench/sandbox.py`: no network, file contents readable only from the system, the developer tools, Homebrew (projects link its libraries), each binary's install (its folder, the checkout's stdlib and `target/native-libs`, and the shared libraries it links) and `--sandbox-read` paths, and writes only to the run's scratch folder. Workloads from the repository and the corpus are copied there first; a corpus workload in a project subfolder copies the whole project (it may import `../module.jai`), with links to sibling projects copied as what they point to. macOS uses `sandbox-exec`, Linux `bwrap`, Windows an AppContainer (see [Running on Windows](#running-on-windows)); `--no-sandbox` turns it off. The sandbox does not get past Gatekeeper: a quarantined binary still shows its popup until the quarantine flag is cleared by hand.
 - **Never commit these results.** `compile` writes under `target/bench/` and `compare` under `playground/bench/`; both are gitignored. Keep numbers, paths and output of builds that are not yours out of the repository, its docs, commit messages and issues.
+
+### probe: one file, both compilers
+
+```sh
+PYTHONPATH=tools python3 tools/bench/main.py probe --reference /path/to/reference/bin/compiler [--x64] [--json] [--show] FILE.jai...
+```
+
+Runs each file under `jaic` and under the reference compiler (`--reference`, or `$JAI_REFERENCE`) and diffs `compiled`, the exit code, stdout, stderr and whether either timed out. Exit status 1 when any file differs.
+
+Both sides get the same command line and the same two wrapper files, built by `cmd_probe.py`: a *check* wrapper that loads the file with output off (this decides `compiled`), and, if that passed, a *run* wrapper that adds `#run main();`. Programs run at compile time because a reference compiler's bundled linker may not link here. Each side runs through `sandbox.py` (no network; reads limited to its install, the file's folder, `--import-dir` and `--sandbox-read`; writes to a scratch folder), and there is no switch to turn that off. Paths in the output (scratch folder, install, file folder, checkout) are replaced by `<scratch>`, `<install>`, `<source>` and `<repo>`, so they never cause or hide a difference. The compilers are not probed with `-help`, since that would run an unsandboxed binary.
+
+`--x64` runs both under Rosetta (`arch -x86_64`). `--import-dir DIR` adds a module folder for both; each compiler otherwise finds its own modules.
+
+Known limits: a program that calls `exit` at compile time may lose output the reference had buffered; "compiled" means the check passed, not that `main` was clean; different error wording shows up as a stderr difference, so judge `compiled`, `exit` and `stdout` first. The output is for reading. Do not commit it, or any numbers or paths from a reference run.
+
+Change it in `cmd_probe.py`; tests are `test_probe_cmd.py` (they use a stand-in compiler script and no sandbox).
 
 ## Running on Windows
 
