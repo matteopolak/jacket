@@ -30,6 +30,8 @@
 // Tests drive the same `build` procedures without a window or a GPU (`headless`, `frame`, `click`,
 // `layout_dump`).
 
+#assert OS != .WASM "Extensions/UI needs a native window and GPU, and has no WebAssembly backend yet";
+
 #import "Basic";
 #import "Math";
 #import "Hash_Table";

@@ -151,6 +151,7 @@ Extensions/Io_Uring windows-x64: Extensions/Io_Uring/module.jai: #assert failed:
 Extensions/Postgres wasm: Extensions/Postgres/module.jai: #assert failed: Extensions/Postgres runs on fibers over Io, and WebAssembly has neither
 Extensions/SDL3 wasm: Extensions/SDL3/module.jai: #assert failed: SDL3 supports x64 and arm64 release targets
 Extensions/Tls wasm: Extensions/Tls/module.jai: #assert failed: Extensions/Tls runs on fibers over Io, and WebAssembly has neither
+Extensions/UI wasm: Extensions/UI/module.jai: #assert failed: Extensions/UI needs a native window and GPU, and has no WebAssembly backend yet
 Extensions/Wasi_Runtime linux-arm64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
 Extensions/Wasi_Runtime linux-x64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
 Extensions/Wasi_Runtime macos-arm64: Extensions/Wasi_Runtime/module.jai: #assert failed: Wasi_Runtime is only for wasm targets
