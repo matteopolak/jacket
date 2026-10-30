@@ -73,6 +73,72 @@ load_audio_data :: (name_for_error_reporting: string, data: string) -> Sound_Dat
     return result;
 }
 
+// Stops every stream that plays `data`, frees the bytes it was loaded from and clears it, so that nothing points into it any more.
+//
+// The player reads the sound's `buffer` (and the `samples` and decoder state that point into it) for as long as a stream
+// uses it, so a loaded sound cannot just be freed while it plays. This stops those streams first, the way
+// `stop_stream_abruptly(data)` does: `Sound_Player_Config.release_asset` is called for each, and the `*Sound_Stream` pointers
+// the program holds for them are dead after that, so drop them there. Then `buffer` is freed with `context.allocator`, which
+// is where `load_audio_file` got it, and `data` is reset to an empty `Sound_Data`. Call it from the thread that updates the player.
+//
+// Do not use it on data whose `buffer` the program owns some other way (a constant, an arena): stop the streams with
+// `stop_stream_abruptly(data)` and leave the memory alone. A stream made with `make_stream` but not yet started is not known to
+// the player and must be started or dropped by the caller first.
+//
+// ```jai,skip_on(wasm)
+// samples: [64] s16;
+// data := Sound_Data.{ loaded = true, type = .LINEAR_SAMPLE_ARRAY, samples = samples.data, nsamples_times_nchannels = samples.count };
+// data.buffer = copy_string("stands in for the file bytes");
+//
+// release_sound_data(*data);
+// assert(!data.loaded && data.buffer.count == 0);
+// ```
+release_sound_data :: (data: *Sound_Data) {
+    if !data return;
+
+    stop_stream_abruptly(data);
+    free(data.buffer.data);
+    data.* = .{};
+}
+
+// Swaps in a new sound for `data` without moving it: the streams playing the old one are stopped, its bytes are freed and
+// `replacement` takes its place. Anything that holds the `*Sound_Data` keeps a valid pointer and gets the new sound from the next
+// `make_stream` on. This is how to hot-reload a sound.
+//
+// The old sound goes as in `release_sound_data`: its streams end (a stream that was playing does not carry on with the new
+// data; start a new one), `Sound_Player_Config.release_asset` is called for each, and the old `buffer` is freed with
+// `context.allocator`. `replacement` is typically `load_audio_file(path)` or `load_audio_data(name, bytes)`; one that did not
+// load (`loaded` is `false`) is refused with `false` and `data` is left playing as it was, so a bad file on disk does not silence
+// a good sound. A `replacement` that was refused still owns its bytes: free them.
+//
+// ```jai,skip_on(wasm)
+// first := load_audio_data("first", copy_string("not audio"));
+// assert(!first.loaded); // too short to be a sound; its bytes are still ours
+// free(first.buffer.data);
+//
+// samples: [64] s16;
+// data := Sound_Data.{ loaded = true, type = .LINEAR_SAMPLE_ARRAY, samples = samples.data, nsamples_times_nchannels = samples.count };
+// data.buffer = copy_string("old bytes");
+//
+// louder: [64] s16;
+// louder[0] = 100;
+// replacement := Sound_Data.{ loaded = true, type = .LINEAR_SAMPLE_ARRAY, samples = louder.data, nsamples_times_nchannels = louder.count };
+// replacement.buffer = copy_string("new bytes");
+//
+// assert(replace_sound_data(*data, replacement));
+// assert(data.samples == louder.data && data.buffer == "new bytes");
+// release_sound_data(*data);
+// ```
+replace_sound_data :: (data: *Sound_Data, replacement: Sound_Data) -> bool {
+    if !data || !replacement.loaded return false;
+
+    stop_stream_abruptly(data);
+    free(data.buffer.data);
+    data.* = replacement;
+
+    return true;
+}
+
 #scope_module
 assign_channel_directions :: (data: *Sound_Data) {
     // The API defines no dedicated seven-channel/center-rear layout.

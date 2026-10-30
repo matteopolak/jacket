@@ -9,6 +9,7 @@ Rough edges hit while writing game2d. Fixed ones name the commit subject; open o
 
 ## Fixed later
 
+- Fixed by "feat(sound-player): add release_sound_data and replace_sound_data": a hot-reloaded sound used to leak because streams point into its data; `replace_sound_data` stops those streams, frees the old bytes and keeps the `Sound_Data` pointer, and the game uses it (and restarts its music).
 - Fixed by "docs(bucket-array): explain the loop index and remove": the module page and `for_expansion` say the second `for` name is an index, not a locator, and show `remove value;` in running examples.
 - Fixed by "fix(thread): say how to wait in the thread_deinit failure": `thread_deinit` on a running thread now tells the caller to wait with `thread_is_done(*thread, -1)` first.
 
@@ -16,7 +17,6 @@ Rough edges hit while writing game2d. Fixed ones name the commit subject; open o
 
 - Diagnostics: `cast(u16) x << 8` parses as the cast of the shifted value; the jailint shift-overflow lint caught it, the compiler did not warn.
 - LibreSSL's default EC self-signed certificates (explicit parameters) are rejected by the mbedTLS build ("PK - Invalid key tag or value"); the smoke script generates RSA ones. Repro: `openssl ecparam`-less `openssl req -x509 -newkey ec` on macOS, then `--tls-cert`.
-- Sound_Player keeps pointers into decoded sound data, so a hot-reloaded sound can never be freed; reloads leak by design.
 - Compile time: the game (about all of Simp, Sound_Player, Zip, Deflate) takes noticeably longer than the server; no incremental build.
 - IDE: no cross-module rename across `#import,dir` project boundaries was tried; not evaluated.
 

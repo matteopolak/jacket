@@ -130,18 +130,24 @@ load_sound :: (assets: *Assets, id: Sound_Id) -> bool {
 
     if !ok return false;
 
-    // Sound_Player keeps pointing into the decoded data, so a sound is never freed: a reload makes
-    // a new one and the old one stays until the process ends.
-    data := New(SP.Sound_Data);
+    // The sound's bytes stay in `buffer` for as long as the sound lives. A reload decodes into the same
+    // `Sound_Data` so pointers to it stay good: `replace_sound_data` ends the streams that play the old
+    // one and frees its bytes.
+    decoded := SP.load_audio_data(name, cast(string) bytes);
 
-    data.* = SP.load_audio_data(name, cast(string) bytes);
-
-    if !data.loaded {
+    if !decoded.loaded {
         free(bytes.data);
 
         return false;
     }
 
+    existing := assets.sounds[cast(s64) id];
+
+    if existing return SP.replace_sound_data(existing, decoded);
+
+    data := New(SP.Sound_Data);
+
+    data.* = decoded;
     assets.sounds[cast(s64) id] = data;
 
     return true;

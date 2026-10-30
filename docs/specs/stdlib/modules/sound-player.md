@@ -81,6 +81,8 @@ Only names visible through the module’s exported scope are listed. Declaration
 - `set_repeating :: (stream: *Sound_Stream, repeating: bool)`
 - `load_audio_file :: (filename: string, optional := false) -> Sound_Data`
 - `load_audio_data :: (name_for_error_reporting: string, data: string) -> Sound_Data`
+- `release_sound_data :: (data: *Sound_Data)`
+- `replace_sound_data :: (data: *Sound_Data, replacement: Sound_Data) -> bool`
 - `get_magic4 :: (data: string, base: s64) -> u32`
 - `TEST_K :: 1.0`
 - `DELTA_RATE_MAX :: 18.0 * (1.0 / 40000.0) * TEST_K`
@@ -708,6 +710,8 @@ The module supports mono and multichannel source mappings and stereo, 5.1, or 7.
 `load_audio_file(filename, optional)` reads the entire file and passes its storage to `load_audio_data`; an unreadable file logs an error unless `optional` is true and returns an uninitialized value. `load_audio_data(name, bytes)` recognizes RIFF/WAVE and Ogg container signatures. It accepts PCM WAV only at 16 bits per sample and DVI ADPCM WAV; Ogg is accepted for compressed decoding. Unsupported formats or malformed headers log errors and may return a partially populated but `loaded == false` record. The Ogg signature check does not guarantee that the stream is decodable; decoder initialization supplies that result.
 
 `Sound_Data.buffer` records the supplied byte string, and `samples` points into that buffer for linear PCM. `load_audio_data` does not copy its input, so caller-provided bytes must remain stable and alive for the full data/stream lifetime. `load_audio_file` uses the allocation returned by the file-reading operation. `nsamples_times_nchannels` counts interleaved scalar samples; duration/frame count is that value divided by channel count. `nchannels` defaults to 1 and `sampling_rate` to 44100. For Ogg, `make_stream` opens the decoder and replaces the channel/sample metadata with values read from the compressed stream.
+
+`release_sound_data(data)` stops every stream that plays `data` (as `stop_stream_abruptly(data)`, so the release callback runs for each), frees `data.buffer` with `context.allocator` and resets `data` to an empty record. `replace_sound_data(data, replacement)` does the same stop and free and then stores `replacement` in `data`, so pointers to the `Sound_Data` stay valid; a `replacement` that is not `loaded` is refused with `false` and nothing is stopped. Both are how a hot-reloaded sound is freed or swapped. A stream that was made but not started is not known to the player and must be started or dropped first.
 
 ### Compressed pages and observable limits
 

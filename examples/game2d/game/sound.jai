@@ -6,12 +6,22 @@ Audio :: struct {
     muted: bool;
     music: *SP.Sound_Stream;
     played: s64;
+    music_wanted: bool; // set by `audio_start_music`; a reloaded music file starts again
 }
+
+// The player calls this for every stream that ends. A stopped music stream is a dead pointer from then on.
+audio_stream_released :: (stream: *SP.Sound_Stream, data: *SP.Sound_Data) {
+    if current_audio && current_audio.music == stream current_audio.music = null;
+}
+
+current_audio: *Audio;
 
 audio_init :: (audio: *Audio, assets: *Assets) {
     config: SP.Sound_Player_Config;
 
     config.update_from_a_thread = false;
+    config.release_asset = audio_stream_released;
+    current_audio = audio;
 
     audio.ready = SP.sound_player_init(config);
 
@@ -26,6 +36,7 @@ audio_shutdown :: (audio: *Audio) {
     if audio.ready SP.sound_player_shutdown();
 
     audio.ready = false;
+    current_audio = null;
 }
 
 // Muting goes through the master volume so the music, which is already playing, goes quiet too.
@@ -52,6 +63,8 @@ audio_play :: (audio: *Audio, assets: *Assets, id: Sound_Id, volume := 0.5, rate
 
 audio_start_music :: (audio: *Audio, assets: *Assets) {
     data := assets.sounds[cast(s64) Sound_Id.MUSIC];
+
+    audio.music_wanted = true;
 
     if !audio.ready || !data || audio.music return;
 
@@ -81,6 +94,8 @@ audio_events :: (audio: *Audio, assets: *Assets, world: *World, time: float) {
     }
 }
 
-audio_update :: (audio: *Audio, dt: float) {
+audio_update :: (audio: *Audio, assets: *Assets, dt: float) {
+    if audio.ready && audio.music_wanted && !audio.music audio_start_music(audio, assets);
+
     if audio.ready SP.update(dt);
 }

@@ -217,7 +217,7 @@ game_run :: (game: *Game) {
             controls.back = false;
         }
 
-        audio_update(*game.audio, frame_time);
+        audio_update(*game.audio, *game.assets, frame_time);
         draw_screen(game);
 
         reset_temporary_storage();

@@ -333,11 +333,16 @@ smoke_audio :: (smoke: *Smoke, assets: *Assets) {
 
         check(smoke, ok, "wav and ogg files decode through Sound_Player and stb_vorbis");
 
+        // A hot reload decodes into the same Sound_Data and ends the streams that played the old one.
+        before := assets.sounds[cast(s64) Sound_Id.SHOOT];
+
         SP.set_master_volume(0);
         audio_play(*audio, assets, .SHOOT);
+        check(smoke, load_sound(assets, .SHOOT) && assets.sounds[cast(s64) Sound_Id.SHOOT] == before && before.loaded, "reloading a playing sound replaces its data in place");
+
         audio_play(*audio, assets, .EXPLODE);
 
-        for 1..5 audio_update(*audio, 0.016);
+        for 1..5 audio_update(*audio, assets, 0.016);
 
         check(smoke, audio.played == 2, "two sounds were started silently");
 
