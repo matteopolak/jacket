@@ -153,7 +153,7 @@ get_path :: (api: *Client, path: string, headers: [] Header_Field = .[]) -> Repl
 }
 
 post_body :: (api: *Client, path: string, body: string, content_type := "application/json") -> Reply {
-    headers := Header_Field.[.{ "Content-Type", content_type }];
+    headers := Header_Field.[.{ name = "Content-Type", value = content_type }];
 
     return fetch(api, .POST, path, body, headers);
 }

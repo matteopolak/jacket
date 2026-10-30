@@ -360,12 +360,12 @@ through_the_whole_stack :: () {
     app.config.max_body_size = 1024 * 1024;
 
     // The client may ask for an interim response first.
-    expected := send(api, .{ method = .POST, url = "/length", headers = .[.{ "Expect", "100-continue" }], body = bytes_of("12345") });
+    expected := send(api, .{ method = .POST, url = "/length", headers = .[.{ name = "Expect", value = "100-continue" }], body = bytes_of("12345") });
 
     expect_text(expected, "5");
 
     // A request the codec refuses is answered by the codec.
-    smuggled := send(api, .{ url = "/hello", headers = .[.{ "X-Bad", "a\r\nb" }] });
+    smuggled := send(api, .{ url = "/hello", headers = .[.{ name = "X-Bad", value = "a\r\nb" }] });
 
     expect_equal(smuggled.status, 0);
 }
@@ -387,7 +387,7 @@ keep_alive_inside :: () {
     expect_equal(http_statistics().idle_connections, 1);
 
     // Connection: close ends it; the next request opens another.
-    closing := get(api, "/hello", .[.{ "Connection", "close" }]);
+    closing := get(api, "/hello", .[.{ name = "Connection", value = "close" }]);
 
     expect_header(closing, "Connection", "close");
     expect_equal(http_statistics().idle_connections, 0);
@@ -495,7 +495,7 @@ default_headers :: () {
     set_header(api, "x-token", "def");
 
     expect_text(get(api, "/token"), "def");
-    expect_text(get(api, "/token", .[.{ "X-Token", "mine" }]), "mine");
+    expect_text(get(api, "/token", .[.{ name = "X-Token", value = "mine" }]), "mine");
 
     remove_header(api, "X-Token");
 

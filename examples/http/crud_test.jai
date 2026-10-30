@@ -118,7 +118,7 @@ rejects_bad_requests :: () {
     expect_problem(get(api, "/notes/abc"), 400, "invalid path parameter `id`");
     expect_problem(send(api, .{ method = .POST, url = "/notes", body = bytes_of("{\"title\":") }), 415);
 
-    json := Header_Field.[.{ "Content-Type", "application/json" }];
+    json := Header_Field.[.{ name = "Content-Type", value = "application/json" }];
 
     broken := send(api, .{ method = .POST, url = "/notes", headers = json, body = bytes_of("{\"title\":") });
 

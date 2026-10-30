@@ -264,7 +264,7 @@ test_write_between_deadline_and_wakeup :: () {
 
     Io.add(*group, 3);
 
-    reader := Timed_Reader.{ far, *group };
+    reader := Timed_Reader.{ end = far, group = *group };
     writer := Late_Writer.{ near, *group };
 
     Io.spawn(timed_reader, *reader);

@@ -252,12 +252,12 @@ responses :: (api: *Client) {
     check(response.status == 401 && contains(body_of(response), "a token is required"), "group middleware answers itself: % %", response.status, body_of(response));
     check(header_of(response, "X-Seen") == "yes", "app middleware wraps the group's: %", header_of(response, "X-Seen"));
 
-    response = get_path(api, "/admin", Header_Field.[.{ "Authorization", "Bearer wrong" }]);
+    response = get_path(api, "/admin", Header_Field.[.{ name = "Authorization", value = "Bearer wrong" }]);
     check(response.status == 403, "a bad token: %", response.status);
 
     trace.count = 0;
 
-    token := Header_Field.[.{ "Authorization", "Bearer secret" }];
+    token := Header_Field.[.{ name = "Authorization", value = "Bearer secret" }];
 
     response = get_path(api, "/admin", token);
     check(body_of(response) == "admin home" && trace.count == 4 && trace[2] == "auth", "a good token: % %", body_of(response), trace);

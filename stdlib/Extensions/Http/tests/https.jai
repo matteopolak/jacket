@@ -56,7 +56,7 @@ fetch_long :: (api: *Client, method: Method, path: string, body := "", content_t
     headers: [1] Header_Field;
 
     if content_type.count {
-        headers[0] = .{ "Content-Type", content_type };
+        headers[0] = .{ name = "Content-Type", value = content_type };
         request.headers = headers;
     }
 

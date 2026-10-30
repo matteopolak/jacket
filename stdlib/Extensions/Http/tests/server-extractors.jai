@@ -264,13 +264,13 @@ extractors :: (api: *Client) {
     check(response.status == 415, "form with a JSON type: %", response.status);
 
     // ---- Headers
-    response = get_path(api, "/agent", Header_Field.[.{ "User-Agent", "tests/1" }]);
+    response = get_path(api, "/agent", Header_Field.[.{ name = "User-Agent", value = "tests/1" }]);
     check(body_of(response) == "tests/1", "Header: %", body_of(response));
 
-    response = get_path(api, "/count", Header_Field.[.{ "X-Count", "41" }]);
+    response = get_path(api, "/count", Header_Field.[.{ name = "X-Count", value = "41" }]);
     check(body_of(response) == "42", "Header int: %", body_of(response));
 
-    response = get_path(api, "/count", Header_Field.[.{ "X-Count", "forty" }]);
+    response = get_path(api, "/count", Header_Field.[.{ name = "X-Count", value = "forty" }]);
     check(response.status == 400 && contains(body_of(response), "invalid header `x-count`"), "bad header: % %", response.status, body_of(response));
 
     response = get_path(api, "/count");
@@ -279,7 +279,7 @@ extractors :: (api: *Client) {
     response = get_path(api, "/trace");
     check(body_of(response) == "no trace", "Header_Optional absent: %", body_of(response));
 
-    response = get_path(api, "/trace", Header_Field.[.{ "X-Trace", "abc" }]);
+    response = get_path(api, "/trace", Header_Field.[.{ name = "X-Trace", value = "abc" }]);
     check(body_of(response) == "trace=abc", "Header_Optional present: %", body_of(response));
 
     // ---- Bodies
@@ -293,7 +293,7 @@ extractors :: (api: *Client) {
     check(body_of(response) == "0 bytes", "Bytes of nothing: %", body_of(response));
 
     // ---- Request and State
-    response = get_path(api, "/request?q=zz", Header_Field.[.{ "X-Agent", "me" }]);
+    response = get_path(api, "/request?q=zz", Header_Field.[.{ name = "X-Agent", value = "me" }]);
     check(body_of(response) == "GET /request q=true/zz agent=me peer=IPV4", "Request: %", body_of(response));
 
     response = get_path(api, "/state");

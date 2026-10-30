@@ -67,7 +67,7 @@ demo :: (run: *Run) {
     print("asking for a missing note: % (%)\n", missing_error.status, missing_error.detail);
 
     // `send` for everything else: a method, headers and a raw body.
-    updated, send_error := send(*api, .{ method = .PUT, url = tprint("/notes/%", created.id), headers = .[.{ "Content-Type", "application/json" }], body = to_bytes(tprint("{\"title\":\"%\",\"done\":true}", created.title)) });
+    updated, send_error := send(*api, .{ method = .PUT, url = tprint("/notes/%", created.id), headers = .[.{ name = "Content-Type", value = "application/json" }], body = to_bytes(tprint("{\"title\":\"%\",\"done\":true}", created.title)) });
 
     if send_error.kind == .NONE {
         text, _ := read_text(*updated);

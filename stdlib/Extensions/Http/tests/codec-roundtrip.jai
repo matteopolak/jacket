@@ -61,15 +61,15 @@ main :: () {
     // A client pipelines three requests: a POST with a length, a chunked PUT, a bodyless GET.
     wire: [..] u8;
 
-    write_request_head(*wire, "POST", "/items", .[.{ "Host", "api.test" }, .{ "Content-Type", "text/plain" }], 5);
+    write_request_head(*wire, "POST", "/items", .[.{ name = "Host", value = "api.test" }, .{ name = "Content-Type", value = "text/plain" }], 5);
     for "hello" array_add(*wire, it);
 
-    write_request_head(*wire, "PUT", "/items/1", .[.{ "Host", "api.test" }], -1);
+    write_request_head(*wire, "PUT", "/items/1", .[.{ name = "Host", value = "api.test" }], -1);
     write_chunk(*wire, "chunk one, ");
     write_chunk(*wire, "chunk two");
-    write_last_chunk(*wire, .[.{ "Checksum", "abc" }]);
+    write_last_chunk(*wire, .[.{ name = "Checksum", value = "abc" }]);
 
-    write_request_head(*wire, "GET", "/items", .[.{ "Host", "api.test" }], 0);
+    write_request_head(*wire, "GET", "/items", .[.{ name = "Host", value = "api.test" }], 0);
 
     text: string;
     text.data = wire.data;
@@ -95,7 +95,7 @@ main :: () {
     // A server answers each with a framed response; a client parser reads them back.
     answers: [..] u8;
 
-    write_response_head(*answers, 201, .[.{ "Location", "/items/1" }], 2);
+    write_response_head(*answers, 201, .[.{ name = "Location", value = "/items/1" }], 2);
     for "ok" array_add(*answers, it);
 
     write_response_head(*answers, 200, .[], -1);

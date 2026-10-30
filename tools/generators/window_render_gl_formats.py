@@ -25,7 +25,7 @@ def main():
              "    result: GL_Image_Format;", "    known := false;"]
     for row in metadata["scalar_formats"]:
         lines += [f'    if tf == .{row["format"]} {{',
-                  f'        result = .{{GL.GL_{row["internal"]}, GL.GL_{row["external"]}, GL.GL_{row["scalar"]}}};',
+                  f'        result = .{{internal = GL.GL_{row["internal"]}, external = GL.GL_{row["external"]}, scalar = GL.GL_{row["scalar"]}}};',
                   "        known = true;"]
         if row["integer"]:
             lines.append("        result.integer = true;")

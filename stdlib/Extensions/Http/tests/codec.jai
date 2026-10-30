@@ -412,7 +412,7 @@ test_writers :: () {
 
     defer array_reset(*out);
 
-    headers := Header_Field.[.{ "Content-Type", "text/plain" }, .{ "X-Id", "7" }];
+    headers := Header_Field.[.{ name = "Content-Type", value = "text/plain" }, .{ name = "X-Id", value = "7" }];
     kind, ok := write_response_head(*out, 200, headers, 5);
 
     check(ok && kind == .LENGTH, "a response with a length");
@@ -448,23 +448,23 @@ test_writers :: () {
 
     // Header injection and framing headers set by hand are refused, and nothing is written.
     out.count = 0;
-    kind, ok = write_response_head(*out, 200, .[.{ "X-A", "ok\r\nSet-Cookie: x=1" }], 0);
+    kind, ok = write_response_head(*out, 200, .[.{ name = "X-A", value = "ok\r\nSet-Cookie: x=1" }], 0);
     check(!ok && out.count == 0, "CRLF in a value");
-    kind, ok = write_response_head(*out, 200, .[.{ "X A", "ok" }], 0);
+    kind, ok = write_response_head(*out, 200, .[.{ name = "X A", value = "ok" }], 0);
     check(!ok && out.count == 0, "a bad name");
-    kind, ok = write_response_head(*out, 200, .[.{ "content-length", "3" }], 0);
+    kind, ok = write_response_head(*out, 200, .[.{ name = "content-length", value = "3" }], 0);
     check(!ok && out.count == 0, "Content-Length set by hand");
-    kind, ok = write_response_head(*out, 200, .[.{ "Transfer-Encoding", "chunked" }], 0);
+    kind, ok = write_response_head(*out, 200, .[.{ name = "Transfer-Encoding", value = "chunked" }], 0);
     check(!ok && out.count == 0, "Transfer-Encoding set by hand");
 
     // A request head, and the parser reads back what the writer wrote.
     out.count = 0;
-    kind, ok = write_request_head(*out, "POST", "/upload", .[.{ "Host", "example.com" }], 4);
+    kind, ok = write_request_head(*out, "POST", "/upload", .[.{ name = "Host", value = "example.com" }], 4);
     write_chunk(*out, "");
     check(ok && kind == .LENGTH && text_of(out) == "POST /upload HTTP/1.1\r\nHost: example.com\r\nContent-Length: 4\r\n\r\n", "request head");
 
     out.count = 0;
-    kind, ok = write_request_head(*out, "GET", "/", .[.{ "Host", "a" }], 0);
+    kind, ok = write_request_head(*out, "GET", "/", .[.{ name = "Host", value = "a" }], 0);
     check(ok && kind == .NONE && !contains(text_of(out), "Content-Length"), "a GET without a body has no length");
 
     kind, ok = write_request_head(*out, "GET", "/a b", NO_HEADERS, 0);
@@ -472,12 +472,12 @@ test_writers :: () {
 
     // Chunks.
     out.count = 0;
-    kind, ok = write_request_head(*out, "PUT", "/x", .[.{ "Host", "a" }], -1);
+    kind, ok = write_request_head(*out, "PUT", "/x", .[.{ name = "Host", value = "a" }], -1);
     check(ok && kind == .CHUNKED, "chunked request");
     write_chunk(*out, "hello");
     write_chunk(*out, "");
     write_chunk(*out, "0123456789abcdef");
-    check(write_last_chunk(*out, .[.{ "Digest", "sha-256=abc" }]), "last chunk with a trailer");
+    check(write_last_chunk(*out, .[.{ name = "Digest", value = "sha-256=abc" }]), "last chunk with a trailer");
     text := text_of(out);
 
     check(ends_with(text, "5\r\nhello\r\n10\r\n0123456789abcdef\r\n0\r\nDigest: sha-256=abc\r\n\r\n"), tprint("chunk encoding: %", text));
@@ -488,7 +488,7 @@ test_writers :: () {
     drive(d, text);
     check(d.ends == 1 && body_text(d) == "hello0123456789abcdef" && d.parser.trailers.count == 1, "the parser reads the chunks back");
 
-    check(!write_last_chunk(*out, .[.{ "Content-Length", "1" }]), "no framing in trailers");
+    check(!write_last_chunk(*out, .[.{ name = "Content-Length", value = "1" }]), "no framing in trailers");
 
     // Response to request to response, with every framing.
     for body: string.["", "x", "a longer body than before, with some length to it"] {

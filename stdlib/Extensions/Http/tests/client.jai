@@ -384,7 +384,7 @@ json_calls :: (base: string, server: *Server) {
     close(*response);
 
     // send: every part of a request.
-    response, error = send(*api, .{ method = .PUT, url = tprint("%/inspect?a=b", base), headers = .[.{ "X-Custom", "7" }, .{ "Authorization", "Bearer t" }], body = u8.[#char "h", #char "i"] });
+    response, error = send(*api, .{ method = .PUT, url = tprint("%/inspect?a=b", base), headers = .[.{ name = "X-Custom", value = "7" }, .{ name = "Authorization", value = "Bearer t" }], body = u8.[#char "h", #char "i"] });
 
     check(error.kind == .NONE && response.status == 200, "send: %", error_text(error));
 
@@ -403,13 +403,13 @@ json_calls :: (base: string, server: *Server) {
     check(header(*response, "content-length") == "10", "with the length");
     close(*response);
 
-    response, error = send(*api, .{ url = tprint("%/inspect", base), headers = .[.{ "User-Agent", "mine/1" }] });
+    response, error = send(*api, .{ url = tprint("%/inspect", base), headers = .[.{ name = "User-Agent", value = "mine/1" }] });
     text, text_error = read_text(*response);
     check(contains(text, "agent=[mine/1]"), "a User-Agent of your own: %", text);
     free(text.data);
     close(*response);
 
-    response, error = send(*api, .{ url = tprint("%/inspect", base), headers = .[.{ "Bad Header", "x" }] });
+    response, error = send(*api, .{ url = tprint("%/inspect", base), headers = .[.{ name = "Bad Header", value = "x" }] });
     check(error.kind != .NONE, "an invalid header is refused before sending");
     check(response.status == 0 && response.source == null, "the failure response has no status and no body");
     _, read_error := read_text(*response);
@@ -859,7 +859,7 @@ unread_responses :: (base: string, server: *Server) {
 }
 
 follow :: (base: string, path: string, method := Method.GET, body: [] u8 = .[]) -> Reply {
-    response, error := send(*api, .{ method = method, url = tprint("%%", base, path), body = body, headers = .[.{ "Authorization", "Bearer keep" }] });
+    response, error := send(*api, .{ method = method, url = tprint("%%", base, path), body = body, headers = .[.{ name = "Authorization", value = "Bearer keep" }] });
 
     check(error.kind == .NONE, "% %: %", method_name(method), path, error_text(error));
 

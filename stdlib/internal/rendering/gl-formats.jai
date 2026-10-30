@@ -5,143 +5,143 @@ describe_gl_format :: (tf: Texture_Format, srgb: bool) -> GL_Image_Format, bool 
     known := false;
 
     if tf == .R8 {
-        result = .{ GL.GL_R8, GL.GL_RED, GL.GL_UNSIGNED_BYTE };
+        result = .{ internal = GL.GL_R8, external = GL.GL_RED, scalar = GL.GL_UNSIGNED_BYTE };
         known = true;
     }
 
     if tf == .RG8 {
-        result = .{ GL.GL_RG8, GL.GL_RG, GL.GL_UNSIGNED_BYTE };
+        result = .{ internal = GL.GL_RG8, external = GL.GL_RG, scalar = GL.GL_UNSIGNED_BYTE };
         known = true;
     }
 
     if tf == .RGB8 {
-        result = .{ GL.GL_RGB8, GL.GL_RGB, GL.GL_UNSIGNED_BYTE };
+        result = .{ internal = GL.GL_RGB8, external = GL.GL_RGB, scalar = GL.GL_UNSIGNED_BYTE };
         known = true;
     }
 
     if tf == .RGBA8 {
-        result = .{ GL.GL_RGBA8, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE };
+        result = .{ internal = GL.GL_RGBA8, external = GL.GL_RGBA, scalar = GL.GL_UNSIGNED_BYTE };
         known = true;
     }
 
     if tf == .RGBX8 {
-        result = .{ GL.GL_RGB8, GL.GL_RGBA, GL.GL_UNSIGNED_BYTE };
+        result = .{ internal = GL.GL_RGB8, external = GL.GL_RGBA, scalar = GL.GL_UNSIGNED_BYTE };
         known = true;
     }
 
     if tf == .BGRA8 {
-        result = .{ GL.GL_RGBA8, GL.GL_BGRA, GL.GL_UNSIGNED_BYTE };
+        result = .{ internal = GL.GL_RGBA8, external = GL.GL_BGRA, scalar = GL.GL_UNSIGNED_BYTE };
         known = true;
     }
 
     if tf == .B5G6R5 {
-        result = .{ GL.GL_RGB565, GL.GL_RGB, GL.GL_UNSIGNED_SHORT_5_6_5 };
+        result = .{ internal = GL.GL_RGB565, external = GL.GL_RGB, scalar = GL.GL_UNSIGNED_SHORT_5_6_5 };
         known = true;
     }
 
     if tf == .RGB10A2 {
-        result = .{ GL.GL_RGB10_A2, GL.GL_RGBA, GL.GL_UNSIGNED_INT_2_10_10_10_REV };
+        result = .{ internal = GL.GL_RGB10_A2, external = GL.GL_RGBA, scalar = GL.GL_UNSIGNED_INT_2_10_10_10_REV };
         known = true;
     }
 
     if tf == .R16 {
-        result = .{ GL.GL_R16, GL.GL_RED, GL.GL_UNSIGNED_SHORT };
+        result = .{ internal = GL.GL_R16, external = GL.GL_RED, scalar = GL.GL_UNSIGNED_SHORT };
         known = true;
     }
 
     if tf == .R16F {
-        result = .{ GL.GL_R16F, GL.GL_RED, GL.GL_HALF_FLOAT };
+        result = .{ internal = GL.GL_R16F, external = GL.GL_RED, scalar = GL.GL_HALF_FLOAT };
         known = true;
     }
 
     if tf == .RG16F {
-        result = .{ GL.GL_RG16F, GL.GL_RG, GL.GL_HALF_FLOAT };
+        result = .{ internal = GL.GL_RG16F, external = GL.GL_RG, scalar = GL.GL_HALF_FLOAT };
         known = true;
     }
 
     if tf == .RGBA16F {
-        result = .{ GL.GL_RGBA16F, GL.GL_RGBA, GL.GL_HALF_FLOAT };
+        result = .{ internal = GL.GL_RGBA16F, external = GL.GL_RGBA, scalar = GL.GL_HALF_FLOAT };
         known = true;
     }
 
     if tf == .R32F {
-        result = .{ GL.GL_R32F, GL.GL_RED, GL.GL_FLOAT };
+        result = .{ internal = GL.GL_R32F, external = GL.GL_RED, scalar = GL.GL_FLOAT };
         known = true;
     }
 
     if tf == .RG32F {
-        result = .{ GL.GL_RG32F, GL.GL_RG, GL.GL_FLOAT };
+        result = .{ internal = GL.GL_RG32F, external = GL.GL_RG, scalar = GL.GL_FLOAT };
         known = true;
     }
 
     if tf == .RGBA32F {
-        result = .{ GL.GL_RGBA32F, GL.GL_RGBA, GL.GL_FLOAT };
+        result = .{ internal = GL.GL_RGBA32F, external = GL.GL_RGBA, scalar = GL.GL_FLOAT };
         known = true;
     }
 
     if tf == .RG11B10F {
-        result = .{ GL.GL_R11F_G11F_B10F, GL.GL_RGB, GL.GL_UNSIGNED_INT_10F_11F_11F_REV };
+        result = .{ internal = GL.GL_R11F_G11F_B10F, external = GL.GL_RGB, scalar = GL.GL_UNSIGNED_INT_10F_11F_11F_REV };
         known = true;
     }
 
     if tf == .RGB9E5F {
-        result = .{ GL.GL_RGB9_E5, GL.GL_RGB, GL.GL_UNSIGNED_INT_5_9_9_9_REV };
+        result = .{ internal = GL.GL_RGB9_E5, external = GL.GL_RGB, scalar = GL.GL_UNSIGNED_INT_5_9_9_9_REV };
         known = true;
     }
 
     if tf == .R16I {
-        result = .{ GL.GL_R16I, GL.GL_RED_INTEGER, GL.GL_SHORT };
+        result = .{ internal = GL.GL_R16I, external = GL.GL_RED_INTEGER, scalar = GL.GL_SHORT };
         known = true;
         result.integer = true;
     }
 
     if tf == .RG16I {
-        result = .{ GL.GL_RG16I, GL.GL_RG_INTEGER, GL.GL_SHORT };
+        result = .{ internal = GL.GL_RG16I, external = GL.GL_RG_INTEGER, scalar = GL.GL_SHORT };
         known = true;
         result.integer = true;
     }
 
     if tf == .RGBA16I {
-        result = .{ GL.GL_RGBA16I, GL.GL_RGBA_INTEGER, GL.GL_SHORT };
+        result = .{ internal = GL.GL_RGBA16I, external = GL.GL_RGBA_INTEGER, scalar = GL.GL_SHORT };
         known = true;
         result.integer = true;
     }
 
     if tf == .R32I {
-        result = .{ GL.GL_R32I, GL.GL_RED_INTEGER, GL.GL_INT };
+        result = .{ internal = GL.GL_R32I, external = GL.GL_RED_INTEGER, scalar = GL.GL_INT };
         known = true;
         result.integer = true;
     }
 
     if tf == .RG32I {
-        result = .{ GL.GL_RG32I, GL.GL_RG_INTEGER, GL.GL_INT };
+        result = .{ internal = GL.GL_RG32I, external = GL.GL_RG_INTEGER, scalar = GL.GL_INT };
         known = true;
         result.integer = true;
     }
 
     if tf == .RGBA32I {
-        result = .{ GL.GL_RGBA32I, GL.GL_RGBA_INTEGER, GL.GL_INT };
+        result = .{ internal = GL.GL_RGBA32I, external = GL.GL_RGBA_INTEGER, scalar = GL.GL_INT };
         known = true;
         result.integer = true;
     }
 
     if tf == .D16 {
-        result = .{ GL.GL_DEPTH_COMPONENT16, GL.GL_DEPTH_COMPONENT, GL.GL_UNSIGNED_SHORT };
+        result = .{ internal = GL.GL_DEPTH_COMPONENT16, external = GL.GL_DEPTH_COMPONENT, scalar = GL.GL_UNSIGNED_SHORT };
         known = true;
     }
 
     if tf == .D24S8 {
-        result = .{ GL.GL_DEPTH24_STENCIL8, GL.GL_DEPTH_STENCIL, GL.GL_UNSIGNED_INT_24_8 };
+        result = .{ internal = GL.GL_DEPTH24_STENCIL8, external = GL.GL_DEPTH_STENCIL, scalar = GL.GL_UNSIGNED_INT_24_8 };
         known = true;
     }
 
     if tf == .D32F {
-        result = .{ GL.GL_DEPTH_COMPONENT32F, GL.GL_DEPTH_COMPONENT, GL.GL_FLOAT };
+        result = .{ internal = GL.GL_DEPTH_COMPONENT32F, external = GL.GL_DEPTH_COMPONENT, scalar = GL.GL_FLOAT };
         known = true;
     }
 
     if tf == .D32FS8 {
-        result = .{ GL.GL_DEPTH32F_STENCIL8, GL.GL_DEPTH_STENCIL, GL.GL_FLOAT_32_UNSIGNED_INT_24_8_REV };
+        result = .{ internal = GL.GL_DEPTH32F_STENCIL8, external = GL.GL_DEPTH_STENCIL, scalar = GL.GL_FLOAT_32_UNSIGNED_INT_24_8_REV };
         known = true;
     }
 
