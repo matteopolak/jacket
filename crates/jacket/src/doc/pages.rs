@@ -539,12 +539,8 @@ fn overload_section(
     skip_lead: bool,
 ) -> String {
     let m = &site.modules[mi];
-    let many = item.overloads.len() > 1;
     let from = format!("{}.{}", m.id, item.name);
     let mut out = format!("<section id=\"o{}\" class=\"overload\">\n", n + 1);
-    if many {
-        out.push_str(&format!("<h2>Overload {}</h2>\n", n + 1));
-    }
     out.push_str(&format!(
         "<pre class=\"sig\"><code>{}</code></pre>\n",
         signature_html(site, &item.name, o, mi)
@@ -792,11 +788,12 @@ pub fn item_page(site: &Site, mi: usize, item: &Item) -> String {
         }
     }
     if matches!(item.kind, Kind::Procedure) {
+        let labels = super::site::overload_labels(item);
         for (n, o) in item.overloads.iter().enumerate() {
             let skip_lead = n == 0 && !lead_owner_is_item;
             main.push_str(&overload_section(site, mi, item, n, o, skip_lead));
             if item.overloads.len() > 1 {
-                anchors.push((format!("o{}", n + 1), format!("Overload {}", n + 1)));
+                anchors.push((format!("o{}", n + 1), labels[n].clone()));
             }
         }
     } else {

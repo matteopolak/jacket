@@ -186,7 +186,6 @@ h2:hover .anchor, h3:hover .anchor, .anchor:focus-visible { opacity: 1; }
 
 /* Item pages */
 .overload { --px: 24px; --py: 22px; overflow: hidden; margin: 0 0 18px; padding: var(--py) var(--px); border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
-.overload > h2 { margin: 0 0 12px; font-size: 16px; font-weight: 600; color: var(--fg2); }
 /* An example in a card is a band across it, flush with the card's edges; at the bottom it is the card's floor. */
 .row .ex, .overload .ex { margin: 20px calc(-1 * var(--px)); border-width: 1px 0; border-radius: 0; }
 .row .ex:last-child, .overload .ex:last-child { margin-bottom: calc(-1 * var(--py)); border-bottom-width: 0; }

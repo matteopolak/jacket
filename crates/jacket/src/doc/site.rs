@@ -320,6 +320,45 @@ pub fn signature_plain(o: &Overload) -> String {
     }
 }
 
+/// What names each overload of `item` in the page outline: its parameters, `(s: string, n: int)`;
+/// with the results when two overloads take the same parameters, and `Overload 2` when even
+/// those match.
+pub fn overload_labels(item: &super::model::Item) -> Vec<String> {
+    let clip = |text: String| -> String {
+        if text.chars().count() <= 48 {
+            return text;
+        }
+        let cut: String = text.chars().take(45).collect();
+        format!("{cut}...")
+    };
+    let params: Vec<String> = item
+        .overloads
+        .iter()
+        .map(|o| {
+            let list = o
+                .params
+                .iter()
+                .map(param_text)
+                .collect::<Vec<_>>()
+                .join(", ");
+            format!("({list})")
+        })
+        .collect();
+    let full: Vec<String> = item.overloads.iter().map(signature_plain).collect();
+    (0..params.len())
+        .map(|i| {
+            let count = |list: &[String]| list.iter().filter(|p| **p == list[i]).count();
+            if count(&params) == 1 {
+                clip(params[i].clone())
+            } else if count(&full) == 1 {
+                clip(full[i].clone())
+            } else {
+                format!("Overload {}", i + 1)
+            }
+        })
+        .collect()
+}
+
 /// `(s: string, n := 1) -> bool` as HTML, for a list: the parameters on one line, the types
 /// linked, wrapping at spaces when the line is too long for its card.
 pub fn signature_line_html(site: &Site, o: &Overload, here: usize) -> String {
