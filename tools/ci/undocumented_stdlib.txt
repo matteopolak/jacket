@@ -2949,10 +2949,6 @@ Sloppy_Math.is_approximately_zero
 Sloppy_Math.max_of_type
 Sloppy_Math.min_of_type
 Sloppy_Math.values_are_close
-Soa
-Soa.Soa
-Soa.example
-Soa.for_expansion
 Socket
 Socket.CMSG_ALIGN
 Socket.CMSG_DATA
