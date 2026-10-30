@@ -125,7 +125,7 @@ impl Compiler {
 
     /// The names of the namespaced imports (`Name :: #import "M"`) in reach of `scope`, with the
     /// modules they bind, innermost first.
-    fn namespace_aliases(&mut self, scope: ScopeId) -> Vec<(Sym, ModuleId)> {
+    pub(in crate::sema) fn namespace_aliases(&mut self, scope: ScopeId) -> Vec<(Sym, ModuleId)> {
         let mut found = Vec::new();
         let mut current = Some(scope);
         while let Some(sid) = current {
@@ -151,7 +151,7 @@ impl Compiler {
         found
     }
 
-    fn module_name(&self, module: ModuleId) -> Option<String> {
+    pub(in crate::sema) fn module_name(&self, module: ModuleId) -> Option<String> {
         let name = &self.ns.modules[module.0 as usize].name;
         let mut chars = name.chars();
         let ident = chars.next().is_some_and(|c| c.is_alphabetic() || c == '_')
@@ -238,6 +238,42 @@ impl Compiler {
                 d = d.with_help(format!("call it as `{q}.operator {text}(..)`"));
             }
             d = d.with_help(format!("or add `using {q};` to this scope"));
+        }
+        self.warn(d);
+    }
+
+    /// Warn that `for` found the `for_expansion` of `ty` through the module of the type
+    /// (`home`, the scope that declares it) because the import that names that module is a
+    /// namespace (`HT :: #import "Hash_Table"`), which does not bring `for_expansion` into scope.
+    pub(in crate::sema) fn warn_lenient_for_expansion(
+        &mut self,
+        scope: ScopeId,
+        span: Span,
+        ty: TypeId,
+        home: ScopeId,
+    ) {
+        let home_module = self.scope(home).module;
+        let name = self.ty.types.name(ty);
+        let Some(d) = self.leniency_warning(
+            self.scope(scope).module,
+            span,
+            Leniency::NamespacedForExpansion,
+            format!("`for_expansion` is not in scope here: using the one declared with `{name}`"),
+        ) else {
+            return;
+        };
+        let mut d = d.with_label("found through the type's module");
+        let alias = self
+            .namespace_aliases(scope)
+            .into_iter()
+            .find(|&(_, m)| m == home_module)
+            .map(|(alias, _)| alias.as_str().to_string());
+        if let Some(alias) = alias {
+            d = d.with_help(format!("add `using {alias};` to this scope"));
+        } else if let Some(module) = self.module_name(home_module) {
+            d = d.with_help(format!(
+                "import the module without a name (`#import \"{module}\";`) so its `for_expansion` is in scope"
+            ));
         }
         self.warn(d);
     }

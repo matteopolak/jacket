@@ -791,6 +791,9 @@ impl Compiler {
                     && let Some(home) = self.ty.struct_home_scope(collection.ty())
                 {
                     ids = self.lookup(home, macro_name)?;
+                    if !ids.is_empty() {
+                        self.warn_lenient_for_expansion(scope, span, collection.ty(), home);
+                    }
                 }
                 for id in ids {
                     if let Resolved::Proc(p) = self.resolve_entity(id)? {
