@@ -204,6 +204,8 @@ def main():
             [
                 sys.executable,
                 snapshot / "tools/native_bindings/generate_appkit.py",
+                "--formatter",
+                args.formatter,
                 "--output",
                 generated,
             ],

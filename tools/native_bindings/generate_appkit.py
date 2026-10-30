@@ -5,14 +5,19 @@ comes from Apple's public NSView header. Reviewed native-void/public-id
 operations dispatch as void and return the explicitly unspecified null slot.
 """
 
-import argparse
 import re
 from pathlib import Path
+from generators.jai_codegen import emit_generated, generator_parser, write_or_check
 from native.provided_libs import EXTERNAL
 from toolkit.repo import ROOT
 
 SPEC = ROOT / "docs/specs/stdlib/modules/appkit.md"
 OUT = ROOT / "stdlib/Objective_C/AppKit/generated.jai"
+OUTPUTS = [
+    "stdlib/Objective_C/AppKit/generated.jai",
+    "stdlib/Objective_C/AppKit/module.jai",
+]
+FORMATTED = True
 VOID_RESULT = {
     ("NSApplication", n) for n in ("setDelegate", "finishLaunching", "setMainMenu")
 }
@@ -157,9 +162,9 @@ def render_manual_aliases(spec, source):
     return source
 
 
-def generate(output):
+def render_generated():
     spec = SPEC.read_text()
-    out = "// Generated from reviewed appkit.md by generate_appkit.py.\n\n"
+    out = "// AppKit declarations; the hand-written API is in module.jai.\n\n"
     for name, value in re.findall(
         r"`(NSOpenGL\w+): NSOpenGLPixelFormatAttribute: ([\dxabcdef]+)`", spec
     ):
@@ -313,7 +318,7 @@ binding_selector :: (name: *u8) -> O.Selector #foreign libobjc "sel_registerName
 binding_send :: () #foreign libobjc "objc_msgSend";
 #if CPU == .X64 binding_send_stret :: () #foreign libobjc "objc_msgSend_stret";
 """
-    output.write_text(out)
+    return out
 
 
 def public_inventory():
@@ -457,8 +462,8 @@ def public_inventory():
     return rows
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=__doc__)
+def main():
+    parser = generator_parser(__doc__.split("\n")[0])
     parser.add_argument("--output", type=Path, default=OUT)
     parser.add_argument(
         "--module-output",
@@ -466,13 +471,19 @@ if __name__ == "__main__":
         help="Emit reviewed aliases in the authored facade; external output leaves inputs unchanged",
     )
     args = parser.parse_args()
-    generate(args.output)
+    emit_generated(args.output, render_generated(), args.formatter, args.check)
     module_output = args.module_output
     if module_output is None and args.output == OUT:
         module_output = OUT.parent / "module.jai"
     if module_output is not None:
-        module_output.write_text(
+        write_or_check(
+            module_output,
             render_manual_aliases(
                 SPEC.read_text(), (OUT.parent / "module.jai").read_text()
-            )
+            ),
+            args.check,
         )
+
+
+if __name__ == "__main__":
+    main()

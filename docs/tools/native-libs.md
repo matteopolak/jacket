@@ -58,7 +58,7 @@ native_runtime :: #library "crash-native/platform_io_windows_crash"; @native(run
 | `developer` | built by the developer checks (`tools/developer_checks`) next to their sources (`developer_tools_check`, `developer_tools_debug`, `clang`) | none |
 | `external` | the operating system's, the SDK's or the user's (system and Apple frameworks, X11, libcurl, GPU APIs, Android, NVIDIA SDKs) | none |
 
-Files written by a generator (`tools/native_bindings/generate.py`, `generate_appkit.py`, `tools/generators/generate_socket_abi.py`, `tools/developer_checks/generate_developer_binding_model.py`) get their notes from the generator, through `note`, `EXTERNAL`, `DEVELOPER` and `external_note` in `tools/native/provided_libs.py`; never add a note to such a file by hand. `external_note` leaves the note off a library `native-libs.json` builds.
+Files written by a generator (`tools/native_bindings/generate.py`, `generate_appkit.py`, `tools/generators/generate_socket_abi.py`, `tools/developer_checks/generate_developer_binding_model.py`) get their notes from the generator, through `note`, `EXTERNAL`, `DEVELOPER` and `external_note` in `tools/native/provided_libs.py`; never add a note to such a file by hand. `tools/generators/check_generated.py` runs `generate_appkit.py --check`, so `stdlib/Objective_C/AppKit/generated.jai` and `module.jai` must match its output. `external_note` leaves the note off a library `native-libs.json` builds.
 
 The recipe of a `fetched`, `runtime` or `packaged` library is its entry in `RECIPES` in `tools/native/provided_libs.py`: a `script` and its `args`, which may use `{platform}`, `{cpu}`, `{stdlib}`, `{out}` and `{llvm_prefix}`. `package_native_libs.py --dry-run` prints the commands for a platform. A note without a recipe fails the check.
 
