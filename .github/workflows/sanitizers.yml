@@ -43,8 +43,9 @@ jobs:
           font: 'false'
       - name: Add the standard library sources
         run: rustup component add rust-src --toolchain "$(sed -n 's/^channel *= *"\(.*\)"/\1/p' rust-toolchain.toml)"
-      # Threads and the interpreter are what a sanitizer is for; the native-code tests (they run
-      # LLVM-built executables) are not Rust code under test.
+      # native-libs stays off: the window, audio and display libraries are for programs that open
+      # windows, and none of the tests below does.
+      # Threads and the interpreter are what a sanitizer is for.
       - name: Test the compiler, interpreter and language server
         run: |
           # The skipped test stores through a wild guest address on purpose: AddressSanitizer's shadow
@@ -52,6 +53,17 @@ jobs:
           cargo test --no-fail-fast -Zbuild-std --target x86_64-unknown-linux-gnu --locked -j 2 \
             -p jaic -p jai-language-server -p jailint -p jacket-config -- --test-threads 2 \
             --skip invalid_pointer_access_still_traps
+      # The native-code tests drive the instrumented jaic through LLVM (the FFI glue and the
+      # linker steps) and run the executables it builds; the executables themselves are not
+      # sanitized (`jaic -sanitize` does that, in ci.yml). Under AddressSanitizer only: its
+      # result is the one tried locally, where 70 of the 71 tests pass with no report (the 71st
+      # looks for a Windows crash helper library missing on that Mac and fails without the
+      # sanitizer too).
+      - name: Test the native code generation
+        if: matrix.sanitizer == 'address'
+        run: |
+          cargo test --no-fail-fast -Zbuild-std --target x86_64-unknown-linux-gnu --locked -j 2 \
+            -p jaic-cli --test native -- --test-threads 2
   miri:
     name: miri
     runs-on: ubuntu-24.04

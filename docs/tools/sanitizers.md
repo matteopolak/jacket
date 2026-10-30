@@ -11,6 +11,7 @@ The compiler's own Rust code under AddressSanitizer, ThreadSanitizer and Miri. T
 | Job | Runs |
 | --- | --- |
 | `address`, `thread` | `cargo test -Zbuild-std --target x86_64-unknown-linux-gnu` for `jaic`, `jai-language-server`, `jailint` and `jacket-config` with `RUSTFLAGS=-Zsanitizer=...` on the pinned nightly. `-Zbuild-std` instruments the standard library too; without it the sanitizer misses allocations and locks made there. |
+| `address` (second step) | the same command for `jaic-cli --test native`: the native-code tests, which run the instrumented `jaic` through LLVM and link and run what it builds. The built programs are not sanitized themselves (that is `jaic -sanitize`) |
 | `miri` | `tools/ci/run_miri.py`: `cargo miri test -p jaic --lib` on the modules in its `RUN` list |
 
 ThreadSanitizer matters for the parallel parse (`jaic::pool`), the interpreter's threads (`interp::threads`) and the language server's worker. The interpreter dereferences the interpreted program's pointers, and a test of a wild pointer faults on purpose for jaic's own handler to catch; `handle_segv=0` keeps AddressSanitizer from taking that signal, and the one test that stores through a wild address (`invalid_pointer_access_still_traps...`) is skipped, since AddressSanitizer's own shadow check of the store faults first. The job runs with `--no-fail-fast` so one crashing test binary does not hide the rest.
