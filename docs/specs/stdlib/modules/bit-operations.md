@@ -16,4 +16,4 @@ No public aggregate fields or enum members were identified.
 
 ## Behavioral contract and constraints
 
-`byte_swap` returns a byte-reversed value and `byte_swap_in_place` mutates it. Forward and reverse bit scans return one plus the matching bit index, or zero for zero input; `popcount` returns the number of set bits. These are generic over supported integer widths. The module uses x64 instructions where available and a generic fallback elsewhere; no performance guarantee is part of the API.
+`byte_swap` returns a byte-reversed value and `byte_swap_in_place` mutates it. Forward and reverse bit scans return one plus the matching bit index, or zero for zero input; `popcount` returns the number of set bits. These are generic over supported integer widths. Only the `size_of(T)` bytes of the value are examined (a negative signed integer is scanned as its two's-complement bits). The implementation is a portable loop on every platform, so no performance guarantee is part of the API.

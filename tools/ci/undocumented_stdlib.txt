@@ -646,12 +646,6 @@ Bindings_Generator.try_find_struct_in_type
 Bindings_Generator.type_has_name
 Bindings_Generator.type_to_string
 Bindings_Generator.visit_declarations
-Bit_Operations
-Bit_Operations.bit_scan_forward
-Bit_Operations.bit_scan_reverse
-Bit_Operations.byte_swap
-Bit_Operations.byte_swap_in_place
-Bit_Operations.popcount
 BuildCpp
 BuildCpp.Build_Type
 BuildCpp.build_cpp
