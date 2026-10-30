@@ -1,9 +1,8 @@
-// test: needs(.DISPLAY) serial
+// test: skip_on(.WASM, reason = "Clipboard supports only macOS, Windows and Linux/X11") needs(.DISPLAY) serial
 // Clipboard: text set on the system clipboard comes back unchanged (ASCII, UTF-8, empty), emptying
 // it leaves no text, and a bitmap can be published. The program's previous clipboard text is put
 // back at the end. On Linux the clipboard goes through wl-copy/wl-paste or xclip; without either
 // helper (or without a display) nothing can be stored, and the calls must still return cleanly.
-// The browser build keeps the clipboard in memory.
 #import "Basic";
 #import "Clipboard";
 
