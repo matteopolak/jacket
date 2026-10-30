@@ -28,6 +28,9 @@ class Matching(unittest.TestCase):
             "crates/jaic/src/target.rs",
             "crates/jaic/src/ir/lower.rs",
             "stdlib/Basic/module.jai",
+            "stdlib/Math/module.jai",
+            "crates/jaic/src/msvc.rs",
+            "crates/jacket/src/main.rs",
             "stdlib/POSIX/declarations.jai",
             "stdlib/internal/runtime/x.jai",
         ]:
@@ -35,6 +38,11 @@ class Matching(unittest.TestCase):
                 self.assertTrue(
                     ci_changes.matches(ci_changes.AREAS["windows"], [path], False)
                 )
+
+    def test_a_stdlib_math_change_selects_windows_stdlib(self):
+        areas = ci_changes.AREAS
+        results = {a: ci_changes.matches(p, ["stdlib/Math/module.jai"], False) for a, p in areas.items()}
+        self.assertIn("windows-stdlib", ci_changes.selected_jobs(results | {"code": True}, ""))
 
     def test_globs(self):
         self.assertTrue(
