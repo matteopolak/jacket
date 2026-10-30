@@ -39,7 +39,8 @@ impl Hasher for FxHasher {
         if !rest.is_empty() {
             let mut word = [0u8; 8];
             word[..rest.len()].copy_from_slice(rest);
-            self.add(u64::from_le_bytes(word));
+            // The tail's length goes in the top byte so `b"ab"` and `b"ab\0"` differ.
+            self.add(u64::from_le_bytes(word) ^ ((rest.len() as u64) << 56));
         }
     }
 
@@ -71,5 +72,26 @@ impl Hasher for FxHasher {
     #[inline]
     fn finish(&self) -> u64 {
         self.hash
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::FxHasher;
+    use std::hash::{Hash, Hasher};
+
+    fn of(text: &str) -> u64 {
+        let mut h = FxHasher::default();
+        text.hash(&mut h);
+        h.finish()
+    }
+
+    #[test]
+    fn different_texts_hash_differently() {
+        assert_ne!(of("a"), of("b"));
+        assert_ne!(of("abcdefgh"), of("abcdefgi"));
+        assert_ne!(of(""), of("\0"));
+        assert_ne!(of("ab"), of("ab\0"));
+        assert_eq!(of("same text"), of("same text"));
     }
 }

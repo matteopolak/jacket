@@ -11,7 +11,6 @@ mod doc_view;
 pub(crate) use jaic::docs;
 mod document;
 mod exports;
-mod fast_hash;
 pub(crate) mod features;
 pub(crate) mod format;
 pub mod framing;

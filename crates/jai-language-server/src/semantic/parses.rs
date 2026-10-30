@@ -18,7 +18,7 @@ pub(super) const PARSES_KEPT: usize = 1024;
 
 pub(crate) fn text_key(text: &str) -> (u64, usize) {
     use std::hash::{Hash, Hasher};
-    let mut h = crate::fast_hash::FastHasher::default();
+    let mut h = jaic::fxhash::FxHasher::default();
     text.hash(&mut h);
     (h.finish(), text.len())
 }

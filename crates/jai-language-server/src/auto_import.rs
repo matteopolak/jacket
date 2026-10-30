@@ -305,7 +305,7 @@ fn memo_key(keys: &jaic::paths::CanonCache, env: &Environment, path: &Path) -> P
 
 pub(crate) fn hash(text: &str) -> u64 {
     use std::hash::{Hash, Hasher};
-    let mut h = crate::fast_hash::FastHasher::default();
+    let mut h = jaic::fxhash::FxHasher::default();
     text.hash(&mut h);
     h.finish()
 }

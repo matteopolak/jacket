@@ -57,7 +57,7 @@ pub struct SemanticPath {
 impl SemanticPath {
     fn observed(path: PathBuf) -> Self {
         use std::hash::{Hash, Hasher};
-        let mut hash = crate::fast_hash::FastHasher::default();
+        let mut hash = jaic::fxhash::FxHasher::default();
         "semantic-path".hash(&mut hash);
         path.hash(&mut hash);
         Self {
@@ -92,7 +92,7 @@ pub struct SemanticAnalysisContext {
 /// A hash of a buffer's bytes, to tell later whether it changed.
 pub(crate) fn text_hash(bytes: &[u8]) -> u64 {
     use std::hash::Hasher;
-    let mut h = crate::fast_hash::FastHasher::default();
+    let mut h = jaic::fxhash::FxHasher::default();
     h.write(bytes);
     h.finish()
 }

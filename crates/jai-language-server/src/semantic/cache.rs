@@ -90,7 +90,7 @@ pub(super) fn hash(
     os: Option<TargetOs>,
 ) -> u64 {
     use std::hash::{Hash, Hasher};
-    let mut h = crate::fast_hash::FastHasher::default();
+    let mut h = jaic::fxhash::FxHasher::default();
     format!("{os:?}").hash(&mut h);
     root.hash(&mut h);
     dirs.hash(&mut h);
@@ -102,7 +102,7 @@ pub(super) fn hash(
 /// the very same map (or one at the same address, which `Analysis::quick` keeps alive).
 fn quick_key(root: &Path, dirs: &[PathBuf], files: &Buffers, os: Option<TargetOs>) -> u64 {
     use std::hash::{Hash, Hasher};
-    let mut h = crate::fast_hash::FastHasher::default();
+    let mut h = jaic::fxhash::FxHasher::default();
     os.map(|os| os as u8).hash(&mut h);
     h.write(root.as_os_str().as_encoded_bytes());
     for dir in dirs {
