@@ -988,8 +988,10 @@ fn msvc_c_runtime_variables_are_dllimport() {
          k32 :: #system_library \"kernel32\";\n\
          _fmode: s32 #elsewhere crt;\n\
          other_data: s32 #elsewhere k32;\n\
+         libc :: #system_library \"libc\";\n\
+         _HUGE: float64 #elsewhere libc;\n\
          sqrt :: (x: float64) -> float64 #foreign crt;\n\
-         main :: () {\n    x := _fmode + other_data;\n    y := sqrt(2);\n}\n",
+         main :: () {\n    x := _fmode + other_data;\n    y := sqrt(2) + _HUGE;\n}\n",
     )
     .unwrap();
     let emit = |target: &str| {
@@ -1014,6 +1016,7 @@ fn msvc_c_runtime_variables_are_dllimport() {
             ir.contains("@other_data = external dllimport global"),
             "{target}: {ir}"
         );
+        assert!(ir.contains("@_HUGE = external global"), "{target}: {ir}");
         assert!(
             ir.contains("declare double @sqrt(double)"),
             "{target}: {ir}"

@@ -166,14 +166,27 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             let g = self.module.add_global(self.ctx.i8_type(), None, symbol);
             g.set_linkage(Linkage::External);
             // A Windows DLL exports a variable only as `__imp_<name>`, a pointer to it:
-            // import libraries define no `<name>` for data. System libraries are DLLs there,
-            // and so is the C runtime on MSVC (every MSVC link uses the DLL runtime, see
-            // `link`); MinGW links its C runtime statically.
+            // import libraries define no `<name>` for data. System libraries are DLLs there.
+            // The C runtime is a DLL on MSVC too (see `link`), but only a library named for
+            // the DLL runtime (`ucrt`) promises its data comes from the DLL: the generic names
+            // (`libc`, `msvcrt`) also reach `msvcrt.lib`, which defines some data (`_HUGE`)
+            // statically, and a `dllimport` reference to that cannot link. MinGW links its C
+            // runtime statically.
             let msvc = matches!(self.target.abi, jaic::target::TargetAbi::Msvc);
             let dll = foreign
                 .library
                 .and_then(|l| self.program.libraries.get(l))
-                .is_some_and(|l| l.system && (msvc || !crate::is_windows_c_runtime(&l.name)));
+                .is_some_and(|l| {
+                    l.system
+                        && if crate::is_windows_c_runtime(&l.name) {
+                            msvc && matches!(
+                                l.name.to_ascii_lowercase().as_str(),
+                                "ucrt" | "ucrtbase"
+                            )
+                        } else {
+                            true
+                        }
+                });
             if self.arch.is_windows() && dll {
                 g.set_dll_storage_class(DLLStorageClass::Import);
             }
