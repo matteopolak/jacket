@@ -68,6 +68,9 @@
   var loading = null;
   var hits = [];
   var picked = -1;
+  var typeNames = {};
+  var BUILTIN = {};
+  'int float float32 float64 bool string void Type Any s8 s16 s32 s64 u8 u16 u32 u64 s128 u128 code Code'.split(' ').forEach(function (n) { BUILTIN[n] = true; });
 
   function kindOf(it) { return it.kind === 'proc' ? 'proc' : it.kind === 'const' ? 'const' : it.kind === 'module' ? 'mod' : 'type'; }
   function hrefOf(it) {
@@ -77,6 +80,7 @@
   function load() {
     if (!loading) {
       loading = fetch(base + 'search-index.json').then(function (r) { return r.json(); }).then(function (d) {
+        d.items.forEach(function (r) { if (r[2] === 'type') typeNames[r[1]] = true; });
         items = d.items.map(function (r) {
           var module = d.modules[r[0]];
           var title = module.split('/').pop();
@@ -153,6 +157,29 @@
     if (text !== undefined) e.textContent = text;
     return e;
   }
+  // A procedure's signature coloured like the one on its page: parameter names, and the types
+  // (builtin ones and the library's own). The result is itself a link, so the types are not.
+  function sigNodes(it) {
+    var out = document.createDocumentFragment();
+    var text = it.sig;
+    if (it.kind !== 'proc') { out.appendChild(document.createTextNode(text)); return out; }
+    var re = /"(?:[^"\\]|\\.)*"|[A-Za-z_][A-Za-z0-9_]*|\s+|[\s\S]/g;
+    var m, prev = '', plain = '';
+    function flush() { if (plain) { out.appendChild(document.createTextNode(plain)); plain = ''; } }
+    while ((m = re.exec(text))) {
+      var t = m[0];
+      if (/^[A-Za-z_]/.test(t) && prev !== '.') {
+        var named = /^\s*:/.test(text.slice(re.lastIndex)) && (prev === '(' || prev === ',' || prev === '$');
+        var cls = named ? 'pname' : (BUILTIN[t] || typeNames[t]) ? 'ty' : '';
+        if (cls) { flush(); out.appendChild(el('span', cls, t)); } else plain += t;
+      } else {
+        plain += t;
+      }
+      if (!/^\s+$/.test(t)) prev = t;
+    }
+    flush();
+    return out;
+  }
   function show() {
     box.textContent = '';
     if (!hits.length) {
@@ -166,7 +193,9 @@
       a.setAttribute('aria-selected', i === picked ? 'true' : 'false');
       a.appendChild(el('span', 'kind', kindOf(it)));
       a.appendChild(el('code', 'path', it.kind === 'module' ? it.title : it.title + '.' + it.name));
-      a.appendChild(el('span', 'sig', it.sig));
+      var sig = el('span', 'sig');
+      sig.appendChild(sigNodes(it));
+      a.appendChild(sig);
       box.appendChild(a);
     });
     var tips = el('div', 'tips');
