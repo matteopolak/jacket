@@ -12,6 +12,27 @@
 // elements bucket by bucket, slot by slot, which is insertion order only until something has been removed.
 // With `always_iterate_by_pointer` set, `it` is a pointer to the element even without `for *`.
 //
+// **Looping.** `for value: array` visits the live elements. A second name, as in `for value, index: array`, is the *index*:
+// how many elements were visited before this one (`0`, `1`, `2`, ...), free slots skipped. It is not a `Bucket_Locator`
+// and not a slot number, so do not hand it to `array[n]` or `bucket_array_find` once anything has been removed; keep the
+// locator that `bucket_array_add` returned for that. To delete the element you are on, write `remove value;` (the name of
+// the loop variable, `it` when you gave none) inside the loop. The loop carries on with the next element, and it needs no
+// locator.
+//
+// ```jai
+// array: Bucket_Array(int, 4);
+// for 10..14 bucket_array_add(*array, it);
+//
+// for value, index: array {
+//     assert(value == 10 + index); // counts the elements visited, removed ones too
+//     if value == 11 || value == 13 remove value;
+// }
+//
+// assert(array.count == 3);
+// for value, index: array assert(value == 10 + 2 * index); // 10, 12, 14: numbered afresh
+// bucket_array_reset(*array);
+// ```
+//
 // `array[n]` is the element in the slot numbered `n` (`*array[n]` is its address), counted as
 // `bucket * items_per_bucket + slot`; it fails an assert on a free slot, so after removals it is not the n-th live element.
 //
@@ -77,7 +98,8 @@ bucket_array_find_pointer :: Impl.bucket_array_find_pointer;
 // Removes the element at `locator`, freeing its slot for a later add. Fails an assert when the locator names a free or invalid slot.
 //
 // The memory of the bucket is kept, and the element is not destroyed or cleared. No other element moves.
-// Removing during a `for` loop is done with `remove it;`.
+// To remove while looping, write `remove value;` in the `for` loop, with `value` the loop's variable (`it` by default),
+// instead of calling this with a locator.
 //
 // ```jai
 // array: Bucket_Array(int, 2);
@@ -96,11 +118,24 @@ bucket_array_remove :: Impl.bucket_array_remove;
 find_and_occupy_empty_slot :: Impl.find_and_occupy_empty_slot;
 // Lets a `Bucket_Array` be used in a `for` loop over its live elements, in bucket and slot order; `it_index` numbers the elements visited, `0`, `1`, `2`, ... with free slots skipped.
 //
-// `it_index` is a visit count, not a slot number: after a removal it no longer matches what `array[n]`
-// accepts. Keep the `Bucket_Locator` from `bucket_array_add` when you need to address an element.
+// `it_index`, the second name in `for value, index: array`, is a visit count, not a slot number and not a
+// `Bucket_Locator`: after a removal it no longer matches what `array[n]` accepts. Keep the `Bucket_Locator` from
+// `bucket_array_add` when you need to address an element.
 //
-// `for *` gives pointers, `for <` goes backwards, and `remove it;` deletes the current element (as
-// `bucket_array_remove`). Adding while iterating may or may not visit the new element.
+// `for *` gives pointers, `for <` goes backwards, and `remove value;` (with `value` the loop's variable, `it` by default)
+// deletes the current element, as `bucket_array_remove` would. Adding while iterating may or may not visit the new element.
+//
+// ```jai
+// array: Bucket_Array(string, 2);
+// for string.["a", "b", "c"] bucket_array_add(*array, it);
+//
+// for name, index: array {
+//     if name == "b" remove name;
+// }
+// assert(array.count == 2);
+// for name, index: array assert(name == ifx index == 0 then "a" else "c");
+// bucket_array_reset(*array);
+// ```
 for_expansion :: Impl.for_expansion;
 
 using,only(.["*[]"]) #import "internal/collections/bucket-array";

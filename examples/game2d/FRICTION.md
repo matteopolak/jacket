@@ -9,11 +9,11 @@ Rough edges hit while writing game2d. Fixed ones name the commit subject; open o
 
 ## Fixed later
 
+- Fixed by "docs(bucket-array): explain the loop index and remove": the module page and `for_expansion` say the second `for` name is an index, not a locator, and show `remove value;` in running examples.
 - Fixed by "fix(thread): say how to wait in the thread_deinit failure": `thread_deinit` on a running thread now tells the caller to wait with `thread_is_done(*thread, -1)` first.
 
 ## Open
 
-- API docs: `Bucket_Array` `for` gives an index, not a locator; `remove;` is the way to delete during iteration, and it is not documented where users look.
 - Diagnostics: `cast(u16) x << 8` parses as the cast of the shifted value; the jailint shift-overflow lint caught it, the compiler did not warn.
 - LibreSSL's default EC self-signed certificates (explicit parameters) are rejected by the mbedTLS build ("PK - Invalid key tag or value"); the smoke script generates RSA ones. Repro: `openssl ecparam`-less `openssl req -x509 -newkey ec` on macOS, then `--tls-cert`.
 - Sound_Player keeps pointers into decoded sound data, so a hot-reloaded sound can never be freed; reloads leak by design.
