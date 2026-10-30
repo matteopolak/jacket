@@ -580,6 +580,16 @@ impl Compiler {
         value: &ast::Expr,
         span: Span,
     ) -> Result<()> {
+        // `_ = value;` evaluates the value and drops it, as `_` does among several targets.
+        if let E::Ident(name) = &target.kind
+            && name.as_str() == "_"
+        {
+            let operand = self.check_expr(f, scope, value, None)?;
+            if !matches!(operand, Operand::Const { .. } | Operand::Void) {
+                self.rvalue(f, operand, value.span)?;
+            }
+            return Ok(());
+        }
         let place = self.check_target(f, scope, target)?.without_callable();
         let Operand::Place {
             ty,
