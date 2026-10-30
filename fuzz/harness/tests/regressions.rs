@@ -117,7 +117,7 @@ fn unanswerable_provide_import_ends() {
     let source = std::fs::read(path).expect("read regression input");
     let files = std::collections::BTreeMap::from([("main.jai".to_string(), source)]);
     let options = jai_wasm::play::PlayOptions {
-        budget: Some(jai_fuzz_harness::BLOCK_BUDGET),
+        budget: Some(jai_fuzz_harness::STEP_BUDGET),
         compile_only: true,
         styled: false,
     };

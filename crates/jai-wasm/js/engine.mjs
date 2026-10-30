@@ -151,7 +151,7 @@ export async function createEngine(wasmBytes, { host, assets } = {}) {
   return {
     // `files` maps each workspace path to its contents, as text or a Uint8Array of bytes.
     // Result: { exitCode, stdout, stderr, output: [{ stream: "stdout" | "stderr", text }], rendered, diagnostics }.
-    // `budget` bounds the interpreter (basic blocks, rounded up to thousands); a runaway program then
+    // `budget` bounds the interpreter (interpreter steps, rounded up to thousands); a runaway program then
     // fails with "execution budget exhausted" instead of hanging the worker. `args` is the program's
     // argv and `stdin` its whole input (see `prepare`).
     play(files, main, options = {}) {

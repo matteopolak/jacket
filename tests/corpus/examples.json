@@ -1,5 +1,5 @@
 {
-  "comment": "Example workspaces, one folder each under examples/. `tools/differential/jaic_sweep.py examples` runs every case natively with its `args` (`mode: check` only compiles it; `exit_code` is the status a program is expected to return), and tools/browser/check_scripting_wasm.mjs and tools/browser/check_browser_release.mjs run the bundled ones in the wasm engine under `budget` basic blocks, the hosted playground's limit. Each line of stdout_contains must appear in stdout; stdout_excludes must not. A case with `bundle: true` is listed in the browser bundle's examples.json, in this order, with its `title` and one-sentence `summary`: tools/browser/build_scripting_wasm.py copies its directory to <id>/ together with examples/jacket.toml (docs/browser/playground.md). Every folder of examples/ needs a case.",
+  "comment": "Example workspaces, one folder each under examples/. `tools/differential/jaic_sweep.py examples` runs every case natively with its `args` (`mode: check` only compiles it; `exit_code` is the status a program is expected to return), and tools/browser/check_scripting_wasm.mjs and tools/browser/check_browser_release.mjs run the bundled ones in the wasm engine under `budget` interpreter steps, the hosted playground's limit. Each line of stdout_contains must appear in stdout; stdout_excludes must not. A case with `bundle: true` is listed in the browser bundle's examples.json, in this order, with its `title` and one-sentence `summary`: tools/browser/build_scripting_wasm.py copies its directory to <id>/ together with examples/jacket.toml (docs/browser/playground.md). Every folder of examples/ needs a case.",
   "cases": [
     {
       "id": "basics",
@@ -12,7 +12,7 @@
         "-os",
         "wasm"
       ],
-      "budget": 200000000,
+      "budget": 66000000,
       "stdout_contains": [
         " Structs, using and unions",
         " Enums and flags",
@@ -34,7 +34,7 @@
         "-os",
         "wasm"
       ],
-      "budget": 200000000,
+      "budget": 66000000,
       "stdout_contains": [
         " Strings and formatting",
         "primes below 60 (17): [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59]",
@@ -55,7 +55,7 @@
         "-os",
         "wasm"
       ],
-      "budget": 200000000,
+      "budget": 66000000,
       "stdout_contains": [
         "  ...and deferred 1 runs last.",
         "A hand-made linked list: 25 16 9 4 1 ",
@@ -76,7 +76,7 @@
         "-os",
         "wasm"
       ],
-      "budget": 200000000,
+      "budget": 66000000,
       "stdout_contains": [
         "  ring of 3 string (holds 3 of 3): three four five",
         "u8 total: 600 (an s64), float total: 0.75 (a float32)",
@@ -94,7 +94,7 @@
         "-os",
         "wasm"
       ],
-      "budget": 200000000,
+      "budget": 66000000,
       "stdout_contains": [
         " Macros and custom loops",
         " Reflection",
@@ -124,7 +124,7 @@
         "-os",
         "wasm"
       ],
-      "budget": 200000000,
+      "budget": 66000000,
       "stdout_contains": [
         "cast,trunc(u8) 300 = 44, cast,no_check(u8) 300 = 44",
         "A view of 2 numbers, read past its end with #no_abc: sum 100"
@@ -141,7 +141,7 @@
         "-os",
         "wasm"
       ],
-      "budget": 200000000,
+      "budget": 66000000,
       "stdout_contains": [
         "3 workers counted the primes in 8 slices of 1000: 168 135 127 120 119 114 117 107",
         "The consumer received: 1 4 9 16 25 36 49 64 81 100 (sum 385)"
@@ -158,7 +158,7 @@
         "-os",
         "wasm"
       ],
-      "budget": 200000000,
+      "budget": 66000000,
       "stdout_contains": [
         "README.md's headings: \"Files\" \"Map\" \"Things to try\"",
         "entry 3: 3 squared is 9",
@@ -176,7 +176,7 @@
         "-os",
         "wasm"
       ],
-      "budget": 200000000,
+      "budget": 66000000,
       "stdout_contains": [
         "bswap reverses the bytes: 0xefcdab8967452301",
         "(2^64 - 1) * 3 = 2 * 2^64 + 18446744073709551613",
@@ -194,7 +194,7 @@
         "-os",
         "wasm"
       ],
-      "budget": 200000000,
+      "budget": 66000000,
       "stdout_contains": [
         "%%%%%%"
       ]
@@ -210,7 +210,7 @@
         "-os",
         "wasm"
       ],
-      "budget": 200000000,
+      "budget": 66000000,
       "stdout_contains": [
         "No WebGPU in this browser, so this example is skipped."
       ]
@@ -226,7 +226,7 @@
         "-os",
         "wasm"
       ],
-      "budget": 200000000,
+      "budget": 66000000,
       "stdout_contains": [
         "This browser has no WebGPU."
       ]
@@ -242,7 +242,7 @@
         "-os",
         "wasm"
       ],
-      "budget": 200000000,
+      "budget": 66000000,
       "stdout_contains": [
         "No WebGPU here"
       ]

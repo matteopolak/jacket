@@ -87,7 +87,7 @@ struct Own {
     max_nesting: Option<usize>,
     /// Steps (loop iterations and calls) one compile-time evaluation may run before it fails (default: 66000000; 0:
     /// no limit)
-    #[arg(long, value_name = "blocks", value_parser = number::<u64>("--compile-time-budget", "a whole number", "50000000"))]
+    #[arg(long, value_name = "steps", value_parser = number::<u64>("--compile-time-budget", "a whole number", "50000000"))]
     compile_time_budget: Option<u64>,
     /// Seconds each program may take to check before its check stops with partial results;
     /// every program gets the whole limit, and the run as a whole has none (default: 10; 0: no

@@ -7,7 +7,7 @@
 //!
 //! Anything that executes Jai code (`#run`, `main`) goes through the playground's sandbox: the
 //! bundled stdlib in a virtual file system, the `SandboxHost` libc (no dynamic linker, no real
-//! files, network or clock) and an interpreter block budget, so an input cannot do I/O or loop
+//! files, network or clock) and an interpreter step budget, so an input cannot do I/O or loop
 //! forever.
 pub mod generate;
 mod jacket_config;
@@ -30,9 +30,9 @@ use jai_wasm::play::{PlayOptions, run_with};
 use jaic::source::FileId;
 use std::collections::BTreeMap;
 
-/// Interpreter basic blocks one input may execute (compile time and `main` together). Importing
+/// Interpreter steps one input may execute (compile time and `main` together). Importing
 /// `Basic` and printing costs well under a tenth of this.
-pub const BLOCK_BUDGET: u64 = 2_000_000;
+pub const STEP_BUDGET: u64 = 700_000;
 
 /// Stack for the compiling harnesses: the size the WebAssembly build links with, so a stack
 /// overflow found here also overflows in the browser. (The native CLI runs on 1 GiB.)
@@ -165,7 +165,7 @@ fn compile(source: &[u8], compile_only: bool) -> jai_wasm::play::PlayResult {
     let mut files = BTreeMap::new();
     files.insert("main.jai".to_string(), source.to_vec());
     let options = PlayOptions {
-        budget: Some(BLOCK_BUDGET),
+        budget: Some(STEP_BUDGET),
         compile_only,
         styled: false,
     };

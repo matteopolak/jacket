@@ -155,7 +155,7 @@ fn convert(compiler: &Compiler, d: &Diagnostic) -> PlayDiagnostic {
 /// Limits for one playground run.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PlayOptions {
-    /// Interpreter basic blocks the main compile (its `#run`s and the program) may execute
+    /// Interpreter steps the main compile (its `#run`s and the program) may execute
     /// before it traps with "execution budget exhausted". `None` runs unbounded.
     pub budget: Option<u64>,
     /// Stop after compilation (every `#run` has executed); `main` is not run. The fuzz harness
