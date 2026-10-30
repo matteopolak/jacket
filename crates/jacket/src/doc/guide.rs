@@ -24,8 +24,13 @@ const PAGES: [(&str, &str, &str); 3] = [
     ),
 ];
 
+/// The folder a reference page is served from, as a link.
+fn page_dir(file: &str) -> String {
+    format!("tools/{}/", file.trim_end_matches(".md"))
+}
+
 fn page_path(file: &str) -> String {
-    format!("tools/{}.html", file.trim_end_matches(".md"))
+    format!("{}index.html", page_dir(file))
 }
 
 /// `from` (a path in `docs/`) joined with the relative `link`, normalised.
@@ -49,7 +54,7 @@ fn side(site: &Site, current: Option<&str>) -> String {
     for (file, name, _) in PAGES {
         out.push_str(&format!(
             "<a href=\"{}\"{}>{}</a>\n",
-            esc(&site.href(&page_path(file))),
+            esc(&site.href(&page_dir(file))),
             if current == Some(file) {
                 " aria-current=\"page\""
             } else {
@@ -63,13 +68,11 @@ fn side(site: &Site, current: Option<&str>) -> String {
 }
 
 pub fn index(site: &Site) -> String {
-    let mut main = String::from(
-        "<h1 class=\"page-title\">Tools</h1>\n<p class=\"lead\">The reference pages for the command-line tools. They are written by the tools themselves, so they can't drift from what the tools do.</p>\n<ul class=\"cards\">\n",
-    );
+    let mut main = String::from("<h1 class=\"page-title\">Tools</h1>\n<ul class=\"cards\">\n");
     for (file, name, about) in PAGES {
         main.push_str(&format!(
             "<li><a class=\"card\" href=\"{}\"><span>{}</span><span class=\"card-sum\">{}</span></a></li>\n",
-            esc(&site.href(&page_path(file))),
+            esc(&site.href(&page_dir(file))),
             esc(name),
             esc(about)
         ));
@@ -107,7 +110,7 @@ pub fn pages(site: &Site, root: &Path) -> Result<Vec<(String, String)>, String> 
                 format!("#{anchor}")
             };
             if let Some((own, _, _)) = PAGES.iter().find(|(f, _, _)| *f == target) {
-                return Some(format!("{}{anchor}", site.href(&page_path(own))));
+                return Some(format!("{}{anchor}", site.href(&page_dir(own))));
             }
             Some(format!(
                 "{}/blob/{}/{}{anchor}",

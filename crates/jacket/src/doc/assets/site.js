@@ -28,16 +28,34 @@
     });
   }
 
-  // The side navigation starts closed on a phone and scrolled to the current page elsewhere.
+  // The side navigation starts closed on a phone. On a wide screen an inline script right after
+  // it has already put it back where it was. Its place and open groups are kept for the next page.
   var side = document.querySelector('details.side');
   if (side) {
-    if (window.matchMedia('(max-width: 899px)').matches) {
-      side.open = false;
-    } else {
-      var current = side.querySelector('[aria-current="page"]');
-      if (current) side.scrollTop = Math.max(0, current.offsetTop - side.clientHeight / 2);
-    }
+    if (window.matchMedia('(max-width: 899px)').matches) side.open = false;
+    window.addEventListener('pagehide', function () {
+      try {
+        var nav = side.querySelector('nav');
+        var open = Array.prototype.map.call(side.querySelectorAll('details.nav-cat[open]'), function (d) { return d.getAttribute('data-key'); });
+        sessionStorage.setItem('jacket-docs-side', JSON.stringify({ k: nav && nav.getAttribute('data-nav'), t: side.scrollTop, o: open }));
+      } catch (e) { /* storage is blocked: the sidebar starts fresh */ }
+    });
   }
+
+  // The home page lists modules by category or as one A-Z grid.
+  var views = document.querySelectorAll('.view-bar [data-view]');
+  Array.prototype.forEach.call(views, function (button) {
+    var az = root.getAttribute('data-home') === 'az';
+    button.setAttribute('aria-pressed', (button.getAttribute('data-view') === 'az') === az ? 'true' : 'false');
+    button.addEventListener('click', function () {
+      var want = button.getAttribute('data-view');
+      if (want === 'az') root.setAttribute('data-home', 'az'); else root.removeAttribute('data-home');
+      Array.prototype.forEach.call(views, function (b) { b.setAttribute('aria-pressed', b === button ? 'true' : 'false'); });
+      try {
+        if (want === 'az') localStorage.setItem('jacket-docs-home', 'az'); else localStorage.removeItem('jacket-docs-home');
+      } catch (e) { /* the choice lasts for this page only */ }
+    });
+  });
 
   // Filter chips on a module page.
   var chips = document.querySelectorAll('.chip[data-group]');
@@ -62,7 +80,7 @@
   function kindOf(it) { return it.kind === 'proc' ? 'proc' : it.kind === 'const' ? 'const' : it.kind === 'module' ? 'mod' : 'type'; }
   function hrefOf(it) {
     if (it.kind === 'module') return base + 'api/' + it.module + '/';
-    return base + 'api/' + it.module + '/' + (it.name === 'index' ? 'item-index' : it.name) + '.html';
+    return base + 'api/' + it.module + '/' + it.name.replace(/[^A-Za-z0-9_]/g, function (c) { return '-' + ('0' + c.charCodeAt(0).toString(16)).slice(-2); }) + '/';
   }
   function load() {
     if (!loading) {
@@ -146,7 +164,7 @@
   function show() {
     box.textContent = '';
     if (!hits.length) {
-      box.appendChild(el('div', 'empty', 'Nothing by that name. Try fewer letters, or search by shape: -> bool'));
+      box.appendChild(el('div', 'empty', 'No matches.'));
     }
     hits.forEach(function (it, i) {
       var a = el('a', 'hit');
@@ -232,7 +250,7 @@
       var timer = setTimeout(function () {
         w.terminate();
         if (worker === w) worker = null;
-        reject(new Error('Stopped after ' + limit / 1000 + ' seconds. The compiler was still going; an infinite loop will do that.'));
+        reject(new Error('Stopped after ' + limit / 1000 + ' seconds.'));
       }, limit);
       w.onmessage = function (e) {
         clearTimeout(timer);
@@ -271,13 +289,13 @@
       var ms = Math.max(1, Math.round(done.ms));
       var printed = (r.stdout || '') + (r.stderr || '');
       if (r.exitCode === 0 && !(r.diagnostics || []).some(function (d) { return d.severity === 'error'; })) {
-        report(out, '', '✓ compiled and ran in your browser · ' + ms + ' ms', printed.trim() ? printed : '');
+        report(out, '', '✓ Ran in ' + ms + ' ms', printed.trim() ? printed : '');
       } else {
         var why = r.rendered || printed || (r.exitCode !== null ? 'The example exited with status ' + r.exitCode + '.' : 'The example did not compile.');
-        report(out, 'bad', '✗ that did not go well', why.trim());
+        report(out, 'bad', '✗ Failed', why.trim());
       }
     }).catch(function (error) {
-      report(out, 'bad', '✗ could not run it', String(error.message || error));
+      report(out, 'bad', '✗ Could not run', String(error.message || error));
     }).then(function () { button.disabled = false; });
   }
   function copy(button) {

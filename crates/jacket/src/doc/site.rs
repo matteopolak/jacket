@@ -6,13 +6,14 @@ use std::collections::BTreeMap;
 
 pub struct Site {
     pub modules: Vec<Module>,
+    /// Category names, in display order.
+    pub categories: Vec<String>,
     /// Where the site is served: `/docs/jai/`.
     pub base: String,
     pub version: String,
     pub source_ref: String,
     pub repo: String,
     pub playground: String,
-    pub guide_url: String,
     /// Whether the site carries a browser compiler.
     pub runtime: bool,
     by_id: BTreeMap<String, usize>,
@@ -32,11 +33,11 @@ const BUILTIN_TYPES: &[&str] = &[
 impl Site {
     pub fn new(
         modules: Vec<Module>,
+        categories: Vec<String>,
         base: String,
         version: String,
         source_ref: String,
         playground: String,
-        guide_url: String,
         runtime: bool,
     ) -> Site {
         let by_id = modules
@@ -55,12 +56,12 @@ impl Site {
         }
         Site {
             modules,
+            categories,
             base,
             version,
             source_ref,
             repo: "https://github.com/matteopolak/jacket".into(),
             playground,
-            guide_url,
             runtime,
             by_id,
             types,
@@ -83,25 +84,33 @@ impl Site {
         format!("api/{id}/index.html")
     }
 
-    pub fn item_file(name: &str) -> String {
-        if name == "index" {
-            "item-index.html".into()
-        } else {
-            format!("{name}.html")
-        }
-    }
-
+    /// The file of an item's page: every page is `index.html` in its own folder, so its address
+    /// is the folder with no extension, and a plain static server serves it.
     pub fn item_path(module: &str, name: &str) -> String {
-        format!("api/{module}/{}", Self::item_file(name))
+        format!("api/{module}/{}/index.html", Self::slug(name))
     }
 
-    /// A link to a module's page; a folder URL, so the file name stays out of the address bar.
+    /// The folder name of an item: its name, with each character that is not safe in a file
+    /// name (`<` in `operator<`) written as `-` and its code in hex. `site.js` does the same.
+    pub fn slug(name: &str) -> String {
+        let mut out = String::new();
+        for c in name.chars() {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                out.push(c);
+            } else {
+                out.push_str(&format!("-{:02x}", c as u32));
+            }
+        }
+        out
+    }
+
+    /// A link to a module's page.
     pub fn module_href(&self, id: &str) -> String {
         self.href(&format!("api/{id}/"))
     }
 
     pub fn item_href(&self, module: &str, name: &str) -> String {
-        self.href(&Self::item_path(module, name))
+        self.href(&format!("api/{module}/{}/", Self::slug(name)))
     }
 
     pub fn source_url(&self, file: &str, line: usize) -> String {
@@ -144,6 +153,23 @@ impl Site {
             }
             None => href,
         })
+    }
+
+    /// Pages that would be written to the same file: an item named like a module below it.
+    pub fn path_clashes(&self) -> Vec<String> {
+        let mut found = Vec::new();
+        for module in &self.modules {
+            for item in &module.items {
+                let id = format!("{}/{}", module.id, item.name);
+                if self.by_id.contains_key(&id) {
+                    found.push(format!(
+                        "`{}` is both an item and a module (api/{id}/ would hold both pages)",
+                        item.name
+                    ));
+                }
+            }
+        }
+        found
     }
 
     pub fn broken_links(&self) -> Vec<String> {
@@ -285,6 +311,30 @@ pub fn signature_plain(o: &Overload) -> String {
     }
 }
 
+/// `(s: string, n := 1) -> bool` as HTML, for a list: the parameters on one line, the types
+/// linked, wrapping at spaces when the line is too long for its card.
+pub fn signature_line_html(site: &Site, o: &Overload, here: usize) -> String {
+    let params = o
+        .params
+        .iter()
+        .map(|p| param_html(site, p, here))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let returns = match o.returns.as_slice() {
+        [] => String::new(),
+        [one] if one.name.is_empty() => format!(" -> {}", site.type_html(&one.ty, here)),
+        [one] => format!(" -> {}", param_html(site, one, here)),
+        many => format!(
+            " -> ({})",
+            many.iter()
+                .map(|p| param_html(site, p, here))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ),
+    };
+    format!("({params}){returns}")
+}
+
 /// The declaration of an overload as a code block's content: the name, then the parameters,
 /// broken over lines when they are long, and the results with links to their types.
 pub fn signature_html(site: &Site, name: &str, o: &Overload, here: usize) -> String {
@@ -311,22 +361,10 @@ pub fn signature_html(site: &Site, name: &str, o: &Overload, here: usize) -> Str
         .map(|p| param_html(site, p, here))
         .collect::<Vec<_>>()
         .join(", ");
-    if plain.chars().count() <= 76 {
+    if plain.chars().count() <= 80 {
         return format!("{head}{params}){}{flags}", tail(&o.returns));
     }
-    // The results alone on the next line, when the rest fits.
-    let head_plain = format!(
-        "{name} :: ({})",
-        o.params
-            .iter()
-            .map(param_text)
-            .collect::<Vec<_>>()
-            .join(", ")
-    );
-    if head_plain.chars().count() <= 76 && !o.returns.is_empty() {
-        return format!("{head}{params}){flags}\n   {}", tail(&o.returns));
-    }
-    // Too wide for a line: parameters one to a line, the results after the closing parenthesis.
+    // Too wide for a line: one parameter to a line, the results after the closing parenthesis.
     let mut out = head;
     if !o.params.is_empty() {
         out.push('\n');

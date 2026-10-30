@@ -96,6 +96,8 @@ pub struct Module {
     pub docs: String,
     pub platforms: Vec<String>,
     pub items: Vec<Item>,
+    /// From `stdlib/categories.toml`; set once every module is read.
+    pub category: String,
 }
 
 impl Module {
@@ -104,7 +106,8 @@ impl Module {
         self.id.rsplit('/').next().unwrap_or(&self.id)
     }
 
-    pub fn category(&self) -> &'static str {
+    /// The heading of the sidebar and the home page it is listed under.
+    pub fn section(&self) -> &'static str {
         if self.id.starts_with("Extensions/") {
             "Extensions"
         } else {
@@ -204,19 +207,50 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
             .filter_map(|p| p.as_str().map(str::to_owned))
             .collect(),
         items,
+        category: String::new(),
     };
     assign_groups(&mut module);
     Ok(module)
 }
 
-/// `bytes.jai` is "Bytes", `self-test.jai` is "Self test".
+/// Words with their own casing in a heading made from a file name. The rest is sentence case.
+const WORDS: &[&str] = &[
+    "ABI", "ADB", "ADPCM", "API", "APK", "ASCII", "ASN1", "BMP", "COFF", "CPU", "CSV", "DFA",
+    "DLL", "DWARF", "ELF", "GL", "GPU", "GUI", "HID", "HTML", "HTTP", "HTTPS", "IDCT", "IMA", "IO",
+    "IOCP", "ID", "IP", "JKS", "JNI", "JPEG", "JSON", "LZ4", "MD5", "MSF", "NDK", "NFA", "ORM",
+    "OS", "PCM", "PDB", "PNG", "PNM", "POSIX", "QOI", "RNG", "SCRAM", "SDK", "SDL", "SHA", "SIMD",
+    "SQL", "TBD", "TCP", "TLS", "UI", "URL", "UTF8", "VM", "WAV", "X11", "X64", "X86", "X509",
+    "XML", "ZIP", "CodeView", "Cocoa", "Linux", "Mach-O", "macOS", "Unix", "Windows",
+];
+
+/// `bytes.jai` is "Bytes", `self-test.jai` is "Self test", `jks-generation.jai` is "JKS
+/// generation": sentence case, with the words of `WORDS` as spelled there.
 fn title_case(stem: &str) -> String {
-    let words = stem.replace(['-', '_'], " ");
-    let mut chars = words.chars();
-    chars
-        .next()
-        .map(|c| c.to_uppercase().collect::<String>() + chars.as_str())
-        .unwrap_or_default()
+    let words: Vec<String> = stem
+        .split(['-', '_', ' '])
+        .filter(|w| !w.is_empty())
+        .enumerate()
+        .map(|(i, w)| {
+            let lower = w.to_lowercase();
+            let lower = if lower == "macho" {
+                "mach-o".to_owned()
+            } else {
+                lower
+            };
+            if let Some(known) = WORDS.iter().find(|k| k.to_lowercase() == lower) {
+                (*known).to_owned()
+            } else if i == 0 {
+                let mut chars = lower.chars();
+                chars
+                    .next()
+                    .map(|c| c.to_uppercase().collect::<String>() + chars.as_str())
+                    .unwrap_or_default()
+            } else {
+                lower
+            }
+        })
+        .collect();
+    words.join(" ")
 }
 
 /// Procedures are grouped by the file that declares them when that tells more than one heading
@@ -265,5 +299,8 @@ mod tests {
         let groups: Vec<_> = module.items.iter().map(|i| i.group.as_str()).collect();
         assert_eq!(groups, ["Bytes", "Scan", ""]);
         assert_eq!(module.title(), "String");
+        assert_eq!(title_case("jks-generation"), "JKS generation");
+        assert_eq!(title_case("self-test"), "Self test");
+        assert_eq!(title_case("utf8_tables"), "UTF8 tables");
     }
 }

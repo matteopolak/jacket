@@ -3,7 +3,7 @@ use super::example;
 use super::markdown::{self, Segment, Settings, esc, plain};
 use super::model::{Item, Kind, Module, Overload};
 use super::shell::{Page, render};
-use super::site::{Site, item_line, signature_html};
+use super::site::{Site, item_line, signature_html, signature_line_html};
 
 /// The blocks of a doc comment, links resolved against the site.
 fn blocks(site: &Site, md: &str, from: &str) -> Vec<Segment> {
@@ -79,19 +79,31 @@ fn badges(m: &Module) -> String {
     format!("<div class=\"badges\" aria-label=\"Platforms\">{spans}</div>\n")
 }
 
+/// `std / Android / Toolchain / item`: one crumb per level of the module's path, linked when
+/// that level is a page of its own.
 fn crumbs(site: &Site, m: &Module, last: Option<&str>) -> String {
     let mut out = format!(
         "<nav class=\"crumbs\" aria-label=\"Breadcrumb\"><a href=\"{}\">std</a>",
         esc(&site.base)
     );
-    if let Some(rest) = m.id.strip_prefix("Extensions/") {
-        out.push_str(" / <span>Extensions</span>");
-        out.push_str(&format!(" / {}", crumb_link(site, m, rest, last.is_some())));
-    } else {
-        out.push_str(&format!(
-            " / {}",
-            crumb_link(site, m, &m.id, last.is_some())
-        ));
+    let parts: Vec<&str> = m.id.split('/').collect();
+    let mut path = String::new();
+    for (i, part) in parts.iter().enumerate() {
+        if !path.is_empty() {
+            path.push('/');
+        }
+        path.push_str(part);
+        let is_module = i + 1 == parts.len();
+        let linked = (site.module_index(&path).is_some()) && !(is_module && last.is_none());
+        if linked {
+            out.push_str(&format!(
+                " / <a href=\"{}\">{}</a>",
+                esc(&site.module_href(&path)),
+                esc(part)
+            ));
+        } else {
+            out.push_str(&format!(" / <span>{}</span>", esc(part)));
+        }
     }
     if let Some(last) = last {
         out.push_str(&format!(" / <span class=\"mono\">{}</span>", esc(last)));
@@ -100,69 +112,108 @@ fn crumbs(site: &Site, m: &Module, last: Option<&str>) -> String {
     out
 }
 
-fn crumb_link(site: &Site, m: &Module, text: &str, link: bool) -> String {
-    if link {
-        format!(
-            "<a href=\"{}\">{}</a>",
-            esc(&site.module_href(&m.id)),
-            esc(text)
-        )
-    } else {
-        format!("<span>{}</span>", esc(text))
-    }
-}
-
 // The index.
 
+/// One module's link in a list.
+fn module_link(site: &Site, m: &Module, current: Option<usize>, i: usize) -> String {
+    format!(
+        "<a href=\"{}\"{}>{}</a>\n",
+        esc(&site.module_href(&m.id)),
+        if current == Some(i) {
+            " aria-current=\"page\""
+        } else {
+            ""
+        },
+        esc(m.title())
+    )
+}
+
+/// The modules by section and category. Each category folds; the current module's is open.
 fn modules_side(site: &Site, current: Option<usize>) -> String {
     let mut out = String::new();
-    for category in ["Standard library", "Extensions"] {
-        out.push_str(&format!(
-            "<div class=\"nav-h\">{category}</div>\n<div class=\"nav-list\">\n"
-        ));
-        for (i, m) in site
-            .modules
-            .iter()
-            .enumerate()
-            .filter(|(_, m)| m.category() == category)
-        {
-            let here = current == Some(i);
+    for section in ["Standard library", "Extensions"] {
+        out.push_str(&format!("<div class=\"nav-h\">{section}</div>\n"));
+        for category in &site.categories {
+            let members: Vec<(usize, &Module)> = site
+                .modules
+                .iter()
+                .enumerate()
+                .filter(|(_, m)| m.section() == section && m.category == *category)
+                .collect();
+            if members.is_empty() {
+                continue;
+            }
+            let open = members.iter().any(|(i, _)| current == Some(*i));
             out.push_str(&format!(
-                "<a href=\"{}\"{}>{}</a>\n",
-                esc(&site.module_href(&m.id)),
-                if here {
-                    " aria-current=\"page\""
-                } else {
-                    ""
-                },
-                esc(m.title())
+                "<details class=\"nav-cat\" data-key=\"{key}\"{open}><summary>{name}<span class=\"count\">{n}</span></summary>\n<div class=\"nav-list\">\n",
+                key = esc(&format!("{section}/{category}")),
+                open = if open { " open" } else { "" },
+                name = esc(category),
+                n = members.len()
             ));
+            for (i, m) in members {
+                out.push_str(&module_link(site, m, current, i));
+            }
+            out.push_str("</div>\n</details>\n");
         }
-        out.push_str("</div>\n");
     }
     out
 }
 
+/// A module's card. `tag` says where it lives when the name alone would not.
+fn card(site: &Site, m: &Module, tag: &str) -> String {
+    let segs = blocks(site, &m.docs, &m.id);
+    let summary = lead(&segs).map_or_else(String::new, |(_, html)| clip(&plain(&html), 140));
+    format!(
+        "<li><a class=\"card\" href=\"{}\"><span class=\"card-head\"><span class=\"card-name mono\">{}</span>{}</span><span class=\"card-sum\">{}</span></a></li>\n",
+        esc(&site.module_href(&m.id)),
+        esc(m.title()),
+        if tag.is_empty() {
+            String::new()
+        } else {
+            format!("<span class=\"card-tag\">{}</span>", esc(tag))
+        },
+        esc(&summary)
+    )
+}
+
 pub fn index_page(site: &Site) -> String {
     let mut main = String::from(
-        "<h1 class=\"page-title\">Standard library</h1>\n\
-         <p class=\"lead\">Every module that ships with Jacket, with examples you can run right here. Press <kbd>/</kbd> to search by name, or by shape: <code>-&gt; bool</code> finds everything that returns a bool.</p>\n",
+        "<div class=\"view-bar js-only\"><div class=\"chips\" role=\"group\" aria-label=\"View\"><button type=\"button\" class=\"chip\" data-view=\"category\" aria-pressed=\"true\">By category</button><button type=\"button\" class=\"chip\" data-view=\"az\" aria-pressed=\"false\">A&ndash;Z</button></div></div>\n",
     );
-    for category in ["Standard library", "Extensions"] {
-        main.push_str(&format!("<h2>{category}</h2>\n<ul class=\"cards\">\n"));
-        for m in site.modules.iter().filter(|m| m.category() == category) {
-            let segs = blocks(site, &m.docs, &m.id);
-            let summary =
-                lead(&segs).map_or_else(String::new, |(_, html)| clip(&plain(&html), 140));
+    main.push_str("<div id=\"view-category\">\n");
+    for section in ["Standard library", "Extensions"] {
+        main.push_str(&format!("<h2 class=\"section\">{section}</h2>\n"));
+        for category in &site.categories {
+            let members: Vec<&Module> = site
+                .modules
+                .iter()
+                .filter(|m| m.section() == section && m.category == *category)
+                .collect();
+            if members.is_empty() {
+                continue;
+            }
             main.push_str(&format!(
-                "<li><a class=\"card\" href=\"{}\"><span class=\"mono\">{}</span><span class=\"card-sum\">{}</span></a></li>\n",
-                esc(&site.module_href(&m.id)),
-                esc(m.title()),
-                esc(&summary)
+                "<section class=\"cat\">\n<h3>{}</h3>\n<ul class=\"cards\">\n",
+                esc(category)
             ));
+            for m in members {
+                main.push_str(&card(site, m, ""));
+            }
+            main.push_str("</ul>\n</section>\n");
         }
-        main.push_str("</ul>\n");
     }
+    main.push_str("</div>\n<div id=\"view-az\">\n<ul class=\"cards\">\n");
+    let mut all: Vec<&Module> = site.modules.iter().collect();
+    all.sort_by_key(|m| (m.title().to_lowercase(), m.id.clone()));
+    for m in all {
+        main.push_str(&card(
+            site,
+            m,
+            m.id.rsplit_once('/').map_or("", |(parent, _)| parent),
+        ));
+    }
+    main.push_str("</ul>\n</div>\n");
     render(
         site,
         &Page {
@@ -197,11 +248,18 @@ fn row(site: &Site, mi: usize, item: &Item) -> String {
             item.kind.label()
         ));
     }
-    let line = item_line(item);
+    let line = match item.kind {
+        Kind::Procedure => item
+            .overloads
+            .first()
+            .map(|o| signature_line_html(site, o, mi))
+            .unwrap_or_default(),
+        _ => esc(&item_line(item)),
+    };
     let line = if line.is_empty() {
         String::new()
     } else {
-        format!("<div class=\"sig-line\">{}</div>\n", esc(&line))
+        format!("<div class=\"sig-line\">{line}</div>\n")
     };
     let summary = if summary.is_empty() {
         String::new()
@@ -251,9 +309,7 @@ pub fn module_page(site: &Site, mi: usize) -> String {
     ));
     let segs = blocks(site, &m.docs, &m.id);
     let mut description = String::new();
-    if segs.is_empty() {
-        main.push_str("<p class=\"lead quiet\">Nobody has written an overview for this module yet. The list below is still accurate.</p>\n");
-    } else {
+    if !segs.is_empty() {
         // Show the text up to the first example, or two blocks; the rest waits behind a button.
         let shown = segs
             .iter()
@@ -347,9 +403,6 @@ pub fn module_page(site: &Site, mi: usize) -> String {
             main.push_str(&row(site, mi, c));
         }
         main.push_str("</section>\n");
-    }
-    if m.items.is_empty() {
-        main.push_str("<p class=\"quiet\">This module's declarations mirror a native library, whose own documentation is the better place to look, so none are listed here.</p>\n");
     }
     render(
         site,
@@ -678,8 +731,6 @@ pub fn item_page(site: &Site, mi: usize, item: &Item) -> String {
     if let Some((_, html)) = lead(&summary_segs) {
         description = clip(&plain(&html), 160);
         main.push_str(&format!("<p class=\"lead\">{html}</p>\n"));
-    } else {
-        main.push_str("<p class=\"lead quiet\">No description yet. The signature below is what the compiler sees.</p>\n");
     }
     // The rest of the item's own docs.
     let skip = if lead_owner_is_item {

@@ -4,9 +4,11 @@
 //! `jaic -doc_model` reads each library with the compiler's own parser and prints what its pages
 //! say as JSON; this module turns that into HTML, a search index and the files the pages load
 //! (style, script, the example programs, and optionally the browser compiler that runs them).
+mod categories;
 mod example;
 mod guide;
 mod highlight;
+mod links;
 mod markdown;
 mod model;
 mod pages;
@@ -131,6 +133,7 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         .ok_or_else(|| "the standard library has no parent folder".to_owned())?;
     let mut ids = Vec::new();
     discover(&stdlib, "", &mut ids);
+    let categories = categories::Categories::load(&stdlib, &ids)?;
     let filtered = !args.modules.is_empty();
     if filtered {
         if let Some(unknown) = args.modules.iter().find(|m| !ids.contains(m)) {
@@ -138,7 +141,10 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         }
         ids.retain(|id| args.modules.contains(id));
     }
-    let modules = read_models(&jaic, &stdlib, &ids)?;
+    let mut modules = read_models(&jaic, &stdlib, &ids)?;
+    for module in &mut modules {
+        module.category = categories.of(&module.id).to_owned();
+    }
     if let Some(runtime) = &args.runtime {
         for file in ["jai_wasm.wasm", "engine.mjs"] {
             if !runtime.join(file).is_file() {
@@ -149,13 +155,13 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
     let version = env!("CARGO_PKG_VERSION").to_owned();
     let site = Site::new(
         modules,
+        categories.order.clone(),
         base,
         version.clone(),
         args.source_ref
             .clone()
             .unwrap_or_else(|| format!("v{version}")),
         args.playground_url.trim_end_matches('/').to_owned(),
-        args.guide_url.clone(),
         args.runtime.is_some(),
     );
 
@@ -195,6 +201,14 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         );
     }
 
+    let mut problems = site.path_clashes();
+    problems.extend(links::check(&files, &site.base, !filtered));
+    for problem in &problems {
+        eprintln!("jacket: error: {problem}");
+    }
+    if !problems.is_empty() {
+        return Ok(ExitCode::from(1));
+    }
     let broken = site.broken_links();
     for link in &broken {
         eprintln!("jacket: warning: intra-doc link to `{link}` leads nowhere");

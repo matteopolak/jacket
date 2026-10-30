@@ -290,13 +290,6 @@ pub struct DocArgs {
         default_value = "https://matteopolak.com/playground/jacket"
     )]
     pub playground_url: String,
-    /// Where the Guide link goes
-    #[arg(
-        long,
-        value_name = "URL",
-        default_value = "https://github.com/matteopolak/jacket/tree/main/docs"
-    )]
-    pub guide_url: String,
     /// The tag or branch Source links point at [default: v<this version>]
     #[arg(long, value_name = "REF")]
     pub source_ref: Option<String>,

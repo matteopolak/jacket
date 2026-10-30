@@ -1,0 +1,103 @@
+# How `jacket doc` groups the library's modules. Every module (and every `Extensions/` module)
+# belongs to exactly one category; `jacket doc --check` fails on a module that is missing here,
+# listed twice, or a name that matches no module. Categories show up in this order.
+
+[[category]]
+name = "Core"
+modules = [
+    "Basic", "Runtime_Support", "Runtime_Support_Crash_Handler", "Remap_Context", "Reflection",
+    "Soa", "Relative_Pointers", "Deep_Copy", "Extensions/Variant",
+]
+
+[[category]]
+name = "Math and numbers"
+modules = [
+    "Math", "Sloppy_Math", "Float16", "Random", "PCG", "Bit_Operations", "SIMD", "Srgb",
+    "Color_Interpolation", "Extensions/SIMD", "Extensions/Long_Double",
+]
+
+[[category]]
+name = "Memory and allocators"
+modules = [
+    "Memory", "Default_Allocator", "Flat_Pool", "Pool", "Overwriting_Allocator",
+    "Unmapping_Allocator", "rpmalloc",
+]
+
+[[category]]
+name = "Data structures and sorting"
+modules = [
+    "Bit_Array", "Bucket_Array", "Hash_Table", "Xar", "Sort", "IntroSort", "RadixSort",
+    "Extensions/Hash_Map",
+]
+
+[[category]]
+name = "Text and formats"
+modules = [
+    "String", "Unicode", "Base64", "Print_Color", "Text_File_Handler", "Subtitles",
+    "Extensions/Json", "Extensions/Regex", "Extensions/Jai_Format", "Extensions/Text_Buffer",
+    "Extensions/Byte_Search", "Extensions/String_Literal",
+]
+
+[[category]]
+name = "Files and OS"
+modules = [
+    "File", "File_Utilities", "File_Watcher", "Process", "System", "Clipboard", "Command_Line",
+    "Simple_Package", "Extensions/Args", "Extensions/Environment", "Extensions/Assets",
+]
+
+[[category]]
+name = "Threads and concurrency"
+modules = [
+    "Thread", "Atomics", "Shared_Memory_Channel", "Extensions/Io", "Extensions/Io_Uring",
+]
+
+[[category]]
+name = "Networking"
+modules = [
+    "Socket", "Curl", "Mail", "Extensions/Http", "Extensions/Tls", "Extensions/Postgres",
+]
+
+[[category]]
+name = "Graphics and windows"
+modules = [
+    "GL", "Simp", "GetRect", "GetRect_LeftHanded", "Window_Creation", "Window_Type", "Input",
+    "Keymap", "Gamepad", "Gamepad/SDL_Input_Map", "Icon", "Ico_File", "ImGui", "SDL",
+    "Extensions/SDL3", "Extensions/UI", "Extensions/Image", "Extensions/WebGPU",
+]
+
+[[category]]
+name = "Audio and video"
+modules = ["Adpcm", "Sound_Player", "Wav_File", "stb_vorbis", "pl_mpeg"]
+
+[[category]]
+name = "Compression and hashing"
+modules = ["Crc", "Hash", "md5", "xxHash", "meow_hash", "lz4", "Zip_File_Directory", "Extensions/Deflate"]
+
+[[category]]
+name = "Debugging, profiling and testing"
+modules = [
+    "Debug", "Debug_Info", "Print_Vars", "Iprof", "Performance_Report", "telemetry3", "Treemap",
+    "Protocol_For_Memory_Visualization", "Extensions/Testing", "Extensions/Testing/Discovery",
+    "Extensions/Fuzz",
+]
+
+[[category]]
+name = "Compiler and metaprogramming"
+modules = [
+    "Compiler", "Check", "Code_Visit", "Rewrite", "Autorun", "Default_Metaprogram",
+    "Minimal_Metaprogram", "Metaprogram_Plugins", "Example_Plugin", "BuildCpp",
+    "Bindings_Generator", "Generate_C_Header", "Jai_Lexer", "Project_Generator", "MacOS_Bundler",
+    "Codex", "Program_Print", "Machine_X64", "executable_formats", "linux_build",
+    "Extensions/Service",
+]
+
+[[category]]
+name = "Platform bindings"
+modules = [
+    "Android/AAudio", "Android/EGL", "Android/Toolchain", "Android", "Linux", "Windows", "macOS",
+    "iOS", "Objective_C", "Objective_C/AppKit", "POSIX", "X11", "Metal", "Vulkan", "d3d11",
+    "d3d12", "d3d_compiler", "dxc_compiler", "dxgi", "nvidia_aftermath", "MojoShader", "freetype",
+    "meshoptimizer", "nvtt", "stb_image", "stb_image_resize", "stb_image_write",
+    "Windows_Registry", "Windows_Resources", "Windows_Utf8", "Wasi_Numeric_Runtime",
+    "Extensions/Wasi_Runtime",
+]
