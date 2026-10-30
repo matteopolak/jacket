@@ -491,6 +491,9 @@ impl Compiler {
                 if self.ed.is_live() {
                     self.ide_note_cast(span, target, &op);
                 }
+                if ty.is_some() {
+                    self.warn_cast_shift_precedence(span, value, op.ty(), target);
+                }
                 if self.ty.types.is_integer(target)
                     && (matches!(op, Operand::Procs(_))
                         || matches!(self.ty.types.kind(op.ty()), TypeKind::Proc(_)))
