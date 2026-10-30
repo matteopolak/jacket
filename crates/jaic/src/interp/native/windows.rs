@@ -19,6 +19,7 @@ use crate::interp::Rets;
 use crate::interp::word_or_zero;
 #[cfg(target_arch = "x86_64")]
 use crate::ir::{Sig, Ty};
+use crate::toolchain::{RuntimeDlls, Toolchain};
 use std::ffi::c_void;
 use std::sync::Mutex;
 
@@ -32,16 +33,27 @@ unsafe extern "system" {
 /// library, like `dlsym(RTLD_DEFAULT)`.
 static OPENED: Mutex<Vec<usize>> = Mutex::new(Vec::new());
 
+/// The C runtime DLLs the interpreter calls into (see [`Toolchain::interpreter`]).
+fn runtime_dlls() -> RuntimeDlls {
+    Toolchain::interpreter()
+        .runtime
+        .dlls
+        .expect("a Windows toolchain names its runtime DLLs")
+}
+
 /// The C runtime and Win32 core: where library-less foreign symbols and the stdlib's `libc`
 /// names resolve.
-const DEFAULT_MODULES: [&str; 5] = [
-    "msvcrt.dll",
-    "ucrtbase.dll",
-    "kernel32.dll",
-    // Windows 10 1607 / Server 2016 expose thread descriptions only here.
-    "kernelbase.dll",
-    "ntdll.dll",
-];
+fn default_modules() -> [&'static str; 5] {
+    let dlls = runtime_dlls();
+    [
+        dlls.c,
+        dlls.ucrt,
+        "kernel32.dll",
+        // Windows 10 1607 / Server 2016 expose thread descriptions only here.
+        "kernelbase.dll",
+        "ntdll.dll",
+    ]
+}
 
 fn load_checked(path: &str) -> Result<usize, std::io::Error> {
     let wide: Vec<u16> = path.encode_utf16().chain(Some(0)).collect();
@@ -78,8 +90,8 @@ pub(super) enum Library {
 pub fn open(name: &str, system: bool, base_dir: &str) -> Result<Library, String> {
     use super::windows_imports::{Candidate, archive, candidates};
     let lower = name.to_ascii_lowercase();
-    if system && matches!(lower.as_str(), "c" | "libc" | "m" | "libm" | "msvcrt") {
-        return load_checked("msvcrt.dll")
+    if system && Toolchain::interpreter().is_interpreter_runtime(&lower) {
+        return load_checked(runtime_dlls().c)
             .map(Library::Module)
             .map_err(|error| error.to_string());
     }
@@ -256,7 +268,7 @@ pub fn lookup(lib: Option<usize>, symbol: &str) -> Option<u64> {
     if let Some(found) = lib.and_then(find) {
         return Some(found);
     }
-    let defaults: Vec<usize> = DEFAULT_MODULES.iter().filter_map(|m| load(m)).collect();
+    let defaults: Vec<usize> = default_modules().iter().filter_map(|m| load(m)).collect();
     let opened = OPENED.lock().map(|o| o.clone()).unwrap_or_default();
     if let Some(found) = defaults.iter().copied().chain(opened).find_map(find) {
         return Some(found);
@@ -264,9 +276,8 @@ pub fn lookup(lib: Option<usize>, symbol: &str) -> Option<u64> {
     if let Some(found) = stdio::inline_only(symbol) {
         return Some(found);
     }
-    // `long double` is `double` on Windows, and the C runtime's `<math.h>` makes `sqrtl` and
-    // friends inline calls of the `double` functions instead of exporting them.
-    lookup(lib, crate::abi::msvc_double_math(symbol)?)
+    // The runtime may export a function under another name (`Toolchain::renames`).
+    lookup(lib, Toolchain::interpreter().rename(symbol)?)
 }
 
 /// The UCRT's printf family. Its DLLs export only the `__stdio_common_*` workers; `snprintf`,
@@ -301,9 +312,9 @@ mod stdio {
 
     type IobFunc = unsafe extern "C" fn(u32) -> *mut c_void;
 
-    /// A function of ucrtbase.dll by name.
-    fn ucrt(name: &str) -> Option<u64> {
-        let module = super::load("ucrtbase.dll")?;
+    /// A function of the universal runtime DLL by name.
+    fn runtime_export(name: &str) -> Option<u64> {
+        let module = super::load(super::runtime_dlls().ucrt)?;
         let name: Vec<u8> = name.bytes().chain(Some(0)).collect();
         // SAFETY: `module` is a loaded module handle and `name` is NUL-terminated.
         let p = unsafe { super::GetProcAddress(module as *mut c_void, name.as_ptr()) };
@@ -311,22 +322,22 @@ mod stdio {
     }
 
     fn vsprintf_fn() -> VSprintf {
-        let addr =
-            ucrt("__stdio_common_vsprintf").expect("ucrtbase.dll exports __stdio_common_vsprintf");
+        let addr = runtime_export("__stdio_common_vsprintf")
+            .expect("the runtime exports __stdio_common_vsprintf");
         // SAFETY: the UCRT's documented signature of this export.
         unsafe { std::mem::transmute::<usize, VSprintf>(addr as usize) }
     }
 
     fn vfprintf_fn() -> VFprintf {
-        let addr =
-            ucrt("__stdio_common_vfprintf").expect("ucrtbase.dll exports __stdio_common_vfprintf");
+        let addr = runtime_export("__stdio_common_vfprintf")
+            .expect("the runtime exports __stdio_common_vfprintf");
         // SAFETY: as above.
         unsafe { std::mem::transmute::<usize, VFprintf>(addr as usize) }
     }
 
     /// The UCRT's `stdout`.
     fn stdout() -> *mut c_void {
-        let addr = ucrt("__acrt_iob_func").expect("ucrtbase.dll exports __acrt_iob_func");
+        let addr = runtime_export("__acrt_iob_func").expect("the runtime exports __acrt_iob_func");
         // SAFETY: as above; 1 is standard output.
         unsafe { std::mem::transmute::<usize, IobFunc>(addr as usize)(1) }
     }
@@ -486,7 +497,7 @@ mod stdio {
             _ => return None,
         };
         // The UCRT must be there for the stand-in to call.
-        ucrt("__stdio_common_vsprintf")?;
+        runtime_export("__stdio_common_vsprintf")?;
         Some(entry as usize as u64)
     }
 }
