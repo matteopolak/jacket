@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from unittest import mock
 
-from bench import cmd_wsb, common, quiet, winapi, winsandbox
+from bench import cmd_wsb, common, measure, quiet, winapi, winsandbox
 from bench.dialects import JaicDialect, Mode, PlainDialect, Request, executable_file
 from bench.measure import run_measured
 from bench.sandbox import Sandbox, SandboxedCommand, environment
@@ -218,6 +218,25 @@ class QuietOnWindowsTests(unittest.TestCase):
 # ------------------------------------------------------------------------------------ real Windows
 
 PYTHON = sys.executable
+
+
+@unittest.skipUnless(WINDOWS, 'needs Windows')
+class FixedBaseImageTests(unittest.TestCase):
+    def test_a_fixed_base_image_in_the_container_stops_the_run_with_the_reason(self):
+        sandbox = mock.Mock()
+        sandbox.container_sid.return_value = object()
+        fixed_base = OSError(None, 'CreateProcess(jai.exe)', None, measure.ERROR_ILLEGAL_DLL_RELOCATION)
+        with mock.patch('bench.winjob.run', side_effect=fixed_base):
+            with self.assertRaisesRegex(measure.SandboxError, 'no relocation table.*--no-sandbox'):
+                run_measured(SandboxedCommand(['jai.exe'], sandbox))
+
+    def test_other_launch_errors_are_not_rewritten(self):
+        sandbox = mock.Mock()
+        sandbox.container_sid.return_value = object()
+        with mock.patch('bench.winjob.run', side_effect=OSError(None, 'CreateProcess(x)', None, 2)):
+            with self.assertRaises(OSError) as raised:
+                run_measured(SandboxedCommand(['x.exe'], sandbox))
+            self.assertNotIsInstance(raised.exception, measure.SandboxError)
 
 
 @unittest.skipUnless(WINDOWS, 'needs Windows')

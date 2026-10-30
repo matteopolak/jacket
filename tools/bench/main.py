@@ -25,6 +25,7 @@ from bench import cmd_lint
 from bench import cmd_lsp
 from bench import cmd_probe
 from bench import cmd_wsb
+from bench.measure import SandboxError
 
 COMMANDS = {'compile': cmd_compile, 'compare': cmd_compare, 'lsp': cmd_lsp, 'lint': cmd_lint, 'fmt': cmd_fmt,
             'probe': cmd_probe, 'wsb': cmd_wsb}
@@ -42,7 +43,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    return args.handler(args)
+    try:
+        return args.handler(args)
+    except SandboxError as error:
+        print(f'error: {error}', file=sys.stderr)
+        return 2
 
 
 if __name__ == '__main__':

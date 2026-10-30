@@ -225,6 +225,7 @@ With the default (sandbox on), every compiler and every program it builds runs i
 **What it cannot promise.**
 
 - If a compiler in the container cannot find or run the linker, builds fail with an exit code and the message the compiler printed. Typical causes are a toolchain installed under your user profile (grant it with `--sandbox-read "C:\Users\you\tools"`), or a compiler that looks the toolchain up through the registry or COM. Check mode never links; use it to tell the cases apart. `--no-sandbox` is the fallback, and the VM below the stronger option.
+- A binary linked without a relocation table (a fixed base address, `/FIXED`) cannot start in an AppContainer: Windows forces ASLR there, and `CreateProcess` fails with error 623. The run stops and names the binary; use `--no-sandbox` or the VM below. The same applies to programs such a compiler builds.
 - `mspdbsrv.exe`, which the MSVC linker starts for debug information, runs inside the same container; it is killed with the job.
 - The sandbox is not a security boundary against a determined binary: it keeps benchmarks from touching the network and your files by accident or by a build script, as the other platforms' sandboxes do. Windows Defender SmartScreen may still prompt for a downloaded, unsigned binary; unblock it once (right-click, Properties, Unblock).
 

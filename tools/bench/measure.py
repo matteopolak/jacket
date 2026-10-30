@@ -18,6 +18,13 @@ import subprocess
 from subprocess import DEVNULL, Popen
 
 POLL_SECONDS = 0.005
+# CreateProcess's error for an image without a relocation table (a fixed base address) in an AppContainer,
+# where Windows always forces ASLR.
+ERROR_ILLEGAL_DLL_RELOCATION = 623
+
+
+class SandboxError(RuntimeError):
+    """A command cannot run in the sandbox at all, so the whole run stops."""
 # ru_maxrss is in bytes on macOS and KiB elsewhere.
 RSS_UNIT = 2**20 if sys.platform == 'darwin' else 2**10
 
@@ -112,6 +119,13 @@ def run_on_windows(command, cwd, env, stdin, out, err, timeout) -> Run:
         stdin = null = winjob.open_null()
     try:
         measured = winjob.run(plain, cwd, env, stdin, out, err, timeout, sid)
+    except OSError as error:
+        if sid and error.winerror == ERROR_ILLEGAL_DLL_RELOCATION:
+            raise SandboxError(
+                f'{plain[0]} cannot run in the AppContainer sandbox: it has no relocation table (a fixed base '
+                'address), and Windows forces ASLR on every AppContainer process. Run in Windows Sandbox '
+                '(`main.py wsb`) or, without isolation, with --no-sandbox.') from error
+        raise
     finally:
         if null:
             null.close()
