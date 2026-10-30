@@ -71,6 +71,7 @@ impl Compiler {
             "BUILD_CPU",
             "IS_CROSS_COMPILING",
             "MACHINE_OPTIONS_SIZE",
+            "_STACK_TRACE",
             "TEMPORARY_STORAGE_SIZE",
             "LANGUAGE_VERSION_MAJOR",
             "LANGUAGE_VERSION_MINOR",

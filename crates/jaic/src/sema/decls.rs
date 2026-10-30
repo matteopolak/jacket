@@ -168,6 +168,14 @@ impl Compiler {
                     ty: TypeId::BOOL,
                 });
             }
+            // Every context carries `stack_trace`, so per-thread state sized by this constant
+            // exists whether or not a build later turns the traces off.
+            "_STACK_TRACE" => {
+                return Ok(Resolved::Const {
+                    value: Value::Bool(true),
+                    ty: TypeId::BOOL,
+                });
+            }
             "MACHINE_OPTIONS_SIZE" => {
                 return Ok(Resolved::Const {
                     value: Value::Int(super::MACHINE_OPTIONS_SIZE as i128),

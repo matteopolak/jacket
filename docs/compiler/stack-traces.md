@@ -24,6 +24,8 @@ While a program runs, under `jaic -interp` or as a `jaic` executable, `context.s
 
 `Build_Options.stack_trace` (default true), read for workspaces a metaprogram creates.
 
+`_STACK_TRACE` is a compiler-provided constant, always `true` (like `OS`: `Builtin::TargetConstant`, resolved in `target_constant` in `sema/decls.rs`). Modules write `#if _STACK_TRACE` to give per-thread state a `Stack_Trace_Node`; it does not follow `Build_Options.stack_trace`, because every `Context` has the `stack_trace` member either way.
+
 ## Dependencies
 
 `ir::Func::trace`, `ir::Program::{file_paths, stack_trace}`, `interp::Interp::trace_enter`. Tests: `tests/compiler/regressions/stack-trace-nodes.jai`, `stack-trace-line-through-inline.jai`, `compile-time-stack-trace.jai`, and `stack_traces` in `crates/jaic-cli/tests/native.rs`.
