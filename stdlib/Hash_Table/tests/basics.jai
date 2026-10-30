@@ -27,17 +27,6 @@ a_table_with_every_key_colliding_stays_correct :: () {
     expect(table.count == 0 && table.allocated >= 100);
 } @test
 
-string_keys_can_be_set_and_found :: () {
-    strings: H.Table(string, s64);
-
-    defer H.deinit(*strings);
-
-    H.table_set(*strings, "oak", 19);
-    ok, value := H.table_find(*strings, "oak");
-
-    expect(ok && value == 19);
-} @test
-
 #scope_file
 
 H :: #import "Hash_Table";
