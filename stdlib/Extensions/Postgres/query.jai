@@ -405,8 +405,8 @@ column_index :: (r: *Result, name: string) -> s64 {
     return -1;
 }
 
-// The undecoded bytes of a value, in the column's format; `null` for NULL.
-raw_value :: (r: *Result, row: s64, column: s64) -> bytes: [] u8, null: bool {
+// The undecoded bytes of a value, in the column's format; `is_null` for NULL.
+raw_value :: (r: *Result, row: s64, column: s64) -> bytes: [] u8, is_null: bool {
     if row < 0 || row >= r.row_count || column < 0 || column >= r.columns.count return .[], true;
     span := r.values[row * r.columns.count + column];
     if span.length < 0 return .[], true;
