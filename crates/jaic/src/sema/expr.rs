@@ -444,7 +444,23 @@ impl Compiler {
                 result
             }
             E::InferredMember(name) => self.check_inferred_member(f, scope, name, expected),
-            E::Index(base, index) => self.check_index(f, scope, base, index, span),
+            E::Index(base, index) => {
+                let element = self.check_index(f, scope, base, index, span)?;
+                // An element of a constant array of types (`types[0]`) names a type, not a
+                // `Type` variable to read.
+                if element.ty() == TypeId::TYPE
+                    && f.constant_only.is_none()
+                    && !matches!(element, Operand::Type(_) | Operand::Const { .. })
+                    && let Ok(known) = self.eval_const(scope, expr, Some(TypeId::TYPE))
+                    && let Operand::Type(_)
+                    | Operand::Const {
+                        ..
+                    } = known
+                {
+                    return Ok(known);
+                }
+                Ok(element)
+            }
             E::Cast {
                 ty,
                 value,
