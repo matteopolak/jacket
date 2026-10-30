@@ -9,9 +9,11 @@
 use crate::docs::{self, Resolver};
 mod forward;
 mod gaps;
+mod model;
 use crate::parser::ide_facts::{self, TopLevelKind};
 use crate::source::FileId;
 pub use gaps::{Entry as GapEntry, gaps, records as gap_records};
+pub use model::print as model_json;
 use std::collections::{BTreeSet, VecDeque};
 use std::path::{Path, PathBuf};
 

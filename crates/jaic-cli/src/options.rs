@@ -49,6 +49,8 @@ pub(super) enum Request {
     /// Print the doc comments of the library in a folder.
     DocComments(String),
     DocGaps(String),
+    /// Print the documentation model of the library in a folder as JSON.
+    DocModel(String),
     /// Print the procedures of the library folders (a path list) for a target.
     Procedures(String, Option<TargetOs>, Option<TargetCpu>),
 }
@@ -80,6 +82,7 @@ pub(super) enum Action {
     PrintStdlib,
     DocComments,
     DocGaps,
+    DocModel,
     Procedures,
     Check,
     Interp,
@@ -394,6 +397,11 @@ pub(super) const OPTIONS: &[CliOption] = {
             Diagnostics,
             "-doc_gaps <dir>",
             "print which public declarations of the library in <dir> have docs and an example",
+        ),
+        CliOption::new(&["-doc_model"], Action::DocModel).help(
+            Diagnostics,
+            "-doc_model <dir>",
+            "print the documentation of the library in <dir> (items, signatures, docs) as JSON,\nfor `jacket doc`",
         ),
         CliOption::new(&["-procedures"], Action::Procedures).help(
             Diagnostics,

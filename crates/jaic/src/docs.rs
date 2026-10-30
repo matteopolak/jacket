@@ -915,12 +915,25 @@ fn fenced_in(t: &Trivia, run: &[&Comment], out: &mut Vec<(usize, usize)>) {
 /// `doc` as Markdown for display: untagged code fences become `jai`, and links `resolve`
 /// gives a URL for become Markdown links to it (the rest stay as written).
 pub fn markdown(doc: &str, resolve: &dyn Fn(&[String]) -> Option<String>) -> String {
+    rewrite(doc, resolve, true)
+}
+
+/// [`markdown`] with the code fences left as written, for a page that has to tell a fence that
+/// says `jai` from one that says nothing.
+pub fn linked(doc: &str, resolve: &dyn Fn(&[String]) -> Option<String>) -> String {
+    rewrite(doc, resolve, false)
+}
+
+fn rewrite(doc: &str, resolve: &dyn Fn(&[String]) -> Option<String>, fences: bool) -> String {
     // (start, end, replacement) in source order.
     let mut edits: Vec<(usize, usize, String)> = Vec::new();
     for (event, range) in Parser::new(doc).into_offset_iter() {
         let Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(info))) = event else {
             continue;
         };
+        if !fences {
+            continue;
+        }
         if !info.trim().is_empty() {
             continue;
         }
@@ -1165,6 +1178,8 @@ mod forward;
 pub use forward::{Resolver, alias_target, docs_site};
 mod located;
 pub use located::{Located, located_above, opening};
+mod items;
+pub use items::without_items;
 
 #[cfg(test)]
 mod tests;

@@ -68,6 +68,8 @@ diagnostics and output:
   -print_stdlib             print the standard library folder jaic uses and exit
   -doc_comments <dir>       print the doc comments of the library in <dir> as records, for `jacket test`
   -doc_gaps <dir>           print which public declarations of the library in <dir> have docs and an example
+  -doc_model <dir>          print the documentation of the library in <dir> (items, signatures, docs) as JSON,
+                            for `jacket doc`
   -procedures <dirs>        print every procedure with a body below the folders <dirs> (a path list) as records,
                             for `jacket test --coverage`; `-os` and `-cpu` pick the `#if` branches
   -V, -version, --version   print the version

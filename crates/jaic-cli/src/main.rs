@@ -184,6 +184,16 @@ fn main() -> ExitCode {
             print!("{}", jaic::doc_comments::gap_records(&gaps));
             return ExitCode::SUCCESS;
         }
+        Ok(Request::DocModel(dir)) => {
+            print!(
+                "{}",
+                jaic::doc_comments::model_json(
+                    std::path::Path::new(&dir),
+                    &jaic::paths::default_stdlib_dir(),
+                )
+            );
+            return ExitCode::SUCCESS;
+        }
         Ok(Request::Procedures(dirs, os, cpu)) => {
             let (host_os, host_cpu) = jaic::sema::compiler_host();
             let dirs: Vec<std::path::PathBuf> = std::env::split_paths(&dirs).collect();
