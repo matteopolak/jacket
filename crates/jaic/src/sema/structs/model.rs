@@ -70,6 +70,18 @@ pub(super) fn member_path(e: &ast::Expr) -> Option<Vec<Sym>> {
     }
 }
 
+/// The span of each name in a member path expression, in `member_path`'s order.
+pub(super) fn member_path_spans(e: &ast::Expr) -> Vec<Span> {
+    match &e.kind {
+        E::Member(base, field) => {
+            let mut spans = member_path_spans(base);
+            spans.push(field.span);
+            spans
+        }
+        _ => vec![e.span],
+    }
+}
+
 /// One step of a member path through `using` fields.
 #[derive(Clone, Copy, Debug)]
 pub enum PathStep {
@@ -100,9 +112,9 @@ pub(super) enum FieldItem {
     /// `using,only(a, b) field.inner;`: names reached through a path of members.
     Alias(MemberAlias),
     /// `#place f;`: following fields start at `f`'s offset (`f` may be a path, `a.b`).
-    Place(Vec<Sym>, Span),
+    Place(Vec<Sym>, Vec<Span>, Span),
     /// `#overlay(f)`: the next field shares `f`'s storage (`f` may be a path, `a.b`).
-    Overlay(Vec<Sym>, Span),
+    Overlay(Vec<Sym>, Vec<Span>, Span),
 }
 
 /// An offset depends on at most one other offset: align(dependency + addend).
@@ -118,8 +130,8 @@ pub(super) struct OffsetNode {
 
 pub(super) enum LayoutItem {
     Field(usize),
-    Place(Vec<Sym>, Span),
-    Overlay(Vec<Sym>, Span),
+    Place(Vec<Sym>, Vec<Span>, Span),
+    Overlay(Vec<Sym>, Vec<Span>, Span),
 }
 
 #[derive(Clone)]

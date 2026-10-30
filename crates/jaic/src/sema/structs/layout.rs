@@ -55,6 +55,15 @@ fn solve_offsets(nodes: &[OffsetNode]) -> Result<Vec<u64>> {
     Ok(values)
 }
 
+/// What one name of a `#place`/`#overlay` anchor path refers to, for the editor to link.
+#[derive(Clone)]
+enum AnchorNote {
+    /// A field of the struct being laid out.
+    Field { name: Sym, decl: Span, ty: TypeId },
+    /// A member of `owner` (a `using` field's type, or the type reached by the path so far).
+    Member { owner: TypeId, name: Sym },
+}
+
 impl Compiler {
     pub fn layout_struct(&mut self, s: StructId, span: Span) -> Result<()> {
         self.out.begin_runtime_storage_dependencies();
@@ -221,8 +230,12 @@ impl Compiler {
             match item {
                 FieldItem::Declaration(..) => unreachable!("field declarations were resolved"),
                 FieldItem::Alias(alias) => aliases.push(alias),
-                FieldItem::Place(path, span) => layout.push(LayoutItem::Place(path, span)),
-                FieldItem::Overlay(path, span) => layout.push(LayoutItem::Overlay(path, span)),
+                FieldItem::Place(path, names, span) => {
+                    layout.push(LayoutItem::Place(path, names, span));
+                }
+                FieldItem::Overlay(path, names, span) => {
+                    layout.push(LayoutItem::Overlay(path, names, span));
+                }
                 FieldItem::Field(d) => {
                     self.ensure_storage_type(d.ty, d.span)?;
                     let size = self.size_of(d.ty, d.span)?;
@@ -304,7 +317,7 @@ impl Compiler {
         let mut nodes = vec![zero; fields.len() + 1];
         let mut cursor = 0;
         let mut overlay = None;
-        let mut targets = HashMap::default();
+        let mut targets: HashMap<Vec<Sym>, (usize, u64, Vec<AnchorNote>)> = HashMap::default();
         for item in layout {
             match item {
                 LayoutItem::Field(index) => {
@@ -335,15 +348,14 @@ impl Compiler {
                         });
                     }
                 }
-                LayoutItem::Place(ref path, span) | LayoutItem::Overlay(ref path, span) => {
-                    let (index, relative) = if let Some(&target) = targets.get(path) {
-                        target
-                    } else {
+                LayoutItem::Place(ref path, ref name_spans, span)
+                | LayoutItem::Overlay(ref path, ref name_spans, span) => {
+                    if !targets.contains_key(path) {
                         let target =
                             self.layout_anchor(s, &fields, &filters, &names, path, span)?;
                         targets.insert(path.clone(), target);
-                        target
-                    };
+                    }
+                    let (index, relative, notes) = targets[path].clone();
                     let node = if relative == 0 {
                         index + 1
                     } else {
@@ -356,10 +368,18 @@ impl Compiler {
                         });
                         node
                     };
-                    if let [name] = path[..]
-                        && let Some(&index) = names.get(&name)
-                    {
-                        self.ide_note_named_field(span, name, fields[index].span, fields[index].ty);
+                    for (note, &at) in notes.into_iter().zip(name_spans) {
+                        match note {
+                            AnchorNote::Field {
+                                name,
+                                decl,
+                                ty,
+                            } => self.ide_note_named_field(at, name, decl, ty),
+                            AnchorNote::Member {
+                                owner,
+                                name,
+                            } => self.ide_note_member_use(at, owner, name),
+                        }
                     }
                     if matches!(item, LayoutItem::Place(..)) {
                         cursor = node;
@@ -431,10 +451,11 @@ impl Compiler {
         names: &HashMap<Sym, usize>,
         path: &[Sym],
         span: Span,
-    ) -> Result<(usize, u64)> {
+    ) -> Result<(usize, u64, Vec<AnchorNote>)> {
         let (head, rest) = path.split_first().expect("an anchor names a field");
-        let (index, mut relative, mut ty) =
+        let (index, mut relative, mut ty, first) =
             self.layout_anchor_head(owner, fields, filters, names, *head, span)?;
+        let mut notes = vec![first];
         for &name in rest {
             let Some((steps, member_ty, _)) =
                 self.find_promoted_member(vec![(ty, 0, name)], span, &mut vec![owner])?
@@ -442,13 +463,17 @@ impl Compiler {
                 return err(span, format!("no member named `{name}` to anchor on"));
             };
             relative = Self::anchor_offset(relative, &steps, name, span)?;
+            notes.push(AnchorNote::Member {
+                owner: ty,
+                name,
+            });
             ty = member_ty;
         }
-        Ok((index, relative))
+        Ok((index, relative, notes))
     }
 
     /// The first field of an anchor: a field of this struct or a name promoted from a `using`
-    /// field. Its field index, offset from that field, and type.
+    /// field. Its field index, offset from that field, type, and the name's declaration.
     fn layout_anchor_head(
         &mut self,
         owner: StructId,
@@ -457,9 +482,14 @@ impl Compiler {
         names: &HashMap<Sym, usize>,
         name: Sym,
         span: Span,
-    ) -> Result<(usize, u64, TypeId)> {
+    ) -> Result<(usize, u64, TypeId, AnchorNote)> {
         if let Some(&index) = names.get(&name) {
-            return Ok((index, 0, fields[index].ty));
+            let note = AnchorNote::Field {
+                name,
+                decl: fields[index].span,
+                ty: fields[index].ty,
+            };
+            return Ok((index, 0, fields[index].ty, note));
         }
         for (index, field) in fields.iter().enumerate().filter(|(_, f)| f.using) {
             let Some(target) = filters.target(index, name) else {
@@ -469,7 +499,11 @@ impl Compiler {
                 self.find_promoted_member(vec![(field.ty, 0, target)], span, &mut vec![owner])?
             {
                 let relative = Self::anchor_offset(0, &steps, name, span)?;
-                return Ok((index, relative, ty));
+                let note = AnchorNote::Member {
+                    owner: field.ty,
+                    name: target,
+                };
+                return Ok((index, relative, ty, note));
             }
         }
         err(span, format!("no field named `{name}` in this struct"))

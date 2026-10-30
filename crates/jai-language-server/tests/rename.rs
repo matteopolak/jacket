@@ -53,7 +53,15 @@ const EDIT_COUNTS: &[(&str, &str, &str, usize)] = &[
     (UNICODE, "größe", "→size", 2),
     (UNICODE, "größe", "ß", 2),
     (UNICODE, "größe", "size·2", 2),
+    // The names of a `#place` or `#overlay` anchor are uses: a field of the struct, a member
+    // reached through it, and a member promoted from a `using` field.
+    (ANCHORS, "base: Header;\n    #overlay", "b", 2),
+    (ANCHORS, "base: Header;\n    #place", "b", 2),
+    (ANCHORS, "table: *u8", "t", 3),
+    (ANCHORS, "tag: u32", "t", 2),
 ];
+
+const ANCHORS: &str = "Header :: struct {\n    tag: u32;\n    table: *u8;\n}\n\nObject :: struct {\n    pad: u64;\n    using base: Header;\n    #overlay(base.table) typed: *u32;\n}\n\nPlaced :: struct {\n    pad: u64;\n    base: Header;\n    #place base.table;\n    other: *u32;\n}\n\nPromoted :: struct {\n    using header: Header;\n    #overlay(tag) small: u32;\n}\n";
 
 const STRUCT_PARAMS: &str = "Grid :: struct (T: Type, W: int, H: int) {\n    cells: [H][W] T;\n}\n\nmain :: () {\n    g: Grid(float32, 2, 3);\n}\n";
 

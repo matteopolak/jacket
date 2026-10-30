@@ -1,5 +1,5 @@
 //! Collecting a struct's fields and the implicit context type.
-use super::model::{FieldDecl, FieldItem, MemberAlias, member_path};
+use super::model::{FieldDecl, FieldItem, MemberAlias, member_path, member_path_spans};
 use crate::ast::ExprKind as E;
 use crate::sema::TypeState;
 use crate::sema::lower::Operand;
@@ -73,13 +73,13 @@ impl Compiler {
                     let Some(path) = member_path(e) else {
                         return err(e.span, "#place needs a field name");
                     };
-                    out.push(FieldItem::Place(path, e.span));
+                    out.push(FieldItem::Place(path, member_path_spans(e), e.span));
                 }
                 ast::StmtKind::Overlay(e) => {
                     let Some(path) = member_path(e) else {
                         return err(e.span, "#overlay needs a field name");
                     };
-                    out.push(FieldItem::Overlay(path, e.span));
+                    out.push(FieldItem::Overlay(path, member_path_spans(e), e.span));
                 }
                 ast::StmtKind::Expr(e) => match &e.kind {
                     E::Struct(lit) => {
