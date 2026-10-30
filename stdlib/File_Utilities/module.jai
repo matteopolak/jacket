@@ -58,40 +58,42 @@ File_Visit_Info :: Visit.File_Visit_Info;
     atomic_file_replace_or_just_rename_if_destination_file_does_not_exist :: Files.atomic_file_replace_or_just_rename_if_destination_file_does_not_exist;
 }
 
-// Deletes the folder `path` and everything in it. Returns whether the folder is gone.
-//
-// `File.delete_directory` only removes an empty folder; this walks down first and removes the files, then the folders,
-// deepest first. A link is deleted as a link and never followed, so what it points to is left alone, also when `path` itself
-// is a link to a folder. `false` for a missing path, a path that is a file, or one with a NUL byte in it. If something cannot
-// be removed (no permission, a read-only file on Windows), the rest is still tried and the answer is `false`, so a failure
-// may leave part of the tree behind.
-//
-// ```jai,skip_on(wasm)
-// #import "Extensions/Environment";
-// #import "File";
-// base := environment_variable("TMPDIR");
-// if base == "" base = environment_variable("TEMP");
-// if base == "" base = "/tmp";
-// root := tprint("%/jai-doc-delete-tree", base);
-//
-// assert(make_directory_if_it_does_not_exist(tprint("%/a/b", root), recursive = true));
-// assert(write_entire_file(tprint("%/a/b/leaf", root), "x"));
-// assert(!delete_directory(root)); // not empty
-//
-// assert(delete_directory_tree(root));
-// assert(!file_exists(root));
-// assert(!delete_directory_tree(root)); // already gone
-// ```
-delete_directory_tree :: (path: string) -> bool {
-    trimmed := path;
-    while trimmed.count > 1 && (trimmed[trimmed.count - 1] == #char "/" || trimmed[trimmed.count - 1] == #char "\\") trimmed.count -= 1;
+#if OS_IS_UNIX || OS == .WINDOWS {
+    // Deletes the folder `path` and everything in it. Returns whether the folder is gone.
+    //
+    // `File.delete_directory` only removes an empty folder; this walks down first and removes the files, then the folders,
+    // deepest first. A link is deleted as a link and never followed, so what it points to is left alone, also when `path` itself
+    // is a link to a folder. `false` for a missing path, a path that is a file, or one with a NUL byte in it. If something cannot
+    // be removed (no permission, a read-only file on Windows), the rest is still tried and the answer is `false`, so a failure
+    // may leave part of the tree behind.
+    //
+    // ```jai,skip_on(wasm)
+    // #import "Extensions/Environment";
+    // #import "File";
+    // base := environment_variable("TMPDIR");
+    // if base == "" base = environment_variable("TEMP");
+    // if base == "" base = "/tmp";
+    // root := tprint("%/jai-doc-delete-tree", base);
+    //
+    // assert(make_directory_if_it_does_not_exist(tprint("%/a/b", root), recursive = true));
+    // assert(write_entire_file(tprint("%/a/b/leaf", root), "x"));
+    // assert(!delete_directory(root)); // not empty
+    //
+    // assert(delete_directory_tree(root));
+    // assert(!file_exists(root));
+    // assert(!delete_directory_tree(root)); // already gone
+    // ```
+    delete_directory_tree :: (path: string) -> bool {
+        trimmed := path;
+        while trimmed.count > 1 && (trimmed[trimmed.count - 1] == #char "/" || trimmed[trimmed.count - 1] == #char "\\") trimmed.count -= 1;
 
-    if is_symlink(trimmed) return F.file_delete(trimmed) || F.delete_directory(trimmed);
+        if is_symlink(trimmed) return F.file_delete(trimmed) || F.delete_directory(trimmed);
 
-    directory, found := is_directory(trimmed);
-    if !found || !directory return false;
+        directory, found := is_directory(trimmed);
+        if !found || !directory return false;
 
-    return remove_tree(trimmed);
+        return remove_tree(trimmed);
+    }
 }
 
 #scope_file
@@ -99,59 +101,61 @@ F :: #import "File";
 S :: #import "String";
 #import "Basic";
 
-Tree_Entry :: struct {
-    name: string;
-    is_directory: bool;
-    is_symlink: bool;
-}
-
-collect_entry :: (info: *File_Visit_Info, entries: *[..] Tree_Entry) {
-    array_add(entries, .{ copy_string(info.full_name), info.is_directory, info.is_symlink });
-}
-
-Link_Search :: struct {
-    name: string;
-    found: bool;
-}
-
-note_link :: (info: *File_Visit_Info, search: *Link_Search) {
-    if info.short_name == search.name search.found = true;
-}
-
-// Whether `path` is itself a link, found among the links of its parent folder.
-is_symlink :: (path: string) -> bool {
-    search := Link_Search.{ name = S.path_filename(path) };
-    if search.name.count == 0 return false;
-
-    parent := S.path_strip_filename(path);
-    if parent.count == 0 parent = ".";
-
-    visit_files(parent, false, *search, note_link, visit_files = false, visit_directories = false, visit_symlinks = true, follow_directory_symlinks = false);
-
-    return search.found;
-}
-
-remove_tree :: (path: string) -> bool {
-    entries: [..] Tree_Entry;
-
-    defer {
-        for entries free(it.name);
-        array_free(entries);
+#if OS_IS_UNIX || OS == .WINDOWS {
+    Tree_Entry :: struct {
+        name: string;
+        is_directory: bool;
+        is_symlink: bool;
     }
 
-    ok := visit_files(path, false, *entries, collect_entry, visit_files = true, visit_directories = true, visit_symlinks = true, follow_directory_symlinks = false);
+    collect_entry :: (info: *File_Visit_Info, entries: *[..] Tree_Entry) {
+        array_add(entries, .{ copy_string(info.full_name), info.is_directory, info.is_symlink });
+    }
 
-    for entries {
-        if it.is_symlink {
-            if !(F.file_delete(it.name) || F.delete_directory(it.name)) ok = false;
-        } else if it.is_directory {
-            if !remove_tree(it.name) ok = false;
-        } else if !F.file_delete(it.name) {
-            ok = false;
+    Link_Search :: struct {
+        name: string;
+        found: bool;
+    }
+
+    note_link :: (info: *File_Visit_Info, search: *Link_Search) {
+        if info.short_name == search.name search.found = true;
+    }
+
+    // Whether `path` is itself a link, found among the links of its parent folder.
+    is_symlink :: (path: string) -> bool {
+        search := Link_Search.{ name = S.path_filename(path) };
+        if search.name.count == 0 return false;
+
+        parent := S.path_strip_filename(path);
+        if parent.count == 0 parent = ".";
+
+        visit_files(parent, false, *search, note_link, visit_files = false, visit_directories = false, visit_symlinks = true, follow_directory_symlinks = false);
+
+        return search.found;
+    }
+
+    remove_tree :: (path: string) -> bool {
+        entries: [..] Tree_Entry;
+
+        defer {
+            for entries free(it.name);
+            array_free(entries);
         }
-    }
 
-    return F.delete_directory(path) && ok;
+        ok := visit_files(path, false, *entries, collect_entry, visit_files = true, visit_directories = true, visit_symlinks = true, follow_directory_symlinks = false);
+
+        for entries {
+            if it.is_symlink {
+                if !(F.file_delete(it.name) || F.delete_directory(it.name)) ok = false;
+            } else if it.is_directory {
+                if !remove_tree(it.name) ok = false;
+            } else if !F.file_delete(it.name) {
+                ok = false;
+            }
+        }
+
+        return F.delete_directory(path) && ok;
+    }
 }
 
 Paths :: #import "internal/files/paths";
