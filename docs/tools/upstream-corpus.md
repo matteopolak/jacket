@@ -27,7 +27,11 @@ Entry points that work are sweep cases in `tools/upstream-cases.json` ([testing]
 
 A case that cannot run on every host carries `only` (a list of platform names, e.g. `["linux-x64"]`) and `only_reason`; the sweep reports it as platform unavailable elsewhere instead of failing.
 
-A case whose own source has a genuine error (a removed API, a deprecated directive, wrong arity) carries `disabled` with a short reason. The sweep and the smoke run skip it and count it separately; manifest rows of the stdlib and compiler test catalogues accept the same key.
+A case whose own source has a genuine error (a removed API, a deprecated directive, wrong arity) carries `disabled` with a short reason. The sweep and the smoke run skip it and count it separately; manifest rows of the stdlib and compiler test catalogues accept the same key. When the reference rejects the case too, the reason ends with its error.
+
+A `check` case carries `why_check`, one line on why it is not promoted to `run` (a window or GPU, a target this host cannot run, a build program, no entry point, input or output that varies). The sweep ignores the key; it records what stops a case from running, so a row is revisited when that changes. Cases whose program is deterministic and needs no window, network or input are `run`.
+
+Dependencies that projects load as modules (JaiSerializer, the Jay_* libraries, clap-jai and its plugin base) are pinned in `DEPENDENCIES` and linked through `MODULE_LINKS` in `tools/fetch_upstreams.py`.
 
 Expected values must come from the project (docs, tests, golden outputs written by people who ran Jai), never from jaic's own output, which only freezes current behaviour. A missing expected line is a jaic bug until shown otherwise; reject an annotation only when the book is wrong about current Jai. Per-example outputs from open-jai are not used: it produced them with its own reimplementation.
 
