@@ -39,6 +39,8 @@ def version_of(binary: Path, env: dict[str, str] | None = None) -> str:
                               stdin=subprocess.DEVNULL, env=env)
     except (OSError, subprocess.TimeoutExpired):
         return ''
+    if done.returncode != 0:  # "Unknown argument '--version'." is an error message, not a version
+        return ''
     lines = (done.stdout or done.stderr).strip().splitlines()
     return lines[0] if lines else ''
 
@@ -46,7 +48,10 @@ def version_of(binary: Path, env: dict[str, str] | None = None) -> str:
 def binary_facts(binary: Path, env: dict[str, str] | None = None) -> dict:
     if not binary.exists():
         return {}
-    return {'sha256': sha256_file(binary), 'size_bytes': binary.stat().st_size, 'version': version_of(binary, env)}
+    facts = {'sha256': sha256_file(binary), 'size_bytes': binary.stat().st_size}
+    if version := version_of(binary, env):
+        facts['version'] = version
+    return facts
 
 
 def machine_specs() -> dict:

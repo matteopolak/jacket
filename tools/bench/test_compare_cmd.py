@@ -191,6 +191,19 @@ class ProvenanceTests(unittest.TestCase):
         self.assertEqual(len(facts['sha256']), 64)
         self.assertEqual(provenance.binary_facts(root / 'missing'), {})
 
+    def test_a_binary_that_rejects_the_version_flag_has_no_version(self):
+        root = self.folder()
+        if sys.platform == 'win32':
+            binary = root / 'tool.bat'
+            binary.write_text('@echo Unknown argument \'--version\'.\r\n@exit /b 1\r\n', encoding='utf-8')
+        else:
+            binary = root / 'tool'
+            binary.write_text('#!/bin/sh\necho "Unknown argument \'--version\'."\nexit 1\n', encoding='utf-8')
+            binary.chmod(0o755)
+        facts = provenance.binary_facts(binary)
+        self.assertNotIn('version', facts)
+        self.assertEqual(facts['sha256'], provenance.sha256_file(binary))
+
     def test_machine_specs_name_the_hardware_and_os(self):
         specs = provenance.machine_specs()
         for field in ('cpu', 'cpus', 'memory_gib', 'system', 'os_version'):

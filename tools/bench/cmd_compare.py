@@ -191,7 +191,7 @@ def render(results: dict) -> str:
            f"{m.get('system')} {m.get('os_version') or m.get('release')}.", '']
     for name in NAMES:
         b = results['binaries'][name]
-        out.append(f"- {name}: `{b['path']}`, version `{b.get('version', '')}`, sha256 `{b.get('sha256', '')[:16]}`, "
+        out.append(f"- {name}: `{b['path']}`, version `{b.get('version') or 'unknown'}`, sha256 `{b.get('sha256', '')[:16]}`, "
                    f"{b['dialect']} dialect")
     s = results['settings']
     out += ['', f"{s['rounds']} warm rounds and {s['cold_rounds']} cold rounds per block, order `{s['order']}`, seed "
