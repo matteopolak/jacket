@@ -79,6 +79,10 @@ random_get_zero_to_one_open_new :: inline () -> float64 {
     return random_get_zero_to_one_open_new(*context.mcg_state);
 }
 
+// A float between `min` and `max`.
+//
+// - min: one end of the range. The ends may be given in either order.
+// - max: the other end.
 random_get_within_range :: inline (state: *Random_State, min: float, max: float) -> float {
     // The bounds can be given in either order; rounding is clamped back into the range.
     value := min + (max - min) * random_get_zero_to_one(state);

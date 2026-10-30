@@ -60,6 +60,10 @@ Captures :: struct {
     names: [] string;
 }
 
+// Compiles `pattern`. The result says whether it was valid and, if not, the error says where it went wrong. Free the regex with `free_regex`.
+//
+// - pattern: the regular expression.
+// - options: flags such as case-insensitive matching.
 compile :: (pattern: string, options := Options.{}) -> Regex, ok: bool, Error {
     re: Regex;
     re.pattern = pattern;
@@ -100,6 +104,8 @@ is_match :: (re: *Regex, text: string, start := 0) -> bool {
 }
 
 // The leftmost match at or after byte `start`.
+//
+// - start: the byte offset to begin at. Anchors and `\b` still see the text before it.
 find :: (re: *Regex, text: string, start := 0) -> Match, bool {
     s, e := find_span(re.engine, text, start);
     if e < 0 return .{}, false;
@@ -162,6 +168,10 @@ replace_all :: (re: *Regex, text: string, replacement: string) -> string {
 }
 
 // Replaces the first `limit` matches (all of them when limit < 0).
+//
+// - replacement: the new text; `$1` or `${1}` stands for a group and `$name` or `${name}` for a named
+//   one.
+// - limit: how many matches to replace. Negative replaces all of them.
 replace_n :: (re: *Regex, text: string, replacement: string, limit: int) -> string {
     builder: String_Builder;
     last := 0;

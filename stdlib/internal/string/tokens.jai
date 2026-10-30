@@ -12,6 +12,9 @@
 // token, ok = parse_token(*line);
 // assert(ok && token == "=" && line == "value");
 // ```
+//
+// - delimiters: bytes that end a token. One that starts a token is a token by itself.
+// - spaces: bytes that are skipped in front of a token and that end one. They never appear in a token.
 parse_token :: (line: *string, delimiters := DEFAULT_DELIMITERS, spaces := DEFAULT_SPACES) -> value: string, success: bool {
     rest := trim_left(line.*, spaces);
     if rest.count == 0 return "", false;

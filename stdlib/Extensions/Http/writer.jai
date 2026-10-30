@@ -80,6 +80,13 @@ status_reason :: (status: int) -> string {
 // length is not known, `Transfer-Encoding: chunked` is added and the body goes through
 // write_chunk and write_last_chunk (.CHUNKED). `ok` is false, and `out` is left as it was,
 // when a header is not valid or sets the framing itself.
+//
+// - out: the buffer the head is appended to.
+// - method: the request method, such as `"GET"`.
+// - target: the request target: the path and query, such as `"/users?page=2"`.
+// - headers: sent as given. Framing headers (`Content-Length`, `Transfer-Encoding`) are added for you,
+//   so passing one is an error.
+// - body_length: the body size in bytes, 0 for none, or -1 when it is not known yet.
 write_request_head :: (out: *[..] u8, method: string, target: string, headers: [] Header_Field, body_length: s64) -> Body_Kind, bool {
     mark := out.count;
 
@@ -132,6 +139,12 @@ write_request_head :: (out: *[..] u8, method: string, target: string, headers: [
 // 204 and CONNECT 2xx responses get no framing headers. A length of -1 means unknown: chunked on
 // HTTP/1.1, and for HTTP/1.0 the body ends when the connection closes (`Connection: close` is
 // added and the caller must close).
+//
+// - out: the buffer the head is appended to.
+// - status: the status code.
+// - headers: sent as given. Framing headers are added for you, so passing one is an error.
+// - body_length: the body size in bytes, 0 for none, or -1 when it is not known yet.
+// - options: version, reason phrase, request method, keep-alive, and the `Date` and `Server` values.
 write_response_head :: (out: *[..] u8, status: int, headers: [] Header_Field, body_length: s64, options := Response_Options.{}) -> Body_Kind, bool {
     mark := out.count;
 

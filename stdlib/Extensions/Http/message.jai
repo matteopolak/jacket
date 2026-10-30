@@ -75,6 +75,9 @@ Response :: struct {
 
 // `response` with one more header: `with_header(json(user), "ETag", tag)`. The name and value
 // must stay valid until the response is written.
+//
+// - name: the header name.
+// - value: the header value.
 with_header :: (response: Response, name: string, value: string) -> Response {
     result := response;
 
@@ -99,6 +102,9 @@ status_only :: (status: int) -> Response {
 
 // `value` as JSON with `Content-Type: application/json`. The body is built in the temporary
 // allocator.
+//
+// - value: any value the Json module can encode.
+// - status: the HTTP status code.
 json :: (value: $T, status := 200) -> Response {
     response: Response;
 
@@ -127,17 +133,27 @@ created :: (value: $T, location := "") -> Response {
 }
 
 // Plain text with `Content-Type: text/plain; charset=utf-8`.
+//
+// - body: sent as it is.
+// - status: the HTTP status code.
 text :: (body: string, status := 200) -> Response {
     return bytes_response(body, "text/plain; charset=utf-8", status);
 }
 
 // HTML with `Content-Type: text/html; charset=utf-8`.
+//
+// - body: sent as it is. Nothing is escaped.
+// - status: the HTTP status code.
 html :: (body: string, status := 200) -> Response {
     return bytes_response(body, "text/html; charset=utf-8", status);
 }
 
 // Raw bytes (a `[] u8` or a `string`) with a content type of your choice. The bytes must stay
 // valid until the response is written.
+//
+// - body: a `[] u8` or a `string`, sent as it is.
+// - content_type: the `Content-Type` header value.
+// - status: the HTTP status code.
 bytes_response :: (body: $T, content_type: string, status := 200) -> Response {
     response: Response;
 
@@ -155,6 +171,9 @@ bytes_response :: (body: $T, content_type: string, status := 200) -> Response {
 }
 
 // A redirect to `location`: 302 unless you pass 301, 303, 307 or 308.
+//
+// - location: the URL to go to, as an absolute URL or a path.
+// - status: 301, 302, 303, 307 or 308. Use 303 after a POST, 307 or 308 to keep the method.
 redirect :: (location: string, status := 302) -> Response {
     response: Response;
 
@@ -195,6 +214,9 @@ Http_Error :: struct {
 
 // An error with a status and a detail text (used as it is). The named helpers below take a
 // `tprint` format instead: `not_found("No user %", id)`.
+//
+// - status: the HTTP status code.
+// - detail: text for the client, used as it is.
 http_error :: (status: int, detail := "") -> Http_Error {
     error: Http_Error;
 
@@ -282,6 +304,9 @@ unavailable :: (format := "", args: ..Any) -> Http_Error {
 }
 
 // `error` with one more header (`Retry-After`, `WWW-Authenticate`...).
+//
+// - name: the header name.
+// - value: the header value.
 with_header :: (error: Http_Error, name: string, value: string) -> Http_Error {
     result := error;
     list: [..] Header_Field;
@@ -377,6 +402,11 @@ problem_response :: (request: *Request, error: Http_Error) -> Response {
 }
 
 // The error for bad input found by an extractor: names where the input came from and which part.
+//
+// - status: usually 400 or 422.
+// - location: where the bad input came from, such as `"query"` or `"body"`.
+// - field: which part of it was bad.
+// - detail: what is wrong with it.
 input_error :: (status: int, location: string, field: string, detail: string) -> Http_Error {
     error := http_error(status);
 

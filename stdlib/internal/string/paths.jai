@@ -146,6 +146,8 @@ path_ensure_extension :: (path: string, extension: string) -> string {
 // defer free(path);
 // assert(path == "a/b/c.txt");
 // ```
+//
+// - separator: goes between the components; the platform's by default.
 path_join :: (components: ..string, separator: u8 = PATH_SEPARATOR) -> string {
     builder: String_Builder;
 

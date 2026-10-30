@@ -108,6 +108,9 @@ json_push :: (array: *Json_Value, item: Json_Value) {
 
 // Sets a member of an object, replacing the last member with that key; `object` takes
 // ownership of `value` and copies `key`.
+//
+// - key: the member name.
+// - value: moved into `object`, which owns it from then on.
 json_set :: (object: *Json_Value, key: string, value: Json_Value) {
     assert(object.kind == .OBJECT, "json_set needs an object");
 

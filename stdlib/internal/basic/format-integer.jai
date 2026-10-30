@@ -1,5 +1,19 @@
 FormatInt :: Shared_Print.FormatInt;
 
+// Wraps an integer for `print` so it comes out in another base, padded, or grouped.
+//
+// ```jai
+// assert(tprint("%", formatInt(255, base = 16)) == "ff");
+// assert(tprint("%", formatInt(7, minimum_digits = 3)) == "007");
+// assert(tprint("%", formatInt(1234567, digits_per_comma = 3, comma_string = ",")) == "1,234,567");
+// ```
+//
+// - base: from 2 to 64. Digits past 9 are `a` to `z`, then `A` to `Z`.
+// - minimum_digits: pads the digits with `padding` up to this many. A minus sign is not counted.
+// - padding: the byte used to pad, `0` by default.
+// - digits_per_comma: puts `comma_string` between groups of this many digits, counted from the right.
+//   0 for no groups.
+// - comma_string: what goes between the groups, for example `","`.
 formatInt :: (value: Any, base := 10, minimum_digits := 1, padding: u8 = #char "0", digits_per_comma: u16 = 0, comma_string := "") -> FormatInt {
     result: FormatInt;
     result.value = value;

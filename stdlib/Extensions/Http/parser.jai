@@ -184,6 +184,10 @@ Parser :: struct {
 // assert(failed);
 // assert(parser.error.kind == .BODY_TOO_LARGE);
 // ```
+//
+// - p: the parser to set up. Whatever it held before is freed.
+// - kind: whether it reads requests or responses.
+// - limits: size limits for lines, heads, headers and bodies, and a few strictness switches.
 parser_init :: (p: *Parser, kind: Parser_Kind, limits := Limits.{}) {
     parser_free(p);
     p.* = .{};

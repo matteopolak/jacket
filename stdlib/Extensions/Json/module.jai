@@ -181,6 +181,8 @@ free_json :: (error: *Json_Error) {
 
 // Encodes `value`. Output is compact unless `pretty` (two-space indent). The result comes from
 // context.allocator.
+//
+// - pretty: indents with two spaces and puts members on their own lines.
 to_json :: (value: $T, pretty := false) -> string {
     builder: String_Builder;
     write_json(*builder, value, pretty);
@@ -249,6 +251,8 @@ from_json :: ($T: Type, source: Json_Source, options := Json_Options.{}) -> T, J
 // Decodes `text` into a `T`. Strings, arrays, pointers and tables in the result are allocated
 // from context.allocator; free_json releases them. After a failure everything the decoder
 // allocated has been freed already and the returned value is a default `T`.
+//
+// - options: nesting and size limits, and whether unknown fields are an error.
 from_json :: ($T: Type, text: string, options := Json_Options.{}) -> T, Json_Error {
     empty: T;
 

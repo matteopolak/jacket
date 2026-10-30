@@ -1,3 +1,11 @@
+// Starts copying the pixels of `source` back to the CPU without waiting for them. Poll with `pixel_read_is_done`, then collect them with `pixel_read_end`.
+//
+// - source: the render target to read.
+// - dest_format: the format of the pixels you get back.
+// - width: size of the result in pixels; `source` is scaled to fit. -1 keeps the size of `source`.
+// - height: size of the result in pixels. -1 keeps the size of `source`.
+// - srgb: treats the result as sRGB-encoded.
+// - flip: reverses the order of the rows, so the top row comes first.
 pixel_read_begin :: (source: *Texture, dest_format: Texture_Format, width: s32 = -1, height: s32 = -1, srgb := false, flip := false) -> *Pixel_Read {
     immediate_flush();
     require_gl_texture_context();

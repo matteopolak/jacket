@@ -1,3 +1,16 @@
+// Opens a window and returns it, or a null window when it could not be made.
+//
+// - width: in window units.
+// - height: in window units.
+// - window_name: the title.
+// - window_x: where the top left corner goes, in screen units (or inside `parent`). Leave it at -1 on
+//   macOS to centre the window and on Windows for the top left of the usable screen; Linux has no such
+//   default and starts at 0.
+// - window_y: the same for the vertical position.
+// - parent: a window to put this one in. Null makes a top-level window.
+// - background_color_rgb: red, green and blue from 0 to 1, shown before the first frame is drawn.
+// - wanted_msaa: samples per pixel for smoothing edges. The default is the module parameter
+//   `DEFAULT_MSAA`.
 create_window :: (width: int, height: int, window_name: string, window_x := 0, window_y := 0, parent: Window_Type = None, background_color_rgb := DEFAULT_WINDOW_CREATION_COLOR, wanted_msaa: s32 = DEFAULT_MSAA) -> Window {
     if width <= 0 || height <= 0 || width > 0x7fffffff || height > 0x7fffffff return None;
 

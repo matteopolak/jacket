@@ -121,6 +121,8 @@ array_add :: (array: *[..] $T, to_append: ..T) {
 // found, index = array_find(values, 9, same_half); // 8 and 9 share a half
 // assert(found && index == 1);
 // ```
+//
+// - compare: decides whether two elements are equal. `==` when not given.
 array_find :: (array: [] $T, item: T, $compare: (T, T) -> bool = null) -> bool, s64 {
     // A long array of integers, enums or pointers is searched a vector at a time.
     #if !compare && ArrayScan.is_scannable(T) {
@@ -299,6 +301,9 @@ array_ordered_remove_by_value :: inline (array_pointer: *[] $T, item: T) -> bool
 // assert(once == 1 && values.count == 1 && values[0] == 3);
 // array_free(values);
 // ```
+//
+// - stop_after_first: removes only the first match.
+// - compare: decides whether two elements are equal. `==` when not given.
 array_unordered_remove_by_value :: inline (array: *[] $T, item: T, $stop_after_first := false, $compare: (T, T) -> bool = null) -> s64 {
     removed: s64;
 
@@ -426,6 +431,9 @@ array_reset :: (array: *[..] $T) {
 // assert(values.count == 2);
 // array_free(values);
 // ```
+//
+// - initialize: set to `false` to leave new elements as the allocator returned them instead of setting
+//   them to their defaults.
 array_resize :: (array: *[..] $T, new_count: s64, $initialize := true) {
     assert(new_count >= 0);
     array_reserve(array, new_count);

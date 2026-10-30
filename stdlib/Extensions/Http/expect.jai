@@ -181,6 +181,9 @@ expect_body_contains :: (response: Client_Response, needle: string, loc := #call
 }
 
 // The response redirects (3xx, or exactly `status` when given) to `location`.
+//
+// - location: the `Location` the response must have.
+// - status: the exact status wanted. 0 accepts any 3xx.
 expect_redirect :: (response: Client_Response, location: string, status := 0, loc := #caller_location) -> bool {
     test_state.checks += 1;
 
@@ -204,6 +207,8 @@ expect_redirect :: (response: Client_Response, location: string, status := 0, lo
 // The body decoded as JSON into a `T`. The status must be `status`, or 2xx when it is left out,
 // and the `Content-Type` JSON. On failure the value is empty. The strings in it are allocated
 // with the context allocator; a test may leave them.
+//
+// - status: the exact status wanted. 0 accepts any 2xx.
 expect_json :: (response: Client_Response, $T: Type, status := 0, loc := #caller_location) -> T {
     test_state.checks += 1;
 
@@ -252,6 +257,9 @@ expect_json :: (response: Client_Response, $T: Type, status := 0, loc := #caller
 
 // The response is an RFC 9457 problem document with this status and, when `detail` is given, a
 // `detail` that contains it. Returns the decoded document (empty when the check failed).
+//
+// - status: the status the problem must have.
+// - detail: the text the `detail` member must have. Empty skips that check.
 expect_problem :: (response: Client_Response, status: int, detail := "", loc := #caller_location) -> Problem {
     test_state.checks += 1;
 

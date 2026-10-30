@@ -123,6 +123,10 @@ audio_fatal :: (message: string) {
 
 #scope_export
 
+// Makes a stream to play `data`. Returns null when the sound is not loaded or has more channels than a stream can take.
+//
+// - data: a loaded sound.
+// - category: the group the stream belongs to, for volume control.
 make_stream :: (data: *Sound_Data, category := Sound_Category.GENERAL_SFX) -> *Sound_Stream {
     push_allocator(context.default_allocator);
     if !data return null;
@@ -249,6 +253,9 @@ update_desired_rate :: (stream: *Sound_Stream) {
     stream.desired_rate = cast(float) stream.sound_data.sampling_rate / cast(float) rate * stream.rate_scale;
 }
 
+// Makes a stream loop, or stops it from looping.
+//
+// - repeating: true to start over each time the end is reached, false to stop there.
 set_repeating :: (stream: *Sound_Stream, repeating: bool) {
     lock_player();
     defer unlock_player();

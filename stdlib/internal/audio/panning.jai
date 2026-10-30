@@ -29,6 +29,10 @@ clear_scale_accumulation :: (stream: *Sound_Stream, index: s64) {
     for *scale: stream.input_scale_mappings[index].source_scale_for_this_output_index scale.* = 0;
 }
 
+// Tells the player where the listener is, so sounds with a position can be panned and softened by distance.
+//
+// - camera_position: where the listener is.
+// - camera_orientation: which way the listener faces.
 update_listener :: (camera_position: Vector3, camera_orientation: Quaternion) {
     lock_player();
     defer unlock_player();

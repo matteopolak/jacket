@@ -3,6 +3,9 @@ get_pixel_scale :: (win: Window) -> float {
     return 1;
 }
 
+// Where the window's drawing area is on the screen and how big it is: `x, y, width, height, success`.
+//
+// - right_handed: counts `y` up from the bottom of the screen instead of down from the top.
 get_dimensions :: (win: Window, right_handed: bool) -> (x: s32, y: s32, width: s32, height: s32, success := true) {
     if win == None return 0, 0, 0, 0, false;
 
@@ -21,6 +24,9 @@ get_dimensions :: (win: Window, right_handed: bool) -> (x: s32, y: s32, width: s
     return root_x, root_y, attributes.width, attributes.height, true;
 }
 
+// Where the mouse is, in window coordinates: `x, y, success`.
+//
+// - right_handed: counts `y` up from the bottom of the window instead of down from the top.
 get_mouse_pointer_position :: (dpy: *Display, win: Window, right_handed: bool) -> x: int, y: int, success: bool {
     if !dpy || win == None return 0, 0, false;
 
@@ -39,17 +45,28 @@ get_mouse_pointer_position :: (dpy: *Display, win: Window, right_handed: bool) -
     return window_x, window_y, true;
 }
 
+// Where the mouse is, in window coordinates: `x, y, success`.
+//
+// - right_handed: counts `y` up from the bottom of the window instead of down from the top.
 get_mouse_pointer_position :: (win: Window, right_handed: bool) -> x: int, y: int, success: bool {
     if win == None return 0, 0, false;
     return get_mouse_pointer_position(Connection.get_display(), win, right_handed);
 }
 
+// Where the mouse is, in window coordinates: `x, y, success`.
+//
+// - right_handed: counts `y` up from the bottom of the window instead of down from the top.
 get_mouse_pointer_position :: inline (right_handed := false) -> x: int, y: int, success: bool {
     dpy := Connection.get_display();
     if !dpy return 0, 0, false;
     return get_mouse_pointer_position(dpy, XDefaultRootWindow(dpy), right_handed);
 }
 
+// Switches the window between full screen and its normal size. Returns whether it worked and the new size.
+//
+// - desire_fullscreen: true to go full screen, false to go back.
+// - saved: where the old position and size are kept while full screen, to restore them on the way
+//   back.
 toggle_fullscreen :: (win: Window, desire_fullscreen: bool, saved: *Saved_Window_Info) -> success: bool, width: s32, height: s32 {
     if win == None return false, 0, 0;
 

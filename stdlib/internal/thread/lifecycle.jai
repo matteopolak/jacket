@@ -123,6 +123,9 @@ thread_start :: (thread: *Thread) {
     }
 }
 
+// Whether `thread` has finished.
+//
+// - milliseconds: how long to wait for the thread to finish. 0 only checks; -1 waits until it does.
 thread_is_done :: (thread: *Thread, milliseconds: s32 = 0) -> bool {
     if milliseconds < -1 {
         context.logger("invalid thread timeout\n", context.logger_data, Log_Info.{ common_flags = .ERROR });

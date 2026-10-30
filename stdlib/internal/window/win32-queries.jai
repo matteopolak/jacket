@@ -3,6 +3,9 @@ get_pixel_scale :: (hwnd: Windows.HWND) -> float {
     return 1;
 }
 
+// Where the window's drawing area is on the screen and how big it is: `x, y, width, height, success`.
+//
+// - right_handed: counts `y` up from the bottom of the screen instead of down from the top.
 get_dimensions :: (hwnd: Windows.HWND, right_handed: bool) -> (x: s32, y: s32, width: s32, height: s32, success := true) {
     rect: Windows.RECT;
     origin: Windows.POINT;
@@ -19,6 +22,9 @@ get_dimensions :: (hwnd: Windows.HWND, right_handed: bool) -> (x: s32, y: s32, w
     return origin.x, y, width, height, true;
 }
 
+// Where the mouse is, in window coordinates: `x, y, success`.
+//
+// - right_handed: counts `y` up from the bottom of the window instead of down from the top.
 get_mouse_pointer_position :: (hwnd: Windows.HWND, right_handed: bool) -> (x: int, y: int, success: bool) {
     pointer: Windows.POINT;
     if Windows.GetCursorPos(*pointer) == 0 return 0, 0, false;
@@ -33,6 +39,9 @@ get_mouse_pointer_position :: (hwnd: Windows.HWND, right_handed: bool) -> (x: in
     return pointer.x, pointer.y, true;
 }
 
+// Where the mouse is, in window coordinates: `x, y, success`.
+//
+// - right_handed: counts `y` up from the bottom of the window instead of down from the top.
 get_mouse_pointer_position :: inline (right_handed := false) -> x: int, y: int, success: bool {
     pointer: Windows.POINT;
     if Windows.GetCursorPos(*pointer) == 0 return 0, 0, false;

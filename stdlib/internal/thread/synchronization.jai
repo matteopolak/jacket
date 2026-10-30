@@ -1,3 +1,8 @@
+// Sets up a mutex. It is recursive: the thread that holds it can lock it again, and has to unlock it as many times.
+//
+// - desired_name: a label for the mutex. Only kept in builds with `DEBUG` set.
+// - desired_order: a rank for the mutex. Only kept in builds with `DEBUG` set; nothing acts on it yet.
+//   -1 for none.
 init :: (using m: *Mutex, desired_name := "", desired_order: Mutex_Order = -1) {
     attr: P.pthread_mutexattr_t;
 
@@ -48,6 +53,9 @@ unlock :: (using m: *Mutex) {
     sdk_ok(result, "pthread mutex unlock failed");
 } @Unlocks
 
+// Sets up a condition variable.
+//
+// - desired_name: a label for the condition variable. Only kept in builds with `DEBUG` set.
 init :: (using cv: *Condition_Variable, desired_name := "") {
     result := P.pthread_cond_init(*condition_variable, null);
     if !sdk_ok(result, "pthread condition initialization failed") return;
@@ -96,6 +104,9 @@ cvariable_wake_all :: (condition_variable: *Per_OS_Condition_Variable_Type) {
     sdk_ok(result, "pthread condition broadcast failed");
 }
 
+// Waits on `c` until another thread calls `wake` or `wake_all`. It can return without either, so check the condition again afterwards.
+//
+// - m: the mutex the caller holds. It is released while waiting and held again when `wait` returns.
 wait :: (c: *Condition_Variable, m: *Mutex) {
     cvariable_wait(*c.condition_variable, *m.csection);
 }
@@ -108,6 +119,9 @@ wake_all :: (c: *Condition_Variable) {
     cvariable_wake_all(*c.condition_variable);
 }
 
+// Sets up a semaphore.
+//
+// - initial_value: how many `wait_for` calls succeed before anyone calls `signal`.
 init :: (s: *Semaphore, initial_value: s32 = 0) {
     initialize_semaphore(s, initial_value);
 }
@@ -128,6 +142,9 @@ signal_semaphore :: (s: *Semaphore) -> bool {
 }
 
 #scope_export
+// Takes one count from the semaphore, waiting for `signal` if there is none. The result says whether it got one.
+//
+// - milliseconds: how long to wait at most. 0 only tries; -1 waits as long as it takes.
 wait_for :: (s: *Semaphore, milliseconds: s32 = -1) -> Wait_For_Result #no_context {
     #if OS == .MACOS {
         deadline: s64;

@@ -1,3 +1,9 @@
+// Reads an image file into `bitmap`. Returns `false` when the file is missing or is not an image.
+//
+// The bitmap comes out as `R8`, `RG8`, `RGB8` or `RGBA8`, whichever matches the channels in the file.
+//
+// - bitmap: receives the pixels. Free them with `deinit`.
+// - filepath: an image file in a format `stb_image` reads, such as PNG or JPEG.
 bitmap_load :: (bitmap: *Bitmap, filepath: string) -> bool {
     filename := Basic.to_c_string(filepath);
 
@@ -13,6 +19,10 @@ bitmap_load :: (bitmap: *Bitmap, filepath: string) -> bool {
     return true;
 }
 
+// Like `bitmap_load`, for an image that is already in memory.
+//
+// - bitmap: receives the pixels. Free them with `deinit`.
+// - memory: the bytes of an image file.
 bitmap_load_from_memory :: (bitmap: *Bitmap, memory: [] u8) -> bool {
     if memory.count <= 0 || memory.count > 0x7fffffff || !memory.data return false;
 
@@ -27,6 +37,11 @@ bitmap_load_from_memory :: (bitmap: *Bitmap, memory: [] u8) -> bool {
     return true;
 }
 
+// Writes `bitmap` to an image file. Returns `false` for any other extension, for a bitmap that is not `RGB8` or `RGBA8`, or when the write fails.
+//
+// - filepath: where to write. The extension picks the format: `.png`, `.bmp`, `.tga`, `.jpg` or
+//   `.jpeg`.
+// - save_alpha: keeps the alpha channel of an `RGBA8` bitmap. Off by default, which writes RGB.
 bitmap_save :: (bitmap: *Bitmap, filepath: string, save_alpha := false) -> bool {
     source_channels := get_image_bytes_per_texel(bitmap.format);
 

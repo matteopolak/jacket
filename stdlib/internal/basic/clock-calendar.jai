@@ -56,6 +56,9 @@
         return add_clock_words(seconds_to_apollo(value.tv_sec), nanoseconds_to_apollo(value.tv_nsec));
     }
 
+    // Breaks `at` into year, month, day and time of day.
+    //
+    // - time_zone: `.UTC`, or `.LOCAL` for the computer's own time zone.
     to_calendar :: (at: Apollo_Time, time_zone := Time_Zone.UTC) -> Calendar_Time {
         TM_YEAR_BASE :: 1900;
 

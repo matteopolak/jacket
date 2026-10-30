@@ -81,11 +81,18 @@ insertion_sort :: (array: [] $T, f: (T, T) -> $R) {
     }
 }
 
+// Sorts `array` in place and returns it. Equal elements may change places.
+//
+// - f: compares two elements: a negative number when the first goes first, a positive one when it goes
+//   second, 0 for a tie.
 quick_sort :: (array: [] $T, f: (T, T) -> $R) -> [] T {
     intro_sort(array, f);
     return array;
 }
 
+// Sorts `array` in place by the key `f` gives for each element, and returns it.
+//
+// - f: gives the key to sort by for an element.
 quick_sort :: (array: [] $T, f: (T) -> $R) -> [] T {
     sort_by_key(array, f);
     return array;

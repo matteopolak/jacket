@@ -36,6 +36,11 @@ backend_init :: (info: *Window_Info) {
     info.backend_initted_for_this_window = true;
 }
 
+// Chooses where drawing goes, and what the coordinates mean. Anything drawn so far is flushed first.
+//
+// - window: the window to draw into from now on.
+// - coords: `.RIGHT_HANDED` (the default) puts the origin at the bottom left with y growing up;
+//   `.LEFT_HANDED` puts it at the top left with y growing down.
 set_render_target :: (window: Window_Type, coords := Simp_Coordinate_System.RIGHT_HANDED) {
     immediate_flush();
     prepare_window(window, 4);
@@ -52,6 +57,11 @@ set_render_target :: (window: Window_Type, coords := Simp_Coordinate_System.RIGH
     immediate_set_2d_projection(immediate_state.current_window_info.window_width, immediate_state.current_window_info.window_height);
 }
 
+// Draws into `texture` from now on. Anything drawn so far is flushed first.
+//
+// - texture: a texture made with `texture_create_render_target`.
+// - coords: `.RIGHT_HANDED` (the default) puts the origin at the bottom left with y growing up;
+//   `.LEFT_HANDED` puts it at the top left with y growing down.
 set_render_target :: (texture: *Texture, coords := Simp_Coordinate_System.RIGHT_HANDED) {
     immediate_flush();
     assert(texture != null && (texture.flags & .Render_Target) != 0);
@@ -144,6 +154,9 @@ enable_window :: (window: Window_Type) {
     }
 }
 
+// Shows what was drawn to `window`. Anything still batched is drawn first.
+//
+// - vsync: waits for the display's next refresh before showing the frame. On by default.
 swap_buffers :: (window: Window_Type, vsync := true) {
     immediate_flush();
     for item: disabled_windows if item == window return;
@@ -162,6 +175,12 @@ backend_tweak_projection_matrix :: (m: *Matrix4) {
     // Projection is already constructed in native OpenGL clip coordinates.
 }
 
+// Fills the current render target with one colour, and clears its depth and stencil.
+//
+// - r: red, from 0 to 1.
+// - g: green, from 0 to 1.
+// - b: blue, from 0 to 1.
+// - a: alpha, from 0 to 1.
 clear_render_target :: (r: float, g: float, b: float, a: float) {
     immediate_flush();
     require_gl_texture_context();
@@ -169,10 +188,20 @@ clear_render_target :: (r: float, g: float, b: float, a: float) {
     GL.gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT | GL.GL_STENCIL_BUFFER_BIT);
 }
 
+// Limits drawing to a box, in the coordinates of the current render target.
+//
+// - p0: one corner of the box.
+// - p1: the opposite corner. It must not be left of or below `p0`.
 set_scissor :: (p0: Vector2, p1: Vector2) {
     set_scissor(cast(s32) p0.x, cast(s32) p0.y, cast(s32) p1.x, cast(s32) p1.y);
 }
 
+// Limits drawing to a box, in the coordinates of the current render target.
+//
+// - x0: left edge.
+// - y0: the edge with the smaller `y`.
+// - x1: right edge. It must not be less than `x0`.
+// - y1: the edge with the larger `y`. It must not be less than `y0`.
 set_scissor :: (x0: s32, y0: s32, x1: s32, y1: s32) {
     immediate_flush();
     assert(x1 >= x0 && y1 >= y0);
@@ -203,6 +232,8 @@ set_scissor :: (x0: s32, y0: s32, x1: s32, y1: s32) {
     GL.gl.glScissor(x0, y0, cast(GL.GLsizei) (x1 - x0), cast(GL.GLsizei) (y1 - y0));
 }
 
+// Lifts the limit set by `set_scissor`.
+//
 clear_scissor :: () {
     immediate_flush();
     GL.gl.glDisable(GL.GL_SCISSOR_TEST);
@@ -234,6 +265,13 @@ immediate_set_texture :: (texture: *Texture) {
     immediate_texture = texture;
 }
 
+// Adds one corner to the batch. Every three corners make a triangle, and the batch is drawn when it fills or when something forces a flush.
+//
+// - position: where the corner is. With the 2D projection `z` is not used.
+// - color_scale: multiplied into the colour the shader finds: the whole colour for
+//   `set_shader_for_color`, the texel for images.
+// - uv: which point of the texture this corner takes, from 0 to 1.
+// - normal: the direction the surface faces, for shaders that light it.
 immediate_vertex :: (position: Vector3, color_scale: Vector4, uv: Vector2 = .{}, normal: Vector3 = .{}) {
     if immediate_state.num_vertices == Immediate_State.MAX_VERTICES immediate_flush();
 
@@ -267,6 +305,10 @@ set_projection :: () {
     set_parameter(immediate_state.current_shader, "transform", projection);
 }
 
+// Draws the following triangles in plain colours, with no texture.
+//
+// - enable_blend: mixes with what is already on screen using the alpha of the colour. Off by default,
+//   which overwrites.
 set_shader_for_color :: (enable_blend := false) {
     ensure_renderer();
     immediate_set_texture(null);
@@ -279,6 +321,9 @@ set_shader_for_text :: () {
     immediate_set_shader(*shader_text);
 }
 
+// Draws the following triangles with `texture`, scaled by their colours.
+//
+// - texture: the texture to draw.
 set_shader_for_images :: (texture: *Texture) {
     ensure_renderer();
     immediate_set_texture(texture);
@@ -320,12 +365,27 @@ backend_draw_immediate_vertices :: (num_vertices: int) {
     GL.gl.glDrawArrays(GL.GL_TRIANGLES, 0, cast(GL.GLsizei) num_vertices);
 }
 
+// Draws `text` in one line and returns its width in pixels.
+//
+// - font: a font from `load_font`.
+// - x: where the text starts, in the units of the render target.
+// - y: the baseline of the text.
+// - text: UTF-8.
+// - color: white by default.
+// - effects: `Font_Effects` flags.
 draw_text :: (font: *Dynamic_Font, x: s64, y: s64, text: string, color := Vector4.{ 1, 1, 1, 1 }, effects: Font_Effects = 0) -> width: s64 {
     width := prepare_text(font, text, effects);
     draw_prepared_text(font, x, y, color, effects);
     return width;
 }
 
+// Draws the text last given to `prepare_text`, so a text drawn many times is laid out once.
+//
+// - font: the font the text was prepared with.
+// - x: where the text starts.
+// - y: the baseline of the text.
+// - color: white by default.
+// - effects: the same flags the text was prepared with.
 draw_prepared_text :: (font: *Dynamic_Font, x: s64, y: s64, color := Vector4.{ 1, 1, 1, 1 }, effects: Font_Effects = 0) {
     baseline := y;
     if immediate_state.coordinate_system == .LEFT_HANDED baseline = -baseline;

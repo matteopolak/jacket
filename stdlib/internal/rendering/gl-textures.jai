@@ -1,7 +1,17 @@
+// Uploads `bitmap` to the graphics card as `texture`. Returns `false` when that fails.
+//
+// - texture: gets the pixels. Its old storage is replaced.
 texture_load_from_bitmap :: (using texture: *Texture, bitmap: *Bitmap) -> bool {
     return upload_bitmap(texture, bitmap);
 }
 
+// Reads an image file and uploads it as `map`. Returns `false` when it cannot read or decode the file.
+//
+// - map: gets the pixels.
+// - filename: an image file in a format `bitmap_load` reads.
+// - srgb: says the pixels are sRGB-encoded, which is what most image files hold, so they are converted
+//   to linear when sampled.
+// - build_mipmaps: also makes the half-size levels, so the image looks smooth when drawn small.
 texture_load_from_file :: (map: *Texture, filename: string, srgb := false, build_mipmaps := false) -> bool {
     bitmap: Bitmap;
     if !bitmap_load(*bitmap, filename) return false;
@@ -14,6 +24,13 @@ texture_load_from_file :: (map: *Texture, filename: string, srgb := false, build
     return upload_bitmap(map, *bitmap);
 }
 
+// Like `texture_load_from_file`, for an image that is already in memory.
+//
+// - texture: gets the pixels.
+// - memory: the bytes of an image file.
+// - srgb: says the pixels are sRGB-encoded, which is what most image files hold, so they are converted
+//   to linear when sampled.
+// - build_mipmaps: also makes the half-size levels, so the image looks smooth when drawn small.
 texture_load_from_memory :: (texture: *Texture, memory: [] u8, srgb := false, build_mipmaps := false) -> bool {
     bitmap: Bitmap;
     if !bitmap_load_from_memory(*bitmap, memory) return false;
@@ -154,6 +171,12 @@ backend_update_texture :: (texture: *Texture, bitmap: *Bitmap) {
 
 }
 
+// Makes an empty texture that can be drawn into: make it current with `set_render_target`, then draw as usual.
+//
+// - width: in pixels.
+// - height: in pixels.
+// - format: how a pixel is stored, for instance `.RGBA8`.
+// - flags: extra `Texture_Flags`, such as `.sRGB`. `.Render_Target` is always added.
 texture_create_render_target :: (width: s32, height: s32, format: Texture_Format, flags: Texture_Flags = 0) -> Texture {
     result: Texture;
     result.width = width;

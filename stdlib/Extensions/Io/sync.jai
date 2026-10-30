@@ -16,6 +16,8 @@ Channel :: struct(T: Type) {
 }
 
 // A channel that holds up to `capacity` values, made with `context.allocator`.
+//
+// - capacity: how many values it holds before `send` blocks. 0 makes a send wait for a receive.
 make_channel :: ($T: Type, capacity := 0) -> *Channel(T) {
     assert(capacity >= 0, "Io: a channel's capacity cannot be negative");
 

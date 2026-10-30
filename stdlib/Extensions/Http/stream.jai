@@ -29,6 +29,11 @@ Stream :: struct {
 }
 
 // A response whose body `produce` writes with `send_chunk`. `data` is handed to it as is.
+//
+// - produce: writes the body; it runs after the head has been sent.
+// - data: handed to `produce` untouched. It has to outlive the response.
+// - content_type: the `Content-Type` header value.
+// - status: the HTTP status code.
 stream_response :: (produce: Stream_Producer, data: *void, content_type: string, status := 200) -> Response {
     response: Response;
 
@@ -48,6 +53,10 @@ stream_response :: (produce: Stream_Producer, data: *void, content_type: string,
 // chosen from the file's extension (`application/octet-stream` when unknown). A file that cannot
 // be opened is a 404, or a 500 for any other failure; a file that shrinks while it is sent cuts
 // the connection.
+//
+// - path: the file to send.
+// - content_type: the `Content-Type` header value. Empty picks one from the extension.
+// - status: the HTTP status code.
 file_response :: (path: string, content_type := "", status := 200) -> Response {
     response: Response;
 

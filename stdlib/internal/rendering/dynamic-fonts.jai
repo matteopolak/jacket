@@ -36,6 +36,13 @@ device_font_height :: (pixel_height: int, pixel_scale: float) -> int {
     return height;
 }
 
+// Loads a font file at one size. Returns `null` when the file cannot be read.
+//
+// - path: the folder the font file is in. Empty means `basename` is the whole path.
+// - basename: the font file, for instance a `.ttf`.
+// - pixel_height: how tall the text is in pixels.
+// - pixel_scale: device pixels per pixel, for sharp text on a high-density display. Glyphs are made at
+//   `pixel_height * pixel_scale` and measured back in `pixel_height` units.
 load_font :: (path: string, basename: string, pixel_height: int, pixel_scale := 1.0) -> font: *Dynamic_Font {
     persistent := font_context();
 
@@ -125,6 +132,10 @@ get_glyph_width_in_pixels :: (glyph: *Glyph_Data) -> s64 {
     return glyph.advance;
 }
 
+// The width in pixels of the one UTF-8 character at `utf8`. A byte sequence that is not valid counts as the font's unknown character.
+//
+// - utf8: the first byte of the character. A zero byte or null gives 0.
+// - effect_flags: `Font_Effects` flags.
 get_character_width_in_pixels :: (using font: *Dynamic_Font, utf8: *u8, effect_flags: Font_Effects) -> u32 {
     if !utf8 || utf8[0] == 0 return 0;
 
@@ -147,6 +158,11 @@ get_character_width_in_pixels :: (using font: *Dynamic_Font, utf8: *u8, effect_f
     return cast(u32) (cast(float) glyph.advance / font.pixel_scale + 0.5);
 }
 
+// Lays `text` out and returns its width in pixels. `draw_prepared_text` then draws it.
+//
+// - font: the font to lay the text out in.
+// - text: UTF-8.
+// - effect_flags: `Font_Effects` flags.
 prepare_text :: (font: *Dynamic_Font, text: string, effect_flags: Font_Effects = 0) -> (width: s64) {
     convert_to_temporary_glyphs(font, text, effect_flags);
     return cast(s64) (cast(float) font.temporary_glyphs_width_in_pixels / font.pixel_scale + 0.5);

@@ -108,6 +108,10 @@ Initialize :: (memory: *$T) {
     memory.* = T.{};
 }
 
+// Allocates a `T` with `context.allocator` and returns a pointer to it.
+//
+// - initialized: set to `false` to skip setting the new value to its default; its bytes are then
+//   whatever the allocator returned.
 New :: ($T: Type, $initialized := true) -> *T {
     memory := cast(*T) alloc(size_of(T));
 
@@ -118,6 +122,12 @@ New :: ($T: Type, $initialized := true) -> *T {
     return memory;
 } @Allocates
 
+// Allocates `count` elements of `T` with `context.allocator`.
+//
+// The second result is the pointer the allocator gave out. Free that one, not `result.data`, which may have been moved forward to meet `alignment`.
+//
+// - alignment: in bytes, a power of two. The type's own alignment when negative.
+// - initialized: set to `false` to leave the elements as the allocator returned them.
 NewArray :: (count: s64, $T: Type, $initialized := true, alignment: s32 = -1) -> (result: [] T, unaligned_base: *void) {
     assert(count >= 0);
     desired := cast(s64) alignment;
@@ -149,6 +159,10 @@ push_allocator :: (allocator: Allocator) #expand #no_debug {
     `defer context.allocator = previous_allocator;
 } @PushesContext
 
+// Makes `Allocator.{proc, data}` the `context.allocator` until the end of the enclosing scope.
+//
+// - proc: the allocator procedure.
+// - data: handed to `proc` on every call.
 push_allocator :: (proc: Allocator_Proc, data: *void) #expand #no_debug {
     previous_allocator := context.allocator;
     context.allocator = Allocator.{ proc, data };

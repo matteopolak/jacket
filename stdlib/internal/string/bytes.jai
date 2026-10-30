@@ -440,6 +440,8 @@ trim_right :: (s: string, chars := DEFAULT_SPACES) -> string {
 // assert(trim("  hi \t") == "hi");
 // assert(trim("--x--", "-") == "x");
 // ```
+//
+// - chars: the bytes to cut off, as a string of them: whitespace by default.
 trim :: (s: string, chars := DEFAULT_SPACES) -> string {
     return trim_right(trim_left(s, chars), chars);
 } @UseResult
@@ -595,6 +597,15 @@ split_from_right_by_any :: (s: string, bytes: string) -> (found: bool, left: str
     return true, slice(s, 0, i), slice(s, i + 1, s.count);
 }
 
+// The pieces of `s` between each `separator`, as views into `s`, in a new array that the caller frees. A separator at either end, or two in a row, gives an empty piece.
+//
+// ```jai
+// pieces := split("a,b,,c", #char ",");
+// defer array_free(pieces);
+// assert(pieces.count == 4 && pieces[2] == "");
+// ```
+//
+// - separator: a string, or a single byte.
 split :: (s: string, separator: $T/ .[string, u8]) -> [] string {
     result: [..] string;
     rest := s;
@@ -609,6 +620,17 @@ split :: (s: string, separator: $T/ .[string, u8]) -> [] string {
     return result;
 } @UseResult
 
+// The strings one after another with `separator` between them, in a new string that the caller frees.
+//
+// ```jai
+// joined := join("a", "b", "c", separator = ", ");
+// defer free(joined);
+// assert(joined == "a, b, c");
+// ```
+//
+// - separator: goes between the strings.
+// - before_first: also put the separator before the first string.
+// - after_last: also put the separator after the last string.
 join :: (inputs: ..string, separator := "", before_first := false, after_last := false) -> string {
     builder: String_Builder;
 

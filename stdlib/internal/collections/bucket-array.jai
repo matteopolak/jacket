@@ -20,6 +20,9 @@ Bucket_Locator :: struct {
     slot_index: s32;
 }
 
+// Takes a free slot, allocating a new bucket when all are full. Returns a pointer to the slot and its locator.
+//
+// - initialize: set to `false` to leave the slot's bytes as they were.
 find_and_occupy_empty_slot :: (using array: *Bucket_Array, $initialize := true) -> *array.type, Bucket_Locator {
     if !allocator.proc allocator = context.allocator;
 
@@ -54,6 +57,9 @@ find_and_occupy_empty_slot :: (using array: *Bucket_Array, $initialize := true) 
     return pointer, Bucket_Locator.{ bucket.bucket_index, index };
 }
 
+// Puts `item` in a free slot and returns where it went and a pointer to it. The pointer stays valid as the array grows; use the locator to find or remove the item later.
+//
+// - item: copied into a free slot.
 bucket_array_add :: (using array: *Bucket_Array, item: array.type) -> Bucket_Locator, pointer: *array.type {
     pointer, locator := find_and_occupy_empty_slot(array, false);
     pointer.* = item;

@@ -1,3 +1,16 @@
+// Opens a window and returns it, or a null window when it could not be made.
+//
+// - width: in window units.
+// - height: in window units.
+// - window_name: the title.
+// - window_x: where the top left corner goes, in screen units (or inside `parent`). Leave it at -1 on
+//   macOS to centre the window and on Windows for the top left of the usable screen; Linux has no such
+//   default and starts at 0.
+// - window_y: the same for the vertical position.
+// - parent: a window to put this one in. Null makes a top-level window.
+// - background_color_rgb: red, green and blue from 0 to 1, shown before the first frame is drawn.
+// - wanted_msaa: samples per pixel for smoothing edges. The default is the module parameter
+//   `DEFAULT_MSAA`.
 create_window :: (width: int, height: int, window_name: string, window_x := -1, window_y := -1, parent: Window_Type = null, background_color_rgb := DEFAULT_WINDOW_CREATION_COLOR, wanted_msaa := DEFAULT_MSAA) -> Windows.HWND {
     if width <= 0 || height <= 0 return null;
 
@@ -115,6 +128,7 @@ toggle_fullscreen :: (hwnd: Windows.HWND, desire_fullscreen: bool, saved: *Saved
 #scope_module
 kernel32 :: #library,system "kernel32"; @native(external)
 win_set_last_error :: (value: u32) #foreign kernel32 "SetLastError";
+
 win_get_last_error :: () -> u32 #foreign kernel32 "GetLastError";
 user32 :: #library,system "user32"; @native(external)
 win_get_class_info :: (instance: Windows.HINSTANCE, name: *u16, info: *Windows.WNDCLASSEXW) -> s32 #foreign user32 "GetClassInfoExW";

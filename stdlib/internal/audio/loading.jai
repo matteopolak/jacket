@@ -1,3 +1,7 @@
+// Reads a sound file. The result has `loaded` set when it worked.
+//
+// - filename: a WAV or Ogg Vorbis file.
+// - optional: true when a missing file is fine, so it is not reported as an error.
 load_audio_file :: (filename: string, optional := false) -> Sound_Data {
     bytes, success := F.read_entire_file(filename);
     if !success {
@@ -11,6 +15,11 @@ load_audio_file :: (filename: string, optional := false) -> Sound_Data {
     return result;
 }
 
+// Reads a sound from memory. The result has `loaded` set when it worked.
+//
+// - name_for_error_reporting: shown when the data cannot be read, and kept as the sound's name.
+// - data: the bytes of a WAV or Ogg Vorbis file. They are not copied, so they must stay alive as long
+//   as the sound is used.
 load_audio_data :: (name_for_error_reporting: string, data: string) -> Sound_Data {
     result: Sound_Data;
     result.name = name_for_error_reporting;

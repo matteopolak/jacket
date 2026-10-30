@@ -1,3 +1,8 @@
+// Formats a message as `print` would and hands it to `context.logger`.
+//
+// - flags: a `Log_Flags` value, such as `.ERROR` or `.CONTENT`. Passed on to the logger.
+// - user_flags: bits for your own logger. Nothing in the standard library reads them.
+// - section: the `Log_Section` the message belongs to, or null. Passed on to the logger.
 log :: (format_string: string, args: ..Any, loc := #caller_location, flags := Log_Flags.NONE, user_flags: u32 = 0, section: *Log_Section = null) {
     dispatch_log(format_string, args, loc, flags, user_flags, section);
 } @PrintLike
