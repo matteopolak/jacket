@@ -200,10 +200,12 @@ impl Compiler {
             // A number-typed constant parameter takes its argument as a normal parameter does:
             // converted to the declared type, or rejected.
             let scalar_declared = match (&param.ty, &param.default) {
+                // A view-typed parameter (`$words: [] string`) takes an array argument as a view
+                // too, so the bound constant is the `(count, data)` pair and not the array.
                 (Some(t), _) if !procs::has_poly(t) => self
                     .eval_type(def_scope, t)
                     .ok()
-                    .filter(|&dt| self.is_scalar_constant_type(dt)),
+                    .filter(|&dt| self.is_scalar_constant_type(dt) || self.is_view_type(dt)),
                 // `$flag := true` is a `bool`: an untyped parameter has the type of its default.
                 (None, Some(d)) => self
                     .eval_const(def_scope, d, None)

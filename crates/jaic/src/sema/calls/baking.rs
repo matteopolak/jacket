@@ -267,6 +267,17 @@ impl Compiler {
 
     /// Whether a constant of `ty` is a bool, integer, float or enum value, which the argument
     /// of a constant parameter must convert to.
+    /// Whether `ty` is a `[] T` view.
+    pub(super) fn is_view_type(&self, ty: TypeId) -> bool {
+        matches!(
+            self.ty.types.kind(ty),
+            crate::types::TypeKind::Array {
+                kind: ArrayKind::View,
+                ..
+            }
+        )
+    }
+
     pub(super) fn is_scalar_constant_type(&self, ty: TypeId) -> bool {
         let repr = self.ty.types.repr(ty);
         repr == TypeId::BOOL
