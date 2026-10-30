@@ -1,4 +1,4 @@
-// test: only(.WINDOWS) skip_on(.INTERP, reason = "the interpreter does not run the native Win32 window procedure that delivers posted messages")
+// test: only(.WINDOWS) skip_on(.INTERP, reason = "the second window, without multisampling, fails to open under the interpreter")
 #import "Basic";
 W :: #import "Windows";
 Default :: #import "Window_Creation";
