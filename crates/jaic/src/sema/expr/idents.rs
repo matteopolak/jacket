@@ -188,6 +188,9 @@ impl Compiler {
                         ),
                     ));
                 }
+                if let [id] = ids[..] {
+                    self.note_use_before_declaration(scope, id, name, span);
+                }
                 let op = self.entities_operand(f, scope, &ids, span);
                 // A name whose declaration failed (a `#run` that asserted) still names it, so it
                 // is colored and navigable as it is when the declaration succeeds.

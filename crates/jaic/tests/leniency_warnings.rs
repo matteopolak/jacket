@@ -253,3 +253,61 @@ fn an_enum_loose_type_warns_and_names_the_integer_type() {
         "{text}"
     );
 }
+
+#[test]
+fn a_local_procedure_used_before_its_declaration_warns() {
+    let text = warns_in_the_program_and_not_in_a_module(
+        Leniency::UseBeforeDeclaration,
+        "main :: () { foo(); foo :: () { } }",
+        "go :: () { foo(); foo :: () { } }",
+    );
+    assert!(
+        text.contains("`foo` is used before its declaration"),
+        "{text}"
+    );
+    assert!(text.contains("declared here"), "{text}");
+}
+
+#[test]
+fn a_local_constant_and_a_sibling_procedure_used_early_warn() {
+    let (result, compiler) = compile(
+        "main :: () {
+            x := limit;
+            a :: () { b(); }
+            b :: () { }
+            limit :: 3;
+            a();
+        }",
+        &[],
+    );
+    result.expect("accepted");
+    let names: Vec<_> = compiler
+        .diag
+        .warnings
+        .iter()
+        .filter(|w| w.kind.code() == Some(Leniency::UseBeforeDeclaration.code()))
+        .map(|w| w.message.clone())
+        .collect();
+    assert!(
+        names.contains(&"`limit` is used before its declaration".to_string()),
+        "{names:?}"
+    );
+    assert!(
+        names.contains(&"`b` is used before its declaration".to_string()),
+        "{names:?}"
+    );
+}
+
+#[test]
+fn a_local_declared_above_its_use_does_not_warn() {
+    let found = warnings(
+        "main :: () { limit :: 3; foo :: () { bar(); } bar :: () { } x := limit; foo(); }
+        later :: () { }
+        other :: () { later(); }",
+        &[],
+        Leniency::UseBeforeDeclaration,
+    );
+    // `bar` is below `foo`, which is the one case in this program.
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(found[0].message.contains("`bar`"), "{found:?}");
+}

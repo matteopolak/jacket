@@ -344,6 +344,48 @@ impl Compiler {
         self.warn(d);
     }
 
+    /// Warn when `id`, found for `name` at `span`, is a constant of a procedure body that the
+    /// code declares further down: Jacket sees a body's constants throughout their block, the
+    /// official compiler only below the line that declares them.
+    pub(in crate::sema) fn note_use_before_declaration(
+        &mut self,
+        scope: ScopeId,
+        id: scope::EntityId,
+        name: Sym,
+        span: Span,
+    ) {
+        let declared = self.entity(id).span;
+        if declared.file != span.file || span.start >= declared.start {
+            return;
+        }
+        let local = matches!(
+            self.scope(self.entity(id).scope).kind,
+            scope::ScopeKind::Proc | scope::ScopeKind::Block
+        );
+        let constant = matches!(
+            &self.entity(id).kind,
+            scope::EntityKind::Decl { decl, .. } if decl.kind == ast::DeclKind::Const
+        );
+        if !local || !constant {
+            return;
+        }
+        let Some(d) = self.leniency_warning(
+            self.scope(scope).module,
+            span,
+            Leniency::UseBeforeDeclaration,
+            format!("`{name}` is used before its declaration"),
+        ) else {
+            return;
+        };
+        let d = d
+            .with_label("declared further down")
+            .with_note(declared, "declared here")
+            .with_help(format!(
+                "move the declaration of `{name}` above its first use"
+            ));
+        self.warn(d);
+    }
+
     /// Warn that `for` found the `for_expansion` of `ty` through the module of the type
     /// (`home`, the scope that declares it) because the import that names that module is a
     /// namespace (`HT :: #import "Hash_Table"`), which does not bring `for_expansion` into scope.
