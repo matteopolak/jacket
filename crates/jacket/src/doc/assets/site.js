@@ -164,13 +164,16 @@
     var text = it.sig;
     if (it.kind !== 'proc') { out.appendChild(document.createTextNode(text)); return out; }
     var re = /"(?:[^"\\]|\\.)*"|[A-Za-z_][A-Za-z0-9_]*|\s+|[\s\S]/g;
+    // Polymorphic names (`$T`) are types wherever they appear in the signature.
+    var poly = {};
+    text.replace(/\$([A-Za-z_][A-Za-z0-9_]*)/g, function (_, n) { poly[n] = true; return _; });
     var m, prev = '', plain = '';
     function flush() { if (plain) { out.appendChild(document.createTextNode(plain)); plain = ''; } }
     while ((m = re.exec(text))) {
       var t = m[0];
       if (/^[A-Za-z_]/.test(t) && prev !== '.') {
         var named = /^\s*:/.test(text.slice(re.lastIndex)) && (prev === '(' || prev === ',' || prev === '$');
-        var cls = named ? 'pname' : (BUILTIN[t] || typeNames[t]) ? 'ty' : '';
+        var cls = named ? 'pname' : (BUILTIN[t] || typeNames[t] || poly[t]) ? 'ty' : '';
         if (cls) { flush(); out.appendChild(el('span', cls, t)); } else plain += t;
       } else {
         plain += t;
