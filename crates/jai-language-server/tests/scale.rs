@@ -5,15 +5,27 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 use test_support::lsp::{environment, file_uri, session};
 
+/// What the Focus case may take when `JAILSP_ENFORCE_SCALE_BUDGET=1`.
+const SCALE_BUDGET: Duration = Duration::from_secs(120);
+
 /// Focus's `src/main.jai` imports `Basic` with a parameter its build metaprogram defines, so opened
 /// alone the import never resolves and dozens of language files `#insert` code that waits for it.
 /// Settling those items used to expand them again for every compile-time run beneath them, which
-/// grew exponentially: no diagnostics within ten minutes, several GiB. Skipped without the corpus.
+/// grew exponentially: no diagnostics within ten minutes, several GiB. Skips (with a note) without
+/// the corpus; `JAILSP_ENFORCE_SCALE_BUDGET=1` (CI's "Language server scale budget" step) makes a
+/// missing corpus a failure and the time budget an assertion.
 #[test]
 fn project_with_an_unresolvable_import_still_answers() {
+    let enforce = std::env::var("JAILSP_ENFORCE_SCALE_BUDGET").as_deref() == Ok("1");
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../corpus/upstream/focus-editor--focus/src/main.jai");
     let Ok(text) = std::fs::read_to_string(&root) else {
+        assert!(
+            !enforce,
+            "JAILSP_ENFORCE_SCALE_BUDGET=1 needs corpus/upstream/focus-editor--focus \
+             (python3 tools/fetch_upstreams.py --only focus-editor/focus)"
+        );
+        test_support::toolchain::skip("corpus/upstream/focus-editor--focus is not fetched");
         return;
     };
     let mut s = session();
@@ -23,11 +35,14 @@ fn project_with_an_unresolvable_import_still_answers() {
     let diagnostics = s.diagnostics(&uri).unwrap();
     assert_ne!(diagnostics, [] as [jai_language_server::Diagnostic; 0]);
     let elapsed = started.elapsed();
-    if std::env::var("JAILSP_ENFORCE_SCALE_BUDGET").as_deref() == Ok("1") {
-        assert!(elapsed < Duration::from_secs(60), "took {elapsed:?}");
+    // The regression this guards took minutes; a normal run takes seconds, so the budget leaves
+    // a shared CI runner plenty of room.
+    if enforce {
+        assert!(elapsed < SCALE_BUDGET, "took {elapsed:?}");
     } else {
         eprintln!(
-            "functional scale case completed in {elapsed:?}; set JAILSP_ENFORCE_SCALE_BUDGET=1 to enforce the 60-second budget"
+            "functional scale case completed in {elapsed:?}; set JAILSP_ENFORCE_SCALE_BUDGET=1 to enforce the {}-second budget",
+            SCALE_BUDGET.as_secs()
         );
     }
 }
