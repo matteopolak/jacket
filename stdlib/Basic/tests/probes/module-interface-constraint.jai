@@ -1,3 +1,4 @@
+// test: compile_fail
 // Must reject even though touch does not invoke the constrained interface.
 Broken :: struct {}
 

@@ -1,0 +1,4 @@
+module-undeclared-parameter.jai:2:1: error[module-parameter-invalid]: argument `EXTRA` is not a parameter of this module
+    M :: #import "no-parameter-module"(EXTRA = true);
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+

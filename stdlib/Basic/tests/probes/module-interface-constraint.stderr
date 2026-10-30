@@ -1,0 +1,4 @@
+modules/interface-parameter-module/module.jai:1:27: error[interface-constraint]: Broken does not satisfy interface Required: missing member `run`
+    #module_parameters(HOOKS: $I/interface Required = Required) {
+                              ^^^^^^^^^^^^^^^^^^^^^
+
