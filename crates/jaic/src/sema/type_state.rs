@@ -9,7 +9,7 @@ use crate::intern::Sym;
 use crate::ir;
 use crate::types::{StructId, TypeId, Types};
 
-use super::{ScopeId, structs, value};
+use super::{EntityId, ScopeId, structs, value};
 
 pub struct TypeState {
     pub types: Types,
@@ -61,7 +61,10 @@ pub struct TypeState {
     pub(in crate::sema) enum_base_spans: HashMap<TypeId, crate::source::Span>,
     /// Names an enum reaches through `using Other;` in its body, with their values. They are
     /// not members of the enum.
-    pub(crate) enum_borrowed: HashMap<TypeId, Vec<(Sym, i128)>>,
+    pub(crate) enum_borrowed: HashMap<TypeId, Vec<(Sym, EntityId)>>,
+    /// The entity of each declared member of an enum, in declaration order. A name another
+    /// enum borrows with `using` refers to one of these.
+    pub(crate) enum_member_entities: HashMap<crate::types::EnumId, Vec<(Sym, EntityId)>>,
     /// `using,only(...) field.path;` aliases declared in struct bodies.
     pub member_aliases: HashMap<StructId, Vec<structs::MemberAlias>>,
     /// `using,only(..)`/`using,except(..)` on struct members: field index and filter.
@@ -106,6 +109,7 @@ impl Default for TypeState {
             enum_member_scopes: HashMap::default(),
             enum_base_spans: HashMap::default(),
             enum_borrowed: HashMap::default(),
+            enum_member_entities: HashMap::default(),
             member_aliases: HashMap::default(),
             using_filters: HashMap::default(),
             default_images: HashMap::default(),

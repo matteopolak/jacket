@@ -1,7 +1,7 @@
 //! Member access expressions and the types of promoted and pending members.
 use super::model::FieldUsing;
 use crate::sema::lower::{FnCtx, Operand, Origin};
-use crate::sema::scope::{EntityId, EntityKind, Found, ScopeKind};
+use crate::sema::scope::{EntityId, EntityKind, Found, Resolved, ScopeKind};
 use crate::sema::{Compiler, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, scope};
 use crate::types::{ArrayKind, LayoutState, TypeKind};
 
@@ -391,12 +391,19 @@ impl Compiler {
                         origin: Origin::Computed,
                     });
                 }
-                if let Some(&(_, v)) = self
+                if let Some(&(_, borrowed)) = self
                     .ty
                     .enum_borrowed
                     .get(&t)
                     .and_then(|names| names.iter().find(|(n, _)| *n == name))
                 {
+                    let Resolved::Const {
+                        value: Value::Int(v),
+                        ..
+                    } = self.resolve_entity(borrowed)?
+                    else {
+                        unreachable!()
+                    };
                     return Ok(Operand::Const {
                         ty: t,
                         value: Value::Int(v),

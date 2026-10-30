@@ -676,7 +676,14 @@ impl Compiler {
                         out.push(field("loose", "Type"));
                     }
                     // `using Other;` in an enum body: names reachable through this enum too.
-                    let borrowed = self.ty.enum_borrowed.get(&t).cloned().unwrap_or_default();
+                    let borrowed: Vec<(crate::intern::Sym, i128)> = self
+                        .ty
+                        .enum_borrowed
+                        .get(&t)
+                        .into_iter()
+                        .flatten()
+                        .filter_map(|&(n, id)| Some((n, self.borrowed_enum_value(id)?)))
+                        .collect();
                     let info = self.ty.types.enum_info(*e);
                     for (n, v) in info.members.iter().chain(borrowed.iter()) {
                         out.push(IdeName {

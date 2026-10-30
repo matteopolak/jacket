@@ -31,7 +31,7 @@ mod dependencies;
 mod diagnostics;
 mod driver;
 mod enum_hints;
-mod enums;
+pub(crate) mod enums;
 mod epochs;
 mod expr;
 mod flow;

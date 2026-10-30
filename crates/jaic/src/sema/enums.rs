@@ -1,6 +1,6 @@
 //! Enum declarations retain source order while values resolve through the ordinary entity graph.
 use super::lower::Operand;
-use super::scope::{EntityKind, Resolved};
+use super::scope::{EntityKind, EntityState, Resolved};
 use super::{Compiler, EntityId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err};
 use crate::ast::ExprKind as E;
 use crate::types::{EnumInfo, TypeKind};
@@ -12,8 +12,8 @@ pub enum Initializer {
         previous: Option<EntityId>,
         flags: bool,
     },
-    /// A member copied by `using` from another enum.
-    Constant(i128),
+    /// A name `using` lends from another enum: the member it was borrowed from, not a copy.
+    Alias(EntityId),
     /// Selection/insertion must establish the preceding declaration before this value exists.
     PendingOrder,
 }
@@ -74,6 +74,7 @@ impl Compiler {
                 &mut declarations,
             )?;
             let mut members = Vec::with_capacity(declarations.len());
+            let mut entities = Vec::with_capacity(declarations.len());
             for id in declarations {
                 let Resolved::Const {
                     value: Value::Int(value),
@@ -82,13 +83,34 @@ impl Compiler {
                 else {
                     unreachable!()
                 };
-                members.push((self.entity(id).name, value));
+                let name = self.entity(id).name;
+                members.push((name, value));
+                entities.push((name, id));
             }
             self.ty.types.enums[enum_id.0 as usize].members = members;
+            self.ty.enum_member_entities.insert(enum_id, entities);
             Ok(ty)
         })();
         self.ty.enum_member_scopes.remove(&ty);
         result
+    }
+
+    /// The value of a name an enum borrows with `using`: its original member's, once resolved.
+    pub(crate) fn borrowed_enum_value(&self, id: EntityId) -> Option<i128> {
+        let EntityKind::EnumMember {
+            initializer: Initializer::Alias(original),
+            ..
+        } = &self.entity(id).kind
+        else {
+            return None;
+        };
+        match &self.entity(*original).state {
+            EntityState::Done(Resolved::Const {
+                value: Value::Int(value),
+                ..
+            }) => Some(*value),
+            _ => None,
+        }
     }
 
     fn collect_enum_items(
@@ -215,11 +237,22 @@ impl Compiler {
         let TypeKind::Enum(source_id) = *self.ty.types.kind(source) else {
             return err(value.span, "`using` in an enum body needs an enum type");
         };
-        let members = self.ty.types.enums[source_id.0 as usize].members.clone();
+        let strict = self.ty.types.enums[source_id.0 as usize]
+            .loose_of
+            .map_or(source_id, |t| match self.ty.types.kind(t) {
+                TypeKind::Enum(strict) => *strict,
+                _ => source_id,
+            });
+        let members = self
+            .ty
+            .enum_member_entities
+            .get(&strict)
+            .cloned()
+            .unwrap_or_default();
         let TypeKind::Enum(enum_id) = *self.ty.types.kind(ty) else {
             unreachable!()
         };
-        for (source_name, member_value) in members {
+        for (source_name, original) in members {
             let Some(name) = super::using::filter_target(&filter, source_name) else {
                 continue;
             };
@@ -229,29 +262,27 @@ impl Compiler {
             }) {
                 return Err(self.duplicate_enum_member(scope, name, value.span));
             }
-            self.add_entity(
+            // The name stands where the member was declared: every answer for it (hover,
+            // definition, references, rename) is the answer for the member itself.
+            let declared = self.entity(original).span;
+            let alias = self.add_entity(
                 scope,
                 name,
-                value.span,
+                declared,
                 EntityKind::EnumMember {
                     ty,
-                    initializer: Initializer::Constant(member_value),
+                    initializer: Initializer::Alias(original),
                 },
                 true,
             );
             // `E.name` names `Other`'s member: go to definition and rename reach it.
-            let declared = self
-                .ed
-                .facts()
-                .and_then(|ide| ide.enum_decls.get(&(source_id, source_name)).copied())
-                .unwrap_or(value.span);
             self.ide_note_enum_member(enum_id, name, declared);
             // Reachable as `E.name`, but not a member of `E`: it is not listed or counted.
             self.ty
                 .enum_borrowed
                 .entry(ty)
                 .or_default()
-                .push((name, member_value));
+                .push((name, alias));
         }
         Ok(())
     }
@@ -308,7 +339,16 @@ impl Compiler {
                 };
                 (value, span)
             }
-            Initializer::Constant(value) => (*value, span),
+            Initializer::Alias(original) => {
+                let Resolved::Const {
+                    value: Value::Int(value),
+                    ..
+                } = self.resolve_entity(*original)?
+                else {
+                    unreachable!()
+                };
+                (value, span)
+            }
             Initializer::PendingOrder => {
                 return err(
                     span,

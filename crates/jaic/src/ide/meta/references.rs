@@ -11,6 +11,15 @@ use crate::types::TypeId;
 use crate::types::TypeKind;
 
 impl Compiler {
+    /// The targets include the enum member whose name is declared at `decl`.
+    fn names_enum_member_at(&self, targets: &[Target], decl: Span) -> bool {
+        targets.iter().any(|t| {
+            matches!(t, Target::Entity(e)
+                if matches!(self.entity(*e).kind, EntityKind::EnumMember { .. })
+                    && self.ide_entity_name_span(*e) == Some(decl))
+        })
+    }
+
     /// The uses of the struct field or enum member named at `offset`, with its declaration.
     fn ide_member_references(&self, file: FileId, offset: u32) -> Option<Vec<(Span, bool)>> {
         let ide = self.ed.facts()?;
@@ -21,6 +30,15 @@ impl Compiler {
             .filter(|(_, d)| *d == decl)
             .map(|(u, d)| (*u, u == d))
             .collect();
+        // A bare use of an enum member inside its enum's body is an entity use, recorded apart
+        // from the qualified `E.name` uses above.
+        for r in &ide.refs {
+            if !out.iter().any(|(s, _)| *s == r.span)
+                && self.names_enum_member_at(&self.ide_targets(r), decl)
+            {
+                out.push((r.span, r.decl));
+            }
+        }
         out.sort_by_key(|(s, _)| (s.file.0, s.start));
         Some(out)
     }
@@ -89,9 +107,10 @@ impl Compiler {
         // A named argument of a call or `#bake_constants` naming a declared parameter.
         for &(u, d) in &ide.member_uses {
             if u != d
-                && wanted
+                && (wanted
                     .iter()
                     .any(|t| matches!(t, Target::Declared(s, _) if *s == d))
+                    || self.names_enum_member_at(&wanted, d))
                 && !out.iter().any(|(s, _)| *s == u)
             {
                 out.push((u, false));

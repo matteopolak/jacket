@@ -253,6 +253,11 @@ impl Compiler {
                     value: Value::Type(t),
                     ..
                 } if self.ide_declares_type(*e, *t) => vec![Target::Type(*t)],
+                // A name an enum borrows with `using` is the member it was borrowed from.
+                EntityKind::EnumMember {
+                    initializer: crate::sema::enums::Initializer::Alias(original),
+                    ..
+                } => self.ide_entity_targets(*original),
                 EntityKind::Local {
                     ..
                 }
