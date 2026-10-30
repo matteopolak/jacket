@@ -5,7 +5,7 @@ Usage: tools/ci/check_stdlib_docs.py [--update] [--report [--examples] [--top N]
 
 `jaic -doc_gaps DIR` lists the public procedures, structs, enums, aliases and the module itself of one
 library with whether each has docs and an example (public: not under `#scope_file` or `#scope_module`;
-files a module `#load`s count, `internal/` modules it only imports do not; an alias of a documented
+files a module `#load`s count, `internal/` modules it only imports and `bench/` programs do not; an alias of a documented
 declaration is documented). This script runs it over every module of `stdlib/` and compares the
 undocumented ones with `tools/ci/undocumented_stdlib.txt` (`Module.symbol`, or `Module` for the module's
 own docs). The list only shrinks:
@@ -28,8 +28,9 @@ from toolkit.repo import ROOT, cargo_binary, stdlib_env
 
 STDLIB = ROOT / "stdlib"
 ALLOWLIST = ROOT / "tools/ci/undocumented_stdlib.txt"
-# Folders of the standard library that are not modules anyone imports.
-SKIP_PARTS = {"internal", "tests", "target"}
+# Folders of the standard library that are not modules anyone imports (`bench/` ones also hold
+# programs, whose declarations `gaps_of` leaves out).
+SKIP_PARTS = {"internal", "tests", "target", "bench"}
 
 
 def jaic_binary() -> Path:
@@ -69,12 +70,21 @@ def parse(output: str, root: Path) -> list[dict]:
     return rows
 
 
+def in_bench(file: str, module: Path) -> bool:
+    """Whether `file` is below a `bench/` folder of `module`: benchmark programs, not API."""
+    try:
+        below = Path(file).relative_to("stdlib" / module)
+    except ValueError:
+        return False
+    return "bench" in below.parts[:-1]
+
+
 def gaps_of(binary: Path, module: Path) -> list[dict]:
     done = subprocess.run([str(binary), "-doc_gaps", str(STDLIB / module)], cwd=ROOT, env=stdlib_env(),
                           capture_output=True, text=True)
     if done.returncode:
         raise SystemExit(f"jaic -doc_gaps {module} failed: {done.stderr.strip()}")
-    return parse(done.stdout, ROOT)
+    return [row for row in parse(done.stdout, ROOT) if not in_bench(row["file"], module)]
 
 
 def key(module: Path, row: dict) -> str:
