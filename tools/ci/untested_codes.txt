@@ -112,7 +112,6 @@ cannot-bit-complement
 cannot-infer-type-2
 cannot-negate
 cannot-use-using
-cast-shift-precedence
 checking-time-limit
 circular-dependency
 code-export-modify-procedure-invalid
