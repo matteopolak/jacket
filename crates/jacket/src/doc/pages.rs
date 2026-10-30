@@ -64,6 +64,15 @@ fn badges(m: &Module) -> String {
     format!("<div class=\"badges\" aria-label=\"Platforms\">{spans}</div>\n")
 }
 
+/// "since 0.24.0", small and dim; nothing when the release is unknown.
+fn since_note(version: &str) -> String {
+    if version.is_empty() {
+        String::new()
+    } else {
+        format!("<span class=\"since\">since {}</span>", esc(version))
+    }
+}
+
 /// Small badges for an item that is not available everywhere its module is.
 fn item_badges(m: &Module, item: &Item) -> String {
     m.item_systems(item)
@@ -303,10 +312,11 @@ fn row(site: &Site, mi: usize, item: &Item) -> String {
         example::fence(site, m, (&file, line), (info, code), true)
     });
     format!(
-        "<article class=\"row\" id=\"{name}\">\n<div class=\"row-head\"><a class=\"name\" href=\"{href}\">{name}</a>{pills}{platforms}</div>\n{line}{summary}{sample}</article>\n",
+        "<article class=\"row\" id=\"{name}\">\n<div class=\"row-head\"><a class=\"name\" href=\"{href}\">{name}</a>{pills}{platforms}{since}</div>\n{line}{summary}{sample}</article>\n",
         name = esc(&item.name),
         href = esc(&site.item_href(&m.id, &item.name)),
         platforms = item_badges(m, item),
+        since = since_note(&item.since),
     )
 }
 
@@ -336,6 +346,12 @@ pub fn module_page(site: &Site, mi: usize) -> String {
         esc(&site.source_url(&m.file, 1)),
     ));
     main.push_str(&badges(m));
+    if !m.since.is_empty() {
+        main.push_str(&format!(
+            "<p class=\"since-line\">{}</p>\n",
+            since_note(&m.since)
+        ));
+    }
     main.push_str(&format!(
         "<p class=\"import\"><code>#import \"{}\";</code></p>\n",
         esc(&m.id)
@@ -740,10 +756,11 @@ pub fn item_page(site: &Site, mi: usize, item: &Item) -> String {
         other => other.label().to_owned(),
     };
     main.push_str(&format!(
-        "<div class=\"titlebar\"><h1 class=\"mono\">{}</h1><span class=\"pill\">{kind}</span>{platforms}<span class=\"spacer\"></span><a class=\"muted\" href=\"{}\">Source</a></div>\n",
+        "<div class=\"titlebar\"><h1 class=\"mono\">{}</h1><span class=\"pill\">{kind}</span>{platforms}{since}<span class=\"spacer\"></span><a class=\"muted\" href=\"{}\">Source</a></div>\n",
         esc(&item.name),
         esc(&site.source_url(&source_file, source_line)),
         platforms = item_badges(m, item),
+        since = since_note(&item.since),
     ));
     let mut anchors: Vec<(String, String)> = Vec::new();
     let mut description = String::new();

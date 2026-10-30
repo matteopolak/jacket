@@ -14,6 +14,7 @@ mod model;
 mod pages;
 mod search;
 mod shell;
+mod since;
 mod site;
 
 use crate::cli::DocArgs;
@@ -229,6 +230,7 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
     for module in &mut modules {
         module.category = categories.of(&module.id).to_owned();
     }
+    since::assign(&mut modules, env!("CARGO_PKG_VERSION"));
     if let Some(runtime) = &args.runtime {
         for file in ["jai_wasm.wasm", "engine.mjs"] {
             if !runtime.join(file).is_file() {

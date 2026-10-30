@@ -181,6 +181,7 @@ front door would hide them.
 | `check_generated.py` | Run every generator of checked-in files with --check: each must reproduce its output exactly. | CI, tools |
 | `gen_io_uring.py` | Generate stdlib/Extensions/Io_Uring/bindings.jai from the kernel's UAPI header linux/io_uring.h. | tools |
 | `gen_regex_unicode.py` | Generate stdlib/Extensions/Regex/unicode_data.jai from the Unicode Character Database. | tools |
+| `generate_doc_since.py` | Record the release each documented standard-library item first appeared in, for `jacket doc`. | tools |
 | `generate_float_powers.py` | Emit the 128-bit significands of the powers of five used by decimal to binary float parsing. | tools |
 | `generate_jai_lexer_contract.py` | Emit the runtime lexer's public data declarations from the reviewed API page. | tools |
 | `generate_machine_x64.py` | Emit reviewed Machine_X64 enum values, independently grouped by responsibility. | tools |

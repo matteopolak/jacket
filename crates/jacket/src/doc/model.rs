@@ -88,6 +88,8 @@ pub struct Item {
     pub group: String,
     /// The systems an `#if` limits it to (`WINDOWS`); empty for any.
     pub platforms: Vec<String>,
+    /// The release it first appeared in (`0.24.0`); empty when unknown. See `since.rs`.
+    pub since: String,
 }
 
 #[derive(Clone, Debug)]
@@ -102,6 +104,8 @@ pub struct Module {
     pub category: String,
     /// Whether the module builds for `-os wasm` and has something to use there.
     pub wasm: bool,
+    /// The release its items first appeared in, when they all did after the oldest one known.
+    pub since: String,
 }
 
 impl Module {
@@ -247,6 +251,7 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
                     .iter()
                     .filter_map(|p| p.as_str().map(str::to_owned))
                     .collect(),
+                since: String::new(),
             }
         })
         .collect();
@@ -261,6 +266,7 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
         items,
         category: String::new(),
         wasm: false,
+        since: String::new(),
     };
     assign_groups(&mut module);
     Ok(module)
