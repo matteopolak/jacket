@@ -29,7 +29,7 @@ main :: () {
     assert(status == .SOURCE_ILLEGAL && code == 0xfffd && count == 2);
     bad = "\xe2x\x80";
     code, count, status = U.character_utf8_to_utf32(bad.data, bad.count, true);
-    assert(status == .SOURCE_ILLEGAL && count == 0);
+    assert(status == .SOURCE_ILLEGAL && count == 1);
     block: [16] u8 = .[0xe8, 3, 0, 0, 0x18, 0xfc, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
     dest: [36] u8;
     written := A.IMA_ADPCM_decode(A.Adpcm_Info.{ 2, 16, 9 }, block, dest);

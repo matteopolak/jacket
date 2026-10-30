@@ -19,7 +19,7 @@ backward :: (bytes: [] u8) -> [..] u32 {
     return result;
 }
 
-// Reverse iteration gives the same characters as forward iteration, last first.
+// For valid text, reverse iteration gives the same characters as forward iteration, last first.
 same_both_ways :: (bytes: [] u8) {
     ahead := forward(bytes);
     behind := backward(bytes);
@@ -32,30 +32,48 @@ same_both_ways :: (bytes: [] u8) {
     for ahead assert(it == behind[ahead.count - 1 - it_index]);
 }
 
+invalid_reports: s64;
+
+counting_logger :: (message: string, data: *void, info: Log_Info) {
+    invalid_reports += 1;
+}
+
 main :: () {
-    // A stray continuation byte decodes to its low seven bits.
-    low := forward(u8.[0x41, 0x81]);
+    new_context := context;
+    new_context.logger = counting_logger;
 
-    assert(low.count == 2 && low[0] == 0x41 && low[1] == 1);
-    array_free(low);
+    push_context new_context {
+        // A stray continuation byte is invalid: iteration yields what precedes it, reports, and stops.
+        low := forward(u8.[0x41, 0x81, 0x42]);
 
-    tail := backward(u8.[0x61, 0x80]);
+        assert(low.count == 1 && low[0] == 0x41);
+        assert(invalid_reports == 1);
+        array_free(low);
 
-    assert(tail.count == 2 && tail[0] == 0 && tail[1] == 0x61);
-    array_free(tail);
+        // Going backwards, stray bytes after the last character are seen first.
+        tail := backward(u8.[0x61, 0x80]);
 
-    head := backward(u8.[0x80, 0x61, 0x62]);
+        assert(tail.count == 0);
+        assert(invalid_reports == 2);
+        array_free(tail);
 
-    assert(head.count == 3 && head[0] == 0x62 && head[1] == 0x61 && head[2] == 0);
-    array_free(head);
+        head := backward(u8.[0x80, 0x61, 0x62]);
 
-    mixed := backward(u8.[0xc3, 0xa9, 0x80]);
+        assert(head.count == 2 && head[0] == 0x62 && head[1] == 0x61);
+        assert(invalid_reports == 3);
+        array_free(head);
 
-    assert(mixed.count == 2 && mixed[0] == 0 && mixed[1] == 0xe9);
-    array_free(mixed);
+        mixed := backward(u8.[0xc3, 0xa9, 0x80]);
 
-    same_both_ways(u8.[0x80, 0xbf, 0x41]);
-    same_both_ways(u8.[0xe2, 0x82, 0xac, 0x90, 0x91]);
-    same_both_ways(u8.[0x61, 0xc3, 0xa9, 0x62]);
+        assert(mixed.count == 0);
+        assert(invalid_reports == 4);
+        array_free(mixed);
+
+        // Valid text is untouched and reports nothing.
+        same_both_ways(u8.[0xe2, 0x82, 0xac, 0x61]);
+        same_both_ways(u8.[0x61, 0xc3, 0xa9, 0x62]);
+        assert(invalid_reports == 4);
+    }
+
     print("ok\n");
 }
