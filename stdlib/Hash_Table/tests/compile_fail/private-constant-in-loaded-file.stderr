@@ -1,5 +1,8 @@
-private-constant-in-loaded-file.jai:6:16: error[unknown-identifier]: unknown identifier `private_number`
+private-constant-in-loaded-file.jai:6:16: error[scope-file-name]: unknown identifier `private_number`
         print("%", private_number);
                    ^^^^^^^^^^^^^^
-help: a similar name exists: `write_number`
+support/named-private-file.jai:5:1: note: `private_number` is declared here, under `#scope_file`
+    private_number :: 73; // jailint: allow(unused_private_declaration) the import scope is what is tested
+    ^^^^^^^^^^^^^^
+help: `#scope_file` names are only visible in `named-private-file.jai`: declare `private_number` under `#scope_module` to share it with the module's other files
 
