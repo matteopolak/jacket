@@ -134,249 +134,255 @@ probe_81: Expected_81 = load_audio_file;
 Expected_82 :: #type (name_for_error_reporting: string, data: string) -> Sound_Data;
 probe_82: Expected_82 = load_audio_data;
 
-Expected_83 :: #type (data: string, base: s64) -> u32;
-probe_83: Expected_83 = get_magic4;
+Expected_83 :: #type (data: *Sound_Data);
+probe_83: Expected_83 = release_sound_data;
 
-Expected_95 :: #type (stream: *Sound_Stream, data: *Sound_Data, index: s64, result: *Buffer_Bounds) -> success: bool, no_overflow: bool;
-probe_95: Expected_95 = get_buffer_bounds;
+Expected_84 :: #type (data: *Sound_Data, replacement: Sound_Data) -> bool;
+probe_84: Expected_84 = replace_sound_data;
 
-Expected_96 :: #type (v0: *Audio_Sample_Base, v1: *Audio_Sample_Base, nchannels: s64) -> Audio_Sample_Base;
-probe_96: Expected_96 = add;
+Expected_85 :: #type (data: string, base: s64) -> u32;
+probe_85: Expected_85 = get_magic4;
 
-Expected_97 :: #type (v0: *Audio_Sample_Base, v1: *Audio_Sample_Base, nchannels: s64);
-probe_97: Expected_97 = plus_equals;
+Expected_97 :: #type (stream: *Sound_Stream, data: *Sound_Data, index: s64, result: *Buffer_Bounds) -> success: bool, no_overflow: bool;
+probe_97: Expected_97 = get_buffer_bounds;
 
-Expected_98 :: #type (v0: *Audio_Sample_Base, v1: *Audio_Sample_Base) -> Audio_Sample_Base;
-probe_98: Expected_98 = multiply;
+Expected_98 :: #type (v0: *Audio_Sample_Base, v1: *Audio_Sample_Base, nchannels: s64) -> Audio_Sample_Base;
+probe_98: Expected_98 = add;
 
-Expected_99 :: #type (v0: *Audio_Sample_Base, k: float) -> Audio_Sample_Base;
-probe_99: Expected_99 = multiply;
+Expected_99 :: #type (v0: *Audio_Sample_Base, v1: *Audio_Sample_Base, nchannels: s64);
+probe_99: Expected_99 = plus_equals;
 
-Expected_100 :: #type (k: float, v0: *Audio_Sample_Base) -> Audio_Sample_Base;
+Expected_100 :: #type (v0: *Audio_Sample_Base, v1: *Audio_Sample_Base) -> Audio_Sample_Base;
 probe_100: Expected_100 = multiply;
 
-Expected_101 :: #type (v0: *Audio_Sample_Base, k: float);
-probe_101: Expected_101 = times_equals;
+Expected_101 :: #type (v0: *Audio_Sample_Base, k: float) -> Audio_Sample_Base;
+probe_101: Expected_101 = multiply;
 
-Expected_102 :: #type (source_cursor: float64) -> icursor: s64, remainder: float64;
-probe_102: Expected_102 = get_icursor_and_remainder;
+Expected_102 :: #type (k: float, v0: *Audio_Sample_Base) -> Audio_Sample_Base;
+probe_102: Expected_102 = multiply;
 
-Expected_103 :: #type (stream: *Sound_Stream, samples: *s16, page_start: s64, page_end: s64, source_cursor: float64, samples_return: [] float, no_overflow: bool) #no_abc;
-probe_103: Expected_103 = sample_n_channels;
+Expected_103 :: #type (v0: *Audio_Sample_Base, k: float);
+probe_103: Expected_103 = times_equals;
 
-Expected_104 :: #type (stream: *Sound_Stream, source: *Audio_Source_Sample, dest: *Audio_Dest_Sample) #no_abc;
-probe_104: Expected_104 = mix_sample_into_output_streams;
+Expected_104 :: #type (source_cursor: float64) -> icursor: s64, remainder: float64;
+probe_104: Expected_104 = get_icursor_and_remainder;
 
-Expected_105 :: #type (stream: *Sound_Stream);
-probe_105: Expected_105 = maybe_wrap_play_cursor;
+Expected_105 :: #type (stream: *Sound_Stream, samples: *s16, page_start: s64, page_end: s64, source_cursor: float64, samples_return: [] float, no_overflow: bool) #no_abc;
+probe_105: Expected_105 = sample_n_channels;
 
-Expected_106 :: #type (stream: *Sound_Stream);
-probe_106: Expected_106 = catch_up_volumes;
+Expected_106 :: #type (stream: *Sound_Stream, source: *Audio_Source_Sample, dest: *Audio_Dest_Sample) #no_abc;
+probe_106: Expected_106 = mix_sample_into_output_streams;
 
-Expected_107 :: #type (accumulator: *Audio_Dest_Sample, num_samples: s64, source_cursor: float64, page: *void, page_start: s64, page_end: s64, stream: *Sound_Stream, no_overflow: bool) -> (cursor: float64, samples_written: s64);
-probe_107: Expected_107 = accumulate_buffer_f;
+Expected_107 :: #type (stream: *Sound_Stream);
+probe_107: Expected_107 = maybe_wrap_play_cursor;
 
-Expected_108 :: #type (stream: *Sound_Stream, accumulator: [] Audio_Dest_Sample, num_samples: s64) -> bool;
-probe_108: Expected_108 = accumulate_stream;
+Expected_108 :: #type (stream: *Sound_Stream);
+probe_108: Expected_108 = catch_up_volumes;
 
-Expected_109 :: #type ();
-probe_109: Expected_109 = advance_history_cursor;
+Expected_109 :: #type (accumulator: *Audio_Dest_Sample, num_samples: s64, source_cursor: float64, page: *void, page_start: s64, page_end: s64, stream: *Sound_Stream, no_overflow: bool) -> (cursor: float64, samples_written: s64);
+probe_109: Expected_109 = accumulate_buffer_f;
 
-Expected_110 :: #type (buffer: string);
-probe_110: Expected_110 = fill_sample_buffer;
+Expected_110 :: #type (stream: *Sound_Stream, accumulator: [] Audio_Dest_Sample, num_samples: s64) -> bool;
+probe_110: Expected_110 = accumulate_stream;
 
-Expected_111 :: #type (actually_async: bool);
-probe_111: Expected_111 = update_from_async_thread;
+Expected_111 :: #type ();
+probe_111: Expected_111 = advance_history_cursor;
 
-Expected_112 :: #type (thread: *Thread) -> s64;
-probe_112: Expected_112 = async_audio_update;
+Expected_112 :: #type (buffer: string);
+probe_112: Expected_112 = fill_sample_buffer;
 
-Expected_118 :: #type (decoder: *Cached_Decoder, play_cursor: s64) -> s64;
-probe_118: Expected_118 = get_base_address;
+Expected_113 :: #type (actually_async: bool);
+probe_113: Expected_113 = update_from_async_thread;
 
-Expected_119 :: #type (using decoder: *Cached_Decoder);
-probe_119: Expected_119 = unmark_all_pages;
+Expected_114 :: #type (thread: *Thread) -> s64;
+probe_114: Expected_114 = async_audio_update;
 
-Expected_120 :: #type (using decoder: *Cached_Decoder, start: s64, end: s64);
-probe_120: Expected_120 = mark_relevant_pages;
+Expected_120 :: #type (decoder: *Cached_Decoder, play_cursor: s64) -> s64;
+probe_120: Expected_120 = get_base_address;
 
 Expected_121 :: #type (using decoder: *Cached_Decoder);
-probe_121: Expected_121 = free_unmarked_pages;
+probe_121: Expected_121 = unmark_all_pages;
 
-Expected_122 :: #type (using decoder: *Cached_Decoder, start_address: s64) -> *Cached_Decoder_Page;
-probe_122: Expected_122 = find_page_by_base_address;
+Expected_122 :: #type (using decoder: *Cached_Decoder, start: s64, end: s64);
+probe_122: Expected_122 = mark_relevant_pages;
 
-Expected_123 :: #type (using decoder: *Cached_Decoder, play_cursor: s64) -> (found: bool, start_address: s64, end_address: s64, data: *void);
-probe_123: Expected_123 = find_page_containing_cursor;
+Expected_123 :: #type (using decoder: *Cached_Decoder);
+probe_123: Expected_123 = free_unmarked_pages;
 
-Expected_124 :: #type (using decoder: *Cached_Decoder);
-probe_124: Expected_124 = deinit;
+Expected_124 :: #type (using decoder: *Cached_Decoder, start_address: s64) -> *Cached_Decoder_Page;
+probe_124: Expected_124 = find_page_by_base_address;
 
-Expected_125 :: #type (data: *Sound_Data, _page_size_in_samples: s64) -> *Cached_Decoder;
-probe_125: Expected_125 = create_ogg_decoder;
+Expected_125 :: #type (using decoder: *Cached_Decoder, play_cursor: s64) -> (found: bool, start_address: s64, end_address: s64, data: *void);
+probe_125: Expected_125 = find_page_containing_cursor;
 
-Expected_126 :: #type (decoder: *Cached_Decoder);
-probe_126: Expected_126 = deinit_proc_ogg;
+Expected_126 :: #type (using decoder: *Cached_Decoder);
+probe_126: Expected_126 = deinit;
 
-Expected_127 :: #type (using decoder: *Cached_Decoder) -> *Cached_Decoder_Page;
-probe_127: Expected_127 = make_page_ogg;
+Expected_127 :: #type (data: *Sound_Data, _page_size_in_samples: s64) -> *Cached_Decoder;
+probe_127: Expected_127 = create_ogg_decoder;
 
-Expected_128 :: #type (using decoder: *Cached_Decoder, _page: *Cached_Decoder_Page);
-probe_128: Expected_128 = recompute_page_ogg;
+Expected_128 :: #type (decoder: *Cached_Decoder);
+probe_128: Expected_128 = deinit_proc_ogg;
 
-Expected_129 :: #type (using decoder: *Cached_Ogg_Decoder) -> bool;
-probe_129: Expected_129 = start_vorbis_file;
+Expected_129 :: #type (using decoder: *Cached_Decoder) -> *Cached_Decoder_Page;
+probe_129: Expected_129 = make_page_ogg;
 
-Expected_130 :: #type (s: string) -> (num_samples: s64, num_channels: s64, sampling_rate: s64);
-probe_130: Expected_130 = get_compressed_rate_channels_and_size;
+Expected_130 :: #type (using decoder: *Cached_Decoder, _page: *Cached_Decoder_Page);
+probe_130: Expected_130 = recompute_page_ogg;
 
-Expected_133 :: #type (data: *Sound_Data) -> *Adpcm_Decoder;
-probe_133: Expected_133 = create_adpcm_decoder;
+Expected_131 :: #type (using decoder: *Cached_Ogg_Decoder) -> bool;
+probe_131: Expected_131 = start_vorbis_file;
 
-Expected_134 :: #type (using decoder: *Cached_Decoder) -> *Cached_Decoder_Page;
-probe_134: Expected_134 = make_page_adpcm;
+Expected_132 :: #type (s: string) -> (num_samples: s64, num_channels: s64, sampling_rate: s64);
+probe_132: Expected_132 = get_compressed_rate_channels_and_size;
 
-Expected_135 :: #type (using decoder: *Cached_Decoder, page: *Cached_Decoder_Page);
-probe_135: Expected_135 = recompute_page_adpcm;
+Expected_135 :: #type (data: *Sound_Data) -> *Adpcm_Decoder;
+probe_135: Expected_135 = create_adpcm_decoder;
 
-#if OS == .WINDOWS {
-    Expected_138 :: #type (speaker_config: s32) -> DSSPEAKER;
-    probe_138: Expected_138 = CONFIG;
-}
+Expected_136 :: #type (using decoder: *Cached_Decoder) -> *Cached_Decoder_Page;
+probe_136: Expected_136 = make_page_adpcm;
 
-#if OS == .WINDOWS {
-    Expected_157 :: #type (speaker_config: s32) -> u8;
-    probe_157: Expected_157 = GEOMETRY;
-}
+Expected_137 :: #type (using decoder: *Cached_Decoder, page: *Cached_Decoder_Page);
+probe_137: Expected_137 = recompute_page_adpcm;
 
 #if OS == .WINDOWS {
-    Expected_194 :: #type () -> (currently_buffered: s64, minimum_prebuffered: s64);
-    probe_194: Expected_194 = backend_count_buffered_bytes;
+    Expected_140 :: #type (speaker_config: s32) -> DSSPEAKER;
+    probe_140: Expected_140 = CONFIG;
 }
 
-#if OS == .LINUX {
-    Expected_195 :: #type () -> (buffered_bytes: s64, minimum_prebuffered_bytes: s64);
-    probe_195: Expected_195 = backend_count_buffered_bytes;
+#if OS == .WINDOWS {
+    Expected_159 :: #type (speaker_config: s32) -> u8;
+    probe_159: Expected_159 = GEOMETRY;
 }
 
-#if OS == .MACOS {
-    Expected_196 :: #type () -> (currently_buffered: s64, minimum_prebuffered_bytes: s64);
+#if OS == .WINDOWS {
+    Expected_196 :: #type () -> (currently_buffered: s64, minimum_prebuffered: s64);
     probe_196: Expected_196 = backend_count_buffered_bytes;
 }
 
-#if OS == .WINDOWS {
-    Expected_197 :: #type () -> [] Output_Device;
-    probe_197: Expected_197 = backend_get_devices;
-}
-
 #if OS == .LINUX {
-    Expected_198 :: #type () -> [] Output_Device;
-    probe_198: Expected_198 = backend_get_devices;
+    Expected_197 :: #type () -> (buffered_bytes: s64, minimum_prebuffered_bytes: s64);
+    probe_197: Expected_197 = backend_count_buffered_bytes;
 }
 
 #if OS == .MACOS {
+    Expected_198 :: #type () -> (currently_buffered: s64, minimum_prebuffered_bytes: s64);
+    probe_198: Expected_198 = backend_count_buffered_bytes;
+}
+
+#if OS == .WINDOWS {
     Expected_199 :: #type () -> [] Output_Device;
     probe_199: Expected_199 = backend_get_devices;
 }
 
-#if OS == .WINDOWS {
-    Expected_200 :: #type (config: Sound_Player_Config) -> Backend_Properties;
-    probe_200: Expected_200 = backend_init;
-}
-
 #if OS == .LINUX {
-    Expected_201 :: #type (config: Sound_Player_Config) -> Backend_Properties;
-    probe_201: Expected_201 = backend_init;
+    Expected_200 :: #type () -> [] Output_Device;
+    probe_200: Expected_200 = backend_get_devices;
 }
 
 #if OS == .MACOS {
+    Expected_201 :: #type () -> [] Output_Device;
+    probe_201: Expected_201 = backend_get_devices;
+}
+
+#if OS == .WINDOWS {
     Expected_202 :: #type (config: Sound_Player_Config) -> Backend_Properties;
     probe_202: Expected_202 = backend_init;
 }
 
-#if OS == .WINDOWS {
-    Expected_203 :: #type (bytes_to_lock: s64) -> Fill_Region_Result, bool;
-    probe_203: Expected_203 = backend_lock_fill_regions;
-}
-
 #if OS == .LINUX {
-    Expected_204 :: #type (bytes_to_lock: s64) -> Fill_Region_Result, bool;
-    probe_204: Expected_204 = backend_lock_fill_regions;
+    Expected_203 :: #type (config: Sound_Player_Config) -> Backend_Properties;
+    probe_203: Expected_203 = backend_init;
 }
 
 #if OS == .MACOS {
+    Expected_204 :: #type (config: Sound_Player_Config) -> Backend_Properties;
+    probe_204: Expected_204 = backend_init;
+}
+
+#if OS == .WINDOWS {
     Expected_205 :: #type (bytes_to_lock: s64) -> Fill_Region_Result, bool;
     probe_205: Expected_205 = backend_lock_fill_regions;
 }
 
-#if OS == .WINDOWS {
-    Expected_206 :: #type () -> bool;
-    probe_206: Expected_206 = backend_needs_async_update_from_main_thread;
-}
-
 #if OS == .LINUX {
-    Expected_207 :: #type () -> bool;
-    probe_207: Expected_207 = backend_needs_async_update_from_main_thread;
+    Expected_206 :: #type (bytes_to_lock: s64) -> Fill_Region_Result, bool;
+    probe_206: Expected_206 = backend_lock_fill_regions;
 }
 
 #if OS == .MACOS {
+    Expected_207 :: #type (bytes_to_lock: s64) -> Fill_Region_Result, bool;
+    probe_207: Expected_207 = backend_lock_fill_regions;
+}
+
+#if OS == .WINDOWS {
     Expected_208 :: #type () -> bool;
     probe_208: Expected_208 = backend_needs_async_update_from_main_thread;
 }
 
-#if OS == .WINDOWS {
-    Expected_209 :: #type ();
-    probe_209: Expected_209 = backend_play;
-}
-
 #if OS == .LINUX {
-    Expected_210 :: #type ();
-    probe_210: Expected_210 = backend_play;
+    Expected_209 :: #type () -> bool;
+    probe_209: Expected_209 = backend_needs_async_update_from_main_thread;
 }
 
 #if OS == .MACOS {
+    Expected_210 :: #type () -> bool;
+    probe_210: Expected_210 = backend_needs_async_update_from_main_thread;
+}
+
+#if OS == .WINDOWS {
     Expected_211 :: #type ();
     probe_211: Expected_211 = backend_play;
 }
 
-#if OS == .WINDOWS {
-    Expected_212 :: #type (result: Fill_Region_Result);
-    probe_212: Expected_212 = backend_release_fill_regions;
-}
-
 #if OS == .LINUX {
-    Expected_213 :: #type (result: Fill_Region_Result);
-    probe_213: Expected_213 = backend_release_fill_regions;
+    Expected_212 :: #type ();
+    probe_212: Expected_212 = backend_play;
 }
 
 #if OS == .MACOS {
+    Expected_213 :: #type ();
+    probe_213: Expected_213 = backend_play;
+}
+
+#if OS == .WINDOWS {
     Expected_214 :: #type (result: Fill_Region_Result);
     probe_214: Expected_214 = backend_release_fill_regions;
 }
 
-#if OS == .WINDOWS {
-    Expected_215 :: #type ();
-    probe_215: Expected_215 = backend_shutdown;
-}
-
 #if OS == .LINUX {
-    Expected_216 :: #type ();
-    probe_216: Expected_216 = backend_shutdown;
+    Expected_215 :: #type (result: Fill_Region_Result);
+    probe_215: Expected_215 = backend_release_fill_regions;
 }
 
 #if OS == .MACOS {
+    Expected_216 :: #type (result: Fill_Region_Result);
+    probe_216: Expected_216 = backend_release_fill_regions;
+}
+
+#if OS == .WINDOWS {
     Expected_217 :: #type ();
     probe_217: Expected_217 = backend_shutdown;
 }
 
-#if OS == .WINDOWS {
-    Expected_220 :: #type (dest: *GUID);
-    probe_220: Expected_220 = init_KSDATAFORMAT_SUBTYPE_PCM;
+#if OS == .LINUX {
+    Expected_218 :: #type ();
+    probe_218: Expected_218 = backend_shutdown;
+}
+
+#if OS == .MACOS {
+    Expected_219 :: #type ();
+    probe_219: Expected_219 = backend_shutdown;
 }
 
 #if OS == .WINDOWS {
-    Expected_221 :: #type (using w: *Waveformatex, nchannels: s16);
-    probe_221: Expected_221 = init_wave_format;
+    Expected_222 :: #type (dest: *GUID);
+    probe_222: Expected_222 = init_KSDATAFORMAT_SUBTYPE_PCM;
+}
+
+#if OS == .WINDOWS {
+    Expected_223 :: #type (using w: *Waveformatex, nchannels: s16);
+    probe_223: Expected_223 = init_wave_format;
 }
 
 main :: () {
@@ -424,8 +430,8 @@ main :: () {
     assert(probe_81 != null);
     assert(probe_82 != null);
     assert(probe_83 != null);
-    assert(probe_95 != null);
-    assert(probe_96 != null);
+    assert(probe_84 != null);
+    assert(probe_85 != null);
     assert(probe_97 != null);
     assert(probe_98 != null);
     assert(probe_99 != null);
@@ -442,8 +448,8 @@ main :: () {
     assert(probe_110 != null);
     assert(probe_111 != null);
     assert(probe_112 != null);
-    assert(probe_118 != null);
-    assert(probe_119 != null);
+    assert(probe_113 != null);
+    assert(probe_114 != null);
     assert(probe_120 != null);
     assert(probe_121 != null);
     assert(probe_122 != null);
@@ -455,37 +461,39 @@ main :: () {
     assert(probe_128 != null);
     assert(probe_129 != null);
     assert(probe_130 != null);
-    assert(probe_133 != null);
-    assert(probe_134 != null);
+    assert(probe_131 != null);
+    assert(probe_132 != null);
     assert(probe_135 != null);
-    #if OS == .WINDOWS assert(probe_138 != null);
-    #if OS == .WINDOWS assert(probe_157 != null);
-    #if OS == .WINDOWS assert(probe_194 != null);
-    #if OS == .LINUX assert(probe_195 != null);
-    #if OS == .MACOS assert(probe_196 != null);
-    #if OS == .WINDOWS assert(probe_197 != null);
-    #if OS == .LINUX assert(probe_198 != null);
-    #if OS == .MACOS assert(probe_199 != null);
-    #if OS == .WINDOWS assert(probe_200 != null);
-    #if OS == .LINUX assert(probe_201 != null);
-    #if OS == .MACOS assert(probe_202 != null);
-    #if OS == .WINDOWS assert(probe_203 != null);
-    #if OS == .LINUX assert(probe_204 != null);
-    #if OS == .MACOS assert(probe_205 != null);
-    #if OS == .WINDOWS assert(probe_206 != null);
-    #if OS == .LINUX assert(probe_207 != null);
-    #if OS == .MACOS assert(probe_208 != null);
-    #if OS == .WINDOWS assert(probe_209 != null);
-    #if OS == .LINUX assert(probe_210 != null);
-    #if OS == .MACOS assert(probe_211 != null);
-    #if OS == .WINDOWS assert(probe_212 != null);
-    #if OS == .LINUX assert(probe_213 != null);
-    #if OS == .MACOS assert(probe_214 != null);
-    #if OS == .WINDOWS assert(probe_215 != null);
-    #if OS == .LINUX assert(probe_216 != null);
-    #if OS == .MACOS assert(probe_217 != null);
-    #if OS == .WINDOWS assert(probe_220 != null);
-    #if OS == .WINDOWS assert(probe_221 != null);
+    assert(probe_136 != null);
+    assert(probe_137 != null);
+    #if OS == .WINDOWS assert(probe_140 != null);
+    #if OS == .WINDOWS assert(probe_159 != null);
+    #if OS == .WINDOWS assert(probe_196 != null);
+    #if OS == .LINUX assert(probe_197 != null);
+    #if OS == .MACOS assert(probe_198 != null);
+    #if OS == .WINDOWS assert(probe_199 != null);
+    #if OS == .LINUX assert(probe_200 != null);
+    #if OS == .MACOS assert(probe_201 != null);
+    #if OS == .WINDOWS assert(probe_202 != null);
+    #if OS == .LINUX assert(probe_203 != null);
+    #if OS == .MACOS assert(probe_204 != null);
+    #if OS == .WINDOWS assert(probe_205 != null);
+    #if OS == .LINUX assert(probe_206 != null);
+    #if OS == .MACOS assert(probe_207 != null);
+    #if OS == .WINDOWS assert(probe_208 != null);
+    #if OS == .LINUX assert(probe_209 != null);
+    #if OS == .MACOS assert(probe_210 != null);
+    #if OS == .WINDOWS assert(probe_211 != null);
+    #if OS == .LINUX assert(probe_212 != null);
+    #if OS == .MACOS assert(probe_213 != null);
+    #if OS == .WINDOWS assert(probe_214 != null);
+    #if OS == .LINUX assert(probe_215 != null);
+    #if OS == .MACOS assert(probe_216 != null);
+    #if OS == .WINDOWS assert(probe_217 != null);
+    #if OS == .LINUX assert(probe_218 != null);
+    #if OS == .MACOS assert(probe_219 != null);
+    #if OS == .WINDOWS assert(probe_222 != null);
+    #if OS == .WINDOWS assert(probe_223 != null);
     print("ok\n");
 }
 
