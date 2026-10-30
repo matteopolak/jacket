@@ -332,7 +332,9 @@ is not from the `Compiler` module. On POSIX it returns true exactly when
 native `chdir` succeeds. On Windows it converts the UTF-8 path to wide
 characters and returns false if conversion fails; otherwise it returns
 whether `SetCurrentDirectoryW` succeeds. Neither variant reports a diagnostic
-or returns the previous directory.
+or returns the previous directory. `get_working_directory` returns the empty
+string when the system cannot name the directory (on POSIX, one deleted while
+the program was in it); there is nothing to free then.
 
 Do not use `Runtime_Support.OS_IS_UNIX` as the availability condition for
 these Basic procedures: that exported classification includes iOS and PS5

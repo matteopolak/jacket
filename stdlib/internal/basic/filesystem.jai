@@ -1,8 +1,8 @@
 // The current working directory of the program, as an absolute path in a new string from `context.allocator` that the caller frees.
 //
 // Relative paths given to the file procedures are resolved against it. The path uses the system's own separators. The
-// procedure has no way to report failure: if the system cannot give the directory (it was deleted while the program was in
-// it), the program stops with a failed assertion. Not available on wasm.
+// system cannot give the directory (it was deleted while the program was in it, or it cannot be searched) the result is the
+// empty string, which no working directory is, and there is nothing to free. Not available on wasm.
 //
 // ```jai,skip_on(wasm)
 // original := get_working_directory();
@@ -31,7 +31,8 @@ get_working_directory :: () -> result: string {
         error := P.errno();
 
         free(memory);
-        assert(error == cast(P.OS_Error_Code) P.ERANGE, "getcwd failed");
+        if error != cast(P.OS_Error_Code) P.ERANGE return "";
+
         assert(capacity <= 0x3fffffffffffffff);
         capacity *= 2;
     }

@@ -1,8 +1,8 @@
 // The current working directory of the program, as an absolute path in a new string from `context.allocator` that the caller frees.
 //
 // Relative paths given to the file procedures are resolved against it. The path uses the system's own separators. The
-// procedure has no way to report failure: if the system cannot give the directory (it was deleted while the program was in
-// it), the program stops with a failed assertion. Not available on wasm.
+// system cannot give the directory the result is the empty string, which no working directory is, and there is nothing to
+// free. Not available on wasm.
 //
 // ```jai,skip_on(wasm)
 // original := get_working_directory();
@@ -24,14 +24,13 @@ get_working_directory :: () -> result: string {
         count := W.GetCurrentDirectoryW(capacity, buffer);
         if count == 0 {
             free(buffer);
-            assert(false, "GetCurrentDirectoryW failed");
             return "";
         }
 
         if count < capacity {
             result, ok := Text.from_utf16(buffer, cast(s32) count);
             free(buffer);
-            assert(ok, "working directory cannot be converted to UTF-8");
+            if !ok return "";
             return result;
         }
 
