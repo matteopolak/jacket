@@ -1,4 +1,4 @@
-// Without the memory debugger the leak markers discard their argument expression.
+// Without the memory debugger the leak markers do nothing, but their argument is still evaluated.
 #import "Basic";
 
 discarded: int;
@@ -12,6 +12,6 @@ main :: () {
     this_allocation_is_not_a_leak(side_effect());
     this_allocation_leaks_todo(side_effect());
     this_allocation_does_not_propagate_leak_ownership(side_effect());
-    assert(discarded == 0);
+    assert(discarded == 3);
     print("ok\n");
 }

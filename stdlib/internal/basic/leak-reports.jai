@@ -19,9 +19,9 @@ allocations_before_this_call_will_not_be_considered_leaks :: () {
         mark_debug_allocation(memory, true);
     }
 } else {
-    this_allocation_is_not_a_leak :: (#discard memory: *void) #expand #no_debug {}
-    this_allocation_leaks_todo :: (#discard memory: *void) #expand #no_debug {}
-    this_allocation_does_not_propagate_leak_ownership :: (#discard memory: *void) #expand #no_debug {}
+    this_allocation_is_not_a_leak :: (memory: *void) #expand #no_debug {}
+    this_allocation_leaks_todo :: (memory: *void) #expand #no_debug {}
+    this_allocation_does_not_propagate_leak_ownership :: (memory: *void) #expand #no_debug {}
 }
 
 add_allocation_to_table :: (memory: *void, size: s64, allocator: Allocator, trace: *Stack_Trace_Node) {
