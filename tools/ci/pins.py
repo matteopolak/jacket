@@ -181,12 +181,14 @@ def run(root, pins, write):
 
 
 def main():
+    # Shell callers read these lines; keep "\n" as is so Windows adds no carriage return.
+    sys.stdout.reconfigure(newline="\n")
     if len(sys.argv) == 3 and sys.argv[1] == "get":
-        print(load()[sys.argv[2]])
+        sys.stdout.write(f"{load()[sys.argv[2]]}\n")
         return 0
     if len(sys.argv) == 2 and sys.argv[1] == "llvm-env":
         for name, value in llvm_env(load()).items():
-            print(f"{name}={value}")
+            sys.stdout.write(f"{name}={value}\n")
         return 0
     if len(sys.argv) != 2 or sys.argv[1] not in ("check", "sync"):
         print(__doc__, file=sys.stderr)
