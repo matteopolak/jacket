@@ -45,7 +45,7 @@ def render(report: Report) -> str:
     out.append('')
     groups = grouped(report)
     out += timing_tables(groups, compilers)
-    out += stage_table(groups, compilers)
+    out += stage_table(groups, compilers, windows=report.machine.get('system') == 'Windows')
     out += detail_table(groups)
     out += info_table(groups, compilers, 'binary_bytes', 'Executable size (KiB)', lambda v: f'{v / 1024:.0f}')
     out += info_table(groups, compilers, 'interp_instructions', 'Interpreted instructions (millions)',
@@ -97,11 +97,17 @@ STAGE_NOTE = ('Every compiler builds the program through the same metaprogram, w
               '`codegen` includes writing the objects, and `link` is the system linker the metaprogram runs itself, '
               'identical work for every compiler. `total` is the wall time of that run, `other` what no phase accounts for '
               '(start-up, the metaprogram itself, exit).')
+# Windows has no custom link command (link_command.jai), so each compiler links its own way.
+STAGE_NOTE_WINDOWS = STAGE_NOTE.replace(
+    '`link` is the system linker the metaprogram runs itself, identical work for every compiler.',
+    '`link` is the span between the compiler\'s `pre_write` and `post_write` messages: on Windows each '
+    'compiler links its own way, so it is not identical work.')
 DETAIL_NOTE = ('The compiler\'s own `-timings` report from the direct runs above. Only binaries with the extra reporting '
                'flags print one, so these numbers are not comparable with a plain binary\'s and the table has no ratios.')
 
 
-def stage_table(groups: dict[tuple[str, str], dict[str, Result]], compilers: list[str]) -> list[str]:
+def stage_table(groups: dict[tuple[str, str], dict[str, Result]], compilers: list[str],
+                windows: bool = False) -> list[str]:
     rows = []
     for (workload, mode), results in groups.items():
         if mode.startswith('run-'):
@@ -117,7 +123,8 @@ def stage_table(groups: dict[tuple[str, str], dict[str, Result]], compilers: lis
                                 + [stage_ratio(other.stages, base.stages, b) for b in STAGE_ORDER])
     if not rows:
         return []
-    return ['## Stages (seconds)', '', STAGE_NOTE, '', table(['workload/mode', 'compiler'] + [b.value for b in STAGE_ORDER],
+    note = STAGE_NOTE_WINDOWS if windows else STAGE_NOTE
+    return ['## Stages (seconds)', '', note, '', table(['workload/mode', 'compiler'] + [b.value for b in STAGE_ORDER],
                                                            rows, left_columns=2), '']
 
 

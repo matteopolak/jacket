@@ -51,6 +51,14 @@ class RenderTests(unittest.TestCase):
         text = compile_report.render(self.report())
         self.assertIn('`big/build/ref`: skipped: ref: exit 1: unknown directive', text)
 
+    def test_windows_stage_note_says_the_link_is_not_shared(self):
+        report = self.report()
+        self.assertIn('system linker the metaprogram runs itself', compile_report.render(report))
+        report.machine['system'] = 'Windows'
+        text = compile_report.render(report)
+        self.assertIn('each compiler links its own way', text)
+        self.assertNotIn('system linker the metaprogram runs itself', text)
+
     def test_split_key(self):
         self.assertEqual(compile_report.split_key('gen-10k/run-build/jaic'), ('gen-10k', 'run-build', 'jaic'))
 
