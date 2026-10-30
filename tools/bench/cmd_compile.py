@@ -62,9 +62,10 @@ def plan_jobs(args: argparse.Namespace) -> list[Job]:
     modes = {Mode(name) for name in args.modes.split(',') if name}
     categories = [c for c in args.categories.split(',') if c]
     jobs = []
-    for workload in all_workloads():
-        if categories and not any(c in workload.category.value for c in categories):
-            continue
+    chosen = [w for w in all_workloads()
+              if not categories or any(c in w.category.value for c in categories)]
+    common.check_only(args.only, [f'{w.name}/{m.value}' for w in chosen for m in w.modes])
+    for workload in chosen:
         jobs += [Job(workload, mode) for mode in workload.modes
                  if mode in modes and common.selected(args.only, f'{workload.name}/{mode.value}')]
     return jobs

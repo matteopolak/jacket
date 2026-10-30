@@ -283,6 +283,20 @@ class PlanTests(unittest.TestCase):
         jobs = plan_jobs(self.args(modes='check', only='100k'))
         self.assertEqual([j.key for j in jobs], ['gen-100k/check'])
 
+    def test_an_only_term_for_another_subcommand_is_named_and_a_run_with_no_match_stops(self):
+        import contextlib
+        import io
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            jobs = plan_jobs(self.args(only='100k,hello', modes='check'))
+        self.assertEqual([j.key for j in jobs], ['gen-100k/check'])
+        self.assertIn("'hello'", err.getvalue())
+        self.assertIn('hello is a `compile` workload', err.getvalue())
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), self.assertRaises(SystemExit):
+            plan_jobs(self.args(only='hello,interp-'))
+        self.assertIn('`compile`', err.getvalue())
+
     def test_corpus_workloads_are_added_unless_skipped(self):
         names = {j.workload.name for j in plan_jobs(self.args(no_corpus=False))}
         self.assertIn('jails', names)

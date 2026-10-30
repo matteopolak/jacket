@@ -107,7 +107,11 @@ def workloads_for(args: argparse.Namespace) -> list[Workload]:
 
 def plan_jobs(args: argparse.Namespace) -> list[Job]:
     modes = {Mode(name) for name in args.modes.split(',') if name}
-    return [Job(w, mode) for w in workloads_for(args) for mode in w.modes
+    workloads = workloads_for(args)
+    keys = [f'{w.name}/{mode.value}' for w in workloads for mode in w.modes if mode is not Mode.INTERP]
+    elsewhere = {'compile': [f'{w.name}/{mode.value}' for w in all_workloads() for mode in w.modes]}
+    common.check_only(args.only, keys, elsewhere)
+    return [Job(w, mode) for w in workloads for mode in w.modes
             if mode in modes and mode is not Mode.INTERP and common.selected(args.only, f'{w.name}/{mode.value}')]
 
 

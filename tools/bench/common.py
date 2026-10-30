@@ -68,6 +68,23 @@ def selected(only: str, key: str) -> bool:
     return not terms or any(term in key for term in terms)
 
 
+def check_only(only: str, keys: list[str], elsewhere: dict[str, list[str]] | None = None) -> None:
+    """Say which `--only` terms match none of `keys` (this subcommand's workload/mode keys), naming the
+    subcommand that has workloads they match (`elsewhere` maps a subcommand to its keys), and stop when no term matches."""
+    terms = [term.strip() for term in only.split(',') if term.strip()]
+    unmatched = [term for term in terms if not any(term in key for key in keys)]
+    for term in unmatched:
+        owners = [f'{key.split("/")[0]} is a `{command}` workload' for command, others in (elsewhere or {}).items()
+                  for key in dict.fromkeys(others) if term in key]
+        hint = ''
+        if owners:
+            names = list(dict.fromkeys(owners))
+            hint = ': ' + '; '.join(names[:3]) + (' ...' if len(names) > 3 else '')
+        print(f'--only {term!r} matches no workload of this subcommand{hint}', file=sys.stderr)
+    if terms and len(unmatched) == len(terms):
+        sys.exit('--only matched nothing, so there is nothing to run')
+
+
 def finish(report: Report, markdown: str, args: argparse.Namespace) -> int:
     """Write the JSON and Markdown, print the summary, check regressions; the exit status."""
     markdown_path = args.markdown or args.out.with_suffix('.md')
