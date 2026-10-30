@@ -100,7 +100,8 @@ kbd { font-family: var(--mono); font-size: 12px; color: var(--muted); border: 1p
 .nav-cat > summary::after { content: ""; flex: none; width: 5px; height: 5px; border-right: 1px solid var(--muted); border-bottom: 1px solid var(--muted); opacity: 0.7; transform: rotate(-45deg); transition: transform 0.18s ease-out; }
 .nav-cat[open] > summary::after { transform: rotate(45deg); }
 .nav-cat > summary:hover { color: var(--fg); }
-.nav-cat > .nav-list { margin: 0 0 10px; }
+.nav-cat > .nav-list { margin: 2px 0 10px 10px; padding-left: 8px; border-left: 1px solid var(--hair); }
+.nav-list a[style] { padding-left: calc(10px + var(--depth) * 14px); }
 .nav-cat::details-content { block-size: 0; opacity: 0; overflow: hidden; transition: block-size 0.18s ease-out, opacity 0.18s ease-out, content-visibility 0.18s allow-discrete; }
 .nav-cat[open]::details-content { block-size: auto; opacity: 1; }
 main { flex: 999 1 560px; min-width: 0; max-width: 860px; padding: 48px 0 120px; }
@@ -141,7 +142,8 @@ h2:hover .anchor, h3:hover .anchor, .anchor:focus-visible { opacity: 1; }
 .cat > h3 { margin: 28px 0 12px; }
 .group > h3 { font-size: 16px; color: var(--fg2); margin: 36px 0 14px; }
 .row { --px: 24px; --py: 22px; overflow: hidden; padding: var(--py) var(--px); margin-bottom: 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
-.row:hover { border-color: var(--scroll-hover); }
+.row, .overload { transition: border-color 0.15s; }
+.row:hover, .overload:hover { border-color: color-mix(in srgb, var(--border), var(--fg) 10%); }
 .row-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; margin-bottom: 8px; }
 .row .name { overflow-wrap: anywhere; min-width: 0; font-family: var(--mono); font-size: 15px; font-weight: 500; }
 .sig-line { font-family: var(--mono); font-size: 13px; color: var(--muted); margin-bottom: 12px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -149,7 +151,8 @@ h2:hover .anchor, h3:hover .anchor, .anchor:focus-visible { opacity: 1; }
 .cards { list-style: none; padding: 0 !important; margin: 0 0 24px; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; align-items: stretch; }
 .cards > li { display: flex; }
 .card { flex: 1 1 auto; display: grid; grid-template-rows: auto 1fr; align-content: start; gap: 4px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--fg); font-weight: 500; font-size: 14px; min-width: 0; }
-.card:hover { border-color: var(--scroll-hover); background: var(--sunken); text-decoration: none; }
+.card { transition: border-color 0.15s, background-color 0.15s; }
+.card:hover { border-color: color-mix(in srgb, var(--border), var(--fg) 10%); background: color-mix(in srgb, var(--surface), var(--fg) 2.5%); text-decoration: none; }
 .card-name { overflow-wrap: anywhere; }
 .card-sum { font-family: var(--sans); font-weight: 400; font-size: 13px; line-height: 1.45; color: var(--muted); min-height: 2.9em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .cat { margin-bottom: 8px; }
@@ -162,6 +165,10 @@ h2:hover .anchor, h3:hover .anchor, .anchor:focus-visible { opacity: 1; }
 .toc li.sub a { padding-left: 24px; }
 .toc li a:hover { color: var(--fg); text-decoration: none; }
 .toc li a.active { color: var(--link); }
+@media (min-width: 1200px) {
+  .wrap { max-width: 1520px; }
+  .side { flex-basis: 272px; max-width: 272px; }
+}
 @media (min-width: 1280px) {
   .toc { display: block; flex: 0 0 188px; position: sticky; top: 61px; align-self: flex-start; max-height: calc(100vh - 61px); overflow-y: auto; padding: 48px 0 24px; }
 }
@@ -266,6 +273,8 @@ a.btn:hover { text-decoration: none; border-color: var(--link); }
   ::view-transition-new(top), ::view-transition-new(side), ::view-transition-new(foot) { animation: none; }
   ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
   ::view-transition-group(main) { animation: none; }
+  /* Pages differ in width (the outline rail), so keep both snapshots at their own size instead of scaling them. */
+  ::view-transition-old(main), ::view-transition-new(main) { inline-size: auto; block-size: auto; object-fit: none; object-position: left top; }
   ::view-transition-old(main) { animation: page-out 80ms ease-in both; }
   ::view-transition-new(main) { animation: page-in 170ms ease-out both; }
   @keyframes page-out { to { opacity: 0; } }

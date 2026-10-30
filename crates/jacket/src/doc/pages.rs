@@ -114,12 +114,17 @@ fn crumbs(site: &Site, m: &Module, last: Option<&str>) -> String {
 
 // The index.
 
-/// One module's link in a list.
-fn module_link(site: &Site, m: &Module, current: Option<usize>, i: usize) -> String {
+/// One module's link in a list. `depth` indents a nested module under its parent.
+fn module_link(site: &Site, m: &Module, current: Option<usize>, i: usize, depth: usize) -> String {
     format!(
-        "<a href=\"{}\" title=\"{}\"{}>{}</a>\n",
+        "<a href=\"{}\" title=\"{}\"{}{}>{}</a>\n",
         esc(&site.module_href(&m.id)),
         esc(&m.id),
+        if depth > 0 {
+            format!(" style=\"--depth:{depth}\"")
+        } else {
+            String::new()
+        },
         if current == Some(i) {
             " aria-current=\"page\""
         } else {
@@ -151,8 +156,13 @@ fn modules_side(site: &Site, current: Option<usize>) -> String {
                 open = if open { " open" } else { "" },
                 name = esc(category)
             ));
-            for (i, m) in members {
-                out.push_str(&module_link(site, m, current, i));
+            for &(i, m) in &members {
+                // Count the parents listed alongside, so Android/Toolchain sits under Android.
+                let depth = members
+                    .iter()
+                    .filter(|(_, p)| m.id.starts_with(&format!("{}/", p.id)))
+                    .count();
+                out.push_str(&module_link(site, m, current, i, depth));
             }
             out.push_str("</div>\n</details>\n");
         }
