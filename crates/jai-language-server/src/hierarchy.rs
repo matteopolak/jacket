@@ -9,10 +9,10 @@ use crate::analysis::Span;
 use crate::position::LineIndex;
 use crate::session::Session;
 use crate::{CallHierarchyCall, CallHierarchyItem, DocumentUri, Error, Position, SymbolKind};
+use jaic::ast::walk::walk;
 use jaic::ast::{DeclKind, ExprKind as E, Stmt, StmtKind as S};
 use jaic::fxhash::{HashMap, HashSet};
 use jaic::source::FileId;
-use jailint::syntax::walk;
 
 /// A procedure declared as `name :: (...) { ... }` (or without a body, as a foreign one).
 #[derive(Clone, Debug)]

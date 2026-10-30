@@ -15,8 +15,9 @@
 //! the cast, the message names both types and the editor offers `cast(T)` for plain `xx`; it is
 //! not applied by `--fix`. Off by default (`allow`): `xx` is idiomatic Jai.
 use crate::facts::Recorded;
-use crate::syntax::{Cx, Node, walk};
+use crate::syntax::Cx;
 use crate::{Edit, Finding};
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{CastFlags, Expr, ExprKind as E};
 
 /// The rule's name, group and one-line summary, and its check.

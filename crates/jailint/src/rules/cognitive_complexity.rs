@@ -13,7 +13,8 @@
 //! Split it into smaller procedures, return early, or name parts of long conditions. Generated
 //! files are skipped. Off by default.
 use crate::Finding;
-use crate::syntax::{Cx, Node, walk};
+use crate::syntax::Cx;
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{BinOp, ExprKind as E, Stmt, StmtKind as S};
 
 /// The rule's name, group and one-line summary, and its check.

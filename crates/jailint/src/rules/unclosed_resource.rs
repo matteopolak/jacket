@@ -26,7 +26,8 @@
 //! follow (a nested procedure, a code block). It does not check that every path closes.
 use super::{calls_noted, finding};
 use crate::Finding;
-use crate::syntax::{Cx, Node, walk};
+use crate::syntax::Cx;
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{BinOp, Block, Expr, ExprKind as E, StmtKind as S, UnOp};
 use jaic::intern::Sym;
 use jaic::sema::EntityId;

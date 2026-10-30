@@ -16,8 +16,9 @@
 use super::{calls_noted, suggesting};
 use crate::Edit;
 use crate::Finding;
-use crate::syntax::{Cx, walk};
+use crate::syntax::Cx;
 use jaic::ast::ExprKind as E;
+use jaic::ast::walk::walk;
 
 /// The rule's name, group and one-line summary, and its check.
 pub(crate) const INFO: super::RuleInfo = super::RuleInfo {

@@ -12,8 +12,9 @@
 //! Procedures that use `using` are skipped.
 use super::frees::{local_of, opaque};
 use super::{PlaceUse, finding, place_use, statement_lists, suggesting};
-use crate::syntax::{Cx, Node, walk_node};
+use crate::syntax::Cx;
 use crate::{Edit, Finding};
+use jaic::ast::walk::{Node, walk_node};
 use jaic::ast::{AssignOp, DeclKind, Expr, ExprKind as E, Stmt, StmtKind as S};
 use jaic::sema::EntityId;
 use jaic::sema::scope::EntityKind;

@@ -22,8 +22,9 @@
 //! each path and does not look inside it. The limit is `[lint] max_nesting` in `jacket.toml` or
 //! `--max-nesting` (default 6). Off by default.
 use crate::Finding;
-use crate::syntax::{Cx, Node, ProcSite, walk};
+use crate::syntax::{Cx, ProcSite};
 use jaic::ast::StmtKind as S;
+use jaic::ast::walk::{Node, walk};
 use jaic::source::Span;
 
 /// The rule's name, group and one-line summary, and its check.

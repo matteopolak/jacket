@@ -7,8 +7,9 @@
 //! operators (no calls, which may have effects). Statements inside an expression (the last
 //! statement of a block value, `#code`) are left alone: there the value is used.
 use super::{op_text, pure, suggesting};
-use crate::syntax::{Cx, Node, walk};
+use crate::syntax::Cx;
 use crate::{Edit, Finding};
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{BinOp, ExprKind as E, StmtKind as S};
 
 /// The rule's name, group and one-line summary, and its check.

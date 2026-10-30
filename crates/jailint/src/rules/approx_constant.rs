@@ -12,8 +12,9 @@
 //! (`PI / 2`), π/4 (`PI / 4`), √2 (`SQRT2`) and √½ (`SQRTH`). Constant declarations are left
 //! alone: they are where such names come from.
 use super::suggesting;
-use crate::syntax::{Cx, Node, walk};
+use crate::syntax::Cx;
 use crate::{Edit, Finding};
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{DeclKind, ExprKind as E, StmtKind as S};
 use jaic::types::TypeKind;
 use std::f64::consts;

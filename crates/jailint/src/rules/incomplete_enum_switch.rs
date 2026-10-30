@@ -37,7 +37,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.typed() {
             continue;
         }
-        crate::syntax::walk(&p.body.stmts, &mut |n, _| {
+        jaic::ast::walk::walk(&p.body.stmts, &mut |n, _| {
             let Some(s) = n.stmt() else {
                 return true;
             };

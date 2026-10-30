@@ -4,11 +4,11 @@ use super::text::{fresh, stmt_extent};
 use super::tree::root;
 use super::{Cx, EXTRACT, Local};
 use crate::CodeAction;
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{DeclKind, ExprKind as E, ForOver, Stmt, StmtKind as S, UnOp};
 use jaic::fxhash::HashSet;
 use jaic::intern::Sym;
 use jaic::source::{line_end, line_start};
-use jailint::syntax::{Node, walk};
 
 impl Cx<'_> {
     // Extract into procedure

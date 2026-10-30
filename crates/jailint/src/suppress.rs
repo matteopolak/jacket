@@ -165,9 +165,9 @@ impl Suppressions {
     fn notes(&mut self, stmts: &[Stmt], conditional: &mut Vec<(usize, usize)>) {
         for s in stmts {
             let mut stack = Vec::new();
-            crate::syntax::walk_node(crate::syntax::Node::Stmt(s), &mut stack, &mut |n, _| {
+            jaic::ast::walk::walk_node(jaic::ast::walk::Node::Stmt(s), &mut stack, &mut |n, _| {
                 match n {
-                    crate::syntax::Node::Stmt(s) => {
+                    jaic::ast::walk::Node::Stmt(s) => {
                         if matches!(s.kind, StmtKind::StaticIf(_) | StmtKind::StaticSwitch(_)) {
                             conditional.push((s.span.start as usize, s.span.end as usize));
                         }
@@ -176,7 +176,7 @@ impl Suppressions {
                             self.note_list(&d.notes, s.span.to(d.span));
                         }
                     }
-                    crate::syntax::Node::Expr(e) => {
+                    jaic::ast::walk::Node::Expr(e) => {
                         if let jaic::ast::ExprKind::Proc(lit) = &e.kind {
                             self.note_list(&lit.header.notes, e.span);
                             if let Some(body) = &lit.body {

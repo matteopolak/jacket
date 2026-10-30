@@ -7,9 +7,9 @@ use crate::analysis::{Span, TokenKind};
 use crate::refactor::{extent, stmt_extent, trim};
 use crate::session::Session;
 use crate::{Error, Position, SelectionRange};
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{Block, ExprKind as E, Stmt, StmtKind as S};
 use jaic::source::FileId;
-use jailint::syntax::{Node, walk};
 
 /// The ranges around `byte`, in no order.
 fn around(text: &str, stmts: &[Stmt], byte: usize, out: &mut Vec<(usize, usize)>) {

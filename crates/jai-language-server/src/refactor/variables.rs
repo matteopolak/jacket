@@ -4,9 +4,9 @@ use super::text::{fresh, indent_at, starts_line, stmt_extent, unparenthesized};
 use super::tree::{in_list, plain_statement};
 use super::{Cx, EXTRACT, INLINE};
 use crate::CodeAction;
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{BinOp, DeclKind, ExprKind as E, StmtKind as S, UnOp};
 use jaic::source::{line_end, line_start};
-use jailint::syntax::{Node, walk};
 
 impl Cx<'_> {
     // Extract into variable

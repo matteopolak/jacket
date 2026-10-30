@@ -8,8 +8,9 @@
 //! Inside an index or an array literal (`m[0 * 4 + 1]`, lining up with neighbouring rows) it
 //! is left alone.
 use super::{finding, int_literal, op_text, pure, suggesting};
-use crate::syntax::{Cx, Node, walk};
+use crate::syntax::Cx;
 use crate::{Edit, Finding};
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{BinOp, Expr, ExprKind as E};
 
 /// The rule's name, group and one-line summary, and its check.

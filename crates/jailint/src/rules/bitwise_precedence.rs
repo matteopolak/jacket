@@ -17,8 +17,9 @@
 //! implies, so behaviour does not change; it is machine-applicable. If the C reading was the
 //! intent, move the parentheses instead.
 use super::op_text;
-use crate::syntax::{Cx, walk};
+use crate::syntax::Cx;
 use crate::{Edit, Finding, Fix};
+use jaic::ast::walk::walk;
 use jaic::ast::{BinOp, Expr, ExprKind as E};
 
 /// The rule's name, group and one-line summary, and its check.

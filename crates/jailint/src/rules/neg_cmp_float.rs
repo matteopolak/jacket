@@ -10,8 +10,9 @@
 //! result for NaN, so `--fix` leaves it alone). Off by default (`allow`): `!(x < limit)` is a
 //! common way to stay on the safe side of NaN on purpose.
 use super::{op_text, suggesting};
-use crate::syntax::{Cx, Node, walk};
+use crate::syntax::Cx;
 use crate::{Edit, Finding};
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{BinOp, ExprKind as E, UnOp};
 
 /// The rule's name, group and one-line summary, and its check.

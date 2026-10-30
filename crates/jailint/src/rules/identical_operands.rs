@@ -12,7 +12,8 @@
 //! value. Operator procedures are skipped: they may compare a value with itself on purpose.
 use super::{finding, op_text, same_pure};
 use crate::Finding;
-use crate::syntax::{Cx, walk};
+use crate::syntax::Cx;
+use jaic::ast::walk::walk;
 use jaic::ast::{BinOp, ExprKind as E};
 use jaic::types::TypeKind;
 

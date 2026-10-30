@@ -14,8 +14,9 @@
 //! that produces a float. A variable divided by a literal power of two (`cast(float)(w / 2)`,
 //! centring on whole pixels) is taken as deliberate and not reported.
 use super::{int_literal, suggesting};
-use crate::syntax::{Cx, Node, walk};
+use crate::syntax::Cx;
 use crate::{Edit, Finding};
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{BinOp, Expr, ExprKind as E};
 
 /// The rule's name, group and one-line summary, and its check.

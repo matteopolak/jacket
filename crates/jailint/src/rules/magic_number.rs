@@ -32,7 +32,8 @@
 //! data is full of expected values. Generated files are skipped. Off by default.
 use super::{finding, replacing};
 use crate::Finding;
-use crate::syntax::{Cx, Node, walk};
+use crate::syntax::Cx;
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{AssignOp, BinOp, ExprKind as E, StmtKind as S, UnOp};
 use jaic::ast::{DeclKind, Expr, ForOver, Spelling, Stmt};
 use jaic::sema::EntityId;

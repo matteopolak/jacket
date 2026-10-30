@@ -17,7 +17,8 @@
 //! `p: *T` points at memory the local does not own).
 use super::finding;
 use crate::Finding;
-use crate::syntax::{Cx, walk};
+use crate::syntax::Cx;
+use jaic::ast::walk::walk;
 use jaic::ast::{DeclKind, Expr, ExprKind as E, StmtKind as S, UnOp};
 use jaic::sema::EntityId;
 use jaic::types::{ArrayKind, TypeKind};

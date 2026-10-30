@@ -8,8 +8,9 @@
 //! declared with the notes `@ReturnsSmaller` and `@ReturnsLarger` (the library's `min` and `max` carry
 //! them, whatever they are called where they are used).
 use super::{calls_noted, int_literal, suggesting};
-use crate::syntax::{Cx, walk};
+use crate::syntax::Cx;
 use crate::{Edit, Finding};
+use jaic::ast::walk::walk;
 use jaic::ast::{Expr, ExprKind as E};
 
 /// The rule's name, group and one-line summary, and its check.

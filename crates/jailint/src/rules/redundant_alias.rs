@@ -28,8 +28,9 @@
 //!
 //! Macros, files that say they are generated and bodies that did not check are skipped.
 use super::{callee_procs, statement_lists};
-use crate::syntax::{Cx, Node, walk};
+use crate::syntax::Cx;
 use crate::{Edit, Finding, Fix};
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{Decl, DeclKind, Expr, ExprKind as E, Stmt, StmtKind as S};
 use jaic::sema::EntityId;
 use jaic::sema::scope::EntityKind;

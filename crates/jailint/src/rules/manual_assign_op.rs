@@ -11,7 +11,8 @@
 //! `f` ran, `a += f()` before). The fix is machine-applicable.
 use super::{op_text, pure, replacing};
 use crate::Finding;
-use crate::syntax::{Cx, walk};
+use crate::syntax::Cx;
+use jaic::ast::walk::walk;
 use jaic::ast::{AssignOp, BinOp, ExprKind as E, StmtKind as S};
 
 /// The rule's name, group and one-line summary, and its check.

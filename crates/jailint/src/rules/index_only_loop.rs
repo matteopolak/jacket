@@ -19,8 +19,9 @@
 //! call) make the suggestion `for *xs`. Constant arrays (`xs :: T.[...]`) are reported too, except where the
 //! suggestion would be `for *xs`.
 use super::{PlaceUse, is_call_argument, place_use};
-use crate::syntax::{Cx, Node, is_path, root_ident, walk_node};
+use crate::syntax::{Cx, is_path, root_ident};
 use crate::{Edit, Finding, Fix};
+use jaic::ast::walk::{Node, walk_node};
 use jaic::ast::{BinOp, Expr, ExprKind as E, For, ForOver, Stmt, StmtKind as S};
 use jaic::intern::Sym;
 use jaic::types::TypeKind;
@@ -38,7 +39,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.clean || p.is_macro {
             continue;
         }
-        crate::syntax::walk(&p.body.stmts, &mut |n, _| {
+        jaic::ast::walk::walk(&p.body.stmts, &mut |n, _| {
             if let Some(s) = n.stmt()
                 && let S::For(f) = &s.kind
                 && let Some(found) = examine(cx, s, f)

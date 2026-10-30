@@ -24,7 +24,8 @@
 //! whose variable the loop's header reads.
 use super::calls_noted;
 use crate::Finding;
-use crate::syntax::{Cx, Node, walk, walk_node};
+use crate::syntax::Cx;
+use jaic::ast::walk::{Node, walk, walk_node};
 use jaic::ast::{ExprKind as E, Stmt, StmtKind as S};
 use jaic::sema::scope::EntityKind;
 

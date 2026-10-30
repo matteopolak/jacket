@@ -15,7 +15,8 @@
 //! `else` (`#if debug;`) is left alone for the same reason.
 use super::replacing;
 use crate::Finding;
-use crate::syntax::{Cx, Node};
+use crate::syntax::Cx;
+use jaic::ast::walk::Node;
 use jaic::ast::{Stmt, StmtKind as S};
 
 /// The rule's name, group and one-line summary, and its check.

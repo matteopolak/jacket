@@ -11,7 +11,8 @@
 //! alone, as is a count already scaled (`xs.count * size_of(s32)`).
 use super::{calls_noted, replacing};
 use crate::Finding;
-use crate::syntax::{Cx, walk};
+use crate::syntax::Cx;
+use jaic::ast::walk::walk;
 use jaic::ast::{Expr, ExprKind as E};
 use jaic::types::TypeKind;
 

@@ -27,7 +27,8 @@
 //! the pointer is assigned to again, or when the procedure is a macro.
 use super::{any_stmt, calls_noted, finding, statement_lists};
 use crate::Finding;
-use crate::syntax::{Cx, Node, walk, walk_node};
+use crate::syntax::Cx;
+use jaic::ast::walk::{Node, walk, walk_node};
 use jaic::ast::{Expr, ExprKind as E, ForOver, Stmt, StmtKind as S, UnOp};
 use jaic::intern::Sym;
 

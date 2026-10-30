@@ -24,8 +24,9 @@
 //! inside a nested block.
 use super::frees::opaque;
 use super::{calls_noted, finding, has_note, statement_range, suggesting};
-use crate::syntax::{Cx, Node, walk_node};
+use crate::syntax::Cx;
 use crate::{Edit, Finding};
+use jaic::ast::walk::{Node, walk_node};
 use jaic::ast::{Expr, ExprKind as E, Stmt, StmtKind as S};
 use jaic::source::Span;
 

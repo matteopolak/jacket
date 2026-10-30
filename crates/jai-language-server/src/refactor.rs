@@ -22,11 +22,11 @@ use self::tree::proc_bodies;
 use crate::analysis::Span;
 use crate::session::Session;
 use crate::{CodeAction, DocumentUri, TextEdit};
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{Expr, File, Stmt};
 use jaic::fxhash::HashMap;
 use jaic::intern::Sym;
 use jaic::source::{DiagnosticKind, FileId};
-use jailint::syntax::{Node, walk};
 use std::cell::OnceCell;
 
 type Sp = jaic::source::Span;

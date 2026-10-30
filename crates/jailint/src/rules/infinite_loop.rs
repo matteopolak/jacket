@@ -22,7 +22,8 @@
 //! skipped: a pointer made before the loop could write them.
 use super::{PlaceUse, any_stmt, callee_procs, finding, place_use};
 use crate::Finding;
-use crate::syntax::{Cx, Node, walk, walk_node};
+use crate::syntax::Cx;
+use jaic::ast::walk::{Node, walk, walk_node};
 use jaic::ast::{Expr, ExprKind as E, StmtKind as S, UnOp};
 use jaic::sema::EntityId;
 use jaic::sema::scope::EntityKind;

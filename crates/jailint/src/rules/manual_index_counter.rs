@@ -16,8 +16,9 @@
 //! ends with `n += 1` (with no `continue` that could skip it) or starts with `defer n += 1;`.
 //! Every other mention of `n` in the body must read it.
 use super::{PlaceUse, place_use};
-use crate::syntax::{Cx, Node, walk, walk_node};
+use crate::syntax::Cx;
 use crate::{Edit, Finding, Fix};
+use jaic::ast::walk::{Node, walk, walk_node};
 use jaic::ast::{AssignOp, BinOp, Decl, DeclKind, ExprKind as E, ForOver, Stmt, StmtKind as S};
 use jaic::intern::Sym;
 use jaic::types::{TypeId, TypeKind};

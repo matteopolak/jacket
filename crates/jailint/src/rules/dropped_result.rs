@@ -19,8 +19,9 @@
 //!
 //! Calls through procedure values count when their type is known.
 use super::{callee_procs, suggesting};
-use crate::syntax::{Cx, walk};
+use crate::syntax::Cx;
 use crate::{Edit, Finding};
+use jaic::ast::walk::walk;
 use jaic::ast::{AssignOp, Expr, ExprKind as E, StmtKind as S};
 use jaic::types::{TypeId, TypeKind};
 

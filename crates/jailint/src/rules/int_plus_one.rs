@@ -12,8 +12,9 @@
 //! `1`. The editor offers the strict comparison. `--fix` leaves it, since at the end of the
 //! type's range `y + 1` wraps and the two forms differ.
 use super::{int_literal, op_text, suggesting};
-use crate::syntax::{Cx, walk};
+use crate::syntax::Cx;
 use crate::{Edit, Finding};
+use jaic::ast::walk::walk;
 use jaic::ast::{BinOp, Expr, ExprKind as E};
 use jaic::source::Span;
 

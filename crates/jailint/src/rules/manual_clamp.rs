@@ -22,8 +22,9 @@
 //! and a statement may sit inside a chain that the rewrite would break.
 use super::min_max::{literal, two_arg_call};
 use super::{pure, suggesting};
-use crate::syntax::{Cx, Node, walk};
+use crate::syntax::Cx;
 use crate::{Edit, Finding};
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{AssignOp, BinOp, Expr, ExprKind as E, Stmt, StmtKind as S};
 
 /// The rule's name, group and one-line summary, and its check.

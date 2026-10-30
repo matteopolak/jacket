@@ -11,8 +11,9 @@
 //! name appears anywhere else in its block is never reported. Bodies that failed to check
 //! and `#expand` macros are skipped.
 use crate::facts::Recorded;
-use crate::syntax::{Cx, Node, walk};
+use crate::syntax::Cx;
 use crate::{Edit, Finding, Fix};
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{DeclKind, Expr, ExprKind as E, StmtKind as S};
 
 /// The rule's name, group and one-line summary, and its check.

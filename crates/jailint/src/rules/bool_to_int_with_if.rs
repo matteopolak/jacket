@@ -15,8 +15,9 @@
 //! result's type; `--fix` leaves it.
 use super::needless_bool::condition;
 use super::{pure, suggesting};
-use crate::syntax::{Cx, Node, walk};
+use crate::syntax::Cx;
 use crate::{Edit, Finding};
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{AssignOp, Expr, ExprKind as E, Stmt, StmtKind as S};
 use jaic::source::Span;
 use jaic::types::TypeId;

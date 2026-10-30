@@ -11,6 +11,7 @@ use crate::source::Span;
 mod flags;
 pub mod relocate;
 mod spelling;
+pub mod walk;
 pub use flags::{CallHintFlag, CheckBits, ProcBits, ProcFlags, StructBits, StructFlags};
 pub use spelling::Spelling;
 use std::cell::Cell;

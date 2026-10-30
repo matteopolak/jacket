@@ -20,8 +20,9 @@
 //! bit pattern is the point (`h & 0xffff_ffff`, `x == 0xFFFF_FFFF`); anything using `~`; named
 //! constants; casts (`cast,trunc(u8) 300`, `xx`), which say what they mean; enum operands.
 use super::op_text;
-use crate::syntax::{Cx, is_atom, walk};
+use crate::syntax::{Cx, is_atom};
 use crate::{Edit, Finding, Fix};
+use jaic::ast::walk::walk;
 use jaic::ast::{AssignOp, BinOp, Expr, ExprKind as E, StmtKind as S, UnOp};
 use jaic::types::{TypeId, TypeKind};
 

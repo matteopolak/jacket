@@ -7,8 +7,9 @@
 //! pointer to a struct or union (a pointer to a pointer, or to an array, is left alone: there
 //! the `.*` matters). `--fix` removes the `.*` when it is written after the pointer; the
 //! prefix form `(<<p).field` is reported without a fix.
-use crate::syntax::{Cx, walk};
+use crate::syntax::Cx;
 use crate::{Edit, Finding, Fix};
+use jaic::ast::walk::walk;
 use jaic::ast::{ExprKind as E, UnOp};
 use jaic::types::TypeKind;
 

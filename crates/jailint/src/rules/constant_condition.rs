@@ -17,7 +17,8 @@
 //! `absurd_comparison` already reports.
 use super::{finding, int_literal};
 use crate::Finding;
-use crate::syntax::{Cx, walk};
+use crate::syntax::Cx;
+use jaic::ast::walk::walk;
 use jaic::ast::{Expr, ExprKind as E, Stmt, StmtKind as S};
 use jaic::ide::interval::{self, Interval};
 use jaic::source::Span;

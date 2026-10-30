@@ -12,8 +12,9 @@
 //! (names, member paths, literals, operators; no calls), spelled the same, as an earlier one
 //! in the chain. A repeated `case` value in a `switch` is not checked: the compiler rejects it.
 use super::{finding, same_pure, statement_range, suggesting};
-use crate::syntax::{Cx, Node, walk};
+use crate::syntax::Cx;
 use crate::{Edit, Finding};
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{Expr, StmtKind as S};
 use jaic::source::Span;
 

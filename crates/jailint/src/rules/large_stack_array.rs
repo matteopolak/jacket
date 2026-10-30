@@ -16,7 +16,8 @@
 //! polymorphic procedures and macros, and generated files, are skipped. No fix. Off by default
 //! (`allow`): programs that run on a large stack may be fine with it.
 use crate::Finding;
-use crate::syntax::{Cx, walk};
+use crate::syntax::Cx;
+use jaic::ast::walk::walk;
 use jaic::ast::{DeclKind, StmtKind as S};
 use jaic::sema::scope::EntityKind;
 use jaic::types::{ArrayKind, TypeKind};

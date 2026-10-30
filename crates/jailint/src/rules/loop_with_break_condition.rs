@@ -16,8 +16,9 @@
 //! removes the `if`; it is machine-applicable unless a comment sits inside the `if` or before it in the loop. Macros are
 //! left alone.
 use super::needless_bool::condition;
-use crate::syntax::{Cx, walk};
+use crate::syntax::Cx;
 use crate::{Edit, Finding, Fix};
+use jaic::ast::walk::walk;
 use jaic::ast::{Expr, ExprKind as E, Stmt, StmtKind as S, UnOp};
 
 /// The rule's name, group and one-line summary, and its check.

@@ -11,7 +11,8 @@
 //! result (`n = it; break;`, `if found n = it; break;`).
 use super::{finding, statement_lists};
 use crate::Finding;
-use crate::syntax::{Cx, walk};
+use crate::syntax::Cx;
+use jaic::ast::walk::walk;
 use jaic::ast::{Expr, ExprKind as E, ForOver, Stmt, StmtKind as S, UnOp};
 use jaic::sema::EntityId;
 use jaic::sema::scope::EntityKind;

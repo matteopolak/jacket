@@ -23,8 +23,9 @@
 //! and of its immediate subdirectories, parsed once per directory. Overload sets are skipped
 //! by the compiler's own view of the scope.
 use crate::facts::Recorded;
-use crate::syntax::{Cx, Node, ProcSite};
+use crate::syntax::{Cx, ProcSite};
 use crate::{Edit, Finding, Fix};
+use jaic::ast::walk::Node;
 use jaic::fxhash::HashMap;
 use jaic::lexer::{P, Tok, Token};
 use jaic::sema::Compiler;
@@ -410,7 +411,7 @@ fn file_defs(path: &Path) -> Option<Defs> {
 /// nested in other procedures (`wt_idx` inside a platform's `read_hidden_weights`).
 fn top_level(list: &[jaic::ast::Stmt], defs: &mut HashMap<String, Vec<Signature>>) {
     use jaic::ast::{ExprKind as E, StmtKind as S};
-    crate::syntax::walk(list, &mut |node, _| {
+    jaic::ast::walk::walk(list, &mut |node, _| {
         match node {
             Node::Stmt(s) => {
                 if let S::Decl(d) = &s.kind

@@ -12,7 +12,8 @@
 //! a type may matter on another one.
 use super::{int_literal, op_text, replacing};
 use crate::Finding;
-use crate::syntax::{Cx, walk};
+use crate::syntax::Cx;
+use jaic::ast::walk::walk;
 use jaic::ast::{BinOp, ExprKind as E};
 use jaic::types::TypeKind;
 

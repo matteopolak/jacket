@@ -27,7 +27,8 @@
 //! strings from helpers is a common, documented convention.
 use super::{calls_noted, finding, has_note};
 use crate::Finding;
-use crate::syntax::{Cx, Node, root_ident, walk};
+use crate::syntax::{Cx, root_ident};
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{AssignOp, Expr, ExprKind as E, Stmt, StmtKind as S, UnOp};
 use jaic::fxhash::HashSet;
 use jaic::intern::Sym;

@@ -11,8 +11,9 @@
 //! assignment to it, its address taken, or another declaration of the name, however deeply
 //! nested, ends the check. Writes inside nested blocks and macros are not reported.
 use super::{statement_lists, suggesting};
-use crate::syntax::{Cx, Node, root_ident, walk_node};
+use crate::syntax::{Cx, root_ident};
 use crate::{Edit, Finding};
+use jaic::ast::walk::{Node, walk_node};
 use jaic::ast::{Expr, ExprKind as E, Stmt, StmtKind as S, UnOp};
 use jaic::intern::Sym;
 use jaic::source::Span;

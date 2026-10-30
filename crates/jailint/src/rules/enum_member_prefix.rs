@@ -20,7 +20,8 @@
 //! renaming members changes every use of them.
 use super::finding;
 use crate::Finding;
-use crate::syntax::{Cx, Node};
+use crate::syntax::Cx;
+use jaic::ast::walk::Node;
 use jaic::ast::{DeclKind, EnumItem, ExprKind as E, StmtKind as S};
 
 /// The rule's name, group and one-line summary, and its check.

@@ -12,8 +12,9 @@
 //! for and stopping is fine), or the loop body assigns its index (`i -= 1;` after the removal
 //! steps back by hand).
 use super::{calls_noted, finding, statement_lists, suggesting};
-use crate::syntax::{Cx, Node, walk};
+use crate::syntax::Cx;
 use crate::{Edit, Finding};
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{Expr, ExprKind as E, ForOver, Stmt, StmtKind as S, UnOp};
 use jaic::source::Span;
 

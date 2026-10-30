@@ -25,7 +25,8 @@
 use super::leaked_allocation::changes_allocator;
 use super::{calls_noted, finding};
 use crate::Finding;
-use crate::syntax::{Cx, Node, walk};
+use crate::syntax::Cx;
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{BinOp, Expr, ExprKind as E};
 
 /// The rule's name, group and one-line summary, and its check.

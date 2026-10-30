@@ -21,7 +21,8 @@
 //! reverse, or with a custom iterator are left alone, as are searches that compare a member
 //! (`it.id == key`), which need a comparison function. No fix.
 use crate::Finding;
-use crate::syntax::{Cx, walk};
+use crate::syntax::Cx;
+use jaic::ast::walk::walk;
 use jaic::ast::{AssignOp, BinOp, Expr, ExprKind as E, For, ForOver, Stmt, StmtKind as S};
 use jaic::intern::Sym;
 use jaic::types::TypeKind;
@@ -156,7 +157,7 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
 fn mentions(e: &Expr, value: Sym, index: Sym) -> bool {
     let mut found = false;
     let mut stack = Vec::new();
-    crate::syntax::walk_node(crate::syntax::Node::Expr(e), &mut stack, &mut |n, _| {
+    jaic::ast::walk::walk_node(jaic::ast::walk::Node::Expr(e), &mut stack, &mut |n, _| {
         if let Some(x) = n.expr()
             && matches!(x.kind, E::Ident(name) if name == value || name == index)
         {

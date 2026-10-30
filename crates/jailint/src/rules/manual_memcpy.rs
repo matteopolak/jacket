@@ -15,7 +15,8 @@
 //! type. `memcpy` assumes the two do not overlap, which two different arrays do not, but a
 //! pointer or slice can alias: that is for the author to check, so there is no fix.
 use crate::Finding;
-use crate::syntax::{Cx, is_path, walk};
+use crate::syntax::{Cx, is_path};
+use jaic::ast::walk::walk;
 use jaic::ast::{AssignOp, BinOp, Expr, ExprKind as E, For, ForOver, Stmt, StmtKind as S};
 use jaic::intern::Sym;
 use jaic::types::TypeKind;

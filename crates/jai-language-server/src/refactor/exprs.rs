@@ -1,7 +1,7 @@
 //! Expression predicates and name suggestions.
+use jaic::ast::walk::{Node, walk, walk_node};
 use jaic::ast::{Expr, ExprKind as E, ProcHeader, Stmt, StmtKind as S, UnOp};
 use jaic::intern::Sym;
-use jailint::syntax::{Node, walk, walk_node};
 
 pub(super) fn header_poly(h: &ProcHeader) -> bool {
     h.params

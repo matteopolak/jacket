@@ -1,7 +1,7 @@
 //! Syntax tree helpers for refactorings.
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{Block, Expr, ExprKind as E, ProcHeader, Stmt, StmtKind as S, UnOp};
 use jaic::intern::Sym;
-use jailint::syntax::{Node, walk};
 
 /// The root variable of an assignable place: `a` of `a.b[2]`.
 pub(super) fn root(e: &Expr) -> Option<Sym> {

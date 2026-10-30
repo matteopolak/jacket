@@ -12,7 +12,8 @@
 //! `>> 8` and `>> 16` for the same reason. The fix (drop the operation) is machine-applicable.
 use super::{int_literal, op_text, replacing};
 use crate::Finding;
-use crate::syntax::{Cx, Node, is_atom, walk};
+use crate::syntax::{Cx, is_atom};
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{BinOp, Expr, ExprKind as E};
 
 /// The rule's name, group and one-line summary, and its check.

@@ -15,8 +15,9 @@
 //! `using`; a name found only through `using` that is also declared earlier in the procedure
 //! is ambiguous and not reported.
 use super::{finding, same_pure};
-use crate::syntax::{Cx, Node, walk, walk_node};
+use crate::syntax::Cx;
 use crate::{Edit, Finding, Fix};
+use jaic::ast::walk::{Node, walk, walk_node};
 use jaic::ast::{AssignOp, Expr, ExprKind, StmtKind as S};
 use jaic::intern::Sym;
 use jaic::lexer::{P, Tok};

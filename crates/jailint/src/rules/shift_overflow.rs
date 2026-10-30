@@ -12,7 +12,8 @@
 //! wrap the count) are not looked at.
 use super::int_literal;
 use crate::Finding;
-use crate::syntax::{Cx, walk};
+use crate::syntax::Cx;
+use jaic::ast::walk::walk;
 use jaic::ast::{AssignOp, BinOp, Expr, ExprKind as E, StmtKind as S};
 use jaic::source::Span;
 
@@ -31,12 +32,12 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         }
         walk(&p.body.stmts, &mut |n, _| {
             match n {
-                crate::syntax::Node::Expr(e) => {
+                jaic::ast::walk::Node::Expr(e) => {
                     if let E::Binary(BinOp::Shl | BinOp::Shr, value, count) = &e.kind {
                         examine(cx, e.span, value, count, out);
                     }
                 }
-                crate::syntax::Node::Stmt(s) => {
+                jaic::ast::walk::Node::Stmt(s) => {
                     if let S::Assign {
                         op: AssignOp::Op(BinOp::Shl | BinOp::Shr),
                         lhs,

@@ -10,8 +10,9 @@
 //! reported too, when `b` has no side effects. The editor offers `a op= b`; which of the two
 //! updates was meant is a guess, so `--fix` leaves it alone.
 use super::{op_text, pure, suggesting};
-use crate::syntax::{Cx, walk};
+use crate::syntax::Cx;
 use crate::{Edit, Finding};
+use jaic::ast::walk::walk;
 use jaic::ast::{AssignOp, BinOp, ExprKind as E, StmtKind as S};
 
 /// The rule's name, group and one-line summary, and its check.

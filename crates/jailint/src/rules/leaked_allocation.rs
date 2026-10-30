@@ -27,8 +27,9 @@
 //! Off by default: ownership conventions differ, and a program that allocates once for its whole
 //! run may leak on purpose.
 use super::{callee_procs, calls_noted, finding, statement_range, suggesting};
-use crate::syntax::{Cx, Node, walk};
+use crate::syntax::Cx;
 use crate::{Edit, Finding};
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{BinOp, Block, Decl, Expr, ExprKind as E, ProcHeader, Stmt, StmtKind as S, UnOp};
 use jaic::sema::EntityId;
 use jaic::types::TypeKind;

@@ -11,7 +11,8 @@
 //! are not counting and are left alone. Off by default (`allow`): a loop that drains a float
 //! budget by a computed amount reads fine this way. No fix.
 use crate::Finding;
-use crate::syntax::{Cx, Node, walk, walk_node};
+use crate::syntax::Cx;
+use jaic::ast::walk::{Node, walk, walk_node};
 use jaic::ast::{AssignOp, BinOp, Expr, ExprKind as E, StmtKind as S};
 use jaic::intern::Sym;
 

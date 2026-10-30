@@ -9,8 +9,9 @@
 //! procedures; a program marks its own the same way), when the call returns a value and no
 //! argument is a pointer (`normalize(*v)` normalizes in place).
 use super::{calls_noted, finding, pure, suggesting};
-use crate::syntax::{Cx, Node, root_ident, walk};
+use crate::syntax::{Cx, root_ident};
 use crate::{Edit, Finding};
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{ExprKind as E, StmtKind as S};
 use jaic::types::{TypeId, TypeKind};
 

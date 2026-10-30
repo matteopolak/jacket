@@ -16,8 +16,9 @@
 //! this finds what is left, such as `123456.789012`, where the digits before the point use up
 //! the precision. Literals of other types, and hexadecimal floats, are left
 //! alone.
-use crate::syntax::{Cx, Node, walk};
+use crate::syntax::Cx;
 use crate::{Edit, Finding, Fix};
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{AssignOp, BinOp, Expr, ExprKind as E, Spelling, Stmt, StmtKind as S, UnOp};
 use jaic::lexer::{FloatLiteralPrecision, float_literal_precision};
 use jaic::types::TypeKind;

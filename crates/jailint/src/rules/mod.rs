@@ -1,8 +1,9 @@
 //! The rules. Each lives in its own module, documented with why it exists; [`RULES`] lists
 //! them with their default levels.
 use crate::config::Category;
-use crate::syntax::{Cx, Node};
+use crate::syntax::Cx;
 use crate::{Edit, Finding, Fix, Level};
+use jaic::ast::walk::Node;
 use jaic::ast::{BinOp, Expr, ExprKind as E, Stmt, StmtKind as S, UnOp};
 use jaic::sema::ProcId;
 use jaic::source::Span;
@@ -272,7 +273,7 @@ pub(crate) fn calls_noted(cx: &Cx, callee: &Expr, name: &str) -> bool {
 pub(crate) fn any_stmt(stmt: &Stmt, f: &mut dyn FnMut(&Stmt) -> bool) -> bool {
     let mut found = false;
     let mut stack = Vec::new();
-    crate::syntax::walk_node(Node::Stmt(stmt), &mut stack, &mut |n, _| {
+    jaic::ast::walk::walk_node(Node::Stmt(stmt), &mut stack, &mut |n, _| {
         if !found
             && let Node::Stmt(s) = n
             && f(s)
@@ -288,7 +289,7 @@ pub(crate) fn any_stmt(stmt: &Stmt, f: &mut dyn FnMut(&Stmt) -> bool) -> bool {
 /// branches.
 pub(crate) fn statement_lists<'a>(body: &'a [Stmt], f: &mut dyn FnMut(&'a [Stmt])) {
     f(body);
-    crate::syntax::walk(body, &mut |n, _| {
+    jaic::ast::walk::walk(body, &mut |n, _| {
         if let Some(s) = n.stmt() {
             match &s.kind {
                 S::Block(b) => f(&b.stmts),
@@ -323,12 +324,12 @@ pub(crate) fn walk_code<'a>(cx: &Cx<'a>, visit: &mut dyn FnMut(Node<'a>, &[Node<
     if cx.generated() {
         return;
     }
-    crate::syntax::walk(cx.stmts, &mut |n, up| {
+    jaic::ast::walk::walk(cx.stmts, &mut |n, up| {
         visit(n, up);
         true
     });
     for p in cx.procs.iter().filter(|p| !p.is_macro) {
-        crate::syntax::walk(&p.body.stmts, &mut |n, up| {
+        jaic::ast::walk::walk(&p.body.stmts, &mut |n, up| {
             visit(n, up);
             true
         });

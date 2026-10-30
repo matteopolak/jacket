@@ -9,8 +9,9 @@
 //! before the default on purpose. `#if` is left alone: its branches are often the same code
 //! written for two platforms.
 use super::{finding, pure, suggesting};
-use crate::syntax::{Cx, is_atom, walk};
+use crate::syntax::{Cx, is_atom};
 use crate::{Edit, Finding};
+use jaic::ast::walk::walk;
 use jaic::ast::{ExprKind as E, Stmt, StmtKind as S};
 use jaic::lexer::Token;
 use jaic::source::Span;
@@ -27,7 +28,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     for p in &cx.procs {
         walk(&p.body.stmts, &mut |n, up| {
             match n {
-                crate::syntax::Node::Stmt(s) => {
+                jaic::ast::walk::Node::Stmt(s) => {
                     if let S::If {
                         cond,
                         then_branch,
@@ -61,7 +62,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         });
                     }
                 }
-                crate::syntax::Node::Expr(e) => {
+                jaic::ast::walk::Node::Expr(e) => {
                     if let E::Ifx {
                         cond,
                         then_value: Some(a),
@@ -103,8 +104,8 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 
 /// `s` is the `else if` that ends a longer chain. `... else if x == LAST { A } else { A }`
 /// spells out the last case before the default on purpose, so it is left alone.
-fn chain_tail(s: &Stmt, up: &[crate::syntax::Node]) -> bool {
-    matches!(up.last(), Some(crate::syntax::Node::Stmt(parent))
+fn chain_tail(s: &Stmt, up: &[jaic::ast::walk::Node]) -> bool {
+    matches!(up.last(), Some(jaic::ast::walk::Node::Stmt(parent))
         if matches!(&parent.kind, S::If { else_branch: Some(e), .. } if std::ptr::eq(&raw const **e, s)))
 }
 

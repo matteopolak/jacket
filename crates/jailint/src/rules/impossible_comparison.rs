@@ -12,8 +12,9 @@
 //! range of integers is used, so the answer holds whatever the expression's width. Floats are
 //! left alone: `x > 1 && x < 2` holds for `1.5`.
 use super::{finding, int_literal, pure, suggesting};
-use crate::syntax::{Cx, Node, walk};
+use crate::syntax::Cx;
 use crate::{Edit, Finding};
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{BinOp, Expr, ExprKind as E};
 use jaic::types::TypeKind;
 

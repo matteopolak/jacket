@@ -11,8 +11,9 @@
 use super::{calls_noted, suggesting};
 use crate::Edit;
 use crate::Finding;
-use crate::syntax::{Cx, is_atom, walk};
+use crate::syntax::{Cx, is_atom};
 use jaic::ast::ExprKind as E;
+use jaic::ast::walk::walk;
 use jaic::types::TypeId;
 
 /// The rule's name, group and one-line summary, and its check.

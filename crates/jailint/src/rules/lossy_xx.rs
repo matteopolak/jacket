@@ -10,8 +10,9 @@
 //! `xx (v >> 56)`). Off by default (`allow`): narrowing `xx` is common and deliberate in
 //! code that talks to C APIs.
 use crate::facts::Recorded;
-use crate::syntax::{Cx, walk};
+use crate::syntax::Cx;
 use crate::{Edit, Finding, Fix};
+use jaic::ast::walk::walk;
 use jaic::ast::{BinOp, Expr, ExprKind as E};
 use jaic::types::{TypeId, TypeKind, Types};
 

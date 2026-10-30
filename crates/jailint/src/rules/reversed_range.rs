@@ -7,8 +7,9 @@
 //! start greater, and on one that ends at the literal `0` and starts at a `.count` expression
 //! (`xs.count - 1..0`), which is empty for every non-empty `xs`.
 use super::int_literal;
-use crate::syntax::{Cx, walk};
+use crate::syntax::Cx;
 use crate::{Edit, Finding, Fix};
+use jaic::ast::walk::walk;
 use jaic::ast::{ExprKind as E, ForOver, StmtKind as S};
 
 /// The rule's name, group and one-line summary, and its check.

@@ -17,7 +17,8 @@
 //! offered, so nothing written there is lost.
 use super::{op_text, pure, replacing, statement_range};
 use crate::Finding;
-use crate::syntax::{Cx, Node, is_atom, walk};
+use crate::syntax::{Cx, is_atom};
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{AssignOp, BinOp, Expr, ExprKind as E, Stmt, StmtKind as S};
 use jaic::types::{TypeId, TypeKind};
 

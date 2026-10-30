@@ -30,7 +30,7 @@ pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     super::walk_code(cx, &mut |n, _| match n {
-        crate::syntax::Node::Stmt(s) => {
+        jaic::ast::walk::Node::Stmt(s) => {
             if let S::If {
                 cond,
                 then_branch,
@@ -51,7 +51,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 ));
             }
         }
-        crate::syntax::Node::Expr(e) => {
+        jaic::ast::walk::Node::Expr(e) => {
             if let E::Ifx {
                 cond,
                 then_value: Some(a),

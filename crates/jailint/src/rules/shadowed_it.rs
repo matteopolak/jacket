@@ -17,7 +17,8 @@
 //! before the inner loop (`row := it;`), the usual idiom, is not reported. Uses are told
 //! apart by what the compiler resolved each `it` to.
 use crate::Finding;
-use crate::syntax::{Cx, Node, walk, walk_node};
+use crate::syntax::Cx;
+use jaic::ast::walk::{Node, walk, walk_node};
 use jaic::ast::{For, Stmt, StmtKind as S};
 use jaic::intern::Sym;
 use jaic::sema::EntityId;

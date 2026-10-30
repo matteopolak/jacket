@@ -24,7 +24,8 @@
 //! use `using`. Equality tests against the variable (`p == null`) are not reads, and `defer`
 //! statements are not looked into.
 use super::{PlaceUse, callee_procs, calls_noted, place_use, statement_lists};
-use crate::syntax::{Cx, Node, walk, walk_node};
+use crate::syntax::Cx;
+use jaic::ast::walk::{Node, walk, walk_node};
 use jaic::ast::{BinOp, Expr, ExprKind as E, Stmt, StmtKind as S, UnOp};
 use jaic::sema::scope::EntityKind;
 use jaic::sema::{EntityId, ProcId};

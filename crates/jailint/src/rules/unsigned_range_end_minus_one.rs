@@ -8,7 +8,8 @@
 //! Fires on a `for` over a range whose end is `n - 1`, where `n` is a non-constant unsigned
 //! integer. Guard the zero case (`if n > 0`), or make the count signed. No fix.
 use crate::Finding;
-use crate::syntax::{Cx, walk};
+use crate::syntax::Cx;
+use jaic::ast::walk::walk;
 use jaic::ast::{BinOp, ExprKind as E, ForOver, StmtKind as S};
 
 /// The rule's name, group and one-line summary, and its check.

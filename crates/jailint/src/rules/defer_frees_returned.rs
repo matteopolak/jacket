@@ -18,8 +18,9 @@
 //! call (`defer if failed free(v);`), and in macros.
 use super::frees::local_of;
 use super::{PlaceUse, calls_noted, place_use, statement_lists, suggesting};
-use crate::syntax::{Cx, Node, walk};
+use crate::syntax::Cx;
 use crate::{Edit, Finding};
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{Expr, ExprKind as E, Stmt, StmtKind as S};
 use jaic::sema::EntityId;
 

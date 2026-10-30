@@ -8,7 +8,8 @@
 //! or other single term; it is machine-applicable unless a comment sits inside.
 use super::replacing;
 use crate::Finding;
-use crate::syntax::{Cx, is_atom, walk};
+use crate::syntax::{Cx, is_atom};
+use jaic::ast::walk::walk;
 use jaic::ast::{BinOp, Expr, ExprKind as E, UnOp};
 use jaic::source::Span;
 

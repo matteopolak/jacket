@@ -9,8 +9,9 @@
 //! in their body (they may guard the last index) are left alone. The suggested fix ends the
 //! range at `xs.count - 1`; it changes what the loop does, so it is not applied by `--fix`.
 use super::finding;
-use crate::syntax::{Cx, Node, is_path, walk, walk_node};
+use crate::syntax::{Cx, is_path};
 use crate::{Edit, Finding, Fix};
+use jaic::ast::walk::{Node, walk, walk_node};
 use jaic::ast::{ExprKind as E, ForOver, StmtKind as S};
 use jaic::intern::Sym;
 use jaic::types::TypeKind;

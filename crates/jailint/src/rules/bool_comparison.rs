@@ -6,8 +6,9 @@
 //! Fires when one side is the literal `true` or `false` and the other is a non-constant
 //! expression of type `bool` (checked by the compiler, so `x == true` on an integer or on a
 //! type with `operator ==` is left alone).
-use crate::syntax::{Cx, Node, is_atom, walk};
+use crate::syntax::{Cx, is_atom};
 use crate::{Edit, Finding, Fix};
+use jaic::ast::walk::{Node, walk};
 use jaic::ast::{BinOp, ExprKind as E};
 use jaic::types::TypeId;
 

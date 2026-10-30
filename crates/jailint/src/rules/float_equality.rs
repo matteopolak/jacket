@@ -9,7 +9,8 @@
 //! (the NaN test) or comparisons inside `operator ==` and friends. Off by default
 //! (`allow`): "did this value change" checks (`if new != old`) compare exactly on purpose.
 use crate::Finding;
-use crate::syntax::{Cx, walk};
+use crate::syntax::Cx;
+use jaic::ast::walk::walk;
 use jaic::ast::{BinOp, ExprKind as E};
 
 /// The rule's name, group and one-line summary, and its check.

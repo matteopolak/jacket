@@ -10,7 +10,8 @@
 //! editor offers to write the answer.
 use super::{int_literal, replacing};
 use crate::Finding;
-use crate::syntax::{Cx, walk};
+use crate::syntax::Cx;
+use jaic::ast::walk::walk;
 use jaic::ast::{BinOp, ExprKind as E};
 
 /// The rule's name, group and one-line summary, and its check.
