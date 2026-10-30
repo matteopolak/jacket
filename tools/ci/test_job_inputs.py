@@ -181,12 +181,12 @@ class StdlibClosure(Fake):
 class Crates(Fake):
     def test_path_dependencies_close_over_the_workspace(self):
         graph = ji.crate_graph(self.repo)
-        self.assertEqual(graph["app"], ("crates/app", ["lib", "unix"]))
+        self.assertEqual(graph["app"], ("crates/app", ["lib", "unix"], []))
+        self.assertEqual(graph["lib"][2], ["help"])
         got = self.inputs(crates={"build": ["app"]}, graph=graph)
         for pattern in (
             "crates/app/**",
             "crates/lib/**",
-            "crates/help/**",
             "crates/unix/**",
             "Cargo.lock",
             "rust-toolchain.toml",
@@ -194,6 +194,14 @@ class Crates(Fake):
             self.assertIn(pattern, got)
         self.assertNotIn("crates/unused/**", got)
         self.assertNotIn("crates/other/**", got)
+        self.assertNotIn("crates/help/**", got)
+
+    def test_dev_dependencies_only_count_when_testing(self):
+        graph = ji.crate_graph(self.repo)
+        self.assertNotIn("crates/help/**", ji.crate_patterns(["lib"], graph))
+        self.assertIn("crates/help/**", ji.crate_patterns(["lib"], graph, tests=True))
+        self.assertTrue(ji.runs_tests("run: cargo test -p app"))
+        self.assertFalse(ji.runs_tests("run: cargo build -p app"))
 
     def test_cargo_p_outside_the_table_is_drift(self):
         self.assertEqual(

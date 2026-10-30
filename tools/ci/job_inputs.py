@@ -502,8 +502,9 @@ def drift(workflow_text, crates=None, only=None):
 
 
 def crate_graph(repo):
-    """{package: (directory, [path dependencies])} for the workspace members, read from the
-    Cargo.toml files (no `cargo`, which would install the pinned toolchain in a bare checkout)."""
+    """{package: (directory, [path dependencies], [path dev-dependencies])} for the workspace
+    members, read from the Cargo.toml files (no `cargo`, which would install the pinned toolchain
+    in a bare checkout)."""
     root = tomllib.loads(repo.read("Cargo.toml"))
     shared = root.get("workspace", {}).get("dependencies", {})
     members = []
@@ -518,53 +519,72 @@ def crate_graph(repo):
             )
         else:
             members.append(member)
-    graph, paths = {}, {}
+
+    def paths(directory, table):
+        found = []
+        for dep, spec in table.items():
+            base = directory
+            if isinstance(spec, dict) and spec.get("workspace"):
+                # The root manifest's paths are relative to the root.
+                spec, base = shared.get(dep, {}), ""
+            if isinstance(spec, dict) and "path" in spec:
+                found.append(
+                    os.path.normpath(os.path.join(base, spec["path"])).replace(
+                        os.sep, "/"
+                    )
+                )
+        return found
+
+    graph, names = {}, {}
     for directory in members:
         manifest = tomllib.loads(repo.read(f"{directory}/Cargo.toml"))
         name = manifest.get("package", {}).get("name")
         if not name:
             continue
-        tables = [
-            manifest.get(k, {})
-            for k in ("dependencies", "dev-dependencies", "build-dependencies")
+        scopes = [manifest] + list(manifest.get("target", {}).values())
+        normal = [
+            d
+            for sc in scopes
+            for k in ("dependencies", "build-dependencies")
+            for d in paths(directory, sc.get(k, {}))
         ]
-        for target in manifest.get("target", {}).values():
-            tables += [
-                target.get(k, {})
-                for k in ("dependencies", "dev-dependencies", "build-dependencies")
-            ]
-        deps = []
-        for table in tables:
-            for dep, spec in table.items():
-                base = directory
-                if isinstance(spec, dict) and spec.get("workspace"):
-                    spec, base = (
-                        shared.get(dep, {}),
-                        "",
-                    )  # the root manifest's paths are root-relative
-                if isinstance(spec, dict) and "path" in spec:
-                    deps.append(
-                        os.path.normpath(os.path.join(base, spec["path"])).replace(
-                            os.sep, "/"
-                        )
-                    )
-        graph[name] = (directory, deps)
-        paths[directory] = name
+        dev = [
+            d for sc in scopes for d in paths(directory, sc.get("dev-dependencies", {}))
+        ]
+        graph[name] = (directory, normal, dev)
+        names[directory] = name
     return {
-        name: (d, [paths[x] for x in deps if x in paths])
-        for name, (d, deps) in graph.items()
+        name: (
+            d,
+            [names[x] for x in normal if x in names],
+            [names[x] for x in dev if x in names],
+        )
+        for name, (d, normal, dev) in graph.items()
     }
 
 
-def crate_patterns(names, graph):
-    seen, todo = set(), list(names)
+def crate_patterns(names, graph, tests=False):
+    """`crates/<name>/**` for `names` and their path dependencies, plus the cargo files. Building
+    a crate needs its dependencies; testing it also needs its own dev-dependencies."""
+    seen, todo = set(), [(name, tests) for name in names]
     while todo:
-        name = todo.pop()
+        name, dev = todo.pop()
         if name in seen or name not in graph:
             continue
         seen.add(name)
-        todo += graph[name][1]
+        _, normal, dev_deps = graph[name]
+        todo += [(dep, False) for dep in normal + (dev_deps if dev else [])]
     return {graph[n][0] + "/**" for n in seen} | set(CARGO_FILES)
+
+
+def runs_tests(text):
+    """Whether a job's steps test crates: `cargo test`, nextest, or Nix (which runs the checks)."""
+    return bool(
+        re.search(
+            r"\bcargo\s+(?:\+\S+\s+)?(?:test|nextest|llvm-cov)\b|\bnix\s+(?:build|flake\s+check)\b",
+            text,
+        )
+    )
 
 
 def inputs(
@@ -597,7 +617,7 @@ def inputs(
     names = crates.get(job, [])
     if names:
         graph = graph if graph is not None else crate_graph(repo)
-        result |= crate_patterns(names, graph)
+        result |= crate_patterns(names, graph, runs_tests(text))
     return result
 
 

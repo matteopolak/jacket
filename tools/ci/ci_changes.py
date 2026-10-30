@@ -2,16 +2,21 @@
 """Decide which path-gated CI jobs run, and write `<area>=true|false` lines to $GITHUB_OUTPUT.
 
 Pushes diff the pushed range, pull requests diff against their base, anything else (manual
-runs, a new branch, a range that cannot be diffed) runs every area. Areas live in AREAS: to gate
-a job on more paths, add a pattern there. A change to ci.yml or .github/actions runs every area
-except those in OWN_PATHS_ONLY. `*` matches within a directory, `**` across them.
+runs, a new branch, a range that cannot be diffed) runs every area. An area is true when a changed
+file is one of the inputs of its jobs, which job_inputs.py computes from ci.yml: the paths the
+steps name, the scripts and Jai sources those read, and the crates they build (no path is listed
+here). A change to ci.yml runs every area except those in OWN_PATHS_ONLY; a change to a composite
+action runs the jobs that use it. `*` matches within a directory, `**` across them.
+NARROW holds what is not about inputs: the macOS sanitizer leg runs on pushes only for the code
+that decides what the sanitized binaries are. Windows never runs on pull requests (see main).
 `code` is false when every changed file is prose (PROSE, minus the docs some test reads), so a
 docs-only push skips the build and test jobs.
 
 It also writes `full=true|false` (the tier, see test_matrix) and the `test_matrix` and
 `stdlib_matrix` JSON the `test` and `stdlib-runtime` jobs expand, and `jobs=<JSON array>`: the ids in JOBS that run, which are the jobs whose area is true
 (or that have none), narrowed to the comma-separated `$JOBS` of a manual run. Every job of ci.yml
-tests `contains(fromJSON(needs.changes.outputs.jobs), '<id>')`; a new job gets a row in JOBS.
+tests `contains(fromJSON(needs.changes.outputs.jobs), '<id>')`; a new job gets a row in JOBS, and
+a gated one is added to job_inputs.GATED.
 
     python3 tools/ci/ci_changes.py          # reads GITHUB_EVENT_NAME, JOBS, EVENT_BEFORE, BASE_SHA, SHA
 """
@@ -22,98 +27,11 @@ import re
 import subprocess
 import sys
 
-SELF = r".github/(workflows/ci\.yml|actions/.*)"
+import job_inputs
 
-AREAS = {
-    # Only the extension and its own tooling: the release workflow still builds and tests SDL3 with
-    # the shared native-library builders, so a change to those is caught before shipping.
-    "sdl3": [
-        "stdlib/Extensions/SDL3/**",
-        "tools/bindings/*sdl*.py",
-        "tools/native/sdl3/**",
-    ],
-    "clipboard": [
-        "stdlib/Clipboard/**",
-        "stdlib/internal/clipboard/**",
-        "stdlib/internal/window/connection.jai",
-        "stdlib/Basic/**",
-        "stdlib/internal/basic/**",
-        "crates/**",
-        "Cargo.*",
-        "rust-toolchain.toml",
-        "tools/portable/*portable_clipboard*.py",
-        "tools/portable/check_clipboard_linux_package.py",
-        "tools/portable/*clipboard_linux_*.py",
-        "tools/ci/ci_test_scratch.py",
-        "tools/ci/test_ci_test_scratch.py",
-    ],
-    "nix": ["flake.nix", "flake.lock", "nix/**", "Cargo.lock", "rust-toolchain.toml"],
-    # Every shell script (tools/dev/staged-files.sh lists them, shebang files included) is linted.
-    "shell": ["**.sh", ".githooks/**", "tools/dev/staged-files.sh"],
-    "packaging": [
-        "install.sh",
-        "install.ps1",
-        "packaging/**",
-        "tools/dev/render_packages.py",
-        "tools/release.py",
-        "tools/ci/test_install_sh.py",
-        "tools/ci/test_install_ps1.ps1",
-        "tests/installers/**",
-    ],
-    # macOS ASan is slot-limited and the slowest sanitizer leg: on pushes it runs only for the code
-    # that decides what the sanitized binaries are (code generation, the driver, the sweep and
-    # its inputs, the toolchain); Linux ASan runs on every push, and nightly/manual runs do both.
-    "sanitizers-macos": [
-        "crates/jaic-llvm/**",
-        "crates/jaic-cli/src/**",
-        "crates/jaic/src/**",
-        "tools/differential/**",
-        "tools/native/**",
-        "corpus/**",
-        "Cargo.lock",
-        "rust-toolchain.toml",
-    ],
-    # Windows runs on pushes (main, staging) only for the paths its coverage is about, never on
-    # pull requests, and always on manual runs. Anything that decides what the Windows binaries are
-    # (the standard library, lowering and linking in `jaic-llvm`, the ABI, target and IR code in
-    # `jaic`) is covered whole: a narrower gate once skipped the job for a real Windows fix.
-    "windows": [
-        "stdlib/**",
-        "tools/developer_checks/check_developer_vtables.py",
-        "tools/native/mbedtls/**",
-        "tools/stdlib/check_file_watcher_platforms.py",
-        "tools/native/check_windows_time_zone.py",
-        "tools/native/build_windows_resource_fixture.py",
-        "tools/native/test_windows_resource_fixture.py",
-        "tools/ci/install_ci_native_linux.sh",
-        "tools/ci/install_ci_llvm_linux.sh",
-        "tools/ci/llvm_env.sh",
-        "tools/ci/apt_lib.sh",
-        "tools/ci/apt_install.sh",
-        "tools/ci/test_apt_lib.py",
-        "tools/native/upstream_native.py",
-        "tools/corpus/upstream_smoke.py",
-        "tools/upstream-cases.json",
-        "corpus/upstreams.json",
-        "tools/corpus/select_upstream_cases.py",
-        "tools/corpus/upstream_sandbox.py",
-        "tools/differential/jaic_sweep.py",
-        "tools/ci/stdlib_jacket_sanitize.sh",
-        "tools/ci/enter_vs_dev_shell.ps1",
-        "tools/portable/build_portable.py",
-        "tools/native/audio_build_native.py",
-        "tools/native/build_native_libs.py",
-        "tools/stdlib/stdlib_runtime.py",
-        "tools/native/test_windows_dynamic_package.py",
-        "tools/native/windows_cross.py",
-        "crates/jaic-llvm/**",
-        "crates/jaic/src/**",
-        "crates/jacket/**",
-        "crates/jaic-cli/src/**",
-        "crates/jaic-cli/tests/native.rs",
-        "tests/compiler/native/**",
-    ],
-}
+# A change to the workflow runs every area but OWN_PATHS_ONLY; the actions a job uses are among
+# its inputs.
+SELF = r".github/workflows/ci\.yml"
 
 # Every job of ci.yml with the area that gates it (None: always, subject to a manual run's list).
 JOBS = {
@@ -196,7 +114,9 @@ def test_matrix(full):
     legs += [leg(ARM, part) for part in ("targets", "lint", "diff", "split")]
     for host in (MAC, INTEL):
         legs.append(leg(host, "rust", expr=NOT_WASM, timeout=MACOS_TIMEOUT))
-        legs.append(leg(host, "checks", parts="targets,lint,diff", timeout=MACOS_TIMEOUT))
+        legs.append(
+            leg(host, "checks", parts="targets,lint,diff", timeout=MACOS_TIMEOUT)
+        )
     return legs
 
 
@@ -248,21 +168,47 @@ def stdlib_matrix(full):
         return legs
 
     if not full:
-        legs = [dict(platform="linux-x64", shard=s, modes=everything, o2=False) for s in shards(3)]
-        legs += [dict(platform="macos-arm64", shard=s, modes="interp,native", o2=False) for s in shards(2)]
-        return legs + suite_legs("linux-x64", ("bindings", "tooling")) + suite_legs("macos-arm64", ())
+        legs = [
+            dict(platform="linux-x64", shard=s, modes=everything, o2=False)
+            for s in shards(3)
+        ]
+        legs += [
+            dict(platform="macos-arm64", shard=s, modes="interp,native", o2=False)
+            for s in shards(2)
+        ]
+        return (
+            legs
+            + suite_legs("linux-x64", ("bindings", "tooling"))
+            + suite_legs("macos-arm64", ())
+        )
     legs = []
     for platform in ("linux-x64", "linux-arm64"):
         modes = everything if platform == "linux-x64" else "interp,native"
-        legs += [dict(platform=platform, shard=s, modes=modes, o2=True) for s in shards(2)]
+        legs += [
+            dict(platform=platform, shard=s, modes=modes, o2=True) for s in shards(2)
+        ]
         legs += suite_legs(platform, ("bindings", "tooling"))
     for platform in ("macos-arm64", "macos-x64"):
         # Two jobs per Mac: the whole catalogue, and every producer suite with all the
         # `jacket test` runs (they share the production build, and their parts only exist to
         # shorten Linux jobs).
-        legs.append(dict(platform=platform, shard="1/1", modes="interp,native", o2=True, timeout=MACOS_TIMEOUT))
         legs.append(
-            dict(platform=platform, shard="suites", suites=f"{SUITES} bindings tooling", jacket_test="all", timeout=MACOS_TIMEOUT)
+            dict(
+                platform=platform,
+                shard="1/1",
+                modes="interp,native",
+                o2=True,
+                timeout=MACOS_TIMEOUT,
+            )
+        )
+        legs.append(
+            dict(
+                platform=platform,
+                shard="suites",
+                suites=f"{SUITES} bindings tooling",
+                jacket_test="all",
+                timeout=MACOS_TIMEOUT,
+            )
         )
     return legs
 
@@ -279,15 +225,31 @@ def windows_stdlib_matrix(full):
     more finely."""
     cpus = {
         "x64": dict(runner="windows-2025", triple="x86_64-pc-windows-msvc", timeout=40),
-        "arm64": dict(runner="windows-11-arm", triple="aarch64-pc-windows-msvc", timeout=80),
+        "arm64": dict(
+            runner="windows-11-arm", triple="aarch64-pc-windows-msvc", timeout=80
+        ),
     }
     counts = {"x64": 2, "arm64": 2} if full else {"x64": 5}
-    return [dict(cpu=cpu, shard=s, o2=full, **cpus[cpu]) for cpu in windows_cpus(full) for s in shards(counts[cpu])]
+    return [
+        dict(cpu=cpu, shard=s, o2=full, **cpus[cpu])
+        for cpu in windows_cpus(full)
+        for s in shards(counts[cpu])
+    ]
 
 
 WINDOWS = {
-    "x64": dict(runner="windows-2025", triple="x86_64-pc-windows-msvc", vs_arch="amd64", mingw="MinGW-w64"),
-    "arm64": dict(runner="windows-11-arm", triple="aarch64-pc-windows-msvc", vs_arch="arm64", mingw="llvm-mingw"),
+    "x64": dict(
+        runner="windows-2025",
+        triple="x86_64-pc-windows-msvc",
+        vs_arch="amd64",
+        mingw="MinGW-w64",
+    ),
+    "arm64": dict(
+        runner="windows-11-arm",
+        triple="aarch64-pc-windows-msvc",
+        vs_arch="arm64",
+        mingw="llvm-mingw",
+    ),
 }
 
 
@@ -301,7 +263,13 @@ def windows_native_matrix(full):
     """The legs of `windows-native`: `programs` and `graphics` per CPU."""
     timeouts = {"x64": 30, "arm64": 60}
     return [
-        dict(cpu=cpu, part=part, mesa_dir="target/mesa-driver", timeout=timeouts[cpu], **WINDOWS[cpu])
+        dict(
+            cpu=cpu,
+            part=part,
+            mesa_dir="target/mesa-driver",
+            timeout=timeouts[cpu],
+            **WINDOWS[cpu],
+        )
         for cpu in windows_cpus(full)
         for part in ("programs", "graphics")
     ]
@@ -310,11 +278,36 @@ def windows_native_matrix(full):
 def windows_cross_matrix(full):
     """The legs of `windows-cross` and `windows-run-cross`: a third of the programs each
     (windows_cross.py --shard; the first also builds the shared fixtures)."""
-    return [dict(cpu=cpu, shard=str(k), **WINDOWS[cpu]) for cpu in windows_cpus(full) for k in (1, 2, 3)]
+    return [
+        dict(cpu=cpu, shard=str(k), **WINDOWS[cpu])
+        for cpu in windows_cpus(full)
+        for k in (1, 2, 3)
+    ]
 
 
-# Areas too costly to run whenever the workflow itself changes.
+# Areas too costly to run whenever the workflow or an action changes.
 OWN_PATHS_ONLY = {"sdl3"}
+
+# The job of ci.yml whose inputs decide a JOBS id that is no job of its own (the macOS leg).
+INPUT_JOB = {"sanitizers-macos": "sanitizers"}
+
+# Policy narrowing an area's computed inputs: a changed file selects the area only when it is an
+# input and also matches one of these. macOS ASan is slot-limited and the slowest sanitizer leg:
+# on pushes it runs only for the code that decides what the sanitized binaries are (code
+# generation, the driver, the sweep and its inputs, the toolchain); Linux ASan runs on every push,
+# and nightly/manual runs do both.
+NARROW = {
+    "sanitizers-macos": [
+        "crates/jaic-llvm/**",
+        "crates/jaic-cli/src/**",
+        "crates/jaic/src/**",
+        "tools/differential/**",
+        "tools/native/**",
+        "corpus/**",
+        "Cargo.lock",
+        "rust-toolchain.toml",
+    ],
+}
 
 # Prose no build or test reads. The specs feed generators and checks, jailint's rules test reads
 # its doc, and the rule IDs in docs/language and docs/metaprogramming are checked by the `docs`
@@ -349,6 +342,40 @@ def matches(patterns, files, workflow=True):
     return any(rx.match(f) for f in files)
 
 
+def area_jobs(area):
+    """The ci.yml jobs whose inputs decide `area`."""
+    return [INPUT_JOB.get(job, job) for job, owner in JOBS.items() if owner == area]
+
+
+def input_areas():
+    """The areas gated on computed inputs: every JOBS area but `code`."""
+    return sorted({area for area in JOBS.values() if area and area != "code"})
+
+
+def area_patterns(area, repo, workflow_text, graph=None, jaic=None, crates=None):
+    """The input patterns of `area`: the union of its jobs' computed inputs (workflow files only
+    where the area is not OWN_PATHS_ONLY)."""
+    found = set()
+    for job in area_jobs(area):
+        found |= job_inputs.inputs(
+            job, repo, workflow_text, graph, crates=crates, jaic=jaic
+        )
+    if area in OWN_PATHS_ONLY:
+        found = {p for p in found if not p.startswith(".github/")}
+    return job_inputs.collapse(found)
+
+
+def area_changed(area, patterns, files):
+    """Whether a changed file selects `area` (its inputs, narrowed by NARROW)."""
+    narrow = NARROW.get(area)
+    workflow = SELF if area not in OWN_PATHS_ONLY else None
+    inputs = compile_patterns(patterns, workflow)
+    narrowed = compile_patterns(narrow, workflow) if narrow else None
+    return any(
+        inputs.match(f) and (narrowed is None or narrowed.match(f)) for f in files
+    )
+
+
 def code_changed(files):
     prose, read = compile_patterns(PROSE), compile_patterns(READ_BY_TESTS)
     return any(not prose.match(f) or read.match(f) for f in files)
@@ -381,21 +408,44 @@ def selected_jobs(results, requested):
     ]
 
 
+def area_results(files):
+    """{area: whether it runs} for the changed `files` (`None`: all of them). If the inputs
+    cannot be computed every area runs, which only costs minutes."""
+    if files is None:
+        return {area: True for area in input_areas()}
+    try:
+        repo = job_inputs.Repo()
+        workflow_text = repo.read(job_inputs.WORKFLOW)
+        graph = job_inputs.crate_graph(repo)
+        jaic = os.environ.get("JAIC_DEPS_JAIC")
+        return {
+            area: area_changed(
+                area, area_patterns(area, repo, workflow_text, graph, jaic), files
+            )
+            for area in input_areas()
+        }
+    except Exception as error:
+        print(
+            f"ci_changes: cannot compute the job inputs ({error!r}); running every area",
+            file=sys.stderr,
+        )
+        return {area: True for area in input_areas()}
+
+
 def main():
     env = os.environ
     files = changed_files(env)
     event = env.get("GITHUB_EVENT_NAME", "")
-    results = {}
-    for area, patterns in AREAS.items():
-        results[area] = files is None or matches(
-            patterns, files, area not in OWN_PATHS_ONLY
-        )
+    results = area_results(files)
     results["code"] = files is None or code_changed(files)
     if event == "pull_request":
+        # Policy, not inputs: the Windows jobs run on pushes to main and staging and on manual runs.
         results["windows"] = False
     lines = [f"{area}={str(value).lower()}" for area, value in results.items()]
     lines.append("jobs=" + json.dumps(selected_jobs(results, env.get("JOBS", ""))))
-    full = event == "schedule" or (event == "workflow_dispatch" and env.get("TIER", "full") != "fast")
+    full = event == "schedule" or (
+        event == "workflow_dispatch" and env.get("TIER", "full") != "fast"
+    )
     lines.append(f"full={str(full).lower()}")
     lines.append("test_matrix=" + json.dumps(test_matrix(full)))
     lines.append("stdlib_matrix=" + json.dumps(stdlib_matrix(full)))
