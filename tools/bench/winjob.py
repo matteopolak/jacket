@@ -6,7 +6,7 @@
 - Peak memory: the largest peak *working set* (resident memory) of any single process in the job. The
   main process's own peak is read after it exits; descendants are sampled while the job runs, so a child
   that starts and ends between two samples (10 ms apart) can be missed. The job's peak *commit* charge
-  (private bytes, a bigger number than the working set) is reported separately as `commit_mib`.
+  (private bytes: not comparable to the working set, which also counts shared pages) is reported separately as `commit_mib`.
   macOS and Linux report `ru_maxrss`, the peak resident set of the largest single process.
 - Timeouts and stragglers: `TerminateJobObject` kills the whole tree, on timeout and again once the
   command exits, as `killpg` does elsewhere.
