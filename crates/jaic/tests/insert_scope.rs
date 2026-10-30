@@ -13,7 +13,7 @@ fn compile(source: &str) -> Result<(), String> {
 
 #[test]
 fn exact_human_declaration_insertion_is_visible_to_the_following_statement() {
-    let root = std::env::var_os("JAIC_STDLIB").map_or_else(
+    let root = jacket_config::env::STDLIB.os().map_or_else(
         || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"),
         PathBuf::from,
     );

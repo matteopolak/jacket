@@ -64,17 +64,17 @@ pub fn get() -> &'static Knobs {
 /// (`tools/differential/determinism.py --scramble`). Read once, and only when a new spelling is met.
 pub fn sym_scramble() -> Option<u64> {
     static SEED: OnceLock<Option<u64>> = OnceLock::new();
-    *SEED.get_or_init(|| scramble_seed("JAIC_SYM_SCRAMBLE"))
+    *SEED.get_or_init(|| scramble_seed(&jacket_config::env::SYM_SCRAMBLE))
 }
 
 /// `JAIC_ID_SCRAMBLE=<seed>`: the same for `AstId`s, consulted once per block of ids.
 pub fn id_scramble() -> Option<u64> {
     static SEED: OnceLock<Option<u64>> = OnceLock::new();
-    *SEED.get_or_init(|| scramble_seed("JAIC_ID_SCRAMBLE"))
+    *SEED.get_or_init(|| scramble_seed(&jacket_config::env::ID_SCRAMBLE))
 }
 
-fn scramble_seed(var: &str) -> Option<u64> {
-    std::env::var(var).ok()?.trim().parse().ok()
+fn scramble_seed(var: &jacket_config::env::Var) -> Option<u64> {
+    var.get()?.trim().parse().ok()
 }
 
 /// A gap below `limit` for position `at` under `seed` (splitmix64).

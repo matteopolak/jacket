@@ -50,7 +50,9 @@ pub fn environment_at(stdlib: PathBuf, os: Option<TargetOs>) -> Environment {
 /// [`environment`] plus a `modules` directory beside the main file, optionally for another OS.
 /// `JAIC_STDLIB` overrides the stdlib location.
 pub fn modules_environment(os: Option<TargetOs>) -> Environment {
-    let stdlib = std::env::var_os("JAIC_STDLIB").map_or_else(stdlib_dir, PathBuf::from);
+    let stdlib = jacket_config::env::STDLIB
+        .os()
+        .map_or_else(stdlib_dir, PathBuf::from);
     Environment {
         services: None,
         fs: std::rc::Rc::new(jaic::sema::NativeFs),

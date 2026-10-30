@@ -21,11 +21,12 @@ pub(super) fn debug_file(program: &Path) -> PathBuf {
 /// `llvm-dwarfdump` from the LLVM jaic is built with (`LLVM_SYS_231_PREFIX`), Homebrew's, or
 /// the one on `PATH`.
 pub(super) fn find_dwarfdump() -> Result<PathBuf, String> {
-    let prefixes = std::env::var_os("LLVM_SYS_231_PREFIX")
+    let prefixes = jacket_config::env::LLVM_SYS_231_PREFIX
+        .os()
         .map(PathBuf::from)
         .into_iter()
         .chain(["/opt/homebrew/opt/llvm", "/usr/local/opt/llvm"].map(PathBuf::from));
-    let path = std::env::var_os("PATH").unwrap_or_default();
+    let path = jacket_config::env::PATH.os().unwrap_or_default();
     let folders = prefixes
         .map(|p| p.join("bin"))
         .chain(std::env::split_paths(&path));

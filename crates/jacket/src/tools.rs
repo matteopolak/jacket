@@ -47,7 +47,7 @@ pub fn require(tool: &str) -> Option<PathBuf> {
 
 /// The file `program` names in a folder of `PATH`.
 fn on_path(program: &Path) -> Option<PathBuf> {
-    let path = std::env::var_os("PATH")?;
+    let path = jacket_config::env::PATH.os()?;
     std::env::split_paths(&path)
         .map(|dir| dir.join(program))
         .find(|candidate| candidate.is_file())

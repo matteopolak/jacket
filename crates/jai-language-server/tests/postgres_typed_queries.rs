@@ -21,8 +21,8 @@ fn built_jaic() -> Option<PathBuf> {
 }
 
 fn database_url() -> Option<String> {
-    std::env::var("JACKET_DATABASE_URL")
-        .ok()
+    jacket_config::env::DATABASE_URL
+        .get()
         .filter(|url| !url.is_empty())
 }
 

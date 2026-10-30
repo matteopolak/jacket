@@ -60,9 +60,12 @@ pub fn mode_with(
 /// `mode_with` for this process: stderr and its environment.
 pub fn mode(quiet: bool, no_color: bool) -> Mode {
     use std::io::IsTerminal;
-    mode_with(std::io::stderr().is_terminal(), quiet, no_color, |key| {
-        std::env::var(key).ok()
-    })
+    mode_with(
+        std::io::stderr().is_terminal(),
+        quiet,
+        no_color,
+        jacket_config::env::lookup,
+    )
 }
 
 /// What the compiler is doing, as the status line names it.
@@ -474,8 +477,8 @@ fn stop() -> Option<String> {
 
 /// Columns of the terminal on stderr; 80 when unknown.
 fn terminal_width() -> usize {
-    if let Some(columns) = std::env::var("COLUMNS")
-        .ok()
+    if let Some(columns) = jacket_config::env::COLUMNS
+        .get()
         .and_then(|c| c.parse::<usize>().ok())
         .filter(|&c| c > 0)
     {

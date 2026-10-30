@@ -18,8 +18,8 @@ fn copy_tree(from: &Path, to: &Path) {
 
 #[test]
 fn root_prelude_preserves_diagnostics_hover_and_definition() {
-    if std::env::var_os("JAIC_PRELUDE_TEST_CHILD").is_some() {
-        let root = std::path::PathBuf::from(std::env::var_os("JAIC_STDLIB").unwrap());
+    if jacket_config::env::PRELUDE_TEST_CHILD.os().is_some() {
+        let root = std::path::PathBuf::from(jacket_config::env::STDLIB.os().unwrap());
         let text = "#import \"Basic\";\nmain :: () { print(\"hello\\n\"); }\n";
         let main = root.parent().unwrap().join("main.jai");
         std::fs::write(&main, text).unwrap();

@@ -283,7 +283,7 @@ fn jaifmt_is_idempotent_on_the_repository() {
     // CI must exercise the actual readonly premise on a capable filesystem.
     formatter_fixtures::require_readonly_capability(
         readonly_retained,
-        std::env::var_os("CI").is_some() || std::env::var_os("GITHUB_ACTIONS").is_some(),
+        jacket_config::env::CI.is_set() || jacket_config::env::GITHUB_ACTIONS.is_set(),
     );
     if !readonly_retained {
         eprintln!(
@@ -490,7 +490,7 @@ fn msvc_builds_write_a_pdb() {
             );
         }
         // CI installs the LLVM release, which has it.
-        Err(e) if std::env::var_os("CI").is_some() => panic!("llvm-pdbutil: {e}"),
+        Err(e) if jacket_config::env::CI.os().is_some() => panic!("llvm-pdbutil: {e}"),
         Err(_) => eprintln!("llvm-pdbutil not found: skipping the line information check"),
     }
     let _ = std::fs::remove_file(&pdb);

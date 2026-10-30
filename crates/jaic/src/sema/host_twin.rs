@@ -36,7 +36,11 @@ pub(super) type RunGate<'a> = dyn FnMut(&mut Compiler, TypeId) -> bool + 'a;
 /// `JAIC_NO_HOST_TWIN=1` turns the twin off, for timing and bisecting.
 fn disabled_by_environment() -> bool {
     static DISABLED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *DISABLED.get_or_init(|| std::env::var_os("JAIC_NO_HOST_TWIN").is_some_and(|v| v != "0"))
+    *DISABLED.get_or_init(|| {
+        jacket_config::env::NO_HOST_TWIN
+            .os()
+            .is_some_and(|v| v != "0")
+    })
 }
 
 /// The identifier-like words of `text`.
@@ -196,7 +200,7 @@ impl Compiler {
             None => match self.build_twin() {
                 Ok(twin) => twin,
                 Err(reason) => {
-                    if std::env::var_os("JAIC_HOST_TWIN_DEBUG").is_some() {
+                    if jacket_config::env::HOST_TWIN_DEBUG.os().is_some() {
                         eprintln!("jaic: no host twin: {}", self.render(&reason));
                     }
                     self.ct.twin.unavailable = true;

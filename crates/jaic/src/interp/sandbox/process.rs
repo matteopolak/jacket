@@ -83,7 +83,7 @@ impl SandboxHost {
             return 0;
         }
         let name = super::cstr(name);
-        let Ok(value) = std::env::var(&name) else {
+        let Some(value) = jacket_config::env::for_program(&name) else {
             return 0;
         };
         let key = (name, value);

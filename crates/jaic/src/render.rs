@@ -138,9 +138,11 @@ impl ColorChoice {
 /// The style for diagnostics on stderr, from `choice` (`--color`) and the environment.
 pub fn detect(choice: ColorChoice) -> Style {
     use std::io::IsTerminal;
-    detect_with(choice, std::io::stderr().is_terminal(), |key| {
-        std::env::var(key).ok()
-    })
+    detect_with(
+        choice,
+        std::io::stderr().is_terminal(),
+        jacket_config::env::lookup,
+    )
 }
 
 /// `detect` with the terminal test and the environment given (for tests).

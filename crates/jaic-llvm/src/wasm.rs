@@ -82,7 +82,7 @@ fn wasm_library_file(lib: &Library) -> Option<PathBuf> {
 /// `wasm-ld`: `JAIC_WASM_LD`, else next to the LLVM jaic was built with, else an LLD install
 /// (Homebrew's `lld` kegs, Debian's `/usr/lib/llvm-N`), else `PATH`.
 pub fn find_wasm_ld() -> Result<PathBuf, String> {
-    if let Some(program) = std::env::var_os("JAIC_WASM_LD") {
+    if let Some(program) = jacket_config::env::WASM_LD.os() {
         return Ok(PathBuf::from(program));
     }
     find_llvm_tool("wasm-ld")
@@ -97,7 +97,7 @@ const WASM_LD_INSTALL: &str =
 /// An LLVM tool (`wasm-ld`, `llvm-ar`) from the LLVM or LLD installs jaic knows about.
 pub(crate) fn find_llvm_tool(name: &str) -> Option<String> {
     let mut dirs: Vec<PathBuf> = Vec::new();
-    if let Some(prefix) = std::env::var_os("LLVM_SYS_231_PREFIX") {
+    if let Some(prefix) = jacket_config::env::LLVM_SYS_231_PREFIX.os() {
         dirs.push(Path::new(&prefix).join("bin"));
     }
     if let Some(prefix) = option_env!("LLVM_SYS_231_PREFIX") {
@@ -120,7 +120,7 @@ pub(crate) fn find_llvm_tool(name: &str) -> Option<String> {
     if let Some(found) = dirs.iter().map(|d| d.join(name)).find(|p| p.is_file()) {
         return Some(found.to_string_lossy().into_owned());
     }
-    let path = std::env::var_os("PATH")?;
+    let path = jacket_config::env::PATH.os()?;
     for candidate in [format!("{name}-23"), name.to_string()] {
         for dir in std::env::split_paths(&path) {
             let full = dir.join(&candidate);

@@ -9,7 +9,10 @@ use std::path::{Path, PathBuf};
 /// else the one jaic reports (`jaic -print_stdlib`).
 pub(super) fn stdlib_dir(jaic: &Path, project: &Path) -> Result<PathBuf, String> {
     let canonical = |dir: PathBuf| dir.canonicalize().unwrap_or(dir);
-    if let Some(dir) = std::env::var_os("JAIC_STDLIB").filter(|dir| !dir.is_empty()) {
+    if let Some(dir) = jacket_config::env::STDLIB
+        .os()
+        .filter(|dir| !dir.is_empty())
+    {
         return Ok(canonical(dir.into()));
     }
     let own = project.join("stdlib");
@@ -37,7 +40,7 @@ mod tests {
 
     #[test]
     fn a_project_holding_the_library_tests_its_own_copy() {
-        if std::env::var_os("JAIC_STDLIB").is_some() {
+        if jacket_config::env::STDLIB.os().is_some() {
             return;
         }
         let project = std::env::temp_dir().join(format!("jacket-stdlib-{}", std::process::id()));

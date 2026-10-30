@@ -19,6 +19,11 @@ mod lsp_workspace;
 mod metaprogram;
 
 pub use jacket_config::jacket_config;
+
+/// Whether `JAI_FUZZ_VERBOSE` asks the harness to print what it checks.
+pub fn verbose() -> bool {
+    ::jacket_config::env::FUZZ_VERBOSE.is_set()
+}
 pub use jaifmt::jaifmt;
 pub use jailint_fix::jailint_fix;
 pub use lsp_edits::lsp_edits;
@@ -174,7 +179,7 @@ fn compile(source: &[u8], compile_only: bool) -> jai_wasm::play::PlayResult {
 
 pub(crate) fn play(source: &[u8], compile_only: bool) {
     let result = compile(source, compile_only);
-    if std::env::var_os("JAI_FUZZ_VERBOSE").is_some() {
+    if verbose() {
         eprintln!(
             "{}{:?}\n{}",
             result.rendered, result.diagnostics, result.stdout
@@ -203,7 +208,7 @@ pub fn metaprogram_source(data: &[u8]) -> String {
 
 pub fn metaprogram(data: &[u8]) {
     let source = metaprogram::program(data);
-    if std::env::var_os("JAI_FUZZ_VERBOSE").is_some() {
+    if verbose() {
         eprintln!("{source}");
     }
     play(source.as_bytes(), false);
@@ -213,7 +218,7 @@ pub fn metaprogram(data: &[u8]) {
 /// `JAI_FUZZ_VERBOSE` to print the generated source.
 pub fn generated(data: &[u8]) {
     let source = generate::program(data);
-    if std::env::var_os("JAI_FUZZ_VERBOSE").is_some() {
+    if verbose() {
         eprintln!("{source}");
     }
     play(source.as_bytes(), false);

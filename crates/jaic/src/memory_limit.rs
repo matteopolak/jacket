@@ -23,9 +23,6 @@ use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU64, AtomicUsize, Orderin
 /// Exit status of a process stopped by the limit.
 pub const EXIT_CODE: u8 = 120;
 
-/// The environment variable holding the limit in bytes (a `K`, `M` or `G` suffix scales it).
-pub const ENV_VAR: &str = "JAIC_MEMORY_LIMIT";
-
 /// The limit in bytes; 0 while unarmed, which makes the allocator a plain pass-through.
 static LIMIT: AtomicUsize = AtomicUsize::new(0);
 
@@ -90,15 +87,19 @@ pub fn arm(bytes: usize) {
     LIMIT.store(bytes, Relaxed);
 }
 
-/// Reads [`ENV_VAR`] and arms the limit it names. An unset variable leaves the limit off; a
+/// Reads `JAIC_MEMORY_LIMIT` (bytes; a `K`, `M` or `G` suffix scales it) and arms the limit it names. An unset variable leaves the limit off; a
 /// malformed one is an error message for the caller to print.
 pub fn arm_from_env() -> Result<(), String> {
-    let Some(value) = std::env::var_os(ENV_VAR) else {
+    let Some(value) = jacket_config::env::MEMORY_LIMIT.os() else {
         return Ok(());
     };
     let text = value.to_string_lossy();
-    let bytes = parse_size(&text)
-        .ok_or_else(|| format!("{ENV_VAR}={text:?} is not a byte count (e.g. 3221225472 or 3G)"))?;
+    let bytes = parse_size(&text).ok_or_else(|| {
+        format!(
+            "{}={text:?} is not a byte count (e.g. 3221225472 or 3G)",
+            jacket_config::env::MEMORY_LIMIT.name
+        )
+    })?;
     arm(bytes);
     Ok(())
 }

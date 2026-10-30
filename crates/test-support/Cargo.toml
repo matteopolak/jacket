@@ -18,6 +18,7 @@ lsp = ["compiler", "dep:jai-language-server"]
 
 [dependencies]
 insta = { version = "=1.49.0" }
+jacket-config = { path = "../jacket-config" }
 jaic = { path = "../jaic", optional = true }
 jaic-llvm = { path = "../jaic-llvm", optional = true }
 jai-language-server = { path = "../jai-language-server", optional = true }

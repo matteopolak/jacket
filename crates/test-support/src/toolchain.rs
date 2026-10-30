@@ -24,10 +24,7 @@ use std::process::Command;
 /// Whether `JAIC_REQUIRE_TOOLCHAIN` (`1`, or a list of tool names) requires `name`.
 #[must_use]
 pub fn explicitly_required(name: &str) -> bool {
-    requires(
-        std::env::var("JAIC_REQUIRE_TOOLCHAIN").ok().as_deref(),
-        name,
-    )
+    requires(jacket_config::env::REQUIRE_TOOLCHAIN.get().as_deref(), name)
 }
 
 fn requires(setting: Option<&str>, name: &str) -> bool {
@@ -37,17 +34,17 @@ fn requires(setting: Option<&str>, name: &str) -> bool {
 /// Whether a missing [`require`]d tool fails the test rather than skipping it.
 #[must_use]
 pub fn strict(name: &str) -> bool {
-    explicitly_required(name) || std::env::var_os("CI").is_some()
+    explicitly_required(name) || jacket_config::env::CI.os().is_some()
 }
 
 /// The program `name` as `PATH` (and, on Windows, `PATHEXT`) would resolve it.
 #[must_use]
 pub fn find(name: &str) -> Option<PathBuf> {
-    let path = std::env::var_os("PATH")?;
+    let path = jacket_config::env::PATH.os()?;
     find_in(
         name,
         std::env::split_paths(&path),
-        std::env::var_os("PATHEXT").as_deref(),
+        jacket_config::env::PATHEXT.os().as_deref(),
     )
 }
 
@@ -128,7 +125,7 @@ fn resolve(name: &str, must_exist: bool) -> Option<PathBuf> {
 /// and `cc` elsewhere.
 #[must_use]
 pub fn host_cc() -> Option<PathBuf> {
-    if let Some(cc) = std::env::var_os("CC").filter(|v| !v.is_empty()) {
+    if let Some(cc) = jacket_config::env::CC.os().filter(|v| !v.is_empty()) {
         return Some(PathBuf::from(cc));
     }
     require(if cfg!(windows) {

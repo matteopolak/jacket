@@ -316,7 +316,7 @@ impl LlvmBackend {
                 settings.output_type,
                 OutputType::Executable | OutputType::DynamicLibrary
             )
-            && std::env::var_os("JAIC_DSYM").is_none();
+            && jacket_config::env::DSYM.os().is_none();
         let kept_dir = if settings.intermediate_path.is_empty() {
             intermediate.join(".build")
         } else {

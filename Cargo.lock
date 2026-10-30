@@ -402,6 +402,7 @@ name = "jaic-llvm"
 version = "0.30.4"
 dependencies = [
  "inkwell",
+ "jacket-config",
  "jaic",
  "test-support",
 ]
@@ -685,6 +686,7 @@ name = "test-support"
 version = "0.30.4"
 dependencies = [
  "insta",
+ "jacket-config",
  "jai-language-server",
  "jaic",
  "jaic-llvm",

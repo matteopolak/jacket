@@ -24,8 +24,9 @@ impl TempDir {
     /// path is canonical, so it compares equal to what the compiler prints.
     #[must_use]
     pub fn new(name: &str) -> Self {
-        let base =
-            std::env::var_os("JAIC_TEST_TMPDIR").map_or_else(std::env::temp_dir, PathBuf::from);
+        let base = jacket_config::env::TEST_TMPDIR
+            .os()
+            .map_or_else(std::env::temp_dir, PathBuf::from);
         std::fs::create_dir_all(&base).expect("the test temp directory can be created");
         let clean: String = name
             .chars()
@@ -87,7 +88,7 @@ impl TempDir {
 
 impl Drop for TempDir {
     fn drop(&mut self) {
-        if std::thread::panicking() || std::env::var_os("JAIC_KEEP_TEST_TMP").is_some() {
+        if std::thread::panicking() || jacket_config::env::KEEP_TEST_TMP.os().is_some() {
             eprintln!("test files kept in {}", self.path.display());
             return;
         }

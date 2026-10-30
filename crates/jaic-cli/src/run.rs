@@ -176,8 +176,8 @@ fn start_progress(cli: &Cli) {
         return;
     }
     let path = Path::new(&cli.file);
-    let name = std::env::var("JACKET_PROJECT")
-        .ok()
+    let name = jacket_config::env::PROJECT
+        .get()
         .filter(|name| !name.is_empty())
         .unwrap_or_else(|| {
             path.file_stem()

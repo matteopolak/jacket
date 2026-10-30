@@ -217,7 +217,7 @@ pub fn default_stdlib_dir() -> PathBuf {
 /// into `/opt` and linked from `~/bin` finds `/opt/.../stdlib` (macOS reports the symlink's path as
 /// the executable).
 pub fn stdlib_dir(fallback: PathBuf) -> PathBuf {
-    if let Some(dir) = std::env::var_os("JAIC_STDLIB") {
+    if let Some(dir) = jacket_config::env::STDLIB.os() {
         return dir.into();
     }
     let Ok(exe) = std::env::current_exe() else {
@@ -372,7 +372,7 @@ mod tests {
     #[test]
     fn the_stdlib_comes_from_the_environment_or_the_repository() {
         // `JAIC_STDLIB` is set by the tools' own tests; the fallback is what is checked here.
-        if std::env::var_os("JAIC_STDLIB").is_none() {
+        if jacket_config::env::STDLIB.os().is_none() {
             let fallback = PathBuf::from("/nowhere/stdlib");
             assert_eq!(stdlib_dir(fallback.clone()), fallback);
             assert!(crate::find_preload(&crate::sema::NativeFs, &default_stdlib_dir()).is_some());

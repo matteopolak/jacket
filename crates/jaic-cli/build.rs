@@ -7,6 +7,10 @@
 //! Targets without a POSIX crash runtime (Windows, cross builds) embed nothing.
 //! See docs/native/crash-runtime-build.md.
 
+// A build script reads cargo's variables and the C toolchain's, not the tools' own, and cannot
+// depend on the crate that declares those (`jacket_config::env`).
+#![allow(clippy::disallowed_methods)]
+
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};

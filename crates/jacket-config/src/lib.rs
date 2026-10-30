@@ -1,5 +1,6 @@
 //! `jacket.toml`: the one configuration file of the Jai tools.
 //!
+//! - [`env`]: every environment variable the tools read, declared once.
 //! - [`schema`]: the types a `jacket.toml` deserializes into.
 //! - [`locate`] / [`load`]: the nearest `jacket.toml` above a path, and its settings.
 //! - [`infer_entries`]: which file a project builds, shared by `jaic` and `jailsp`.
@@ -9,6 +10,7 @@
 #![forbid(unsafe_code)]
 use std::path::{Path, PathBuf};
 
+pub mod env;
 pub mod pattern;
 pub mod schema;
 

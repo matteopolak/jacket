@@ -99,14 +99,14 @@ pub fn archive(
     output: &Path,
     target: Option<BuildTarget>,
 ) -> Result<(), String> {
-    let program = match std::env::var("JAIC_AR") {
-        Ok(program) => program,
+    let program = match jacket_config::env::AR.get() {
+        Some(program) => program,
         // The system `ar` on macOS writes no symbol index for wasm objects.
-        Err(_) if target.is_some_and(jaic::target::Target::is_wasm) => {
+        None if target.is_some_and(jaic::target::Target::is_wasm) => {
             wasm::find_llvm_tool("llvm-ar")
                 .ok_or("no llvm-ar found for a WebAssembly archive; set JAIC_AR")?
         }
-        Err(_) if LinkFlavor::for_target(target).is_windows() => {
+        None if LinkFlavor::for_target(target).is_windows() => {
             let mingw_ar = format!("{}-w64-mingw32-ar", mingw_cpu(target));
             let arch = msvc::arch_dir(target.unwrap_or_else(BuildTarget::host).cpu);
             find_program(&[&mingw_ar, "llvm-ar", "llvm-lib", "lib"])
@@ -117,7 +117,7 @@ pub fn archive(
                 })
                 .ok_or("no archiver for Windows libraries found: install LLVM or mingw-w64")?
         }
-        Err(_) => "ar".to_string(),
+        None => "ar".to_string(),
     };
     let stem = Path::new(&program)
         .file_stem()
@@ -180,11 +180,11 @@ pub fn check_sanitizer_target(target: Option<BuildTarget>) -> Result<(), String>
 /// `clang` over the system `cc` (Apple's Clang ships an older runtime; GCC's `libasan` is a
 /// different one). `JAIC_SANITIZER_CC` overrides the choice.
 pub(super) fn sanitizer_driver() -> String {
-    if let Ok(program) = std::env::var("JAIC_SANITIZER_CC") {
+    if let Some(program) = jacket_config::env::SANITIZER_CC.get() {
         return program;
     }
     let prefixes = [
-        std::env::var("LLVM_SYS_231_PREFIX").ok(),
+        jacket_config::env::LLVM_SYS_231_PREFIX.get(),
         option_env!("LLVM_SYS_231_PREFIX").map(str::to_string),
     ];
     for prefix in prefixes.into_iter().flatten() {
@@ -207,7 +207,7 @@ pub(super) fn sanitizer_driver() -> String {
 
 /// The first of `names` found on `PATH`.
 fn find_program(names: &[&str]) -> Option<String> {
-    let path = std::env::var_os("PATH")?;
+    let path = jacket_config::env::PATH.os()?;
     for name in names {
         for dir in std::env::split_paths(&path) {
             if dir.join(name).is_file() || dir.join(format!("{name}.exe")).is_file() {
@@ -227,7 +227,7 @@ pub(super) fn linker_command(
     let resolved = target.unwrap_or_else(BuildTarget::host);
     let msvc_triple = resolved.to_string();
     // An empty value (PowerShell 7.5 passes `$env:JAIC_LINKER = ''` on) means unset.
-    if let Some(program) = std::env::var_os("JAIC_LINKER").filter(|v| !v.is_empty()) {
+    if let Some(program) = jacket_config::env::LINKER.os().filter(|v| !v.is_empty()) {
         let program = program.to_string_lossy().into_owned();
         let mut cmd = Command::new(&program);
         if flavor == LinkFlavor::Msvc {
@@ -522,7 +522,7 @@ pub(super) fn library_args(
     // `JAIC_CROSS_LIBS`, not from the host's native-libs directory, whose archives are for the host.
     if flavor == LinkFlavor::MinGw && cross {
         let bare = name.strip_prefix("lib").unwrap_or(name);
-        if let Some(dirs) = std::env::var_os("JAIC_CROSS_LIBS") {
+        if let Some(dirs) = jacket_config::env::CROSS_LIBS.os() {
             for dir in std::env::split_paths(&dirs) {
                 let archive = dir.join(format!("lib{bare}.a"));
                 if archive.exists() {

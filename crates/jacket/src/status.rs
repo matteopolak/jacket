@@ -6,9 +6,11 @@ use std::ffi::OsString;
 /// Whether status lines are printed for a jaic command line, and in colour: `None` for none.
 pub fn lines(argv: &[OsString]) -> Option<bool> {
     use std::io::IsTerminal;
-    lines_with(argv, std::io::stderr().is_terminal(), |key| {
-        std::env::var(key).ok()
-    })
+    lines_with(
+        argv,
+        std::io::stderr().is_terminal(),
+        jacket_config::env::lookup,
+    )
 }
 
 fn lines_with(

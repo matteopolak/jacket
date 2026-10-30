@@ -22,17 +22,20 @@ pub fn arch_dir(cpu: crate::sema::TargetCpu) -> &'static str {
 }
 
 fn lib_is_set() -> bool {
-    std::env::var_os("LIB").is_some_and(|v| !v.is_empty())
+    jacket_config::env::LIB.os().is_some_and(|v| !v.is_empty())
 }
 
 fn program_files() -> Vec<PathBuf> {
     let mut dirs = Vec::new();
     for (var, default) in [
-        ("ProgramFiles", r"C:\Program Files"),
-        ("ProgramFiles(x86)", r"C:\Program Files (x86)"),
+        (jacket_config::env::PROGRAM_FILES, r"C:\Program Files"),
+        (
+            jacket_config::env::PROGRAM_FILES_X86,
+            r"C:\Program Files (x86)",
+        ),
     ] {
-        let dir = std::env::var_os(var)
-            .filter(|v| !v.is_empty())
+        let dir = var
+            .non_empty()
             .map_or_else(|| PathBuf::from(default), PathBuf::from);
         if !dirs.contains(&dir) {
             dirs.push(dir);
@@ -63,7 +66,8 @@ pub fn lib_env(arch: &str) -> Option<OsString> {
 /// Library directories selected by the same LIB/SDK discovery as native linking.
 #[cfg(windows)]
 pub(crate) fn library_dirs(arch: &str) -> Vec<PathBuf> {
-    let value = std::env::var_os("LIB")
+    let value = jacket_config::env::LIB
+        .os()
         .filter(|v| !v.is_empty())
         .or_else(|| lib_env(arch));
     value
@@ -100,7 +104,7 @@ pub fn find_clang() -> Option<PathBuf> {
 
 /// Every `name` (or `name.exe`) on `PATH`, in order.
 pub fn on_path(name: &str) -> Vec<PathBuf> {
-    let Some(path) = std::env::var_os("PATH") else {
+    let Some(path) = jacket_config::env::PATH.os() else {
         return Vec::new();
     };
     let mut found = Vec::new();

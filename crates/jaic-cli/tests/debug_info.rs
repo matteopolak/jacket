@@ -12,7 +12,7 @@ const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 /// pins its own count passes the flag again later, and the last one wins.
 fn jaic() -> Command {
     let mut command = Command::new(JAIC);
-    if let Some(units) = std::env::var_os("JACKET_TEST_CODEGEN_UNITS") {
+    if let Some(units) = jacket_config::env::TEST_CODEGEN_UNITS.os() {
         command.arg("-codegen_units").arg(units);
     }
     command
@@ -82,7 +82,7 @@ fn debug_file(exe: &Path) -> PathBuf {
 
 fn dwarfdump() -> Option<PathBuf> {
     let mut candidates = Vec::new();
-    if let Ok(prefix) = std::env::var("LLVM_SYS_231_PREFIX") {
+    if let Some(prefix) = jacket_config::env::LLVM_SYS_231_PREFIX.get() {
         candidates.push(Path::new(&prefix).join("bin/llvm-dwarfdump"));
     }
     candidates.push(PathBuf::from("/opt/homebrew/opt/llvm/bin/llvm-dwarfdump"));

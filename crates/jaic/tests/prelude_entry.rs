@@ -3,12 +3,12 @@ use std::path::Path;
 
 #[test]
 fn explicit_prelude_selection() {
-    if std::env::var_os("JAIC_PRELUDE_TEST_CHILD").is_some() {
+    if jacket_config::env::PRELUDE_TEST_CHILD.os().is_some() {
         let mut fs = VirtualFs::default();
         fs.insert("/lib/prelude/module.jai", b"".as_slice());
         fs.insert("/lib/Base.jai", b"".as_slice());
         fs.insert("/external/Base.jai", b"".as_slice());
-        let expected = std::env::var("EXPECTED_PRELUDE").unwrap();
+        let expected = jacket_config::env::EXPECTED_PRELUDE.get().unwrap();
         assert_eq!(
             jaic::find_preload(&fs, Path::new("/lib")),
             (expected != "missing").then(|| expected.clone().into())

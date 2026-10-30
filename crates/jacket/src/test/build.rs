@@ -350,7 +350,7 @@ fn reported_exe(report: &Path, fallback: PathBuf) -> PathBuf {
 }
 
 /// The folders of libraries test programs load by name: `JACKET_TEST_DLLS`, a path list.
-const DLL_FOLDERS: &str = "JACKET_TEST_DLLS";
+const DLL_FOLDERS: &str = jacket_config::env::TEST_DLLS.name;
 
 /// Puts the `.dll` files of the folders in `JACKET_TEST_DLLS` next to `exe`, because Windows
 /// looks in the executable's folder before the system's: a program built in a temporary folder
@@ -358,7 +358,7 @@ const DLL_FOLDERS: &str = "JACKET_TEST_DLLS";
 /// `opengl32.dll` for the software OpenGL). Hard links where the folders share a volume, copies
 /// otherwise; a file that is already there stays, so the folder listed first wins.
 pub fn stage_dlls(exe: &Path) -> Result<(), String> {
-    match std::env::var_os(DLL_FOLDERS) {
+    match jacket_config::env::TEST_DLLS.os() {
         Some(folders) => stage_dlls_from(exe, &folders),
         None => Ok(()),
     }

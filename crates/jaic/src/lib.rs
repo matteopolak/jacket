@@ -70,7 +70,8 @@ pub const STDLIB_EXTENSIONS_DIR: &str = "Extensions";
 pub const PRELUDE_ENTRIES: &[&str] = &["prelude/module.jai", "Preload.jai"];
 
 fn prelude_override() -> Option<std::path::PathBuf> {
-    std::env::var_os("JAIC_PRELUDE")
+    jacket_config::env::PRELUDE
+        .os()
         .filter(|value| !value.is_empty())
         .map(Into::into)
 }

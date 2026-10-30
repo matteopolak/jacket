@@ -16,7 +16,7 @@ const SCALE_BUDGET: Duration = Duration::from_secs(120);
 /// missing corpus a failure and the time budget an assertion.
 #[test]
 fn project_with_an_unresolvable_import_still_answers() {
-    let enforce = std::env::var("JAILSP_ENFORCE_SCALE_BUDGET").as_deref() == Ok("1");
+    let enforce = jacket_config::env::ENFORCE_SCALE_BUDGET.get().as_deref() == Some("1");
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../corpus/upstream/focus-editor--focus/src/main.jai");
     let Ok(text) = std::fs::read_to_string(&root) else {

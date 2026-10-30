@@ -350,9 +350,12 @@ pub fn golden(
         let temp = temp.to_string_lossy().into_owned();
         let dir = source.parent().unwrap_or(Path::new("."));
         let dir = std::path::absolute(dir).unwrap_or_else(|_| dir.to_path_buf());
-        let args = match expand_args(&options.args, &temp, &dir.to_string_lossy(), &|name| {
-            std::env::var(name).ok()
-        }) {
+        let args = match expand_args(
+            &options.args,
+            &temp,
+            &dir.to_string_lossy(),
+            &jacket_config::env::for_program,
+        ) {
             Ok(args) => args,
             Err(problem) => {
                 checked.problems.push(problem);

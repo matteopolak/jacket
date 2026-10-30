@@ -207,7 +207,9 @@ pub fn slashed(path: &Path) -> String {
 /// rewrites snapshots.
 #[must_use]
 pub fn updating() -> bool {
-    std::env::var("INSTA_UPDATE").is_ok_and(|v| v == "always")
+    jacket_config::env::INSTA_UPDATE
+        .get()
+        .is_some_and(|v| v == "always")
 }
 
 /// Checks a generated file that another tool reads (so it cannot be a `.snap`) against what the

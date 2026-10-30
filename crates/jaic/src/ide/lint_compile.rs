@@ -30,15 +30,12 @@ impl CheckLimits {
     /// The seconds a check may take unless told otherwise.
     pub const DEFAULT_SECONDS: f64 = 10.0;
 
-    /// The variable that replaces `DEFAULT_SECONDS` (`0`: no limit). CI sets it to `0`: shared
-    /// runners are too slow and uneven for a wall-clock limit to mean anything there.
-    pub const SECONDS_VARIABLE: &str = "JACKET_CHECK_TIME_LIMIT";
-
-    /// The seconds a check may take when no flag or setting says: `SECONDS_VARIABLE` when it
-    /// holds a number, `DEFAULT_SECONDS` otherwise.
+    /// The seconds a check may take when no flag or setting says: `JACKET_CHECK_TIME_LIMIT`
+    /// when it holds a number (`0`: no limit; CI sets it, as shared runners are too slow and
+    /// uneven for a wall-clock limit to mean anything there), `DEFAULT_SECONDS` otherwise.
     pub fn default_seconds() -> f64 {
-        std::env::var(Self::SECONDS_VARIABLE)
-            .ok()
+        jacket_config::env::CHECK_TIME_LIMIT
+            .get()
             .and_then(|value| value.trim().parse().ok())
             .unwrap_or(Self::DEFAULT_SECONDS)
     }

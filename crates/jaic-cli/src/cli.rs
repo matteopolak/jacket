@@ -26,7 +26,7 @@ fn apple_toolchain_lib_dir() -> Option<PathBuf> {
     if !cfg!(target_os = "macos") {
         return None;
     }
-    let selected = std::env::var_os("DEVELOPER_DIR").map(PathBuf::from);
+    let selected = jacket_config::env::DEVELOPER_DIR.os().map(PathBuf::from);
     let candidates = selected
         .iter()
         .flat_map(|dir| {
@@ -47,7 +47,7 @@ fn apple_toolchain_lib_dir() -> Option<PathBuf> {
 }
 
 fn configured_native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {
-    if let Some(dirs) = std::env::var_os("JAIC_NATIVE_LIBS") {
+    if let Some(dirs) = jacket_config::env::NATIVE_LIBS.os() {
         return std::env::split_paths(&dirs).collect();
     }
     let host = Target::host();
@@ -63,7 +63,7 @@ fn configured_native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {
     // release package carries `native-libs/` beside `stdlib/`, a checkout builds them under
     // `target/`.
     let mut candidates = Vec::new();
-    if let Some(output) = std::env::var_os("JACKET_OUTPUT_DIR") {
+    if let Some(output) = jacket_config::env::OUTPUT_DIR.os() {
         candidates.push(PathBuf::from(output).join("native-libs").join(&platform));
     }
     candidates.push(stdlib.join("../native-libs").join(&platform));

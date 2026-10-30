@@ -114,7 +114,7 @@ impl Reporter {
         quiet: bool,
     ) -> Reporter {
         use std::io::IsTerminal;
-        let color = std::io::stderr().is_terminal() && std::env::var_os("NO_COLOR").is_none();
+        let color = std::io::stderr().is_terminal() && jacket_config::env::NO_COLOR.os().is_none();
         Reporter {
             format,
             junit,

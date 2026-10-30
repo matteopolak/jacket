@@ -31,8 +31,8 @@ pub struct Github {
 
 impl Github {
     pub fn from_env() -> Github {
-        let token = std::env::var("GITHUB_TOKEN")
-            .ok()
+        let token = jacket_config::env::GITHUB_TOKEN
+            .get()
             .map(|t| t.trim().to_owned())
             .filter(|t| !t.is_empty());
         Github {
@@ -122,7 +122,9 @@ impl Source for Github {
         // Windows: System32's tar.exe is bsdtar and reads zip; a `tar` earlier on PATH (Git's)
         // may not.
         let program = if cfg!(windows) {
-            let root = std::env::var_os("SystemRoot").unwrap_or_else(|| "C:\\Windows".into());
+            let root = jacket_config::env::SYSTEM_ROOT
+                .os()
+                .unwrap_or_else(|| "C:\\Windows".into());
             Path::new(&root).join("System32").join("tar.exe")
         } else {
             "tar".into()

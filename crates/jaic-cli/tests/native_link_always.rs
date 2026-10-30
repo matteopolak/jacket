@@ -44,7 +44,7 @@ fn link_always_loads_real_constructor_without_a_referenced_symbol() {
             .arg(dir.join(format!("libconstructor_marker.{suffix}"))),
     );
     let mut libraries = vec![dir.to_path_buf()];
-    if let Some(existing) = std::env::var_os("JAIC_NATIVE_LIBS") {
+    if let Some(existing) = jacket_config::env::NATIVE_LIBS.os() {
         libraries.extend(std::env::split_paths(&existing));
     }
     let libraries = std::env::join_paths(libraries).unwrap();

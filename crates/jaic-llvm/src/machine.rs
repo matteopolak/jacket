@@ -79,7 +79,7 @@ fn host_triple(macos_version: Option<&str>) -> TargetTriple {
         Some((arch, _)) => {
             let version = macos_version
                 .map(str::to_string)
-                .or_else(|| std::env::var("MACOSX_DEPLOYMENT_TARGET").ok())
+                .or_else(|| jacket_config::env::MACOSX_DEPLOYMENT_TARGET.get())
                 .unwrap_or_else(|| "11.0".into());
             TargetTriple::create(&format!("{arch}-apple-macosx{version}"))
         }

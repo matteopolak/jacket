@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 #[ignore = "sweeps whole corpora; run explicitly (see docs/tools/testing.md)"]
 fn corpus_sweep() {
     // `JAIC_CORPUS_ROOT` points the sweep at another checkout (the corpora are gitignored).
-    let root = std::env::var_os("JAIC_CORPUS_ROOT").map_or_else(
+    let root = jacket_config::env::CORPUS_ROOT.os().map_or_else(
         || Path::new(env!("CARGO_MANIFEST_DIR")).join("../.."),
         PathBuf::from,
     );
@@ -17,7 +17,9 @@ fn corpus_sweep() {
         }));
     }
     files.sort();
-    let stage = std::env::var("JAIC_CORPUS_STAGE").unwrap_or_else(|_| "parse".into());
+    let stage = jacket_config::env::CORPUS_STAGE
+        .get()
+        .unwrap_or_else(|| "parse".into());
     let mut sources = jaic::source::SourceMap::default();
     let mut failures = Vec::new();
     for path in &files {

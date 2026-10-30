@@ -180,10 +180,14 @@ fn render(table: &BTreeMap<String, BTreeMap<u32, u64>>) -> String {
 /// Where the report goes: `$JAIC_COVERAGE_FILE`, or a file named for the program in
 /// `$JAIC_COVERAGE_DIR` (default: the working directory).
 fn destination() -> std::path::PathBuf {
-    if let Some(file) = std::env::var_os("JAIC_COVERAGE_FILE").filter(|f| !f.is_empty()) {
+    if let Some(file) = jacket_config::env::COVERAGE_FILE
+        .os()
+        .filter(|f| !f.is_empty())
+    {
         return file.into();
     }
-    let dir = std::env::var_os("JAIC_COVERAGE_DIR")
+    let dir = jacket_config::env::COVERAGE_DIR
+        .os()
         .filter(|d| !d.is_empty())
         .map_or_else(
             || std::path::PathBuf::from("."),

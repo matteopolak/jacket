@@ -264,7 +264,7 @@ pub struct TestArgs {
     #[arg(long, value_name = "N")]
     pub seed: Option<u64>,
     /// Flags for jaic, after `--`
-    #[arg(last = true, value_name = "JAIC_FLAGS")]
+    #[arg(last = true, value_name = "FLAGS")]
     pub jaic_args: Vec<String>,
 }
 

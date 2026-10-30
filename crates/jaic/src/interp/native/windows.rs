@@ -96,7 +96,7 @@ pub fn open(name: &str, system: bool, base_dir: &str) -> Result<Library, String>
         }
     }
     if cfg!(target_env = "gnu")
-        && let Some(value) = std::env::var_os("LIBRARY_PATH")
+        && let Some(value) = jacket_config::env::LIBRARY_PATH.os()
     {
         for dir in std::env::split_paths(&value) {
             if !dirs.contains(&dir) {

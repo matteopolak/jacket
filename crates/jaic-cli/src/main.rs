@@ -248,7 +248,7 @@ fn install_panic_hook() {
             env!("CARGO_PKG_REPOSITORY")
         ));
         eprint!("{}", report.render());
-        if std::env::var_os("RUST_BACKTRACE").is_some() {
+        if jacket_config::env::RUST_BACKTRACE.os().is_some() {
             default(info);
         }
     }));

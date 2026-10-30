@@ -118,7 +118,7 @@ pub fn find_jaic() -> Option<PathBuf> {
             return Some(sibling);
         }
     }
-    std::env::split_paths(&std::env::var_os("PATH")?)
+    std::env::split_paths(&jacket_config::env::PATH.os()?)
         .map(|dir| dir.join(&name))
         .find(|candidate| candidate.is_file())
 }
@@ -446,7 +446,7 @@ mod native {
                 .arg(&self.path)
                 .arg("-interp")
                 .env(
-                    crate::memory_limit::ENV_VAR,
+                    jacket_config::env::MEMORY_LIMIT.name,
                     self.config.memory_bytes.to_string(),
                 )
                 .stdin(Stdio::piped())

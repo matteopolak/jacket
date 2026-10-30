@@ -151,7 +151,7 @@ fn run() -> Result<ExitCode, String> {
     let style = jaic::render::detect_with(
         args.common.color.unwrap_or(jaic::render::ColorChoice::Auto),
         std::io::stdout().is_terminal(),
-        |key| std::env::var(key).ok(),
+        jacket_config::env::lookup,
     );
     let shown = |p: &str| {
         let path = PathBuf::from(p);

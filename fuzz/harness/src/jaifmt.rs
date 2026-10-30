@@ -105,7 +105,7 @@ pub fn jaifmt(data: &[u8]) {
         styled: false,
     };
     let result = crate::on_compiler_stack(|| run_with(&files, "main.jai", options));
-    let verbose = std::env::var_os("JAI_FUZZ_VERBOSE").is_some();
+    let verbose = crate::verbose();
     if verbose {
         eprintln!(
             "exit {:?}\n{}{}--- formatted ---\n{}",

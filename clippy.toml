@@ -6,6 +6,15 @@ cognitive-complexity-threshold = 40
 # Lower it as the remaining long dispatch functions are split.
 too-many-lines-threshold = 250
 
+# Environment variables are declared in `jacket_config::env`, the one module that may read them, so a
+# misspelt name cannot silently do nothing and the reference page lists every one.
+disallowed-methods = [
+    { path = "std::env::var", reason = "declare the variable in `jacket_config::env` and read it through its constant" },
+    { path = "std::env::var_os", reason = "declare the variable in `jacket_config::env` and read it through its constant" },
+    { path = "std::env::vars", reason = "read the declared variables in `jacket_config::env` one by one" },
+    { path = "std::env::vars_os", reason = "read the declared variables in `jacket_config::env` one by one" },
+]
+
 disallowed-types = [
     { path = "std::collections::HashMap", reason = "use `jaic::fxhash::HashMap` (Fx hasher; the default SipHash is slow for compiler workloads)" },
     { path = "std::collections::HashSet", reason = "use `jaic::fxhash::HashSet` (Fx hasher; the default SipHash is slow for compiler workloads)" },

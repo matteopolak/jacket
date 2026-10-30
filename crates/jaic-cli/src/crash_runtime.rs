@@ -13,13 +13,16 @@ mod embedded {
 
 /// Where unpacked helpers live: `JAIC_CACHE_DIR`, else the platform's user cache.
 fn cache_root() -> Option<PathBuf> {
-    if let Some(dir) = std::env::var_os("JAIC_CACHE_DIR").filter(|d| !d.is_empty()) {
+    if let Some(dir) = jacket_config::env::CACHE_DIR.os().filter(|d| !d.is_empty()) {
         return Some(PathBuf::from(dir));
     }
-    if let Some(dir) = std::env::var_os("XDG_CACHE_HOME").filter(|d| !d.is_empty()) {
+    if let Some(dir) = jacket_config::env::XDG_CACHE_HOME
+        .os()
+        .filter(|d| !d.is_empty())
+    {
         return Some(PathBuf::from(dir).join("jaic"));
     }
-    let home = PathBuf::from(std::env::var_os("HOME").filter(|d| !d.is_empty())?);
+    let home = PathBuf::from(jacket_config::env::HOME.os().filter(|d| !d.is_empty())?);
     Some(if cfg!(target_os = "macos") {
         home.join("Library/Caches/jaic")
     } else {

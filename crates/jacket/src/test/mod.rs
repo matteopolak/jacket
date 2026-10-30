@@ -320,7 +320,8 @@ fn coverage_for(
             CoverageFormat::Lcov => "lcov.info",
             CoverageFormat::Html => "coverage.html",
         };
-        std::env::var_os("JACKET_OUTPUT_DIR")
+        jacket_config::env::OUTPUT_DIR
+            .os()
             .map_or_else(|| project_dir.join("target"), PathBuf::from)
             .join(name)
     });

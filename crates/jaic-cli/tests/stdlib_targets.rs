@@ -174,7 +174,7 @@ fn first_error(stderr: &str, stdlib: &str) -> String {
 /// The share of the module and target pairs this run checks: `JACKET_STDLIB_TARGETS_PART=K/N` takes
 /// every Nth pair from the Kth, so CI can spread the check over N jobs. Unset, it checks them all.
 fn part() -> (usize, usize) {
-    let Ok(value) = std::env::var("JACKET_STDLIB_TARGETS_PART") else {
+    let Some(value) = jacket_config::env::STDLIB_TARGETS_PART.get() else {
         return (0, 1);
     };
     let parsed = value

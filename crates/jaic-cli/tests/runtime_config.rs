@@ -137,8 +137,9 @@ fn finalized_workspace_sizes_allocate_real_runtime_storage() {
 #[test]
 fn one_megabyte_private_startup_allocates_for_root_and_child_workspaces() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let library =
-        std::env::var_os("JAIC_STDLIB").map_or_else(|| root.join("stdlib"), PathBuf::from);
+    let library = jacket_config::env::STDLIB
+        .os()
+        .map_or_else(|| root.join("stdlib"), PathBuf::from);
     let source = root.join("tests/compiler/semantics/runtime-configuration/one-megabyte.jai");
     for mode in ["-check", "-interp"] {
         let out = checked(

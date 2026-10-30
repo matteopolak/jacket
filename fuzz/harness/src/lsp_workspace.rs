@@ -128,7 +128,7 @@ fn rename_round_trip(w: &mut Workspace, u: &mut Unstructured) -> Result<()> {
         return Ok(());
     };
     let after: Vec<String> = (0..w.docs).map(|d| w.text(d)).collect();
-    if std::env::var_os("JAI_FUZZ_VERBOSE").is_some() {
+    if crate::verbose() {
         eprintln!("renamed `{old}` in {doc}");
     }
     let errors = w.errors();
@@ -205,7 +205,7 @@ fn run(files: &[String], ops: &[u8]) {
             Ok(step) => step,
             Err(_) => break,
         };
-        if std::env::var_os("JAI_FUZZ_VERBOSE").is_some() {
+        if crate::verbose() {
             eprintln!("step {index}: {step}");
         }
         let done = match step {
@@ -216,7 +216,7 @@ fn run(files: &[String], ops: &[u8]) {
                 Ok(())
             }
         };
-        if std::env::var_os("JAI_FUZZ_VERBOSE").is_some() {
+        if crate::verbose() {
             eprintln!("--- after step {index}:\n{}", w.text(0));
         }
         if done.is_err() {

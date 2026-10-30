@@ -4,6 +4,9 @@
 //! stdlib, and the other files (binding metadata, C sources, notices) would only add size.
 //! `tests/` directories hold the stdlib's own tests and fixtures; they are not part of a
 //! module and are never bundled.
+// A build script reads cargo's variables, and cannot depend on the crate that declares the
+// tools' own (`jacket_config::env`); `JAIC_STDLIB` below is declared there.
+#![allow(clippy::disallowed_methods)]
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 

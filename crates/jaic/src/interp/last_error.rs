@@ -3,7 +3,7 @@
 //! The error value is per thread and shared with the interpreter itself: the program calls a
 //! foreign procedure that fails, and its next step reads the code. If the interpreter does any
 //! system call of its own in between, it overwrites that code. Making a procedure's frame on its
-//! first call is such a moment (even `std::env::var_os` sets `ERROR_ENVVAR_NOT_FOUND` on
+//! first call is such a moment (even reading an environment variable sets `ERROR_ENVVAR_NOT_FOUND` on
 //! Windows), so `keep` guards it.
 
 /// Restores the calling thread's last-error value to what it is now when dropped.
@@ -122,7 +122,7 @@ mod tests {
         let seen = preserving(|| {
             set(203);
             // The kind of call that reset it: a failed environment lookup.
-            let _ = std::env::var_os("JAIC_LAST_ERROR_TEST_UNSET");
+            let _ = jacket_config::env::for_program("LAST_ERROR_TEST_UNSET");
             get()
         });
         assert_ne!(

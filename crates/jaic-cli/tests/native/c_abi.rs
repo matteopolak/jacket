@@ -49,12 +49,14 @@ fn stdlib_c_abi_matches_host_headers() {
 /// note, when the variable is unset or empty.
 #[test]
 fn stdlib_c_abi_matches_cross_target_headers() {
-    let specs = std::env::var("JAIC_ABI_CROSS").unwrap_or_default();
+    let specs = jacket_config::env::ABI_CROSS.get().unwrap_or_default();
     if specs.trim().is_empty() {
         toolchain::skip("JAIC_ABI_CROSS names no target to check");
         return;
     }
-    let clang = std::env::var("JAIC_ABI_CLANG").unwrap_or_else(|_| "clang".into());
+    let clang = jacket_config::env::ABI_CLANG
+        .get()
+        .unwrap_or_else(|| "clang".into());
     let mut failures = Vec::new();
     for spec in specs.split(';').filter(|s| !s.trim().is_empty()) {
         let target = abi_layout::cross_target(spec.trim()).unwrap_or_else(|e| panic!("{e}"));

@@ -71,7 +71,7 @@ pub fn jailint_fix(data: &[u8]) {
     let Some(fixed) = fixed else {
         return;
     };
-    if std::env::var_os("JAI_FUZZ_VERBOSE").is_some() {
+    if crate::verbose() {
         eprintln!("--- fixed ---\n{fixed}");
     }
     assert!(
