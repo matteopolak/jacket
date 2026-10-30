@@ -1,6 +1,5 @@
 // test: only(.LINUX,.MACOS)
 // Reviewed system.md: CPU selection precedes OS; Unix fallback is raw tv_nsec.
-#import "Basic";
 #import "Extensions/Testing";
 
 cpu_counter_lies_between_two_reads_of_the_clock :: () {

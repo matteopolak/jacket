@@ -1,6 +1,5 @@
 // A struct whose layout depends on the OS cannot cross from compile-time code (compiled for the
 // host) into a program for another OS: `jaic -check -os windows` on a Mac reports the two sizes.
-#import "Basic";
 
 Odd :: struct {
     a: s32;

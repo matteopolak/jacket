@@ -2,7 +2,6 @@
 // semaphores. README.md is the guide.
 
 #import "Basic";
-#import "Math";
 #import "String";
 
 #load "threads.jai";
