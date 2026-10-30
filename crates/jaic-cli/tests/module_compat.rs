@@ -214,3 +214,17 @@ fn variable_a_module_declares_beats_a_procedure_its_file_imports() {
         ],
     );
 }
+
+#[test]
+fn overlay_on_a_missing_member_path_is_an_error() {
+    let text = check_with(
+        "overlay-missing-member",
+        "Header :: struct { tag: u32; }\nObject :: struct {\n    base: Header;\n    #overlay(base.table) typed: *u32;\n}\nmain :: () { o: Object; }\n",
+        &[],
+    )
+    .expect("an overlay on a member that does not exist must be rejected");
+    assert!(
+        text.contains("no member named `table` to anchor on"),
+        "{text}"
+    );
+}

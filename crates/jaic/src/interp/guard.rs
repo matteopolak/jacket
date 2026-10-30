@@ -279,6 +279,10 @@ mod imp {
         // REG_ERR 19 (bit 1 set for a write).
         // SAFETY: `context` is the kernel's `ucontext_t`, laid out as described above.
         unsafe {
+            #[expect(
+                clippy::cast_ptr_alignment,
+                reason = "every access below is read_unaligned or write_unaligned"
+            )]
             let gregs = context.cast::<u8>().add(40).cast::<u64>();
             let err = std::ptr::read_unaligned(gregs.add(19));
             std::ptr::write_unaligned(gregs.add(8), arg as u64);

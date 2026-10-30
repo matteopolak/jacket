@@ -180,8 +180,9 @@ fn asm_syscall_accepts_listed_argument_registers() {
         .unwrap();
     assert!(!output.status.success());
     assert!(
-        String::from_utf8_lossy(&output.stderr)
-            .contains("must be a register pinned to di, si, d, 10, 8 or 9"),
+        String::from_utf8_lossy(&output.stderr).contains(
+            "a `syscall` argument operand must be a register pinned to di, si, d, 10, 8 or 9"
+        ),
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );

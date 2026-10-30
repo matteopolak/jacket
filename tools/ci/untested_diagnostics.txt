@@ -81,7 +81,6 @@ a literal field target must be a member or index path
 a mask register is only valid in mask (k*) and AVX-512 instructions
 a masked instruction needs a vector destination
 a module is not a value
-a register pin is only valid as a separate statement
 a runtime spread cannot determine a C variadic ABI
 a vector index scale must be 1, 2, 4 or 8
 ambiguous overloaded procedure used as a value
