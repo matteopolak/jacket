@@ -61,6 +61,13 @@ jobs:
         # Leaves time for the steps after it, which run even when this one is cut short.
         timeout-minutes: 25
         run: fuzz/run.sh ${{ matrix.target }} "$SECONDS_PER_TARGET" "$(nproc)"
+      - name: Summarize the findings
+        # Replays each saved input and writes the panic message and the input (hex dump and escaped
+        # text) to the job summary, so no artifact needs downloading to see what broke.
+        if: ${{ failure() }}
+        timeout-minutes: 15
+        continue-on-error: true
+        run: python3 tools/fuzz/crash_summary.py ${{ matrix.target }}
       - name: Minimize the corpus
         if: ${{ always() && (github.event_name == 'workflow_dispatch' || github.event.schedule == '23 3 * * 0') }}
         # cargo fuzz cmin replaces the corpus only once it has finished, so a cut-off keeps it.
