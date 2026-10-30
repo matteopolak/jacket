@@ -28,6 +28,13 @@ audio_shutdown :: (audio: *Audio) {
     audio.ready = false;
 }
 
+// Muting goes through the master volume so the music, which is already playing, goes quiet too.
+audio_set_muted :: (audio: *Audio, muted: bool) {
+    audio.muted = muted;
+
+    if audio.ready SP.set_master_volume(ifx muted then 0.0 else 1.0);
+}
+
 audio_play :: (audio: *Audio, assets: *Assets, id: Sound_Id, volume := 0.5, rate := 1.0) {
     data := assets.sounds[cast(s64) id];
 

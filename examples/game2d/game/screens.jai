@@ -84,7 +84,7 @@ game_init :: (game: *Game, cli: Cli) -> bool {
 
     if !cli.no_audio {
         audio_init(*game.audio, *game.assets);
-        game.audio.muted = game.save.muted;
+        audio_set_muted(*game.audio, game.save.muted);
         audio_start_music(*game.audio, *game.assets);
     }
 
@@ -196,7 +196,7 @@ game_run :: (game: *Game) {
             if frames >= game.cli.autoplay game.quit = true;
         }
 
-        if key_pressed(#char "M") game.audio.muted = !game.audio.muted;
+        if key_pressed(#char "M") audio_set_muted(*game.audio, !game.audio.muted);
 
         handle_screen_input(game, controls);
 

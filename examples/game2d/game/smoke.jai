@@ -340,6 +340,12 @@ smoke_audio :: (smoke: *Smoke, assets: *Assets) {
         for 1..5 audio_update(*audio, 0.016);
 
         check(smoke, audio.played == 2, "two sounds were started silently");
+
+        audio_set_muted(*audio, true);
+        audio_play(*audio, assets, .HIT);
+        check(smoke, audio.muted && audio.played == 2, "M mutes: nothing new starts");
+        audio_set_muted(*audio, false);
+        SP.set_master_volume(0);
         SP.sound_player_shutdown();
     }
 }
