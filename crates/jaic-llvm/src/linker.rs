@@ -226,7 +226,8 @@ pub(super) fn linker_command(
 ) -> Result<(String, Command), String> {
     let resolved = target.unwrap_or_else(BuildTarget::host);
     let msvc_triple = resolved.to_string();
-    if let Some(program) = std::env::var_os("JAIC_LINKER") {
+    // An empty value (PowerShell 7.5 passes `$env:JAIC_LINKER = ''` on) means unset.
+    if let Some(program) = std::env::var_os("JAIC_LINKER").filter(|v| !v.is_empty()) {
         let program = program.to_string_lossy().into_owned();
         let mut cmd = Command::new(&program);
         if flavor == LinkFlavor::Msvc {
@@ -285,12 +286,14 @@ pub(super) fn linker_command(
     }
 }
 
-/// The linker for an MSVC target. Clang's driver finds the MSVC and Windows SDK libraries
-/// without a developer prompt, so it comes first: on `PATH`, then installed elsewhere. Then
-/// `lld-link` or Microsoft's `link.exe`, from `PATH` or from the Visual Studio installation,
-/// with `LIB` filled in when no developer prompt set it. A `link` on `PATH` that is not
-/// Microsoft's (the coreutils `link` of Git for Windows and MSYS2, which stops with `extra
-/// operand`) is skipped. See `msvc.rs` and `docs/native/windows.md`.
+/// The linker for an MSVC target. Microsoft's `link.exe` comes first: it is the fastest of the
+/// three on small debug builds (Clang's driver searches for Visual Studio and the SDK on every
+/// run and then starts `link.exe` itself; `lld-link` is slower too). It is taken from the
+/// Visual Studio installation (or the developer prompt) with `LIB` filled in when no prompt set
+/// it, then from `PATH`, where a `link` that is not Microsoft's (the coreutils `link` of Git for
+/// Windows and MSYS2, which stops with `extra operand`) is skipped. Without Visual Studio: Clang's
+/// driver on `PATH`, `lld-link` on `PATH`, then a Clang installed elsewhere. See `msvc.rs` and
+/// `docs/native/windows.md`.
 fn msvc_linker_command(target: BuildTarget) -> Result<(String, Command), String> {
     let arch = msvc::arch_dir(target.cpu);
     let triple = target.to_string();
@@ -311,11 +314,9 @@ fn msvc_linker_command(target: BuildTarget) -> Result<(String, Command), String>
             lib.map(|lib| ("LIB".into(), lib)).into_iter().collect(),
         )
     };
-    if let Some(program) = find_program(&["clang"]) {
-        return Ok(clang(program));
-    }
-    if let Some(program) = msvc::on_path("lld-link").first() {
-        return Ok(with_lib(program, msvc::lib_env(arch)));
+    // No process is started to find this one; the `PATH` check below runs `link /?`.
+    if let Some(tool) = msvc::find_tool("link.exe", arch) {
+        return Ok(with_env(&tool.program, tool.env));
     }
     let mut skipped = Vec::new();
     for program in msvc::on_path("link") {
@@ -324,11 +325,14 @@ fn msvc_linker_command(target: BuildTarget) -> Result<(String, Command), String>
         }
         skipped.push(program);
     }
+    if let Some(program) = find_program(&["clang"]) {
+        return Ok(clang(program));
+    }
+    if let Some(program) = msvc::on_path("lld-link").first() {
+        return Ok(with_lib(program, msvc::lib_env(arch)));
+    }
     if let Some(program) = msvc::find_clang() {
         return Ok(clang(program.to_string_lossy().into_owned()));
-    }
-    if let Some(tool) = msvc::find_tool("link.exe", arch) {
-        return Ok(with_env(&tool.program, tool.env));
     }
     let mut message = String::from("no MSVC linker found to link for Windows");
     for program in skipped {

@@ -20,7 +20,7 @@ Linking (`link` and `LinkFlavor` in `crates/jaic-llvm/src/lib.rs`):
 | Flavor | Triple | Linker | C runtime |
 |---|---|---|---|
 | `MinGw` | `*-windows-gnu` | `<cpu>-w64-mingw32-gcc` or `-clang` (`mingw_cpu`); `gcc`/`clang` on Windows | the toolchain's (UCRT) |
-| `Msvc` | `*-windows-msvc` | `clang --target=...` on `PATH`; else `lld-link` or `link.exe` on `PATH`; else Clang or Visual Studio's `link.exe` (`msvc_linker_command`) | dynamic CRT for the target CPU |
+| `Msvc` | `*-windows-msvc` | Visual Studio's (or the developer prompt's) `link.exe`; else Microsoft's `link.exe` on `PATH`; else `clang --target=...` on `PATH`, `lld-link` on `PATH`, or an installed Clang (`msvc_linker_command`; `link.exe` first because it links small debug builds fastest) | dynamic CRT for the target CPU |
 
 GCC's MinGW-w64 only targets x64. For arm64 use [llvm-mingw](https://github.com/mstorsjo/llvm-mingw): unpack a release tarball anywhere and put its `bin/` on `PATH` (append, to keep GCC's MinGW-w64 as the x64 linker).
 
