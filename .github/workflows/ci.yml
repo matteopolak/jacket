@@ -260,14 +260,6 @@ jobs:
           ulimit -c 0
           tools/ci/run_watched.sh 29 -- python3 tools/dev/dev.py test --suite cargo -j "$(getconf _NPROCESSORS_ONLN)" \
             --partition "slice:${{ matrix.shard }}" --expr "$EXPR"
-      # Per-test durations, for planning the shards (docs/tools/testing.md).
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',rust,') }}
-        with:
-          name: rust-test-durations-${{ matrix.runner }}-${{ strategy.job-index }}
-          path: target/nextest/ci/*.xml
-          retention-days: 14
-          if-no-files-found: ignore
       - name: Native tests with every program divided into parts
         id: split-native
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',split,') }}

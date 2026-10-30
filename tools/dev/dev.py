@@ -408,23 +408,6 @@ def cmd_vscode_try(args) -> int:
                            f"--extensionDevelopmentPath={extension}", str(workspace)]).returncode
 
 
-def shard_runs(partition: str, expr: str) -> list[tuple[str, str]]:
-    """The (partition, filterset) of each nextest pass for `--partition`: one pass, or when the shard
-    has slow tests pinned to it, a pass over those and a pass over the others."""
-    from ci.rust_shards import shard_filters  # only `test` needs it; hook tests copy dev.py alone
-
-    match = re.fullmatch(r"slice:(\d+/\d+)", partition or "")
-    filters = shard_filters(match.group(1)) if match else None
-    if not filters:
-        return [(partition, expr)]
-    pinned, every = filters
-
-    def scoped(extra: str) -> str:
-        return f"({expr}) & ({extra})" if expr else extra
-
-    return [("", scoped(pinned)), (partition, scoped(f"not ({every})"))]
-
-
 def cmd_test(args) -> int:
     failed = False
     narrowed = bool(args.crate or args.filter)
@@ -442,20 +425,13 @@ def cmd_test(args) -> int:
         # The `ci` profile (.config/nextest.toml) leaves out the tests that need the separately supplied
         # reference sources or run in their own CI step; naming a crate or filter runs those too.
         profile = ["--ignore-default-filter"] if narrowed else []
-        # CI spreads the tests over several jobs with --partition (nextest's `slice:K/N`) and narrows a
-        # job with --expr (a nextest filterset, applied on top of the profile's default filter).
-        # A shard with slow tests pinned to it in tools/ci/rust-test-shards.json runs them in a
-        # first pass and deals out the rest with `slice` in a second (docs/tools/development.md).
-        runs = shard_runs(args.partition, args.expr)
-        for partition, expr in runs:
-            part = ["--partition", partition] if partition else []
-            filterset = ["-E", expr] if expr else []
-            failed |= bool(run(["cargo", "nextest", "run", "--profile", "ci", "-j", args.jobs, "--locked", "--no-fail-fast",
-                                *(["--no-tests=pass"] if len(runs) > 1 else []), *profile, *part, *filterset, *scope, *args.filter]))
-            junit = TARGET / "nextest" / "ci" / "junit.xml"
-            if len(runs) > 1 and junit.is_file():
-                # Both passes write the same report; keep each under its own name for the upload.
-                shutil.copy(junit, junit.with_name(f"junit-{len(list(junit.parent.glob('junit-*.xml'))) + 1}.xml"))
+        # CI spreads the tests over several jobs with --partition (nextest's `slice:K/N`, which deals
+        # the tests out one at a time across all test binaries) and narrows a job with --expr (a
+        # nextest filterset, applied on top of the profile's default filter).
+        part = ["--partition", args.partition] if args.partition else []
+        filterset = ["-E", args.expr] if args.expr else []
+        failed |= bool(run(["cargo", "nextest", "run", "--profile", "ci", "-j", args.jobs, "--locked", "--no-fail-fast",
+                            *profile, *part, *filterset, *scope, *args.filter]))
         # nextest does not run doctests; the first partition runs them.
         if not args.partition or args.partition.split(":")[-1].startswith("1/"):
             failed |= bool(run(["cargo", "test", "--doc", "-j", args.jobs, "--locked", *scope]))
