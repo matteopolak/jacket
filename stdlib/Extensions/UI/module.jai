@@ -8,22 +8,24 @@
 // plain calls every frame, so the app owns its data and the library owns scroll offsets, focus and
 // cursors. Containers are `for` blocks.
 //
-//     #import "Basic";
-//     #import "Extensions/UI";
+// ```jai,no_run,skip_on(wasm)
+// #import "Basic";
+// #import "Extensions/UI";
 //
-//     App :: struct { count: int; }
+// App :: struct { count: int; }
 //
-//     main :: () {
-//         app: App;
-//         run_app(.{title = "Counter", width = 320, height = 200}, *app, build);
+// main :: () {
+//     app: App;
+//     run_app(.{title = "Counter", width = 320, height = 200}, *app, build);
+// }
+//
+// build :: (app: *App) {
+//     for column(.{gap = 8, padding = 16}) {
+//         label(tprint("Clicked % times", app.count));
+//         if button("Click me") app.count += 1;
 //     }
-//
-//     build :: (app: *App) {
-//         for column(.{gap = 8, padding = 16}) {
-//             label(tprint("Clicked % times", app.count));
-//             if button("Click me") app.count += 1;
-//         }
-//     }
+// }
+// ```
 //
 // Tests drive the same `build` procedures without a window or a GPU (`headless`, `frame`, `click`,
 // `layout_dump`).
