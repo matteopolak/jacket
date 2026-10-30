@@ -2599,16 +2599,6 @@ Protocol_For_Memory_Visualization.Summary_Info
 Protocol_For_Memory_Visualization.VIS_PROTOCOL_VERSION
 Protocol_For_Memory_Visualization.Vis_Protocol_Tag
 Protocol_For_Memory_Visualization.compare_alloc_and_free_traces
-Random
-Random.Random_State
-Random.Some_Big_Time_Value
-Random.random_get
-Random.random_get_within_range
-Random.random_get_zero_to_one
-Random.random_get_zero_to_one_new
-Random.random_get_zero_to_one_open
-Random.random_get_zero_to_one_open_new
-Random.random_seed
 Reflection
 Reflection.enum_name_to_value
 Reflection.enum_value_to_name
