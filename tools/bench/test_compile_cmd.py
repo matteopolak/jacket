@@ -1,12 +1,14 @@
 import argparse
 import os
+import sys
 import tempfile
 import time
 import unittest
 from pathlib import Path
 
 from bench.cmd_compile import Attempt, Job, JobRunner, first_difference, normalized, plan_jobs, stage_stats
-from bench.dialects import Compiler, JaicDialect, Mode, PlainDialect, Request, detect_dialect, parse_compiler
+from bench.dialects import (Compiler, JaicDialect, Mode, PlainDialect, Request, detect_dialect, executable_file,
+                            parse_compiler)
 from bench.measure import Run, run_measured
 from bench.stages import Bucket
 from bench.workloads import Category, Plan, RepoDirectory, Workload, all_workloads
@@ -64,7 +66,7 @@ class DriverTests(unittest.TestCase):
         two = runner('a', 'b')
         job_ = job()
         own = self.request(redirect=False)
-        self.assertEqual(two.driver(job_, two.compilers[0], own).command, ['/x/a', 'first.jai', '-timings'])
+        self.assertEqual(two.driver(job_, two.compilers[0], own).command, [str(Path('/x/a')), 'first.jai', '-timings'])
         wrapped = two.driver(job_, two.compilers[0], self.request(redirect=True))
         self.assertEqual(wrapped.command[1], 'phase_timing.jai')
 
@@ -92,11 +94,11 @@ class DialectTests(unittest.TestCase):
         dialect = JaicDialect()
         compiler = Path('/bin/jaic')
         self.assertEqual(dialect.invocation(compiler, self.request(Mode.CHECK)).command,
-                         ['/bin/jaic', 'main.jai', '-check', '-timings'])
+                         [str(compiler), 'main.jai', '-check', '-timings'])
         self.assertEqual(dialect.invocation(compiler, self.request(Mode.INTERP)).command[2], '-interp')
         build = dialect.invocation(compiler, self.request(Mode.OPTIMIZED))
-        self.assertEqual(build.command, ['/bin/jaic', 'main.jai', '-o', '-timings', '-exe', '/s/program'])
-        self.assertEqual(build.executable, Path('/s/program'))
+        self.assertEqual(build.command, [str(compiler), 'main.jai', '-o', '-timings', '-exe', str(Path('/s/program'))])
+        self.assertEqual(build.executable, executable_file(Path('/s')))
 
     def test_timings_come_before_the_metaprogram_arguments(self):
         command = JaicDialect().invocation(Path('jaic'), self.request(Mode.BUILD, ['release'], redirect=False)).command
@@ -111,7 +113,7 @@ class DialectTests(unittest.TestCase):
             self.assertEqual(command[1:], ['main.jai', '-no_color', '-import_dir', '/m', '-o',
                                            '-exe', 'program', '-output_path', scratch])
             check = PlainDialect().invocation(Path('/old/jaic'), Request(Path('/w/main.jai'), Path('/w'), Mode.INTERP, (), Path(scratch)))
-            self.assertEqual(check.command, ['/old/jaic', 'wrapper.jai', '-no_color'])
+            self.assertEqual(check.command, [str(Path('/old/jaic')), 'wrapper.jai', '-no_color'])
             wrapper = (Path(scratch) / 'wrapper.jai').read_text()
             self.assertIn('do_output=false', wrapper)
             self.assertIn('#run main();', wrapper)
@@ -120,6 +122,10 @@ class DialectTests(unittest.TestCase):
     def test_dialect_comes_from_probing_the_binary_not_its_name(self):
         with tempfile.TemporaryDirectory() as folder:
             def fake(name, help_text):
+                if sys.platform == 'win32':  # a batch file runs as a program; no shell scripts
+                    path = Path(folder) / (name + '.bat')
+                    path.write_text(f'@echo {help_text}\r\n')
+                    return path
                 path = Path(folder) / name
                 path.write_text(f'#!/bin/sh\necho "{help_text}"\n')
                 path.chmod(0o755)
@@ -153,10 +159,11 @@ class DialectTests(unittest.TestCase):
             jaic = JaicDialect().phase_invocation(Path('/bin/jaic'), request)
             ref = PlainDialect().phase_invocation(Path('/old/jaic'), request)
             source = (Path(scratch) / 'phases' / 'phase_timing.jai').read_text()
-        self.assertEqual(jaic.command, ['/bin/jaic', 'phase_timing.jai'])
-        self.assertEqual(ref.command, ['/old/jaic', 'phase_timing.jai', '-no_color'])
+        self.assertEqual(jaic.command, [str(Path('/bin/jaic')), 'phase_timing.jai'])
+        self.assertEqual(ref.command, [str(Path('/old/jaic')), 'phase_timing.jai', '-no_color'])
         self.assertEqual(jaic.cwd, ref.cwd)
-        self.assertIn('ENTRY :: "/w/main.jai";', source)
+        entry = str(Path('/w/main.jai').resolve()).replace('\\', '\\\\')  # escaped inside a Jai string literal
+        self.assertIn(f'ENTRY :: "{entry}";', source)
         self.assertIn('WRITES_EXECUTABLE :: false;', source)
         self.assertIn('RUN_MAIN :: true;', source)
         self.assertEqual(source.count('// settings:'), 1)
@@ -186,20 +193,27 @@ class WorkloadTests(unittest.TestCase):
                 self.assertTrue(any(m.writes_executable for m in w.modes), w.name)
 
 
+PYTHON = sys.executable
+
+
 class MeasureTests(unittest.TestCase):
     def test_a_finished_process_reports_status_output_and_resources(self):
-        result = run_measured(['/bin/sh', '-c', 'echo out; echo err >&2; exit 3'])
+        code = 'import sys; print("out"); print("err", file=sys.stderr); sys.exit(3)'
+        result = run_measured([PYTHON, '-c', code])
         self.assertEqual((result.returncode, result.stdout.strip(), result.stderr.strip()), (3, 'out', 'err'))
         self.assertFalse(result.ok)
         self.assertGreater(result.rss_mib, 0)
         self.assertGreaterEqual(result.cpu, 0)
 
     def test_stdin_and_timeout(self):
-        self.assertEqual(run_measured(['/bin/cat'], stdin_bytes=b'hi').stdout, 'hi')
-        slow = run_measured(['/bin/sleep', '5'], timeout=0.2)
+        echo = run_measured([PYTHON, '-c', 'import sys; sys.stdout.write(sys.stdin.read())'], stdin_bytes=b'hi')
+        self.assertEqual(echo.stdout, 'hi')
+        slow = run_measured([PYTHON, '-c', 'import time; time.sleep(5)'], timeout=0.2)
         self.assertTrue(slow.timed_out)
         self.assertIn('timed out', slow.failure())
 
+    # os.kill(pid, 0) probes on POSIX but would terminate the process on Windows; test_windows covers the job tree kill.
+    @unittest.skipIf(sys.platform == 'win32', 'probes the child with os.kill(pid, 0); test_windows covers job objects')
     def test_a_timeout_kills_the_children_too(self):
         with tempfile.TemporaryDirectory() as scratch:
             pidfile = Path(scratch) / 'child.pid'
@@ -210,6 +224,7 @@ class MeasureTests(unittest.TestCase):
         with self.assertRaises(ProcessLookupError):
             os.kill(child, 0)
 
+    @unittest.skipIf(sys.platform == 'win32', 'probes the child with os.kill(pid, 0); test_windows covers job objects')
     def test_children_left_behind_by_a_finished_command_are_killed(self):
         with tempfile.TemporaryDirectory() as scratch:
             pidfile = Path(scratch) / 'child.pid'
@@ -218,7 +233,6 @@ class MeasureTests(unittest.TestCase):
         time.sleep(0.1)
         with self.assertRaises(ProcessLookupError):
             os.kill(child, 0)
-
     def test_failure_text_is_the_last_lines(self):
         self.assertEqual(run(returncode=1, stderr='a\nb\nc\n').failure(), 'exit 1: b | c')
 

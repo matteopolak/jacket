@@ -238,7 +238,8 @@ class JobObjectTests(unittest.TestCase):
         self.assertEqual((run.returncode, run.stdout.strip(), run.stderr.strip()), (3, 'out', 'err'))
         self.assertGreater(run.wall, 0)
         self.assertGreater(run.rss_mib, 1)
-        self.assertGreaterEqual(run.commit_mib, run.rss_mib / 2)
+        # Peak commit and peak working set are not ordered: the working set also counts shared pages (DLLs).
+        self.assertGreater(run.commit_mib, 0)
 
     def test_cpu_time_includes_a_child_process(self):
         child = 'import time; t=time.perf_counter()\nwhile time.perf_counter()-t < 0.6: pass'

@@ -1,6 +1,7 @@
 import argparse
 import csv
 import json
+import sys
 import tempfile
 import unittest
 from collections import Counter
@@ -177,9 +178,13 @@ class ProvenanceTests(unittest.TestCase):
 
     def test_binary_facts_hash_and_version(self):
         root = self.folder()
-        binary = root / 'tool'
-        binary.write_text('#!/bin/sh\necho "tool 1.2.3"\n')
-        binary.chmod(0o755)
+        if sys.platform == 'win32':  # a batch file runs as a program; no shell scripts
+            binary = root / 'tool.bat'
+            binary.write_text('@echo tool 1.2.3\r\n')
+        else:
+            binary = root / 'tool'
+            binary.write_text('#!/bin/sh\necho "tool 1.2.3"\n')
+            binary.chmod(0o755)
         facts = provenance.binary_facts(binary)
         self.assertEqual(facts['version'], 'tool 1.2.3')
         self.assertEqual(facts['sha256'], provenance.sha256_file(binary))

@@ -10,6 +10,7 @@ from bench.sandbox import Sandbox, environment
 
 
 class ProfileTests(unittest.TestCase):
+    @unittest.skipIf(sys.platform == 'win32', 'Seatbelt profiles are macOS-only and ask getconf for the user temp folder')
     def test_the_profile_denies_the_network_and_writes_outside_the_given_paths(self):
         profile = Sandbox(reads=[Path('/opt/compiler')], writes=[Path('/scratch/run')]).seatbelt_profile()
         self.assertIn('(deny network*)', profile)
@@ -20,11 +21,12 @@ class ProfileTests(unittest.TestCase):
         self.assertNotIn('/opt/compiler', write_rule)
 
     def test_bwrap_mounts_reads_read_only_and_drops_the_network(self):
-        arguments = Sandbox(reads=[Path('/opt/compiler')], writes=[Path('/scratch/run')]).bwrap_arguments()
+        reads, writes = Path('/opt/compiler'), Path('/scratch/run')  # str() gives the host's separators
+        arguments = Sandbox(reads=[reads], writes=[writes]).bwrap_arguments()
         self.assertIn('--unshare-net', arguments)
-        self.assertIn(['--ro-bind', '/opt/compiler', '/opt/compiler'],
+        self.assertIn(['--ro-bind', str(reads), str(reads)],
                       [arguments[i:i + 3] for i in range(len(arguments))])
-        self.assertIn(['--bind', '/scratch/run', '/scratch/run'], [arguments[i:i + 3] for i in range(len(arguments))])
+        self.assertIn(['--bind', str(writes), str(writes)], [arguments[i:i + 3] for i in range(len(arguments))])
 
 
 @unittest.skipUnless(sys.platform == 'darwin' and not Sandbox.available(), 'needs sandbox-exec')
