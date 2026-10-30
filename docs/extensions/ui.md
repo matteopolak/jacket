@@ -65,11 +65,12 @@ expect_snapshot(t, layout_dump(*ui));   // the tree with roles, text and rectang
 - **A new widget** calls `widget(kind, role, style, loc)` (or `begin_container`/`end_container`) with `#caller_location`, sets what it needs on the node (`pointer`, `focusable`, `text`, `paint`), reads `events_of(ui, node)` and returns what happened. A `.LEAF` node paints through its `paint` procedure and `paint_data`, which must outlive the frame (`frame_allocator(ui)`).
 - **Style defaults** live in `Theme` (`theme.jai`); a widget reads `ui.theme` when it builds.
 - **A new draw primitive** adds a `Draw_Kind`, a case in `encode` and the shader in `render.jai`.
+- **Zero-size warning.** A focusable widget that ends layout with no width or height (a `text_editor` in a column nobody gave `grow`) is reported once through `context.logger` as a warning that names its role, label and `key`. The check is on unless the module is imported with `DEBUG_WARNINGS = false`.
 - Gotchas: the hit test and a widget's own rectangle come from the previous layout; `for_expansion` containers inside a `for` named `it` need a different loop name; strings a node keeps must be copied with `frame_string`; the display list is in points and the renderer multiplies by `ui.text.scale`.
 
 ## Configuration
 
-`App_Options` (`title`, `width`, `height`, `theme`, `fonts`, `frame_limit`), `Headless_Options` (size, `scale`, `system_fonts`, `theme`), `Theme`, the environment variables `JAI_UI_FONT` and `JAI_UI_MONO_FONT`.
+The module parameter `DEBUG_WARNINGS` (default `true`; `#import "Extensions/UI"(DEBUG_WARNINGS = false)` turns the layout warnings and the key text they need off). `App_Options` (`title`, `width`, `height`, `theme`, `fonts`, `frame_limit`), `Headless_Options` (size, `scale`, `system_fonts`, `theme`), `Theme`, the environment variables `JAI_UI_FONT` and `JAI_UI_MONO_FONT`.
 
 ## Dependencies
 

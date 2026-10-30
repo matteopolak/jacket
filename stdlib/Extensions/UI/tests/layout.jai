@@ -4,6 +4,7 @@
 #import "Basic";
 #import "Extensions/Testing";
 #import "Extensions/UI";
+S :: #import "String";
 
 Counter :: struct {
     count: int;
@@ -197,4 +198,56 @@ split_panes_follow_the_divider_position :: () {
 
     expect_near(find(*ui, .{ text = "left" }).rect.w, 100.0, 0.01);
     expect_near(find(*ui, .{ text = "right" }).rect.x, 105.0, 0.01);
+} @test
+
+Warnings :: struct {
+    messages: [..] string;
+}
+
+collect_warning :: (message: string, data: *void, info: Log_Info) {
+    warnings := cast(*Warnings) data;
+    array_add(*warnings.messages, copy_string(message));
+}
+
+Squeezed :: struct {
+    edit: Text_Edit;
+}
+
+squeezed_build :: (app: *Squeezed) {
+    for column() {
+        for column() {
+            key("main-editor");
+            text_editor(*app.edit);
+        }
+    }
+}
+
+a_focusable_with_no_room_is_reported_once_with_its_key :: () {
+    app: Squeezed;
+    warnings: Warnings;
+    ui := headless(.{ width = 400, height = 300 });
+
+    defer {
+        free_ui(*ui);
+        free_text_edit(*app.edit);
+        for warnings.messages free(it);
+        array_free(warnings.messages);
+    }
+
+    captured := context;
+    captured.logger = collect_warning;
+    captured.logger_data = *warnings;
+
+    push_context captured {
+        frame(*ui, *app, squeezed_build);
+        frame(*ui, *app, squeezed_build);
+        frame(*ui, *app, squeezed_build);
+    }
+
+    editor := find_role(*ui, .TEXT_EDITOR);
+
+    expect(editor != null && editor.rect.h == 0);
+    expect_equal(warnings.messages.count, 1);
+    expect(S.contains(warnings.messages[0], "main-editor"));
+    expect(S.contains(warnings.messages[0], "zero-size"));
 } @test

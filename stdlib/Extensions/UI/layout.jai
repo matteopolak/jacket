@@ -13,6 +13,26 @@ layout_tree :: (ui: *UI_State) {
     arrange_children(ui, root);
 }
 
+// A focusable widget with no room is reported once: it cannot be seen or clicked, and nothing else says why. The usual cause is
+// a column or row that is not given `grow`, so its children get only their natural size and a widget that has none (a text
+// editor) gets nothing. Called by `end_frame` when `DEBUG_WARNINGS` is on.
+warn_zero_size_focusables :: (ui: *UI_State) {
+    for node: ui.nodes {
+        if !node.focusable || node.warned_zero_size continue;
+        if node.rect.w > 0 && node.rect.h > 0 continue;
+
+        node.warned_zero_size = true;
+
+        name := tprint("%", node.role);
+        if node.label.count name = tprint("% \"%\"", name, node.label);
+        if node.key_name.count name = tprint("% (key %)", name, node.key_name);
+
+        message := tprint("UI: the focusable % has a zero-size rect (% x %), so it cannot be seen, clicked or focused; give the column or row around it `grow`, or the widget a size\n", name, node.rect.w, node.rect.h);
+
+        context.logger(message, context.logger_data, Log_Info.{ common_flags = .WARNING });
+    }
+}
+
 #scope_file
 
 pad_x :: (style: Style) -> float {

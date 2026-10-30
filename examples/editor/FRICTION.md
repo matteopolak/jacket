@@ -19,7 +19,7 @@ Modules used: Basic, Math, Hash_Table, Flat_Pool, File, File_Utilities, File_Wat
 
 ## Library design notes
 
-- A `text_editor` needs every ancestor column to `grow`; a column with natural height silently gives the editor a zero rectangle and nothing is focusable. A layout dump (`layout_dump`) showed it quickly, but a debug warning for a zero-sized focusable would be better.
+- Fixed by "feat(ui): warn about focusable widgets laid out with no size": a `text_editor` needs every ancestor column to `grow`; a zero-size focusable now logs a warning once, naming its role, label and key.
 - Scripted input needs two frames: the first applies it against the old layout, the second shows the result.
 - Typing ahead of a focus change: the search field must be clicked before text reaches it; shortcuts that open a field do not focus it yet.
 

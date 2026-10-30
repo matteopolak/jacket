@@ -1,3 +1,5 @@
+#module_parameters(DEBUG_WARNINGS := true);
+
 // A native user interface library for jaic programs. A jaic extension, not official Jai: other
 // Jai compilers have no such module, and it may change between jaic releases. See
 // docs/extensions/ui.md.

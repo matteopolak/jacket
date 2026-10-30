@@ -33,6 +33,7 @@ Node :: struct {
     label: string; // names the widget to tests and a later accessibility export
     value: string; // the widget's current value, for the same
     focusable: bool;
+    key_name: string; // the text of the `key` call that named this node this frame, for warnings (debug only)
     pointer: bool; // takes mouse input (hover, press)
     scrolls: bool; // a scroll container
     paint: Paint_Proc;
@@ -48,6 +49,7 @@ Node :: struct {
     // Kept between frames.
     scroll_x: float;
     scroll_y: float;
+    warned_zero_size: bool; // a zero-size focusable has been reported
     state: *void; // see `state`
     state_free: (data: *void);
     state_size: int;
@@ -78,6 +80,7 @@ UI_State :: struct {
     frame_pool: Flat_Pool;
     key_pending: bool;
     key_value: u64;
+    key_name: string;
     input: Input_State;
     draw: Draw_List;
 
@@ -164,6 +167,7 @@ end_frame :: (ui: *UI_State) {
 
     sweep_unseen(ui);
     layout_tree(ui);
+    #if DEBUG_WARNINGS warn_zero_size_focusables(ui);
     paint_tree(ui);
 }
 
@@ -196,6 +200,7 @@ key :: (value: $T) {
     ui := context.ui;
     ui.key_pending = true;
     ui.key_value = hash_any(value);
+    #if DEBUG_WARNINGS ui.key_name = frame_string(ui, tprint("%", value));
 }
 
 // The retained value of type `T` stored on a node, created zeroed on first use and kept until the
@@ -328,10 +333,13 @@ mix :: (a: u64, b: u64) -> u64 {
 
 declare_node :: (ui: *UI_State, parent: *Node, site: u64) -> *Node {
     id: u64;
+    key_name: string;
 
     if ui.key_pending {
         id = mix(parent.id, ui.key_value);
         ui.key_pending = false;
+        key_name = ui.key_name;
+        ui.key_name = "";
     } else {
         count := table_find_pointer(*parent.repeats, site);
 
@@ -345,6 +353,7 @@ declare_node :: (ui: *UI_State, parent: *Node, site: u64) -> *Node {
     }
 
     node := claim_node(ui, id, parent);
+    node.key_name = key_name;
 
     array_add(*parent.children, node);
 
