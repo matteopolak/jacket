@@ -11,7 +11,12 @@ main :: () {
     for i: 1..4 assert(values[R.rank(*sorter, i - 1)] <= values[R.rank(*sorter, i)]);
 
     R.sort(*sorter, cast(*u64) null, 0);
-    assert(sorter.valid_ranks && sorter.ranks.count == 5);
+    assert(sorter.valid_ranks && sorter.ranks.count == 0);
+
+    empty: [..] u64;
+
+    R.reorder(*empty, sorter);
+    assert(empty.count == 0);
     floats: [4] float = .[2, -3, 0, 1];
 
     R.sort(*sorter, floats);

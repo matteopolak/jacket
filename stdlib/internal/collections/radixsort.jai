@@ -112,7 +112,12 @@ free_rank_buffer :: (buffer: [] u32, allocator: Allocator) {
 } @FreesArgument
 
 sort_ranks :: (radix: *RadixSort, input: *$T, count: u32) {
-    if !input || count == 0 return;
+    if !input || count == 0 {
+        // Nothing to rank: the result is a valid, empty ordering, never the ranks of an earlier sort.
+        resize(radix, 0);
+        radix.valid_ranks = true;
+        return;
+    }
 
     resize(radix, count);
     for i: 0..cast(s64) count - 1 radix.ranks[i] = cast(u32) i;

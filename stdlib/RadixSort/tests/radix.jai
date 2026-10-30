@@ -41,10 +41,16 @@ main :: () {
     ranks: [8] u32;
     for value, index: sorter.ranks ranks[index] = value;
 
+    // Empty input drops the earlier ranks and leaves valid, empty ones.
     R.sort(*sorter, cast(*u32) null, 8);
+    if !sorter.valid_ranks || sorter.ranks.count != 0 exit(7);
+
+    R.sort(*sorter, small);
     R.sort(*sorter, small.data, 0);
+    if !sorter.valid_ranks || sorter.ranks.count != 0 exit(8);
+
+    R.sort(*sorter, small);
     for value, index: sorter.ranks if value != ranks[index] exit(7);
-    if !sorter.valid_ranks exit(8);
 
     previous := sorter.ranks.data;
     previous2 := sorter.ranks2.data;

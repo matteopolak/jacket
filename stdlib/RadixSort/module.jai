@@ -31,8 +31,8 @@ rank :: Impl.rank;
 //
 // The input is left as it is and the result is read back through `rank`. Equal values keep their input order. For
 // `float`, `-0.0` sorts before `0.0` and NaNs sort to the ends by their bit pattern (positive ones last). An empty
-// input (or a `null` pointer) returns at once and leaves the ranks of the previous sort as they were. The
-// count is a `u32`.
+// input (or a `null` pointer) gives valid, empty ranks: any earlier ranks are dropped, `reorder` of an empty
+// array works and `rank` of any index fails its range assert. The count is a `u32`.
 //
 // ```jai
 // sorter: RadixSort;
