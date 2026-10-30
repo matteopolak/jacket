@@ -8,7 +8,7 @@
 // - `watch_recursively` (default `true`) includes the sub-folders of watched folders, also ones made later.
 // - `event_buffer_size` sizes the system's event buffer for each watched folder (default 8000); on Linux a burst of changes that
 //   overflows it is reported as `SCAN_CHILDREN`.
-// - `verbose` is kept in the watcher; the current backends do not use it.
+// - `verbose` logs each change just before its callback, through `context.logger`: the path and the events.
 //
 // It returns `false`, and leaves the watcher empty, for a `null` callback, a negative or non-finite window, a buffer size of `0` or
 // less, or when the system refuses. Calling it on a watcher that is already set up fails an assertion. Pair each successful call with `deinit`.
@@ -19,7 +19,7 @@
 // watcher: File_Watcher;
 // assert(!init(*watcher, on_change, merge_window_seconds = -1));
 // assert(!init(*watcher, on_change, event_buffer_size = 0));
-// deinit(watcher); // nothing was set up, so nothing to release
+// deinit(*watcher); // nothing was set up, so nothing to release
 // ```
 init :: (watcher: *$T/File_Watcher, callback: T.File_Watcher_Callback, user_data: *T.User_Data = null, events_to_watch: File_Change_Event = .ALL_EVENTS, merge_window_seconds: float = 0.1, watch_recursively := true, verbose := false, event_buffer_size: s32 = DEFAULT_BUFFER_SIZE) -> success: bool {
     if !watcher || watcher.pool {
@@ -147,6 +147,8 @@ process_changes :: (using watcher: *File_Watcher) -> changed: bool, needs_wait: 
         event := *watcher.changes[index];
 
         if now >= state.deadlines[index] {
+            if watcher.verbose B.log("File_Watcher: % %", event.events, event.full_path);
+
             state.dispatch(state, event);
             B.assert(state.deadlines.count == watcher.changes.count, "callback changed watcher pending arrays");
             state.owner.proc(.FREE, 0, event.full_path.count, event.full_path.data, state.owner.data);
@@ -166,9 +168,19 @@ process_changes :: (using watcher: *File_Watcher) -> changed: bool, needs_wait: 
     return delivered, waiting, ifx waiting then delay else 0;
 }
 
-// Stops watching and frees everything the watcher holds, including changes that were found but not yet delivered. Call it once
-// for each successful `init`, and do not use the watcher afterwards: it takes the watcher by value, as `deinit(watcher)` without a
-// `*`, so the caller's copy still points at what was freed. It is safe on a watcher that was never set up.
+// Stops watching and frees everything the watcher holds, including changes that were found but not yet delivered, and
+// leaves `watcher` empty: it can be set up again with `init`, and a second `deinit` does nothing. Call it once for each
+// successful `init`. It is safe on a watcher that was never set up.
+deinit :: (watcher: *$T/File_Watcher) {
+    if !watcher return;
+
+    deinit(watcher.*);
+    watcher.* = .{};
+}
+
+// Stops watching and frees everything the watcher holds, like `deinit(*watcher)`, but from a copy: it takes the watcher by value,
+// as `deinit(watcher)` without a `*`, so the caller's own watcher still points at what was freed and must not be used again.
+// Prefer the pointer form.
 deinit :: (using watcher: $T/File_Watcher) {
     if !watcher.pool return;
 

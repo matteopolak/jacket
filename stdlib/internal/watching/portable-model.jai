@@ -45,7 +45,7 @@ DEFAULT_BUFFER_SIZE :: 8000;
 // must not be called from two threads at once or from inside a callback.
 //
 // The fields `callback`, `user_data`, `events_to_watch`, `merge_window_seconds`, `watch_recursively` and `buffer_size` are the
-// settings `init` was given; `events_to_watch` and `merge_window_seconds` may be changed later. `changes`, `verbose` and the
+// settings `init` was given; `events_to_watch` and `merge_window_seconds` may be changed later. `changes` and the
 // platform fields are the module's own. Memory comes from the `context.allocator` in force at `init`. Needs Linux, macOS or Windows
 // (inotify, FSEvents and `ReadDirectoryChangesW` underneath); other targets stop at compile time.
 //
@@ -76,7 +76,7 @@ DEFAULT_BUFFER_SIZE :: 8000;
 //     seen: Seen;
 //     watcher: File_Watcher(Seen);
 //     assert(init(*watcher, on_change, *seen));
-//     defer deinit(watcher);
+//     defer deinit(*watcher);
 //     assert(add_directories(*watcher, root));
 //
 //     assert(write_entire_file(file, "hello"));

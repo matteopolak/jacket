@@ -12,6 +12,10 @@ main :: () {
         changed, waiting, delay := F.process_changes(*watcher);
         if changed || waiting || delay != 0 exit(3);
 
+        F.deinit(*watcher);
+        if watcher.pool exit(4);
+
+        F.deinit(*watcher);
         F.deinit(watcher);
     }
 
