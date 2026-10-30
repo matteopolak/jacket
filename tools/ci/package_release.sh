@@ -20,45 +20,25 @@ ls -l "$out"
 cp "$out/jaic$exe" "$out/jailsp$exe" "$out/jailint$exe" "$out/jacket$exe" "$dir/"
 # Bootstrap definitions are packaged with the standard library.
 cp -R stdlib "$dir/stdlib"
-# Windows: the crash runtime the standard library binds (crash-native/platform_io_windows_crash)
-# is C built here, not stored in the repository. The DLL is what `jaic -interp` and a
-# metaprogram load; the static archive is what built programs link, so they need no DLL.
-if [ "$RUNNER_OS" = "Windows" ]; then
-  cpu=x64
-  if [ "$NAME" = windows-arm64 ]; then cpu=arm64; fi
-  python3 tools/stdlib/build_platform_io_runtime.py --stdlib "$dir/stdlib" --cpu "$cpu" --static-library
-  ls -l "$dir/stdlib/internal/runtime/crash-native"
-fi
 cp README.md CHANGELOG.md "$dir/"
-# wgpu-native for the WebGPU module (pinned and checksum-verified, tools/bindings/webgpu.json),
-# where jaic looks for native libraries: <stdlib>/../native-libs/<platform>.
-# The static library is what `jaic` links, the shared one what `jaic -interp` loads.
-python3 tools/bindings/fetch_wgpu_native.py --platform "$NAME" --out "$dir/native-libs/$NAME"
-# The C libraries the stdlib binds (stb_image, stb_image_write, stb_image_resize,
-# stb_vorbis, lz4, meshoptimizer, pl_mpeg, FreeType, Dear ImGui and MojoShader; rpmalloc
-# on macOS and Linux; SDL2 on Windows x64), built from the pinned, checksum-verified
-# sources in tools/native/native-libs.json, static and shared like wgpu-native, each with its
-# licence under licenses/. Simp, GetRect, Sound_Player and the other modules need them.
-# The script stops when a file it should have left is missing. macOS: for the oldest
-# macOS the jaic binary runs on, not the runner's.
+# The native libraries the packaged stdlib binds, as tools/native/native-libs.json declares them
+# (docs/tools/native-libs.md), in the archive's native-libs/<platform>, where jaic looks:
+# the Windows crash runtime built into stdlib/ (the DLL is what `jaic -interp` and a metaprogram
+# load, the static archive what built programs link), wgpu-native (pinned and checksum-verified),
+# the C libraries built from pinned sources (static and shared, each with its licence under
+# licenses/), and what Bindings_Generator's generate_bindings needs at run time (docs/tools/releases.md,
+# "Bindings_Generator"). It ends by checking that every library the packaged stdlib binds is in the
+# archive, built into jaic, or the system's on purpose. macOS: the libraries are built for the
+# oldest macOS the jaic binary runs on, not the runner's.
 if [ "$RUNNER_OS" = "macOS" ]; then
   MACOSX_DEPLOYMENT_TARGET=11.0
   if [ "$NAME" = macos-x64 ]; then MACOSX_DEPLOYMENT_TARGET=10.12; fi
   export MACOSX_DEPLOYMENT_TARGET
 fi
-python3 tools/native/build_native_libs.py --platform "$NAME" --out "$dir/native-libs/$NAME"
-# What Bindings_Generator's generate_bindings needs at run time: its helper library on every
-# platform, and libclang from the pinned LLVM on Linux and Windows (macOS uses the Xcode
-# toolchain's; docs/tools/releases.md, "Bindings_Generator"). Printed with its size.
-python3 tools/ci/package_bindings_helpers.py --platform "$NAME" \
-  --llvm-prefix "${LLVM_SYS_231_PREFIX:-$RUNNER_TEMP/llvm}" --out "$dir/native-libs/$NAME"
+python3 tools/native/package_native_libs.py --platform "$NAME" --package "$dir" \
+  --llvm-prefix "${LLVM_SYS_231_PREFIX:-$RUNNER_TEMP/llvm}"
 unset MACOSX_DEPLOYMENT_TARGET
 ls -l "$dir/native-libs/$NAME"
-# Every library the packaged stdlib binds is either in the archive, built into jaic, or
-# the system's on purpose (the audio output, clipboard and allocator libraries once
-# went missing from all six archives).
-python3 tools/ci/check_native_libs.py --stdlib "$dir/stdlib" --platform "$NAME" \
-  --native "$dir/native-libs/$NAME"
 # jaifmt is a Jai program: built by the packaged jaic against the packaged stdlib, -O2
 # with the default checks (not jaifmt/build.jai's unchecked build), no debug files.
 "$dir/jaic$exe" jaifmt/main.jai -O2 -no_debug_info -exe "$dir/jaifmt"

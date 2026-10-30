@@ -1,0 +1,130 @@
+{
+  "embedded": {
+    "portable_crash": "compiled into jaic by crates/jaic-cli/build.rs",
+    "portable_watch": "compiled into jaic by crates/jaic-cli/build.rs"
+  },
+  "fetched": {
+    "wgpu_native": {
+      "script": "tools/bindings/fetch_wgpu_native.py",
+      "args": ["--platform", "{platform}", "--out", "{out}"],
+      "note": "pinned in tools/bindings/webgpu.json"
+    }
+  },
+  "packaged": {
+    "generator_platform": {
+      "script": "tools/ci/package_bindings_helpers.py",
+      "args": ["--platform", "{platform}", "--llvm-prefix", "{llvm_prefix}", "--out", "{out}"],
+      "note": "Bindings_Generator's helper, bound by #foreign_library; shipped as static and shared libraries"
+    }
+  },
+  "runtime": {
+    "platform_io_windows_crash": {
+      "platforms": [
+        "windows"
+      ],
+      "script": "tools/stdlib/build_platform_io_runtime.py",
+      "args": ["--stdlib", "{stdlib}", "--cpu", "{cpu}", "--static-library"],
+      "note": "C built into stdlib/internal/runtime/crash-native while packaging"
+    }
+  },
+  "external": {
+    "C runtime and POSIX": [
+      "c",
+      "c++",
+      "m",
+      "dl",
+      "rt",
+      "pthread",
+      "stdc++",
+      "gcc_s",
+      "System",
+      "objc",
+      "z",
+      "zlib1",
+      "iconv",
+      "curl",
+      "wasi_snapshot_preview1"
+    ],
+    "Graphics and GPU APIs": [
+      "vulkan",
+      "GL",
+      "GLX",
+      "EGL",
+      "X11",
+      "OpenGL",
+      "d3d11",
+      "d3d12",
+      "d3dcompiler",
+      "dxcompiler",
+      "dxgi",
+      "opengl32"
+    ],
+    "SDKs and user-installed": [
+      "evdev",
+      "nvtt",
+      "nvidia_aftermath",
+      "asound"
+    ],
+    "Android": [
+      "log",
+      "android",
+      "aaudio",
+      "camera2ndk",
+      "mediandk",
+      "android_native_app_glue",
+      "android-crypto/crypto"
+    ],
+    "Windows system libraries": [
+      "kernel32",
+      "user32",
+      "gdi32",
+      "advapi32",
+      "Advapi32",
+      "shell32",
+      "ole32",
+      "oleaut32",
+      "winmm",
+      "ws2_32",
+      "bcrypt",
+      "ntdll",
+      "ucrt",
+      "DbgHelp",
+      "Dwmapi",
+      "Shlwapi",
+      "comdlg32",
+      "setupapi",
+      "imm32",
+      "version",
+      "uuid",
+      "cfgmgr32",
+      "dinput8",
+      "crypt32",
+      "propsys",
+      "runtimeobject",
+      "userenv"
+    ],
+    "Apple frameworks": [
+      "AppKit",
+      "Foundation",
+      "Foundation_Framework",
+      "Cocoa",
+      "CoreGraphics",
+      "CoreFoundation",
+      "CoreServices",
+      "corefoundation",
+      "CoreAudio",
+      "AudioToolbox",
+      "Metal",
+      "QuartzCore",
+      "Carbon",
+      "IOKit",
+      "AVFoundation",
+      "CoreMedia",
+      "CoreVideo",
+      "GameController",
+      "ForceFeedback",
+      "ApplicationServices",
+      "Security"
+    ]
+  }
+}

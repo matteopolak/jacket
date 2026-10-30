@@ -3,90 +3,63 @@
 
     python3 tools/ci/check_native_libs.py --stdlib stdlib --platform linux-x64 [--native DIR]
 
-Scans `stdlib/` (not `tests/`) for `#library` names and sorts each into one of:
+Scans `stdlib/` (not `tests/`) for `#library` and `#system_library` names and looks each up in
+tools/native/native-libs.json and tools/native/provided-libs.json (docs/tools/native-libs.md):
 
-- built or fetched for the release: a library of tools/native/native-libs.json (including the
-  rpmalloc profile libraries), or wgpu-native.
-  With `--native`, its static archive must be in that directory (the archive's
-  `native-libs/<platform>`), when the library is built for the platform.
-- compiled into `jaic` (the crash and file-watcher runtimes), or the Windows crash runtime, which
-  release.yml's Package step builds into `stdlib/`.
-- `EXTERNAL`: the operating system's, the SDK's or the user's (system and Apple frameworks, X11,
-  libcurl, GPU APIs, Android, NVIDIA SDKs).
+- `libraries` (native-libs.json): built from pinned sources for the release (including the rpmalloc profile libraries).
+  With `--native`, its static archive must be in that directory (the archive's `native-libs/<platform>`),
+  when the library is built for the platform.
+- `provided` (provided-libs.json): declared on purpose as `embedded` in `jaic`, `fetched` prebuilt (wgpu-native, whose archive
+  must then be present), built into `stdlib/` by a `runtime` step, `packaged` by a script, or `external`
+  (the operating system's, the SDK's or the user's).
 
-A name in none of these fails: a new binding must either be added to native-libs.json or be
-listed here on purpose (docs/tools/native-libs.md).
+A name in none of these fails, and so does a `provided` entry (other than `packaged`) that nothing binds.
 """
 
 import argparse
-import json
-import re
 import sys
 from pathlib import Path
 
-from native.build_native_libs import MANIFEST, rpmalloc_libraries, static_name, wanted
+from native.build_native_libs import static_name, wanted
+from native.provided_libs import bound_names, load_manifest, on_platform, provider_of, providers
 
-# Built into jaic by crates/jaic-cli/build.rs.
-EMBEDDED = {"portable_crash", "portable_watch"}
-# Built by release.yml's Package step into stdlib/internal/runtime/crash-native.
-WINDOWS_CRASH = {"platform_io_windows_crash"}
-# wgpu-native, fetched by tools/bindings/fetch_wgpu_native.py.
-FETCHED = {"wgpu_native"}
-EXTERNAL = {
-    "c", "c++", "m", "dl", "rt", "pthread", "stdc++", "System", "objc", "evdev", "curl", "vulkan",
-    "GL", "GLX", "EGL", "X11", "OpenGL", "z", "zlib1", "log", "android", "aaudio", "camera2ndk",
-    "mediandk", "android_native_app_glue", "android-crypto/crypto", "nvtt", "nvidia_aftermath",
-    "d3d11", "d3d12", "d3dcompiler", "dxcompiler", "dxgi",
-    # Windows system libraries
-    "kernel32", "user32", "gdi32", "advapi32", "Advapi32", "shell32", "ole32", "oleaut32",
-    "opengl32", "winmm", "ws2_32", "bcrypt", "ntdll", "ucrt", "DbgHelp", "Dwmapi", "Shlwapi",
-    "comdlg32", "setupapi", "imm32", "version", "uuid", "cfgmgr32", "dinput8",
-    # Linux system libraries and Apple frameworks
-    "asound", "AppKit", "Foundation", "Foundation_Framework", "Cocoa", "CoreGraphics",
-    "CoreFoundation", "CoreServices", "corefoundation", "CoreAudio", "AudioToolbox", "Metal",
-    "QuartzCore", "Carbon", "IOKit", "AVFoundation", "CoreMedia", "CoreVideo", "GameController",
-    "ForceFeedback",
-}
-
-LIBRARY = re.compile(r'#library[^"\n]*"([^"\n\\]+)"')
-
-
-def bound_names(stdlib: Path) -> dict[str, Path]:
-    """Each library name the shipped sources bind, with a file that does."""
-    found: dict[str, Path] = {}
-    for path in sorted(stdlib.rglob("*.jai")):
-        if "tests" in path.relative_to(stdlib).parts:
-            continue
-        for raw in LIBRARY.findall(path.read_text(encoding="utf-8")):
-            name = raw.rsplit("/", 1)[-1] if raw.startswith(("native/", "crash-native/", "../crash-native/")) else raw
-            found.setdefault(name.removeprefix("lib"), path)
-    return found
-
-
-def check(stdlib: Path, platform: str, native: Path | None) -> list[str]:
-    libraries = json.loads(MANIFEST.read_text())["libraries"]
-    problems = []
-    profiles = set(rpmalloc_libraries())
-    for name, path in bound_names(stdlib).items():
-        if name in libraries or name in FETCHED or name in profiles:
-            # The rpmalloc profile libraries are one manifest entry, `rpmalloc`.
-            built = name in FETCHED or wanted(libraries["rpmalloc" if name in profiles else name], platform)
-            if native is not None and built and not (native / static_name(name, platform)).is_file():
-                problems.append(f"{path}: `{name}` is not in {native} ({static_name(name, platform)})")
-        elif name not in EMBEDDED | WINDOWS_CRASH | EXTERNAL:
-            problems.append(f"{path}: `{name}` is bound but neither built by tools/native/native-libs.json "
-                            "nor listed as external in tools/ci/check_native_libs.py")
-    if native is not None:
-        # Bindings_Generator's helper (tools/ci/package_bindings_helpers.py): the stdlib binds it by
-        # a bare name inside developer-tools, which the scan above does not see as shipped.
-        for name in (static_name("generator_platform", platform), shared_name("generator_platform", platform)):
-            if not (native / name).is_file():
-                problems.append(f"`generator_platform` is not in {native} ({name})")
-    return problems
+SHARED_SUFFIX = {"macos": "dylib", "linux": "so", "windows": "dll"}
 
 
 def shared_name(name: str, platform: str) -> str:
-    return f"lib{name}." + {"macos": "dylib", "linux": "so", "windows": "dll"}[platform.split("-")[0]]
+    return f"lib{name}.{SHARED_SUFFIX[platform.split('-')[0]]}"
+
+
+def check(stdlib: Path, platform: str, native: Path | None, manifest: dict | None = None) -> list[str]:
+    manifest = manifest or load_manifest()
+    libraries = manifest["libraries"]
+    declared = providers(manifest)
+    problems = []
+    bound = bound_names(stdlib)
+    for name, path in bound.items():
+        provider = provider_of(name, manifest, declared)
+        if provider is None:
+            problems.append(f"{path}: `{name}` is bound but neither built by `libraries` nor declared in "
+                            "tools/native/provided-libs.json")
+        elif native is not None and expected_static(provider, libraries, platform) and not (native / static_name(name, platform)).is_file():
+            problems.append(f"{path}: `{name}` is not in {native} ({static_name(name, platform)})")
+    for name, provider in declared.items():
+        if name not in bound and provider.kind != "packaged":
+            problems.append(f"tools/native/provided-libs.json: declares `{name}` ({provider.kind}) but the stdlib does not bind it")
+        if provider.kind == "packaged" and native is not None:
+            # Libraries a script packages that the sources reach by other means than `#library`
+            # (Bindings_Generator's helper, tools/ci/package_bindings_helpers.py).
+            for file in (static_name(name, platform), shared_name(name, platform)):
+                if not (native / file).is_file():
+                    problems.append(f"`{name}` is not in {native} ({file})")
+    return problems
+
+
+def expected_static(provider, libraries, platform: str) -> bool:
+    """Whether the archive of `platform` must hold the bound library's static archive."""
+    if provider.kind == "built":
+        return wanted(libraries[provider.detail["library"]], platform)
+    return provider.kind == "fetched" and on_platform(provider, platform)
 
 
 def main() -> None:
