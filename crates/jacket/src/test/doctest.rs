@@ -56,6 +56,8 @@ struct DocComment {
     /// `None` for the module's own docs.
     symbol: Option<String>,
     text: String,
+    /// The docs are the target's, shown on an alias: its examples run under the target.
+    forwarded: bool,
 }
 
 /// `field` with the escapes of `jaic -doc_comments` undone.
@@ -86,11 +88,13 @@ fn parse_records(text: &str) -> Vec<DocComment> {
             let line = fields.next()?.parse().ok()?;
             let symbol = unescape(fields.next()?);
             let text = unescape(fields.next()?);
+            let forwarded = fields.next().is_some_and(|f| !f.is_empty());
             Some(DocComment {
                 file,
                 line,
                 symbol: (!symbol.is_empty()).then_some(symbol),
                 text,
+                forwarded,
             })
         })
         .collect()
@@ -124,7 +128,7 @@ pub fn blocks(dir: &Path, module: &str, jaic: &Path, seen: &mut BTreeSet<PathBuf
     let mut counts: BTreeMap<String, u32> = BTreeMap::new();
     let mut out = Vec::new();
     for comment in records {
-        if seen.contains(&comment.file) {
+        if seen.contains(&comment.file) || comment.forwarded {
             continue;
         }
         claimed.insert(comment.file.clone());
@@ -464,6 +468,7 @@ mod tests {
         let text = "/a.jai\t4\tsplit\tSplits.\\n\\n```jai,no_run\\nx := 1;\\n```\\n```\\nnot jai\\n```\\n```jai ignore bogus\\ny := 2;\\n```\n/a.jai\t1\t\tModule.\\n```jai\\nexpect(true);\\n```\n";
         let comments = parse_records(text);
         assert_eq!(comments.len(), 2);
+        assert!(!comments[0].forwarded);
         assert_eq!(comments[0].symbol.as_deref(), Some("split"));
         assert_eq!(comments[1].symbol, None);
         let lines: Vec<&str> = comments[0].text.lines().collect();
@@ -474,6 +479,16 @@ mod tests {
             .collect();
         assert_eq!(summary, [(2, Mode::NoRun, false), (8, Mode::Run, true)]);
         assert_eq!(blocks[1].1.problems, ["unknown option `bogus` (ignored)"]);
+    }
+
+    #[test]
+    fn a_forwarded_record_is_read_but_not_run() {
+        let text = "/a.jai\t4\thello\tExample.\\n```jai\\nx := 1;\\n```\tImpl.hello\n/b.jai\t2\tother\tPlain.\t\n";
+        let comments = parse_records(text);
+        assert_eq!(
+            comments.iter().map(|c| c.forwarded).collect::<Vec<_>>(),
+            [true, false]
+        );
     }
 
     #[test]

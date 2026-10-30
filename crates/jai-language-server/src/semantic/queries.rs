@@ -450,9 +450,11 @@ impl Analysis {
     pub fn hover(&mut self, path: &Path, offset: usize) -> Option<HoverFacts> {
         let file = self.file(path)?;
         let hover = self.compiler.ide_hover(file, offset as u32)?;
-        let decls = self
-            .compiler
-            .ide_hover_decls(file, offset as u32)
+        let spans = self.compiler.ide_hover_decls(file, offset as u32);
+        let decls = spans
+            .into_iter()
+            .map(|span| self.compiler.ide_doc_site(span))
+            .collect::<Vec<_>>()
             .into_iter()
             .filter_map(|span| self.location(span))
             .collect();
@@ -516,20 +518,34 @@ impl Analysis {
                 at
             }
         };
-        for name in names.iter_mut().filter(|n| n.decl.file == file) {
-            name.decl.start = moved(name.decl.start);
-            name.decl.end = moved(name.decl.end);
+        for name in names.iter_mut() {
+            for span in std::iter::once(&mut name.decl).chain(name.docs.as_mut()) {
+                if span.file == file {
+                    span.start = moved(span.start);
+                    span.end = moved(span.end);
+                }
+            }
+        }
+    }
+
+    /// Notes, on each of `names` that is an alias with no docs of its own, the declaration it
+    /// names, where its docs are written.
+    pub fn forward_docs(&mut self, names: &mut [IdeName]) {
+        for name in names {
+            let site = self.compiler.ide_doc_site(name.decl);
+            name.docs = (site != name.decl).then_some(site);
         }
     }
 
     pub fn decl_files(&self, names: &[IdeName]) -> BTreeMap<u32, String> {
         let mut out = BTreeMap::new();
         for name in names {
-            let file = name.decl.file;
-            if let std::collections::btree_map::Entry::Vacant(slot) = out.entry(file.0)
-                && let Some(source) = self.compiler.src.sources.try_get(file)
-            {
-                slot.insert(source.path.to_string());
+            for file in std::iter::once(name.decl.file).chain(name.docs.map(|d| d.file)) {
+                if let std::collections::btree_map::Entry::Vacant(slot) = out.entry(file.0)
+                    && let Some(source) = self.compiler.src.sources.try_get(file)
+                {
+                    slot.insert(source.path.to_string());
+                }
             }
         }
         out

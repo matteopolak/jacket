@@ -85,6 +85,7 @@ impl Session {
             if names.is_empty() && !chain.is_empty() {
                 return None;
             }
+            a.forward_docs(&mut names);
             a.shift_to(path, text, &mut names);
             let files = a.decl_files(&names);
             Some((names, files))
@@ -123,6 +124,7 @@ impl Session {
             } else {
                 a.complete_inferred(path, dot + 1)?
             };
+            a.forward_docs(&mut names);
             a.shift_to(path, text, &mut names);
             let files = a.decl_files(&names);
             Some((names, files))
@@ -286,6 +288,7 @@ impl Session {
             let mut items = BTreeMap::new();
             let mut incomplete = false;
             let keywords = jaic::lexicon::reserved().map(|k| IdeName {
+                docs: None,
                 name: k.into(),
                 kind: IdeKind::Constant,
                 detail: "keyword".into(),
@@ -334,10 +337,12 @@ impl Session {
                     IdeKind::Field => CompletionKind::Field,
                     IdeKind::EnumMember => CompletionKind::EnumMember,
                 };
-                let data = files.get(&name.decl.file.0).map(|path| CompletionData {
+                // Docs are read from where they are written.
+                let docs = name.docs.unwrap_or(name.decl);
+                let data = files.get(&docs.file.0).map(|path| CompletionData {
                     document: uri.as_str().to_owned(),
                     path: path.clone(),
-                    offset: name.decl.start as usize,
+                    offset: docs.start as usize,
                 });
                 // Names that fit the expected type come first; the order within each group is
                 // the usual one.

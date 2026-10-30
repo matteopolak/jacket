@@ -6,6 +6,7 @@ mod audit;
 mod completion;
 mod definition;
 mod describe;
+mod doc_site;
 mod editor;
 mod facts;
 mod hover;

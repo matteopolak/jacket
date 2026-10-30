@@ -680,6 +680,7 @@ impl Compiler {
                     let info = self.ty.types.enum_info(*e);
                     for (n, v) in info.members.iter().chain(borrowed.iter()) {
                         out.push(IdeName {
+                            docs: None,
                             name: n.to_string(),
                             kind: IdeKind::EnumMember,
                             detail: format!("{} = {v}", info.name),
@@ -713,6 +714,7 @@ impl Compiler {
                         for f in fields.iter() {
                             if let Some(n) = f.name {
                                 out.push(IdeName {
+                                    docs: None,
                                     name: n.to_string(),
                                     kind: IdeKind::Field,
                                     detail: self.ty.types.name(f.ty),
@@ -768,6 +770,7 @@ impl Compiler {
 
 pub(super) fn field(name: &str, detail: &str) -> IdeName {
     IdeName {
+        docs: None,
         name: name.into(),
         kind: IdeKind::Field,
         detail: detail.into(),

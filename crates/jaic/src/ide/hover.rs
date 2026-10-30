@@ -260,6 +260,17 @@ impl Compiler {
             let named = f.name.map(|n| (f.span, n.to_string()));
             return self.ide_narrow_decls(named.into_iter().collect());
         };
+        // An alias with docs of its own shows them rather than those of what it names.
+        if let IdeWhat::Entity(e) = &r.what {
+            let span = self.entity(*e).span;
+            let own = self.src.sources.try_get(span.file).is_some_and(|source| {
+                crate::docs::alias_target(&source.text, span.start as usize).is_some()
+                    && crate::docs::declaration(&source.text, span.start as usize).is_some()
+            });
+            if own {
+                return vec![span];
+            }
+        }
         let procs: Vec<ProcId> = match &r.what {
             IdeWhat::Procs(ps) => ps.clone(),
             IdeWhat::Entity(e) => match self.entity(*e).kind {

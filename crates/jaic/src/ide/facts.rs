@@ -406,6 +406,9 @@ pub struct IdeName {
     pub detail: String,
     /// Where the name is declared (`Span::NONE` for builtins): doc comments are read from there.
     pub decl: Span,
+    /// Where the docs are read from when that is not `decl`: what an alias without docs of its
+    /// own names (`Compiler::ide_doc_site`).
+    pub docs: Option<Span>,
     /// How a procedure is called, for completion to insert the call.
     pub call: Option<IdeCall>,
     /// The type of the value the name stands for, when it is a value whose type is known.

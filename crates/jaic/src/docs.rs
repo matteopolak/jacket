@@ -1161,6 +1161,8 @@ pub fn signature_line(text: &str, at: usize) -> String {
 }
 
 
+mod forward;
+pub use forward::{Resolver, alias_target, docs_site};
 mod located;
 pub use located::{Located, located_above, opening};
 

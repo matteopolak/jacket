@@ -398,6 +398,7 @@ impl Compiler {
             }
         }
         Some(IdeName {
+            docs: None,
             name: name.to_string(),
             kind,
             detail,

@@ -696,3 +696,107 @@ fn completion_docs_carry_links_eagerly_and_when_resolved() {
         .unwrap();
     assert!(resolved.contains(&link), "{resolved}");
 }
+
+const ALIAS_IMPL: &str = "\
+// Greets the world.
+//
+// - name: who to greet
+hello :: (name: string) {}
+
+// Counts things.
+count :: () -> int { return 0; }
+
+// A pair of numbers.
+Pair :: struct { a: int; b: int; }
+
+// Documented in the target.
+BOTH :: 3;
+";
+
+const ALIASES: &str = "\
+Impl :: #import,file \"alias_impl.jai\";
+
+hello :: Impl.hello;
+
+// The alias's own words.
+count :: Impl.count;
+
+Pair :: Impl.Pair;
+BOTH :: Impl.BOTH;
+Twice :: Pair;
+
+main :: () {
+    hello(\"a\");
+    n := count();
+    p: Pair;
+    q: Twice;
+    b := BOTH;
+}
+";
+
+fn aliases() -> Session {
+    let mut s = session();
+    s.open(file_uri("/lsp-test/alias_impl.jai"), 1, ALIAS_IMPL.into())
+        .unwrap();
+    s.open(uri(), 1, ALIASES.into()).unwrap();
+    s
+}
+
+#[test]
+fn hover_on_an_alias_shows_the_docs_of_its_target() {
+    let s = aliases();
+    for (marker, expected) in [
+        ("    hello", "Greets the world."),
+        ("\nhello", "Greets the world."),
+        ("p: Pair", "A pair of numbers."),
+        ("\nPair", "A pair of numbers."),
+        ("b := BOTH", "Documented in the target."),
+        ("q: Twice", "A pair of numbers."),
+    ] {
+        let hover = markdown_hover(&s, after(ALIASES, marker, 0, 1));
+        assert!(hover.contains(expected), "{marker}: {hover}");
+    }
+}
+
+#[test]
+fn the_docs_of_an_alias_win_over_its_targets() {
+    let s = aliases();
+    let hover = markdown_hover(&s, after(ALIASES, "\ncount", 0, 1));
+    assert!(hover.contains("The alias's own words."), "{hover}");
+    assert!(!hover.contains("Counts things."), "{hover}");
+}
+
+#[test]
+fn completion_on_an_alias_carries_the_docs_of_its_target() {
+    let s = aliases();
+    let list = s
+        .completion(&uri(), after(ALIASES, "    n := co", 0, 0))
+        .unwrap();
+    let docs = |label: &str| {
+        list.items
+            .iter()
+            .find(|i| i.label == label)
+            .and_then(|i| i.documentation.clone())
+    };
+    assert_eq!(docs("count").as_deref(), Some("The alias's own words."));
+    let list = s
+        .completion(&uri(), after(ALIASES, "    hel", 0, 0))
+        .unwrap();
+    let item = list
+        .items
+        .iter()
+        .find(|i| i.label == "hello")
+        .expect("hello");
+    let docs = item.documentation.as_deref().expect("docs");
+    assert!(docs.contains("Greets the world."), "{docs}");
+    let long = s
+        .completion(&uri(), after(ALIASES, "    b := BOTH", 0, 0))
+        .unwrap();
+    let item = long.items.iter().find(|i| i.label == "BOTH").expect("BOTH");
+    let docs = item
+        .documentation
+        .clone()
+        .or_else(|| s.completion_documentation(item.data.as_ref().expect("data")))
+        .expect("docs");
+    assert!(docs.contains("Documented in the target."), "{docs}");
+}

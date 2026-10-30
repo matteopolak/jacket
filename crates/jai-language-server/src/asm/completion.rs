@@ -202,6 +202,7 @@ impl Session {
                 }
             })
             .map(|row| IdeName {
+                docs: None,
                 name: row.name.as_str().into(),
                 kind: if row.kind == SymbolKind::Constant {
                     IdeKind::Constant
