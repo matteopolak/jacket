@@ -92,19 +92,26 @@ parse_enum :: (line: *string, $T: Type, delimiters := DEFAULT_DELIMITERS, spaces
 // Reads the next token as a whole number of type `T` (`int` by default). Only space and tab are skipped
 // in front of it unless you pass `spaces`.
 //
-// The second result is `false` when the token is not entirely a number, or there is none. A number
-// too large for `T` is cut to its low bits and still counts as valid.
+// The second result is `false` when the token is not entirely a number, or there is none, or the
+// number does not fit `T` (including a minus sign for an unsigned `T`). The value is then `0`.
 //
 // ```jai
 // line := " 42;7";
 // value, ok := parse_int(*line);
 // assert(ok && value == 42);
+//
+// big := "257";
+// small, small_ok := parse_int(*big, u8);
+// assert(!small_ok && small == 0);
 // ```
 parse_int :: (line: *string, $T: Type = int, spaces := " \t", delimiters := DEFAULT_DELIMITERS) -> value: T, success: bool {
     token, ok := parse_token(line, delimiters, spaces);
     if !ok return cast(T) 0, false;
-    value, valid, rest := string_to_int(token);
-    return cast,trunc(T) value, valid && rest.count == 0;
+
+    value, valid, rest := string_to_int(token, 10, T);
+    if !valid || rest.count != 0 return cast(T) 0, false;
+
+    return value, true;
 }
 
 // Reads the next token as a decimal number. The second result is `false` when the token is not entirely a

@@ -79,7 +79,7 @@ token_parsing_leaves_the_line_as_documented :: () {
     line = " 257;rest";
     narrow, parsed := S.parse_int(*line, u8);
 
-    expect(parsed && narrow == 1 && line == ";rest");
+    expect(!parsed && narrow == 0 && line == ";rest");
     line = "SECOND;rest";
     choice, enum_parsed := S.parse_enum(*line, Choice);
 
