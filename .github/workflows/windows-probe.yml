@@ -7,7 +7,7 @@ on:
   # workflow or to the compiler before that, push a `tmp/win-probe-*` branch: it builds the branch and runs
   # `probe.jai` from its root on both architectures.
   push:
-    branches: ['tmp/win-probe-**']
+    branches: ['tmp/win-probe-**']  # a branch name containing `bench` also runs the harness smoke test
   workflow_dispatch:
     inputs:
       source:
@@ -35,6 +35,10 @@ on:
         description: Extra jaic arguments, e.g. -O2
         type: string
         default: ''
+      bench:
+        description: Also smoke-test the benchmark harness (unit tests, then `compile --only hello` sandboxed and not)
+        type: boolean
+        default: false
 permissions:
   contents: read
 env:
@@ -122,3 +126,29 @@ jobs:
             echo '```'
           } | tee -a "$GITHUB_STEP_SUMMARY"
           [ $compile -eq 0 ] && [ "$run" = 0 ]
+      # The harness port in tools/bench: its Windows unit tests (Job Object, AppContainer) and one small
+      # compile benchmark, once inside the AppContainer sandbox and once without it, to tell a sandbox
+      # failure from a harness failure. Reported, not required: the step never fails the job.
+      - name: Benchmark harness smoke test
+        if: ${{ !cancelled() && (inputs.bench || (github.event_name == 'push' && contains(github.ref_name, 'bench'))) }}
+        continue-on-error: true
+        run: |
+          mkdir -p "$RUNNER_TEMP/bench"
+          echo "## Benchmark harness on Windows, $CPU" >> "$GITHUB_STEP_SUMMARY"
+          run_step() {
+            title="$1"; shift
+            set +e
+            "$@" > "$RUNNER_TEMP/bench/out.txt" 2>&1
+            code=$?
+            set -e
+            {
+              echo "### $title (exit $code)"
+              echo '```'
+              tail -n 60 "$RUNNER_TEMP/bench/out.txt"
+              echo '```'
+            } | tee -a "$GITHUB_STEP_SUMMARY"
+          }
+          run_step "Unit tests" python -m unittest discover -s tools/bench -p 'test_windows.py' -v
+          run_step "Sandbox availability" python -c "from bench.sandbox import Sandbox; print(Sandbox.available() or 'AppContainer works')"
+          run_step "compile hello, AppContainer sandbox" python tools/bench/main.py compile --compiler "jaic=$JAIC" --only hello --repeat 1 --warmup 0 --phase-repeat 0 --out "$RUNNER_TEMP/bench/sandboxed.json"
+          run_step "compile hello, --no-sandbox" python tools/bench/main.py compile --compiler "jaic=$JAIC" --only hello --repeat 1 --warmup 0 --phase-repeat 0 --no-sandbox --out "$RUNNER_TEMP/bench/plain.json"

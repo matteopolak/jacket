@@ -16,6 +16,7 @@ Actions, "windows probe", Run workflow. Inputs:
 | `snippet` | the Jai source, inline |
 | `path` | a `.jai` file in the checked-out ref; wins over `snippet` |
 | `args` | extra `jaic` arguments such as `-O2` |
+| `bench` | also run the benchmark harness smoke test: the Windows unit tests of `tools/bench`, whether an AppContainer can start a program, and `compile --only hello` once sandboxed and once with `--no-sandbox`. The step reports into the summary and never fails the job. A pushed branch whose name contains `bench` (`tmp/win-probe-bench-x`) runs it too |
 
 The program is built with `jaic probe.jai -exe probe.exe` and run. `jaic` finds the MSVC linker and the Windows SDK itself, as in the other Windows jobs, so no developer prompt is entered. The step fails when the compile or the run exits non-zero.
 
