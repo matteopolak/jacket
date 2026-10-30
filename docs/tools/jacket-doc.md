@@ -77,6 +77,7 @@ CI runs `jacket doc --check` (which also checks the categories and every written
 - A module page has no filter: its procedure groups are plain headings (each with a link to itself), and on screens 1280px wide or more an "On this page" outline sits on the right and marks the heading being read.
 - Scrollbars are thin and reserve their gutter (`scrollbar-gutter: stable`), so pages that scroll and pages that don't line up.
 - A module whose procedures all come from one file has one flat list.
+- The version in the header is plain text. If the host serves `versions.json` next to `index.html` (`[{"version": "0.31.0", "url": "/docs/jai/"}, ...]`) with two or more entries, it becomes a menu. `jacket doc` never writes that file; the site hosting several versions does.
 - The data has no "since" version, so the pages don't show one.
 
 ## Configuration
