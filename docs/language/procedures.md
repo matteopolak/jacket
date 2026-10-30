@@ -26,6 +26,7 @@ h :: f;  h :: g;         // aliases join one overload set
 - `#caller_location` as a default is evaluated at the call site (`location_operand` in `sema/expr.rs`). `#file` and `#filepath` use `/` on Windows too.
 - A `Code` parameter on a plain procedure takes any expression as code; a baked `$args: ..Code` quotes each argument (`quote_code_arg`).
 - Parameters are values: aggregates arrive as a pointer and the callee copies them on entry (`lower_body_code`), so it never changes the caller's variable.
+- Inside an argument or field list a comma normally ends a return type, so `f(a, (x: int) -> bool, T { ... })` would read `T` as the next argument. When the tokens after the comma run up to a `{` before any `,`, `;` or closing bracket, they are another return type of a procedure literal and the `{` starts its body, so a struct-literal field such as `proc = (data: *u8) -> bool, Pad { ... }` parses (`return_list_precedes_body` in `parser/procedure.rs`) {#proc.13}.
 - `#deprecated "msg"` is exported to metaprograms but produces no warning.
 
 ### Lambdas

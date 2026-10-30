@@ -477,11 +477,32 @@ impl Parser<'_> {
         }
         let mut returns = vec![self.parse_return_value()?];
         // Inside argument and parameter lists a comma separates the arguments instead.
-        while !self.in_list && self.at(P::Comma) {
+        while self.at(P::Comma) && (!self.in_list || self.return_list_precedes_body()) {
             self.bump();
             returns.push(self.parse_return_value()?);
         }
         Ok(returns)
+    }
+
+    /// At a `,` inside an argument or field list: whether the tokens up to the next
+    /// list separator end at a `{`, which makes them another return type of a
+    /// procedure literal whose body follows.
+    fn return_list_precedes_body(&self) -> bool {
+        let mut depth = 0usize;
+        for token in &self.toks[self.pos + 1..] {
+            match &token.tok {
+                Tok::Punct(P::LParen | P::LBracket) => depth += 1,
+                Tok::Punct(P::RParen | P::RBracket) if depth > 0 => depth -= 1,
+                Tok::Punct(P::LBrace) if depth == 0 => return true,
+                Tok::Punct(P::Comma | P::Semi | P::RParen | P::RBrace | P::RBracket) | Tok::Eof
+                    if depth == 0 =>
+                {
+                    return false;
+                }
+                _ => {}
+            }
+        }
+        false
     }
 
     /// A parenthesized return list, unless the parentheses are a procedure type's parameters.
