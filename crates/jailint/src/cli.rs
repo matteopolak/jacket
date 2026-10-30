@@ -35,7 +35,7 @@ impl Args {
         use jaic::ide::lint_compile::CheckLimits;
         CheckLimits::new(
             self.compile_time_budget
-                .unwrap_or(CheckLimits::DEFAULT_EVAL_BLOCKS),
+                .unwrap_or(CheckLimits::DEFAULT_EVAL_STEPS),
             self.check_time_limit
                 .unwrap_or_else(CheckLimits::default_seconds),
         )
@@ -85,7 +85,7 @@ struct Own {
     /// Blocks `excessive_nesting` allows (default: `[lint] max_nesting` in `jacket.toml`, else 6)
     #[arg(long, value_name = "n", value_parser = number::<usize>("--max-nesting", "a whole number", "6"))]
     max_nesting: Option<usize>,
-    /// Basic blocks one compile-time evaluation may run before it fails (default: 200000000; 0:
+    /// Steps (loop iterations and calls) one compile-time evaluation may run before it fails (default: 66000000; 0:
     /// no limit)
     #[arg(long, value_name = "blocks", value_parser = number::<u64>("--compile-time-budget", "a whole number", "50000000"))]
     compile_time_budget: Option<u64>,

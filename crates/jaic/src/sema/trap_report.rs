@@ -231,11 +231,18 @@ impl Compiler {
                 format!("still running{}", self.src.loc_suffix(Some(loc))),
             );
         }
-        if self.ct.interp.eval_blocks.is_some() {
-            d = d.with_help(
-                "a loop that never ends is the usual cause; if the work is expected, raise \
-                 the compile-time evaluation budget",
-            );
+        if self.ct.interp.eval_steps.is_some() {
+            d = d.with_help(match self.options.eval_step_flag {
+                Some(flag) => format!(
+                    "a loop that never ends is the usual cause; if the work is expected, raise \
+                     the compile-time evaluation budget with `{flag} <steps>` (`0` for no limit)"
+                ),
+                None => {
+                    "a loop that never ends is the usual cause; if the work is expected, raise \
+                         the compile-time evaluation budget"
+                        .to_string()
+                }
+            });
         }
         d
     }

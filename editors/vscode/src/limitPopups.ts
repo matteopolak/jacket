@@ -7,7 +7,7 @@
 export const BUDGET_SETTING = "compileTime.evaluationBudget";
 export const TIME_SETTING = "compileTime.checkTimeLimit";
 
-export const DEFAULT_BUDGET = 200_000_000;
+export const DEFAULT_BUDGET = 66_000_000;
 export const DEFAULT_TIME = 10;
 
 export type LimitKind = "budget" | "time";
@@ -54,7 +54,7 @@ export function raised(current: number): number | undefined {
 /** The text of the message for `notice`. */
 export function noticeText(notice: LimitNotice, place: string, limit: number): string {
   return notice.kind === "budget"
-    ? `Jai: the compile-time code at ${place} ran past its budget of ${limit.toLocaleString("en-US")} basic blocks and was stopped. The rest of the program was still checked.`
+    ? `Jai: the compile-time code at ${place} ran past its budget of ${limit.toLocaleString("en-US")} steps and was stopped. The rest of the program was still checked.`
     : `Jai: checking stopped after ${limit} s, so the results are partial. Compile-time code at ${place} was running.`;
 }
 

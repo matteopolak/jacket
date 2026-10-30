@@ -14,7 +14,7 @@ impl Session {
 
     /// Seconds a whole check may take before it stops with partial results (`0`: no limit).
     pub fn set_check_time_limit(&mut self, seconds: f64) {
-        let blocks = self.check_limits.eval_blocks;
+        let blocks = self.check_limits.eval_steps;
         let blocks = if blocks == u64::MAX {
             0
         } else {

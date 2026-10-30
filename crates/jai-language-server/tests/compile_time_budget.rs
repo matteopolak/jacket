@@ -39,7 +39,7 @@ fn only_the_runaway_run_is_reported_where_it_was_started() {
     assert_eq!(lines, [1], "{errors:#?}");
     let message = &errors[0].message;
     assert!(
-        message.contains("execution budget exhausted (200000000 basic blocks)"),
+        message.contains("execution budget exhausted (66000000 steps)"),
         "{message}"
     );
     assert!(message.contains("still running `spin` at"), "{message}");
@@ -72,7 +72,7 @@ fn the_evaluation_budget_bounds_each_evaluation() {
     let lines: Vec<u32> = found.iter().map(|d| d.range.start.line).collect();
     assert_eq!(lines, [6], "{found:#?}");
     assert!(
-        found[0].message.contains("(20000 basic blocks)"),
+        found[0].message.contains("(20000 steps)"),
         "{}",
         found[0].message
     );
@@ -267,7 +267,7 @@ fn the_client_hears_of_a_limit_at_the_evaluation_that_hit_it() {
     assert_eq!(params["uri"], uri);
     assert_eq!(params["range"]["start"]["line"], 1);
     let message = params["message"].as_str().unwrap();
-    assert!(message.contains("(50000 basic blocks)"), "{params}");
+    assert!(message.contains("(50000 steps)"), "{params}");
     // Raising the setting re-checks, and the evaluation no longer hits it.
     let after = send(
         &mut s,
@@ -281,7 +281,7 @@ fn the_client_hears_of_a_limit_at_the_evaluation_that_hit_it() {
         notices[0]["params"]["message"]
             .as_str()
             .unwrap()
-            .contains("(200000 basic blocks)"),
+            .contains("(200000 steps)"),
         "{after:#?}"
     );
 }

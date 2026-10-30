@@ -16,7 +16,7 @@ fn compiler(source: &str, limit: Option<u64>) -> Compiler {
     let mut options = Options::host();
     options.runtime_support = false;
     options.preload = Some("/prelude/module.jai".into());
-    options.eval_block_limit = limit;
+    options.eval_step_limit = limit;
     Compiler::new(options, Rc::new(fs))
 }
 
@@ -57,7 +57,7 @@ main :: () {}
     let mut c = compiler(source, Some(1000));
     let error = run(&mut c).unwrap_err();
     assert!(
-        error.contains("execution budget exhausted (1000 basic blocks)"),
+        error.contains("execution budget exhausted (1000 steps)"),
         "{error}"
     );
     assert!(error.contains("still running `spin` at"), "{error}");

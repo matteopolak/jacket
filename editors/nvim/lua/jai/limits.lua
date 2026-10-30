@@ -34,7 +34,7 @@ function M.text(notice)
       place(notice)
     )
   end
-  return ('the compile-time code at %s ran past its budget of %d basic blocks and was stopped; the rest of the program was still checked. '
+  return ('the compile-time code at %s ran past its budget of %d steps and was stopped; the rest of the program was still checked. '
     .. "Raise compile_time.evaluation_budget in require('jai').setup() (0 for no limit), or run :Jai costs to see what is slow."):format(
     place(notice),
     limits.evaluation_budget

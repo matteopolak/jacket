@@ -251,7 +251,10 @@ pub struct Options {
     pub backtrace_on_crash: bool,
     /// Basic blocks each top-level compile-time evaluation may run before it traps; `None`
     /// is no limit (a build). Editors and linters set it (`ide::lint_compile`).
-    pub eval_block_limit: Option<u64>,
+    pub eval_step_limit: Option<u64>,
+    /// The command-line flag that changes `eval_step_limit`, named in the exhausted-budget
+    /// diagnostic's help; `None` where an editor setting does (the language server, `jailint`).
+    pub eval_step_flag: Option<&'static str>,
 }
 
 /// The C `long double` of a target, when wider than `float64`: x87 extended on x86-64 System V
@@ -378,7 +381,8 @@ impl Options {
             runtime_entry_point: true,
             runtime_initialization: true,
             backtrace_on_crash: false,
-            eval_block_limit: None,
+            eval_step_limit: None,
+            eval_step_flag: None,
         }
     }
 }
@@ -587,8 +591,8 @@ impl Compiler {
             namespace_check: std::cell::Cell::new((0, 0)),
             ct: CompileTime::default(),
         };
-        c.ct.interp.eval_blocks = c.options.eval_block_limit;
-        if c.ct.interp.eval_blocks.is_none() && crate::interp::profile::run_costs() {
+        c.ct.interp.eval_steps = c.options.eval_step_limit;
+        if c.ct.interp.eval_steps.is_none() && crate::interp::profile::run_costs() {
             // Blocks are counted when there is a budget; this one never runs out.
             c.ct.interp.block_budget = Some(u64::MAX);
         }

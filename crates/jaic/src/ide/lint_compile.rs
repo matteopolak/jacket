@@ -16,7 +16,7 @@ use std::rc::Rc;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CheckLimits {
     /// Basic blocks one top-level compile-time evaluation may run: a `#run` may loop forever.
-    pub eval_blocks: u64,
+    pub eval_steps: u64,
     /// Seconds the whole check may take before it stops with partial results; `None`: no limit.
     pub seconds: Option<f64>,
     /// Evaluations that ran at least this many blocks are worth showing the cost of.
@@ -25,7 +25,7 @@ pub struct CheckLimits {
 
 impl CheckLimits {
     /// The blocks one evaluation may run unless told otherwise.
-    pub const DEFAULT_EVAL_BLOCKS: u64 = 200_000_000;
+    pub const DEFAULT_EVAL_STEPS: u64 = 66_000_000;
 
     /// The seconds a check may take unless told otherwise.
     pub const DEFAULT_SECONDS: f64 = 10.0;
@@ -50,7 +50,7 @@ impl CheckLimits {
     /// number: no limit); the cost threshold stays at its default.
     pub fn new(blocks: u64, seconds: f64) -> Self {
         Self {
-            eval_blocks: if blocks == 0 {
+            eval_steps: if blocks == 0 {
                 u64::MAX
             } else {
                 blocks
@@ -64,7 +64,7 @@ impl CheckLimits {
 impl Default for CheckLimits {
     fn default() -> Self {
         Self {
-            eval_blocks: Self::DEFAULT_EVAL_BLOCKS,
+            eval_steps: Self::DEFAULT_EVAL_STEPS,
             seconds: Some(Self::default_seconds()).filter(|s| *s > 0.0 && s.is_finite()),
             hint_blocks: Self::DEFAULT_HINT_BLOCKS,
         }
@@ -129,7 +129,7 @@ impl LintCompile {
             limits,
         } = setup;
         let mut options = options;
-        options.eval_block_limit = Some(limits.eval_blocks);
+        options.eval_step_limit = Some(limits.eval_steps);
         if let Some(seconds) = limits.seconds {
             host.borrow_mut()
                 .stop_after(std::time::Duration::from_secs_f64(seconds));
@@ -147,7 +147,7 @@ impl LintCompile {
         });
         let mut compiler = Box::new(Compiler::new(options, fs));
         compiler.ct.interp.host = Box::new(SharedHost(host.clone()));
-        compiler.ct.interp.block_budget = Some(limits.eval_blocks);
+        compiler.ct.interp.block_budget = Some(limits.eval_steps);
         compiler.attach_workspaces(workspaces.clone());
         Self {
             compiler,

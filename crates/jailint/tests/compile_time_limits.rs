@@ -53,7 +53,7 @@ fn a_runaway_run_does_not_hide_the_code_after_it() {
     // The budget must run out first; on a slow machine 200M blocks outlast the default time limit.
     let text = lint(&project("budget", None), &["--check-time-limit", "0"]);
     assert!(
-        text.contains("execution budget exhausted (200000000 basic blocks)"),
+        text.contains("execution budget exhausted (66000000 steps)"),
         "{text}"
     );
     // The bodies after the runaway were checked: their findings are there.
@@ -64,7 +64,7 @@ fn a_runaway_run_does_not_hide_the_code_after_it() {
 #[test]
 fn the_budget_comes_from_the_flag() {
     let text = lint(&project("blocks", None), &["--compile-time-budget", "5000"]);
-    assert!(text.contains("(5000 basic blocks)"), "{text}");
+    assert!(text.contains("(5000 steps)"), "{text}");
     assert!(
         text.contains("raise the compile-time evaluation budget"),
         "{text}"

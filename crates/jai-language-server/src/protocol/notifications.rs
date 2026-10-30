@@ -258,7 +258,7 @@ impl JsonSession {
 
     /// Apply the settings in `settings` (`initializationOptions`, or the `jai` section of
     /// `workspace/didChangeConfiguration`): `{ "completion": { "autoImport": false,
-    /// "callSnippets": "fillArguments" }, "compileTime": { "evaluationBudget": 200000000,
+    /// "callSnippets": "fillArguments" }, "compileTime": { "evaluationBudget": 66000000,
     /// "checkTimeLimit": 10 } }`. A setting the client leaves out keeps its default.
     pub(super) fn configure(&mut self, settings: &Value) {
         if let Some(on) = settings["completion"]["autoImport"].as_bool() {

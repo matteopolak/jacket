@@ -84,7 +84,7 @@ All optional. Either `require('jai').setup({ ... })` or a `vim.g.jai = { ... }` 
 | `completion.call_snippets` | `'addParentheses'` | What accepting a procedure inserts: `'addParentheses'` (`name($0)`, `name()` without parameters), `'fillArguments'` (a placeholder per required parameter) or `'none'` |
 | `inlay_hints.closing_brace_min_lines` | `25` | Show `// name` after the closing brace of a procedure, struct or enum this many lines long; `0` turns it off |
 | `run.arguments` | `{}` | Extra `jaic` arguments, e.g. `{ '-O2' }` |
-| `compile_time.evaluation_budget` | `200000000` | Basic blocks one top-level compile-time evaluation (`#run` and so on) may run before it is stopped; `0` for no limit |
+| `compile_time.evaluation_budget` | `66000000` | Steps (loop iterations and calls) one top-level compile-time evaluation (`#run` and so on) may run before it is stopped; `0` for no limit |
 | `compile_time.check_time_limit` | `10` | Seconds a whole check may take before the results are partial; `0` for no limit |
 | `compile_time.cost_lens_blocks` | `1000000` | Evaluations of at least this many blocks get a cost code lens |
 | `trusted` | `true` | Set `false` for code you did not write: `jailsp` runs no `#run`, build metaprogram or computed `#insert`, and `:Jai run`, `build` and `check` are off (see [workspace trust](../../docs/tools/workspace-trust.md)) |

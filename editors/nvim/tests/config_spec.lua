@@ -17,7 +17,7 @@ end
 T['the compile-time limits default to the VS Code values'] = function()
   config.set({})
   local c = config.server_settings().compileTime
-  assert(c.evaluationBudget == 200000000, vim.inspect(c))
+  assert(c.evaluationBudget == 66000000, vim.inspect(c))
   assert(c.checkTimeLimit == 10, vim.inspect(c))
   assert(c.costLensBlocks == 1000000, vim.inspect(c))
   assert(c.limitNotices == true, vim.inspect(c))
@@ -36,7 +36,7 @@ T['a limit notice says where it happened and how to raise the limit'] = function
   local notice = { kind = 'budget', uri = 'file:///tmp/main.jai', range = { start = { line = 2, character = 0 } }, message = 'x' }
   local text = limits.text(notice)
   assert(text:find('main.jai:3', 1, true), text)
-  assert(text:find('1000 basic blocks', 1, true), text)
+  assert(text:find('1000 steps', 1, true), text)
   assert(text:find('compile_time.evaluation_budget', 1, true), text)
   local time = limits.text(vim.tbl_extend('force', notice, { kind = 'time' }))
   assert(time:find('compile_time.check_time_limit', 1, true), time)

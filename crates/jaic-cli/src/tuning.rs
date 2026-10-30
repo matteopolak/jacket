@@ -25,6 +25,8 @@ pub(super) struct Tuning {
     pub profile_ops: bool,
     /// `-profile_runs`: the cost of each compile-time run.
     pub profile_runs: bool,
+    /// `-run_budget N`: steps (loop iterations and calls) one top-level compile-time run may execute (`0`: no limit).
+    pub run_budget: Option<u64>,
     pub coverage_file: Option<PathBuf>,
     /// The `-dev_*` flags, for studying the compiler (unlisted in `-help`).
     pub body_probe: bool,
@@ -166,6 +168,21 @@ const OPTIONS: &[CliOption] = &[
         Diagnostics,
         "-profile_runs",
         "print the compile-time runs (#run, constants, metaprograms) by the work they did",
+    ),
+    CliOption::new(
+        &["-run_budget"],
+        store!("a number of steps", |cli, n| cli
+            .tuning
+            .run_budget =
+            Some(n.parse().map_err(|_| {
+                CliError::new(format!("`-run_budget` takes a whole number, not `{n}`"))
+                    .help("for example `-run_budget 5000000000`, or `-run_budget 0` for no limit")
+            })?)),
+    )
+    .help(
+        Diagnostics,
+        "-run_budget <steps>",
+        "steps (loop iterations and calls) one compile-time run may execute before it fails (default 660000000; 0: no limit)",
     ),
     CliOption::new(
         &["-profile_ops"],

@@ -17,6 +17,10 @@ use std::rc::Rc;
 /// Compile-time runs listed by `-profile_runs`.
 const RUN_COST_ROWS: usize = 25;
 
+/// Basic blocks one top-level compile-time run may execute unless `-run_budget` says otherwise:
+/// ten times what the editor allows, since a build may legitimately spend longer than a keystroke.
+const DEFAULT_RUN_BUDGET: u64 = 10 * jaic::ide::lint_compile::CheckLimits::DEFAULT_EVAL_STEPS;
+
 pub(super) fn run(cli: Cli) -> ExitCode {
     jaic::knobs::set(tuning::knobs(&cli));
     if cli.timings {
@@ -230,6 +234,13 @@ pub(super) fn compiler_options(cli: &Cli, stdlib: &Path, main: &Path) -> Result<
     if cli.no_dce {
         options.dead_code = DeadCode::None;
     }
+    // A `#run` that never ends must not hang a build: 0 asks for no limit.
+    options.eval_step_limit = match cli.tuning.run_budget {
+        Some(0) => None,
+        Some(blocks) => Some(blocks),
+        None => Some(DEFAULT_RUN_BUDGET),
+    };
+    options.eval_step_flag = Some("-run_budget");
     // Only native output has a use for variable and type descriptions.
     options.debug_info = cli.mode == Mode::Build && !cli.no_debug_info;
     if cli.no_backtrace_on_crash {

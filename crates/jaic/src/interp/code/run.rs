@@ -11,16 +11,13 @@ enum Flow {
     Switch(usize),
 }
 
-/// Blocks between two asks of the host whether to stop.
-const STOP_CHECK_BLOCKS: u32 = 1024;
-
 impl Interp {
     /// The trap for a budget that ran out. It names the limit when each evaluation has one.
     #[cold]
     fn budget_trap<T>(&mut self) -> Res<T> {
         self.budget_traps += 1;
-        let message = match self.eval_blocks {
-            Some(limit) => format!("execution budget exhausted ({limit} basic blocks)"),
+        let message = match self.eval_steps {
+            Some(limit) => format!("execution budget exhausted ({limit} steps)"),
             None => "execution budget exhausted".to_string(),
         };
         self.trap_of(TrapKind::BudgetExhausted, message)
@@ -29,7 +26,7 @@ impl Interp {
     /// Does anything need to look at each basic block as it is entered?
     #[inline(always)]
     fn watches_blocks(&self) -> bool {
-        self.block_budget.is_some() || self.multi || self.profile.is_some()
+        self.multi || self.profile.is_some()
     }
 
     /// Make `loc` the location in effect at op `op` of `code`, if it has one.
@@ -48,6 +45,39 @@ impl Interp {
         trap
     }
 
+    /// One step of the execution budget: a loop's back-edge, a call or a switch. Every infinite
+    /// run passes one, so the budget is charged there and not on every block. The common case
+    /// is a decrement; every 1024th step (and an empty budget) takes `tick_slow`.
+    #[inline(always)]
+    fn tick(&mut self) -> Res<()> {
+        match self.block_budget.as_mut() {
+            Some(left) if *left & 1023 != 0 => {
+                *left -= 1;
+                Ok(())
+            }
+            Some(_) => self.tick_slow(),
+            None => Ok(()),
+        }
+    }
+
+    #[cold]
+    #[inline(never)]
+    fn tick_slow(&mut self) -> Res<()> {
+        if let Some(left) = self.block_budget.as_mut() {
+            if *left == 0 {
+                match self.host.refill_budget() {
+                    Some(more) => *left = more,
+                    None => return self.budget_trap(),
+                }
+            }
+            *left -= 1;
+        }
+        if self.host.stop_requested() {
+            return self.trap_of(TrapKind::Stopped, "checking stopped");
+        }
+        Ok(())
+    }
+
     /// What entering a block costs when `watches_blocks`: the execution budget, a chance for
     /// other threads to run, and the profile counts.
     #[inline(never)]
@@ -59,19 +89,6 @@ impl Interp {
         block: usize,
     ) -> Res<()> {
         let b = &code.blocks[block];
-        if let Some(left) = self.block_budget.as_mut() {
-            if *left == 0 {
-                match self.host.refill_budget() {
-                    Some(more) => *left = more,
-                    None => return self.budget_trap(),
-                }
-            }
-            *left -= 1;
-        }
-        self.stop_ticks = self.stop_ticks.wrapping_add(1);
-        if self.stop_ticks.is_multiple_of(STOP_CHECK_BLOCKS) && self.host.stop_requested() {
-            return self.trap_of(TrapKind::Stopped, "checking stopped");
-        }
         if self.multi {
             if self.host.cooperative_threads() {
                 if let Err(trap) = self.inline_preempt(program) {
@@ -107,6 +124,10 @@ impl Interp {
         regs: *mut u64,
         start: Option<usize>,
     ) -> Res<u32> {
+        // A call is a step of the budget (recursion has no back-edge); a resumed run is not new.
+        if start.is_none() {
+            self.tick()?;
+        }
         let mut at = start;
         let mut watched = self.watches_blocks();
         loop {
@@ -190,6 +211,18 @@ impl Interp {
             let op = unsafe { &*ops.add(pc) };
             let here = pc;
             pc += 1;
+            // Taking a jump: a backward one is a loop's back-edge, which the budget charges.
+            macro_rules! goto {
+                ($target:expr) => {{
+                    let target = $target as usize;
+                    if target <= here
+                        && let Err(trap) = self.tick()
+                    {
+                        return Err(self.located(trap, code, here));
+                    }
+                    pc = target;
+                }};
+            }
             match *op {
                 Op::Const {
                     dst,
@@ -592,14 +625,14 @@ impl Interp {
                 }
                 Op::Jump {
                     target,
-                } => pc = target as usize,
+                } => goto!(target),
                 Op::Branch {
                     cond,
                     sense,
                     target,
                 } => {
                     if (get(cond) & 0xff != 0) == sense {
-                        pc = target as usize;
+                        goto!(target);
                     }
                 }
                 Op::BranchCmp {
@@ -611,7 +644,7 @@ impl Interp {
                     target,
                 } => {
                     if cmp_shifted(op, shift, get(a), get(b)) == sense {
-                        pc = target as usize;
+                        goto!(target);
                     }
                 }
                 Op::BranchCmpImm {
@@ -623,7 +656,7 @@ impl Interp {
                     target,
                 } => {
                     if cmp_shifted(op, shift, get(a), imm as i64 as u64) == sense {
-                        pc = target as usize;
+                        goto!(target);
                     }
                 }
                 Op::BranchTest {
@@ -633,7 +666,7 @@ impl Interp {
                     target,
                 } => {
                     if (get(a) & mask as i64 as u64 != 0) == sense {
-                        pc = target as usize;
+                        goto!(target);
                     }
                 }
                 Op::Ret0 => return Ok(Flow::Returned(0)),
@@ -678,7 +711,7 @@ impl Interp {
                             .iter()
                             .find(|(c, _)| mask(*ty, *c) == v)
                             .map_or(default.0, |(_, t)| t.0);
-                        pc = code.blocks[target as usize].start as usize;
+                        goto!(code.blocks[target as usize].start);
                     }
                     Term::Unreachable => {
                         self.sync_loc(code, here);

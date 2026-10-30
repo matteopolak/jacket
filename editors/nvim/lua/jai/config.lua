@@ -24,7 +24,7 @@ local defaults = {
   completion = { auto_import = true, call_snippets = 'addParentheses' },
   inlay_hints = { closing_brace_min_lines = 25 },
   run = { arguments = {} },
-  compile_time = { evaluation_budget = 200000000, check_time_limit = 10, cost_lens_blocks = 1000000 },
+  compile_time = { evaluation_budget = 66000000, check_time_limit = 10, cost_lens_blocks = 1000000 },
   trusted = true,
   format_on_save = false,
   lsp = { enable = true },
