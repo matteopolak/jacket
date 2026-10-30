@@ -31,7 +31,8 @@ pub struct LibraryDoc {
     pub forwarded: Option<String>,
 }
 
-/// The `.jai` files of the library in `dir`.
+/// The `.jai` files of the library in `dir`, without its `tests/` and `bench/` programs or the
+/// libraries nested in it.
 fn own_files(dir: &Path, top: bool, out: &mut Vec<PathBuf>) {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;
@@ -43,7 +44,9 @@ fn own_files(dir: &Path, top: bool, out: &mut Vec<PathBuf>) {
             continue;
         }
         if path.is_dir() {
-            let name = path.file_name().is_some_and(|n| n == "tests");
+            let name = path
+                .file_name()
+                .is_some_and(|n| n == "tests" || n == "bench");
             if (top && name) || crate::paths::module_entry(&path).is_file() {
                 continue;
             }
