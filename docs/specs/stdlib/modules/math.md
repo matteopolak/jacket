@@ -279,6 +279,10 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `ldexp :: (x: float64, pw2: s32) -> float64`
 - `signbit :: inline (x: float64) -> u64`
 
+## Conventions
+
+Components are 32-bit `float`. Coordinate systems are right-handed and angles are radians. Matrices are stored row-major (`_rc` is row `r`, column `c`) and act on column vectors, with the translation in the last column; `make_projection_matrix` and `make_frustum_matrix` build a camera that looks along -z with clip depth -1..1 (0..1 with `depth_range_01`), and `make_look_at_matrix` pairs with them when `x_is_forward` is false. `Quaternion` stores the vector part first and the scalar `w` last, and `Quaternion.{}` is the identity. `Complex` is `#type,isa Vector2`. `plane_dot` is declared `#symmetric` but the flag has no effect on an ordinary procedure, so the plane must be the first argument. The doc comments in `stdlib/Math/module.jai` carry the per-procedure behavior and examples.
+
 ## Public type members
 
 #### `Plane3` (struct)
