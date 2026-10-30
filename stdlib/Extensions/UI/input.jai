@@ -174,6 +174,8 @@ process_input :: (ui: *UI_State) {
 
 finish_input :: (ui: *UI_State) {
     array_reset(*ui.input.keys);
+    ui.input.scroll_dx = 0;
+    ui.input.scroll_dy = 0;
     ui.input.clicked = 0;
     ui.input.double_clicked = 0;
 }

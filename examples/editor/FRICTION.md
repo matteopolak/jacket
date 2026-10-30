@@ -20,7 +20,7 @@ Modules used: Basic, Math, Hash_Table, Flat_Pool, File, File_Utilities, File_Wat
 ## Library design notes
 
 - Fixed by "feat(ui): warn about focusable widgets laid out with no size": a `text_editor` needs every ancestor column to `grow`; a zero-size focusable now logs a warning once, naming its role, label and key.
-- Scripted input needs two frames: the first applies it against the old layout, the second shows the result.
+- Fixed by "fix(ui): show queued input in the frame that applies it": scripted input needed two frames; `frame` now builds a second time after a frame with input, so one `frame` shows the result.
 - Typing ahead of a focus change: the search field must be clicked before text reaches it; shortcuts that open a field do not focus it yet.
 
 ## Tooling

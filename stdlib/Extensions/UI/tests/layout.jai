@@ -43,6 +43,32 @@ a_button_click_reaches_the_app :: () {
     expect(find_label(*ui, "Reset") == null);
 } @test
 
+queued_input_shows_when_the_frame_returns :: () {
+    app: Counter;
+    ui := headless(.{ width = 320, height = 200 });
+
+    defer free_ui(*ui);
+
+    frame(*ui, *app, counter_build);
+
+    // The label is declared above the button that reacts, yet it already reads the new count.
+    click(*ui, find_label(*ui, "Click me"));
+    frame(*ui, *app, counter_build);
+    expect_equal(app.count, 1);
+    expect_equal(find_role(*ui, .TEXT, 0).text, "Clicked 1 times");
+    expect(find_label(*ui, "Reset") != null);
+
+    // The rebuild after input sees the input spent: one click is one count.
+    click(*ui, find_label(*ui, "Click me"));
+    frame(*ui, *app, counter_build);
+    expect_equal(app.count, 2);
+    expect_equal(find_role(*ui, .TEXT, 0).text, "Clicked 2 times");
+
+    // A frame with no input changes nothing.
+    frame(*ui, *app, counter_build);
+    expect_equal(app.count, 2);
+} @test
+
 columns_stack_children_with_gaps_and_padding :: () {
     ui := headless(.{ width = 200, height = 100 });
 

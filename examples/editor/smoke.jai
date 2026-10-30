@@ -37,7 +37,6 @@ step :: (ui: *UI_State, ed: *Editor) {
 press :: (ui: *UI_State, ed: *Editor, key: Key_Code, mods: Modifiers = .{}) {
     send_key(ui, key, mods);
     step(ui, ed);
-    step(ui, ed);
 }
 
 type :: (ui: *UI_State, ed: *Editor, text: string) {
@@ -88,7 +87,6 @@ main :: () {
     check(find_label(*ui, "No file open") != null, "empty state before opening");
 
     click(*ui, find_label(*ui, "  hello.jai"));
-    step(*ui, *ed);
     step(*ui, *ed);
     check(ed.docs.count == 1, "click opens a tab");
     check(find_label(*ui, "hello.jai") != null, "tab is titled hello.jai");

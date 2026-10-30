@@ -61,7 +61,8 @@ find_role :: (ui: *UI_State, role: Role, index: int = 0) -> *Node {
     return find(ui, .{ role = role, match_role = true, index = index });
 }
 
-// Move the pointer to the centre of `node` and click it. Takes effect on the next `frame`.
+// Move the pointer to the centre of `node` and click it. The next `frame` applies it and shows the result. `node` must come
+// from a frame that has already laid it out.
 click :: (ui: *UI_State, node: *Node) {
     if !node return;
 

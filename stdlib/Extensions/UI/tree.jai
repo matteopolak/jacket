@@ -172,11 +172,28 @@ end_frame :: (ui: *UI_State) {
 }
 
 // Run one frame with the app's `build` procedure.
+//
+// Queued input is applied first, against the previous frame's layout, and `build` reacts to it
+// while it runs (`button` returns `true`, a text editor takes the typed text). A widget declared
+// above the one that reacted has already been drawn from the old state, so when the frame had input
+// it builds once more with the input spent: what you queued shows in the tree and the layout when
+// `frame` returns. `build` therefore runs twice on such a frame, and the second run sees no clicks,
+// keys or focus changes. A frame without input builds once.
 frame :: (ui: *UI_State, app: *$T, build: (app: *T)) {
     push_ui(ui);
     defer pop_ui();
 
+    had_input := ui.input.events.count > 0;
+
     process_input(ui);
+    begin_frame(ui);
+    build(app);
+    end_frame(ui);
+    finish_input(ui);
+
+    if !had_input return;
+
+    ui.focus_previous = ui.focus;
     begin_frame(ui);
     build(app);
     end_frame(ui);
