@@ -178,8 +178,17 @@ class Client:
         self.max_rss_mib = max_rss_mib
         self.stderr = tempfile.TemporaryFile()
         self.launched = time.perf_counter()
+        # POSIX: a session of its own, so the whole group can be killed. Windows: a Job Object, which also
+        # accounts the CPU time of the server and anything it starts.
+        self.job = None
+        spawn = {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP} if sys.platform == 'win32' else {'start_new_session': True}
         self.process = subprocess.Popen(command, cwd=cwd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                        stderr=self.stderr, start_new_session=True)
+                                        stderr=self.stderr, **spawn)
+        if sys.platform == 'win32':
+            from bench import winjob
+            self.job = winjob.Job()
+            self.job.assign(int(self.process._handle))
+            self.peak_bytes = 0
         self.next_id = 1
         self.responses: dict[int, tuple[float, dict]] = {}
         self.notifications: list[tuple[float, dict]] = []
@@ -294,12 +303,25 @@ class Client:
             raise MemoryLimit(f'resident set passed {self.max_rss_mib:g} MiB ({rss:.0f} MiB) while waiting')
 
     def rss_mib(self) -> float | None:
+        if self.job:
+            return self.working_set_bytes() / 2**20
         out = subprocess.run(['ps', '-o', 'rss=', '-p', str(self.process.pid)], capture_output=True, text=True)
         return int(out.stdout) / 1024 if out.stdout.strip().isdigit() else None
+
+    def working_set_bytes(self) -> int:
+        """The server's resident memory now (Windows); the peak seen so far is kept for `finish`."""
+        from bench import winapi
+        memory = winapi.process_memory(int(self.process._handle))
+        if memory:
+            self.peak_bytes = max(self.peak_bytes, memory[1])
+        return memory[0] if memory else 0
 
     def sample(self) -> dict | None:
         """The server's CPU seconds (user, system) and RSS now, or None when they cannot be read."""
         pid = self.process.pid
+        if self.job:
+            user, kernel = self.job.cpu_seconds()
+            return {'cpu_user': user, 'cpu_sys': kernel, 'rss_mib': self.working_set_bytes() / 2**20}
         stat = Path(f'/proc/{pid}/stat')
         try:
             if TASK_TIMES and (times := TASK_TIMES(pid)):
@@ -327,6 +349,8 @@ class Client:
             self.process.stdin.close()
         except OSError:
             pass
+        if self.job:
+            return self.finish_windows()
         deadline = time.perf_counter() + 10
         status = usage = None
         while True:
@@ -345,3 +369,24 @@ class Client:
         self.rusage = usage
         # ru_maxrss is in bytes on macOS and KiB on Linux.
         return usage.ru_maxrss / (2**20 if sys.platform == 'darwin' else 2**10)
+
+    def finish_windows(self) -> float:
+        """Wait for the server to exit (killing the job after 10 s), keep the job's CPU time as `rusage`
+        and return the largest peak working set of the server or anything it started, in MiB."""
+        from types import SimpleNamespace
+
+        from bench import winapi
+        try:
+            self.process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            self.job.terminate()
+            self.process.wait()
+        self.working_set_bytes()
+        peak = max(self.peak_bytes, self.job.peak_working_set_of_members())
+        user, kernel = self.job.cpu_seconds()
+        self.rusage = SimpleNamespace(ru_utime=user, ru_stime=kernel)
+        self.job.terminate()
+        self.job.close()
+        self.reader.join(2)
+        self.process.stdout.close()
+        return winapi.mib(peak)
