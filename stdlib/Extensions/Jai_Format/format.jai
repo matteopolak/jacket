@@ -687,6 +687,9 @@ separate_items :: (f: *Formatter, partner: [] int, enclosing: [] int, from: int,
                 if text == "{" && !f.literal_brace[o] done = block_ends_item(f, k);
             } else if text == ";" {
                 done = true;
+
+                // Notes after the `;` on its line (`x :: #library "m"; @native(external)`) belong to it.
+                while f.tokens[k + 1].kind == .NOTE && f.breaks[k + 1] == 0 k += 1;
             }
         }
 
