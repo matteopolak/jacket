@@ -104,6 +104,7 @@ The language server provides diagnostics, hover, go to definition, find referenc
 
 ## More
 
+- [API documentation](https://matteopolak.com/docs/jai): the standard library, with examples you can run in the browser
 - [Features](docs/features.md): what works, performance, and what's missing
 - [Compatibility with real projects](docs/tools/upstream-corpus.md#project-status)
 - [Changelog](CHANGELOG.md)
