@@ -316,7 +316,7 @@ impl Parser<'_> {
         for n in 0.. {
             match self.tok_at(n) {
                 Tok::Eof => return false,
-                Tok::Punct(P::LParen | P::LBracket) => depth += 1,
+                Tok::Punct(P::LParen | P::LBracket | P::DotBracket) => depth += 1,
                 Tok::Punct(P::RParen | P::RBracket) => match depth.checked_sub(1) {
                     Some(d) => depth = d,
                     None => return false,
