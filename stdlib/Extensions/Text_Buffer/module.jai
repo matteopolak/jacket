@@ -228,7 +228,7 @@ replace :: (buffer: *Text_Buffer, offset: int, count: int, text: string) {
 
 // Search for `needle` from `from`; returns the offset of the first match or -1. Matches across
 // pieces are found.
-find :: (buffer: *Text_Buffer, needle: string, from: int = 0) -> int {
+find_text :: (buffer: *Text_Buffer, needle: string, from: int = 0) -> int {
     if !needle.count return -1;
 
     whole := text_range(buffer, 0, buffer.length);

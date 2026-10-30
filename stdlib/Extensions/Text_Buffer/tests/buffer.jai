@@ -168,9 +168,9 @@ finds_text_across_pieces :: () {
     insert(*buffer, 5, ",");
     insert(*buffer, 0, ">> ");
 
-    expect_equal(find(*buffer, "o, w"), 7);
-    expect_equal(find(*buffer, "world", 8), 10);
-    expect_equal(find(*buffer, "nope"), -1);
+    expect_equal(find_text(*buffer, "o, w"), 7);
+    expect_equal(find_text(*buffer, "world", 8), 10);
+    expect_equal(find_text(*buffer, "nope"), -1);
 } @test
 
 graphemes_stay_together :: () {
