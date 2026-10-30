@@ -326,13 +326,20 @@ impl Parser<'_> {
 
     fn parse_assert(&mut self) -> PResult<Stmt> {
         let assert = self.parse_assert_core()?;
-        self.end_stmt("after `#assert`")?;
+        // A condition that holds a braced body (`#assert #run -> bool { ... } "message"`) needs
+        // no `;` after it.
+        if std::mem::take(&mut self.assert_cond_has_body) {
+            self.eat(P::Semi);
+        } else {
+            self.end_stmt("after `#assert`")?;
+        }
         Ok(assert)
     }
 
     /// `#assert cond ["message"]` without the terminator.
     pub(super) fn parse_assert_core(&mut self) -> PResult<Stmt> {
         let start = self.bump();
+        self.assert_cond_has_body = false;
         // `#assert,stallable(cond)`: checks run synchronously, so the flag changes nothing. Its
         // name is taken alone: the parentheses after it are the condition, not a flag argument.
         if self.at(P::Comma)
@@ -374,7 +381,11 @@ impl Parser<'_> {
                 start.to(self.prev_span()),
             ));
         }
+        let cond_start = self.pos;
         let cond = self.parse_expr()?;
+        self.assert_cond_has_body = self.toks[cond_start..self.pos]
+            .iter()
+            .any(|token| matches!(token.tok, Tok::Punct(P::RBrace)));
         if self.at(P::Comma) && matches!(self.tok_at(1), Tok::Str(_)) {
             self.bump();
         }

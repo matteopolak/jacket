@@ -132,6 +132,8 @@ pub(crate) struct Parser<'a> {
     /// True while parsing the statement of a `#code` literal: a closing `)`, `]` or `,` of the
     /// enclosing expression ends it like a `;` would.
     in_code_stmt: bool,
+    /// Whether the condition of the `#assert` just parsed contained a braced body.
+    assert_cond_has_body: bool,
     /// True while parsing the braces of a `#code` block written inside an argument list, up to a
     /// procedure body: the official compiler reads a comma there as the end of an argument.
     code_in_args: bool,
@@ -171,6 +173,7 @@ impl<'a> Parser<'a> {
             pending_notes: Vec::new(),
             hoisted: Vec::new(),
             in_code_stmt: false,
+            assert_cond_has_body: false,
             code_in_args: false,
             in_aggregate_body: false,
             depth: 0,

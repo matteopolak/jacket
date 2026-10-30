@@ -48,6 +48,7 @@ Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 
 - `parser/directive.rs` parses suffixes generically as `,name` or `,name(expr)` after a directive (`#run,stallable`, `#insert,scope(x)`). `#run,stallable` behaves like `#run` {#note.1}.
 - `#assert cond "msg";` and `#assert(cond, "msg");` both take an optional message {#note.2}, and a failure is reported at the condition {#note.3}. `#must` after a result makes discarding that result a compile error {#note.6}.
+- A `#assert` whose condition holds a braced body, as in `#assert #run -> bool { ... } "msg"`, needs no `;` after it; any other `#assert` still needs one {#note.13}.
 - `#program_export` (optionally with a symbol name string) on a procedure keeps it as a root even if nothing calls it (`export_entities` in `sema/modules.rs`) {#note.4} and sets its native symbol name to the string or the procedure name (`sema/procs.rs`) {#note.5}. It matters for `jaic`.
 - Notes (`@Name`) are stored, never interpreted {#note.11}:
 - | after a struct member | `type_info(T).members[i].notes` {#note.7} |
