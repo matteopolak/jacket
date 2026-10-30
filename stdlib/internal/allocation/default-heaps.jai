@@ -26,6 +26,12 @@ finalize :: () {
 
     allocator_default_heap = null;
     initialized = false;
+
+    if live.data c_free(live.data);
+
+    live.data = null;
+    live.count = 0;
+    live_count = 0;
 }
 
 // A fork child owns the inherited state exclusively; do not touch live blocks.
@@ -151,6 +157,7 @@ allocator_proc :: (mode: Allocator_Mode, requested_size: s64, old_size: s64, old
 
         if mode == .FREE {
             unlink_block_locked(state, block);
+            live_remove(old_memory);
             release_contents(old_memory);
             return null;
         }
@@ -160,6 +167,10 @@ allocator_proc :: (mode: Allocator_Mode, requested_size: s64, old_size: s64, old
         contents := regrow_contents(old_memory, requested_size, size_of(Allocation_Header));
 
         if !contents return null;
+
+        // The block may have moved; the entry removed here leaves room for the one added.
+        live_remove(old_memory);
+        live_insert(contents, state);
 
         // The block's bookkeeping stays where it was; rebuild it around the moved contents.
         resized := cast(*Allocation_Header) (cast(*u8) contents - size_of(Allocation_Header));
@@ -263,18 +274,128 @@ find_heap_locked :: (heap: *Heap) -> *Heap_State {
 find_block_locked :: (state: *Heap_State, memory: *void) -> *Allocation_Header {
     if !memory return null;
 
-    block := state.first;
-    while block {
-        if cast(*u8) block + size_of(Allocation_Header) == memory return block;
-        block = block.next;
+    at := live_find(memory);
+    if at < 0 || live[at].owner != state return null;
+
+    return cast(*Allocation_Header) (cast(*u8) memory - size_of(Allocation_Header));
+}
+
+// Every live block's contents address, with the heap that owns it, in an open-addressing table
+// (linear probing, backward-shift removal), so telling whether a pointer is a live block of a
+// heap takes a lookup rather than a walk down the heap's list. The table doubles when it is half
+// full and is only touched under the allocator's lock.
+Live_Entry :: struct {
+    memory: *void;
+    owner: *Heap_State;
+}
+
+live: [] Live_Entry;
+live_count: s64;
+
+// Knuth's multiplicative constant for 32-bit keys.
+SLOT_MULTIPLIER :: 2654435761;
+
+live_slot :: (memory: *void, mask: s64) -> s64 {
+    address := (cast(u64) memory) >> 4;
+    folded := (address ^ (address >> 32)) & 0xffffffff;
+    return cast(s64) (((folded * SLOT_MULTIPLIER) >> 12) & cast(u64) mask);
+}
+
+live_find :: (memory: *void) -> s64 {
+    if live.count == 0 return -1;
+
+    mask := live.count - 1;
+    at := live_slot(memory, mask);
+
+    while live[at].memory {
+        if live[at].memory == memory return at;
+        at = (at + 1) & mask;
     }
 
-    return null;
+    return -1;
+}
+
+live_grow :: () -> bool {
+    capacity := ifx live.count == 0 then cast(s64) 1024 else live.count * 2;
+
+    fresh: [] Live_Entry;
+    fresh.data = c_malloc(cast(u64) (capacity * size_of(Live_Entry)));
+    if !fresh.data return false;
+
+    fresh.count = capacity;
+
+    index := 0;
+    while index < capacity {
+        fresh[index] = .{};
+        index += 1;
+    }
+
+    mask := capacity - 1;
+
+    index = 0;
+    while index < live.count {
+        entry := live[index];
+        if entry.memory {
+            at := live_slot(entry.memory, mask);
+            while fresh[at].memory at = (at + 1) & mask;
+            fresh[at] = entry;
+        }
+
+        index += 1;
+    }
+
+    if live.data c_free(live.data);
+
+    live = fresh;
+
+    return true;
+}
+
+live_insert :: (memory: *void, owner: *Heap_State) -> bool {
+    if (live_count + 1) * 2 > live.count && !live_grow() return false;
+
+    mask := live.count - 1;
+    at := live_slot(memory, mask);
+
+    while live[at].memory at = (at + 1) & mask;
+
+    live[at] = .{ memory, owner };
+    live_count += 1;
+
+    return true;
+}
+
+live_remove :: (memory: *void) {
+    at := live_find(memory);
+    if at < 0 return;
+
+    mask := live.count - 1;
+    hole := at;
+    next := (at + 1) & mask;
+
+    while live[next].memory {
+        // An entry may fill the hole unless its probe sequence starts after it.
+        home := live_slot(live[next].memory, mask);
+        if ((next - home) & mask) >= ((next - hole) & mask) {
+            live[hole] = live[next];
+            hole = next;
+        }
+
+        next = (next + 1) & mask;
+    }
+
+    live[hole] = .{};
+    live_count -= 1;
 }
 
 allocate_locked :: (state: *Heap_State, size: s64) -> *void {
     contents := obtain_contents(size, size_of(Allocation_Header));
     if !contents return null;
+
+    if !live_insert(contents, state) {
+        release_contents(contents);
+        return null;
+    }
 
     block := cast(*Allocation_Header) (cast(*u8) contents - size_of(Allocation_Header));
     block.previous = null;
@@ -296,8 +417,12 @@ unlink_block_locked :: (state: *Heap_State, block: *Allocation_Header) {
 clear_locked :: (state: *Heap_State) {
     while state.first {
         block := state.first;
+
         state.first = block.next;
-        release_contents(cast(*u8) block + size_of(Allocation_Header));
+        contents := cast(*u8) block + size_of(Allocation_Header);
+
+        live_remove(contents);
+        release_contents(contents);
     }
 }
 
