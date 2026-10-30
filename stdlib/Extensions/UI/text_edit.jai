@@ -484,6 +484,12 @@ visible_lines :: (ui: *UI_State, edit: *Text_Edit, node: *Node, options: Editor_
     return first, last, line_height;
 }
 
+// Ask for a frame in `seconds` even if no input arrives (animation, a blinking caret).
+wake_in :: (ui: *UI_State, seconds: float64) {
+    at := ui.now + seconds;
+    if ui.wake_time == 0 || at < ui.wake_time ui.wake_time = at;
+}
+
 #scope_module
 
 Editor_Paint :: struct {
@@ -779,12 +785,6 @@ editor_paint :: (ui: *UI_State, node: *Node) {
     if paint.focused && paint.field {
         draw_rect(ui, rect, .{}, t.radius, 1.5, t.accent);
     }
-}
-
-// Ask for a frame in `seconds` even if no input arrives (animation, a blinking caret).
-wake_in :: (ui: *UI_State, seconds: float64) {
-    at := ui.now + seconds;
-    if ui.wake_time == 0 || at < ui.wake_time ui.wake_time = at;
 }
 
 without_breaks :: (text: string) -> string {
