@@ -182,7 +182,7 @@ const OPTIONS: &[CliOption] = &[
     .help(
         Diagnostics,
         "-run_budget <steps>",
-        "steps (loop iterations and calls) one compile-time run may execute before it fails (default 660000000; 0: no limit)",
+        "steps (loop iterations and calls) one compile-time run may execute before it fails (default 1000000000; 0: no limit)",
     ),
     CliOption::new(
         &["-profile_ops"],

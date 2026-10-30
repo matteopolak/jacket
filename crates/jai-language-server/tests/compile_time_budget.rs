@@ -39,7 +39,7 @@ fn only_the_runaway_run_is_reported_where_it_was_started() {
     assert_eq!(lines, [1], "{errors:#?}");
     let message = &errors[0].message;
     assert!(
-        message.contains("execution budget exhausted (66000000 steps)"),
+        message.contains("execution budget exhausted (100000000 steps)"),
         "{message}"
     );
     assert!(message.contains("still running `spin` at"), "{message}");

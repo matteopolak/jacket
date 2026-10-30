@@ -25,7 +25,7 @@ pub struct CheckLimits {
 
 impl CheckLimits {
     /// The blocks one evaluation may run unless told otherwise.
-    pub const DEFAULT_EVAL_STEPS: u64 = 66_000_000;
+    pub const DEFAULT_EVAL_STEPS: u64 = 100_000_000;
 
     /// The seconds a check may take unless told otherwise.
     pub const DEFAULT_SECONDS: f64 = 10.0;

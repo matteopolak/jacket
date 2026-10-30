@@ -75,7 +75,7 @@ Gotchas:
 | `jai.completion.autoImport` | `true` | complete names from unimported modules and add the import |
 | `jai.completion.callSnippets` | `addParentheses` | what accepting a procedure inserts: `addParentheses`, `fillArguments`, `none` |
 | `jai.inlayHints.closingBraceMinLines` | `25` | name the closing brace of procedures, structs and enums this many lines long (`0` is off) |
-| `jai.compileTime.evaluationBudget` | `66000000` | steps (loop iterations and calls) one compile-time evaluation may run in the editor before it fails at its place (`0` is no limit); machine-scoped, so a workspace's settings cannot raise it |
+| `jai.compileTime.evaluationBudget` | `100000000` | steps (loop iterations and calls) one compile-time evaluation may run in the editor before it fails at its place (`0` is no limit); machine-scoped, so a workspace's settings cannot raise it |
 | `jai.compileTime.checkTimeLimit` | `10` | seconds a check may spend running compile-time code before it stops with partial results (`0` is no limit); machine-scoped |
 | `jai.compileTime.costLensBlocks` | `1000000` | evaluations that ran this many blocks show their cost above them |
 | `jai.run.arguments` | `[]` | extra arguments for the commands |

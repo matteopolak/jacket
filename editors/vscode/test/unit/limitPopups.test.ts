@@ -6,7 +6,7 @@ const notice = (kind: LimitKind = "budget", line = 1): LimitNotice => ({
   kind,
   uri: "file:///p/main.jai",
   range: { start: { line, character: 0 }, end: { line, character: 12 } },
-  message: "error during compile-time execution: execution budget exhausted (66000000 steps)",
+  message: "error during compile-time execution: execution budget exhausted (100000000 steps)",
 });
 
 /** A user who presses `answers` in turn, and the settings and commands that follow. */

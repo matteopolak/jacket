@@ -328,7 +328,7 @@
         "jai.compileTime.evaluationBudget": {
           "type": "integer",
           "minimum": 0,
-          "default": 66000000,
+          "default": 100000000,
           "scope": "machine",
           "markdownDescription": "Basic blocks one compile-time evaluation (a `#run`, a constant, an `#if` condition...) may run in the editor before it fails at its place and the rest of the program is checked without it. `0` for no limit. Only your user settings count: a workspace cannot raise it."
         },

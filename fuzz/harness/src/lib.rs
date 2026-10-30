@@ -32,7 +32,7 @@ use std::collections::BTreeMap;
 
 /// Interpreter steps one input may execute (compile time and `main` together). Importing
 /// `Basic` and printing costs well under a tenth of this.
-pub const STEP_BUDGET: u64 = 700_000;
+pub const STEP_BUDGET: u64 = 1_000_000;
 
 /// Stack for the compiling harnesses: the size the WebAssembly build links with, so a stack
 /// overflow found here also overflows in the browser. (The native CLI runs on 1 GiB.)

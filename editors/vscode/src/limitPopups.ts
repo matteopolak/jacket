@@ -7,7 +7,7 @@
 export const BUDGET_SETTING = "compileTime.evaluationBudget";
 export const TIME_SETTING = "compileTime.checkTimeLimit";
 
-export const DEFAULT_BUDGET = 66_000_000;
+export const DEFAULT_BUDGET = 100_000_000;
 export const DEFAULT_TIME = 10;
 
 export type LimitKind = "budget" | "time";

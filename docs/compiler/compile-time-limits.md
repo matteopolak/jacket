@@ -32,16 +32,16 @@ The limits protect whoever opens a project, so a project cannot set them: there 
 
 | Where | Setting | Default | Meaning |
 | --- | --- | --- | --- |
-| VS Code | `jai.compileTime.evaluationBudget` | 66000000 | steps one top-level evaluation may run; `0` for no limit |
+| VS Code | `jai.compileTime.evaluationBudget` | 100000000 | steps one top-level evaluation may run; `0` for no limit |
 | VS Code | `jai.compileTime.checkTimeLimit` | 10 | seconds a whole check may take; `0` for no limit |
 | VS Code | `jai.compileTime.costLensBlocks` | 1000000 | evaluations of at least this many blocks get a cost lens |
-| Neovim | `compile_time.evaluation_budget` | 66000000 | as `jai.compileTime.evaluationBudget` |
+| Neovim | `compile_time.evaluation_budget` | 100000000 | as `jai.compileTime.evaluationBudget` |
 | Neovim | `compile_time.check_time_limit` | 10 | as `jai.compileTime.checkTimeLimit` |
 | Neovim | `compile_time.cost_lens_blocks` | 1000000 | as `jai.compileTime.costLensBlocks` |
-| `jailint` | `--compile-time-budget <steps>` | 66000000 | as the budget above |
+| `jailint` | `--compile-time-budget <steps>` | 100000000 | as the budget above |
 | `jailint` | `--check-time-limit <seconds>` | 10 | as the time limit above, for each program checked separately (every program gets the whole limit; the run as a whole has none) |
 | environment | `JACKET_CHECK_TIME_LIMIT` | 10 | replaces the time limit's default for `jailint` and `jailsp` (a flag or editor setting still wins); `0` for no limit. CI sets `0`, since shared runners are too slow and uneven for a wall-clock limit |
-| `jaic` | `-run_budget <steps>` | 660000000 (`10 * CheckLimits::DEFAULT_EVAL_STEPS`, `jaic-cli/src/run.rs`) | as the budget above; `0` for no limit. The exhausted-budget help names this flag (`Options::eval_step_flag`) |
+| `jaic` | `-run_budget <steps>` | 1000000000 (`10 * CheckLimits::DEFAULT_EVAL_STEPS`, `jaic-cli/src/run.rs`) | as the budget above; `0` for no limit. The exhausted-budget help names this flag (`Options::eval_step_flag`) |
 | `jaic` | `-profile_runs` | off | prints the cost table (the program's runs, then the standard library as one line) |
 
 The VS Code settings are `"scope": "machine"`: VS Code reads them from the user's settings only (or the remote machine's), and ignores a workspace's `.vscode/settings.json` for them.

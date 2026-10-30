@@ -85,7 +85,7 @@ struct Own {
     /// Blocks `excessive_nesting` allows (default: `[lint] max_nesting` in `jacket.toml`, else 6)
     #[arg(long, value_name = "n", value_parser = number::<usize>("--max-nesting", "a whole number", "6"))]
     max_nesting: Option<usize>,
-    /// Steps (loop iterations and calls) one compile-time evaluation may run before it fails (default: 66000000; 0:
+    /// Steps (loop iterations and calls) one compile-time evaluation may run before it fails (default: 100000000; 0:
     /// no limit)
     #[arg(long, value_name = "steps", value_parser = number::<u64>("--compile-time-budget", "a whole number", "50000000"))]
     compile_time_budget: Option<u64>,

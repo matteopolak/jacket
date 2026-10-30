@@ -56,7 +56,7 @@ const CONFIGS: [&str; 4] = [
 
 /// Interpreter steps for formatting one input twice. Formatting is linear: an 8 KiB input takes
 /// about a million steps, so a run past this limit is a hang.
-const FORMAT_BUDGET: u64 = 133_000_000;
+const FORMAT_BUDGET: u64 = 100_000_000;
 
 /// Tokens as the compiler sees them, positions dropped.
 fn tokens(text: &str) -> Option<Vec<String>> {

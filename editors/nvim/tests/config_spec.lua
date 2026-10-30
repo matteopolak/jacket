@@ -17,7 +17,7 @@ end
 T['the compile-time limits default to the VS Code values'] = function()
   config.set({})
   local c = config.server_settings().compileTime
-  assert(c.evaluationBudget == 66000000, vim.inspect(c))
+  assert(c.evaluationBudget == 100000000, vim.inspect(c))
   assert(c.checkTimeLimit == 10, vim.inspect(c))
   assert(c.costLensBlocks == 1000000, vim.inspect(c))
   assert(c.limitNotices == true, vim.inspect(c))
