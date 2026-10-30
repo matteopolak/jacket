@@ -100,8 +100,8 @@ STAGE_NOTE = ('Every compiler builds the program through the same metaprogram, w
 # Windows has no custom link command (link_command.jai), so each compiler links its own way.
 STAGE_NOTE_WINDOWS = STAGE_NOTE.replace(
     '`link` is the system linker the metaprogram runs itself, identical work for every compiler.',
-    '`link` is the span between the compiler\'s `pre_write` and `post_write` messages: on Windows each '
-    'compiler links its own way, so it is not identical work.')
+    '`codegen` also includes linking (`link` is `-`): on Windows each compiler links its own way, between its '
+    '`pre_write` and `post_write` messages, with nothing in between to split code generation from the link.')
 DETAIL_NOTE = ('The compiler\'s own `-timings` report from the direct runs above. Only binaries with the extra reporting '
                'flags print one, so these numbers are not comparable with a plain binary\'s and the table has no ratios.')
 

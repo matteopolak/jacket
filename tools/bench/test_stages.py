@@ -52,11 +52,11 @@ class PhaseTimingTests(unittest.TestCase):
              'bench-phase: built 0.100\nbench-phase: pre_write 0.110\nbench-phase: post_write 0.200\n'
              'bench-phase: complete 0.205\n')
 
-    def test_a_build_splits_into_front_end_codegen_and_link(self):
+    def test_a_build_the_compiler_links_itself_has_codegen_including_the_link(self):
         stages = PhaseTiming().parse('hello\n' + self.BUILD)
         self.assertAlmostEqual(stages[Bucket.FRONT_END], 0.040)   # the last typechecked message
-        self.assertAlmostEqual(stages[Bucket.CODEGEN], 0.070)
-        self.assertAlmostEqual(stages[Bucket.LINK], 0.090)
+        self.assertAlmostEqual(stages[Bucket.CODEGEN], 0.160)     # to post_write: the link is inside
+        self.assertNotIn(Bucket.LINK, stages)
         self.assertNotIn(Bucket.COMPILE_TIME, stages)
 
     def test_a_custom_link_is_timed_by_the_metaprogram_itself(self):

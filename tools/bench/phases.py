@@ -7,8 +7,8 @@ link), `link` (a duration: the system linker the metaprogram itself ran, the sam
 compiler), and `complete`. Parsing, type checking and compile-time execution all happen before the last
 `typechecked` message and nothing in between marks them off from each other, so they stay one `front end`
 bucket and `compile-time execution` is not reported. `codegen` runs from there to `ready_link` and includes
-writing the objects. A build without a custom link command (Windows) falls back to the span between
-`pre_write` and `post_write`.
+writing the objects. A build without a custom link command (Windows) has `codegen` run to
+`post_write`, linking included, and no `link` bucket: nothing separates the two inside the compiler.
 """
 from __future__ import annotations
 
@@ -65,5 +65,7 @@ class PhaseTiming:
         if 'link' in marks:
             stages[Bucket.LINK] = marks['link']
         elif 'pre_write' in marks and 'post_write' in marks:
-            stages[Bucket.LINK] = max(0.0, marks['post_write'] - marks['pre_write'])
+            # The compiler generates code and links between these two messages with nothing in between
+            # to split them, so the whole span is codegen and there is no separate link stage.
+            stages[Bucket.CODEGEN] = max(0.0, marks['post_write'] - front_end_ends)
         return stages
