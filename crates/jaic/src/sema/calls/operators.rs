@@ -190,13 +190,21 @@ impl Compiler {
         } else {
             return Ok(None);
         };
-        let in_scope = !self.operator_candidates(scope, binop_text(op))?.is_empty()
-            || (op == ast::BinOp::Ne && !self.operator_candidates(scope, "==")?.is_empty());
         let mut scratch = self.scratch_ctx(scope);
         // An operand that fails here fails again, with its own message, as a builtin operand.
         let Ok(probe) = self.check_expr(&mut scratch, scope, other, None) else {
             return Ok(None);
         };
+        // An inferred member next to an enum is that enum's member and uses the builtin
+        // operator, so no module has to be searched (and loaded) for an overload: an `#if`
+        // choosing a module's parameters may be what is being decided.
+        if matches!(literal.kind, ast::ExprKind::InferredMember(_))
+            && matches!(self.ty.types.kind(probe.ty()), TypeKind::Enum(_))
+        {
+            return Ok(None);
+        }
+        let in_scope = !self.operator_candidates(scope, binop_text(op))?.is_empty()
+            || (op == ast::BinOp::Ne && !self.operator_candidates(scope, "==")?.is_empty());
         // Without an overload in scope, those of the checked operand's own module apply.
         if !in_scope && self.struct_home_operators(op, probe.ty())?.is_empty() {
             return Ok(None);
