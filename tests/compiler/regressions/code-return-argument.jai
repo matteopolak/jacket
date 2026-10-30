@@ -1,5 +1,5 @@
 // `#code return` with no value, as an argument, is the code of a bare `return`.
-// rules: macro.13
+// rules: macro.16
 #import "Basic";
 
 or_return :: (ok: bool, handler: Code) #expand {
