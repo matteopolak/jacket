@@ -6,7 +6,7 @@ use super::site::Site;
 const LOGO: &str = include_str!("../../../../editors/vscode/images/icon.svg");
 
 /// Runs before the page paints, so a saved theme does not flash the other one first.
-const EARLY: &str = "(function(){var d=document.documentElement;d.classList.add('js');try{var t=localStorage.getItem('jacket-docs-theme');if(t==='light'||t==='dark')d.setAttribute('data-theme',t);if(localStorage.getItem('jacket-docs-home')==='az')d.setAttribute('data-home','az')}catch(e){}})()";
+const EARLY: &str = "(function(){var d=document.documentElement;d.classList.add('js');try{var t=localStorage.getItem('jacket-docs-theme');if(t==='light'||t==='dark')d.setAttribute('data-theme',t)}catch(e){}})()";
 
 /// Runs right after the sidebar, before first paint: puts the sidebar back where it was on the
 /// page before, and only moves it when the current entry is out of view.
@@ -26,6 +26,8 @@ pub struct Page<'a> {
     pub side: String,
     pub side_label: &'a str,
     pub main: String,
+    /// The outline for the right-hand rail; empty for none.
+    pub toc: String,
     /// The `/`-separated path of the page below the site, for the canonical link.
     pub path: &'a str,
 }
@@ -44,7 +46,7 @@ pub fn render(site: &Site, page: &Page<'_>) -> String {
          <script src=\"{js}\" defer></script>\n</head>\n\
          <body data-base=\"{base}\" data-page=\"{path}\">\n{header}\n\
          <div class=\"wrap\">\n<details class=\"side\" open><summary>{side_label}</summary>\n<nav aria-label=\"{side_label}\" data-nav=\"{side_label}\">\n{side}</nav></details>\n<script>{SIDE}</script>\n\
-         <main id=\"main\">\n{main}</main>\n</div>\n{footer}</body>\n</html>\n",
+         <main id=\"main\">\n{main}</main>\n{toc}</div>\n{footer}</body>\n</html>\n",
         title = esc(page.title),
         description = esc(page.description),
         icon = asset("logo.svg"),
@@ -54,6 +56,14 @@ pub fn render(site: &Site, page: &Page<'_>) -> String {
         side_label = esc(page.side_label),
         side = page.side,
         main = page.main,
+        toc = if page.toc.is_empty() {
+            String::new()
+        } else {
+            format!(
+                "<aside class=\"toc\" aria-label=\"On this page\">\n{}</aside>\n",
+                page.toc
+            )
+        },
         header = header(site),
         footer = footer(site),
     )

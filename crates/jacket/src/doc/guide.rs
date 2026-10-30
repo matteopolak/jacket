@@ -86,6 +86,7 @@ pub fn index(site: &Site) -> String {
             side: side(site, None),
             side_label: "Tools",
             main,
+            toc: String::new(),
             path: "tools/index.html",
         },
     )
@@ -156,6 +157,7 @@ pub fn pages(site: &Site, root: &Path) -> Result<Vec<(String, String)>, String> 
                 side: side(site, Some(file)),
                 side_label: "Tools",
                 main,
+                toc: String::new(),
                 path: &page_path(file),
             },
         );

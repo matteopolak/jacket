@@ -42,32 +42,24 @@
     });
   }
 
-  // The home page lists modules by category or as one A-Z grid.
-  var views = document.querySelectorAll('.view-bar [data-view]');
-  Array.prototype.forEach.call(views, function (button) {
-    var az = root.getAttribute('data-home') === 'az';
-    button.setAttribute('aria-pressed', (button.getAttribute('data-view') === 'az') === az ? 'true' : 'false');
-    button.addEventListener('click', function () {
-      var want = button.getAttribute('data-view');
-      if (want === 'az') root.setAttribute('data-home', 'az'); else root.removeAttribute('data-home');
-      Array.prototype.forEach.call(views, function (b) { b.setAttribute('aria-pressed', b === button ? 'true' : 'false'); });
-      try {
-        if (want === 'az') localStorage.setItem('jacket-docs-home', 'az'); else localStorage.removeItem('jacket-docs-home');
-      } catch (e) { /* the choice lasts for this page only */ }
-    });
-  });
-
-  // Filter chips on a module page.
-  var chips = document.querySelectorAll('.chip[data-group]');
-  Array.prototype.forEach.call(chips, function (chip) {
-    chip.addEventListener('click', function () {
-      var group = chip.getAttribute('data-group');
-      Array.prototype.forEach.call(chips, function (c) { c.setAttribute('aria-pressed', c === chip ? 'true' : 'false'); });
-      Array.prototype.forEach.call(document.querySelectorAll('section.group[data-group]'), function (s) {
-        s.hidden = group !== '' && s.getAttribute('data-group') !== group;
-      });
-    });
-  });
+  // The outline on the right marks the heading being read.
+  var toc = document.querySelectorAll('.toc a[href^="#"]');
+  if (toc.length) {
+    var marks = Array.prototype.map.call(toc, function (a) {
+      return { a: a, h: document.getElementById(a.getAttribute('href').slice(1)) };
+    }).filter(function (m) { return m.h; });
+    var pending = false;
+    var mark = function () {
+      pending = false;
+      var now = marks[0];
+      marks.forEach(function (m) { if (m.h.getBoundingClientRect().top <= 100) now = m; });
+      marks.forEach(function (m) { m.a.classList.toggle('active', m === now); });
+    };
+    window.addEventListener('scroll', function () {
+      if (!pending) { pending = true; requestAnimationFrame(mark); }
+    }, { passive: true });
+    mark();
+  }
 
   // Search.
   var input = document.getElementById('q');

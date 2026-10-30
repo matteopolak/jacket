@@ -12,6 +12,10 @@ pub struct Site {
     pub base: String,
     pub version: String,
     pub source_ref: String,
+    /// The commit the library was built from, when it is a clean checkout of this repository.
+    pub commit: Option<String>,
+    /// Files below `stdlib/` with uncommitted changes, whose line numbers the commit does not match.
+    pub dirty: std::collections::BTreeSet<String>,
     pub repo: String,
     pub playground: String,
     /// Whether the site carries a browser compiler.
@@ -60,6 +64,8 @@ impl Site {
             base,
             version,
             source_ref,
+            commit: None,
+            dirty: std::collections::BTreeSet::new(),
             repo: "https://github.com/matteopolak/jacket".into(),
             playground,
             runtime,
@@ -113,11 +119,14 @@ impl Site {
         self.href(&format!("api/{module}/{}/", Self::slug(name)))
     }
 
+    /// A link to `line` of a library file: at the commit the site was built from when that file is
+    /// unchanged there, else at the version's tag.
     pub fn source_url(&self, file: &str, line: usize) -> String {
-        format!(
-            "{}/blob/{}/stdlib/{file}#L{line}",
-            self.repo, self.source_ref
-        )
+        let at = match &self.commit {
+            Some(commit) if !self.dirty.contains(file) => commit,
+            _ => &self.source_ref,
+        };
+        format!("{}/blob/{at}/stdlib/{file}#L{line}", self.repo)
     }
 
     // Links in doc comments.

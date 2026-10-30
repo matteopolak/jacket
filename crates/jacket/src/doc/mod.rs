@@ -114,6 +114,53 @@ fn read_models(jaic: &Path, stdlib: &Path, ids: &[String]) -> Result<Vec<Module>
     Ok(modules)
 }
 
+/// The commit of the checkout `stdlib` is the `stdlib/` folder of, and the files below it that
+/// differ from it. Nothing when it is not such a checkout, or `git` is missing.
+fn git_state(stdlib: &Path) -> (Option<String>, std::collections::BTreeSet<String>) {
+    let git = |args: &[&str]| -> Option<String> {
+        let out = Command::new("git")
+            .arg("-C")
+            .arg(stdlib)
+            .args(args)
+            .output()
+            .ok()?;
+        out.status
+            .success()
+            .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
+    };
+    let none = (None, std::collections::BTreeSet::new());
+    let Some(prefix) = git(&["rev-parse", "--show-prefix"]) else {
+        return none;
+    };
+    if prefix.trim() != "stdlib/" {
+        return none;
+    }
+    let Some(commit) = git(&["rev-parse", "HEAD"]) else {
+        return none;
+    };
+    let Some(status) = git(&[
+        "status",
+        "--porcelain",
+        "-z",
+        "--untracked-files=all",
+        "--",
+        ".",
+    ]) else {
+        return none;
+    };
+    let mut dirty = std::collections::BTreeSet::new();
+    let mut entries = status.split('\0').filter(|e| e.len() > 3);
+    while let Some(entry) = entries.next() {
+        let path = &entry[3..];
+        dirty.insert(path.trim_start_matches("stdlib/").to_owned());
+        // A rename lists the old name next.
+        if entry.starts_with('R') || entry.as_bytes().get(1) == Some(&b'R') {
+            entries.next();
+        }
+    }
+    (Some(commit.trim().to_owned()), dirty)
+}
+
 fn base_path(text: &str) -> Result<String, String> {
     if !text.starts_with('/') || !text.ends_with('/') {
         return Err(format!(
@@ -153,7 +200,7 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         }
     }
     let version = env!("CARGO_PKG_VERSION").to_owned();
-    let site = Site::new(
+    let mut site = Site::new(
         modules,
         categories.order.clone(),
         base,
@@ -164,6 +211,10 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         args.playground_url.trim_end_matches('/').to_owned(),
         args.runtime.is_some(),
     );
+
+    if args.source_ref.is_none() {
+        (site.commit, site.dirty) = git_state(&stdlib);
+    }
 
     let mut files: Vec<(String, Vec<u8>)> = Vec::new();
     let mut add = |path: String, text: String| files.push((path, text.into_bytes()));

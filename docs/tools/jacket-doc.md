@@ -26,7 +26,7 @@ To look at a build, serve the folder with any static server (`python3 -m http.se
 
 | Path | What |
 | --- | --- |
-| `index.html` | the module list, by category or A-Z |
+| `index.html` | the module list, by category |
 | `api/<Module>/index.html` | a module: docs, procedures grouped by the file that declares them, types, constants |
 | `api/<Module>/<name>/index.html` | an item |
 | `tools/<page>/index.html` | the reference pages |
@@ -48,7 +48,7 @@ The page loads `runtime.json` (`{"engine": "...", "wasm": "..."}`, relative to t
 
 ### Categories
 
-`stdlib/categories.toml` puts every module in one category (`[[category]]` with a `name` and a `modules` list, in the order the categories are shown). The sidebar folds each category, with the current module's open, and the home page lists modules under their category, with a toggle for one A-Z grid (kept in `localStorage`; without JavaScript the categories show). Extensions are listed under their own heading, split by the same categories. `jacket doc` fails when a module has no category, is listed twice, or a name matches no module, so a new module has to be added to the file.
+`stdlib/categories.toml` puts every module in one category (`[[category]]` with a `name` and a `modules` list, in the order the categories are shown). The sidebar folds each category (the current module's is open, and the fold animates where the browser supports `::details-content`), and the home page lists modules under their category. Extensions are listed under their own heading, split by the same categories. `jacket doc` fails when a module has no category, is listed twice, or a name matches no module, so a new module has to be added to the file.
 
 ## How the site is published
 
@@ -73,6 +73,8 @@ CI runs `jacket doc --check` (which also checks the categories and every written
 - **Markup** is in `pages.rs`, `example.rs` (the example boxes), `shell.rs` and `guide.rs`.
 - Grouping on a module page is by the file that declares a procedure (`bytes.jai` is "Bytes"), because the sources carry no other grouping. Words with their own casing (`jks-generation.jai` is "JKS generation") are listed in `WORDS` in `model.rs`; add to it when a heading comes out wrong.
 - Moving between pages uses cross-document view transitions (`@view-transition` in `site.css`): the main content fades, the header, sidebar and footer don't. The sidebar's scroll position and open categories are kept in `sessionStorage` and put back by a small inline script right after the sidebar.
+- Source links go to the commit `jacket doc` was built from, so line numbers match what the page shows. That needs `stdlib/` to be the `stdlib/` folder of a git checkout; a file with uncommitted changes (or any run where `git` or the checkout is missing) links to the version tag instead. `--source-ref` turns this off.
+- A module page has no filter: its procedure groups are plain headings (each with a link to itself), and on screens 1280px wide or more an "On this page" outline sits on the right and marks the heading being read.
 - Scrollbars are thin and reserve their gutter (`scrollbar-gutter: stable`), so pages that scroll and pages that don't line up.
 - A module whose procedures all come from one file has one flat list.
 - The data has no "since" version, so the pages don't show one.
@@ -85,7 +87,7 @@ CI runs `jacket doc --check` (which also checks the categories and every written
 | `--base-url` | `/` | where the site is served, with both slashes |
 | `--runtime` | none | folder with `jai_wasm.wasm` and `engine.mjs` |
 | `--playground-url` | `https://matteopolak.com/playground/jacket` | the Playground link and "Open in playground" |
-| `--source-ref` | `v<version>` | tag or branch the Source links point at |
+| `--source-ref` | the commit, else `v<version>` | tag or branch the Source links point at; given, it is used for every link |
 | `--module` | all | build only these; broken links are then only warnings |
 | `--check` | off | build and check, write nothing |
 | `--allow-broken-links` | off | warn about broken intra-doc links instead of failing |

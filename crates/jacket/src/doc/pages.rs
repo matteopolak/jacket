@@ -117,8 +117,9 @@ fn crumbs(site: &Site, m: &Module, last: Option<&str>) -> String {
 /// One module's link in a list.
 fn module_link(site: &Site, m: &Module, current: Option<usize>, i: usize) -> String {
     format!(
-        "<a href=\"{}\"{}>{}</a>\n",
+        "<a href=\"{}\" title=\"{}\"{}>{}</a>\n",
         esc(&site.module_href(&m.id)),
+        esc(&m.id),
         if current == Some(i) {
             " aria-current=\"page\""
         } else {
@@ -145,11 +146,10 @@ fn modules_side(site: &Site, current: Option<usize>) -> String {
             }
             let open = members.iter().any(|(i, _)| current == Some(*i));
             out.push_str(&format!(
-                "<details class=\"nav-cat\" data-key=\"{key}\"{open}><summary>{name}<span class=\"count\">{n}</span></summary>\n<div class=\"nav-list\">\n",
+                "<details class=\"nav-cat\" data-key=\"{key}\"{open}><summary>{name}</summary>\n<div class=\"nav-list\">\n",
                 key = esc(&format!("{section}/{category}")),
                 open = if open { " open" } else { "" },
-                name = esc(category),
-                n = members.len()
+                name = esc(category)
             ));
             for (i, m) in members {
                 out.push_str(&module_link(site, m, current, i));
@@ -160,28 +160,19 @@ fn modules_side(site: &Site, current: Option<usize>) -> String {
     out
 }
 
-/// A module's card. `tag` says where it lives when the name alone would not.
-fn card(site: &Site, m: &Module, tag: &str) -> String {
+fn card(site: &Site, m: &Module) -> String {
     let segs = blocks(site, &m.docs, &m.id);
     let summary = lead(&segs).map_or_else(String::new, |(_, html)| clip(&plain(&html), 140));
     format!(
-        "<li><a class=\"card\" href=\"{}\"><span class=\"card-head\"><span class=\"card-name mono\">{}</span>{}</span><span class=\"card-sum\">{}</span></a></li>\n",
+        "<li><a class=\"card\" href=\"{}\"><span class=\"card-name mono\">{}</span><span class=\"card-sum\">{}</span></a></li>\n",
         esc(&site.module_href(&m.id)),
         esc(m.title()),
-        if tag.is_empty() {
-            String::new()
-        } else {
-            format!("<span class=\"card-tag\">{}</span>", esc(tag))
-        },
         esc(&summary)
     )
 }
 
 pub fn index_page(site: &Site) -> String {
-    let mut main = String::from(
-        "<div class=\"view-bar js-only\"><div class=\"chips\" role=\"group\" aria-label=\"View\"><button type=\"button\" class=\"chip\" data-view=\"category\" aria-pressed=\"true\">By category</button><button type=\"button\" class=\"chip\" data-view=\"az\" aria-pressed=\"false\">A&ndash;Z</button></div></div>\n",
-    );
-    main.push_str("<div id=\"view-category\">\n");
+    let mut main = String::new();
     for section in ["Standard library", "Extensions"] {
         main.push_str(&format!("<h2 class=\"section\">{section}</h2>\n"));
         for category in &site.categories {
@@ -198,22 +189,11 @@ pub fn index_page(site: &Site) -> String {
                 esc(category)
             ));
             for m in members {
-                main.push_str(&card(site, m, ""));
+                main.push_str(&card(site, m));
             }
             main.push_str("</ul>\n</section>\n");
         }
     }
-    main.push_str("</div>\n<div id=\"view-az\">\n<ul class=\"cards\">\n");
-    let mut all: Vec<&Module> = site.modules.iter().collect();
-    all.sort_by_key(|m| (m.title().to_lowercase(), m.id.clone()));
-    for m in all {
-        main.push_str(&card(
-            site,
-            m,
-            m.id.rsplit_once('/').map_or("", |(parent, _)| parent),
-        ));
-    }
-    main.push_str("</ul>\n</div>\n");
     render(
         site,
         &Page {
@@ -222,12 +202,61 @@ pub fn index_page(site: &Site) -> String {
             side: modules_side(site, None),
             side_label: "Modules",
             main,
+            toc: String::new(),
             path: "",
         },
     )
 }
 
 // A module.
+
+/// An id for a heading made from `text`: lower case, other characters as dashes.
+fn heading_id(text: &str) -> String {
+    let id: String = text
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    id.split('-')
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join("-")
+}
+
+/// A heading that links to itself, so its address can be copied.
+fn heading(level: u8, id: &str, text: &str) -> String {
+    format!(
+        "<h{level} id=\"{id}\">{}<a class=\"anchor\" href=\"#{id}\" aria-label=\"Link to this heading\">#</a></h{level}>\n",
+        esc(text)
+    )
+}
+
+/// The right-hand outline of a module page: its sections, with the groups of procedures below.
+fn outline_html(entries: &[(String, String, bool)]) -> String {
+    if entries.len() < 2 {
+        return String::new();
+    }
+    let mut out = String::from("<div class=\"toc-h\">On this page</div>\n<ul>\n");
+    for (id, label, sub) in entries {
+        out.push_str(&format!(
+            "<li{}><a href=\"#{}\">{}</a></li>\n",
+            if *sub {
+                " class=\"sub\""
+            } else {
+                ""
+            },
+            esc(id),
+            esc(label)
+        ));
+    }
+    out.push_str("</ul>\n");
+    out
+}
 
 /// One entry of a module's list: name, first signature, summary and the first example.
 fn row(site: &Site, mi: usize, item: &Item) -> String {
@@ -341,13 +370,15 @@ pub fn module_page(site: &Site, mi: usize) -> String {
         }
     }
 
+    let mut outline: Vec<(String, String, bool)> = Vec::new();
     let procs: Vec<&Item> = m
         .items
         .iter()
         .filter(|i| i.kind == Kind::Procedure)
         .collect();
     if !procs.is_empty() {
-        main.push_str("<div class=\"section-head\"><h2>Procedures</h2>");
+        main.push_str(&heading(2, "procedures", "Procedures"));
+        outline.push(("procedures".into(), "Procedures".into(), false));
         let mut groups: Vec<&str> = Vec::new();
         for p in &procs {
             if !p.group.is_empty() && !groups.contains(&p.group.as_str()) {
@@ -355,22 +386,13 @@ pub fn module_page(site: &Site, mi: usize) -> String {
             }
         }
         if groups.len() > 1 {
-            main.push_str("<div class=\"chips js-only\" role=\"group\" aria-label=\"Filter procedures\"><button type=\"button\" class=\"chip\" aria-pressed=\"true\" data-group=\"\">All</button>");
             for g in &groups {
+                let id = format!("g-{}", heading_id(g));
                 main.push_str(&format!(
-                    "<button type=\"button\" class=\"chip\" aria-pressed=\"false\" data-group=\"{0}\">{0}</button>",
-                    esc(g)
+                    "<section class=\"group\">\n{}",
+                    heading(3, &id, g)
                 ));
-            }
-            main.push_str("</div>");
-        }
-        main.push_str("</div>\n");
-        if groups.len() > 1 {
-            for g in &groups {
-                main.push_str(&format!(
-                    "<section class=\"group\" data-group=\"{0}\">\n<h3>{0}</h3>\n",
-                    esc(g)
-                ));
+                outline.push((id, (*g).to_owned(), true));
                 for p in procs.iter().filter(|p| p.group == *g) {
                     main.push_str(&row(site, mi, p));
                 }
@@ -386,7 +408,9 @@ pub fn module_page(site: &Site, mi: usize) -> String {
     }
     let types: Vec<&Item> = m.items.iter().filter(|i| i.kind.is_type()).collect();
     if !types.is_empty() {
-        main.push_str("<h2 class=\"section\">Types</h2>\n<section class=\"group\">\n");
+        main.push_str(&heading(2, "types", "Types"));
+        outline.push(("types".into(), "Types".into(), false));
+        main.push_str("<section class=\"group\">\n");
         for t in types {
             main.push_str(&row(site, mi, t));
         }
@@ -398,7 +422,9 @@ pub fn module_page(site: &Site, mi: usize) -> String {
         .filter(|i| i.kind == Kind::Constant)
         .collect();
     if !constants.is_empty() {
-        main.push_str("<h2 class=\"section\">Constants</h2>\n<section class=\"group\">\n");
+        main.push_str(&heading(2, "constants", "Constants"));
+        outline.push(("constants".into(), "Constants".into(), false));
+        main.push_str("<section class=\"group\">\n");
         for c in constants {
             main.push_str(&row(site, mi, c));
         }
@@ -412,6 +438,7 @@ pub fn module_page(site: &Site, mi: usize) -> String {
             side: modules_side(site, Some(mi)),
             side_label: "Modules",
             main,
+            toc: outline_html(&outline),
             path: &Site::module_path(&m.id),
         },
     )
@@ -810,6 +837,7 @@ pub fn item_page(site: &Site, mi: usize, item: &Item) -> String {
             side: item_side(site, mi, item, &anchors),
             side_label: &format!("{} module", m.title()),
             main,
+            toc: String::new(),
             path: &Site::item_path(&m.id, &item.name),
         },
     )
