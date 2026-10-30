@@ -9,6 +9,17 @@ pub struct Param {
     pub ty: String,
     pub default: String,
     pub doc: String,
+    pub refs: Vec<TypeRef>,
+}
+
+/// A name written in a type, and where the compiler found its declaration: the file below
+/// `stdlib` and the line, as an item records them.
+#[derive(Clone, Debug, Default)]
+pub struct TypeRef {
+    /// `Table` or `Hash.Table`, as written.
+    pub path: String,
+    pub file: String,
+    pub line: usize,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -29,10 +40,12 @@ pub struct Member {
     pub name: String,
     pub ty: String,
     pub doc: String,
+    pub refs: Vec<TypeRef>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Kind {
+    #[default]
     Procedure,
     Struct,
     Union,
@@ -76,7 +89,7 @@ impl Kind {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Item {
     pub name: String,
     pub kind: Kind,
@@ -87,6 +100,9 @@ pub struct Item {
     pub overloads: Vec<Overload>,
     pub members: Vec<Member>,
     /// The heading it is listed under on the module page; empty for none.
+    /// Other declarations (file below `stdlib`, line) the item stands for: the same type
+    /// declared in each branch of an `#if`.
+    pub also: Vec<(String, usize)>,
     pub group: String,
     /// The systems an `#if` limits it to (`WINDOWS`); empty for any.
     pub platforms: Vec<String>,
@@ -94,7 +110,7 @@ pub struct Item {
     pub since: String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Module {
     /// `String`, `Extensions/Http`: what `#import` takes.
     pub id: String,
@@ -193,7 +209,21 @@ fn list<'a>(v: &'a Value, key: &str) -> &'a [Value] {
         .map_or(&[], Vec::as_slice)
 }
 
-fn params(v: &Value, key: &str) -> Vec<Param> {
+fn type_refs(v: &Value, stdlib: &Path) -> Vec<TypeRef> {
+    list(v, "refs")
+        .iter()
+        .filter_map(|r| {
+            let r = r.as_array()?;
+            Some(TypeRef {
+                path: r.first()?.as_str()?.to_owned(),
+                file: below(stdlib, r.get(1)?.as_str()?),
+                line: r.get(2)?.as_u64()? as usize,
+            })
+        })
+        .collect()
+}
+
+fn params(v: &Value, key: &str, stdlib: &Path) -> Vec<Param> {
     list(v, key)
         .iter()
         .map(|p| Param {
@@ -201,6 +231,7 @@ fn params(v: &Value, key: &str) -> Vec<Param> {
             ty: text(p, "type"),
             default: text(p, "default"),
             doc: text(p, "doc"),
+            refs: type_refs(p, stdlib),
         })
         .collect()
 }
@@ -225,8 +256,8 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
                 .map(|o| Overload {
                     file: below(stdlib, &text(o, "file")),
                     line: number(o, "line"),
-                    params: params(o, "params"),
-                    returns: params(o, "returns"),
+                    params: params(o, "params", stdlib),
+                    returns: params(o, "returns", stdlib),
                     docs: text(o, "docs"),
                     docs_line: number(o, "docs_line"),
                     flags: list(o, "flags")
@@ -249,6 +280,17 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
                         name: text(m, "name"),
                         ty: text(m, "type"),
                         doc: text(m, "doc"),
+                        refs: type_refs(m, stdlib),
+                    })
+                    .collect(),
+                also: list(i, "also")
+                    .iter()
+                    .filter_map(|a| {
+                        let a = a.as_array()?;
+                        Some((
+                            below(stdlib, a.first()?.as_str()?),
+                            a.get(1)?.as_u64()? as usize,
+                        ))
                     })
                     .collect(),
                 group: String::new(),

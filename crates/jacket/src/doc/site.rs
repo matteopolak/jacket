@@ -1,6 +1,6 @@
 //! The site as a whole: every module, where each page lives, and the links between them.
 use super::markdown::esc;
-use super::model::{Item, Kind, Module, Overload, Param};
+use super::model::{Item, Kind, Module, Overload, Param, TypeRef};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 
@@ -22,7 +22,7 @@ pub struct Site {
     pub runtime: bool,
     by_id: BTreeMap<String, usize>,
     /// A type name that is declared once across the library leads to its page.
-    types: BTreeMap<String, Option<(usize, String)>>,
+    decls: BTreeMap<(String, usize), Vec<(usize, String)>>,
     /// Example programs, by the id in their file name.
     examples: RefCell<BTreeMap<String, String>>,
     /// Intra-doc links that lead nowhere, as `Module.item (from page)`.
@@ -49,13 +49,16 @@ impl Site {
             .enumerate()
             .map(|(i, m)| (m.id.clone(), i))
             .collect();
-        let mut types: BTreeMap<String, Option<(usize, String)>> = BTreeMap::new();
+        // Where each documented type is declared, so a name the compiler resolved to a
+        // declaration finds the page (or pages, when several modules re-export it).
+        let mut decls: BTreeMap<(String, usize), Vec<(usize, String)>> = BTreeMap::new();
         for (m, module) in modules.iter().enumerate() {
             for item in module.items.iter().filter(|i| i.kind.is_type()) {
-                types
-                    .entry(item.name.clone())
-                    .and_modify(|found| *found = None)
-                    .or_insert(Some((m, item.name.clone())));
+                let here = std::iter::once((item.file.clone(), item.line))
+                    .chain(item.also.iter().cloned());
+                for at in here {
+                    decls.entry(at).or_default().push((m, item.name.clone()));
+                }
             }
         }
         Site {
@@ -70,7 +73,7 @@ impl Site {
             playground,
             runtime,
             by_id,
-            types,
+            decls,
             examples: RefCell::new(BTreeMap::new()),
             broken: RefCell::new(Vec::new()),
         }
@@ -210,23 +213,41 @@ impl Site {
 
     // Signatures.
 
-    /// `ty` as HTML: names of types the library declares link to their pages, builtin types
-    /// are coloured.
-    pub fn type_html(&self, ty: &str, here: usize) -> String {
+    /// `ty` as HTML: a name the compiler resolved (`refs`) to a type the library documents links
+    /// to its page, builtin types are coloured. Nothing is matched by name alone, so two
+    /// modules with a type of the same name each link to their own.
+    pub fn type_html(&self, ty: &str, refs: &[TypeRef], here: usize) -> String {
         let mut out = String::new();
         let chars: Vec<(usize, char)> = ty.char_indices().collect();
         let mut i = 0;
         while i < chars.len() {
             let (start, c) = chars[i];
-            if c.is_alphabetic() || c == '_' {
+            if c.is_ascii_digit() {
+                // A number: `[4] u8`, `1.5`.
                 let mut j = i;
                 while j < chars.len() && (chars[j].1.is_alphanumeric() || chars[j].1 == '_') {
                     j += 1;
                 }
                 let end = chars.get(j).map_or(ty.len(), |&(b, _)| b);
-                let word = &ty[start..end];
-                let after_dot = start > 0 && ty[..start].ends_with('.');
-                out.push_str(&self.word_html(word, here, after_dot));
+                out.push_str(&esc(&ty[start..end]));
+                i = j;
+            } else if c.is_alphabetic() || c == '_' {
+                // A name, with the `.name`s after it: `Hash.Table`.
+                let mut j = i;
+                loop {
+                    while j < chars.len() && (chars[j].1.is_alphanumeric() || chars[j].1 == '_') {
+                        j += 1;
+                    }
+                    let more = j + 1 < chars.len()
+                        && chars[j].1 == '.'
+                        && (chars[j + 1].1.is_alphabetic() || chars[j + 1].1 == '_');
+                    if !more {
+                        break;
+                    }
+                    j += 1;
+                }
+                let end = chars.get(j).map_or(ty.len(), |&(b, _)| b);
+                out.push_str(&self.path_html(&ty[start..end], refs, here));
                 i = j;
             } else {
                 out.push_str(&esc(&ty[start..start + c.len_utf8()]));
@@ -236,28 +257,34 @@ impl Site {
         out
     }
 
-    fn word_html(&self, word: &str, here: usize, member: bool) -> String {
-        if member {
-            return esc(word);
+    /// A written name: its longest start that the compiler resolved to a documented type is
+    /// the link (`Kind` of `Kind.MEMBER`), and what follows is plain.
+    fn path_html(&self, path: &str, refs: &[TypeRef], here: usize) -> String {
+        let cuts = path
+            .match_indices('.')
+            .map(|(i, _)| i)
+            .chain(std::iter::once(path.len()));
+        for end in cuts.collect::<Vec<_>>().into_iter().rev() {
+            let head = &path[..end];
+            if let Some(r) = refs.iter().find(|r| r.path == head)
+                && let Some(targets) = self.decls.get(&(r.file.clone(), r.line))
+                && let Some((m, name)) = targets
+                    .iter()
+                    .find(|(m, _)| *m == here)
+                    .or_else(|| targets.first())
+            {
+                return format!(
+                    "<a class=\"ty\" href=\"{}\">{}</a>{}",
+                    esc(&self.item_href(&self.modules[*m].id, name)),
+                    esc(head),
+                    esc(&path[end..])
+                );
+            }
         }
-        if let Some(item) = self.modules[here].item(word).filter(|i| i.kind.is_type()) {
-            return format!(
-                "<a class=\"ty\" href=\"{}\">{}</a>",
-                esc(&self.item_href(&self.modules[here].id, &item.name)),
-                esc(word)
-            );
+        if BUILTIN_TYPES.contains(&path) {
+            return format!("<span class=\"ty\">{}</span>", esc(path));
         }
-        if let Some(Some((m, name))) = self.types.get(word) {
-            return format!(
-                "<a class=\"ty\" href=\"{}\">{}</a>",
-                esc(&self.item_href(&self.modules[*m].id, name)),
-                esc(word)
-            );
-        }
-        if BUILTIN_TYPES.contains(&word) {
-            return format!("<span class=\"ty\">{}</span>", esc(word));
-        }
-        esc(word)
+        esc(path)
     }
 }
 
@@ -278,12 +305,12 @@ fn param_html(site: &Site, p: &Param, here: usize) -> String {
         esc(&p.name)
     };
     match (p.ty.is_empty(), p.default.is_empty()) {
-        (false, true) if p.name.is_empty() => site.type_html(&p.ty, here),
-        (false, true) => format!("{name}: {}", site.type_html(&p.ty, here)),
+        (false, true) if p.name.is_empty() => site.type_html(&p.ty, &p.refs, here),
+        (false, true) => format!("{name}: {}", site.type_html(&p.ty, &p.refs, here)),
         (true, false) => format!("{name} := {}", esc(&p.default)),
         (false, false) => format!(
             "{name}: {} = {}",
-            site.type_html(&p.ty, here),
+            site.type_html(&p.ty, &p.refs, here),
             esc(&p.default)
         ),
         (true, true) => name,
@@ -370,7 +397,7 @@ pub fn signature_line_html(site: &Site, o: &Overload, here: usize) -> String {
         .join(", ");
     let returns = match o.returns.as_slice() {
         [] => String::new(),
-        [one] if one.name.is_empty() => format!(" -> {}", site.type_html(&one.ty, here)),
+        [one] if one.name.is_empty() => format!(" -> {}", site.type_html(&one.ty, &one.refs, here)),
         [one] => format!(" -> {}", param_html(site, one, here)),
         many => format!(
             " -> ({})",
@@ -391,7 +418,9 @@ pub fn signature_html(site: &Site, name: &str, o: &Overload, here: usize) -> Str
     let tail = |returns: &[Param]| -> String {
         match returns {
             [] => String::new(),
-            [one] if one.name.is_empty() => format!(" -> {}", site.type_html(&one.ty, here)),
+            [one] if one.name.is_empty() => {
+                format!(" -> {}", site.type_html(&one.ty, &one.refs, here))
+            }
             [one] => format!(" -> {}", param_html(site, one, here)),
             many => format!(
                 " -> ({})",
@@ -465,6 +494,7 @@ mod tests {
                     ty: (*t).into(),
                     default: (*d).into(),
                     doc: String::new(),
+                    ..Param::default()
                 })
                 .collect(),
             returns: returns
@@ -477,6 +507,53 @@ mod tests {
                 .collect(),
             ..Overload::default()
         }
+    }
+
+    #[test]
+    fn a_type_links_to_the_declaration_the_compiler_found() {
+        fn module(id: &str, file: &str) -> Module {
+            Module {
+                id: id.into(),
+                items: vec![Item {
+                    name: "Thing".into(),
+                    kind: Kind::Struct,
+                    file: file.into(),
+                    line: 3,
+                    ..Item::default()
+                }],
+                ..Module::default()
+            }
+        }
+        let site = Site::new(
+            vec![module("A", "A/thing.jai"), module("B", "B/thing.jai")],
+            Vec::new(),
+            "/".into(),
+            "0.0.0".into(),
+            String::new(),
+            String::new(),
+            false,
+        );
+        let to_b = [TypeRef {
+            path: "Thing".into(),
+            file: "B/thing.jai".into(),
+            line: 3,
+        }];
+        // Written the same in module A, but resolved to the other module's type.
+        assert_eq!(
+            site.type_html("*Thing", &to_b, 0),
+            "*<a class=\"ty\" href=\"/api/B/Thing/\">Thing</a>"
+        );
+        // Not resolved to anything documented: no link, whatever else is named `Thing`.
+        assert_eq!(site.type_html("*Thing", &[], 0), "*Thing");
+        let member = [TypeRef {
+            path: "Thing".into(),
+            file: "A/thing.jai".into(),
+            line: 3,
+        }];
+        assert_eq!(
+            site.type_html(":= Thing.ONE", &member, 1),
+            ":= <a class=\"ty\" href=\"/api/A/Thing/\">Thing</a>.ONE"
+        );
     }
 
     #[test]

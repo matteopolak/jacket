@@ -1,7 +1,7 @@
 //! The pages of the API reference: the index, a module and an item.
 use super::example;
 use super::markdown::{self, Segment, Settings, esc, plain};
-use super::model::{Item, Kind, Module, Overload};
+use super::model::{Item, Kind, Module, Overload, TypeRef};
 use super::shell::{Page, render};
 use super::site::{Site, item_line, signature_html, signature_line_html};
 
@@ -478,11 +478,11 @@ fn plural(n: usize, one: &str) -> String {
 fn definition_list(
     site: &Site,
     here: usize,
-    rows: &[(String, String, String)],
+    rows: &[(String, String, String, Vec<TypeRef>)],
     anchor: &str,
 ) -> String {
     let mut out = String::from("<dl class=\"defs\">\n");
-    for (name, ty, doc) in rows {
+    for (name, ty, doc, refs) in rows {
         let id = if anchor.is_empty() {
             String::new()
         } else {
@@ -493,7 +493,7 @@ fn definition_list(
         } else {
             format!(
                 "<span class=\"colon\">: </span>{}",
-                site.type_html(ty, here)
+                site.type_html(ty, refs, here)
             )
         };
         let name_html = if name.is_empty() {
@@ -502,7 +502,7 @@ fn definition_list(
             format!("<span class=\"pname\">{}</span>", esc(name))
         };
         let (name_html, typed) = if name.is_empty() {
-            (String::new(), site.type_html(ty, here))
+            (String::new(), site.type_html(ty, refs, here))
         } else {
             (name_html, typed)
         };
@@ -584,7 +584,7 @@ fn overload_section(
                 } else {
                     (p.name.clone(), ty)
                 };
-                (name, ty, p.doc.clone())
+                (name, ty, p.doc.clone(), p.refs.clone())
             })
             .collect();
         out.push_str("<h3>Parameters</h3>\n");
@@ -594,7 +594,7 @@ fn overload_section(
         let rows: Vec<_> = o
             .returns
             .iter()
-            .map(|r| (r.name.clone(), r.ty.clone(), r.doc.clone()))
+            .map(|r| (r.name.clone(), r.ty.clone(), r.doc.clone(), r.refs.clone()))
             .collect();
         out.push_str("<h3>Returns</h3>\n");
         out.push_str(&definition_list(site, mi, &rows, ""));
@@ -834,6 +834,7 @@ pub fn item_page(site: &Site, mi: usize, item: &Item) -> String {
                             f.ty.clone()
                         },
                         f.doc.clone(),
+                        f.refs.clone(),
                     )
                 })
                 .collect();

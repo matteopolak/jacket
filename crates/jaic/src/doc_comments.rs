@@ -10,6 +10,7 @@ use crate::docs::{self, Resolver};
 mod forward;
 mod gaps;
 mod model;
+mod refs;
 use crate::parser::ide_facts::{self, TopLevelKind};
 use crate::source::FileId;
 pub use gaps::{Entry as GapEntry, gaps, records as gap_records};

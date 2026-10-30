@@ -93,6 +93,55 @@ impl<'a> Files<'a> {
     }
 }
 
+impl Files<'_> {
+    /// The declaration `path` names where it is written in `file`: through the file's named
+    /// imports (`Mod.Type`), and for a lone name also through the modules it imports without a
+    /// name (`#import "Basic";`), whose exports are in scope.
+    pub(super) fn type_site(&mut self, file: &Path, path: &[String]) -> Option<(PathBuf, usize)> {
+        self.type_site_in(file, path, LOAD_DEPTH)
+    }
+
+    fn type_site_in(
+        &mut self,
+        file: &Path,
+        path: &[String],
+        depth: usize,
+    ) -> Option<(PathBuf, usize)> {
+        let file = file.to_path_buf();
+        if let Some(found) = self.resolve(&file, 0, path) {
+            return Some(found);
+        }
+        let [name] = path else {
+            return None;
+        };
+        let text = self.read(&file)?;
+        let parsed = crate::parser::parse_file_ide(FileId(0), &text);
+        let base = file.parent().unwrap_or(Path::new("."));
+        let mut loads = Vec::new();
+        let mut unnamed = Vec::new();
+        for item in ide_facts::top_level(&parsed.file) {
+            match item.kind {
+                TopLevelKind::Import(import) if import.name.is_none() => {
+                    unnamed.extend(self.imported(base, &import.source));
+                }
+                TopLevelKind::Load(path, _) => loads.push(base.join(path)),
+                _ => {}
+            }
+        }
+        for module in unnamed {
+            if let Some(Name::Decl(owner, at)) = self.top_level(&module, name, LOAD_DEPTH) {
+                return Some((owner, at));
+            }
+        }
+        if depth == 0 {
+            return None;
+        }
+        loads
+            .iter()
+            .find_map(|loaded| self.type_site_in(loaded, path, depth - 1))
+    }
+}
+
 /// Files loaded from files loaded from ... are looked through this deep.
 const LOAD_DEPTH: usize = 4;
 

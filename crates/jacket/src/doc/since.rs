@@ -109,6 +109,7 @@ mod tests {
                     value: String::new(),
                     overloads: Vec::new(),
                     members: Vec::new(),
+                    also: Vec::new(),
                     group: String::new(),
                     platforms: Vec::new(),
                     since: String::new(),
