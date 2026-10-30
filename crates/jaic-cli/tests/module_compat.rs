@@ -49,6 +49,26 @@ main :: () {
 }
 
 #[test]
+fn autocast_mask_operand_of_a_logical_operator_keeps_its_integer_type() {
+    accepted(
+        "autocast-mask-logical",
+        r#"#import "Basic";
+ANISOTROPIC :: 0x40;
+Filter :: enum u32 { PLAIN :: 0; ANISOTROPIC_LINEAR :: 0x55; }
+
+is_anisotropic :: (filter: Filter) -> bool {
+    return ((xx filter) & ANISOTROPIC) && filter != .PLAIN;
+}
+
+main :: () {
+    assert(is_anisotropic(.ANISOTROPIC_LINEAR));
+    assert(!is_anisotropic(.PLAIN));
+}
+"#,
+    );
+}
+
+#[test]
 fn procedure_names_compare_with_null() {
     accepted(
         "procedure-null",

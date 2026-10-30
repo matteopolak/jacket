@@ -53,6 +53,9 @@ impl Compiler {
         // `cast(float32) ((ifx c then a else b) & mask)`: a float target cannot be the type of an
         // operand of an operator that floats lack, so it does not reach the operands (an `ifx`
         // would widen to it, and the operator would then fail on a float).
+        // `(xx flags & MASK) && ok`: `&&` asks its operands for a `bool` to test, which says
+        // nothing about the integers an operator inside the operand combines.
+        let expected = expected.filter(|&t| t != TypeId::BOOL || is_comparison(op));
         let expected = if is_bitwise(op) || op == BinOp::Rem {
             expected.filter(|&t| !self.ty.types.is_float(self.ty.types.repr(t)))
         } else {
