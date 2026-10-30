@@ -42,7 +42,12 @@ update_window_events :: () {
         if !native break;
 
         translate_mac_event(native);
-        Cocoa.dispatch_event(native);
+
+        // Keys are fully handled above. Forwarding them would walk the responder chain, find nobody
+        // wanting them and play the system alert on every press and repeat. Command chords still go on
+        // to the application so menu shortcuts (quit, close window) keep working.
+        if !mac_event_is_plain_key(native) Cocoa.dispatch_event(native);
+
         drain_mac_notifications();
     }
 
@@ -103,6 +108,21 @@ install_window_notifications :: () -> bool {
     window_observer = candidate;
 
     return true;
+}
+
+NS_EVENT_KEY_DOWN :: 10;
+NS_EVENT_KEY_UP :: 11;
+NS_EVENT_FLAGS_CHANGED :: 12;
+NS_COMMAND_FLAG :: cast(u64) 1 << 20;
+
+mac_event_is_plain_key :: (event: *void) -> bool {
+    kind := Cocoa.result_message(event, "type", u64);
+
+    if kind != NS_EVENT_KEY_DOWN && kind != NS_EVENT_KEY_UP && kind != NS_EVENT_FLAGS_CHANGED return false;
+
+    flags := Cocoa.result_message(event, "modifierFlags", u64);
+
+    return kind == NS_EVENT_FLAGS_CHANGED || (flags & NS_COMMAND_FLAG) == 0;
 }
 
 observer_error :: (message: string) {
