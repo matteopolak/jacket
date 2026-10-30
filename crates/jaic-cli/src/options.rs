@@ -349,6 +349,38 @@ pub(super) const OPTIONS: &[CliOption] = {
             "-no_workspace_output",
             "(-interp only) do not write what a metaprogram's workspaces ask for",
         ),
+        CliOption::new(
+            &["-A"],
+            Action::Value {
+                what: "a warning code, `leniencies` or `warnings`",
+                store: store_level,
+            },
+        )
+        .help(
+            Diagnostics,
+            "-A <code>",
+            "allow a warning: print nothing (`warnings` for all, `leniencies` for the forms the\nofficial compiler rejects; `jacket explain` lists the codes)",
+        ),
+        CliOption::new(
+            &["-W"],
+            Action::Value {
+                what: "a warning code, `leniencies` or `warnings`",
+                store: store_level,
+            },
+        )
+        .help(Diagnostics, "-W <code>", "warn about a code (the default)"),
+        CliOption::new(
+            &["-D"],
+            Action::Value {
+                what: "a warning code, `leniencies` or `warnings`",
+                store: store_level,
+            },
+        )
+        .help(
+            Diagnostics,
+            "-D <code>",
+            "deny a warning: print it as an error and fail (`-D warnings` for all)",
+        ),
         CliOption::new(&["-no_color"], Action::Switch(|cli| &mut cli.no_color)).help(
             Diagnostics,
             "-no_color",
@@ -413,6 +445,16 @@ pub(super) const OPTIONS: &[CliOption] = {
             .help(Diagnostics, "-V, -version, --version", "print the version"),
     ]
 };
+
+fn store_level(cli: &mut Cli, option: &str, name: String) -> Result<(), CliError> {
+    let level = match option {
+        "-A" => jaic::diagnostics::Level::Allow,
+        "-W" => jaic::diagnostics::Level::Warn,
+        _ => jaic::diagnostics::Level::Deny,
+    };
+    cli.level_flags.push((name, level));
+    Ok(())
+}
 
 fn store_sanitize(cli: &mut Cli, option: &str, list: String) -> Result<(), CliError> {
     if let Some(bad) = list

@@ -288,6 +288,10 @@ pub(super) struct Cli {
     pub(super) no_color: bool,
     /// `-msvc_format`: diagnostics as `path(line,col): error: message` lines.
     pub(super) msvc_format: bool,
+    /// `-A`, `-W` and `-D` as written, in order.
+    pub(super) level_flags: Vec<(String, jaic::diagnostics::Level)>,
+    /// What those flags make of each warning.
+    pub(super) levels: jaic::diagnostics::Levels,
     /// `-quiet`: print nothing but errors.
     pub(super) quiet: bool,
     /// `-verbose`: say what is being done.

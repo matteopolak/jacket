@@ -75,7 +75,7 @@ impl Compiler {
     /// modules that declare it; the same modules for an unknown member of a module.
     pub fn with_name_suggestion(&self, d: &Diagnostic) -> Option<Diagnostic> {
         match (d.code, d.data) {
-            (Code::UnknownIdentifier, Data::Scope(Some(scope))) => {
+            (Code::UnknownIdentifier, Data::Scope(scope)) => {
                 self.suggest_unknown_identifier(d, ScopeId(scope))
             }
             (Code::UnknownModuleMember, Data::Module(module)) => {
@@ -92,6 +92,18 @@ impl Compiler {
             return None;
         }
         let mut d = d.clone().with_label("not found in this scope");
+        if let Some((declared, file)) = self.file_scoped_elsewhere(scope, wanted) {
+            d.code = Code::ScopeFileName;
+            return Some(
+                d.with_note(
+                    declared,
+                    format!("`{wanted}` is declared here, under `#scope_file`"),
+                )
+                .with_help(format!(
+                    "`#scope_file` names are only visible in {file}: declare `{wanted}` under `#scope_module` to share it with the module's other files"
+                )),
+            );
+        }
         // An exact declaration elsewhere is a better lead than a similar name in scope.
         if let Some(builder) = self.src.metaprogram_defining(wanted, span) {
             return Some(d.with_help(format!(
@@ -111,6 +123,31 @@ impl Compiler {
             d = self.with_namespace_suggestions(d, wanted, span, &namespaces);
         }
         Some(self.with_import_suggestions(d, wanted, &imports, None))
+    }
+
+    /// Where another file of the module `scope` belongs to declares `wanted` under `#scope_file`,
+    /// and the name of that file.
+    fn file_scoped_elsewhere(&self, scope: ScopeId, wanted: &str) -> Option<(Span, String)> {
+        let name = Sym::intern(wanted);
+        let module = self.scope(scope).module;
+        let here = self.scope_file(scope);
+        self.src
+            .files
+            .iter()
+            .filter(|f| f.module == module && f.id != here)
+            .find_map(|f| {
+                let ids = self.scope(f.scope).names.get(&name)?;
+                let entity = ids
+                    .iter()
+                    .map(|&id| self.entity(id))
+                    .find(|e| e.file_private)?;
+                let file = f
+                    .path
+                    .as_file()
+                    .and_then(|p| p.file_name())
+                    .map_or_else(|| f.path.to_string(), |n| n.to_string_lossy().into_owned());
+                Some((entity.span, format!("`{file}`")))
+            })
     }
 
     /// An unknown `Module.name`: the modules that declare `name` (other than `Module`).

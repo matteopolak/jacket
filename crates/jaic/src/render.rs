@@ -281,6 +281,8 @@ pub struct Report<'a> {
     pub severity: Severity,
     /// `[name]` after the severity.
     pub code: Code,
+    /// What `[name]` shows instead of the code's own name: the rule of a `jailint` finding.
+    pub name: Option<&'static str>,
     pub message: String,
     /// Where it happened; `None` for problems without a place in a file.
     pub primary: Option<Label<'a>>,
@@ -294,10 +296,16 @@ pub struct Report<'a> {
 }
 
 impl Report<'_> {
+    /// The name printed in brackets.
+    fn shown_name(&self) -> &'static str {
+        self.name.unwrap_or_else(|| self.code.name())
+    }
+
     pub fn new(code: Code, message: impl Into<String>) -> Self {
         Report {
             severity: code.severity(),
             code,
+            name: None,
             message: message.into(),
             primary: None,
             secondary: Vec::new(),
@@ -499,7 +507,7 @@ impl Renderer {
             )
         }));
         for (n, (severity, message, label)) in items.into_iter().enumerate() {
-            let code = (n == 0).then(|| report.code.name());
+            let code = (n == 0).then(|| report.shown_name());
             let Some(label) = label else {
                 let head = self.header(severity, code, message);
                 self.line(&head);
@@ -553,7 +561,7 @@ impl Renderer {
             })
         };
         let flat = |text: &str| text.replace('\n', " ");
-        let head = format!("{}[{}]", report.severity.as_str(), report.code.name());
+        let head = format!("{}[{}]", report.severity.as_str(), report.shown_name());
         let at = place(report.primary.as_ref());
         self.line(&format!("{at}{head}: {}", flat(&report.message)));
         for label in &report.secondary {
@@ -573,7 +581,7 @@ impl Renderer {
     fn block(&mut self, report: &Report) {
         let head = self.header(
             report.severity.into(),
-            Some(report.code.name()),
+            Some(report.shown_name()),
             &report.message,
         );
         self.line(&head);

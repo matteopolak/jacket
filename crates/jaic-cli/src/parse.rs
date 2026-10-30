@@ -57,6 +57,10 @@ pub(super) fn parse(args: &[String]) -> Result<Request, CliError> {
             Some((option, value)) if CliOption::find_value(option).is_some() => {
                 (option, Some(value.to_string()))
             }
+            // `-Dwarnings`: the level flags take their value attached too.
+            None if arg.len() > 2 && matches!(&arg[..2], "-A" | "-W" | "-D") => {
+                (&arg[..2], Some(arg[2..].to_string()))
+            }
             _ => (arg.as_str(), None),
         };
         let Some(option) = CliOption::find(a) else {
@@ -122,6 +126,13 @@ pub(super) fn parse(args: &[String]) -> Result<Request, CliError> {
         return Ok(Request::Procedures(file, cli.os, cli.cpu));
     }
     cli.file = file;
+    cli.levels =
+        jaic::diagnostics::Levels::parse(&cli.level_flags).map_err(|message| {
+            match message.split_once("\nhelp: ") {
+                Some((message, help)) => CliError::new(message).help(help),
+                None => CliError::new(message),
+            }
+        })?;
     if check && interp {
         return Err(CliError::new("`-check` and `-interp` cannot be combined")
             .help("`-check` only compiles the program; `-interp` runs it in the interpreter"));

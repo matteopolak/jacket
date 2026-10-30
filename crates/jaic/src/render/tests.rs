@@ -22,7 +22,7 @@ fn label(text: &str, needle: &str, message: Option<&str>) -> Label<'static> {
 fn unknown_name() -> Report<'static> {
     let primary = label(SOURCE, "countr)", Some("not found in this scope"));
     let at = primary.start;
-    let mut report = Report::new(Code::TypeMismatch, "unknown identifier `countr`");
+    let mut report = Report::new(Code::UnknownIdentifier, "unknown identifier `countr`");
     report.primary = Some(Label {
         end: at + 6,
         ..primary
@@ -49,12 +49,26 @@ const UNICODE_STYLE: Style = Style {
     color: false,
 };
 
+/// A lint finding shows its rule where other diagnostics show their code.
+#[test]
+fn a_lint_finding_is_named_by_its_rule() {
+    let mut report = unknown_name();
+    report.code = Code::LintFinding;
+    report.severity = Code::LintFinding.severity();
+    report.name = Some("magic_number");
+    let text = report.render_with(Style::PLAIN);
+    assert!(
+        text.starts_with("u.jai:3:18: warning[magic_number]: unknown identifier"),
+        "{text}"
+    );
+}
+
 #[test]
 fn plain_compact_is_the_long_standing_layout() {
     let text = unknown_name().render_with(Style::PLAIN);
     assert_eq!(
         text,
-        "u.jai:3:18: error[type-mismatch]: unknown identifier `countr`\n\
+        "u.jai:3:18: error[unknown-identifier]: unknown identifier `countr`\n\
          \x20       print(\"%\\n\", countr);\n\
          \x20                    ^^^^^^\n\
          note: names are case-sensitive\n\
@@ -70,7 +84,7 @@ fn msvc_layout_is_one_located_line_per_item_and_never_coloured() {
     };
     assert_eq!(
         unknown_name().render_with(style),
-        "u.jai(3,18): error[type-mismatch]: unknown identifier `countr`\n\
+        "u.jai(3,18): error[unknown-identifier]: unknown identifier `countr`\n\
          u.jai(3,18): note: names are case-sensitive\n\
          u.jai(3,18): note: help: a similar name exists: `counter`\n"
     );
@@ -83,7 +97,7 @@ fn ascii_block_has_line_numbers_context_labels_and_the_fix() {
     let text = unknown_name().render_with(ASCII_STYLE);
     assert_eq!(
         text,
-        "error[type-mismatch]: unknown identifier `countr`\n\
+        "error[unknown-identifier]: unknown identifier `countr`\n\
          \x20 --> u.jai:3:18\n\
          \x20  |\n\
          \x202 |     counter := 1;\n\
@@ -104,7 +118,7 @@ fn unicode_block_draws_boxes() {
     let text = unknown_name().render_with(UNICODE_STYLE);
     assert_eq!(
         text,
-        "error[type-mismatch]: unknown identifier `countr`\n\
+        "error[unknown-identifier]: unknown identifier `countr`\n\
          \x20  ╭─[u.jai:3:18]\n\
          \x202 │     counter := 1;\n\
          \x203 │     print(\"%\\n\", countr);\n\
@@ -126,7 +140,7 @@ fn colour_marks_severity_gutter_and_labels() {
         color: true,
     });
     assert!(
-        text.starts_with("\x1b[1;31merror[type-mismatch]\x1b[0m\x1b[1m: unknown identifier"),
+        text.starts_with("\x1b[1;31merror[unknown-identifier]\x1b[0m\x1b[1m: unknown identifier"),
         "{text}"
     );
     assert!(text.contains("\x1b[34m│\x1b[0m"), "{text}");

@@ -449,16 +449,45 @@ fn compile_front_end(
         // What compile-time code of a wasm target printed (it runs in the sandbox).
         flush_sandbox(shared_sandbox);
     }
-    if !cli.quiet {
-        for warning in &compiler.diag.warnings {
-            eprintln!("{}", compiler.render(warning));
+    // The warnings as `-A`, `-W` and `-D` leave them.
+    let warnings: Vec<_> = compiler
+        .diag
+        .warnings
+        .iter()
+        .filter_map(|w| cli.levels.apply(w.clone()))
+        .collect();
+    let denied = warnings
+        .iter()
+        .any(|w| w.severity == jaic::diagnostics::Severity::Error);
+    if !cli.quiet || denied {
+        for warning in &warnings {
+            if !cli.quiet || warning.severity == jaic::diagnostics::Severity::Error {
+                eprintln!("{}", compiler.render(warning));
+            }
         }
     }
+    let failure = compiled.as_ref().err().map(|d| d.code);
+    let shown = warnings.iter().map(|w| w.code).filter(|_| !cli.quiet);
     if let Err(d) = compiled {
         eprintln!("{}", compiler.render(&d));
+        explain_hint(failure.into_iter().chain(shown));
         return false;
     }
-    true
+    explain_hint(shown);
+    !denied
+}
+
+/// When stderr is a terminal, one line pointing at `jacket explain` for the first of `codes`
+/// that has an explanation. It is left out of piped output so logs and golden files stay as
+/// the diagnostics themselves.
+fn explain_hint(codes: impl IntoIterator<Item = jaic::diagnostics::Code>) {
+    use std::io::IsTerminal;
+    if !std::io::stderr().is_terminal() {
+        return;
+    }
+    if let Some(code) = codes.into_iter().find(|c| c.explanation().is_some()) {
+        eprintln!("help: run `jacket explain {code}` for more about `{code}`");
+    }
 }
 
 /// `-interp`: run the program in the interpreter and return its exit status.

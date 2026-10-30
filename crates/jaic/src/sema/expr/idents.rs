@@ -221,7 +221,7 @@ impl Compiler {
                             span,
                             format!("unknown identifier `{name}`"),
                         )
-                        .with_data(Data::Scope(Some(scope.0))),
+                        .with_data(Data::Scope(scope.0)),
                     ));
                 }
                 if let [id] = ids[..] {

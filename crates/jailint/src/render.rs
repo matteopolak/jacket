@@ -34,7 +34,8 @@ pub fn render(
     style: &Style,
 ) -> String {
     let path = SourcePath::from(path);
-    let mut report = Report::new(Code::Lint(lint.rule), lint.message.clone());
+    let mut report = Report::new(Code::LintFinding, lint.message.clone());
+    report.name = Some(lint.rule);
     report.severity = match lint.level {
         Level::Deny => Severity::Error,
         _ => Severity::Warning,

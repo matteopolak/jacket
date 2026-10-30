@@ -31,31 +31,7 @@ use std::sync::{Arc, Mutex};
 
 pub const FILE_NAME: &str = jacket_config::FILE_NAME;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum Level {
-    Allow,
-    Warn,
-    Deny,
-}
-
-impl Level {
-    pub fn parse(text: &str) -> Option<Level> {
-        match text {
-            "allow" => Some(Level::Allow),
-            "warn" => Some(Level::Warn),
-            "deny" => Some(Level::Deny),
-            _ => None,
-        }
-    }
-
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Level::Allow => "allow",
-            Level::Warn => "warn",
-            Level::Deny => "deny",
-        }
-    }
-}
+pub use jaic::diagnostics::Level;
 
 /// A group of rules, named like a rule in settings, `-A`/`-W`/`-D` and `allow(...)` comments.
 /// Its level is the default of every rule in it.

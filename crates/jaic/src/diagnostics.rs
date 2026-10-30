@@ -6,7 +6,9 @@ use crate::source::{Applicability, SourceMap, Span, Suggestion, Suggestions};
 use std::fmt;
 
 mod catalog;
+mod levels;
 pub use catalog::{Code, RETIRED};
+pub use levels::{Level, Levels};
 
 /// What every leniency warning says besides its own message.
 pub const LENIENCY_NOTE: &str =
@@ -37,7 +39,7 @@ pub enum Data {
     None,
     /// An unknown name: the index of the sema scope the lookup started from, for the "did you
     /// mean" help worked out when the error is rendered.
-    Scope(Option<u32>),
+    Scope(u32),
     /// `Module.name` with no such export: the index of the sema module, for the help worked out
     /// when the error is rendered (the modules that declare the name).
     Module(u32),

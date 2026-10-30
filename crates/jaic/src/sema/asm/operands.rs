@@ -86,7 +86,7 @@ impl Compiler {
                     decl.name.span,
                     format!("unknown identifier `{}`", decl.name.name),
                 )
-                .with_data(Data::Scope(Some(cx.scope.0))),
+                .with_data(Data::Scope(cx.scope.0)),
             )),
         }
     }
