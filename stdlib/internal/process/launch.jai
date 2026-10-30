@@ -1,3 +1,32 @@
+// Starts the program `args[0]` with the arguments `args[1..]` and returns `true` once it is running; the result comes later from
+// `get_process_result`. `process` must be a fresh `Process` that stays at its address until `deinit`.
+//
+// It returns `false`, with nothing running, when there is no program name, when `process` is already in use, or when the
+// program cannot be started (a missing file leaves `ENOENT` in the error code). On Unix targets the program is looked up on
+// `PATH` and run directly, with no shell.
+//
+// - `working_directory`, if not empty, becomes the child's current directory.
+// - With `capture_and_return_output` the child's output and error are pipes you read from the `Process`; without it the child
+//   shares this program's own. Its input is always a pipe.
+// - With `kill_process_if_parent_exits` (the default) the child is killed if this program ends without calling `deinit`; turn it
+//   off for a child that should live on.
+// - `arg_quoting` matters only on Windows, see `Process_Argument_Quoting`.
+//
+// A child that fills an output pipe nobody reads blocks until someone does, so read with `read_from_process` while it runs.
+//
+// ```jai,only(linux, macos)
+// process: Process;
+// assert(create_process(*process, "/bin/sh", "-c", "printf ready", capture_and_return_output = true));
+// defer deinit(*process);
+//
+// output: [64] u8;
+// errors: [64] u8;
+// ok, out_count, err_count := read_from_process(*process, output, errors, 5000);
+// assert(ok && err_count == 0 && to_string(output.data, out_count) == "ready");
+//
+// finished, result := get_process_result(*process, 5000);
+// assert(finished && result.type == .EXITED && result.exit_code == 0);
+// ```
 create_process :: (process: *Process, args: ..string, working_directory := "", capture_and_return_output := false, arg_quoting := Process_Argument_Quoting.QUOTE_IF_NEEDED, kill_process_if_parent_exits := true) -> success: bool {
     if args.count == 0 || args[0].count == 0 || process.pid != 0 return false;
 
@@ -103,6 +132,22 @@ create_process :: (process: *Process, args: ..string, working_directory := "", c
     return true;
 }
 
+// Asks the supervisor to kill the child, and returns whether the request was sent: `false` for a process that is not running or
+// whose result is already known. The child dies soon after, not instantly; collect it with `get_process_result`. On Unix
+// targets the signal is `SIGKILL`, so the result is `SIGNALED` with `9`; on Windows the process is terminated and the result is `EXITED`.
+//
+// ```jai,only(linux, macos)
+// process: Process;
+// assert(create_process(*process, "/bin/sleep", "30"));
+// defer deinit(*process);
+//
+// ok, result := get_process_result(*process, 0);
+// assert(ok && result.type == .STILL_RUNNING);
+// assert(kill_process(*process));
+// ok, result = get_process_result(*process, 5000);
+// assert(ok && result.type == .SIGNALED && result.signal == 9);
+// assert(!kill_process(*process)); // it is over
+// ```
 kill_process :: (process: *Process) -> bool {
     state := find_state(process);
     if !state || state.ready return false;
@@ -113,6 +158,11 @@ kill_process :: (process: *Process) -> bool {
     return success && count == 1;
 }
 
+// Releases a `Process`: closes its pipes and forgets its bookkeeping, leaving it as a fresh record that can be started again.
+//
+// It first waits for the child to finish, without limit, so a child that is still running holds the caller here: call
+// `kill_process` first for one that should stop. Always call it once per successful `create_process`, or the descriptors and
+// the bookkeeping leak. It is safe on a record that never started.
 deinit :: (process: *Process) {
     close_pipe(*process.input);
     state := find_state(process);

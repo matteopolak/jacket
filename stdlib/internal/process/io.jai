@@ -1,9 +1,36 @@
+// Writes `data` to the child's standard input and returns `(success, bytes_written)`.
+//
+// It blocks until the pipe takes everything, so a child that does not read can hold the caller once the pipe is full. It
+// fails with `0` when the input is closed, which is the case once the child has closed it or exited (a closed pipe does not
+// raise a signal in the caller). Empty data succeeds with `0`.
+//
+// There is no procedure to close only the input on Unix targets; a child that reads until end of file sees it when the `Process` is released with `deinit`, and `run_command` closes it at once.
+//
+// ```jai,only(linux, macos)
+// process: Process;
+// assert(create_process(*process, "/bin/sh", "-c", "read line; printf 'got:%s' \"$line\"", capture_and_return_output = true));
+// defer deinit(*process);
+//
+// line: [4] u8 = .[97, 98, 99, 10]; // "abc\n"
+// ok, written := write_to_process(*process, line);
+// assert(ok && written == 4);
+//
+// output: [64] u8;
+// errors: [64] u8;
+// read_ok, out_count, err_count := read_from_process(*process, output, errors, 5000);
+// assert(read_ok && to_string(output.data, out_count) == "got:abc");
+// ```
 write_to_process :: (process: *Process, data: [] u8) -> success: bool, bytes_written: int {
     if process.input.handle < 0 || data.count < 0 return false, 0;
     if data.count == 0 return true, 0;
     return protected_write(process.input.handle, data.data, data.count);
 }
 
+// Reads what is available now from one pipe of a process into `buffer`, without waiting, and returns `(success, bytes_read)`.
+//
+// `0` bytes with `success` means nothing is there yet, or the end: check `pipe.eof`, which turns `true` once the child has closed
+// its end and the read found nothing more. A pipe that was already at its end, or never captured, succeeds with `0`. It fails with a
+// closed pipe or an empty buffer. Use `read_from_process` to wait for data on both pipes.
 read_pipe :: (pipe: *Process.Pipe, buffer: [] u8) -> success: bool, bytes_read: int {
     if pipe.eof return true, 0;
     if pipe.handle < 0 || buffer.count <= 0 return false, 0;
@@ -25,6 +52,12 @@ read_pipe :: (pipe: *Process.Pipe, buffer: [] u8) -> success: bool, bytes_read: 
     return false, 0;
 }
 
+// Waits up to `timeout_ms` for the child's output or error and reads what arrived into the two buffers: `(success, output_bytes, error_bytes)`.
+//
+// A `timeout_ms` of `0` only looks, and `-1` (the default) waits for ever. Nothing arriving in time is a success with `0` and `0`.
+// A pipe already at its end, or whose buffer is empty, is skipped, and with both skipped it returns at once. Each call
+// reads at most one buffer's worth from each pipe, so loop until `process.output.eof` and `process.error.eof` for all of it,
+// and give the loop a time limit of its own.
 read_from_process :: (process: *Process, output_buffer: [] u8, error_buffer: [] u8, timeout_ms := -1) -> success: bool, output_bytes: int, error_bytes: int {
     fds: [2] P.pollfd;
     fds[0].fd = -1;
@@ -57,6 +90,12 @@ read_from_process :: (process: *Process, output_buffer: [] u8, error_buffer: [] 
     return success, output_bytes, error_bytes;
 }
 
+// The state of the child as `(success, result)`, waiting up to `timeout_ms` for it to finish. `0` only checks and `-1` (the
+// default) waits for ever.
+//
+// While it runs the result is `STILL_RUNNING`. Once it has ended the result is `EXITED` or `SIGNALED` and repeating the call gives
+// the same answer. A process never started is `UNSTARTED`. `success` is `false` when the system could not tell, and
+// then the result is empty. The child is collected when this reports it finished, so output left in the pipes can still be read afterwards.
 get_process_result :: (process: *Process, timeout_ms := -1) -> success: bool, Process_Result {
     state := find_state(process);
     if !state return true, Process_Result.{ type = .UNSTARTED };

@@ -1,3 +1,13 @@
+// Splits a command line into words: the pieces between spaces, where a piece in double quotes may hold spaces and loses its quotes.
+//
+// There are no escapes and no other separators. The words are slices of `input`, valid as long as it is, and the array is in
+// temporary storage (`temp`), so neither is freed. An empty line gives no words; an unclosed quote runs to the end of the line.
+//
+// ```jai
+// words := break_command_into_strings(" maple   \"red tree\" cedar ");
+// assert(words.count == 3);
+// assert(words[0] == "maple" && words[1] == "red tree" && words[2] == "cedar");
+// ```
 break_command_into_strings :: (input: string) -> [..] string {
     result: [..] string;
     result.allocator = temp;
@@ -24,6 +34,21 @@ break_command_into_strings :: (input: string) -> [..] string {
     return result;
 }
 
+// Appends `s` to `builder`, in double quotes when it has to be: when it is empty or holds a space, a tab or a double quote.
+// A quote inside is escaped with a backslash, and backslashes before a quote or before the closing quote are doubled, which are
+// the rules of the Windows command line, so the program at the other end splits it back into the same text.
+//
+// ```jai
+// builder: String_Builder;
+// append_quoted(*builder, "plain");
+// append(*builder, " ");
+// append_quoted(*builder, "two words");
+// append(*builder, " ");
+// append_quoted(*builder, "");
+// text := builder_to_string(*builder);
+// assert(text == "plain \"two words\" \"\"");
+// free(text);
+// ```
 append_quoted :: (builder: *String_Builder, s: string) {
     quoted := s.count == 0;
     for byte: s if byte == 32 || byte == #char "\t" || byte == #char "\"" quoted = true;
@@ -55,6 +80,14 @@ append_quoted :: (builder: *String_Builder, s: string) {
     append(builder, cast(u8) 34);
 }
 
+// Joins `args` into one command line with a space between them, each quoted as `append_quoted` does. The string is new, from
+// `context.allocator`, and the caller frees it. Use it to show or log a command, or to build a Windows command line.
+//
+// ```jai
+// line := get_quoted_command_string(.["plain", "two words", "say\"hi"]);
+// assert(line == "plain \"two words\" \"say\\\"hi\"");
+// free(line);
+// ```
 get_quoted_command_string :: (args: [] string) -> string {
     builder: String_Builder;
 

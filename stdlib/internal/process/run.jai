@@ -1,3 +1,33 @@
+// Runs a program to its end and returns how it ended: `(process_result, output_string, error_string, timeout_reached)`.
+//
+// The first of `args` is the program: on Unix targets it is searched for on `PATH` unless it has a slash, and the rest are its
+// arguments. No shell is involved, so `*`, `$` and `>` are just text; run `/bin/sh -c "..."` for those. The program starts in
+// `working_directory` when one is given. Its standard input is closed at once, so a program that reads it sees end of file.
+//
+// - A program that cannot be started gives `FAILED_TO_LAUNCH` and empty strings.
+// - With `capture_and_return_output` its standard output and error come back in `output_string` and `error_string`, new
+//   strings from `context.allocator` that the caller frees, also when empty. Without it they are `""` literals, not to be freed,
+//   and the child writes to this program's own output.
+// - With `print_captured_output` the captured text is also written out as it arrives.
+// - With `timeout_ms` of `0` or more the program is killed when that time has passed, and `timeout_reached` is `true`; the
+//   result then says how the kill ended it (`SIGNALED` with `9` on Unix targets). `-1` waits for ever.
+// - Output is read while the program runs, so a program that writes more than a pipe holds does not block.
+//
+// `arg_quoting` is for Windows, see `Process_Argument_Quoting`.
+//
+// ```jai,only(linux, macos)
+// result, out, err, timed_out := run_command("/bin/sh", "-c", "printf copper; printf blue >&2; exit 7", capture_and_return_output = true, timeout_ms = 5000);
+// assert(!timed_out && result.type == .EXITED && result.exit_code == 7);
+// assert(out == "copper" && err == "blue");
+// free(out);
+// free(err);
+//
+// result, out, err, timed_out = run_command("/bin/sleep", "30", timeout_ms = 20);
+// assert(timed_out && result.type == .SIGNALED && result.signal == 9);
+//
+// result, out, err, timed_out = run_command("/jai-doc-no-such-program");
+// assert(result.type == .FAILED_TO_LAUNCH);
+// ```
 run_command :: (args: ..string, working_directory := "", capture_and_return_output := false, print_captured_output := false, timeout_ms := -1, arg_quoting := Process_Argument_Quoting.QUOTE_IF_NEEDED) -> (process_result: Process_Result, output_string := "", error_string := "", timeout_reached := false) {
     process: Process;
     if !create_process(*process, ..args, working_directory = working_directory, capture_and_return_output = capture_and_return_output, arg_quoting = arg_quoting)
