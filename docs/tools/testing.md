@@ -135,7 +135,7 @@ The stdlib modules' tests run under [`jacket test`](jacket-test.md): every folde
 ```sh
 PYTHONPATH=tools python3 tools/native/build_native_libs.py
 PYTHONPATH=tools python3 tools/stdlib/stdlib_runtime.py --jaic target/release/jaic --modes interp,native,wasm-interp,wasm-native
-PYTHONPATH=tools python3 tools/stdlib/check_stdlib_suites.py --jaic target/release/jaic --stdlib stdlib --jailint target/debug/jailint --jaifmt target/jaifmt
+PYTHONPATH=tools python3 tools/stdlib/check_stdlib_suites.py --jaic target/release/jaic --stdlib stdlib
 ```
 
 `check_stdlib_suites.py` runs every module driver with native setup, child processes or target matrices, continues after a failure and exits nonzero if any failed. `--suite NAME` (repeatable) and `--exclude NAME` choose suites; `--jobs N` runs up to N independent groups at once (`GROUPS` in the script: suites that share scratch directories, the X display or the audio device stay serial inside one group; output of a concurrent group is printed when it ends). Put a new suite in the group whose scratch directories it shares, or in its own. `stdlib_runtime.py` takes `--filter`, `--modes`, `--opt O0|O2` and `--report FILE`. Native-only cases are reported as unavailable under WASM, never as passed. Positive cases compare exact stdout (and stderr when a contract is given); check-fail cases need a nonzero status and a `diagnostic_contains`, and a `positive_baseline` case in the same folder must still check clean. Tests can read the mode to avoid what a mode cannot do. Export counts are not a completeness measure. `--tooling-part K/N` hands `--part K/N` to the `tooling` suite alone, so CI can run its units on N jobs (see [tools layout](tools-layout.md)).

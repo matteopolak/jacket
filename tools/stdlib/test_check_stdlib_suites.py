@@ -31,15 +31,12 @@ class Driver(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             files = []
-            for name in ("jaic", "jailint", "jaifmt"):
-                path = Path(tmp) / name
-                path.write_text("")
-                files.append(str(path))
+            path = Path(tmp) / "jaic"
+            path.write_text("")
+            files.append(str(path))
             argv = [
                 "check_stdlib_suites.py",
                 "--jaic", files[0],
-                "--jailint", files[1],
-                "--jaifmt", files[2],
                 "--stdlib", str(suites.ROOT / "stdlib"),
                 "--native-libs", tmp,
                 "--font", files[0],
@@ -72,7 +69,7 @@ class Driver(unittest.TestCase):
         self.assertGreater(peak, 1)
 
     def test_a_failing_suite_fails_the_run_and_the_others_still_run(self):
-        failed, started, _ = self.run_main("--jobs", "3", fail=("check_foundations",))
+        failed, started, _ = self.run_main("--jobs", "3", fail=("check_portable_stdlib",))
         self.assertTrue(failed)
         self.assertEqual(len(started), len(suites.SUITES))
 

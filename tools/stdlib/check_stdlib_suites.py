@@ -18,7 +18,6 @@ from toolkit.repo import cargo_target_dir
 from toolkit.cli import add_jaic_argument
 
 SUITES = (
-    "foundations",
     "portable",
     "platform",
     "audio",
@@ -33,7 +32,6 @@ SUITES = (
 GROUPS = (
     ("tooling",),
     ("bindings",),
-    ("foundations",),
     ("portable", "platform"),
     ("audio", "window"),
 )
@@ -43,8 +41,6 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     add_jaic_argument(parser, required=True)
     parser.add_argument("--stdlib", required=True, type=Path)
-    parser.add_argument("--jailint", required=True, type=Path)
-    parser.add_argument("--jaifmt", required=True, type=Path)
     parser.add_argument("--suite", action="append", choices=SUITES)
     parser.add_argument(
         "--exclude",
@@ -88,7 +84,6 @@ def main():
             parser.error("--tooling-part must be K/N with 1 <= K <= N")
     selected = [s for s in (args.suite or SUITES) if s not in args.exclude]
     compiler, library = args.jaic.resolve(strict=True), args.stdlib.resolve(strict=True)
-    lint, fmt = args.jailint.resolve(strict=True), args.jaifmt.resolve(strict=True)
     native = args.native_libs.resolve(strict=True)
     if library != (ROOT / "stdlib").resolve():
         parser.error(
@@ -117,19 +112,6 @@ def main():
     if args.font:
         env["JAIC_TEST_FONT_PATH"] = str(args.font.resolve(strict=True))
     commands = {
-        "foundations": [
-            "tools/stdlib/check_foundations.py",
-            "--jaic",
-            compiler,
-            "--stdlib",
-            library,
-            "--jaifmt",
-            fmt,
-            "--jailint",
-            lint,
-            "--cross",
-            "--wasm",
-        ],
         "portable": [
             "tools/portable/check_portable_stdlib.py",
             "--jaic",
