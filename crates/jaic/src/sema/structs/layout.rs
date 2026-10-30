@@ -221,8 +221,8 @@ impl Compiler {
             match item {
                 FieldItem::Declaration(..) => unreachable!("field declarations were resolved"),
                 FieldItem::Alias(alias) => aliases.push(alias),
-                FieldItem::Place(name, span) => layout.push(LayoutItem::Place(name, span)),
-                FieldItem::Overlay(name, span) => layout.push(LayoutItem::Overlay(name, span)),
+                FieldItem::Place(path, span) => layout.push(LayoutItem::Place(path, span)),
+                FieldItem::Overlay(path, span) => layout.push(LayoutItem::Overlay(path, span)),
                 FieldItem::Field(d) => {
                     self.ensure_storage_type(d.ty, d.span)?;
                     let size = self.size_of(d.ty, d.span)?;
@@ -335,13 +335,13 @@ impl Compiler {
                         });
                     }
                 }
-                LayoutItem::Place(name, span) | LayoutItem::Overlay(name, span) => {
-                    let (index, relative) = if let Some(&target) = targets.get(&name) {
+                LayoutItem::Place(ref path, span) | LayoutItem::Overlay(ref path, span) => {
+                    let (index, relative) = if let Some(&target) = targets.get(path) {
                         target
                     } else {
                         let target =
-                            self.layout_anchor(s, &fields, &filters, &names, name, span)?;
-                        targets.insert(name, target);
+                            self.layout_anchor(s, &fields, &filters, &names, path, span)?;
+                        targets.insert(path.clone(), target);
                         target
                     };
                     let node = if relative == 0 {
@@ -356,7 +356,9 @@ impl Compiler {
                         });
                         node
                     };
-                    if let Some(&index) = names.get(&name) {
+                    if let [name] = path[..]
+                        && let Some(&index) = names.get(&name)
+                    {
                         self.ide_note_named_field(span, name, fields[index].span, fields[index].ty);
                     }
                     if matches!(item, LayoutItem::Place(..)) {
@@ -419,8 +421,35 @@ impl Compiler {
         Ok(())
     }
 
-    /// Resolve a storage anchor against all declarations, without needing outer offsets yet.
+    /// Resolve a storage anchor (a field, or a member path through fields, `a.b`) against all
+    /// declarations, without needing outer offsets yet.
     fn layout_anchor(
+        &mut self,
+        owner: StructId,
+        fields: &[Field],
+        filters: &UsingFilters,
+        names: &HashMap<Sym, usize>,
+        path: &[Sym],
+        span: Span,
+    ) -> Result<(usize, u64)> {
+        let (head, rest) = path.split_first().expect("an anchor names a field");
+        let (index, mut relative, mut ty) =
+            self.layout_anchor_head(owner, fields, filters, names, *head, span)?;
+        for &name in rest {
+            let Some((steps, member_ty, _)) =
+                self.find_promoted_member(vec![(ty, 0, name)], span, &mut vec![owner])?
+            else {
+                return err(span, format!("no member named `{name}` to anchor on"));
+            };
+            relative = Self::anchor_offset(relative, &steps, name, span)?;
+            ty = member_ty;
+        }
+        Ok((index, relative))
+    }
+
+    /// The first field of an anchor: a field of this struct or a name promoted from a `using`
+    /// field. Its field index, offset from that field, and type.
+    fn layout_anchor_head(
         &mut self,
         owner: StructId,
         fields: &[Field],
@@ -428,45 +457,51 @@ impl Compiler {
         names: &HashMap<Sym, usize>,
         name: Sym,
         span: Span,
-    ) -> Result<(usize, u64)> {
+    ) -> Result<(usize, u64, TypeId)> {
         if let Some(&index) = names.get(&name) {
-            return Ok((index, 0));
+            return Ok((index, 0, fields[index].ty));
         }
         for (index, field) in fields.iter().enumerate().filter(|(_, f)| f.using) {
             let Some(target) = filters.target(index, name) else {
                 continue;
             };
-            if let Some((path, _, _)) =
+            if let Some((steps, ty, _)) =
                 self.find_promoted_member(vec![(field.ty, 0, target)], span, &mut vec![owner])?
             {
-                let mut relative = 0u64;
-                for step in path {
-                    match step {
-                        PathStep::Offset(at) => {
-                            relative = relative
-                                .checked_add(at)
-                                .filter(|&n| n <= MAX_SIZE)
-                                .ok_or_else(|| {
-                                    Box::new(Diagnostic::error(
-                                        span,
-                                        "overlay target offset is too large",
-                                    ))
-                                })?;
-                        }
-                        PathStep::Deref => {
-                            return err(
-                                span,
-                                format!(
-                                    "`{name}` is behind a using pointer and has no inline storage offset"
-                                ),
-                            );
-                        }
-                    }
-                }
-                return Ok((index, relative));
+                let relative = Self::anchor_offset(0, &steps, name, span)?;
+                return Ok((index, relative, ty));
             }
         }
         err(span, format!("no field named `{name}` in this struct"))
+    }
+
+    /// `base` plus the inline offsets of a member path; a pointer step has no inline storage.
+    fn anchor_offset(base: u64, steps: &[PathStep], name: Sym, span: Span) -> Result<u64> {
+        let mut relative = base;
+        for step in steps {
+            match *step {
+                PathStep::Offset(at) => {
+                    relative = relative
+                        .checked_add(at)
+                        .filter(|&n| n <= MAX_SIZE)
+                        .ok_or_else(|| {
+                            Box::new(Diagnostic::error(
+                                span,
+                                "overlay target offset is too large",
+                            ))
+                        })?;
+                }
+                PathStep::Deref => {
+                    return err(
+                        span,
+                        format!(
+                            "`{name}` is behind a using pointer and has no inline storage offset"
+                        ),
+                    );
+                }
+            }
+        }
+        Ok(relative)
     }
 
     /// Two `using` members that bring in the same name are an error, as in Jai. A field of the

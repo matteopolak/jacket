@@ -99,10 +99,10 @@ pub(super) enum FieldItem {
     Field(FieldDecl),
     /// `using,only(a, b) field.inner;`: names reached through a path of members.
     Alias(MemberAlias),
-    /// `#place f;`: following fields start at `f`'s offset.
-    Place(Sym, Span),
-    /// `#overlay(f)`: the next field shares `f`'s storage.
-    Overlay(Sym, Span),
+    /// `#place f;`: following fields start at `f`'s offset (`f` may be a path, `a.b`).
+    Place(Vec<Sym>, Span),
+    /// `#overlay(f)`: the next field shares `f`'s storage (`f` may be a path, `a.b`).
+    Overlay(Vec<Sym>, Span),
 }
 
 /// An offset depends on at most one other offset: align(dependency + addend).
@@ -118,8 +118,8 @@ pub(super) struct OffsetNode {
 
 pub(super) enum LayoutItem {
     Field(usize),
-    Place(Sym, Span),
-    Overlay(Sym, Span),
+    Place(Vec<Sym>, Span),
+    Overlay(Vec<Sym>, Span),
 }
 
 #[derive(Clone)]

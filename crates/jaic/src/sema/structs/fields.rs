@@ -70,16 +70,16 @@ impl Compiler {
                     self.collect_fields(scope, &inserted, out)?;
                 }
                 ast::StmtKind::Place(e) => {
-                    let E::Ident(name) = &e.kind else {
+                    let Some(path) = member_path(e) else {
                         return err(e.span, "#place needs a field name");
                     };
-                    out.push(FieldItem::Place(*name, e.span));
+                    out.push(FieldItem::Place(path, e.span));
                 }
                 ast::StmtKind::Overlay(e) => {
-                    let E::Ident(name) = &e.kind else {
+                    let Some(path) = member_path(e) else {
                         return err(e.span, "#overlay needs a field name");
                     };
-                    out.push(FieldItem::Overlay(*name, e.span));
+                    out.push(FieldItem::Overlay(path, e.span));
                 }
                 ast::StmtKind::Expr(e) => match &e.kind {
                     E::Struct(lit) => {
