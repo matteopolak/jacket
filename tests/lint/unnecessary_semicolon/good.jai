@@ -30,6 +30,9 @@ main :: () {
             print("many\n");
     }
 
+    // An `#if` whose whole body is `;`.
+    #if LIMIT > 100;
+
     print("%\n", total);
     helper();
 }

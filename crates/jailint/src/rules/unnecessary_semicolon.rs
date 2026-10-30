@@ -11,11 +11,12 @@
 //! Fires on an empty statement in a block, a `case`, a procedure body or at the top of a file.
 //! The `;` that is the whole body of a loop or an `if` (`while poll() ;`) is how an empty body is
 //! written, and is left alone. Macros and generated files are skipped. The fix removes the `;`
-//! (and its line when it is alone on one).
+//! (and its line when it is alone on one). The `;` that is the whole body of an `#if` or its
+//! `else` (`#if debug;`) is left alone for the same reason.
 use super::replacing;
 use crate::Finding;
 use crate::syntax::{Cx, Node};
-use jaic::ast::StmtKind as S;
+use jaic::ast::{Stmt, StmtKind as S};
 
 /// The rule's name, group and one-line summary, and its check.
 pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
@@ -42,7 +43,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             ),
             Some(Node::Expr(_)) => true,
         };
-        if !in_list || cx.src(s.span) != ";" {
+        if !in_list || cx.src(s.span) != ";" || is_static_if_body(cx, s, up.last()) {
             return;
         }
         let (start, end) = cx.tidy_removal(s.span);
@@ -55,4 +56,30 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             true,
         ));
     });
+}
+
+/// The `;` is the whole of an `#if`'s then or else arm, written without braces. Removing it
+/// would leave the `#if` without a body, so the file would no longer parse. (An arm written
+/// with braces ends at its `}`, and an empty statement inside it is removable.)
+fn is_static_if_body(cx: &Cx, empty: &Stmt, parent: Option<&Node<'_>>) -> bool {
+    let Some(Node::Stmt(Stmt {
+        kind: S::StaticIf(branch),
+        ..
+    })) = parent
+    else {
+        return false;
+    };
+    let arm = if let [only] = branch.then_branch.as_slice()
+        && only.span == empty.span
+    {
+        branch.then_arm
+    } else if let [only] = branch.else_branch.as_slice()
+        && only.span == empty.span
+        && let Some(arm) = branch.else_arm
+    {
+        arm
+    } else {
+        return false;
+    };
+    cx.src(arm).trim_end().ends_with(';')
 }
