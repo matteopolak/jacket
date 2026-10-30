@@ -143,8 +143,9 @@ impl Compiler {
         self.entity_is_overloadable(id)
             || matches!(
                 self.resolve_entity(id),
-                Ok(Resolved::Proc(_) | Resolved::ProcSet(_))
-                    | Ok(Resolved::Const {
+                Ok(Resolved::Proc(_)
+                    | Resolved::ProcSet(_)
+                    | Resolved::Const {
                         value: Value::Proc(_),
                         ..
                     })
@@ -176,7 +177,7 @@ impl Compiler {
                 else {
                     continue;
                 };
-                lists.push((ty.params.to_vec(), ty.variadic));
+                lists.push((ty.params.clone(), ty.variadic));
             }
         }
         lists

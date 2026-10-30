@@ -37,7 +37,6 @@ Preload's `{}` is not a type
 `{}` is a builtin procedure without a declaration
 `{}` is behind a using pointer and has no inline storage offset
 `{}` is not a library
-`{}` is not a member of {}
 `{}` is not a type
 `{}` moves between a register and memory
 `{}` must have a body

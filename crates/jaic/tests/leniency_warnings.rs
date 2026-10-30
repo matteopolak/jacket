@@ -10,7 +10,7 @@ use std::{path::Path, rc::Rc};
 fn compile(main: &str, modules: &[(&str, &str)]) -> (Result<(), Box<Diagnostic>>, Compiler) {
     let mut fs = VirtualFs::default();
     for (name, source) in modules {
-        fs.insert(&format!("/modules/{name}/module.jai"), source.as_bytes());
+        fs.insert(format!("/modules/{name}/module.jai"), source.as_bytes());
     }
     fs.insert("/main.jai", main.as_bytes());
     let mut options = Options::host();

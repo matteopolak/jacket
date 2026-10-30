@@ -390,7 +390,12 @@ impl Compiler {
     ) {
         let home_module = self.scope(home).module;
         let full = self.ty.types.name(ty);
-        let name = full.split('(').next().unwrap_or(&full).to_string();
+        let name = full
+            .trim_start_matches('*')
+            .split('(')
+            .next()
+            .unwrap_or(&full)
+            .to_string();
         let Some(d) = self.leniency_warning(
             self.scope(scope).module,
             span,
