@@ -59,6 +59,8 @@ def sdl_environment() -> dict[str, str]:
         [sys.executable, str(prepare), "--scratch", scratch, "--cache", str(cache)],
         text=True,
         capture_output=True,
+        # The script imports `toolkit` and its sibling modules from tools/, as the test workers do.
+        env={**os.environ, "PYTHONPATH": os.pathsep.join(filter(None, [str(TOOLS), os.environ.get("PYTHONPATH", "")]))},
     )
     if result.returncode:
         sys.stderr.write(
