@@ -69,7 +69,7 @@ class RealWorkflow(unittest.TestCase):
         self.assertTrue(selects("sdl3", "tools/bindings/sdl3_gen.py"))
         self.assertFalse(selects("sdl3", ".github/workflows/ci.yml"))
         self.assertFalse(selects("sdl3", ".github/actions/setup-unix/action.yml"))
-        self.assertFalse(selects("sdl3", "stdlib/Clipboard/module.jai"))
+        self.assertFalse(selects("sdl3", "stdlib/Sound_Player/module.jai"))
 
     def test_the_workflow_runs_every_other_area(self):
         for area in ci_changes.input_areas():
