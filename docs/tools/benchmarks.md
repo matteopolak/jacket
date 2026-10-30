@@ -28,7 +28,7 @@ Before timing, the harness reads the binary and the workload's files, then does 
 
 `--compare old.json` flags a result when its median wall time, CPU time or peak RSS grew by more than `--threshold` (relative), more than `--min-seconds` / `--min-mib` (absolute, so tiny workloads do not trip), and more than three median absolute deviations of either run (so noise does not trip). A result that worked before and fails now is a regression too, and so is growth in `interp_instructions`. Exit status is 1 for a regression or a failed workload. Compare only runs from one machine, one benchmark at a time; shared CI runners are too noisy to gate on.
 
-Common options: `--repeat`, `--warmup`, `--only A,B` (substrings of result keys), `--list`, `--timeout`, `--out`, `--markdown`, `--compare`, `--threshold`, `--min-seconds`, `--min-mib`.
+Common options: `--repeat`, `--warmup`, `--only A,B` (substrings of result keys; a term that matches nothing is reported, with the subcommand that does have it, e.g. `hello is a compile workload` under `compare`, and the run stops when no term matches), `--list`, `--timeout`, `--out`, `--markdown`, `--compare`, `--threshold`, `--min-seconds`, `--min-mib`.
 
 ### compile
 
@@ -238,7 +238,7 @@ python tools\bench\main.py wsb --out-dir C:\bench-vm --map ref=C:\jai --map jaic
     -- compare --baseline {ref}\bin\jai.exe --candidate {jaic}\jaic.exe --cold-rounds 0 --out-dir {out}
 ```
 
-Open `C:\bench-vm\bench.wsb` (or add `--launch`). Mapped folders appear read-only under `C:\bench\<name>`; `{repo}`, `{python}` (the Python running the command, mapped as is) and `{out}` (writable, your `--out-dir`) are always there. The VM runs the harness with `--no-sandbox`, writes `log.txt` and the results into `C:\bench-vm`, and shuts down. Caveats: the VM has none of your installed tools, so a build that must link needs the toolchain inside it (mapping Visual Studio does not register it, so the compilers may not find it; `--modes check,interp` needs no linker); timings are taken inside a VM and are comparable only with other runs in the same VM setup; the VM starts cold every time.
+Open `C:\bench-vm\bench.wsb` (or add `--launch`). Mapped folders appear read-only under `C:\bench\<name>`; `{repo}`, `{python}` (the Python running the command, mapped as is; Windows Sandbox cannot map the Microsoft Store Python under `WindowsApps`, so a python.org install is picked instead when one is found, otherwise the command stops and asks for `--python <folder of a python.org install>`) and `{out}` (writable, your `--out-dir`) are always there. The VM runs the harness with `--no-sandbox`, writes `log.txt` and the results into `C:\bench-vm`, and shuts down. Caveats: the VM has none of your installed tools, so a build that must link needs the toolchain inside it (mapping Visual Studio does not register it, so the compilers may not find it; `--modes check,interp` needs no linker); timings are taken inside a VM and are comparable only with other runs in the same VM setup; the VM starts cold every time. The harness finds the repository by its own location, so the VM needs no version-control tools. Corpus links made with absolute host paths are resolved against the mapped corpus, and `fetch_upstreams.py` now makes relative symlinks (a copy of the folder on Windows without symlink rights). A real-project workload whose setup needs a tool the VM lacks (forbear needs `sh`, `clang` and `ar`) is listed under "Not timed" with that reason.
 
 ## How to change it
 

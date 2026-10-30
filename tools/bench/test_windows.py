@@ -116,6 +116,35 @@ class WsbCommandTests(unittest.TestCase):
             cmd_wsb.build(self.arguments(Path(folder)))
 
 
+class WsbPythonTests(unittest.TestCase):
+    STORE = Path('C:\\Program Files\\WindowsApps\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0')
+    ORG = Path('C:\\Users\\me\\AppData\\Local\\Programs\\Python\\Python313')
+
+    def test_store_paths_are_recognised_in_any_case(self):
+        self.assertTrue(cmd_wsb.is_store_python(self.STORE))
+        self.assertTrue(cmd_wsb.is_store_python('c:\\program files\\windowsapps\\x'))
+        self.assertFalse(cmd_wsb.is_store_python(self.ORG))
+
+    def test_the_running_python_is_used_unless_it_is_from_the_store(self):
+        self.assertEqual(cmd_wsb.choose_python(None, running=self.ORG), self.ORG)
+
+    def test_a_store_python_is_replaced_by_an_installed_one(self):
+        chosen = cmd_wsb.choose_python(None, running=self.STORE, candidates=lambda: [self.STORE, self.ORG])
+        self.assertEqual(chosen, self.ORG)
+
+    def test_a_store_python_with_no_alternative_stops_with_the_way_out(self):
+        with self.assertRaises(SystemExit) as stop:
+            cmd_wsb.choose_python(None, running=self.STORE, candidates=list)
+        self.assertIn('--python', str(stop.exception))
+        self.assertIn('python.org', str(stop.exception))
+
+    def test_a_store_python_given_explicitly_is_refused(self):
+        with self.assertRaises(SystemExit) as stop:
+            cmd_wsb.choose_python(self.STORE)
+        self.assertIn('Microsoft Store', str(stop.exception))
+        self.assertEqual(cmd_wsb.choose_python(self.ORG), self.ORG)
+
+
 class PlatformSwitchTests(unittest.TestCase):
     def test_windows_commands_are_quoted_for_the_windows_shell(self):
         argv = ['python', 'C:\\Program Files\\x.py', '--a', 'b c']

@@ -10,9 +10,10 @@ in the command are replaced by their folder inside the VM. The VM has no network
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 from bench.winsandbox import windows_sandbox_config
 from toolkit.repo import ROOT
@@ -26,12 +27,48 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
                              'and the toolchain the compilers link with')
     parser.add_argument('--out-dir', type=Path, required=True,
                         help='host folder for the results; writable in the VM as C:\\bench\\out')
-    parser.add_argument('--python', type=Path, default=Path(sys.base_prefix),
-                        help='the Python installation to run the harness with (default: the one running this)')
+    parser.add_argument('--python', type=Path, default=None,
+                        help='the Python installation folder to run the harness with (default: the one running this, '
+                             'or another python.org install if this is the Microsoft Store one, which Windows '
+                             'Sandbox cannot map)')
     parser.add_argument('--memory-mb', type=int, default=8192, help='memory of the VM (default: %(default)s)')
     parser.add_argument('--launch', action='store_true', help='start Windows Sandbox on the configuration')
     parser.add_argument('benchmark', nargs=argparse.REMAINDER, metavar='-- COMMAND...',
                         help='the harness subcommand and its arguments, e.g. compare --baseline ...')
+
+
+def is_store_python(path: Path | str) -> bool:
+    """Whether `path` is inside `WindowsApps`, where the Microsoft Store puts Python: Windows Sandbox cannot map it."""
+    return 'windowsapps' in {part.lower() for part in PureWindowsPath(str(path)).parts}
+
+
+def installed_pythons() -> list[Path]:
+    """Python installation folders in the places python.org's installer uses."""
+    roots = [Path(os.environ[v]) / 'Programs' / 'Python' for v in ('LOCALAPPDATA',) if os.environ.get(v)]
+    roots += [Path(os.environ.get(v, default)) for v, default in
+              (('ProgramFiles', 'C:\\Program Files'), ('SystemDrive', 'C:'))]
+    found: list[Path] = []
+    for root in roots:
+        found += sorted(root.glob('Python3*'), reverse=True) if root.is_dir() else []
+    return [folder for folder in found if (folder / 'python.exe').is_file()]
+
+
+def choose_python(given: Path | None, running: Path | None = None, candidates=installed_pythons) -> Path:
+    """The Python folder to map: `given`, or the running one, or a python.org install when the running one is
+    from the Microsoft Store. A Store Python is refused with the way out."""
+    if given is not None:
+        if is_store_python(given):
+            sys.exit(f'--python {given} is the Microsoft Store Python, which Windows Sandbox cannot map '
+                     '(access denied); install Python from python.org and pass --python <its folder>')
+        return given
+    running = running or Path(sys.base_prefix)
+    if not is_store_python(running):
+        return running
+    for folder in candidates():
+        if not is_store_python(folder):
+            return folder
+    sys.exit('this Python is the Microsoft Store one, which Windows Sandbox cannot map (access denied) and no '
+             'python.org install was found; install Python from python.org and pass --python <its folder>')
 
 
 def guest_folders(maps: list[str]) -> dict[str, Path]:
@@ -83,7 +120,8 @@ def build(args: argparse.Namespace) -> tuple[str, str]:
     command = [a for a in args.benchmark if a != '--']
     if not command:
         sys.exit('give the benchmark command after --, e.g. -- compare --baseline ... --candidate ...')
-    mapping = [(ROOT, guest_path('repo'), True), (args.python, guest_path('python'), True),
+    python = choose_python(args.python)
+    mapping = [(ROOT, guest_path('repo'), True), (python, guest_path('python'), True),
                (args.out_dir.resolve(), guest_path('out'), False),
                *((host, guest_path(name), True) for name, host in folders.items())]
     script = run_script(fill(command, list(folders)))
