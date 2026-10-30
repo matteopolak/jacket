@@ -361,13 +361,26 @@ impl Compiler {
             }
             _ => None,
         };
-        let result_ty = widen.or(then_ty).or(expected);
+        // An untyped constant that cannot become the expected type leaves the result to the other
+        // arm: `v * (ifx c then 0.9 else 1.0)` is a number, not the vector `v` is.
+        let expected_for_arms = match (&then_op, expected) {
+            (
+                Operand::Const {
+                    untyped: true, ..
+                },
+                Some(e),
+            ) if self.implicit_cost(then_op.ty(), true, e).is_none() => None,
+            _ => expected,
+        };
+        let result_ty = widen.or(then_ty).or(expected_for_arms);
         let then_end = f.b.current;
         // Check else first to learn its type when then is untyped.
         f.b.switch_to(else_block);
         let else_op = match (early_else, else_value) {
             (Some(op), _) => Some(op),
-            (None, Some(e)) => Some(self.check_expr(f, scope, e, result_ty.or(expected))?),
+            (None, Some(e)) => {
+                Some(self.check_expr(f, scope, e, result_ty.or(expected_for_arms))?)
+            }
             (None, None) => None,
         };
         if let (Some(then_e), Some(else_e), Some(else_op)) = (then_value, else_value, &else_op) {
