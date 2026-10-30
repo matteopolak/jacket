@@ -29,7 +29,10 @@ main :: () {
     ok: bool;
     reader: C.Read_Channel;
 
-    push_context scoped ok, reader = C.reader_create_channel(name, 512);
+    push_context scoped {
+        ok, reader = C.reader_create_channel(name, 512);
+    }
+
     assert(tracking.outstanding > 0);
 
     assert(ok && reader.header.data_size_in_bytes == 256);

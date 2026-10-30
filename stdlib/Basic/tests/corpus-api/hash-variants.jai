@@ -10,12 +10,12 @@ Real64 :: #type,isa float64;
 Flag :: #type,isa bool;
 Address :: #type,isa * u8;
 
-Code :: enum s16 {
+Level :: enum s16 {
     LOW :: -1;
     HIGH :: 19;
 }
 
-Typed_Code :: #type,isa Code;
+Typed_Code :: #type,isa Level;
 
 main :: () {
     id := cast(Event_Id) 7;
@@ -28,7 +28,7 @@ main :: () {
     assert(H.get_hash(cast(Signed_Id) -1) == H.get_hash(cast(s32) -1));
     assert(H.get_hash(cast(Flag) true) == H.get_hash(true));
     assert(H.get_hash(cast(Address) cast(*u8) 0x1234) == H.get_hash(cast(*u8) 0x1234));
-    assert(H.get_hash(cast(Typed_Code) Code.LOW) == H.get_hash(Code.LOW));
+    assert(H.get_hash(cast(Typed_Code) Level.LOW) == H.get_hash(Level.LOW));
     single: float32 = 1.25;
     wide: float64 = -2.5;
 

@@ -3945,19 +3945,19 @@ SDL_hid_get_device_info :: (dev: *SDL_hid_device) -> *SDL_hid_device_info #forei
 
 SDL_hid_get_feature_report :: (dev: *SDL_hid_device, data: *u8, length: u64) -> s32 #foreign SDL3;
 
-SDL_hid_get_indexed_string :: (dev: *SDL_hid_device, string_index: s32, string: *u16, maxlen: u64) -> s32 #foreign SDL3;
+SDL_hid_get_indexed_string :: (dev: *SDL_hid_device, string_index: s32, text: *u16, maxlen: u64) -> s32 #foreign SDL3;
 
 SDL_hid_get_input_report :: (dev: *SDL_hid_device, data: *u8, length: u64) -> s32 #foreign SDL3;
 
-SDL_hid_get_manufacturer_string :: (dev: *SDL_hid_device, string: *u16, maxlen: u64) -> s32 #foreign SDL3;
+SDL_hid_get_manufacturer_string :: (dev: *SDL_hid_device, text: *u16, maxlen: u64) -> s32 #foreign SDL3;
 
-SDL_hid_get_product_string :: (dev: *SDL_hid_device, string: *u16, maxlen: u64) -> s32 #foreign SDL3;
+SDL_hid_get_product_string :: (dev: *SDL_hid_device, text: *u16, maxlen: u64) -> s32 #foreign SDL3;
 
 SDL_hid_get_properties :: (dev: *SDL_hid_device) -> SDL_PropertiesID #foreign SDL3;
 
 SDL_hid_get_report_descriptor :: (dev: *SDL_hid_device, buf: *u8, buf_size: u64) -> s32 #foreign SDL3;
 
-SDL_hid_get_serial_number_string :: (dev: *SDL_hid_device, string: *u16, maxlen: u64) -> s32 #foreign SDL3;
+SDL_hid_get_serial_number_string :: (dev: *SDL_hid_device, text: *u16, maxlen: u64) -> s32 #foreign SDL3;
 
 SDL_hid_init :: () -> s32 #foreign SDL3;
 

@@ -2,6 +2,7 @@
 use super::model::{
     BodyState, ParamInfo, ProcInfo, Signature, has_poly, validate_c_variadic_header,
 };
+use crate::lang_items::PreludeType;
 use crate::sema::SourceState;
 use crate::sema::lower::Operand;
 use crate::sema::scope::{EntityKind, Resolved};
@@ -310,6 +311,9 @@ impl Compiler {
                 }
                 (Some(t), _) => self.eval_type(scope, t)?,
                 (None, Some(d)) if matches!(d.kind, ast::ExprKind::CallerCode) => TypeId::CODE,
+                (None, Some(d)) if matches!(d.kind, ast::ExprKind::CallerLocation) => {
+                    self.preload_type(PreludeType::SourceCodeLocation, d.span)?
+                }
                 (None, Some(d)) => {
                     // Only the type matters; defaults like `context.allocator` are runtime values.
                     let op = self.check_expr_no_emit(scope, d)?;

@@ -7,7 +7,7 @@ probe :: () -> bool {
     if !continues_identifier(#char "0") || continues_identifier(-1) return false;
     if !starts_number(#char "9") || starts_number(#char ":") return false;
     if has_a_big_exponent(0.0) || has_a_big_exponent(1.0) return false;
-    if !has_a_big_exponent(1e300) || !has_a_big_exponent(1e-100) return false;
+    if !has_a_big_exponent(1.0e300) || !has_a_big_exponent(1.0e-100) return false;
 
     first, second: s64;
     identical := Alloc_And_Free_Traces.{ *first, *second };

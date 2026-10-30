@@ -192,7 +192,10 @@ main :: () {
     storage.size = memory.count;
     scoped.temporary_storage = *storage.base;
     scoped.logger = capture;
-    push_context scoped exercise();
+    push_context scoped {
+        exercise();
+    }
+
     reset_temporary_storage(*storage.base);
     assert(live == 0);
     print("ok\n");

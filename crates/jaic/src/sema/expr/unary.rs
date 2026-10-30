@@ -75,6 +75,16 @@ impl Compiler {
                 None => self.index_operand(f, scope, base_op, index_op, index.span, a.span)?,
             }
         } else {
+            if !self.pr.local_consts.is_empty()
+                && let E::Ident(name) = &a.kind
+                && let Some(&id) = self.lookup(scope, *name)?.first()
+                && matches!(
+                    self.pr.local_consts.get(&id),
+                    Some((Value::Int(_) | Value::Float(_, _) | Value::Bool(_), _))
+                )
+            {
+                self.warn_address_of_macro_constant(scope, span, name.as_str());
+            }
             // The address of a variable (`*global`, `*global.field`) is constant even
             // though the variable is not: naming it reads no value.
             let constant_only = f.constant_only;

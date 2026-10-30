@@ -24,7 +24,7 @@ main :: () {
 
     section := Log_Section.{ "network" };
     explicit := Source_Code_Location.{ fully_pathed_filename = "chosen.jai", line_number = 123, character_number = 7 };
-    caller := #caller_location;
+    caller := #location();
     backing: [2048] u8;
     storage: Temporary_Storage_Paged_Alloc;
     storage.data = backing.data;

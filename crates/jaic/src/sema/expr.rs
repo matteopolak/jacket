@@ -436,6 +436,12 @@ impl Compiler {
                 if self.ed.is_live() {
                     self.ide_note_cast(span, target, &op);
                 }
+                if self.ty.types.is_integer(target)
+                    && (matches!(op, Operand::Procs(_))
+                        || matches!(self.ty.types.kind(op.ty()), TypeKind::Proc(_)))
+                {
+                    self.warn_procedure_cast_to_integer(scope, span, target);
+                }
                 let op = if flags.no_check || flags.truncate || flags.force {
                     op
                 } else {
@@ -658,7 +664,10 @@ impl Compiler {
                 };
                 self.location_operand(f, loc_span)
             }
-            E::CallerLocation => self.location_operand(f, span),
+            E::CallerLocation => {
+                self.warn_caller_location_outside_default(scope, span);
+                self.location_operand(f, span)
+            }
             // `#file` is the full path of the file, as loaded.
             E::File => {
                 let path =

@@ -36,7 +36,7 @@ main :: () {
     assert(A.zip_add_file_from_memory(*w, "aligned data", "aligned.txt", alignment = 4096));
     assert(A.zip_add_file_from_memory(*w, "", "empty.txt", .DEFLATE));
 
-    for length: .[65534, 65535, 65536, 131071] {
+    for length: s64.[65534, 65535, 65536, 131071] {
         bytes := alloc_string(length);
         for *byte, i: bytes byte.* = cast(u8) (i % 251);
 

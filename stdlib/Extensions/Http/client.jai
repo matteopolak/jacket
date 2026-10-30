@@ -1807,7 +1807,7 @@ default_tls_ready :: () -> Tls.Tls_Error {
                 default_tls.alpn = string.["http/1.1"];
                 default_tls_error = Tls.tls_config_init(*default_tls);
 
-                atomic_store(*default_tls_state, ifx default_tls_error.kind == .NONE then 2 else 3);
+                atomic_store(*default_tls_state, cast(s32) ifx default_tls_error.kind == .NONE then 2 else 3);
 
                 continue;
             }

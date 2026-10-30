@@ -131,9 +131,9 @@ make :: () -> Wide {
     row: [..] float64;
 
     array_add(*row, 1.5);
-    array_add(*row, 1e21);
+    array_add(*row, 1.0e21);
     array_add(*row, -0.0);
-    array_add(*row, 5e-324);
+    array_add(*row, 5.0e-324);
     array_add(*row, 123456789.125);
     empty_row: [..] float64;
 

@@ -153,7 +153,7 @@ can_accept :: (config: *Tls_Config) -> bool {
 SYSTEM_VERIFIER :: OS == .MACOS || OS == .WINDOWS;
 
 version_number :: (version: Tls_Version) -> s32 {
-    return ifx version == .TLS_1_3 then VERSION_TLS_1_3 else VERSION_TLS_1_2;
+    return cast(s32) ifx version == .TLS_1_3 then VERSION_TLS_1_3 else VERSION_TLS_1_2;
 }
 
 parse_certificates :: (text: string, what: string) -> *void, Tls_Error {
@@ -274,7 +274,7 @@ build_client :: (config: *Tls_Config, native: *Tls_Native, min: s32, max: s32) -
     } else if native.roots {
         mbedtls_ssl_conf_authmode(conf, SSL_VERIFY_REQUIRED);
         mbedtls_ssl_conf_ca_chain(conf, native.roots, native.crl);
-        jai_tls_conf_verify(conf, native.roots, native.crl, ifx config.verify_name then 0 else 1, ifx config.root_must_be_self_signed then 1 else 0);
+        jai_tls_conf_verify(conf, native.roots, native.crl, cast(s32) ifx config.verify_name then 0 else 1, cast(s32) ifx config.root_must_be_self_signed then 1 else 0);
     } else #if SYSTEM_VERIFIER {
         // The operating system's verifier has the last word (see trust_*.jai).
         mbedtls_ssl_conf_authmode(conf, SSL_VERIFY_OPTIONAL);
@@ -293,7 +293,7 @@ build_client :: (config: *Tls_Config, native: *Tls_Native, min: s32, max: s32) -
 
         mbedtls_ssl_conf_authmode(conf, SSL_VERIFY_REQUIRED);
         mbedtls_ssl_conf_ca_chain(conf, system_roots, native.crl);
-        jai_tls_conf_verify(conf, system_roots, native.crl, ifx config.verify_name then 0 else 1, ifx config.root_must_be_self_signed then 1 else 0);
+        jai_tls_conf_verify(conf, system_roots, native.crl, cast(s32) ifx config.verify_name then 0 else 1, cast(s32) ifx config.root_must_be_self_signed then 1 else 0);
     }
 
     if native.alpn_list.count > 0 {

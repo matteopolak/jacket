@@ -49,7 +49,7 @@ dispose_native_windows :: () {
     }
 
     array_free(owned_windows);
-    owned_windows = .{};
+    owned_windows = type_of(owned_windows).{};
 }
 
 native_message :: (receiver: *void, name: string) {

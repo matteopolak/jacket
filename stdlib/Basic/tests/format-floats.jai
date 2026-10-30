@@ -45,15 +45,15 @@ main :: () {
     assert(sprint("%", formatFloat(tiny, trailing_width = 3, zero_removal = .NO)) == "0.000");
     assert(sprint("%", formatFloat(tiny, trailing_width = 16, mode = .SCIENTIFIC)) == "4.9406564584124654e-324");
     assert(sprint("%", formatFloat(cast(float64) 1.7976931348623157e308, mode = .SHORTEST)) == "1.7976931348623157e+308");
-    assert(sprint("%", formatFloat(cast(float64) 1e22)) == "10000000000000000000000");
-    assert(sprint("%", formatFloat(cast(float64) 1e23)) == "99999999999999991600000");
+    assert(sprint("%", formatFloat(cast(float64) 1.0e22)) == "10000000000000000000000");
+    assert(sprint("%", formatFloat(cast(float64) 1.0e23)) == "99999999999999991600000");
     assert(sprint("%", formatFloat(cast(float64) 9223372036854775808.0)) == "9223372036854775810");
     assert(sprint("%", formatFloat(cast(float64) 123456.789, trailing_width = 25, zero_removal = .NO)) == "123456.7890000000043073669075966");
     assert(sprint("%", formatFloat(cast(float64) 123456.789, trailing_width = 30, zero_removal = .NO)) == "123456.789000000004307366907596588135");
     assert(sprint("%", formatFloat(cast(float64) 0.1, trailing_width = 18, mode = .SCIENTIFIC)) == "1.000000000000000056e-01");
     assert(sprint("%", formatFloat(cast(float64) 0.1, trailing_width = 20, mode = .SCIENTIFIC)) == "1.00000000000000005551e-01");
     assert(sprint("%", formatFloat(cast(float32) 0.1, trailing_width = 10, zero_removal = .NO)) == "0.1000000015");
-    assert(sprint("%", formatFloat(cast(float64) 1e15 + 0.3, mode = .SHORTEST)) == "1000000000000000.2");
+    assert(sprint("%", formatFloat(cast(float64) 1.0e15 + 0.3, mode = .SHORTEST)) == "1000000000000000.2");
     assert(sprint("%", formatFloat(cast(float64) 18446744073709551616.0, trailing_width = 2)) == "18446744073709551616   ");
     vectors: [8] u64 = .[1, 0x000fffffffffffff, 0x0010000000000000, 0x3fefffffffffffff,
                           0x3ff0000000000001, 0x7fefffffffffffff, 0x8000000000000001, 0xffefffffffffffff];

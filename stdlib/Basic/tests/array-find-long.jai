@@ -31,7 +31,7 @@ try :: ($T: Type, sizes: [] int, absent: T, make: (int) -> T) {
         for 0..size - 1 array_add(*array, make(it));
 
         // Items present at every position that matters, and absent ones.
-        for position: .[0, 1, 15, 16, 31, 32, 33, 63, 64, 127, 128, 129, 255, 256, size - 1, size / 2] {
+        for position: s64.[0, 1, 15, 16, 31, 32, 33, 63, 64, 127, 128, 129, 255, 256, size - 1, size / 2] {
             if position < 0 || position >= size continue;
             found, index := array_find(array, array[position]);
             expected_found, expected := naive(array, array[position]);

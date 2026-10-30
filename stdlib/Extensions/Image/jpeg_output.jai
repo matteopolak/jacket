@@ -231,7 +231,7 @@ jpeg_component_row :: (d: *Jpeg_Decoder, rows: *Jpeg_Rows, c: s32, y: s32) -> *u
     if comp.h == d.hmax && comp.v * 2 == d.vmax {
         near := comp.plane + cast(s64) sy * comp.stride;
         other := comp.plane + cast(s64) far * comp.stride;
-        bias: s32 = ifx (y & 1) == 0 then 1 else 2;
+        bias: s32 = cast(s32) ifx (y & 1) == 0 then 1 else 2;
 
         for i: 0..n - 1 out[i] = cast,trunc(u8) ((cast(s32) near[i] * 3 + other[i] + bias) >> 2);
 

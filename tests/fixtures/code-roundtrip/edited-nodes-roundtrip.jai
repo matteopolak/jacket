@@ -17,7 +17,7 @@ product :: (source: Code) -> Code {
 }
 
 // `1` becomes the float `2.5`.
-float :: (source: Code) -> Code {
+to_float :: (source: Code) -> Code {
     root := cast(*C.Code_Literal) C.compiler_get_nodes(source);
 
     assert(root.kind == .LITERAL);
@@ -43,7 +43,7 @@ swapped :: (source: Code) -> Code {
 main :: () {
     a, b, c := 6, 7, 3;
     p := #insert #run product(#code a + b);
-    f := #insert #run float(#code 1);
+    f := #insert #run to_float(#code 1);
 
     assert(p == 15 && f == 2.5);
     x := 0;

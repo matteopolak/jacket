@@ -90,7 +90,7 @@ boundary_initialize_config :: (boundary_config: *rpmalloc_config_t) -> s32 {
         #if USE_RAW {
             native.enable_huge_pages = boundary_config.enable_huge_pages;
         } else {
-            native.enable_huge_pages = ifx boundary_config.enable_huge_pages then 1 else 0;
+            native.enable_huge_pages = cast(s32) ifx boundary_config.enable_huge_pages then 1 else 0;
         }
     }
 
@@ -192,7 +192,7 @@ boundary_thread_finalize :: (release_caches: bool) {
     mutation := HeapBridge.thread_mutation();
 
     defer HeapBridge.thread_finalized(mutation);
-    Native.rpmalloc_thread_finalize(ifx release_caches then 1 else 0);
+    Native.rpmalloc_thread_finalize(cast(s32) ifx release_caches then 1 else 0);
 }
 
 boundary_rpmalloc :: inline (size: Boundary_Size) -> *void {

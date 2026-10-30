@@ -25,7 +25,7 @@ libressl_get_public_key :: (subject_public_key_info: string) -> *evp_pkey_st {
     cursor := subject_public_key_info.data;
     key := d2i_PUBKEY(null, *cursor, cast(Crypto_Long) subject_public_key_info.count);
 
-    if !crypto_check(ifx key != null then 1 else 0, #caller_location) return null;
+    if !crypto_check(cast(s32) ifx key != null then 1 else 0, #caller_location) return null;
 
     if cursor != subject_public_key_info.data + subject_public_key_info.count {
         EVP_PKEY_free(key);
@@ -42,7 +42,7 @@ libressl_get_private_key :: (private_key_info: string) -> *evp_pkey_st {
     cursor := private_key_info.data;
     key := d2i_AutoPrivateKey(null, *cursor, cast(Crypto_Long) private_key_info.count);
 
-    if !crypto_check(ifx key != null then 1 else 0, #caller_location) return null;
+    if !crypto_check(cast(s32) ifx key != null then 1 else 0, #caller_location) return null;
 
     if cursor != private_key_info.data + private_key_info.count {
         EVP_PKEY_free(key);
@@ -73,7 +73,7 @@ sign_data :: (private_key_info: string, message: string) -> bool, string {
 
     defer EVP_PKEY_free(key);
     digest_context := EVP_MD_CTX_new();
-    if !crypto_check(ifx digest_context != null then 1 else 0, #caller_location) return false, "";
+    if !crypto_check(cast(s32) ifx digest_context != null then 1 else 0, #caller_location) return false, "";
 
     defer EVP_MD_CTX_free(digest_context);
 

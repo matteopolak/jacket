@@ -16,8 +16,8 @@ main :: () {
     t: Table;
 
     assert(t.on_signal == IGNORE);
-    assert(cast(s64) t.on_signal == 1);
-    assert(cast(s64) ERROR == -1);
+    assert(cast(s64) cast(*void) t.on_signal == 1);
+    assert(cast(s64) cast(*void) ERROR == -1);
 
     // The reviewed macOS dispositions are raw pointers; Linux types handlers.
     action: sigaction_t;

@@ -89,7 +89,7 @@ unmap_memory :: (address: *void, size: s64, offset: s64, full: s64) {
 retry :: (size: s64) -> s32 {
     assert(size > 0);
     count(3, 1);
-    return ifx decline then 0 else 1;
+    return cast(s32) ifx decline then 0 else 1;
 }
 
 on_error :: (message: string, location: Source_Code_Location) {

@@ -100,7 +100,7 @@ enable_drag_and_drop :: (window: Window, typelist: [] string) {
 }
 
 x_selection_notify_predicate :: (#discard display: *Display, event: *XEvent, arg: XPointer) -> Bool #c_call {
-    return ifx event.type == SelectionNotify && event.xselection.requestor == <<cast(*Window) arg then 1 else 0;
+    return cast(s32) ifx event.type == SelectionNotify && event.xselection.requestor == <<cast(*Window) arg then 1 else 0;
 }
 
 x_release_clipboard_data :: () {
@@ -204,7 +204,7 @@ x_message_box :: (parent: Window, msg: string, caption: string, style: X_Message
     } else if style == .ST_YES_NO || style == .ST_YES_NO_CANCEL {
         choices.labels = .["Yes", "No", "Cancel"];
         choices.responses = .[.YES, .NO, .CANCEL];
-        choices.count = ifx style == .ST_YES_NO then 2 else 3;
+        choices.count = cast(s32) ifx style == .ST_YES_NO then 2 else 3;
         choices.dismiss = ifx style == .ST_YES_NO then .NO else .CANCEL;
     } else {
         binding_abort();
@@ -396,7 +396,7 @@ Binding_Message_Choices :: struct {
 }
 
 binding_message_event :: (#discard display: *Display, event: *XEvent, arg: XPointer) -> Bool #c_call {
-    return ifx event.xany.window == <<cast(*Window) arg then 1 else 0;
+    return cast(s32) ifx event.xany.window == <<cast(*Window) arg then 1 else 0;
 }
 
 binding_message_button :: (x: s32, y: s32, count: s32) -> s32 {

@@ -169,7 +169,7 @@ main :: () {
         B.array_add(*destination, ..B.array_view(destination, 0));
         B.assert(destination.count == 4 && destination[2].value == 77 && destination[3].value == 42);
         B.array_free(destination);
-        destination = .{};
+        destination = type_of(destination).{};
 
         owned_view := B.array_copy(values);
         owned_dynamic := B.resizable(owned_view);
@@ -177,7 +177,7 @@ main :: () {
         B.assert(owned_dynamic.data == owned_view.data && owned_dynamic.allocator.data == *owner);
         B.array_free(owned_dynamic);
         owned_view = .{};
-        owned_dynamic = .{};
+        owned_dynamic = type_of(owned_dynamic).{};
         detached := B.array_copy(values);
         pointer := detached.data;
         count := detached.count;
@@ -220,7 +220,7 @@ main :: () {
 
         B.assert(owner.live == live_before - 1 && other.calls == other_before);
         supplied_view = .{};
-        supplied = .{};
+        supplied = type_of(supplied).{};
         calls := other.calls;
 
         push_context {

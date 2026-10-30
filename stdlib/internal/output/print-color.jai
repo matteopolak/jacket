@@ -266,7 +266,7 @@ native_unlock :: () {
     }
 
     windows_handle :: (to_standard_error: bool) -> W.HANDLE {
-        handle := W.GetStdHandle(ifx to_standard_error then W.STD_ERROR_HANDLE else W.STD_OUTPUT_HANDLE);
+        handle := W.GetStdHandle(cast(s32) ifx to_standard_error then W.STD_ERROR_HANDLE else W.STD_OUTPUT_HANDLE);
         if !handle || handle == W.INVALID_HANDLE_VALUE return null;
         return handle;
     }

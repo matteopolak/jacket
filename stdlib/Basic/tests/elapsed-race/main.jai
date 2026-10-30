@@ -49,7 +49,7 @@ main :: () {
     for i: 0..7 assert(T.wait_for(*shared.ready, 5000) == .SUCCESS);
     for i: 0..7 T.signal(*shared.go);
 
-    lowest: float64 = 1e300;
+    lowest: float64 = 1.0e300;
 
     for i: 0..7 {
         assert(T.thread_is_done(*threads[i], 10000));

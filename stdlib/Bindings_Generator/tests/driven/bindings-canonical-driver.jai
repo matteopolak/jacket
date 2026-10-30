@@ -76,7 +76,7 @@ main :: () {
     assert(bridge_read && begins_with(bridge_text, options.header) && ends_with(bridge_text, options.footer));
     assert(!contains(bridge_text, "#foreign_library") && !contains(bridge_text, "#assert"));
     invalid := options;
-    invalid.source_files = .{};
+    invalid.source_files = type_of(invalid.source_files).{};
     failed: String_Builder;
     unexpected: bool;
 

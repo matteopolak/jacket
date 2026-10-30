@@ -65,10 +65,10 @@ jpeg_read_scan :: (d: *Jpeg_Decoder, segment: *u8, size: s64) -> string {
 
         if ss == 0 {
             if se != 0 return "bad progressive scan header";
-            mode = ifx ah == 0 then JPEG_DC_FIRST else JPEG_DC_REFINE;
+            mode = cast(s32) ifx ah == 0 then JPEG_DC_FIRST else JPEG_DC_REFINE;
         } else {
             if count != 1 return "bad progressive scan header";
-            mode = ifx ah == 0 then JPEG_AC_FIRST else JPEG_AC_REFINE;
+            mode = cast(s32) ifx ah == 0 then JPEG_AC_FIRST else JPEG_AC_REFINE;
         }
     }
 

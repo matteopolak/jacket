@@ -557,6 +557,12 @@ pub enum DiagnosticKind {
     Lenient(crate::leniency::Leniency),
     /// A constant, procedure or type of a body named above the line that declares it.
     UseBeforeDeclaration,
+    /// An `ifx` of integer constants (an `s64`) used where a narrower signed integer is wanted.
+    ImplicitNarrowing,
+    /// A procedure used as a value that two or more overloads fit equally.
+    AmbiguousProcedureValue,
+    /// A declaration named like a builtin type (`Code`, `int`, `string`).
+    ShadowsBuiltinType,
     /// A call passes more arguments than the callee takes, or leaves out one it needs. A
     /// call's mismatch note shows the callee's parameters for it.
     ArgumentCount,
@@ -603,6 +609,9 @@ impl DiagnosticKind {
             DiagnosticKind::Runtime => Some("runtime-error"),
             DiagnosticKind::Lenient(leniency) => Some(leniency.code()),
             DiagnosticKind::UseBeforeDeclaration => Some("use-before-declaration"),
+            DiagnosticKind::ImplicitNarrowing => Some("implicit-narrowing"),
+            DiagnosticKind::AmbiguousProcedureValue => Some("ambiguous-procedure-value"),
+            DiagnosticKind::ShadowsBuiltinType => Some("shadows-builtin-type"),
             DiagnosticKind::ArgumentCount => Some("argument-count"),
             DiagnosticKind::Untrusted => Some("untrusted"),
             DiagnosticKind::Unknown => Some("unknown-result"),

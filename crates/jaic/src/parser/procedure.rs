@@ -223,7 +223,7 @@ impl Parser<'_> {
             return Ok(mk(ExprKind::ProcType(header), span));
         }
         if self.at(P::LBrace) {
-            let body = self.parse_block()?;
+            let body = self.parse_proc_body()?;
             let span = start.to(body.span);
             return Ok(mk(
                 ExprKind::Proc(Rc::new(ProcLit {
@@ -290,7 +290,7 @@ impl Parser<'_> {
             }
         }
         let body = if self.at(P::LBrace) {
-            let block = self.parse_block()?;
+            let block = self.parse_proc_body()?;
             let span = block.span;
             mk(ExprKind::Block(Box::new(block)), span)
         } else {
@@ -521,7 +521,8 @@ impl Parser<'_> {
         let name = if matches!(self.tok(), Tok::Ident(_))
             && matches!(self.tok_at(1), Tok::Punct(P::Colon | P::ColonEq))
         {
-            Some(self.ident("as return name")?)
+            let name = self.ident("as return name")?;
+            Some(self.reject_literal_name(name)?)
         } else {
             None
         };
@@ -555,6 +556,14 @@ impl Parser<'_> {
             must,
             span: start.to(self.prev_span()),
         })
+    }
+
+    /// The braces of a procedure body.
+    fn parse_proc_body(&mut self) -> PResult<crate::ast::Block> {
+        let outer = std::mem::replace(&mut self.code_in_args, false);
+        let block = self.parse_block();
+        self.code_in_args = outer;
+        block
     }
 
     /// `#modify { ... }` or the expression form `#modify check(T)`.
@@ -627,6 +636,10 @@ impl Parser<'_> {
                 if let Tok::Str(s) = self.tok() {
                     flags.target_features = Some(String::from_utf8_lossy(s).into_owned().into());
                     self.bump();
+                    self.note_lenient(
+                        crate::leniency::Leniency::TargetFeatures,
+                        span.to(self.prev_span()),
+                    );
                 }
             }
             ProcFlag::Deprecated | ProcFlag::ProgramExport => {

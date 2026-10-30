@@ -36,7 +36,10 @@ main :: () {
     tracking := Tracking.{ base = context.allocator };
     scoped := context;
     scoped.allocator = .{ tracking_allocator, *tracking };
-    push_context scoped run_cases(*tracking);
+    push_context scoped {
+        run_cases(*tracking);
+    }
+
     assert(tracking.outstanding == 0);
     print("ok\n");
 }

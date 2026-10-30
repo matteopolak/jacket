@@ -105,7 +105,7 @@ main :: () {
 
         assert(moving.count == 80 && tracked_session.arrays.count == headers_before);
         array_free(moving);
-        moving = .{};
+        moving = type_of(moving).{};
         return_from_inner(*second);
         assert(S.current(B.TARGET_OS) == *tracked_session);
     }

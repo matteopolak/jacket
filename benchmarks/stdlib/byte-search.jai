@@ -22,7 +22,7 @@ now :: () -> float64 {
 
 // The best of ROUNDS runs, in GB/s over the text.
 speed :: (name: string, body: Code) #expand {
-    best: float64 = 1e18;
+    best: float64 = 1.0e18;
 
     for round: 1..ROUNDS {
         offset = round % 7;
@@ -33,7 +33,7 @@ speed :: (name: string, body: Code) #expand {
         if elapsed < best best = elapsed;
     }
 
-    print("  %: % GB/s\n", name, formatFloat(cast(float64) text.count / best / 1e9, trailing_width = 1));
+    print("  %: % GB/s\n", name, formatFloat(cast(float64) text.count / best / 1.0e9, trailing_width = 1));
 }
 
 scalar_find :: (text: string, byte: u8, start: int) -> int {

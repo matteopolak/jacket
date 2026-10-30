@@ -79,7 +79,10 @@ main :: () {
     allocations := Allocations.{ base = context.allocator };
     scoped := context;
     scoped.allocator = .{ track, *allocations };
-    push_context scoped run_cases();
+    push_context scoped {
+        run_cases();
+    }
+
     assert(allocations.live == 0, "watcher/test leaked Jai storage: %", allocations.live);
     print("ok\n");
 }

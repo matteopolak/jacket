@@ -9,7 +9,7 @@ Explicit :: struct {
     descriptor: Type = void;
 }
 
-main :: () -> s64 {
+main :: () {
     scalar: Type;
     record: Container;
     array: [2] Type;
@@ -20,9 +20,8 @@ main :: () -> s64 {
     print("% % % % % %\n", scalar == void, record.descriptor == void,
           array[0] == void, array[1] == void, explicit == void,
           explicit_record.descriptor == void);
-    if explicit != void || explicit_record.descriptor != void return 2;
-    if scalar != void || record.descriptor != void return 1;
-    if array[0] != void || array[1] != void return 1;
+    if explicit != void || explicit_record.descriptor != void exit(2);
+    if scalar != void || record.descriptor != void exit(1);
+    if array[0] != void || array[1] != void exit(1);
 
-    return 0;
 }

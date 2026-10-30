@@ -1,3 +1,5 @@
+#import "Basic";
+
 sum_to :: (n: int) -> int {
     total := 0;
 
@@ -9,6 +11,6 @@ sum_to :: (n: int) -> int {
     return total;
 }
 
-main :: () -> int {
-    return sum_to(9); // Exit status: 45
+main :: () {
+    exit(cast(s32) sum_to(9)); // Exit status: 45
 }

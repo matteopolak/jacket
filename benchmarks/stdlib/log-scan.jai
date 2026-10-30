@@ -89,7 +89,7 @@ now :: () -> float64 {
 main :: () {
     log := make_log();
     classes: [6] int;
-    best: float64 = 1e18;
+    best: float64 = 1.0e18;
     lines, sent, errors: int;
 
     for 1..ROUNDS {
@@ -104,5 +104,5 @@ main :: () {
 
     print("% lines, % bytes in the log\n", lines, log.count);
     print("sent %, errors %, classes % % % %\n", sent, errors, classes[2], classes[3], classes[4], classes[5]);
-    print("%: % MB/s\n", best_vector_tier(), formatFloat(cast(float64) log.count / best / 1e6, trailing_width = 0));
+    print("%: % MB/s\n", best_vector_tier(), formatFloat(cast(float64) log.count / best / 1.0e6, trailing_width = 0));
 }

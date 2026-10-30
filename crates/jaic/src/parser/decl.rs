@@ -410,7 +410,14 @@ impl Parser<'_> {
     fn parse_decl_values(&mut self, decl: &mut Decl) -> PResult<()> {
         decl.value = Some(self.parse_expr()?);
         while decl.names.len() > 1 && self.eat(P::Comma) {
+            let comma = self.prev_span();
             decl.rare_mut().extra_values.push(self.parse_expr()?);
+            if self.code_in_args && decl.rare_mut().extra_values.len() == 1 {
+                self.note_lenient(
+                    crate::leniency::Leniency::MultiValueInCodeArgument,
+                    comma.to(self.prev_span()),
+                );
+            }
         }
         Ok(())
     }

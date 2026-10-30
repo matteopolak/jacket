@@ -60,7 +60,7 @@ main :: () {
     assert(E.continues_identifier(#char "7") && !E.continues_identifier(-1));
     assert(E.starts_number(#char "7") && !E.starts_number(#char "a"));
     assert(E.is_non_newline_whitespace(13) && !E.is_non_newline_whitespace(10));
-    assert(E.has_a_big_exponent(1e20) && E.has_a_big_exponent(1e-8));
+    assert(E.has_a_big_exponent(1.0e20) && E.has_a_big_exponent(1.0e-8));
     assert(!E.has_a_big_exponent(0) && !E.has_a_big_exponent(42));
     E.set_input_from_string(*lexer, "=");
     token = E.check_for_equals(*lexer, cast(E.Token_Type) #char "+", .TRIPLE_MINUS);

@@ -76,6 +76,9 @@ pub struct ProcState {
     /// String literals rewritten by `@Interpolates`, by span: their value is no longer the
     /// spelling in the source.
     pub interpolated: HashSet<Span>,
+    /// `ifx` expressions written as an operand of a binary operator: the official compiler
+    /// compares an `s64` one with a narrower integer, so they may stay constants of that type.
+    pub ifx_operands: HashSet<Span>,
     /// Calls that received their `#caller_location` by default, by that location (file,
     /// line, column): the span of their first argument. A failed `assert` names its call's
     /// location, so the report shows this as the condition.

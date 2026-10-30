@@ -16,12 +16,13 @@ Item :: struct {
 }
 
 main :: () {
-    values: S.Soa(Item, 3);
+    Packed :: S.Soa(Item, 3);
+    values: Packed;
 
     #assert type_of(values.x) == [3] s64;
     #assert type_of(values.weight) == [3] float;
     #assert type_of(values.nested) == [3] Nested;
-    #assert !#exists(S.Soa(Item, 3).constant);
+    #assert !#exists(Packed.constant);
     #assert !#exists(S.make_fields);
     #assert !#exists(S.make_access);
     reader: (S.Soa(Item, 3), int) -> Item = S.operator [];

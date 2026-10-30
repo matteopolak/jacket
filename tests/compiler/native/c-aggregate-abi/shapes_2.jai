@@ -44,19 +44,19 @@ is_ai8x9 :: (r: ai8x9, seed: s32) -> bool #c_call {
 }
 
 cb_pass_ai8x9 :: (r: ai8x9, seed: s32) -> s32 #c_call {
-    return ifx is_ai8x9(r, seed) then 1 else 0;
+    return cast(s32) ifx is_ai8x9(r, seed) then 1 else 0;
 }
 
 cb_tail_ai8x9 :: (a1: s64, a2: s64, a3: s64, a4: s64, a5: s64, r: ai8x9, seed: s32) -> s32 #c_call {
-    return ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && is_ai8x9(r, seed) then 1 else 0;
+    return cast(s32) ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && is_ai8x9(r, seed) then 1 else 0;
 }
 
 cb_far_ai8x9 :: (a1: s64, a2: s64, a3: s64, a4: s64, a5: s64, a6: s64, a7: s64, r: ai8x9, d: float64, seed: s32) -> s32 #c_call {
-    return ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && a6 == 6 && a7 == 7 && d == 0.5 && is_ai8x9(r, seed) then 1 else 0;
+    return cast(s32) ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && a6 == 6 && a7 == 7 && d == 0.5 && is_ai8x9(r, seed) then 1 else 0;
 }
 
 cb_dbl_ai8x9 :: (d1: float64, d2: float64, d3: float64, d4: float64, d5: float64, d6: float64, d7: float64, d8: float64, r: ai8x9, seed: s32) -> s32 #c_call {
-    return ifx d1 == 1 && d2 == 2 && d3 == 3 && d4 == 4 && d5 == 5 && d6 == 6 && d7 == 7 && d8 == 8 && is_ai8x9(r, seed) then 1 else 0;
+    return cast(s32) ifx d1 == 1 && d2 == 2 && d3 == 3 && d4 == 4 && d5 == 5 && d6 == 6 && d7 == 7 && d8 == 8 && is_ai8x9(r, seed) then 1 else 0;
 }
 
 ai32x3 :: struct {
@@ -86,19 +86,19 @@ is_ai32x3 :: (r: ai32x3, seed: s32) -> bool #c_call {
 }
 
 cb_pass_ai32x3 :: (r: ai32x3, seed: s32) -> s32 #c_call {
-    return ifx is_ai32x3(r, seed) then 1 else 0;
+    return cast(s32) ifx is_ai32x3(r, seed) then 1 else 0;
 }
 
 cb_tail_ai32x3 :: (a1: s64, a2: s64, a3: s64, a4: s64, a5: s64, r: ai32x3, seed: s32) -> s32 #c_call {
-    return ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && is_ai32x3(r, seed) then 1 else 0;
+    return cast(s32) ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && is_ai32x3(r, seed) then 1 else 0;
 }
 
 cb_far_ai32x3 :: (a1: s64, a2: s64, a3: s64, a4: s64, a5: s64, a6: s64, a7: s64, r: ai32x3, d: float64, seed: s32) -> s32 #c_call {
-    return ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && a6 == 6 && a7 == 7 && d == 0.5 && is_ai32x3(r, seed) then 1 else 0;
+    return cast(s32) ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && a6 == 6 && a7 == 7 && d == 0.5 && is_ai32x3(r, seed) then 1 else 0;
 }
 
 cb_dbl_ai32x3 :: (d1: float64, d2: float64, d3: float64, d4: float64, d5: float64, d6: float64, d7: float64, d8: float64, r: ai32x3, seed: s32) -> s32 #c_call {
-    return ifx d1 == 1 && d2 == 2 && d3 == 3 && d4 == 4 && d5 == 5 && d6 == 6 && d7 == 7 && d8 == 8 && is_ai32x3(r, seed) then 1 else 0;
+    return cast(s32) ifx d1 == 1 && d2 == 2 && d3 == 3 && d4 == 4 && d5 == 5 && d6 == 6 && d7 == 7 && d8 == 8 && is_ai32x3(r, seed) then 1 else 0;
 }
 
 af32x2 :: struct {
@@ -126,19 +126,19 @@ is_af32x2 :: (r: af32x2, seed: s32) -> bool #c_call {
 }
 
 cb_pass_af32x2 :: (r: af32x2, seed: s32) -> s32 #c_call {
-    return ifx is_af32x2(r, seed) then 1 else 0;
+    return cast(s32) ifx is_af32x2(r, seed) then 1 else 0;
 }
 
 cb_tail_af32x2 :: (a1: s64, a2: s64, a3: s64, a4: s64, a5: s64, r: af32x2, seed: s32) -> s32 #c_call {
-    return ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && is_af32x2(r, seed) then 1 else 0;
+    return cast(s32) ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && is_af32x2(r, seed) then 1 else 0;
 }
 
 cb_far_af32x2 :: (a1: s64, a2: s64, a3: s64, a4: s64, a5: s64, a6: s64, a7: s64, r: af32x2, d: float64, seed: s32) -> s32 #c_call {
-    return ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && a6 == 6 && a7 == 7 && d == 0.5 && is_af32x2(r, seed) then 1 else 0;
+    return cast(s32) ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && a6 == 6 && a7 == 7 && d == 0.5 && is_af32x2(r, seed) then 1 else 0;
 }
 
 cb_dbl_af32x2 :: (d1: float64, d2: float64, d3: float64, d4: float64, d5: float64, d6: float64, d7: float64, d8: float64, r: af32x2, seed: s32) -> s32 #c_call {
-    return ifx d1 == 1 && d2 == 2 && d3 == 3 && d4 == 4 && d5 == 5 && d6 == 6 && d7 == 7 && d8 == 8 && is_af32x2(r, seed) then 1 else 0;
+    return cast(s32) ifx d1 == 1 && d2 == 2 && d3 == 3 && d4 == 4 && d5 == 5 && d6 == 6 && d7 == 7 && d8 == 8 && is_af32x2(r, seed) then 1 else 0;
 }
 
 af64x3 :: struct {
@@ -168,19 +168,19 @@ is_af64x3 :: (r: af64x3, seed: s32) -> bool #c_call {
 }
 
 cb_pass_af64x3 :: (r: af64x3, seed: s32) -> s32 #c_call {
-    return ifx is_af64x3(r, seed) then 1 else 0;
+    return cast(s32) ifx is_af64x3(r, seed) then 1 else 0;
 }
 
 cb_tail_af64x3 :: (a1: s64, a2: s64, a3: s64, a4: s64, a5: s64, r: af64x3, seed: s32) -> s32 #c_call {
-    return ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && is_af64x3(r, seed) then 1 else 0;
+    return cast(s32) ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && is_af64x3(r, seed) then 1 else 0;
 }
 
 cb_far_af64x3 :: (a1: s64, a2: s64, a3: s64, a4: s64, a5: s64, a6: s64, a7: s64, r: af64x3, d: float64, seed: s32) -> s32 #c_call {
-    return ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && a6 == 6 && a7 == 7 && d == 0.5 && is_af64x3(r, seed) then 1 else 0;
+    return cast(s32) ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && a6 == 6 && a7 == 7 && d == 0.5 && is_af64x3(r, seed) then 1 else 0;
 }
 
 cb_dbl_af64x3 :: (d1: float64, d2: float64, d3: float64, d4: float64, d5: float64, d6: float64, d7: float64, d8: float64, r: af64x3, seed: s32) -> s32 #c_call {
-    return ifx d1 == 1 && d2 == 2 && d3 == 3 && d4 == 4 && d5 == 5 && d6 == 6 && d7 == 7 && d8 == 8 && is_af64x3(r, seed) then 1 else 0;
+    return cast(s32) ifx d1 == 1 && d2 == 2 && d3 == 3 && d4 == 4 && d5 == 5 && d6 == 6 && d7 == 7 && d8 == 8 && is_af64x3(r, seed) then 1 else 0;
 }
 
 asmix_f0 :: struct {
@@ -216,19 +216,19 @@ is_asmix :: (r: asmix, seed: s32) -> bool #c_call {
 }
 
 cb_pass_asmix :: (r: asmix, seed: s32) -> s32 #c_call {
-    return ifx is_asmix(r, seed) then 1 else 0;
+    return cast(s32) ifx is_asmix(r, seed) then 1 else 0;
 }
 
 cb_tail_asmix :: (a1: s64, a2: s64, a3: s64, a4: s64, a5: s64, r: asmix, seed: s32) -> s32 #c_call {
-    return ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && is_asmix(r, seed) then 1 else 0;
+    return cast(s32) ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && is_asmix(r, seed) then 1 else 0;
 }
 
 cb_far_asmix :: (a1: s64, a2: s64, a3: s64, a4: s64, a5: s64, a6: s64, a7: s64, r: asmix, d: float64, seed: s32) -> s32 #c_call {
-    return ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && a6 == 6 && a7 == 7 && d == 0.5 && is_asmix(r, seed) then 1 else 0;
+    return cast(s32) ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && a6 == 6 && a7 == 7 && d == 0.5 && is_asmix(r, seed) then 1 else 0;
 }
 
 cb_dbl_asmix :: (d1: float64, d2: float64, d3: float64, d4: float64, d5: float64, d6: float64, d7: float64, d8: float64, r: asmix, seed: s32) -> s32 #c_call {
-    return ifx d1 == 1 && d2 == 2 && d3 == 3 && d4 == 4 && d5 == 5 && d6 == 6 && d7 == 7 && d8 == 8 && is_asmix(r, seed) then 1 else 0;
+    return cast(s32) ifx d1 == 1 && d2 == 2 && d3 == 3 && d4 == 4 && d5 == 5 && d6 == 6 && d7 == 7 && d8 == 8 && is_asmix(r, seed) then 1 else 0;
 }
 
 ui32f32 :: union {
@@ -256,19 +256,19 @@ is_ui32f32 :: (r: ui32f32, seed: s32) -> bool #c_call {
 }
 
 cb_pass_ui32f32 :: (r: ui32f32, seed: s32) -> s32 #c_call {
-    return ifx is_ui32f32(r, seed) then 1 else 0;
+    return cast(s32) ifx is_ui32f32(r, seed) then 1 else 0;
 }
 
 cb_tail_ui32f32 :: (a1: s64, a2: s64, a3: s64, a4: s64, a5: s64, r: ui32f32, seed: s32) -> s32 #c_call {
-    return ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && is_ui32f32(r, seed) then 1 else 0;
+    return cast(s32) ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && is_ui32f32(r, seed) then 1 else 0;
 }
 
 cb_far_ui32f32 :: (a1: s64, a2: s64, a3: s64, a4: s64, a5: s64, a6: s64, a7: s64, r: ui32f32, d: float64, seed: s32) -> s32 #c_call {
-    return ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && a6 == 6 && a7 == 7 && d == 0.5 && is_ui32f32(r, seed) then 1 else 0;
+    return cast(s32) ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && a6 == 6 && a7 == 7 && d == 0.5 && is_ui32f32(r, seed) then 1 else 0;
 }
 
 cb_dbl_ui32f32 :: (d1: float64, d2: float64, d3: float64, d4: float64, d5: float64, d6: float64, d7: float64, d8: float64, r: ui32f32, seed: s32) -> s32 #c_call {
-    return ifx d1 == 1 && d2 == 2 && d3 == 3 && d4 == 4 && d5 == 5 && d6 == 6 && d7 == 7 && d8 == 8 && is_ui32f32(r, seed) then 1 else 0;
+    return cast(s32) ifx d1 == 1 && d2 == 2 && d3 == 3 && d4 == 4 && d5 == 5 && d6 == 6 && d7 == 7 && d8 == 8 && is_ui32f32(r, seed) then 1 else 0;
 }
 
 ui64f64 :: union {
@@ -296,19 +296,19 @@ is_ui64f64 :: (r: ui64f64, seed: s32) -> bool #c_call {
 }
 
 cb_pass_ui64f64 :: (r: ui64f64, seed: s32) -> s32 #c_call {
-    return ifx is_ui64f64(r, seed) then 1 else 0;
+    return cast(s32) ifx is_ui64f64(r, seed) then 1 else 0;
 }
 
 cb_tail_ui64f64 :: (a1: s64, a2: s64, a3: s64, a4: s64, a5: s64, r: ui64f64, seed: s32) -> s32 #c_call {
-    return ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && is_ui64f64(r, seed) then 1 else 0;
+    return cast(s32) ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && is_ui64f64(r, seed) then 1 else 0;
 }
 
 cb_far_ui64f64 :: (a1: s64, a2: s64, a3: s64, a4: s64, a5: s64, a6: s64, a7: s64, r: ui64f64, d: float64, seed: s32) -> s32 #c_call {
-    return ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && a6 == 6 && a7 == 7 && d == 0.5 && is_ui64f64(r, seed) then 1 else 0;
+    return cast(s32) ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && a6 == 6 && a7 == 7 && d == 0.5 && is_ui64f64(r, seed) then 1 else 0;
 }
 
 cb_dbl_ui64f64 :: (d1: float64, d2: float64, d3: float64, d4: float64, d5: float64, d6: float64, d7: float64, d8: float64, r: ui64f64, seed: s32) -> s32 #c_call {
-    return ifx d1 == 1 && d2 == 2 && d3 == 3 && d4 == 4 && d5 == 5 && d6 == 6 && d7 == 7 && d8 == 8 && is_ui64f64(r, seed) then 1 else 0;
+    return cast(s32) ifx d1 == 1 && d2 == 2 && d3 == 3 && d4 == 4 && d5 == 5 && d6 == 6 && d7 == 7 && d8 == 8 && is_ui64f64(r, seed) then 1 else 0;
 }
 
 uf32x2i64_f0 :: struct {
@@ -342,19 +342,19 @@ is_uf32x2i64 :: (r: uf32x2i64, seed: s32) -> bool #c_call {
 }
 
 cb_pass_uf32x2i64 :: (r: uf32x2i64, seed: s32) -> s32 #c_call {
-    return ifx is_uf32x2i64(r, seed) then 1 else 0;
+    return cast(s32) ifx is_uf32x2i64(r, seed) then 1 else 0;
 }
 
 cb_tail_uf32x2i64 :: (a1: s64, a2: s64, a3: s64, a4: s64, a5: s64, r: uf32x2i64, seed: s32) -> s32 #c_call {
-    return ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && is_uf32x2i64(r, seed) then 1 else 0;
+    return cast(s32) ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && is_uf32x2i64(r, seed) then 1 else 0;
 }
 
 cb_far_uf32x2i64 :: (a1: s64, a2: s64, a3: s64, a4: s64, a5: s64, a6: s64, a7: s64, r: uf32x2i64, d: float64, seed: s32) -> s32 #c_call {
-    return ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && a6 == 6 && a7 == 7 && d == 0.5 && is_uf32x2i64(r, seed) then 1 else 0;
+    return cast(s32) ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && a6 == 6 && a7 == 7 && d == 0.5 && is_uf32x2i64(r, seed) then 1 else 0;
 }
 
 cb_dbl_uf32x2i64 :: (d1: float64, d2: float64, d3: float64, d4: float64, d5: float64, d6: float64, d7: float64, d8: float64, r: uf32x2i64, seed: s32) -> s32 #c_call {
-    return ifx d1 == 1 && d2 == 2 && d3 == 3 && d4 == 4 && d5 == 5 && d6 == 6 && d7 == 7 && d8 == 8 && is_uf32x2i64(r, seed) then 1 else 0;
+    return cast(s32) ifx d1 == 1 && d2 == 2 && d3 == 3 && d4 == 4 && d5 == 5 && d6 == 6 && d7 == 7 && d8 == 8 && is_uf32x2i64(r, seed) then 1 else 0;
 }
 
 nmix_f0 :: struct {
@@ -390,19 +390,19 @@ is_nmix :: (r: nmix, seed: s32) -> bool #c_call {
 }
 
 cb_pass_nmix :: (r: nmix, seed: s32) -> s32 #c_call {
-    return ifx is_nmix(r, seed) then 1 else 0;
+    return cast(s32) ifx is_nmix(r, seed) then 1 else 0;
 }
 
 cb_tail_nmix :: (a1: s64, a2: s64, a3: s64, a4: s64, a5: s64, r: nmix, seed: s32) -> s32 #c_call {
-    return ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && is_nmix(r, seed) then 1 else 0;
+    return cast(s32) ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && is_nmix(r, seed) then 1 else 0;
 }
 
 cb_far_nmix :: (a1: s64, a2: s64, a3: s64, a4: s64, a5: s64, a6: s64, a7: s64, r: nmix, d: float64, seed: s32) -> s32 #c_call {
-    return ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && a6 == 6 && a7 == 7 && d == 0.5 && is_nmix(r, seed) then 1 else 0;
+    return cast(s32) ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && a6 == 6 && a7 == 7 && d == 0.5 && is_nmix(r, seed) then 1 else 0;
 }
 
 cb_dbl_nmix :: (d1: float64, d2: float64, d3: float64, d4: float64, d5: float64, d6: float64, d7: float64, d8: float64, r: nmix, seed: s32) -> s32 #c_call {
-    return ifx d1 == 1 && d2 == 2 && d3 == 3 && d4 == 4 && d5 == 5 && d6 == 6 && d7 == 7 && d8 == 8 && is_nmix(r, seed) then 1 else 0;
+    return cast(s32) ifx d1 == 1 && d2 == 2 && d3 == 3 && d4 == 4 && d5 == 5 && d6 == 6 && d7 == 7 && d8 == 8 && is_nmix(r, seed) then 1 else 0;
 }
 
 nf32_f0 :: struct {
@@ -444,19 +444,19 @@ is_nf32 :: (r: nf32, seed: s32) -> bool #c_call {
 }
 
 cb_pass_nf32 :: (r: nf32, seed: s32) -> s32 #c_call {
-    return ifx is_nf32(r, seed) then 1 else 0;
+    return cast(s32) ifx is_nf32(r, seed) then 1 else 0;
 }
 
 cb_tail_nf32 :: (a1: s64, a2: s64, a3: s64, a4: s64, a5: s64, r: nf32, seed: s32) -> s32 #c_call {
-    return ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && is_nf32(r, seed) then 1 else 0;
+    return cast(s32) ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && is_nf32(r, seed) then 1 else 0;
 }
 
 cb_far_nf32 :: (a1: s64, a2: s64, a3: s64, a4: s64, a5: s64, a6: s64, a7: s64, r: nf32, d: float64, seed: s32) -> s32 #c_call {
-    return ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && a6 == 6 && a7 == 7 && d == 0.5 && is_nf32(r, seed) then 1 else 0;
+    return cast(s32) ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && a6 == 6 && a7 == 7 && d == 0.5 && is_nf32(r, seed) then 1 else 0;
 }
 
 cb_dbl_nf32 :: (d1: float64, d2: float64, d3: float64, d4: float64, d5: float64, d6: float64, d7: float64, d8: float64, r: nf32, seed: s32) -> s32 #c_call {
-    return ifx d1 == 1 && d2 == 2 && d3 == 3 && d4 == 4 && d5 == 5 && d6 == 6 && d7 == 7 && d8 == 8 && is_nf32(r, seed) then 1 else 0;
+    return cast(s32) ifx d1 == 1 && d2 == 2 && d3 == 3 && d4 == 4 && d5 == 5 && d6 == 6 && d7 == 7 && d8 == 8 && is_nf32(r, seed) then 1 else 0;
 }
 
 main :: () {

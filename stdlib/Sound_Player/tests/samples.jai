@@ -61,7 +61,7 @@ main :: () {
     array_add(*A.retired_decoders, *decoder);
     assert(B.count_retired_decoders() == 1 && B.retired_decoders[0] == *decoder);
     array_free(A.retired_decoders);
-    A.retired_decoders = .{};
+    A.retired_decoders = type_of(A.retired_decoders).{};
     assert(B.count_retired_decoders() == 0);
     data: A.Sound_Data;
     stream: A.Sound_Stream;

@@ -25,7 +25,10 @@ main :: () {
     state := Tracking.{ base = context.allocator };
     scoped := context;
     scoped.allocator = .{ tracking_allocator, *state };
-    push_context scoped run_cases();
+    push_context scoped {
+        run_cases();
+    }
+
     assert(state.outstanding == 0, "ZIP loader/test leaked allocations: %", state.outstanding);
     print("ok\n");
 }

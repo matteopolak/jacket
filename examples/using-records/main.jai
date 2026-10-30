@@ -1,3 +1,5 @@
+#import "Basic";
+
 Inner :: struct {
     value: int = 3;
 }
@@ -10,12 +12,12 @@ Outer :: struct {
     using middle: Middle;
 }
 
-main :: () -> int {
+main :: () {
     original: Outer;
     copy := original;
 
     original.value = 17;
     copy.middle.inner.value = 5;
 
-    return original.value + copy.value;
+    exit(cast(s32) (original.value + copy.value));
 }

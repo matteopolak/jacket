@@ -2096,7 +2096,7 @@ SQL
     third := rows.rows[2];
 
     assert(third.name == "café" && !third.score.null && third.score.value == 0 && third.tags.count == 0);
-    assert(third.at.microseconds == -1 && third.ratio == 1e300);
+    assert(third.at.microseconds == -1 && third.ratio == 1.0e300);
     Pg.free_copy_rows(*rows);
 
     // A subset of the members, in the statement's order.

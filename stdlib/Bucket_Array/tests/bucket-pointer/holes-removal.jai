@@ -22,8 +22,8 @@ verify :: () -> bool {
     storage := (*Bucket(s64, 3)).[*first, *second];
     unfull: [2] *Bucket(s64, 3);
     array: Bucket_Array(s64, 3);
-    array.all_buckets = .{ count = 2, allocated = 2, data = storage.data };
-    array.unfull_buckets = .{ count = 0, allocated = 2, data = unfull.data };
+    array.all_buckets = type_of(array.all_buckets).{ count = 2, allocated = 2, data = storage.data };
+    array.unfull_buckets = type_of(array.unfull_buckets).{ count = 0, allocated = 2, data = unfull.data };
     array.count = 6;
     stable := *array[2];
 

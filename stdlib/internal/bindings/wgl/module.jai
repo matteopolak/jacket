@@ -88,7 +88,7 @@ create :: (window: W.HWND, share: W.HGLRC, major: s32, minor: s32,
 
         if profile {
             attributes[6] = 0x9126;
-            attributes[7] = ifx compatibility then 2 else 1;
+            attributes[7] = cast(s32) ifx compatibility then 2 else 1;
         }
 
         result = construct(dc, share, attributes.data);

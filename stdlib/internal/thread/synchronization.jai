@@ -79,7 +79,7 @@ cvariable_wait :: (condition_variable: *Per_OS_Condition_Variable_Type, csection
     if wait_time_ms < 0 result = P.pthread_cond_wait(condition_variable, csection);
     else {
         deadline, ok := absolute_timeout(wait_time_ms);
-        if !sdk_ok(ifx ok then 0 else -1, "clock query failed") return;
+        if !sdk_ok(cast(s32) ifx ok then 0 else -1, "clock query failed") return;
         result = P.pthread_cond_timedwait(condition_variable, csection, *deadline);
     }
 

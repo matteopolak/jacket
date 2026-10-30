@@ -235,6 +235,53 @@ impl Compiler {
         self.warn(d);
     }
 
+    /// Warn when the program's entry point (`main`) returns a value.
+    pub(in crate::sema) fn warn_main_returning_a_value(&mut self) {
+        // Read the declaration as written: resolving the procedure here would check things in
+        // an order that hides the errors of headers elsewhere in the program.
+        let Some(module) = self.ns.main_module else {
+            return;
+        };
+        let scope = self.ns.modules[module.0 as usize].scope;
+        let entry = Sym::intern(&self.options.entry_point);
+        let Ok(ids) = self.lookup(scope, entry) else {
+            return;
+        };
+        let mut found = None;
+        for id in ids {
+            if let scope::EntityKind::Decl {
+                decl, ..
+            } = &self.entity(id).kind
+                && let Some(ast::ExprKind::Proc(lit)) = decl.value.as_ref().map(|v| &v.kind)
+            {
+                found = Some((self.entity(id).scope, lit.header.clone()));
+                break;
+            }
+        }
+        let Some((scope, header)) = found else {
+            return;
+        };
+        let Some(first) = header.returns.first() else {
+            return;
+        };
+        let span = first.span;
+        let name = self.options.entry_point.clone();
+        let Some(d) = self.leniency_warning(
+            self.scope(scope).module,
+            span,
+            Leniency::MainReturnsValue,
+            format!("`{name}` returns a value"),
+        ) else {
+            return;
+        };
+        let d = d
+            .with_label("the entry point returns nothing")
+            .with_help(format!(
+                "remove the `->` and the return type of `{name}`; `exit(code)` ends the program with a status"
+            ));
+        self.warn(d);
+    }
+
     /// Warn about the constructs the parser accepted in `file` although the official compiler
     /// rejects them, when `module` is the program's own.
     pub(in crate::sema) fn report_parsed_leniencies(&mut self, module: ModuleId, file: &ast::File) {
@@ -292,6 +339,60 @@ impl Compiler {
                         Some((format!("*({operand})"), Applicability::MachineApplicable)),
                     )
                 }
+                Leniency::FloatExponent => {
+                    let portable = text.replacen(['e', 'E'], ".0e", 1);
+                    (
+                        format!("`{text}` has an exponent and no fraction"),
+                        "a decimal float with an exponent needs a `.`",
+                        Some(format!("write `{portable}`")),
+                        Some((portable, Applicability::MachineApplicable)),
+                    )
+                }
+                Leniency::StructAlign => (
+                    "`#align` is not a directive of a struct as a whole".to_string(),
+                    "aligns the struct",
+                    Some(
+                        "align the first member instead: `member: T #align N;`, which gives the struct the same alignment"
+                            .to_string(),
+                    ),
+                    None,
+                ),
+                Leniency::ForOverArrayLiteral => (
+                    "`for` over an array literal needs its element type".to_string(),
+                    "this literal names no element type",
+                    Some("write the type before the literal: `for x: T.[..]`".to_string()),
+                    None,
+                ),
+                Leniency::TargetFeatures => (
+                    "`#target_features` is not a directive of a procedure header".to_string(),
+                    "names CPU features for this procedure",
+                    Some("remove it: there is no portable spelling".to_string()),
+                    Some((String::new(), Applicability::MaybeIncorrect)),
+                ),
+                Leniency::PushContextStatement => (
+                    "`push_context` takes a block".to_string(),
+                    "this statement runs in the pushed context",
+                    Some("put the statement in braces: `push_context c { statement; }`".to_string()),
+                    None,
+                ),
+                Leniency::MultiValueInCodeArgument => (
+                    "a comma ends a `#code` block that is a call argument".to_string(),
+                    "this list of values is split at the comma",
+                    Some(
+                        "give each value its own statement (`a := x; b := y;`), or bind the code to a name first: `c :: #code { .. }; f(c);`"
+                            .to_string(),
+                    ),
+                    None,
+                ),
+                Leniency::ExistsOnExpression => (
+                    "`#exists` takes a name or names joined by `.`".to_string(),
+                    "this operand is an expression",
+                    Some(
+                        "ask about a name or a member chain (`#exists(S.member)`); there is no portable spelling for an expression"
+                            .to_string(),
+                    ),
+                    None,
+                ),
                 _ => continue,
             };
             let Some(mut d) = self.leniency_warning(module, found.span, found.kind, message) else {

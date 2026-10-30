@@ -12,5 +12,5 @@ main :: () {
         exit(3);
     }
 
-    if seconds != -1e-15 exit(4);
+    if seconds != -1.0e-15 exit(4);
 }

@@ -583,7 +583,7 @@ sockets_nonblocking :: () -> bool {
 }
 
 family_number :: (family: Address_Family) -> s32 {
-    return ifx family == .IPV6 then AF_INET6 else AF_INET;
+    return cast(s32) ifx family == .IPV6 then AF_INET6 else AF_INET;
 }
 
 parse_decimal :: (text: string, limit: s64) -> s64, bool {

@@ -549,7 +549,12 @@ impl Compiler {
             }
             Operand::Procs(procs) => {
                 if procs.len() != 1 {
-                    return err(span, "ambiguous overloaded procedure used as a value");
+                    return Err(Box::new(
+                        crate::source::Diagnostic::error(span, "ambiguous overloaded procedure used as a value")
+                            .with_kind(crate::source::DiagnosticKind::AmbiguousProcedureValue)
+                            .with_label("two or more overloads of this name fit")
+                            .with_help("name the overload you mean: give it its own name and use that, or declare the variable with the procedure type you want"),
+                    ));
                 }
                 let proc = procs[0];
                 let ty = self.proc_type(proc, span)?;

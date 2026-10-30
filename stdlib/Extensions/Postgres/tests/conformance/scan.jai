@@ -210,7 +210,7 @@ scan_destroy :: (s: *Scanner) {
     scan_finish(s);
     scan_reset(s);
     array_free(s.sources);
-    s.sources = .{};
+    s.sources = type_of(s.sources).{};
 }
 
 // True while the scanner is inside a quoted string, identifier, dollar quote or comment. An
@@ -1543,10 +1543,10 @@ variable_position :: (vars: *Variables, name: string) -> s64, bool {
 compare_bytes :: (a: string, b: string) -> s32 {
     n := ifx a.count < b.count then a.count else b.count;
     for 0..n - 1 {
-        if a.data[it] != b.data[it] return ifx a.data[it] < b.data[it] then -1 else 1;
+        if a.data[it] != b.data[it] return cast(s32) ifx a.data[it] < b.data[it] then -1 else 1;
     }
 
     if a.count == b.count return 0;
 
-    return ifx a.count < b.count then -1 else 1;
+    return cast(s32) ifx a.count < b.count then -1 else 1;
 }

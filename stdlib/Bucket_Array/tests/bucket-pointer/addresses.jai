@@ -26,7 +26,7 @@ verify :: ($T: Type, initial: T, replacement: T, $pointer_mode: bool) -> bool {
     second.data[1] = initial;
     storage := (*Bucket(T, 2)).[*first, *second, null];
     array: Bucket_Array(T, 2, pointer_mode);
-    array.all_buckets = .{ count = 2, allocated = 3, data = storage.data };
+    array.all_buckets = type_of(array.all_buckets).{ count = 2, allocated = 3, data = storage.data };
     array.count = 4;
     p0 := *array[0];
     p1 := *array[1];

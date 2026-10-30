@@ -24,7 +24,7 @@ verify_elsewhere_binding :: (header: *Code_Procedure_Header, os: Operating_Syste
     if receiver > procedure.argument_types.count return binding_problem(header, "C++ method has no receiver argument");
 
     char_signed := !(cpu == .ARM64 && (os == .LINUX || os == .ANDROID || os == .NN_SWITCH2));
-    signature := binding_parse(header.foreign_function_name.data, header.foreign_function_name.count, cast(s32) windows, ifx windows then 4 else 8, cast(s32) char_signed);
+    signature := binding_parse(header.foreign_function_name.data, header.foreign_function_name.count, cast(s32) windows, cast(s32) ifx windows then 4 else 8, cast(s32) char_signed);
 
     if !signature return binding_problem(header, "native signature parser returned no result");
 

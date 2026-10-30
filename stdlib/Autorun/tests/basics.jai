@@ -113,7 +113,10 @@ JAI
     C.set_build_options(other_options, other);
     scoped := context;
     scoped.logger = capture;
-    push_context scoped A.run_build_result_of_workspace(other);
+    push_context scoped {
+        A.run_build_result_of_workspace(other);
+    }
+
     assert(information == 1 && errors == 0);
 }
 

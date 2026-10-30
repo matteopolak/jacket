@@ -34,6 +34,7 @@ mod emit;
 mod infer;
 mod intrinsics;
 mod lenient;
+mod lenient_forms;
 mod macro_expand;
 mod matching;
 mod operators;

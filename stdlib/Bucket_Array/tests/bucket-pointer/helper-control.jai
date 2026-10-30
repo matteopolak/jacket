@@ -8,7 +8,7 @@ verify :: () -> bool {
     bucket.count = 1;
     storage := (*B.Bucket(s64, 2)).[*bucket];
     array: B.Bucket_Array(s64, 2);
-    array.all_buckets = .{ count = 1, allocated = 1, data = storage.data };
+    array.all_buckets = type_of(array.all_buckets).{ count = 1, allocated = 1, data = storage.data };
     array.count = 1;
     pointer := B.bucket_array_find_pointer(*array, .{ 0, 1 });
     pointer.* = 31;

@@ -2,7 +2,7 @@
 use super::{int_constant_fits, int_to_float};
 use crate::sema::TypeState;
 use crate::sema::lower::{FnCtx, Operand};
-use crate::sema::{Compiler, Diagnostic, DiagnosticKind, Result, Span, TypeId, Value, err};
+use crate::sema::{Compiler, Diagnostic, DiagnosticKind, ProcId, Result, Span, TypeId, Value, err};
 use crate::types::TypeKind;
 
 impl Compiler {
@@ -62,25 +62,55 @@ impl Compiler {
             }
             Operand::Procs(ref procs) => {
                 if let TypeKind::Proc(_) = self.ty.types.kind(to) {
+                    let mut matching: Vec<ProcId> = Vec::new();
                     for &p in procs {
                         if self.proc(p).is_poly {
                             if let Some(inst) = self.instantiate_for_proc_type(p, to, span) {
-                                return Ok(Operand::Procs(vec![inst]));
+                                matching.push(inst);
                             }
                             continue;
                         }
                         let pt = self.proc_type(p, span)?;
                         if pt == to || self.ty.proc_types_compatible(pt, to) {
-                            return Ok(Operand::Procs(vec![p]));
+                            matching.push(p);
                         }
                     }
-                    return err(
-                        span,
-                        format!(
-                            "no overload matches procedure type {}",
-                            self.ty.types.name(to)
+                    let mut unique: Vec<ProcId> = Vec::new();
+                    for p in matching {
+                        if !unique.contains(&p) {
+                            unique.push(p);
+                        }
+                    }
+                    let matching = unique;
+                    return match matching.as_slice() {
+                        [one] => Ok(Operand::Procs(vec![*one])),
+                        [] => err(
+                            span,
+                            format!(
+                                "no overload matches procedure type {}",
+                                self.ty.types.name(to)
+                            ),
                         ),
-                    );
+                        [first, rest @ ..] => {
+                            let mut d = Diagnostic::error(
+                                span,
+                                format!(
+                                    "{} overloads fit procedure type {}",
+                                    matching.len(),
+                                    self.ty.types.name(to)
+                                ),
+                            )
+                            .with_kind(DiagnosticKind::AmbiguousProcedureValue)
+                            .with_label("it is not clear which one is meant")
+                            .with_note(self.proc(*first).span, "this one fits");
+                            for &other in rest {
+                                d = d.with_note(self.proc(other).span, "and so does this one");
+                            }
+                            Err(Box::new(d.with_help(
+                                "name the overload you mean: give it its own name and use that, or cast the call you need into a procedure of its own",
+                            )))
+                        }
+                    };
                 }
                 if to == TypeId::VOID_PTR || (self.ty.types.is_pointer(to) && procs.len() == 1) {
                     let (_, v) = self.rvalue(f, op, span)?;

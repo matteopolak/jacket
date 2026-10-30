@@ -11,7 +11,7 @@ main :: () {
 
     if !plus_ok || !minus_ok || plus <= 0 || minus >= 0 exit(2);
     // Sign and approximate magnitude; no general ULP/rounding guarantee.
-    if minus != -plus || plus < 1e-16 || plus > 1e-14 exit(3);
+    if minus != -plus || plus < 1.0e-16 || plus > 1.0e-14 exit(3);
 
     for value: s64.[-1000001, -1000, -1, 0, 1, 1000, 1000001] {
         actual, valid := to_float64_seconds(nanoseconds_to_apollo(value));
@@ -23,7 +23,7 @@ main :: () {
         error := actual - expected;
 
         if error < 0 error = -error;
-        if error > 1e-12 exit(7);
+        if error > 1.0e-12 exit(7);
     }
 
     largest := seconds_to_apollo(0x7fffffffffffffff);

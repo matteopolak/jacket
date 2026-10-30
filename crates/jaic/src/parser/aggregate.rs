@@ -95,8 +95,12 @@ impl Parser<'_> {
             }
             match name {
                 "align" => {
-                    self.bump();
+                    let start = self.bump();
                     flags.align = Some(self.parse_unary()?);
+                    self.note_lenient(
+                        crate::leniency::Leniency::StructAlign,
+                        start.to(self.prev_span()),
+                    );
                 }
                 "modify" => {
                     self.bump();

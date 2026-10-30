@@ -40,7 +40,10 @@ main :: () {
     state := Tracking.{ base = context.allocator };
     scoped := context;
     scoped.allocator = .{ tracked, *state };
-    push_context scoped run_cases();
+    push_context scoped {
+        run_cases();
+    }
+
     assert(state.live == 0);
     print("ok\n");
 }

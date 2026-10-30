@@ -35,7 +35,7 @@ exercise :: (proc: Allocator_Proc, wanted: u32, fail: bool) {
         check(it.* != null);
     }
 
-    begin(ifx fail then 1 else 0);
+    begin(cast(s32) ifx fail then 1 else 0);
     for blocks proc(.FREE, 0, 0, it, null);
 
     proc(.THREAD_STOP, 0, 0, null, null);

@@ -353,7 +353,7 @@ gl_create_context :: (win: $Window, major_version: s32 = 0, minor_version: s32 =
 
                 // GLX's default request is 1.0 when no version is supplied.
                 requested_major := ifx major_version == 0 then 1 else major_version;
-                flags: s32 = ifx debug then X.GLX_CONTEXT_DEBUG_BIT_ARB else 0;
+                flags: s32 = cast(s32) ifx debug then X.GLX_CONTEXT_DEBUG_BIT_ARB else 0;
                 options: [9] s32;
                 options[0] = X.GLX_CONTEXT_MAJOR_VERSION_ARB;
                 options[1] = requested_major;
@@ -364,7 +364,7 @@ gl_create_context :: (win: $Window, major_version: s32 = 0, minor_version: s32 =
 
                 if profile {
                     options[6] = X.GLX_CONTEXT_PROFILE_MASK_ARB;
-                    options[7] = ifx compatibility then X.GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB else X.GLX_CONTEXT_CORE_PROFILE_BIT_ARB;
+                    options[7] = cast(s32) ifx compatibility then X.GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB else X.GLX_CONTEXT_CORE_PROFILE_BIT_ARB;
                 }
 
                 created = create(display, config, null, 1, options.data);

@@ -538,6 +538,9 @@ impl Parser<'_> {
             }
             Tok::Float(v) => {
                 self.bump();
+                if self.is_exponent_without_fraction(span) {
+                    self.note_lenient(crate::leniency::Leniency::FloatExponent, span);
+                }
                 Ok(mk(ExprKind::Float(v), span))
             }
             Tok::Str(s) => {
@@ -549,6 +552,15 @@ impl Parser<'_> {
             Tok::Punct(p) => self.parse_punct_primary(p),
             Tok::Note(_) | Tok::Eof => Err(self.expected("expression", "")),
         }
+    }
+
+    /// Whether the float literal at `span` is decimal, has an exponent and no `.`: `1e20`.
+    fn is_exponent_without_fraction(&self, span: Span) -> bool {
+        let Some(text) = self.src.get(span.start as usize..span.end as usize) else {
+            return false;
+        };
+        let hex = text.starts_with("0x") || text.starts_with("0X");
+        !hex && !text.contains('.') && text.contains(['e', 'E'])
     }
 
     fn parse_ident_primary(&mut self, name: Sym) -> PResult<Expr> {

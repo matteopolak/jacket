@@ -20,10 +20,10 @@ main :: () {
     negative_zero := to_apollo(-0.0);
 
     assert(negative_zero.low == 0 && negative_zero.high == 0);
-    tiny := to_apollo(1e-300);
+    tiny := to_apollo(1.0e-300);
 
     assert(tiny.low == 0 && tiny.high == 0);
-    overflow := to_apollo(1e300);
+    overflow := to_apollo(1.0e300);
 
     assert(overflow.low == APOLLO_TIME_INVALID.low && overflow.high == APOLLO_TIME_INVALID.high);
     bits: u64 = 0x7ff0000000000000;

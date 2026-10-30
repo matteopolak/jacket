@@ -5,7 +5,7 @@
 #assert size_of(Kernel_Stat) == 128;
 
 read_path :: (path: *u8, result: *Kernel_Stat, no_follow: bool) -> s64 {
-    flags: s32 = ifx no_follow then NOFOLLOW else 0;
+    flags: s32 = cast(s32) ifx no_follow then NOFOLLOW else 0;
     return native_syscall(SYS_FSTATAT, cast(s32) CURRENT_DIRECTORY, path, result, flags);
 }
 

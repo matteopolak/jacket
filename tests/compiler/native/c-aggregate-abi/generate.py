@@ -181,24 +181,24 @@ def emit(shape):
     j.append(f"\nmake_{name} :: (seed: s32) -> {T} #c_call {{\n    r: {T};\n{j_sets}\n    return r;\n}}")
     j.append(f"\nis_{name} :: (r: {T}, seed: s32) -> bool #c_call {{\n    return {j_checks};\n}}")
     if not big:
-        j.append(f"\ncb_pass_{name} :: (r: {T}, seed: s32) -> s32 #c_call {{\n    return ifx is_{name}(r, seed) then 1 else 0;\n}}")
+        j.append(f"\ncb_pass_{name} :: (r: {T}, seed: s32) -> s32 #c_call {{\n    return cast(s32) ifx is_{name}(r, seed) then 1 else 0;\n}}")
         args = ", ".join(f"a{i}: s64" for i in range(1, 6))
         ok = " && ".join(f"a{i} == {i}" for i in range(1, 6))
         j.append(
             f"\ncb_tail_{name} :: ({args}, r: {T}, seed: s32) -> s32 #c_call {{\n"
-            f"    return ifx {ok} && is_{name}(r, seed) then 1 else 0;\n}}"
+            f"    return cast(s32) ifx {ok} && is_{name}(r, seed) then 1 else 0;\n}}"
         )
         args = ", ".join(f"a{i}: s64" for i in range(1, 8))
         ok = " && ".join(f"a{i} == {i}" for i in range(1, 8))
         j.append(
             f"\ncb_far_{name} :: ({args}, r: {T}, d: float64, seed: s32) -> s32 #c_call {{\n"
-            f"    return ifx {ok} && d == 0.5 && is_{name}(r, seed) then 1 else 0;\n}}"
+            f"    return cast(s32) ifx {ok} && d == 0.5 && is_{name}(r, seed) then 1 else 0;\n}}"
         )
         ds = ", ".join(f"d{i}: float64" for i in range(1, 9))
         ok = " && ".join(f"d{i} == {i}" for i in range(1, 9))
         j.append(
             f"\ncb_dbl_{name} :: ({ds}, r: {T}, seed: s32) -> s32 #c_call {{\n"
-            f"    return ifx {ok} && is_{name}(r, seed) then 1 else 0;\n}}"
+            f"    return cast(s32) ifx {ok} && is_{name}(r, seed) then 1 else 0;\n}}"
         )
     checks = [
         f'    if !is_{name}(ret_{name}(7), 7) fail("{name}: foreign return");',

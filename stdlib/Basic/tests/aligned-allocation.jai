@@ -1,8 +1,8 @@
 // test: skip_on(.WASM)
 #import "Basic";
 
-Wide :: struct #align 64 {
-    value: s64;
+Wide :: struct {
+    value: s64 #align 64;
 }
 
 #add_context wide: Wide;

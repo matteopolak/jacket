@@ -94,7 +94,7 @@ choose_extended :: (driver: Driver, dc: *void, multisample: bool, samples: s32, 
 
     if multisample {
         attributes[14] = 0x2041;
-        attributes[15] = ifx samples > 0 then 1 else 0;
+        attributes[15] = cast(s32) ifx samples > 0 then 1 else 0;
         attributes[16] = 0x2042;
         attributes[17] = samples;
     }

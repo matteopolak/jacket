@@ -91,6 +91,17 @@ impl Compiler {
                 }
             },
         };
+        if ty_expr.is_none()
+            && matches!(
+                self.ty.types.kind(ty),
+                TypeKind::Array {
+                    kind: ArrayKind::Resizable,
+                    ..
+                }
+            )
+        {
+            self.warn_struct_literal_as_dynamic_array(scope, span, ty);
+        }
         let size = self.size_of(ty, span)?;
         let members = self.positional_members(ty, span)?;
         if members.is_empty()

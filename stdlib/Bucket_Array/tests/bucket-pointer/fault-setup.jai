@@ -1,4 +1,3 @@
-#import "Basic";
 #import "Bucket_Array";
 
 invalid_index :: (index: int, occupied: bool, has_bucket: bool) -> bool {
@@ -11,8 +10,8 @@ invalid_index :: (index: int, occupied: bool, has_bucket: bool) -> bool {
     array: Bucket_Array(s64, 2);
     available: [1] *Bucket(s64, 2);
 
-    array.all_buckets = .{ count = ifx has_bucket then 1 else 0, allocated = 1, data = storage.data };
-    array.unfull_buckets = .{ count = 0, allocated = 1, data = available.data };
+    array.all_buckets = type_of(array.all_buckets).{ count = ifx has_bucket then 1 else 0, allocated = 1, data = storage.data };
+    array.unfull_buckets = type_of(array.unfull_buckets).{ count = 0, allocated = 1, data = available.data };
     array.count = ifx has_bucket then 2 else 0;
     if has_bucket && !occupied bucket_array_remove(*array, .{ 0, 1 });
 

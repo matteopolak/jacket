@@ -297,7 +297,7 @@ main :: () { // jailint: allow(cognitive_complexity)
             kmovw m, kback;
         }
 
-        for 0..15 want[it] = ifx mask & ((cast(u64) 1) << it) then -1 else 0;
+        for 0..15 want[it] = cast(s32) ifx mask & ((cast(u64) 1) << it) then -1 else 0;
 
         check_s32("pmovm2d", out, want);
         s: u64;

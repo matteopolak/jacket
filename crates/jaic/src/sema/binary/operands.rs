@@ -21,6 +21,11 @@ impl Compiler {
     ) -> Result<(Operand, Operand)> {
         let is_cmp = is_comparison(op);
         let is_shift = is_shift(op);
+        for operand in [a, b] {
+            if matches!(operand.kind, ast::ExprKind::Ifx { .. }) {
+                self.pr.ifx_operands.insert(operand.span);
+            }
+        }
         let lhs_expected = if is_cmp {
             None
         } else if is_shift {

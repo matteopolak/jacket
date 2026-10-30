@@ -44,7 +44,10 @@ main :: () {
     tracking := Tracking.{ base = context.allocator };
     scoped := context;
     scoped.allocator = .{ track, *tracking };
-    push_context scoped run_cases();
+    push_context scoped {
+        run_cases();
+    }
+
     assert(tracking.live == 0, "TBD failure leaked % allocations", tracking.live);
     print("ok\n");
 }

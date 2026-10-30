@@ -16,7 +16,7 @@ main :: () {
 
     a: u64 = ifx wide then cast(u64) 1024 else 1000;
     b: u64 = ifx narrow then 1 else typed;
-    c: s32 = ifx wide then 7 else 9;
+    c: s32 = cast(s32) ifx wide then 7 else 9;
     d: float = ifx narrow then 1 else 2;
     e: u8 = ifx wide then cast(u8) 255 else 0;
 

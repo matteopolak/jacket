@@ -1,3 +1,4 @@
+#import "Basic";
 // test: compile_fail
 #load "fault-setup.jai";
 

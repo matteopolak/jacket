@@ -108,7 +108,7 @@ wasi_start :: () #c_call {
 
 #program_export "wasm_write_string"
 wasi_write_string :: (count: s64, data: *void, to_standard_error: bool) #c_call {
-    write_all(ifx to_standard_error then 2 else 1, data, count);
+    write_all(cast(s32) ifx to_standard_error then 2 else 1, data, count);
 }
 
 #program_export "wasm_debug_break"

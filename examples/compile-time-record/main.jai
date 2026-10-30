@@ -1,3 +1,5 @@
+#import "Basic";
+
 Node :: struct(T: Type) {
     next: *Node(T);
     value: T = 19;
@@ -7,7 +9,7 @@ answer :: () -> int {
     return 23;
 }
 
-main :: () -> int {
+main :: () {
     node: Node(int);
-    return node.value + #run answer();
+    exit(cast(s32) (node.value + #run answer()));
 }

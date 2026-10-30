@@ -3,6 +3,8 @@ use super::{implicit_then_expr, takes_sibling_type};
 use crate::sema::convert::int_fits;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, TypeId, Value, ast};
+use crate::source::DiagnosticKind;
+use crate::types::TypeKind;
 
 impl Compiler {
     /// The type an `ifx` branch contributes, or `None` when it adapts to the other branch
@@ -53,6 +55,61 @@ impl Compiler {
         };
         self.implicit_cost(other.ty(), false, TypeId::S64)
             .map(|_| TypeId::S64)
+    }
+
+    /// An `ifx` whose arms are both untyped integer constants is an `s64`: it does not become a
+    /// narrower signed integer by fitting, so `x: s32 = ifx c then -1 else 1` needs a cast.
+    /// An operand of a binary operator is compared as it is, and unsigned and float targets
+    /// keep taking the constants (see `docs/language/casts-and-conversions.md`).
+    fn reject_narrowed_constant_ifx(
+        &mut self,
+        (then_op, else_op): (&Operand, &Operand),
+        expected: Option<TypeId>,
+        span: Span,
+    ) -> Result<()> {
+        let untyped_int = |op: &Operand| {
+            matches!(
+                op,
+                Operand::Const {
+                    value: Value::Int(_),
+                    untyped: true,
+                    ..
+                }
+            )
+        };
+        let Some(target) = expected else {
+            return Ok(());
+        };
+        let plain = !matches!(self.ty.types.kind(target), TypeKind::Enum(_))
+            && !matches!(
+                self.ty.types.kind(self.ty.types.repr(target)),
+                TypeKind::Enum(_)
+            );
+        let narrow = plain
+            && self
+                .ty
+                .types
+                .int_info(target)
+                .is_some_and(|(bits, signed)| signed && bits < 64);
+        if !narrow
+            || !untyped_int(then_op)
+            || !untyped_int(else_op)
+            || self.pr.ifx_operands.contains(&span)
+        {
+            return Ok(());
+        }
+        let name = self.ty.types.name(target);
+        Err(Box::new(
+            Diagnostic::error(
+                span,
+                format!("an `ifx` of integer constants is an `s64`, which does not fit `{name}` without a cast"),
+            )
+            .with_kind(DiagnosticKind::ImplicitNarrowing)
+            .with_label(format!("`s64` given, `{name}` wanted"))
+            .with_help(format!(
+                "cast the whole expression, `cast({name}) ifx ..`, or an arm: `ifx c then cast({name}) 1 else 2`"
+            )),
+        ))
     }
 
     /// Both arms of an `ifx` must meet in one type: `ifx c then 1 else "a"` has none.
@@ -157,6 +214,7 @@ impl Compiler {
             (&other, &taken)
         };
         self.ifx_branch_agreement((then_op, else_op), (then_e, else_e), expected, span)?;
+        self.reject_narrowed_constant_ifx((then_op, else_op), expected, span)?;
         // The arm not taken must still fit an integer target: `x: u8 = ifx true then 1 else 256`.
         if let (
             Some(e),
@@ -314,6 +372,7 @@ impl Compiler {
         };
         if let (Some(then_e), Some(else_e), Some(else_op)) = (then_value, else_value, &else_op) {
             self.ifx_branch_agreement((&then_op, else_op), (then_e, else_e), expected, span)?;
+            self.reject_narrowed_constant_ifx((&then_op, else_op), expected, span)?;
         }
         // Without a target type, a narrower numeric then-value widens to the else-value's
         // type (`ifx hit then entry.score_s16 else evaluate()` is an `s64`).

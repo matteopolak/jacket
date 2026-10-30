@@ -118,7 +118,7 @@ bytes :: () {
 
 // A run of more than 255 chunks of the same byte fills the u8 counters of the count kernels.
 long_runs :: () {
-    for size: .[255 * 32 + 5, 255 * 16 * 3, 70_000] {
+    for size: s64.[255 * 32 + 5, 255 * 16 * 3, 70_000] {
         text := alloc_string(size,, temp);
 
         memset(text.data, #char "x", size);
@@ -147,7 +147,7 @@ substrings :: () {
 
             finder := make_finder(needle);
 
-            for start: .[-1, 0, 1, 7, 33, size / 2, size - 1, size, size + 1] {
+            for start: s64.[-1, 0, 1, 7, 33, size / 2, size - 1, size, size + 1] {
                 what := tprint("% in % from %", needle, text, start);
                 expected := naive_find(text, needle, start);
 

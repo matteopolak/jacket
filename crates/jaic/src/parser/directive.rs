@@ -220,7 +220,10 @@ impl Parser<'_> {
             // `#code,null`: the empty code value.
             CodeBody::Expr(mk(ExprKind::Null, start))
         } else if self.at(P::LBrace) {
-            CodeBody::Block(self.parse_block()?)
+            let outer = std::mem::replace(&mut self.code_in_args, self.in_list);
+            let block = self.parse_block();
+            self.code_in_args = outer;
+            CodeBody::Block(block?)
         } else if self.at_directive("add_context") {
             CodeBody::Stmt(self.parse_add_context_core()?)
         } else {
@@ -462,6 +465,9 @@ impl Parser<'_> {
             None
         };
         let end = self.expect(P::RParen, "after the `#exists` operands")?;
+        if !is_name_chain(&operand) {
+            self.note_lenient(crate::leniency::Leniency::ExistsOnExpression, operand.span);
+        }
         Ok(mk(
             ExprKind::Exists(Box::new(operand), other),
             start.to(end),
@@ -543,5 +549,14 @@ impl Parser<'_> {
             })),
             start.to(end),
         ))
+    }
+}
+
+/// A name, or names joined by `.`: the only operand the official compiler's `#exists` takes.
+fn is_name_chain(e: &Expr) -> bool {
+    match &e.kind {
+        ExprKind::Ident(_) => true,
+        ExprKind::Member(base, _) => is_name_chain(base),
+        _ => false,
     }
 }

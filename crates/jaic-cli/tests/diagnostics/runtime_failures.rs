@@ -227,7 +227,7 @@ fn null_pointer_and_missing_return_and_recursion() {
     let boxed = jaic_on(
         &dir,
         "boxed.jai",
-        "capture :: (value: Any) -> s32 { if value.value_pointer == null && value.type == type_info(int) return 0; return 1; }\nmain :: () -> s32 { p: *int; return capture(p.*); }\n",
+        "capture :: (value: Any) -> s32 { if value.value_pointer == null && value.type == type_info(int) return 0; return 1; }\nmain :: () { p: *int; capture(p.*); }\n",
         "-interp",
         &[],
     );

@@ -45,19 +45,19 @@ is_pk_nested :: (r: pk_nested, seed: s32) -> bool #c_call {
 }
 
 cb_pass_pk_nested :: (r: pk_nested, seed: s32) -> s32 #c_call {
-    return ifx is_pk_nested(r, seed) then 1 else 0;
+    return cast(s32) ifx is_pk_nested(r, seed) then 1 else 0;
 }
 
 cb_tail_pk_nested :: (a1: s64, a2: s64, a3: s64, a4: s64, a5: s64, r: pk_nested, seed: s32) -> s32 #c_call {
-    return ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && is_pk_nested(r, seed) then 1 else 0;
+    return cast(s32) ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && is_pk_nested(r, seed) then 1 else 0;
 }
 
 cb_far_pk_nested :: (a1: s64, a2: s64, a3: s64, a4: s64, a5: s64, a6: s64, a7: s64, r: pk_nested, d: float64, seed: s32) -> s32 #c_call {
-    return ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && a6 == 6 && a7 == 7 && d == 0.5 && is_pk_nested(r, seed) then 1 else 0;
+    return cast(s32) ifx a1 == 1 && a2 == 2 && a3 == 3 && a4 == 4 && a5 == 5 && a6 == 6 && a7 == 7 && d == 0.5 && is_pk_nested(r, seed) then 1 else 0;
 }
 
 cb_dbl_pk_nested :: (d1: float64, d2: float64, d3: float64, d4: float64, d5: float64, d6: float64, d7: float64, d8: float64, r: pk_nested, seed: s32) -> s32 #c_call {
-    return ifx d1 == 1 && d2 == 2 && d3 == 3 && d4 == 4 && d5 == 5 && d6 == 6 && d7 == 7 && d8 == 8 && is_pk_nested(r, seed) then 1 else 0;
+    return cast(s32) ifx d1 == 1 && d2 == 2 && d3 == 3 && d4 == 4 && d5 == 5 && d6 == 6 && d7 == 7 && d8 == 8 && is_pk_nested(r, seed) then 1 else 0;
 }
 
 big1k :: struct {

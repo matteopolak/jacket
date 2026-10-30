@@ -6,15 +6,22 @@ use jaic::sema::{Compiler, Options, VirtualFs};
 use jaic::source::Diagnostic;
 use std::{path::Path, rc::Rc};
 
+/// The types the compiler wants from the preload file: a dynamic array carries an `Allocator`
+/// and `#caller_location` has a `Source_Code_Location`.
+const PRELUDE: &str = "Allocator :: struct { proc: *void; data: *void; }
+Source_Code_Location :: struct { fully_pathed_filename: string; line_number: s64; character_number: s64; }";
+
 /// A compile of `main` (`/main.jai`) with `modules` (name, source) importable.
 fn compile(main: &str, modules: &[(&str, &str)]) -> (Result<(), Box<Diagnostic>>, Compiler) {
     let mut fs = VirtualFs::default();
     for (name, source) in modules {
         fs.insert(format!("/modules/{name}/module.jai"), source.as_bytes());
     }
+    fs.insert("/prelude.jai", PRELUDE.as_bytes());
     fs.insert("/main.jai", main.as_bytes());
     let mut options = Options::host();
     options.runtime_support = false;
+    options.preload = Some(Path::new("/prelude.jai").to_path_buf());
     options.import_paths = vec![Path::new("/modules").to_path_buf()];
     options.preload_stdlib = Some(Path::new("/modules").to_path_buf());
     let mut compiler = Compiler::new(options, Rc::new(fs));
@@ -309,6 +316,287 @@ fn a_declaration_of_an_imported_module_is_silent() {
         "#import \"User\"; main :: () { go(); }",
         &[("Sys", SYS), ("User", user)],
         Leniency::HidesImport,
+    );
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
+fn a_float_exponent_without_a_fraction_warns() {
+    let text = warns_in_the_program_and_not_in_a_module(
+        Leniency::FloatExponent,
+        "main :: () { x := 1e20; }",
+        "go :: () { x := 1e20; }",
+    );
+    assert!(
+        text.contains("`1e20` has an exponent and no fraction"),
+        "{text}"
+    );
+    assert!(text.contains("write `1.0e20`"), "{text}");
+    let found = warnings(
+        "main :: () { x := 1.0e20; y := 1.5e3; }",
+        &[],
+        Leniency::FloatExponent,
+    );
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
+fn align_on_a_whole_struct_warns() {
+    let text = warns_in_the_program_and_not_in_a_module(
+        Leniency::StructAlign,
+        "S :: struct #align 64 { v: s64; }
+        main :: () { s: S; }",
+        "S :: struct #align 64 { v: s64; }
+        go :: () { s: S; }",
+    );
+    assert!(
+        text.contains("`#align` is not a directive of a struct as a whole"),
+        "{text}"
+    );
+    assert!(text.contains("member: T #align N;"), "{text}");
+    let found = warnings(
+        "S :: struct { v: s64 #align 64; }
+        main :: () { s: S; }",
+        &[],
+        Leniency::StructAlign,
+    );
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
+fn for_over_an_array_literal_without_a_type_warns() {
+    let text = warns_in_the_program_and_not_in_a_module(
+        Leniency::ForOverArrayLiteral,
+        "main :: () { for x: .[1, 2, 3] {} }",
+        "go :: () { for x: .[1, 2, 3] {} }",
+    );
+    assert!(
+        text.contains("`for` over an array literal needs its element type"),
+        "{text}"
+    );
+    assert!(text.contains("for x: T.[..]"), "{text}");
+    let found = warnings(
+        "main :: () { for x: s64.[1, 2, 3] {} }",
+        &[],
+        Leniency::ForOverArrayLiteral,
+    );
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
+fn a_struct_literal_for_a_dynamic_array_warns() {
+    let text = warns_in_the_program_and_not_in_a_module(
+        Leniency::ArrayFromStructLiteral,
+        "main :: () { a: [..] s64; a = .{}; }",
+        "go :: () { a: [..] s64; a = .{}; }",
+    );
+    assert!(
+        text.contains("an untyped `.{..}` literal is not a dynamic array"),
+        "{text}"
+    );
+    assert!(text.contains("name the type"), "{text}");
+    let found = warnings(
+        "main :: () { a: [..] s64; a = type_of(a).{}; }",
+        &[],
+        Leniency::ArrayFromStructLiteral,
+    );
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
+fn target_features_warns() {
+    let text = warns_in_the_program_and_not_in_a_module(
+        Leniency::TargetFeatures,
+        "f :: () -> s64 #target_features \"avx2\" { return 1; }
+        main :: () { f(); }",
+        "f :: () -> s64 #target_features \"avx2\" { return 1; }
+        go :: () { f(); }",
+    );
+    assert!(
+        text.contains("`#target_features` is not a directive of a procedure header"),
+        "{text}"
+    );
+    assert!(text.contains("there is no portable spelling"), "{text}");
+}
+
+#[test]
+fn push_context_without_a_block_warns() {
+    let text = warns_in_the_program_and_not_in_a_module(
+        Leniency::PushContextStatement,
+        "run :: () {}
+        main :: () { c := context; push_context c run(); }",
+        "run :: () {}
+        go :: () { c := context; push_context c run(); }",
+    );
+    assert!(text.contains("`push_context` takes a block"), "{text}");
+    assert!(text.contains("push_context c { statement; }"), "{text}");
+    let found = warnings(
+        "run :: () {}
+        main :: () { c := context; push_context c { run(); } }",
+        &[],
+        Leniency::PushContextStatement,
+    );
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
+fn a_main_that_returns_a_value_warns() {
+    let text = the_warning(
+        "main :: () -> s64 { return 0; }",
+        &[],
+        Leniency::MainReturnsValue,
+    );
+    assert!(text.contains("`main` returns a value"), "{text}");
+    assert!(text.contains("exit(code)"), "{text}");
+    let found = warnings(
+        "#import \"User\"; main :: () { go(); }",
+        &[("User", "go :: () -> s64 { return 0; }")],
+        Leniency::MainReturnsValue,
+    );
+    assert!(found.is_empty(), "{found:?}");
+    let found = warnings(
+        "f :: () -> s64 { return 0; } main :: () { f(); }",
+        &[],
+        Leniency::MainReturnsValue,
+    );
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
+fn caller_location_outside_a_default_warns() {
+    let text = warns_in_the_program_and_not_in_a_module(
+        Leniency::CallerLocationOutsideDefault,
+        "main :: () { l := #caller_location; }",
+        "go :: () { l := #caller_location; }",
+    );
+    assert!(
+        text.contains("`#caller_location` is only allowed as the default value of a parameter"),
+        "{text}"
+    );
+    assert!(text.contains("`#location()`"), "{text}");
+    let found = warnings(
+        "f :: (loc := #caller_location) {}
+        main :: () { f(); l := #location(); }",
+        &[],
+        Leniency::CallerLocationOutsideDefault,
+    );
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
+fn several_values_in_a_code_argument_warn() {
+    let text = warns_in_the_program_and_not_in_a_module(
+        Leniency::MultiValueInCodeArgument,
+        "f :: (c: Code) #expand { #insert c; }
+        main :: () { f(#code { a, b := 1, 2; }); }",
+        "f :: (c: Code) #expand { #insert c; }
+        go :: () { f(#code { a, b := 1, 2; }); }",
+    );
+    assert!(
+        text.contains("a comma ends a `#code` block that is a call argument"),
+        "{text}"
+    );
+    assert!(text.contains("its own statement"), "{text}");
+    let found = warnings(
+        "f :: (c: Code) #expand { #insert c; }
+        main :: () { f(#code { a := 1; b := 2; }); a, b := 1, 2; }",
+        &[],
+        Leniency::MultiValueInCodeArgument,
+    );
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
+fn a_spread_next_to_other_varargs_warns() {
+    let text = warns_in_the_program_and_not_in_a_module(
+        Leniency::SpreadWithOtherArguments,
+        "f :: (xs: ..s64) {}
+        main :: () { a := s64.[1, 2]; f(0, ..a); }",
+        "f :: (xs: ..s64) {}
+        go :: () { a := s64.[1, 2]; f(0, ..a); }",
+    );
+    assert!(
+        text.contains("`..` spreads into a variadic parameter by itself"),
+        "{text}"
+    );
+    assert!(
+        text.contains("collect all the values into one array"),
+        "{text}"
+    );
+    let found = warnings(
+        "f :: (xs: ..s64) {}
+        main :: () { a := s64.[1, 2]; f(..a); f(0, 1); }",
+        &[],
+        Leniency::SpreadWithOtherArguments,
+    );
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
+fn exists_on_an_expression_warns() {
+    let text = warns_in_the_program_and_not_in_a_module(
+        Leniency::ExistsOnExpression,
+        "W :: struct (N: s64) { c :: 1; }
+        main :: () { #assert #exists(W(3).c); }",
+        "W :: struct (N: s64) { c :: 1; }
+        go :: () { #assert #exists(W(3).c); }",
+    );
+    assert!(
+        text.contains("`#exists` takes a name or names joined by `.`"),
+        "{text}"
+    );
+    assert!(text.contains("there is no portable spelling"), "{text}");
+    let found = warnings(
+        "W :: struct { c :: 1; }
+        main :: () { #assert #exists(W.c); }",
+        &[],
+        Leniency::ExistsOnExpression,
+    );
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
+fn a_procedure_cast_to_an_integer_warns() {
+    let text = warns_in_the_program_and_not_in_a_module(
+        Leniency::ProcedureCastToInteger,
+        "p :: () {}
+        main :: () { n := cast(u64) p; }",
+        "p :: () {}
+        go :: () { n := cast(u64) p; }",
+    );
+    assert!(
+        text.contains("a procedure cannot be cast to `u64` directly"),
+        "{text}"
+    );
+    assert!(text.contains("cast(u64) cast(*void) procedure"), "{text}");
+    let found = warnings(
+        "p :: () {}
+        main :: () { n := cast(u64) cast(*void) p; }",
+        &[],
+        Leniency::ProcedureCastToInteger,
+    );
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
+fn the_address_of_a_macro_constant_warns() {
+    let text = warns_in_the_program_and_not_in_a_module(
+        Leniency::AddressOfMacroConstant,
+        "m :: (x: u32) -> u8 #expand { p := cast(*u8) *x; return p.*; }
+        main :: () { m(5); }",
+        "m :: (x: u32) -> u8 #expand { p := cast(*u8) *x; return p.*; }
+        go :: () { m(5); }",
+    );
+    assert!(
+        text.contains("`x` is a constant here, and a constant has no address"),
+        "{text}"
+    );
+    assert!(text.contains("copy := x;"), "{text}");
+    let found = warnings(
+        "m :: (x: u32) -> u8 #expand { p := cast(*u8) *x; return p.*; }
+        main :: () { v: u32 = 5; m(v); }",
+        &[],
+        Leniency::AddressOfMacroConstant,
     );
     assert!(found.is_empty(), "{found:?}");
 }

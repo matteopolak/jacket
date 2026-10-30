@@ -36,7 +36,8 @@ main :: () {
 
         while sum < 10 sum += 1;
 
-        a, b := twice(2), twice(3);
+        a := twice(2);
+        b := twice(3);
 
         assert(a == 4 && b == 6 && sum == 10);
         assert((a + b) * 2 == 20);

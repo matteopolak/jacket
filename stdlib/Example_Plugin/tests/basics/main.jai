@@ -34,7 +34,7 @@ main :: () {
     p.log_help(p);
     p.shutdown(p);
 
-    for options: .[cast([] string) .["-option"], .["unknown"], .["-option", "ok", "unknown"]] {
+    for options: ([] string).[.["-option"], .["unknown"], .["-option", "ok", "unknown"]] {
         failed := E.get_plugin();
         assert(!failed.init(failed, options));
         failed.shutdown(failed);

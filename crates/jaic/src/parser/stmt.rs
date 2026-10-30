@@ -274,7 +274,14 @@ impl Parser<'_> {
         self.bump();
         let mut rhs = vec![self.parse_expr()?];
         while !self.in_list && self.eat(P::Comma) {
+            let comma = self.prev_span();
             rhs.push(self.parse_expr()?);
+            if self.code_in_args && rhs.len() == 2 {
+                self.note_lenient(
+                    crate::leniency::Leniency::MultiValueInCodeArgument,
+                    comma.to(self.prev_span()),
+                );
+            }
         }
         let span = start.to(self.prev_span());
         Ok(stmt(
@@ -631,6 +638,15 @@ impl Parser<'_> {
         let over = if self.eat(P::DotDot) {
             ForOver::Range(first, self.parse_expr()?)
         } else {
+            if matches!(
+                first.kind,
+                ExprKind::ArrayLit {
+                    ty: None,
+                    ..
+                }
+            ) {
+                self.note_lenient(crate::leniency::Leniency::ForOverArrayLiteral, first.span);
+            }
             ForOver::Collection(first)
         };
         self.skip_check_flags(&mut flags);
@@ -791,6 +807,9 @@ impl Parser<'_> {
         }
         let context = self.parse_expr()?;
         let body = Box::new(self.parse_stmt()?);
+        if !matches!(body.kind, StmtKind::Block(_)) {
+            self.note_lenient(crate::leniency::Leniency::PushContextStatement, body.span);
+        }
         Ok(stmt(
             StmtKind::PushContext(Box::new(PushContextStmt {
                 backtick,

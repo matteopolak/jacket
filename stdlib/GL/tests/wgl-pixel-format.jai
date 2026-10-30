@@ -74,7 +74,7 @@ fake_query :: (data: *void, dc: *void, format: s32, count: u32, names: *s32, val
     }
 
     note(fake, "samples?");
-    values[0] = ifx fake.reported > 0 then 1 else 0;
+    values[0] = cast(s32) ifx fake.reported > 0 then 1 else 0;
     values[1] = fake.reported;
 
     return true;

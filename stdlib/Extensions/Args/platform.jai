@@ -35,11 +35,11 @@ is_terminal :: (stream: Stream) -> bool {
     #if OS == .WINDOWS {
         ansi := Env.has_environment_variable("WT_SESSION") || Env.has_environment_variable("ANSICON") || Env.environment_variable("ConEmuANSI") == "ON" || Env.has_environment_variable("TERM");
         mode: u32;
-        handle := Windows.GetStdHandle(ifx stream == .ERROR then Windows.STD_ERROR_HANDLE else Windows.STD_OUTPUT_HANDLE);
+        handle := Windows.GetStdHandle(cast(s32) ifx stream == .ERROR then Windows.STD_ERROR_HANDLE else Windows.STD_OUTPUT_HANDLE);
         return ansi && Windows.GetConsoleMode(handle, *mode) != 0;
     } else #if OS == .WASM {
         return false;
     } else {
-        return c_isatty(ifx stream == .ERROR then 2 else 1) != 0;
+        return c_isatty(cast(s32) ifx stream == .ERROR then 2 else 1) != 0;
     }
 }

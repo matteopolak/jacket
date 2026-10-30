@@ -43,7 +43,7 @@ SDL_GetWindowWMInfo :: (window: *SDL_Window, info: *SDL_SysWMinfo) -> SDL_bool #
 // int is 32-bit; normalize the specified nonzero close flag before the C call.
 SDL_LoadBMP_RW :: (src: *SDL_RWops, freesrc: int) -> *SDL_Surface #c_call {
     return cast(*SDL_Surface) NativeSDL.load_bmp_rw(cast(*NativeSDL.RWops) src,
-                                                  ifx freesrc == 0 then 0 else 1);
+                                                  cast(s32) ifx freesrc == 0 then 0 else 1);
 }
 
 #scope_file

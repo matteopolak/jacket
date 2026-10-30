@@ -156,7 +156,7 @@ main :: () {
             // Retire only this caller's borrowed payload before frame cleanup;
             // do not assume an undocumented Input ownership transfer policy.
             for *event: Input.events_this_frame {
-                if event.files.data == owned_files.data event.files = .{};
+                if event.files.data == owned_files.data event.files = type_of(event.files).{};
             }
 
             array_free(owned_files);

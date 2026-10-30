@@ -114,9 +114,9 @@ main :: () {
 
     assert(ok4 && inv4._12 == 1 && inv4._34 == 1);
     tiny4 := Matrix4_Identity;
-    tiny4._44 = 1e-20;
+    tiny4._44 = 1.0e-20;
     ok4, inv4 = inverse(tiny4);
-    assert(ok4 && abs(inv4._44 * 1e-20 - 1) < 0.000001);
+    assert(ok4 && abs(inv4._44 * 1.0e-20 - 1) < 0.000001);
     assert(adjugate(Matrix4_Identity)._44 == 1 && adjugate_lengyel(Matrix4_Identity)._11 == 1);
     rows := make_matrix_from_rows(xyz(1, 2, 3), xyz(4, 5, 6), xyz(7, 8, 9), Matrix3);
     cols := make_matrix_from_columns(xyz(1, 2, 3), xyz(4, 5, 6), xyz(7, 8, 9));

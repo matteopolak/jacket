@@ -36,13 +36,13 @@ main :: () {
     assert(M.pow(cast(float64) -2, cast(float64) 2) == 4);
     assert(M.pow(M.FLOAT64_NAN, cast(float64) 0) == 1);
     assert(M.isnan(M.pow(cast(float64) -2, cast(float64) 0.5)));
-    v := M.xyz(1e-30, 0, 0);
+    v := M.xyz(1.0e-30, 0, 0);
     n := M.length(v);
 
     assert(n > 0);
     v = M.normalize(v);
     assert(v.x == 1);
-    huge := M.xyz(1e30, 1e30, 0);
+    huge := M.xyz(1.0e30, 1.0e30, 0);
 
     assert(M.is_finite(M.length(huge)));
     nan, inf := M.is_nan_is_inf(M.FLOAT32_NAN);
@@ -61,10 +61,10 @@ main :: () {
     free_buffers(*b);
     theme: G.Slider_Theme;
     state: G.Slider_State;
-    text := G.slider_format_text_float_default("", "", 1e100, *theme, *state, .DISPLAY);
+    text := G.slider_format_text_float_default("", "", 1.0e100, *theme, *state, .DISPLAY);
     ok, value := G.slider_parse_text_float_default(text, *theme, *state);
 
-    assert(ok && M.abs((value - cast(float64) 1e100) / cast(float64) 1e100) < cast(float64) 1e-12);
+    assert(ok && M.abs((value - cast(float64) 1.0e100) / cast(float64) 1.0e100) < cast(float64) 1.0e-12);
     free(text);
     print("numeric edges ok\n");
 }

@@ -350,7 +350,8 @@ impl Compiler {
                 self.convert(f, op, param.ty, d.span)?
             }
             Slot::Variadic(list) => {
-                if list.iter().any(|&a| args[a].spread) {
+                if let Some(&a) = list.iter().find(|&&a| args[a].spread) {
+                    self.warn_spread_with_other_arguments(args[a].scope, args[a].span);
                     return self.mixed_variadic_value(f, param, args, list, span);
                 }
                 let elem = self.ty.jai_variadic_element(param.ty, span)?;

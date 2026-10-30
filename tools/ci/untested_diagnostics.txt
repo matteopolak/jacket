@@ -82,7 +82,6 @@ a masked instruction needs a vector destination
 a module is not a value
 a runtime spread cannot determine a C variadic ABI
 a vector index scale must be 1, 2, 4 or 8
-ambiguous overloaded procedure used as a value
 an #asm operand must be a variable
 an #asm operand must be a variable or a constant
 an atomic load cannot use release or acq_rel ordering

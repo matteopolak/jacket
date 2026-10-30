@@ -29,7 +29,10 @@ main :: () {
     state := Tracking.{ base = context.allocator };
     scoped := context;
     scoped.allocator = .{ track, *state };
-    push_context scoped run_cases();
+    push_context scoped {
+        run_cases();
+    }
+
     assert(state.live == 0, "archive parser/test leaked storage: %", state.live);
     print("ok\n");
 }

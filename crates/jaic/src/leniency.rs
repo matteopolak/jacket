@@ -26,6 +26,32 @@ pub enum Leniency {
     IfxThenSemicolon,
     /// `*T.{...}`, the address of a struct literal.
     AddressOfLiteral,
+    /// A decimal float literal with an exponent and no fraction: `1e20`.
+    FloatExponent,
+    /// `#align N` on a struct as a whole: `struct #align 64 {`.
+    StructAlign,
+    /// `for` over an array literal that names no element type: `for x: .[1, 2, 3]`.
+    ForOverArrayLiteral,
+    /// An untyped `.{..}` struct literal used as a dynamic array.
+    ArrayFromStructLiteral,
+    /// `#target_features "..."` in a procedure header.
+    TargetFeatures,
+    /// `push_context ctx statement;` with a statement that is not a block.
+    PushContextStatement,
+    /// `main :: () -> T`, an entry point that returns a value.
+    MainReturnsValue,
+    /// `#caller_location` anywhere but the default value of a parameter.
+    CallerLocationOutsideDefault,
+    /// `a, b := x, y;` inside a `#code` block passed as a call argument.
+    MultiValueInCodeArgument,
+    /// A `..xs` spread next to other arguments that fill the same variadic parameter.
+    SpreadWithOtherArguments,
+    /// `#exists(e)` on an expression that is not a name or a dotted chain of names.
+    ExistsOnExpression,
+    /// A procedure cast straight to an integer type.
+    ProcedureCastToInteger,
+    /// `*x` of a macro parameter that the call binds to a number or bool constant.
+    AddressOfMacroConstant,
 }
 
 /// What every leniency warning says besides its own message.
@@ -34,7 +60,7 @@ pub const NOTE: &str =
 
 impl Leniency {
     /// Every leniency, in the order `docs/language/leniencies.md` lists them.
-    pub const ALL: [Leniency; 10] = [
+    pub const ALL: [Leniency; 23] = [
         Leniency::OperatorOutOfScope,
         Leniency::HidesImport,
         Leniency::NamespacedForExpansion,
@@ -45,6 +71,19 @@ impl Leniency {
         Leniency::MustAfterReturnType,
         Leniency::IfxThenSemicolon,
         Leniency::AddressOfLiteral,
+        Leniency::FloatExponent,
+        Leniency::StructAlign,
+        Leniency::ForOverArrayLiteral,
+        Leniency::ArrayFromStructLiteral,
+        Leniency::TargetFeatures,
+        Leniency::PushContextStatement,
+        Leniency::MainReturnsValue,
+        Leniency::CallerLocationOutsideDefault,
+        Leniency::MultiValueInCodeArgument,
+        Leniency::SpreadWithOtherArguments,
+        Leniency::ExistsOnExpression,
+        Leniency::ProcedureCastToInteger,
+        Leniency::AddressOfMacroConstant,
     ];
 
     /// The diagnostic code, as `DiagnosticKind::code` reports it.
@@ -60,6 +99,19 @@ impl Leniency {
             Leniency::MustAfterReturnType => "must-after-return-type",
             Leniency::IfxThenSemicolon => "ifx-then-semicolon",
             Leniency::AddressOfLiteral => "address-of-struct-literal",
+            Leniency::FloatExponent => "float-exponent-without-fraction",
+            Leniency::StructAlign => "struct-align-directive",
+            Leniency::ForOverArrayLiteral => "for-over-array-literal",
+            Leniency::ArrayFromStructLiteral => "struct-literal-as-dynamic-array",
+            Leniency::TargetFeatures => "target-features-directive",
+            Leniency::PushContextStatement => "push-context-without-block",
+            Leniency::MainReturnsValue => "main-returns-value",
+            Leniency::CallerLocationOutsideDefault => "caller-location-outside-default",
+            Leniency::MultiValueInCodeArgument => "multi-value-in-code-argument",
+            Leniency::SpreadWithOtherArguments => "spread-with-other-varargs",
+            Leniency::ExistsOnExpression => "exists-on-expression",
+            Leniency::ProcedureCastToInteger => "procedure-cast-to-integer",
+            Leniency::AddressOfMacroConstant => "address-of-macro-constant",
         }
     }
 }

@@ -40,7 +40,7 @@ jpeg_read_fixture :: (path: string) -> string {
 
 // The pixels of a P5/P6 file: width, height, channels and the bytes after the header.
 jpeg_parse_pnm :: (text: string) -> width: s32, height: s32, channels: s32, pixels: string {
-    channels: s32 = ifx text[1] == #char "6" then 3 else 1;
+    channels: s32 = cast(s32) ifx text[1] == #char "6" then 3 else 1;
     at := 3;
     numbers: [3] s32;
 

@@ -132,6 +132,9 @@ pub(crate) struct Parser<'a> {
     /// True while parsing the statement of a `#code` literal: a closing `)`, `]` or `,` of the
     /// enclosing expression ends it like a `;` would.
     in_code_stmt: bool,
+    /// True while parsing the braces of a `#code` block written inside an argument list, up to a
+    /// procedure body: the official compiler reads a comma there as the end of an argument.
+    code_in_args: bool,
     /// True directly in a struct or union body: a member may be named `null`, `true` or `false`
     /// (it is reached as `x.null`), unlike a variable, constant or parameter.
     in_aggregate_body: bool,
@@ -168,6 +171,7 @@ impl<'a> Parser<'a> {
             pending_notes: Vec::new(),
             hoisted: Vec::new(),
             in_code_stmt: false,
+            code_in_args: false,
             in_aggregate_body: false,
             depth: 0,
             recovery: None,
@@ -349,6 +353,33 @@ impl<'a> Parser<'a> {
     /// variable, constant or parameter of that name could never be used.
     fn reject_literal_name(&self, name: Ident) -> PResult<Ident> {
         let word = name.name.as_str();
+        if matches!(
+            word,
+            "int"
+                | "float"
+                | "bool"
+                | "string"
+                | "void"
+                | "Any"
+                | "Code"
+                | "s8"
+                | "s16"
+                | "s32"
+                | "s64"
+                | "u8"
+                | "u16"
+                | "u32"
+                | "u64"
+                | "float32"
+                | "float64"
+        ) {
+            return Err(Diagnostic::error(
+                name.span,
+                format!("`{word}` is the name of a builtin type and cannot be declared"),
+            )
+            .with_kind(crate::source::DiagnosticKind::ShadowsBuiltinType)
+            .with_help("choose another name"));
+        }
         if self.in_aggregate_body || !matches!(word, "null" | "true" | "false") {
             return Ok(name);
         }
