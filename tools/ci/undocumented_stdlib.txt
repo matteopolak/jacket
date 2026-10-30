@@ -2826,13 +2826,6 @@ Sound_Player.update_panning
 Sound_Player.update_panning_helper
 Sound_Player.update_panning_helper_for_locked_output
 Sound_Player.update_panning_helper_for_many_channel_music
-Srgb
-Srgb.linear_to_srgb
-Srgb.linear_to_srgb_fast
-Srgb.linear_to_srgb_sqrt
-Srgb.srgb_to_linear
-Srgb.srgb_to_linear_fast
-Srgb.srgb_to_linear_pow2
 Subtitles
 Subtitles.SECTION_VERSION_NUMBER
 Subtitles.Subtitles
