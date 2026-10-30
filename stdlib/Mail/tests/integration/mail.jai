@@ -21,6 +21,7 @@ main :: () {
     smtp.host = "127.0.0.1";
     smtp.port = port;
     smtp.enable_ssl = args[3] == "tls";
+    if args[3] == "stall" smtp.timeout_milliseconds = 300;
 
     if args[3] == "auth" {
         smtp.username = "portable-user";
@@ -46,7 +47,7 @@ main :: () {
     assert(!M.mail_send(smtp, invalid) && errors > 0);
     errors = 0;
     sent := M.mail_send(smtp, message);
-    if args[3] == "reject" || args[3] == "tls" assert(!sent && errors > 0);
+    if args[3] == "reject" || args[3] == "tls" || args[3] == "stall" assert(!sent && errors > 0);
     else assert(sent && errors == 0);
 
     print("ok\n");

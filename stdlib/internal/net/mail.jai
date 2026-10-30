@@ -5,6 +5,9 @@
 // the whole exchange, credentials included, travels in clear text. `ssl_ca_bundle_path` names a file of trusted
 // certificates, or is empty for libcurl's default. Login is attempted when `username` or `password` is set. Strings are
 // borrowed for the call and never freed. `verbose_logging` makes libcurl print the protocol exchange to standard error.
+// `timeout_milliseconds` limits the whole send, connecting and the transfer included, and `mail_send` fails when it runs out;
+// 0 (the default) sets no limit. There is no option for a connection that starts as TLS (the `smtps` port 465 style): only
+// STARTTLS is offered, which is what ports 25 and 587 use.
 Mail_Server :: struct {
     host: string;
     port: int;
@@ -13,6 +16,7 @@ Mail_Server :: struct {
     username: string;
     password: string;
     verbose_logging := false;
+    timeout_milliseconds := 0;
 }
 
 // One email for `mail_send`.
@@ -36,8 +40,8 @@ Mail_Message :: struct {
 
 // Sends `msg` through the SMTP server `smtp` and returns whether the server accepted it.
 //
-// The call blocks until the exchange is over; there is no timeout of its own, so a stalled server is waited on for as long
-// as libcurl allows. It does not retry and does not queue. Every failure returns false and logs one line through
+// The call blocks until the exchange is over, or until `smtp.timeout_milliseconds` has passed when that is set; with the
+// default of 0 a stalled server is waited on for as long as libcurl allows. It does not retry and does not queue. Every failure returns false and logs one line through
 // `context.logger` with the `.ERROR` flag: a header or host with a NUL, CR or LF (which would allow header injection), an
 // empty recipient list, a port outside 0 to 65535, an attachment path that cannot be read, and anything libcurl or the
 // server reports, in libcurl's wording. Environment proxies and `.netrc` files are ignored. The first call loads libcurl,
@@ -68,6 +72,7 @@ mail_send :: (smtp: Mail_Server, msg: Mail_Message) -> bool {
         return failure("Mail header or host contains an unsupported byte\n");
     if has_nul(smtp.username) || has_nul(smtp.password) || has_nul(smtp.ssl_ca_bundle_path)
         return failure("Mail C-string input contains NUL\n");
+    if smtp.timeout_milliseconds < 0 return failure("invalid Mail timeout\n");
     if smtp.port < 0 || smtp.port > 65535 || msg.body.count < 0 || msg.to.count + msg.cc.count + msg.bcc.count == 0
         return failure("invalid Mail port, body or recipient list\n");
 
@@ -101,6 +106,7 @@ mail_send :: (smtp: Mail_Server, msg: Mail_Message) -> bool {
     if !check(C.curl_easy_setopt(easy, .NETRC, cast(Native_Long) 0)) return false;
     if !check(C.curl_easy_setopt(easy, .NOSIGNAL, cast(Native_Long) 1)) return false;
     if !check(C.curl_easy_setopt(easy, .VERBOSE, cast(Native_Long) smtp.verbose_logging)) return false;
+    if smtp.timeout_milliseconds > 0 && !check(C.curl_easy_setopt(easy, .TIMEOUT_MS, cast(Native_Long) smtp.timeout_milliseconds)) return false;
 
     ssl := C.curl_usessl.NONE;
     if smtp.enable_ssl ssl = .ALL;

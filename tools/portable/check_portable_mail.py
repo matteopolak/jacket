@@ -11,6 +11,7 @@ from pathlib import Path
 import socket
 import subprocess
 import threading
+import time
 
 from portable_toolchain import checked_compiler
 from toolkit.cli import add_jaic_argument
@@ -24,6 +25,11 @@ def receive(listener, mode, outcome):
         with connection:
             connection.settimeout(10)
             stream = connection.makefile("rwb", buffering=0)
+            if mode == "stall":
+                # Accepts and says nothing; the client's timeout must end the send.
+                time.sleep(4)
+                outcome.append((None, [], None, False))
+                return
             connection.sendall(b"220 portable-test ESMTP\r\n")
             recipients = []
             sender = None
@@ -94,7 +100,7 @@ def main():
     if args.native:
         subprocess.run([str(compiler), str(source), "-exe", str(executable)], env=env, cwd=ROOT, check=True)
     for native in ([False, True] if args.native else [False]):
-        for mode in ["plain", "html", "auth", "reject", "tls"]:
+        for mode in ["plain", "html", "auth", "reject", "tls", "stall"]:
             with socket.socket() as listener:
                 listener.bind(("127.0.0.1", 0))
                 listener.listen(1)
@@ -104,8 +110,12 @@ def main():
                 server = threading.Thread(target=receive, args=(listener, mode, outcome), daemon=True)
                 server.start()
                 command = [str(executable)] if native else [str(compiler), "-interp", str(source), "--"]
+                started = time.monotonic()
                 result = subprocess.run(command + [str(port), str(attachment), mode], cwd=ROOT,
                                         env=env, capture_output=True, text=True, timeout=20)
+                elapsed = time.monotonic() - started
+                if mode == "stall":
+                    assert elapsed < 3.5, f"the client's timeout did not end the send ({elapsed:.1f}s, the server stalls for 4s)"
                 server.join(timeout=11)
                 if server.is_alive():
                     raise RuntimeError("loopback SMTP receiver did not finish")
@@ -114,7 +124,7 @@ def main():
                 if len(outcome) != 1 or isinstance(outcome[0], BaseException):
                     raise RuntimeError(f"SMTP receiver failed: {outcome}")
                 sender, recipients, payload, authenticated = outcome[0]
-                if mode in {"reject", "tls"}:
+                if mode in {"reject", "tls", "stall"}:
                     assert payload is None, "failed transfer delivered a message"
                 else:
                     assert sender == b"<sender@example.invalid>"
