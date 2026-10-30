@@ -154,6 +154,10 @@ pub struct Workspaces {
     pub(super) data_segments: Vec<DataSegment>,
     /// What the build's sources say about reading TYPECHECKED messages.
     pub(crate) typechecked_use: crate::source::TypecheckedUse,
+    /// With `record_files` (`jaic -deps`): the files the workspaces' compilers have read, kept
+    /// as each step ends because a finished workspace drops its compiler.
+    pub(super) record_files: bool,
+    pub(super) read_files: std::collections::BTreeSet<std::path::PathBuf>,
 }
 
 pub(super) struct DataSegment {

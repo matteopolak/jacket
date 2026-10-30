@@ -166,6 +166,17 @@ fn advance(
         }
         Stage::Done => unreachable!(),
     });
+    if let Ok(mut reg) = shared.try_borrow_mut()
+        && reg.record_files
+    {
+        reg.read_files.extend(
+            compiler
+                .src
+                .sources
+                .files()
+                .map(std::path::Path::to_path_buf),
+        );
+    }
     (result, lowering)
 }
 

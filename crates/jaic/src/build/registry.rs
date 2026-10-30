@@ -14,7 +14,7 @@ use crate::sema::{
     Compiler, DeadCode, FileSystem, Options, ProgramSource, ProvidedImport, TargetCpu, TargetOs,
 };
 use std::cell::RefCell;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 impl Workspaces {
@@ -48,7 +48,14 @@ impl Workspaces {
             builders: Vec::new(),
             data_segments: Vec::new(),
             typechecked_use: Rc::default(),
+            record_files: false,
+            read_files: std::collections::BTreeSet::new(),
         }))
+    }
+
+    /// Keep the list of files the workspaces read, for [`Workspaces::source_files`].
+    pub fn record_source_files(shared: &SharedWorkspaces) {
+        shared.borrow_mut().record_files = true;
     }
 
     /// Make `settings` what the top-level program starts from, before any `set_build_options`:
@@ -90,6 +97,17 @@ impl Workspaces {
         self.list
             .len()
             .saturating_sub(TOP_LEVEL_WORKSPACE as usize + 1)
+    }
+
+    /// The files the workspaces' compilers read, when [`Workspaces::record_source_files`] was asked
+    /// for before the build.
+    pub fn source_files(&self) -> Vec<PathBuf> {
+        let live = self
+            .list
+            .iter()
+            .filter_map(|w| w.compiler.as_deref())
+            .flat_map(|c| c.src.sources.files().map(Path::to_path_buf));
+        self.read_files.iter().cloned().chain(live).collect()
     }
 
     /// Whether any workspace compilation failed.

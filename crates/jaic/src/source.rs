@@ -492,6 +492,13 @@ impl SourceMap {
         self.table.len()
     }
 
+    /// The files these sources were read from (virtual sources have none).
+    pub fn files(&self) -> impl Iterator<Item = &Path> + '_ {
+        (0..self.table.len() as u32)
+            .filter_map(|id| self.try_get(FileId(id)))
+            .filter_map(|file| file.path.as_file())
+    }
+
     pub fn is_empty(&self) -> bool {
         self.table.len() == 0
     }

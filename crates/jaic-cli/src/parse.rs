@@ -122,7 +122,11 @@ pub(super) fn parse(args: &[String]) -> Result<Request, CliError> {
         return Err(CliError::new("`-check` and `-interp` cannot be combined")
             .help("`-check` only compiles the program; `-interp` runs it in the interpreter"));
     }
-    cli.mode = match (check, interp) {
+    if cli.deps && interp {
+        return Err(CliError::new("`-deps` and `-interp` cannot be combined")
+            .help("`-deps` only compiles the program and lists the files it read"));
+    }
+    cli.mode = match (check || cli.deps, interp) {
         (true, _) => Mode::Check,
         (_, true) => Mode::Interp,
         _ => Mode::Build,

@@ -90,3 +90,29 @@ fn list_does_not_run_compile_time_tests() {
         "{stderr}"
     );
 }
+
+#[test]
+fn list_deps_prints_the_files_the_test_program_reads() {
+    let root = scratch("deps");
+    let Some(exe) = archive(&root) else {
+        return;
+    };
+    let project = root.join("project");
+    std::fs::create_dir_all(project.join("tests")).expect("create tests");
+    let tests = "#import \"Basic\";\n#import \"Extensions/Testing\";\n\nplain :: () {\n    expect(true);\n} @test\n";
+    std::fs::write(project.join("tests/ct.jai"), tests).expect("write the tests");
+
+    let out = jacket(&exe, &project, &["test", "--list", "--deps"]);
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(out.status.success(), "{stdout}{stderr}");
+    let files: Vec<&str> = stdout.lines().collect();
+    let has = |suffix: &str| files.iter().any(|f| f.ends_with(suffix));
+    assert!(has("tests/ct.jai"), "{files:?}");
+    assert!(has("Extensions/Testing/module.jai"), "{files:?}");
+    assert!(has("prelude/module.jai"), "{files:?}");
+    assert!(!stdout.contains("plain"), "files, not test names: {stdout}");
+
+    let refused = jacket(&exe, &project, &["test", "--deps"]);
+    assert!(!refused.status.success());
+}

@@ -88,6 +88,9 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     if let Some(host) = &sandbox {
         compiler.ct.interp.host = Box::new(SharedHost(host.clone()));
     }
+    if cli.deps {
+        Workspaces::record_source_files(&workspaces);
+    }
     compiler.attach_workspaces(workspaces.clone());
     // `-os wasm` / `-target wasm64-unknown-wasi`: a WASI command, with its runtime added.
     let wasi = cli.mode == Mode::Build
@@ -125,6 +128,9 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     match cli.mode {
         Mode::Check => {
             jaic::progress::finish("check");
+            if cli.deps {
+                print_deps(&compiler, &workspaces.borrow());
+            }
             ExitCode::SUCCESS
         }
         Mode::Interp => {
@@ -373,6 +379,31 @@ pub(super) fn disable_check_bindings(cli: &mut Cli, options: &jaic::sema::Option
             plugin.default_parameter("CHECK_BINDINGS", "false");
         }
     }
+}
+
+/// `-deps`: the source files the compile read (the prelude, `#import`s and `#load`s included),
+/// absolute and sorted, one per line after a line break (compile-time code may have printed text
+/// that does not end in one). Virtual sources have no file.
+fn print_deps(compiler: &Compiler, workspaces: &Workspaces) {
+    let mut files: Vec<String> = compiler
+        .src
+        .sources
+        .files()
+        .map(Path::to_path_buf)
+        .chain(workspaces.source_files())
+        .map(|path| {
+            let path = std::path::absolute(&path).unwrap_or(path);
+            path.display().to_string()
+        })
+        .collect();
+    files.sort();
+    files.dedup();
+    let mut out = String::from("\n");
+    for file in files {
+        out.push_str(&file);
+        out.push('\n');
+    }
+    print!("{out}");
 }
 
 /// `-verbose`: what is about to be done.

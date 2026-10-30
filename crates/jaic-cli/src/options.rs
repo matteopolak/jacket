@@ -196,6 +196,11 @@ pub(super) const OPTIONS: &[CliOption] = {
             "-interp",
             "run `main` in the interpreter (arguments after `--` go to the program)",
         ),
+        CliOption::new(&["-deps"], Action::Switch(|cli| &mut cli.deps)).help(
+            Modes,
+            "-deps",
+            "like -check, then print every source file the compile read, one per line",
+        ),
         CliOption::shared(&flags::ADD, Program),
         CliOption::new(
             &["-run"],

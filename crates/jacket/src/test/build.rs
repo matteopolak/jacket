@@ -379,7 +379,7 @@ fn stage_dlls_from(exe: &Path, folders: &std::ffi::OsStr) -> Result<(), String> 
 }
 
 /// `flags` without the target (`-os X`, `-cpu X`).
-fn host_flags(flags: &[String]) -> Vec<String> {
+pub(super) fn host_flags(flags: &[String]) -> Vec<String> {
     let mut out = Vec::new();
     let mut skip = false;
     for flag in flags {

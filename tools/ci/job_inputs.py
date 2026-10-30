@@ -378,9 +378,16 @@ def _jai_refs(repo, path, jaic):
     return found
 
 
+# Modules the compiler adds to every program without an `#import`.
+IMPLICIT = ("stdlib/Runtime_Support/module.jai", "stdlib/Default_Allocator/module.jai")
+
+
 def prelude(repo):
+    """The prelude and the modules every program gets."""
     if "prelude" not in repo._memo:
-        repo._memo["prelude"] = repo.under("stdlib/prelude")
+        repo._memo["prelude"] = repo.under("stdlib/prelude") + [
+            f for f in IMPLICIT if f in repo.fileset
+        ]
     return repo._memo["prelude"]
 
 

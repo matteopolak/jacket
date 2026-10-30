@@ -9,6 +9,7 @@ mod bench;
 mod bench_stats;
 mod build;
 mod coverage;
+mod deps;
 mod diff;
 mod discover;
 mod doctest;
@@ -665,7 +666,11 @@ fn run_once(
                 }
             );
         }
-        reporter.list(&selected);
+        if args.deps {
+            deps::print(&selected, &roots, &root_flags, &work, &toolchain, bench);
+        } else {
+            reporter.list(&selected);
+        }
         let _ = std::fs::remove_dir_all(&work);
         return ExitCode::SUCCESS;
     }

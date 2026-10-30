@@ -148,6 +148,10 @@ pub struct TestArgs {
     /// Print the tests (and benchmarks) instead of running them
     #[arg(long)]
     pub list: bool,
+    /// With `--list`: print the source files the test programs read (what `jaic -deps` prints for
+    /// each), instead of the tests
+    #[arg(long, requires = "list")]
+    pub deps: bool,
     /// Report which lines of the code the tests ran (unit tests, golden programs and doc
     /// examples), and write them as lcov
     #[arg(long, conflicts_with_all = ["list", "review"])]

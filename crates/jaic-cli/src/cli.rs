@@ -252,6 +252,8 @@ pub(super) struct Cli {
     pub(super) sanitize: Vec<String>,
     /// `-coverage`: line and function coverage instrumentation (docs/tools/coverage.md).
     pub(super) coverage: bool,
+    /// `-deps`: check the program, then print every source file the compile read.
+    pub(super) deps: bool,
     /// `-no_dce`: type-check every declaration, modules included
     /// (`Build_Options.dead_code_elimination = .NONE`).
     pub(super) no_dce: bool,
