@@ -3,10 +3,9 @@
 F :: #import "File";
 U :: #import "File_Utilities";
 
-// Windows' copy_file logs a failure unless told otherwise; these calls are meant to fail.
+// These calls are meant to fail, so they ask for no log.
 copy_must_fail :: (source: string, dest: string) -> bool {
-    #if OS == .WINDOWS return U.copy_file(source, dest, silent = true);
-    else return U.copy_file(source, dest);
+    return U.copy_file(source, dest, silent = true);
 }
 
 main :: () {

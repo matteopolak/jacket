@@ -59,7 +59,7 @@ file_modtime :: (file_path: string) -> (modtime: Apollo_Time, file_exists: bool)
     return time, ok;
 }
 
-copy_file :: (source: string, dest: string) -> bool {
+copy_file :: (source: string, dest: string, silent := false) -> bool {
     if !Native_Path.is_valid(source) || !Native_Path.is_valid(dest) return false;
 
     source_name := to_c_string(source);
