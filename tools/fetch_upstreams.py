@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 from pathlib import Path, PurePosixPath
 import subprocess
 import urllib.parse
@@ -614,11 +615,15 @@ ERROR_PRIVILEGE_NOT_HELD = 1314
 
 def link_folder(path: Path, target: Path) -> None:
     """Point `path` at the folder `target` with a relative symlink. Windows refuses symlinks without
-    Developer Mode or elevation, so there it falls back to a directory junction (absolute, no privilege)."""
+    Developer Mode or elevation, so there it holds a copy of the folder instead: a junction would record the
+    absolute host path, which dangles once the checkout is mapped or moved elsewhere."""
     if path.is_symlink():
         path.unlink()
     elif path.is_dir():
-        os.rmdir(path)  # a junction from an earlier run; a real folder with files in it is not removed
+        try:
+            os.rmdir(path)  # a junction from an earlier run
+        except OSError:
+            shutil.rmtree(path)  # a copy from an earlier run
     elif path.exists():
         path.unlink()
     try:
@@ -626,9 +631,7 @@ def link_folder(path: Path, target: Path) -> None:
     except OSError as error:
         if getattr(error, "winerror", None) != ERROR_PRIVILEGE_NOT_HELD:
             raise
-        import _winapi
-
-        _winapi.CreateJunction(str(target.resolve()), str(path))
+        shutil.copytree(target, path)
 
 
 def main() -> None:

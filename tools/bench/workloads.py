@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import os
+import re
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -45,6 +47,44 @@ class Source(Protocol):
         """What to count lines in: the part of `directory` that is the workload's own code."""
 
 
+def is_link(path: Path) -> bool:
+    """A symlink, or a Windows directory junction."""
+    return path.is_symlink() or (hasattr(os.path, 'isjunction') and os.path.isjunction(path))
+
+
+def link_target(path: Path) -> Path:
+    """The folder or file a link points to. A link recorded with an absolute path from another machine or
+    mapping (a corpus checkout made on the host, read in a VM) dangles; its tail after `corpus/upstream` is
+    looked up in this checkout's corpus instead."""
+    target = Path(os.path.realpath(path))
+    if target.exists():
+        return target
+    raw = os.readlink(path)
+    parts = [part for part in re.split(r'[\\/]+', raw.removeprefix('\\\\?\\')) if part]
+    for index in range(len(parts) - 1):
+        if parts[index] == 'corpus' and parts[index + 1] == 'upstream':
+            local = CORPUS.joinpath(*parts[index + 2:])
+            if local.exists():
+                return local
+    raise FileNotFoundError(f'{path} links to {raw}, which does not exist here; '
+                            'run python3 tools/fetch_upstreams.py to recreate the links')
+
+
+def copy_tree(source: Path, destination: Path, active: tuple[Path, ...] = ()) -> None:
+    """Copy `source` to `destination`, except `.build` and `.git`; links are copied as what they point to."""
+    destination.mkdir(parents=True, exist_ok=True)
+    real = Path(os.path.realpath(source))
+    for entry in sorted(source.iterdir()):
+        if entry.name in ('.build', '.git'):
+            continue
+        origin = link_target(entry) if is_link(entry) else entry
+        if origin.is_dir():
+            if Path(os.path.realpath(origin)) not in (*active, real):
+                copy_tree(origin, destination / entry.name, (*active, real))
+        else:
+            shutil.copy2(origin, destination / entry.name)
+
+
 def copy_in(directory: Path, scratch: Path, root: Path | None = None) -> Path:
     """A copy under `scratch` of `root` (default `directory`), made once, and where `directory` landed in
     it: the sandboxed compilers may write only there (a compiler writes `.build/` next to what it
@@ -53,7 +93,7 @@ def copy_in(directory: Path, scratch: Path, root: Path | None = None) -> Path:
     root = root or directory
     copy = scratch / 'sources' / root.name
     if not copy.exists():
-        shutil.copytree(root, copy, symlinks=False, ignore=shutil.ignore_patterns('.build', '.git'))
+        copy_tree(root, copy)
     return copy / directory.relative_to(root)
 
 
