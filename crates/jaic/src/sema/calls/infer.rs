@@ -133,7 +133,17 @@ impl Compiler {
                     // naming a binding only `null` can make (`is(null)` with
                     // `$cmp: (T, T) -> bool = null`) waits until `null` has bound it.
                     match self.baked_default(def_scope, param, d, &st.bindings, span) {
-                        Ok((v, ty)) => st.bindings.push((name, v, ty)),
+                        Ok((v, ty)) => {
+                            // `$$im: $U = 0.0`: the default's type binds `$U`, which a
+                            // `#modify` block reads.
+                            if let Some(pattern) = &param.ty
+                                && procs::has_poly(pattern)
+                            {
+                                let value_ty = self.ty.default_untyped(ty, &v);
+                                self.match_pattern(pattern, value_ty, &mut st.bindings, def_scope)?;
+                            }
+                            st.bindings.push((name, v, ty));
+                        }
                         Err(_) if !st.null_patterns.is_empty() => {
                             st.deferred_defaults.push((name, param, d));
                         }
