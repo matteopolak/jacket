@@ -99,29 +99,9 @@ impl Compiler {
                     match settled {
                         Operand::Procs(p) if p.len() == 1 => self.proc_type(p[0], span)?,
                         Operand::Type(_) | Operand::PolyStruct(_) => TypeId::TYPE,
-                        Operand::Void => {
-                            let value = decl.value.as_ref().map_or(span, |v| v.span);
-                            let text = self.src.sources.snippet(value).trim();
-                            let shown = if text.is_empty() || text.contains('\n') || text.len() > 60
-                            {
-                                "this expression".to_string()
-                            } else {
-                                format!("`{text}`")
-                            };
-                            return Err(Box::new(
-                                Diagnostic::error(
-                                    value,
-                                    format!(
-                                        "cannot declare `{}` from {shown}, which has no value",
-                                        name.name
-                                    ),
-                                )
-                                .with_label("this gives no value")
-                                .with_help(
-                                    "a procedure without a return type returns nothing: call it on its own line, or give the variable a value of its own",
-                                ),
-                            ));
-                        }
+                        // `x := call();` of a procedure that returns nothing declares a `void`
+                        // variable after making the call.
+                        Operand::Void => TypeId::VOID,
                         // `p := null;` declares a `*void`.
                         ref o if o.ty() == TypeId::NULL => self.ty.types.pointer(TypeId::VOID),
                         other => other.ty(),
@@ -150,6 +130,7 @@ impl Compiler {
                 None
             };
             match value {
+                Some(Operand::Void) if ty == TypeId::VOID => {}
                 Some(op) => {
                     let value_span = match &decl.value {
                         Some(v) if decl.names.len() == 1 => v.span,

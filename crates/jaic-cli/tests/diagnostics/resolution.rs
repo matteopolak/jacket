@@ -183,13 +183,6 @@ fn mismatches_point_at_the_value_and_say_what_was_expected() {
             ],
         ),
         (
-            "f :: () {}\nmain :: () { r := f(); }\n",
-            &[
-                "error: cannot declare `r` from `f()`, which has no value",
-                "help: a procedure without a return type returns nothing",
-            ],
-        ),
-        (
             // `n + "0"` is a byte; `*` takes no one-character string.
             "twice :: (n: u8) -> u8 { return n * \"2\"; }\nmain :: () {}\n",
             &[
