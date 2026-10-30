@@ -1039,6 +1039,7 @@ impl Compiler {
                 }
                 // `$T/Entity`: a struct argument must be `Entity` or have it as an `#as` base.
                 if !interface
+                    && !self.ty.in_element_pattern
                     && let E::Ident(_) | E::Member(..) = &restriction.kind
                     && self.ident_poly_struct_expr(scope, restriction)?.is_none()
                     && let Ok(want) = self.eval_type(scope, restriction)
@@ -1123,7 +1124,10 @@ impl Compiler {
                         );
                     }
                 }
-                self.match_pattern(elem, actual, bindings, scope)
+                let outer = std::mem::replace(&mut self.ty.in_element_pattern, true);
+                let matched = self.match_pattern(elem, actual, bindings, scope);
+                self.ty.in_element_pattern = outer;
+                matched
             }
             E::Call {
                 callee,

@@ -53,6 +53,9 @@ pub struct TypeState {
     pub anonymous: HashMap<(ast::AstId, ScopeId), TypeId>,
     /// The shapes `#type (value: *$T)` aliases name: patterns that match types, not values.
     pub(in crate::sema) poly_aliases: HashSet<TypeId>,
+    /// Set while matching an array or slice element pattern, where `$T/Struct` does not
+    /// require the argument to derive from the struct.
+    pub(in crate::sema) in_element_pattern: bool,
     pub(in crate::sema) enum_member_scopes: HashMap<TypeId, ScopeId>,
     /// Where an enum writes its backing type (`enum u8 { ... }`), for the fix that widens it.
     pub(in crate::sema) enum_base_spans: HashMap<TypeId, crate::source::Span>,
@@ -99,6 +102,7 @@ impl Default for TypeState {
             info_flags: HashMap::default(),
             anonymous: HashMap::default(),
             poly_aliases: HashSet::default(),
+            in_element_pattern: false,
             enum_member_scopes: HashMap::default(),
             enum_base_spans: HashMap::default(),
             enum_borrowed: HashMap::default(),
