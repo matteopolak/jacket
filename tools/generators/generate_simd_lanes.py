@@ -21,9 +21,9 @@ def doc(text):
 
 ARITHMETIC_TEXT = {
     "+": ("Adds two vectors lane by lane.", "Adds `factor` to every lane. The scalar can be on either side."),
-    "-": ("Subtracts the lanes of `b` from those of `a`.", "Subtracts `factor` from every lane. Put the scalar on the right: `scalar - vector` is accepted but gives the same result as `vector - scalar`."),
+    "-": ("Subtracts the lanes of `b` from those of `a`.", "Subtracts `factor` from every lane. The scalar can be on either side: `scalar - vector` subtracts every lane from the scalar."),
     "*": ("Multiplies two vectors lane by lane.", "Multiplies every lane by `factor`. The scalar can be on either side."),
-    "/": ("Divides the lanes of `a` by those of `b`.", "Divides every lane by `factor`. Put the scalar on the right: `scalar / vector` is accepted but gives the same result as `vector / scalar`."),
+    "/": ("Divides the lanes of `a` by those of `b`.", "Divides every lane by `factor`. The scalar can be on either side: `scalar / vector` divides the scalar by every lane."),
 }
 
 COMPARISON_TEXT = {
@@ -47,13 +47,11 @@ assert((cast(s32) 1 + a).data[0] == 4);
 ```""",
     "-": """Integer lanes wrap on overflow, so unsigned lanes wrap below zero.
 
-The scalar form also accepts the scalar on the left (it is `#symmetric`), but that spelling computes `vector - scalar`, not `scalar - vector`. To subtract a vector from a scalar, make the scalar a vector with `set` first.
-
 ```jai
 a := set(4, cast(s32) 3);
 assert((a - set(4, cast(s32) 5)).data[0] == -2);
 assert((a - cast(s32) 1).data[0] == 2);
-assert((set(4, cast(s32) 10) - a).data[0] == 7);
+assert((cast(s32) 10 - a).data[0] == 7);
 ```""",
     "*": """Integer lanes wrap on overflow, with no overflow check.
 
@@ -65,13 +63,11 @@ assert((cast(s32) 2 * a).data[3] == 6);
 ```""",
     "/": """Integer lanes round toward zero. Division by zero behaves as scalar division does: it is not checked, and an integer lane traps or gives a platform result, while a float lane gives infinity or NaN.
 
-The scalar form also accepts the scalar on the left (it is `#symmetric`), but that spelling computes `vector / scalar`, not `scalar / vector`. To divide a scalar by a vector, make the scalar a vector with `set` first.
-
 ```jai
 a := set(4, cast(s32) 15);
 assert((a / set(4, cast(s32) 5)).data[0] == 3);
 assert((a / cast(s32) 2).data[0] == 7);
-assert((set(4, cast(s32) 30) / a).data[0] == 2);
+assert((cast(s32) 30 / a).data[0] == 2);
 ```""",
 }
 
@@ -186,13 +182,20 @@ get_looping_indices :: ($N: int, $I: Type, $STEP := 1) -> SIMD_Array(N, I) #no_a
         for scalar in [False, True]:
             other = "factor: a.type" if scalar else "b: T"
             expression = "factor" if scalar else "b.data[it]"
-            symmetric = " #symmetric" if scalar else ""
+            symmetric = " #symmetric" if scalar and operation in "+*" else ""
             text = ARITHMETIC_TEXT[operation][scalar]
             if not scalar:
                 text += "\n\n" + ARITHMETIC_NOTES[operation]
             parts.append("\n" + doc(text) + f"""operator {operation} :: (a: $T/SIMD_Array, {other}) -> T{symmetric} #no_abc #no_aoc {{
     result: T;
     for 0..a.count - 1 result.data[it] = a.data[it] {operation} {expression};
+    return result;
+}}
+""")
+            if scalar and operation in "-/":
+                parts.append("\n" + doc(f"Applies `{operation}` with the scalar `factor` on the left: each lane of the result is `factor {operation}` the lane of `a`.") + f"""operator {operation} :: (factor: $E, a: SIMD_Array($N, E)) -> SIMD_Array(N, E) #no_abc #no_aoc {{
+    result: SIMD_Array(N, E);
+    for 0..a.count - 1 result.data[it] = factor {operation} a.data[it];
     return result;
 }}
 """)

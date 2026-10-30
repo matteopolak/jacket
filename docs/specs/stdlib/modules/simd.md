@@ -14,9 +14,11 @@ Only names visible through the module’s exported scope are listed. Declaration
 - `store_with_offsets :: (a: $T/SIMD_Array, base: *void, offsets: $O/SIMD_Array) #no_abc #no_aoc`
 - `get_looping_indices :: ($N: int, $I: Type, $STEP := 1) -> SIMD_Array(N, I) #no_abc #no_aoc`
 - `operator + :: (a: $T/SIMD_Array, factor: a.type) -> T #symmetric #no_abc #no_aoc`
-- `operator - :: (a: $T/SIMD_Array, factor: a.type) -> T #symmetric #no_abc #no_aoc`
+- `operator - :: (a: $T/SIMD_Array, factor: a.type) -> T #no_abc #no_aoc`
+- `operator - :: (factor: $E, a: SIMD_Array($N, E)) -> SIMD_Array(N, E) #no_abc #no_aoc`
 - `operator * :: (a: $T/SIMD_Array, factor: a.type) -> T #symmetric #no_abc #no_aoc`
-- `operator / :: (a: $T/SIMD_Array, factor: a.type) -> T #symmetric #no_abc #no_aoc`
+- `operator / :: (a: $T/SIMD_Array, factor: a.type) -> T #no_abc #no_aoc`
+- `operator / :: (factor: $E, a: SIMD_Array($N, E)) -> SIMD_Array(N, E) #no_abc #no_aoc`
 - `operator > :: (a: $T/SIMD_Array, factor: a.type) -> T #no_abc #no_aoc`
 - `operator >= :: (a: $T/SIMD_Array, factor: a.type) -> T #no_abc #no_aoc`
 - `operator < :: (a: $T/SIMD_Array, factor: a.type) -> T #no_abc #no_aoc`
@@ -82,4 +84,4 @@ Arithmetic operations apply the corresponding scalar operation lane by lane. Com
 
 `horizontal_add(a, b)` requires an even lane count and returns the interleaved pair sums `[a0+a1, b0+b1, a2+a3, b2+b3, ...]` for every pair.
 
-The scalar overloads of `+`, `-`, `*`, and `/` are marked `#symmetric`, so the scalar may be written on either side. For the non-commutative `-` and `/` the reversed spelling still computes `vector - scalar` and `vector / scalar`, not `scalar - vector`; this is a known defect, and the docs tell callers to build a vector with `set` instead. Every operation is a scalar loop over the lanes on all platforms (no hardware vector instructions); integer arithmetic wraps, and division edge cases follow the underlying scalar operation. The doc comments of these procedures live in `tools/generators/generate_simd_lanes.py`, which generates `stdlib/internal/simd/lanes.jai`.
+The scalar overloads of `+` and `*` are marked `#symmetric`, so the scalar may be written on either side. `-` and `/` are not commutative, so each has a separate scalar-on-the-left overload: `scalar - vector` and `scalar / vector` compute the scalar operation against every lane. Every operation is a scalar loop over the lanes on all platforms (no hardware vector instructions); integer arithmetic wraps, and division edge cases follow the underlying scalar operation. The doc comments of these procedures live in `tools/generators/generate_simd_lanes.py`, which generates `stdlib/internal/simd/lanes.jai`.

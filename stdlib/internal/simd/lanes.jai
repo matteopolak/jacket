@@ -133,13 +133,11 @@ operator + :: (a: $T/SIMD_Array, factor: a.type) -> T #symmetric #no_abc #no_aoc
 //
 // Integer lanes wrap on overflow, so unsigned lanes wrap below zero.
 //
-// The scalar form also accepts the scalar on the left (it is `#symmetric`), but that spelling computes `vector - scalar`, not `scalar - vector`. To subtract a vector from a scalar, make the scalar a vector with `set` first.
-//
 // ```jai
 // a := set(4, cast(s32) 3);
 // assert((a - set(4, cast(s32) 5)).data[0] == -2);
 // assert((a - cast(s32) 1).data[0] == 2);
-// assert((set(4, cast(s32) 10) - a).data[0] == 7);
+// assert((cast(s32) 10 - a).data[0] == 7);
 // ```
 operator - :: (a: $T/SIMD_Array, b: T) -> T #no_abc #no_aoc {
     result: T;
@@ -147,10 +145,17 @@ operator - :: (a: $T/SIMD_Array, b: T) -> T #no_abc #no_aoc {
     return result;
 }
 
-// Subtracts `factor` from every lane. Put the scalar on the right: `scalar - vector` is accepted but gives the same result as `vector - scalar`.
-operator - :: (a: $T/SIMD_Array, factor: a.type) -> T #symmetric #no_abc #no_aoc {
+// Subtracts `factor` from every lane. The scalar can be on either side: `scalar - vector` subtracts every lane from the scalar.
+operator - :: (a: $T/SIMD_Array, factor: a.type) -> T #no_abc #no_aoc {
     result: T;
     for 0..a.count - 1 result.data[it] = a.data[it] - factor;
+    return result;
+}
+
+// Applies `-` with the scalar `factor` on the left: each lane of the result is `factor -` the lane of `a`.
+operator - :: (factor: $E, a: SIMD_Array($N, E)) -> SIMD_Array(N, E) #no_abc #no_aoc {
+    result: SIMD_Array(N, E);
+    for 0..a.count - 1 result.data[it] = factor - a.data[it];
     return result;
 }
 
@@ -181,13 +186,11 @@ operator * :: (a: $T/SIMD_Array, factor: a.type) -> T #symmetric #no_abc #no_aoc
 //
 // Integer lanes round toward zero. Division by zero behaves as scalar division does: it is not checked, and an integer lane traps or gives a platform result, while a float lane gives infinity or NaN.
 //
-// The scalar form also accepts the scalar on the left (it is `#symmetric`), but that spelling computes `vector / scalar`, not `scalar / vector`. To divide a scalar by a vector, make the scalar a vector with `set` first.
-//
 // ```jai
 // a := set(4, cast(s32) 15);
 // assert((a / set(4, cast(s32) 5)).data[0] == 3);
 // assert((a / cast(s32) 2).data[0] == 7);
-// assert((set(4, cast(s32) 30) / a).data[0] == 2);
+// assert((cast(s32) 30 / a).data[0] == 2);
 // ```
 operator / :: (a: $T/SIMD_Array, b: T) -> T #no_abc #no_aoc {
     result: T;
@@ -195,10 +198,17 @@ operator / :: (a: $T/SIMD_Array, b: T) -> T #no_abc #no_aoc {
     return result;
 }
 
-// Divides every lane by `factor`. Put the scalar on the right: `scalar / vector` is accepted but gives the same result as `vector / scalar`.
-operator / :: (a: $T/SIMD_Array, factor: a.type) -> T #symmetric #no_abc #no_aoc {
+// Divides every lane by `factor`. The scalar can be on either side: `scalar / vector` divides the scalar by every lane.
+operator / :: (a: $T/SIMD_Array, factor: a.type) -> T #no_abc #no_aoc {
     result: T;
     for 0..a.count - 1 result.data[it] = a.data[it] / factor;
+    return result;
+}
+
+// Applies `/` with the scalar `factor` on the left: each lane of the result is `factor /` the lane of `a`.
+operator / :: (factor: $E, a: SIMD_Array($N, E)) -> SIMD_Array(N, E) #no_abc #no_aoc {
+    result: SIMD_Array(N, E);
+    for 0..a.count - 1 result.data[it] = factor / a.data[it];
     return result;
 }
 
