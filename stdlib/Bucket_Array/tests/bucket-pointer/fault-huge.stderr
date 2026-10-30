@@ -1,11 +1,11 @@
 $STDLIB/internal/collections/bucket-array.jai:75:5: error: error during compile-time execution: assertion failed: `bucket_index < all_buckets.count` is false
         assert(bucket_index < all_buckets.count);
         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-fault-huge.jai:4:9: note: while running compile-time code started here
+fault-huge.jai:5:9: note: while running compile-time code started here
     #assert invalid_index(0x7fffffffffffffff, true, true);
             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 note: call stack (innermost first):
     `operator*[]` at $STDLIB/internal/collections/bucket-array.jai:75
-    `invalid_index` at fault-setup.jai:19
+    `invalid_index` at fault-setup.jai:18
     a constant's compile-time initializer
 
