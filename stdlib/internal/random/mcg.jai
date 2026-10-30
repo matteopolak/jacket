@@ -80,10 +80,13 @@ random_get_zero_to_one_open_new :: inline () -> float64 {
 }
 
 random_get_within_range :: inline (state: *Random_State, min: float, max: float) -> float {
-    // Bounds in the wrong order give `min`: the lower bound is checked first.
+    // The bounds can be given in either order; rounding is clamped back into the range.
     value := min + (max - min) * random_get_zero_to_one(state);
-    if value < min return min;
-    if value > max return max;
+    low := ifx min <= max then min else max;
+    high := ifx min <= max then max else min;
+
+    if value < low return low;
+    if value > high return high;
 
     return value;
 }

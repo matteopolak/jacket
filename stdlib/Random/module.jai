@@ -82,7 +82,7 @@ random_get_zero_to_one_new :: Impl.random_get_zero_to_one_new;
 random_get_zero_to_one_open_new :: Impl.random_get_zero_to_one_open_new;
 // A `float` between `min` and `max`, both ends possible, computed as `min + (max - min) * r` and clamped back into the range if rounding strays.
 //
-// The bounds must be in order: with `min > max` the result is `min` (a draw that happens to be exactly zero gives `max`, an inconsistency of the clamping). Equal bounds give that value. The draw has 24 bits of resolution, so the result takes at most 2^24 distinct values across the range.
+// The bounds can be given in either order: with `min > max` the result lies between `max` and `min`. Equal bounds give that value. The draw has 24 bits of resolution, so the result takes at most 2^24 distinct values across the range.
 //
 // ```jai
 // state: Random_State;
@@ -92,6 +92,8 @@ random_get_zero_to_one_open_new :: Impl.random_get_zero_to_one_open_new;
 //     assert(v >= -2 && v <= 3);
 // }
 // assert(random_get_within_range(*state, 4.0, 4.0) == 4);
+// w := random_get_within_range(*state, 3.0, -2.0);
+// assert(w >= -2 && w <= 3);
 // ```
 random_get_within_range :: Impl.random_get_within_range;
 

@@ -27,17 +27,22 @@ random_seed :: (state: *u64, new_seed: u32) #no_aoc {
 }
 
 random_get_zero_to_one :: (state: *u64) -> float {
-    return cast(float) random_get(state) / 4294967296;
+    // Draws within 128 of the top round up to exactly 1.0 in single precision; keep the result below 1.
+    value := cast(float) random_get(state) / 4294967296;
+    if value >= 1 return 0.99999994;
+
+    return value;
 }
 
 random_get_within_range :: (state: *u64, min: float, max: float) -> float {
     value := min + (max - min) * random_get_zero_to_one(state);
 
-    // Rounding can land a hair outside an ordered range; reversed bounds are left as they are.
-    if min <= max {
-        if value < min return min;
-        if value > max return max;
-    }
+    // Rounding can land a hair outside the range; the bounds can be given in either order.
+    low := ifx min <= max then min else max;
+    high := ifx min <= max then max else min;
+
+    if value < low return low;
+    if value > high return high;
 
     return value;
 }

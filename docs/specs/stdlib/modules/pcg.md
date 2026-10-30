@@ -27,7 +27,7 @@ state = state * multiplier + increment;
 ```
 The generator uses multiplier `6364136223846793005` and increment `1442695040888963407`; these values define the public sequence and are not importer-visible constants. Seeding sets the state to `cast(u64)new_seed * multiplier + increment`, also modulo 2^64; the first subsequent draw uses that seeded state as its pre-advance input. The global convenience API starts from a private state initialized to the increment value.
 
-`random_get_within_bound` and `random_get_within_bound2` require a nonzero bound (asserted) and return values in `[0, range)`. `random_get_zero_to_one` divides the draw by `2^32` in single precision, so the very top draws round up to exactly `1.0`. `random_get_within_range` clamps into `[min, max]` when `min <= max` and leaves reversed bounds unclamped.
+`random_get_within_bound` and `random_get_within_bound2` require a nonzero bound (asserted) and return values in `[0, range)`. `random_get_zero_to_one` divides the draw by `2^32` in single precision; the very top draws would round up to `1.0`, so they give the largest float below 1 and the result is always in `[0, 1)`. `random_get_within_range` clamps into the range spanned by the bounds, given in either order.
 
 The module is explicitly marked untested and potentially broken. Its global state is not thread-local, so concurrent callers can race. State lifetime and synchronization are the caller's responsibility; no statistical quality guarantee is specified.
 

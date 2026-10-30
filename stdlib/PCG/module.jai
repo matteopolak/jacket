@@ -44,20 +44,20 @@ random_get_within_bound2 :: Impl.random_get_within_bound2;
 random_seed :: Impl.random_seed;
 // A `float` in `[0, 1)` made by dividing a 32-bit draw by `2^32`.
 //
-// A float has only 24 bits of precision, so a draw within about 64 of the top (roughly one in 2^26) rounds up and the result is exactly `1.0`; clamp or discard it where `1` would be out of range.
+// A float has only 24 bits of precision, so a draw within 128 of the top would round up to `1.0`; those draws give the largest float below 1 instead, so `1` never occurs.
 //
 // ```jai
 // state: u64;
 // random_seed(*state, 3);
 // for 1..1000 {
 //     r := random_get_zero_to_one(*state);
-//     assert(r >= 0 && r <= 1);
+//     assert(r >= 0 && r < 1);
 // }
 // ```
 random_get_zero_to_one :: Impl.random_get_zero_to_one;
-// A `float` between `min` and `max`, interpolated from `random_get_zero_to_one`. With `min <= max` the result is clamped into `[min, max]` (so `max` itself can occur); equal bounds give that value.
+// A `float` between `min` and `max`, interpolated from `random_get_zero_to_one`. The result is clamped into the range (so `max` itself can occur); equal bounds give that value.
 //
-// Reversed bounds (`min > max`) are accepted and give a value between them, with no clamping.
+// The bounds can be given in either order: with `min > max` the result lies between `max` and `min`.
 //
 // ```jai
 // state: u64;

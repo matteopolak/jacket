@@ -32,8 +32,10 @@ main :: () {
     raw = R.random_get(*copy);
     assert(R.random_get_zero_to_one_open(*state) == cast(float) (raw & 0xffffff) / 16777216.0);
 
-    // Reversed bounds give the first one.
-    assert(R.random_get_within_range(*state, 3, -3) == 3);
+    // Reversed bounds give a value between them.
+    reversed := R.random_get_within_range(*state, 3, -3);
+
+    assert(reversed >= -3 && reversed <= 3);
 
     print("ok\n");
 }
