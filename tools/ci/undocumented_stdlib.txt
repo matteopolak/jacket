@@ -1661,14 +1661,6 @@ Extensions/Wasi_Runtime.wasi_pthread_tryjoin_np
 Extensions/WebGPU.to_string_view
 Extensions/WebGPU.webgpu_create_surface
 Extensions/WebGPU.webgpu_dispatch_record
-File_Watcher
-File_Watcher.File_Change
-File_Watcher.File_Change_Event
-File_Watcher.File_Watcher
-File_Watcher.add_directories
-File_Watcher.deinit
-File_Watcher.init
-File_Watcher.process_changes
 Float16
 Float16.Float16
 Float16.Matrix3_Float16

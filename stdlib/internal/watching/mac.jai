@@ -1,3 +1,15 @@
+// What happened to a file, as flags that can be combined: `change.events & .MODIFIED != 0` asks whether one is set.
+//
+// - `ADDED`: the file or folder appeared, by creation or by being moved in.
+// - `MODIFIED`: its content changed.
+// - `MOVED`: it was renamed or moved. `MOVED_FROM` marks the old name and `MOVED_TO` the new one, where the system tells the two apart.
+// - `ATTRIBUTES_CHANGED`: permissions, owner or times changed.
+// - `REMOVED`: it is gone, by deletion or by being moved out.
+// - `SCAN_CHILDREN`: the system cannot say exactly what changed below this folder (a new folder whose contents were not seen
+//   yet, a full event queue, an unmounted file system); look at the folder's contents again. It comes with `MODIFIED`.
+// - `ALL_EVENTS` is `ADDED`, `MODIFIED`, `MOVED`, `ATTRIBUTES_CHANGED` and `REMOVED` together, the default for `init`'s `events_to_watch`.
+//
+// The events that the system reports for one path within the merge window are combined into one `File_Change`.
 File_Change_Event :: enum_flags {
     ADDED;
     MODIFIED;
@@ -10,6 +22,12 @@ File_Change_Event :: enum_flags {
     ALL_EVENTS :: ADDED | MODIFIED | MOVED | ATTRIBUTES_CHANGED | REMOVED;
 }
 
+// One report from a watcher: the `full_path` that changed, the `events` that happened to it, and `time_of_last_change`.
+//
+// `full_path` is the watched folder's path joined with the relative one, and may be spelled with links resolved (on macOS
+// `/tmp/x` can show as `/private/tmp/x`). The string belongs to the watcher and is freed when the callback returns:
+// copy it to keep it. `time_of_last_change` is a time in seconds from a clock that only goes forward; only differences between
+// two are meaningful.
 File_Change :: struct {
     full_path: string;
     events: File_Change_Event;
@@ -18,6 +36,59 @@ File_Change :: struct {
 
 DEFAULT_BUFFER_SIZE :: 8000;
 
+// Watches folders for changes and calls a callback for them. `User_Data` is the type of the pointer handed to the callback; the
+// default `void` is for a watcher with none.
+//
+// Use it in four steps: make an empty one (`watcher: File_Watcher;`), `init` it, `add_directories` for the folders to watch, and call
+// `process_changes` regularly, for instance once per frame or loop; the callbacks run inside that call, on the calling thread. `deinit` releases it.
+// The watcher must stay at the same address from `init` to `deinit`, because its native state points back at it, and `process_changes`
+// must not be called from two threads at once or from inside a callback.
+//
+// The fields `callback`, `user_data`, `events_to_watch`, `merge_window_seconds`, `watch_recursively` and `buffer_size` are the
+// settings `init` was given; `events_to_watch` and `merge_window_seconds` may be changed later. `changes`, `verbose` and the
+// platform fields are the module's own. Memory comes from the `context.allocator` in force at `init`. Needs Linux, macOS or Windows
+// (inotify, FSEvents and `ReadDirectoryChangesW` underneath); other targets stop at compile time.
+//
+// ```jai,no_run
+// #import "Extensions/Environment";
+// #import "File";
+// #import "String";
+//
+// Seen :: struct {
+//     found: bool;
+// }
+//
+// on_change :: (watcher: *File_Watcher(Seen), change: *File_Change, seen: *Seen) {
+//     if path_filename(change.full_path) == "jai-doc-watched.txt" && (change.events & (.ADDED | .MODIFIED)) != 0 seen.found = true;
+// }
+//
+// main :: () {
+//     base := environment_variable("TMPDIR");
+//     if base == "" base = "/tmp";
+//     root := tprint("%/jai-doc-file-watcher", base);
+//     file := tprint("%/jai-doc-watched.txt", root);
+//     assert(make_directory_if_it_does_not_exist(root));
+//     defer {
+//         file_delete(file);
+//         delete_directory(root);
+//     }
+//
+//     seen: Seen;
+//     watcher: File_Watcher(Seen);
+//     assert(init(*watcher, on_change, *seen));
+//     defer deinit(watcher);
+//     assert(add_directories(*watcher, root));
+//
+//     assert(write_entire_file(file, "hello"));
+//     for 0..249 { // up to five seconds for the system to report it
+//         process_changes(*watcher);
+//         if seen.found break;
+//         sleep_milliseconds(20);
+//     }
+//
+//     assert(seen.found);
+// }
+// ```
 File_Watcher :: struct(User_Data: Type = void) {
     File_Watcher_Callback :: #type (watcher: *File_Watcher(User_Data), change: *File_Change, user_data: *User_Data);
     callback: File_Watcher_Callback;
@@ -32,6 +103,29 @@ File_Watcher :: struct(User_Data: Type = void) {
     event_streams: [..] *void;
 }
 
+// Sets up `watcher` and returns whether that worked. Call it on an empty watcher, once; afterwards add folders with `add_directories`.
+//
+// - `callback` is called by `process_changes` for each change, as `callback(watcher, change, user_data)`. It may not be `null`.
+// - `user_data` is passed on to the callback.
+// - `events_to_watch` selects the events worth reporting (default `.ALL_EVENTS`); others are dropped.
+// - `merge_window_seconds` (default `0.1`) is how long a path must be quiet before its changes are reported, so a burst of writes
+//   to one file gives one report. `0` reports at the next `process_changes`.
+// - `watch_recursively` (default `true`) includes the sub-folders of watched folders, also ones made later.
+// - `event_buffer_size` sizes the system's event buffer for each watched folder (default 8000); on Linux a burst of changes that
+//   overflows it is reported as `SCAN_CHILDREN`.
+// - `verbose` is kept in the watcher; the current backends do not use it.
+//
+// It returns `false`, and leaves the watcher empty, for a `null` callback, a negative or non-finite window, a buffer size of `0` or
+// less, or when the system refuses. Calling it on a watcher that is already set up fails an assertion. Pair each successful call with `deinit`.
+//
+// ```jai
+// on_change :: (watcher: *File_Watcher(void), change: *File_Change, data: *void) {}
+//
+// watcher: File_Watcher;
+// assert(!init(*watcher, on_change, merge_window_seconds = -1));
+// assert(!init(*watcher, on_change, event_buffer_size = 0));
+// deinit(watcher); // nothing was set up, so nothing to release
+// ```
 init :: (watcher: *$T/File_Watcher, callback: T.File_Watcher_Callback, user_data: *T.User_Data = null, events_to_watch: File_Change_Event = .ALL_EVENTS, merge_window_seconds: float = 0.1, watch_recursively := true, verbose := false, event_buffer_size: s32 = DEFAULT_BUFFER_SIZE) -> success: bool {
     if watcher == null || watcher.pool != null {
         B.assert(false, "watcher is null or already initialized");
@@ -75,6 +169,12 @@ init :: (watcher: *$T/File_Watcher, callback: T.File_Watcher_Callback, user_data
     return true;
 }
 
+// Starts watching each folder in `dir_paths` and returns `true` when all of them were added. It stops at the first one that
+// cannot be watched (it is missing, is not a folder, or the system is out of watches) and returns `false`; the ones before it stay
+// watched. The failure is logged through `context.logger`.
+//
+// With `watch_recursively` the sub-folders are watched too. Changes made before the call are not reported. Paths are as the
+// file procedures take them; relative ones are resolved when added. Fails an assertion on a watcher that was not set up.
 add_directories :: (using watcher: *$T/File_Watcher, dir_paths: ..string) -> bool {
     state := find_state(watcher.pool);
 
@@ -118,6 +218,14 @@ add_directories :: (using watcher: *$T/File_Watcher, dir_paths: ..string) -> boo
     return true;
 }
 
+// Collects what the system has reported, calls the callback for every change whose merge window has passed, and returns
+// `(changed, needs_wait, wait_seconds)`: whether any callback ran, whether more may come, and how long to wait before the next
+// call in the worst case.
+//
+// It never blocks; call it from your own loop and sleep for `wait_seconds` (at most `0.1`) when `needs_wait` is `true`, as a game
+// loop would rather call it every frame. `needs_wait` is `true` for as long as the watcher watches anything. The `change` handed to
+// the callback is valid only during the call. The callback must not call `process_changes` or `deinit` on the same watcher.
+// Fails an assertion on a watcher that was not set up, moved, or is being polled recursively.
 process_changes :: (using watcher: *File_Watcher) -> changed: bool, needs_wait: bool, wait_seconds: float64 {
     state := find_state(watcher.pool);
 
@@ -197,6 +305,9 @@ process_changes :: (using watcher: *File_Watcher) -> changed: bool, needs_wait: 
     return delivered, waiting, delay;
 }
 
+// Stops watching and frees everything the watcher holds, including changes that were found but not yet delivered. Call it once
+// for each successful `init`, and do not use the watcher afterwards: it takes the watcher by value, as `deinit(watcher)` without a
+// `*`, so the caller's copy still points at what was freed. It is safe on a watcher that was never set up.
 deinit :: (using watcher: $T/File_Watcher) {
     if !watcher.pool return;
 
