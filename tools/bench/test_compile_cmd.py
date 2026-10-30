@@ -49,6 +49,11 @@ class GateTests(unittest.TestCase):
         attempts = {'a': Attempt(run(), ['x']), 'b': Attempt(run(), ['y'])}
         self.assertEqual(runner('a', 'b').gate(job(compare_output=False), attempts), '')
 
+    def test_linker_import_library_line_is_not_compiler_output(self):
+        text = 'ok\n   Creating library C:\\x\\a.lib and object C:\\x\\a.exp\n'
+        self.assertEqual(normalized(text), ['ok'])
+        self.assertEqual(normalized('Creating library of things\n'), ['Creating library of things'])
+
     def test_helpers(self):
         self.assertEqual(normalized('a  \n\n b\n'), ['a', ' b'])
         self.assertEqual(first_difference(['a'], ['a', 'b']), "1 lines vs 2 lines, the first extra one 'b'")

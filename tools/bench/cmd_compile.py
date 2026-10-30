@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -73,9 +74,14 @@ def default_compilers() -> list[Compiler]:
     return [parse_compiler(f'jaic={common.default_binary("jaic")}')]
 
 
+# link.exe prints this when an executable exports symbols; toolchain noise, not compiler output.
+LINKER_NOISE = re.compile(r'^\s*Creating library .+ and object .+$')
+
+
 def normalized(text: str) -> list[str]:
-    """Output lines to compare, without blank lines and the phase-timing lines (timings, not output)."""
-    return [line.rstrip() for line in text.splitlines() if line.strip() and not phases.LINE.match(line)]
+    """Output lines to compare, without blank lines, the phase-timing lines (timings, not output) and linker chatter."""
+    return [line.rstrip() for line in text.splitlines()
+            if line.strip() and not phases.LINE.match(line) and not LINKER_NOISE.match(line.rstrip())]
 
 
 # ----------------------------------------------------------------------------------- one workload
