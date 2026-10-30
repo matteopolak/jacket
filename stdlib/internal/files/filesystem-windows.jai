@@ -61,8 +61,8 @@ add_modtime_and_size_if_missing :: inline (info: *File_Visit_Info) -> bool {
 //
 // The system's copy is used, so the attributes of the file come along with the content. It fails when `source` is missing or
 // is a directory, when the parent folder of `dest` is missing, or when `dest` is read-only. A failure is logged through
-// `context.logger` unless `silent` is `true`.
-copy_file :: (source: string, dest: string, silent := false) -> bool {
+// `context.logger` when `silent` is `false`.
+copy_file :: (source: string, dest: string, silent := true) -> bool {
     from := Text.to_utf16(source);
     if !from return false;
 

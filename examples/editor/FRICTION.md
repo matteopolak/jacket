@@ -13,7 +13,7 @@ Modules used: Basic, Math, Hash_Table, Flat_Pool, File, File_Utilities, File_Wat
 ## Standard library
 
 - Math has no `round`; the UI library defines its own.
-- `read_entire_file` prints "file_open failed" to stderr for a missing file, so callers must test `file_exists` first to stay quiet.
+- Fixed by "fix(file): stop logging ordinary open failures": `read_entire_file` printed "file_open failed" to stderr for a missing file; `log_errors` now defaults to `false` (also for `file_open`, `map_entire_file_start`, `map_file`, `copy_file`'s `silent`).
 - `delete_directory` is not recursive; the smoke test deletes its files one by one.
 - Temp directory lookup is manual (`TMPDIR`, then a fallback); there is no helper.
 

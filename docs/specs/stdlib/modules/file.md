@@ -7,7 +7,7 @@ Visible public declarations and module-conditional variants are listed below. Pr
 ### Android-specific declarations
 
 - `File :: struct`
-- `file_open :: (name: string, for_writing := false, keep_existing_content := false, log_errors := true) -> File, bool`
+- `file_open :: (name: string, for_writing := false, keep_existing_content := false, log_errors := false) -> File, bool`
 - `file_close :: (file: *File)`
 - `is_valid :: (file: File) -> bool`
 - `file_length :: (file: File) -> (length: s64, success: bool)`
@@ -25,12 +25,12 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `write_entire_file :: inline (name: string, data: string) -> bool`
 - `write_entire_file :: (name: string, data: *void, count: int) -> bool`
 - `write_entire_file :: (name: string, builder: *String_Builder, do_reset := true) -> bool`
-- `read_entire_file :: (name: string, zero_terminated := false, log_errors := true) -> string, bool`
+- `read_entire_file :: (name: string, zero_terminated := false, log_errors := false) -> string, bool`
 - `USE_MAP_FILE :: (OS == .WINDOWS)`
 - `STORE_MAPPED_FILENAMES :: false`
 - `Map_File_Info :: struct`
 - `string_to_map_file_info :: (data: string) -> Map_File_Info`
-- `map_entire_file_start :: (name: string, log_errors := true) -> Map_File_Info, bool`
+- `map_entire_file_start :: (name: string, log_errors := false) -> Map_File_Info, bool`
 - `map_entire_file_end :: (file_info: *Map_File_Info)`
 - `make_directory_if_it_does_not_exist :: (name: string, recursive := false) -> directory_now_exists: bool`
 - `get_absolute_path :: inline (relative_path: string) -> string, success: bool`
@@ -45,7 +45,7 @@ Visible public declarations and module-conditional variants are listed below. Pr
 ### Unix-specific declarations
 
 - `File :: struct`
-- `file_open :: (name: string, for_writing := false, keep_existing_content := false, log_errors := true) -> File, bool`
+- `file_open :: (name: string, for_writing := false, keep_existing_content := false, log_errors := false) -> File, bool`
 - `file_move :: (name_old: string, name_new: string) -> bool`
 - `file_delete :: (filename: string) -> bool`
 - `file_link :: (linkpath: string, filepath: string) -> bool`
@@ -66,7 +66,7 @@ Visible public declarations and module-conditional variants are listed below. Pr
 ### Windows-specific declarations
 
 - `File :: struct`
-- `file_open :: (name: string, for_writing := false, keep_existing_content := false, log_errors := true) -> File, bool`
+- `file_open :: (name: string, for_writing := false, keep_existing_content := false, log_errors := false) -> File, bool`
 - `file_close :: (file: *File)`
 - `file_move :: (name_old: string, name_new: string) -> bool`
 - `file_delete :: (filename: string) -> bool`
@@ -78,7 +78,7 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `file_set_position :: (f: File, pos: s64) -> bool`
 - `read_entire_file :: (f: File, zero_terminated := false) -> string, bool`
 - `File_Map_Info :: struct`
-- `map_file :: (name: string, log_errors := true) -> File_Map_Info, bool`
+- `map_file :: (name: string, log_errors := false) -> File_Map_Info, bool`
 - `munmap_file :: (file_map: *File_Map_Info) -> bool`
 - `CSIDL_APPDATA :: 0x001a`
 - `KF_FLAG_CREATE :: 0x00008000`

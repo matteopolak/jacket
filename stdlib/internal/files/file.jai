@@ -120,7 +120,7 @@ read_entire_file :: (f: File, zero_terminated := false) -> string, bool {
 // The string comes from `context.allocator` and the caller frees it, also for an empty file, which gives an empty
 // string with `true`. The content is bytes: it may hold `0`, line endings are not translated, and it is not checked
 // for UTF-8. `zero_terminated` adds an uncounted `0` byte after the text. When the file cannot be opened,
-// `log_errors` (default `true`) reports it through `context.logger`.
+// Nothing is printed for a missing file: the result says so. `log_errors = true` reports it through `context.logger`.
 //
 // ```jai
 // #import "Extensions/Environment";
@@ -130,7 +130,7 @@ read_entire_file :: (f: File, zero_terminated := false) -> string, bool {
 // path := tprint("%/jai-doc-read-entire.txt", base);
 // defer file_delete(path);
 //
-// _, found := read_entire_file(path, log_errors = false);
+// _, found := read_entire_file(path);
 // assert(!found);
 //
 // assert(write_entire_file(path, "one\r\ntwo\0"));
@@ -138,7 +138,7 @@ read_entire_file :: (f: File, zero_terminated := false) -> string, bool {
 // assert(ok && text.count == 9 && text[8] == 0);
 // free(text);
 // ```
-read_entire_file :: (name: string, zero_terminated := false, log_errors := true) -> string, bool {
+read_entire_file :: (name: string, zero_terminated := false, log_errors := false) -> string, bool {
     file, ok := file_open(name, log_errors = log_errors);
     if !ok return "", false;
     defer file_close(*file);
@@ -206,7 +206,7 @@ string_to_map_file_info :: (data: string) -> Map_File_Info {
 //
 // The content is read-only and must be released with `map_entire_file_end`. On Windows it is mapped, so a large file costs
 // no copy and the file stays open until the end call; elsewhere it is read into memory, as `read_entire_file` does.
-// `log_errors` reports an open failure through `context.logger`.
+// `log_errors = true` reports an open failure through `context.logger`.
 //
 // ```jai
 // #import "Extensions/Environment";
@@ -222,7 +222,7 @@ string_to_map_file_info :: (data: string) -> Map_File_Info {
 // map_entire_file_end(*info);
 // assert(info.data.count == 0);
 // ```
-map_entire_file_start :: (name: string, log_errors := true) -> Map_File_Info, bool {
+map_entire_file_start :: (name: string, log_errors := false) -> Map_File_Info, bool {
     #if USE_MAP_FILE {
         mapping, ok := map_file(name, log_errors);
         return .{ data = mapping.data, map_info = mapping }, ok;

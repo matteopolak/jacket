@@ -18,8 +18,8 @@ File :: struct {
 //   between reading and writing on one file.
 //
 // `name` is a path in bytes: the C library takes them as they are. A name with a NUL byte in it is refused. A failure
-// (a missing directory, no permission, a directory where a file is wanted for writing) is logged as an error through
-// `context.logger` unless `log_errors` is `false`.
+// (a missing directory, no permission, a directory where a file is wanted for writing) is returned and, when `log_errors`
+// is `true`, also logged as an error through `context.logger`.
 //
 // ```jai
 // #import "Extensions/Environment";
@@ -29,7 +29,7 @@ File :: struct {
 // path := tprint("%/jai-doc-file-open.txt", base);
 // defer file_delete(path);
 //
-// _, found := file_open(path, log_errors = false);
+// _, found := file_open(path);
 // assert(!found); // reading needs an existing file
 //
 // file, ok := file_open(path, for_writing = true);
@@ -45,7 +45,7 @@ File :: struct {
 // assert(read_ok && text == "Jello");
 // free(text);
 // ```
-file_open :: (name: string, for_writing := false, keep_existing_content := false, log_errors := true) -> File, bool {
+file_open :: (name: string, for_writing := false, keep_existing_content := false, log_errors := false) -> File, bool {
     if !Native_Path.is_valid(name) {
         if log_errors context.logger("file_open failed\n", context.logger_data, Log_Info.{ common_flags = .ERROR });
         return File.{}, false;

@@ -176,7 +176,7 @@ file_modtime :: (file_path: string) -> (modtime: Apollo_Time, file_exists: bool)
 // The parent folder of `dest` must exist. Fails when `source` is missing or is a directory, when `dest` is the same file as
 // `source` (it would be emptied first), or when either path has a NUL byte. If the copy fails half-way, `dest` keeps what was
 // written. Permissions and times are not copied. `silent` has no effect here; on
-// Windows a failure is logged unless it is `true`, and passing it keeps code the same on every target.
+// Windows a failure is logged only when it is `false`, and passing it keeps code the same on every target.
 //
 // ```jai,skip_on(wasm)
 // #import "Extensions/Environment";
@@ -201,7 +201,7 @@ file_modtime :: (file_path: string) -> (modtime: Apollo_Time, file_exists: bool)
 // assert(!copy_file(source, source, silent = true)); // onto itself
 // assert(!copy_file(tprint("%-missing", source), dest, silent = true));
 // ```
-copy_file :: (source: string, dest: string, silent := false) -> bool {
+copy_file :: (source: string, dest: string, silent := true) -> bool {
     if !Native_Path.is_valid(source) || !Native_Path.is_valid(dest) return false;
 
     source_name := to_c_string(source);

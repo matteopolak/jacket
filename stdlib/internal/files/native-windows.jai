@@ -34,8 +34,8 @@ FOLDERID_SavedGames_uid_string :: "4C5C32FF-BB9D-43b0-B5B4-2D72E54EAAA4";
 //
 // `name` is UTF-8 and is converted to UTF-16 for the system; text that is not valid UTF-8, an empty name, and a name with a
 // NUL byte are refused. `/` and `\` both separate directories. Other programs may open, write and delete the file while it is
-// open. A failure is logged as an error through `context.logger` unless `log_errors` is `false`.
-file_open :: (name: string, for_writing := false, keep_existing_content := false, log_errors := true) -> File, bool {
+// open. A failure is logged as an error through `context.logger` only when `log_errors` is `true`.
+file_open :: (name: string, for_writing := false, keep_existing_content := false, log_errors := false) -> File, bool {
     path := Text.utf16_path(name);
 
     defer free(path);
@@ -323,7 +323,7 @@ file_get_canonical_path :: (filepath: string) -> string {
 
 // Maps the whole file `name` for reading and returns `ok`; an empty file succeeds with empty `data`. Give the result to
 // `munmap_file`. A failure is logged through `context.logger` when `log_errors` is `true`, and nothing needs releasing then.
-map_file :: (name: string, log_errors := true) -> File_Map_Info, bool {
+map_file :: (name: string, log_errors := false) -> File_Map_Info, bool {
     result: File_Map_Info;
     opened: bool;
     result.file, opened = file_open(name, log_errors = log_errors);
