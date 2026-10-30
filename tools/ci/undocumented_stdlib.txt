@@ -3327,17 +3327,6 @@ System.get_passwd_for_user
 System.get_path_of_running_executable
 System.get_username
 System.read_cpu_counter
-Text_File_Handler
-Text_File_Handler.Text_File_Handler
-Text_File_Handler.break_by_spaces
-Text_File_Handler.consume_next_line
-Text_File_Handler.deinit
-Text_File_Handler.error
-Text_File_Handler.file_to_array
-Text_File_Handler.file_to_table
-Text_File_Handler.start_file
-Text_File_Handler.start_from_memory
-Text_File_Handler.warn
 Thread
 Thread.Condition_Variable
 Thread.Mutex
