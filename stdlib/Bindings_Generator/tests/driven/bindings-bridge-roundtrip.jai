@@ -1,6 +1,6 @@
 #import "Basic";
 
-native :: #foreign_library "../../../../target/developer_tools_bridge";
+native :: #library "../../../../target/developer_tools_bridge";
 
 Pair :: struct {
     left: s32;

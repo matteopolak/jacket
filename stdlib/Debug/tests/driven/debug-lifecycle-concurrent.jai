@@ -5,7 +5,7 @@ D :: #import "Debug";
 #add_context original_debug_sentinel: u64;
 #add_context original_debug_complement: u64;
 
-oracle :: #foreign_library "../../../../target/developer_tools_debug_lifecycle";
+oracle :: #library "../../../../target/developer_tools_debug_lifecycle";
 Work :: #type (tag: s64) #c_call;
 run_threads :: (work: Work) -> s32 #foreign oracle "original_debug_run_threads";
 install_prior :: () -> s32 #foreign oracle "original_debug_install_prior";

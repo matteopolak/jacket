@@ -96,7 +96,7 @@ emit :: (builder: *String_Builder, declaration: *B.Declaration, existing: *[..] 
 }
 
 emit_jai :: (builder: *String_Builder, namespace: *B.Namespace, generator: *B.Generator) {
-    append(builder, "native :: #foreign_library \"public_bridge\";\n");
+    append(builder, "native :: #library \"public_bridge\";\n");
 
     for member: namespace.declarations {
         if member.kind == .STRUCT && member.name == "Pair" B.print_struct(builder, cast(*B.Struct) member, null);

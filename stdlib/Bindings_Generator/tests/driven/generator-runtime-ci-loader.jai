@@ -2,7 +2,7 @@
 B :: #import "Bindings_Generator";
 P :: #import "POSIX";
 
-provider :: #foreign_library "../../../internal/developer-tools/generator_platform";
+provider :: #library "../../../internal/developer-tools/generator_platform";
 gp_library_open :: (path: *u8) -> *void #foreign provider;
 gp_library_symbol :: (image: *void, name: *u8) -> s32 #foreign provider;
 gp_library_close :: (image: *void) #foreign provider;

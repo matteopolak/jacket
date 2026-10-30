@@ -64,7 +64,7 @@ main :: () {
     append(*jai, "Printed_Function :: #type ");
     // The native foreign header below is generated through the same public API.
     B.print_function_type_to_builder(*jai, *function, null);
-    append(*jai, ";\nnative :: #foreign_library \"developer_tools_type_emission\";\ndefault_value :: ");
+    append(*jai, ";\nnative :: #library \"developer_tools_type_emission\";\ndefault_value :: ");
     default_literal: B.Literal;
     default_literal.literal_kind = .INTEGER;
     default_literal.int_value = 42;

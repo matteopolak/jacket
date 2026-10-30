@@ -9,7 +9,7 @@ Support_User :: struct {
     callback: (value: s32) -> s32 #c_call;
 }
 
-native :: #foreign_library "../../../../target/developer_tools_support";
+native :: #library "../../../../target/developer_tools_support";
 support_sum :: (value: *Support_User) -> s64 #foreign native;
 
 main :: () {

@@ -1,7 +1,7 @@
 #import "Basic";
 B :: #import "Bindings_Generator";
 
-native :: #foreign_library "../../../../target/developer_tools_options";
+native :: #library "../../../../target/developer_tools_options";
 check_options :: (options: *B.CXIndexOptions) -> u32 #foreign native "developer_tools_check_options";
 
 #assert size_of(B.CXIndexOptions) == 24;

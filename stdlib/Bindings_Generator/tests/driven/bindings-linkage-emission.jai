@@ -22,7 +22,7 @@ main :: () {
     builder: String_Builder;
 
     defer free_buffers(*builder);
-    append(*builder, "native :: #foreign_library \"linkage_emission\";\nread :: () -> s32 #c_call ");
+    append(*builder, "native :: #library \"linkage_emission\";\nread :: () -> s32 #c_call ");
     B.append_elsewhere(*builder, *declaration, "read", "original_read");
     append(*builder, ";\noriginal_same :: () -> s32 #c_call ");
     B.append_elsewhere(*builder, *declaration, "original_same", "original_same");

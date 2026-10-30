@@ -95,7 +95,7 @@ main :: () {
         output: String_Builder;
 
         defer free_buffers(*output);
-        append(*output, "#import \"Basic\";\nnative :: #foreign_library \"function_wrappers\";\n");
+        append(*output, "#import \"Basic\";\nnative :: #library \"function_wrappers\";\n");
         B.print_struct(*output, record, null);
         B.print_function(*output, wrapped, null, "original_pointer_pair");
         B.print_function(*output, formatting, null, "original_format_adapter");

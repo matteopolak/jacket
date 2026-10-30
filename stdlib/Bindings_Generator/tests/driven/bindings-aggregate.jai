@@ -48,7 +48,7 @@ main :: () {
     jai: String_Builder;
 
     defer free_buffers(*jai);
-    print_to_builder(*jai, "Packet :: struct { first: s32; second: s32; }\nnative :: #foreign_library \"%\";\ndefault_packet :: ", args[2]);
+    print_to_builder(*jai, "Packet :: struct { first: s32; second: s32; }\nnative :: #library \"%\";\ndefault_packet :: ", args[2]);
     B.print_function_type_to_builder(*jai, *function, null);
     append(*jai, " #foreign native \"original_packet\";\nmake_packet :: () -> Packet { return ");
     B.print_expression_to_builder(*jai, cast(*B.Expression) *aggregate, *packet_type);

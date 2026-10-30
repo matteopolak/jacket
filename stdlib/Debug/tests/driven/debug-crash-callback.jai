@@ -1,7 +1,7 @@
 // The borrowed crash trace contains the real fault PC; no allocation in callback.
 D :: #import "Debug";
 
-oracle :: #foreign_library "../../../../target/developer_tools_debug_lifecycle";
+oracle :: #library "../../../../target/developer_tools_debug_lifecycle";
 raise_trap :: () -> s32 #foreign oracle "original_debug_raise_trap";
 
 on_crash :: (trace: [] string) {

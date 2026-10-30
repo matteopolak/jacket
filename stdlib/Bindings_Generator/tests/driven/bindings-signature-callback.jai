@@ -49,7 +49,7 @@ main :: () {
         output: String_Builder;
 
         defer free_buffers(*output);
-        append(*output, "native :: #foreign_library \"signature_callback\";\ncall :: ");
+        append(*output, "native :: #library \"signature_callback\";\ncall :: ");
         B.print_function_type_to_builder(*output, *type, null, *function);
         append(*output, " #foreign native \"original_signature\";\n");
         assert(!output.failed && calls == 1 && type.arguments[0] == *original);

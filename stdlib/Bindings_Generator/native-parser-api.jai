@@ -103,4 +103,4 @@ clang_ModuleMapDescriptor_writeToBuffer :: (unknown0: CXModuleMapDescriptor, opt
 clang_ModuleMapDescriptor_dispose :: (unknown0: CXModuleMapDescriptor) -> void #foreign libclang;
 
 #scope_file
-libclang :: #foreign_library "../internal/developer-tools/clang-bindings/clang";
+libclang :: #library "../internal/developer-tools/clang-bindings/clang";

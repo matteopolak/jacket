@@ -51,7 +51,7 @@ main :: () {
         output: String_Builder;
 
         defer free_buffers(*output);
-        append(*output, "native :: #foreign_library \"canonical_printing\";\n");
+        append(*output, "native :: #library \"canonical_printing\";\n");
         library: B.Library_Info;
         library.identifier = "native";
         literal: B.Literal;

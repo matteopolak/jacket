@@ -9,7 +9,7 @@ Point :: struct {
 }
 
 point_sum :: (point: *Point) -> s64 #foreign native;
-native :: #foreign_library "../../../../target/developer_tools_point";
+native :: #library "../../../../target/developer_tools_point";
 
 main :: () {
     point: Point;

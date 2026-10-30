@@ -48,7 +48,7 @@ main :: () {
         assert(!output.failed);
         B.append_bitfield_helpers(*output, group, *outer);
         assert(!output.failed);
-        append(*output, "native :: #foreign_library \"anonymous_bitfields\";\ninitialize :: (value: *Container) #c_call #foreign native \"original_initialize\";\nread :: (value: *Container) -> u32 #c_call #foreign native \"original_read\";\nsize :: () -> u64 #c_call #foreign native \"original_size\";\nalignment :: () -> u64 #c_call #foreign native \"original_alignment\";\n");
+        append(*output, "native :: #library \"anonymous_bitfields\";\ninitialize :: (value: *Container) #c_call #foreign native \"original_initialize\";\nread :: (value: *Container) -> u32 #c_call #foreign native \"original_read\";\nsize :: () -> u64 #c_call #foreign native \"original_size\";\nalignment :: () -> u64 #c_call #foreign native \"original_alignment\";\n");
         text := builder_to_string(*output);
 
         defer free(text);

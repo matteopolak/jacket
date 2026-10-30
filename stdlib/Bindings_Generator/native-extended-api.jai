@@ -537,7 +537,7 @@ clang_visitCXXBaseClasses :: (T: CXType, visitor: CXFieldVisitor, client_data: C
 clang_visitCXXMethods :: (T: CXType, visitor: CXFieldVisitor, client_data: CXClientData) -> u32 #foreign libclang;
 
 #scope_file
-libclang :: #foreign_library "../internal/developer-tools/clang-bindings/clang";
+libclang :: #library "../internal/developer-tools/clang-bindings/clang";
 
 #if OS == .WINDOWS {
     time_t :: s64;

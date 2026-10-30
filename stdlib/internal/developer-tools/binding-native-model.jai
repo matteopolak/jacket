@@ -824,7 +824,7 @@ emit_model :: (builder: *String_Builder, model: *Native_Model, options: Generate
     if !custom_model_names_valid(model) || !custom_cpp_declarations_valid(model) return false;
 
     if options.generate_library_declarations {
-        print_to_builder(builder, "% :: #foreign_library ", library.identifier);
+        print_to_builder(builder, "% :: #library ", library.identifier);
         emit_model_quoted(builder, tprint("%%", options.generated_library_path_prefix, library.filename));
         append(builder, ";\n");
     }

@@ -1,7 +1,7 @@
 #import "Basic";
 G :: #import "generator-model-defaults-generated";
 
-native :: #foreign_library "model_defaults";
+native :: #library "model_defaults";
 model_default_fill :: (record: *G.ModelWideRecord) #foreign native;
 
 main :: () {

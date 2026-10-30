@@ -77,7 +77,7 @@ break_once :: inline (loc := #caller_location) -> bool {
 #scope_file
 #import "Basic";
 
-native :: #foreign_library "debug-native/developer_tools_debug";
+native :: #library "debug-native/developer_tools_debug";
 
 native_backtrace :: (trace: **void, maxcount: s64, skip: s64) -> s64 #foreign native "developer_debug_backtrace";
 native_symbols :: (trace: **void, count: s64) -> *string #foreign native "developer_debug_symbols";

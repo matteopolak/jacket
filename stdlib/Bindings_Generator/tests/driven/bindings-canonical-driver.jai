@@ -50,7 +50,7 @@ main :: () {
     defer free(text);
     assert(contains(text, options.header) && ends_with(text, options.footer));
     assert(contains(text, "Record ::") && contains(text, "Alias ::") && contains(text, "DRIVE_CODE"));
-    assert(contains(text, "#assert") && !contains(text, "#foreign_library"));
+    assert(contains(text, "#assert") && !contains(text, "#library"));
     assert(write_entire_file(tprint("%/developer-tools-driver-generated.jai", args[1]), text));
     filename := tprint("%/driver-file-overload.jai", args[1]);
 
@@ -74,7 +74,7 @@ main :: () {
 
     defer free(bridge_text);
     assert(bridge_read && begins_with(bridge_text, options.header) && ends_with(bridge_text, options.footer));
-    assert(!contains(bridge_text, "#foreign_library") && !contains(bridge_text, "#assert"));
+    assert(!contains(bridge_text, "#library") && !contains(bridge_text, "#assert"));
     invalid := options;
     invalid.source_files = type_of(invalid.source_files).{};
     failed: String_Builder;

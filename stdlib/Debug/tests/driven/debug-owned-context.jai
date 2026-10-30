@@ -2,10 +2,10 @@
 #import "Basic";
 D :: #import "Debug";
 
-native :: #foreign_library "../../../internal/developer-tools/debug-native/developer_tools_debug";
+native :: #library "../../../internal/developer-tools/debug-native/developer_tools_debug";
 Callback :: #type (trace: *string, count: s64, data: *void) #c_call;
 install :: (callback: Callback, data: *void, count: s64) -> s32 #foreign native "developer_debug_enable_handlers";
-oracle :: #foreign_library "../../../../target/developer_tools_debug_lifecycle";
+oracle :: #library "../../../../target/developer_tools_debug_lifecycle";
 raise_trap :: () -> s32 #foreign oracle "original_debug_raise_trap";
 
 received :: (trace: *string, count: s64, data: *void) #c_call {

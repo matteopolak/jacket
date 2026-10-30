@@ -91,7 +91,7 @@ main :: () {
         B.print_type_to_builder(*output, scalar_group.type, cast(*B.Declaration) scalar_record);
         append(*output, " #align 4; }\n");
         B.append_bitfield_helpers(*output, scalar_group, scalar_record);
-        append(*output, "native :: #foreign_library \"bitfield_printers\";\ninitialize :: (bits: *Bits, first: u32, second: u32, on: u32, final: u32) #c_call #foreign native \"original_bits_initialize\";\nread :: (bits: *Bits) -> u32 #c_call #foreign native \"original_bits_read\";\n");
+        append(*output, "native :: #library \"bitfield_printers\";\ninitialize :: (bits: *Bits, first: u32, second: u32, on: u32, final: u32) #c_call #foreign native \"original_bits_initialize\";\nread :: (bits: *Bits) -> u32 #c_call #foreign native \"original_bits_read\";\n");
         append(*output, "initialize_scalar :: (bits: *Scalar, a: u32, b: u32) #c_call #foreign native \"original_scalar_initialize\";\nread_scalar :: (bits: *Scalar) -> u32 #c_call #foreign native \"original_scalar_read\";\n");
         assert(!output.failed);
         text := builder_to_string(*output);

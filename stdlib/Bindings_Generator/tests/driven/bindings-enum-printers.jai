@@ -67,7 +67,7 @@ main :: () {
         append(*output, "BodyOnly :: ");
         B.print_enum_body(*output, *enumeration);
         append(*output, "\n");
-        append(*output, "native :: #foreign_library \"enum_printers\";\ncheck_status :: ");
+        append(*output, "native :: #library \"enum_printers\";\ncheck_status :: ");
         status_type: B.CType;
         status_type.type_of_enum = *enumeration;
         status_type.size = 4;
