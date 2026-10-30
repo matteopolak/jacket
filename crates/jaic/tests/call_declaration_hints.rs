@@ -2,10 +2,9 @@
 //! signature, where a name was first declared, how to assign to a constant or an argument,
 //! what a struct literal is missing, and the counts of names and values. See
 //! docs/compiler/diagnostics.md.
-mod common;
-use common::compile_source;
 use jaic::sema::Compiler;
 use jaic::source::{Applicability, Diagnostic, Span};
+use test_support::compiler::compile_source;
 
 /// Compile `source`, which must fail, and return the compiler and the error.
 fn failure(source: &str) -> (Compiler, Box<Diagnostic>) {
@@ -510,5 +509,5 @@ fn a_repeated_load_is_reported_in_the_style_of_the_other_messages() {
 }
 
 fn rendered_file(source: &str) -> String {
-    common::compile_main_file(source).expect_err("an error")
+    test_support::compiler::compile_main_file(source).expect_err("an error")
 }

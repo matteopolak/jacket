@@ -1,8 +1,7 @@
 //! Folded integer constants, `#run` and compiled code give the same results for shifts,
 //! division and narrowing.
-mod common;
-use common::bare_compiler as compiler;
 use jaic::sema::ProgramSource;
+use test_support::compiler::bare_compiler as compiler;
 
 const SOURCE: &str =
     include_str!("../../../tests/compiler/semantics/integer-constant-arithmetic.jai");

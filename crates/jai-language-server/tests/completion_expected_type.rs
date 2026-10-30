@@ -1,7 +1,6 @@
 //! Completion ranks values whose type fits the expected type before the others.
 use jai_language_server::CompletionItem;
-mod common;
-use common::{cursor, file_uri, lean_session};
+use test_support::lsp::{cursor, file_uri, lean_session};
 
 fn sorted(source: &str) -> Vec<String> {
     let (text, at) = cursor(source);

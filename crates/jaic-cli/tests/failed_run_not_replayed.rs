@@ -4,6 +4,7 @@
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
+use test_support::TempDir;
 
 /// Run `jaic -check file` and give up on it after `limit`.
 fn check(file: &Path, limit: Duration) -> Option<(bool, String)> {
@@ -34,8 +35,7 @@ fn check(file: &Path, limit: Duration) -> Option<(bool, String)> {
 
 #[test]
 fn a_failed_insert_run_reports_its_error_instead_of_running_again() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("failed-run-not-replayed");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("failed-run-not-replayed");
     let file = dir.join("main.jai");
     // `gen` takes a lock in compile-time memory, then calls `helper`, which does not compile.
     // `other` gives the compiler another body to finish, which is what made it try `main` again.

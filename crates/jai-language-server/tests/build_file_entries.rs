@@ -2,8 +2,7 @@
 //! `src/main.jai` (the program that metaprogram builds) is checked and answered.
 use jai_language_server::DiagnosticCode;
 use std::path::{Path, PathBuf};
-mod common;
-use common::{at, open_file, project};
+use test_support::lsp::{at, open_file, project};
 
 const BUILD: &str = "#import \"Basic\";\n#import \"Compiler\";\n#run build();\nbuild :: () {\n    \
     set_build_options_dc(.{do_output = false});\n    w := compiler_create_workspace(\"app\");\n    \
@@ -38,7 +37,6 @@ fn check_via(
     }
     let dir = project(name, &files);
     let Some(editor_dir) = via(&dir) else {
-        let _ = std::fs::remove_dir_all(&dir);
         return;
     };
     let (s, uri, text) = open_file(&editor_dir, "src/main.jai");
@@ -61,7 +59,6 @@ fn check_via(
         .definition(&uri, at(&text, "helper(21)"))
         .unwrap_or_else(|e| panic!("{name}: {e:?}"));
     assert!(format!("{def:?}").contains("main.jai"), "{name}: {def:?}");
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]

@@ -1,15 +1,14 @@
 //! The build status (`jaic::progress`): `Compiling`/`Finished` lines and, on a terminal, a status
 //! line redrawn in place. `JAIC_PROGRESS` stands in for the terminal test, since a test's stderr
 //! is a pipe.
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Command, Output};
+use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
-fn scratch(name: &str, source: &str) -> PathBuf {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("build-status-{name}"));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
+fn scratch(name: &str, source: &str) -> TempDir {
+    let dir = TempDir::new(&format!("build-status-{name}"));
     std::fs::write(dir.join("hello.jai"), source).unwrap();
     dir
 }

@@ -1,8 +1,7 @@
 //! Inherited field layout contracts of the public record shapes.
-mod common;
-use common::compile_source as compile;
 use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
+use test_support::compiler::compile_source as compile;
 
 #[test]
 fn reflected_struct_alignment_matches_completed_layout() {

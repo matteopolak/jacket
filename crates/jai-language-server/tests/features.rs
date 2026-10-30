@@ -8,8 +8,7 @@ use jai_language_server::{
     DiagnosticCode, DiagnosticSeverity, DocumentUri, InlayHintKind, JsonSession, Limits,
     MarkupKind, Position, Range, SemanticTokenKind, Session,
 };
-mod common;
-use common::{at_nth, environment, file_uri, session, uri};
+use test_support::lsp::{at_nth, environment, file_uri, session, uri};
 
 fn everything(text: &str) -> Range {
     Range {

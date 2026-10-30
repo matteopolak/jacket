@@ -3,6 +3,7 @@
 
 use std::path::Path;
 use std::process::Command;
+use test_support::TempDir;
 
 fn u16_at(bytes: &[u8], offset: usize) -> u16 {
     u16::from_le_bytes(bytes[offset..offset + 2].try_into().unwrap())
@@ -64,9 +65,7 @@ fn check_object(path: &Path, os: &str, cpu: &str) {
 
 #[test]
 fn workspace_options_emit_the_requested_object_format_and_machine() {
-    let directory = Path::new(env!("CARGO_TARGET_TMPDIR"))
-        .join(format!("workspace-targets-{}", std::process::id()));
-    std::fs::create_dir_all(&directory).unwrap();
+    let directory = TempDir::new(&format!("workspace-targets-{}", std::process::id()));
     for (os, cpu) in [
         ("LINUX", "X64"),
         ("LINUX", "ARM64"),

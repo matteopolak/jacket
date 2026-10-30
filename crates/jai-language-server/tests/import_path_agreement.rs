@@ -4,8 +4,7 @@ use jai_language_server::{Limits, Session};
 use jailint::config::Config;
 use jailint::driver::{Options, root_import_paths};
 use std::path::{Path, PathBuf};
-mod common;
-use common::{modules_environment, project, stdlib, uri_of};
+use test_support::lsp::{modules_environment, project, stdlib, uri_of};
 
 fn existing(paths: impl IntoIterator<Item = PathBuf>) -> Vec<PathBuf> {
     paths
@@ -60,7 +59,7 @@ fn language_server_linter_and_command_line_search_the_same_folders() {
 
     // The language server, over the live text of the open file.
     let mut session = Session::with_environment(Limits::default(), modules_environment(None));
-    session.set_workspace_folders(vec![dir.clone()]);
+    session.set_workspace_folders(vec![dir.to_path_buf()]);
     let uri = uri_of(&dir.join("main.jai"));
     session
         .open(uri.clone(), 1, "main :: () {}\n".into())
@@ -73,7 +72,6 @@ fn language_server_linter_and_command_line_search_the_same_folders() {
         .into_iter()
         .map(|p| p.path);
     assert_eq!(existing(served), expected);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -92,7 +90,6 @@ fn import_dir_flags_come_after_the_project_import_path() {
             stdlib()
         ])
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -105,7 +102,7 @@ fn changing_the_workspace_folders_changes_the_module_folders_served() {
         ],
     );
     let mut session = Session::with_environment(Limits::default(), modules_environment(None));
-    session.set_workspace_folders(vec![dir.clone()]);
+    session.set_workspace_folders(vec![dir.to_path_buf()]);
     let uri = uri_of(&dir.join("sub/main.jai"));
     session
         .open(uri.clone(), 1, "main :: () {}\n".into())
@@ -125,7 +122,6 @@ fn changing_the_workspace_folders_changes_the_module_folders_served() {
     assert!(served(&mut session).contains(&up));
     session.set_workspace_folders(vec![dir.join("sub")]);
     assert!(!served(&mut session).contains(&up));
-    session.set_workspace_folders(vec![dir.clone()]);
+    session.set_workspace_folders(vec![dir.to_path_buf()]);
     assert!(served(&mut session).contains(&up));
-    let _ = std::fs::remove_dir_all(&dir);
 }

@@ -1,8 +1,9 @@
 //! What bounds compile-time code under jailint: a block budget for each evaluation, and a
 //! wall-clock limit for each program checked (`--compile-time-budget` and `--check-time-limit`;
 //! a project's `jacket.toml` has no say).
-use std::path::PathBuf;
+use std::path::Path;
 use std::process::Command;
+use test_support::TempDir;
 
 const SOURCE: &str = r"spin :: () { while true {} }
 #run spin();
@@ -20,12 +21,8 @@ main :: () {
 }
 ";
 
-fn project(name: &str, config: Option<&str>) -> PathBuf {
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
-        .join("jailint-limits")
-        .join(name);
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
+fn project(name: &str, config: Option<&str>) -> TempDir {
+    let dir = TempDir::new(name);
     std::fs::write(dir.join("main.jai"), SOURCE).unwrap();
     if let Some(config) = config {
         std::fs::write(dir.join("jacket.toml"), config).unwrap();
@@ -33,7 +30,7 @@ fn project(name: &str, config: Option<&str>) -> PathBuf {
     dir
 }
 
-fn lint(dir: &PathBuf, flags: &[&str]) -> String {
+fn lint(dir: &Path, flags: &[&str]) -> String {
     let output = Command::new(env!("CARGO_BIN_EXE_jailint"))
         .args(flags)
         .arg("main.jai")

@@ -1,7 +1,6 @@
 //! Several type-checker errors per document, and pull diagnostics.
 use jai_language_server::{DiagnosticCode, JsonSession, Limits, Session};
-mod common;
-use common::{environment, session, uri};
+use test_support::lsp::{environment, session, uri};
 
 const TWO_BODIES: &str = r#"#import "Basic";
 first :: () { x: int = "hello"; }

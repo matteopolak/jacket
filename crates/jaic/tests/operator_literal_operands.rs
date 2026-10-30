@@ -1,7 +1,6 @@
 //! An untyped struct literal as an operand of an overloaded binary operator is typed by the
 //! operator overloads, as a literal argument of a call is.
-mod common;
-use common::compile_source;
+use test_support::compiler::compile_source;
 
 const TYPES: &str = "
 S :: struct { a, b: float; }

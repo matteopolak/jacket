@@ -2,6 +2,8 @@
 use jaic::sema::{Compiler, Options, ProgramSource, TargetCpu, TargetOs, VirtualFs};
 use jaic_llvm::{OptLevel, emit_object};
 use std::{path::PathBuf, process::Command, rc::Rc};
+use test_support::process::succeeded as run;
+use test_support::{TempDir, ir, toolchain};
 
 const SOURCE: &str = r#"
 atomic_load :: (pointer: *$T) -> T #intrinsic;
@@ -66,12 +68,8 @@ check :: () -> s32 #c_call {
 }
 "#;
 
-fn directory(name: &str) -> PathBuf {
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
-        .join("atomic-backend")
-        .join(name);
-    std::fs::create_dir_all(&dir).unwrap();
-    dir
+fn directory(name: &str) -> TempDir {
+    TempDir::new(&format!("atomics-{name}"))
 }
 
 fn object(dir: &std::path::Path, wasm: bool, optimized: bool) -> PathBuf {
@@ -105,26 +103,17 @@ fn object(dir: &std::path::Path, wasm: bool, optimized: bool) -> PathBuf {
         "cmpxchg",
         "seq_cst",
     ] {
-        assert!(ir.contains(text), "missing {text}");
+        ir::assert_contains(&ir, text);
     }
     object
-}
-
-fn run(command: &mut Command) -> std::process::Output {
-    let output = command
-        .output()
-        .expect("required test tool must be installed");
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    output
 }
 
 #[test]
 #[cfg(unix)]
 fn native_scalars_alignment_and_real_thread_contention() {
+    if !toolchain::require_all(&["clang"]) {
+        return;
+    }
     for optimized in [false, true] {
         let dir = directory(if optimized {
             "native-o2"
@@ -183,7 +172,7 @@ int main(int argc, char **argv) {
 }
 ").unwrap();
         let executable = dir.join("driver");
-        run(Command::new("clang")
+        run(toolchain::command("clang")
             .args(["-std=c11", "-pthread"])
             .arg(&source)
             .arg(object)
@@ -200,10 +189,13 @@ int main(int argc, char **argv) {
 
 #[test]
 fn wasm64_scalar_operations_execute() {
+    if !toolchain::require_all(&["wasm-ld", "node"]) {
+        return;
+    }
     let dir = directory("wasm64");
     let object = object(&dir, true, true);
     let module = dir.join("atomics.wasm");
-    run(Command::new("wasm-ld")
+    run(toolchain::command("wasm-ld")
         .args([
             "-mwasm64",
             "--no-entry",
@@ -217,11 +209,14 @@ fn wasm64_scalar_operations_execute() {
     let script = r"const fs=require('fs'); const m=new WebAssembly.Module(fs.readFileSync(process.argv[1]));
 const env={}; for(const i of WebAssembly.Module.imports(m)){if(i.kind!=='function')throw Error('unsupported import');env[i.name]=()=>{throw Error('unexpected runtime failure: '+i.name);};}
 const instance=new WebAssembly.Instance(m,{env}); if(instance.exports.atomic_check()!==0)throw Error('atomic scalar mismatch');";
-    run(Command::new("node").args(["-e", script]).arg(module));
+    run(toolchain::command("node").args(["-e", script]).arg(module));
 }
 
 #[test]
 fn wasm_cannot_silently_disable_required_atomics() {
+    if !toolchain::require_all(&["wasm-ld"]) {
+        return;
+    }
     let dir = directory("wasm64-disabled");
     let mut options = Options::host();
     options.runtime_support = false;
@@ -243,12 +238,15 @@ fn wasm_cannot_silently_disable_required_atomics() {
 
 #[test]
 fn wasm64_shared_memory_contention() {
+    if !toolchain::require_all(&["wasm-ld", "node"]) {
+        return;
+    }
     let dir = directory("wasm64-shared");
     let object = object(&dir, true, true);
     let module = dir.join("primary.wasm");
     let imported = dir.join("worker.wasm");
     for (path, import_memory) in [(&module, false), (&imported, true)] {
-        let mut linker = Command::new("wasm-ld");
+        let mut linker = toolchain::command("wasm-ld");
         linker.args([
             "-mwasm64",
             "--no-entry",
@@ -308,7 +306,7 @@ for(const producer of [false,true]){
 await Promise.all(pairReady);for(const w of pair)w.postMessage('go');await Promise.all(pairDone);for(const w of pair)await w.terminate();
 })().catch(e=>{console.error(e);process.exit(1);});
 ";
-    run(Command::new("node")
+    run(toolchain::command("node")
         .args(["-e", script])
         .arg(module)
         .arg(imported));

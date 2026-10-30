@@ -1,33 +1,19 @@
 //! Compiler operations must not depend on Jai implementations in the selected stdlib.
 #![cfg(feature = "llvm")]
-use std::{
-    path::{Path, PathBuf},
-    process::Command,
-};
+use std::{path::PathBuf, process::Command};
+use test_support::TempDir;
+use test_support::process::succeeded as success;
 
-fn fixture(name: &str, text: &str) -> (PathBuf, PathBuf) {
-    let directory = Path::new(env!("CARGO_TARGET_TMPDIR"))
-        .join("public-compiler-primitives")
-        .join(name);
-    std::fs::create_dir_all(&directory).unwrap();
+fn fixture(name: &str, text: &str) -> (TempDir, PathBuf) {
+    let directory = TempDir::new(name);
     let source = directory.join("main.jai");
     std::fs::write(&source, text).unwrap();
     (directory, source)
 }
 
-fn success(command: &mut Command) {
-    let result = command.output().unwrap();
-    assert!(
-        result.status.success(),
-        "{}\n{}",
-        String::from_utf8_lossy(&result.stdout),
-        String::from_utf8_lossy(&result.stderr)
-    );
-}
-
 #[test]
 fn bodyless_public_workspace_operation_runs_at_compile_time() {
-    let (_, source) = fixture(
+    let (_dir, source) = fixture(
         "bodyless",
         r#"
 #import "Basic";
@@ -104,7 +90,7 @@ fn malformed_compiler_signatures_report_an_error_instead_of_entering_a_handler()
     .iter()
     .enumerate()
     {
-        let (_, source) = fixture(
+        let (_dir, source) = fixture(
             &format!("invalid-{index}"),
             &format!(
                 "{declaration}\n#run {}();\nmain :: () {{}}",
@@ -136,7 +122,7 @@ fn malformed_compiler_signatures_report_an_error_instead_of_entering_a_handler()
 
 #[test]
 fn bodyless_compiler_operations_remain_unavailable_at_runtime() {
-    let (_, source) = fixture(
+    let (_dir, source) = fixture(
         "runtime-bodyless",
         r#"
 compiler_create_workspace :: (name := "") -> Workspace #compiler;
@@ -158,7 +144,7 @@ main :: () { workspace := compiler_create_workspace(); }
 
 #[test]
 fn aggregate_fields_use_the_selected_declarations_layout() {
-    let (_, source) = fixture(
+    let (_dir, source) = fixture(
         "declaration-layout",
         r#"
 #import "Basic";
@@ -191,7 +177,7 @@ main :: () {}
 
 #[test]
 fn unknown_compiler_operations_do_not_run_the_runtime_body_at_compile_time() {
-    let (_, source) = fixture(
+    let (_dir, source) = fixture(
         "unknown",
         r#"
 unknown :: () -> s64 #compiler "operation_that_does_not_exist" {return 42;}
@@ -210,7 +196,7 @@ main :: () {}
 
 #[test]
 fn build_option_defaults_come_from_the_declared_return_record() {
-    let (_, source) = fixture(
+    let (_dir, source) = fixture(
         "renamed-options",
         r#"
 #import "Basic";
@@ -241,7 +227,7 @@ main :: () {}
 
 #[test]
 fn records_with_one_name_in_two_modules_are_rejected_when_bound() {
-    let (_, source) = fixture(
+    let (_dir, source) = fixture(
         "duplicate-record",
         r#"
 C :: #import "Compiler";
@@ -276,7 +262,7 @@ fn records_missing_what_an_operation_uses_are_rejected_when_bound() {
     .iter()
     .enumerate()
     {
-        let (_, source) = fixture(
+        let (_dir, source) = fixture(
             &format!("missing-field-{index}"),
             &format!(
                 "Version :: struct {{ {fields} }}\nversion :: (result: *Version) -> string #compiler \"compiler_get_version_info\";\n#run {{ value := version; }}\nmain :: () {{}}"

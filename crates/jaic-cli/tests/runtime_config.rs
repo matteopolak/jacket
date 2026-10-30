@@ -1,17 +1,7 @@
 //! Real allocation through the canonical runtime, or an explicit isolated candidate.
 use std::{path::PathBuf, process::Command};
-
-fn checked(command: &mut Command) -> std::process::Output {
-    let output = command.output().unwrap_or_else(|error| {
-        panic!("required source-built integration command {command:?}: {error}")
-    });
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    output
-}
+use test_support::TempDir;
+use test_support::process::succeeded as checked;
 
 #[test]
 fn finalized_workspace_sizes_allocate_real_runtime_storage() {
@@ -20,11 +10,7 @@ fn finalized_workspace_sizes_allocate_real_runtime_storage() {
         .canonicalize()
         .unwrap();
     // Isolate fixture staging while checking the production library when available.
-    let dir = root.join(format!(
-        "target/runtime-configuration-cli/{}",
-        std::process::id()
-    ));
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("runtime-configuration-cli");
     let library = if root.join("stdlib/prelude/module.jai").is_file() {
         root.join("stdlib")
     } else {
@@ -170,8 +156,7 @@ fn one_megabyte_private_startup_allocates_for_root_and_child_workspaces() {
             }
         );
     }
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("one-megabyte-startup");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("one-megabyte-startup");
     for opt in ["-O0", "-O2"] {
         let executable = dir.join(format!("root{opt}{}", std::env::consts::EXE_SUFFIX));
         checked(

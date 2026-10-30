@@ -1,8 +1,7 @@
 //! Every suggestion of a compile error or warning becomes a quick fix, and the notes and help
 //! of the diagnostic reach the editor. See docs/compiler/language-server.md.
 use jai_language_server::{CodeAction, DiagnosticCode, DiagnosticSeverity, Range};
-mod common;
-use common::{at_nth, session, uri};
+use test_support::lsp::{at_nth, session, uri};
 
 /// The quick fixes the editor offers at `marker` (its first occurrence) in `text`.
 fn quick_fixes(s: &jai_language_server::Session, text: &str, marker: &str) -> Vec<CodeAction> {

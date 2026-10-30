@@ -1,7 +1,6 @@
 //! The argument of a number-typed constant parameter (`$N: s32`) is checked against the declared
 //! type as for a normal parameter.
-mod common;
-use common::compile_source;
+use test_support::compiler::compile_source;
 
 const DECLS: &str = "S :: struct { a: s32; } f :: ($N: s32) -> s32 { return N * 2; }";
 

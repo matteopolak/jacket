@@ -1,7 +1,6 @@
 //! Code that can never run is reported as an `unreachable` hint, which editors fade.
 use jai_language_server::{DiagnosticCode, DiagnosticSeverity};
-mod common;
-use common::{at_offset, lean_session, session, uri};
+use test_support::lsp::{at_offset, lean_session, session, uri};
 
 /// The text of every faded range of `source`, without its final `;`, in order.
 fn faded(source: &str) -> Vec<String> {

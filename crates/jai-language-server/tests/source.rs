@@ -2,8 +2,7 @@ use jai_language_server::{
     DiagnosticCode, DiagnosticSeverity, DocumentUri, Error, Limits, Position, Range,
     SemanticTokenKind, Session, SymbolKind, TextChange,
 };
-mod common;
-use common::at_last;
+use test_support::lsp::at_last;
 
 fn uri(name: &str) -> DocumentUri {
     DocumentUri::parse(&format!("file:///workspace/{name}")).unwrap()

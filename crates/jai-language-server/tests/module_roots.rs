@@ -1,8 +1,7 @@
 //! A module file opened on its own is checked as the module a program imports, not as the
 //! program: `#module_parameters` only exist there.
 use jai_language_server::{DiagnosticSeverity, Session};
-mod common;
-use common::{file_uri, virtual_session};
+use test_support::lsp::{file_uri, virtual_session};
 
 const PARAMS: &str = "#module_parameters(WIDTH := 16);\n#load \"part.jai\";\nwidth :: WIDTH;\n";
 const PART: &str = "twice :: () -> s64 { return WIDTH * 2; }\n";

@@ -1,8 +1,7 @@
 //! Go to definition on members reached through `using` paths and on declarations that
 //! `#insert`ed text generates.
-mod common;
-use common::{cursor, file_uri, lean_session};
 use jai_language_server::Location;
+use test_support::lsp::{cursor, file_uri, lean_session};
 
 fn definition(source: &str) -> (Vec<Location>, String) {
     let (text, at) = cursor(source);

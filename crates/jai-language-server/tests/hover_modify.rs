@@ -1,7 +1,6 @@
 //! A procedure's hover names its `#modify` block without the block's code, however the block
 //! is laid out.
-mod common;
-use common::{at, open, uri};
+use test_support::lsp::{at, open, uri};
 
 const PROGRAM: &str = "one_line :: ($n: s64) -> s64 #modify { return n > 0; } { return n; }
 

@@ -4,14 +4,12 @@ use jailint::{
     driver::{Options, run},
 };
 use std::path::{Path, PathBuf};
+use test_support::TempDir;
 
 const PROGRAM: &str = "main :: () { total := 12345 + 6789; }\n";
 
-fn tree(name: &str) -> PathBuf {
-    let root = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join(name);
-    if root.exists() {
-        std::fs::remove_dir_all(&root).unwrap();
-    }
+fn tree(name: &str) -> TempDir {
+    let root = TempDir::new(name);
     for dir in ["stdlib/prelude", "stdlib/Runtime_Support", "top", "nested"] {
         std::fs::create_dir_all(root.join(dir)).unwrap();
     }
@@ -33,7 +31,7 @@ fn tree(name: &str) -> PathBuf {
     .unwrap();
     std::fs::write(root.join("top/main.jai"), PROGRAM).unwrap();
     std::fs::write(root.join("nested/main.jai"), PROGRAM).unwrap();
-    root.canonicalize().unwrap()
+    root
 }
 
 /// The files with a `magic_number` finding when linting `paths` from the first one's config.

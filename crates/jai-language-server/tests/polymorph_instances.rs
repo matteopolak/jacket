@@ -1,8 +1,7 @@
 //! Real generic instances across workspace programs, without editor sketches.
 use jai_language_server::{Position, TextChange};
-mod common;
-use common::{uri_of, virtual_session};
 use std::path::Path;
+use test_support::lsp::{uri_of, virtual_session};
 
 const GENERIC: &str = "identity :: (x: $T) -> T { return x; }\nunused :: (x:$T) { identity(x); }\n";
 
@@ -203,16 +202,16 @@ fn shared_nominal_types_deduplicate_across_entry_programs() {
 
 #[test]
 fn stdlib_instances_include_closed_callers() {
-    let dir = common::project(
+    let dir = test_support::lsp::project(
         "poly-stdlib",
         &[(
             "main.jai",
             "#import \"Basic\"; main :: () {a:[..]u32; array_add(*a,1); b:[..]s64; array_add(*b,2);}",
         )],
     );
-    let mut s = common::session();
-    s.set_workspace_folders(vec![dir.clone()]);
-    let path = common::stdlib().join("internal/basic/arrays.jai");
+    let mut s = test_support::lsp::session();
+    s.set_workspace_folders(vec![dir.to_path_buf()]);
+    let path = test_support::lsp::stdlib().join("internal/basic/arrays.jai");
     // Find the declaration in our own stdlib, independent of its implementation file name.
     let source = std::fs::read_to_string(&path).unwrap();
     let uri = uri_of(&path);
@@ -234,7 +233,6 @@ fn stdlib_instances_include_closed_callers() {
         values.contains(&"T = u32".into()) && values.contains(&"T = s64".into()),
         "{values:?}"
     );
-    std::fs::remove_dir_all(dir).unwrap();
 }
 
 #[test]
@@ -245,7 +243,7 @@ fn all_child_workspaces_of_a_build_contribute() {
         "L :: #import \"Lib\"; main :: () {#assert generated_marker==42; x:u32; L.identity(x);}";
     let b =
         "L :: #import \"Lib\"; main :: () {#assert generated_marker==42; x:u64; L.identity(x);}";
-    let dir = common::project(
+    let dir = test_support::lsp::project(
         "poly-build",
         &[
             ("z-build.jai", build),
@@ -260,9 +258,9 @@ fn all_child_workspaces_of_a_build_contribute() {
     );
     let mut s = jai_language_server::Session::with_environment(
         jai_language_server::Limits::default(),
-        common::modules_environment(None),
+        test_support::lsp::modules_environment(None),
     );
-    s.set_workspace_folders(vec![dir.clone()]);
+    s.set_workspace_folders(vec![dir.to_path_buf()]);
     let uri = uri_of(&dir.join("modules/Lib/module.jai"));
     s.open(uri.clone(), 1, lib.into()).unwrap();
     let lenses = s.code_lenses(&uri).unwrap();
@@ -275,7 +273,6 @@ fn all_child_workspaces_of_a_build_contribute() {
     let before = s.compile_counts();
     s.code_lenses(&uri).unwrap();
     assert_eq!(s.compile_counts(), before);
-    std::fs::remove_dir_all(dir).unwrap();
 }
 
 #[test]
@@ -436,7 +433,7 @@ fn lens_compiles_keep_the_open_programs_analyses() {
 fn background_summaries_refresh_code_lenses() {
     use jai_language_server::{JsonSession, Limits};
     use serde_json::{Value, json};
-    let dir = common::project(
+    let dir = test_support::lsp::project(
         "poly-background",
         &[
             ("jacket.toml", "[project]\nentry=[\"a.jai\",\"b.jai\"]\n"),
@@ -449,7 +446,7 @@ fn background_summaries_refresh_code_lenses() {
             ("b_lib.jai", "twice :: (x: $T) -> T { return x + x; }\n"),
         ],
     );
-    let mut s = JsonSession::with_environment(Limits::default(), common::environment());
+    let mut s = JsonSession::with_environment(Limits::default(), test_support::lsp::environment());
     let send = |s: &mut JsonSession, message: Value| -> Vec<Value> {
         s.handle_json(&message.to_string())
             .unwrap()

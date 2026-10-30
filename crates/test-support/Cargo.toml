@@ -1,0 +1,26 @@
+[package]
+name = "test-support"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Shared helpers for the workspace's Rust tests: temp dirs, toolchain lookup, processes, snapshots."
+publish = false
+
+[features]
+default = []
+# Compile helpers over `jaic` (`test_support::compiler`).
+compiler = ["dep:jaic"]
+# Object emission, linking and running (`test_support::backend`).
+backend = ["compiler", "dep:jaic-llvm"]
+# Language-server sessions and position helpers (`test_support::lsp`).
+lsp = ["compiler", "dep:jai-language-server"]
+
+[dependencies]
+insta = { version = "=1.49.0" }
+jaic = { path = "../jaic", optional = true }
+jaic-llvm = { path = "../jaic-llvm", optional = true }
+jai-language-server = { path = "../jai-language-server", optional = true }
+
+[lints]
+workspace = true

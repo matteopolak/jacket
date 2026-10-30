@@ -1,7 +1,6 @@
 //! Independent compiler-owner reductions, checkpoint 36ea131e; strict authored source oracles.
 use jai_language_server::{Position, Range, TextChange};
-mod common;
-use common::{file_uri, position, virtual_session};
+use test_support::lsp::{file_uri, position, virtual_session};
 
 fn check(source: &str, targets: &[(u32, u32, u32, u32)]) {
     let uri = file_uri("/navigation-associations/main.jai");

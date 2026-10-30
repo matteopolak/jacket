@@ -1,5 +1,3 @@
-mod common;
-
 #[path = "support/register_source.rs"]
 mod registers_source;
 
@@ -165,9 +163,9 @@ mod cpuid_leaf_zero {
 
 mod xgetbv {
     //! XGETBV source/IR controls; no unguarded optional host instruction is executed.
-    use crate::common::compile_for_cpu as compile;
     use jaic::ir::{Inst, Intrinsic, Linkage};
     use jaic::sema::TargetCpu;
+    use test_support::compiler::compile_for_cpu as compile;
 
 
     #[test]
@@ -441,8 +439,8 @@ mod registers {
 
 mod x86_machine {
     //! ISA prerequisites and operand diagnostics; ARM hosts never report synthetic x86 results.
-    use crate::common::compile_for_cpu as compile;
     use jaic::sema::TargetCpu;
+    use test_support::compiler::compile_for_cpu as compile;
 
 
     #[test]

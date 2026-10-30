@@ -1,6 +1,4 @@
 //! Original failed-discovery reducers; no corpus or stdlib implementation inputs.
-mod common;
-use common::{file_uri, session_over};
 use jaic::ide::IdeFacts;
 use jaic::sema::{Compiler, FileSystem, Options, VirtualFs};
 use std::{
@@ -8,6 +6,7 @@ use std::{
     path::{Path, PathBuf},
     rc::Rc,
 };
+use test_support::lsp::{file_uri, session_over};
 
 #[derive(Default)]
 struct CountingFs {

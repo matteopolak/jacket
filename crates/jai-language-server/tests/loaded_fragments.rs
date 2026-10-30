@@ -1,9 +1,8 @@
 //! A file another module `#load`s is analysed as part of that module, so it sees the names the
 //! module declares or imports, even when the loader lives in another folder.
 use jai_language_server::{DiagnosticCode, DocumentUri, Position, Session};
-use std::path::PathBuf;
-mod common;
-use common::{open_file, project};
+use test_support::TempDir;
+use test_support::lsp::{open_file, project};
 
 fn check_errors(s: &Session, uri: &DocumentUri) -> Vec<String> {
     s.diagnostics(uri)
@@ -31,7 +30,7 @@ fn tree(extra: &[(&'static str, &str)]) -> Vec<(&'static str, String)> {
     files
 }
 
-fn make(name: &str, files: &[(&str, String)]) -> PathBuf {
+fn make(name: &str, files: &[(&str, String)]) -> TempDir {
     let borrowed: Vec<(&str, &str)> = files.iter().map(|(p, t)| (*p, t.as_str())).collect();
     project(name, &borrowed)
 }
@@ -55,7 +54,6 @@ fn fragment_sees_its_loaders_struct_constant_and_imports() {
         .contents
         .value;
     assert!(hover.contains('7'), "{hover}");
-    let _ = std::fs::remove_dir_all(&folder);
 }
 
 #[test]
@@ -69,7 +67,6 @@ fn fragment_loaded_by_several_modules_gets_the_same_owner_each_time() {
         let (s, uri, _) = open_file(&folder, "internal/fragment.jai");
         assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
     }
-    let _ = std::fs::remove_dir_all(&folder);
 }
 
 #[test]
@@ -77,7 +74,6 @@ fn module_root_keeps_being_its_own_program() {
     let folder = make("root", &tree(&[]));
     let (s, uri, _) = open_file(&folder, "Shapes/module.jai");
     assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
-    let _ = std::fs::remove_dir_all(&folder);
 }
 
 #[test]
@@ -104,5 +100,4 @@ fn editing_a_loaders_loads_moves_the_fragments_owner() {
     assert_ne!(check_errors(&s, &fragment), [] as [std::string::String; 0]);
     s.change(&module, 4, &[full(&text)]).unwrap();
     assert_eq!(check_errors(&s, &fragment), Vec::<String>::new());
-    let _ = std::fs::remove_dir_all(&folder);
 }

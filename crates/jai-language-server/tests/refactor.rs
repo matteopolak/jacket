@@ -1,8 +1,7 @@
 //! Refactoring code actions: extract, inline, fill in cases and fields, `ifx` rewrites.
 use jai_language_server::{CodeAction, DiagnosticSeverity, Position, Range};
 use std::path::PathBuf;
-mod common;
-use common::{open, position, uri};
+use test_support::lsp::{open, position, uri};
 
 /// The range of the first occurrence of `marker`.
 fn select(text: &str, marker: &str) -> Range {

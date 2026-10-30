@@ -1,7 +1,5 @@
 //! Emitted code preserves compiler-host tags when executing on a different target.
-#[path = "support/backend_execution.rs"]
-mod backend;
-mod common;
+use test_support::backend;
 
 #[test]
 fn host_constants_execute_native_and_wasm_at_o0_and_o2() {

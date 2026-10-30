@@ -2,6 +2,7 @@
 use jaic::sema::{Compiler, Options, VirtualFs};
 use std::path::Path;
 use std::rc::Rc;
+use test_support::TempDir;
 
 fn compiler(files: &[(&str, &str)], bootstrap: bool) -> Compiler {
     let mut fs = VirtualFs::default();
@@ -677,9 +678,7 @@ fn virtual_path_normalization_preserves_consecutive_parent_components() {
 #[test]
 fn native_symlink_cannot_expose_internal_source_as_public_module() {
     use std::os::unix::fs::symlink;
-    let root = Path::new(env!("CARGO_TARGET_TMPDIR"))
-        .join("fixtures")
-        .join(format!("internal-symlink-{}", std::process::id()));
+    let root = TempDir::new(&format!("internal-symlink-{}", std::process::id()));
     std::fs::create_dir_all(root.join("lib/internal/Hidden")).unwrap();
     std::fs::create_dir_all(root.join("lib/prelude")).unwrap();
     std::fs::create_dir_all(root.join("app/modules")).unwrap();

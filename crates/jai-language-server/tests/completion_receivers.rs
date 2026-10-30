@@ -1,6 +1,5 @@
 //! Member completion after receivers no name lookup leads to.
-mod common;
-use common::{cursor, file_uri, lean_session};
+use test_support::lsp::{cursor, file_uri, lean_session};
 
 fn labels(source: &str) -> Vec<String> {
     let (text, at) = cursor(source);

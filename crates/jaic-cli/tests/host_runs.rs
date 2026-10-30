@@ -1,7 +1,7 @@
 //! Isolated host values survive source checking and actual target execution.
-mod common;
-use common::success_silent as success;
 use std::{path::PathBuf, process::Command};
+use test_support::process::success_silent as success;
+use test_support::{TempDir, toolchain};
 
 fn fixture() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -12,8 +12,7 @@ fn fixture() -> PathBuf {
 #[test]
 fn workspace_host_clock_produces_a_linux_x64_object() {
     let tests = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/host-runs");
-    let directory = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("host-clock-object");
-    std::fs::create_dir_all(&directory).unwrap();
+    let directory = TempDir::new("host-clock-object");
     success(
         Command::new(env!("CARGO_BIN_EXE_jaic"))
             .arg(tests.join("host-clock-workspace.jai"))
@@ -149,8 +148,7 @@ fn host_values_runs_in_the_interpreter() {
 #[cfg(feature = "llvm")]
 #[test]
 fn host_values_runs_native_at_o0_and_o2() {
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("host-values-native");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("host-values-native");
     for opt in ["-O0", "-O2"] {
         let exe = dir.join(format!("host{opt}"));
         success(
@@ -166,8 +164,10 @@ fn host_values_runs_native_at_o0_and_o2() {
 #[cfg(feature = "llvm")]
 #[test]
 fn host_values_runs_as_a_real_wasi_command() {
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("host-values-wasi");
-    std::fs::create_dir_all(&dir).unwrap();
+    if !toolchain::require_all(&["node"]) {
+        return;
+    }
+    let dir = TempDir::new("host-values-wasi");
     let module = dir.join("host.wasm");
     success(
         Command::new(env!("CARGO_BIN_EXE_jaic"))
@@ -177,7 +177,7 @@ fn host_values_runs_as_a_real_wasi_command() {
     );
     let runner = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../tools/browser/run_foundations_wasm.mjs");
-    success(Command::new("node").arg(runner).arg(module));
+    success(toolchain::command("node").arg(runner).arg(module));
 }
 
 /// Targets the interpreter can run `main` for from this machine while the build is a cross
@@ -243,11 +243,9 @@ fn compile_time_file_system_and_cpu_detection_read_the_host_for_every_target() {
     // The compiler runs with the program's directory as its working directory, so the program is
     // copied next to the directories it makes.
     let original = host_run_fixture("cross-target-compile-time-files.jai");
-    let directory = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("cross-target-files");
+    let directory = TempDir::new("cross-target-files");
     let source = directory.join("files.jai");
     for (os, cpu) in foreign_targets() {
-        let _ = std::fs::remove_dir_all(&directory);
-        std::fs::create_dir_all(&directory).unwrap();
         std::fs::copy(&original, &source).unwrap();
         success(
             Command::new(env!("CARGO_BIN_EXE_jaic"))

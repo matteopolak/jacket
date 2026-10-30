@@ -1,7 +1,7 @@
 //! Arguments are evaluated left to right: a variable read as an argument has the value it had
 //! before the calls among the arguments to its right ran, at run time and at compile time.
-use std::path::Path;
 use std::process::Command;
+use test_support::TempDir;
 
 const PROBE: &str = r#"#import "Basic";
 
@@ -52,17 +52,16 @@ main :: () { probe(); }
 
 const EXPECTED: &str = "f a=1 b=0\nf a=1 b=0\nf a=1 b=0\ng a=2 b=2 c=3\nf a=2 b=3\nh p=(1,2) b=0\ns text=before b=0\n1 0 2\nf a=1 b=0\n";
 
-fn source(name: &str, extra: &str) -> std::path::PathBuf {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("argument-order");
-    std::fs::create_dir_all(&dir).unwrap();
+fn source(name: &str, extra: &str) -> (TempDir, std::path::PathBuf) {
+    let dir = TempDir::new("argument-order");
     let file = dir.join(format!("{name}.jai"));
     std::fs::write(&file, format!("{PROBE}{extra}")).unwrap();
-    file
+    (dir, file)
 }
 
 #[test]
 fn interpreted_calls_evaluate_arguments_left_to_right() {
-    let file = source("interp", "");
+    let (_dir, file) = source("interp", "");
     let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
         .arg("-interp")
         .arg(&file)
@@ -79,7 +78,7 @@ fn interpreted_calls_evaluate_arguments_left_to_right() {
 #[test]
 fn compile_time_calls_evaluate_arguments_left_to_right() {
     // The `#run` prints while compiling; the program itself runs afterwards.
-    let file = source("run", "#run probe();\n");
+    let (_dir, file) = source("run", "#run probe();\n");
     let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
         .arg("-interp")
         .arg(&file)
@@ -99,7 +98,7 @@ fn compile_time_calls_evaluate_arguments_left_to_right() {
 #[cfg(feature = "llvm")]
 #[test]
 fn native_calls_evaluate_arguments_left_to_right() {
-    let file = source("native", "");
+    let (_dir, file) = source("native", "");
     let exe = file.with_file_name(format!("native_exe{}", std::env::consts::EXE_SUFFIX));
     for level in ["-O0", "-O2"] {
         let build = Command::new(env!("CARGO_BIN_EXE_jaic"))

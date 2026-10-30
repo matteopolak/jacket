@@ -17,5 +17,8 @@ default = ["dynamic"]
 dynamic = ["inkwell/llvm23-1-prefer-dynamic"]
 static = ["inkwell/llvm23-1-force-static"]
 
+[dev-dependencies]
+test-support = { path = "../test-support", features = ["backend"] }
+
 [lints]
 workspace = true

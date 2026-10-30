@@ -1,7 +1,6 @@
 //! A call that bakes a defaulted `$` parameter does not declare the callee's `$T` at the call:
 //! a type argument whose name starts with `T` still hovers and goes to its own declaration.
-mod common;
-use common::{at, at_offset, open, uri};
+use test_support::lsp::{at, at_offset, open, uri};
 
 const PROGRAM: &str = "make :: ($T: Type, $n := 1) -> int { return n; }
 Table :: struct (K: Type) { k: K; }

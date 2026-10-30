@@ -3,6 +3,7 @@
 //! described in docs/extensions/service.md.
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
+use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
@@ -10,13 +11,8 @@ fn tests_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib/Extensions/Service/tests")
 }
 
-fn scratch(name: &str) -> PathBuf {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR"))
-        .join("compile_time_services")
-        .join(name);
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    dir
+fn scratch(name: &str) -> TempDir {
+    TempDir::new(name)
 }
 
 fn jaic(dir: &Path, args: &[&str]) -> Output {

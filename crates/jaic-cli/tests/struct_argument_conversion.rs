@@ -1,7 +1,7 @@
 //! Execute concrete typed generic callbacks and their reflected storage on real backends.
-mod common;
-use common::success_silent as success;
 use std::{path::PathBuf, process::Command};
+use test_support::process::success_silent as success;
+use test_support::{TempDir, toolchain};
 
 fn source() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -20,8 +20,7 @@ fn typed_generic_callbacks_execute_in_interpreter() {
 #[cfg(feature = "llvm")]
 #[test]
 fn typed_generic_callbacks_execute_native_at_o0_and_o2() {
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("typed-generic-callbacks-native");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("typed-generic-callbacks-native");
     for opt in ["-O0", "-O2"] {
         let executable = dir.join(format!("typed-generic-callbacks{opt}"));
         success(
@@ -37,8 +36,10 @@ fn typed_generic_callbacks_execute_native_at_o0_and_o2() {
 #[cfg(feature = "llvm")]
 #[test]
 fn typed_generic_callbacks_execute_as_wasi() {
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("typed-generic-callbacks-wasi");
-    std::fs::create_dir_all(&dir).unwrap();
+    if !toolchain::require_all(&["node"]) {
+        return;
+    }
+    let dir = TempDir::new("typed-generic-callbacks-wasi");
     let module = dir.join("typed-generic-callbacks.wasm");
     success(
         Command::new(env!("CARGO_BIN_EXE_jaic"))
@@ -48,5 +49,5 @@ fn typed_generic_callbacks_execute_as_wasi() {
     );
     let runner = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../tools/browser/run_foundations_wasm.mjs");
-    success(Command::new("node").arg(runner).arg(module));
+    success(toolchain::command("node").arg(runner).arg(module));
 }

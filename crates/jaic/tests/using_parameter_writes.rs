@@ -1,7 +1,6 @@
 //! A member reached through a `using` parameter is part of that parameter, so it cannot be
 //! assigned when the parameter itself cannot.
-mod common;
-use common::compile_source;
+use test_support::compiler::compile_source;
 
 const TYPES: &str = "Inner :: struct { y: s32; } Outer :: struct { x: s32; inner: Inner; }";
 

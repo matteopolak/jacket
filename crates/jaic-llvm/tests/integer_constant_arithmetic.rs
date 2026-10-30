@@ -1,7 +1,5 @@
 //! Native and WASM execution agrees with folded integer constants.
-#[path = "support/backend_execution.rs"]
-mod backend_execution;
-mod common;
+use test_support::backend as backend_execution;
 
 #[test]
 fn compiled_integer_arithmetic_matches_folded_constants() {

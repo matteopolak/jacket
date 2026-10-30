@@ -1,9 +1,8 @@
 //! Notes and help on calls whose polymorphic parameters cannot be inferred: where `$T` is
 //! declared, which argument failed to bind it or bound it differently, and how to give the type
 //! by name. See docs/compiler/polymorph-reporting.md.
-mod common;
-use common::compile_source;
 use jaic::source::{Diagnostic, Span};
+use test_support::compiler::compile_source;
 
 /// Compile `source`, which must fail, and return its source text and the error.
 fn failure(source: &str) -> (String, Box<Diagnostic>) {

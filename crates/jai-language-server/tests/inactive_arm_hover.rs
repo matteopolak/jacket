@@ -2,8 +2,7 @@
 //! after whatever else, it is asked about.
 use jai_language_server::{Limits, Position, Session};
 use jaic::sema::TargetOs;
-mod common;
-use common::{file_uri, modules_environment, uri};
+use test_support::lsp::{file_uri, modules_environment, uri};
 
 const SOURCE: &str = r#"#import "Basic";
 

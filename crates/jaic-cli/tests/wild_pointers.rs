@@ -6,12 +6,11 @@
         any(target_arch = "x86_64", target_arch = "aarch64")
     )
 ))]
-use std::path::Path;
 use std::process::Command;
+use test_support::TempDir;
 
 fn check(name: &str, source: &str) -> (std::process::ExitStatus, String) {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("wild-pointers");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("wild-pointers");
     let file = dir.join(format!("{name}.jai"));
     std::fs::write(&file, source).unwrap();
     let output = Command::new(env!("CARGO_BIN_EXE_jaic"))

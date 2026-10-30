@@ -1,9 +1,12 @@
-//! Compilation helpers shared by the integration tests.
-#![allow(dead_code)]
+//! Compile helpers over `jaic`, for tests that inspect what the compiler decided.
+//!
+//! Needs the `compiler` feature.
+
 use jaic::sema::{Compiler, Options, ProgramSource, TargetCpu, VirtualFs};
 use std::{path::Path, rc::Rc};
 
 /// A compiler with the runtime support module turned off, so tests see only their own source.
+#[must_use]
 pub fn bare_compiler() -> Compiler {
     bare_compiler_for(None)
 }
@@ -32,6 +35,9 @@ pub fn compile_for_cpu(cpu: TargetCpu, source: &str) -> (Compiler, jaic::sema::R
 }
 
 /// Compile `source` as `/main.jai`, with any error rendered against the sources.
+///
+/// # Errors
+/// The rendered diagnostic when the program does not compile.
 pub fn compile_main_file(source: &str) -> Result<(), String> {
     let mut fs = VirtualFs::default();
     fs.insert("/main.jai", source.as_bytes());
@@ -41,4 +47,14 @@ pub fn compile_main_file(source: &str) -> Result<(), String> {
     compiler
         .compile_program(Path::new("/main.jai"))
         .map_err(|error| error.render(&compiler.src.sources))
+}
+
+/// Compile `source` and panic with the rendered diagnostic if it does not compile.
+#[must_use]
+pub fn compile_ok(source: &str) -> Compiler {
+    let (compiler, result) = compile_source(source);
+    if let Err(error) = result {
+        panic!("{}", error.render(&compiler.src.sources));
+    }
+    compiler
 }

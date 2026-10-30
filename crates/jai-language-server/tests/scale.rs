@@ -3,8 +3,7 @@
 use jai_language_server::{DocumentUri, JsonSession, Limits, Position};
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
-mod common;
-use common::{environment, file_uri, session};
+use test_support::lsp::{environment, file_uri, session};
 
 /// Focus's `src/main.jai` imports `Basic` with a parameter its build metaprogram defines, so opened
 /// alone the import never resolves and dozens of language files `#insert` code that waits for it.

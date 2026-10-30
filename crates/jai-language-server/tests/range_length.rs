@@ -1,8 +1,7 @@
 //! `rangeLength` on an incremental edit is deprecated and clients compute it differently; the
 //! range alone decides what is replaced.
-mod common;
-use common::{open, uri};
 use jai_language_server::{Position, Range, TextChange};
+use test_support::lsp::{open, uri};
 
 #[test]
 fn a_range_length_that_disagrees_with_the_range_is_ignored() {

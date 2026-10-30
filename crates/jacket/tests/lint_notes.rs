@@ -3,11 +3,11 @@
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::process::Command;
+use test_support::TempDir;
 
 #[test]
 fn lint_prints_each_note_once() {
-    let root = std::env::temp_dir().join(format!("jacket-test-lint-notes-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&root);
+    let root = TempDir::new("jacket-test-lint-notes");
     let bin = root.join("bin");
     std::fs::create_dir_all(&bin).expect("create the archive directory");
     let jacket = bin.join("jacket");
@@ -32,5 +32,4 @@ fn lint_prints_each_note_once() {
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert_eq!(stderr.matches("max_nestng").count(), 1, "{stderr}");
     assert!(stderr.starts_with("jailint:"), "{stderr}");
-    let _ = std::fs::remove_dir_all(&root);
 }

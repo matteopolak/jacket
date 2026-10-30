@@ -1,8 +1,7 @@
 //! Command-line behavior of the `jaic` binary that is not about native code generation.
 use std::path::Path;
 use std::process::Command;
-
-mod common;
+use test_support::{TempDir, toolchain};
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
@@ -10,8 +9,10 @@ const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 #[cfg(target_os = "macos")]
 #[test]
 fn native_root_foreign_calls_route_without_symbol_name_hints() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-main-route");
-    std::fs::create_dir_all(&dir).unwrap();
+    if !toolchain::require_all(&["clang"]) {
+        return;
+    }
+    let dir = TempDir::new("native-main-route");
     let provider = dir.join("provider.c");
     std::fs::write(
         &provider,
@@ -19,7 +20,7 @@ fn native_root_foreign_calls_route_without_symbol_name_hints() {
     )
     .unwrap();
     let library = dir.join("libmain-route-probe.dylib");
-    let built = Command::new("clang")
+    let built = toolchain::command("clang")
         .args(["-dynamiclib", "-Wall", "-Wextra", "-Werror"])
         .arg(&provider)
         .arg("-o")
@@ -52,8 +53,7 @@ fn native_root_foreign_calls_route_without_symbol_name_hints() {
 /// the metaprogram, up to a `--`.
 #[test]
 fn run_passes_program_arguments() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-run-args");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("cli-run-args");
     let source = dir.join("args.jai");
     std::fs::write(
         &source,
@@ -123,8 +123,7 @@ fn long_double_extension_on_wide_targets() {
         );
     }
 
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-long-double");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("cli-long-double");
     for (name, text, message) in [
         (
             "no_import",
@@ -223,8 +222,8 @@ fn long_double_extension_on_wide_targets() {
 // rules: plugin.1 plugin.2 plugin.7 plugin.9 plugin.10
 #[test]
 fn plug_hooks_a_plugin_into_check() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-plug");
-    let source = common::write_plugin_program(&dir);
+    let dir = TempDir::new("cli-plug");
+    let source = test_support::plugin::write_program(&dir);
     let check = |extra: &[&str]| {
         Command::new(JAIC)
             .arg("-check")
@@ -254,8 +253,7 @@ fn plug_hooks_a_plugin_into_check() {
 /// `tools/bench`) and one `jaic-alloc: <phase> <blocks> <bytes>` line; without it nothing is printed.
 #[test]
 fn timings_report_phases() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-timings");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("cli-timings");
     let source = dir.join("timed.jai");
     std::fs::write(&source, "main :: () {}\nanswer :: #run 6 * 7;\n").unwrap();
     let stderr = |extra: &[&str]| {
@@ -312,8 +310,7 @@ fn timings_report_phases() {
 /// (`#run`) or the sandbox heap (`-os wasm`), and leaves a program under it alone.
 #[test]
 fn memory_limit_stops_unbounded_allocation() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-memory-limit");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("cli-memory-limit");
     let grow = "grow :: () -> int {\n\
                 \x20   total := 0;\n\
                 \x20   while true { p := alloc(1 << 20); memset(p, 1, 1 << 20); total += 1; }\n\
@@ -407,7 +404,7 @@ get_plugin :: () -> *Metaprogram_Plugin {
 // rules: plugin.3 plugin.4 plugin.5 plugin.6 plugin.8
 #[test]
 fn plug_hook_order_parameters_and_failures() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-plug-order");
+    let dir = TempDir::new("cli-plug-order");
     std::fs::create_dir_all(dir.join("modules/Order_Plugin")).unwrap();
     std::fs::write(dir.join("modules/Order_Plugin/module.jai"), ORDER_PLUGIN).unwrap();
     let good = dir.join("good.jai");
@@ -476,8 +473,7 @@ fn plug_hook_order_parameters_and_failures() {
 // rules: ctexec.6
 #[test]
 fn compile_time_print_precedes_program_output() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-compile-time-print");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("cli-compile-time-print");
     let source = dir.join("order.jai");
     std::fs::write(
         &source,
@@ -509,9 +505,7 @@ fn compile_time_print_precedes_program_output() {
 // rules: ws.15 ws.17
 #[test]
 fn check_writes_no_workspace_output() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-workspace-no-output");
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("cli-workspace-no-output");
     let source = dir.join("meta.jai");
     std::fs::write(&source, WORKSPACE_ASKING_FOR_OUTPUT).unwrap();
     for args in [&["-check"][..], &["-interp", "-no_workspace_output"][..]] {
@@ -566,8 +560,7 @@ const WORKSPACE_ASKING_FOR_OUTPUT: &str = r##"#import "Basic";
 // rules: ws.17
 #[test]
 fn unwritten_workspace_output_names_the_path_and_the_command() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-workspace-direct-run");
-    let _ = std::fs::remove_dir_all(&dir);
+    let dir = TempDir::new("cli-workspace-direct-run");
     std::fs::create_dir_all(dir.join("src")).unwrap();
     std::fs::create_dir_all(dir.join("libs/Greeting")).unwrap();
     std::fs::write(
@@ -622,8 +615,7 @@ fn unwritten_workspace_output_names_the_path_and_the_command() {
 // rules: dce.2 dce.6 dce.8
 #[test]
 fn dead_code_elimination_flag() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-no-dce");
-    let _ = std::fs::remove_dir_all(&dir);
+    let dir = TempDir::new("cli-no-dce");
     std::fs::create_dir_all(dir.join("modules/Stale")).unwrap();
     std::fs::write(
         dir.join("modules/Stale/module.jai"),
@@ -667,8 +659,7 @@ fn dead_code_elimination_flag() {
 // rules: dce.13
 #[test]
 fn unreferenced_struct_constant_names_a_member() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-struct-constant");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("cli-struct-constant");
     let source = dir.join("padded.jai");
     std::fs::write(
         &source,
@@ -699,8 +690,7 @@ fn unreferenced_struct_constant_names_a_member() {
 // rules: bo.1 bo.2 bo.3 bo.4
 #[test]
 fn intercept_flags_and_continuable_reports_are_preserved() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-build-options-reported");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("cli-build-options-reported");
     let source = dir.join("meta.jai");
     std::fs::write(
         &source,
@@ -780,8 +770,7 @@ fn intercept_flags_and_continuable_reports_are_preserved() {
 // rules: bo.5
 #[test]
 fn unsupported_compiler_requests_are_errors() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-compiler-unsupported");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("cli-compiler-unsupported");
     let cases = [
         (
             "raw-llvm-options",
@@ -846,8 +835,7 @@ fn unsupported_compiler_requests_are_errors() {
 /// through its explicit build entry; unsupported old conveniences remain errors.
 #[test]
 fn default_metaprogram_options() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-default-metaprogram");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("cli-default-metaprogram");
     std::fs::write(
         dir.join("meta.jai"),
         "D :: #import \"Default_Metaprogram\";\n#run,stallable D.build();\n",
@@ -936,8 +924,7 @@ fn default_metaprogram_options() {
 /// `-interp` alike.
 #[test]
 fn add_and_run_strings_join_the_program() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-add-run");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("cli-add-run");
     let source = dir.join("added.jai");
     std::fs::write(
         &source,
@@ -990,8 +977,7 @@ fn add_and_run_strings_join_the_program() {
 /// is being done, `-no_color` and `NO_COLOR` agree, and `-interp -- args` still passes arguments.
 #[test]
 fn options_around_the_file_and_chatter_levels() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-chatter");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("cli-chatter");
     let source = dir.join("warns.jai");
     std::fs::write(
         &source,
@@ -1035,7 +1021,7 @@ fn options_around_the_file_and_chatter_levels() {
 #[test]
 fn missing_native_library_in_a_source_checkout_names_just_build() {
     let run = |name: &str, checkout: bool| {
-        let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(name);
+        let dir = TempDir::new(name);
         std::fs::create_dir_all(dir.join("stdlib")).unwrap();
         if checkout {
             std::fs::write(dir.join("Justfile"), "").unwrap();

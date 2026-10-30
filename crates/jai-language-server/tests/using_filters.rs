@@ -1,7 +1,6 @@
 //! Filtered imports keep their alias and explain contextual using modifiers.
 use jai_language_server::{DiagnosticSeverity, Limits, MarkupKind, Session};
-mod common;
-use common::{at, file_uri, position, virtual_session};
+use test_support::lsp::{at, file_uri, position, virtual_session};
 
 const DOG: &str = "foo :: 1;\nbar :: 2;\nbaz :: 3;\nkept :: 4;\n";
 

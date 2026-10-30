@@ -4,8 +4,7 @@
 use jai_language_server::{
     DiagnosticCode, DiagnosticSeverity, Limits, Position, SemanticTokenKind, Session,
 };
-mod common;
-use common::{at_offset, environment, position, uri};
+use test_support::lsp::{at_offset, environment, position, uri};
 
 /// `shout` is marked, `plain` has the same signature but no note. Neither forwards its
 /// parameters, so only the note tells them apart.

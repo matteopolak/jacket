@@ -1,18 +1,13 @@
 //! How `jaic` prints the suggestions of a diagnostic (`jaic::source::Suggestion`): each is a
 //! `help:` line, with the changed code under it in the rich layouts. Diagnostics without a
 //! suggestion keep their plain `help:` lines. See docs/compiler/diagnostics.md.
-use std::path::{Path, PathBuf};
 use std::process::Command;
+use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
-fn scratch(name: &str) -> PathBuf {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR"))
-        .join("diagnostic-suggestions")
-        .join(name);
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    dir
+fn scratch(name: &str) -> TempDir {
+    TempDir::new(name)
 }
 
 /// `jaic -check` on `source`, with the diagnostics layout `layout` (empty for the plain one).

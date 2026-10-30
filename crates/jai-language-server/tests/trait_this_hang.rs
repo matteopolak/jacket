@@ -1,9 +1,8 @@
 //! A trait struct whose field type fails must not make the editor's full check re-resolve that
 //! type without end when a struct uses the trait with `#this`.
-mod common;
-use common::{session, uri};
 use std::sync::mpsc;
 use std::time::Duration;
+use test_support::lsp::{session, uri};
 
 const PROGRAM: &str = r"SomeTrait :: struct(
     type: Type,

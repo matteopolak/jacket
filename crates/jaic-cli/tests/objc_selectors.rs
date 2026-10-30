@@ -14,6 +14,7 @@
 use std::collections::BTreeSet;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use test_support::TempDir;
 
 fn stdlib() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -80,7 +81,7 @@ fn is_appledouble_metadata(path: &Path) -> bool {
 
 #[test]
 fn source_discovery_preserves_source_and_excludes_appledouble_metadata() {
-    let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!(
+    let root = TempDir::new(&format!(
         "objc-source-discovery-{}-{}",
         std::process::id(),
         std::time::SystemTime::now()
@@ -88,7 +89,6 @@ fn source_discovery_preserves_source_and_excludes_appledouble_metadata() {
             .unwrap()
             .as_nanos()
     ));
-    std::fs::create_dir_all(&root).unwrap();
     let source = root.join("module.jai");
     let named_source = root.join("._legitimate.jai");
     let invalid_source = root.join("invalid.jai");
@@ -129,7 +129,7 @@ fn source_discovery_preserves_source_and_excludes_appledouble_metadata() {
 
 #[test]
 fn source_discovery_retains_invalid_sidecar_named_sources() {
-    let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!(
+    let root = TempDir::new(&format!(
         "objc-invalid-discovery-{}-{}",
         std::process::id(),
         std::time::SystemTime::now()
@@ -137,7 +137,6 @@ fn source_discovery_retains_invalid_sidecar_named_sources() {
             .unwrap()
             .as_nanos()
     ));
-    std::fs::create_dir_all(&root).unwrap();
     let invalid = root.join("._invalid.jai");
     let truncated = root.join("._truncated.jai");
     std::fs::write(&invalid, [0xff, 0xfe, 0xfd]).unwrap();
@@ -152,7 +151,7 @@ fn source_discovery_retains_invalid_sidecar_named_sources() {
 
 #[test]
 fn source_discovery_does_not_hide_invalid_metadata_headers_or_plain_sources() {
-    let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!(
+    let root = TempDir::new(&format!(
         "objc-header-discovery-{}-{}",
         std::process::id(),
         std::time::SystemTime::now()
@@ -160,7 +159,6 @@ fn source_discovery_does_not_hide_invalid_metadata_headers_or_plain_sources() {
             .unwrap()
             .as_nanos()
     ));
-    std::fs::create_dir_all(&root).unwrap();
     let mut header = vec![0; 26];
     header[..8].copy_from_slice(&[0, 5, 0x16, 7, 0, 2, 0, 0]);
     header[24..].copy_from_slice(&[0, 1]);
@@ -652,8 +650,7 @@ main :: () {{
 fn selectors_exist_in_the_objective_c_runtime() {
     let uses = scan();
     let program = check_program(&uses.receivers);
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("objc-selectors");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("objc-selectors");
     let source = dir.join("check.jai");
     std::fs::write(&source, program).unwrap();
     if !cfg!(target_os = "macos") {

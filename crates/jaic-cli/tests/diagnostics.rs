@@ -1,6 +1,7 @@
 //! What `jaic` tells the user when something goes wrong: runtime check failures with their
 //! call stack, compile errors with suggestions, and command-line mistakes.
 //! The message style is described in docs/compiler/diagnostics.md.
+use test_support::TempDir;
 #[path = "diagnostics/commands.rs"]
 mod commands;
 #[path = "diagnostics/resolution.rs"]
@@ -8,19 +9,14 @@ mod resolution;
 #[path = "diagnostics/runtime_failures.rs"]
 mod runtime_failures;
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Command, Output};
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
 /// A scratch directory of its own for each test.
-fn scratch(name: &str) -> PathBuf {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR"))
-        .join("diagnostics")
-        .join(name);
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    dir
+fn scratch(name: &str) -> TempDir {
+    TempDir::new(name)
 }
 
 /// Write `source` as `dir/name` and run `jaic` on it with the mode option `mode` (`-check`,

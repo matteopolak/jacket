@@ -1,18 +1,11 @@
 //! `platform_leak`: portable code that imports something an operating system does not build.
-use std::{
-    path::{Path, PathBuf},
-    process::Command,
-};
+use std::{path::Path, process::Command};
+use test_support::TempDir;
 
 /// A project with a small library under `lib/` held to every system, and a standard library
 /// whose `POSIX` module asserts a Unix target.
-fn project(name: &str, settings: &str) -> PathBuf {
-    let root = PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
-        .join("platform-leak")
-        .join(name);
-    if root.exists() {
-        std::fs::remove_dir_all(&root).unwrap();
-    }
+fn project(name: &str, settings: &str) -> TempDir {
+    let root = TempDir::new(name);
     for dir in [
         "stdlib/prelude",
         "stdlib/Runtime_Support",

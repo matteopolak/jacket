@@ -4,10 +4,11 @@ use jailint::{
     driver::{Options, run},
 };
 use std::path::PathBuf;
+use test_support::TempDir;
 
 #[test]
 fn module_context_additions_precede_program_finalization() {
-    let root = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("generator-context-lint-root");
+    let root = TempDir::new("generator-context-lint-root");
     let directory = root.join("Context_Module");
     std::fs::create_dir_all(&directory).unwrap();
     let entry = directory.join("module.jai");
@@ -22,7 +23,7 @@ fn module_context_additions_precede_program_finalization() {
         .to_path_buf();
     let options = Options {
         paths: vec![entry],
-        import_dirs: vec![root],
+        import_dirs: vec![root.to_path_buf()],
         stdlib: workspace.join("stdlib"),
         config: Config::default(),
         jobs: 1,
@@ -39,7 +40,7 @@ fn module_context_additions_precede_program_finalization() {
 
 #[test]
 fn context_fix_preserves_lazy_configured_bootstrap_dependencies() {
-    let root = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("generator-configured-lint-root");
+    let root = TempDir::new("generator-configured-lint-root");
     for directory in [
         "stdlib/prelude",
         "stdlib/Runtime_Support",

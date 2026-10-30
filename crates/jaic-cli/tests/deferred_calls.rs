@@ -1,10 +1,10 @@
 //! Placeholder boundary and controller invariants.
-mod common;
-use common::plugin_registration_fixture as fixture;
 use std::{
     path::PathBuf,
     process::{Command, Output},
 };
+use test_support::plugin::registration_fixture as fixture;
+use test_support::toolchain;
 
 fn run(name: &str, mode: &str) -> Output {
     Command::new(env!("CARGO_BIN_EXE_jaic"))
@@ -133,7 +133,7 @@ fn ordinary_native_callbacks_shared_inside_records_are_ready() {
         "librecord.so"
     });
     std::fs::write(&c, "struct Record { int (*callback)(int); }; int invoke_record(struct Record *r) { return r->callback(1); }\n").unwrap();
-    let output = Command::new("clang")
+    let output = toolchain::command("clang")
         .arg(if cfg!(target_os = "macos") {
             "-dynamiclib"
         } else {

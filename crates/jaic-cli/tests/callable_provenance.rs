@@ -1,7 +1,7 @@
 //! Callable declaration provenance on actual source-built execution backends.
-mod common;
-use common::success_silent as success;
 use std::{path::PathBuf, process::Command};
+use test_support::process::success_silent as success;
+use test_support::{TempDir, toolchain};
 
 fn source() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -20,8 +20,7 @@ fn callable_headers_execute_in_interpreter() {
 #[cfg(feature = "llvm")]
 #[test]
 fn callable_headers_execute_native_at_o0_and_o2() {
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("callable-provenance-native");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("callable-provenance-native");
     for opt in ["-O0", "-O2"] {
         let executable = dir.join(format!("callable-headers{opt}"));
         success(
@@ -37,8 +36,10 @@ fn callable_headers_execute_native_at_o0_and_o2() {
 #[cfg(feature = "llvm")]
 #[test]
 fn callable_headers_execute_as_wasi() {
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("callable-provenance-wasi");
-    std::fs::create_dir_all(&dir).unwrap();
+    if !toolchain::require_all(&["node"]) {
+        return;
+    }
+    let dir = TempDir::new("callable-provenance-wasi");
     let module = dir.join("callable-headers.wasm");
     success(
         Command::new(env!("CARGO_BIN_EXE_jaic"))
@@ -48,5 +49,5 @@ fn callable_headers_execute_as_wasi() {
     );
     let runner = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../tools/browser/run_foundations_wasm.mjs");
-    success(Command::new("node").arg(runner).arg(module));
+    success(toolchain::command("node").arg(runner).arg(module));
 }

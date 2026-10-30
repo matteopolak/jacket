@@ -2,6 +2,7 @@
 use jaic::ide::IdeFacts;
 use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 use std::{path::PathBuf, rc::Rc};
+use test_support::TempDir;
 
 fn compiler(editor: bool) -> Compiler {
     let mut options = Options::host();
@@ -13,19 +14,17 @@ fn compiler(editor: bool) -> Compiler {
     compiler
 }
 
-fn entry_file(name: &str) -> PathBuf {
-    let root =
-        std::env::temp_dir().join(format!("compiler-ide-entry-{name}-{}", std::process::id()));
-    std::fs::create_dir_all(&root).unwrap();
-    let path = root.join("entry space λ.jai");
+/// A scratch directory holding the entry file, and the file's path.
+fn entry_file(name: &str) -> (TempDir, PathBuf) {
+    let root = TempDir::new(&format!("compiler-ide-entry-{name}"));
     // Source preparation does not execute this failing assertion.
-    std::fs::write(&path, "#assert false;").unwrap();
-    path
+    let path = root.write("entry space λ.jai", "#assert false;");
+    (root, path)
 }
 
 #[test]
 fn captured_file_entry_is_canonical_and_reading_it_does_not_settle_sources() {
-    let path = entry_file("passive");
+    let (_dir, path) = entry_file("passive");
     let mut compiler = compiler(true);
     assert!(compiler.ed.selected_entry().is_none());
     compiler
@@ -48,12 +47,11 @@ fn captured_file_entry_is_canonical_and_reading_it_does_not_settle_sources() {
             compiler.src.files.len()
         )
     );
-    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
 #[test]
 fn generated_strings_and_later_added_files_do_not_invent_an_entry() {
-    let path = entry_file("late");
+    let (_dir, path) = entry_file("late");
     let mut compiler = compiler(true);
     compiler
         .prepare_sources(&[ProgramSource::String("value :: 7;".into())])
@@ -63,16 +61,14 @@ fn generated_strings_and_later_added_files_do_not_invent_an_entry() {
         .add_source(&ProgramSource::File(path.clone()))
         .unwrap();
     assert!(compiler.ed.selected_entry().is_none());
-    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }
 
 #[test]
 fn a_non_editor_compile_has_no_captured_ide_entry() {
-    let path = entry_file("plain");
+    let (_dir, path) = entry_file("plain");
     let mut compiler = compiler(false);
     compiler
         .prepare_sources(&[ProgramSource::File(path.clone())])
         .unwrap();
     assert!(compiler.ed.selected_entry().is_none());
-    std::fs::remove_dir_all(path.parent().unwrap()).unwrap();
 }

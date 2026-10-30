@@ -2,8 +2,7 @@
 use jai_language_server::{DocumentUri, JsonSession, Limits, Position};
 use serde_json::{Value, json};
 use std::path::PathBuf;
-mod common;
-use common::{at_offset, environment, open, text_in_range, uri};
+use test_support::lsp::{at_offset, environment, open, text_in_range, uri};
 
 const PROGRAM: &str = "leaf :: (n: int) -> int {
     return n + 1;

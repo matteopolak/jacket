@@ -78,7 +78,7 @@ Debug info keeps lines and scopes for rewritten procedures but drops their varia
 | `-target wasm64-unknown-unknown` | no runtime; the host supplies imports |
 | `-no_debug_info` | module linked with `--strip-debug` |
 | `JAIC_WASM_LD` | path of `wasm-ld`; otherwise `$LLVM_SYS_231_PREFIX/bin`, `llvm-config --bindir`, Homebrew `lld`/`lld@23`, `/usr/lib/llvm-23/bin`, then `PATH` |
-| `JAIC_REQUIRE_WASM_TESTS=1` | wasm tests fail instead of skipping when node or wasm-ld is missing (CI sets it) |
+| `JAIC_REQUIRE_TOOLCHAIN=node,wasm-ld` | wasm tests fail instead of skipping when node or wasm-ld is missing (CI sets it); see [the test harness](../tools/test-harness.md) |
 
 Install LLD with `brew install lld` or Debian's `lld-23`. Runtimes need Memory64: Node.js 24, Chrome/Edge 133, Firefox 134, Deno 2.2, Wasmtime 30; Safari only in Technology Preview 251 and later.
 

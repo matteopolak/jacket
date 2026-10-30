@@ -1,10 +1,9 @@
 //! Editor analyses wait for what a metaprogram or an `#insert` declares later, rather than
 //! reporting the names as unknown, and treat a file as a module only when it declares
 //! `#module_parameters`.
-mod common;
-use common::{file_uri, virtual_session};
 use jai_language_server::{DiagnosticSeverity, Environment, Limits, Session};
 use std::rc::Rc;
+use test_support::lsp::{file_uri, virtual_session};
 
 fn errors(files: &[(&str, &str)], import_paths: &[&str], main: &str, text: &str) -> Vec<String> {
     let mut session = if main.starts_with("/waits/full") {
@@ -18,7 +17,7 @@ fn errors(files: &[(&str, &str)], import_paths: &[&str], main: &str, text: &str)
             },
         )
     } else if files.is_empty() {
-        common::lean_session()
+        test_support::lsp::lean_session()
     } else {
         virtual_session(files, import_paths, None)
     };

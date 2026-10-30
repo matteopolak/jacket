@@ -2,6 +2,7 @@
 use super::{JAIC, abi_layout, build_and_run, exe_path, jaic, repo_root};
 use std::path::Path;
 use std::process::Command;
+use test_support::{TempDir, toolchain};
 
 fn abi_manifest(target: &str) -> abi_layout::Manifest {
     let text =
@@ -29,16 +30,8 @@ fn stdlib_c_abi_matches_host_headers() {
         other => other,
     };
     let target = format!("{os}-{cpu}");
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-abi-layout");
-    std::fs::create_dir_all(&dir).unwrap();
-    let compiler = abi_layout::host_c_compiler();
-    if Command::new(&compiler).arg("--version").output().is_err() {
-        // CI hosts always have one; a missing compiler there must not pass silently.
-        assert!(
-            std::env::var_os("CI").is_none(),
-            "no C compiler `{compiler}`"
-        );
-        eprintln!("skipping: no C compiler `{compiler}`");
+    let dir = TempDir::new("native-abi-layout");
+    if toolchain::host_cc().is_none() {
         return;
     }
     let mismatches = abi_layout::check_host(JAIC, &abi_manifest(&target), &target, &dir)
@@ -63,10 +56,7 @@ fn stdlib_c_abi_matches_cross_target_headers() {
     let mut failures = Vec::new();
     for spec in specs.split(';').filter(|s| !s.trim().is_empty()) {
         let target = abi_layout::cross_target(spec.trim()).unwrap_or_else(|e| panic!("{e}"));
-        let dir = Path::new(env!("CARGO_TARGET_TMPDIR"))
-            .join("native-abi-cross")
-            .join(&target.name);
-        std::fs::create_dir_all(&dir).unwrap();
+        let dir = TempDir::new(&target.name);
         match abi_layout::check_cross(JAIC, &clang, &abi_manifest(&target.name), &target, &dir) {
             Ok(mismatches) => failures.extend(mismatches),
             Err(e) => failures.push(format!("[{}] {e}", target.name)),
@@ -85,8 +75,7 @@ fn stdlib_c_abi_matches_cross_target_headers() {
 #[test]
 fn c_structs_by_value() {
     let fixture = repo_root().join("tests/compiler/native/c-structs-by-value");
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-c-structs");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-c-structs");
     for name in [
         "structs.c",
         "types.jai",
@@ -102,14 +91,12 @@ fn c_structs_by_value() {
     };
     // Windows: a static `libstructs.lib` from Clang for the native build; the interpreter is
     // checked against a DLL below.
-    let mut steps = vec![Command::new(if cfg!(windows) {
-        "clang"
-    } else {
-        "cc"
-    })];
+    let mut steps = vec![Command::new(
+        toolchain::host_cc().expect("a C compiler is installed"),
+    )];
     if cfg!(windows) {
         steps[0].args(["-c", "structs.c", "-o", "structs.o"]);
-        let mut archive = Command::new("llvm-ar");
+        let mut archive = toolchain::command("llvm-ar");
         archive.args(["rcs", "libstructs.lib", "structs.o"]);
         steps.push(archive);
     } else {
@@ -161,7 +148,7 @@ fn c_structs_by_value() {
     // callbacks go through the Microsoft x64 thunks (`callbacks/win64.rs`).
     if cfg!(windows) {
         let source = std::fs::read_to_string(dir.join("structs.c")).unwrap();
-        let mut link = Command::new("clang");
+        let mut link = toolchain::command("clang");
         link.args(["-shared", "structs.c", "-o", "libstructs.dll"]);
         for line in source.lines() {
             let starts_definition = line.chars().next().is_some_and(|c| c.is_ascii_alphabetic());
@@ -194,17 +181,12 @@ fn c_structs_by_value() {
 #[test]
 fn c_call_procedures_stored_in_memory() {
     let fixture = repo_root().join("tests/compiler/native/c-call-stored");
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-c-call-stored");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-c-call-stored");
     for name in ["stored.c", "stored.jai"] {
         std::fs::copy(fixture.join(name), dir.join(name)).unwrap();
     }
     let compile = |args: &[&str]| {
-        let mut cc = Command::new(if cfg!(windows) {
-            "clang"
-        } else {
-            "cc"
-        });
+        let mut cc = Command::new(toolchain::host_cc().expect("a C compiler is installed"));
         cc.args(args).current_dir(&dir);
         let output = cc
             .output()
@@ -261,17 +243,12 @@ fn c_call_procedures_stored_in_memory() {
 #[test]
 fn c_thread_callbacks_block_on_jai_threads() {
     let fixture = repo_root().join("tests/compiler/native/c-callback-threads");
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-c-callback-threads");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-c-callback-threads");
     for name in ["blocking.c", "blocking.jai", "deadlock.jai"] {
         std::fs::copy(fixture.join(name), dir.join(name)).unwrap();
     }
     let compile = |args: &[&str]| {
-        let mut cc = Command::new(if cfg!(windows) {
-            "clang"
-        } else {
-            "cc"
-        });
+        let mut cc = Command::new(toolchain::host_cc().expect("a C compiler is installed"));
         cc.args(args).current_dir(&dir);
         let output = cc
             .output()
@@ -402,8 +379,7 @@ fn c_thread_callbacks_block_on_jai_threads() {
 #[test]
 fn c_callbacks_from_the_top_of_a_stack() {
     let fixture = repo_root().join("tests/compiler/native/c-callback-threads");
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-c-callback-stack-top");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-c-callback-stack-top");
     for name in ["stack_top.c", "stack_top.jai"] {
         std::fs::copy(fixture.join(name), dir.join(name)).unwrap();
     }
@@ -412,7 +388,7 @@ fn c_callbacks_from_the_top_of_a_stack() {
     } else {
         "libstack_top.so"
     };
-    let mut cc = Command::new("cc");
+    let mut cc = toolchain::command("cc");
     cc.args([
         "-shared",
         "-fPIC",
@@ -457,8 +433,7 @@ fn c_callbacks_from_the_top_of_a_stack() {
 #[cfg(windows)]
 #[test]
 fn crash_in_native_code_is_reported_on_windows() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-crash-windows");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-crash-windows");
     let run = |name: &str, source: &str| {
         std::fs::write(dir.join(name), source).unwrap();
         jaic()
@@ -497,8 +472,7 @@ fn sanitized_builds_report_memory_errors() {
     if cfg!(windows) {
         return;
     }
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-sanitizers");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-sanitizers");
     std::fs::write(
         dir.join("errors.jai"),
         "#import \"Basic\";\n\
@@ -581,8 +555,7 @@ fn cpp_non_pod_results_use_the_hidden_pointer() {
     if cfg!(windows) {
         return;
     }
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-cpp-non-pod");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-cpp-non-pod");
     std::fs::write(
         dir.join("counter.cpp"),
         "struct Counter {\n\
@@ -653,8 +626,7 @@ fn cpp_non_pod_callback_results() {
     if cfg!(windows) {
         return;
     }
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-cpp-non-pod-callbacks");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-cpp-non-pod-callbacks");
     std::fs::write(
         dir.join("counter.cpp"),
         "struct Counter {\n\
@@ -762,8 +734,7 @@ fn c_long_double() {
         return;
     }
     let fixture = repo_root().join("tests/compiler/native/c-long-double");
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-c-long-double");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-c-long-double");
     for name in [
         "longdouble.c",
         "longdouble.h",
@@ -780,7 +751,7 @@ fn c_long_double() {
         "liblongdouble.so"
     };
     let compile = |extra: &[&str]| {
-        let mut cc = Command::new("cc");
+        let mut cc = toolchain::command("cc");
         cc.args(extra)
             .args(["-shared", "-fPIC", "-o", lib, "longdouble.c"]);
         if cfg!(target_os = "macos") {
@@ -867,8 +838,7 @@ fn c_long_double() {
 /// C variadic foreign calls in a native build (Apple arm64 passes variadic arguments on the stack).
 #[test]
 fn c_variadic_calls() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-varargs");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-varargs");
     let source = repo_root().join("tests/compiler/regressions/c-variadic-foreign-calls.jai");
     let output = build_and_run(&source, &dir, "varargs").unwrap();
     assert_eq!(
@@ -885,8 +855,7 @@ fn c_variadic_calls() {
 #[cfg(windows)]
 #[test]
 fn dll_crt_static_library_links_on_windows() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-dll-crt");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-dll-crt");
     std::fs::write(
         dir.join("crtuser.c"),
         "#include <stdio.h>\n#include <stdlib.h>\n\
@@ -932,7 +901,7 @@ fn dll_crt_static_library_links_on_windows() {
         build_and_run(&dir.join("main.jai"), &dir, "main").unwrap_or_else(|e| panic!("{e}"));
     assert_eq!(String::from_utf8_lossy(&output.stdout), "lines: 6\n");
     // The DLL CRT, not a static copy: the executable imports the UCRT's stdio set.
-    let imports = Command::new("llvm-readobj")
+    let imports = toolchain::command("llvm-readobj")
         .args(["--coff-imports"])
         .arg(exe_path(&dir, "main"))
         .output()
@@ -945,8 +914,7 @@ fn dll_crt_static_library_links_on_windows() {
 /// headers, `long double` being `double`), so an MSVC build calls the `double` functions.
 #[test]
 fn msvc_long_double_math_calls_the_double_functions() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-msvc-long-double");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-msvc-long-double");
     std::fs::write(
         dir.join("main.jai"),
         "#import \"Extensions/Long_Double\";\n\
@@ -980,8 +948,7 @@ fn msvc_long_double_math_calls_the_double_functions() {
 /// statically, and functions stay plain declarations.
 #[test]
 fn msvc_c_runtime_variables_are_dllimport() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-msvc-crt-data");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-msvc-crt-data");
     std::fs::write(
         dir.join("main.jai"),
         "crt :: #system_library \"ucrt\";\n\

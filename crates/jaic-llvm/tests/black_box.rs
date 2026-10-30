@@ -1,7 +1,9 @@
 //! `black_box` survives optimization: no folding through it, and no deleting what feeds it.
 use jaic::sema::{Compiler, Options, ProgramSource, TargetCpu, TargetOs, VirtualFs};
 use jaic_llvm::{Codegen, OptLevel, emit_object};
-use std::{path::PathBuf, rc::Rc};
+use std::rc::Rc;
+use test_support::TempDir;
+use test_support::ir::body as function;
 
 const SOURCE: &str = r#"
 black_box :: (value: $T) -> T #intrinsic;
@@ -44,10 +46,7 @@ fn optimized_ir(
     cpu: TargetCpu,
     triple: Option<jaic::target::Target>,
 ) -> String {
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
-        .join("black-box")
-        .join(name);
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new(name);
 
     let mut options = Options::host();
     options.os = os;
@@ -75,22 +74,6 @@ fn optimized_ir(
 }
 
 /// The text of the function `name` in an LLVM IR module.
-fn function<'a>(ir: &'a str, name: &str) -> &'a str {
-    let start = ir
-        .lines()
-        .scan(0, |offset, line| {
-            let at = *offset;
-            *offset += line.len() + 1;
-            Some((at, line))
-        })
-        .find(|(_, line)| line.starts_with("define") && line.contains(&format!("@{name}(")))
-        .unwrap_or_else(|| panic!("no function {name} in\n{ir}"))
-        .0;
-    let rest = &ir[start..];
-
-    &rest[..rest.find("\n}").expect("end of function")]
-}
-
 fn check(ir: &str) {
     // Without `black_box` the optimizer knows both answers.
     assert!(function(ir, "known").contains("ret i64 10"), "{ir}");

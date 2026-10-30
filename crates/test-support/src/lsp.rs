@@ -1,28 +1,28 @@
-//! Helpers shared by the language-server integration tests. Each test binary pulls in the
-//! subset it uses, so unused items are expected.
-#![allow(dead_code, reason = "each test binary uses a subset of these helpers")]
+//! Language-server sessions and position helpers shared by the `jai-language-server` tests.
+//!
+//! Needs the `lsp` feature.
 
 use jai_language_server::{DocumentUri, Environment, Limits, Position, Range, Session};
 use jaic::sema::{FileSystem, Options, TargetOs, VirtualFs};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
+use crate::tmp::TempDir;
+
 fn stdlib_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib")
+    crate::repo::root().join("stdlib")
 }
 
 /// The repository's stdlib directory, canonical.
+#[must_use]
 pub fn stdlib() -> PathBuf {
-    stdlib_dir().canonicalize().unwrap()
+    crate::repo::stdlib()
 }
 
 /// The canonical path of `relative` inside the repository.
+#[must_use]
 pub fn repo_path(relative: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .join(relative)
-        .canonicalize()
-        .unwrap()
+    crate::repo::path(relative)
 }
 
 /// An environment that type-checks against the repository's stdlib.
@@ -184,17 +184,13 @@ pub fn open(text: &str) -> Session {
     s
 }
 
-/// Writes `files` under a fresh temporary directory named after `name` and returns its
-/// canonical path.
-pub fn project(name: &str, files: &[(&str, &str)]) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("jailsp-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    for (path, text) in files {
-        let path = dir.join(path);
-        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-        std::fs::write(path, text).unwrap();
-    }
-    dir.canonicalize().unwrap()
+/// Writes `files` under a fresh temporary directory named after `name` and returns it. The
+/// directory is removed when the guard drops.
+#[must_use]
+pub fn project(name: &str, files: &[(&str, &str)]) -> TempDir {
+    let dir = TempDir::new(&format!("jailsp-{name}"));
+    dir.write_all(files);
+    dir
 }
 
 /// A session over [`environment`] rooted at `folder`.

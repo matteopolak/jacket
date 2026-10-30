@@ -2,8 +2,7 @@
 //! (a build runs it for real): its result is unknown, not wrong, so no error is shown and the
 //! code after it keeps its facts.
 use jai_language_server::DiagnosticCode;
-mod common;
-use common::{open_file, project};
+use test_support::lsp::{open_file, project};
 
 const SOURCE: &str = "#import \"Basic\";\n\
     #import \"POSIX\";\n\

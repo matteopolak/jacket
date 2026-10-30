@@ -3,6 +3,7 @@
 //! `llvm-dwarfdump` or `lldb` is not installed.
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use test_support::{TempDir, toolchain};
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
@@ -24,9 +25,20 @@ fn fixture() -> PathBuf {
 /// Build the fixture into `dir/name` with extra arguments; returns the executable.
 /// `collect` sets `JAIC_DSYM`, so a macOS build writes the `.dSYM` bundle even unoptimized
 /// (by default an unoptimized build leaves the debugger to read DWARF from the objects).
-fn build(dir: &str, name: &str, args: &[&str], units: Option<&str>, collect: bool) -> PathBuf {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(dir);
-    std::fs::create_dir_all(&dir).unwrap();
+fn build(
+    dir: &str,
+    name: &str,
+    args: &[&str],
+    units: Option<&str>,
+    collect: bool,
+) -> (TempDir, PathBuf) {
+    let dir = TempDir::new(dir);
+    let exe = build_in(&dir, name, args, units, collect);
+    (dir, exe)
+}
+
+/// `build` into a directory the caller owns, so a test can build into it twice.
+fn build_in(dir: &Path, name: &str, args: &[&str], units: Option<&str>, collect: bool) -> PathBuf {
     let exe = dir.join(name);
     let _ = std::fs::remove_dir_all(dsym(&exe));
     let source = fixture();
@@ -129,7 +141,7 @@ fn dwarf_describes_procedures_variables_and_types() {
         eprintln!("skipped: llvm-dwarfdump not found");
         return;
     };
-    let exe = build("debug-info-dwarf", "prog", &[], None, true);
+    let (_dir, exe) = build("debug-info-dwarf", "prog", &[], None, true);
     let file = debug_file(&exe);
     if let Err(text) = verify(&tool, &file) {
         panic!("llvm-dwarfdump --verify failed:\n{text}");
@@ -170,7 +182,7 @@ fn dwarf_is_valid_with_split_codegen() {
         eprintln!("skipped: llvm-dwarfdump not found");
         return;
     };
-    let exe = build("debug-info-split", "prog", &[], Some("3"), true);
+    let (_dir, exe) = build("debug-info-split", "prog", &[], Some("3"), true);
     let file = debug_file(&exe);
     if let Err(text) = verify(&tool, &file) {
         panic!("llvm-dwarfdump --verify failed:\n{text}");
@@ -181,7 +193,7 @@ fn dwarf_is_valid_with_split_codegen() {
 
 #[test]
 fn no_debug_info_flag_omits_it() {
-    let exe = build("debug-info-off", "prog", &["-no_debug_info"], None, true);
+    let (_dir, exe) = build("debug-info-off", "prog", &["-no_debug_info"], None, true);
     if cfg!(target_os = "macos") {
         assert!(!dsym(&exe).exists());
     } else if let Some(tool) = dwarfdump() {
@@ -198,28 +210,23 @@ fn macos_debug_builds_keep_objects_and_optimized_builds_write_a_dsym() {
     if !cfg!(target_os = "macos") {
         return;
     }
-    let _ =
-        std::fs::remove_dir_all(Path::new(env!("CARGO_TARGET_TMPDIR")).join("debug-info-objects"));
-    let _ = std::fs::remove_dir_all(
-        Path::new(env!("CARGO_TARGET_TMPDIR")).join("debug-info-optimized"),
-    );
-    let exe = build("debug-info-objects", "prog", &[], None, false);
+    let (dir, exe) = build("debug-info-objects", "prog", &[], None, false);
     let kept = exe.parent().unwrap().join(".build");
     assert!(!dsym(&exe).exists());
     assert!(kept.join("prog.o").exists());
     assert!(!exe.with_extension("o").exists());
     let stale = kept.join("prog.o.9.o");
     std::fs::write(&stale, b"").unwrap();
-    build("debug-info-objects", "prog", &[], None, false);
+    build_in(&dir, "prog", &[], None, false);
     assert!(!stale.exists());
-    let exe = build("debug-info-optimized", "prog", &["-O2"], None, false);
+    let (_dir, exe) = build("debug-info-optimized", "prog", &["-O2"], None, false);
     assert!(dsym(&exe).exists());
     assert!(!exe.with_extension("o").exists());
     assert!(!exe.parent().unwrap().join(".build").exists());
 }
 
 fn lldb_available() -> bool {
-    Command::new("lldb")
+    toolchain::command("lldb")
         .arg("--version")
         .output()
         .is_ok_and(|o| o.status.success())
@@ -233,8 +240,8 @@ fn lldb_breakpoints_backtraces_and_variables() {
         eprintln!("skipped: lldb not found");
         return;
     }
-    let exe = build("debug-info-lldb", "prog", &[], None, false);
-    let out = Command::new("lldb")
+    let (_dir, exe) = build("debug-info-lldb", "prog", &[], None, false);
+    let out = toolchain::command("lldb")
         // User startup scripts/formatters are outside the compiler's test inputs.
         .arg("--no-lldbinit")
         .arg("--batch")

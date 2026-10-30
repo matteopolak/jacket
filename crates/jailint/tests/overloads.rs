@@ -1,10 +1,9 @@
 //! Concrete generic instances created during overload probing are not lint roots.
-use std::{path::PathBuf, process::Command};
+use std::process::Command;
+use test_support::TempDir;
 
 fn audit(name: &str, source: &str) -> std::process::Output {
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
-        .join("overloads")
-        .join(name);
+    let dir = TempDir::new(name);
     std::fs::create_dir_all(dir.join("stdlib/prelude")).unwrap();
     std::fs::create_dir_all(dir.join("stdlib/Runtime_Support")).unwrap();
     std::fs::write(dir.join("stdlib/prelude/module.jai"), "").unwrap();

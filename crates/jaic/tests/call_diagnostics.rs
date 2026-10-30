@@ -1,8 +1,7 @@
 //! Ordinary variadic header/call diagnostics; no native execution.
-mod common;
-use common::bare_compiler as compiler;
 use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
+use test_support::compiler::bare_compiler as compiler;
 
 #[path = "support/reflection_bootstrap.rs"]
 mod bootstrap;

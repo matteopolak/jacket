@@ -1,7 +1,5 @@
 //! Actual O0/O2 native and WASM execution of explicit word-sized shift operands.
-#[path = "support/backend_execution.rs"]
-mod backend_execution;
-mod common;
+use test_support::backend as backend_execution;
 
 #[test]
 fn explicit_cast_shift_widths_execute_native_and_wasm() {

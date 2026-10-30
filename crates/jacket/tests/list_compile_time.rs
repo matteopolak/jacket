@@ -2,6 +2,7 @@
 //! on every refresh, and the compiler would otherwise run each body while it builds.
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use test_support::TempDir;
 
 fn target_dir() -> PathBuf {
     Path::new(env!("CARGO_BIN_EXE_jacket"))
@@ -15,9 +16,8 @@ fn stdlib() -> PathBuf {
 }
 
 /// A scratch directory of its own, so tests do not share files.
-fn scratch(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("jacket-list-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+fn scratch(name: &str) -> TempDir {
+    let dir = TempDir::new(&format!("jacket-list-{name}"));
     std::fs::create_dir_all(&dir).expect("create the scratch directory");
     dir
 }
@@ -89,5 +89,4 @@ fn list_does_not_run_compile_time_tests() {
         ],
         "{stderr}"
     );
-    let _ = std::fs::remove_dir_all(&root);
 }

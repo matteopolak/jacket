@@ -1,5 +1,6 @@
 //! Diagnostics for public compiler capabilities this compiler does not provide.
 use std::{path::PathBuf, process::Command};
+use test_support::TempDir;
 
 #[test]
 fn quoted_insert_executes_its_local_assertions_and_rejects_local_duplicates() {
@@ -62,8 +63,7 @@ fn custom_iteration_remove_and_operator_values_preserve_semantics() {
 #[test]
 fn a_qualified_namespace_does_not_import_operators_but_the_type_module_supplies_them() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("operator-namespace-visibility");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("operator-namespace-visibility");
     let source = dir.join("main.jai");
     std::fs::write(
         &source,

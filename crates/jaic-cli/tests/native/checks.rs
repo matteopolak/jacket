@@ -1,14 +1,13 @@
 //! Runtime checks in native builds.
 use super::{build_and_run, exe_path, jaic, repo_root};
-use std::path::Path;
 use std::process::Command;
+use test_support::TempDir;
 
 /// Arithmetic overflow checks in a native build: `Build_Options.arithmetic_overflow_check` on a
 /// workspace that writes an executable, and `#no_aoc` switching them off again.
 #[test]
 fn arithmetic_overflow_checks() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-overflow");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-overflow");
     // (name, mode, body of main, run succeeds, stdout, text stderr must contain)
     let cases: [(&str, &str, &str, bool, &str, &str); 8] = [
         (
@@ -138,8 +137,7 @@ END
 // rules: ptr.18 cast.33 flow.27
 #[test]
 fn failed_checks_say_what_and_where() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-checks");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-checks");
     // (name, body of main, the report's line, its message)
     let cases: [(&str, &str, u32, &str); 6] = [
         (
@@ -266,8 +264,7 @@ END
 /// Everything the lowering skips here still runs (`NullFacts` in `crates/jaic-llvm/src/lower.rs`).
 #[test]
 fn null_checks_skipped_after_a_check_still_catch_changes() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-null-elision");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-null-elision");
     // (name, body of main, the failing line (0: runs to the end), stdout)
     let cases: [(&str, &str, u32, &str); 6] = [
         (

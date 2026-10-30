@@ -1,6 +1,5 @@
 //! Diagnostics for calls whose polymorphic parameters cannot be inferred from the arguments.
-mod common;
-use common::compile_source;
+use test_support::compiler::compile_source;
 
 /// The rendered error of compiling `declarations` followed by `main :: () { body }`.
 fn error_of(declarations: &str, body: &str) -> String {

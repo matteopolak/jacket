@@ -1,8 +1,7 @@
 //! Placeholder binding and deferred-body dependency regressions.
-mod common;
-use common::compile_main_file as compile;
 use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use std::rc::Rc;
+use test_support::compiler::compile_main_file as compile;
 
 
 #[test]

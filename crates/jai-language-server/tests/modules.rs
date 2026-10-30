@@ -2,8 +2,7 @@
 //! the workspace folder, `jacket.toml`'s `import_path`, and the paths a build metaprogram adds.
 use jai_language_server::{DiagnosticCode, Limits, SemanticTokenKind, Session};
 use std::path::Path;
-mod common;
-use common::{modules_environment, position, project, uri_of};
+use test_support::lsp::{modules_environment, position, project, uri_of};
 
 #[test]
 fn qualified_constants_globals_and_primitive_aliases_keep_declaration_targets() {
@@ -19,7 +18,7 @@ fn qualified_constants_globals_and_primitive_aliases_keep_declaration_targets() 
         ],
     );
     let mut s = Session::with_environment(Limits::default(), modules_environment(None));
-    s.set_workspace_folders(vec![dir.clone()]);
+    s.set_workspace_folders(vec![dir.to_path_buf()]);
     let uri = uri_of(&dir.join("main.jai"));
     s.open(uri.clone(), 1, text.into()).unwrap();
     for (member, line) in [("answer", 0), ("enabled", 1), ("Word", 2)] {
@@ -32,7 +31,6 @@ fn qualified_constants_globals_and_primitive_aliases_keep_declaration_targets() 
         );
         assert_eq!(found[0].range.start.line, line, "{member}: {found:?}");
     }
-    std::fs::remove_dir_all(dir).unwrap();
 }
 
 /// The type-checker errors of `file` when the workspace folder is `folder`.
@@ -66,7 +64,6 @@ fn modules_folder_of_an_ancestor_is_searched() {
         ],
     );
     assert_eq!(errors(&dir, "server/app/main.jai"), Vec::<String>::new());
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -83,7 +80,6 @@ fn folders_above_the_workspace_are_not_searched() {
         found.iter().any(|e| e.contains("Tools")),
         "an import outside the workspace stays unresolved: {found:?}"
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -100,7 +96,6 @@ fn jacket_toml_import_path_is_searched() {
         ],
     );
     assert_eq!(errors(&dir, "src/main.jai"), Vec::<String>::new());
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -117,7 +112,6 @@ fn import_path_added_by_a_build_metaprogram_is_searched() {
         ],
     );
     assert_eq!(errors(&dir, "src/main.jai"), Vec::<String>::new());
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -129,7 +123,7 @@ fn constant_struct_literals_navigate_and_highlight_like_variables() {
         &[("main.jai", text), ("modules/Wgpu_Like/module.jai", module)],
     );
     let mut s = Session::with_environment(Limits::default(), modules_environment(None));
-    s.set_workspace_folders(vec![dir.clone()]);
+    s.set_workspace_folders(vec![dir.to_path_buf()]);
     let uri = uri_of(&dir.join("main.jai"));
     s.open(uri.clone(), 1, text.into()).unwrap();
     let tokens = s.semantic_tokens(&uri).unwrap();
@@ -156,7 +150,6 @@ fn constant_struct_literals_navigate_and_highlight_like_variables() {
             assert_eq!(token.map(|t| t.kind), Some(kind), "{name} #{n}");
         }
     }
-    std::fs::remove_dir_all(dir).unwrap();
 }
 
 #[test]
@@ -169,7 +162,6 @@ fn an_opened_module_file_is_checked_as_an_imported_module() {
         errors(&dir, "modules/Config/module.jai"),
         Vec::<String>::new()
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -177,7 +169,7 @@ fn qualified_module_scope_members_complete_and_navigate_without_becoming_imports
     let text = "M :: #import \"Values\";\nmain :: () { x:=M.hidden; }\n";
     let module =
         "#scope_module; hidden :: 42; #scope_file; file_only :: 13; #scope_export; public :: 7;\n";
-    let mut s = common::virtual_session(
+    let mut s = test_support::lsp::virtual_session(
         &[("/app/main.jai", text), ("/lib/Values/module.jai", module)],
         &["/lib"],
         None,

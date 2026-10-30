@@ -1,7 +1,7 @@
 //! Public AST/printer roundtrips through real source-built tools.
-mod common;
-use common::success_with_stdout as success;
 use std::{path::PathBuf, process::Command};
+use test_support::process::success_with_stdout as success;
+use test_support::{TempDir, toolchain};
 
 const CASES: &[(&str, &str)] = &[
     ("../stdlib/Compiler/tests/code-copy-syntax.jai", "ok\n"),
@@ -91,8 +91,7 @@ fn unsupported_edits_are_rejected() {
 #[cfg(feature = "llvm")]
 #[test]
 fn graph_roundtrips_execute_native_at_o0_and_o2() {
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("code-roundtrips");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("code-roundtrips");
     for (i, &(path, expected)) in CASES.iter().enumerate() {
         for opt in ["-O0", "-O2"] {
             let executable = dir.join(format!("case-{i}{opt}"));
@@ -113,8 +112,10 @@ fn graph_roundtrips_execute_native_at_o0_and_o2() {
 #[cfg(feature = "llvm")]
 #[test]
 fn edited_parameter_filters_and_named_literal_targets_execute_as_real_wasi_commands() {
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("code-roundtrip-wasi");
-    std::fs::create_dir_all(&dir).unwrap();
+    if !toolchain::require_all(&["node"]) {
+        return;
+    }
+    let dir = TempDir::new("code-roundtrip-wasi");
     for (i, (path, expected)) in [CASES[1], CASES[3], CASES[4], CASES[5], CASES[6], CASES[9]]
         .into_iter()
         .enumerate()
@@ -132,7 +133,7 @@ fn edited_parameter_filters_and_named_literal_targets_execute_as_real_wasi_comma
         let runner = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../tools/browser/run_foundations_wasm.mjs");
         success(
-            Command::new("node")
+            toolchain::command("node")
                 .arg(runner)
                 .arg(module)
                 .output()

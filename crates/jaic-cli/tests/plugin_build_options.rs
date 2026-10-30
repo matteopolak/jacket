@@ -1,5 +1,7 @@
 //! A `+Plugin` sees the build options the command line asked for, and can still replace them.
-use std::{path::PathBuf, process::Command};
+use std::path::{Path, PathBuf};
+use std::process::Command;
+use test_support::TempDir;
 
 /// Prints the options of the workspace it is attached to, then, with `-optimize`, switches the
 /// optimization on the way a plugin does (`set_optimization`).
@@ -31,8 +33,8 @@ get_plugin :: () -> *Metaprogram_Plugin {
 }
 "#;
 
-fn setup(name: &str) -> (PathBuf, PathBuf) {
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join(name);
+fn setup(name: &str) -> (TempDir, PathBuf) {
+    let dir = TempDir::new(name);
     std::fs::create_dir_all(dir.join("modules/Probe")).unwrap();
     std::fs::write(dir.join("modules/Probe/module.jai"), PROBE).unwrap();
     let source = dir.join("program.jai");
@@ -44,7 +46,7 @@ fn setup(name: &str) -> (PathBuf, PathBuf) {
     (dir, source)
 }
 
-fn probe(source: &PathBuf, flags: &[&str], plugin_options: &[&str]) -> String {
+fn probe(source: &Path, flags: &[&str], plugin_options: &[&str]) -> String {
     let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
         .arg(source)
         .args(["-check", "-quiet"])

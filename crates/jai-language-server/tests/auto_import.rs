@@ -5,8 +5,7 @@ use jai_language_server::{
 };
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
-mod common;
-use common::{end_of, environment_at, modules_environment, project, uri_of};
+use test_support::lsp::{end_of, environment_at, modules_environment, project, uri_of};
 
 fn session() -> Session {
     Session::with_environment(
@@ -62,7 +61,6 @@ fn public_alias_documentation_resolves_loaded_overloads_and_private_qualifiers()
             .new_text
             .contains("#import \"Facade\";")
     );
-    std::fs::remove_dir_all(dir).unwrap();
 }
 
 #[test]
@@ -98,7 +96,6 @@ fn alias_documentation_renames_headers_without_leaking_private_names_or_looping(
         assert!(doc.contains(expected), "{doc}");
         assert!(!doc.contains(forbidden), "{doc}");
     }
-    std::fs::remove_dir_all(dir).unwrap();
 }
 
 #[test]
@@ -131,7 +128,6 @@ fn unloaded_project_file_alias_keeps_its_own_declaration_environment() {
             .new_text
             .contains("#load \"utility.jai\";")
     );
-    std::fs::remove_dir_all(dir).unwrap();
 }
 
 #[test]
@@ -394,7 +390,7 @@ fn user_module_and_project_files() {
         ],
     );
     let mut s = session();
-    s.set_workspace_folders(vec![dir.clone()]);
+    s.set_workspace_folders(vec![dir.to_path_buf()]);
     let main = dir.join("main.jai");
     let text = "#import \"Basic\";\n#load \"loaded.jai\";\n\nmain :: () {\n    greet\n    shout\n    tool_o\n}\n";
     let list = complete_at(&mut s, &main, text, "    greet");
@@ -476,7 +472,7 @@ fn a_workspace_holding_the_stdlib_offers_it_by_module() {
         ],
     );
     let mut s = session_with_stdlib(dir.join("stdlib"));
-    s.set_workspace_folders(vec![dir.clone()]);
+    s.set_workspace_folders(vec![dir.to_path_buf()]);
     let text = "main :: () {\n    prin\n}\n";
     // A loose file of the stdlib imports the module, and loads no stdlib file.
     let list = complete_at(&mut s, &dir.join("stdlib/zz.jai"), text, "prin");
@@ -532,7 +528,6 @@ fn a_workspace_holding_the_stdlib_offers_it_by_module() {
         sources_of(&list, "print_helper"),
         [] as [(std::string::String, std::string::String); 0]
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -579,7 +574,6 @@ fn sessions_share_the_stdlib_index_until_a_buffer_or_the_disk_changes_it() {
     let list = complete_at(&mut after, &main, text, "prin");
     assert_eq!(sources_of(&list, "print_changed_on_disk"), basic());
     assert_eq!(sources_of(&list, "print_scalar"), none);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -600,7 +594,7 @@ fn names_of_files_the_program_already_loads_need_no_edit() {
         ],
     );
     let mut s = session();
-    s.set_workspace_folders(vec![dir.clone()]);
+    s.set_workspace_folders(vec![dir.to_path_buf()]);
     let text = "use_them :: () {\n    from_\n}\n";
     let list = complete_at(&mut s, &dir.join("src/b.jai"), text, "from_");
     let a = list.items.iter().find(|i| i.label == "from_a").unwrap();
@@ -655,7 +649,7 @@ fn jacket_toml_names_the_entry_and_import_path() {
 fn files_changed_on_disk_are_read_again() {
     let dir = project("watch", &[("main.jai", "main :: () {}\n")]);
     let mut s = session();
-    s.set_workspace_folders(vec![dir.clone()]);
+    s.set_workspace_folders(vec![dir.to_path_buf()]);
     let text = "#load \"helpers.jai\";\nmain :: () {\n    fresh_\n}\n";
     let main = dir.join("main.jai");
     let list = complete_at(&mut s, &main, text, "fresh_");
@@ -756,7 +750,7 @@ fn workspace_symbols_include_project_files_that_are_not_open() {
         ],
     );
     let mut s = session();
-    s.set_workspace_folders(vec![dir.clone()]);
+    s.set_workspace_folders(vec![dir.to_path_buf()]);
     s.open(uri_of(&dir.join("main.jai")), 1, main.into())
         .unwrap();
     let names = |s: &Session, query: &str| -> Vec<(String, String, u32)> {
@@ -794,12 +788,11 @@ fn workspace_symbols_include_project_files_that_are_not_open() {
         },
         modules_environment(Some(jaic::sema::TargetOs::Linux)),
     );
-    small.set_workspace_folders(vec![dir.clone()]);
+    small.set_workspace_folders(vec![dir.to_path_buf()]);
     small
         .open(uri_of(&dir.join("main.jai")), 1, main.into())
         .unwrap();
     assert_eq!(small.workspace_symbols("circle").len(), 2);
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[cfg(unix)]
@@ -817,7 +810,7 @@ fn filesystem_aliases_keep_relative_loads_and_refresh_missing_files() {
     let _ = std::fs::remove_file(&alias);
     std::os::unix::fs::symlink(&dir, &alias).unwrap();
     let mut s = session();
-    s.set_workspace_folders(vec![dir.clone()]);
+    s.set_workspace_folders(vec![dir.to_path_buf()]);
     let text =
         "#load \"loaded.jai\"; #load \"new.jai\"; main :: () { loaded_n; extra_n; fresh_n; }";
     let main = alias.join("main.jai");
@@ -855,7 +848,6 @@ fn filesystem_aliases_keep_relative_loads_and_refresh_missing_files() {
     let list = s.completion(&uri, end_of(text, "extra_n")).unwrap();
     assert!(!list.items.iter().any(|i| i.label == "extra_name"));
     std::fs::remove_file(alias).unwrap();
-    std::fs::remove_dir_all(dir).unwrap();
 }
 
 /// A local wins over a module's declaration of the same name, wherever the editor finds the

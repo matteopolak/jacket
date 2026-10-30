@@ -1,6 +1,5 @@
 //! General macro condition binding; no library dependencies.
-mod common;
-use common::compile_source as compile;
+use test_support::compiler::compile_source as compile;
 
 #[path = "support/named_while_source.rs"]
 mod fixture;

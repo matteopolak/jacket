@@ -1,7 +1,7 @@
 //! Fibers, atomics, output paths and optimization flavors.
 use super::{build_and_run, exe_path, jaic, read_ir_parts, repo_root};
-use std::path::Path;
 use std::process::Command;
+use test_support::{TempDir, toolchain};
 
 /// Every struct shape a C function can return (integer, float and mixed eightbytes, homogeneous
 /// float aggregates, arrays, nested structs, unions, memory-class results), returned by C to Jai
@@ -29,8 +29,7 @@ fn c_variadic_aggregates() {
 
 fn run_shapes_fixture(fixture_dir: &str, stem: &str) {
     let fixture = repo_root().join("tests/compiler/native").join(fixture_dir);
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("native-{fixture_dir}"));
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new(&format!("native-{fixture_dir}"));
     // The C file and every program (`<stem>.jai`, or `<stem>_N.jai` when a fixture is split
     // to stay under the interpreter's callback thunk limit).
     let mut programs = Vec::new();
@@ -50,14 +49,12 @@ fn run_shapes_fixture(fixture_dir: &str, stem: &str) {
     } else {
         format!("lib{stem}.so")
     };
-    let mut steps = vec![Command::new(if cfg!(windows) {
-        "clang"
-    } else {
-        "cc"
-    })];
+    let mut steps = vec![Command::new(
+        toolchain::host_cc().expect("a C compiler is installed"),
+    )];
     if cfg!(windows) {
         steps[0].args(["-c", &format!("{stem}.c"), "-o", &format!("{stem}.o")]);
-        let mut archive = Command::new("llvm-ar");
+        let mut archive = toolchain::command("llvm-ar");
         archive.args(["rcs", &format!("lib{stem}.lib"), &format!("{stem}.o")]);
         steps.push(archive);
     } else {
@@ -105,7 +102,7 @@ fn run_shapes_fixture(fixture_dir: &str, stem: &str) {
     // Windows: the interpreter loads a DLL that exports every function the fixture defines.
     if cfg!(windows) {
         let source = std::fs::read_to_string(dir.join(format!("{stem}.c"))).unwrap();
-        let mut link = Command::new("clang");
+        let mut link = toolchain::command("clang");
         link.args([
             "-shared",
             &format!("{stem}.c"),
@@ -143,7 +140,7 @@ fn run_shapes_fixture(fixture_dir: &str, stem: &str) {
             .status()
             .is_ok_and(|s| s.success());
     if rosetta {
-        let output = Command::new("cc")
+        let output = toolchain::command("cc")
             .args(["-arch", "x86_64", "-shared", "-fPIC", "-o", &lib])
             .arg(format!("{stem}.c"))
             .arg(format!("-Wl,-install_name,@rpath/lib{stem}.dylib"))
@@ -185,8 +182,7 @@ fn run_shapes_fixture(fixture_dir: &str, stem: &str) {
 /// and in native code, with and without optimization.
 #[test]
 fn fibers_switch_stacks_like_the_interpreter() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("fibers-switch");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("fibers-switch");
     let source = repo_root().join("tests/compiler/native/fibers/switch.jai");
     let interpreted = jaic()
         .arg("-interp")
@@ -226,8 +222,7 @@ fn fibers_switch_stacks_like_the_interpreter() {
 /// the interpreter reports its own stack limit.
 #[test]
 fn fiber_stack_overflow_names_the_problem() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("fibers-overflow");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("fibers-overflow");
     let source = repo_root().join("tests/compiler/native/fibers/overflow.jai");
     let native = build_and_run(&source, &dir, "overflow").unwrap();
     assert!(!native.status.success());
@@ -254,8 +249,7 @@ fn fiber_stack_overflow_names_the_problem() {
 /// WebAssembly code cannot switch stacks: building says so.
 #[test]
 fn fibers_are_refused_for_wasm() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("fibers-wasm");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("fibers-wasm");
     let source = repo_root().join("tests/compiler/native/fibers/switch.jai");
     let build = jaic()
         .arg(&source)
@@ -276,8 +270,7 @@ fn fibers_are_refused_for_wasm() {
 /// the program gives the same answers as the interpreter.
 #[test]
 fn ordered_atomics_keep_their_memory_orders() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("atomics-ordered");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("atomics-ordered");
     let source = dir.join("ordered.jai");
     std::fs::write(
         &source,
@@ -351,8 +344,7 @@ fn ordered_atomics_keep_their_memory_orders() {
 /// started in, like a name with a directory, and `-output_path` holds either.
 #[test]
 fn exe_and_output_path_place_the_executable() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-exe-output");
-    let _ = std::fs::remove_dir_all(&dir);
+    let dir = TempDir::new("native-exe-output");
     std::fs::create_dir_all(dir.join("src")).unwrap();
     std::fs::write(
         dir.join("src/prog.jai"),
@@ -397,9 +389,7 @@ fn exe_and_output_path_place_the_executable() {
 /// `-no_inline` and `-no_split` leave the program's behavior alone.
 #[test]
 fn optimization_flavors_build_and_run() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-flavors");
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-flavors");
     let source = dir.join("flavors.jai");
     std::fs::write(
         &source,
@@ -445,9 +435,7 @@ fn optimization_flavors_build_and_run() {
 /// without a Check plugin.
 #[test]
 fn add_and_run_strings_in_a_build() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-add-run");
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-add-run");
     let source = dir.join("added.jai");
     std::fs::write(
         &source,
@@ -475,8 +463,7 @@ fn add_and_run_strings_in_a_build() {
 /// A compile-time call into a library that cannot be found names the library, not only the symbol.
 #[test]
 fn compile_time_call_into_a_missing_library_names_it() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-missing-library");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-missing-library");
     let source = dir.join("missing.jai");
     std::fs::write(
         &source,

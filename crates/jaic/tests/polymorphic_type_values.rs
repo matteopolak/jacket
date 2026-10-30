@@ -1,7 +1,6 @@
 //! A `#type` alias written with type variables is a pattern: using it as a value is an error at
 //! compile time, not a failure when the program runs.
-mod common;
-use common::compile_source;
+use test_support::compiler::compile_source;
 
 const ALIAS: &str = "Iter :: #type (value: *$T, n: int);\n";
 

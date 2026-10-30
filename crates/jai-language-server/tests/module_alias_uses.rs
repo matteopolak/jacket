@@ -2,8 +2,7 @@
 //! finish (here the Windows procedures on a host without them): the answer must not depend on
 //! which statements happened to be checked, or the editor's answers change while typing.
 use jai_language_server::{Position, Range, TextChange};
-mod common;
-use common::{file_uri, session};
+use test_support::lsp::{file_uri, session};
 
 fn probe() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");

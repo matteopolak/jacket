@@ -3,6 +3,7 @@
 //! names its own executable, which `jacket` cannot work out from the command line.
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use test_support::TempDir;
 
 fn target_dir() -> PathBuf {
     Path::new(env!("CARGO_BIN_EXE_jacket"))
@@ -16,9 +17,8 @@ fn stdlib() -> PathBuf {
 }
 
 /// A scratch directory of its own, so tests do not share files.
-fn scratch(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("jacket-test-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
+fn scratch(name: &str) -> TempDir {
+    let dir = TempDir::new(&format!("jacket-test-{name}"));
     std::fs::create_dir_all(&dir).expect("create the scratch directory");
     dir
 }
@@ -64,7 +64,6 @@ fn run_starts_the_program_a_new_project_builds() {
         String::from_utf8_lossy(&out.stdout).contains("Hello from demo!"),
         "{out:?}"
     );
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 #[test]
@@ -81,7 +80,6 @@ fn run_starts_a_program_built_from_one_file() {
     let out = jacket(&exe, &root, &["run", "hi.jai", "-exe", "named"]);
     assert!(out.status.success(), "{out:?}");
     assert!(String::from_utf8_lossy(&out.stdout).contains("plain file"));
-    let _ = std::fs::remove_dir_all(&root);
 }
 
 /// `jacket run` names the project in jaic's status lines and adds its own `Running` line.
@@ -117,5 +115,4 @@ fn run_shows_the_build_status() {
         "{stderr}"
     );
     assert!(!stderr.contains('\x1b'), "{stderr}");
-    let _ = std::fs::remove_dir_all(&root);
 }

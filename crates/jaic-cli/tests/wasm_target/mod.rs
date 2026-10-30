@@ -1,63 +1,35 @@
 //! `jaic -os wasm`: wasm64 modules linked by wasm-ld, run under node's WASI
 //! (docs/native/wasm-target.md). Each test is skipped, with a note, when node or wasm-ld is
-//! missing, unless `JAIC_REQUIRE_WASM_TESTS=1` (CI sets it).
-use std::path::{Path, PathBuf};
+//! missing, unless `JAIC_REQUIRE_TOOLCHAIN` names them (CI sets it).
+use std::path::Path;
 use std::process::{Command, Output, Stdio};
+use test_support::{TempDir, toolchain};
 
 use super::{JAIC, corpus_cases, matches, repo_root};
 
-fn required() -> bool {
-    std::env::var("JAIC_REQUIRE_WASM_TESTS").is_ok_and(|v| v == "1")
-}
-
-/// node's major version, when node runs.
-fn node_major() -> Option<u32> {
-    let output = Command::new("node").arg("--version").output().ok()?;
-    let version = String::from_utf8_lossy(&output.stdout);
-    version
-        .trim()
-        .trim_start_matches('v')
-        .split('.')
-        .next()?
-        .parse()
-        .ok()
-}
-
-/// `node` with the flags our modules need: Memory64 is on by default from node 24.
+/// `node` with the flags our modules need (see [`toolchain::node`]); `None`, after a note, when
+/// node is missing.
 fn node() -> Option<Command> {
-    let major = node_major()?;
-    let mut command = Command::new("node");
-    command.arg("--no-warnings");
-    if major < 24 {
-        command.arg("--experimental-wasm-memory64");
-    }
-    Some(command)
+    toolchain::node()
 }
 
-/// A scratch directory for one test, emptied first.
-fn scratch(name: &str) -> PathBuf {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(name);
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    dir
+/// A scratch directory for one test.
+fn scratch(name: &str) -> TempDir {
+    TempDir::new(name)
 }
 
 /// Runs `jaic` with `args` in `dir`. `None` (the test is skipped) when there is no node or the
 /// build cannot find wasm-ld and the tests are not required.
 fn jaic(dir: &Path, args: &[&str]) -> Option<Output> {
-    if node_major().is_none() {
-        assert!(!required(), "node is required for the wasm tests");
-        eprintln!("skipped: node not found");
-        return None;
-    }
+    node()?;
     let output = Command::new(JAIC)
         .args(args)
         .current_dir(dir)
         .output()
         .unwrap();
     let stderr = String::from_utf8_lossy(&output.stderr);
-    if stderr.contains("wasm-ld not found") && !required() {
-        eprintln!("skipped: {stderr}");
+    if stderr.contains("wasm-ld not found") && !toolchain::explicitly_required("wasm-ld") {
+        toolchain::skip(&stderr);
         return None;
     }
     assert!(output.status.success(), "jaic {args:?} failed:\n{stderr}");

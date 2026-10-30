@@ -1,21 +1,18 @@
 //! jailint from the command line: which files it compiles as what, and mistakes on its command
 //! line and in `jacket.toml`, each of which says what is wrong and how to fix it, and exits
 //! with status 2.
-use std::path::PathBuf;
+use std::path::Path;
 use std::process::Command;
+use test_support::TempDir;
 
-fn scratch(name: &str) -> PathBuf {
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
-        .join("jailint-cli")
-        .join(name);
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
+fn scratch(name: &str) -> TempDir {
+    let dir = TempDir::new(name);
     std::fs::write(dir.join("game.jai"), "main :: () {}\n").unwrap();
     dir
 }
 
 /// jailint's stderr and exit status for `args`, run in `dir`.
-fn jailint(dir: &PathBuf, args: &[&str]) -> (String, Option<i32>) {
+fn jailint(dir: &Path, args: &[&str]) -> (String, Option<i32>) {
     let output = Command::new(env!("CARGO_BIN_EXE_jailint"))
         .args(args)
         .current_dir(dir)

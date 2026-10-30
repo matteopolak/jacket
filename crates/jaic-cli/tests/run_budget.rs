@@ -1,11 +1,10 @@
 //! `-run_budget` bounds each top-level compile-time run, so a `#run` that never ends fails the
 //! build instead of hanging it.
-use std::path::Path;
 use std::process::Command;
+use test_support::TempDir;
 
 fn check(name: &str, source: &str, flags: &[&str]) -> (Option<i32>, String) {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("run-budget");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("run-budget");
     let file = dir.join(format!("{name}.jai"));
     std::fs::write(&file, source).unwrap();
     let output = Command::new(env!("CARGO_BIN_EXE_jaic"))

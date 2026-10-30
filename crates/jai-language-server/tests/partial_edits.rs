@@ -1,7 +1,6 @@
 //! Original standalone IDE fixtures, independent of any library implementation.
 use jai_language_server::Position;
-mod common;
-use common::{at, file_uri, lean_session, position, uri, utf16_len};
+use test_support::lsp::{at, file_uri, lean_session, position, uri, utf16_len};
 
 #[test]
 fn custom_for_keyword_uses_selected_overload_without_changing_operand_reference() {

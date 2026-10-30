@@ -1,7 +1,6 @@
 //! Explicit casts: the range check on narrowing and sign-changing casts, constant folding, and the bit-level
 //! reinterpretations, each checked by `#assert` over compile-time execution.
-mod common;
-use common::compile_source;
+use test_support::compiler::compile_source;
 
 /// Compiles `source`, which must hold.
 fn holds(source: &str) {

@@ -10,7 +10,6 @@ use jaic::service::{ServiceConfig, Services};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
-mod common;
 
 fn built_jaic() -> Option<PathBuf> {
     let name = format!("jaic{}", std::env::consts::EXE_SUFFIX);
@@ -49,15 +48,15 @@ fn a_bad_column_is_reported_once_the_describe_answer_arrives() {
         eprintln!("skipped: needs a built jaic and JACKET_DATABASE_URL");
         return;
     };
-    let dir = common::project("pg-typed-editor", &[("main.jai", PROGRAM)]);
-    let mut environment = common::environment();
+    let dir = test_support::lsp::project("pg-typed-editor", &[("main.jai", PROGRAM)]);
+    let mut environment = test_support::lsp::environment();
     environment.services = Some(Rc::new(EditorServices::new(Services::new(ServiceConfig {
         jaic: Some(jaic),
         ..ServiceConfig::default()
     }))));
     let mut s = Session::with_environment(Limits::default(), environment);
-    s.set_workspace_folders(vec![dir.clone()]);
-    let (uri, _) = common::open_from_disk(&mut s, &dir, "main.jai");
+    s.set_workspace_folders(vec![dir.to_path_buf()]);
+    let (uri, _) = test_support::lsp::open_from_disk(&mut s, &dir, "main.jai");
     // The first check does not wait for the database: no errors yet.
     assert_eq!(messages(&s, &uri), Vec::<String>::new());
     // Connecting and describing are separate answers: each arrival checks the file again, which
@@ -80,9 +79,11 @@ fn a_bad_column_is_reported_once_the_describe_answer_arrives() {
         .unwrap();
     assert_eq!(
         (error.range.start, error.range.end),
-        (common::at(PROGRAM, "emal"), common::end_of(PROGRAM, "emal"))
+        (
+            test_support::lsp::at(PROGRAM, "emal"),
+            test_support::lsp::end_of(PROGRAM, "emal")
+        )
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 const ROW_PROGRAM: &str = r#"#import "Basic";
@@ -100,16 +101,16 @@ fn a_typed_row_hovers_as_its_columns() {
         eprintln!("skipped: needs a built jaic and JACKET_DATABASE_URL");
         return;
     };
-    let dir = common::project("pg-typed-hover", &[("main.jai", ROW_PROGRAM)]);
-    let mut environment = common::environment();
+    let dir = test_support::lsp::project("pg-typed-hover", &[("main.jai", ROW_PROGRAM)]);
+    let mut environment = test_support::lsp::environment();
     environment.services = Some(Rc::new(EditorServices::new(Services::new(ServiceConfig {
         jaic: Some(jaic),
         ..ServiceConfig::default()
     }))));
     let mut s = Session::with_environment(Limits::default(), environment);
-    s.set_workspace_folders(vec![dir.clone()]);
-    let (uri, text) = common::open_from_disk(&mut s, &dir, "main.jai");
-    let at = common::at(&text, "row.email");
+    s.set_workspace_folders(vec![dir.to_path_buf()]);
+    let (uri, text) = test_support::lsp::open_from_disk(&mut s, &dir, "main.jai");
+    let at = test_support::lsp::at(&text, "row.email");
     let hover = |s: &Session| {
         s.hover(&uri, at)
             .unwrap()
@@ -128,5 +129,4 @@ fn a_typed_row_hovers_as_its_columns() {
     assert!(shown.contains("row: Row {"), "{shown}");
     assert!(shown.contains("/// users.id"), "{shown}");
     assert!(!shown.contains("Row(\""), "{shown}");
-    let _ = std::fs::remove_dir_all(&dir);
 }

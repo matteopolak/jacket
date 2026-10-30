@@ -2,8 +2,7 @@
 use jai_language_server::{
     CompletionItem, CompletionKind, DocumentUri, Position, Session, TextChange,
 };
-mod common;
-use common::{after, file_uri, position, session, uri};
+use test_support::lsp::{after, file_uri, position, session, uri};
 
 fn labels(session: &Session, at: Position) -> Vec<(String, CompletionKind, String)> {
     session

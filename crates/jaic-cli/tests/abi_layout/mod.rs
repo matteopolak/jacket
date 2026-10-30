@@ -12,6 +12,7 @@ use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::path::Path;
 use std::process::Command;
+use test_support::toolchain;
 
 #[derive(Clone, Copy, PartialEq)]
 enum Kind {
@@ -381,19 +382,6 @@ fn run(command: &mut Command, what: &str) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
-/// The C compiler for host builds: `CC`, else `clang` on Windows (MSVC hosts have no `cc`)
-/// and `cc` elsewhere.
-pub fn host_c_compiler() -> String {
-    std::env::var("CC").unwrap_or_else(|_| {
-        if cfg!(windows) {
-            "clang"
-        } else {
-            "cc"
-        }
-        .into()
-    })
-}
-
 /// Build and run both programs for the host in `dir`; returns the mismatches.
 pub fn check_host(
     jaic: &str,
@@ -406,7 +394,7 @@ pub fn check_host(
     std::fs::write(dir.join("abi.c"), c_source(manifest, &checks, false)).unwrap();
     std::fs::write(dir.join("abi.jai"), jai_source(manifest, &checks, false)).unwrap();
     run(
-        Command::new(host_c_compiler())
+        Command::new(toolchain::host_cc().expect("a C compiler is installed"))
             .arg("abi.c")
             .arg("-o")
             .arg(exe("abi_c"))

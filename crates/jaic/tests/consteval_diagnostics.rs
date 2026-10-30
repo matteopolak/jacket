@@ -1,6 +1,5 @@
 //! Messages of compile-time failures: `#assert` formatting and `#insert` of unsuitable values.
-mod common;
-use common::compile_source;
+use test_support::compiler::compile_source;
 
 fn error_of(source: &str) -> String {
     let (c, result) = compile_source(source);

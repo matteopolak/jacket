@@ -1,6 +1,7 @@
 //! The interpreter's opt-in counters: `-profile`, `-profile_ops`, `-profile_runs` and `-coverage_file`.
 use std::path::Path;
 use std::process::Command;
+use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
@@ -30,7 +31,7 @@ fn counting_program(dir: &Path, name: &str, end: &str) -> std::path::PathBuf {
 /// `-profile_ops` counts the straightened code instead.
 #[test]
 fn profile_reports_counts_per_procedure() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-profile");
+    let dir = TempDir::new("cli-profile");
     let source = counting_program(&dir, "profile.jai", "");
     for flag in ["-profile", "-profile_ops"] {
         let output = Command::new(JAIC)
@@ -76,7 +77,7 @@ fn profile_reports_counts_per_procedure() {
 /// when the program ends the process with `exit`.
 #[test]
 fn coverage_file_lists_the_procedures_that_ran() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-coverage-file");
+    let dir = TempDir::new("cli-coverage-file");
     for (name, end) in [("returns.jai", ""), ("exits.jai", "    exit(0);\n")] {
         let source = counting_program(&dir, name, end);
         let coverage = dir.join(format!("{name}.coverage"));
@@ -111,8 +112,7 @@ fn coverage_file_lists_the_procedures_that_ran() {
 /// share and place, and prints nothing unless asked.
 #[test]
 fn profile_runs_lists_compile_time_runs_by_cost() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-profile-runs");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("cli-profile-runs");
     let source = dir.join("runs.jai");
     std::fs::write(
         &source,
@@ -165,8 +165,7 @@ fn profile_runs_lists_compile_time_runs_by_cost() {
 /// their own mixed in with them.
 #[test]
 fn profile_runs_summarizes_the_standard_librarys_runs() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-profile-runs-library");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("cli-profile-runs-library");
     let source = dir.join("mine.jai");
     std::fs::write(
         &source,

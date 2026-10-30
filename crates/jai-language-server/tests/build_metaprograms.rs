@@ -1,8 +1,7 @@
 //! Files a build metaprogram (`first.jai`) compiles with `compiler_create_workspace` are
 //! checked and answered like any others, with or without a message loop.
 use jai_language_server::{DiagnosticCode, DocumentUri, Session};
-mod common;
-use common::{open_file, position, project, uri_of};
+use test_support::lsp::{open_file, position, project, uri_of};
 
 fn hover_at(s: &Session, uri: &DocumentUri, text: &str, marker: &str) -> String {
     let byte = text.find(marker).unwrap();
@@ -48,7 +47,6 @@ fn assert_real_hover(name: &str, meta: &str) {
     let hover = hover_at(&s, &uri, &text, "answer :=");
     assert!(hover.contains("answer: s64"), "{hover}");
     assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -74,7 +72,6 @@ fn built_file_without_main_reports_no_missing_entry() {
         assert!(errors.is_empty(), "{name}: {errors:?}");
         let hover = hover_at(&s, &uri, &text, "value :=");
         assert!(hover.contains("value: s64"), "{name}: {hover}");
-        let _ = std::fs::remove_dir_all(&dir);
     }
 }
 
@@ -89,7 +86,6 @@ fn control_without_the_metaprogram_reports_the_missing_name() {
         errors.iter().any(|e| e.contains("extra_value")),
         "{errors:?}"
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]

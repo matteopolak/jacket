@@ -1,7 +1,6 @@
 //! Explicit widening and SDK encoding of shifts.
-mod common;
-use common::bare_compiler as compiler;
 use jaic::sema::ProgramSource;
+use test_support::compiler::bare_compiler as compiler;
 
 const SOURCE: &str = include_str!("../../../tests/compiler/semantics/cast-shift-widths.jai");
 

@@ -4,14 +4,10 @@ use jailint::{
     driver::{Options, run},
 };
 use std::{path::PathBuf, process::Command};
+use test_support::TempDir;
 
-fn fixture(name: &str) -> PathBuf {
-    let root = PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
-        .join("library-roots")
-        .join(name);
-    if root.exists() {
-        std::fs::remove_dir_all(&root).unwrap();
-    }
+fn fixture(name: &str) -> TempDir {
+    let root = TempDir::new(name);
     for dir in [
         "stdlib/prelude",
         "stdlib/Runtime_Support",

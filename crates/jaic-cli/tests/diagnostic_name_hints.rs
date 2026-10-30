@@ -2,18 +2,14 @@
 //! lacks, members a type lacks and named arguments no parameter matches. Each help is a
 //! suggestion (`jaic::source::Suggestion`), so the rich layouts show the changed code under it.
 //! See docs/compiler/diagnostics.md.
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::Command;
+use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
-fn scratch(name: &str) -> PathBuf {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR"))
-        .join("diagnostic-name-hints")
-        .join(name);
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    dir
+fn scratch(name: &str) -> TempDir {
+    TempDir::new(name)
 }
 
 /// `jaic -check` on `source` in `dir` (as `t.jai`), with the diagnostics layout `layout` (empty

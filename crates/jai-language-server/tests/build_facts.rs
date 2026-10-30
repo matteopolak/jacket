@@ -2,9 +2,8 @@
 //! text: computed paths, files added in a loop, and import paths built with `tprint` or kept
 //! in a variable are all found, and a metaprogram that fails later leaves the last good facts.
 use jai_language_server::{DiagnosticCode, DocumentUri, Session};
-use std::path::PathBuf;
-mod common;
-use common::{at_offset, open_from_disk as open, project, workspace_session as session};
+use test_support::TempDir;
+use test_support::lsp::{at_offset, open_from_disk as open, project, workspace_session as session};
 
 fn check_errors(s: &Session, uri: &DocumentUri) -> Vec<String> {
     s.diagnostics(uri)
@@ -61,7 +60,6 @@ fn path_built_with_tprint_and_filepath() {
     let mut s = session(&dir);
     let (uri, text) = open(&mut s, &dir, "src/main.jai");
     works(&s, &uri, &text, "tprint");
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -81,7 +79,6 @@ fn path_kept_in_a_variable() {
     let mut s = session(&dir);
     let (uri, text) = open(&mut s, &dir, "src/main.jai");
     works(&s, &uri, &text, "variable");
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -114,7 +111,6 @@ fn files_added_in_a_loop() {
         .unwrap()
         .expect("hover");
     assert!(hover.contents.value.contains("extra_value"), "{hover:?}");
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 const TOOLS_MAIN: &str = "#import \"Basic\";\n#import \"Tools\";\nmain :: () {\n    \
@@ -127,7 +123,7 @@ fn import_path_options(extra: &str) -> String {
     )
 }
 
-fn import_path_project(name: &str, vendor: &str) -> (PathBuf, String) {
+fn import_path_project(name: &str, vendor: &str) -> (TempDir, String) {
     let options = import_path_options(vendor);
     let build = build_with(
         &options,
@@ -178,7 +174,6 @@ fn import_path_added_with_tprint_resolves_imports() {
         .map(|i| i.label)
         .collect();
     assert!(labels.iter().any(|l| l == "Tools"), "{labels:?}");
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -197,7 +192,6 @@ fn import_path_kept_in_a_variable_resolves_imports() {
         found.len() == 1 && found[0].uri.ends_with("/vendor/Tools.jai"),
         "{found:?}"
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -230,14 +224,13 @@ fn a_metaprogram_that_fails_later_keeps_the_last_good_facts() {
         found.len() == 1 && found[0].uri.ends_with("/vendor/Tools.jai"),
         "{found:?}"
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 /// Running the metaprogram must not touch the disk: its writes stay in the sandbox.
 #[test]
 fn the_run_cannot_write_files() {
-    let dir_name = format!("jailsp-facts-sandbox-{}", std::process::id());
-    let target = std::env::temp_dir().join(&dir_name).join("leaked.txt");
+    let leak = TempDir::new("jailsp-facts-sandbox");
+    let target = leak.join("leaked.txt");
     let write = format!(
         "    write_entire_file(\"{}\", \"leak\");\n",
         target.display()
@@ -262,5 +255,4 @@ fn the_run_cannot_write_files() {
     let (uri, text) = open(&mut s, &dir, "src/main.jai");
     works(&s, &uri, &text, "sandbox");
     assert!(!target.exists(), "the metaprogram wrote {target:?}");
-    let _ = std::fs::remove_dir_all(&dir);
 }

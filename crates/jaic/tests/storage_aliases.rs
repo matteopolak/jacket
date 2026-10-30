@@ -118,38 +118,16 @@ fn unavailable_foreign_value_expressions_still_require_runtime_storage() {
 
 #[test]
 fn native_c_storage_reads_and_mutations_share_reexported_declarations() {
-    use std::{path::PathBuf, process::Command};
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let fixture = root.join("tests/compiler/semantics/storage-aliases");
-    let dir = root.join("target/storage-aliases-interpreter");
-    std::fs::create_dir_all(&dir).unwrap();
-    let library = dir.join(format!(
-        "{}alias-provider{}",
-        std::env::consts::DLL_PREFIX,
-        std::env::consts::DLL_SUFFIX
-    ));
-    let mut command = Command::new("clang");
-    command.args(["-std=c11", "-Wall", "-Wextra", "-Werror"]);
-    if cfg!(target_os = "macos") {
-        command.arg("-dynamiclib");
-    } else {
-        command.arg("-shared");
-    }
-    if !cfg!(windows) {
-        command.arg("-fPIC");
-    }
-    let output = command
-        .arg(fixture.join("provider.c"))
-        .arg("-o")
-        .arg(&library)
-        .output()
-        .unwrap();
-    assert!(
-        output.status.success(),
-        "{}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    jaic::interp::add_library_dir(dir);
+    let fixture = test_support::repo::path("tests/compiler/semantics/storage-aliases");
+    let dir = test_support::TempDir::new("storage-aliases-interpreter");
+    let Some(_library) = test_support::toolchain::build_shared_library(
+        &fixture.join("provider.c"),
+        &dir,
+        "alias-provider",
+    ) else {
+        return;
+    };
+    jaic::interp::add_library_dir(dir.to_path_buf());
     let mut fs = VirtualFs::default();
     fs.insert(
         "/lib/Backing/module.jai",

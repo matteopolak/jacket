@@ -1,7 +1,7 @@
 //! Insertion lexical-shape controls.
-mod common;
-use common::success_with_stdout as success;
 use std::{path::PathBuf, process::Command};
+use test_support::process::success_with_stdout as success;
+use test_support::{TempDir, toolchain};
 
 fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
@@ -75,8 +75,7 @@ fn explicit_block_privacy_preinsert_constants_and_duplicates_reject() {
 #[cfg(feature = "llvm")]
 #[test]
 fn insertion_scope_runs_native_o0_o2_and_wasi() {
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("insert-scope");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("insert-scope");
     for &(name, diagnostic) in NEGATIVE {
         for opt in ["-O0", "-O2"] {
             let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
@@ -117,7 +116,7 @@ fn insertion_scope_runs_native_o0_o2_and_wasi() {
                 "",
             );
             success(
-                Command::new("node")
+                toolchain::command("node")
                     .arg(root().join("tools/browser/run_foundations_wasm.mjs"))
                     .arg(module)
                     .output()

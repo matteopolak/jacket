@@ -1,7 +1,6 @@
 //! Inlay hints and hovers inside polymorphic procedures nothing instantiates.
 use jai_language_server::{Position, Range};
-mod common;
-use common::{at_nth, open, uri};
+use test_support::lsp::{at_nth, open, uri};
 
 const PROGRAM: &str = r"find :: (array: [] $T, item: T) -> bool, s64 {
     return false, -1;

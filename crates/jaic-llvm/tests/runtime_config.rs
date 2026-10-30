@@ -1,7 +1,8 @@
 //! Private finalized runtime options execute on both real backend targets.
-#[path = "support/backend_execution.rs"]
-mod backend;
-mod common;
+use jaic::sema::{Compiler, ProgramSource, VirtualFs};
+use std::{process::Command, rc::Rc};
+use test_support::backend::{self, VARIANTS};
+use test_support::{TempDir, process};
 
 #[test]
 fn private_runtime_configuration_executes_native_and_wasm_at_o0_and_o2() {
@@ -15,86 +16,62 @@ fn private_runtime_configuration_executes_native_and_wasm_at_o0_and_o2() {
 }
 
 fn execute_startup_runtime(name: &str, runtime: &str, inspect_storage: bool) {
-    use jaic::sema::{Compiler, Options, ProgramSource, TargetCpu, TargetOs, VirtualFs};
-    use jaic_llvm::{OptLevel, emit_object};
-    use std::{path::PathBuf, process::Command, rc::Rc};
-    fn run(command: &mut Command) {
-        let out = command
-            .output()
-            .expect("required source-built backend tool");
-        assert!(
-            out.status.success(),
-            "{command:?}: {}",
-            String::from_utf8_lossy(&out.stderr)
-        );
+    if !backend::tools_available() {
+        return;
     }
-    for wasm in [false, true] {
-        for (label, opt_level) in [("O0", OptLevel::O0), ("O2", OptLevel::O2)] {
-            let dir =
-                PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join(format!("{name}-{wasm}-{label}"));
-            std::fs::create_dir_all(&dir).unwrap();
-            let mut fs = VirtualFs::default();
-            fs.insert("/lib/Runtime_Support/module.jai", runtime.as_bytes());
-            let mut options = Options::host();
-            options.import_paths = vec!["/lib".into()];
-            options.temporary_storage_size = 1_048_576;
-            if wasm {
-                options.os = TargetOs::Wasm;
-                options.cpu = TargetCpu::Wasm;
-            }
-            let mut c = Compiler::new(options, Rc::new(fs));
-            c.compile_sources(&[ProgramSource::String("main::(){}".into())])
-                .map_err(|e| e.render(&c.src.sources))
-                .unwrap();
-            c.prepare_compiled_output()
-                .map_err(|e| e.render(&c.src.sources))
-                .unwrap();
-            let object = dir.join("program.o");
-            emit_object(
-                &c.out.program,
-                &jaic_llvm::Options {
-                    target: wasm.then(jaic::target::Target::wasm_module),
-                    opt_level,
-                    ..Default::default()
-                },
-                &object,
-            )
+    for variant in VARIANTS {
+        let dir = TempDir::new(&format!("{name}-{}", variant.label()));
+        let mut fs = VirtualFs::default();
+        fs.insert("/lib/Runtime_Support/module.jai", runtime.as_bytes());
+        let mut options = variant.options();
+        options.runtime_support = true;
+        options.import_paths = vec!["/lib".into()];
+        options.temporary_storage_size = 1_048_576;
+        let mut c = Compiler::new(options, Rc::new(fs));
+        c.compile_sources(&[ProgramSource::String("main::(){}".into())])
+            .map_err(|e| e.render(&c.src.sources))
             .unwrap();
-            if wasm {
-                let module = dir.join("program.wasm");
-                let mut linker = Command::new("wasm-ld");
-                if inspect_storage {
-                    linker.arg("--export=storage_address");
-                }
-                run(linker
-                    .args([
-                        "-mwasm64",
-                        "--no-entry",
-                        "--export-memory",
-                        "--export=configuration_startup_check",
-                    ])
-                    .arg(object)
-                    .arg("-o")
-                    .arg(&module));
-                run(Command::new("node").args(["-e",r"const fs=require('fs'); const m=new WebAssembly.Module(fs.readFileSync(process.argv[1])); if(WebAssembly.Module.imports(m).length)throw Error('unexpected imports'); const x=new WebAssembly.Instance(m,{}); const n=x.exports.configuration_startup_check(); if(n!==0)throw Error('wrong configured size '+n); if(x.exports.storage_address){const p=Number(x.exports.storage_address());const b=new Uint8Array(x.exports.memory.buffer);if(b[p]!==19||b[p+1048575]!==73)throw Error('wrong actual storage');}"]).arg(module));
+        c.prepare_compiled_output()
+            .map_err(|e| e.render(&c.src.sources))
+            .unwrap();
+        let object = dir.join("program.o");
+        variant.emit(&c, &object, None);
+        if variant.wasm {
+            let module = dir.join("program.wasm");
+            let exports: &[&str] = if inspect_storage {
+                &["configuration_startup_check", "storage_address"]
             } else {
-                let driver = dir.join("driver.c");
-                std::fs::write(&driver,if inspect_storage {
-                        "extern int configuration_startup_check(void); extern unsigned char *storage_address(void); int main(void){int n=configuration_startup_check(); if(n)return n; unsigned char *p=storage_address();return p[0]!=19||p[1048575]!=73;}\n"
-                    } else {
-                        "extern int configuration_startup_check(void); int main(void){return configuration_startup_check();}\n"
-                    }).unwrap();
-                let executable = dir.join("driver");
-                run(Command::new("clang")
-                    .arg(driver)
-                    .arg(object)
-                    .arg("-o")
-                    .arg(&executable));
-                run(&mut Command::new(executable));
-            }
+                &["configuration_startup_check"]
+            };
+            backend::link_wasm(&[&object], &module, exports);
+            backend::node_eval(STARTUP_HOST, &[&module]);
+        } else {
+            let driver = if inspect_storage {
+                "extern int configuration_startup_check(void); extern unsigned char *storage_address(void); int main(void){int n=configuration_startup_check(); if(n)return n; unsigned char *p=storage_address();return p[0]!=19||p[1048575]!=73;}\n"
+            } else {
+                "extern int configuration_startup_check(void); int main(void){return configuration_startup_check();}\n"
+            };
+            let exe = backend::link_native(&dir, driver, &[&object]);
+            process::run(&mut Command::new(exe));
         }
     }
 }
+
+/// A wasm host without imports: the startup check must return 0, and when the module exports
+/// `storage_address` the configured storage must hold the bytes the check wrote.
+const STARTUP_HOST: &str = r"
+const fs=require('fs');
+const m=new WebAssembly.Module(fs.readFileSync(process.argv[1]));
+if(WebAssembly.Module.imports(m).length)throw Error('unexpected imports');
+const x=new WebAssembly.Instance(m,{});
+const n=x.exports.configuration_startup_check();
+if(n!==0)throw Error('wrong configured size '+n);
+if(x.exports.storage_address){
+  const p=Number(x.exports.storage_address());
+  const b=new Uint8Array(x.exports.memory.buffer);
+  if(b[p]!==19||b[p+1048575]!==73)throw Error('wrong actual storage');
+}
+";
 
 #[test]
 fn retained_startup_configuration_executes_on_native_and_wasm() {

@@ -1,14 +1,13 @@
 //! `jaic -interp` answers the program's executable-path query with the executable `jaic`
 //! would write next to the main file, not `jaic`'s own path.
-use std::path::Path;
 use std::process::Command;
+use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
 #[test]
 fn run_reports_the_built_executable_path() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("run-executable-path");
-    let _ = std::fs::remove_dir_all(&dir);
+    let dir = TempDir::new("run-executable-path");
     std::fs::create_dir_all(dir.join("src")).unwrap();
     std::fs::write(
         dir.join("src/game.jai"),

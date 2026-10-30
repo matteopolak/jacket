@@ -11,6 +11,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
+use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
@@ -120,11 +121,7 @@ fn nested_modules(directory: &Path, prefix: &str, names: &mut Vec<String>) {
 
 #[test]
 fn discovery_covers_nested_public_facades_without_importing_private_fragments() {
-    let root = Path::new(env!("CARGO_TARGET_TMPDIR"))
-        .join(format!("nested-module-discovery-{}", std::process::id()));
-    if root.exists() {
-        std::fs::remove_dir_all(&root).unwrap();
-    }
+    let root = TempDir::new(&format!("nested-module-discovery-{}", std::process::id()));
     for file in [
         "A/module.jai",
         "A/Child/module.jai",
@@ -196,10 +193,7 @@ fn every_stdlib_module_checks_for_every_target() {
     let stdlib_prefix = format!("{}/", stdlib.display());
     let listed = root.join("tests/compiler/stdlib-targets.txt");
     let (skip, expected) = expectations(&std::fs::read_to_string(&listed).unwrap());
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR"))
-        .join(format!("stdlib-targets-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new(&format!("stdlib-targets-{}", std::process::id()));
 
     let (part, parts) = part();
     let jobs: Vec<(String, &str)> = modules(&stdlib, &skip)

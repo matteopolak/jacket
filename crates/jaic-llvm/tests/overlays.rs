@@ -1,9 +1,7 @@
 //! Execute forward aliases through the actual native and WASM64 backends.
-#[path = "support/backend_execution.rs"]
-mod backend;
+use test_support::backend;
 #[path = "../../jaic/tests/support/reflection_bootstrap.rs"]
 mod bootstrap;
-mod common;
 
 #[test]
 fn forward_overlays_execute_native_and_wasm_at_o0_and_o2() {

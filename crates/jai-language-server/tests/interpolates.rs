@@ -1,8 +1,7 @@
 //! `@Interpolates` holes are code: hover, definition, references, rename, completion, semantic
 //! tokens and diagnostics reach the expressions inside the string.
 use jai_language_server::{DiagnosticSeverity, Position, SemanticTokenKind};
-mod common;
-use common::{at_offset, cursor, open, position, session, uri};
+use test_support::lsp::{at_offset, cursor, open, position, session, uri};
 
 /// Line 6 holds the call; `%user_id` (twice: once in code, once inside quotes) and `%user.name`.
 const SOURCE: &str = "#import \"Basic\";\n\

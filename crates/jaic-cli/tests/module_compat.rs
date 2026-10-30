@@ -1,14 +1,12 @@
 //! Programs shaped like the code that modules written for other Jai installs contain: each is
 //! type-checked with `-check`, with and without `-no_dce`, and must be accepted.
-use std::{path::PathBuf, process::Command};
+use std::process::Command;
+use test_support::TempDir;
 
 /// Writes `source` as `<name>/main.jai` under the test scratch folder and runs
 /// `jaic -check <extra args>` on it; returns the failure text, or `None` when it checks.
 fn check_with(name: &str, source: &str, extra: &[&str]) -> Option<String> {
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
-        .join("module-compat")
-        .join(name);
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new(name);
     let file = dir.join("main.jai");
     std::fs::write(&file, source).unwrap();
     let mut command = Command::new(env!("CARGO_BIN_EXE_jaic"));
@@ -24,9 +22,7 @@ fn check_with(name: &str, source: &str, extra: &[&str]) -> Option<String> {
 /// Writes `files` (path, source) under the test scratch folder `name`, with `-I` on that folder,
 /// and asserts that its `main.jai` checks with and without `-no_dce`.
 fn accepted_with_modules(name: &str, files: &[(&str, &str)]) {
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
-        .join("module-compat")
-        .join(name);
+    let dir = TempDir::new(name);
     for (path, source) in files {
         let file = dir.join(path);
         std::fs::create_dir_all(file.parent().unwrap()).unwrap();

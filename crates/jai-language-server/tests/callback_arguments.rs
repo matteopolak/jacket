@@ -1,6 +1,5 @@
 //! Original callable-provenance fixtures. Structural type equality is never a name oracle.
-mod common;
-use common::{cursor, file_uri, lean_session};
+use test_support::lsp::{cursor, file_uri, lean_session};
 
 fn names(source: &str) -> Vec<String> {
     let (text, at) = cursor(source);

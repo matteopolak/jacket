@@ -2,9 +2,8 @@
 use jai_language_server::{DocumentUri, Environment, Limits, Session};
 use jaic::sema::{Options, VirtualFs};
 use serde_json::Value;
-mod common;
-use common::file_uri;
 use std::{cell::Cell, path::PathBuf, rc::Rc};
+use test_support::lsp::file_uri;
 
 fn fixture(configured: bool) -> (Session, DocumentUri, Rc<Cell<usize>>) {
     let mut fs = VirtualFs::default();

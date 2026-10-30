@@ -1,7 +1,7 @@
 //! Byte data in globals (string literals, constant tables, zero-padded arrays and pointers between
 //! them) reaches the executable intact at every optimization level.
-use std::path::Path;
 use std::process::Command;
+use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
@@ -47,9 +47,7 @@ main :: () {
 "#;
 
 fn build_and_run(level: &str) -> String {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("embedded-data-{level}"));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new(&format!("embedded-data-{level}"));
     std::fs::write(dir.join("main.jai"), SOURCE).unwrap();
     let exe = dir.join(if cfg!(windows) {
         "out.exe"

@@ -1,18 +1,14 @@
 //! Compile errors in `Extensions/Http` routes: a route that cannot work is reported where it is
 //! registered, in terms of the route and the handler, not as a failure inside the module.
 //! The behavior is described in docs/extensions/http-server.md.
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Command, Output};
+use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
-fn scratch(name: &str) -> PathBuf {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR"))
-        .join("http_routes")
-        .join(name);
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    dir
+fn scratch(name: &str) -> TempDir {
+    TempDir::new(name)
 }
 
 fn run_on(dir: &Path, command: &str, source: &str) -> Output {

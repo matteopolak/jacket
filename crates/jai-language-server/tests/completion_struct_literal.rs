@@ -1,7 +1,6 @@
 //! Completion offers the fields of the struct a literal builds where a field name goes.
 use jai_language_server::CompletionItem;
-mod common;
-use common::{cursor, file_uri, lean_session};
+use test_support::lsp::{cursor, file_uri, lean_session};
 
 fn items(source: &str) -> Vec<CompletionItem> {
     let (text, at) = cursor(source);
@@ -176,7 +175,7 @@ fn array_add_offers_element_fields() {
     ));
     let mut session = jai_language_server::Session::with_environment(
         jai_language_server::Limits::default(),
-        common::environment(),
+        test_support::lsp::environment(),
     );
     let uri = file_uri("/struct-literal/array-add.jai");
     session.open(uri.clone(), 1, text).unwrap();
@@ -213,7 +212,7 @@ fn inline_and_multiline_wire_sort_keys_survive_edits() {
     use serde_json::json;
     let mut session = jai_language_server::JsonSession::with_environment(
         jai_language_server::Limits::default(),
-        common::lean_environment(),
+        test_support::lsp::lean_environment(),
     );
     session
         .handle_json(&json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}).to_string())

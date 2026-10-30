@@ -1,7 +1,6 @@
 //! A compile is reused while only buffers it never read change.
-mod common;
-use common::{project, session, uri_of};
 use jai_language_server::{DiagnosticSeverity, DocumentUri, Session, TextChange};
+use test_support::lsp::{project, session, uri_of};
 
 fn replace(s: &mut Session, uri: &DocumentUri, version: i32, text: &str) {
     s.change(

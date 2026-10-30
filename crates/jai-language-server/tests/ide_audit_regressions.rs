@@ -1,7 +1,6 @@
 //! Independent qualified/reexport/context cases with exact UTF16 definition oracles.
 use jai_language_server::{DiagnosticSeverity, DocumentUri, Position, Range, Session, TextChange};
-mod common;
-use common::{
+use test_support::lsp::{
     at, file_uri, position, repo_path, session as stdlib_session, uri_of, virtual_session,
 };
 

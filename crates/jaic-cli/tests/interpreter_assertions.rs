@@ -1,10 +1,10 @@
 //! Assertion callbacks must not abort the compiler host; custom callbacks still execute.
-use std::{path::Path, process::Command};
+use std::process::Command;
+use test_support::TempDir;
 
 #[test]
 fn default_assertions_report_faults_and_custom_callbacks_can_continue() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("interpreter-assertion-callbacks");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("interpreter-assertion-callbacks");
     for (name, source, status, diagnostic) in [
         (
             "hidden-frame",
@@ -58,8 +58,7 @@ fn default_assertions_report_faults_and_custom_callbacks_can_continue() {
 /// out-of-line failure path.
 #[test]
 fn a_failed_assertion_names_its_own_line() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("interpreter-assertion-lines");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("interpreter-assertion-lines");
     let source = "\
 #import \"Basic\";
 three :: () -> s32 { return 3; }
@@ -94,8 +93,7 @@ main :: () {
 /// resolver helper does on its semaphore): a native program's exit ends such threads too.
 #[test]
 fn the_run_ends_while_a_thread_waits_in_c() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("interpreter-exit-blocked-thread");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("interpreter-exit-blocked-thread");
     for (name, ending, status) in [
         ("returns", "print(\"done\\n\");", 0),
         ("asserts", "assert(false, \"blocked thread marker\");", 1),

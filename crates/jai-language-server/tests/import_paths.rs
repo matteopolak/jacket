@@ -3,8 +3,7 @@
 //! folders from `jacket.toml`, `Name.jai` against `Name/module.jai`, paths with spaces, and a
 //! missing module's diagnostic and quick fix.
 use jai_language_server::{DiagnosticCode, DiagnosticSeverity, DocumentUri, Limits, Session};
-mod common;
-use common::{at_offset, environment, open_file, project, uri_of};
+use test_support::lsp::{at_offset, environment, open_file, project, uri_of};
 
 fn errors(s: &Session, uri: &DocumentUri) -> Vec<String> {
     s.diagnostics(uri)
@@ -62,7 +61,6 @@ fn imports_and_loads_resolve_through_every_kind_of_path() {
     }
     let links = s.document_links(&uri).unwrap();
     assert_eq!(links.len(), 8, "{links:?}");
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -93,7 +91,6 @@ fn load_with_parent_directory_segments() {
     let (s2, uri2, text2) = open_file(&dir, "shared/util.jai");
     assert_eq!(errors(&s2, &uri2), Vec::<String>::new());
     goes_to(&s2, &uri2, &text2, "\"more.jai\"", "/shared/more.jai");
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -111,7 +108,6 @@ fn hover_on_a_module_string_names_the_file() {
     let hover = s.hover(&uri, at_offset(&text, "\"Single\"", 3)).unwrap();
     let hover = hover.expect("hover on the module string").contents.value;
     assert!(hover.contains("modules/Single.jai"), "{hover}");
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -135,14 +131,13 @@ fn completion_inside_an_import_string_lists_modules() {
     let partial = "#import \"Basic\";\n#import \"Sing\";\nmain :: () { }\n";
     let (s, uri, ()) = {
         let mut s = Session::with_environment(Limits::default(), environment());
-        s.set_workspace_folders(vec![dir.clone()]);
+        s.set_workspace_folders(vec![dir.to_path_buf()]);
         let uri = uri_of(&dir.join("main.jai"));
         s.open(uri.clone(), 2, partial.into()).unwrap();
         (s, uri, ())
     };
     let list = s.completion(&uri, at_offset(partial, "Sing", 4)).unwrap();
     assert!(list.items.iter().any(|i| i.label == "Single"), "{list:?}");
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -172,7 +167,6 @@ fn missing_module_is_reported_with_a_quick_fix_to_the_closest_name() {
     assert_eq!(edits[0].new_text, "Single");
     assert_eq!(edits[0].range.start, at_offset(&text, "Singel", 0));
     assert_eq!(edits[0].range.end, at_offset(&text, "Singel", 6));
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 fn at_range(text: &str, marker: &str) -> jai_language_server::Range {

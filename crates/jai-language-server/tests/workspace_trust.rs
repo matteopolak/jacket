@@ -3,8 +3,7 @@
 //! it and brings its results.
 use jai_language_server::{DiagnosticCode, DocumentUri, JsonSession, Limits, Position, Session};
 use serde_json::{Value, json};
-mod common;
-use common::{at, environment, open_file, project, uri_of};
+use test_support::lsp::{at, environment, open_file, project, uri_of};
 
 fn hover_at(s: &Session, uri: &DocumentUri, text: &str, marker: &str) -> String {
     s.hover(uri, at(text, marker))
@@ -65,7 +64,6 @@ fn untrusted_runs_are_unknown_not_wrong_and_trust_brings_their_results() {
     s.set_trusted(true);
     let answer = hover_at(&s, &uri, &text, "ANSWER + 1");
     assert!(answer.contains("ANSWER :: s64 = 42"), "{answer}");
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -79,7 +77,6 @@ fn untrusted_computed_insert_reports_no_unknown_names() {
     assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
     s.set_trusted(false);
     assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 const SETUP: &str = "    w := compiler_create_workspace(\"app\");\n    \
@@ -107,7 +104,6 @@ fn untrusted_build_metaprogram_does_not_run_and_the_files_it_names_still_check()
     let build_uri = uri_of(&dir.join("first.jai"));
     s.open(build_uri.clone(), 1, build.clone()).unwrap();
     assert_eq!(check_errors(&s, &build_uri), Vec::<String>::new());
-    let _ = std::fs::remove_dir_all(&dir);
 
     // A name only the metaprogram defines is unknown without it, and defined with it.
     let dir = project(
@@ -128,7 +124,6 @@ fn untrusted_build_metaprogram_does_not_run_and_the_files_it_names_still_check()
     );
     s.set_trusted(true);
     assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 fn send(session: &mut JsonSession, message: Value) -> Vec<Value> {
@@ -201,7 +196,6 @@ fn protocol_starts_untrusted_and_switches_at_runtime() {
         );
         assert!(hover_json(&mut s, &uri, at, 3).contains("= 42"), "{switch}");
     }
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]

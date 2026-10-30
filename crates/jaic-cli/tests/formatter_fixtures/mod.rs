@@ -1,5 +1,6 @@
 //! Narrow transport-metadata recognition for repository formatter acceptance.
 use std::path::Path;
+use test_support::TempDir;
 
 pub fn require_readonly_capability(retained: bool, ci: bool) {
     assert!(
@@ -94,8 +95,7 @@ mod tests {
 
     #[test]
     fn ordinary_and_invalid_sidecar_named_source_stays_visible() {
-        let root = std::env::temp_dir().join(format!("formatter-discovery-{}", std::process::id()));
-        std::fs::create_dir(&root).unwrap();
+        let root = TempDir::new("formatter-discovery");
         let ordinary = root.join("ordinary.jai");
         let metadata_path = root.join("._ordinary.jai");
         let named_source = root.join("._legitimate.jai");
@@ -109,6 +109,5 @@ mod tests {
         assert!(!is_appledouble_metadata(&named_source));
         assert!(!is_appledouble_metadata(&invalid));
         assert!(std::fs::read_to_string(invalid).is_err());
-        std::fs::remove_dir_all(root).unwrap();
     }
 }

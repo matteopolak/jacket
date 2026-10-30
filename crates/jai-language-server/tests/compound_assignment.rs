@@ -1,6 +1,5 @@
 //! Hover and definition on the target of a compound assignment (`p.x += 1`).
-mod common;
-use common::{at, open, uri};
+use test_support::lsp::{at, open, uri};
 
 const PROGRAM: &str = "Counter :: struct { next: int; }
 

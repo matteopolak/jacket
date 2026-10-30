@@ -1,16 +1,12 @@
 //! Target-aware source checking; no native SDK is executed.
 use std::{
-    path::{Path, PathBuf},
+    path::Path,
     process::{Command, Output},
 };
+use test_support::TempDir;
 
-fn fixture(name: &str) -> PathBuf {
-    let root = PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
-        .join("targets")
-        .join(name);
-    if root.exists() {
-        std::fs::remove_dir_all(&root).unwrap();
-    }
+fn fixture(name: &str) -> TempDir {
+    let root = TempDir::new(name);
     for dir in ["stdlib/prelude", "stdlib/Runtime_Support", "app"] {
         std::fs::create_dir_all(root.join(dir)).unwrap();
     }

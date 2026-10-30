@@ -12,5 +12,8 @@ find-msvc-tools.workspace = true
 pulldown-cmark.workspace = true
 jacket-config = { path = "../jacket-config" }
 
+[dev-dependencies]
+test-support = { path = "../test-support", features = ["compiler"] }
+
 [lints]
 workspace = true

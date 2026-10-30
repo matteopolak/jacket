@@ -1,7 +1,5 @@
 //! Real native/WASM execution of mixed loaded-file constructor namespaces.
-#[path = "support/backend_execution.rs"]
-mod backend;
-mod common;
+use test_support::backend;
 #[path = "../../jaic/tests/support/namespace_source.rs"]
 mod source;
 

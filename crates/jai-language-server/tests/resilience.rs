@@ -2,8 +2,7 @@
 //! reported to the client once.
 use jai_language_server::{JsonSession, Limits};
 use serde_json::{Value, json};
-mod common;
-use common::{environment, utf16_len};
+use test_support::lsp::{environment, utf16_len};
 
 fn send(session: &mut JsonSession, message: Value) -> Vec<Value> {
     session

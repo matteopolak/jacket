@@ -1,6 +1,7 @@
 //! Programs run on the sandbox host (`-interp -os wasm`), the engine the browser playground uses.
 use std::path::Path;
 use std::process::Command;
+use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
@@ -60,8 +61,7 @@ fn sandbox_has_basic_time_sleep_and_exit() {
 /// A wasm program run with `-interp` (in the sandbox host) gets its arguments too.
 #[test]
 fn wasm_interp_passes_program_arguments() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-wasm-run-args");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("cli-wasm-run-args");
     let source = dir.join("args.jai");
     std::fs::write(
         &source,

@@ -1,10 +1,9 @@
 //! A `for_expansion` whose body expands itself twice must not keep the editor's recovering check
 //! busy once the expansion depth limit is reached: every expansion inside that chain fails at
 //! once instead of doubling the work at each level.
-mod common;
-use common::{session, uri};
 use std::sync::mpsc;
 use std::time::Duration;
+use test_support::lsp::{session, uri};
 
 const PROGRAM: &str = r"Range :: struct { first: int; count: int; }
 Walk :: (range: *Range, body: Code, flags: For_Flags) #expand {

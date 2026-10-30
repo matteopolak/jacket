@@ -3,13 +3,13 @@
 //! and executed as a native program.
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use test_support::TempDir;
 
 mod abi_layout;
 #[path = "native/c_abi.rs"]
 mod c_abi;
 #[path = "native/checks.rs"]
 mod checks;
-mod common;
 #[path = "native/fibers_and_options.rs"]
 mod fibers_and_options;
 mod formatter_fixtures;
@@ -120,8 +120,7 @@ fn build_and_run(source: &Path, dir: &Path, name: &str) -> Result<std::process::
 
 #[test]
 fn corpus_runs_natively_like_the_interpreter() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-corpus");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-corpus");
     let (mut checked, mut failures) = (0, Vec::new());
     for case in corpus_cases() {
         // Only cases the interpreter already passes are meaningful for the backend.
@@ -159,8 +158,7 @@ fn corpus_runs_natively_like_the_interpreter() {
 
 #[test]
 fn hello_world_builds_and_prints() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-hello");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-hello");
     let source = dir.join("hello.jai");
     std::fs::write(
         &source,
@@ -177,8 +175,7 @@ fn hello_world_builds_and_prints() {
 // rules: dce.12
 #[test]
 fn unreferenced_code_is_not_compiled() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-unreferenced");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-unreferenced");
     let source = dir.join("unreferenced.jai");
     std::fs::write(
         &source,
@@ -228,8 +225,7 @@ fn unreferenced_code_is_not_compiled() {
 /// procedure value still does.
 #[test]
 fn quiet_procedures_push_no_stack_trace_node() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-quiet-procedures");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-quiet-procedures");
     let source = dir.join("quiet.jai");
     std::fs::write(
         &source,
@@ -287,8 +283,7 @@ fn quiet_procedures_push_no_stack_trace_node() {
 /// (crashes at -O0 on Linux) and tripped the sanitizers' bounds checks.
 #[test]
 fn small_aggregate_parameters_are_not_spilled_as_pointers() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-small-aggregate-params");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-small-aggregate-params");
     let source = dir.join("small.jai");
     std::fs::write(
         &source,
@@ -354,8 +349,7 @@ fn small_aggregate_parameters_are_not_spilled_as_pointers() {
 /// Compiler and C ABI regressions whose bugs showed only in compiled code.
 #[test]
 fn compiler_and_abi_regressions_run_natively() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-stdlib-tests");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-stdlib-tests");
     for name in [
         "struct-literal-overrides-default-string",
         "array-literal-view-lifetime",
@@ -431,8 +425,7 @@ fn compiler_and_abi_regressions_run_natively() {
 fn stdin_lines_are_read_natively() {
     use std::io::Write;
     use std::process::Stdio;
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-stdin-lines");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-stdin-lines");
     let source = repo_root().join("tests/compiler/native/stdin-lines/main.jai");
     let exe = exe_path(&dir, "stdin-lines");
     let build = jaic()
@@ -469,8 +462,7 @@ fn stdin_lines_are_read_natively() {
 /// hand-computed for AVX-512) must also pass in compiled code on any host, arm64 included.
 #[test]
 fn asm_instructions_run_natively() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-asm-tests");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-asm-tests");
     for name in [
         "asm-scalar-extended",
         "asm-simd-extended",
@@ -509,8 +501,7 @@ fn asm_string_compares_run_interpreted() {
 /// used to link each one as an executable without `main` and fail.
 #[test]
 fn empty_workspaces_write_no_output() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-empty-workspaces");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-empty-workspaces");
     let source = repo_root().join("tests/compiler/regressions/compiler-workspace-ids.jai");
     let output = build_and_run(&source, &dir, "workspace-ids").unwrap();
     assert_eq!(
@@ -540,8 +531,7 @@ fn empty_workspaces_write_no_output() {
 /// a trace through an inline procedure, and the trace an assertion prints.
 #[test]
 fn stack_traces() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-stack-trace");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-stack-trace");
     let ok = repo_root().join("tests/compiler/regressions/stack-trace-line-through-inline.jai");
     let output = build_and_run(&ok, &dir, "through-inline").unwrap();
     assert_eq!(String::from_utf8_lossy(&output.stdout), "ok\n");

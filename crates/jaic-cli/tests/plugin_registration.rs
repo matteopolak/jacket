@@ -1,7 +1,6 @@
 //! Registration primitives; pending servicing stays separate.
-mod common;
-use common::plugin_registration_fixture as fixture;
 use std::process::{Command, Output};
+use test_support::plugin::registration_fixture as fixture;
 
 fn jaic(name: &str, args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_jaic"))

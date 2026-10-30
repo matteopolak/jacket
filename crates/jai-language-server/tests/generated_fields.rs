@@ -1,8 +1,7 @@
 //! Fields of a struct whose body compile-time code writes (`#insert #run`) per parameter value,
 //! the shape a typed query row takes: one type per query text, its fields named by the query.
 use jai_language_server::{DocumentUri, Position, Session};
-mod common;
-use common::{at_offset, open_file, project};
+use test_support::lsp::{at_offset, open_file, project};
 
 const PROGRAM: &str = r#"#import "Basic";
 fields_for :: (sql: string) -> string {

@@ -1,8 +1,8 @@
 //! Doc comments: hover, completion, signature help and intra-doc links, against the
 //! repository's stdlib.
 use jai_language_server::{CompletionKind, MarkupKind, Position, Session, TextChange};
-mod common;
-use common::{after, file_uri, session, uri};
+use test_support::TempDir;
+use test_support::lsp::{after, file_uri, session, uri};
 
 fn markdown_hover(session: &Session, at: Position) -> String {
     session
@@ -513,7 +513,7 @@ fn struct_constant_links_are_document_links_hovers_and_tokens() {
 
 #[test]
 fn module_qualified_struct_constants_resolve() {
-    let dir = std::env::temp_dir().join(format!("jai-doc-links-{}", std::process::id()));
+    let dir = TempDir::new("jai-doc-links");
     std::fs::create_dir_all(&dir).unwrap();
     let module = dir.join("shapes.jai");
     std::fs::write(
@@ -541,7 +541,6 @@ fn module_qualified_struct_constants_resolve() {
             .unwrap(),
         [] as [jai_language_server::Location; 0]
     );
-    std::fs::remove_dir_all(&dir).ok();
 }
 
 #[test]

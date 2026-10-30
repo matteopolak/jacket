@@ -1,6 +1,4 @@
 //! Required Windows ABI unwind tables survive optimization and PE linking.
-mod common;
-use common::checked;
 use jaic::sema::{Compiler, Options, ProgramSource, TargetCpu, TargetOs, VirtualFs};
 use jaic_llvm::{Codegen, OptLevel, emit_object};
 use std::{
@@ -8,6 +6,8 @@ use std::{
     process::Command,
     rc::Rc,
 };
+use test_support::process::checked;
+use test_support::{TempDir, toolchain};
 
 const SOURCE: &str = include_str!("../../../tests/compiler/semantics/windows-unwind.jai");
 
@@ -90,16 +90,22 @@ fn check_linked_entries(text: &str) {
 
 #[test]
 fn windows_nonleaf_frames_have_unwind_entries_at_o0_and_o2() {
+    if !toolchain::require_all(&["llvm-readobj", "llvm-objdump", "lld-link"]) {
+        return;
+    }
     for (triple, cpu, machine) in [
         ("x86_64-pc-windows-msvc", TargetCpu::X64, "X64"),
         ("x86_64-w64-windows-gnu", TargetCpu::X64, "X64"),
         ("aarch64-pc-windows-msvc", TargetCpu::Arm64, "ARM64"),
     ] {
         for level in [OptLevel::O0, OptLevel::O2] {
-            let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
-                .join(format!("windows-unwind/{triple}-{level:?}"));
+            let dir = TempDir::new(&format!("windows-unwind/{triple}-{level:?}"));
             let object = emit(triple, cpu, level, &dir);
-            let unwind = checked(Command::new("llvm-readobj").arg("--unwind").arg(&object));
+            let unwind = checked(
+                toolchain::command("llvm-readobj")
+                    .arg("--unwind")
+                    .arg(&object),
+            );
             std::fs::write(dir.join("object-unwind.txt"), &unwind).unwrap();
             for name in ["unwind_leaf", "unwind_middle", "unwind_entry"] {
                 assert!(
@@ -107,11 +113,11 @@ fn windows_nonleaf_frames_have_unwind_entries_at_o0_and_o2() {
                     "{triple} {level:?}: missing {name}: {unwind}"
                 );
             }
-            let disassembly = checked(Command::new("llvm-objdump").arg("-d").arg(&object));
+            let disassembly = checked(toolchain::command("llvm-objdump").arg("-d").arg(&object));
             std::fs::write(dir.join("disassembly.txt"), disassembly).unwrap();
             let pe = dir.join("frames.exe");
             checked(
-                Command::new("lld-link")
+                toolchain::command("lld-link")
                     .arg("/entry:unwind_entry")
                     .args(["/subsystem:console", "/nodefaultlib"])
                     .arg(format!("/machine:{machine}"))
@@ -119,7 +125,7 @@ fn windows_nonleaf_frames_have_unwind_entries_at_o0_and_o2() {
                     .arg(&object),
             );
             let linked = checked(
-                Command::new("llvm-readobj")
+                toolchain::command("llvm-readobj")
                     .args(["--unwind", "--coff-exports", "--file-headers"])
                     .arg(&pe),
             );
@@ -144,13 +150,7 @@ fn windows_nonleaf_frames_have_unwind_entries_at_o0_and_o2() {
 #[test]
 fn sdk_backtrace_driver_links_and_executes_on_native_windows() {
     // Off Windows the driver is linked with MinGW-w64 (and run, where the host can).
-    if !cfg!(windows)
-        && Command::new("x86_64-w64-mingw32-gcc")
-            .arg("--version")
-            .output()
-            .is_err()
-    {
-        eprintln!("skipped: x86_64-w64-mingw32-gcc is not installed");
+    if !cfg!(windows) && toolchain::mingw_gcc().is_none() {
         return;
     }
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
@@ -163,7 +163,7 @@ fn sdk_backtrace_driver_links_and_executes_on_native_windows() {
         ("x86_64-w64-windows-gnu", TargetCpu::X64)
     };
     for level in [OptLevel::O0, OptLevel::O2] {
-        let dir = root.join(format!("target/windows-unwind/sdk-{triple}-{level:?}"));
+        let dir = TempDir::new(&format!("windows-unwind-sdk-{triple}-{level:?}"));
         let object = emit(triple, cpu, level, &dir);
         let exe = dir.join("backtrace.exe");
         checked(

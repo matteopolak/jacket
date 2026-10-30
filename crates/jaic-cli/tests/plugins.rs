@@ -1,11 +1,12 @@
 //! `+Plugin` arguments drive the Compiler hooks of a child workspace.
-use std::{path::PathBuf, process::Command};
+use std::process::Command;
+use test_support::TempDir;
 
 const PLUGIN: &str = include_str!("../../../tests/compiler/semantics/plugin-lifecycle.jai");
 
 #[test]
 fn plugin_hooks_build_and_execute_a_real_native_child_workspace() {
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("cli-plugins");
+    let dir = TempDir::new("cli-plugins");
     std::fs::create_dir_all(dir.join("modules/Lifecycle")).unwrap();
     std::fs::write(dir.join("modules/Lifecycle/module.jai"), PLUGIN).unwrap();
     let source = dir.join("program.jai");
@@ -48,8 +49,7 @@ fn plugin_hooks_build_and_execute_a_real_native_child_workspace() {
 
 #[test]
 fn runtime_storage_options_distinguish_metadata_from_target_initialization() {
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("cli-runtime-settings");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("cli-runtime-settings");
     let source = dir.join("settings.jai");
     for no_output in [false, true] {
         let output_setting = if no_output {
@@ -91,7 +91,7 @@ fn runtime_storage_options_distinguish_metadata_from_target_initialization() {
 
 #[test]
 fn module_scope_factories_support_default_and_explicit_parameters() {
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("cli-scoped-plugins");
+    let dir = TempDir::new("cli-scoped-plugins");
     std::fs::create_dir_all(dir.join("modules/Scoped")).unwrap();
     let plugin=format!("#module_parameters (XYZ := true);\n#scope_module;\n{}\n#scope_export;\n",PLUGIN.replace("C.add_build_string(\"generated :: 42;\", p.workspace);","if XYZ C.add_build_string(\"generated :: 42;\", p.workspace); else C.add_build_string(\"generated :: 43;\", p.workspace);"));
     std::fs::write(dir.join("modules/Scoped/module.jai"), plugin).unwrap();

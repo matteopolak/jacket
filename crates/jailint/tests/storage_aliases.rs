@@ -1,12 +1,10 @@
 //! Strict source checking of documented storage reexports without a foreign runtime.
-use std::{path::PathBuf, process::Command};
+use std::process::Command;
+use test_support::TempDir;
 
 #[test]
 fn foreign_storage_facades_lint_all_bodies_for_each_target_without_loading_data() {
-    let root = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("storage-alias-lint");
-    if root.exists() {
-        std::fs::remove_dir_all(&root).unwrap();
-    }
+    let root = TempDir::new("storage-alias-lint");
     for dir in [
         "stdlib/prelude",
         "stdlib/Runtime_Support",

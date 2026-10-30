@@ -1,7 +1,6 @@
 //! Hovering a field of a generic struct nothing instantiates still shows the field, not the
 //! note about syntax-only declarations.
-mod common;
-use common::{at, open, uri};
+use test_support::lsp::{at, open, uri};
 
 const PROGRAM: &str = "Box :: struct(T: Type) {
     count: int;

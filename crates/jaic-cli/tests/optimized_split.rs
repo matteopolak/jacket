@@ -2,8 +2,8 @@
 //! behaves like the same program built whole: calls and function pointers across modules, small
 //! callees copied for inlining, globals read and written from different modules, and read-only
 //! data and zero-filled defaults used from several places.
-use std::path::Path;
 use std::process::Command;
+use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
@@ -75,10 +75,7 @@ main :: () {
 const EXPECTED: &str = "apply 70\ncounter 14\nhistory 34379605\nprimes 129\nbig 5\nname two\n";
 
 fn build_and_run(units: &str, level: &str) -> String {
-    let dir =
-        Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("optimized-split-{units}{level}"));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new(&format!("optimized-split-{units}{level}"));
     std::fs::write(dir.join("main.jai"), SOURCE).unwrap();
     let exe = dir.join(if cfg!(windows) {
         "out.exe"
@@ -135,9 +132,7 @@ fn driver_source() -> String {
 
 #[test]
 fn a_function_that_would_absorb_its_callees_keeps_the_largest_out() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("optimized-inline-cap");
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("optimized-inline-cap");
     std::fs::write(dir.join("main.jai"), driver_source()).unwrap();
     let build = |level: &str, exe: &str, ir: Option<&str>| {
         let mut cmd = jaic();

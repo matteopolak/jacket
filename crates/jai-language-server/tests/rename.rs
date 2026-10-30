@@ -3,9 +3,8 @@
 //! Cases that differ only in the program, the name under the cursor and the number of edits are
 //! rows of [`EDIT_COUNTS`]; those that check where the edits land are rows of [`EDIT_LINES`].
 //! The rest need more than one step and stay as tests of their own.
-mod common;
-use common::{at_nth, open, session, uri};
 use jai_language_server::Session;
+use test_support::lsp::{at_nth, open, session, uri};
 
 /// The text edits of renaming the name at `needle` (cursor `offset` bytes in) to `to`.
 fn rename(

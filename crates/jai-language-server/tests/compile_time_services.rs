@@ -6,7 +6,6 @@ use jaic::service::{ServiceConfig, Services};
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
-mod common;
 
 /// The `jaic` the workspace build made in the target folder this test runs from, if any.
 fn built_jaic() -> Option<PathBuf> {
@@ -19,7 +18,7 @@ fn built_jaic() -> Option<PathBuf> {
 }
 
 fn session_with_services(jaic: PathBuf, folder: &std::path::Path) -> Session {
-    let mut environment = common::environment();
+    let mut environment = test_support::lsp::environment();
     environment.services = Some(Rc::new(EditorServices::new(Services::new(ServiceConfig {
         jaic: Some(jaic),
         ..ServiceConfig::default()
@@ -51,7 +50,7 @@ main :: () {}
 "#;
 
 fn program(request: &str) -> String {
-    let upper = common::repo_path("stdlib/Extensions/Service/tests/services/upper.jai");
+    let upper = test_support::lsp::repo_path("stdlib/Extensions/Service/tests/services/upper.jai");
     PROGRAM
         .replace("{UPPER}", &jacket_config::slashed(&upper))
         .replace("{REQUEST}", request)
@@ -63,9 +62,10 @@ fn a_pending_answer_is_unknown_until_it_arrives() {
         eprintln!("skipped: no jaic built next to the tests");
         return;
     };
-    let dir = common::project("services-pending", &[("main.jai", &program("slow:late"))]);
+    let dir =
+        test_support::lsp::project("services-pending", &[("main.jai", &program("slow:late"))]);
     let mut s = session_with_services(jaic, &dir);
-    let (uri, _) = common::open_from_disk(&mut s, &dir, "main.jai");
+    let (uri, _) = test_support::lsp::open_from_disk(&mut s, &dir, "main.jai");
     // The service takes 300 ms (and starting it longer): the first check does not wait.
     assert_eq!(messages(&s, &uri), Vec::<String>::new());
     assert!(s.services_waiting());
@@ -80,7 +80,6 @@ fn a_pending_answer_is_unknown_until_it_arrives() {
         after.iter().any(|m| m.contains("the service answered")),
         "{after:?}"
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -89,19 +88,18 @@ fn an_unavailable_service_reports_nothing_in_the_editor() {
         eprintln!("skipped: no jaic built next to the tests");
         return;
     };
-    let dir = common::project(
+    let dir = test_support::lsp::project(
         "services-gone",
         &[("main.jai", &program("gone:no database"))],
     );
     let mut s = session_with_services(jaic, &dir);
-    let (uri, _) = common::open_from_disk(&mut s, &dir, "main.jai");
+    let (uri, _) = test_support::lsp::open_from_disk(&mut s, &dir, "main.jai");
     let deadline = Instant::now() + Duration::from_secs(60);
     while s.services_waiting() || s.take_service_arrivals() {
         assert!(Instant::now() < deadline, "the answer never arrived");
         std::thread::sleep(Duration::from_millis(20));
     }
     assert_eq!(messages(&s, &uri), Vec::<String>::new());
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
@@ -110,13 +108,12 @@ fn an_untrusted_workspace_never_asks() {
         eprintln!("skipped: no jaic built next to the tests");
         return;
     };
-    let dir = common::project("services-untrusted", &[("main.jai", &program("late"))]);
+    let dir = test_support::lsp::project("services-untrusted", &[("main.jai", &program("late"))]);
     let mut s = session_with_services(jaic, &dir);
     s.set_trusted(false);
-    let (uri, _) = common::open_from_disk(&mut s, &dir, "main.jai");
+    let (uri, _) = test_support::lsp::open_from_disk(&mut s, &dir, "main.jai");
     assert_eq!(messages(&s, &uri), Vec::<String>::new());
     assert!(!s.services_waiting());
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 const READS_PATH: &str = r#"#import "Basic";
@@ -134,9 +131,9 @@ main :: () {}
 
 #[test]
 fn trusted_compile_time_code_reads_the_real_environment() {
-    let dir = common::project("services-getenv", &[("main.jai", READS_PATH)]);
-    let mut s = common::workspace_session(&dir);
-    let (uri, _) = common::open_from_disk(&mut s, &dir, "main.jai");
+    let dir = test_support::lsp::project("services-getenv", &[("main.jai", READS_PATH)]);
+    let mut s = test_support::lsp::workspace_session(&dir);
+    let (uri, _) = test_support::lsp::open_from_disk(&mut s, &dir, "main.jai");
     let found = messages(&s, &uri);
     assert!(
         found
@@ -144,5 +141,4 @@ fn trusted_compile_time_code_reads_the_real_environment() {
             .any(|m| m.contains("the environment is visible")),
         "{found:?}"
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }

@@ -1,8 +1,7 @@
 //! Minimized crashes found by the `lsp` and `lsp_edits` fuzz targets (fuzz/). Each request must
 //! answer or fail with an error, never panic.
 use jai_language_server::{DocumentUri, Limits, Position, Session};
-mod common;
-use common::{file_uri, session};
+use test_support::lsp::{file_uri, session};
 
 fn open(text: &str) -> (Session, DocumentUri) {
     open_in(Session::new(Limits::default()), text)

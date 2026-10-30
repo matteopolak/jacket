@@ -3,9 +3,8 @@
 //! hover reads its docs from the inserted text, diagnostics cut the argument short and an inlay
 //! hint names the polymorphic struct alone.
 use jai_language_server::DiagnosticCode;
-mod common;
-use common::{at, open, position, uri};
 use jai_language_server::Range;
+use test_support::lsp::{at, open, position, uri};
 
 const PROGRAM: &str = "Row :: struct ($shape: string) { #insert shape; }
 

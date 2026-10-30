@@ -1,20 +1,22 @@
-mod common;
 #[path = "../../jaic/tests/support/register_source.rs"]
 mod registers_source;
 
 mod cpuid {
     //! Real x64 instruction execution, compared to independent native C SDK queries.
-    use crate::common::checked;
     use jaic::sema::{Compiler, Options, ProgramSource, TargetCpu, VirtualFs};
     use jaic_llvm::{OptLevel, emit_object};
-    use std::{path::PathBuf, process::Command, rc::Rc};
+    use std::{process::Command, rc::Rc};
+    use test_support::{TempDir, process::checked, toolchain};
 
     // macOS ARM64 supports executing independently built x64 programs under translation.
     // Other ARM64 hosts receive metadata/target-diagnostic coverage below, not x64 execution claims.
     #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
     #[test]
     fn cpuid_native_outputs_match_c_at_o0_and_o2() {
-        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        if !toolchain::require_all(&["clang"]) {
+            return;
+        }
+        let root = test_support::repo::root();
         let mut options = Options::host();
         options.cpu = TargetCpu::X64;
         options.runtime_support = false;
@@ -32,8 +34,7 @@ mod cpuid {
             "x86_64-unknown-linux-gnu"
         };
         for level in [OptLevel::O0, OptLevel::O2] {
-            let dir = root.join(format!("target/cpuid/{level:?}"));
-            std::fs::create_dir_all(&dir).unwrap();
+            let dir = TempDir::new(&format!("cpuid-{level:?}"));
             let object = dir.join("cpuid.o");
             emit_object(
                 &c.out.program,
@@ -46,7 +47,7 @@ mod cpuid {
             )
             .unwrap();
             let exe = dir.join(format!("cpuid{}", std::env::consts::EXE_SUFFIX));
-            let mut driver = Command::new("clang");
+            let mut driver = toolchain::command("clang");
             if cfg!(target_os = "macos") {
                 driver.args(["-arch", "x86_64"]);
             }
@@ -68,7 +69,9 @@ mod cpuid {
 
     #[test]
     fn cpuid_emits_real_instruction_for_x64_abis_and_rejects_other_architectures() {
-        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        if !toolchain::require_all(&["llvm-objdump", "llvm-readobj"]) {
+            return;
+        }
         let mut options = Options::host();
         options.cpu = TargetCpu::X64;
         options.runtime_support = false;
@@ -77,8 +80,7 @@ mod cpuid {
             include_str!("../../../tests/compiler/semantics/cpuid.jai").into(),
         )])
         .unwrap();
-        let dir = root.join("target/cpuid/metadata");
-        std::fs::create_dir_all(&dir).unwrap();
+        let dir = TempDir::new("cpuid-metadata");
         for target in [
             "x86_64-apple-darwin",
             "x86_64-unknown-linux-gnu",
@@ -97,7 +99,8 @@ mod cpuid {
                     &object,
                 )
                 .unwrap();
-                let disassembly = checked(Command::new("llvm-objdump").arg("-d").arg(&object));
+                let disassembly =
+                    checked(toolchain::command("llvm-objdump").arg("-d").arg(&object));
                 assert!(
                     disassembly
                         .lines()
@@ -105,7 +108,11 @@ mod cpuid {
                     "{target} {level:?}: {disassembly}"
                 );
                 if target.contains("windows") {
-                    let unwind = checked(Command::new("llvm-readobj").arg("--unwind").arg(&object));
+                    let unwind = checked(
+                        toolchain::command("llvm-readobj")
+                            .arg("--unwind")
+                            .arg(&object),
+                    );
                     assert!(
                         unwind.contains("RBX"),
                         "CPUID clobbers callee-saved RBX: {unwind}"
@@ -135,18 +142,23 @@ mod cpuid {
 mod cpuid_leaf_zero {
     //! O0/O2 CPUID codegen and native comparison against the public C intrinsic.
     #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
-    use crate::common::run as checked;
-    #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
     use jaic::sema::{Compiler, Options, ProgramSource, TargetCpu, VirtualFs};
     #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
     use jaic_llvm::{OptLevel, emit_object};
     #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
-    use std::{path::PathBuf, process::Command, rc::Rc};
+    use std::{process::Command, rc::Rc};
+    #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
+    use test_support::process::run as checked;
+    #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
+    use test_support::{TempDir, ir, toolchain};
 
     #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
     #[test]
     fn cpuid_leaf_zero_survives_optimization_and_matches_native_intrinsic() {
-        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        if !toolchain::require_all(&["clang", "llvm-objdump"]) {
+            return;
+        }
+        let root = test_support::repo::root();
         let mut options = Options::host();
         options.cpu = TargetCpu::X64;
         options.runtime_support = false;
@@ -164,8 +176,7 @@ mod cpuid_leaf_zero {
             "x86_64-unknown-linux-gnu"
         };
         for level in [OptLevel::O0, OptLevel::O2] {
-            let dir = root.join(format!("target/cpuid-leaf-zero/{level:?}"));
-            std::fs::create_dir_all(&dir).unwrap();
+            let dir = TempDir::new(&format!("cpuid-leaf-zero-{level:?}"));
             let object = dir.join("cpuid.o");
             let ir = dir.join("cpuid.ll");
             emit_object(
@@ -180,12 +191,8 @@ mod cpuid_leaf_zero {
             )
             .unwrap();
             let ir = std::fs::read_to_string(ir).unwrap();
-            assert!(ir.lines().any(|line| {
-                line.contains("\"cpuid\"")
-                    && line.contains("asm sideeffect")
-                    && line.contains("~{memory}")
-            }));
-            let disassembly = Command::new("llvm-objdump")
+            ir::assert_line(&ir, &["\"cpuid\"", "asm sideeffect", "~{memory}"]);
+            let disassembly = toolchain::command("llvm-objdump")
                 .arg("-d")
                 .arg(&object)
                 .output()
@@ -200,7 +207,7 @@ mod cpuid_leaf_zero {
             #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
             {
                 let exe = dir.join(format!("cpuid-driver{}", std::env::consts::EXE_SUFFIX));
-                let mut clang = Command::new("clang");
+                let mut clang = toolchain::command("clang");
                 if cfg!(target_os = "macos") {
                     clang.args(["-arch", "x86_64"]);
                 }
@@ -220,13 +227,13 @@ mod cpuid_leaf_zero {
 
 mod xgetbv {
     //! Real XGETBV object code across x64 ABIs, plus CPUID-guarded native controls.
-    use crate::common::checked;
     use jaic::sema::{Compiler, Options, ProgramSource, TargetCpu, VirtualFs};
     use jaic_llvm::{OptLevel, emit_object};
-    use std::{path::PathBuf, process::Command, rc::Rc};
+    use std::rc::Rc;
+    use test_support::{TempDir, process::checked, toolchain};
 
-    fn out_dir() -> PathBuf {
-        PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("xgetbv-controls")
+    fn out_dir() -> TempDir {
+        TempDir::new("xgetbv-controls")
     }
 
     fn program() -> Compiler {
@@ -244,8 +251,12 @@ mod xgetbv {
 
     #[test]
     fn xgetbv_real_opcode_survives_optimization_for_x64_abis() {
+        if !toolchain::require_all(&["llvm-objdump"]) {
+            return;
+        }
         let c = program();
-        let dir = out_dir().join("metadata");
+        let out = out_dir();
+        let dir = out.join("metadata");
         std::fs::create_dir_all(&dir).unwrap();
         for target in [
             "x86_64-apple-darwin",
@@ -265,7 +276,7 @@ mod xgetbv {
                     &path,
                 )
                 .unwrap();
-                let disassembly = checked(Command::new("llvm-objdump").arg("-d").arg(&path));
+                let disassembly = checked(toolchain::command("llvm-objdump").arg("-d").arg(&path));
                 std::fs::write(path.with_extension("disassembly.txt"), &disassembly).unwrap();
                 let count = disassembly
                     .lines()
@@ -303,6 +314,9 @@ mod xgetbv {
     #[cfg(target_arch = "x86_64")]
     #[test]
     fn xgetbv_native_matches_guarded_independent_isa_queries_at_o0_and_o2() {
+        if !toolchain::require_all(&["clang"]) {
+            return;
+        }
         let c = program();
         let target = if cfg!(target_os = "macos") {
             "x86_64-apple-darwin"
@@ -312,7 +326,8 @@ mod xgetbv {
             "x86_64-unknown-linux-gnu"
         };
         for level in [OptLevel::O0, OptLevel::O2] {
-            let dir = out_dir().join(format!("native-{level:?}"));
+            let out = out_dir();
+            let dir = out.join(format!("native-{level:?}"));
             std::fs::create_dir_all(&dir).unwrap();
             let object = dir.join("xgetbv.o");
             emit_object(
@@ -326,8 +341,8 @@ mod xgetbv {
             )
             .unwrap();
             let exe = dir.join(format!("xgetbv{}", std::env::consts::EXE_SUFFIX));
-            let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-            let mut driver = Command::new("clang");
+            let root = test_support::repo::root();
+            let mut driver = toolchain::command("clang");
             driver
                 .args(["-std=c11", "-Wall", "-Wextra", "-Werror"])
                 .arg(if level == OptLevel::O0 {
@@ -355,91 +370,32 @@ mod xgetbv {
 
 mod registers {
     //! Real native/WASM execution of mixed register operand forwarding.
-    use crate::common::run;
-    use jaic::sema::{Compiler, Options, ProgramSource, TargetCpu, TargetOs, VirtualFs};
-    use jaic_llvm::{OptLevel, emit_object};
-    use std::{process::Command, rc::Rc};
-
+    use test_support::backend;
 
     #[test]
     fn register_operands_execute_native_and_wasm_at_o0_and_o2() {
-        execute("registers", super::registers_source::SOURCE);
-    }
-
-    fn execute(name: &str, source: &str) {
-        for wasm in [false, true] {
-            for optimized in [false, true] {
-                let dir = std::path::PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
-                    .join(format!("register-backend/{name}-{wasm}-{optimized}"));
-                std::fs::create_dir_all(&dir).unwrap();
-                let mut options = Options::host();
-                options.runtime_support = false;
-                if wasm {
-                    options.os = TargetOs::Wasm;
-                    options.cpu = TargetCpu::Wasm;
-                }
-                let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
-                if let Err(e) = c.compile_sources(&[ProgramSource::String(source.into())]) {
-                    panic!("{}", e.render(&c.src.sources));
-                }
-                let object = dir.join("variadics.o");
-                emit_object(
-                    &c.out.program,
-                    &jaic_llvm::Options {
-                        target: wasm.then(jaic::target::Target::wasm_module),
-                        opt_level: if optimized {
-                            OptLevel::O2
-                        } else {
-                            OptLevel::O0
-                        },
-                        ..Default::default()
-                    },
-                    &object,
-                )
-                .unwrap();
-                if wasm {
-                    let module = dir.join("variadics.wasm");
-                    run(Command::new("wasm-ld")
-                        .args([
-                            "-mwasm64",
-                            "--no-entry",
-                            "--export=register_check",
-                            "--export-memory",
-                            "--allow-undefined",
-                        ])
-                        .arg(object)
-                        .arg("-o")
-                        .arg(&module));
-                    run(Command::new("node").args(["-e",r"const fs=require('fs');const m=new WebAssembly.Module(fs.readFileSync(process.argv[1]));let memory;const env={};for(const i of WebAssembly.Module.imports(m)){if(i.kind!=='function')throw Error('unexpected import');env[i.name]=()=>{throw Error('unexpected runtime failure '+i.name);};}env.memset=(d,v,n)=>{new Uint8Array(memory.buffer).fill(v,Number(d),Number(d+n));return d;};env.memcpy=(d,s,n)=>{const bytes=new Uint8Array(memory.buffer);bytes.copyWithin(Number(d),Number(s),Number(s+n));return d;};const x=new WebAssembly.Instance(m,{env});memory=x.exports.memory;const result=x.exports.register_check();if(result!==0)throw Error('variadic failure '+result);"]).arg(module));
-                } else {
-                    let driver = dir.join("driver.c");
-                    std::fs::write(
-                        &driver,
-                        "extern int register_check(void); int main(void){return register_check();}\n",
-                    )
-                    .unwrap();
-                    let exe = dir.join("driver");
-                    run(Command::new("clang")
-                        .arg(driver)
-                        .arg(object)
-                        .arg("-o")
-                        .arg(&exe));
-                    run(&mut Command::new(exe));
-                }
-            }
-        }
+        backend::execute(
+            "register-backend",
+            "register_check",
+            super::registers_source::SOURCE,
+            &[],
+            None,
+        );
     }
 }
 
 mod x86_machine {
     //! Explicit architectural opcodes and actual CPUID-guarded native x64 execution.
-    use crate::common::checked;
     use jaic::sema::{Compiler, Options, ProgramSource, TargetCpu, VirtualFs};
     use jaic_llvm::{OptLevel, emit_object};
-    use std::{path::PathBuf, process::Command, rc::Rc};
+    use std::{process::Command, rc::Rc};
+    use test_support::{TempDir, ir, process::checked, toolchain};
 
     #[test]
     fn random_parity_outputs_are_zero_without_eliminating_architectural_samples() {
+        if !toolchain::require_all(&["opt"]) {
+            return;
+        }
         let mut options = Options::host();
         options.cpu = TargetCpu::X64;
         options.runtime_support = false;
@@ -464,9 +420,7 @@ mod x86_machine {
             .into(),
         )])
         .unwrap();
-        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-        let dir = root.join("target/x86-parity-source");
-        std::fs::create_dir_all(&dir).unwrap();
+        let dir = TempDir::new("x86-parity-source");
         let ir = dir.join("parity.ll");
         emit_object(
             &c.out.program,
@@ -483,7 +437,7 @@ mod x86_machine {
         // dataflow with the same official LLVM optimizer, without executing ISA.
         let optimized = dir.join("parity-opt.ll");
         checked(
-            Command::new("opt")
+            toolchain::command("opt")
                 .arg("-passes=default<O2>")
                 .arg("-S")
                 .arg(&ir)
@@ -501,17 +455,16 @@ mod x86_machine {
                 .collect::<Vec<_>>()
                 .join("\n");
             assert!(body.contains("ret i8 0"), "{name} must expose PF=0: {body}");
-            assert!(
-                body.lines()
-                    .any(|line| line.contains(instruction) && line.contains("asm sideeffect")),
-                "clearing the flag must not remove the real architectural sample: {body}"
-            );
+            ir::assert_line(&body, &[instruction, "asm sideeffect"]);
         }
     }
 
     #[test]
     fn opcodes_and_architecture_rejection_survive_optimization() {
-        let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        if !toolchain::require_all(&["clang", "llvm-objdump"]) {
+            return;
+        }
+        let root = test_support::repo::root();
         let mut options = Options::host();
         options.cpu = TargetCpu::X64;
         options.runtime_support = false;
@@ -529,8 +482,7 @@ mod x86_machine {
             "x86_64-pc-windows-gnu",
         ] {
             for level in [OptLevel::O0, OptLevel::O2] {
-                let dir = root.join(format!("target/x86-machine/{target}-{level:?}"));
-                std::fs::create_dir_all(&dir).unwrap();
+                let dir = TempDir::new(&format!("x86-machine-{target}-{level:?}"));
                 let object = dir.join("machine.o");
                 let ir = dir.join("machine.ll");
                 emit_object(
@@ -544,7 +496,8 @@ mod x86_machine {
                     &object,
                 )
                 .unwrap();
-                let disassembly = checked(Command::new("llvm-objdump").arg("-d").arg(&object));
+                let disassembly =
+                    checked(toolchain::command("llvm-objdump").arg("-d").arg(&object));
                 for instruction in [
                     "rdtsc",
                     "rdtscp",
@@ -572,12 +525,9 @@ mod x86_machine {
                 }
                 let ir = std::fs::read_to_string(ir).unwrap();
                 for instruction in ["mfence", "lfence", "sfence", "rdtsc", "rdtscp"] {
-                    assert!(
-                        ir.lines()
-                            .any(|line| line.contains(&format!("\"{instruction}\""))
-                                && line.contains("asm sideeffect")
-                                && line.contains("~{memory}")),
-                        "{instruction} must retain side effects and a compiler memory clobber"
+                    ir::assert_line(
+                        &ir,
+                        &[&format!("\"{instruction}\""), "asm sideeffect", "~{memory}"],
                     );
                 }
                 #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
@@ -591,7 +541,7 @@ mod x86_machine {
                     };
                     if target == native {
                         let exe = dir.join(format!("isa-driver{}", std::env::consts::EXE_SUFFIX));
-                        let mut clang = Command::new("clang");
+                        let mut clang = toolchain::command("clang");
                         if cfg!(target_os = "macos") {
                             clang.args(["-arch", "x86_64"]);
                         }
@@ -621,7 +571,7 @@ mod x86_machine {
                     target: Some(target.parse().unwrap()),
                     ..Default::default()
                 },
-                &root.join("target/x86-machine/rejected.o"),
+                &TempDir::new("x86-machine-rejected").join("rejected.o"),
             )
             .expect_err("architectural intrinsics must not silently disappear on another backend");
             assert!(error.contains("x86-64 target"), "{error}");

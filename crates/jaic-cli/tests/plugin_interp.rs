@@ -1,12 +1,12 @@
 //! `jaic -interp +Plugin` runs the program the plugins compile: their code added before it
 //! runs, their message loop, the program's arguments and its exit status.
-mod common;
+use test_support::TempDir;
 
 use std::{path::PathBuf, process::Command};
 
-fn program(name: &str) -> PathBuf {
-    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join(name);
-    let source = common::write_plugin_program(&dir);
+fn program(name: &str) -> (TempDir, PathBuf) {
+    let dir = TempDir::new(name);
+    let source = test_support::plugin::write_program(&dir);
     std::fs::write(
         &source,
         r#"#import "Basic";
@@ -19,13 +19,13 @@ main :: () {
 "#,
     )
     .unwrap();
-    source
+    (dir, source)
 }
 
 // rules: plugin.10
 #[test]
 fn the_program_runs_with_what_the_plugins_added_and_reports_its_status() {
-    let source = program("cli-plugin-interp");
+    let (_dir, source) = program("cli-plugin-interp");
     let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
         .arg("-interp")
         .arg(&source)
@@ -42,7 +42,7 @@ fn the_program_runs_with_what_the_plugins_added_and_reports_its_status() {
 
 #[test]
 fn a_plugin_that_fails_stops_the_run() {
-    let source = program("cli-plugin-interp-refused");
+    let (_dir, source) = program("cli-plugin-interp-refused");
     let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
         .arg("-interp")
         .arg(&source)

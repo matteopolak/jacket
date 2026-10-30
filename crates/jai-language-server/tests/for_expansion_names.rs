@@ -2,8 +2,7 @@
 //! navigates, hovers, is found by references and renamed, and is highlighted like a macro.
 use jai_language_server::SemanticTokenKind;
 use std::path::Path;
-mod common;
-use common::{at_offset, open_file, project};
+use test_support::lsp::{at_offset, open_file, project};
 
 const ITER: &str = "utf8_iter :: (s: string, body: Code, flags: For_Flags) #expand {\n    \
     for i: 0..s.count - 1 {\n        `it := s[i];\n        `it_index := i;\n        #insert body;\n    }\n}\n";
@@ -65,7 +64,6 @@ fn custom_iterator_in_the_same_file() {
     let main = same_file("");
     let dir = project("same", &[("main.jai", &main)]);
     check(&dir, "main.jai", "for :utf8_iter LYRICS {\n", "main.jai");
-    let _ = std::fs::remove_dir_all(&dir);
 }
 
 fn use_site(import: &str, call: &str) -> String {
@@ -91,5 +89,4 @@ fn custom_iterator_imported_from_a_module() {
         "for :utf8_iter LYRICS {\n",
         "modules/Iters/module.jai",
     );
-    let _ = std::fs::remove_dir_all(&dir);
 }

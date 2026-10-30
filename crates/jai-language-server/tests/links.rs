@@ -1,7 +1,6 @@
 //! Go to definition and document links on `#load` / `#import`, resolved as the compiler does.
 use jai_language_server::{DocumentUri, Position, Session};
-mod common;
-use common::{at_offset, file_uri, session, stdlib};
+use test_support::lsp::{at_offset, file_uri, session, stdlib};
 
 const MAIN: &str = r#"#import "Basic";
 B :: #import "Basic";

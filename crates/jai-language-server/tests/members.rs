@@ -1,7 +1,7 @@
 //! References to and renames of struct fields and enum members.
 use jai_language_server::{DocumentUri, Location, Position, Session};
-mod common;
-use common::{at_nth, session, uri};
+use test_support::TempDir;
+use test_support::lsp::{at_nth, session, uri};
 
 const PROGRAM: &str = r"Vec :: struct {
     x: float;
@@ -147,7 +147,7 @@ fn enum_member_references_and_rename() {
 
 #[test]
 fn references_reach_project_files_that_are_not_open() {
-    let dir = std::env::temp_dir().join(format!("jailsp-members-{}", std::process::id()));
+    let dir = TempDir::new("jailsp-members");
     std::fs::create_dir_all(&dir).unwrap();
     let util = "Point :: struct { x: int; }\n";
     let main = "#load \"util.jai\";\nmain :: () { p: Point; p.x = 1; }\n";
@@ -164,7 +164,6 @@ fn references_reach_project_files_that_are_not_open() {
     let refs = s
         .references(&util_uri, at_nth(util, "x:", 0, 0), true)
         .unwrap();
-    let _ = std::fs::remove_dir_all(&dir);
     assert_eq!(refs.len(), 2, "{refs:?}");
     assert!(
         refs.iter().any(|r| r.uri.ends_with("/main.jai")),

@@ -1,23 +1,11 @@
 //! Workspace snapshots must survive independent compilers and real child emission.
 #![cfg(feature = "llvm")]
 use std::{path::PathBuf, process::Command};
+use test_support::TempDir;
+use test_support::process::succeeded as checked;
 
-fn directory(name: &str) -> PathBuf {
-    let path = PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
-        .join(format!("T7numerics-options-{name}-{}", std::process::id()));
-    std::fs::create_dir_all(&path).unwrap();
-    path
-}
-
-fn checked(command: &mut Command) -> std::process::Output {
-    let output = command.output().unwrap();
-    assert!(
-        output.status.success(),
-        "{command:?}\n{}\n{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    output
+fn directory(name: &str) -> TempDir {
+    TempDir::new(&format!("T7numerics-options-{name}"))
 }
 
 #[test]

@@ -3,7 +3,6 @@ use jai_language_server::{
     DiagnosticCode, DiagnosticSeverity, DocumentUri, JsonSession, Limits, Session, TextChange,
 };
 use serde_json::{Value, json};
-mod common;
 
 fn unused(s: &Session, uri: &DocumentUri) -> Option<DiagnosticSeverity> {
     s.diagnostics(uri)
@@ -15,17 +14,17 @@ fn unused(s: &Session, uri: &DocumentUri) -> Option<DiagnosticSeverity> {
 
 #[test]
 fn valid_changes_wait_for_save_and_unsaved_edits_are_discarded() {
-    let dir = common::project(
+    let dir = test_support::lsp::project(
         "saved-config-close",
         &[
             ("main.jai", "main :: () {x:=1;}"),
             ("jacket.toml", "[lint.rules]\nunused_variable=\"deny\"\n"),
         ],
     );
-    let mut s = common::session();
-    s.set_workspace_folders(vec![dir.clone()]);
-    let config = common::uri_of(&dir.join("jacket.toml"));
-    let main = common::uri_of(&dir.join("main.jai"));
+    let mut s = test_support::lsp::session();
+    s.set_workspace_folders(vec![dir.to_path_buf()]);
+    let config = test_support::lsp::uri_of(&dir.join("jacket.toml"));
+    let main = test_support::lsp::uri_of(&dir.join("main.jai"));
     s.open(
         config.clone(),
         1,
@@ -60,7 +59,6 @@ fn valid_changes_wait_for_save_and_unsaved_edits_are_discarded() {
     assert_eq!(unused(&s, &main), None);
     s.close(&config).unwrap();
     assert_eq!(unused(&s, &main), None);
-    std::fs::remove_dir_all(dir).unwrap();
 }
 
 fn send(s: &mut JsonSession, value: Value) -> Vec<Value> {
@@ -80,26 +78,28 @@ fn warnings(messages: &[Value]) -> usize {
 
 #[test]
 fn save_and_watcher_notifications_report_one_problem() {
-    let dir = common::project(
+    let dir = test_support::lsp::project(
         "saved-config-watcher",
         &[
             ("main.jai", "main :: () {}"),
             ("jacket.toml", "[project]\n"),
         ],
     );
-    let mut s = JsonSession::with_environment(Limits::default(), common::environment());
+    let mut s = JsonSession::with_environment(Limits::default(), test_support::lsp::environment());
     let init = send(
         &mut s,
-        json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"rootUri":common::uri_of(&dir).as_str()}}),
+        json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"rootUri":test_support::lsp::uri_of(&dir).as_str()}}),
     );
     assert_eq!(
         init[0]["result"]["capabilities"]["textDocumentSync"]["save"],
         true
     );
-    let config = common::uri_of(&dir.join("jacket.toml"))
+    let config = test_support::lsp::uri_of(&dir.join("jacket.toml"))
         .as_str()
         .to_string();
-    let main = common::uri_of(&dir.join("main.jai")).as_str().to_string();
+    let main = test_support::lsp::uri_of(&dir.join("main.jai"))
+        .as_str()
+        .to_string();
     for (uri, language, text) in [
         (&main, "jai", "main :: () {}"),
         (&config, "toml", "[project]\n"),
@@ -121,5 +121,4 @@ fn save_and_watcher_notifications_report_one_problem() {
     assert_eq!(warnings(&send(&mut s, watch.clone())), 0);
     assert_eq!(warnings(&send(&mut s, save)), 0);
     assert_eq!(warnings(&send(&mut s, watch)), 0);
-    std::fs::remove_dir_all(dir).unwrap();
 }

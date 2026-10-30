@@ -1,6 +1,6 @@
 # Testing tools
 
-Regression sweeps, differential testing, fuzzing and the stdlib checks. Which one to run: `jaic_sweep` for any compiler change; `jaic_diff` after touching the interpreter, constant folding, lowering or the LLVM backend; [`jacket test`](jacket-test.md) for stdlib module behaviour; `stdlib_runtime.py` for the compiler regressions; the two `jaic-cli` checks run in `cargo test`; fuzzing is mostly nightly CI.
+Regression sweeps, differential testing, fuzzing and the stdlib checks. Which one to run: `jaic_sweep` for any compiler change; `jaic_diff` after touching the interpreter, constant folding, lowering or the LLVM backend; [`jacket test`](jacket-test.md) for stdlib module behaviour; `stdlib_runtime.py` for the compiler regressions; the two `jaic-cli` checks run in `cargo test`; fuzzing is mostly nightly CI. Rust test helpers and the snapshot workflow (`INSTA_UPDATE=always`) are in [the Rust test harness](test-harness.md).
 
 ## jaic sweep
 

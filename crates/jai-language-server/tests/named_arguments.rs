@@ -1,7 +1,6 @@
 //! Original callable fixtures: parameter names come from compiler metadata, not library text.
 use jai_language_server::{CompletionItem, Range, Session, TextChange};
-mod common;
-use common::{cursor, file_uri, lean_session, position};
+use test_support::lsp::{cursor, file_uri, lean_session, position};
 
 fn complete(source: &str) -> Vec<CompletionItem> {
     let (text, at) = cursor(source);

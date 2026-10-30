@@ -1,8 +1,8 @@
 //! A root prelude wrapper must preserve relative loads and editor navigation.
 use jai_language_server::{DiagnosticCode, Limits, Session};
 use std::path::Path;
-mod common;
-use common::{modules_environment, position, uri_of};
+use test_support::TempDir;
+use test_support::lsp::{modules_environment, position, uri_of};
 
 fn copy_tree(from: &Path, to: &Path) {
     std::fs::create_dir_all(to).unwrap();
@@ -62,9 +62,9 @@ fn root_prelude_preserves_diagnostics_hover_and_definition() {
         );
         return;
     }
-    let dir = std::env::temp_dir().join(format!("jai-prelude-lsp-{}", std::process::id()));
+    let dir = TempDir::new("jai-prelude-lsp");
     let stdlib = dir.join("stdlib");
-    copy_tree(&common::stdlib(), &stdlib);
+    copy_tree(&test_support::lsp::stdlib(), &stdlib);
     std::fs::rename(stdlib.join("prelude"), stdlib.join("core")).unwrap();
     std::fs::write(stdlib.join("Base.jai"), "#load \"core/module.jai\";\n").unwrap();
     let status = std::process::Command::new(std::env::current_exe().unwrap())
@@ -78,6 +78,5 @@ fn root_prelude_preserves_diagnostics_hover_and_definition() {
         .env("JAIC_PRELUDE", "Base.jai")
         .status()
         .unwrap();
-    std::fs::remove_dir_all(dir).unwrap();
     assert!(status.success());
 }

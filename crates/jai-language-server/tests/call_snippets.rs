@@ -3,8 +3,7 @@ use jai_language_server::{
     CallSnippets, CompletionItem, DocumentUri, JsonSession, Limits, Position, Range, Session,
 };
 use serde_json::{Value, json};
-mod common;
-use common::{cursor, file_uri, lean_environment, session as stdlib_session};
+use test_support::lsp::{cursor, file_uri, lean_environment, session as stdlib_session};
 
 fn session(snippets: bool, mode: CallSnippets) -> Session {
     let mut s = Session::with_environment(Limits::default(), lean_environment());

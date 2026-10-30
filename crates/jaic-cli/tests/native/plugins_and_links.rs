@@ -1,15 +1,15 @@
 //! Plugins, custom link steps and workspace output.
-use super::{build_and_run, common, corpus_cases, exe_path, jaic, matches, repo_root};
-use std::path::{Path, PathBuf};
+use super::{build_and_run, corpus_cases, exe_path, jaic, matches, repo_root};
 use std::process::Command;
+use test_support::{TempDir, toolchain};
 
 /// `jaic file.jai +Name` writes the program the plugin's workspace compiled, to `-exe` or,
 /// without it, next to the source under the source's name.
 // rules: plugin.1 plugin.11
 #[test]
 fn plug_builds_the_plugin_workspace() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-plug");
-    let source = common::write_plugin_program(&dir);
+    let dir = TempDir::new("native-plug");
+    let source = test_support::plugin::write_program(&dir);
     let exe = dir.join("uses_plugin_exe");
     let _ = std::fs::remove_file(&exe);
     let build = jaic()
@@ -52,8 +52,7 @@ fn plug_builds_the_plugin_workspace() {
 #[cfg(target_os = "macos")]
 #[test]
 fn unnamed_link_always_library_is_linked() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-link-always");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-link-always");
     let source = dir.join("link_always.jai");
     std::fs::write(
         &source,
@@ -76,8 +75,7 @@ fn unnamed_link_always_library_is_linked() {
 /// wrote through x8.
 #[test]
 fn cpp_non_pod_return_uses_the_native_hidden_result_pointer() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-cpp-non-pod");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-cpp-non-pod");
     let cpp = dir.join("small.cpp");
     std::fs::write(&cpp, "#ifdef _WIN32\n#define API __declspec(dllexport)\n#else\n#define API\n#endif\nstruct Small { int value; explicit Small(int v): value(v) {} Small(const Small& v): value(v.value) {} ~Small() {} };\nextern \"C\" API Small make_small(int value) { return Small(value); }\n").unwrap();
     let library = dir.join(if cfg!(windows) {
@@ -128,8 +126,7 @@ fn cpp_non_pod_return_uses_the_native_hidden_result_pointer() {
 /// A `#compiler` primitive called from compiled code says why the program stops.
 #[test]
 fn compiler_primitive_at_run_time_explains_the_trap() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-compiler-primitive");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-compiler-primitive");
     let source = dir.join("primitive.jai");
     std::fs::write(
         &source,
@@ -153,8 +150,7 @@ fn compiler_primitive_at_run_time_explains_the_trap() {
 /// tools/differential/jaigen.py program.
 #[test]
 fn optimized_sub_recurrence_matches_the_interpreter() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-sub-recurrence");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-sub-recurrence");
     let case = corpus_cases()
         .into_iter()
         .find(|c| c.id == "unrolled-sub-reduction")
@@ -213,8 +209,7 @@ fn backtrace_sees_compiled_callers() {
         eprintln!("skipping: the native Debug helper is not built and {reason}");
         return;
     }
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-backtrace");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-backtrace");
     let source = dir.join("backtrace.jai");
     std::fs::write(
         &source,
@@ -247,9 +242,7 @@ fn backtrace_sees_compiled_callers() {
 // rules: ws.15
 #[test]
 fn run_writes_workspace_output() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-run-workspace-output");
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-run-workspace-output");
     let source = dir.join("meta.jai");
     std::fs::write(
         &source,
@@ -401,10 +394,8 @@ fn build_custom_link(
     link: &str,
     options: &str,
     units: Option<&str>,
-) -> (PathBuf, std::process::Output) {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("native-custom-link-{name}"));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
+) -> (TempDir, std::process::Output) {
+    let dir = TempDir::new(&format!("native-custom-link-{name}"));
     let source = CUSTOM_LINK
         .replace("@LINK@", link)
         .replace("@OPTIONS@", options);
@@ -459,9 +450,7 @@ fn backtrace_on_crash_and_minimum_os_version() {
         } else {
             "crash-off"
         };
-        let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("native-{name}"));
-        let _ = std::fs::remove_dir_all(&dir);
-        std::fs::create_dir_all(&dir).unwrap();
+        let dir = TempDir::new(&format!("native-{name}"));
         let options = format!(
             "options.use_custom_link_command = false; options.minimum_os_version = .{{12, 0}}; \
              options.backtrace_on_crash = .{};",
@@ -516,7 +505,7 @@ fn backtrace_on_crash_and_minimum_os_version() {
 #[test]
 fn library_search_directory_added_by_a_metaprogram() {
     let fixture = repo_root().join("tests/compiler/native/library-search-dir");
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-library-search-dir");
+    let dir = TempDir::new("native-library-search-dir");
     std::fs::create_dir_all(dir.join("lib")).unwrap();
     for name in ["probe.c", "probe.jai"] {
         std::fs::copy(fixture.join(name), dir.join(name)).unwrap();
@@ -526,7 +515,7 @@ fn library_search_directory_added_by_a_metaprogram() {
     } else {
         "lib/libsearchprobe.so"
     };
-    let Ok(built) = Command::new("cc")
+    let Ok(built) = toolchain::command("cc")
         .args(["-shared", "-fPIC", "-o", lib, "probe.c"])
         .current_dir(&dir)
         .output()

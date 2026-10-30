@@ -1,7 +1,6 @@
 //! A declaration may not reuse the name of a member brought into the same scope by `using`;
 //! a nested scope still shadows it.
-mod common;
-use common::compile_source;
+use test_support::compiler::compile_source;
 
 const TYPES: &str = "Outer :: struct { x: s32; y: s32; }";
 

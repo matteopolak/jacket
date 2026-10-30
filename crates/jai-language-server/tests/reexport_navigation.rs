@@ -1,7 +1,6 @@
 //! Names a module passes on with `using Name :: #import "X"` resolve through it for hover and
 //! go to definition, as for the module's own names.
-mod common;
-use common::{at, file_uri, virtual_session};
+use test_support::lsp::{at, file_uri, virtual_session};
 
 #[test]
 fn names_a_module_reexports_resolve_through_it() {

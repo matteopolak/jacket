@@ -1,24 +1,14 @@
 //! Native constructor effects must agree between interpreted and linked programs.
 #![cfg(unix)]
-use std::path::Path;
 use std::process::Command;
+use test_support::process::succeeded as checked;
+use test_support::{TempDir, toolchain};
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
-fn checked(command: &mut Command) {
-    let result = command.output().unwrap();
-    assert!(
-        result.status.success(),
-        "{command:?}\n{}\n{}",
-        String::from_utf8_lossy(&result.stdout),
-        String::from_utf8_lossy(&result.stderr)
-    );
-}
-
 #[test]
 fn link_always_loads_real_constructor_without_a_referenced_symbol() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-link-always");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-link-always");
     let provider = dir.join("provider.c");
     std::fs::write(
         &provider,
@@ -37,7 +27,7 @@ fn link_always_loads_real_constructor_without_a_referenced_symbol() {
         "so"
     };
     checked(
-        Command::new("cc")
+        toolchain::command("cc")
             .args([
                 if cfg!(target_os = "macos") {
                     "-dynamiclib"
@@ -53,7 +43,7 @@ fn link_always_loads_real_constructor_without_a_referenced_symbol() {
             .arg("-o")
             .arg(dir.join(format!("libconstructor_marker.{suffix}"))),
     );
-    let mut libraries = vec![dir.clone()];
+    let mut libraries = vec![dir.to_path_buf()];
     if let Some(existing) = std::env::var_os("JAIC_NATIVE_LIBS") {
         libraries.extend(std::env::split_paths(&existing));
     }
@@ -112,8 +102,7 @@ fn link_always_loads_real_constructor_without_a_referenced_symbol() {
 
 #[test]
 fn missing_runtime_requirement_fails_without_loading_in_the_sandbox() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("missing-link-always");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("missing-link-always");
     let source = dir.join("main.jai");
     std::fs::write(
         &source,

@@ -1,8 +1,7 @@
 //! Independent language/IDE regression: module-qualified declarations retain identity.
 //! No replaced-stdlib implementation or convenience API is the test oracle.
 use jai_language_server::{DocumentUri, Position, Session, TextChange};
-mod common;
-use common::{at, file_uri, virtual_session};
+use test_support::lsp::{at, file_uri, virtual_session};
 
 const MODULE: &str = "Item :: struct { field: int; }\nseed :: 41;\nscalar :: seed + 1;\naggregate :: Item.{scalar};\nstate: Item;\nNumber :: s32;\ncallback :: (status: s32) {}\n#scope_file\nsecret :: 99;\n";
 const SOURCE: &str = "Data :: #import \"Values\";\nAlias :: Data;\nmain :: () {\n    first := Data.scalar;\n    second := Alias.aggregate;\n    third := Data.state;\n    number: Data.Number;\n    result := second.field;\n    Data.callback(1);\n}\n";

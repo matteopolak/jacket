@@ -2,6 +2,7 @@
 use super::{build_and_run, exe_path, formatter_fixtures, jaic, repo_root};
 use std::path::Path;
 use std::process::Command;
+use test_support::{TempDir, toolchain};
 
 /// `jaifmt/` builds natively and behaves as documented: `--stdin` formats to stdout,
 /// `--check` lists files that would change (exit 1) without writing, a plain run rewrites them,
@@ -12,8 +13,7 @@ fn jaifmt_builds_and_formats() {
     if cfg!(windows) {
         return;
     }
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-jaifmt");
-    let _ = std::fs::remove_dir_all(&dir);
+    let dir = TempDir::new("native-jaifmt");
     std::fs::create_dir_all(dir.join("src/skipped")).unwrap();
     let exe = exe_path(&dir, "jaifmt");
     let build = jaic()
@@ -169,9 +169,7 @@ fn jaifmt_build_metaprogram() {
     if cfg!(windows) {
         return;
     }
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-jaifmt-metaprogram");
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-jaifmt-metaprogram");
     let exe = exe_path(&dir, "jaifmt");
     let build = jaic()
         .arg(repo_root().join("jaifmt/build.jai"))
@@ -223,9 +221,7 @@ fn jaifmt_is_idempotent_on_the_repository() {
     if cfg!(windows) {
         return;
     }
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-jaifmt-idempotence");
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-jaifmt-idempotence");
     let exe = exe_path(&dir, "jaifmt");
     let build = jaic()
         .arg(repo_root().join("jaifmt/main.jai"))
@@ -345,8 +341,7 @@ fn jaifmt_is_idempotent_on_the_repository() {
 /// `tools/native/windows_cross.py`).
 #[test]
 fn windows_runtime_program() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-windows-runtime");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-windows-runtime");
     let source = repo_root().join("tests/compiler/native/windows/runtime.jai");
     let output = build_and_run(&source, &dir, "runtime").unwrap();
     assert_eq!(
@@ -449,8 +444,7 @@ fn msvc_builds_write_a_pdb() {
     if !cfg!(all(windows, target_env = "msvc")) {
         return;
     }
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-pdb");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("native-pdb");
     let source = dir.join("pdb_lines.jai");
     std::fs::write(
         &source,
@@ -471,7 +465,7 @@ fn msvc_builds_write_a_pdb() {
         "42\n"
     );
     assert!(pdb.is_file(), "no {} after jaic", pdb.display());
-    match Command::new("llvm-pdbutil")
+    match toolchain::command("llvm-pdbutil")
         .args(["dump", "-l"])
         .arg(&pdb)
         .output()

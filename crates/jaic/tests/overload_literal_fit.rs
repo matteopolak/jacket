@@ -1,7 +1,6 @@
 //! Overloads are ranked by how well a literal argument fits each candidate, and a call that two
 //! candidates take equally well is an error.
-mod common;
-use common::compile_source;
+use test_support::compiler::compile_source;
 
 fn outcome(source: &str) -> Result<(), String> {
     let (c, result) = compile_source(source);

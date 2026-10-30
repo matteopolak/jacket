@@ -1,7 +1,7 @@
 //! `#asm` `syscall`: type-checking for Linux x86-64, the sandbox refusing it (memory mapping
 //! aside), and real calls on a Linux x86-64 host.
-use std::path::Path;
 use std::process::Command;
+use test_support::TempDir;
 
 const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
@@ -9,8 +9,7 @@ const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 /// sandbox (`-os wasm`) never makes the call.
 #[test]
 fn asm_syscall_checks_and_sandbox_refuses_it() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-asm-syscall");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("cli-asm-syscall");
     let source = dir.join("futex.jai");
     std::fs::write(
         &source,
@@ -70,8 +69,7 @@ main :: () {
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 #[test]
 fn asm_syscall_getpid_matches_the_process_id() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-asm-getpid");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("cli-asm-getpid");
     let source = dir.join("getpid.jai");
     std::fs::write(
         &source,
@@ -147,8 +145,7 @@ main :: () {
 /// operand that is not pinned to an argument register is an error.
 #[test]
 fn asm_syscall_accepts_listed_argument_registers() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-asm-syscall-listed");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("cli-asm-syscall-listed");
     let source = dir.join("listed.jai");
     std::fs::write(&source, LISTED_SYSCALL).unwrap();
     let output = Command::new(JAIC)
@@ -192,8 +189,7 @@ fn asm_syscall_accepts_listed_argument_registers() {
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 #[test]
 fn asm_syscall_listed_arguments_reach_the_kernel() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-asm-syscall-listed-run");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("cli-asm-syscall-listed-run");
     let source = dir.join("listed.jai");
     std::fs::write(&source, LISTED_SYSCALL).unwrap();
     let output = Command::new(JAIC)
@@ -214,8 +210,7 @@ fn asm_syscall_listed_arguments_reach_the_kernel() {
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 #[test]
 fn asm_syscall_sandbox_maps_anonymous_memory() {
-    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("cli-asm-syscall-sandbox-mmap");
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = TempDir::new("cli-asm-syscall-sandbox-mmap");
     let source = dir.join("mmap.jai");
     std::fs::write(
         &source,

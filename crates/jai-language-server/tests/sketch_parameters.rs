@@ -1,6 +1,5 @@
 //! Go to definition on the type parameters of polymorphs nothing instantiates.
-mod common;
-use common::{at, at_last, open, uri};
+use test_support::lsp::{at, at_last, open, uri};
 
 /// `open` instantiates `Box` with its own `$T` while it is sketched; the `T` in `Box`'s body
 /// still names `Box`'s parameter.

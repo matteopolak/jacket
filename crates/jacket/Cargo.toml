@@ -19,5 +19,8 @@ regex-lite = "=0.1.9"
 semver = "=1.0.28"
 sha2 = "=0.10.9"
 
+[dev-dependencies]
+test-support = { path = "../test-support" }
+
 [lints]
 workspace = true

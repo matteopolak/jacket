@@ -3,7 +3,6 @@
 //! (`compileTime.evaluationBudget`, `compileTime.checkTimeLimit`); a project cannot set them.
 use jai_language_server::{Diagnostic, DiagnosticSeverity, JsonSession, Limits, Session};
 use serde_json::{Value, json};
-mod common;
 
 const SOURCE: &str = r"spin :: () { while true {} }
 #run spin();
@@ -30,11 +29,11 @@ fn errors(diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
 
 #[test]
 fn only_the_runaway_run_is_reported_where_it_was_started() {
-    let mut s = common::session();
+    let mut s = test_support::lsp::session();
     // The budget must run out first; on a slow machine 200M blocks outlast the default time limit.
     s.set_check_time_limit(0.0);
-    s.open(common::uri(), 1, SOURCE.into()).unwrap();
-    let errors = errors(s.diagnostics(&common::uri()).unwrap());
+    s.open(test_support::lsp::uri(), 1, SOURCE.into()).unwrap();
+    let errors = errors(s.diagnostics(&test_support::lsp::uri()).unwrap());
     let lines: Vec<u32> = errors.iter().map(|d| d.range.start.line).collect();
     assert_eq!(lines, [1], "{errors:#?}");
     let message = &errors[0].message;
@@ -58,8 +57,8 @@ main :: () { total := light + heavy; total += 1; }
 ";
 
 fn heavy_session() -> (Session, jai_language_server::DocumentUri) {
-    let dir = common::project("budget-config", &[("main.jai", HEAVY)]);
-    let (s, uri, _) = common::open_file(&dir, "main.jai");
+    let dir = test_support::lsp::project("budget-config", &[("main.jai", HEAVY)]);
+    let (s, uri, _) = test_support::lsp::open_file(&dir, "main.jai");
     (s, uri)
 }
 
@@ -91,14 +90,14 @@ fn the_evaluation_budget_bounds_each_evaluation() {
 #[test]
 fn a_project_cannot_raise_the_budget() {
     // `[check]` is not a setting of the project: the budget stays what the client set.
-    let dir = common::project(
+    let dir = test_support::lsp::project(
         "budget-toml",
         &[
             ("main.jai", HEAVY),
             ("jacket.toml", "[check]\nmax_blocks = 0\nmax_seconds = 0\n"),
         ],
     );
-    let (mut s, uri, _) = common::open_file(&dir, "main.jai");
+    let (mut s, uri, _) = test_support::lsp::open_file(&dir, "main.jai");
     s.set_evaluation_budget(20_000);
     let found = errors(s.diagnostics(&uri).unwrap());
     assert_eq!(found.len(), 1, "{found:#?}");
@@ -106,8 +105,8 @@ fn a_project_cannot_raise_the_budget() {
 
 #[test]
 fn the_wall_clock_limit_stops_the_check_with_one_notice() {
-    let dir = common::project("wall-clock", &[("main.jai", SOURCE)]);
-    let (mut s, uri, _) = common::open_file(&dir, "main.jai");
+    let dir = test_support::lsp::project("wall-clock", &[("main.jai", SOURCE)]);
+    let (mut s, uri, _) = test_support::lsp::open_file(&dir, "main.jai");
     s.set_evaluation_budget(0);
     s.set_check_time_limit(0.3);
     let found = s.diagnostics(&uri).unwrap();
@@ -129,8 +128,8 @@ fn the_wall_clock_limit_stops_the_check_with_one_notice() {
 
 #[test]
 fn costly_evaluations_get_a_lens_and_a_ranked_list() {
-    let dir = common::project("cost-lens", &[("main.jai", HEAVY)]);
-    let (mut s, uri, _) = common::open_file(&dir, "main.jai");
+    let dir = test_support::lsp::project("cost-lens", &[("main.jai", HEAVY)]);
+    let (mut s, uri, _) = test_support::lsp::open_file(&dir, "main.jai");
     s.set_cost_lens_blocks(5000);
     let lenses: Vec<_> = s
         .code_lenses(&uri)
@@ -153,7 +152,7 @@ fn costly_evaluations_get_a_lens_and_a_ranked_list() {
 #[test]
 fn an_isolated_host_run_is_in_the_cost_list_at_its_own_directive() {
     let source = "#import \"Basic\";\n\n\n\n\nvalue :: #run,host (() -> int { total := 0; for 1..20000 total += it; return total; })();\nmain :: () { print(\"%\", value); }\n";
-    let dir = common::project("cost-host-run", &[("main.jai", source)]);
+    let dir = test_support::lsp::project("cost-host-run", &[("main.jai", source)]);
     // A program for another OS: `#run,host` runs in a compiler of its own.
     let other = if cfg!(windows) {
         jaic::sema::TargetOs::Linux
@@ -162,10 +161,10 @@ fn an_isolated_host_run_is_in_the_cost_list_at_its_own_directive() {
     };
     let mut s = Session::with_environment(
         Limits::default(),
-        common::environment_at(common::stdlib(), Some(other)),
+        test_support::lsp::environment_at(test_support::lsp::stdlib(), Some(other)),
     );
-    s.set_workspace_folders(vec![dir.clone()]);
-    let (uri, _) = common::open_from_disk(&mut s, &dir, "main.jai");
+    s.set_workspace_folders(vec![dir.to_path_buf()]);
+    let (uri, _) = test_support::lsp::open_from_disk(&mut s, &dir, "main.jai");
     s.set_cost_lens_blocks(5000);
     let costs = s.compile_time_costs(&uri);
     assert!(
@@ -194,8 +193,8 @@ fn an_isolated_host_run_is_in_the_cost_list_at_its_own_directive() {
 
 #[test]
 fn cheap_evaluations_show_no_lens_by_default() {
-    let dir = common::project("cost-lens-default", &[("main.jai", HEAVY)]);
-    let (s, uri, _) = common::open_file(&dir, "main.jai");
+    let dir = test_support::lsp::project("cost-lens-default", &[("main.jai", HEAVY)]);
+    let (s, uri, _) = test_support::lsp::open_file(&dir, "main.jai");
     let lenses = s.code_lenses(&uri).unwrap();
     assert!(
         lenses
@@ -245,7 +244,7 @@ fn open_runaway(s: &mut JsonSession, uri: &str) -> Vec<Value> {
 
 #[test]
 fn the_client_hears_of_a_limit_at_the_evaluation_that_hit_it() {
-    let mut s = JsonSession::with_environment(Limits::default(), common::environment());
+    let mut s = JsonSession::with_environment(Limits::default(), test_support::lsp::environment());
     send(
         &mut s,
         Some(1),
@@ -288,7 +287,7 @@ fn the_client_hears_of_a_limit_at_the_evaluation_that_hit_it() {
 
 #[test]
 fn a_client_that_did_not_ask_gets_no_limit_notice() {
-    let mut s = JsonSession::with_environment(Limits::default(), common::environment());
+    let mut s = JsonSession::with_environment(Limits::default(), test_support::lsp::environment());
     send(
         &mut s,
         Some(1),

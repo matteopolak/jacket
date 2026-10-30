@@ -7,19 +7,18 @@
     )
 ))]
 use jai_language_server::DiagnosticSeverity;
-mod common;
 
 #[test]
 fn a_wild_read_is_reported_at_the_run_and_the_session_survives() {
-    let mut s = common::session();
+    let mut s = test_support::lsp::session();
     s.open(
-        common::uri(),
+        test_support::lsp::uri(),
         1,
         "#run {\n    p := cast(*int) 0xdead0000;\n    x := p.*;\n};\nmain :: () {}\n".into(),
     )
     .unwrap();
     let errors: Vec<_> = s
-        .diagnostics(&common::uri())
+        .diagnostics(&test_support::lsp::uri())
         .unwrap()
         .into_iter()
         .filter(|d| d.severity == DiagnosticSeverity::Error)
@@ -33,12 +32,16 @@ fn a_wild_read_is_reported_at_the_run_and_the_session_survives() {
         errors[0].message
     );
     // The process lives on: a fresh session checks fixed code.
-    let mut fresh = common::session();
+    let mut fresh = test_support::lsp::session();
     fresh
-        .open(common::uri(), 1, "#run 1 + 2;\nmain :: () {}\n".into())
+        .open(
+            test_support::lsp::uri(),
+            1,
+            "#run 1 + 2;\nmain :: () {}\n".into(),
+        )
         .unwrap();
     let errors = fresh
-        .diagnostics(&common::uri())
+        .diagnostics(&test_support::lsp::uri())
         .unwrap()
         .into_iter()
         .filter(|d| d.severity == DiagnosticSeverity::Error)

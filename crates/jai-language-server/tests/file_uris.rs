@@ -1,8 +1,8 @@
 //! Original URI/path boundary fixtures; no library API assumptions or program execution.
 use jai_language_server::{DocumentUri, Environment, Limits, Position, Session};
 use std::path::{Path, PathBuf};
-mod common;
-use common::{at_last, file_uri, lean_session};
+use test_support::TempDir;
+use test_support::lsp::{at_last, file_uri, lean_session};
 
 #[test]
 fn definition_and_hierarchy_encode_reserved_native_filename_characters() {
@@ -225,7 +225,7 @@ fn native_windows_drive_uri_resolves_production_print() {
 #[cfg(unix)]
 #[test]
 fn unsaved_document_alias_uses_the_stored_key_and_preserves_private_scope() {
-    let dir = std::env::temp_dir().join(format!("jailsp-unsaved-alias-{}", std::process::id()));
+    let dir = TempDir::new("jailsp-unsaved-alias");
     std::fs::create_dir_all(&dir).unwrap();
     let alias = dir.with_extension("alias");
     let _ = std::fs::remove_file(&alias);
@@ -282,5 +282,4 @@ fn unsaved_document_alias_uses_the_stored_key_and_preserves_private_scope() {
     s.close(&real).unwrap();
     assert!(s.version(&stored).is_err());
     std::fs::remove_file(alias).unwrap();
-    std::fs::remove_dir_all(dir).unwrap();
 }

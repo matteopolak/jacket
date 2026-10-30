@@ -1,6 +1,5 @@
 //! Member completion through struct constants, parameters and `using` member paths.
-mod common;
-use common::{cursor, file_uri, lean_session};
+use test_support::lsp::{cursor, file_uri, lean_session};
 
 fn labels(source: &str) -> Vec<String> {
     let (text, at) = cursor(source);

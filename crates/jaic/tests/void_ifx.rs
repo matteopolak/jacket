@@ -1,6 +1,5 @@
 //! Discarded void conditional expressions retain branch effects, never a value.
-mod common;
-use common::compile_main_file as compile;
+use test_support::compiler::compile_main_file as compile;
 
 
 #[test]
