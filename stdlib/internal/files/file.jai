@@ -137,3 +137,4 @@ Seek_Type :: enum {
 
 #import "Basic";
 Strings :: #import "String";
+Native_Path :: #import "internal/native-path";

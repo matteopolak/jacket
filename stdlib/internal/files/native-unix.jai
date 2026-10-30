@@ -3,6 +3,11 @@ File :: struct {
 }
 
 file_open :: (name: string, for_writing := false, keep_existing_content := false, log_errors := true) -> File, bool {
+    if !Native_Path.is_valid(name) {
+        if log_errors context.logger("file_open failed\n", context.logger_data, Log_Info.{ common_flags = .ERROR });
+        return File.{}, false;
+    }
+
     cname := to_c_string(name);
 
     defer free(cname);
@@ -93,6 +98,8 @@ file_write :: (file: *File, data: *void, length: s64) -> bool {
 }
 
 file_move :: (name_old: string, name_new: string) -> bool {
+    if !Native_Path.is_valid(name_old) || !Native_Path.is_valid(name_new) return false;
+
     old := to_c_string(name_old);
 
     defer free(old);
@@ -104,12 +111,16 @@ file_move :: (name_old: string, name_new: string) -> bool {
 }
 
 file_delete :: (filename: string) -> bool {
+    if !Native_Path.is_valid(filename) return false;
+
     name := to_c_string(filename);
     defer free(name);
     return P.unlink(name) == 0;
 }
 
 file_link :: (linkpath: string, filepath: string) -> bool {
+    if !Native_Path.is_valid(linkpath) || !Native_Path.is_valid(filepath) return false;
+
     link := to_c_string(linkpath);
 
     defer free(link);
@@ -121,12 +132,16 @@ file_link :: (linkpath: string, filepath: string) -> bool {
 }
 
 delete_directory :: (dirname: string) -> bool {
+    if !Native_Path.is_valid(dirname) return false;
+
     name := to_c_string(dirname);
     defer free(name);
     return P.rmdir(name) == 0;
 }
 
 make_directory_if_it_does_not_exist :: (name: string, recursive := false) -> directory_now_exists: bool {
+    if !Native_Path.is_valid(name) return false;
+
     if recursive {
         parent := Strings.path_strip_filename(name);
         if parent.count > 1 && parent != name {
@@ -151,6 +166,8 @@ make_directory_if_it_does_not_exist :: (name: string, recursive := false) -> dir
 }
 
 get_absolute_path :: inline (relative_path: string) -> string, success: bool {
+    if !Native_Path.is_valid(relative_path) return "", false;
+
     name := to_c_string(relative_path);
 
     defer free(name);
