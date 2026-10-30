@@ -510,11 +510,10 @@ fn line_stores(blocks: &[Block]) -> Vec<Vec<usize>> {
     blocks
         .iter()
         .map(|block| {
-            let term_calls = block
+            let mut term_calls = false;
+            block
                 .term
-                .successors()
-                .iter()
-                .any(|s| reaches_call[s.0 as usize]);
+                .for_each_successor(|s| term_calls |= reaches_call[s.0 as usize]);
             block
                 .insts
                 .iter()
@@ -587,8 +586,15 @@ fn push_block(func: &Func, line_stores: &[Vec<usize>]) -> usize {
     let mut stack = vec![(0usize, 0usize)];
     seen[0] = true;
     while let Some((b, i)) = stack.pop() {
-        let successors = blocks[b].term.successors();
-        if let Some(next) = successors.get(i) {
+        let mut next = None;
+        let mut k = 0;
+        blocks[b].term.for_each_successor(|s| {
+            if k == i {
+                next = Some(s);
+            }
+            k += 1;
+        });
+        if let Some(next) = next {
             stack.push((b, i + 1));
             let next = next.0 as usize;
             if !seen[next] {
@@ -604,11 +610,23 @@ fn push_block(func: &Func, line_stores: &[Vec<usize>]) -> usize {
     for (r, &b) in order.iter().enumerate() {
         rank[b] = r;
     }
-    let mut preds: Vec<Vec<usize>> = vec![Vec::new(); count];
+    // Predecessors in one flat array: `pred_start[b]..pred_start[b + 1]` indexes `pred_list`.
+    let mut pred_start = vec![0usize; count + 1];
     for &b in &order {
-        for s in blocks[b].term.successors() {
-            preds[s.0 as usize].push(b);
-        }
+        blocks[b]
+            .term
+            .for_each_successor(|s| pred_start[s.0 as usize + 1] += 1);
+    }
+    for b in 0..count {
+        pred_start[b + 1] += pred_start[b];
+    }
+    let mut fill = pred_start.clone();
+    let mut pred_list = vec![0usize; pred_start[count]];
+    for &b in &order {
+        blocks[b].term.for_each_successor(|s| {
+            pred_list[fill[s.0 as usize]] = b;
+            fill[s.0 as usize] += 1;
+        });
     }
     // Immediate dominators.
     let mut idom = vec![usize::MAX; count];
@@ -618,7 +636,7 @@ fn push_block(func: &Func, line_stores: &[Vec<usize>]) -> usize {
         changed = false;
         for &b in order.iter().skip(1) {
             let mut new = usize::MAX;
-            for &p in &preds[b] {
+            for &p in &pred_list[pred_start[b]..pred_start[b + 1]] {
                 if idom[p] == usize::MAX {
                     continue;
                 }
@@ -676,18 +694,18 @@ fn push_block(func: &Func, line_stores: &[Vec<usize>]) -> usize {
 /// Whether `block` can be reached again after leaving it.
 fn on_cycle(blocks: &[Block], block: usize) -> bool {
     let mut seen = vec![false; blocks.len()];
-    let mut work: Vec<usize> = blocks[block]
+    let mut work: Vec<usize> = Vec::new();
+    blocks[block]
         .term
-        .successors()
-        .iter()
-        .map(|s| s.0 as usize)
-        .collect();
+        .for_each_successor(|s| work.push(s.0 as usize));
     while let Some(b) = work.pop() {
         if b == block {
             return true;
         }
         if !std::mem::replace(&mut seen[b], true) {
-            work.extend(blocks[b].term.successors().iter().map(|s| s.0 as usize));
+            blocks[b]
+                .term
+                .for_each_successor(|s| work.push(s.0 as usize));
         }
     }
     false
@@ -731,10 +749,13 @@ fn reaches_call_from_entry(blocks: &[Block]) -> Vec<bool> {
     loop {
         let mut changed = false;
         for (b, block) in blocks.iter().enumerate() {
-            if first[b] == 0
-                && !result[b]
-                && block.term.successors().iter().any(|s| result[s.0 as usize])
-            {
+            let mut any = false;
+            if first[b] == 0 && !result[b] {
+                block
+                    .term
+                    .for_each_successor(|s| any |= result[s.0 as usize]);
+            }
+            if any {
                 result[b] = true;
                 changed = true;
             }

@@ -376,6 +376,32 @@ pub enum Term {
 }
 
 impl Term {
+    /// Calls `f` with each block this ending can go to, a target once per edge, without allocating.
+    pub fn for_each_successor(&self, mut f: impl FnMut(BlockId)) {
+        match self {
+            Term::Jump(b) => f(*b),
+            Term::Branch {
+                then_block,
+                else_block,
+                ..
+            } => {
+                f(*then_block);
+                f(*else_block);
+            }
+            Term::Switch {
+                cases,
+                default,
+                ..
+            } => {
+                for c in cases {
+                    f(c.1);
+                }
+                f(*default);
+            }
+            Term::Ret(_) | Term::Unreachable => {}
+        }
+    }
+
     /// The blocks this ending can go to, a target once per edge.
     pub fn successors(&self) -> Vec<BlockId> {
         match self {
