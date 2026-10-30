@@ -176,6 +176,14 @@ fn main() -> ExitCode {
             print!("{}", jaic::doc_comments::records(&docs));
             return ExitCode::SUCCESS;
         }
+        Ok(Request::DocGaps(dir)) => {
+            let gaps = jaic::doc_comments::gaps(
+                std::path::Path::new(&dir),
+                &jaic::paths::default_stdlib_dir(),
+            );
+            print!("{}", jaic::doc_comments::gap_records(&gaps));
+            return ExitCode::SUCCESS;
+        }
         Err(error) => return report_cli_error(error),
     };
     if cli.msvc_format {

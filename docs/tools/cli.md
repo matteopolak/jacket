@@ -28,7 +28,7 @@ The file you name is the only source file on the command line. Other files come 
 | build for another platform | `jaic main.jai -os windows -cpu arm64` |
 | name the output | `jaic main.jai -exe build/app` (a bare name such as `-exe app` is written to the current directory) |
 
-`-check` and `-interp` can't be combined. Options that only make sense for a build (`-exe`, `-o`, `-sanitize`, ...) are accepted and ignored with either of them, so one command line can be built, checked or interpreted. `jaic -print_stdlib` prints the standard library folder jaic uses and exits; `jacket test` asks it for the folder. `jaic -doc_comments DIR` prints the doc comments of the library in `DIR` (one tab-separated, escaped record per comment) for `jacket test`'s doc tests.
+`-check` and `-interp` can't be combined. Options that only make sense for a build (`-exe`, `-o`, `-sanitize`, ...) are accepted and ignored with either of them, so one command line can be built, checked or interpreted. `jaic -print_stdlib` prints the standard library folder jaic uses and exits; `jacket test` asks it for the folder. `jaic -doc_comments DIR` prints the doc comments of the library in `DIR` (one tab-separated, escaped record per comment) for `jacket test`'s doc tests (an alias without a comment of its own gets its target's text, flagged in a fifth field so the examples run once). `jaic -doc_gaps DIR` prints which public declarations of the library have docs and an example ([stdlib doc gaps](stdlib-doc-gaps.md)).
 
 ### Build flavors
 

@@ -47,6 +47,7 @@ pub(super) enum Request {
     Stdlib,
     /// Print the doc comments of the library in a folder.
     DocComments(String),
+    DocGaps(String),
 }
 
 /// Where `jaic -help` lists an option.
@@ -75,6 +76,7 @@ pub(super) enum Action {
     Version,
     PrintStdlib,
     DocComments,
+    DocGaps,
     Check,
     Interp,
     Flavor(Flavor),
@@ -378,6 +380,11 @@ pub(super) const OPTIONS: &[CliOption] = {
             Diagnostics,
             "-doc_comments <dir>",
             "print the doc comments of the library in <dir> as records, for `jacket test`",
+        ),
+        CliOption::new(&["-doc_gaps"], Action::DocGaps).help(
+            Diagnostics,
+            "-doc_gaps <dir>",
+            "print which public declarations of the library in <dir> have docs and an example",
         ),
         CliOption::new(&["-version"], Action::Version)
             .aliases(&["-V", "--version"])

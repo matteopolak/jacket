@@ -79,7 +79,7 @@ test suite="all" crate="" jobs=default_jobs *filter:
 hooks:
     {{ py }} tools/dev/dev.py hooks
 
-# The text checks CI runs on every push: style (file length, banners), paths (repo paths named in docs), ci-sources (include_str! inputs). Names narrow them.
+# The text checks CI runs on every push: style (file length, banners), paths (repo paths named in docs), ci-sources (include_str! inputs), stdlib-docs (undocumented public stdlib declarations; builds jaic). Names narrow them.
 [group('check')]
 repo-checks *names:
     {{ py }} tools/dev/dev.py repo-checks {{ names }}

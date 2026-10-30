@@ -5,7 +5,7 @@
     python3 tools/dev/dev.py fmt  [--check] [--lang jai|rust|all] [--staged] [-j N] [paths...]
     python3 tools/dev/dev.py lint [--fix] [--lang jai|rust|all] [--os linux|windows|macos|wasm] [--staged] [-j N] [paths...]
     python3 tools/dev/dev.py editor
-    python3 tools/dev/dev.py repo-checks [style|paths|ci-sources ...]
+    python3 tools/dev/dev.py repo-checks [style|paths|ci-sources|stdlib-docs ...]
     python3 tools/dev/dev.py precommit
     python3 tools/dev/dev.py hooks
     python3 tools/dev/dev.py nvim [--unit] [-j N]
@@ -40,7 +40,10 @@ JAIFMT_SOURCES = ["jaifmt", "stdlib/Extensions/Jai_Format", "stdlib/Extensions/A
 # What a jailint binary is built from; the pre-commit hook uses an existing one only when cargo is unavailable, and then only if none of these is newer.
 JAILINT_SOURCES = ["crates/jailint", "crates/jaic", "crates/jaic-cli", "stdlib/prelude/module.jai", "Cargo.lock"]
 # Repository checks that read only the working tree (tools/ci/check_<name>.py), in `repo-checks` order.
-REPO_CHECKS = {"style": "check_source_style", "paths": "check_repo_paths", "ci-sources": "check_ci_sources"}
+REPO_CHECKS = {"style": "check_source_style", "paths": "check_repo_paths", "ci-sources": "check_ci_sources",
+               "stdlib-docs": "check_stdlib_docs"}
+# Checks that need `jaic` built (they build it when it is not): `repo-checks` runs them, the pre-commit hook does not.
+BUILT_REPO_CHECKS = {"stdlib-docs"}
 
 
 def run(cmd: list[str], cwd: Path = ROOT) -> int:
@@ -464,7 +467,8 @@ def repo_check_failures(names: list[str], skip_missing: bool = False) -> dict[st
 
 def cmd_repo_checks(args) -> int:
     """The text checks CI runs on every push (and the pre-commit hook): file length and banners,
-    repo paths named in docs and headers, and `include_str!` inputs. Every check runs."""
+    repo paths named in docs and headers, `include_str!` inputs, and the undocumented public
+    standard-library declarations (which builds `jaic`; the hook leaves it out). Every check runs."""
     failures = repo_check_failures(args.names)
     for script, output in failures.items():
         print(f"{script} failed:", file=sys.stderr)
@@ -698,7 +702,7 @@ def cmd_precommit(args) -> int:
         # They read the working tree, so a partly staged file is checked as it is on disk.
         if not hook.skipped("repo"):
             hook.say("repo checks")
-            for script, output in repo_check_failures([], skip_missing=True).items():
+            for script, output in repo_check_failures([n for n in REPO_CHECKS if n not in BUILT_REPO_CHECKS], skip_missing=True).items():
                 hook.fail(f"python3 {script}", output)
         staged_text = "\n".join(everything)
         if (not hook.skipped("locks") and shutil.which("cargo")

@@ -14,7 +14,7 @@ The root `Justfile` gives each dev command one name. CI's format and lint steps 
 | `check` | `fmt --check`, `lint`, `editor`, `nvim-test --unit` |
 | `test` | `cargo nextest run --profile ci` (plus `cargo test --doc`; needs [cargo-nextest](https://nexte.st): `brew install cargo-nextest`) and the `tools/` unittests (`--suite cargo\|tools\|all`, `--crate NAME`, `--partition slice:K/N` for one share, `--expr FILTERSET` to narrow it) |
 | `nvim-test`, `editor` | Neovim plugin tests; VS Code generated-file checks (skipped with a note without nvim 0.11 / node 24) |
-| `repo-checks [style\|paths\|ci-sources]` | CI's text checks (`tools/ci/check_source_style.py`, `check_repo_paths.py`, `check_ci_sources.py`); names narrow the set. CI, `browser-release.yml` (`ci-sources` only) and the pre-commit hook all call it |
+| `repo-checks [style\|paths\|ci-sources\|stdlib-docs]` | CI's text checks (`tools/ci/check_source_style.py`, `check_repo_paths.py`, `check_ci_sources.py`, and `check_stdlib_docs.py`, which builds `jaic` when it is missing: see [stdlib doc gaps](stdlib-doc-gaps.md)); names narrow the set. CI and `browser-release.yml` (`ci-sources` only) call it; the pre-commit hook runs all but `stdlib-docs` |
 | `hooks` | Sets the relative `core.hooksPath=.githooks` (`dev.py hooks`; `just build` does it too, except in CI) |
 | `profile-report PROFILE [--top N ...]` | `tools/profile_report.py`: a samply profile summarized by self and inclusive samples ([profiling](benchmarks.md#profiling)) |
 | `bump-version X.Y.Z` | `tools/bump_version.py`, the version step of [releases](releases.md) |
