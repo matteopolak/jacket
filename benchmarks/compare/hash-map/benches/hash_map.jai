@@ -195,6 +195,22 @@ churn_int :: ($T: Type, b: *Bench, data: *Data) {
     destroy(table);
 }
 
+// The sum of every value. Each library's `for` is brought in with `using`; the generic overload
+// is for Hash_Map.
+sum_values :: (table: *Linear.Table($K, $V)) -> s64 {
+    using Linear;
+    sum: s64;
+    for value: table sum += value;
+    return sum;
+}
+
+sum_values :: (table: $T) -> s64 {
+    using Fast;
+    sum: s64;
+    for value: table sum += value;
+    return sum;
+}
+
 iterate_int :: ($T: Type, b: *Bench, data: *Data) {
     table := create(T);
 
@@ -204,8 +220,7 @@ iterate_int :: ($T: Type, b: *Bench, data: *Data) {
     reset_timer(b);
 
     for 0..b.iterations - 1 {
-        sum: s64;
-        for value: table sum += value;
+        sum := sum_values(table);
         black_box(sum);
     }
 
