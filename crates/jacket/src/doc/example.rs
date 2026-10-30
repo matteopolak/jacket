@@ -79,7 +79,7 @@ pub fn plain_code(site: &Site, module: &Module, info: &str, code: &str) -> Strin
     } else {
         esc(code.trim_end())
     };
-    format!("<pre class=\"code\"><code>{body}</code></pre>")
+    format!("<figure class=\"ex plain\"><pre class=\"code\"><code>{body}</code></pre></figure>")
 }
 
 /// A fenced block of a doc comment: an example with buttons when it is ```` ```jai ````, else

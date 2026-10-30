@@ -1,5 +1,5 @@
 // Jacket API docs. The pages read fine without this; it adds the theme button, search, the
-// procedure filter, Copy, and Run (which compiles the example in your browser).
+// version menu, Copy, and Run (which compiles the example in your browser).
 (function () {
   'use strict';
   var root = document.documentElement;
@@ -314,4 +314,25 @@
     if (!button || button.disabled) return;
     if (button.getAttribute('data-act') === 'run') run(button); else if (button.getAttribute('data-act') === 'copy') copy(button);
   });
+
+  // Version menu. versions.json, when the host serves one, is [{"version": "0.31.0", "url": "/docs/jai/0.31.0/"}, ...].
+  (function () {
+    var btn = document.getElementById('ver'), menu = document.getElementById('ver-menu');
+    if (!btn || !menu) return;
+    fetch(base + 'versions.json').then(function (r) { return r.ok ? r.json() : []; }).then(function (list) {
+      if (!Array.isArray(list) || list.length < 2) return;
+      var current = btn.textContent.trim();
+      list.forEach(function (v) {
+        var a = document.createElement('a');
+        a.href = v.url; a.textContent = v.version; a.setAttribute('role', 'menuitem');
+        if (v.version === current) a.setAttribute('aria-current', 'true');
+        menu.appendChild(a);
+      });
+      btn.disabled = false;
+    }).catch(function () {});
+    function set(open) { menu.hidden = !open; btn.setAttribute('aria-expanded', open ? 'true' : 'false'); }
+    btn.addEventListener('click', function (e) { e.stopPropagation(); set(menu.hidden); });
+    document.addEventListener('click', function (e) { if (!menu.contains(e.target)) set(false); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !menu.hidden) { set(false); btn.focus(); } });
+  })();
 })();

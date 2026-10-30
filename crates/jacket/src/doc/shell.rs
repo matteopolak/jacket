@@ -74,8 +74,6 @@ fn header(site: &Site) -> String {
     format!(
         "<header class=\"top\"><div class=\"top-in\">\n\
          <a class=\"logo\" href=\"{base}\" aria-label=\"Jacket API documentation\">{logo}</a>\n\
-         <label class=\"sr\" for=\"ver\">Version</label>\n\
-         <select id=\"ver\" aria-label=\"Version\"><option>jacket {version}</option></select>\n\
          <div class=\"search-wrap js-only\">\n\
          <label class=\"sr\" for=\"q\">Search the docs</label>\n\
          <div class=\"search\"><svg aria-hidden=\"true\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><circle cx=\"11\" cy=\"11\" r=\"7\"/><path d=\"M20 20l-3.5-3.5\"/></svg>\
@@ -83,6 +81,7 @@ fn header(site: &Site) -> String {
          <div id=\"results\" role=\"listbox\" aria-label=\"Search results\" hidden></div>\n</div>\n\
          <nav class=\"site-nav\" aria-label=\"Site\">\n\
          <a href=\"{base}\" aria-current=\"page\">API</a><a href=\"{base}tools/\">Tools</a><a href=\"{playground}\">Playground</a>\n\
+         <div class=\"ver\"><button type=\"button\" id=\"ver\" aria-haspopup=\"true\" aria-expanded=\"false\" aria-controls=\"ver-menu\" disabled>{version}<svg aria-hidden=\"true\" width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M6 9l6 6 6-6\"/></svg></button><div id=\"ver-menu\" class=\"ver-menu\" role=\"menu\" hidden></div></div>\n\
          <button type=\"button\" id=\"theme\" class=\"icon-btn js-only\" aria-label=\"Theme: system (click to change)\" title=\"Theme: system (click to change)\">\
          <svg class=\"i-system\" aria-hidden=\"true\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"12\" rx=\"2\"/><path d=\"M8 20h8M12 16v4\"/></svg>\
          <svg class=\"i-light\" aria-hidden=\"true\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4\"/></svg>\

@@ -56,7 +56,18 @@ html:not(.js) .js-only { display: none !important; }
 .top { position: sticky; top: 0; z-index: 5; background: var(--glass); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }
 .top-in { max-width: 1360px; margin: 0 auto; padding: 10px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
 .logo { display: inline-flex; align-items: center; width: 36px; height: 36px; }
-#ver { font-size: 13px; color: var(--fg2); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; }
+/* The version menu: plain text in the nav; the chevron and menu only show when there are other versions to pick. */
+.ver { position: relative; }
+#ver { display: inline-flex; align-items: center; gap: 4px; font: inherit; color: var(--fg2); background: none; border: 0; padding: 4px 0; cursor: pointer; }
+#ver:disabled { cursor: default; }
+#ver:disabled svg { display: none; }
+#ver:not(:disabled):hover, #ver[aria-expanded="true"] { color: var(--fg); }
+#ver svg { color: var(--muted); transition: transform 0.15s; }
+#ver[aria-expanded="true"] svg { transform: rotate(180deg); }
+.ver-menu { position: absolute; top: calc(100% + 10px); right: -12px; min-width: 160px; padding: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 12px 32px var(--shadow); z-index: 7; }
+.ver-menu a { display: block; padding: 6px 10px; border-radius: 6px; color: var(--fg2); font-weight: 400; white-space: nowrap; }
+.ver-menu a:hover { color: var(--fg); background: var(--sel); text-decoration: none; }
+.ver-menu a[aria-current="true"] { color: var(--link); }
 .search-wrap { flex: 1 1 320px; position: relative; display: flex; justify-content: center; }
 .search { position: relative; width: 100%; max-width: 560px; }
 .search svg { position: absolute; left: 12px; top: 11px; color: var(--muted); pointer-events: none; }
@@ -190,7 +201,8 @@ pre.sig { margin: 0 0 20px; padding: 14px 18px; background: var(--sunken); borde
 .ty, a.ty { color: var(--type); }
 .defs { margin: 0 0 20px; border-top: 1px solid var(--hair); }
 .def { display: flex; flex-wrap: wrap; gap: 2px 24px; padding: 9px 0; border-bottom: 1px solid var(--hair); }
-.def dt { flex: 0 0 220px; font-size: 13.5px; overflow-wrap: anywhere; }
+.def dt { flex: 0 1 auto; min-width: min(220px, 100%); max-width: 100%; font-size: 13.5px; overflow-wrap: break-word; }
+.def dd:empty { display: none; }
 .def dd { flex: 1 1 280px; margin: 0; font-size: 14.5px; color: var(--fg2); min-width: 0; }
 .pname { color: var(--fg); font-weight: 500; }
 .colon { color: var(--muted); }
