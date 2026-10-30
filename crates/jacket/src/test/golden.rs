@@ -6,7 +6,7 @@
 //! depend on where the repository is. `--accept` writes what the program printed into the
 //! expected files instead of comparing (for a golden test, into those that exist, `.stdout` at
 //! least).
-use super::build::{Toolchain, compile_output, program_and_args, stage_dlls};
+use super::build::{Toolchain, compile_output, path_text, program_and_args, stage_dlls};
 use super::exec::{self, Ending, Invocation, Limits, Live};
 use super::jobs::ending_text;
 use super::options::TestOptions;
@@ -133,7 +133,8 @@ fn built(
     let stem = file_name(&source.with_extension(""));
     let exe = work.join(format!("golden-{stem}"));
     let report = work.join(format!("golden-{stem}.txt"));
-    let output = Command::new(&toolchain.jaic)
+    let mut command = Command::new(&toolchain.jaic);
+    command
         .arg(source)
         .args(&quiet)
         .args(&toolchain.flags)
@@ -141,7 +142,15 @@ fn built(
         .arg("-exe")
         .arg(&exe)
         .env("JAIC_REPORT_EXE", &report)
-        .current_dir(work)
+        .current_dir(work);
+    if toolchain.coverage {
+        command.arg("-coverage");
+    }
+    // A program that builds and runs others at compile time reports what they ran too.
+    if let Some(dir) = &toolchain.coverage_dir {
+        command.env("JAIC_COVERAGE_DIR", dir);
+    }
+    let output = command
         .output()
         .map_err(|error| format!("could not start `{}`: {error}", toolchain.jaic.display()))?;
     if !output.status.success() {
@@ -190,12 +199,17 @@ fn built(
         stage_dlls(&exe)?;
     }
     let (program, args) = program_and_args(&exe, &toolchain.runner);
+    let env = toolchain
+        .coverage_dir
+        .iter()
+        .map(|dir| ("JAIC_COVERAGE_DIR".to_string(), path_text(dir)))
+        .collect();
     Ok(Built {
         invocation: Invocation {
             program,
             args,
             cwd: cwd.to_path_buf(),
-            ..Invocation::default()
+            env,
         },
         stdout: output.stdout,
         stderr: output.stderr,

@@ -35,8 +35,11 @@ pub struct Toolchain {
     pub runner: Vec<String>,
     /// The target OS (`wasm` programs are `.wasm` files).
     pub os: String,
-    /// Build the unit-test program with `-coverage`.
+    /// Build every program with `-coverage`.
     pub coverage: bool,
+    /// Where the programs of this toolchain write what they ran (`JAIC_COVERAGE_DIR`), when
+    /// they are built to run once.
+    pub coverage_dir: Option<PathBuf>,
 }
 
 /// One `@test` or `@bench` the plugin found.
@@ -86,7 +89,7 @@ pub fn root_flags(dir: &Path, library: bool) -> Vec<String> {
     }
 }
 
-fn path_text(path: &Path) -> String {
+pub(super) fn path_text(path: &Path) -> String {
     path.to_string_lossy().into_owned()
 }
 
@@ -574,6 +577,7 @@ mod tests {
             runner: Vec::new(),
             os: "linux".into(),
             coverage: false,
+            coverage_dir: None,
         };
         let names = ["a".to_string()];
         let run = |accept| {
@@ -607,6 +611,7 @@ mod tests {
             runner: Vec::new(),
             os: os.into(),
             coverage: false,
+            coverage_dir: None,
         };
         assert!(targets_wasm(&toolchain("wasm", &[])));
         assert!(targets_wasm(&toolchain("linux", &["-q", "-os", "wasm"])));

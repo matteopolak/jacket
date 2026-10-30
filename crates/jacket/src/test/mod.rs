@@ -244,7 +244,12 @@ const PATH_FLAGS: [&str; 5] = [
 fn resolve_paths(args: &TestArgs, cwd: &Path) -> TestArgs {
     let mut args = args.clone();
     let outputs = args.junit.iter_mut().chain(args.coverage_out.iter_mut());
-    for path in args.path.iter_mut().chain(outputs) {
+    for path in args
+        .path
+        .iter_mut()
+        .chain(args.coverage_include.iter_mut())
+        .chain(outputs)
+    {
         *path = cwd.join(&*path);
     }
     let mut takes_path = false;
@@ -331,7 +336,8 @@ fn coverage_for(
     let include = roots
         .iter()
         .map(|r| canonical(&r.dir))
-        .chain(discover::import_folders(flags));
+        .chain(discover::import_folders(flags))
+        .chain(args.coverage_include.iter().map(|dir| canonical(dir)));
     let exclude = roots.iter().map(|r| canonical(&r.dir.join("tests")));
     coverage::Coverage::new(
         out,
@@ -511,6 +517,7 @@ fn run_once(
         runner,
         os: os.clone(),
         coverage: args.coverage,
+        coverage_dir: None,
     };
     let cross = !args.interp && (os != host_os() || cpu != host_cpu());
     let cross_skip = (cross && toolchain.runner.is_empty())

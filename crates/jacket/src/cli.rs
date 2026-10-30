@@ -131,12 +131,17 @@ pub struct TestArgs {
     /// Print the tests (and benchmarks) instead of running them
     #[arg(long)]
     pub list: bool,
-    /// Report which lines of the code the unit tests ran, and write them as lcov
+    /// Report which lines of the code the tests ran (unit tests, golden programs and doc
+    /// examples), and write them as lcov
     #[arg(long, conflicts_with_all = ["interp", "list", "review"])]
     pub coverage: bool,
     /// Where `--coverage` writes lcov [default: target/lcov.info]
     #[arg(long, value_name = "FILE", requires = "coverage")]
     pub coverage_out: Option<std::path::PathBuf>,
+    /// Also report the code below this folder (repeatable); by default the test roots and the
+    /// folders of `-import_dir`
+    #[arg(long, value_name = "DIR", requires = "coverage")]
+    pub coverage_include: Vec<std::path::PathBuf>,
     /// Run again whenever a `.jai` file of the tests or the code they import changes
     #[arg(long, conflicts_with_all = ["list", "review"])]
     pub watch: bool,

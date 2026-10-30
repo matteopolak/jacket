@@ -1,5 +1,6 @@
 //! Running the tests: jobs of one root's cases in one process (or one each), on a pool of
 //! workers, and how each run's records, exit and timeouts become an outcome.
+use super::build::Toolchain;
 use super::exec::{self, Ending, Live};
 use super::options::TestOptions;
 use super::{Case, Kind, Message, Outcome, Plan, Status, build, coverage, doctest, golden};
@@ -442,6 +443,12 @@ fn run_file_case(plan: &Plan, index: usize) -> Outcome {
     let case = &plan.cases[index];
     let root = &plan.roots[case.root];
     let started = Instant::now();
+    // A program built to run once reports what it ran in a folder of its own.
+    let run_dir = plan.coverage.as_ref().map(coverage::Coverage::run_dir);
+    let toolchain = Toolchain {
+        coverage_dir: run_dir.clone(),
+        ..plan.toolchain.clone()
+    };
     let checked = if let Some(doc) = case.doc {
         let work = plan.work.join(format!("doc-{index}"));
         let _ = std::fs::create_dir_all(&work);
@@ -450,7 +457,7 @@ fn run_file_case(plan: &Plan, index: usize) -> Outcome {
             &root.docs[doc],
             &root.module,
             &plan.root_flags[case.root],
-            &plan.toolchain,
+            &toolchain,
             &work,
             &root.dir,
             timeout_of(plan, &case.options),
@@ -464,7 +471,7 @@ fn run_file_case(plan: &Plan, index: usize) -> Outcome {
             &case.file,
             &case.options,
             &plan.root_flags[case.root],
-            &plan.toolchain,
+            &toolchain,
             &work,
             case.file.parent().unwrap_or(&root.dir),
             timeout_of(plan, &case.options),
@@ -481,6 +488,13 @@ fn run_file_case(plan: &Plan, index: usize) -> Outcome {
             plan.settings.accept,
         )
     };
+    if let (Some(coverage), Some(dir)) = (&plan.coverage, &run_dir) {
+        coverage.collect_once(dir);
+        // The program and its debug info are large and have been read.
+        for kind in ["doc", "golden"] {
+            let _ = std::fs::remove_dir_all(plan.work.join(format!("{kind}-{index}")));
+        }
+    }
     let status = if checked.timed_out {
         Status::Timeout
     } else if checked.passed {
