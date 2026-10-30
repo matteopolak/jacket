@@ -6,7 +6,7 @@ structs :: #library "libstructs";
 #load "types.jai";
 
 main :: () {
-    placed := add_placed(.{ 1, 2 }, .{ 10, 20 });
+    placed := add_placed(.{ x = 1, y = 2 }, .{ x = 10, y = 20 });
 
     assert(placed.x == 11 && placed.y == 22);
     assert(placed.component[0] == 11 && placed.component[1] == 22);

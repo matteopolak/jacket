@@ -4,7 +4,7 @@
 //! Each builds its warning through `leniency_warning`, so it is silent outside the program's own
 //! files; the callers sit where jaic takes the lenient path.
 
-use super::{Compiler, ScopeId, Span, TypeId};
+use super::{Compiler, ScopeId, Span, Sym, TypeId};
 use crate::leniency::Leniency;
 
 impl Compiler {
@@ -69,6 +69,37 @@ impl Compiler {
                 .with_help(format!(
                     "cast it to a pointer first: `cast({name}) cast(*void) procedure`"
                 )),
+        );
+    }
+
+    /// A positional struct literal that gives fewer values than the struct has members, the
+    /// rest taking their defaults.
+    pub(in crate::sema) fn warn_positional_literal_leaves_defaults(
+        &mut self,
+        scope: ScopeId,
+        members: &[(Option<Sym>, TypeId, u64)],
+        given: usize,
+        span: Span,
+    ) {
+        let Some(d) = self.leniency_warning(
+            self.scope(scope).module,
+            span,
+            Leniency::PositionalLiteralDefaults,
+            "not enough values in this struct literal",
+        ) else {
+            return;
+        };
+        let left: Vec<String> = members
+            .iter()
+            .skip(given)
+            .filter_map(|m| m.0)
+            .map(|n| format!("`{n}`"))
+            .collect();
+        self.warn(
+            d.with_label(format!("{} left to the default", left.join(", ")))
+                .with_help(
+                    "give a value for every member, or name the members you set (`.{ a = 1 }`)",
+                ),
         );
     }
 

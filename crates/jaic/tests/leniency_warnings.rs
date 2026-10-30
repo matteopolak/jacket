@@ -600,3 +600,39 @@ fn the_address_of_a_macro_constant_warns() {
     );
     assert!(found.is_empty(), "{found:?}");
 }
+
+#[test]
+fn a_positional_literal_that_leaves_defaults_warns() {
+    let text = warns_in_the_program_and_not_in_a_module(
+        Leniency::PositionalLiteralDefaults,
+        "L :: struct { a: s32; b: s32; c: u32 = 7; }
+        main :: () { x: L = .{1, 2}; }",
+        "L :: struct { a: s32; b: s32; c: u32 = 7; }
+        go :: () { x: L = .{1, 2}; }",
+    );
+    assert!(
+        text.contains("not enough values in this struct literal"),
+        "{text}"
+    );
+    assert!(text.contains("name the members you set"), "{text}");
+    for source in [
+        "L :: struct { a: s32; b: s32; c: u32 = 7; }
+        main :: () { x: L = .{1, 2, 3}; y: L = .{a = 1, b = 2}; }",
+        "L :: struct { a: s32 = 1; b: s32 = 2; }
+        main :: () { x: L = .{}; }",
+    ] {
+        let found = warnings(source, &[], Leniency::PositionalLiteralDefaults);
+        assert!(found.is_empty(), "{found:?}");
+    }
+}
+
+#[test]
+fn a_positional_literal_missing_a_member_without_a_default_is_an_error() {
+    let (result, _) = compile(
+        "L :: struct { a: s32; b: s32; c: u32 = 7; }
+        main :: () { x: L = .{1}; }",
+        &[],
+    );
+    let error = result.expect_err("a member without a default needs a value");
+    assert_eq!(error.message, "not enough values in this struct literal");
+}

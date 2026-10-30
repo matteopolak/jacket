@@ -1,4 +1,5 @@
-// A positional struct literal may leave off trailing fields that have an initializer of their own,
+// A positional struct literal may leave off trailing fields that have an initializer of their own
+// (the official compiler rejects it, so this warns with positional-literal-defaults),
 // and a literal may always name its fields instead.
 #import "Basic";
 

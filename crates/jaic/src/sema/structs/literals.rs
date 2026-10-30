@@ -159,6 +159,19 @@ impl Compiler {
         if positional > 0 && positional < needed && values.len() == positional {
             return Err(self.too_few_values(ty, &members, (positional, needed), span));
         }
+        // Members past the last one without an initializer may be left to their defaults by
+        // name only; the official compiler wants a value for each one in a positional literal.
+        if positional > 0
+            && positional < members.len()
+            && values.len() == positional
+            && self
+                .ty
+                .types
+                .as_struct(self.ty.types.repr_struct(ty))
+                .is_some_and(|st| !self.ty.types.struct_info(st).is_union)
+        {
+            self.warn_positional_literal_leaves_defaults(scope, &members, positional, span);
+        }
         let all_const = values.iter().all(|(path, _, op, _)| {
             path.iter().all(|s| matches!(s, PathStep::Offset(_)))
                 && (op.is_const() || matches!(op, Operand::Procs(p) if p.len() == 1))

@@ -48,6 +48,7 @@ Warnings print before errors and never change the exit status, so a leniency doe
 | `exists-on-expression` | `#exists(S.Soa(Item, 3).member)` | give the type a name (`Packed :: S.Soa(Item, 3);`) and ask `#exists(Packed.member)` | `#exists` of anything but a name or a dotted chain of names |
 | `procedure-cast-to-integer` | `cast(u64) some_procedure` | `cast(u64) cast(*void) some_procedure` | a procedure cast straight to an integer type |
 | `address-of-macro-constant` | `*x` in a macro whose parameter `x` the call binds to a number or bool constant | `copy := x;` and take `*copy` | the call binds the parameter to a constant and the body takes its address |
+| `positional-literal-defaults` | `.{1, 2}` for `L :: struct { a: s32; b: s32; c: u32 = 7; }`: the values stop before trailing members that have defaults | `.{1, 2, 7}`, or name what you set: `.{a = 1, b = 2}` | a positional literal of a struct that gives fewer values than it has members (every member without a default has a value) |
 
 ## When the official compiler rejects it
 
@@ -65,6 +66,7 @@ Only what the official compiler rejects is a leniency.
 - **`exists-on-expression`**: `#exists` takes a name or a chain of names.
 - **`procedure-cast-to-integer`**: the official compiler needs the pointer in between.
 - **`address-of-macro-constant`** is rejected only when the macro parameter is bound to a constant; a variable argument has an address.
+- **`positional-literal-defaults`**: the official compiler reports `Not enough values provided in this struct literal` for any positional literal that stops early, defaults or not. A literal that leaves out a member with no default is an error here too.
 
 Rejected by both compilers, so these are errors with a code of their own (in imported modules too), not leniencies: `implicit-narrowing` (an `ifx` of integer constants into a signed integer narrower than 64 bits, see [casts and conversions](casts-and-conversions.md)), `ambiguous-procedure-value` (see [procedures](procedures.md)) and `shadows-builtin-type` (see [declarations and constants](declarations-and-constants.md)).
 

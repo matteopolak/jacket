@@ -52,6 +52,8 @@ pub enum Leniency {
     ProcedureCastToInteger,
     /// `*x` of a macro parameter that the call binds to a number or bool constant.
     AddressOfMacroConstant,
+    /// `.{1, 2}` that leaves trailing members with defaults to those defaults.
+    PositionalLiteralDefaults,
 }
 
 /// What every leniency warning says besides its own message.
@@ -60,7 +62,7 @@ pub const NOTE: &str =
 
 impl Leniency {
     /// Every leniency, in the order `docs/language/leniencies.md` lists them.
-    pub const ALL: [Leniency; 23] = [
+    pub const ALL: [Leniency; 24] = [
         Leniency::OperatorOutOfScope,
         Leniency::HidesImport,
         Leniency::NamespacedForExpansion,
@@ -84,6 +86,7 @@ impl Leniency {
         Leniency::ExistsOnExpression,
         Leniency::ProcedureCastToInteger,
         Leniency::AddressOfMacroConstant,
+        Leniency::PositionalLiteralDefaults,
     ];
 
     /// The diagnostic code, as `DiagnosticKind::code` reports it.
@@ -112,6 +115,7 @@ impl Leniency {
             Leniency::ExistsOnExpression => "exists-on-expression",
             Leniency::ProcedureCastToInteger => "procedure-cast-to-integer",
             Leniency::AddressOfMacroConstant => "address-of-macro-constant",
+            Leniency::PositionalLiteralDefaults => "positional-literal-defaults",
         }
     }
 }
