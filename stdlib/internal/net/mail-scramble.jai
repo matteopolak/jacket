@@ -1,3 +1,19 @@
+// Obfuscates `text` with `secret` and returns a string of the same length; running it again with the same secret gives the
+// text back. This hides text from a casual look and is not encryption.
+//
+// Both strings may only contain space, `!`, the digits, and ASCII letters; any other character fails an assertion, as does a
+// non-empty `text` with an empty `secret`. Each character is XORed with the matching character of `secret`, which repeats
+// as needed, within that 64-character alphabet. The result is in temporary storage: it is not freed by the caller and is
+// invalid after the temporary storage is reset, so copy it to keep it.
+//
+// ```jai
+// text := "Az 19!aZ0";
+// hidden := scramble(text, "A!z");
+//
+// assert(hidden.count == text.count);
+// assert(hidden != text);
+// assert(scramble(hidden, "A!z") == text);
+// ```
 scramble :: (text: string, secret: string) -> string {
     if text.count == 0 return "";
 

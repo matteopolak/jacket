@@ -1,3 +1,10 @@
+// The SMTP server `mail_send` talks to, and how it logs in.
+//
+// `host` is a name or address and `port` is the TCP port; 0 uses the SMTP default (25). With `enable_ssl` the connection
+// must be upgraded to TLS (STARTTLS) before anything else is sent, and the send fails when the server cannot; without it
+// the whole exchange, credentials included, travels in clear text. `ssl_ca_bundle_path` names a file of trusted
+// certificates, or is empty for libcurl's default. Login is attempted when `username` or `password` is set. Strings are
+// borrowed for the call and never freed. `verbose_logging` makes libcurl print the protocol exchange to standard error.
 Mail_Server :: struct {
     host: string;
     port: int;
@@ -8,6 +15,13 @@ Mail_Server :: struct {
     verbose_logging := false;
 }
 
+// One email for `mail_send`.
+//
+// `from` and each address in `to`, `cc` and `bcc` are the envelope addresses, usually written in angle brackets such as
+// `<me@example.com>`. At least one recipient across the three lists is needed, and `bcc` recipients get the message without
+// being named in its headers. `body` is sent as UTF-8 text, or as HTML when `html` is set. Each entry of `attachments`
+// is the path of a file that is read when the message is sent and added as a base64 attachment. Headers (`from`,
+// `reply_to`, `subject`, the recipients) may not contain NUL, CR or LF. The strings are borrowed and never freed.
 Mail_Message :: struct {
     from: string;
     reply_to: string;
@@ -20,6 +34,32 @@ Mail_Message :: struct {
     html: bool;
 }
 
+// Sends `msg` through the SMTP server `smtp` and returns whether the server accepted it.
+//
+// The call blocks until the exchange is over; there is no timeout of its own, so a stalled server is waited on for as long
+// as libcurl allows. It does not retry and does not queue. Every failure returns false and logs one line through
+// `context.logger` with the `.ERROR` flag: a header or host with a NUL, CR or LF (which would allow header injection), an
+// empty recipient list, a port outside 0 to 65535, an attachment path that cannot be read, and anything libcurl or the
+// server reports, in libcurl's wording. Environment proxies and `.netrc` files are ignored. The first call loads libcurl,
+// so the `Curl` native library must be installed. Memory used during the call comes from temporary storage and is released
+// before the call returns; the caller keeps ownership of everything it passed in.
+//
+// ```jai,no_run
+// smtp: Mail_Server;
+// smtp.host = "smtp.example.com";
+// smtp.port = 587;
+// smtp.enable_ssl = true;
+// smtp.username = "robot";
+// smtp.password = "secret";
+//
+// message: Mail_Message;
+// message.from = "<robot@example.com>";
+// message.to = .["<team@example.com>"];
+// message.subject = "Nightly build";
+// message.body = "The build finished.\r\n";
+//
+// if !mail_send(smtp, message) print("could not send the report\n");
+// ```
 mail_send :: (smtp: Mail_Server, msg: Mail_Message) -> bool {
     mark := get_temporary_storage_mark();
 

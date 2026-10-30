@@ -2298,11 +2298,6 @@ Machine_X64.rdtsc
 Machine_X64.rdtscp
 Machine_X64.x86_Feature_Flag
 Machine_X64.x86_Feature_Leaf
-Mail
-Mail.Mail_Message
-Mail.Mail_Server
-Mail.mail_send
-Mail.scramble
 Memory
 Memory.avx_copy_256
 Memory.copy
