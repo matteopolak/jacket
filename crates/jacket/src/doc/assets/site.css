@@ -102,7 +102,7 @@ kbd { font-family: var(--mono); font-size: 12px; color: var(--muted); border: 1p
 .nav-list { display: flex; flex-direction: column; gap: 1px; margin-bottom: 20px; }
 .nav-list a, .back { display: block; color: var(--muted); padding: 5px 10px; border-radius: 6px; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-list a:hover { color: var(--fg); text-decoration: none; }
-.nav-list a[aria-current="page"] { color: var(--link); background: var(--sel); }
+.nav-list a[aria-current="page"] { color: var(--link); font-weight: 600; }
 .nav-list.mono { font-size: 13px; }
 .back { color: var(--fg2); padding-left: 10px; margin-bottom: 14px; }
 .nav-cat { margin: 0; }
