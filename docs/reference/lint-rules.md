@@ -1,6 +1,6 @@
 # Lint rules
 
-Generated from the rule table in `crates/jailint/src/rules/` by `tools/generators/generate_reference_docs.py`; edit a rule's `INFO` there. [jailint](../tools/jailint.md) explains each rule and how to configure them.
+Every rule `jailint` checks, with its category and default level. [jailint](../tools/jailint.md) explains each rule and how to configure them.
 
 ## Categories
 

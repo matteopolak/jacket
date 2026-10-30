@@ -66,9 +66,8 @@ def command_line():
     jacket = help_text("jacket", "--help")
     parts = [
         "# Command line\n",
-        "Generated from the tools' own help by `tools/generators/generate_reference_docs.py`; "
-        "the sources are the option tables in `crates/jaic-cli/src/`, `crates/jailint/src/cli.rs` and "
-        "`crates/jacket/src/cli.rs`. [The `jaic` command line](../tools/cli.md), [jailint](../tools/jailint.md) "
+        "Every flag of `jaic`, `jailint` and `jacket`, as their `--help` prints it. "
+        "[The `jaic` command line](../tools/cli.md), [jailint](../tools/jailint.md) "
         "and [jacket](../tools/jacket.md) say how the flags fit together.\n",
         "## jaic\n", block(jaic),
         "## jailint\n", block(help_text("jailint", "--help")),

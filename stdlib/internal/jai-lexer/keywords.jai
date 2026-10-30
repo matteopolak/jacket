@@ -1,4 +1,4 @@
-// Generated keyword spellings and documented input operators.
+// Sets an identifier token's type to the keyword it spells, if any, and returns the type.
 check_for_keyword :: (token: *J.Token) -> J.Token_Type {
     if token.ident_value.name == "auto_cast" {
         token.type = .KEYWORD_AUTO_CAST;

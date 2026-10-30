@@ -8,8 +8,7 @@ fn main() {
     let mut out = String::new();
     out.push_str(
         "# Lint rules\n\n\
-         Generated from the rule table in `crates/jailint/src/rules/` by \
-         `tools/generators/generate_reference_docs.py`; edit a rule's `INFO` there. \
+         Every rule `jailint` checks, with its category and default level. \
          [jailint](../tools/jailint.md) explains each rule and how to configure them.\n\n\
          ## Categories\n\n\
          A rule's category sets its default level. Name a category wherever a rule name works \

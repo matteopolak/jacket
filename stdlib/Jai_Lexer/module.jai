@@ -1,4 +1,4 @@
-// Generated from the Jai_Lexer public contract by tools/generators/generate_jai_lexer_contract.py.
+// Turns Jai source text into tokens, with their types, values and positions.
 
 LEXER_SIMD_WIDTH :: 16;
 

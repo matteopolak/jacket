@@ -1,6 +1,6 @@
 # Environment variables
 
-Generated from `crates/jacket-config/src/env.rs` by `tools/generators/generate_reference_docs.py`; edit the table there. Every variable the Rust tools read is declared there, and clippy rejects a direct `std::env::var` anywhere else. See [the environment registry](../tools/environment.md).
+Every environment variable `jaic`, `jacket`, `jailint` and the language server read. See [the environment registry](../tools/environment.md).
 
 Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). An empty value counts as unset wherever a setting says so.
 

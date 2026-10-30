@@ -18,7 +18,7 @@ def main():
     source = (ROOT / "docs/specs/stdlib/modules/jai-lexer.md").read_text()
     inventory = source.split("## Public type members")[0]
     constants = re.findall(r"^- `([A-Z_]+) :: (\d+|false)`$", inventory, re.M)
-    chunks = ["// Generated from the Jai_Lexer public contract by tools/generators/generate_jai_lexer_contract.py.\n"]
+    chunks = ["// Turns Jai source text into tokens, with their types, values and positions.\n"]
     chunks += [name + " :: " + value + ";" for name, value in sorted(constants)]
     chunks.append("Table_String :: #type,isa string;")
     backing = {"Token_Type": "enum s16", "Note_Flags": "enum_flags u8", "Value_Flags": "enum_flags u32", "Hex_Digit_Type": "enum u8", "Lexer": "struct"}
@@ -44,7 +44,7 @@ def main():
     out.parent.mkdir(parents=True, exist_ok=True)
     emit_generated(out, "\n\n".join(chunks) + "\n", args.formatter, args.check)
     keyword_names = re.findall(r"^- `(KEYWORD_[A-Z_]+)\s*::", source, re.M)
-    lines = ["// Generated keyword spellings and documented input operators.", "check_for_keyword :: (token: *J.Token) -> J.Token_Type {"]
+    lines = ["// Sets an identifier token's type to the keyword it spells, if any, and returns the type.", "check_for_keyword :: (token: *J.Token) -> J.Token_Type {"]
     for name in sorted(keyword_names):
         lines.append('    if token.ident_value.name == "' + name.removeprefix("KEYWORD_").lower() + '" { token.type = .' + name + '; return token.type; }')
     lines += ["    return token.type;", "}", "#scope_module", "punctuation :: (lexer: *J.Lexer) -> (type: J.Token_Type, width: s64) {"]
