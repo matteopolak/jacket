@@ -11,13 +11,15 @@
 //! beside a `float32` value) and whose significant digits outnumber those of the shortest
 //! spelling of the same `float32`. `--fix` writes that spelling, which stores exactly the
 //! same value. The compiler itself rejects a `float32` literal with more
-//! than 8 digits after the point and types one with exactly 8 as `float64` (not seen here);
+//! than 8 digits after the point and types one with exactly 8 as `float64` (not seen here, and
+//! not rewritten beside a `float32` operand, where such a literal widens the operation);
 //! this finds what is left, such as `123456.789012`, where the digits before the point use up
 //! the precision. Literals of other types, and hexadecimal floats, are left
 //! alone.
 use crate::syntax::{Cx, Node, walk};
 use crate::{Edit, Finding, Fix};
 use jaic::ast::{AssignOp, BinOp, Expr, ExprKind as E, Spelling, Stmt, StmtKind as S, UnOp};
+use jaic::lexer::{FloatLiteralPrecision, float_literal_precision};
 use jaic::types::TypeKind;
 
 /// The rule's name, group and one-line summary, and its check.
@@ -40,20 +42,30 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 fn look(cx: &Cx, stmts: &[Stmt], out: &mut Vec<Finding>) {
     walk(stmts, &mut |n, chain| {
         if let Node::Expr(e) = n
-            && let E::Float(value, _, written) = e.kind
-            && in_float32_context(cx, e, chain)
+            && let E::Float(value, precision, written) = e.kind
+            && let Some(context) = float32_context(cx, e, chain)
         {
-            examine(cx, e, value, written, out);
+            examine(cx, e, value, precision, context, written, out);
         }
         true
     });
+}
+
+/// How a literal ends up a `float32`.
+#[derive(Clone, Copy, PartialEq)]
+enum Context {
+    /// Stored into a `float32`, whatever the literal's own type.
+    Converted,
+    /// The other operand of an operator on a `float32`: the literal's own type decides whether
+    /// the operation stays `float32`.
+    Operand,
 }
 
 /// The literal is converted to `float32` by where it stands: the value of a declaration of
 /// type `float32`, the right side of an assignment to a `float32`, or the other operand of an
 /// arithmetic or comparison operator whose first operand is a `float32` value. (The type the
 /// compiler records for a bare literal is its own, not the type it is converted to.)
-fn in_float32_context(cx: &Cx, lit: &Expr, chain: &[Node<'_>]) -> bool {
+fn float32_context(cx: &Cx, lit: &Expr, chain: &[Node<'_>]) -> Option<Context> {
     let types = &cx.compiler.ty.types;
     let float32 = |e: &Expr| {
         !cx.constant(e)
@@ -81,13 +93,12 @@ fn in_float32_context(cx: &Cx, lit: &Expr, chain: &[Node<'_>]) -> bool {
     };
     match chain.last() {
         Some(Node::Stmt(s)) => match &s.kind {
-            S::Decl(d) => {
-                d.value.as_ref().is_some_and(|v| v.span == lit.span)
-                    && d.names.len() == 1
-                    && d.ty
-                        .as_ref()
-                        .is_some_and(|t| matches!(cx.src(t.span).trim(), "float32" | "float"))
-            }
+            S::Decl(d) => (d.value.as_ref().is_some_and(|v| v.span == lit.span)
+                && d.names.len() == 1
+                && d.ty
+                    .as_ref()
+                    .is_some_and(|t| matches!(cx.src(t.span).trim(), "float32" | "float")))
+            .then_some(Context::Converted),
             S::Assign {
                 op: AssignOp::Assign,
                 lhs,
@@ -95,8 +106,9 @@ fn in_float32_context(cx: &Cx, lit: &Expr, chain: &[Node<'_>]) -> bool {
             } => matches!(
                 (lhs.as_slice(), rhs.as_slice()),
                 ([target], [value]) if value.span == lit.span && float32(target)
-            ),
-            _ => false,
+            )
+            .then_some(Context::Converted),
+            _ => None,
         },
         Some(Node::Expr(Expr {
             kind: E::Binary(op, a, b),
@@ -107,13 +119,22 @@ fn in_float32_context(cx: &Cx, lit: &Expr, chain: &[Node<'_>]) -> bool {
             } else {
                 a
             };
-            !matches!(other.kind, E::Float(..) | E::Int(..)) && float32(other)
+            (!matches!(other.kind, E::Float(..) | E::Int(..)) && float32(other))
+                .then_some(Context::Operand)
         }
-        _ => false,
+        _ => None,
     }
 }
 
-fn examine(cx: &Cx, e: &Expr, value: f64, written: Spelling, out: &mut Vec<Finding>) {
+fn examine(
+    cx: &Cx,
+    e: &Expr,
+    value: f64,
+    precision: FloatLiteralPrecision,
+    context: Context,
+    written: Spelling,
+    out: &mut Vec<Finding>,
+) {
     let text = cx.src(e.span).trim();
     if text.is_empty() || written == Spelling::Radix || !value.is_finite() {
         return;
@@ -129,6 +150,17 @@ fn examine(cx: &Cx, e: &Expr, value: f64, written: Spelling, out: &mut Vec<Findi
         return;
     }
     let replacement = spelling(narrow);
+    // Beside a `float32`, a literal the compiler types as `float64` (too many fractional
+    // digits, or an exponent outside `float32`'s) widens the operation it sits in, and a
+    // spelling that reads back as another type would change it. Only a literal that is
+    // `float32` both before and after is the same value there.
+    if context == Context::Operand
+        && (precision.defaults_to_float64
+            || precision.requires_float64
+            || float_literal_precision(&replacement, f64::from(narrow)) != precision)
+    {
+        return;
+    }
     let help = format!("write `{replacement}`, which is the same `float32`");
     out.push(Finding {
         start: e.span.start as usize,

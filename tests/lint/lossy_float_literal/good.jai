@@ -20,5 +20,13 @@ main :: () {
     j := cast(float64) 123456.789012;
     k := cast(float32) 123456.789012;
 
-    print("% % % % % % % % % % %\n", a, b, c, d, e, f, g, h, i, j, k);
+    // More fractional digits than a `float32` keeps make the literal a `float64`, which widens
+    // the operation it is in; shortening it would change the type.
+    x: float32 = 1;
+    l := x + 0.1591549431;
+    m := 0.1591549431 + x;
+
+    assert(type_of(l) == float64 && type_of(m) == float64);
+
+    print("% % % % % % % % % % % % %\n", a, b, c, d, e, f, g, h, i, j, k, l, m);
 }
