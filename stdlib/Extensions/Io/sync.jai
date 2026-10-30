@@ -198,10 +198,26 @@ unlock :: (mutex: *Fiber_Mutex) {
 // `wait` honours `with_deadline`. A condition carries no value and remembers nothing: a notify
 // with nobody waiting is lost, so wait in a loop that checks the state itself.
 //
-// ```jai,ignore
-// while !ready {
-//     error := wait(*changed);                 // .TIMED_OUT, .CANCELED
-//     if error != .NONE return error;
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// changed: Io.Condition;
+// ready: bool;
+//
+// main :: () {
+//     Io.io_run(() {
+//         error: Io.Io_Error;
+//
+//         // Nothing changes `ready` here, so the wait ends at the deadline.
+//         Io.with_deadline(20, #code {
+//             while !ready {
+//                 error = Io.wait(*changed);           // .TIMED_OUT, .CANCELED
+//                 if error != .NONE break;
+//             }
+//         });
+//
+//         assert(error == .TIMED_OUT);
+//     });
 // }
 // ```
 Condition :: struct {

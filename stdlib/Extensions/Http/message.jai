@@ -121,8 +121,12 @@ json :: (value: $T, status := 200) -> Response {
 // `value` as JSON with status 201 and, when `location` is given, a `Location` header: the answer
 // to a request that made something.
 //
-// ```jai,ignore
-// return created(user, tprint("/users/%", user.id));
+// ```jai,skip_on(wasm)
+// response := created(42, tprint("/users/%", 42));
+//
+// assert(response.status == 201);
+// location, found := find_header(response.headers, "Location");
+// assert(found && location == "/users/42");
 // ```
 created :: (value: $T, location := "") -> Response {
     response := json(value, 201);
@@ -195,9 +199,17 @@ Http_Error_Kind :: enum u8 {
 // What a handler returns to answer with a status instead of a value. A handler's `.{}` means
 // no error. The server sends it as an RFC 9457 `application/problem+json` document:
 //
-// ```jai,ignore
-// return .{}, not_found("No user with id %", id.value);
-// // 404 {"type":"about:blank","title":"Not Found","status":404,"detail":"No user with id 7"}
+// ```jai,skip_on(wasm)
+// find_user :: (id: int) -> string, Http_Error {
+//     return "", not_found("No user with id %", id);
+// }
+//
+// _, error := find_user(7);
+//
+// // Sent as 404 {"type":"about:blank","title":"Not Found","status":404,"detail":"No user with id 7"}
+// assert(error.kind == .STATUS);
+// assert(error.status == 404);
+// assert(error.detail == "No user with id 7");
 // ```
 //
 // `app.on_error` changes the format for all of them.

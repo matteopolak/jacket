@@ -7,10 +7,22 @@
 // adds no limit (`NO_DEADLINE`), so a timeout setting that may be off needs no second code path.
 // Channel and lock operations are not IO and ignore it.
 //
-// ```jai,ignore
-// with_deadline(2000, #code {
-//     count, error = read(conn, buffer);       // .TIMED_OUT after two seconds without data
-// });
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// main :: () {
+//     Io.io_run(() {
+//         client, server := Io.make_pipe();
+//         buffer: [8] u8;
+//         error: Io.Io_Error;
+//
+//         Io.with_deadline(20, #code {
+//             _, error = Io.read(client, buffer);       // nothing is ever sent
+//         });
+//
+//         assert(error == .TIMED_OUT);
+//     });
+// }
 // ```
 with_deadline :: (milliseconds: s64, body: Code) #expand {
     previous_deadline := push_deadline(milliseconds);
@@ -25,9 +37,25 @@ with_deadline :: (milliseconds: s64, body: Code) #expand {
 // `body` ends, the outer deadline is back, and the fiber is canceled if it was before or a cancel
 // came during `body`.
 //
-// ```jai,ignore
-// count, error = read(conn, buffer);           // .TIMED_OUT
-// with_grace(1000, #code { write(conn, "stop"); });
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// main :: () {
+//     Io.io_run(() {
+//         client, server := Io.make_pipe();
+//         buffer: [8] u8;
+//         error: Io.Io_Error;
+//         sent: s64;
+//
+//         Io.with_deadline(0, #code {
+//             _, error = Io.read(client, buffer);                // .TIMED_OUT: the deadline has passed
+//             Io.with_grace(1000, #code { sent, _ = Io.write(client, "stop"); });
+//         });
+//
+//         assert(error == .TIMED_OUT);
+//         assert(sent == 4);
+//     });
+// }
 // ```
 with_grace :: (milliseconds: s64, body: Code) #expand {
     previous_grace := push_grace(milliseconds);
