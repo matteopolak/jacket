@@ -12,14 +12,16 @@ check_decode :: (encoded: string, expected: string, success: bool) {
 
 main :: () {
     check_decode("", "", true);
-    check_decode("T", "", true);
+    check_decode("T", "", false);
     check_decode("TQ", "M", true);
     check_decode("TWE", "Ma", true);
     check_decode("T\nQ\n=ignored\xff", "M", true);
-    check_decode("TQ\r==", "M", false);
-    check_decode("TQ ==", "M", false);
-    check_decode("TQ\t==", "M", false);
-    check_decode("TWE!rest", "Ma", false);
+    check_decode("TQ\r==", "", false);
+    check_decode("TQ ==", "", false);
+    check_decode("TQ\t==", "", false);
+    check_decode("TWE!rest", "", false);
+    check_decode("TWFuT", "", false);
+    check_decode("T=", "", false);
 
     for index: 0..255 {
         expected: u8 = 66;
@@ -42,8 +44,8 @@ main :: () {
     custom := B.BASE64_DECODER_TABLE;
     custom[46] = 0;
     custom[13] = 64;
-    decoded, ok := B.base64_decode(".\r.", custom);
-    if !ok || decoded != "\0" exit(4);
+    decoded, ok := B.base64_decode(".\r..", custom);
+    if !ok || decoded != "\0\0" exit(4);
 
     free(decoded);
     if B.BASE64_DECODER_TABLE[46] != 66 || B.BASE64_DECODER_TABLE[13] != 66 exit(5);

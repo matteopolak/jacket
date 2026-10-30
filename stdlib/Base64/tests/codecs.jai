@@ -21,10 +21,10 @@ main :: () {
 
     partial, valid := B.base64_decode("TWE!rest");
 
-    assert(!valid && partial == "Ma");
+    assert(!valid && partial == "");
     free(partial);
     partial, valid = B.base64_decode("TQ\r==");
-    assert(!valid && partial == "M");
+    assert(!valid && partial == "");
     free(partial);
     assert(C.crc64("123456789") == 0x62ec59e3f1a4f00a);
     state: u64;

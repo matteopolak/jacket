@@ -42,20 +42,22 @@ Decoding :: struct {
     valid: bool;
 }
 
-// The decoder ignores what follows a `=` and line feeds, stops at a character outside the
-// alphabet, and returns what it decoded up to there.
+// The decoder ignores what follows a `=` and line feeds. A character outside the alphabet or a lone
+// trailing symbol makes it fail with an empty result.
 DECODINGS :: Decoding.[
     .{ "TWE", "Ma", true },
-    .{ "T", "", true },
+    .{ "T", "", false },
+    .{ "TWFuT", "", false },
+    .{ "TQ=", "M", true },
     .{ "TWE=ignored", "Ma", true },
     .{ "TQ=!\xff", "M", true },
     .{ "TQ\n==", "M", true },
     .{ "T!WE", "", false },
-    .{ "TWE!rest", "Ma", false },
-    .{ "TQ\r==", "M", false },
+    .{ "TWE!rest", "", false },
+    .{ "TQ\r==", "", false },
 ];
 
-decodes_permissively :: (encoded: string, want: string, valid: bool) {
+decodes_or_fails_with_empty_result :: (encoded: string, want: string, valid: bool) {
     decoded, ok := Base64.base64_decode(encoded,, temp);
     expect_equal(decoded, want);
     expect_equal(ok, valid);

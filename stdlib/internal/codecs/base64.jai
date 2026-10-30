@@ -85,29 +85,35 @@ base64_encode :: (input: string, table: string = BASE64_ENCODER_TABLE, pad := tr
 
 // The bytes that `input` encodes, and whether all of it was valid.
 //
-// Line feeds are skipped. A `=` ends the decoding and anything after it is ignored. Any other byte
-// that is not in `table` (a carriage return, a space or a byte outside the alphabet, for example)
-// makes the call stop there and return `false`; the bytes decoded up to that point are still
-// returned. Padding is optional. Bits left over at the end that do not fill a byte are dropped
-// without an error, so a lone trailing symbol decodes to nothing.
+// Line feeds are skipped. A `=` ends the decoding and anything after it is ignored. Padding is
+// optional. Input is invalid, and `success` is `false`, when it holds a byte that is not in `table`
+// (a carriage return, a space or a byte outside the alphabet, for example) or when the symbols
+// before the end or the first `=` leave a lone symbol, which cannot encode a byte (`"T"`, `"TWFuT"`).
 //
-// The result is allocated with the context allocator, even when `success` is false. The caller
-// frees it.
+// When `success` is `false` the result is an empty string, never the part that decoded before the
+// problem, so a caller that forgets to check `success` does not use truncated data. Otherwise the
+// result is allocated with the context allocator and the caller frees it; freeing the empty
+// failure result is harmless.
 //
 // ```jai
 // decoded, ok := base64_decode("TWFu\nTWE=");
 // defer free(decoded);
 // assert(ok && decoded == "ManMa");
 //
-// partial, partial_ok := base64_decode("TW!u");
-// defer free(partial);
-// assert(!partial_ok && partial == "M");
+// failed, failed_ok := base64_decode("TW!u");
+// defer free(failed);
+// assert(!failed_ok && failed == "");
+//
+// lone, lone_ok := base64_decode("T");
+// defer free(lone);
+// assert(!lone_ok);
 // ```
 base64_decode :: (input: string, table: [256] u8 = BASE64_DECODER_TABLE) -> string, success: bool {
     result := alloc_string((input.count / 4) * 3 + 3);
     count: s64;
     bits: u32;
     accumulator: u32;
+    symbols: s64;
     valid := true;
 
     for byte: input {
@@ -122,6 +128,8 @@ base64_decode :: (input: string, table: [256] u8 = BASE64_DECODER_TABLE) -> stri
 
         accumulator = (accumulator << 6) | cast(u32) symbol;
         bits += BITS_PER_SYMBOL;
+        symbols += 1;
+
         if bits >= 8 {
             bits -= 8;
             result.data[count] = cast,trunc(u8) (accumulator >> bits);
@@ -130,9 +138,18 @@ base64_decode :: (input: string, table: [256] u8 = BASE64_DECODER_TABLE) -> stri
         }
     }
 
+    // A final group of one symbol carries 6 bits, which is less than a byte.
+    if symbols % 4 == 1 valid = false;
+
+    if !valid {
+        free(result);
+
+        return .{}, false;
+    }
+
     result.count = count;
 
-    return result, valid;
+    return result, true;
 }
 
 // The URL-safe Base64 text of `input`, with no `=` padding.
@@ -149,7 +166,8 @@ base64url_encode :: (input: string) -> string {
 }
 
 // The bytes that URL-safe Base64 text encodes, and whether all of it was valid. Padding is optional.
-// Errors and ownership are as for `base64_decode`: the caller frees the result.
+// Errors and ownership are as for `base64_decode`: the result is empty when `success` is `false`, and
+// the caller frees it.
 //
 // ```jai
 // decoded, ok := base64url_decode("-_8");
