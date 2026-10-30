@@ -409,7 +409,12 @@ impl Parser<'_> {
                         start.to(end),
                     );
                 }
-                Tok::Punct(P::LParen) if !self.continues_after_block() => {
+                // `(.*)` after an expression starts a prefix dereference, not an argument list:
+                // `if (found) (.*)out = value;`.
+                Tok::Punct(P::LParen)
+                    if !self.continues_after_block()
+                        && (!self.at_n(1, P::DotStar) || !self.at_n(2, P::RParen)) =>
+                {
                     if self.ide_call_open == Some(self.toks[self.pos].span.start) {
                         self.ide_call_callee = Some(expr.clone());
                     }

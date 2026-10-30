@@ -487,7 +487,7 @@
   {"id": "raylib-jai-models-loading-vox", "path": "ahmedqarmout2--raylib-jai/examples/models/models_loading_vox.jai", "mode": "check", "args": ["-I", "../.."]},
   {"id": "raylib-jai-models-mesh-generation", "path": "ahmedqarmout2--raylib-jai/examples/models/models_mesh_generation.jai", "mode": "check", "args": ["-I", "../.."]},
   {"id": "raylib-jai-models-mesh-picking", "path": "ahmedqarmout2--raylib-jai/examples/models/models_mesh_picking.jai", "mode": "check", "args": ["-I", "../.."]},
-  {"id": "raylib-jai-models-mesh-uv-painting", "path": "ahmedqarmout2--raylib-jai/examples/models/models_mesh_uv_painting.jai", "mode": "check", "args": ["-I", "../.."], "disabled": "models_mesh_uv_painting.jai:287 writes the C-style `(.*)outUV = hitUV`, which is not Jai syntax"},
+  {"id": "raylib-jai-models-mesh-uv-painting", "path": "ahmedqarmout2--raylib-jai/examples/models/models_mesh_uv_painting.jai", "mode": "check", "args": ["-I", "../.."]},
   {"id": "raylib-jai-models-orthographic-projection", "path": "ahmedqarmout2--raylib-jai/examples/models/models_orthographic_projection.jai", "mode": "check", "args": ["-I", "../.."]},
   {"id": "raylib-jai-models-point-rendering", "path": "ahmedqarmout2--raylib-jai/examples/models/models_point_rendering.jai", "mode": "check", "args": ["-I", "../.."]},
   {"id": "raylib-jai-models-procedural-decals", "path": "ahmedqarmout2--raylib-jai/examples/models/models_procedural_decals.jai", "mode": "check", "args": ["-I", "../.."]},
