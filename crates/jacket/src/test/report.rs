@@ -380,6 +380,7 @@ impl Reporter {
             .iter()
             .filter(|o| o.status.fails(flaky_fails) || o.status == Status::Flaky)
             .collect();
+        let missing = super::prerequisites::missing(&failing);
         if !failing.is_empty() {
             eprintln!("\nfailures:");
             for outcome in failing {
@@ -390,6 +391,12 @@ impl Reporter {
                 );
                 let details = self.details(case, outcome);
                 eprintln!("\n{title}\n{details}");
+            }
+        }
+        if !missing.is_empty() {
+            eprintln!("\nmissing build outputs (these explain failures above):");
+            for line in missing {
+                eprintln!("  {line}");
             }
         }
         let mut slowest: Vec<&Outcome> = outcomes
