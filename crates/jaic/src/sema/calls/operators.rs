@@ -234,7 +234,7 @@ impl Compiler {
                 continue;
             }
             matched = true;
-            let (chosen, _) = self.choose_candidate(best, &attempt.args, span)?;
+            let (chosen, _) = self.choose_candidate(best, &attempt.args, span, scope)?;
             // The literal is at the other position when the operands are swapped.
             let at = if attempt.swapped {
                 1 - position
@@ -407,7 +407,7 @@ impl Compiler {
             if best.is_empty() {
                 continue;
             }
-            let (chosen, _) = self.choose_candidate(best, &attempt.args, span)?;
+            let (chosen, _) = self.choose_candidate(best, &attempt.args, span, scope)?;
             let Ok(r) = self.emit_call(f, scope, chosen, attempt.args, span) else {
                 continue;
             };
@@ -491,7 +491,7 @@ impl Compiler {
         if best.is_empty() {
             return err(span, "no operator overload matches");
         }
-        let (chosen, _) = self.choose_candidate(best, &args, span)?;
+        let (chosen, _) = self.choose_candidate(best, &args, span, scope)?;
         self.emit_call(f, scope, chosen, args, span)
     }
 

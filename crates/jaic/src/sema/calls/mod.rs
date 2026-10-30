@@ -395,16 +395,29 @@ impl Compiler {
     /// type of its own, or the candidates are polymorphic (an untyped number fits every numeric
     /// parameter alike, and declaration order settles that). One in an inner scope is nearer, as
     /// an inner declaration is to a name of an outer one, and two candidates of one declaration
-    /// are not rivals.
+    /// are not rivals. A procedure the calling module declares itself is preferred to one it
+    /// imports, however the two are scoped (`scope` is where the call is).
     fn choose_candidate(
         &self,
         mut best: Vec<Candidate>,
         args: &[CallArg],
         span: Span,
+        scope: ScopeId,
     ) -> Result<(Candidate, bool)> {
         let ambiguous = self.order_candidates(&mut best);
         if ambiguous {
             let rank = self.candidate_rank(&best[0]);
+            let caller = self.scope(scope).module;
+            let own = |c: &Candidate| self.scope(self.proc(c.proc).scope).module == caller;
+            let tied_run = best
+                .iter()
+                .take_while(|c| self.candidate_rank(c) == rank)
+                .count();
+            let own_count = best[..tied_run].iter().filter(|c| own(c)).count();
+            if own_count > 0 && own_count < tied_run {
+                best[..tied_run].sort_by_key(|c| !own(c));
+                return Ok((best.swap_remove(0), true));
+            }
             let home = self.proc(best[0].proc).scope;
             let tied = best
                 .iter()
@@ -530,7 +543,7 @@ impl Compiler {
             }
             return Err(Box::new(d));
         }
-        let (chosen, ambiguous) = self.choose_candidate(best, &args, span)?;
+        let (chosen, ambiguous) = self.choose_candidate(best, &args, span, scope)?;
         self.check_format_call(span, chosen.proc, &chosen.slots, &args)?;
         if self.ed.is_live() {
             self.ide_note_call(span, procs, chosen.proc, &chosen.slots, &args, ambiguous);

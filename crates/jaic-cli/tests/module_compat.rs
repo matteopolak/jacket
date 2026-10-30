@@ -21,6 +21,34 @@ fn check_with(name: &str, source: &str, extra: &[&str]) -> Option<String> {
     }
 }
 
+/// Writes `files` (path, source) under the test scratch folder `name`, with `-I` on that folder,
+/// and asserts that its `main.jai` checks with and without `-no_dce`.
+fn accepted_with_modules(name: &str, files: &[(&str, &str)]) {
+    let dir = PathBuf::from(env!("CARGO_TARGET_TMPDIR"))
+        .join("module-compat")
+        .join(name);
+    for (path, source) in files {
+        let file = dir.join(path);
+        std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+        std::fs::write(file, source).unwrap();
+    }
+    for extra in [&[][..], &["-no_dce"][..]] {
+        let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
+            .arg("-check")
+            .arg(dir.join("main.jai"))
+            .arg("-I")
+            .arg(&dir)
+            .args(extra)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{name} {extra:?} was rejected:\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
+
 /// Asserts that `source` checks with and without `-no_dce`.
 fn accepted(name: &str, source: &str) {
     for extra in [&[][..], &["-no_dce"][..]] {
@@ -134,5 +162,34 @@ main :: () {
     assert(ok && pad.id == 1 && h.other == 3);
 }
 "#,
+    );
+}
+
+#[test]
+fn own_procedure_wins_over_an_imported_one_that_fits_alike() {
+    accepted_with_modules(
+        "own-overload-beats-import",
+        &[
+            (
+                "main.jai",
+                r#"S :: #import "Sys";
+grab :: (size: s64, flags: s32) -> *void, s64 { return null, 0; }
+
+take :: () -> *void, s64 {
+    using S;
+    ptr: *void;
+    count: s64;
+    ptr, count = grab(8, 3);
+    return ptr, count;
+}
+
+main :: () { a, b := take(); }
+"#,
+            ),
+            (
+                "Sys/module.jai",
+                "grab :: (size: s64, flags: s32) -> s32 { return 0; }\n",
+            ),
+        ],
     );
 }
