@@ -226,6 +226,14 @@ FD_CLR :: (fd: s32, set: *fd_set) {
     (cast(*u8) set)[fd / 8] &= ~((cast(u8) 1) << (fd % 8));
 }
 
+#scope_module
+// The result of a `bind` that was refused before reaching the system: `-1`, with the socket error set to invalid argument.
+refuse_address :: () -> s32 {
+    P.set_errno(cast(P.OS_Error_Code) P.EINVAL);
+
+    return -1;
+}
+
 #scope_file
 #import "Basic";
 P :: #import "internal/bindings/posix-api";

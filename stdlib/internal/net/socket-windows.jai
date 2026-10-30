@@ -116,6 +116,14 @@ FD_CLR :: (fd: Socket, set: *fd_set) {
     Control.remove_descriptor(fd, set);
 }
 
+#scope_module
+// The result of a `bind` that was refused before reaching the system: `-1`, with the socket error set to invalid argument.
+refuse_address :: () -> s32 {
+    WSASetLastError(WSAEINVAL);
+
+    return -1;
+}
+
 #scope_file
 #import "Basic";
 W :: #import "internal/bindings/windows-api";

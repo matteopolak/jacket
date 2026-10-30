@@ -591,9 +591,21 @@ check_bad_arguments :: () {
     s := make_tcp_socket();
 
     defer close_and_reset(*s);
+    #if OS == .WINDOWS invalid :: WSAEINVAL;
+    else invalid :: EINVAL;
+
     assert(bind(s, "not an address", 0) == -1, "an unparseable address");
+    assert(get_last_socket_error() == invalid, "its error is invalid argument");
+    #if OS == .WINDOWS WSASetLastError(0);
+    else set_errno(0);
+
     assert(bind(s, "127.0.0.1", 0, 77) == -1, "an unknown family");
+    assert(get_last_socket_error() == invalid, "its error is invalid argument");
+    #if OS == .WINDOWS WSASetLastError(0);
+    else set_errno(0);
+
     assert(bind(s, "::1", 0) == -1, "an IPv6 address for an IPv4 bind");
+    assert(get_last_socket_error() == invalid, "its error is invalid argument");
     // A port that is taken (the listener is not closed yet) cannot be bound again.
     listener := make_tcp_socket();
 

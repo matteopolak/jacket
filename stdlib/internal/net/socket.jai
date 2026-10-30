@@ -244,8 +244,9 @@ accept_v6 :: (s: Socket) -> Socket, sockaddr_in6 {
 // `family` is `AF_INET` (the default) or `AF_INET6` and must match the socket. `address` is parsed as numbers only, such
 // as `127.0.0.1` or `::1`; a host name is never resolved. `port` is in host order, and 0 lets the OS pick a free port
 // that `getsockname` then reports. An address that does not parse, one of the other family, and a `family` that is
-// neither all return -1 without touching the socket and without setting the socket error. A failure of the bind itself
-// returns the native error value, and `get_last_socket_error()` says why (`EADDRINUSE` for a taken port).
+// neither all return -1 without touching the socket, and `get_last_socket_error()` then says invalid argument (`EINVAL`,
+// `WSAEINVAL`). A failure of the bind itself returns the native error value, and `get_last_socket_error()` says why
+// (`EADDRINUSE` for a taken port).
 //
 // ```jai,skip_on(wasm)
 // assert(socket_init());
@@ -264,17 +265,17 @@ bind :: (s: Socket, address: string, port: u16, family: type_of(sockaddr_in.sin_
 
     if family == AF_INET {
         addr: sockaddr_in;
-        if inet_pton(AF_INET, cname, *addr.sin_addr) != 1 return -1;
+        if inet_pton(AF_INET, cname, *addr.sin_addr) != 1 return refuse_address();
         return bind(s, read_ipv4(*addr.sin_addr), port);
     }
 
     if family == AF_INET6 {
         bytes: [16] u8;
-        if inet_pton(AF_INET6, cname, bytes.data) != 1 return -1;
+        if inet_pton(AF_INET6, cname, bytes.data) != 1 return refuse_address();
         return bind(s, bytes, port);
     }
 
-    return -1;
+    return refuse_address();
 }
 
 // Binds `s` to an IPv4 address and a port, and returns 0 on success or the native error value.
