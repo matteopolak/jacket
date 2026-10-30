@@ -2,6 +2,19 @@
 // protocol versions and ALPN protocols it speaks. A config is built once with `tls_config_init`
 // and then shared by every connection and every scheduler thread; nothing changes in it afterwards.
 
+// A TLS protocol version, for `Tls_Config.min_version` and `max_version`: the range a client offers or a server accepts.
+// The defaults are the whole range, `TLS_1_2` to `TLS_1_3`, and the version that was settled on is reported by
+// `version(stream)` as `"TLSv1.2"` or `"TLSv1.3"`. Older versions are not supported. `tls_config_init` fails with `.CONFIG` when the range
+// is empty (`min_version` above `max_version`).
+//
+// ```jai
+// config: Tls_Config;
+// config.min_version = .TLS_1_3;
+// config.max_version = .TLS_1_2;
+//
+// error := tls_config_init(*config);
+// assert(error.kind == .CONFIG);
+// ```
 Tls_Version :: enum u8 {
     TLS_1_2;
     TLS_1_3;

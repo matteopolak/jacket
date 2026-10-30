@@ -1,6 +1,20 @@
 // What went wrong, in one value for everything the module does: a bad certificate in a config, a
 // handshake that failed, a peer that is not who it says it is, a connection that broke.
-
+//
+// `kind` of a `Tls_Error` says which; `.NONE` is success. Branch on the kind, then show `error_text(error)` to a person
+// (the line lives in temporary storage) or read `detail(*error)`, `error.io`, `error.alert` and `error.verify_flags`
+// for the specifics. Calls that return `Io.Io_Error` instead (`read`, `write`) leave the TLS reason in
+// `last_error(stream)`.
+//
+// ```jai
+// config: Tls_Config;
+// config.certificate_chain_pem = "this is not a certificate";
+// config.private_key_pem = "this is not a key";
+//
+// error := tls_config_init(*config);
+// assert(error.kind == .CONFIG);
+// assert(error_text(error).count > 0);
+// ```
 Tls_Error_Kind :: enum u8 {
     NONE; // no error: `.{}`
     IO; // the connection under TLS failed or timed out: `io` says how (`.TIMED_OUT`, `.CANCELED`, ...)

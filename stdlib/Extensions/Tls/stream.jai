@@ -14,7 +14,9 @@
 // One stream belongs to one scheduler thread. One fiber may read while another writes (every call
 // into the TLS library is short and not interrupted by a switch to another fiber of the stream);
 // two fibers reading, or two writing, take turns call by call, so their data interleaves.
-
+//
+// A stream is allocated by `tls_connect` or `tls_accept` and freed by `close`, which must be called once and after which
+// the stream is not used. The fields are the module's own state, not an interface: use the procedures.
 Tls_Stream :: struct {
     reader: Io.Reader;
     writer: Io.Writer;
@@ -394,10 +396,15 @@ write_some :: (stream: *Tls_Stream, bytes: [] u8) -> s64, Io.Io_Error {
 }
 
 // Sends all of `bytes`. On an error it returns how many went out.
+// Sends all of `bytes`, waiting for the peer as needed, and returns how many went out with an `Io.Io_Error`. On `.NONE` that
+// is `bytes.count`; on an error it is the bytes that were already sent. It is the same as `write_some` repeated, so a large
+// write is split into records and may take several scheduler turns. Use `write_some` to send what fits without
+// looping.
 write :: (stream: *Tls_Stream, bytes: [] u8) -> s64, Io.Io_Error {
     return Io.write(writer_of(stream), bytes);
 }
 
+// The `write` for a `string`: sends all of `text` and returns how many bytes went out.
 write :: (stream: *Tls_Stream, text: string) -> s64, Io.Io_Error {
     return Io.write(writer_of(stream), text);
 }
@@ -457,6 +464,8 @@ ended_without_close_notify :: (reader: Io.Reader) -> bool {
     return stream.failure.kind == .TRUNCATED;
 }
 
+// The stream as an `Io.Reader`, for code written against readers (`Io.read_all`, the Http client). Reading it is `read`;
+// closing it closes the whole stream, once. The reader points at the stream, so it is only valid until `close`.
 reader_of :: (stream: *Tls_Stream) -> Io.Reader {
     reader: Io.Reader;
 
@@ -469,6 +478,8 @@ reader_of :: (stream: *Tls_Stream) -> Io.Reader {
     return reader;
 }
 
+// The stream as an `Io.Writer`, for code written against writers. Writing it is `write_some`; closing it closes the whole
+// stream, once, so close either the reader or the writer of a stream and not both. It is only valid until `close`.
 writer_of :: (stream: *Tls_Stream) -> Io.Writer {
     writer: Io.Writer;
 

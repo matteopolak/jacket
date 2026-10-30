@@ -77,6 +77,8 @@ certificate_names :: (der: [] u8, names: *Certificate_Names) -> bool {
     return true;
 }
 
+// Releases the lists inside `names` (allocated with `context.allocator` by `certificate_names`) and resets it. The strings in
+// it pointed into the DER, so they are not valid afterwards.
 free_certificate_names :: (names: *Certificate_Names) {
     array_free(names.dns);
     array_free(names.addresses);
