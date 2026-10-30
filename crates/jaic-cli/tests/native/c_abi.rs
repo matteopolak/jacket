@@ -974,3 +974,55 @@ fn msvc_long_double_math_calls_the_double_functions() {
     assert!(ir.contains("declare double @sqrt(double)"), "{ir}");
     assert!(!ir.contains("@sqrtl"), "{ir}");
 }
+
+/// Every MSVC link uses the DLL C runtime, which exports a variable only as `__imp_<name>`, so
+/// a C-runtime variable is `dllimport` there, on both Windows CPUs; MinGW links its runtime
+/// statically, and functions stay plain declarations.
+#[test]
+fn msvc_c_runtime_variables_are_dllimport() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("native-msvc-crt-data");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(
+        dir.join("main.jai"),
+        "crt :: #system_library \"ucrt\";\n\
+         k32 :: #system_library \"kernel32\";\n\
+         _fmode: s32 #elsewhere crt;\n\
+         other_data: s32 #elsewhere k32;\n\
+         sqrt :: (x: float64) -> float64 #foreign crt;\n\
+         main :: () {\n    x := _fmode + other_data;\n    y := sqrt(2);\n}\n",
+    )
+    .unwrap();
+    let emit = |target: &str| {
+        let name = format!("{target}.ll");
+        // Only the IR matters: the link needs a toolchain this host may lack.
+        jaic()
+            .args([
+                "main.jai", "-target", target, "-emit_ir", &name, "-exe", "main",
+            ])
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        std::fs::read_to_string(dir.join(name)).unwrap()
+    };
+    for target in ["x86_64-pc-windows-msvc", "aarch64-pc-windows-msvc"] {
+        let ir = emit(target);
+        assert!(
+            ir.contains("@_fmode = external dllimport global"),
+            "{target}: {ir}"
+        );
+        assert!(
+            ir.contains("@other_data = external dllimport global"),
+            "{target}: {ir}"
+        );
+        assert!(
+            ir.contains("declare double @sqrt(double)"),
+            "{target}: {ir}"
+        );
+    }
+    let ir = emit("x86_64-pc-windows-gnu");
+    assert!(ir.contains("@_fmode = external global"), "{ir}");
+    assert!(
+        ir.contains("@other_data = external dllimport global"),
+        "{ir}"
+    );
+}

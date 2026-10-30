@@ -11,6 +11,26 @@ use jaic::target::{Target as BuildTarget, TargetAbi};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+/// The dynamic CRT for a link that speaks MSVC `link` syntax; `oldnames` maps POSIX names
+/// (`write`) to the CRT's underscored ones, `legacy_stdio_definitions` keeps `printf` and friends
+/// linkable as functions. Every MSVC link uses the DLL runtime, so a C-runtime variable is
+/// imported (`dllimport`, see `declare_foreign`).
+pub(super) const MSVC_RUNTIME_LIBS: [&str; 3] = [
+    "/DEFAULTLIB:msvcrt",
+    "/DEFAULTLIB:oldnames",
+    "/DEFAULTLIB:legacy_stdio_definitions",
+];
+
+/// The same through Clang's MSVC driver. `-fms-runtime-lib` only steers what Clang compiles; its
+/// link step always adds `-defaultlib:libcmt`, the static CRT, which leaves a `/MD` library's
+/// `__imp_` references unresolved.
+pub(super) const CLANG_MSVC_RUNTIME_ARGS: [&str; 4] = [
+    "-fms-runtime-lib=dll",
+    "-Wl,/NODEFAULTLIB:libcmt",
+    "-Wl,/DEFAULTLIB:msvcrt",
+    "-llegacy_stdio_definitions",
+];
+
 /// The linker family a target uses.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum LinkFlavor {
@@ -170,13 +190,7 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
         } else {
             "/SUBSYSTEM:CONSOLE"
         });
-        // The dynamic CRT; `oldnames` maps POSIX names (`write`) to the CRT's underscored
-        // ones, `legacy_stdio_definitions` keeps `printf` and friends linkable as functions.
-        cmd.args([
-            "/DEFAULTLIB:msvcrt",
-            "/DEFAULTLIB:oldnames",
-            "/DEFAULTLIB:legacy_stdio_definitions",
-        ]);
+        cmd.args(MSVC_RUNTIME_LIBS);
     } else {
         if dynamic_library {
             cmd.arg("-shared");
@@ -191,15 +205,7 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
             coverage_source = Some(source);
         }
         if flavor == LinkFlavor::Msvc {
-            // Clang's MSVC driver: the dynamic CRT, as above. `-fms-runtime-lib` only steers
-            // what Clang compiles; its link step always adds `-defaultlib:libcmt`, the static
-            // CRT, which leaves a `/MD` library's `__imp_` references unresolved.
-            cmd.args([
-                "-fms-runtime-lib=dll",
-                "-Wl,/NODEFAULTLIB:libcmt",
-                "-Wl,/DEFAULTLIB:msvcrt",
-                "-llegacy_stdio_definitions",
-            ]);
+            cmd.args(CLANG_MSVC_RUNTIME_ARGS);
         }
     }
     // Windows reserves 1 MiB for the main thread's stack (and threads created without a
@@ -316,4 +322,25 @@ pub fn link_inputs(
         }
     }
     Ok(inputs)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The DLL C runtime is what every MSVC link names, in both driver styles; the static one
+    /// must not come back by either spelling.
+    #[test]
+    fn msvc_links_default_to_the_dll_c_runtime() {
+        assert!(MSVC_RUNTIME_LIBS.contains(&"/DEFAULTLIB:msvcrt"));
+        assert!(MSVC_RUNTIME_LIBS.contains(&"/DEFAULTLIB:legacy_stdio_definitions"));
+        assert!(CLANG_MSVC_RUNTIME_ARGS.contains(&"-fms-runtime-lib=dll"));
+        assert!(CLANG_MSVC_RUNTIME_ARGS.contains(&"-Wl,/NODEFAULTLIB:libcmt"));
+        for arg in MSVC_RUNTIME_LIBS.iter().chain(&CLANG_MSVC_RUNTIME_ARGS) {
+            assert!(
+                !arg.contains("libcmt") || arg.contains("NODEFAULTLIB"),
+                "{arg}"
+            );
+        }
+    }
 }
