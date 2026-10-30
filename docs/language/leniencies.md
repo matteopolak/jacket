@@ -12,7 +12,7 @@ A program that compiles here without these warnings also compiles with the offic
 
 ## How it works
 
-`Compiler::leniency_warning` (`sema/calls/lenient.rs`) builds every one of these warnings: the `DiagnosticKind::Lenient(..)` kind, the note, and silence outside the program's own files. A warning is made only when the span is in the main module (the program file and what it `#load`s) and not under `stdlib/`; an imported module, bundled or not, is never reported, since its author cannot act on it from the program that imports it. Callers add the label, the help and a fix.
+`Compiler::leniency_warning` (`sema/calls/lenient.rs`) builds every one of these warnings: the `DiagnosticKind::Lenient(..)` kind, the note, and silence outside the program's own files. A warning is made only when the span is in the main module (the program file and what it `#load`s, wherever the file lives, `stdlib/**/tests/` included); an imported module, bundled or not, is never reported, since its author cannot act on it from the program that imports it. Callers add the label, the help and a fix.
 
 Two mechanisms find them:
 
@@ -63,6 +63,6 @@ None. Warnings print unless `-quiet` is given.
 
 ## Dependencies
 
-`ast::File::lenient` (parser), `Compiler::is_library_file` (`sema/trap_report.rs`) for the standard library check, `ns.main_module`.
+`ast::File::lenient` (parser), `ns.main_module`.
 
 See also: [procedures](procedures.md), [scoping](scoping.md), [operator overloading](operator-overloading.md), [the upstream corpus](../tools/upstream-corpus.md).

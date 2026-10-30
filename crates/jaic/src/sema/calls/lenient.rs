@@ -3,7 +3,7 @@
 //!
 //! Every leniency is reported through `leniency_warning`: one diagnostic kind
 //! per [`Leniency`], one shared note, and silence for code that is not the user's (an imported
-//! module, the standard library). The rest of this file is the operator case: the help for
+//! module, bundled or not). The rest of this file is the operator case: the help for
 //! operators nothing reaches.
 //!
 //! A namespaced import (`Math :: #import "Math"`) does not bring `operator +` into scope, so
@@ -43,7 +43,7 @@ pub(in crate::sema) struct Rewrite {
 
 impl Compiler {
     /// A warning for a leniency at `span` in `module`, to add help to and `warn`; `None` where nothing is reported: outside the program's own files (an
-    /// imported module, the standard library, text with no file), because the author of a
+    /// imported module, bundled or not, or text with no file), because the author of a
     /// library cannot act on it from a program that uses the library.
     pub(in crate::sema) fn leniency_warning(
         &self,
@@ -52,7 +52,7 @@ impl Compiler {
         leniency: Leniency,
         message: impl Into<String>,
     ) -> Option<Diagnostic> {
-        if Some(module) != self.ns.main_module || self.is_library_file(span.file) {
+        if Some(module) != self.ns.main_module || self.src.sources.try_get(span.file).is_none() {
             return None;
         }
         Some(
