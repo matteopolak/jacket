@@ -68,11 +68,32 @@ fn configured_native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {
     }
     candidates.push(stdlib.join("../native-libs").join(&platform));
     candidates.push(stdlib.join("../target/native-libs").join(&platform));
+    // A linked git worktree shares the main checkout's builds, where `build_native_libs.py` puts
+    // them (`tools/repo_output.py`).
+    candidates.extend(
+        main_checkout(&stdlib.join(".."))
+            .map(|main| main.join("target/native-libs").join(&platform)),
+    );
     candidates
         .iter()
         .find_map(|dir| jaic::canonicalize(dir).ok())
         .map(|d| vec![d])
         .unwrap_or_default()
+}
+
+/// The main checkout of the repository whose linked worktree is `root`: `.git` there is a file
+/// naming the worktree's git folder, whose `commondir` leads to the main checkout's `.git`.
+fn main_checkout(root: &Path) -> Option<PathBuf> {
+    let link = std::fs::read_to_string(root.join(".git")).ok()?;
+    let git_dir = PathBuf::from(link.trim().strip_prefix("gitdir:")?.trim());
+    let git_dir = if git_dir.is_absolute() {
+        git_dir
+    } else {
+        root.join(git_dir)
+    };
+    let common = std::fs::read_to_string(git_dir.join("commondir")).ok()?;
+    let common = jaic::canonicalize(git_dir.join(common.trim())).ok()?;
+    common.parent().map(Path::to_path_buf)
 }
 
 /// What jaic does with the program: build it (the default), only compile it, or interpret it.
@@ -372,5 +393,33 @@ impl Cli {
                     .into(),
             ),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_linked_worktree_finds_the_main_checkout() {
+        let base = std::env::temp_dir().join(format!("jaic-worktree-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let git = base.join("main/.git");
+        let admin = git.join("worktrees/w");
+        std::fs::create_dir_all(&admin).unwrap();
+        std::fs::create_dir_all(base.join("main/.claude/worktrees/w")).unwrap();
+        std::fs::write(admin.join("commondir"), "../..\n").unwrap();
+        let worktree = base.join("main/.claude/worktrees/w");
+        std::fs::write(
+            worktree.join(".git"),
+            format!("gitdir: {}\n", admin.display()),
+        )
+        .unwrap();
+        let main = main_checkout(&worktree).unwrap();
+        assert_eq!(main, jaic::canonicalize(base.join("main")).unwrap());
+        // The main checkout's `.git` is a folder, and a plain folder has none.
+        assert_eq!(main_checkout(&base.join("main")), None);
+        assert_eq!(main_checkout(&base), None);
+        let _ = std::fs::remove_dir_all(&base);
     }
 }
