@@ -117,11 +117,12 @@ to_string :: (addr: sockaddr_in) -> string {
     return builder_to_string(*builder);
 }
 
-// Formats an IPv6 endpoint as the eight address groups followed by `:port`, such as `0:0:0:0:0:0:0:1:443`.
+// Formats an IPv6 endpoint as `[address]:port`, such as `[::1]:443`.
 //
-// The groups are written as `append_address` does for 16 bytes, uncompressed and without brackets, so the port is
-// separated from the last group by the same `:` that separates the groups. The scope id and flow label are not shown.
-// The result is allocated with `context.allocator` and the caller frees it.
+// The address is written in the usual short form: lowercase hex groups without leading zeros, with the longest run of two
+// or more zero groups (the first, when two are as long) shown as `::`. The brackets keep the port apart from the address.
+// An IPv4-mapped address prints as hex groups, not as dotted decimal. The scope id and flow label are not shown. The result is
+// allocated with `context.allocator` and the caller frees it. `append_address` gives the eight groups in full instead.
 //
 // ```jai,skip_on(wasm)
 // address: sockaddr_in6;
@@ -134,13 +135,13 @@ to_string :: (addr: sockaddr_in) -> string {
 // text := to_string(address);
 // defer free(text);
 //
-// assert(text == "0:0:0:0:0:0:0:1:443");
+// assert(text == "[::1]:443");
 //
 // empty: sockaddr_in6;
 // zero := to_string(empty);
 // defer free(zero);
 //
-// assert(zero == "0:0:0:0:0:0:0:0:0");
+// assert(zero == "[::]:0");
 // ```
 to_string :: (addr: sockaddr_in6) -> string {
     builder: String_Builder;
@@ -149,8 +150,9 @@ to_string :: (addr: sockaddr_in6) -> string {
     bytes: [16] u8;
 
     memcpy(bytes.data, *addr.sin6_addr, 16);
-    append_address(*builder, bytes);
-    append(*builder, cast(u8) 58);
+    append(*builder, cast(u8) 91);
+    append_compressed_address(*builder, bytes);
+    append(*builder, "]:");
     port := sprint("%", host_port(addr.sin6_port));
 
     defer free(port);
@@ -351,6 +353,49 @@ append_hex :: (builder: *String_Builder, value: u32) {
     }
 
     append(builder, bytes.data + cursor, 8 - cursor);
+}
+
+// The 16 bytes as hex groups with the longest run of two or more zero groups (the first of equals) written as `::`.
+append_compressed_address :: (builder: *String_Builder, address: [16] u8) {
+    groups: [8] u32;
+    for i: 0..7 groups[i] = (cast(u32) address[i * 2]) * 256 + cast(u32) address[i * 2 + 1];
+
+    best_start := -1;
+    best_length := 0;
+    start := 0;
+
+    while start < 8 {
+        if groups[start] != 0 {
+            start += 1;
+            continue;
+        }
+
+        end := start;
+        while end < 8 && groups[end] == 0 end += 1;
+
+        if end - start > best_length {
+            best_start = start;
+            best_length = end - start;
+        }
+
+        start = end;
+    }
+
+    if best_length < 2 best_start = -1;
+
+    i := 0;
+    while i < 8 {
+        if i == best_start {
+            append(builder, "::");
+            i += best_length;
+            continue;
+        }
+
+        if i > 0 && i != best_start + best_length append(builder, cast(u8) 58);
+
+        append_hex(builder, groups[i]);
+        i += 1;
+    }
 }
 
 report_error :: () {

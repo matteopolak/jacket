@@ -91,18 +91,21 @@ check_ipv6_formatting :: () {
     }
 
     cases :: Case.[
-        .{ .[0, 0, 0, 0, 0, 0, 0, 1], 443, "0:0:0:0:0:0:0:1:443" },
-        .{ .[0, 0, 0, 0, 0, 0, 0, 0], 0, "0:0:0:0:0:0:0:0:0" },
-        .{ .[0x2001, 0xdb8, 0, 0, 0, 0, 0, 1], 80, "2001:db8:0:0:0:0:0:1:80" },
-        .{ .[0xfe80, 0, 0, 0, 0x1234, 0, 0, 0], 1, "fe80:0:0:0:1234:0:0:0:1" },
-        // Every zero word is emitted; IPv6 text is not compressed.
-        .{ .[1, 0, 2, 3, 4, 5, 6, 7], 2, "1:0:2:3:4:5:6:7:2" },
-        .{ .[1, 0, 0, 2, 0, 0, 3, 4], 3, "1:0:0:2:0:0:3:4:3" },
-        .{ .[1, 0, 0, 2, 0, 0, 0, 4], 4, "1:0:0:2:0:0:0:4:4" },
-        .{ .[0, 0, 0, 0, 0, 0xffff, 0x7f00, 1], 5, "0:0:0:0:0:ffff:7f00:1:5" },
-        .{ .[0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff], 65535, "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff:65535" },
-        .{ .[1, 2, 3, 4, 5, 6, 7, 0], 6, "1:2:3:4:5:6:7:0:6" },
-        .{ .[1, 0, 0, 0, 0, 0, 0, 0], 7, "1:0:0:0:0:0:0:0:7" },
+        .{ .[0, 0, 0, 0, 0, 0, 0, 1], 443, "[::1]:443" },
+        .{ .[0, 0, 0, 0, 0, 0, 0, 0], 0, "[::]:0" },
+        .{ .[0x2001, 0xdb8, 0, 0, 0, 0, 0, 1], 80, "[2001:db8::1]:80" },
+        .{ .[0xfe80, 0, 0, 0, 0x1234, 0, 0, 0], 1, "[fe80::1234:0:0:0]:1" },
+        // A single zero word is not compressed.
+        .{ .[1, 0, 2, 3, 4, 5, 6, 7], 2, "[1:0:2:3:4:5:6:7]:2" },
+        // Of two runs of equal length the first is compressed.
+        .{ .[1, 0, 0, 2, 0, 0, 3, 4], 3, "[1::2:0:0:3:4]:3" },
+        // The longest run wins.
+        .{ .[1, 0, 0, 2, 0, 0, 0, 4], 4, "[1:0:0:2::4]:4" },
+        .{ .[0, 0, 0, 0, 0, 0xffff, 0x7f00, 1], 5, "[::ffff:7f00:1]:5" },
+        .{ .[0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff, 0xffff], 65535, "[ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff]:65535" },
+        .{ .[1, 2, 3, 4, 5, 6, 7, 0], 6, "[1:2:3:4:5:6:7:0]:6" },
+        .{ .[1, 0, 0, 0, 0, 0, 0, 0], 7, "[1::]:7" },
+        .{ .[0, 0, 1, 0, 0, 0, 0, 0], 8, "[0:0:1::]:8" },
     ];
 
     for cases {
@@ -561,7 +564,7 @@ check_ipv6_loopback :: () {
     port := ntohs(listening.sin6_port);
 
     assert(port != 0);
-    assert(to_string(listening) == tprint("0:0:0:0:0:0:0:1:%", port), "listening on %", to_string(listening));
+    assert(to_string(listening) == tprint("[::1]:%", port), "listening on %", to_string(listening));
 
     client := socket(AF_INET6, .SOCK_STREAM, .TCP);
 
@@ -577,7 +580,7 @@ check_ipv6_loopback :: () {
 
     assert(server != INVALID_SOCKET);
     defer close_and_reset(*server);
-    assert(begins_with(to_string(peer), "0:0:0:0:0:0:0:1:"), "peer %", to_string(peer));
+    assert(begins_with(to_string(peer), "[::1]:"), "peer %", to_string(peer));
     assert(send_bytes(client, "six".data, 3) == 3);
     got: [3] u8;
 
