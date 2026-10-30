@@ -1,11 +1,46 @@
+// Creates the channel called `name` with a region of `bytes` bytes and returns it as `(success, channel)`. The caller becomes
+// its reader and owns the name: nobody can connect until it exists, and the name goes away with `reader_release_channel`.
+//
+// - `bytes` is the size of the whole region, including a 256-byte header; the message ring gets `bytes - 256` rounded down to a
+//   multiple of 8. The least allowed is 288, which leaves room for a 16-byte message. Pick a size for the biggest message plus
+//   some room for the writer to run ahead: a message needs its payload plus 16 bytes, rounded up to 8, and never wraps.
+// - `name` is a short non-empty text. On Unix targets it names a POSIX shared-memory object: one leading `/` is allowed and
+//   added if missing, no other `/`, and the whole name with the slash is at most 31 bytes on macOS. On Windows it names a
+//   mapping object. No NUL bytes.
+//
+// It fails if the name is taken (only one reader per name), the size is too small, or the system refuses; nothing is left behind
+// then. Uses `context.allocator` for a small record that `reader_release_channel` frees.
+//
+// ```jai,skip_on(wasm)
+// name := tprint("jai-doc-%", to_nanoseconds(current_time_monotonic()));
+//
+// ok, reader := reader_create_channel(name, 1024);
+// assert(ok);
+// assert(reader.header.data_size_in_bytes == 768);
+//
+// taken, again := reader_create_channel(name, 1024);
+// assert(!taken); // the name belongs to the first reader
+//
+// assert(reader_release_channel(*reader));
+// ```
 reader_create_channel :: (name: string, bytes: s64) -> (success: bool, channel: Read_Channel) {
     return reader_create_channel_os_specific(name, bytes);
 }
 
+// The `Message_Queue_Header` of a channel, given its `Header`: a pointer into the shared region, valid until the channel is released.
+// Handy for asking how much is waiting (`write_cursor - read_cursor`).
 get_message_queue_header :: inline (header: *Header) -> *Message_Queue_Header {
     return cast(*Message_Queue_Header) (cast(*u8) header + header.offset_to_message_queue_header);
 }
 
+// Claims room for a message of `data_bytes` bytes and returns `(success, reserved)`; write the payload into
+// `reserved.user_write_pointer`, then call `writer_commit_message`. Nothing is visible to the reader until the commit.
+//
+// It does not wait. It fails (`success` is `false`) when the ring has no room right now, in which case try again after
+// the reader has caught up; when the message could never fit (more than the ring's capacity less 16 bytes); when
+// `data_bytes` is negative; when the reader has disconnected; or when the channel is corrupt. At the end of the ring a message
+// that does not fit moves to the start, and the gap is skipped by the reader. `data_bytes` of `0` is a valid, empty message.
+// Reserving again before committing hands out the same space, so use one reservation at a time.
 writer_reserve_message :: (channel: *Write_Channel, data_bytes: s64) -> (success: bool, reserved: Reserved_Message) {
     header := channel.header;
     if !valid_header(header) || data_bytes < 0 || data_bytes > header.data_size_in_bytes - PER_MESSAGE_OVERHEAD_SIZE return false, .{};
@@ -55,6 +90,11 @@ writer_reserve_message :: (channel: *Write_Channel, data_bytes: s64) -> (success
     return true, .{ channel, offset, total, cast(*u8) packet + PER_MESSAGE_OVERHEAD_SIZE };
 }
 
+// Publishes a reserved message: from this call on the reader can find it. Returns `false` if the reservation is not valid
+// any more (it was not made by this writer on this channel, the record was changed, or the reader has disconnected), and
+// the message is then not published.
+//
+// Write all of the payload before calling it. After a successful commit the `Reserved_Message` must not be used again.
 writer_commit_message :: (channel: *Write_Channel, message: Reserved_Message) -> success: bool {
     header := channel.header;
     if message.channel != channel || !valid_header(header) return false;
@@ -78,6 +118,40 @@ writer_commit_message :: (channel: *Write_Channel, message: Reserved_Message) ->
     return compare_and_swap(*queue.write_cursor, write, message.offset + message.total_bytes);
 }
 
+// Looks for the next message without waiting and returns `(found, fatal_error, message)`.
+//
+// - `found` is `true` with the message when one is waiting. Read the payload at `message.user_read_pointer` for
+//   `message.user_read_bytes` bytes, then call `reader_done_with_message`. Until then the same message is returned again.
+// - `found` and `fatal_error` both `false` mean the ring is empty; poll again later (sleep, or use whatever wake-up the program has).
+// - `fatal_error` `true` means the shared region is corrupt (the other process wrote over the header or the cursors); the
+//   channel cannot be used further and should be released.
+//
+// ```jai,skip_on(wasm)
+// name := tprint("jai-doc-%", to_nanoseconds(current_time_monotonic()));
+//
+// ok, reader := reader_create_channel(name, 1024);
+// assert(ok);
+// connected, writer := writer_connect(name);
+// assert(connected);
+//
+// // The writer reserves space, fills it in and commits it.
+// reserved_ok, reserved := writer_reserve_message(*writer, 5);
+// assert(reserved_ok);
+// memcpy(reserved.user_write_pointer, "hello".data, 5);
+// assert(writer_commit_message(*writer, reserved));
+//
+// // The reader finds it, reads it in place and gives the space back.
+// found, fatal, message := reader_poll_for_message(*reader);
+// assert(found && !fatal);
+// assert(to_string(message.user_read_pointer, message.user_read_bytes) == "hello");
+// assert(reader_done_with_message(*message));
+//
+// found, fatal, message = reader_poll_for_message(*reader);
+// assert(!found && !fatal); // empty again
+//
+// assert(writer_disconnect(*writer));
+// assert(reader_release_channel(*reader));
+// ```
 reader_poll_for_message :: (channel: *Read_Channel) -> (found: bool, fatal_error: bool, message: Read_Message) {
     header := channel.header;
     if !valid_header(header) return false, true, .{};
@@ -119,6 +193,9 @@ reader_poll_for_message :: (channel: *Read_Channel) -> (found: bool, fatal_error
     return true, false, .{ channel, cursor, total, cast(*u8) packet + PER_MESSAGE_OVERHEAD_SIZE, payload };
 }
 
+// Marks the message as read and frees its space for the writer; the payload must not be used afterwards. Messages have to be
+// finished in order, so this works on the message `reader_poll_for_message` returned last. Returns `false`, and frees nothing,
+// for a message that was already finished (the record is cleared on success) or whose bookkeeping does not match the channel.
 reader_done_with_message :: (message: *Read_Message) -> bool {
     if !message.channel || !valid_header(message.channel.header) return false;
 

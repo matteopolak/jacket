@@ -1,3 +1,5 @@
+// The platform half of `reader_create_channel`, which calls it: creates the shared-memory object (`shm_open` with `O_EXCL`
+// on Unix, a file mapping on Windows), maps it and writes the header. Call `reader_create_channel` instead.
 reader_create_channel_os_specific :: (name: string, bytes: s64) -> (success: bool, channel: Read_Channel) {
     reap_pending_cleanup();
     #assert size_of(Header) <= OFFSET_TO_HEADER_OS_SPECIFIC;
@@ -55,6 +57,33 @@ reader_create_channel_os_specific :: (name: string, bytes: s64) -> (success: boo
     return true, .{ header, .{ mapping } };
 }
 
+// Connects to the channel called `name` as its writer and returns `(success, channel)`. Give the channel back with `writer_disconnect`.
+//
+// It fails when the channel does not exist yet, when it is not a valid channel, when its reader has gone, or when
+// another writer is connected. A missing channel is logged as an error through `context.logger` unless
+// `name_not_found_is_quiet` is `true`, which is meant for a writer that polls until the reader has started. After a
+// `writer_disconnect` a new writer may connect. Uses `context.allocator` for a small record that `writer_disconnect` frees.
+//
+// ```jai,skip_on(wasm)
+// name := tprint("jai-doc-%", to_nanoseconds(current_time_monotonic()));
+//
+// missing, nothing := writer_connect(name, name_not_found_is_quiet = true);
+// assert(!missing); // no reader yet
+//
+// ok, reader := reader_create_channel(name, 512);
+// assert(ok);
+// connected, writer := writer_connect(name);
+// assert(connected);
+//
+// second, other := writer_connect(name, name_not_found_is_quiet = true);
+// assert(!second); // one writer at a time
+//
+// assert(writer_disconnect(*writer));
+// connected, writer = writer_connect(name);
+// assert(connected);
+// assert(writer_disconnect(*writer));
+// assert(reader_release_channel(*reader));
+// ```
 writer_connect :: (name: string, name_not_found_is_quiet := false) -> (success: bool, channel: Write_Channel) {
     reap_pending_cleanup();
     registration := allocate_registration(name);
@@ -101,10 +130,17 @@ writer_connect :: (name: string, name_not_found_is_quiet := false) -> (success: 
     return true, .{ header, .{ mapping } };
 }
 
+// Disconnects the writer: the channel marks the writer as gone, the mapping is closed and `channel.header` is cleared. Messages
+// already committed stay readable by the reader. A new writer may then connect. Returns `false` for a writer that is not connected
+// (including a second call) or if the system reports an error while unmapping or closing.
 writer_disconnect :: (channel: *Write_Channel) -> bool {
     return release_windows_channel(*channel.header, *channel.os_specific.mapping, false);
 }
 
+// Closes the reading end and removes the channel's name, so no writer can connect afterwards; a connected writer sees the
+// reader as gone and its reserves fail. The mapping is closed and `channel.header` is cleared. Unread messages are lost.
+// Returns `false` for a channel that is not open or if the system reports an error. Always call it, or the name stays taken on
+// Unix targets until the system is restarted.
 reader_release_channel :: (channel: *Read_Channel) -> bool {
     return release_windows_channel(*channel.header, *channel.os_specific.mapping, true);
 }
