@@ -142,6 +142,24 @@ The notes a `@test` takes are options too, without the `@`: ```` ```jai,only(lin
 
 An unknown option is a warning. Doc tests are named `doc: Module.symbol#N`, or `doc: Module#N` for the module's own docs, where N counts the symbol's blocks from 1. They carry the file and line of their fence. `--doc` runs only doc tests and `--no-doc` leaves them out. `no_run` and `compile_fail` blocks run for any `-os`/`-cpu`; the others need `--runner` on another target, as unit tests do.
 
+### Which standard library
+
+A test run uses one standard library, and every jaic that jacket starts is told it through `JAIC_STDLIB` (`stdlib_dir` in `crates/jacket/src/test/mod.rs`). `$STDLIB` in compile-fail expectations stands for its canonical path. The first of these decides:
+
+1. `JAIC_STDLIB` in the environment jacket was started with.
+2. The project's own `stdlib/` (the folder of `jacket.toml`), when it holds the library (`prelude/module.jai`). This is the Jacket repository and every checkout of it, git worktrees included: the tests, doc examples and `$STDLIB` paths all come from the checkout you are in, whichever checkout the `jacket` and `jaic` binaries were built from.
+3. The one `jaic -print_stdlib` reports (`stdlib/` next to the executable, else the one it was built in).
+
+`normalize_paths` (`golden.rs`) writes both the path as given and its canonical form as `$STDLIB`/`$DIR`, so a symlinked spelling (`/tmp` against `/private/tmp`) or a `..` in it still matches.
+
+**Build outputs in a fresh checkout.** Native libraries are searched in `<stdlib>/../target/native-libs/<os>-<cpu>`, then (in a linked worktree) the main checkout's `target/native-libs/...`, where `build_native_libs.py` puts them, so a worktree needs no build of its own for them. Three things are in the checkout itself and absent from a fresh one; tests that need them fail until built, and the failure list ends with `missing build outputs` naming each (`prerequisites.rs`):
+
+```sh
+PYTHONPATH=tools python3 tools/portable/build_portable.py data                    # fixtures: Zip, executable_formats, pl_mpeg, Meow
+PYTHONPATH=tools python3 tools/developer_checks/build_developer_debug.py          # Debug's native helper
+PYTHONPATH=tools python3 tools/native/build_native_libs.py                        # third-party libraries
+```
+
 ### Matchers
 
 `assert_that(value, matcher)` checks a value against a description of what it should be (`Extensions/Testing`, `matchers.jai`). Like `expect` it reports at the caller's line, lets the test go on and returns whether it held; `require_that` returns from the test procedure instead. Matchers compose with `not`, `all_of` and `any_of`, and operands may be any type `expect_equal` accepts (numbers of any width compare by value).
@@ -443,7 +461,7 @@ retries = 2
 fail_fast = true
 ```
 
-Flags win over the profile, the profile over `[test]`. Unknown keys get the usual `jacket.toml` warning. Environment: `JAIC_STDLIB` (where jaic finds its standard library, which `$STDLIB` stands for; jacket asks `jaic -print_stdlib`), `TMPDIR` (the work folder). `JACKET_TEST_DLLS` is a path list of folders whose `.dll` files are put next to every native test program (hard links, or copies across volumes; a file already there stays, so the first folder wins). Windows looks in the program's folder before the system's, and tests are built in temporary folders, so this is how a test finds `SDL3.dll` and how a driver replaces the system's: CI lists Mesa's folder, whose `opengl32.dll` gives OpenGL 3.3 where the system's GDI one has 1.1, before the native libraries.
+Flags win over the profile, the profile over `[test]`. Unknown keys get the usual `jacket.toml` warning. Environment: `JAIC_STDLIB` (the standard library for the whole run; see [Which standard library](#which-standard-library)), `TMPDIR` (the work folder). `JACKET_TEST_DLLS` is a path list of folders whose `.dll` files are put next to every native test program (hard links, or copies across volumes; a file already there stays, so the first folder wins). Windows looks in the program's folder before the system's, and tests are built in temporary folders, so this is how a test finds `SDL3.dll` and how a driver replaces the system's: CI lists Mesa's folder, whose `opengl32.dll` gives OpenGL 3.3 where the system's GDI one has 1.1, before the native libraries.
 
 ## Dependencies
 

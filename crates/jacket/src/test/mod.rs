@@ -18,8 +18,10 @@ mod filter;
 mod golden;
 mod jobs;
 mod options;
+mod prerequisites;
 mod report;
 mod review;
+mod stdlib;
 mod watch;
 
 use crate::cli::{BenchArgs, CoverageFormat, TestArgs};
@@ -209,25 +211,6 @@ fn host_cpu() -> &'static str {
         "aarch64" => "arm64",
         _ => "x64",
     }
-}
-
-/// The standard library jaic uses, to write it `$STDLIB` in compile-fail output: jaic is asked
-/// (`jaic -print_stdlib`), so it is the one place that knows where the library is.
-fn stdlib_dir(jaic: &Path) -> Result<PathBuf, String> {
-    let output = std::process::Command::new(jaic)
-        .arg("-print_stdlib")
-        .output()
-        .map_err(|e| format!("could not start `{}`: {e}", jaic.display()))?;
-    let text = String::from_utf8_lossy(&output.stdout);
-    let line = text.lines().next().unwrap_or("").trim();
-    if !output.status.success() || line.is_empty() {
-        return Err(format!(
-            "`{} -print_stdlib` failed; is this jaic too old for this jacket?",
-            jaic.display()
-        ));
-    }
-    let dir = PathBuf::from(line);
-    Ok(dir.canonicalize().unwrap_or(dir))
 }
 
 /// The jaic flags whose value is a path. jacket runs jaic in a folder of its own, so a relative
@@ -526,13 +509,14 @@ fn run_once(
     let Some(jaic) = tools::require(tools::JAIC) else {
         return ExitCode::from(127);
     };
-    let stdlib = match stdlib_dir(&jaic) {
+    let stdlib = match stdlib::stdlib_dir(&jaic, &project_dir) {
         Ok(dir) => dir,
         Err(error) => return fail(error),
     };
     let mut doc_files = std::collections::BTreeSet::new();
     let toolchain = Toolchain {
         jaic: jaic.clone(),
+        stdlib: stdlib.clone(),
         flags,
         interp: args.interp,
         runner,

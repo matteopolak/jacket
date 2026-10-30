@@ -28,6 +28,8 @@ const ENTRY_POINT: &str = "__jacket_test_main";
 #[derive(Clone, Debug)]
 pub struct Toolchain {
     pub jaic: PathBuf,
+    /// The standard library every jaic run uses (`JAIC_STDLIB`).
+    pub stdlib: PathBuf,
     /// `-os`, `-cpu`, the user's extra flags.
     pub flags: Vec<String>,
     pub interp: bool,
@@ -40,6 +42,23 @@ pub struct Toolchain {
     /// Where the programs of this toolchain write what they ran (`JAIC_COVERAGE_DIR`), when
     /// they are built to run once.
     pub coverage_dir: Option<PathBuf>,
+}
+
+impl Toolchain {
+    /// What a jaic run is told of its standard library.
+    pub fn jaic_env(&self) -> Vec<(String, String)> {
+        vec![(
+            "JAIC_STDLIB".into(),
+            self.stdlib.to_string_lossy().into_owned(),
+        )]
+    }
+
+    /// A command that runs this toolchain's jaic with its standard library.
+    pub fn jaic_command(&self) -> Command {
+        let mut command = Command::new(&self.jaic);
+        command.env("JAIC_STDLIB", &self.stdlib);
+        command
+    }
 }
 
 /// One `@test` or `@bench` the plugin found.
@@ -186,7 +205,7 @@ pub fn unit(
         "tests"
     });
     let report = work.join("exe.txt");
-    let mut command = Command::new(&toolchain.jaic);
+    let mut command = toolchain.jaic_command();
     command
         .current_dir(work)
         .arg(&root)
@@ -256,7 +275,7 @@ fn interpreted(
         program: toolchain.jaic.clone(),
         args,
         cwd: work.to_path_buf(),
-        env: Vec::new(),
+        env: toolchain.jaic_env(),
     })
     .map_err(|e| format!("could not start `{}`: {e}", toolchain.jaic.display()))?;
     let found = process.records(waits.then_some("discovered"));
@@ -457,7 +476,11 @@ pub fn invocation(
         program,
         args,
         cwd: cwd.to_path_buf(),
-        env: Vec::new(),
+        env: if toolchain.interp {
+            toolchain.jaic_env()
+        } else {
+            Vec::new()
+        },
     }
 }
 
@@ -577,6 +600,7 @@ mod tests {
         };
         let toolchain = Toolchain {
             jaic: PathBuf::from("jaic"),
+            stdlib: PathBuf::from("/stdlib"),
             flags: Vec::new(),
             interp: false,
             runner: Vec::new(),
@@ -611,6 +635,7 @@ mod tests {
     fn a_wasm_target_is_found_in_the_flags_too() {
         let toolchain = |os: &str, flags: &[&str]| Toolchain {
             jaic: PathBuf::from("jaic"),
+            stdlib: PathBuf::from("/stdlib"),
             flags: flags.iter().map(ToString::to_string).collect(),
             interp: true,
             runner: Vec::new(),

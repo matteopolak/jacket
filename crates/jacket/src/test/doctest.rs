@@ -408,7 +408,8 @@ fn check_program(
         return checked;
     }
     if matches!(block.mode, Mode::NoRun | Mode::CompileFail) {
-        let output = Command::new(&toolchain.jaic)
+        let output = toolchain
+            .jaic_command()
             .arg(&source)
             .arg("-check")
             .arg("-quiet")

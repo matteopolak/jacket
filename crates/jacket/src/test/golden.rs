@@ -11,7 +11,6 @@ use super::exec::{self, Ending, Invocation, Limits, Live};
 use super::jobs::ending_text;
 use super::options::TestOptions;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::time::Duration;
 
 /// How a golden or compile-fail test went.
@@ -104,6 +103,7 @@ fn coverage_env(toolchain: &Toolchain) -> Vec<(String, String)> {
         .coverage_dir
         .iter()
         .map(|dir| ("JAIC_COVERAGE_DIR".to_string(), path_text(dir)))
+        .chain(toolchain.jaic_env())
         .collect()
 }
 
@@ -135,7 +135,10 @@ fn built(
                 program: toolchain.jaic.clone(),
                 args,
                 cwd: cwd.to_path_buf(),
-                env: coverage_env(toolchain),
+                env: coverage_env(toolchain)
+                    .into_iter()
+                    .chain(toolchain.jaic_env())
+                    .collect(),
             },
             stdout: Vec::new(),
             stderr: Vec::new(),
@@ -145,7 +148,7 @@ fn built(
     let stem = file_name(&source.with_extension(""));
     let exe = work.join(format!("golden-{stem}"));
     let report = work.join(format!("golden-{stem}.txt"));
-    let mut command = Command::new(&toolchain.jaic);
+    let mut command = toolchain.jaic_command();
     command
         .arg(source)
         .args(&quiet)
@@ -170,7 +173,8 @@ fn built(
         // A program without `main` that does its work at compile time: it only has to
         // type-check, and what the compiler printed is its output.
         if text.contains("has no `main` procedure") || text.contains("no exported 'main'") {
-            let checked = Command::new(&toolchain.jaic)
+            let checked = toolchain
+                .jaic_command()
                 .arg(source)
                 .args(&quiet)
                 .args(&toolchain.flags)
@@ -243,7 +247,8 @@ pub(super) fn run_plain(
 /// Type-checks the golden test `source` (`check_only`): it must pass.
 fn check_only(source: &Path, root_flags: &[String], toolchain: &Toolchain, cwd: &Path) -> Checked {
     let mut checked = Checked::default();
-    let output = Command::new(&toolchain.jaic)
+    let output = toolchain
+        .jaic_command()
         .arg(source)
         .arg("-check")
         .arg("-quiet")
@@ -483,7 +488,8 @@ pub fn compile_fail(
     // From the test's folder, diagnostics name the file without a path.
     let dir = source.parent().unwrap_or(Path::new("."));
     let mut checked = Checked::default();
-    let output = Command::new(&toolchain.jaic)
+    let output = toolchain
+        .jaic_command()
         .arg(source)
         .arg("-check")
         .arg("-quiet")
@@ -556,6 +562,31 @@ mod tests {
             ),
             "../../layout.jai:67:13: error: a\\b\n"
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn the_library_is_found_by_any_spelling_of_its_path() {
+        let base = std::env::temp_dir().join(format!("jacket-norm-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let real = base.join("real/stdlib");
+        std::fs::create_dir_all(real.join("Basic")).unwrap();
+        std::fs::create_dir_all(base.join("real/case")).unwrap();
+        std::os::unix::fs::symlink(base.join("real"), base.join("link")).unwrap();
+        let canonical = real.canonicalize().unwrap();
+        let dir = base.join("real/case").canonicalize().unwrap();
+        let printed = format!("{}/Basic/module.jai:9: note\n", canonical.display());
+        let want = "$STDLIB/Basic/module.jai:9: note\n";
+        // The library as given: canonical, through a symlink, or with a `..`; and the compiler
+        // printing the symlink's spelling for a library named through it.
+        let linked = base.join("link/stdlib");
+        let dotted = base.join("real/case/../stdlib");
+        for stdlib in [&canonical, &linked, &dotted] {
+            assert_eq!(normalize_paths(&printed, &dir, stdlib), want);
+        }
+        let through_link = format!("{}/Basic/module.jai:9: note\n", linked.display());
+        assert_eq!(normalize_paths(&through_link, &dir, &linked), want);
+        let _ = std::fs::remove_dir_all(&base);
     }
 
     #[test]
