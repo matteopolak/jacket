@@ -366,6 +366,9 @@ fn help_for(kind: TrapKind) -> Option<String> {
         TrapKind::NullPointer => {
             "check the pointer against null before using it, or make sure it is set"
         }
+        TrapKind::MemoryFault => {
+            "the pointer was made up or outlived its memory; check where it comes from (a `cast` from an integer, a freed allocation, an out-of-range index)"
+        }
         TrapKind::StackOverflow => "check that the recursion has a base case it reaches",
         TrapKind::BareAssertion
         | TrapKind::Unavailable

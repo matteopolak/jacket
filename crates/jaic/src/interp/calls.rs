@@ -6,7 +6,7 @@ use super::frames::poison_registers;
 use super::frames::{Frame, ValueStack};
 use super::host::Hook;
 use super::rets::Rets;
-use super::trap::TrapKind;
+use super::trap::{Trap, TrapKind};
 use super::{
     COMPILE_TIME_CALLS, COMPILE_TIME_NANOS, FUNC_TAG, Interp, MAX_DEPTH, Res, STACK_SIZE,
     exit_forked_child, record_coverage,
@@ -92,7 +92,7 @@ impl Interp {
         let started =
             (self.compile_time && self.call_nesting == 0).then(crate::platform::Stopwatch::start);
         self.call_nesting += 1;
-        let mut result = self.exec(program, func, args);
+        let mut result = self.guarded(program, calls, |this| this.exec(program, func, args));
         if self.call_nesting == 1
             && matches!(&result, Err(trap) if trap.kind == Some(TrapKind::Suspended))
         {
@@ -125,6 +125,54 @@ impl Interp {
             });
         }
         result
+    }
+
+    /// Run `body` so that a fault in an interpreted load or store ends it with a trap instead
+    /// of the process (`guard.rs`): the call stacks go back to the `calls` frames the caller had
+    /// when it started, as if every frame in between had returned an error. Only compile-time
+    /// code is guarded, which is where the language server and `jailint` run untrusted programs.
+    pub(super) fn guarded<T>(
+        &mut self,
+        program: &Program,
+        calls: usize,
+        body: impl FnOnce(&mut Self) -> Res<T>,
+    ) -> Res<T> {
+        if !self.compile_time {
+            return body(self);
+        }
+        let (sp, depth, nesting) = (self.sp, self.depth, self.call_nesting);
+        match super::guard::guarded(|| body(self)) {
+            Ok(result) => result,
+            Err(fault) => {
+                let trap = self.fault_trap(program, fault, calls);
+                (self.sp, self.depth, self.call_nesting) = (sp, depth, nesting);
+                self.calls.truncate(calls);
+                Err(trap)
+            }
+        }
+    }
+
+    /// The trap for `fault`, with the procedures running above the `calls` frames the call
+    /// started with.
+    fn fault_trap(&self, program: &Program, fault: super::guard::Fault, calls: usize) -> Trap {
+        let access = match fault.write {
+            Some(true) => "write to",
+            Some(false) => "read from",
+            None => "access to",
+        };
+        let mut trap = Trap::new(format!(
+            "invalid memory access: {access} address {:#x} faulted; it is not memory the program owns",
+            fault.address
+        ))
+        .at(self.loc)
+        .of_kind(Some(TrapKind::MemoryFault));
+        for k in (calls.min(self.calls.len())..self.calls.len()).rev() {
+            let loc = self.calls.get(k + 1).map_or(self.loc, |c| c.1);
+            if let Some(Some(func)) = program.funcs.get(self.calls[k].0.0 as usize) {
+                trap.push_frame(func, loc);
+            }
+        }
+        trap
     }
 
     /// The body of procedure `id`, or a trap when it has none (yet).

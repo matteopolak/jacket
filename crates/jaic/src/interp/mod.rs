@@ -27,6 +27,7 @@ mod fibers;
 mod foreign;
 mod frames;
 mod globals;
+pub(crate) mod guard;
 mod host;
 mod host_insts;
 mod intrinsics;

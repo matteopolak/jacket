@@ -105,8 +105,10 @@ impl Interp {
         self.restore_compile_boundary(&continuation);
         let outer = std::mem::replace(&mut self.defer_missing_bodies, true);
         self.call_nesting += 1;
+        let calls = continuation.calls;
+        let frames = continuation.frames;
         let result = self
-            .resume_frames(program, continuation.frames)
+            .guarded(program, calls, |this| this.resume_frames(program, frames))
             .map(Rets::into_vec);
         self.call_nesting -= 1;
         self.defer_missing_bodies = outer;

@@ -105,6 +105,9 @@ pub enum TrapKind {
     },
     /// A load, store, copy or call through a null (or nearly null) pointer.
     NullPointer,
+    /// A load or store the processor refused (an address the program does not own), recovered
+    /// by `guard.rs`.
+    MemoryFault,
     /// Recursion deeper than the interpreter allows.
     StackOverflow,
     /// A failed `assert` without a message of its own.

@@ -11,7 +11,11 @@
 //! one is in C), so the call in progress is kept per OS thread: these faults are delivered
 //! to the thread that caused them, which reports its own call and call stack.
 //!
-//! Faults outside a foreign call are not ours: the handler puts the previous action back and
+//! A fault in an interpreted load or store, outside a foreign call, is recovered when the thread
+//! is inside `guard::guarded` (every top-level compile-time call is): the handler resumes at the
+//! guard and the evaluation fails with an ordinary error.
+//!
+//! Faults outside a foreign call and a guard are not ours: the handler puts the previous action back and
 //! returns, so the fault repeats under it (Rust's stack overflow report, or the default).
 //! The report is built in a fixed buffer, without allocating, since the crash may have
 //! happened inside `malloc`.
@@ -260,7 +264,7 @@ pub fn skip_core_dump() {
     sys::skip_core_dump();
 }
 
-fn install() {
+pub(super) fn install() {
     static ONCE: std::sync::Once = std::sync::Once::new();
     ONCE.call_once(sys::install);
 }
@@ -353,7 +357,7 @@ mod sys {
         }
     }
 
-    extern "C" fn on_signal(sig: c_int, info: *mut c_void, _context: *mut c_void) {
+    extern "C" fn on_signal(sig: c_int, info: *mut c_void, context: *mut c_void) {
         let address = if info.is_null() {
             0
         } else {
@@ -366,6 +370,12 @@ mod sys {
         let what = describe(sig, address, &mut text);
 
         if super::report_and_exit(what) {
+            return;
+        }
+
+        // Interpreted code touched memory it does not own: resume in the guard that
+        // `Interp::call` set up around it (see `guard.rs`).
+        if (sig == SIGSEGV || sig == SIGBUS) && super::super::guard::redirect(address, context) {
             return;
         }
 
