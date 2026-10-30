@@ -12,6 +12,15 @@ const EARLY: &str = "(function(){var d=document.documentElement;d.classList.add(
 /// page before, and only moves it when the current entry is out of view.
 const SIDE: &str = "(function(){var s=document.querySelector('details.side');if(!s)return;var n=s.querySelector('nav'),k=n&&n.getAttribute('data-nav'),st=null;try{st=JSON.parse(sessionStorage.getItem('jacket-docs-side')||'null')}catch(e){}if(st&&st.k!==k)st=null;if(st)(st.o||[]).forEach(function(key){var l=s.querySelectorAll('details.nav-cat');for(var i=0;i<l.length;i++)if(l[i].getAttribute('data-key')===key)l[i].open=true});if(!matchMedia('(min-width:900px)').matches)return;if(st)s.scrollTop=st.t;var c=s.querySelector('[aria-current=\"page\"]');if(!c)return;var a=c.getBoundingClientRect(),b=s.getBoundingClientRect();if(a.bottom<=b.top)s.scrollTop+=a.top-b.top;else if(a.top>=b.bottom)s.scrollTop+=a.bottom-b.bottom})()";
 
+/// A short content hash for asset URLs, so a redeployed site never pairs new pages with a cached
+/// stylesheet or script.
+fn stamp(text: &str) -> String {
+    let hash = text.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |h, b| {
+        (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
+    });
+    format!("{:08x}", hash >> 32)
+}
+
 pub fn logo_svg() -> String {
     LOGO.replace(
         "width=\"16\" height=\"16\"",
@@ -35,6 +44,8 @@ pub struct Page<'a> {
 pub fn render(site: &Site, page: &Page<'_>) -> String {
     let base = &site.base;
     let asset = |name: &str| format!("{base}assets/{name}");
+    let css = format!("{base}assets/site.css?v={}", stamp(super::STYLE));
+    let js = format!("{base}assets/site.js?v={}", stamp(super::SCRIPT));
     format!(
         "<!doctype html>\n<html lang=\"en\" data-theme=\"system\">\n<head>\n<meta charset=\"utf-8\">\n\
          <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n\
@@ -50,8 +61,8 @@ pub fn render(site: &Site, page: &Page<'_>) -> String {
         title = esc(page.title),
         description = esc(page.description),
         icon = asset("logo.svg"),
-        css = asset("site.css"),
-        js = asset("site.js"),
+        css = css,
+        js = js,
         path = esc(page.path),
         side_label = esc(page.side_label),
         side = page.side,
