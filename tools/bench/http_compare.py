@@ -264,11 +264,11 @@ def main(argv: list[str]) -> int:
                                    loadgen, args.port + index))
 
     if args.json:
-        Path(args.json).write_text(json.dumps(results, indent=1))
+        Path(args.json).write_text(json.dumps(results, indent=1), encoding='utf-8')
     header = '\n'.join(f'- {k}: {v}' for k, v in machine().items())
     text = f'{header}\n\n{report(results, args.connections)}\n'
     if args.out:
-        Path(args.out).write_text(text)
+        Path(args.out).write_text(text, encoding='utf-8')
     print(text)
     return 0
 

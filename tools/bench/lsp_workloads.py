@@ -39,7 +39,7 @@ class GeneratedWorkspace:
         directory = scratch / self.name
         directory.mkdir(parents=True, exist_ok=True)
         for file, text in benchgen.generate(self.lines, 1, self.files).items():
-            (directory / file).write_text(text)
+            (directory / file).write_text(text, encoding='utf-8')
         parts = sorted(p for p in directory.glob('*.jai') if p.name != 'main.jai')
         if not parts:
             return Prepared(directory, directory / 'main.jai', (), None)

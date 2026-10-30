@@ -30,7 +30,7 @@ def densest_case() -> Path:
     """The `bad.jai` of tests/lint whose expected output reports the most findings: one file that
     triggers many rules' worth of diagnostics."""
     def findings(case: Path) -> int:
-        return len(FINDING.findall((case.parent / 'bad.snap').read_text()))
+        return len(FINDING.findall((case.parent / 'bad.snap').read_text(encoding='utf-8')))
     return max(sorted(LINT_CASES.glob('*/bad.jai')), key=findings)
 
 
@@ -39,7 +39,7 @@ def scenarios(jailint: Path, scratch: Path) -> list[Scenario]:
     exe = str(jailint)
     large = scratch / 'large'
     large.mkdir()
-    (large / 'main.jai').write_text(benchgen.generate(LARGE_FILE_LINES, 1, 1)['main.jai'])
+    (large / 'main.jai').write_text(benchgen.generate(LARGE_FILE_LINES, 1, 1)['main.jai'], encoding='utf-8')
     cases = scratch / 'cases'
     shutil.copytree(LINT_CASES, cases)
     dense = cases / densest_case().relative_to(LINT_CASES)

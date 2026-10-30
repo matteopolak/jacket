@@ -149,10 +149,10 @@ class SessionRunner:
         path = self.prepared.watch_file
         if path is None:
             raise Unsupported('the workspace is read-only')
-        original = path.read_text()
+        original = path.read_text(encoding='utf-8')
         name = f'bench_watched_{int(time.time())}'
         try:
-            path.write_text(original + f'\n{name} :: () -> int {{ return 1; }}\n')
+            path.write_text(original + f'\n{name} :: () -> int {{ return 1; }}\n', encoding='utf-8')
             start = self.client.notify('workspace/didChangeWatchedFiles', {'changes': [{'uri': file_uri(path), 'type': 2}]})
             while time.perf_counter() - start < self.args.timeout:
                 _, result = self.session.request('workspace/symbol', {'query': name})
@@ -161,7 +161,7 @@ class SessionRunner:
                 time.sleep(0.02)
             raise ProbeFailed(f'{name} never became searchable')
         finally:
-            path.write_text(original)
+            path.write_text(original, encoding='utf-8')
 
     def long_session(self) -> list[float]:
         """Many scripted edits in one session; the resident set is sampled along the way."""

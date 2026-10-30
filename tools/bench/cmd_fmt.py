@@ -54,10 +54,10 @@ class Inputs:
             sys.exit(f'{jaifmt} could not format the generated sample')
         self.formatted = scratch / 'formatted.jai'
         self.unformatted = scratch / 'unformatted.jai'
-        self.formatted.write_text(formatted)
-        self.unformatted.write_text(unformat(formatted))
+        self.formatted.write_text(formatted, encoding='utf-8')
+        self.unformatted.write_text(unformat(formatted), encoding='utf-8')
         self.large = scratch / 'large.jai'
-        self.large.write_text(benchgen.generate(LARGE_FILE_LINES, 1, 1)['main.jai'])
+        self.large.write_text(benchgen.generate(LARGE_FILE_LINES, 1, 1)['main.jai'], encoding='utf-8')
         self.rewrite = scratch / 'rewrite' / 'input.jai'
         self.rewrite.parent.mkdir()
 
@@ -88,7 +88,7 @@ def native_scenarios(jaifmt: Path, inputs: Inputs) -> list[Scenario]:
 def wasm_scenarios(node: str, wasm: Path, inputs: Inputs) -> list[Scenario]:
     # The module takes the text of the configuration, not a path.
     command = [node, '--no-warnings', str(ROOT / 'tools' / 'wasi_run.mjs'), str(wasm), '--name', 'main.jai',
-               '--config', CONFIG.read_text()]
+               '--config', CONFIG.read_text(encoding='utf-8')]
     return [Scenario('wasm-stdin-formatted', command, stdin_bytes=inputs.formatted.read_bytes()),
             Scenario('wasm-stdin-unformatted', command, stdin_bytes=inputs.unformatted.read_bytes())]
 

@@ -494,7 +494,7 @@ def run(args: argparse.Namespace) -> int:
 
     out_dir = args.out_dir or default_out_dir()
     out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / 'command.txt').write_text(common.join_command([sys.executable, *sys.argv]) + '\n')
+    (out_dir / 'command.txt').write_text(common.join_command([sys.executable, *sys.argv]) + '\n', encoding='utf-8')
     binaries = {name: {'path': str(c.path), 'dialect': c.dialect.name, 'env': envs[name],
                        **provenance.binary_facts(c.path, {**os.environ, **envs[name]})}
                 for name, c in compilers.items()}
@@ -516,7 +516,7 @@ def run(args: argparse.Namespace) -> int:
         def save(blocks, samples, programs):
             results['blocks'] = blocks
             results['programs'] = programs
-            (out_dir / 'results.json').write_text(json.dumps(results, indent=2) + '\n')
+            (out_dir / 'results.json').write_text(json.dumps(results, indent=2) + '\n', encoding='utf-8')
             provenance.write_raw_csv(out_dir / 'raw.csv', samples)
 
         comparison.on_save = save
@@ -524,14 +524,14 @@ def run(args: argparse.Namespace) -> int:
             comparison.job(job)
         save(comparison.blocks, comparison.samples, comparison.programs)
         results['inputs'] = {f"{b['workload']}": b['source'] for b in comparison.blocks if b.get('source')}
-        (out_dir / 'inputs.json').write_text(json.dumps(results['inputs'], indent=2) + '\n')
+        (out_dir / 'inputs.json').write_text(json.dumps(results['inputs'], indent=2) + '\n', encoding='utf-8')
         save(comparison.blocks, comparison.samples, comparison.programs)
     finally:
         if comparison:
             comparison.runner.close()
         shutil.rmtree(scratch, ignore_errors=True)
     markdown = render(results)
-    (out_dir / 'summary.md').write_text(markdown)
+    (out_dir / 'summary.md').write_text(markdown, encoding='utf-8')
     print(markdown)
     print(f'wrote results to {out_dir}', file=sys.stderr)
     return 1 if any(b['status'] == 'failed' for b in comparison.blocks) else 0

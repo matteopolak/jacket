@@ -99,14 +99,14 @@ class Report:
     def write(self, json_path: Path, markdown_path: Path, markdown: str) -> None:
         for path in (json_path, markdown_path):
             path.parent.mkdir(parents=True, exist_ok=True)
-        json_path.write_text(json.dumps(self.to_json(), indent=2) + '\n')
-        markdown_path.write_text(markdown)
+        json_path.write_text(json.dumps(self.to_json(), indent=2) + '\n', encoding='utf-8')
+        markdown_path.write_text(markdown, encoding='utf-8')
 
 
 def load_report(path: Path) -> Report:
     """Read a report this harness wrote. A file in another format (older harnesses wrote different ones)
     is refused rather than compared as if its numbers meant the same thing."""
-    data = json.loads(path.read_text())
+    data = json.loads(path.read_text(encoding='utf-8'))
     if not isinstance(data, dict) or data.get('format') != FORMAT_VERSION or 'tool' not in data:
         found = data.get('format') if isinstance(data, dict) else None
         raise ValueError(f'{path}: not a report in format {FORMAT_VERSION} (found format {found!r}); '

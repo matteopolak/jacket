@@ -21,6 +21,14 @@ def report(**results):
 LIMITS = Limits(threshold=0.10, min_seconds=0.10, min_mib=16)
 
 
+class WriteTests(unittest.TestCase):
+    def test_reports_are_written_as_utf8(self):
+        with tempfile.TemporaryDirectory() as scratch:
+            path = Path(scratch) / 'summary.md'
+            report().write(Path(scratch) / 'r.json', path, '1.0 ± 0.1\n')
+            self.assertIn('±'.encode('utf-8'), path.read_bytes())
+
+
 class RegressionTests(unittest.TestCase):
     def regressions(self, before, after, limits=LIMITS):
         return [str(r) for r in find_regressions(report(a__b=before), report(a__b=after), limits)]
@@ -82,14 +90,14 @@ class LoadReportTests(unittest.TestCase):
     def test_a_report_in_an_older_format_is_refused(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'old.json'
-            path.write_text('{"format": 1, "jaic": {}, "results": {}}')
+            path.write_text('{"format": 1, "jaic": {}, "results": {}}', encoding='utf-8')
             with self.assertRaisesRegex(ValueError, 'format 3 .*found format 1'):
                 load_report(path)
 
     def test_a_report_written_now_loads(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / 'new.json'
-            path.write_text(json.dumps(Report('compile', {}).to_json()))
+            path.write_text(json.dumps(Report('compile', {}).to_json()), encoding='utf-8')
             self.assertEqual(load_report(path).tool, 'compile')
 
 

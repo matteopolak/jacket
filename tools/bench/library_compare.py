@@ -113,7 +113,7 @@ def run(name: str, args: argparse.Namespace) -> dict:
 def write_shims(scratch: Path, source: Path) -> Path | None:
     """Modules that exist only in the scratch folder, in an import dir searched before the stdlib:
     the relaxed `Unicode` below for a benchmark that uses Rematch."""
-    text = '\n'.join(path.read_text() for path in (source / 'benches').glob('*.jai'))
+    text = '\n'.join(path.read_text(encoding='utf-8') for path in (source / 'benches').glob('*.jai'))
     folder = scratch / 'shims'
     if 'Lunatoid--Rematch' in text:
         relaxed_unicode(folder)
@@ -125,15 +125,15 @@ def write_shims(scratch: Path, source: Path) -> Path | None:
 # check left out: a `Unicode` module in a scratch import dir, searched before the stdlib, is the stdlib's
 # own source minus the four capacity asserts. Nothing else of it changes.
 def relaxed_unicode(folder: Path) -> None:
-    source = (ROOT / 'stdlib' / 'internal' / 'unicode' / 'module.jai').read_text()
+    source = (ROOT / 'stdlib' / 'internal' / 'unicode' / 'module.jai').read_text(encoding='utf-8')
     kept = [line for line in source.splitlines() if 'preallocated_string.count >=' not in line]
     module = folder / 'Unicode'
     module.mkdir(parents=True)
-    (module / 'module.jai').write_text('\n'.join(kept) + '\n')
+    (module / 'module.jai').write_text('\n'.join(kept) + '\n', encoding='utf-8')
 
 
 def uses_libpq(source: Path) -> bool:
-    return any('libpq' in path.read_text() for path in (source / 'benches').glob('*.jai'))
+    return any('libpq' in path.read_text(encoding='utf-8') for path in (source / 'benches').glob('*.jai'))
 
 
 def libpq_directory() -> str:
@@ -201,12 +201,12 @@ def main(argv: list[str]) -> int:
     args.compiler_flags = shlex.split(args.compiler_flags)
     document = run(args.name, args)
     if args.json:
-        Path(args.json).write_text(json.dumps(document, indent=1))
+        Path(args.json).write_text(json.dumps(document, indent=1), encoding='utf-8')
     text = report(document, args.libraries.split(','), args.per_item)
     header = '\n'.join(f'- {k}: {v}' for k, v in machine().items())
     output = f'{header}\n\n{text}\n'
     if args.out:
-        Path(args.out).write_text(output)
+        Path(args.out).write_text(output, encoding='utf-8')
     print(output)
     return 0
 

@@ -79,19 +79,19 @@ def workloads(scratch: Path):
     """(name, directory of the program, extra jaic arguments)."""
     hello = scratch / "hello"
     hello.mkdir()
-    (hello / "main.jai").write_text(HELLO)
+    (hello / "main.jai").write_text(HELLO, encoding='utf-8')
     gens = {}
     for lines in (2000, 10000):
         directory = scratch / f"gen-{lines // 1000}k"
         directory.mkdir()
         for name, text in benchgen.generate(lines, 1, 1).items():
-            (directory / name).write_text(text)
+            (directory / name).write_text(text, encoding='utf-8')
         gens[lines] = directory
     meta = scratch / "gen-2k-meta"
     (meta / "program").mkdir(parents=True)
     for name, text in benchgen.generate(2000, 1, 1).items():
-        (meta / "program" / name).write_text(text)
-    (meta / "main.jai").write_text(READER.replace("%/main.jai", str(meta / "program") + "/main.jai"))
+        (meta / "program" / name).write_text(text, encoding='utf-8')
+    (meta / "main.jai").write_text(READER.replace("%/main.jai", str(meta / "program") + "/main.jai"), encoding='utf-8')
     return [
         ("hello/check", hello, ["-check"]),
         ("hello/build", hello, ["-exe", str(scratch / "hello-out")]),
@@ -174,10 +174,10 @@ def main() -> int:
     key = platform_key()
     with tempfile.TemporaryDirectory(prefix="perf-gate-") as scratch:
         current = {name: measure(args.jaic.resolve(), directory, extra, instructions) for name, directory, extra in workloads(Path(scratch))}
-    data = json.loads(args.baseline.read_text()) if args.baseline.exists() else {"format": 1, "platforms": {}}
+    data = json.loads(args.baseline.read_text(encoding='utf-8')) if args.baseline.exists() else {"format": 1, "platforms": {}}
     if args.update:
         data["platforms"][key] = current
-        args.baseline.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+        args.baseline.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding='utf-8')
         print(f"wrote {key} to {args.baseline}")
         print(json.dumps({key: current}, indent=2, sort_keys=True))
         return 0
@@ -191,7 +191,7 @@ def main() -> int:
     report = table(rows)
     print(report)
     if os.environ.get("GITHUB_STEP_SUMMARY"):
-        with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+        with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
             summary.write(f"## Performance gate ({key})\n\n{report}\n")
     for line in improvements:
         print(f"improved, consider updating the baseline: {line}", file=sys.stderr)

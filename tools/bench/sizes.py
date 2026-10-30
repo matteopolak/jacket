@@ -36,7 +36,7 @@ def facts_of(root: Path) -> SourceFacts:
     total = SourceFacts()
     for file in files:
         try:
-            one = facts_of_text(file.read_text(errors='replace'))
+            one = facts_of_text(file.read_text(encoding='utf-8', errors='replace'))
         except OSError:
             continue
         total = SourceFacts(total.files + one.files, total.lines + one.lines, total.procs + one.procs,

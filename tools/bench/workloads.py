@@ -87,7 +87,7 @@ class CorpusProject:
         return CORPUS / self.project
 
     def materialize(self, scratch: Path) -> Path:
-        cases = json.loads((ROOT / 'tools' / 'upstream-cases.json').read_text()) if self.setup_ids else []
+        cases = json.loads((ROOT / 'tools' / 'upstream-cases.json').read_text(encoding='utf-8')) if self.setup_ids else []
         for case in cases:
             if case['id'] in self.setup_ids:
                 for command in case.get('setup', []):
@@ -117,7 +117,7 @@ class Generated:
         if not directory.exists():
             directory.mkdir(parents=True)
             for name, text in benchgen.generate(self.lines, self.seed, self.files).items():
-                (directory / name).write_text(text)
+                (directory / name).write_text(text, encoding='utf-8')
         return directory
 
     def available(self) -> str:

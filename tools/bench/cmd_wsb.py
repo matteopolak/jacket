@@ -94,9 +94,11 @@ def build(args: argparse.Namespace) -> tuple[str, str]:
 def run(args: argparse.Namespace) -> int:
     config, script = build(args)
     args.out_dir.mkdir(parents=True, exist_ok=True)
-    (args.out_dir / 'run.cmd').write_text(script)
+    # Both are ASCII unless a host path is not: cmd.exe would read such a path in the OEM code page either way,
+    # and the .wsb is XML, whose default encoding is UTF-8. Write UTF-8 without a BOM (cmd mishandles a BOM).
+    (args.out_dir / 'run.cmd').write_text(script, encoding='utf-8', newline='')
     path = args.out_dir / 'bench.wsb'
-    path.write_text(config)
+    path.write_text(config, encoding='utf-8')
     print(f'wrote {path}; double-click it (or run with --launch) to start the offline VM; '
           f'results and log.txt land in {args.out_dir}')
     if args.launch:

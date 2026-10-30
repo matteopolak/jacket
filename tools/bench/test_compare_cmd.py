@@ -167,12 +167,12 @@ class ProvenanceTests(unittest.TestCase):
         a, b = self.folder(), self.folder()
         for root in (a, b):
             (root / 'sub').mkdir()
-            (root / 'main.jai').write_text('x')
-            (root / 'sub' / 'part.jai').write_text('y')
+            (root / 'main.jai').write_text('x', encoding='utf-8')
+            (root / 'sub' / 'part.jai').write_text('y', encoding='utf-8')
         self.assertEqual(provenance.tree_sha256(a), provenance.tree_sha256(b))
-        (b / 'sub' / 'part.jai').write_text('z')
+        (b / 'sub' / 'part.jai').write_text('z', encoding='utf-8')
         self.assertNotEqual(provenance.tree_sha256(a), provenance.tree_sha256(b))
-        (b / 'sub' / 'part.jai').write_text('y')
+        (b / 'sub' / 'part.jai').write_text('y', encoding='utf-8')
         (b / 'sub' / 'part.jai').rename(b / 'sub' / 'other.jai')
         self.assertNotEqual(provenance.tree_sha256(a), provenance.tree_sha256(b))
 
@@ -180,10 +180,10 @@ class ProvenanceTests(unittest.TestCase):
         root = self.folder()
         if sys.platform == 'win32':  # a batch file runs as a program; no shell scripts
             binary = root / 'tool.bat'
-            binary.write_text('@echo tool 1.2.3\r\n')
+            binary.write_text('@echo tool 1.2.3\r\n', encoding='utf-8')
         else:
             binary = root / 'tool'
-            binary.write_text('#!/bin/sh\necho "tool 1.2.3"\n')
+            binary.write_text('#!/bin/sh\necho "tool 1.2.3"\n', encoding='utf-8')
             binary.chmod(0o755)
         facts = provenance.binary_facts(binary)
         self.assertEqual(facts['version'], 'tool 1.2.3')

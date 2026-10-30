@@ -72,7 +72,7 @@ RAW_COLUMNS = ['workload', 'mode', 'phase', 'round', 'position', 'compiler', 'wa
 def write_raw_csv(path: Path, samples: list[dict]) -> None:
     """One row per timed run, in the order they ran (`position` is its place within its round)."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open('w', newline='') as handle:
+    with path.open('w', newline='', encoding='utf-8') as handle:
         writer = csv.DictWriter(handle, fieldnames=RAW_COLUMNS, extrasaction='ignore')
         writer.writeheader()
         for sample in samples:

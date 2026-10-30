@@ -42,7 +42,7 @@ def program(entry: Path, output_dir: Path, *, writes_executable: bool, optimized
                 f'WRITES_EXECUTABLE :: {jai_bool(writes_executable)};\nOPTIMIZED :: {jai_bool(optimized)};\n'
                 f'RUN_MAIN :: {jai_bool(run_main)};\n'
                 f'IMPORT_DIRS :: string.[{dirs}];\n// end settings\n')
-    return SETTINGS.sub(lambda _: settings, TEMPLATE.read_text(), count=1)
+    return SETTINGS.sub(lambda _: settings, TEMPLATE.read_text(encoding='utf-8'), count=1)
 
 
 def jai_bool(value: bool) -> str:

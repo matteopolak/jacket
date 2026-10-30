@@ -105,7 +105,7 @@ class Dialect(ABC):
         source = phases.program(request.entry.resolve(), where, writes_executable=request.mode.writes_executable,
                                 optimized=request.mode is Mode.OPTIMIZED, run_main=request.mode is Mode.INTERP,
                                 import_dirs=request.import_dirs)
-        (where / phases.WRAPPER_NAME).write_text(source)
+        (where / phases.WRAPPER_NAME).write_text(source, encoding='utf-8')
         shutil.copy(phases.LINK_COMMAND, where / phases.LINK_COMMAND.name)
         executable = executable_file(where) if request.mode.writes_executable else None
         return Invocation(self.source_command(compiler, phases.WRAPPER_NAME), where, executable)

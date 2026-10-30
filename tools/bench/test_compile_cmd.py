@@ -119,7 +119,7 @@ class DialectTests(unittest.TestCase):
                                            '-exe', 'program', '-output_path', scratch])
             check = PlainDialect().invocation(Path('/old/jaic'), Request(Path('/w/main.jai'), Path('/w'), Mode.INTERP, (), Path(scratch)))
             self.assertEqual(check.command, [str(Path('/old/jaic')), 'wrapper.jai', '-no_color'])
-            wrapper = (Path(scratch) / 'wrapper.jai').read_text()
+            wrapper = (Path(scratch) / 'wrapper.jai').read_text(encoding='utf-8')
             self.assertIn('do_output=false', wrapper)
             self.assertIn('#run main();', wrapper)
             self.assertNotIn('-check', check.command)
@@ -129,10 +129,10 @@ class DialectTests(unittest.TestCase):
             def fake(name, help_text):
                 if sys.platform == 'win32':  # a batch file runs as a program; no shell scripts
                     path = Path(folder) / (name + '.bat')
-                    path.write_text(f'@echo {help_text}\r\n')
+                    path.write_text(f'@echo {help_text}\r\n', encoding='utf-8')
                     return path
                 path = Path(folder) / name
-                path.write_text(f'#!/bin/sh\necho "{help_text}"\n')
+                path.write_text(f'#!/bin/sh\necho "{help_text}"\n', encoding='utf-8')
                 path.chmod(0o755)
                 return path
             self.assertIsInstance(detect_dialect(fake('jaic', '  -timings  print phases')), JaicDialect)
@@ -163,7 +163,7 @@ class DialectTests(unittest.TestCase):
             request = Request(Path('/w/main.jai'), Path('/w'), Mode.INTERP, (), Path(scratch))
             jaic = JaicDialect().phase_invocation(Path('/bin/jaic'), request)
             ref = PlainDialect().phase_invocation(Path('/old/jaic'), request)
-            source = (Path(scratch) / 'phases' / 'phase_timing.jai').read_text()
+            source = (Path(scratch) / 'phases' / 'phase_timing.jai').read_text(encoding='utf-8')
         self.assertEqual(jaic.command, [str(Path('/bin/jaic')), 'phase_timing.jai'])
         self.assertEqual(ref.command, [str(Path('/old/jaic')), 'phase_timing.jai', '-no_color'])
         self.assertEqual(jaic.cwd, ref.cwd)
