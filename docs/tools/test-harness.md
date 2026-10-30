@@ -50,6 +50,7 @@ Paths in snapshot text go through `Redactor`, which rewrites the repository root
 | --- | --- |
 | `INSTA_UPDATE` | `always` rewrites snapshots and generated files; `no` (the default on CI) only compares. |
 | `JAIC_REQUIRE_TOOLCHAIN` | `1`, or a comma list such as `node,wasm-ld`: missing tools fail instead of skipping. |
+| `JAIC_ABI_CROSS` | `;`-separated `os-cpu[:clang args]` targets (`macos-x64`) whose C headers `stdlib_c_abi_matches_cross_target_headers` checks the stdlib's C layouts against; unset or empty, the test prints `skipped:`. CI sets `macos-x64` on the arm64 macOS leg. |
 | `JAIC_TEST_TMPDIR` | Where `TempDir` creates directories (default: the system temp dir). |
 | `JAIC_KEEP_TEST_TMP` | Keep scratch directories after the test. |
 | `CI` | Makes `require` strict. |

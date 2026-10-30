@@ -256,6 +256,10 @@ jobs:
         # instead of freezing the runner (tools/ci/run_watched.sh).
         env:
           EXPR: ${{ matrix.expr }}
+          # The arm64 macOS runner checks the x64 C layouts too: the SDK has the headers for both
+          # CPUs. No other runner has cross headers installed (Linux and Windows would need
+          # sysroots for the other CPU or MinGW), so the cross test skips there.
+          JAIC_ABI_CROSS: ${{ matrix.runner == 'macos-15' && 'macos-x64' || '' }}
         run: |
           ulimit -c 0
           tools/ci/run_watched.sh 29 -- python3 tools/dev/dev.py test --suite cargo -j "$(getconf _NPROCESSORS_ONLN)" \

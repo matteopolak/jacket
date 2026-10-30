@@ -19,10 +19,9 @@ fn stdlib_c_abi_matches_host_headers() {
         "linux" => "linux",
         "macos" => "macos",
         "windows" => "windows",
-        other => {
-            eprintln!("skipping: no ABI manifest section for {other}");
-            return;
-        }
+        other => panic!(
+            "the stdlib ABI manifest has sections for linux, macos and windows only, not {other}"
+        ),
     };
     let cpu = match std::env::consts::ARCH {
         "x86_64" => "x64",
@@ -46,12 +45,15 @@ fn stdlib_c_abi_matches_host_headers() {
 
 /// The same check for targets this host cannot run, from `JAIC_ABI_CROSS` (`;`-separated
 /// `os-cpu[:clang args]`, e.g. `macos-x64;windows-x64`); clang must have that target's headers.
-/// Does nothing when the variable is unset.
+/// CI sets it on the macOS legs (`macos-x64`, whose headers come with the SDK). Skipped, with a
+/// note, when the variable is unset or empty.
 #[test]
 fn stdlib_c_abi_matches_cross_target_headers() {
-    let Ok(specs) = std::env::var("JAIC_ABI_CROSS") else {
+    let specs = std::env::var("JAIC_ABI_CROSS").unwrap_or_default();
+    if specs.trim().is_empty() {
+        toolchain::skip("JAIC_ABI_CROSS names no target to check");
         return;
-    };
+    }
     let clang = std::env::var("JAIC_ABI_CLANG").unwrap_or_else(|_| "clang".into());
     let mut failures = Vec::new();
     for spec in specs.split(';').filter(|s| !s.trim().is_empty()) {

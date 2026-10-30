@@ -513,6 +513,9 @@ pub fn check_cross(
     let jai = run(
         Command::new(jaic)
             .args(["-check", "abi.jai", "-target", &target.jaic_triple])
+            // A plain `#run` reads the host's layouts through the host twin; the report must
+            // describe the target's.
+            .env("JAIC_NO_HOST_TWIN", "1")
             .current_dir(dir),
         "checking the Jai side",
     )?;
