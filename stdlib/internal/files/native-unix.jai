@@ -19,7 +19,7 @@ File :: struct {
 //
 // `name` is a path in bytes: the C library takes them as they are. A name with a NUL byte in it is refused. A failure
 // (a missing directory, no permission, a directory where a file is wanted for writing) is logged as an error through
-// `context.logger` unless `log_errors` is `false`. Windows opens do not log by default.
+// `context.logger` unless `log_errors` is `false`.
 //
 // ```jai
 // #import "Extensions/Environment";

@@ -34,8 +34,8 @@ FOLDERID_SavedGames_uid_string :: "4C5C32FF-BB9D-43b0-B5B4-2D72E54EAAA4";
 //
 // `name` is UTF-8 and is converted to UTF-16 for the system; text that is not valid UTF-8, an empty name, and a name with a
 // NUL byte are refused. `/` and `\` both separate directories. Other programs may open, write and delete the file while it is
-// open. Unlike on other targets a failure is logged through `context.logger` only when `log_errors` is `true`.
-file_open :: (name: string, for_writing := false, keep_existing_content := false, log_errors := false) -> File, bool {
+// open. A failure is logged as an error through `context.logger` unless `log_errors` is `false`.
+file_open :: (name: string, for_writing := false, keep_existing_content := false, log_errors := true) -> File, bool {
     path := Text.utf16_path(name);
 
     defer free(path);

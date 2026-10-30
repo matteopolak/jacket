@@ -66,7 +66,7 @@ Visible public declarations and module-conditional variants are listed below. Pr
 ### Windows-specific declarations
 
 - `File :: struct`
-- `file_open :: (name: string, for_writing := false, keep_existing_content := false, log_errors := false) -> File, bool`
+- `file_open :: (name: string, for_writing := false, keep_existing_content := false, log_errors := true) -> File, bool`
 - `file_close :: (file: *File)`
 - `file_move :: (name_old: string, name_new: string) -> bool`
 - `file_delete :: (filename: string) -> bool`
