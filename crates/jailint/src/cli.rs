@@ -1,5 +1,8 @@
-//! `jailint`'s command line: its own flags in one table, the flags it shares with the other tools
-//! from `jaic::flags`, and the usage text and "did you mean" suggestions both feed.
+//! `jailint`'s command line: its own flags are a `clap` derive, and the flags it shares with the
+//! other tools (`-os`, `-I`, `-j`, ...; single-dash words clap cannot spell) are read from
+//! `jaic::flags` before clap sees the rest.
+use clap::error::{ContextKind, ContextValue, ErrorKind};
+use clap::{ArgMatches, CommandFactory, FromArgMatches, Parser};
 use jaic::flags::{self, Common, FlagError, Shared};
 use jailint::RULES;
 use jailint::config::Level;
@@ -39,217 +42,83 @@ impl Args {
     }
 }
 
-/// What parsing a flag leads to.
-enum Flow {
-    Continue,
-    /// The flag answered by itself (`--help`); the run is over.
-    Done,
+/// A parser for a numeric flag whose error names the flag and shows a value that works.
+fn number<T: std::str::FromStr>(
+    flag: &'static str,
+    kind: &'static str,
+    example: &'static str,
+) -> impl Fn(&str) -> Result<T, String> + Clone + Send + Sync + 'static {
+    move |text| {
+        text.parse()
+            .map_err(|_| format!("`{flag}` takes {kind}, such as `{flag} {example}`"))
+    }
 }
 
-/// A flag of jailint's own.
+/// jailint's own flags.
+#[derive(Parser)]
+#[command(
+    name = "jailint",
+    version,
+    about = "Lints the Jai files under each path (default: the current directory).",
+    color = clap::ColorChoice::Never,
+    disable_help_subcommand = true
+)]
 struct Own {
-    names: &'static [&'static str],
-    /// What it takes; `None` for a switch.
-    what: Option<&'static str>,
-    synopsis: &'static str,
-    help: &'static str,
-    /// Called with the spelling used and the value (empty for a switch).
-    apply: fn(&mut Args, &str, &str) -> Result<Flow, String>,
+    /// Files, or folders that hold them (default: the current directory)
+    #[arg(value_name = "paths")]
+    paths: Vec<PathBuf>,
+    /// Apply the fixes that are safe to apply automatically
+    #[arg(long)]
+    fix: bool,
+    /// Settings file (default: the nearest jacket.toml)
+    #[arg(long, value_name = "file")]
+    config: Option<PathBuf>,
+    /// Allow a rule (repeatable; `all` for every rule)
+    #[arg(short = 'A', value_name = "rule")]
+    allow: Vec<String>,
+    /// Warn on a rule
+    #[arg(short = 'W', value_name = "rule")]
+    warn: Vec<String>,
+    /// Deny a rule; `-D warnings` makes every warning an error
+    #[arg(short = 'D', value_name = "rule")]
+    deny: Vec<String>,
+    /// Blocks `excessive_nesting` allows (default: `[lint] max_nesting` in `jacket.toml`, else 6)
+    #[arg(long, value_name = "n", value_parser = number::<usize>("--max-nesting", "a whole number", "6"))]
+    max_nesting: Option<usize>,
+    /// Basic blocks one compile-time evaluation may run before it fails (default: 200000000; 0:
+    /// no limit)
+    #[arg(long, value_name = "blocks", value_parser = number::<u64>("--compile-time-budget", "a whole number", "50000000"))]
+    compile_time_budget: Option<u64>,
+    /// Seconds each program may take to check before its check stops with partial results;
+    /// every program gets the whole limit, and the run as a whole has none (default: 10; 0: no
+    /// limit)
+    #[arg(long, value_name = "seconds", value_parser = number::<f64>("--check-time-limit", "a number of seconds", "30"))]
+    check_time_limit: Option<f64>,
+    /// Write JSON source-check coverage and actual target contexts
+    #[arg(long, value_name = "file")]
+    manifest: Option<PathBuf>,
+    /// Check an enclosing program; report only the requested paths
+    #[arg(long, value_name = "program file")]
+    context: Option<PathBuf>,
+    /// Write the actual checked paths, one per line
+    #[arg(long, value_name = "file")]
+    checked_files: Option<PathBuf>,
+    /// Count programs that do not compile on this target without failing the run
+    #[arg(long)]
+    allow_incomplete: bool,
+    /// List the rules and their default levels
+    #[arg(long)]
+    list: bool,
+    /// Show each program as it is compiled
+    #[arg(short, long)]
+    verbose: bool,
 }
 
-const OWN: &[Own] = &[
-    Own {
-        names: &["--fix"],
-        what: None,
-        synopsis: "--fix",
-        help: "apply the fixes that are safe to apply automatically",
-        apply: |args, _, _| {
-            args.fix = true;
-            Ok(Flow::Continue)
-        },
-    },
-    Own {
-        names: &["--config"],
-        what: Some("a file"),
-        synopsis: "--config <file>",
-        help: "settings file (default: the nearest jacket.toml)",
-        apply: |args, _, value| {
-            args.config = Some(value.into());
-            Ok(Flow::Continue)
-        },
-    },
-    Own {
-        names: &["-A"],
-        what: Some("a rule"),
-        synopsis: "-A <rule>",
-        help: "allow a rule (repeatable; `all` for every rule)",
-        apply: |args, _, value| level(args, Level::Allow, value),
-    },
-    Own {
-        names: &["-W"],
-        what: Some("a rule"),
-        synopsis: "-W <rule>",
-        help: "warn on a rule",
-        apply: |args, _, value| level(args, Level::Warn, value),
-    },
-    Own {
-        names: &["-D"],
-        what: Some("a rule"),
-        synopsis: "-D <rule>",
-        help: "deny a rule; `-D warnings` makes every warning an error",
-        apply: |args, _, value| level(args, Level::Deny, value),
-    },
-    Own {
-        names: &["--max-nesting"],
-        what: Some("a number"),
-        synopsis: "--max-nesting <n>",
-        help: "blocks `excessive_nesting` allows (default: [lint] max_nesting in jacket.toml, else 6)",
-        apply: |args, name, value| {
-            args.max_nesting = Some(
-                value
-                    .parse()
-                    .map_err(|_| format!("`{name}` takes a whole number, such as `{name} 6`"))?,
-            );
-            Ok(Flow::Continue)
-        },
-    },
-    Own {
-        names: &["--compile-time-budget"],
-        what: Some("blocks"),
-        synopsis: "--compile-time-budget <blocks>",
-        help: "basic blocks one compile-time evaluation may run before it fails (default: 200000000; 0: no limit)",
-        apply: |args, name, value| {
-            args.compile_time_budget = Some(value.parse().map_err(|_| {
-                format!("`{name}` takes a whole number, such as `{name} 50000000`")
-            })?);
-            Ok(Flow::Continue)
-        },
-    },
-    Own {
-        names: &["--check-time-limit"],
-        what: Some("seconds"),
-        synopsis: "--check-time-limit <seconds>",
-        help: "seconds each program may take to check before its check stops with partial results; every program gets the whole limit, and the run as a whole has none (default: 10; 0: no limit)",
-        apply: |args, name, value| {
-            args.check_time_limit =
-                Some(value.parse().map_err(|_| {
-                    format!("`{name}` takes a number of seconds, such as `{name} 30`")
-                })?);
-            Ok(Flow::Continue)
-        },
-    },
-    Own {
-        names: &["--manifest"],
-        what: Some("a file"),
-        synopsis: "--manifest <file>",
-        help: "write JSON source-check coverage and actual target contexts",
-        apply: |args, _, value| {
-            args.manifest = Some(value.into());
-            Ok(Flow::Continue)
-        },
-    },
-    Own {
-        names: &["--context"],
-        what: Some("a program file"),
-        synopsis: "--context <file>",
-        help: "check an enclosing program; report only the requested paths",
-        apply: |args, _, value| {
-            args.context = Some(value.into());
-            Ok(Flow::Continue)
-        },
-    },
-    Own {
-        names: &["--checked-files"],
-        what: Some("a file"),
-        synopsis: "--checked-files <file>",
-        help: "write the actual checked paths, one per line",
-        apply: |args, _, value| {
-            args.checked_files = Some(value.into());
-            Ok(Flow::Continue)
-        },
-    },
-    Own {
-        names: &["--allow-incomplete"],
-        what: None,
-        synopsis: "--allow-incomplete",
-        help: "count programs that do not compile on this target without failing the run",
-        apply: |args, _, _| {
-            args.allow_incomplete = true;
-            Ok(Flow::Continue)
-        },
-    },
-    Own {
-        names: &["--list"],
-        what: None,
-        synopsis: "--list",
-        help: "list the rules and their default levels",
-        apply: |_, _, _| {
-            for r in RULES {
-                println!(
-                    "{:<26} {:<11} {:<5}  {}",
-                    r.name,
-                    r.category.as_str(),
-                    r.default().as_str(),
-                    r.summary
-                );
-            }
-            Ok(Flow::Done)
-        },
-    },
-    Own {
-        names: &["-v", "--verbose"],
-        what: None,
-        synopsis: "-v, --verbose",
-        help: "show each program as it is compiled",
-        apply: |args, _, _| {
-            args.verbose = true;
-            Ok(Flow::Continue)
-        },
-    },
-    Own {
-        names: &["-V", "--version"],
-        what: None,
-        synopsis: "-V, --version",
-        help: "show the version",
-        apply: |_, _, _| {
-            println!("jailint {}", env!("CARGO_PKG_VERSION"));
-            Ok(Flow::Done)
-        },
-    },
-    Own {
-        names: &["-h", "--help"],
-        what: None,
-        synopsis: "-h, --help",
-        help: "show this help",
-        apply: |_, _, _| {
-            println!("{}", usage());
-            Ok(Flow::Done)
-        },
-    },
-];
-
-fn level(args: &mut Args, level: Level, rule: &str) -> Result<Flow, String> {
-    args.levels.push((rule.to_string(), level));
-    Ok(Flow::Continue)
-}
-
-/// The usage text: built from the tables, so a flag cannot be listed wrongly.
-pub fn usage() -> String {
-    let mut text = String::from(
-        "usage: jailint [options] [paths...]\n\n\
-         Lints the Jai files under each path (default: the current directory).\n\noptions:\n",
-    );
-    let line = |text: &mut String, synopsis: &str, help: &str| {
-        text.push_str(&format!("  {synopsis:<24}{help}\n"));
-    };
-    for flag in OWN.iter().filter(|f| f.what.is_some()) {
-        line(&mut text, flag.synopsis, flag.help);
-    }
+/// The help text after the options: the flags shared with `jaic`, and the exit status.
+fn trailer() -> String {
+    let mut text = String::from("Options shared with jaic:\n");
     for flag in flags::ALL {
-        line(&mut text, flag.synopsis, flag.help);
-    }
-    for flag in OWN.iter().filter(|f| f.what.is_none()) {
-        line(&mut text, flag.synopsis, flag.help);
+        text.push_str(&format!("  {:<30}{}\n", flag.synopsis, flag.help));
     }
     text.push_str(
         "\nExit status: 0 when nothing at level `deny` was found, 1 when something was, 2 on a\n\
@@ -258,59 +127,176 @@ pub fn usage() -> String {
     text
 }
 
-/// The own flag spelt `name`, with the text after `=` when it is written `name=value`.
-fn find_own(name: &str) -> Option<(&'static Own, Option<String>)> {
-    let named = |n: &str| OWN.iter().find(|flag| flag.names.contains(&n));
-    if let Some(flag) = named(name) {
-        return Some((flag, None));
-    }
-    let (n, value) = name.split_once('=')?;
-    named(n)
-        .filter(|flag| flag.what.is_some())
-        .map(|flag| (flag, Some(value.to_string())))
+fn command() -> clap::Command {
+    // An option takes the next word whatever it looks like, as the hand-written parser did.
+    Own::command().after_help(trailer()).mut_args(|arg| {
+        if arg.is_positional() || !arg.get_action().takes_values() {
+            arg
+        } else {
+            arg.allow_hyphen_values(true)
+        }
+    })
 }
 
-fn unknown(flag: &str) -> FlagError {
-    let own = OWN.iter().flat_map(|f| f.names.iter().copied());
-    let known: Vec<&str> = own.chain(flags::spellings(flags::ALL)).collect();
-    let help = match jaic::suggest::closest(flag, known) {
+/// The flags of jailint's own that take a value, as typed (`-A`, `--config`): the token after
+/// one belongs to it, even when it is spelt like a shared flag.
+fn value_flags(command: &clap::Command) -> Vec<String> {
+    let mut spellings = Vec::new();
+    for arg in command
+        .get_arguments()
+        .filter(|a| a.get_action().takes_values())
+    {
+        spellings.extend(arg.get_short().map(|c| format!("-{c}")));
+        spellings.extend(arg.get_long().map(|l| format!("--{l}")));
+    }
+    spellings
+}
+
+/// The flags from `jaic::flags` out of `argv`, and everything else in order.
+fn take_shared(
+    argv: impl IntoIterator<Item = String>,
+    value_flags: &[String],
+) -> Result<(Common, Vec<String>), String> {
+    let mut common = Common::default();
+    let mut rest = Vec::new();
+    let mut it = argv.into_iter();
+    let mut value_next = false;
+    while let Some(a) = it.next() {
+        if std::mem::take(&mut value_next) {
+            rest.push(a);
+        } else if a == "--" {
+            rest.push(a);
+            rest.extend(it.by_ref());
+        } else if let Some((flag, inline)) = flags::find(flags::ALL, &a) {
+            let shared: Shared = flag
+                .take(&a, inline, || it.next())
+                .map_err(FlagError::into_text)?;
+            common.take(shared);
+        } else {
+            value_next = value_flags.contains(&a);
+            rest.push(a);
+        }
+    }
+    Ok((common, rest))
+}
+
+fn unknown(flag: &str, command: &clap::Command) -> FlagError {
+    let own = command.get_arguments().flat_map(|a| {
+        let short = a.get_short().map(|c| format!("-{c}"));
+        let long = a.get_long().map(|l| format!("--{l}"));
+        short.into_iter().chain(long)
+    });
+    let known: Vec<String> = own
+        .chain(flags::spellings(flags::ALL).map(String::from))
+        .collect();
+    let help = match jaic::suggest::closest(flag, known.iter().map(String::as_str)) {
         Some(near) => format!("did you mean `{near}`? `jailint --help` lists the options"),
         None => "`jailint --help` lists the options".to_string(),
     };
     FlagError::new(format!("unknown option `{flag}`")).help(help)
 }
 
-/// Parse `argv` (without the program name). `None` when a flag answered by itself.
-pub fn parse(argv: impl IntoIterator<Item = String>) -> Result<Option<Args>, String> {
-    let mut args = Args::default();
-    let mut it = argv.into_iter();
-    while let Some(a) = it.next() {
-        if let Some((flag, inline)) = find_own(&a) {
-            let value = match flag.what {
-                None => String::new(),
-                Some(what) => inline
-                    .or_else(|| it.next())
-                    .ok_or_else(|| format!("`{a}` needs {what}"))?,
+/// The text of a clap error in this tool's style: clap's first line, without its usage block.
+fn describe(error: &clap::Error, command: &clap::Command) -> String {
+    let argument = match error.get(ContextKind::InvalidArg) {
+        Some(ContextValue::String(arg)) => Some(arg.clone()),
+        _ => None,
+    };
+    if error.kind() == ErrorKind::ValueValidation
+        && let Some(reason) = std::error::Error::source(error)
+    {
+        return reason.to_string();
+    }
+    match (error.kind(), argument) {
+        (ErrorKind::UnknownArgument, Some(arg)) => return unknown(&arg, command).into_text(),
+        (ErrorKind::InvalidValue, Some(arg))
+            if error.to_string().contains("a value is required") =>
+        {
+            let (flag, value) = arg.split_once(" <").unwrap_or((&arg, ""));
+            let what = match value.trim_end_matches('>') {
+                "n" => "a whole number",
+                "blocks" => "a number of blocks",
+                "seconds" => "a number of seconds",
+                other => &format!("a {other}"),
             };
-            match (flag.apply)(&mut args, &a, &value)? {
-                Flow::Continue => {}
-                Flow::Done => return Ok(None),
-            }
-        } else if let Some((flag, inline)) = flags::find(flags::ALL, &a) {
-            let shared: Shared = flag
-                .take(&a, inline, || it.next())
-                .map_err(FlagError::into_text)?;
-            args.common.take(shared);
-        } else if a.starts_with('-') && a.len() > 1 {
-            return Err(unknown(&a).into_text());
-        } else {
-            args.paths.push(a.into());
+            return format!("`{flag}` needs {what}");
+        }
+        _ => {}
+    }
+    let text = error.render().to_string();
+    let first = text.lines().next().unwrap_or("");
+    let message = first.strip_prefix("error: ").unwrap_or(first);
+    format!("{message}\nhelp: `jailint --help` lists the options")
+}
+
+/// The levels the `-A`, `-W` and `-D` flags set, in the order they were written (a later flag
+/// wins).
+fn levels(matches: &ArgMatches) -> Vec<(String, Level)> {
+    let mut found = Vec::new();
+    for (id, level) in [
+        ("allow", Level::Allow),
+        ("warn", Level::Warn),
+        ("deny", Level::Deny),
+    ] {
+        let rules = matches.get_many::<String>(id).into_iter().flatten();
+        let positions = matches.indices_of(id).into_iter().flatten();
+        for (position, rule) in positions.zip(rules) {
+            found.push((position, rule.clone(), level));
         }
     }
-    if args.paths.is_empty() {
-        args.paths.push(".".into());
+    found.sort_by_key(|(position, ..)| *position);
+    found
+        .into_iter()
+        .map(|(_, rule, level)| (rule, level))
+        .collect()
+}
+
+/// Parse `argv` (without the program name). `None` when a flag answered by itself.
+pub fn parse(argv: impl IntoIterator<Item = String>) -> Result<Option<Args>, String> {
+    let command = command();
+    let (common, rest) = take_shared(argv, &value_flags(&command))?;
+    let argv = std::iter::once("jailint".to_string()).chain(rest);
+    let matches = match command.clone().try_get_matches_from(argv) {
+        Ok(matches) => matches,
+        Err(error) if error.use_stderr() => return Err(describe(&error, &command)),
+        Err(error) => {
+            // `--help` and `--version` answer on stdout.
+            print!("{}", error.render());
+            return Ok(None);
+        }
+    };
+    let own = Own::from_arg_matches(&matches).map_err(|e| describe(&e, &command))?;
+    if own.list {
+        for r in RULES {
+            println!(
+                "{:<26} {:<11} {:<5}  {}",
+                r.name,
+                r.category.as_str(),
+                r.default().as_str(),
+                r.summary
+            );
+        }
+        return Ok(None);
     }
-    Ok(Some(args))
+    let mut paths = own.paths;
+    if paths.is_empty() {
+        paths.push(".".into());
+    }
+    Ok(Some(Args {
+        context: own.context,
+        manifest: own.manifest,
+        checked_files: own.checked_files,
+        allow_incomplete: own.allow_incomplete,
+        paths,
+        fix: own.fix,
+        config: own.config,
+        levels: levels(&matches),
+        max_nesting: own.max_nesting,
+        verbose: own.verbose,
+        compile_time_budget: own.compile_time_budget,
+        check_time_limit: own.check_time_limit,
+        common,
+    }))
 }
 
 #[cfg(test)]
@@ -354,18 +340,37 @@ mod tests {
         let error = parse_all(&["--contxt", "x"]).err().unwrap();
         assert!(error.contains("did you mean `--context`"), "{error}");
         let error = parse_all(&["--manifest"]).err().unwrap();
-        assert!(error.contains("needs a file"), "{error}");
+        assert!(error.contains("`--manifest` needs a file"), "{error}");
     }
 
     #[test]
-    fn the_usage_lists_every_flag() {
-        let text = usage();
-        for name in OWN
-            .iter()
-            .map(|f| f.names[0])
-            .chain(flags::ALL.iter().map(|f| f.names[0]))
-        {
-            assert!(text.contains(name), "{name}");
+    fn levels_keep_the_order_they_were_written_in() {
+        let args = parse_all(&["-D", "warnings", "-A", "magic_number", "-Wpedantic"])
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            args.levels,
+            [
+                ("warnings".to_string(), Level::Deny),
+                ("magic_number".to_string(), Level::Allow),
+                ("pedantic".to_string(), Level::Warn),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_value_that_looks_like_a_shared_flag_belongs_to_its_flag() {
+        let args = parse_all(&["--config", "-j", "a.jai"]).unwrap().unwrap();
+        assert_eq!(args.config, Some(PathBuf::from("-j")));
+        assert_eq!(args.common.jobs, None);
+    }
+
+    #[test]
+    fn the_help_lists_the_shared_flags() {
+        let text = command().render_long_help().to_string();
+        for flag in flags::ALL {
+            assert!(text.contains(flag.synopsis), "{}", flag.synopsis);
         }
+        assert!(text.contains("--compile-time-budget"), "{text}");
     }
 }

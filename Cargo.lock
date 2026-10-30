@@ -349,6 +349,7 @@ dependencies = [
 name = "jailint"
 version = "0.30.4"
 dependencies = [
+ "clap",
  "jacket-config",
  "jaic",
  "serde_json",

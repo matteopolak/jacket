@@ -9,10 +9,18 @@ description = "Lints for Jai programs, run on jaic's type-checked program."
 [[bin]]
 name = "jailint"
 path = "src/main.rs"
+required-features = ["cli"]
+
+[features]
+# The command-line binary. The library (which the language server and its wasm build use) has
+# no use for `clap`, so those depend on it with default features off.
+default = ["cli"]
+cli = ["dep:clap"]
 
 [dependencies]
 jaic = { path = "../jaic" }
 jacket-config = { path = "../jacket-config" }
+clap = { version = "=4.6.4", features = ["derive"], optional = true }
 serde_json = "=1.0.151"
 
 [lints]
