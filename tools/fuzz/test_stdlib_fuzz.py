@@ -25,5 +25,14 @@ class SignatureTests(unittest.TestCase):
         self.assertFalse(sf.is_known(settings, 'String.split', 'x: assertion failed: `index >= 0`'))
 
 
+class TargetsTests(unittest.TestCase):
+    def test_every_denied_procedure_says_why(self):
+        for module, settings in sf.json.loads((sf.ROOT / 'tools/fuzz/targets.json').read_text()).items():
+            deny = settings.get('deny', {})
+            self.assertIsInstance(deny, dict, f'{module}: deny maps each procedure to its reason')
+            for proc, reason in deny.items():
+                self.assertTrue(reason.strip(), f'{module}.{proc} has no reason')
+
+
 if __name__ == '__main__':
     unittest.main()

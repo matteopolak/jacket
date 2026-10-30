@@ -1,6 +1,8 @@
 DEFAULT_SPACES :: " \t\r\n";
 DEFAULT_DELIMITERS :: ";=()";
 
+// The part of `s` that starts at `index` and holds at most `count` bytes; empty when `index` is
+// past the end. Both must not be negative: a negative one fails an assert.
 slice :: inline (s: string, index: s64, count: s64) -> string {
     assert(index >= 0 && count >= 0);
     if index >= s.count return "";

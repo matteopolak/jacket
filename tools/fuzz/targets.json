@@ -1,44 +1,53 @@
 {
   "String": {
-    "deny": ["string_tests"],
+    "deny": {
+      "string_tests": "the module's own self-test: no parameters to generate, and it only repeats the unit tests",
+      "slice": "asserts index >= 0 && count >= 0 (its doc comment says so); fuzz_string_slice draws arguments that respect it"
+    },
     "pointers": ["parse_token", "match_token", "match_token_nocase", "parse_bool", "parse_int", "parse_float", "eat_trailing_spaces", "eat_until_space", "stop_at_any", "normalize_line_endings", "scan"],
     "hooks": "properties/String.jai",
-    "known": {"slice": ["assertion failed"]}
+    "known": {}
   },
   "Unicode": {
-    "deny": [],
+    "deny": {},
     "pointers": ["utf8_next_character"],
     "arity": {"character_utf8_to_utf32": 2},
     "hooks": "properties/Unicode.jai",
     "known": {}
   },
   "Base64": {
-    "deny": ["test_base64", "test_base64_url", "test_base64_module"],
+    "deny": {
+      "test_base64": "the module's own self-test: no parameters to generate, and it only repeats the unit tests",
+      "test_base64_url": "the module's own self-test: no parameters to generate, and it only repeats the unit tests",
+      "test_base64_module": "the module's own self-test: no parameters to generate, and it only repeats the unit tests"
+    },
     "arity": {"base64_encode": 1, "base64_decode": 1},
     "hooks": "properties/Base64.jai",
     "known": {}
   },
   "Hash": {
-    "deny": [],
+    "deny": {},
     "hooks": "properties/Hash.jai",
     "known": {}
   },
   "Crc": {
-    "deny": [],
+    "deny": {},
     "known": {}
   },
   "Extensions/Deflate": {
-    "deny": [],
+    "deny": {},
     "hooks": "properties/Deflate.jai",
     "known": {}
   },
   "Extensions/Postgres": {
-    "deny": [],
+    "deny": {},
     "hooks": "properties/Postgres.jai",
     "known": {}
   },
   "Extensions/Image": {
-    "deny": ["make_image"],
+    "deny": {
+      "make_image": "allocates width x height x bytes per pixel, so generated sizes ask for terabytes or overflow; the Image hooks build images of bounded size"
+    },
     "hooks": "properties/Image.jai",
     "known": {}
   }

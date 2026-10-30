@@ -58,7 +58,7 @@ Allocations live in `Rng.live` and are freed by `case_end` after each call. Not 
 
 | Key | Meaning |
 |---|---|
-| `deny` / `allow` | procedure names to skip / to fuzz exclusively |
+| `deny` / `allow` | `deny`: `{ "proc": "why it is skipped" }`, procedures to skip (every entry needs its reason; a unit test checks); `allow`: a list of procedures to fuzz exclusively |
 | `pointers` | procedures that may receive pointers (default: a procedure with a pointer parameter is skipped) |
 | `nullable` | procedures that also accept null pointers |
 | `arity` | `{ "proc": N }` passes only the first N arguments (the rest default), for parameters that take a validated table or a compile-time constant |
@@ -111,7 +111,7 @@ Gotchas: casts check overflow, so generator code must use `cast,trunc`; `#no_abc
 
 - `find_index_from_left` / `find_index_of_any_from_left` (`#no_abc`) read before the string for a negative `start_index` (SIGSEGV/SIGBUS under `jaic -interp`). Fixed by clamping to 0; stored as `fuzz/regressions/stdlib/String.find_index_of_any_from_left.{4,12}.json`, tested in `stdlib/String/tests/basics.jai`.
 - Postgres: a binary array value whose header claims more elements than its bytes hold (up to 2^31 - 1) made the client allocate them all before failing, gigabytes per value. It now checks the count against the bytes first; tested in `tests/fake_server.jai`.
-- `slice` asserts `index >= 0 && count >= 0`: a documented precondition, listed as `known`.
+- `slice` asserts `index >= 0 && count >= 0`, which its doc comment now states. The generic cases deny it and `fuzz_string_slice` draws non-negative arguments instead, so `String` has no `known` entries.
 
 ## Later phases
 

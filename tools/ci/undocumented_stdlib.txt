@@ -3358,7 +3358,6 @@ String.replace
 String.replace_chars
 String.scan
 String.scan2
-String.slice
 String.split_from_left
 String.split_from_left_by_any
 String.split_from_right
