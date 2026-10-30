@@ -5,17 +5,9 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from verify import select_stdlib
-from verify_rpmalloc_heaps import run_check
 
 
 class ProductionLibraryTests(unittest.TestCase):
-    def test_missing_check_executable_is_retained_as_a_failure(self):
-        with TemporaryDirectory() as directory:
-            row = run_check([Path(directory) / "missing-program"], {})
-        self.assertIsNone(row["exit"])
-        self.assertIn("Could not execute check", row["stderr"])
-        self.assertIn("missing-program", row["command"][0])
-
     def test_explicit_production_tree_bypasses_staging_and_preserves_sources(self):
         with TemporaryDirectory() as directory:
             root = Path(directory)

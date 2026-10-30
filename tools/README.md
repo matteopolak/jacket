@@ -231,10 +231,8 @@ front door would hide them.
 | `vendor_context.py` | Private contextual ABI types from hash-pinned official native C headers. | - |
 | `vendor_cpp.py` | Translate the NVTT member API expressly delegated to pinned vendor headers. | - |
 | `vendor_linux_arm64.py` | Private Linux ARM64 kernel ABI from complete pinned official UAPI C headers. | - |
-| `vendor_rpmalloc.py` | Generate a private, complete rpmalloc C SDK ABI from the pinned vendor header. | tools |
+| `vendor_rpmalloc.py` | Generate a private, complete rpmalloc C SDK ABI from the pinned vendor header. | - |
 | `verify.py` | Run desktop checks and real host native tests with an explicit own compiler. | tools |
-| `verify_font_selector_inputs.py` | Source/input verification only; SDK execution requires the coordinator lease. | - |
-| `verify_rpmalloc_heaps.py` | Run spec-derived heap programs and independent C safety/ABI evidence. | - |
 
 ## `pg_conformance/`
 
