@@ -1,3 +1,19 @@
+// The current working directory of the program, as an absolute path in a new string from `context.allocator` that the caller frees.
+//
+// Relative paths given to the file procedures are resolved against it. The path uses the system's own separators. The
+// procedure has no way to report failure: if the system cannot give the directory (it was deleted while the program was in
+// it), the program stops with a failed assertion. Not available on wasm.
+//
+// ```jai
+// original := get_working_directory();
+// defer free(original);
+// assert(original.count > 0);
+//
+// assert(set_working_directory("."));
+// same := get_working_directory();
+// assert(same == original);
+// free(same);
+// ```
 get_working_directory :: () -> result: string {
     capacity: s64 = 256;
 
@@ -23,6 +39,12 @@ get_working_directory :: () -> result: string {
     return "";
 }
 
+// Makes `s` the working directory of the whole program, for every thread, and returns whether it worked. A missing path, a
+// file, a directory without permission to enter, an empty path and a path with a NUL byte give `false` and change nothing.
+//
+// ```jai
+// assert(!set_working_directory("jai-doc-no-such-directory/inner"));
+// ```
 set_working_directory :: (s: string) -> bool {
     if !Native_Path.is_valid(s) return false;
     name := to_c_string(s);

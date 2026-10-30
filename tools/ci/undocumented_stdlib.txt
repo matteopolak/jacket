@@ -241,7 +241,6 @@ Basic.enum_values_as_enum
 Basic.enum_values_as_s64
 Basic.exit
 Basic.expand
-Basic.filetime_to_apollo
 Basic.formatFloat
 Basic.formatInt
 Basic.formatStruct
@@ -258,7 +257,6 @@ Basic.get_size_including_overflow_page_header
 Basic.get_stack_trace_strings
 Basic.get_temporary_storage_mark
 Basic.get_u64_from_void_pointer
-Basic.get_working_directory
 Basic.isFormatter
 Basic.is_integer_type
 Basic.log
@@ -297,7 +295,6 @@ Basic.resizable
 Basic.seconds_since_init
 Basic.seconds_to_apollo
 Basic.set_temporary_storage_mark
-Basic.set_working_directory
 Basic.signed_divide_with_remainder
 Basic.simple_memcpy
 Basic.sleep_milliseconds
@@ -314,7 +311,6 @@ Basic.this_allocation_is_not_a_leak
 Basic.this_allocation_leaks_todo
 Basic.timespec_to_apollo
 Basic.to_calendar
-Basic.to_filetime
 Basic.to_float64_seconds
 Basic.to_microseconds
 Basic.to_milliseconds
