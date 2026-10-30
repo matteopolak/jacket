@@ -106,7 +106,7 @@ Configs are read through the open buffers over the disk and cached per directory
 - **New hover content**: add a `hover::Block` kind with cases in `HoverText::plain` and `HoverText::markdown`.
 - **New block scope**: call `ide_scope_span`, or completion inside it sees only the enclosing scope.
 - **New expansion kind**: add an `IdeExpansionKind`, record it where the compiler evaluates it, handle it in `kind_name`, `describe`, `expansion` and `code_actions` (`features.rs`).
-- **Print-family names** are the list `format::PRINT_FAMILY` (diagnostics publish without compiling); keep format semantics in step with `stdlib/Basic/Print.jai` and `jailint::format_string`.
+- **Print-family names** are the list `format::PRINT_FAMILY` (diagnostics publish without compiling); keep format semantics in step with `stdlib/Basic/Print.jai` and `jaic::format_string`.
 - **Token legend**: append a `SemanticTokenKind` variant, to `ALL` and to `name` (`model.rs`); modifiers are `TOKEN_MODIFIERS` in `lib.rs`. Never reorder. `protocol.rs` tests check the order.
 - **New request or notification**: add a variant and its method name to `Request::METHODS` or `Notification::METHODS`, then an arm in `JsonSession::request`/`notification`. Commands are `ServerCommand::NAMES`.
 - **Environment**: native `main.rs` `native_environment`, browser `language_server.rs` `environment`; keep both in step with how `jaic` and the playground compile.

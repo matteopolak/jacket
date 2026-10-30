@@ -13,7 +13,7 @@ Target selection (`Cli::target_triple` in `crates/jaic-cli/src/main.rs`):
 - `-cpu x64|arm64` on a Windows host: the other CPU's MSVC triple (needs that CPU's MSVC libraries). Other cross `-os` values are refused for builds.
 - `-target <triple>`: any triple; `OS` and `CPU` are derived from it (`os_and_cpu`).
 
-`jaic::abi::Arch::from_triple` maps a Windows x86-64 triple to `Arch::Win64` and aarch64 to `Arch::Win64Arm` ([C ABI](c-abi.md)). Lowering differences are small: `#program_export` definitions get `dllexport`, `CompilerWrite` calls the CRT's `_write`, and on arm64 the cycle counter reads `cntvct_el0` and `pause` is `yield`. `#asm` is lowered to portable IR, so x64 `#asm` works in arm64 builds ([#asm](../compiler/asm.md)). `#bytes` is never emitted as machine code; only debug-trap encodings are recognized.
+`jaic::target::Target::arch` maps a Windows x86-64 triple to `Arch::Win64` and aarch64 to `Arch::Win64Arm` ([C ABI](c-abi.md)). Lowering differences are small: `#program_export` definitions get `dllexport`, `CompilerWrite` calls the CRT's `_write`, and on arm64 the cycle counter reads `cntvct_el0` and `pause` is `yield`. `#asm` is lowered to portable IR, so x64 `#asm` works in arm64 builds ([#asm](../compiler/asm.md)). `#bytes` is never emitted as machine code; only debug-trap encodings are recognized.
 
 Linking (`link` and `LinkFlavor` in `crates/jaic-llvm/src/lib.rs`):
 

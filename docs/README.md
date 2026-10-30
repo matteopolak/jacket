@@ -2,11 +2,11 @@
 
 `jaic` is a compiler for the Jai language: lexer, parser, type checker, interpreter (`#run`, `-interp`), an LLVM backend for native code and WebAssembly, and a metaprogramming API. `jailsp` (language server), `jaifmt` (formatter, written in Jai) and `jailint` (linter) share its front end, and `jacket` runs them all and reads their shared `jacket.toml`. The standard library in `stdlib/` is written in Jai.
 
-Start with [features](features.md), [the command line](tools/cli.md) and [install channels](tools/releases.md). Contributors: [CONTRIBUTING.md](../CONTRIBUTING.md) and [development](tools/development.md).
+Start with [features](features.md), [the command line](tools/cli.md) (every flag: [command-line reference](reference/command-line.md)) and [install channels](tools/releases.md). Contributors: [CONTRIBUTING.md](../CONTRIBUTING.md) and [development](tools/development.md).
 
 ## Language
 
-[language/](language/) has one page per topic (for example [modules](language/modules-and-imports.md), [procedures](language/procedures.md), [polymorphism](language/polymorphism.md), [macros](language/macros-and-custom-iteration.md), [inline holes](language/interpolates.md), [numbers](language/numbers.md), [leniencies](language/leniencies.md): what jaic accepts that the official compiler rejects, and the warning for each). Compile-time execution and the `Compiler` module are in [metaprogramming/](metaprogramming/).
+[language/](language/) has one page per topic (for example [modules](language/modules-and-imports.md), [procedures](language/procedures.md), [polymorphism](language/polymorphism.md), [macros](language/macros-and-custom-iteration.md), [inline holes](language/interpolates.md), [numbers](language/numbers.md), [enums](language/enums.md), [unions](language/unions.md), [control flow](language/control-flow.md), [context](language/context.md), [leniencies](language/leniencies.md): what jaic accepts that the official compiler rejects, and the warning for each). Compile-time execution and the `Compiler` module are in [metaprogramming/](metaprogramming/), including [reflection and type info](metaprogramming/reflection-and-type-info.md).
 
 ## Compiler
 
@@ -18,7 +18,7 @@ Start with [features](features.md), [the command line](tools/cli.md) and [instal
 
 ## Tools and editors
 
-[jacket](tools/jacket.md), [jacket test](tools/jacket-test.md) (and its matchers), [jacket bench](tools/jacket-bench.md), [jaifmt](tools/jaifmt.md), [jailint](tools/jailint.md), [VS Code](tools/vscode-extension.md), [Neovim](tools/neovim-plugin.md), [workspace trust](tools/workspace-trust.md).
+[jacket](tools/jacket.md), [jacket test](tools/jacket-test.md) (and its matchers), [jacket bench](tools/jacket-bench.md), [jaifmt](tools/jaifmt.md), [jailint](tools/jailint.md), [VS Code](tools/vscode-extension.md), [Neovim](tools/neovim-plugin.md), [workspace trust](tools/workspace-trust.md), [environment variables](tools/environment.md).
 
 ## Standard library
 
@@ -27,6 +27,10 @@ Start with [features](features.md), [the command line](tools/cli.md) and [instal
 ## Building and testing
 
 [Development](tools/development.md) (Justfile, CI, hooks, dependency policy), [testing](tools/testing.md), [Rust test harness and snapshots](tools/test-harness.md), [diagnostic coverage](tools/diagnostic-coverage.md), [stdlib doc gaps](tools/stdlib-doc-gaps.md), [determinism checks](tools/determinism.md), [coverage](tools/coverage.md), [Rust code coverage](tools/rust-coverage.md), [language server typing sessions](tools/lsp-fuzzing.md), [language server oracle checks](tools/lsp-oracle.md), [stdlib fuzzing](tools/stdlib-fuzzing.md), [sanitizers and Miri](tools/sanitizers.md), [mutation testing](tools/mutation-testing.md), [tools/ layout](tools/tools-layout.md), [upstream corpus](tools/upstream-corpus.md), [benchmarks and profiling](tools/benchmarks.md), [stdlib benchmarks](tools/stdlib-benchmarks.md), [library comparisons](tools/library-comparisons.md), [performance gate](tools/perf-gate.md), [LLVM setup](tools/llvm-setup.md), [Linux container](tools/linux-container.md), [CI job selection](tools/ci-job-selection.md), [releases](tools/releases.md), [release smoke tests](tools/release-smoke.md), [Windows probe](tools/windows-probe.md), [license](license.md).
+
+## Reference
+
+Generated from the code by `tools/generators/generate_reference_docs.py`, so they cannot drift: [command line](reference/command-line.md) (`jaic`, `jailint`, `jacket`), [environment variables](reference/environment-variables.md) (how they are declared: [the registry](tools/environment.md)), and [lint rules](reference/lint-rules.md).
 
 ## Specifications
 

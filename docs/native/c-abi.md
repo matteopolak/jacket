@@ -6,7 +6,7 @@ How `jaic` passes C structs by value, variadic arguments and C++ method receiver
 
 ## How it works
 
-`crates/jaic/src/abi.rs` (`classify_arg`, `classify_vararg`, `classify_ret`) classifies an `AggLayout` (size, alignment, flattened scalar fields) for one of four conventions, picked by `Arch::from_triple` (builds) or `Arch::host()` (interpreter):
+`crates/jaic/src/abi.rs` (`classify_arg`, `classify_vararg`, `classify_ret`) classifies an `AggLayout` (size, alignment, flattened scalar fields) for one of four conventions, picked by `Target::arch` (builds) or `Arch::host()` (interpreter):
 
 | `Arch` | Convention |
 | --- | --- |
