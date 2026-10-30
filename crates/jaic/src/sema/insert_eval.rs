@@ -2,6 +2,7 @@
 use super::lower::Operand;
 use super::{Compiler, Result, ScopeId, Span, ast, err};
 use super::{Rc, Value};
+use crate::diagnostics::Code;
 
 impl Compiler {
     /// Evaluate the operand of `#insert`. `#insert -> string { ... }` (or `-> Code`) is a
@@ -58,6 +59,7 @@ impl Compiler {
             }
             Operand::Void => Ok(Vec::new()),
             other => err(
+                Code::InsertNeedsString,
                 span,
                 format!(
                     "#insert needs a string or Code, found {}",
@@ -102,9 +104,11 @@ impl Compiler {
                 ..
             } => match &*self.pr.codes[code.0 as usize] {
                 ast::CodeBody::Expr(e) => Ok(e.clone()),
-                ast::CodeBody::Stmt(_) => {
-                    err(value.span, "#insert of a statement in expression position")
-                }
+                ast::CodeBody::Stmt(_) => err(
+                    Code::InsertStatementExpression,
+                    value.span,
+                    "#insert of a statement in expression position",
+                ),
                 ast::CodeBody::Block(b) => match b.stmts.as_slice() {
                     [
                         ast::Stmt {
@@ -113,6 +117,7 @@ impl Compiler {
                         },
                     ] => Ok(e.clone()),
                     _ => err(
+                        Code::InsertStatementBlock,
                         value.span,
                         "#insert of a statement block in expression position",
                     ),
@@ -132,10 +137,15 @@ impl Compiler {
                     Some(ast::StmtKind::Decl(d)) if d.value.is_some() => {
                         Ok(d.value.clone().unwrap())
                     }
-                    _ => err(value.span, "could not parse inserted expression"),
+                    _ => err(
+                        Code::CouldNotParse,
+                        value.span,
+                        "could not parse inserted expression",
+                    ),
                 }
             }
             other => err(
+                Code::InsertNeedsString,
                 value.span,
                 format!(
                     "#insert needs a string or Code, found {}",

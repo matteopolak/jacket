@@ -4,6 +4,7 @@ use super::helpers::{
 };
 use super::model::{Alu, AsmArgs, AsmCtx, Flags, Op, Opd, Site, lookup_op};
 use crate::ast::{AsmInst, AsmSize};
+use crate::diagnostics::Code;
 use crate::ir::{BinOp, CmpOp, Intrinsic, Ty, UnOp};
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, Result, Span, Value, err};
@@ -33,6 +34,7 @@ impl Compiler {
                 return Ok(());
             }
             return err(
+                Code::AsmUnsupported,
                 inst.mnemonic.span,
                 format!("unsupported #asm instruction `{name}`"),
             );
@@ -112,7 +114,11 @@ impl Compiler {
             Op::Pause | Op::Fence(_) => {
                 want(0, 0)?;
                 if self.options.cpu != TargetCpu::X64 {
-                    return err(span, format!("{name} requires an x86-64 target"));
+                    return err(
+                        Code::AsmRequiresX8664,
+                        span,
+                        format!("{name} requires an x86-64 target"),
+                    );
                 }
                 let operation = match op {
                     Op::Fence(kind) => Intrinsic::X86Fence(kind),
@@ -141,13 +147,18 @@ impl Compiler {
                 };
                 want(2, max)?;
                 if self.options.cpu != TargetCpu::X64 {
-                    return err(span, format!("{name} requires an x86-64 target"));
+                    return err(
+                        Code::AsmRequiresX8664,
+                        span,
+                        format!("{name} requires an x86-64 target"),
+                    );
                 }
                 if opds
                     .iter()
                     .any(|o| !matches!(o, Opd::Reg(r) if matches!(r.storage, Ty::I32 | Ty::I64)))
                 {
                     return err(
+                        Code::AsmRegisterSize,
                         span,
                         format!("{name} outputs must be 32- or 64-bit integer registers"),
                     );
@@ -179,13 +190,18 @@ impl Compiler {
             Op::Rdrand | Op::Rdseed => {
                 want(1, 1)?;
                 if self.options.cpu != TargetCpu::X64 {
-                    return err(span, format!("{name} requires an x86-64 target"));
+                    return err(
+                        Code::AsmRequiresX8664,
+                        span,
+                        format!("{name} requires an x86-64 target"),
+                    );
                 }
                 let sz = self.asm_size(f, cx, inst, opds)?;
                 if !matches!(sz, Ty::I16 | Ty::I32 | Ty::I64)
                     || !matches!(opds[0], Opd::Reg(r) if matches!(r.storage, Ty::I16 | Ty::I32 | Ty::I64) && r.storage.size() >= sz.size())
                 {
                     return err(
+                        Code::AsmRegisterSize,
                         span,
                         format!(
                             "{name} requires a 16-, 32- or 64-bit integer register destination"
@@ -215,13 +231,18 @@ impl Compiler {
             Op::Cpuid => {
                 want(4, 4)?;
                 if self.options.cpu != TargetCpu::X64 {
-                    return err(span, "cpuid requires an x86-64 target");
+                    return err(
+                        Code::AsmRequiresX8664,
+                        span,
+                        "cpuid requires an x86-64 target",
+                    );
                 }
                 if opds
                     .iter()
                     .any(|o| !matches!(o, Opd::Reg(r) if matches!(r.storage,Ty::I32|Ty::I64)))
                 {
                     return err(
+                        Code::AsmRegisterSize,
                         span,
                         "cpuid operands must be 32- or 64-bit integer registers",
                     );
@@ -255,6 +276,7 @@ impl Compiler {
                     };
                     let Some(slot) = slot else {
                         return err(
+                            Code::AsmSyscallArgumentOperand,
                             span,
                             "a `syscall` argument operand must be a register pinned to di, si, d, 10, 8 or 9",
                         );
@@ -327,6 +349,7 @@ impl Compiler {
                 want(2, 2)?;
                 let Opd::Mem(addr) = opds[1] else {
                     return err(
+                        Code::AsmLeaSource,
                         span,
                         "#asm lea source must be a bracketed address expression",
                     );
@@ -648,11 +671,13 @@ impl Compiler {
             (_, [s, d]) => match (size_of_letter(*s), size_of_letter(*d)) {
                 (Some(s), Some(d)) if s.size() < d.size() => Ok((s, d)),
                 _ => err(
+                    Code::AsmInvalidOperandSizes,
                     span,
                     format!("invalid operand sizes in `{}`", inst.mnemonic.name),
                 ),
             },
             _ => err(
+                Code::AsmNeedsSourceDestination,
                 span,
                 format!(
                     "`{}` needs source and destination sizes (for example movzxbw)",
@@ -678,6 +703,7 @@ impl Compiler {
                 "d" | "32" => Ok(Ty::I32),
                 "q" | "64" => Ok(Ty::I64),
                 other => err(
+                    Code::AsmVectorOperand,
                     s.span,
                     format!(
                         "unsupported #asm operand size `.{other}`: an integer instruction takes \
@@ -694,6 +720,7 @@ impl Compiler {
                     } => v as u64,
                     _ => {
                         return err(
+                            Code::AsmSizeSuffix,
                             e.span,
                             "the size after `?` must be a type or a number of bits",
                         );
@@ -705,6 +732,7 @@ impl Compiler {
                     32 => Ok(Ty::I32),
                     64 => Ok(Ty::I64),
                     _ => err(
+                        Code::AsmNoInstructionForm,
                         e.span,
                         format!("no #asm instruction form with a {bits}-bit operand"),
                     ),

@@ -1,4 +1,5 @@
 //! Compile-time values.
+use crate::diagnostics::Code;
 use crate::ir::Reloc;
 use crate::types::{TypeId, Types};
 use std::rc::Rc;
@@ -53,6 +54,7 @@ impl Aggregate {
     pub fn zeroed(size: u64, span: crate::source::Span) -> super::Result<Aggregate> {
         if size > MAX_IMAGE {
             return super::err(
+                Code::CompileTimeValueUnreadable,
                 span,
                 format!(
                     "a compile-time value of {size} bytes is too large (the limit is {MAX_IMAGE} bytes)"

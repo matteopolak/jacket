@@ -2,6 +2,7 @@
 use super::model::{
     BodyState, ParamInfo, ProcInfo, Signature, has_poly, validate_c_variadic_header,
 };
+use crate::diagnostics::Code;
 use crate::lang_items::PreludeType;
 use crate::sema::SourceState;
 use crate::sema::lower::Operand;
@@ -185,6 +186,7 @@ impl Compiler {
         self.refresh_implicit_poly(id)?;
         if self.proc(id).is_poly {
             return err(
+                Code::ProcPolymorphicProcedure,
                 span,
                 format!(
                     "polymorphic procedure `{}` needs arguments to determine its types",
@@ -195,6 +197,7 @@ impl Compiler {
         if self.proc(id).sig_resolving {
             self.epochs.in_progress_misses += 1;
             return err(
+                Code::ProcSignatureDependsItself,
                 self.proc(id).span,
                 format!("signature of `{}` depends on itself", self.proc(id).name),
             );
@@ -206,7 +209,8 @@ impl Compiler {
             {
                 if let Some(&(_, first)) = seen.iter().find(|(n, _)| *n == name.name) {
                     return Err(Box::new(
-                        Diagnostic::error(
+                        Diagnostic::new(
+                            Code::ProcAlreadyDeclaredScope,
                             name.span,
                             format!("`{}` is already declared in this scope", name.name),
                         )
@@ -329,7 +333,13 @@ impl Compiler {
                         other => other.ty(),
                     }
                 }
-                (None, None) => return err(param.span, "parameter needs a type"),
+                (None, None) => {
+                    return err(
+                        Code::ProcParameterNeedsType,
+                        param.span,
+                        "parameter needs a type",
+                    );
+                }
             };
             let ty = if param.variadic && !header.uses_c_abi() {
                 self.ty.types.array(ty, ArrayKind::View)
@@ -402,7 +412,9 @@ impl Compiler {
                     } => self.ty.default_untyped(ty, &value),
                     other => other.ty(),
                 },
-                (None, None) => return err(r.span, "result needs a type"),
+                (None, None) => {
+                    return err(Code::ProcResultNeedsType, r.span, "result needs a type");
+                }
             };
             if let Some(n) = r.name
                 && self.ed.is_live()
@@ -518,7 +530,8 @@ impl Compiler {
             }) {
                 let first = self.entity(*first).span;
                 return Err(Box::new(
-                    Diagnostic::error(
+                    Diagnostic::new(
+                        Code::ProcTwoProceduresName,
                         span,
                         "two procedures with this name have identical parameter types",
                     )

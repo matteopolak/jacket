@@ -3,6 +3,7 @@ use super::lower::{Operand, Origin};
 use super::{
     Compiler, Diagnostic, FileId, HashMap, Rc, Result, Span, TypeId, Value, ast, err, ir, scope,
 };
+use crate::diagnostics::Code;
 use crate::types::TypeKind;
 
 impl Compiler {
@@ -27,7 +28,8 @@ impl Compiler {
             host.ct.interp.workspaces = Some(shared);
         } else {
             let provider = self.ct.interp.host.isolated_host().ok_or_else(|| {
-                Box::new(Diagnostic::error(
+                Box::new(Diagnostic::new(
+                    Code::RunHostUnsupported,
                     span,
                     "this compiler host does not provide isolated #run,host execution",
                 ))
@@ -59,16 +61,19 @@ impl Compiler {
                     || matches!(&callee.kind, ast::ExprKind::Proc(procedure) if !procedure.header.params.is_empty()))
             {
                 return err(
+                    Code::IsolatedRunHost,
                     span,
                     "an isolated #run,host procedure must take no arguments",
                 );
             }
             let result = host.check_run_inner_all(scope, body, None, span)?;
             if let Some(shared) = host.ct.interp.workspaces.clone() {
-                crate::build::finish_all(&shared, &mut host.ct.interp.block_budget)
-                    .map_err(|message| Box::new(Diagnostic::error(span, message)))?;
+                crate::build::finish_all(&shared, &mut host.ct.interp.block_budget).map_err(
+                    |message| Box::new(Diagnostic::new(Code::CompileTimeTrap, span, message)),
+                )?;
                 if shared.borrow().any_failed() {
                     return err(
+                        Code::RunHostUnsupported,
                         span,
                         "isolated #run,host workspace reported a compilation error",
                     );
@@ -101,6 +106,7 @@ impl Compiler {
                 } = op
                 else {
                     return err(
+                        Code::RunHostUnsupported,
                         span,
                         "#run,host must return a built-in primitive, string or primitive array",
                     );
@@ -122,6 +128,7 @@ impl Compiler {
                     Value::Int(_) | Value::Float(..) | Value::Bool(_) | Value::String(_) => value,
                     _ => {
                         return err(
+                            Code::RunHostUnsupported,
                             span,
                             "#run,host cannot transfer this result across workspaces",
                         );
@@ -165,6 +172,7 @@ impl Compiler {
                 Ok(self.ty.types.array(elem, kind))
             }
             _ => err(
+                Code::RunHostUnsupported,
                 span,
                 "#run,host must return a built-in primitive, string or primitive array",
             ),
@@ -180,6 +188,7 @@ impl Compiler {
     ) -> Result<ir::RelocTarget> {
         let ir::RelocTarget::Global(old) = target else {
             return err(
+                Code::RunHostUnsupported,
                 span,
                 "#run,host cannot transfer a procedure or foreign storage address",
             );

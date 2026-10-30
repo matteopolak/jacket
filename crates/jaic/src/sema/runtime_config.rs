@@ -5,6 +5,7 @@ use super::{
     Compiler, DEFAULT_TEMPORARY_STORAGE_SIZE, Diagnostic, HashMap, HashSet, PreludeType, ProcId,
     Result, Span, Sym, TypeId, Value, err, ir, procs, scope,
 };
+use crate::diagnostics::Code;
 use crate::sema::Output;
 use crate::types::StructId;
 
@@ -81,6 +82,7 @@ impl Compiler {
             [entity] => *entity,
             _ => {
                 return err(
+                    Code::RuntimeConfigurationInvalid,
                     span,
                     format!("runtime defines multiple private extensions `{name}`"),
                 );
@@ -89,6 +91,7 @@ impl Compiler {
         self.ide_note_use(entity);
         let Resolved::Proc(proc) = self.resolve_entity(entity)? else {
             return err(
+                Code::RuntimeConfigurationInvalid,
                 span,
                 format!("private runtime extension `{name}` must be a procedure"),
             );
@@ -115,6 +118,7 @@ impl Compiler {
             || signature.params[1].ty != TypeId::STRING
         {
             return err(
+                Code::RuntimeConfigurationInvalid,
                 span,
                 "private interpreter assertion handler requires (Source_Code_Location, string) -> bool with Jai context",
             );
@@ -126,6 +130,7 @@ impl Compiler {
             || self.proc(proc).is_macro
         {
             return err(
+                Code::RuntimeConfigurationInvalid,
                 span,
                 "private interpreter assertion handler must have an ordinary Jai body for native execution",
             );
@@ -157,6 +162,7 @@ impl Compiler {
     ) -> Result<Operand> {
         if sig.has_context || !sig.params.is_empty() || sig.returns != [TypeId::S64] {
             return err(
+                Code::RuntimeConfigurationInvalid,
                 span,
                 "private runtime size intrinsic requires signature () -> s64 without context",
             );
@@ -262,6 +268,7 @@ impl Compiler {
                         let Value::Bytes(image) = self.read_aggregate(address, ty, Span::NONE)?
                         else {
                             return err(
+                                Code::RuntimeConfigurationInvalid,
                                 Span::NONE,
                                 "retained runtime configuration dependency has no target image",
                             );
@@ -322,6 +329,7 @@ impl Compiler {
         let (has_runtime, size) = self.runtime_storage_settings();
         if has_runtime && !(0..=i32::MAX as i64).contains(&size) {
             return err(
+                Code::RuntimeConfigurationInvalid,
                 Span::NONE,
                 "temporary_storage_size must be nonnegative and fit s32",
             );
@@ -338,7 +346,7 @@ impl Compiler {
             .iter()
             .find(|(captured, _)| *captured != size)
         {
-            return Err(Box::new(Diagnostic::error(at, format!(
+            return Err(Box::new(Diagnostic::new(Code::RuntimeConfigurationInvalid, at, format!(
                 "target TEMPORARY_STORAGE_SIZE was bound to {captured}, but the final workspace temporary_storage_size is {size}"
             )).with_help("set the workspace size before resolving target declarations that consume this compiler constant; static target storage cannot be resized by a late setting")));
         }
@@ -355,7 +363,7 @@ impl Compiler {
                 .flatten()
                 .filter(|function| matches!(function.linkage, ir::Linkage::Export(_)))
                 .count();
-            return Err(Box::new(Diagnostic::error(
+            return Err(Box::new(Diagnostic::new(Code::RuntimeConfigurationInvalid,
                 Span::NONE,
                 "nondefault temporary_storage_size requires the target runtime to consume TEMPORARY_STORAGE_SIZE or the private runtime configuration getter",
             ).with_note(Span::NONE, format!(
@@ -370,7 +378,13 @@ impl Compiler {
             self.ct
                 .interp
                 .refresh_global(&self.out.program, global)
-                .map_err(|trap| Box::new(Diagnostic::error(Span::NONE, trap.into_message())))?;
+                .map_err(|trap| {
+                    Box::new(Diagnostic::new(
+                        Code::CompileTimeTrap,
+                        Span::NONE,
+                        trap.into_message(),
+                    ))
+                })?;
         }
         // Native target startup reads the private data; interpreter entry
         // context allocation uses the same finalized workspace setting.
@@ -389,7 +403,8 @@ impl Output {
             .captures
             .pop()
             .ok_or_else(|| {
-                Box::new(Diagnostic::error(
+                Box::new(Diagnostic::new(
+                    Code::RuntimeConfigurationInvalid,
                     Span::NONE,
                     "unbalanced runtime configuration dependency capture",
                 ))

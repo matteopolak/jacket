@@ -18,7 +18,7 @@ const MAX_BUDGET_FRAMES: usize = 3;
 /// Compile-time code that did not run because the check it belongs to ran out of time. Its
 /// result is unknown, not wrong, so editors hide it; the check says once that it stopped.
 pub(crate) fn stopped(site: Span) -> Diagnostic {
-    Diagnostic::error(site, "checking stopped").with_code(Code::Unknown)
+    Diagnostic::new(Code::Unknown, site, "checking stopped")
 }
 
 impl Compiler {
@@ -102,7 +102,7 @@ impl Compiler {
         // Not a failure: the code could not know its result here (a pending or unavailable
         // service). Reported where the compile-time code started.
         if trap.kind == Some(TrapKind::Unknown) {
-            let mut d = Diagnostic::error(site.unwrap_or(span), message).with_code(Code::Unknown);
+            let mut d = Diagnostic::new(Code::Unknown, site.unwrap_or(span), message);
             if let Some(site) = site
                 && site != span
             {
@@ -126,7 +126,7 @@ impl Compiler {
                 .or(site)
                 .unwrap_or(span);
             let primary = named.unwrap_or(reporter);
-            let mut d = Diagnostic::error(primary, message);
+            let mut d = Diagnostic::new(Code::MetaprogramReport, primary, message);
             if named.is_some() && reporter != primary && Some(reporter) != site {
                 d = d.with_note(reporter, "reported by the metaprogram here");
             } else if named.is_none() && !path.is_empty() {
@@ -142,7 +142,7 @@ impl Compiler {
             }
             return d;
         }
-        let mut d = Diagnostic::error(span, format!("{prefix}: {message}"));
+        let mut d = Diagnostic::new(Code::RuntimeTrap, span, format!("{prefix}: {message}"));
         if let Some(condition) = condition.filter(|_| !bare_assertion) {
             d = d.with_label(format!("`{condition}` is false"));
         }

@@ -11,6 +11,7 @@
 use super::{
     Compiler, Diagnostic, EntityId, HashSet, Rc, Result, Span, TypeId, Value, ast, ir, scope,
 };
+use crate::diagnostics::Code;
 use crate::sema::Output;
 use crate::sema::TypeState;
 use crate::types::{LayoutState, TypeKind};
@@ -138,7 +139,13 @@ impl Compiler {
         self.ct
             .interp
             .refresh_global(&self.out.program, info)
-            .map_err(|t| Box::new(Diagnostic::error(Span::NONE, t.into_message())))
+            .map_err(|t| {
+                Box::new(Diagnostic::new(
+                    Code::CompileTimeTrap,
+                    Span::NONE,
+                    t.into_message(),
+                ))
+            })
     }
 
     /// Whether the compile-time function `root` can reach the `get_type_table` primitive

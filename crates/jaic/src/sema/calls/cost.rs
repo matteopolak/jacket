@@ -2,6 +2,7 @@
 use super::poly_hints::CANNOT_INFER;
 use super::{CallArg, inferred_flags, is_deferred};
 use crate::ast::ExprKind as E;
+use crate::diagnostics::Code;
 use crate::sema::convert;
 use crate::sema::lower::Operand;
 use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, Sym, TypeId, Value, ast, err};
@@ -227,7 +228,8 @@ impl Compiler {
             return Ok(convert::LITERAL);
         }
         self.implicit_cost(from, untyped, param).ok_or_else(|| {
-            let d = Diagnostic::error(
+            let d = Diagnostic::new(
+                Code::CallArgumentType,
                 arg.span,
                 format!(
                     "argument of type `{}` does not match parameter type `{}`",
@@ -243,7 +245,11 @@ impl Compiler {
     /// The cost of an `#asm` register operand argument, which only a macro takes.
     fn register_arg_cost(&mut self, arg: &CallArg, macro_call: bool) -> Result<u32> {
         if !macro_call {
-            return err(arg.span, "register operands require an expanded procedure");
+            return err(
+                Code::CallRegisterOperands,
+                arg.span,
+                "register operands require an expanded procedure",
+            );
         }
         if let Some(expr) = &arg.expr
             && self.asm_reg_named(arg.scope, expr)?.is_some()
@@ -251,6 +257,7 @@ impl Compiler {
             return Ok(convert::EXACT);
         }
         err(
+            Code::CallExpectedAsmRegister,
             arg.span,
             "expected an #asm register operand, not a scalar or memory value",
         )
@@ -273,6 +280,7 @@ impl Compiler {
                 }
                 _ => {
                     return err(
+                        Code::CallLambdaCannotPassed,
                         arg.span,
                         format!("a lambda cannot be passed as {}", self.ty.types.name(param)),
                     );
@@ -344,6 +352,7 @@ impl Compiler {
         };
         if !fits {
             return err(
+                Code::CallCannotInfer,
                 arg.span,
                 format!("{CANNOT_INFER} {}", self.ty.types.name(param)),
             );
@@ -374,7 +383,13 @@ impl Compiler {
         param: TypeId,
     ) -> Result<Option<u32>> {
         match op {
-            Operand::Void => return err(arg.span, "the argument has no value"),
+            Operand::Void => {
+                return err(
+                    Code::CallArgumentNoValue,
+                    arg.span,
+                    "the argument has no value",
+                );
+            }
             Operand::Type(_) | Operand::PolyStruct(_) if param == TypeId::TYPE => {
                 return Ok(Some(convert::EXACT));
             }
@@ -405,6 +420,7 @@ impl Compiler {
                         }
                     }
                     return err(
+                        Code::CallProcedureNotMatch,
                         arg.span,
                         format!(
                             "procedure does not match parameter type {}",
@@ -431,6 +447,7 @@ impl Compiler {
                 let (bits, signed) = self.ty.types.int_info(param).unwrap();
                 if !convert::int_constant_fits(*v, bits, signed, origin.bit_pattern()) {
                     return err(
+                        Code::ConstantOutOfRange,
                         arg.span,
                         format!("constant {v} does not fit in {}", self.ty.types.name(param)),
                     );
@@ -454,6 +471,7 @@ impl Compiler {
                 ..
             } if precision.requires_float64 && self.ty.types.repr(param) == TypeId::F32 => {
                 return err(
+                    Code::BinaryFloatingLiteral,
                     arg.span,
                     "this floating literal requires float64 precision (use an explicit cast to round it)",
                 );

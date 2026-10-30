@@ -5,6 +5,7 @@ use crate::ast::{
     AstId, CallHintFlag, Expr, ExprKind, Foreign, Param, ProcBits, ProcFlags, ProcHeader, ProcLit,
     Return, UsingFilter,
 };
+use crate::diagnostics::Code;
 use crate::diagnostics::Diagnostic;
 use crate::lexer::{P, Tok};
 use crate::macros::raw_enum;
@@ -210,7 +211,8 @@ impl Parser<'_> {
             || header.flags.elsewhere.is_some();
         let header = Rc::new(header);
         if self.at(P::LBrace) && in_return_type {
-            let error = Diagnostic::error(
+            let error = Diagnostic::new(
+                Code::ParseProcedureTypeReturn,
                 header.span,
                 "a procedure type in a return type must be parenthesised before the body: write `-> ((A, B) -> C) {`",
             );

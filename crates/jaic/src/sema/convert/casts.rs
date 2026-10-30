@@ -1,5 +1,6 @@
 //! Checked and explicit casts.
 use super::{int_constant_fits, int_to_float};
+use crate::diagnostics::Code;
 use crate::ir::{ConvOp, Ty};
 use crate::sema::lower::{FnCtx, Operand, Origin};
 use crate::sema::{Compiler, Diagnostic, Result, Span, TypeId, Value, ast, ir};
@@ -151,7 +152,8 @@ impl Compiler {
             return Ok(());
         }
         let name = self.ty.types.name(to);
-        let mut d = Diagnostic::error(
+        let mut d = Diagnostic::new(
+            Code::ConstantOutOfRange,
             span,
             format!(
                 "constant {v} is out of range for {name}; write `cast,trunc({name})` to keep the low bits"
@@ -549,7 +551,8 @@ impl Compiler {
                 addr,
             });
         }
-        let mut d = Diagnostic::error(
+        let mut d = Diagnostic::new(
+            Code::ConvertCannotCast,
             span,
             format!(
                 "cannot cast {} to {}",

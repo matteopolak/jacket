@@ -1,5 +1,6 @@
 //! `while`, `for`, `break`/`continue`/`remove` and for-expansion.
 use crate::ast::ExprKind as E;
+use crate::diagnostics::Code;
 use crate::ir::{CmpOp, Ty};
 use crate::sema::calls::CallArg;
 use crate::sema::convert::is_primary;
@@ -126,8 +127,12 @@ impl Compiler {
                 "continue"
             };
             return match label {
-                Some(l) => err(span, format!("{what}: no enclosing loop named `{l}`")),
-                None => err(span, format!("{what} outside of a loop")),
+                Some(l) => err(
+                    Code::NoEnclosingLoop,
+                    span,
+                    format!("{what}: no enclosing loop named `{l}`"),
+                ),
+                None => err(Code::OutsideLoop, span, format!("{what} outside of a loop")),
             };
         };
         self.emit_defers(f, frame.defer_depth.position(), span)?;
@@ -151,15 +156,23 @@ impl Compiler {
         };
         let Some(frame) = frame else {
             return match label {
-                Some(l) => err(span, format!("remove: no enclosing loop named `{l}`")),
-                None => err(span, "remove outside of a for loop"),
+                Some(l) => err(
+                    Code::RemoveNoEnclosing,
+                    span,
+                    format!("remove: no enclosing loop named `{l}`"),
+                ),
+                None => err(
+                    Code::RemoveOutsideLoop,
+                    span,
+                    "remove outside of a for loop",
+                ),
             };
         };
         let (container, index_slot, elem, reverse) = match frame.remove {
             LoopRemove::Array(container, index_slot, elem, reverse) => {
                 (container, index_slot, elem, reverse)
             }
-            LoopRemove::Unsupported(message) => return err(span, message),
+            LoopRemove::Unsupported(message) => return err(Code::RemoveUnsupported, span, message),
         };
         // array[it_index] = array[count-1]; count -= 1; it_index -= 1 (going forward: the
         // moved element is visited next; a reverse loop has already seen it).
@@ -167,7 +180,11 @@ impl Compiler {
             addr, ..
         } = container
         else {
-            return err(span, "remove needs an addressable array");
+            return err(
+                Code::RemoveNeedsAddressable,
+                span,
+                "remove needs an addressable array",
+            );
         };
         let count = f.b.load(Ty::I64, addr);
         let dp = f.b.ptr_offset(addr, 8);
@@ -269,6 +286,7 @@ impl Compiler {
             && index.name == it_name
         {
             return err(
+                Code::LoopsValueIndex,
                 index.span,
                 format!("the loop's value and index are both named `{it_name}`"),
             );
@@ -766,6 +784,7 @@ impl Compiler {
                     Operand::Procs(found) => procs = found,
                     _ => {
                         return err(
+                            Code::NeedsNameExpansion,
                             path.span,
                             "`for :` needs the name of a `for_expansion` procedure",
                         );
@@ -818,7 +837,7 @@ impl Compiler {
         if procs.is_empty() {
             let ty = self.ty.types.name(collection.ty());
             return Err(Box::new(
-                Diagnostic::error(
+                Diagnostic::new(Code::NoVisibleIterating,
                     span,
                     format!("no `{macro_name}` is visible for iterating over {ty}"),
                 )
@@ -832,7 +851,8 @@ impl Compiler {
 
     /// `for x` over a value that is not a collection. A number counts: the help writes the range.
     fn cannot_iterate(&self, ty: TypeId, container: Span) -> Diagnostic {
-        let d = Diagnostic::error(
+        let d = Diagnostic::new(
+            Code::CannotIterateOver,
             container,
             format!(
                 "cannot iterate over a value of type {}",

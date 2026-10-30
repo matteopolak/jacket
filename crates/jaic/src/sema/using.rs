@@ -6,6 +6,7 @@ use super::{
     Compiler, Diagnostic, EntityId, ModuleId, Rc, Result, ScopeId, SourcePath, Span, Sym, TypeId,
     Value, ast, err, ir, scope,
 };
+use crate::diagnostics::Code;
 use crate::layout;
 use crate::types::{ArrayKind, TypeKind};
 
@@ -61,6 +62,7 @@ impl Compiler {
         };
         if *kind == ast::UsingFilterKind::Map {
             return err(
+                Code::UsingMap,
                 expr.span,
                 "using,map requires an aggregate member target; module mapping is not supported",
             );
@@ -88,10 +90,18 @@ impl Compiler {
             kind,
         } = *self.ty.types.kind(ty)
         else {
-            return err(span, "a computed using filter must be an array of strings");
+            return err(
+                Code::UsingFilterInvalid,
+                span,
+                "a computed using filter must be an array of strings",
+            );
         };
         if elem != TypeId::STRING {
-            return err(span, "a computed using filter must contain strings");
+            return err(
+                Code::UsingFilterInvalid,
+                span,
+                "a computed using filter must contain strings",
+            );
         }
         let size = self.size_of(ty, span)?;
         let align = self.align_of(ty, span)?;
@@ -117,15 +127,27 @@ impl Compiler {
             (n, addr)
         } else {
             let Some(n) = self.ct.interp.read_u64(addr + layout::view::COUNT) else {
-                return err(span, "unreadable using filter count");
+                return err(
+                    Code::UsingFilterInvalid,
+                    span,
+                    "unreadable using filter count",
+                );
             };
             let Some(data) = self.ct.interp.read_u64(addr + layout::view::DATA) else {
-                return err(span, "unreadable using filter data");
+                return err(
+                    Code::UsingFilterInvalid,
+                    span,
+                    "unreadable using filter data",
+                );
             };
             (n, data)
         };
         if count > super::value::MAX_IMAGE / 16 {
-            return err(span, "using filter array is too large");
+            return err(
+                Code::UsingFilterInvalid,
+                span,
+                "using filter array is too large",
+            );
         }
         let mut names = Vec::new();
         for i in 0..count {
@@ -133,13 +155,26 @@ impl Compiler {
                 .checked_mul(16)
                 .and_then(|offset| data.checked_add(offset))
             else {
-                return err(span, "using filter address overflow");
+                return err(
+                    Code::UsingFilterInvalid,
+                    span,
+                    "using filter address overflow",
+                );
             };
             let Value::String(bytes) = self.read_value(at, TypeId::STRING, span)? else {
-                return err(span, "using filter element is not a string");
+                return err(
+                    Code::UsingFilterInvalid,
+                    span,
+                    "using filter element is not a string",
+                );
             };
-            let text = std::str::from_utf8(&bytes)
-                .map_err(|_| Box::new(Diagnostic::error(span, "using member name is not UTF-8")))?;
+            let text = std::str::from_utf8(&bytes).map_err(|_| {
+                Box::new(Diagnostic::new(
+                    Code::UsingFilterInvalid,
+                    span,
+                    "using member name is not UTF-8",
+                ))
+            })?;
             names.push(Sym::intern(text));
         }
         Ok(names)
@@ -170,7 +205,13 @@ impl Compiler {
                     ty, ..
                 }
                 | UsingEntry::Type(ty) => *ty,
-                _ => return err(span, "using mapper requires an aggregate"),
+                _ => {
+                    return err(
+                        Code::UsingFilterInvalid,
+                        span,
+                        "using mapper requires an aggregate",
+                    );
+                }
             };
             let ty = self.ty.types.pointee(ty).unwrap_or(ty);
             self.ensure_complete(ty, span)?;
@@ -178,6 +219,7 @@ impl Compiler {
             let mapper = self.eval_const_value(scope, expr)?;
             if !matches!(mapper, Value::Proc(_)) {
                 return err(
+                    Code::UsingFilterInvalid,
                     expr.span,
                     "using mapper must be a single compile-time procedure",
                 );
@@ -216,6 +258,7 @@ impl Compiler {
         };
         if !matches!(mapper, Value::Proc(_)) {
             return err(
+                Code::UsingFilterInvalid,
                 expr.span,
                 "using mapper must be a single compile-time procedure",
             );
@@ -314,7 +357,11 @@ impl Compiler {
         let (value, ty) = self.eval_const_typed(map_scope, result)?;
         let mapped = self.filter_strings(&value, ty, expr.span)?;
         if mapped.len() != names.len() {
-            return err(expr.span, "using mapper changed the number of member names");
+            return err(
+                Code::UsingFilterInvalid,
+                expr.span,
+                "using mapper changed the number of member names",
+            );
         }
         Ok(ast::UsingFilter::Map(
             mapped
@@ -424,8 +471,12 @@ impl Compiler {
     /// The error for declaring `name` at `span` in a scope where `using` already brings in a
     /// member of that name through the variable of `entry`.
     fn using_member_clash(&self, name: Sym, span: Span, entry: &UsingEntry) -> Box<Diagnostic> {
-        let mut d = Diagnostic::error(span, format!("`{name}` is already declared in this scope"))
-            .with_label("declared again here");
+        let mut d = Diagnostic::new(
+            Code::AlreadyDeclaredScope,
+            span,
+            format!("`{name}` is already declared in this scope"),
+        )
+        .with_label("declared again here");
         let Some(owner) = entry.place_entity().map(|id| self.entity(id)) else {
             return Box::new(d);
         };
@@ -449,7 +500,8 @@ impl Compiler {
         span: Span,
         providers: &[EntityId],
     ) -> Box<Diagnostic> {
-        let mut d = Diagnostic::error(
+        let mut d = Diagnostic::new(
+            Code::AmbiguousMoreOne,
             span,
             format!(
                 "`{name}` is ambiguous: more than one `using` variable has a member of that name"

@@ -2,6 +2,7 @@
 use super::model::{
     FieldDecl, FieldItem, FieldUsing, LayoutItem, OffsetNode, PathStep, StructSource, UsingFilters,
 };
+use crate::diagnostics::Code;
 use crate::sema::{
     Compiler, Diagnostic, HashMap, Rc, Result, ScopeId, Span, Sym, TypeId, ast, err, scope,
 };
@@ -27,10 +28,12 @@ fn solve_offsets(nodes: &[OffsetNode]) -> Result<Vec<u64>> {
                     }
                     1 => {
                         return Err(Box::new(
-                            Diagnostic::error(node.span, "cycle in struct field layout").with_note(
-                                nodes[dep].span,
-                                "this storage offset depends on itself",
-                            ),
+                            Diagnostic::new(
+                                Code::StructCycleFieldLayout,
+                                node.span,
+                                "cycle in struct field layout",
+                            )
+                            .with_note(nodes[dep].span, "this storage offset depends on itself"),
                         ));
                     }
                     _ => values[dep],
@@ -43,7 +46,8 @@ fn solve_offsets(nodes: &[OffsetNode]) -> Result<Vec<u64>> {
                 .and_then(|n| n.checked_next_multiple_of(node.align))
                 .filter(|&n| n <= MAX_SIZE)
                 .ok_or_else(|| {
-                    Box::new(Diagnostic::error(
+                    Box::new(Diagnostic::new(
+                        Code::StructTooLargeLimit,
                         node.span,
                         format!("struct is too large (the limit is {MAX_SIZE} bytes)"),
                     ))
@@ -87,6 +91,7 @@ impl Compiler {
                 self.epochs.in_progress_misses += 1;
                 let name = self.ty.types.struct_info(s).name;
                 return err(
+                    Code::StructContainsItselfUse,
                     span,
                     format!("struct `{name}` contains itself (use a pointer)"),
                 );
@@ -118,7 +123,9 @@ impl Compiler {
             let tag_ty = match (ty, value) {
                 (Some(ty), _) => self.eval_type(src.scope, ty)?,
                 (None, Some(value)) => self.eval_const(src.scope, value, None)?.ty(),
-                (None, None) => return err(tag.span, "union tag needs a type"),
+                (None, None) => {
+                    return err(Code::StructUnionTag, tag.span, "union tag needs a type");
+                }
             };
             // `.A ,, a: int;`: each member's tag value names a member of the tag's enum.
             if self.ed.is_live() {
@@ -250,7 +257,8 @@ impl Compiler {
                         && name.as_str() != "_"
                     {
                         if names.insert(name, index).is_some() {
-                            let mut e = Diagnostic::error(
+                            let mut e = Diagnostic::new(
+                                Code::StructMemberDeclared,
                                 d.span,
                                 format!("member `{name}` is declared more than once"),
                             )
@@ -390,7 +398,11 @@ impl Compiler {
             }
         }
         if overlay.is_some() {
-            return err(src.lit.span, "#overlay needs a following stored member");
+            return err(
+                Code::StructOverlayNeedsFollowing,
+                src.lit.span,
+                "#overlay needs a following stored member",
+            );
         }
         let offsets = solve_offsets(&nodes)?;
         for (index, field) in fields.iter_mut().enumerate() {
@@ -400,7 +412,8 @@ impl Compiler {
                 .checked_add(sizes[index])
                 .filter(|&n| n <= MAX_SIZE)
                 .ok_or_else(|| {
-                    Box::new(Diagnostic::error(
+                    Box::new(Diagnostic::new(
+                        Code::StructTooLargeLimit,
                         field.span,
                         format!("struct is too large (the limit is {MAX_SIZE} bytes)"),
                     ))
@@ -418,6 +431,7 @@ impl Compiler {
         };
         if size > MAX_SIZE {
             return err(
+                Code::StructTooLargeLimit,
                 src.lit.span,
                 format!("struct is too large (the limit is {MAX_SIZE} bytes)"),
             );
@@ -460,7 +474,11 @@ impl Compiler {
             let Some((steps, member_ty, _)) =
                 self.find_promoted_member(vec![(ty, 0, name)], span, &mut vec![owner])?
             else {
-                return err(span, format!("no member named `{name}` to anchor on"));
+                return err(
+                    Code::StructNoMemberNamed,
+                    span,
+                    format!("no member named `{name}` to anchor on"),
+                );
             };
             relative = Self::anchor_offset(relative, &steps, name, span)?;
             notes.push(AnchorNote::Member {
@@ -506,7 +524,11 @@ impl Compiler {
                 return Ok((index, relative, ty, note));
             }
         }
-        err(span, format!("no field named `{name}` in this struct"))
+        err(
+            Code::StructNoFieldNamed,
+            span,
+            format!("no field named `{name}` in this struct"),
+        )
     }
 
     /// `base` plus the inline offsets of a member path; a pointer step has no inline storage.
@@ -519,7 +541,8 @@ impl Compiler {
                         .checked_add(at)
                         .filter(|&n| n <= MAX_SIZE)
                         .ok_or_else(|| {
-                            Box::new(Diagnostic::error(
+                            Box::new(Diagnostic::new(
+                                Code::StructOverlayTargetOffset,
                                 span,
                                 "overlay target offset is too large",
                             ))
@@ -527,6 +550,7 @@ impl Compiler {
                 }
                 PathStep::Deref => {
                     return err(
+                        Code::StructBehindUsingPointer,
                         span,
                         format!(
                             "`{name}` is behind a using pointer and has no inline storage offset"
@@ -568,7 +592,7 @@ impl Compiler {
                             format!("`using {n}`")
                         });
                         return Err(Box::new(
-                            Diagnostic::error(
+                            Diagnostic::new(Code::StructNameBroughtTwice,
                                 f.span,
                                 format!("the name `{name}` is brought in twice"),
                             )
@@ -638,6 +662,7 @@ impl Compiler {
         let n = self.eval_int(scope, expr)?;
         if !(0..=MAX_ALIGN).contains(&n) {
             return err(
+                Code::StructAlignmentOutRange,
                 expr.span,
                 format!("alignment {n} is out of range (0 to {MAX_ALIGN})"),
             );

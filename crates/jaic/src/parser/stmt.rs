@@ -1,4 +1,5 @@
 //! Statements and control flow.
+use crate::diagnostics::Code;
 use std::rc::Rc;
 
 use super::{PResult, Parser};
@@ -166,7 +167,9 @@ impl Parser<'_> {
             Some(Keyword::Defer) => self.parse_defer(backtick),
             Some(Keyword::Using) => self.parse_using(),
             Some(Keyword::PushContext) => self.parse_push_context(backtick),
-            Some(Keyword::Case) => Err(self.error("`case` outside of a switch")),
+            Some(Keyword::Case) => {
+                Err(self.error(Code::ParseCaseOutsideSwitch, "`case` outside of a switch"))
+            }
             None => self.parse_terminated_simple(),
         }
     }
@@ -417,7 +420,8 @@ impl Parser<'_> {
         }
         let value = |branch: Stmt| match branch.kind {
             StmtKind::Expr(e) => Ok(Box::new(e)),
-            _ => Err(crate::diagnostics::Diagnostic::error(
+            _ => Err(crate::diagnostics::Diagnostic::new(
+                Code::ParseExpectedExpressionAssignment,
                 branch.span,
                 "expected an expression or an assignment in this `ifx` branch",
             )),
@@ -807,7 +811,8 @@ impl Parser<'_> {
     fn parse_defer(&mut self, backtick: bool) -> PResult<Stmt> {
         let start = self.bump();
         if self.at(P::Semi) {
-            return Err(crate::diagnostics::Diagnostic::error(
+            return Err(crate::diagnostics::Diagnostic::new(
+                Code::ParseDeferNeedsStatement,
                 self.span(),
                 "`defer` needs a statement to defer",
             ));

@@ -1,5 +1,6 @@
 //! Making procedures live and applying modifications to them.
 use super::state::Modification;
+use crate::diagnostics::Code;
 use crate::sema::{Compiler, Rc, Result, SourcePath, Span, ast, err, procs};
 
 impl Compiler {
@@ -41,12 +42,14 @@ impl Compiler {
         // recovered from a display name, copied serial or caller-created header.
         let Some(&p) = self.meta.export.bodies.get(&body) else {
             return err(
+                Code::CodeExportModifyProcedureInvalid,
                 Span::NONE,
                 "compiler_modify_procedure: body record does not belong to this workspace procedure",
             );
         };
         if self.proc(p).body_state == procs::BodyState::Lowering {
             return err(
+                Code::CodeExportModifyProcedureInvalid,
                 self.proc(p).span,
                 "compiler_modify_procedure: cannot modify a procedure while it is being lowered",
             );
@@ -54,6 +57,7 @@ impl Compiler {
         let old = self.proc(p).lit.clone();
         let Some(old_body) = &old.body else {
             return err(
+                Code::CodeExportModifyProcedureInvalid,
                 self.proc(p).span,
                 "compiler_modify_procedure: procedure has no body",
             );

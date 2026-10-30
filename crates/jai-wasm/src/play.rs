@@ -292,8 +292,13 @@ fn run_styled(
     let outcome = match compiler.compile_program(&entry) {
         Ok(()) => {
             match jaic::build::finish_all(&workspaces, &mut compiler.ct.interp.block_budget) {
-                Err(message) => Err(Box::new(Diagnostic::error(Span::NONE, message))),
-                Ok(()) if workspaces.borrow().any_failed() => Err(Box::new(Diagnostic::error(
+                Err(message) => Err(Box::new(Diagnostic::new(
+                    Code::MetaprogramReport,
+                    Span::NONE,
+                    message,
+                ))),
+                Ok(()) if workspaces.borrow().any_failed() => Err(Box::new(Diagnostic::new(
+                    Code::MetaprogramReport,
                     Span::NONE,
                     "compilation failed in a metaprogram workspace (see stderr for diagnostics)",
                 ))),

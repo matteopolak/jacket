@@ -1,6 +1,7 @@
 //! Unary operators, untyped constants, conditions and the traps checks emit.
 use super::names_variable_path;
 use crate::ast::{ExprKind as E, UnOp};
+use crate::diagnostics::Code;
 use crate::int_arith::wrap;
 use crate::ir::{CmpOp, Ty};
 use crate::sema::lower::{FnCtx, Operand, Origin};
@@ -11,7 +12,8 @@ use crate::types::{ArrayKind, TypeKind};
 impl Compiler {
     /// `x.*` of a value that is not a pointer: the value as it is would do.
     fn cannot_dereference(&self, ty: TypeId, inner: Span, span: Span) -> Diagnostic {
-        let d = Diagnostic::error(
+        let d = Diagnostic::new(
+            Code::CannotDereferenceValue,
             span,
             format!(
                 "cannot dereference a value of type {}",
@@ -132,6 +134,7 @@ impl Compiler {
                 value: Value::Int(_) | Value::Float(_, _) | Value::Bool(_),
                 ..
             } => err(
+                Code::CannotTakeAddress,
                 span,
                 "cannot take the address of a number or bool constant: it has no storage (assign it to a variable first)",
             ),
@@ -304,7 +307,8 @@ impl Compiler {
             } else {
                 "bit-complement"
             };
-            return Err(Box::new(Diagnostic::error(
+            return Err(Box::new(Diagnostic::new(
+                Code::UnsupportedOperation,
                 span,
                 format!("cannot {what} {}", self.ty.types.name(ty)),
             )));
@@ -324,7 +328,8 @@ impl Compiler {
             }
             UnOp::Neg => {
                 let t = self.ir_ty(ty).ok_or_else(|| {
-                    Box::new(Diagnostic::error(
+                    Box::new(Diagnostic::new(
+                        Code::CannotNegate,
                         span,
                         format!("cannot negate {}", self.ty.types.name(ty)),
                     ))
@@ -341,7 +346,8 @@ impl Compiler {
             }
             _ => {
                 let t = self.ir_ty(ty).filter(|t| !t.is_float()).ok_or_else(|| {
-                    Box::new(Diagnostic::error(
+                    Box::new(Diagnostic::new(
+                        Code::CannotBitComplement,
                         span,
                         format!("cannot bit-complement {}", self.ty.types.name(ty)),
                     ))
@@ -422,7 +428,7 @@ impl Compiler {
                 return Ok(f.b.cmp(CmpOp::Ne, Ty::I64, count, zero));
             }
             return Err(Box::new(
-                Diagnostic::error(
+                Diagnostic::new(Code::ValueType,
                     span,
                     format!(
                         "a value of type {} cannot be used as a condition",
@@ -492,12 +498,17 @@ impl Compiler {
                 || !matches!(self.ty.types.kind(signature.params[5].ty), TypeKind::Pointer(ty) if *ty == TypeId::U8)
             {
                 return err(
+                    Code::RuntimeConfigurationInvalid,
                     span,
                     "private native check reporter must take (s64, s64, s64, bool, s64, *u8), return nothing, and have no context",
                 );
             }
             let crate::sema::procs::ProcTarget::Func(func) = self.proc_func(proc, span)? else {
-                return err(span, "private native check reporter must be defined in Jai");
+                return err(
+                    Code::RuntimeConfigurationInvalid,
+                    span,
+                    "private native check reporter must be defined in Jai",
+                );
             };
             self.out.program.check_failed = Some(func);
             Ok(())

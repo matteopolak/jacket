@@ -92,10 +92,14 @@ impl Compiler {
             let op = match (&arg.op, &arg.expr) {
                 (Some(op), _) => op.clone(),
                 (None, Some(e)) => self.eval_const(arg.scope, e, None)?,
-                (None, None) => return err(arg.span, "missing value"),
+                (None, None) => return err(Code::CallMissingValue, arg.span, "missing value"),
             };
             let Operand::Type(t) = op else {
-                return err(arg.span, format!("`${name}` must be given a type"));
+                return err(
+                    Code::CallMustGivenType,
+                    arg.span,
+                    format!("`${name}` must be given a type"),
+                );
             };
             st.bindings.push((name, Value::Type(t), TypeId::TYPE));
         }
@@ -153,6 +157,7 @@ impl Compiler {
                     return Ok(());
                 }
                 return err(
+                    Code::CallMissingArgumentBaked,
                     span,
                     format!("missing argument for baked parameter `{name}`"),
                 );
@@ -298,6 +303,7 @@ impl Compiler {
                         Some(value) => value,
                         None => {
                             return err(
+                                Code::CallArgumentMustCompile,
                                 arg.span,
                                 format!("argument for `${name}` must be a compile-time constant"),
                             );
@@ -522,6 +528,7 @@ impl Compiler {
             }
         }
         err(
+            Code::CallProcedureNotMatch,
             span,
             format!(
                 "procedure does not match parameter type {}",
@@ -634,6 +641,7 @@ impl Compiler {
             for p in &ph.params {
                 let Some(t) = &p.ty else {
                     return err(
+                        Code::CallCannotInferParameter,
                         arg_span,
                         "cannot infer the parameter types of this procedure",
                     );
@@ -648,7 +656,11 @@ impl Compiler {
                 }
             }
             let Some(inst) = matched else {
-                return err(arg_span, "no overload matches the procedure parameter");
+                return err(
+                    Code::CallNoOverloadMatches,
+                    arg_span,
+                    "no overload matches the procedure parameter",
+                );
             };
             let ty = self.proc_type(inst, arg_span)?;
             self.match_pattern(&pattern, ty, &mut st.bindings, def_scope)?;
@@ -739,6 +751,7 @@ impl Compiler {
         let given = elems.len() as i128;
         match bindings.iter().find(|(bound, _, _)| bound == name) {
             Some((_, Value::Int(wanted), _)) if *wanted != given => err(
+                Code::CallUnequalArrayLengths,
                 literal.span,
                 format!("unequal array lengths (wanted {wanted}, given {given})"),
             ),
@@ -772,7 +785,8 @@ impl Compiler {
                 if let Some(t) = &param.ty {
                     for name in poly_names(t) {
                         if !st.bindings.iter().any(|(n, _, _)| *n == name) {
-                            let d = Diagnostic::error(
+                            let d = Diagnostic::new(
+                                Code::CallCouldNotInfer,
                                 span,
                                 format!("could not infer polymorphic type `${name}`"),
                             );
@@ -832,6 +846,7 @@ impl Compiler {
         };
         let Some(ty) = instance else {
             return err(
+                Code::CallNotInstance,
                 span,
                 format!(
                     "{} is not an instance of this struct",
@@ -864,10 +879,18 @@ impl Compiler {
                 parameter
             };
             let Some(name) = parameter.and_then(|p| p.name).map(|n| n.name) else {
-                return err(a.value.span, "unknown polymorphic struct parameter");
+                return err(
+                    Code::CallUnknownPolymorphicStruct,
+                    a.value.span,
+                    "unknown polymorphic struct parameter",
+                );
             };
             let Some((_, value, value_type)) = actual.iter().find(|(n, _, _)| *n == name) else {
-                return err(a.value.span, "missing polymorphic struct parameter binding");
+                return err(
+                    Code::CallMissingPolymorphicStruct,
+                    a.value.span,
+                    "missing polymorphic struct parameter binding",
+                );
             };
             match &a.value.kind {
                 E::PolyVar {
@@ -942,6 +965,7 @@ impl Compiler {
                             TypeId::TYPE,
                         ),
                         None => err(
+                            Code::CallNotInstance,
                             span,
                             format!("{} is not an instance of `{name}`", self.ty.types.name(ty)),
                         ),
@@ -958,7 +982,8 @@ impl Compiler {
                     let checked = (|| {
                         let candidate = if ty == TypeId::TYPE {
                             represented.ok_or_else(|| {
-                                Box::new(Diagnostic::error(
+                                Box::new(Diagnostic::new(
+                                    Code::CallInterfaceConstraint,
                                     span,
                                     "interface constraint requires a concrete type binding",
                                 ))
@@ -985,6 +1010,7 @@ impl Compiler {
                         Some(p) if self.instance_or_as_base(ps, p).is_some() => ty = p,
                         _ => {
                             return err(
+                                Code::CallNotInstance,
                                 span,
                                 format!("{} is not an instance of `{r}`", self.ty.types.name(ty)),
                             );
@@ -1002,6 +1028,7 @@ impl Compiler {
                     && !self.has_as_base(ty, want)
                 {
                     return err(
+                        Code::CallNotSatisfyRestriction,
                         span,
                         format!(
                             "{} does not satisfy the restriction `{}`",
@@ -1016,6 +1043,7 @@ impl Compiler {
                     && !options.contains(&ty)
                 {
                     return err(
+                        Code::CallNotOneTypes,
                         span,
                         format!(
                             "{} is not one of the types the restriction allows",
@@ -1035,6 +1063,7 @@ impl Compiler {
             E::Unary(ast::UnOp::Star, inner) => match self.ty.types.kind(ty).clone() {
                 TypeKind::Pointer(p) => self.match_pattern(inner, p, bindings, scope),
                 _ => err(
+                    Code::CallExpectedPointer,
                     span,
                     format!("expected a pointer, found {}", self.ty.types.name(ty)),
                 ),
@@ -1049,6 +1078,7 @@ impl Compiler {
                 } = self.ty.types.kind(ty).clone()
                 else {
                     return err(
+                        Code::CallExpectedArray,
                         span,
                         format!("expected an array, found {}", self.ty.types.name(ty)),
                     );
@@ -1073,6 +1103,7 @@ impl Compiler {
                     }
                     _ => {
                         return err(
+                            Code::CallArrayKindMismatch,
                             span,
                             format!("array kind mismatch with {}", self.ty.types.name(ty)),
                         );
@@ -1091,6 +1122,7 @@ impl Compiler {
             E::ProcType(header) => {
                 let TypeKind::Proc(pt) = self.ty.types.kind(ty).clone() else {
                     return err(
+                        Code::CallExpectedProcedure,
                         span,
                         format!("expected a procedure, found {}", self.ty.types.name(ty)),
                     );
@@ -1129,6 +1161,7 @@ fn bind_pattern(
     if let Some((_, existing, _)) = bindings.iter().find(|(n, _, _)| *n == name) {
         if *existing != value {
             return err(
+                Code::CallConflictingBindings,
                 span,
                 format!(
                     "{CONFLICT}{name}`: {} and {}",

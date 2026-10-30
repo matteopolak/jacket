@@ -44,6 +44,7 @@ use super::lower::{FnCtx, Operand};
 use super::scope::{EntityKind, Found};
 use super::{Compiler, Result, ScopeId, Span, Value, err, ir};
 use crate::ast::{AsmBlock, AsmInst, AsmItem, AsmMem, AsmOperand, AsmSize, Expr, ExprKind as E};
+use crate::diagnostics::Code;
 use crate::ir::{BinOp, CmpOp, ConvOp, Intrinsic, Ty, UnOp, Val};
 use crate::target::TargetCpu;
 
@@ -72,6 +73,7 @@ impl Compiler {
         for feature in &block.features {
             if !FEATURES.contains(&feature.name.as_str()) {
                 return err(
+                    Code::AsmUnsupported,
                     feature.span,
                     format!("unsupported #asm feature modifier `{}`", feature.name),
                 );

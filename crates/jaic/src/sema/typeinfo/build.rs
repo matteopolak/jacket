@@ -1,6 +1,7 @@
 //! Building the type information record of a type.
 use super::descriptor_of;
 use super::views::View;
+use crate::diagnostics::Code;
 use crate::sema::scope::ScopeKind;
 use crate::sema::value::Aggregate;
 use crate::sema::{
@@ -347,7 +348,11 @@ impl Compiler {
                 let (func, _) = self.initializer_proc(ty, span)?;
                 let Some((path, _)) = self.find_member(desc, Sym::intern("initializer"), span)?
                 else {
-                    return err(span, "Type_Info_Struct has no initializer field");
+                    return err(
+                        Code::TypeInfoTypeInfoStruct,
+                        span,
+                        "Type_Info_Struct has no initializer field",
+                    );
                 };
                 let offset = path
                     .iter()

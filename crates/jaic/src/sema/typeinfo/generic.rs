@@ -49,7 +49,8 @@ impl Compiler {
             .iter()
             .find(|p| p.lit.id == key && p.origin.is_none())
             .ok_or_else(|| {
-                Box::new(Diagnostic::error(
+                Box::new(Diagnostic::new(
+                    Code::TypeInfoGenericDeclarationMetadata,
                     span,
                     "generic declaration metadata is unavailable",
                 ))
@@ -326,7 +327,8 @@ impl Compiler {
             .get(&s)
             .map(|src| src.lit.id)
             .ok_or_else(|| {
-                Box::new(Diagnostic::error(
+                Box::new(Diagnostic::new(
+                    Code::TypeInfoGenericInstanceDeclaration,
                     span,
                     "generic instance declaration metadata is unavailable",
                 ))

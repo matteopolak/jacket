@@ -44,6 +44,7 @@ impl Compiler {
                     Resolved::ProcSet(set) => procedures.extend(set),
                     _ => {
                         return err(
+                            Code::MultiplePlaceholderDefinitions,
                             self.entity(id).span,
                             "multiple placeholder definitions must form a procedure overload set",
                         );
@@ -58,6 +59,7 @@ impl Compiler {
                 self.epochs.in_progress_misses += 1;
                 let e = self.entity(id);
                 return err(
+                    Code::CircularDependency,
                     e.span,
                     format!("circular dependency while resolving `{}`", e.name),
                 );
@@ -85,13 +87,11 @@ impl Compiler {
         let entity = self.entity(id);
         let (name, span, scope) = (entity.name, entity.span, entity.home);
         match entity.kind.clone() {
-            EntityKind::UnboundGenericParameter => Err(Box::new(
-                Diagnostic::error(
-                    span,
-                    format!("generic parameter `{name}` has no concrete binding"),
-                )
-                .with_code(Code::UnboundGenericParameter),
-            )),
+            EntityKind::UnboundGenericParameter => Err(Box::new(Diagnostic::new(
+                Code::UnboundGenericParameter,
+                span,
+                format!("generic parameter `{name}` has no concrete binding"),
+            ))),
             EntityKind::Const {
                 value,
                 ty,
@@ -112,6 +112,7 @@ impl Compiler {
             EntityKind::Local {
                 ..
             } => err(
+                Code::InternalLocalResolved,
                 span,
                 format!("internal: local `{name}` resolved as a declaration"),
             ),
@@ -124,6 +125,7 @@ impl Compiler {
                 self.diag.dependencies.read_placeholder(id);
                 self.epochs.placeholder_misses += 1;
                 err(
+                    Code::PlaceholderNeverDefined,
                     span,
                     format!("`{name}` is a #placeholder that was never defined"),
                 )
@@ -139,6 +141,7 @@ impl Compiler {
             // them; the IDE queries (signature help, member receivers) resolve whatever a name
             // finds, so a builtin proc is an answer they skip, not an invariant violation.
             EntityKind::Builtin(Builtin::Proc(_)) => err(
+                Code::BuiltinProcedureWithout,
                 span,
                 format!("`{name}` is a builtin procedure without a declaration"),
             ),
@@ -206,25 +209,45 @@ impl Compiler {
             _ => unreachable!(),
         };
         let Some(preload) = self.ns.preload else {
-            return err(span, format!("`{sym}` requires Preload"));
+            return err(
+                Code::PreloadMissingDeclaration,
+                span,
+                format!("`{sym}` requires Preload"),
+            );
         };
         let ids = self.module_declarations(preload, Sym::intern(enum_name))?;
         let Some(&enum_entity) = ids.first() else {
-            return err(span, format!("Preload does not define {enum_name}"));
+            return err(
+                Code::PreloadMissingDeclaration,
+                span,
+                format!("Preload does not define {enum_name}"),
+            );
         };
         let Resolved::Const {
             value: Value::Type(ty),
             ..
         } = self.resolve_entity(enum_entity)?
         else {
-            return err(span, format!("{enum_name} is not a type"));
+            return err(
+                Code::EnumLookupFailed,
+                span,
+                format!("{enum_name} is not a type"),
+            );
         };
         let TypeKind::Enum(e) = self.ty.types.kind(ty).clone() else {
-            return err(span, format!("{enum_name} is not an enum"));
+            return err(
+                Code::EnumLookupFailed,
+                span,
+                format!("{enum_name} is not an enum"),
+            );
         };
         let info = self.ty.types.enum_info(e);
         let Some(&(_, value)) = info.members.iter().find(|(n, _)| n.as_str() == member) else {
-            return err(span, format!("{enum_name} has no member {member}"));
+            return err(
+                Code::EnumLookupFailed,
+                span,
+                format!("{enum_name} has no member {member}"),
+            );
         };
         Ok(Resolved::Const {
             value: Value::Int(value),
@@ -263,7 +286,11 @@ impl Compiler {
         index: usize,
     ) -> Result<Resolved> {
         let Some(value) = &decl.value else {
-            return err(decl.span, "constant declaration needs a value");
+            return err(
+                Code::ConstantDeclaration,
+                decl.span,
+                "constant declaration needs a value",
+            );
         };
         // `a, b :: 1, 2;` gives each name its own value.
         let listed = 1 + decl.extra_values().len();
@@ -306,7 +333,11 @@ impl Compiler {
                 ty: inner,
             } if matches!(inner.kind, ast::ExprKind::ProcType(_)) && procs::has_poly(inner) => {
                 let ast::ExprKind::ProcType(header) = &inner.kind else {
-                    return err(value.span, "expected a procedure type");
+                    return err(
+                        Code::ExpectedProcedureType,
+                        value.span,
+                        "expected a procedure type",
+                    );
                 };
                 let ty = self.poly_header_type(scope, header);
                 self.ty.poly_aliases.insert(ty);
@@ -465,14 +496,17 @@ impl Compiler {
             Operand::PolyStruct(p) => Ok(Resolved::PolyStruct(p)),
             Operand::Library(l) => Ok(Resolved::Library(l)),
             Operand::Void if matches!(value.kind, ast::ExprKind::Run { .. }) => err(
+                Code::RunReturns,
                 value.span,
                 "this #run returns no value, so it cannot be a constant's value; to only run it at compile time, write the #run as a statement",
             ),
             Operand::Void => err(
+                Code::ExpressionNoValue,
                 value.span,
                 "this expression has no value, so it cannot be a constant's value",
             ),
             _ => err(
+                Code::ConstantDeclarationRequiresCompile,
                 value.span,
                 "constant declaration requires a compile-time value; use #run to compute it",
             ),
@@ -531,7 +565,13 @@ impl Compiler {
                     other => other.ty(),
                 }
             }
-            (None, None) => return err(span, "global needs a type or initializer"),
+            (None, None) => {
+                return err(
+                    Code::GlobalNeedsType,
+                    span,
+                    "global needs a type or initializer",
+                );
+            }
         };
         self.ensure_storage_type(ty, span)?;
         if let Some(foreign) = &decl.foreign() {
@@ -662,6 +702,7 @@ impl Compiler {
                 self.instantiate_struct(ps, Vec::new(), span)
             }
             other => err(
+                Code::ExpectedType,
                 span,
                 format!("expected a type, found {}", self.describe(&other)),
             ),
@@ -710,6 +751,7 @@ impl Compiler {
                 ..
             } => Ok(v as i128),
             other => err(
+                Code::ExpectedConstantInteger,
                 expr.span,
                 format!(
                     "expected a constant integer, found {}",
@@ -751,6 +793,7 @@ impl Compiler {
             } => Ok((value, ty, untyped)),
             Operand::Procs(p) if p.len() == 1 => Ok((Value::Proc(p[0]), TypeId::VOID, false)),
             other => err(
+                Code::ExpectedConstant,
                 expr.span,
                 format!("expected a constant, found {}", self.describe(&other)),
             ),
@@ -828,6 +871,7 @@ impl Compiler {
                 Ok(!agg.relocs.is_empty() || agg.bytes.iter().any(|&b| b != 0))
             }
             other => err(
+                Code::ConditionMustCompile,
                 expr.span,
                 format!(
                     "#if condition must be a compile-time constant, found {}",
@@ -967,11 +1011,21 @@ impl Compiler {
         span: Span,
     ) -> Result<LibraryId> {
         let Some(operand) = operand else {
-            return err(span, "library directive needs a name");
+            return err(
+                Code::LibraryDirective,
+                span,
+                "library directive needs a name",
+            );
         };
         let lib_name = match &operand.kind {
             ast::ExprKind::Str(s) => String::from_utf8_lossy(s).into_owned(),
-            _ => return err(operand.span, "library name must be a string literal"),
+            _ => {
+                return err(
+                    Code::LibraryName,
+                    operand.span,
+                    "library name must be a string literal",
+                );
+            }
         };
         let flag = |f: &str| flags.iter().any(|x| x.name.as_str() == f);
         let system = system_directive || flag("system");

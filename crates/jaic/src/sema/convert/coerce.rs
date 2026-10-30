@@ -1,5 +1,6 @@
 //! Coercing operands to a target type.
 use super::numeric_conv;
+use crate::diagnostics::Code;
 use crate::ir::Ty;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, Result, Span, TypeId, Value, err, ir};
@@ -201,6 +202,7 @@ impl Compiler {
                 });
             }
             return err(
+                Code::ConvertCannotTo,
                 span,
                 format!(
                     "cannot convert {} to {}",

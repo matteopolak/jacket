@@ -1,5 +1,6 @@
 //! Lowering a procedure body, intrinsic wrappers and instantiating polymorphic procedures.
 use super::model::{BodyState, ProcInfo, ProcTarget, Signature};
+use crate::diagnostics::Code;
 use crate::ir::Ty;
 use crate::sema::lower::{FnCtx, Immutable, Operand};
 use crate::sema::scope::{EntityKind, ScopeKind, UsingEntry};
@@ -310,7 +311,8 @@ impl Compiler {
         let storage_constants = f.runtime_storage_constants;
         let func = f.b.finish();
         if owes_result {
-            let mut warning = Diagnostic::warning(
+            let mut warning = Diagnostic::new(
+                Code::ProcNotAllControl,
                 header.span,
                 "not all control paths return a value",
             )
@@ -443,7 +445,11 @@ impl Compiler {
         self.meta.perf.poly_request(id, false, span);
         let signature_only = self.ide_sketch_refuses(&bindings);
         if self.proc(id).instances.len() >= crate::sema::MAX_INSTANCES {
-            return err(span, crate::sema::too_many_instances(self.proc(id).name));
+            return err(
+                Code::TooManyInstances,
+                span,
+                crate::sema::too_many_instances(self.proc(id).name),
+            );
         }
         let parent = self.proc(id).scope;
         let scope = self.new_hidden_scope(parent);

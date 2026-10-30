@@ -2,6 +2,7 @@
 use super::dispatch::SimdLocals;
 use super::helpers::{from_f64, round_f64, saturate, to_f64};
 use super::{B2, FmaKind, U1, VOp};
+use crate::diagnostics::Code;
 use crate::sema::asm::vec::{load_lane, store_lane};
 use crate::sema::asm::{
     AsmCtx, BinOp, CmpOp, Compiler, FnCtx, Intrinsic, Result, Ty, UnOp, bin, bit_intrinsic, bits,
@@ -138,7 +139,13 @@ impl Compiler {
                     }
                     m
                 }
-                _ => return err(span, format!("`{name}` needs float lanes")),
+                _ => {
+                    return err(
+                        Code::AsmVectorOperand,
+                        span,
+                        format!("`{name}` needs float lanes"),
+                    );
+                }
             };
             store_lane(f, tmp, i, lane, r);
         }

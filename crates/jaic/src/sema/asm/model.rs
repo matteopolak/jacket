@@ -1,4 +1,5 @@
 //! Registers, operations, conditions and the operand and flag state of an `#asm` block.
+use crate::diagnostics::Code;
 use crate::ir::{BlockId, Ty, Val};
 use crate::sema::{Result, ScopeId, Span, err, ir};
 
@@ -304,6 +305,7 @@ impl AsmArgs<'_> {
                 format!("{lo} to {hi}")
             };
             return err(
+                Code::AsmOperandCount,
                 self.span,
                 format!("`{}` takes {expected} operand(s), found {n}", self.name),
             );

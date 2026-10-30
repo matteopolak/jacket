@@ -2,6 +2,7 @@
 use super::VOp;
 use super::dispatch::SimdLocals;
 use super::helpers::mask_bit;
+use crate::diagnostics::Code;
 use crate::sema::asm::vec::{VOpd, all_ones_if, load_lane, store_lane};
 use crate::sema::asm::{
     AsmCtx, BinOp, CmpOp, Compiler, Flags, FnCtx, Result, Ty, UnOp, bin, cmp, err, flag_not,
@@ -104,7 +105,11 @@ impl Compiler {
             VOp::Comis(ty) => {
                 // `comiss a, b`: unordered 111, a < b 001, a == b 100, a > b 000 (ZF, PF, CF).
                 if ops.len() != 2 {
-                    return err(span, format!("`{name}` takes 2 operands"));
+                    return err(
+                        Code::AsmOperandCount,
+                        span,
+                        format!("`{name}` takes 2 operands"),
+                    );
                 }
                 let pa = self.vec_ptr(f, ops[0], span)?;
                 let pb = self.vec_ptr(f, ops[1], span)?;
@@ -130,7 +135,11 @@ impl Compiler {
             }
             VOp::Ptest => {
                 if ops.len() != 2 {
-                    return err(span, format!("`{name}` takes 2 operands"));
+                    return err(
+                        Code::AsmOperandCount,
+                        span,
+                        format!("`{name}` takes 2 operands"),
+                    );
                 }
                 let pa = self.vec_ptr(f, ops[0], span)?;
                 let pb = self.vec_ptr(f, ops[1], span)?;
@@ -182,10 +191,18 @@ impl Compiler {
             }
             VOp::MaskToVec(ty) | VOp::BroadcastMask(ty) => {
                 let VOpd::Mask(p) = ops.get(1).copied().unwrap_or(dst) else {
-                    return err(span, format!("`{name}` reads a mask register"));
+                    return err(
+                        Code::AsmMaskOperand,
+                        span,
+                        format!("`{name}` reads a mask register"),
+                    );
                 };
                 if ops.len() != 2 {
-                    return err(span, format!("`{name}` takes 2 operands"));
+                    return err(
+                        Code::AsmOperandCount,
+                        span,
+                        format!("`{name}` takes 2 operands"),
+                    );
                 }
                 let m = f.b.load(Ty::I64, p);
                 for i in 0..width / ty.size() {

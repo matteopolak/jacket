@@ -3,6 +3,7 @@ use super::{
     Compiler, Diagnostic, EntityId, FileId, HashMap, HashSet, ProcId, Result, ScopeId, Span, err,
     ir, procs, scope,
 };
+use crate::diagnostics::Code;
 
 #[derive(Default)]
 pub(super) struct Dependencies {
@@ -115,6 +116,7 @@ impl Compiler {
     ) -> Result<bool> {
         let Some(procedure) = self.procs_of_func(function).next() else {
             return err(
+                Code::CompileTimeDependency,
                 Span::NONE,
                 "compile-time dependency has no declared procedure",
             );
@@ -127,6 +129,7 @@ impl Compiler {
                 return Ok(false);
             }
             return err(
+                Code::CyclicCompileTime,
                 info.span,
                 format!("cyclic compile-time body dependency for `{}`", info.name),
             );
@@ -191,7 +194,7 @@ impl Compiler {
             self.service_top_level_runs()?;
             if self.ct.runs_done == completed {
                 let info = self.proc(procedure);
-                let mut diagnostic = Diagnostic::error(info.span, format!(
+                let mut diagnostic = Diagnostic::new(Code::CompileTimeDependencyDeadlock, info.span, format!(
                     "compile-time dependency deadlock: body of `{}` awaits an unresolved #placeholder",
                     info.name
                 )).with_note(error.span, error.message);

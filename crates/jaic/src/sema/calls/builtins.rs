@@ -4,6 +4,7 @@ use super::{
     ArrayKind, BuiltinProc, CallArg, Compiler, Diagnostic, E, FnCtx, Operand, PreludeType, ProcId,
     Rc, Result, ScopeId, ScopeKind, Span, Ty, TypeId, TypeKind, Value, ast, err, ir, procs,
 };
+use crate::diagnostics::Code;
 use crate::sema::lower::Origin;
 
 impl Compiler {
@@ -18,7 +19,11 @@ impl Compiler {
     ) -> Result<Operand> {
         let _ = expected;
         let Some(arg) = args.first() else {
-            return err(span, "builtin needs an argument");
+            return err(
+                Code::CallBuiltinNeedsArgument,
+                span,
+                "builtin needs an argument",
+            );
         };
         match b {
             BuiltinProc::SizeOf | BuiltinProc::AlignOf => {
@@ -64,7 +69,8 @@ impl Compiler {
                     "align_of"
                 };
                 return Err(Box::new(
-                    Diagnostic::error(
+                    Diagnostic::new(
+                        Code::CallNeedsConstantType,
                         arg.value.span,
                         format!("`{name}` needs a constant type, but this is a `Type` variable"),
                     )
@@ -275,6 +281,7 @@ impl Compiler {
                 } => String::from_utf8_lossy(&s).into_owned(),
                 _ => {
                     return err(
+                        Code::CallMemberNameOffset,
                         second.value.span,
                         "the member name of `offset_of` must be a constant string",
                     );
@@ -284,6 +291,7 @@ impl Compiler {
         } else {
             let E::Member(base, field) = &arg.value.kind else {
                 return err(
+                    Code::CallOffsetTakesType,
                     arg.value.span,
                     "`offset_of` takes `(Type, \"member\")` or `Type.member`",
                 );
@@ -300,6 +308,7 @@ impl Compiler {
             } else {
                 let tn = self.ty.types.name(cur);
                 return err(
+                    Code::CallNoMemberFixed,
                     span,
                     format!("`{tn}` has no member `{part}` at a fixed offset"),
                 );
@@ -618,11 +627,19 @@ impl Compiler {
             ..
         } = &call.kind
         else {
-            return err(call.span, "#procedure_of_call needs a call expression");
+            return err(
+                Code::CallProcedureNeedsExpression,
+                call.span,
+                "#procedure_of_call needs a call expression",
+            );
         };
         let callee_op = self.check_expr(f, scope, callee, None)?;
         let Operand::Procs(procs) = callee_op else {
-            return err(call.span, "#procedure_of_call needs a procedure call");
+            return err(
+                Code::CallProcedureNeedsProcedure,
+                call.span,
+                "#procedure_of_call needs a procedure call",
+            );
         };
         // Only the argument types matter: runtime locals are fine in a constant.
         let mut scratch = self.scratch_ctx(scope);
@@ -632,6 +649,10 @@ impl Compiler {
                 return Ok(Operand::Procs(vec![c.proc]));
             }
         }
-        err(call.span, "no procedure matches this call")
+        err(
+            Code::CallNoProcedureMatches,
+            call.span,
+            "no procedure matches this call",
+        )
     }
 }

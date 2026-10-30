@@ -274,7 +274,11 @@ impl Compiler {
                 }
                 // `Type(x)` is not Jai; but `T.{}` etc are handled elsewhere.
                 let name = self.ty.types.name(t);
-                let mut d = Diagnostic::error(span, format!("cannot call type {name}"));
+                let mut d = Diagnostic::new(
+                    Code::CallCannotType,
+                    span,
+                    format!("cannot call type {name}"),
+                );
                 // `s32(x)`: a conversion is written `cast(s32) x`.
                 if let [arg] = args
                     && arg.name.is_none()
@@ -389,7 +393,8 @@ impl Compiler {
     /// does not say which one it means.
     fn ambiguous_overloads(&self, best: &[Candidate], span: Span) -> Diagnostic {
         let name = self.proc(best[0].proc).name.to_string();
-        let mut d = Diagnostic::error(
+        let mut d = Diagnostic::new(
+            Code::CallProcedureMatchesPossible,
             span,
             format!(
                 "Procedure call matches {} possible overloads: `{name}` is ambiguous for these arguments.",
@@ -590,7 +595,8 @@ impl Compiler {
                 let error = errors.into_iter().next();
                 return Err(Box::new(self.call_mismatch(procs[0], &name, error, span)));
             }
-            let mut d = Diagnostic::error(
+            let mut d = Diagnostic::new(
+                Code::CallNoOverloadMatchesArguments,
                 span,
                 format!("no overload of `{name}` matches these arguments"),
             );

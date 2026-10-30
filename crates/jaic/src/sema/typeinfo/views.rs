@@ -1,4 +1,5 @@
 //! Writing fields, pointers and views of the type information tables.
+use crate::diagnostics::Code;
 use crate::layout;
 use crate::sema::value::Aggregate;
 use crate::sema::{Compiler, Rc, Result, Span, Sym, TypeId, Value, err, ir, structs};
@@ -37,6 +38,7 @@ impl Compiler {
     ) -> Result<()> {
         let Some((path, fty)) = self.find_member(desc, Sym::intern(name), span)? else {
             return err(
+                Code::TypeInfoNoField,
                 span,
                 format!("{} has no field `{name}`", self.ty.types.name(desc)),
             );
@@ -88,6 +90,7 @@ impl Compiler {
     ) -> Result<()> {
         let Some((path, _)) = self.find_member(desc, Sym::intern(name), span)? else {
             return err(
+                Code::TypeInfoNoField,
                 span,
                 format!("{} has no field `{name}`", self.ty.types.name(desc)),
             );
@@ -143,6 +146,7 @@ impl Compiler {
         } = view;
         let Some((path, _)) = self.find_member(desc, Sym::intern(name), span)? else {
             return err(
+                Code::TypeInfoNoField,
                 span,
                 format!("{} has no field `{name}`", self.ty.types.name(desc)),
             );

@@ -190,7 +190,8 @@ impl Parser<'_> {
                     let Some(errors) = self.recovery.as_mut() else {
                         return Err(error);
                     };
-                    errors.push(crate::diagnostics::Diagnostic::error(
+                    errors.push(crate::diagnostics::Diagnostic::new(
+                        error.code,
                         self.toks[start].span,
                         error.message,
                     ));

@@ -6,6 +6,7 @@ use super::{
     Compiler, Diagnostic, FileInfo, HashSet, ModuleId, Options, ProgramSource, Result, ScopeId,
     Span, TypeId, ast, ir,
 };
+use crate::diagnostics::Code;
 
 /// Where a cross build keeps its twin.
 #[derive(Default)]
@@ -165,7 +166,8 @@ impl Compiler {
         let provider = match &workspaces {
             Some(shared) => crate::build::host_provider(shared, os),
             None => self.ct.interp.host.isolated_host().ok_or_else(|| {
-                Box::new(Diagnostic::error(
+                Box::new(Diagnostic::new(
+                    Code::RunHostUnsupported,
                     Span::NONE,
                     "this compiler host provides no host interpreter",
                 ))
@@ -299,6 +301,7 @@ impl Compiler {
                 (ProgramSource::CodeString(text, _), Some(scope)) => {
                     let Some(own) = self.scope_from_twin(twin, scope) else {
                         return super::err(
+                            Code::BuildStringScopeInvalid,
                             Span::NONE,
                             "add_build_string: the Code scope has no counterpart in the target program",
                         );
@@ -309,6 +312,7 @@ impl Compiler {
                 }
                 (ProgramSource::ModuleString(..), _) => {
                     return super::err(
+                        Code::BuildStringScopeInvalid,
                         Span::NONE,
                         "add_build_string: a module scope cannot be named from a plain #run on the host",
                     );

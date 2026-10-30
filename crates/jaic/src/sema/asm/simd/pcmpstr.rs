@@ -1,5 +1,6 @@
 //! The string-compare instructions.
 use super::dispatch::SimdLocals;
+use crate::diagnostics::Code;
 use crate::sema::asm::vec::{VOpd, load_lane, store_lane};
 use crate::sema::asm::{
     AsmCtx, BinOp, CmpOp, Compiler, Flags, FnCtx, Result, Ty, Val, bin, cmp, err, flag_not, is_neg,
@@ -26,13 +27,25 @@ impl Compiler {
             4
         };
         if ops.len() != want {
-            return err(span, format!("`{name}` takes {want} operands"));
+            return err(
+                Code::AsmOperandCount,
+                span,
+                format!("`{name}` takes {want} operands"),
+            );
         }
         let Some(VOpd::Imm(ctl)) = ops.last().copied() else {
-            return err(span, format!("`{name}` needs an 8-bit control constant"));
+            return err(
+                Code::AsmNeeds8Bit,
+                span,
+                format!("`{name}` needs an 8-bit control constant"),
+            );
         };
         if !(0..=255).contains(&ctl) {
-            return err(span, format!("`{name}` needs an 8-bit control constant"));
+            return err(
+                Code::AsmNeeds8Bit,
+                span,
+                format!("`{name}` needs an 8-bit control constant"),
+            );
         }
         let ctl = ctl as u8;
         let (ty, signed) = match ctl & 3 {

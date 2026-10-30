@@ -11,6 +11,7 @@ use super::{
     Compiler, Diagnostic, ProcId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, ir,
 };
 use crate::ast::ExprKind as E;
+use crate::diagnostics::Code;
 use crate::types::TypeKind;
 
 /// Name of the constant holding the result type given to a lambda instance.
@@ -241,7 +242,8 @@ impl Compiler {
         };
         if pattern_header.params.len() != header.params.len() {
             return Err(Box::new(
-                Diagnostic::error(
+                Diagnostic::new(
+                    Code::LambdaSignatureMismatch,
                     span,
                     format!(
                         "lambda takes {}, but the parameter type expects {}",
@@ -262,7 +264,11 @@ impl Compiler {
         let mut params = Vec::new();
         for p in &pattern_header.params {
             let Some(t) = &p.ty else {
-                return err(span, "cannot infer the parameter types of this lambda");
+                return err(
+                    Code::LambdaSignatureMismatch,
+                    span,
+                    "cannot infer the parameter types of this lambda",
+                );
             };
             params.push(self.eval_type(known, t)?);
         }
@@ -309,7 +315,8 @@ impl Compiler {
         };
         let name = self.ty.types.name(expected);
         Box::new(
-            Diagnostic::error(
+            Diagnostic::new(
+                Code::LambdaSignatureMismatch,
                 span,
                 format!(
                     "lambda takes {}, but `{name}` expects {wanted}",

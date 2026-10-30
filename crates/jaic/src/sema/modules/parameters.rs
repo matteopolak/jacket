@@ -1,4 +1,5 @@
 //! Module parameters and program parameters: declaring them, binding arguments and checking their contracts.
+use crate::diagnostics::Code;
 use crate::sema::lower::Origin;
 use crate::sema::scope::EntityKind;
 use crate::sema::{
@@ -153,6 +154,7 @@ impl Compiler {
                     matches!(resolved, scope::Resolved::Const { value: v, .. } if v == value);
                 if !same {
                     return err(
+                        Code::ModuleParameterInvalid,
                         span,
                         format!(
                             "module parameter `{name}` is set here after the module already used another value"
@@ -170,6 +172,7 @@ impl Compiler {
             {
                 if bound != value {
                     return err(
+                        Code::ModuleParameterInvalid,
                         span,
                         format!(
                             "module parameter `{name}` is set here after the module already used another value"
@@ -195,7 +198,11 @@ impl Compiler {
         eval_scope: ScopeId,
     ) -> Result<()> {
         let Some(name) = param.name else {
-            return err(param.span, "module parameter needs a name");
+            return err(
+                Code::ModuleParameterInvalid,
+                param.span,
+                "module parameter needs a name",
+            );
         };
         let provided = self.ns.modules[module.0 as usize]
             .params
@@ -302,6 +309,7 @@ impl Compiler {
             && !(wanted == ValueClass::Float && given == ValueClass::Integer)
         {
             return err(
+                Code::ModuleParameterInvalid,
                 param.span,
                 format!(
                     "module parameter `{}` expects {wanted}, but the import gives {given}",
@@ -338,6 +346,7 @@ impl Compiler {
                 };
                 let Some(value) = op.const_value() else {
                     return err(
+                        Code::ModuleParameterInvalid,
                         param.span,
                         "module parameter conversion did not produce a constant",
                     );
@@ -392,7 +401,11 @@ impl Compiler {
                     ty,
                 } = self.resolve_entity(entity)?
                 else {
-                    return err(pattern.span, "a module parameter must bind a constant");
+                    return err(
+                        Code::ModuleParameterMustBind,
+                        pattern.span,
+                        "a module parameter must bind a constant",
+                    );
                 };
                 let represented = if let Value::Type(t) = value {
                     Some(t)

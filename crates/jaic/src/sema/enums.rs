@@ -3,6 +3,7 @@ use super::lower::Operand;
 use super::scope::{EntityKind, EntityState, Resolved};
 use super::{Compiler, EntityId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err};
 use crate::ast::ExprKind as E;
+use crate::diagnostics::Code;
 use crate::types::{EnumInfo, TypeKind};
 
 #[derive(Clone, Debug)]
@@ -230,12 +231,20 @@ impl Compiler {
         ty: TypeId,
     ) -> Result<()> {
         if matches!(filter, ast::UsingFilter::Map(_)) {
-            return err(value.span, "`using,map` is not supported in an enum body");
+            return err(
+                Code::EnumBodyInvalid,
+                value.span,
+                "`using,map` is not supported in an enum body",
+            );
         }
         let filter = self.resolve_name_filter(scope, filter)?;
         let source = self.eval_type(scope, value)?;
         let TypeKind::Enum(source_id) = *self.ty.types.kind(source) else {
-            return err(value.span, "`using` in an enum body needs an enum type");
+            return err(
+                Code::EnumBodyInvalid,
+                value.span,
+                "`using` in an enum body needs an enum type",
+            );
         };
         let strict = self.ty.types.enums[source_id.0 as usize]
             .loose_of
@@ -303,6 +312,7 @@ impl Compiler {
                     } => value,
                     other => {
                         return err(
+                            Code::EnumValue,
                             expr.span,
                             format!(
                                 "enum value must be an integer constant, found {}",
@@ -351,6 +361,7 @@ impl Compiler {
             }
             Initializer::PendingOrder => {
                 return err(
+                    Code::EnumDeclarationOrder,
                     span,
                     "enum declaration-order dependency: conditional/injected declarations must establish this implicit member's predecessor",
                 );
@@ -377,7 +388,11 @@ impl Compiler {
             ..
         } = self.eval_insert_operand(scope, value)?
         else {
-            return err(value.span, "#insert in an enum body needs a string");
+            return err(
+                Code::EnumBodyInvalid,
+                value.span,
+                "#insert in an enum body needs a string",
+            );
         };
         let text = format!(
             "__jaic_enum :: enum {{\n{}\n}};",
@@ -388,9 +403,17 @@ impl Compiler {
         match parsed.stmts.first().map(|stmt| &stmt.kind) {
             Some(ast::StmtKind::Decl(decl)) => match decl.value.as_ref().map(|value| &value.kind) {
                 Some(E::Enum(lit)) => Ok(lit.items.clone()),
-                _ => err(value.span, "could not parse inserted enum members"),
+                _ => err(
+                    Code::EnumBodyInvalid,
+                    value.span,
+                    "could not parse inserted enum members",
+                ),
             },
-            _ => err(value.span, "could not parse inserted enum members"),
+            _ => err(
+                Code::EnumBodyInvalid,
+                value.span,
+                "could not parse inserted enum members",
+            ),
         }
     }
 }

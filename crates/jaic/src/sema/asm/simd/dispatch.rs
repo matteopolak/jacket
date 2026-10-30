@@ -1,6 +1,7 @@
 //! Routing a SIMD operation to the group that lowers it.
 use super::VOp;
 use super::helpers::WriteMask;
+use crate::diagnostics::Code;
 use crate::sema::asm::vec::{VOpd, VecCall};
 use crate::sema::asm::{AsmCtx, AsmInst, Compiler, FnCtx, Result, Span, Val, err};
 
@@ -31,7 +32,11 @@ impl Compiler {
         let span = inst.span;
         let name = inst.mnemonic.name.as_str();
         let Some(&dst) = ops.first() else {
-            return err(span, format!("`{name}` needs operands"));
+            return err(
+                Code::AsmOperandCount,
+                span,
+                format!("`{name}` needs operands"),
+            );
         };
         let tmp = f.b.alloca(64, 16);
         f.b.zero(tmp, 64);

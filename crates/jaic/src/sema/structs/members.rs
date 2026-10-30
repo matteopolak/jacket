@@ -1,5 +1,6 @@
 //! Finding members by name: fields, constants and promoted members.
 use super::model::{MemberResolution, PathStep, UsingFilters, using_candidates};
+use crate::diagnostics::Code;
 use crate::ir::Ty;
 use crate::layout;
 use crate::sema::lower::FnCtx;
@@ -116,6 +117,7 @@ impl Compiler {
             match self.member_offset(ty, name, span)? {
                 Some((offset, _)) => Ok(offset),
                 None => err(
+                    Code::StructPreloadsSourceCode,
                     span,
                     format!("Preload's `Source_Code_Location` has no `{name}`"),
                 ),
@@ -189,6 +191,7 @@ impl Compiler {
                     self.find_member_in(at, step, span, &mut Vec::new())?
                 else {
                     return err(
+                        Code::StructNotMember,
                         span,
                         format!("`{step}` is not a member of {}", self.ty.types.name(at)),
                     );

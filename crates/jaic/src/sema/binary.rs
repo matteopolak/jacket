@@ -10,6 +10,7 @@ mod typing;
 use super::lower::{FnCtx, Operand};
 use super::{Compiler, Result, ScopeId, Span, TypeId, Value, ast, err, ir};
 use crate::ast::{BinOp, ExprKind as E};
+use crate::diagnostics::Code;
 use crate::ir::CmpOp;
 
 /// The operator and operand expressions of a binary expression.
@@ -70,7 +71,11 @@ impl Compiler {
             return match op {
                 BinOp::Eq => Ok(Operand::bool(x == y)),
                 BinOp::Ne => Ok(Operand::bool(x != y)),
-                _ => err(span, "types can only be compared with == and !="),
+                _ => err(
+                    Code::TypesOnlyCompared,
+                    span,
+                    "types can only be compared with == and !=",
+                ),
             };
         }
         let (lhs, rhs) = match self.as_scalar_operands(f, scope, op, &lhs, &rhs, span)? {

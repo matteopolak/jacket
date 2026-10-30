@@ -82,7 +82,7 @@ impl Compiler {
             .collect();
         available.sort();
         available.dedup();
-        let d = Diagnostic::error(span, format!("module `{name}` not found"))
+        let d = Diagnostic::new(Code::ModuleNot, span, format!("module `{name}` not found"))
             .with_label("no module of this name");
         let mut d = match self.with_extension_help(d, name, span) {
             Ok(d) => return d,
@@ -204,19 +204,25 @@ impl SourceState {
             } else {
                 format!("folder `{shown}` does not exist")
             };
-            return Diagnostic::error(span, message)
-                .with_code(Code::MissingFile)
+            return Diagnostic::new(Code::MissingFile, span, message)
                 .with_note(Span::NONE, format!("looked for {}", path.display()))
                 .with_help(relative);
         }
         if self.fs.is_dir(path) {
-            return Diagnostic::error(span, format!("`{shown}` is a directory, not a file"))
-                .with_help(
-                    "`#load` takes a .jai file; `#import,dir` imports a directory's module.jai",
-                );
+            return Diagnostic::new(
+                Code::ModuleDirectoryNotFile,
+                span,
+                format!("`{shown}` is a directory, not a file"),
+            )
+            .with_help(
+                "`#load` takes a .jai file; `#import,dir` imports a directory's module.jai",
+            );
         }
-        let mut d = Diagnostic::error(span, format!("file `{shown}` does not exist"))
-            .with_code(Code::MissingFile);
+        let mut d = Diagnostic::new(
+            Code::MissingFile,
+            span,
+            format!("file `{shown}` does not exist"),
+        );
         let dir = path.parent().unwrap_or(Path::new("."));
         let name = path
             .file_name()

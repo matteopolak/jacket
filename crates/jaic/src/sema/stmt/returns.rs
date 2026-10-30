@@ -1,4 +1,5 @@
 //! `return` statements and emitting deferred code.
+use crate::diagnostics::Code;
 use crate::ir::Ty;
 use crate::sema::lower::{DeferAction, FnCtx, Operand};
 use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, TypeId, ast, err};
@@ -67,7 +68,11 @@ impl Compiler {
         span: Span,
     ) -> Result<()> {
         let Some(proc) = f.proc else {
-            return err(span, "named return values need a procedure");
+            return err(
+                Code::NamedReturnValues,
+                span,
+                "named return values need a procedure",
+            );
         };
         let names = self.signature(proc, span)?.return_names.clone();
         let types = f.return_types.clone();
@@ -78,7 +83,8 @@ impl Compiler {
                     .iter()
                     .position(|r| *r == Some(n.name))
                     .ok_or_else(|| {
-                        Box::new(Diagnostic::error(
+                        Box::new(Diagnostic::new(
+                            Code::NoReturnValue,
                             n.span,
                             format!("no return value named `{}`", n.name),
                         ))
@@ -88,10 +94,14 @@ impl Compiler {
                 positional - 1
             };
             let Some(&ty) = types.get(index) else {
-                return err(v.value.span, "too many return values");
+                return err(Code::TooManyReturn, v.value.span, "too many return values");
             };
             let Some(addr) = f.named_results[index] else {
-                return err(v.value.span, "return value has no name to assign");
+                return err(
+                    Code::ReturnValue,
+                    v.value.span,
+                    "return value has no name to assign",
+                );
             };
             let op = self.check_expr(f, scope, &v.value, Some(ty))?;
             let op = self.convert(f, op, ty, v.value.span)?;
@@ -116,7 +126,8 @@ impl Compiler {
     /// `return a, b, c;` in a procedure with fewer results: what it returns, and the
     /// statement without the values past the last result.
     fn too_many_returns(&self, types: &[TypeId], values: &[ast::Arg], span: Span) -> Diagnostic {
-        let mut d = Diagnostic::error(
+        let mut d = Diagnostic::new(
+            Code::TooManyReturnValues,
             span,
             format!("too many return values (procedure returns {})", types.len()),
         );
@@ -191,7 +202,8 @@ impl Compiler {
             // Remaining results take their named defaults.
             if let Some(i) = (ops.len()..types.len()).find(|&i| f.named_results[i].is_none()) {
                 return Err(Box::new(
-                    Diagnostic::error(
+                    Diagnostic::new(
+                        Code::MissingReturnValue,
                         span,
                         format!("missing return value {} of {}", i + 1, types.len()),
                     )
@@ -200,7 +212,7 @@ impl Compiler {
             }
         } else if ops.is_empty() && !types.is_empty() {
             return Err(Box::new(
-                Diagnostic::error(span, "missing return value")
+                Diagnostic::new(Code::MissingReturnValue2, span, "missing return value")
                     .with_help(self.returns_help(&types)),
             ));
         }

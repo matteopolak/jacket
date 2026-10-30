@@ -1,5 +1,6 @@
 //! Members reached through `using`, including override targets.
 use crate::ast::ExprKind as E;
+use crate::diagnostics::Code;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::scope::{EntityKind, Found, Resolved, UsingEntry};
 use crate::sema::{Compiler, Result, ScopeId, Span, Sym, TypeId, ast, err};
@@ -16,7 +17,11 @@ impl Compiler {
         match entry {
             UsingEntry::Filtered(base, filter) => {
                 let Some(target) = crate::sema::using::filter_target(&filter, member) else {
-                    return err(span, format!("using filter excludes `{member}`"));
+                    return err(
+                        Code::UsingFilterInvalid,
+                        span,
+                        format!("using filter excludes `{member}`"),
+                    );
                 };
                 self.using_member(f, *base, target, span)
             }
@@ -46,7 +51,13 @@ impl Compiler {
                             ty,
                             addr: f.b.storage_addr(storage),
                         },
-                        _ => return err(span, "invalid using target"),
+                        _ => {
+                            return err(
+                                Code::StructInvalidUsingTarget,
+                                span,
+                                "invalid using target",
+                            );
+                        }
                     },
                 };
                 let _ = ty;
@@ -107,6 +118,7 @@ impl Compiler {
                     });
                 }
                 err(
+                    Code::CannotUseUsing,
                     value.span,
                     format!("cannot use `using` on {}", self.describe(&other)),
                 )

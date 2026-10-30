@@ -8,6 +8,7 @@ mod tagged;
 mod views;
 
 use super::{Compiler, Diagnostic, PreludeType, Rc, Result, Span, Sym, TypeId, Value, err, ir};
+use crate::diagnostics::Code;
 use crate::sema::TypeState;
 use crate::types::{LayoutState, TypeKind};
 
@@ -239,6 +240,7 @@ impl Compiler {
         let cycle = |this: &Self| {
             let name = this.ty.types.name(owner);
             err(
+                Code::CircularDependency,
                 span,
                 format!("circular dependency while resolving `{name}`"),
             )
@@ -285,7 +287,13 @@ impl Compiler {
             self.ct
                 .interp
                 .refresh_global(&self.out.program, g)
-                .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
+                .map_err(|t| {
+                    Box::new(Diagnostic::new(
+                        Code::CompileTimeTrap,
+                        span,
+                        t.into_message(),
+                    ))
+                })?;
         }
         Ok(())
     }

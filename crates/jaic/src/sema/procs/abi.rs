@@ -1,4 +1,5 @@
 //! IR signatures and aggregate layouts for procedures.
+use crate::diagnostics::Code;
 use crate::ir::{Conv, Sig, Ty};
 use crate::layout;
 use crate::sema::{Compiler, Result, Span, TypeId, err, ir};
@@ -9,6 +10,7 @@ impl Compiler {
     pub fn ir_sig(&mut self, ty: TypeId, span: Span) -> Result<Sig> {
         let TypeKind::Proc(p) = self.ty.types.kind(ty).clone() else {
             return err(
+                Code::ProcNotProcedureType,
                 span,
                 format!("{} is not a procedure type", self.ty.types.name(ty)),
             );

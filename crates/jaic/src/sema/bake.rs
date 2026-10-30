@@ -9,6 +9,7 @@ use super::{
     Compiler, ConstArg, Diagnostic, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, calls, err,
     procs, value,
 };
+use crate::diagnostics::Code;
 
 impl Compiler {
     pub fn check_bake(
@@ -118,6 +119,7 @@ impl Compiler {
                 };
                 if let Some(arg) = args.iter().find(|a| a.context) {
                     return err(
+                        Code::CallBakeArguments,
                         arg.value.span,
                         "context arguments can only be baked into a procedure",
                     );
@@ -150,6 +152,7 @@ impl Compiler {
                 Ok(Operand::PolyStruct(baked))
             }
             _ => err(
+                Code::CallBakeArguments,
                 callee.span,
                 "#bake_arguments needs a single procedure or a polymorphic struct",
             ),
@@ -185,7 +188,13 @@ impl Compiler {
                     };
                     (value, ty)
                 }
-                _ => return err(arg.span, "baked argument must be a compile-time constant"),
+                _ => {
+                    return err(
+                        Code::CallBakeArguments,
+                        arg.span,
+                        "baked argument must be a compile-time constant",
+                    );
+                }
             },
             Some(t) => (self.const_value_of_type(scope, arg, t)?, t),
         })
@@ -205,6 +214,7 @@ impl Compiler {
         use ast::StmtKind as S;
         let Some(body) = body else {
             return err(
+                Code::CallBakeArguments,
                 span,
                 "a procedure without a body cannot bake context arguments",
             );
@@ -278,13 +288,20 @@ impl Compiler {
                     .iter()
                     .position(|p| p.name.map(|pn| pn.name) == Some(n.name))
                     .ok_or_else(|| {
-                        Box::new(Diagnostic::error(
+                        Box::new(Diagnostic::new(
+                            Code::CallBakeArguments,
                             n.span,
                             format!("no parameter named `{}` to bake", n.name),
                         ))
                     })?,
                 None if i < params.len() => i,
-                None => return err(arg.value.span, "too many arguments to #bake_arguments"),
+                None => {
+                    return err(
+                        Code::CallBakeArguments,
+                        arg.value.span,
+                        "too many arguments to #bake_arguments",
+                    );
+                }
             };
             baked[index] = Some(arg);
         }
@@ -302,7 +319,11 @@ impl Compiler {
                 continue;
             };
             let Some(name) = param.name else {
-                return err(span, "cannot bake an unnamed parameter");
+                return err(
+                    Code::CallBakeArguments,
+                    span,
+                    "cannot bake an unnamed parameter",
+                );
             };
             let pattern = param.ty.as_ref().and_then(|t| {
                 let mut t = t.clone();

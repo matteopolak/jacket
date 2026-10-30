@@ -80,6 +80,7 @@ impl Compiler {
         if sig.has_context {
             let Some(ctx) = f.current_context() else {
                 return err(
+                    Code::CallCannotWithoutContext,
                     span,
                     format!(
                         "cannot call `{}` without a context (use push_context in #c_call code)",
@@ -424,7 +425,8 @@ impl Compiler {
                     .iter()
                     .position(|&p| p == Some(name))
                     .ok_or_else(|| {
-                        Box::new(Diagnostic::error(
+                        Box::new(Diagnostic::new(
+                            Code::CallNoParameterNamed,
                             arg.span,
                             format!("no parameter named `{name}`"),
                         ))
@@ -440,11 +442,11 @@ impl Compiler {
                     extra.push(arg);
                     continue;
                 }
-                let mut d = Diagnostic::error(
+                let mut d = Diagnostic::new(
+                    Code::ArgumentCount,
                     arg.span,
                     format!("too many arguments: it takes at most {n}"),
                 )
-                .with_code(Code::ArgumentCount)
                 .with_label("this argument has no parameter");
                 if let Some(remove) = remove_extra_arguments(&all_args, position) {
                     d = d.with_suggestion(remove);
@@ -453,6 +455,7 @@ impl Compiler {
             }
             if slots[i].is_some() {
                 return err(
+                    Code::CallArgument,
                     arg.span,
                     format!("argument {} supplied more than once", i + 1),
                 );
@@ -476,8 +479,11 @@ impl Compiler {
                     scope: info.scope,
                 }),
                 (None, None) => {
-                    let mut d = Diagnostic::error(span, format!("missing argument {}", i + 1))
-                        .with_code(Code::ArgumentCount);
+                    let mut d = Diagnostic::new(
+                        Code::ArgumentCount,
+                        span,
+                        format!("missing argument {}", i + 1),
+                    );
                     if let Some(name) = info.names[i] {
                         d = d.with_label(format!("no value for parameter `{name}`"));
                     }
@@ -500,6 +506,7 @@ impl Compiler {
     ) -> Result<Operand> {
         let TypeKind::Proc(pt) = self.ty.types.kind(ty).clone() else {
             return err(
+                Code::CallCannotValueType,
                 span,
                 format!("cannot call a value of type {}", self.ty.types.name(ty)),
             );
@@ -513,20 +520,24 @@ impl Compiler {
                 .order_indirect_args(&info, args, pt.c_varargs, span)
                 .map_err(|d| self.with_type_note(*d, ty))?;
         } else if args.iter().any(|arg| arg.name.is_some()) {
-            return err(span, "named arguments require a known callable declaration");
+            return err(
+                Code::CallNamedArguments,
+                span,
+                "named arguments require a known callable declaration",
+            );
         }
         if args.len() < pt.params.len()
             || (!pt.c_varargs && !pt.variadic && args.len() > pt.params.len())
         {
-            let d = Diagnostic::error(
+            let d = Diagnostic::new(
+                Code::ArgumentCount,
                 span,
                 format!(
                     "expected {} arguments, found {}",
                     pt.params.len(),
                     args.len()
                 ),
-            )
-            .with_code(Code::ArgumentCount);
+            );
             return Err(self.with_type_note(d, ty));
         }
         let mut values = Vec::new();
@@ -588,7 +599,11 @@ impl TypeState {
                 elem,
                 kind: ArrayKind::View,
             } => Ok(elem),
-            _ => err(span, "a Jai variadic pack requires an array-view parameter"),
+            _ => err(
+                Code::CallJaiVariadicPack,
+                span,
+                "a Jai variadic pack requires an array-view parameter",
+            ),
         }
     }
 }
@@ -607,7 +622,8 @@ impl Compiler {
         if !must.iter().skip(used).any(|&m| m) {
             return Ok(());
         }
-        let mut d = Diagnostic::error(
+        let mut d = Diagnostic::new(
+            Code::CallResultMarked,
             call_span,
             format!("the result of `{name}` is marked #must and cannot be discarded"),
         );

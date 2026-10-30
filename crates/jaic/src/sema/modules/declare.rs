@@ -1,5 +1,6 @@
 //! Declaring a file's statements into its scopes and expanding pending items.
 use super::parameters::{ParameterContract, ParameterContractState};
+use crate::diagnostics::Code;
 use crate::sema::scope::{EntityKind, ImportEntry, Pending, PendingState, ScopeKind, UsingEntry};
 use crate::sema::{Compiler, EntityId, Rc, Result, ScopeId, Sym, ast, err, lower, procs};
 
@@ -91,7 +92,13 @@ impl Compiler {
             | ast::StmtKind::Directive(..)
             | ast::StmtKind::Empty => self.declare_directive_stmt(scope, file_scope, stmt, vis)?,
             ast::StmtKind::Scope(kind) => return Ok(*kind),
-            _ => return err(stmt.span, "this statement is not allowed at file scope"),
+            _ => {
+                return err(
+                    Code::ModuleStatementNotAllowed,
+                    stmt.span,
+                    "this statement is not allowed at file scope",
+                );
+            }
         }
         Ok(vis)
     }
@@ -338,7 +345,8 @@ impl Compiler {
                 let full = self.file_dir(file).join(&**path);
                 if self.file_is_loaded(&full, module) {
                     return Err(Box::new(
-                        crate::sema::Diagnostic::error(
+                        crate::sema::Diagnostic::new(
+                            Code::ModuleAlreadyLoaded,
                             *span,
                             format!("`{path}` is already loaded into this module"),
                         )
@@ -358,6 +366,7 @@ impl Compiler {
                 let module = self.scope(scope).module;
                 if self.ns.main_module == Some(module) {
                     return err(
+                        Code::ModuleParameters,
                         stmt.span,
                         "#module_parameters can only be used at the top level of an imported module, not in a program file",
                     );
@@ -389,6 +398,7 @@ impl Compiler {
                             .any(|(n, ..)| *n == name.name || n.as_str() == format!("${position}"))
                     {
                         return err(
+                            Code::ModuleMissingArgumentParameter,
                             param.span,
                             format!("missing argument for module parameter `{}`", name.name),
                         );
@@ -531,7 +541,11 @@ impl Compiler {
                     },
                 ] = &directive.args[..]
                 else {
-                    return err(stmt.span, "#poke_name takes a module and a name");
+                    return err(
+                        Code::ModulePokeName,
+                        stmt.span,
+                        "#poke_name takes a module and a name",
+                    );
                 };
                 self.ns.pokes.push((module.clone(), *poked, file_scope));
             }
@@ -569,7 +583,11 @@ impl Compiler {
         while let Some((module_expr, name, file_scope)) = self.ns.pokes.pop() {
             let lower::Operand::Module(module) = self.eval_const(file_scope, &module_expr, None)?
             else {
-                return err(module_expr.span, "#poke_name needs a module");
+                return err(
+                    Code::ModulePokeName2,
+                    module_expr.span,
+                    "#poke_name needs a module",
+                );
             };
             let module_scope = self.ns.modules[module.0 as usize].scope;
             // The module sees the same entity (a copy would resolve to a second,

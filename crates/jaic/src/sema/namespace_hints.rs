@@ -199,11 +199,11 @@ impl Compiler {
         span: Span,
     ) -> Diagnostic {
         let module_name = &self.ns.modules[module.0 as usize].name;
-        let mut d = Diagnostic::error(
+        let mut d = Diagnostic::new(
+            Code::UnknownModuleMember,
             span,
             format!("module `{module_name}` has no exported member `{name}`"),
         )
-        .with_code(Code::UnknownModuleMember)
         .with_data(Data::Module(module.0));
         // `#scope_file` names live in the scope of their file, the others in the module's.
         let in_file = self

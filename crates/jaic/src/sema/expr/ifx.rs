@@ -100,11 +100,10 @@ impl Compiler {
         }
         let name = self.ty.types.name(target);
         Err(Box::new(
-            Diagnostic::error(
+            Diagnostic::new(Code::ImplicitNarrowing,
                 span,
                 format!("an `ifx` of integer constants is an `s64`, which does not fit `{name}` without a cast"),
             )
-            .with_code(Code::ImplicitNarrowing)
             .with_label(format!("`s64` given, `{name}` wanted"))
             .with_help(format!(
                 "cast the whole expression, `cast({name}) ifx ..`, or an arm: `ifx c then cast({name}) 1 else 2`"
@@ -169,9 +168,13 @@ impl Compiler {
         };
         let (a, b) = (describe(self, then_op), describe(self, else_op));
         Err(Box::new(
-            Diagnostic::error(span, "the branches of `ifx` have different types")
-                .with_note(then_e.span, format!("the `then` value is `{a}`"))
-                .with_note(else_e.span, format!("the `else` value is `{b}`")),
+            Diagnostic::new(
+                Code::BranchesIfxDifferent,
+                span,
+                "the branches of `ifx` have different types",
+            )
+            .with_note(then_e.span, format!("the `then` value is `{a}`"))
+            .with_note(else_e.span, format!("the `else` value is `{b}`")),
         ))
     }
 

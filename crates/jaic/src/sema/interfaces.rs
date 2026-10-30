@@ -1,6 +1,7 @@
 //! Structural interface validation at generic binding time.
 use super::scope::Resolved;
 use super::{Compiler, HashSet, ProcId, Result, Span, TypeId, Value, err};
+use crate::diagnostics::Code;
 
 impl Compiler {
     pub(super) fn validate_interface(
@@ -17,7 +18,11 @@ impl Compiler {
             }
             let Some(contract) = self.ty.types.as_struct(self.ty.types.repr_struct(required))
             else {
-                return err(span, "an interface restriction must name a struct contract");
+                return err(
+                    Code::InterfaceRestriction,
+                    span,
+                    "an interface restriction must name a struct contract",
+                );
             };
             if self
                 .ty
@@ -26,6 +31,7 @@ impl Compiler {
                 .is_none()
             {
                 return err(
+                    Code::InterfaceConstraint,
                     span,
                     format!(
                         "{} does not satisfy interface {}: expected a struct",
@@ -47,6 +53,7 @@ impl Compiler {
                 let found = self.find_member(actual, name, span)?;
                 if found.is_none_or(|(_, ty)| ty != field.ty) {
                     return err(
+                        Code::InterfaceConstraint,
                         span,
                         format!(
                             "{} does not satisfy interface {}: missing or incompatible field `{}`",
@@ -71,6 +78,7 @@ impl Compiler {
                 let wanted = self.resolve_entity(id)?;
                 let Some(candidates) = self.struct_constant(actual, name)? else {
                     return err(
+                        Code::InterfaceConstraint,
                         span,
                         format!(
                             "{} does not satisfy interface {}: missing member `{name}`",
@@ -107,6 +115,7 @@ impl Compiler {
                 };
                 if !compatible {
                     return err(
+                        Code::InterfaceConstraint,
                         span,
                         format!(
                             "{} does not satisfy interface {}: incompatible member `{name}`",

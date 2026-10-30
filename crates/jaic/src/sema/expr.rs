@@ -8,6 +8,7 @@ use super::binary::Binary;
 use super::lower::{FnCtx, Operand, Origin};
 use super::{Compiler, Rc, Result, ScopeId, Sym, TypeId, Value, ast, err, ir};
 use crate::ast::{BinOp, ExprKind as E};
+use crate::diagnostics::Code;
 use crate::ir::Ty;
 use crate::types::{ArrayKind, TypeKind};
 
@@ -252,11 +253,16 @@ impl Compiler {
                 untyped: true,
                 origin: Origin::Computed,
             }),
-            E::Uninit => err(span, "`---` is only allowed as a declaration initializer"),
+            E::Uninit => err(
+                Code::OnlyAllowedDeclaration,
+                span,
+                "`---` is only allowed as a declaration initializer",
+            ),
             E::Context => {
                 let ty = self.context_type(span)?;
                 let Some(ctx) = f.current_context() else {
                     return err(
+                        Code::ContextNotAvailable,
                         span,
                         "`context` is not available here (procedure is #c_call or #no_context; use push_context)",
                     );
@@ -581,6 +587,7 @@ impl Compiler {
                             Some(n) if n >= 0 => ArrayKind::Fixed(n as u64),
                             _ => {
                                 return err(
+                                    Code::ArraySize,
                                     span,
                                     format!(
                                         "array size must be a non-negative constant, found {}",
@@ -700,7 +707,13 @@ impl Compiler {
                             hidden_scope.proc_depth = proc_depth;
                             hidden
                         }
-                        _ => return err(t.span, "#insert,scope(...) needs a Code value"),
+                        _ => {
+                            return err(
+                                Code::InsertScope,
+                                t.span,
+                                "#insert,scope(...) needs a Code value",
+                            );
+                        }
                     },
                     None if flags.iter().any(|fl| fl.name.as_str() == "scope") => scope,
                     None => at,
@@ -826,7 +839,11 @@ impl Compiler {
                     (_, Some(s)) => s,
                     (Some(frame), None) => frame.caller_scope,
                     (None, None) => {
-                        return err(span, "backtick names are only valid inside macros");
+                        return err(
+                            Code::BacktickNames,
+                            span,
+                            "backtick names are only valid inside macros",
+                        );
                     }
                 };
                 self.check_expr(f, caller, inner, expected)
@@ -839,7 +856,11 @@ impl Compiler {
             E::ProcedureOfCall(call) => self.check_procedure_of_call(f, scope, call),
             E::CallerCode => {
                 let Some((call, caller_scope)) = self.pr.calls_in_flight.last().cloned() else {
-                    return err(span, "#caller_code is only valid as a parameter default");
+                    return err(
+                        Code::CallerCode,
+                        span,
+                        "#caller_code is only valid as a parameter default",
+                    );
                 };
                 let id = self.add_code(Rc::new(ast::CodeBody::Expr((*call).clone())), caller_scope);
                 Ok(Operand::Const {
@@ -856,6 +877,7 @@ impl Compiler {
                 Ok(Operand::Type(self.jaic_type(d.operand.as_ref(), span)?))
             }
             E::UnknownDirective(d) => err(
+                Code::DirectiveNotSupported,
                 d.name.span,
                 format!(
                     "directive `#{}` is not supported in this position",

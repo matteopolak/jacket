@@ -43,7 +43,11 @@ impl Compiler {
             if existing(i) {
                 // `a=, b := ...` assigns to a variable that is already in scope.
                 let Some(value) = value else {
-                    return err(name.span, "assignment needs a value");
+                    return err(
+                        Code::AssignmentNeedsValue,
+                        name.span,
+                        "assignment needs a value",
+                    );
                 };
                 // `a, b:, _ = f()` discards the value of `_`, as `a, _ = f()` does.
                 if name.name.as_str() == "_" && decl.targets().get(i).is_none_or(Option::is_none) {
@@ -109,7 +113,13 @@ impl Compiler {
                         other => other.ty(),
                     }
                 }
-                (None, None) => return err(span, "declaration needs a type or a value"),
+                (None, None) => {
+                    return err(
+                        Code::DeclarationNeedsType,
+                        span,
+                        "declaration needs a type or a value",
+                    );
+                }
             };
             self.ensure_storage_type(ty, span)?;
             // Metaprograms read local declaration types from the exported syntax tree.
@@ -156,7 +166,8 @@ impl Compiler {
                 self.reject_using_redeclaration(target, name.name, name.span)?;
             }
             if !discard && self.declares_local(target, name.name) {
-                let mut d = Diagnostic::error(
+                let mut d = Diagnostic::new(
+                    Code::ProcAlreadyDeclaredScope,
                     name.span,
                     format!("`{}` is already declared in this scope", name.name),
                 )
@@ -381,7 +392,7 @@ impl Compiler {
             };
             if names > 1 && count < names {
                 return Err(Box::new(
-                    Diagnostic::error(
+                    Diagnostic::new(Code::NamesButCall,
                         first.span,
                         format!(
                             "{names} names but the call returns {count} value{}",
@@ -534,6 +545,7 @@ impl Compiler {
             }
             other => {
                 return err(
+                    Code::CannotUseUsing,
                     value.span,
                     format!("cannot use `using` on {}", self.describe(&other)),
                 );
@@ -558,6 +570,7 @@ impl TypeState {
             return Ok(());
         }
         err(
+            Code::UsingNeedsStruct,
             span,
             format!(
                 "`using` needs a struct, an enum or a pointer to one; this is `{}`",

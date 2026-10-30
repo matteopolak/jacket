@@ -1,5 +1,6 @@
 //! What a positional struct literal with the wrong number of values tells the author: the
 //! members it fills, in order, and which of them it left out or has no member for.
+use crate::diagnostics::Code;
 use crate::sema::{Compiler, Diagnostic, Span, Sym, TypeId, ast};
 use crate::source::{Applicability, Suggestion};
 
@@ -34,7 +35,11 @@ impl Compiler {
             .skip(given)
             .filter_map(|m| m.0)
             .collect();
-        let mut d = Diagnostic::error(span, "not enough values in this struct literal");
+        let mut d = Diagnostic::new(
+            Code::StructNotEnoughValues,
+            span,
+            "not enough values in this struct literal",
+        );
         if !missing.is_empty() {
             d = d.with_label(format!(
                 "no value for {}",
@@ -70,8 +75,12 @@ impl Compiler {
         let extra = values[first_extra].value.span;
         let name = self.ty.types.name(ty);
         let names: Vec<Sym> = members.iter().filter_map(|m| m.0).collect();
-        let mut d = Diagnostic::error(extra, format!("too many values for `{name}`"))
-            .with_label("this value has no member");
+        let mut d = Diagnostic::new(
+            Code::StructTooManyValues,
+            extra,
+            format!("too many values for `{name}`"),
+        )
+        .with_label("this value has no member");
         d = d.with_note(
             Span::NONE,
             if names.is_empty() {

@@ -9,6 +9,7 @@ use super::{
     AsmCtx, AsmInst, AsmOperand, AsmReg, BinOp, CmpOp, Compiler, Flags, FnCtx, Imm, Opd, Result,
     Ty, UnOp, Val, bin, bits, cmp, err, is_zero, konst, resize,
 };
+use crate::diagnostics::Code;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum KOp {
@@ -93,14 +94,22 @@ impl Compiler {
         let n = opds.len();
         let want = |k: usize| -> Result<()> {
             if n != k {
-                return err(span, format!("`{name}` takes {k} operand(s), found {n}"));
+                return err(
+                    Code::AsmOperandCount,
+                    span,
+                    format!("`{name}` takes {k} operand(s), found {n}"),
+                );
             }
             Ok(())
         };
         let need_mask = |o: KOpd| -> Result<Val> {
             match o {
                 KOpd::Mask(p) => Ok(p),
-                KOpd::Other(_) => err(span, format!("`{name}` needs mask register operands")),
+                KOpd::Other(_) => err(
+                    Code::AsmMaskOperand,
+                    span,
+                    format!("`{name}` needs mask register operands"),
+                ),
             }
         };
         match op {
@@ -173,7 +182,13 @@ impl Compiler {
                 let a = Self::mask_load(f, need_mask(opds[1])?, ty);
                 let count = match opds[2] {
                     KOpd::Other(Opd::Imm(Imm::Int(c))) if (0..=255).contains(&c) => c as u64,
-                    _ => return err(span, format!("`{name}` takes an 8-bit immediate count")),
+                    _ => {
+                        return err(
+                            Code::AsmOperandForm,
+                            span,
+                            format!("`{name}` takes an 8-bit immediate count"),
+                        );
+                    }
                 };
                 // Counts at or above the mask width clear it (IR shifts are total).
                 let c = konst(f, ty, count.min(bits(ty)));
@@ -238,6 +253,7 @@ impl Compiler {
             AsmOperand::Value(e) => match self.asm_reg_named(cx.scope, e)? {
                 Some((AsmReg::Mask, addr)) => Ok(KOpd::Mask(addr)),
                 Some((AsmReg::Vec, _)) => err(
+                    Code::AsmVectorOperand,
                     e.span,
                     "a vector register is not valid in a mask instruction",
                 ),

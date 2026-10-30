@@ -79,18 +79,6 @@ impl Diagnostic {
         }
     }
 
-    #[must_use]
-    pub fn error(span: Span, message: impl Into<String>) -> Self {
-        Self::new(Code::Uncoded, span, message)
-    }
-
-    #[must_use]
-    pub fn warning(span: Span, message: impl Into<String>) -> Self {
-        let mut d = Self::new(Code::Uncoded, span, message);
-        d.severity = Severity::Warning;
-        d
-    }
-
     /// Report the same problem under another code.
     #[must_use]
     pub fn with_code(mut self, code: Code) -> Self {

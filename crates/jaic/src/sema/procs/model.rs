@@ -1,4 +1,5 @@
 //! Procedure records: targets, parameters, signatures and the polymorphism helpers over headers.
+use crate::diagnostics::Code;
 use crate::sema::{
     HashMap, InstanceKeyValue, ProcId, ProcTypeParams, Rc, Result, ScopeId, Span, Sym, TypeId, ast,
     err, ir,
@@ -48,6 +49,7 @@ pub(in crate::sema) fn validate_c_variadic_header(header: &ast::ProcHeader) -> R
     while let Some(param) = runtime.next() {
         if param.variadic && runtime.peek().is_some() {
             return err(
+                Code::ProcCVariadicParameter,
                 param.span,
                 "a C variadic parameter must be the last runtime parameter",
             );

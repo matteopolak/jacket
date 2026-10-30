@@ -1,4 +1,5 @@
 //! Index expressions and pointer-index operators.
+use crate::diagnostics::Code;
 use crate::ir::Ty;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, TypeId, Value, ast, err, ir};
@@ -57,7 +58,11 @@ impl Compiler {
         };
         let (ty, val) = self.rvalue(f, result, span)?;
         let Some(elem) = self.ty.types.pointee(ty) else {
-            return err(span, "operator *[] must return a pointer");
+            return err(
+                Code::OperatorMustReturn,
+                span,
+                "operator *[] must return a pointer",
+            );
         };
         Ok(Some(Operand::Place {
             ty: elem,
@@ -269,6 +274,7 @@ impl Compiler {
             )
         {
             return err(
+                Code::ArrayIndex,
                 index_span,
                 format!(
                     "array index must be an integer, found {}",
@@ -330,7 +336,8 @@ impl Compiler {
             }
             _ => {
                 return Err(Box::new(
-                    Diagnostic::error(
+                    Diagnostic::new(
+                        Code::CannotIndexValue,
                         span,
                         format!("cannot index a value of type {}", self.ty.types.name(bty)),
                     )

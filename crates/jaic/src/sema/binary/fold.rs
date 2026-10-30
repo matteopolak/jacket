@@ -1,6 +1,7 @@
 //! Constant folding of binary expressions.
 use super::num;
 use crate::ast::BinOp;
+use crate::diagnostics::Code;
 use crate::int_arith::{DivideByZero, IntOp, int_binop};
 use crate::sema::lower::{Operand, Origin};
 use crate::sema::{Compiler, Result, Span, TypeId, Value, err};
@@ -108,6 +109,7 @@ impl Compiler {
                 };
                 if matches!(op, BinOp::Shl | BinOp::Shr) && b < 0 {
                     return err(
+                        Code::BinaryNegativeShiftAmount,
                         span,
                         format!("negative shift amount {b} in constant expression"),
                     );
@@ -124,7 +126,11 @@ impl Compiler {
                     Some(int_op) => match int_binop(int_op, a, b, bits, signed) {
                         Ok(x) => Some(Value::Int(x)),
                         Err(DivideByZero) => {
-                            return err(span, "division by zero in constant expression");
+                            return err(
+                                Code::BinaryDivisionZeroConstant,
+                                span,
+                                "division by zero in constant expression",
+                            );
                         }
                     },
                     None if matches!(op, BinOp::Rotl | BinOp::Rotr) => None,
@@ -143,6 +149,7 @@ impl Compiler {
                 }
                 if self.ty.types.repr(ty) == TypeId::F32 && !untyped && precision.requires_float64 {
                     return err(
+                        Code::BinaryFloatingLiteral,
                         span,
                         "this floating literal requires float64 precision (use an explicit cast to round it)",
                     );
@@ -160,7 +167,11 @@ impl Compiler {
                     BinOp::Mul => Some(float(a * b)),
                     BinOp::Div => {
                         if b == 0.0 {
-                            return err(span, "division by zero in constant expression");
+                            return err(
+                                Code::BinaryDivisionZeroConstant,
+                                span,
+                                "division by zero in constant expression",
+                            );
                         }
                         Some(float(a / b))
                     }

@@ -1,5 +1,6 @@
 //! Assignments: indexed, operator and plain targets.
 use crate::ast::ExprKind as E;
+use crate::diagnostics::Code;
 use crate::sema::calls::CallArg;
 use crate::sema::lower::{FnCtx, Immutable, Operand};
 use crate::sema::scope::{EntityKind, Found};
@@ -320,7 +321,8 @@ impl Compiler {
             } = operand
                 && !matches!(value, Value::Type(_) | Value::Null)
             {
-                let d = Diagnostic::error(
+                let d = Diagnostic::new(
+                    Code::CannotAssignConstant,
                     target.span,
                     format!(
                         "cannot assign into the constant `{}`",
@@ -355,7 +357,8 @@ impl Compiler {
             {
                 return Err(match why {
                     Immutable::Argument => self.immutable_argument(f, entity, *name, target.span),
-                    Immutable::Iterator => Box::new(Diagnostic::error(
+                    Immutable::Iterator => Box::new(Diagnostic::new(
+                        Code::CantAssignLarge,
                         target.span,
                         "Can't assign to a large-value iterator. Perhaps you want to iterate by pointer (for *).",
                     )),
@@ -486,7 +489,11 @@ impl Compiler {
             return self.check_assign_pairs(f, scope, op, lhs, rhs, span);
         }
         if lhs.len() != 1 || rhs.len() != 1 {
-            return err(span, "compound assignment takes one target and one value");
+            return err(
+                Code::CompoundAssignment,
+                span,
+                "compound assignment takes one target and one value",
+            );
         }
         if self.try_operator_assign(f, scope, bin, &lhs[0], &rhs[0], span)? {
             return Ok(());
@@ -629,6 +636,7 @@ impl Compiler {
         // A list of values pairs with the targets one to one, as in `a, b := 1, 2;`.
         if rhs.len() > 1 && rhs.len() != lhs.len() {
             return err(
+                Code::NamesButValues,
                 span,
                 format!("{} names but {} values", lhs.len(), rhs.len()),
             );
@@ -717,6 +725,7 @@ impl Compiler {
                     return Ok(None);
                 }
                 return err(
+                    Code::ExpectedValues,
                     rhs[0].span,
                     format!(
                         "expected {} values, found {}",

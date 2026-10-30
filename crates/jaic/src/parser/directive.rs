@@ -5,6 +5,7 @@ use crate::ast::{
     Block, CodeBody, DirectiveKind, Expr, ExprKind, Ident, InsertExpr, Notes, RunBody, Stmt,
     StmtKind, TypeModifier, UnknownDirective,
 };
+use crate::diagnostics::Code;
 use crate::lexer::{P, Tok};
 use crate::macros::raw_enum;
 use std::rc::Rc;
@@ -412,7 +413,8 @@ impl Parser<'_> {
             Ok(text) if text.chars().count() == 1 => text.chars().next().map_or(0, |c| c as u32),
             Err(_) if bytes.len() == 1 => bytes[0] as u32,
             _ => {
-                return Err(crate::diagnostics::Diagnostic::error(
+                return Err(crate::diagnostics::Diagnostic::new(
+                    Code::ParseCharNeedsString,
                     span,
                     format!(
                         "`#char` needs a string of exactly one character, found {} bytes",
@@ -492,7 +494,8 @@ impl Parser<'_> {
                 },
                 span,
             )),
-            _ => Err(crate::diagnostics::Diagnostic::error(
+            _ => Err(crate::diagnostics::Diagnostic::new(
+                Code::ParseExpectedCall,
                 operand.span,
                 "expected a call after the bake directive",
             )),

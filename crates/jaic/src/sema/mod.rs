@@ -74,7 +74,7 @@ pub(crate) mod using;
 mod wide;
 
 use crate::ast;
-use crate::diagnostics::Diagnostic;
+use crate::diagnostics::{Code, Diagnostic};
 use crate::fxhash::{HashMap, HashSet};
 use crate::intern::Sym;
 use crate::ir;
@@ -111,8 +111,8 @@ pub type Result<T> = std::result::Result<T, Box<Diagnostic>>;
 /// A named compile-time argument: a module parameter or a baked procedure argument.
 pub type ConstArg = (Sym, Value, TypeId);
 
-pub fn err<T>(span: Span, message: impl Into<String>) -> Result<T> {
-    Err(Box::new(Diagnostic::error(span, message)))
+pub fn err<T>(code: Code, span: Span, message: impl Into<String>) -> Result<T> {
+    Err(Box::new(Diagnostic::new(code, span, message)))
 }
 
 /// Platform on which this compiler binary executes, independent of output options.

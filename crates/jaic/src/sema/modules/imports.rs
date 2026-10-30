@@ -1,6 +1,7 @@
 //! Resolving `#import` statements: instances, program origins, groups and provided modules.
 use super::filesystem::import_entry;
 use super::parameters::INFERRED_PARAM;
+use crate::diagnostics::Code;
 use crate::sema::{
     BootstrapModule, Compiler, ModuleId, ProvidedImport, ProvidedKind, Rc, Result, ScopeId, Sym,
     TypeId, Value, ast, err, scope,
@@ -148,6 +149,7 @@ impl Compiler {
                     };
                     let Some(entity) = entity else {
                         return err(
+                            Code::ModuleParameterInvalid,
                             import.span,
                             format!("argument `{name}` is not a parameter of this module"),
                         );
@@ -156,6 +158,7 @@ impl Compiler {
                     if !matches!(expected, scope::Resolved::Const { value: ref existing, .. } if *existing == value)
                     {
                         return err(
+                            Code::ModuleParameterInvalid,
                             import.span,
                             format!(
                                 "argument `{name}` conflicts with the configured runtime instance"
@@ -236,6 +239,7 @@ impl Compiler {
             .is_some_and(|start| start < import.params.len());
         if supplies_program_arguments && Some(self.scope(scope).module) != self.ns.main_module {
             return err(
+                Code::ModuleProgramParameters,
                 import.span,
                 "PROGRAM parameters may only be supplied by the main program of this workspace",
             );
@@ -279,6 +283,7 @@ impl Compiler {
         ] {
             if args.len() > names.len() {
                 return err(
+                    Code::ModuleTooManyParameters,
                     import.span,
                     format!(
                         "Too many {label} parameters: Wanted {}, got {}.",
@@ -294,6 +299,7 @@ impl Compiler {
                     let belongs_to_other_list =
                         ordinary.contains(&name.name) || program.contains(&name.name);
                     return err(
+                        Code::ModuleParameterInvalid,
                         name.span,
                         if belongs_to_other_list {
                             format!(

@@ -46,12 +46,12 @@ impl Compiler {
         let Some(block) = &header.modify else {
             return Ok(());
         };
-        let mut d = Diagnostic::error(
+        let mut d = Diagnostic::new(
+            Code::ModifyWithoutPolymorphs,
             self.src.modify_directive_span(block),
             format!("`#modify` needs polymorph variables to modify, but `{name}` has none"),
         )
-        .with_label("this block never runs")
-        .with_code(Code::ModifyWithoutPolymorphs);
+        .with_label("this block never runs");
         let runtime = header
             .params
             .iter()
@@ -98,12 +98,11 @@ impl Compiler {
             format!("`{name}`")
         };
         Err(Box::new(
-            Diagnostic::error(
+            Diagnostic::new(Code::ModifyWithoutPolymorphs,
                 self.src.modify_directive_span(block),
                 format!("`#modify` needs polymorph variables to modify, but {what} has none"),
             )
             .with_label("this block never runs")
-            .with_code(Code::ModifyWithoutPolymorphs)
             .with_help(
                 "a struct's `#modify` runs at compile time over the struct's parameters \
                  (`struct (N: int) #modify { ... }`); give the struct parameters, or remove the block",
@@ -289,12 +288,19 @@ impl Compiler {
                 .ct
                 .interp
                 .global_addr(&self.out.program, message)
-                .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
+                .map_err(|t| {
+                    Box::new(Diagnostic::new(
+                        Code::CompileTimeTrap,
+                        span,
+                        t.into_message(),
+                    ))
+                })?;
             let text = match self.read_value(addr, TypeId::STRING, span)? {
                 Value::String(s) if !s.is_empty() => format!(": {}", String::from_utf8_lossy(&s)),
                 _ => String::new(),
             };
             return err(
+                Code::ModifyRejectedArguments,
                 span,
                 format!("#modify rejected the arguments to {what}{text}"),
             );
@@ -305,7 +311,13 @@ impl Compiler {
                 .ct
                 .interp
                 .global_addr(&self.out.program, global)
-                .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
+                .map_err(|t| {
+                    Box::new(Diagnostic::new(
+                        Code::CompileTimeTrap,
+                        span,
+                        t.into_message(),
+                    ))
+                })?;
             out.push((name, self.read_value(addr, ty, span)?, ty));
         }
         Ok(out)

@@ -21,6 +21,7 @@ use super::{
     EntityKind, Expr, FnCtx, Found, Imm, Intrinsic, Opd, Operand, Result, ScopeId, Span, Ty, UnOp,
     Val, Value, bin, bits, cmp, err, is_neg, konst, ptr_of, resize, select, simd,
 };
+use crate::diagnostics::Code;
 
 mod groups;
 use super::simd::{AesOp, B2, Conv, DupKind, FmaKind, GfOp, Sat, ShaOp, U1};
@@ -507,6 +508,7 @@ impl VecCall<'_> {
         let n = self.ops.len();
         if n < lo || n > hi {
             return err(
+                Code::AsmOperandCount,
                 self.span,
                 format!("`{}` takes {lo} to {hi} operands, found {n}", self.name),
             );
@@ -560,11 +562,19 @@ impl Compiler {
                 // `movq.q` / `movd.d` and friends: the vector size is the default.
                 "b" | "w" | "d" | "q" | "8" | "16" | "32" | "64" => cx.vec_width,
                 other => {
-                    return err(s.span, format!("unknown vector size suffix `.{other}`"));
+                    return err(
+                        Code::AsmVectorOperand,
+                        s.span,
+                        format!("unknown vector size suffix `.{other}`"),
+                    );
                 }
             },
             Some(AsmSize::Dynamic(e)) => {
-                return err(e.span, "vector instructions take a .x/.y/.z size suffix");
+                return err(
+                    Code::AsmVectorOperand,
+                    e.span,
+                    "vector instructions take a .x/.y/.z size suffix",
+                );
             }
         };
         let n = inst.operands.len();
@@ -625,7 +635,7 @@ impl Compiler {
                 let (bits, reg) = match self.vec_operand_class(f, cx, m, "omr")? {
                     VOpd::Mask(p) | VOpd::Reg(p) => (f.b.load(Ty::I64, p), Some(p)),
                     VOpd::Gpr(opd) => (self.asm_read(f, opd, Ty::I64, span)?, None),
-                    _ => return err(span, "expected a mask register"),
+                    _ => return err(Code::AsmMaskOperand, span, "expected a mask register"),
                 };
                 Some(simd::WriteMask {
                     bits,
@@ -655,7 +665,13 @@ impl Compiler {
                 Some((mask, zeroing, dst, old))
             }
             (Some(_), Some(VOpd::Mask(_))) => None,
-            (Some(_), _) => return err(span, "a masked instruction needs a vector destination"),
+            (Some(_), _) => {
+                return err(
+                    Code::AsmVectorOperand,
+                    span,
+                    "a masked instruction needs a vector destination",
+                );
+            }
             _ => None,
         };
         let tmp = f.b.alloca(64, 16);
@@ -748,7 +764,11 @@ impl Compiler {
     pub(super) fn vec_imm(&self, o: VOpd, span: Span) -> Result<u64> {
         match o {
             VOpd::Imm(v) if (0..=255).contains(&v) => Ok(v as u64),
-            _ => err(span, "expected an 8-bit immediate operand"),
+            _ => err(
+                Code::AsmImmediate,
+                span,
+                "expected an 8-bit immediate operand",
+            ),
         }
     }
 
@@ -758,7 +778,11 @@ impl Compiler {
             VOpd::Reg(p) => Ok(p),
             VOpd::Mem(addr) => Ok(ptr_of(f, addr)),
             VOpd::Gpr(Opd::Reg(r)) => Ok(r.addr),
-            _ => err(span, "expected a vector register or memory operand"),
+            _ => err(
+                Code::AsmVectorOperand,
+                span,
+                "expected a vector register or memory operand",
+            ),
         }
     }
 
@@ -786,7 +810,11 @@ impl Compiler {
                 f.b.copy(p, src, size);
                 Ok(())
             }
-            _ => err(span, "the destination must be a vector register or memory"),
+            _ => err(
+                Code::AsmVectorOperand,
+                span,
+                "the destination must be a vector register or memory",
+            ),
         }
     }
 
@@ -805,6 +833,7 @@ impl Compiler {
             }
             VOpd::Imm(v) => Ok(konst(f, ty, v as u64)),
             _ => err(
+                Code::AsmExpectedGeneralPurpose,
                 span,
                 "expected a general-purpose register or memory operand",
             ),
@@ -827,6 +856,7 @@ impl Compiler {
                 Ok(())
             }
             _ => err(
+                Code::AsmExpectedGeneralPurposeRegister,
                 span,
                 "expected a general-purpose register or memory destination",
             ),
@@ -851,6 +881,7 @@ impl Compiler {
                 }
             }
             AsmOperand::Decl(d) => err(
+                Code::AsmRegisterPin,
                 d.name.span,
                 "a register pin is only valid as a separate statement",
             ),
@@ -923,12 +954,22 @@ impl Compiler {
                 let scale = match &term.scale {
                     Some(e) => match self.asm_value(f, cx.scope, e, 0)? {
                         Opd::Imm(Imm::Int(s)) if matches!(s, 1 | 2 | 4 | 8) => s as u64,
-                        _ => return err(e.span, "a vector index scale must be 1, 2, 4 or 8"),
+                        _ => {
+                            return err(
+                                Code::AsmVectorOperand,
+                                e.span,
+                                "a vector index scale must be 1, 2, 4 or 8",
+                            );
+                        }
                     },
                     None => 1,
                 };
                 if term.negate || vindex.is_some() {
-                    return err(term.value.span, "a memory operand takes one vector index");
+                    return err(
+                        Code::AsmVectorOperand,
+                        term.value.span,
+                        "a memory operand takes one vector index",
+                    );
                 }
                 vindex = Some((addr, scale));
             } else {

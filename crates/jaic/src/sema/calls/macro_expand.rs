@@ -4,6 +4,7 @@ use super::{
     CallArg, Compiler, E, EntityKind, FnCtx, MacroFrame, Operand, PreludeType, ProcId, Rc, Result,
     ScopeId, ScopeKind, Signature, Slot, Span, Sym, TypeId, Value, asm, ast, err, procs, scope,
 };
+use crate::diagnostics::Code;
 use crate::sema::SourceState;
 
 /// What the parameters of one macro expansion share.
@@ -64,13 +65,25 @@ impl Compiler {
             ..
         } = *call;
         let Slot::Arg(a) = slot else {
-            return err(param.span, "register operands need an explicit argument");
+            return err(
+                Code::CallRegisterOperandsNeedExplicit,
+                param.span,
+                "register operands need an explicit argument",
+            );
         };
         let Some(expr) = &args[*a].expr else {
-            return err(param.span, "register operands need a caller register");
+            return err(
+                Code::CallRegisterOperandsNeedCaller,
+                param.span,
+                "register operands need a caller register",
+            );
         };
         let Some((kind, addr)) = self.asm_reg_named(args[*a].scope, expr)? else {
-            return err(args[*a].span, "expected an #asm register operand");
+            return err(
+                Code::CallExpectedAsmRegisterOperand,
+                args[*a].span,
+                "expected an #asm register operand",
+            );
         };
         // A general-purpose or mask register is a 64-bit local, so the parameter is
         // seen as such inside the body; only a vector register carries the marker type.
@@ -124,7 +137,11 @@ impl Compiler {
             }
             Slot::Arg(a) => {
                 let Some(expr) = args[*a].expr.clone() else {
-                    return err(args[*a].span, "Code parameter needs a code argument");
+                    return err(
+                        Code::CallCodeParameter,
+                        args[*a].span,
+                        "Code parameter needs a code argument",
+                    );
                 };
                 // A name of a `#code` constant passes that code; a name of a
                 // `Code` variable passes its value.
@@ -185,10 +202,22 @@ impl Compiler {
                         value: Value::Code(code),
                         ..
                     } => code,
-                    _ => return err(d.span, "#caller_code did not produce Code"),
+                    _ => {
+                        return err(
+                            Code::CallCallerCode,
+                            d.span,
+                            "#caller_code did not produce Code",
+                        );
+                    }
                 }
             }
-            _ => return err(span, "Code parameter needs an argument"),
+            _ => {
+                return err(
+                    Code::CallCodeParameterNeedsArgument,
+                    span,
+                    "Code parameter needs an argument",
+                );
+            }
         };
         self.add_const(mscope, name, param.span, Value::Code(code), TypeId::CODE);
         Ok(())
@@ -366,12 +395,16 @@ impl Compiler {
         let sig = self.signature(proc, span)?;
         let header = self.proc(proc).lit.header.clone();
         let Some(body) = self.proc(proc).lit.body.clone() else {
-            return err(span, "macro has no body");
+            return err(Code::CallMacroNoBody, span, "macro has no body");
         };
         self.ed.macro_expanded(proc);
         if f.macros.len() > 64 || (f.macro_overflow && !f.macros.is_empty()) {
             f.macro_overflow = true;
-            return err(span, "macro expansion is too deeply nested");
+            return err(
+                Code::CallMacroExpansionToo,
+                span,
+                "macro expansion is too deeply nested",
+            );
         }
         f.macro_overflow = false;
         let module = self.scope(sig.scope).module;

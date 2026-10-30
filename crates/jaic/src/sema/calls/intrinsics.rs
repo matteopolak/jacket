@@ -4,6 +4,7 @@ use super::{
     CallArg, Compiler, Diagnostic, FnCtx, Operand, OrderedAtomic, ProcId, Result, Signature, Slot,
     Span, TargetCpu, Ty, TypeId, TypeKind, Value, ast, err, ir,
 };
+use crate::diagnostics::Code;
 
 impl Compiler {
     /// Intrinsic procedures declared in Preload (`memcpy`, `compare_and_swap`...).
@@ -62,7 +63,11 @@ impl Compiler {
             "abs" | "fabs" => ir::Intrinsic::Fabs,
             "rdtsc" => {
                 if self.options.cpu != TargetCpu::X64 {
-                    return err(span, "rdtsc requires an x86-64 target");
+                    return err(
+                        Code::AsmRequiresX8664,
+                        span,
+                        "rdtsc requires an x86-64 target",
+                    );
                 }
                 ir::Intrinsic::X86Timestamp {
                     aux: false,
@@ -71,6 +76,7 @@ impl Compiler {
             "get_cpu_cycle_count" => {
                 if self.options.cpu == TargetCpu::Wasm {
                     return err(
+                        Code::CallNoArchitecturalCycle,
                         span,
                         "no architectural cycle counter is available on a WebAssembly target",
                     );
@@ -91,7 +97,13 @@ impl Compiler {
                     ir::Intrinsic::SignMask(width)
                 }
             }
-            other => return err(span, format!("unknown intrinsic `{other}`")),
+            other => {
+                return err(
+                    Code::CallUnknownIntrinsic,
+                    span,
+                    format!("unknown intrinsic `{other}`"),
+                );
+            }
         };
         let returns: Vec<Ty> = sig
             .returns
@@ -116,6 +128,7 @@ impl Compiler {
             || sig.params[0].ty != sig.returns[0])
         {
             return err(
+                Code::CallFloatingIntrinsicSignature,
                 span,
                 "floating intrinsic signature requires one float32/float64 argument and the same result type",
             );
@@ -126,6 +139,7 @@ impl Compiler {
         ) && (!values.is_empty() || returns.as_slice() != [Ty::I64])
         {
             return err(
+                Code::CallRequiresNoArguments,
                 span,
                 format!("{name} requires no arguments and one 64-bit integer result"),
             );
@@ -145,7 +159,8 @@ impl Compiler {
                 .first()
                 .and_then(|p| self.ty.types.pointee(p.ty))
                 .ok_or_else(|| {
-                    Box::new(Diagnostic::error(
+                    Box::new(Diagnostic::new(
+                        Code::CallAtomicOperation,
                         span,
                         "an atomic operation requires a pointer to an atomic scalar",
                     ))
@@ -162,6 +177,7 @@ impl Compiler {
             ) || !matches!(width, 1 | 2 | 4 | 8)
             {
                 return err(
+                    Code::CallAtomicOperation,
                     span,
                     "an atomic scalar must be an integer, enum, bool, float, pointer or procedure of 1, 2, 4 or 8 bytes",
                 );
@@ -184,6 +200,7 @@ impl Compiler {
                     .any(|p| p.ty != pointee)
             {
                 return err(
+                    Code::CallAtomicOperation,
                     span,
                     "atomic intrinsic signature must preserve its pointer's scalar type and documented results",
                 );
@@ -230,16 +247,25 @@ impl Compiler {
             && self.ir_ty(param.ty).is_none()
         {
             return err(
+                Code::CallBlackBox,
                 span,
                 "`black_box` needs a value with a runtime representation",
             );
         }
         let (&[value], &[ty], [param]) = (values, sig.returns.as_slice(), sig.params.as_slice())
         else {
-            return err(span, "`black_box` takes one value and returns it");
+            return err(
+                Code::CallBlackBox,
+                span,
+                "`black_box` takes one value and returns it",
+            );
         };
         if param.ty != ty {
-            return err(span, "`black_box` returns the type of its argument");
+            return err(
+                Code::CallBlackBox,
+                span,
+                "`black_box` returns the type of its argument",
+            );
         }
         if self.is_memory_type(ty) {
             let size = self.size_of(ty, span)?;
@@ -256,6 +282,7 @@ impl Compiler {
         }
         let Some(scalar) = self.ir_ty(ty) else {
             return err(
+                Code::CallBlackBox,
                 span,
                 "`black_box` needs a value with a runtime representation",
             );
@@ -276,7 +303,7 @@ impl Compiler {
     ) -> Result<i64> {
         let bad = || format!("the memory order of `{name}` must be a compile-time constant");
         let Some(Slot::Arg(a)) = slots.last() else {
-            return err(span, bad());
+            return err(Code::CallAtomicOperation, span, bad());
         };
         let arg = &args[*a];
         let op = if let Some(op) = &arg.op {
@@ -293,7 +320,7 @@ impl Compiler {
                 value: Value::Int(v),
                 ..
             } => Ok(v as i64),
-            _ => err(arg.span, bad()),
+            _ => err(Code::CallAtomicOperation, arg.span, bad()),
         }
     }
 
@@ -309,12 +336,20 @@ impl Compiler {
         let order = |v: i64| -> Result<u8> {
             match u8::try_from(v) {
                 Ok(o) if o <= ir::ORDER_SEQ_CST => Ok(o),
-                _ => err(span, format!("`{name}` was given an unknown memory order")),
+                _ => err(
+                    Code::CallAtomicOperation,
+                    span,
+                    format!("`{name}` was given an unknown memory order"),
+                ),
             }
         };
         let cas = kind == OrderedAtomic::CompareExchange;
         if cas && !(0..=0xff).contains(&mode) {
-            return err(span, format!("`{name}` was given an unknown memory order"));
+            return err(
+                Code::CallAtomicOperation,
+                span,
+                format!("`{name}` was given an unknown memory order"),
+            );
         }
         let (first, second) = if cas {
             (order(mode & 15)?, order(mode >> 4)?)
@@ -326,6 +361,7 @@ impl Compiler {
             OrderedAtomic::Load => {
                 if released(first) {
                     return err(
+                        Code::CallAtomicOperation,
                         span,
                         "an atomic load cannot use release or acq_rel ordering",
                     );
@@ -335,6 +371,7 @@ impl Compiler {
             OrderedAtomic::Store => {
                 if first == ir::ORDER_ACQUIRE || first == ir::ORDER_ACQ_REL {
                     return err(
+                        Code::CallAtomicOperation,
                         span,
                         "an atomic store cannot use acquire or acq_rel ordering",
                     );
@@ -350,12 +387,14 @@ impl Compiler {
             OrderedAtomic::CompareExchange => {
                 if released(second) {
                     return err(
+                        Code::CallAtomicOperation,
                         span,
                         "the failure ordering of a compare-exchange cannot be release or acq_rel",
                     );
                 }
                 if !matches!((first, second), (0..=4, 0) | (1 | 3 | 4, 1) | (4, 4)) {
                     return err(
+                        Code::CallAtomicOperation,
                         span,
                         "compare-exchange failure ordering cannot be stronger than success ordering",
                     );
@@ -377,7 +416,7 @@ impl Compiler {
         let bad =
             || format!("the `width` of `{name}` must be a compile-time constant 16, 32 or 64");
         let Some(Slot::Arg(a)) = slots.last() else {
-            return err(span, bad());
+            return err(Code::CallIntrinsicWidth, span, bad());
         };
         let arg = &args[*a];
         let op = if let Some(op) = &arg.op {
@@ -394,7 +433,7 @@ impl Compiler {
                 value: Value::Int(w @ (16 | 32 | 64)),
                 ..
             } => Ok(w as u8),
-            _ => err(arg.span, bad()),
+            _ => err(Code::CallIntrinsicWidth, arg.span, bad()),
         }
     }
 }

@@ -2,6 +2,7 @@
 use super::dispatch::SimdLocals;
 use super::helpers::{load_dyn, mask_bit, mix_columns, store_dyn, when, xor8};
 use super::{AesOp, VOp};
+use crate::diagnostics::Code;
 use crate::sema::asm::vec::{VOpd, load_lane, store_lane};
 use crate::sema::asm::{
     AsmCtx, BinOp, CmpOp, Compiler, FnCtx, Result, Ty, UnOp, Val, bin, cmp, err, is_neg, konst,
@@ -290,12 +291,17 @@ impl Compiler {
                 ) = (dst, ops.get(1))
                 else {
                     return err(
+                        Code::AsmOperandForm,
                         span,
                         format!("`{name}` takes [base + vindex*scale] &mask, src"),
                     );
                 };
                 let Some(wm) = wm else {
-                    return err(span, format!("`{name}` needs a mask (&k)"));
+                    return err(
+                        Code::AsmMaskOperand,
+                        span,
+                        format!("`{name}` needs a mask (&k)"),
+                    );
                 };
                 let src = self.vec_ptr(f, *src, span)?;
                 let (it, et) = (Ty::int(index_size), Ty::int(elem_size));
@@ -321,7 +327,11 @@ impl Compiler {
             }
             VOp::MaskMov(ty) => {
                 if ops.len() != 3 {
-                    return err(span, format!("`{name}` takes 3 operands"));
+                    return err(
+                        Code::AsmOperandCount,
+                        span,
+                        format!("`{name}` takes 3 operands"),
+                    );
                 }
                 let mask = self.vec_ptr(f, ops[1], span)?;
                 let n = width / ty.size();
@@ -355,6 +365,7 @@ impl Compiler {
                     }
                     _ => {
                         return err(
+                            Code::AsmOperandForm,
                             span,
                             format!("`{name}` moves between a register and memory"),
                         );

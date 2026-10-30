@@ -204,11 +204,10 @@ impl<'a> Parser<'a> {
     /// Run `f` one nesting level deeper, failing past `MAX_NESTING`.
     fn nested<T>(&mut self, f: impl FnOnce(&mut Self) -> PResult<T>) -> PResult<T> {
         if self.depth >= MAX_NESTING {
-            return Err(self
-                .error(format!(
-                    "code is nested too deeply (more than {MAX_NESTING} levels)"
-                ))
-                .with_code(Code::NestingLimit));
+            return Err(self.error(
+                Code::NestingLimit,
+                format!("code is nested too deeply (more than {MAX_NESTING} levels)"),
+            ));
         }
         self.depth += 1;
         let result = f(self);
@@ -359,17 +358,18 @@ impl<'a> Parser<'a> {
     fn reject_literal_name(&self, name: Ident) -> PResult<Ident> {
         let word = name.name.as_str();
         if is_builtin_type_name(word) {
-            return Err(Diagnostic::error(
+            return Err(Diagnostic::new(
+                Code::ShadowsBuiltinType,
                 name.span,
                 format!("`{word}` is the name of a builtin type and cannot be declared"),
             )
-            .with_code(Code::ShadowsBuiltinType)
             .with_help("choose another name"));
         }
         if self.in_aggregate_body || !matches!(word, "null" | "true" | "false") {
             return Ok(name);
         }
-        Err(Diagnostic::error(
+        Err(Diagnostic::new(
+            Code::ParseKeywordDeclared,
             name.span,
             format!("`{word}` is a keyword and cannot be declared"),
         )
@@ -410,8 +410,8 @@ impl<'a> Parser<'a> {
 
     // -- diagnostics ------------------------------------------------------
 
-    fn error(&self, message: impl Into<String>) -> Diagnostic {
-        Diagnostic::error(self.span(), message)
+    fn error(&self, code: Code, message: impl Into<String>) -> Diagnostic {
+        Diagnostic::new(code, self.span(), message)
     }
 
     /// A suggestion that inserts `text` where the previous token ends.
@@ -484,10 +484,10 @@ impl<'a> Parser<'a> {
         } else {
             format!(" {context}")
         };
-        self.error(format!(
-            "expected {what}{context}, found {}",
-            describe(self.tok())
-        ))
+        self.error(
+            Code::ParseExpectedToken,
+            format!("expected {what}{context}, found {}", describe(self.tok())),
+        )
     }
 }
 

@@ -44,7 +44,11 @@ impl Compiler {
         }
         if self.options.runtime_support {
             let Some(entry) = self.runtime_support_entry() else {
-                return err(span, "Runtime_Support module not found on the import path");
+                return err(
+                    Code::RuntimeConfigurationInvalid,
+                    span,
+                    "Runtime_Support module not found on the import path",
+                );
             };
             let params = vec![
                 (
@@ -172,7 +176,11 @@ impl Compiler {
     /// `add_source` without telling the host twin.
     pub(super) fn add_source_local(&mut self, source: &ProgramSource) -> Result<()> {
         let Some(m) = self.ns.main_module else {
-            return err(Span::NONE, "no main module to add sources to");
+            return err(
+                Code::BuildNoMainModule,
+                Span::NONE,
+                "no main module to add sources to",
+            );
         };
         self.src.added += 1;
         match source {
@@ -194,6 +202,7 @@ impl Compiler {
                     .map(|f| f.scope)
                 else {
                     return err(
+                        Code::BuildStringScopeInvalid,
                         Span::NONE,
                         "add_build_string: file scope does not belong to this workspace",
                     );
@@ -205,6 +214,7 @@ impl Compiler {
                 self.adopt_made_codes();
                 let Some(&scope) = self.pr.code_scopes.get(code.0 as usize) else {
                     return err(
+                        Code::BuildStringScopeInvalid,
                         Span::NONE,
                         "add_build_string: Code scope does not belong to this workspace",
                     );
@@ -629,7 +639,7 @@ impl Compiler {
     pub fn program_main(&mut self, span: Span) -> Result<ProcId> {
         self.refresh_entry_point();
         let Some(m) = self.ns.main_module else {
-            return err(span, "no main module");
+            return err(Code::BuildNoMainModule, span, "no main module");
         };
         let scope = self.ns.modules[m.0 as usize].scope;
         let name = self.options.entry_point.clone();
@@ -645,6 +655,7 @@ impl Compiler {
             }
         }
         err(
+            Code::ProgramNoProcedure,
             span,
             format!("the program has no '{name} :: () {{ ... }}' procedure"),
         )
@@ -799,6 +810,7 @@ impl Compiler {
                 return Ok(0);
             }
             return err(
+                Code::RuntimeConfigurationInvalid,
                 Span::NONE,
                 "`main` is declared, but no entry point calls it (is Runtime_Support loaded?)",
             );
@@ -824,7 +836,7 @@ impl Compiler {
     /// trap has a more specific kind, such as a foreign procedure the host cannot provide).
     fn runtime_error(&self, trap: &crate::interp::Trap) -> Diagnostic {
         let d = self.trap_diagnostic(trap, "runtime error", None);
-        if d.code == Code::Uncoded {
+        if d.code == Code::RuntimeTrap {
             d.with_code(Code::Runtime)
         } else {
             d

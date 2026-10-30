@@ -1,6 +1,7 @@
 //! Checking the operands of a binary expression.
 use super::{is_comparison, is_complement_literal, is_number_literal, is_shift};
 use crate::ast::BinOp;
+use crate::diagnostics::Code;
 use crate::sema::TypeState;
 use crate::sema::calls::binop_text;
 use crate::sema::expr::takes_sibling_type;
@@ -216,12 +217,16 @@ impl TypeState {
             if matches!(self.types.kind(self.types.repr(t)), TypeKind::Array { .. }) {
                 let symbol = binop_text(op);
                 return Err(Box::new(
-                    Diagnostic::error(span, format!("arrays cannot be compared with `{symbol}`"))
-                        .with_note(
-                            span,
-                            format!("the compared type is `{}`", self.types.name(t)),
-                        )
-                        .with_help("compare the lengths and elements in a loop"),
+                    Diagnostic::new(
+                        Code::BinaryArraysCannotCompared,
+                        span,
+                        format!("arrays cannot be compared with `{symbol}`"),
+                    )
+                    .with_note(
+                        span,
+                        format!("the compared type is `{}`", self.types.name(t)),
+                    )
+                    .with_help("compare the lengths and elements in a loop"),
                 ));
             }
         }

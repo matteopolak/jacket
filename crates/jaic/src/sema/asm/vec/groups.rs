@@ -4,6 +4,7 @@ use super::{
     VOpd, VecCall, bin, bitcast, bits, cmp, err, float_to_s32, float_unary, is_neg, konst,
     lane_addr, lane_op, load_lane, ptr_of, resize, select, store_lane,
 };
+use crate::diagnostics::Code;
 
 impl Compiler {
     pub(super) fn vec_moves(
@@ -46,7 +47,13 @@ impl Compiler {
                         let v = f.b.load(it, src);
                         self.vec_scalar_write(f, dst, it, v, span)?;
                     }
-                    _ => return err(span, format!("`{name}` needs a vector register operand")),
+                    _ => {
+                        return err(
+                            Code::AsmVectorOperand,
+                            span,
+                            format!("`{name}` needs a vector register operand"),
+                        );
+                    }
                 }
             }
             VOp::MovScalarFloat(ty) => {
@@ -76,7 +83,13 @@ impl Compiler {
                         f.b.copy(tmp, b, size);
                         self.vec_store(f, cx, ops[0], tmp, 16, span)?;
                     }
-                    _ => return err(span, format!("`{name}` needs a vector register operand")),
+                    _ => {
+                        return err(
+                            Code::AsmVectorOperand,
+                            span,
+                            format!("`{name}` needs a vector register operand"),
+                        );
+                    }
                 }
             }
             VOp::Broadcast(size) => {
@@ -331,7 +344,11 @@ impl Compiler {
                 // AVX2: `gatherdps dst, [vsib], vmask`; AVX-512: `gatherdps dst &k, [vsib]`.
                 want(2, 3)?;
                 if n == 2 && writemask.is_none() {
-                    return err(span, format!("`{name}` needs a mask: a vector or &k"));
+                    return err(
+                        Code::AsmMaskOperand,
+                        span,
+                        format!("`{name}` needs a mask: a vector or &k"),
+                    );
                 }
                 let VOpd::Vsib {
                     base,
@@ -340,6 +357,7 @@ impl Compiler {
                 } = ops[1]
                 else {
                     return err(
+                        Code::AsmVectorOperand,
                         span,
                         format!(
                             "`{name}` needs a vector-indexed memory operand ([base + vindex*scale])"

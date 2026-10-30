@@ -5,6 +5,7 @@ use super::{
     Compiler, HashMap, HashSet, ProcId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, err, ir,
     procs::ProcTarget, scope::Resolved,
 };
+use crate::diagnostics::Code;
 use crate::source::SourcePath;
 use crate::types::{EnumId, ProcType, StructId, TypeKind};
 
@@ -66,7 +67,7 @@ struct Importer<'a> {
 
 impl Importer<'_> {
     fn fail<T>(&self, message: impl Into<String>) -> Result<T> {
-        err(self.span, message)
+        err(Code::HostImportUnsupported, self.span, message)
     }
 
     fn operand(&mut self, operand: Operand) -> Result<Operand> {

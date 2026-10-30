@@ -19,7 +19,7 @@ impl Compiler {
         span: Span,
     ) -> Diagnostic {
         let Some(error) = error else {
-            return Diagnostic::error(span, format!("in call to `{name}`"));
+            return Diagnostic::new(Code::CallFailed, span, format!("in call to `{name}`"));
         };
         // A name that does not exist is the argument's own problem, not the call's.
         if error.code == Code::UnknownIdentifier {
@@ -133,7 +133,11 @@ impl Compiler {
             .filter(|&i| !header.params[i].baked)
             .collect();
         if runtime_params.len() != sig.params.len() {
-            return err(span, "internal: signature/parameter mismatch");
+            return err(
+                Code::CallInternalSignatureParameter,
+                span,
+                "internal: signature/parameter mismatch",
+            );
         }
         let mut cost = extra;
         let mut fit = 0;
@@ -148,18 +152,21 @@ impl Compiler {
                     _ => false,
                 }
             {
-                return err(span, "a runtime spread cannot determine a C variadic ABI");
+                return err(
+                    Code::CallRuntimeSpread,
+                    span,
+                    "a runtime spread cannot determine a C variadic ABI",
+                );
             }
             match &slots[i] {
                 Slot::Default => {
                     if param.default.is_none() && !param.variadic {
                         let name = param.name.map(|n| n.to_string()).unwrap_or_default();
                         return Err(Box::new(
-                            Diagnostic::error(
+                            Diagnostic::new(Code::ArgumentCount,
                                 span,
                                 format!("missing argument for parameter `{name}`"),
                             )
-                            .with_code(Code::ArgumentCount)
                             .with_help(format!(
                                 "pass a value for `{name}`, or give the parameter a default value (`{name} := ...`)"
                             )),

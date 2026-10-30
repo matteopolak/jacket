@@ -7,6 +7,7 @@
 //! ordinary path, which is why diagnostics, hover, go to definition and rename work on a hole.
 use super::{Compiler, Diagnostic, ProcId, Result, Span, ast};
 use crate::ast::ExprKind as E;
+use crate::diagnostics::Code;
 use crate::interpolate::{self, Mode};
 use crate::lexer;
 use crate::parser;
@@ -124,7 +125,7 @@ impl Compiler {
             .any(|a| a.name.is_none() && !a.context || a.spread);
         if explicit {
             return Err(Box::new(
-                Diagnostic::error(
+                Diagnostic::new(Code::MixInlineHoles,
                     literal.span,
                     "a mix of inline holes and positional arguments",
                 )
@@ -170,13 +171,15 @@ impl Compiler {
             base + map[hole.whole.end] as usize,
         );
         let Ok(text) = std::str::from_utf8(&value[range.clone()]) else {
-            return Err(Box::new(Diagnostic::error(
+            return Err(Box::new(Diagnostic::new(
+                Code::InlineHole,
                 whole,
                 "an inline hole must be valid UTF-8 text",
             )));
         };
         if text.trim().is_empty() {
-            return Err(Box::new(Diagnostic::error(
+            return Err(Box::new(Diagnostic::new(
+                Code::InlineHoleEmpty,
                 whole,
                 "an inline hole is empty",
             )));

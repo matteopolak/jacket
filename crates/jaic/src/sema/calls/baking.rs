@@ -4,6 +4,7 @@ use super::{
     ArrayKind, CallArg, Compiler, Diagnostic, E, Operand, PackKey, Rc, Result, ScopeId, Span, Sym,
     TypeId, Value, ast, err, ir, procs, value,
 };
+use crate::diagnostics::Code;
 
 use crate::layout;
 
@@ -112,7 +113,7 @@ impl Compiler {
         let op = match (&arg.op, &arg.expr) {
             (Some(op), _) => op.clone(),
             (None, Some(e)) => self.eval_const(arg.scope, e, Some(ty))?,
-            (None, None) => return err(arg.span, "missing value"),
+            (None, None) => return err(Code::CallMissingValue, arg.span, "missing value"),
         };
         let value = self.const_value_of_operand(arg.scope, op, ty, arg.span)?;
         Ok((value, ty))
@@ -144,7 +145,8 @@ impl Compiler {
                 .checked_mul(esize)
                 .filter(|&n| n <= value::MAX_IMAGE)
                 .ok_or_else(|| {
-                    Box::new(Diagnostic::error(
+                    Box::new(Diagnostic::new(
+                        Code::CallBakedVariadicPack,
                         arg.span,
                         "baked variadic pack is too large",
                     ))
@@ -158,7 +160,7 @@ impl Compiler {
                 let op = match (&arg.op, &arg.expr) {
                     (Some(op), _) => op.clone(),
                     (None, Some(e)) => self.eval_const(arg.scope, e, Some(elem))?,
-                    (None, None) => return err(arg.span, "missing value"),
+                    (None, None) => return err(Code::CallMissingValue, arg.span, "missing value"),
                 };
                 self.const_value_of_operand(arg.scope, op, elem, arg.span)?
             };
@@ -195,22 +197,44 @@ impl Compiler {
             .ct
             .interp
             .global_addr(&self.out.program, g)
-            .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
+            .map_err(|t| {
+                Box::new(Diagnostic::new(
+                    Code::CompileTimeTrap,
+                    span,
+                    t.into_message(),
+                ))
+            })?;
         let n = self.ct.program_u64(addr + layout::view::COUNT, span)?;
         let data = self.ct.program_u64(addr + layout::view::DATA, span)?;
         let esize = self.size_of(elem, span)?;
         let total = count
             .checked_add(n)
             .filter(|&n| n <= value::MAX_IMAGE)
-            .ok_or_else(|| Box::new(Diagnostic::error(span, "baked variadic pack is too large")))?;
+            .ok_or_else(|| {
+                Box::new(Diagnostic::new(
+                    Code::CallBakedVariadicPack,
+                    span,
+                    "baked variadic pack is too large",
+                ))
+            })?;
         let size = total
             .checked_mul(esize)
             .filter(|&n| n <= value::MAX_IMAGE)
-            .ok_or_else(|| Box::new(Diagnostic::error(span, "baked variadic pack is too large")))?;
+            .ok_or_else(|| {
+                Box::new(Diagnostic::new(
+                    Code::CallBakedVariadicPack,
+                    span,
+                    "baked variadic pack is too large",
+                ))
+            })?;
         array.bytes.resize(size as usize, 0);
         for i in 0..n {
             let at = data.checked_add(i * esize).ok_or_else(|| {
-                Box::new(Diagnostic::error(span, "baked spread pointer overflow"))
+                Box::new(Diagnostic::new(
+                    Code::CallBakedSpreadPointer,
+                    span,
+                    "baked spread pointer overflow",
+                ))
             })?;
             let value = self.read_value(at, elem, span)?;
             self.write_value(array, (*count + i) * esize, &value, elem, span)?;

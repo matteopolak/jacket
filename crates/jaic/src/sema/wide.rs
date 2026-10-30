@@ -9,6 +9,7 @@ use super::lower::{FnCtx, Operand, Origin};
 use super::value::Aggregate;
 use super::{Compiler, Rc, Result, Span, TypeId, Value, convert, err};
 use crate::ast::BinOp;
+use crate::diagnostics::Code;
 use crate::ir::{CmpOp, ConvOp, Intrinsic, Ty, Val, WideArith, WideFloat, WideOp};
 use crate::sema::TypeState;
 use crate::types::TypeKind;
@@ -186,6 +187,7 @@ impl Compiler {
             BinOp::Div => WideArith::Div,
             _ => {
                 return err(
+                    Code::BinaryOperatorNotDefined2,
                     span,
                     format!(
                         "operator {} is not defined for {}",

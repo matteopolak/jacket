@@ -12,6 +12,7 @@ use super::{
     Result, ShiftKind, Site, Span, TargetCpu, Ty, UnOp, Val, bin, bits, cmp, err, flag_not,
     flag_or, flag_xor, ir, is_neg, is_zero, konst, ptr_of, resize, select, wide_mul,
 };
+use crate::diagnostics::Code;
 
 mod groups;
 
@@ -260,6 +261,7 @@ impl Compiler {
         let span = inst.span;
         if lock && !matches!(op, XOp::CmpxchgPair(_)) {
             return err(
+                Code::AsmCannotTakeLock,
                 inst.mnemonic.span,
                 format!("`{name}` cannot take the lock_ prefix"),
             );
@@ -661,12 +663,17 @@ impl Compiler {
             } else {
                 ", c"
             };
-            return err(span, format!("`{name}` takes the operands {regs}{count}"));
+            return err(
+                Code::AsmOperandCount,
+                span,
+                format!("`{name}` takes the operands {regs}{count}"),
+            );
         }
         let sz = match &inst.size {
             Some(_) => self.asm_size(f, cx, inst, &[])?,
             None => {
                 return err(
+                    Code::AsmNeedsElementSize,
                     span,
                     format!("`{name}` needs an element size (.b/.w/.d/.q)"),
                 );
@@ -674,7 +681,11 @@ impl Compiler {
         };
         for &o in opds {
             if !matches!(o, Opd::Reg(_)) {
-                return err(span, format!("the operands of `{name}` must be registers"));
+                return err(
+                    Code::AsmRegisterSize,
+                    span,
+                    format!("the operands of `{name}` must be registers"),
+                );
             }
         }
         let step = konst(

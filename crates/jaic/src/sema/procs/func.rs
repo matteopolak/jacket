@@ -16,6 +16,7 @@ impl Compiler {
         }
         if self.proc(id).is_macro {
             return err(
+                Code::ProcMacro,
                 span,
                 format!(
                     "macro `{}` cannot be used as a procedure value",
@@ -90,6 +91,7 @@ impl Compiler {
         if self.pr.runtime_interpreter_assertion == Some(id) {
             let ProcTarget::Func(func) = target else {
                 return err(
+                    Code::RuntimeConfigurationInvalid,
                     span,
                     "private interpreter assertion handler must be defined in Jai",
                 );
@@ -172,12 +174,14 @@ impl Compiler {
         if !main_sig.params.is_empty() {
             let name = &self.options.entry_point;
             return err(
+                Code::ProcMust,
                 self.proc(main).span,
                 format!("`{name}` must not take parameters"),
             );
         }
         let ProcTarget::Func(main_func) = self.proc_func(main, span)? else {
             return err(
+                Code::ProcMustBody,
                 span,
                 format!("`{}` must have a body", self.options.entry_point),
             );
@@ -241,8 +245,7 @@ impl Compiler {
         let Some(&e) = ids.first() else {
             let name = ident.name;
             return Err(Box::new(
-                Diagnostic::error(ident.span, format!("unknown library `{name}`"))
-                    .with_code(Code::UnknownLibrary)
+                Diagnostic::new(Code::UnknownLibrary, ident.span, format!("unknown library `{name}`"))
                     .with_label("no library of this name is declared here")
                     .with_help(format!(
                         "declare it with `{name} :: #library \"path/to/lib{name}\";` (or `#system_library`); a declaration under `#if OS == ...` exists only for that OS"
@@ -252,10 +255,12 @@ impl Compiler {
         match self.resolve_entity(e)? {
             scope::Resolved::Library(l) => Ok(Some(self.ns.libraries[l.0 as usize].ir)),
             _ => Err(Box::new(
-                Diagnostic::error(ident.span, format!("`{}` is not a library", ident.name))
-                    .with_help(
-                        "`#foreign` names a library declared with `name :: #library \"...\";`",
-                    ),
+                Diagnostic::new(
+                    Code::ProcNotLibrary,
+                    ident.span,
+                    format!("`{}` is not a library", ident.name),
+                )
+                .with_help("`#foreign` names a library declared with `name :: #library \"...\";`"),
             )),
         }
     }

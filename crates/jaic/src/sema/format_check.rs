@@ -3,6 +3,7 @@
 use super::calls::{CallArg, Slot};
 use super::{Compiler, Diagnostic, FileId, ProcId, Result, Span, Sym, TypeId, ast};
 use crate::ast::ExprKind as E;
+use crate::diagnostics::Code;
 use crate::format_string;
 use crate::lexer::{self, P, Tok};
 use crate::source::{Applicability, Edit, Suggestion};
@@ -146,11 +147,11 @@ impl Compiler {
             }
         );
         let mut warning = if given.len() < need {
-            Diagnostic::warning(call, message)
+            Diagnostic::new(Code::FormatMissingArgument, call, message)
                 .with_label("no argument for the last `%`")
                 .with_help("pass a value for every `%`, or write `\\%` for a percent sign")
         } else {
-            Diagnostic::warning(call, message)
+            Diagnostic::new(Code::FormatExtraArgument, call, message)
                 .with_label("the extra arguments are not printed")
                 .with_help("add a `%` for each argument, or remove the extra ones")
         };

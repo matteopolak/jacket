@@ -102,7 +102,13 @@ impl Compiler {
                 .ct
                 .interp
                 .global_addr(&self.out.program, g)
-                .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
+                .map_err(|t| {
+                    Box::new(Diagnostic::new(
+                        Code::CompileTimeTrap,
+                        span,
+                        t.into_message(),
+                    ))
+                })?;
             results.push(
                 (match self.read_value(addr, ty, span)? {
                     Value::Type(t) => Operand::Type(t),
@@ -123,6 +129,7 @@ impl Compiler {
     pub fn call_thunk(&mut self, f: FnCtx, span: Span) -> Result<Vec<u64>> {
         if self.ed.type_probe {
             return err(
+                Code::ContextualTypeInference,
                 span,
                 "contextual type inference requires compile-time execution",
             );
@@ -130,13 +137,11 @@ impl Compiler {
         // The one place compile-time code starts running (`#run`, computed `#insert`,
         // `#modify`, build metaprograms): an untrusted workspace's code never does.
         if self.ed.refuse_untrusted(span) {
-            return Err(Box::new(
-                Diagnostic::error(
-                    span,
-                    "compile-time code is not run in an untrusted workspace",
-                )
-                .with_code(Code::Untrusted),
-            ));
+            return Err(Box::new(Diagnostic::new(
+                Code::Untrusted,
+                span,
+                "compile-time code is not run in an untrusted workspace",
+            )));
         }
         if self.ct.interp.host.stop_requested() {
             return Err(Box::new(super::trap_report::stopped(span)));
@@ -405,7 +410,13 @@ impl Compiler {
             .ct
             .interp
             .global_addr(&self.out.program, g)
-            .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
+            .map_err(|t| {
+                Box::new(Diagnostic::new(
+                    Code::CompileTimeTrap,
+                    span,
+                    t.into_message(),
+                ))
+            })?;
         self.ct.context = Some(addr);
         self.ct.context_global = Some(g);
         Ok(addr)
@@ -415,14 +426,18 @@ impl Compiler {
     pub fn module_type(&mut self, module: ModuleId, name: &str, span: Span) -> Result<TypeId> {
         let ids = self.module_declarations(module, Sym::intern(name))?;
         let Some(&id) = ids.first() else {
-            return err(span, format!("`{name}` not found"));
+            return err(
+                Code::DeclarationNotFound,
+                span,
+                format!("`{name}` not found"),
+            );
         };
         match self.resolve_entity(id)? {
             scope::Resolved::Const {
                 value: Value::Type(t),
                 ..
             } => Ok(t),
-            _ => err(span, format!("`{name}` is not a type")),
+            _ => err(Code::NotType, span, format!("`{name}` is not a type")),
         }
     }
 
@@ -663,7 +678,11 @@ impl Compiler {
                 // Any integer can be cast to `Code`; only ids of real code are usable.
                 let id = self.ct.program_u64(addr, span)?;
                 if id >= self.pr.codes.len() as u64 {
-                    return err(span, format!("{id} is not a valid Code value"));
+                    return err(
+                        Code::NotValidCode,
+                        span,
+                        format!("{id} is not a valid Code value"),
+                    );
                 }
                 Ok(Value::Code(value::CodeId(id as u32)))
             }
@@ -710,6 +729,7 @@ impl Compiler {
             return Ok(t);
         }
         err(
+            Code::CompileTimeValueUnreadable,
             span,
             "compile-time value of type Type does not refer to a type descriptor",
         )
@@ -855,6 +875,7 @@ impl Compiler {
                         .copy_from_slice(&p.to_le_bytes());
                 } else {
                     return err(
+                        Code::CompileTimeValueUnreadable,
                         span,
                         "a compile-time value holds a foreign procedure address",
                     );
@@ -1035,6 +1056,7 @@ impl Compiler {
 /// array's data pointer, say): an error, where reading it would crash the compiler.
 fn unreadable<T>(addr: u64, span: Span) -> Result<T> {
     err(
+        Code::CompileTimeValueUnreadable,
         span,
         format!("a compile-time value points to memory that cannot be read ({addr:#x})"),
     )
@@ -1073,6 +1095,7 @@ impl SourceState {
         let depth = self.insert_depth.get(&at.file).map_or(1, |d| d + 1);
         if depth > MAX_INSERT_DEPTH {
             return err(
+                Code::InsertStringsNested,
                 at,
                 format!("#insert strings are nested more than {MAX_INSERT_DEPTH} deep"),
             );

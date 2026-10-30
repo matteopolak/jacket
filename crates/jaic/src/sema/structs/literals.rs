@@ -1,6 +1,7 @@
 //! Struct and array literals, and writing values into constant images.
 use super::model::PathStep;
 use crate::ast::ExprKind as E;
+use crate::diagnostics::Code;
 use crate::sema::lower::{FnCtx, Operand, Origin};
 use crate::sema::value::Aggregate;
 use crate::sema::{Compiler, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, ir, procs};
@@ -87,6 +88,7 @@ impl Compiler {
                 Some(t) => t,
                 None => {
                     return err(
+                        Code::StructCannotInferType,
                         span,
                         "cannot infer the type of `.{...}` here; write `Type.{...}`",
                     );
@@ -115,6 +117,7 @@ impl Compiler {
                 .is_none()
         {
             return err(
+                Code::StructCannotUseLiteral,
                 span,
                 format!(
                     "cannot use a struct literal for type {}",
@@ -222,7 +225,11 @@ impl Compiler {
                 .literal_target(f, scope, ty, tmp, target)?
                 .without_callable()
             else {
-                return err(target.span, "this field target cannot be assigned");
+                return err(
+                    Code::StructFieldTarget,
+                    target.span,
+                    "this field target cannot be assigned",
+                );
             };
             let op = self.check_expr(f, scope, &arg.value, Some(pty))?;
             let op = self.convert(f, op, pty, arg.value.span)?;
@@ -271,6 +278,7 @@ impl Compiler {
                 self.index_operand(f, scope, inner, index_op, index.span, target.span)
             }
             _ => err(
+                Code::StructLiteralFieldTarget,
                 target.span,
                 "a literal field target must be a member or index path",
             ),
@@ -338,6 +346,7 @@ impl Compiler {
         }
         let Some(elem) = elem_ty else {
             return err(
+                Code::StructCannotInferElement,
                 span,
                 "cannot infer the element type of an empty array literal",
             );
@@ -424,6 +433,7 @@ impl Compiler {
             Value::String(s) => {
                 if r != TypeId::STRING {
                     return err(
+                        Code::StructStringConstant,
                         span,
                         format!(
                             "string constant cannot initialize {}",

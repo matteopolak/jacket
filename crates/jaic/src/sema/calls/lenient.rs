@@ -496,13 +496,16 @@ impl Compiler {
             return Ok(());
         }
         Err(Box::new(
-            Diagnostic::error(span, format!("`{name}` is used above its declaration"))
-                .with_code(Code::UseBeforeDeclaration)
-                .with_label("declared further down")
-                .with_note(declared, "declared here")
-                .with_help(format!(
-                    "move the declaration of `{name}` above its first use"
-                )),
+            Diagnostic::new(
+                Code::UseBeforeDeclaration,
+                span,
+                format!("`{name}` is used above its declaration"),
+            )
+            .with_label("declared further down")
+            .with_note(declared, "declared here")
+            .with_help(format!(
+                "move the declaration of `{name}` above its first use"
+            )),
         ))
     }
 
@@ -589,7 +592,8 @@ impl Compiler {
             return Ok(());
         }
         let text = binop_text(node.op);
-        let d = Diagnostic::error(
+        let d = Diagnostic::new(
+            Code::CallNoOperator,
             span,
             format!(
                 "no `operator {text}` for `{}` and `{}`",

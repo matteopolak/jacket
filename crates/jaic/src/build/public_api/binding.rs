@@ -1,5 +1,6 @@
 //! Bind an operation to the actual declaration and its aggregate layouts.
 use super::{Binding, Field, Kind, Layout, Operation, Schema, abi::Need, options};
+use crate::diagnostics::Code;
 use crate::{
     intern::Sym,
     ir,
@@ -221,13 +222,20 @@ fn owned(compiler: &mut Compiler, owners: &[ModuleId], name: &str, span: Span) -
         }
     }
     found.map_or_else(
-        || err(span, format!("compiler operation needs a `{name}` record")),
+        || {
+            err(
+                Code::ApiCompilerOperation,
+                span,
+                format!("compiler operation needs a `{name}` record"),
+            )
+        },
         Ok,
     )
 }
 
 fn ambiguous<T>(span: Span, name: &str) -> Result<T> {
     err(
+        Code::ApiCompilerOperationFinds,
         span,
         format!("compiler operation finds more than one `{name}` record"),
     )
@@ -504,6 +512,7 @@ fn validate(
             .any(|(&ty, &slot)| !accepts(ty, slot))
     {
         return err(
+            Code::ApiIncompatibleSignatureCompiler,
             span,
             format!(
                 "incompatible signature for compiler operation {}",
@@ -549,6 +558,7 @@ fn require(
         });
     checked.or_else(|trap| {
         err(
+            Code::ApiIncompatibleRecordsCompiler,
             span,
             format!(
                 "incompatible records for compiler operation {}: {}",

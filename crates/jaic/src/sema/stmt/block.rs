@@ -1,5 +1,6 @@
 //! Checking blocks and dispatching on the kind of statement.
 use crate::ast::{ExprKind as E, StmtKind as S};
+use crate::diagnostics::Code;
 use crate::ide::StmtRecovery;
 use crate::ir::Ty;
 use crate::sema::lower::{DeferAction, DeferEntry, FnCtx, Operand};
@@ -223,6 +224,7 @@ impl Compiler {
             }
             t => {
                 return err(
+                    Code::PushContext,
                     context.span,
                     format!(
                         "push_context needs a Context, found {}",
@@ -346,7 +348,11 @@ impl Compiler {
         }
         match &stmt.kind {
             S::Decl(decl) => self.check_local_decl(f, scope, decl),
-            S::Case(_) => err(span, "`case` outside of a switch"),
+            S::Case(_) => err(
+                Code::ParseCaseOutsideSwitch,
+                span,
+                "`case` outside of a switch",
+            ),
             S::Expr(ast::Expr {
                 kind: E::Struct(lit),
                 span: lit_span,
@@ -395,7 +401,11 @@ impl Compiler {
                     None => Ok(()),
                 }
             }
-            S::Overlay(_) => err(span, "`#overlay` is only allowed in a struct body"),
+            S::Overlay(_) => err(
+                Code::OverlayOnlyAllowed,
+                span,
+                "`#overlay` is only allowed in a struct body",
+            ),
             S::PushContextDefer(defer) => self.check_push_context_defer(f, scope, defer, span),
             S::While(while_) => self.check_while(f, scope, while_),
             S::For(for_) => self.check_for(f, scope, for_, span),
@@ -479,8 +489,16 @@ impl Compiler {
                 path,
                 span: load_span,
             } => self.load_from_body(scope, path, *load_span),
-            S::AddContext(_) => err(span, "#add_context is only allowed at file scope"),
-            S::ModuleParameters(_) => err(span, "#module_parameters is only allowed at file scope"),
+            S::AddContext(_) => err(
+                Code::AddContext,
+                span,
+                "#add_context is only allowed at file scope",
+            ),
+            S::ModuleParameters(_) => err(
+                Code::ModuleParametersOnlyAllowed,
+                span,
+                "#module_parameters is only allowed at file scope",
+            ),
             S::Placeholder(_)
             | S::Scope(_)
             | S::Place(_)

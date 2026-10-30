@@ -2,6 +2,7 @@
 use super::dispatch::SimdLocals;
 use super::helpers::{aes_tables, float_to_int, saturate};
 use super::{B2, Conv};
+use crate::diagnostics::Code;
 use crate::sema::Output;
 use crate::sema::asm::vec::{load_lane, store_lane};
 use crate::sema::asm::{
@@ -267,7 +268,13 @@ impl Compiler {
                 let (a, src) = match ops {
                     [_, src] => (self.vec_ptr(f, dst, span)?, *src),
                     [_, a, src] => (self.vec_ptr(f, *a, span)?, *src),
-                    _ => return err(span, format!("`{name}` takes dst, [src,] integer")),
+                    _ => {
+                        return err(
+                            Code::AsmOperandForm,
+                            span,
+                            format!("`{name}` takes dst, [src,] integer"),
+                        );
+                    }
                 };
                 let from = int_size();
                 let x = self.vec_scalar_read(f, src, from, span)?;
@@ -283,7 +290,11 @@ impl Compiler {
             }
             Conv::ScalarToGpr(from, trunc, unsigned) => {
                 if ops.len() != 2 {
-                    return err(span, format!("`{name}` takes 2 operands"));
+                    return err(
+                        Code::AsmOperandCount,
+                        span,
+                        format!("`{name}` takes 2 operands"),
+                    );
                 }
                 let src = self.vec_ptr(f, ops[1], span)?;
                 let to = int_size();

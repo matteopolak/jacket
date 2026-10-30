@@ -99,6 +99,7 @@ impl Compiler {
                     return match matching.as_slice() {
                         [one] => Ok(Operand::Procs(vec![*one])),
                         [] => err(
+                            Code::ConvertNoOverloadMatches,
                             span,
                             format!(
                                 "no overload matches procedure type {}",
@@ -106,7 +107,8 @@ impl Compiler {
                             ),
                         ),
                         [first, rest @ ..] => {
-                            let mut d = Diagnostic::error(
+                            let mut d = Diagnostic::new(
+                                Code::AmbiguousProcedureValue,
                                 span,
                                 format!(
                                     "{} overloads fit procedure type {}",
@@ -114,7 +116,6 @@ impl Compiler {
                                     self.ty.types.name(to)
                                 ),
                             )
-                            .with_code(Code::AmbiguousProcedureValue)
                             .with_label("it is not clear which one is meant")
                             .with_note(self.proc(*first).span, "this one fits");
                             for &other in rest {
@@ -170,15 +171,15 @@ impl Compiler {
             }
         );
         if self.implicit_cost(from, untyped, to).is_none() {
-            let mut d = Diagnostic::error(
+            let mut d = Diagnostic::new(
+                Code::TypeMismatch,
                 span,
                 format!(
                     "type mismatch: expected `{}`, found `{}`",
                     self.ty.types.name(to),
                     self.ty.types.name(from)
                 ),
-            )
-            .with_code(Code::TypeMismatch);
+            );
             if to == TypeId::U8
                 && let Operand::Const {
                     value: Value::String(s),
@@ -227,6 +228,7 @@ impl Compiler {
                 let (bits, signed) = self.ty.types.int_info(tr).unwrap();
                 if untyped && !int_constant_fits(*i, bits, signed, origin.bit_pattern()) {
                     return err(
+                        Code::ConstantOutOfRange,
                         span,
                         format!("constant {i} does not fit in {}", self.ty.types.name(to)),
                     );
@@ -246,6 +248,7 @@ impl Compiler {
                 if tr == TypeId::F32 {
                     if untyped && value.requires_float64() {
                         return err(
+                            Code::BinaryFloatingLiteral,
                             span,
                             "this floating literal requires float64 precision (use an explicit cast to round it)",
                         );
@@ -259,6 +262,7 @@ impl Compiler {
                         && (magnitude > f32::MAX as f64 || magnitude < f32::MIN_POSITIVE as f64)
                     {
                         return err(
+                            Code::ConstantOutOfRange,
                             span,
                             format!(
                                 "constant {x:e} does not fit in {} (convert with `cast({})` to round it)",
@@ -322,7 +326,8 @@ impl Compiler {
             return;
         }
         self.warn(
-            Diagnostic::warning(
+            Diagnostic::new(
+                Code::ConvertLiteralFloat32,
                 span,
                 format!("this literal is {} as a float32", rounded as f64),
             )

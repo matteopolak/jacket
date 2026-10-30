@@ -6,6 +6,7 @@ use super::{
     TypeKind, Value, ast, err, ir, scope,
 };
 use crate::ast::ExprKind as E;
+use crate::diagnostics::Code;
 use crate::sema::TypeState;
 use crate::sema::binary::Binary;
 use crate::sema::expr::{takes_context_type, takes_sibling_type};
@@ -229,6 +230,7 @@ impl Compiler {
         }
         if matches!(probe, Operand::Type(_)) {
             return err(
+                Code::CallTypeCannotOperand,
                 span,
                 "a type cannot be an operand of an overloaded operator",
             );
@@ -443,7 +445,8 @@ impl Compiler {
                 .filter_map(|a| a.op.as_ref().map(|o| self.ty.types.name(o.ty())))
                 .collect();
             let text = binop_text(op);
-            let mut d = Diagnostic::error(
+            let mut d = Diagnostic::new(
+                Code::CallNoOperator,
                 span,
                 format!(
                     "no `operator {text}` for {}",
@@ -497,7 +500,7 @@ impl Compiler {
     ) -> Result<Operand> {
         let (best, _) = self.rank_candidates(procs, &args, span);
         if best.is_empty() {
-            return err(span, "no operator overload matches");
+            return err(Code::CallNoOperator, span, "no operator overload matches");
         }
         let (chosen, _) = self.choose_candidate(best, &args, span, scope)?;
         self.emit_call(f, scope, chosen, args, span)
@@ -534,7 +537,8 @@ impl Compiler {
             } else {
                 "bit-complement"
             };
-            let d = Diagnostic::error(
+            let d = Diagnostic::new(
+                Code::UnsupportedOperation,
                 span,
                 format!("cannot {what} {}", self.ty.types.name(operand.ty())),
             );

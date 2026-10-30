@@ -1,6 +1,7 @@
 //! Unifying operand types and emitting the operation, with its overflow check.
 use super::{Binary, Unified, arith_op, cmp_op, is_comparison, is_shift};
 use crate::ast::BinOp;
+use crate::diagnostics::Code;
 use crate::ir::{CmpOp, Ty};
 use crate::sema::calls::binop_text;
 use crate::sema::lower::{FnCtx, Operand, Origin};
@@ -113,6 +114,7 @@ impl Compiler {
                     && !matches!(self.ty.types.kind(other.ty()), TypeKind::Enum(_))
                 {
                     return err(
+                        Code::BinarySignednessMismatchConstant,
                         span,
                         format!(
                             "signedness mismatch: the constant {v} does not fit in `{}`",
@@ -129,7 +131,11 @@ impl Compiler {
             )
         {
             let symbol = binop_text(op);
-            return err(span, format!("operator `{symbol}` is not defined for bool"));
+            return err(
+                Code::BinaryOperatorNotDefined,
+                span,
+                format!("operator `{symbol}` is not defined for bool"),
+            );
         }
         // A literal that met the other operand's type takes it as a bit pattern
         // (`mask & ~0x7` with a `u32` mask).
@@ -229,6 +235,7 @@ impl Compiler {
                 });
             }
             return err(
+                Code::BinaryOperatorNotDefined2,
                 span,
                 format!(
                     "operator {} is not defined for {}",
@@ -250,7 +257,8 @@ impl Compiler {
             self.note_check_handler(span)?;
         }
         let ir_op = arith_op(op, t.is_float(), signed).ok_or_else(|| {
-            Box::new(Diagnostic::error(
+            Box::new(Diagnostic::new(
+                Code::BinaryOperatorNotDefined2,
                 span,
                 format!(
                     "operator {} is not defined for {}",
@@ -261,6 +269,7 @@ impl Compiler {
         })?;
         if t == Ty::Ptr {
             return err(
+                Code::BinaryArithmeticOperator,
                 span,
                 format!(
                     "arithmetic operator {} is not defined for {}",
@@ -326,22 +335,32 @@ impl Compiler {
             [entity] => entity,
             [] => {
                 return err(
+                    Code::RuntimeConfigurationInvalid,
                     span,
                     "Runtime_Support does not define `__arithmetic_overflow`",
                 );
             }
             _ => {
                 return err(
+                    Code::RuntimeConfigurationInvalid,
                     span,
                     "Runtime_Support defines `__arithmetic_overflow` more than once",
                 );
             }
         };
         let Resolved::Proc(proc) = self.resolve_entity(entity)? else {
-            return err(span, "`__arithmetic_overflow` is not a procedure");
+            return err(
+                Code::BinaryArithmeticOverflow,
+                span,
+                "`__arithmetic_overflow` is not a procedure",
+            );
         };
         let crate::sema::procs::ProcTarget::Func(func) = self.proc_func(proc, span)? else {
-            return err(span, "`__arithmetic_overflow` must be defined in Jai");
+            return err(
+                Code::BinaryArithmeticOverflowMustDefined,
+                span,
+                "`__arithmetic_overflow` must be defined in Jai",
+            );
         };
         let width = f.b.iconst(Ty::I64, t.size());
         let overflowed = f.b.intrinsic(intrinsic, vec![x, y, width], &[Ty::I8])[0];

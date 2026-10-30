@@ -1,4 +1,5 @@
 //! Literal fitting and the type a binary expression takes.
+use crate::diagnostics::Code;
 use crate::int_arith::wrap;
 use crate::sema::TypeState;
 use crate::sema::convert::{Wrap, wrap_suggestion};
@@ -114,7 +115,8 @@ impl Compiler {
                 {
                     return Ok(TypeId::VOID_PTR);
                 }
-                let mut d = Diagnostic::error(
+                let mut d = Diagnostic::new(
+                    Code::BinaryTypeMismatch,
                     span,
                     format!(
                         "type mismatch: `{}` and `{}` cannot be combined",

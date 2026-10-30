@@ -1,5 +1,6 @@
 //! Member access expressions and the types of promoted and pending members.
 use super::model::FieldUsing;
+use crate::diagnostics::Code;
 use crate::sema::lower::{FnCtx, Operand, Origin};
 use crate::sema::scope::{EntityId, EntityKind, Found, Resolved, ScopeKind};
 use crate::sema::{Compiler, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, scope};
@@ -45,7 +46,11 @@ impl Compiler {
             } if name.as_str() == "type" => {
                 let body = self.pr.codes[code.0 as usize].clone();
                 let ast::CodeBody::Expr(e) = &*body else {
-                    return err(span, "only a Code expression has a type");
+                    return err(
+                        Code::StructOnlyCodeExpression,
+                        span,
+                        "only a Code expression has a type",
+                    );
                 };
                 let code_scope = self.pr.code_scopes[code.0 as usize];
                 let ty = match self.check_expr_no_emit(code_scope, e)? {
@@ -110,7 +115,13 @@ impl Compiler {
                         val: addr,
                     });
                 }
-                _ => return err(span, format!("fixed array has no member `{name}`")),
+                _ => {
+                    return err(
+                        Code::StructFixedArray,
+                        span,
+                        format!("fixed array has no member `{name}`"),
+                    );
+                }
             }
         }
         // Auto-dereference one level of pointer to struct.
@@ -149,7 +160,11 @@ impl Compiler {
                         val: addr,
                     })
                 }
-                _ => err(span, format!("fixed array has no member `{name}`")),
+                _ => err(
+                    Code::StructFixedArray,
+                    span,
+                    format!("fixed array has no member `{name}`"),
+                ),
             };
         }
         if let Some((path, mty, origin)) =
@@ -192,7 +207,11 @@ impl Compiler {
             return Ok(Some(filter.clone()));
         }
         if !self.ty.field_filter_pending.insert(key) {
-            return err(decl.span, "cycle in struct using filters");
+            return err(
+                Code::UsingFilterInvalid,
+                decl.span,
+                "cycle in struct using filters",
+            );
         }
         let result = self.filter_using_entry(scope, scope::UsingEntry::Type(ty), filter, decl.span);
         self.ty.field_filter_pending.remove(&key);
@@ -427,6 +446,7 @@ impl Compiler {
                     return Ok(Operand::Type(field_ty));
                 }
                 err(
+                    Code::StructTypeNoConstant,
                     span,
                     format!(
                         "type {} has no constant member `{name}`",

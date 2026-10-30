@@ -1,5 +1,6 @@
 //! Declarations and assignments that name a different number of variables than values.
 use super::{Compiler, Diagnostic, Span, ast};
+use crate::diagnostics::Code;
 use crate::source::{Applicability, Suggestion};
 
 /// `1 value`, `3 values`.
@@ -29,7 +30,8 @@ impl Compiler {
         count: usize,
         values: &[&ast::Expr],
     ) -> Box<Diagnostic> {
-        let mut d = Diagnostic::error(
+        let mut d = Diagnostic::new(
+            Code::DeclarationCountMismatch,
             span,
             format!("{names} {noun} but {}", counted(count, "value")),
         );

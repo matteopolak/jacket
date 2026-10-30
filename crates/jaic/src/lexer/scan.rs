@@ -3,6 +3,7 @@ use super::api::{Comment, CommentKind, PlatformTarget};
 use super::conditions::fold_or;
 use super::punct::{INTEGER_TOO_BIG, P, puncts_starting_with};
 use super::{Tok, Token};
+use crate::diagnostics::Code;
 use crate::diagnostics::Diagnostic;
 use crate::intern::Sym;
 use crate::source::{Applicability, FileId, Span, Suggestion};
@@ -70,18 +71,18 @@ impl<'a> Lexer<'a> {
         errors
     }
 
-    fn unclosed_err(&mut self, start: usize, msg: &str) -> Diagnostic {
+    fn unclosed_err(&mut self, code: Code, start: usize, msg: &str) -> Diagnostic {
         self.unclosed = true;
-        self.err(start, msg)
+        self.err(code, start, msg)
     }
 
-    fn err(&self, start: usize, msg: &str) -> Diagnostic {
+    fn err(&self, code: Code, start: usize, msg: &str) -> Diagnostic {
         let mut end = self.at.max(start + 1).min(self.src.len().max(start + 1));
         // A span covers whole characters: the renderer slices the text with it.
         while end < self.text.len() && !self.text.is_char_boundary(end) {
             end += 1;
         }
-        Diagnostic::error(Span::new(self.file, start, end), msg)
+        Diagnostic::new(code, Span::new(self.file, start, end), msg)
     }
 
     fn peek(&self, n: usize) -> u8 {
@@ -181,6 +182,7 @@ impl<'a> Lexer<'a> {
                 if odd_quotes {
                     return Err(self
                         .err(
+                            Code::LexNoteEndsFirst,
                             start,
                             "a note ends at the first whitespace, so it cannot be quoted",
                         )
@@ -197,7 +199,11 @@ impl<'a> Lexer<'a> {
                     .find(|(t, _)| rest.starts_with(t.as_bytes()))
                 else {
                     self.at += 1;
-                    return Err(self.err(start, &format!("unexpected character `{}`", c as char)));
+                    return Err(self.err(
+                        Code::LexUnexpectedCharacter,
+                        start,
+                        &format!("unexpected character `{}`", c as char),
+                    ));
                 };
                 self.at += text.len();
                 self.push(Tok::Punct(p), start);
@@ -440,7 +446,11 @@ impl<'a> Lexer<'a> {
                         self.note_comment(start, CommentKind::Block, false);
                         let end = Span::new(self.file, self.src.len(), self.src.len());
                         return Err(self
-                            .unclosed_err(start, "unterminated block comment")
+                            .unclosed_err(
+                                Code::LexUnterminatedBlockComment,
+                                start,
+                                "unterminated block comment",
+                            )
                             .with_suggestion(
                                 Suggestion::insert(
                                     "close the comment at the end of the file with `*/`",
@@ -507,10 +517,14 @@ impl<'a> Lexer<'a> {
                 self.at += 1;
             }
             if too_big {
-                return Err(self.err(start, INTEGER_TOO_BIG));
+                return Err(self.err(Code::LexIntegerTooBig, start, INTEGER_TOO_BIG));
             }
             if self.at == digits_start {
-                return Err(self.err(start, "expected digits after numeric prefix"));
+                return Err(self.err(
+                    Code::LexExpectedDigits,
+                    start,
+                    "expected digits after numeric prefix",
+                ));
             }
             if radix == 0 {
                 let ndigits = self.src[digits_start..self.at]
@@ -519,6 +533,7 @@ impl<'a> Lexer<'a> {
                     .count();
                 if !matches!(ndigits, 4 | 8 | 16) {
                     return Err(self.err(
+                        Code::LexHexFloatBit,
                         start,
                         "a hex float bit pattern requires 4, 8 or 16 hex digits",
                     ));
@@ -566,11 +581,11 @@ impl<'a> Lexer<'a> {
         if is_float {
             text.parse::<f64>()
                 .map(Tok::Float)
-                .map_err(|_| self.err(start, "invalid float literal"))
+                .map_err(|_| self.err(Code::LexInvalidFloatLiteral, start, "invalid float literal"))
         } else {
             match text.parse::<u128>() {
                 Ok(v) if v <= u64::MAX as u128 => Ok(Tok::Int(v)),
-                _ => Err(self.err(start, INTEGER_TOO_BIG)),
+                _ => Err(self.err(Code::LexIntegerTooBig, start, INTEGER_TOO_BIG)),
             }
         }
     }
@@ -579,14 +594,22 @@ impl<'a> Lexer<'a> {
         let mut out = Vec::new();
         loop {
             let Some(&c) = self.src.get(self.at) else {
-                return Err(self.err(start, "unterminated string literal"));
+                return Err(self.err(
+                    Code::LexUnterminatedStringLiteral,
+                    start,
+                    "unterminated string literal",
+                ));
             };
             self.at += 1;
             match c {
                 b'"' => return Ok(out),
                 b'\\' => {
                     let Some(&e) = self.src.get(self.at) else {
-                        return Err(self.err(start, "unterminated string literal"));
+                        return Err(self.err(
+                            Code::LexUnterminatedStringLiteral,
+                            start,
+                            "unterminated string literal",
+                        ));
                     };
                     self.at += 1;
                     match e {
@@ -611,9 +634,11 @@ impl<'a> Lexer<'a> {
                             for _ in 0..3 {
                                 let d = self.peek(0);
                                 if !d.is_ascii_digit() {
-                                    return Err(
-                                        self.err(start, "expected three decimal digits after \\d")
-                                    );
+                                    return Err(self.err(
+                                        Code::LexExpectedThreeDecimal,
+                                        start,
+                                        "expected three decimal digits after \\d",
+                                    ));
                                 }
                                 v = v * 10 + (d - b'0') as u32;
                                 self.at += 1;
@@ -627,8 +652,13 @@ impl<'a> Lexer<'a> {
                                 8
                             };
                             let v = self.hex_digits(n, start)?;
-                            let ch = char::from_u32(v)
-                                .ok_or_else(|| self.err(start, "invalid unicode escape"))?;
+                            let ch = char::from_u32(v).ok_or_else(|| {
+                                self.err(
+                                    Code::LexInvalidUnicodeEscape,
+                                    start,
+                                    "invalid unicode escape",
+                                )
+                            })?;
                             let mut buf = [0; 4];
                             out.extend_from_slice(ch.encode_utf8(&mut buf).as_bytes());
                         }
@@ -639,7 +669,11 @@ impl<'a> Lexer<'a> {
                             let backslash = self.at - 1 - ch.len_utf8();
                             let escape = Span::new(self.file, backslash, self.at);
                             return Err(self
-                                .err(backslash, &format!("unknown escape sequence '\\{ch}'"))
+                                .err(
+                                    Code::LexUnknownEscapeSequence,
+                                    backslash,
+                                    &format!("unknown escape sequence '\\{ch}'"),
+                                )
                                 .with_suggestion(
                                     Suggestion::replace(
                                         "write a literal backslash by doubling it",
@@ -664,9 +698,13 @@ impl<'a> Lexer<'a> {
     fn hex_digits(&mut self, n: usize, start: usize) -> Result<u32, Diagnostic> {
         let mut v = 0u32;
         for _ in 0..n {
-            let d = (self.peek(0) as char)
-                .to_digit(16)
-                .ok_or_else(|| self.err(start, "expected hex digits in escape"))?;
+            let d = (self.peek(0) as char).to_digit(16).ok_or_else(|| {
+                self.err(
+                    Code::LexExpectedHexDigits,
+                    start,
+                    "expected hex digits in escape",
+                )
+            })?;
             v = v * 16 + d;
             self.at += 1;
         }
@@ -678,7 +716,11 @@ impl<'a> Lexer<'a> {
         let header = super::here::header(self.src, self.at);
         self.at = header.end;
         if header.tag.is_empty() {
-            return Err(self.unclosed_err(start, "expected here-string terminator"));
+            return Err(self.unclosed_err(
+                Code::LexExpectedStringTerminator,
+                start,
+                "expected here-string terminator",
+            ));
         }
         let (escape_percent, cr) = (header.escape_percent, header.cr);
         let src = self.src;
@@ -741,7 +783,11 @@ impl<'a> Lexer<'a> {
             format!("\n{terminator}\n")
         };
         Err(self
-            .unclosed_err(start, "unterminated here-string")
+            .unclosed_err(
+                Code::LexUnterminatedString,
+                start,
+                "unterminated here-string",
+            )
             .with_suggestion(
                 Suggestion::insert(
                     format!("end the here-string at the end of the file with `{terminator}`"),

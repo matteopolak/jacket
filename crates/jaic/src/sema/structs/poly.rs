@@ -1,6 +1,7 @@
 //! Creating struct types and instantiating polymorphic structs.
 use super::literals::const_operand;
 use super::model::{PolyStruct, StructSource};
+use crate::diagnostics::Code;
 use crate::sema::TypeState;
 use crate::sema::lower::{Operand, Origin};
 use crate::sema::scope::{EntityKind, ScopeKind};
@@ -134,6 +135,7 @@ impl Compiler {
             } => Ok(value),
             Operand::Procs(p) if p.len() == 1 => Ok(Value::Proc(p[0])),
             other => err(
+                Code::ExpectedConstant,
                 span,
                 format!("expected a constant, found {}", self.describe(&other)),
             ),
@@ -236,7 +238,13 @@ impl Compiler {
             .ct
             .interp
             .global_addr(&self.out.program, global)
-            .map_err(|t| Box::new(Diagnostic::error(span, t.into_message())))?;
+            .map_err(|t| {
+                Box::new(Diagnostic::new(
+                    Code::CompileTimeTrap,
+                    span,
+                    t.into_message(),
+                ))
+            })?;
         let count = self
             .ct
             .program_u64(addr + crate::layout::view::COUNT, span)?;
@@ -304,7 +312,8 @@ impl Compiler {
                     .iter()
                     .position(|p| p.name.map(|i| i.name) == Some(n))
                     .ok_or_else(|| {
-                        Box::new(Diagnostic::error(
+                        Box::new(Diagnostic::new(
+                            Code::StructNoParameter,
                             span,
                             format!("`{name}` has no parameter `{n}`"),
                         ))
@@ -315,7 +324,11 @@ impl Compiler {
                 i
             };
             if index >= values.len() {
-                return err(span, format!("too many arguments for `{name}`"));
+                return err(
+                    Code::StructTooManyArguments,
+                    span,
+                    format!("too many arguments for `{name}`"),
+                );
             }
             values[index] = Some(v);
         }
@@ -413,6 +426,7 @@ impl Compiler {
                     }
                     None => {
                         return err(
+                            Code::StructMissingArgumentParameter,
                             span,
                             format!("missing argument for parameter `{pname}` of `{name}`"),
                         );
@@ -474,7 +488,11 @@ impl Compiler {
             return Ok(t);
         }
         if self.ty.poly_structs[ps.0 as usize].instances.len() >= crate::sema::MAX_INSTANCES {
-            return err(span, crate::sema::too_many_instances(name));
+            return err(
+                Code::TooManyInstances,
+                span,
+                crate::sema::too_many_instances(name),
+            );
         }
         let t = self.new_struct_type(name, lit, def_scope, bindings, Some((ps, key.clone())));
         if !cases.is_empty() {

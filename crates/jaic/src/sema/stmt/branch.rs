@@ -182,6 +182,7 @@ impl Compiler {
         let vty = v.ty();
         if vty != TypeId::STRING && self.is_memory_type(vty) {
             return err(
+                Code::StatementsNotSupport,
                 value.span,
                 "'if ==' statements do not support struct or array types at this time.",
             );
@@ -264,12 +265,18 @@ impl Compiler {
             _ => match c.const_value().or_else(|| raw.const_value()) {
                 Some(value) => value,
                 None if Self::is_fixed_address(f, c) => return Ok(()),
-                None => return err(span, "Conditions listed by 'case' must be constant."),
+                None => {
+                    return err(
+                        Code::ConditionsListedCase,
+                        span,
+                        "Conditions listed by 'case' must be constant.",
+                    );
+                }
             },
         };
         if let Some((_, earlier)) = seen.iter().find(|(v, _)| *v == value) {
             return Err(Box::new(
-                Diagnostic::error(span, "Duplicate case.")
+                Diagnostic::new(Code::DuplicateCase, span, "Duplicate case.")
                     .with_note(*earlier, "The earlier case is here."),
             ));
         }
@@ -468,7 +475,11 @@ impl TypeState {
     /// not. Flag enums and non-enum values are not checked.
     fn check_switch_complete(&self, ty: TypeId, covered: &[i128], span: Span) -> Result<()> {
         let TypeKind::Enum(id) = *self.types.kind(ty) else {
-            return err(span, "#complete only applies to 'if' on enum types.");
+            return err(
+                Code::CompleteOnlyApplies,
+                span,
+                "#complete only applies to 'if' on enum types.",
+            );
         };
         let info = &self.types.enums[id.0 as usize];
         if info.is_flags {
@@ -483,16 +494,14 @@ impl TypeState {
         if missing.is_empty() {
             return Ok(());
         }
-        Err(Box::new(
-            Diagnostic::error(
-                span,
-                format!(
-                    "#complete switch on {} has no case for {}",
-                    self.types.name(ty),
-                    missing.join(", ")
-                ),
-            )
-            .with_code(Code::IncompleteSwitch),
-        ))
+        Err(Box::new(Diagnostic::new(
+            Code::IncompleteSwitch,
+            span,
+            format!(
+                "#complete switch on {} has no case for {}",
+                self.types.name(ty),
+                missing.join(", ")
+            ),
+        )))
     }
 }

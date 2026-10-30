@@ -156,7 +156,11 @@ pub(super) fn assign_slots(
                     .iter()
                     .filter_map(|p| p.name.map(|n| n.name.as_str()))
                     .collect();
-                let mut d = Diagnostic::error(arg.span, format!("no parameter named `{name}`"));
+                let mut d = Diagnostic::new(
+                    Code::CallNoParameterNamed,
+                    arg.span,
+                    format!("no parameter named `{name}`"),
+                );
                 match crate::suggest::closest(name.as_str(), names.iter().copied()) {
                     Some(near) => {
                         let written =
@@ -198,8 +202,12 @@ pub(super) fn assign_slots(
             };
             if slots[p].is_some() {
                 return Err(Box::new(
-                    Diagnostic::error(arg.span, format!("parameter `{name}` given twice"))
-                        .with_help("remove one of the two arguments"),
+                    Diagnostic::new(
+                        Code::CallParameterGivenTwice,
+                        arg.span,
+                        format!("parameter `{name}` given twice"),
+                    )
+                    .with_help("remove one of the two arguments"),
                 ));
             }
             slots[p] = Some(if arg.spread {
@@ -225,11 +233,11 @@ pub(super) fn assign_slots(
             positional += 1;
         }
         if positional >= params.len() {
-            let mut d = Diagnostic::error(
+            let mut d = Diagnostic::new(
+                Code::ArgumentCount,
                 arg.span,
                 format!("too many arguments: it takes at most {}", params.len()),
             )
-            .with_code(Code::ArgumentCount)
             .with_label("this argument has no parameter");
             if let Some(remove) = remove_extra_arguments(args, i) {
                 d = d.with_suggestion(remove);
@@ -249,7 +257,13 @@ pub(super) fn assign_slots(
                         Slot::Variadic(vec![i])
                     });
                 }
-                _ => return err(arg.span, "variadic parameter already given"),
+                _ => {
+                    return err(
+                        Code::CallVariadicParameterAlready,
+                        arg.span,
+                        "variadic parameter already given",
+                    );
+                }
             }
             if arg.spread && positional + 1 < params.len() {
                 positional += 1;

@@ -8,6 +8,7 @@
 //! condition can be comes from the editor (`ide::values`); a batch compile knows no values, so
 //! only the jumps decide there.
 use crate::ast::{self, BinOp, StmtKind as S};
+use crate::diagnostics::Code;
 use crate::diagnostics::Diagnostic;
 use crate::ide::Narrowing;
 use crate::intern::Sym;
@@ -143,7 +144,8 @@ impl Compiler {
                 _ => None,
             };
             if warn && let Some(word) = word {
-                let mut warning = Diagnostic::warning(
+                let mut warning = Diagnostic::new(
+                    Code::UnreachableStatements,
                     next.span,
                     format!("statements in block after `{word}` are never reached"),
                 )

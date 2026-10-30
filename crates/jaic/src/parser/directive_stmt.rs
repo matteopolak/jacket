@@ -419,7 +419,8 @@ impl Parser<'_> {
             StmtKind::Decl(decl) => {
                 Ok(stmt(StmtKind::AddContext(decl), start.to(self.prev_span())))
             }
-            _ => Err(crate::diagnostics::Diagnostic::error(
+            _ => Err(crate::diagnostics::Diagnostic::new(
+                Code::ParseExpectedDeclaration,
                 start,
                 "expected a declaration after `#add_context`",
             )),

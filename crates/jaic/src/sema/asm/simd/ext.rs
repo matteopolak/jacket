@@ -11,6 +11,7 @@ use super::{
     bin, bit_intrinsic, cmp, err, flag_not, flag_or, is_zero, konst, lane_addr, load_dyn,
     load_lane, mask_bit, ptr_of, resize, select, store_lane, when, xtime,
 };
+use crate::diagnostics::Code;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(in crate::sema) enum ShaOp {
@@ -313,7 +314,11 @@ impl Compiler {
         let dst = ops[0];
         if !to_half {
             if ops.len() != 2 {
-                return err(span, format!("`{name}` takes dst, src"));
+                return err(
+                    Code::AsmOperandForm,
+                    span,
+                    format!("`{name}` takes dst, src"),
+                );
             }
             let (s, _) = self.simd_args(f, ops, 1, false, span)?;
             for i in 0..lanes {
@@ -325,7 +330,11 @@ impl Compiler {
             return self.ext_store(f, cx, (dst, tmp), (width, true), span);
         }
         if ops.len() != 3 {
-            return err(span, format!("`{name}` takes dst, src, imm8"));
+            return err(
+                Code::AsmOperandForm,
+                span,
+                format!("`{name}` takes dst, src, imm8"),
+            );
         }
         let (s, k) = self.simd_args(f, ops, 1, true, span)?;
         // imm8[2] defers to MXCSR.RC, which is always round-to-nearest here.
@@ -384,10 +393,15 @@ impl Compiler {
         let span = inst.span;
         let name = inst.mnemonic.name.as_str();
         if inst.evex.mask.is_some() {
-            return err(span, format!("`{name}` cannot be masked"));
+            return err(
+                Code::AsmMaskOperand,
+                span,
+                format!("`{name}` cannot be masked"),
+            );
         }
         if sha == ShaOp::Sha256Rnds2 && !matches!(ops.len(), 3 | 4) {
             return err(
+                Code::AsmOperandForm,
                 span,
                 format!("`{name}` takes dst, src, wk (the implicit xmm0 as an operand)"),
             );

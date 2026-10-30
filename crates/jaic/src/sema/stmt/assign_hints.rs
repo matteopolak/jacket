@@ -1,5 +1,6 @@
 //! Why an assignment target cannot be assigned to, and what to write instead.
 use crate::ast::ExprKind as E;
+use crate::diagnostics::Code;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::scope::{EntityKind, Found};
 use crate::sema::{Compiler, Diagnostic, EntityId, ScopeId, Span, Sym, Value, ast};
@@ -25,7 +26,8 @@ impl Compiler {
             Operand::Const { value, .. } if !matches!(value, Value::Type(_) | Value::Null)
         );
         if is_constant && matches!(target.kind, E::Ident(_) | E::Member(..)) {
-            let d = Diagnostic::error(
+            let d = Diagnostic::new(
+                Code::CannotAssignConstant2,
                 target.span,
                 format!("cannot assign to constant `{written}`"),
             )
@@ -51,9 +53,11 @@ impl Compiler {
             } => "cannot assign to the result of a cast".into(),
             _ => format!("cannot assign to {}", self.describe(place)),
         };
-        Box::new(Diagnostic::error(target.span, message).with_help(
-            "only a variable, a member, an element or a dereference (`p.*`) can be assigned to",
-        ))
+        Box::new(
+            Diagnostic::new(Code::AssignTargetInvalid, target.span, message).with_help(
+                "only a variable, a member, an element or a dereference (`p.*`) can be assigned to",
+            ),
+        )
     }
 
     /// `d`, an error about assigning into the constant `name`, with where it is declared and,
@@ -118,7 +122,11 @@ impl Compiler {
         name: Sym,
         span: Span,
     ) -> Box<Diagnostic> {
-        let mut d = Diagnostic::error(span, "Can't assign to an immutable argument.");
+        let mut d = Diagnostic::new(
+            Code::CantAssignImmutable,
+            span,
+            "Can't assign to an immutable argument.",
+        );
         let declared = self.entity(entity);
         if declared.span != Span::NONE {
             d = d.with_note(

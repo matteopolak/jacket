@@ -375,14 +375,26 @@ impl Compiler {
         let shown = (!text.is_empty() && !text.contains('\n') && text.len() <= 80).then_some(text);
         let literal_false = matches!(cond.kind, ExprKind::Bool(false));
         let mut d = match (message.is_empty(), shown) {
-            (false, _) => Diagnostic::error(span, format!("#assert failed: {message}")),
-            (true, _) if literal_false => {
-                Diagnostic::error(span, "#assert failed: this `#assert(false)` was compiled")
-            }
-            (true, Some(text)) => {
-                Diagnostic::error(span, format!("#assert failed: `{text}` is false"))
-            }
-            (true, None) => Diagnostic::error(span, "#assert failed: its condition is false"),
+            (false, _) => Diagnostic::new(
+                Code::StaticAssert,
+                span,
+                format!("#assert failed: {message}"),
+            ),
+            (true, _) if literal_false => Diagnostic::new(
+                Code::StaticAssert,
+                span,
+                "#assert failed: this `#assert(false)` was compiled",
+            ),
+            (true, Some(text)) => Diagnostic::new(
+                Code::StaticAssert,
+                span,
+                format!("#assert failed: `{text}` is false"),
+            ),
+            (true, None) => Diagnostic::new(
+                Code::StaticAssert,
+                span,
+                "#assert failed: its condition is false",
+            ),
         }
         .with_code(Code::StaticAssert);
         self.src
@@ -460,7 +472,8 @@ impl TypeState {
             ),
             TypeKind::Pointer(inner) => {
                 if matches!(self.types.kind(*inner), TypeKind::Pointer(_)) {
-                    return Diagnostic::error(
+                    return Diagnostic::new(
+                        Code::TypeNoMember,
                         span,
                         format!("type `{shown}` has no member `{name}`"),
                     )
@@ -472,7 +485,11 @@ impl TypeState {
             }
             _ => ("type", Vec::new()),
         };
-        let mut d = Diagnostic::error(span, format!("{what} `{shown}` has no member `{name}`"));
+        let mut d = Diagnostic::new(
+            Code::NoMember,
+            span,
+            format!("{what} `{shown}` has no member `{name}`"),
+        );
         if let Some(near) =
             crate::suggest::closest(name.as_str(), members.iter().map(String::as_str))
         {

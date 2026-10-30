@@ -18,6 +18,7 @@ use crate::ast::{
     AsmBlock, AsmDecl, AsmEvex, AsmInst, AsmItem, AsmMem, AsmMemTerm, AsmOperand, AsmPin, AsmSize,
     Expr, ExprKind, Ident,
 };
+use crate::diagnostics::Code;
 use crate::intern::Sym;
 use crate::lexer::{P, Tok};
 use std::rc::Rc;
@@ -43,7 +44,9 @@ impl Parser<'_> {
                 break;
             }
             if self.at_eof() {
-                return Err(self.error("unterminated `#asm` block"));
+                return Err(
+                    self.error(Code::ParseUnterminatedAsmBlock, "unterminated `#asm` block")
+                );
             }
             items.push(self.parse_asm_item()?);
             if !self.at(P::RBrace) {

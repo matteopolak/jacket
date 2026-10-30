@@ -1,5 +1,6 @@
 //! Reading source files, loading modules and strings, and creating modules.
 use super::filesystem::find_module_in;
+use crate::diagnostics::Code;
 use crate::sema::Namespaces;
 use crate::sema::SourceState;
 use crate::sema::scope::{PendingState, ScopeKind};
@@ -60,6 +61,7 @@ impl Compiler {
             return Ok(());
         }
         err(
+            Code::ModuleStandardLibraryInternal,
             span,
             "standard-library internal sources are private; import a public library module",
         )
@@ -328,12 +330,14 @@ impl Compiler {
             };
             let Some(position) = position else {
                 return err(
+                    Code::ModuleParameterInvalid,
                     span,
                     format!("argument `{name}` is not a parameter of this module"),
                 );
             };
             if !used.insert(position) {
                 return err(
+                    Code::ModuleParameterInvalid,
                     span,
                     format!(
                         "module parameter `{}` is supplied more than once",

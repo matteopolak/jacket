@@ -4,6 +4,7 @@ use super::model::{
     Entity, EntityId, EntityKind, EntityState, ImportEntry, Pending, PendingState, Resolved, Scope,
     ScopeId, ScopeKind, UsingEntry,
 };
+use crate::diagnostics::Code;
 use crate::sema::Diagnostics;
 use crate::sema::{
     Compiler, Diagnostic, FileId, HashMap, ModuleId, Rc, Result, Span, Sym, Value, ast,
@@ -267,12 +268,16 @@ impl Compiler {
                 _ => continue,
             }
             return Err(Box::new(
-                Diagnostic::error(span, format!("`{name}` is already declared in this scope"))
-                    .with_label("declared again here")
-                    .with_note(
-                        self.entity(id).span,
-                        format!("`{name}` is first declared here"),
-                    ),
+                Diagnostic::new(
+                    Code::AlreadyDeclaredScope,
+                    span,
+                    format!("`{name}` is already declared in this scope"),
+                )
+                .with_label("declared again here")
+                .with_note(
+                    self.entity(id).span,
+                    format!("`{name}` is first declared here"),
+                ),
             ));
         }
         Ok(())

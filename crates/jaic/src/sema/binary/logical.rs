@@ -1,5 +1,6 @@
 //! Logical operators and string comparison.
 use crate::ast::BinOp;
+use crate::diagnostics::Code;
 use crate::ir::{CmpOp, Ty};
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, Result, ScopeId, Span, TypeId, Value, ast, err, ir};
@@ -87,7 +88,11 @@ impl Compiler {
         span: Span,
     ) -> Result<Operand> {
         if !matches!(op, BinOp::Eq | BinOp::Ne) {
-            return err(span, "strings can only be compared with == and !=");
+            return err(
+                Code::BinaryStringsOnlyCompared,
+                span,
+                "strings can only be compared with == and !=",
+            );
         }
         let result = f.b.alloca(1, 1);
         let lc = f.b.load(Ty::I64, x);

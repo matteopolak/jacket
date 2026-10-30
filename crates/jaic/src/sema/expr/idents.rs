@@ -29,6 +29,7 @@ impl Compiler {
             Some(E::Ident(name)) => name.as_str(),
             _ => {
                 return err(
+                    Code::JaicTypeExpects,
                     span,
                     "#jaic_type expects a name, as in '#jaic_type long_double'",
                 );
@@ -36,7 +37,11 @@ impl Compiler {
         };
         match name {
             "long_double" => Ok(self.long_double_type()),
-            other => err(span, format!("unknown jaic extension type `{other}`")),
+            other => err(
+                Code::UnknownJaicExtension,
+                span,
+                format!("unknown jaic extension type `{other}`"),
+            ),
         }
     }
 
@@ -57,7 +62,11 @@ impl Compiler {
             rest,
         )) = block.stmts.split_last()
         else {
-            return err(span, "a block used as a value must end in an expression");
+            return err(
+                Code::BlockUsedValue,
+                span,
+                "a block used as a value must end in an expression",
+            );
         };
         let inner = self.new_block_scope(scope, span);
         let depth = f.mark_defers();
@@ -143,7 +152,11 @@ impl Compiler {
             ty: TypeId::TYPE, ..
         } = op
         {
-            return err(expr.span, "type must be known at compile time");
+            return err(
+                Code::TypeMustKnown,
+                expr.span,
+                "type must be known at compile time",
+            );
         }
         self.operand_as_type(op, expr.span)
     }
@@ -203,9 +216,12 @@ impl Compiler {
                         });
                     }
                     return Err(Box::new(
-                        Diagnostic::error(span, format!("unknown identifier `{name}`"))
-                            .with_code(Code::UnknownIdentifier)
-                            .with_data(Data::Scope(Some(scope.0))),
+                        Diagnostic::new(
+                            Code::UnknownIdentifier,
+                            span,
+                            format!("unknown identifier `{name}`"),
+                        )
+                        .with_data(Data::Scope(Some(scope.0))),
                     ));
                 }
                 if let [id] = ids[..] {
@@ -337,8 +353,11 @@ impl Compiler {
                             return self.entity_operand(f, scope, id, span);
                         }
                         let name = self.entity(id).name;
-                        let mut d =
-                            Diagnostic::error(span, format!("`{name}` is declared more than once"));
+                        let mut d = Diagnostic::new(
+                            Code::DeclaredMoreOnce,
+                            span,
+                            format!("`{name}` is declared more than once"),
+                        );
                         for &other in ids {
                             let at = self.entity(other).span;
                             if at != Span::NONE {
@@ -366,6 +385,7 @@ impl Compiler {
     ) -> Result<Operand> {
         if self.pr.discard_params.contains(&id) {
             return err(
+                Code::DiscardParameter,
                 span,
                 format!(
                     "`{}` is a #discard parameter and cannot be used in the procedure",
@@ -411,6 +431,7 @@ impl Compiler {
                     }
                     let name = self.entity(id).name;
                     return err(
+                        Code::LocalNotAccessible,
                         span,
                         if f.compile_time {
                             format!(
@@ -460,7 +481,11 @@ impl Compiler {
                     && !f.type_only
                 {
                     let name = self.entity(id).name;
-                    return err(span, format!("{what}, but `{name}` is a variable"));
+                    return err(
+                        Code::ExpectedConstantFoundVariable,
+                        span,
+                        format!("{what}, but `{name}` is a variable"),
+                    );
                 }
                 let addr = f.b.storage_addr(storage);
                 let parameters = if matches!(self.ty.types.kind(ty), TypeKind::Proc(_)) {
@@ -489,7 +514,7 @@ impl Compiler {
     ) -> Result<Operand> {
         let Some(t) = expected else {
             return Err(Box::new(
-                Diagnostic::error(
+                Diagnostic::new(Code::CannotInferType,
                     name.span,
                     format!("cannot infer the type of `.{}` here", name.name),
                 )
@@ -513,7 +538,7 @@ impl Compiler {
                 result
             }
             _ => Err(Box::new(
-                Diagnostic::error(
+                Diagnostic::new(Code::CannotInferType2,
                     name.span,
                     format!(
                         "cannot infer `.{}` for type {}",
@@ -662,7 +687,11 @@ impl Compiler {
             }
             s = self.scope(sid).parent;
         }
-        err(span, "#this used outside of a struct or procedure")
+        err(
+            Code::UsedOutsideStruct,
+            span,
+            "#this used outside of a struct or procedure",
+        )
     }
 
     pub(super) fn proc_type_from_header(
@@ -685,7 +714,13 @@ impl Compiler {
                     let op = self.check_expr_no_emit(scope, d)?;
                     self.settle_untyped(op, None).ty()
                 }
-                (None, None) => return err(p.span, "procedure type parameter needs a type"),
+                (None, None) => {
+                    return err(
+                        Code::ProcedureTypeParameter,
+                        p.span,
+                        "procedure type parameter needs a type",
+                    );
+                }
             };
             if let Some(name) = &p.name
                 && self.ed.is_live()
@@ -706,7 +741,11 @@ impl Compiler {
         let mut returns = Vec::new();
         for r in &header.returns {
             let Some(rt) = &r.ty else {
-                return err(r.span, "procedure type result needs a type");
+                return err(
+                    Code::ProcedureTypeResult,
+                    r.span,
+                    "procedure type result needs a type",
+                );
             };
             let t = self.eval_type_in(f, scope, rt)?;
             if let Some(name) = r.name {
@@ -747,18 +786,30 @@ impl Compiler {
     pub fn preload_type(&mut self, ty: PreludeType, span: Span) -> Result<TypeId> {
         let name = ty.name();
         let Some(preload) = self.ns.preload else {
-            return err(span, format!("`{name}` requires Preload"));
+            return err(
+                Code::PreloadMissingDeclaration,
+                span,
+                format!("`{name}` requires Preload"),
+            );
         };
         let ids = self.module_declarations(preload, Sym::intern(name))?;
         let Some(&id) = ids.first() else {
-            return err(span, format!("Preload does not define `{name}`"));
+            return err(
+                Code::PreloadMissingDeclaration,
+                span,
+                format!("Preload does not define `{name}`"),
+            );
         };
         match self.resolve_entity(id)? {
             Resolved::Const {
                 value: Value::Type(t),
                 ..
             } => Ok(t),
-            _ => err(span, format!("Preload's `{name}` is not a type")),
+            _ => err(
+                Code::PreloadMissingDeclaration,
+                span,
+                format!("Preload's `{name}` is not a type"),
+            ),
         }
     }
 }

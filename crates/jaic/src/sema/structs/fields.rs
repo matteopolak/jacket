@@ -1,6 +1,7 @@
 //! Collecting a struct's fields and the implicit context type.
 use super::model::{FieldDecl, FieldItem, MemberAlias, member_path, member_path_spans};
 use crate::ast::ExprKind as E;
+use crate::diagnostics::Code;
 use crate::sema::TypeState;
 use crate::sema::lower::Operand;
 use crate::sema::scope::{EntityKind, Resolved, ScopeKind};
@@ -71,13 +72,21 @@ impl Compiler {
                 }
                 ast::StmtKind::Place(e) => {
                     let Some(path) = member_path(e) else {
-                        return err(e.span, "#place needs a field name");
+                        return err(
+                            Code::StructPlaceNeedsField,
+                            e.span,
+                            "#place needs a field name",
+                        );
                     };
                     out.push(FieldItem::Place(path, member_path_spans(e), e.span));
                 }
                 ast::StmtKind::Overlay(e) => {
                     let Some(path) = member_path(e) else {
-                        return err(e.span, "#overlay needs a field name");
+                        return err(
+                            Code::StructOverlayNeedsField,
+                            e.span,
+                            "#overlay needs a field name",
+                        );
                     };
                     out.push(FieldItem::Overlay(path, member_path_spans(e), e.span));
                 }
@@ -105,7 +114,13 @@ impl Compiler {
                             filter: None,
                         }));
                     }
-                    _ => return err(e.span, "unexpected expression in struct body"),
+                    _ => {
+                        return err(
+                            Code::StructUnexpectedExpressionBody,
+                            e.span,
+                            "unexpected expression in struct body",
+                        );
+                    }
                 },
                 ast::StmtKind::Using(boxed) => {
                     let crate::ast::UsingStmt {
@@ -163,7 +178,11 @@ impl Compiler {
         }
         let key = (scope, decl.id);
         if !self.ty.field_type_pending.insert(key) {
-            return err(decl.span, "cycle in struct field types");
+            return err(
+                Code::StructCycleFieldTypes,
+                decl.span,
+                "cycle in struct field types",
+            );
         }
         let result = self.field_decl_type_inner(scope, decl);
         self.ty.field_type_pending.remove(&key);
@@ -196,7 +215,9 @@ impl Compiler {
                     other => other.ty(),
                 }
             }
-            (None, None) => return err(decl.span, "field needs a type"),
+            (None, None) => {
+                return err(Code::StructFieldNeedsType, decl.span, "field needs a type");
+            }
         };
         Ok(ty)
     }
@@ -342,6 +363,7 @@ impl Compiler {
         let capacity = self.out.program.globals[global.0 as usize].size;
         if size > capacity {
             return err(
+                Code::StructContextGottenBigger,
                 span,
                 format!(
                     "The #Context has gotten bigger than the limit. The maximum size configured in Build_Options is {capacity} bytes, but this declaration would make it {size} bytes."
@@ -364,7 +386,13 @@ impl Compiler {
         self.ct
             .interp
             .initialize_global_tail(&self.out.program, global, from)
-            .map_err(|t| Box::new(crate::sema::Diagnostic::error(span, t.into_message())))
+            .map_err(|t| {
+                Box::new(crate::sema::Diagnostic::new(
+                    Code::CompileTimeTrap,
+                    span,
+                    t.into_message(),
+                ))
+            })
     }
 }
 

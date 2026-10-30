@@ -2,6 +2,7 @@
 use super::dispatch::SimdLocals;
 use super::helpers::{load_dyn, mask_bit, saturate};
 use super::{DupKind, Sat, VOp};
+use crate::diagnostics::Code;
 use crate::sema::asm::vec::{VOpd, lane_addr, load_lane, store_lane};
 use crate::sema::asm::{
     AsmCtx, BinOp, CmpOp, Compiler, FnCtx, Intrinsic, Result, Ty, bin, bits, cmp, err, is_neg,
@@ -227,7 +228,11 @@ impl Compiler {
             VOp::Perm(ty) if last_imm => {
                 // permq/permpd imm: 64-bit lanes within each 256-bit half.
                 if ty != Ty::I64 {
-                    return err(span, format!("`{name}` does not take an immediate"));
+                    return err(
+                        Code::AsmImmediate,
+                        span,
+                        format!("`{name}` does not take an immediate"),
+                    );
                 }
                 let (s, k) = self.simd_args(f, ops, 1, true, span)?;
                 for i in 0..width / 8 {
@@ -395,7 +400,13 @@ impl Compiler {
                 let (a, src, k) = match ops {
                     [_, src, VOpd::Imm(k)] => (self.vec_ptr(f, dst, span)?, *src, *k as u64),
                     [_, a, src, VOpd::Imm(k)] => (self.vec_ptr(f, *a, span)?, *src, *k as u64),
-                    _ => return err(span, format!("`{name}` takes dst, [src,] value, imm8")),
+                    _ => {
+                        return err(
+                            Code::AsmOperandForm,
+                            span,
+                            format!("`{name}` takes dst, [src,] value, imm8"),
+                        );
+                    }
                 };
                 let v = self.vec_scalar_read(f, src, ty, span)?;
                 f.b.copy(tmp, a, 16);
@@ -409,7 +420,13 @@ impl Compiler {
                 };
                 let (src, k) = match ops {
                     [_, src, VOpd::Imm(k)] => (self.vec_ptr(f, *src, span)?, *k as u64),
-                    _ => return err(span, format!("`{name}` takes dst, src, imm8")),
+                    _ => {
+                        return err(
+                            Code::AsmOperandForm,
+                            span,
+                            format!("`{name}` takes dst, src, imm8"),
+                        );
+                    }
                 };
                 let v = load_lane(f, src, k % (16 / ty.size()), ty);
                 match dst {

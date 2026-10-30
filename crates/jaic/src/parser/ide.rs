@@ -1,5 +1,6 @@
 //! Editor-only recovery. Never used by the strict compiler entry points.
 use super::{Diagnostic, File, FileId, P, PResult, Parser, Span, Stmt, Tok, Token, parse_tokens};
+use crate::diagnostics::Code;
 
 pub struct IdeParse {
     pub file: File,
@@ -173,7 +174,8 @@ impl Parser<'_> {
                     if self.ide_block_boundary(self.toks[start].span)
                         && let Some(errors) = self.recovery.as_mut()
                     {
-                        errors.push(Diagnostic::error(
+                        errors.push(Diagnostic::new(
+                            Code::ParseExpectedStatementBody,
                             self.toks[start].span,
                             "expected a statement body before the next sibling declaration",
                         ));

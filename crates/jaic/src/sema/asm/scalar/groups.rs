@@ -4,6 +4,7 @@ use super::{
     ShiftKind, Site, TargetCpu, Ty, UnOp, Val, XOp, bin, bits, cmp, crc32c, err, flag_not, flag_or,
     flag_xor, ir, is_neg, is_zero, konst, ptr_of, resize, select, wide_mul,
 };
+use crate::diagnostics::Code;
 
 impl Compiler {
     pub(super) fn scalar_arith(
@@ -26,7 +27,11 @@ impl Compiler {
                 if n == 2 {
                     // `div.b ax, src`: ax / src -> al (quotient), ah (remainder).
                     if sz != Ty::I8 {
-                        return err(span, format!("`{name}` takes 3 operands (hi, lo, divisor)"));
+                        return err(
+                            Code::AsmOperandCount,
+                            span,
+                            format!("`{name}` takes 3 operands (hi, lo, divisor)"),
+                        );
                     }
                     let ax = self.asm_read(f, opds[0], Ty::I16, span)?;
                     let eight = konst(f, Ty::I16, 8);
@@ -287,7 +292,11 @@ impl Compiler {
                 want(2, 2)?;
                 let src_sz = self.asm_size(f, cx, inst, &opds[1..])?;
                 if c.base == "crc32q" && !matches!(src_sz, Ty::I8 | Ty::I64) {
-                    return err(span, "crc32q takes an 8- or 64-bit source");
+                    return err(
+                        Code::AsmOperandForm,
+                        span,
+                        "crc32q takes an 8- or 64-bit source",
+                    );
                 }
                 let acc = self.asm_read(f, opds[0], Ty::I32, span)?;
                 let data = self.asm_read(f, opds[1], src_sz, span)?;
@@ -368,17 +377,31 @@ impl Compiler {
             XOp::Hint => {
                 want(1, 1)?;
                 let Opd::Mem(address) = opds[0] else {
-                    return err(span, format!("`{name}` takes a memory operand"));
+                    return err(
+                        Code::AsmOperandForm,
+                        span,
+                        format!("`{name}` takes a memory operand"),
+                    );
                 };
                 if self.options.cpu != TargetCpu::X64 {
-                    return err(span, format!("{name} requires an x86-64 target"));
+                    return err(
+                        Code::AsmRequiresX8664,
+                        span,
+                        format!("{name} requires an x86-64 target"),
+                    );
                 }
                 let hint = match name {
                     "prefetcht0" => ir::X86Prefetch::T0,
                     "prefetcht1" => ir::X86Prefetch::T1,
                     "prefetcht2" => ir::X86Prefetch::T2,
                     "prefetchnta" => ir::X86Prefetch::NonTemporal,
-                    _ => return err(span, format!("{name} cache operation is not implemented")),
+                    _ => {
+                        return err(
+                            Code::AsmCacheOperation,
+                            span,
+                            format!("{name} cache operation is not implemented"),
+                        );
+                    }
                 };
                 let pointer = ptr_of(f, address);
                 f.b.intrinsic(Intrinsic::X86Prefetch(hint), vec![pointer], &[]);
@@ -390,7 +413,11 @@ impl Compiler {
             XOp::CmpxchgPair(half) => {
                 want(5, 5)?;
                 let Opd::Mem(addr) = opds[2] else {
-                    return err(span, format!("`{name}` compares a memory operand ([ptr])"));
+                    return err(
+                        Code::AsmOperandForm,
+                        span,
+                        format!("`{name}` compares a memory operand ([ptr])"),
+                    );
                 };
                 self.asm_cmpxchg_pair(
                     f,
@@ -413,6 +440,7 @@ impl Compiler {
                     }
                     _ => {
                         return err(
+                            Code::AsmOnlyInt3,
                             span,
                             "only 'int 3' is supported (software interrupts have no meaning outside the OS)",
                         );
@@ -422,13 +450,18 @@ impl Compiler {
             XOp::Xgetbv => {
                 want(3, 3)?;
                 if self.options.cpu != TargetCpu::X64 {
-                    return err(span, "xgetbv requires an x86-64 target");
+                    return err(
+                        Code::AsmRequiresX8664,
+                        span,
+                        "xgetbv requires an x86-64 target",
+                    );
                 }
                 if opds
                     .iter()
                     .any(|o| !matches!(o, Opd::Reg(r) if matches!(r.storage, Ty::I32 | Ty::I64)))
                 {
                     return err(
+                        Code::AsmRegisterSize,
                         span,
                         "xgetbv operands must be 32- or 64-bit integer registers",
                     );
@@ -442,7 +475,11 @@ impl Compiler {
             XOp::Stmxcsr | XOp::Ldmxcsr => {
                 want(1, 1)?;
                 if !matches!(opds[0], Opd::Mem(_)) {
-                    return err(span, format!("`{name}` takes a memory operand"));
+                    return err(
+                        Code::AsmOperandForm,
+                        span,
+                        format!("`{name}` takes a memory operand"),
+                    );
                 }
                 if op == XOp::Stmxcsr {
                     let v = konst(f, Ty::I32, 0x1f80);

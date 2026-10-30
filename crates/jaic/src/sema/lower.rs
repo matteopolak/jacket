@@ -559,6 +559,7 @@ impl Compiler {
                 let size = self.ty.types.size_of(elem).checked_mul(n);
                 if size.is_none_or(|size| size > crate::types::MAX_SIZE) {
                     return err(
+                        Code::ArrayTypeToo,
                         span,
                         format!(
                             "array type {} is too large (the limit is {} bytes)",
@@ -581,6 +582,7 @@ impl Compiler {
     pub fn rvalue(&mut self, f: &mut FnCtx, op: Operand, span: Span) -> Result<(TypeId, Val)> {
         if self.is_register_operand_type(op.ty(), span) {
             return err(
+                Code::SimdRegisterOperand,
                 span,
                 "a SIMD register operand cannot be loaded as a scalar; extract a lane in #asm",
             );
@@ -623,8 +625,7 @@ impl Compiler {
             Operand::Procs(procs) => {
                 if procs.len() != 1 {
                     return Err(Box::new(
-                        crate::diagnostics::Diagnostic::error(span, "ambiguous overloaded procedure used as a value")
-                            .with_code(Code::AmbiguousProcedureValue)
+                        crate::diagnostics::Diagnostic::new(Code::AmbiguousProcedureValue, span, "ambiguous overloaded procedure used as a value")
                             .with_label("two or more overloads of this name fit")
                             .with_help("name the overload you mean: give it its own name and use that, or declare the variable with the procedure type you want"),
                     ));
@@ -635,15 +636,19 @@ impl Compiler {
                 Ok((ty, val))
             }
             Operand::Multi(values) => self.rvalue(f, values[0].clone(), span),
-            Operand::Void => err(span, "expression has no value"),
-            Operand::Module(_) => err(span, "a module is not a value"),
+            Operand::Void => err(Code::ExpressionNoValue2, span, "expression has no value"),
+            Operand::Module(_) => err(Code::ModuleNotValue, span, "a module is not a value"),
             Operand::PolyStruct(ps) => {
                 let t = self.ty.poly_struct_type(ps);
                 let val = self.materialize(f, &Value::Type(t), TypeId::TYPE, span)?;
                 Ok((TypeId::TYPE, val))
             }
-            Operand::Builtin(_) => err(span, "builtin procedure is not a value"),
-            Operand::Library(_) => err(span, "a library is not a value"),
+            Operand::Builtin(_) => err(
+                Code::BuiltinProcedure,
+                span,
+                "builtin procedure is not a value",
+            ),
+            Operand::Library(_) => err(Code::LibraryNotValue, span, "a library is not a value"),
         }
     }
 
@@ -651,6 +656,7 @@ impl Compiler {
     pub(in crate::sema) fn require_value_type(&self, ty: TypeId, span: Span) -> Result<()> {
         if self.ty.poly_aliases.contains(&ty) {
             return err(
+                Code::PolymorphicTypePattern,
                 span,
                 format!(
                     "the polymorphic type `{}` is a pattern, not a value: its type variables stand for any type",
@@ -683,6 +689,7 @@ impl Compiler {
                     return Ok(f.b.iconst(t, *v as u64));
                 }
                 err(
+                    Code::ConstantOutOfRange,
                     span,
                     format!(
                         "integer constant cannot have type {}",
@@ -693,6 +700,7 @@ impl Compiler {
             Value::Float(v, _) => {
                 let Some(t) = self.ir_ty(ty).filter(|t| t.is_float()) else {
                     return err(
+                        Code::ConstantOutOfRange,
                         span,
                         format!("float constant cannot have type {}", self.ty.types.name(ty)),
                     );
@@ -746,7 +754,7 @@ impl Compiler {
                 Ok(f.b.global_addr(global))
             }
             Value::Code(c) => Ok(f.b.iconst(Ty::Ptr, c.0 as u64)),
-            Value::Void => err(span, "void value used"),
+            Value::Void => err(Code::VoidValue, span, "void value used"),
         }
     }
 

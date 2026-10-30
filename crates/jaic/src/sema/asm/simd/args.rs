@@ -1,5 +1,6 @@
 //! Reading operands and writing results of SIMD instructions.
 use super::helpers::WriteMask;
+use crate::diagnostics::Code;
 use crate::sema::asm::vec::{VOpd, lane_addr};
 use crate::sema::asm::{
     AsmCtx, BinOp, Compiler, FnCtx, Result, Span, Ty, Val, bin, err, konst, resize,
@@ -17,7 +18,7 @@ impl Compiler {
         span: Span,
     ) -> Result<(Vec<Val>, u64)> {
         if ops.is_empty() {
-            return err(span, "missing destination operand");
+            return err(Code::AsmOperandCount, span, "missing destination operand");
         }
         let mut rest = &ops[1..];
         let mut k = 0;
@@ -27,7 +28,13 @@ impl Compiler {
                     k = v as u64;
                     rest = &rest[..rest.len() - 1];
                 }
-                _ => return err(span, "expected an 8-bit immediate as the last operand"),
+                _ => {
+                    return err(
+                        Code::AsmImmediate,
+                        span,
+                        "expected an 8-bit immediate as the last operand",
+                    );
+                }
             }
         }
         let mut srcs = Vec::with_capacity(nsrc);
@@ -35,6 +42,7 @@ impl Compiler {
             srcs.push(self.vec_ptr(f, ops[0], span)?);
         } else if rest.len() != nsrc {
             return err(
+                Code::AsmOperandCount,
                 span,
                 format!(
                     "expected {nsrc} source operand(s){}",
@@ -98,7 +106,11 @@ impl Compiler {
                 f.b.store(Ty::I64, p, m);
                 Ok(())
             }
-            _ => err(span, "the destination must be a mask register"),
+            _ => err(
+                Code::AsmMaskOperand,
+                span,
+                "the destination must be a mask register",
+            ),
         }
     }
 }

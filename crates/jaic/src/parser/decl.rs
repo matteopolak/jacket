@@ -5,6 +5,7 @@ use crate::ast::{
     AstId, Decl, DeclKind, DeclRare, Expr, ExprKind, Foreign, ForeignName, Ident, Notes, Stmt,
     StmtKind, UsingFilter,
 };
+use crate::diagnostics::Code;
 use crate::diagnostics::Diagnostic;
 use crate::intern::Sym;
 use crate::lexer::{P, Tok};
@@ -317,7 +318,8 @@ impl Parser<'_> {
                     root = base;
                 }
                 let ExprKind::Ident(name) = root.kind else {
-                    return Err(Diagnostic::error(
+                    return Err(Diagnostic::new(
+                        Code::ParseExpectedNameVariables,
                         place.span,
                         "expected a name, or a variable's member, index or dereference",
                     ));
@@ -373,7 +375,7 @@ impl Parser<'_> {
                 .enumerate()
                 .find_map(|(i, t)| t.as_ref().filter(|_| !assigned(i)))
             {
-                return Err(Diagnostic::error(
+                return Err(Diagnostic::new(Code::ParseOnlyNameDeclared,
                     place.span,
                     "only a name can be declared, not a member, index or dereference",
                 )

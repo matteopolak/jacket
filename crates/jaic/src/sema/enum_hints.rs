@@ -2,6 +2,7 @@
 //! declared twice.
 use super::scope::EntityKind;
 use super::{Compiler, Diagnostic, ScopeId, Span, Sym, TypeId};
+use crate::diagnostics::Code;
 use crate::source::{Applicability, Suggestion};
 
 /// The name of the integer type with `bits` bits: `u8`, `s64`.
@@ -41,7 +42,8 @@ impl Compiler {
         at: Span,
     ) -> Box<Diagnostic> {
         let current = int_name(bits, signed);
-        let mut d = Diagnostic::error(
+        let mut d = Diagnostic::new(
+            Code::EnumValueOut,
             at,
             format!("enum value {value} is out of range for the enum's type `{current}`"),
         )
@@ -91,7 +93,8 @@ impl Compiler {
         name: Sym,
         span: Span,
     ) -> Box<Diagnostic> {
-        let mut d = Diagnostic::error(
+        let mut d = Diagnostic::new(
+            Code::EnumMemberDeclared,
             span,
             format!("enum member `{name}` is declared more than once"),
         )

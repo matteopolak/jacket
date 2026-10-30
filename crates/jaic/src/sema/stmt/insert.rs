@@ -1,5 +1,6 @@
 //! `#insert` statements and the scopes they publish into.
 use crate::ast::StmtKind as S;
+use crate::diagnostics::Code;
 use crate::sema::lower::{
     FnCtx, InsertReplacements, LoopFrame, LoopRemove, MacroFrame, Operand, Origin,
 };
@@ -90,7 +91,13 @@ impl Compiler {
                             target
                         }
                     }
-                    _ => return err(t.span, "#insert,scope(...) needs a Code value"),
+                    _ => {
+                        return err(
+                            Code::InsertScope,
+                            t.span,
+                            "#insert,scope(...) needs a Code value",
+                        );
+                    }
                 },
                 None if flags.iter().any(|fl| fl.name.as_str() == "scope") => scope,
                 None => self.code_scope_at(code, scope),
@@ -249,7 +256,8 @@ impl Compiler {
                     continue;
                 }
                 return Err(Box::new(
-                    Diagnostic::error(
+                    Diagnostic::new(
+                        Code::AlreadyDeclaredScope,
                         new.span,
                         format!("`{name}` is already declared in this scope"),
                     )

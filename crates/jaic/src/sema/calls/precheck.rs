@@ -1,5 +1,6 @@
 //! Checking arguments before a candidate is chosen, and ranking candidates.
 use super::{CallArg, Candidate, is_deferred};
+use crate::diagnostics::Code;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, Diagnostic, ProcId, Result, ScopeId, Span, Sym, ast, err, ir};
 use crate::types::{ArrayKind, TypeKind};
@@ -16,6 +17,7 @@ impl Compiler {
     ) -> Result<ir::Val> {
         let Some(current) = f.current_context() else {
             return err(
+                Code::CallContextArguments,
                 span,
                 "`,,` context arguments need a context (not in #c_call code)",
             );
@@ -25,7 +27,11 @@ impl Compiler {
         for o in overrides {
             let name = o.name.map_or_else(|| Sym::intern("allocator"), |n| n.name);
             let Some((path, fty)) = self.find_member(ctx_ty, name, o.value.span)? else {
-                return err(o.value.span, format!("Context has no member `{name}`"));
+                return err(
+                    Code::CallContextNoMember,
+                    o.value.span,
+                    format!("Context has no member `{name}`"),
+                );
             };
             if let Some(n) = o.name
                 && self.ed.is_live()

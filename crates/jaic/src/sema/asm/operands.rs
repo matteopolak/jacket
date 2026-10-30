@@ -23,7 +23,11 @@ impl Compiler {
                 value: Value::Type(ty),
                 ..
             } => Ok(ty),
-            _ => err(span, "bootstrap __reg must be a type"),
+            _ => err(
+                Code::AsmBootstrapReg,
+                span,
+                "bootstrap __reg must be a type",
+            ),
         }
     }
 
@@ -36,6 +40,7 @@ impl Compiler {
     pub(in crate::sema) fn ensure_storage_type(&mut self, ty: TypeId, span: Span) -> Result<()> {
         if self.is_register_operand_type(ty, span) {
             return err(
+                Code::AsmSimdRegisterOperand,
                 span,
                 "a SIMD register operand has no standalone storage or runtime ABI; use #asm and expanded parameters",
             );
@@ -76,11 +81,11 @@ impl Compiler {
                 Ok(())
             }
             _ => Err(Box::new(
-                Diagnostic::error(
+                Diagnostic::new(
+                    Code::UnknownIdentifier,
                     decl.name.span,
                     format!("unknown identifier `{}`", decl.name.name),
                 )
-                .with_code(Code::UnknownIdentifier)
                 .with_data(Data::Scope(Some(cx.scope.0))),
             )),
         }
@@ -99,6 +104,7 @@ impl Compiler {
         let class = decl.class.map_or(default_class, |c| c.name.as_str());
         let Some(&(_, kind, size)) = REG_CLASSES.iter().find(|(name, ..)| *name == class) else {
             return err(
+                Code::AsmUnknownRegisterClass,
                 decl.class.map_or(decl.name.span, |c| c.span),
                 format!("unknown #asm register class `{class}`"),
             );
@@ -147,10 +153,12 @@ impl Compiler {
         match kind {
             AsmReg::Gpr => Ok(()),
             AsmReg::Vec => err(
+                Code::AsmVectorOperand,
                 span,
                 "a vector register is not valid in a general-purpose instruction",
             ),
             AsmReg::Mask => err(
+                Code::AsmMaskOperand,
                 span,
                 "a mask register is only valid in mask (k*) and AVX-512 instructions",
             ),
@@ -181,6 +189,7 @@ impl Compiler {
                 self.asm_gpr_opd(kind, addr, d.name.span)
             }
             AsmOperand::Decl(d) => err(
+                Code::AsmRegisterPin,
                 d.name.span,
                 "a register pin is only valid as a separate statement",
             ),
@@ -216,15 +225,21 @@ impl Compiler {
             } => {
                 // An explicitly quoted Code expression keeps its lexical scope.
                 if depth > 8 {
-                    return err(e.span, "#asm register argument is nested too deeply");
+                    return err(
+                        Code::AsmRegisterArgumentNested,
+                        e.span,
+                        "#asm register argument is nested too deeply",
+                    );
                 }
                 let body = self.pr.codes[code.0 as usize].clone();
                 let code_scope = self.pr.code_scopes[code.0 as usize];
                 match &*body {
                     CodeBody::Expr(inner) => self.asm_value(f, code_scope, inner, depth + 1),
-                    CodeBody::Block(_) | CodeBody::Stmt(_) => {
-                        err(e.span, "an #asm operand must be a variable")
-                    }
+                    CodeBody::Block(_) | CodeBody::Stmt(_) => err(
+                        Code::AsmOperandMustVariable,
+                        e.span,
+                        "an #asm operand must be a variable",
+                    ),
                 }
             }
             Operand::Const {
@@ -234,7 +249,11 @@ impl Compiler {
                 Value::Float(v, _) => Ok(Opd::Imm(Imm::Float(v))),
                 Value::Bool(v) => Ok(Opd::Imm(Imm::Int(v as i128))),
                 Value::Null => Ok(Opd::Imm(Imm::Int(0))),
-                _ => err(e.span, "unsupported constant in an #asm operand"),
+                _ => err(
+                    Code::AsmUnsupportedConstantOperand,
+                    e.span,
+                    "unsupported constant in an #asm operand",
+                ),
             },
             other @ Operand::Value {
                 ..
@@ -245,7 +264,11 @@ impl Compiler {
                 let addr = self.spill(f, ty, val, span)?;
                 self.asm_place(ty, addr, true, span)
             }
-            _ => err(e.span, "an #asm operand must be a variable or a constant"),
+            _ => err(
+                Code::AsmOperandMustVariableConstant,
+                e.span,
+                "an #asm operand must be a variable or a constant",
+            ),
         }
     }
 
@@ -260,6 +283,7 @@ impl Compiler {
             Some(t) if !t.is_float() => t,
             Some(_) => {
                 return err(
+                    Code::AsmVectorOperand,
                     span,
                     "a floating-point variable is a vector register in #asm: it is an operand of vector instructions \
                      (`addss x, y`) and of `movd`/`movq`, not of integer instructions",
@@ -267,6 +291,7 @@ impl Compiler {
             }
             None => {
                 return err(
+                    Code::AsmOperandType,
                     span,
                     format!(
                         "#asm operand of type `{}` is not a scalar",
@@ -292,7 +317,13 @@ impl Compiler {
             let scale = match &term.scale {
                 Some(e) => match self.asm_value(f, scope, e, 0)? {
                     Opd::Imm(Imm::Int(s)) => s,
-                    _ => return err(e.span, "the scale of a memory operand must be a constant"),
+                    _ => {
+                        return err(
+                            Code::AsmScaleMemoryOperand,
+                            e.span,
+                            "the scale of a memory operand must be a constant",
+                        );
+                    }
                 },
                 None => 1,
             };
@@ -321,6 +352,7 @@ impl Compiler {
                 }
                 _ => {
                     return err(
+                        Code::AsmMemoryOperandTerm,
                         term.value.span,
                         "a memory operand term must be an integer variable or constant",
                     );
@@ -354,6 +386,7 @@ impl Compiler {
                 let max = (1i128 << n) - 1;
                 if v < min || v > max {
                     return err(
+                        Code::AsmImmediate,
                         span,
                         format!(
                             "immediate {v} does not fit in {n} bits (no matching instruction form)"
@@ -371,6 +404,7 @@ impl Compiler {
                 Ty::I32 => Ok((x as f32).to_bits() as u64),
                 Ty::I64 => Ok(x.to_bits()),
                 _ => err(
+                    Code::AsmImmediate,
                     span,
                     "floating-point immediates need a 32- or 64-bit operand size",
                 ),
@@ -450,6 +484,7 @@ impl Compiler {
                 Ok(())
             }
             Opd::Imm(_) => err(
+                Code::AsmImmediate,
                 span,
                 "an immediate cannot be the destination of an #asm instruction",
             ),

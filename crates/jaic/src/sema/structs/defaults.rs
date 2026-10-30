@@ -1,6 +1,7 @@
 //! Default initializers and constant values of types.
 use super::literals::{image_of, write_agg};
 use crate::ast::ExprKind as E;
+use crate::diagnostics::Code;
 use crate::ir::Ty;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::value::Aggregate;
@@ -145,6 +146,7 @@ impl Compiler {
                         value, ..
                     } => Ok(value),
                     other => err(
+                        Code::ExpectedConstant,
                         span,
                         format!("expected a constant, found {}", self.describe(&other)),
                     ),
