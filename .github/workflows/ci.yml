@@ -1134,7 +1134,7 @@ jobs:
           triple: ${{ matrix.triple }}
       - uses: ./.github/actions/native-libs-cache
       - name: Build jaic with the LLVM backend
-        run: cargo build --locked -p jaic-cli -p jailint --no-default-features --features static-llvm
+        run: cargo build --locked -p jaic-cli -p jailint --no-default-features --features static-llvm,jailint/cli
       # The provider comes first: it puts the crash runtime's DLL on PATH for every later step, so a failing
       # check below cannot leave the programs those steps build unable to load.
       - uses: ./.github/actions/windows-provider
