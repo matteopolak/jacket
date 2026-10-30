@@ -101,7 +101,7 @@ main :: () {
             first.byte_count = 1;
             saved_pages := first.stream_page_numbers;
 
-            first.stream_page_numbers = .{};
+            first.stream_page_numbers = type_of(first.stream_page_numbers).{};
             data, data_ok = D.get_stream_data(msf, 0);
             assert(!data_ok && !data.count && !data.data);
             first.stream_page_numbers = saved_pages;
