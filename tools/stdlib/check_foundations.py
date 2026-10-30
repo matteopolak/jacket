@@ -632,38 +632,6 @@ def main():
         "passed general public alias overload/default execution regression", flush=True
     )
 
-    for name, diagnostic in (
-        ("format-int-kind", "FormatInt requires an integer value"),
-        ("format-float-kind", "FormatFloat requires a float value"),
-        ("format-int-base", "assertion failed"),
-        ("format-int-minimum", "assertion failed"),
-        ("builder-ensured-range", "assertion failed"),
-        ("stack-trace-cycle", "a stack trace must not contain a cycle"),
-        ("leak-unknown-allocation", "unknown allocation marked as non-leak"),
-    ):
-        source = ROOT / f"stdlib/Basic/tests/negative/{name}.jai"
-        commands = [[compiler, "-interp", source]]
-        for level in ("O0", "O2"):
-            binary = output / f"{name}-{level}"
-            run([compiler, source, f"-{level}", "-exe", binary])
-            commands.append([binary])
-        for command in commands:
-            rejected = subprocess.run(
-                list(map(str, command)),
-                cwd=ROOT,
-                env=env,
-                capture_output=True,
-                text=True,
-                timeout=60,
-            )
-            if (
-                rejected.returncode == 0
-                or diagnostic not in rejected.stderr
-                or (name == "leak-unknown-allocation" and rejected.returncode != 1)
-            ):
-                raise RuntimeError(f"expected formatter assertion {name}: {rejected}")
-        print(f"passed interpreter/native O0/O2 assertion: {name}", flush=True)
-
     host_cases = list(CASES)
     if os.name == "nt":
         host_cases.remove("File/tests/visitation")  # Native POSIX symlink graph oracle.
@@ -705,34 +673,6 @@ def main():
                     *expected,
                 )
             print(f"passed production WASI O0/O2: {name}", flush=True)
-        for level in ("O0", "O2"):
-            binary = output / f"leak-unknown-allocation-{level}.wasm"
-            run(
-                [
-                    compiler,
-                    ROOT / "stdlib/Basic/tests/negative/leak-unknown-allocation.jai",
-                    "-os",
-                    "wasm",
-                    f"-{level}",
-                    "-exe",
-                    binary,
-                ]
-            )
-            run(
-                [
-                    "node",
-                    "--no-warnings",
-                    ROOT / "tools/browser/run_foundations_wasm.mjs",
-                    binary,
-                ],
-                "",
-                "memory debugger: unknown allocation marked as non-leak\n",
-                1,
-            )
-        print(
-            "passed production WASI O0/O2 unknown-allocation misuse status 1",
-            flush=True,
-        )
     for name, target in (
         ("Hash/tests/probes/scalar-fnv", []),
         ("Basic/tests/probes/division-exercise", ["-os", "windows", "-cpu", "x64"]),

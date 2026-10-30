@@ -1,3 +1,4 @@
+// test: should_fail("assertion failed")
 #import "Basic";
 
 main :: () {

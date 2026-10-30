@@ -1,3 +1,4 @@
+// test: should_fail("FormatInt requires an integer value")
 #import "Basic";
 
 main :: () {

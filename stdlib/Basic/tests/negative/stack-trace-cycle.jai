@@ -1,3 +1,4 @@
+// test: should_fail("a stack trace must not contain a cycle")
 #import "Basic";
 
 main :: () {

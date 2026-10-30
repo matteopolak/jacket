@@ -1,3 +1,4 @@
+// test: should_fail("FormatFloat requires a float value")
 #import "Basic";
 
 main :: () {

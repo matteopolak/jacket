@@ -92,6 +92,8 @@ A golden test is built (or run with `-interp`) with the same flags as the unit t
 
 Output that depends on the machine (a sound device that is or is not present) can have more than one right answer: `name.stdout.2`, `name.stdout.3`, ... (and the same for `.stderr`) are other outputs that pass, in addition to `name.stdout`. `--accept` writes `name.stdout` only when the output matches none of them.
 
+A program that must fault at run time (a failed `assert`) is a golden test with `// test: should_fail("text")` on top and an expected-output file beside it, usually an empty `name.stdout`: the file is what makes it a golden test, and the run fails its (default) exit status of 0, which `should_fail` turns into a pass when the standard error contains `text`. Where the whole standard error is path-free, give `name.exit` and `name.stderr` instead (`stdlib/Basic/tests/negative/leak-unknown-allocation`); assertion failures print source paths, so they use `should_fail`.
+
 A golden program that has no `main` and does its work at compile time (`#run`, a metaprogram) is only type-checked, and what the compiler prints is its output. A program with `@warns(text)` is built without `-quiet` and passes when the compiler's output (interpreted: standard error) contains the text.
 
 A compile-fail test is type-checked with `jaic name.jai -check -quiet -no_color` from its own folder. It passes when the check fails and the diagnostics equal `name.stderr`, with the folder written `$DIR` and the standard library `$STDLIB`. Diagnostics that name the host's tools (the C compiler `BuildCpp` found) cannot be written down once: `// test: compile_fail("text")` takes no `.stderr` and passes when the diagnostics contain the text.
