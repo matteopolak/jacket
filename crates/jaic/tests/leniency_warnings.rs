@@ -237,3 +237,19 @@ fn the_portable_spellings_do_not_warn() {
         assert!(found.is_empty(), "{leniency:?}: {found:?}");
     }
 }
+
+#[test]
+fn an_enum_loose_type_warns_and_names_the_integer_type() {
+    let text = warns_in_the_program_and_not_in_a_module(
+        Leniency::LooseEnum,
+        "D :: enum { E; N; }
+        main :: () { y: D.loose; y = 3; }",
+        "D :: enum { E; N; }
+        go :: () { y: D.loose; y = 3; }",
+    );
+    assert!(text.contains("`loose` is not a member of `D`"), "{text}");
+    assert!(
+        text.contains("write the integer type, `s64`, and cast to `D`"),
+        "{text}"
+    );
+}

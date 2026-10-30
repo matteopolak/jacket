@@ -362,6 +362,7 @@ impl Compiler {
         }
         match self.ty.types.kind(t).clone() {
             TypeKind::Enum(_) if name.as_str() == "loose" => {
+                self.warn_lenient_loose_enum(scope, span, t);
                 Ok(Operand::Type(self.ty.types.loose_enum(t)))
             }
             TypeKind::Enum(e) => {

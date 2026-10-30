@@ -319,6 +319,31 @@ impl Compiler {
         }
     }
 
+    /// Warn about `Enum.loose`, the type of an enum's values that is not one of its members.
+    pub(in crate::sema) fn warn_lenient_loose_enum(
+        &mut self,
+        scope: ScopeId,
+        span: Span,
+        ty: TypeId,
+    ) {
+        let name = self.ty.types.name(ty);
+        let Some(d) = self.leniency_warning(
+            self.scope(scope).module,
+            span,
+            Leniency::LooseEnum,
+            format!("`loose` is not a member of `{name}`"),
+        ) else {
+            return;
+        };
+        let repr = self.ty.types.name(self.ty.types.repr(ty));
+        let d = d
+            .with_label("an enum type that takes any value of its integer type")
+            .with_help(format!(
+                "write the integer type, `{repr}`, and cast to `{name}` where the enum is needed"
+            ));
+        self.warn(d);
+    }
+
     /// Warn that `for` found the `for_expansion` of `ty` through the module of the type
     /// (`home`, the scope that declares it) because the import that names that module is a
     /// namespace (`HT :: #import "Hash_Table"`), which does not bring `for_expansion` into scope.
