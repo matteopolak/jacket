@@ -1,6 +1,6 @@
 // An array literal of names, where the element type is `Code`, holds the code of each name:
 // as a declaration's value, an argument, or a polymorphic struct argument that binds the length.
-// rules: macro.14
+// rules: macro.17
 #import "Basic";
 #import "Compiler";
 
@@ -27,16 +27,21 @@ names :: (sources: [] Code) -> [..] string {
     return result;
 }
 
-main :: () {
-    systems: Systems(.[first, second]);
-
-    assert(systems.count == 2);
-
+// `compiler_get_nodes` exists only at compile time, so the names are read there.
+check :: () {
     both: [2] Code = .[first, second];
     list := names(both);
 
     assert(list.count == 2);
     assert(list[0] == "first" && list[1] == "second");
     assert(names(.[second]).count == 1);
+}
+
+#run check();
+
+main :: () {
+    systems: Systems(.[first, second]);
+
+    assert(systems.count == 2);
     print("ok\n");
 }
