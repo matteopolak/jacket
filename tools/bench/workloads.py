@@ -11,7 +11,7 @@ from typing import Protocol
 
 import benchgen
 from bench.dialects import Mode
-from repo_output import main_checkout
+from repo_output import host_platform, main_checkout, shared_output_dir
 from bench.results import ROOT
 
 CORPUS = main_checkout() / 'corpus' / 'upstream'
@@ -81,6 +81,8 @@ class CorpusProject:
     # A file copied into the project's folder (a driver from PROJECT_DRIVERS), for a library with no
     # program of its own that does enough work.
     driver: Path | None = None
+    # The project links third-party libraries from `target/native-libs` (built by tools/native/build_native_libs.py).
+    native_libs: bool = False
 
     @property
     def directory(self) -> Path:
@@ -99,7 +101,12 @@ class CorpusProject:
         return copy
 
     def available(self) -> str:
-        return '' if self.directory.is_dir() else f'{self.directory} is missing; run python3 tools/fetch_upstreams.py'
+        if not self.directory.is_dir():
+            return f'{self.directory} is missing; run python3 tools/fetch_upstreams.py'
+        libs = shared_output_dir('native-libs') / host_platform()
+        if self.native_libs and not libs.is_dir():
+            return f'{libs} is missing; run python3 tools/native/build_native_libs.py'
+        return ''
 
     def measured(self, directory: Path, entry: str) -> Path:
         return directory
@@ -177,8 +184,9 @@ def generated(lines: int, modes: tuple[Mode, ...], runtime: bool = False) -> Wor
                     single('main.jai', *modes), compare_output=True, runtime=runtime)
 
 
-def project(name: str, directory: str, plans: dict[Mode, Plan], setup: tuple[str, ...] = ()) -> Workload:
-    return Workload(name, Category.REAL_PROJECT, CorpusProject(directory, setup), plans)
+def project(name: str, directory: str, plans: dict[Mode, Plan], setup: tuple[str, ...] = (),
+            native_libs: bool = False) -> Workload:
+    return Workload(name, Category.REAL_PROJECT, CorpusProject(directory, setup, native_libs=native_libs), plans)
 
 
 def interpreter_programs() -> list[Workload]:
@@ -215,7 +223,8 @@ def all_workloads() -> list[Workload]:
         generated(10_000, (Mode.CHECK, Mode.BUILD, Mode.OPTIMIZED), runtime=True),
         generated(60_000, CHECK_BUILD),
         project('focus', 'focus-editor--focus', {
-            Mode.CHECK: Plan('first.jai'), Mode.BUILD: own_output('first.jai'), Mode.OPTIMIZED: own_output('first.jai', 'release')}),
+            Mode.CHECK: Plan('first.jai'), Mode.BUILD: own_output('first.jai'), Mode.OPTIMIZED: own_output('first.jai', 'release')},
+                native_libs=True),
         # Jails's build.jai only creates a workspace for server/main.jai and adds ./modules to its import
         # path, and links with the compiler's own linker. The server itself is built here, with the module
         # folder on the command line, so every compiler does the same work and links the same way.

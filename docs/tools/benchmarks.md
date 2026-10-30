@@ -194,7 +194,7 @@ python tools\bench\main.py compile --compiler "ref=C:\jai\bin\jai.exe" --compile
 python tools\bench\main.py compare --baseline C:\jai\bin\jai.exe --candidate C:\jacket\jaic.exe --cold-rounds 0
 ```
 
-If step 1 fails with a sandbox message, run it with `--no-sandbox` to see whether the harness or the sandbox is at fault. `--cold-rounds 0` skips the cold phase: Windows cannot empty its file cache without an elevated memory tool, so "cold" rounds would not be cold (the results say `file cache not purged`). The real-project workloads need the corpus (`python tools\fetch_upstreams.py`) and the native libraries; `--no-corpus` skips them.
+If step 1 fails with a sandbox message, run it with `--no-sandbox` to see whether the harness or the sandbox is at fault. `--cold-rounds 0` skips the cold phase: Windows cannot empty its file cache without an elevated memory tool, so "cold" rounds would not be cold (the results say `file cache not purged`). The real-project workloads need the corpus (`python tools\fetch_upstreams.py`) and, for `focus`, the native libraries (`python tools\native\build_native_libs.py`; the workload is skipped with that command named when `target/native-libs` is missing); `--no-corpus` skips the corpus workloads.
 
 ### What is measured, and how it differs
 
