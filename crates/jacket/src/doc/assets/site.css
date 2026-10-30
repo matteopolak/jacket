@@ -108,7 +108,7 @@ kbd { font-family: var(--mono); font-size: 12px; color: var(--muted); border: 1p
 .nav-list.mono { font-size: 13px; }
 .back { color: var(--fg2); padding-left: 10px; margin-bottom: 14px; }
 .nav-cat { margin: 0; }
-.nav-cat > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; list-style: none; padding: 6px 10px; border-radius: 6px; color: var(--fg2); font-size: 13px; font-weight: 600; line-height: 1.5; }
+.nav-cat > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; list-style: none; padding: 6px 10px; border-radius: 6px; color: var(--fg2); font-size: 13px; line-height: 1.5; }
 .nav-cat > summary::-webkit-details-marker { display: none; }
 .nav-cat > summary::after { content: ""; flex: none; width: 5px; height: 5px; border-right: 1px solid var(--muted); border-bottom: 1px solid var(--muted); opacity: 0.7; transform: rotate(-45deg); transition: transform 0.18s ease-out; }
 .nav-cat[open] > summary::after { transform: rotate(45deg); }
