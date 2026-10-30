@@ -167,11 +167,13 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             g.set_linkage(Linkage::External);
             // A Windows DLL exports a variable only as `__imp_<name>`, a pointer to it:
             // import libraries define no `<name>` for data. System libraries are DLLs there,
-            // except the C runtime, which MSVC builds link statically.
+            // and so is the C runtime on MSVC (every MSVC link uses the DLL runtime, see
+            // `link`); MinGW links its C runtime statically.
+            let msvc = matches!(self.target.abi, jaic::target::TargetAbi::Msvc);
             let dll = foreign
                 .library
                 .and_then(|l| self.program.libraries.get(l))
-                .is_some_and(|l| l.system && !crate::is_windows_c_runtime(&l.name));
+                .is_some_and(|l| l.system && (msvc || !crate::is_windows_c_runtime(&l.name)));
             if self.arch.is_windows() && dll {
                 g.set_dll_storage_class(DLLStorageClass::Import);
             }
