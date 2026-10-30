@@ -7,13 +7,13 @@ use super::scope::{ScopeId, UsingEntry};
 use super::stdlib_index::{StdlibIndex, StdlibView};
 use super::{Compiler, ModuleId, Sym, TypeId};
 use crate::ast::{Expr, ExprKind, StmtKind};
+use crate::diagnostics::Diagnostic;
+use crate::diagnostics::{Code, Data};
 use crate::fxhash::HashMap;
 use crate::lexer::{P, Tok};
 use crate::sema::SourceState;
 use crate::sema::TypeState;
-use crate::source::{
-    Applicability, Diagnostic, DiagnosticKind, FileId, ImportSuggestion, Span, Suggestion,
-};
+use crate::source::{Applicability, FileId, ImportSuggestion, Span, Suggestion};
 use std::path::Path;
 use std::rc::Rc;
 
@@ -74,13 +74,13 @@ impl Compiler {
     /// and a visible name is close to it, the namespaced import that provides it, and the
     /// modules that declare it; the same modules for an unknown member of a module.
     pub fn with_name_suggestion(&self, d: &Diagnostic) -> Option<Diagnostic> {
-        match d.kind {
-            DiagnosticKind::UnknownIdentifier {
-                scope: Some(scope),
-            } => self.suggest_unknown_identifier(d, ScopeId(scope)),
-            DiagnosticKind::UnknownModuleMember {
-                module,
-            } => self.suggest_module_member(d, ModuleId(module)),
+        match (d.code, d.data) {
+            (Code::UnknownIdentifier, Data::Scope(Some(scope))) => {
+                self.suggest_unknown_identifier(d, ScopeId(scope))
+            }
+            (Code::UnknownModuleMember, Data::Module(module)) => {
+                self.suggest_module_member(d, ModuleId(module))
+            }
             _ => None,
         }
     }
@@ -384,7 +384,7 @@ impl Compiler {
             }
             (true, None) => Diagnostic::error(span, "#assert failed: its condition is false"),
         }
-        .with_kind(DiagnosticKind::StaticAssert);
+        .with_code(Code::StaticAssert);
         self.src
             .import_trace
             .failure(span, &d.message, mentions_os(cond));

@@ -1,9 +1,9 @@
 //! Each construct Jacket accepts although the official compiler rejects it is a warning with a
 //! code of its own and the shared note (`docs/language/leniencies.md`); the same construct in an
 //! imported module is not reported.
-use jaic::leniency::{Leniency, NOTE};
+use jaic::diagnostics::Diagnostic;
+use jaic::diagnostics::{Code, LENIENCY_NOTE as NOTE};
 use jaic::sema::{Compiler, Options, VirtualFs};
-use jaic::source::Diagnostic;
 use std::{path::Path, rc::Rc};
 
 /// The types the compiler wants from the preload file: a dynamic array carries an `Allocator`
@@ -29,8 +29,8 @@ fn compile(main: &str, modules: &[(&str, &str)]) -> (Result<(), Box<Diagnostic>>
     (result, compiler)
 }
 
-/// The warnings with `leniency`'s code of a program that must compile.
-fn warnings(main: &str, modules: &[(&str, &str)], leniency: Leniency) -> Vec<Diagnostic> {
+/// The warnings with `code`'s code of a program that must compile.
+fn warnings(main: &str, modules: &[(&str, &str)], code: Code) -> Vec<Diagnostic> {
     let (result, compiler) = compile(main, modules);
     if let Err(error) = result {
         panic!("{}", error.render(&compiler.src.sources));
@@ -39,13 +39,13 @@ fn warnings(main: &str, modules: &[(&str, &str)], leniency: Leniency) -> Vec<Dia
         .diag
         .warnings
         .iter()
-        .filter(|w| w.kind.code() == Some(leniency.code()))
+        .filter(|w| w.code == code)
         .cloned()
         .collect()
 }
 
 /// The one warning of `leniency`, with its code, the shared note, and the text it renders to.
-fn the_warning(main: &str, modules: &[(&str, &str)], leniency: Leniency) -> String {
+fn the_warning(main: &str, modules: &[(&str, &str)], code: Code) -> String {
     let (result, compiler) = compile(main, modules);
     if let Err(error) = result {
         panic!("{}", error.render(&compiler.src.sources));
@@ -54,7 +54,7 @@ fn the_warning(main: &str, modules: &[(&str, &str)], leniency: Leniency) -> Stri
         .diag
         .warnings
         .iter()
-        .filter(|w| w.kind.code() == Some(leniency.code()))
+        .filter(|w| w.code == code)
         .collect();
     assert_eq!(found.len(), 1, "{:?}", compiler.diag.warnings);
     assert!(found[0].notes.iter().any(|(_, note)| note == NOTE));
@@ -75,7 +75,7 @@ fn for_over_a_type_reached_through_a_namespace_warns() {
         "M :: #import \"Coll\";
         main :: () { c: M.Coll; for c {} }",
         &[("Coll", COLL)],
-        Leniency::NamespacedForExpansion,
+        Code::NamespacedForExpansion,
     );
     assert!(
         text.contains("`for_expansion` is not in scope here: using the one declared with `Coll`"),
@@ -94,7 +94,7 @@ fn for_with_the_module_imported_by_name_does_not_warn() {
         let found = warnings(
             &format!("{header} main :: () {{ c: Coll; for c {{}} }}"),
             &[("Coll", COLL)],
-            Leniency::NamespacedForExpansion,
+            Code::NamespacedForExpansion,
         );
         assert!(found.is_empty(), "{header}: {found:?}");
     }
@@ -107,32 +107,28 @@ fn for_inside_an_imported_module_is_silent() {
     let found = warnings(
         "#import \"User\"; main :: () { go(); }",
         &[("Coll", COLL), ("User", user)],
-        Leniency::NamespacedForExpansion,
+        Code::NamespacedForExpansion,
     );
     assert!(found.is_empty(), "{found:?}");
 }
 
-/// A program of `main` that must warn once with `leniency`, rendered; and the same text as the
+/// A program of `main` that must warn once with `code`, rendered; and the same text as the
 /// module `User` imported by a program of its own, which must not.
-fn warns_in_the_program_and_not_in_a_module(
-    leniency: Leniency,
-    main: &str,
-    in_module: &str,
-) -> String {
-    let text = the_warning(main, &[], leniency);
+fn warns_in_the_program_and_not_in_a_module(code: Code, main: &str, in_module: &str) -> String {
+    let text = the_warning(main, &[], code);
     let found = warnings(
         "#import \"User\"; main :: () { go(); }",
         &[("User", in_module)],
-        leniency,
+        code,
     );
-    assert!(found.is_empty(), "{leniency:?} in a module: {found:?}");
+    assert!(found.is_empty(), "{code:?} in a module: {found:?}");
     text
 }
 
 #[test]
 fn place_warns_and_names_overlay() {
     let text = warns_in_the_program_and_not_in_a_module(
-        Leniency::PlaceDirective,
+        Code::PlaceDirective,
         "Ts :: struct { a: u16; #place a; b: float64; }
         main :: () { t: Ts; t.b = 1; }",
         "Ts :: struct { a: u16; #place a; b: float64; }
@@ -148,7 +144,7 @@ fn place_warns_and_names_overlay() {
 #[test]
 fn foreign_library_warns_and_names_library() {
     let text = warns_in_the_program_and_not_in_a_module(
-        Leniency::ForeignLibrary,
+        Code::ForeignLibrary,
         "m :: #foreign_library \"libm\";
         main :: () { }",
         "m :: #foreign_library \"libm\";
@@ -163,7 +159,7 @@ fn foreign_library_warns_and_names_library() {
         "m :: #foreign_system_library \"libm\";
         main :: () { }",
         &[],
-        Leniency::ForeignLibrary,
+        Code::ForeignLibrary,
     );
     assert!(text.contains("write `#system_library`"), "{text}");
 }
@@ -171,7 +167,7 @@ fn foreign_library_warns_and_names_library() {
 #[test]
 fn an_unnamed_library_statement_warns() {
     let text = warns_in_the_program_and_not_in_a_module(
-        Leniency::UnnamedLibrary,
+        Code::UnnamedLibrary,
         "#library,link_always \"libm\";
         main :: () { }",
         "#library,link_always \"libm\";
@@ -183,7 +179,7 @@ fn an_unnamed_library_statement_warns() {
 #[test]
 fn must_after_a_return_type_warns() {
     let text = warns_in_the_program_and_not_in_a_module(
-        Leniency::MustAfterReturnType,
+        Code::MustAfterReturnType,
         "f :: () -> int #must { return 1; }
         main :: () { x := f(); }",
         "f :: () -> int #must { return 1; }
@@ -198,7 +194,7 @@ fn must_after_a_return_type_warns() {
 #[test]
 fn a_semicolon_before_else_in_a_static_ifx_warns() {
     let text = warns_in_the_program_and_not_in_a_module(
-        Leniency::IfxThenSemicolon,
+        Code::IfxThenSemicolon,
         "main :: () { n := #ifx true then 1; else 2; }",
         "go :: () { n := #ifx true then 1; else 2; }",
     );
@@ -209,7 +205,7 @@ fn a_semicolon_before_else_in_a_static_ifx_warns() {
 #[test]
 fn the_address_of_a_struct_literal_warns() {
     let text = warns_in_the_program_and_not_in_a_module(
-        Leniency::AddressOfLiteral,
+        Code::AddressOfLiteral,
         "T :: struct { a: int; }
         main :: () { p := *T.{1}; }",
         "T :: struct { a: int; }
@@ -225,12 +221,12 @@ fn the_address_of_a_struct_literal_warns() {
 #[test]
 fn the_portable_spellings_do_not_warn() {
     for leniency in [
-        Leniency::PlaceDirective,
-        Leniency::ForeignLibrary,
-        Leniency::UnnamedLibrary,
-        Leniency::MustAfterReturnType,
-        Leniency::IfxThenSemicolon,
-        Leniency::AddressOfLiteral,
+        Code::PlaceDirective,
+        Code::ForeignLibrary,
+        Code::UnnamedLibrary,
+        Code::MustAfterReturnType,
+        Code::IfxThenSemicolon,
+        Code::AddressOfLiteral,
     ] {
         let found = warnings(
             "T :: struct { a: int; b: int; #overlay(a) c: u8; }
@@ -248,7 +244,7 @@ fn the_portable_spellings_do_not_warn() {
 #[test]
 fn an_enum_loose_type_warns_and_names_the_integer_type() {
     let text = warns_in_the_program_and_not_in_a_module(
-        Leniency::LooseEnum,
+        Code::LooseEnum,
         "D :: enum { E; N; }
         main :: () { y: D.loose; y = 3; }",
         "D :: enum { E; N; }
@@ -272,7 +268,7 @@ fn a_procedure_with_the_parameters_of_an_imported_one_warns() {
         grab :: (size: s64, flags: s32) -> *void, s64 { return null, 0; }
         main :: () { }",
         &[("Sys", SYS)],
-        Leniency::HidesImport,
+        Code::HidesImport,
     );
     assert!(
         text.contains("`grab` has the same parameters as the one `Sys` exports"),
@@ -286,7 +282,7 @@ fn a_procedure_with_the_parameters_of_an_imported_one_warns() {
 fn a_name_that_is_not_a_procedure_warns_when_an_import_exports_it() {
     for declaration in ["errno: s32;", "Shared :: struct { m: int; }"] {
         let main = format!("#import \"Sys\"; {declaration} main :: () {{ }}");
-        let text = the_warning(&main, &[("Sys", SYS)], Leniency::HidesImport);
+        let text = the_warning(&main, &[("Sys", SYS)], Code::HidesImport);
         assert!(
             text.contains("is also exported by `Sys`, which this program imports"),
             "{declaration}: {text}"
@@ -301,7 +297,7 @@ fn overloads_that_differ_and_namespaced_imports_do_not_warn() {
         "S :: #import \"Sys\"; grab :: (size: s64, flags: s32) { } errno: s32; main :: () { }",
         "#import \"Sys\"; main :: () { errno: s32; }",
     ] {
-        let found = warnings(main, &[("Sys", SYS)], Leniency::HidesImport);
+        let found = warnings(main, &[("Sys", SYS)], Code::HidesImport);
         assert!(found.is_empty(), "{main}: {found:?}");
     }
 }
@@ -315,7 +311,7 @@ fn a_declaration_of_an_imported_module_is_silent() {
     let found = warnings(
         "#import \"User\"; main :: () { go(); }",
         &[("Sys", SYS), ("User", user)],
-        Leniency::HidesImport,
+        Code::HidesImport,
     );
     assert!(found.is_empty(), "{found:?}");
 }
@@ -323,7 +319,7 @@ fn a_declaration_of_an_imported_module_is_silent() {
 #[test]
 fn a_float_exponent_without_a_fraction_warns() {
     let text = warns_in_the_program_and_not_in_a_module(
-        Leniency::FloatExponent,
+        Code::FloatExponent,
         "main :: () { x := 1e20; }",
         "go :: () { x := 1e20; }",
     );
@@ -335,7 +331,7 @@ fn a_float_exponent_without_a_fraction_warns() {
     let found = warnings(
         "main :: () { x := 1.0e20; y := 1.5e3; }",
         &[],
-        Leniency::FloatExponent,
+        Code::FloatExponent,
     );
     assert!(found.is_empty(), "{found:?}");
 }
@@ -343,7 +339,7 @@ fn a_float_exponent_without_a_fraction_warns() {
 #[test]
 fn align_on_a_whole_struct_warns() {
     let text = warns_in_the_program_and_not_in_a_module(
-        Leniency::StructAlign,
+        Code::StructAlign,
         "S :: struct #align 64 { v: s64; }
         main :: () { s: S; }",
         "S :: struct #align 64 { v: s64; }
@@ -358,7 +354,7 @@ fn align_on_a_whole_struct_warns() {
         "S :: struct { v: s64 #align 64; }
         main :: () { s: S; }",
         &[],
-        Leniency::StructAlign,
+        Code::StructAlign,
     );
     assert!(found.is_empty(), "{found:?}");
 }
@@ -366,7 +362,7 @@ fn align_on_a_whole_struct_warns() {
 #[test]
 fn for_over_an_array_literal_without_a_type_warns() {
     let text = warns_in_the_program_and_not_in_a_module(
-        Leniency::ForOverArrayLiteral,
+        Code::ForOverArrayLiteral,
         "main :: () { for x: .[1, 2, 3] {} }",
         "go :: () { for x: .[1, 2, 3] {} }",
     );
@@ -378,7 +374,7 @@ fn for_over_an_array_literal_without_a_type_warns() {
     let found = warnings(
         "main :: () { for x: s64.[1, 2, 3] {} }",
         &[],
-        Leniency::ForOverArrayLiteral,
+        Code::ForOverArrayLiteral,
     );
     assert!(found.is_empty(), "{found:?}");
 }
@@ -386,7 +382,7 @@ fn for_over_an_array_literal_without_a_type_warns() {
 #[test]
 fn a_struct_literal_for_a_dynamic_array_warns() {
     let text = warns_in_the_program_and_not_in_a_module(
-        Leniency::ArrayFromStructLiteral,
+        Code::ArrayFromStructLiteral,
         "main :: () { a: [..] s64; a = .{}; }",
         "go :: () { a: [..] s64; a = .{}; }",
     );
@@ -398,7 +394,7 @@ fn a_struct_literal_for_a_dynamic_array_warns() {
     let found = warnings(
         "main :: () { a: [..] s64; a = type_of(a).{}; }",
         &[],
-        Leniency::ArrayFromStructLiteral,
+        Code::ArrayFromStructLiteral,
     );
     assert!(found.is_empty(), "{found:?}");
 }
@@ -406,7 +402,7 @@ fn a_struct_literal_for_a_dynamic_array_warns() {
 #[test]
 fn target_features_warns() {
     let text = warns_in_the_program_and_not_in_a_module(
-        Leniency::TargetFeatures,
+        Code::TargetFeatures,
         "f :: () -> s64 #target_features \"avx2\" { return 1; }
         main :: () { f(); }",
         "f :: () -> s64 #target_features \"avx2\" { return 1; }
@@ -422,7 +418,7 @@ fn target_features_warns() {
 #[test]
 fn push_context_without_a_block_warns() {
     let text = warns_in_the_program_and_not_in_a_module(
-        Leniency::PushContextStatement,
+        Code::PushContextStatement,
         "run :: () {}
         main :: () { c := context; push_context c run(); }",
         "run :: () {}
@@ -434,7 +430,7 @@ fn push_context_without_a_block_warns() {
         "run :: () {}
         main :: () { c := context; push_context c { run(); } }",
         &[],
-        Leniency::PushContextStatement,
+        Code::PushContextStatement,
     );
     assert!(found.is_empty(), "{found:?}");
 }
@@ -444,20 +440,20 @@ fn a_main_that_returns_a_value_warns() {
     let text = the_warning(
         "main :: () -> s64 { return 0; }",
         &[],
-        Leniency::MainReturnsValue,
+        Code::MainReturnsValue,
     );
     assert!(text.contains("`main` returns a value"), "{text}");
     assert!(text.contains("exit(code)"), "{text}");
     let found = warnings(
         "#import \"User\"; main :: () { go(); }",
         &[("User", "go :: () -> s64 { return 0; }")],
-        Leniency::MainReturnsValue,
+        Code::MainReturnsValue,
     );
     assert!(found.is_empty(), "{found:?}");
     let found = warnings(
         "f :: () -> s64 { return 0; } main :: () { f(); }",
         &[],
-        Leniency::MainReturnsValue,
+        Code::MainReturnsValue,
     );
     assert!(found.is_empty(), "{found:?}");
 }
@@ -465,7 +461,7 @@ fn a_main_that_returns_a_value_warns() {
 #[test]
 fn caller_location_outside_a_default_warns() {
     let text = warns_in_the_program_and_not_in_a_module(
-        Leniency::CallerLocationOutsideDefault,
+        Code::CallerLocationOutsideDefault,
         "main :: () { l := #caller_location; }",
         "go :: () { l := #caller_location; }",
     );
@@ -478,7 +474,7 @@ fn caller_location_outside_a_default_warns() {
         "f :: (loc := #caller_location) {}
         main :: () { f(); l := #location(); }",
         &[],
-        Leniency::CallerLocationOutsideDefault,
+        Code::CallerLocationOutsideDefault,
     );
     assert!(found.is_empty(), "{found:?}");
 }
@@ -486,7 +482,7 @@ fn caller_location_outside_a_default_warns() {
 #[test]
 fn several_values_in_a_code_argument_warn() {
     let text = warns_in_the_program_and_not_in_a_module(
-        Leniency::MultiValueInCodeArgument,
+        Code::MultiValueInCodeArgument,
         "f :: (c: Code) #expand { #insert c; }
         main :: () { f(#code { a, b := 1, 2; }); }",
         "f :: (c: Code) #expand { #insert c; }
@@ -501,7 +497,7 @@ fn several_values_in_a_code_argument_warn() {
         "f :: (c: Code) #expand { #insert c; }
         main :: () { f(#code { a := 1; b := 2; }); a, b := 1, 2; }",
         &[],
-        Leniency::MultiValueInCodeArgument,
+        Code::MultiValueInCodeArgument,
     );
     assert!(found.is_empty(), "{found:?}");
 }
@@ -509,7 +505,7 @@ fn several_values_in_a_code_argument_warn() {
 #[test]
 fn a_spread_next_to_other_varargs_warns() {
     let text = warns_in_the_program_and_not_in_a_module(
-        Leniency::SpreadWithOtherArguments,
+        Code::SpreadWithOtherArguments,
         "f :: (xs: ..s64) {}
         main :: () { a := s64.[1, 2]; f(0, ..a); }",
         "f :: (xs: ..s64) {}
@@ -527,7 +523,7 @@ fn a_spread_next_to_other_varargs_warns() {
         "f :: (xs: ..s64) {}
         main :: () { a := s64.[1, 2]; f(..a); f(0, 1); }",
         &[],
-        Leniency::SpreadWithOtherArguments,
+        Code::SpreadWithOtherArguments,
     );
     assert!(found.is_empty(), "{found:?}");
 }
@@ -535,7 +531,7 @@ fn a_spread_next_to_other_varargs_warns() {
 #[test]
 fn exists_on_an_expression_warns() {
     let text = warns_in_the_program_and_not_in_a_module(
-        Leniency::ExistsOnExpression,
+        Code::ExistsOnExpression,
         "W :: struct (N: s64) { c :: 1; }
         main :: () { #assert #exists(W(3).c); }",
         "W :: struct (N: s64) { c :: 1; }
@@ -550,7 +546,7 @@ fn exists_on_an_expression_warns() {
         "W :: struct { c :: 1; }
         main :: () { #assert #exists(W.c); }",
         &[],
-        Leniency::ExistsOnExpression,
+        Code::ExistsOnExpression,
     );
     assert!(found.is_empty(), "{found:?}");
 }
@@ -558,7 +554,7 @@ fn exists_on_an_expression_warns() {
 #[test]
 fn a_procedure_cast_to_an_integer_warns() {
     let text = warns_in_the_program_and_not_in_a_module(
-        Leniency::ProcedureCastToInteger,
+        Code::ProcedureCastToInteger,
         "p :: () {}
         main :: () { n := cast(u64) p; }",
         "p :: () {}
@@ -573,7 +569,7 @@ fn a_procedure_cast_to_an_integer_warns() {
         "p :: () {}
         main :: () { n := cast(u64) cast(*void) p; }",
         &[],
-        Leniency::ProcedureCastToInteger,
+        Code::ProcedureCastToInteger,
     );
     assert!(found.is_empty(), "{found:?}");
 }
@@ -581,7 +577,7 @@ fn a_procedure_cast_to_an_integer_warns() {
 #[test]
 fn the_address_of_a_macro_constant_warns() {
     let text = warns_in_the_program_and_not_in_a_module(
-        Leniency::AddressOfMacroConstant,
+        Code::AddressOfMacroConstant,
         "m :: (x: u32) -> u8 #expand { p := cast(*u8) *x; return p.*; }
         main :: () { m(5); }",
         "m :: (x: u32) -> u8 #expand { p := cast(*u8) *x; return p.*; }
@@ -596,7 +592,7 @@ fn the_address_of_a_macro_constant_warns() {
         "m :: (x: u32) -> u8 #expand { p := cast(*u8) *x; return p.*; }
         main :: () { v: u32 = 5; m(v); }",
         &[],
-        Leniency::AddressOfMacroConstant,
+        Code::AddressOfMacroConstant,
     );
     assert!(found.is_empty(), "{found:?}");
 }
@@ -604,7 +600,7 @@ fn the_address_of_a_macro_constant_warns() {
 #[test]
 fn a_positional_literal_that_leaves_defaults_warns() {
     let text = warns_in_the_program_and_not_in_a_module(
-        Leniency::PositionalLiteralDefaults,
+        Code::PositionalLiteralDefaults,
         "L :: struct { a: s32; b: s32; c: u32 = 7; }
         main :: () { x: L = .{1, 2}; }",
         "L :: struct { a: s32; b: s32; c: u32 = 7; }
@@ -621,7 +617,7 @@ fn a_positional_literal_that_leaves_defaults_warns() {
         "L :: struct { a: s32 = 1; b: s32 = 2; }
         main :: () { x: L = .{}; }",
     ] {
-        let found = warnings(source, &[], Leniency::PositionalLiteralDefaults);
+        let found = warnings(source, &[], Code::PositionalLiteralDefaults);
         assert!(found.is_empty(), "{found:?}");
     }
 }

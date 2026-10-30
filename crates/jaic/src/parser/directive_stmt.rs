@@ -5,8 +5,8 @@ use crate::ast::{
     AssertStmt, BinOp, CheckBits, Decl, DirectiveStmt, Expr, ExprKind, Ident, Import, ImportSource,
     InsertStmt, ModuleParametersStmt, ScopeKind, StaticIfStmt, Stmt, StmtKind, SwitchStmt, UnOp,
 };
+use crate::diagnostics::Code;
 use crate::intern::Sym;
-use crate::leniency::Leniency;
 use crate::lexer::{P, Tok};
 use crate::source::Span;
 use std::rc::Rc;
@@ -419,7 +419,7 @@ impl Parser<'_> {
             StmtKind::Decl(decl) => {
                 Ok(stmt(StmtKind::AddContext(decl), start.to(self.prev_span())))
             }
-            _ => Err(crate::source::Diagnostic::error(
+            _ => Err(crate::diagnostics::Diagnostic::error(
                 start,
                 "expected a declaration after `#add_context`",
             )),
@@ -467,7 +467,7 @@ impl Parser<'_> {
 
     fn parse_place(&mut self) -> PResult<Stmt> {
         let start = self.bump();
-        self.note_lenient(Leniency::PlaceDirective, start);
+        self.note_lenient(Code::PlaceDirective, start);
         let target = self.parse_expr()?;
         self.end_stmt("after `#place`")?;
         Ok(stmt(
@@ -519,9 +519,9 @@ impl Parser<'_> {
         self.bump();
         match sym.as_str() {
             "foreign_library" | "foreign_system_library" => {
-                self.note_lenient(Leniency::ForeignLibrary, start);
+                self.note_lenient(Code::ForeignLibrary, start);
             }
-            "library" | "system_library" => self.note_lenient(Leniency::UnnamedLibrary, start),
+            "library" | "system_library" => self.note_lenient(Code::UnnamedLibrary, start),
             _ => {}
         }
         let name = Ident {

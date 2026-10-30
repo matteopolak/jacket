@@ -2,7 +2,8 @@
 use super::punct::P;
 use super::scan::Lexer;
 use super::{Tok, Token};
-use crate::source::{Diagnostic, FileId, Span};
+use crate::diagnostics::Diagnostic;
+use crate::source::{FileId, Span};
 
 pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
     let mut lx = Lexer {

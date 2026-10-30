@@ -70,9 +70,10 @@ impl Default for CheckLimits {
 
 impl CheckLimits {
     /// The notice for a check that hit its wall-clock limit, at `span`.
-    pub fn stopped_notice(&self, span: crate::source::Span) -> crate::source::Diagnostic {
+    pub fn stopped_notice(&self, span: crate::source::Span) -> crate::diagnostics::Diagnostic {
         let seconds = self.seconds.unwrap_or_default();
-        crate::source::Diagnostic::warning(
+        crate::diagnostics::Diagnostic::new(
+            crate::diagnostics::Code::CheckingTimeLimit,
             span,
             format!("checking stopped after {seconds} s; results are partial"),
         )

@@ -2,8 +2,9 @@
 //! signature, where a name was first declared, how to assign to a constant or an argument,
 //! what a struct literal is missing, and the counts of names and values. See
 //! docs/compiler/diagnostics.md.
+use jaic::diagnostics::Diagnostic;
 use jaic::sema::Compiler;
-use jaic::source::{Applicability, Diagnostic, Span};
+use jaic::source::{Applicability, Span};
 use test_support::compiler::compile_source;
 
 /// Compile `source`, which must fail, and return the compiler and the error.

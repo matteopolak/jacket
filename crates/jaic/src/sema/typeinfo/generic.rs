@@ -1,6 +1,7 @@
 //! Type information of generic structs and their parameters.
 use super::tag;
 use super::views::View;
+use crate::diagnostics::Code;
 use crate::sema::scope::{EntityKind, ScopeKind};
 use crate::sema::value::Aggregate;
 use crate::sema::{
@@ -135,12 +136,7 @@ impl Compiler {
             let declared = match &parameter.ty {
                 Some(ty) => match self.eval_type(scope, ty) {
                     Ok(ty) => Some(ty),
-                    Err(e)
-                        if actual.is_empty()
-                            && e.kind == crate::source::DiagnosticKind::UnboundGenericParameter =>
-                    {
-                        None
-                    }
+                    Err(e) if actual.is_empty() && e.code == Code::UnboundGenericParameter => None,
                     Err(e) => return Err(e),
                 },
                 None => None,
@@ -165,12 +161,7 @@ impl Compiler {
                             },
                         )
                     }
-                    Err(e)
-                        if actual.is_empty()
-                            && e.kind == crate::source::DiagnosticKind::UnboundGenericParameter =>
-                    {
-                        None
-                    }
+                    Err(e) if actual.is_empty() && e.code == Code::UnboundGenericParameter => None,
                     Err(e) => return Err(e),
                 },
                 None => None,

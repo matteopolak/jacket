@@ -30,9 +30,11 @@ mod stmt;
 mod tests;
 
 use crate::ast::{File, Ident, Note, Stmt};
+use crate::diagnostics::Code;
+use crate::diagnostics::Diagnostic;
 pub use crate::lexer::PlatformTarget;
 use crate::lexer::{P, Tok, Token, lex};
-use crate::source::{Applicability, Diagnostic, DiagnosticKind, FileId, Span, Suggestion};
+use crate::source::{Applicability, FileId, Span, Suggestion};
 pub(crate) use directive_stmt::GENERIC_DIRECTIVES;
 pub(crate) use ide::parse_callee_ide;
 pub use ide::{IdeParse, ParseReuse, SharedParse, parse_file_ide, parse_tokens_ide};
@@ -188,7 +190,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Note that the code at `span` is a `kind` the official compiler rejects.
-    fn note_lenient(&mut self, kind: crate::leniency::Leniency, span: Span) {
+    fn note_lenient(&mut self, kind: crate::diagnostics::Code, span: Span) {
         let found = crate::ast::ParsedLeniency {
             kind,
             span,
@@ -206,7 +208,7 @@ impl<'a> Parser<'a> {
                 .error(format!(
                     "code is nested too deeply (more than {MAX_NESTING} levels)"
                 ))
-                .with_kind(DiagnosticKind::NestingLimit));
+                .with_code(Code::NestingLimit));
         }
         self.depth += 1;
         let result = f(self);
@@ -361,7 +363,7 @@ impl<'a> Parser<'a> {
                 name.span,
                 format!("`{word}` is the name of a builtin type and cannot be declared"),
             )
-            .with_kind(crate::source::DiagnosticKind::ShadowsBuiltinType)
+            .with_code(Code::ShadowsBuiltinType)
             .with_help("choose another name"));
         }
         if self.in_aggregate_body || !matches!(word, "null" | "true" | "false") {

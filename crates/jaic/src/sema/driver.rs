@@ -3,9 +3,10 @@
 //! exported entry points.
 use super::scope::{EntityId, EntityKind, EntityState, Resolved, ScopeKind};
 use super::{
-    BootstrapModule, Compiler, DeadCode, Diagnostic, DiagnosticKind, FileId, ModuleId, PathBuf,
-    PreludeType, ProcId, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, ir, procs, value,
+    BootstrapModule, Compiler, DeadCode, Diagnostic, FileId, ModuleId, PathBuf, PreludeType,
+    ProcId, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, ir, procs, value,
 };
+use crate::diagnostics::Code;
 use crate::lang_items;
 use crate::sema::Diagnostics;
 use crate::sema::Output;
@@ -823,8 +824,8 @@ impl Compiler {
     /// trap has a more specific kind, such as a foreign procedure the host cannot provide).
     fn runtime_error(&self, trap: &crate::interp::Trap) -> Diagnostic {
         let d = self.trap_diagnostic(trap, "runtime error", None);
-        if d.kind == DiagnosticKind::Other {
-            d.with_kind(DiagnosticKind::Runtime)
+        if d.code == Code::Uncoded {
+            d.with_code(Code::Runtime)
         } else {
             d
         }

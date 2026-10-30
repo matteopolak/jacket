@@ -2,10 +2,12 @@
 //! program's own code that led there, and the call stack, with standard-library frames kept
 //! out of the way. See `docs/compiler/diagnostics.md`.
 use super::Compiler;
+use crate::diagnostics::Code;
+use crate::diagnostics::Diagnostic;
 use crate::interp::{Trap, TrapFrame, TrapKind};
 use crate::ir;
 use crate::sema::SourceState;
-use crate::source::{Diagnostic, DiagnosticKind, FileId, Span};
+use crate::source::{FileId, Span};
 
 /// Call stack lines shown before the rest are summarized.
 const MAX_STACK_LINES: usize = 12;
@@ -16,16 +18,16 @@ const MAX_BUDGET_FRAMES: usize = 3;
 /// Compile-time code that did not run because the check it belongs to ran out of time. Its
 /// result is unknown, not wrong, so editors hide it; the check says once that it stopped.
 pub(crate) fn stopped(site: Span) -> Diagnostic {
-    Diagnostic::error(site, "checking stopped").with_kind(DiagnosticKind::Unknown)
+    Diagnostic::error(site, "checking stopped").with_code(Code::Unknown)
 }
 
 impl Compiler {
     /// An unknown result is like refused code: what it would have declared is unknown, not
     /// missing, so the editor records the span.
     pub(crate) fn note_unknown(&mut self, d: &Diagnostic, span: Span) {
-        if d.kind == DiagnosticKind::Unavailable {
+        if d.code == Code::Unavailable {
             self.ed.refuse_unavailable(span);
-        } else if d.kind == DiagnosticKind::Unknown
+        } else if d.code == Code::Unknown
             && let Some(facts) = self.ed.facts_mut()
         {
             facts.refused.push(span);
@@ -100,8 +102,7 @@ impl Compiler {
         // Not a failure: the code could not know its result here (a pending or unavailable
         // service). Reported where the compile-time code started.
         if trap.kind == Some(TrapKind::Unknown) {
-            let mut d =
-                Diagnostic::error(site.unwrap_or(span), message).with_kind(DiagnosticKind::Unknown);
+            let mut d = Diagnostic::error(site.unwrap_or(span), message).with_code(Code::Unknown);
             if let Some(site) = site
                 && site != span
             {
@@ -192,7 +193,7 @@ impl Compiler {
             d = d.with_help(help);
         }
         if trap.kind == Some(TrapKind::Unavailable) {
-            d = d.with_kind(DiagnosticKind::Unavailable);
+            d = d.with_code(Code::Unavailable);
         }
         d
     }
@@ -206,7 +207,11 @@ impl Compiler {
         prefix: &str,
         site: Span,
     ) -> Diagnostic {
-        let mut d = Diagnostic::error(site, format!("{prefix}: {}", trap.message));
+        let mut d = Diagnostic::new(
+            Code::ExecutionBudgetExhausted,
+            site,
+            format!("{prefix}: {}", trap.message),
+        );
         let running: Vec<&TrapFrame> = frames
             .iter()
             .copied()

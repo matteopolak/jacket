@@ -8,9 +8,9 @@ use super::state::{
     INTERCEPT_REPORT_RUNS, PHASE_ALL_SOURCE_CODE_PARSED, PHASE_TYPECHECKED_ALL_WE_CAN,
     SharedWorkspaces, Stage,
 };
+use crate::diagnostics::Diagnostic;
 use crate::records::Records;
 use crate::sema::{Compiler, Modification, ProgramSource};
-use crate::source::Diagnostic;
 
 /// Advance workspace `id` by one step, queueing the messages it produces:
 /// Open → (load, run directives) Checked → (more sources, or generate code

@@ -6,6 +6,7 @@ use super::{
     Compiler, Diagnostic, EntityId, FileId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast,
     err, ir, lambda, procs,
 };
+use crate::diagnostics::Code;
 use crate::types::{DistinctInfo, TypeKind};
 
 pub struct LibraryInfo {
@@ -89,7 +90,7 @@ impl Compiler {
                     span,
                     format!("generic parameter `{name}` has no concrete binding"),
                 )
-                .with_kind(crate::source::DiagnosticKind::UnboundGenericParameter),
+                .with_code(Code::UnboundGenericParameter),
             )),
             EntityKind::Const {
                 value,

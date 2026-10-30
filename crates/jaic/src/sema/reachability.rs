@@ -8,11 +8,12 @@
 //! condition can be comes from the editor (`ide::values`); a batch compile knows no values, so
 //! only the jumps decide there.
 use crate::ast::{self, BinOp, StmtKind as S};
+use crate::diagnostics::Diagnostic;
 use crate::ide::Narrowing;
 use crate::intern::Sym;
 use crate::sema::Compiler;
 use crate::sema::lower::FnCtx;
-use crate::source::{Applicability, Diagnostic, Span, Suggestion};
+use crate::source::{Applicability, Span, Suggestion};
 
 /// How the walk got to where it is.
 #[derive(Default)]

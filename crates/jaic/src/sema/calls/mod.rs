@@ -16,10 +16,11 @@ use super::lower::{FnCtx, MacroFrame, Operand};
 use super::procs::{ProcTarget, Signature};
 use super::scope::{BuiltinProc, EntityKind, ScopeKind, UsingEntry};
 use super::{
-    Compiler, Diagnostic, DiagnosticKind, PackKey, PreludeType, ProcId, ProcTypeParams, Rc, Result,
-    ScopeId, Span, Sym, TypeId, Value, asm, ast, err, ir, procs, scope, value,
+    Compiler, Diagnostic, PackKey, PreludeType, ProcId, ProcTypeParams, Rc, Result, ScopeId, Span,
+    Sym, TypeId, Value, asm, ast, err, ir, procs, scope, value,
 };
 use crate::ast::ExprKind as E;
+use crate::diagnostics::Code;
 use crate::ir::Ty;
 use crate::macros::raw_enum;
 use crate::source::{Applicability, Suggestion};
@@ -548,7 +549,7 @@ impl Compiler {
         // A candidate's own declaration is wrong, whichever overload the call picks.
         if let Some(i) = errors
             .iter()
-            .position(|e| matches!(e.kind, DiagnosticKind::ModifyWithoutPolymorphs))
+            .position(|e| e.code == Code::ModifyWithoutPolymorphs)
         {
             return Err(Box::new(errors.swap_remove(i)));
         }

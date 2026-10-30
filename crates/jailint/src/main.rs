@@ -17,7 +17,8 @@ fn main() -> ExitCode {
     match run() {
         Ok(code) => code,
         Err(message) => {
-            let report = jaic::render::Report::from_text(jaic::render::Severity::Error, &message);
+            let report =
+                jaic::render::Report::from_text(jaic::diagnostics::Severity::Error, &message);
             eprint!("{}", report.render());
             ExitCode::from(2)
         }

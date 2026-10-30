@@ -61,7 +61,7 @@ pub fn parse_tokens_ide(file: FileId, text: &str, tokens: Vec<Token>) -> IdePars
         .expect("IDE statement recovery always progresses");
     // Recovery can parse the same unfinished construct more than once (a cast or call whose
     // arguments run into the end of the file); it must not report it twice.
-    let mut diagnostics: Vec<crate::source::Diagnostic> = Vec::new();
+    let mut diagnostics: Vec<crate::diagnostics::Diagnostic> = Vec::new();
     for d in parser.recovery.unwrap() {
         if !diagnostics
             .iter()
@@ -190,7 +190,7 @@ impl Parser<'_> {
             Err(error) => {
                 // Do not build a maximum-depth chain of recovered enclosing blocks:
                 // later AST consumers recurse too. Discard the outer statement instead.
-                if in_block && error.kind == crate::source::DiagnosticKind::NestingLimit {
+                if in_block && error.code == crate::diagnostics::Code::NestingLimit {
                     return Err(error);
                 }
                 let Some(errors) = self.recovery.as_mut() else {

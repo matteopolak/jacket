@@ -187,7 +187,7 @@ impl Parser<'_> {
                 }
             )
         {
-            self.note_lenient(crate::leniency::Leniency::AddressOfLiteral, span);
+            self.note_lenient(crate::diagnostics::Code::AddressOfLiteral, span);
         }
         Ok(mk(ExprKind::Unary(op, Box::new(operand)), span))
     }
@@ -541,7 +541,7 @@ impl Parser<'_> {
             Tok::Float(v) => {
                 self.bump();
                 if self.is_exponent_without_fraction(span) {
-                    self.note_lenient(crate::leniency::Leniency::FloatExponent, span);
+                    self.note_lenient(crate::diagnostics::Code::FloatExponent, span);
                 }
                 let text = self.literal_text(span);
                 Ok(mk(ExprKind::float_literal(v, text), span))
@@ -882,7 +882,7 @@ impl Parser<'_> {
         // `#ifx c then a; else b;` (seen in older code): the `;` before `else` is dropped.
         if is_static && matches!(self.tok(), Tok::Punct(P::Semi)) && self.kw_at(1) == Some("else") {
             let semicolon = self.bump();
-            self.note_lenient(crate::leniency::Leniency::IfxThenSemicolon, semicolon);
+            self.note_lenient(crate::diagnostics::Code::IfxThenSemicolon, semicolon);
         }
         let else_value = if self.eat_kw("else") {
             Some(Box::new(self.parse_branch_value()?))

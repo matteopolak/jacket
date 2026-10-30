@@ -2,13 +2,13 @@
 use super::helpers::{bin, bits, konst, ptr_of, resize};
 use super::model::{AsmCtx, AsmReg, Imm, Opd, REG_CLASSES, RegPlace, Rmw};
 use crate::ast::{AsmDecl, AsmMem, AsmOperand, AsmPin, CodeBody, Expr, ExprKind as E};
+use crate::diagnostics::{Code, Data};
 use crate::ir::{BinOp, ConvOp, Intrinsic, Ty, UnOp, Val};
 use crate::sema::ProcState;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::scope::{EntityKind, Found};
 use crate::sema::{
-    Compiler, Diagnostic, DiagnosticKind, PreludeType, Result, ScopeId, Span, Sym, TypeId, Value,
-    err, scope,
+    Compiler, Diagnostic, PreludeType, Result, ScopeId, Span, Sym, TypeId, Value, err, scope,
 };
 
 impl Compiler {
@@ -80,9 +80,8 @@ impl Compiler {
                     decl.name.span,
                     format!("unknown identifier `{}`", decl.name.name),
                 )
-                .with_kind(DiagnosticKind::UnknownIdentifier {
-                    scope: Some(cx.scope.0),
-                }),
+                .with_code(Code::UnknownIdentifier)
+                .with_data(Data::Scope(Some(cx.scope.0))),
             )),
         }
     }

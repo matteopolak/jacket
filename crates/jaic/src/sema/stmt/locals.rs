@@ -1,11 +1,10 @@
 //! Local declarations and `using` statements.
 use crate::ast::ExprKind as E;
+use crate::diagnostics::Code;
 use crate::sema::TypeState;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::scope::{EntityKind, Resolved, UsingEntry};
-use crate::sema::{
-    Compiler, Diagnostic, DiagnosticKind, ProcId, Rc, Result, ScopeId, Span, Sym, TypeId, ast, err,
-};
+use crate::sema::{Compiler, Diagnostic, ProcId, Rc, Result, ScopeId, Span, Sym, TypeId, ast, err};
 use crate::types::TypeKind;
 
 impl Compiler {
@@ -265,7 +264,7 @@ impl Compiler {
         proc: Option<ProcId>,
         index: usize,
     ) -> Box<Diagnostic> {
-        if e.kind != DiagnosticKind::TypeMismatch {
+        if e.code != Code::TypeMismatch {
             return e;
         }
         let Some(p) = proc else {
@@ -293,7 +292,7 @@ impl Compiler {
         decl: &ast::Decl,
         single: bool,
     ) -> Box<Diagnostic> {
-        if !single || e.kind != DiagnosticKind::TypeMismatch {
+        if !single || e.code != Code::TypeMismatch {
             return e;
         }
         if let (Some(value), Some(ty)) = (&decl.value, &decl.ty) {

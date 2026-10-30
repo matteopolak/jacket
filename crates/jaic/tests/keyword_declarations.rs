@@ -1,7 +1,7 @@
 //! `null`, `true` and `false` always read as literals, so declaring a variable, constant or
 //! parameter of that name is an error. A struct member may use them: it is reached as `x.null`.
+use jaic::diagnostics::Diagnostic;
 use jaic::sema::{Compiler, Options, VirtualFs};
-use jaic::source::Diagnostic;
 use std::{path::Path, rc::Rc};
 
 fn compile(source: &str) -> Result<(), Box<Diagnostic>> {

@@ -5,7 +5,9 @@
 use super::scope::{EntityKind, ScopeId};
 use super::{Compiler, ModuleId, Sym};
 use crate::ast::ImportSource;
-use crate::source::{Applicability, Diagnostic, ImportSuggestion, Span, Suggestion};
+use crate::diagnostics::Diagnostic;
+use crate::diagnostics::{Code, Data};
+use crate::source::{Applicability, ImportSuggestion, Span, Suggestion};
 
 /// A namespaced import (`M :: #import "Math";`) in reach of an unknown name that exports it.
 pub(super) struct Namespace {
@@ -201,9 +203,8 @@ impl Compiler {
             span,
             format!("module `{module_name}` has no exported member `{name}`"),
         )
-        .with_kind(crate::source::DiagnosticKind::UnknownModuleMember {
-            module: module.0,
-        });
+        .with_code(Code::UnknownModuleMember)
+        .with_data(Data::Module(module.0));
         // `#scope_file` names live in the scope of their file, the others in the module's.
         let in_file = self
             .src

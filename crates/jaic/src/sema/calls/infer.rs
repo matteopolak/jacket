@@ -1,14 +1,15 @@
 //! Inferring `$T` bindings of a polymorphic procedure from its arguments, and matching type
 //! patterns.
 
+use crate::diagnostics::Code;
 use crate::sema::lower::Origin;
 use crate::types::Types;
 
 use super::poly_hints::{Binders, CONFLICT};
 use super::{
-    ArrayKind, CallArg, Compiler, Diagnostic, DiagnosticKind, E, Operand, ProcId, Result, ScopeId,
-    Slot, Span, Sym, TypeId, TypeKind, Value, ast, err, header_poly_names, is_deferred,
-    is_poly_var_arg, poly_names, procs,
+    ArrayKind, CallArg, Compiler, Diagnostic, E, Operand, ProcId, Result, ScopeId, Slot, Span, Sym,
+    TypeId, TypeKind, Value, ast, err, header_poly_names, is_deferred, is_poly_var_arg, poly_names,
+    procs,
 };
 
 /// What `infer_bindings` accumulates while it walks the parameters of a polymorphic header.
@@ -462,7 +463,7 @@ impl Compiler {
                 if let Err(error) =
                     self.match_pattern_value(pattern, ty, &mut probe, def_scope, represented)
                 {
-                    if error.kind == DiagnosticKind::InterfaceConstraint {
+                    if error.code == Code::InterfaceConstraint {
                         return Err(error);
                     }
                     continue;
@@ -968,9 +969,8 @@ impl Compiler {
                         let required = self.eval_type(scope, restriction)?;
                         self.validate_interface(candidate, required, span)
                     })();
-                    checked.map_err(|error| {
-                        Box::new((*error).with_kind(DiagnosticKind::InterfaceConstraint))
-                    })?;
+                    checked
+                        .map_err(|error| Box::new((*error).with_code(Code::InterfaceConstraint)))?;
                 }
                 // `$T/Table`: T must be an instance of the polymorphic struct `Table` (or hold one
                 // as an `#as` member).

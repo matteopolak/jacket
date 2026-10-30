@@ -120,8 +120,8 @@ fn unknown_type_values_do_not_silently_bypass_binding_time_validation() {
     );
     let error = result.expect_err("runtime type values cannot prove a binding-time interface");
     assert_eq!(
-        error.kind,
-        jaic::source::DiagnosticKind::InterfaceConstraint,
+        error.code,
+        jaic::diagnostics::Code::InterfaceConstraint,
         "{}",
         error.render(&c.src.sources)
     );

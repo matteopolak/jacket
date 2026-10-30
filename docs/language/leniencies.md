@@ -8,7 +8,7 @@ A leniency is a place where `jaic` accepts code that the official Jai compiler r
 note: the official Jai compiler rejects this; Jacket accepts it but may stop in a future release
 ```
 
-A program that compiles here without these warnings also compiles with the official compiler (as far as these rules go); a warning names the spelling that works with both. The list is `jaic::leniency::Leniency`; `Leniency::code` is the code that tools see as `Diagnostic::kind.code()` (the playground's JSON and the language server's diagnostic code).
+A program that compiles here without these warnings also compiles with the official compiler (as far as these rules go); a warning names the spelling that works with both. The list is `jaic::diagnostics::Code::LENIENCIES`; each entry's name is the code that tools see (the playground's JSON and the language server's diagnostic code).
 
 ## How it works
 

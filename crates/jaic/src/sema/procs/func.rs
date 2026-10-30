@@ -1,10 +1,10 @@
 //! IR functions for procedures: entry-point wrappers, naming and library resolution.
 use super::model::{BodyState, ProcTarget};
+use crate::diagnostics::Code;
 use crate::ir::Ty;
 use crate::sema::lower::FnCtx;
 use crate::sema::{
-    Compiler, Diagnostic, DiagnosticKind, FileId, ProcId, Result, ScopeId, Span, ast, err, ir,
-    scope,
+    Compiler, Diagnostic, FileId, ProcId, Result, ScopeId, Span, ast, err, ir, scope,
 };
 
 impl Compiler {
@@ -242,7 +242,7 @@ impl Compiler {
             let name = ident.name;
             return Err(Box::new(
                 Diagnostic::error(ident.span, format!("unknown library `{name}`"))
-                    .with_kind(DiagnosticKind::UnknownLibrary)
+                    .with_code(Code::UnknownLibrary)
                     .with_label("no library of this name is declared here")
                     .with_help(format!(
                         "declare it with `{name} :: #library \"path/to/lib{name}\";` (or `#system_library`); a declaration under `#if OS == ...` exists only for that OS"

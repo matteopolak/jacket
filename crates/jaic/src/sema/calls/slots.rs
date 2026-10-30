@@ -2,8 +2,9 @@
 use super::count_hints::remove_extra_arguments;
 use super::{CallArg, Slot};
 use crate::ast::ExprKind as E;
+use crate::diagnostics::Code;
 use crate::sema::lower::{FnCtx, Operand};
-use crate::sema::{Compiler, Diagnostic, DiagnosticKind, Result, Span, Sym, TypeId, ast, err};
+use crate::sema::{Compiler, Diagnostic, Result, Span, Sym, TypeId, ast, err};
 
 thread_local! {
     /// Where the name of each named argument is written, by the span of its value: a
@@ -228,7 +229,7 @@ pub(super) fn assign_slots(
                 arg.span,
                 format!("too many arguments: it takes at most {}", params.len()),
             )
-            .with_kind(DiagnosticKind::ArgumentCount)
+            .with_code(Code::ArgumentCount)
             .with_label("this argument has no parameter");
             if let Some(remove) = remove_extra_arguments(args, i) {
                 d = d.with_suggestion(remove);

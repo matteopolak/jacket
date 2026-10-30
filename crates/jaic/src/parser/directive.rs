@@ -412,7 +412,7 @@ impl Parser<'_> {
             Ok(text) if text.chars().count() == 1 => text.chars().next().map_or(0, |c| c as u32),
             Err(_) if bytes.len() == 1 => bytes[0] as u32,
             _ => {
-                return Err(crate::source::Diagnostic::error(
+                return Err(crate::diagnostics::Diagnostic::error(
                     span,
                     format!(
                         "`#char` needs a string of exactly one character, found {} bytes",
@@ -466,7 +466,7 @@ impl Parser<'_> {
         };
         let end = self.expect(P::RParen, "after the `#exists` operands")?;
         if !is_name_chain(&operand) {
-            self.note_lenient(crate::leniency::Leniency::ExistsOnExpression, operand.span);
+            self.note_lenient(crate::diagnostics::Code::ExistsOnExpression, operand.span);
         }
         Ok(mk(
             ExprKind::Exists(Box::new(operand), other),
@@ -492,7 +492,7 @@ impl Parser<'_> {
                 },
                 span,
             )),
-            _ => Err(crate::source::Diagnostic::error(
+            _ => Err(crate::diagnostics::Diagnostic::error(
                 operand.span,
                 "expected a call after the bake directive",
             )),
@@ -517,7 +517,7 @@ impl Parser<'_> {
         };
         self.bump();
         if matches!(sym.as_str(), "foreign_library" | "foreign_system_library") {
-            self.note_lenient(crate::leniency::Leniency::ForeignLibrary, start);
+            self.note_lenient(crate::diagnostics::Code::ForeignLibrary, start);
         }
         let name = Ident {
             name: sym,

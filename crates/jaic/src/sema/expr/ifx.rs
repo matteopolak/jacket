@@ -1,9 +1,9 @@
 //! `ifx` expressions: branch agreement and constant folding.
 use super::{implicit_then_expr, takes_sibling_type};
+use crate::diagnostics::Code;
 use crate::sema::convert::int_fits;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, TypeId, Value, ast};
-use crate::source::DiagnosticKind;
 use crate::types::TypeKind;
 
 impl Compiler {
@@ -104,7 +104,7 @@ impl Compiler {
                 span,
                 format!("an `ifx` of integer constants is an `s64`, which does not fit `{name}` without a cast"),
             )
-            .with_kind(DiagnosticKind::ImplicitNarrowing)
+            .with_code(Code::ImplicitNarrowing)
             .with_label(format!("`s64` given, `{name}` wanted"))
             .with_help(format!(
                 "cast the whole expression, `cast({name}) ifx ..`, or an arm: `ifx c then cast({name}) 1 else 2`"

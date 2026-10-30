@@ -1,8 +1,9 @@
 //! Warnings carry the fix when it is clear: a format string and its arguments that disagree, code
 //! after a `return`, a procedure that can end without one. Each test applies the edit and
 //! compiles the result to show the warning is gone and the program still builds.
+use jaic::diagnostics::Diagnostic;
 use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
-use jaic::source::{Applicability, Diagnostic};
+use jaic::source::Applicability;
 use std::{path::PathBuf, rc::Rc};
 
 const PRELUDE: &str = "emit :: (format: string, args: ..Any) {} @PrintLike\n";

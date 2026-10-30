@@ -8,9 +8,9 @@
 use super::lower::FnCtx;
 use super::scope::{EntityKind, ScopeKind};
 use super::{
-    Compiler, Diagnostic, DiagnosticKind, ProcId, Result, ScopeId, Span, Sym, TypeId, Value, ast,
-    err, ir,
+    Compiler, Diagnostic, ProcId, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, ir,
 };
+use crate::diagnostics::Code;
 use crate::ir::Ty;
 use crate::sema::SourceState;
 
@@ -51,7 +51,7 @@ impl Compiler {
             format!("`#modify` needs polymorph variables to modify, but `{name}` has none"),
         )
         .with_label("this block never runs")
-        .with_kind(DiagnosticKind::ModifyWithoutPolymorphs);
+        .with_code(Code::ModifyWithoutPolymorphs);
         let runtime = header
             .params
             .iter()
@@ -103,7 +103,7 @@ impl Compiler {
                 format!("`#modify` needs polymorph variables to modify, but {what} has none"),
             )
             .with_label("this block never runs")
-            .with_kind(DiagnosticKind::ModifyWithoutPolymorphs)
+            .with_code(Code::ModifyWithoutPolymorphs)
             .with_help(
                 "a struct's `#modify` runs at compile time over the struct's parameters \
                  (`struct (N: int) #modify { ... }`); give the struct parameters, or remove the block",

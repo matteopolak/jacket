@@ -2,8 +2,9 @@
 //! namespaced import (`V :: #import "Vec"`) is enough to use `a + b`. Using it that way warns
 //! with the portable spelling (`V.operator +(a, b)`); an operator nothing reaches names the
 //! import or alias that has it.
+use jaic::diagnostics::Diagnostic;
 use jaic::sema::{Compiler, Options, VirtualFs};
-use jaic::source::{Applicability, Diagnostic, Edit};
+use jaic::source::{Applicability, Edit};
 use std::{
     path::{Path, PathBuf},
     rc::Rc,
@@ -140,8 +141,8 @@ fn the_warning_suggests_the_portable_spelling() {
             .any(|h| h == "or add `using V;` to this scope")
     );
     assert_eq!(
-        warnings[0].kind.code(),
-        Some("operator-out-of-scope"),
+        warnings[0].code.name(),
+        "operator-out-of-scope",
         "tools can tell it from other warnings"
     );
 }

@@ -3,11 +3,11 @@ use super::facts::{
     IdeCast, IdeExprFact, IdeMissingModule, IdeMissingModuleEpoch, IdeRef, IdeRoot, IdeWhat,
 };
 use crate::ast;
+use crate::diagnostics::Diagnostic;
 use crate::sema::lower::Operand;
 use crate::sema::scope::{EntityId, EntityKind, ScopeId};
 use crate::sema::value::ProcId;
 use crate::sema::{Compiler, ModuleId, Result};
-use crate::source::Diagnostic;
 use crate::source::FileId;
 use crate::source::SourcePath;
 use crate::source::Span;

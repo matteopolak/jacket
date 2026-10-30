@@ -7,8 +7,8 @@ use crate::ast::{
     PushContextDeferStmt, PushContextStmt, Stmt, StmtKind, SwitchStmt, UsingFilter,
     UsingFilterKind, UsingStmt, WhileStmt,
 };
+use crate::diagnostics::Diagnostic;
 use crate::lexer::{P, Tok};
-use crate::source::Diagnostic;
 
 /// A word that starts a statement of its own kind (`parse_keyword_stmt`).
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -278,7 +278,7 @@ impl Parser<'_> {
             rhs.push(self.parse_expr()?);
             if self.code_in_args && rhs.len() == 2 {
                 self.note_lenient(
-                    crate::leniency::Leniency::MultiValueInCodeArgument,
+                    crate::diagnostics::Code::MultiValueInCodeArgument,
                     comma.to(self.prev_span()),
                 );
             }
@@ -417,7 +417,7 @@ impl Parser<'_> {
         }
         let value = |branch: Stmt| match branch.kind {
             StmtKind::Expr(e) => Ok(Box::new(e)),
-            _ => Err(crate::source::Diagnostic::error(
+            _ => Err(crate::diagnostics::Diagnostic::error(
                 branch.span,
                 "expected an expression or an assignment in this `ifx` branch",
             )),
@@ -691,7 +691,7 @@ impl Parser<'_> {
                     ..
                 }
             ) {
-                self.note_lenient(crate::leniency::Leniency::ForOverArrayLiteral, first.span);
+                self.note_lenient(crate::diagnostics::Code::ForOverArrayLiteral, first.span);
             }
             ForOver::Collection(first)
         };
@@ -807,7 +807,7 @@ impl Parser<'_> {
     fn parse_defer(&mut self, backtick: bool) -> PResult<Stmt> {
         let start = self.bump();
         if self.at(P::Semi) {
-            return Err(crate::source::Diagnostic::error(
+            return Err(crate::diagnostics::Diagnostic::error(
                 self.span(),
                 "`defer` needs a statement to defer",
             ));
@@ -861,7 +861,7 @@ impl Parser<'_> {
         let context = self.parse_expr()?;
         let body = Box::new(self.parse_stmt()?);
         if !matches!(body.kind, StmtKind::Block(_)) {
-            self.note_lenient(crate::leniency::Leniency::PushContextStatement, body.span);
+            self.note_lenient(crate::diagnostics::Code::PushContextStatement, body.span);
         }
         Ok(stmt(
             StmtKind::PushContext(Box::new(PushContextStmt {

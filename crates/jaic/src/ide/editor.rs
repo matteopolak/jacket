@@ -1,10 +1,12 @@
 //! The compiler's handle on an editor analysis. A batch compile has an idle `Editor`: every
 //! event method returns at once, so recording costs the checker one branch per site.
 use super::IdeFacts;
+use crate::diagnostics::Code;
+use crate::diagnostics::Diagnostic;
 use crate::intern::Sym;
 use crate::parser::{ParseReuse, SharedParse};
 use crate::sema::{EntityId, ProcId, Result};
-use crate::source::{Diagnostic, DiagnosticKind, FileId, Span};
+use crate::source::{FileId, Span};
 use crate::types::TypeId;
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
@@ -215,7 +217,7 @@ impl Editor {
 
     /// An error checking went on past, so the editor still shows it.
     #[inline]
-    pub(crate) fn error(&mut self, error: &crate::source::Diagnostic) {
+    pub(crate) fn error(&mut self, error: &crate::diagnostics::Diagnostic) {
         if let Some(facts) = &mut self.facts {
             facts.errors.push(error.clone());
         }
@@ -331,10 +333,10 @@ impl Editor {
         self.is_live() && !self.sketching()
     }
 
-    pub(crate) fn stmt_failed(&self, kind: DiagnosticKind, is_decl: bool) -> StmtRecovery {
+    pub(crate) fn stmt_failed(&self, code: Code, is_decl: bool) -> StmtRecovery {
         if !self.continues_past_errors() {
             StmtRecovery::Propagate
-        } else if kind.is_unknown_result() {
+        } else if code.is_unknown_result() {
             StmtRecovery::Salvage
         } else if is_decl {
             StmtRecovery::Declare

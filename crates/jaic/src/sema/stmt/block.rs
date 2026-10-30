@@ -57,7 +57,7 @@ impl Compiler {
         if let Err(error) = self.check_block_stmt(f, scope, stmt) {
             match (
                 self.ed
-                    .stmt_failed(error.kind, matches!(stmt.kind, S::Decl(_))),
+                    .stmt_failed(error.code, matches!(stmt.kind, S::Decl(_))),
                 &stmt.kind,
             ) {
                 (StmtRecovery::Propagate, _) => return Err(error),

@@ -5,7 +5,7 @@
 //! files; the callers sit where jaic takes the lenient path.
 
 use super::{Compiler, ScopeId, Span, Sym, TypeId};
-use crate::leniency::Leniency;
+use crate::diagnostics::Code;
 
 impl Compiler {
     /// `#caller_location` somewhere other than the default value of a parameter.
@@ -17,7 +17,7 @@ impl Compiler {
         let Some(d) = self.leniency_warning(
             self.scope(scope).module,
             span,
-            Leniency::CallerLocationOutsideDefault,
+            Code::CallerLocationOutsideDefault,
             "`#caller_location` is only allowed as the default value of a parameter",
         ) else {
             return;
@@ -35,7 +35,7 @@ impl Compiler {
         let Some(d) = self.leniency_warning(
             self.scope(scope).module,
             span,
-            Leniency::SpreadWithOtherArguments,
+            Code::SpreadWithOtherArguments,
             "`..` spreads into a variadic parameter by itself",
         ) else {
             return;
@@ -59,7 +59,7 @@ impl Compiler {
         let Some(d) = self.leniency_warning(
             self.scope(scope).module,
             span,
-            Leniency::ProcedureCastToInteger,
+            Code::ProcedureCastToInteger,
             format!("a procedure cannot be cast to `{name}` directly"),
         ) else {
             return;
@@ -84,7 +84,7 @@ impl Compiler {
         let Some(d) = self.leniency_warning(
             self.scope(scope).module,
             span,
-            Leniency::PositionalLiteralDefaults,
+            Code::PositionalLiteralDefaults,
             "not enough values in this struct literal",
         ) else {
             return;
@@ -113,7 +113,7 @@ impl Compiler {
         let Some(d) = self.leniency_warning(
             self.scope(scope).module,
             span,
-            Leniency::AddressOfMacroConstant,
+            Code::AddressOfMacroConstant,
             format!("`{name}` is a constant here, and a constant has no address"),
         ) else {
             return;
@@ -137,7 +137,7 @@ impl Compiler {
         let Some(d) = self.leniency_warning(
             self.scope(scope).module,
             span,
-            Leniency::ArrayFromStructLiteral,
+            Code::ArrayFromStructLiteral,
             "an untyped `.{..}` literal is not a dynamic array",
         ) else {
             return;

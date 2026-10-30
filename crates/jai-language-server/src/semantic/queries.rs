@@ -73,18 +73,18 @@ pub struct LimitHit {
 /// The limits `compiler` and `errors` (a compile's) ran into.
 pub(super) fn limit_hits(
     compiler: &jaic::sema::Compiler,
-    errors: &[jaic::source::Diagnostic],
+    errors: &[jaic::diagnostics::Diagnostic],
 ) -> Vec<LimitHit> {
     let found = errors
         .iter()
-        .filter(|d| d.message.contains("execution budget exhausted"))
+        .filter(|d| d.code == jaic::diagnostics::Code::ExecutionBudgetExhausted)
         .map(|d| (LimitKind::Budget, d))
         .chain(
             compiler
                 .diag
                 .warnings
                 .iter()
-                .filter(|d| d.message.starts_with("checking stopped after"))
+                .filter(|d| d.code == jaic::diagnostics::Code::CheckingTimeLimit)
                 .map(|d| (LimitKind::Time, d)),
         );
     found
@@ -197,18 +197,18 @@ impl Analysis {
         Some(found)
     }
 
-    /// The spans (start, end) in `path` of the compile errors of `kind`.
+    /// The spans (start, end) in `path` of the compile errors of `code`.
     pub fn check_error_spans(
         &self,
         path: &Path,
-        kind: jaic::source::DiagnosticKind,
+        code: jaic::diagnostics::Code,
     ) -> Vec<(usize, usize)> {
         let Some(file) = self.file(path) else {
             return Vec::new();
         };
         self.errors
             .iter()
-            .filter(|e| e.kind == kind && e.span.file == file)
+            .filter(|e| e.code == code && e.span.file == file)
             .map(|e| (e.span.start as usize, e.span.end as usize))
             .collect()
     }
@@ -269,7 +269,7 @@ impl Analysis {
     fn finding(
         &self,
         file: FileId,
-        d: &jaic::source::Diagnostic,
+        d: &jaic::diagnostics::Diagnostic,
         warning: bool,
     ) -> Option<CheckFinding> {
         let files = &self.compiler.src.sources;

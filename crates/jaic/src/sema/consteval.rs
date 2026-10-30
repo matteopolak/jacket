@@ -3,9 +3,10 @@
 use super::lower::{FnCtx, Operand, Origin};
 use super::value::Aggregate;
 use super::{
-    Compiler, Diagnostic, DiagnosticKind, FileId, ModuleId, Rc, Result, ScopeId, SourcePath, Span,
-    Sym, TypeId, Value, ast, err, ir, scope, structs, value,
+    Compiler, Diagnostic, FileId, ModuleId, Rc, Result, ScopeId, SourcePath, Span, Sym, TypeId,
+    Value, ast, err, ir, scope, structs, value,
 };
+use crate::diagnostics::Code;
 
 use crate::ir::Ty;
 use crate::lang_items;
@@ -134,7 +135,7 @@ impl Compiler {
                     span,
                     "compile-time code is not run in an untrusted workspace",
                 )
-                .with_kind(DiagnosticKind::Untrusted),
+                .with_code(Code::Untrusted),
             ));
         }
         if self.ct.interp.host.stop_requested() {

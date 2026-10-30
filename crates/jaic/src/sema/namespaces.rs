@@ -6,9 +6,9 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 use crate::ast;
+use crate::diagnostics::Diagnostic;
 use crate::fxhash::{HashMap, HashSet};
 use crate::intern::Sym;
-use crate::source::Diagnostic;
 
 use super::{ConstArg, EntityId, Module, ModuleId, ScopeId, Value, decls, scope};
 

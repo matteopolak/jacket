@@ -5,9 +5,9 @@ use crate::ast::{
     AstId, CallHintFlag, Expr, ExprKind, Foreign, Param, ProcBits, ProcFlags, ProcHeader, ProcLit,
     Return, UsingFilter,
 };
+use crate::diagnostics::Diagnostic;
 use crate::lexer::{P, Tok};
 use crate::macros::raw_enum;
-use crate::source::Diagnostic;
 use std::rc::Rc;
 
 raw_enum! {
@@ -553,7 +553,7 @@ impl Parser<'_> {
         let must = self.at_directive("must");
         if must {
             let at = self.bump();
-            self.note_lenient(crate::leniency::Leniency::MustAfterReturnType, at);
+            self.note_lenient(crate::diagnostics::Code::MustAfterReturnType, at);
         }
         Ok(Return {
             name,
@@ -643,7 +643,7 @@ impl Parser<'_> {
                     flags.target_features = Some(String::from_utf8_lossy(s).into_owned().into());
                     self.bump();
                     self.note_lenient(
-                        crate::leniency::Leniency::TargetFeatures,
+                        crate::diagnostics::Code::TargetFeatures,
                         span.to(self.prev_span()),
                     );
                 }

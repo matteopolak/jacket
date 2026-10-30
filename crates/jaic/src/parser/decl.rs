@@ -5,9 +5,9 @@ use crate::ast::{
     AstId, Decl, DeclKind, DeclRare, Expr, ExprKind, Foreign, ForeignName, Ident, Notes, Stmt,
     StmtKind, UsingFilter,
 };
+use crate::diagnostics::Diagnostic;
 use crate::intern::Sym;
 use crate::lexer::{P, Tok};
-use crate::source::Diagnostic;
 use std::rc::Rc;
 
 /// Directives that may trail a declaration (`x: int #align 16;`).
@@ -414,7 +414,7 @@ impl Parser<'_> {
             decl.rare_mut().extra_values.push(self.parse_expr()?);
             if self.code_in_args && decl.rare_mut().extra_values.len() == 1 {
                 self.note_lenient(
-                    crate::leniency::Leniency::MultiValueInCodeArgument,
+                    crate::diagnostics::Code::MultiValueInCodeArgument,
                     comma.to(self.prev_span()),
                 );
             }

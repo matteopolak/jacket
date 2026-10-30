@@ -6,7 +6,7 @@ use super::{
     ProcTypeParams, Rc, Result, ScopeId, Signature, Slot, Span, Ty, TypeId, TypeKind, Value, ast,
     c_vararg_promote, err, ir, procs,
 };
-use crate::sema::DiagnosticKind;
+use crate::diagnostics::Code;
 use crate::sema::TypeState;
 use crate::sema::lower::Origin;
 use crate::source::{Applicability, Suggestion};
@@ -444,7 +444,7 @@ impl Compiler {
                     arg.span,
                     format!("too many arguments: it takes at most {n}"),
                 )
-                .with_kind(DiagnosticKind::ArgumentCount)
+                .with_code(Code::ArgumentCount)
                 .with_label("this argument has no parameter");
                 if let Some(remove) = remove_extra_arguments(&all_args, position) {
                     d = d.with_suggestion(remove);
@@ -477,7 +477,7 @@ impl Compiler {
                 }),
                 (None, None) => {
                     let mut d = Diagnostic::error(span, format!("missing argument {}", i + 1))
-                        .with_kind(DiagnosticKind::ArgumentCount);
+                        .with_code(Code::ArgumentCount);
                     if let Some(name) = info.names[i] {
                         d = d.with_label(format!("no value for parameter `{name}`"));
                     }
@@ -526,7 +526,7 @@ impl Compiler {
                     args.len()
                 ),
             )
-            .with_kind(DiagnosticKind::ArgumentCount);
+            .with_code(Code::ArgumentCount);
             return Err(self.with_type_note(d, ty));
         }
         let mut values = Vec::new();

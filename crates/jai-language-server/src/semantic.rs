@@ -185,12 +185,12 @@ pub struct Analysis {
     complete: bool,
     /// Why it did not: the compiler's first error, then the independent errors the editor
     /// check of the other declarations and bodies found.
-    errors: Vec<jaic::source::Diagnostic>,
+    errors: Vec<jaic::diagnostics::Diagnostic>,
     /// Lints found so far, by file.
     lints: BTreeMap<FileId, Vec<jailint::Lint>>,
     /// `errors` with the help worked out when they are rendered (the imports that declare an
     /// unknown name read the standard library, so it waits for the first use).
-    enriched: Option<Vec<jaic::source::Diagnostic>>,
+    enriched: Option<Vec<jaic::diagnostics::Diagnostic>>,
     /// `file`'s answers by the path asked for: canonicalizing every compiled file's path for
     /// each request was a quarter of a hover.
     found: RefCell<BTreeMap<PathBuf, Option<FileId>>>,
@@ -205,9 +205,9 @@ struct Program {
     compiler: Compiler,
     entry: Option<PathBuf>,
     complete: bool,
-    errors: Vec<jaic::source::Diagnostic>,
+    errors: Vec<jaic::diagnostics::Diagnostic>,
     lints: BTreeMap<FileId, Vec<jailint::Lint>>,
-    enriched: Option<Vec<jaic::source::Diagnostic>>,
+    enriched: Option<Vec<jaic::diagnostics::Diagnostic>>,
 }
 
 

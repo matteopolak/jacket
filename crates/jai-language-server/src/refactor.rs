@@ -24,9 +24,10 @@ use crate::session::Session;
 use crate::{CodeAction, DocumentUri, TextEdit};
 use jaic::ast::walk::{Node, walk};
 use jaic::ast::{Expr, File, Stmt};
+use jaic::diagnostics::Code;
 use jaic::fxhash::HashMap;
 use jaic::intern::Sym;
-use jaic::source::{DiagnosticKind, FileId};
+use jaic::source::FileId;
 use std::cell::OnceCell;
 
 type Sp = jaic::source::Span;
@@ -55,7 +56,7 @@ impl Session {
         };
         let incomplete: Vec<_> = self
             .with_semantic(uri, &doc.text, |analysis, path| {
-                Some(analysis.check_error_spans(path, DiagnosticKind::IncompleteSwitch))
+                Some(analysis.check_error_spans(path, Code::IncompleteSwitch))
             })
             .unwrap_or_default()
             .into_iter()

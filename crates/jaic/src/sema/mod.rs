@@ -74,11 +74,12 @@ pub(crate) mod using;
 mod wide;
 
 use crate::ast;
+use crate::diagnostics::Diagnostic;
 use crate::fxhash::{HashMap, HashSet};
 use crate::intern::Sym;
 use crate::ir;
 pub use crate::lang_items::PreludeType;
-use crate::source::{Diagnostic, DiagnosticKind, FileId, SourcePath, Span};
+use crate::source::{FileId, SourcePath, Span};
 use crate::target::{TargetCpu, TargetOs};
 use crate::types::{TypeId, Types};
 /// The `#asm` instruction table, for editors (`jailsp`).

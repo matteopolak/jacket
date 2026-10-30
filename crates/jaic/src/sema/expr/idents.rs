@@ -1,11 +1,12 @@
 //! Identifiers, entities and `#this`: resolving a name to an operand.
 use crate::ast::ExprKind as E;
+use crate::diagnostics::{Code, Data};
 use crate::ir::Ty;
 use crate::sema::lower::{FnCtx, Operand, Origin};
 use crate::sema::scope::{EntityKind, Found, Resolved, ScopeKind};
 use crate::sema::{
-    Compiler, Diagnostic, DiagnosticKind, EntityId, PreludeType, Rc, Result, ScopeId, Span, Sym,
-    TypeId, Value, ast, err, procs, scope,
+    Compiler, Diagnostic, EntityId, PreludeType, Rc, Result, ScopeId, Span, Sym, TypeId, Value,
+    ast, err, procs, scope,
 };
 use crate::types::{ArrayKind, ProcType, TypeKind};
 
@@ -202,11 +203,9 @@ impl Compiler {
                         });
                     }
                     return Err(Box::new(
-                        Diagnostic::error(span, format!("unknown identifier `{name}`")).with_kind(
-                            DiagnosticKind::UnknownIdentifier {
-                                scope: Some(scope.0),
-                            },
-                        ),
+                        Diagnostic::error(span, format!("unknown identifier `{name}`"))
+                            .with_code(Code::UnknownIdentifier)
+                            .with_data(Data::Scope(Some(scope.0))),
                     ));
                 }
                 if let [id] = ids[..] {

@@ -3,8 +3,9 @@ use super::api::{Comment, CommentKind, PlatformTarget};
 use super::conditions::fold_or;
 use super::punct::{INTEGER_TOO_BIG, P, puncts_starting_with};
 use super::{Tok, Token};
+use crate::diagnostics::Diagnostic;
 use crate::intern::Sym;
-use crate::source::{Applicability, Diagnostic, FileId, Span, Suggestion};
+use crate::source::{Applicability, FileId, Span, Suggestion};
 use std::rc::Rc;
 
 pub(super) struct Lexer<'a> {

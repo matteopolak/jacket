@@ -42,7 +42,7 @@ impl ImportSuggestion {
 
 /// The suggestions of a diagnostic, boxed in it to keep `Result<_, Diagnostic>` small.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Suggestions(pub(super) Vec<Suggestion>);
+pub struct Suggestions(pub(crate) Vec<Suggestion>);
 
 /// A way to fix a diagnostic: a title for the `help:` line and the edits that carry it out
 /// together (possibly in several places).

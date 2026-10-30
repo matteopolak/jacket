@@ -1,7 +1,8 @@
 //! What a call with the wrong number of arguments tells the author: the callee's parameters
 //! and, for extra arguments, the edit that removes them.
 use super::CallArg;
-use crate::sema::{Compiler, Diagnostic, DiagnosticKind, Span, TypeId};
+use crate::diagnostics::Code;
+use crate::sema::{Compiler, Diagnostic, Span, TypeId};
 use crate::source::{Applicability, Suggestion};
 
 /// The longest signature a note quotes.
@@ -68,7 +69,7 @@ impl Compiler {
 
     /// A note on a wrong-count error of a call through a procedure value: its type.
     pub(super) fn with_type_note(&self, d: Diagnostic, ty: TypeId) -> Box<Diagnostic> {
-        if d.kind != DiagnosticKind::ArgumentCount {
+        if d.code != Code::ArgumentCount {
             return Box::new(d);
         }
         let note = format!("the procedure has type `{}`", self.ty.types.name(ty));

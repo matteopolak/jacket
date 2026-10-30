@@ -1,7 +1,7 @@
 //! What this compile has to report besides its first error: warnings, the reasons deferred items
 //! failed, and what each declaration was found to depend on.
+use crate::diagnostics::Diagnostic;
 use crate::sema::dependencies;
-use crate::source::Diagnostic;
 
 #[derive(Default)]
 pub struct Diagnostics {

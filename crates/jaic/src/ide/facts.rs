@@ -1,12 +1,12 @@
 //! What an editor analysis records: references, hovers, layouts and the indexes over them.
 use crate::ast;
+use crate::diagnostics::Diagnostic;
 use crate::fxhash::HashMap;
 use crate::fxhash::HashSet;
 use crate::intern::Sym;
 use crate::sema::ModuleId;
 use crate::sema::scope::{EntityId, ScopeId};
 use crate::sema::value::ProcId;
-use crate::source::Diagnostic;
 use crate::source::FileId;
 use crate::source::Span;
 use crate::types::StructId;

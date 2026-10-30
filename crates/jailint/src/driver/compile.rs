@@ -140,7 +140,7 @@ pub(super) fn compile_root(
 
 /// The error that stopped a root's compile, with its text notes and help lines (where a
 /// compile-time evaluation ran out of budget, and how to raise it).
-fn stopping_error(e: &jaic::source::Diagnostic) -> String {
+fn stopping_error(e: &jaic::diagnostics::Diagnostic) -> String {
     let mut text = e.message.clone();
     for (_, note) in &e.notes {
         text.push_str("\n  note: ");

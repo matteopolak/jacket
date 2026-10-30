@@ -1,7 +1,8 @@
 //! Diagnostics for modules and files that cannot be found or read.
 use super::filesystem::{module_file_in, modules_in};
+use crate::diagnostics::Code;
 use crate::sema::SourceState;
-use crate::sema::{Compiler, Diagnostic, DiagnosticKind, PathBuf, Span};
+use crate::sema::{Compiler, Diagnostic, PathBuf, Span};
 use std::path::Path;
 
 impl Compiler {
@@ -204,7 +205,7 @@ impl SourceState {
                 format!("folder `{shown}` does not exist")
             };
             return Diagnostic::error(span, message)
-                .with_kind(DiagnosticKind::MissingFile)
+                .with_code(Code::MissingFile)
                 .with_note(Span::NONE, format!("looked for {}", path.display()))
                 .with_help(relative);
         }
@@ -215,7 +216,7 @@ impl SourceState {
                 );
         }
         let mut d = Diagnostic::error(span, format!("file `{shown}` does not exist"))
-            .with_kind(DiagnosticKind::MissingFile);
+            .with_code(Code::MissingFile);
         let dir = path.parent().unwrap_or(Path::new("."));
         let name = path
             .file_name()

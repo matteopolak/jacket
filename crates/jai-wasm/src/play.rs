@@ -1,9 +1,10 @@
 //! Playground entry point: compile and run a set of files with the `jaic` core.
 use jaic::build::{BuildEnv, Workspaces};
+use jaic::diagnostics::{Code, Diagnostic, Severity};
 use jaic::interp::{Host, SandboxHost, SharedHost};
 use jaic::project::ProgramInputs;
 use jaic::sema::{Compiler, FileSystem, Options, VirtualFs};
-use jaic::source::{Diagnostic, Severity, Span};
+use jaic::source::Span;
 use jaic::target::TargetOs;
 use serde_json::json;
 use std::cell::RefCell;
@@ -27,8 +28,8 @@ pub struct PlayDiagnostic {
     pub line: u32,
     pub column: u32,
     pub message: String,
-    /// What it reports, for tools (`DiagnosticKind::code`); `None` for most messages.
-    pub code: Option<&'static str>,
+    /// What it reports, for tools: the diagnostic's code name.
+    pub code: &'static str,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -64,9 +65,7 @@ impl PlayResult {
                     "column": d.column,
                     "message": d.message,
                 });
-                if let Some(code) = d.code {
-                    object["code"] = code.into();
-                }
+                object["code"] = d.code.into();
                 object
             })
             .collect();
@@ -140,7 +139,7 @@ fn convert(compiler: &Compiler, d: &Diagnostic) -> PlayDiagnostic {
             line: line as u32,
             column: column as u32,
             message: d.message.clone(),
-            code: d.kind.code(),
+            code: d.code.name(),
         };
     }
     PlayDiagnostic {
@@ -149,7 +148,7 @@ fn convert(compiler: &Compiler, d: &Diagnostic) -> PlayDiagnostic {
         line: 0,
         column: 0,
         message: d.message.clone(),
-        code: d.kind.code(),
+        code: d.code.name(),
     }
 }
 
@@ -234,7 +233,7 @@ fn run_styled(
             line: 0,
             column: 0,
             message: format!("main file '{main}' was not supplied"),
-            code: None,
+            code: Code::PlaygroundInput.name(),
         });
         return result;
     }
@@ -249,7 +248,7 @@ fn run_styled(
             result.failure_phase = Some("input");
             result.diagnostics.push(PlayDiagnostic {
                 severity: "error", file: String::new(), line: 0, column: 0,
-                message: "supplied library root must be a relative workspace directory containing its prelude".into(), code: None,
+                message: "supplied library root must be a relative workspace directory containing its prelude".into(), code: Code::PlaygroundInput.name(),
             });
             return result;
         }
@@ -835,7 +834,7 @@ mod tests {
         let r = single("#import \"Basic\"; main :: () { alloc(-1); }\n");
         assert_eq!(r.exit_code, None);
         assert_eq!(r.diagnostics.len(), 1, "{}", r.rendered);
-        assert_eq!(r.diagnostics[0].code, Some("runtime-error"));
+        assert_eq!(r.diagnostics[0].code, "runtime-error");
         assert!(
             r.diagnostics[0]
                 .message
@@ -896,7 +895,7 @@ mod tests {
             r.diagnostics
         );
         assert!(d.message.contains("missing"));
-        assert_eq!(d.code, Some("unknown-identifier"));
+        assert_eq!(d.code, "unknown-identifier");
         assert!(r.to_json().contains("\"code\":\"unknown-identifier\""));
     }
 
@@ -948,7 +947,7 @@ mod tests {
             "lib :: #library \"libnothere\";\nnothere :: () #foreign lib;\nmain :: () { nothere(); }\n",
         );
         let codes: Vec<_> = r.diagnostics.iter().map(|d| d.code).collect();
-        assert_eq!(codes, [Some("unavailable")], "{:?}", r.diagnostics);
+        assert_eq!(codes, ["unavailable"], "{:?}", r.diagnostics);
     }
 
     #[test]
@@ -958,7 +957,7 @@ mod tests {
         );
         assert_eq!(r.stdout, "before\n");
         let codes: Vec<_> = r.diagnostics.iter().map(|d| d.code).collect();
-        assert_eq!(codes, [Some("runtime-error")], "{:?}", r.diagnostics);
+        assert_eq!(codes, ["runtime-error"], "{:?}", r.diagnostics);
     }
 
     #[test]
@@ -966,9 +965,7 @@ mod tests {
         let r = single("#import \"Thread\"; main :: () {}");
         assert_eq!(r.exit_code, None);
         assert!(
-            r.diagnostics
-                .iter()
-                .any(|d| d.code == Some("static-assert")),
+            r.diagnostics.iter().any(|d| d.code == "static-assert"),
             "{}",
             r.rendered
         );

@@ -5,7 +5,7 @@
 //! program's own declaration win, which is what a library module relies on and the official
 //! compiler allows there. This sweep warns once per declaration of the program's own files, after
 //! the program has settled, so it does not depend on the name being used.
-use crate::leniency::Leniency;
+use crate::diagnostics::Code;
 use crate::sema::scope::{EntityId, Found, Resolved, ScopeId, ScopeKind, filter_name};
 use crate::sema::{Compiler, Diagnostic, ModuleId, Sym, Value};
 use crate::types::TypeId;
@@ -120,7 +120,7 @@ impl Compiler {
             format!("`{name}` is also exported by `{module_name}`, which this program imports")
         };
         let Some(d) =
-            self.leniency_warning(self.scope(scope).module, at, Leniency::HidesImport, message)
+            self.leniency_warning(self.scope(scope).module, at, Code::HidesImport, message)
         else {
             return;
         };

@@ -4,10 +4,11 @@
 use std::rc::Rc;
 
 use crate::ast;
+use crate::diagnostics::Diagnostic;
 use crate::fxhash::{HashMap, HashSet};
 use crate::intern::Sym;
 use crate::ir;
-use crate::source::{Diagnostic, Span};
+use crate::source::Span;
 use crate::types::{StructId, TypeId};
 
 use super::{EntityId, ProcId, ProcTypeParams, ScopeId, Value, asm, calls, lower, procs};

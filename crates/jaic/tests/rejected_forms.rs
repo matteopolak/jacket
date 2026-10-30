@@ -3,8 +3,8 @@
 //! that two overloads fit, and a declaration named like a builtin type. They are errors in
 //! imported modules as well (`docs/language/casts-and-conversions.md`, `procedures.md` and
 //! `declarations-and-constants.md`).
+use jaic::diagnostics::{Code, Diagnostic};
 use jaic::sema::{Compiler, Options, VirtualFs};
-use jaic::source::{Diagnostic, DiagnosticKind};
 use std::{path::Path, rc::Rc};
 
 fn compile(main: &str, modules: &[(&str, &str)]) -> Result<(), Box<Diagnostic>> {
@@ -23,15 +23,15 @@ fn compile(main: &str, modules: &[(&str, &str)]) -> Result<(), Box<Diagnostic>> 
 
 /// The error of `main` alone, and the same error when the source is a module `User` that the
 /// program imports.
-fn rejected(kind: DiagnosticKind, main: &str, in_module: &str) -> Diagnostic {
+fn rejected(code: Code, main: &str, in_module: &str) -> Diagnostic {
     let d = compile(main, &[]).expect_err("must be rejected");
-    assert_eq!(d.kind, kind, "{d:?}");
+    assert_eq!(d.code, code, "{d:?}");
     let in_a_module = compile(
         "#import \"User\"; main :: () { go(); }",
         &[("User", in_module)],
     )
     .expect_err("must be rejected in a module too");
-    assert_eq!(in_a_module.kind, kind, "{in_a_module:?}");
+    assert_eq!(in_a_module.code, code, "{in_a_module:?}");
     *d
 }
 
@@ -39,13 +39,13 @@ fn rejected(kind: DiagnosticKind, main: &str, in_module: &str) -> Diagnostic {
 #[test]
 fn an_ifx_of_constants_does_not_narrow_to_a_signed_type_without_a_cast() {
     let d = rejected(
-        DiagnosticKind::ImplicitNarrowing,
+        Code::ImplicitNarrowing,
         "f :: (b: bool) -> s32 { return ifx b then 1 else 2; }
         main :: () { f(true); }",
         "f :: (b: bool) -> s32 { return ifx b then 1 else 2; }
         go :: () { f(true); }",
     );
-    assert_eq!(d.kind.code(), Some("implicit-narrowing"));
+    assert_eq!(d.code.name(), "implicit-narrowing");
     assert_eq!(
         d.message,
         "an `ifx` of integer constants is an `s64`, which does not fit `s32` without a cast"
@@ -72,7 +72,7 @@ fn an_ifx_of_constants_still_fits_with_a_cast_or_a_wide_enough_type() {
 #[test]
 fn an_overloaded_procedure_used_as_a_value_is_ambiguous() {
     let d = rejected(
-        DiagnosticKind::AmbiguousProcedureValue,
+        Code::AmbiguousProcedureValue,
         "over :: (a: s32) {}
         over :: (a: s64) {}
         main :: () { v := over; }",
@@ -80,7 +80,7 @@ fn an_overloaded_procedure_used_as_a_value_is_ambiguous() {
         over :: (a: s64) {}
         go :: () { v := over; }",
     );
-    assert_eq!(d.kind.code(), Some("ambiguous-procedure-value"));
+    assert_eq!(d.code.name(), "ambiguous-procedure-value");
     assert_eq!(d.message, "ambiguous overloaded procedure used as a value");
 }
 
@@ -93,7 +93,7 @@ fn two_overloads_that_fit_the_target_type_are_ambiguous() {
         &[],
     )
     .expect_err("must be rejected");
-    assert_eq!(d.kind, DiagnosticKind::AmbiguousProcedureValue, "{d:?}");
+    assert_eq!(d.code, Code::AmbiguousProcedureValue, "{d:?}");
     assert_eq!(d.message, "2 overloads fit procedure type (s64)");
 }
 
@@ -112,13 +112,13 @@ fn an_overload_chosen_by_the_target_type_is_not_ambiguous() {
 #[test]
 fn a_declaration_named_like_a_builtin_type_is_an_error() {
     let d = rejected(
-        DiagnosticKind::ShadowsBuiltinType,
+        Code::ShadowsBuiltinType,
         "Code :: enum s16 { A; }
         main :: () { }",
         "Code :: enum s16 { A; }
         go :: () { }",
     );
-    assert_eq!(d.kind.code(), Some("shadows-builtin-type"));
+    assert_eq!(d.code.name(), "shadows-builtin-type");
     assert_eq!(
         d.message,
         "`Code` is the name of a builtin type and cannot be declared"
@@ -137,7 +137,7 @@ fn every_builtin_type_name_is_rejected_and_other_names_are_not() {
             &[],
         )
         .expect_err(name);
-        assert_eq!(d.kind, DiagnosticKind::ShadowsBuiltinType, "{name}: {d:?}");
+        assert_eq!(d.code, Code::ShadowsBuiltinType, "{name}: {d:?}");
     }
     compile(
         "Type_Like :: struct { x: s64; }

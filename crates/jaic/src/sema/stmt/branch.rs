@@ -1,10 +1,9 @@
 //! `if` and `switch` statements and the comparisons they make.
+use crate::diagnostics::Code;
 use crate::ir::{CmpOp, Ty};
 use crate::sema::TypeState;
 use crate::sema::lower::{FnCtx, Operand};
-use crate::sema::{
-    Compiler, Diagnostic, DiagnosticKind, Result, ScopeId, Span, TypeId, Value, ast, err, ir,
-};
+use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, TypeId, Value, ast, err, ir};
 use crate::types::TypeKind;
 
 /// A switch on a constant: its value type, cases and the indices of the cases that run.
@@ -493,7 +492,7 @@ impl TypeState {
                     missing.join(", ")
                 ),
             )
-            .with_kind(DiagnosticKind::IncompleteSwitch),
+            .with_code(Code::IncompleteSwitch),
         ))
     }
 }

@@ -3,11 +3,10 @@ use super::poly_hints::CANNOT_INFER;
 use super::slots::{assign_slots, header_poly_names, pattern_specificity};
 use super::{AutoBake, CallArg, Candidate, Slot, const_marker};
 use crate::ast::ExprKind as E;
+use crate::diagnostics::Code;
 use crate::sema::convert;
 use crate::sema::lower::Operand;
-use crate::sema::{
-    Compiler, Diagnostic, DiagnosticKind, ProcId, Rc, Result, Span, TypeId, Value, ast, err, ir,
-};
+use crate::sema::{Compiler, Diagnostic, ProcId, Rc, Result, Span, TypeId, Value, ast, err, ir};
 
 impl Compiler {
     /// Why the only candidate of a call does not accept its arguments: the problem at the
@@ -23,7 +22,7 @@ impl Compiler {
             return Diagnostic::error(span, format!("in call to `{name}`"));
         };
         // A name that does not exist is the argument's own problem, not the call's.
-        if matches!(error.kind, DiagnosticKind::UnknownIdentifier { .. }) {
+        if error.code == Code::UnknownIdentifier {
             return error;
         }
         let header = self.proc(proc).lit.header.span;
@@ -41,14 +40,11 @@ impl Compiler {
                 span
             },
             message: format!("in call to `{name}`: {}", error.message),
-            // Structural binding failures retain their machine-readable contract kind.
-            kind: if matches!(
-                error.kind,
-                DiagnosticKind::InterfaceConstraint | DiagnosticKind::ArgumentCount
-            ) {
-                error.kind
+            // Structural binding failures keep their code; anything else is the call's.
+            code: if matches!(error.code, Code::InterfaceConstraint | Code::ArgumentCount) {
+                error.code
             } else {
-                DiagnosticKind::Other
+                Code::CallMismatch
             },
             ..error
         };
@@ -57,7 +53,7 @@ impl Compiler {
         if header != Span::NONE && !overlaps {
             d.notes.push((header, format!("`{name}` is declared here")));
         }
-        if d.kind == DiagnosticKind::ArgumentCount {
+        if d.code == Code::ArgumentCount {
             d = self.with_signature_note(d, name, header);
         }
         d
@@ -163,7 +159,7 @@ impl Compiler {
                                 span,
                                 format!("missing argument for parameter `{name}`"),
                             )
-                            .with_kind(DiagnosticKind::ArgumentCount)
+                            .with_code(Code::ArgumentCount)
                             .with_help(format!(
                                 "pass a value for `{name}`, or give the parameter a default value (`{name} := ...`)"
                             )),

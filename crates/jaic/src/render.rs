@@ -16,6 +16,7 @@
 //! by each command-line tool; libraries and the language server leave it at `Style::PLAIN`.
 //! A caller that renders for someone else (the browser playground, one run per request)
 //! uses `with_style`, which applies to its own thread only.
+use crate::diagnostics::Severity;
 use crate::source::{LineIndex, SourcePath};
 use std::borrow::Cow;
 use std::cell::Cell;
@@ -194,30 +195,41 @@ pub fn detect_with(
     }
 }
 
+/// What kind of line a header introduces: a report's severity, or one of its child lines.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum Severity {
+enum Tone {
     Error,
     Warning,
     Note,
     Help,
 }
 
-impl Severity {
-    pub fn as_str(self) -> &'static str {
+impl From<Severity> for Tone {
+    fn from(severity: Severity) -> Tone {
+        match severity {
+            Severity::Error => Tone::Error,
+            Severity::Warning => Tone::Warning,
+            Severity::Note => Tone::Note,
+        }
+    }
+}
+
+impl Tone {
+    fn as_str(self) -> &'static str {
         match self {
-            Severity::Error => "error",
-            Severity::Warning => "warning",
-            Severity::Note => "note",
-            Severity::Help => "help",
+            Tone::Error => "error",
+            Tone::Warning => "warning",
+            Tone::Note => "note",
+            Tone::Help => "help",
         }
     }
 
     fn color(self) -> &'static str {
         match self {
-            Severity::Error => "1;31",
-            Severity::Warning => "1;33",
-            Severity::Note => "1;36",
-            Severity::Help => "1;32",
+            Tone::Error => "1;31",
+            Tone::Warning => "1;33",
+            Tone::Note => "1;36",
+            Tone::Help => "1;32",
         }
     }
 }
@@ -346,7 +358,7 @@ impl Report<'_> {
                 &ASCII
             },
             plain: style.layout == Layout::Plain,
-            severity_color: self.severity.color(),
+            severity_color: Tone::from(self.severity).color(),
             out: String::new(),
         };
         if style.layout == Layout::Msvc {
@@ -459,7 +471,7 @@ impl Renderer {
         self.out.push('\n');
     }
 
-    fn header(&mut self, severity: Severity, code: Option<&str>, message: &str) -> String {
+    fn header(&mut self, severity: Tone, code: Option<&str>, message: &str) -> String {
         let head = match code {
             Some(code) => format!("{}[{code}]", severity.as_str()),
             None => severity.as_str().to_string(),
@@ -474,24 +486,32 @@ impl Renderer {
     /// `jaic`'s plain form: each located item as `path:line:col: kind: message`, its line
     /// indented by four, and carets under the range on that line.
     fn compact(&mut self, report: &Report) {
-        let items = std::iter::once((report.severity, &report.message, report.primary.as_ref()))
-            .chain(report.secondary.iter().map(|l| {
-                (
-                    Severity::Note,
-                    l.message.as_ref().unwrap_or(&report.message),
-                    Some(l),
-                )
-            }));
-        let items: Vec<_> = items.collect();
-        for (severity, message, label) in items {
+        let items = std::iter::once((
+            Tone::from(report.severity),
+            &report.message,
+            report.primary.as_ref(),
+        ))
+        .chain(report.secondary.iter().map(|l| {
+            (
+                Tone::Note,
+                l.message.as_ref().unwrap_or(&report.message),
+                Some(l),
+            )
+        }));
+        for (n, (severity, message, label)) in items.into_iter().enumerate() {
+            let code = if n == 0 {
+                report.code
+            } else {
+                None
+            };
             let Some(label) = label else {
-                let head = self.header(severity, None, message);
+                let head = self.header(severity, code, message);
                 self.line(&head);
                 continue;
             };
             let lines = label.index();
             let (line, col) = lines.line_col(label.text, label.start);
-            let head = self.header(severity, None, message);
+            let head = self.header(severity, code, message);
             let location = format!("{}:{line}:{col}: ", shown(label.path));
             self.line(&format!("{location}{head}"));
             // A label past the end of its text (a stale span) still renders, with an empty line.
@@ -518,11 +538,11 @@ impl Renderer {
             self.line(&format!("    {pad}{carets}"));
         }
         for note in &report.notes {
-            let head = self.header(Severity::Note, None, note);
+            let head = self.header(Tone::Note, None, note);
             self.line(&head);
         }
         for help in &report.help {
-            let head = self.header(Severity::Help, None, &help.message);
+            let head = self.header(Tone::Help, None, &help.message);
             self.line(&head);
         }
     }
@@ -558,7 +578,7 @@ impl Renderer {
     /// The block form: header, `-->` line, numbered source lines with labels, then notes and
     /// help.
     fn block(&mut self, report: &Report) {
-        let head = self.header(report.severity, report.code, &report.message);
+        let head = self.header(report.severity.into(), report.code, &report.message);
         self.line(&head);
         let mut labels: Vec<(&Label, bool)> = report.primary.iter().map(|l| (l, true)).collect();
         labels.extend(report.secondary.iter().map(|l| (l, false)));
@@ -607,7 +627,7 @@ impl Renderer {
                 self.line(&format!("{blank} {}", self.paint.on(GUTTER, g.close)));
             }
         }
-        let note_head = |r: &Renderer, severity: Severity, text: &str| {
+        let note_head = |r: &Renderer, severity: Tone, text: &str| {
             let indent = if labels.is_empty() {
                 String::new()
             } else {
@@ -632,7 +652,7 @@ impl Renderer {
                 Some(fix) if !fix.edits.is_empty() && !labels.is_empty() => {
                     self.line(&format!(
                         "{}: {}",
-                        self.paint.on(Severity::Help.color(), "help"),
+                        self.paint.on(Tone::Help.color(), "help"),
                         help.message
                     ));
                     self.line(&format!("{blank} {bar}"));
@@ -658,13 +678,13 @@ impl Renderer {
                     self.line(&format!("{blank} {bar}"));
                 }
                 _ => {
-                    let text = note_head(self, Severity::Help, &help.message);
+                    let text = note_head(self, Tone::Help, &help.message);
                     self.line(&text);
                 }
             }
         }
         for note in &report.notes {
-            let text = note_head(self, Severity::Note, note);
+            let text = note_head(self, Tone::Note, note);
             self.line(&text);
         }
     }

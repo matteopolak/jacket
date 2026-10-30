@@ -1,8 +1,8 @@
 //! Warnings for code Jacket accepts and the official compiler rejects, and operators found
 //! through the operand type's own module.
 //!
-//! Every leniency is reported through `leniency_warning`: one diagnostic kind
-//! per [`Leniency`], one shared note, and silence for code that is not the user's (an imported
+//! Every leniency is reported through `leniency_warning`: one diagnostic code
+//! per leniency (`Code::LENIENCIES`), one shared note, and silence for code that is not the user's (an imported
 //! module, bundled or not). The rest of this file is the operator case: the help for
 //! operators nothing reaches.
 //!
@@ -14,10 +14,9 @@
 
 use super::operators::binop_text;
 use super::{
-    Compiler, Diagnostic, DiagnosticKind, Operand, ProcId, Result, ScopeId, Span, Sym, TypeId,
-    TypeKind, scope,
+    Compiler, Diagnostic, Operand, ProcId, Result, ScopeId, Span, Sym, TypeId, TypeKind, scope,
 };
-use crate::leniency::{Leniency, NOTE};
+use crate::diagnostics::{Code, LENIENCY_NOTE as NOTE};
 use crate::sema::ModuleId;
 use crate::sema::ast;
 use crate::sema::binary::Binary;
@@ -49,17 +48,13 @@ impl Compiler {
         &self,
         module: ModuleId,
         span: Span,
-        leniency: Leniency,
+        code: Code,
         message: impl Into<String>,
     ) -> Option<Diagnostic> {
         if Some(module) != self.ns.main_module || self.src.sources.try_get(span.file).is_none() {
             return None;
         }
-        Some(
-            Diagnostic::warning(span, message)
-                .with_kind(DiagnosticKind::Lenient(leniency))
-                .with_note(Span::NONE, NOTE),
-        )
+        Some(Diagnostic::new(code, span, message).with_note(Span::NONE, NOTE))
     }
 
     /// The overloads of `operator <text>` declared in the modules of the struct types `tys`
@@ -189,7 +184,7 @@ impl Compiler {
         let Some(d) = self.leniency_warning(
             module_id,
             span,
-            Leniency::OperatorOutOfScope,
+            Code::OperatorOutOfScope,
             format!("`operator {text}` is not in scope here: using the one declared with `{ty}`"),
         ) else {
             return;
@@ -269,7 +264,7 @@ impl Compiler {
         let Some(d) = self.leniency_warning(
             self.scope(scope).module,
             span,
-            Leniency::MainReturnsValue,
+            Code::MainReturnsValue,
             format!("`{name}` returns a value"),
         ) else {
             return;
@@ -288,13 +283,13 @@ impl Compiler {
         for found in &file.lenient {
             let text = self.src.sources.snippet(found.span).to_string();
             let (message, label, help, fix) = match found.kind {
-                Leniency::PlaceDirective => (
+                Code::PlaceDirective => (
                     "`#place` is a deprecated directive".to_string(),
                     "overlays the member after it on the one it names",
                     Some("write `#overlay(member)` before the member that shares the space".to_string()),
                     None,
                 ),
-                Leniency::ForeignLibrary => {
+                Code::ForeignLibrary => {
                     let portable = if text.contains("system") {
                         "#system_library"
                     } else {
@@ -307,7 +302,7 @@ impl Compiler {
                         Some((portable.to_string(), Applicability::MachineApplicable)),
                     )
                 }
-                Leniency::UnnamedLibrary => (
+                Code::UnnamedLibrary => (
                     format!("`{text}` needs a name here"),
                     "a library is declared with a name",
                     Some(format!(
@@ -315,7 +310,7 @@ impl Compiler {
                     )),
                     None,
                 ),
-                Leniency::MustAfterReturnType => (
+                Code::MustAfterReturnType => (
                     "`#must` after a return type is not a directive here".to_string(),
                     "requires every call to use this result",
                     Some(
@@ -324,13 +319,13 @@ impl Compiler {
                     ),
                     Some((String::new(), Applicability::MaybeIncorrect)),
                 ),
-                Leniency::IfxThenSemicolon => (
+                Code::IfxThenSemicolon => (
                     "`;` before `else` ends the `#ifx`".to_string(),
                     "the `else` has nothing to belong to",
                     Some("remove the `;`: `#ifx c then a else b;`".to_string()),
                     Some((String::new(), Applicability::MachineApplicable)),
                 ),
-                Leniency::AddressOfLiteral => {
+                Code::AddressOfLiteral => {
                     let operand = text.strip_prefix('*').unwrap_or(&text);
                     (
                         format!("`{text}` reads as a pointer type followed by a literal"),
@@ -339,7 +334,7 @@ impl Compiler {
                         Some((format!("*({operand})"), Applicability::MachineApplicable)),
                     )
                 }
-                Leniency::FloatExponent => {
+                Code::FloatExponent => {
                     let portable = text.replacen(['e', 'E'], ".0e", 1);
                     (
                         format!("`{text}` has an exponent and no fraction"),
@@ -348,7 +343,7 @@ impl Compiler {
                         Some((portable, Applicability::MachineApplicable)),
                     )
                 }
-                Leniency::StructAlign => (
+                Code::StructAlign => (
                     "`#align` is not a directive of a struct as a whole".to_string(),
                     "aligns the struct",
                     Some(
@@ -357,25 +352,25 @@ impl Compiler {
                     ),
                     None,
                 ),
-                Leniency::ForOverArrayLiteral => (
+                Code::ForOverArrayLiteral => (
                     "`for` over an array literal needs its element type".to_string(),
                     "this literal names no element type",
                     Some("write the type before the literal: `for x: T.[..]`".to_string()),
                     None,
                 ),
-                Leniency::TargetFeatures => (
+                Code::TargetFeatures => (
                     "`#target_features` is not a directive of a procedure header".to_string(),
                     "names CPU features for this procedure",
                     Some("remove it: there is no portable spelling".to_string()),
                     Some((String::new(), Applicability::MaybeIncorrect)),
                 ),
-                Leniency::PushContextStatement => (
+                Code::PushContextStatement => (
                     "`push_context` takes a block".to_string(),
                     "this statement runs in the pushed context",
                     Some("put the statement in braces: `push_context c { statement; }`".to_string()),
                     None,
                 ),
-                Leniency::MultiValueInCodeArgument => (
+                Code::MultiValueInCodeArgument => (
                     "a comma ends a `#code` block that is a call argument".to_string(),
                     "this list of values is split at the comma",
                     Some(
@@ -384,7 +379,7 @@ impl Compiler {
                     ),
                     None,
                 ),
-                Leniency::ExistsOnExpression => (
+                Code::ExistsOnExpression => (
                     "`#exists` takes a name or names joined by `.`".to_string(),
                     "this operand is an expression",
                     Some(
@@ -423,7 +418,7 @@ impl Compiler {
         let Some(d) = self.leniency_warning(
             self.scope(scope).module,
             span,
-            Leniency::LooseEnum,
+            Code::LooseEnum,
             format!("`loose` is not a member of `{name}`"),
         ) else {
             return;
@@ -502,7 +497,7 @@ impl Compiler {
         }
         Err(Box::new(
             Diagnostic::error(span, format!("`{name}` is used above its declaration"))
-                .with_kind(DiagnosticKind::UseBeforeDeclaration)
+                .with_code(Code::UseBeforeDeclaration)
                 .with_label("declared further down")
                 .with_note(declared, "declared here")
                 .with_help(format!(
@@ -551,7 +546,7 @@ impl Compiler {
         let Some(d) = self.leniency_warning(
             self.scope(scope).module,
             span,
-            Leniency::NamespacedForExpansion,
+            Code::NamespacedForExpansion,
             format!("`for_expansion` is not in scope here: using the one declared with `{name}`"),
         ) else {
             return;

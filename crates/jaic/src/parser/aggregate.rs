@@ -98,7 +98,7 @@ impl Parser<'_> {
                     let start = self.bump();
                     flags.align = Some(self.parse_unary()?);
                     self.note_lenient(
-                        crate::leniency::Leniency::StructAlign,
+                        crate::diagnostics::Code::StructAlign,
                         start.to(self.prev_span()),
                     );
                 }
@@ -190,7 +190,7 @@ impl Parser<'_> {
                     let Some(errors) = self.recovery.as_mut() else {
                         return Err(error);
                     };
-                    errors.push(crate::source::Diagnostic::error(
+                    errors.push(crate::diagnostics::Diagnostic::error(
                         self.toks[start].span,
                         error.message,
                     ));

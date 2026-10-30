@@ -2,6 +2,7 @@
 use super::overlay::{OverlayFs, Reads};
 use super::{BuildFacts, BuiltProgram, Environment, Program};
 use jaic::build::WorkspaceObserver;
+use jaic::diagnostics::Code;
 use jaic::fxhash::HashSet;
 use jaic::ide::lint_compile::{CheckLimits, LintCompile, LintRoot, LintSetup};
 use jaic::ide::{IdeFacts, IdeRoot};
@@ -90,8 +91,8 @@ impl WorkspaceObserver for Built {
 /// nothing called sketched.
 fn check_rest(
     compiler: &mut Compiler,
-    mut errors: Vec<jaic::source::Diagnostic>,
-) -> Vec<jaic::source::Diagnostic> {
+    mut errors: Vec<jaic::diagnostics::Diagnostic>,
+) -> Vec<jaic::diagnostics::Diagnostic> {
     let mut seen: HashSet<_> = errors.iter().map(|e| (e.span, e.message.clone())).collect();
     for e in compiler.ide_check_all() {
         if seen.insert((e.span, e.message.clone())) {
@@ -109,9 +110,8 @@ fn check_rest(
 /// may declare any name, so a file that has one refused cannot report names as unknown.
 fn known(
     compiler: &Compiler,
-    mut errors: Vec<jaic::source::Diagnostic>,
-) -> Vec<jaic::source::Diagnostic> {
-    use jaic::source::DiagnosticKind;
+    mut errors: Vec<jaic::diagnostics::Diagnostic>,
+) -> Vec<jaic::diagnostics::Diagnostic> {
     let refused = |file: FileId| {
         compiler
             .ed
@@ -125,8 +125,7 @@ fn known(
                 .contains(jaic::lexicon::spelled::INSERT)
     };
     errors.retain(|e| {
-        !(e.kind.is_unknown_result()
-            || (matches!(e.kind, DiagnosticKind::UnknownIdentifier { .. }) && refused(e.span.file)))
+        !(e.code.is_unknown_result() || (e.code == Code::UnknownIdentifier && refused(e.span.file)))
     });
     errors
 }
@@ -155,7 +154,7 @@ fn first_line(compiler: &Compiler, root: &Path) -> jaic::source::Span {
 /// What one compile produced.
 pub(super) struct Compiled {
     pub(super) compiler: Compiler,
-    pub(super) errors: Vec<jaic::source::Diagnostic>,
+    pub(super) errors: Vec<jaic::diagnostics::Diagnostic>,
     /// The programs its metaprogram built.
     pub(super) others: Vec<Program>,
     /// What the metaprogram did, when it ran to the end.

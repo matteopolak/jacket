@@ -1,8 +1,9 @@
 //! Implicit conversions of operands and constants.
 use super::{int_constant_fits, int_to_float};
+use crate::diagnostics::Code;
 use crate::sema::TypeState;
 use crate::sema::lower::{FnCtx, Operand, Origin};
-use crate::sema::{Compiler, Diagnostic, DiagnosticKind, ProcId, Result, Span, TypeId, Value, err};
+use crate::sema::{Compiler, Diagnostic, ProcId, Result, Span, TypeId, Value, err};
 use crate::types::TypeKind;
 
 impl Compiler {
@@ -113,7 +114,7 @@ impl Compiler {
                                     self.ty.types.name(to)
                                 ),
                             )
-                            .with_kind(DiagnosticKind::AmbiguousProcedureValue)
+                            .with_code(Code::AmbiguousProcedureValue)
                             .with_label("it is not clear which one is meant")
                             .with_note(self.proc(*first).span, "this one fits");
                             for &other in rest {
@@ -177,7 +178,7 @@ impl Compiler {
                     self.ty.types.name(from)
                 ),
             )
-            .with_kind(DiagnosticKind::TypeMismatch);
+            .with_code(Code::TypeMismatch);
             if to == TypeId::U8
                 && let Operand::Const {
                     value: Value::String(s),

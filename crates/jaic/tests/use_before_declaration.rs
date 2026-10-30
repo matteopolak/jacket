@@ -1,7 +1,7 @@
 //! A constant, procedure or type of a body is visible only below the line that declares it, as in
 //! the official compiler (`docs/language/scoping.md`, rule scope.19).
+use jaic::diagnostics::{Code, Diagnostic};
 use jaic::sema::{Compiler, Options, VirtualFs};
-use jaic::source::{Diagnostic, DiagnosticKind};
 use std::{path::Path, rc::Rc};
 
 fn compile(main: &str, modules: &[(&str, &str)]) -> Result<(), Box<Diagnostic>> {
@@ -20,7 +20,7 @@ fn compile(main: &str, modules: &[(&str, &str)]) -> Result<(), Box<Diagnostic>> 
 
 fn rejected(main: &str) -> Diagnostic {
     let d = compile(main, &[]).expect_err("must be rejected");
-    assert_eq!(d.kind, DiagnosticKind::UseBeforeDeclaration, "{d:?}");
+    assert_eq!(d.code, Code::UseBeforeDeclaration, "{d:?}");
     *d
 }
 
@@ -29,7 +29,7 @@ fn rejected(main: &str) -> Diagnostic {
 fn a_procedure_called_above_its_declaration_is_an_error() {
     let d = rejected("main :: () { foo(); foo :: () { } }");
     assert_eq!(d.message, "`foo` is used above its declaration");
-    assert_eq!(d.kind.code(), Some("use-before-declaration"));
+    assert_eq!(d.code.name(), "use-before-declaration");
     assert!(d.notes.iter().any(|(_, n)| n == "declared here"));
 }
 
@@ -89,5 +89,5 @@ fn the_same_error_is_reported_in_an_imported_module() {
         &[("Lib", "go :: () { foo(); foo :: () { } }")],
     )
     .expect_err("must be rejected");
-    assert_eq!(d.kind, DiagnosticKind::UseBeforeDeclaration, "{d:?}");
+    assert_eq!(d.code, Code::UseBeforeDeclaration, "{d:?}");
 }

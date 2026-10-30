@@ -1,8 +1,9 @@
 //! The help on conversion and cast errors is a rewrite of the code: a `cast`, a dereference,
 //! an address, a comparison, a range or a flag. Each test checks the message and the help, then
 //! applies the edit to the source and compiles the result to show it type-checks.
+use jaic::diagnostics::Diagnostic;
 use jaic::sema::{Compiler, Options, VirtualFs};
-use jaic::source::{Applicability, Diagnostic};
+use jaic::source::Applicability;
 use std::{path::Path, rc::Rc};
 
 const PRELUDE: &str = "P :: struct { x: s64; }

@@ -1132,10 +1132,10 @@ pub struct File {
     pub lenient: Vec<ParsedLeniency>,
 }
 
-/// A [`crate::leniency::Leniency`] the parser found, and where.
+/// A [`crate::diagnostics::Code`] the parser found, and where.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ParsedLeniency {
-    pub kind: crate::leniency::Leniency,
+    pub kind: crate::diagnostics::Code,
     pub span: Span,
 }
 
