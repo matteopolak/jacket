@@ -357,6 +357,7 @@ paths = [
     "stdlib/Keymap",
     "stdlib/MacOS_Bundler",
     "stdlib/Machine_X64",
+    "stdlib/Mail",
     "stdlib/Math",
     "stdlib/Memory",
     "stdlib/Metaprogram_Plugins",
