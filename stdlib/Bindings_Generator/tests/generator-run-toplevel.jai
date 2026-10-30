@@ -1,4 +1,4 @@
-// test: only(.LINUX,.MACOS) skip_on(.WASM)
+// test: only(.LINUX,.MACOS)
 // Independent native input; no optional assert contains required work.
 #import "Basic";
 B :: #import "Bindings_Generator";

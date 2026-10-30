@@ -1,4 +1,3 @@
-// test: skip_on(.WASM)
 // from_query and from_param: typed values from query strings, forms and single strings, with the
 // notes and the error messages of from_json.
 #import "Basic";

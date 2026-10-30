@@ -1,4 +1,3 @@
-// test: skip_on(.WASM)
 T :: #import "Type_Only";
 H :: #import "Private";
 C :: #import "Bucket_Array";

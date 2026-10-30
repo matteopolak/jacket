@@ -1,4 +1,4 @@
-// test: only(.LINUX,.MACOS) skip_on(.WASM) args("$DIR/ico-fixtures","$TEMP")
+// test: only(.LINUX,.MACOS) args("$DIR/ico-fixtures","$TEMP")
 #import "Basic";
 I :: #import "Ico_File";
 F :: #import "File";

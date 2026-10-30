@@ -1,4 +1,3 @@
-// test: skip_on(.WASM)
 // Args completion scripts for each shell against golden texts (data/golden.jai), plus checks
 // that the scripts name what the declarations declare.
 //

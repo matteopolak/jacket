@@ -1,4 +1,4 @@
-// test: skip_on(.WASM) serial
+// test: skip_on(.WASM, reason = "Clipboard supports only macOS, Windows and Linux/X11") serial
 #import "Basic";
 #import "Clipboard";
 

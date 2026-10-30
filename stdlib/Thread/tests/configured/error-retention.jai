@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs the Thread module, which has no wasm target (no OS threads)")
 // Independent real SDK failures; verification runs with the fatal handler.
 // Reviewed thread.md lifecycle plus SDK ownership: failed destruction retains it.
 #import "Basic"()(ENABLE_ASSERT = true);

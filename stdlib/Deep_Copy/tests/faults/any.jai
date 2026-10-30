@@ -1,4 +1,4 @@
-// test: skip_on(.WASM) should_fail("Deep_Copy does not support this reflected value kind")
+// test: should_fail("Deep_Copy does not support this reflected value kind")
 D :: #import "Deep_Copy";
 
 main :: () {

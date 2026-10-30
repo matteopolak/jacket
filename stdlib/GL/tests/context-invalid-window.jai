@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs OpenGL, which has no wasm target")
 GL :: #import "GL";
 WT :: #import "Window_Type";
 

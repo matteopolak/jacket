@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs the Thread module, which has no wasm target (no OS threads)")
 // Pure Sound_Player contracts; this case does not initialize a native audio device.
 #import "Basic";
 Sound_Player :: #import "Sound_Player";

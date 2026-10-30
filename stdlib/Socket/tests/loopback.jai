@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "Socket has no wasm target (Unix and Windows sockets only)")
 #import "Basic";
 S :: #import "Socket";
 

@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs Window_Creation, which has no wasm target")
 #import "Basic";
 W :: #import "Window_Creation";
 I :: #import "Input";

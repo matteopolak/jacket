@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs the Thread module, which has no wasm target (no OS threads)")
 // Reviewed thread.md native synchronization/lifecycle. Verification stays enabled
 // while the runner independently changes Thread's DEFAULT Basic specialization.
 #import "Basic"()(ENABLE_ASSERT = true);

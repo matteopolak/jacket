@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs the Http server and router, which are not built for wasm")
 // Every extractor through the test client (no socket), with the errors they give: Path, Params, Rest, Query,
 // Json, Form, Header, Header_Optional, *Body, *Request and *State.
 #load "support/server_support.jai";

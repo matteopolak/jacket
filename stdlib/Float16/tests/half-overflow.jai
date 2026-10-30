@@ -1,4 +1,4 @@
-// test: skip_on(.WASM) should_fail("half float overflow")
+// test: should_fail("half float overflow")
 #import "Basic";
 H :: #import "Float16"(ASSERT_ON_OVERFLOW = true);
 

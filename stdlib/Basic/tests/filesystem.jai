@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "Basic has no get_working_directory on wasm")
 #import "Basic";
 
 main :: () {

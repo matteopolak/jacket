@@ -1,4 +1,4 @@
-// test: skip_on(.WASM) only(.WINDOWS)
+// test: only(.WINDOWS)
 #import "Basic";
 Tls :: #import "Extensions/Tls";
 

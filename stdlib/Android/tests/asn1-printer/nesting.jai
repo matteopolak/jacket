@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs the Thread module, which has no wasm target (no OS threads)")
 // Explicit traversal-stack safety and exact four-space indentation.
 #import "Basic";
 A :: #import "Android/Toolchain";

@@ -1,4 +1,4 @@
-// test: only(.MACOS) skip_on(.WASM) serial
+// test: only(.MACOS) serial
 // AppKit facade: cursor class lookups, panel construction and the file URL pasteboard type.
 #import "Basic";
 #import "Objective_C";

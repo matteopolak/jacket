@@ -1,4 +1,3 @@
-// test: skip_on(.WASM)
 // Native account and machine queries.
 #import "Basic";
 #import "Extensions/Testing";

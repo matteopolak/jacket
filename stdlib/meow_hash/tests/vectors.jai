@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, mode = .NATIVE, reason = "the x64 #asm gives LLVM a function with more locals than wasm allows")
 #import "Basic";
 M :: #import "meow_hash";
 F :: #import "File";

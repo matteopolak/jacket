@@ -1,4 +1,4 @@
-// test: only(.LINUX,.MACOS) skip_on(.WASM)
+// test: only(.LINUX,.MACOS)
 #import "Extensions/SDL3";
 
 #if OS == .MACOS {

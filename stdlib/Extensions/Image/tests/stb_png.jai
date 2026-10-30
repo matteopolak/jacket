@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "links a native C library that has no wasm build")
 // PNG against the C stb libraries: ours decodes what stb_image_write encodes, stb_image decodes
 // what ours encodes, and both decoders agree on every fixture. Native and interpreted only.
 

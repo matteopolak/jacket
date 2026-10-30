@@ -1,4 +1,4 @@
-// test: only(.LINUX,.MACOS) skip_on(.WASM)
+// test: only(.LINUX,.MACOS)
 // Unix select must accept the canonical POSIX timeout record.
 #import "Basic";
 S :: #import "Socket";

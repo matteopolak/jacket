@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs the Thread module, which has no wasm target (no OS threads)")
 // Execute the actual userspace protocol on caller-owned memory on this host.
 // No kernel call, substituted syscall, or fabricated kernel result is involved.
 // Direct source loads test portable queue operations without changing the Linux

@@ -1,4 +1,4 @@
-// test: skip_on(.WASM) should_fail("SHA input exceeds the 64-bit bit-length domain")
+// test: skip_on(.WASM, reason = "needs the Thread module, which has no wasm target (no OS threads)") should_fail("SHA input exceeds the 64-bit bit-length domain")
 // Independent signed-extent safety, not a reference invalid-input guarantee.
 A :: #import "Android/Toolchain";
 

@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs Extensions/Io fibers, which wasm cannot run (no stack switching)")
 // Timers and cancellation: sleeps end in deadline order without blocking other fibers, and
 // cancel() ends a fiber's blocking call at once, whatever it waits on.
 #import "Basic";

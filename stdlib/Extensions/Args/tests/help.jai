@@ -1,4 +1,3 @@
-// test: skip_on(.WASM)
 // Args help output against golden texts (data/golden.jai), plus the colour rules, the
 // subcommand help pages and the error report layout.
 //

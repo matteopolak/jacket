@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs Extensions/Io fibers, which wasm cannot run (no stack switching)")
 // Same burst count/deadline/assertions as the full suite. Backend selection is
 // the caller's existing JAI_IO_BACKEND; no fallback or retry is introduced here.
 #load "support/suite.jai";

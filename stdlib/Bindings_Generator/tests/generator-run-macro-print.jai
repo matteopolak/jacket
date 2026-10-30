@@ -1,4 +1,4 @@
-// test: only(.LINUX,.MACOS) skip_on(.WASM)
+// test: only(.LINUX,.MACOS)
 // Exact-input public reducer for checked Macro_Value printing. Private access
 // configures only the canonical receipt; it supplies no alternate evaluator.
 #import "Basic";

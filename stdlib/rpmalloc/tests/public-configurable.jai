@@ -1,4 +1,4 @@
-// test: only(.LINUX,.MACOS) skip_on(.WASM)
+// test: only(.LINUX,.MACOS)
 // Reviewed rpmalloc.md CONFIGURABLE initialization and invalid size contracts.
 #import "Basic";
 RPM :: #import "rpmalloc"(CONFIGURABLE = true);

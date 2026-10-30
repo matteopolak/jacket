@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs the Http server and router, which are not built for wasm")
 // Original reduction of the production client-context diagnostic. Compile and
 // interpreter accept the App overload; lint must not encode its handler as a
 // client POST payload while inspecting a rejected candidate.

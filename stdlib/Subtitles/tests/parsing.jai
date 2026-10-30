@@ -1,4 +1,4 @@
-// test: skip_on(.WASM) args("$TEMP")
+// test: args("$TEMP")
 #import "Basic";
 S :: #import "Subtitles";
 H :: #import "Hash_Table";

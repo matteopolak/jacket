@@ -1,4 +1,4 @@
-// test: only(.LINUX,.MACOS) skip_on(.WASM)
+// test: only(.LINUX,.MACOS)
 // Reviewed system.md: CPU selection precedes OS; Unix fallback is raw tv_nsec.
 #import "Basic";
 #import "Extensions/Testing";

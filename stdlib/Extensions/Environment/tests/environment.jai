@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, mode = .INTERP, reason = "the wasm sandbox has no PATH variable")
 // PATH is set on every desktop platform the tests run on; the other name is not set anywhere.
 #import "Basic";
 #import "Extensions/Environment";

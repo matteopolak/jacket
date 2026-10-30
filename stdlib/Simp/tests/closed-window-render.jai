@@ -1,4 +1,4 @@
-// test: skip_on(.WASM) serial
+// test: skip_on(.WASM, reason = "needs Window_Creation, which has no wasm target") serial
 // Rendering into a window after its context is torn down: the frame that was already running when a window
 // closed still draws and presents, and that must be harmless.
 #import "Basic";

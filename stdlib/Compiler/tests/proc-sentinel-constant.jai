@@ -1,4 +1,4 @@
-// test: only(.LINUX,.MACOS) skip_on(.WASM)
+// test: only(.LINUX,.MACOS)
 // Small integers cast to a procedure type (`SIG_IGN`, `SIG_ERR`) are constants that can be
 // stored and compared; they never point at code.
 #import "Basic";

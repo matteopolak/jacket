@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs the Thread module, which has no wasm target (no OS threads)")
 // Reviewed ZIP version/EOCD constants and standard ZIP CRC32 wire behavior.
 #import "Basic";
 using A :: #import "Android/Toolchain";

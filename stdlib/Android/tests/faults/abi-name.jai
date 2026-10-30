@@ -1,4 +1,4 @@
-// test: skip_on(.WASM) should_fail("Android NDK ABI is unavailable for this CPU")
+// test: skip_on(.WASM, reason = "needs the Thread module, which has no wasm target (no OS threads)") should_fail("Android NDK ABI is unavailable for this CPU")
 // Independent unsupported-target diagnostic; no fabricated ABI for custom CPUs.
 A :: #import "Android/Toolchain";
 

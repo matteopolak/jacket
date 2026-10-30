@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "compile-time services exist only inside the compiler")
 // Compile-time calls to a service (services/upper.jai), as a build makes them.
 //
 //     jaic stdlib/Extensions/Service/tests/call.jai -interp

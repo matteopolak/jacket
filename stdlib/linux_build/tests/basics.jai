@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs the Thread module, which has no wasm target (no OS threads)")
 // Trusted independent unit tests; public facade intentionally rejects this Mac host.
 #load "../../internal/build/linux-link.jai";
 

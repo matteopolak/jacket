@@ -1,4 +1,3 @@
-// test: skip_on(.WASM)
 // Exact independent output for reviewed radix clamping, stdout/stderr choice and the logger's line endings.
 R :: #import "Runtime_Support";
 

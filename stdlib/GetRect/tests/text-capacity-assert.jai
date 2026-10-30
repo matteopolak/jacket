@@ -1,4 +1,4 @@
-// test: skip_on(.WASM) should_fail("text input capacity exceeded")
+// test: skip_on(.WASM, reason = "needs a native window, and Window_Type has no wasm target") should_fail("text input capacity exceeded")
 #import "Basic";
 G :: #import "GetRect";
 

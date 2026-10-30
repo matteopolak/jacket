@@ -1,4 +1,4 @@
-// test: skip_on(.WASM) needs(.DISPLAY) serial
+// test: needs(.DISPLAY) serial
 // Clipboard: text set on the system clipboard comes back unchanged (ASCII, UTF-8, empty), emptying
 // it leaves no text, and a bitmap can be published. The program's previous clipboard text is put
 // back at the end. On Linux the clipboard goes through wl-copy/wl-paste or xclip; without either

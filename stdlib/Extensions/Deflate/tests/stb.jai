@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "links a native C library that has no wasm build")
 // Cross-checks against the C implementations in stb_image (zlib decoder) and stb_image_write
 // (zlib compressor): our streams decode there, theirs decode here. Native services only.
 //

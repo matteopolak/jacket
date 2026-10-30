@@ -1,4 +1,4 @@
-// test: skip_on(.WASM) should_fail("invalid MPEG timestamp marker")
+// test: should_fail("invalid MPEG timestamp marker")
 #import "Basic";
 M :: #import "pl_mpeg";
 F :: #import "File";

@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs Extensions/Io fibers, which wasm cannot run (no stack switching)")
 // Each fiber gets its own copy of the spawning context and its own temporary storage, and an
 // allocator or context value set in one fiber does not leak into another.
 #import "Basic";

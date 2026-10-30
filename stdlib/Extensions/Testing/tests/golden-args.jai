@@ -1,4 +1,4 @@
-// test: skip_on(.WASM) args("one two", "Three", "$TEMP/data")
+// test: args("one two", "Three", "$TEMP/data")
 #import "Basic";
 #import "String";
 

@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "links a native C library that has no wasm build")
 // stb_image, stb_image_write and stb_image_resize against the pinned C libraries: encode a small
 // picture to PNG, BMP, TGA, JPEG and HDR in memory, decode each back, inspect headers, resize, and
 // check that corrupt input fails with a reason instead of crashing.

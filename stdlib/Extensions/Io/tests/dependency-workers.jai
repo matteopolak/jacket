@@ -1,4 +1,4 @@
-// test: skip_on(.WASM) args("$TEMP/data")
+// test: skip_on(.WASM, reason = "needs Extensions/Io fibers, which wasm cannot run (no stack switching)") args("$TEMP/data")
 // Worker threads must finish before their contexts, pools and stacks are freed.
 #import "Basic";
 Atomics :: #import "Atomics";

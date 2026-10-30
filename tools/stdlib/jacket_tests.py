@@ -28,7 +28,7 @@ def header_notes(source):
             break
         match = NOTE.match(line)
         if match:
-            notes.extend(re.findall(r"\w+(?:\([^)]*\))?", match.group(1)))
+            notes.extend(re.findall(r'\w+(?:\((?:"(?:[^"\\]|\\.)*"|[^)"])*\))?', match.group(1)))
     return notes
 
 
@@ -145,11 +145,13 @@ def note_calls(notes, name):
     targets, and the `mode =` and `cpu =` values (None when absent)."""
     calls = []
     for note in notes:
-        match = re.fullmatch(name + r"\(([^)]*)\)", note)
+        match = re.fullmatch(name + r"\((.*)\)", note, re.DOTALL)
         if not match:
             continue
         names, narrow = [], {"mode": None, "cpu": None}
-        for part in match.group(1).split(","):
+        # A `reason = "text"` explains the call; its text may hold commas and parentheses.
+        arguments = re.sub(r'reason\s*=\s*"(?:[^"\\]|\\.)*"', "", match.group(1))
+        for part in arguments.split(","):
             part = part.strip()
             if "=" in part:
                 key, _, value = part.partition("=")

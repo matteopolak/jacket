@@ -43,6 +43,24 @@ class RunsOn(unittest.TestCase):
         self.assertTrue(runs_on(["only(cpu = .X64)"], "linux", "x64"))
         self.assertFalse(runs_on(["only(cpu = .X64)"], "linux", "arm64"))
 
+    def test_a_reason_does_not_change_the_targets(self):
+        notes = ['skip_on(.WASM, reason = "no threads (WASI), no fibers")']
+        self.assertFalse(runs_on(notes, "wasm", "wasm"))
+        self.assertTrue(runs_on(notes, "linux", "x64"))
+        notes = ['skip_on(.LINUX, reason = "a, b = c")']
+        self.assertTrue(runs_on(notes, "macos", "x64"))
+
+    def test_header_notes_keep_a_quoted_reason_whole(self):
+        import tempfile
+        from pathlib import Path
+
+        from stdlib.jacket_tests import header_notes
+
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / "a.jai"
+            source.write_text('// test: skip_on(.WASM, reason = "a (b), c") serial\nmain :: () {}\n')
+            self.assertEqual(header_notes(source), ['skip_on(.WASM, reason = "a (b), c")', "serial"])
+
     def test_a_check_is_a_native_build(self):
         self.assertTrue(runs_on(["only(.WINDOWS, mode = .NATIVE)"], "windows", "x64"))
         self.assertFalse(runs_on(["only(.WINDOWS, mode = .INTERP)"], "windows", "x64"))

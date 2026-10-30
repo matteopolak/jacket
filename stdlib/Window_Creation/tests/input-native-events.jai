@@ -1,4 +1,4 @@
-// test: skip_on(.WASM) serial
+// test: skip_on(.WASM, reason = "needs Window_Creation, which has no wasm target") serial
 // Window_Creation and Input against the real window system (AppKit, Win32 or X11): windows open
 // and report their size through the event pump, key and mouse events posted to a window come back
 // as Input events routed to that window (a click must not end the program), and closing a window

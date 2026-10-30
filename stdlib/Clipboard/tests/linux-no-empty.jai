@@ -1,4 +1,4 @@
-// test: only(.LINUX) skip_on(.WASM) compile_fail
+// test: only(.LINUX) compile_fail
 C :: #import "Clipboard";
 
 main :: () {

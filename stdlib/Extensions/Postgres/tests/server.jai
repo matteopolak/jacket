@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs Extensions/Io fibers, which wasm cannot run (no stack switching)")
 // Runs against a live server started by tests/start_server.sh; skipped when JAI_PG_TEST_PORT is
 // not set.
 #import "Basic";

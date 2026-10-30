@@ -1,4 +1,3 @@
-// test: skip_on(.WASM)
 // The long form of a struct writes the name/value separator once per member.
 #import "Basic";
 

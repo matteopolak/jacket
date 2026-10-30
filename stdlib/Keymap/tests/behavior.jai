@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs the native SDL library, which has no wasm build")
 #import "Basic";
 K :: #import "Keymap";
 I :: #import "Input";

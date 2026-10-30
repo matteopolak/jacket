@@ -1,4 +1,4 @@
-// test: skip_on(.WASM) skip_on(.WINDOWS, cpu = .ARM64)
+// test: skip_on(.WASM, reason = "needs the native SDL library, which has no wasm build") skip_on(.WINDOWS, cpu = .ARM64)
 #import "Basic";
 G :: #import "Gamepad";
 I :: #import "Input";

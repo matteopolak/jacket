@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs the Thread module, which has no wasm target (no OS threads)")
 // Native SDK ABI constants, independently checked against glibc public headers.
 #if OS != .WINDOWS P :: #import "POSIX";
 T :: #import "Thread";

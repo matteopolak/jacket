@@ -1,4 +1,4 @@
-// test: only(.LINUX,.MACOS) skip_on(.WASM)
+// test: only(.LINUX,.MACOS)
 #import "Basic";
 S :: #import "SDL";
 Native :: #import "internal/bindings/sdl-native";

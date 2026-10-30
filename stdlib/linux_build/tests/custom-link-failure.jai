@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs the Thread module, which has no wasm target (no OS threads)")
 // Real missing-tool failure of the private callback; not Windows public workflow proof.
 #load "../../internal/build/linux-link.jai";
 

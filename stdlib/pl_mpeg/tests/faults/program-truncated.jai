@@ -1,4 +1,4 @@
-// test: skip_on(.WASM) should_fail("truncated MPEG PES packet")
+// test: should_fail("truncated MPEG PES packet")
 #import "Basic";
 M :: #import "pl_mpeg";
 F :: #import "File";

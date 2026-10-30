@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "links a native C library that has no wasm build")
 // FreeType against the pinned library (tools/native/build_native_libs.py): open a bitmap font held in
 // memory, look up and render a glyph, and check the pixels. The font is a BDF file written out
 // below (a single 8x8 letter A), so no font file has to ship with the repository, and BDF needs no

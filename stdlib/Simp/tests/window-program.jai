@@ -1,4 +1,4 @@
-// test: skip_on(.WASM) serial
+// test: skip_on(.WASM, reason = "needs Window_Creation, which has no wasm target") serial
 // Simp: a window program using automatic GL context creation. Checked (not run) for every desktop OS.
 #import "Basic";
 

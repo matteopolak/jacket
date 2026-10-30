@@ -57,28 +57,41 @@ const MODE_NAMES: [&str; 2] = ["interp", "native"];
 
 /// The arguments of one `only(...)` or `skip_on(...)` call: target names (an OS, a CPU or a
 /// mode, as in `.WASM`, `.ARM64`, `.INTERP`), and `mode = .NATIVE` or `cpu = .ARM64`, which
-/// narrow the whole call.
+/// narrow the whole call, and `reason = "text"`, which only explains it.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct TargetFilter {
     pub names: Vec<String>,
     pub mode: Option<String>,
     pub cpu: Option<String>,
+    /// Why the call is there (`reason = "needs threads"`), shown with the skip.
+    pub reason: Option<String>,
 }
 
 impl TargetFilter {
     /// `.WASM, .WINDOWS, cpu = .ARM64` as a filter. `call` is `only` or `skip_on`.
     fn parse(call: &str, args: &str) -> Result<TargetFilter, String> {
         let mut filter = TargetFilter::default();
-        for item in args.split(',').map(str::trim).filter(|i| !i.is_empty()) {
+        for item in split_outside_quotes(args)
+            .iter()
+            .map(|i| i.trim())
+            .filter(|i| !i.is_empty())
+        {
             if let Some((key, value)) = item.split_once('=') {
                 let key = key.trim();
+                if key == "reason" {
+                    let reason = text(Some(value));
+                    if reason.is_empty() || filter.reason.replace(reason).is_some() {
+                        return Err(format!("`@{call}` takes one non-empty `reason = \"text\"`"));
+                    }
+                    continue;
+                }
                 let value = value.trim().trim_start_matches('.').to_ascii_lowercase();
                 let (slot, allowed) = match key {
                     "mode" => (&mut filter.mode, &MODE_NAMES),
                     "cpu" => (&mut filter.cpu, &CPU_NAMES),
                     _ => {
                         return Err(format!(
-                            "`@{call}` does not know the argument `{key}`; use `mode =` or `cpu =`"
+                            "`@{call}` does not know the argument `{key}`; use `mode =`, `cpu =` or `reason =`"
                         ));
                     }
                 };
@@ -108,6 +121,12 @@ impl TargetFilter {
             return Err(format!("`@{call}` needs targets, as in `@{call}(.LINUX)`"));
         }
         Ok(filter)
+    }
+
+    fn reason_suffix(&self) -> String {
+        self.reason
+            .as_ref()
+            .map_or_else(String::new, |r| format!(": {r}"))
     }
 
     fn named(target: &Target, mode: &str, name: &str) -> bool {
@@ -151,6 +170,30 @@ impl fmt::Display for TargetFilter {
         parts.extend(self.cpu.iter().map(|c| format!("cpu = {c}")));
         f.write_str(&parts.join(", "))
     }
+}
+
+/// `a, "b, c", d` as `["a", " \"b, c\"", " d"]`: commas inside quotes do not split.
+fn split_outside_quotes(args: &str) -> Vec<String> {
+    let mut items = vec![String::new()];
+    let mut quoted = false;
+    let mut chars = args.chars();
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' if quoted => {
+                items.last_mut().unwrap().push(c);
+                items.last_mut().unwrap().extend(chars.next());
+                continue;
+            }
+            '"' => quoted = !quoted,
+            ',' if !quoted => {
+                items.push(String::new());
+                continue;
+            }
+            _ => {}
+        }
+        items.last_mut().unwrap().push(c);
+    }
+    items
 }
 
 fn dotted(names: &[&str]) -> String {
@@ -282,7 +325,7 @@ impl TestOptions {
             "native"
         };
         if let Some(filter) = self.only.iter().find(|f| !f.allows(target, mode)) {
-            return Some(format!("only on {filter}"));
+            return Some(format!("only on {filter}{}", filter.reason_suffix()));
         }
         if let Some(filter) = self.skip_on.iter().find(|f| f.matches(target, mode)) {
             // Name the targets that matched, not every one the call lists.
@@ -295,7 +338,7 @@ impl TestOptions {
                     .collect(),
                 ..filter.clone()
             };
-            return Some(format!("skipped on {matched}"));
+            return Some(format!("skipped on {matched}{}", filter.reason_suffix()));
         }
         let missing: Vec<&String> = self.needs.iter().filter(|n| !have.contains(n)).collect();
         if !missing.is_empty() {
@@ -387,13 +430,21 @@ fn split_notes(items: &str) -> Vec<String> {
     let mut notes = Vec::new();
     let mut current = String::new();
     let mut depth = 0usize;
+    let mut quoted = false;
+    let mut escaped = false;
     for c in items.chars() {
+        if std::mem::take(&mut escaped) {
+            current.push(c);
+            continue;
+        }
         match c {
-            '(' => depth += 1,
-            ')' => depth = depth.saturating_sub(1),
+            '\\' if quoted => escaped = true,
+            '"' => quoted = !quoted,
+            '(' if !quoted => depth += 1,
+            ')' if !quoted => depth = depth.saturating_sub(1),
             _ => {}
         }
-        if c.is_whitespace() && depth == 0 {
+        if c.is_whitespace() && depth == 0 && !quoted {
             if !current.is_empty() {
                 notes.push(std::mem::take(&mut current));
             }
@@ -529,6 +580,28 @@ mod tests {
         only.apply("only(.WINDOWS, mode = .NATIVE)").unwrap();
         assert_eq!(only.skip_reason(&target("windows", false), &[]), None);
         assert!(only.skip_reason(&target("windows", true), &[]).is_some());
+    }
+
+    #[test]
+    fn a_reason_is_shown_with_the_skip_and_may_hold_commas_and_parentheses() {
+        let mut options = TestOptions::default();
+        let notes = super::header_notes(
+            "// test: skip_on(.WASM, reason = \"no threads (WASI), no fibers\") serial\n",
+        );
+        assert_eq!(notes.len(), 2);
+        let (with, warnings) = options.with_notes(&notes);
+        assert_eq!(warnings, Vec::<String>::new());
+        assert_eq!(
+            with.skip_reason(&target("wasm", false), &[]).as_deref(),
+            Some("skipped on wasm: no threads (WASI), no fibers")
+        );
+        assert_eq!(with.skip_reason(&target("linux", false), &[]), None);
+        assert!(options.apply("skip_on(.WASM, reason = \"\")").is_err());
+        assert!(
+            options
+                .apply("skip_on(.WASM, reason = \"a\", reason = \"b\")")
+                .is_err()
+        );
     }
 
     #[test]

@@ -1,4 +1,4 @@
-// test: only(.MACOS) skip_on(.WASM) serial
+// test: only(.MACOS) serial
 // Reviewed macOS network database shapes, canonical names and real SDK calls.
 using #import "Basic";
 S :: #import "Socket";

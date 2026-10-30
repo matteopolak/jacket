@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs Extensions/Io fibers, which wasm cannot run (no stack switching)")
 // The client against a scripted server on a local socket: no PostgreSQL needed. After a normal
 // startup, each case answers one query with a reply that is valid, cut short at every byte,
 // interleaved with unsolicited messages, or mutated from a seed. The client must give the right

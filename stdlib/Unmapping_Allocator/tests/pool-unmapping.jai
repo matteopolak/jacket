@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs virtual-memory unmapping, which wasm lacks")
 // Reviewed pool.md allocator selection/reset/ownership contracts.
 #import "Basic";
 P :: #import "Pool"(USE_UNMAPPING_ALLOCATOR = true);

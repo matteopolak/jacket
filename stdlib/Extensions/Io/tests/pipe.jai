@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs Extensions/Io fibers, which wasm cannot run (no stack switching)")
 // In-memory pipes (Io.make_pipe): bytes in order between two fibers, end of stream, half close,
 // closing under a waiting reader, deadlines, cancellation and a transfer big enough to make the
 // buffer compact. Nothing here touches the network.

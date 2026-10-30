@@ -1,4 +1,3 @@
-// test: skip_on(.WASM)
 // The run-time API: compiling, errors, searching, captures, replacing, splitting and options.
 //
 //     jaic stdlib/Extensions/Regex/tests/matching.jai -interp

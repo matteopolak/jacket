@@ -1,4 +1,4 @@
-// test: skip_on(.WASM) should_fail("invalid overwriting-allocator pointer")
+// test: should_fail("invalid overwriting-allocator pointer")
 O :: #import "Overwriting_Allocator";
 
 main :: () {

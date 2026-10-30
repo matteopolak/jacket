@@ -1,4 +1,4 @@
-// test: only(.LINUX,.MACOS) skip_on(.WASM) needs(.DISPLAY) serial
+// test: only(.LINUX,.MACOS) needs(.DISPLAY) serial
 #import "Basic";
 #import "Clipboard";
 

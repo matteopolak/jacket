@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs the Http server and router, which are not built for wasm")
 // Request bodies read by the handler (`*Body`: `read`, `read_all`, `read_json`), the per-route
 // body limit, bodies a handler leaves unread, `created`, and streamed responses
 // (`stream_response`, `file_response`).

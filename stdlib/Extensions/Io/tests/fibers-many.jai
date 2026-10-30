@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs Extensions/Io fibers, which wasm cannot run (no stack switching)")
 // Ten thousand fibers alive at once, each switching several times, plus fibers that spawn fibers.
 // Fibers share one thread and run in turn, so plain globals need no locks.
 #import "Basic";

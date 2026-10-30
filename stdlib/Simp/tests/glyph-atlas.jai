@@ -1,4 +1,4 @@
-// test: skip_on(.WASM) args("${JAIC_TEST_FONT_PATH}")
+// test: skip_on(.WASM, reason = "needs a native window, and Window_Type has no wasm target") args("${JAIC_TEST_FONT_PATH}")
 #import "Basic";
 Basic :: #import "Basic";
 #import "freetype";

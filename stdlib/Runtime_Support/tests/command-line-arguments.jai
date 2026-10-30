@@ -1,4 +1,4 @@
-// test: skip_on(.WASM) args("雪😀","","quote\" and slash\\")
+// test: args("雪😀","","quote\" and slash\\")
 #import "Basic";
 
 main :: () {

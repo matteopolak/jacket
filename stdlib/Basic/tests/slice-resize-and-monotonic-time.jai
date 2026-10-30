@@ -1,4 +1,3 @@
-// test: skip_on(.WASM)
 // Public slice resize defaults and monotonic seconds-since-first-call behavior.
 #import "Basic";
 

@@ -1,4 +1,4 @@
-// test: skip_on(.MACOS)
+// test: skip_on(.MACOS, reason = "macOS has a clipboard provider; the test is the contract for hosts without")
 // This private named-pasteboard provider is macOS-only; no substitute clipboard.
 #import "Basic";
 Transport :: #import "internal/numerics/platform_clipboard";

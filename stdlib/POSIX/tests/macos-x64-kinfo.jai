@@ -1,4 +1,4 @@
-// test: skip_on(.WASM) only(.MACOS)
+// test: only(.MACOS)
 // Compile-only producer dependency reproducer: macOS x64 POSIX p_realtimer.
 P :: #import "POSIX";
 

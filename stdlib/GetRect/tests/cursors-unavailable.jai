@@ -1,4 +1,4 @@
-// test: skip_on(.MACOS,.WINDOWS)
+// test: skip_on(.MACOS, .WINDOWS, reason = "these hosts have native cursors; the test is the contract for those without")
 // Explicit unsupported-provider contract; this does not claim native cursor creation.
 #import "Basic";
 Cursor :: #import "internal/numerics/platform_cursors";

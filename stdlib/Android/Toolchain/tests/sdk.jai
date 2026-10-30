@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs the Thread module, which has no wasm target (no OS threads)")
 #import "Basic";
 AT :: #import "Android/Toolchain";
 FU :: #import "File_Utilities";

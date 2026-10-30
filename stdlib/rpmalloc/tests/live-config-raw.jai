@@ -1,4 +1,4 @@
-// test: only(.LINUX,.MACOS) skip_on(.WASM)
+// test: only(.LINUX,.MACOS)
 #add_context raw_live_marker: s64;
 
 RPM :: #import "rpmalloc"(USE_RAW = true);

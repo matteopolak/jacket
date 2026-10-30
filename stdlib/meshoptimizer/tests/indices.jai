@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "links a native C library that has no wasm build")
 // meshoptimizer against the pinned C++ library (tools/native/build_native_libs.py): take a shuffled,
 // unindexed grid mesh, index it, optimize it for the vertex cache and for vertex fetch, and check
 // the invariants that must survive: the same triangles (as a set), every index in range, a better

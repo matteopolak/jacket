@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs Extensions/Io fibers, which wasm cannot run (no stack switching)")
 // Runs every Extensions/Io engine test once per backend the system can offer, forcing each with
 // JAI_IO_BACKEND: io_uring and epoll on Linux, kqueue on macOS, and iocp and ioring on Windows. A
 // backend the system refuses (io_uring in a container, on an old kernel, or with io_uring_disabled;

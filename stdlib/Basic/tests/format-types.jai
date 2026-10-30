@@ -1,4 +1,3 @@
-// test: skip_on(.WASM)
 #import "Basic";
 
 Named :: struct {

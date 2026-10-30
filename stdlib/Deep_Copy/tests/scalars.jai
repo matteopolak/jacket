@@ -1,4 +1,3 @@
-// test: skip_on(.WASM)
 #import "Basic";
 D :: #import "Deep_Copy";
 H :: #import "Hash_Table";

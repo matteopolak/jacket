@@ -1,4 +1,4 @@
-// test: only(.WINDOWS) skip_on(.WASM,.INTERP)
+// test: only(.WINDOWS) skip_on(.INTERP, reason = "the sections exist only in a built Windows executable")
 // Native-executable assertions: compiled code/globals must really be PE sections.
 #assert OS == .WINDOWS;
 

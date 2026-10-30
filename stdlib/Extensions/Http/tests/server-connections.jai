@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs the Http server and router, which are not built for wasm")
 // Connections: keep-alive, pipelining, bodies in pieces and chunked, limits (body, head, request
 // line), timeouts (head, body, idle), Expect: 100-continue, malformed requests, the request cap
 // per connection and graceful shutdown.

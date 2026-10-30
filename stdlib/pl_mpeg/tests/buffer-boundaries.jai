@@ -1,4 +1,3 @@
-// test: skip_on(.WASM)
 // Reviewed pl_mpeg buffer API; independent bit order and borrowed-storage checks.
 #import "Basic";
 M :: #import "pl_mpeg";

@@ -267,7 +267,7 @@ reads_proc_self :: () { ... } @test @serial
 | `@compile_time` | run inside the compiler, once per build, and replayed by the program; see [Testing](../extensions/testing.md#how-it-works) |
 | `@retries(N)` | retries for this test, over `--retries` |
 | `@only(...)` | run only on these targets: `.LINUX`, `.MACOS`, `.WINDOWS`, `.WASM`, `.ANDROID`, `.X64`, `.ARM64`, `.INTERP`, `.NATIVE`; every kind named must match (`only(.LINUX,.X64)`) |
-| `@skip_on(...)` | skip on any of these targets |
+| `@skip_on(...)` | skip on any of these targets; `reason = "text"` explains the skip |
 | `@needs(.NETWORK)` | skip unless the run has the capability (`--needs network`, `[test] needs`); any name works |
 | `@interp_only`, `@native_only` | run only with (without) `--interp` |
 | `@exit(N)` | the program must exit with status N during the test, with no failed check |
@@ -279,7 +279,7 @@ reads_proc_self :: () { ... } @test @serial
 | `@check_only` | golden tests: only type-check the program (`jaic -check`); for code that cannot run on this host |
 | `@compile_fail` | file header only: the file below `tests/` is a compile-fail test |
 
-`mode = .NATIVE` (or `.INTERP`) and `cpu = .ARM64` (or `.X64`) narrow a whole call: a target matches when it matches one of the names and the given mode and CPU, as in `skip_on(.WINDOWS, cpu = .ARM64)` or `skip_on(.WASM, mode = .NATIVE)` (a wasm build run by `--runner`, not `--interp`) or `only(.WASM, mode = .INTERP)`. Without names they mean any OS: `skip_on(mode = .NATIVE)`. Only these two keys and these values exist. A header may hold several calls: `skip_on(.WASM) skip_on(.WINDOWS, cpu = .ARM64)` skips on either, and every `only(...)` call must pass. In a `@test` note list, the first `only` or `skip_on` replaces the file's and later ones add to it. `.ANDROID` is an OS no host is, so such tests never run here. Under `-os wasm` the CPU is `wasm` unless `-cpu` says otherwise, so `only(.X64)` never runs a test as wasm.
+`mode = .NATIVE` (or `.INTERP`) and `cpu = .ARM64` (or `.X64`) narrow a whole call: a target matches when it matches one of the names and the given mode and CPU, as in `skip_on(.WINDOWS, cpu = .ARM64)` or `skip_on(.WASM, mode = .NATIVE)` (a wasm build run by `--runner`, not `--interp`) or `only(.WASM, mode = .INTERP)`. Without names they mean any OS: `skip_on(mode = .NATIVE)`. `reason = "text"` says why the call is there and is shown with the skip (`SKIP name (skipped on wasm: needs the Thread module, ...)`); it may hold commas and parentheses and does not change what the call matches. Every `skip_on(.WASM)` in a standard-library test header carries one, so a skip that only repeats an `only(...)` that already excludes wasm is left out. Only the keys `mode`, `cpu` and `reason` exist. A header may hold several calls: `skip_on(.WASM) skip_on(.WINDOWS, cpu = .ARM64)` skips on either, and every `only(...)` call must pass. In a `@test` note list, the first `only` or `skip_on` replaces the file's and later ones add to it. `.ANDROID` is an OS no host is, so such tests never run here. Under `-os wasm` the CPU is `wasm` unless `-cpu` says otherwise, so `only(.X64)` never runs a test as wasm.
 
 An unknown note or a bad argument is a warning naming the file and line; the note is ignored. The target is the host, or `-os`/`-cpu`; a cross-built test is skipped unless `--runner` can run it (compile-fail tests still run).
 

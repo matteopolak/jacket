@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs the Http server and router, which are not built for wasm")
 // What handlers return and how it becomes a response, error responses and `on_error`, middleware,
 // groups (nested, with parameters in the prefix) and large bodies.
 #load "support/server_support.jai";

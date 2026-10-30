@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs virtual-memory unmapping, which wasm lacks")
 // Reviewed portable lifecycle; Windows additionally checks actual SDK page states.
 #import "Basic";
 U :: #import "Unmapping_Allocator";

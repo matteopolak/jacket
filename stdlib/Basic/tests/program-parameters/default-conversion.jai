@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "File_Utilities has no wasm backend")
 #import "Basic";
 #import "File_Utilities";
 

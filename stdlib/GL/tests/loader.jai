@@ -1,4 +1,4 @@
-// test: only(.MACOS) skip_on(.WASM) serial
+// test: only(.MACOS) serial
 #import "Basic";
 GL :: #import "GL";
 

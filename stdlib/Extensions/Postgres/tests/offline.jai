@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs Extensions/Io fibers, which wasm cannot run (no stack switching)")
 // The parts of the client that need no server: URLs, SQLSTATEs, UUIDs and calendar arithmetic.
 #import "Basic";
 #import "String";

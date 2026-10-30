@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs Window_Creation, which has no wasm target")
 // SOURCE ONLY: reviewed public window creation/fullscreen bind to canonical AppKit enums.
 // Native GUI execution is serialized by integration, not part of this source gate.
 W :: #import "Window_Creation";

@@ -1,4 +1,4 @@
-// test: only(.MACOS) skip_on(.WASM) args("${JAIC_TEST_FONT_PATH}") serial
+// test: only(.MACOS) args("${JAIC_TEST_FONT_PATH}") serial
 #import "Basic";
 S :: #import "Simp";
 GL :: #import "GL";

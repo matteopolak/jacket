@@ -1,4 +1,4 @@
-// test: skip_on(.WASM) only(.LINUX,.MACOS) should_fail("flat-pool reservation exhausted")
+// test: only(.LINUX,.MACOS) should_fail("flat-pool reservation exhausted")
 #import "Basic";
 F :: #import "Flat_Pool";
 P :: #import "POSIX";

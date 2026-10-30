@@ -1,4 +1,4 @@
-// test: only(.MACOS) skip_on(.WASM) serial
+// test: only(.MACOS) serial
 // Reviewed Mac external-event publication, public frame state and native queries.
 // External events preserve payloads; they are not an unreviewed state adapter.
 #assert OS == .MACOS, "Input fixture requires reviewed macOS osx_externally_generated_events";

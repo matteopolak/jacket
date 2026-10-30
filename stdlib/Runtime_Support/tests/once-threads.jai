@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs the Thread module, which has no wasm target (no OS threads)")
 // One actual winner publishes initialized data to four real native workers.
 #import "Basic";
 R :: #import "Runtime_Support";

@@ -1,4 +1,4 @@
-// test: only(.MACOS) skip_on(.WASM) serial
+// test: only(.MACOS) serial
 // Reviewed mutable publication arrays with explicit persistent caller storage.
 // Real window identities, 300 temporary-reset frames, owned filenames and payloads.
 #assert OS == .MACOS, "Input fixture requires reviewed macOS osx_externally_generated_events";

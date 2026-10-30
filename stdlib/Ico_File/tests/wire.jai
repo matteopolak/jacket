@@ -1,4 +1,4 @@
-// test: skip_on(.WASM) args("$TEMP")
+// test: skip_on(.WASM, reason = "links a native C library that has no wasm build") args("$TEMP")
 #import "Basic";
 Icons :: #import "Ico_File";
 Files :: #import "File";

@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs Extensions/Io fibers, which wasm cannot run (no stack switching)")
 // Replays the scenarios of PostgreSQL's libpq_pipeline test (src/test/modules/libpq_pipeline) on
 // this client and compares the client's message trace with the .trace file libpq wrote for each.
 //

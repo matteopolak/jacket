@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs a native window, and Window_Type has no wasm target")
 // Target-availability reducer: custom rendering types do not replace Input.Event.
 #import "Basic";
 G :: #import "GetRect"()(Type_Indicator = Renderer);

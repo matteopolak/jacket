@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs the Thread module, which has no wasm target (no OS threads)")
 // Independent bounds/representation safety; restore fatal checks after each call.
 #import "Basic";
 A :: #import "Android/Toolchain";

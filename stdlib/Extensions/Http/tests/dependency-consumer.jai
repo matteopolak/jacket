@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs the Http server and router, which are not built for wasm")
 // Real enclosing consumer for contextual lint of Http's loaded dependencies.
 #import "Basic";
 Http :: #import "Extensions/Http";

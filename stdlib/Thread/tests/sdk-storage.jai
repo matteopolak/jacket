@@ -1,4 +1,4 @@
-// test: only(.LINUX,.MACOS) skip_on(.WASM)
+// test: only(.LINUX,.MACOS)
 // Actual native C SDK writes must remain inside the public binding object.
 #import "Basic";
 P :: #import "POSIX";

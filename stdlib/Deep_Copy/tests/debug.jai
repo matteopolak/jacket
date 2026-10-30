@@ -1,4 +1,3 @@
-// test: skip_on(.WASM)
 #import "Basic";
 D :: #import "Deep_Copy"(DC_DEBUG = true, DEBUG_PRINT = false);
 Plain :: #import "Deep_Copy";

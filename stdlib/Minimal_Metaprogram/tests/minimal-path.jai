@@ -1,4 +1,3 @@
-// test: skip_on(.WASM)
 // docs/specs/stdlib/modules/minimal-metaprogram.md: deliberately limited heuristic.
 #import "Basic";
 M :: #import "Minimal_Metaprogram";

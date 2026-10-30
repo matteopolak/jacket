@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs a native window, and Window_Type has no wasm target")
 // ui_init() without callbacks installs the Simp-backed drawing callbacks; explicit ones replace them.
 #import "Basic";
 G :: #import "GetRect";

@@ -1,4 +1,3 @@
-// test: skip_on(.WASM)
 // meow_hash: MeowHash fills the caller's `#asm` vector register, MeowU64From reads a lane of it.
 // The expected digests were produced by the published Meow hash 0.5 (calico) x64 AES-NI
 // implementation, compiled separately and run with the default seed over the inputs built by

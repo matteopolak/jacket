@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs Extensions/Io fibers, which wasm cannot run (no stack switching)")
 // Extensions/Tls against OpenSSL on loopback: `openssl s_client` connecting to our server, and our
 // client connecting to `openssl s_server`. Nothing leaves the machine. Skipped (and says so) when
 // there is no `openssl` command, or on Windows. Run from this directory.

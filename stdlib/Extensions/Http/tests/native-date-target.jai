@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "Http.http_date_now exists only for native targets")
 #import "Basic";
 Http :: #import "Extensions/Http";
 

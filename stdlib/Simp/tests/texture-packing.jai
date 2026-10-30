@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs OpenGL, which has no wasm target")
 #import "Basic";
 S :: #import "Simp";
 

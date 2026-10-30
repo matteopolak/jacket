@@ -1,4 +1,3 @@
-// test: skip_on(.WASM)
 #import "Extensions/Testing";
 
 parameterized_imports_are_distinct_modules :: () {

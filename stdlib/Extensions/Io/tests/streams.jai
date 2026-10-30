@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs Extensions/Io fibers, which wasm cannot run (no stack switching)")
 // Extensions/Io readers and writers: the same five operations (`read`, `read_full`, `write`,
 // `write_some`, `close`) over a file, a TCP connection and a pipe, directly and through
 // `Io.Reader` / `Io.Writer`; a source made of a pointer and procedures; `read_all`; and the deadline

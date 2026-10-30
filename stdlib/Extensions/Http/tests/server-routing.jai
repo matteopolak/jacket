@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs the Http server and router, which are not built for wasm")
 // The router through the test client (no socket): static, {param} and {rest...} segments, priorities, trailing
 // slashes and percent-decoding, 404 and 405 with Allow, automatic HEAD and OPTIONS, and routes
 // that conflict.

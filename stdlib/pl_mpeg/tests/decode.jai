@@ -1,4 +1,3 @@
-// test: skip_on(.WASM)
 // pl_mpeg against the pinned C library (tools/native/build_native_libs.py): decode pl-mpeg-clip.mpg, a
 // 0.4 second MPEG-1 program stream of a solid red 32x32 picture at 25 frames per second with a
 // 440 Hz mono MPEG-1 Layer II tone. The clip was made for this test from synthetic sources

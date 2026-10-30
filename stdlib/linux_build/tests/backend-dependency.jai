@@ -1,4 +1,4 @@
-// test: skip_on(.WASM)
+// test: skip_on(.WASM, reason = "needs the Thread module, which has no wasm target (no OS threads)")
 // Public callback's real required backend. Expected current compiler dependency.
 #load "../../internal/build/linux-link.jai";
 
