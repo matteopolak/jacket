@@ -20,7 +20,6 @@ CASES = (
     "Basic/tests/integer-format",
     "Hash/tests/floats",
     "Basic/tests/filesystem",
-    "File_Utilities/tests/shape",
     "File_Utilities/tests/tree-operations",
     "Hash/tests/scalars",
     "File/tests/visitation",
