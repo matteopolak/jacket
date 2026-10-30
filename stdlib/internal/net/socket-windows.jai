@@ -1,21 +1,14 @@
 // A socket handle: Winsock's unsigned pointer-sized `SOCKET`. Unix uses an `s32` file descriptor. Compare a handle against
 // `INVALID_SOCKET`, never against a number.
-// A socket handle: Winsock's unsigned pointer-sized `SOCKET`. Unix uses an `s32` file descriptor. Compare a handle against
-// `INVALID_SOCKET`, never against a number.
 Socket :: SOCKET;
 INVALID_SOCKET :: cast(Socket) 0xffffffffffffffff;
 SOCKET_ERROR :: -1;
 // The error `get_last_socket_error()` reports when a non-blocking call has nothing to do yet (`WSAEWOULDBLOCK`).
-// The error `get_last_socket_error()` reports when a non-blocking call has nothing to do yet (`WSAEWOULDBLOCK`).
 SOCKET_WOULDBLOCK :: WSAEWOULDBLOCK;
-// The error `get_last_socket_error()` reports when a non-blocking `connect` has started and is still in progress. Winsock
-// uses `WSAEWOULDBLOCK` for this, so it equals `SOCKET_WOULDBLOCK` here, unlike the Unix targets.
 // The error `get_last_socket_error()` reports when a non-blocking `connect` has started and is still in progress. Winsock
 // uses `WSAEWOULDBLOCK` for this, so it equals `SOCKET_WOULDBLOCK` here, unlike the Unix targets.
 SOCKET_WOULDBLOCK_CONNECT :: SOCKET_WOULDBLOCK;
 
-// Builds a Winsock control code for `ioctlsocket` from the group character `x`, the command number `y` and the type of the
-// argument `T` (its size is encoded in the code). `FIONBIO` is `IOW(102, 126, u32)`.
 // Builds a Winsock control code for `ioctlsocket` from the group character `x`, the command number `y` and the type of the
 // argument `T` (its size is encoded in the code). `FIONBIO` is `IOW(102, 126, u32)`.
 IOW :: Control.IOW;
@@ -23,10 +16,6 @@ IOW :: Control.IOW;
 // Official Winsock2 FIONBIO encoding; the character literal form is incomplete.
 FIONBIO :: #run IOW(102, 126, u32);
 
-// Starts Winsock 2.2 and returns whether it is ready.
-//
-// Winsock counts the calls, so calling it again is harmless. A failure is logged through `context.logger` and returns
-// false. Call it once before the first socket call; on Unix it only returns true.
 // Starts Winsock 2.2 and returns whether it is ready.
 //
 // Winsock counts the calls, so calling it again is harmless. A failure is logged through `context.logger` and returns
@@ -116,8 +105,6 @@ close_and_reset :: (s: *Socket, loc := #caller_location) {
     }
 } @FreesArgument
 
-// Adds `fd` to `set`. A socket already in the set is not added twice, and a full set (`fd_array.count` sockets, 64 by
-// default) ignores further sockets without an error.
 // Adds `fd` to `set`. A socket already in the set is not added twice, and a full set (`fd_array.count` sockets, 64 by
 // default) ignores further sockets without an error.
 FD_SET :: (fd: Socket, set: *fd_set) {
