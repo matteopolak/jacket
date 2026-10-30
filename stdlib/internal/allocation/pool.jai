@@ -3,6 +3,41 @@ POOL_OVERSIZED_SIZE_DEFAULT :: 6554;
 STAMP :: 0xcc;
 HEADER_SIZE :: size_of(Memblock);
 
+// A bump allocator that hands out memory from large blocks and frees it all at once.
+//
+// Allocation is a pointer bump inside the current block (`memblock_size` bytes, 64 KiB by default); a request
+// that does not fit starts a new block. A request of `oversized_size` bytes or more (about 6.5 KB by default),
+// or one too large for a block, gets a block of its own. Individual allocations are never freed: freeing
+// through the allocator interface does nothing, and growing one copies it to fresh memory, leaving the old
+// space unused until the pool is reset. Memory is not zeroed, and each allocation is aligned to `alignment`
+// (8 by default, a power of two).
+//
+// `reset` gives every block back to the pool for reuse and frees the oversized ones; `release` also hands the
+// blocks back to the underlying allocator. A pool must be released, or it leaks. Blocks come from
+// `block_allocator`, which `set_allocators` fills in (or the first `get`) with `context.allocator`.
+// With the module parameter `USE_UNMAPPING_ALLOCATOR` it is the Unmapping_Allocator, whose blocks are returned
+// to the OS on reset. A `Pool` must not be copied while it holds memory, and it is not thread safe.
+//
+// Set `overwrite_memory` to fill reset blocks with `0xcc`, which makes use after reset easier to spot, and
+// `logging_options` to log oversized allocations.
+//
+// ```jai
+// pool: Pool;
+// defer release(*pool);
+//
+// numbers := cast(*int) get(*pool, 10 * size_of(int));
+// for 0..9 numbers[it] = it;
+// assert(numbers[9] == 9);
+//
+// allocator := Allocator.{ pool_allocator_proc, *pool };
+// {
+//     push_allocator(allocator);
+//     text := copy_string("allocated from the pool"); // freed by reset, not by free
+//     assert(text.count == 23);
+// }
+//
+// reset(*pool); // everything above is gone
+// ```
 Pool :: struct {
     memblock_size: s64 = POOL_BUCKET_SIZE_DEFAULT;
     oversized_size: s64 = POOL_OVERSIZED_SIZE_DEFAULT;
@@ -24,6 +59,11 @@ Pool :: struct {
     }
 }
 
+// Chooses the allocator the pool takes its blocks from: `block_allocator` if given, else `context.allocator`.
+//
+// The first `get` calls it when nothing was chosen. Calling it again once an allocator is set logs an error
+// and changes nothing. With the module parameter `USE_UNMAPPING_ALLOCATOR` the default is the unmapping
+// allocator and `free_memblocks_on_reset` is turned on.
 set_allocators :: (pool: *Pool, block_allocator: Allocator = .{}) {
     if pool.block_allocator.proc {
         context.logger("Pool allocator is already selected\n", context.logger_data, Log_Info.{ common_flags = .ERROR });
@@ -39,6 +79,10 @@ set_allocators :: (pool: *Pool, block_allocator: Allocator = .{}) {
     }
 }
 
+// Returns `nbytes` bytes aligned to the pool's alignment, or `null` when the underlying allocator fails or the size is too large to represent.
+//
+// The memory is uninitialized and stays valid until `reset` or `release`. A size of zero is fine. A
+// non-power-of-two alignment or a negative size fails an assert.
 get :: (using pool: *Pool, nbytes: s64) -> *void {
     assert(nbytes >= 0 && alignment > 0 && (alignment & (alignment - 1)) == 0);
     // Include both public linked headers and the private backing-size word.
@@ -99,6 +143,10 @@ get :: (using pool: *Pool, nbytes: s64) -> *void {
     return result;
 }
 
+// Gives all memory back to the pool: oversized blocks are freed, ordinary blocks are kept for reuse (or freed too, with `free_memblocks_on_reset`).
+//
+// Every pointer from `get` is invalid afterwards. With `overwrite_memory` the reused blocks are filled with
+// `0xcc` first. Safe to call on an empty pool.
 reset :: (using pool: *Pool) {
     block := out_of_band_allocations;
     while block {
@@ -130,6 +178,7 @@ reset :: (using pool: *Pool) {
     bytes_left = 0;
 }
 
+// Resets the pool and frees all its blocks through `block_allocator`. The pool can be used again; it takes new blocks on the next `get`.
 release :: (using pool: *Pool) {
     reset(pool);
     block := unused_memblocks;
@@ -142,6 +191,18 @@ release :: (using pool: *Pool) {
     unused_memblocks = null;
 } @FreesArgument
 
+// How much the pool has handed out: the bytes used in ordinary blocks (including their headers and alignment padding) and the number of oversized blocks.
+//
+// ```jai
+// pool: Pool;
+// defer release(*pool);
+// get(*pool, 100);
+// bytes, oversized := calculate_used_memory(pool);
+// assert(bytes >= 100 && oversized == 0);
+// get(*pool, 100000);
+// bytes, oversized = calculate_used_memory(pool);
+// assert(oversized == 1);
+// ```
 calculate_used_memory :: (using pool: Pool) -> inband_size: s64, outband_count: s64 {
     block := used_memblocks;
     bytes: s64;
@@ -162,6 +223,11 @@ calculate_used_memory :: (using pool: Pool) -> inband_size: s64, outband_count: 
     return bytes - bytes_left, count;
 }
 
+// The `Allocator_Proc` for a pool: use it as `Allocator.{ pool_allocator_proc, *pool }`.
+//
+// Allocate and resize take memory from the pool (a resize copies, and never reuses the old space); free does
+// nothing; shutdown calls `release`. It reports `IS_THIS_YOURS` only for addresses inside ordinary blocks, not
+// for oversized allocations. Unsupported modes fail an assert.
 pool_allocator_proc :: (mode: Allocator_Mode, requested_size: s64, old_size: s64, old_memory: *void, allocator_data: *void) -> *void {
     if mode == .CAPS {
         if old_memory {
@@ -210,6 +276,7 @@ pool_allocator_proc :: (mode: Allocator_Mode, requested_size: s64, old_size: s64
     return null;
 }
 
+// A small demonstration of the lifecycle: set up, allocate, reset, release. It exists as a smoke test and is not part of the API.
 example_usage :: () {
     pool: Pool;
 

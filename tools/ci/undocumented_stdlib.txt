@@ -2641,15 +2641,6 @@ POSIX.lstat
 POSIX.stat
 Performance_Report
 Performance_Report.get_plugin
-Pool
-Pool.Pool
-Pool.calculate_used_memory
-Pool.example_usage
-Pool.get
-Pool.pool_allocator_proc
-Pool.release
-Pool.reset
-Pool.set_allocators
 Print_Color
 Print_Color.Console_Color
 Print_Color.Console_Style
