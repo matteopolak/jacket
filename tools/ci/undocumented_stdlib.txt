@@ -670,17 +670,6 @@ Bit_Operations.bit_scan_reverse
 Bit_Operations.byte_swap
 Bit_Operations.byte_swap_in_place
 Bit_Operations.popcount
-Bucket_Array
-Bucket_Array.Bucket
-Bucket_Array.Bucket_Array
-Bucket_Array.Bucket_Locator
-Bucket_Array.bucket_array_add
-Bucket_Array.bucket_array_find
-Bucket_Array.bucket_array_find_pointer
-Bucket_Array.bucket_array_remove
-Bucket_Array.bucket_array_reset
-Bucket_Array.find_and_occupy_empty_slot
-Bucket_Array.for_expansion
 BuildCpp
 BuildCpp.Build_Type
 BuildCpp.build_cpp
