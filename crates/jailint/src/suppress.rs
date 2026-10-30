@@ -279,6 +279,7 @@ mod tests {
         let ast = jaic::parser::parse_file(FileId(0), text).unwrap_or(File {
             file: FileId(0),
             stmts: Vec::new(),
+            lenient: Vec::new(),
         });
         Suppressions::new(text, &tokens, &comments, &ast)
     }

@@ -104,3 +104,136 @@ fn for_inside_an_imported_module_is_silent() {
     );
     assert!(found.is_empty(), "{found:?}");
 }
+
+/// A program of `main` that must warn once with `leniency`, rendered; and the same text as the
+/// module `User` imported by a program of its own, which must not.
+fn warns_in_the_program_and_not_in_a_module(
+    leniency: Leniency,
+    main: &str,
+    in_module: &str,
+) -> String {
+    let text = the_warning(main, &[], leniency);
+    let found = warnings(
+        "#import \"User\"; main :: () { go(); }",
+        &[("User", in_module)],
+        leniency,
+    );
+    assert!(found.is_empty(), "{leniency:?} in a module: {found:?}");
+    text
+}
+
+#[test]
+fn place_warns_and_names_overlay() {
+    let text = warns_in_the_program_and_not_in_a_module(
+        Leniency::PlaceDirective,
+        "Ts :: struct { a: u16; #place a; b: float64; }
+        main :: () { t: Ts; t.b = 1; }",
+        "Ts :: struct { a: u16; #place a; b: float64; }
+        go :: () { t: Ts; t.b = 1; }",
+    );
+    assert!(
+        text.contains("`#place` is a deprecated directive"),
+        "{text}"
+    );
+    assert!(text.contains("write `#overlay(member)`"), "{text}");
+}
+
+#[test]
+fn foreign_library_warns_and_names_library() {
+    let text = warns_in_the_program_and_not_in_a_module(
+        Leniency::ForeignLibrary,
+        "m :: #foreign_library \"libm\";
+        main :: () { }",
+        "m :: #foreign_library \"libm\";
+        go :: () { }",
+    );
+    assert!(
+        text.contains("`#foreign_library` is not a directive here"),
+        "{text}"
+    );
+    assert!(text.contains("write `#library`"), "{text}");
+    let text = the_warning(
+        "m :: #foreign_system_library \"libm\";
+        main :: () { }",
+        &[],
+        Leniency::ForeignLibrary,
+    );
+    assert!(text.contains("write `#system_library`"), "{text}");
+}
+
+#[test]
+fn an_unnamed_library_statement_warns() {
+    let text = warns_in_the_program_and_not_in_a_module(
+        Leniency::UnnamedLibrary,
+        "#library,link_always \"libm\";
+        main :: () { }",
+        "#library,link_always \"libm\";
+        go :: () { }",
+    );
+    assert!(text.contains("`#library` needs a name here"), "{text}");
+}
+
+#[test]
+fn must_after_a_return_type_warns() {
+    let text = warns_in_the_program_and_not_in_a_module(
+        Leniency::MustAfterReturnType,
+        "f :: () -> int #must { return 1; }
+        main :: () { x := f(); }",
+        "f :: () -> int #must { return 1; }
+        go :: () { x := f(); }",
+    );
+    assert!(
+        text.contains("`#must` after a return type is not a directive here"),
+        "{text}"
+    );
+}
+
+#[test]
+fn a_semicolon_before_else_in_a_static_ifx_warns() {
+    let text = warns_in_the_program_and_not_in_a_module(
+        Leniency::IfxThenSemicolon,
+        "main :: () { n := #ifx true then 1; else 2; }",
+        "go :: () { n := #ifx true then 1; else 2; }",
+    );
+    assert!(text.contains("`;` before `else` ends the `#ifx`"), "{text}");
+    assert!(text.contains("remove the `;`"), "{text}");
+}
+
+#[test]
+fn the_address_of_a_struct_literal_warns() {
+    let text = warns_in_the_program_and_not_in_a_module(
+        Leniency::AddressOfLiteral,
+        "T :: struct { a: int; }
+        main :: () { p := *T.{1}; }",
+        "T :: struct { a: int; }
+        go :: () { p := *T.{1}; }",
+    );
+    assert!(
+        text.contains("`*T.{1}` reads as a pointer type followed by a literal"),
+        "{text}"
+    );
+    assert!(text.contains("write `*(T.{1})`"), "{text}");
+}
+
+#[test]
+fn the_portable_spellings_do_not_warn() {
+    for leniency in [
+        Leniency::PlaceDirective,
+        Leniency::ForeignLibrary,
+        Leniency::UnnamedLibrary,
+        Leniency::MustAfterReturnType,
+        Leniency::IfxThenSemicolon,
+        Leniency::AddressOfLiteral,
+    ] {
+        let found = warnings(
+            "T :: struct { a: int; b: int; #overlay(a) c: u8; }
+            m :: #library \"libm\";
+            n :: #system_library \"libm\";
+            f :: () -> int { return 1; }
+            main :: () { p := *(T.{1, 2}); q := #ifx true then 1 else 2; r := f(); }",
+            &[],
+            leniency,
+        );
+        assert!(found.is_empty(), "{leniency:?}: {found:?}");
+    }
+}

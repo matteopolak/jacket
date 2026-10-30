@@ -510,6 +510,9 @@ impl Parser<'_> {
             return Err(self.expected("directive", ""));
         };
         self.bump();
+        if matches!(sym.as_str(), "foreign_library" | "foreign_system_library") {
+            self.note_lenient(crate::leniency::Leniency::ForeignLibrary, start);
+        }
         let name = Ident {
             name: sym,
             span: start,

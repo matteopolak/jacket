@@ -168,6 +168,7 @@ impl Compiler {
             scope: file_scope,
         });
         self.ns.modules[module.0 as usize].files.push(file);
+        self.report_parsed_leniencies(module, ast);
         self.declare_stmts(module_scope, file_scope, &ast.stmts, ast::ScopeKind::Export)?;
         Ok(())
     }

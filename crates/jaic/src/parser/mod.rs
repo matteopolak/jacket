@@ -53,6 +53,7 @@ pub fn parse_file(file: FileId, text: &str) -> Result<File, Diagnostic> {
     Ok(File {
         file,
         stmts,
+        lenient: parser.lenient,
     })
 }
 
@@ -73,6 +74,7 @@ pub fn parse_file_for_target(
     Ok(File {
         file,
         stmts,
+        lenient: parser.lenient,
     })
 }
 
@@ -87,6 +89,7 @@ pub fn parse_tokens(
     let parsed = parser.parse_file_stmts().map(|stmts| File {
         file,
         stmts,
+        lenient: std::mem::take(&mut parser.lenient),
     });
     (parsed, parser.toks)
 }
@@ -146,6 +149,8 @@ pub(crate) struct Parser<'a> {
     /// are file level too, anything else (a block, a struct body) is not, since a name such as
     /// `OS` may be declared there.
     file_level_depth: usize,
+    /// Constructs accepted although the official compiler rejects them.
+    lenient: Vec<crate::ast::ParsedLeniency>,
 }
 
 impl<'a> Parser<'a> {
@@ -171,6 +176,19 @@ impl<'a> Parser<'a> {
             ide_call_callee: None,
             platform: None,
             file_level_depth: 1,
+            lenient: Vec::new(),
+        }
+    }
+
+    /// Note that the code at `span` is a `kind` the official compiler rejects.
+    fn note_lenient(&mut self, kind: crate::leniency::Leniency, span: Span) {
+        let found = crate::ast::ParsedLeniency {
+            kind,
+            span,
+        };
+        // A speculative parse may read the same text twice.
+        if !self.lenient.contains(&found) {
+            self.lenient.push(found);
         }
     }
 

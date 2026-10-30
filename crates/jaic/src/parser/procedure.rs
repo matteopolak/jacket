@@ -545,7 +545,8 @@ impl Parser<'_> {
         };
         let must = self.at_directive("must");
         if must {
-            self.bump();
+            let at = self.bump();
+            self.note_lenient(crate::leniency::Leniency::MustAfterReturnType, at);
         }
         Ok(Return {
             name,

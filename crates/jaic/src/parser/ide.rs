@@ -74,6 +74,7 @@ pub fn parse_tokens_ide(file: FileId, text: &str, tokens: Vec<Token>) -> IdePars
         file: File {
             file,
             stmts,
+            lenient: parser.lenient,
         },
         tokens: parser.toks,
         diagnostics,

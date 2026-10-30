@@ -6,6 +6,7 @@ use crate::ast::{
     InsertStmt, ModuleParametersStmt, ScopeKind, StaticIfStmt, Stmt, StmtKind, SwitchStmt, UnOp,
 };
 use crate::intern::Sym;
+use crate::leniency::Leniency;
 use crate::lexer::{P, Tok};
 use crate::source::Span;
 use std::rc::Rc;
@@ -454,6 +455,7 @@ impl Parser<'_> {
 
     fn parse_place(&mut self) -> PResult<Stmt> {
         let start = self.bump();
+        self.note_lenient(Leniency::PlaceDirective, start);
         let target = self.parse_expr()?;
         self.end_stmt("after `#place`")?;
         Ok(stmt(
@@ -503,6 +505,13 @@ impl Parser<'_> {
             return Err(self.expected("directive", ""));
         };
         self.bump();
+        match sym.as_str() {
+            "foreign_library" | "foreign_system_library" => {
+                self.note_lenient(Leniency::ForeignLibrary, start);
+            }
+            "library" | "system_library" => self.note_lenient(Leniency::UnnamedLibrary, start),
+            _ => {}
+        }
         let name = Ident {
             name: sym,
             span: start,

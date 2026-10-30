@@ -1111,6 +1111,16 @@ pub struct Stmt {
 pub struct File {
     pub file: crate::source::FileId,
     pub stmts: Vec<Stmt>,
+    /// The constructs the parser accepted although the official compiler rejects them, for the
+    /// compiler to warn about where the file is the program's own.
+    pub lenient: Vec<ParsedLeniency>,
+}
+
+/// A [`crate::leniency::Leniency`] the parser found, and where.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ParsedLeniency {
+    pub kind: crate::leniency::Leniency,
+    pub span: Span,
 }
 
 #[cfg(test)]

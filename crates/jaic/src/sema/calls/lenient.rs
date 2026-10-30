@@ -19,6 +19,7 @@ use super::{
 };
 use crate::leniency::{Leniency, NOTE};
 use crate::sema::ModuleId;
+use crate::sema::ast;
 use crate::sema::binary::Binary;
 use crate::source::{Applicability, Edit, ImportSuggestion, Suggestion};
 
@@ -240,6 +241,82 @@ impl Compiler {
             d = d.with_help(format!("or add `using {q};` to this scope"));
         }
         self.warn(d);
+    }
+
+    /// Warn about the constructs the parser accepted in `file` although the official compiler
+    /// rejects them, when `module` is the program's own.
+    pub(in crate::sema) fn report_parsed_leniencies(&mut self, module: ModuleId, file: &ast::File) {
+        for found in &file.lenient {
+            let text = self.src.sources.snippet(found.span).to_string();
+            let (message, label, help, fix) = match found.kind {
+                Leniency::PlaceDirective => (
+                    "`#place` is a deprecated directive".to_string(),
+                    "overlays the member after it on the one it names",
+                    Some("write `#overlay(member)` before the member that shares the space".to_string()),
+                    None,
+                ),
+                Leniency::ForeignLibrary => {
+                    let portable = if text.contains("system") {
+                        "#system_library"
+                    } else {
+                        "#library"
+                    };
+                    (
+                        format!("`{text}` is not a directive here"),
+                        "declares the library to link",
+                        Some(format!("write `{portable}`")),
+                        Some((portable.to_string(), Applicability::MachineApplicable)),
+                    )
+                }
+                Leniency::UnnamedLibrary => (
+                    format!("`{text}` needs a name here"),
+                    "a library is declared with a name",
+                    Some(format!(
+                        "bind it to a name: `lib :: {text},link_always \"name\";`"
+                    )),
+                    None,
+                ),
+                Leniency::MustAfterReturnType => (
+                    "`#must` after a return type is not a directive here".to_string(),
+                    "requires every call to use this result",
+                    Some(
+                        "remove `#must` and use the result at every call: there is no portable spelling"
+                            .to_string(),
+                    ),
+                    Some((String::new(), Applicability::MaybeIncorrect)),
+                ),
+                Leniency::IfxThenSemicolon => (
+                    "`;` before `else` ends the `#ifx`".to_string(),
+                    "the `else` has nothing to belong to",
+                    Some("remove the `;`: `#ifx c then a else b;`".to_string()),
+                    Some((String::new(), Applicability::MachineApplicable)),
+                ),
+                Leniency::AddressOfLiteral => {
+                    let operand = text.strip_prefix('*').unwrap_or(&text);
+                    (
+                        format!("`{text}` reads as a pointer type followed by a literal"),
+                        "this takes the address of the literal here",
+                        Some(format!("write `*({operand})` to take the address of the literal")),
+                        Some((format!("*({operand})"), Applicability::MachineApplicable)),
+                    )
+                }
+                _ => continue,
+            };
+            let Some(mut d) = self.leniency_warning(module, found.span, found.kind, message) else {
+                continue;
+            };
+            d = d.with_label(label);
+            if let Some(help) = help {
+                d =
+                    match fix {
+                        Some((replacement, applicability)) => d.with_suggestion(
+                            Suggestion::replace(help, found.span, replacement, applicability),
+                        ),
+                        None => d.with_help(help),
+                    };
+            }
+            self.warn(d);
+        }
     }
 
     /// Warn that `for` found the `for_expansion` of `ty` through the module of the type
