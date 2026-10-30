@@ -176,7 +176,7 @@ Change it in `cmd_probe.py`; tests are `test_probe_cmd.py` (they use a stand-in 
 
 1. **Python 3.11 or newer** from python.org (tick "Add python.exe to PATH"). The harness uses only the standard library.
 2. **A linker.** Both compilers link with Microsoft's linker: install *Visual Studio Build Tools* (workload "Desktop development with C++": MSVC and a Windows 10/11 SDK), or a full Visual Studio. Open a *new* terminal afterwards. The harness itself calls no linker (`link_command.jai` has no custom link on Windows, so each compiler links its own way; the stage table then folds linking into `codegen`, which runs to the compiler's `post_write` message, and leaves `link` empty).
-3. **The reference compiler**, unpacked outside your user profile if possible, for example `C:\jai` (so `C:\jai\bin\jai-windows.exe` and `C:\jai\modules`). Keep the folder layout: the compiler finds its modules next to `bin\`.
+3. **The reference compiler**, unpacked outside your user profile if possible, for example `C:\jai` (so `C:\jai\bin\jai.exe` and `C:\jai\modules`). Keep the folder layout: the compiler finds its modules next to `bin\`.
 4. **jaic**: a release archive unpacked to `C:\jacket` (`C:\jacket\jaic.exe` with its `stdlib` beside it), or `cargo build --release -p jaic-cli` in a checkout (`target\release\jaic.exe`). Clone this repository too: the harness runs from it.
 5. **Quiet the machine.** Plug in the charger, set the power mode to *Best performance*, close browsers and editors, and exclude the benchmark folders from Windows Defender's real-time scanning (Settings, Virus & threat protection, Exclusions: the repository, `C:\jai`, `C:\jacket` and `%TEMP%`). Defender scanning each fresh `.exe` is the biggest source of noise on Windows, and it is not detectable as a process, so the harness cannot warn you about it.
 
@@ -187,11 +187,11 @@ From a normal (not elevated) PowerShell in the repository root:
 ```powershell
 $env:PYTHONPATH = "tools"
 # 1. Does the harness work at all? Check mode needs no linker.
-python tools\bench\main.py compile --compiler "ref=C:\jai\bin\jai-windows.exe" --compiler "jaic=C:\jacket\jaic.exe" --only hello/check --repeat 1
+python tools\bench\main.py compile --compiler "ref=C:\jai\bin\jai.exe" --compiler "jaic=C:\jacket\jaic.exe" --only hello/check --repeat 1
 # 2. A build, which links:
-python tools\bench\main.py compile --compiler "ref=C:\jai\bin\jai-windows.exe" --compiler "jaic=C:\jacket\jaic.exe" --only hello/build --repeat 1
+python tools\bench\main.py compile --compiler "ref=C:\jai\bin\jai.exe" --compiler "jaic=C:\jacket\jaic.exe" --only hello/build --repeat 1
 # 3. The head-to-head comparison (writes playground\bench\<timestamp>\summary.md):
-python tools\bench\main.py compare --baseline C:\jai\bin\jai-windows.exe --candidate C:\jacket\jaic.exe --cold-rounds 0
+python tools\bench\main.py compare --baseline C:\jai\bin\jai.exe --candidate C:\jacket\jaic.exe --cold-rounds 0
 ```
 
 If step 1 fails with a sandbox message, run it with `--no-sandbox` to see whether the harness or the sandbox is at fault. `--cold-rounds 0` skips the cold phase: Windows cannot empty its file cache without an elevated memory tool, so "cold" rounds would not be cold (the results say `file cache not purged`). The real-project workloads need the corpus (`python tools\fetch_upstreams.py`) and the native libraries; `--no-corpus` skips them.
@@ -235,7 +235,7 @@ For a stronger wall, run the whole harness inside Windows Sandbox (Windows 10/11
 
 ```powershell
 python tools\bench\main.py wsb --out-dir C:\bench-vm --map ref=C:\jai --map jaic=C:\jacket --map msvc="C:\Program Files (x86)\Microsoft Visual Studio" `
-    -- compare --baseline {ref}\bin\jai-windows.exe --candidate {jaic}\jaic.exe --cold-rounds 0 --out-dir {out}
+    -- compare --baseline {ref}\bin\jai.exe --candidate {jaic}\jaic.exe --cold-rounds 0 --out-dir {out}
 ```
 
 Open `C:\bench-vm\bench.wsb` (or add `--launch`). Mapped folders appear read-only under `C:\bench\<name>`; `{repo}`, `{python}` (the Python running the command, mapped as is) and `{out}` (writable, your `--out-dir`) are always there. The VM runs the harness with `--no-sandbox`, writes `log.txt` and the results into `C:\bench-vm`, and shuts down. Caveats: the VM has none of your installed tools, so a build that must link needs the toolchain inside it (mapping Visual Studio does not register it, so the compilers may not find it; `--modes check,interp` needs no linker); timings are taken inside a VM and are comparable only with other runs in the same VM setup; the VM starts cold every time.
