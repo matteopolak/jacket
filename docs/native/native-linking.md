@@ -20,7 +20,7 @@ A missing library fails at link time; `link_failure` adds a help when the linker
 
 ## How to change it
 
-- Linker rules: `library_args` in `crates/jaic-llvm/src/lib.rs`. Keep its search order in step with how the interpreter loads libraries (`interp/native.rs`). It receives the `LinkFlavor` and whether the build is a cross build (host directories are not searched then).
+- Linker rules: `library_args` in `crates/jaic-llvm/src/lib.rs`. Keep its search order in step with how the interpreter loads libraries (`interp/native.rs`). It receives the `Toolchain` and whether the build is a cross build (host directories are not searched then).
 - Static libraries go through `jaic_llvm::archive` (`ar rcs`, or the Windows archivers). Extra linker flags from a metaprogram arrive in the `extra_args` parameter of `link`.
 - Tests in `crates/jaic-cli/tests/native.rs`: `corpus_runs_natively_like_the_interpreter` builds every passing `tests/corpus/manifest.json` case and compares exit code and stdout. Fixtures live in `tests/native/`.
 
