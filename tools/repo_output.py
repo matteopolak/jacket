@@ -5,7 +5,6 @@ Everything lives under `<repo>/target/` (already ignored, shared with cargo). Se
 through `shared_output_dir()`, which resolves to the main checkout's directory.
 """
 import os
-import subprocess
 from pathlib import Path
 from toolkit.host import host_cpu, host_os
 from toolkit.repo import ROOT
@@ -13,10 +12,23 @@ from toolkit.repo import ROOT
 
 
 def main_checkout() -> Path:
-    """The main checkout of this repository (ROOT itself outside a linked worktree)."""
-    common = subprocess.run(['git', 'rev-parse', '--path-format=absolute', '--git-common-dir'],
-                            cwd=ROOT, capture_output=True, text=True)
-    return Path(common.stdout.strip()).parent if common.returncode == 0 else ROOT
+    """The main checkout of this repository: ROOT itself outside a linked worktree, or when the checkout has
+    no version-control folder (an offline VM). It is read from the marker file a linked worktree has in
+    place of that folder; no program is run, so it works where git is not installed."""
+    marker = ROOT / '.git'
+    try:
+        if marker.is_file():
+            text = marker.read_text(encoding='utf-8').strip()
+            if text.startswith('gitdir:'):
+                gitdir = (ROOT / text[len('gitdir:'):].strip()).resolve()
+                link = gitdir / 'commondir'
+                common = (gitdir / link.read_text(encoding='utf-8').strip()).resolve() if link.is_file() \
+                    else gitdir.parent.parent
+                if common.is_dir():
+                    return common.parent
+    except (OSError, ValueError):
+        pass
+    return ROOT
 
 
 def _override() -> Path | None:
