@@ -813,7 +813,6 @@ Compiler.operator_to_string
 Compiler.set_optimization
 Crc
 Crc.crc64
-Curl
 Debug
 Debug.init_crash_handler_thread
 Debug.is_debugger_present
