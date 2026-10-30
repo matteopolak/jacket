@@ -3,6 +3,9 @@
 //! as what they name (`E(name@file:offset)`), never as numbers: those depend on what the
 //! host's library declared first.
 //!
+//! Library locations are written as the file alone (a procedure also gets `#n` among its
+//! same-named siblings in that file), so editing the library never rewrites a dump.
+//!
 //! The dumps are `insta` snapshots in `tests/snapshots/`. After an intended change to what is
 //! recorded, rewrite them with `INSTA_UPDATE=always cargo test -p jaic --test ide_facts_golden`
 //! (or `cargo insta review`) and read the diff.
@@ -84,7 +87,7 @@ fn symbolic(c: &Compiler, scopes: &HashMap<ScopeId, Span>, line: &str) -> String
                 format!(
                     "P({}@{})",
                     p.name.to_string().escape_debug(),
-                    at_span(c, p.span)
+                    proc_at(c, ProcId(n))
                 )
             }
             "TypeId" => format!("T({})", c.ty.types.name(TypeId(n))),
@@ -120,9 +123,46 @@ fn file(c: &Compiler, f: FileId) -> String {
     }
 }
 
+/// Whether `f` is a library file. Where something sits in one moves whenever the library is
+/// edited, so the dumps pin it no further than the file.
+fn is_library(c: &Compiler, f: FileId) -> bool {
+    c.src
+        .sources
+        .get(f)
+        .path
+        .as_file()
+        .is_some_and(|p| p.starts_with(repo().join("stdlib")))
+}
+
+/// Where a procedure is declared. A library one is its file and, when the file declares other
+/// procedures of that name, `#n`: its rank among them by position, so an overload set stays
+/// distinguishable (and in a stable order) without pinning any offset.
+fn proc_at(c: &Compiler, id: ProcId) -> String {
+    let p = c.proc(id);
+    if p.span == Span::NONE || !is_library(c, p.span.file) {
+        return at_span(c, p.span);
+    }
+    let mut starts: Vec<u32> = (0..c.pr.procs.len() as u32)
+        .map(|i| c.proc(ProcId(i)))
+        .filter(|q| q.name == p.name && q.span.file == p.span.file)
+        .map(|q| q.span.start)
+        .collect();
+    starts.sort_unstable();
+    starts.dedup();
+    let file = file(c, p.span.file);
+    if starts.len() < 2 {
+        return file;
+    }
+    let rank = starts.iter().position(|&s| s == p.span.start).unwrap() + 1;
+    format!("{file}#{rank}")
+}
+
 fn span(c: &Compiler, s: Span) -> String {
     if s == Span::NONE {
         return "-".into();
+    }
+    if is_library(c, s.file) {
+        return file(c, s.file);
     }
     format!("{}:{}..{}", file(c, s.file), s.start, s.end)
 }
@@ -130,6 +170,9 @@ fn span(c: &Compiler, s: Span) -> String {
 fn at_span(c: &Compiler, s: Span) -> String {
     if s == Span::NONE {
         return "-".into();
+    }
+    if is_library(c, s.file) {
+        return file(c, s.file);
     }
     format!("{}:{}", file(c, s.file), s.start)
 }

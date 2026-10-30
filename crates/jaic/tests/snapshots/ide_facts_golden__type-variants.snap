@@ -17,7 +17,7 @@ examples/type-variants/main.jai:199..204 Type(T(Handle)) Type decl=false
 examples/type-variants/main.jai:211..212 Entity(E(a@examples/type-variants/main.jai:177)) Handle decl=false
 examples/type-variants/main.jai:222..227 Entity(E(child@examples/type-variants/main.jai:222)) Child decl=true
 examples/type-variants/main.jai:229..234 Type(T(Child)) Type decl=false
-examples/type-variants/main.jai:245..249 Procs([P(exit@stdlib/internal/basic/filesystem.jai:1773)]) (compile-time entity) decl=false
+examples/type-variants/main.jai:245..249 Procs([P(exit@stdlib/internal/basic/filesystem.jai)]) (compile-time entity) decl=false
 examples/type-variants/main.jai:255..258 Type(T(s32)) Type decl=false
 examples/type-variants/main.jai:266..269 Type(T(s64)) Type decl=false
 examples/type-variants/main.jai:271..272 Entity(E(b@examples/type-variants/main.jai:196)) Handle decl=false
@@ -33,7 +33,7 @@ examples/type-variants/main.jai:93..100 Entity(E(consume@examples/type-variants/
 examples/type-variants/main.jai:127..158 S(examples/type-variants/main.jai:127..158)
 examples/type-variants/main.jai:171..294 S(examples/type-variants/main.jai:171..294)
 ## calls (2)
-IdeCall { span: Span { file: examples/type-variants/main.jai, start: 245, end: 291 }, candidates: [P(exit@stdlib/internal/basic/filesystem.jai:1773)], chosen: P(exit@stdlib/internal/basic/filesystem.jai:1773), ambiguous: false, args: [IdeArg { span: Span { file: examples/type-variants/main.jai, start: 250, end: 289 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(s32)) }] }
+IdeCall { span: Span { file: examples/type-variants/main.jai, start: 245, end: 291 }, candidates: [P(exit@stdlib/internal/basic/filesystem.jai)], chosen: P(exit@stdlib/internal/basic/filesystem.jai), ambiguous: false, args: [IdeArg { span: Span { file: examples/type-variants/main.jai, start: 250, end: 289 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(s32)) }] }
 IdeCall { span: Span { file: examples/type-variants/main.jai, start: 275, end: 289 }, candidates: [P(consume@examples/type-variants/main.jai:104)], chosen: P(consume@examples/type-variants/main.jai:104), ambiguous: false, args: [IdeArg { span: Span { file: examples/type-variants/main.jai, start: 283, end: 288 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(Child)) }] }
 ## expansions (0)
 ## skipped (0)

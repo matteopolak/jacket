@@ -18,7 +18,7 @@ tests/compiler/regressions/macro-body-constants.jai:212..216 Entity(E(body@tests
 tests/compiler/regressions/macro-body-constants.jai:218..222 Entity(E(Code@-)) Type decl=false
 tests/compiler/regressions/macro-body-constants.jai:218..222 Type(T(Code)) Type decl=false
 tests/compiler/regressions/macro-body-constants.jai:224..229 Entity(E(flags@tests/compiler/regressions/macro-body-constants.jai:224)) For_Flags decl=true
-tests/compiler/regressions/macro-body-constants.jai:231..240 Entity(E(For_Flags@stdlib/prelude/storage.jai:415)) Type decl=false
+tests/compiler/regressions/macro-body-constants.jai:231..240 Entity(E(For_Flags@stdlib/prelude/storage.jai)) Type decl=false
 tests/compiler/regressions/macro-body-constants.jai:231..240 Type(T(For_Flags)) Type decl=false
 tests/compiler/regressions/macro-body-constants.jai:256..266 Entity(E(DO_POINTER@tests/compiler/regressions/macro-body-constants.jai:256)) (compile-time entity) decl=true
 tests/compiler/regressions/macro-body-constants.jai:275..279 Type(T(bool)) Type decl=false
@@ -67,7 +67,7 @@ tests/compiler/regressions/macro-body-constants.jai:782..784 Entity(E(it@tests/c
 tests/compiler/regressions/macro-body-constants.jai:801..802 Entity(E(a@tests/compiler/regressions/macro-body-constants.jai:683)) Array(s64) decl=false
 tests/compiler/regressions/macro-body-constants.jai:803..806 Entity(E(sum@tests/compiler/regressions/macro-body-constants.jai:740)) s64 decl=false
 tests/compiler/regressions/macro-body-constants.jai:810..812 Entity(E(it@tests/compiler/regressions/macro-body-constants.jai:383)) s64 decl=false
-tests/compiler/regressions/macro-body-constants.jai:819..825 Procs([P(assert@stdlib/internal/basic/scalar.jai:195)]) (compile-time entity) decl=false
+tests/compiler/regressions/macro-body-constants.jai:819..825 Procs([P(assert@stdlib/internal/basic/scalar.jai)]) (compile-time entity) decl=false
 tests/compiler/regressions/macro-body-constants.jai:826..829 Entity(E(sum@tests/compiler/regressions/macro-body-constants.jai:740)) s64 decl=false
 ## scopes (8)
 tests/compiler/regressions/macro-body-constants.jai:453..638 S(tests/compiler/regressions/macro-body-constants.jai:453..638)
@@ -82,7 +82,7 @@ tests/compiler/regressions/macro-body-constants.jai:803..812 S(tests/compiler/re
 IdeCall { span: Span { file: tests/compiler/regressions/macro-body-constants.jai, start: 754, end: 770 }, candidates: [P(for_expansion@tests/compiler/regressions/macro-body-constants.jai:192)], chosen: P(for_expansion@tests/compiler/regressions/macro-body-constants.jai:192), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/macro-body-constants.jai, start: 754, end: 770 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(*Array(s64))) }, IdeArg { span: Span { file: tests/compiler/regressions/macro-body-constants.jai, start: 754, end: 770 }, param: 1, named: false, variadic: false, spread: false, ty: Some(T(Code)) }, IdeArg { span: Span { file: tests/compiler/regressions/macro-body-constants.jai, start: 754, end: 770 }, param: 2, named: false, variadic: false, spread: false, ty: Some(T(For_Flags)) }] }
 IdeCall { span: Span { file: tests/compiler/regressions/macro-body-constants.jai, start: 775, end: 792 }, candidates: [P(for_expansion@tests/compiler/regressions/macro-body-constants.jai:192)], chosen: P(for_expansion@tests/compiler/regressions/macro-body-constants.jai:192), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/macro-body-constants.jai, start: 775, end: 792 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(*Array(s64))) }, IdeArg { span: Span { file: tests/compiler/regressions/macro-body-constants.jai, start: 775, end: 792 }, param: 1, named: false, variadic: false, spread: false, ty: Some(T(Code)) }, IdeArg { span: Span { file: tests/compiler/regressions/macro-body-constants.jai, start: 775, end: 792 }, param: 2, named: false, variadic: false, spread: false, ty: Some(T(For_Flags)) }] }
 IdeCall { span: Span { file: tests/compiler/regressions/macro-body-constants.jai, start: 797, end: 813 }, candidates: [P(for_expansion@tests/compiler/regressions/macro-body-constants.jai:192)], chosen: P(for_expansion@tests/compiler/regressions/macro-body-constants.jai:192), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/macro-body-constants.jai, start: 797, end: 813 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(*Array(s64))) }, IdeArg { span: Span { file: tests/compiler/regressions/macro-body-constants.jai, start: 797, end: 813 }, param: 1, named: false, variadic: false, spread: false, ty: Some(T(Code)) }, IdeArg { span: Span { file: tests/compiler/regressions/macro-body-constants.jai, start: 797, end: 813 }, param: 2, named: false, variadic: false, spread: false, ty: Some(T(For_Flags)) }] }
-IdeCall { span: Span { file: tests/compiler/regressions/macro-body-constants.jai, start: 819, end: 836 }, candidates: [P(assert@stdlib/internal/basic/scalar.jai:195)], chosen: P(assert@stdlib/internal/basic/scalar.jai:195), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/macro-body-constants.jai, start: 826, end: 835 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(bool)) }] }
+IdeCall { span: Span { file: tests/compiler/regressions/macro-body-constants.jai, start: 819, end: 836 }, candidates: [P(assert@stdlib/internal/basic/scalar.jai)], chosen: P(assert@stdlib/internal/basic/scalar.jai), ambiguous: false, args: [IdeArg { span: Span { file: tests/compiler/regressions/macro-body-constants.jai, start: 826, end: 835 }, param: 0, named: false, variadic: false, spread: false, ty: Some(T(bool)) }] }
 ## expansions (7)
 IdeExpansion { span: Span { file: tests/compiler/regressions/macro-body-constants.jai, start: 327, end: 341 }, kind: If, texts: ["false", "true"], detail: "", output: "", literal: None }
 IdeExpansion { span: Span { file: tests/compiler/regressions/macro-body-constants.jai, start: 487, end: 501 }, kind: If, texts: ["false", "true"], detail: "", output: "", literal: None }
@@ -216,7 +216,7 @@ tests/compiler/regressions/macro-body-constants.jai:160..165 None
 ## member_uses (8)
 tests/compiler/regressions/macro-body-constants.jai:146..150 tests/compiler/regressions/macro-body-constants.jai:146..150
 tests/compiler/regressions/macro-body-constants.jai:160..165 tests/compiler/regressions/macro-body-constants.jai:160..165
-tests/compiler/regressions/macro-body-constants.jai:291..298 stdlib/prelude/storage.jai:448..455
+tests/compiler/regressions/macro-body-constants.jai:291..298 stdlib/prelude/storage.jai
 tests/compiler/regressions/macro-body-constants.jai:443..448 tests/compiler/regressions/macro-body-constants.jai:160..165
 tests/compiler/regressions/macro-body-constants.jai:528..532 tests/compiler/regressions/macro-body-constants.jai:146..150
 tests/compiler/regressions/macro-body-constants.jai:584..588 tests/compiler/regressions/macro-body-constants.jai:146..150

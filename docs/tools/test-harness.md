@@ -30,7 +30,7 @@
 Goldens are `insta` snapshots:
 
 - `tests/lint/<rule>/bad.snap` (and `platform/<os>/window.snap`): the lint output for the case's `bad.jai`, written by `assert_snapshot_in!`.
-- `crates/jaic/tests/snapshots/ide_facts_golden__<name>.snap`: IDE facts for each fixture.
+- `crates/jaic/tests/snapshots/ide_facts_golden__<name>.snap`: IDE facts for each fixture. Only project-file positions are pinned: a stdlib location is written as its file alone (a procedure adds `#n`, its position rank among same-named procedures in that file, to keep overloads apart), so editing the stdlib never rewrites them. The normalisation is in the test's formatter, not the IDE's output.
 
 Paths in snapshot text go through `Redactor`, which rewrites the repository root, relative `../..` forms, Windows `\\?\` prefixes and `\` separators to forward-slash repository-relative paths, so snapshots match on every platform.
 
