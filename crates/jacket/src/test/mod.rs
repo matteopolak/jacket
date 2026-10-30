@@ -320,11 +320,14 @@ fn coverage_for(
     args: &TestArgs,
     cross: bool,
     roots: &[discover::Root],
-    flags: &[String],
+    toolchain: &Toolchain,
     work: &Path,
     project_dir: &Path,
-    jaic: &Path,
-) -> Result<coverage::Coverage, String> {
+) -> Result<Option<coverage::Coverage>, String> {
+    if !args.coverage {
+        return Ok(None);
+    }
+    let (flags, jaic) = (&toolchain.flags, &toolchain.jaic);
     if cross {
         return Err("`--coverage` records programs that run on this machine; it does not work with another `-os` or `-cpu`".into());
     }
@@ -358,10 +361,11 @@ fn coverage_for(
         include: coverage::outermost(include),
         exclude: exclude.collect(),
         base: project_dir.to_path_buf(),
-        jaic: jaic.to_path_buf(),
-        jaic_flags: flags.to_vec(),
+        jaic: jaic.clone(),
+        jaic_flags: flags.clone(),
         native: !args.interp,
     })
+    .map(Some)
 }
 
 /// The entries of [`filter::KINDS`] a case has.
@@ -552,7 +556,7 @@ fn run_once(
     }
     let work = std::env::temp_dir().join(format!("jacket-test-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&work);
-    let root_flags: Vec<Vec<String>> = roots
+    let root_flags: Vec<_> = roots
         .iter()
         .map(|r| build::root_flags(&r.dir, r.library))
         .collect();
@@ -560,23 +564,12 @@ fn run_once(
         watched.set_folders(&roots, &toolchain.flags, &root_flags);
     }
     let list = args.list;
-    let coverage = match args.coverage.then(|| {
-        coverage_for(
-            args,
-            cross,
-            &roots,
-            &toolchain.flags,
-            &work,
-            &project_dir,
-            &toolchain.jaic,
-        )
-    }) {
-        Some(Err(error)) => {
+    let coverage = match coverage_for(args, cross, &roots, &toolchain, &work, &project_dir) {
+        Ok(coverage) => coverage,
+        Err(error) => {
             let _ = std::fs::remove_dir_all(&work);
             return fail(error);
         }
-        Some(Ok(coverage)) => Some(coverage),
-        None => None,
     };
     let built = build_all(
         &roots,

@@ -70,7 +70,7 @@ pub(crate) struct Lines {
     /// indexes into `lines`.
     procs: HashMap<usize, Vec<Vec<u32>>>,
     /// The `(file, line)` of each index.
-    lines: Vec<(u32, u32)>,
+    sites: Vec<(u32, u32)>,
     index: HashMap<(u32, u32), u32>,
     runs: Vec<u64>,
     /// The path of each file id, as the program names it.
@@ -121,8 +121,8 @@ impl Lines {
             std::path::absolute(path)
                 .map_or_else(|_| path.to_string(), |p| p.to_string_lossy().into_owned())
         });
-        let id = self.lines.len() as u32;
-        self.lines.push((file, line));
+        let id = self.sites.len() as u32;
+        self.sites.push((file, line));
         self.runs.push(0);
         self.index.insert((file, line), id);
         id
@@ -142,7 +142,7 @@ impl Lines {
     /// Adds the counts to the process-wide table and starts over.
     pub(crate) fn flush(&mut self) {
         let mut totals = totals();
-        for (&(file, line), runs) in self.lines.iter().zip(self.runs.iter_mut()) {
+        for (&(file, line), runs) in self.sites.iter().zip(self.runs.iter_mut()) {
             let path = self.paths.get(&file).map_or("", String::as_str);
             if path.is_empty() || line == 0 {
                 continue;
@@ -210,7 +210,7 @@ pub fn write() {
     let Some(path) = DESTINATION.get() else {
         return;
     };
-    if let Err(e) = std::fs::write(&path, text) {
+    if let Err(e) = std::fs::write(path, text) {
         eprintln!(
             "warning: could not write the coverage file {}: {e}",
             path.display()

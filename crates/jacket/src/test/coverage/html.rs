@@ -1,7 +1,7 @@
 //! `--coverage-format html`: one page with no outside files. The top is a table of modules
 //! linking to their files; each file opens to its source, a line at a time with how often it
 //! ran. See `mod.rs`.
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
@@ -99,7 +99,7 @@ pub fn render(data: &Data, base: &Path) -> String {
     let modules = rows(data, base, Group::Module);
     let files = rows(data, base, Group::File);
     let (lines, functions) = total(&modules);
-    let mut known = HashMap::new();
+    let mut known = BTreeMap::new();
     let mut by_module: BTreeMap<String, Vec<&PathBuf>> = BTreeMap::new();
     for path in data.lines.keys() {
         by_module

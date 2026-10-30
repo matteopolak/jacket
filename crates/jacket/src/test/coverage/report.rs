@@ -1,5 +1,5 @@
 //! What was measured, as lcov and as a table. See `mod.rs`.
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
@@ -90,7 +90,7 @@ pub enum Group {
 }
 
 /// The module `file` belongs to, as a path from `base` when it is below it.
-pub fn module_of(file: &Path, base: &Path, known: &mut HashMap<PathBuf, PathBuf>) -> String {
+pub fn module_of(file: &Path, base: &Path, known: &mut BTreeMap<PathBuf, PathBuf>) -> String {
     let dir = file.parent().unwrap_or(file);
     let module = known
         .entry(dir.to_path_buf())
@@ -119,7 +119,7 @@ fn shown(path: &Path, base: &Path) -> String {
 /// One row per file or module, by name.
 pub fn rows(data: &Data, base: &Path, group: Group) -> Vec<Row> {
     let mut by_name: BTreeMap<String, Row> = BTreeMap::new();
-    let mut modules = HashMap::new();
+    let mut modules = BTreeMap::new();
     for (path, lines) in &data.lines {
         let name = match group {
             Group::File => shown(path, base),
@@ -255,8 +255,8 @@ mod tests {
         std::fs::create_dir_all(dir.join("Sort/deep")).unwrap();
         std::fs::create_dir_all(dir.join("loose")).unwrap();
         std::fs::write(dir.join("Sort/module.jai"), "").unwrap();
-        let mut known = HashMap::new();
-        let name = |file: &str, known: &mut HashMap<PathBuf, PathBuf>| {
+        let mut known = BTreeMap::new();
+        let name = |file: &str, known: &mut BTreeMap<PathBuf, PathBuf>| {
             module_of(&dir.join(file), &dir, known)
         };
         assert_eq!(name("Sort/module.jai", &mut known), "Sort");

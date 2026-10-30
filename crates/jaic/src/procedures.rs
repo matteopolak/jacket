@@ -92,7 +92,7 @@ fn jai_files(dir: &Path, out: &mut Vec<PathBuf>) {
             continue;
         }
         if path.is_dir() {
-            if !path.file_name().is_some_and(|n| n == "tests") {
+            if path.file_name().is_none_or(|n| n != "tests") {
                 jai_files(&path, out);
             }
         } else if path.extension().is_some_and(|e| e == "jai") {
@@ -324,7 +324,7 @@ mod tests {
         std::fs::create_dir_all(dir.join("tests")).unwrap();
         std::fs::write(dir.join("a.jai"), source).unwrap();
         std::fs::write(dir.join("tests/skipped.jai"), "t :: () { x := 1; }\n").unwrap();
-        let found = library_procedures(&[dir.clone()], os, TargetCpu::X64);
+        let found = library_procedures(std::slice::from_ref(&dir), os, TargetCpu::X64);
         let _ = std::fs::remove_dir_all(&dir);
         found
     }

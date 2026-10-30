@@ -1,5 +1,5 @@
 //! Reading debug info: which lines a block of a `jaic -coverage` program holds. See `mod.rs`.
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use super::{Blocks, Files};
@@ -168,7 +168,7 @@ pub(super) fn block_lines(
     let mut paths: Vec<PathBuf> = Vec::new();
     // Which file each path of the line table is, found once.
     let by_path: Vec<Option<usize>> = {
-        let mut names: HashMap<&str, Option<usize>> = HashMap::new();
+        let mut names: BTreeMap<&str, Option<usize>> = BTreeMap::new();
         rows.iter()
             .map(|row| {
                 *names.entry(row.path.as_str()).or_insert_with(|| {
