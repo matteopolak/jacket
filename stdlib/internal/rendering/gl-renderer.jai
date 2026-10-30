@@ -357,7 +357,7 @@ draw_generated_quads :: (font: *Dynamic_Font, color := Vector4.{ 1, 1, 1, 1 }) {
             p3.y = -p3.y;
         }
 
-        immediate_quad(p0, p1, p2, p3, color, .{ quad.u0, quad.v1 }, .{ quad.u1, quad.v1 }, .{ quad.u1, quad.v0 }, .{ quad.u0, quad.v0 });
+        immediate_quad(p0, p1, p2, p3, .{ color.x * quad.color.x, color.y * quad.color.y, color.z * quad.color.z, color.w * quad.color.w }, .{ quad.u0, quad.v1 }, .{ quad.u1, quad.v1 }, .{ quad.u1, quad.v0 }, .{ quad.u0, quad.v0 });
     }
 
     immediate_flush();

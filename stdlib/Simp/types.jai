@@ -98,7 +98,26 @@ Glyph_Data :: struct {
     page: *Font_Page;
 }
 
+// Per-context Simp settings, read as `context.simp`.
+Simp_Context :: struct {
+    // The colour recorded in each `Font_Quad` as text is prepared. `draw_prepared_text` multiplies it into the colour it is
+    // given, so white (the default) leaves that colour alone.
+    text_color := Vector4.{ 1, 1, 1, 1 };
+}
+
+#add_context simp: Simp_Context;
+
+// One glyph of prepared text: where it goes, the part of the glyph atlas it shows and its tint.
+//
+// `begin_prepare_text` through `end_prepare_text` fill `Dynamic_Font.current_quads` with one of these per glyph, placed with the
+// pen at the origin. `ul` is the corner with the smaller `y` and `lr` the opposite one; `uv0` is the atlas coordinate drawn at
+// `ul` and `uv1` the one drawn at `lr`. `p0` to `p3` are the four corners the same box is drawn with, and `u0`, `v0`, `u1`, `v1` the
+// atlas box before it is flipped to match, for code that wants those forms.
 Font_Quad :: struct {
+    ul, lr: Vector2;
+    uv0, uv1: Vector2;
+    color := Vector4.{ 1, 1, 1, 1 };
+
     p0, p1, p2, p3: Vector2;
     u0, v0, u1, v1: float;
 

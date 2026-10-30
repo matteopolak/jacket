@@ -157,7 +157,29 @@ convert_to_temporary_glyphs :: (using font: *Dynamic_Font, s: string, effect_fla
     append_prepare_text(font, s, effect_flags);
 }
 
-/// Starts a new run of prepared text, dropping what an earlier run gathered.
+/// Starts a new run of prepared text, dropping what an earlier run gathered, glyphs and quads alike.
+///
+/// A run is built with `begin_prepare_text`, any number of `append_prepare_text` calls and `end_prepare_text`. After the end,
+/// `font.current_quads` holds one `Font_Quad` per glyph, so the layout can be looked at, and `draw_prepared_text` draws the run
+/// wherever it is asked to. `prepare_text` does the three steps for one string and returns its width.
+///
+/// ```jai,no_run
+/// #import "Simp";
+/// #import "File";
+///
+/// draw_label :: (font: *Dynamic_Font) {
+///     begin_prepare_text(font);
+///     append_prepare_text(font, "Score: ");
+///     append_prepare_text(font, "42");
+///     end_prepare_text(font);
+///
+///     // The quads are laid out from the origin, one per glyph, left to right.
+///     last := font.current_quads[font.current_quads.count - 1];
+///     width := last.lr.x;
+///
+///     draw_prepared_text(font, 20, 40, .{ 1, 1, 0, 1 });
+/// }
+/// ```
 begin_prepare_text :: (using font: *Dynamic_Font) {
     persistent := font_context();
 
@@ -166,6 +188,7 @@ begin_prepare_text :: (using font: *Dynamic_Font) {
     Basic.array_reset_keeping_memory(*temporary_glyphs_byte_offsets);
     temporary_glyphs_width_in_pixels = 0;
     glyph_conversion_failed = false;
+    Basic.array_reset_keeping_memory(*current_quads);
 }
 
 /// Adds the glyphs of `s` to the run; byte offsets count from the start of this piece.
@@ -199,9 +222,10 @@ append_prepare_text :: (using font: *Dynamic_Font, s: string, effect_flags: Font
     }
 }
 
-/// Closes the run; its glyphs and width stay available to `draw_prepared_text`.
+/// Closes the run and lays its glyphs out as `font.current_quads`, with the pen at the origin and the baseline at `y = 0`, so the
+/// quads can be inspected. `draw_prepared_text` draws the same run at a position of its choosing.
 end_prepare_text :: (font: *Dynamic_Font) {
-    // Appending already keeps the run drawable, so there is nothing left to settle.
+    generate_quads_for_prepared_text(font, 0, 0, 0);
 }
 
 accumulate_glyphs_from_font :: (source: *Dynamic_Font, dest: *Dynamic_Font) {
@@ -235,6 +259,11 @@ generate_quads_for_prepared_text :: (font: *Dynamic_Font, x: s64, y: s64, effect
         quad.u1 = cast(float) (cast(int) glyph.x0 + glyph.width) / cast(float) glyph.page.bitmap_data.width;
         quad.v0 = cast(float) glyph.y0 / cast(float) glyph.page.bitmap_data.height;
         quad.v1 = cast(float) (cast(int) glyph.y0 + glyph.height) / cast(float) glyph.page.bitmap_data.height;
+        quad.ul = quad.p0;
+        quad.lr = quad.p2;
+        quad.uv0 = .{ quad.u0, quad.v1 };
+        quad.uv1 = .{ quad.u1, quad.v0 };
+        quad.color = context.simp.text_color;
         Basic.array_add(*font.current_quads, quad);
         pen += glyph.advance;
     }

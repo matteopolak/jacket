@@ -292,11 +292,25 @@ Font_Page :: struct {
 
 ```jai
 Font_Quad :: struct {
+    ul, lr:   Vector2;
+    uv0, uv1: Vector2;
+    color := Vector4.{ 1, 1, 1, 1 };
+
     p0, p1, p2, p3: Vector2;
     u0, v0, u1, v1: float;
 
     glyph: *Glyph_Data;
 }
+```
+
+`end_prepare_text` leaves one quad per prepared glyph in `font.current_quads`, with the pen at the origin and the baseline at `y = 0`; `begin_prepare_text` clears them. `ul` is the corner with the smaller `y`, `lr` the opposite one, `uv0` and `uv1` the atlas coordinates drawn at them, and `p0` to `p3`, `u0` to `v1` the same box in the older forms. `color` is `context.simp.text_color` (white by default) at the time the quads are made, and `draw_prepared_text` multiplies it into the colour it is given. `draw_prepared_text` lays the run out again at the position it is passed.
+
+```jai
+Simp_Context :: struct {
+    text_color := Vector4.{ 1, 1, 1, 1 };
+}
+
+#add_context simp: Simp_Context;
 ```
 ### `Font_Range_Record`
 
