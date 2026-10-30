@@ -98,6 +98,15 @@ struct Built {
     compile_time_only: bool,
 }
 
+/// Where the program reports what it ran, when coverage is measured.
+fn coverage_env(toolchain: &Toolchain) -> Vec<(String, String)> {
+    toolchain
+        .coverage_dir
+        .iter()
+        .map(|dir| ("JAIC_COVERAGE_DIR".to_string(), path_text(dir)))
+        .collect()
+}
+
 /// `invocation`, with the compiler's output when the program was built. `quiet` is jaic's
 /// `-quiet`, which also hides warnings.
 fn built(
@@ -116,6 +125,9 @@ fn built(
     if toolchain.interp {
         let mut args = vec![source.to_string_lossy().into_owned(), "-interp".into()];
         args.extend(quiet.iter().map(ToString::to_string));
+        if toolchain.coverage {
+            args.push("-coverage".into());
+        }
         args.extend(toolchain.flags.iter().cloned());
         args.extend(root_flags.iter().cloned());
         return Ok(Built {
@@ -123,7 +135,7 @@ fn built(
                 program: toolchain.jaic.clone(),
                 args,
                 cwd: cwd.to_path_buf(),
-                ..Invocation::default()
+                env: coverage_env(toolchain),
             },
             stdout: Vec::new(),
             stderr: Vec::new(),
@@ -199,11 +211,7 @@ fn built(
         stage_dlls(&exe)?;
     }
     let (program, args) = program_and_args(&exe, &toolchain.runner);
-    let env = toolchain
-        .coverage_dir
-        .iter()
-        .map(|dir| ("JAIC_COVERAGE_DIR".to_string(), path_text(dir)))
-        .collect();
+    let env = coverage_env(toolchain);
     Ok(Built {
         invocation: Invocation {
             program,

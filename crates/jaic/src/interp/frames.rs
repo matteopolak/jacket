@@ -189,7 +189,7 @@ impl Interp {
                     .get(f.0 as usize)
                     .is_none_or(|g| g.as_ref().is_none_or(|g| g.sig.conv == ir::Conv::C))
         };
-        // Straightened control flow skips some block entries, which `-profile` counts.
+        // Straightened control flow skips some block entries, which `-profile` and `-coverage` count.
         let code = code::build(
             func,
             &offsets,
@@ -200,7 +200,7 @@ impl Interp {
                     .get(g.0 as usize)
                     .is_some_and(|g| g.read_only)
             },
-            self.profile.is_none() || !profile::exact(),
+            (self.profile.is_none() || !profile::exact()) && self.lines.is_none(),
         );
         let node_size = match &program.stack_trace {
             Some(layout) if func.trace.is_some() => layout.node.size.next_multiple_of(8),

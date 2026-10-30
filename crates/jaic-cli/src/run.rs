@@ -38,7 +38,7 @@ pub(super) fn run(cli: Cli) -> ExitCode {
     if let Some(report) = jaic::interp::profile::run_report(RUN_COST_ROWS) {
         eprint!("{report}");
     }
-    jaic::interp::profile::write_coverage();
+    jaic::interp::line_cover::write();
     code
 }
 

@@ -37,9 +37,11 @@ pub struct Coverage {
     exclude: Vec<PathBuf>,
     /// Paths in the table are shown from here.
     base: PathBuf,
-    dwarfdump: PathBuf,
-    /// Lists the procedures of the reported folders.
+    /// Reads the debug info of native programs; interpreted runs need none.
+    dwarfdump: Option<PathBuf>,
+    /// Lists the procedures of the reported folders, for the target of the tests.
     jaic: PathBuf,
+    jaic_flags: Vec<String>,
     next: AtomicUsize,
     /// The blocks of programs many processes ran, until the run ends.
     programs: Mutex<BTreeMap<PathBuf, Blocks>>,
@@ -52,8 +54,8 @@ pub struct Coverage {
 }
 
 impl Coverage {
-    /// Coverage written to `out`, with run files kept in `dir`. Fails when the tool that reads
-    /// debug info is missing.
+    /// Coverage written to `out`, with run files kept in `dir`. For native programs (`native`) it
+    /// fails when the tool that reads debug info is missing.
     pub fn new(
         out: PathBuf,
         dir: PathBuf,
@@ -61,15 +63,23 @@ impl Coverage {
         exclude: Vec<PathBuf>,
         base: PathBuf,
         jaic: PathBuf,
+        jaic_flags: Vec<String>,
+        native: bool,
     ) -> Result<Coverage, String> {
+        let dwarfdump = if native {
+            Some(dwarf::find_dwarfdump()?)
+        } else {
+            dwarf::find_dwarfdump().ok()
+        };
         Ok(Coverage {
             out,
             dir,
             include,
             exclude,
             base,
-            dwarfdump: dwarf::find_dwarfdump()?,
+            dwarfdump,
             jaic,
+            jaic_flags,
             next: AtomicUsize::new(0),
             programs: Mutex::new(BTreeMap::new()),
             files: Mutex::new(Files::new()),
@@ -87,13 +97,19 @@ impl Coverage {
     }
 
     /// Merges what the processes that were given `dir` wrote into the blocks of their program,
-    /// to be read after the run, and deletes the folder. For a program many processes run.
+    /// to be read after the run, and deletes the folder. For a program many processes run. What
+    /// an interpreted run wrote is lines already, and is added at once.
     pub fn collect(&self, dir: &Path) {
-        for (program, blocks) in runs(dir) {
-            let mut programs = self.programs.lock().expect("lock");
-            let merged = programs.entry(program).or_default();
-            for (address, count) in blocks {
-                *merged.entry(address).or_default() += count;
+        for run in runs(dir) {
+            match run {
+                Run::Blocks(program, blocks) => {
+                    let mut programs = self.programs.lock().expect("lock");
+                    let merged = programs.entry(program).or_default();
+                    for (address, count) in blocks {
+                        *merged.entry(address).or_default() += count;
+                    }
+                }
+                Run::Lines(lines) => self.add_lines(lines),
             }
         }
         let _ = std::fs::remove_dir_all(dir);
@@ -102,7 +118,14 @@ impl Coverage {
     /// Reads the lines of the programs the processes that were given `dir` ran now, and deletes
     /// the folder. For a program built to run once, which is read while it still exists.
     pub fn collect_once(&self, dir: &Path) {
-        for (program, blocks) in runs(dir) {
+        for run in runs(dir) {
+            let (program, blocks) = match run {
+                Run::Blocks(program, blocks) => (program, blocks),
+                Run::Lines(lines) => {
+                    self.add_lines(lines);
+                    continue;
+                }
+            };
             // A program a test built and deleted again cannot be read.
             if !program.exists() {
                 continue;
@@ -157,7 +180,7 @@ impl Coverage {
             merge(&mut self.files.lock().expect("lock"), lines);
         }
         let mut files = self.files.lock().expect("lock").clone();
-        let listed = procedures::list(&self.jaic, &self.include, &[])?;
+        let listed = procedures::list(&self.jaic, &self.include, &self.jaic_flags)?;
         let unbuilt = procedures::unreferenced(&files, &listed, |file| {
             self.reported(&file.to_string_lossy()).is_some()
         });
@@ -165,9 +188,22 @@ impl Coverage {
         Ok((files, unbuilt.len()))
     }
 
+    /// Adds the lines an interpreted run reported, those of the files to report on.
+    fn add_lines(&self, lines: Files) {
+        let wanted: Files = lines
+            .into_iter()
+            .filter_map(|(path, lines)| Some((self.reported(&path.to_string_lossy())?, lines)))
+            .collect();
+        merge(&mut self.files.lock().expect("lock"), wanted);
+    }
+
     /// The reported lines `program` ran, from its debug info.
     fn lines(&self, program: &Path, blocks: &Blocks) -> Result<Files, String> {
-        let rows = dwarf::line_table(&self.dwarfdump, &dwarf::debug_file(program))?;
+        let dwarfdump = self
+            .dwarfdump
+            .as_ref()
+            .ok_or("reading debug info needs `llvm-dwarfdump`")?;
+        let rows = dwarf::line_table(dwarfdump, &dwarf::debug_file(program))?;
         Ok(dwarf::block_lines(&rows, blocks, |path| {
             self.known
                 .lock()
@@ -201,8 +237,15 @@ fn merge(files: &mut Files, more: Files) {
     }
 }
 
-/// The program and blocks of every run file in `dir`.
-fn runs(dir: &Path) -> Vec<(PathBuf, Blocks)> {
+/// What a process ran: the blocks of a native program, or the lines of an interpreted one.
+#[derive(Debug, PartialEq, Eq)]
+enum Run {
+    Blocks(PathBuf, Blocks),
+    Lines(Files),
+}
+
+/// What every run file in `dir` holds.
+fn runs(dir: &Path) -> Vec<Run> {
     std::fs::read_dir(dir)
         .into_iter()
         .flatten()
@@ -211,16 +254,29 @@ fn runs(dir: &Path) -> Vec<(PathBuf, Blocks)> {
         .collect()
 }
 
-/// The program and the blocks of a file `jaic -coverage` programs write: `jaic-coverage 1`,
-/// `exe PATH`, then per module `module N` and an `address entry count` line per block.
-fn parse_run(text: &str) -> Option<(PathBuf, Blocks)> {
+/// The file a process wrote on exit. A program built with `jaic -coverage` writes
+/// `jaic-coverage 1`, `exe PATH`, then per module `module N` and an `address entry count` line per
+/// block. An interpreted program (`jaic -interp -coverage`) writes `jaic-coverage 1`, `interp`,
+/// then a `file PATH` line and a `line count` line for each line of it.
+fn parse_run(text: &str) -> Option<Run> {
     let mut lines = text.lines();
     lines.next()?.starts_with("jaic-coverage").then_some(())?;
     let mut program = None;
     let mut blocks = Blocks::new();
+    let mut files = Files::new();
+    let mut interp = false;
+    let mut file: Option<PathBuf> = None;
     for line in lines {
         if let Some(path) = line.strip_prefix("exe ") {
             program = Some(PathBuf::from(path.trim()));
+        } else if line == "interp" {
+            interp = true;
+        } else if let Some(path) = line.strip_prefix("file ") {
+            file = Some(PathBuf::from(path));
+        } else if interp {
+            let (number, count) = line.split_once(' ')?;
+            let counts = files.entry(file.clone()?).or_default();
+            *counts.entry(number.parse().ok()?).or_default() += count.parse::<u64>().ok()?;
         } else if !line.starts_with("module ") {
             let mut fields = line.split_whitespace();
             let address = u64::from_str_radix(fields.next()?, 16).ok()?;
@@ -228,7 +284,11 @@ fn parse_run(text: &str) -> Option<(PathBuf, Blocks)> {
             *blocks.entry(address).or_default() += count;
         }
     }
-    Some((program?, blocks))
+    if interp {
+        Some(Run::Lines(files))
+    } else {
+        Some(Run::Blocks(program?, blocks))
+    }
 }
 
 /// The folders below which sources are reported on, as a set (a folder inside another is
@@ -249,7 +309,9 @@ mod tests {
 
     #[test]
     fn a_run_file_lists_blocks_and_how_often_they_ran() {
-        let (program, blocks) = parse_run(RUN).unwrap();
+        let Some(Run::Blocks(program, blocks)) = parse_run(RUN) else {
+            panic!("not a native run");
+        };
         assert_eq!(program, PathBuf::from("/w/tests"));
         assert_eq!(
             blocks.into_iter().collect::<Vec<_>>(),
@@ -259,6 +321,23 @@ mod tests {
         assert!(
             parse_run("jaic-coverage 1\n1000 1 1\n").is_none(),
             "no exe line"
+        );
+    }
+
+    #[test]
+    fn an_interpreted_run_lists_the_lines_of_its_files() {
+        let text = "jaic-coverage 1\ninterp\nfile /p/a.jai\n3 2\n4 0\nfile /p/b.jai\n1 7\n";
+        let Some(Run::Lines(files)) = parse_run(text) else {
+            panic!("not an interpreted run");
+        };
+        assert_eq!(
+            files[Path::new("/p/a.jai")],
+            BTreeMap::from([(3, 2), (4, 0)])
+        );
+        assert_eq!(files[Path::new("/p/b.jai")], BTreeMap::from([(1, 7)]));
+        assert!(
+            parse_run("jaic-coverage 1\ninterp\n3 2\n").is_none(),
+            "a line before any file"
         );
     }
 
@@ -282,8 +361,9 @@ mod tests {
             include: vec![PathBuf::from("/")],
             exclude: Vec::new(),
             base: PathBuf::new(),
-            dwarfdump: PathBuf::new(),
+            dwarfdump: None,
             jaic: PathBuf::new(),
+            jaic_flags: Vec::new(),
             next: AtomicUsize::new(0),
             programs: Mutex::default(),
             files: Mutex::default(),

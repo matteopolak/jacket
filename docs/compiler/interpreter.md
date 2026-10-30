@@ -106,7 +106,7 @@ fiber_switch :: (from: *Fiber_Context, to: *Fiber_Context) #intrinsic;
 
 - `STACK_SIZE` (32 MiB) and `MAX_DEPTH` (20,000 frames) in `interp/mod.rs`; thread constants `PREEMPT_TICKS`, `NATIVE_SLICE`, `DEADLOCK_GRACE`, `THREAD_STACK`, `NATIVE_STACK`; fiber sizes in `interp/fibers.rs`.
 - `-profile` counts calls, blocks and instructions per procedure ([benchmarks](../tools/benchmarks.md)).
-- `-coverage_file FILE` records each procedure the first time it runs (`path:line name`) and appends the set to FILE at exit ([testing](../tools/testing.md)).
+- `-coverage` counts the lines that run: each procedure's blocks are registered with zero runs when it is first entered, every block entered adds one to the lines of its `Loc` markers (`interp/line_cover.rs`), and the table is written at exit in the format native `-coverage` programs write ([coverage](../tools/coverage.md)). It disables straightened control flow so every block entry is seen, like `-profile`.
 
 ## Dependencies
 

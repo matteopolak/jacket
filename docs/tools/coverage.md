@@ -21,6 +21,20 @@ Ingest (`report.py ingest`): blocks are sorted by address; each block's range is
 
 Report (`report.py report DIR`): merges every JSON in `DIR` (a line or function is hit if any run hit it) and prints a table sorted from least to most covered. A module is a top-level `stdlib/` entry (`internal/<x>` and `Extensions/<x>` count as their own).
 
+## Interpreted programs
+
+`jaic -interp -coverage` records the same thing without LLVM, on any `-os`/`-cpu` and for programs that run in the interpreter's wasm sandbox. The interpreter registers a procedure's blocks, with zero runs, when it first enters it, and adds one to the lines of the `Loc` markers in every block it enters (`crates/jaic/src/interp/line_cover.rs`); every interpreter of the process (the compile and each metaprogram workspace) merges into one table. At exit, and before the program calls `exit` or `_exit`, it writes lines instead of blocks, to the file `JAIC_COVERAGE_FILE` names or `<JAIC_COVERAGE_DIR>/<program>.<pid>.cov`:
+
+```
+jaic-coverage 1
+interp
+file /abs/path/a.jai
+12 3
+13 0
+```
+
+A `file` line starts a source file; each `line runs` line after it is a line of that file. Only procedures that were entered are listed, so a procedure the program never calls has no lines here; `jacket test --coverage` adds those from the source ([jacket test](jacket-test.md)). Lines of macros and inlined code belong to the file their `Loc` names. Compile-time code that runs in the same process (`#run`, plugins) is counted too.
+
 ## First measurement
 
 `tools/differential/jaic_sweep.py --coverage DIR --headless modules` on macOS arm64: 439 module test programs ran; 32 fail to build for environment reasons (missing libclang, fonts or audio libraries, as without `-coverage`) and 53 are Windows/Android-only. The sixteen least covered modules, then the total:
@@ -58,7 +72,7 @@ The lowest entries are platform code a macOS run cannot reach (`Objective_C`, `i
 
 ## Configuration
 
-- `jaic -coverage` (also valid next to `-sanitize`), `JAIC_COVERAGE_DIR`, `JAIC_COVERAGE_FILE`.
+- `jaic -coverage` (also valid next to `-sanitize`, and with `-interp`), `JAIC_COVERAGE_DIR`, `JAIC_COVERAGE_FILE`.
 - `jaic_sweep.py --coverage DIR`; `report.py report --root`, `--files`, `--least N`, `--lcov FILE`, `--json`. `LLVM_SYS_231_PREFIX` selects the LLVM whose `llvm-dwarfdump` and `llvm-symbolizer` are used (default: Homebrew LLVM, then `PATH`).
 
 ## Dependencies

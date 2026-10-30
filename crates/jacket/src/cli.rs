@@ -133,7 +133,7 @@ pub struct TestArgs {
     pub list: bool,
     /// Report which lines of the code the tests ran (unit tests, golden programs and doc
     /// examples), and write them as lcov
-    #[arg(long, conflicts_with_all = ["interp", "list", "review"])]
+    #[arg(long, conflicts_with_all = ["list", "review"])]
     pub coverage: bool,
     /// Where `--coverage` writes lcov [default: target/lcov.info]
     #[arg(long, value_name = "FILE", requires = "coverage")]

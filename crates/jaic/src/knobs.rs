@@ -1,6 +1,6 @@
 //! Process-wide performance and diagnostic switches, set once at startup.
 //!
-//! They come from `jaic` flags (`-threads`, `-parse_threads`, `-serial_parse`, `-profile`, `-coverage_file`,
+//! They come from `jaic` flags (`-threads`, `-parse_threads`, `-serial_parse`, `-profile`, `-coverage`,
 //! and the `-dev_*` flags that study the compiler itself) and, through `jacket`, from the
 //! `[experimental]` table of `jacket.toml`. Nothing here changes what a program means; the
 //! settings are read in places far from the options a compile carries (the interpreter, the
@@ -8,7 +8,6 @@
 //!
 //! Call [`set`] before the first compile; a later call is ignored. Without one, [`get`] is the
 //! default (everything off), which is what the language server and tests see.
-use std::path::PathBuf;
 use std::sync::OnceLock;
 
 /// What the interpreter counts per procedure (`interp/profile.rs`).
@@ -35,8 +34,8 @@ pub struct Knobs {
     /// `-profile_runs`: count the blocks each top-level compile-time run executes and print the
     /// costliest (`interp/profile.rs`).
     pub run_costs: bool,
-    /// `-coverage_file`: append the procedures that ran under `-interp` to this file.
-    pub coverage_file: Option<PathBuf>,
+    /// `-interp -coverage`: record the lines the program runs (`interp/line_cover.rs`).
+    pub coverage: bool,
     /// `-dev_body_probe`: print which shared tables each body mutates (`sema/body_probe.rs`).
     pub body_probe: bool,
     /// `-dev_body_fifo`: lower queued bodies first-in-first-out.

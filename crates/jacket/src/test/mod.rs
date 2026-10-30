@@ -231,13 +231,7 @@ fn stdlib_dir(jaic: &Path) -> Result<PathBuf, String> {
 
 /// The jaic flags whose value is a path. jacket runs jaic in a folder of its own, so a relative
 /// value would be read from there.
-const PATH_FLAGS: [&str; 5] = [
-    "-import_dir",
-    "-I",
-    "-output_path",
-    "-emit_ir",
-    "-coverage_file",
-];
+const PATH_FLAGS: [&str; 4] = ["-import_dir", "-I", "-output_path", "-emit_ir"];
 
 /// `args` with every path the user wrote made absolute from `cwd`: the one place where the
 /// current directory is applied to them (`--path`, `--junit` and the paths among the jaic flags).
@@ -347,6 +341,8 @@ fn coverage_for(
         exclude.collect(),
         project_dir.to_path_buf(),
         jaic.to_path_buf(),
+        flags.to_vec(),
+        !args.interp,
     )
 }
 

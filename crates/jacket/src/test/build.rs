@@ -227,9 +227,11 @@ fn interpreted(
     let plan = work.join("plan.txt");
     // A process can wait for its arguments only if what it prints reaches jacket before it ends
     // and it can read the file: neither holds for a wasm target, whose program runs in the
-    // interpreter's sandbox. That one, and a listing, run to their end with `--list` and
-    // compile again for each run.
-    let waits = !list && !targets_wasm(toolchain);
+    // interpreter's sandbox. That one, a listing and a run that measures coverage (each run
+    // writes what it ran into a folder of its own) run to their end with `--list` and compile
+    // again for each run.
+    // A run under `--coverage` needs its own process to report what it ran.
+    let waits = !list && !targets_wasm(toolchain) && !toolchain.coverage;
     // A listing is of the tests, not of a target: the host's view of them.
     let flags = if list {
         host_flags(&toolchain.flags)
@@ -440,6 +442,9 @@ pub fn invocation(
 ) -> Invocation {
     let (program, mut args) = if toolchain.interp {
         let mut args = vec![path_text(&built.program), "-interp".into(), "-quiet".into()];
+        if toolchain.coverage {
+            args.push("-coverage".into());
+        }
         args.extend(toolchain.flags.iter().cloned());
         args.extend(root_flags.iter().cloned());
         args.push("--".into());

@@ -26,7 +26,7 @@ impl Interp {
     /// Does anything need to look at each basic block as it is entered?
     #[inline(always)]
     fn watches_blocks(&self) -> bool {
-        self.multi || self.profile.is_some()
+        self.multi || self.profile.is_some() || self.lines.is_some()
     }
 
     /// Make `loc` the location in effect at op `op` of `code`, if it has one.
@@ -101,6 +101,9 @@ impl Interp {
                 #[cfg(not(target_arch = "wasm32"))]
                 self.preempt()?;
             }
+        }
+        if let Some(lines) = self.lines.as_mut() {
+            lines.hit(func, block);
         }
         if let Some(counts) = self.profile.as_mut() {
             let ir_block = &func.blocks[block];

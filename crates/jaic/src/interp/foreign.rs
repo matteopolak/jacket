@@ -301,6 +301,11 @@ impl Interp {
                 return result.map(Rets::from);
             }
         }
+        // The process ends in this call: what ran must be written before it does.
+        if matches!(symbol, "exit" | "_exit") && self.lines.is_some() {
+            self.flush_profile();
+            super::line_cover::write();
+        }
         #[cfg(not(target_arch = "wasm32"))]
         if symbol == "abort" {
             crash::skip_core_dump();

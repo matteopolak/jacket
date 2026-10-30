@@ -33,6 +33,7 @@ mod host_insts;
 mod intrinsics;
 mod ir_fallback;
 mod last_error;
+pub mod line_cover;
 mod memory;
 mod native;
 mod probe;
@@ -288,8 +289,8 @@ pub struct Interp {
     fiber_trap: Option<Trap>,
     /// `release_code` ran: no code runs anymore.
     closed: bool,
-    /// Procedures already recorded for `-coverage_file`, by `FuncId`; `None` when it is unset.
-    covered: Option<Vec<bool>>,
+    /// The lines run, for `-interp -coverage`; `None` when it is off.
+    lines: Option<Box<line_cover::Lines>>,
 }
 
 impl Default for Interp {
@@ -410,7 +411,7 @@ impl Interp {
             ))]
             fiber_trap: None,
             closed: false,
-            covered: profile::coverage_file().map(|_| Vec::new()),
+            lines: line_cover::enabled().then(Default::default),
         }
     }
 
@@ -444,6 +445,9 @@ impl Interp {
 
     /// Merge this interpreter's `-profile` counts into the process table (see `profile`).
     pub fn flush_profile(&mut self) {
+        if let Some(lines) = self.lines.as_mut() {
+            lines.flush();
+        }
         if let Some(counts) = self.profile.as_mut() {
             counts.flush();
         }
@@ -462,28 +466,6 @@ fn exit_forked_child(code: i32) -> ! {
     }
     #[cfg(not(unix))]
     std::process::exit(code)
-}
-
-/// Record procedure `id` for `-coverage_file` the first time it runs.
-#[cold]
-fn record_coverage(covered: &mut Vec<bool>, program: &Program, id: FuncId, func: &ir::Func) {
-    let index = id.0 as usize;
-    if covered.len() <= index {
-        covered.resize(index + 1, false);
-    }
-    if std::mem::replace(&mut covered[index], true) {
-        return;
-    }
-    let (file, line, name) = match (&func.trace, &func.debug) {
-        (Some(t), _) => (t.file, t.line, t.name.as_str()),
-        (None, Some(d)) => (d.file, d.line, d.name.as_str()),
-        (None, None) => (func.source_file, 0, func.name.as_str()),
-    };
-    let path = program
-        .file_paths
-        .get(file as usize)
-        .map_or("", String::as_str);
-    profile::cover(path, line, name);
 }
 
 impl Interp {

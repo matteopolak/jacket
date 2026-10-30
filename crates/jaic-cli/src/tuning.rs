@@ -7,8 +7,8 @@ use super::{
     Action, Cli, CliError, CliOption,
     Section::{Diagnostics, Output},
 };
+use crate::cli::Mode;
 use crate::options::store;
-use std::path::PathBuf;
 
 /// What the flags here set, in `Cli::tuning`.
 #[derive(Default)]
@@ -20,14 +20,13 @@ pub(super) struct Tuning {
     /// `-parse_threads N`, `-serial_parse`: how files are parsed ahead of the checker.
     pub parse_threads: Option<usize>,
     pub serial_parse: bool,
-    /// `-profile`, `-profile_ops`, `-coverage_file`: the interpreter's counters.
+    /// `-profile`, `-profile_ops`: the interpreter's counters.
     pub profile_counts: bool,
     pub profile_ops: bool,
     /// `-profile_runs`: the cost of each compile-time run.
     pub profile_runs: bool,
     /// `-run_budget N`: steps (loop iterations and calls) one top-level compile-time run may execute (`0`: no limit).
     pub run_budget: Option<u64>,
-    pub coverage_file: Option<PathBuf>,
     /// The `-dev_*` flags, for studying the compiler (unlisted in `-help`).
     pub body_probe: bool,
     pub body_fifo: bool,
@@ -88,7 +87,7 @@ pub(super) fn knobs(cli: &Cli) -> jaic::knobs::Knobs {
             _ => jaic::knobs::Profile::Off,
         },
         run_costs: t.profile_runs,
-        coverage_file: t.coverage_file.clone(),
+        coverage: cli.coverage && cli.mode == Mode::Interp,
         body_probe: t.body_probe,
         body_fifo: t.body_fifo,
         no_sink: t.no_sink,
@@ -187,16 +186,6 @@ const OPTIONS: &[CliOption] = &[
     CliOption::new(
         &["-profile_ops"],
         Action::Switch(|cli| &mut cli.tuning.profile_ops),
-    ),
-    CliOption::new(
-        &["-coverage_file"],
-        store!("a file", |cli, file| cli.tuning.coverage_file =
-            Some(PathBuf::from(file))),
-    )
-    .help(
-        Diagnostics,
-        "-coverage_file <file>",
-        "(-interp) append the procedures that ran to <file>",
     ),
     CliOption::new(
         &["-dev_body_probe"],

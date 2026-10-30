@@ -3,12 +3,7 @@
 //! Every interpreter (the main compile and each metaprogram workspace) counts calls, basic blocks
 //! and instructions executed in each procedure's own frames (callees not included), and merges them
 //! into a process-wide table when it is dropped or flushed. `report` formats the table.
-//!
-//! `-coverage_file <file>` records which procedures ran at all: `write_coverage` appends one
-//! `path:line name` line per procedure (polymorph instances share their declaration's line).
-//! `tools/stdlib/stdlib_coverage.py` reads it.
 use crate::fxhash::HashMap;
-use std::collections::BTreeSet;
 use std::sync::{LazyLock, Mutex, MutexGuard, OnceLock};
 
 pub(crate) fn enabled() -> bool {
@@ -29,30 +24,6 @@ pub(crate) fn exact() -> bool {
     *EXACT.get_or_init(|| crate::knobs::get().profile != crate::knobs::Profile::Ops)
 }
 
-/// The `-coverage_file`, when coverage is being recorded.
-pub(crate) fn coverage_file() -> Option<&'static std::path::Path> {
-    static FILE: OnceLock<Option<std::path::PathBuf>> = OnceLock::new();
-    FILE.get_or_init(|| {
-        let file = crate::knobs::get().coverage_file.clone();
-        // A program that calls `exit` under `jaic -interp` ends the process from inside the
-        // interpreter, so the procedures it ran are also written from the C runtime's exit hook.
-        #[cfg(not(target_arch = "wasm32"))]
-        if file.is_some() {
-            unsafe extern "C" {
-                fn atexit(hook: extern "C" fn()) -> i32;
-            }
-            extern "C" fn at_exit() {
-                write_coverage();
-            }
-            // SAFETY: `at_exit` is an `extern "C"` function with no captured state, valid for the
-            // life of the process.
-            unsafe { atexit(at_exit) };
-        }
-        file
-    })
-    .as_deref()
-}
-
 /// What every interpreter of this process has counted, merged when each flushes.
 ///
 /// This is process-wide on purpose: the main compile and every metaprogram workspace run their
@@ -60,8 +31,6 @@ pub(crate) fn coverage_file() -> Option<&'static std::path::Path> {
 /// guards all of it, because the tables are only touched at flush and report time.
 #[derive(Default)]
 struct Totals {
-    /// Every procedure that ran, as `path:line name`.
-    covered: BTreeSet<String>,
     /// Calls, blocks and instructions per procedure name.
     rows: HashMap<String, Row>,
     /// IR instructions executed by kind (`IConst`, `Load`, ...).
@@ -96,35 +65,6 @@ fn totals() -> MutexGuard<'static, Totals> {
 fn merge(table: &mut HashMap<String, u64>, counts: impl Iterator<Item = (String, u64)>) {
     for (name, n) in counts {
         *table.entry(name).or_default() += n;
-    }
-}
-
-/// Record that the procedure declared at `path:line` ran.
-pub(crate) fn cover(path: &str, line: u32, name: &str) {
-    totals().covered.insert(format!("{path}:{line} {name}"));
-}
-
-/// Append the procedures that ran since the last call to the `-coverage_file` (nothing when
-/// it is unset).
-pub fn write_coverage() {
-    use std::io::Write;
-    let Some(path) = coverage_file() else {
-        return;
-    };
-    let covered = std::mem::take(&mut totals().covered);
-    if covered.is_empty() {
-        return;
-    }
-    let text: String = covered.iter().map(|line| format!("{line}\n")).collect();
-    let file = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(path);
-    if let Err(e) = file.and_then(|mut f| f.write_all(text.as_bytes())) {
-        eprintln!(
-            "warning: could not write the coverage file {}: {e}",
-            path.display()
-        );
     }
 }
 

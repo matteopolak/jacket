@@ -9,7 +9,7 @@ use super::rets::Rets;
 use super::trap::{Trap, TrapKind};
 use super::{
     COMPILE_TIME_CALLS, COMPILE_TIME_NANOS, FUNC_TAG, Interp, MAX_DEPTH, Res, STACK_SIZE,
-    exit_forked_child, record_coverage,
+    exit_forked_child,
 };
 use crate::ir::{self, FuncId, Program};
 use std::sync::atomic::Ordering;
@@ -224,7 +224,7 @@ impl Interp {
         }
         let func = self.body(program, id)?;
         let frame = self.frame(program, id, func);
-        let entered = self.enter(program, id, func, frame)?;
+        let entered = self.enter(program, func, frame)?;
         let n = args.len().min(func.sig.params.len());
         // SAFETY: `enter` checked the frame's registers fit on the stack, and a procedure
         // has at least a register for each parameter.
@@ -285,7 +285,7 @@ impl Interp {
         }
         let func = self.body(program, id)?;
         let frame = self.frame(program, id, func);
-        let entered = self.enter(program, id, func, frame)?;
+        let entered = self.enter(program, func, frame)?;
         for (i, &a) in args.iter().enumerate().take(func.sig.params.len()) {
             // SAFETY: `i` is below the callee's parameter count, which `enter` gave registers for;
             // the argument register is one `code::build` checked in the caller's frame.
@@ -300,23 +300,17 @@ impl Interp {
         Ok(())
     }
 
-    /// Push a frame for `id` on the stack: its slots, trace node and registers.
+    /// Push a frame for `func` on the stack: its slots, trace node and registers.
     #[inline(always)]
-    fn enter(
-        &mut self,
-        program: &Program,
-        id: FuncId,
-        func: &ir::Func,
-        frame: &Frame,
-    ) -> Res<Entered> {
+    fn enter(&mut self, program: &Program, func: &ir::Func, frame: &Frame) -> Res<Entered> {
         if self.depth >= MAX_DEPTH {
             return self.trap_of(
                 TrapKind::StackOverflow,
                 "stack overflow (recursion too deep)",
             );
         }
-        if let Some(covered) = self.covered.as_mut() {
-            record_coverage(covered, program, id, func);
+        if let Some(lines) = self.lines.as_mut() {
+            lines.enter(program, func);
         }
         let base = self.sp;
         let stack_start = self.stack.as_mut_ptr() as u64;

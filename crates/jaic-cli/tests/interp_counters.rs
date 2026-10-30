@@ -1,4 +1,4 @@
-//! The interpreter's opt-in counters: `-profile`, `-profile_ops`, `-profile_runs` and `-coverage_file`.
+//! The interpreter's opt-in counters: `-profile`, `-profile_ops`, `-profile_runs` and `-interp -coverage`.
 use std::path::Path;
 use std::process::Command;
 use test_support::TempDir;
@@ -73,20 +73,20 @@ fn profile_reports_counts_per_procedure() {
     );
 }
 
-/// `-coverage_file` appends one `path:line name` line for each procedure that ran, including
-/// when the program ends the process with `exit`.
+/// `-interp -coverage` writes how often each line of each file ran, in the format native
+/// `-coverage` programs write, including when the program ends the process with `exit`.
 #[test]
-fn coverage_file_lists_the_procedures_that_ran() {
-    let dir = TempDir::new("cli-coverage-file");
+fn coverage_lists_how_often_each_line_ran() {
+    let dir = TempDir::new("cli-coverage");
     for (name, end) in [("returns.jai", ""), ("exits.jai", "    exit(0);\n")] {
         let source = counting_program(&dir, name, end);
-        let coverage = dir.join(format!("{name}.coverage"));
+        let coverage = dir.join(format!("{name}.cov"));
         let _ = std::fs::remove_file(&coverage);
         let output = Command::new(JAIC)
             .arg("-interp")
-            .arg("-coverage_file")
-            .arg(&coverage)
+            .arg("-coverage")
             .arg(&source)
+            .env("JAIC_COVERAGE_FILE", &coverage)
             .output()
             .unwrap();
         assert!(
@@ -96,15 +96,29 @@ fn coverage_file_lists_the_procedures_that_ran() {
         );
         let text = std::fs::read_to_string(&coverage).unwrap();
         assert!(
-            text.lines()
-                .any(|line| line.ends_with(":2 square") && line.contains(name)),
+            text.starts_with("jaic-coverage 1\ninterp\n"),
             "{name}: {text}"
         );
+        let (_, own) = text
+            .split_once(&format!(
+                "file {}\n",
+                source.canonicalize().unwrap().display()
+            ))
+            .or_else(|| text.split_once(&format!("file {}\n", source.display())))
+            .unwrap_or_else(|| panic!("{name}: no section for the program:\n{text}"));
+        let own: Vec<&str> = own
+            .lines()
+            .take_while(|l| !l.starts_with("file "))
+            .collect();
+        // `square` is declared on line 2 and ran 50 times; the loop on line 6 started once.
+        assert!(own.contains(&"2 50"), "{name}: {own:?}");
+        assert!(own.contains(&"7 1"), "{name}: {own:?}");
+        // `unused` on line 3 never ran, so no run of it is counted.
         assert!(
-            text.lines().any(|line| line.ends_with(" main")),
-            "{name}: {text}"
+            !own.iter()
+                .any(|l| l.starts_with("3 ") && !l.ends_with(" 0")),
+            "{name}: {own:?}"
         );
-        assert!(!text.contains(" unused"), "{name}: {text}");
     }
 }
 

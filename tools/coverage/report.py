@@ -45,7 +45,8 @@ def llvm_tool(name):
 
 def read_runs(paths):
     """{address: [is_entry, hit]} for the blocks of every run file (hits of the same
-    executable's runs are OR-ed)."""
+    executable's runs are OR-ed; the counts the runtime writes are reduced to hit or not, and
+    files an interpreted run wrote have no blocks)."""
     blocks = {}
     exe = None
     for path in paths:
@@ -56,9 +57,12 @@ def read_runs(paths):
                 if line.startswith("exe "):
                     exe = line[4:].strip()
                 elif not line.startswith("module "):
-                    address, entry, hit = line.split()
+                    fields = line.split()
+                    if len(fields) != 3:
+                        continue
+                    address, entry, hit = fields
                     block = blocks.setdefault(int(address, 16), [int(entry), 0])
-                    block[1] |= int(hit)
+                    block[1] |= int(int(hit) > 0)
     return exe, blocks
 
 
