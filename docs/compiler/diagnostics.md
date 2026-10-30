@@ -84,6 +84,8 @@ Line and column numbers come from `jaic::source::LineIndex` (see [source positio
 
 ### Warnings
 
+Code jaic accepts although the official compiler rejects it is a warning of its own kind (`DiagnosticKind::Lenient`) with a shared note; see [leniencies](../language/leniencies.md).
+
 `Compiler::warn` records a warning once per span and message; every `jaic` mode prints them before any error and they never change the exit status. `sema/flow.rs` reads procedure body shape for two of them: ``not all control paths return a value`` (a `return` counts, an `if` only with a returning `else`, a `switch` only with a default or `#complete`; `while true {}` warns, `while cond { return x; }` does not, as in Jai) and ``statements in block after `return` are never reached``. It runs from `lower_proc_body` and does not evaluate conditions.
 
 ### Format string check
