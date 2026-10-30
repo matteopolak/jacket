@@ -43,6 +43,7 @@ pub mod parser;
 pub mod paths;
 pub mod platform;
 pub mod pool;
+pub mod procedures;
 pub mod progress;
 pub mod project;
 pub mod record_build;

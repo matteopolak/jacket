@@ -15,6 +15,7 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 mod dwarf;
+mod procedures;
 mod report;
 
 pub use report::{lcov, table};
@@ -37,6 +38,8 @@ pub struct Coverage {
     /// Paths in the table are shown from here.
     base: PathBuf,
     dwarfdump: PathBuf,
+    /// Lists the procedures of the reported folders.
+    jaic: PathBuf,
     next: AtomicUsize,
     /// The blocks of programs many processes ran, until the run ends.
     programs: Mutex<BTreeMap<PathBuf, Blocks>>,
@@ -57,6 +60,7 @@ impl Coverage {
         include: Vec<PathBuf>,
         exclude: Vec<PathBuf>,
         base: PathBuf,
+        jaic: PathBuf,
     ) -> Result<Coverage, String> {
         Ok(Coverage {
             out,
@@ -65,6 +69,7 @@ impl Coverage {
             exclude,
             base,
             dwarfdump: dwarf::find_dwarfdump()?,
+            jaic,
             next: AtomicUsize::new(0),
             programs: Mutex::new(BTreeMap::new()),
             files: Mutex::new(Files::new()),
@@ -115,7 +120,7 @@ impl Coverage {
     /// Writes the lcov file and prints the table: to standard output, or to standard error
     /// when that carries machine-readable results. Run before the programs are deleted.
     pub fn report(&self, to_stdout: bool) -> Result<(), String> {
-        let files = self.finish()?;
+        let (files, unbuilt) = self.finish()?;
         if let Some(parent) = self.out.parent() {
             std::fs::create_dir_all(parent)
                 .map_err(|e| format!("cannot create {}: {e}", parent.display()))?;
@@ -130,12 +135,19 @@ impl Coverage {
         } else {
             eprint!("\n{table}");
         }
+        if unbuilt > 0 {
+            eprintln!(
+                "jacket: {unbuilt} procedures are in no program the tests built; their lines count as not run"
+            );
+        }
         eprintln!("jacket: coverage written to {}", self.out.display());
         Ok(())
     }
 
-    /// The lines of every program, read from its debug info. Run before the programs are deleted.
-    pub fn finish(&self) -> Result<Files, String> {
+    /// The lines of every program, read from its debug info, with the lines of the procedures
+    /// no program has code of as lines that never ran; and how many such procedures there are.
+    /// Run before the programs are deleted.
+    pub fn finish(&self) -> Result<(Files, usize), String> {
         if let Some(error) = self.failure.lock().expect("lock").take() {
             return Err(error);
         }
@@ -144,7 +156,13 @@ impl Coverage {
             let lines = self.lines(program, blocks)?;
             merge(&mut self.files.lock().expect("lock"), lines);
         }
-        Ok(self.files.lock().expect("lock").clone())
+        let mut files = self.files.lock().expect("lock").clone();
+        let listed = procedures::list(&self.jaic, &self.include, &[])?;
+        let unbuilt = procedures::unreferenced(&files, &listed, |file| {
+            self.reported(&file.to_string_lossy()).is_some()
+        });
+        procedures::add_never_run(&mut files, &unbuilt);
+        Ok((files, unbuilt.len()))
     }
 
     /// The reported lines `program` ran, from its debug info.
@@ -265,6 +283,7 @@ mod tests {
             exclude: Vec::new(),
             base: PathBuf::new(),
             dwarfdump: PathBuf::new(),
+            jaic: PathBuf::new(),
             next: AtomicUsize::new(0),
             programs: Mutex::default(),
             files: Mutex::default(),

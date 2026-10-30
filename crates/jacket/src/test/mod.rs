@@ -323,6 +323,7 @@ fn coverage_for(
     flags: &[String],
     work: &Path,
     project_dir: &Path,
+    jaic: &Path,
 ) -> Result<coverage::Coverage, String> {
     if cross {
         return Err("`--coverage` records programs that run on this machine; it does not work with another `-os` or `-cpu`".into());
@@ -345,6 +346,7 @@ fn coverage_for(
         coverage::outermost(include),
         exclude.collect(),
         project_dir.to_path_buf(),
+        jaic.to_path_buf(),
     )
 }
 
@@ -544,10 +546,17 @@ fn run_once(
         watched.set_folders(&roots, &toolchain.flags, &root_flags);
     }
     let list = args.list;
-    let coverage = match args
-        .coverage
-        .then(|| coverage_for(args, cross, &roots, &toolchain.flags, &work, &project_dir))
-    {
+    let coverage = match args.coverage.then(|| {
+        coverage_for(
+            args,
+            cross,
+            &roots,
+            &toolchain.flags,
+            &work,
+            &project_dir,
+            &toolchain.jaic,
+        )
+    }) {
         Some(Err(error)) => {
             let _ = std::fs::remove_dir_all(&work);
             return fail(error);

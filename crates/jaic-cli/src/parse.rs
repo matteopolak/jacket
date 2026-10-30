@@ -12,7 +12,8 @@ pub(super) fn parse(args: &[String]) -> Result<Request, CliError> {
     let mut cli = Cli::default();
     let mut file: Option<String> = None;
     let mut extra: Option<String> = None;
-    let (mut check, mut interp, mut doc_comments, mut doc_gaps) = (false, false, false, false);
+    let (mut check, mut interp, mut doc_comments, mut doc_gaps, mut procedures) =
+        (false, false, false, false, false);
     let mut rest = args.iter();
     while let Some(arg) = rest.next() {
         match arg.as_str() {
@@ -75,6 +76,7 @@ pub(super) fn parse(args: &[String]) -> Result<Request, CliError> {
             Action::PrintStdlib => return Ok(Request::Stdlib),
             Action::DocComments => doc_comments = true,
             Action::DocGaps => doc_gaps = true,
+            Action::Procedures => procedures = true,
             Action::Check => check = true,
             Action::Interp => interp = true,
             Action::Switch(switch) => *switch(&mut cli) = true,
@@ -111,6 +113,9 @@ pub(super) fn parse(args: &[String]) -> Result<Request, CliError> {
     }
     if doc_gaps {
         return Ok(Request::DocGaps(file));
+    }
+    if procedures {
+        return Ok(Request::Procedures(file, cli.os, cli.cpu));
     }
     cli.file = file;
     if check && interp {

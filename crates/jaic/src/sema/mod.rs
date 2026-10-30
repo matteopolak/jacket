@@ -129,7 +129,7 @@ pub enum TargetCpu {
 }
 
 /// Platform on which this compiler binary executes, independent of output options.
-fn compiler_host() -> (TargetOs, TargetCpu) {
+pub fn compiler_host() -> (TargetOs, TargetCpu) {
     #[cfg(not(any(
         target_os = "windows",
         target_os = "macos",

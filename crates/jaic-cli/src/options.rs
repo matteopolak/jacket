@@ -3,6 +3,7 @@ use super::cli::{Added, Cli, Flavor};
 use super::tuning;
 use jaic::builtin_keys::BitcodeOptimization;
 use jaic::flags::{self, FlagError, SharedFlag};
+use jaic::sema::{TargetCpu, TargetOs};
 use std::path::PathBuf;
 
 /// A build's exit status when the program has no `main` (its work is all `#run`s), so
@@ -48,6 +49,8 @@ pub(super) enum Request {
     /// Print the doc comments of the library in a folder.
     DocComments(String),
     DocGaps(String),
+    /// Print the procedures of the library folders (a path list) for a target.
+    Procedures(String, Option<TargetOs>, Option<TargetCpu>),
 }
 
 /// Where `jaic -help` lists an option.
@@ -77,6 +80,7 @@ pub(super) enum Action {
     PrintStdlib,
     DocComments,
     DocGaps,
+    Procedures,
     Check,
     Interp,
     Flavor(Flavor),
@@ -385,6 +389,11 @@ pub(super) const OPTIONS: &[CliOption] = {
             Diagnostics,
             "-doc_gaps <dir>",
             "print which public declarations of the library in <dir> have docs and an example",
+        ),
+        CliOption::new(&["-procedures"], Action::Procedures).help(
+            Diagnostics,
+            "-procedures <dirs>",
+            "print every procedure with a body below the folders <dirs> (a path list) as records,\nfor `jacket test --coverage`; `-os` and `-cpu` pick the `#if` branches",
         ),
         CliOption::new(&["-version"], Action::Version)
             .aliases(&["-V", "--version"])

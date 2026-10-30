@@ -184,6 +184,17 @@ fn main() -> ExitCode {
             print!("{}", jaic::doc_comments::gap_records(&gaps));
             return ExitCode::SUCCESS;
         }
+        Ok(Request::Procedures(dirs, os, cpu)) => {
+            let (host_os, host_cpu) = jaic::sema::compiler_host();
+            let dirs: Vec<std::path::PathBuf> = std::env::split_paths(&dirs).collect();
+            let found = jaic::procedures::library_procedures(
+                &dirs,
+                os.unwrap_or(host_os),
+                cpu.unwrap_or(host_cpu),
+            );
+            print!("{}", jaic::procedures::records(&found));
+            return ExitCode::SUCCESS;
+        }
         Err(error) => return report_cli_error(error),
     };
     if cli.msvc_format {
