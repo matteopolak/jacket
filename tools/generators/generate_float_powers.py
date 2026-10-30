@@ -11,7 +11,12 @@ from toolkit.repo import ROOT
 
 LOWEST = -342
 HIGHEST = 308
-OUTPUT = ROOT / "stdlib/internal/basic/powers-of-five.jai"
+
+OUTPUTS = [
+    "stdlib/internal/basic/powers-of-five.jai",
+]
+FORMATTED = True
+OUTPUT = ROOT / OUTPUTS[0]
 
 
 def scaled_floor(q):

@@ -55,7 +55,17 @@ Script file names are `snake_case` (they are imported as modules). `tools/ci/che
 
 Every generator of a checked-in file takes `--check` (exit 1 if the file differs from what it would write) and parses its arguments, so `--help` writes nothing. Generators of Jai format their output through the repository formatter (`--formatter`, default `jaifmt_path()` from `toolkit.repo`, i.e. `<cargo target dir>/jaifmt`, built by `just fmt --check --lang jai` or `jaic jaifmt/main.jai -O2 -exe <cargo target dir>/jaifmt`) via `jai_codegen.emit_generated`; edit a generator, rerun it without `--check`, commit both.
 
-`PYTHONPATH=tools python3 tools/generators/check_generated.py` runs them all with `--check` (CI step "Generated sources check"; `--offline` skips `gen_io_uring.py` and `gen_regex_unicode.py`, which download their pinned input). It covers `tools/generators/*`, `tools/corpus/gen_json_corpus.py`, `gen_http_corpus.py` and `tools/developer_checks/generate_developer_binding_model.py`; add a new generator to its lists. The native bindings (`native_bindings/generate.py`) and SDL3 bindings (`bindings/sdl3_gen.py`) have their own CI steps. Not checked in CI: `corpus/gen_regex_corpus.py` (needs the Rust oracle), the rpmalloc and AppKit generators in `native_bindings/` (need vendored SDK inputs) and `bindings/webgpu_gen.py` (`--check-header` needs a `webgpu.h`).
+`PYTHONPATH=tools python3 tools/generators/check_generated.py` runs them all with `--check` (CI step "Generated sources check"; `--offline` skips the generators that download their pinned input). It discovers them: a generator declares module-level literals, which the checker reads from the source without importing it.
+
+```python
+OUTPUTS = ["stdlib/internal/basic/powers-of-five.jai"]   # required: the repo-relative files it writes
+FORMATTED = True   # it formats through the repository jaifmt, so the checker passes --formatter
+DOWNLOADS = True   # it downloads its pinned input, so --offline skips it
+```
+
+Any script under `tools/` that defines `OUTPUTS` is run (that is how `tools/corpus/gen_*_corpus.py` and `tools/developer_checks/generate_developer_binding_model.py` take part), and a script in `tools/generators/` with a `__main__` guard (not `check_generated.py` or a test) is a generator that must define a non-empty `OUTPUTS`: the check fails for one that declares none, for an output that does not exist and for an output two generators claim. A new generator needs no edit to the checker; declare its outputs and flags. The native bindings (`native_bindings/generate.py`) and SDL3 bindings (`bindings/sdl3_gen.py`) have their own CI steps. Not checked in CI: `corpus/gen_regex_corpus.py` (needs the Rust oracle), the rpmalloc and AppKit generators in `native_bindings/` (need vendored SDK inputs) and `bindings/webgpu_gen.py` (`--check-header` needs a `webgpu.h`).
+
+`generate_version_files.py` writes `jaifmt/version.jai` and `editors/nvim/lua/jai/version.lua` from the `Cargo.toml` version; `tools/bump_version.py` runs it.
 
 `generate_socket_abi.py` reads `docs/specs/stdlib/modules/socket.md` with the spec parser of `native_bindings/spec.py`, so a parser change can move the Socket ABI files too.
 

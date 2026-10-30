@@ -10,6 +10,11 @@ import re
 from generators.jai_codegen import emit_generated, generator_parser
 from toolkit.repo import ROOT
 
+OUTPUTS = [
+    "stdlib/Gamepad/evdev.jai",
+]
+FORMATTED = True
+
 
 def responsibility(name):
     if name.startswith("libevdev_uinput"):

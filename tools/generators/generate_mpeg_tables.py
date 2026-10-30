@@ -21,6 +21,11 @@ GROUPS = [
                                          "QUANT_TAB", "SYNTHESIS_WINDOW"]),
 ]
 
+OUTPUTS = [
+    "stdlib/internal/media/mpeg/tables.jai",
+]
+FORMATTED = True
+
 
 def main():
     args = generator_parser(__doc__).parse_args()

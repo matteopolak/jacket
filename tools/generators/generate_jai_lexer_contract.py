@@ -6,6 +6,12 @@ import re
 from generators.jai_codegen import emit_generated, generator_parser
 from toolkit.repo import ROOT
 
+OUTPUTS = [
+    "stdlib/Jai_Lexer/module.jai",
+    "stdlib/internal/jai-lexer/keywords.jai",
+]
+FORMATTED = True
+
 
 def main():
     args = generator_parser(__doc__).parse_args()

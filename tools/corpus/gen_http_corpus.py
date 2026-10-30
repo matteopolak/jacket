@@ -46,6 +46,10 @@ if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), "http
         DEVIATIONS = data.get("cases", {})
         DEVIATION_RULES = [(re.compile(r["match"]), r["reason"]) for r in data.get("rules", [])]
 
+OUTPUTS = [
+    "stdlib/Extensions/Http/tests/fixtures/llhttp_cases.jai",
+]
+
 
 def literal(data: bytes) -> str:
     out = ['"']

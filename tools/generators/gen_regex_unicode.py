@@ -15,7 +15,6 @@ from toolkit.repo import ROOT
 UCD_VERSION = "17.0.0"
 UCD_URL = f"https://www.unicode.org/Public/{UCD_VERSION}/ucd/UCD.zip"
 UCD_SHA256 = "2066d1909b2ea93916ce092da1c0ee4808ea3ef8407c94b4f14f5b7eb263d28e"
-OUTPUT = ROOT / "stdlib" / "Extensions" / "Regex" / "unicode_data.jai"
 MAX_CP = 0x10FFFF
 LINE_WIDTH = 110
 
@@ -29,6 +28,12 @@ BINARY_SOURCES = [
     "DerivedNormalizationProps.txt",
     "extracted/DerivedBinaryProperties.txt",
 ]
+
+OUTPUTS = [
+    "stdlib/Extensions/Regex/unicode_data.jai",
+]
+DOWNLOADS = True
+OUTPUT = ROOT / OUTPUTS[0]
 
 
 class Source:

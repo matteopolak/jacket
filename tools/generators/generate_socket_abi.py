@@ -16,6 +16,14 @@ from toolkit.repo import ROOT
 
 OSES = ["macos", "linux", "android", "windows"]
 
+OUTPUTS = [
+    "stdlib/internal/net/socket-abi-android.jai",
+    "stdlib/internal/net/socket-abi-linux.jai",
+    "stdlib/internal/net/socket-abi-macos.jai",
+    "stdlib/internal/net/socket-abi-windows.jai",
+]
+FORMATTED = True
+
 
 def condition(text):
     return text.replace("else branch", "OS != .WINDOWS")

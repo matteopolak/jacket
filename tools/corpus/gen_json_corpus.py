@@ -18,6 +18,10 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "std
 SOURCE = os.path.join(ROOT, "JSONTestSuite", "test_parsing")
 OUTPUT = os.path.join(ROOT, "suite_cases.jai")
 
+OUTPUTS = [
+    "stdlib/Extensions/Json/tests/fixtures/suite_cases.jai",
+]
+
 
 def literal(data: bytes) -> str:
     out = ['"']

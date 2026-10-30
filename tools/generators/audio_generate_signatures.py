@@ -11,6 +11,11 @@ import re
 from generators.jai_codegen import emit_generated, generator_parser
 from toolkit.repo import ROOT
 
+OUTPUTS = [
+    "stdlib/Sound_Player/tests/signatures.jai",
+]
+FORMATTED = True
+
 
 def main():
     args = generator_parser(__doc__).parse_args()

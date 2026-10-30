@@ -12,6 +12,21 @@ from developer_checks.dev_common import ROOT
 
 SPEC = ROOT / "docs/specs/stdlib/modules/bindings-generator.md"
 
+OUTPUTS = [
+    "stdlib/Bindings_Generator/type-model.jai",
+    "stdlib/Bindings_Generator/declaration-model.jai",
+    "stdlib/Bindings_Generator/generation-options.jai",
+    "stdlib/Bindings_Generator/model-flags.jai",
+    "stdlib/Bindings_Generator/native-model.jai",
+    "stdlib/Bindings_Generator/native-parser-model.jai",
+    "stdlib/Bindings_Generator/native-parser-api.jai",
+    "stdlib/Bindings_Generator/native-extended-model.jai",
+    "stdlib/Bindings_Generator/native-extended-api.jai",
+    "stdlib/Bindings_Generator/compatibility-names.jai",
+    "stdlib/Bindings_Generator/compatibility-tokens.jai",
+]
+FORMATTED = True
+
 
 def aggregate(text, name, platform=None):
     type_text = text

@@ -32,7 +32,6 @@ from toolkit.download import pinned
 from toolkit.repo import ROOT
 from toolkit.hashing import sha256_bytes
 
-OUTPUT = ROOT / 'stdlib' / 'Extensions' / 'Io_Uring' / 'bindings.jai'
 
 TAG = 'v7.0'
 URL = f'https://raw.githubusercontent.com/torvalds/linux/{TAG}/include/uapi/linux/io_uring.h'
@@ -80,6 +79,12 @@ KNOWN_SIZES = {
 # Names Jai reserves; a C member with one of them gets a trailing underscore.
 JAI_KEYWORDS = {'struct', 'union', 'enum', 'if', 'else', 'for', 'while', 'return', 'cast', 'context',
                 'defer', 'using', 'null', 'true', 'false', 'inline', 'it', 'size_of', 'type_of'}
+
+OUTPUTS = [
+    "stdlib/Extensions/Io_Uring/bindings.jai",
+]
+DOWNLOADS = True
+OUTPUT = ROOT / OUTPUTS[0]
 
 
 class GenError(Exception):

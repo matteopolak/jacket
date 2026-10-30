@@ -8,6 +8,11 @@ choices not established there are noted in the generated sources.
 from generators.jai_codegen import emit_generated, generator_parser
 from toolkit.repo import ROOT
 
+OUTPUTS = [
+    "stdlib/internal/simd/lanes.jai",
+]
+FORMATTED = True
+
 
 def main():
     args = generator_parser(__doc__).parse_args()

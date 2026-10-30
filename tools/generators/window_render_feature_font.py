@@ -11,7 +11,12 @@ import argparse
 import struct
 from toolkit.repo import ROOT
 
-OUTPUT = ROOT / "stdlib/Simp/tests/fixtures/feature-font.ttf"
+
+OUTPUTS = [
+    "stdlib/Simp/tests/fixtures/feature-font.ttf",
+    "stdlib/Simp/tests/fixtures/filtered-feature-font.ttf",
+]
+OUTPUT = ROOT / OUTPUTS[0]
 
 
 def unsigned16(*values):
