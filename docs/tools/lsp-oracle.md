@@ -63,3 +63,7 @@ CI: `.github/workflows/lsp-oracle.yml` runs nightly (and on dispatch, with a `se
 ## Dependencies
 
 `jaic` (the compiler and its IDE facts), `jai-language-server`'s `Session`, `target/jaifmt`, `tools/differential/jaigen.py`, `tools/corpus/upstream_sandbox.py`. Related: [language server typing sessions](lsp-fuzzing.md) checks the same server under random typing.
+
+## Partial edits
+
+`PYTHONPATH=tools python3 tools/dev/lsp_partial_edits.py <paths>` is a hand-run companion: it runs the `partial_edit_coverage` example (`crates/jai-language-server/examples/partial_edit_coverage.rs`) once per file in its own process with a timeout, so one hanging file cannot stall the rest, and prints a JSON report. Nothing in CI runs it.
