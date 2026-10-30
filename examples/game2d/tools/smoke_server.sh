@@ -6,6 +6,8 @@
 #     examples/game2d/tools/smoke_server.sh            # needs jaic (or $JAIC), curl, openssl, python3, PostgreSQL
 #     ROUNDS=200 WORKERS=32 examples/game2d/tools/smoke_server.sh
 #
+# WITH_GAME=1 also runs the game's smoke test (smoke_game.sh) against the server over HTTP.
+#
 # Environment: JAIC (compiler, default jaic), PG_BIN (PostgreSQL's bin folder), WORKERS and ROUNDS
 # (load per scheduler thread), THREADS (scheduler threads of the load test).
 
@@ -97,6 +99,10 @@ expect_status 422 "$base/api/leaderboard?limit=0"
 "$work/loadtest" --url "$base" --threads "$threads" --workers "$workers" --rounds "$rounds" || fail "the load test reported failures over http"
 expect_status 200 "$base/api/leaderboard?limit=3"
 grep -q '"rank":1' "$work/body" || fail "the leaderboard has no first place after the load test"
+if [ "${WITH_GAME:-0}" = 1 ]; then
+    echo "== game against the server"
+    SERVER_URL=$base "$here/smoke_game.sh" || fail "the game smoke test failed"
+fi
 stop_server
 
 echo "== https"
