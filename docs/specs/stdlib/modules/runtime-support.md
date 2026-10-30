@@ -116,3 +116,7 @@ therefore not a compatible availability gate for these procedures.
 ```jai
 #module_parameters(DEFINE_SYSTEM_ENTRY_POINT: bool, DEFINE_INITIALIZATION: bool, ENABLE_BACKTRACE_ON_CRASH: bool);
 ```
+
+## Portability notes
+
+The module parameters above differ from the official module. A bare `#import "Runtime_Support"` is `Not enough module parameters` there, so code that must build with both compilers does not import it directly.

@@ -400,3 +400,7 @@ operators are the named `multiply` operations, while the vector/vector `*`
 operators are component-wise (Hadamard); the shared operator symbol therefore
 has overload-specific meaning determined by operand types. No matrix/matrix
 overload is marked `#symmetric`.
+
+## Portability notes
+
+A bare `sqrt` call resolves to a compiler intrinsic here. The official compiler reports it as an undeclared identifier unless the program names the module, so call it as `Math.sqrt` (or `using Math`) in code that must build with both.

@@ -681,3 +681,7 @@ Other Basic facilities use the allocator/context supplied by their API or the ac
 
 
 Platform coverage note: exports for Nintendo and PS5 targets are unspecified.
+
+## Portability notes
+
+The standard library of this repository uses `BUILD_OS` and `align_of` as built-in names. The official compiler reports both as undeclared identifiers, so code that must also build there should not rely on them.

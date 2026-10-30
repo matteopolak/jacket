@@ -35,6 +35,19 @@ Warnings print before errors and never change the exit status, so a leniency doe
 | `must-after-return-type` | `-> T #must` | none: remove it and use the result at every call | each `#must` after a return type |
 | `ifx-then-semicolon` | `#ifx c then a; else b;` | `#ifx c then a else b;` | a `;` before the `else` of a `#ifx`; the fix is machine applicable |
 | `address-of-struct-literal` | `*T.{..}` as the address of a literal | `*(T.{..})` | an unparenthesized `*T.{..}`; the fix is machine applicable |
+| `float-exponent-without-fraction` | `1e20` | `1.0e20` | a decimal float with an exponent and no `.`; the fix is machine applicable |
+| `struct-align-directive` | `S :: struct #align 64 { .. }` | `member: T #align 64;` on the first member, which gives the struct the same alignment | each `#align` between `struct` and `{` |
+| `for-over-array-literal` | `for x: .[1, 2, 3]` | `for x: s64.[1, 2, 3]` | a `for` over an array literal that names no element type |
+| `struct-literal-as-dynamic-array` | `a = .{}` or `a = .{count = 2, data = p}` where `a` is a `[..]T` | `a = type_of(a).{..}` or `[..]T.{..}` | an untyped `.{..}` whose expected type is a dynamic array |
+| `target-features-directive` | `f :: () -> T #target_features "avx2" { .. }` | none: remove it | each `#target_features` in a procedure header |
+| `push-context-without-block` | `push_context ctx run();` | `push_context ctx { run(); }` | a `push_context` whose body is not a block |
+| `main-returns-value` | `main :: () -> s64 { return 1; }` | `main :: () { exit(1); }` | the program's `main` has a return type |
+| `caller-location-outside-default` | `loc := #caller_location;` in a body | `#location()` for the line itself, or `loc := #caller_location` as a parameter default and pass it on | `#caller_location` anywhere but a parameter's default value |
+| `multi-value-in-code-argument` | `f(#code { a, b := 1, 2; })` | `a := 1; b := 2;`, or bind the code to a name first | `a, b := x, y;` in a `#code` block that is a call argument |
+| `spread-with-other-varargs` | `f(first, ..rest)` into one variadic parameter | collect every value into one array and pass `f(..all)` | a `..xs` next to other arguments for the same variadic parameter |
+| `exists-on-expression` | `#exists(S.Soa(Item, 3).member)` | give the type a name (`Packed :: S.Soa(Item, 3);`) and ask `#exists(Packed.member)` | `#exists` of anything but a name or a dotted chain of names |
+| `procedure-cast-to-integer` | `cast(u64) some_procedure` | `cast(u64) cast(*void) some_procedure` | a procedure cast straight to an integer type |
+| `address-of-macro-constant` | `*x` in a macro whose parameter `x` the call binds to a number or bool constant | `copy := x;` and take `*copy` | the call binds the parameter to a constant and the body takes its address |
 
 ## When the official compiler rejects it
 
@@ -43,6 +56,17 @@ Only what the official compiler rejects is a leniency.
 - **`declaration-hides-import`** is rejected in the program, at the declaration, whether or not it is used (`Redeclaration of ...`, or two overloads with identical argument lists). Inside an imported module the same code compiles, and so does an overload set whose members differ in their parameters. A namespaced import (`S :: #import "M"`) never clashes. The rest of this rule is the tie-break in [procedures](procedures.md) and the lookup rule `scope.18` in [scoping](scoping.md): jaic prefers the module's own declaration, which a library depends on, and the warning is for the program's own files only.
 - **`namespaced-for-expansion`** and **`operator-out-of-scope`**: the official compiler cannot see `for_expansion` or an operator through a namespaced import, in the program or in a module.
 - **`place-directive`** is a deprecation error; `loose-enum` is `'loose' is not a member of ...`; the two library directives are not directives of the official compiler (`#library`, `#system_library` are), and a library has to be named; `#must` is not accepted anywhere in a procedure header; `#ifx c then a; else b;` is `'else' without 'if'`; `*T.{..}` is read as the pointer type `*T` followed by a literal.
+
+- **`float-exponent-without-fraction`**: the official compiler rejects a decimal float that has an exponent and no fraction. **`struct-align-directive`**, **`target-features-directive`**, **`push-context-without-block`**, **`main-returns-value`** and **`caller-location-outside-default`** are rejected where written; the official `main` has no return type and `#caller_location` is only a parameter default.
+- **`for-over-array-literal`** is rejected for a literal with no element type; `for x: s64.[..]` is fine.
+- **`struct-literal-as-dynamic-array`** is the untyped `.{..}` for a dynamic array `[..]T`. The same literal for an array view `[] T` is accepted by the official compiler, so it carries no warning.
+- **`multi-value-in-code-argument`** is rejected only inside a `#code { }` that is a call argument (the comma ends the block); everywhere else `a, b := x, y;` is fine.
+- **`spread-with-other-varargs`**: `..xs` has to be the only argument for its variadic parameter.
+- **`exists-on-expression`**: `#exists` takes a name or a chain of names.
+- **`procedure-cast-to-integer`**: the official compiler needs the pointer in between.
+- **`address-of-macro-constant`** is rejected only when the macro parameter is bound to a constant; a variable argument has an address.
+
+Rejected by both compilers, so these are errors with a code of their own (in imported modules too), not leniencies: `implicit-narrowing` (an `ifx` of integer constants into a signed integer narrower than 64 bits, see [casts and conversions](casts-and-conversions.md)), `ambiguous-procedure-value` (see [procedures](procedures.md)) and `shadows-builtin-type` (see [declarations and constants](declarations-and-constants.md)).
 
 Looked at and not a leniency, so there is no warning:
 
