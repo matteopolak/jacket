@@ -81,6 +81,11 @@ pub enum Command {
     },
     /// Remove the executable `jacket build` writes
     Clean,
+    /// Explain a diagnostic code such as `type-mismatch`; without one, list them all
+    Explain {
+        /// The code in `error[code]`
+        code: Option<String>,
+    },
     /// Print the version of jacket and of every tool it fronts
     Version,
     /// Install the latest release over this installation

@@ -59,6 +59,10 @@ plugins:
 
 diagnostics and output:
   --color <when>            colour in diagnostics: auto, always or never
+  -A <code>                 allow a warning: print nothing (`warnings` for all, `leniencies` for the forms the
+                            official compiler rejects; `jacket explain` lists the codes)
+  -W <code>                 warn about a code (the default)
+  -D <code>                 deny a warning: print it as an error and fail (`-D warnings` for all)
   -no_color                 no colour in diagnostics
   -msvc_format              one `path(line,col): error: message` line per diagnostic
   -quiet                    print nothing but errors (no build status either)
@@ -151,6 +155,7 @@ Commands:
   doc      Build the standard library's API documentation as a static website
   config   Show the configuration
   clean    Remove the executable `jacket build` writes
+  explain  Explain a diagnostic code such as `type-mismatch`; without one, list them all
   version  Print the version of jacket and of every tool it fronts
   upgrade  Install the latest release over this installation
   jaic     Run `jaic` with exactly these arguments
@@ -583,6 +588,20 @@ Options:
 Remove the executable `jacket build` writes
 
 Usage: jacket clean
+
+Options:
+  -h, --help  Print help
+```
+
+### jacket explain
+
+```text
+Explain a diagnostic code such as `type-mismatch`; without one, list them all
+
+Usage: jacket explain [CODE]
+
+Arguments:
+  [CODE]  The code in `error[code]`
 
 Options:
   -h, --help  Print help

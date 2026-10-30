@@ -60,6 +60,9 @@ fn main() -> ExitCode {
         } => commands::config(action, &cwd),
         Command::Clean => commands::clean(&cwd),
         Command::Version => commands::version(),
+        Command::Explain {
+            code,
+        } => commands::explain(code.as_deref()),
         Command::Upgrade {
             version,
             check,

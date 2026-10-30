@@ -1,4 +1,4 @@
-//! `jacket`'s own commands: `new`, `init`, `config`, `clean` and `version`.
+//! `jacket`'s own commands: `new`, `init`, `config`, `clean`, `explain` and `version`.
 use crate::cli::ConfigAction;
 use crate::{project, tools};
 use jacket_config::{Disk, FILE_NAME};
@@ -227,6 +227,122 @@ fn tool_version(tool: &str) -> String {
         Ok(_) => "installed (no version reported)".into(),
         Err(e) => format!("cannot run: {e}"),
     }
+}
+
+// ---- explain ---------------------------------------------------------------------------------
+
+/// `jacket explain [code]`: what a diagnostic code means, or the list of all of them.
+pub fn explain(code: Option<&str>) -> ExitCode {
+    use jaic::diagnostics::{Code, RETIRED};
+    let Some(name) = code else {
+        print!("{}", explain_list());
+        return ExitCode::SUCCESS;
+    };
+    // `error[type-mismatch]` pasted whole is fine too.
+    let name = name
+        .trim()
+        .trim_start_matches("error[")
+        .trim_start_matches("warning[")
+        .trim_end_matches(']');
+    if let Some(code) = Code::parse(name) {
+        print!("{}", explain_one(code));
+        return ExitCode::SUCCESS;
+    }
+    if RETIRED.contains(&name) {
+        println!("`{name}` is retired: no diagnostic uses it any more.");
+        return ExitCode::SUCCESS;
+    }
+    let near = jaic::suggest::closest(
+        name,
+        Code::ALL
+            .iter()
+            .map(|code| code.name())
+            .chain(RETIRED.iter().copied()),
+    );
+    match near {
+        Some(near) => fail(format!(
+            "no diagnostic code `{name}`\nhelp: did you mean `{near}`?"
+        )),
+        None => fail(format!(
+            "no diagnostic code `{name}`\nhelp: `jacket explain` lists them all"
+        )),
+    }
+}
+
+fn explain_one(code: jaic::diagnostics::Code) -> String {
+    let mut text = format!(
+        "{} ({}, {})\n\n{}\n",
+        code.name(),
+        code.severity().as_str(),
+        code.area(),
+        wrap(code.summary())
+    );
+    if code.is_leniency() {
+        text.push_str(&format!("\n{}\n", wrap(jaic::diagnostics::LENIENCY_NOTE)));
+    }
+    if let Some(explanation) = code.explanation() {
+        text.push('\n');
+        text.push_str(&wrap(explanation));
+        text.push('\n');
+    }
+    if let Some(example) = code.example() {
+        text.push_str("\nExample:\n\n");
+        for line in example.lines() {
+            text.push_str(&format!("    {line}\n"));
+        }
+    }
+    text
+}
+
+fn explain_list() -> String {
+    use jaic::diagnostics::Code;
+    let mut areas: Vec<&str> = Vec::new();
+    for code in Code::ALL {
+        if !areas.contains(&code.area()) {
+            areas.push(code.area());
+        }
+    }
+    areas.sort_unstable();
+    let width = Code::ALL
+        .iter()
+        .map(|code| code.name().len())
+        .max()
+        .unwrap_or(0);
+    let mut text = String::new();
+    for area in areas {
+        text.push_str(&format!("{area}\n"));
+        let mut codes: Vec<Code> = Code::ALL
+            .iter()
+            .copied()
+            .filter(|code| code.area() == area)
+            .collect();
+        codes.sort_by_key(|code| code.name());
+        for code in codes {
+            text.push_str(&format!("  {:width$}  {}\n", code.name(), code.summary()));
+        }
+        text.push('\n');
+    }
+    text.push_str("`jacket explain <code>` says more about one.\n");
+    text
+}
+
+/// Breaks `text` at 90 columns, keeping its own line breaks.
+fn wrap(text: &str) -> String {
+    let mut out = Vec::new();
+    for paragraph in text.split('\n') {
+        let mut line = String::new();
+        for word in paragraph.split_whitespace() {
+            if !line.is_empty() && line.len() + 1 + word.len() > 90 {
+                out.push(std::mem::take(&mut line));
+            }
+            if !line.is_empty() {
+                line.push(' ');
+            }
+            line.push_str(word);
+        }
+        out.push(line);
+    }
+    out.join("\n")
 }
 
 pub fn version() -> ExitCode {

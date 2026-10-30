@@ -45,6 +45,10 @@ What `jacket` adds is only the project:
 
 Pipes and logs get none of it. `-quiet`/`--quiet`, `NO_COLOR`, `-no_color` and `JAIC_PROGRESS` work as they do for jaic; `crates/jacket/src/status.rs` repeats jaic's rules for the `Running` line, so change both together.
 
+## Explaining diagnostics
+
+Every error and warning shows a code, as in `error[type-mismatch]`. `jacket explain type-mismatch` says what the code means and how to fix it, with an example; `jacket explain` alone lists all of them by area, and a mistyped code gets the nearest one. The text is the catalog in `crates/jaic/src/diagnostics/catalog.rs`, read through the `jaic` crate (`commands::explain`), so `jacket` has no copy of it. See [diagnostics](../compiler/diagnostics.md).
+
 ## Upgrading
 
 `jacket upgrade` installs the latest GitHub release over the installation that holds the running `jacket`: the whole folder (`jaic`, `jailsp`, `jailint`, `jaifmt`, `jacket`, `stdlib/`, `native-libs/`), not only the binary. Source: `crates/jacket/src/upgrade/`.
