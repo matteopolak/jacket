@@ -42,7 +42,7 @@ arm_directory :: (watcher: *$T/File_Watcher, info: *Directory_Info) -> bool {
     info.operation.hEvent = info.event;
     mask: s32 = W.FILE_NOTIFY_CHANGE_FILE_NAME | W.FILE_NOTIFY_CHANGE_DIR_NAME | W.FILE_NOTIFY_CHANGE_ATTRIBUTES | W.FILE_NOTIFY_CHANGE_SIZE | W.FILE_NOTIFY_CHANGE_LAST_WRITE | W.FILE_NOTIFY_CHANGE_SECURITY;
     returned: s32;
-    result := W.ReadDirectoryChangesW(info.handle, info.buffer, info.capacity, ifx watcher.watch_recursively then 1 else 0, mask, *returned, *info.operation, null);
+    result := W.ReadDirectoryChangesW(info.handle, info.buffer, info.capacity, ifx watcher.watch_recursively then cast(s32) 1 else 0, mask, *returned, *info.operation, null);
 
     if !result && cast(u32) W.GetLastError() != W.ERROR_IO_PENDING {
         report_windows("ReadDirectoryChangesW", cast(u32) W.GetLastError());
