@@ -8,7 +8,7 @@ use super::poly_hints::{Binders, CONFLICT};
 use super::{
     ArrayKind, CallArg, Compiler, Diagnostic, DiagnosticKind, E, Operand, ProcId, Result, ScopeId,
     Slot, Span, Sym, TypeId, TypeKind, Value, ast, err, header_poly_names, is_deferred,
-    is_poly_var_arg, poly_names, procs, value,
+    is_poly_var_arg, poly_names, procs,
 };
 
 /// What `infer_bindings` accumulates while it walks the parameters of a polymorphic header.
@@ -775,71 +775,6 @@ impl Compiler {
     }
 
     /// Match a polymorphic type pattern against a concrete type, adding bindings.
-    /// `ty` if it is an instance of `ps`, else the first `#as` member (searched
-    /// depth-first) that is one.
-    /// Whether struct `ty` is `want` or reaches it through `#as` members.
-    pub(super) fn has_as_base(&mut self, ty: TypeId, want: TypeId) -> bool {
-        if ty == want {
-            return true;
-        }
-        let Some(s) = self.ty.types.as_struct(ty) else {
-            return false;
-        };
-        if self.layout_struct(s, Span::NONE).is_err() {
-            return false;
-        }
-        let fields = self.ty.types.struct_info(s).fields.clone();
-        fields
-            .iter()
-            .filter(|f| f.as_)
-            .any(|f| self.has_as_base(f.ty, want))
-    }
-
-    /// The polymorphic struct a type expression names, if it is a bare identifier for one.
-    pub(super) fn ident_poly_struct_expr(
-        &mut self,
-        scope: ScopeId,
-        expr: &ast::Expr,
-    ) -> Result<Option<value::PolyStructId>> {
-        match &expr.kind {
-            E::Ident(name) => self.ident_poly_struct(scope, *name),
-            _ => Ok(None),
-        }
-    }
-
-    pub(super) fn instance_or_as_base(
-        &mut self,
-        ps: value::PolyStructId,
-        ty: TypeId,
-    ) -> Option<TypeId> {
-        // A `#bake_arguments` struct's instances are its origin's with the baked values.
-        let poly = &self.ty.poly_structs[ps.0 as usize];
-        let (origin, baked) = match poly.origin {
-            Some(origin) => (origin, poly.baked.clone()),
-            None => (ps, Vec::new()),
-        };
-        if self.ty.poly_structs[origin.0 as usize]
-            .instances
-            .values()
-            .any(|&t| t == ty)
-            && (baked.is_empty() || {
-                let bindings = self.poly_struct_bindings(self.ty.types.as_struct(ty)?);
-                baked.iter().all(|(name, value, _)| {
-                    bindings.iter().any(|(n, v, _)| n == name && v == value)
-                })
-            })
-        {
-            return Some(ty);
-        }
-        let s = self.ty.types.as_struct(ty)?;
-        self.layout_struct(s, Span::NONE).ok()?;
-        let fields = self.ty.types.struct_info(s).fields.clone();
-        fields
-            .iter()
-            .filter(|f| f.as_)
-            .find_map(|f| self.instance_or_as_base(ps, f.ty))
-    }
-
     pub fn match_pattern(
         &mut self,
         pattern: &ast::Expr,

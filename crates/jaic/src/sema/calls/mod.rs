@@ -25,6 +25,7 @@ use crate::macros::raw_enum;
 use crate::source::{Applicability, Suggestion};
 use crate::types::{ArrayKind, TypeKind};
 
+mod as_bases;
 mod baking;
 mod builtins;
 mod constants;

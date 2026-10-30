@@ -280,6 +280,12 @@ impl Compiler {
                 return Ok(Some(ids));
             }
         }
+        // `using name :: Base(T).{};` stores nothing, but its type's constants are the struct's.
+        for base in self.using_constant_bases(s, false) {
+            if let Some(ids) = self.struct_constant_in(base, name, searched)? {
+                return Ok(Some(ids));
+            }
+        }
         Ok(None)
     }
 
