@@ -10,12 +10,17 @@ import tempfile
 
 from developer_checks.build_developer_bindings import llvm_prefix
 from developer_checks.driven_sources import driven, driven_matching
-from developer_checks.dev_common import ROOT, cargo_target_dir, jaifmt_path, sha256_file
+from developer_checks.dev_common import ROOT, cargo_target_dir, jaifmt_path, output_dir, sha256_file
 
 
 def main():
     target = cargo_target_dir(resolve=True)
-    scratch = Path(tempfile.mkdtemp(prefix="refined-emission-", dir=target))
+    # The generated sources are linted with the repository's settings, whose `target/**` override
+    # only matches files under the repository, so the scratch stays there even when cargo builds
+    # elsewhere (CARGO_TARGET_DIR).
+    scratch_parent = output_dir()
+    scratch_parent.mkdir(exist_ok=True)
+    scratch = Path(tempfile.mkdtemp(prefix="refined-emission-", dir=scratch_parent))
     compiler, formatter, linter = (
         target / "debug/jaic",
         jaifmt_path(),
