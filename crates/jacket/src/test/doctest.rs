@@ -102,8 +102,17 @@ fn parse_records(text: &str) -> Vec<DocComment> {
 
 /// Every doc block of the library `module` in `dir`, as `jaic -doc_comments` finds its docs. A
 /// file in `seen` was read for an earlier library and is not read again.
-pub fn blocks(dir: &Path, module: &str, jaic: &Path, seen: &mut BTreeSet<PathBuf>) -> Vec<Block> {
-    let output = Command::new(jaic).arg("-doc_comments").arg(dir).output();
+pub fn blocks(
+    dir: &Path,
+    module: &str,
+    (jaic, stdlib): (&Path, &Path),
+    seen: &mut BTreeSet<PathBuf>,
+) -> Vec<Block> {
+    let output = Command::new(jaic)
+        .env("JAIC_STDLIB", stdlib)
+        .arg("-doc_comments")
+        .arg(dir)
+        .output();
     let records = match output {
         Ok(output) if output.status.success() => {
             parse_records(&String::from_utf8_lossy(&output.stdout))

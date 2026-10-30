@@ -152,13 +152,26 @@ A test run uses one standard library, and every jaic that jacket starts is told 
 
 `normalize_paths` (`golden.rs`) writes both the path as given and its canonical form as `$STDLIB`/`$DIR`, so a symlinked spelling (`/tmp` against `/private/tmp`) or a `..` in it still matches.
 
-**Build outputs in a fresh checkout.** Native libraries are searched in `<stdlib>/../target/native-libs/<os>-<cpu>`, then (in a linked worktree) the main checkout's `target/native-libs/...`, where `build_native_libs.py` puts them, so a worktree needs no build of its own for them. Three things are in the checkout itself and absent from a fresh one; tests that need them fail until built, and the failure list ends with `missing build outputs` naming each (`prerequisites.rs`):
+**Build outputs in a fresh checkout.** Native libraries are searched in `<stdlib>/../target/native-libs/<os>-<cpu>`, then (in a linked worktree) the main checkout's `target/native-libs/...`, where `build_native_libs.py` puts them, so a worktree needs no build of its own for them. Some build outputs are in the checkout itself and absent from a fresh one.
+
+*Built for you.* Two are made before the run when a selected test needs one that is missing, once, with a line on standard error (`prepare` in `crates/jacket/src/test/prerequisites.rs`). When everything is there it costs a few file checks, so it adds nothing to a normal run; nothing happens in a package without `tools/`.
+
+| Output | Needed by | Built by |
+| --- | --- | --- |
+| `target/portable-tests/{zip,archive-fixtures,mpeg}` | a test whose source names one of those folders (`Zip_File_Directory`, `executable_formats::archive`, `pl_mpeg`) | `tools/portable/build_portable.py data` |
+| the Debug native helper | tests below `stdlib/Debug` | `tools/developer_checks/build_developer_debug.py` |
+
+To add one, give `SETUPS` an entry: the script, a path the test sources mention (or a standard-library folder whose tests need it) and the files that exist once it is built. A script that cannot run (no `python3`, no compiler) is a warning, and the tests fail as before.
+
+*Built by hand.* The probe libraries that test drivers link are not made by `build_native_libs.py`. A failure list that ends with `missing build outputs` names them in groups, each with the command that builds it:
 
 ```sh
-PYTHONPATH=tools python3 tools/portable/build_portable.py data                    # fixtures: Zip, executable_formats, pl_mpeg, Meow
-PYTHONPATH=tools python3 tools/developer_checks/build_developer_debug.py          # Debug's native helper
-PYTHONPATH=tools python3 tools/native/build_native_libs.py                        # third-party libraries
+PYTHONPATH=tools python3 tools/native/build_native_libs.py                      # third-party libraries
+PYTHONPATH=tools python3 tools/window_render/window_render_native.py            # window_*_probe, thread_sdk_identity, unmapping_protection (target/window-native)
+PYTHONPATH=tools python3 tools/native/build_ci_native_bindings.py --output target/production-bindings/native   # sdl_*_probe, rpmalloc_*_probe
 ```
+
+The last two write their own folders; add them to `JAIC_NATIVE_LIBS`. `tools/native/ci_native_deps.sh full` builds all of them the way CI does. `--coverage`'s `jaic -procedures` and `jaic -doc_comments` calls get `JAIC_STDLIB` like every other jaic run, so a worktree's own standard library is read.
 
 ### Matchers
 

@@ -49,10 +49,15 @@ fn parse_record(line: &str) -> Option<Procedure> {
 }
 
 /// Asks `jaic` for the procedures declared below `folders`.
-pub fn list(jaic: &Path, folders: &[PathBuf], flags: &[String]) -> Result<Vec<Procedure>, String> {
+pub fn list(
+    (jaic, stdlib): (&Path, &Path),
+    folders: &[PathBuf],
+    flags: &[String],
+) -> Result<Vec<Procedure>, String> {
     let dirs = std::env::join_paths(folders)
         .map_err(|e| format!("cannot pass the coverage folders to jaic: {e}"))?;
     let output = Command::new(jaic)
+        .env("JAIC_STDLIB", stdlib)
         .arg("-procedures")
         .arg(dirs)
         .args(flags)

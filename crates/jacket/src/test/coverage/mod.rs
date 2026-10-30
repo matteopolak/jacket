@@ -68,6 +68,8 @@ pub struct Config {
     pub base: PathBuf,
     /// Lists the procedures of the reported folders, for the target of the tests.
     pub jaic: PathBuf,
+    /// The standard library `jaic` reads (`JAIC_STDLIB`).
+    pub stdlib: PathBuf,
     pub jaic_flags: Vec<String>,
     /// The programs are native, so reading their debug info needs `llvm-dwarfdump`.
     pub native: bool,
@@ -82,6 +84,7 @@ pub struct Coverage {
     /// Reads the debug info of native programs; interpreted runs need none.
     dwarfdump: Option<PathBuf>,
     jaic: PathBuf,
+    stdlib: PathBuf,
     jaic_flags: Vec<String>,
     next: AtomicUsize,
     /// The blocks of programs many processes ran, until the run ends.
@@ -128,6 +131,7 @@ impl Coverage {
             base: config.base,
             dwarfdump,
             jaic: config.jaic,
+            stdlib: config.stdlib,
             jaic_flags: config.jaic_flags,
             next: AtomicUsize::new(0),
             programs: Mutex::new(BTreeMap::new()),
@@ -281,7 +285,7 @@ impl Coverage {
         }
         let mut lines = self.files.lock().expect("lock").clone();
         let entries = self.entries.lock().expect("lock").clone();
-        let listed = procedures::list(&self.jaic, &self.include, &self.jaic_flags)?;
+        let listed = procedures::list((&self.jaic, &self.stdlib), &self.include, &self.jaic_flags)?;
         let listed: Vec<&procedures::Procedure> = listed
             .iter()
             .filter(|p| self.reported(&p.file.to_string_lossy()).is_some())
@@ -529,6 +533,7 @@ mod tests {
             base: PathBuf::new(),
             dwarfdump: None,
             jaic: PathBuf::new(),
+            stdlib: PathBuf::new(),
             jaic_flags: Vec::new(),
             next: AtomicUsize::new(0),
             programs: Mutex::default(),

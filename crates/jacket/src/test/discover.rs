@@ -154,7 +154,7 @@ impl Root {
         Root {
             bench,
             docs: if library && doc_tests {
-                super::doctest::blocks(&dir, &module, jaic, seen)
+                super::doctest::blocks(&dir, &module, (jaic, stdlib), seen)
             } else {
                 Vec::new()
             },

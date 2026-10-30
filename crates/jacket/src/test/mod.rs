@@ -346,6 +346,7 @@ fn coverage_for(
         exclude: exclude.collect(),
         base: project_dir.to_path_buf(),
         jaic: jaic.clone(),
+        stdlib: toolchain.stdlib.clone(),
         jaic_flags: flags.clone(),
         native: !args.interp,
     })
@@ -945,6 +946,11 @@ fn execute(
             None => to_run.push(index),
         }
     }
+    let files: Vec<PathBuf> = to_run
+        .iter()
+        .map(|&index| plan.cases[index].file.clone())
+        .collect();
+    prerequisites::prepare(&files, &plan.stdlib);
     let (parallel, serial) = jobs::jobs(plan, &to_run);
     for (jobs, threads) in [(parallel, plan.settings.jobs), (serial, 1)] {
         jobs::run_jobs(plan, jobs, threads, &mut |message| match message {
