@@ -1,14 +1,16 @@
 //! Cases the typing-session checker found (docs/tools/lsp-fuzzing.md), reduced by hand: answers
 //! while someone types must not depend on which requests came before, on a half-typed neighbour,
 //! or on a lexical edit that has since been completed.
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "each includer uses only some helpers of the shared file"
+)]
 #[path = "../examples/support/typing_files.rs"]
 mod typing_files;
 
 use jai_language_server::{Limits, Position, Range, SemanticTokenKind, Session, TextChange};
 use std::path::Path;
-mod common;
-use common::{position, uri};
+use test_support::lsp::{position, uri};
 
 fn session() -> Session {
     let stdlib = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -286,11 +288,14 @@ fn a_loader_follows_the_recovered_view_of_a_loaded_file_that_says_so() {
     // the loaded file reports the omission, since the loader has no diagnostic that could.
     let lib = "/* note */\nQ :: struct { value: int; }\n";
     let main = "#load \"lib.jai\";\nmain :: () { q: Q; q.value = 1; }\n";
-    let mut session =
-        common::virtual_session(&[("/p/main.jai", main), ("/p/lib.jai", lib)], &[], None);
+    let mut session = test_support::lsp::virtual_session(
+        &[("/p/main.jai", main), ("/p/lib.jai", lib)],
+        &[],
+        None,
+    );
     let (main_uri, lib_uri) = (
-        common::file_uri("/p/main.jai"),
-        common::file_uri("/p/lib.jai"),
+        test_support::lsp::file_uri("/p/main.jai"),
+        test_support::lsp::file_uri("/p/lib.jai"),
     );
     session.open(main_uri.clone(), 1, main.into()).unwrap();
     session.open(lib_uri.clone(), 1, lib.into()).unwrap();

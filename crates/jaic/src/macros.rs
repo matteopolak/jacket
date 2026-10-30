@@ -25,7 +25,7 @@ macro_rules! raw_enum {
             $($(#[$vmeta])* $variant),+
         }
 
-        #[allow(dead_code)]
+        #[allow(dead_code, reason = "each generated enum uses only some of these helpers")]
         impl $name {
             pub const ALL: &'static [$name] = &[$($name::$variant),+];
 
@@ -57,7 +57,7 @@ macro_rules! raw_enum {
             $($(#[$vmeta])* $variant = $value),+
         }
 
-        #[allow(dead_code)]
+        #[allow(dead_code, reason = "each generated enum uses only some of these helpers")]
         impl $name {
             pub const ALL: &'static [$name] = &[$($name::$variant),+];
 

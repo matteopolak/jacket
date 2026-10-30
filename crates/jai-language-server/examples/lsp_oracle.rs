@@ -14,7 +14,10 @@ use jai_language_server::{DocumentUri, Limits, Position, Session};
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "each includer uses only some helpers of the shared file"
+)]
 #[path = "support/typing_files.rs"]
 mod typing_files;
 
