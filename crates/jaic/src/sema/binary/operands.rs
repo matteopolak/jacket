@@ -154,6 +154,27 @@ impl Compiler {
                 ))
             }
             (Operand::Procs(_), Operand::Procs(_)) => Ok((lhs, rhs)),
+            // `proc == null` asks whether the procedure's own address is null.
+            (
+                Operand::Procs(p),
+                Operand::Const {
+                    value: Value::Null,
+                    ..
+                },
+            ) if p.len() == 1 => {
+                let ty = self.proc_type(p[0], span)?;
+                Ok((self.value_as(f, lhs, ty, span)?, rhs))
+            }
+            (
+                Operand::Const {
+                    value: Value::Null,
+                    ..
+                },
+                Operand::Procs(p),
+            ) if p.len() == 1 => {
+                let ty = self.proc_type(p[0], span)?;
+                Ok((lhs, self.value_as(f, rhs, ty, span)?))
+            }
             (_, Operand::Procs(_)) => {
                 let ty = lhs.ty();
                 Ok((lhs, self.value_as(f, rhs, ty, span)?))

@@ -49,6 +49,26 @@ main :: () {
 }
 
 #[test]
+fn procedure_names_compare_with_null() {
+    accepted(
+        "procedure-null",
+        r#"#import "Basic";
+local :: () {}
+libc :: #system_library "libc";
+puts :: (text: *u8) -> s32 #foreign libc;
+main :: () {
+    assert(local != null);
+    assert(null != local);
+    assert(puts != null);
+    assert(!(local == null));
+    loaded := local != null;
+    if puts == null  return;
+}
+"#,
+    );
+}
+
+#[test]
 fn complement_of_a_constant_converts_to_a_narrow_integer_with_xx() {
     accepted(
         "complement-xx",
