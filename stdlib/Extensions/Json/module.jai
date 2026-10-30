@@ -3,19 +3,22 @@
 // A jaic extension, not official Jai: other Jai compilers have no such module, and it may change
 // between jaic releases. See docs/extensions/json.md.
 //
-//     #import "Extensions/Json";
+// ```jai
+// #import "Extensions/Json";
 //
-//     User :: struct @json(rename_all=camelCase) {
-//         id: int;
-//         display_name: string;                 // "displayName"
-//         email: string;      @json(skip_serializing_if=empty)
-//         tags: [..] string;
-//     }
+// User :: struct @json(rename_all=camelCase) {
+//     id: int;
+//     display_name: string;                 // "displayName"
+//     email: string;      @json(skip_serializing_if=empty)
+//     tags: [..] string;
+// }
 //
-//     text := to_json(user);                    // pretty: to_json(user, pretty = true)
-//     user, error := from_json(User, text);     // error.kind == .NONE on success
-//     value, error := from_json(Json_Value, text);    // when the shape is unknown
-//     free_json(*user);                         // also for a Json_Value and a Json_Error
+// ada := User.{id = 7, display_name = "Ada"};
+// text := to_json(ada);                     // pretty: to_json(ada, pretty = true)
+// user, error := from_json(User, text);     // error.kind == .NONE on success
+// value, value_error := from_json(Json_Value, text);    // when the shape is unknown
+// free_json(*user);                         // also for a Json_Value and a Json_Error
+// ```
 
 Json_Error_Kind :: enum u8 {
     NONE;

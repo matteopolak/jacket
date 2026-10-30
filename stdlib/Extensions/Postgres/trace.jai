@@ -9,8 +9,10 @@ Trace_Proc :: #type (connection: *Connection, line: string);
 // server's source locations are replaced by fixed text, and an error's length by NN, so a trace
 // is the same from one server run to the next. Without it they show as they are.
 //
-//     F<TAB>21<TAB>Parse<TAB> "" "SELECT $1" 1 NNNN
-//     B<TAB>5<TAB>ReadyForQuery<TAB> I
+// ```text
+// F<TAB>21<TAB>Parse<TAB> "" "SELECT $1" 1 NNNN
+// B<TAB>5<TAB>ReadyForQuery<TAB> I
+// ```
 //
 // F is a message the client sent, B one it received. Messages sent while connecting are not
 // traced, as the trace starts after `connect`.

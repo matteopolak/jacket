@@ -3,16 +3,20 @@
 // extension, not official Jai: other Jai compilers have no such module, and it may change
 // between jaic releases. See docs/extensions/regex.md.
 //
-//     Regex :: #import "Extensions/Regex";
+// ```jai
+// Regex :: #import "Extensions/Regex";
 //
-//     // Compiled while the program compiles: a bad pattern is a compile error, and named
-//     // groups become typed fields (an integer for a run of digits, an enum for a few words).
-//     Date :: Regex.Static("(?<year>[0-9]{4})-(?<month>[0-9]{2})-(?<day>[0-9]{2})");
-//     date, ok := Regex.parse(Date, "2026-10-11");  // date.year is a u16, date.month a u8
+// // Compiled while the program compiles: a bad pattern is a compile error, and named
+// // groups become typed fields (an integer for a run of digits, an enum for a few words).
+// Date :: Regex.Static("(?<year>[0-9]{4})-(?<month>[0-9]{2})-(?<day>[0-9]{2})");
+// date, ok := Regex.parse(Date, "2026-10-11");  // date.year is a u16, date.month a u8
 //
-//     // Compiled at run time, for a pattern only known then.
-//     re, ok, error := Regex.compile(user_pattern);
-//     for Regex.find_all(*re, text) print("% ", it.text);
+// // Compiled at run time, for a pattern only known then.
+// user_pattern := "[a-z]+";
+// text := "one two";
+// re, compiled, error := Regex.compile(user_pattern);
+// for Regex.find_all(*re, text) print("% ", it.text);
+// ```
 //
 // Matching takes time linear in the text for every pattern: there are no backreferences and no
 // look-around, and the engines are automata, never an exponential backtracker.
@@ -213,8 +217,11 @@ escape :: (text: string) -> string {
 
 // A regex compiled while your program compiles: a type, made from a constant pattern.
 //
-//     Date :: Regex.Static("(?<year>[0-9]{4})-(?<month>[0-9]{2})-(?<day>[0-9]{2})");
-//     date, ok := Regex.parse(Date, "2026-10-11");  // a Date.Groups: date.year is a u16
+// ```jai
+// Regex :: #import "Extensions/Regex";
+// Date :: Regex.Static("(?<year>[0-9]{4})-(?<month>[0-9]{2})-(?<day>[0-9]{2})");
+// date, ok := Regex.parse(Date, "2026-10-11");  // a Date.Groups: date.year is a u16
+// ```
 //
 // A bad pattern is a compile error, and the automata are built at compile time (big Unicode
 // classes excepted: those are built on first use), so searching needs no setup. The same

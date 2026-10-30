@@ -1,13 +1,17 @@
 // Decode, encode and transform raster images, in plain Jai (natively, in the playground and
 // in -os wasm programs). A jaic extension, not official Jai. See docs/extensions/image.md.
 //
-//     #import "Extensions/Image";
+// ```jai,no_run
+// #import "Extensions/Image";
+// #import "File";
 //
-//     image, ok, error := decode_image_as(bytes, .RGBA8);
-//     if !ok { print("%\n", error); return; }
-//     defer deinit(*image);
-//     small := resize(image, 64, 64, .BOX);
-//     png := encode_png(small);
+// file, found := read_entire_file("photo.png");
+// image, ok, error := decode_image_as(cast([] u8) file, .RGBA8);
+// if !ok { print("%\n", error); return; }
+// defer deinit(*image);
+// small := resize(image, 64, 64, .BOX);
+// png := encode_png(small);
+// ```
 //
 // Every procedure that returns an Image or a []u8 allocates it with context.allocator; the caller
 // owns it. Errors are static strings.

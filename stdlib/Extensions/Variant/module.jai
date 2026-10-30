@@ -2,20 +2,22 @@
 // Jai: other Jai compilers have no such module, and it may change between jaic releases. See
 // docs/extensions/variant.md.
 //
-//     #import "Extensions/Variant";
+// ```jai
+// #import "Extensions/Variant";
 //
-//     Number_Or_Text :: Variant(s64, string);
+// Number_Or_Text :: Variant(s64, string);
 //
-//     v := variant(Number_Or_Text, 42);       // the case is the type of the value
-//     w: Number_Or_Text;                      // zeroed first case
-//     set(*w, "hi");                          // switches case
+// v := variant(Number_Or_Text, 42);       // the case is the type of the value
+// w: Number_Or_Text;                      // zeroed first case
+// set(*w, "hi");                          // switches case
 //
-//     if is(v, s64) print("%\n", unwrap(v, s64));
+// if is(v, s64) print("%\n", unwrap(v, s64));
 //
-//     variant_switch(v,                       // every case needs a handler, checked at compile time
-//         (it: *s64)    { print("number %\n", it.*); },
-//         (it: *string) { print("text %\n", it.*); },
-//     );
+// variant_switch(v,                       // every case needs a handler, checked at compile time
+//     (it: *s64)    { print("number %\n", it.*); },
+//     (it: *string) { print("text %\n", it.*); },
+// );
+// ```
 //
 // A Variant is an `index` and the bytes of the largest case, aligned for the strictest one. Two
 // cases of one type are not allowed: wrap each in its own struct.

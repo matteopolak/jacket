@@ -2,19 +2,21 @@
 // Rust's clap derive. A jaic extension, not official Jai: other Jai compilers have no such
 // module, and it may change between jaic releases. See docs/extensions/args.md.
 //
-//     Args :: #import "Extensions/Args";
+// ```jai
+// Args :: #import "Extensions/Args";
 //
-//     Cli :: struct {
-//         paths: [..] string; @positional
-//         check: bool;       @short=c
-//         jobs:  int = 4;    @short=j @env=TOOL_JOBS @range(1,64)
-//     }
-//     HELP :: Args.Help(Cli).{ about = "Does things.", paths = "Files to read", check = "Only check", jobs = "Parallel jobs" };
+// Cli :: struct {
+//     paths: [..] string; @positional
+//     check: bool;       @short=c
+//     jobs:  int = 4;    @short=j @env=TOOL_JOBS @range(1,64)
+// }
+// HELP :: Args.Help(Cli).{ about = "Does things.", paths = "Files to read", check = "Only check", jobs = "Parallel jobs" };
 //
-//     main :: () {
-//         cli, set := Args.parse(Cli, HELP);  // --help, --version, errors (exit 2) are handled
-//         if set.jobs { ... }                 // set.<field> is true when the user supplied it
-//     }
+// main :: () {
+//     cli, set := Args.parse(Cli, HELP);  // --help, --version, errors (exit 2) are handled
+//     if set.jobs print("jobs: %\n", cli.jobs);  // set.<field> is true when the user supplied it
+// }
+// ```
 //
 // The fields of `Cli` are the options; notes (`@short=c`) refine them. At compile time the
 // struct is read once and the parser is written out as plain Jai (see generate.jai), so the

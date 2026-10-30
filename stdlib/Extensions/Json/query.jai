@@ -34,8 +34,10 @@ Pair_Kind :: enum u8 {
 // `deny_unknown_fields`. Everything allocated (strings, arrays) comes from context.allocator and
 // is released by `free_json`, as for `from_json`.
 //
-//     Search :: struct @json(default) { q: string; limit := 20; tags: [..] string; }
-//     search, error := from_query(Search, pairs);       // pairs of "?q=jai&tags=a&tags=b"
+// ```jai,ignore
+// Search :: struct @json(default) { q: string; limit := 20; tags: [..] string; }
+// search, error := from_query(Search, pairs);       // pairs of "?q=jai&tags=a&tags=b"
+// ```
 from_query :: ($T: Type, pairs: [] Query_Pair, options := Json_Options.{}) -> T, Json_Error {
     copying := options;
     copying.borrow = false;

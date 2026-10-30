@@ -2,10 +2,12 @@
 // disk natively and over fetch() in the browser playground. A jaic extension, not official Jai.
 // See docs/extensions/assets.md.
 //
-//     #import "Extensions/Assets";
+// ```jai
+// #import "Extensions/Assets";
 //
-//     bytes, ok := load_asset("assets/texture.png");
-//     defer array_free(bytes);
+// bytes, ok := load_asset("assets/texture.png");
+// defer array_free(bytes);
+// ```
 //
 // Natively the path is tried as given (from the working directory), then next to the executable.
 // In the browser the page answers `jai_asset_fetch` by fetching the path relative to the asset

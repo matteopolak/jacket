@@ -1,10 +1,13 @@
 // The DEFLATE compressed format (RFC 1951) with its zlib (RFC 1950) and gzip (RFC 1952)
 // wrappers, in plain Jai. A jaic extension, not official Jai. See docs/extensions/deflate.md.
 //
-//     #import "Extensions/Deflate";
+// ```jai
+// #import "Extensions/Deflate";
 //
-//     packed := deflate(bytes, .GZIP);
-//     unpacked, ok, error := inflate(packed, .GZIP);
+// bytes := cast([] u8) "hello hello hello hello";
+// packed := deflate(bytes, .GZIP);
+// unpacked, ok, error := inflate(packed, .GZIP);
+// ```
 //
 // Results are allocated with context.allocator and owned by the caller. Errors are static strings.
 

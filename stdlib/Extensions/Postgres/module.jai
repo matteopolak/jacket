@@ -2,23 +2,25 @@
 // compilers have no such module, and it may change between jaic releases. See
 // docs/extensions/postgres.md.
 //
-//     Pg :: #import "Extensions/Postgres";
+// ```jai,ignore
+// Pg :: #import "Extensions/Postgres";
 //
-//     main :: () {
-//         Io.io_run(() {
-//             config, error := Pg.parse_url("postgres://app@localhost/app_dev");
-//             db:, error = Pg.connect(config);
-//             if error.kind != .NONE { print("%\n", Pg.error_text(error)); return; }
-//             defer Pg.close(db);
+// main :: () {
+//     Io.io_run(() {
+//         config, error := Pg.parse_url("postgres://app@localhost/app_dev");
+//         db:, error = Pg.connect(config);
+//         if error.kind != .NONE { print("%\n", Pg.error_text(error)); return; }
+//         defer Pg.close(db);
 //
-//             result:, error = Pg.query_dynamic(db, "SELECT id, name FROM users WHERE id > $1", 10);
-//             defer Pg.free_result(*result);
-//             for row: 0..result.row_count - 1 {
-//                 id := Pg.get(*result, row, 0, s64);
-//                 name := Pg.get(*result, row, 1, string);
-//             }
-//         });
-//     }
+//         result:, error = Pg.query_dynamic(db, "SELECT id, name FROM users WHERE id > $1", 10);
+//         defer Pg.free_result(*result);
+//         for row: 0..result.row_count - 1 {
+//             id := Pg.get(*result, row, 0, s64);
+//             name := Pg.get(*result, row, 1, string);
+//         }
+//     });
+// }
+// ```
 //
 // Every call that talks to the server runs on a fiber inside `Io.io_run` and blocks only that
 // fiber. `Io.with_deadline` bounds any of them.
@@ -29,7 +31,9 @@
 // The other parameters say where the compile-time side finds the project's files, relative to the
 // project root (docs/postgres/typed-queries.md, "Module parameters"):
 //
-//     Pg :: #import "Extensions/Postgres"(MIGRATIONS = "sql/migrations", SCHEMA = "sql/schema.jai", QUERY_CACHE = "sql/cache", MIN_SERVER_VERSION = 15);
+// ```jai
+// Pg :: #import "Extensions/Postgres"(MIGRATIONS = "sql/migrations", SCHEMA = "sql/schema.jai", QUERY_CACHE = "sql/cache", MIN_SERVER_VERSION = 15);
+// ```
 //
 // `MIN_SERVER_VERSION` is a major version; a server older than that fails every describe.
 #module_parameters(TLS := true, MIGRATIONS := "db/migrations", SCHEMA := "db/schema.jai", QUERY_CACHE := "db/queries", MIN_SERVER_VERSION := 0);

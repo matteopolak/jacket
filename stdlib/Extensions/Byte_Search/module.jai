@@ -2,16 +2,19 @@
 // extension, not official Jai: other Jai compilers have no such module, and it may change
 // between jaic releases. See docs/extensions/byte-search.md.
 //
-//     Byte_Search :: #import "Extensions/Byte_Search";
+// ```jai
+// Byte_Search :: #import "Extensions/Byte_Search";
 //
-//     at := Byte_Search.find(text, #char "\n");          // the first newline, or -1
-//     at  = Byte_Search.find_any(text, #char ",", #char ";");
-//     at  = Byte_Search.find(text, "needle");              // the first "needle", or -1
-//     at  = Byte_Search.find_last(text, #char "/");
+// text := "id,name;note\nneedle in a/haystack";
+// at := Byte_Search.find(text, #char "\n");          // the first newline, or -1
+// at  = Byte_Search.find_any(text, #char ",", #char ";");
+// at  = Byte_Search.find(text, "needle");              // the first "needle", or -1
+// at  = Byte_Search.find_last(text, #char "/");
 //
-//     // A needle searched for many times: its analysis is done once.
-//     finder := Byte_Search.make_finder("needle");
-//     at = Byte_Search.find(*finder, text, start = at + 1);
+// // A needle searched for many times: its analysis is done once.
+// finder := Byte_Search.make_finder("needle");
+// at = Byte_Search.find(*finder, text, start = at + 1);
+// ```
 //
 // Every search takes `start` and returns a position in the whole text, or -1. Every search is
 // linear in the text, including substring search with a needle built to defeat it.

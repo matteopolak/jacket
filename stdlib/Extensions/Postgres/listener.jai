@@ -6,14 +6,16 @@
 // those sent while the listener is reconnecting are lost; code that must not miss any should read
 // its table again after `reconnects` changes.
 //
-//     listener, error := Pg.listen(pool, "jobs", "mail");
-//     while true {
-//         n, error := Pg.receive(listener);
-//         if error.kind != .NONE break;
-//         defer Pg.free_notification(*n);
-//         print("% on %\n", n.payload, n.channel);
-//     }
-//     Pg.close_listener(listener);
+// ```jai,ignore
+// listener, error := Pg.listen(pool, "jobs", "mail");
+// while true {
+//     n, error := Pg.receive(listener);
+//     if error.kind != .NONE break;
+//     defer Pg.free_notification(*n);
+//     print("% on %\n", n.payload, n.channel);
+// }
+// Pg.close_listener(listener);
+// ```
 Listener :: struct {
     // Notifications received and not yet taken, oldest first (`receive`). The reader waits when
     // `LISTENER_QUEUE` of them are queued.

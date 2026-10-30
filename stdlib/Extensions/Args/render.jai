@@ -307,10 +307,12 @@ render_help :: (root: *Command_Spec, path: [] string, color: bool) -> string {
 
 // Prints a parse error the way the compilers print theirs:
 //
-//     error: unknown option `--chek`
-//     help: did you mean `--check`?
-//     usage: jaifmt [OPTIONS] [PATHS]...
-//     For more information, run `jaifmt --help`.
+// ```text
+// error: unknown option `--chek`
+// help: did you mean `--check`?
+// usage: jaifmt [OPTIONS] [PATHS]...
+// For more information, run `jaifmt --help`.
+// ```
 report :: (error: Error) {
     if error.kind == .NONE return;
 

@@ -20,8 +20,10 @@ Path :: struct(NAME: string, T: Type) {
 // Several `{params}` at once: every field of `T` names a parameter of the route. The `T` lives in
 // temporary storage for the request.
 //
-//     Post_Key :: struct { user: int; post: string; }
-//     get_post :: (key: Params(Post_Key)) { ... key.temporary.user ... }
+// ```jai,ignore
+// Post_Key :: struct { user: int; post: string; }
+// get_post :: (key: Params(Post_Key)) { ... key.temporary.user ... }
+// ```
 Params :: struct(T: Type) {
     temporary: T;
 }
@@ -44,9 +46,11 @@ Query :: struct(T: Type) {
 // route's `max_body` is a 413. The `T` lives in temporary storage for the request: copy the
 // strings you keep.
 //
-//     create :: (body: Json(New_User)) -> User {
-//         return .{ id = next_id(), name = copy_string(body.temporary.name) };
-//     }
+// ```jai,ignore
+// create :: (body: Json(New_User)) -> User {
+//     return .{ id = next_id(), name = copy_string(body.temporary.name) };
+// }
+// ```
 Json :: struct(T: Type) {
     temporary: T;
 }

@@ -6,7 +6,9 @@
 // binary forms exactly (an `s32` for `int4`, an `s64` for `int8`): COPY casts nothing. A `Json(T)`
 // member goes as `jsonb` unless it has the `@pg_json` note, which sends it as `json`.
 //
-//     stored, error := Pg.copy_in(db, "copy users (email, score) from stdin (format binary)", users, .["email", "score"]);
+// ```jai,ignore
+// stored, error := Pg.copy_in(db, "copy users (email, score) from stdin (format binary)", users, .["email", "score"]);
+// ```
 copy_in :: (c: *Connection, sql: string, rows: [] $Row, columns: [] string = .[]) -> s64, Pg_Error {
     #assert type_info(Row).type == .STRUCT "copy_in takes an array of structs";
 
@@ -50,7 +52,9 @@ Copy_Out_Proc :: #type (data: [] u8, user_data: *void);
 // data, as it arrives, so a table of any size streams through. Returns how many rows the server
 // sent. Any format works: text, CSV or binary.
 //
-//     count, error := Pg.copy_out(db, "copy (select email from users) to stdout (format csv)", write_chunk, file);
+// ```jai,ignore
+// count, error := Pg.copy_out(db, "copy (select email from users) to stdout (format csv)", write_chunk, file);
+// ```
 copy_out :: (c: *Connection, sql: string, proc: Copy_Out_Proc, user_data: *void = null) -> s64, Pg_Error {
     state: Copy_Stream;
     state.proc = proc;
@@ -99,9 +103,11 @@ free_copy_rows :: (copied: *Copy_Rows($Row)) {
 // `copy_in` would send for the column (an `s32` for `int4`, a `Nullable` for a column that can be
 // NULL, `@pg_json` for `json`). The whole result is read into memory.
 //
-//     copied, error := Pg.copy_out(db, "copy users (email, score) to stdout (format binary)", User_Row, .["email", "score"]);
-//     for copied.rows print("% %\n", it.email, it.score);
-//     Pg.free_copy_rows(*copied);
+// ```jai,ignore
+// copied, error := Pg.copy_out(db, "copy users (email, score) to stdout (format binary)", User_Row, .["email", "score"]);
+// for copied.rows print("% %\n", it.email, it.score);
+// Pg.free_copy_rows(*copied);
+// ```
 copy_out :: (c: *Connection, sql: string, $Row: Type, columns: [] string = .[]) -> Copy_Rows(Row), Pg_Error {
     #assert type_info(Row).type == .STRUCT "copy_out takes a struct";
 

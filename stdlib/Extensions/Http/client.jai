@@ -4,13 +4,15 @@
 //     api: Client;
 //     api.base_url = "http://localhost:8080";
 //
-//     response, error := get(*api, "/users/1");
-//     if error.kind != .NONE print("%\n", error_text(error));
-//     defer close(*response);
+// ```jai
+// response, error := get(*api, "/users/1");
+// if error.kind != .NONE print("%\n", error_text(error));
+// defer close(*response);
 //
-//     if response.status == 200 user, error2 := read_json(*response, User);
+// if response.status == 200 user, error2 := read_json(*response, User);
 //
-//     response2 := post(*api, "/users", New_User.{ name = "Ada" });   // a struct is sent as JSON
+// response2 := post(*api, "/users", New_User.{ name = "Ada" });   // a struct is sent as JSON
+// ```
 //
 // A request has one shape: `send(*client, request)`, or a verb (`get`, `head`, `options`, `delete`,
 // `post`, `put`, `patch`) that fills in the request. It returns once the status line and headers
@@ -465,13 +467,15 @@ body_read_proc :: (data: *void, buffer: [] u8) -> s64, Io.Io_Error {
 // while there is more, then 0 once the body has ended (and on every call after that). It waits
 // for data when none has arrived. For a body that should not be held in memory:
 //
-//     buffer: [16384] u8;
+// ```jai,ignore
+// buffer: [16384] u8;
 //
-//     while true {
-//         count, error := read_some(*response, buffer);
-//         if error.kind != .NONE || count == 0 break;
-//         write(file, buffer, count);
-//     }
+// while true {
+//     count, error := read_some(*response, buffer);
+//     if error.kind != .NONE || count == 0 break;
+//     write(file, buffer, count);
+// }
+// ```
 //
 // The request's `max_response_size` does not apply: the caller decides when to stop (and `close`
 // the response to give up).
@@ -543,9 +547,11 @@ read_some :: (response: *Client_Response, buffer: [] u8) -> int, Client_Error {
 // server sends, when there is one) and the `body` text, so this reads the body. Release the error
 // with `free_error`.
 //
-//     response, error := get(*api, "/users/1");
-//     defer close(*response);
-//     error = error_for_status(*response);
+// ```jai,ignore
+// response, error := get(*api, "/users/1");
+// defer close(*response);
+// error = error_for_status(*response);
+// ```
 error_for_status :: (response: *Client_Response) -> Client_Error {
     if response.status >= HTTP_OK && response.status < HTTP_MULTIPLE_CHOICES return .{};
 

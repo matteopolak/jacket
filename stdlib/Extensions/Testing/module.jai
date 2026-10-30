@@ -90,7 +90,9 @@ run :: (t: *Test, name: string, body: (t: *Test)) -> bool {
 
 // `run` with `data` passed on to `body`, for table tests:
 //
-//     for CASES run(t, it.name, check_case, *it);
+// ```jai,ignore
+// for CASES run(t, it.name, check_case, *it);
+// ```
 run :: (t: *Test, name: string, body: (t: *Test, data: *$T), data: *T) -> bool {
     return run_subtest(t, name, null, cast((t: *Test, data: *void)) body, data);
 }

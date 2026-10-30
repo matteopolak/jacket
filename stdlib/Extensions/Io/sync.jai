@@ -196,10 +196,12 @@ unlock :: (mutex: *Fiber_Mutex) {
 // `wait` honours `with_deadline`. A condition carries no value and remembers nothing: a notify
 // with nobody waiting is lost, so wait in a loop that checks the state itself.
 //
-//     while !ready {
-//         error := wait(*changed);                 // .TIMED_OUT, .CANCELED
-//         if error != .NONE return error;
-//     }
+// ```jai,ignore
+// while !ready {
+//     error := wait(*changed);                 // .TIMED_OUT, .CANCELED
+//     if error != .NONE return error;
+// }
+// ```
 Condition :: struct {
     waiters: Waiter;
 }

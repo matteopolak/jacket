@@ -7,15 +7,17 @@
 // splits and trims pieces, so inserting or deleting in a large file costs the number of pieces, not
 // the size of the file. Line starts are kept in a sorted array, so lines are found by binary search.
 //
-//     #import "Extensions/Text_Buffer";
+// ```jai
+// #import "Extensions/Text_Buffer";
 //
-//     buffer: Text_Buffer;
-//     defer free_buffer(*buffer);
-//     set_text(*buffer, "hello\nworld");
-//     insert(*buffer, 5, ", there");        // "hello, there\nworld"
-//     erase(*buffer, 0, 1);                  // "ello, there\nworld"
-//     line := line_text(*buffer, 1);         // "world", a view into the buffer
-//     undo(*buffer);                         // back to "hello, there\nworld"
+// buffer: Text_Buffer;
+// defer free_buffer(*buffer);
+// set_text(*buffer, "hello\nworld");
+// insert(*buffer, 5, ", there");        // "hello, there\nworld"
+// erase(*buffer, 0, 1);                  // "ello, there\nworld"
+// line := line_text(*buffer, 1);         // "world", a view into the buffer
+// undo(*buffer);                         // back to "hello, there\nworld"
+// ```
 //
 // Offsets are byte offsets. Positions inside a UTF-8 sequence are the caller's concern: use
 // `next_grapheme` and `previous_grapheme` (graphemes.jai) to move on character boundaries.

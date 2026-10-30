@@ -24,12 +24,14 @@ Next :: #type (request: *Request) -> Response;
 
 // A request filter: log, check a token, add headers, or answer itself without calling `next`.
 //
-//     require_token :: (request: *Request, next: Next) -> Response {
-//         token, found := header(request, "Authorization");
-//         if !found return error_response(request, unauthorized("a token is required"));
+// ```jai
+// require_token :: (request: *Request, next: Next) -> Response {
+//     token, found := header(request, "Authorization");
+//     if !found return error_response(request, unauthorized("a token is required"));
 //
-//         return next(request);
-//     }
+//     return next(request);
+// }
+// ```
 Middleware :: #type (request: *Request, next: Next) -> Response;
 
 // The value of the first header called `name` (any case), and whether there was one.
@@ -113,7 +115,9 @@ json :: (value: $T, status := 200) -> Response {
 // `value` as JSON with status 201 and, when `location` is given, a `Location` header: the answer
 // to a request that made something.
 //
-//     return created(user, tprint("/users/%", user.id));
+// ```jai,ignore
+// return created(user, tprint("/users/%", user.id));
+// ```
 created :: (value: $T, location := "") -> Response {
     response := json(value, 201);
 
@@ -172,8 +176,10 @@ Http_Error_Kind :: enum u8 {
 // What a handler returns to answer with a status instead of a value. A handler's `.{}` means
 // no error. The server sends it as an RFC 9457 `application/problem+json` document:
 //
-//     return .{}, not_found("No user with id %", id.value);
-//     // 404 {"type":"about:blank","title":"Not Found","status":404,"detail":"No user with id 7"}
+// ```jai,ignore
+// return .{}, not_found("No user with id %", id.value);
+// // 404 {"type":"about:blank","title":"Not Found","status":404,"detail":"No user with id 7"}
+// ```
 //
 // `app.on_error` changes the format for all of them.
 Http_Error :: struct {

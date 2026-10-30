@@ -47,7 +47,9 @@ run_cases :: (t: *Test, cases: [] $T, $body: $B) -> bool {
 
 // Every member of the enum `T`, in declaration order, as a list for `@cases`:
 //
-//     @cases(all_values(Color))
+// ```jai,ignore
+// @cases(all_values(Color))
+// ```
 //
 // The array is in temporary storage, so it lasts for the test that asked for it.
 all_values :: ($T: Type) -> [] T #modify {

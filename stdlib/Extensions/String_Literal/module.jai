@@ -5,12 +5,14 @@
 // Compile-time code that checks a string it was given (a query, a pattern, a format) can report
 // a problem at the exact character instead of at the whole literal:
 //
-//     check_sql :: (code: Code) {
-//         literal := cast(*Code_Literal) compiler_get_nodes(code);
-//         error_at := find_problem(literal._string);
-//         location := String_Literal.location_of_byte(literal, error_at);
-//         compiler_report("syntax error", location);
-//     }
+// ```jai,ignore
+// check_sql :: (code: Code) {
+//     literal := cast(*Code_Literal) compiler_get_nodes(code);
+//     error_at := find_problem(literal._string);
+//     location := String_Literal.location_of_byte(literal, error_at);
+//     compiler_report("syntax error", location);
+// }
+// ```
 //
 // Both quoted literals (with every escape) and here-strings (`#string`, `#string,cr`,
 // `#string,\%`) are mapped. The source is read through the compiler's file system, so the

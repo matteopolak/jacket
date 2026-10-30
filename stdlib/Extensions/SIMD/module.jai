@@ -1,13 +1,17 @@
 // Portable fixed-width vectors. A jaic extension, not official Jai: other Jai compilers have
 // no such module, and it may change between jaic releases. See docs/extensions/simd.md.
 //
-//     SIMD :: #import "Extensions/SIMD";
-//     using SIMD;
+// ```jai
+// SIMD :: #import "Extensions/SIMD";
+// using SIMD;
 //
-//     // Where is the first space in these 16 bytes?
-//     chunk := load(u8x16, text.data);
-//     spaces := eq(chunk, #char " ");
-//     if any(spaces) print("at %\n", first_true(spaces));
+// text := "hello, wide world!";
+//
+// // Where is the first space in these 16 bytes?
+// chunk := load(u8x16, text.data);
+// spaces := eq(chunk, #char " ");
+// if any(spaces) print("at %\n", first_true(spaces));
+// ```
 //
 // A Vector(T, N) is N lanes of T, at most 64 bytes. Every operation works lane by lane, and its
 // result is the same on every target: the interpreter, x86-64, arm64 and wasm. Compiled with

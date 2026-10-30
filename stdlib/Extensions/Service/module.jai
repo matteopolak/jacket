@@ -8,25 +8,30 @@
 //
 // The service side (service.jai):
 //
-//     Service :: #import "Extensions/Service";
-//     main :: () {
-//         Service.serve((request: string) -> Service.Status, string {
-//             return .OK, to_upper_copy(request);
-//         });
-//     }
+// ```jai,no_run
+// #import "String";
+// Service :: #import "Extensions/Service";
+// main :: () {
+//     Service.serve((request: string) -> Service.Status, string {
+//         return .OK, to_upper_copy(request);
+//     });
+// }
+// ```
 //
 // The compile-time side:
 //
-//     SERVICE :: #run tprint("%service.jai", #filepath);
-//     #run {
-//         status, answer := Service.call(SERVICE, "hello");
-//         if status == {
-//             case .OK;          print("%\n", answer);
-//             case .PENDING;     Service.unknown("asking the service");   // editor only
-//             case .UNAVAILABLE; Service.unknown(answer);
-//             case .FAILED;      compiler_report(answer);
-//         }
+// ```jai,ignore
+// SERVICE :: #run tprint("%service.jai", #filepath);
+// #run {
+//     status, answer := Service.call(SERVICE, "hello");
+//     if status == {
+//         case .OK;          print("%\n", answer);
+//         case .PENDING;     Service.unknown("asking the service");   // editor only
+//         case .UNAVAILABLE; Service.unknown(answer);
+//         case .FAILED;      compiler_report(answer);
 //     }
+// }
+// ```
 //
 // In a build, `call` waits for the answer. In the editor (a trusted workspace) it answers
 // `.PENDING` while the service works, and the editor checks the file again once the answer is

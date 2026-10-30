@@ -3,8 +3,13 @@
 // `format_find_config`), so it runs the same natively, under `jaic -interp` and in the browser
 // playground. `jaifmt/` is the command-line front end. See docs/tools/jaifmt.md.
 //
-//     config, ok, error := parse_config(read_entire_file("jacket.toml"));
-//     formatted, ok, error := format_source(text, config);
+// ```jai,no_run
+// #import "File";
+//
+// text := "main :: () {}";
+// config, ok, error := parse_config(read_entire_file("jacket.toml"));
+// formatted, formatted_ok, format_error := format_source(text, config);
+// ```
 //
 // Formatting never changes the token stream: the result is lexed again and compared with the
 // input, and on any difference `format_source` fails instead of returning text.

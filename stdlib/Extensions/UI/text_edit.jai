@@ -455,7 +455,9 @@ paste_clipboard :: (ui: *UI_State, edit: *Text_Edit) {
 // A multi-line text editor over `edit`: line numbers, selection, scrolling, undo and the clipboard.
 // Returns true on the frame the text changed. It fills the space it is given.
 //
-//     if text_editor(*doc.edit, .{line_numbers = true, highlight = highlight_jai}) doc.dirty = true;
+// ```jai
+// if text_editor(*doc.edit, .{line_numbers = true, highlight = highlight_jai}) doc.dirty = true;
+// ```
 text_editor :: (edit: *Text_Edit, options: Editor_Options = .{}, loc := #caller_location) -> changed: bool {
     edit.single_line = false;
     changed, _ := edit_widget(edit, options, .TEXT_EDITOR, loc);

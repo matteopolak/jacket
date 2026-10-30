@@ -1,14 +1,16 @@
 // An opt-in hash map that probes sixteen slots at a time. A jaic extension, not
 // official Jai. See docs/extensions/hash-map.md.
 //
-//     Map :: #import "Extensions/Hash_Map";
+// ```jai
+// Map :: #import "Extensions/Hash_Map";
 //
-//     ages: Map.Map(string, int);
-//     defer Map.deinit(*ages);
+// ages: Map.Map(string, int);
+// defer Map.deinit(*ages);
 //
-//     Map.insert(*ages, "ada", 36);
-//     age := Map.get(*ages, "ada");
-//     for value, name: ages print("% is %\n", name, value);
+// Map.insert(*ages, "ada", 36);
+// age := Map.get(*ages, "ada");
+// for value, name: ages print("% is %\n", name, value);
+// ```
 //
 // A key is stored once. Iteration order is whatever the layout gives, and changes whenever the
 // map grows.

@@ -55,9 +55,11 @@ rng_unit :: (rng: *Rng) -> float64 {
 // in place of the built-in one. Named in a `@generate(NAME)` note; values it makes are not
 // shrunk.
 //
-//     even :: (rng: *Rng) -> s64 { return rng_range(rng, -500, 500) * 2; }
+// ```jai
+// even :: (rng: *Rng) -> s64 { return rng_range(rng, -500, 500) * 2; }
 //
-//     doubles :: (n: s64) { expect_equal((n * 3) % 2, 0); } @test @property @generate(even)
+// doubles :: (n: s64) { expect_equal((n * 3) % 2, 0); } @test @property @generate(even)
+// ```
 Custom_Generator :: struct {
     info: *Type_Info;
     make: (rng: *Rng, destination: *void);

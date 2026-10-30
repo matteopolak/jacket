@@ -22,7 +22,9 @@ App_Window :: struct {
 // Open a window and run `build` for every frame until the window closes. `app` is passed to `build`
 // each frame. Returns false when the window or the GPU could not be set up.
 //
-//     run_app(.{title = "Counter", width = 320, height = 200}, *app, build);
+// ```jai
+// run_app(.{title = "Counter", width = 320, height = 200}, *app, build);
+// ```
 run_app :: (options: App_Options, app: *$T, build: (app: *T)) -> bool {
     ui := New(UI_State);
 

@@ -25,7 +25,9 @@ select :: (db: $D, $T: Type, $where: Code = EVERY_ROW, $order_by: Code = NO_ORDE
 // Some fields of a table struct, with their types and notes: the rows of `select(..., fields = ...)`.
 // `fields` is a comma-separated list of `T`'s field names.
 //
-//     Contact :: Pg.Partial(User, "id, email");
+// ```jai
+// Contact :: Pg.Partial(User, "id, email");
+// ```
 Partial :: struct(T: Type, fields: string) {
     #insert #run orm_partial_body(T, fields);
 }
@@ -72,8 +74,10 @@ insert_many :: (db: $D, values: [] $T, $call := #caller_code) -> [] T, Pg_Error 
 // starts, and a failure lands in `error` (which is cleared first). Strings in `it` read from the
 // result, which is freed when the loop ends: copy what you keep.
 //
-//     error: Pg.Pg_Error;
-//     for Pg.each(db, User, *error, where = #code it.score > min) print("%\n", it.email);   // select "id", "email" ...
+// ```jai,ignore
+// error: Pg.Pg_Error;
+// for Pg.each(db, User, *error, where = #code it.score > min) print("%\n", it.email);   // select "id", "email" ...
+// ```
 each :: (db: $D, $T: Type, error: *Pg_Error, $where: Code = EVERY_ROW, $order_by: Code = NO_ORDER, $desc := false, $limit := -1, $offset := 0, $from_sql := "", $strategy := Orm_Strategy.PRELOAD, $call := #caller_code) -> Orm_Each(D, T, where, order_by, desc, limit, offset, from_sql, strategy, call) {
     if error error.* = .{};
     return .{ db = db, error = error };
@@ -105,8 +109,10 @@ copy_many :: (db: $D, values: [] $T) -> s64, Pg_Error {
 // `T`), in one query: `items[i]` belongs to `parents[i]`. Free it with `free_loaded`; the items
 // read from its result.
 //
-//     posts, error := Pg.load_many(db, users, "posts");
-//     for users print("% wrote % posts\n", it.email, posts.items[it_index].count);
+// ```jai,ignore
+// posts, error := Pg.load_many(db, users, "posts");
+// for users print("% wrote % posts\n", it.email, posts.items[it_index].count);
+// ```
 Loaded_Many :: struct(Item: Type) {
     items: [][] Item;
     // Every item once; `items` are views into it.

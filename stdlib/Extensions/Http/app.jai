@@ -4,10 +4,12 @@
 //     get(*app, "/users/{id}", get_user);
 //     post(*app, "/users", create_user);
 //
-//     admin := group(*app, "/admin", require_token);
-//     delete(admin, "/users/{id}", delete_user);
+// ```jai
+// admin := group(*app, "/admin", require_token);
+// delete(admin, "/users/{id}", delete_user);
 //
-//     serve(*app);
+// serve(*app);
+// ```
 
 // What an `App` does when nothing else is said. Every number is a limit or a timeout in
 // milliseconds unless it says otherwise; 0 turns the ones that allow it off.
@@ -167,9 +169,11 @@ Group :: struct(PREFIX: string) {
 
 // Routes under `prefix`, wrapped by `middleware`, which runs after the app's middleware:
 //
-//     admin := group(*app, "/admin", require_token);
-//     get(admin, "/stats", stats);               // GET /admin/stats
-//     v1 := group(admin, "/v1");                 // groups nest; the middleware add up
+// ```jai,ignore
+// admin := group(*app, "/admin", require_token);
+// get(admin, "/stats", stats);               // GET /admin/stats
+// v1 := group(admin, "/v1");                 // groups nest; the middleware add up
+// ```
 // Routes under `prefix` that share `middleware`, which runs after the app's own. The prefix is part of the group's type, so
 // a handler's `Path(...)` is checked against the whole route. The group belongs to the app and is released with it: do not
 // free it. Groups nest with `group(parent, "/more")`, and the middleware add up.

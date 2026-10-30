@@ -9,7 +9,9 @@
 
 // One line of the hand-written `db/json_columns.jai`:
 //
-//     Json_Columns :: Pg.Json_Column.[ .{ "users.settings", Settings, .{ unknown_fields = .DENY } } ];
+// ```jai
+// Json_Columns :: Pg.Json_Column.[ .{ "users.settings", Settings, .{ unknown_fields = .DENY } } ];
+// ```
 //
 // `column` is "table.column", with the schema in front when it is not `public`. `options` says how
 // strictly that column's documents are decoded; it sits between the connection's options and a

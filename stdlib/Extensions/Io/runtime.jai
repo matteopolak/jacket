@@ -7,9 +7,11 @@
 // adds no limit (`NO_DEADLINE`), so a timeout setting that may be off needs no second code path.
 // Channel and lock operations are not IO and ignore it.
 //
-//     with_deadline(2000, #code {
-//         count, error = read(conn, buffer);       // .TIMED_OUT after two seconds without data
-//     });
+// ```jai,ignore
+// with_deadline(2000, #code {
+//     count, error = read(conn, buffer);       // .TIMED_OUT after two seconds without data
+// });
+// ```
 with_deadline :: (milliseconds: s64, body: Code) #expand {
     previous_deadline := push_deadline(milliseconds);
     defer pop_deadline(previous_deadline);
@@ -23,8 +25,10 @@ with_deadline :: (milliseconds: s64, body: Code) #expand {
 // `body` ends, the outer deadline is back, and the fiber is canceled if it was before or a cancel
 // came during `body`.
 //
-//     count, error = read(conn, buffer);           // .TIMED_OUT
-//     with_grace(1000, #code { write(conn, "stop"); });
+// ```jai,ignore
+// count, error = read(conn, buffer);           // .TIMED_OUT
+// with_grace(1000, #code { write(conn, "stop"); });
+// ```
 with_grace :: (milliseconds: s64, body: Code) #expand {
     previous_grace := push_grace(milliseconds);
     defer pop_grace(previous_grace);
@@ -120,10 +124,12 @@ processor_count :: () -> s64 {
 // one, and returns when all have finished. Fibers never move between them. With `reuse_port`
 // listeners (`tcp_listen(..., reuse_port = true)`) each thread accepts its own connections:
 //
-//     io_run_threads(4, () {
-//         listener, error := tcp_listen(":8080", reuse_port = true);
-//         while true { conn := accept(listener); spawn(handle, conn); }
-//     });
+// ```jai,ignore
+// io_run_threads(4, () {
+//     listener, error := tcp_listen(":8080", reuse_port = true);
+//     while true { conn := accept(listener); spawn(handle, conn); }
+// });
+// ```
 //
 // `count` 0 means one per processor. Call it from outside any `io_run`.
 //

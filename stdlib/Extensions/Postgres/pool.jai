@@ -170,13 +170,15 @@ Isolation :: enum u8 {
 // to `retries` more times, so `body` must be safe to repeat. `data` is passed through, as Jai
 // procedures capture nothing.
 //
-//     Transfer :: struct { from: s64; to: s64; amount: s64; }
-//     error := Pg.transaction(pool, Transfer.{ 1, 2, 10 }, (tx: *Pg.Connection, t: Transfer) -> Pg.Pg_Error {
-//         _, error := Pg.query_dynamic(tx, "update accounts set balance = balance - $1 where id = $2", t.amount, t.from);
-//         if error.kind != .NONE return error;
-//         _, error = Pg.query_dynamic(tx, "update accounts set balance = balance + $1 where id = $2", t.amount, t.to);
-//         return error;
-//     }, .SERIALIZABLE, retries = 3);
+// ```jai,ignore
+// Transfer :: struct { from: s64; to: s64; amount: s64; }
+// error := Pg.transaction(pool, Transfer.{ 1, 2, 10 }, (tx: *Pg.Connection, t: Transfer) -> Pg.Pg_Error {
+//     _, error := Pg.query_dynamic(tx, "update accounts set balance = balance - $1 where id = $2", t.amount, t.from);
+//     if error.kind != .NONE return error;
+//     _, error = Pg.query_dynamic(tx, "update accounts set balance = balance + $1 where id = $2", t.amount, t.to);
+//     return error;
+// }, .SERIALIZABLE, retries = 3);
+// ```
 transaction :: (pool: *Pool, data: $T, body: (tx: *Connection, data: T) -> Pg_Error, isolation := Isolation.DEFAULT, retries := 0, read_only := false) -> Pg_Error {
     c, error := acquire(pool);
     if error.kind != .NONE return error;
