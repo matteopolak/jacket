@@ -128,9 +128,74 @@ pub fn syscall(args: &[u64]) -> Option<i64> {
     Some(ret)
 }
 
-#[cfg(not(all(target_os = "linux", target_arch = "x86_64")))]
+/// Make the macOS x86-64 system call `args[0]` (the BSD class, `0x2000000`, plus the number) with
+/// `args[1..7]` and return `rax` as the kernel leaves it: the result, or on failure the positive
+/// errno (the carry flag, which a caller cannot see through `#asm`, is set then). `None` for any
+/// other class.
+#[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+pub fn syscall(args: &[u64]) -> Option<i64> {
+    const CLASS_MASK: u64 = 0xff00_0000;
+    const UNIX_CLASS: u64 = 0x0200_0000;
+    let arg = |i: usize| crate::interp::word_or_zero(args, i);
+    if arg(0) & CLASS_MASK != UNIX_CLASS {
+        return None;
+    }
+    let mut rax = arg(0);
+    // SAFETY: the program asked for this system call; it is as unsafe as the `#asm` it wrote.
+    unsafe {
+        std::arch::asm!(
+            "syscall",
+            inout("rax") rax,
+            in("rdi") arg(1),
+            in("rsi") arg(2),
+            in("rdx") arg(3),
+            in("r10") arg(4),
+            in("r8") arg(5),
+            in("r9") arg(6),
+            lateout("rcx") _,
+            lateout("r11") _,
+            options(nostack),
+        );
+    }
+    Some(rax as i64)
+}
+
+#[cfg(not(any(
+    all(target_os = "linux", target_arch = "x86_64"),
+    all(target_os = "macos", target_arch = "x86_64")
+)))]
 pub fn syscall(_args: &[u64]) -> Option<i64> {
     None
+}
+
+#[cfg(all(test, target_os = "macos", target_arch = "x86_64"))]
+mod syscall_tests {
+    use super::syscall;
+
+    const GETPID: u64 = 0x200_0000 + 20;
+    const MMAP: u64 = 0x200_0000 + 197;
+    const MUNMAP: u64 = 0x200_0000 + 73;
+    const CLOSE: u64 = 0x200_0000 + 6;
+
+    #[test]
+    fn bsd_class_calls_reach_the_kernel() {
+        assert_eq!(syscall(&[GETPID]), Some(i64::from(std::process::id())));
+        // Anonymous private read-write mapping (MAP_ANON | MAP_PRIVATE), then released.
+        let address = syscall(&[MMAP, 0, 4096, 3, 0x1002, u64::MAX, 0]).unwrap();
+        assert!(address > 4096, "mmap returned {address}");
+        assert_eq!(syscall(&[MUNMAP, address as u64, 4096]), Some(0));
+    }
+
+    #[test]
+    fn a_failing_call_returns_the_positive_errno() {
+        const EBADF: i64 = 9;
+        assert_eq!(syscall(&[CLOSE, 9999]), Some(EBADF));
+    }
+
+    #[test]
+    fn a_number_outside_the_bsd_class_is_refused() {
+        assert_eq!(syscall(&[20]), None);
+    }
 }
 
 /// Whether the Linux x86-64 system call in `args` only maps or releases memory, so a sandbox
