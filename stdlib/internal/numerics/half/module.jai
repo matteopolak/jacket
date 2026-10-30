@@ -26,6 +26,10 @@ vector3_float32 :: (v: Vector3_Float16) -> Vector3 {
     return .{ half_to_float_fast4(v.x), half_to_float_fast4(v.y), half_to_float_fast4(v.z) };
 }
 
+vector4_float32 :: (v: Vector4_Float16) -> Vector4 {
+    return .{ half_to_float_fast4(v.x), half_to_float_fast4(v.y), half_to_float_fast4(v.z), half_to_float_fast4(v.w) };
+}
+
 vector2_float16 :: (v: Vector2) -> Vector2_Float16 {
     return .{ float_to_half_fast3(v.x), float_to_half_fast3(v.y) };
 }

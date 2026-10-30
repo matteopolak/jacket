@@ -188,6 +188,7 @@ main :: () {
     half4 := H.vector4_float16(xyzw(1, 2, 3, 4));
 
     assert(cast(u16) half4.w == 0x4400);
+    assert(H.vector4_float32(half4) == xyzw(1, 2, 3, 4));
     half_matrix := H.matrix3_float16(copy3);
     back := H.matrix3_float32(half_matrix);
 

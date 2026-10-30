@@ -18,7 +18,7 @@ Float16 :: Impl.Float16;
 Vector2_Float16 :: Impl.Vector2_Float16;
 // Three `Float16` components. Convert with `vector3_float32` and `vector3_float16`.
 Vector3_Float16 :: Impl.Vector3_Float16;
-// Four `Float16` components. `vector4_float16` converts into it; there is no conversion back to a `Vector4`, so convert the components with `float16_to_float32`.
+// Four `Float16` components. Convert with `vector4_float32` and `vector4_float16`.
 Vector4_Float16 :: Impl.Vector4_Float16;
 // A 3x3 matrix of `Float16`, with the same field names (`_11` to `_33`) and the same row-major `floats` overlay as `Math.Matrix3`. Convert with `matrix3_float32` and `matrix3_float16`.
 Matrix3_Float16 :: Impl.Matrix3_Float16;
@@ -86,6 +86,16 @@ vector3_float32 :: Impl.vector3_float32;
 // assert(v.x == 1 && v.y == 2 && v.z == 3);
 // ```
 vector3_float16 :: Impl.vector3_float16;
+// Converts a `Vector4_Float16` to a `Math.Vector4`, exactly.
+//
+// ```jai
+// #import "Math";
+// h := vector4_float16(xyzw(0.5, -2, 8, 70000));
+// v := vector4_float32(h);
+// assert(v.x == 0.5 && v.y == -2 && v.z == 8);
+// assert(v.w > 1e30); // 70000 overflowed to infinity in half precision
+// ```
+vector4_float32 :: Impl.vector4_float32;
 // Converts a `Math.Vector4` to half precision, rounding each component as `float_to_half_fast3` does.
 //
 // ```jai
