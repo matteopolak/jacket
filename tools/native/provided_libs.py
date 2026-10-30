@@ -88,6 +88,31 @@ def parse_note(text):
     return kind, tuple(platforms), None
 
 
+def note(kind, *platforms):
+    """The text of a `@native` note: `note("external")` is `@native(external)`. Generators put it after the `;` of
+    each library binding they write, so regenerating a file keeps the notes its binding lines carry."""
+    text = "@native(" + ",".join((kind, *platforms)) + ")"
+    problem = parse_note(text)[2]
+    if problem:
+        raise ValueError(problem)
+    return text
+
+
+# The note of a system library (`#library,system`, `#system_library`): the system provides it.
+EXTERNAL = note("external")
+# The note of a binding to the libclang shim, which only developer tools load.
+DEVELOPER = note("developer")
+
+
+def external_note(raw):
+    """` @native(external)` for a system library binding that names `raw`, and "" for a library the release builds
+    (a name tools/native/native-libs.json holds carries no note). Append it right after the binding's `;`."""
+    name = library_name(raw)
+    if name in load_manifest()["libraries"] or name in rpmalloc_libraries():
+        return ""
+    return " " + EXTERNAL
+
+
 def bindings(stdlib):
     """Each library binding of the shipped sources (not `tests/`), by file and line."""
     for path in sorted(stdlib.rglob("*.jai")):

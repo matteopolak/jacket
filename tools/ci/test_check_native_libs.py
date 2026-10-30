@@ -109,6 +109,14 @@ class Repository(unittest.TestCase):
     def test_the_notes_parse_and_agree(self):
         self.assertEqual(provided_libs.providers(ROOT / "stdlib")[1], [])
 
+    def test_generators_note_system_libraries_but_not_built_ones(self):
+        self.assertEqual(provided_libs.external_note("curl"), " @native(external)")
+        self.assertEqual(provided_libs.external_note("lz4"), "")
+        self.assertEqual(provided_libs.external_note("imgui"), "")
+        self.assertEqual(provided_libs.note("runtime", "windows"), "@native(runtime,windows)")
+        with self.assertRaises(ValueError):
+            provided_libs.note("bogus")
+
     def test_every_recipe_is_used(self):
         declared = provided_libs.providers(ROOT / "stdlib")[0]
         self.assertEqual(sorted(set(provided_libs.RECIPES) - set(declared)), [])

@@ -102233,7 +102233,7 @@
         {
           "module": "Objective_C/AppKit",
           "artifact": "stdlib/Objective_C/AppKit/module.jai",
-          "artifact_sha256": "97e1a70424fcdf1d9c17dad4fda958d55a486461a2f45f79cc7049353f8c54fc",
+          "artifact_sha256": "0fad933af19ec9996293e0fe723e56922087a877bbd39450fce8b716e78dcb2c",
           "public_types": [
             "NSBackingStoreType",
             "NSResponder",

@@ -11,6 +11,7 @@ from collections import defaultdict
 import re
 
 from generators.jai_codegen import emit_generated, generator_parser
+from native.provided_libs import EXTERNAL
 from native_bindings.spec import parse_spec
 from toolkit.repo import ROOT
 
@@ -154,14 +155,14 @@ def main():
             header += "".join(
                 f"{name} :: Windows_Native.{name};\n" for name in dependencies
             )
-            header += 'ws2_32 :: #system_library "ws2_32";\n'
+            header += f'ws2_32 :: #system_library "ws2_32"; {EXTERNAL}\n'
         else:
             header += '#scope_file\n#import "internal/bindings/posix-api";\n\n'
             header += (
                 "// Unix select takes the native timeval through a private spelling.\n"
             )
             header += "TIMEVAL :: timeval;\n"
-            header += 'libc :: #system_library "libc";\n'
+            header += f'libc :: #system_library "libc"; {EXTERNAL}\n'
         header += "#scope_export\n\n"
         path = ROOT / f"stdlib/internal/net/socket-abi-{target}.jai"
         emit_generated(

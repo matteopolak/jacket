@@ -8,6 +8,7 @@ operations dispatch as void and return the explicitly unspecified null slot.
 import argparse
 import re
 from pathlib import Path
+from native.provided_libs import EXTERNAL
 from toolkit.repo import ROOT
 
 SPEC = ROOT / "docs/specs/stdlib/modules/appkit.md"
@@ -305,8 +306,8 @@ def generate(output):
     out += """
 #scope_file
 O :: #import "Objective_C";
-libobjc :: #library,system "objc";
-CoreGraphics :: #library,system "CoreGraphics";
+libobjc :: #library,system "objc"; """ + EXTERNAL + """
+CoreGraphics :: #library,system "CoreGraphics"; """ + EXTERNAL + """
 binding_class :: (name: *u8) -> *void #foreign libobjc "objc_getClass";
 binding_selector :: (name: *u8) -> O.Selector #foreign libobjc "sel_registerName";
 binding_send :: () #foreign libobjc "objc_msgSend";

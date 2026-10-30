@@ -17,6 +17,7 @@ from bitfields import body as bitfield_body
 from native_bindings.spec import Declaration, Shape
 from rpmalloc_context import render_context
 from conditions import possible
+from native.provided_libs import EXTERNAL, external_note
 from toolkit.hashing import sha256_file
 from toolkit.repo import ROOT
 
@@ -657,9 +658,10 @@ def main():
         library_names = sorted(set(re.findall(r'#(?:foreign|elsewhere)\s+(\w+)', code + '\n' + PRIVATE.get(module, ''))))
         for name in library_names:
             if name == 'gl_lib':
-                preamble.append('#if OS == .WINDOWS { gl_lib :: #library,system "opengl32"; }\nelse #if OS == .MACOS { gl_lib :: #library,system "OpenGL"; }\nelse { gl_lib :: #library,system "GL"; }')
+                preamble.append('\n'.join(f'{prefix}{{ gl_lib :: #library,system "{library}"; {EXTERNAL} }}' for prefix, library in
+                                          (('#if OS == .WINDOWS ', 'opengl32'), ('else #if OS == .MACOS ', 'OpenGL'), ('else ', 'GL'))))
             else:
-                preamble.append(name + ' :: #library,system "' + LIBRARIES.get(name, name) + '";')
+                preamble.append(name + ' :: #library,system "' + LIBRARIES.get(name, name) + '";' + external_note(LIBRARIES.get(name, name)))
         preamble.append('#scope_export')
         code = ('// Generated from ' + str(page.relative_to(ROOT)) + '.\n// Regenerate with tools/native_bindings/generate.py; do not hand-edit.\n\n' + '\n'.join(preamble) + '\n\n' + code).rstrip()+'\n'
         code = format_source(code, args.formatter)

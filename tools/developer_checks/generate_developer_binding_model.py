@@ -9,6 +9,7 @@ import re
 
 from generators.jai_codegen import emit_generated, generator_parser
 from developer_checks.dev_common import ROOT
+from native.provided_libs import DEVELOPER
 
 SPEC = ROOT / "docs/specs/stdlib/modules/bindings-generator.md"
 
@@ -147,7 +148,7 @@ def main():
             source += unix
         else:
             source += "#if OS == .WINDOWS {\n" + windows + "} else {\n" + unix + "}\n"
-    source += '\n#scope_file\nlibclang :: #library "../internal/developer-tools/clang-bindings/clang";\n'
+    source += f'\n#scope_file\nlibclang :: #library "../internal/developer-tools/clang-bindings/clang"; {DEVELOPER}\n'
     outputs["native-parser-api.jai"] = source
     # The remaining native reexports are ABI bindings, not generator algorithms.
     # Sort independently of inventory order and retain exact reviewed signatures.
@@ -183,7 +184,7 @@ def main():
         else:
             extended_models += body + "\n"
     outputs["native-extended-model.jai"] = extended_models
-    extended_api += '\n#scope_file\nlibclang :: #library "../internal/developer-tools/clang-bindings/clang";\n'
+    extended_api += f'\n#scope_file\nlibclang :: #library "../internal/developer-tools/clang-bindings/clang"; {DEVELOPER}\n'
     extended_api += '#if OS == .WINDOWS { time_t :: s64; } else { Native_POSIX :: #import "POSIX"; time_t :: Native_POSIX.time_t; }\n'
     outputs["native-extended-api.jai"] = extended_api
     # Exact compatibility arrays are specified in the reviewed refinement.

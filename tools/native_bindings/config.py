@@ -2,6 +2,8 @@
 
 These are packaging choices. Public ABI declarations come from the specs.
 """
+from native.provided_libs import EXTERNAL
+
 IMPORTS = {
     'd3d11': ['Windows', 'dxgi', 'd3d_compiler'], 'd3d12': ['Windows', 'dxgi', 'd3d_compiler'],
     'd3d_compiler': ['Windows'], 'dxc_compiler': ['Windows'],
@@ -61,8 +63,8 @@ PARAMETERS = {
     'GL': '#module_parameters(DUMP_GL_ERRORS := false, ENABLE_ALL_EXTENSIONS := false, DEFAULT_MSAA: s32 = 4)();',
     'telemetry3': '#module_parameters(ENABLED := false)();',
 }
-CXX_RUNTIME = '''#if OS == .MACOS { #library,system,link_always "c++"; }
-else #if OS == .LINUX { #library,system,link_always "stdc++"; }'''
+CXX_RUNTIME = f'''#if OS == .MACOS {{ #library,system,link_always "c++"; {EXTERNAL} }}
+else #if OS == .LINUX {{ #library,system,link_always "stdc++"; {EXTERNAL} }}'''
 
 PRIVATE = {
     'd3d12': 'Binding_Math :: #import "internal/bindings/graphics-math";',
@@ -119,13 +121,13 @@ binding_objc_send :: () #foreign libobjc "objc_msgSend";
 binding_abort :: () #foreign libc "abort";
 binding_strlen :: (text: *u8) -> u64 #foreign libc "strlen";
 #if CPU == .X64 { binding_objc_send_stret :: () #foreign libobjc "objc_msgSend_stret"; }
-#library,system,link_always "Foundation";
-#library,system,link_always "QuartzCore";''',
+#library,system,link_always "Foundation"; '''+EXTERNAL+'''
+#library,system,link_always "QuartzCore"; '''+EXTERNAL,
     'Metal': '''binding_objc_class :: (name: *u8) -> *void #foreign libobjc "objc_getClass";
 binding_objc_selector :: (name: *u8) -> *void #foreign libobjc "sel_registerName";
 binding_objc_send :: () #foreign libobjc "objc_msgSend";
 #if CPU == .X64 { binding_objc_send_stret :: () #foreign libobjc "objc_msgSend_stret"; }
-#library,system,link_always "Metal";
+#library,system,link_always "Metal"; '''+EXTERNAL+'''
 uint64_t :: u64;
 uint32_t :: u32;
 int32_t :: s32;
