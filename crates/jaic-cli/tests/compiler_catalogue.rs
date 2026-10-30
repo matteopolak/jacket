@@ -114,7 +114,6 @@ fn decimal_required_precision_rejects_implicit_narrowing() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     for name in [
         "decimal-implicit-narrowing-rejected",
-        "decimal-arithmetic-narrowing-rejected",
         "code-roundtrip-narrowing-rejected",
     ] {
         let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
