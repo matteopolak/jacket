@@ -375,6 +375,7 @@ fn element_access(
         Some(Node::Expr(Expr {
             kind: E::Unary(jaic::ast::UnOp::Star, _),
             span,
+            ..
         })) => (*span, Replace::Address, true),
         Some(Node::Expr(Expr {
             kind: E::Member(b, _),

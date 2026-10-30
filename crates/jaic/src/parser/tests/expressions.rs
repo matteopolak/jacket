@@ -456,4 +456,26 @@ fn run_operand_is_a_full_expression() {
     );
 }
 
+#[test]
+fn parentheses_are_recorded_on_the_expression_they_enclose() {
+    let ExprKind::Binary(_, a, b) = value("x := (a + b) * c;").kind else {
+        panic!()
+    };
+    assert!(a.parenthesized && !b.parenthesized);
+    // The parentheses of a call are not a group around an expression.
+    let ExprKind::Call {
+        args, ..
+    } = value("x := f(a, (b));").kind
+    else {
+        panic!()
+    };
+    assert!(!args[0].value.parenthesized && args[1].value.parenthesized);
+    assert!(value("x := ((a));").parenthesized);
+    assert!(!value("x := a;").parenthesized);
+    // The span still leaves the parentheses out.
+    let src = "x := (a + b);";
+    let e = value(src);
+    assert_eq!(&src[e.span.start as usize..e.span.end as usize], "a + b");
+}
+
 // -- declarations ---------------------------------------------------------------

@@ -18,6 +18,7 @@ pub(super) fn mk(kind: ExprKind, span: Span) -> Expr {
     Expr {
         kind,
         span,
+        parenthesized: false,
     }
 }
 

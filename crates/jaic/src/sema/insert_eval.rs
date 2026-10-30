@@ -18,6 +18,7 @@ impl Compiler {
                     hint: ast::CallHint::None,
                 },
                 span: value.span,
+                parenthesized: false,
             };
             let op = self.check_run_inner(scope, &ast::RunBody::Expr(call), None, value.span)?;
             if self.ed.is_live() {

@@ -97,7 +97,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 fn negated(cx: &Cx, cond: &Expr) -> String {
     if let E::Unary(UnOp::Not, inner) = &cond.kind {
         let text = cx.whole_src(inner.span).trim();
-        if cx.parenthesized(inner.span) {
+        if inner.parenthesized {
             return text[1..text.len() - 1].trim().to_string();
         }
         return text.to_string();

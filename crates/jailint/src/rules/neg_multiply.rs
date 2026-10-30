@@ -49,7 +49,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             );
             let written = cx.text.get(start..end).unwrap_or("");
             let value = cx.whole_src(other.span).trim();
-            let negated = if is_atom(other) || cx.parenthesized(other.span) {
+            let negated = if is_atom(other) || other.parenthesized {
                 format!("-{value}")
             } else {
                 format!("-({value})")

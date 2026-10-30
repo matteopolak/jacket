@@ -138,9 +138,20 @@ impl Int128 {
 pub struct Expr {
     pub kind: ExprKind,
     pub span: Span,
+    /// The expression was written inside parentheses: `(a + b)`. The span leaves them out, so
+    /// a rule about how code was written reads this instead of the source text.
+    pub parenthesized: bool,
 }
 
 impl Expr {
+    pub fn new(kind: ExprKind, span: Span) -> Self {
+        Self {
+            kind,
+            span,
+            parenthesized: false,
+        }
+    }
+
     /// The `a.b.c` spelling of a name path, or `None` when the expression is anything else.
     pub fn path_string(&self) -> Option<String> {
         match &self.kind {

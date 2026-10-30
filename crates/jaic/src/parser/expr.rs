@@ -6,10 +6,7 @@ use crate::lexer::{P, Tok};
 use crate::source::Span;
 
 pub(super) fn mk(kind: ExprKind, span: Span) -> Expr {
-    Expr {
-        kind,
-        span,
-    }
+    Expr::new(kind, span)
 }
 
 /// Binary operator precedence, lowest first; every level is left associative.
@@ -150,13 +147,12 @@ impl Parser<'_> {
             _ => return self.parse_postfix(true),
         };
         self.bump();
-        let parenthesized = self.at(P::LParen);
         let operand = self.parse_unary()?;
         let span = start.to(operand.span);
         // `*Block.[a, b]` is an array literal of `*Block`; `*(Block.[a, b])` takes the address of
         // an array literal.
         if op == UnOp::Star
-            && !parenthesized
+            && !operand.parenthesized
             && matches!(
                 &operand.kind,
                 ExprKind::ArrayLit {
@@ -182,7 +178,7 @@ impl Parser<'_> {
         // `*T.{..}` is a pointer to a struct literal here; the official compiler reads it as the
         // pointer type `*T` followed by a literal.
         if op == UnOp::Star
-            && !parenthesized
+            && !operand.parenthesized
             && matches!(
                 &operand.kind,
                 ExprKind::StructLit {
@@ -609,7 +605,10 @@ impl Parser<'_> {
                 self.bump();
                 let inner = self.parse_expr()?;
                 self.expect(P::RParen, "to close the parenthesized expression")?;
-                Ok(inner)
+                Ok(Expr {
+                    parenthesized: true,
+                    ..inner
+                })
             }
             P::LBracket => self.parse_array_type(),
             P::DotBrace => {

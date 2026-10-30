@@ -121,10 +121,12 @@ impl Compiler {
                         Box::new(ast::Expr {
                             kind: E::Ident(tmp),
                             span: target.span,
+                            parenthesized: false,
                         }),
                         Box::new(rhs.clone()),
                     ),
                     span,
+                    parenthesized: false,
                 };
                 self.check_expr(f, inner, &expr, Some(old_ty))?
             }
@@ -420,6 +422,7 @@ impl Compiler {
             values.push(ast::Expr {
                 kind: E::Ident(tmp),
                 span: value.span,
+                parenthesized: false,
             });
         }
         for (target, value) in lhs.iter().zip(&values) {
@@ -503,6 +506,7 @@ impl Compiler {
             let value = ast::Expr {
                 kind: E::Binary(bin, Box::new(lhs[0].clone()), Box::new(rhs[0].clone())),
                 span,
+                parenthesized: false,
             };
             let result = self.check_expr(f, scope, &value, Some(ty))?;
             let result = self.convert(f, result, ty, span)?;
@@ -549,13 +553,16 @@ impl Compiler {
                 Box::new(ast::Expr {
                     kind: E::Ident(tmp),
                     span: Span::new(at.file, at.start as usize, at.start as usize),
+                    parenthesized: false,
                 }),
             ),
             span: at,
+            parenthesized: false,
         };
         let value = ast::Expr {
             kind: E::Binary(bin, Box::new(target), Box::new(operand.clone())),
             span,
+            parenthesized: false,
         };
         let result = self.check_expr(f, inner, &value, Some(ty))?;
         let result = self.convert(f, result, ty, span)?;

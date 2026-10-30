@@ -590,6 +590,7 @@ impl Exporter<'_> {
                         hint: ast::CallHint::None,
                     },
                     span,
+                    parenthesized: false,
                 };
                 let call = self.expr(&call);
                 let mut rec = self.node(RecordTag::CodeDirectiveBake, node::DIRECTIVE_BAKE, span);

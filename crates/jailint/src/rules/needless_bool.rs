@@ -15,7 +15,7 @@
 //!
 //! The fixes are machine-applicable. Comments inside a rewritten `if` keep it from being
 //! offered, so nothing written there is lost.
-use super::{op_text, parenthesized, pure, replacing, statement_range};
+use super::{op_text, pure, replacing, statement_range};
 use crate::Finding;
 use crate::syntax::{Cx, Node, is_atom, walk};
 use jaic::ast::{AssignOp, BinOp, Expr, ExprKind as E, Stmt, StmtKind as S};
@@ -65,7 +65,7 @@ pub(super) fn condition(cx: &Cx, cond: &Expr, negate: bool, inside: bool) -> Str
     if negate
         && let E::Binary(op, a, b) = &cond.kind
         && let Some(opposite) = opposite(*op)
-        && !parenthesized(cx, cond)
+        && !cond.parenthesized
         && cx.ty(a).is_some_and(|t| builtin_compare(cx, t, *op))
         && cx.ty(b).is_some_and(|t| builtin_compare(cx, t, *op))
     {
@@ -81,7 +81,7 @@ pub(super) fn condition(cx: &Cx, cond: &Expr, negate: bool, inside: bool) -> Str
             flipped
         };
     }
-    let grouped = is_atom(cond) || parenthesized(cx, cond);
+    let grouped = is_atom(cond) || cond.parenthesized;
     match (negate, grouped) {
         (false, true) => text.to_string(),
         (false, false) if inside => format!("({text})"),

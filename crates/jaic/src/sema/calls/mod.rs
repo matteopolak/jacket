@@ -254,6 +254,7 @@ impl Compiler {
                         hint: ast::CallHint::None,
                     },
                     span,
+                    parenthesized: false,
                 };
                 self.pr.calls_in_flight.push((Rc::new(call), scope));
                 let result = self.call_procs(f, scope, &procs, call_args, expected, span);

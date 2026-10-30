@@ -16,7 +16,7 @@
 //! (`a | b << c`, `a ^ b & c`, `a | b & c`). The fix writes the parentheses Jai already
 //! implies, so behaviour does not change; it is machine-applicable. If the C reading was the
 //! intent, move the parentheses instead.
-use super::{op_text, parenthesized};
+use super::op_text;
 use crate::syntax::{Cx, walk};
 use crate::{Edit, Finding, Fix};
 use jaic::ast::{BinOp, Expr, ExprKind as E};
@@ -52,7 +52,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 } else {
                     false
                 };
-                if !surprising || parenthesized(cx, child) {
+                if !surprising || child.parenthesized {
                     continue;
                 }
                 out.push(report(cx, e, child, *op, *inner));

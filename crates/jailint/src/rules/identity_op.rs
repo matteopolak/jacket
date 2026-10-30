@@ -48,7 +48,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             }
             let mut kept_text = cx.whole_src(kept.span).trim().to_string();
             // `(a + b + 0) * c`: the parentheses replaced still group the kept operand.
-            if cx.parenthesized(e.span) && !cx.parenthesized(kept.span) && !is_atom(kept) {
+            if e.parenthesized && !kept.parenthesized && !is_atom(kept) {
                 kept_text = format!("({kept_text})");
             }
             let written = cx.whole_src(e.span).trim();

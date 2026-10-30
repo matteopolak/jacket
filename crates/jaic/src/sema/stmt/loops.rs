@@ -803,6 +803,7 @@ impl Compiler {
                 if let Some(ast::Expr {
                     kind: ast::ExprKind::Ident(name),
                     span,
+                    ..
                 }) = &for_.iterator
                 {
                     let ident = ast::Ident {

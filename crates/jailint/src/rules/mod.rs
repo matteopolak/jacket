@@ -238,12 +238,6 @@ pub(crate) fn int_literal(e: &Expr) -> Option<i128> {
     }
 }
 
-/// The expression is written inside its own parentheses: `(a & b)`.
-pub(crate) fn parenthesized(cx: &Cx, e: &Expr) -> bool {
-    let (start, end) = cx.whole(e.span);
-    start < e.span.start as usize || end > e.span.end as usize
-}
-
 /// The procedures a call's callee named, when it is a plain name or `Module.name`.
 pub(crate) fn callee_procs<'c>(cx: &'c Cx, callee: &Expr) -> &'c [ProcId] {
     let span = match &callee.kind {

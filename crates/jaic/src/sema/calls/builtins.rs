@@ -110,6 +110,7 @@ impl Compiler {
                 let expr = ast::Expr {
                     kind: ast::ExprKind::Proc(lit),
                     span,
+                    parenthesized: false,
                 };
                 let id = self.add_code(Rc::new(ast::CodeBody::Expr(expr)), pscope);
                 self.pr.code_procs.insert(id.0 as usize, p);

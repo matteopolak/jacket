@@ -114,7 +114,7 @@ fn positive(cx: &Cx, cond: &Expr) -> Option<String> {
     match &cond.kind {
         E::Unary(UnOp::Not, inner) => {
             let text = cx.whole_src(inner.span).trim();
-            Some(if cx.parenthesized(inner.span) {
+            Some(if inner.parenthesized {
                 text[1..text.len() - 1].trim().to_string()
             } else {
                 text.to_string()

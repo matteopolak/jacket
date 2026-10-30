@@ -281,6 +281,7 @@ impl Parser<'_> {
                 && let Some(Expr {
                     kind: ExprKind::Ident(name),
                     span,
+                    ..
                 }) = p.ty.take_if(|t| matches!(t.kind, ExprKind::Ident(_)))
             {
                 p.name = Some(crate::ast::Ident {

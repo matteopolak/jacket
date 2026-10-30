@@ -13,7 +13,7 @@
 //! float (`cast(float32)`, `cast(float64)`, or `xx` to a float) or is an operand of arithmetic
 //! that produces a float. A variable divided by a literal power of two (`cast(float)(w / 2)`,
 //! centring on whole pixels) is taken as deliberate and not reported.
-use super::{int_literal, parenthesized, suggesting};
+use super::{int_literal, suggesting};
 use crate::syntax::{Cx, Node, walk};
 use crate::{Edit, Finding};
 use jaic::ast::{BinOp, Expr, ExprKind as E};
@@ -74,7 +74,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 } => {
                     format!("cast(float) {a_text}")
                 }
-                _ if parenthesized(cx, a) => format!("cast(float) {a_text}"),
+                _ if a.parenthesized => format!("cast(float) {a_text}"),
                 _ => format!("cast(float) ({a_text})"),
             };
             let b_text = cx.whole_src(b.span).trim();
