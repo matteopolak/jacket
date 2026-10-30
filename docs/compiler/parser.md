@@ -31,7 +31,7 @@ The recursive-descent parser in `crates/jaic/src/parser/`. It turns tokens from 
 - **Expression directive**: an arm in `parse_directive_expr` (`directive.rs`) and an `ExprKind` variant in `ast.rs`.
 - **Statement directive**: an arm in `parse_directive_stmt` (`directive_stmt.rs`).
 - **Procedure flag**: `apply_directive_flag` in `procedure.rs` plus a `ProcFlags` field, or add the name to `OTHER_FLAGS`. **Declaration flag**: `DECL_FLAGS` in `decl.rs`.
-- Add syntax to `lexer.rs`, `parser/` and `ast.rs` with tests in `parser/tests.rs`.
+- Add syntax to `lexer.rs`, `parser/` and `ast.rs` with tests in `parser/tests.rs`. A new statement or expression form that holds sub-expressions also goes in `ast/walk.rs` (`children`), the tree walker `jailint` and the language server share: it visits every statement and expression with its ancestors, and does not enter nested procedures, structs or enums.
 - **Editor syntax facts** (`parser/ide_facts.rs`): what the [language server](language-server.md) reads from a recovered parse (`parse_file_ide`): top-level items, procedures and their notes, type parameters, the call at a position. A new declaration form needs a case in `decl_class`.
 
 ### Node sizes

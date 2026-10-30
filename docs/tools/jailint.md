@@ -387,12 +387,12 @@ The formatter is written in Jai and reads the `[format]` table itself; both tabl
 4. Run it over the repository and the upstream corpus with `-W <name>` and check every hit; a rule that is sometimes wrong costs more trust than it earns.
 5. Add a `### <name>` section here (the anchor editors link to), then regenerate the reference: `PYTHONPATH=tools python3 tools/generators/generate_reference_docs.py`. The rule's table row comes from its `INFO` summary.
 
-Inside a rule: `cx.procs` lists bodies (trust facts only for `p.clean` / `p.typed()`); `cx.ty`, `cx.constant`, `cx.entities(span)` and `cx.compiler.is_used` read facts; `cx.mentions` is the textual guard for unchecked code; `syntax::walk` does not enter nested procedures or struct bodies. A fix is byte edits; mark it `machine_applicable` only if it cannot change behaviour and the result still compiles (`fixed_cases_are_clean` re-lints `bad.fixed.jai`). New facts go in `IdeFacts` (`crates/jaic/src/ide/facts.rs`) behind `lint`.
+Inside a rule: `cx.procs` lists bodies (trust facts only for `p.clean` / `p.typed()`); `cx.ty`, `cx.constant`, `cx.entities(span)`, `cx.locals(span)`, `cx.procs_with_header(span)` and `cx.compiler.is_used` read facts, the span ones through the shared [`jaic::ide` lookups](../compiler/ide-facts.md) (built once per compile, sketch mark applied there, not in the rules); `cx.mentions` is the textual guard for unchecked code; `jaic::ast::walk::walk` (shared with the language server) does not enter nested procedures or struct bodies. A fix is byte edits; mark it `machine_applicable` only if it cannot change behaviour and the result still compiles (`fixed_cases_are_clean` re-lints `bad.fixed.jai`). New facts go in `IdeFacts` (`crates/jaic/src/ide/facts.rs`) behind `lint`.
 
 Gotchas:
 
 - Facts are recorded only for files under the root's directory, so module files reached from a program are not linted from it.
-- `ide_check_all` checks bodies nothing called; a body that failed in any polymorph instance is not clean. Language-server sketches come after `IdeFacts::sketch_from` and rules never see them.
+- `ide_check_all` checks bodies nothing called; a body that failed in any polymorph instance is not clean. Language-server sketches come after `IdeFacts::sketch_from` and rules never see them: the lookups stop there.
 - A metaprogram needing a foreign call the sandbox lacks stops there; only what compiled is linted (`-v` shows the root).
 
 ## Dependencies
