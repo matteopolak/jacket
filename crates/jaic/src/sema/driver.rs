@@ -368,6 +368,7 @@ impl Compiler {
         };
         self.check_declared_structs()?;
         self.check_declared_overloads()?;
+        self.warn_declarations_hiding_imports();
         if lowered {
             self.fill_runtime_info()?;
         }

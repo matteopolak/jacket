@@ -36,6 +36,7 @@ mod epochs;
 mod expr;
 mod flow;
 mod format_check;
+mod hidden_imports;
 mod host_import;
 mod host_run;
 mod host_twin;

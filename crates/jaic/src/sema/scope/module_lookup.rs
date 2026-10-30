@@ -381,7 +381,7 @@ pub fn filter_hides(filter: &ast::UsingFilter, name: Sym) -> bool {
 
 /// The name a module declares for `name` as seen through an optional `using` filter;
 /// `None` when the filter keeps it out. Mapping filters answer with the original name.
-pub(super) fn filter_name(filter: Option<&ast::UsingFilter>, name: Sym) -> Option<Sym> {
+pub(in crate::sema) fn filter_name(filter: Option<&ast::UsingFilter>, name: Sym) -> Option<Sym> {
     match filter {
         Some(
             filter @ (ast::UsingFilter::Only(_)

@@ -12,3 +12,4 @@ pub use self::model::{
     PendingState, Resolved, Scope, ScopeId, ScopeKind, UsingEntry,
 };
 pub use self::module_lookup::filter_hides;
+pub(in crate::sema) use self::module_lookup::filter_name;

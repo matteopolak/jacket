@@ -311,3 +311,62 @@ fn a_local_declared_above_its_use_does_not_warn() {
     assert_eq!(found.len(), 1, "{found:?}");
     assert!(found[0].message.contains("`bar`"), "{found:?}");
 }
+
+const SYS: &str = "errno :: () -> s32 { return 0; }
+grab :: (size: s64, flags: s32) -> s32 { return 0; }
+Shared :: struct { n: int; }";
+
+#[test]
+fn a_procedure_with_the_parameters_of_an_imported_one_warns() {
+    let text = the_warning(
+        "#import \"Sys\";
+        grab :: (size: s64, flags: s32) -> *void, s64 { return null, 0; }
+        main :: () { }",
+        &[("Sys", SYS)],
+        Leniency::HidesImport,
+    );
+    assert!(
+        text.contains("`grab` has the same parameters as the one `Sys` exports"),
+        "{text}"
+    );
+    assert!(text.contains("also declared here"), "{text}");
+    assert!(text.contains("`M :: #import \"Sys\";`"), "{text}");
+}
+
+#[test]
+fn a_name_that_is_not_a_procedure_warns_when_an_import_exports_it() {
+    for declaration in ["errno: s32;", "Shared :: struct { m: int; }"] {
+        let main = format!("#import \"Sys\"; {declaration} main :: () {{ }}");
+        let text = the_warning(&main, &[("Sys", SYS)], Leniency::HidesImport);
+        assert!(
+            text.contains("is also exported by `Sys`, which this program imports"),
+            "{declaration}: {text}"
+        );
+    }
+}
+
+#[test]
+fn overloads_that_differ_and_namespaced_imports_do_not_warn() {
+    for main in [
+        "#import \"Sys\"; grab :: (size: s64) { } main :: () { }",
+        "S :: #import \"Sys\"; grab :: (size: s64, flags: s32) { } errno: s32; main :: () { }",
+        "#import \"Sys\"; main :: () { errno: s32; }",
+    ] {
+        let found = warnings(main, &[("Sys", SYS)], Leniency::HidesImport);
+        assert!(found.is_empty(), "{main}: {found:?}");
+    }
+}
+
+#[test]
+fn a_declaration_of_an_imported_module_is_silent() {
+    let user = "#import \"Sys\";
+        errno: s32;
+        grab :: (size: s64, flags: s32) -> *void, s64 { return null, 0; }
+        go :: () { errno = 1; a, b := grab(1, 2); }";
+    let found = warnings(
+        "#import \"User\"; main :: () { go(); }",
+        &[("Sys", SYS), ("User", user)],
+        Leniency::HidesImport,
+    );
+    assert!(found.is_empty(), "{found:?}");
+}
