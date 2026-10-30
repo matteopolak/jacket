@@ -89,6 +89,24 @@ nix develop     # then cargo build -p jaic-cli --locked
 - A tag push publishes everything: the GitHub release, the VS Code Marketplace, Open VSX, the Homebrew tap and the Neovim mirror. A manual run publishes to the stores only with `publish_integrations`.
 - The editor can be released independently of the compiler with `editor_version`; stores keep versions immutable, so a repin needs a new editor version.
 
+## The release command
+
+`tools/release.py <step>` is every release step the workflow and a maintainer run; `release.yml` calls it from each job (`python3 tools/release.py <step>`), and `ci.yml` calls `published`. `python3 tools/release.py --list` names the steps, `--help` after a step its options. Each option defaults to the environment variable the workflow sets (`TAG`, `CURRENT_VERSION`, `VERSION`, `EDITOR_VERSION`, `GITHUB_REPOSITORY`, `RUNNER_TEMP`); secrets (`GH_TOKEN`, `TAP_TOKEN`, `OVSX_PAT`, `VSCE_PAT`, `DEPLOY_KEY`) are read from the environment only.
+
+| Step | Job | What it does |
+| --- | --- | --- |
+| `meta` | `release-meta` | derives the job outputs (version, tag, whether it is the current release, dry run, which stores publish, the editor version) from the tag, the event and the inputs |
+| `notes TAG` | `publish` | prints the `CHANGELOG.md` section of the tag; fails when there is none or it is empty |
+| `published [--formula]` | `ci.yml` installer jobs | whether a release exists that the installers can install (and, with `--formula`, whose archive ships `jacket`); other `gh` failures fail |
+| `publish` | `publish` | creates the GitHub release from `dist/` and `notes.md`, or uploads to and edits a mutable one (`--latest` only for the workflow's own version); an immutable release fails |
+| `marketplace`, `open-vsx` | `editor-store` | publish the packaged VSIX (Open VSX creates the `matteopolak` namespace first and accepts "already exists") |
+| `homebrew` | `homebrew` | pushes the rendered formula to `matteopolak/homebrew-tap` unless it is unchanged |
+| `nvim-stamp`, `nvim-mirror` | `neovim` | stamp the version and the release's toolchain manifest into `editors/nvim`, then replace `main` of `matteopolak/jacket.nvim` and tag it `v<editor version>` (an existing tag must point at the same content) |
+| `portfolio` | `portfolio` | the last step: `gh workflow run jai-web.yml -R matteopolak/portfolio -f jai_ref=<tag>` |
+| `all` | none | the publishing steps from `publish` to `portfolio` in that order, for a release run by hand |
+
+Steps that need a secret print that they skip when it is unset, and the ones that publish do nothing without a tag. `--dry-run` runs nothing and writes nothing: it prints each command (secrets as `***`) and notes the branches that depend on the remote state, so `python3 tools/release.py all --dry-run --tag v0.30.4 --version 0.30.4 --editor-version 0.30.4 --repo matteopolak/jacket` shows the whole release. The `portfolio` step is not part of `release.yml`: the maintainer runs `python3 tools/release.py portfolio --tag <tag>` with their own `gh` login once the release is out. To add a step: a `step_<name>(args, shell)` function and a `step(...)` row in `build_parser`; run every command through `shell.run` so `--dry-run` covers it; add it to `PUBLISHING` if `all` should run it; `tools/test_release.py` has the fakes.
+
 ## Configuration
 
 the `llvm` pin in `.github/pins.json` (the LLVM release; the matrix names archives with a `{version}` placeholder); `jaic-cli` features `dynamic-llvm` (default), `static-llvm`, `llvm`; `jaic-llvm` features `dynamic`, `static`. Secrets: `HOMEBREW_TAP_TOKEN` (fine-grained token, `matteopolak/homebrew-tap` only, Contents read/write), `VSCE_PAT`, `OVSX_PAT`, `NVIM_MIRROR_DEPLOY_KEY`. The `matteopolak/homebrew-tap` repository already exists.
@@ -99,7 +117,7 @@ GitHub-hosted runners (`macos-15`, `macos-15-intel`, `ubuntu-24.04`, `ubuntu-24.
 
 ## Toolchain manifest
 
-`publish` writes `toolchain-manifest.json` next to `SHA256SUMS` with `tools/ci/toolchain_manifest.py`: `{"version": "0.20.0", "sha256": {"jacket-linux-x64.tar.gz": "<hex>", ...}}`, covering the `jacket-<platform>` archives only. The VS Code extension (`vscode` job, which generates the same file from the build's archives) and the Neovim plugin (`neovim` job, which downloads the release's) ship it and refuse any archive that does not match; a development build with no shipped manifest fetches the release's. To change the format, edit the script, `parseManifest` in `editors/vscode/src/toolchain.ts` and `parse_manifest` in `editors/nvim/lua/jai/install.lua`; all three tests read the fixtures in `editors/fixtures/` (`SHA256SUMS` and the manifest generated from it), so they cannot drift. The `publish` job also takes the release notes from `tools/ci/release_notes.py`.
+`publish` writes `toolchain-manifest.json` next to `SHA256SUMS` with `tools/ci/toolchain_manifest.py`: `{"version": "0.20.0", "sha256": {"jacket-linux-x64.tar.gz": "<hex>", ...}}`, covering the `jacket-<platform>` archives only. The VS Code extension (`vscode` job, which generates the same file from the build's archives) and the Neovim plugin (`neovim` job, which downloads the release's) ship it and refuse any archive that does not match; a development build with no shipped manifest fetches the release's. To change the format, edit the script, `parseManifest` in `editors/vscode/src/toolchain.ts` and `parse_manifest` in `editors/nvim/lua/jai/install.lua`; all three tests read the fixtures in `editors/fixtures/` (`SHA256SUMS` and the manifest generated from it), so they cannot drift. The `publish` job also takes the release notes from `tools/release.py notes`.
 
 ## Installer test vectors
 

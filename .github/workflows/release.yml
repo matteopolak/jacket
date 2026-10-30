@@ -72,7 +72,7 @@ jobs:
           EDITOR_INPUT: ${{ inputs.editor_version }}
           PUBLISH_INTEGRATIONS: ${{ inputs.publish_integrations }}
           EVENT: ${{ github.event_name }}
-        run: bash tools/ci/release_meta.sh
+        run: python3 tools/release.py meta
 
   validate-release:
     needs: release-meta
@@ -297,7 +297,7 @@ jobs:
           TAG: ${{ needs.release-meta.outputs.tag }}
         run: |
           tag="$TAG"
-          python3 tools/ci/release_notes.py "$tag" > notes.md
+          python3 tools/release.py notes "$tag" > notes.md
           python3 tools/ci/toolchain_manifest.py --version "$tag" --archives dist --out dist/toolchain-manifest.json
           (cd dist && sha256sum -- * > SHA256SUMS)
           echo "TAG=$tag" >> "$GITHUB_ENV"
@@ -305,7 +305,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           CURRENT_VERSION: ${{ needs.release-meta.outputs.version }}
-        run: bash tools/ci/publish_release.sh
+        run: python3 tools/release.py publish
 
   # Extension stores are only updated for the current compiler release. Historical compiler
   # rebuilds still attach a freshly checksum-pinned VSIX to GitHub, without republishing old,
@@ -345,16 +345,12 @@ jobs:
         if: matrix.store == 'marketplace'
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
-        run: |
-          if [ -z "$VSCE_PAT" ]; then echo "VSCE_PAT is not set; skipping the Marketplace"; exit 0; fi
-          vsix="$(ls ../../vsix/jacket-vscode-*.vsix)"
-          # vsce reads the token from VSCE_PAT.
-          pnpm exec vsce publish --packagePath "$vsix" --skip-duplicate
+        run: python3 ../../tools/release.py marketplace
       - name: Publish to Open VSX
         if: matrix.store == 'open-vsx'
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
-        run: bash ../../tools/ci/open_vsx_publish.sh
+        run: python3 ../../tools/release.py open-vsx
 
   # Package managers (docs/tools/releases.md). After the GitHub release, the Homebrew
   # formula is rendered from the tag and the release's own SHA256SUMS
@@ -410,7 +406,7 @@ jobs:
       - name: Push the formula to matteopolak/homebrew-tap
         env:
           TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-        run: bash tools/ci/homebrew_tap_push.sh
+        run: python3 tools/release.py homebrew
 
   # The Neovim plugin (editors/nvim) is mirrored to matteopolak/jacket.nvim, because vim.pack and
   # plugin managers need a repository whose root is the plugin. The mirror's main branch is
@@ -441,16 +437,9 @@ jobs:
       - name: Stamp the version and the release's toolchain manifest into the plugin
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          # The plugin downloads the compiler version; its mirror tag can advance separately.
-          cd editors/nvim
-          sed -i "s/^return '.*'$/return '$VERSION'/" lua/jai/version.lua
-          grep -q "^return '$VERSION'$" lua/jai/version.lua
-          if [ -n "$TAG" ]; then
-            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" -p toolchain-manifest.json -D .
-            cat toolchain-manifest.json
-          fi
+        # The plugin downloads the compiler version; its mirror tag can advance separately.
+        run: python3 tools/release.py nvim-stamp
       - name: Push to matteopolak/jacket.nvim
         env:
           DEPLOY_KEY: ${{ secrets.NVIM_MIRROR_DEPLOY_KEY }}
-        run: bash tools/ci/nvim_mirror_push.sh
+        run: python3 tools/release.py nvim-mirror

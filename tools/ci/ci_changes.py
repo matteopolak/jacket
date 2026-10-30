@@ -55,7 +55,7 @@ AREAS = {
         "install.ps1",
         "packaging/**",
         "tools/dev/render_packages.py",
-        "tools/ci/published_release.py",
+        "tools/release.py",
         "tools/ci/test_install_sh.py",
         "tools/ci/test_install_ps1.ps1",
         "tests/installers/**",

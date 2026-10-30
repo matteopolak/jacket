@@ -855,7 +855,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 tools/ci/published_release.py
+        run: python3 tools/release.py published
       # A release may lack this platform's archive: then install.sh must pick the platform and
       # say the release has no build for it.
       - name: Does the latest release have this platform's archive?
@@ -920,7 +920,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python tools/ci/published_release.py
+        run: python tools/release.py published
       # A stub toolchain in a release-shaped zip, served through JAI_BASE_URL=file:///...: runs
       # whether or not a release exists.
       - name: Install from a locally built archive
@@ -980,7 +980,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 tools/ci/published_release.py --formula
+        run: python3 tools/release.py published --formula
       - name: Render the formula for the latest release
         if: steps.released.outputs.published == 'true'
         env:
