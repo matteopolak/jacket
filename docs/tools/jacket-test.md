@@ -384,11 +384,11 @@ Measures the `@bench` procedures; see [jacket bench](jacket-bench.md). `jacket t
 
 ## Migrating from `tests/manifest.json`
 
-Every stdlib module's tests have moved from a `tests/manifest.json` (run by `tools/stdlib/stdlib_runtime.py`) to `jacket test`: each is listed under `[test] paths` in `jacket.toml` and has no manifest. The Python catalogue (`stdlib_test_catalog.py`) skips listed folders. The one manifest left is `tests/compiler/regressions/`, the compiler's own regressions: the sweep, the differential tester, the Windows cross build and the browser runner read its rows, so it moves when each of those has another source. `tools/stdlib/migrate_to_jacket_test.py` does the mechanical part for a folder.
+Every stdlib module's tests have moved from a `tests/manifest.json` (run by `tools/stdlib/stdlib_runtime.py`) to `jacket test`: each is listed under `[test] paths` in `jacket.toml` and has no manifest. The Python catalogue (`stdlib_test_catalog.py`) skips listed folders. The one manifest left is `tests/compiler/regressions/`, the compiler's own regressions: the sweep, the differential tester, the Windows cross build and the browser runner read its rows, so it moves when each of those has another source. The converter script is gone; the table below says what each manifest key becomes if a manifest ever needs converting by hand.
 
 **Recipe.**
 
-1. `PYTHONPATH=tools python3 tools/stdlib/migrate_to_jacket_test.py --dry-run stdlib/Module`, then without `--dry-run`. It lists what it cannot express and leaves that module alone. Files stay where they are: each case gets a `// test:` header line and expected-output files beside it, and the manifest is deleted.
+1. Convert by hand using the table below. Files stay where they are: each case gets a `// test:` header line and expected-output files beside it, and the manifest is deleted.
 2. Write the diagnostics of the new compile-fail tests with `jacket test --accept --exact NAME...` (never a bare `--accept`: it also rewrites golden outputs) and read the `.stderr` files.
 3. Run `jacket test` for the module in every mode it ran before: native, `--interp`, `--interp -os wasm`, `-os wasm --runner "node --no-warnings tools/wasi_run.mjs"`, and `-- -O2`. Native libraries come from `JAIC_NATIVE_LIBS` as for the old runner; tests that open windows need `--needs display`; the font tests read `JAIC_TEST_FONT_PATH`.
 4. `jaifmt --check`, `jailint -D warnings` on the folder.
