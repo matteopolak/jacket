@@ -864,17 +864,6 @@ mod tests {
     }
 
     #[test]
-    fn editors_lexicon_json_is_current() {
-        let path =
-            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../editors/lexicon.json");
-        test_support::snapshot::assert_generated_file(
-            &path,
-            &to_json(),
-            ", then run `node editors/vscode/scripts/build-grammar.ts`",
-        );
-    }
-
-    #[test]
     fn directives_are_sorted_and_unique() {
         assert!(DIRECTIVES.windows(2).all(|w| w[0].name < w[1].name));
     }

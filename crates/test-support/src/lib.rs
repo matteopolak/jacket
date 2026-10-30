@@ -13,7 +13,8 @@
 //!
 //! The crate depends on `jaic` only behind features, and `jaic` dev-depends on it, so a
 //! test inside `jaic`'s own `src/` (which sees a different build of `jaic` than this crate
-//! links) uses the feature-less parts only. Integration tests may use every feature.
+//! links) must not use it at all: linking both builds defines the interpreter's fiber
+//! routines twice, which fails on Linux. Put such a test under `crates/jaic/tests/`.
 
 pub mod ir;
 pub mod plugin;
