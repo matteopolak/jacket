@@ -67,7 +67,7 @@ game_init :: (game: *Game, cli: Cli) -> bool {
         return false;
     }
 
-    if !load_texture(*game.assets, *game.renderer.sheet, "sprites.png") || !load_texture(*game.assets, *game.renderer.font, "font.png") {
+    if !load_texture(*game.assets, *game.renderer.sheet, "sprites.png") || !load_texture(*game.assets, *game.renderer.font, "font.png", .NEAREST) {
         print("could not load the sprite sheets\n");
 
         return false;

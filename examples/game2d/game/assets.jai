@@ -110,14 +110,18 @@ read_pack_entry :: (pack: *Zip_Directory, name: string) -> [] u8, bool {
     return .[], false;
 }
 
-load_texture :: (assets: *Assets, texture: *Texture, name: string) -> bool {
+load_texture :: (assets: *Assets, texture: *Texture, name: string, filter := Texture_Filter.LINEAR) -> bool {
     bytes, ok := asset_bytes(assets, name);
 
     if !ok return false;
 
     defer free(bytes.data);
 
-    return texture_load_from_memory(texture, bytes);
+    if !texture_load_from_memory(texture, bytes) return false;
+
+    texture_set_filter(texture, filter);
+
+    return true;
 }
 
 load_sound :: (assets: *Assets, id: Sound_Id) -> bool {
@@ -198,7 +202,7 @@ assets_poll :: (assets: *Assets, renderer: *Renderer) -> [] string {
         } else if it == "font.png" {
             replacement: Texture;
 
-            ok = load_texture(assets, *replacement, it);
+            ok = load_texture(assets, *replacement, it, .NEAREST);
 
             if ok {
                 texture_destroy(*renderer.font);

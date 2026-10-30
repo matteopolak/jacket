@@ -213,7 +213,7 @@ smoke_render :: (smoke: *Smoke, cli: Cli, assets: *Assets) -> Renderer, bool {
         return renderer, false;
     }
 
-    loaded := load_texture(assets, *renderer.sheet, "sprites.png") && load_texture(assets, *renderer.font, "font.png");
+    loaded := load_texture(assets, *renderer.sheet, "sprites.png") && load_texture(assets, *renderer.font, "font.png", .NEAREST);
 
     check(smoke, loaded, "the sprite sheets load into textures");
 
