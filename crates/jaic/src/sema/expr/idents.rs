@@ -503,6 +503,72 @@ impl Compiler {
         }
     }
 
+    /// `Struct.field` and `Struct.inner.field` read as values: the default value of the field,
+    /// found in a default-initialized temporary of the outermost struct. `None` when the chain
+    /// does not start at a struct type and walk fields only.
+    pub(super) fn default_field_value(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        base: &ast::Expr,
+        member: &ast::Ident,
+    ) -> Result<Option<Operand>> {
+        let Some(owner) = self.default_field_owner(f, scope, base)? else {
+            return Ok(None);
+        };
+        let Operand::Place {
+            ty, ..
+        } = &owner
+        else {
+            return Ok(None);
+        };
+        if !self.names_field(*ty, member.name)? {
+            return Ok(None);
+        }
+        Ok(Some(self.member_access(
+            f,
+            scope,
+            owner,
+            member.name,
+            member.span,
+        )?))
+    }
+
+    /// The default-initialized storage `base` names: a temporary of the struct type it is, or
+    /// one of that temporary's fields.
+    fn default_field_owner(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        base: &ast::Expr,
+    ) -> Result<Option<Operand>> {
+        if let E::Member(inner, field) = &base.kind
+            && let Some(owner) = self.default_field_owner(f, scope, inner)?
+            && let Operand::Place {
+                ty, ..
+            } = &owner
+            && self.names_field(*ty, field.name)?
+        {
+            return Ok(Some(
+                self.member_access(f, scope, owner, field.name, field.span)?,
+            ));
+        }
+        let Ok(Operand::Type(ty)) = self.check_expr(f, scope, base, None) else {
+            return Ok(None);
+        };
+        if self.ty.types.as_struct(ty).is_none() {
+            return Ok(None);
+        }
+        let size = self.size_of(ty, base.span)?;
+        let align = self.align_of(ty, base.span)?;
+        let addr = f.b.alloca(size.max(1), align);
+        self.init_default(f, ty, addr, base.span)?;
+        Ok(Some(Operand::Place {
+            ty,
+            addr,
+        }))
+    }
+
     /// Is `name` a field (not a constant) of struct type `ty`? Reading one needs a value.
     pub(super) fn names_field(&mut self, ty: TypeId, name: Sym) -> Result<bool> {
         Ok(self.ty.types.as_struct(ty).is_some()

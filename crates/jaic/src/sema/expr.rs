@@ -394,9 +394,19 @@ impl Compiler {
                     Operand::Type(t) => *t,
                     other => other.ty(),
                 });
+                let base_is_type = matches!(base_op, Operand::Type(_));
                 let result = self.member_access(f, scope, base_op, member.name, member.span);
                 if let (Some(ty), Ok(_)) = (note, &result) {
                     self.ide_note_member_use(member.span, ty, member.name);
+                }
+                // `Struct.field` names the field's type, but a value is wanted here: it is the
+                // field's default value.
+                if base_is_type
+                    && matches!(result, Ok(Operand::Type(_)))
+                    && expected.is_some_and(|t| t != TypeId::TYPE && t != TypeId::ANY)
+                    && let Some(value) = self.default_field_value(f, scope, base, member)?
+                {
+                    return Ok(value);
                 }
                 result
             }
