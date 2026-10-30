@@ -213,6 +213,8 @@ What is reported: files below the test roots and below the folders named by `-im
 
 A baseline keeps coverage from dropping. `--coverage-record FILE` writes the lines hit and counted in each module and in total as JSON (one module per line, so changes show in a diff); `--coverage-baseline FILE` compares the run with it and exits 1 when a module, or the total, covers a share of lines more than `--coverage-margin` points (default 0.5) below the baseline's. A module the baseline lacks is not compared. `--coverage-summary FILE` adds a markdown table of the modules, least covered first with the change from the baseline, to the file (`$GITHUB_STEP_SUMMARY`).
 
+CI runs `tools/ci/stdlib_coverage.sh` in the Linux x64 `suites` leg of `stdlib-runtime`: the whole standard library natively, compared with `tools/ci/coverage-baseline.json`. The step also uploads the baseline it measured as the `coverage-baseline` artifact. To re-record after tests are added or removed on purpose, run `tools/ci/stdlib_coverage.sh --record` from the repository root (it needs `llvm-dwarfdump`; counts differ by host, since platform code is reported only where it compiles), or copy the artifact of a green CI run over `tools/ci/coverage-baseline.json`, which gives numbers for the host CI compares on, and commit it with the change that moved coverage. While the baseline is `{}` the step only measures and uploads the artifact; commit that artifact to turn the check on.
+
 ### Watching
 
 `jacket test --watch` runs the tests, then runs them again whenever a `.jai` file changes, until Ctrl-C. Each run clears the screen (on a terminal, for the `human` format) and prints its own summary; a compile error does not end the watch, the next save tries again.

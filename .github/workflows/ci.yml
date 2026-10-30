@@ -548,6 +548,19 @@ jobs:
           WASM: ${{ matrix.wasm }}
           JACKET_TEST_PARTITION: ${{ matrix.jacket_test }}
         run: bash tools/ci/stdlib_jacket_test.sh
+      - name: Stdlib test coverage against the recorded baseline
+        # `jacket test --coverage` over the whole standard library, natively: the per-module table goes to
+        # the job summary and the step fails when a module covers over 0.5 points fewer lines than
+        # tools/ci/coverage-baseline.json (docs/tools/jacket-test.md says how to record it again).
+        if: ${{ always() && !cancelled() && matrix.coverage }}
+        run: bash tools/ci/stdlib_coverage.sh
+      - name: Keep the measured coverage baseline
+        if: ${{ always() && !cancelled() && matrix.coverage }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-baseline
+          path: target/coverage-baseline.json
+          if-no-files-found: ignore
       - name: NEW producer behavior suites against production
         # The suite legs run the suites `matrix.suites` names, two groups at a time; the independent
         # suites share no scratch directory across groups (GROUPS in check_stdlib_suites.py).

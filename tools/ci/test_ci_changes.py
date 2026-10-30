@@ -207,6 +207,12 @@ class Tiers(unittest.TestCase):
                     self.assertEqual("wasm-" in leg.get("modes", ""), leg["platform"] == "linux-x64" and "modes" in leg)
                     self.assertEqual(bool(leg.get("wasm")), leg["platform"] == "linux-x64" and "jacket_test" in leg)
 
+    def test_stdlib_coverage_is_measured_by_one_leg(self):
+        for full in (False, True):
+            with self.subTest(full=full):
+                legs = [leg for leg in ci_changes.stdlib_matrix(full) if leg.get("coverage")]
+                self.assertEqual([(leg["platform"], leg["shard"]) for leg in legs], [("linux-x64", "suites")])
+
     def test_jacket_test_is_divided_once_per_platform(self):
         for full in (False, True):
             legs = ci_changes.stdlib_matrix(full)

@@ -222,7 +222,15 @@ def stdlib_matrix(full):
     def suite_legs(platform, names):
         wasm = platform == "linux-x64"
         legs = [
-            dict(platform=platform, shard="suites", suites=SUITES, wasm=wasm, jacket_test="" if "tooling" in names else "all")
+            dict(
+                platform=platform,
+                shard="suites",
+                suites=SUITES,
+                wasm=wasm,
+                jacket_test="" if "tooling" in names else "all",
+                # The standard library's coverage is measured once, on the platform that has the most tests.
+                coverage=platform == "linux-x64",
+            )
         ]
         for name in names:
             if name == "tooling":
