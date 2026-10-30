@@ -179,24 +179,35 @@ pub(super) fn target_machine(
     } else {
         RelocMode::PIC
     };
+    let level = options.codegen.machine_level.unwrap_or(options.opt_level);
     let machine = target
         .create_target_machine(
             &triple,
             &cpu,
             &features,
-            options
-                .codegen
-                .machine_level
-                .unwrap_or(options.opt_level)
-                .llvm(),
+            wasm_machine_level(arch, options, level).llvm(),
             reloc,
             CodeModel::Default,
         )
         .ok_or("could not create a target machine")?;
-    if options.codegen.machine_level.unwrap_or(options.opt_level) == OptLevel::O0 {
+    if level == OptLevel::O0 && !arch.is_wasm() {
         use_fast_isel(&machine);
     }
     Ok((machine, triple, build_target, arch))
+}
+
+/// The level the target machine of a wasm module runs at. LLVM's WebAssembly backend gives every
+/// virtual register its own local at `None` (register coloring and stackification are skipped),
+/// so an unoptimized module whose function inlines a lot of code (the `#asm` of an x86 hash,
+/// emulated instruction by instruction) passes the engines' limit of 50000 locals per function.
+/// One level up shares locals and still leaves the IR as unoptimized as it was; a machine level
+/// the program chose with `machine_code_optimization_setting` is kept as it is.
+fn wasm_machine_level(arch: jaic::abi::Arch, options: &Options, level: OptLevel) -> OptLevel {
+    if arch.is_wasm() && level == OptLevel::O0 && options.codegen.machine_level.is_none() {
+        OptLevel::O1
+    } else {
+        level
+    }
 }
 
 /// Select instructions at -O0 with `FastISel` instead of `GlobalISel`.
@@ -220,4 +231,39 @@ fn use_fast_isel(machine: &TargetMachine) {
 /// and with `-dev_verify_ir`; a release jaic skips it.
 pub(super) fn verify_ir(options: &Options) -> bool {
     options.codegen.verify_ir.unwrap_or(cfg!(debug_assertions))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::options::Codegen;
+    use jaic::abi::Arch;
+
+    #[test]
+    fn an_unoptimized_wasm_module_gets_register_coloring_unless_the_program_chose_a_level() {
+        let options = Options::default();
+        assert_eq!(
+            wasm_machine_level(Arch::Wasm64, &options, OptLevel::O0),
+            OptLevel::O1
+        );
+        assert_eq!(
+            wasm_machine_level(Arch::X86_64, &options, OptLevel::O0),
+            OptLevel::O0
+        );
+        assert_eq!(
+            wasm_machine_level(Arch::Wasm64, &options, OptLevel::O2),
+            OptLevel::O2
+        );
+        let chosen = Options {
+            codegen: Codegen {
+                machine_level: Some(OptLevel::O0),
+                ..Codegen::default()
+            },
+            ..Options::default()
+        };
+        assert_eq!(
+            wasm_machine_level(Arch::Wasm64, &chosen, OptLevel::O0),
+            OptLevel::O0
+        );
+    }
 }
