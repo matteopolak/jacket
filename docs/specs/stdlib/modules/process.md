@@ -28,6 +28,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 - [OS == .WINDOWS] `read_pipe :: (pipe: *Process.Pipe, buffer: [] u8) -> success: bool, bytes_read: int`
 - `create_process :: (process: *Process, args: .. string, working_directory := "", capture_and_return_output := false, arg_quoting := Process_Argument_Quoting.QUOTE_IF_NEEDED, kill_process_if_parent_exits := true) -> success: bool`
 - `deinit :: (process: *Process)`
+- `deinit :: (pipe: *Process.Pipe)`
 - `write_to_process :: (process: *Process, data: [] u8) -> success: bool, bytes_written: int`
 - `read_from_process :: (process: *Process, output_buffer: [] u8, error_buffer: [] u8, timeout_ms := -1) -> success: bool, output_bytes: int, error_bytes: int`
 - `kill_process :: (process: *Process) -> bool`
@@ -137,7 +138,7 @@ Commands are launched from an argument array, avoiding shell concatenation. `run
 | Operation group | Observable behavior |
 | --- | --- |
 | `run_command` | Pass each argument separately; no shell expansion is implied. Without capture it waits for the child result. With capture it accumulates stdout and stderr independently until both pipes reach EOF, optionally echoing each chunk to the corresponding standard stream. A nonnegative timeout can kill the child and sets `timeout_reached`; `-1` means no timeout. |
-| `create_process` / `deinit` | `create_process` fills the process handle and reports launch success. Call `deinit` to close/reap associated resources. `kill_process` terminates the child; it does not replace result collection. |
+| `create_process` / `deinit` | `create_process` fills the process handle and reports launch success. Call `deinit` to close/reap associated resources. On POSIX it first waits, without limit, for the child to finish (so it is reaped); on Windows it does not wait. `deinit(*process.input)` closes only the child's standard input on both targets, so a child reading it sees the end of the file. `kill_process` terminates the child; it does not replace result collection. |
 | `get_process_result` | A not-yet-created process reports `UNSTARTED`. A live process may report `STILL_RUNNING` when a finite wait expires; completion reports `EXITED` with an exit code or `SIGNALED` with a signal on POSIX. Windows reports exit status through `EXITED`. |
 | `write_to_process` / `read_from_process` | Writes return success plus bytes written. Reads fill separate stdout/stderr buffers and return per-stream byte counts; zero bytes can mean no data arrived before timeout or that a stream has reached EOF, which is tracked in each pipe's `eof` field. Check those flags and the success result to distinguish outcomes. |
 | `break_command_into_strings` | The result array uses temporary storage. It splits on spaces and recognizes quotes only when they begin an argument; it has no escape syntax or robust malformed-quote error result. Use an explicit argument array when argument boundaries matter. |

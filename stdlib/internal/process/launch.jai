@@ -199,6 +199,35 @@ deinit :: (process: *Process) {
     #if OS == .MACOS close_fd(*process.kevent_queue);
 } @FreesArgument
 
+// Closes one pipe of a process, for instance `process.input` so that a child reading its standard input sees the end of the file
+// while its output can still be read. The pipe is marked at its end. Safe on a pipe that is already closed or never opened;
+// `deinit` of the whole process closes the rest.
+//
+// ```jai,only(linux, macos)
+// process: Process;
+// assert(create_process(*process, "/bin/cat", capture_and_return_output = true));
+// defer deinit(*process);
+//
+// _, written := write_to_process(*process, .[104, 105]);
+// assert(written == 2);
+// deinit(*process.input); // cat now sees the end of its input and finishes
+//
+// output: [16] u8;
+// error: [16] u8;
+// total := 0;
+// for 0..199 {
+//     ok, count, _ := read_from_process(*process, output, error, 50);
+//     assert(ok);
+//     total += count;
+//     if process.output.eof break;
+// }
+//
+// assert(total == 2 && process.output.eof);
+// ```
+deinit :: (pipe: *Process.Pipe) {
+    close_pipe(pipe);
+} @FreesArgument
+
 #scope_module
 cancel_or_report :: (process: *Process) {
     if kill_process(process) return;
