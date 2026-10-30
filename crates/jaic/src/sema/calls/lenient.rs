@@ -357,6 +357,8 @@ impl Compiler {
         let constant = matches!(
             &self.entity(id).kind,
             scope::EntityKind::Decl { decl, .. } if decl.kind == ast::DeclKind::Const
+                // A `name :: #code ..` constant is spliced in where it is named, not read in order.
+                && !decl.value.as_ref().is_some_and(|v| matches!(v.kind, ast::ExprKind::Code(_)))
         );
         if !local || !constant {
             return Ok(());
