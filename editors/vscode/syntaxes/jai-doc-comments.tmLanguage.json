@@ -11,7 +11,13 @@
       "include": "#line-fence"
     },
     {
+      "include": "#line-fence-other"
+    },
+    {
       "include": "#block-fence"
+    },
+    {
+      "include": "#block-fence-other"
     },
     {
       "include": "#line-heading"
@@ -32,7 +38,7 @@
   "repository": {
     "line-fence": {
       "name": "markup.fenced_code.block.jai",
-      "begin": "^(\\s*)(//)[/!]?[ ]?(`{3,}|~{3,})[ ]*(?:(jai)|)[ ]*$",
+      "begin": "^(\\s*)(//)[/!]?[ ]?(`{3,}|~{3,})[ ]*(?:(jai)(?:,[^\\s`]*)?|)[ ]*$",
       "beginCaptures": {
         "0": {
           "name": "comment.line.double-slash.jai"
@@ -67,6 +73,9 @@
           "end": "$",
           "patterns": [
             {
+              "include": "#fenced-here-string"
+            },
+            {
               "include": "source.jai"
             }
           ]
@@ -75,7 +84,7 @@
     },
     "block-fence": {
       "name": "markup.fenced_code.block.jai",
-      "begin": "^(\\s*(?:\\*(?!/)[ ]?)?)(`{3,}|~{3,})[ ]*(?:(jai)|)[ ]*$",
+      "begin": "^(\\s*(?:\\*(?!/)[ ]?)?)(`{3,}|~{3,})[ ]*(?:(jai)(?:,[^\\s`]*)?|)[ ]*$",
       "beginCaptures": {
         "2": {
           "name": "punctuation.definition.markdown.jai"
@@ -211,6 +220,89 @@
           }
         }
       ]
+    },
+    "line-fence-other": {
+      "name": "markup.fenced_code.block.jai",
+      "begin": "^(\\s*)(//)[/!]?[ ]?(`{3,}|~{3,})[ ]*(?!jai(?:,|[ ]*$))([^\\s`][^`]*?)[ ]*$",
+      "beginCaptures": {
+        "0": {
+          "name": "comment.line.double-slash.jai"
+        },
+        "2": {
+          "name": "punctuation.definition.comment.jai"
+        },
+        "3": {
+          "name": "punctuation.definition.markdown.jai"
+        },
+        "4": {
+          "name": "fenced_code.block.language.jai"
+        }
+      },
+      "end": "^(?![ \\t]*//)|^(\\s*)(//)[/!]?[ ]?\\3[`~]*[ ]*$",
+      "endCaptures": {
+        "0": {
+          "name": "comment.line.double-slash.jai"
+        },
+        "2": {
+          "name": "punctuation.definition.comment.jai"
+        }
+      },
+      "patterns": [
+        {
+          "begin": "^(\\s*)(//)[/!]?[ ]?",
+          "beginCaptures": {
+            "2": {
+              "name": "comment.line.double-slash.jai punctuation.definition.comment.jai"
+            }
+          },
+          "end": "$",
+          "patterns": [],
+          "contentName": "markup.raw.block.jai"
+        }
+      ]
+    },
+    "block-fence-other": {
+      "name": "markup.fenced_code.block.jai",
+      "begin": "^(\\s*(?:\\*(?!/)[ ]?)?)(`{3,}|~{3,})[ ]*(?!jai(?:,|[ ]*$))([^\\s`][^`]*?)[ ]*$",
+      "beginCaptures": {
+        "2": {
+          "name": "punctuation.definition.markdown.jai"
+        },
+        "3": {
+          "name": "fenced_code.block.language.jai"
+        }
+      },
+      "end": "^(\\s*(?:\\*(?!/)[ ]?)?)\\2[`~]*[ ]*$|(?=\\*/)",
+      "patterns": [
+        {
+          "match": "^\\s*\\*(?!/)",
+          "name": "comment.block.jai punctuation.definition.comment.jai"
+        }
+      ],
+      "contentName": "markup.raw.block.jai"
+    },
+    "fenced-here-string": {
+      "comment": "A here-string in a fenced example: its body and closing tag are comment lines too.",
+      "name": "string.unquoted.here-string.jai",
+      "begin": "(#string)((?:\\s*,\\s*(?:\\\\.|[A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*))*)\\s+([A-Za-z_\\x{80}-\\x{10FFFF}][A-Za-z0-9_\\x{80}-\\x{10FFFF}]*)",
+      "beginCaptures": {
+        "1": {
+          "name": "keyword.other.directive.jai"
+        },
+        "3": {
+          "name": "entity.name.tag.here-string.jai"
+        }
+      },
+      "end": "^(\\s*)(//)[/!]?[ ]?[ \\t]*(\\3)(?![A-Za-z0-9_\\x{80}-\\x{10FFFF}])",
+      "endCaptures": {
+        "2": {
+          "name": "comment.line.double-slash.jai punctuation.definition.comment.jai"
+        },
+        "3": {
+          "name": "entity.name.tag.here-string.jai"
+        }
+      },
+      "contentName": "string.unquoted.here-string.body.jai"
     }
   }
 }

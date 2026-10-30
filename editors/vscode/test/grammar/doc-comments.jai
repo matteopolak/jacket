@@ -57,3 +57,26 @@ w := 4;
 // ^ punctuation.definition.list.begin.markdown.jai
  */
 v := 5;
+
+// ```jai,ignore
+// y := 6;
+// ```
+// `#string` after a fence with options is prose
+// ^^^^^^^^^ comment.line.double-slash.jai - string.unquoted.here-string.body.jai
+u := 7;
+
+// ```sql
+// SELECT 1;
+// ```
+// after
+// <-- comment.line.double-slash.jai - markup.fenced_code.block.jai
+t := 8;
+
+// ```jai
+// TEXT :: #string END
+// body
+// END
+// x := 9;
+// ^ variable.other.declaration.jai
+// ```
+s := 10;
