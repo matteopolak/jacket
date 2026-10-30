@@ -69,6 +69,15 @@ BUILTINS = {
 }
 
 
+# C parameter names that are type names in Jai; the official compiler rejects a parameter named
+# `string`, so the binding calls it `text` (the C name is only documentation).
+RENAMED_PARAMETERS = {"string": "text"}
+
+
+def jai_parameter(name):
+    return RENAMED_PARAMETERS.get(name, name)
+
+
 def callback_parameter_names(text, name):
     """Recover names erased by Clang's function-pointer type spelling.
     The parameter types still come entirely from the AST. C public callback prototypes
@@ -80,7 +89,7 @@ def callback_parameter_names(text, name):
     result = []
     for param in split_args(m[1]):
         ident = re.search(r"([A-Za-z_]\w*)\s*(?:\[[^]]*\])?$", param)
-        result.append(ident[1] if ident else None)
+        result.append(jai_parameter(ident[1]) if ident else None)
     return result
 
 
@@ -454,7 +463,7 @@ def generate(src, plat, work, clang):
             continue
         ret = n["type"]["qualType"].split("(")[0].strip()
         args = [
-            f"{p.get('name', 'arg' + str(i))}: {jai_type(p['type']['qualType'])}"
+            f"{jai_parameter(p.get('name', 'arg' + str(i)))}: {jai_type(p['type']['qualType'])}"
             for i, p in enumerate(params)
         ]
         if n.get("variadic"):
