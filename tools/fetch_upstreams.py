@@ -58,6 +58,13 @@ DEPENDENCIES = (
     "kujukuju/ContiguousJsonJai",
     "kujukuju/BlockAllocatorJai",
     "kujukuju/lz4_static",
+    "kujukuju/JaiSerializer",
+    # Modules other pinned projects import by name.
+    "WeirdBirds/Jay_Utils",
+    "WeirdBirds/Jay_Core",
+    "WeirdBirds/Jay_Logger",
+    "jatinchowdhury18/clap-jai",
+    "jatinchowdhury18/clap-jai-plugin-base",
 )
 # Metaprogramming libraries that exercise the Compiler module's node API (typed
 # compiler_get_nodes, compiler_get_code, TYPECHECKED bodies). Few change often, so they
@@ -341,6 +348,12 @@ MODULE_LINKS = (
     ("_modules/Yojimbo", "dbechrd--jai-yojimbo"),
     ("_modules/Jay_ECS", "WeirdBirds--Jay_ECS"),
     ("_modules/Jay_Math", "WeirdBirds--Jay_Math"),
+    ("_modules/Jay_Utils", "WeirdBirds--Jay_Utils"),
+    ("_modules/Jay_Core", "WeirdBirds--Jay_Core"),
+    ("_modules/Jay_Logger", "WeirdBirds--Jay_Logger"),
+    ("_modules/JaiSerializer", "kujukuju--JaiSerializer"),
+    ("_modules/clap-jai", "jatinchowdhury18--clap-jai"),
+    ("_modules/clap-jai-plugin-base", "jatinchowdhury18--clap-jai-plugin-base"),
     ("_modules/Win32", "ostef--Jai-Win32"),
     ("_modules/SDL3", "isaplane--sdl3-jai"),
 )

@@ -259,6 +259,54 @@
       "file_count": 12
     },
     {
+      "repository": "kujukuju/JaiSerializer",
+      "revision": "1d99d7d6ed1885b334d3660cb9f0c310e6781048",
+      "latest_jai_change": "2025-09-23T00:38:32-07:00",
+      "source_of_truth": "https://github.com/kujukuju/JaiSerializer/tree/1d99d7d6ed1885b334d3660cb9f0c310e6781048",
+      "selection": "recent-source",
+      "file_count": 3
+    },
+    {
+      "repository": "WeirdBirds/Jay_Utils",
+      "revision": "94727e54426d3aade6fba5b2e05dc2f6bcce4eee",
+      "latest_jai_change": "2026-09-14T22:15:08+03:00",
+      "source_of_truth": "https://github.com/WeirdBirds/Jay_Utils/tree/94727e54426d3aade6fba5b2e05dc2f6bcce4eee",
+      "selection": "recent-source",
+      "file_count": 12
+    },
+    {
+      "repository": "WeirdBirds/Jay_Core",
+      "revision": "80c501c197ed7fd747c6c30dffb13c4cbe25d132",
+      "latest_jai_change": "2026-09-21T11:12:30+03:00",
+      "source_of_truth": "https://github.com/WeirdBirds/Jay_Core/tree/80c501c197ed7fd747c6c30dffb13c4cbe25d132",
+      "selection": "recent-source",
+      "file_count": 10
+    },
+    {
+      "repository": "WeirdBirds/Jay_Logger",
+      "revision": "a05f2f30e89c03c904c5a9dde4a4660d382f18ac",
+      "latest_jai_change": "2026-08-11T11:32:40+03:00",
+      "source_of_truth": "https://github.com/WeirdBirds/Jay_Logger/tree/a05f2f30e89c03c904c5a9dde4a4660d382f18ac",
+      "selection": "recent-source",
+      "file_count": 7
+    },
+    {
+      "repository": "jatinchowdhury18/clap-jai",
+      "revision": "5d4ded40bf479a5b11d9c5556e8ad2ffb4c32002",
+      "latest_jai_change": "2026-07-13T11:53:47-07:00",
+      "source_of_truth": "https://github.com/jatinchowdhury18/clap-jai/tree/5d4ded40bf479a5b11d9c5556e8ad2ffb4c32002",
+      "selection": "recent-source",
+      "file_count": 47
+    },
+    {
+      "repository": "jatinchowdhury18/clap-jai-plugin-base",
+      "revision": "4795d667ffff6f6a8e4a0a24cc53f48486b71fc7",
+      "latest_jai_change": "2026-07-13T11:54:11-07:00",
+      "source_of_truth": "https://github.com/jatinchowdhury18/clap-jai-plugin-base/tree/4795d667ffff6f6a8e4a0a24cc53f48486b71fc7",
+      "selection": "recent-source",
+      "file_count": 10
+    },
+    {
       "repository": "sjorsdonkers/match-jai",
       "revision": "2befe53d6f506b8115a91bdb1c13457a692fc052",
       "latest_jai_change": "2025-01-17T18:50:58+01:00",
