@@ -117,3 +117,8 @@ vscode-try debug="false" jobs=default_jobs folder="":
 vscode script="lint":
     pnpm install --frozen-lockfile --ignore-scripts
     pnpm run {{ script }}
+
+# Scripted editing session against examples/editor, headless plus one GPU frame (local only, needs native libs).
+[group('test')]
+ui-editor-smoke *args:
+    jaic examples/editor/smoke.jai -interp {{ args }}
