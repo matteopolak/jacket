@@ -1,4 +1,4 @@
-// File_Watcher: being told when files in a folder are created, changed, moved or removed.
+// Being told when files in a folder are created, changed, moved or removed.
 //
 // A `File_Watcher` watches folders (and, by default, everything below them) through the operating system's own
 // notifications: inotify on Linux, FSEvents on macOS and `ReadDirectoryChangesW` on Windows. Nothing runs in the

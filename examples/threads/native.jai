@@ -1,4 +1,4 @@
-// Threads: a Thread_Group sharing out work, and a producer and a consumer
+// A Thread_Group sharing out work, and a producer and a consumer
 // handing items over through semaphores. In the browser every thread takes
 // turns on one host thread: a thread that waits is suspended and resumed later.
 

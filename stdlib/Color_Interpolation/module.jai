@@ -1,4 +1,4 @@
-// Color_Interpolation: fills an array with colors blended between keyframes, in RGB, HSV or Oklab.
+// Fills an array with colors blended between keyframes, in RGB, HSV or Oklab.
 //
 // A `Color_Keyframe` pairs a color with a position `t` in [0, 1]; `generate_color_samples` spreads `n` output samples evenly over [0, 1] and blends the two keys around each. RGB and Oklab blending works on colors linearized with a plain gamma of 2.2 (`GAMMA`), not the exact sRGB curve, and encodes the result the same way; HSV blends hue, saturation and value directly, taking the shorter way around the hue circle. Outside the first and last key the nearest key's color holds, unless `wrapping` is set, which blends the last key into the first across the 1 to 0 seam.
 //

@@ -1,4 +1,4 @@
-// Curl: bindings for the system libcurl, the C library for URL transfers (HTTP, SMTP, FTP and many more).
+// Bindings for the system libcurl, the C library for URL transfers (HTTP, SMTP, FTP and many more).
 //
 // This module is the C API as it stands: `curl_easy_init`, `curl_easy_setopt`, `curl_easy_perform` and the rest keep their
 // C names, arguments and results, with `CURLcode` and the option enums as Jai enums. Nothing is wrapped, so the C rules

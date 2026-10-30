@@ -1,4 +1,4 @@
-// Hash_Table: `Table(Key, Value)` maps keys to values.
+// `Table(Key, Value)` maps keys to values.
 //
 // ```jai
 // table: Table(string, int);

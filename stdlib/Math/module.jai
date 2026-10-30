@@ -1,4 +1,4 @@
-// Math: vectors, quaternions, matrices, planes and the scalar math functions they build on.
+// Vectors, quaternions, matrices, planes and the scalar math functions they build on.
 //
 // Conventions, used throughout:
 // - Vectors, quaternions and matrices hold `float` (32-bit) components. A quaternion stores `x, y, z` (the vector part) and `w` (the scalar part); `Quaternion.{}` is the identity rotation.

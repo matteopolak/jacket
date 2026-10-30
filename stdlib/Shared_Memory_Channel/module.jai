@@ -1,4 +1,4 @@
-// Shared_Memory_Channel: a one-way message queue between two programs (or two parts of one) over shared memory.
+// A one-way message queue between two programs (or two parts of one) over shared memory.
 //
 // A channel has one reader and one writer. The reader creates it by name with `reader_create_channel`, the writer attaches
 // with `writer_connect`. The writer sends a message by reserving room (`writer_reserve_message`), filling it in place and

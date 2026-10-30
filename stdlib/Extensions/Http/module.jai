@@ -1,4 +1,4 @@
-// Http: HTTP/1.0 and HTTP/1.1 message codecs, plus a server, a client and test tools on top of them for fibers. A jaic
+// HTTP/1.0 and HTTP/1.1 message codecs, plus a server, a client and test tools on top of them for fibers. A jaic
 // extension, not official Jai: other Jai compilers have no such module, and it may change between jaic releases. See
 // docs/extensions/http-codec.md, http-server.md and http-client.md.
 //

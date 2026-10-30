@@ -1,4 +1,4 @@
-// Files: the File and File_Utilities modules. In the browser, reads see this
+// The File and File_Utilities modules. In the browser, reads see this
 // workspace (as /workspace) and the standard library (as /stdlib); writes go to
 // an in-memory disk that lasts for one run.
 

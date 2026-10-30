@@ -1,4 +1,4 @@
-// Bit_Array: a fixed-length sequence of bits packed into words.
+// A fixed-length sequence of bits packed into words.
 
 // A fixed-length sequence of bits packed into 64-bit words; `count` is the number of bits.
 //

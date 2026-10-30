@@ -1,4 +1,4 @@
-// Polymorphism: write it once, the compiler stamps out a copy per type.
+// Write it once, the compiler stamps out a copy per type.
 
 // `$T` introduces a type variable, inferred from the call.
 largest :: (values: [] $T) -> T {

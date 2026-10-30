@@ -1,4 +1,4 @@
-// Sort: in-place sorting of arrays by a comparator or a key, and ready-made comparators.
+// In-place sorting of arrays by a comparator or a key, and ready-made comparators.
 
 // Sorts an array in place and returns the same view, so calls can be chained.
 //

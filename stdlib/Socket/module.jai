@@ -1,4 +1,4 @@
-// Socket: the system's network sockets (Berkeley sockets on Unix, Winsock on Windows) for TCP, UDP and Unix-domain use.
+// The system's network sockets (Berkeley sockets on Unix, Winsock on Windows) for TCP, UDP and Unix-domain use.
 //
 // The module exposes the native calls (`socket`, `bind`, `listen`, `connect`, `send`, `recv`, `select`, ...) with their
 // native signatures, and a small set of portable helpers around them: `socket_init`, `set_blocking`, `set_keepalive`,

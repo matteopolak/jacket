@@ -1,4 +1,4 @@
-// File: opening, reading, writing and managing files and directories by path.
+// Opening, reading, writing and managing files and directories by path.
 //
 // A `File` is a handle from `file_open`; `read_entire_file` and `write_entire_file` do a whole file in one call, and
 // `map_entire_file_start` borrows the content. Names are UTF-8 paths, with `/` as separator on every target (Windows

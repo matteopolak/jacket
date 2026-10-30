@@ -1,4 +1,4 @@
-// Soa: fixed-size arrays of structs stored as one array per member.
+// Fixed-size arrays of structs stored as one array per member.
 
 // `Soa(T, N)`: `N` values of the struct `T`, stored as one array per member ("structure of arrays") instead of one array of structs.
 //

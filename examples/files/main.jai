@@ -1,4 +1,4 @@
-// Files: walking the workspace, reading README.md, and writing and deleting a file.
+// Walking the workspace, reading README.md, and writing and deleting a file.
 // README.md is the guide.
 
 #import "Basic";

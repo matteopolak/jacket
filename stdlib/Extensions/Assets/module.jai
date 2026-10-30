@@ -1,4 +1,4 @@
-// Assets: load a file a program ships with (a texture, a sound, a level) by a relative path, from
+// Load a file a program ships with (a texture, a sound, a level) by a relative path, from
 // disk natively and over fetch() in the browser playground. A jaic extension, not official Jai.
 // See docs/extensions/assets.md.
 //

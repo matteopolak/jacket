@@ -1,4 +1,4 @@
-// Service: compile-time services. A jaic extension, not official Jai: other Jai compilers have no
+// Compile-time services. A jaic extension, not official Jai: other Jai compilers have no
 // such module, and it may change between jaic releases. See docs/extensions/service.md.
 //
 // A service is a long-lived program that compile-time code asks questions: one that keeps a

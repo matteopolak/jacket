@@ -1,4 +1,4 @@
-// Bit_Operations: byte swapping, bit scans and population count for integers of any size.
+// Byte swapping, bit scans and population count for integers of any size.
 
 // Reverses the byte order of `input` and returns the result; `input` is untouched.
 //

@@ -1,4 +1,4 @@
-// Mail: sending email through an SMTP server, plus a small text obfuscation helper.
+// Sending email through an SMTP server, plus a small text obfuscation helper.
 //
 // Fill in a `Mail_Server` and a `Mail_Message` and call `mail_send`, which delivers the message with libcurl and returns
 // whether the server accepted it. It blocks until the exchange is over, reports failures through `context.logger` and

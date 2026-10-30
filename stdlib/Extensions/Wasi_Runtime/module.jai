@@ -1,4 +1,4 @@
-// Wasi_Runtime: what a wasm64 program needs to run as a WASI command (node, wasmtime and the
+// What a wasm64 program needs to run as a WASI command (node, wasmtime and the
 // like). jaic adds it to `jaic -os wasm` programs and to workspaces whose LLVM triple
 // names WASI; a program that brings its own host bindings leaves it out. This module is a jaic
 // extension, not official Jai. See docs/native/wasm-target.md.

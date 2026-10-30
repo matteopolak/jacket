@@ -1,4 +1,4 @@
-// Xar: a growable array that allocates in chunks, so its elements never move.
+// A growable array that allocates in chunks, so its elements never move.
 
 // `Xar(Element_Type, first_chunk_size_shift, max_chunks)`: a growable array whose elements never move.
 //

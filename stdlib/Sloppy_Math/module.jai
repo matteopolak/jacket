@@ -1,4 +1,4 @@
-// Sloppy_Math: approximate float comparison and the numeric limits of a type.
+// Approximate float comparison and the numeric limits of a type.
 
 // The smallest value of the numeric type `T`: the lowest integer, so `-128` for `s8` and `0` for any unsigned type.
 //

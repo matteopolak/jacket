@@ -1,4 +1,4 @@
-// Process: starting programs, feeding them input and collecting their output and exit status.
+// Starting programs, feeding them input and collecting their output and exit status.
 //
 // `run_command` is the short way: it runs a program to its end, optionally with a time limit and with its output
 // captured, and returns how it ended. `create_process` starts one that you then drive yourself with

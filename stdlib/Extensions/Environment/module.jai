@@ -1,4 +1,4 @@
-// Environment: reading the variables the program was started with.
+// Reading the variables the program was started with.
 //
 // The values are text in the environment as the system hands it over; this module only reads. Setting variables is not
 // part of it.

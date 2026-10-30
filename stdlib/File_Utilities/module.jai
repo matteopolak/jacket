@@ -1,4 +1,4 @@
-// File_Utilities: asking about files, walking and copying folders, and taking paths apart.
+// Asking about files, walking and copying folders, and taking paths apart.
 //
 // Where `File` opens and reads single files, this module looks at the file system as a whole: `file_exists`,
 // `is_directory` and `file_modtime_and_size` examine a path, `visit_files` and `file_list` walk a folder,

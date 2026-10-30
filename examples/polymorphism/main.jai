@@ -1,4 +1,4 @@
-// Polymorphism: `$T`, polymorphic structs, `#modify`, `$$` and `#bake_arguments`.
+// `$T`, polymorphic structs, `#modify`, `$$` and `#bake_arguments`.
 // README.md is the guide.
 
 #import "Basic";

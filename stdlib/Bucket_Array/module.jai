@@ -1,4 +1,4 @@
-// Bucket_Array: a collection with stable element addresses, grown a fixed-size bucket at a time.
+// A collection with stable element addresses, grown a fixed-size bucket at a time.
 
 // A growable collection whose elements never move: `Bucket_Array(Type, items_per_bucket)`.
 //

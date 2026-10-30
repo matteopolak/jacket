@@ -1,4 +1,4 @@
-// SIMD: fixed-width vectors of lanes with lane-wise arithmetic, comparison, min/max and memory access.
+// Fixed-width vectors of lanes with lane-wise arithmetic, comparison, min/max and memory access.
 //
 // A `SIMD_Array(N, T)` holds `N` lanes of `T` and is a plain value: it is copied by assignment and no
 // operation allocates. Every operation is an ordinary loop over the lanes. There are no hardware vector

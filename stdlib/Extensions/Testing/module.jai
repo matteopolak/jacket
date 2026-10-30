@@ -1,4 +1,4 @@
-// Testing: tests are procedures with a `@test` note, found at compile time and run by
+// Tests are procedures with a `@test` note, found at compile time and run by
 // `jacket test`. A jaic extension, not official Jai. See docs/extensions/testing.md.
 //
 //     #import "Basic";

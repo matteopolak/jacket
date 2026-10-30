@@ -1,4 +1,4 @@
-// Threads: a Thread_Group sharing out work, and a producer and consumer passing items through
+// A Thread_Group sharing out work, and a producer and consumer passing items through
 // semaphores. README.md is the guide.
 
 #import "Basic";

@@ -1,4 +1,4 @@
-// Jai_Format: a source formatter for Jai (indentation, spacing, brace placement, blank lines).
+// A source formatter for Jai (indentation, spacing, brace placement, blank lines).
 // Pure text in, text out: no file access (a front end passes a file reader to
 // `format_find_config`), so it runs the same natively, under `jaic -interp` and in the browser
 // playground. `jaifmt/` is the command-line front end. See docs/tools/jaifmt.md.

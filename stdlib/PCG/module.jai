@@ -1,4 +1,4 @@
-// PCG: a small 32-bit-output permuted congruential generator (XSH-RR) over a 64-bit state.
+// A small 32-bit-output permuted congruential generator (XSH-RR) over a 64-bit state.
 //
 // Each procedure comes in two forms: one that takes the state as a `*u64` you own, and one without a state
 // that uses a single module-global `u64`. The global is shared by every thread and is not locked, so use

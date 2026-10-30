@@ -1,4 +1,4 @@
-// Float16: the 16-bit IEEE half-precision storage format, with conversions to and from `float32` and the `Math` vector and matrix types.
+// The 16-bit IEEE half-precision storage format, with conversions to and from `float32` and the `Math` vector and matrix types.
 //
 // A `Float16` holds only the bits (1 sign, 5 exponent, 10 significand): it has no arithmetic of its own, so convert to `float32`, compute, and convert back. Half precision has about three decimal digits, a largest finite value of 65504, and subnormals down to 2^-24.
 //

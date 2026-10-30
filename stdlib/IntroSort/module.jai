@@ -1,4 +1,4 @@
-// IntroSort: the comparator sorts that Sort is built from, for callers that want a specific algorithm.
+// The comparator sorts that Sort is built from, for callers that want a specific algorithm.
 
 intro_sort :: Impl.intro_sort;
 // Sorts an array view in place by insertion with a three-way comparator.

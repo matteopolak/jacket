@@ -1,4 +1,4 @@
-// Text_Buffer: an editable UTF-8 text buffer with undo, for editors. A jaic extension, not official
+// An editable UTF-8 text buffer with undo, for editors. A jaic extension, not official
 // Jai: other Jai compilers have no such module, and it may change between jaic releases. See
 // docs/extensions/text-buffer.md.
 //

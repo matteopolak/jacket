@@ -1,4 +1,4 @@
-// String_Literal: where a byte of a string literal's value sits in the source. A jaic extension,
+// Where a byte of a string literal's value sits in the source. A jaic extension,
 // not official Jai: other Jai compilers have no such module, and it may change between jaic
 // releases. See docs/extensions/string-literal.md.
 //

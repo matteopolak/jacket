@@ -1,4 +1,4 @@
-// Io_Uring: Linux's io_uring interface, as thin as the kernel makes it. A jaic extension, not
+// Linux's io_uring interface, as thin as the kernel makes it. A jaic extension, not
 // official Jai: other Jai compilers have no such module, and it may change between jaic releases.
 // See docs/extensions/io-uring.md.
 //

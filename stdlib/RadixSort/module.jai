@@ -1,4 +1,4 @@
-// RadixSort: ranks `u32`, `u64` and `float` data by radix sorting, without moving it.
+// Ranks `u32`, `u64` and `float` data by radix sorting, without moving it.
 
 // Scratch state for radix sorting, which orders the numbers in an array by their bytes rather than by comparing them.
 //

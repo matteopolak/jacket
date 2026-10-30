@@ -1,4 +1,4 @@
-// Image: decode, encode and transform raster images, in plain Jai (natively, in the playground and
+// Decode, encode and transform raster images, in plain Jai (natively, in the playground and
 // in -os wasm programs). A jaic extension, not official Jai. See docs/extensions/image.md.
 //
 //     #import "Extensions/Image";

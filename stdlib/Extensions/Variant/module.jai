@@ -1,4 +1,4 @@
-// Variant: a tagged union whose cases are types, like a Rust enum. A jaic extension, not official
+// A tagged union whose cases are types, like a Rust enum. A jaic extension, not official
 // Jai: other Jai compilers have no such module, and it may change between jaic releases. See
 // docs/extensions/variant.md.
 //

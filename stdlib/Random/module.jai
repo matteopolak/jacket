@@ -1,4 +1,4 @@
-// Random: a fast 128-bit multiplicative generator for non-cryptographic random numbers.
+// A fast 128-bit multiplicative generator for non-cryptographic random numbers.
 //
 // Every procedure comes in two forms: one that takes a `*Random_State` of your own and one without a state
 // that uses `context.mcg_state` (the module adds that field to the context, so each thread and each context

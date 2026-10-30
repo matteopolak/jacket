@@ -1,4 +1,4 @@
-// Metaprogramming: compile-time execution, macros and custom loops, reflection, and a
+// Compile-time execution, macros and custom loops, reflection, and a
 // metaprogram that compiles another program. README.md is the guide.
 
 #import "Basic";

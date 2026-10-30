@@ -1,4 +1,4 @@
-// Basics: declarations and procedures, structs and unions, enums and flags.
+// Declarations and procedures, structs and unions, enums and flags.
 //
 // Each file of this workspace is one section, and `main` below runs them in order.
 // Edit anything: the program re-runs as you type. README.md is the guide.
