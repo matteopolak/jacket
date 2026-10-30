@@ -456,8 +456,16 @@ impl Parser<'_> {
         let start = self.bump();
         self.expect(P::LParen, "after `#exists`")?;
         let operand = self.parse_expr()?;
-        let end = self.expect(P::RParen, "after the `#exists` operand")?;
-        Ok(mk(ExprKind::Exists(Box::new(operand)), start.to(end)))
+        let other = if self.eat(P::Comma) {
+            Some(Box::new(self.parse_expr()?))
+        } else {
+            None
+        };
+        let end = self.expect(P::RParen, "after the `#exists` operands")?;
+        Ok(mk(
+            ExprKind::Exists(Box::new(operand), other),
+            start.to(end),
+        ))
     }
 
     /// `#bake_arguments f(a = 1)` / `#bake_constants f(T = int)`.

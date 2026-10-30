@@ -647,7 +647,13 @@ fn expr_children<'a>(x: &'a Expr, out: &mut Vec<Node<'a>>) {
             e(b);
         }
         E::Unary(_, a) | E::Member(a, _) | E::Backtick(a) | E::ProcedureOfCall(a) => e(a),
-        E::Exists(a) | E::Bytes(a) => e(a),
+        E::Bytes(a) => e(a),
+        E::Exists(a, other) => {
+            e(a);
+            if let Some(other) = other {
+                e(other);
+            }
+        }
         E::PolyRestricted {
             restriction, ..
         } => e(restriction),

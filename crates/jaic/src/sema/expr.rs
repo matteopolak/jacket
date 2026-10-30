@@ -722,11 +722,20 @@ impl Compiler {
                     val: v[0],
                 })
             }
-            E::Exists(e) => {
-                let exists = match &e.kind {
-                    E::Ident(name) => !self.lookup(scope, *name)?.is_empty(),
-                    _ => self.check_expr(f, scope, e, None).is_ok(),
+            E::Exists(e, other) => {
+                // Only the types are asked: a local the operands read need not have a value.
+                let type_only = std::mem::replace(&mut f.type_only, true);
+                let other_checked = match other {
+                    Some(other) => self.check_expr(f, scope, other, None).map(|_| ()),
+                    None => Ok(()),
                 };
+                let exists = other_checked.is_ok()
+                    && match &e.kind {
+                        E::Ident(name) => !self.lookup(scope, *name)?.is_empty(),
+                        _ => self.check_expr(f, scope, e, None).is_ok(),
+                    };
+                f.type_only = type_only;
+                other_checked?;
                 Ok(Operand::bool(exists))
             }
             E::Bytes(e) => {

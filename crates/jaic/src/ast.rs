@@ -348,8 +348,9 @@ pub enum ExprKind {
     },
     /// `#procedure_of_call f(x)`
     ProcedureOfCall(Box<Expr>),
-    /// `#exists(name)`
-    Exists(Box<Expr>),
+    /// `#exists(query)`, or `#exists(query, other)`: the answer is the query's; `other` must be
+    /// a valid expression, and is checked (and reported on) as any expression is.
+    Exists(Box<Expr>, Option<Box<Expr>>),
     /// `#bytes "..."` or `#bytes .[...]`
     Bytes(Box<Expr>),
     /// `#placeholder`-style or unrecognized directive with an optional operand.

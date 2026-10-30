@@ -399,7 +399,7 @@ fn inferred_members_and_directive_primaries() {
     ));
     assert!(matches!(
         value("x := #exists(foo);").kind,
-        ExprKind::Exists(_)
+        ExprKind::Exists(_, None)
     ));
     assert!(matches!(
         value("x := #asm { mov.q rax, 1; };").kind,

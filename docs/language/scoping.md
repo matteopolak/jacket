@@ -41,3 +41,4 @@ Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
 - `#if` conditions that are plain constants are expanded first, before any `#run`, so a conditional `#load` (and any `#add_context` in it) lands before the Context type is laid out {#scope.14}.
 - `#this` inside an `#expand` macro, including in a backtick `defer`, is the procedure the macro expanded into {#scope.15}: `check_this` is retried from each macro frame's caller scope and from `backtick_scope`.
 - `type_of(field)` in a procedure nested in a struct names the field's type, with no value needed (`type_field_type` in `sema/calls/builtins.rs` walks enclosing struct scopes) {#scope.16}.
+- `#exists(query, other)` answers for `query` alone; `other` is a second expression that must itself be valid, and a bad one is an error rather than a `false` {#scope.17}. The parser keeps it as the second field of `ExprKind::Exists`, and the code-export record (`Code_Directive_Exists`) carries only the query.

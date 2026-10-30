@@ -276,11 +276,19 @@ impl Compiler {
     ) -> Result<bool> {
         use ast::ExprKind as E;
         match &cond.kind {
-            E::Unary(ast::UnOp::Not, inner) if matches!(inner.kind, E::Exists(_)) => {
+            E::Unary(ast::UnOp::Not, inner) if matches!(inner.kind, E::Exists(..)) => {
                 Ok(!self.body_static_condition(f, scope, inner)?)
             }
-            E::Exists(e) if matches!(e.kind, E::Backtick(_)) => {
-                Ok(self.check_expr(f, scope, e, None).is_ok())
+            E::Exists(e, other) if matches!(e.kind, E::Backtick(_)) => {
+                let type_only = std::mem::replace(&mut f.type_only, true);
+                let other_checked = match other {
+                    Some(other) => self.check_expr(f, scope, other, None).map(|_| ()),
+                    None => Ok(()),
+                };
+                let exists = other_checked.is_ok() && self.check_expr(f, scope, e, None).is_ok();
+                f.type_only = type_only;
+                other_checked?;
+                Ok(exists)
             }
             _ => self.eval_static_condition(scope, cond),
         }

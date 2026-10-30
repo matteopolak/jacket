@@ -166,9 +166,14 @@ impl Relocator {
                 self.expr(a);
                 self.expr(b);
             }
+            ExprKind::Exists(a, other) => {
+                self.expr(a);
+                if let Some(other) = other {
+                    self.expr(other);
+                }
+            }
             ExprKind::Unary(_, a)
             | ExprKind::ProcedureOfCall(a)
-            | ExprKind::Exists(a)
             | ExprKind::Bytes(a)
             | ExprKind::Backtick(a) => self.expr(a),
             ExprKind::Call {

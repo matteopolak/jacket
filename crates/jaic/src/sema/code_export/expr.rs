@@ -527,7 +527,7 @@ impl Exporter<'_> {
                 }
                 return Err(id);
             }
-            E::Exists(query) => {
+            E::Exists(query, _) => {
                 let query = self.expr(query);
                 let mut rec =
                     self.node(RecordTag::CodeDirectiveExists, node::DIRECTIVE_EXISTS, span);

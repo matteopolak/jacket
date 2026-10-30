@@ -99,7 +99,7 @@ impl Convert<'_, '_> {
             "ENUM" => ExprKind::Enum(Rc::new(self.enumeration(at, ty)?)),
             "DIRECTIVE_EXISTS" => {
                 self.word("#exists");
-                ExprKind::Exists(Box::new(self.child(at, ty, "query_expression")?))
+                ExprKind::Exists(Box::new(self.child(at, ty, "query_expression")?), None)
             }
             "DIRECTIVE_BAKE" => {
                 let constants = self.enum_is(at, ty, "bake_type", "CONSTANTS_BAKE")?;
