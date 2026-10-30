@@ -2545,13 +2545,6 @@ Overwriting_Allocator.deinit
 Overwriting_Allocator.deinit_overwriting_allocator
 Overwriting_Allocator.get_overwriting_allocator
 Overwriting_Allocator.overwriting_allocator_proc
-PCG
-PCG.random_get
-PCG.random_get_within_bound
-PCG.random_get_within_bound2
-PCG.random_get_within_range
-PCG.random_get_zero_to_one
-PCG.random_seed
 POSIX
 POSIX.fstat
 POSIX.lstat
