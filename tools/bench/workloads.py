@@ -24,6 +24,10 @@ RUNTIME_PROGRAMS = ROOT / 'benchmarks' / 'runtime'
 PROJECT_DRIVERS = ROOT / 'benchmarks' / 'runtime-projects'
 
 
+# Programs worth looking for inside a `sh -c` setup script.
+SCRIPT_TOOLS = ('clang', 'gcc', 'cc', 'ar', 'make', 'cmake')
+
+
 class Category(str, Enum):
     STARTUP = 'startup'
     LOTS_OF_CODE = 'lots of code'
@@ -129,20 +133,42 @@ class CorpusProject:
         return CORPUS / self.project
 
     def materialize(self, scratch: Path) -> Path:
-        cases = json.loads((ROOT / 'tools' / 'upstream-cases.json').read_text(encoding='utf-8')) if self.setup_ids else []
-        for case in cases:
-            if case['id'] in self.setup_ids:
-                for command in case.get('setup', []):
+        for case in self.setup_cases():
+            for command in case.get('setup', []):
+                try:
                     subprocess.run(command, cwd=(CORPUS / case['path']).parent, capture_output=True,
                                    stdin=subprocess.DEVNULL)
+                except OSError:
+                    pass  # `available()` reports a missing tool; a setup that cannot start changes nothing
         copy = copy_in(self.directory, scratch, CORPUS / Path(self.project).parts[0])
         if self.driver:
             shutil.copy(self.driver, copy / self.driver.name)
         return copy
 
+    def setup_cases(self) -> list[dict]:
+        if not self.setup_ids:
+            return []
+        cases = json.loads((ROOT / 'tools' / 'upstream-cases.json').read_text(encoding='utf-8'))
+        return [case for case in cases if case['id'] in self.setup_ids]
+
+    def missing_tools(self) -> list[str]:
+        """Programs the setup commands need that are not installed: each command's own program, and for a
+        `sh -c` script the compiler and archiver it calls."""
+        needed: list[str] = []
+        for case in self.setup_cases():
+            for command in case.get('setup', []):
+                needed.append(command[0])
+                if command[0] in ('sh', 'bash') and '-c' in command:
+                    script = command[command.index('-c') + 1]
+                    needed += [tool for tool in SCRIPT_TOOLS if re.search(rf'(?<![\w.-]){tool}(?![\w.-])', script)]
+        return sorted({tool for tool in needed if not shutil.which(tool)})
+
     def available(self) -> str:
         if not self.directory.is_dir():
             return f'{self.directory} is missing; run python3 tools/fetch_upstreams.py'
+        tools = self.missing_tools()
+        if tools:
+            return f'setup needs {", ".join(tools)}, which {"is" if len(tools) == 1 else "are"} not installed'
         libs = shared_output_dir('native-libs') / host_platform()
         if self.native_libs and not libs.is_dir():
             return f'{libs} is missing; run python3 tools/native/build_native_libs.py'
