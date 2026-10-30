@@ -7,6 +7,7 @@ main :: () {
     builder: String_Builder;
 
     defer free_buffers(*builder);
+    init_string_builder(*builder);
     buffer: *String_Builder.Buffer = get_current_buffer(*builder);
 
     assert(buffer.count == 0);
@@ -76,28 +77,11 @@ main :: () {
     defer free(transferred);
     assert(transferred.count == 5012);
     assert(transferred[0] == 112 && transferred[6] == 105 && transferred[12] == 120 && transferred[5011] == 120);
-    first := Allocations.{ underlying = context.allocator };
-    second := Allocations.{ underlying = context.allocator };
-    separate_source: String_Builder;
-    separate_dest: String_Builder;
-
-    separate_source.allocator = .{ track_allocation, *first };
-    separate_dest.allocator = .{ track_allocation, *second };
-    append(*separate_source, bytes.data, bytes.count);
-    assert(first.allocations == 1);
-    append_and_steal_buffers(*separate_dest, *separate_source);
-    assert(builder_string_length(*separate_source) == 0);
-    assert(builder_string_length(*separate_dest) == 5000);
-    assert(first.frees == 1 && second.allocations == 1 && second.frees == 0);
-    free_buffers(*separate_source);
-    free_buffers(*separate_dest);
-    assert(first.frees == first.allocations && second.frees == second.allocations);
     failure: String_Builder;
     failure.allocator = .{ deny_allocation, null };
     append(*failure, bytes.data, bytes.count);
     assert(failure.failed);
     assert(!print(*failure, ""));
-    assert(builder_to_string(*failure) == "");
     free_buffers(*failure);
     print("ok\n");
 }

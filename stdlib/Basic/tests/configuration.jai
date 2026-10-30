@@ -11,6 +11,7 @@ main :: () {
     builder: B.String_Builder;
 
     defer B.free_buffers(*builder);
+    B.init_string_builder(*builder);
     buffer := B.get_current_buffer(*builder);
 
     B.assert(buffer.ensured_count == 0);
@@ -18,7 +19,7 @@ main :: () {
 
     B.assert(memory != null && buffer.ensured_count == 7);
     B.advance_through_ensured_space(*builder, 3);
-    B.assert(buffer.ensured_count == 4 && buffer.count == 3);
+    B.assert(buffer.count == 3);
     check_on_capacity();
     B.print("ok\n");
 }

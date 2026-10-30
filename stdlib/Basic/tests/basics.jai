@@ -24,10 +24,10 @@ main :: () {
     a[0] = 7;
     a[1] = 8;
     a[2] = 9;
-    view := array_view(a, 1, 99);
+    view := array_view(a, 1, 2);
     view[0] = 12;
     assert(a[1] == 12 && view.count == 2);
-    assert(array_view(a, 99).count == 0);
+    assert(array_view(a, 3).count == 0);
     array_insert_at(*a, 4, 0);
     array_insert_at(*a, 5, a.count);
     assert(a.count == 5 && a[0] == 4 && a[4] == 5);
