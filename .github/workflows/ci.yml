@@ -332,6 +332,15 @@ jobs:
         env:
           XDG_CACHE_HOME: ${{ runner.temp }}/generator-downloads
         run: python3 tools/generators/check_generated.py --formatter target/jaifmt
+      # The API reference builds and every intra-doc link in the doc comments resolves
+      # (docs/tools/jacket-doc.md). Writes nothing; the release workflow publishes the site.
+      - name: API reference links
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',jai,') && matrix.runner == 'ubuntu-24.04' }}
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/target
+        run: |
+          cargo build --locked -p jacket -p jaic-cli
+          target/debug/jacket doc --check
       - name: Native Linux File_Watcher ownership and notifications
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && runner.os == 'Linux' && contains(matrix.parts, ',jai,') }}
         id: file-watcher-native
