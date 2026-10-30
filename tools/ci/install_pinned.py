@@ -3,7 +3,7 @@
 
     install_pinned.py just | nextest | llvm-cov | cargo-mutants   prebuilt tool into $CARGO_HOME/bin
     install_pinned.py rust [--component NAME]... [--target TRIPLE]...
-    install_pinned.py llvm-release ARCHIVE
+    install_pinned.py llvm-release ARCHIVE   ({version} in ARCHIVE is the pinned LLVM version)
 
 The prebuilt tools are downloaded, compared with the SHA-256 in pins.json for this platform and only then
 unpacked into `${CARGO_HOME:-~/.cargo}/bin`, which is on PATH wherever rustup is. A platform without a
@@ -13,8 +13,8 @@ pinned checksum fails with the `cargo install --locked` command to use instead.
 channel is written in one place.
 
 `llvm-release` downloads the official LLVM release archive ARCHIVE (kept in $RUNNER_TEMP/llvm-download,
-retried; nothing caches it between runs), unpacks it into $RUNNER_TEMP/llvm and appends LLVM_SYS_231_PREFIX to
-$GITHUB_ENV. It serves ci.yml's Windows setup and release.yml's static builds.
+retried; nothing caches it between runs), unpacks it into $RUNNER_TEMP/llvm and appends the llvm-sys prefix
+variable (LLVM_SYS_<major><minor>_PREFIX, see pins.llvm_env) and LLVM_PREFIX to $GITHUB_ENV. It serves ci.yml's Windows setup and release.yml's static builds.
 """
 
 from __future__ import annotations
@@ -208,6 +208,7 @@ def download(url: str, path: Path, attempts: int = 5, pause: int = 5) -> None:
 
 def install_llvm_release(manifest: dict, archive: str) -> None:
     version = manifest["llvm"]
+    archive = archive.replace("{version}", version)
     temp = Path(os.environ["RUNNER_TEMP"])
     download_dir = temp / "llvm-download"
     llvm = temp / "llvm"
@@ -220,7 +221,8 @@ def install_llvm_release(manifest: dict, archive: str) -> None:
     with tarfile.open(download_dir / archive, "r:xz") as tar:
         extract(tar, llvm, strip=1)
     with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
-        env.write(f"LLVM_SYS_231_PREFIX={llvm.as_posix()}\n")
+        env.write(f"{pins.llvm_env(manifest)['LLVM_SYS_PREFIX_VAR']}={llvm.as_posix()}\n")
+        env.write(f"LLVM_PREFIX={llvm.as_posix()}\n")
     config = (
         llvm / "bin" / ("llvm-config.exe" if host_os() == "windows" else "llvm-config")
     )

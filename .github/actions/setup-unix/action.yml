@@ -1,5 +1,5 @@
 name: Set up Linux or macOS
-description: Pinned Rust toolchain, Python, LLVM 23 and the native libraries the CI jobs link.
+description: Pinned Rust toolchain, Python, LLVM and the native libraries the CI jobs link.
 inputs:
   lld:
     description: Install wasm-ld (macOS)
@@ -30,34 +30,32 @@ runs:
       run: python3 tools/ci/install_pinned.py nextest
     - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
       with: {python-version: '3.14'}
-    - name: Install LLVM 23 (macOS)
-      if: runner.os == 'macOS'
-      shell: bash
-      env:
-        LLD: ${{ inputs.lld }}
-        BREW: ${{ inputs.brew }}
-        FONT: ${{ inputs.font }}
-      run: |
-        # --lld: wasm-ld, which `jaic -os wasm` links with (docs/native/wasm-target.md).
-        tools/ci/install_ci_llvm_macos.sh $([ "$LLD" = true ] && echo --lld)
-        brew install openssl@3 pkg-config
-        for package in $BREW; do brew list "$package" > /dev/null 2>&1 || brew install "$package"; done
-        if [ "$FONT" = true ]; then echo 'JAIC_TEST_FONT_PATH=/System/Library/Fonts/Supplemental/Arial.ttf' >> "$GITHUB_ENV"; fi
-    # The Ubuntu packages the Linux install below downloads, kept between runs (./.github/actions/apt-cache).
+    # The Ubuntu packages the Linux installs below download, kept between runs (./.github/actions/apt-cache).
     - uses: ./.github/actions/apt-cache
       with:
         label: native${{ inputs.native-libs }}${{ inputs.apt-label }}
-    - name: Install LLVM 23 (Linux)
+    # --lld: wasm-ld, which `jaic -os wasm` links with (docs/native/wasm-target.md).
+    - uses: ./.github/actions/setup-llvm
+      with:
+        lld: ${{ inputs.lld }}
+    - name: Install the Homebrew packages
+      if: runner.os == 'macOS'
+      shell: bash
+      env:
+        BREW: ${{ inputs.brew }}
+        FONT: ${{ inputs.font }}
+      run: |
+        brew install openssl@3 pkg-config
+        for package in $BREW; do brew list "$package" > /dev/null 2>&1 || brew install "$package"; done
+        if [ "$FONT" = true ]; then echo 'JAIC_TEST_FONT_PATH=/System/Library/Fonts/Supplemental/Arial.ttf' >> "$GITHUB_ENV"; fi
+    - name: Install the Linux native libraries
       if: runner.os == 'Linux'
       shell: bash
       env:
         NATIVE: ${{ inputs.native-libs }}
         FONT: ${{ inputs.font }}
       run: |
-        bash tools/ci/install_ci_llvm_linux.sh
-        echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
-        echo "DEVELOPER_TOOLS_LLVM_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
-        echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
+        echo "DEVELOPER_TOOLS_LLVM_PREFIX=$LLVM_PREFIX" >> "$GITHUB_ENV"
         # X11, GL (Mesa's software renderer), FreeType, Xvfb, ALSA and Mesa's lavapipe (the
         # Vulkan adapter of the WebGPU tests).
         if [ "$NATIVE" = true ]; then bash tools/ci/install_ci_native_linux.sh; fi

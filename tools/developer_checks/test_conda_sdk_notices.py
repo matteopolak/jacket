@@ -32,7 +32,7 @@ class CondaNotices(unittest.TestCase):
         self.image.parent.mkdir(parents=True)
         self.image.write_bytes(b"independent non-executable image identity")
         self.identity = dict(
-            name="libclang13", version="23.1.2", build="default_h3065a3b_0"
+            name="libclang13", version="1.2.3", build="default_h3065a3b_0"
         )
         self.metadata = dict(
             self.identity,

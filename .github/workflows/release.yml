@@ -36,7 +36,6 @@ env:
   # tools/ holds the folders the Python scripts import from (`from toolkit.repo import ROOT`).
   PYTHONPATH: ${{ github.workspace }}/tools
   CARGO_INCREMENTAL: '0'
-  LLVM_VERSION: 23.1.2
 jobs:
   release-meta:
     runs-on: ubuntu-24.04
@@ -63,7 +62,8 @@ jobs:
       editor_pinned: ${{ steps.meta.outputs.editor_pinned }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with: {persist-credentials: false}
+        with:
+          persist-credentials: false
           ref: ${{ github.sha }}
       - name: Compute the release metadata
         id: meta
@@ -104,7 +104,7 @@ jobs:
         include:
           - name: macos-arm64
             runner: macos-15
-            llvm: LLVM-23.1.2-macOS-ARM64.tar.xz
+            llvm: LLVM-{version}-macOS-ARM64.tar.xz
           # LLVM publishes no Intel macOS build: conda-forge's static libraries instead
           # (tools/ci/install_ci_llvm_macos.sh --static).
           - name: macos-x64
@@ -112,20 +112,20 @@ jobs:
             llvm: conda-forge
           - name: linux-x64
             runner: ubuntu-24.04
-            llvm: LLVM-23.1.2-Linux-X64.tar.xz
+            llvm: LLVM-{version}-Linux-X64.tar.xz
             bolt: true
           # No BOLT: Ubuntu's arm64 linker adds Cortex-A53 erratum 843419 veneers, which llvm-bolt
           # refuses to keep; dropping them would break the binary on Cortex-A53 (Raspberry Pi 3).
           - name: linux-arm64
             runner: ubuntu-24.04-arm
-            llvm: LLVM-23.1.2-Linux-ARM64.tar.xz
+            llvm: LLVM-{version}-Linux-ARM64.tar.xz
           - name: windows-x64
             runner: windows-2025
-            llvm: clang+llvm-23.1.2-x86_64-pc-windows-msvc.tar.xz
+            llvm: clang+llvm-{version}-x86_64-pc-windows-msvc.tar.xz
             rust_target: x86_64-pc-windows-msvc
           - name: windows-arm64
             runner: windows-11-arm
-            llvm: clang+llvm-23.1.2-aarch64-pc-windows-msvc.tar.xz
+            llvm: clang+llvm-{version}-aarch64-pc-windows-msvc.tar.xz
             rust_target: aarch64-pc-windows-msvc
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
@@ -134,7 +134,8 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with: {persist-credentials: false}
+        with:
+          persist-credentials: false
           ref: ${{ inputs.tag || github.ref }}
       # llvm-tools: the llvm-profdata that matches rustc's LLVM, to merge the PGO profiles.
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -243,7 +244,8 @@ jobs:
       EDITOR_VERSION: ${{ needs.release-meta.outputs.editor_version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with: {persist-credentials: false}
+        with:
+          persist-credentials: false
           ref: ${{ github.sha }}
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with: {node-version: '24'}
@@ -283,7 +285,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with: {persist-credentials: false}
+        with:
+          persist-credentials: false
           ref: ${{ inputs.tag || github.ref }}
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -322,7 +325,8 @@ jobs:
         working-directory: editors/vscode
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with: {persist-credentials: false}
+        with:
+          persist-credentials: false
           ref: ${{ github.sha }}
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with: {node-version: '24'}
@@ -374,7 +378,8 @@ jobs:
       HOMEBREW_NO_ENV_HINTS: '1'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with: {persist-credentials: false}
+        with:
+          persist-credentials: false
           ref: ${{ github.sha }}
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with: {python-version: '3.14'}
@@ -430,7 +435,8 @@ jobs:
       EDITOR_VERSION: ${{ needs.release-meta.outputs.editor_version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with: {persist-credentials: false}
+        with:
+          persist-credentials: false
           ref: ${{ github.sha }}
       - name: Stamp the version and the release's toolchain manifest into the plugin
         env:

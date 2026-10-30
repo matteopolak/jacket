@@ -208,8 +208,8 @@ class LlvmRelease(unittest.TestCase):
     def test_unpacks_into_runner_temp_and_exports_the_prefix(self):
         buffer = io.BytesIO()
         with tarfile.open(fileobj=buffer, mode="w:xz") as tar:
-            body = b'#!/bin/sh\necho "23.1.2 $*"\n'
-            info = tarfile.TarInfo("LLVM-23.1.2-Linux-X64/bin/llvm-config")
+            body = b'#!/bin/sh\necho "9.8.7 $*"\n'
+            info = tarfile.TarInfo("LLVM-9.8.7-Linux-X64/bin/llvm-config")
             info.size = len(body)
             info.mode = 0o755
             tar.addfile(info, io.BytesIO(body))
@@ -231,20 +231,19 @@ class LlvmRelease(unittest.TestCase):
             ):
                 for _ in range(2):
                     install_pinned.install_llvm_release(
-                        {"llvm": "23.1.2"}, "LLVM-23.1.2-Linux-X64.tar.xz"
+                        {"llvm": "9.8.7"}, "LLVM-{version}-Linux-X64.tar.xz"
                     )
             self.assertEqual(
                 downloads,
                 [
-                    "https://github.com/llvm/llvm-project/releases/download/llvmorg-23.1.2/LLVM-23.1.2-Linux-X64.tar.xz"
+                    "https://github.com/llvm/llvm-project/releases/download/llvmorg-9.8.7/LLVM-9.8.7-Linux-X64.tar.xz"
                 ],
                 "the second run reuses the downloaded archive",
             )
             self.assertTrue((temp / "llvm/bin/llvm-config").is_file())
-            self.assertIn(
-                f"LLVM_SYS_231_PREFIX={(temp / 'llvm').as_posix()}\n",
-                env_file.read_text(),
-            )
+            exported = env_file.read_text()
+            self.assertIn(f"LLVM_SYS_98_PREFIX={(temp / 'llvm').as_posix()}\n", exported)
+            self.assertIn(f"LLVM_PREFIX={(temp / 'llvm').as_posix()}\n", exported)
 
 
 if __name__ == "__main__":

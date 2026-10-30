@@ -87,6 +87,7 @@ AREAS = {
         "tools/native/test_windows_resource_fixture.py",
         "tools/ci/install_ci_native_linux.sh",
         "tools/ci/install_ci_llvm_linux.sh",
+        "tools/ci/llvm_env.sh",
         "tools/ci/apt_lib.sh",
         "tools/ci/apt_install.sh",
         "tools/ci/test_apt_lib.py",

@@ -1,0 +1,26 @@
+name: Install LLVM
+description: >-
+  Installs the LLVM that .github/pins.json pins on a Linux or macOS runner (apt.llvm.org packages,
+  Homebrew's llvm@<major>, or conda-forge on Intel Macs) and exports what builds need: LLVM_VERSION,
+  LLVM_MAJOR, the llvm-sys prefix variable (LLVM_SYS_<major><minor>_PREFIX), LLVM_PREFIX and the
+  toolchain's bin directory on PATH.
+inputs:
+  lld:
+    description: Install wasm-ld and lld-link (macOS; the Linux packages always include them)
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - name: Export the pinned LLVM version
+      shell: bash
+      run: PYTHONPATH=tools python3 tools/ci/pins.py llvm-env >> "$GITHUB_ENV"
+    - name: Install LLVM (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      env:
+        LLD: ${{ inputs.lld }}
+      run: tools/ci/install_ci_llvm_macos.sh $([ "$LLD" = true ] && echo --lld)
+    - name: Install LLVM (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: timeout 900 bash tools/ci/install_ci_llvm_linux.sh

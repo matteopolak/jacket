@@ -8,9 +8,16 @@ here: rust-toolchain.toml is its source, and tools/ci/install_pinned.py rust rea
 
     python3 tools/ci/pins.py check
     python3 tools/ci/pins.py sync
+    python3 tools/ci/pins.py get KEY            # one pin
+    python3 tools/ci/pins.py llvm-env           # NAME=value lines for $GITHUB_ENV or `eval`
+
+The LLVM version is spelled out nowhere else: `llvm_env` derives the major version, the llvm-sys
+prefix variable (LLVM_SYS_<major><minor>_PREFIX) and the release archive names from the one pin, and
+`check` fails when the full version string appears in the workflows, scripts or docs.
 """
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -34,11 +41,6 @@ RULES = {
     ],
     "cargo_fuzz": [(WORKFLOWS, r"tool: cargo-fuzz@([\d.]+)")],
     "ruff": [(WORKFLOWS, r"ruff==([\d.]+)")],
-    "llvm": [
-        (WORKFLOWS, r"LLVM_VERSION: ([\d.]+)"),
-        (WORKFLOWS, r"llvm: (?:LLVM|clang\+llvm)-([\d.]+)-"),
-        ("tools/ci/install_ci_llvm_macos.sh", r"llvm_version=([\d.]+)"),
-    ],
     "llvm_mingw": [(WORKFLOWS, r"LLVM_MINGW_VERSION: '(\d+)'")],
     "mesa": [(WORKFLOWS, r"MESA_VERSION: ([\d.]+)")],
     "mesa_sha256_x64": [(WORKFLOWS, r"MESA_SHA256_X64: ([0-9a-f]{64})")],
@@ -49,6 +51,7 @@ RULES = {
 
 # pin -> the script that reads it from pins.json itself (so no literal is spelled out elsewhere).
 READ_BY = {
+    "llvm": "tools/ci/install_pinned.py",
     "just": "tools/ci/install_pinned.py",
     "just_sha256_linux_x64": "tools/ci/install_pinned.py",
     "just_sha256_linux_arm64": "tools/ci/install_pinned.py",
@@ -70,6 +73,48 @@ READ_BY = {
 
 def load(path=PINS):
     return json.loads(Path(path).read_text())
+
+
+def llvm_env(manifest):
+    """The forms of the `llvm` pin that the setup actions and scripts export. The variable name
+    follows the llvm-sys crate feature (`llvm23-1` reads LLVM_SYS_231_PREFIX), which Cargo.toml
+    and crates/jaic-llvm/Cargo.toml set by hand."""
+    version = manifest["llvm"]
+    major, minor = version.split(".")[:2]
+    return {
+        "LLVM_VERSION": version,
+        "LLVM_MAJOR": major,
+        "LLVM_SYS_PREFIX_VAR": f"LLVM_SYS_{major}{minor}_PREFIX",
+    }
+
+
+# Where the full LLVM version must not be spelled out (pins.json is its one home): the CI
+# configuration, the scripts it runs and the docs about them.
+LITERAL_DIRS = [".github", "tools", "docs"]
+LITERAL_SUFFIXES = {".yml", ".yaml", ".py", ".sh", ".ps1", ".json", ".md", ".toml", ".mjs"}
+LITERAL_SKIP_DIRS = {"node_modules", "target", "__pycache__"}
+LITERAL_ALLOWED = {".github/pins.json"}
+
+
+def literal_llvm_versions(root, version):
+    """The files that spell out the full LLVM `version` (as a whole number: 1.2.30 is not 1.2.3)."""
+    needle = re.compile(r"(?<![\d.])" + re.escape(version) + r"(?![\d])")
+    found = []
+    for top in LITERAL_DIRS:
+        for dirpath, dirnames, filenames in os.walk(root / top):
+            dirnames[:] = [d for d in dirnames if d not in LITERAL_SKIP_DIRS]
+            for name in filenames:
+                path = Path(dirpath) / name
+                relative = path.relative_to(root).as_posix()
+                if path.suffix not in LITERAL_SUFFIXES or relative in LITERAL_ALLOWED:
+                    continue
+                try:
+                    text = path.read_text()
+                except (OSError, UnicodeDecodeError):
+                    continue
+                if needle.search(text):
+                    found.append(relative)
+    return sorted(found)
 
 
 def rewrite(text, regex, value):
@@ -120,6 +165,11 @@ def run(root, pins, write):
             problems.append(
                 f"{script} does not read `{pin}`: fix READ_BY in tools/ci/pins.py"
             )
+    if "llvm" in pins:
+        for relative in literal_llvm_versions(root, pins["llvm"]):
+            problems.append(
+                f"{relative} spells out LLVM {pins['llvm']}: read it from pins.json (tools/ci/pins.py llvm-env)"
+            )
     for pin in pins:
         if pin not in RULES and pin not in READ_BY:
             problems.append(f"pins.json `{pin}` has no rule in tools/ci/pins.py")
@@ -127,6 +177,13 @@ def run(root, pins, write):
 
 
 def main():
+    if len(sys.argv) == 3 and sys.argv[1] == "get":
+        print(load()[sys.argv[2]])
+        return 0
+    if len(sys.argv) == 2 and sys.argv[1] == "llvm-env":
+        for name, value in llvm_env(load()).items():
+            print(f"{name}={value}")
+        return 0
     if len(sys.argv) != 2 or sys.argv[1] not in ("check", "sync"):
         print(__doc__, file=sys.stderr)
         return 2

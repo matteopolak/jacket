@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Installs LLVM 23 (and LLD, for wasm-ld and lld-link) on a CI macOS runner and exports LLVM_SYS_231_PREFIX
-# and PATH for later steps.
+# Installs the LLVM that .github/pins.json pins (and LLD, for wasm-ld and lld-link) on a CI macOS
+# runner and exports the llvm-sys prefix variable, LLVM_PREFIX and PATH for later steps.
 #
-# arm64: Homebrew's llvm@23. Some runner images ship a Homebrew whose formula list predates the
-# llvm@23 alias, so a failed install retries after `brew update`.
+# arm64: Homebrew's llvm@<major>. Some runner images ship a Homebrew whose formula list predates the
+# alias, so a failed install retries after `brew update`.
 #
 # x86-64: Homebrew has no bottles for Intel macOS (it is a tier 3 configuration there), so it
 # would build LLVM from source, which takes longer than the job's timeout. conda-forge still
-# builds LLVM for osx-64: the pinned micromamba below installs the same 23.1 release into the
+# builds LLVM for osx-64: the pinned micromamba below installs the same release into the
 # runner's temp directory.
 #
 # --static (x86-64 only, for release.yml's macos-x64 archive): only the static LLVM libraries,
@@ -18,13 +18,16 @@
 # still runs, on the system's libc++ (dyld's fallback for its @rpath/libc++.1.dylib).
 # Usage: tools/ci/install_ci_llvm_macos.sh [--lld | --static]
 set -euo pipefail
+# shellcheck source=tools/ci/llvm_env.sh
+source "$(dirname "${BASH_SOURCE[0]}")/llvm_env.sh"
 lld=false
 static=false
 [[ "${1:-}" == "--lld" ]] && lld=true
 [[ "${1:-}" == "--static" ]] && static=true
 
 if [[ "$(uname -m)" == x86_64 ]]; then
-    llvm_version=23.1.2
+    # shellcheck disable=SC2153
+    llvm_version=$LLVM_VERSION
     micromamba_package=micromamba-2.9.0-0.tar.bz2
     micromamba_sha256=0426ecdc41636d369f57b8fe6acbf4385a69eca45b56d9ee7d3a840a9965d44f
     tools="${RUNNER_TEMP:-/tmp}/micromamba"
@@ -38,11 +41,11 @@ if [[ "$(uname -m)" == x86_64 ]]; then
     # llvm-dwarfdump and llvm-symbolizer; clang and compiler-rt: the driver and runtimes for
     # `jaic -sanitize`. clangdev supplies the public clang-c headers and matching
     # libclang development/runtime dependencies used by the production generator.
-    packages=("llvmdev=$llvm_version" "libllvm23=$llvm_version" "llvm-tools=$llvm_version"
+    packages=("llvmdev=$llvm_version" "libllvm$LLVM_MAJOR=$llvm_version" "llvm-tools=$llvm_version"
               "clang=$llvm_version" "clangdev=$llvm_version" "compiler-rt=$llvm_version")
     $lld && packages+=("lld=$llvm_version")
     # zstd-static: libzstd.a, which LLVM's support library needs; libcxx carries libc++.a.
-    $static && packages=("llvmdev=$llvm_version" "libllvm23=$llvm_version" "zstd-static" "libcxx")
+    $static && packages=("llvmdev=$llvm_version" "libllvm$LLVM_MAJOR=$llvm_version" "zstd-static" "libcxx")
     MAMBA_ROOT_PREFIX="$tools/root" "$tools/bin/micromamba" create --yes --quiet \
         --prefix "$prefix" --override-channels --channel conda-forge "${packages[@]}"
     # Keep the owning package cache and its info/licenses: runtime packaging
@@ -53,9 +56,9 @@ if [[ "$(uname -m)" == x86_64 ]]; then
         find "$prefix/lib" -maxdepth 1 -name '*.dylib' -delete -print | wc -l | xargs echo "deleted dylibs:"
         ls -l "$prefix/lib/libzstd.a" "$prefix/lib/libc++.a"
         version="$("$prefix/bin/llvm-config" --version)"
-        [[ "$version" == 23.* ]] || { echo "expected LLVM 23, got $version" >&2; exit 1; }
+        [[ "$version" == "$LLVM_MAJOR".* ]] || { echo "expected LLVM $LLVM_MAJOR, got $version" >&2; exit 1; }
         echo "system libraries: $("$prefix/bin/llvm-config" --link-static --system-libs)"
-        echo "LLVM_SYS_231_PREFIX=$prefix" >> "$GITHUB_ENV"
+        { echo "$LLVM_SYS_PREFIX_VAR=$prefix"; echo "LLVM_PREFIX=$prefix"; } >> "$GITHUB_ENV"
         echo "SDKROOT=$(xcrun --show-sdk-path)" >> "$GITHUB_ENV"
         exit 0
     fi
@@ -77,19 +80,19 @@ if [[ "$(uname -m)" == x86_64 ]]; then
         esac
     done
 else
-    formulae=(llvm@23)
+    formulae=("llvm@$LLVM_MAJOR")
     $lld && formulae+=(lld)
     if ! brew install "${formulae[@]}"; then
         brew update
         brew install "${formulae[@]}"
     fi
-    prefix="$(brew --prefix llvm@23)"
+    prefix="$(brew --prefix "llvm@$LLVM_MAJOR")"
     path_dir="$prefix/bin"
 fi
 
 version="$("$prefix/bin/llvm-config" --version)"
-[[ "$version" == 23.* ]] || { echo "expected LLVM 23, got $version" >&2; exit 1; }
+[[ "$version" == "$LLVM_MAJOR".* ]] || { echo "expected LLVM $LLVM_MAJOR, got $version" >&2; exit 1; }
 [[ -f "$prefix/include/clang-c/Index.h" ]] || { echo "LLVM SDK lacks clang-c/Index.h: $prefix" >&2; exit 1; }
 [[ -f "$prefix/lib/libclang.dylib" ]] || { echo "LLVM SDK lacks libclang.dylib: $prefix" >&2; exit 1; }
-echo "LLVM_SYS_231_PREFIX=$prefix" >> "$GITHUB_ENV"
+{ echo "$LLVM_SYS_PREFIX_VAR=$prefix"; echo "LLVM_PREFIX=$prefix"; } >> "$GITHUB_ENV"
 echo "$path_dir" >> "$GITHUB_PATH"

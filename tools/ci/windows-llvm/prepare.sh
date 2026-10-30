@@ -11,6 +11,8 @@ set -euo pipefail
 
 llvm="$1"
 here="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=tools/ci/llvm_env.sh
+source "$here/../llvm_env.sh"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 clang="$llvm/bin/clang"
@@ -79,11 +81,11 @@ fi
 
 # 4. The llvm-config front that llvm-sys picks first (see llvm-config-shim.c).
 "$clang" --target="$triple" -fms-runtime-lib=static -O2 "$here/llvm-config-shim.c" \
-  -o "$llvm/bin/llvm-config-23.exe"
+  -o "$llvm/bin/llvm-config-$LLVM_MAJOR.exe"
 
 # 5. Every system library must now be a bare name the linker can find: one of Windows' import
 #    libraries, or a file in the release's lib/.
-libs="$("$llvm/bin/llvm-config-23.exe" --link-static --system-libs | tr -d '\r')"
+libs="$("$llvm/bin/llvm-config-$LLVM_MAJOR.exe" --link-static --system-libs | tr -d '\r')"
 echo "system libraries (via shim): $libs"
 status=0
 for name in $libs; do

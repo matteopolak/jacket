@@ -91,7 +91,7 @@ nix develop     # then cargo build -p jaic-cli --locked
 
 ## Configuration
 
-`LLVM_VERSION` in the workflow (LLVM 23 patch release); `jaic-cli` features `dynamic-llvm` (default), `static-llvm`, `llvm`; `jaic-llvm` features `dynamic`, `static`. Secrets: `HOMEBREW_TAP_TOKEN` (fine-grained token, `matteopolak/homebrew-tap` only, Contents read/write), `VSCE_PAT`, `OVSX_PAT`, `NVIM_MIRROR_DEPLOY_KEY`. The `matteopolak/homebrew-tap` repository already exists.
+the `llvm` pin in `.github/pins.json` (the LLVM release; the matrix names archives with a `{version}` placeholder); `jaic-cli` features `dynamic-llvm` (default), `static-llvm`, `llvm`; `jaic-llvm` features `dynamic`, `static`. Secrets: `HOMEBREW_TAP_TOKEN` (fine-grained token, `matteopolak/homebrew-tap` only, Contents read/write), `VSCE_PAT`, `OVSX_PAT`, `NVIM_MIRROR_DEPLOY_KEY`. The `matteopolak/homebrew-tap` repository already exists.
 
 ## Dependencies
 

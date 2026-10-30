@@ -40,7 +40,6 @@ permissions:
 env:
   PYTHONPATH: ${{ github.workspace }}/tools
   PYTHONUTF8: '1'
-  LLVM_VERSION: 23.1.2
 jobs:
   probe:
     name: probe (${{ inputs.source || 'branch' }}, ${{ matrix.arch }})

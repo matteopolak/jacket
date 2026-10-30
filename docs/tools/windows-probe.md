@@ -32,7 +32,7 @@ Add inputs under `on.workflow_dispatch.inputs` and read them through `env:` (nev
 
 ## Configuration
 
-`LLVM_VERSION` in the workflow's `env` must match `ci.yml`'s (the `setup-windows` action reads it).
+The LLVM version comes from `.github/pins.json` through the `setup-windows` action.
 
 ## Dependencies
 

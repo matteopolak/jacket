@@ -1,5 +1,5 @@
 name: Set up Windows
-description: Pinned Rust toolchain, Node, and the official LLVM release with the static CRT.
+description: Pinned Rust toolchain, Node, and the official LLVM release (the version .github/pins.json pins) with the static CRT.
 inputs:
   cpu:
     description: x64 or arm64
@@ -31,19 +31,14 @@ runs:
     - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
       with: {node-version: '24'}
     # Downloaded each run (install_pinned.py llvm-release): the archive is ~0.9 GB and a cached copy buys nothing over the download.
-    - id: llvm
+    - name: Install the official LLVM release
       shell: bash
       env:
         CPU: ${{ inputs.cpu }}
       run: |
         arch=x86_64; [ "$CPU" = arm64 ] && arch=aarch64
-        echo "archive=clang+llvm-$LLVM_VERSION-$arch-pc-windows-msvc.tar.xz" >> "$GITHUB_OUTPUT"
-    - name: Install the official LLVM release
-      shell: bash
-      env:
-        ARCHIVE: ${{ steps.llvm.outputs.archive }}
-      run: |
-        python tools/ci/install_pinned.py llvm-release "$ARCHIVE"
+        PYTHONPATH=tools python tools/ci/pins.py llvm-env >> "$GITHUB_ENV"
+        python tools/ci/install_pinned.py llvm-release "clang+llvm-{version}-$arch-pc-windows-msvc.tar.xz"
         llvm="$(cygpath -u "$RUNNER_TEMP")/llvm"
         cygpath -w "$llvm/bin" >> "$GITHUB_PATH"
         test -x "$llvm/bin/wasm-ld.exe"

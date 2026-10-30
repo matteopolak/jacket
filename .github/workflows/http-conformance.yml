@@ -53,16 +53,8 @@ jobs:
       # node 24: Memory64 without a flag, for the wasm64 modules `jaic -os wasm` writes.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with: {node-version: '24'}
-      - name: Install LLVM 23 (macOS)
-        if: runner.os == 'macOS'
-        run: tools/ci/install_ci_llvm_macos.sh --lld
-      - name: Install LLVM 23 (Linux)
-        if: runner.os == 'Linux'
-        timeout-minutes: 15
-        run: |
-          bash tools/ci/install_ci_llvm_linux.sh
-          echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
-          echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
+      - uses: ./.github/actions/setup-llvm
+        with: {lld: 'true'}
       - name: Check HTTP native dependency setup
         run: python3 tools/run_tests.py -p test_http_native.py
       - name: Build pinned HTTP TLS SDK (static and shared)

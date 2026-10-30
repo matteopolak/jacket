@@ -64,12 +64,7 @@ jobs:
       - uses: ./.github/actions/apt-cache
         with:
           label: pg${{ matrix.postgres }}
-      - name: Install LLVM 23
-        timeout-minutes: 15
-        run: |
-          bash tools/ci/install_ci_llvm_linux.sh
-          echo "LLVM_SYS_231_PREFIX=/usr/lib/llvm-23" >> "$GITHUB_ENV"
-          echo "/usr/lib/llvm-23/bin" >> "$GITHUB_PATH"
+      - uses: ./.github/actions/setup-llvm
       - name: Install PostgreSQL ${{ matrix.postgres }} from the PGDG repository
         timeout-minutes: 35
         env:
@@ -149,7 +144,6 @@ jobs:
       CARGO_INCREMENTAL: '0'
       JAIC_NATIVE_LIBS: ${{ github.workspace }}/target/http-native-libs
       JAI_PG_TEST_MANAGED: '1'
-      LLVM_VERSION: 23.1.2
     defaults:
       run:
         shell: bash

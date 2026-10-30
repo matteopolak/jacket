@@ -23,7 +23,6 @@ permissions:
 env:
   # tools/ holds the folders the Python scripts import from (`from toolkit.repo import ROOT`).
   PYTHONPATH: ${{ github.workspace }}/tools
-  LLVM_VERSION: 23.1.2
   # No wall-clock limit on jailint and jailsp checks: shared runners are too slow and uneven for
   # one; the block budget still stops runaway compile-time code.
   JACKET_CHECK_TIME_LIMIT: '0'
@@ -1018,7 +1017,7 @@ jobs:
       - name: Build jaic
         run: cargo build --locked -p jaic-cli
       - name: Build the resource-only PE fixture
-        run: python3 tools/native/build_windows_resource_fixture.py --cpu ${{ matrix.cpu }} --out cross-${{ matrix.cpu }}/resource-fixture --rc /usr/lib/llvm-23/bin/llvm-rc --linker /usr/lib/llvm-23/bin/lld-link --readobj /usr/lib/llvm-23/bin/llvm-readobj
+        run: python3 tools/native/build_windows_resource_fixture.py --cpu ${{ matrix.cpu }} --out cross-${{ matrix.cpu }}/resource-fixture --rc "$LLVM_PREFIX/bin/llvm-rc" --linker "$LLVM_PREFIX/bin/lld-link" --readobj "$LLVM_PREFIX/bin/llvm-readobj"
       - name: Cross-build the Windows test programs
         # --stdlib first cross-builds the third-party C libraries (stb_*, FreeType, lz4, ...) with
         # MinGW-w64 or llvm-mingw as static archives (tools/native/build_native_libs.py).
@@ -1309,7 +1308,7 @@ jobs:
       - name: Install Mesa's software OpenGL
         run: bash tools/ci/install_ci_mesa_windows.sh x64 "$RUNNER_TEMP/mesa"
       - name: Prepare Bindings_Generator runtime
-        run: python tools/ci/package_bindings_helpers.py --platform windows-x64 --llvm-prefix "$LLVM_SYS_231_PREFIX" --out target/native-libs/windows-x64
+        run: python tools/ci/package_bindings_helpers.py --platform windows-x64 --llvm-prefix "$LLVM_PREFIX" --out target/native-libs/windows-x64
       - uses: ./.github/actions/upstream-mirrors-cache
       - name: Fetch the pinned projects
         run: |
