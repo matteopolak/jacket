@@ -2255,8 +2255,6 @@ Input.get_window_resizes
 Input.input_per_frame_event_and_flag_update
 Input.set_custom_cursor_handling
 Input.update_window_events
-IntroSort
-IntroSort.insertion_sort
 Iprof
 Iprof.Automatic_Zone
 Iprof.Automatic_Zone_Guarded
