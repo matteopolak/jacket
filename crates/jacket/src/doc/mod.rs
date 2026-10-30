@@ -238,7 +238,7 @@ fn git_state(stdlib: &Path) -> (Option<String>, std::collections::BTreeSet<Strin
 fn base_path(text: &str) -> Result<String, String> {
     if !text.starts_with('/') || !text.ends_with('/') {
         return Err(format!(
-            "--base-url must start and end with a slash, as in /docs/jai/ (got `{text}`)"
+            "--base-url must start and end with a slash, as in /docs/jacket/ (got `{text}`)"
         ));
     }
     Ok(text.to_owned())
@@ -419,8 +419,8 @@ mod tests {
 
     #[test]
     fn the_base_path_needs_both_slashes() {
-        assert_eq!(base_path("/docs/jai/").unwrap(), "/docs/jai/");
-        assert!(base_path("/docs/jai").is_err());
+        assert_eq!(base_path("/docs/jacket/").unwrap(), "/docs/jacket/");
+        assert!(base_path("/docs/jacket").is_err());
         assert!(base_path("docs/").is_err());
     }
 }

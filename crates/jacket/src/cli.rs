@@ -276,7 +276,7 @@ pub struct DocArgs {
     /// Where to write the site
     #[arg(long, value_name = "DIR", default_value = "target/doc-site")]
     pub out: std::path::PathBuf,
-    /// The path the site is served under, with the slashes around it (`/docs/jai/`)
+    /// The path the site is served under, with the slashes around it (`/docs/jacket/`)
     #[arg(long, value_name = "PATH", default_value = "/")]
     pub base_url: String,
     /// A folder with `jai_wasm.wasm` and `engine.mjs` (a browser bundle) to copy into the site, so

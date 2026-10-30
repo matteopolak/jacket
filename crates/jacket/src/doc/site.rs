@@ -8,7 +8,7 @@ pub struct Site {
     pub modules: Vec<Module>,
     /// Category names, in display order.
     pub categories: Vec<String>,
-    /// Where the site is served: `/docs/jai/`.
+    /// Where the site is served: `/docs/jacket/`.
     pub base: String,
     pub version: String,
     pub source_ref: String,

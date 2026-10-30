@@ -276,7 +276,7 @@ jobs:
           if-no-files-found: error
 
   # The API reference (docs/tools/jacket-doc.md): the standard library's docs as a static site
-  # for /docs/jai/, with the browser compiler beside it so the examples run on the page. Attached
+  # for /docs/jacket/, with the browser compiler beside it so the examples run on the page. Attached
   # to the release as jacket-docs-<version>.tar.gz; the portfolio site unpacks it.
   docs:
     needs: [release-meta, validate-release]
@@ -306,7 +306,7 @@ jobs:
       - name: Build jacket and jaic without the native backend
         run: cargo build --release --locked --offline -p jacket -p jaic-cli --no-default-features
       - name: Build the site
-        run: target/release/jacket doc --base-url /docs/jai/ --source-ref "v$VERSION" --runtime target/doc-runtime --out target/doc-site
+        run: target/release/jacket doc --base-url /docs/jacket/ --source-ref "v$VERSION" --runtime target/doc-runtime --out target/doc-site
       - name: Pack it
         run: |
           mkdir -p dist-docs

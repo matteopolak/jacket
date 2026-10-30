@@ -337,7 +337,7 @@
     if (name) window.open(name.href, '_blank');
   });
 
-  // Version menu. versions.json, when the host serves one, is [{"version": "0.31.0", "url": "/docs/jai/0.31.0/"}, ...].
+  // Version menu. versions.json, when the host serves one, is [{"version": "0.31.0", "url": "/docs/jacket/0.31.0/"}, ...].
   (function () {
     var btn = document.getElementById('ver'), menu = document.getElementById('ver-menu');
     if (!btn || !menu) return;

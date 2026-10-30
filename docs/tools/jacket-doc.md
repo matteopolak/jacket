@@ -6,7 +6,7 @@
 
 ```sh
 jacket doc                                  # target/doc-site/, served from /
-jacket doc --base-url /docs/jai/ --out site # for a site that lives under /docs/jai/
+jacket doc --base-url /docs/jacket/ --out site # for a site that lives under /docs/jacket/
 jacket doc --module String --module Basic   # just these, for a quick look
 jacket doc --check                          # build in memory and check the links only
 ```
@@ -52,13 +52,13 @@ The page loads `runtime.json` (`{"engine": "...", "wasm": "..."}`, relative to t
 
 ## How the site is published
 
-The release workflow's `docs` job builds the browser compiler and runs `jacket doc --base-url /docs/jai/ --runtime <bundle>`, then attaches `jacket-docs-<version>.tar.gz` to the GitHub release. The tarball holds the site at its top level, so extracting it gives `index.html`, `api/`, and so on.
+The release workflow's `docs` job builds the browser compiler and runs `jacket doc --base-url /docs/jacket/ --runtime <bundle>`, then attaches `jacket-docs-<version>.tar.gz` to the GitHub release. The tarball holds the site at its top level, so extracting it gives `index.html`, `api/`, and so on.
 
-The portfolio site serves it at `/docs/jai`. Its build downloads the asset for the Jacket tag it already pins, extracts it into `/docs/jai` of the site's output and does nothing else:
+The portfolio site serves it at `/docs/jacket`. Its build downloads the asset for the Jacket tag it already pins, extracts it into `/docs/jacket` of the site's output and does nothing else:
 
 ```sh
 gh release download "$TAG" --repo matteopolak/jacket --pattern 'jacket-docs-*.tar.gz' --dir "$TMP"
-mkdir -p dist/docs/jai && tar -xzf "$TMP"/jacket-docs-*.tar.gz -C dist/docs/jai
+mkdir -p dist/docs/jacket && tar -xzf "$TMP"/jacket-docs-*.tar.gz -C dist/docs/jacket
 ```
 
 Nothing is committed to either repository. If the portfolio would rather not carry a second copy of the 23 MB browser compiler, delete `runtime/` after extracting and rewrite `runtime.json` to the URLs of the one it hosts; the pages read it at run time. To make "Open in playground" load the code, the playground needs to understand `#code=`.
@@ -77,7 +77,7 @@ CI runs `jacket doc --check` (which also checks the categories and every written
 - A module page has no filter: its procedure groups are plain headings (each with a link to itself), and on screens 1280px wide or more an "On this page" outline sits on the right and marks the heading being read.
 - Scrollbars are thin and reserve their gutter (`scrollbar-gutter: stable`), so pages that scroll and pages that don't line up.
 - A module whose procedures all come from one file has one flat list.
-- The version in the header is plain text. If the host serves `versions.json` next to `index.html` (`[{"version": "0.31.0", "url": "/docs/jai/"}, ...]`) with two or more entries, it becomes a menu. `jacket doc` never writes that file; the site hosting several versions does.
+- The version in the header is plain text. If the host serves `versions.json` next to `index.html` (`[{"version": "0.31.0", "url": "/docs/jacket/"}, ...]`) with two or more entries, it becomes a menu. `jacket doc` never writes that file; the site hosting several versions does.
 - **"Since" versions.** Items and modules show `since 0.24.0` in small dim text (rows, item pages, the module page). The data is `crates/jacket/src/doc/since.tsv`, compiled into `jacket`: for each release tag it covers, the items that tag's `stdlib/` has and no earlier tag had, as `jaic -doc_model` sees them. `tools/generators/generate_doc_since.py` writes it (each new tag's `stdlib/` is extracted into a scratch folder, so the checkout is untouched; about 4 s per tag, 90 s for all 20 tags with a debug build) and `check_generated.py` runs it with `--check`, which only validates the file against the tags that exist. Reading the file is a hash lookup per item, so a build pays nothing and needs neither `git` nor tags, which is what a release job (a tagged checkout, often shallow) has.
   - Items in the oldest covered release are filed under `-` and show nothing: they are older than the data. A module shows a version only when all its items are newer than that.
   - An item with no row is new in the version `jacket` is built as (`Cargo.toml`), unless the data already covers that release, in which case it is a development build and the item shows nothing. So the 0.31.0 build labels everything added since 0.30.4 `since 0.31.0` with no step in between.

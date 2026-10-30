@@ -553,7 +553,7 @@ Usage: jacket doc [OPTIONS]
 
 Options:
       --out <DIR>             Where to write the site [default: target/doc-site]
-      --base-url <PATH>       The path the site is served under, with the slashes around it (`/docs/jai/`) [default: /]
+      --base-url <PATH>       The path the site is served under, with the slashes around it (`/docs/jacket/`) [default: /]
       --runtime <DIR>         A folder with `jai_wasm.wasm` and `engine.mjs` (a browser bundle) to copy into the site, so the Run buttons work; without it they are shown disabled
       --playground-url <URL>  Where "open in playground" and the Playground link go [default: https://matteopolak.com/playground/jacket]
       --source-ref <REF>      The tag or branch Source links point at [default: v<this version>]
