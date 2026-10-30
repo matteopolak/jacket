@@ -1,3 +1,16 @@
+// Decoding and encoding UTF-8 text, one character at a time.
+//
+// Strings elsewhere in the standard library are plain bytes; this module is where bytes become code
+// points and back. Decoding is lenient unless asked to be `strict`, and the iterator `utf8_iter` is
+// always strict. Procedures that allocate use the context allocator and the caller frees the result.
+//
+// ```jai
+// encoded := character_utf32_to_utf8(0xe9);
+// defer free(encoded);
+// code, size, status := character_utf8_to_utf32(encoded.data, encoded.count, true);
+// assert(status == .CONVERSION_OK && code == 0xe9 && size == 2);
+// ```
+
 Unicode_Result :: Impl.Unicode_Result;
 UNI_REPLACEMENT_CHAR :: Impl.UNI_REPLACEMENT_CHAR;
 UNI_MAX_BMP :: Impl.UNI_MAX_BMP;

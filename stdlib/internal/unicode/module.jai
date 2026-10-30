@@ -1,18 +1,66 @@
+// How decoding one character went.
+//
+// `CONVERSION_OK` means a character was decoded. `SOURCE_EXHAUSTED` means the input ended in the middle
+// of a character. `SOURCE_ILLEGAL` means the bytes are not valid UTF-8; only strict decoding reports it.
 Unicode_Result :: enum {
     CONVERSION_OK;
     SOURCE_EXHAUSTED;
     SOURCE_ILLEGAL;
 }
 
+// U+FFFD, the code point that stands in for a character that could not be decoded or encoded.
 UNI_REPLACEMENT_CHAR :: 0x0000fffd;
+// The highest code point of the Basic Multilingual Plane, U+FFFF.
 UNI_MAX_BMP :: 0x0000ffff;
+// The highest code point Unicode defines, U+10FFFF. Strict decoding and encoding reject anything above it.
 UNI_MAX_UTF16 :: 0x0010ffff;
+// The highest value non-strict decoding returns, 0x7FFFFFFF. A larger value decodes as `UNI_REPLACEMENT_CHAR`.
 UNI_MAX_UTF32 :: 0x7fffffff;
+// For a sequence of n + 1 bytes, the amount that classic decoders subtract after adding up the bytes
+// shifted by six bits each. A table for hand-written decoders; the procedures here do not need it.
 offsetsFromUTF8: [6] u32 : .[0, 0x3080, 0xe2080, 0x3c82080, 0xfa082080, 0x82082080];
+// The top bits of the first byte of a sequence, by sequence length. A table for hand-written encoders;
+// the procedures here do not need it.
 firstByteMark: [7] u8 : .[0, 0, 0xc0, 0xe0, 0xf0, 0xf8, 0xfc];
+// The bits of the first byte of a sequence that hold the code point, indexed by the number of continuation
+// bytes that follow (0 to 5).
 utf8_inital_byte_mask :: u8.[0x7f, 0x1f, 0x0f, 0x07, 0x03, 0x01];
+// How many continuation bytes follow a first byte, for each byte value. It is 0 for ASCII and for continuation
+// bytes themselves, 1 to 3 for the lead bytes of valid sequences and 4 or 5 for the bytes of the old
+// five and six byte forms (`0xF8` and up).
+//
+// ```jai
+// assert(trailingBytesForUTF8[#char "a"] == 0);
+// assert(trailingBytesForUTF8[0xc3] == 1);
+// assert(trailingBytesForUTF8[0xe2] == 2);
+// assert(trailingBytesForUTF8[0xf0] == 3);
+// ```
 trailingBytesForUTF8 :: #run trailing_table();
 
+// Decodes the character that starts at `s`, where `source_length` bytes are available. Returns the code
+// point, the number of bytes it took and how it went.
+//
+// Input that ends early gives `UNI_REPLACEMENT_CHAR`, all `source_length` bytes consumed and
+// `SOURCE_EXHAUSTED`; no bytes at all gives 0 consumed.
+//
+// Without `strict`, which is the default, the bytes after the first are not checked: each adds its low six bits, so
+// malformed input decodes to some code point and the result is `CONVERSION_OK`. A continuation byte
+// (`0x80` to `0xBF`) where a character should start is read as one byte holding its low seven bits.
+// Values above `UNI_MAX_UTF32` become `UNI_REPLACEMENT_CHAR`.
+//
+// With `strict`, a continuation byte that is not `10xxxxxx` gives `SOURCE_ILLEGAL`, with the replacement
+// character and the number of good bytes before it. A decoded value that is overlong, a surrogate, or above
+// `UNI_MAX_UTF16` also gives `SOURCE_ILLEGAL`, with the whole sequence consumed. A stray continuation byte in
+// the lead position is still read as a one byte character.
+//
+// ```jai
+// code, size, status := character_utf8_to_utf32("\xe2\x82\xac".data, 3);
+// assert(status == .CONVERSION_OK && code == 0x20ac && size == 3);
+//
+// bad := "\xc0\x80";
+// code, size, status = character_utf8_to_utf32(bad.data, bad.count, true);
+// assert(status == .SOURCE_ILLEGAL && code == UNI_REPLACEMENT_CHAR && size == 2);
+// ```
 character_utf8_to_utf32 :: (s: *u8, source_length: s64, $strict := false) -> u32, s64, Unicode_Result #no_aoc {
     if source_length <= 0 return UNI_REPLACEMENT_CHAR, 0, .SOURCE_EXHAUSTED;
 
@@ -54,6 +102,19 @@ character_utf8_to_utf32 :: (s: *u8, source_length: s64, $strict := false) -> u32
     return value, length, .CONVERSION_OK;
 }
 
+// Decodes the first character of `s` and removes it from the start of `s`. Returns its code point and how
+// decoding went, as `character_utf8_to_utf32` does without `strict`.
+//
+// At the end of the string the result is the replacement character and `SOURCE_EXHAUSTED` and `s` is
+// not changed. A character cut short at the end of `s` also gives `SOURCE_EXHAUSTED` and takes all the bytes left.
+//
+// ```jai
+// text := "a\xc3\xa9";
+// code, status := utf8_next_character(*text);
+// assert(status == .CONVERSION_OK && code == #char "a");
+// code, status = utf8_next_character(*text);
+// assert(status == .CONVERSION_OK && code == 0xe9 && text.count == 0);
+// ```
 utf8_next_character :: (s: *string) -> code: u32, success: Unicode_Result {
     code, count, status := character_utf8_to_utf32(s.data, s.count);
 
@@ -64,10 +125,24 @@ utf8_next_character :: (s: *string) -> code: u32, success: Unicode_Result {
     return code, status;
 }
 
+// A pointer to the byte after the character that starts at `s`, going by its first byte only. Nothing is
+// checked: a truncated or malformed character at the end of a buffer gives a pointer past the end.
 unicode_next_character :: (s: *u8) -> *u8 {
     return s + 1 + cast(s64) trailingBytesForUTF8[s[0]];
 }
 
+// Writes the UTF-8 form of `ch` into the buffer `preallocated_string` points to, and sets its `count` to the
+// number of bytes used (1 to 4). The buffer must have room for them, or an assert fails; four bytes always do.
+//
+// A value above `UNI_MAX_UTF16` is written as `UNI_REPLACEMENT_CHAR`. The surrogates U+D800 to U+DFFF are
+// written like any other value, which is not valid UTF-8.
+//
+// ```jai
+// buffer: [4] u8;
+// encoded := string.{ 4, buffer.data };
+// character_utf32_to_utf8(0x20ac, *encoded);
+// assert(encoded == "\xe2\x82\xac");
+// ```
 character_utf32_to_utf8 :: (ch: u32, preallocated_string: *string) {
     value := ch;
     data := preallocated_string.data;
@@ -102,12 +177,37 @@ character_utf32_to_utf8 :: (ch: u32, preallocated_string: *string) {
     }
 }
 
+// The UTF-8 form of `ch`, in a new string. Values are encoded as in the other overload.
+//
+// The string is allocated with the context allocator and the caller frees it.
+//
+// ```jai
+// encoded := character_utf32_to_utf8(0x1f642);
+// defer free(encoded);
+// assert(encoded.count == 4 && encoded == "\xf0\x9f\x99\x82");
+// ```
 character_utf32_to_utf8 :: (ch: u32) -> string {
     result := alloc_string(4);
     character_utf32_to_utf8(ch, *result);
     return result;
 }
 
+// Loops over the code points of a string: `for: utf8_iter text { ... }`. The body sees `it`, the code point,
+// and `it_index`, the number of characters before it (not the byte offset). `for <:` goes from the last
+// character to the first, and `it_index` is -1 there. Iterating by pointer is not allowed.
+//
+// The iteration consumes `text`: the string passed in is advanced as it goes. It is strict: on invalid UTF-8 (an
+// overlong form, a surrogate, a bad continuation byte or a character cut short) the loop logs `invalid UTF-8` as an error through the context
+// logger and stops, so the rest of the string is left in `text` and the body does not see it. A stray continuation
+// byte is not treated as invalid; it comes out as its low seven bits.
+//
+// ```jai
+// text := "a\xc3\xa9\xe2\x82\xac";
+// codes: [..] u32;
+// defer array_free(codes);
+// for: utf8_iter text array_add(*codes, it);
+// assert(codes.count == 3 && codes[0] == #char "a" && codes[1] == 0xe9 && codes[2] == 0x20ac);
+// ```
 utf8_iter :: (s: *string, body: Code, flags: For_Flags) #expand {
     assert((flags & .POINTER) == 0);
 
