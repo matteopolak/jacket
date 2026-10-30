@@ -21,7 +21,7 @@ Results go to `target/bench/<subcommand>.json` and `.md` (gitignored; `--out` an
 
 - `wall`: wall-clock seconds.
 - `cpu`: user + system CPU seconds of the process and the children it waited for. With threads this exceeds wall time.
-- `rss_mib`: peak resident set of the process itself (from `wait4`; a child such as a linker is not in it).
+- `rss_mib`: peak resident set of the largest single process of the command (from `wait4` on macOS and Linux; on Windows the peak working set, see [Running on Windows](#running-on-windows)). Children such as a linker are not added up.
 
 Before timing, the harness reads the binary and the workload's files, then does `--warmup` untimed runs (default 1) so the OS file cache is warm. `--repeat` (default 5) timed runs follow.
 
@@ -148,8 +148,79 @@ Every `--compiler NAME=PATH` takes jaic's command line (see above for the two cl
   - The metaprogram's own start-up (loading `Basic` and `Compiler`, creating the workspace) is before the first timestamp and shows in `other` and `total`; `total` is the wall time of the phase run, not of the direct run, so it is larger than the wall column. jaic interprets the metaprogram, which also adds to its front end; compare the ratios as "this method on both", not as the speed of a plain `jaic file.jai`.
   - Builds with their own build metaprogram (`own_output` workloads) are not covered: the wrapper would build their entry with default options. They get no stage rows.
   - A binary with the extra reporting flags has a second table from its own `-timings` (`detail` in the JSON), without ratios: it is finer (it splits `#run` time out) but is not the same measurement.
-- **Sandboxed.** `compile` runs every binary and every program it builds through `tools/bench/sandbox.py`: no network, file contents readable only from the system, the developer tools, Homebrew (projects link its libraries), each binary's install (its folder, the checkout's stdlib and `target/native-libs`, and the shared libraries it links) and `--sandbox-read` paths, and writes only to the run's scratch folder. Workloads from the repository and the corpus are copied there first; a corpus workload in a project subfolder copies the whole project (it may import `../module.jai`), with links to sibling projects copied as what they point to. macOS uses `sandbox-exec`, Linux `bwrap`; `--no-sandbox` turns it off (Windows has no sandbox). The sandbox does not get past Gatekeeper: a quarantined binary still shows its popup until the quarantine flag is cleared by hand.
+- **Sandboxed.** `compile` runs every binary and every program it builds through `tools/bench/sandbox.py`: no network, file contents readable only from the system, the developer tools, Homebrew (projects link its libraries), each binary's install (its folder, the checkout's stdlib and `target/native-libs`, and the shared libraries it links) and `--sandbox-read` paths, and writes only to the run's scratch folder. Workloads from the repository and the corpus are copied there first; a corpus workload in a project subfolder copies the whole project (it may import `../module.jai`), with links to sibling projects copied as what they point to. macOS uses `sandbox-exec`, Linux `bwrap`, Windows an AppContainer (see [Running on Windows](#running-on-windows)); `--no-sandbox` turns it off. The sandbox does not get past Gatekeeper: a quarantined binary still shows its popup until the quarantine flag is cleared by hand.
 - **Never commit these results.** `compile` writes under `target/bench/` and `compare` under `playground/bench/`; both are gitignored. Keep numbers, paths and output of builds that are not yours out of the repository, its docs, commit messages and issues.
+
+## Running on Windows
+
+`compile`, `compare`, `lsp`, `lint` and `fmt` run on Windows 10 or 11 (x64 or arm64) with the same options as elsewhere. The library and HTTP comparisons (`tools/bench/library_compare.py`, `http_compare.py`) do not: they refuse to start.
+
+### Set up a fresh machine
+
+1. **Python 3.11 or newer** from python.org (tick "Add python.exe to PATH"). The harness uses only the standard library.
+2. **A linker.** Both compilers link with Microsoft's linker: install *Visual Studio Build Tools* (workload "Desktop development with C++": MSVC and a Windows 10/11 SDK), or a full Visual Studio. Open a *new* terminal afterwards. The harness itself calls no linker (`link_command.jai` has no custom link on Windows, so each compiler links its own way; the stage table then reads the `link` bucket from the span between the compiler's `pre_write` and `post_write` messages).
+3. **The reference compiler**, unpacked outside your user profile if possible, for example `C:\jai` (so `C:\jai\bin\jai-windows.exe` and `C:\jai\modules`). Keep the folder layout: the compiler finds its modules next to `bin\`.
+4. **jaic**: a release archive unpacked to `C:\jacket` (`C:\jacket\jaic.exe` with its `stdlib` beside it), or `cargo build --release -p jaic-cli` in a checkout (`target\release\jaic.exe`). Clone this repository too: the harness runs from it.
+5. **Quiet the machine.** Plug in the charger, set the power mode to *Best performance*, close browsers and editors, and exclude the benchmark folders from Windows Defender's real-time scanning (Settings, Virus & threat protection, Exclusions: the repository, `C:\jai`, `C:\jacket` and `%TEMP%`). Defender scanning each fresh `.exe` is the biggest source of noise on Windows, and it is not detectable as a process, so the harness cannot warn you about it.
+
+### Compare the reference compiler with jaic
+
+From a normal (not elevated) PowerShell in the repository root:
+
+```powershell
+$env:PYTHONPATH = "tools"
+# 1. Does the harness work at all? Check mode needs no linker.
+python tools\bench\main.py compile --compiler "ref=C:\jai\bin\jai-windows.exe" --compiler "jaic=C:\jacket\jaic.exe" --only hello/check --repeat 1
+# 2. A build, which links:
+python tools\bench\main.py compile --compiler "ref=C:\jai\bin\jai-windows.exe" --compiler "jaic=C:\jacket\jaic.exe" --only hello/build --repeat 1
+# 3. The head-to-head comparison (writes playground\bench\<timestamp>\summary.md):
+python tools\bench\main.py compare --baseline C:\jai\bin\jai-windows.exe --candidate C:\jacket\jaic.exe --cold-rounds 0
+```
+
+If step 1 fails with a sandbox message, run it with `--no-sandbox` to see whether the harness or the sandbox is at fault. `--cold-rounds 0` skips the cold phase: Windows cannot empty its file cache without an elevated memory tool, so "cold" rounds would not be cold (the results say `file cache not purged`). The real-project workloads need the corpus (`python tools\fetch_upstreams.py`) and the native libraries; `--no-corpus` skips them.
+
+### What is measured, and how it differs
+
+| | macOS, Linux | Windows |
+| --- | --- | --- |
+| Process tree | process group, killed on timeout and at exit | Job Object, `TerminateJobObject` on timeout and at exit |
+| `cpu` | `ru_utime + ru_stime` from `wait4` (the process and the children it waited for) | user + kernel time from the job's accounting (every process the command ran, exited ones included) |
+| `rss_mib` | `ru_maxrss`: peak resident set of the largest single process | peak working set of the largest single process: the main process after it exits, descendants sampled every 10 ms while it runs (a child that starts and ends between two samples can be missed) |
+| `commit_mib` | not recorded | the job's peak commit charge (private bytes of all processes at once), always at least the working set; kept in `Run`, not in the reports |
+| load for the "quiet machine" check | 1-minute load average | cores busy over a 0.5 s sample, from `GetSystemTimes`; the same limit applies (a quarter of the cores, at least 1) |
+| thermal state, battery | `pmset` / `sysfs` | thermal state is not read; battery vs AC is (`GetSystemPowerStatus`) |
+| built-program counters | `/usr/bin/time -l`, `perf stat` | none: file size and the instruction count from `objdump`/`llvm-objdump` when one is on `PATH` |
+| executables | `program` | `program.exe`; compilers get the name without `.exe` and add it themselves |
+
+`results.json` records the CPU name, RAM, Windows version and build and the active power plan. Numbers from Windows and from macOS or Linux are not comparable with each other; compare a Windows run with another Windows run.
+
+### The Windows sandbox
+
+With the default (sandbox on), every compiler and every program it builds runs in an **AppContainer**, a restricted token with no capabilities:
+
+- **No network.** The container has no `internetClient` capability, and loopback is blocked too.
+- **Files.** The container can read the Windows folder, Program Files and the other places every packaged app can (so MSVC and the SDK are readable), plus what the harness grants its SID with `icacls`: each compiler's install, the repository `stdlib`, `target\native-libs`, `--sandbox-read` paths (read), and the run's scratch folder (modify). It cannot read your profile, documents or the rest of the repository. The grants are removed when the run ends (and at interpreter exit, if the run is interrupted); a container profile is created per run and deleted afterwards.
+- **Temp.** `TEMP`, `TMP` and `TMPDIR` point into the scratch folder.
+- **Measurement.** The process is created suspended with `PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES`, put into the Job Object, then resumed, so the CPU and memory numbers are taken the same way with or without the sandbox.
+
+`Sandbox.available()` really creates a container and starts `cmd.exe` in it; if that fails, the run stops with the reason (`--no-sandbox` skips the sandbox). The grant step needs no elevation for folders you own. A folder you cannot change (for example under Program Files) is left alone, since the container reads it anyway.
+
+**What it cannot promise.**
+
+- If a compiler in the container cannot find or run the linker, builds fail with an exit code and the message the compiler printed. Typical causes are a toolchain installed under your user profile (grant it with `--sandbox-read "C:\Users\you\tools"`), or a compiler that looks the toolchain up through the registry or COM. Check mode never links; use it to tell the cases apart. `--no-sandbox` is the fallback, and the VM below the stronger option.
+- `mspdbsrv.exe`, which the MSVC linker starts for debug information, runs inside the same container; it is killed with the job.
+- The sandbox is not a security boundary against a determined binary: it keeps benchmarks from touching the network and your files by accident or by a build script, as the other platforms' sandboxes do. Windows Defender SmartScreen may still prompt for a downloaded, unsigned binary; unblock it once (right-click, Properties, Unblock).
+
+### An offline VM instead (Windows Sandbox)
+
+For a stronger wall, run the whole harness inside Windows Sandbox (Windows 10/11 Pro or Enterprise, with the feature enabled): a disposable VM with networking disabled, in which only the folders you map exist. The command writes the configuration and a logon script:
+
+```powershell
+python tools\bench\main.py wsb --out-dir C:\bench-vm --map ref=C:\jai --map jaic=C:\jacket --map msvc="C:\Program Files (x86)\Microsoft Visual Studio" `
+    -- compare --baseline {ref}\bin\jai-windows.exe --candidate {jaic}\jaic.exe --cold-rounds 0 --out-dir {out}
+```
+
+Open `C:\bench-vm\bench.wsb` (or add `--launch`). Mapped folders appear read-only under `C:\bench\<name>`; `{repo}`, `{python}` (the Python running the command, mapped as is) and `{out}` (writable, your `--out-dir`) are always there. The VM runs the harness with `--no-sandbox`, writes `log.txt` and the results into `C:\bench-vm`, and shuts down. Caveats: the VM has none of your installed tools, so a build that must link needs the toolchain inside it (mapping Visual Studio does not register it, so the compilers may not find it; `--modes check,interp` needs no linker); timings are taken inside a VM and are comparable only with other runs in the same VM setup; the VM starts cold every time.
 
 ## How to change it
 
@@ -162,7 +233,8 @@ Every `--compiler NAME=PATH` takes jaic's command line (see above for the two cl
 - **`compare`:** workloads come from `workloads_for` in `cmd_compare.py` (generated sizes plus the corpus real projects); noisy process names and the flag thresholds are constants at the top of `quiet.py`; the statistics are in `pairing.py`; what is recorded for provenance is `provenance.py` and the `results` dictionary in `cmd_compare.run`. Add a step to the per-step table by adding a bucket in `stages.py`.
 - **The link command:** edit the per-OS `LINKER` table in `link_command.jai`; `test_link_command.py` runs `link_arguments` through jaic and checks the arguments.
 - **Another phase boundary:** add a `mark("name")` in `phase_timing.jai` and read it in `PhaseTiming`.
-- Gotchas: every run happens in its own process group, killed on timeout and again when the command exits, so a stuck linker cannot outlive the benchmark. `jaic -timings` goes before a lone `-`, which starts the metaprogram's arguments. Seatbelt matches real paths (`/var/folders` is `/private/var/folders`), and `xcrun` caches tool lookups in the per-user temporary folder whatever `TMPDIR` says, so the profile allows its `xcrun_db` files; without them every link is a second slower. Tests: `python3 -m unittest discover -s tools/bench -p 'test_*.py'`, run by CI's policy step.
+- **Windows code:** `winapi.py` (ctypes structures and calls, machine facts, pure helpers), `winjob.py` (Job Object, `CreateProcessW` with an attribute list, the measured run), `winsandbox.py` (AppContainer profile, `icacls` grants, the Windows Sandbox `.wsb` builder), `cmd_wsb.py`. Everything that calls the OS goes through `winapi.api()`; the builders are tested on any OS in `test_windows.py`, the rest only on Windows. `Sandbox.wrap` returns a `SandboxedCommand` there (a list that remembers its sandbox) because the container belongs to the process being created, not to a command prefix: only `run_measured` honours it, so new code must launch timed commands through `run_measured` rather than `subprocess`.
+- Gotchas: every run happens in its own process group (a Job Object on Windows), killed on timeout and again when the command exits, so a stuck linker cannot outlive the benchmark. `jaic -timings` goes before a lone `-`, which starts the metaprogram's arguments. Seatbelt matches real paths (`/var/folders` is `/private/var/folders`), and `xcrun` caches tool lookups in the per-user temporary folder whatever `TMPDIR` says, so the profile allows its `xcrun_db` files; without them every link is a second slower. Tests: `python3 -m unittest discover -s tools/bench -p 'test_*.py'`, run by CI's policy step.
 
 ## Profiling
 
