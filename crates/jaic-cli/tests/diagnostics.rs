@@ -265,3 +265,53 @@ fn report_inside_a_string_underlines_the_word() {
         "{stderr}"
     );
 }
+
+#[test]
+fn a_leniency_in_the_program_file_warns_with_the_note_and_the_exit_status_stays_zero() {
+    let dir = scratch("leniency-note");
+    let output = jaic_on(
+        &dir,
+        "main.jai",
+        "S :: struct { a: u16; #place a; b: float64; }\nmain :: () { s: S; s.b = 1; foo(); foo :: () { } }\n",
+        "-check",
+        &[],
+    );
+    assert!(output.status.success(), "{}", stderr(&output));
+    let text = stderr(&output);
+    assert_in_order(
+        &text,
+        &[
+            "warning: `#place` is a deprecated directive",
+            "note: the official Jai compiler rejects this; Jacket accepts it but may stop in a future release",
+            "help: write `#overlay(member)`",
+        ],
+    );
+    assert!(
+        text.contains("`foo` is used before its declaration"),
+        "{text}"
+    );
+}
+
+#[test]
+fn a_leniency_in_an_imported_module_is_not_reported() {
+    let dir = scratch("leniency-module");
+    std::fs::create_dir_all(dir.join("Lib")).unwrap();
+    std::fs::write(
+        dir.join("Lib/module.jai"),
+        "S :: struct { a: u16; #place a; b: float64; }\ngo :: () { s: S; s.b = 1; foo(); foo :: () { } }\n",
+    )
+    .unwrap();
+    let output = jaic_on(
+        &dir,
+        "main.jai",
+        "#import \"Lib\";\nmain :: () { go(); }\n",
+        "-check",
+        &["-I", dir.to_str().unwrap()],
+    );
+    assert!(output.status.success(), "{}", stderr(&output));
+    assert!(
+        !stderr(&output).contains("official Jai compiler"),
+        "{}",
+        stderr(&output)
+    );
+}
