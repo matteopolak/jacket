@@ -33,7 +33,7 @@ main :: () {
     H.start_from_memory(*handler, "bad", "memory/bad", "[x]\nrest");
     assert(handler.failed && reports == 1);
     H.start_from_memory(*handler, "new", "memory/new", "[3]\nline");
-    assert(handler.failed && handler.version == 3);
+    assert(!handler.failed && handler.version == 3);
     handler = .{};
     handler.do_version_number = false;
     H.start_from_memory(*handler, "x", "x", "one\rtwo\nthree\r\nfour");
@@ -50,7 +50,6 @@ main :: () {
 
     array_free(lines);
     assert(F.write_entire_file("portable-text-handler.tmp", "beta\nalpha\nbeta\n"));
-    handler = .{};
     handler.do_version_number = false;
     H.start_file(*handler, "disk", "portable-text-handler.tmp");
     assert(!handler.failed && handler.file_data_to_free.count > 0);
