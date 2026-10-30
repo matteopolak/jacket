@@ -22,7 +22,7 @@ Map_File_Info :: struct {
 // The current position of `file` as `(success, position)`.
 //
 // The same answer as `file_current_position`, with the two results in the other order: that one returns the
-// position first.
+// position first. Both orders are kept because programs rely on each.
 file_tell :: (file: File) -> (success: bool, position: s64) {
     position, ok := file_current_position(file);
     return ok, position;
