@@ -138,7 +138,17 @@ impl Compiler {
         let Some((bits, signed)) = self.ty.types.int_info(to) else {
             return Ok(());
         };
-        if int_constant_fits(*v, bits, signed, self.src.bit_pattern(span)) {
+        let bit_pattern = self.src.bit_pattern(span);
+        if int_constant_fits(*v, bits, signed, bit_pattern) {
+            return Ok(());
+        }
+        // A complement is a 64-bit pattern whose high bits repeat its sign: an explicit cast
+        // keeps the low bits when they hold the same value (`xx ~4` is `-5` in an `s32`).
+        let wrapped = *v - (1i128 << 64);
+        if bit_pattern
+            && (1i128 << 63..1i128 << 64).contains(v)
+            && int_constant_fits(wrapped, bits, signed, false)
+        {
             return Ok(());
         }
         let name = self.ty.types.name(to);

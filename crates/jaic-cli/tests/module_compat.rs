@@ -47,3 +47,25 @@ main :: () {
 "#,
     );
 }
+
+#[test]
+fn complement_of_a_constant_converts_to_a_narrow_integer_with_xx() {
+    accepted(
+        "complement-xx",
+        r#"#import "Basic";
+NONBLOCK :: 0x4;
+CLOSE_ON_EXEC : u32 : 0x1;
+main :: () {
+    flags: s32 = 7;
+    flags &= xx ~NONBLOCK;
+    assert(flags == 3);
+    narrow: s16 = xx ~NONBLOCK;
+    assert(narrow == -5);
+    low: u32 = xx ~CLOSE_ON_EXEC;
+    assert(low == 0xffff_fffe);
+    wide: s32 = cast(s32) ~NONBLOCK;
+    assert(wide == -5);
+}
+"#,
+    );
+}
