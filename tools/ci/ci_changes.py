@@ -74,21 +74,13 @@ AREAS = {
         "rust-toolchain.toml",
     ],
     # Windows runs on pushes (main, staging) only for the paths its coverage is about, never on
-    # pull requests, and always on manual runs.
+    # pull requests, and always on manual runs. Anything that decides what the Windows binaries are
+    # (the standard library, lowering and linking in `jaic-llvm`, the ABI, target and IR code in
+    # `jaic`) is covered whole: a narrower gate once skipped the job for a real Windows fix.
     "windows": [
-        "stdlib/Bindings_Generator/**",
-        "stdlib/internal/developer-tools/**",
+        "stdlib/**",
         "tools/developer_checks/check_developer_vtables.py",
-        "stdlib/Extensions/Io/**",
-        "stdlib/Extensions/Io_Uring/**",
-        "stdlib/Extensions/Http/**",
-        "stdlib/Extensions/Json/**",
-        "stdlib/Extensions/Variant/**",
-        "stdlib/Extensions/Tls/**",
         "tools/native/mbedtls/**",
-        "stdlib/Windows/**",
-        "stdlib/File_Watcher/**",
-        "stdlib/internal/watching/**",
         "tools/stdlib/check_file_watcher_platforms.py",
         "tools/native/check_windows_time_zone.py",
         "tools/native/build_windows_resource_fixture.py",
@@ -114,6 +106,10 @@ AREAS = {
         "tools/native/test_windows_dynamic_package.py",
         "tools/native/windows_cross.py",
         "crates/jaic-llvm/**",
+        "crates/jaic/src/abi.rs",
+        "crates/jaic/src/msvc.rs",
+        "crates/jaic/src/target.rs",
+        "crates/jaic/src/ir/**",
         "crates/jaic/src/interp/**",
         "crates/jaic-cli/src/**",
         "crates/jaic-cli/tests/native.rs",

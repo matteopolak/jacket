@@ -18,6 +18,24 @@ class Matching(unittest.TestCase):
                     )
                 )
 
+    def test_windows_jobs_run_for_lowering_linking_and_the_stdlib(self):
+        for path in [
+            "crates/jaic-llvm/src/lower/symbols.rs",
+            "crates/jaic-llvm/src/link.rs",
+            "crates/jaic-llvm/src/linker.rs",
+            "crates/jaic-llvm/src/link_options.rs",
+            "crates/jaic/src/abi.rs",
+            "crates/jaic/src/target.rs",
+            "crates/jaic/src/ir/lower.rs",
+            "stdlib/Basic/module.jai",
+            "stdlib/POSIX/declarations.jai",
+            "stdlib/internal/runtime/x.jai",
+        ]:
+            with self.subTest(path=path):
+                self.assertTrue(
+                    ci_changes.matches(ci_changes.AREAS["windows"], [path], False)
+                )
+
     def test_globs(self):
         self.assertTrue(
             ci_changes.matches(
