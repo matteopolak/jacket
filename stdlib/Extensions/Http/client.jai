@@ -111,6 +111,7 @@ Client_Error_Kind :: enum u8 {
     BODY; // the body cannot be read: it was read already, or the response was closed
     TOO_LARGE; // the body is longer than the request's `max_response_size`
     STATUS; // `error_for_status`: the response was not 2xx
+    INVALID_METHOD; // the request's method is `.OTHER`, which has no spelling to put on the wire
 }
 
 // What the client returns when something went wrong. A handler's `Http_Error` is about answering
@@ -895,6 +896,8 @@ host_with_port :: (url: Url) -> string {
 
 // One request on one connection (a pooled one when there is one), and its response head.
 exchange :: (client: *Client, method: Method, url_text: string, extra: [] Header_Field, body: [] u8, max_response_size: int, note: Request_Note) -> Client_Response, Client_Error {
+    if method == .OTHER return .{}, client_error(.INVALID_METHOD, .NONE, "the method `.OTHER` cannot be sent: it stands for a method the client has no name for");
+
     url, problem := parse_url(url_text);
 
     if problem != .NONE {

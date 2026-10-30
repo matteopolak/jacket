@@ -978,6 +978,10 @@ failures_of_transport :: (base: string, server: *Server) {
     check(error.kind == .INVALID_URL && contains(error.detail, "not an absolute URL"), "no scheme: %", error_text(error));
     free_error(*error);
 
+    response, error = send(*api, .{ method = .OTHER, url = "http://localhost/" });
+    check(error.kind == .INVALID_METHOD && contains(error.detail, ".OTHER"), "the other method: %", error_text(error));
+    free_error(*error);
+
     response, error = send(*api, .{ url = "http:///path" });
     check(error.kind == .INVALID_URL && contains(error.detail, "names no host"), "no host: %", error_text(error));
     free_error(*error);

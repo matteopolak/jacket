@@ -23,7 +23,8 @@ Method :: enum u8 {
 }
 
 // The spelling of `method` on the wire, such as `"GET"`. `.OTHER` has no spelling of its own and gives `""`; use
-// `Head.method_text` for the token a request actually carried. The string is a constant.
+// `Head.method_text` for the token a request actually carried. The string is a constant. The client refuses to send `.OTHER`
+// (`.INVALID_METHOD`).
 //
 // ```jai
 // assert(method_name(.GET) == "GET");

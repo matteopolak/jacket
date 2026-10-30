@@ -31,7 +31,7 @@ created := post(*api, "/users", New_User.{ name = "Ada" });           // struct 
 - **Redirects.** 301/302/303/307/308 up to `max_redirects` (10; 0 returns the 3xx). 301/302 on POST and 303 become GET without body; 307/308 repeat. `Authorization` and `Cookie` are dropped when scheme, host or port changes.
 - **Timeouts.** `timeout` (30 s, 0 none) covers the whole exchange including redirects and body reads. A timed-out connection is never pooled. Set `timeout = 0` on the request for long streams. DNS runs on [Io](io-engine.md)'s resolver threads.
 - **Transport.** `client.transport` (`open(data, url) -> Link`, `base(data)`) decides how a connection is made; the default is TCP. [`test_client`](http-server.md#testing) sets one that connects to an `App` through a pipe. For `https://` the client runs TLS over whatever `Link` the transport returns.
-- **Errors.** `Client_Error.kind`: `.TRANSPORT` (with the `Io_Error`), `.TIMED_OUT`, `.INVALID_URL`, `.TLS` (handshake or certificate; `detail` says why), `.REDIRECTS`, `.DECODE`, `.BODY`, `.TOO_LARGE`, `.STATUS`.
+- **Errors.** `Client_Error.kind`: `.TRANSPORT` (with the `Io_Error`), `.TIMED_OUT`, `.INVALID_URL`, `.INVALID_METHOD` (`Method.OTHER` has no spelling to send), `.TLS` (handshake or certificate; `detail` says why), `.REDIRECTS`, `.DECODE`, `.BODY`, `.TOO_LARGE`, `.STATUS`.
 
 ### HTTPS
 
