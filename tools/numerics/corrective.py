@@ -159,13 +159,11 @@ for source, marker in [
         ):
             check(source + "-" + level, [executable], marker, diagnostic=True)
 
-# This is a reproduced compiler/spec integration blocker, not implemented
-# augmented-keyframe functionality. Check that the exact failure is still present.
+# A generic procedure over `[] *$T/Key` takes an array of pointers to a struct that embeds `Key`
+# with `using`.
 check(
-    "augmented-restriction-blocker",
-    [compiler, "stdlib/Math/tests/driven/augmented-generic.jai", "-check"],
-    "Augmented does not satisfy the restriction `Key`",
-    diagnostic=True,
+    "augmented-restriction",
+    [compiler, "stdlib/Math/tests/driven/augmented-generic.jai", "-interp"],
 )
 
 passed = sum(record["passed"] is True for record in records)

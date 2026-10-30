@@ -1,4 +1,4 @@
-// Minimal language-only reproducer; no stdlib names or paths are involved.
+// A struct that embeds `Key` with `using` satisfies the restriction `$T/Key`.
 // The reviewed contextual shape uses `using`, not `#as using`.
 Key :: struct {
     value: float;
