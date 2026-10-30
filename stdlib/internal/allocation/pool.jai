@@ -226,8 +226,8 @@ calculate_used_memory :: (using pool: Pool) -> inband_size: s64, outband_count: 
 // The `Allocator_Proc` for a pool: use it as `Allocator.{ pool_allocator_proc, *pool }`.
 //
 // Allocate and resize take memory from the pool (a resize copies, and never reuses the old space); free does
-// nothing; shutdown calls `release`. It reports `IS_THIS_YOURS` only for addresses inside ordinary blocks, not
-// for oversized allocations. Unsupported modes fail an assert.
+// nothing; shutdown calls `release`. `IS_THIS_YOURS` is answered for addresses inside any block the pool
+// has handed out, ordinary or oversized. Unsupported modes fail an assert.
 pool_allocator_proc :: (mode: Allocator_Mode, requested_size: s64, old_size: s64, old_memory: *void, allocator_data: *void) -> *void {
     if mode == .CAPS {
         if old_memory {
@@ -265,6 +265,15 @@ pool_allocator_proc :: (mode: Allocator_Mode, requested_size: s64, old_size: s64
         while block {
             address := cast(u64) old_memory;
             if address >= cast(u64) block + HEADER_SIZE && address < cast(u64) block + cast(u64) pool.memblock_size return cast(*void) 1;
+            block = block.next;
+        }
+
+        // Oversized blocks record their full extent just before the block.
+        block = pool.out_of_band_allocations;
+        while block {
+            address := cast(u64) old_memory;
+            extent := cast(u64) (cast(*s64) (cast(*u8) block - 8)).*;
+            if address >= cast(u64) block + HEADER_SIZE && address < cast(u64) block + extent - 8 return cast(*void) 1;
             block = block.next;
         }
 
