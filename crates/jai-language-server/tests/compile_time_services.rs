@@ -117,13 +117,8 @@ fn an_untrusted_workspace_never_asks() {
 }
 
 const READS_PATH: &str = r#"#import "Basic";
-#if OS == .WINDOWS {
-    Crt :: #system_library "msvcrt";
-    c_getenv :: (name: *u8) -> *u8 #foreign Crt "getenv";
-} else {
-    libc :: #system_library "libc";
-    c_getenv :: (name: *u8) -> *u8 #foreign libc "getenv";
-}
+libc :: #system_library "libc";
+c_getenv :: (name: *u8) -> *u8 #foreign libc "getenv";
 SEEN :: #run c_getenv("PATH") != null;
 #assert !SEEN "the environment is visible";
 main :: () {}

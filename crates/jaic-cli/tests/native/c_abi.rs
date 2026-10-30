@@ -446,9 +446,13 @@ fn crash_in_native_code_is_reported_on_windows() {
             .output()
             .unwrap()
     };
+    // A library name the interpreter resolves to the C runtime DLL.
+    let runtime = jaic::toolchain::Toolchain::interpreter().interpreter_names[0];
     let output = run(
         "crash.jai",
-        "crt :: #system_library \"msvcrt\";\nstrlen :: (s: *u8) -> u64 #foreign crt;\nmeasure :: (p: *u8) -> u64 {\n    return strlen(p);\n}\nmain :: () {\n    n := measure(cast(*u8) 16);\n}\n",
+        &format!(
+            "crt :: #system_library \"{runtime}\";\nstrlen :: (s: *u8) -> u64 #foreign crt;\nmeasure :: (p: *u8) -> u64 {{\n    return strlen(p);\n}}\nmain :: () {{\n    n := measure(cast(*u8) 16);\n}}\n"
+        ),
     );
     let err = String::from_utf8_lossy(&output.stderr);
     assert_eq!(output.status.code(), Some(121), "{err}");
@@ -919,6 +923,11 @@ fn dll_crt_static_library_links_on_windows() {
 #[test]
 fn msvc_long_double_math_calls_the_double_functions() {
     let dir = TempDir::new("native-msvc-long-double");
+    let msvc = jaic::target::Target::parse("x86_64-pc-windows-msvc")
+        .unwrap()
+        .toolchain();
+    let double = msvc.rename("sqrtl").expect("sqrtl is a renamed symbol");
+    assert!(msvc.is_runtime("libm"));
     std::fs::write(
         dir.join("main.jai"),
         "#import \"Extensions/Long_Double\";\n\
@@ -943,7 +952,10 @@ fn msvc_long_double_math_calls_the_double_functions() {
         .output()
         .unwrap();
     let ir = std::fs::read_to_string(dir.join("main.ll")).unwrap();
-    assert!(ir.contains("declare double @sqrt(double)"), "{ir}");
+    assert!(
+        ir.contains(&format!("declare double @{double}(double)")),
+        "{ir}"
+    );
     assert!(!ir.contains("@sqrtl"), "{ir}");
 }
 
@@ -953,16 +965,34 @@ fn msvc_long_double_math_calls_the_double_functions() {
 #[test]
 fn msvc_c_runtime_variables_are_dllimport() {
     let dir = TempDir::new("native-msvc-crt-data");
+    // The runtime library that promises DLL data, and a generic name that does not.
+    let msvc = jaic::target::Target::parse("x86_64-pc-windows-msvc")
+        .unwrap()
+        .toolchain();
+    let jaic::toolchain::DataImport::DllImport {
+        only,
+    } = msvc.runtime_data
+    else {
+        panic!("the MSVC runtime is a DLL");
+    };
+    let dll = only[0];
+    let generic = msvc
+        .runtime_names
+        .iter()
+        .find(|name| !only.contains(name))
+        .unwrap();
     std::fs::write(
         dir.join("main.jai"),
-        "crt :: #system_library \"ucrt\";\n\
-         k32 :: #system_library \"kernel32\";\n\
-         _fmode: s32 #elsewhere crt;\n\
-         other_data: s32 #elsewhere k32;\n\
-         libc :: #system_library \"libc\";\n\
-         _HUGE: float64 #elsewhere libc;\n\
-         sqrt :: (x: float64) -> float64 #foreign crt;\n\
-         main :: () {\n    x := _fmode + other_data;\n    y := sqrt(2) + _HUGE;\n}\n",
+        format!(
+            "crt :: #system_library \"{dll}\";\n\
+             k32 :: #system_library \"kernel32\";\n\
+             _fmode: s32 #elsewhere crt;\n\
+             other_data: s32 #elsewhere k32;\n\
+             generic :: #system_library \"{generic}\";\n\
+             _HUGE: float64 #elsewhere generic;\n\
+             sqrt :: (x: float64) -> float64 #foreign crt;\n\
+             main :: () {{\n    x := _fmode + other_data;\n    y := sqrt(2) + _HUGE;\n}}\n"
+        ),
     )
     .unwrap();
     let emit = |target: &str| {
