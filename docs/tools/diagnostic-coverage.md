@@ -2,26 +2,27 @@
 
 ## What it is
 
-`tools/ci/check_diagnostics_covered.py` fails CI when the compiler gains an error or warning that no test expects. It runs in the `test` job next to the other source checks and has its own unit tests (`tools/ci/test_check_diagnostics_covered.py`).
+`tools/ci/check_diagnostics_covered.py` fails CI when the compiler gains a diagnostic code that no test names. It runs in the `test` job next to the other source checks and has its own unit tests (`tools/ci/test_check_diagnostics_covered.py`).
 
 ## How it works
 
-Diagnostics are message templates at call sites, so the script reads the source rather than a registry:
+Every diagnostic has a code, defined once in `crates/jaic/src/diagnostics/catalog.rs` (see [diagnostics](../compiler/diagnostics.md)). The script reads that table and looks for each code in the test corpus: every tracked text file under `tests/`, `crates/*/tests/`, the standard library's own `tests/` folders (their `.stderr` goldens), test modules in `crates/*/src` and `tools/test_*` files.
 
-1. It scans `crates/jaic/src` outside test code (test files and `#[cfg(test)]` modules) for `err(span, ..)`, `self.err(..)`/`self.error(..)` (lexer and parser) and `Diagnostic::error`/`Diagnostic::warning`, takes the first string-literal or `format!` argument, and turns each `{...}` placeholder into a wildcard.
-2. It builds the test corpus: every tracked text file under `tests/`, `crates/*/tests/`, test modules in `crates/*/src` and `tools/test_*` files (so negative corpus `check` strings, rejection programs' expected text and Rust test assertions all count), with Rust string escapes undone.
-3. A template is tested when its first 14 literal characters (placeholders match any text) appear in order on one line of the corpus: tests usually quote the start of a message, not all of it. The match is approximate: two messages that start alike share a test, and a test that only quotes the end of a message does not count. A template with less than six literal characters never matches and stays on the list.
+A code is tested when a test names it as:
 
-The untested ones are in `tools/ci/untested_diagnostics.txt`. The list only shrinks: a new untested template fails the check, and so does a listed one that is now tested or deleted. `--update` rewrites the list; review its diff, since a new line is a diagnostic added without a test.
+- `[name]`, the header of a rendered diagnostic (`error[type-mismatch]`), in a golden file or an assertion;
+- `"name"`, a JSON field: the `code` of a `tests/corpus/manifest.json` negative case, or a language-server diagnostic code;
+- `Code::Variant`, a Rust test that builds or matches the code.
 
-A diagnostic built from a message in a variable (`err(span, msg)`) is not seen; keep messages inline at the call.
+The message text no longer counts: wording can change freely, the code is what a test pins down.
+
+The untested codes are in `tools/ci/untested_codes.txt`. The list only shrinks: a new untested code fails the check, and so does a listed one that is now tested or deleted. `--update` rewrites the list; review its diff, since a new line is a code added without a test.
 
 ## How to change it
 
-- Add a test for a listed diagnostic: a `tests/corpus/negative/<name>.jai` case with a `kind: negative` manifest entry whose `negative.check` is the text (see [testing](testing.md)), then run `--update` and commit the shorter list.
-- Rename a message: update the test that expects it and run `--update`.
-- Other call shapes (a new constructor for diagnostics): extend `CALL` in the script and its test.
-- `--list` prints the untested templates.
+- Cover a listed code: add a `tests/corpus/negative/<name>.jai` case with a `kind: negative` manifest entry whose `negative` object has the expected `check` text and the `code` (the sweep, `tools/differential/jaic_sweep.py`, asserts both), or a crate test that expects `error[<code>]`. Then run `--update` and commit the shorter list.
+- Rename or retire a code: see [diagnostics](../compiler/diagnostics.md); a renamed code moves to `RETIRED` and its tests change with it.
+- `--list` prints the untested codes.
 
 ## Dependencies
 

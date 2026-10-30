@@ -81,7 +81,7 @@ Looked at and not a leniency, so there is no warning:
 
 - A new leniency: add a variant to `Leniency` (code, `ALL`), warn through `leniency_warning` and add a row above. A construct recognized by spelling goes in the parser (`note_lenient`) and `report_parsed_leniencies`.
 - Drop one when the compiler stops accepting it: the warning becomes the error, with the same help.
-- Tests: `crates/jaic/tests/leniency_warnings.rs` has one test per code, and each checks that the same text inside an imported module is silent. `tools/ci/check_diagnostics_covered.py` needs each new message quoted by a test.
+- Tests: `crates/jaic/tests/leniency_warnings.rs` has one test per code, and each checks that the same text inside an imported module is silent. `tools/ci/check_diagnostics_covered.py` needs each new code named by a test (`warning[code]`).
 
 ## Configuration
 

@@ -333,7 +333,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `missing_runtime`"
+        "check": "unknown identifier `missing_runtime`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -346,7 +347,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `missing_compile_time`"
+        "check": "unknown identifier `missing_compile_time`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -359,7 +361,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `invented_reflection`"
+        "check": "unknown identifier `invented_reflection`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -372,7 +375,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `compiler_invented_effect`"
+        "check": "unknown identifier `compiler_invented_effect`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -385,7 +389,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `absent_module`"
+        "check": "unknown identifier `absent_module`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -398,7 +403,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "no parameter named"
+        "check": "no parameter named",
+        "code": "call-mismatch"
       }
     },
     {
@@ -411,7 +417,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "parse": "cannot assign to the result of an operator"
+        "parse": "cannot assign to the result of an operator",
+        "code": "assign-target-invalid"
       }
     },
     {
@@ -424,7 +431,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "lex": "unterminated string"
+        "lex": "unterminated string",
+        "code": "lex-unterminated-string-literal"
       }
     },
     {
@@ -557,7 +565,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "parse": "this statement is not allowed at file scope"
+        "parse": "this statement is not allowed at file scope",
+        "code": "module-statement-not-allowed"
       }
     },
     {
@@ -570,7 +579,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "parse": "expected `;` after statement"
+        "parse": "expected `;` after statement",
+        "code": "parse-expected-token"
       }
     },
     {
@@ -871,7 +881,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "`value` is a #discard parameter"
+        "check": "`value` is a #discard parameter",
+        "code": "discard-parameter"
       },
       "rules": [
         "must.2"
@@ -887,7 +898,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "`value` is a #discard parameter"
+        "check": "`value` is a #discard parameter",
+        "code": "discard-parameter"
       },
       "rules": [
         "must.2"
@@ -903,7 +915,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "the result of `only` is marked #must"
+        "check": "the result of `only` is marked #must",
+        "code": "call-result-marked"
       },
       "rules": [
         "must.1",
@@ -920,7 +933,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "the result of `two` is marked #must"
+        "check": "the result of `two` is marked #must",
+        "code": "call-result-marked"
       },
       "rules": [
         "must.7",
@@ -937,7 +951,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "the result of `m` is marked #must"
+        "check": "the result of `m` is marked #must",
+        "code": "call-result-marked"
       },
       "rules": [
         "must.1"
@@ -1042,7 +1057,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `undefined_name_here`"
+        "check": "unknown identifier `undefined_name_here`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -1055,7 +1071,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "#complete switch on Color has no case for .BLUE"
+        "check": "#complete switch on Color has no case for .BLUE",
+        "code": "incomplete-switch"
       },
       "rules": [
         "flow.15"
@@ -1071,7 +1088,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `Missing_Member_Type`"
+        "check": "unknown identifier `Missing_Member_Type`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -1084,7 +1102,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `Missing_Described`"
+        "check": "unknown identifier `Missing_Described`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -1097,7 +1116,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `Missing_Measured`"
+        "check": "unknown identifier `Missing_Measured`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -1110,7 +1130,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `Missing_Pointed`"
+        "check": "unknown identifier `Missing_Pointed`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -1123,7 +1144,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `Missing_Behind`"
+        "check": "unknown identifier `Missing_Behind`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -1136,7 +1158,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `Missing_Unused`"
+        "check": "unknown identifier `Missing_Unused`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -1149,7 +1172,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `Missing_Stored`"
+        "check": "unknown identifier `Missing_Stored`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -1162,7 +1186,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `Missing_Union_Member`"
+        "check": "unknown identifier `Missing_Union_Member`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -1175,7 +1200,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `Missing_Element`"
+        "check": "unknown identifier `Missing_Element`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -1188,7 +1214,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `Missing_Target`"
+        "check": "unknown identifier `Missing_Target`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -1201,7 +1228,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `Missing_Poly_Member`"
+        "check": "unknown identifier `Missing_Poly_Member`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -1214,7 +1242,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `Missing_Param_Type`"
+        "check": "unknown identifier `Missing_Param_Type`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -1227,7 +1256,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `Missing_Callback_Arg`"
+        "check": "unknown identifier `Missing_Callback_Arg`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -1240,7 +1270,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `Missing_Result`"
+        "check": "unknown identifier `Missing_Result`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -1253,7 +1284,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `Missing_Poly_Info`"
+        "check": "unknown identifier `Missing_Poly_Info`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -1266,7 +1298,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "#assert failed"
+        "check": "#assert failed",
+        "code": "static-assert"
       }
     },
     {
@@ -1279,7 +1312,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "is too large"
+        "check": "is too large",
+        "code": "array-type-too"
       }
     },
     {
@@ -1292,7 +1326,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "struct is too large"
+        "check": "struct is too large",
+        "code": "struct-too-large-limit"
       }
     },
     {
@@ -1305,7 +1340,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "nested too deeply"
+        "check": "nested too deeply",
+        "code": "nesting-limit"
       }
     },
     {
@@ -1318,7 +1354,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "negative shift amount"
+        "check": "negative shift amount",
+        "code": "binary-negative-shift-amount"
       }
     },
     {
@@ -1331,7 +1368,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "has no member `nope` at a fixed offset"
+        "check": "has no member `nope` at a fixed offset",
+        "code": "call-no-member-fixed"
       }
     },
     {
@@ -1344,7 +1382,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "must be a constant string"
+        "check": "must be a constant string",
+        "code": "call-member-name-offset"
       }
     },
     {
@@ -1357,7 +1396,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "is only allowed in a struct body"
+        "check": "is only allowed in a struct body",
+        "code": "overlay-only-allowed"
       }
     },
     {
@@ -1370,7 +1410,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "a floating-point variable is a vector register in #asm"
+        "check": "a floating-point variable is a vector register in #asm",
+        "code": "asm-vector-operand"
       }
     },
     {
@@ -1383,7 +1424,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "(`.x/.y/.z` are vector sizes)"
+        "check": "(`.x/.y/.z` are vector sizes)",
+        "code": "asm-vector-operand"
       }
     },
     {
@@ -1396,7 +1438,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "alignment -8 is out of range"
+        "check": "alignment -8 is out of range",
+        "code": "struct-alignment-out-range"
       }
     },
     {
@@ -1409,7 +1452,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "the loop's value and index are both named `a`"
+        "check": "the loop's value and index are both named `a`",
+        "code": "loops-value-index"
       }
     },
     {
@@ -1422,7 +1466,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "has no member `missing`"
+        "check": "has no member `missing`",
+        "code": "no-member"
       }
     },
     {
@@ -1435,7 +1480,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "polymorphic instances"
+        "check": "polymorphic instances",
+        "code": "call-mismatch"
       }
     },
     {
@@ -1448,7 +1494,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "polymorphic instances"
+        "check": "polymorphic instances",
+        "code": "too-many-instances"
       }
     },
     {
@@ -1461,7 +1508,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "nested more than"
+        "check": "nested more than",
+        "code": "insert-strings-nested"
       }
     },
     {
@@ -1474,7 +1522,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "is not a valid Code value"
+        "check": "is not a valid Code value",
+        "code": "not-valid-code"
       }
     },
     {
@@ -1487,7 +1536,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "is too large"
+        "check": "is too large",
+        "code": "compile-time-value-unreadable"
       }
     },
     {
@@ -1586,7 +1636,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "type mismatch: expected `*u8`, found `string`"
+        "check": "type mismatch: expected `*u8`, found `string`",
+        "code": "type-mismatch"
       }
     },
     {
@@ -1599,7 +1650,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "`context` is not available here"
+        "check": "`context` is not available here",
+        "code": "context-not-available"
       }
     },
     {
@@ -1612,7 +1664,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "#add_context is only allowed at file scope"
+        "check": "#add_context is only allowed at file scope",
+        "code": "add-context"
       }
     },
     {
@@ -1625,7 +1678,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "#complete switch on Dir has no case for .WEST"
+        "check": "#complete switch on Dir has no case for .WEST",
+        "code": "incomplete-switch"
       }
     },
     {
@@ -1638,7 +1692,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `x`"
+        "check": "unknown identifier `x`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -1651,7 +1706,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "cannot assign to constant `N`"
+        "check": "cannot assign to constant `N`",
+        "code": "cannot-assign-constant-2"
       }
     },
     {
@@ -1664,7 +1720,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "cannot access local `local` of an enclosing procedure"
+        "check": "cannot access local `local` of an enclosing procedure",
+        "code": "local-not-accessible"
       }
     },
     {
@@ -1677,7 +1734,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "3 names but 2 values"
+        "check": "3 names but 2 values",
+        "code": "declaration-count-mismatch"
       }
     },
     {
@@ -1690,7 +1748,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "#assert failed: Rec must be 8 bytes"
+        "check": "#assert failed: Rec must be 8 bytes",
+        "code": "static-assert"
       }
     },
     {
@@ -1703,7 +1762,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `no_such_name`"
+        "check": "unknown identifier `no_such_name`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -1716,7 +1776,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "is marked #must and cannot be discarded"
+        "check": "is marked #must and cannot be discarded",
+        "code": "call-result-marked"
       }
     },
     {
@@ -1729,7 +1790,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "type `Type_Info_Enum` has no member `notes`"
+        "check": "type `Type_Info_Enum` has no member `notes`",
+        "code": "no-member"
       }
     },
     {
@@ -1742,7 +1804,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "type mismatch: expected `u8`, found `u16`"
+        "check": "type mismatch: expected `u8`, found `u16`",
+        "code": "type-mismatch"
       }
     },
     {
@@ -1755,7 +1818,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "constant 300 does not fit in u8"
+        "check": "constant 300 does not fit in u8",
+        "code": "constant-out-of-range"
       }
     },
     {
@@ -1768,7 +1832,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "remove cannot shrink the fixed-size array `[3] s64`"
+        "check": "remove cannot shrink the fixed-size array `[3] s64`",
+        "code": "remove-unsupported"
       }
     },
     {
@@ -1781,7 +1846,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "remove: no enclosing loop named `count`"
+        "check": "remove: no enclosing loop named `count`",
+        "code": "remove-no-enclosing"
       }
     },
     {
@@ -1794,7 +1860,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "array bounds check failed: index 7 is outside an array of 4 elements"
+        "check": "array bounds check failed: index 7 is outside an array of 4 elements",
+        "code": "runtime-trap"
       }
     },
     {
@@ -1807,7 +1874,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "#bake_arguments needs a single procedure or a polymorphic struct"
+        "check": "#bake_arguments needs a single procedure or a polymorphic struct",
+        "code": "call-bake-arguments"
       }
     },
     {
@@ -1820,7 +1888,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "too many arguments to #bake_arguments"
+        "check": "too many arguments to #bake_arguments",
+        "code": "call-bake-arguments"
       }
     },
     {
@@ -1833,7 +1902,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `Missing_Type`"
+        "check": "unknown identifier `Missing_Type`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -1846,7 +1916,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "type must be known at compile time"
+        "check": "type must be known at compile time",
+        "code": "type-must-known"
       }
     },
     {
@@ -1859,7 +1930,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown escape sequence"
+        "check": "unknown escape sequence",
+        "code": "lex-unknown-escape-sequence"
       }
     },
     {
@@ -1872,7 +1944,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "expected `*u8`, found `string`"
+        "check": "expected `*u8`, found `string`",
+        "code": "type-mismatch"
       }
     },
     {
@@ -1885,7 +1958,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "argument of type `Plain` does not match parameter type `Inner`"
+        "check": "argument of type `Plain` does not match parameter type `Inner`",
+        "code": "call-mismatch"
       }
     },
     {
@@ -1898,7 +1972,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `other_private`"
+        "check": "unknown identifier `other_private`",
+        "code": "scope-file-name"
       }
     },
     {
@@ -1911,7 +1986,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `sqrt`"
+        "check": "unknown identifier `sqrt`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -1924,7 +2000,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "#asm division fault: the divisor is zero"
+        "check": "#asm division fault: the divisor is zero",
+        "code": "runtime-trap"
       }
     },
     {
@@ -1937,7 +2014,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unsupported #asm instruction `push`"
+        "check": "unsupported #asm instruction `push`",
+        "code": "asm-unsupported"
       }
     },
     {
@@ -1950,7 +2028,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unsupported #asm instruction `fld`"
+        "check": "unsupported #asm instruction `fld`",
+        "code": "asm-unsupported"
       }
     },
     {
@@ -1963,7 +2042,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "<#insert at "
+        "check": "<#insert at ",
+        "code": "parse-expected-token"
       }
     },
     {
@@ -1976,7 +2056,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "#insert needs a string or Code"
+        "check": "#insert needs a string or Code",
+        "code": "insert-needs-string"
       }
     },
     {
@@ -1989,7 +2070,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `it`"
+        "check": "unknown identifier `it`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -2002,7 +2084,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "error during compile-time execution: array bounds check failed"
+        "check": "error during compile-time execution: array bounds check failed",
+        "code": "runtime-trap"
       }
     },
     {
@@ -2015,7 +2098,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "stack overflow (recursion too deep)"
+        "check": "stack overflow (recursion too deep)",
+        "code": "runtime-trap"
       }
     },
     {
@@ -2028,7 +2112,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "assertion failed: limit is too small"
+        "check": "assertion failed: limit is too small",
+        "code": "runtime-trap"
       }
     },
     {
@@ -2041,7 +2126,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "#assert failed: SIZE must be eight"
+        "check": "#assert failed: SIZE must be eight",
+        "code": "static-assert"
       }
     },
     {
@@ -2054,7 +2140,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "rule-compiler-10: deliberate metaprogram error"
+        "check": "rule-compiler-10: deliberate metaprogram error",
+        "code": "metaprogram-report"
       }
     },
     {
@@ -2080,7 +2167,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "add_build_string: Code scope must belong to the running workspace"
+        "check": "add_build_string: Code scope must belong to the running workspace",
+        "code": "runtime-trap"
       }
     },
     {
@@ -2106,7 +2194,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown intrinsic `frob`"
+        "check": "unknown intrinsic `frob`",
+        "code": "call-unknown-intrinsic"
       }
     },
     {
@@ -2119,7 +2208,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "cannot access local `n` of an enclosing procedure"
+        "check": "cannot access local `n` of an enclosing procedure",
+        "code": "local-not-accessible"
       }
     },
     {
@@ -2132,7 +2222,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "argument of type `string` does not match parameter type"
+        "check": "argument of type `string` does not match parameter type",
+        "code": "call-mismatch"
       }
     },
     {
@@ -2145,7 +2236,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "is set here after the module already used another value"
+        "check": "is set here after the module already used another value",
+        "code": "module-parameter-invalid"
       }
     },
     {
@@ -2158,7 +2250,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "module `Rules_Module_That_Does_Not_Exist` not found"
+        "check": "module `Rules_Module_That_Does_Not_Exist` not found",
+        "code": "module-not"
       }
     },
     {
@@ -2171,7 +2264,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "has no exported member `secret`"
+        "check": "has no exported member `secret`",
+        "code": "unknown-module-member"
       }
     },
     {
@@ -2184,7 +2278,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "is not defined for"
+        "check": "is not defined for",
+        "code": "binary-operator-not-defined-2"
       }
     },
     {
@@ -2197,7 +2292,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "type mismatch: expected"
+        "check": "type mismatch: expected",
+        "code": "type-mismatch"
       }
     },
     {
@@ -2210,7 +2306,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "assertion failed: deliberately false"
+        "check": "assertion failed: deliberately false",
+        "code": "runtime-trap"
       },
       "rules": [
         "ctexec.9"
@@ -2226,7 +2323,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "type Unsupported (size 8) is not supported"
+        "check": "type Unsupported (size 8) is not supported",
+        "code": "static-assert"
       },
       "rules": [
         "note.2"
@@ -2242,7 +2340,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `other`"
+        "check": "unknown identifier `other`",
+        "code": "unknown-identifier"
       },
       "rules": [
         "import.16"
@@ -2258,7 +2357,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `other`"
+        "check": "unknown identifier `other`",
+        "code": "unknown-identifier"
       },
       "rules": [
         "import.16"
@@ -2274,7 +2374,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "cannot bit-complement Type"
+        "check": "cannot bit-complement Type",
+        "code": "unsupported-operation"
       }
     },
     {
@@ -2287,7 +2388,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "cannot bit-complement bool"
+        "check": "cannot bit-complement bool",
+        "code": "unsupported-operation"
       }
     },
     {
@@ -2300,7 +2402,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "type mismatch: expected `s64`, found `string`"
+        "check": "type mismatch: expected `s64`, found `string`",
+        "code": "type-mismatch"
       },
       "rules": [
         "dce.1"
@@ -2316,7 +2419,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `missing_constant_value`"
+        "check": "unknown identifier `missing_constant_value`",
+        "code": "unknown-identifier"
       },
       "rules": [
         "dce.1"
@@ -2332,7 +2436,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `missing_in_unused_body`"
+        "check": "unknown identifier `missing_in_unused_body`",
+        "code": "unknown-identifier"
       },
       "rules": [
         "dce.2"
@@ -2348,7 +2453,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `missing_in_struct_proc`"
+        "check": "unknown identifier `missing_in_struct_proc`",
+        "code": "unknown-identifier"
       },
       "rules": [
         "dce.2"
@@ -2364,7 +2470,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `missing_in_nested_proc`"
+        "check": "unknown identifier `missing_in_nested_proc`",
+        "code": "unknown-identifier"
       },
       "rules": [
         "dce.2"
@@ -2382,7 +2489,8 @@
         "self-written module (negative/modules/Dce_Called)"
       ],
       "negative": {
-        "check": "unknown identifier `missing_in_called_module_body`"
+        "check": "unknown identifier `missing_in_called_module_body`",
+        "code": "unknown-identifier"
       },
       "rules": [
         "dce.3"
@@ -2400,7 +2508,8 @@
         "self-written module (negative/modules/Dce_Called)"
       ],
       "negative": {
-        "check": "unknown identifier `missing_in_called_module_body`"
+        "check": "unknown identifier `missing_in_called_module_body`",
+        "code": "unknown-identifier"
       },
       "rules": [
         "dce.8"
@@ -2416,7 +2525,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `Missing_Member_Type`"
+        "check": "unknown identifier `Missing_Member_Type`",
+        "code": "unknown-identifier"
       },
       "rules": [
         "dce.10"
@@ -2432,7 +2542,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "the #run of an unreferenced body ran"
+        "check": "the #run of an unreferenced body ran",
+        "code": "runtime-trap"
       },
       "rules": [
         "dce.11"
@@ -2448,7 +2559,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "cast of 300 to `u8` overflows"
+        "check": "cast of 300 to `u8` overflows",
+        "code": "runtime-trap"
       },
       "rules": [
         "cast.2",
@@ -2465,7 +2577,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "cast of -1 to `u16` overflows"
+        "check": "cast of -1 to `u16` overflows",
+        "code": "runtime-trap"
       },
       "rules": [
         "cast.2"
@@ -2481,7 +2594,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "cast of 70000 to `s16` overflows"
+        "check": "cast of 70000 to `s16` overflows",
+        "code": "runtime-trap"
       },
       "rules": [
         "cast.34"
@@ -2497,7 +2611,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "no case of the `#complete` switch matches its value, 7"
+        "check": "no case of the `#complete` switch matches its value, 7",
+        "code": "runtime-trap"
       },
       "rules": [
         "flow.27"
@@ -2513,7 +2628,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "`#modify` needs polymorph variables to modify, but `foo` has none"
+        "check": "`#modify` needs polymorph variables to modify, but `foo` has none",
+        "code": "modify-without-polymorphs"
       },
       "rules": [
         "poly.19"
@@ -2529,7 +2645,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "`#modify` needs polymorph variables to modify, but `Foo` has none"
+        "check": "`#modify` needs polymorph variables to modify, but `Foo` has none",
+        "code": "modify-without-polymorphs"
       },
       "rules": [
         "poly.19"
@@ -2545,7 +2662,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "constant -1 does not fit in u32"
+        "check": "constant -1 does not fit in u32",
+        "code": "constant-out-of-range"
       }
     },
     {
@@ -2558,7 +2676,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "constant 40000 does not fit in s16"
+        "check": "constant 40000 does not fit in s16",
+        "code": "constant-out-of-range"
       }
     },
     {
@@ -2571,7 +2690,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "constant 200 does not fit in s8"
+        "check": "constant 200 does not fit in s8",
+        "code": "call-mismatch"
       }
     },
     {
@@ -2584,7 +2704,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "constant 300 is out of range for u8"
+        "check": "constant 300 is out of range for u8",
+        "code": "constant-out-of-range"
       }
     },
     {
@@ -2597,7 +2718,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "constant -1 is out of range for u8"
+        "check": "constant -1 is out of range for u8",
+        "code": "constant-out-of-range"
       }
     },
     {
@@ -2610,7 +2732,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "integer literal is too big"
+        "check": "integer literal is too big",
+        "code": "lex-integer-too-big"
       }
     },
     {
@@ -2623,7 +2746,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "this floating literal requires float64 precision"
+        "check": "this floating literal requires float64 precision",
+        "code": "binary-floating-literal"
       }
     },
     {
@@ -2636,7 +2760,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "operator `+` is not defined for bool"
+        "check": "operator `+` is not defined for bool",
+        "code": "binary-operator-not-defined"
       }
     },
     {
@@ -2649,7 +2774,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "2 names but the call returns 1 value"
+        "check": "2 names but the call returns 1 value",
+        "code": "names-but-call"
       }
     },
     {
@@ -2662,7 +2788,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "this #run returns no value, so it cannot be a constant's value"
+        "check": "this #run returns no value, so it cannot be a constant's value",
+        "code": "run-returns"
       }
     },
     {
@@ -2675,7 +2802,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "`for :` needs the name of a `for_expansion` procedure"
+        "check": "`for :` needs the name of a `for_expansion` procedure",
+        "code": "needs-name-expansion"
       }
     },
     {
@@ -2688,7 +2816,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "cannot take the address of a number or bool constant"
+        "check": "cannot take the address of a number or bool constant",
+        "code": "cannot-take-address"
       }
     },
     {
@@ -2701,7 +2830,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "`#char` needs a string of exactly one character, found 2 bytes"
+        "check": "`#char` needs a string of exactly one character, found 2 bytes",
+        "code": "parse-char-needs-string"
       }
     },
     {
@@ -2714,7 +2844,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "`#char` needs a string of exactly one character, found 0 bytes"
+        "check": "`#char` needs a string of exactly one character, found 0 bytes",
+        "code": "parse-char-needs-string"
       }
     },
     {
@@ -2727,7 +2858,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "`using` needs a struct, an enum or a pointer to one; this is `s64`"
+        "check": "`using` needs a struct, an enum or a pointer to one; this is `s64`",
+        "code": "using-needs-struct"
       }
     },
     {
@@ -2740,7 +2872,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "`defer` needs a statement to defer"
+        "check": "`defer` needs a statement to defer",
+        "code": "parse-defer-needs-statement"
       }
     },
     {
@@ -2753,7 +2886,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "enum value 256 is out of range for the enum's type `u8`"
+        "check": "enum value 256 is out of range for the enum's type `u8`",
+        "code": "enum-value-out"
       }
     },
     {
@@ -2766,7 +2900,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "enum member `A` is declared more than once"
+        "check": "enum member `A` is declared more than once",
+        "code": "enum-member-declared"
       }
     },
     {
@@ -2779,7 +2914,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "member `a` is declared more than once"
+        "check": "member `a` is declared more than once",
+        "code": "struct-member-declared"
       }
     },
     {
@@ -2792,7 +2928,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "cannot assign into the constant `PRIMES`"
+        "check": "cannot assign into the constant `PRIMES`",
+        "code": "cannot-assign-constant"
       }
     },
     {
@@ -2805,7 +2942,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Cli.paths: unknown note `@posistional`"
+        "check": "Cli.paths: unknown note `@posistional`",
+        "code": "metaprogram-report"
       }
     },
     {
@@ -2818,7 +2956,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Cli.a: `@short=ab` needs a single letter or digit"
+        "check": "Cli.a: `@short=ab` needs a single letter or digit",
+        "code": "metaprogram-report"
       }
     },
     {
@@ -2831,7 +2970,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Cli.b: the short name `-x` is already used"
+        "check": "Cli.b: the short name `-x` is already used",
+        "code": "metaprogram-report"
       }
     },
     {
@@ -2844,7 +2984,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Cli.b: the long name `--zed` is already used"
+        "check": "Cli.b: the long name `--zed` is already used",
+        "code": "metaprogram-report"
       }
     },
     {
@@ -2857,7 +2998,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Cli.a: the short name `-h` is already used"
+        "check": "Cli.a: the short name `-h` is already used",
+        "code": "metaprogram-report"
       }
     },
     {
@@ -2870,7 +3012,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Cli.a: `@range` needs a numeric field"
+        "check": "Cli.a: `@range` needs a numeric field",
+        "code": "metaprogram-report"
       }
     },
     {
@@ -2883,7 +3026,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Cli.a: `@range(1)` needs two numbers"
+        "check": "Cli.a: `@range(1)` needs two numbers",
+        "code": "metaprogram-report"
       }
     },
     {
@@ -2896,7 +3040,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Cli.a: unsupported field type: a pointer"
+        "check": "Cli.a: unsupported field type: a pointer",
+        "code": "metaprogram-report"
       }
     },
     {
@@ -2909,7 +3054,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Cli.a: the struct `Inner`: a struct field is only supported as a subcommand"
+        "check": "Cli.a: the struct `Inner`: a struct field is only supported as a subcommand",
+        "code": "metaprogram-report"
       }
     },
     {
@@ -2922,7 +3068,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Cli.a: only the last positional may be an array"
+        "check": "Cli.a: only the last positional may be an array",
+        "code": "metaprogram-report"
       }
     },
     {
@@ -2935,7 +3082,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Cli.a: `@conflicts=nothing` names a field that does not exist"
+        "check": "Cli.a: `@conflicts=nothing` names a field that does not exist",
+        "code": "metaprogram-report"
       }
     },
     {
@@ -2948,7 +3096,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Cli.a: `@requires=nothing` names a field that does not exist"
+        "check": "Cli.a: `@requires=nothing` names a field that does not exist",
+        "code": "metaprogram-report"
       }
     },
     {
@@ -2961,7 +3110,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Cli.a: `@count` needs an integer field"
+        "check": "Cli.a: `@count` needs an integer field",
+        "code": "metaprogram-report"
       }
     },
     {
@@ -2974,7 +3124,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Cli.a: `@env` is for options with a single value"
+        "check": "Cli.a: `@env` is for options with a single value",
+        "code": "metaprogram-report"
       }
     },
     {
@@ -2987,7 +3138,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Cli.a: arrays other than `[..] T` are not supported"
+        "check": "Cli.a: arrays other than `[..] T` are not supported",
+        "code": "metaprogram-report"
       }
     },
     {
@@ -3000,7 +3152,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Cli.a: `@required` does not apply to flags and counters"
+        "check": "Cli.a: `@required` does not apply to flags and counters",
+        "code": "metaprogram-report"
       }
     },
     {
@@ -3013,7 +3166,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "subcommand structs need an enum field marked `@subcommand`"
+        "check": "subcommand structs need an enum field marked `@subcommand`",
+        "code": "metaprogram-report"
       }
     },
     {
@@ -3026,7 +3180,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "a required positional cannot follow the optional `a`"
+        "check": "a required positional cannot follow the optional `a`",
+        "code": "metaprogram-report"
       }
     },
     {
@@ -3039,7 +3194,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "the long name `--no-a` is already used"
+        "check": "the long name `--no-a` is already used",
+        "code": "metaprogram-report"
       }
     },
     {
@@ -3052,7 +3208,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Cli.about: this name is reserved by `Args.Help`"
+        "check": "Cli.about: this name is reserved by `Args.Help`",
+        "code": "metaprogram-report"
       }
     },
     {
@@ -3065,7 +3222,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "the name `x` is brought in twice"
+        "check": "the name `x` is brought in twice",
+        "code": "struct-name-brought-twice"
       }
     },
     {
@@ -3078,7 +3236,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "identical parameter types"
+        "check": "identical parameter types",
+        "code": "proc-two-procedures-name"
       }
     },
     {
@@ -3091,7 +3250,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "a note ends at the first whitespace"
+        "check": "a note ends at the first whitespace",
+        "code": "lex-note-ends-first"
       }
     },
     {
@@ -3135,7 +3295,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "`Limit` is already declared in this scope"
+        "check": "`Limit` is already declared in this scope",
+        "code": "already-declared-scope"
       },
       "rules": [
         "decl.24"
@@ -3151,7 +3312,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "`value` is already declared in this scope"
+        "check": "`value` is already declared in this scope",
+        "code": "call-mismatch"
       },
       "rules": [
         "decl.24"
@@ -3167,7 +3329,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "is not a parameter of this module"
+        "check": "is not a parameter of this module",
+        "code": "module-parameter-invalid"
       },
       "rules": [
         "modparam.11"
@@ -3183,7 +3346,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "expects bool, but the import gives integer"
+        "check": "expects bool, but the import gives integer",
+        "code": "module-parameter-invalid"
       },
       "rules": [
         "modparam.11"
@@ -3263,7 +3427,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "not a Static"
+        "check": "not a Static",
+        "code": "call-mismatch"
       }
     },
     {
@@ -3292,7 +3457,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "too many lanes"
+        "check": "too many lanes",
+        "code": "call-mismatch"
       }
     },
     {
@@ -3305,7 +3471,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "needs a constant type"
+        "check": "needs a constant type",
+        "code": "call-needs-constant-type"
       }
     },
     {
@@ -3331,7 +3498,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Regex: field `y` of Point has no group"
+        "check": "Regex: field `y` of Point has no group",
+        "code": "metaprogram-report"
       }
     },
     {
@@ -3344,7 +3512,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Regex: group `y` in (?<x>\\d+),(?<y>\\d+) has no field in Point"
+        "check": "Regex: group `y` in (?<x>\\d+),(?<y>\\d+) has no field in Point",
+        "code": "metaprogram-report"
       }
     },
     {
@@ -3357,7 +3526,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Regex: field `x` of Point has a type a group can't be parsed into"
+        "check": "Regex: field `x` of Point has a type a group can't be parsed into",
+        "code": "metaprogram-report"
       }
     },
     {
@@ -3370,7 +3540,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Regex: unclosed character class"
+        "check": "Regex: unclosed character class",
+        "code": "metaprogram-report"
       }
     },
     {
@@ -3383,7 +3554,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "expected a Regex.Static(\"...\") type, not s64"
+        "check": "expected a Regex.Static(\"...\") type, not s64",
+        "code": "call-mismatch"
       }
     },
     {
@@ -3396,7 +3568,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unequal array lengths (wanted 2, given 0)"
+        "check": "unequal array lengths (wanted 2, given 0)",
+        "code": "call-mismatch"
       }
     },
     {
@@ -3409,7 +3582,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "could not infer polymorphic type `$T`"
+        "check": "could not infer polymorphic type `$T`",
+        "code": "call-mismatch"
       }
     },
     {
@@ -3422,7 +3596,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "cannot call a value of type s64"
+        "check": "cannot call a value of type s64",
+        "code": "call-cannot-value-type"
       }
     },
     {
@@ -3435,7 +3610,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "cannot index a value of type s64"
+        "check": "cannot index a value of type s64",
+        "code": "cannot-index-value"
       }
     },
     {
@@ -3448,7 +3624,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "`case` outside of a switch"
+        "check": "`case` outside of a switch",
+        "code": "parse-case-outside-switch"
       }
     },
     {
@@ -3461,7 +3638,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "cannot infer the type of `.{...}` here"
+        "check": "cannot infer the type of `.{...}` here",
+        "code": "struct-cannot-infer-type"
       }
     },
     {
@@ -3474,7 +3652,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "array index must be an integer, found float32"
+        "check": "array index must be an integer, found float32",
+        "code": "array-index"
       }
     },
     {
@@ -3487,7 +3666,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "cannot iterate over a value of type s64"
+        "check": "cannot iterate over a value of type s64",
+        "code": "cannot-iterate-over"
       }
     },
     {
@@ -3500,7 +3680,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Can't assign to a large-value iterator"
+        "check": "Can't assign to a large-value iterator",
+        "code": "cant-assign-large"
       }
     },
     {
@@ -3513,7 +3694,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Can't assign to a large-value iterator"
+        "check": "Can't assign to a large-value iterator",
+        "code": "cant-assign-large"
       }
     },
     {
@@ -3526,7 +3708,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Can't assign to a large-value iterator"
+        "check": "Can't assign to a large-value iterator",
+        "code": "cant-assign-large"
       }
     },
     {
@@ -3539,7 +3722,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Can't assign to a large-value iterator"
+        "check": "Can't assign to a large-value iterator",
+        "code": "cant-assign-large"
       }
     },
     {
@@ -3552,7 +3736,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Can't assign to a large-value iterator"
+        "check": "Can't assign to a large-value iterator",
+        "code": "cant-assign-large"
       }
     },
     {
@@ -3565,7 +3750,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Can't assign to an immutable argument"
+        "check": "Can't assign to an immutable argument",
+        "code": "cant-assign-immutable"
       }
     },
     {
@@ -3578,7 +3764,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Can't assign to an immutable argument"
+        "check": "Can't assign to an immutable argument",
+        "code": "cant-assign-immutable"
       }
     },
     {
@@ -3591,7 +3778,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Can't assign to an immutable argument"
+        "check": "Can't assign to an immutable argument",
+        "code": "cant-assign-immutable"
       }
     },
     {
@@ -3604,7 +3792,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Can't assign to an immutable argument"
+        "check": "Can't assign to an immutable argument",
+        "code": "cant-assign-immutable"
       }
     },
     {
@@ -3617,7 +3806,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Can't assign to an immutable argument"
+        "check": "Can't assign to an immutable argument",
+        "code": "cant-assign-immutable"
       }
     },
     {
@@ -3630,7 +3820,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Can't assign to an immutable argument"
+        "check": "Can't assign to an immutable argument",
+        "code": "cant-assign-immutable"
       }
     },
     {
@@ -3643,7 +3834,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Can't assign to an immutable argument"
+        "check": "Can't assign to an immutable argument",
+        "code": "cant-assign-immutable"
       }
     },
     {
@@ -3656,7 +3848,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Can't assign to an immutable argument"
+        "check": "Can't assign to an immutable argument",
+        "code": "cant-assign-immutable"
       }
     },
     {
@@ -3669,7 +3862,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Duplicate case."
+        "check": "Duplicate case.",
+        "code": "duplicate-case"
       }
     },
     {
@@ -3682,7 +3876,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Duplicate case."
+        "check": "Duplicate case.",
+        "code": "duplicate-case"
       }
     },
     {
@@ -3695,7 +3890,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "Conditions listed by 'case' must be constant."
+        "check": "Conditions listed by 'case' must be constant.",
+        "code": "conditions-listed-case"
       }
     },
     {
@@ -3708,7 +3904,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "'if ==' statements do not support struct or array types at this time."
+        "check": "'if ==' statements do not support struct or array types at this time.",
+        "code": "statements-not-support"
       }
     },
     {
@@ -3721,7 +3918,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "'if ==' statements do not support struct or array types at this time."
+        "check": "'if ==' statements do not support struct or array types at this time.",
+        "code": "statements-not-support"
       }
     },
     {
@@ -3734,7 +3932,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "#complete only applies to 'if' on enum types."
+        "check": "#complete only applies to 'if' on enum types.",
+        "code": "complete-only-applies"
       }
     },
     {
@@ -3747,7 +3946,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "constant 300 does not fit in u8"
+        "check": "constant 300 does not fit in u8",
+        "code": "constant-out-of-range"
       }
     },
     {
@@ -3760,7 +3960,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "constant 256 does not fit in u8"
+        "check": "constant 256 does not fit in u8",
+        "code": "constant-out-of-range"
       }
     },
     {
@@ -3773,7 +3974,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "not enough values in this struct literal"
+        "check": "not enough values in this struct literal",
+        "code": "struct-not-enough-values"
       }
     },
     {
@@ -3786,7 +3988,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "`model` is ambiguous"
+        "check": "`model` is ambiguous",
+        "code": "ambiguous-more-one"
       }
     },
     {
@@ -3799,7 +4002,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "`load-twice-support.jai` is already loaded into this module"
+        "check": "`load-twice-support.jai` is already loaded into this module",
+        "code": "module-already-loaded"
       }
     },
     {
@@ -3812,7 +4016,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "#complete switch on E has no case for .C"
+        "check": "#complete switch on E has no case for .C",
+        "code": "incomplete-switch"
       }
     },
     {
@@ -3825,7 +4030,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "type mismatch: expected `u8`, found `s64`"
+        "check": "type mismatch: expected `u8`, found `s64`",
+        "code": "type-mismatch"
       }
     },
     {
@@ -3838,7 +4044,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "cannot access local `val` of an enclosing procedure"
+        "check": "cannot access local `val` of an enclosing procedure",
+        "code": "local-not-accessible"
       }
     },
     {
@@ -3851,7 +4058,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `cube`"
+        "check": "unknown identifier `cube`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -3864,7 +4072,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "in call to `f`: missing argument for parameter `b`"
+        "check": "in call to `f`: missing argument for parameter `b`",
+        "code": "argument-count"
       }
     },
     {
@@ -3877,7 +4086,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "in call to `set_opacity`: argument of type `s64` does not match parameter type `float32`"
+        "check": "in call to `set_opacity`: argument of type `s64` does not match parameter type `float32`",
+        "code": "call-mismatch"
       }
     },
     {
@@ -3890,7 +4100,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "type `Color` has no member `x`"
+        "check": "type `Color` has no member `x`",
+        "code": "no-member"
       }
     },
     {
@@ -3903,7 +4114,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "in call to `check`: could not infer polymorphic type `$T`"
+        "check": "in call to `check`: could not infer polymorphic type `$T`",
+        "code": "call-mismatch"
       }
     },
     {
@@ -3916,7 +4128,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "type mismatch: expected `Vehicle`, found `Moto`"
+        "check": "type mismatch: expected `Vehicle`, found `Moto`",
+        "code": "type-mismatch"
       }
     },
     {
@@ -3929,7 +4142,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "`number` is already declared in this scope"
+        "check": "`number` is already declared in this scope",
+        "code": "already-declared-scope"
       }
     },
     {
@@ -3942,7 +4156,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "`x` is already declared in this scope"
+        "check": "`x` is already declared in this scope",
+        "code": "proc-already-declared-scope"
       }
     },
     {
@@ -3955,7 +4170,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "remove outside of a for loop"
+        "check": "remove outside of a for loop",
+        "code": "remove-outside-loop"
       }
     },
     {
@@ -3968,7 +4184,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "remove needs a for loop over an array, not a while loop"
+        "check": "remove needs a for loop over an array, not a while loop",
+        "code": "remove-unsupported"
       }
     },
     {
@@ -3981,7 +4198,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "remove cannot shrink the fixed-size array `[3] s64`; loop over a resizable array (`[..] s64`) or an array view (`[] s64`) to remove elements"
+        "check": "remove cannot shrink the fixed-size array `[3] s64`; loop over a resizable array (`[..] s64`) or an array view (`[] s64`) to remove elements",
+        "code": "remove-unsupported"
       }
     },
     {
@@ -3994,7 +4212,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "remove needs a for loop over an array, not a range of numbers"
+        "check": "remove needs a for loop over an array, not a range of numbers",
+        "code": "remove-unsupported"
       }
     },
     {
@@ -4007,7 +4226,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "break outside of a loop"
+        "check": "break outside of a loop",
+        "code": "outside-loop"
       }
     },
     {
@@ -4020,7 +4240,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "continue: no enclosing loop named `nowhere`"
+        "check": "continue: no enclosing loop named `nowhere`",
+        "code": "no-enclosing-loop"
       }
     },
     {
@@ -4033,7 +4254,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "in call to `strlen`: argument of type `string` does not match parameter type `*u8`"
+        "check": "in call to `strlen`: argument of type `string` does not match parameter type `*u8`",
+        "code": "call-mismatch"
       }
     },
     {
@@ -4046,7 +4268,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "expected a type, found a polymorphic struct"
+        "check": "expected a type, found a polymorphic struct",
+        "code": "expected-type"
       }
     },
     {
@@ -4059,7 +4282,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "in call to `proc_pair`: argument of type `Box(s64, 5)` does not match parameter type `Box(s64, 2)`"
+        "check": "in call to `proc_pair`: argument of type `Box(s64, 5)` does not match parameter type `Box(s64, 2)`",
+        "code": "call-mismatch"
       }
     },
     {
@@ -4072,7 +4296,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "in call to `proc_exact`: argument of type `Box(float32, 2)` does not match parameter type `Box(s64, 2)`"
+        "check": "in call to `proc_exact`: argument of type `Box(float32, 2)` does not match parameter type `Box(s64, 2)`",
+        "code": "call-mismatch"
       }
     },
     {
@@ -4085,7 +4310,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "in call to `greet`: Other does not satisfy interface Named: missing or incompatible field `name`"
+        "check": "in call to `greet`: Other does not satisfy interface Named: missing or incompatible field `name`",
+        "code": "interface-constraint"
       }
     },
     {
@@ -4098,7 +4324,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "module `Basic.jai` not found"
+        "check": "module `Basic.jai` not found",
+        "code": "module-not"
       }
     },
     {
@@ -4111,7 +4338,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "cannot assign to constant `LIMIT`"
+        "check": "cannot assign to constant `LIMIT`",
+        "code": "cannot-assign-constant-2"
       }
     },
     {
@@ -4124,7 +4352,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "missing return value 2 of 2"
+        "check": "missing return value 2 of 2",
+        "code": "missing-return-value"
       }
     },
     {
@@ -4137,7 +4366,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "unknown identifier `inner`"
+        "check": "unknown identifier `inner`",
+        "code": "unknown-identifier"
       }
     },
     {
@@ -4150,7 +4380,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "array size must be a non-negative constant, found constant -1 of type s64"
+        "check": "array size must be a non-negative constant, found constant -1 of type s64",
+        "code": "array-size"
       }
     },
     {
@@ -4163,7 +4394,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "type `U` has no member `c`"
+        "check": "type `U` has no member `c`",
+        "code": "no-member"
       }
     },
     {
@@ -4176,7 +4408,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "cannot dereference a value of type s64"
+        "check": "cannot dereference a value of type s64",
+        "code": "cannot-dereference-value"
       }
     },
     {
@@ -4189,7 +4422,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "type `Context` has no member `not_a_field`"
+        "check": "type `Context` has no member `not_a_field`",
+        "code": "no-member"
       }
     },
     {
@@ -4202,7 +4436,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "cannot call `print` without a context (use push_context in #c_call code)"
+        "check": "cannot call `print` without a context (use push_context in #c_call code)",
+        "code": "call-cannot-without-context"
       }
     },
     {
@@ -4215,7 +4450,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "cannot access local `k` of an enclosing procedure"
+        "check": "cannot access local `k` of an enclosing procedure",
+        "code": "local-not-accessible"
       }
     },
     {
@@ -4228,7 +4464,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "`black_box` takes one value and returns it"
+        "check": "`black_box` takes one value and returns it",
+        "code": "call-black-box"
       }
     },
     {
@@ -4241,7 +4478,8 @@
       "target": "host",
       "dependencies": [],
       "negative": {
-        "check": "`black_box` needs a value with a runtime representation"
+        "check": "`black_box` needs a value with a runtime representation",
+        "code": "call-black-box"
       }
     }
   ]

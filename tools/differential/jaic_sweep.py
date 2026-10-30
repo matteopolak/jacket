@@ -139,7 +139,10 @@ def cases(name):
                     c["id"],
                     ROOT / "tests/corpus" / c["source"],
                     "check",
-                    {"negative": next(iter(c["negative"].values()))},
+                    {
+                        "negative": next(iter(c["negative"].values())),
+                        "code": c["negative"].get("code"),
+                    },
                     [],
                 )
     elif name == "regressions":
@@ -732,6 +735,9 @@ def main():
             err = "".join(f"error: {p}\n" for p in problems) + err
         elif "negative" in expect:
             ok = code != 0 and code != -1 and expect["negative"] in err
+            if ok and expect.get("code") and f"[{expect['code']}]" not in err:
+                ok = False
+                err += f"\nerror: the diagnostic should have the code `{expect['code']}`"
         elif "contains" in expect:
             missing = [line for line in expect["contains"] if line not in out]
             present = [text for text in expect["excludes"] if text in out]
