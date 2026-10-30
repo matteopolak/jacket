@@ -1,7 +1,8 @@
 //! Checking arguments before a candidate is chosen, and ranking candidates.
 use super::{CallArg, Candidate, is_deferred};
-use crate::sema::lower::FnCtx;
+use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, Diagnostic, ProcId, Result, ScopeId, Span, Sym, ast, err, ir};
+use crate::types::{ArrayKind, TypeKind};
 
 impl Compiler {
     /// A copy of the current context with fields replaced; an unnamed
@@ -113,7 +114,18 @@ impl Compiler {
             } else if discard.get(i).copied().unwrap_or(false) {
                 Some(self.check_expr_no_emit(scope, &a.value)?)
             } else {
-                Some(self.check_expr(f, scope, &a.value, None)?)
+                let op = self.check_expr(f, scope, &a.value, None)?;
+                // Arguments are evaluated left to right: a variable read here is a place that
+                // would be loaded when the call is built, after the calls among the arguments
+                // to its right ran. Read it now when one of them can change it.
+                if args[i + 1..]
+                    .iter()
+                    .any(|later| may_have_effects(&later.value))
+                {
+                    Some(self.read_now(f, op, a.value.span)?)
+                } else {
+                    Some(op)
+                }
             };
             if let Some(name) = a.name {
                 super::slots::note_argument_name(a.value.span, name.span);
@@ -128,6 +140,44 @@ impl Compiler {
             });
         }
         Ok(out)
+    }
+
+    /// The value of `op` as of now, when it is a place (see `precheck_args_deferring`): a scalar
+    /// is loaded, a string, struct or other aggregate is copied. Fixed-size arrays stay places,
+    /// since they convert to views of the original.
+    fn read_now(&mut self, f: &mut FnCtx, op: Operand, span: Span) -> Result<Operand> {
+        let Operand::Place {
+            ty,
+            addr,
+        } = op
+        else {
+            return Ok(op);
+        };
+        if matches!(
+            self.ty.types.kind(ty),
+            TypeKind::Array {
+                kind: ArrayKind::Fixed(_),
+                ..
+            }
+        ) {
+            return Ok(Operand::Place {
+                ty,
+                addr,
+            });
+        }
+        let val = if let Some(t) = self.ir_ty(ty) {
+            f.b.load(t, addr)
+        } else {
+            let size = self.size_of(ty, span)?;
+            let align = self.align_of(ty, span)?;
+            let copy = f.b.alloca(size.max(1), align);
+            f.b.copy(copy, addr, size);
+            copy
+        };
+        Ok(Operand::Value {
+            ty,
+            val,
+        })
     }
 
     /// Match `args` against each of `procs`: the cheapest candidates, and why the rest failed.
@@ -160,5 +210,29 @@ impl Compiler {
             }
         }
         (best, errors)
+    }
+}
+
+/// Whether evaluating `expr` can change a variable another argument reads: it calls something,
+/// runs a block or assigns. Reads and operators on reads cannot (an overloaded operator that
+/// changes its operands is the one case this does not see).
+fn may_have_effects(expr: &ast::Expr) -> bool {
+    use ast::ExprKind as E;
+    match &expr.kind {
+        E::Ident(_)
+        | E::Int(_)
+        | E::Float(_)
+        | E::Str(_)
+        | E::Bool(_)
+        | E::Null
+        | E::Uninit
+        | E::Context
+        | E::InferredMember(_) => false,
+        E::Binary(_, a, b) | E::Index(a, b) => may_have_effects(a) || may_have_effects(b),
+        E::Unary(_, a) | E::Member(a, _) => may_have_effects(a),
+        E::Cast {
+            value, ..
+        } => may_have_effects(value),
+        _ => true,
     }
 }
