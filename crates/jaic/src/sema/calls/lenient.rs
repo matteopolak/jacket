@@ -1,7 +1,7 @@
 //! Warnings for code Jacket accepts and the official compiler rejects, and operators found
 //! through the operand type's own module.
 //!
-//! Every leniency is reported through `leniency_warning`/`warn_leniency`: one diagnostic kind
+//! Every leniency is reported through `leniency_warning`: one diagnostic kind
 //! per [`Leniency`], one shared note, and silence for code that is not the user's (an imported
 //! module, the standard library). The rest of this file is the operator case: the help for
 //! operators nothing reaches.
@@ -42,8 +42,7 @@ pub(in crate::sema) struct Rewrite {
 }
 
 impl Compiler {
-    /// A warning for a leniency at `span` in `module`, to add help to and hand to
-    /// `warn_leniency`; `None` where nothing is reported: outside the program's own files (an
+    /// A warning for a leniency at `span` in `module`, to add help to and `warn`; `None` where nothing is reported: outside the program's own files (an
     /// imported module, the standard library, text with no file), because the author of a
     /// library cannot act on it from a program that uses the library.
     pub(in crate::sema) fn leniency_warning(
@@ -61,13 +60,6 @@ impl Compiler {
                 .with_kind(DiagnosticKind::Lenient(leniency))
                 .with_note(Span::NONE, NOTE),
         )
-    }
-
-    /// Record the warning `leniency_warning` made, if it made one.
-    pub(in crate::sema) fn warn_leniency(&mut self, warning: Option<Diagnostic>) {
-        if let Some(warning) = warning {
-            self.warn(warning);
-        }
     }
 
     /// The overloads of `operator <text>` declared in the modules of the struct types `tys`
@@ -397,7 +389,8 @@ impl Compiler {
         home: ScopeId,
     ) {
         let home_module = self.scope(home).module;
-        let name = self.ty.types.name(ty);
+        let full = self.ty.types.name(ty);
+        let name = full.split('(').next().unwrap_or(&full).to_string();
         let Some(d) = self.leniency_warning(
             self.scope(scope).module,
             span,

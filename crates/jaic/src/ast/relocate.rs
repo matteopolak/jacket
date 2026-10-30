@@ -32,6 +32,9 @@ pub fn relocate(file: &mut File, real: FileId) {
     for stmt in &mut file.stmts {
         r.stmt(stmt);
     }
+    for found in &mut file.lenient {
+        r.span(&mut found.span);
+    }
 }
 
 /// Rewrites a tree built under `PLACEHOLDER_FILE` so its spans name `real`.
