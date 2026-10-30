@@ -116,6 +116,23 @@ pub enum OutputFormat {
     Json,
 }
 
+/// What `--coverage` writes to `--coverage-out`.
+#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CoverageFormat {
+    /// lcov's text format, with line counts and procedures
+    Lcov,
+    /// One self-contained page: modules, files and the source with the count of each line
+    Html,
+}
+
+/// What a row of the coverage table is.
+#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CoverageBy {
+    File,
+    /// The nearest folder with a `module.jai`
+    Module,
+}
+
 #[derive(clap::Args, Clone, Debug)]
 pub struct TestArgs {
     /// Run the tests whose name contains one of these; `test/subtest` runs one subtest
@@ -135,9 +152,33 @@ pub struct TestArgs {
     /// examples), and write them as lcov
     #[arg(long, conflicts_with_all = ["list", "review"])]
     pub coverage: bool,
-    /// Where `--coverage` writes lcov [default: target/lcov.info]
+    /// Where `--coverage` writes its report [default: target/lcov.info, or target/coverage.html]
     #[arg(long, value_name = "FILE", requires = "coverage")]
     pub coverage_out: Option<std::path::PathBuf>,
+    /// The report's format
+    #[arg(long, value_enum, default_value_t = CoverageFormat::Lcov, requires = "coverage")]
+    pub coverage_format: CoverageFormat,
+    /// What a row of the printed table is
+    #[arg(long, value_enum, default_value_t = CoverageBy::File, requires = "coverage")]
+    pub coverage_by: CoverageBy,
+    /// Fail when a module (or the total) covers fewer lines than this recorded baseline by more
+    /// than `--coverage-margin`
+    #[arg(long, value_name = "FILE", requires = "coverage")]
+    pub coverage_baseline: Option<std::path::PathBuf>,
+    /// Percentage points a module may lose against `--coverage-baseline`
+    #[arg(
+        long,
+        value_name = "POINTS",
+        default_value_t = 0.5,
+        requires = "coverage"
+    )]
+    pub coverage_margin: f64,
+    /// Record this run's lines per module as a baseline
+    #[arg(long, value_name = "FILE", requires = "coverage")]
+    pub coverage_record: Option<std::path::PathBuf>,
+    /// Add a markdown table of the modules to this file (`$GITHUB_STEP_SUMMARY`)
+    #[arg(long, value_name = "FILE", requires = "coverage")]
+    pub coverage_summary: Option<std::path::PathBuf>,
     /// Also report the code below this folder (repeatable); by default the test roots and the
     /// folders of `-import_dir`
     #[arg(long, value_name = "DIR", requires = "coverage")]

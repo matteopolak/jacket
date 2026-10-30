@@ -1,5 +1,5 @@
 //! Reading debug info: which lines a block of a `jaic -coverage` program holds. See `mod.rs`.
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
 
 use super::{Blocks, Files};
@@ -146,22 +146,62 @@ pub(super) fn parse_line_table(text: &str) -> Vec<Row> {
     rows
 }
 
-/// The lines each file has that some block holds, with the most any block that holds one ran.
-/// A block runs from its address to the next block's; its lines are those of the row in force
-/// at its start and of every row that starts inside it. `wanted` maps a path to the file to
-/// report, or `None` to skip it.
+/// How often the lines of the code that ran ran, and the function entries.
+pub(super) struct Counted {
+    /// The most any block of a function that holds a line ran, added up over the functions that
+    /// hold it (the instances of a polymorphic procedure, a macro used twice).
+    pub lines: Files,
+    /// How often the functions whose entry is at a line were called, by that line.
+    pub entries: Files,
+}
+
+/// The lines each file has that some block holds. A block runs from its address to the next
+/// block's; its lines are those of the row in force at its start and of every row that starts
+/// inside it. A function runs from one entry block to the next, and holds a line as often as
+/// its busiest block that holds it. `wanted` maps a path to the file to report, or `None` to
+/// skip it.
 pub(super) fn block_lines(
     rows: &[Row],
     blocks: &Blocks,
     mut wanted: impl FnMut(&str) -> Option<PathBuf>,
-) -> Files {
-    let mut files = Files::new();
+) -> Counted {
+    let mut paths: Vec<PathBuf> = Vec::new();
+    // Which file each path of the line table is, found once.
+    let by_path: Vec<Option<usize>> = {
+        let mut names: HashMap<&str, Option<usize>> = HashMap::new();
+        rows.iter()
+            .map(|row| {
+                *names.entry(row.path.as_str()).or_insert_with(|| {
+                    wanted(&row.path).map(|file| {
+                        paths.push(file);
+                        paths.len() - 1
+                    })
+                })
+            })
+            .collect()
+    };
+    // The lines of the function being read, by file and line.
+    let mut function: BTreeMap<(usize, u32), u64> = BTreeMap::new();
+    let mut lines: BTreeMap<(usize, u32), u64> = BTreeMap::new();
+    let mut entries: BTreeMap<(usize, u32), u64> = BTreeMap::new();
     let starts: Vec<u64> = blocks.keys().copied().collect();
-    for (i, (&address, &count)) in blocks.iter().enumerate() {
+    for (i, (&address, block)) in blocks.iter().enumerate() {
         let end = starts.get(i + 1).copied().unwrap_or(address + 1);
         let first = rows
             .partition_point(|r| r.address <= address)
             .saturating_sub(1);
+        if block.entry {
+            for (key, count) in std::mem::take(&mut function) {
+                *lines.entry(key).or_default() += count;
+            }
+            if let Some(row) = rows.get(first)
+                && row.line != 0
+                && !row.ends_sequence
+                && let Some(file) = by_path[first]
+            {
+                *entries.entry((file, row.line)).or_default() += block.count;
+            }
+        }
         for (n, row) in rows.iter().enumerate().skip(first) {
             if n != first && row.address >= end {
                 break;
@@ -169,17 +209,35 @@ pub(super) fn block_lines(
             if row.line == 0 || row.ends_sequence {
                 continue;
             }
-            if let Some(file) = wanted(&row.path) {
-                let seen = files.entry(file).or_default().entry(row.line).or_default();
-                *seen = (*seen).max(count);
+            if let Some(file) = by_path[n] {
+                let seen = function.entry((file, row.line)).or_default();
+                *seen = (*seen).max(block.count);
             }
         }
     }
-    files
+    for (key, count) in function {
+        *lines.entry(key).or_default() += count;
+    }
+    let collect = |counted: BTreeMap<(usize, u32), u64>| {
+        let mut files = Files::new();
+        for ((file, line), count) in counted {
+            *files
+                .entry(paths[file].clone())
+                .or_default()
+                .entry(line)
+                .or_default() += count;
+        }
+        files
+    };
+    Counted {
+        lines: collect(lines),
+        entries: collect(entries),
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::super::Block;
     use super::*;
 
     const TABLE: &str = r#"
@@ -209,6 +267,13 @@ Address            Line   Column File   ISA Discriminator OpIndex Flags
         Some(PathBuf::from(path))
     }
 
+    fn block(count: u64, entry: bool) -> Block {
+        Block {
+            count,
+            entry,
+        }
+    }
+
     #[test]
     fn line_tables_give_paths_lines_and_sequence_ends() {
         let rows = parse_line_table(TABLE);
@@ -228,33 +293,69 @@ Address            Line   Column File   ISA Discriminator OpIndex Flags
     }
 
     #[test]
-    fn a_line_is_covered_when_a_block_that_holds_it_ran() {
+    fn a_line_has_the_count_of_the_block_that_holds_it() {
         let rows = parse_line_table(TABLE);
-        let blocks: Blocks = [(0x1000, 4), (0x1010, 0), (0x1020, 0)].into();
-        let files = block_lines(&rows, &blocks, everything);
-        let a = &files[Path::new("/src/a.jai")];
-        let b = &files[Path::new("/other/b.jai")];
-        let c = &files[Path::new("/abs/c.jai")];
+        let blocks: Blocks = [
+            (0x1000, block(4, true)),
+            (0x1010, block(0, false)),
+            (0x1020, block(0, false)),
+        ]
+        .into();
+        let counted = block_lines(&rows, &blocks, everything);
+        let a = &counted.lines[Path::new("/src/a.jai")];
+        let b = &counted.lines[Path::new("/other/b.jai")];
+        let c = &counted.lines[Path::new("/abs/c.jai")];
         assert_eq!((a[&3], b[&7], c[&9]), (4, 0, 0));
+        // The one function was entered four times, at the line of its first row.
+        assert_eq!(counted.entries[Path::new("/src/a.jai")][&3], 4);
+        assert_eq!(counted.entries.len(), 1);
+    }
+
+    #[test]
+    fn a_function_holds_a_line_as_often_as_its_busiest_block_and_functions_add_up() {
+        let rows = parse_line_table(TABLE);
+        // Two functions hold the lines of b.jai: one runs them 2 and 5 times in two blocks of
+        // its own, the other 3 times.
+        let blocks: Blocks = [
+            (0x1000, block(1, true)),
+            (0x1010, block(2, false)),
+            (0x1018, block(5, false)),
+            (0x1020, block(3, true)),
+        ]
+        .into();
+        let rows: Vec<Row> = rows
+            .into_iter()
+            .chain([Row {
+                address: 0x1018,
+                line: 7,
+                path: "/other/b.jai".into(),
+                ends_sequence: false,
+            }])
+            .collect();
+        let mut rows = rows;
+        rows.sort_by_key(|r| (r.address, !r.ends_sequence));
+        let counted = block_lines(&rows, &blocks, everything);
+        assert_eq!(counted.lines[Path::new("/other/b.jai")][&7], 5);
+        assert_eq!(counted.lines[Path::new("/abs/c.jai")][&9], 3);
     }
 
     #[test]
     fn a_block_also_holds_the_rows_that_start_inside_it() {
         let rows = parse_line_table(TABLE);
         // One block from 0x1000 to the end holds the lines of every row after the first.
-        let blocks: Blocks = [(0x1000, 2), (0x1040, 0)].into();
-        let files = block_lines(&rows, &blocks, everything);
-        assert_eq!(files[Path::new("/other/b.jai")][&7], 2);
-        assert_eq!(files[Path::new("/abs/c.jai")][&9], 2);
+        let blocks: Blocks = [(0x1000, block(2, true)), (0x1040, block(0, false))].into();
+        let counted = block_lines(&rows, &blocks, everything);
+        assert_eq!(counted.lines[Path::new("/other/b.jai")][&7], 2);
+        assert_eq!(counted.lines[Path::new("/abs/c.jai")][&9], 2);
     }
 
     #[test]
     fn unwanted_files_are_left_out() {
         let rows = parse_line_table(TABLE);
-        let blocks: Blocks = [(0x1000, 1), (0x1040, 1)].into();
-        let files = block_lines(&rows, &blocks, |path| {
+        let blocks: Blocks = [(0x1000, block(1, true)), (0x1040, block(1, false))].into();
+        let counted = block_lines(&rows, &blocks, |path| {
             path.starts_with("/src").then(|| PathBuf::from(path))
         });
-        assert_eq!(files.len(), 1);
+        assert_eq!(counted.lines.len(), 1);
     }
 }

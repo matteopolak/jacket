@@ -8,38 +8,79 @@
 //! tests do not leave a thousand files. The DWARF line table of the program
 //! (`llvm-dwarfdump --debug-line`) turns blocks into lines. The unit-test program is run by many
 //! processes, so its blocks are merged and read after the run; any other program is run once and
-//! read at once, on the thread that ran it. The result is a table per file and an lcov file.
+//! read at once, on the thread that ran it. The result is a table per file or module and an lcov
+//! or html file, which can also be recorded as a baseline or compared with one.
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+mod baseline;
 mod dwarf;
+mod html;
 mod procedures;
 mod report;
 
-pub use report::{lcov, table};
+use crate::cli::{CoverageBy, CoverageFormat};
+use baseline::Baseline;
+use report::{Data, Group, lcov, rows, table};
 
-/// How often each block of a program ran, by link-time address.
-type Blocks = BTreeMap<u64, u64>;
+/// A basic block of a program: how often it ran, and whether it is the entry of a function.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(super) struct Block {
+    pub count: u64,
+    pub entry: bool,
+}
+
+/// The blocks of a program, by link-time address.
+type Blocks = BTreeMap<u64, Block>;
 
 /// The lines of each source file, and how often they ran.
 pub type Files = BTreeMap<PathBuf, BTreeMap<u32, u64>>;
 
-pub struct Coverage {
-    /// Where the lcov file goes.
+/// What `--coverage` writes and checks.
+pub struct Output {
+    /// The file that gets the report, in `format`.
     pub out: PathBuf,
+    pub format: CoverageFormat,
+    /// What a row of the printed table is.
+    pub by: CoverageBy,
+    /// A recorded baseline to compare with: a module covering fewer lines by more than `margin`
+    /// percentage points fails the run.
+    pub baseline: Option<PathBuf>,
+    pub margin: f64,
+    /// Where to record the baseline of this run.
+    pub record: Option<PathBuf>,
+    /// A markdown table of the modules is added to this file (`$GITHUB_STEP_SUMMARY`).
+    pub summary: Option<PathBuf>,
+}
+
+/// What is measured and where it is found.
+pub struct Config {
+    pub output: Output,
     /// A folder per test process is made below this one.
-    dir: PathBuf,
+    pub dir: PathBuf,
     /// Files below these folders are reported, except those below `exclude` and those in a
     /// folder named `tests`.
+    pub include: Vec<PathBuf>,
+    pub exclude: Vec<PathBuf>,
+    /// Paths in the table are shown from here.
+    pub base: PathBuf,
+    /// Lists the procedures of the reported folders, for the target of the tests.
+    pub jaic: PathBuf,
+    pub jaic_flags: Vec<String>,
+    /// The programs are native, so reading their debug info needs `llvm-dwarfdump`.
+    pub native: bool,
+}
+
+pub struct Coverage {
+    output: Output,
+    dir: PathBuf,
     include: Vec<PathBuf>,
     exclude: Vec<PathBuf>,
-    /// Paths in the table are shown from here.
     base: PathBuf,
     /// Reads the debug info of native programs; interpreted runs need none.
     dwarfdump: Option<PathBuf>,
-    /// Lists the procedures of the reported folders, for the target of the tests.
     jaic: PathBuf,
     jaic_flags: Vec<String>,
     next: AtomicUsize,
@@ -47,42 +88,51 @@ pub struct Coverage {
     programs: Mutex<BTreeMap<PathBuf, Blocks>>,
     /// The lines of the programs already read.
     files: Mutex<Files>,
+    /// How often functions were entered, by the line they start on.
+    entries: Mutex<Files>,
     /// Which file a path of debug info is, when it is one to report.
     known: Mutex<BTreeMap<String, Option<PathBuf>>>,
     /// The first program whose debug info could not be read.
     failure: Mutex<Option<String>>,
 }
 
+/// What a run measured.
+pub struct Measured {
+    pub data: Data,
+    /// The procedures in no program the tests ran, counted as not run.
+    pub unbuilt: usize,
+}
+
+/// How a finished report went.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Verdict {
+    Held,
+    /// A module (or all of them) covers less than the baseline by more than the margin.
+    Dropped,
+}
+
 impl Coverage {
-    /// Coverage written to `out`, with run files kept in `dir`. For native programs (`native`) it
-    /// fails when the tool that reads debug info is missing.
-    pub fn new(
-        out: PathBuf,
-        dir: PathBuf,
-        include: Vec<PathBuf>,
-        exclude: Vec<PathBuf>,
-        base: PathBuf,
-        jaic: PathBuf,
-        jaic_flags: Vec<String>,
-        native: bool,
-    ) -> Result<Coverage, String> {
-        let dwarfdump = if native {
+    /// Coverage per `config`. For native programs it fails when the tool that reads debug info
+    /// is missing.
+    pub fn new(config: Config) -> Result<Coverage, String> {
+        let dwarfdump = if config.native {
             Some(dwarf::find_dwarfdump()?)
         } else {
             dwarf::find_dwarfdump().ok()
         };
         Ok(Coverage {
-            out,
-            dir,
-            include,
-            exclude,
-            base,
+            output: config.output,
+            dir: config.dir,
+            include: config.include,
+            exclude: config.exclude,
+            base: config.base,
             dwarfdump,
-            jaic,
-            jaic_flags,
+            jaic: config.jaic,
+            jaic_flags: config.jaic_flags,
             next: AtomicUsize::new(0),
             programs: Mutex::new(BTreeMap::new()),
             files: Mutex::new(Files::new()),
+            entries: Mutex::new(Files::new()),
             known: Mutex::new(BTreeMap::new()),
             failure: Mutex::new(None),
         })
@@ -105,8 +155,10 @@ impl Coverage {
                 Run::Blocks(program, blocks) => {
                     let mut programs = self.programs.lock().expect("lock");
                     let merged = programs.entry(program).or_default();
-                    for (address, count) in blocks {
-                        *merged.entry(address).or_default() += count;
+                    for (address, block) in blocks {
+                        let into: &mut Block = merged.entry(address).or_default();
+                        into.count += block.count;
+                        into.entry |= block.entry;
                     }
                 }
                 Run::Lines(lines) => self.add_lines(lines),
@@ -130,62 +182,120 @@ impl Coverage {
             if !program.exists() {
                 continue;
             }
-            match self.lines(&program, &blocks) {
-                Ok(lines) => merge(&mut self.files.lock().expect("lock"), lines),
-                Err(error) => {
-                    self.failure.lock().expect("lock").get_or_insert(error);
-                }
+            if let Err(error) = self.read(&program, &blocks) {
+                self.failure.lock().expect("lock").get_or_insert(error);
             }
         }
         let _ = std::fs::remove_dir_all(dir);
     }
 
-    /// Writes the lcov file and prints the table: to standard output, or to standard error
-    /// when that carries machine-readable results. Run before the programs are deleted.
-    pub fn report(&self, to_stdout: bool) -> Result<(), String> {
-        let (files, unbuilt) = self.finish()?;
-        if let Some(parent) = self.out.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| format!("cannot create {}: {e}", parent.display()))?;
-        }
-        std::fs::write(&self.out, lcov(&files))
-            .map_err(|e| format!("cannot write {}: {e}", self.out.display()))?;
-        let table = table(&files, &self.base);
-        if files.is_empty() {
+    /// Writes the report and prints the table: to standard output, or to standard error when
+    /// that carries machine-readable results. Run before the programs are deleted.
+    pub fn report(&self, to_stdout: bool) -> Result<Verdict, String> {
+        let measured = self.finish()?;
+        let data = &measured.data;
+        let out = &self.output.out;
+        let text = match self.output.format {
+            CoverageFormat::Lcov => lcov(data),
+            CoverageFormat::Html => html::render(data, &self.base),
+        };
+        write_file(out, &text)?;
+        let by = match self.output.by {
+            CoverageBy::File => Group::File,
+            CoverageBy::Module => Group::Module,
+        };
+        let shown = rows(data, &self.base, by);
+        if data.lines.is_empty() {
             eprintln!("jacket: no lines of the tested code ran");
-        } else if to_stdout {
-            print!("\n{table}");
         } else {
-            eprint!("\n{table}");
+            let what = if by == Group::File {
+                "File"
+            } else {
+                "Module"
+            };
+            let table = table(&shown, what);
+            if to_stdout {
+                print!("\n{table}");
+            } else {
+                eprint!("\n{table}");
+            }
         }
-        if unbuilt > 0 {
+        if measured.unbuilt > 0 {
             eprintln!(
-                "jacket: {unbuilt} procedures are in no program the tests built; their lines count as not run"
+                "jacket: {} procedures are in no program the tests built; their lines count as not run",
+                measured.unbuilt
             );
         }
-        eprintln!("jacket: coverage written to {}", self.out.display());
-        Ok(())
+        eprintln!("jacket: coverage written to {}", out.display());
+        self.compare(data)
     }
 
-    /// The lines of every program, read from its debug info, with the lines of the procedures
-    /// no program has code of as lines that never ran; and how many such procedures there are.
-    /// Run before the programs are deleted.
-    pub fn finish(&self) -> Result<(Files, usize), String> {
+    /// Records the baseline, writes the summary and compares with the baseline, as asked.
+    fn compare(&self, data: &Data) -> Result<Verdict, String> {
+        let modules = rows(data, &self.base, Group::Module);
+        let now = Baseline::of(&modules);
+        if let Some(path) = &self.output.record {
+            write_file(path, &now.render())?;
+            eprintln!("jacket: coverage baseline recorded in {}", path.display());
+        }
+        let baseline =
+            match &self.output.baseline {
+                Some(path) => {
+                    let text = std::fs::read_to_string(path)
+                        .map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+                    Some(Baseline::parse(&text).map_err(|e| {
+                        format!("{} is not a coverage baseline: {e}", path.display())
+                    })?)
+                }
+                None => None,
+            };
+        let drops = baseline
+            .as_ref()
+            .map_or_else(Vec::new, |b| b.drops(&now, self.output.margin));
+        for drop in &drops {
+            eprintln!(
+                "jacket: coverage of {} dropped from {:.1}% to {:.1}% (allowed: {} points)",
+                drop.name, drop.before, drop.after, self.output.margin
+            );
+        }
+        if let Some(path) = &self.output.summary {
+            let text = baseline::markdown(&modules, baseline.as_ref(), &drops, self.output.margin);
+            append_file(path, &text)?;
+        }
+        Ok(if drops.is_empty() {
+            Verdict::Held
+        } else {
+            Verdict::Dropped
+        })
+    }
+
+    /// The lines of every program, read from its debug info, with the procedures no program has
+    /// code of as lines that never ran. Run before the programs are deleted.
+    pub fn finish(&self) -> Result<Measured, String> {
         if let Some(error) = self.failure.lock().expect("lock").take() {
             return Err(error);
         }
         let programs = std::mem::take(&mut *self.programs.lock().expect("lock"));
         for (program, blocks) in &programs {
-            let lines = self.lines(program, blocks)?;
-            merge(&mut self.files.lock().expect("lock"), lines);
+            self.read(program, blocks)?;
         }
-        let mut files = self.files.lock().expect("lock").clone();
+        let mut lines = self.files.lock().expect("lock").clone();
+        let entries = self.entries.lock().expect("lock").clone();
         let listed = procedures::list(&self.jaic, &self.include, &self.jaic_flags)?;
-        let unbuilt = procedures::unreferenced(&files, &listed, |file| {
-            self.reported(&file.to_string_lossy()).is_some()
-        });
-        procedures::add_never_run(&mut files, &unbuilt);
-        Ok((files, unbuilt.len()))
+        let listed: Vec<&procedures::Procedure> = listed
+            .iter()
+            .filter(|p| self.reported(&p.file.to_string_lossy()).is_some())
+            .collect();
+        let unbuilt = procedures::unreferenced(&lines, &listed);
+        let functions = procedures::functions(&listed, &lines, &entries);
+        procedures::add_never_run(&mut lines, &unbuilt);
+        Ok(Measured {
+            unbuilt: unbuilt.len(),
+            data: Data {
+                lines,
+                functions,
+            },
+        })
     }
 
     /// Adds the lines an interpreted run reported, those of the files to report on.
@@ -197,21 +307,24 @@ impl Coverage {
         merge(&mut self.files.lock().expect("lock"), wanted);
     }
 
-    /// The reported lines `program` ran, from its debug info.
-    fn lines(&self, program: &Path, blocks: &Blocks) -> Result<Files, String> {
+    /// Adds the reported lines `program` ran, from its debug info.
+    fn read(&self, program: &Path, blocks: &Blocks) -> Result<(), String> {
         let dwarfdump = self
             .dwarfdump
             .as_ref()
             .ok_or("reading debug info needs `llvm-dwarfdump`")?;
         let rows = dwarf::line_table(dwarfdump, &dwarf::debug_file(program))?;
-        Ok(dwarf::block_lines(&rows, blocks, |path| {
+        let counted = dwarf::block_lines(&rows, blocks, |path| {
             self.known
                 .lock()
                 .expect("lock")
                 .entry(path.to_string())
                 .or_insert_with(|| self.reported(path))
                 .clone()
-        }))
+        });
+        merge(&mut self.files.lock().expect("lock"), counted.lines);
+        merge(&mut self.entries.lock().expect("lock"), counted.entries);
+        Ok(())
     }
 
     /// The file `path` names when it is code to report on.
@@ -225,6 +338,25 @@ impl Coverage {
             .any(|below| below.components().any(|c| c.as_os_str() == "tests"));
         (inside(&self.include) && !inside(&self.exclude) && !in_tests).then_some(file)
     }
+}
+
+fn write_file(path: &Path, text: &str) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("cannot create {}: {e}", parent.display()))?;
+    }
+    std::fs::write(path, text).map_err(|e| format!("cannot write {}: {e}", path.display()))
+}
+
+/// Adds `text` to the end of `path`, which may hold what others wrote.
+fn append_file(path: &Path, text: &str) -> Result<(), String> {
+    use std::io::Write as _;
+    std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .and_then(|mut file| file.write_all(text.as_bytes()))
+        .map_err(|e| format!("cannot write {}: {e}", path.display()))
 }
 
 /// Adds the counts of `more` to `files`.
@@ -280,8 +412,11 @@ fn parse_run(text: &str) -> Option<Run> {
         } else if !line.starts_with("module ") {
             let mut fields = line.split_whitespace();
             let address = u64::from_str_radix(fields.next()?, 16).ok()?;
-            let count: u64 = fields.nth(1)?.parse().ok()?;
-            *blocks.entry(address).or_default() += count;
+            let entry = fields.next()? != "0";
+            let count: u64 = fields.next()?.parse().ok()?;
+            let block: &mut Block = blocks.entry(address).or_default();
+            block.count += count;
+            block.entry |= entry;
         }
     }
     if interp {
@@ -315,7 +450,29 @@ mod tests {
         assert_eq!(program, PathBuf::from("/w/tests"));
         assert_eq!(
             blocks.into_iter().collect::<Vec<_>>(),
-            [(0x1000, 7), (0x1010, 0), (0x1020, 1)]
+            [
+                (
+                    0x1000,
+                    Block {
+                        count: 7,
+                        entry: true
+                    }
+                ),
+                (
+                    0x1010,
+                    Block {
+                        count: 0,
+                        entry: false
+                    }
+                ),
+                (
+                    0x1020,
+                    Block {
+                        count: 1,
+                        entry: false
+                    }
+                )
+            ]
         );
         assert!(parse_run("something else\n").is_none());
         assert!(
@@ -356,7 +513,16 @@ mod tests {
     #[test]
     fn files_in_tests_folders_are_not_reported() {
         let coverage = Coverage {
-            out: PathBuf::new(),
+            output: Output {
+                out: PathBuf::new(),
+                format: CoverageFormat::Lcov,
+                by: CoverageBy::File,
+                baseline: None,
+                margin: 0.0,
+                record: None,
+                summary: None,
+            },
+            entries: Mutex::default(),
             dir: PathBuf::new(),
             include: vec![PathBuf::from("/")],
             exclude: Vec::new(),

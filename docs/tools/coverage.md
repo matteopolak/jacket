@@ -15,7 +15,7 @@ Coverage of the Rust crates is separate: see [Rust code coverage](rust-coverage.
 
 Compile (`Sanitize::coverage` in `crates/jaic-llvm/src/lib.rs`): after the optimization pipeline the `sancov-module` pass numbers every basic block (SanitizerCoverage `trace-pc-guard` plus `pc-table`, level 2). Its options come from LLVM's command line (`set_coverage_options`), not the pass name. `-coverage` travels as the `coverage` entry of the sanitizer list, so it shares the single-codegen-unit rule and the `.dSYM` that sanitized builds get.
 
-Link: the Clang driver also compiles `crates/jaic-llvm/runtime/coverage.c`, which assigns guard ids, sets a byte per block when its guard callback fires, and at exit writes `<dir>/<exe>.<pid>.cov`: a header with the executable path, then one `address entry hit` line per block, with addresses un-slid (link-time) so ASLR does not matter. The directory is `JAIC_COVERAGE_DIR` (default: the working directory at start-up); `JAIC_COVERAGE_FILE` names the file outright.
+Link: the Clang driver also compiles `crates/jaic-llvm/runtime/coverage.c`, which assigns guard ids, counts each block when its guard callback fires (a saturating 32-bit count; the increments are not atomic, so threads can lose counts), and at exit writes `<dir>/<exe>.<pid>.cov`: a header with the executable path, then one `address entry count` line per block, with addresses un-slid (link-time) so ASLR does not matter. The directory is `JAIC_COVERAGE_DIR` (default: the working directory at start-up); `JAIC_COVERAGE_FILE` names the file outright.
 
 Ingest (`report.py ingest`): blocks are sorted by address; each block's range is the lines of every DWARF line-table row (`llvm-dwarfdump --debug-line`) inside it. A line is hit if any block containing it ran. Function entries (the pc-table's entry flag) are named by `llvm-symbolizer`; compiler-generated functions without a source line are dropped. Output is a JSON of line and function hits per source file. `jaic_sweep.py --coverage DIR` does this after each native run, before the executable and its debug info are deleted.
 
@@ -68,7 +68,7 @@ The lowest entries are platform code a macOS run cannot reach (`Objective_C`, `i
 - Another instrumentation on top: the pass is one more entry in `Sanitize::passes`; fuzzer instrumentation uses the same pass.
 - Use `-O0`: optimized code merges and moves blocks, so lines and functions go missing.
 - Only code compiled into an instrumented program is counted. Functions no program references do not appear, so the percentages are an upper bound; generic procedures count once per instantiation.
-- Limits: 64 Mi blocks and 64 modules per process (`coverage.c`). Windows, wasm and cross builds are rejected like other sanitizers (`check_sanitizer_target`).
+- Limits: 32 Mi blocks and 64 modules per process (`coverage.c`). Windows, wasm and cross builds are rejected like other sanitizers (`check_sanitizer_target`).
 
 ## Configuration
 

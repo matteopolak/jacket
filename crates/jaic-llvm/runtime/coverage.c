@@ -1,5 +1,5 @@
 // Coverage runtime for `jaic -coverage` (docs/tools/coverage.md): receives SanitizerCoverage's
-// trace-pc-guard callbacks and, at exit, writes every block's address and whether it ran.
+// trace-pc-guard callbacks and, at exit, writes every block's address and how often it ran.
 #define _GNU_SOURCE
 #include <stdint.h>
 #include <stdio.h>
@@ -12,10 +12,12 @@
 #include <link.h>
 #endif
 
-#define MAX_BLOCKS (1u << 26)
+#define MAX_BLOCKS (1u << 25)
 #define MAX_MODULES 64
 
-static uint8_t hits[MAX_BLOCKS];
+// Counts stop at the largest value. Threads that enter a block together may lose a count: they
+// do not synchronize, which would slow every block.
+static uint32_t hits[MAX_BLOCKS];
 static uint32_t next_id = 1;
 static struct { uint32_t first, count; const uintptr_t *pcs; } modules[MAX_MODULES];
 static int module_count, registered;
@@ -66,7 +68,7 @@ static void write_report(void) {
         fprintf(out, "module %u\n", modules[m].count);
         for (uint32_t i = 0; i < modules[m].count; i++) {
             uintptr_t pc = modules[m].pcs[2 * i], flags = modules[m].pcs[2 * i + 1];
-            fprintf(out, "%lx %d %d\n", (unsigned long)(pc - slide), (int)(flags & 1),
+            fprintf(out, "%lx %d %u\n", (unsigned long)(pc - slide), (int)(flags & 1),
                     hits[modules[m].first + i]);
         }
     }
@@ -92,7 +94,8 @@ void __sanitizer_cov_trace_pc_guard_init(uint32_t *start, uint32_t *stop) {
 }
 
 void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
-    hits[*guard] = 1;
+    uint32_t *count = &hits[*guard];
+    if (*count != UINT32_MAX) ++*count;
 }
 
 void __sanitizer_cov_pcs_init(const uintptr_t *beg, const uintptr_t *end) {

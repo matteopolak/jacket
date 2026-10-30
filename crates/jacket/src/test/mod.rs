@@ -21,7 +21,7 @@ mod report;
 mod review;
 mod watch;
 
-use crate::cli::{BenchArgs, TestArgs};
+use crate::cli::{BenchArgs, CoverageFormat, TestArgs};
 use crate::{project, tools};
 use build::{Built, Toolchain};
 use exec::{Failure, Subtest};
@@ -237,7 +237,13 @@ const PATH_FLAGS: [&str; 4] = ["-import_dir", "-I", "-output_path", "-emit_ir"];
 /// current directory is applied to them (`--path`, `--junit` and the paths among the jaic flags).
 fn resolve_paths(args: &TestArgs, cwd: &Path) -> TestArgs {
     let mut args = args.clone();
-    let outputs = args.junit.iter_mut().chain(args.coverage_out.iter_mut());
+    let outputs = args
+        .junit
+        .iter_mut()
+        .chain(args.coverage_out.iter_mut())
+        .chain(args.coverage_baseline.iter_mut())
+        .chain(args.coverage_record.iter_mut())
+        .chain(args.coverage_summary.iter_mut());
     for path in args
         .path
         .iter_mut()
@@ -323,9 +329,13 @@ fn coverage_for(
         return Err("`--coverage` records programs that run on this machine; it does not work with another `-os` or `-cpu`".into());
     }
     let out = args.coverage_out.clone().unwrap_or_else(|| {
+        let name = match args.coverage_format {
+            CoverageFormat::Lcov => "lcov.info",
+            CoverageFormat::Html => "coverage.html",
+        };
         std::env::var_os("JACKET_OUTPUT_DIR")
             .map_or_else(|| project_dir.join("target"), PathBuf::from)
-            .join("lcov.info")
+            .join(name)
     });
     let canonical = |dir: &Path| watch::canonical(dir);
     let include = roots
@@ -334,16 +344,24 @@ fn coverage_for(
         .chain(discover::import_folders(flags))
         .chain(args.coverage_include.iter().map(|dir| canonical(dir)));
     let exclude = roots.iter().map(|r| canonical(&r.dir.join("tests")));
-    coverage::Coverage::new(
-        out,
-        work.join("coverage"),
-        coverage::outermost(include),
-        exclude.collect(),
-        project_dir.to_path_buf(),
-        jaic.to_path_buf(),
-        flags.to_vec(),
-        !args.interp,
-    )
+    coverage::Coverage::new(coverage::Config {
+        output: coverage::Output {
+            out,
+            format: args.coverage_format,
+            by: args.coverage_by,
+            baseline: args.coverage_baseline.clone(),
+            margin: args.coverage_margin,
+            record: args.coverage_record.clone(),
+            summary: args.coverage_summary.clone(),
+        },
+        dir: work.join("coverage"),
+        include: coverage::outermost(include),
+        exclude: exclude.collect(),
+        base: project_dir.to_path_buf(),
+        jaic: jaic.to_path_buf(),
+        jaic_flags: flags.to_vec(),
+        native: !args.interp,
+    })
 }
 
 /// The entries of [`filter::KINDS`] a case has.
@@ -968,11 +986,15 @@ fn execute(
         plan.settings.flaky_fails,
     );
     let mut coverage_failed = false;
-    if let Some(coverage) = &plan.coverage
-        && let Err(error) = coverage.report(reporter.is_human())
-    {
-        eprintln!("jacket: error: {error}");
-        coverage_failed = true;
+    let mut coverage_dropped = false;
+    if let Some(coverage) = &plan.coverage {
+        match coverage.report(reporter.is_human()) {
+            Ok(verdict) => coverage_dropped = verdict == coverage::Verdict::Dropped,
+            Err(error) => {
+                eprintln!("jacket: error: {error}");
+                coverage_failed = true;
+            }
+        }
     }
     if outcomes.iter().all(|o| o.kept_temp.is_none()) {
         let _ = std::fs::remove_dir_all(&plan.work);
@@ -988,7 +1010,7 @@ fn execute(
             }
         }
     }
-    if failed {
+    if failed || coverage_dropped {
         ExitCode::from(1)
     } else if coverage_failed {
         ExitCode::from(2)
