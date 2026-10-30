@@ -7,7 +7,10 @@
 //! the kind, signature and docs of its target; docs written on the alias itself win. Procedures
 //! declared several times under one name are the overloads of one item.
 use super::forward::Files;
-use crate::ast::{Decl, DeclKind, EnumItem, ExprKind, ProcHeader, StmtKind, StructKind};
+use crate::ast::{
+    BinOp, Decl, DeclKind, EnumItem, Expr, ExprKind, File, ProcHeader, Stmt, StmtKind, StructKind,
+    UnOp,
+};
 use crate::docs::{self, Resolver};
 use crate::fxhash::HashMap;
 use crate::parser::ide_facts::{self, DeclClass, TopLevelKind, Visibility};
@@ -22,6 +25,110 @@ const MAX_HOPS: usize = 8;
 
 /// A longest constant value shown, in bytes.
 const MAX_VALUE: usize = 160;
+
+/// The operating systems a declaration can be limited to by an enclosing `#if`, one bit each.
+const OSES: [(&str, u8); 6] = [
+    ("MACOS", 1),
+    ("LINUX", 2),
+    ("WINDOWS", 4),
+    ("ANDROID", 8),
+    ("IOS", 16),
+    ("WASM", 32),
+];
+
+/// Every operating system: no `#if` limits the declaration.
+const EVERY_OS: u8 = 63;
+
+/// Whether `expr` holds when `OS` is `os`: `None` when it depends on anything else (`CPU`, a
+/// constant), which counts as possible.
+fn holds_on(expr: &Expr, os: &str) -> Option<bool> {
+    let is_os = |e: &Expr| matches!(&e.kind, ExprKind::Ident(n) if n.as_str() == "OS");
+    match &expr.kind {
+        ExprKind::Binary(op @ (BinOp::Eq | BinOp::Ne), left, right) if is_os(left) => {
+            let ExprKind::InferredMember(target) = &right.kind else {
+                return None;
+            };
+            Some((target.name.as_str() == os) == (*op == BinOp::Eq))
+        }
+        ExprKind::Binary(BinOp::And, left, right) => {
+            match (holds_on(left, os), holds_on(right, os)) {
+                (Some(false), _) | (_, Some(false)) => Some(false),
+                (Some(true), Some(true)) => Some(true),
+                _ => None,
+            }
+        }
+        ExprKind::Binary(BinOp::Or, left, right) => {
+            match (holds_on(left, os), holds_on(right, os)) {
+                (Some(true), _) | (_, Some(true)) => Some(true),
+                (Some(false), Some(false)) => Some(false),
+                _ => None,
+            }
+        }
+        ExprKind::Unary(UnOp::Not, inner) => holds_on(inner, os).map(|v| !v),
+        _ => None,
+    }
+}
+
+/// The systems left by taking the branch of `cond` (`taken` is false for the `else`).
+fn narrowed(mask: u8, cond: &Expr, taken: bool) -> u8 {
+    OSES.iter()
+        .filter(|(name, _)| holds_on(cond, name) != Some(!taken))
+        .fold(0, |acc, (_, bit)| acc | bit)
+        & mask
+}
+
+/// For each declaration inside an `#if` that limits the operating system, the systems it is
+/// declared for, by the start of its first name.
+fn limits(file: &File) -> HashMap<u32, u8> {
+    fn walk(stmts: &[Stmt], mask: u8, out: &mut HashMap<u32, u8>) {
+        for stmt in stmts {
+            match &stmt.kind {
+                StmtKind::StaticIf(branches) => {
+                    walk(
+                        &branches.then_branch,
+                        narrowed(mask, &branches.cond, true),
+                        out,
+                    );
+                    walk(
+                        &branches.else_branch,
+                        narrowed(mask, &branches.cond, false),
+                        out,
+                    );
+                }
+                StmtKind::Decl(decl) if mask != EVERY_OS => {
+                    for name in &decl.names {
+                        out.insert(name.span.start, mask);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    let mut out = HashMap::default();
+    walk(&file.stmts, EVERY_OS, &mut out);
+    out
+}
+
+/// The systems named by `names`; every one for none.
+fn os_mask(names: &[String]) -> u8 {
+    if names.is_empty() {
+        return EVERY_OS;
+    }
+    OSES.iter()
+        .filter(|(name, _)| names.iter().any(|n| n == name))
+        .fold(0, |acc, (_, bit)| acc | bit)
+}
+
+/// The names of the systems in `mask`; empty for every one.
+fn os_names(mask: u8) -> Vec<String> {
+    if mask == EVERY_OS {
+        return Vec::new();
+    }
+    OSES.iter()
+        .filter(|(_, bit)| mask & bit != 0)
+        .map(|(name, _)| (*name).to_owned())
+        .collect()
+}
 
 #[derive(Debug, Default)]
 pub struct Param {
@@ -44,6 +151,8 @@ pub struct Overload {
     pub docs_line: usize,
     /// Notes the header carries that change how it is called (`#c_call`, `inline`, a macro).
     pub flags: Vec<&'static str>,
+    /// The systems an enclosing `#if` limits it to; empty for any.
+    pub platforms: Vec<String>,
 }
 
 /// A struct field or an enum member.
@@ -68,6 +177,8 @@ pub struct Item {
     pub members: Vec<Member>,
     /// What a constant is set to, as written.
     pub value: String,
+    /// The systems the `#if`s around it (and around what it names) limit it to; empty for any.
+    pub platforms: Vec<String>,
 }
 
 #[derive(Debug, Default)]
@@ -84,6 +195,8 @@ pub struct Module {
 struct Parsed {
     text: Rc<str>,
     parse: IdeParse,
+    /// Declarations limited by an `#if` on `OS`; see [`limits`].
+    limits: HashMap<u32, u8>,
 }
 
 struct Reader<'a> {
@@ -103,6 +216,7 @@ impl Reader<'_> {
         let loaded = self.files.text(&file.to_path_buf()).map(|text| {
             let parse = parse_file_ide(FileId(0), &text);
             Rc::new(Parsed {
+                limits: limits(&parse.file),
                 text,
                 parse,
             })
@@ -278,7 +392,10 @@ fn overload(
     let doc = docs::declaration(text, at).unwrap_or_default();
     let (params, returns, docs_text) = describe(header, text, at, &doc);
     let docs_line = docs::located_above(text, at).map_or(0, |d| d.line);
-    let _ = reader;
+    let limit = reader
+        .parsed(file)
+        .and_then(|parsed| parsed.limits.get(&name.span.start).copied())
+        .unwrap_or(EVERY_OS);
     Overload {
         file: file.to_path_buf(),
         line: line_of(text, at),
@@ -288,6 +405,7 @@ fn overload(
         docs: docs_text,
         docs_line,
         flags: flags_of(header),
+        platforms: os_names(limit),
     }
 }
 
@@ -401,7 +519,11 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
             match item.kind {
                 TopLevelKind::Load(path, _) => loads.push(base.join(path)),
                 TopLevelKind::Assert(assert) if file == module_file => {
-                    if let Some(targets) = ide_facts::asserted_targets(assert) {
+                    // `OS_IS_UNIX || OS == .WINDOWS` says more than the targets it names.
+                    let only_os = OSES
+                        .iter()
+                        .all(|(name, _)| holds_on(&assert.cond, name).is_some());
+                    if let Some(targets) = ide_facts::asserted_targets(assert).filter(|_| only_os) {
                         for t in targets {
                             let t = t.as_str().to_owned();
                             if !out.platforms.contains(&t) {
@@ -449,12 +571,45 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
                                 line: line_of(&text, at),
                                 docs: own_docs.unwrap_or_default(),
                                 value: clip(value),
+                                platforms: os_names(
+                                    parsed
+                                        .limits
+                                        .get(&name.span.start)
+                                        .copied()
+                                        .unwrap_or(EVERY_OS),
+                                ),
                                 ..Item::default()
                             },
                         );
                         continue;
                     };
                     let kind = class_kind(tdecl);
+                    let alias_limit = parsed
+                        .limits
+                        .get(&name.span.start)
+                        .copied()
+                        .unwrap_or(EVERY_OS);
+                    // A name declared in each branch of an `#if` is available wherever one is.
+                    let target_limit = ide_facts::top_level(&target.parse.file)
+                        .into_iter()
+                        .filter_map(|t| match t.kind {
+                            TopLevelKind::Decl(d)
+                                if d.kind == DeclKind::Const
+                                    && d.names.iter().any(|n| {
+                                        n.name.as_str() == tdecl.names[0].name.as_str()
+                                    }) =>
+                            {
+                                Some(
+                                    target
+                                        .limits
+                                        .get(&d.names[0].span.start)
+                                        .copied()
+                                        .unwrap_or(EVERY_OS),
+                                )
+                            }
+                            _ => None,
+                        })
+                        .fold(0, |acc, mask| acc | mask);
                     let mut found = Item {
                         name: name.name.as_str().to_owned(),
                         kind,
@@ -494,6 +649,15 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
                             }));
                         }
                     }
+                    found.platforms = os_names(if kind == "procedure" {
+                        found
+                            .overloads
+                            .iter()
+                            .fold(0, |acc, o| acc | os_mask(&o.platforms))
+                            & alias_limit
+                    } else {
+                        target_limit & alias_limit
+                    });
                     add(&mut out, &mut names, found);
                 }
                 _ => {}
@@ -518,6 +682,7 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
 fn add(out: &mut Module, names: &mut Vec<String>, item: Item) {
     if let Some(i) = names.iter().position(|n| *n == item.name) {
         let have = &mut out.items[i];
+        have.platforms = os_names(os_mask(&have.platforms) | os_mask(&item.platforms));
         if have.kind == "procedure" && item.kind == "procedure" {
             for o in item.overloads {
                 if !have
@@ -585,7 +750,7 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
             .iter()
             .map(|o| {
                 format!(
-                    "{{\"file\":{},\"line\":{},\"signature\":{},\"params\":{},\"returns\":{},\"docs\":{},\"docs_line\":{},\"flags\":[{}]}}",
+                    "{{\"file\":{},\"line\":{},\"signature\":{},\"params\":{},\"returns\":{},\"docs\":{},\"docs_line\":{},\"flags\":[{}],\"platforms\":[{}]}}",
                     path(&o.file),
                     o.line,
                     json(&o.signature),
@@ -593,7 +758,8 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
                     params_json(&o.returns),
                     json(&md(&o.docs)),
                     o.docs_line,
-                    o.flags.iter().map(|f| json(f)).collect::<Vec<_>>().join(",")
+                    o.flags.iter().map(|f| json(f)).collect::<Vec<_>>().join(","),
+                    o.platforms.iter().map(|f| json(f)).collect::<Vec<_>>().join(",")
                 )
             })
             .collect();
@@ -610,13 +776,14 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
             })
             .collect();
         items.push(format!(
-            "{{\"name\":{},\"kind\":{},\"file\":{},\"line\":{},\"docs\":{},\"value\":{},\"overloads\":[{}],\"members\":[{}]}}",
+            "{{\"name\":{},\"kind\":{},\"file\":{},\"line\":{},\"docs\":{},\"value\":{},\"platforms\":[{}],\"overloads\":[{}],\"members\":[{}]}}",
             json(&item.name),
             json(item.kind),
             path(&item.file),
             item.line,
             json(&md(&item.docs)),
             json(&item.value),
+            item.platforms.iter().map(|f| json(f)).collect::<Vec<_>>().join(","),
             overloads.join(","),
             members.join(",")
         ));
@@ -681,8 +848,8 @@ pub fn print(dir: &Path, stdlib: &Path) -> String {
 mod tests {
     use super::*;
 
-    fn library(files: &[(&str, &str)]) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("jaic-doc-model-{}", std::process::id()));
+    fn library(tag: &str, files: &[(&str, &str)]) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("jaic-doc-model-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         for (file, text) in files {
             let path = dir.join(file);
@@ -694,16 +861,19 @@ mod tests {
 
     #[test]
     fn aliases_overloads_and_members_become_items() {
-        let dir = library(&[
-            (
-                "module.jai",
-                "// A module.\n\nImpl :: #import,file \"impl.jai\";\n\nsplit :: Impl.split;\nrenamed :: split;\nPoint :: Impl.Point;\nLIMIT :: Impl.LIMIT;\n\n#scope_module\n\nhidden :: () {}\n",
-            ),
-            (
-                "impl.jai",
-                "// Splits `s` at `byte`.\n//\n// - s: the text\n// - found: whether it was there\nsplit :: (s: string, byte: u8) -> (found: bool) { return true; }\n\n// Splits at a string.\nsplit :: (s: string, by: string, n := 1) -> bool { return true; }\n\nPoint :: struct {\n    x: int; // across\n    y: int;\n}\n\n// The most.\nLIMIT :: 4;\n",
-            ),
-        ]);
+        let dir = library(
+            "aliases",
+            &[
+                (
+                    "module.jai",
+                    "// A module.\n\nImpl :: #import,file \"impl.jai\";\n\nsplit :: Impl.split;\nrenamed :: split;\nPoint :: Impl.Point;\nLIMIT :: Impl.LIMIT;\n\n#scope_module\n\nhidden :: () {}\n",
+                ),
+                (
+                    "impl.jai",
+                    "// Splits `s` at `byte`.\n//\n// - s: the text\n// - found: whether it was there\nsplit :: (s: string, byte: u8) -> (found: bool) { return true; }\n\n// Splits at a string.\nsplit :: (s: string, by: string, n := 1) -> bool { return true; }\n\nPoint :: struct {\n    x: int; // across\n    y: int;\n}\n\n// The most.\nLIMIT :: 4;\n",
+                ),
+            ],
+        );
         let model = module(&dir, Path::new("/nowhere"));
         assert_eq!(model.docs, "A module.");
         let names: Vec<_> = model
@@ -731,6 +901,39 @@ mod tests {
         assert_eq!(model.items[2].members[0].doc, "across");
         assert_eq!(model.items[3].value, "4");
         assert_eq!(model.items[3].docs, "The most.");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn items_under_an_os_condition_name_their_systems() {
+        let dir = library(
+            "systems",
+            &[
+                (
+                    "module.jai",
+                    "everywhere :: Impl.everywhere;\nwindows_only :: Impl.windows_only;\nboth :: Impl.both;\nnot_windows :: Impl.not_windows;\n\n#scope_module\n\nImpl :: #import,file \"impl.jai\";\n",
+                ),
+                (
+                    "impl.jai",
+                    "everywhere :: () {}\n#if OS == .WINDOWS {\n    windows_only :: () {}\n    both :: () {}\n} else {\n    both :: (n: int) {}\n}\n#if OS != .WINDOWS && CPU == .X64 {\n    not_windows :: () {}\n}\n",
+                ),
+            ],
+        );
+        let model = module(&dir, Path::new("/nowhere"));
+        let systems = |name: &str| {
+            model
+                .items
+                .iter()
+                .find(|i| i.name == name)
+                .map(|i| i.platforms.join(","))
+        };
+        assert_eq!(systems("everywhere").as_deref(), Some(""));
+        assert_eq!(systems("windows_only").as_deref(), Some("WINDOWS"));
+        assert_eq!(systems("both").as_deref(), Some(""));
+        assert_eq!(
+            systems("not_windows").as_deref(),
+            Some("MACOS,LINUX,ANDROID,IOS,WASM")
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

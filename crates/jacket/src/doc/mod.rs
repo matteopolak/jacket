@@ -87,7 +87,12 @@ fn read_models(jaic: &Path, stdlib: &Path, ids: &[String]) -> Result<Vec<Module>
                         .output();
                     let result = match output {
                         Ok(o) if o.status.success() => {
-                            model::parse(id, &String::from_utf8_lossy(&o.stdout), stdlib)
+                            model::parse(id, &String::from_utf8_lossy(&o.stdout), stdlib).map(
+                                |mut module| {
+                                    module.wasm = builds_for_wasm(jaic, stdlib, &module, i);
+                                    module
+                                },
+                            )
                         }
                         Ok(o) => Err(format!(
                             "`jaic -doc_model` failed for {id}: {}",
@@ -112,6 +117,38 @@ fn read_models(jaic: &Path, stdlib: &Path, ids: &[String]) -> Result<Vec<Module>
     }
     modules.sort_by(|a, b| a.id.cmp(&b.id));
     Ok(modules)
+}
+
+/// Whether `module` can be imported when the target is wasm, and most of its items exist there.
+/// Found by checking a program that imports it, so a module that asserts another system, or
+/// leaves everything to other systems, is out. `n` keeps the scratch files of threads apart.
+fn builds_for_wasm(jaic: &Path, stdlib: &Path, module: &Module, n: usize) -> bool {
+    let asserted_elsewhere =
+        !module.platforms.is_empty() && !module.platforms.iter().any(|p| p == "WASM");
+    let there = module
+        .items
+        .iter()
+        .filter(|i| i.platforms.is_empty() || i.platforms.iter().any(|p| p == "WASM"))
+        .count();
+    let somewhere = there > 0 && there * 2 >= module.items.len();
+    if asserted_elsewhere || !somewhere {
+        return false;
+    }
+    let dir = std::env::temp_dir().join(format!("jacket-doc-wasm-{}", std::process::id()));
+    if std::fs::create_dir_all(&dir).is_err() {
+        return false;
+    }
+    let file = dir.join(format!("{n}.jai"));
+    let program = format!("#import \"{}\";\nmain :: () {{}}\n", module.id);
+    let ok = std::fs::write(&file, program).is_ok()
+        && Command::new(jaic)
+            .env("JAIC_STDLIB", stdlib)
+            .args(["-check", "-no_dce", "-os", "wasm"])
+            .arg(&file)
+            .output()
+            .is_ok_and(|o| o.status.success());
+    let _ = std::fs::remove_file(&file);
+    ok
 }
 
 /// The commit of the checkout `stdlib` is the `stdlib/` folder of, and the files below it that

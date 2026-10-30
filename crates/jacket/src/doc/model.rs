@@ -86,6 +86,8 @@ pub struct Item {
     pub members: Vec<Member>,
     /// The heading it is listed under on the module page; empty for none.
     pub group: String,
+    /// The systems an `#if` limits it to (`WINDOWS`); empty for any.
+    pub platforms: Vec<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -98,6 +100,8 @@ pub struct Module {
     pub items: Vec<Item>,
     /// From `stdlib/categories.toml`; set once every module is read.
     pub category: String,
+    /// Whether the module builds for `-os wasm` and has something to use there.
+    pub wasm: bool,
 }
 
 impl Module {
@@ -112,6 +116,50 @@ impl Module {
             "Extensions"
         } else {
             "Standard library"
+        }
+    }
+
+    /// The systems it is for, in the order the badges show them: the targets it asserts, else
+    /// the three desktop ones, and `wasm` when it builds there.
+    pub fn systems(&self) -> Vec<&'static str> {
+        let mut out: Vec<&'static str> = if self.platforms.is_empty() {
+            vec!["macOS", "Linux", "Windows"]
+        } else {
+            let mut named: Vec<&'static str> = self
+                .platforms
+                .iter()
+                .filter_map(|p| system_name(p))
+                .collect();
+            named.sort_by_key(|n| SYSTEMS.iter().position(|s| s == n));
+            named
+        };
+        if self.wasm && !out.contains(&"wasm") {
+            out.push("wasm");
+        }
+        out
+    }
+
+    /// The badges for `item`: the systems it is available on, when that is fewer than its
+    /// module's. Empty when it matches the module.
+    pub fn item_systems(&self, item: &Item) -> Vec<&'static str> {
+        if item.platforms.is_empty() {
+            return Vec::new();
+        }
+        let theirs: Vec<&'static str> = item
+            .platforms
+            .iter()
+            .filter_map(|p| system_name(p))
+            .collect();
+        let ours = self.systems();
+        let shown: Vec<&'static str> = ours
+            .iter()
+            .copied()
+            .filter(|s| theirs.contains(s))
+            .collect();
+        if shown.len() == ours.len() {
+            Vec::new()
+        } else {
+            shown
         }
     }
 
@@ -195,6 +243,10 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
                     })
                     .collect(),
                 group: String::new(),
+                platforms: list(i, "platforms")
+                    .iter()
+                    .filter_map(|p| p.as_str().map(str::to_owned))
+                    .collect(),
             }
         })
         .collect();
@@ -208,9 +260,26 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
             .collect(),
         items,
         category: String::new(),
+        wasm: false,
     };
     assign_groups(&mut module);
     Ok(module)
+}
+
+/// The systems a badge can name, in the order they are shown.
+const SYSTEMS: [&str; 6] = ["macOS", "Linux", "Windows", "Android", "iOS", "wasm"];
+
+/// The badge for the compiler's name of a system (`MACOS`).
+fn system_name(os: &str) -> Option<&'static str> {
+    Some(match os {
+        "MACOS" => "macOS",
+        "LINUX" => "Linux",
+        "WINDOWS" => "Windows",
+        "ANDROID" => "Android",
+        "IOS" => "iOS",
+        "WASM" => "wasm",
+        _ => return None,
+    })
 }
 
 /// Words with their own casing in a heading made from a file name. The rest is sentence case.
@@ -302,5 +371,21 @@ mod tests {
         assert_eq!(title_case("jks-generation"), "JKS generation");
         assert_eq!(title_case("self-test"), "Self test");
         assert_eq!(title_case("utf8_tables"), "UTF8 tables");
+    }
+
+    #[test]
+    fn items_get_badges_only_where_they_differ_from_the_module() {
+        let json = r#"{"file":"/s/File/module.jai","docs":"","docs_line":1,"platforms":[],"items":[
+{"name":"open","kind":"procedure","file":"/s/File/a.jai","line":1,"docs":"","value":"","platforms":[],"overloads":[],"members":[]},
+{"name":"map","kind":"procedure","file":"/s/File/a.jai","line":2,"docs":"","value":"","platforms":["WINDOWS"],"overloads":[],"members":[]},
+{"name":"all","kind":"procedure","file":"/s/File/a.jai","line":3,"docs":"","value":"","platforms":["MACOS","LINUX","WINDOWS","WASM"],"overloads":[],"members":[]}]}"#;
+        let mut module = parse("File", json, Path::new("/s")).unwrap();
+        assert_eq!(module.systems(), ["macOS", "Linux", "Windows"]);
+        assert!(module.item_systems(&module.items[0]).is_empty());
+        assert_eq!(module.item_systems(&module.items[1]), ["Windows"]);
+        module.wasm = true;
+        assert_eq!(module.systems(), ["macOS", "Linux", "Windows", "wasm"]);
+        assert!(module.item_systems(&module.items[2]).is_empty());
+        assert_eq!(module.item_systems(&module.items[1]), ["Windows"]);
     }
 }

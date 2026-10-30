@@ -56,27 +56,20 @@ fn clip(text: &str, max: usize) -> String {
 }
 
 fn badges(m: &Module) -> String {
-    let names: Vec<String> = if m.platforms.is_empty() {
-        vec!["macOS".into(), "Linux".into(), "Windows".into()]
-    } else {
-        m.platforms
-            .iter()
-            .map(|p| match p.as_str() {
-                "MACOS" => "macOS".to_owned(),
-                "LINUX" => "Linux".to_owned(),
-                "WINDOWS" => "Windows".to_owned(),
-                "ANDROID" => "Android".to_owned(),
-                "WASM" => "wasm".to_owned(),
-                "IOS" => "iOS".to_owned(),
-                other => other.to_owned(),
-            })
-            .collect()
-    };
-    let spans: String = names
+    let spans: String = m
+        .systems()
         .iter()
         .map(|n| format!("<span class=\"badge\">{}</span>", esc(n)))
         .collect();
     format!("<div class=\"badges\" aria-label=\"Platforms\">{spans}</div>\n")
+}
+
+/// Small badges for an item that is not available everywhere its module is.
+fn item_badges(m: &Module, item: &Item) -> String {
+    m.item_systems(item)
+        .iter()
+        .map(|n| format!("<span class=\"badge sm\">{}</span>", esc(n)))
+        .collect()
 }
 
 /// `std / Android / Toolchain / item`: one crumb per level of the module's path, linked when
@@ -310,9 +303,10 @@ fn row(site: &Site, mi: usize, item: &Item) -> String {
         example::fence(site, m, (&file, line), (info, code), true)
     });
     format!(
-        "<article class=\"row\" id=\"{name}\">\n<div class=\"row-head\"><a class=\"name\" href=\"{href}\">{name}</a>{pills}</div>\n{line}{summary}{sample}</article>\n",
+        "<article class=\"row\" id=\"{name}\">\n<div class=\"row-head\"><a class=\"name\" href=\"{href}\">{name}</a>{pills}{platforms}</div>\n{line}{summary}{sample}</article>\n",
         name = esc(&item.name),
         href = esc(&site.item_href(&m.id, &item.name)),
+        platforms = item_badges(m, item),
     )
 }
 
@@ -746,9 +740,10 @@ pub fn item_page(site: &Site, mi: usize, item: &Item) -> String {
         other => other.label().to_owned(),
     };
     main.push_str(&format!(
-        "<div class=\"titlebar\"><h1 class=\"mono\">{}</h1><span class=\"pill\">{kind}</span><span class=\"spacer\"></span><a class=\"muted\" href=\"{}\">Source</a></div>\n",
+        "<div class=\"titlebar\"><h1 class=\"mono\">{}</h1><span class=\"pill\">{kind}</span>{platforms}<span class=\"spacer\"></span><a class=\"muted\" href=\"{}\">Source</a></div>\n",
         esc(&item.name),
         esc(&site.source_url(&source_file, source_line)),
+        platforms = item_badges(m, item),
     ));
     let mut anchors: Vec<(String, String)> = Vec::new();
     let mut description = String::new();
