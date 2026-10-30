@@ -63,7 +63,12 @@
       "evdev",
       "nvtt",
       "nvidia_aftermath",
-      "asound"
+      "asound",
+      "../internal/developer-tools/clang-bindings/clang"
+    ],
+    "Built by the developer checks (tools/developer_checks)": [
+      "check-native/developer_tools_check",
+      "debug-native/developer_tools_debug"
     ],
     "Android": [
       "log",
