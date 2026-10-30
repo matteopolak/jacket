@@ -348,6 +348,20 @@ impl Compiler {
                 format!("{CANNOT_INFER} {}", self.ty.types.name(param)),
             );
         }
+        // A bare `xx` names no type, so a scalar parameter is the likelier target than an
+        // array or slice one (`Append(*view, xx byte)` beside an `Append(buf, items: []T)`).
+        if matches!(
+            arg.expr.as_ref().map(|e| &e.kind),
+            Some(E::Cast {
+                ty: None,
+                ..
+            })
+        ) && matches!(
+            self.ty.types.kind(self.ty.types.repr(param)),
+            TypeKind::Array { .. }
+        ) {
+            return Ok(convert::WIDEN);
+        }
         Ok(convert::LITERAL)
     }
 
