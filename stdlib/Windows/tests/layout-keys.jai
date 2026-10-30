@@ -1,4 +1,4 @@
-// test: only(.WINDOWS) skip_on(.INTERP)
+// test: only(.WINDOWS) skip_on(.INTERP, reason = "the interpreter does not run the native Win32 window procedure that delivers posted messages")
 #import "Basic";
 W :: #import "Windows";
 WC :: #import "Window_Creation";
