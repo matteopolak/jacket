@@ -234,7 +234,10 @@ fn quiet_procedures_push_no_stack_trace_node() {
          chain_qz :: (a: int) -> int { return leaf_qz(a, 1) + leaf_qz(a, 2); }\n\
          reads_qz :: () -> bool { return context.stack_trace != null; }\n\
          through_qz :: (f: (int, int) -> int) -> int { return f(3, 4); }\n\
-         main :: () { print(\"% % %\\n\", chain_qz(5), reads_qz(), through_qz(leaf_qz)); }\n",
+         rec_qz :: (n: int) -> int { if n < 2 return n; return rec_qz(n - 1) + rec_qz(n - 2); }\n\
+         ping_qz :: (n: int) -> int { if n == 0 return 0; return pong_qz(n - 1) + 1; }\n\
+         pong_qz :: (n: int) -> int { if n == 0 return 0; return ping_qz(n - 1) + 1; }\n\
+         main :: () { print(\"% % % % %\\n\", chain_qz(5), reads_qz(), through_qz(leaf_qz), rec_qz(10), ping_qz(7)); }\n",
     )
     .unwrap();
     let ir = dir.join("quiet.ll");
@@ -272,10 +275,12 @@ fn quiet_procedures_push_no_stack_trace_node() {
     };
     assert!(!pushes_node("leaf_qz"));
     assert!(!pushes_node("chain_qz"));
+    assert!(!pushes_node("rec_qz"), "a procedure that only calls itself");
+    assert!(!pushes_node("ping_qz") && !pushes_node("pong_qz"));
     assert!(pushes_node("reads_qz"));
     assert!(pushes_node("through_qz"));
     let run = Command::new(&exe).output().unwrap();
-    assert_eq!(String::from_utf8_lossy(&run.stdout), "7 true -1\n");
+    assert_eq!(String::from_utf8_lossy(&run.stdout), "7 true -1 55 7\n");
 }
 
 /// info's prologue spill of parameters must store only scalars: storing that pointer into the

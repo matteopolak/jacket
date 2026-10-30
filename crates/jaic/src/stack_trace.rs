@@ -36,10 +36,6 @@ pub fn instrument(program: &mut Program, layout: &TraceLayout) {
     }
 }
 
-/// The procedures that never let anything look at the stack trace: they touch their context
-/// pointer only to pass it on, and call only other quiet procedures (directly). A procedure that
-/// calls nothing is quiet; so, in turn, is one that calls only those. Runtime check failures
-/// report their own location, so they don't need a node either.
 /// [`quiet_but_for_callees`] of every function, scanned on the shared thread pool.
 fn scan_bodies(funcs: &[Option<Func>]) -> Vec<Option<Vec<u32>>> {
     use rayon::prelude::*;
@@ -65,44 +61,43 @@ fn scan_bodies(funcs: &[Option<Func>]) -> Vec<Option<Vec<u32>>> {
     })
 }
 
+/// The procedures that never let anything look at the stack trace: they touch their context
+/// pointer only to pass it on, and call only other quiet procedures (directly), themselves
+/// included. A procedure that calls nothing is quiet; so, in turn, is one that calls only those.
+/// Runtime check failures report their own location, so they don't need a node either.
 fn quiet_funcs(funcs: &[Option<Func>]) -> Vec<bool> {
-    // Each body is scanned once for what it needs of its callees; quietness then spreads from
-    // the procedures that call nothing to their callers by counting unresolved calls.
-    let mut quiet = vec![false; funcs.len()];
-    let mut pending = vec![0u32; funcs.len()];
+    // Each body is scanned once for what it needs of its callees. A procedure is loud when it
+    // looks at its context itself, calls through a value, or reaches a loud procedure; loudness
+    // spreads from those to their callers, and what it never reaches is quiet. That includes
+    // procedures that call only themselves or each other: nothing in such a cycle can read the
+    // stack, so recursion costs no more than a loop.
+    let mut loud = vec![false; funcs.len()];
     let mut callers: Vec<Vec<u32>> = vec![Vec::new(); funcs.len()];
-    let mut ready = Vec::new();
+    let mut work = Vec::new();
     for (i, callees) in scan_bodies(funcs).into_iter().enumerate() {
         let Some(callees) = callees else {
+            loud[i] = true;
+            work.push(i as u32);
             continue;
         };
-        pending[i] = callees.len() as u32;
         for callee in callees {
             if let Some(list) = callers.get_mut(callee as usize) {
                 list.push(i as u32);
-            } else {
+            } else if !loud[i] {
                 // A callee that does not exist is never quiet.
-                pending[i] = u32::MAX;
+                loud[i] = true;
+                work.push(i as u32);
             }
         }
-        if pending[i] == 0 {
-            ready.push(i as u32);
-        }
     }
-    while let Some(i) = ready.pop() {
-        if quiet[i as usize] {
-            continue;
-        }
-        quiet[i as usize] = true;
+    while let Some(i) = work.pop() {
         for &caller in &callers[i as usize] {
-            let left = &mut pending[caller as usize];
-            *left -= 1;
-            if *left == 0 {
-                ready.push(caller);
+            if !std::mem::replace(&mut loud[caller as usize], true) {
+                work.push(caller);
             }
         }
     }
-    quiet
+    loud.iter().map(|&l| !l).collect()
 }
 
 /// The procedures `func` calls directly, when nothing else in it makes it loud: it calls
