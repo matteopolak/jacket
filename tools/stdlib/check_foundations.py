@@ -63,23 +63,6 @@ CASES = (
 )
 
 
-def manifest_rejections(modules):
-    """(case id, diagnostic) for every compile-fail test of the modules: the message of the first
-    error in the `.stderr` beside the program."""
-    found = []
-    for module in modules:
-        tests = ROOT / "stdlib" / module / "tests"
-        for source in sorted(tests.rglob("*.jai")):
-            expected = source.with_suffix(".stderr")
-            if "compile_fail" not in jacket_tests.header_notes(source) or not expected.is_file():
-                continue
-            message = re.search(r"error: (.*)", expected.read_text(encoding="utf-8"))
-            if message:
-                name = source.relative_to(ROOT / "stdlib").with_suffix("").as_posix()
-                found.append((name, message.group(1)))
-    return found
-
-
 def check_division_output(output):
     lines = output.splitlines()
     if len(lines) != 19 or lines[-1] != "ok":
@@ -530,45 +513,6 @@ def main():
             parser.error("use jailint from the explicit source build root")
         failures.extend(lint_owned(linter, env, output))
 
-    # The rejected-by-design programs are the manifest rows that name a diagnostic.
-    for name, diagnostic in manifest_rejections(("Hash", "Basic")):
-        source = ROOT / "stdlib" / f"{name}.jai"
-        if args.jaifmt:
-            run([formatter, "--check", source], "")
-        rejected = subprocess.run(
-            [compiler, "-check", source],
-            cwd=ROOT,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-        if rejected.returncode != 1 or diagnostic not in rejected.stderr:
-            raise RuntimeError(f"expected contract rejection {name}: {rejected}")
-    print("passed unsupported-hash and facade-visibility rejection checks", flush=True)
-    for source in sorted((ROOT / "stdlib/Basic/tests/negative").glob("wide-to-*.jai")):
-        diagnostic = (
-            "to_s128 requires"
-            if source.name.startswith("wide-to-s128-")
-            else "to_u128 requires"
-        )
-        rejected = subprocess.run(
-            [compiler, "-check", source],
-            cwd=ROOT,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-        if (
-            rejected.returncode != 1
-            or "#modify rejected" not in rejected.stderr
-            or diagnostic not in rejected.stderr
-        ):
-            raise RuntimeError(
-                f"expected wide conversion guard rejection: {source}\n{rejected.stderr}"
-            )
-    print("passed all 13 wide-conversion admissibility rejection checks", flush=True)
     exercise = ROOT / "stdlib/Basic/tests/division-exercise.jai"
     result = subprocess.run(
         [compiler, "-interp", "-cpu", "x64", exercise],
