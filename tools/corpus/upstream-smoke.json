@@ -66,6 +66,9 @@
     {
       "id": "chess-ui",
       "project": "danieltan1517--chess-jai",
+      "skip": {
+        "*": "upstream ui.jai uses the local procedures draw_quiet_move_suggestion and draw_move_suggestion (line 617) above their declarations (line 721), which the compiler rejects as a use before declaration; the engine half of the project still builds"
+      },
       "only": ["macos-x64", "linux-x64", "windows-x64"],
       "only_reason": "build.jai calls Machine_X64's get_cpu_info() unconditionally in the build program, which executes the x86 CPUID instruction; the build cannot run on an ARM host",
       "steps": [
