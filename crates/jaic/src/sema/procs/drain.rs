@@ -14,6 +14,9 @@ impl Compiler {
     /// and lowering those must not keep the loop alive.
     pub fn drain_bodies(&mut self) -> Result<()> {
         self.pr.unpark_bodies();
+        // Bodies whose compile-time code ran and failed: a retry would run it again on top of
+        // what the failed run left behind, so they are final.
+        let mut final_failures = Vec::new();
         loop {
             let mut failed = Vec::new();
             let mut progress = false;
@@ -22,16 +25,19 @@ impl Compiler {
                 if self.proc(id).body_state != BodyState::Queued {
                     continue;
                 }
+                let traps = self.ct.traps;
                 match self.lower_body(id) {
                     Ok(()) => progress |= (id.0 as usize) < existing,
+                    Err(e) if self.ct.traps != traps => final_failures.push((id, e)),
                     Err(e) => failed.push((id, e)),
                 }
             }
-            if failed.is_empty() {
+            if failed.is_empty() && final_failures.is_empty() {
                 return Ok(());
             }
-            if !progress {
+            if failed.is_empty() || !progress {
                 // Only the first is reported; an editor wants the others too.
+                failed.splice(0..0, final_failures);
                 self.ed.errors(failed.iter().map(|(_, e)| &**e));
                 return Err(failed.into_iter().next().unwrap().1);
             }
@@ -48,6 +54,9 @@ impl Compiler {
     pub fn drain_bodies_lenient(&mut self) -> Option<Box<Diagnostic>> {
         let mut first: Option<Box<Diagnostic>>;
         let mut retry = Vec::new();
+        // Failed after their compile-time code ran: not tried again within this call.
+        let mut finished = Vec::new();
+        let mut finished_error = None;
         if self.lower_epoch() != self.pr.parked_epoch
             || self
                 .pr
@@ -89,10 +98,17 @@ impl Compiler {
                     self.epochs.placeholder_misses,
                     self.epochs.in_progress_misses,
                 );
+                let traps = self.ct.traps;
                 match self.lower_body(id) {
                     Ok(()) => {
                         progress |= (id.0 as usize) < existing;
                         self.pr.lenient_failures.remove(&id);
+                    }
+                    Err(e) if self.ct.traps != traps => {
+                        // Running it again would repeat compile-time code on top of what the
+                        // failed run left behind.
+                        finished_error.get_or_insert(e);
+                        finished.push(id);
                     }
                     Err(e) => {
                         // Waiting for a `#placeholder` is settled by the metaprogram, at any time;
@@ -116,6 +132,8 @@ impl Compiler {
             self.pr.body_queue.append(&mut retry);
         }
         self.pr.body_queue.extend(retry);
+        self.pr.body_queue.extend(finished);
+        first = first.or(finished_error);
         if first.is_none()
             && let Some(id) = self.pr.parked_bodies.last()
             && let Some((_, err)) = self.pr.lenient_failures.get(id)
