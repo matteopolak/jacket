@@ -50,9 +50,9 @@ main :: () {
     assert(has(shapes, "IShape_VTable :: struct #type_info_none {"));
 
     // A record holds its base, so a pointer to it converts to a pointer to the base; its own pointer overlays the base's.
-    assert(has(shapes, "#as using,except(vtable) irefcounted: IRefCounted;"));
+    assert(has(shapes, "#as using,except(vtable) irefcounted: IRefCounted #align"));
     assert(has(shapes, "#overlay (irefcounted) vtable: *IShape_VTable; // Overlay parent's vtable with IShape’s vtable"));
-    assert(has(shapes, "#as using,except(vtable) ibox: IBox;"));
+    assert(has(shapes, "#as using,except(vtable) ibox: IBox #align"));
     assert(has(shapes, "using vtable: IBox_VTable;"));
     assert(!has(shapes, "__vtable"));
 

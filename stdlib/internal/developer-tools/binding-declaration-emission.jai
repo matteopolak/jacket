@@ -61,7 +61,7 @@ binding_declaration :: (builder: *String_Builder, declaration: *Declaration, sco
                 else array_add(*generator.pending_bitfields, group);
             }
 
-            if !binding_bitfield_unit(builder, group, scope, flags, alignment) return false;
+            if !binding_bitfield_unit(builder, group, scope, flags, alignment, explicit_alignment) return false;
         } else {
             unwrapped := maybe_unwrap_bitfield_declaration(declaration);
 
@@ -700,7 +700,9 @@ binding_struct_body :: (builder: *String_Builder, record: *Struct, existing: *[.
     append_type_info_directives(builder, cast(*Declaration) record);
     if extra_info && extra_info.explicit_layout append(builder, " #no_padding");
     if explicit_alignment > 0 alignment = explicit_alignment;
-    if alignment > 0 print_to_builder(builder, " #align %", alignment);
+
+    // A struct as a whole takes no `#align`; its first data member carries the alignment instead.
+    pending_alignment := alignment;
 
     append(builder, " {\n");
     generator.tab_depth += 1;
@@ -738,7 +740,14 @@ binding_struct_body :: (builder: *String_Builder, record: *Struct, existing: *[.
             binding_virtual_functions_note(builder);
         }
 
-        print_declaration_to_builder(builder, field, cast(*Declaration) record, existing_declarations = existing);
+        member_alignment := 0;
+
+        if pending_alignment > 0 && binding_carries_alignment(record, field) {
+            member_alignment = max(pending_alignment, binding_member_alignment(field));
+            pending_alignment = 0;
+        }
+
+        print_declaration_to_builder(builder, field, cast(*Declaration) record, existing_declarations = existing, explicit_alignment = member_alignment);
         if builder.failed return false;
     }
 
@@ -747,6 +756,21 @@ binding_struct_body :: (builder: *String_Builder, record: *Struct, existing: *[.
     append(builder, "}");
 
     return !builder.failed;
+}
+
+// Does `field` print as a data member that can hold the alignment of its record?
+binding_carries_alignment :: (record: *Struct, field: *Declaration) -> bool {
+    if field.kind == .BITFIELD return (cast(*Bitfield) field).flags & .LAYOUT_UNIT != 0;
+    if field.kind != .DECLARATION return false;
+    if field.decl_flags & (.IS_CONST | .IS_METADATA) || field.storage_class == .Static || field.bitfield_width > 0 || field.size_condition_type return false;
+
+    return gm_overlay_place(record, field) == null;
+}
+
+binding_member_alignment :: (field: *Declaration) -> int {
+    if field.kind == .BITFIELD return (cast(*Bitfield) field).explicit_field_alignment;
+
+    return field.explicit_field_alignment;
 }
 
 // A virtual method is declared in its record only when a library defines it; otherwise it is called through the vtable.

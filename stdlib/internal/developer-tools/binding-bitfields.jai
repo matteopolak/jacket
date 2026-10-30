@@ -188,14 +188,15 @@ append_bitfield_helpers :: (builder: *String_Builder, bitfield: *Bitfield, scope
 #import "String";
 
 // Prints one bitfield storage unit: the integer (or byte array) field, then its members in a comment.
-binding_bitfield_unit :: (builder: *String_Builder, group: *Bitfield, scope: *Declaration, flags: Print_Decl_Flags, alignment: int) -> bool {
+binding_bitfield_unit :: (builder: *String_Builder, group: *Bitfield, scope: *Declaration, flags: Print_Decl_Flags, alignment: int, explicit_alignment := 0) -> bool {
     generator := gp_current_generator();
     if !generator || !group.type || !looks_like_valid_identifier(group.output_name) return false;
 
     append(builder, group.output_name);
     append(builder, ": ");
     print_type_to_builder(builder, group.type, scope);
-    if group.explicit_field_alignment > 0 print_to_builder(builder, " #align %", group.explicit_field_alignment);
+    field_alignment := ifx explicit_alignment > 0 then explicit_alignment else group.explicit_field_alignment;
+    if field_alignment > 0 print_to_builder(builder, " #align %", field_alignment);
 
     append(builder, ";\n");
     append_indentation(builder);

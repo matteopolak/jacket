@@ -48,7 +48,7 @@ main :: () {
     assert(contains(text, "/ * an opener / * inside a comment * /"));
 
     // Packed and padded records are placed field by field.
-    assert(contains(text, "BfPack1 :: struct #no_padding #align 1 {") && contains(text, "__padding_1: [1] u8;"));
+    assert(contains(text, "BfPack1 :: struct #no_padding {") && contains(text, "__padding_1: [1] u8;"));
 
     // Accessors follow the record, as `set_` and `get_` procedures overloaded on the record, with the numeric suffix a
     // clashing name gets.

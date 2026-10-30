@@ -71,9 +71,9 @@ main :: () {
         output: String_Builder;
 
         defer free_buffers(*output);
-        print_to_builder(*output, "Bits :: struct #align % { __bitfield: ", record.type.alignment);
+        append(*output, "Bits :: struct { __bitfield: ");
         B.print_type_to_builder(*output, group.type, cast(*B.Declaration) record);
-        append(*output, "; }\n");
+        print_to_builder(*output, " #align %; }\n", record.type.alignment);
         B.append_bitfield_helpers(*output, group, record);
         assert(capture.count == 2);
         scalar_record := B.create_struct(capture.scalar);
@@ -87,9 +87,9 @@ main :: () {
         assert(B.maybe_add_to_bitfield(*scalar_status, scalar_record.declarations[1]) == null);
         B.finish_bitfield(scalar_group, 0);
         assert(scalar_group.type.size == 1 && scalar_group.alignment_type.size == 4);
-        append(*output, "Scalar :: struct #align 4 { __bitfield: ");
+        append(*output, "Scalar :: struct { __bitfield: ");
         B.print_type_to_builder(*output, scalar_group.type, cast(*B.Declaration) scalar_record);
-        append(*output, "; }\n");
+        append(*output, " #align 4; }\n");
         B.append_bitfield_helpers(*output, scalar_group, scalar_record);
         append(*output, "native :: #foreign_library \"bitfield_printers\";\ninitialize :: (bits: *Bits, first: u32, second: u32, on: u32, final: u32) #c_call #foreign native \"original_bits_initialize\";\nread :: (bits: *Bits) -> u32 #c_call #foreign native \"original_bits_read\";\n");
         append(*output, "initialize_scalar :: (bits: *Scalar, a: u32, b: u32) #c_call #foreign native \"original_scalar_initialize\";\nread_scalar :: (bits: *Scalar) -> u32 #c_call #foreign native \"original_scalar_read\";\n");

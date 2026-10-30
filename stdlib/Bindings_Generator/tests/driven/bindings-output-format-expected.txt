@@ -4,8 +4,8 @@ OperandDataType :: enum u8 {
  OperandDataType_None :: cast(u8) (0);
  OperandDataType_Int :: cast(u8) (1);
 }
-VMExecOperand :: struct #align 8 {
- section: **u8; // Pointer to the section start pointer.
+VMExecOperand :: struct {
+ section: **u8 #align 8; // Pointer to the section start pointer.
  __bitfield: u32;
  /*
   type: u32; /* 8 bits */ // type of the operand data.
@@ -29,8 +29,8 @@ get_size :: (fields: VMExecOperand) -> u32 {
     return ((fields.__bitfield & (0b1111_1111_1111_1111_1111_1111 << 8)) >> 8);
 }
 
-Flags :: struct #align 4 {
- __bitfield: u32;
+Flags :: struct {
+ __bitfield: u32 #align 4;
  /*
   a: s32; /* 3 bits */
   b: u32; /* 1 bits */
@@ -61,11 +61,11 @@ get_c :: (fields: Flags) -> bool {
     return (fields.__bitfield & (1 << 4)) != 0;
 }
 
-SessionDesc :: struct #align 4 {
- x: s32;
+SessionDesc :: struct {
+ x: s32 #align 4;
 }
-ISession :: struct #align 8 {
- #as using,except(vtable) iunknownish: IUnknownish;
+ISession :: struct {
+ #as using,except(vtable) iunknownish: IUnknownish #align 8;
  #overlay (iunknownish) vtable: *ISession_VTable; // Overlay parent's vtable with ISession’s vtable
 }
 ISession_VTable :: struct #type_info_none {
@@ -74,8 +74,8 @@ ISession_VTable :: struct #type_info_none {
 }
 ISession_loadModule :: inline (this: *ISession, name: *u8) -> s32 { return this.vtable.loadModule(this, name); }
 vtable :: (obj: *ISession) -> *ISession_VTable { return obj.vtable; }
-IUnknownish :: struct #align 8 {
- vtable: *IUnknownish_VTable;
+IUnknownish :: struct {
+ vtable: *IUnknownish_VTable #align 8;
 }
 IUnknownish_VTable :: struct #type_info_none {
  queryInterface: #type (this: *IUnknownish, guid: *s32, out: **void) -> s32 #cpp_method;
@@ -86,8 +86,8 @@ IUnknownish_queryInterface :: inline (this: *IUnknownish, guid: *s32, out: **voi
 IUnknownish_addRef :: inline (this: *IUnknownish) -> u32 { return this.vtable.addRef(this); }
 IUnknownish_release :: inline (this: *IUnknownish) -> u32 { return this.vtable.release(this); }
 vtable :: (obj: *IUnknownish) -> *IUnknownish_VTable { return obj.vtable; }
-IGlobalSession :: struct #align 8 {
- #as using,except(vtable) iunknownish: IUnknownish;
+IGlobalSession :: struct {
+ #as using,except(vtable) iunknownish: IUnknownish #align 8;
  #overlay (iunknownish) vtable: *IGlobalSession_VTable; // Overlay parent's vtable with IGlobalSession’s vtable
 }
 IGlobalSession_VTable :: struct #type_info_none {
