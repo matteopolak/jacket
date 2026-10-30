@@ -218,6 +218,18 @@ impl TypeState {
                 TypeId::U64
             };
         }
+        // A `float32` operand meeting a float literal with more digits than `float32` keeps
+        // (`x + 0.1591549431`) widens the operation to `float64`.
+        if let Operand::Const {
+            value,
+            untyped: true,
+            ..
+        } = lit
+            && value.requires_float64()
+            && self.types.repr(ty) == TypeId::F32
+        {
+            return TypeId::F64;
+        }
         ty
     }
 

@@ -62,6 +62,20 @@ impl Compiler {
         } else {
             *lt
         };
+        // A `float32` constant meeting a literal with more digits than `float32` keeps is
+        // folded in `float64`, as the same operation on a variable is.
+        let typed_pair = !*lu && !*ru;
+        let ty = if !untyped
+            && !is_shift
+            && self.ty.types.repr(ty) == TypeId::F32
+            && ((*lu && lv.requires_float64())
+                || (*ru && rv.requires_float64())
+                || (typed_pair && self.ty.types.repr(*rt) == TypeId::F64))
+        {
+            TypeId::F64
+        } else {
+            ty
+        };
         let cmp = |o: std::cmp::Ordering| -> Option<Value> {
             use std::cmp::Ordering::{Equal, Greater, Less};
             Some(Value::Bool(match op {
