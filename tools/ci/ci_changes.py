@@ -122,7 +122,7 @@ def test_matrix(full):
 
 # The producer suites (tools/stdlib/check_stdlib_suites.py) but `tooling` and `bindings`, which
 # take longest and have legs of their own.
-SUITES = "foundations portable platform audio window numerics numerics-native"
+SUITES = "foundations portable platform audio window"
 # The tooling suite runs in this many parts, each about five minutes on CI.
 TOOLING_PARTS = 4
 

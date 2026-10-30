@@ -23,8 +23,6 @@ SUITES = (
     "platform",
     "audio",
     "window",
-    "numerics",
-    "numerics-native",
     "bindings",
     "tooling",
 )
@@ -37,7 +35,7 @@ GROUPS = (
     ("bindings",),
     ("foundations",),
     ("portable", "platform"),
-    ("audio", "window", "numerics", "numerics-native"),
+    ("audio", "window"),
 )
 
 
@@ -80,11 +78,6 @@ def main():
     )
     parser.add_argument(
         "--font", type=Path, help="real scalable font required by the window suite"
-    )
-    parser.add_argument(
-        "--private-x11-display",
-        action="store_true",
-        help="Caller owns an ephemeral X11 display for Linux clipboard tests",
     )
     args = parser.parse_args()
     if args.jobs < 1:
@@ -174,20 +167,6 @@ def main():
             "--font",
             args.font,
         ],
-        "numerics": [
-            "tools/numerics/run.py",
-            "--compiler",
-            compiler,
-            "--stdlib",
-            library,
-        ],
-        "numerics-native": [
-            "tools/numerics/corrective.py",
-            "--compiler",
-            compiler,
-            "--stdlib",
-            library,
-        ],
         "bindings": [
             "tools/native_bindings/verify.py",
             "--compiler",
@@ -204,8 +183,6 @@ def main():
         ],
         "tooling": ["tools/developer_checks/check_developer_tools.py"],
     }
-    if args.private_x11_display:
-        commands["numerics-native"].append("--private-x11-display")
     failures = []
 
     def run_suite(suite, capture):

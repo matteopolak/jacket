@@ -29,7 +29,7 @@ Docs do not count as a caller in the index, so a docs-only change never makes it
 | `lsp/` | The language-server oracle checks driver `oracle.py` and its known findings ([oracle checks](lsp-oracle.md)). |
 | `native/` | Native dependency stages (below), the Windows cross/provider builders, `mbedtls/` and `sdl3/` sources. |
 | `native_bindings/` | The native binding generator and its verifiers (own test discovery and module names). |
-| `numerics/` | Numerics suite runners and capability tables. |
+| `numerics/` | `oracle.py` writes `stdlib/Math/tests/numeric-oracle.jai`; `numerics_surface.py` backs the test that compares the numeric modules' public names with their specs. The programs themselves run under `jacket test`. |
 | `portable/` | Portable stdlib fixtures, crash/clipboard/watcher/mail checks, `portable_data/`. |
 | `stdlib/` | The stdlib test engine and the suite runners layered on it (below), platform I/O and Http conformance, extension runners. |
 | `toolkit/` | Shared helpers (below): repo root, file hashing, pinned downloads, checked subprocess runs. |

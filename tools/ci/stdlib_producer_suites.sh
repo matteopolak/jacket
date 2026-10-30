@@ -14,8 +14,6 @@ if [[ "$RUNNER_OS" == Linux ]]; then
 else
   font="/System/Library/Fonts/Supplemental/Arial.ttf"
 fi
-display=()
-[[ "$RUNNER_OS" == Linux ]] && display=(--private-x11-display)
 native="$(python3 -c 'from native import build_native_libs;print(build_native_libs.output_dir())')"
 "${run[@]}" python3 -u tools/stdlib/check_stdlib_suites.py --jaic target/release/jaic --stdlib stdlib \
-  --jailint target/debug/jailint --jaifmt target/jaifmt --native-libs "$native" --bindings-native-libs target/production-bindings/native --font "$font" "${display[@]}" "${suites[@]}"
+  --jailint target/debug/jailint --jaifmt target/jaifmt --native-libs "$native" --bindings-native-libs target/production-bindings/native --font "$font" "${suites[@]}"
