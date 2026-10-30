@@ -10,8 +10,8 @@
 // element, and elements with equal keys do keep their order (it is stable). That form allocates a temporary
 // copy with `context.allocator` and frees it before returning.
 //
-// A comparator must be consistent (a strict weak order): an inconsistent one gives an unspecified order and
-// can make the sort read outside the array. Arrays of fewer than two elements are returned untouched.
+// A comparator should be consistent (a strict weak order). An inconsistent one gives an unspecified order,
+// but the sort stays within the array and always finishes. Arrays of fewer than two elements are returned untouched.
 //
 // ```jai
 // Person :: struct { name: string; age: int; }

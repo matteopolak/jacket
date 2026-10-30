@@ -163,7 +163,8 @@ partition :: (data: *$T, count: s64, f: (T, T) -> $R) -> s64 {
     if f(data[last], data[0]) < 0 swap(data + last, data);
     if f(data[last], data[middle]) < 0 swap(data + last, data + middle);
 
-    // The median sits beside the end; the outer elements stop both scans.
+    // The median sits beside the end. The scans also stop at the array ends, so an inconsistent comparator
+    // can only give a poor split, never an access outside the range.
     swap(data + middle, data + last - 1);
     pivot := data[last - 1];
 
@@ -172,10 +173,10 @@ partition :: (data: *$T, count: s64, f: (T, T) -> $R) -> s64 {
 
     while true {
         low += 1;
-        while f(data[low], pivot) < 0 low += 1;
+        while low < last - 1 && f(data[low], pivot) < 0 low += 1;
 
         high -= 1;
-        while f(pivot, data[high]) < 0 high -= 1;
+        while high > 0 && f(pivot, data[high]) < 0 high -= 1;
         if low >= high break;
 
         swap(data + low, data + high);
