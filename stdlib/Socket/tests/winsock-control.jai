@@ -37,5 +37,9 @@ main :: () {
     for i: 0..63 remove_descriptor(0x100000000 + cast(u64) i, *set);
 
     assert(set.fd_count == 0);
+    assert(keepalive_milliseconds(0, 7) == 7 && keepalive_milliseconds(-5, 7) == 7);
+    assert(keepalive_milliseconds(1, 7) == 1000 && keepalive_milliseconds(30, 7) == 30000);
+    assert(keepalive_milliseconds(4294967, 7) == 4294967000);
+    assert(keepalive_milliseconds(4294968, 7) == 0xffffffff && keepalive_milliseconds(0x7fffffff, 7) == 0xffffffff);
     print("ok\n");
 }

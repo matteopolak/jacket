@@ -145,9 +145,6 @@ set_blocking :: (s: Socket, blocking: bool) -> bool {
 // number of unanswered probes before the connection is dropped. Zero keeps the system's value. A failure is logged through
 // `context.logger` and returns false; options already set stay set.
 //
-// On Windows the two timings are handed to Winsock unchanged, which reads them as milliseconds, and the probe count is
-// ignored.
-//
 // ```jai,skip_on(wasm)
 // assert(socket_init());
 //
@@ -164,9 +161,6 @@ set_blocking :: (s: Socket, blocking: bool) -> bool {
 // above zero replaces the system default: seconds of idleness before the first probe, seconds between probes, and the
 // number of unanswered probes before the connection is dropped. Zero keeps the system's value. A failure is logged through
 // `context.logger` and returns false; options already set stay set.
-//
-// On Windows the two timings are handed to Winsock unchanged, which reads them as milliseconds, and the probe count is
-// ignored.
 //
 // ```jai,skip_on(wasm)
 // assert(socket_init());

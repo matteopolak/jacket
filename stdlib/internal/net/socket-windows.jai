@@ -72,9 +72,13 @@ set_blocking :: (s: Socket, blocking: bool) -> bool {
 
 // Turns TCP keep-alive probes on `s` on or off and returns whether it worked.
 //
-// With `keepalive` false the probes are switched off and the timings are ignored. When it is true, the idle time and the
-// probe interval are passed to Winsock unchanged, and Winsock reads them as milliseconds although the parameters are
-// named in seconds; the probe count is ignored. A failure is logged through `context.logger`; options already set stay set.
+// With `keepalive` false the probes are switched off and the timings are ignored. When it is true, each timing that is
+// above zero replaces the system default: seconds of idleness before the first probe, seconds between probes, and the
+// number of unanswered probes before the connection is dropped. Zero keeps the system's value. A failure is logged through
+// `context.logger` and returns false; options already set stay set.
+//
+// Winsock counts the two timings in milliseconds; they are converted from seconds here. The probe count is applied only where
+// the system has the option (Windows 10 and later) and is otherwise left at the system's own.
 set_keepalive :: (s: Socket, keepalive: bool, idle_seconds_before_keepalive: s32 = 0, keepalive_interval_seconds: s32 = 0, num_keepalive_attempts: s32 = 0) -> bool {
     enabled: s32;
     if keepalive enabled = 1;
@@ -86,9 +90,8 @@ set_keepalive :: (s: Socket, keepalive: bool, idle_seconds_before_keepalive: s32
 
     if !keepalive return true;
 
-    // Reviewed Windows compatibility: these values are native milliseconds,
-    // and num_keepalive_attempts is ignored on this platform.
-    options := tcp_keepalive.{ 1, cast(u32) idle_seconds_before_keepalive, cast(u32) keepalive_interval_seconds };
+    // Two hours before the first probe and one second between them are what the system uses when none is set.
+    options := tcp_keepalive.{ 1, Control.keepalive_milliseconds(idle_seconds_before_keepalive, 7200000), Control.keepalive_milliseconds(keepalive_interval_seconds, 1000) };
     returned: u32;
 
     if WSAIoctl(s, SIO_KEEPALIVE_VALS, *options, size_of(tcp_keepalive), null, 0, *returned, null, null) != 0 {
@@ -96,13 +99,11 @@ set_keepalive :: (s: Socket, keepalive: bool, idle_seconds_before_keepalive: s32
         return false;
     }
 
+    if num_keepalive_attempts > 0 setsockopt(s, cast(s32) IPPROTO.TCP, TCP_KEEPCNT, cast(*u8) *num_keepalive_attempts, 4);
+
     return true;
 }
 
-// Closes the socket `s` points to and sets it to `INVALID_SOCKET`.
-//
-// A handle that is already `INVALID_SOCKET` is left alone, so it is safe to call twice. A failing close is logged through
-// `context.logger` but the handle is reset anyway.
 // Closes the socket `s` points to and sets it to `INVALID_SOCKET`.
 //
 // A handle that is already `INVALID_SOCKET` is left alone, so it is safe to call twice. A failing close is logged through
@@ -123,7 +124,6 @@ FD_SET :: (fd: Socket, set: *fd_set) {
     Control.add_descriptor(fd, set);
 }
 
-// Removes `fd` from `set`, shifting the later sockets down. A socket that is not in the set is ignored.
 // Removes `fd` from `set`, shifting the later sockets down. A socket that is not in the set is ignored.
 FD_CLR :: (fd: Socket, set: *fd_set) {
     Control.remove_descriptor(fd, set);
