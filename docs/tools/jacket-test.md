@@ -297,7 +297,7 @@ reads_proc_self :: () { ... } @test @serial
 | --- | --- |
 | `@timeout(N)` | kill after N seconds (0: no limit); default `--timeout`, else `[test] timeout`, else 120 |
 | `@slow` | known to be slow: started first, no `SLOW` line |
-| `@serial` | runs while no other test does |
+| `@serial` | runs while no other test does in this run (another `jacket test` on the machine is not stopped: a test that shares an OS resource across runs, like a named pasteboard, also needs a name of its own per process, as `native-clipboard` does with `PER_PROCESS`) |
 | `@cases(LIST)` | run once per entry of `LIST`, each as a subtest named from its values; see [Testing](../extensions/testing.md#how-it-works) |
 | `@property`, `@property(N)` | run once per generated input (100 by default, or `N`); see [Testing](../extensions/testing.md#how-it-works) |
 | `@generate(NAME)` | with `@property`: the procedure `NAME` makes the values of the type it returns |

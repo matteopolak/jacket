@@ -1,10 +1,11 @@
 // test: only(.MACOS) serial
-// This private named native pasteboard never accesses the user's global clipboard.
+// This private named native pasteboard never accesses the user's global clipboard. The name carries the
+// process id, so two test runs at once (each `serial` only among its own tests) do not share a pasteboard.
 #assert OS == .MACOS, "The private named-pasteboard lifecycle fixture requires macOS";
 
 #import "Basic";
-Writer :: #import "internal/numerics/platform_clipboard"(PASTEBOARD_NAME = "org.cleanroom.numerics.clipboard-test.20261014");
-Reader :: #import "internal/numerics/platform_clipboard"(PASTEBOARD_NAME = "org.cleanroom.numerics.clipboard-test.20261014", CLIENT_ID = 1);
+Writer :: #import "internal/numerics/platform_clipboard"(PASTEBOARD_NAME = "org.cleanroom.numerics.clipboard-test.20261014", PER_PROCESS = true);
+Reader :: #import "internal/numerics/platform_clipboard"(PASTEBOARD_NAME = "org.cleanroom.numerics.clipboard-test.20261014", CLIENT_ID = 1, PER_PROCESS = true);
 
 // The pasteboard server hands a write to other clients asynchronously, so the reader may see
 // the previous contents for a moment. Read until the expected text arrives or two seconds pass.

@@ -110,7 +110,12 @@ cached_board: *void;
 open_board :: () -> (board: *void, error: string) {
     if cached_board != null return cached_board, "";
 
-    name := make_cf_string(PASTEBOARD_NAME);
+    text := PASTEBOARD_NAME;
+
+    #if PER_PROCESS text = sprint("%.%", PASTEBOARD_NAME, getpid());
+    name := make_cf_string(text);
+
+    #if PER_PROCESS free(text);
     if name == null return null, "Cannot allocate native pasteboard name";
 
     defer CFRelease(name);
@@ -123,6 +128,8 @@ open_board :: () -> (board: *void, error: string) {
     return board, "";
 }
 
+libc :: #system_library "c"; @native(external)
+getpid :: () -> s32 #foreign libc;
 CFRelease :: (object: *void) #foreign core_foundation;
 CFStringCreateWithBytes :: (allocator: *void, bytes: *u8, length: s64, encoding: u32, external_representation: u8) -> *void #foreign core_foundation;
 CFDataCreate :: (allocator: *void, bytes: *u8, length: s64) -> *void #foreign core_foundation;
