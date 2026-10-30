@@ -35,7 +35,7 @@ select :: (db: $D, $T: Type, $where: Code = EVERY_ROW, $order_by: Code = NO_ORDE
 // Some fields of a table struct, with their types and notes: the rows of `select(..., fields = ...)`.
 // `fields` is a comma-separated list of `T`'s field names.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // Contact :: Pg.Partial(User, "id, email");
 // ```
 Partial :: struct(T: Type, fields: string) {

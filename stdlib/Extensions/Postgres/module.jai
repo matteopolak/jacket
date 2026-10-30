@@ -31,7 +31,7 @@
 // The other parameters say where the compile-time side finds the project's files, relative to the
 // project root (docs/postgres/typed-queries.md, "Module parameters"):
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // Pg :: #import "Extensions/Postgres"(MIGRATIONS = "sql/migrations", SCHEMA = "sql/schema.jai", QUERY_CACHE = "sql/cache", MIN_SERVER_VERSION = 15);
 // ```
 //

@@ -9,7 +9,7 @@
 
 // One line of the hand-written `db/json_columns.jai`:
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // Json_Columns :: Pg.Json_Column.[ .{ "users.settings", Settings, .{ unknown_fields = .DENY } } ];
 // ```
 //

@@ -24,7 +24,7 @@ Next :: #type (request: *Request) -> Response;
 
 // A request filter: log, check a token, add headers, or answer itself without calling `next`.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // require_token :: (request: *Request, next: Next) -> Response {
 //     token, found := header(request, "Authorization");
 //     if !found return error_response(request, unauthorized("a token is required"));

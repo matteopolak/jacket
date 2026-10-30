@@ -179,7 +179,7 @@ convert_to_temporary_glyphs :: (using font: *Dynamic_Font, s: string, effect_fla
 /// `font.current_quads` holds one `Font_Quad` per glyph, so the layout can be looked at, and `draw_prepared_text` draws the run
 /// wherever it is asked to. `prepare_text` does the three steps for one string and returns its width.
 ///
-/// ```jai,no_run
+/// ```jai,no_run,skip_on(wasm)
 /// #import "Simp";
 /// #import "File";
 ///
