@@ -9,6 +9,7 @@ const ALL: &[&str] = &["linux", "windows", "macos", "wasm"];
 const NATIVE: &[&str] = &["linux", "windows", "macos"];
 const NO_WINDOW: &str = "draws into a Window_Creation window; the browser has no Window_Type";
 const NO_SOCKETS: &str = "Extensions/Http needs sockets, which the browser has not";
+const NO_FILES: &str = "reads and writes the file system, which the browser sandbox has not";
 
 /// Each program, the OSes it is checked for, and why the others are left out.
 const PROGRAMS: &[(&str, &[&str], &str)] = &[
@@ -36,6 +37,13 @@ const PROGRAMS: &[(&str, &[&str], &str)] = &[
     ("http/crud.jai", NATIVE, NO_SOCKETS),
     ("http/crud_test.jai", NATIVE, NO_SOCKETS),
     ("http/middleware.jai", NATIVE, NO_SOCKETS),
+    ("editor/main.jai", NATIVE, NO_WINDOW),
+    ("editor/smoke.jai", NATIVE, NO_FILES),
+    ("ui-gallery/main.jai", NATIVE, NO_WINDOW),
+    ("game2d/game/main.jai", NATIVE, NO_WINDOW),
+    ("game2d/server/main.jai", NATIVE, NO_SOCKETS),
+    ("game2d/loadtest/main.jai", NATIVE, NO_SOCKETS),
+    ("game2d/tools/assetgen/main.jai", NATIVE, NO_FILES),
 ];
 
 fn examples_dir() -> PathBuf {
@@ -76,9 +84,11 @@ fn every_example_is_a_listed_program_or_loaded_by_one() {
     for file in &files {
         let name = relative(file);
         let listed = PROGRAMS.iter().any(|(program, ..)| *program == name);
+        // A local module is `#import`-ed by the programs next to it, and checked through them.
+        let module = file.file_name().is_some_and(|n| n == "module.jai");
         assert!(
-            listed || loaded.contains(file),
-            "examples/{name} is neither in PROGRAMS nor #load-ed by another example"
+            listed || module || loaded.contains(file),
+            "examples/{name} is neither in PROGRAMS, a module, nor #load-ed by another example"
         );
         assert!(
             !(listed && loaded.contains(file)),

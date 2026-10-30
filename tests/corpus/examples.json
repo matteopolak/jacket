@@ -318,6 +318,33 @@
       "summary": "A full-screen ray marching shader in a window (native only: needs a window).",
       "mode": "check",
       "stdout_contains": []
+    },
+    {
+      "id": "editor",
+      "directory": "examples/editor",
+      "main": "main.jai",
+      "title": "Text editor",
+      "summary": "A small code editor on the UI library: file tree, tabs, find and undo (native only: needs a window).",
+      "mode": "check",
+      "stdout_contains": []
+    },
+    {
+      "id": "ui-gallery",
+      "directory": "examples/ui-gallery",
+      "main": "main.jai",
+      "title": "UI gallery",
+      "summary": "A tour of the UI library's widgets (native only: needs a window).",
+      "mode": "check",
+      "stdout_contains": []
+    },
+    {
+      "id": "game2d",
+      "directory": "examples/game2d",
+      "main": "game/main.jai",
+      "title": "2D arena game",
+      "summary": "A Simp arena shooter with a Postgres leaderboard server (native only: needs a window).",
+      "mode": "check",
+      "stdout_contains": []
     }
   ]
 }
