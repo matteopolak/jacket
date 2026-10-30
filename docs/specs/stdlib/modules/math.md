@@ -376,7 +376,7 @@ Several transcendental routines delegate to host/compiler math operations, and t
 
 The three vector sizes also provide `multiply(vector, scalar)`, `distance_squared`, and `unit_vector`. For example, `Vector4.{1, 2, 3, 4} * Vector4.{5, 6, 7, 8}` returns `Vector4.{5, 12, 21, 32}`; use `dot_product` for a scalar dot product.
 
-Vector arithmetic lives in `stdlib/internal/numerics/math_vectors.jai` and depends on the vector types and scalar helpers loaded by `Math`, with no configuration flags. Keep the three vector overload families in step and extend `stdlib/Math/tests/vector-arithmetic.jai` when changing them. Quaternion multiplication has its own rotation-composition meaning and is implemented separately in `math_quaternion.jai`.
+Vector arithmetic lives in `stdlib/internal/numerics/math_vectors.jai` and depends on the vector types and scalar helpers loaded by `Math`, with no configuration flags. Keep the three vector overload families in step and extend `stdlib/Math/tests/vector-arithmetic.jai` when changing them. `Vector3` additionally multiplies by a `float64` scale factor on either side (and in `*=`), narrowing it to `float`; no other vector type or operator takes a `float64`. Quaternion multiplication has its own rotation-composition meaning and is implemented separately in `math_quaternion.jai`.
 
 ### Matrix operators
 

@@ -9,6 +9,14 @@ main :: () {
     assert(distance_squared(Vector4.{ 2, -4, 8, -16 }, Vector4.{ 4, 2, -2, -4 }) == 284);
     assert(unit_vector(Vector4.{ 0, 0, 0, 5 }) == Vector4.{ 0, 0, 0, 1 });
     assert(unit_vector(Vector4.{}) == Vector4.{});
+    // A float64 scale factor multiplies a Vector3 from either side and in an assignment.
+    v := Vector3.{ 2, -4, 8 };
+    scale: float64 = 2.0;
+
+    assert(v * scale == Vector3.{ 4, -8, 16 });
+    assert(scale * v == Vector3.{ 4, -8, 16 });
+    v *= scale;
+    assert(v == Vector3.{ 4, -8, 16 });
     print("ok\n");
 }
 

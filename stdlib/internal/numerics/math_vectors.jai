@@ -166,6 +166,15 @@ operator * :: (b: float, a: Vector3) -> Vector3 {
     return a * b;
 }
 
+// A float64 scale factor is narrowed to float32.
+operator * :: (a: Vector3, k: float64) -> Vector3 {
+    return a * cast(float) k;
+}
+
+operator * :: (k: float64, a: Vector3) -> Vector3 {
+    return a * cast(float) k;
+}
+
 make_vector3 :: (x: float) -> Vector3 {
     return .{ x, x, x };
 }
