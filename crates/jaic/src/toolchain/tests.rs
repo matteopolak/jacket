@@ -10,7 +10,7 @@ fn mingw() -> &'static Toolchain {
 }
 
 fn strings(args: &[&str]) -> Vec<String> {
-    args.iter().map(|s| s.to_string()).collect()
+    args.iter().map(ToString::to_string).collect()
 }
 
 #[test]
