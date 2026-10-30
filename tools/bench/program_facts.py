@@ -27,8 +27,9 @@ def disassembler() -> list[str] | None:
     """The command that disassembles an executable's code, or None when there is none."""
     if platform.system() == 'Darwin' and shutil.which('xcrun'):
         return ['xcrun', 'llvm-objdump', '-d', '--no-show-raw-insn']
-    if shutil.which('objdump'):
-        return ['objdump', '-d', '--no-show-raw-insn']
+    for tool in ('objdump', 'llvm-objdump'):
+        if shutil.which(tool):
+            return [tool, '-d', '--no-show-raw-insn']
     return None
 
 
@@ -45,7 +46,8 @@ def static_facts(executable: Path) -> dict:
 
 def counter_command(command: list[str]) -> tuple[list[str], re.Pattern] | None:
     """`command` wrapped so the run reports retired instructions and cycles, or None when the system
-    has no way to read them."""
+    has no way to read them. Windows has none without a driver or an elevated profiler, so the hardware
+    counters are skipped there and only the static facts (file size, instructions in code) remain."""
     if platform.system() == 'Darwin' and Path('/usr/bin/time').exists():
         return ['/usr/bin/time', '-l', *command], TIME_COUNTER
     if platform.system() == 'Linux' and shutil.which('perf'):

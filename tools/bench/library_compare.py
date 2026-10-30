@@ -26,6 +26,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from bench import quiet
 from bench.cmd_compile import install_reads
 from bench.dialects import parse_compiler
 from bench.sandbox import Sandbox, environment
@@ -53,6 +54,10 @@ def jacket_stdlib(jacket: Path) -> list[Path]:
 
 
 def sandbox_for(jacket: Path, upstream: Path, scratch: Path, extra_reads: list[Path], loopback: bool) -> Sandbox:
+    if sys.platform == 'win32':
+        # The library benchmarks start `jacket bench` and servers whose output the harness reads through plain
+        # `subprocess` calls, which would run unsandboxed; only `run_measured` launches into the AppContainer.
+        sys.exit('the library and HTTP comparisons are not supported on Windows (use compile or compare)')
     reads = [*install_reads(parse_compiler(f'jacket={jacket}')), *jacket_stdlib(jacket), upstream, Path(sys.base_prefix), *extra_reads]
     return Sandbox(reads=reads, writes=[scratch], loopback=loopback)
 
@@ -66,7 +71,7 @@ def machine() -> dict[str, str]:
             key, _, value = line.strip().partition(': ')
             if key in ('Chip', 'Total Number of Cores', 'Memory'):
                 info[key.lower().replace(' ', '_')] = value
-    load = os.getloadavg()
+    load = quiet.load_average()
     info['load_average'] = ' '.join(f'{v:.2f}' for v in load)
     return info
 

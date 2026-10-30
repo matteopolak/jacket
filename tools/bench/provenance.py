@@ -55,6 +55,11 @@ def machine_specs() -> dict:
     if platform.system() == 'Darwin':
         info['os_version'] = sh('sw_vers', '-productVersion')
         info['os_build'] = sh('sw_vers', '-buildVersion')
+    elif platform.system() == 'Windows':
+        from bench import winapi
+        facts = winapi.machine_facts()
+        info['os_version'] = facts['os_version'] or platform.version()
+        info['os_build'] = facts['os_build'] or platform.version()
     else:
         info['os_version'] = platform.version()
     return info

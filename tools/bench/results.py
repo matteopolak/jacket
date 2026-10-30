@@ -126,7 +126,13 @@ def sh(*command: str) -> str:
 def machine_info() -> dict:
     info = {'system': platform.system(), 'release': platform.release(), 'machine': platform.machine(),
             'python': platform.python_version(), 'cpus': os.cpu_count()}
-    if platform.system() == 'Darwin':
+    if platform.system() == 'Windows':
+        from bench import winapi
+        facts = winapi.machine_facts()
+        info['cpu'] = facts['cpu'] or platform.processor()
+        memory = str(facts['memory_bytes'])
+        info['power_plan'] = facts['power_plan']
+    elif platform.system() == 'Darwin':
         info['cpu'] = sh('sysctl', '-n', 'machdep.cpu.brand_string')
         memory = sh('sysctl', '-n', 'hw.memsize')
     else:

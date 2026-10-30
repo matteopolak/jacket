@@ -7,6 +7,7 @@ the machine.
 """
 from __future__ import annotations
 
+import csv
 import os
 import re
 import subprocess
@@ -29,6 +30,13 @@ MEMORY_DROP_FRACTION = 0.2
 MEMORY_DROP_MIB = 512
 # A load average rise that counts as a state change, besides being above the limit.
 LOAD_RISE = 1.0
+
+
+# Process names whose Windows image name (without `.exe`, lowercased) competes with a compiler. A
+# running Defender scan is noise too, but it is always running; exclude the benchmark folders from it.
+WINDOWS_NOISY_NAMES = {name.lower() for name in NOISY_NAMES} | {'link', 'lld-link', 'cl', 'msbuild', 'devenv', 'vctip'}
+# How long the Windows load sample watches the CPU.
+WINDOWS_SAMPLE_SECONDS = 0.5
 
 
 def sh(*command: str) -> str:
@@ -92,9 +100,35 @@ def noisy_processes(ps_output: str, ignore_pids: set[int] | None = None) -> list
     return sorted(found)
 
 
+def parse_tasklist(csv_text: str) -> list[str]:
+    """Names of the noisy processes in `tasklist /fo csv /nh` output (`"cargo.exe","123",...`), each once."""
+    found = set()
+    for row in csv.reader(csv_text.splitlines()):
+        if not row:
+            continue
+        name = row[0].lower()
+        name = name[:-4] if name.endswith('.exe') else name
+        if name in WINDOWS_NOISY_NAMES or name.startswith('rustc'):
+            found.add(name)
+    return sorted(found)
+
+
 # ---------------------------------------------------------------------------------------- the machine
 
+def load_average() -> tuple[float, float, float]:
+    """The 1, 5 and 15 minute load averages. Windows has none: it reports the number of busy cores over a
+    short window three times over, which the same thresholds judge the same way (a quarter of the cores
+    busy is a machine that is not quiet)."""
+    if sys.platform == 'win32':
+        from bench import winapi
+        busy = round(winapi.sample_busy_cores(os.cpu_count() or 1, WINDOWS_SAMPLE_SECONDS), 2)
+        return busy, busy, busy
+    return os.getloadavg()
+
+
 def thermal_state() -> dict:
+    if sys.platform == 'win32':
+        return {'source': 'none', 'throttled': None}
     if sys.platform == 'darwin':
         return parse_thermal_macos(sh('pmset', '-g', 'therm'))
     zones = sorted(Path('/sys/class/thermal').glob('thermal_zone*/temp'))
@@ -108,6 +142,9 @@ def thermal_state() -> dict:
 
 
 def power_source() -> str:
+    if sys.platform == 'win32':
+        from bench import winapi
+        return winapi.power_source()
     if sys.platform == 'darwin':
         return parse_power_macos(sh('pmset', '-g', 'batt'))
     supplies = sorted(Path('/sys/class/power_supply').glob('*/online'))
@@ -121,6 +158,12 @@ def power_source() -> str:
 
 
 def free_memory_mib() -> float | None:
+    if sys.platform == 'win32':
+        from bench import winapi
+        try:
+            return round(winapi.memory_status().ullAvailPhys / 2**20, 1)
+        except OSError:
+            return None
     if sys.platform == 'darwin':
         return parse_vm_stat(sh('vm_stat'))
     try:
@@ -129,11 +172,17 @@ def free_memory_mib() -> float | None:
         return None
 
 
+def noisy_now() -> list[str]:
+    if sys.platform == 'win32':
+        return parse_tasklist(sh('tasklist', '/fo', 'csv', '/nh'))
+    return noisy_processes(sh('ps', '-axo', 'pid=,pcpu=,comm='), {os.getpid(), os.getppid()})
+
+
 def snapshot() -> dict:
-    load = os.getloadavg()
+    load = load_average()
     return {'time': time.time(), 'cpus': os.cpu_count(), 'load': [round(v, 2) for v in load],
             'thermal': thermal_state(), 'power': power_source(), 'free_mib': free_memory_mib(),
-            'noisy': noisy_processes(sh('ps', '-axo', 'pid=,pcpu=,comm='), {os.getpid(), os.getppid()})}
+            'noisy': noisy_now()}
 
 
 # --------------------------------------------------------------------------------------------- rules
@@ -188,6 +237,8 @@ def purge_caches() -> tuple[bool, str]:
     `purge` needs root. Without it, `sudo -n` is tried, which works when a sudoers rule allows
     `/usr/sbin/purge` without a password (see docs/tools/benchmarks.md); it never prompts.
     """
+    if sys.platform == 'win32':
+        return False, 'Windows cannot drop its file cache without an elevated memory tool'
     if sys.platform != 'darwin':
         return False, 'no purge command on this platform'
     failure = ''
