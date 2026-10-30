@@ -38,7 +38,7 @@ image="${LINUX_X64_IMAGE:-docker.io/library/rust:1-bookworm}"
 
 usage() {
   sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'
-  exit "${1:-2}"
+  exit 2
 }
 
 [ $# -ge 1 ] || usage
