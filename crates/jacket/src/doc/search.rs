@@ -2,7 +2,7 @@
 //! types it takes and returns, so `-> bool` and `string -> [] string` find procedures.
 use super::markdown::{self, Segment, Settings, plain};
 use super::model::Kind;
-use super::site::{Site, item_line};
+use super::site::{Site, item_line, signature_marked};
 use serde_json::{Value, json};
 
 /// A type with its spaces taken out and its case folded, the form both sides compare.
@@ -78,7 +78,10 @@ pub fn index(site: &Site) -> String {
                 item.name,
                 kind,
                 summary(site, docs, &item.name),
-                item_line(item),
+                match (item.kind, item.overloads.first()) {
+                    (Kind::Procedure, Some(o)) => signature_marked(site, o, mi),
+                    _ => item_line(item),
+                },
                 shapes
             ]));
         }

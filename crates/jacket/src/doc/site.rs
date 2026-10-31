@@ -217,6 +217,13 @@ impl Site {
     /// to its page, builtin types are coloured. Nothing is matched by name alone, so two
     /// modules with a type of the same name each link to their own.
     pub fn type_html(&self, ty: &str, refs: &[TypeRef], here: usize) -> String {
+        self.type_out(ty, refs, here, false)
+    }
+
+    /// `type_html`, or with `marked` the plain text of the type where each link is
+    /// `\u{1}Module/item\u{2}Name\u{3}` and nothing is escaped, which is how the search index
+    /// carries links without carrying their addresses.
+    fn type_out(&self, ty: &str, refs: &[TypeRef], here: usize, marked: bool) -> String {
         let mut out = String::new();
         let chars: Vec<(usize, char)> = ty.char_indices().collect();
         let mut i = 0;
@@ -229,7 +236,11 @@ impl Site {
                     j += 1;
                 }
                 let end = chars.get(j).map_or(ty.len(), |&(b, _)| b);
-                out.push_str(&esc(&ty[start..end]));
+                out.push_str(&if marked {
+                    ty[start..end].to_owned()
+                } else {
+                    esc(&ty[start..end])
+                });
                 i = j;
             } else if c.is_alphabetic() || c == '_' {
                 // A name, with the `.name`s after it: `Hash.Table`.
@@ -247,10 +258,14 @@ impl Site {
                     j += 1;
                 }
                 let end = chars.get(j).map_or(ty.len(), |&(b, _)| b);
-                out.push_str(&self.path_html(&ty[start..end], refs, here));
+                out.push_str(&self.path_out(&ty[start..end], refs, here, marked));
                 i = j;
             } else {
-                out.push_str(&esc(&ty[start..start + c.len_utf8()]));
+                out.push_str(&if marked {
+                    c.to_string()
+                } else {
+                    esc(&ty[start..start + c.len_utf8()])
+                });
                 i += 1;
             }
         }
@@ -259,7 +274,7 @@ impl Site {
 
     /// A written name: its longest start that the compiler resolved to a documented type is
     /// the link (`Kind` of `Kind.MEMBER`), and what follows is plain.
-    fn path_html(&self, path: &str, refs: &[TypeRef], here: usize) -> String {
+    fn path_out(&self, path: &str, refs: &[TypeRef], here: usize, marked: bool) -> String {
         let cuts = path
             .match_indices('.')
             .map(|(i, _)| i)
@@ -273,6 +288,14 @@ impl Site {
                     .find(|(m, _)| *m == here)
                     .or_else(|| targets.first())
             {
+                if marked {
+                    let id = &self.modules[*m].id;
+                    return format!(
+                        "\u{1}{id}/{}\u{2}{head}\u{3}{}",
+                        Self::slug(name),
+                        &path[end..]
+                    );
+                }
                 return format!(
                     "<a class=\"ty\" href=\"{}\">{}</a>{}",
                     esc(&self.item_href(&self.modules[*m].id, name)),
@@ -280,6 +303,9 @@ impl Site {
                     esc(&path[end..])
                 );
             }
+        }
+        if marked {
+            return path.to_owned();
         }
         if BUILTIN_TYPES.contains(&path) {
             return format!("<span class=\"ty\">{}</span>", esc(path));
@@ -295,6 +321,33 @@ pub fn param_text(p: &Param) -> String {
         (true, false) => format!("{} := {}", p.name, p.default),
         (false, false) => format!("{}: {} = {}", p.name, p.ty, p.default),
         (true, true) => p.name.clone(),
+    }
+}
+
+fn param_marked(site: &Site, p: &Param, here: usize) -> String {
+    let ty = site.type_out(&p.ty, &p.refs, here, true);
+    match (p.name.is_empty(), p.ty.is_empty(), p.default.is_empty()) {
+        (_, true, true) => p.name.clone(),
+        (_, true, false) => format!("{} := {}", p.name, p.default),
+        (true, false, true) => ty,
+        (false, false, true) => format!("{}: {ty}", p.name),
+        (_, false, false) => format!("{}: {ty} = {}", p.name, p.default),
+    }
+}
+
+/// `signature_plain` with the type links of `type_out(.., true)`, for the search index.
+pub fn signature_marked(site: &Site, o: &Overload, here: usize) -> String {
+    let list = |ps: &[Param]| {
+        ps.iter()
+            .map(|p| param_marked(site, p, here))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let params = list(&o.params);
+    match o.returns.as_slice() {
+        [] => format!("({params})"),
+        [one] => format!("({params}) -> {}", param_marked(site, one, here)),
+        many => format!("({params}) -> ({})", list(many)),
     }
 }
 
@@ -553,6 +606,20 @@ mod tests {
         assert_eq!(
             site.type_html(":= Thing.ONE", &member, 1),
             ":= <a class=\"ty\" href=\"/api/A/Thing/\">Thing</a>.ONE"
+        );
+        // The search index carries the same choice as a marker, whatever the base address is.
+        let o = Overload {
+            params: vec![Param {
+                name: "x".into(),
+                ty: "*Thing".into(),
+                refs: to_b.to_vec(),
+                ..Param::default()
+            }],
+            ..Overload::default()
+        };
+        assert_eq!(
+            signature_marked(&site, &o, 0),
+            "(x: *\u{1}B/Thing\u{2}Thing\u{3})"
         );
     }
 

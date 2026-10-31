@@ -68,7 +68,6 @@
   var loading = null;
   var hits = [];
   var picked = -1;
-  var typeNames = {};
   var BUILTIN = {};
   'int float float32 float64 bool string void Type Any s8 s16 s32 s64 u8 u16 u32 u64 s128 u128 code Code'.split(' ').forEach(function (n) { BUILTIN[n] = true; });
 
@@ -80,7 +79,6 @@
   function load() {
     if (!loading) {
       loading = fetch(base + 'search-index.json').then(function (r) { return r.json(); }).then(function (d) {
-        d.items.forEach(function (r) { if (r[2] === 'type') typeNames[r[1]] = true; });
         items = d.items.map(function (r) {
           var module = d.modules[r[0]];
           var title = module.split('/').pop();
@@ -157,13 +155,14 @@
     if (text !== undefined) e.textContent = text;
     return e;
   }
-  // A procedure's signature coloured like the one on its page: parameter names, and the types
-  // (builtin ones and the library's own). The result is itself a link, so the types are not.
+  // A procedure's signature coloured like the one on its page: parameter names, builtin types,
+  // and the library's types as links to the declarations the compiler resolved them to. The index
+  // writes a link as \u0001Module/item\u0002Name\u0003.
   function sigNodes(it) {
     var out = document.createDocumentFragment();
     var text = it.sig;
     if (it.kind !== 'proc') { out.appendChild(document.createTextNode(text)); return out; }
-    var re = /"(?:[^"\\]|\\.)*"|[A-Za-z_][A-Za-z0-9_]*|\s+|[\s\S]/g;
+    var re = /\u0001([^\u0002]*)\u0002([^\u0003]*)\u0003|"(?:[^"\\]|\\.)*"|[A-Za-z_][A-Za-z0-9_]*|\s+|[\s\S]/g;
     // Polymorphic names (`$T`) are types wherever they appear in the signature.
     var poly = {};
     text.replace(/\$([A-Za-z_][A-Za-z0-9_]*)/g, function (_, n) { poly[n] = true; return _; });
@@ -171,9 +170,17 @@
     function flush() { if (plain) { out.appendChild(document.createTextNode(plain)); plain = ''; } }
     while ((m = re.exec(text))) {
       var t = m[0];
+      if (m[1] !== undefined) {
+        flush();
+        var a = el('a', 'ty', m[2]);
+        a.href = base + 'api/' + m[1] + '/';
+        out.appendChild(a);
+        prev = m[2];
+        continue;
+      }
       if (/^[A-Za-z_]/.test(t) && prev !== '.') {
         var named = /^\s*:/.test(text.slice(re.lastIndex)) && (prev === '(' || prev === ',' || prev === '$');
-        var cls = named ? 'pname' : (BUILTIN[t] || typeNames[t] || poly[t]) ? 'ty' : '';
+        var cls = named ? 'pname' : (BUILTIN[t] || poly[t]) ? 'ty' : '';
         if (cls) { flush(); out.appendChild(el('span', cls, t)); } else plain += t;
       } else {
         plain += t;
@@ -189,13 +196,14 @@
       box.appendChild(el('div', 'empty', 'No matches.'));
     }
     hits.forEach(function (it, i) {
-      var a = el('a', 'hit');
-      a.href = hrefOf(it);
+      var a = el('div', 'hit');
       a.id = 'hit-' + i;
       a.setAttribute('role', 'option');
       a.setAttribute('aria-selected', i === picked ? 'true' : 'false');
       a.appendChild(el('span', 'kind', kindOf(it)));
-      a.appendChild(el('code', 'path', it.kind === 'module' ? it.title : it.title + '.' + it.name));
+      var name = el('a', 'path', it.kind === 'module' ? it.title : it.title + '.' + it.name);
+      name.href = hrefOf(it);
+      a.appendChild(el('code', '', '')).appendChild(name);
       var sig = el('span', 'sig');
       sig.appendChild(sigNodes(it));
       a.appendChild(sig);
@@ -237,6 +245,10 @@
       } else if (e.key === 'Escape') {
         if (!box.hidden) hide(); else input.blur();
       }
+    });
+    box.addEventListener('click', function (e) {
+      var row = e.target.closest ? e.target.closest('.hit') : null;
+      if (row && !e.target.closest('a') && hits[+row.id.slice(4)]) window.location.href = hrefOf(hits[+row.id.slice(4)]);
     });
     document.addEventListener('click', function (e) {
       if (!box.contains(e.target) && e.target !== input) hide();
