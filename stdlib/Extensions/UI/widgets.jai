@@ -22,6 +22,7 @@ for_expansion :: (container: Container, body: Code, flags: For_Flags) #expand {
 // A container that lays its children out left to right.
 //
 // - style: layout and paint options for the container.
+// - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 row :: (style: Style = .{}, loc := #caller_location) -> Container {
     return .{ begin_container(.HORIZONTAL, .GROUP, style, loc) };
 }
@@ -29,6 +30,7 @@ row :: (style: Style = .{}, loc := #caller_location) -> Container {
 // A container that lays its children out top to bottom.
 //
 // - style: layout and paint options for the container.
+// - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 column :: (style: Style = .{}, loc := #caller_location) -> Container {
     return .{ begin_container(.VERTICAL, .GROUP, style, loc) };
 }
@@ -36,6 +38,7 @@ column :: (style: Style = .{}, loc := #caller_location) -> Container {
 // A container whose children overlap, each filling it (or placed by `align`).
 //
 // - style: layout and paint options for the container.
+// - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 stack :: (style: Style = .{}, loc := #caller_location) -> Container {
     return .{ begin_container(.STACK, .GROUP, style, loc) };
 }
@@ -43,6 +46,7 @@ stack :: (style: Style = .{}, loc := #caller_location) -> Container {
 // A column on the theme's panel colour.
 //
 // - style: layout and paint options. A `background` set here replaces the panel colour.
+// - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 panel :: (style: Style = .{}, loc := #caller_location) -> Container {
     s := style;
     if s.background.w == 0 s.background = context.ui.theme.surface;
@@ -54,6 +58,7 @@ panel :: (style: Style = .{}, loc := #caller_location) -> Container {
 //
 // - style: layout and paint options for the container.
 // - axis: the scrolling direction.
+// - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 scroll :: (style: Style = .{}, axis: Axis = .VERTICAL, loc := #caller_location) -> Container {
     node := begin_container(axis, .SCROLL, style, loc);
     node.scrolls = true;
@@ -75,6 +80,7 @@ Text_Options :: struct {
 //
 // - text: the text to show. It is copied for the frame.
 // - options: size, colour, font and spacing.
+// - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 label :: (text: string, options: Text_Options = .{}, loc := #caller_location) -> *Node {
     ui := context.ui;
     style: Style;
@@ -108,6 +114,7 @@ Button_Options :: struct {
 //
 // - text: the caption. It is copied for the frame.
 // - options: look, size and whether it is enabled.
+// - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 button :: (text: string, options: Button_Options = .{}, loc := #caller_location) -> clicked: bool {
     ui := context.ui;
     t := *ui.theme;
@@ -163,6 +170,7 @@ button :: (text: string, options: Button_Options = .{}, loc := #caller_location)
 //
 // - value: the flag to show and toggle. It is changed in place.
 // - text: a caption next to the box. Empty for none.
+// - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 checkbox :: (value: *bool, text: string = "", loc := #caller_location) -> changed: bool {
     ui := context.ui;
     t := *ui.theme;
@@ -200,6 +208,7 @@ checkbox :: (value: *bool, text: string = "", loc := #caller_location) -> change
 // - text: the row's text. It is copied for the frame.
 // - selected: whether to draw it highlighted.
 // - indent: extra space on the left, in points.
+// - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 list_item :: (text: string, selected: bool = false, indent: float = 0, loc := #caller_location) -> clicked: bool {
     ui := context.ui;
     t := *ui.theme;
@@ -229,6 +238,8 @@ list_item :: (text: string, selected: bool = false, indent: float = 0, loc := #c
 }
 
 // A horizontal rule in a column (a vertical one in a row).
+//
+// - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 separator :: (loc := #caller_location) {
     ui := context.ui;
     parent := ui.stack[ui.stack.count - 1];
@@ -244,6 +255,7 @@ separator :: (loc := #caller_location) {
 // Empty space that grows to fill what is left in its row or column.
 //
 // - grow: its share of the leftover space.
+// - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 spacer :: (grow: float = 1, loc := #caller_location) {
     style: Style;
     style.grow = grow;
@@ -253,6 +265,7 @@ spacer :: (grow: float = 1, loc := #caller_location) {
 // A row of tabs.
 //
 // - style: layout and paint options for the container.
+// - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 tab_bar :: (style: Style = .{}, loc := #caller_location) -> Container {
     s := style;
     if s.background.w == 0 s.background = context.ui.theme.surface;
@@ -278,6 +291,7 @@ Tab_Options :: struct {
 // - text: the tab's title. It is copied for the frame.
 // - active: whether this is the selected tab.
 // - options: whether it shows an unsaved dot or a close button.
+// - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 tab :: (text: string, active: bool, options: Tab_Options = .{}, loc := #caller_location) -> Tab_Result {
     ui := context.ui;
     t := *ui.theme;
@@ -346,6 +360,7 @@ Split_Options :: struct {
 // - position: the first pane's size in points. It is clamped to the options' limits and updated
 //   while the divider is dragged.
 // - options: the smallest and largest size of the first pane.
+// - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 split :: (axis: Axis, position: *float, options: Split_Options = .{}, loc := #caller_location) -> Split {
     node := begin_container(axis, .SPLIT, .{}, loc);
     node.style.grow = 1;
@@ -391,6 +406,7 @@ for_expansion :: (s: Split, body: Code, flags: For_Flags) #expand {
 // Draws and drags the divider between split panes.
 //
 // - s: the split the divider belongs to.
+// - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 divider :: (s: Split, loc := #caller_location) {
     ui := context.ui;
     horizontal := s.axis == .HORIZONTAL;

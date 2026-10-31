@@ -226,6 +226,7 @@ for_expansion :: (rows: *Rows($T), body: Code, flags: For_Flags) #expand {
 // - args: one value per `%`, in order.
 // - plan: `.AUTO` runs it as a cached named statement; `.CUSTOM` plans it again on every run.
 // - json: decoding options for json columns in this query; they apply over the connection's and the column's.
+// - call: the code of the call, which lets the query text be checked while compiling. Leave the default.
 query :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $call := #caller_code) -> Rows(#run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1)))), Pg_Error #expand {
     #run check_statement(sql, call, 1, true);
 
@@ -244,6 +245,7 @@ query :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Opt
 // - args: one value per `%`, in order.
 // - plan: `.AUTO` runs it as a cached named statement; `.CUSTOM` plans it again on every run.
 // - json: decoding options for json columns in this query; they apply over the connection's and the column's.
+// - call: the code of the call, which lets the query text be checked while compiling. Leave the default.
 query_one :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $call := #caller_code) -> #run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1))), Pg_Error #expand {
     #run check_statement(sql, call, 1, true);
 
@@ -275,6 +277,7 @@ query_one :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json
 // - args: one value per `%`, in order.
 // - plan: `.AUTO` runs it as a cached named statement; `.CUSTOM` plans it again on every run.
 // - json: decoding options for json columns in this query; they apply over the connection's and the column's.
+// - call: the code of the call, which lets the query text be checked while compiling. Leave the default.
 query_opt :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $call := #caller_code) -> #run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1))), bool, Pg_Error #expand {
     #run check_statement(sql, call, 1, true);
 
@@ -306,6 +309,7 @@ query_opt :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json
 // - plan: `.AUTO` runs it as a cached named statement; `.CUSTOM` plans it again on every run.
 // - json: decoding options for json columns in this query; they apply over the connection's and the column's.
 // - project_file: the file whose project the statement belongs to; empty for the file of the call.
+// - call: the code of the call, which lets the query text be checked while compiling. Leave the default.
 execute :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $project_file := "", $call := #caller_code) -> s64, Pg_Error #expand {
     #run check_statement(sql, call, 1, false, project_file);
 
@@ -325,6 +329,7 @@ execute :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_O
 // - p: the pipeline to queue on.
 // - sql: the statement, as for `query`.
 // - args: one value per `%`, in order.
+// - call: the code of the call, which lets the query text be checked while compiling. Leave the default.
 //
 // ```jai,ignore
 // p := Pg.pipeline_enter(c);
@@ -349,6 +354,7 @@ queue :: (p: *Pipeline, $sql: string, args: ..Any, $call := #caller_code) -> Pen
 // - p: the pipeline to queue on.
 // - sql: the statement, as for `execute`.
 // - args: one value per `%`, in order.
+// - call: the code of the call, which lets the query text be checked while compiling. Leave the default.
 queue_execute :: (p: *Pipeline, $sql: string, args: ..Any, $call := #caller_code) -> Pending(s64), Pg_Error #expand {
     #run check_statement(sql, call, 1, false);
 
@@ -370,6 +376,7 @@ queue_execute :: (p: *Pipeline, $sql: string, args: ..Any, $call := #caller_code
 // - sql: the statement, as for `query`.
 // - args: one value per `%`, in order.
 // - batch: how many rows arrive at a time.
+// - call: the code of the call, which lets the query text be checked while compiling. Leave the default.
 //
 // ```jai,ignore
 // error: Pg.Pg_Error;
@@ -459,6 +466,7 @@ for_expansion :: (stream: *Row_Stream($T), body: Code, flags: For_Flags) #expand
 // - args: one value per `%`, in order.
 // - plan: `.AUTO` runs it as a cached named statement; `.CUSTOM` plans it again on every run.
 // - json: decoding options for json columns in this query; they apply over the connection's and the column's.
+// - call: the code of the call, which lets the query text be checked while compiling. Leave the default.
 query_scalar :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $call := #caller_code) -> type_of(Scalar(#run scalar_type(sql, call, 1)).value), Pg_Error #expand {
     #run check_statement(sql, call, 1, true);
 
@@ -493,6 +501,7 @@ query_scalar :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := J
 // - plan: `.AUTO` runs it as a cached named statement; `.CUSTOM` plans it again on every run.
 // - json: decoding options for json columns in this query; they apply over the connection's and the column's.
 // - project_file: the file whose project the statement belongs to; empty for the file of the call.
+// - call: the code of the call, which lets the query text be checked while compiling. Leave the default.
 query_as :: ($T: Type, db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_Options.{}, $project_file := "", $call := #caller_code) -> Rows(T), Pg_Error #expand {
     #run check_statement_as(T, sql, call, 2, project_file);
 

@@ -53,6 +53,7 @@ Matcher :: struct {
 //
 // - value: the value to check.
 // - matcher: what it should be.
+// - loc: where the check is written, shown when it fails. Leave the default.
 assert_that :: (value: $T, matcher: Matcher, loc := #caller_location) -> bool {
     if holds(value, matcher) return true;
     report_failure(loc, failure_message(value, matcher, false));
@@ -64,6 +65,7 @@ assert_that :: (value: $T, matcher: Matcher, loc := #caller_location) -> bool {
 //
 // - value: the value to check.
 // - matcher: what it should be.
+// - loc: where the check is written, shown when it fails. Leave the default.
 require_that :: (value: $T, matcher: Matcher, loc := #caller_location) #expand {
     if !assert_that(value, matcher, loc) `return;
 }

@@ -275,6 +275,7 @@ prepare_password :: (password: string) -> string {
 // `scram_iterations`, 4096 by default.
 //
 // - password: the plain password.
+// - iterations: how many rounds of hashing to apply.
 scram_secret :: (password: string, iterations := 4096) -> string {
     salt: [16] u8;
 

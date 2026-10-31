@@ -7,6 +7,7 @@
 //
 // - condition: what must be true.
 // - message: what to report instead of the default.
+// - loc: where the check is written, shown when it fails. Leave the default.
 expect :: (condition: bool, message := "", loc := #caller_location) -> bool {
     if condition return true;
     report_failure(loc, ifx message then message else "expected true, got false");
@@ -19,6 +20,7 @@ expect :: (condition: bool, message := "", loc := #caller_location) -> bool {
 //
 // - got: the value under test.
 // - want: the value it must equal.
+// - loc: where the check is written, shown when it fails. Leave the default.
 expect_equal :: (got: $T, want: $U, loc := #caller_location) -> bool {
     if values_equal(got, want) return true;
     report_failure(loc, describe_difference(got, want));
@@ -38,6 +40,7 @@ expect_equal :: (got: $T, want: $U, loc := #caller_location) -> bool {
 // - got: the value under test.
 // - want: the value it should be close to.
 // - tolerance: the largest allowed difference.
+// - loc: where the check is written, shown when it fails. Leave the default.
 expect_near :: (got: float64, want: float64, tolerance: float64, loc := #caller_location) -> bool {
     difference := got - want;
     if difference < 0 difference = -difference;
@@ -51,6 +54,7 @@ expect_near :: (got: float64, want: float64, tolerance: float64, loc := #caller_
 // Checks that `pointer` is null.
 //
 // - pointer: the pointer that must be null.
+// - loc: where the check is written, shown when it fails. Leave the default.
 expect_null :: (pointer: *$T, loc := #caller_location) -> bool {
     if pointer == null return true;
     report_failure(loc, tprint("expected null, got %", cast(*void) pointer));
@@ -60,6 +64,7 @@ expect_null :: (pointer: *$T, loc := #caller_location) -> bool {
 // Checks that `pointer` is not null.
 //
 // - pointer: the pointer that must not be null.
+// - loc: where the check is written, shown when it fails. Leave the default.
 expect_not_null :: (pointer: *$T, loc := #caller_location) -> bool {
     if pointer != null return true;
     report_failure(loc, "expected a pointer, got null");
@@ -71,6 +76,7 @@ expect_not_null :: (pointer: *$T, loc := #caller_location) -> bool {
 //
 // - condition: what must be true.
 // - message: what to report instead of the default.
+// - loc: where the check is written, shown when it fails. Leave the default.
 require :: (condition: bool, message := "", loc := #caller_location) #expand {
     if !expect(condition, message, loc) `return;
 }
@@ -79,6 +85,7 @@ require :: (condition: bool, message := "", loc := #caller_location) #expand {
 //
 // - got: the value under test.
 // - want: the value it must equal.
+// - loc: where the check is written, shown when it fails. Leave the default.
 require_equal :: (got: $T, want: $U, loc := #caller_location) #expand {
     if !expect_equal(got, want, loc) `return;
 }
@@ -88,6 +95,7 @@ require_equal :: (got: $T, want: $U, loc := #caller_location) #expand {
 // - got: the value under test.
 // - want: the value it should be close to.
 // - tolerance: the largest allowed difference.
+// - loc: where the check is written, shown when it fails. Leave the default.
 require_near :: (got: float64, want: float64, tolerance: float64, loc := #caller_location) #expand {
     if !expect_near(got, want, tolerance, loc) `return;
 }
@@ -95,6 +103,7 @@ require_near :: (got: float64, want: float64, tolerance: float64, loc := #caller
 // `expect_not_null`, then returns from the calling procedure on a failure.
 //
 // - pointer: the pointer that must not be null.
+// - loc: where the check is written, shown when it fails. Leave the default.
 require_not_null :: (pointer: *$T, loc := #caller_location) #expand {
     if !expect_not_null(pointer, loc) `return;
 }

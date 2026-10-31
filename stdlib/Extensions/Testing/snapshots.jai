@@ -22,6 +22,7 @@
 // - t: the running test.
 // - value: what to snapshot.
 // - name: tells snapshots of one test apart; empty numbers them.
+// - loc: where the check is written, shown when it fails. Leave the default.
 expect_snapshot :: (t: *Test, value: Any, name := "", loc := #caller_location) -> bool {
     return check_snapshot(t, snapshot_text(value), name, loc);
 }
@@ -31,6 +32,7 @@ expect_snapshot :: (t: *Test, value: Any, name := "", loc := #caller_location) -
 // - t: the running test.
 // - text: the text to compare, as it is.
 // - name: tells snapshots of one test apart; empty numbers them.
+// - loc: where the check is written, shown when it fails. Leave the default.
 expect_snapshot :: (t: *Test, text: string, name := "", loc := #caller_location) -> bool {
     return check_snapshot(t, text, name, loc);
 }

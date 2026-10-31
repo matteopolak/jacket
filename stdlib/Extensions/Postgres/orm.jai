@@ -28,6 +28,7 @@ NO_ORDER :: #code null;
 // - offset: how many rows to skip first.
 // - from_sql: a query to select from instead of the table.
 // - fields: the comma-separated columns to select. All by default.
+// - call: the code of the call, which lets the query text be checked while compiling. Leave the default.
 select :: (db: $D, $T: Type, $where: Code = EVERY_ROW, $order_by: Code = NO_ORDER, $desc := false, $limit := -1, $offset := 0, $from_sql := "", $fields := "", $call := #caller_code) -> Rows(#insert #run orm_select_row(fields)), Pg_Error #expand {
     #insert #run orm_statement_code(T, .SELECT, where, order_by, where, desc, limit, offset, from_sql, fields, call);
 }
@@ -49,6 +50,7 @@ Partial :: struct(T: Type, fields: string) {
 // - T: the table struct.
 // - set: the assignments to make.
 // - where: the filter.
+// - call: the code of the call, which lets the query text be checked while compiling. Leave the default.
 update :: (db: $D, $T: Type, $set: Code, $where: Code, $call := #caller_code) -> s64, Pg_Error #expand {
     #insert #run orm_statement_code(T, .UPDATE, where, where, set, false, -1, 0, "", "", call);
 }
@@ -59,6 +61,7 @@ update :: (db: $D, $T: Type, $set: Code, $where: Code, $call := #caller_code) ->
 // - db: a connection or pool.
 // - T: the table struct.
 // - where: the filter.
+// - call: the code of the call, which lets the query text be checked while compiling. Leave the default.
 delete :: (db: $D, $T: Type, $where: Code, $call := #caller_code) -> s64, Pg_Error #expand {
     #insert #run orm_statement_code(T, .DELETE, where, where, where, false, -1, 0, "", "", call);
 }
@@ -69,6 +72,7 @@ delete :: (db: $D, $T: Type, $where: Code, $call := #caller_code) -> s64, Pg_Err
 //
 // - db: a connection or pool.
 // - value: the row to insert.
+// - call: the code of the call, which lets the query text be checked while compiling. Leave the default.
 insert :: (db: $D, value: $T, $call := #caller_code) -> T, Pg_Error #expand {
     #insert #run orm_insert_code(T, call);
 }
@@ -78,6 +82,7 @@ insert :: (db: $D, value: $T, $call := #caller_code) -> T, Pg_Error #expand {
 //
 // - db: a connection or pool.
 // - values: the rows to insert.
+// - call: the code of the call, which lets the query text be checked while compiling. Leave the default.
 insert_many :: (db: $D, values: [] $T, $call := #caller_code) -> [] T, Pg_Error {
     rows: [..] T;
 
@@ -109,6 +114,7 @@ insert_many :: (db: $D, values: [] $T, $call := #caller_code) -> [] T, Pg_Error 
 // - offset: how many rows to skip first.
 // - from_sql: a query to select from instead of the table.
 // - strategy: how to load has-many relations the body reads.
+// - call: the code of the call, which lets the query text be checked while compiling. Leave the default.
 //
 // ```jai,ignore
 // error: Pg.Pg_Error;
@@ -177,6 +183,7 @@ Loaded_One :: struct(Item: Type) {
 // - db: a connection or pool.
 // - parents: the rows to load for.
 // - relation: the name of the `@pg_has_many` relation.
+// - call: the code of the call, which lets the query text be checked while compiling. Leave the default.
 load_many :: (db: $D, parents: [] $T, $relation: string, $call := #caller_code) -> Loaded_Many(#insert,scope(call) #run orm_relation_target(T, relation, .HAS_MANY)), Pg_Error #expand {
     #insert #run orm_load_code(T, relation, .HAS_MANY, "", orm_project_argument(call));
 }
@@ -186,6 +193,7 @@ load_many :: (db: $D, parents: [] $T, $relation: string, $call := #caller_code) 
 // - db: a connection or pool.
 // - parents: the rows to load for.
 // - relation: the name of the `@pg_belongs_to` relation.
+// - call: the code of the call, which lets the query text be checked while compiling. Leave the default.
 load_one :: (db: $D, parents: [] $T, $relation: string, $call := #caller_code) -> Loaded_One(#insert,scope(call) #run orm_relation_target(T, relation, .BELONGS_TO)), Pg_Error #expand {
     #insert #run orm_load_code(T, relation, .BELONGS_TO, "", orm_project_argument(call));
 }

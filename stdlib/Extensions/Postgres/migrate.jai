@@ -40,6 +40,7 @@ MIGRATIONS_TABLE :: "jacket_migrations";
 // stops the compile.
 //
 // - folder: the migrations folder.
+// - location: the call site, which a relative `folder` starts from. Leave the default.
 load_migrations :: (folder: string, location := #caller_location) -> [] Migration {
     migrations, problem := read_migrations(folder, location.fully_pathed_filename);
     if problem {

@@ -534,6 +534,7 @@ paste_clipboard :: (ui: *UI_State, edit: *Text_Edit) {
 //
 // - edit: the text being edited.
 // - options: font, size, line numbers, highlighting, marks, read-only mode and tab width.
+// - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 //
 // ```jai,ignore
 // if text_editor(*doc.edit, .{line_numbers = true, highlight = highlight_jai}) doc.dirty = true;
@@ -550,6 +551,7 @@ text_editor :: (edit: *Text_Edit, options: Editor_Options = .{}, loc := #caller_
 // - edit: the text being edited.
 // - options: placeholder, size and read-only mode. The font is always the sans one, with no line
 //   numbers and no growing.
+// - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 text_field :: (edit: *Text_Edit, options: Editor_Options = .{}, loc := #caller_location) -> changed: bool, submitted: bool {
     edit.single_line = true;
     opts := options;

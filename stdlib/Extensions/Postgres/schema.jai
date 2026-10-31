@@ -58,6 +58,7 @@ SCHEMA_HASH_MARKER :: "// schema hash: ";
 // ones in the project now. Needs no server: it compares hashes of `db/migrations/*.sql`.
 //
 // - file: the generated schema file.
+// - location: where the call is written, used to point a problem at it. Leave the default.
 check_schema :: (file: string, location := #caller_location) {
     problem := schema_problem(file);
     if !problem return;
@@ -98,6 +99,7 @@ recorded_schema_hash :: (text: string) -> string {
 //
 // - mappings: the `Json_Columns` list.
 // - known: "table.column" of every json or jsonb column in the schema.
+// - location: where the call is written, used to point a problem at it. Leave the default.
 check_json_columns :: (mappings: [] Json_Column, known: [] string, location := #caller_location) {
     for mapping: mappings {
         if array_find(known, mapping.column) continue;

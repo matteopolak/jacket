@@ -74,6 +74,7 @@ skip :: (t: *Test, reason := "") #expand {
 //
 // - t: the running test.
 // - message: what to report.
+// - loc: where the check is written, shown when it fails. Leave the default.
 fail :: (t: *Test, message := "failed", loc := #caller_location) {
     report_failure(loc, message);
 }
@@ -82,6 +83,7 @@ fail :: (t: *Test, message := "failed", loc := #caller_location) {
 // (`--keep-temp` keeps it); subtests share their test's directory.
 //
 // - t: the running test, or any of its subtests.
+// - loc: where the call is written, shown if the test was given no directory. Leave the default.
 temp_dir :: (t: *Test, loc := #caller_location) -> string {
     root := t;
     while root.parent root = root.parent;
