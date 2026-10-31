@@ -309,12 +309,16 @@ mod imp {
         Ok(f())
     }
 
+    #[cfg(all(unix, any(target_os = "macos", target_os = "linux")))]
     pub fn redirect(_address: usize, _context: *mut std::ffi::c_void) -> bool {
         false
     }
 }
 
-pub use imp::{guarded, redirect};
+pub use imp::guarded;
+// Only the signal handler of `crash.rs` redirects faults.
+#[cfg(all(unix, any(target_os = "macos", target_os = "linux")))]
+pub use imp::redirect;
 
 #[cfg(all(
     test,

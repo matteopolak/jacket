@@ -2,6 +2,7 @@
 use jaic::sema::{Compiler, Options, VirtualFs};
 use std::path::Path;
 use std::rc::Rc;
+#[cfg(unix)]
 use test_support::TempDir;
 
 fn compiler(files: &[(&str, &str)], bootstrap: bool) -> Compiler {

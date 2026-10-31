@@ -60,6 +60,8 @@ pub struct Raw {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Ending {
     Exited(i32),
+    /// Only a Unix process is ended by a signal.
+    #[cfg_attr(not(unix), allow(dead_code))]
     Signal(i32),
     /// Killed after the running test passed its timeout.
     TimedOut,

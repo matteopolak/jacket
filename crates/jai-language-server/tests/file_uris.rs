@@ -1,6 +1,7 @@
 //! Original URI/path boundary fixtures; no library API assumptions or program execution.
 use jai_language_server::{DocumentUri, Environment, Limits, Position, Session};
 use std::path::{Path, PathBuf};
+#[cfg(unix)]
 use test_support::TempDir;
 use test_support::lsp::{at_last, file_uri, lean_session};
 

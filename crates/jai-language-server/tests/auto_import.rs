@@ -1,8 +1,6 @@
 //! Auto-import completion: stdlib modules, the project's modules and files, where the edit goes,
 //! what is left out, ranking and the setting.
-use jai_language_server::{
-    CompletionItem, CompletionList, DocumentUri, JsonSession, Limits, Position, Session,
-};
+use jai_language_server::{CompletionItem, CompletionList, JsonSession, Limits, Position, Session};
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 use test_support::lsp::{end_of, environment_at, modules_environment, project, uri_of};
@@ -823,7 +821,7 @@ fn filesystem_aliases_keep_relative_loads_and_refresh_missing_files() {
             .additional_edits,
         [] as [jai_language_server::TextEdit; 0]
     );
-    let uri = DocumentUri::from_path(&main).unwrap();
+    let uri = jai_language_server::DocumentUri::from_path(&main).unwrap();
     let list = s.completion(&uri, end_of(text, "extra_n")).unwrap();
     assert!(
         auto(&list, "extra_name")[0].additional_edits[0]

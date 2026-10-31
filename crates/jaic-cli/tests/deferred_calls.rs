@@ -4,6 +4,7 @@ use std::{
     process::{Command, Output},
 };
 use test_support::plugin::registration_fixture as fixture;
+#[cfg(not(target_os = "windows"))]
 use test_support::toolchain;
 
 fn run(name: &str, mode: &str) -> Output {

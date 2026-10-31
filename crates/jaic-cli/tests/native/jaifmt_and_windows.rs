@@ -259,6 +259,10 @@ fn jaifmt_is_idempotent_on_the_repository() {
                     permissions.set_mode(permissions.mode() | 0o200);
                 }
                 #[cfg(not(unix))]
+                #[expect(
+                    clippy::permissions_set_readonly_false,
+                    reason = "off Unix, read-only is the only permission bit there is"
+                )]
                 permissions.set_readonly(false);
                 std::fs::set_permissions(&destination, permissions).unwrap();
                 *count += 1;

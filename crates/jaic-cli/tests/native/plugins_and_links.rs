@@ -1,7 +1,9 @@
 //! Plugins, custom link steps and workspace output.
 use super::{build_and_run, corpus_cases, exe_path, jaic, matches, repo_root};
 use std::process::Command;
-use test_support::{TempDir, toolchain};
+use test_support::TempDir;
+#[cfg(unix)]
+use test_support::toolchain;
 
 /// `jaic file.jai +Name` writes the program the plugin's workspace compiled, to `-exe` or,
 /// without it, next to the source under the source's name.

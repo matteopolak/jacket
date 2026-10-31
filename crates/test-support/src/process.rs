@@ -60,7 +60,7 @@ pub fn success_with_stdout(output: impl Borrow<Output>, expected: &str) {
     assert_eq!(String::from_utf8_lossy(&output.stdout), expected);
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
 
