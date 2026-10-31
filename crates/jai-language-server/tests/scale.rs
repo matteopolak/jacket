@@ -108,21 +108,30 @@ fn large_document_opens_and_answers() {
 /// a minute for 25,000 lines.
 #[test]
 fn semantic_tokens_of_many_unchecked_calls_parse_the_file_once() {
-    let count = 3_000;
-    let mut text = String::new();
-    for i in 0..count {
-        text.push_str(&format!(
-            "narrow_{i} :: (a: int) -> u8 {{ return cast,trunc(u8) a; }}\n"
-        ));
-    }
-    let uri = file_uri("/lsp-scale-test/unchecked-calls.jai");
-    let mut s = session();
-    s.open(uri.clone(), 1, text.clone()).unwrap();
-    let start = Instant::now();
-    let tokens = s.semantic_tokens(&uri).unwrap();
-    let elapsed = start.elapsed();
-    assert!(tokens.len() > count, "{} tokens", tokens.len());
-    assert!(elapsed < Duration::from_secs(4), "took {elapsed:?}");
+    // Ten times the calls should take about ten times as long. Parsing the file again per call made
+    // it about a hundred. Comparing two sizes keeps the test steady on slow or busy machines.
+    let time = |count: usize| {
+        let mut text = String::new();
+        for i in 0..count {
+            text.push_str(&format!(
+                "narrow_{i} :: (a: int) -> u8 {{ return cast,trunc(u8) a; }}\n"
+            ));
+        }
+        let uri = file_uri(&format!("/lsp-scale-test/unchecked-calls-{count}.jai"));
+        let mut s = session();
+        s.open(uri.clone(), 1, text).unwrap();
+        let start = Instant::now();
+        let tokens = s.semantic_tokens(&uri).unwrap();
+        let elapsed = start.elapsed();
+        assert!(tokens.len() > count, "{} tokens", tokens.len());
+        elapsed
+    };
+    let small = time(300);
+    let large = time(3_000);
+    assert!(
+        large < Duration::from_secs(1) || large < small * 40,
+        "300 calls took {small:?}, 3000 took {large:?}"
+    );
 }
 
 /// A `didOpen` message past the old 1 MiB cap is accepted, and later requests find the document.
