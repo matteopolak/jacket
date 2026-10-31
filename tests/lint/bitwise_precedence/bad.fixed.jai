@@ -8,6 +8,7 @@ main :: () {
     set := (flags | 1) << 3;
     low := (x & 0xFF) + 1;
     mixed := (flags ^ flags) & 4;
+    packed := (n << 8 | flags) << 4;
 
-    print("% % % % %\n", mask, set, low, mixed, n * (2 >> 1));
+    print("% % % % % %\n", mask, set, low, mixed, packed, n * (2 >> 1));
 }

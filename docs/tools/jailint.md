@@ -104,7 +104,7 @@ The call site then depends on the parameter types: changing `draw` to take a `fl
 ### banner_comment
 A comment of three or more of `-=*#~_` and nothing else, line or block (`// ------`). Name the section in one plain `// Names` line instead, or split the file. Rust and Python files are held to the same rule by `tools/ci/check_source_style.py`. Generated files are skipped. `--fix` removes the line; a section name on a line of its own stays.
 ### bitwise_precedence
-Jai gives all bitwise and shift operators one level above `*`, grouped left to right, so `1 << n - 1` is `(1 << n) - 1`. The fix adds the parentheses Jai already implies; move them if the C reading was meant.
+Jai gives all bitwise and shift operators one level above `*`, grouped left to right, so `1 << n - 1` is `(1 << n) - 1`. It also catches `a << 8 | b << 4`, which is `((a << 8) | b) << 4`, not two shifts joined by an or. The fix adds the parentheses Jai already implies; move them if the C reading was meant.
 ### bool_comparison
 Only when the other side is a non-constant `bool`.
 ### bool_to_int_with_if
