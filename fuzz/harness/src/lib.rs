@@ -266,8 +266,8 @@ fn query_all(session: &Session, uri: &DocumentUri, text: &str) {
         let _ = session.definition(uri, p);
     }
     // Completion compiles the text with the word at the cursor cut out, a fresh compile per
-    // offset, so it gets a few offsets only (libFuzzer needs many executions per second).
-    let step = offsets.len().div_ceil(4).max(1);
+    // offset, so it gets two offsets only (libFuzzer needs many executions per second).
+    let step = offsets.len().div_ceil(2).max(1);
     for &at in offsets.iter().skip(step / 2).step_by(step) {
         let _ = session.completion(uri, position(text, at));
     }
@@ -288,7 +288,10 @@ fn query_all(session: &Session, uri: &DocumentUri, text: &str) {
         },
     ] {
         let _ = session.hover(uri, p);
-        let _ = session.completion(uri, p);
+        if p.line == last.line + 1 && p.character == 0 {
+            // One completion past the end of the document: a compile each, so no more.
+            let _ = session.completion(uri, p);
+        }
     }
 }
 
@@ -320,6 +323,9 @@ pub fn lsp(data: &[u8]) {
             && let Ok(edited) = session.document_text(&uri).map(str::to_owned)
         {
             query_all(&session, &uri, &edited);
+        }
+        if verbose() {
+            eprintln!("compiles: {}", session.compile_counts().0);
         }
     });
 }
