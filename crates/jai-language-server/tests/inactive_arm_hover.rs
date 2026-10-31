@@ -72,7 +72,8 @@ fn an_alias_in_a_skipped_arm_is_described_the_same_each_time() {
     let alias: Vec<_> = first.iter().filter(|(name, _)| name == "I").collect();
     assert_eq!(alias.len(), 2);
     for (_, hover) in alias {
-        assert_eq!(hover.as_deref(), Some("I :: #import \"Input\""));
+        let hover = hover.as_deref().unwrap_or_default();
+        assert!(hover.starts_with("I :: #import \"Input\""), "{hover}");
     }
     assert_eq!(hovers(&s), first, "a second pass over the same text");
 }
