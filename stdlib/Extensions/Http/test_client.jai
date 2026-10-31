@@ -2,13 +2,15 @@
 // `Client` as the real one: every call (`get`, `post`, `send`, `read_json`...) works on it and returns
 // the same types, and relative URLs (`"/notes/1"`) are what you write.
 //
-//     app: App;
-//     get(*app, "/notes/{id}", get_note);
+// ```jai,ignore
+// app: App;
+// get(*app, "/notes/{id}", get_note);
 //
-//     api := test_client(*app);
+// api := test_client(*app);
 //
-//     response := get(api, "/notes/1");
-//     expect_status(response, 200);
+// response := get(api, "/notes/1");
+// expect_status(response, 200);
+// ```
 //
 // Each request goes through a connection made of two ends of an in-memory pipe (`Io.make_pipe`):
 // the app's real connection loop reads it, so the codec, framing, keep-alive, middleware,

@@ -2,14 +2,16 @@
 // connection, an in-memory pipe, or a source of your own, all reached through the same five
 // operations:
 //
-//     file, error := open_file("log.txt", .READ);
-//     defer close(*file);
+// ```jai,ignore
+// file, error := open_file("log.txt", .READ);
+// defer close(*file);
 //
-//     source := reader_of(*file);
+// source := reader_of(*file);
 //
-//     header: [16] u8;
-//     count, error = read_full(source, header);      // exactly 16 bytes, or .END_OF_FILE
-//     rest, error  = read_all(source);               // everything that is left
+// header: [16] u8;
+// count, error = read_full(source, header);      // exactly 16 bytes, or .END_OF_FILE
+// rest, error  = read_all(source);               // everything that is left
+// ```
 //
 // `read` (some bytes), `read_full` (all of a buffer), `write` (all of the bytes), `write_some`
 // (at least one byte) and `close` exist for `*Io_File`, `Tcp_Stream` and `*Pipe_Stream` directly,
@@ -25,9 +27,11 @@
 //
 // A source of your own is a struct with a pointer and the procedures:
 //
-//     counter_read :: (data: *void, buffer: [] u8) -> s64, Io_Error { ... }
+// ```jai,ignore
+// counter_read :: (data: *void, buffer: [] u8) -> s64, Io_Error { ... }
 //
-//     source := Io.Reader.{ data = *mine, read_proc = counter_read };
+// source := Io.Reader.{ data = *mine, read_proc = counter_read };
+// ```
 //
 // Any `Io_Error` other than `.NONE` comes with 0 bytes (or, for `read_full` and `write`, with the
 // number of bytes that did go through).

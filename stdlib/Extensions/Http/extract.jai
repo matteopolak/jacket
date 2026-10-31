@@ -3,7 +3,9 @@
 // against the route template and generates the code that fills them in, so a handler is just a
 // function:
 //
-//     get_user :: (id: Path("id", int), search: Query(Search), request: *Request) -> User, Http_Error { ... }
+// ```jai,ignore
+// get_user :: (id: Path("id", int), search: Query(Search), request: *Request) -> User, Http_Error { ... }
+// ```
 //
 // Each extractor is a polymorphic struct with the decoded value in a member. `Path`, `Rest`,
 // `Header` and `Header_Optional` name it `value`. The ones that decode a whole `T` (`Params`,

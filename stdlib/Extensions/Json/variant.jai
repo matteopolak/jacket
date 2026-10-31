@@ -1,10 +1,12 @@
 // Variants in JSON: how Extensions/Variant's tagged unions are encoded and decoded, and the small
 // run-time helpers the generated decoders call. The forms, as serde calls them:
 //
-//     externally tagged   {"Circle": {"r": 1}}                  the default, unless every case is a scalar
-//     internally tagged   {"kind": "Circle", "r": 1}            @json(tag=kind), every case a struct
-//     adjacently tagged   {"t": "Circle", "c": {"r": 1}}        @json(tag=t, content=c)
-//     untagged            {"r": 1}                              @json(untagged); the default for scalar cases
+// ```
+// externally tagged   {"Circle": {"r": 1}}                  the default, unless every case is a scalar
+// internally tagged   {"kind": "Circle", "r": 1}            @json(tag=kind), every case a struct
+// adjacently tagged   {"t": "Circle", "c": {"r": 1}}        @json(tag=t, content=c)
+// untagged            {"r": 1}                              @json(untagged); the default for scalar cases
+// ```
 //
 // `@json(tags=circle,rect)` names the tags instead of using the case types' names.
 

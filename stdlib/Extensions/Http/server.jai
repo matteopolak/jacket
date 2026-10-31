@@ -2,13 +2,15 @@
 // codec and answered one after another on the connection (pipelined requests are answered in
 // order and their responses written together).
 //
-//     error := serve(*app);              // production: every core, Ctrl-C drains connections
-//     if error.kind != .NONE { print("%\n", error_text(error)); exit(1); }
+// ```jai,ignore
+// error := serve(*app);              // production: every core, Ctrl-C drains connections
+// if error.kind != .NONE { print("%\n", error_text(error)); exit(1); }
 //
-//     server, error := start(*app);      // inside Io.io_run: tests and programs that do more
-//     ...
-//     stop(server);
-//     wait(server);
+// server, error := start(*app);      // inside Io.io_run: tests and programs that do more
+// ...
+// stop(server);
+// wait(server);
+// ```
 
 // Why a server did not start (`Serve_Error.kind`), with `.NONE` for success. The comments say what each kind points at. Routes are
 // checked when the server starts, not when they are added, so a conflict shows up here.

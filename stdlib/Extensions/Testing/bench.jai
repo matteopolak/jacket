@@ -4,14 +4,16 @@
 // raw (iterations, nanoseconds) pairs to jacket, which fits the line and reports the slope.
 // See docs/tools/jacket-bench.md.
 //
-//     hashing :: (b: *Bench) {
-//         text := "the quick brown fox";
-//         set_bytes(b, text.count);
+// ```jai,ignore
+// hashing :: (b: *Bench) {
+//     text := "the quick brown fox";
+//     set_bytes(b, text.count);
 //
-//         for 0..b.iterations - 1 {
-//             black_box(get_hash(text));
-//         }
-//     } @bench @samples(40)
+//     for 0..b.iterations - 1 {
+//         black_box(get_hash(text));
+//     }
+// } @bench @samples(40)
+// ```
 
 // Returns `value` and hides it from the optimizer: the compiler cannot know the result, and
 // cannot drop the work that made it, so wrap what a bench computes and the inputs it must not

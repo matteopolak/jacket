@@ -3,12 +3,14 @@
 // that never lose bytes) and none of the system calls. Tests use them to run both halves of a
 // protocol in one process; nothing about the order of events depends on timing.
 //
-//     client, server := make_pipe();
+// ```jai,ignore
+// client, server := make_pipe();
 //
-//     Io.spawn(echo, server);
+// Io.spawn(echo, server);
 //
-//     write(client, "ping");
-//     count, error := read(client, buffer);       // "ping" echoed back
+// write(client, "ping");
+// count, error := read(client, buffer);       // "ping" echoed back
+// ```
 //
 // Writes never block: bytes wait in memory until the other end reads them. A read waits for
 // bytes, honours `with_deadline` (`.TIMED_OUT`, also for a call made after the limit) and `cancel` like a socket read, and returns 0

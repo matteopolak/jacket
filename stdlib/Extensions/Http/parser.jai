@@ -1,22 +1,24 @@
 // The incremental parser for requests and responses.
 //
-//     parser: Parser;
-//     parser_init(*parser, .REQUEST);
+// ```jai,ignore
+// parser: Parser;
+// parser_init(*parser, .REQUEST);
 //
-//     data := bytes_from_the_socket;
+// data := bytes_from_the_socket;
 //
-//     while true {
-//         used, event := parse(*parser, data);
-//         data = advance(data, used);
+// while true {
+//     used, event := parse(*parser, data);
+//     data = advance(data, used);
 //
-//         if event.kind == {
-//             case .HEAD;      handle(parser.head);
-//             case .BODY;      collect(event.data);
-//             case .END;       respond();
-//             case .NEED_MORE; break;              // read more, then call parse again
-//             case .ERROR;     reject(parser.error);
-//         }
+//     if event.kind == {
+//         case .HEAD;      handle(parser.head);
+//         case .BODY;      collect(event.data);
+//         case .END;       respond();
+//         case .NEED_MORE; break;              // read more, then call parse again
+//         case .ERROR;     reject(parser.error);
 //     }
+// }
+// ```
 
 // A header line of the head or the trailers, as offsets into the buffer that holds it (the buffer
 // moves while it grows; strings are made once the head is complete).

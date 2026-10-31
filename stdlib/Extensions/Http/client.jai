@@ -1,10 +1,10 @@
 // The client: requests over HTTP/1.1, plain or over TLS, on fibers, with a connection pool per
 // scheduler.
 //
-//     api: Client;
-//     api.base_url = "http://localhost:8080";
-//
 // ```jai
+// api: Client;
+// api.base_url = "http://localhost:8080";
+//
 // response, error := get(*api, "/users/1");
 // if error.kind != .NONE print("%\n", error_text(error));
 // defer close(*response);

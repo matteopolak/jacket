@@ -3,21 +3,23 @@
 // matter and the start of the body), counts as a failure and lets the test go on; `run_tests`
 // ends the program with a summary and a non-zero exit code when anything failed.
 //
-//     main :: () {
-//         run_tests(.[
-//             .{ "creates a note", creates_a_note },
-//             .{ "rejects an empty title", rejects_an_empty_title },
-//         ]);
-//     }
+// ```jai,ignore
+// main :: () {
+//     run_tests(.[
+//         .{ "creates a note", creates_a_note },
+//         .{ "rejects an empty title", rejects_an_empty_title },
+//     ]);
+// }
 //
-//     creates_a_note :: () {
-//         api := test_client(*app);
+// creates_a_note :: () {
+//     api := test_client(*app);
 //
-//         note := expect_json(post(api, "/notes", New_Note.{ title = "milk" }), Note, status = 201);
+//     note := expect_json(post(api, "/notes", New_Note.{ title = "milk" }), Note, status = 201);
 //
-//         expect_equal(note.title, "milk");
-//         expect_status(get(api, "/notes/1"), 200);
-//     }
+//     expect_equal(note.title, "milk");
+//     expect_status(get(api, "/notes/1"), 200);
+// }
+// ```
 //
 // A response's body is read from the connection the first time an expectation needs it (to
 // check it, or to show it in a failure) and kept, so any number of expectations can look at it

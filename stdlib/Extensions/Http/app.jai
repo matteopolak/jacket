@@ -1,10 +1,10 @@
 // The application: routes, middleware, groups and the settings of the server.
 //
-//     app: App;
-//     get(*app, "/users/{id}", get_user);
-//     post(*app, "/users", create_user);
-//
 // ```jai
+// app: App;
+// get(*app, "/users/{id}", get_user);
+// post(*app, "/users", create_user);
+//
 // admin := group(*app, "/admin", require_token);
 // delete(admin, "/users/{id}", delete_user);
 //

@@ -3,12 +3,14 @@
 // fiber, inside `io_run`. They return what happened and an `Io_Error`; `platform_code()` has the
 // system's own number when the error is `.OTHER`.
 //
-//     listener, error := tcp_listen(":8080");
-//     while true {
-//         conn, error := accept(listener);
-//         if error != .NONE break;
-//         spawn(handle, conn);
-//     }
+// ```jai,ignore
+// listener, error := tcp_listen(":8080");
+// while true {
+//     conn, error := accept(listener);
+//     if error != .NONE break;
+//     spawn(handle, conn);
+// }
+// ```
 
 // The IP version of an `Address`: `IPV4`, `IPV6`, or `NONE` for an `Address` that was never filled in (and for what
 // `parse_address` returns when the text is not an address).

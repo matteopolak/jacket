@@ -2,22 +2,24 @@
 // how: all at once (`read_all`, `read_json`) or piece by piece (`read`), so an upload never has to
 // fit in memory. `Json(T)` and `Form(T)` are the buffered forms of the same thing.
 //
-//     upload :: (name: Path("name", string), body: *Body) -> Http_Error {
-//         file := open(name.value);
-//         buffer: [16 * 1024] u8;
+// ```jai,ignore
+// upload :: (name: Path("name", string), body: *Body) -> Http_Error {
+//     file := open(name.value);
+//     buffer: [16 * 1024] u8;
 //
-//         while true {
-//             count, error := read(body, buffer);
-//             if error.kind != .NONE return error;
-//             if count == 0 break;
+//     while true {
+//         count, error := read(body, buffer);
+//         if error.kind != .NONE return error;
+//         if count == 0 break;
 //
-//             write(file, buffer, count);
-//         }
-//
-//         return .{};
+//         write(file, buffer, count);
 //     }
 //
-//     post(*app, "/files/{name}", upload, max_body = 1 << 30);
+//     return .{};
+// }
+//
+// post(*app, "/files/{name}", upload, max_body = 1 << 30);
+// ```
 //
 // The bytes come off the connection as they arrive. `Expect: 100-continue` is answered when the
 // handler first asks for bytes, so a request the handler refuses without reading is refused

@@ -2,16 +2,18 @@
 // handler pushes as it has them. Neither needs the body in memory; both go out after the head
 // from the connection's own fiber, so a slow client holds nothing but that fiber.
 //
-//     events :: (request: *Request) -> Response {
-//         return stream_response(produce_events, null, "text/event-stream");
-//     }
+// ```jai,ignore
+// events :: (request: *Request) -> Response {
+//     return stream_response(produce_events, null, "text/event-stream");
+// }
 //
-//     produce_events :: (stream: *Stream, data: *void) {
-//         for 1..10 {
-//             if !send_chunk(stream, tprint("data: %\n\n", it)) return;   // false: the client left
-//             Io.sleep(1000);
-//         }
+// produce_events :: (stream: *Stream, data: *void) {
+//     for 1..10 {
+//         if !send_chunk(stream, tprint("data: %\n\n", it)) return;   // false: the client left
+//         Io.sleep(1000);
 //     }
+// }
+// ```
 //
 // On HTTP/1.1 a stream is sent chunked, so the connection stays usable afterwards; to an HTTP/1.0
 // client it ends with the connection. The headers, the status and the `data` pointer must stay
