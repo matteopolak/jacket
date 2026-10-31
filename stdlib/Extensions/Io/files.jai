@@ -3,6 +3,7 @@
 // on the scheduler's thread (blocking-with-readiness): a slow disk stalls every fiber of that
 // thread for the length of the call. Opening a file is always a plain call.
 
+// How [open_file] opens a file.
 File_Mode :: enum u8 {
     // An existing file, read only.
     READ;
@@ -22,6 +23,23 @@ Io_File :: struct {
     append: bool;
 }
 
+// Opens `path`. Close the file with [close].
+//
+// ```jai,only(linux, macos)
+// Io :: #import "Extensions/Io";
+// #import "File";
+//
+// Io.io_run(() {
+//     file, error := Io.open_file("/tmp/jacket-io-open.txt", .WRITE);
+//     assert(error == .NONE);
+//     Io.write(*file, "hello");
+//     Io.close(*file);
+//
+//     _, error = Io.open_file("/tmp/jacket-io-missing/none.txt");
+//     assert(error == .NOT_FOUND);
+// });
+// file_delete("/tmp/jacket-io-open.txt");
+// ```
 open_file :: (path: string, mode := File_Mode.READ) -> Io_File, Io_Error {
     current_fiber();
 
@@ -45,6 +63,23 @@ open_file :: (path: string, mode := File_Mode.READ) -> Io_File, Io_Error {
 }
 
 // Reads up to `buffer.count` bytes at the file's position. 0 at the end of the file.
+//
+// ```jai,only(linux, macos)
+// Io :: #import "Extensions/Io";
+// #import "File";
+//
+// Io.io_run(() {
+//     Io.write_file("/tmp/jacket-io-read.txt", "hello");
+//
+//     file, _ := Io.open_file("/tmp/jacket-io-read.txt");
+//     defer Io.close(*file);
+//
+//     buffer: [16] u8;
+//     count, error := Io.read(*file, buffer);
+//     assert(error == .NONE && string.{ count, buffer.data } == "hello");
+// });
+// file_delete("/tmp/jacket-io-read.txt");
+// ```
 read :: (file: *Io_File, buffer: [] u8) -> s64, Io_Error {
     count, error := read_at(file, buffer, file.position);
     file.position += count;
@@ -53,11 +88,45 @@ read :: (file: *Io_File, buffer: [] u8) -> s64, Io_Error {
 }
 
 // Reads until `buffer` is full. `.END_OF_FILE` if the file ended first, with the bytes read.
+//
+// ```jai,only(linux, macos)
+// Io :: #import "Extensions/Io";
+// #import "File";
+//
+// Io.io_run(() {
+//     Io.write_file("/tmp/jacket-io-full.txt", "abc");
+//
+//     file, _ := Io.open_file("/tmp/jacket-io-full.txt");
+//     defer Io.close(*file);
+//
+//     buffer: [8] u8;
+//     count, error := Io.read_full(*file, buffer);
+//     assert(error == .END_OF_FILE && count == 3);
+// });
+// file_delete("/tmp/jacket-io-full.txt");
+// ```
 read_full :: (file: *Io_File, buffer: [] u8) -> s64, Io_Error {
     return read_full(reader_of(file), buffer);
 }
 
 // Reads at `offset`; the file's position does not move.
+//
+// ```jai,only(linux, macos)
+// Io :: #import "Extensions/Io";
+// #import "File";
+//
+// Io.io_run(() {
+//     Io.write_file("/tmp/jacket-io-at.txt", "0123456789");
+//
+//     file, _ := Io.open_file("/tmp/jacket-io-at.txt");
+//     defer Io.close(*file);
+//
+//     buffer: [3] u8;
+//     Io.read_at(*file, buffer, 4);
+//     assert(string.{ 3, buffer.data } == "456");
+// });
+// file_delete("/tmp/jacket-io-at.txt");
+// ```
 read_at :: (file: *Io_File, buffer: [] u8, offset: s64) -> s64, Io_Error {
     if buffer.count == 0 return 0, .NONE;
 
@@ -77,7 +146,8 @@ read_at :: (file: *Io_File, buffer: [] u8, offset: s64) -> s64, Io_Error {
 }
 
 // Writes some of `data` at the file's position (at the end, for `.APPEND`) and moves the
-// position past it. At least one byte unless `data` is empty; returns how many.
+// position past it. At least one byte unless `data` is empty; returns how many. Use [write] to
+// write everything.
 write_some :: (file: *Io_File, data: [] u8) -> s64, Io_Error {
     if data.count == 0 return 0, .NONE;
 
@@ -99,15 +169,48 @@ write_some :: (file: *Io_File, data: [] u8) -> s64, Io_Error {
 }
 
 // Writes all of `data` at the file's position (at the end, for `.APPEND`).
+//
+// ```jai,only(linux, macos)
+// Io :: #import "Extensions/Io";
+// #import "File";
+//
+// Io.io_run(() {
+//     file, _ := Io.open_file("/tmp/jacket-io-write.txt", .WRITE);
+//     defer Io.close(*file);
+//
+//     count, error := Io.write(*file, u8.[1, 2, 3]);
+//     assert(error == .NONE && count == 3);
+// });
+// file_delete("/tmp/jacket-io-write.txt");
+// ```
 write :: (file: *Io_File, data: [] u8) -> s64, Io_Error {
     return write(writer_of(file), data);
 }
 
+// The `write` for a `string`.
 write :: (file: *Io_File, text: string) -> s64, Io_Error {
     return write(file, ([] u8).{ text.count, text.data });
 }
 
 // Writes all of `data` at `offset`; the file's position does not move.
+//
+// ```jai,only(linux, macos)
+// Io :: #import "Extensions/Io";
+// #import "File";
+//
+// Io.io_run(() {
+//     file, _ := Io.open_file("/tmp/jacket-io-write-at.txt", .READ_WRITE);
+//     defer Io.close(*file);
+//
+//     Io.write_at(*file, "abcdef", 0);
+//     Io.write_at(*file, "XY", 2);
+//
+//     data, _ := Io.read_file("/tmp/jacket-io-write-at.txt");
+//     assert(cast(string) data == "abXYef");
+//     free(data.data);
+// });
+// file_delete("/tmp/jacket-io-write-at.txt");
+// ```
 write_at :: (file: *Io_File, data: [] u8, offset: s64) -> s64, Io_Error {
     total := 0;
 
@@ -131,10 +234,28 @@ write_at :: (file: *Io_File, data: [] u8, offset: s64) -> s64, Io_Error {
     return total, .NONE;
 }
 
+// The `write_at` for a `string`.
 write_at :: (file: *Io_File, text: string, offset: s64) -> s64, Io_Error {
     return write_at(file, ([] u8).{ text.count, text.data }, offset);
 }
 
+// The size of the file in bytes.
+//
+// ```jai,only(linux, macos)
+// Io :: #import "Extensions/Io";
+// #import "File";
+//
+// Io.io_run(() {
+//     Io.write_file("/tmp/jacket-io-size.txt", "12345");
+//
+//     file, _ := Io.open_file("/tmp/jacket-io-size.txt");
+//     defer Io.close(*file);
+//
+//     size, error := Io.file_size(*file);
+//     assert(error == .NONE && size == 5);
+// });
+// file_delete("/tmp/jacket-io-size.txt");
+// ```
 file_size :: (file: *Io_File) -> s64, Io_Error {
     current_fiber();
 
@@ -145,6 +266,17 @@ file_size :: (file: *Io_File) -> s64, Io_Error {
 }
 
 // Closes the file. With `now`, without going through the engine (see `close` for a reader).
+//
+// ```jai,only(linux, macos)
+// Io :: #import "Extensions/Io";
+// #import "File";
+//
+// Io.io_run(() {
+//     file, _ := Io.open_file("/tmp/jacket-io-close.txt", .WRITE);
+//     assert(Io.close(*file) == .NONE);
+// });
+// file_delete("/tmp/jacket-io-close.txt");
+// ```
 close :: (file: *Io_File, now := false) -> Io_Error {
     if now {
         close_without_waiting(file.handle);
@@ -156,6 +288,20 @@ close :: (file: *Io_File, now := false) -> Io_Error {
 } @FreesArgument
 
 // The whole content of a file, in memory from `context.allocator` (free it with `free`).
+//
+// ```jai,only(linux, macos)
+// Io :: #import "Extensions/Io";
+// #import "File";
+//
+// Io.io_run(() {
+//     Io.write_file("/tmp/jacket-io-whole.txt", "contents");
+//
+//     data, error := Io.read_file("/tmp/jacket-io-whole.txt");
+//     assert(error == .NONE && cast(string) data == "contents");
+//     free(data.data);
+// });
+// file_delete("/tmp/jacket-io-whole.txt");
+// ```
 read_file :: (path: string) -> [] u8, Io_Error {
     file, error := open_file(path, .READ);
     if error != .NONE return .[], error;
@@ -169,6 +315,16 @@ read_file :: (path: string) -> [] u8, Io_Error {
 }
 
 // Creates or replaces a file with `data`.
+//
+// ```jai,only(linux, macos)
+// Io :: #import "Extensions/Io";
+// #import "File";
+//
+// Io.io_run(() {
+//     assert(Io.write_file("/tmp/jacket-io-wf.txt", "hello") == .NONE);
+// });
+// file_delete("/tmp/jacket-io-wf.txt");
+// ```
 write_file :: (path: string, data: [] u8) -> Io_Error {
     file, error := open_file(path, .WRITE);
     if error != .NONE return error;
@@ -180,6 +336,7 @@ write_file :: (path: string, data: [] u8) -> Io_Error {
     return write_error;
 }
 
+// The `write_file` for a `string`.
 write_file :: (path: string, text: string) -> Io_Error {
     return write_file(path, ([] u8).{ text.count, text.data });
 }

@@ -117,6 +117,16 @@ Capabilities :: struct {
 // `.NONE` where IO is not implemented. Set `JAI_IO_BACKEND` to `io_uring`, `epoll`, `kqueue`,
 // `iocp` or `ioring` before `io_run` to ask for one; a backend the system cannot offer is
 // replaced (see `backend_reason`).
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+//
+// Io.io_run(() {
+//     assert(Io.backend() != .NONE);
+//     assert(Io.backend_name().count > 0);
+// });
+// ```
 backend :: () -> Backend {
     scheduler := current_scheduler();
 
@@ -144,6 +154,13 @@ capabilities :: () -> Capabilities {
 }
 
 // The number of processors, for sizing `io_run_threads`.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+//
+// assert(Io.processor_count() >= 1);
+// ```
 processor_count :: () -> s64 {
     return sys_processors();
 }
@@ -186,7 +203,8 @@ io_run_threads :: (count: s64, proc: $P) {
     run_threads(count, entry, *block);
 }
 
-// The `io_run_threads` for a procedure that takes one argument: `data` is copied for the first fiber of every scheduler.
+// The `io_run_threads` for a procedure that takes one argument: `data` is copied for the first
+// fiber of every scheduler.
 io_run_threads :: (count: s64, proc: $P, data: $T) {
     Block :: struct {
         proc: P;
@@ -296,6 +314,7 @@ run_threads :: (count: s64, entry: Thread.Thread_Proc, data: *void) {
 // `close(stream, now = true)`.
 Local_Drop :: #type (value: *void);
 
+// One stored value of [set_scheduler_local]; the scheduler keeps a list of them.
 Local_Entry :: struct {
     key: *void;
     value: *void;
@@ -305,6 +324,17 @@ Local_Entry :: struct {
 // The value a library stored for `key` on the running scheduler, or null. Keys are addresses of
 // something the library owns (a global works). This is the per-thread variable the language does
 // not have: the Http client keeps its connection pool here.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+//
+// Io.io_run(() {
+//     counter: int;
+//     Io.set_scheduler_local(*counter, *counter, null);
+//     assert(Io.scheduler_local(*counter) == *counter);
+// });
+// ```
 scheduler_local :: (key: *void) -> *void {
     scheduler := current_scheduler();
 

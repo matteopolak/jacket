@@ -1,4 +1,7 @@
-// Fibers and a cooperative scheduler.
+// Fibers and non-blocking IO. [io_run] starts a scheduler on the calling thread; inside it [spawn]
+// starts fibers, which wait for sleeps, channels, sockets and files without blocking the thread.
+// [make_channel], [Wait_Group] and [Fiber_Mutex] coordinate fibers, [tcp_listen], [accept] and
+// [connect] do TCP, and [Reader] and [Writer] give files, sockets and pipes one shape.
 // @experimental
 //
 // ```jai,skip_on(wasm)
@@ -26,14 +29,13 @@
 // }
 // ```
 //
-// A fiber is a lightweight thread that the program switches itself: it has its own small stack,
-// and runs until it blocks (`sleep`, `yield`, a channel, a `Wait_Group`, a `Fiber_Mutex`), when the
+// A fiber is a lightweight thread that the program switches itself. It has its own small stack and
+// runs until it blocks (`sleep`, `yield`, a channel, a `Wait_Group`, a `Fiber_Mutex`), when the
 // scheduler runs another one. All fibers of an `io_run` share one OS thread, so they never run at
 // the same time and need no locks to share data. A blocking call returns `.CANCELED` once
-// `cancel(fiber)` has been called for its fiber.
+// `cancel` has been called for its fiber.
 //
-// Fibers need the compiler's stack-switching intrinsics, which native builds and the interpreter
-// (`jaic -interp`) have and WebAssembly does not: importing this module for wasm is a compile error.
+// WebAssembly cannot switch stacks, so importing this module for wasm is a compile error.
 // The stack of each fiber, in bytes, including its guard page. Address space only: the OS commits
 // pages as the fiber touches them (Windows commits it all up front).
 #module_parameters(STACK_BYTES := 256 * 1024, POOL_LIMIT := 1024, TEMPORARY_BYTES := 2048);

@@ -14,6 +14,8 @@
 // `parse_address` returns when the text is not an address).
 //
 // ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
 // address, ok := parse_address("[::1]:8080");
 // assert(ok && address.family == .IPV6 && address.port == 8080);
 //
@@ -52,6 +54,8 @@ Tcp_Stream :: struct {
 // An IPv4 address from its four octets, `a.b.c.d`, and a port in host order. `address_to_string` turns it back into text.
 //
 // ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
 // address := address_v4(127, 0, 0, 1, 8080);
 //
 // assert(address.family == .IPV4);
@@ -72,6 +76,13 @@ address_v4 :: (a: u8, b: u8, c: u8, d: u8, port: u16) -> Address {
 
 // Reads an address literal: `1.2.3.4:80`, `:8080` (any IPv4 address), `[::1]:80`, `1.2.3.4`,
 // `::1`. It does not look names up; `resolve` does.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// address, ok := Io.parse_address("[::1]:8080");
+// assert(ok && address.family == .IPV6 && address.port == 8080);
+// ```
 parse_address :: (text: string) -> Address, bool {
     address: Address;
     host := text;
@@ -144,6 +155,13 @@ parse_address :: (text: string) -> Address, bool {
 }
 
 // `1.2.3.4:80` or `[::1]:80`, in temporary storage.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// address, _ := Io.parse_address("10.0.0.7:443");
+// assert(Io.address_to_string(address) == "10.0.0.7:443");
+// ```
 address_to_string :: (address: Address) -> string {
     if address.family == .IPV4 {
         return tprint("%.%.%.%:%", address.bytes[0], address.bytes[1], address.bytes[2], address.bytes[3], address.port);
@@ -277,6 +295,27 @@ tcp_listen :: (address: Address, backlog := 1024, reuse_port := false) -> Tcp_Li
 }
 
 // Waits for the next connection.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     listener, _ := Io.tcp_listen("127.0.0.1:0");
+//     defer Io.close(listener);
+//
+//     address, _ := Io.local_address(listener);
+//     client, _ := Io.connect(address);
+//     server, _ := Io.accept(listener);
+//     defer Io.close(client);
+//     defer Io.close(server);
+//
+//     assert(Io.write(client, "hi") == 2);
+//
+//     buffer: [8] u8;
+//     count, error := Io.read(server, buffer);
+//     assert(error == .NONE && string.{ count, buffer.data } == "hi");
+// });
+// ```
 accept :: (listener: Tcp_Listener) -> Tcp_Stream, Io_Error {
     stream: Tcp_Stream;
 
@@ -310,6 +349,20 @@ accept :: (listener: Tcp_Listener) -> Tcp_Stream, Io_Error {
 }
 
 // Connects to `address`. The one with a name is `connect("host:port")`.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     listener, _ := Io.tcp_listen("127.0.0.1:0");
+//     defer Io.close(listener);
+//
+//     address, _ := Io.local_address(listener);
+//     client, error := Io.connect(address);
+//     assert(error == .NONE);
+//     Io.close(client);
+// });
+// ```
 connect :: (address: Address) -> Tcp_Stream, Io_Error {
     current_fiber();
 
@@ -354,6 +407,19 @@ connect :: (address: Address) -> Tcp_Stream, Io_Error {
 // Listens on the socket file `path`. The file must not exist yet; with `replace` an existing
 // file at `path` is removed first (whatever it is, so use it only for a path you own). The
 // socket file stays after `close`: remove it when the server is done.
+//
+// ```jai,only(linux, macos)
+// Io :: #import "Extensions/Io";
+//
+// #import "File";
+//
+// Io.io_run(() {
+//     listener, error := Io.unix_listen("/tmp/jacket-io-unix.sock", replace = true);
+//     assert(error == .NONE);
+//     Io.close(listener);
+// });
+// file_delete("/tmp/jacket-io-unix.sock");
+// ```
 unix_listen :: (path: string, backlog := 128, replace := false) -> Tcp_Listener, Io_Error {
     current_fiber();
 
@@ -391,6 +457,22 @@ unix_listen :: (path: string, backlog := 128, replace := false) -> Tcp_Listener,
 }
 
 // Connects to the Unix-domain socket at `path`.
+//
+// ```jai,only(linux, macos)
+// Io :: #import "Extensions/Io";
+//
+// #import "File";
+//
+// Io.io_run(() {
+//     listener, _ := Io.unix_listen("/tmp/jacket-io-unix2.sock", replace = true);
+//     defer Io.close(listener);
+//
+//     client, error := Io.connect_unix("/tmp/jacket-io-unix2.sock");
+//     assert(error == .NONE);
+//     Io.close(client);
+// });
+// file_delete("/tmp/jacket-io-unix2.sock");
+// ```
 connect_unix :: (path: string) -> Tcp_Stream, Io_Error {
     current_fiber();
 
@@ -430,6 +512,15 @@ connect_unix :: (path: string) -> Tcp_Stream, Io_Error {
 }
 
 // Connects to `"host:port"`, `"1.2.3.4:80"` or `"[::1]:80"`, looking `host` up if it is a name.
+//
+// ```jai,no_run
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     client, error := Io.connect("example.com:80");
+//     if error == .NONE Io.close(client);
+// });
+// ```
 connect :: (target: string) -> Tcp_Stream, Io_Error {
     split := -1;
 
@@ -472,6 +563,24 @@ local_address :: (listener: Tcp_Listener) -> Address, Io_Error {
 }
 
 // The local end of a connected stream: the address and port this side of the connection uses.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     listener, _ := Io.tcp_listen("127.0.0.1:0");
+//     defer Io.close(listener);
+//
+//     address, _ := Io.local_address(listener);
+//     client, _ := Io.connect(address);
+//     server, _ := Io.accept(listener);
+//     defer Io.close(client);
+//     defer Io.close(server);
+//
+//     mine, error := Io.local_address(client);
+//     assert(error == .NONE && mine.port != address.port);
+// });
+// ```
 local_address :: (stream: Tcp_Stream) -> Address, Io_Error {
     return socket_address(stream.handle, false);
 }
@@ -512,6 +621,27 @@ peer_address :: (stream: Tcp_Stream) -> Address, Io_Error {
 
 // Waits for data and reads what is there, up to `buffer.count` bytes. 0 means the peer closed its
 // end. An error comes with 0 bytes.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     listener, _ := Io.tcp_listen("127.0.0.1:0");
+//     defer Io.close(listener);
+//
+//     address, _ := Io.local_address(listener);
+//     client, _ := Io.connect(address);
+//     server, _ := Io.accept(listener);
+//     defer Io.close(client);
+//     defer Io.close(server);
+//
+//     Io.write(client, "hello");
+//
+//     buffer: [16] u8;
+//     count, error := Io.read(server, buffer);
+//     assert(error == .NONE && string.{ count, buffer.data } == "hello");
+// });
+// ```
 read :: (stream: Tcp_Stream, buffer: [] u8) -> s64, Io_Error {
     if buffer.count == 0 return 0, .NONE;
 
@@ -533,6 +663,28 @@ read :: (stream: Tcp_Stream, buffer: [] u8) -> s64, Io_Error {
 // failed (`read` then says which). Nothing is consumed and no buffer is needed, so a fiber can wait
 // for a quiet connection and take its memory only when there is something to read. Ends with
 // `.TIMED_OUT` or `.CANCELED` like any other wait, and `.CLOSED` if the socket is closed meanwhile.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     listener, _ := Io.tcp_listen("127.0.0.1:0");
+//     defer Io.close(listener);
+//
+//     address, _ := Io.local_address(listener);
+//     client, _ := Io.connect(address);
+//     server, _ := Io.accept(listener);
+//     defer Io.close(client);
+//     defer Io.close(server);
+//
+//     Io.write(client, "x");
+//
+//     assert(Io.wait_readable(server) == .NONE); // data is waiting, nothing consumed
+//     buffer: [4] u8;
+//     count, _ := Io.read(server, buffer);
+//     assert(count == 1);
+// });
+// ```
 wait_readable :: (stream: Tcp_Stream) -> Io_Error {
     op := begin_op(.WAIT_READABLE, stream.handle);
 
@@ -544,11 +696,33 @@ wait_readable :: (stream: Tcp_Stream) -> Io_Error {
 }
 
 // Reads until `buffer` is full. `.END_OF_FILE` if the peer closed first, with the bytes read.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     listener, _ := Io.tcp_listen("127.0.0.1:0");
+//     defer Io.close(listener);
+//
+//     address, _ := Io.local_address(listener);
+//     client, _ := Io.connect(address);
+//     server, _ := Io.accept(listener);
+//     defer Io.close(client);
+//     defer Io.close(server);
+//
+//     Io.write(client, "abcd");
+//
+//     buffer: [4] u8;
+//     count, error := Io.read_full(server, buffer);
+//     assert(error == .NONE && count == 4);
+// });
+// ```
 read_full :: (stream: Tcp_Stream, buffer: [] u8) -> s64, Io_Error {
     return read_full(reader_of(stream), buffer);
 }
 
-// Sends some of `data`: at least one byte unless `data` is empty. Returns how many.
+// Sends some of `data`: at least one byte unless `data` is empty. Returns how many. Use [write]
+// to send everything.
 write_some :: (stream: Tcp_Stream, data: [] u8) -> s64, Io_Error {
     if data.count == 0 return 0, .NONE;
 
@@ -567,6 +741,24 @@ write_some :: (stream: Tcp_Stream, data: [] u8) -> s64, Io_Error {
 }
 
 // Sends all of `data`, waiting as often as it takes. On an error it returns how many bytes went out.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     listener, _ := Io.tcp_listen("127.0.0.1:0");
+//     defer Io.close(listener);
+//
+//     address, _ := Io.local_address(listener);
+//     client, _ := Io.connect(address);
+//     server, _ := Io.accept(listener);
+//     defer Io.close(client);
+//     defer Io.close(server);
+//
+//     count, error := Io.write(client, u8.[1, 2, 3]);
+//     assert(error == .NONE && count == 3);
+// });
+// ```
 write :: (stream: Tcp_Stream, data: [] u8) -> s64, Io_Error {
     return write(writer_of(stream), data);
 }
@@ -577,6 +769,28 @@ write :: (stream: Tcp_Stream, text: string) -> s64, Io_Error {
 }
 
 // Closes the sending side; the peer reads the end of the stream once it has what was sent.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     listener, _ := Io.tcp_listen("127.0.0.1:0");
+//     defer Io.close(listener);
+//
+//     address, _ := Io.local_address(listener);
+//     client, _ := Io.connect(address);
+//     server, _ := Io.accept(listener);
+//     defer Io.close(client);
+//     defer Io.close(server);
+//
+//     Io.write(client, "done");
+//     Io.shutdown_write(client);
+//
+//     data, _ := Io.read_all(Io.reader_of(server));
+//     assert(cast(string) data == "done");
+//     free(data.data);
+// });
+// ```
 shutdown_write :: (stream: Tcp_Stream) -> Io_Error {
     current_fiber();
 
@@ -587,6 +801,19 @@ shutdown_write :: (stream: Tcp_Stream) -> Io_Error {
 // so `defer close(conn)` always cleans up. With `now` it closes at once without waiting, for code
 // that cannot block: a `Local_Drop`, or a fiber that must not give up its turn. Fibers still
 // waiting on the socket are not woken, so use the plain call unless the scheduler is ending.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     listener, _ := Io.tcp_listen("127.0.0.1:0");
+//     defer Io.close(listener);
+//
+//     address, _ := Io.local_address(listener);
+//     client, _ := Io.connect(address);
+//     assert(Io.close(client) == .NONE);
+// });
+// ```
 close :: (stream: Tcp_Stream, now := false) -> Io_Error {
     if now {
         close_without_waiting(stream.handle);
@@ -613,6 +840,18 @@ close :: (listener: Tcp_Listener, now := false) -> Io_Error {
 
 // Looks `host` up (an address literal, or a name for the system's resolver, which
 // runs on a helper thread so only this fiber waits) and gives its first address, IPv4 preferred.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     address, error := Io.resolve("127.0.0.1", 8080);
+//     assert(error == .NONE && address.port == 8080);
+//
+//     host, _ := Io.resolve("localhost", 80);
+//     assert(host.family != .NONE);
+// });
+// ```
 resolve :: (host: string, port: u16) -> Address, Io_Error {
     current_fiber();
 
