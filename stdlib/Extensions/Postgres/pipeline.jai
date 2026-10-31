@@ -1,17 +1,19 @@
 // Pipelining: send several statements without waiting for the answers, then read the answers in
 // order. The semantics are libpq's pipeline mode.
 //
-//     p, error := Pg.pipeline_enter(db);
-//     Pg.pipeline_query(p, "INSERT INTO log(line) VALUES ($1)", "one");
-//     Pg.pipeline_query(p, "SELECT count(*) FROM log");
-//     Pg.pipeline_sync(p); // sends everything and ends the batch
-//     while true {
-//         item, error := Pg.pipeline_next_result(p);
-//         defer Pg.free_pipeline_result(*item);
-//         if item.kind == .SYNC break;
-//         // .RESULT: item.result holds the rows; .ERROR: item.error; .ABORTED: it was skipped
-//     }
-//     Pg.pipeline_exit(p);
+// ```jai,ignore
+// p, error := Pg.pipeline_enter(db);
+// Pg.pipeline_query(p, "INSERT INTO log(line) VALUES ($1)", "one");
+// Pg.pipeline_query(p, "SELECT count(*) FROM log");
+// Pg.pipeline_sync(p); // sends everything and ends the batch
+// while true {
+//     item, error := Pg.pipeline_next_result(p);
+//     defer Pg.free_pipeline_result(*item);
+//     if item.kind == .SYNC break;
+//     // .RESULT: item.result holds the rows; .ERROR: item.error; .ABORTED: it was skipped
+// }
+// Pg.pipeline_exit(p);
+// ```
 //
 // Statements queue into the connection's output buffer. They leave on `pipeline_sync`,
 // `pipeline_flush` or `pipeline_flush_request`, or when a result is read. The server runs the

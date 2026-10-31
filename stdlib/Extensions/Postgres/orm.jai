@@ -3,8 +3,10 @@
 // compiles and hands the statement to the typed queries (typed.jai), so it is described, checked
 // and cached like any `Pg.query`. Nothing is built at run time.
 //
-//     min_score := 3;
-//     users, error := Pg.select(db, User, where = #code it.active && it.score >= min_score, order_by = #code it.email, limit = 20);
+// ```jai,ignore
+// min_score := 3;
+// users, error := Pg.select(db, User, where = #code it.active && it.score >= min_score, order_by = #code it.email, limit = 20);
+// ```
 //
 // In a filter, `it.<field>` is a column, literals stay literals, and any other expression is a
 // parameter, evaluated where the filter was written. See docs/postgres/orm.md.

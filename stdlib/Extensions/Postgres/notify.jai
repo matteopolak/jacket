@@ -1,12 +1,14 @@
 // LISTEN and NOTIFY: other sessions' notifications reach the connection that LISTENs.
 //
-//     Pg.listen(db, "jobs");
-//     while true {
-//         n, error := Pg.wait_for_notification(db);
-//         if error.kind != .NONE break;
-//         defer Pg.free_notification(*n);
-//         print("% sent % on %\n", n.backend_pid, n.payload, n.channel);
-//     }
+// ```jai,ignore
+// Pg.listen(db, "jobs");
+// while true {
+//     n, error := Pg.wait_for_notification(db);
+//     if error.kind != .NONE break;
+//     defer Pg.free_notification(*n);
+//     print("% sent % on %\n", n.backend_pid, n.payload, n.channel);
+// }
+// ```
 //
 // The server sends a notification at any time the session is not in a transaction, and this
 // client reads it whenever it reads the connection: in the middle of a query, a pipeline or a

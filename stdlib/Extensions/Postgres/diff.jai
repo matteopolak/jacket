@@ -2,9 +2,11 @@
 // migrations' schema database and writes the SQL of a proposed migration. Scaffolding only: it
 // never applies anything. docs/postgres/diff.md has the overview.
 //
-//     proposal, problem := Pg.diff_schema(config, "db/migrations", "db/schema.jai");   // needs a server
-//     description, problem := Pg.parse_schema_text(text);                              // just the file
-//     proposal, problem := Pg.propose_migration(catalog, description);                 // just the SQL
+// ```jai,ignore
+// proposal, problem := Pg.diff_schema(config, "db/migrations", "db/schema.jai");   // needs a server
+// description, problem := Pg.parse_schema_text(text);                              // just the file
+// proposal, problem := Pg.propose_migration(catalog, description);                 // just the SQL
+// ```
 
 #scope_export
 

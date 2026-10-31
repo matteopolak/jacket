@@ -2,11 +2,13 @@
 // on a Unix socket (TCP on localhost for Windows) and hands back a `Config`. See
 // docs/postgres/managed.md.
 //
-//     settings: Pg.Managed_Settings;
-//     server, error := Pg.start_managed(settings);
-//     if error { print("%\n", error); return; }
-//     defer Pg.stop_managed(*server);
-//     db, pg_error := Pg.connect(server.config); // inside Io.io_run
+// ```jai,ignore
+// settings: Pg.Managed_Settings;
+// server, error := Pg.start_managed(settings);
+// if error { print("%\n", error); return; }
+// defer Pg.stop_managed(*server);
+// db, pg_error := Pg.connect(server.config); // inside Io.io_run
+// ```
 //
 // Nothing here talks to the server, so none of it needs a fiber. The calls block while they
 // download, unpack and wait for the server.

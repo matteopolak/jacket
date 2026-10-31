@@ -1,12 +1,14 @@
 // The pg tool: keeps the committed query descriptions (`db/queries/*.json`) honest, and runs the
 // project's migrations and generated schema.
 //
-//     jaic stdlib/Extensions/Postgres/Tool/main.jai -interp -- prepare [--root DIR] [--build COMMAND] [--prune]
-//     jaic stdlib/Extensions/Postgres/Tool/main.jai -interp -- check   [--root DIR] [--build COMMAND]
-//     jaic stdlib/Extensions/Postgres/Tool/main.jai -interp -- generate [--root DIR] [--out FILE]
-//     jaic stdlib/Extensions/Postgres/Tool/main.jai -interp -- migrate|status [--root DIR]
-//     jaic stdlib/Extensions/Postgres/Tool/main.jai -interp -- new NAME [--root DIR]
-//     jaic stdlib/Extensions/Postgres/Tool/main.jai -interp -- diff [--root DIR] [--name NAME]
+// ```sh
+// jaic stdlib/Extensions/Postgres/Tool/main.jai -interp -- prepare [--root DIR] [--build COMMAND] [--prune]
+// jaic stdlib/Extensions/Postgres/Tool/main.jai -interp -- check   [--root DIR] [--build COMMAND]
+// jaic stdlib/Extensions/Postgres/Tool/main.jai -interp -- generate [--root DIR] [--out FILE]
+// jaic stdlib/Extensions/Postgres/Tool/main.jai -interp -- migrate|status [--root DIR]
+// jaic stdlib/Extensions/Postgres/Tool/main.jai -interp -- new NAME [--root DIR]
+// jaic stdlib/Extensions/Postgres/Tool/main.jai -interp -- diff [--root DIR] [--name NAME]
+// ```
 //
 // `prepare` describes every entry again against DATABASE_URL (or JACKET_DATABASE_URL, or the
 // managed server when managed mode is on and neither is set) and rewrites

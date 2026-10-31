@@ -1,7 +1,9 @@
 // Forward-only SQL migrations, embedded in the program at compile time and applied at startup.
 //
-//     MIGRATIONS :: #run Pg.load_migrations("db/migrations");    // relative to this file
-//     applied, error := Pg.migrate(db, MIGRATIONS);
+// ```jai,ignore
+// MIGRATIONS :: #run Pg.load_migrations("db/migrations");    // relative to this file
+// applied, error := Pg.migrate(db, MIGRATIONS);
+// ```
 //
 // Files are named `NNNN_name.sql`. One whose first line is `-- jacket: no-transaction` runs
 // outside a transaction, one statement at a time (`create index concurrently` needs that).

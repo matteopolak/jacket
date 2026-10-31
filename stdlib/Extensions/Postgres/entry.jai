@@ -1,19 +1,21 @@
 // What the describe service learns about one statement, and the JSON form it takes in the
 // committed cache (`db/queries/<statement id>.json`).
 //
-//     {
-//       "format": 1,                     ENTRY_FORMAT; an entry of another format is not read
-//       "id": "9f2c...",                 full SHA-256 of "sql"; the file name is its first 16 digits
-//       "sql": "select ... where u.id = $1",
-//       "schema_hash": "...",            of the migrations that produced the description
-//       "server_major": 17,
-//       "search_path": "",
-//       "deps": { "r:public.users": "a41b...", "t:public.mood": "77e0..." },
-//       "deps_complete": true,
-//       "params": [ { "type": "bigint", "base": "int8" } ],
-//       "columns": [ { "name": "id", "type": "bigint", "base": "int8", "nullable": false,
-//                      "origin": "public.users.id" } ]
-//     }
+// ```
+// {
+//   "format": 1,                     ENTRY_FORMAT; an entry of another format is not read
+//   "id": "9f2c...",                 full SHA-256 of "sql"; the file name is its first 16 digits
+//   "sql": "select ... where u.id = $1",
+//   "schema_hash": "...",            of the migrations that produced the description
+//   "server_major": 17,
+//   "search_path": "",
+//   "deps": { "r:public.users": "a41b...", "t:public.mood": "77e0..." },
+//   "deps_complete": true,
+//   "params": [ { "type": "bigint", "base": "int8" } ],
+//   "columns": [ { "name": "id", "type": "bigint", "base": "int8", "nullable": false,
+//                  "origin": "public.users.id" } ]
+// }
+// ```
 //
 // `deps` keys name a relation ("r:schema.name"), a type ("t:schema.name") or a function
 // ("f:schema.name(args)"). A column's `jai` is the type the alias asked for ("created_at: Timestamp").

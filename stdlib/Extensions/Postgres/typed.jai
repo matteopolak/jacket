@@ -1,8 +1,10 @@
 // Typed raw queries: SQL checked against the database while the program compiles.
 //
-//     rows, error := Pg.query(db, "select id, email from users where id = %", user_id);
-//     for rows print("% %\n", it.id, it.email);
-//     Pg.free_rows(*rows);
+// ```jai,ignore
+// rows, error := Pg.query(db, "select id, email from users where id = %", user_id);
+// for rows print("% %\n", it.id, it.email);
+// Pg.free_rows(*rows);
+// ```
 //
 // `query`, `query_one`, `query_opt`, `execute`, `query_scalar` and `query_as` are macros: each
 // reads its SQL string and argument types at compile time (resolve.jai), checks them against

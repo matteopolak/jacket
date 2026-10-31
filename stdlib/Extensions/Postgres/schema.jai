@@ -1,9 +1,11 @@
 // The run-time and compile-time pieces that `db/schema.jai` (written by `generate`, see
 // generate.jai) relies on. docs/postgres/schema.md has the overview.
 //
-//     #run Pg.check_schema(#file);                       // stale file: compile error
-//     #run Pg.check_json_columns(Json_Columns, string.[...]);
-//     settings: Pg.Json(Pg.json_column_type("users.settings"), Pg.json_column_options("users.settings"));
+// ```jai,ignore
+// #run Pg.check_schema(#file);                       // stale file: compile error
+// #run Pg.check_json_columns(Json_Columns, string.[...]);
+// settings: Pg.Json(Pg.json_column_type("users.settings"), Pg.json_column_options("users.settings"));
+// ```
 
 #scope_export
 

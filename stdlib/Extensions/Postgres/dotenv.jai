@@ -1,10 +1,12 @@
 // A small `.env` reader, enough to find the database URL when the environment has none. One
 // assignment per line:
 //
-//     # a comment
-//     export DATABASE_URL="postgres://app@localhost/app_dev"   # and a trailing comment
-//     JACKET_DATABASE_URL='postgres://app@localhost/app_test'
-//     OTHER=plain value
+// ```
+// # a comment
+// export DATABASE_URL="postgres://app@localhost/app_dev"   # and a trailing comment
+// JACKET_DATABASE_URL='postgres://app@localhost/app_test'
+// OTHER=plain value
+// ```
 //
 // Double quotes understand \n, \" and \\. Single quotes keep everything. Unquoted values end at
 // the first ` #`. There is no variable substitution and no multi-line value. See

@@ -2,8 +2,10 @@
 // table and view, an enum per Postgres enum, and the notes the ORM reads. docs/postgres/schema.md
 // has the overview.
 //
-//     source, problem := Pg.generate_schema(config, "db/migrations");   // needs a server
-//     source, problem := Pg.schema_source(catalog, hash);               // just the text
+// ```jai,ignore
+// source, problem := Pg.generate_schema(config, "db/migrations");   // needs a server
+// source, problem := Pg.schema_source(catalog, hash);               // just the text
+// ```
 
 #scope_export
 

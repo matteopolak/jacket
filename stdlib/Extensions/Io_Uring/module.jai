@@ -1,21 +1,23 @@
 // Linux's io_uring interface, as thin as the kernel makes it.
 // @experimental
 //
-//     Io_Uring :: #import "Extensions/Io_Uring";
+// ```jai,ignore
+// Io_Uring :: #import "Extensions/Io_Uring";
 //
-//     ring: Io_Uring.Ring;
-//     if Io_Uring.ring_init(*ring, 8) < 0 return;     // the kernel's -errno, or 0
-//     defer Io_Uring.ring_deinit(*ring);
+// ring: Io_Uring.Ring;
+// if Io_Uring.ring_init(*ring, 8) < 0 return;     // the kernel's -errno, or 0
+// defer Io_Uring.ring_deinit(*ring);
 //
-//     sqe := Io_Uring.get_sqe(*ring);
-//     Io_Uring.prep_nop(sqe);
-//     sqe.user_data = 42;
+// sqe := Io_Uring.get_sqe(*ring);
+// Io_Uring.prep_nop(sqe);
+// sqe.user_data = 42;
 //
-//     Io_Uring.submit_and_wait(*ring, 1);
+// Io_Uring.submit_and_wait(*ring, 1);
 //
-//     cqe: *Io_Uring.io_uring_cqe;
-//     Io_Uring.wait_cqe(*ring, *cqe);                  // cqe.user_data == 42, cqe.res == 0
-//     Io_Uring.cqe_seen(*ring, cqe);
+// cqe: *Io_Uring.io_uring_cqe;
+// Io_Uring.wait_cqe(*ring, *cqe);                  // cqe.user_data == 42, cqe.res == 0
+// Io_Uring.cqe_seen(*ring, cqe);
+// ```
 //
 // Three layers, each usable alone:
 //   - bindings.jai: the kernel's constants, enums and structs, GENERATED from linux/io_uring.h by
