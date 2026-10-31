@@ -2,7 +2,7 @@
 
 ## What it is
 
-A design, with measurements, for checking procedure bodies on several threads. Nothing here is implemented in `sema` itself; the only code is a study probe (`crates/jaic/src/sema/body_probe.rs`, `-dev_body_probe`). Motivation: on large `-check` runs the reference compiler wins only through parallelism (about 1.9 cores to `jaic`'s 1), and about 60% of `jaic -check` time on a generated 60k-line program is `drain_bodies` → `lower_body` → `check_block_stmts`.
+A design, with measurements, for checking procedure bodies on several threads. Nothing here is implemented in `sema` itself. The code so far is a study probe (`crates/jaic/src/sema/body_probe.rs`, `-dev_body_probe`) and the `Send + Sync` conversion of the shared world (`crates/jaic/src/sema/sync_world.rs`). Motivation: on large `-check` runs the reference compiler wins only through parallelism (about 1.9 cores to `jaic`'s 1), and about 60% of `jaic -check` time on a generated 60k-line program is `drain_bodies` → `lower_body` → `check_block_stmts`.
 
 ## What the study found
 
@@ -80,7 +80,7 @@ So the realistic target is about 1.5–1.8x from sema alone and 2–2.4x with pa
 
 | Stage | Work | Effort | Output |
 | --- | --- | --- | --- |
-| 0 | Audit in-place writes during `lower_body` (extend the probe with a `&mut` audit: wrap the memo maps in a type that counts writes); decide for each: delta, replay or abort. Make AST, `Value`, `Signature`, `ProcLit` `Send + Sync` (shared with the parse-ahead work). | 3–5 days | A written table of every shared write; `Compiler: Sync` for the immutable phase. |
+| 0 (done) | Audit in-place writes during `lower_body` (extend the probe with a `&mut` audit: wrap the memo maps in a type that counts writes); decide for each: delta, replay or abort. Make AST, `Value`, `Signature`, `ProcLit` `Send + Sync` (shared with the parse-ahead work). | 3–5 days | A written table of every shared write; `Compiler: Sync` for the immutable phase. |
 | 1 | Prototype the protocol with one thread: a `Checker` view over the same `Compiler` for the simplest bodies (no calls to unresolved procs, no types created), delta + commit + remap, behind `JAIC_THREADS`. Measure commit cost and abort rate on the 60k program. Go/no-go on the commit-cost estimate here. | 1–2 weeks | Commit cost per body and abort rate, with identical `-emit_ir`. |
 | 2 | Add threads for the restricted subset; batches, pool, ordered commit. | 3–5 days | First wall-clock gain on 60k. |
 | 3 | Widen: type and string interning in the delta, new procs (instance keys), signatures/entities/layouts resolved locally, globals. Abort rate target under 5%. | 3–4 weeks | Most bodies speculative. |
@@ -146,6 +146,33 @@ Reading the table:
 - The four name-lookup caches and the re-export search stack are the most frequent shared writes after the per-body ones, and a private copy costs nothing to keep correct.
 - `lower_epoch()` only reads (`src.added`, `src.files`, `ns.modules`, `ct.runs_done`, `namespace_generation`); it needs no decision of its own.
 - Reference counts are writes too. Cloning an `Rc<ProcLit>`, `Rc<Signature>` or a `Value` on a worker writes memory that other workers read, so the types a frozen `&Compiler` holds have to be `Arc` (the next section).
+
+## Send and Sync of the shared world
+
+A worker holding `&Compiler` clones values out of it, and a clone of an `Rc` writes a count that other workers read. So everything a frozen compiler hands out is `Arc`, and `crates/jaic/src/sema/sync_world.rs` (plus `tree_is_sync` at the end of `jaic-syntax/src/ast.rs`) asserts `Send + Sync` for each type at compile time. A `Cell`, `RefCell` or `Rc` added to one of them fails the build there.
+
+Now `Send + Sync`:
+
+- The syntax tree: `File`, `Stmt`, `Expr`, `Decl`, `ProcLit`, `ProcHeader`, `StructLit`, `EnumLit`, `CodeBody`, `RunBody`, `AsmBlock`, `Import`, `Case`, `Note`. Shared nodes (`Rc<ProcHeader>`, `Rc<Decl>`, `Rc<StructLit>`, and the like) are `Arc`.
+- Source text and docs: `SourceFile::text` is `Arc<str>`, as are doc comment text and the IDE text copies.
+- `Value`, `Aggregate`, `Signature`, `ParamInfo`, `ProcTypeParams`, `ProcInfo`, `Scope`, `Entity`, `Types`, `TypeKind`.
+- The state structs `Namespaces`, `ProcState`, `TypeState` and `Output`.
+
+Per-body values that never leave the thread that checks the body stay `Rc` (the cleanup marks in `lower.rs`, interpreter values, the workspace registry `SharedWorkspaces`). They are not part of the world.
+
+Not yet, and why:
+
+- `Compiler` itself. It still holds the pieces below.
+- `SourceMap` / `FileTable`: a `Cell`-based file table behind an `Rc`.
+- `SourceState`: `Rc<dyn FileSystem>`.
+- `NameCaches`: `RefCell` memo tables (`declaring_imports`, `stdlib_view`) and `library_files`. These are the private-copy-per-worker rows in the audit table.
+- `CompileTime`: the interpreter (`ValueStack` raw pointers, `ZeroedBlock`) and the build workspaces. It stays on the main thread; bodies that touch it abort to serial.
+- `ExpressionTypes`: a `RefCell` span cache the editor reads.
+- The `Probed` wrappers on the remaining state structs are plain data, so they are `Sync` once their contents are; the blockers are the fields above.
+
+Stage 1 splits `Compiler` into a frozen part (the types above) and a per-thread context that holds the rest.
+
+`parse_ahead.rs` no longer needs its `Handoff` wrapper with an `unsafe impl Send`: a tree is `Send` on its own. The relocation pass stays, because it rewrites the file id inside every span, not because of reference counts; `relocate` still takes `&mut` access through the `Arc`s, which is sound while one thread owns the tree.
 
 ## Process-wide state
 
