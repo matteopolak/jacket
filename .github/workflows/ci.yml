@@ -548,7 +548,7 @@ jobs:
           "${run[@]}" python3 -u tools/stdlib/stdlib_runtime.py --jaic target/release/jaic --platform ${{ matrix.platform }} --shard ${{ matrix.shard }} \
             --modes native --opt O2 --strict --timeout 600
       - name: Stdlib tests run by jacket test
-        # The modules under `[test] paths` in jacket.toml (stdlib_runtime.py skips them), once per
+        # Every stdlib module's tests (`[test] paths` in jacket.toml finds them), once per
         # platform: native, interpreted and native -O2, and with `wasm`, wasm interpreted and built.
         # `jacket_test` is `all`, or `hash:K/N`: this leg's share, which spreads them over the
         # platform's tooling legs (tools/ci/stdlib_jacket_test.sh).
@@ -1321,7 +1321,7 @@ jobs:
         if: ${{ !cancelled() && matrix.o2 }}
         run: python -u tools/stdlib/stdlib_runtime.py --jaic "$JAIC" --platform windows-${{ matrix.cpu }} --shard ${{ matrix.shard }} --modes native --opt O2 --strict --dlls "$MESA_DIR"
       - name: Stdlib tests run by jacket test
-        # The modules under `[test] paths` in jacket.toml, as in `stdlib-runtime`, without wasm;
+        # Every stdlib module's tests, as in `stdlib-runtime`, without wasm;
         # each shard runs its share of the tests.
         if: ${{ !cancelled() }}
         run: |

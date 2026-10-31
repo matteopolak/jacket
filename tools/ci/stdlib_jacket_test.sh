@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The modules under `[test] paths` in jacket.toml, once per platform: native, interpreted and native -O2,
+# Every stdlib module's tests (`[test] paths` in jacket.toml finds them), once per platform: native, interpreted and native -O2,
 # and with WASM=true, wasm interpreted and built. JACKET_TEST_PARTITION, when it is `hash:K/N` (jacket test
 # --partition), runs only that share of the tests, so the platform's legs can split them; `all` or unset runs them all.
 # Tests that open a window or use the clipboard (`needs(.DISPLAY)`) run: the platform has a display, which on Linux

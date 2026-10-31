@@ -16,9 +16,6 @@ own docs). The list only shrinks:
 `--report` prints the gaps instead, worst module first (`--examples`: count the missing examples too).
 `--update` rewrites the list from the tree; review its diff, a new line is a declaration added without docs.
 
-It also fails when a module has doc examples and is not under `[test] paths` in jacket.toml: `jacket test`
-only visits those folders, so the examples would never run.
-
 It also fails on code indented by four spaces in a comment (outside `tests/`, `bench/`, `examples/`
 and `fuzz/`): docs use ``` fences, so the code is highlighted and examples can be run.
 
@@ -29,7 +26,6 @@ import argparse
 import os
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
 from toolkit.repo import ROOT, cargo_binary, stdlib_env
 
@@ -164,18 +160,6 @@ def indented_code() -> list[str]:
     return found
 
 
-def tested_modules() -> set[str]:
-    """The stdlib folders `jacket test` visits (`[test] paths` in jacket.toml), relative to `stdlib/`."""
-    paths = tomllib.loads((ROOT / "jacket.toml").read_text(encoding="utf-8")).get("test", {}).get("paths", [])
-    return {Path(p).relative_to("stdlib").as_posix() for p in paths if p.startswith("stdlib/")}
-
-
-def unrun_examples(everything: dict[Path, list[dict]], tested: set[str]) -> list[str]:
-    """The modules with a doc example that `jacket test` never reaches, because no `[test] paths` entry names them."""
-    return sorted(m.as_posix() for m, rows in everything.items()
-                  if m.as_posix() not in tested and any(r["example"] for r in rows))
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--update", action="store_true", help="rewrite tools/ci/undocumented_stdlib.txt from the tree")
@@ -201,8 +185,6 @@ def main() -> int:
     for k in sorted(allowed - missing):
         why = "is now documented" if k in known else "no longer exists"
         errors.append(f"{k} {why}; remove it from tools/ci/undocumented_stdlib.txt (python3 tools/ci/check_stdlib_docs.py --update)")
-    for module in unrun_examples(everything, tested_modules()):
-        errors.append(f'{module} has doc examples but is not under `[test] paths`, so `jacket test` never runs them; add "stdlib/{module}" to jacket.toml')
     for place in indented_code():
         errors.append(f"{place}: indented code in a comment; put it in a ```jai fence (or ```sh, or a plain ```)")
     for e in errors:

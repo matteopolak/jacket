@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# The modules under `[test] paths` in jacket.toml, built with AddressSanitizer and UBSan.
+# Every stdlib module's tests (`[test] paths` in jacket.toml finds them), built with AddressSanitizer and UBSan.
 #
 #   tools/ci/stdlib_jacket_sanitize.sh O0 K/N     every module's tests, the K-th of N shares
 #   tools/ci/stdlib_jacket_sanitize.sh O2 K/N     only the modules in tests/compiler/optimized-modules.txt
