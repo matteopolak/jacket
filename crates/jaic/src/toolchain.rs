@@ -66,10 +66,29 @@ pub struct RuntimeLib {
     pub default: Option<CcSpelling>,
 }
 
+/// One Jai library name that means the C runtime, and where the interpreter finds it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct RuntimeName {
+    pub name: &'static str,
+    /// The DLL the interpreter loads for this name on a Windows host; `None` where the
+    /// interpreter has no such DLL.
+    pub dll: Option<&'static str>,
+}
+
+impl RuntimeName {
+    /// A name with no DLL of its own.
+    pub const fn plain(name: &'static str) -> RuntimeName {
+        RuntimeName {
+            name,
+            dll: None,
+        }
+    }
+}
+
 /// The DLLs of a Windows C runtime that the interpreter loads.
 #[derive(Clone, Copy, Debug)]
 pub struct RuntimeDlls {
-    /// The one named libraries (`libc`, `libm`, `msvcrt`) resolve to.
+    /// Where the generic names (`libc`, `libm`, `msvcrt`, ...) resolve; see [`RuntimeName::dll`].
     pub c: &'static str,
     /// The DLL that exports the `__stdio_common_*` workers behind `printf`.
     pub stdio: &'static str,
@@ -126,12 +145,11 @@ pub struct ForeignModules {
 pub struct Toolchain {
     pub linker: Linker,
     pub runtime: Runtime,
-    /// Jai library names that mean the C runtime on this target: they link nothing by name.
-    pub runtime_names: &'static [&'static str],
+    /// Jai library names that mean the C runtime on this target: they link nothing by name, and
+    /// the interpreter loads the DLL each one maps to.
+    pub runtime_names: &'static [RuntimeName],
     /// `runtime_names` is compared without regard to case.
     pub names_fold_case: bool,
-    /// Library names the interpreter resolves to [`RuntimeDlls::c`].
-    pub interpreter_names: &'static [&'static str],
     /// Libraries every link adds that nothing else names.
     pub implicit_libraries: &'static [&'static str],
     /// The symbol the runtime really exports for `symbol`, when it is not `symbol` itself.
@@ -170,21 +188,25 @@ impl Toolchain {
         &windows_msvc::WINDOWS_MSVC
     }
 
-    /// Whether a Jai library name means the C runtime here (or a POSIX library that is part of
-    /// it): the link names the runtime itself.
-    pub fn is_runtime(&self, library: &str) -> bool {
+    /// The table row for a Jai library name that means the C runtime here (or a POSIX library
+    /// that is part of it): the link names the runtime itself.
+    pub fn runtime_name(&self, library: &str) -> Option<&'static RuntimeName> {
         if self.names_fold_case {
             let lower = library.to_ascii_lowercase();
-            self.runtime_names.contains(&lower.as_str())
+            self.runtime_names.iter().find(|row| row.name == lower)
         } else {
-            self.runtime_names.contains(&library)
+            self.runtime_names.iter().find(|row| row.name == library)
         }
     }
 
-    /// Whether the interpreter resolves a library name to the runtime DLL.
-    pub fn is_interpreter_runtime(&self, library: &str) -> bool {
-        let lower = library.to_ascii_lowercase();
-        self.interpreter_names.contains(&lower.as_str())
+    /// Whether a Jai library name means the C runtime here.
+    pub fn is_runtime(&self, library: &str) -> bool {
+        self.runtime_name(library).is_some()
+    }
+
+    /// The DLL the interpreter loads for a library name that means the C runtime.
+    pub fn interpreter_dll(&self, library: &str) -> Option<&'static str> {
+        self.runtime_name(library)?.dll
     }
 
     /// Whether a foreign variable of the library `name` is imported through its DLL. A system

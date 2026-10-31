@@ -90,8 +90,8 @@ pub(super) enum Library {
 pub fn open(name: &str, system: bool, base_dir: &str) -> Result<Library, String> {
     use super::windows_imports::{Candidate, archive, candidates};
     let lower = name.to_ascii_lowercase();
-    if system && Toolchain::interpreter().is_interpreter_runtime(&lower) {
-        return load_checked(runtime_dlls().c)
+    if system && let Some(dll) = Toolchain::interpreter().interpreter_dll(&lower) {
+        return load_checked(dll)
             .map(Library::Module)
             .map_err(|error| error.to_string());
     }

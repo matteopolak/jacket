@@ -447,7 +447,7 @@ fn crash_in_native_code_is_reported_on_windows() {
             .unwrap()
     };
     // A library name the interpreter resolves to the C runtime DLL.
-    let runtime = jaic::toolchain::Toolchain::interpreter().interpreter_names[0];
+    let runtime = jaic::toolchain::Toolchain::interpreter().runtime_names[0].name;
     let output = run(
         "crash.jai",
         &format!(
@@ -979,6 +979,7 @@ fn msvc_c_runtime_variables_are_dllimport() {
     let generic = msvc
         .runtime_names
         .iter()
+        .map(|row| row.name)
         .find(|name| !only.contains(name))
         .unwrap();
     std::fs::write(

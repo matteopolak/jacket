@@ -42,8 +42,8 @@ pub(super) const RUNTIME: Runtime = Runtime {
     cl_flag: Some("/MD"),
     cc_flag: Some("-fms-runtime-lib=dll"),
     dlls: Some(RuntimeDlls {
-        c: "msvcrt.dll",
-        stdio: "ucrtbase.dll",
+        c: windows_gnu::MSVCRT_DLL,
+        stdio: windows_gnu::UCRTBASE_DLL,
     }),
 };
 
@@ -52,7 +52,6 @@ pub(super) static WINDOWS_MSVC: Toolchain = Toolchain {
     runtime: RUNTIME,
     runtime_names: windows_gnu::RUNTIME_NAMES,
     names_fold_case: true,
-    interpreter_names: windows_gnu::INTERPRETER_NAMES,
     implicit_libraries: &[],
     renames: double_math,
     runtime_data: DataImport::DllImport {

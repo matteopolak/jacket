@@ -24,11 +24,11 @@ The fields, and who reads them:
 - `runtime.libs`: the runtime libraries in link order. `default` says how a link names one on its own; the others are only listed when a custom link command replaces the defaults (`link_inputs`).
 - `runtime_args(driver)`: that one table written for `link.exe`/`lld-link`/`clang-cl` (`/DEFAULTLIB:x`, plus `/MD` for `clang-cl`) or for Clang's `cc`-style driver (`-fms-runtime-lib=dll`, `-Wl,/NODEFAULTLIB:libcmt`, `-Wl,/DEFAULTLIB:x`, `-lx`). Clang's own link step adds the static runtime, hence the exclusion.
 - `stack_arg(driver)`: the 8 MiB main stack on Windows, spelled `/STACK:n`, `-Wl,/STACK:n` or `-Wl,--stack,n`.
-- `is_runtime(name)`: Jai library names that link nothing by name (`libc`, and on Windows also `m`, `pthread`, `dl`, ...). Used by `library_args`.
+- `is_runtime(name)`: whether a name is in that table, so it links nothing by name (`libc`, and on Windows also `m`, `pthread`, `dl`, ...). Used by `library_args`.
 - `imports_data(name, system)`: whether a foreign variable is `dllimport`. A Windows system library is a DLL; the C runtime follows `runtime_data`, and on MSVC only the DLL runtime's own names (`ucrt`, `ucrtbase`) promise that, because the generic names also reach the static import library, which defines some data itself.
 - `rename(symbol)`: the symbol the runtime really exports. On MSVC `long double` is `double`, and the runtime has no `sqrtl`; the name maps to `sqrt`. Both code generation and the interpreter ask this.
 - `import_module(library)`: the wasm import module.
-- `runtime.dlls` and `interpreter_names`: the DLLs the interpreter loads on a Windows host and the library names it resolves to the first of them. The interpreter always uses `Toolchain::interpreter()` (the MSVC description), because it loads those DLLs whichever ABI `jaic` itself was built for.
+- `runtime_names`: one table of the library names that mean the C runtime. Each row also names the DLL the interpreter loads for it on a Windows host (`interpreter_dll(name)`): `ucrt`, `ucrtbase` and `vcruntime` load `ucrtbase.dll`; every other name (`c`, `libc`, `m`, `msvcrt`, `crt`, `libcmt`, `pthread`, `dl`, `rt`, ...) loads `msvcrt.dll`. The two DLLs are never merged: `msvcrt.dll` lacks many `ucrtbase.dll` exports and has its own heap, `FILE*` and `errno`. `runtime.dlls` is the pair used for library-less symbols. The interpreter always uses `Toolchain::interpreter()` (the MSVC description), because it loads those DLLs whichever ABI `jaic` itself was built for.
 - `implicit_libraries`: libraries every Unix link adds (`m`).
 
 The rendered link arguments are pinned to exact strings in `toolchain/tests.rs`, so a refactor cannot change what the linker is given. `crates/jaic/tests/toolchain_policy.rs` fails if any other file under `crates/*/src` names a runtime library or a renamed math stem.
@@ -43,7 +43,7 @@ The rendered link arguments are pinned to exact strings in `toolchain/tests.rs`,
 Gotchas:
 
 - `names_fold_case` is true on Windows only; a Linux library called `C` is not the runtime.
-- The interpreter's name list (`interpreter_names`) is shorter than `runtime_names`. A system library like `pthread` is dropped from native Windows links but goes through the interpreter's ordinary DLL and import-library lookup. It was this way before the toolchain existed and is left alone.
+- A name that is not in the table (a Windows system library like `kernel32`) goes through the interpreter's ordinary DLL and import-library lookup.
 - `runtime_args` for `MsvcLink` on a MinGW target (`JAIC_LINKER=link` with a `*-windows-gnu` target) is empty; MinGW has no import-library runtime to name.
 - `windows.rs` in `interp/native` is Windows-only, so a plain `cargo build` elsewhere does not compile it. `cargo check -p jaic --target x86_64-pc-windows-msvc` does.
 

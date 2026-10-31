@@ -228,7 +228,8 @@ mod tests {
             args("kernel32", mingw),
             vec![LinkArg::Lib("kernel32".into())]
         );
-        for name in msvc.runtime_names {
+        for row in msvc.runtime_names {
+            let name = row.name;
             assert!(args(name, msvc).is_empty(), "{name}");
             assert!(args(name, mingw).is_empty(), "{name}");
         }

@@ -134,14 +134,65 @@ fn windows_runtime_names_ignore_case_and_unix_ones_do_not() {
 }
 
 #[test]
-fn the_interpreter_resolves_five_names_to_the_runtime_dll() {
+fn the_interpreter_loads_one_dll_per_runtime_name() {
     let toolchain = Toolchain::interpreter();
-    for name in ["c", "libc", "m", "libm", "msvcrt", "LibM"] {
-        assert!(toolchain.is_interpreter_runtime(name), "{name}");
+    for name in [
+        "c",
+        "libc",
+        "m",
+        "libm",
+        "msvcrt",
+        "crt",
+        "libcmt",
+        "pthread",
+        "libpthread",
+        "dl",
+        "libdl",
+        "rt",
+        "librt",
+        "LibM",
+        "CRT",
+        "LibCMT",
+    ] {
+        assert_eq!(
+            toolchain.interpreter_dll(name),
+            Some("msvcrt.dll"),
+            "{name}"
+        );
     }
-    assert!(!toolchain.is_interpreter_runtime("ucrt"));
+    for name in ["ucrt", "ucrtbase", "vcruntime", "UCRT", "VCRuntime"] {
+        assert_eq!(
+            toolchain.interpreter_dll(name),
+            Some("ucrtbase.dll"),
+            "{name}"
+        );
+    }
+    assert_eq!(toolchain.interpreter_dll("kernel32"), None);
     let dlls = toolchain.runtime.dlls.unwrap();
     assert_eq!((dlls.c, dlls.stdio), ("msvcrt.dll", "ucrtbase.dll"));
+}
+
+#[test]
+fn every_windows_runtime_name_maps_to_a_dll_and_the_two_runtimes_stay_apart() {
+    for toolchain in [msvc(), mingw()] {
+        assert_eq!(toolchain.runtime_names.len(), 16);
+        for row in toolchain.runtime_names {
+            let dll = row.dll.unwrap_or_else(|| panic!("{} has no DLL", row.name));
+            let universal = matches!(row.name, "ucrt" | "ucrtbase" | "vcruntime");
+            assert_eq!(
+                dll,
+                if universal {
+                    "ucrtbase.dll"
+                } else {
+                    "msvcrt.dll"
+                },
+                "{}",
+                row.name
+            );
+        }
+    }
+    let linux = Toolchain::for_target(Target::parse("x86_64-unknown-linux-gnu").unwrap());
+    assert_eq!(linux.interpreter_dll("c"), None);
 }
 
 #[test]
