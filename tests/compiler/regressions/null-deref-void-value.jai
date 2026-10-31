@@ -1,5 +1,6 @@
 // `null.*` is a value of type `void`, which is how a `Table(K, void)` used as a set gets the
 // value it ignores. It is not a pointer, so it never matches a pointer parameter.
+// rules: ptr.23
 #import "Basic";
 #import "Hash_Table";
 
