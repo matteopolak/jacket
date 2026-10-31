@@ -1,54 +1,40 @@
-# Variant (`Extensions/Variant`)
+# Variant
 
-## What it is
-
-A tagged union whose cases are types, like a Rust enum: `Variant(s64, string)` holds either an `s64` or a `string`, and always knows which. Import it by its path: `#import "Extensions/Variant";`.
+A tagged union whose cases are types, like a Rust enum: `Variant(s64, string)` holds either an `s64` or a `string` and knows which.
 
 ```jai
-Number_Or_Text :: Variant(s64, string);
-Shape          :: Variant(Circle, Rect, Empty);   // Empty :: struct {} is a case without a payload
+#import "Extensions/Variant";
 
-v := variant(Number_Or_Text, 42);       // the case is the type of the value
+Number_Or_Text :: Variant(s64, string);
+
+v := variant(Number_Or_Text, 42);
 w: Number_Or_Text;                      // zeroed first case
-set(*w, "hi");                          // switches case
+set(*w, "hi");
 
 is(v, s64)                              // bool
-v.index                                 // s32, position in the type list
-variant_type(v)                         // Type, for `if variant_type(v) == { case s64; ... }`
-n, ok := get(v, s64);                   // a copy; zero and false when another case is live
-p := get_pointer(*v, s64);              // *s64 into the variant's storage, or null
-n = unwrap(v, s64);                     // asserts the case
+n, ok := get(v, s64);                   // zero and false when another case is live
+p := get_pointer(*v, s64);              // pointer into the storage, or null
 
-variant_switch(v,                       // one handler per case, in any order, checked at compile time
+variant_switch(v,                       // one handler per case, checked at compile time
     (it: *s64)    { print("number %\n", it.*); },
     (it: *string) { print("text %\n", it.*); },
 );
-
-v == w                                  // same index and equal payloads
-free_variant(*v);                       // frees what the live case owns, then zeroes it
+free_variant(*v);                       // frees what the live case owns
 ```
 
 ## How it works
 
-- **Layout.** `Variant :: struct ($types: ..Type)` is `index: s32` and `payload: [payload_size] u8 #align payload_align`, sized for the largest case and aligned for the strictest. `declare_variant` (`layout.jai`) writes these and `case_type_0`, `case_type_1`... (aliases of the cases, so generated code can name them), `case_count` and `case_infos` (the cases' `*Type_Info`s, read back at run time by printing, equality and freeing) into the struct with `#insert`. `Variant(s64, string)` is 24 bytes, `Variant(u8, float64)` 16, and a payload is aligned wherever the variant lives.
-- **Picking a case.** The case is found at compile time by the value's type (`case_of`), so a type that is not a case, or the same type twice (`Variant(s64, s64)`: use a wrapper struct per case), is a compile error naming the variant and its cases. `1.5` is a `float32` and `42` an `s64`: cast a literal to the case you mean (`cast(float64) 1.5`). A zero variant is its first case with every byte zero, not that case's declared initializers.
-- **`variant_switch`** (`switch.jai`) takes procedure literals whose one argument is a pointer to a case, matched to cases by that type, so the order does not matter. A missing, extra, repeated or ill-shaped handler is a compile error. It is written out for 1 to `MAX_SWITCH_CASES` (16) handlers, since Jai has no procedure whose arguments each have their own type. Passing `v` runs the handlers on a copy; passing `*v` lets them change the variant. Handlers are procedures, not blocks: they cannot see the locals around the call (use globals, or `if variant_type(v) == { ... }` and `get_pointer`).
-- **Equality and freeing** (`reflect.jai`) walk the live case by type information: strings compare by content, arrays and structs element by element, floats as numbers, pointers by address. `free_variant` frees strings and resizable arrays (and what they hold) in the live case, recursing into structs and nested variants. Views and pointers are not owned and are left alone. Only use it on payloads that came from the allocator, not string literals.
-- **Printing.** Basic prints structs member by member and has one hook, `context.print_style.struct_printer`. `use_variant_printing()` installs `variant_struct_printer`, after which `print("%", v)` writes the payload (the printer it replaced still gets everything that is not a variant). `variant_to_string(v)` prints one without installing anything.
-- **JSON.** `Extensions/Json` encodes and decodes variants: [json](json.md#variants).
+- Layout: `index: s32` plus `payload: [N] u8` sized and aligned for the biggest and strictest case. `declare_variant` (`layout.jai`) writes the struct with `#insert`, including `case_type_K` aliases and `case_infos` for run-time printing, equality and freeing.
+- The case comes from the value's type at compile time. A non-case type or a repeated type (`Variant(s64, s64)`) is a compile error; wrap each in a struct. Literals are `s64`/`float32`, so cast to the case you mean.
+- `variant_switch` (`switch.jai`) matches handlers to cases by argument type, in any order. Missing, extra or repeated handlers are compile errors. Pass `*v` to let handlers change the variant. Handlers are procedures, so they can't see surrounding locals.
+- Equality and `free_variant` (`reflect.jai`) walk the live case by type info. Only free payloads that came from the allocator, not literals.
+- Printing: `use_variant_printing()` installs a struct printer so `print("%", v)` writes the payload; `variant_to_string(v)` prints without installing anything.
+- Json encodes variants: [json](json.md#variants).
 
 ## How to change it
 
-- A new operation that must know the live case: read `V.case_infos[v.index]` for the type and `v.payload.data` for the bytes (see `values_equal` in `reflect.jai`); name a case type in generated code with `type_of(v).case_type_K`.
-- A new check on the case list belongs in `declare_variant` (it runs when the type is instantiated) or `case_of` (when a procedure names a case); report with `compiler_report`.
-- More than 16 handlers: raise `MAX_SWITCH_CASES` (the overloads are generated by `switch_overloads`).
-- A variant can contain itself only through a pointer, and the cycle must pass through a named struct: `Tree :: Variant(Leaf, Branch); Branch :: struct { children: [..] *Tree; }`. `Node :: Variant(s64, [..] *Node)` is a circular dependency, since the alias is still being resolved when its own argument names it; a case that holds the variant by value (`Branch :: struct { inner: Tree; }`) is `contains itself`. The compiler describes the cases of a variant (the `#insert` reads their sizes) before it lays the variant out, and defers the descriptor of a pointee that is still being laid out until its layout is done.
-- Tests: `stdlib/Extensions/Variant/tests/` (`basics`, `layout`, `ownership`, `recursive`, `faults/`, and `negative/` programs that must fail to compile, listed in `manifest.json`).
-
-## Configuration
-
-`MAX_SWITCH_CASES` (16). No module parameters or environment variables.
-
-## Dependencies
-
-`Basic` and `Compiler`. Json imports this module (`Extensions/Json/variant.jai`) for `is_variant_type` and `variant_case_infos`.
+- New operation needing the live case: use `V.case_infos[v.index]` and `v.payload.data` (see `values_equal`).
+- New case-list check: `declare_variant` or `case_of`, reporting with `compiler_report`.
+- More than 16 handlers: raise `MAX_SWITCH_CASES` (overloads come from `switch_overloads`).
+- A variant can contain itself only through a pointer that passes through a named struct: `Tree :: Variant(Leaf, Branch); Branch :: struct { children: [..] *Tree; }`.
+- Tests: `stdlib/Extensions/Variant/tests/`, including `negative/` programs listed in `manifest.json`.

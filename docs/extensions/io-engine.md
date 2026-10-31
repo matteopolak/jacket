@@ -1,10 +1,6 @@
-# Io: fibers, streams and the completion engine (`Extensions/Io`)
+# Io
 
-Shared rules (pointers vs values, `close(x, now)`, errors, who frees, milliseconds): [README](README.md#conventions-of-io-tls-http-and-json).
-
-## What it is
-
-Cooperative fibers on a per-thread scheduler (`io_run`, `spawn`, `sleep`, `cancel`, `Channel(T)`, `Wait_Group`, `Fiber_Mutex`, `Condition`, `with_grace`), plus blocking-style TCP, files, name lookups, deadlines and cancellation on top of an internal completion engine: io_uring and epoll (Linux), kqueue (macOS), completion ports with an optional IoRing for files (Windows). A common `Reader`/`Writer` covers files, TCP and pipes. Built on the [fiber intrinsics](../compiler/interpreter.md); a compile error on wasm.
+Cooperative fibers on a per-thread scheduler (`io_run`, `spawn`, `sleep`, `cancel`, `Channel(T)`, `Wait_Group`, `Fiber_Mutex`, `Condition`, `with_grace`) plus blocking-style TCP, Unix sockets, files, name lookups, deadlines and cancellation on a completion engine: io_uring and epoll (Linux), kqueue (macOS), completion ports with optional IoRing for files (Windows). A common `Reader`/`Writer` covers files, TCP and pipes. Built on the [fiber intrinsics](../compiler/interpreter.md); a compile error on wasm. Shared rules: [README](README.md#conventions-of-io-tls-http-and-json).
 
 ```jai
 Io :: #import "Extensions/Io";
@@ -35,18 +31,17 @@ Everything that waits must run on a fiber inside `io_run`; it blocks only that f
 
 ## Fibers
 
-- Each fiber has an `mmap`/`VirtualAlloc` stack with a guard page. The scheduler lives in `context.io_scheduler` (no thread-locals) and runs on the OS thread's own stack. `io_run(proc)` returns when the root fiber returns, canceling and draining the rest. Fibers never move between threads; a `Channel` or `Wait_Group` stays on one thread.
-- Ready queue plus a timer heap. With nothing ready the thread waits in the engine until the next timer; nothing ready, no timers and nothing pending prints a deadlock message and exits 1.
-- Blocking calls return `Io_Error`: `.CANCELED` after `cancel(handle)` (sticky for that fiber), `.CLOSED` for a closed channel. `Fiber_Handle` has a generation, so a stale handle is ignored.
-- Each fiber gets a copy of the spawner's `context` with its own temporary storage. `in_scheduler()` tells code whether it runs on a fiber (the HTTP client starts its own scheduler when not).
-- `make_pipe()` returns two connected `*Pipe_Stream` ends (in-memory duplex, shaped like TCP). It lets the [HTTP test client](http-server.md#testing) run a server connection without a socket. Close each end once; the pair frees itself after the second.
-- Stack overflow (POSIX) is caught by a SIGSEGV handler on an alternate stack and printed as `fatal: fiber stack overflow` (exit 139).
-- `release_unused_stack()` returns the memory of the running fiber's stack below its current frames to the system, for a fiber about to wait for a long time (the HTTP server calls it for an idle keep-alive connection). The guard region is untouched; the released pages read back as zeros on macOS and Linux and with unspecified contents on Windows. A no-op outside a fiber.
-- `io_run_threads(n, proc)` runs one scheduler per thread. Listen with `reuse_port = true` in each; Linux balances by hash, macOS delivers to some listener.
+- Each fiber has its own stack with a guard page. The scheduler lives in `context.io_scheduler` and runs on the thread's own stack. `io_run(proc)` returns when the root fiber returns, canceling and draining the rest. Fibers never move between threads.
+- With nothing ready the thread waits in the engine until the next timer. Nothing ready, no timers and nothing pending prints a deadlock message and exits 1.
+- `.CANCELED` after `cancel(handle)` is sticky for that fiber; `.CLOSED` is a closed channel. A stale `Fiber_Handle` is ignored.
+- Each fiber gets a copy of the spawner's `context` with its own temporary storage. `in_scheduler()` tells code whether it runs on a fiber.
+- `make_pipe()` returns two connected in-memory `*Pipe_Stream` ends, which lets the [HTTP test client](http-server.md#testing) run without a socket.
+- Stack overflow on POSIX prints `fatal: fiber stack overflow` (exit 139). `release_unused_stack()` returns the pages below the running frames to the system, for a fiber about to wait a long time.
+- `io_run_threads(n, proc)` runs one scheduler per thread. Listen with `reuse_port = true` in each.
 
 ## Readers, writers, deadlines
 
-`Reader` is `{ data, read_proc, close_proc, wait_proc }` and `Writer` is `{ data, write_proc, close_proc }`, a vtable so users can add sources (a TLS stream is one). Built-ins come from `reader_of(x)`/`writer_of(x)` for `*Io_File`, `Tcp_Stream`, `*Pipe_Stream`. Operations: `read` (0 is the end), `read_full` (`.END_OF_FILE` with the bytes read), `write` (all of it), `write_some`, `close`, and `wait_readable` (returns when a `read` would not wait, consumes nothing, `.UNSUPPORTED` without a `wait_proc`; the HTTP server uses it to keep idle connections without a buffer). `read_all`, `read_file`, `write_file`, and `Io.read_json(reader, T)` (buffers the whole document, then `from_json`; Json takes a `Json_Source` because it must build for wasm) sit on top. A reader and writer over one TCP stream or pipe end share the connection: close only one. A file's reader and writer share its position.
+`Reader` and `Writer` are small vtables, so you can add sources (a TLS stream is one). `reader_of(x)`/`writer_of(x)` wrap `*Io_File`, `Tcp_Stream` and `*Pipe_Stream`. Operations: `read` (0 is the end), `read_full`, `write` (all of it), `write_some`, `close`, `wait_readable` (returns when a read wouldn't wait; the HTTP server uses it to keep idle connections bufferless), plus `read_all`, `read_file`, `write_file`, `read_json`. A reader and writer over one TCP stream share the connection: close only one.
 
 ```jai
 file, error := Io.open_file("log.txt", .READ);
@@ -56,56 +51,41 @@ rest, error = Io.read_all(source);
 Io.with_deadline(2000, #code { count, error = Io.read(source, buffer); });   // .TIMED_OUT
 ```
 
-`with_deadline` limits every IO call and `sleep` in the block; the earlier deadline wins when nested; an expired deadline fails a call before it starts, even with data waiting (pipes too). jaic has no trailing-block call syntax, so the body is a `#code` argument: assign to variables declared before it and do not `return` inside. Channel and lock operations ignore deadlines. `cancel(fiber)` ends the fiber's current IO with `.CANCELED` and all later IO fails the same way; the buffer is never written after the call returns.
-
-`with_grace(ms, #code {...})` runs cleanup after a deadline or cancel fired (a protocol's cancel message, draining a connection back into step): inside, the outer deadline and cancel are set aside and the block has its own limit of `ms`. A cancel that arrives meanwhile is held (`Fiber.cancel_held`) and applies when the outermost grace block ends, as does an earlier one. `cancel_fiber` checks `grace_depth` for this.
-
-`Condition` (`wait`, `notify_one`, `notify_all`) is the one coordination primitive that honours deadlines: a fiber waits for a state change with a time limit (a pool waiting for a free connection). It carries no value, and a notify with no waiter is lost, so callers loop on their own state.
-
-Unix-domain sockets: `connect_unix(path)` returns the same `Tcp_Stream` as `connect`, and `unix_listen(path, backlog, replace)` the same `Tcp_Listener` (so `accept`, `read`, `reader_of`, `wait_readable`, deadlines and cancel work as for TCP, on every backend). A path must be non-empty, free of zero bytes and shorter than `sun_path` (at most 103 bytes on macOS, 107 elsewhere), else `.INVALID`; nothing is truncated. `unix_listen` fails with `.ADDRESS_IN_USE` if the file exists unless `replace = true`, which `unlink`s whatever is at `path` first; the socket file is never removed on `close`. Abstract (Linux) names are not supported. Windows returns `.UNSUPPORTED` from both: `ConnectEx` and the port path are only written for IP sockets. `local_address`/`peer_address` give an empty `Address` for these sockets.
-
-`connect(string)` takes `"host:port"`, an address literal or `"[::1]:80"` and resolves names. `resolve` runs `getaddrinfo` on helper threads (1 to `RESOLVER_MAX_THREADS` = 8, joined when `io_run` ends); lookups of the same name share one job; a cancel or deadline only takes the fiber off the job.
-
-Files: io_uring and Windows do the IO in the kernel; epoll and kqueue cannot report a regular file as not ready, so reads/writes over 32 KiB go to a file thread pool and shorter ones run inline. `.APPEND` always writes at the end.
+- `with_deadline` limits every IO call and `sleep` in the block; the earlier deadline wins when nested, and an expired deadline fails a call before it starts. The body is a `#code` argument: assign to variables declared before it and don't `return` inside. Channel and lock operations ignore deadlines.
+- `cancel(fiber)` ends the fiber's current IO with `.CANCELED` and fails later IO the same way.
+- `with_grace(ms, #code {...})` runs cleanup after a deadline or cancel fired, with its own limit; a cancel arriving meanwhile applies when the outermost grace block ends.
+- `Condition` (`wait`, `notify_one`, `notify_all`) is the one coordination primitive that honours deadlines. A notify with no waiter is lost, so loop on your own state.
+- Unix sockets: `connect_unix(path)` and `unix_listen(path, backlog, replace)` return the same `Tcp_Stream`/`Tcp_Listener`. `unix_listen` fails with `.ADDRESS_IN_USE` if the file exists unless `replace = true`; the file is never removed on close. Not supported on Windows.
+- `connect("host:port")` resolves names with `getaddrinfo` on helper threads (up to 8); lookups of one name share a job.
+- Files: io_uring and Windows do file IO in the kernel. epoll and kqueue can't report a regular file as not ready, so reads/writes over 32 KiB go to a file thread pool and shorter ones run inline.
 
 ## The engine
 
-A fiber fills an `Op` (kind, `Handle`, buffer, offset, address), calls `engine_submit` and parks; the engine completes it inline (submit returns true) or later via `finish_op`, which wakes the fiber. Rule: buffers and addresses belong to an operation until its completion arrives, even after a cancel; a missing feature is a fallback, never an error. Deadlines are timers that cancel the operation with cause `TIMED_OUT`.
+A fiber fills an `Op`, calls `engine_submit` and parks; the engine completes it inline or later via `finish_op`, which wakes the fiber. Buffers and addresses belong to an operation until its completion arrives, even after a cancel. A missing feature is a fallback, never an error. Deadlines are timers that cancel the operation with cause `TIMED_OUT`.
 
-- **io_uring** (Linux 6.1 floor, on [Io_Uring](io-uring.md)): one 512-entry ring per scheduler thread with `SINGLE_ISSUER | DEFER_TASKRUN | COOP_TASKRUN`, retried with fewer flags on `EINVAL`. A denial (`ENOSYS`, `EPERM`, `EACCES`, `ENOMEM`: old kernels, seccomp, `kernel.io_uring_disabled`) falls back to epoll and records why in `backend_reason()`. `accept` is one multishot request per listener with a queue of at most 128 sockets; a cancel or close tears it down.
-- **epoll / kqueue** (`engine_poll.jai`): try the operation at once; on `EAGAIN` queue it on the descriptor (`Fd_State`). epoll is edge-triggered and registrations only grow; `Fd_State` remembers per direction that the last try found nothing (`read_blocked`, `write_blocked`), so a keep-alive request costs no `epoll_ctl`. After hang-up or `recv` of 0, reads always try.
-- **Windows** (x64, arm64): one completion port per thread, overlapped `AcceptEx`/`ConnectEx`/`WSARecv`/`WSASend`/`ReadFile`. IoRing (Windows 11 22H2+) is for files only, probed with a self test, and falls back to the port with a reason. Windows has no `SO_REUSEPORT`: plain listeners use `SO_EXCLUSIVEADDRUSE`, `reuse_port` uses `SO_REUSEADDR` (shares the port, does not balance).
-- **Helper threads** (resolver, file pool) wake the scheduler through a pipe/`eventfd`/`EVFILT_USER`/completion packet; `engine_stop` waits for outstanding jobs first.
+- **io_uring** (Linux 6.1 floor, on [Io_Uring](io-uring.md)): one ring per scheduler thread. A denial (old kernel, seccomp, `kernel.io_uring_disabled`) falls back to epoll and records why in `backend_reason()`. `accept` is one multishot request per listener.
+- **epoll / kqueue** (`engine_poll.jai`): try the operation at once; on `EAGAIN` queue it on the descriptor. epoll is edge-triggered and remembers per direction that the last try found nothing, so a keep-alive request costs no `epoll_ctl`.
+- **Windows**: one completion port per thread with overlapped socket and file calls. IoRing (Windows 11 22H2+) is files only, probed at start. No `SO_REUSEPORT`: `reuse_port` shares the port without balancing.
+- Helper threads (resolver, file pool) wake the scheduler through a pipe, `eventfd`, `EVFILT_USER` or completion packet.
 
 ### Who may wake a fiber
 
-`wake` asserts the target is `BLOCKED`, so a caller must know the fiber is parked and nothing else will wake that park. A new caller must answer: can the target be the running fiber, can it be woken twice for one park (completion plus cancel or timer), can it be `READY`. Waiters are popped from their list (or the op taken off its queue) before the wake; `fire_timers` removes the timer before it acts; `wake` removes a leftover timer. Regressions: `tests/pipe.jai` (`test_write_between_deadline_and_wakeup`), `tests/backends.jai`, `test_cancel_resolve`.
+`wake` asserts the target is `BLOCKED`. A new caller must answer: can the target be the running fiber, can it be woken twice for one park (completion plus cancel or timer), can it be `READY`. Waiters are removed from their list before the wake; `fire_timers` removes the timer before acting. Regressions: `tests/pipe.jai`, `tests/backends.jai`, `test_cancel_resolve`.
 
 ## How to change it
 
-- **New operation:** add an `Op_Kind` (`WAIT_READABLE` is the smallest example: `sys_peek` in `platform.jai`, `poll_attempt`, `uring_submit`, `iocp_submit`, `wait_readable` in `net.jai`), then a public procedure in `net.jai`/`files.jai` that fills an `Op` and calls `await_op`.
-- **New backend:** a `Backend` member, `*_start`, `engine_submit`/`engine_cancel`/`engine_wait` cases, `finish_op` per completion.
-- **New io_uring feature:** extend `uring_submit`/`uring_reap` (`more`, `buffer_id` already travel), probe in `uring_start`, set a `Capabilities` flag; callers never see it.
-- **New error:** add the `E_*` number for both OSes in `platform.jai` and a case in `error_from_code`; append the `Io_Error` member at the end (the enum only grows). `last_platform_code()` keeps `OTHER` diagnosable.
-- **New reader/writer source:** write the procedures with the `Read_Proc`/`Write_Proc`/`Close_Proc` signatures and add `reader_of`/`writer_of` overloads in `stream.jai`; also give the source direct `read`, `read_full`, `write`, `write_some`, `close`. A pipe-like source checks the deadline itself (`deadline_passed` in `pipe.jai`) since it has no engine.
-- **New blocking primitive:** follow `wait_on` in `sync.jai`: stack-allocated `Waiter` on a list, then `park`.
-- Files: `scheduler.jai`, `sync.jai`, `stacks.jai`, `overflow.jai`, `pipe.jai`, `stream.jai`, `net.jai`, `files.jai`, `files_pool.jai`, `resolver.jai`, `runtime.jai`, `engine*.jai`, `platform.jai`, `win32.jai`.
-- Gotchas: `open`/`fcntl` are variadic in C and must be declared `args: ..Any` (Apple arm64 passes variadics on the stack). `epoll_event` is packed on x86-64 only. The Fd table is indexed by descriptor, so any raw `close` of a descriptor that went through a poll backend must use `discard_handle`. A parked fiber keeps the stack pages it touched; `release_unused_stack()` gives back the ones below its current frames (a margin below the caller is kept, since the calls that release run there: `DISCARD_MARGIN` in `stacks.jai`, 2 KiB on macOS and Linux and 16 KiB on Windows, where `DiscardVirtualMemory` uses more than 2 KiB of stack and a smaller margin crashed the program with an access violation as the release returned). macOS ignores the effect of `madvise` on resident size until memory is short, so `discard_pages` in `stacks.jai` maps fresh zero pages over the range there; Linux uses `MADV_DONTNEED`, Windows `DiscardVirtualMemory`. Calling it costs a system call and takes the process-wide map lock on macOS, so call it when a fiber goes idle, not per request and not in a burst of new connections (1,024 simultaneous calls made a loaded server reset connections).
+- New operation: add an `Op_Kind` (`WAIT_READABLE` is the smallest example: `sys_peek`, `poll_attempt`, `uring_submit`, `iocp_submit`, `wait_readable`), then a public procedure in `net.jai`/`files.jai` that fills an `Op` and calls `await_op`.
+- New backend: a `Backend` member, `*_start`, `engine_submit`/`engine_cancel`/`engine_wait` cases, `finish_op` per completion.
+- New error: add the `E_*` number for both OSes in `platform.jai` and a case in `error_from_code`; append the `Io_Error` member at the end (the enum only grows).
+- New reader/writer source: the `Read_Proc`/`Write_Proc`/`Close_Proc` signatures plus `reader_of`/`writer_of` overloads in `stream.jai`. A pipe-like source checks the deadline itself.
+- New blocking primitive: follow `wait_on` in `sync.jai` (stack-allocated `Waiter`, then `park`).
+- Gotchas: `open`/`fcntl` are variadic in C and must be declared `args: ..Any`. `epoll_event` is packed on x86-64 only. A raw `close` of a descriptor that went through a poll backend must use `discard_handle`. `discard_pages` in `stacks.jai` uses `MADV_DONTNEED` on Linux, fresh zero pages on macOS and `DiscardVirtualMemory` on Windows, which needs a 16 KiB stack margin (`DISCARD_MARGIN`). Call `release_unused_stack()` when a fiber goes idle, not per request.
 
 ## Configuration
 
-| Setting | Effect |
-| --- | --- |
-| `JAI_IO_BACKEND=io_uring\|epoll\|kqueue\|iocp\|ioring` | Ask for a backend before `io_run`; an unavailable one is replaced and `backend_reason()` says why |
-| `JAI_IO_FILE_THREADS` | epoll/kqueue file pool size (default 4, max 16, 0 = all inline) |
-| `JAI_IO_FILE_INLINE` | file IO up to this many bytes runs inline (default 32768, 0 = all to the pool) |
-| module parameters | `STACK_BYTES` (256 KiB), `POOL_LIMIT` (1024), `TEMPORARY_BYTES` (2048): `#import "Extensions/Io"(STACK_BYTES = 64 * 1024)` |
-| constants | `RING_ENTRIES`, `RESOLVER_MAX_THREADS`, `MAX_POLLED_FDS`, `RING_SUBMISSION`, `SEND_CHUNK` |
+- `JAI_IO_BACKEND=io_uring|epoll|kqueue|iocp|ioring` asks for a backend before `io_run`; an unavailable one is replaced and `backend_reason()` says why.
+- `JAI_IO_FILE_THREADS` (default 4, max 16, 0 = all inline) and `JAI_IO_FILE_INLINE` (default 32768 bytes) tune the epoll/kqueue file pool.
+- Module parameters: `STACK_BYTES` (256 KiB), `POOL_LIMIT` (1024), `TEMPORARY_BYTES` (2048), e.g. `#import "Extensions/Io"(STACK_BYTES = 64 * 1024)`.
+- Introspection: `backend()`, `backend_name()`, `backend_reason()`, `capabilities()`, `io_statistics()`.
 
-Introspection: `backend()`, `backend_name()`, `backend_reason()`, `capabilities()`, `io_statistics()`.
-
-## Dependencies
-
-libc, [Io_Uring](io-uring.md) on Linux, kernel32/ws2_32/KernelBase on Windows, `Atomics`, `Thread` (resolver, file pool, `io_run_threads`), [Json](json.md) (only `read_json`). Tests: `stdlib/Extensions/Io/tests/` (`tcp` (including `test_unix_sockets`), `streams`, `timeouts`, `files`, `pipe`, and `backends.jai`, which runs every check on each backend the system offers); benchmarks in `bench/` (`jaic -O2 stdlib/Extensions/Io/bench/bench.jai`).
-
-Not done: UDP, provided buffers, multishot receive, zero-copy send, DNS timeout, IoRing cancel, registered files.
+Tests: `stdlib/Extensions/Io/tests/` (`backends.jai` runs every check on each backend the system offers). Benchmarks: `jaic -O2 stdlib/Extensions/Io/bench/bench.jai`. Not done: UDP, provided buffers, zero-copy send, DNS timeout.
