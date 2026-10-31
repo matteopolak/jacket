@@ -1,15 +1,11 @@
-// A TLS connection over any `Io.Reader` / `Io.Writer` pair (a TCP stream's, a pipe's, an Http
-// `Link`'s). The handshake is a plain blocking call on the calling fiber: it waits through the Io
-// calls under it, so `Io.with_deadline` limits it and `Io.cancel` ends it. After it, the stream is
-// read and written like any other, through `reader_of` and `writer_of`, or directly with `read`,
-// `write_some` and `write`. The example in the module's docs connects, writes and reads.
+// A TLS connection over any `Io.Reader` and `Io.Writer` pair. Read and write it with [read],
+// [write_some] and [write], or through [reader_of] and [writer_of].
 //
-// One stream belongs to one scheduler thread. One fiber may read while another writes (every call
-// into the TLS library is short and not interrupted by a switch to another fiber of the stream);
-// two fibers reading, or two writing, take turns call by call, so their data interleaves.
+// One stream belongs to one scheduler thread. One fiber may read while another writes; two
+// fibers reading, or two writing, take turns call by call, so their data interleaves.
 //
-// A stream is allocated by `tls_connect` or `tls_accept` and freed by `close`, which must be called once and after which
-// the stream is not used. The fields are the module's own state, not an interface: use the procedures.
+// [tls_connect] or [tls_accept] allocates it and [close] frees it, once. The fields are the
+// module's own state: use the procedures.
 Tls_Stream :: struct {
     reader: Io.Reader;
     writer: Io.Writer;
