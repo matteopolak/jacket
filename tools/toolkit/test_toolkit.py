@@ -213,7 +213,10 @@ class Llvm(unittest.TestCase):
             tool = Path(tmp) / "bin" / exe_name("llvm-symbolizer")
             tool.parent.mkdir()
             tool.write_text("")
-            with mock.patch.dict(os.environ, {"LLVM_PREFIX": tmp}):
+            # Name a variable nothing sets, so the caller's own LLVM_SYS_*_PREFIX cannot win.
+            env = {"LLVM_SYS_PREFIX_VAR": "LLVM_SYS_991_PREFIX", "LLVM_PREFIX": tmp}
+            with mock.patch.dict(os.environ, env):
+                os.environ.pop("LLVM_SYS_991_PREFIX", None)
                 self.assertEqual(llvm.tool("llvm-symbolizer"), str(tool))
 
 
