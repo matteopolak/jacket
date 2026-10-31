@@ -29,7 +29,7 @@ Choices that matter:
 
 ### Parallel lex and parse
 
-`parse_ahead.rs` lexes and parses source files on worker threads while sema runs. At the start of `prepare_sources` (`Compiler::start_parse_ahead`) it queues the files a compile loads first: the preload module, `Runtime_Support` and the program's files. Each worker reads and parses a file (standard library files with `parse_file_for_target`, as `library_platform` decides), then scans its top-level `#load` and `#import` statements, resolves them with the functions sema uses (`find_module_in`, relative `dir.join`) and queues files not yet seen. A `#if` on `OS`/`CPU` (combined with `&&`, `||`, `!`) follows only the branch that holds for the target; other conditions follow both branches.
+`parse_ahead.rs` lexes and parses source files on worker threads while sema runs. At the start of `prepare_sources` (`Compiler::start_parse_ahead`) it queues the files a compile loads first: the preload module, `Runtime_Support` and the program's files. Each worker reads and parses a file (standard library files with `parse_file_for_target`, as `library_platform` decides), then scans its top-level `#load` and `#import` statements, resolves them with the functions sema uses (`find_module_in`, relative `dir.join`) and queues files not yet seen. A `#if` on `OS`/`CPU` (combined with `&&`, `||`, `!`) follows only the branch that holds for the target; so does a `#if true` or `#if false`, which is what the library parser leaves behind for those tests. Other conditions follow both branches. A crawl that follows a test it should have folded parses whole platform modules (the Windows API, Metal) that nothing loads.
 
 Sema asks for a file in `load_file_inner` through `ParseAhead::claim(canonical path)`:
 
@@ -41,7 +41,7 @@ Diagnostics and program behaviour match a serial run. File ids are assigned when
 
 Measured on the 10-core development Mac (sandboxed shell, mimalloc), `-check`, median of 21: hello 33.1 -> 29.2 ms, 60k generated lines 146 -> 120 ms, using up to 4 workers (about 1.3 cores of CPU per check instead of 1). What stays on the main thread is the claim itself (source map entry and relocation, about 5% of a 60k-line check), waiting for the first big file, and the roughly 10 ms of process start and exit that hello world is mostly made of. `-timings` still shows one `front end` phase, now shorter.
 
-The IDE (a recording `Compiler::ed`), non-native filesystems and `wasm32` always parse serially. `-serial_parse` turns the workers off (use it to compare outputs); `-parse_threads N` sets their number (both also come from `[experimental]` in `jacket.toml`, [jacket](../tools/jacket.md)) (default: cores - 1, at most 4).
+The IDE (a recording `Compiler::ed`), non-native filesystems and `wasm32` always parse serially. `-serial_parse` turns the workers off (use it to compare outputs); `-parse_threads N` sets their number (both also come from `[experimental]` in `jacket.toml`, [jacket](../tools/jacket.md)) (default: cores - 1, at most 4). The extra CPU of a parallel check (about 10% on Focus) is work, not waiting: idle workers sleep on a condition variable. Each worker fills its own symbol cache, and the main thread relocates every tree it claims. `-threads 1` has no workers and gives the single-thread cost. On Focus `-check` two workers match four on wall time with less CPU, but the 60k-line program prefers four, so the default stays.
 
 ### Interpreter speed
 
