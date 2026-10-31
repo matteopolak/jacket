@@ -5,12 +5,22 @@
 // synthetic fixed metrics: layout and tests work without any font file or native library.
 
 // Which font a piece of text uses.
+//
+// ```jai,skip_on(wasm)
+// style := Text_Style.{ font = .MONO, size = 14 };
+// assert(style.font == .MONO);
+// ```
 Font_Slot :: enum u8 {
     SANS; // the interface font
     MONO; // the code font
 }
 
 // How text is drawn.
+//
+// ```jai,skip_on(wasm)
+// style := Text_Style.{ size = 16 };
+// assert(style.size == 16);
+// ```
 Text_Style :: struct {
     font: Font_Slot;
     size: float = 14; // points
@@ -72,6 +82,12 @@ Text_System :: struct {
 //
 // - text: the text system to add the font to.
 // - path: the font file to read.
+//
+// ```jai,no_run,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// if !load_font(*ui.text, "fonts/Inter-Regular.ttf") print("font missing\n");
+// ```
 load_font :: (text: *Text_System, path: string) -> bool {
     data, ok := read_entire_file(path);
     if !ok return false;
@@ -85,6 +101,15 @@ load_font :: (text: *Text_System, path: string) -> bool {
 // - data: the font file's bytes. The call takes ownership: it copies them and frees `data`, even on
 //   failure.
 // - name: a label for the font, copied.
+//
+// ```jai,no_run,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// #import "File";
+//
+// data := read_entire_file("fonts/Inter-Regular.ttf");
+// load_font_data(*ui.text, data, "Inter");
+// ```
 load_font_data :: (text: *Text_System, data: string, name: string = "") -> bool {
     if !text.library {
         if FT_Init_FreeType(*text.library) != 0 {
@@ -114,6 +139,13 @@ load_font_data :: (text: *Text_System, data: string, name: string = "") -> bool 
 // Add a fixed-metrics font (no glyphs are drawn) to the next slot.
 //
 // - text: the text system to add the font to.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// width := text_width(*ui.text, "abcde", .{ size = 10 });
+// assert(width == 30);  // every character is 0.6 of the size wide
+// ```
 add_synthetic_font :: (text: *Text_System) {
     array_add(*text.fonts, New(Font));
 }
@@ -124,6 +156,12 @@ add_synthetic_font :: (text: *Text_System) {
 // that replace the sans and monospace choices.
 //
 // - text: the text system to fill.
+//
+// ```jai,no_run,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// load_system_fonts(*ui.text);
+// ```
 load_system_fonts :: (text: *Text_System) {
     sans := environment_variable("JAI_UI_FONT");
     mono := environment_variable("JAI_UI_MONO_FONT");
@@ -177,6 +215,11 @@ load_system_fonts :: (text: *Text_System) {
 // Release every font and the glyph cache.
 //
 // - text: the text system to release. It is reset to empty.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// free_ui(*ui);
+// ```
 free_text_system :: (text: *Text_System) {
     for text.fonts {
         if it.face FT_Done_Face(it.face);
@@ -198,6 +241,12 @@ free_text_system :: (text: *Text_System) {
 //
 // - text: the text system to change.
 // - scale: device pixels per point. Values under 0.25 are raised to 0.25.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// set_scale(*ui.text, 2);  // a Retina display
+// ```
 set_scale :: (text: *Text_System, scale: float) {
     text.scale = max(scale, 0.25);
 }
@@ -207,6 +256,13 @@ set_scale :: (text: *Text_System, scale: float) {
 // - text: the text system holding the fonts.
 // - slot: which font to measure.
 // - size: the font size in points.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// metrics := font_metrics(*ui.text, .SANS, 20);
+// assert(metrics.line_height > 0);
+// ```
 font_metrics :: (text: *Text_System, slot: Font_Slot, size: float) -> Font_Metrics {
     index := font_index(text, slot);
     pixels := pixel_size(text, size);
@@ -239,6 +295,12 @@ font_metrics :: (text: *Text_System, slot: Font_Slot, size: float) -> Font_Metri
 // - text: the text system holding the fonts.
 // - string_to_measure: the UTF-8 text to measure.
 // - style: the font and size to measure with.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// assert(text_width(*ui.text, "ten chars!", .{ size = 10 }) == 60);
+// ```
 text_width :: (text: *Text_System, string_to_measure: string, style: Text_Style) -> float {
     total := 0.0;
     i := 0;
@@ -257,6 +319,12 @@ text_width :: (text: *Text_System, string_to_measure: string, style: Text_Style)
 // - text: the text system holding the fonts.
 // - code: the code point.
 // - style: the font and size to measure with.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// assert(glyph_advance(*ui.text, #char "a", .{ size = 10 }) == 6);
+// ```
 glyph_advance :: (text: *Text_System, code: u32, style: Text_Style) -> float {
     if code == #char "\t" return 4 * glyph_advance(text, #char " ", style);
 
@@ -275,6 +343,13 @@ glyph_advance :: (text: *Text_System, code: u32, style: Text_Style) -> float {
 // - string_to_measure: the UTF-8 text.
 // - style: the font and size the text is drawn with.
 // - x: the position in points from the start of the text. Zero or less gives 0.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// index := index_at_x(*ui.text, "abcdef", .{ size = 10 }, 13);  // x = 13 falls in the third character
+// assert(index == 2);
+// ```
 index_at_x :: (text: *Text_System, string_to_measure: string, style: Text_Style, x: float) -> int {
     if x <= 0 return 0;
 
@@ -301,6 +376,12 @@ index_at_x :: (text: *Text_System, string_to_measure: string, style: Text_Style,
 // - code: the code point.
 // - slot: which font to prefer.
 // - size: the font size in points.
+//
+// ```jai,no_run,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// glyph := get_glyph(*ui.text, #char "A", .SANS, 16);
+// ```
 get_glyph :: (text: *Text_System, code: u32, slot: Font_Slot, size: float) -> Glyph {
     index := font_index(text, slot);
     pixels := pixel_size(text, size);

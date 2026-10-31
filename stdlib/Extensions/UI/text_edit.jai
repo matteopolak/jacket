@@ -6,6 +6,15 @@
 // by line, and vertical movement keeps its column as a goal x position.
 
 // A piece of text being edited. Zero is empty; release it with `free_text_edit`.
+//
+// ```jai,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// set_contents(*edit, "hello");
+// move_caret(*edit, 5);
+// insert_text(*edit, " world");
+// assert(contents(*edit) == "hello world");
+// ```
 Text_Edit :: struct {
     buffer: Text_Buffer;
     cursor: int; // byte offset of the caret
@@ -21,6 +30,14 @@ Text_Edit :: struct {
 }
 
 // A coloured range of one line, produced by an editor's highlight procedure.
+//
+// ```jai,no_run,skip_on(wasm)
+// paint_comments :: (line: string, spans: *[..] Highlight_Span) {
+//     if line.count >= 2 && line[0] == #char "/" && line[1] == #char "/" {
+//         array_add(spans, .{ 0, line.count, rgb(120, 140, 120) });
+//     }
+// }
+// ```
 Highlight_Span :: struct {
     start: int; // byte offsets within the line
     end: int;
@@ -28,9 +45,24 @@ Highlight_Span :: struct {
 }
 
 // A procedure that colours one line of text by appending spans (unlisted text uses the default colour).
+//
+// ```jai,no_run,skip_on(wasm)
+// paint_comments :: (line: string, spans: *[..] Highlight_Span) {
+//     if line.count >= 2 && line[0] == #char "/" && line[1] == #char "/" {
+//         array_add(spans, .{ 0, line.count, rgb(120, 140, 120) });
+//     }
+// }
+//
+// options := Editor_Options.{ highlight = paint_comments };
+// ```
 Highlight_Proc :: #type (line: string, spans: *[..] Highlight_Span);
 
 // A range of the text drawn with a background: search results, diagnostics, matching brackets.
+//
+// ```jai,no_run,skip_on(wasm)
+// marks := Text_Mark.[.{ start = 4, end = 9, color = rgb(255, 220, 0, 90) }];
+// options := Editor_Options.{ marks = marks };
+// ```
 Text_Mark :: struct {
     start: int; // byte offsets in the whole text
     end: int;
@@ -39,6 +71,10 @@ Text_Mark :: struct {
 }
 
 // Options for `text_editor` and `text_field`.
+//
+// ```jai,no_run,skip_on(wasm)
+// options := Editor_Options.{ line_numbers = true, tab_width = 2 };
+// ```
 Editor_Options :: struct {
     font: Font_Slot = .MONO;
     size: float; // 0: the theme's code size
@@ -54,6 +90,12 @@ Editor_Options :: struct {
 // Release the text and its history.
 //
 // - edit: the text to release. It is reset to empty.
+//
+// ```jai,skip_on(wasm)
+// edit: Text_Edit;
+// set_contents(*edit, "text");
+// free_text_edit(*edit);
+// ```
 free_text_edit :: (edit: *Text_Edit) {
     free_buffer(*edit.buffer);
     edit.* = .{};
@@ -63,6 +105,13 @@ free_text_edit :: (edit: *Text_Edit) {
 //
 // - edit: the text being edited.
 // - text: the new text.
+//
+// ```jai,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// set_contents(*edit, "one\ntwo");
+// assert(contents(*edit) == "one\ntwo");
+// ```
 set_contents :: (edit: *Text_Edit, text: string) {
     set_text(*edit.buffer, text);
     edit.cursor = 0;
@@ -75,6 +124,13 @@ set_contents :: (edit: *Text_Edit, text: string) {
 // The whole text, as a copy in temporary storage.
 //
 // - edit: the text being edited.
+//
+// ```jai,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// set_contents(*edit, "abc");
+// assert(contents(*edit) == "abc");
+// ```
 contents :: (edit: *Text_Edit) -> string {
     return buffer_to_string(*edit.buffer,, temp);
 }
@@ -82,6 +138,15 @@ contents :: (edit: *Text_Edit) -> string {
 // Whether any text is selected.
 //
 // - edit: the text being edited.
+//
+// ```jai,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// set_contents(*edit, "abc");
+// assert(!has_selection(*edit));
+// select_all(*edit);
+// assert(has_selection(*edit));
+// ```
 has_selection :: (edit: *Text_Edit) -> bool {
     return edit.cursor != edit.anchor;
 }
@@ -89,6 +154,16 @@ has_selection :: (edit: *Text_Edit) -> bool {
 // The selected range as (start, end) byte offsets.
 //
 // - edit: the text being edited.
+//
+// ```jai,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// set_contents(*edit, "hello world");
+// move_caret(*edit, 6);
+// move_caret(*edit, 11, extend = true);
+// start, end := selection_range(*edit);
+// assert(start == 6 && end == 11);
+// ```
 selection_range :: (edit: *Text_Edit) -> start: int, end: int {
     return min(edit.cursor, edit.anchor), max(edit.cursor, edit.anchor);
 }
@@ -96,6 +171,15 @@ selection_range :: (edit: *Text_Edit) -> start: int, end: int {
 // The selected text, valid until the next edit.
 //
 // - edit: the text being edited.
+//
+// ```jai,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// set_contents(*edit, "hello world");
+// move_caret(*edit, 6);
+// move_caret(*edit, 11, extend = true);
+// assert(selected_text(*edit) == "world");
+// ```
 selected_text :: (edit: *Text_Edit) -> string {
     start, end := selection_range(edit);
     return text_range(*edit.buffer, start, end);
@@ -104,6 +188,15 @@ selected_text :: (edit: *Text_Edit) -> string {
 // Where the caret is, as a zero-based line and a byte column within it.
 //
 // - edit: the text being edited.
+//
+// ```jai,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// set_contents(*edit, "ab\ncd");
+// move_caret(*edit, 4);
+// line, column := caret_position(*edit);
+// assert(line == 1 && column == 1);
+// ```
 caret_position :: (edit: *Text_Edit) -> line: int, column: int {
     line := line_of_offset(*edit.buffer, edit.cursor);
     return line, edit.cursor - line_start(*edit.buffer, line);
@@ -114,6 +207,14 @@ caret_position :: (edit: *Text_Edit) -> line: int, column: int {
 // - edit: the text being edited.
 // - offset: the new byte offset.
 // - extend: keep the anchor, so the selection grows or shrinks.
+//
+// ```jai,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// set_contents(*edit, "abc");
+// move_caret(*edit, 100);  // clamped
+// assert(edit.cursor == 3);
+// ```
 move_caret :: (edit: *Text_Edit, offset: int, extend: bool = false) {
     edit.cursor = clamp(offset, 0, edit.buffer.length);
     if !extend edit.anchor = edit.cursor;
@@ -124,6 +225,14 @@ move_caret :: (edit: *Text_Edit, offset: int, extend: bool = false) {
 // Select all the text.
 //
 // - edit: the text being edited.
+//
+// ```jai,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// set_contents(*edit, "abc");
+// select_all(*edit);
+// assert(selected_text(*edit) == "abc");
+// ```
 select_all :: (edit: *Text_Edit) {
     edit.anchor = 0;
     edit.cursor = edit.buffer.length;
@@ -134,6 +243,15 @@ select_all :: (edit: *Text_Edit) {
 //
 // - edit: the text being edited.
 // - text: the text to insert. Line breaks are removed in a single-line edit.
+//
+// ```jai,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// set_contents(*edit, "hello");
+// select_all(*edit);
+// insert_text(*edit, "bye");  // replaces the selection
+// assert(contents(*edit) == "bye");
+// ```
 insert_text :: (edit: *Text_Edit, text: string) {
     if !text.count && !has_selection(edit) return;
 
@@ -157,6 +275,17 @@ insert_text :: (edit: *Text_Edit, text: string) {
 // Delete the selection. Returns whether there was one.
 //
 // - edit: the text being edited.
+//
+// ```jai,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// set_contents(*edit, "hello world");
+// move_caret(*edit, 5);
+// move_caret(*edit, 11, extend = true);
+// assert(delete_selection(*edit));
+// assert(contents(*edit) == "hello");
+// assert(!delete_selection(*edit));
+// ```
 delete_selection :: (edit: *Text_Edit) -> bool {
     if !has_selection(edit) return false;
 
@@ -171,6 +300,14 @@ delete_selection :: (edit: *Text_Edit) -> bool {
 }
 
 // What a movement or deletion covers.
+//
+// ```jai,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// set_contents(*edit, "one two");
+// assert(offset_by(*edit, 0, .WORD, 1) == 3);
+// assert(offset_by(*edit, 0, .DOCUMENT, 1) == 7);
+// ```
 Unit :: enum u8 {
     CHARACTER; // one grapheme cluster
     WORD;
@@ -184,6 +321,14 @@ Unit :: enum u8 {
 // - from: the byte offset to start from.
 // - unit: how far to go.
 // - direction: -1 for left, 1 for right.
+//
+// ```jai,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// set_contents(*edit, "ab cd");
+// assert(offset_by(*edit, 0, .CHARACTER, 1) == 1);
+// assert(offset_by(*edit, 5, .WORD, -1) == 3);
+// ```
 offset_by :: (edit: *Text_Edit, from: int, unit: Unit, direction: int) -> int {
     buffer := *edit.buffer;
 
@@ -241,6 +386,16 @@ offset_by :: (edit: *Text_Edit, from: int, unit: Unit, direction: int) -> int {
 // - unit: how far to go.
 // - direction: -1 for left, 1 for right.
 // - extend: keep the anchor, so the selection grows or shrinks.
+//
+// ```jai,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// set_contents(*edit, "one two");
+// move_by(*edit, .WORD, 1);
+// assert(edit.cursor == 3);
+// move_by(*edit, .DOCUMENT, 1, extend = true);
+// assert(selected_text(*edit) == " two");
+// ```
 move_by :: (edit: *Text_Edit, unit: Unit, direction: int, extend: bool = false) {
     // With a selection, a plain left or right collapses to that side of it.
     if !extend && has_selection(edit) && unit == .CHARACTER {
@@ -257,6 +412,15 @@ move_by :: (edit: *Text_Edit, unit: Unit, direction: int, extend: bool = false) 
 // - edit: the text being edited.
 // - unit: how much to delete.
 // - direction: -1 for before the caret, 1 for after.
+//
+// ```jai,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// set_contents(*edit, "one two");
+// move_caret(*edit, 7);
+// delete_by(*edit, .WORD, -1);
+// assert(contents(*edit) == "one ");
+// ```
 delete_by :: (edit: *Text_Edit, unit: Unit, direction: int) {
     if delete_selection(edit) return;
 
@@ -279,6 +443,19 @@ delete_by :: (edit: *Text_Edit, unit: Unit, direction: int) {
 // - lines: how many lines to move. Past either end the caret goes to the start or end of the text.
 // - style: the style the lines are drawn in.
 // - extend: keep the anchor, so the selection grows or shrinks.
+//
+// ```jai,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// set_contents(*edit, "abcd\nef");
+// move_caret(*edit, 3);
+//
+// ui := headless();
+// defer free_ui(*ui);
+// move_vertically(*ui, *edit, 1, .{});
+// line, column := caret_position(*edit);
+// assert(line == 1);
+// ```
 move_vertically :: (ui: *UI_State, edit: *Text_Edit, lines: int, style: Text_Style, extend: bool = false) {
     buffer := *edit.buffer;
     line := line_of_offset(buffer, edit.cursor);
@@ -309,6 +486,14 @@ move_vertically :: (ui: *UI_State, edit: *Text_Edit, lines: int, style: Text_Sty
 //
 // - edit: the text being edited.
 // - offset: a byte offset in the word.
+//
+// ```jai,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// set_contents(*edit, "hello world");
+// select_word_at(*edit, 8);
+// assert(selected_text(*edit) == "world");
+// ```
 select_word_at :: (edit: *Text_Edit, offset: int) {
     buffer := *edit.buffer;
     line := line_of_offset(buffer, offset);
@@ -327,6 +512,14 @@ select_word_at :: (edit: *Text_Edit, offset: int) {
 //
 // - edit: the text being edited.
 // - offset: a byte offset in the line.
+//
+// ```jai,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// set_contents(*edit, "one\ntwo\nthree");
+// select_line_at(*edit, 5);
+// assert(selected_text(*edit) == "two\n");
+// ```
 select_line_at :: (edit: *Text_Edit, offset: int) {
     buffer := *edit.buffer;
     line := line_of_offset(buffer, offset);
@@ -337,6 +530,15 @@ select_line_at :: (edit: *Text_Edit, offset: int) {
 // Undo the last step and put the caret where it belongs. Returns whether anything changed.
 //
 // - edit: the text being edited.
+//
+// ```jai,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// insert_text(*edit, "typed");
+// assert(undo_edit(*edit));
+// assert(contents(*edit) == "");
+// assert(!undo_edit(*edit));
+// ```
 undo_edit :: (edit: *Text_Edit) -> bool {
     ok, cursor := undo(*edit.buffer);
     if ok {
@@ -350,6 +552,15 @@ undo_edit :: (edit: *Text_Edit) -> bool {
 // Redo the last undone step. Returns whether anything changed.
 //
 // - edit: the text being edited.
+//
+// ```jai,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// insert_text(*edit, "typed");
+// undo_edit(*edit);
+// assert(redo_edit(*edit));
+// assert(contents(*edit) == "typed");
+// ```
 redo_edit :: (edit: *Text_Edit) -> bool {
     ok, cursor := redo(*edit.buffer);
     if ok {
@@ -363,6 +574,15 @@ redo_edit :: (edit: *Text_Edit) -> bool {
 // Insert a line break, repeating the current line's leading blanks.
 //
 // - edit: the text being edited.
+//
+// ```jai,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// set_contents(*edit, "    indented");
+// move_caret(*edit, 12);
+// insert_newline(*edit);
+// assert(contents(*edit) == "    indented\n    ");
+// ```
 insert_newline :: (edit: *Text_Edit) {
     line := line_of_offset(*edit.buffer, min(edit.cursor, edit.anchor));
     text := line_text(*edit.buffer, line);
@@ -382,6 +602,15 @@ insert_newline :: (edit: *Text_Edit) {
 //
 // - edit: the text being edited.
 // - width: the tab stop spacing in columns.
+//
+// ```jai,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// set_contents(*edit, "ab");
+// move_caret(*edit, 2);
+// insert_tab(*edit, 4);
+// assert(contents(*edit) == "ab  ");
+// ```
 insert_tab :: (edit: *Text_Edit, width: int) {
     _, column := caret_position(edit);
     count := width - column % max(width, 1);
@@ -390,6 +619,11 @@ insert_tab :: (edit: *Text_Edit, width: int) {
 }
 
 // What `handle_key` did.
+//
+// ```jai,skip_on(wasm)
+// result := Key_Result.{ changed = true };
+// assert(result.changed && !result.submitted);
+// ```
 Key_Result :: struct {
     changed: bool; // the text changed
     submitted: bool; // Enter in a single-line edit
@@ -405,6 +639,19 @@ Key_Result :: struct {
 // - style: the text style the lines are drawn in, used to measure vertical moves.
 // - options: read-only mode and the tab width.
 // - page_lines: how many lines Page Up and Page Down move.
+//
+// ```jai,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// ui := headless();
+// defer free_ui(*ui);
+//
+// event: Input_Event;
+// event.kind = .TEXT;
+// event.character = #char "h";
+// result := handle_key(*ui, *edit, event, .{}, .{}, 10);
+// assert(result.changed && contents(*edit) == "h");
+// ```
 handle_key :: (ui: *UI_State, edit: *Text_Edit, event: Input_Event, style: Text_Style, options: Editor_Options, page_lines: int) -> Key_Result {
     result: Key_Result;
     version := edit.buffer.version;
@@ -504,6 +751,14 @@ handle_key :: (ui: *UI_State, edit: *Text_Edit, event: Input_Event, style: Text_
 //
 // - ui: the UI whose clipboard hooks and text measuring to use.
 // - edit: the text being edited.
+//
+// ```jai,no_run,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// ui := headless();
+// defer free_ui(*ui);
+// copy_selection(*ui, *edit);   // puts the selection on the clipboard
+// ```
 copy_selection :: (ui: *UI_State, edit: *Text_Edit) {
     if !has_selection(edit) || !ui.hooks.clipboard_set return;
     ui.hooks.clipboard_set(selected_text(edit));
@@ -513,6 +768,14 @@ copy_selection :: (ui: *UI_State, edit: *Text_Edit) {
 //
 // - ui: the UI whose clipboard hooks and text measuring to use.
 // - edit: the text being edited.
+//
+// ```jai,no_run,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// ui := headless();
+// defer free_ui(*ui);
+// cut_selection(*ui, *edit);    // copies the selection, then deletes it
+// ```
 cut_selection :: (ui: *UI_State, edit: *Text_Edit) {
     if !has_selection(edit) return;
     copy_selection(ui, edit);
@@ -523,6 +786,14 @@ cut_selection :: (ui: *UI_State, edit: *Text_Edit) {
 //
 // - ui: the UI whose clipboard hooks and text measuring to use.
 // - edit: the text being edited.
+//
+// ```jai,no_run,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// ui := headless();
+// defer free_ui(*ui);
+// paste_clipboard(*ui, *edit);  // inserts the clipboard text at the caret
+// ```
 paste_clipboard :: (ui: *UI_State, edit: *Text_Edit) {
     if !ui.hooks.clipboard_get return;
     text := ui.hooks.clipboard_get();
@@ -554,6 +825,17 @@ paste_clipboard :: (ui: *UI_State, edit: *Text_Edit) {
 //     if text_editor(*notes.edit, .{line_numbers = true}) notes.dirty = true;
 // }
 // ```
+//
+// ```jai,skip_on(wasm)
+// doc: Text_Edit;
+// defer free_text_edit(*doc);
+// set_contents(*doc, "first line\nsecond line");
+// ui := headless();
+// defer free_ui(*ui);
+// build := (e: *Text_Edit) { for column() { text_editor(e, .{ line_numbers = true }); } };
+// frame(*ui, *doc, build);
+// assert(find_role(*ui, .TEXT_EDITOR) != null);
+// ```
 text_editor :: (edit: *Text_Edit, options: Editor_Options = .{}, loc := #caller_location) -> changed: bool {
     edit.single_line = false;
     changed, _ := edit_widget(edit, options, .TEXT_EDITOR, loc);
@@ -567,6 +849,24 @@ text_editor :: (edit: *Text_Edit, options: Editor_Options = .{}, loc := #caller_
 // - options: placeholder, size and read-only mode. The font is always the sans one, with no line
 //   numbers and no growing.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
+//
+// ```jai,skip_on(wasm)
+// name: Text_Edit;
+// defer free_text_edit(*name);
+// ui := headless();
+// defer free_ui(*ui);
+// build := (e: *Text_Edit) {
+//     for column() {
+//         changed, submitted := text_field(e, .{ placeholder = "Your name" });
+//     }
+// };
+// frame(*ui, *name, build);
+// click(*ui, find_role(*ui, .TEXT_FIELD));
+// frame(*ui, *name, build);
+// send_text(*ui, "Ada");
+// frame(*ui, *name, build);
+// assert(contents(*name) == "Ada");
+// ```
 text_field :: (edit: *Text_Edit, options: Editor_Options = .{}, loc := #caller_location) -> changed: bool, submitted: bool {
     edit.single_line = true;
     opts := options;
@@ -583,6 +883,15 @@ text_field :: (edit: *Text_Edit, options: Editor_Options = .{}, loc := #caller_l
 // - edit: the text being edited.
 // - node: the editor's node, whose height says how much fits.
 // - options: the editor's font and size.
+//
+// ```jai,no_run,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// ui := headless();
+// defer free_ui(*ui);
+// node := find_role(*ui, .TEXT_EDITOR);
+// first, last, line_height := visible_lines(*ui, *edit, node, .{});
+// ```
 visible_lines :: (ui: *UI_State, edit: *Text_Edit, node: *Node, options: Editor_Options) -> first: int, last: int, line_height: float {
     style := editor_text_style(ui, options);
     line_height := font_metrics(*ui.text, style.font, style.size).line_height;
@@ -596,6 +905,14 @@ visible_lines :: (ui: *UI_State, edit: *Text_Edit, node: *Node, options: Editor_
 //
 // - ui: the UI to ask a frame on.
 // - seconds: how long from now. An earlier wake time already asked for is kept.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// push_ui(*ui);
+// wake_in(*ui, 0.5);   // ask for a frame in half a second
+// pop_ui();
+// ```
 wake_in :: (ui: *UI_State, seconds: float64) {
     at := ui.now + seconds;
     if ui.wake_time == 0 || at < ui.wake_time ui.wake_time = at;

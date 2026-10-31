@@ -6,6 +6,11 @@
 // keyboard and text events are kept for the focused widget to read as `ui.input.keys`.
 
 // Mouse buttons.
+//
+// ```jai,skip_on(wasm)
+// button := Mouse_Button.RIGHT;
+// assert(button != .LEFT);
+// ```
 Mouse_Button :: enum u8 {
     LEFT;
     RIGHT;
@@ -13,6 +18,11 @@ Mouse_Button :: enum u8 {
 }
 
 // Which modifier keys are held. `primary` is Cmd on macOS and Ctrl elsewhere.
+//
+// ```jai,skip_on(wasm)
+// mods := Modifiers.{ ctrl = true };
+// assert(mods.ctrl && !mods.shift);
+// ```
 Modifiers :: struct {
     shift: bool;
     ctrl: bool;
@@ -23,12 +33,22 @@ Modifiers :: struct {
 // Whether the platform's main shortcut modifier is held.
 //
 // - mods: the modifiers to check.
+//
+// ```jai,skip_on(wasm)
+// mods := Modifiers.{ ctrl = true, shift = true };
+// shortcut := primary(mods);  // Ctrl on Windows and Linux, Cmd on macOS
+// ```
 primary :: (mods: Modifiers) -> bool {
     #if OS == .MACOS return mods.super;
     else return mods.ctrl;
 }
 
 // What an input event is.
+//
+// ```jai,skip_on(wasm)
+// kind := Input_Kind.KEY;
+// assert(kind != .TEXT);
+// ```
 Input_Kind :: enum u8 {
     MOUSE_MOVE;
     MOUSE_DOWN;
@@ -74,6 +94,21 @@ Input_State :: struct {
 // - ui: the UI to queue the event on.
 // - x: the new horizontal position.
 // - y: the new vertical position.
+//
+// ```jai,skip_on(wasm)
+// ui := headless(.{ width = 320, height = 200 });
+// defer free_ui(*ui);
+// count := 0;
+// build := (n: *int) {
+//     for column(.{ gap = 8, padding = 16 }) {
+//         label(tprint("Clicked % times", n.*));
+//         if button("Add") n.* += 1;
+//     }
+// };
+// frame(*ui, *count, build);
+// send_mouse_move(*ui, 20, 20);
+// frame(*ui, *count, build);
+// ```
 send_mouse_move :: (ui: *UI_State, x: float, y: float) {
     array_add(*ui.input.events, .{ kind = .MOUSE_MOVE, x = x, y = y });
 }
@@ -82,6 +117,25 @@ send_mouse_move :: (ui: *UI_State, x: float, y: float) {
 //
 // - ui: the UI to queue the event on.
 // - button: which button went down.
+//
+// ```jai,skip_on(wasm)
+// ui := headless(.{ width = 320, height = 200 });
+// defer free_ui(*ui);
+// count := 0;
+// build := (n: *int) {
+//     for column(.{ gap = 8, padding = 16 }) {
+//         label(tprint("Clicked % times", n.*));
+//         if button("Add") n.* += 1;
+//     }
+// };
+// frame(*ui, *count, build);
+// node := find_label(*ui, "Add");
+// send_mouse_move(*ui, node.rect.x + 2, node.rect.y + 2);
+// send_mouse_down(*ui);
+// send_mouse_up(*ui);
+// frame(*ui, *count, build);
+// assert(count == 1);
+// ```
 send_mouse_down :: (ui: *UI_State, button: Mouse_Button = .LEFT) {
     array_add(*ui.input.events, .{ kind = .MOUSE_DOWN, button = button });
 }
@@ -90,6 +144,25 @@ send_mouse_down :: (ui: *UI_State, button: Mouse_Button = .LEFT) {
 //
 // - ui: the UI to queue the event on.
 // - button: which button was released.
+//
+// ```jai,skip_on(wasm)
+// ui := headless(.{ width = 320, height = 200 });
+// defer free_ui(*ui);
+// count := 0;
+// build := (n: *int) {
+//     for column(.{ gap = 8, padding = 16 }) {
+//         label(tprint("Clicked % times", n.*));
+//         if button("Add") n.* += 1;
+//     }
+// };
+// frame(*ui, *count, build);
+// node := find_label(*ui, "Add");
+// send_mouse_move(*ui, node.rect.x + 2, node.rect.y + 2);
+// send_mouse_down(*ui);
+// send_mouse_up(*ui);
+// frame(*ui, *count, build);
+// assert(count == 1);
+// ```
 send_mouse_up :: (ui: *UI_State, button: Mouse_Button = .LEFT) {
     array_add(*ui.input.events, .{ kind = .MOUSE_UP, button = button });
 }
@@ -99,6 +172,18 @@ send_mouse_up :: (ui: *UI_State, button: Mouse_Button = .LEFT) {
 // - ui: the UI to queue the event on.
 // - dx: horizontal scroll in points.
 // - dy: vertical scroll in points.
+//
+// ```jai,skip_on(wasm)
+// ui := headless(.{ width = 200, height = 100 });
+// defer free_ui(*ui);
+// build := (u: *UI_State) {
+//     for scroll(.{ height = 100 }) { for 0..29 label(tprint("line %", it)); }
+// };
+// frame(*ui, *ui, build);
+// send_mouse_move(*ui, 50, 50);
+// send_scroll(*ui, 0, -3);
+// frame(*ui, *ui, build);
+// ```
 send_scroll :: (ui: *UI_State, dx: float, dy: float) {
     array_add(*ui.input.events, .{ kind = .SCROLL, dx = dx, dy = dy });
 }
@@ -109,6 +194,22 @@ send_scroll :: (ui: *UI_State, dx: float, dy: float) {
 // - key: the key pressed.
 // - mods: the modifiers held.
 // - repeat: true for an auto-repeat rather than a fresh press.
+//
+// ```jai,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// set_contents(*edit, "hi");
+// ui := headless();
+// defer free_ui(*ui);
+// build := (e: *Text_Edit) { for column() { text_field(e); } };
+// frame(*ui, *edit, build);
+// click(*ui, find_role(*ui, .TEXT_FIELD));
+// frame(*ui, *edit, build);
+// move_caret(*edit, 2);
+// send_key(*ui, .BACKSPACE);
+// frame(*ui, *edit, build);
+// assert(contents(*edit) == "h");
+// ```
 send_key :: (ui: *UI_State, key: Key_Code, mods: Modifiers = .{}, repeat: bool = false) {
     array_add(*ui.input.events, .{ kind = .KEY, key = key, mods = mods, repeat = repeat });
 }
@@ -117,6 +218,20 @@ send_key :: (ui: *UI_State, key: Key_Code, mods: Modifiers = .{}, repeat: bool =
 //
 // - ui: the UI to queue the events on.
 // - text: the UTF-8 text typed.
+//
+// ```jai,skip_on(wasm)
+// edit: Text_Edit;
+// defer free_text_edit(*edit);
+// ui := headless();
+// defer free_ui(*ui);
+// build := (e: *Text_Edit) { for column() { text_field(e); } };
+// frame(*ui, *edit, build);
+// click(*ui, find_role(*ui, .TEXT_FIELD));
+// frame(*ui, *edit, build);
+// send_text(*ui, "hello");
+// frame(*ui, *edit, build);
+// assert(contents(*edit) == "hello");
+// ```
 send_text :: (ui: *UI_State, text: string) {
     i := 0;
 

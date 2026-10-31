@@ -2,6 +2,13 @@
 // rectangles, glyph quads and clip changes in points; the renderer turns it into GPU draws.
 
 // What a display list entry draws.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// draw_rect(*ui, .{ 0, 0, 10, 10 }, rgb(255, 0, 0));
+// assert(ui.draw.cmds[0].kind == .RECT);
+// ```
 Draw_Kind :: enum u8 {
     RECT; // a filled, optionally rounded and bordered rectangle
     GLYPH; // a quad sampling the glyph atlas, tinted with `color`
@@ -9,6 +16,14 @@ Draw_Kind :: enum u8 {
 }
 
 // One display list entry.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// draw_rect(*ui, .{ 5, 5, 20, 10 }, rgb(0, 255, 0), radius = 4);
+// cmd := ui.draw.cmds[0];
+// assert(cmd.rect.w == 20 && cmd.radius == 4);
+// ```
 Draw_Cmd :: struct {
     kind: Draw_Kind;
     rect: Rect;
@@ -20,6 +35,12 @@ Draw_Cmd :: struct {
 }
 
 // The display list of a frame plus the clip stack used while building it.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// assert(ui.draw.cmds.count == 0);
+// ```
 Draw_List :: struct {
     cmds: [..] Draw_Cmd;
     clips: [..] Rect;
@@ -28,6 +49,11 @@ Draw_List :: struct {
 // Release the display list.
 //
 // - list: the display list to release.
+//
+// ```jai,skip_on(wasm)
+// list: Draw_List;
+// free_draw_list(*list);
+// ```
 free_draw_list :: (list: *Draw_List) {
     array_free(list.cmds);
     array_free(list.clips);
@@ -36,6 +62,14 @@ free_draw_list :: (list: *Draw_List) {
 // Empty the display list for a new frame.
 //
 // - list: the display list to empty. Its memory is kept.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// draw_rect(*ui, .{ 0, 0, 10, 10 }, rgb(255, 0, 0));
+// reset_draw_list(*ui.draw);
+// assert(ui.draw.cmds.count == 0);
+// ```
 reset_draw_list :: (list: *Draw_List) {
     array_reset(*list.cmds);
     array_reset(*list.clips);
@@ -49,6 +83,13 @@ reset_draw_list :: (list: *Draw_List) {
 // - radius: corner radius in points.
 // - border: outline width in points.
 // - border_color: outline colour.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// draw_rect(*ui, .{ 10, 10, 100, 40 }, rgb(40, 40, 60), radius = 6, border = 1, border_color = rgb(90, 90, 120));
+// assert(ui.draw.cmds.count == 1);
+// ```
 draw_rect :: (ui: *UI_State, rect: Rect, color: Color, radius: float = 0, border: float = 0, border_color: Color = .{}) {
     if rect.w <= 0 || rect.h <= 0 return;
     if color.w <= 0 && (border <= 0 || border_color.w <= 0) return;
@@ -63,6 +104,13 @@ draw_rect :: (ui: *UI_State, rect: Rect, color: Color, radius: float = 0, border
 // - y: top edge of the line.
 // - text: the UTF-8 text. Control characters other than tab are skipped.
 // - style: font, size and colour.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// width := draw_text(*ui, 10, 10, "hello", .{ size = 10 });
+// assert(width == 30);
+// ```
 draw_text :: (ui: *UI_State, x: float, y: float, text: string, style: Text_Style) -> float {
     metrics := font_metrics(*ui.text, style.font, style.size);
     return draw_text_baseline(ui, x, y + metrics.ascent, text, style);
@@ -75,6 +123,13 @@ draw_text :: (ui: *UI_State, x: float, y: float, text: string, style: Text_Style
 // - baseline: vertical position of the baseline.
 // - text: the UTF-8 text. Control characters other than tab are skipped.
 // - style: font, size and colour.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// width := draw_text_baseline(*ui, 10, 30, "hello", .{ size = 10 });
+// assert(width == 30);
+// ```
 draw_text_baseline :: (ui: *UI_State, x: float, baseline: float, text: string, style: Text_Style) -> float {
     scale := ui.text.scale;
     pen := x;
@@ -111,6 +166,14 @@ draw_text_baseline :: (ui: *UI_State, x: float, baseline: float, text: string, s
 //
 // - ui: the UI whose display list gets the clip.
 // - rect: the area to keep, in points.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// push_clip(*ui, .{ 0, 0, 50, 50 });
+// draw_rect(*ui, .{ 0, 0, 100, 100 }, rgb(255, 255, 255));
+// pop_clip(*ui);
+// ```
 push_clip :: (ui: *UI_State, rect: Rect) {
     current := rect;
     if ui.draw.clips.count current = intersect(current, ui.draw.clips[ui.draw.clips.count - 1]);
@@ -122,6 +185,13 @@ push_clip :: (ui: *UI_State, rect: Rect) {
 // End the innermost `push_clip`.
 //
 // - ui: the UI whose innermost clip to end.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// push_clip(*ui, .{ 0, 0, 50, 50 });
+// pop_clip(*ui);
+// ```
 pop_clip :: (ui: *UI_State) {
     if !ui.draw.clips.count return;
 

@@ -61,6 +61,13 @@ Rendered_Image :: struct {
 // - window: the window to draw into.
 // - width: the drawable width in pixels.
 // - height: the drawable height in pixels.
+//
+// ```jai,no_run,skip_on(wasm)
+// #import "Window_Creation";
+//
+// window := create_window(800, 600, "ui");
+// renderer := create_window_renderer(window, 800, 600);
+// ```
 create_window_renderer :: (window: Window_Type, width: int, height: int) -> *Renderer {
     r := New(Renderer);
     r.instance = wgpuCreateInstance(null);
@@ -96,6 +103,14 @@ create_window_renderer :: (window: Window_Type, width: int, height: int) -> *Ren
 //
 // - width: the target width in pixels.
 // - height: the target height in pixels.
+//
+// ```jai,no_run,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// renderer := create_offscreen_renderer(640, 480);
+// defer destroy_renderer(renderer);
+// image := render_to_image(renderer, *ui, rgb(20, 20, 30));
+// ```
 create_offscreen_renderer :: (width: int, height: int) -> *Renderer {
     r := New(Renderer);
     r.instance = wgpuCreateInstance(null);
@@ -121,6 +136,11 @@ create_offscreen_renderer :: (width: int, height: int) -> *Renderer {
 // Release the renderer and its GPU objects.
 //
 // - r: the renderer to release.
+//
+// ```jai,no_run,skip_on(wasm)
+// renderer := create_offscreen_renderer(320, 200);
+// destroy_renderer(renderer);
+// ```
 destroy_renderer :: (r: *Renderer) {
     if r.target_view wgpuTextureViewRelease(r.target_view);
     if r.target wgpuTextureRelease(r.target);
@@ -147,6 +167,11 @@ destroy_renderer :: (r: *Renderer) {
 // - r: the renderer to resize.
 // - width: the new width in pixels. Zero or less does nothing.
 // - height: the new height in pixels. Zero or less does nothing.
+//
+// ```jai,no_run,skip_on(wasm)
+// renderer := create_offscreen_renderer(320, 200);
+// resize_target(renderer, 640, 400);
+// ```
 resize_target :: (r: *Renderer, width: int, height: int) {
     if width <= 0 || height <= 0 return;
 
@@ -183,6 +208,16 @@ resize_target :: (r: *Renderer, width: int, height: int) {
 // - r: the window renderer.
 // - ui: the UI whose display list to draw.
 // - clear: the colour the window is cleared to first.
+//
+// ```jai,no_run,skip_on(wasm)
+// #import "Window_Creation";
+//
+// ui := headless();
+// defer free_ui(*ui);
+// window := create_window(800, 600, "ui");
+// renderer := create_window_renderer(window, 800, 600);
+// present(renderer, *ui, rgb(20, 20, 30));
+// ```
 present :: (r: *Renderer, ui: *UI_State, clear: Color) -> bool {
     frame: WGPUSurfaceTexture;
 
@@ -210,6 +245,14 @@ present :: (r: *Renderer, ui: *UI_State, clear: Color) -> bool {
 // - r: the offscreen renderer.
 // - ui: the UI whose display list to draw.
 // - clear: the colour the target is cleared to first.
+//
+// ```jai,no_run,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// renderer := create_offscreen_renderer(320, 200);
+// defer destroy_renderer(renderer);
+// image := render_to_image(renderer, *ui, rgb(255, 255, 255));
+// ```
 render_to_image :: (r: *Renderer, ui: *UI_State, clear: Color) -> Rendered_Image {
     encode(r, ui, r.target_view, clear);
 
@@ -232,6 +275,12 @@ render_to_image :: (r: *Renderer, ui: *UI_State, clear: Color) -> Rendered_Image
 //
 // - ui: the UI whose last frame to draw.
 // - path: where to write the PNG.
+//
+// ```jai,no_run,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// write_screenshot(*ui, "frame.png");
+// ```
 write_screenshot :: (ui: *UI_State, path: string) -> bool {
     width := cast(int) ceil(ui.size.x * ui.text.scale);
     height := cast(int) ceil(ui.size.y * ui.text.scale);

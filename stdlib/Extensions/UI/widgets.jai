@@ -5,6 +5,15 @@
 // caller's scope, so it can use the caller's locals without closures.
 
 // An open container, returned by `row`, `column` and the other containers so `for` can close it.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// frame(*ui, *ui, (u: *UI_State) {
+//     for row(.{ gap = 8 }) { label("a"); label("b"); }
+// });
+// assert(find_label(*ui, "b") != null);
+// ```
 Container :: struct {
     node: *Node;
 }
@@ -23,6 +32,18 @@ for_expansion :: (container: Container, body: Code, flags: For_Flags) #expand {
 //
 // - style: layout and paint options for the container.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// frame(*ui, *ui, (u: *UI_State) {
+//     for row(.{ gap = 10 }) {
+//         label("left");
+//         label("right");
+//     }
+// });
+// assert(find_label(*ui, "right").rect.x > find_label(*ui, "left").rect.x);
+// ```
 row :: (style: Style = .{}, loc := #caller_location) -> Container {
     return .{ begin_container(.HORIZONTAL, .GROUP, style, loc) };
 }
@@ -31,6 +52,18 @@ row :: (style: Style = .{}, loc := #caller_location) -> Container {
 //
 // - style: layout and paint options for the container.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// frame(*ui, *ui, (u: *UI_State) {
+//     for column(.{ gap = 10 }) {
+//         label("top");
+//         label("bottom");
+//     }
+// });
+// assert(find_label(*ui, "bottom").rect.y > find_label(*ui, "top").rect.y);
+// ```
 column :: (style: Style = .{}, loc := #caller_location) -> Container {
     return .{ begin_container(.VERTICAL, .GROUP, style, loc) };
 }
@@ -39,6 +72,18 @@ column :: (style: Style = .{}, loc := #caller_location) -> Container {
 //
 // - style: layout and paint options for the container.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// frame(*ui, *ui, (u: *UI_State) {
+//     for stack() {
+//         label("under");
+//         label("over");
+//     }
+// });
+// assert(find_label(*ui, "under").rect.y == find_label(*ui, "over").rect.y);
+// ```
 stack :: (style: Style = .{}, loc := #caller_location) -> Container {
     return .{ begin_container(.STACK, .GROUP, style, loc) };
 }
@@ -47,6 +92,17 @@ stack :: (style: Style = .{}, loc := #caller_location) -> Container {
 //
 // - style: layout and paint options. A `background` set here replaces the panel colour.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// frame(*ui, *ui, (u: *UI_State) {
+//     for panel(.{ padding = 12 }) {
+//         label("Settings");
+//     }
+// });
+// assert(find_label(*ui, "Settings") != null);
+// ```
 panel :: (style: Style = .{}, loc := #caller_location) -> Container {
     s := style;
     if s.background.w == 0 s.background = context.ui.theme.surface;
@@ -59,6 +115,17 @@ panel :: (style: Style = .{}, loc := #caller_location) -> Container {
 // - style: layout and paint options for the container.
 // - axis: the scrolling direction.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
+//
+// ```jai,skip_on(wasm)
+// ui := headless(.{ width = 200, height = 100 });
+// defer free_ui(*ui);
+// frame(*ui, *ui, (u: *UI_State) {
+//     for scroll(.{ height = 100 }) {
+//         for 0..19 label(tprint("line %", it));
+//     }
+// });
+// assert(find_role(*ui, .SCROLL) != null);
+// ```
 scroll :: (style: Style = .{}, axis: Axis = .VERTICAL, loc := #caller_location) -> Container {
     node := begin_container(axis, .SCROLL, style, loc);
     node.scrolls = true;
@@ -67,6 +134,15 @@ scroll :: (style: Style = .{}, axis: Axis = .VERTICAL, loc := #caller_location) 
 }
 
 // Options for text: all optional.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// frame(*ui, *ui, (u: *UI_State) {
+//     label("big and quiet", .{ size = 24, muted = true });
+// });
+// assert(find_role(*ui, .TEXT).text_style.size == 24);
+// ```
 Text_Options :: struct {
     size: float; // points; 0 is the theme's size
     color: Color; // alpha 0 is the theme's text colour
@@ -81,6 +157,13 @@ Text_Options :: struct {
 // - text: the text to show. It is copied for the frame.
 // - options: size, colour, font and spacing.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// frame(*ui, *ui, (u: *UI_State) { label("Hello"); });
+// assert(find_label(*ui, "Hello") != null);
+// ```
 label :: (text: string, options: Text_Options = .{}, loc := #caller_location) -> *Node {
     ui := context.ui;
     style: Style;
@@ -96,6 +179,15 @@ label :: (text: string, options: Text_Options = .{}, loc := #caller_location) ->
 }
 
 // Looks of a button.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// frame(*ui, *ui, (u: *UI_State) {
+//     button("Save", .{ variant = .PRIMARY });
+//     button("Cancel", .{ variant = .SUBTLE });
+// });
+// ```
 Button_Variant :: enum u8 {
     NORMAL;
     PRIMARY; // the accent colour
@@ -103,6 +195,15 @@ Button_Variant :: enum u8 {
 }
 
 // Options for `button`.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// frame(*ui, *ui, (u: *UI_State) {
+//     button("Delete", .{ enabled = false });
+// });
+// assert(find_label(*ui, "Delete") != null);
+// ```
 Button_Options :: struct {
     variant: Button_Variant;
     grow: float;
@@ -115,6 +216,22 @@ Button_Options :: struct {
 // - text: the caption. It is copied for the frame.
 // - options: look, size and whether it is enabled.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
+//
+// ```jai,skip_on(wasm)
+// ui := headless(.{ width = 320, height = 200 });
+// defer free_ui(*ui);
+// count := 0;
+// build := (n: *int) {
+//     for column(.{ gap = 8, padding = 16 }) {
+//         label(tprint("Clicked % times", n.*));
+//         if button("Add") n.* += 1;
+//     }
+// };
+// frame(*ui, *count, build);
+// click(*ui, find_label(*ui, "Add"));
+// frame(*ui, *count, build);
+// assert(count == 1);
+// ```
 button :: (text: string, options: Button_Options = .{}, loc := #caller_location) -> clicked: bool {
     ui := context.ui;
     t := *ui.theme;
@@ -171,6 +288,17 @@ button :: (text: string, options: Button_Options = .{}, loc := #caller_location)
 // - value: the flag to show and toggle. It is changed in place.
 // - text: a caption next to the box. Empty for none.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
+//
+// ```jai,skip_on(wasm)
+// on := false;
+// ui := headless();
+// defer free_ui(*ui);
+// build := (value: *bool) { checkbox(value, "Dark mode"); };
+// frame(*ui, *on, build);
+// click(*ui, find_role(*ui, .CHECKBOX));
+// frame(*ui, *on, build);
+// assert(on);
+// ```
 checkbox :: (value: *bool, text: string = "", loc := #caller_location) -> changed: bool {
     ui := context.ui;
     t := *ui.theme;
@@ -209,6 +337,23 @@ checkbox :: (value: *bool, text: string = "", loc := #caller_location) -> change
 // - selected: whether to draw it highlighted.
 // - indent: extra space on the left, in points.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
+//
+// ```jai,skip_on(wasm)
+// selected := -1;
+// ui := headless();
+// defer free_ui(*ui);
+// build := (choice: *int) {
+//     for column() {
+//         for 0..2 {
+//             if list_item(tprint("Item %", it), choice.* == it) choice.* = it;
+//         }
+//     }
+// };
+// frame(*ui, *selected, build);
+// click(*ui, find_label(*ui, "Item 1"));
+// frame(*ui, *selected, build);
+// assert(selected == 1);
+// ```
 list_item :: (text: string, selected: bool = false, indent: float = 0, loc := #caller_location) -> clicked: bool {
     ui := context.ui;
     t := *ui.theme;
@@ -240,6 +385,15 @@ list_item :: (text: string, selected: bool = false, indent: float = 0, loc := #c
 // A horizontal rule in a column (a vertical one in a row).
 //
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// frame(*ui, *ui, (u: *UI_State) {
+//     for column() { label("above"); separator(); label("below"); }
+// });
+// assert(find_role(*ui, .SEPARATOR) != null);
+// ```
 separator :: (loc := #caller_location) {
     ui := context.ui;
     parent := ui.stack[ui.stack.count - 1];
@@ -256,6 +410,19 @@ separator :: (loc := #caller_location) {
 //
 // - grow: its share of the leftover space.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
+//
+// ```jai,skip_on(wasm)
+// ui := headless(.{ width = 300, height = 40 });
+// defer free_ui(*ui);
+// frame(*ui, *ui, (u: *UI_State) {
+//     for row(.{ width = 300 }) {
+//         label("left");
+//         spacer();  // pushes what follows to the right edge
+//         label("right");
+//     }
+// });
+// assert(find_label(*ui, "right").rect.x > 200);
+// ```
 spacer :: (grow: float = 1, loc := #caller_location) {
     style: Style;
     style.grow = grow;
@@ -266,6 +433,15 @@ spacer :: (grow: float = 1, loc := #caller_location) {
 //
 // - style: layout and paint options for the container.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// frame(*ui, *ui, (u: *UI_State) {
+//     for tab_bar() { tab("One", true); tab("Two", false); }
+// });
+// assert(find_role(*ui, .TAB_LIST) != null);
+// ```
 tab_bar :: (style: Style = .{}, loc := #caller_location) -> Container {
     s := style;
     if s.background.w == 0 s.background = context.ui.theme.surface;
@@ -274,6 +450,11 @@ tab_bar :: (style: Style = .{}, loc := #caller_location) -> Container {
 }
 
 // What a click on a tab did.
+//
+// ```jai,skip_on(wasm)
+// result := Tab_Result.NONE;
+// assert(result != .SELECT && result != .CLOSE);
+// ```
 Tab_Result :: enum u8 {
     NONE;
     SELECT; // the tab was clicked
@@ -281,6 +462,14 @@ Tab_Result :: enum u8 {
 }
 
 // Options for `tab`.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// frame(*ui, *ui, (u: *UI_State) {
+//     for tab_bar() { tab("main.jai", true, .{ dirty = true, closable = true }); }
+// });
+// ```
 Tab_Options :: struct {
     dirty: bool; // unsaved changes: shown as a dot
     closable: bool;
@@ -292,6 +481,22 @@ Tab_Options :: struct {
 // - active: whether this is the selected tab.
 // - options: whether it shows an unsaved dot or a close button.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
+//
+// ```jai,skip_on(wasm)
+// current := 0;
+// ui := headless();
+// defer free_ui(*ui);
+// build := (selected: *int) {
+//     for tab_bar() {
+//         if tab("One", selected.* == 0) == .SELECT selected.* = 0;
+//         if tab("Two", selected.* == 1) == .SELECT selected.* = 1;
+//     }
+// };
+// frame(*ui, *current, build);
+// click(*ui, find_label(*ui, "Two"));
+// frame(*ui, *current, build);
+// assert(current == 1);
+// ```
 tab :: (text: string, active: bool, options: Tab_Options = .{}, loc := #caller_location) -> Tab_Result {
     ui := context.ui;
     t := *ui.theme;
@@ -339,6 +544,19 @@ tab :: (text: string, active: bool, options: Tab_Options = .{}, loc := #caller_l
 }
 
 // An open split: the two panes are visited with `for pane: split(...)`.
+//
+// ```jai,skip_on(wasm)
+// width := 150.0;
+// ui := headless(.{ width = 400, height = 200 });
+// defer free_ui(*ui);
+// frame(*ui, *width, (w: *float) {
+//     for pane: split(.HORIZONTAL, w) {
+//         if pane == 0 label("left pane");
+//         else label("right pane");
+//     }
+// });
+// assert(find_label(*ui, "left pane") != null);
+// ```
 Split :: struct {
     node: *Node;
     position: *float;
@@ -347,6 +565,11 @@ Split :: struct {
 }
 
 // Options for `split`.
+//
+// ```jai,skip_on(wasm)
+// options := Split_Options.{ min = 100, max = 300 };
+// assert(options.min == 100);
+// ```
 Split_Options :: struct {
     min: float = 80; // the smallest the first pane may be
     max: float; // the largest the first pane may be (0: no limit)
@@ -361,6 +584,18 @@ Split_Options :: struct {
 //   while the divider is dragged.
 // - options: the smallest and largest size of the first pane.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
+//
+// ```jai,skip_on(wasm)
+// width := 150.0;
+// ui := headless(.{ width = 400, height = 200 });
+// defer free_ui(*ui);
+// frame(*ui, *width, (w: *float) {
+//     for pane: split(.HORIZONTAL, w, .{ min = 100 }) {
+//         if pane == 0 label("files"); else label("editor");
+//     }
+// });
+// assert(width == 150);
+// ```
 split :: (axis: Axis, position: *float, options: Split_Options = .{}, loc := #caller_location) -> Split {
     node := begin_container(axis, .SPLIT, .{}, loc);
     node.style.grow = 1;
@@ -407,6 +642,12 @@ for_expansion :: (s: Split, body: Code, flags: For_Flags) #expand {
 //
 // - s: the split the divider belongs to.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
+//
+// ```jai,no_run,skip_on(wasm)
+// // split() draws it for you; a custom layout calls it between its own panes
+// width := 150.0;
+// for pane: split(.HORIZONTAL, *width) { label("pane"); }
+// ```
 divider :: (s: Split, loc := #caller_location) {
     ui := context.ui;
     horizontal := s.axis == .HORIZONTAL;

@@ -6,6 +6,18 @@
 // only after changing a node by hand.
 //
 // - ui: the UI whose tree to lay out.
+//
+// ```jai,skip_on(wasm)
+// ui := headless(.{ width = 200, height = 100 });
+// defer free_ui(*ui);
+// push_ui(*ui);
+// begin_frame(*ui);
+// button("OK");
+// while ui.stack.count > 1 end_container(*ui);
+// layout_tree(*ui);   // end_frame does this for you
+// pop_ui();
+// assert(find_label(*ui, "OK").rect.w > 0);
+// ```
 layout_tree :: (ui: *UI_State) {
     root := ui.root;
 

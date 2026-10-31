@@ -1,6 +1,13 @@
 // A UI without a window or a GPU, and helpers to drive and inspect it from tests.
 
 // Options for `headless`.
+//
+// ```jai,skip_on(wasm)
+// options := Headless_Options.{ width = 1024, height = 768, scale = 2 };
+// ui := headless(options);
+// defer free_ui(*ui);
+// assert(ui.size.x == 1024);
+// ```
 Headless_Options :: struct {
     width: float = 800;
     height: float = 600;
@@ -14,6 +21,20 @@ Headless_Options :: struct {
 // with `free_ui`.
 //
 // - options: window size, scale, fonts and theme.
+//
+// ```jai,skip_on(wasm)
+// ui := headless(.{ width = 320, height = 200 });
+// defer free_ui(*ui);
+// count := 0;
+// build := (n: *int) {
+//     for column(.{ gap = 8, padding = 16 }) {
+//         label(tprint("Clicked % times", n.*));
+//         if button("Add") n.* += 1;
+//     }
+// };
+// frame(*ui, *count, build);
+// assert(find_label(*ui, "Add") != null);
+// ```
 headless :: (options: Headless_Options = .{}) -> UI_State {
     ui: UI_State;
 
@@ -37,12 +58,35 @@ headless :: (options: Headless_Options = .{}) -> UI_State {
 // - ui: the UI to resize.
 // - width: the new width in points.
 // - height: the new height in points.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// resize(*ui, 400, 300);
+// assert(ui.size.x == 400 && ui.size.y == 300);
+// ```
 resize :: (ui: *UI_State, width: float, height: float) {
     ui.size = .{ width, height };
     ui.wants_frame = true;
 }
 
 // How `find` picks a node: every field that is set must match.
+//
+// ```jai,skip_on(wasm)
+// ui := headless(.{ width = 320, height = 200 });
+// defer free_ui(*ui);
+// count := 0;
+// build := (n: *int) {
+//     for column(.{ gap = 8, padding = 16 }) {
+//         label(tprint("Clicked % times", n.*));
+//         if button("Add") n.* += 1;
+//     }
+// };
+// frame(*ui, *count, build);
+// node := find(*ui, .{ role = .BUTTON, match_role = true });
+// assert(node != null && node.label == "Add");
+// assert(find(*ui, .{ text = "no such text" }) == null);
+// ```
 Find_Query :: struct {
     label: string; // the node's label
     text: string; // the text it draws
@@ -55,6 +99,21 @@ Find_Query :: struct {
 //
 // - ui: the UI to search.
 // - query: what the node must match.
+//
+// ```jai,skip_on(wasm)
+// ui := headless(.{ width = 320, height = 200 });
+// defer free_ui(*ui);
+// count := 0;
+// build := (n: *int) {
+//     for column(.{ gap = 8, padding = 16 }) {
+//         label(tprint("Clicked % times", n.*));
+//         if button("Add") n.* += 1;
+//     }
+// };
+// frame(*ui, *count, build);
+// text := find(*ui, .{ text = "Clicked 0 times" });
+// assert(text != null);
+// ```
 find :: (ui: *UI_State, query: Find_Query) -> *Node {
     skipped := 0;
     return find_in(ui.root, query, *skipped);
@@ -64,6 +123,21 @@ find :: (ui: *UI_State, query: Find_Query) -> *Node {
 //
 // - ui: the UI to search.
 // - label: the label to match exactly.
+//
+// ```jai,skip_on(wasm)
+// ui := headless(.{ width = 320, height = 200 });
+// defer free_ui(*ui);
+// count := 0;
+// build := (n: *int) {
+//     for column(.{ gap = 8, padding = 16 }) {
+//         label(tprint("Clicked % times", n.*));
+//         if button("Add") n.* += 1;
+//     }
+// };
+// frame(*ui, *count, build);
+// assert(find_label(*ui, "Add") != null);
+// assert(find_label(*ui, "Remove") == null);
+// ```
 find_label :: (ui: *UI_State, label: string) -> *Node {
     return find(ui, .{ label = label });
 }
@@ -73,6 +147,21 @@ find_label :: (ui: *UI_State, label: string) -> *Node {
 // - ui: the UI to search.
 // - role: the role to match.
 // - index: which match to take, from 0.
+//
+// ```jai,skip_on(wasm)
+// ui := headless(.{ width = 320, height = 200 });
+// defer free_ui(*ui);
+// count := 0;
+// build := (n: *int) {
+//     for column(.{ gap = 8, padding = 16 }) {
+//         label(tprint("Clicked % times", n.*));
+//         if button("Add") n.* += 1;
+//     }
+// };
+// frame(*ui, *count, build);
+// assert(find_role(*ui, .TEXT).text == "Clicked 0 times");
+// assert(find_role(*ui, .BUTTON) != null);
+// ```
 find_role :: (ui: *UI_State, role: Role, index: int = 0) -> *Node {
     return find(ui, .{ role = role, match_role = true, index = index });
 }
@@ -82,6 +171,22 @@ find_role :: (ui: *UI_State, role: Role, index: int = 0) -> *Node {
 //
 // - ui: the UI to send the click to.
 // - node: the node to click. Null does nothing.
+//
+// ```jai,skip_on(wasm)
+// ui := headless(.{ width = 320, height = 200 });
+// defer free_ui(*ui);
+// count := 0;
+// build := (n: *int) {
+//     for column(.{ gap = 8, padding = 16 }) {
+//         label(tprint("Clicked % times", n.*));
+//         if button("Add") n.* += 1;
+//     }
+// };
+// frame(*ui, *count, build);
+// click(*ui, find_label(*ui, "Add"));
+// frame(*ui, *count, build);
+// assert(count == 1);
+// ```
 click :: (ui: *UI_State, node: *Node) {
     if !node return;
 
@@ -95,6 +200,23 @@ click :: (ui: *UI_State, node: *Node) {
 // - ui: the UI to send the click to.
 // - x: horizontal position in points.
 // - y: vertical position in points.
+//
+// ```jai,skip_on(wasm)
+// ui := headless(.{ width = 320, height = 200 });
+// defer free_ui(*ui);
+// count := 0;
+// build := (n: *int) {
+//     for column(.{ gap = 8, padding = 16 }) {
+//         label(tprint("Clicked % times", n.*));
+//         if button("Add") n.* += 1;
+//     }
+// };
+// frame(*ui, *count, build);
+// button_node := find_label(*ui, "Add");
+// click_at(*ui, button_node.rect.x + 2, button_node.rect.y + 2);
+// frame(*ui, *count, build);
+// assert(count == 1);
+// ```
 click_at :: (ui: *UI_State, x: float, y: float) {
     send_mouse_move(ui, x, y);
     send_mouse_down(ui);
@@ -105,6 +227,22 @@ click_at :: (ui: *UI_State, x: float, y: float) {
 // snapshot of a layout.
 //
 // - ui: the UI to dump.
+//
+// ```jai,skip_on(wasm)
+// ui := headless(.{ width = 320, height = 200 });
+// defer free_ui(*ui);
+// count := 0;
+// build := (n: *int) {
+//     for column(.{ gap = 8, padding = 16 }) {
+//         label(tprint("Clicked % times", n.*));
+//         if button("Add") n.* += 1;
+//     }
+// };
+// frame(*ui, *count, build);
+// dump := layout_dump(*ui);
+// assert(dump.count > 0);
+// print("%", dump);
+// ```
 layout_dump :: (ui: *UI_State) -> string {
     builder: String_Builder;
     dump_node(*builder, ui.root, 0);

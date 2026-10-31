@@ -2,6 +2,10 @@
 // whenever something needs one, and the GPU renderer. Idle means no frames and a sleeping thread.
 
 // Options for `run_app`.
+//
+// ```jai,no_run,skip_on(wasm)
+// options := App_Options.{ title = "Notes", width = 900, height = 600 };
+// ```
 App_Options :: struct {
     title: string = "Jacket";
     width: int = 960; // logical size in points
@@ -43,6 +47,22 @@ App_Window :: struct {
 //     if button(tprint("Clicked % times", app.count)) app.count += 1;
 // }
 // ```
+//
+// ```jai,no_run,skip_on(wasm)
+// App :: struct { count: int; }
+//
+// main :: () {
+//     app: App;
+//     run_app(.{ title = "Counter", width = 320, height = 200 }, *app, build);
+// }
+//
+// build :: (app: *App) {
+//     for column(.{ gap = 8, padding = 16 }) {
+//         label(tprint("Clicked % times", app.count));
+//         if button("Click me") app.count += 1;
+//     }
+// }
+// ```
 run_app :: (options: App_Options, app: *$T, build: (app: *T)) -> bool {
     ui := New(UI_State);
 
@@ -60,6 +80,14 @@ run_app :: (options: App_Options, app: *$T, build: (app: *T)) -> bool {
 // - ui: the UI to run. It is not freed on return.
 // - app: your app state, passed to `build` each frame.
 // - build: declares the widgets for a frame.
+//
+// ```jai,no_run,skip_on(wasm)
+// main :: () {
+//     ui := headless();
+//     app: int;
+//     run_app_with(.{ title = "Custom UI" }, *ui, *app, (n: *int) { label("hi"); });
+// }
+// ```
 run_app_with :: (options: App_Options, ui: *UI_State, app: *$T, build: (app: *T)) -> bool {
     window := create_window(options.width, options.height, options.title);
     if !window return false;

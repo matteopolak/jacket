@@ -1,12 +1,23 @@
 // Colours, sizes and spacing widgets take unless a style says otherwise.
 
 // Light or dark defaults for `default_theme`.
+//
+// ```jai,skip_on(wasm)
+// light := default_theme(.LIGHT);
+// dark := default_theme(.DARK);
+// assert(light.background != dark.background);
+// ```
 Theme_Mode :: enum u8 {
     DARK;
     LIGHT;
 }
 
 // The look of the library's widgets. Change fields on `ui.theme` (or `set_theme`) to restyle everything.
+//
+// ```jai,skip_on(wasm)
+// t := default_theme();
+// t.accent = hex(0xFF5500);
+// ```
 Theme :: struct {
     background: Color; // the window
     surface: Color; // panels and bars
@@ -32,6 +43,12 @@ Theme :: struct {
 // The built-in theme for `mode`.
 //
 // - mode: dark or light colours.
+//
+// ```jai,skip_on(wasm)
+// ui := headless(.{ theme = .LIGHT });
+// defer free_ui(*ui);
+// assert(ui.theme.background == default_theme(.LIGHT).background);
+// ```
 default_theme :: (mode: Theme_Mode = .DARK) -> Theme {
     theme: Theme;
 
@@ -73,11 +90,30 @@ default_theme :: (mode: Theme_Mode = .DARK) -> Theme {
 // Replace the theme of the UI being built.
 //
 // - theme: the theme to use from now on.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// push_ui(*ui);
+// custom := default_theme();
+// custom.accent = hex(0xFF5500);
+// set_theme(custom);
+// assert(theme().accent == custom.accent);
+// pop_ui();
+// ```
 set_theme :: (theme: Theme) {
     context.ui.theme = theme;
 }
 
 // The theme of the UI being built.
+//
+// ```jai,skip_on(wasm)
+// ui := headless();
+// defer free_ui(*ui);
+// push_ui(*ui);
+// accent := theme().accent;
+// pop_ui();
+// ```
 theme :: () -> *Theme {
     return *context.ui.theme;
 }
