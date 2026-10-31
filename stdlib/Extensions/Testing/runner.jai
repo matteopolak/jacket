@@ -16,8 +16,9 @@
 //
 // With `--run`, results go to jacket as records on standard error: `\x02` kind, fields after
 // `\x1f`, then `\x03`. A `start` record is also written to standard output, so jacket can tell
-// whose output follows. docs/tools/jacket-test.md lists the records.
+// whose output follows.
 
+// One entry of the table `run_tests` takes: a test's name, procedure, source location and flags.
 Test_Case :: struct {
     name: string;
     body: (t: *Test);
@@ -25,6 +26,7 @@ Test_Case :: struct {
     flags: Test_Flags;
 }
 
+// How a test is run.
 Test_Flags :: enum_flags u32 {
     ALLOW_LEAKS;
     CASES; // a `@cases` test: its body is `run_cases`

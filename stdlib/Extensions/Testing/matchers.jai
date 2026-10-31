@@ -10,6 +10,7 @@
 // `all_of` and `any_of`. `assert_that` reports a failure like `expected 4 to be greater than 5`
 // and lets the test go on; `require_that` returns from the procedure it is written in.
 
+// What a [Matcher] checks.
 Matcher_Kind :: enum {
     EQUAL;
     GREATER;
@@ -35,7 +36,7 @@ Matcher_Kind :: enum {
 }
 
 // What a value should be. Build one with the procedures below; the operands live in temporary
-// storage, so a matcher is for the test that makes it.
+// storage, so a matcher is for the test that makes it. Use it with [assert_that].
 Matcher :: struct {
     kind: Matcher_Kind;
     first: Any;
@@ -63,6 +64,10 @@ assert_that :: (value: $T, matcher: Matcher, loc := #caller_location) -> bool {
 // `assert_that`, then returns from the procedure it is written in (which must return nothing)
 // when the check fails.
 //
+// ```jai
+// require_that("hello", has_length(5));
+// ```
+//
 // - value: the value to check.
 // - matcher: what it should be.
 // - loc: where the check is written, shown when it fails. Leave the default.
@@ -71,6 +76,11 @@ require_that :: (value: $T, matcher: Matcher, loc := #caller_location) #expand {
 }
 
 // The message `assert_that` would report, or an empty string when `value` matches.
+//
+// ```jai
+// assert(explain(5, is(5)) == "");
+// assert(explain(4, greater_than(5)) != "");
+// ```
 //
 // - value: the value to check.
 // - matcher: what it should be.
@@ -81,12 +91,20 @@ explain :: (value: $T, matcher: Matcher) -> string {
 
 // Equal by value, as `expect_equal` compares; strings, arrays and structs fail with its diff.
 //
+// ```jai
+// assert_that("abc", is("abc"));
+// ```
+//
 // - want: the value to compare with.
 is :: (want: $T) -> Matcher {
     return .{ kind = .EQUAL, first = capture(want) };
 }
 
 // Holds when `matcher` does not.
+//
+// ```jai
+// assert_that(5, not(is(6)));
+// ```
 //
 // - matcher: the matcher to turn around.
 not :: (matcher: Matcher) -> Matcher {
@@ -95,6 +113,10 @@ not :: (matcher: Matcher) -> Matcher {
 
 // Every matcher holds.
 //
+// ```jai
+// assert_that(7, all_of(greater_than(5), less_than(10)));
+// ```
+//
 // - matchers: the matchers that must all hold.
 all_of :: (matchers: ..Matcher) -> Matcher {
     return .{ kind = .ALL_OF, children = copy_matchers(matchers) };
@@ -102,12 +124,20 @@ all_of :: (matchers: ..Matcher) -> Matcher {
 
 // At least one matcher holds.
 //
+// ```jai
+// assert_that(7, any_of(is(1), is(7)));
+// ```
+//
 // - matchers: the matchers, one of which must hold.
 any_of :: (matchers: ..Matcher) -> Matcher {
     return .{ kind = .ANY_OF, children = copy_matchers(matchers) };
 }
 
-// Numbers of any width compare by value, strings byte by byte.
+// The value is greater than `limit`. Numbers of any width compare by value, strings byte by byte.
+//
+// ```jai
+// assert_that(6, greater_than(5));
+// ```
 //
 // - limit: the value must be above it.
 greater_than :: (limit: $T) -> Matcher {
@@ -116,12 +146,20 @@ greater_than :: (limit: $T) -> Matcher {
 
 // The value is at least `limit`.
 //
+// ```jai
+// assert_that(5, at_least(5));
+// ```
+//
 // - limit: the value must be at or above it.
 at_least :: (limit: $T) -> Matcher {
     return .{ kind = .AT_LEAST, first = capture(limit) };
 }
 
 // The value is less than `limit`.
+//
+// ```jai
+// assert_that(4, less_than(5));
+// ```
 //
 // - limit: the value must be below it.
 less_than :: (limit: $T) -> Matcher {
@@ -130,12 +168,20 @@ less_than :: (limit: $T) -> Matcher {
 
 // The value is at most `limit`.
 //
+// ```jai
+// assert_that(5, at_most(5));
+// ```
+//
 // - limit: the value must be at or below it.
 at_most :: (limit: $T) -> Matcher {
     return .{ kind = .AT_MOST, first = capture(limit) };
 }
 
 // `low <= value <= high`.
+//
+// ```jai
+// assert_that(5, between(1, 10));
+// ```
 //
 // - low: the smallest allowed value.
 // - high: the largest allowed value.
@@ -145,6 +191,10 @@ between :: (low: $T, high: $U) -> Matcher {
 
 // `|value - want| <= tolerance`. NaN is never near anything.
 //
+// ```jai
+// assert_that(0.1 + 0.2, near(0.3, 0.0001));
+// ```
+//
 // - want: the value to be close to.
 // - tolerance: the largest allowed difference.
 near :: (want: float64, tolerance: float64) -> Matcher {
@@ -153,12 +203,21 @@ near :: (want: float64, tolerance: float64) -> Matcher {
 
 // A string holds `part` as a substring; an array holds `part` as an element.
 //
+// ```jai
+// assert_that("hello world", contains("lo w"));
+// assert_that(s32.[1, 2, 3], contains(2));
+// ```
+//
 // - part: the substring or element to look for.
 contains :: (part: $T) -> Matcher {
     return .{ kind = .CONTAINS, first = capture(part) };
 }
 
 // A string begins with `prefix`; an array begins with the elements of the array `prefix`.
+//
+// ```jai
+// assert_that("hello", starts_with("he"));
+// ```
 //
 // - prefix: the text or elements it must begin with.
 starts_with :: (prefix: $T) -> Matcher {
@@ -167,17 +226,29 @@ starts_with :: (prefix: $T) -> Matcher {
 
 // A string ends with `suffix`; an array ends with the elements of the array `suffix`.
 //
+// ```jai
+// assert_that("hello", ends_with("llo"));
+// ```
+//
 // - suffix: the text or elements it must end with.
 ends_with :: (suffix: $T) -> Matcher {
     return .{ kind = .ENDS_WITH, first = capture(suffix) };
 }
 
 // A string or array with nothing in it.
+//
+// ```jai
+// assert_that("", is_empty());
+// ```
 is_empty :: () -> Matcher {
     return .{ kind = .IS_EMPTY };
 }
 
 // A string with `count` bytes or an array with `count` elements.
+//
+// ```jai
+// assert_that(s32.[1, 2, 3], has_length(3));
+// ```
 //
 // - count: the exact number of bytes or elements.
 has_length :: (count: s64) -> Matcher {
@@ -186,6 +257,10 @@ has_length :: (count: s64) -> Matcher {
 
 // An array with an element `matcher` holds for.
 //
+// ```jai
+// assert_that(s32.[1, 2, 3], has_item(greater_than(2)));
+// ```
+//
 // - matcher: must hold for at least one element.
 has_item :: (matcher: Matcher) -> Matcher {
     return .{ kind = .HAS_ITEM, children = copy_matchers(.[matcher]) };
@@ -193,28 +268,59 @@ has_item :: (matcher: Matcher) -> Matcher {
 
 // An array whose every element `matcher` holds for (an empty array qualifies).
 //
+// ```jai
+// assert_that(s32.[1, 2, 3], each(greater_than(0)));
+// ```
+//
 // - matcher: must hold for every element.
 each :: (matcher: Matcher) -> Matcher {
     return .{ kind = .EACH, children = copy_matchers(.[matcher]) };
 }
 
+// A pointer that is null.
+//
+// ```jai
+// p: *int;
+// assert_that(p, is_null());
+// ```
 is_null :: () -> Matcher {
     return .{ kind = .IS_NULL };
 }
 
+// A pointer that is not null.
+//
+// ```jai
+// x := 1;
+// assert_that(*x, not_null());
+// ```
 not_null :: () -> Matcher {
     return not(is_null());
 }
 
+// A bool that is true.
+//
+// ```jai
+// assert_that(1 < 2, is_true());
+// ```
 is_true :: () -> Matcher {
     return .{ kind = .IS_TRUE };
 }
 
+// A bool that is false.
+//
+// ```jai
+// assert_that(2 < 1, is_false());
+// ```
 is_false :: () -> Matcher {
     return .{ kind = .IS_FALSE };
 }
 
 // The value's type is `T` exactly; for an `Any`, the type of what it holds.
+//
+// ```jai
+// value: Any = 5;
+// assert_that(value, of_type(s64));
+// ```
 //
 // - $T: the type the value must have.
 of_type :: ($T: Type) -> Matcher {

@@ -1,8 +1,10 @@
-// Checks. Each reports at the caller's line and returns whether it held; `jacket test` shows the
-// line's source next to the message.
-
+// Checks `condition`, reports a failure at the caller's line and returns whether it held. The
+// other `expect*` checks work the same way; `jacket test` shows the line's source next to the
+// message.
+//
 // ```jai
 // expect(1 + 1 == 2);
+// expect(1 + 1 == 2, "the arithmetic is off"); // the message replaces the default one
 // ```
 //
 // - condition: what must be true.
@@ -17,6 +19,12 @@ expect :: (condition: bool, message := "", loc := #caller_location) -> bool {
 // `got` and `want` are compared by value: numbers of any width, strings, enums, arrays element
 // by element (fixed, view and resizable alike) and structs member by member. Strings and arrays
 // that differ get a diff.
+//
+// ```jai
+// expect_equal(2 + 2, 4);
+// expect_equal("abc", "abc");
+// expect_equal(s32.[1, 2, 3], s32.[1, 2, 3]);
+// ```
 //
 // - got: the value under test.
 // - want: the value it must equal.
@@ -53,6 +61,11 @@ expect_near :: (got: float64, want: float64, tolerance: float64, loc := #caller_
 
 // Checks that `pointer` is null.
 //
+// ```jai
+// p: *int;
+// expect_null(p);
+// ```
+//
 // - pointer: the pointer that must be null.
 // - loc: where the check is written, shown when it fails. Leave the default.
 expect_null :: (pointer: *$T, loc := #caller_location) -> bool {
@@ -63,6 +76,11 @@ expect_null :: (pointer: *$T, loc := #caller_location) -> bool {
 
 // Checks that `pointer` is not null.
 //
+// ```jai
+// x := 1;
+// expect_not_null(*x);
+// ```
+//
 // - pointer: the pointer that must not be null.
 // - loc: where the check is written, shown when it fails. Leave the default.
 expect_not_null :: (pointer: *$T, loc := #caller_location) -> bool {
@@ -72,7 +90,15 @@ expect_not_null :: (pointer: *$T, loc := #caller_location) -> bool {
 }
 
 // The `require` forms check the same way and, when the check fails, return from the procedure
-// they are written in (which must return nothing).
+// they are written in (which must return nothing). Use them when the rest of the test needs the
+// check to hold.
+//
+// ```jai
+// items: [..] int;
+// array_add(*items, 1);
+// require(items.count == 1);
+// expect_equal(items[0], 1);
+// ```
 //
 // - condition: what must be true.
 // - message: what to report instead of the default.
@@ -83,6 +109,10 @@ require :: (condition: bool, message := "", loc := #caller_location) #expand {
 
 // `expect_equal`, then returns from the calling procedure on a failure.
 //
+// ```jai
+// require_equal(1 + 1, 2);
+// ```
+//
 // - got: the value under test.
 // - want: the value it must equal.
 // - loc: where the check is written, shown when it fails. Leave the default.
@@ -91,6 +121,10 @@ require_equal :: (got: $T, want: $U, loc := #caller_location) #expand {
 }
 
 // `expect_near`, then returns from the calling procedure on a failure.
+//
+// ```jai
+// require_near(0.1 + 0.2, 0.3, 0.0001);
+// ```
 //
 // - got: the value under test.
 // - want: the value it should be close to.
@@ -101,6 +135,11 @@ require_near :: (got: float64, want: float64, tolerance: float64, loc := #caller
 }
 
 // `expect_not_null`, then returns from the calling procedure on a failure.
+//
+// ```jai
+// x := 1;
+// require_not_null(*x);
+// ```
 //
 // - pointer: the pointer that must not be null.
 // - loc: where the check is written, shown when it fails. Leave the default.

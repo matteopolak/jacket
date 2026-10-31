@@ -1,5 +1,5 @@
 // Snapshots: `expect_snapshot(t, value)` compares the printed form of a value with a file kept
-// next to the test. See docs/extensions/testing.md.
+// next to the test.
 //
 // The file of a snapshot is `__snapshots__/<test file>/<test>[/<case>].snap` in the folder of
 // the test's file. A snapshot that differs, or does not exist, fails the test and is written
@@ -29,6 +29,12 @@ expect_snapshot :: (t: *Test, value: Any, name := "", loc := #caller_location) -
 
 // `expect_snapshot` for text already in hand.
 //
+// ```jai,no_run
+// shows_the_report :: (t: *Test) {
+//     expect_snapshot(t, "total: 3\nfailed: 0");
+// } @test
+// ```
+//
 // - t: the running test.
 // - text: the text to compare, as it is.
 // - name: tells snapshots of one test apart; empty numbers them.
@@ -38,6 +44,10 @@ expect_snapshot :: (t: *Test, text: string, name := "", loc := #caller_location)
 }
 
 // `value` as the text a snapshot of it holds.
+//
+// ```jai
+// assert(snapshot_text("plain") == "plain");
+// ```
 //
 // - value: the value to print.
 snapshot_text :: (value: Any) -> string {

@@ -1,9 +1,13 @@
 // Compile-time tests: a `@test @compile_time` procedure runs inside the compiler (a `#run` the
 // Discovery plugin adds) instead of in the built program. What it reports is kept as text in
 // the program, and the test the program runs replays it, so a failed check is a failed test
-// and not a compile error. See docs/extensions/testing.md.
+// and not a compile error.
 
 // Whether the test that is running is a `@compile_time` one, run by the compiler now.
+//
+// ```jai
+// assert(!at_compile_time());
+// ```
 at_compile_time :: () -> bool {
     return events != null;
 }

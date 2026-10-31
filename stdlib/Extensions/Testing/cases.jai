@@ -1,5 +1,5 @@
 // Tests with cases: `@cases(LIST)` runs a test once per entry of a list, each entry a subtest
-// named from its values. See docs/extensions/testing.md.
+// named from its values.
 
 // Runs `body` once per entry of `cases`, each as the subtest `test/<values>`; returns whether
 // every case passed. An entry is the argument of `body`, or, when `body` takes several, a struct

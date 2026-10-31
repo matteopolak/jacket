@@ -1,19 +1,21 @@
-// Tests are procedures with a `@test` note, found at compile time and run by
-// `jacket test`.
+// A test framework. A test is a procedure with a `@test` note, found at compile time and run by
+// `jacket test`. The `expect*` checks report a failure and let the test go on; the `require*`
+// ones report it and return from the test. [assert_that] checks a value against a matcher,
+// `@cases` and `@property` run a test over a list or over generated inputs, and
+// [expect_snapshot] compares output with a stored file.
 //
-//     #import "Basic";
-#import "File";
-//     #import "Extensions/Testing";
+// ```jai,no_run
+// #import "Extensions/Testing";
 //
-//     parses_numbers :: (t: *Test) {
-//         value, ok := string_to_int("42");
-//         require(ok);
-//         expect_equal(value, 42);
-//     } @test
+// parses_numbers :: (t: *Test) {
+//     value, ok := string_to_int("42");
+//     require(ok);
+//     expect_equal(value, 42);
+// } @test
+// ```
 //
-// Checks (`expect*`) report a failure and let the test go on; `require*` report it and return
-// from the procedure they are written in. A test runs with a context allocator that fails it on
-// a leak or a bad free, and with temporary storage reset first.
+// A test runs with a context allocator that fails it on a leak or a bad free, and with temporary
+// storage reset first.
 
 // The test that is running. `name` is `parent/child` inside a subtest.
 Test :: struct {
@@ -63,6 +65,12 @@ log :: (t: *Test, format: string, args: ..Any) {
 
 // Ends the test as skipped, from the procedure it is written in.
 //
+// ```jai,no_run
+// needs_a_gpu :: (t: *Test) {
+//     skip(t, "no GPU on this machine");
+// } @test
+// ```
+//
 // - t: the running test.
 // - reason: why it is skipped; shown in the report.
 skip :: (t: *Test, reason := "") #expand {
@@ -71,6 +79,10 @@ skip :: (t: *Test, reason := "") #expand {
 }
 
 // Marks the test as failed and lets it go on.
+//
+// ```jai,should_fail
+// fail(t, "this never worked");
+// ```
 //
 // - t: the running test.
 // - message: what to report.
@@ -81,6 +93,15 @@ fail :: (t: *Test, message := "failed", loc := #caller_location) {
 
 // A directory for this test's files. `jacket test` creates it and deletes it after a pass
 // (`--keep-temp` keeps it); subtests share their test's directory.
+//
+// ```jai,no_run
+// #import "File";
+//
+// writes_a_file :: (t: *Test) {
+//     path := tprint("%/out.txt", temp_dir(t));
+//     expect(write_entire_file(path, "hi"));
+// } @test
+// ```
 //
 // - t: the running test, or any of its subtests.
 // - loc: where the call is written, shown if the test was given no directory. Leave the default.
@@ -93,6 +114,13 @@ temp_dir :: (t: *Test, loc := #caller_location) -> string {
 
 // Calls `callback(data)` when the test ends, after its body; the last registered runs first.
 //
+// ```jai,no_run
+// uses_a_buffer :: (t: *Test) {
+//     buffer := alloc(1024);
+//     cleanup(t, (data: *void) { free(data); }, buffer);
+// } @test
+// ```
+//
 // - t: the running test.
 // - callback: called with `data` when the test ends.
 // - data: passed to `callback`.
@@ -102,6 +130,13 @@ cleanup :: (t: *Test, callback: (data: *void), data: *void = null) {
 
 // Runs `body` as the subtest `name`, reported and filtered as `test/name`. Returns whether it
 // passed.
+//
+// ```jai
+// passed := run(t, "addition", (t: *Test) {
+//     expect_equal(1 + 1, 2);
+// });
+// assert(passed);
+// ```
 //
 // - t: the parent test.
 // - name: the subtest's name.

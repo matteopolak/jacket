@@ -1,6 +1,6 @@
 // Property tests: `@property` on a procedure whose arguments are generated. The procedure runs
 // on many random inputs; when one fails, the input is shrunk to a smaller one that still fails
-// and reported with the seed. See docs/extensions/testing.md.
+// and reported with the seed.
 
 // A source of pseudo-random numbers (splitmix64). The same seed gives the same numbers on every
 // OS and in every mode, which is what makes a failing run repeatable. Custom generators take
@@ -13,12 +13,24 @@ Rng :: struct {
 
 // A generator started from `seed`.
 //
+// ```jai
+// a := rng_seeded(42);
+// b := rng_seeded(42);
+// assert(rng_u64(*a) == rng_u64(*b));
+// ```
+//
 // - seed: the starting state; one seed always gives the same numbers.
 rng_seeded :: (seed: u64) -> Rng {
     return .{ state = seed };
 }
 
 // The next 64 random bits.
+//
+// ```jai
+// rng := rng_seeded(1);
+// first := rng_u64(*rng);
+// assert(first != rng_u64(*rng));
+// ```
 //
 // - rng: the generator to draw from and advance.
 rng_u64 :: (rng: *Rng) -> u64 {
@@ -32,6 +44,11 @@ rng_u64 :: (rng: *Rng) -> u64 {
 
 // A number from 0 to `count - 1`; 0 when `count` is 0.
 //
+// ```jai
+// rng := rng_seeded(1);
+// assert(rng_below(*rng, 6) < 6);
+// ```
+//
 // - rng: the generator to draw from.
 // - count: how many values to choose from.
 rng_below :: (rng: *Rng, count: u64) -> u64 {
@@ -41,6 +58,12 @@ rng_below :: (rng: *Rng, count: u64) -> u64 {
 }
 
 // A number from `low` to `high`, both included.
+//
+// ```jai
+// rng := rng_seeded(1);
+// n := rng_range(*rng, -5, 5);
+// assert(n >= -5 && n <= 5);
+// ```
 //
 // - rng: the generator to draw from.
 // - low: the smallest result.
@@ -56,6 +79,11 @@ rng_range :: (rng: *Rng, low: s64, high: s64) -> s64 {
 
 // True once in `one_in` calls on average.
 //
+// ```jai
+// rng := rng_seeded(1);
+// assert(rng_chance(*rng, 1));
+// ```
+//
 // - rng: the generator to draw from.
 // - one_in: the odds, 1 in this many; below 1 counts as 1.
 rng_chance :: (rng: *Rng, one_in: s64) -> bool {
@@ -63,6 +91,12 @@ rng_chance :: (rng: *Rng, one_in: s64) -> bool {
 }
 
 // A number from 0 up to, not including, 1.
+//
+// ```jai
+// rng := rng_seeded(1);
+// x := rng_unit(*rng);
+// assert(x >= 0 && x < 1);
+// ```
 //
 // - rng: the generator to draw from.
 rng_unit :: (rng: *Rng) -> float64 {
@@ -85,6 +119,12 @@ Custom_Generator :: struct {
 
 // Wraps `make` as a `Custom_Generator` for `run_property`.
 //
+// ```jai
+// even :: (rng: *Rng) -> s64 { return rng_range(rng, -500, 500) * 2; }
+//
+// run_property(t, (n: s64) { expect_equal(n % 2, 0); }, 20, .[generator(even)]);
+// ```
+//
 // - $make: draws one value from the `Rng`; its return type is the type the generator serves.
 generator :: ($make: (rng: *Rng) -> $T) -> Custom_Generator {
     return .{ type_info(T), (rng: *Rng, destination: *void) {
@@ -94,6 +134,13 @@ generator :: ($make: (rng: *Rng) -> $T) -> Custom_Generator {
 
 // Checks the arguments of a property: skips the trial, without failing it, when `condition`
 // does not hold. A property that returns a value writes `if !condition return true;`.
+//
+// ```jai
+// run_property(t, (divisor: s64) {
+//     assume(divisor != 0);
+//     expect_equal(10 / divisor * divisor + 10 % divisor, 10);
+// });
+// ```
 //
 // - condition: the trial is skipped when this is false.
 assume :: (condition: bool) #expand {
@@ -173,6 +220,12 @@ property_source :: (B: Type) -> string {
 
 // What a `@property` test runs: `body` on `count` generated inputs. Call it by hand to give
 // the arguments custom generators or another count.
+//
+// ```jai
+// run_property(t, (a: s32, b: s32) {
+//     expect_equal(cast(s64) a + b, cast(s64) b + a);
+// }, 50);
+// ```
 //
 // - t: the running test.
 // - $body: the property; its arguments are generated.
