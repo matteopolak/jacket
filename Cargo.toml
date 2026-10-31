@@ -97,6 +97,10 @@ items_after_statements = "allow"
 # Jai source files are `.jai` in lowercase; the compiler does not match other casings.
 case_sensitive_file_extension_comparisons = "allow"
 
+# The compiler is split into crates; thin LTO keeps the hot syntax helpers inlined across them.
+[profile.release]
+lto = "thin"
+
 [profile.dev]
 debug = 0
 incremental = false
