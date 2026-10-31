@@ -232,13 +232,16 @@ impl<T: std::fmt::Debug, const I: usize> std::fmt::Debug for Probed<T, I> {
     }
 }
 
+/// What indexing a vector with `P` yields.
+type Reached<T, P> = <P as std::slice::SliceIndex<[T]>>::Output;
+
 impl<T, P: std::slice::SliceIndex<[T]> + First, const I: usize> std::ops::Index<P>
     for Probed<Vec<T>, I>
 {
     type Output = P::Output;
 
     #[inline(always)]
-    fn index(&self, at: P) -> &P::Output {
+    fn index(&self, at: P) -> &Reached<T, P> {
         &self.0[at]
     }
 }
@@ -249,7 +252,7 @@ impl<T, P: std::slice::SliceIndex<[T]> + First, const I: usize> std::ops::IndexM
     for Probed<Vec<T>, I>
 {
     #[inline(always)]
-    fn index_mut(&mut self, at: P) -> &mut P::Output {
+    fn index_mut(&mut self, at: P) -> &mut Reached<T, P> {
         write_at(I);
         old_write(I, at.first());
         &mut self.0[at]
