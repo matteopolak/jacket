@@ -345,6 +345,15 @@
       "summary": "A Simp arena shooter with a Postgres leaderboard server (native only: needs a window).",
       "mode": "check",
       "stdout_contains": []
+    },
+    {
+      "id": "game3d",
+      "directory": "examples/game3d",
+      "main": "game/main.jai",
+      "title": "3D arena scene",
+      "summary": "A WebGPU scene with worker-thread jobs, SIMD entities and meshoptimizer meshes (native only: needs a GPU).",
+      "mode": "check",
+      "stdout_contains": []
     }
   ]
 }
