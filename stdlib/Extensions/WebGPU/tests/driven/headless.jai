@@ -282,6 +282,23 @@ upload_texture :: (instance: WGPUInstance, device: WGPUDevice, queue: WGPUQueue)
     }
 
     wgpuBufferRelease(readback);
+
+    // webgpu_read_texture does the same copy, and hands the rows back packed.
+    packed := webgpu_read_texture(instance, device, queue, texture, N, N);
+
+    check(packed.count == N * N * 4, "webgpu_read_texture: % bytes, not %", packed.count, N * N * 4);
+
+    if packed.count == N * N * 4 {
+        wrong := 0;
+
+        for 0..N * N - 1 if (cast(*u32) packed.data)[it] != texels[it] wrong += 1;
+
+        check(wrong == 0, "webgpu_read_texture: % of % texels are wrong", wrong, N * N);
+        print("webgpu_read_texture: checked\n");
+    }
+
+    array_free(packed);
+    check(webgpu_read_texture(instance, device, queue, texture, 0, N).count == 0, "webgpu_read_texture: an empty size gave bytes");
     wgpuTextureRelease(texture);
 }
 

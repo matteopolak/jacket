@@ -217,44 +217,11 @@ render_to_image :: (r: *Renderer, ui: *UI_State, clear: Color) -> Rendered_Image
     image.width = r.width;
     image.height = r.height;
 
-    row_bytes := (r.width * 4 + 255) / 256 * 256;
-    size := cast(u64) (row_bytes * r.height);
+    pixels := webgpu_read_texture(r.instance, r.device, r.queue, r.target, cast(s32) r.width, cast(s32) r.height);
 
-    desc: WGPUBufferDescriptor;
-    desc.size = size;
-    desc.usage = .MapRead | .CopyDst;
-    readback := wgpuDeviceCreateBuffer(r.device, *desc);
-
-    encoder := wgpuDeviceCreateCommandEncoder(r.device, null);
-    source: WGPUTexelCopyTextureInfo;
-    source.texture = r.target;
-    source.aspect = .All;
-    destination: WGPUTexelCopyBufferInfo;
-    destination.buffer = readback;
-    destination.layout.bytesPerRow = cast(u32) row_bytes;
-    destination.layout.rowsPerImage = cast(u32) r.height;
-    extent := WGPUExtent3D.{ cast(u32) r.width, cast(u32) r.height, 1 };
-
-    wgpuCommandEncoderCopyTextureToBuffer(encoder, *source, *destination, *extent);
-    commands := wgpuCommandEncoderFinish(encoder, null);
-
-    wgpuQueueSubmit(r.queue, 1, *commands);
-    wgpuCommandBufferRelease(commands);
-    wgpuCommandEncoderRelease(encoder);
-
-    if webgpu_map_buffer(r.instance, readback, .Read, 0, size) {
-        data := cast(*u8) wgpuBufferGetConstMappedRange(readback, 0, size);
-
-        array_resize(*image.pixels, r.width * r.height * 4);
-
-        for y: 0..r.height - 1 {
-            memcpy(image.pixels.data + y * r.width * 4, data + y * row_bytes, r.width * 4);
-        }
-
-        wgpuBufferUnmap(readback);
-    }
-
-    wgpuBufferRelease(readback);
+    image.pixels.data = pixels.data;
+    image.pixels.count = pixels.count;
+    image.pixels.allocated = pixels.count;
 
     return image;
 }

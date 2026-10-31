@@ -3,7 +3,7 @@
 // frames offscreen and looks at what came back. Without a usable GPU the GPU part is skipped
 // (or fails with --require-gpu).
 
-SMOKE_WIDTH :: 640; // a multiple of 64, so rows are a multiple of 256 bytes
+SMOKE_WIDTH :: 640;
 SMOKE_HEIGHT :: 360;
 INTRO_FRAMES :: 50;
 
@@ -290,7 +290,7 @@ smoke_intro_render :: (smoke: *Smoke, r: *Renderer) {
 
     intro_draw(*intro, r, r.offscreen_view, SMOKE_WIDTH, SMOKE_HEIGHT);
 
-    pixels := read_texture(r, r.offscreen, SMOKE_WIDTH, SMOKE_HEIGHT);
+    pixels := webgpu_read_texture(r.instance, r.device, r.queue, r.offscreen, SMOKE_WIDTH, SMOKE_HEIGHT);
 
     defer array_free(pixels);
 

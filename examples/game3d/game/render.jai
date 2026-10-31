@@ -45,7 +45,6 @@ Renderer :: struct {
 
     offscreen: WGPUTexture;
     offscreen_view: WGPUTextureView;
-    readback: WGPUBuffer;
 
     // Per frame, rebuilt by `pack_instances`.
     packed: [..] Instance;
@@ -299,7 +298,6 @@ render_offscreen :: (r: *Renderer, camera: *Camera, width: s32, height: s32) -> 
         if r.offscreen {
             wgpuTextureViewRelease(r.offscreen_view);
             wgpuTextureRelease(r.offscreen);
-            wgpuBufferRelease(r.readback);
         }
 
         desc: WGPUTextureDescriptor;
@@ -311,46 +309,12 @@ render_offscreen :: (r: *Renderer, camera: *Camera, width: s32, height: s32) -> 
         desc.sampleCount = 1;
         r.offscreen = wgpuDeviceCreateTexture(r.device, *desc);
         r.offscreen_view = wgpuTextureCreateView(r.offscreen, null);
-        r.readback = create_buffer(r, cast(u64) (width * 4 * height), .MapRead | .CopyDst);
         r.width, r.height = width, height;
     }
 
     render_scene(r, r.offscreen_view, width, height, camera);
 
-    return read_texture(r, r.offscreen, width, height);
-}
-
-// Copies an RGBA8 texture whose rows are a multiple of 256 bytes into the readback buffer and
-// returns its bytes.
-read_texture :: (r: *Renderer, texture: WGPUTexture, width: s32, height: s32) -> [] u8 {
-    row_bytes := cast(u32) (width * 4);
-
-    assert(row_bytes % 256 == 0, "offscreen width must be a multiple of 64");
-
-    source: WGPUTexelCopyTextureInfo;
-    source.texture = texture;
-    source.aspect = .All;
-    destination: WGPUTexelCopyBufferInfo;
-    destination.buffer = r.readback;
-    destination.layout.bytesPerRow = row_bytes;
-    destination.layout.rowsPerImage = cast(u32) height;
-    extent := WGPUExtent3D.{ cast(u32) width, cast(u32) height, 1 };
-    encoder := wgpuDeviceCreateCommandEncoder(r.device, null);
-
-    wgpuCommandEncoderCopyTextureToBuffer(encoder, *source, *destination, *extent);
-    submit(r, encoder);
-
-    size := cast(u64) (row_bytes * cast(u32) height);
-
-    if !webgpu_map_buffer(r.instance, r.readback, .Read, 0, size) return .[];
-
-    mapped := cast(*u8) wgpuBufferGetConstMappedRange(r.readback, 0, size);
-    pixels := NewArray(cast(s64) size, u8);
-
-    memcpy(pixels.data, mapped, cast(s64) size);
-    wgpuBufferUnmap(r.readback);
-
-    return pixels;
+    return webgpu_read_texture(r.instance, r.device, r.queue, r.offscreen, width, height);
 }
 
 submit :: (r: *Renderer, encoder: WGPUCommandEncoder) {

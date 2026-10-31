@@ -157,6 +157,71 @@ webgpu_map_buffer :: (instance: WGPUInstance, buffer: WGPUBuffer, mode: WGPUMapM
     return true;
 }
 
+// Copy the base mip of a 2D `texture` (width x height, `bytes_per_pixel` per texel, such as 4 for
+// rgba8 or bgra8) back to the CPU and return its bytes, rows packed one after another with no
+// padding. The texture needs the .CopySrc usage and must not be multisampled. The caller frees the
+// result with array_free. It submits its own command buffer and waits for it, so it stalls the
+// frame: use it for screenshots and tests, not for per-frame work. Empty (and the reason logged)
+// when the copy or the mapping failed.
+//
+// A copy out of a texture needs every row of the buffer to start at a multiple of 256 bytes, so
+// the helper copies into a padded buffer and removes the padding as it copies out.
+webgpu_read_texture :: (instance: WGPUInstance, device: WGPUDevice, queue: WGPUQueue, texture: WGPUTexture, width: s32, height: s32, bytes_per_pixel := 4) -> [] u8 {
+    if width <= 0 || height <= 0 || bytes_per_pixel <= 0 {
+        log_error("WebGPU: cannot read a % x % texture of % bytes per pixel", width, height, bytes_per_pixel);
+        return .[];
+    }
+
+    packed_row := width * bytes_per_pixel;
+    padded_row := (packed_row + 255) / 256 * 256;
+    size := cast(u64) padded_row * cast(u64) height;
+
+    buffer_desc: WGPUBufferDescriptor;
+    buffer_desc.size = size;
+    buffer_desc.usage = .MapRead | .CopyDst;
+    readback := wgpuDeviceCreateBuffer(device, *buffer_desc);
+
+    defer wgpuBufferRelease(readback);
+
+    source: WGPUTexelCopyTextureInfo;
+    source.texture = texture;
+    source.aspect = .All;
+    destination: WGPUTexelCopyBufferInfo;
+    destination.buffer = readback;
+    destination.layout.bytesPerRow = cast(u32) padded_row;
+    destination.layout.rowsPerImage = cast(u32) height;
+    extent := WGPUExtent3D.{ cast(u32) width, cast(u32) height, 1 };
+
+    encoder := wgpuDeviceCreateCommandEncoder(device, null);
+
+    wgpuCommandEncoderCopyTextureToBuffer(encoder, *source, *destination, *extent);
+    commands := wgpuCommandEncoderFinish(encoder, null);
+
+    wgpuQueueSubmit(queue, 1, *commands);
+    wgpuCommandBufferRelease(commands);
+    wgpuCommandEncoderRelease(encoder);
+
+    if !webgpu_map_buffer(instance, readback, .Read, 0, size) return .[];
+
+    mapped := cast(*u8) wgpuBufferGetConstMappedRange(readback, 0, size);
+
+    pixels: [] u8;
+
+    if mapped {
+        array_resize(*pixels, packed_row * height, initialize = false);
+
+        for y: 0..height - 1 {
+            memcpy(pixels.data + y * packed_row, mapped + y * padded_row, packed_row);
+        }
+    } else {
+        log_error("WebGPU: the mapped range of the readback buffer is null");
+    }
+
+    wgpuBufferUnmap(readback);
+
+    return pixels;
+}
+
 // Pop the device's innermost error scope (wgpuDevicePushErrorScope) and wait for it: the type of
 // the first error it caught (.NoError for none), and its message (temporary storage).
 webgpu_pop_error_scope :: (instance: WGPUInstance, device: WGPUDevice) -> WGPUErrorType, message: string {
