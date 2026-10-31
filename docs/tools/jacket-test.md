@@ -43,7 +43,7 @@ Roots are the `--path DIR` folders, else the folders `[test] paths` in `jacket.t
 
 An entry of `[test] paths` is a folder or a [path pattern](jailint.md) (`stdlib/**` is every folder below `stdlib`). A pattern selects each folder it matches that has a `tests/` folder or a `module.jai`; nested ones (`stdlib/Android` and `stdlib/Android/Toolchain`) are both roots. The search skips hidden folders, `tests/` folders, and anything `[format] ignore` or `[lint] exclude` match. A root with nothing to run is silent, so a new module needs no entry. A plain folder is taken as written.
 
-Doc examples of `stdlib/internal/*` modules are not run from there: a program cannot import them, so the public module that loads them runs them.
+Doc examples of `stdlib/internal/*` modules are not run from there: a program cannot import them, so the public module that reaches them runs them, through `#load` or through `#import` of an `internal/...` module at any depth. A file two public modules reach runs under the first root in path order.
 
 ## Writing tests
 

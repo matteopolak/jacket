@@ -4,8 +4,9 @@
 //!
 //! The library is the `.jai` files of the folder, without its `tests/` folder, hidden folders or
 //! folders that are modules of their own (they hold a `module.jai`), then every file those
-//! `#load`, wherever it lives, and the `internal/...` modules of the standard library that the
-//! folder's own files import.
+//! `#load`, wherever it lives, and the `internal/...` modules of the standard library that those
+//! files import, and the ones those import in turn: a private module cannot be imported by a
+//! program, so its examples run under the public library that reaches it.
 use crate::docs::{self, Resolver};
 mod forward;
 mod gaps;
@@ -68,10 +69,10 @@ pub fn library_docs(dir: &Path, stdlib: &Path) -> Vec<LibraryDoc> {
     let mut own = Vec::new();
     own_files(dir, true, &mut own);
     let module_file = canonical(&crate::paths::module_entry(dir));
-    let mut queue: VecDeque<(PathBuf, bool)> = own.into_iter().map(|f| (f, true)).collect();
+    let mut queue: VecDeque<PathBuf> = own.into_iter().collect();
     let mut seen = BTreeSet::new();
     let mut out = Vec::new();
-    while let Some((file, is_own)) = queue.pop_front() {
+    while let Some(file) = queue.pop_front() {
         let file = canonical(&file);
         if !seen.insert(file.clone()) {
             continue;
@@ -119,10 +120,10 @@ pub fn library_docs(dir: &Path, stdlib: &Path) -> Vec<LibraryDoc> {
                 TopLevelKind::Load(path, _) => {
                     let loaded = base.join(path);
                     if loaded.is_file() {
-                        queue.push_back((loaded, false));
+                        queue.push_back(loaded);
                     }
                 }
-                TopLevelKind::Import(import) if is_own => {
+                TopLevelKind::Import(import) => {
                     if let crate::ast::ImportSource::Module(name) = &import.source
                         && name.starts_with("internal/")
                     {
@@ -133,7 +134,7 @@ pub fn library_docs(dir: &Path, stdlib: &Path) -> Vec<LibraryDoc> {
                         ]
                         .into_iter()
                         .find(|p| p.is_file());
-                        queue.extend(found.map(|f| (f, false)));
+                        queue.extend(found);
                     }
                 }
                 _ => {}
@@ -239,6 +240,33 @@ mod tests {
         );
         assert_eq!(found[1].line, 10);
         let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn private_modules_are_reached_through_the_ones_that_import_them() {
+        let std = library(&[
+            (
+                "internal/outer/module.jai",
+                "#load \"parts.jai\";\nInner :: #import \"internal/inner\";\n",
+            ),
+            (
+                "internal/outer/parts.jai",
+                "// Outer part.\nouter_part :: 1;\n",
+            ),
+            (
+                "internal/inner/module.jai",
+                "// Inner item.\ninner_item :: 2;\n",
+            ),
+        ]);
+        let dir = library(&[
+            ("module.jai", "Outer :: #import \"internal/outer\";\n"),
+            ("only.jai", "x :: 1;\n"),
+        ]);
+        let found = library_docs(&dir, &std);
+        let names: Vec<_> = found.iter().filter_map(|d| d.symbol.as_deref()).collect();
+        assert_eq!(names, ["outer_part", "inner_item"]);
+        let _ = std::fs::remove_dir_all(dir);
+        let _ = std::fs::remove_dir_all(std);
     }
 
     fn described(found: &[LibraryDoc]) -> Vec<(String, &str, Option<&str>)> {
