@@ -178,6 +178,8 @@ def lint_owned(linter, stdlib, output, roots):
                 }
                 covered.update(complete_checked_paths(report, checked))
             print(label, name, "PASS" if passed else "FAIL", flush=True)
+            if not passed:
+                print(result.stdout + result.stderr, end="", flush=True)
             (output / "commands.json").write_text(json.dumps(commands, indent=2) + "\n")
         argv = [*prefix, "--context", str(negative), str(negative)]
         result = subprocess.run(
@@ -200,6 +202,8 @@ def lint_owned(linter, stdlib, output, roots):
             )
         )
         print(label, "private-guard", "PASS" if passed else "FAIL", flush=True)
+        if not passed:
+            print(result.stdout + result.stderr, end="", flush=True)
     missing = sorted({canonical(path) for path in owned} - covered)
     changed = [path for path, value in before.items() if sha256_file(Path(path)) != value]
     passed = (
