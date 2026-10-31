@@ -1,60 +1,43 @@
 # Workspace trust
 
-## What it is
-
-Opening a folder in an editor must not run that folder's code. Jai runs code at compile time (`#run`, build metaprograms that call `compiler_create_workspace`, computed `#insert`, `#modify`), and the language server compiles the open project to check it, so an editor integration needs a switch: `jailsp` has a `trusted` mode (default on) and an untrusted mode that never starts compile-time execution.
+Opening a folder in an editor must not run that folder's code. Jai runs code at compile time (`#run`, build metaprograms, computed `#insert`, `#modify`) and the language server compiles the open project, so `jailsp` has a `trusted` mode (default on) and an untrusted mode that never starts compile-time execution.
 
 ## How it works
 
-**One choke point.** Every way of running compile-time code in the compiler ends in `Compiler::call_thunk` (`crates/jaic/src/sema/consteval.rs`): `#run` bodies, computed `#insert` strings, `#modify` blocks and the `build()` of a metaprogram all become a thunk that `call_thunk` executes. When `IdeFacts::untrusted` is set (only the language server sets it, from `semantic::compile`), `call_thunk` returns an error of kind `DiagnosticKind::Untrusted` before any interpreter state is touched. Constant folding that does not need the interpreter (`#if` on literals, `size_of`, ...) is unaffected.
+**One choke point.** Every way of running compile-time code ends in `Compiler::call_thunk` (`crates/jaic/src/sema/consteval.rs`). When `IdeFacts::untrusted` is set (only the language server sets it), `call_thunk` returns a `DiagnosticKind::Untrusted` error before touching the interpreter. Constant folding that doesn't need the interpreter (`#if` on literals, `size_of`) is unaffected.
 
 **What the server does with the refusal.**
 
-- `semantic::known` drops `Untrusted` errors, so a `#run` result is *unknown*, never an error. A file that has a refused `#run` and an `#insert` also drops "unknown identifier" errors, because the inserted code could have declared any name.
-- A statement that needed a refused value (`local := ANSWER + 1;` with `ANSWER :: #run f();`) is salvaged the way sketches of uncalled polymorphs are (`stmt.rs`): its names stay declared with a stand-in type, so the following statements do not cascade into "unknown identifier" errors. Hover on such a name shows `?`.
-- A file a build metaprogram compiles (`add_build_file("src/main.jai", w)` in `first.jai`) is normally checked through the program the metaprogram builds. Untrusted, that program is not built; `Session::compile_inputs` compiles the file as its own root instead (`auto_import.rs: is_build_metaprogram` finds the case from the static `add_build_file` literal scan). Names that only the metaprogram defines (`add_build_string`) are then unknown in it, and reported as such.
-- Parsing, type checking of everything that does not depend on compile-time results, hover, go to definition, references, completion, formatting and lints all work as before. Import folders still come from the static discovery (`declared_import_paths`, `[project] import_path` in `jacket.toml`).
+- `semantic::known` drops `Untrusted` errors, so a `#run` result is unknown, never an error. A file with a refused `#run` and an `#insert` also drops "unknown identifier" errors, since the inserted code could declare any name.
+- A statement that needed a refused value keeps its names declared with a stand-in type (`stmt.rs`), so later statements don't cascade. Hover on such a name shows `?`.
+- A file a build metaprogram compiles is normally checked through the program the metaprogram builds. Untrusted, `Session::compile_inputs` compiles it as its own root instead; names only the metaprogram defines are then reported unknown.
+- Parsing, type checking that doesn't depend on compile-time results, hover, go to definition, references, completion, formatting and lints all work as before.
 
-**Switching.** `Session::set_trusted` clears the semantic compile cache (the compiles were made under the other setting) and bumps the generation; the JSON layer then republishes diagnostics (and sends `workspace/diagnostic/refresh` to pull clients), so open files re-analyse at once.
+**Switching.** `Session::set_trusted` clears the semantic compile cache and bumps the generation; diagnostics are republished so open files re-analyse at once.
 
-**Trusted mode still has a budget.** Trusted compile-time code runs in the editor's `SandboxHost` with `BLOCK_BUDGET` interpreter blocks per analysis, no real file or process access beyond what the sandbox provides, and output sent nowhere. Trust removes the refusal, not that sandbox. Trusted compiles add exactly two things to it. `getenv` reads the real environment, read-only (`SandboxHost::real_environment`). [Compile-time services](../extensions/service.md) answer from separate `jaic -interp` workers that run outside the sandbox: they are how editor code reaches a database or other slow, stateful resources without blocking a keystroke. Untrusted compiles get neither, since they run no compile-time code at all.
+**Trusted mode still has a budget.** Trusted compile-time code runs in the editor's `SandboxHost` with a block budget per analysis and no real file or process access. Trust removes the refusal, not the sandbox. It adds read-only `getenv`, and lets [compile-time services](../extensions/service.md) answer from separate `jaic -interp` workers.
 
 ## How each editor sets it
 
 | Client | Starts untrusted | Switches later |
 | --- | --- | --- |
 | any | `jailsp --untrusted`, or `initializationOptions: {"trusted": false}` | notification `jai/setTrusted` with `{"trusted": true}`, or `workspace/didChangeConfiguration` with `settings.jai.trusted` |
-| VS Code | automatic: `trusted: vscode.workspace.isTrusted` in the initialization options | `onDidGrantWorkspaceTrust` restarts the client, which starts trusted from the settings now in force |
-| Neovim | `trusted = false` in `setup()` or `vim.g.jai` | `require('jai').setup({ trusted = true })` sends `workspace/didChangeConfiguration` |
+| VS Code | automatic: `trusted: vscode.workspace.isTrusted` | `onDidGrantWorkspaceTrust` restarts the client |
+| Neovim | `trusted = false` in `setup()` or `vim.g.jai` | `require('jai').setup({ trusted = true })` |
 
-`--untrusted` is a floor: `initializationOptions.trusted = true` cannot lift it. Only `jai/setTrusted` or a configuration change can.
+`--untrusted` is a floor: `initializationOptions.trusted = true` can't lift it.
 
-### VS Code
+**VS Code** declares `capabilities.untrustedWorkspaces` as `limited`, with `restrictedConfigurations` listing the settings that name a program or what it runs (`jai.server.path`, `jai.compiler.path`, `jai.formatter.path`, `jai.stdlib.path`, `jai.toolchain.autoDownload`, `jai.run.arguments`), so workspace values are ignored. Run/Build/Check File refuse, the test explorer does nothing, and `autoDownload: always` acts as `prompt`. Formatting keeps working. `test/unit/manifest.test.ts` fails if a new `*.path` setting isn't restricted.
 
-The manifest declares `capabilities.untrustedWorkspaces` as `limited`, with `restrictedConfigurations` listing every setting that names a program or what it runs, so workspace values are ignored in an untrusted workspace (the configuration API then returns the user value or default):
-
-`jai.server.path`, `jai.compiler.path`, `jai.formatter.path`, `jai.stdlib.path` (passed as `JAIC_STDLIB`, so it chooses the code jailsp loads), `jai.toolchain.autoDownload`, `jai.run.arguments`.
-
-Also, in an untrusted workspace: *Run/Build/Check File* refuse (they execute compile-time code), the test explorer lists and runs nothing, and `autoDownload: always` behaves as `prompt`. Formatting keeps working with `jaifmt` from the user's settings or `PATH`. The toolchain download source is not a setting: it is the pinned GitHub release with pinned checksums.
-
-`test/unit/manifest.test.ts` fails if a new `*.path` setting is not restricted.
-
-### Neovim
-
-`trusted` (default `true`) is part of `config.server_settings()`; with `false` the `:Jai run`, `build` and `check` commands also refuse.
+**Neovim**'s `trusted` also makes `:Jai run`, `build` and `check` refuse.
 
 ## How to change it
 
-- A new way to run compile-time code in the compiler must go through `call_thunk` (or call `ide.untrusted` itself); do not add a second interpreter entry point.
-- A new editor client: send `initializationOptions.trusted` from its host's trust state and `jai/setTrusted` on a grant.
-- A new setting that names an executable, a library or a download source: add it to `restrictedConfigurations`.
-- Tests: `crates/jai-language-server/tests/workspace_trust.rs` (a `#run` constant, computed `#insert`, a build metaprogram, the protocol switches), `editors/vscode/test/unit/manifest.test.ts`, `editors/nvim/tests/config_spec.lua`.
-
-## Configuration
-
-- `jailsp --untrusted`; `initializationOptions.trusted`; `jai/setTrusted`; `settings.jai.trusted`.
-- VS Code `capabilities.untrustedWorkspaces` in `editors/vscode/package.json`; Neovim `trusted`.
+- A new way to run compile-time code must go through `call_thunk` (or check `ide.untrusted` itself); don't add a second interpreter entry point.
+- A new editor client sends `initializationOptions.trusted` from its host's trust state and `jai/setTrusted` on a grant.
+- A new setting that names an executable, library or download source goes in `restrictedConfigurations`.
+- Tests: `crates/jai-language-server/tests/workspace_trust.rs`, `editors/vscode/test/unit/manifest.test.ts`, `editors/nvim/tests/config_spec.lua`.
 
 ## Dependencies
 
-`jaic` (`sema/consteval.rs`, `ide.rs`, `sema/stmt.rs`, `source.rs`), `crates/jai-language-server` (`semantic.rs`, `session.rs`, `protocol.rs`, `main.rs`), VS Code's workspace trust API (1.57+).
+`jaic` (`sema/consteval.rs`, `ide.rs`, `sema/stmt.rs`), `crates/jai-language-server` (`semantic.rs`, `session.rs`, `protocol.rs`), VS Code's workspace trust API.

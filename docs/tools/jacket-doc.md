@@ -1,108 +1,79 @@
 # jacket doc
 
-## What it is
-
-`jacket doc` writes the API reference for the standard library as a static website: one page per module and per procedure, struct, enum or constant, a search index, and the Tools pages (the files in `docs/reference/`). Every example in a doc comment is shown with a Run button that compiles and runs it in the browser, using the same compiler build the playground uses. Nothing it makes is committed; a release builds it and attaches it as `jacket-docs-<version>.tar.gz`.
+`jacket doc` writes the API reference for the standard library as a static website: one page per module and per item, a search index, and the Tools pages (the files in `docs/reference/`). Every doc-comment example gets a Run button that compiles and runs it in the browser with the playground's compiler build. Nothing it makes is committed; a release builds it and attaches `jacket-docs-<version>.tar.gz`.
 
 ```sh
 jacket doc                                  # target/doc-site/, served from /
-jacket doc --base-url /docs/jacket/ --out site # for a site that lives under /docs/jacket/
+jacket doc --base-url /docs/jacket/ --out site
 jacket doc --module String --module Basic   # just these, for a quick look
-jacket doc --check                          # build in memory and check the links only
+jacket doc --check                          # build in memory and check links only
 ```
 
-The flags are in the [command-line reference](../reference/command-line.md); `jacket doc --help` lists them too. Without `--runtime` the Run buttons are disabled and say why, and everything else works.
-
-To look at a build, serve the folder with any static server (`python3 -m http.server --directory target/doc-site`). The links are absolute from `--base-url`, so a file opened straight from disk will not find its style.
+Flags are in the [command-line reference](../reference/command-line.md). Without `--runtime` the Run buttons are disabled and say why. Serve the output with any static server (`python3 -m http.server --directory target/doc-site`); links are absolute from `--base-url`, so opening files from disk won't style.
 
 ## How it works
 
-1. **Facts from the compiler.** `jaic -doc_model <dir>` (`crates/jaic-syntax/src/doc_comments/model.rs`) reads one library with the parser the language server uses and prints a JSON model: the public constants of the module, aliases followed to what they name (`split :: Impl.split;`), procedures declared under one name collected as overloads, parameters and results with their types, doc comments with intra-doc links resolved, struct fields and enum members, the platforms the module asserts (`#assert OS == ...`), the systems an `#if OS == ...` around an item limits it to, and for every name written in a parameter, result or field type the declaration the compiler resolved it to (`refs`: the name as written, the file and the line; a type declared once per `#if` branch lists its other declarations in `also`). Docs are found by the same rules as hover, so what the editor shows is what the site shows. Intra-doc links come out as `jaidoc:Module/item`.
-2. **Pages.** `crates/jacket/src/doc/` turns the model into HTML. `model.rs` reads the JSON; `pages.rs` has the index, module and item pages; `categories.rs` reads `stdlib/categories.toml`; `links.rs` checks the written links; `site.rs` knows where pages live and builds signatures; a type name links to the page of the item whose declaration the compiler resolved it to, never by matching the name, so two modules with a `Thing` each link to their own, and a type variable (`$T`) or a name nothing declares is not a link; `markdown.rs` renders doc comments with `pulldown-cmark` and hands back fenced blocks as separate pieces; `highlight.rs` colours Jai; `guide.rs` renders `docs/reference/*.md`; `search.rs` writes the index; `shell.rs` is the header and footer.
-3. **Examples.** A ```` ```jai ```` fence is read with the same function `jacket test` uses (`test::doctest::fenced`), so the options on it (`ignore`, `no_run`, `compile_fail`, `skip_on(wasm)`, `only(...)`) mean the same thing. The Run button fetches `examples/<id>.jai`, which is the program `jacket test` builds for that example (`test::doctest::generate`), runs it in a worker with the compiler's wasm build and shows the output. A failing `assert` shows its message and call stack. An example `jacket test` would skip on wasm is shown without a working button and with a line saying so. "Open in playground" uses a plainer program: the example as a `main` with its imports.
-4. **Search.** `search-index.json` is fetched on the first keystroke. A query is matched by name; a query with `->` is matched by the types of each overload (`-> bool`, `string -> [] string`, `string, u8 -> bool`). The index holds each signature as text in which a type the compiler resolved to a documented declaration is written as a marker (`\u0001Module/item\u0002Name\u0003`), so a link costs its target and not its address; `site.js` turns the markers into links and colours the rest when results are shown (parameter names, builtin types, type variables). A result row is not itself a link (so it can hold links): its path is, and a click elsewhere on the row opens the item.
+1. **Facts from the compiler.** `jaic -doc_model <dir>` (`crates/jaic-syntax/src/doc_comments/model.rs`) reads a library with the language server's parser and prints a JSON model: public constants, aliases followed to their targets, overloads, parameter and result types, doc comments with links resolved, fields and members, platform limits, and for each type name the declaration the compiler resolved it to. Docs are found by the same rules as hover.
+2. **Pages.** `crates/jacket/src/doc/` turns the model into HTML: `pages.rs` (index, module and item pages), `categories.rs`, `links.rs` (link checking), `site.rs` (where pages live, signatures), `markdown.rs`, `highlight.rs`, `guide.rs` (renders `docs/reference/*.md`), `search.rs`, `shell.rs`. A type name links to the item the compiler resolved it to, never by matching the name.
+3. **Examples.** A ```` ```jai ```` fence is read by the function `jacket test` uses (`test::doctest::fenced`), so options like `ignore`, `no_run` and `skip_on(wasm)` mean the same. The Run button fetches `examples/<id>.jai`, the program `jacket test` builds, and runs it in a worker with a step budget. "Open in playground" goes to `<playground-url>#code=<base64url of the program>`.
+4. **Search.** `search-index.json` loads on the first keystroke. A query matches by name; one with `->` matches overload types (`string -> [] string`).
 
-### Pages and files
+Every page is `<path>/index.html` and every link ends in `/`, so a plain static server needs no rewrite rules. Characters that can't be in a file name become `-` plus a hex code (`operator-3c`). `--check` fails on internal links ending in `.html`, links to files that weren't written, and an item and module sharing a folder.
 
 | Path | What |
 | --- | --- |
-| `index.html` | the module list, by category |
-| `api/<Module>/index.html` | a module: docs, procedures grouped by the file that declares them, types, constants |
-| `api/<Module>/<name>/index.html` | an item |
+| `index.html` | modules, by category |
+| `api/<Module>/index.html`, `api/<Module>/<name>/index.html` | a module; an item |
 | `tools/<page>/index.html` | the reference pages |
-| `examples/<id>.jai` | the programs the Run buttons run; the id is a digest of the text |
-| `runtime/`, `runtime.json` | the browser compiler (`--runtime`) and where the page looks for it |
+| `examples/<id>.jai` | programs the Run buttons run |
+| `runtime/`, `runtime.json` | the browser compiler (`--runtime`) and where pages look for it |
 | `assets/` | `site.css`, `site.js`, `run-worker.js`, the logo |
 
-Every page is an `index.html` in its own folder and every link ends in `/`, so the addresses have no `.html` and a plain static server (`python3 -m http.server`) serves them with no rewrite rules. An item whose name has characters that can't be in a file name (`operator<`) gets a folder where each such character is `-` and its code in hex (`operator-3c`); `Site::slug` and `hrefOf` in `site.js` do the same. `--check` fails if any internal link ends in `.html` or leads to a file that was not written, and if an item and a module would share a folder.
+Modules are the folders of `stdlib/` with a `module.jai`, minus `internal/`, `prelude/` and `tests/`. A library whose files declare foreign procedures (a binding) lists nothing.
 
-Modules are the folders of `stdlib/` with a `module.jai`, minus `internal/`, `prelude/` and `tests/`; `Extensions/Http` is the page `api/Extensions/Http/`. A library whose files declare foreign procedures (a binding) lists nothing, as in the [doc gaps](stdlib-doc-gaps.md) report.
+`runtime.json` (`{"engine": "...", "wasm": "..."}`) points at the bundle `tools/browser/build_scripting_wasm.py --release --output <dir>` writes ([browser build](../browser/playground.md)); `--runtime <dir>` copies `jai_wasm.wasm` and `engine.mjs` from it. A site that already hosts the compiler can drop the copy and edit `runtime.json`.
 
-### Running examples
+**Categories.** `stdlib/categories.toml` puts every module in one category. `jacket doc` fails when a module has no category, is listed twice, or a name matches no module, so add new modules to the file.
 
-The page loads `runtime.json` (`{"engine": "...", "wasm": "..."}`, relative to the base path or absolute) and starts `assets/run-worker.js` as a module worker, which imports `engine.mjs`, compiles `jai_wasm.wasm` once and calls `play` with a step budget, so an endless loop is stopped. This is the bundle `tools/browser/build_scripting_wasm.py --release --output <dir>` writes (see [browser build](../browser/playground.md)); `--runtime <dir>` copies `jai_wasm.wasm` and `engine.mjs` out of it. A site that already hosts the browser compiler can leave the copy out and edit `runtime.json` to point at its own.
+## Publishing
 
-### The playground link
-
-"Open in playground" goes to `<playground-url>#code=<base64url of the program>` (UTF-8, URL-safe alphabet, no padding). The hosted playground is in another repository and has to read that fragment to show the code; until it does, the link just opens the playground. A fragment that is not `code=...` is a file name, as before.
-
-### Categories
-
-`stdlib/categories.toml` puts every module in one category (`[[category]]` with a `name` and a `modules` list, in the order the categories are shown). The sidebar folds each category (the current module's is open, and the fold animates where the browser supports `::details-content`), and the home page lists modules under their category. Extensions are listed under their own heading, split by the same categories. `jacket doc` fails when a module has no category, is listed twice, or a name matches no module, so a new module has to be added to the file.
-
-## How the site is published
-
-The release workflow's `docs` job builds the browser compiler and runs `jacket doc --base-url /docs/jacket/ --runtime <bundle>`, then attaches `jacket-docs-<version>.tar.gz` to the GitHub release. The tarball holds the site at its top level, so extracting it gives `index.html`, `api/`, and so on.
-
-The portfolio site serves it at `/docs/jacket`. Its build downloads the asset for the Jacket tag it already pins, extracts it into `/docs/jacket` of the site's output and does nothing else:
+The release workflow's `docs` job runs `jacket doc --base-url /docs/jacket/ --runtime <bundle>` and attaches `jacket-docs-<version>.tar.gz`. The portfolio site's build downloads the asset for the tag it pins and extracts it into `/docs/jacket`:
 
 ```sh
 gh release download "$TAG" --repo matteopolak/jacket --pattern 'jacket-docs-*.tar.gz' --dir "$TMP"
 mkdir -p dist/docs/jacket && tar -xzf "$TMP"/jacket-docs-*.tar.gz -C dist/docs/jacket
 ```
 
-Nothing is committed to either repository. If the portfolio would rather not carry a second copy of the 23 MB browser compiler, delete `runtime/` after extracting and rewrite `runtime.json` to the URLs of the one it hosts; the pages read it at run time. To make "Open in playground" load the code, the playground needs to understand `#code=`.
-
-CI runs `jacket doc --check` (which also checks the categories and every written link) in the Jai part of the `test` job (the one that runs when the stdlib, the compiler or the docs change), so a broken intra-doc link fails before a release does.
+CI runs `jacket doc --check` when the stdlib, the compiler or the docs change, so a broken intra-doc link fails before a release does.
 
 ## How to change it
 
-- **What a page says** comes from the doc comment, so change that (and see [doc comments](../compiler/doc-comments.md) for the conventions). Parameters and results are documented with a list item in the docs (`- name: text`) or a comment on the parameter.
-- **A fact the compiler should supply** (a new kind of item, a platform note) goes in `crates/jaic-syntax/src/doc_comments/model.rs` and the JSON it prints, then `doc/model.rs`.
-- **Layout and colours** are `doc/assets/site.css`; every colour is a custom property at the top, with a dark set. Behaviour is `doc/assets/site.js`, which only adds to pages that already read fine without it.
-- **Markup** is in `pages.rs`, `example.rs` (the example boxes), `shell.rs` and `guide.rs`.
-- Grouping on a module page is by the file that declares a procedure (`bytes.jai` is "Bytes"), because the sources carry no other grouping. Words with their own casing (`jks-generation.jai` is "JKS generation") are listed in `WORDS` in `model.rs`; add to it when a heading comes out wrong.
-- Moving between pages uses cross-document view transitions (`@view-transition` in `site.css`): the main content fades, the header, sidebar and footer don't. The sidebar's scroll position and open categories are kept in `sessionStorage` and put back by a small inline script right after the sidebar.
-- Source links go to the commit `jacket doc` was built from, so line numbers match what the page shows. That needs `stdlib/` to be the `stdlib/` folder of a git checkout; a file with uncommitted changes (or any run where `git` or the checkout is missing) links to the version tag instead. `--source-ref` turns this off.
-- A module page has no filter: its procedure groups are plain headings (each with a link to itself), and on screens 1280px wide or more an "On this page" outline sits on the right and marks the heading being read.
-- Scrollbars are thin and reserve their gutter (`scrollbar-gutter: stable`), so pages that scroll and pages that don't line up.
-- A module whose procedures all come from one file has one flat list.
-- The version in the header is plain text. `jacket doc` writes `versions.json` next to `index.html` with just this version (`[{"version": "0.31.0", "url": "./"}]`). A site hosting several versions replaces it with one entry per version; with two or more entries the version becomes a menu. A relative `url` is read from the folder `versions.json` is in.
-- **"Since" versions.** Items and modules show `since 0.24.0` in small dim text (rows, item pages, the module page). The data is `crates/jacket/src/doc/since.tsv`, compiled into `jacket`: for each release tag it covers, the items that tag's `stdlib/` has and no earlier tag had, as `jaic -doc_model` sees them. `tools/generators/generate_doc_since.py` writes it (each new tag's `stdlib/` is extracted into a scratch folder, so the checkout is untouched; about 4 s per tag, 90 s for all 20 tags with a debug build) and `check_generated.py` runs it with `--check`, which only validates the file against the tags that exist. Reading the file is a hash lookup per item, so a build pays nothing and needs neither `git` nor tags, which is what a release job (a tagged checkout, often shallow) has.
-  - Items in the oldest covered release are filed under `-` and show nothing: they are older than the data. A module shows a version only when all its items are newer than that.
-  - An item with no row is new in the version `jacket` is built as (`Cargo.toml`), unless the data already covers that release, in which case it is a development build and the item shows nothing. So the 0.31.0 build labels everything added since 0.30.4 `since 0.31.0` with no step in between.
-  - **After a release is tagged** run `python3 tools/generators/generate_doc_since.py` and commit the file; it adds only the new tags. The next release's build is correct as long as that happened before it (a missing release would hand its items to the next one). `--full` rereads every tag, which can move items if the compiler reads old sources differently.
-  - A renamed or moved item counts as new under its new name.
-- **Indented code.** Markdown reads four spaces after a blank line as a code block, which renders as plain code and is never run. `jacket doc` (and `--check`) prints a warning for each one it finds in a doc comment, with the file and line, so write ```` ```jai ```` instead. A fragment that can't stand alone (it uses a server, a database, a name from the text around it) takes `jai,ignore`; one that is complete but needs a file or a network takes `jai,no_run`, which still compiles it. Output and other languages take their own tag (`text`, `sh`). Where the reason is not obvious, a line after the fence says it (`Not run: it needs a PostgreSQL server.`).
-- **Platform badges.** A module shows the systems it asserts (`#assert OS == .MACOS || ...`), or macOS, Linux and Windows when it asserts none, plus `wasm` when it builds for `-os wasm` and most of its items exist there. `jacket doc` finds that out by checking a one-line program that imports the module (`jaic -check -no_dce -os wasm`), once per module. An item gets small badges only when an `#if` on `OS` around it (or around what its alias names; a name declared in every branch counts for each) makes it available on fewer systems than its module. Conditions the compiler can't decide from `OS` alone (`CPU`, a constant) count as true, so they never hide a system. The code is `limits` and `holds_on` in `crates/jaic-syntax/src/doc_comments/model.rs` and `Module::item_systems` in `doc/model.rs`.
-
-- **Experimental badge.** A doc comment line that is exactly `@experimental` (see [doc comments](../compiler/doc-comments.md)) puts an amber "Experimental" badge beside the module or item on its page, in module lists and in search results (`exp` in the sidebar). The flag travels in the `jaic -doc_model` JSON; the markup is `experimental_badge` in `doc/pages.rs` and the colours are `--warn`/`--warnbg` in `site.css`.
+- **What a page says** comes from the doc comment ([doc comments](../compiler/doc-comments.md)). Document parameters with `- name: text` or a comment on the parameter.
+- **A fact the compiler should supply:** `model.rs` in `doc_comments/` and the JSON it prints, then `doc/model.rs`.
+- **Layout and colours:** `doc/assets/site.css` (colours are custom properties at the top, with a dark set). Behaviour: `doc/assets/site.js`, which only adds to pages that read fine without it. Markup: `pages.rs`, `example.rs`, `shell.rs`, `guide.rs`.
+- **Module page grouping** is by declaring file (`bytes.jai` is "Bytes"). Words with their own casing go in `WORDS` in `model.rs`.
+- **Source links** go to the commit `jacket doc` was built from, which needs `stdlib/` to be in a git checkout; otherwise they link to the version tag. `--source-ref` overrides.
+- **Versions menu:** `versions.json` lists one version; a site hosting several replaces it with one entry each.
+- **"Since" versions.** `since 0.24.0` labels come from `crates/jacket/src/doc/since.tsv`, compiled into `jacket`. `tools/generators/generate_doc_since.py` writes it from the release tags; `check_generated.py` only validates it. An item with no row is new in the version being built. After a release is tagged, run `python3 tools/generators/generate_doc_since.py` and commit the file (it adds only new tags; `--full` rereads all).
+- **Indented code** in a doc comment is a plain code block and never run; `jacket doc` warns for each. Use ```` ```jai ````; `jai,ignore` for fragments that can't stand alone, `jai,no_run` for complete ones needing a file or network.
+- **Platform badges.** A module shows the systems it asserts (`#assert OS == ...`), else macOS, Linux and Windows, plus `wasm` when it builds for `-os wasm`. An item gets badges only when an `#if OS` makes it available on fewer systems than its module (`limits`/`holds_on` in `model.rs`, `Module::item_systems` in `doc/model.rs`).
+- **Experimental badge.** A doc comment line that is exactly `@experimental` adds an amber badge (`experimental_badge` in `pages.rs`).
 
 ## Configuration
 
 | Flag | Default | |
 | --- | --- | --- |
-| `--out` | `target/doc-site` | replaced on each run, but only if `jacket doc` made it (it leaves a `.jacket-doc` file) |
+| `--out` | `target/doc-site` | replaced each run, only if `jacket doc` made it |
 | `--base-url` | `/` | where the site is served, with both slashes |
 | `--runtime` | none | folder with `jai_wasm.wasm` and `engine.mjs` |
-| `--playground-url` | `https://matteopolak.com/playground/jacket` | the Playground link and "Open in playground" |
-| `--source-ref` | the commit, else `v<version>` | tag or branch the Source links point at; given, it is used for every link |
-| `--module` | all | build only these; broken links are then only warnings |
+| `--playground-url` | `https://matteopolak.com/playground/jacket` | the Playground and "Open in playground" links |
+| `--source-ref` | the commit, else `v<version>` | tag or branch for Source links |
+| `--module` | all | build only these; broken links are then warnings |
 | `--check` | off | build and check, write nothing |
-| `--allow-broken-links` | off | warn about broken intra-doc links instead of failing |
+| `--allow-broken-links` | off | warn instead of failing |
 
-`JAIC_STDLIB` picks the standard library as it does for `jacket test`; by default it is the `stdlib/` of the project you run it in, which is the Jacket repository.
+`JAIC_STDLIB` picks the standard library, as for `jacket test`; the default is the `stdlib/` of the project you run it in.
 
 ## Dependencies
 
-`jaic` (`-doc_model`, found next to `jacket` or on `PATH`), `pulldown-cmark` for Markdown, `sha2` for example ids, and the doc test code in `crates/jacket/src/test/doctest.rs`. The Run button needs a browser that supports module workers and WebAssembly; the compiler's wasm build is `crates/jai-wasm`.
+`jaic` (`-doc_model`), `pulldown-cmark`, `sha2`, and `crates/jacket/src/test/doctest.rs`. The Run button needs module workers and WebAssembly; the compiler's wasm build is `crates/jai-wasm`.

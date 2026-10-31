@@ -1,69 +1,39 @@
 # The `jaic` command line
 
-## What it is
-
-`jaic` is the compiler. It has one command and no subcommands. You give it a `.jai` file, and by default it builds a native executable next to that file.
+`jaic` is the compiler. One command, no subcommands: give it a `.jai` file and it builds a native executable next to it.
 
 ```sh
 jaic main.jai                  # build ./main (main.exe on Windows)
 jaic main.jai -check           # only type-check; write nothing
 jaic main.jai -interp          # run main in the interpreter, no executable
 jaic main.jai -interp -- a b   # ...passing arguments to the program
+jaic main.jai -o               # optimized build
+jaic main.jai -os windows -cpu arm64
 ```
 
-Options can go before or after the file. `jaic -help` prints the full list for the binary you have. [`jacket`](jacket.md) runs it with exactly the arguments you give, adding the project's entry file and settings.
+Options go before or after the file. `jaic -help` lists every option; the full table is the [command-line reference](../reference/command-line.md). [`jacket`](jacket.md) runs `jaic` with your arguments plus the project's entry file and settings. Other source files come in through `#load` and `#import`.
 
-The file you name is the only source file on the command line. Other files come in through `#load` and `#import`, as usual.
+## Options worth knowing
 
-## How it works
-
-### Choosing what jaic does
-
-| You want to | Run |
-| --- | --- |
-| build an executable | `jaic main.jai` |
-| check that it compiles | `jaic main.jai -check` |
-| run it without building | `jaic main.jai -interp` |
-| build optimized | `jaic main.jai -o` |
-| build for another platform | `jaic main.jai -os windows -cpu arm64` |
-| name the output | `jaic main.jai -exe build/app` (a bare name such as `-exe app` is written to the current directory) |
-
-`-check` and `-interp` can't be combined. Options that only make sense for a build (`-exe`, `-o`, `-sanitize`, ...) are accepted and ignored with either of them, so one command line can be built, checked or interpreted. `jaic FILE -deps` compiles like `-check` and, if the compile succeeds, prints the absolute path of every source file it read (the program, the standard library modules and any plugin or metaprogram files), sorted, one per line after a leading blank line; a failed compile prints none. It cannot be combined with `-interp`, and CI uses it to decide which jobs a changed file affects ([CI job selection](ci-job-selection.md)). `jaic -print_stdlib` prints the standard library folder jaic uses and exits; `jacket test` asks it for the folder. `jaic -doc_comments DIR` prints the doc comments of the library in `DIR` (one tab-separated, escaped record per comment) for `jacket test`'s doc tests (an alias without a comment of its own gets its target's text, flagged in a fifth field so the examples run once). `jaic -doc_gaps DIR` prints which public declarations of the library have docs and an example ([stdlib doc gaps](stdlib-doc-gaps.md)). `jaic -doc_model DIR` prints the documentation of the library in `DIR` as JSON (items with kind, overloads, parameters, results, docs and members; aliases followed to what they name) for [`jacket doc`](jacket-doc.md). `jaic -procedures DIRS` prints every procedure with a body below the folders in `DIRS` (a path list), one tab-separated record each: file, name, first and last line, and the lines of its statements. The files are read, not compiled, and an `#if` on `OS` or `CPU` keeps the branch that holds for the target (`-os`, `-cpu` or the host); `jacket test --coverage` uses it to find procedures no program contains ([jacket test](jacket-test.md)).
+- `-check` and `-interp` can't be combined. Build-only options (`-exe`, `-o`, `-sanitize`, ...) are accepted and ignored with either, so one command line can build, check or interpret.
+- `-deps` type-checks and prints the absolute path of every source file read, sorted. CI uses it to pick jobs ([CI job selection](ci-job-selection.md)).
+- `-print_stdlib` prints the standard library folder in use.
+- `-add "code"` adds code to the program; `-run "code"` runs it at compile time. `-I dir` adds a module folder. `-j <n>` sets worker threads.
+- `-target <triple>` builds for an LLVM triple that `-os`/`-cpu` don't cover.
+- `-no_dce` also type-checks module code nothing references.
+- `-run_budget N` caps the steps one compile-time run may take (default 1000000000, `0` for no limit), so a `#run` that never ends can't hang a build.
+- `-profile`, `-profile_ops` and `-coverage` (with `-interp`) count what the interpreter runs ([coverage](coverage.md)).
+- `-dev_*` flags study the compiler itself and may change at any time.
 
 ### Build flavors
 
-No flavor option builds unoptimized with stack traces and runtime checks. `-od` keeps the checks and lightly optimizes (LLVM O1), `-o` optimizes fully (O2) and drops stack traces and runtime checks, and `-very_debug` turns every runtime check on. `-O0` to `-O3` pick the LLVM level yourself; don't combine them with a flavor. The full flag list is in [the command-line reference](../reference/command-line.md).
-
-A few switches turn off one thing each: `-no_inline`, `-no_split` (generate one code module instead of several), `-no_debug_info` and `-no_backtrace_on_crash`. `-sanitize address,undefined,fuzzer` builds with the sanitizers (`fuzzer` adds libFuzzer coverage instrumentation), and `-emit_ir out.ll` also writes the LLVM IR.
-
-`-codegen_units N` generates exactly N code modules (`-no_split` is `1`). `-threads N` sizes the one thread pool that code generation and the other parallel work share (default: one per core). `-parse_threads N` sets how many threads parse files ahead of the checker (`0` and `-serial_parse` parse on the checking thread). `-run_budget N` is the number of steps (loop iterations and calls) one top-level compile-time run (`#run`, a constant, a metaprogram) may execute before it fails with `execution budget exhausted`, so a `#run` that never ends cannot hang a build; the default is 1000000000 (ten times the editor's), `0` removes the limit. `-profile` and `-profile_ops` count what the interpreter runs per procedure. `-coverage` with `-interp` counts how often each source line runs and writes it when the program ends ([coverage](coverage.md)). The `-dev_*` flags (`-dev_verify_ir`, `-dev_split_units`, `-dev_no_sink`, `-dev_no_flow`, `-dev_dump_ops`, `-dev_body_probe`, `-dev_body_fifo`, `-dev_o0_passes`) study the compiler itself and may change at any time. None of these are environment variables; `jacket` can set the first three for a project ([jacket](jacket.md)).
-
-If your build metaprogram sets an optimization level, these options override it. `-no_inline` and `-no_split` apply to every workspace jaic writes.
+With no flavor you get an unoptimized build with stack traces and runtime checks. `-od` keeps the checks and lightly optimizes, `-o` optimizes fully and drops stack traces and checks, `-very_debug` turns every check on. `-O0` to `-O3` pick the LLVM level directly; don't combine them with a flavor. `-no_inline`, `-no_split`, `-no_debug_info` and `-no_backtrace_on_crash` each turn off one thing. `-sanitize address,undefined,fuzzer` builds with sanitizers, `-emit_ir out.ll` also writes LLVM IR. `-codegen_units N`, `-threads N` and `-parse_threads N` tune parallelism. These override a build metaprogram's optimization level.
 
 ### Where the executable goes
 
-By default the executable is named after the source file and written next to it, unless your build options say otherwise. On Windows it gets `.exe`.
-
-- `-exe app` keeps that location and changes the name.
-- `-exe build/app` is relative to the directory you ran jaic from.
-- `-output_path out/` sets the directory, and a relative `-exe` goes inside it.
-
-These only affect the main workspace, not other workspaces a metaprogram creates.
-
-### Adding code from the command line
-
-`-add "code"` adds code to the program, and `-run "code"` runs code at compile time, like a `#run`. Both can be repeated. `-I dir` (or `-import_dir dir`) adds a folder to search for modules. `-j <n>` (`--jobs`) sets the number of worker threads. The compile and target flags, `-j` and `--color` are one table (`jaic::flags`) that `jailint` parses too; `jaic` also accepts them as `-os=linux`.
-
-Less common options:
-
-- `-target <triple>` builds for an LLVM target triple, for targets that `-os` and `-cpu` don't cover.
-- `-no_dce` also type-checks module code nothing references.
-- `-no_check_bindings` sets `CHECK_BINDINGS=false` on a `+Check` plugin.
-- `-no_workspace_output` (with `-interp`) doesn't write the files a metaprogram's workspaces ask for.
+Named after the source file, next to it (`.exe` on Windows). `-exe app` changes the name, `-exe build/app` is relative to where you ran `jaic`, and `-output_path out/` sets the directory a relative `-exe` goes in. Only the main workspace is affected.
 
 ### Arguments for plugins, metaprograms and programs
-
-A command line can carry arguments for three other parties. jaic splits them like this:
 
 ```sh
 jaic build.jai +Check - release -- arg1 arg2
@@ -72,39 +42,15 @@ jaic build.jai +Check - release -- arg1 arg2
 #                      program   (with -interp)
 ```
 
-- `+Name` loads the metaprogram plugin `Name`. Everything after it, up to the next `+Name`, `-` or `--`, is that plugin's own options. Module parameters go in the name: `'+Check(CHECK_BINDINGS=false)'`, quoted for the shell. With `-interp` the program the plugins compile is run, with the code they added.
-- A lone `-` starts the metaprogram's arguments. The metaprogram reads them with `compiler_get_command_line`.
-- `--` starts the program's arguments. Only `-interp` runs the program, so `--` with a build or `-check` is an error. The program's `argv[0]` is the source file.
+- `+Name` loads the plugin `Name`; what follows, up to the next `+Name`, `-` or `--`, is its options. Module parameters go in the name: `'+Check(CHECK_BINDINGS=false)'`.
+- A lone `-` starts the metaprogram's arguments (`compiler_get_command_line`).
+- `--` starts the program's arguments. Only `-interp` runs the program, so `--` otherwise is an error.
 
-### Build status
+## Output
 
-On a terminal, jaic says what it is compiling, like `cargo build`:
+On a terminal `jaic` prints a `Compiling` line, a live status line (`Parsing`, `Checking`, `Running #run`, `Generating`, `Optimizing`, `Linking`) that appears after 150 ms, and a `Finished` line. When stderr is not a terminal, or with `-quiet`, nothing is printed. `NO_COLOR`, `-no_color`, `-msvc_format`, `TERM=dumb` or `CI` give plain lines. `JAIC_PROGRESS=off|plain|live` forces a mode. Diagnostics and program output erase the status line first. The code is `crates/jaic/src/progress.rs`.
 
-```
-   Compiling hello (hello.jai)
-    Checking 412 files, 38 modules, 5,120 procedures (1.4s)     <- redrawn in place
-    Finished debug [unoptimized] in 2.31s
-```
-
-The middle line is replaced as the compile moves through `Parsing`, `Checking`, `Running #run` (compile-time code and metaprograms), `Generating`, `Optimizing` (codegen of an optimized build) and `Linking`, and is erased when the compile ends. It appears only after 150 ms, so quick builds show just the two fixed lines. `-check` prints `Checking hello (...)` and `Finished check`; `-o` builds end with `Finished optimized`; `-interp` ends with `Finished interp` and `Running hello.jai` before the program starts. A failed compile has no `Finished` line.
-
-| Situation | What is shown |
-| --- | --- |
-| stderr is a terminal | the `Compiling`/`Finished` lines in colour and the live status line |
-| a terminal with `NO_COLOR`, `-no_color`, `-msvc_format`, `TERM=dumb` or `CI` set | the two lines, plain: no colour, no control codes |
-| stderr is not a terminal (pipes, logs, tests) | nothing, so output is unchanged |
-| `-quiet` / `--quiet` | nothing |
-| `JAIC_PROGRESS=off\|plain\|live` | that, whatever stderr is (`-quiet` still wins) |
-
-Diagnostics, `-verbose` lines, what compile-time code prints and the program's own output are never mixed with the status line: everything jaic writes to stderr, and every write compile-time code makes, and every foreign call not known to be quiet (a spawned shell, a library's own printing), erases the line first and keeps it down for 400 ms. A jaic started by compile-time code inherits `JAIC_PROGRESS=off`, so two status lines never share a terminal.
-
-The implementation is `jaic::progress` (`crates/jaic/src/progress.rs`). The phases come from the same places `-timings` and `PERFORMANCE_REPORT` measure (`timings::time` in `jaic-cli`, the `#run` clock in `sema/consteval.rs`, body lowering, file loading); counters are relaxed atomics touched only while the status line is live, and a separate thread samples them about 12 times a second. With the status off the cost is one relaxed load per file, module and procedure body.
-
-### Output and diagnostics
-
-`-quiet`, `-verbose`, `-no_color` / `--color`, `-msvc_format` and `-timings` are listed in [the command-line reference](../reference/command-line.md). `-no_color` is `--color never`, and `NO_COLOR`, `FORCE_COLOR` and `CLICOLOR_FORCE` do what they usually do. `-msvc_format` prints one `path(line,col): error: message` line per diagnostic, for IDEs that parse that format.
-
-`-timings` prints each phase on stderr as `jaic-timing: <phase> <seconds> <calls>`: `front end`, `workspaces`, `run`, `prepare output`, `codegen`, `link`, `debug info`, `total`, and `interp`, the time compile-time code (`#run`, metaprograms, macros) spent executing, which overlaps `front end`. Each phase also gets `jaic-alloc: <phase> <blocks> <bytes>`: the allocations Rust code requested during it, worker threads included (phases nest, so `total` holds the others); C and LLVM allocations are not counted.
+`-msvc_format` prints one `path(line,col): error: message` per diagnostic for IDEs. `-timings` prints `jaic-timing: <phase> <seconds> <calls>` per phase, plus `jaic-alloc:` lines for Rust allocations.
 
 ### Exit status
 
@@ -113,42 +59,34 @@ The implementation is `jaic::progress` (`crates/jaic/src/progress.rs`). The phas
 | 0 | success |
 | 1 | the program didn't compile, a file couldn't be read, or a runtime error stopped it |
 | 2 | a mistake on the command line |
-| 3 | a build found no `main` to make an executable from |
+| 3 | a build found no `main` |
 | 101 | an internal compiler error (please report it) |
-| 120 | the `JAIC_MEMORY_LIMIT` was reached |
+| 120 | `JAIC_MEMORY_LIMIT` reached |
 | 121 | native code crashed under the interpreter |
 
-With `-interp`, a program that runs to the end exits with its own status. [Diagnostics](../compiler/diagnostics.md#exit-status) has more on how errors are reported.
-
-### Mistakes
-
-An unknown option suggests the closest known one. After a `+Plugin`, options are passed to the plugin instead.
+With `-interp`, a program that runs to the end exits with its own status. See [diagnostics](../compiler/diagnostics.md#exit-status).
 
 ## Configuration
 
-The environment variables jaic reads (`JAIC_MEMORY_LIMIT`, `JAIC_DIAGNOSTICS`, `JAIC_PROGRESS`, `JACKET_PROJECT`, `JAIC_REPORT_EXE`, `NO_COLOR` and the rest) are in [the environment variable reference](../reference/environment-variables.md); [environment variables](environment.md) says how they are declared. [Build status](#build-status) explains `JAIC_PROGRESS`.
+Environment variables (`JAIC_MEMORY_LIMIT`, `JAIC_DIAGNOSTICS`, `JAIC_PROGRESS`, `JACKET_PROJECT`, `NO_COLOR`, ...) are in the [environment variable reference](../reference/environment-variables.md).
 
 ## How to change it
 
-Options live in one table, `OPTIONS` in `crates/jaic-cli/src/main.rs`, in `-help` order. Each `CliOption` gives the option's spellings, what it does (`Action`), and its `-help` line. `parse` looks every argument up there, so the table also drives "did you mean" suggestions (over `names`, not `aliases`), `-name=value` splitting, and the help text. To add an option:
+Options live in one table, `OPTIONS` in `crates/jaic-cli/src/main.rs`, in `-help` order. It also drives "did you mean" suggestions, `-name=value` splitting and the help text. To add one:
 
 1. Add a field to `Cli` if it stores something.
-2. Add a row to `OPTIONS`:
+2. Add a row:
 
    ```rust
    CliOption::new(&["-no_split"], Action::Switch(|cli| &mut cli.no_split))
        .help(Output, "-no_split", "generate code as one module instead of several"),
    ```
 
-   A value option uses `store!("a directory", |cli, dir| cli.output_path = Some(PathBuf::from(dir)))`, or a `store_*` function when the value needs checking. A row without `.help(...)` is accepted but not listed (its spelling is covered by another row's line). `.aliases(&[...])` adds spellings that are never suggested; keep names under three characters there, since `suggest::closest` only matches those exactly.
-3. Checks that involve several options or the mode go in `Cli::finish`.
+   A value option uses `store!("a directory", |cli, dir| ...)`. A row without `.help(...)` is accepted but not listed. `.aliases(&[...])` adds spellings that are never suggested.
+3. Checks involving several options go in `Cli::finish`.
 
-Renamed options go in `RENAMED`, which produces the "use X instead" errors. The `-msvc_format` layout is `Layout::Msvc` in `crates/jaic-syntax/src/render.rs`.
-
-Tests live in `crates/jaic-cli/tests/`: `cli.rs` for parsing, `diagnostics.rs` for output and exit codes, and `native.rs` for builds.
+Renamed options go in `RENAMED` (the "use X instead" errors). Tests are in `crates/jaic-cli/tests/` (`cli.rs`, `diagnostics.rs`, `native.rs`).
 
 ## Dependencies
 
-- [Metaprogram plugins](../metaprogramming/workspaces.md): what `+Name` loads.
-- [Build options](../metaprogramming/build-options.md): what the flavor and output options set.
-- [Diagnostics](../compiler/diagnostics.md): the renderer behind `-no_color`, `-msvc_format` and `JAIC_DIAGNOSTICS`.
+[Metaprogram plugins](../metaprogramming/workspaces.md), [build options](../metaprogramming/build-options.md), and the [diagnostics](../compiler/diagnostics.md) renderer.

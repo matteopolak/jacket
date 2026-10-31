@@ -19,7 +19,7 @@ END
 - Escapes: `\n \r \t \0 \e \a \b \f \v \\ \" \'`, `\%` (byte 0x1f), `\xHH`, `\dDDD`, `\uHHHH`, `\UHHHHHHHH` (UTF-8). Anything else is a lexer error.
 - A one-byte string constant next to an integer is that byte: `c == "-"`, `c - "0"`, a `u8` argument.
 - Here strings (`here_string`, `lexer.rs`): the body starts on the next line and ends at a line whose first non-blank text is the terminator word (a longer identifier does not count; a body line starting with the terminator ends it). Indentation is kept, line endings become `\n` (`#string,cr` gives `\r\n`), and `#string,\%` turns `\%` into byte 0x1f.
-- The terminator tag has no compiler meaning, but editors highlight the body by it (`#string WGSL`, `GLSL`, `SQL`, `JSON`, `JAI`); see [the VS Code extension](../tools/vscode-extension.md#embedded-languages).
+- The terminator tag has no compiler meaning, but editors highlight the body by it (`#string WGSL`, `GLSL`, `SQL`, `JSON`, `JAI`); see [the VS Code extension](../tools/vscode-extension.md#how-it-works).
 - `==` compares length and bytes. A string literal in a `*u8` context becomes a pointer to static NUL-terminated bytes; a `string` variable does not convert (use `.data`). `for c: "hey"` iterates `u8`.
 
 ## How to change it

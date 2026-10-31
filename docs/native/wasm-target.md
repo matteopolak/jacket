@@ -4,7 +4,7 @@
 
 `jaic` can compile a program to a WebAssembly module: LLVM generates wasm64 (Memory64) object code and `wasm-ld` links it. With `-os wasm` the module is a WASI preview 1 command that runs under node, wasmtime, or a browser with a WASI shim. With a bare `wasm64-unknown-unknown` triple the host supplies imports and calls exports directly.
 
-This is separate from the [browser compiler](../browser/playground.md), which is the compiler itself built to wasm32 and *interprets* programs whose target is `OS == .WASM`. `jaifmt.wasm` ([jaifmt](../tools/jaifmt.md#webassembly-build-jaifmtwasm)) is the main user of this target.
+This is separate from the [browser compiler](../browser/playground.md), which is the compiler itself built to wasm32 and *interprets* programs whose target is `OS == .WASM`. `jaifmt.wasm` ([jaifmt](../tools/jaifmt.md#browser)) is the main user of this target.
 
 ```sh
 jacket build hello.jai -os wasm -exe hello.wasm            # WASI command; Wasi_Runtime is added

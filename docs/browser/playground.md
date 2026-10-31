@@ -11,8 +11,8 @@ A bundle (`tools/browser/build_scripting_wasm.py --output <dir>`) holds:
 | `jai_wasm.wasm` | `crates/jai-wasm` | Compiler, interpreter and `jai_lsp_*` language server; only imports are the optional `jai_host` page functions |
 | `webgpu_host.mjs`, `webgpu_bindings.generated.mjs` | `crates/jai-wasm/js/` | Page host functions for [WebGPU](../extensions/webgpu.md) and canvas input |
 | `engine.mjs` | `crates/jai-wasm/js/` | `createEngine(bytes)` returns `play` and `lsp`; the Node checks use it too |
-| `jaifmt-playground.jai` | `jaifmt/playground.jai` | Formatter driver ([jaifmt](../tools/jaifmt.md#browser-playground)) |
-| `jaifmt.wasm` | `jaifmt/wasm.jai`, built by native `jaic -os wasm` (`--jaic`) | jaifmt as a wasm64 WASI module, about 35 times faster than the driver; needs Memory64 ([jaifmt](../tools/jaifmt.md#webassembly-build-jaifmtwasm)) |
+| `jaifmt-playground.jai` | `jaifmt/playground.jai` | Formatter driver ([jaifmt](../tools/jaifmt.md#browser)) |
+| `jaifmt.wasm` | `jaifmt/wasm.jai`, built by native `jaic -os wasm` (`--jaic`) | jaifmt as a wasm64 WASI module, about 35 times faster than the driver; needs Memory64 ([jaifmt](../tools/jaifmt.md#browser)) |
 | `build-metadata.json` | build script / packager | commit, toolchain and Wasm SHA-256 |
 | `examples.json`, `<name>/**` | `examples/<name>/` | The [example workspaces](#examples) the playground lists, one folder each with the shared `examples/jacket.toml` copied in as `<name>/jacket.toml`, and their one index |
 

@@ -1,51 +1,42 @@
 # jaifmt (Jai formatter)
 
-## What it is
-
-`jaifmt` formats Jai source and is itself written in Jai. The formatter is the jaic extension module `Extensions/Jai_Format` (text in, text out, no file access), so the same code runs natively, under `jaic -interp` and in the browser; `jaifmt/main.jai` is the command-line front end. Output is canonical: it depends on the input's tokens, comments and blank lines, not its spacing. Lines are never re-wrapped. Output whose token stream differs from the input is refused, so formatting cannot change what a program means.
+`jaifmt` formats Jai source and is itself written in Jai. The formatter is the extension module `Extensions/Jai_Format` (text in, text out, no file access), so the same code runs natively, under `jaic -interp` and in the browser; `jaifmt/main.jai` is the command-line front end. Output depends on the input's tokens, comments and blank lines, not its spacing. Lines are never re-wrapped. Output whose token stream differs from the input is refused, so formatting can't change what a program means.
 
 ```sh
-jaic jaifmt/build.jai                      # optimised build -> target/jaifmt (add `- wasm` for jaifmt.wasm)
+jacket fmt                                 # format the whole project
+jacket fmt --check                         # CI: list files that would change, exit 1
+jaic jaifmt/build.jai                      # build target/jaifmt (add `- wasm` for jaifmt.wasm)
 target/jaifmt stdlib tests                 # rewrite in place
-target/jaifmt --check stdlib tests         # CI: list files that would change, exit 1
 target/jaifmt --stdin < in.jai > out.jai   # editors
-target/jaifmt --version                    # `jaifmt <release>`, from jaifmt/version.jai (generated from `Cargo.toml` by `tools/generators/generate_version_files.py`)
-jaic jaifmt/main.jai -interp -- --check "$PWD/stdlib"   # interpreter: use absolute paths
 ```
 
-In a project, use `jacket fmt` (`jacket fmt --check` in CI) and give it the same flags and paths; with no path it formats the whole project ([jacket](jacket.md)). `jacket fmt` reads `jacket.toml` itself (`jacket-config` is the one authority for the `[format]` keys, ranges and defaults): for each file it finds the nearest `jacket.toml`, drops files its `ignore` patterns match, groups files by resolved settings and runs `jaifmt --no-config --set key=value ...` once per group (every setting is passed, so `jaifmt`'s own defaults and TOML reader are not used). `--stdin` uses the working directory's settings, `--config FILE` applies one file's `[format]` everywhere, and `--is-ignored FILE` is answered by `jacket` (same exit codes). `--verbose` summaries are printed per `jaifmt` run. Help, version, `--set` and `--no-config` go to `jaifmt` untouched.
+In a project use `jacket fmt`. For each file it finds the nearest `jacket.toml`, drops files its `ignore` patterns match, groups files by resolved settings and runs `jaifmt --no-config --set key=value ...` once per group. Standalone `jaifmt` (editors, the browser) reads `[format]` with its own small TOML reader (`config.jai`); `--no-config` skips that and `--set KEY=VALUE` overrides one key.
 
-Standalone `jaifmt` (editors, CI without `jacket`, the browser) reads `jacket.toml` with its own small TOML reader (`config.jai`). `--no-config` skips that and starts from the defaults; `--set KEY=VALUE` (repeatable, values written as in the file: `--set indent_width=2 --set brace_style=\"preserve\"`) overrides one key and implies `--no-config`. A test in `crates/jacket-config` (`jai_format_sync.rs`) compares that reader's keys, ranges, defaults and messages with the Rust schema, so change them together.
+Paths are files or directories (searched for `*.jai`, skipping dot-directories and symlinks). Flags are declared at the top of `jaifmt/main.jai` and parsed by [`Extensions/Args`](../extensions/args.md). Exit status: 0 success, 1 `--check` found files to change, 2 errors (usage, unreadable file, input that doesn't lex, failed token check).
 
-Flags are declared at the top of `jaifmt/main.jai` and parsed by [`Extensions/Args`](../extensions/args.md) (`--help` is generated from them). Paths are files or directories (searched for `*.jai`, skipping dot-directories and symlinked directories). Exit status: 0 success, 1 `--check` found files to change, 2 errors (usage, unreadable file, input that does not lex, unbalanced brackets, failed token check).
-
-`jaifmt/build.jai` is a [metaprogram](../metaprogramming/compiler-module.md) building with `set_optimization(.OPTIMIZED)` (no bounds/null/cast checks). It needs real `jaic`, not `-check`. The default output is `target/` at the repository root; a relative `-o` is relative to `jaifmt/`. CI, Nix and the tests use `jaic jaifmt/main.jai -O2`, which keeps the checks.
+`jaifmt/build.jai` builds with `set_optimization(.OPTIMIZED)` and needs real `jaic`, not `-check`. CI, Nix and the tests use `jaic jaifmt/main.jai -O2`, which keeps the checks.
 
 ## How it works
 
 `stdlib/Extensions/Jai_Format/` holds:
 
-- `lexer.jai`: same token boundaries as `crates/jaic-syntax/src/lexer.rs`, but comments are tokens and each token records the whitespace before it.
-- `format.jai`: `plan_lines` decides line breaks (`breaks[i]`), then the emit loop writes each line with indentation from a stack of `Frame`s and zero or one space between tokens (`spacing_rule`).
-- `config.jai`: `jacket.toml` `[format]` parsing and ignore globs, for standalone use and the browser (`jacket fmt` passes resolved settings instead).
-- `project.jai`: the upward search for the governing `jacket.toml` (`find_config`), with file reading left to the front end.
-
-The three front ends (`jaifmt/main.jai`, `wasm.jai`, `playground.jai`) only read input, call `format_find_config`/`format_source` and report; they hold no formatting or config logic of their own.
+- `lexer.jai`: the same token boundaries as `crates/jaic-syntax/src/lexer.rs`, but comments are tokens and each token records the whitespace before it.
+- `format.jai`: `plan_lines` decides line breaks, then the emit loop writes each line with indentation from a stack of frames and zero or one space between tokens (`spacing_rule`).
+- `config.jai`: `[format]` parsing and ignore globs, for standalone use and the browser.
+- `project.jai`: the upward search for the governing `jacket.toml`.
 
 Behaviour in short:
 
-- **Lines.** Non-empty `{ ... }` bodies go on their own lines; with `brace_style = "same_line"` a `{` on its own line joins its header (except after `;`, `{`, `}`, `,`, `(`, `#scope_*`, where it starts a block). `;`-separated statements are split, except one simple statement after a `case` label. Kept as written: `.{ }`/`.[ ]` literals, braceless bodies, continued expressions, trailing comments.
-- **Blank lines.** Trailing whitespace removed, blank runs capped at `max_blank_lines`, one final newline, CRLF kept if mostly CRLF. Blank lines are only added where a break already exists, never removed, and comments stay attached to the item below.
-  - `blank_lines_between_items` (default on): a blank between file-level items when either spans several lines or one is an import and the other is not; runs of imports and runs of one-line items stay together. A note after the `;` on its line belongs to that item (`libm :: #library "m"; @native(external)`).
-  - Opt-in code-block options (all off by default): `blank_line_after_declarations`, `blank_lines_around_blocks`, `blank_line_between_cases`, `blank_line_before_comments`, `blank_line_after_guards`, `blank_line_before_return`. Short bodies (four lines or fewer) and tiny single-line-body block runs are left compact.
-- **Indentation** follows bracket nesting. Continuation lines inside brackets keep their offset from the bracket (aligned argument lists stay aligned); other continuation lines keep their offset from the statement's first line. This is the one place input layout still shows.
-- **Spacing** is none or one space, with no alignment. `spacing_rule` (first match wins) follows the dominant style of `stdlib/`. Binary versus prefix is decided from the previous code token. `.PRESENCE` (keep the source's choice) is used only where the parser checks adjacency (`#library,system` versus `#library, system`, `#location(x)`).
+- **Lines.** Non-empty `{ ... }` bodies go on their own lines; `brace_style = "same_line"` joins a lone `{` to its header. `;`-separated statements are split. Kept as written: `.{ }`/`.[ ]` literals, braceless bodies, continued expressions, trailing comments.
+- **Blank lines.** Trailing whitespace removed, runs capped at `max_blank_lines`, one final newline. Blank lines are only added where a break already exists, never removed. `blank_lines_between_items` (default on) separates file-level items; the `blank_line_*` options are opt-in.
+- **Indentation** follows bracket nesting; continuation lines keep their offset from the bracket or statement start.
+- **Spacing** is none or one space, with no alignment, following the dominant style of `stdlib/`.
 - **Verbatim:** strings, here-strings, `#asm { }` bodies and everything between `// jaifmt: off` and `// jaifmt: on`.
-- **Safety check** (`check_equivalent`): the output is re-lexed and must have the same tokens, comments and line breaks before the same tokens, because the parser is line-sensitive in a few places (`}` then a line starting with `*`, a directive on the next line, a note after `;`). Only breaks the parser ignores may differ (`break_change_allowed`). On mismatch the file is left unchanged, exit 2, "internal error" naming the token.
+- **Safety check** (`check_equivalent`): the output is re-lexed and must have the same tokens, comments and line breaks before the same tokens (the parser is line-sensitive in a few places). On mismatch the file is left unchanged, exit 2, naming the token.
 
 ## Configuration
 
-The `[format]` table of `jacket.toml` ([jacket](jacket.md)) (a TOML subset: integers, booleans, basic and literal strings, string arrays that may span lines, quoted and dotted keys, and `format = { ... }` inline tables or `format.key = ...`; unknown keys are dropped with a warning on stderr, bad values are errors). The nearest one up the tree applies per file; other tables are skipped. `--config` overrides (a path to a `jacket.toml`, or inline text). `jaifmt --is-ignored <file>` answers the ignore question without formatting (exit 0 ignored, 1 not, 2 error); the VS Code and Neovim plugins call it instead of reading the globs themselves.
+The `[format]` table of the nearest `jacket.toml` ([jacket](jacket.md)). `--config` overrides it. `jaifmt --is-ignored <file>` answers the ignore question (exit 0 ignored, 1 not, 2 error); the VS Code and Neovim plugins use it.
 
 ```toml
 [format]
@@ -56,13 +47,12 @@ max_blank_lines = 2
 max_width = 100           # only reported by --verbose
 brace_style = "same_line" # or "preserve"
 blank_lines_between_items = true
-blank_line_after_declarations = false   # plus the five other opt-in options above
-ignore = ["tests/corpus/**", "generated/*.jai"]   # globs relative to the file; `**` crosses directories
+blank_line_after_declarations = false   # plus blank_lines_around_blocks, blank_line_between_cases,
+                                        # blank_line_before_comments, blank_line_after_guards, blank_line_before_return
+ignore = ["tests/corpus/**", "generated/*.jai"]   # globs relative to the file
 ```
 
-`jacket fmt` matches `ignore` with `PathPattern`, standalone `jaifmt` with its own matcher, the same way for the forms `jaifmt` supports: `*` and `?` stay within one path component, `**` crosses components (`**/x` also matches `x` at the top), a trailing `/` is dropped, an empty pattern matches nothing, and a pattern that matches a directory covers everything in it. The definition is `PathPattern` in `crates/jacket-config/src/pattern.rs` (it also has `[...]`, `{a,b}` and `\`, which `jaifmt` does not read) and `glob_path_match` in `stdlib/Extensions/Jai_Format/config.jai`; both run every case in `tests/glob/cases.txt` (`pattern<TAB>path<TAB>match|nomatch`), so add a case there when changing either.
-
-The repository's config ignores pinned corpus fixtures, the formatter's golden inputs and `tests/compiler/native/debug-info/**` (fixed line numbers), and enables four of the opt-in blank-line options with `max_blank_lines = 1`. Colour follows `NO_COLOR`, `FORCE_COLOR`, `CLICOLOR_FORCE` as in jaic. CI builds jaifmt and runs `--check stdlib tests benchmarks tools jaifmt examples`.
+Ignore globs follow the same rules as lint paths ([jailint](jailint.md#configuration)); `PathPattern` in `crates/jacket-config/src/pattern.rs` and `glob_path_match` in `Jai_Format/config.jai` both run `tests/glob/cases.txt`. Colour follows `NO_COLOR`, `FORCE_COLOR` and `CLICOLOR_FORCE`. CI runs `--check stdlib tests benchmarks tools jaifmt examples`.
 
 ## Module API
 
@@ -72,26 +62,25 @@ config, ok, error := parse_config(toml_text);
 formatted, ok, error := format_source(source, config);   // free `formatted`; on failure it is ""
 ```
 
-Also `format_find_config(directory, reader, stop)` (the nearest `jacket.toml` at or above `directory`, up to `stop`, read through a caller-supplied `Format_File_Reader`; every driver uses it, so the upward search is the same natively and in the browser), `format_parent_directory`, `format_tokens_equivalent`, `format_is_ignored(config, path)` (set `config.root` first), `format_glob_match`, `format_count_long_lines`. `Format_Config` fields mirror the TOML keys.
+Also `format_find_config`, `format_is_ignored` (set `config.root` first), `format_tokens_equivalent` and `format_glob_match`. `Format_Config` fields mirror the TOML keys.
 
 ## Browser
 
-- `jaifmt/playground.jai` runs in the wasm engine against `/workspace` (`TARGET` constant names the file); exit 0 means stdout is the formatted file, 1 means stderr has one `jaifmt: ...` line. `tools/browser/build_scripting_wasm.py` stages it as `jaifmt-playground.jai` in every browser bundle.
-- `jaifmt/wasm.jai` is a WASI command: `jaic jaifmt/wasm.jai -os wasm -O2 -no_debug_info -exe jaifmt.wasm`, run with `node --no-warnings tools/wasi_run.mjs jaifmt.wasm --config-text $'[format]\nindent_width = 2' < in.jai`. Source on stdin, config text from `--config-text` or `JAIFMT_CONFIG_TEXT` (the native `--config` takes a path; the two names differ because the values do), same exit contract. The text is a `jacket.toml`, whose `[format]` table is used. It is about 35 times faster than the engine path but needs Memory64 (Chrome 133, Firefox 134, node 24, not Safari); pages fall back to the engine driver when `WebAssembly.validate` rejects it. Its hash is recorded as `jaifmt_wasm_sha256` in the release bundle's `build-metadata.json`. `node tools/browser/check_jaifmt_wasm.mjs wasi jaifmt.wasm target/jaifmt` compares it with native on every golden case; `check_jaifmt_wasm.mjs engine` runs the same cases through the playground's interpreter path.
+- `jaifmt/playground.jai` runs in the wasm engine; `tools/browser/build_scripting_wasm.py` stages it in every browser bundle.
+- `jaifmt/wasm.jai` is a WASI command: `jaic jaifmt/wasm.jai -os wasm -O2 -no_debug_info -exe jaifmt.wasm`, run with `node --no-warnings tools/wasi_run.mjs jaifmt.wasm --config-text $'[format]\nindent_width = 2' < in.jai`. It is much faster than the engine path but needs Memory64 (Chrome 133, Firefox 134, node 24, not Safari); pages fall back to the engine otherwise. `node tools/browser/check_jaifmt_wasm.mjs wasi jaifmt.wasm target/jaifmt` compares it with native.
 
 ## How to change it
 
-- **Spacing:** add to `spacing_rule` above the rules it overrides, plus a line in `tests/cases/spacing.in.jai`. Return `.NONE` or `.SPACE`; `.PRESENCE` only where the parser looks at adjacency.
-- **Blank-line rule for code blocks:** `statement_wants_blank` (one `if` per option), a field in `Format_Config`, an `apply_key` arm and `FORMAT_KEYS` entry, the matching entry in `FORMAT_SETTINGS` and `Format` in `crates/jacket-config/src/schema.rs` (the sync test fails until they agree), and a `stmt-*` golden case. It may only call `add_blank_line`. File-level items: `separate_pair`, `finish_item`, `block_ends_item`, `is_item_container`.
-- **Line structure:** `plan_lines`; any break it adds or removes must be accepted by `break_change_allowed`, which must accept only breaks the parser ignores.
+- **Spacing:** add to `spacing_rule` above the rules it overrides, plus a line in `tests/cases/spacing.in.jai`.
+- **A blank-line option:** `statement_wants_blank`, a field in `Format_Config`, an `apply_key` arm and `FORMAT_KEYS` entry, the matching entry in `FORMAT_SETTINGS` and `Format` in `crates/jacket-config/src/schema.rs` (the sync test `jai_format_sync.rs` fails until they agree), and a `stmt-*` golden case.
+- **Line structure:** `plan_lines`; any break it adds or removes must be accepted by `break_change_allowed`, which may accept only breaks the parser ignores.
 - **Indentation:** `line_indent`, `track`, `starts_statement`.
-- **Lexer:** mirror `crates/jaic-syntax/src/lexer.rs` (`crates/jaic/tests/formatter_lexer.rs` fails when the punctuation table drifts; `Jai_Lexer` is the metaprogram token contract and cannot serve, see the comment in `lexer.jai`). If the parser starts depending on whitespace somewhere new (look for `newline_before` in `crates/jaic-syntax/src/parser/`), teach `check_equivalent` and keep that spacing.
-- **Golden tests:** `stdlib/Extensions/Jai_Format/tests/fixtures/<name>.in.jai` must format to `<name>.out.jai` (optional `<name>.toml`). Run `jaic stdlib/Extensions/Jai_Format/tests/golden.jai -interp`; regenerate with `-- --bless` and review the diff. `stdlib/Extensions/Jai_Format/tests/api.jai` covers the API in memory so it also runs in the browser engine. `crates/jaic-cli/tests/native.rs` covers the CLI and checks idempotence over the repository's Jai files.
-- The strongest test is semantic: format a scratch copy of `stdlib/`, `tests/` and the upstream corpus and run the sweep.
-- Layout-sensitive files: add to `ignore` or wrap in `// jaifmt: off`/`on`. Tests comparing `#location` lines must not rely on two statements sharing a line.
-- Moving `jaifmt/`: CI, `nix/jaifmt.nix`, `tools/browser/build_scripting_wasm.py`, `tools/dev/build_pgo.py`, the two wasm check scripts, the jaic-cli tests and `SOURCES` in `tests/golden.jai` name its files.
-- Keep the module free of file access, threads and `#foreign` calls: the playground cannot run them.
+- **Lexer:** mirror `crates/jaic-syntax/src/lexer.rs` (`crates/jaic/tests/formatter_lexer.rs` fails on drift). If the parser starts depending on whitespace somewhere new, teach `check_equivalent`.
+- **Golden tests:** `Jai_Format/tests/fixtures/<name>.in.jai` must format to `<name>.out.jai`. Run `jaic stdlib/Extensions/Jai_Format/tests/golden.jai -interp`; regenerate with `-- --bless` and review the diff.
+- Layout-sensitive files: add to `ignore` or wrap in `// jaifmt: off`/`on`.
+- Moving `jaifmt/`: CI, `nix/jaifmt.nix`, `tools/browser/build_scripting_wasm.py`, `tools/dev/build_pgo.py`, the wasm check scripts and the jaic-cli tests name its files.
+- Keep the module free of file access, threads and `#foreign` calls: the playground can't run them.
 
 ## Dependencies
 
-`Jai_Format` uses `Basic` and `String` only. The CLI adds `File`, `File_Utilities`, `Sort` and `POSIX`/`Windows` for stdin. The browser path needs `crates/jai-wasm/js/engine.mjs`; `jaifmt.wasm` needs a native `jaic` with `wasm-ld` and `Wasi_Runtime`.
+`Jai_Format` uses `Basic` and `String` only. The CLI adds `File`, `File_Utilities`, `Sort` and `POSIX`/`Windows`. `jaifmt.wasm` needs a native `jaic` with `wasm-ld` and `Wasi_Runtime`.

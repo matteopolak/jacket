@@ -21,7 +21,7 @@ splits_on_commas :: (t: *Test) {
 } @test @timeout(5)
 ```
 
-A test is a file-level procedure that takes nothing or a `*Test` (or the arguments of its `@cases` or `@property`, below), with `@test` after its body. More notes after it set options for `jacket test` (`@timeout(5)`, `@only(.LINUX,.MACOS)`; the list is in [jacket test](../tools/jacket-test.md#notes)). Notes cannot contain spaces.
+A test is a file-level procedure that takes nothing or a `*Test` (or the arguments of its `@cases` or `@property`, below), with `@test` after its body. More notes after it set options for `jacket test` (`@timeout(5)`, `@only(.LINUX,.MACOS)`; the list is in [jacket test](../tools/jacket-test.md#writing-tests)). Notes cannot contain spaces.
 
 ## How it works
 
@@ -184,7 +184,7 @@ They run once per build, whatever the mode: natively, under `-O2` and for `-os w
 
 **Crashes.** A failed `assert`, a crash or an `exit` ends the test's process; `jacket test` reports the test from what it wrote so far and starts a fresh process for the tests after it.
 
-**The test program.** The Discovery plugin (`Discovery/module.jai`, run as `+Extensions/Testing/Discovery`) collects the `@test` and `@bench` procedures of the main program after type checking, prints the tests it found for `jacket test` and adds a table of the tests plus an entry point, `__jacket_test_main`, that calls `run_tests` (`runner.jai`). The program's own `main` is not called. Run by hand, the program runs every test and prints a summary; with `--list` it names the cases of the `@cases` tests; with `--run NAME...` it reports to `jacket test` (the protocol is in [jacket test](../tools/jacket-test.md#the-test-program-protocol)).
+**The test program.** The Discovery plugin (`Discovery/module.jai`, run as `+Extensions/Testing/Discovery`) collects the `@test` and `@bench` procedures of the main program after type checking, prints the tests it found for `jacket test` and adds a table of the tests plus an entry point, `__jacket_test_main`, that calls `run_tests` (`runner.jai`). The program's own `main` is not called. Run by hand, the program runs every test and prints a summary; with `--list` it names the cases of the `@cases` tests; with `--run NAME...` it reports to `jacket test` (the protocol is in [jacket test](../tools/jacket-test.md#how-it-works)).
 
 ## How to change it
 
@@ -196,7 +196,7 @@ They run once per build, whatever the mode: natively, under `-O2` and for `-os w
 - What the tracker records (more frames, sizes): `SITE_FRAMES` and `remember` in `tracking.jai`. The tracker is never freed, because memory from a test can outlive it.
 - How a case is named or an entry turned into arguments: `case_names`, `label_source` and `call_source` in `cases.jai`. They run at compile time inside `#insert`, from the procedure's and the entry's type information. `jacket test --list` learns the cases by running the program with `--list`, which makes `run_cases` of a test flagged `.CASES` name its cases instead of running them (`list_case_names` in `runner.jai`).
 - A new `*Test` procedure: `module.jai`. A new note is read by `jacket test` (`crates/jacket/src/test/options.rs`), except `@allow_leaks`, which Discovery also turns into a `Test_Flags` bit because the program needs it.
-- A new record kind: `record` in `runner.jai`, `Demux` and `State` in `crates/jacket/src/test/exec.rs`, and the table in [jacket test](../tools/jacket-test.md#the-test-program-protocol).
+- A new record kind: `record` in `runner.jai`, `Demux` and `State` in `crates/jacket/src/test/exec.rs`, and the table in [jacket test](../tools/jacket-test.md#how-it-works).
 - Benchmarks (`@bench`, `Bench`) live in `bench.jai` and are run by [jacket bench](../tools/jacket-bench.md), not by `run_tests`'s default mode. `black_box`, declared there, is a compiler intrinsic ([intrinsics](../language/intrinsics.md)); the sampling and statistics are in jacket (`bench_stats.rs`).
 - The module's own tests are in `stdlib/Extensions/Testing/tests`; run `jacket test` there (natively, with `--interp`, and for wasm).
 
