@@ -1,31 +1,18 @@
 # File identity
 
-## What it is
-
-Which file a path names is decided by one key, `FileSystem::canonical` (`crates/jaic/src/sema/modules.rs`), never by how the path is spelled. `./src/main.jai`, `src//main.jai`, `src/../src/main.jai`, an absolute path through a symlink (or `/var` for `/private/var`), and the editor's other-case spelling on a case-insensitive disk are one file.
+Which file a path names is decided by one key, `FileSystem::canonical` (`crates/jaic/src/sema/modules.rs`), never by spelling. `./src/main.jai`, `src//main.jai`, `src/../src/main.jai`, a symlinked path, and a differently cased spelling on a case-insensitive disk are one file.
 
 ## How it works
 
-`canonical` normalises lexically (`.`, `..`, duplicate separators), then, when the file exists, resolves it on disk (`jaic::paths::canonicalize`: symlinks, on-disk case, Windows `\\?\` prefixes stripped). A file that is not on disk (an unsaved editor buffer, the browser's virtual file system) keeps its lexical form. The language server's overlay file system (`OverlayFs`) also folds Windows drive letters and separators (`document::path_key`), so open documents and disk files meet in the same key.
-
-The key is used for:
-
-- loaded-file deduplication (`Compiler::load_file`, which also records the canonical path as the source's path),
-- mapping an open document to the compiled `FileId` (`find_file` in `semantic.rs`),
-- deciding which files record editor facts (`Compiler::ide_wants`): files under the root file's folder, plus every open document wherever it is (`IdeFacts::with_files`). A build file in `tools/build.jai` that adds `../src/main.jai` therefore still gives `src/main.jai` hover, goto and diagnostics.
-
-Display keeps the spelling the user wrote (diagnostic text, `#filepath`).
+- `canonical` normalises lexically, then resolves on disk when the file exists (symlinks, on-disk case, no `\\?\` prefix). Files not on disk (unsaved buffers, the browser file system) keep their lexical form.
+- The language server's `OverlayFs` also folds Windows drive letters and separators, so open documents meet disk files in the same key.
+- The key deduplicates loaded files, maps open documents to compiled files, and decides which files record editor facts: everything under the root file's folder plus all open documents. A build file adding `../src/main.jai` still gives that file hover and diagnostics.
+- Display keeps the user's spelling (diagnostics, `#filepath`).
 
 ## How to change it
 
-Path helpers live in `crates/jaic-syntax/src/paths.rs` and are shared by `jaic`, `jailsp` and `jailint`: `file_identity(fs, path)` (the key a file is known by: `FileSystem::canonical` spelled so it compares equal on Windows, used by the compiler's `DiskFs`, the language server's document keys and the linter's file claims; `identity_spelling` is the same for a path with no file system, `native_spelling` converts back), `normalize` (lexical), `canonicalize` (no verbatim prefix), `CanonCache` (remembers resolved paths; use it instead of a hand-rolled `HashMap<PathBuf, PathBuf>`) and `default_stdlib_dir()` (`JAIC_STDLIB`, else `stdlib/` next to the executable or its symlink target, else the repository's). Add new path helpers there rather than in a tool.
+Path helpers live in `crates/jaic-syntax/src/paths.rs`, shared by `jaic`, `jailsp` and `jailint`: `file_identity`, `normalize`, `canonicalize`, `CanonCache`, `default_stdlib_dir()`. Add new ones there.
 
-Compare paths through `canonical`, not with `==` or `starts_with` on strings. Do not add separator or prefix fixes at a comparison site; fix `canonical`. Virtual sources (`<input>`) have no path on disk and compare as written.
+Compare paths through `canonical`, never `==` or `starts_with` on strings, and fix `canonical` rather than patching a comparison site. Virtual sources (`<input>`) compare as written.
 
-## Configuration
-
-None.
-
-## Dependencies
-
-`std::fs::canonicalize` through `jaic::paths`; the language server's `OverlayFs`. Tests: `crates/jai-language-server/tests/build_file_entries.rs` (each spelling above, a symlinked project folder, a case variant, a build file in a subfolder).
+Tests: `crates/jai-language-server/tests/build_file_entries.rs`.

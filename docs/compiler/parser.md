@@ -1,53 +1,38 @@
 # Parser
 
-## What it is
-
-The recursive-descent parser in `crates/jaic-syntax/src/parser/`. It turns tokens from `lexer::lex` into an `ast::File` and stops at the first error; there is no recovery.
+The recursive-descent parser in `crates/jaic-syntax/src/parser/` turns tokens from `lexer::lex` into an `ast::File`. It stops at the first error; there is no recovery. (The editor has a recovering variant, `parse_file_ide`.)
 
 ## How it works
 
 - Keywords are plain identifiers, recognised only where expected (`kw()`, `at_kw("if")`). Directives arrive as `Tok::Directive(name)`.
 - Types are ordinary expressions: `*T` is `Unary(Star)`, `[N] T` is `ArrayType`, a bodiless procedure header is `ProcType`.
-- Expressions use precedence climbing (`expr.rs`) over `binary_op` ([operator precedence](../language/operators.md)), then prefix operators and `cast`/`xx`, then a postfix loop (`.member`, `.*`, `[i]`, `(args)`, `.{..}`, `.[..]`).
-- Parentheses are not nodes. `(a + b)` parses to the inner expression with `Expr::parens` set to the span of the outermost pair (`parenthesized()` asks whether it is set); `Expr::span` still leaves the parentheses out. A node's span can also stop short of a parenthesis around its first or last operand (`(a + b) * c` spans `a + b) * c`): `Expr::extent()` is the whole range with those taken in, and `body_extent()` is the same without the expression's own parentheses. `Expr::is_atomic()` says whether an operand needs parentheses around it when it is substituted into other code. A rule about how code was written (`jailint`, a suggestion, the editor refactors) reads these, never the source text or the tokens around a span. The same goes for rewrites that depend on grouping: `*Block.[a, b]` becomes an array of `*Block` in the parser, and `*(Block.[a, b])` stays an address-of, because the operand is flagged.
-- Files, struct bodies and blocks share one statement grammar (`stmt.rs`). Declarations (`decl.rs`) are recognised by lookahead: `name {, name} :`, `::` or `:=`.
-- `null`, `true` and `false` always parse as literals, so a variable, constant or parameter of that name is rejected (`reject_literal_name`). Struct and union members may use them (`in_aggregate_body`), since they are reached as `x.null`; named results are not checked.
-- A statement needs `;` unless the previous token closed a brace body, a here-string or `{} #flags` (`Parser::ends_block`).
-- A BOM and then a `#!` line at the start of a file are skipped by `Lexer::run`; a `#!` elsewhere is an error.
-- Here-strings keep every line ending of the body, including the one before the terminator: `#string END\nabc\nEND` is `"abc\n"`.
+- Expressions use precedence climbing (`expr.rs`) over `binary_op` ([operators](../language/operators.md)), then prefix operators and `cast`/`xx`, then a postfix loop (`.member`, `.*`, `[i]`, `(args)`, `.{..}`, `.[..]`).
+- Parentheses aren't nodes. `(a + b)` parses to the inner expression with `Expr::parens` set. `Expr::span` leaves the parentheses out; `Expr::extent()` takes them in. Anything about how code was written (jailint, refactors) reads these, never source text. So `*Block.[a, b]` is an array of `*Block` while `*(Block.[a, b])` is an address-of.
+- Files, struct bodies and blocks share one statement grammar (`stmt.rs`). Declarations (`decl.rs`) are found by lookahead: `name {, name} :`, `::` or `:=`.
+- `null`, `true` and `false` always parse as literals, so variables with those names are rejected. Struct members may use them.
+- A statement needs `;` unless the previous token closed a brace body, a here-string or `{} #flags`.
+- Here-strings keep every line ending of the body: `#string END\nabc\nEND` is `"abc\n"`.
 
-### Lookahead decisions
+Lookahead decisions:
 
-| Question | Rule |
-| --- | --- |
-| `(` header or parenthesized expression? | `paren_starts_header`: a header if the matching `)` is followed by `->`, `=>` or a header directive, or the interior is empty or starts like a parameter (`name:`, `$T`, `using`, `..`, a top-level comma). |
-| Struct literal or block? | `.{` is one token, so `T.{..}` is always a literal and `cond {` a block. A bare `{1, .A}` in expression position is a literal (`brace_is_struct_literal`) unless it has a `;` at its level, starts with a statement keyword, a non-`#char` directive, a backtick or a declaration, or follows `=>`. |
-| `if x == {` | `peek_binary_op` refuses `==` when `{` or `#complete {` follows, so it parses as a switch. |
-| `a=, b := f()`, `ok:, t.str = f()` | One `Decl` with `existing` set per name; a place goes in `Decl::targets` and its root in `names` (`decl_ahead`, `place_end`). A `name:` marker only matters in an assignment. |
-| Reach of `cast(T)` / `xx` | `parse_cast_value`: a unary operand plus bitwise and shift operators ([casts](../language/casts-and-conversions.md#how-far-a-prefix-cast-reaches)). |
+- `(` starts a procedure header if the matching `)` is followed by `->`, `=>` or a header directive, or the interior is empty or starts like a parameter (`paren_starts_header`).
+- `.{` is one token, so `T.{..}` is always a literal. A bare `{1, .A}` in expression position is a literal (`brace_is_struct_literal`) unless it has a `;`, starts with a statement keyword or declaration, or follows `=>`.
+- `if x == {` is a switch: `peek_binary_op` refuses `==` before `{`.
+- `a=, b := f()` is one `Decl` with `existing` set per name.
+- `cast(T)` / `xx` reach is `parse_cast_value` ([casts](../language/casts-and-conversions.md#how-far-a-prefix-cast-reaches)).
 
 ## How to change it
 
-- **Expression directive**: an arm in `parse_directive_expr` (`directive.rs`) and an `ExprKind` variant in `ast.rs`.
-- **Statement directive**: an arm in `parse_directive_stmt` (`directive_stmt.rs`).
-- **Procedure flag**: `apply_directive_flag` in `procedure.rs` plus a `ProcFlags` field, or add the name to `OTHER_FLAGS`. **Declaration flag**: `DECL_FLAGS` in `decl.rs`.
-- Add syntax to `lexer.rs`, `parser/` and `ast.rs` with tests in `parser/tests.rs`. A new statement or expression form that holds sub-expressions also goes in `ast/walk.rs` (`children`), the tree walker `jailint` and the language server share: it visits every statement and expression with its ancestors, and does not enter nested procedures, structs or enums.
-- **Editor syntax facts** (`parser/ide_facts.rs`): what the [language server](language-server.md) reads from a recovered parse (`parse_file_ide`): top-level items, procedures and their notes, type parameters, the call at a position. A new declaration form needs a case in `decl_class`.
+- Expression directive: an arm in `parse_directive_expr` (`directive.rs`) and an `ExprKind` variant. Statement directive: `parse_directive_stmt`.
+- Procedure flag: `apply_directive_flag` plus a `ProcFlags` field, or `OTHER_FLAGS`. Declaration flag: `DECL_FLAGS` in `decl.rs`.
+- Add tests in `parser/tests.rs`. A form that holds sub-expressions also goes in `ast/walk.rs` (`children`), the walker jailint and the language server share.
+- A new declaration form needs a case in `decl_class` (`parser/ide_facts.rs`) for [editor facts](language-server.md).
 
-### Node sizes
+Node sizes are a memory budget, because the language server keeps every tree alive: `Expr` 56 bytes, `Stmt` 88, `Decl` 176, `Arg` 88 (`node_sizes_stay_small`). Box rare or large (over about 32 bytes) fields; don't raise the bounds. Boxed statement payloads are read as `StmtKind::While(w)` then `w.cond`. `Decl` keeps rare fields in `DeclRare`; use its accessors and `rare_mut()` / `trim_rare()`.
 
-The language server keeps the syntax tree of every compile alive, so node size is a memory budget: `Expr` 56 bytes, `Stmt` 88, `Decl` 176, `Arg` 88, held by `node_sizes_stay_small` in `ast.rs`. When you add a field or variant, box it if it is rare or over about 32 bytes; do not raise the bounds.
+Gotchas:
 
-- Rare large payloads are boxed (`StmtKind::While(w)`, `Switch`, `StaticIf`, ...). Match `StmtKind::While(w)` and read `w.cond`; a boxed payload cannot be destructured in the pattern.
-- `Decl` keeps common fields and moves the rest into `rare: Option<Box<DeclRare>>`. Read through accessors (`decl.extra_values()`, `decl.align()`); fill with `rare_mut()` and finish with `trim_rare()`.
-- `Notes` is one nullable pointer that reads as a `[Note]` slice. `ExprKind::Int` holds an `Int128` (two `u64` words) so `ExprKind` needs only 8-byte alignment.
+- `continues_after_block` stops `(`, `[`, `*`, `-`, `+`, `<<` and `.` at the start of a line after `}` from continuing the previous expression.
+- `AstId::fresh()` numbers are unique across threads but follow thread timing.
 
-Gotchas: `continues_after_block` stops `(`, `[`, `*`, `-`, `+`, `<<` and `.` at the start of a line right after `}`, so `Foo :: struct {}` then `*p = 1;` stays two statements. `AstId::fresh()` numbers are unique across threads but follow thread timing.
-
-## Configuration
-
-`crates/jaic/tests/corpus.rs` lexes or parses whole corpora: `JAIC_CORPUS_ROOT=/path JAIC_CORPUS_STAGE=lex|parse cargo test -p jaic --test corpus -- --ignored --nocapture` (root defaults to this repo).
-
-## Dependencies
-
-`jaic::lexer`, `jaic::ast`, `jaic::intern`, `jaic::source`.
+Corpus runs: `JAIC_CORPUS_ROOT=/path JAIC_CORPUS_STAGE=lex|parse cargo test -p jaic --test corpus -- --ignored --nocapture`.

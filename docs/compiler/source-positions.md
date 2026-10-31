@@ -1,41 +1,22 @@
 # Source positions
 
-## What it is
+`jaic::source::LineIndex` is the one place that turns a byte offset into a line and column, and back. The compiler, diagnostic renderer, `jailint`, language server and playground all use it. Nothing else should count newlines.
 
-`jaic::source::LineIndex` is the one place that turns a byte offset into a line and column (and back). The compiler, the diagnostic renderer, `jailint`, the language server and the playground all use it; nothing else should count newlines.
+```rust
+let index = LineIndex::new(text);
+let (line, col) = index.line_col(text, offset);   // one-based, columns in characters
+```
 
 ## How it works
 
-`LineIndex::new(text)` makes one pass and records where every line starts and ends. Every query after that is a binary search. A line ends at `\n`; a `\r` in front of it (or ending the text) is not part of the line, so CRLF files behave like LF files.
-
-| Query | Meaning |
-| --- | --- |
-| `line_of(off)`, `line_start(off)`, `line_end(off)` | zero-based line holding `off`, and its byte range without the line ending |
-| `line_range(line)`, `lines()` | the range of a zero-based line, or of every line |
-| `line_col(text, off)` | one-based line and column, the column counted in characters (what the CLI prints) |
-| `line_byte_col(off)` | one-based line and column, the column counted in bytes |
-| `utf16_position(text, off)` | zero-based line and UTF-16 column, `None` inside a character or past the end |
-| `offset_utf16(text, line, col)` | the inverse; a column past the line end names the end, a column inside a surrogate pair is `Utf16Error::SplitsPair` |
-
-Each `SourceFile` owns its index (`SourceFile::lines()`); `SourceFile::line_col` keeps the byte column the compiler's own locations (`#location`, debug info) use. Offsets past the end are clamped; offsets inside a character move back to it for character columns.
-
-For a caller that asks once and has no index, `source::line_start(text, off)` and `source::line_end(text, off)` do the same on a `&str` in time proportional to the line, not the file. Do not write `text[..x].rfind('\n')`.
+- `LineIndex::new` makes one pass; every query after is a binary search. A line ends at `\n`; a `\r` before it isn't part of the line, so CRLF behaves like LF.
+- Column flavours: `line_col` (characters, what the CLI prints), `line_byte_col` (bytes, what `#location` and debug info use), `utf16_position` / `offset_utf16` (the language-server protocol's unit).
+- Offsets past the end clamp. Offsets inside a character move back to its start.
+- Each `SourceFile` owns an index (`SourceFile::lines()`). For one-off questions without an index use `source::line_start` / `line_end`; don't write `text[..x].rfind('\n')`.
+- `SourceFile::path` is a `SourcePath`: `File(PathBuf)` or `Virtual(label)` for text with no file (`#import,string`, `#insert` expansions). Virtual sources print as `<label>`; the brackets belong to `Display`, the only place a name becomes text.
 
 ## How to change it
 
-- The renderer takes the index through `Label::lines` and `Fix::lines`. `Diagnostic::report` fills them from the `SourceFile`. A caller that renders many reports from one large file (jailint) builds a `LineIndex` once and passes it; leaving it `None` builds one per `render`, which is fine for a single report but makes thousands of reports quadratic. There is no global cache.
-- `jai-language-server/src/position.rs` wraps the index with the protocol's `Position` and error messages. Position logic belongs in `jaic`, not there.
-- Keep `utf16_position` and `offset_utf16` exact: the protocol's unit is UTF-16 code units. The unit tests include a randomized comparison against the language server's original implementation.
-- The playground reports character columns, like the CLI.
-
-## Configuration
-
-None.
-
-## Dependencies
-
-`jaic::source` only. The renderer (`jaic::render`) depends on it, not the other way round.
-
-## Source names
-
-`SourceFile::path` is a `SourcePath`: `File(PathBuf)` for a file on disk, `Virtual(label)` for text with no file (`#import,string`, `add_build_string`, `#insert` expansions). A virtual source prints as `<label>` in diagnostics, `#file` and `#location`; the brackets belong to the display, not the label. Code that needs the distinction matches on the enum (`SourcePath::as_file`, `is_virtual`); `IdeRoot::Under` / `IdeRoot::Virtual` split analysis roots the same way. `Display` is the only place a name becomes text, so changing how names print means changing that impl.
+- The renderer takes the index through `Label::lines` and `Fix::lines`. A caller rendering many reports from one big file (jailint) builds the index once and passes it, or rendering goes quadratic.
+- Protocol wrapping lives in `jai-language-server/src/position.rs`; position logic itself belongs in `jaic`.
+- Keep the UTF-16 conversions exact, including surrogate pairs.

@@ -1,31 +1,26 @@
-# Stack traces (`context.stack_trace`)
+# Stack traces
 
-## What it is
-
-While a program runs, under `jaic -interp` or as a `jaic` executable, `context.stack_trace` points at a linked list of `Stack_Trace_Node`s, innermost procedure first, as in Jai. `print_stack_trace`, assertion failures and the memory debugger's leak reports read it.
+While a program runs (under `jaic -interp` or compiled), `context.stack_trace` points at a linked list of `Stack_Trace_Node`s, innermost procedure first. `print_stack_trace`, assertion failures and the memory debugger's leak reports read it.
 
 ## How it works
 
-- At lowering (`sema/procs.rs`, `lower_body_code`) every procedure that takes a context and is not `inline` or `#no_debug` gets `Func.trace = Some(TraceInfo { name, file, line, col })`.
-- **Interpreter**: `Interp::exec` pushes a node in the callee's stack frame with `next`, `info` (a leaked `Stack_Trace_Procedure_Info` cached per `FuncId`), `hash`, `call_depth` and `line_number`. On entry the callee writes the current source location into the caller node's `line_number`; on return `context.stack_trace` is restored. Inside untraced procedures the interpreter keeps the location of the call that entered them (`trace_loc`), so a traced call made there records the caller's line.
-- `Program.stack_trace` (`ir::TraceLayout`: where `stack_trace` sits in `#Context`, and the field offsets and sizes of the node types, read from the Preload) and `Program.file_paths` are filled by `Compiler::enable_stack_traces` from `run_program` and `call_thunk` (so `#run` code gets traces too). Nothing is pushed when the layout is `None`.
-- **Compiled output**: `Compiler::prepare_compiled_output` runs `stack_trace::instrument` (`crates/jaic/src/stack_trace.rs`), an IR pass. Each traced function gets a node slot; the node is linked and made the top in front of the first block every path to a use of the node goes through (`push_block`: the nearest dominator of every call, context use and recorded line that is not in a loop, usually the entry), so a procedure that returns early without calling anything pays nothing on that path; every `Ret` stores back the top it loaded at entry (a no-op when nothing was pushed); after each `Loc` whose statement can call, the line is stored into the node. A `Stack_Trace_Procedure_Info` global per function holds name, site and address. The pass clears `Func.trace` so the interpreter does not push a second node.
-- `runtime_support_assertion_failed` (`stdlib/Runtime_Support/module.jai`) prints `path:line:col: error: assertion failed: message`, then `call stack (innermost first):` with one `name at path:line` per node, the layout `jaic -interp` uses for runtime errors ([diagnostics](diagnostics.md)). The stack starts at the node running the asserting line, leaving out assertion machinery.
+- At lowering, every procedure that takes a context and is not `inline` or `#no_debug` gets `Func.trace` (name, file, line, column).
+- Interpreter: `Interp::exec` pushes a node in the callee's frame and restores `context.stack_trace` on return. Untraced procedures keep the location of the call that entered them.
+- Compiled output: `stack_trace::instrument` (`crates/jaic/src/stack_trace.rs`) is an IR pass. It gives each traced function a node slot, links it before the first block every use goes through (so early returns that call nothing pay nothing), unlinks on every `Ret`, and stores the line after each statement that can call. It then clears `Func.trace` so the interpreter doesn't push twice.
+- `Program.stack_trace` holds the layout of `stack_trace` in `#Context` and of the node types, read from the prelude. No layout, no traces.
+- `runtime_support_assertion_failed` (`stdlib/Runtime_Support/module.jai`) prints `path:line:col: error: assertion failed: message` then `call stack (innermost first):` with one `name at path:line` per node.
+
+```text
+call stack (innermost first):
+  check at main.jai:12
+  main at main.jai:20
+```
 
 ## How to change it
 
-- Field offsets come from `Stack_Trace_Node` and `Stack_Trace_Procedure_Info` in `stdlib/prelude/module.jai` (`Compiler::trace_layout`). Their sizes are fixed (`u64` hash, `u32` depth and line); `trace_layout` turns traces off on a mismatch.
-- Compiled code gives no node to a quiet procedure (`quiet_funcs`): one that uses its context only to pass it on and calls only quiet procedures directly (found by propagating loudness from the procedures that read their context or call through a value to their callers, so a procedure that only calls itself, or a cycle of such procedures, is quiet: nothing in it can read the stack). Every procedure keeps its context in a slot, stored at entry; `is_quiet` ignores that store and the loads from the slot and counts a use only when the parameter, the slot's address or a loaded value goes anywhere but a quiet callee (a field read, a copy, a stored copy). If lowering starts to keep the context somewhere else, update `context_slot_addr`, or every leaf procedure gets a node again (`quiet_procedures_push_no_stack_trace_node` in `native.rs` catches it). An `assert`, allocator or indirect call disqualifies it. This keeps small helper chains free of push and pop. The interpreter still pushes for every traced procedure.
-- The pass's own loads and stores through the context and previous node are listed in `Func::trusted` so the backend does not null-check them; keep new bookkeeping accesses in that list.
-- Cost: with nodes `fib(40)` runs about twice as long (1.0 s against 0.5 s at `-O0`).
-- Hash values differ from Jai's. There is no sentinel node from `push_context`, so call depths can differ there.
+- Node and info layouts come from `Stack_Trace_Node` and `Stack_Trace_Procedure_Info` in `stdlib/prelude/module.jai`. Their field sizes are fixed; a mismatch turns traces off.
+- Compiled code gives no node to a quiet procedure (`quiet_funcs`): one that uses its context only to pass it to other quiet procedures. If lowering stores the context somewhere new, update `context_slot_addr`, or every leaf gets a node again (`quiet_procedures_push_no_stack_trace_node` in `native.rs` catches it).
+- The pass's own context accesses go in `Func::trusted` so the backend skips null checks.
+- Cost: nodes roughly double the time of `fib(40)` at `-O0`.
 
-## Configuration
-
-`Build_Options.stack_trace` (default true), read for workspaces a metaprogram creates.
-
-`_STACK_TRACE` is a compiler-provided constant, always `true` (like `OS`: `Builtin::TargetConstant`, resolved in `target_constant` in `sema/decls.rs`). Modules write `#if _STACK_TRACE` to give per-thread state a `Stack_Trace_Node`; it does not follow `Build_Options.stack_trace`, because every `Context` has the `stack_trace` member either way.
-
-## Dependencies
-
-`ir::Func::trace`, `ir::Program::{file_paths, stack_trace}`, `interp::Interp::trace_enter`. Tests: `tests/compiler/regressions/stack-trace-nodes.jai`, `stack-trace-line-through-inline.jai`, `compile-time-stack-trace.jai`, and `stack_traces` in `crates/jaic-cli/tests/native.rs`.
+`Build_Options.stack_trace` (default true) controls workspaces a metaprogram creates. `_STACK_TRACE` is always `true`; modules write `#if _STACK_TRACE` to give per-thread state a node.

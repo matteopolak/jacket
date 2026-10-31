@@ -1,30 +1,23 @@
 # Targets
 
-## What it is
+`jaic::target::Target` (`crates/jaic/src/target.rs`) is the one value for what a program is built for: `os`, `cpu`, `abi` (`Msvc`, `Gnu`, `Musl`, `Apple`, `Wasi`, `Unknown`), plus `memory32` for `wasm32`. `Display` writes the LLVM triple.
 
-`jaic::target::Target` (`crates/jaic/src/target.rs`) is the one value for what a program is built for: `os` (`TargetOs`), `cpu` (`TargetCpu`) and `abi` (`TargetAbi`: `Msvc`, `Gnu`, `Musl`, `Apple`, `Wasi`, `Unknown`), plus `memory32` for a `wasm32` triple. `Display` writes the LLVM triple.
+```text
+x86_64-pc-windows-msvc   aarch64-unknown-linux-gnu   wasm64-unknown-wasi
+```
+
+Other spellings (`aarch64-w64-mingw32`, `arm64-apple-macosx11.0`) parse to the same value and print canonically.
 
 ## How it works
 
-`jaic::target::Selection` (os, cpu, triple) is what the command-line flags `-os`, `-cpu` and `-target` produce, with `apply` setting them on `sema::Options`; `jaic`, `jailint` and `jacket test` forwarding use it. `select_os_cpu` is the one default: the CPU is the host's when the OS is the host's, x64 for any other OS, and Wasm for the wasm OS, whichever tool asks.
-
-It is parsed once, then passed on:
-
-- `-os`/`-cpu` give `TargetOs`/`TargetCpu` (`parse_os`, `parse_cpu`; bad values keep the same error text). `-target <triple>` and a workspace's `llvm_target_system_triple` go through `Target::parse`, which rejects what jaic cannot build for (`unsupported target architecture in ...`).
-- `os_target`/`cpu_target` of a workspace arrive as typed numbers ([compiler builtins](compiler-builtins.md)) and decode to `TargetOs`/`TargetCpu`; `BuildSettings.llvm_target` holds an explicit triple.
-- `jaic-cli` resolves a `Target` (`Cli::build_target`, `LlvmBackend::workspace_target`): `-os windows` off Windows is MinGW (`Target::windows`), `-os wasm` is a WASI command (`Target::wasi`), a workspace with only `os_target = .WASM` is a bare module (`Target::wasm_module`). `None` means the host (`Target::host`).
-- `jaic-llvm` takes `Options.target: Option<Target>` and every linker, archiver and extension decision matches on `os`/`abi`/`cpu` (`Target::toolchain`, `output_extension`, `baseline_cpu`, `DebugFormat::for_target`). `Target::arch` gives the calling-convention family (`abi::Arch`), `toolchain::discover::arch_dir` the SDK folder. What a target's C runtime is and how it is linked: [toolchain](toolchain.md).
-
-Canonical triples: `x86_64-pc-windows-msvc`, `aarch64-pc-windows-gnu` (MinGW), `x86_64-apple-darwin`, `aarch64-unknown-linux-gnu`, `wasm64-unknown-wasi`, `wasm64-unknown-unknown`. Other spellings parse to the same value (`aarch64-w64-mingw32`, `arm64-apple-macosx11.0`) and print canonically.
+- `-os`, `-cpu` and `-target` become a `Selection`. `select_os_cpu` holds the one default: host CPU for the host OS, x64 for other OSes, wasm for the wasm OS.
+- `-target` and a workspace's `llvm_target_system_triple` go through `Target::parse`, which rejects what jaic can't build for.
+- `jaic-cli` resolves the final `Target`: `-os windows` off Windows is MinGW, `-os wasm` is a WASI command, a workspace with only `os_target = .WASM` is a bare module. `None` means the host.
+- `jaic-llvm` matches on `os`/`abi`/`cpu` for every linker, archiver and extension decision. How the C runtime is linked: [toolchain](toolchain.md).
 
 ## How to change it
 
-A new OS or CPU: add the `TargetOs`/`TargetCpu` variant, its names in `target.rs`, a `Target::parse`/`Display` arm, and let the compiler point at every `match` (there are no string comparisons on target names to find). A new C environment: a `TargetAbi` variant and the places that match on it (`Toolchain::for_target`, `DebugFormat`).
+- New OS or CPU: add the variant, its names, and `parse`/`Display` arms, then follow the compiler errors to each `match`. There are no string comparisons on target names.
+- New C environment: a `TargetAbi` variant plus the matches (`Toolchain::for_target`, `DebugFormat`).
 
-## Configuration
-
-`-os`, `-cpu`, `-target`, and the `os_target`, `cpu_target` and `llvm_options.target_system_triple` build options. `JAIC_LINKER`, `JAIC_AR` pick tools, not targets.
-
-## Dependencies
-
-`jaic::target` (`TargetOs`, `TargetCpu`), `jaic::sema` (`Options::host`), `jaic::abi`, `jaic::toolchain`; used by `jaic-cli`, `jaic-llvm`, `jailint`.
+Options: `-os`, `-cpu`, `-target`, `os_target`, `cpu_target`, `llvm_options.target_system_triple`. `JAIC_LINKER` and `JAIC_AR` pick tools, not targets.

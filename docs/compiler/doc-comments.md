@@ -1,64 +1,48 @@
 # Doc comments
 
-## What it is
-
-Comments directly above a declaration are its documentation, written in Markdown in the Rust style. The language server shows them in hover, completion and signature help and resolves `[name]` links in them; the VS Code extension highlights their Markdown. The compiler ignores comments; everything here is editor tooling.
+Comments directly above a declaration are its documentation, written in Markdown. The language server shows them in hover, completion and signature help and resolves `[name]` links in them; `jacket doc` builds the API site from them and `jacket test` runs their examples. The compiler itself ignores comments.
 
 ## Convention
 
-A declaration's docs are the run of `//` lines (`///` and `//!` work too) directly above it with no blank line between, or a `/* */` block ending directly above it. One space after the marker is removed; the rest is Markdown. A line of only `-----`, `=====` or four or more `/` ends the run.
+A declaration's docs are the run of `//` lines (`///` and `//!` work too) directly above it with no blank line, or a `/* */` block ending directly above it. One space after the marker is removed; the rest is Markdown. A line of only `-----`, `=====` or four or more `/` ends the run.
 
 ```jai
 // Scales a [Point] by `factor`, starting from [`Mode.IDLE`].
+//
+// - factor: how much to grow
 scale :: (p: Point, factor: int) -> Point { ... }
 
 x: int; // trailing comments document fields, members and parameters
 ```
 
-Fields, enum members and parameters may have a trailing comment or comment lines above them. A trailing comment counts only after a whole declaration (ends in `;` or `,`, or has no `::`) with no `{`, so `f :: () { // note` does not document `f`.
+- Fields, enum members and parameters may have a trailing comment or lines above them. A trailing comment counts only after a whole declaration with no `{`, so `f :: () { // note` doesn't document `f`.
+- A parameter's doc is a comment above it or in the header, else a list item in the procedure's docs starting with its name (`- name: text`).
+- A line that is exactly `@experimental` marks a module (in the comment opening `module.jai`) or an item as experimental. `jaic -doc_model` strips it and reports `experimental: true`; hover shows *Experimental*. Use it instead of a warning sentence.
+- Links are rustdoc-style: `[print]`, ``[`print`]``, `[Basic.print]`, `[Point.x]`, `[Mode.IDLE]`, `[text](print)`. An unresolved link stays plain text (jailint's `broken_doc_link` reports it), as do `a[i]`, `[0]`, URLs and code.
+- A constant that only renames another (`hello :: Impl.hello;`) with no comment of its own shows the target's docs. Document the target only.
 
-A parameter's doc is, in order: comment lines above it or a trailing comment in the header; or a list item in the procedure's docs starting with its name (`- name: text`, ``- `name`: text``, `- name — text`).
+### Examples
 
-A line that is exactly `@experimental` marks a module (in the comment that opens `module.jai`) or an item as experimental. `jaic -doc_model` removes the line from the docs and reports `experimental: true`; hover shows it as *Experimental*. Use it instead of a warning sentence.
+Fenced code in a doc comment is a doc test that `jacket test` runs. Untagged fences render as `jai`. Options go after the language:
 
-Links are rustdoc-style: `[print]`, ``[`print`]``, `[Basic.print]` (module), `[Point.x]`, `[Mode.IDLE]`, `[Outer.Inner]`, `[Ring.items]` (a field of a polymorphic struct, found in source), and `[text](print)`. A link that does not resolve stays plain text (jailint's `broken_doc_link` reports it), as do `a[i]`, `[0]`, `[text](https://...)` and anything inside code. Untagged code fences render as `jai`.
+- ```` ```jai ```` runs and should `assert` its result.
+- ```` ```jai,no_run ```` is only type-checked (windows, network, files outside a temp dir).
+- ```` ```jai,ignore ```` is skipped.
+- `skip_on(wasm)`, `only(linux, macos)`, `needs(...)` and `timeout(...)` work as in [jacket test](../tools/jacket-test.md).
 
 ## How it works
 
-`crates/jaic-syntax/src/docs.rs` (shared with jailint) works from the lexer's tokens, with no parse: `lex_with_trivia` keeps comments as trivia, and a comment belongs to the declaration whose first token follows it. Given the offset of a declaration's name it finds the comments directly above, splits parameter lists by their tokens, and reads list items. Links come from `pulldown-cmark` (with a broken-link callback, since intra-doc links have no definition): `docs::links` returns them with byte ranges, `sites` maps those back into the file, and `markdown` rewrites resolved ones. It lexes a file on demand, and the last text lexed is cached per thread, so a burst of questions about one file lexes it once.
-
-`doc_view.rs` is the glue:
-
-- **Hover**: `Compiler::ide_hover_decls` returns where each described thing is declared (one per overload). Docs are read from the compiler's copy of the file, so stdlib and modules work like open documents. Markdown clients get the signature in a `jai` fence then the docs.
-- **Links** resolve through `Compiler::ide_resolve_path` from the scope at the documented declaration (not the use site), and are rewritten to `[text](file:///path#L<line>)`.
-- **Completion**: lists of at most `EAGER_DOCS` (24) items carry `documentation` directly; longer ones defer to `completionItem/resolve`. Completion answers from the last compile, so `Analysis::shift_to` moves declaration offsets below the edit or docs would be read from the wrong line.
-- **Signature help** looks docs up in the same repair as the signature, so they show while a call is unclosed.
-- **In the source**: `docs::sites` finds links in comments; go to definition, hover, `documentLink` and semantic tokens (the label is coloured like its target) work on them. Only label spans get a token, so TextMate styling stays on the rest.
-- **Code fences**: `docs::fenced_code` and `fence_tokens` lex fenced code for clients without a stateful grammar (the playground); nothing is resolved.
-
-### Aliases
-
-A constant that only renames another (`hello :: Impl.hello;`, `Twice :: hello;`) with no comment of its own shows the docs of what it names, along a chain of aliases; its own docs win. The rule is `docs::docs_site` in `crates/jaic-syntax/src/docs/forward.rs`, and nothing else decides it; consumers differ only in how they find what a path names (the `Resolver`):
-
-- **Language server**: `Compiler::ide_doc_site` (type checker). Hover reads docs from `Analysis::hover`'s declarations through it; completion sets `IdeName::docs` (`Analysis::forward_docs`) and the item's `data` points there, so eager and `completionItem/resolve` docs agree. Hover on a call of an alias procedure still describes the procedure, so it shows the procedure's docs, not the alias's own.
-- **`jaic -doc_comments`**: `doc_comments/forward.rs` resolves from the library's files (`X :: #import,file ...`, stdlib modules, `#load`s). The record for the alias carries the target's text and a fifth field, the name it renames. `jacket test` skips such records, so an example runs once, under the target.
-
-### Highlighting
-
-`editors/vscode/syntaxes/jai-doc-comments.tmLanguage.json` is an injection grammar into line comments, block comments and `meta.comment-run.jai`, scoping bold, italic, inline code, headings, list bullets, links and fenced code. A fence spans lines but a TextMate rule per `//` line has no state, so `jai.tmLanguage.json` (generated by `scripts/build-grammar.ts`) wraps a run of whole-line comments in `meta.comment-run.jai` and the injection puts the fence rule in it.
+- `crates/jaic-syntax/src/docs.rs` (shared with jailint) works from lexer tokens, no parse. A comment belongs to the declaration whose first token follows it. Links come from `pulldown-cmark`.
+- `doc_view.rs` is the glue for the language server. Hover reads docs from the compiler's copy of the file, so stdlib works like open documents. Links resolve with `Compiler::ide_resolve_path` from the scope of the documented declaration and are rewritten to `file://` URLs.
+- Completion lists up to `EAGER_DOCS` (24) items with docs inline; longer ones defer to `completionItem/resolve`.
+- Alias forwarding is `docs::docs_site` in `crates/jaic-syntax/src/docs/forward.rs`, the only place that decides it. `jaic -doc_comments` resolves from the library's files and `jacket test` skips alias records so an example runs once.
+- Highlighting: `editors/vscode/syntaxes/jai-doc-comments.tmLanguage.json` injects Markdown scopes into comments. `jai.tmLanguage.json` (generated by `scripts/build-grammar.ts`) wraps runs of comment lines in `meta.comment-run.jai` so fences can span lines.
 
 ## How to change it
 
-- Convention (what counts as a doc, parameter items, link syntax): `crates/jaic-syntax/src/docs.rs`; alias forwarding: `crates/jaic-syntax/src/docs/forward.rs` (tests in `doc_comments.rs` and `tests/doc_comments.rs` of the language server); unit tests per rule, `tests/doc_comments.rs` for editor features.
-- What a link can name: `Compiler::ide_resolve_path` in `crates/jaic/src/ide/definition.rs`. Link colour: `target_kind` in `doc_view.rs`.
-- Markdown styling: edit the regexes in `jai-doc-comments.tmLanguage.json`, add a case to `editors/vscode/test/grammar/doc-comments.jai` (`pnpm run test:grammar`).
-- The playground (another repository) needs the `meta.comment-run.jai` wrapper, the injection grammar or equivalent, a mapping from `markup.*` scopes to styles, and the semantic token types the server sends on link labels, applied over the comment colour.
-- Gotchas: extraction starts at the name's offset, so a declaration whose literal is on the next line takes docs above the name's line. Block comments are read only when they end directly above the declaration, and a comment counts only when it starts its line. A `[ref]: url` line is a definition even directly under a paragraph line (CommonMark would not), because that is how it is written.
+- Convention (what counts as a doc, parameter items, links): `docs.rs`. Alias forwarding: `crates/jaic-syntax/src/docs/forward.rs`. Tests: `doc_comments.rs` and the language server's `tests/doc_comments.rs`.
+- What a link can name: `ide_resolve_path` in `crates/jaic/src/ide/definition.rs`. Link colour: `target_kind` in `doc_view.rs`.
+- Markdown styling: the regexes in the injection grammar, plus a case in `editors/vscode/test/grammar/doc-comments.jai` (`pnpm run test:grammar`).
+- Gotchas: extraction starts at the name's offset, so a literal on the next line takes docs above the name's line. Block comments count only when they end directly above the declaration and start their line. Completion answers from the last compile, so `Analysis::shift_to` must move declaration offsets below an edit.
 
-## Configuration
-
-None. Hover and signature help use Markdown when the client lists it in `contentFormat` / `documentationFormat`; completion documentation is always Markdown.
-
-## Dependencies
-
-`jaic` editor facts (`ide_hover_decls`, `ide_resolve_path`, `IdeName::decl`); `pulldown-cmark` (link discovery, fences) and the lexer's trivia in `jaic`; `vscode-textmate` semantics for the grammar. See [language server](language-server.md).
+See [language server](language-server.md).
