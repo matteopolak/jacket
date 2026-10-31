@@ -766,8 +766,10 @@ pub mod main_thread {
     }
 
     /// libSystem (libc, libm, pthreads, libdispatch...) and libc++ are thread-safe and never
-    /// touch `AppKit`: calling them directly avoids a thread handoff per call. Everything else
-    /// (frameworks, and user libraries such as SDL or GLFW that call into Cocoa) is forwarded.
+    /// touch `AppKit`: calling them directly avoids a thread handoff per call. So is the
+    /// allocator this executable carries (`malloc` and friends), which foreign code reaches
+    /// through the same names. Everything else (frameworks, and user libraries such as SDL or
+    /// GLFW that call into Cocoa) is forwarded.
     fn needs_main_thread(addr: u64) -> bool {
         use crate::fxhash::HashMap;
         thread_local! {
@@ -794,8 +796,19 @@ pub mod main_thread {
         };
         // SAFETY: dladdr only reads the loaded-image tables and fills `info`.
         let found = unsafe { dladdr(addr as *const std::ffi::c_void, &raw mut info) } != 0;
+        let mut own = DlInfo {
+            fname: std::ptr::null(),
+            fbase: std::ptr::null_mut(),
+            sname: std::ptr::null(),
+            saddr: std::ptr::null_mut(),
+        };
+        let own_found =
+            // SAFETY: as above, for an address in this executable.
+            unsafe { dladdr(needs_main_thread as *const std::ffi::c_void, &raw mut own) } != 0;
         let main = if !found || info.fname.is_null() {
             true
+        } else if own_found && info.fbase == own.fbase {
+            false
         } else {
             // SAFETY: dladdr returns a NUL-terminated path owned by the loader.
             let path = unsafe { std::ffi::CStr::from_ptr(info.fname) }.to_string_lossy();
