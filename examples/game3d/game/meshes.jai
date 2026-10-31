@@ -130,7 +130,7 @@ optimize_mesh :: (soup: [] Vertex, target_ratio: float) -> Mesh_Data {
 
     target -= target % 3;
 
-    lod_count := simplify_triangles(lod.data, indices.data, index_count, cast(*float) vertices.data, vertex_count, size_of(Vertex), target, 0.05, 0, null);
+    lod_count := meshopt_simplify(lod.data, indices.data, index_count, cast(*float) vertices.data, vertex_count, size_of(Vertex), target, 0.05, 0, null);
 
     lod.count = cast(s64) lod_count;
     stats.lod_indices = cast(s64) lod_count;
@@ -186,11 +186,6 @@ same_triangles :: (a: [] u32, b: [] u32) -> bool {
 }
 
 #scope_file
-
-// The module's `meshopt_simplify` has the older eight-argument form, but the library that gets
-// linked takes two more (`options` and `result_error`); call the real entry point directly.
-simplify_library :: #library,system "meshoptimizer";
-simplify_triangles :: (destination: *u32, indices: *u32, index_count: u64, positions: *float, vertex_count: u64, stride: u64, target_index_count: u64, target_error: float, options: u32, result_error: *float) -> u64 #foreign simplify_library "meshopt_simplify";
 
 canonical_triangle :: (indices: [] u32, at: s64) -> [3] u32 {
     a, b, c := indices[at], indices[at + 1], indices[at + 2];

@@ -4,11 +4,10 @@ Rough edges hit while writing game3d. Fixed ones name the commit subject; open o
 
 ## Fixed in the stdlib
 
-Nothing yet.
+- `meshoptimizer`: the declarations followed an old API, so `meshopt_simplify` and the meshlet functions did not match the linked library. Fixed by `fix(meshoptimizer): match the declarations to the pinned library`; the game now calls the module's `meshopt_simplify`.
 
 ## Open: stdlib
 
-- `meshoptimizer`: the declarations do not match the library that gets linked. The module follows the 0.11-era inventory (`MESHOPTIMIZER_VERSION :: 110`), but `tools/native/native-libs.json` pins a 1.x build. `meshopt_simplify` is declared with 8 arguments and the library takes 10 (`options`, `result_error`), so a call reads garbage for the last two and the library's own assert fires (`options & meshopt_SimplifyInternalSolve`). `meshopt_simplifySloppy` gained a vertex lock mask, an error limit and `result_error`. `meshopt_buildMeshlets`, `meshopt_computeMeshletBounds` and `meshopt_Meshlet` have different shapes in the 1.x header. Only the functions the module's own test uses (cache, fetch, remap, codecs, strips) are safe today. The game declares the real 10-argument `meshopt_simplify` itself (`simplify_triangles` in `game/meshes.jai`). The proper fix is to re-pin the library to the revision the inventory describes, or to give those functions wrapper bodies; the binding generator only accepts `#c_call` wrappers over a `#foreign` declaration, so the wrappers are not a one-file change.
 - `Window_Type` is a pointer on macOS and an integer on Linux, so "no window" is `null` in one place and `0` in another. A zero value of the type (`no_window: Window_Type;`) is the portable spelling; it is not written down anywhere.
 - `Extensions/WebGPU` has no texture readback helper. The copy to a buffer, the 256-byte row rule, the map and the copy out are about thirty lines that `tests/driven/headless.jai` and the game both carry.
 - `Iprof`: the module has no overview. The manual mode (`MANUAL_MODE = true`) needs `Prof_init_highlevel`, then a name and an `initted` flag for each zone (the tests also set its `hash`), then `zone_begin`/`zone_end`, `update(true)` once per frame and `create_report`/`log_text_report` to read it. That is only written down in the module's tests. Zones are global to the process, so they cannot be opened from the job system's worker threads.

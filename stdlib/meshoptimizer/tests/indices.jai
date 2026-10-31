@@ -176,5 +176,57 @@ main :: () {
     assert(meshopt_decodeVertexBuffer(vdecoded.data, unique, size_of(Vertex), vencoded.data, vsize) == 0);
     for vertices assert(vdecoded[it_index].x == it.x && vdecoded[it_index].y == it.y && vdecoded[it_index].z == it.z, "vertex codec differs at %", it_index);
 
+    // Simplification: ask for half the triangles of the flat grid; collapsing a plane costs no error.
+    positions := cast(*float) vertices.data;
+    target := index_count / 2;
+    target -= target % 3;
+    simplified := NewArray(soup.count, u32);
+    error: float = -1;
+    simplified_count := meshopt_simplify(simplified.data, optimized.data, index_count, positions, unique, size_of(Vertex), target, 0.01, 0, *error);
+
+    assert(simplified_count > 0 && simplified_count <= target && simplified_count % 3 == 0, "% indices after simplifying to %", simplified_count, target);
+    assert(error >= 0 && error < 0.01, "simplification error %", error);
+    for 0..cast(s64) simplified_count - 1 assert(simplified[it] < unique, "simplified index % out of range", simplified[it]);
+
+    sloppy := NewArray(soup.count, u32);
+    sloppy_error: float = -1;
+    sloppy_count := meshopt_simplifySloppy(sloppy.data, optimized.data, index_count, positions, unique, size_of(Vertex), null, target, 1.0, *sloppy_error);
+
+    assert(sloppy_count > 0 && sloppy_count % 3 == 0 && sloppy_count < index_count, "% indices after sloppy simplifying", sloppy_count);
+    assert(sloppy_error >= 0, "sloppy error %", sloppy_error);
+
+    // Meshlets: every triangle lands in some meshlet, within the vertex and triangle limits, and the
+    // bounds of a meshlet cover its vertices.
+    MAX_VERTICES :: 64;
+    MAX_TRIANGLES :: 124;
+    bound := meshopt_buildMeshletsBound(index_count, MAX_VERTICES, MAX_TRIANGLES);
+    meshlets := NewArray(cast(s64) bound, meshopt_Meshlet);
+    meshlet_vertices := NewArray(soup.count, u32);
+    meshlet_triangles := NewArray(soup.count, u8);
+    meshlet_count := meshopt_buildMeshlets(meshlets.data, meshlet_vertices.data, meshlet_triangles.data, optimized.data, index_count, positions, unique, size_of(Vertex), MAX_VERTICES, MAX_TRIANGLES, 0.0);
+
+    assert(meshlet_count > 0 && meshlet_count <= bound, "% meshlets", meshlet_count);
+    total_triangles: u64;
+
+    for 0..cast(s64) meshlet_count - 1 {
+        meshlet := meshlets[it];
+
+        assert(meshlet.vertex_count <= MAX_VERTICES && meshlet.triangle_count <= MAX_TRIANGLES, "meshlet % is over the limits", it);
+        total_triangles += meshlet.triangle_count;
+
+        bounds := meshopt_computeMeshletBounds(meshlet_vertices.data + meshlet.vertex_offset, meshlet_triangles.data + meshlet.triangle_offset, meshlet.triangle_count, positions, unique, size_of(Vertex));
+
+        assert(bounds.radius > 0, "meshlet % has a radius", it);
+
+        for v: 0..cast(s64) meshlet.vertex_count - 1 {
+            p := vertices[meshlet_vertices[cast(s64) meshlet.vertex_offset + v]];
+            dx, dy, dz := p.x - bounds.center[0], p.y - bounds.center[1], p.z - bounds.center[2];
+
+            assert(dx * dx + dy * dy + dz * dz <= bounds.radius * bounds.radius * 1.001 + 0.0001, "meshlet % does not cover its vertex %", it, v);
+        }
+    }
+
+    assert(total_triangles == index_count / 3, "% triangles in meshlets, expected %", total_triangles, index_count / 3);
+
     print("ok\n");
 }

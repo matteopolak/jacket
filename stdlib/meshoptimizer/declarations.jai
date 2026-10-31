@@ -24,10 +24,10 @@ meshopt_Bounds :: struct {
 }
 
 meshopt_Meshlet :: struct {
-    vertices: [64] u32;
-    indices: [126][3] u8;
-    triangle_count: u8;
-    vertex_count: u8;
+    vertex_offset: u32;
+    triangle_offset: u32;
+    vertex_count: u32;
+    triangle_count: u32;
 }
 
 meshopt_OverdrawStatistics :: struct {
@@ -58,7 +58,7 @@ meshopt_VertexFetchStatistics :: struct {
 
 MESHOPTIMIZER_EXPERIMENTAL :: true;
 
-MESHOPTIMIZER_VERSION :: 110;
+MESHOPTIMIZER_VERSION :: 1030;
 
 // Native entry points
 
@@ -68,13 +68,13 @@ meshopt_analyzeVertexCache :: (indices: *u32, index_count: u64, vertex_count: u6
 
 meshopt_analyzeVertexFetch :: (indices: *u32, index_count: u64, vertex_count: u64, vertex_size: u64) -> meshopt_VertexFetchStatistics #foreign meshopt_lib;
 
-meshopt_buildMeshlets :: (destination: *meshopt_Meshlet, indices: *u32, index_count: u64, vertex_count: u64, max_vertices: u64, max_triangles: u64) -> u64 #foreign meshopt_lib;
+meshopt_buildMeshlets :: (meshlets: *meshopt_Meshlet, meshlet_vertices: *u32, meshlet_triangles: *u8, indices: *u32, index_count: u64, vertex_positions: *float, vertex_count: u64, vertex_positions_stride: u64, max_vertices: u64, max_triangles: u64, cone_weight: float) -> u64 #foreign meshopt_lib;
 
 meshopt_buildMeshletsBound :: (index_count: u64, max_vertices: u64, max_triangles: u64) -> u64 #foreign meshopt_lib;
 
 meshopt_computeClusterBounds :: (indices: *u32, index_count: u64, vertex_positions: *float, vertex_count: u64, vertex_positions_stride: u64) -> meshopt_Bounds #foreign meshopt_lib;
 
-meshopt_computeMeshletBounds :: (meshlet: *meshopt_Meshlet, vertex_positions: *float, vertex_count: u64, vertex_positions_stride: u64) -> meshopt_Bounds #foreign meshopt_lib;
+meshopt_computeMeshletBounds :: (meshlet_vertices: *u32, meshlet_triangles: *u8, triangle_count: u64, vertex_positions: *float, vertex_count: u64, vertex_positions_stride: u64) -> meshopt_Bounds #foreign meshopt_lib;
 
 meshopt_decodeIndexBuffer :: (destination: *void, index_count: u64, index_size: u64, buffer: *u8, buffer_size: u64) -> s32 #foreign meshopt_lib;
 
@@ -112,9 +112,9 @@ meshopt_remapVertexBuffer :: (destination: *void, vertices: *void, vertex_count:
 
 meshopt_setAllocator :: (allocate: #type (a0: u64) -> *void #c_call, deallocate: #type (a0: *void) -> void #c_call) -> void #foreign meshopt_lib;
 
-meshopt_simplify :: (destination: *u32, indices: *u32, index_count: u64, vertex_positions: *float, vertex_count: u64, vertex_positions_stride: u64, target_index_count: u64, target_error: float) -> u64 #foreign meshopt_lib;
+meshopt_simplify :: (destination: *u32, indices: *u32, index_count: u64, vertex_positions: *float, vertex_count: u64, vertex_positions_stride: u64, target_index_count: u64, target_error: float, options: u32, result_error: *float) -> u64 #foreign meshopt_lib;
 
-meshopt_simplifySloppy :: (destination: *u32, indices: *u32, index_count: u64, vertex_positions: *float, vertex_count: u64, vertex_positions_stride: u64, target_index_count: u64) -> u64 #foreign meshopt_lib;
+meshopt_simplifySloppy :: (destination: *u32, indices: *u32, index_count: u64, vertex_positions: *float, vertex_count: u64, vertex_positions_stride: u64, vertex_lock: *u8, target_index_count: u64, target_error: float, result_error: *float) -> u64 #foreign meshopt_lib;
 
 meshopt_stripify :: (destination: *u32, indices: *u32, index_count: u64, vertex_count: u64, restart_index: u32) -> u64 #foreign meshopt_lib;
 

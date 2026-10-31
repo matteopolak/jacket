@@ -4,7 +4,7 @@
 
 Visible public declarations and module-conditional variants are listed below. Procedure bodies and aggregate initializers are omitted; complete public type members are listed separately.
 
-- `MESHOPTIMIZER_VERSION :: 110`
+- `MESHOPTIMIZER_VERSION :: 1030`
 - `MESHOPTIMIZER_EXPERIMENTAL :: true`
 - `meshopt_Stream :: struct`
 - `meshopt_generateVertexRemap :: (destination: *u32, indices: *u32, index_count: u64, vertices: *void, vertex_count: u64, vertex_size: u64) -> u64 #foreign meshopt_lib`
@@ -24,8 +24,8 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `meshopt_encodeVertexBuffer :: (buffer: *u8, buffer_size: u64, vertices: *void, vertex_count: u64, vertex_size: u64) -> u64 #foreign meshopt_lib`
 - `meshopt_encodeVertexBufferBound :: (vertex_count: u64, vertex_size: u64) -> u64 #foreign meshopt_lib`
 - `meshopt_decodeVertexBuffer :: (destination: *void, vertex_count: u64, vertex_size: u64, buffer: *u8, buffer_size: u64) -> s32 #foreign meshopt_lib`
-- `meshopt_simplify :: (destination: *u32, indices: *u32, index_count: u64, vertex_positions: *float, vertex_count: u64, vertex_positions_stride: u64, target_index_count: u64, target_error: float) -> u64 #foreign meshopt_lib`
-- `meshopt_simplifySloppy :: (destination: *u32, indices: *u32, index_count: u64, vertex_positions: *float, vertex_count: u64, vertex_positions_stride: u64, target_index_count: u64) -> u64 #foreign meshopt_lib`
+- `meshopt_simplify :: (destination: *u32, indices: *u32, index_count: u64, vertex_positions: *float, vertex_count: u64, vertex_positions_stride: u64, target_index_count: u64, target_error: float, options: u32, result_error: *float) -> u64 #foreign meshopt_lib`
+- `meshopt_simplifySloppy :: (destination: *u32, indices: *u32, index_count: u64, vertex_positions: *float, vertex_count: u64, vertex_positions_stride: u64, vertex_lock: *u8, target_index_count: u64, target_error: float, result_error: *float) -> u64 #foreign meshopt_lib`
 - `meshopt_stripify :: (destination: *u32, indices: *u32, index_count: u64, vertex_count: u64, restart_index: u32) -> u64 #foreign meshopt_lib`
 - `meshopt_stripifyBound :: (index_count: u64) -> u64 #foreign meshopt_lib`
 - `meshopt_unstripify :: (destination: *u32, indices: *u32, index_count: u64, restart_index: u32) -> u64 #foreign meshopt_lib`
@@ -37,11 +37,11 @@ Visible public declarations and module-conditional variants are listed below. Pr
 - `meshopt_VertexFetchStatistics :: struct`
 - `meshopt_analyzeVertexFetch :: (indices: *u32, index_count: u64, vertex_count: u64, vertex_size: u64) -> meshopt_VertexFetchStatistics #foreign meshopt_lib`
 - `meshopt_Meshlet :: struct`
-- `meshopt_buildMeshlets :: (destination: *meshopt_Meshlet, indices: *u32, index_count: u64, vertex_count: u64, max_vertices: u64, max_triangles: u64) -> u64 #foreign meshopt_lib`
+- `meshopt_buildMeshlets :: (meshlets: *meshopt_Meshlet, meshlet_vertices: *u32, meshlet_triangles: *u8, indices: *u32, index_count: u64, vertex_positions: *float, vertex_count: u64, vertex_positions_stride: u64, max_vertices: u64, max_triangles: u64, cone_weight: float) -> u64 #foreign meshopt_lib`
 - `meshopt_buildMeshletsBound :: (index_count: u64, max_vertices: u64, max_triangles: u64) -> u64 #foreign meshopt_lib`
 - `meshopt_Bounds :: struct`
 - `meshopt_computeClusterBounds :: (indices: *u32, index_count: u64, vertex_positions: *float, vertex_count: u64, vertex_positions_stride: u64) -> meshopt_Bounds #foreign meshopt_lib`
-- `meshopt_computeMeshletBounds :: (meshlet: *meshopt_Meshlet, vertex_positions: *float, vertex_count: u64, vertex_positions_stride: u64) -> meshopt_Bounds #foreign meshopt_lib`
+- `meshopt_computeMeshletBounds :: (meshlet_vertices: *u32, meshlet_triangles: *u8, triangle_count: u64, vertex_positions: *float, vertex_count: u64, vertex_positions_stride: u64) -> meshopt_Bounds #foreign meshopt_lib`
 - `meshopt_setAllocator :: (allocate: #type (a0: u64) -> *void #c_call, deallocate: #type (a0: *void) -> void #c_call) -> void #foreign meshopt_lib`
 
 ## Public type members
@@ -72,10 +72,10 @@ Visible public declarations and module-conditional variants are listed below. Pr
 
 #### `meshopt_Meshlet` (struct)
 
-- `vertices: [64] u32`
-- `indices: [126] [3] u8`
-- `triangle_count: u8`
-- `vertex_count: u8`
+- `vertex_offset: u32`
+- `triangle_offset: u32`
+- `vertex_count: u32`
+- `triangle_count: u32`
 
 #### `meshopt_Bounds` (struct)
 
@@ -89,7 +89,7 @@ Visible public declarations and module-conditional variants are listed below. Pr
 
 ## Behavioral contract and constraints
 
-This package binds meshoptimizer routines for mesh simplification, remapping, cache/fetch optimization, and compression. The API mutates or fills caller-provided buffers and reports written counts/sizes through results. Buffer capacities and mesh index/attribute consistency are caller preconditions. The binding targets meshoptimizer version 0.11; native library and ABI availability vary by platform.
+This package binds meshoptimizer routines for mesh simplification, remapping, cache/fetch optimization, and compression. The API mutates or fills caller-provided buffers and reports written counts/sizes through results. Buffer capacities and mesh index/attribute consistency are caller preconditions. The binding targets meshoptimizer version 1.3; native library and ABI availability vary by platform.
 
 The public surface is a direct native binding: declared records, constants, and function signatures preserve the represented external ABI; this wrapper does not itself define a different ownership or error model. Native status/error values and handle lifetimes follow the external API. ABI compatibility across external-library versions is not specified unless a version note appears above.
 

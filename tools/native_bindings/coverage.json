@@ -88137,7 +88137,7 @@
     },
     "meshoptimizer": {
       "spec": "docs/specs/stdlib/modules/meshoptimizer.md",
-      "spec_sha256": "363a29e3a9fffcdd0b4757b8800399a659973fa5e0ae1f83942579c3aceb5621",
+      "spec_sha256": "479da15db9bc698aec713efc925a818805ef44ad0c7234883aff23f7ac0ab96d",
       "counts": {
         "declared": 39
       },
@@ -88146,7 +88146,7 @@
       "declarations": [
         {
           "name": "MESHOPTIMIZER_VERSION",
-          "signature": "MESHOPTIMIZER_VERSION :: 110",
+          "signature": "MESHOPTIMIZER_VERSION :: 1030",
           "condition": "",
           "spec_line": 7,
           "status": "declared"
@@ -88286,14 +88286,14 @@
         },
         {
           "name": "meshopt_simplify",
-          "signature": "meshopt_simplify :: (destination: *u32, indices: *u32, index_count: u64, vertex_positions: *float, vertex_count: u64, vertex_positions_stride: u64, target_index_count: u64, target_error: float) -> u64 #foreign meshopt_lib",
+          "signature": "meshopt_simplify :: (destination: *u32, indices: *u32, index_count: u64, vertex_positions: *float, vertex_count: u64, vertex_positions_stride: u64, target_index_count: u64, target_error: float, options: u32, result_error: *float) -> u64 #foreign meshopt_lib",
           "condition": "",
           "spec_line": 27,
           "status": "declared"
         },
         {
           "name": "meshopt_simplifySloppy",
-          "signature": "meshopt_simplifySloppy :: (destination: *u32, indices: *u32, index_count: u64, vertex_positions: *float, vertex_count: u64, vertex_positions_stride: u64, target_index_count: u64) -> u64 #foreign meshopt_lib",
+          "signature": "meshopt_simplifySloppy :: (destination: *u32, indices: *u32, index_count: u64, vertex_positions: *float, vertex_count: u64, vertex_positions_stride: u64, vertex_lock: *u8, target_index_count: u64, target_error: float, result_error: *float) -> u64 #foreign meshopt_lib",
           "condition": "",
           "spec_line": 28,
           "status": "declared"
@@ -88377,7 +88377,7 @@
         },
         {
           "name": "meshopt_buildMeshlets",
-          "signature": "meshopt_buildMeshlets :: (destination: *meshopt_Meshlet, indices: *u32, index_count: u64, vertex_count: u64, max_vertices: u64, max_triangles: u64) -> u64 #foreign meshopt_lib",
+          "signature": "meshopt_buildMeshlets :: (meshlets: *meshopt_Meshlet, meshlet_vertices: *u32, meshlet_triangles: *u8, indices: *u32, index_count: u64, vertex_positions: *float, vertex_count: u64, vertex_positions_stride: u64, max_vertices: u64, max_triangles: u64, cone_weight: float) -> u64 #foreign meshopt_lib",
           "condition": "",
           "spec_line": 40,
           "status": "declared"
@@ -88405,7 +88405,7 @@
         },
         {
           "name": "meshopt_computeMeshletBounds",
-          "signature": "meshopt_computeMeshletBounds :: (meshlet: *meshopt_Meshlet, vertex_positions: *float, vertex_count: u64, vertex_positions_stride: u64) -> meshopt_Bounds #foreign meshopt_lib",
+          "signature": "meshopt_computeMeshletBounds :: (meshlet_vertices: *u32, meshlet_triangles: *u8, triangle_count: u64, vertex_positions: *float, vertex_count: u64, vertex_positions_stride: u64) -> meshopt_Bounds #foreign meshopt_lib",
           "condition": "",
           "spec_line": 44,
           "status": "declared"
