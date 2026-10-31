@@ -4,18 +4,18 @@ Modules used: Basic, Math, Hash_Table, Flat_Pool, File, File_Utilities, File_Wat
 
 ## Language and compiler
 
-- `-check -no_dce` does not type check the bodies of polymorphic procedures nobody instantiates, so mistakes in generic widgets only appear at the first use.
-- The string escape `\u{...}` is not supported; use the literal character.
-- A positional struct literal with fewer values than members (`.{a, b, c}` for a four-field struct) failed when passed to `array_add`; named fields work.
-- A module-level name that clashes with an imported one (`is_digit` from Basic, `compare_strings` from Sort) is reported only as a warning at the use site, which made the cause hard to see in a long file. Naming the other declaration in the message would help.
-- Declarations after `#scope_file` are invisible to a file that `#load`s the module; `#scope_module` is what an app split over several files needs, and the error does not hint at it.
+- `-check -no_dce` does not type check the bodies of polymorphic procedures nobody instantiates, so mistakes in generic widgets only appear at the first use. The official compiler behaves the same way (a type error inside an uncalled polymorphic procedure still compiles), so this is how polymorphs work and nothing changed.
+- The string escape `\u{...}` is not supported; use the literal character. The official compiler rejects it too (`\u` takes exactly four hex digits), so nothing changed.
+- Fixed by "feat(sema): warn about a positional struct literal that leaves trailing defaults": a positional struct literal with fewer values than members (`.{a, b, c}` for a four-field struct) is accepted, with a warning, when the left-out members have defaults, including when passed to `array_add`. A member without a default still needs a value, as in the official compiler.
+- Fixed by "feat(sema): warn when a declaration of the program is also exported by an import": a module-level name that clashes with an imported one (`is_digit` from Basic, `compare_strings` from Sort) is reported at the declaration, with an "also declared here" note pointing at the imported one.
+- Fixed by "feat(diagnostics): hint #scope_module when a file-scoped name is used from a loading file": the error for a `#scope_file` name used from a loading file now suggests `#scope_module`.
 
 ## Standard library
 
-- Math has no `round`; the UI library defines its own.
+- Math has no `round`; the UI library defines its own. The official Math module does not export `round` either, so nothing changed.
 - Fixed by "fix(file): stop logging ordinary open failures": `read_entire_file` printed "file_open failed" to stderr for a missing file; `log_errors` now defaults to `false` (also for `file_open`, `map_entire_file_start`, `map_file`, `copy_file`'s `silent`).
 - Fixed by "feat(file-utilities): add delete_directory_tree": `delete_directory` is not recursive; `File_Utilities.delete_directory_tree` removes a folder with its content (links are removed, not followed).
-- Temp directory lookup is manual (`TMPDIR`, then a fallback); there is no helper.
+- Temp directory lookup is manual (`TMPDIR`, then a fallback); there is no helper. The official modules export no temp-directory helper under any of the usual names (`temp_directory`, `get_temp_dir`, `make_temp_directory` and similar), so nothing was added.
 
 ## Library design notes
 
