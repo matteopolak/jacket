@@ -187,6 +187,8 @@ pub struct Item {
     pub platforms: Vec<String>,
     /// Whether its docs carry the `@experimental` tag (on the item or any overload).
     pub experimental: bool,
+    /// Whether it is declared in a file of foreign procedures, a native API its vendor documents.
+    pub binding: bool,
     /// Other declarations of the name (one per branch of an `#if`) that this item stands for.
     pub also: Vec<(PathBuf, usize)>,
 }
@@ -571,7 +573,7 @@ fn members(decl: &Decl, text: &str) -> Vec<Member> {
 }
 
 /// Whether a file declares foreign procedures, which mirrors a native API documented by its
-/// vendor; its declarations are not listed.
+/// vendor; its declarations are listed as bindings.
 fn is_binding(parsed: &Parsed) -> bool {
     ide_facts::top_level(&parsed.parse.file).iter().any(|item| {
         matches!(item.kind, TopLevelKind::Decl(decl)
@@ -606,6 +608,7 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
         ..Module::default()
     };
     let mut names: Vec<String> = Vec::new();
+    let mut binding_files: HashMap<PathBuf, bool> = HashMap::default();
     // (item index, alias comment) to resolve links once every name is known.
     while let Some(file) = queue.pop() {
         let file = super::canonical(&file);
@@ -617,7 +620,6 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
         };
         let text = parsed.text.clone();
         let base = file.parent().unwrap_or(Path::new(".")).to_path_buf();
-        let binding = is_binding(&parsed);
         let mut first_statement = None;
         let mut loads = Vec::new();
         for item in ide_facts::top_level(&parsed.parse.file) {
@@ -639,7 +641,7 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
                     }
                 }
                 TopLevelKind::Decl(decl) if decl.kind == DeclKind::Const => {
-                    if binding || item.visibility != Visibility::Export {
+                    if item.visibility != Visibility::Export {
                         continue;
                     }
                     let Some(name) = decl.names.first() else {
@@ -651,6 +653,9 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
                     let Some(target) = reader.parsed(&tfile) else {
                         continue;
                     };
+                    let binding = *binding_files
+                        .entry(tfile.clone())
+                        .or_insert_with(|| is_binding(&target));
                     let tname = ide_facts::top_level(&target.parse.file)
                         .into_iter()
                         .find_map(|t| match t.kind {
@@ -677,6 +682,7 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
                                 line: line_of(&text, at),
                                 docs: own_docs.unwrap_or_default(),
                                 value: clip(value),
+                                binding,
                                 platforms: os_names(
                                     parsed
                                         .limits
@@ -722,6 +728,7 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
                         file: tfile.clone(),
                         line: line_of(&target.text, tat),
                         docs: own_docs.unwrap_or_default(),
+                        binding,
                         ..Item::default()
                     };
                     if kind == "procedure" {
@@ -911,7 +918,7 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
             })
             .collect();
         items.push(format!(
-            "{{\"name\":{},\"kind\":{},\"file\":{},\"line\":{},\"docs\":{},\"value\":{},\"platforms\":[{}],\"experimental\":{},\"overloads\":[{}],\"members\":[{}]{}}}",
+            "{{\"name\":{},\"kind\":{},\"file\":{},\"line\":{},\"docs\":{},\"value\":{},\"platforms\":[{}],\"experimental\":{}{},\"overloads\":[{}],\"members\":[{}]{}}}",
             json(&item.name),
             json(item.kind),
             path(&item.file),
@@ -920,6 +927,7 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
             json(&item.value),
             item.platforms.iter().map(|f| json(f)).collect::<Vec<_>>().join(","),
             item.experimental,
+            if item.binding { ",\"binding\":true" } else { "" },
             overloads.join(","),
             members.join(","),
             if item.also.is_empty() {
@@ -1156,6 +1164,37 @@ mod tests {
         let json = to_json(&model, &|_| None);
         assert!(json.contains("\"experimental\":true"));
         assert!(!json.contains("@experimental"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn declarations_of_foreign_procedures_are_listed_as_bindings() {
+        let dir = library(
+            "binding",
+            &[
+                (
+                    "module.jai",
+                    "#load \"declarations.jai\";\n\nown :: () {}\n",
+                ),
+                (
+                    "declarations.jai",
+                    "lib :: #library \"native\";\n\nNative_Mode :: enum s32 { A :: 0; B :: 1; }\nNative_Box :: struct { size: s32; }\nNATIVE_MAX :: 8;\nnative_open :: (mode: Native_Mode) -> s32 #foreign lib;\n",
+                ),
+            ],
+        );
+        let model = module(&dir, Path::new("/nowhere"));
+        let item = |name: &str| model.items.iter().find(|i| i.name == name).unwrap();
+        for name in ["Native_Mode", "Native_Box", "NATIVE_MAX", "native_open"] {
+            assert!(item(name).binding, "{name}");
+        }
+        assert_eq!(item("Native_Mode").members.len(), 2);
+        assert_eq!(item("Native_Box").members.len(), 1);
+        assert_eq!(item("native_open").overloads.len(), 1);
+        assert!(!item("own").binding);
+        let json = to_json(&model, &|_| None);
+        let flagged = model.items.iter().filter(|i| i.binding).count();
+        assert_eq!(json.matches("\"binding\":true").count(), flagged);
+        assert_eq!(flagged, model.items.len() - 1);
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
