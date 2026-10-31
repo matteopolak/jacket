@@ -19,7 +19,7 @@
 
 GROUP_SIZE :: 16;
 
-// A hash map from `Key` to `Value`. Strings and anything [Hash.get_hash] handles work as keys
+// A hash map from `Key` to `Value`. Strings and anything `Hash.get_hash` handles work as keys
 // out of the box; pass `hash` and `equal` for other types. The zero value is an empty map that
 // allocates on the first insert; free it with [deinit].
 //
