@@ -110,6 +110,8 @@ pub struct Item {
     pub since: String,
     /// Tagged `@experimental` in its docs.
     pub experimental: bool,
+    /// Declared by a native binding: listed on the module page, with no page of its own.
+    pub binding: bool,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -277,6 +279,7 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
                 line: number(i, "line"),
                 docs: text(i, "docs"),
                 value: text(i, "value"),
+                binding: i.get("binding").and_then(Value::as_bool).unwrap_or(false),
                 overloads,
                 members: list(i, "members")
                     .iter()

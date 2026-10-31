@@ -63,8 +63,11 @@ fn apply(data: &Data, modules: &mut [Module], built: &str) {
     for module in modules.iter_mut() {
         let known = data.versions.get(&module.id);
         let mut earliest: Option<(u32, u32, u32)> = None;
-        let mut every_item_has_one = !module.items.is_empty();
+        let mut every_item_has_one = module.items.iter().any(|i| !i.binding);
         for item in &mut module.items {
+            if item.binding {
+                continue;
+            }
             let version = match known.and_then(|k| k.get(&item.name)) {
                 Some(v) if v == OLDER => None,
                 Some(v) => Some(v.clone()),
@@ -114,6 +117,7 @@ mod tests {
                     platforms: Vec::new(),
                     since: String::new(),
                     experimental: false,
+                    binding: false,
                 })
                 .collect(),
             category: String::new(),

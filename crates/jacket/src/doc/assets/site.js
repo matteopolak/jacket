@@ -75,6 +75,7 @@
   function kindOf(it) { return it.kind === 'proc' ? 'proc' : it.kind === 'const' ? 'const' : it.kind === 'module' ? 'mod' : 'type'; }
   function hrefOf(it) {
     if (it.kind === 'module') return base + 'api/' + it.module + '/';
+    if (it.native) return base + 'api/' + it.module + '/#' + it.name.replace(/[^A-Za-z0-9_]/g, function (c) { return '-' + ('0' + c.charCodeAt(0).toString(16)).slice(-2); });
     return base + 'api/' + it.module + '/' + it.name.replace(/[^A-Za-z0-9_]/g, function (c) { return '-' + ('0' + c.charCodeAt(0).toString(16)).slice(-2); }) + '/';
   }
   function load() {
@@ -84,7 +85,7 @@
           var module = d.modules[r[0]];
           var title = module.split('/').pop();
           return {
-            module: module, title: title, name: r[1], kind: r[2], summary: r[3], sig: r[4], shapes: r[5], experimental: r[6] === 1,
+            module: module, title: title, name: r[1], kind: r[2], summary: r[3], sig: r[4], shapes: r[5], experimental: (r[6] & 1) === 1, native: (r[6] & 2) === 2,
             lname: r[1].toLowerCase(), lpath: (title + '.' + r[1]).toLowerCase(), lsum: r[3].toLowerCase()
           };
         });
@@ -125,7 +126,7 @@
       });
       if (best >= 0) out.push({ it: it, score: best });
     });
-    out.sort(function (a, b) { return b.score - a.score || a.it.name.length - b.it.name.length || (a.it.lpath < b.it.lpath ? -1 : 1); });
+    out.sort(function (a, b) { return (a.it.native ? 1 : 0) - (b.it.native ? 1 : 0) || b.score - a.score || a.it.name.length - b.it.name.length || (a.it.lpath < b.it.lpath ? -1 : 1); });
     return out.map(function (o) { return o.it; });
   }
   function byName(query) {
@@ -145,6 +146,8 @@
         score += s;
       }
       if (it.kind === 'module') score += 50;
+      // Native bindings come after the library's own API that matches as well.
+      if (it.native) score = Math.floor(score / 4);
       out.push({ it: it, score: score });
     });
     out.sort(function (a, b) { return b.score - a.score || a.it.name.length - b.it.name.length || (a.it.lpath < b.it.lpath ? -1 : 1); });
@@ -174,7 +177,7 @@
       if (m[1] !== undefined) {
         flush();
         var a = el('a', 'ty', m[2]);
-        a.href = base + 'api/' + m[1] + '/';
+        a.href = base + 'api/' + m[1] + (m[1].indexOf('#') < 0 ? '/' : '');
         out.appendChild(a);
         prev = m[2];
         continue;
@@ -206,6 +209,7 @@
       name.href = hrefOf(it);
       a.appendChild(el('code', '', '')).appendChild(name);
       if (it.experimental) a.appendChild(el('span', 'badge exp sm', 'Experimental'));
+      if (it.native) a.appendChild(el('span', 'badge sm', 'Native'));
       var sig = el('span', 'sig');
       sig.appendChild(sigNodes(it));
       a.appendChild(sig);
@@ -382,6 +386,20 @@
     var name = e.button === 1 && cardLink(e);
     if (name) window.open(name.href, '_blank');
   });
+
+  // A link to a native declaration points inside collapsed sections; open them and scroll there.
+  function openTarget() {
+    var id = decodeURIComponent(location.hash.slice(1));
+    var target = id ? document.getElementById(id) : null;
+    if (!target) return;
+    var opened = false;
+    for (var node = target; node; node = node.parentElement) {
+      if (node.tagName === 'DETAILS' && !node.open && (node.classList.contains('native') || node.classList.contains('nrow'))) { node.open = true; opened = true; }
+    }
+    if (opened) target.scrollIntoView();
+  }
+  window.addEventListener('hashchange', openTarget);
+  openTarget();
 
   // Version menu. versions.json is [{"version": "0.31.0", "url": "../0.31.0/"}, ...]; a relative url is read from versions.json's folder.
   (function () {

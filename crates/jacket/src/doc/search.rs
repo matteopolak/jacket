@@ -1,5 +1,7 @@
 //! The search index the page loads on first use: every item by name and every overload by the
-//! types it takes and returns, so `-> bool` and `string -> [] string` find procedures.
+//! types it takes and returns, so `-> bool` and `string -> [] string` find procedures. The last
+//! column of an item is a bit set: 1 for `@experimental`, 2 for a native binding, which the page
+//! ranks below the hand-written API.
 use super::markdown::{self, Segment, Settings, plain};
 use super::model::Kind;
 use super::site::{Site, item_line, signature_marked};
@@ -59,9 +61,12 @@ pub fn index(site: &Site) -> String {
             } else {
                 item.docs.as_str()
             };
+            // A binding is found by name only, with its signature as plain text: its types are
+            // many and the index loads on the first keystroke.
             let shapes: Vec<Value> = item
                 .overloads
                 .iter()
+                .filter(|_| !item.binding)
                 .map(|o| {
                     json!([
                         o.params.iter().map(|p| normal(&p.ty)).collect::<Vec<_>>(),
@@ -80,11 +85,11 @@ pub fn index(site: &Site) -> String {
                 kind,
                 summary(site, docs, &item.name),
                 match (item.kind, item.overloads.first()) {
-                    (Kind::Procedure, Some(o)) => signature_marked(site, o, mi),
+                    (Kind::Procedure, Some(o)) if !item.binding => signature_marked(site, o, mi),
                     _ => item_line(item),
                 },
                 shapes,
-                u8::from(item.experimental)
+                u8::from(item.experimental) | (u8::from(item.binding) << 1)
             ]));
         }
     }

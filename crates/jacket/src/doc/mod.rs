@@ -297,7 +297,7 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
     let mut items = 0;
     for (mi, module) in site.modules.iter().enumerate() {
         add(Site::module_path(&module.id), pages::module_page(&site, mi));
-        for item in &module.items {
+        for item in module.items.iter().filter(|i| !i.binding) {
             items += 1;
             add(
                 Site::item_path(&module.id, &item.name),
@@ -352,7 +352,7 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         .modules
         .iter()
         .flat_map(|m| &m.items)
-        .filter(|i| i.kind == Kind::Procedure)
+        .filter(|i| i.kind == Kind::Procedure && !i.binding)
         .count();
     let total: usize = files.iter().map(|(_, bytes)| bytes.len()).sum();
     if !args.check {

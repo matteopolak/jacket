@@ -420,7 +420,7 @@ pub fn module_page(site: &Site, mi: usize) -> String {
     let procs: Vec<&Item> = m
         .items
         .iter()
-        .filter(|i| i.kind == Kind::Procedure)
+        .filter(|i| i.kind == Kind::Procedure && !i.binding)
         .collect();
     if !procs.is_empty() {
         main.push_str(&heading(2, "procedures", "Procedures"));
@@ -452,7 +452,11 @@ pub fn module_page(site: &Site, mi: usize) -> String {
             main.push_str("</section>\n");
         }
     }
-    let types: Vec<&Item> = m.items.iter().filter(|i| i.kind.is_type()).collect();
+    let types: Vec<&Item> = m
+        .items
+        .iter()
+        .filter(|i| i.kind.is_type() && !i.binding)
+        .collect();
     if !types.is_empty() {
         main.push_str(&heading(2, "types", "Types"));
         outline.push(("types".into(), "Types".into(), false));
@@ -465,7 +469,7 @@ pub fn module_page(site: &Site, mi: usize) -> String {
     let constants: Vec<&Item> = m
         .items
         .iter()
-        .filter(|i| i.kind == Kind::Constant)
+        .filter(|i| i.kind == Kind::Constant && !i.binding)
         .collect();
     if !constants.is_empty() {
         main.push_str(&heading(2, "constants", "Constants"));
@@ -475,6 +479,12 @@ pub fn module_page(site: &Site, mi: usize) -> String {
             main.push_str(&row(site, mi, c));
         }
         main.push_str("</section>\n");
+    }
+    let native = native_section(site, mi);
+    if !native.is_empty() {
+        main.push_str(&heading(2, "native", "Native API"));
+        outline.push(("native".into(), "Native API".into(), false));
+        main.push_str(&native);
     }
     render(
         site,
@@ -488,6 +498,89 @@ pub fn module_page(site: &Site, mi: usize) -> String {
             path: &Site::module_path(&m.id),
         },
     )
+}
+
+/// The declarations of the module's native bindings, collapsed: one line each, with the members
+/// of a type folded below it. They have no pages of their own.
+fn native_section(site: &Site, mi: usize) -> String {
+    let m = &site.modules[mi];
+    let all: Vec<&Item> = m.items.iter().filter(|i| i.binding).collect();
+    if all.is_empty() {
+        return String::new();
+    }
+    let procs: Vec<&&Item> = all.iter().filter(|i| i.kind == Kind::Procedure).collect();
+    let types: Vec<&&Item> = all.iter().filter(|i| i.kind.is_type()).collect();
+    let constants: Vec<&&Item> = all.iter().filter(|i| i.kind == Kind::Constant).collect();
+    let mut out = format!(
+        "<details class=\"native\" id=\"native-list\"><summary>Show {} native declarations</summary>\n<p class=\"muted\">Declared by the binding; the library that provides them documents what they do.</p>\n",
+        all.len()
+    );
+    let mut part = |label: &str, items: &[&&Item], line: &dyn Fn(&Item) -> String| {
+        if items.is_empty() {
+            return;
+        }
+        out.push_str(&format!(
+            "<h3>{label} <span class=\"muted\">{}</span></h3>\n<div class=\"nlist\">\n",
+            items.len()
+        ));
+        for item in items {
+            out.push_str(&line(item));
+        }
+        out.push_str("</div>\n");
+    };
+    let id = |item: &Item| esc(&Site::slug(&item.name));
+    part("Procedures", &procs, &|item| {
+        let sig = item
+            .overloads
+            .first()
+            .map(|o| signature_line_html(site, o, mi))
+            .unwrap_or_default();
+        format!(
+            "<div class=\"nrow mono\" id=\"{}\"><b>{}</b>{sig}</div>\n",
+            id(item),
+            esc(&item.name)
+        )
+    });
+    part("Types", &types, &|item| {
+        let label = item.kind.label();
+        if item.members.is_empty() {
+            return format!(
+                "<div class=\"nrow mono\" id=\"{}\"><b>{}</b> <span class=\"muted\">{} {}</span></div>\n",
+                id(item),
+                esc(&item.name),
+                label,
+                esc(&item.value)
+            );
+        }
+        let enumerated = matches!(item.kind, Kind::Enum | Kind::EnumFlags);
+        let mut rows = String::new();
+        for member in &item.members {
+            let (sep, ty) = if member.ty.is_empty() {
+                ("", String::new())
+            } else if enumerated {
+                (" :: ", esc(&member.ty))
+            } else {
+                (": ", site.type_html(&member.ty, &member.refs, mi))
+            };
+            rows.push_str(&format!("<div>{}{sep}{ty}</div>", esc(&member.name)));
+        }
+        format!(
+            "<details class=\"nrow mono\" id=\"{}\"><summary><b>{}</b> <span class=\"muted\">{label}, {}</span></summary><div class=\"nmembers\">{rows}</div></details>\n",
+            id(item),
+            esc(&item.name),
+            plural(item.members.len(), "member")
+        )
+    });
+    part("Constants", &constants, &|item| {
+        format!(
+            "<div class=\"nrow mono\" id=\"{}\"><b>{}</b> <span class=\"muted\">{}</span></div>\n",
+            id(item),
+            esc(&item.name),
+            esc(&item_line(item))
+        )
+    });
+    out.push_str("</details>\n");
+    out
 }
 
 // An item.
@@ -673,7 +766,8 @@ fn see_also(site: &Site, mi: usize, item: &Item) -> String {
         .items
         .iter()
         .filter(|i| {
-            i.group == item.group
+            !i.binding
+                && i.group == item.group
                 && i.kind.is_type() == item.kind.is_type()
                 && (i.kind == Kind::Procedure) == (item.kind == Kind::Procedure)
         })
@@ -719,7 +813,8 @@ fn item_side(site: &Site, mi: usize, item: &Item, anchors: &[(String, String)]) 
         .items
         .iter()
         .filter(|i| {
-            i.group == item.group
+            !i.binding
+                && i.group == item.group
                 && (i.kind == Kind::Procedure) == (item.kind == Kind::Procedure)
                 && i.kind.is_type() == item.kind.is_type()
         })
@@ -958,5 +1053,71 @@ mod tests {
             .collect();
         // Each module, then its items: moving, steady.
         assert_eq!(flags, [1, 1, 0, 0, 1, 0]);
+    }
+
+    fn binding_site() -> Site {
+        let native = |name: &str, kind, value: &str| Item {
+            name: name.into(),
+            kind,
+            value: value.into(),
+            binding: true,
+            ..Item::default()
+        };
+        let mode = Item {
+            members: vec![super::super::model::Member {
+                name: "FAST".into(),
+                ty: "1".into(),
+                ..Default::default()
+            }],
+            ..native("Mode", Kind::Enum, "")
+        };
+        let own = Item {
+            name: "own".into(),
+            kind: Kind::Constant,
+            docs: "Ours.".into(),
+            ..Item::default()
+        };
+        Site::new(
+            vec![Module {
+                id: "Vendor".into(),
+                category: "General".into(),
+                items: vec![own, native("MAX", Kind::Constant, "8"), mode],
+                ..Module::default()
+            }],
+            vec!["General".into()],
+            "/".into(),
+            "0.0.0".into(),
+            String::new(),
+            String::new(),
+            false,
+        )
+    }
+
+    #[test]
+    fn native_declarations_are_collapsed_on_the_module_page() {
+        let site = binding_site();
+        let page = module_page(&site, 0);
+        let native = page.find("<details class=\"native\"").unwrap();
+        assert!(page.find("id=\"own\"").unwrap() < native);
+        assert!(page[native..].contains("id=\"MAX\""));
+        assert!(page[native..].contains("FAST"));
+        assert!(!page[..native].contains("id=\"MAX\""));
+        assert_eq!(site.item_href("Vendor", "MAX"), "/api/Vendor/#MAX");
+        assert_eq!(site.item_href("Vendor", "own"), "/api/Vendor/own/");
+    }
+
+    #[test]
+    fn native_declarations_are_searchable_but_flagged() {
+        let site = binding_site();
+        let index: serde_json::Value =
+            serde_json::from_str(&super::super::search::index(&site)).unwrap();
+        let flags: Vec<i64> = index["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r[6].as_i64().unwrap())
+            .collect();
+        // The module, then own, MAX, Mode.
+        assert_eq!(flags, [0, 0, 2, 2]);
     }
 }

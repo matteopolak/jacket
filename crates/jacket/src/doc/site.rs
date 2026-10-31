@@ -21,6 +21,8 @@ pub struct Site {
     /// Whether the site carries a browser compiler.
     pub runtime: bool,
     by_id: BTreeMap<String, usize>,
+    /// `Module/name` of each item declared by a native binding.
+    bindings: jaic::fxhash::HashSet<String>,
     /// A type name that is declared once across the library leads to its page.
     decls: BTreeMap<(String, usize), Vec<(usize, String)>>,
     /// Example programs, by the id in their file name.
@@ -61,6 +63,15 @@ impl Site {
                 }
             }
         }
+        let bindings = modules
+            .iter()
+            .flat_map(|m| {
+                m.items
+                    .iter()
+                    .filter(|i| i.binding)
+                    .map(move |i| format!("{}/{}", m.id, i.name))
+            })
+            .collect();
         Site {
             modules,
             categories,
@@ -73,6 +84,7 @@ impl Site {
             playground,
             runtime,
             by_id,
+            bindings,
             decls,
             examples: RefCell::new(BTreeMap::new()),
             broken: RefCell::new(Vec::new()),
@@ -118,7 +130,16 @@ impl Site {
         self.href(&format!("api/{id}/"))
     }
 
+    /// Whether `name` of `module` is a native binding, which has no page of its own.
+    pub fn is_binding(&self, module: &str, name: &str) -> bool {
+        self.bindings.contains(&format!("{module}/{name}"))
+    }
+
+    /// An item's page; a binding's place on its module's page.
     pub fn item_href(&self, module: &str, name: &str) -> String {
+        if self.is_binding(module, name) {
+            return self.href(&format!("api/{module}/#{}", Self::slug(name)));
+        }
         self.href(&format!("api/{module}/{}/", Self::slug(name)))
     }
 
@@ -154,6 +175,7 @@ impl Site {
         };
         let href = self.item_href(module, &item.name);
         Some(match member {
+            Some(member) if item.binding && item.members.iter().any(|m| m.name == member) => href,
             Some(member) if item.members.iter().any(|m| m.name == member) => {
                 format!("{href}#m-{member}")
             }
@@ -290,8 +312,13 @@ impl Site {
             {
                 if marked {
                     let id = &self.modules[*m].id;
+                    let hash = if self.is_binding(id, name) {
+                        "#"
+                    } else {
+                        ""
+                    };
                     return format!(
-                        "\u{1}{id}/{}\u{2}{head}\u{3}{}",
+                        "\u{1}{id}/{hash}{}\u{2}{head}\u{3}{}",
                         Self::slug(name),
                         &path[end..]
                     );
