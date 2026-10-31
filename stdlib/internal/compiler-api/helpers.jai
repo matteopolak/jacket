@@ -1,3 +1,12 @@
+// Sets the options that go with an optimization level: bounds and cast checks, the LLVM optimization settings, inlining and so on. `preserve_debug_info` keeps or drops debug information.
+//
+// ```jai
+// options: Build_Options;
+// set_optimization(*options, .OPTIMIZED);
+// assert(options.array_bounds_check == .OFF);
+// set_optimization(*options, .DEBUG);
+// assert(options.array_bounds_check == .ON);
+// ```
 set_optimization :: (using build_options: *C.Build_Options, type: C.Optimization_Type, preserve_debug_info := true) {
     debug := type == .DEBUG || type == .VERY_DEBUG;
     if debug {
@@ -38,10 +47,17 @@ set_optimization :: (using build_options: *C.Build_Options, type: C.Optimization
     if !preserve_debug_info emit_debug_info = .NONE;
 }
 
+// Copies the options that a workspace passes on to the workspaces it creates (`Build_Options.Commonly_Propagated`) from `a` to `b`.
 copy_commonly_propagated_fields :: (a: C.Build_Options, b: *C.Build_Options) {
     b.Commonly_Propagated = a.Commonly_Propagated;
 }
 
+// Allocates a number literal node with the value `v`, for building code by hand.
+//
+// ```jai
+// literal := make_integer_literal(42);
+// assert(literal._s64 == 42 && literal.kind == .LITERAL);
+// ```
 make_integer_literal :: (v: s64) -> *C.Code_Literal {
     result := Basic.New(C.Code_Literal);
     result.kind = .LITERAL;
@@ -53,6 +69,12 @@ make_integer_literal :: (v: s64) -> *C.Code_Literal {
     return result;
 }
 
+// Allocates a string literal node holding a copy of `s`.
+//
+// ```jai
+// literal := make_string_literal("hi");
+// assert(literal._string == "hi");
+// ```
 make_string_literal :: (s: string) -> *C.Code_Literal {
     result := Basic.New(C.Code_Literal);
     result.kind = .LITERAL;
@@ -62,16 +84,24 @@ make_string_literal :: (s: string) -> *C.Code_Literal {
     return result;
 }
 
+// Returns the file, line and column where `c` was written, as a `Source_Code_Location`.
 make_location :: (c: *C.Code_Node) -> Source_Code_Location {
     if !c return .{};
     return .{ get_filename(c), c.l0, c.c0 };
 }
 
+// Returns the full path of the file `node` was loaded from, or an empty string.
 get_filename :: (node: *C.Code_Node) -> string {
     if !node || !node.enclosing_load return "";
     return node.enclosing_load.fully_pathed_filename;
 }
 
+// Splits a file path into its name without the extension and its folder (with the trailing slash).
+//
+// ```jai
+// name, folder := get_basename_and_path("src/lib/parser.jai");
+// assert(name == "parser" && folder == "src/lib/");
+// ```
 get_basename_and_path :: (input_name: string) -> (basename: string, path: string) {
     split: s64 = -1;
     for c, i: input_name if c == #char "/" || c == #char "\\" split = i;
@@ -90,11 +120,17 @@ get_basename_and_path :: (input_name: string) -> (basename: string, path: string
     return name, path;
 }
 
+// True if the struct `info` is, or starts with a `#as using` member that is, a struct called `base_name`.
 is_subclass_of :: (info: *Type_Info, base_name: string, first_call := true) -> bool {
     Basic.assert(first_call, "is_subclass_of(first_call=false) requires a behavioral contract");
     return has_base_type(info, base_name);
 }
 
+// Returns the source spelling of an operator, such as `"=="` or `"<<"`.
+//
+// ```jai
+// assert(operator_to_string(.IS_EQUAL) == "==");
+// ```
 operator_to_string :: (op: C.Operator_Type) -> string {
     return operator_text(cast(s32) op);
 }

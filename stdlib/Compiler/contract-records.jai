@@ -1,7 +1,7 @@
-// Generated from docs/specs/stdlib/modules/compiler.md; edit the spec/generator.
-
+// A data segment added to the built program with [add_data_segment]. Pass it back as `user_segment` to [add_global_data].
 Data_Segment :: struct {}
 
+// What a custom data segment allows: reading, writing, executing, and whether it starts zeroed.
 Data_Segment_Characteristics :: enum_flags u32 {
     READ :: 0x1;
     WRITE :: 0x2;
@@ -9,6 +9,7 @@ Data_Segment_Characteristics :: enum_flags u32 {
     ZEROED :: 0x8;
 }
 
+// Which segment [add_global_data] puts data in: one of the built-in ones, or `USER_SEGMENT` for one you added.
 Data_Segment_Index :: enum u16 {
     WRITABLE :: 0x0;
     WRITABLE_NO_RESET :: 0x1;
@@ -17,11 +18,13 @@ Data_Segment_Index :: enum u16 {
     USER_SEGMENT :: 0x10;
 }
 
+// The global data of a built program, as a list of segments. Part of [Runtime_Info].
 Global_Data_Info :: struct {
     version_stamp: u64;
     segment_info: [] Global_Data_Segment_Info;
 }
 
+// One segment of the global data: what kind it is (zeroed, writable, read-only, ...) and its bytes.
 Global_Data_Segment_Info :: struct {
     segment_tag: enum u16 {
         BSS :: 0;
@@ -33,17 +36,27 @@ Global_Data_Segment_Info :: struct {
     data: [] u8;
 }
 
+// What a program knows about itself at run time: its type table and its global data. Get it from [get_runtime_info].
 Runtime_Info :: struct {
     type_table: [] *Type_Info;
     global_data_info: *Global_Data_Info;
 }
 
+// Switches for how much type information a workspace keeps, set with [compiler_set_type_info_flags].
 Type_Info_Flags :: enum u32 {
     NO_TYPE_INFO :: 0x1;
     PROCEDURES_ARE_VOID_POINTERS :: 0x2;
     NO_SIZE_COMPLAINT :: 0x4;
 }
 
+// Every setting of a build: what to produce (`output_type`), where to write it, the checks to compile in, the optimizer and the backend. Get a copy with [get_build_options], change it, and apply it with [set_build_options]. [set_optimization] fills in the fields that go with an optimization level.
+//
+// ```jai
+// options: Build_Options;
+// assert(options.output_type == .EXECUTABLE);
+// options.output_type = .NO_OUTPUT;
+// options.array_bounds_check = .OFF;
+// ```
 Build_Options :: struct {
     Output_Type :: enum u8 {
         NO_OUTPUT :: 0;
@@ -152,6 +165,7 @@ Build_Options :: struct {
     user_data_pointer_size: s32;
 }
 
+// The build options that can still change while a build is running. Apply them with [set_build_options_dc].
 Build_Options_During_Compile :: struct {
     do_output := true;
     write_added_strings := true;
@@ -162,6 +176,7 @@ Build_Options_During_Compile :: struct {
     output_path: string;
 }
 
+// How hard LLVM optimizes the program: `O0` to `O3` for speed, `OS` and `OZ` for size.
 Llvm_Bitcode_Optimization_Setting :: enum u8 {
     UNSET :: 0;
     O0 :: 1;
@@ -172,6 +187,7 @@ Llvm_Bitcode_Optimization_Setting :: enum u8 {
     OZ :: 6;
 }
 
+// How hard LLVM optimizes when it turns the program into machine code.
 Llvm_Machine_Code_Optimization_Setting :: enum u8 {
     UNSET :: 0;
     NONE :: 1;
@@ -180,6 +196,7 @@ Llvm_Machine_Code_Optimization_Setting :: enum u8 {
     AGGRESSIVE :: 4;
 }
 
+// Settings for the LLVM backend: optimization levels, inlining, vectorization, and what intermediate output to keep.
 Llvm_Options :: struct {
     bitcode_optimization_setting: Llvm_Bitcode_Optimization_Setting;
     machine_code_optimization_setting: Llvm_Machine_Code_Optimization_Setting;
@@ -203,6 +220,7 @@ Llvm_Options :: struct {
     command_line: [] string;
 }
 
+// An optimization preset for [set_optimization], from `DEBUG` to `VERY_OPTIMIZED`, plus two that favor size.
 Optimization_Type :: enum u8 {
     DEBUG :: 0;
     VERY_DEBUG :: 1;
@@ -212,18 +230,21 @@ Optimization_Type :: enum u8 {
     OPTIMIZED_VERY_SMALL :: 5;
 }
 
+// The compiler's version, filled in by [compiler_get_version_info].
 Version_Info :: struct {
     major: s32;
     minor: s32;
     micro: s32;
 }
 
+// Settings for the built-in x64 backend.
 X64_Options :: struct {
     use_dlls := false;
     enable_register_allocation := false;
     enable_unix_runtime_frame_information := true;
 }
 
+// Which kinds of typechecked code [compiler_begin_intercept] should leave out of its messages, and which performance reports to send.
 Intercept_Flags :: enum_flags u32 {
     SKIP_EXPRESSIONS_WITHOUT_NOTES :: 0x1;
     SKIP_DECLARATIONS :: 0x2;
@@ -236,6 +257,7 @@ Intercept_Flags :: enum_flags u32 {
     DO_PERFORMANCE_REPORT_RUNS :: 0x2000;
 }
 
+// The start of every compiler message. `kind` says which `Message_*` type it really is; cast to that type to read the rest. `workspace` is the build it belongs to.
 Message :: struct {
     kind: enum u8 {
         UNINITIALIZED :: 0;
@@ -252,6 +274,7 @@ Message :: struct {
     workspace: Workspace;
 }
 
+// The last message of a build. `error_code` says whether it worked.
 Message_Complete :: struct {
     #as using m: Message;
     error_code: enum u8 {
@@ -261,11 +284,13 @@ Message_Complete :: struct {
     };
 }
 
+// The text of a `#debug_dump` request.
 Message_Debug_Dump :: struct {
     #as using m: Message;
     dump_text: string;
 }
 
+// A module could not be found. Answer it with [provide_import], or the build fails.
 Message_Failed_Import :: struct {
     #as using m: Message;
     status: enum u8 {
@@ -278,6 +303,7 @@ Message_Failed_Import :: struct {
     import_code: *Code_Directive_Import;
 }
 
+// A source file was loaded, with its full path and the import it belongs to.
 Message_File :: struct {
     #as using m: Message;
     fully_pathed_filename: string;
@@ -285,6 +311,7 @@ Message_File :: struct {
     from_a_string: bool;
 }
 
+// A module was imported, with its name, path and kind.
 Message_Import :: struct {
     #as using m: Message;
     module_type: enum u8 {
@@ -298,6 +325,7 @@ Message_Import :: struct {
     fully_pathed_filename: string;
 }
 
+// Timing and counts about the build, sent when [Intercept_Flags] asks for them.
 Message_Performance_Report :: struct {
     #as using m: Message;
     time_report: Time_Report;
@@ -306,6 +334,7 @@ Message_Performance_Report :: struct {
     bytecode_report: Bytecode_Report;
 }
 
+// The build reached a stage, such as all source being parsed or the executable being written.
 Message_Phase :: struct {
     #as using m: Message;
     phase: enum u32 {
@@ -326,6 +355,7 @@ Message_Phase :: struct {
     user_libraries: [] string;
 }
 
+// A batch of code finished type checking: declarations, procedure headers and bodies, structs and everything else, each with the nodes inside it.
 Message_Typechecked :: struct {
     #as using m: Message;
     declarations: [] Typechecked(Code_Declaration);
@@ -336,6 +366,7 @@ Message_Typechecked :: struct {
     all: [] Typechecked(Code_Node);
 }
 
+// What the answer to a [Message_Failed_Import] is: a module name, a file, a folder or source text.
 Provided_Import_Type :: enum u8 {
     SHORT_NAME :: 0;
     PATH_TO_FILE :: 1;
@@ -343,6 +374,7 @@ Provided_Import_Type :: enum u8 {
     FULL_TEXT :: 3;
 }
 
+// How serious a [compiler_report] is. `ERROR` fails the build; the others only print.
 Report :: enum u8 {
     ERROR :: 0;
     ERROR_CONTINUABLE :: 1;
@@ -350,16 +382,19 @@ Report :: enum u8 {
     INFO :: 3;
 }
 
+// Whether a workspace is still good, for [compiler_set_workspace_status].
 Workspace_Status :: enum u8 {
     OK :: 0;
     FAILED :: 1;
 }
 
+// One argument in a call or return: its expression, and its name if it was passed by name.
 Code_Argument :: struct {
     expression: *Code_Node;
     name: *Code_Ident;
 }
 
+// The details of an array literal: element type, alignment and members.
 Code_Array_Literal_Info :: struct {
     element_type: *Code_Type_Instantiation;
     alignment: *Code_Node;
@@ -369,6 +404,7 @@ Code_Array_Literal_Info :: struct {
     };
 }
 
+// An inline assembly block.
 Code_Asm :: struct {
     #as using base: Code_Node;
     b1: *void;
@@ -376,6 +412,7 @@ Code_Asm :: struct {
     b3: [] u64;
 }
 
+// A two-operand expression such as `a + b`: the operator and the `left` and `right` nodes.
 Code_Binary_Operator :: struct {
     Flags :: enum_flags u16 {
         SHIFT_MARKED_AS_LOGICAL :: 0x01;
@@ -388,6 +425,7 @@ Code_Binary_Operator :: struct {
     right: *Code_Node;
 }
 
+// A `{ ... }` block: its statements and the declarations it makes.
 Code_Block :: struct {
     #as using base: Code_Node;
     parent: *Code_Block;
@@ -410,6 +448,7 @@ Code_Block :: struct {
     owning_statement: *Code_Node;
 }
 
+// One `case` of an `if ==` switch.
 Code_Case :: struct {
     #as using base: Code_Node;
     condition: *Code_Node;
@@ -418,6 +457,7 @@ Code_Case :: struct {
     marked_as_fallthrough := false;
 }
 
+// A cast, explicit or inserted by the compiler, with the type it converts to.
 Code_Cast :: struct {
     #as using base: Code_Node;
     target_type: *Code_Type_Instantiation;
@@ -437,6 +477,7 @@ Code_Cast :: struct {
     };
 }
 
+// One entry of a [Code_Comma_Separated_Arguments] list.
 Code_Comma_Separated_Argument :: struct {
     node: *Code_Node;
     modifier: enum u8 {
@@ -446,11 +487,13 @@ Code_Comma_Separated_Argument :: struct {
     };
 }
 
+// A comma-separated list on the left of `:=` or `=`, as in `a, b := f();`.
 Code_Comma_Separated_Arguments :: struct {
     #as using base: Code_Node;
     arguments: [] Code_Comma_Separated_Argument;
 }
 
+// A declaration of several names at once, as in `a, b := f();`.
 Code_Compound_Declaration :: struct {
     #as using entry: Code_Node;
     comma_separated_assignment: *Code_Comma_Separated_Arguments;
@@ -460,11 +503,13 @@ Code_Compound_Declaration :: struct {
     operator_type: Operator_Type;
 }
 
+// The `context` value.
 Code_Context :: struct {
     #as using base: Code_Node;
     kind = .CONTEXT;
 }
 
+// A declaration: a variable, constant, parameter or procedure name, with its type, value, notes and flags.
 Code_Declaration :: struct {
     #as using entry: Code_Scope_Entry;
     type_inst: *Code_Type_Instantiation;
@@ -492,17 +537,20 @@ Code_Declaration :: struct {
     program_export_name: string;
 }
 
+// A `defer` statement and its block.
 Code_Defer :: struct {
     #as using base: Code_Node;
     block: *Code_Block;
     is_backticked: bool;
 }
 
+// An `#add_context` directive.
 Code_Directive_Add_Context :: struct {
     #as using base: Code_Node;
     expression: *Code_Node;
 }
 
+// A `#bake` or `$$` expression, which fixes some arguments of a procedure.
 Code_Directive_Bake :: struct {
     #as using base: Code_Node;
     procedure_call: *Code_Procedure_Call;
@@ -513,11 +561,13 @@ Code_Directive_Bake :: struct {
     };
 }
 
+// A `#bytes` directive.
 Code_Directive_Bytes :: struct {
     #as using base: Code_Node;
     expression: *Code_Node;
 }
 
+// A `#code` expression, whose body becomes a `Code` value.
 Code_Directive_Code :: struct {
     #as using base: Code_Node;
     expression: *Code_Node;
@@ -528,17 +578,20 @@ Code_Directive_Code :: struct {
     };
 }
 
+// A `#context` directive.
 Code_Directive_Context_Type :: struct {
     #as using base: Code_Node;
     kind = .DIRECTIVE_CONTEXT_TYPE;
 }
 
+// An `#exists` query.
 Code_Directive_Exists :: struct {
     #as using base: Code_Node;
     query_expression: *Code_Node;
     sync_expression: *Code_Node;
 }
 
+// An `#import` directive: the module name and its parameters.
 Code_Directive_Import :: struct {
     #as using base: Code_Node;
     name: string;
@@ -550,6 +603,7 @@ Code_Directive_Import :: struct {
     program_parameters_call: *Code_Procedure_Call;
 }
 
+// An `#insert` directive and the code it inserts.
 Code_Directive_Insert :: struct {
     #as using base: Code_Node;
     expression: *Code_Node;
@@ -561,6 +615,7 @@ Code_Directive_Insert :: struct {
     is_internal := false;
 }
 
+// A `#library` directive naming a native library.
 Code_Directive_Library :: struct {
     #as using base: Code_Node;
     name: string;
@@ -572,6 +627,7 @@ Code_Directive_Library :: struct {
     };
 }
 
+// A `#load` directive: the file it names and its resolved path.
 Code_Directive_Load :: struct {
     #as using base: Code_Node;
     short_name: string;
@@ -580,17 +636,20 @@ Code_Directive_Load :: struct {
     load_flags: s32;
 }
 
+// A `#location` expression.
 Code_Directive_Location :: struct {
     #as using base: Code_Node;
     expression: *Code_Node;
     is_caller_location := false;
 }
 
+// A `#modify` block on a procedure or struct.
 Code_Directive_Modify :: struct {
     #as using base: Code_Node;
     block: *Code_Block;
 }
 
+// A `#module_parameters` directive.
 Code_Directive_Module_Parameters :: struct {
     #as using base: Code_Node;
     module_parameters: *Code_Procedure_Header;
@@ -598,23 +657,27 @@ Code_Directive_Module_Parameters :: struct {
     common_code: *Code_Block;
 }
 
+// An `#overlay` directive.
 Code_Directive_Overlay :: struct {
     #as using base: Code_Node;
     target_expression: *Code_Node;
     declaration_or_using: *Code_Node;
 }
 
+// A `#poke_name` directive.
 Code_Directive_Poke_Name :: struct {
     #as using base: Code_Node;
     module_struct: *Code_Struct;
     name: string;
 }
 
+// A `#procedure_name` directive.
 Code_Directive_Procedure_Name :: struct {
     #as using base: Code_Node;
     argument: *Code_Node;
 }
 
+// A `#run` directive and the procedure it runs.
 Code_Directive_Run :: struct {
     #as using base: Code_Node;
     procedure: *Code_Procedure_Header;
@@ -627,6 +690,7 @@ Code_Directive_Run :: struct {
     assertion_string: string;
 }
 
+// A `#scope_export`, `#scope_file` or `#scope_module` directive.
 Code_Directive_Scope :: struct {
     #as using base: Code_Node;
     scope_type: enum u32 {
@@ -636,16 +700,19 @@ Code_Directive_Scope :: struct {
     };
 }
 
+// A `#through` directive.
 Code_Directive_Through :: struct {
     #as using base: Code_Node;
     kind = .DIRECTIVE_THROUGH;
 }
 
+// A `#wildcard` placeholder.
 Code_Directive_Wildcard :: struct {
     #as using base: Code_Node;
     index: s32 = -1;
 }
 
+// An enum definition: its members, notes and whether it is a flags or complete enum.
 Code_Enum :: struct {
     #as using base: Code_Node;
     internal_type_inst: *Code_Type_Instantiation;
@@ -658,6 +725,7 @@ Code_Enum :: struct {
     is_flags := false;
 }
 
+// A `type_of`, `is_constant` or `#code_of` query about an expression.
 Code_Expression_Query :: struct {
     #as using base: Code_Node;
     query_kind: enum u32 {
@@ -668,12 +736,14 @@ Code_Expression_Query :: struct {
     expression_to_query: *Code_Node;
 }
 
+// Picks one value out of a multiple-value expression.
 Code_Extract :: struct {
     #as using base: Code_Node;
     from: *Code_Node;
     index: s64;
 }
 
+// A `for` loop: what it iterates, its body and its `it` and `it_index` names.
 Code_For :: struct {
     #as using base: Code_Node = .{ kind = .FOR };
     iteration_expression: *Code_Node;
@@ -690,6 +760,7 @@ Code_For :: struct {
     for_flags: For_Flags;
 }
 
+// A name, and the declaration it resolved to.
 Code_Ident :: struct {
     #as using base: Code_Node = .{ kind = .IDENT };
     name: string;
@@ -705,6 +776,7 @@ Code_Ident :: struct {
     };
 }
 
+// An `if` or `ifx`, including a `#if` and an `if ==` switch.
 Code_If :: struct {
     #as using base: Code_Node = .{ kind = .IF };
     condition: *Code_Node;
@@ -722,6 +794,7 @@ Code_If :: struct {
     static_if_accepted_case: *Code_Case;
 }
 
+// A literal: a number, string, boolean, array, struct, pointer or type. `value_type` says which, and the matching union member holds the value.
 Code_Literal :: struct {
     #as using base: Code_Node;
     kind = .LITERAL;
@@ -760,6 +833,7 @@ Code_Literal :: struct {
     }
 }
 
+// A `break`, `continue` or `remove`.
 Code_Loop_Control :: struct {
     #as using base: Code_Node;
     control_type: enum u8 {
@@ -770,6 +844,7 @@ Code_Loop_Control :: struct {
     target_ident: *Code_Ident;
 }
 
+// The list of extra arguments a call passes to a variadic procedure.
 Code_Make_Varargs :: struct {
     #as using base: Code_Node;
     element_type: *Type_Info;
@@ -777,6 +852,7 @@ Code_Make_Varargs :: struct {
     is_for_non_native_calling_convention: bool;
 }
 
+// The part every syntax node shares: its `kind`, where it is in the source, its type once checked and flags. Cast a node to the `Code_*` type that matches its `kind` to read the rest.
 Code_Node :: struct {
     Location :: struct {
         enclosing_load: *Message_File;
@@ -857,17 +933,20 @@ Code_Node :: struct {
     serial: s64;
 }
 
+// A `@note` attached to a declaration, procedure or struct.
 Code_Note :: struct {
     #as using base: Code_Node;
     text: string;
     note_flags: u32;
 }
 
+// A stand-in for code that is not there yet.
 Code_Placeholder :: struct {
     #as using base: Code_Node;
     kind = .PLACEHOLDER;
 }
 
+// The details of a pointer constant: the symbol or literal it points into, and an offset.
 Code_Pointer_Literal_Info :: struct {
     union {
         global_symbol: *Code_Declaration;
@@ -882,6 +961,7 @@ Code_Pointer_Literal_Info :: struct {
     offset_from_symbol: s64;
 }
 
+// The body of a procedure, with its header.
 Code_Procedure_Body :: struct {
     #as using base: Code_Node = .{ kind = .PROCEDURE_BODY };
     block: *Code_Block;
@@ -891,6 +971,7 @@ Code_Procedure_Body :: struct {
     };
 }
 
+// A procedure call: the procedure, its arguments (as written and in parameter order) and the overload it resolved to.
 Code_Procedure_Call :: struct {
     Flags :: enum_flags u32 {
         INLINE_YES :: 0x1;
@@ -914,6 +995,7 @@ Code_Procedure_Call :: struct {
     flags: Flags;
 }
 
+// A procedure's declaration: name, parameters, return values, notes and flags such as `MACRO` or `POLYMORPHIC`.
 Code_Procedure_Header :: struct {
     #as using base: Code_Node;
     constants_block: *Code_Block;
@@ -958,6 +1040,7 @@ Code_Procedure_Header :: struct {
     notes: [] *Code_Note;
 }
 
+// A `push_context` statement and its block.
 Code_Push_Context :: struct {
     #as using base: Code_Node;
     to_push: *Code_Node;
@@ -968,12 +1051,14 @@ Code_Push_Context :: struct {
     };
 }
 
+// An overloaded name after the compiler chose a procedure.
 Code_Resolved_Overload :: struct {
     #as using base: Code_Node;
     result: *Code_Node;
     source_expression: *Code_Node;
 }
 
+// A `return` statement and its values.
 Code_Return :: struct {
     Flags :: enum_flags u32 {
         IS_BACKTICKED :: 0x01;
@@ -985,12 +1070,14 @@ Code_Return :: struct {
     return_flags: Flags;
 }
 
+// Something named in a scope. [Code_Declaration] builds on it.
 Code_Scope_Entry :: struct {
     #as using base: Code_Node;
     name: string;
     import_target: *Code_Declaration;
 }
 
+// A struct or union definition: its members, notes and the type it defines.
 Code_Struct :: struct {
     #as using base: Code_Node;
     modify_directives: [] *Code_Directive_Modify;
@@ -1003,16 +1090,19 @@ Code_Struct :: struct {
     defined_type: *Type_Info_Struct;
 }
 
+// The details of a struct literal: its type and its arguments.
 Code_Struct_Literal_Info :: struct {
     type_expression: *Code_Type_Instantiation;
     arguments: [] *Code_Node;
 }
 
+// A type that is used as a value, with its `Type_Info`.
 Code_Type_Definition :: struct {
     #as using base: Code_Node;
     info: *Type_Info;
 }
 
+// A type as written in source, such as `*[] int`, and the `Type_Info` it resolved to.
 Code_Type_Instantiation :: struct {
     #as using base: Code_Node;
     result: *Type_Info;
@@ -1034,6 +1124,7 @@ Code_Type_Instantiation :: struct {
     };
 }
 
+// A `size_of`, `type_info` or `initializer_of` expression.
 Code_Type_Query :: struct {
     #as using base: Code_Node;
     query_kind: enum u32 {
@@ -1044,12 +1135,14 @@ Code_Type_Query :: struct {
     type_to_query: *Code_Type_Instantiation;
 }
 
+// A one-operand expression such as `-x` or `!x`.
 Code_Unary_Operator :: struct {
     #as using base: Code_Node;
     operator_type: Operator_Type;
     subexpression: *Code_Node;
 }
 
+// A `using` statement or parameter.
 Code_Using :: struct {
     #as using base: Code_Node;
     expression: *Code_Node;
@@ -1063,12 +1156,14 @@ Code_Using :: struct {
     no_parameters := false;
 }
 
+// A `while` loop and its body.
 Code_While :: struct {
     #as using base: Code_Node;
     condition: *Code_Node;
     block: *Code_Block;
 }
 
+// Why [get_root_type] succeeded or failed.
 Get_Root_Type_Status :: enum u8 {
     UNINITIALIZED :: 0;
     SUCCESS :: 1;
@@ -1077,6 +1172,7 @@ Get_Root_Type_Status :: enum u8 {
     NOT_TYPED :: 4;
 }
 
+// An operator that has no single-character name. Single-character operators use their character, as in `cast(Operator_Type) #char "+"`.
 Operator_Type :: enum s32 {
     IS_EQUAL :: 131;
     IS_NOT_EQUAL :: 132;
@@ -1107,6 +1203,7 @@ Operator_Type :: enum s32 {
     ARRAY_SUBSCRIPT :: 500;
 }
 
+// How many calls and instructions the compile-time interpreter ran, and how many were inlined.
 Bytecode_Report :: struct {
     num_calls_inlined: s64;
     num_calls_total: s64;
@@ -1119,6 +1216,13 @@ Compiler_Pin :: struct {
     pin: string;
 }
 
+// A plugin for a metaprogram. Fill in the procedures you care about and the compiler calls them: `init` once, `message` for every compiler message, `finish` at the end. `workspace` is the build it works on.
+//
+// ```jai
+// plugin: Metaprogram_Plugin;
+// plugin.message = (p: *Metaprogram_Plugin, message: *Message) {};
+// assert(plugin.init == null);
+// ```
 Metaprogram_Plugin :: struct {
     workspace: Workspace;
     init: (p: *Metaprogram_Plugin, options: [] string) -> bool;
@@ -1131,6 +1235,7 @@ Metaprogram_Plugin :: struct {
     communication_proc: (p: *Metaprogram_Plugin, key: string, value: string) -> bool;
 }
 
+// Counts of the polymorphic procedures the compiler instantiated, and from where.
 Polymorph_Report :: struct {
     Record :: struct {
         source: *Code_Procedure_Header;
@@ -1150,6 +1255,7 @@ Polymorph_Report :: struct {
     records: [] Record;
 }
 
+// How long each `#run` took.
 Run_Directive_Report :: struct {
     reported := false;
 
@@ -1162,12 +1268,14 @@ Run_Directive_Report :: struct {
     records: [] Record;
 }
 
+// How long the compile-time interpreter spent running code, inlining and generating bytecode.
 Time_Report :: struct {
     run_directives: float64;
     bytecode_inlining: float64;
     bytecode_generating: float64;
 }
 
+// A node that has finished type checking, with all the nodes inside it. Found in [Message_Typechecked].
 Typechecked :: struct(T: Type) {
     expression: *T;
     subexpressions: [] *Code_Node;
