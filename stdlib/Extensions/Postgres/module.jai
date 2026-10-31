@@ -2,7 +2,7 @@
 // compilers have no such module, and it may change between jaic releases. See
 // docs/extensions/postgres.md.
 //
-// ```jai,no_run
+// ```jai,no_run,skip_on(wasm)
 // Io :: #import "Extensions/Io";
 // Pg :: #import "Extensions/Postgres";
 //
