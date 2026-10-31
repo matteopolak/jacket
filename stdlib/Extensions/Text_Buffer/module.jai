@@ -1,10 +1,8 @@
 // An editable UTF-8 text buffer with undo, for editors.
-// @experimental
 //
-// The text lives in a piece table: the loaded file is never copied or modified, typed text is
-// appended to a second buffer, and the document is a list of pieces pointing into the two. Editing
-// splits and trims pieces, so inserting or deleting in a large file costs the number of pieces, not
-// the size of the file. Line starts are kept in a sorted array, so lines are found by binary search.
+// The text sits in a piece table, so inserting or deleting in a large file costs the number of edits
+// made so far, not the size of the file. Lines are found by binary search. Offsets are byte offsets;
+// move the cursor on character boundaries with `next_grapheme` and `previous_grapheme`.
 //
 // ```jai
 // #import "Extensions/Text_Buffer";
@@ -12,28 +10,29 @@
 // buffer: Text_Buffer;
 // defer free_buffer(*buffer);
 // set_text(*buffer, "hello\nworld");
-// insert(*buffer, 5, ", there");        // "hello, there\nworld"
-// erase(*buffer, 0, 1);                  // "ello, there\nworld"
-// line := line_text(*buffer, 1);         // "world", a view into the buffer
-// undo(*buffer);                         // back to "hello, there\nworld"
+// insert(*buffer, 5, ", there");
+// erase(*buffer, 0, 1);
+// assert(line_text(*buffer, 0) == "ello, there");
+// undo(*buffer);
+// assert(line_text(*buffer, 0) == "hello, there");
 // ```
-//
-// Offsets are byte offsets. Positions inside a UTF-8 sequence are the caller's concern: use
-// `next_grapheme` and `previous_grapheme` (graphemes.jai) to move on character boundaries.
+// @experimental
 
 #import "Basic";
 
 #load "graphemes.jai";
 #load "history.jai";
 
-// A run of bytes in one of the buffer's two backing arrays; the text is the pieces in order.
+// A run of bytes in one of the buffer's two backing arrays. The text is the pieces in order.
 Piece :: struct {
     from_added: bool; // false: the original text, true: the added text
     start: int;
     length: int;
 }
 
-// The text being edited. Zero is an empty buffer; release it with `free_buffer`.
+// The text being edited. A zero value is an empty buffer; release it with `free_buffer`. Change it
+// only through the procedures here. `version` goes up with every edit, so a cache keyed on the
+// text can tell when to refresh.
 Text_Buffer :: struct {
     original: [..] u8;
     added: [..] u8;
@@ -44,7 +43,7 @@ Text_Buffer :: struct {
     history: History;
 }
 
-// Release everything the buffer owns.
+// Frees everything the buffer owns and leaves it empty.
 free_buffer :: (buffer: *Text_Buffer) {
     array_free(buffer.original);
     array_free(buffer.added);
@@ -54,7 +53,14 @@ free_buffer :: (buffer: *Text_Buffer) {
     buffer.* = .{};
 }
 
-// Replace the whole text (and forget undo history). The text is copied.
+// Replaces the whole text with a copy of `text` and forgets the undo history.
+//
+// ```jai
+// buffer: Text_Buffer;
+// defer free_buffer(*buffer);
+// set_text(*buffer, "one\ntwo");
+// assert(line_count(*buffer) == 2);
+// ```
 set_text :: (buffer: *Text_Buffer, text: string) {
     array_reset(*buffer.original);
     array_reset(*buffer.added);
@@ -71,19 +77,42 @@ set_text :: (buffer: *Text_Buffer, text: string) {
     rebuild_lines(buffer);
 }
 
-// Number of lines: one more than the newlines, so an empty buffer has one empty line.
+// The number of lines: one more than the newlines, so an empty buffer has one empty line.
+//
+// ```jai
+// buffer: Text_Buffer;
+// defer free_buffer(*buffer);
+// assert(line_count(*buffer) == 1);
+// set_text(*buffer, "a\nb\nc");
+// assert(line_count(*buffer) == 3);
+// ```
 line_count :: (buffer: *Text_Buffer) -> int {
     ensure_lines(buffer);
     return buffer.line_starts.count;
 }
 
-// Offset of the first byte of `line` (clamped to the last line).
+// The offset of the first byte of `line`. A line past the end gives the last line.
+//
+// ```jai
+// buffer: Text_Buffer;
+// defer free_buffer(*buffer);
+// set_text(*buffer, "ab\ncd");
+// assert(line_start(*buffer, 1) == 3);
+// ```
 line_start :: (buffer: *Text_Buffer, line: int) -> int {
     ensure_lines(buffer);
     return buffer.line_starts[clamp(line, 0, buffer.line_starts.count - 1)];
 }
 
-// Offset just past the last byte of `line`, before its newline.
+// The offset just past the last byte of `line`, before its line break (`\n` or `\r\n`).
+//
+// ```jai
+// buffer: Text_Buffer;
+// defer free_buffer(*buffer);
+// set_text(*buffer, "ab\r\ncd");
+// assert(line_end(*buffer, 0) == 2);
+// assert(line_end(*buffer, 1) == 6);
+// ```
 line_end :: (buffer: *Text_Buffer, line: int) -> int {
     ensure_lines(buffer);
 
@@ -97,7 +126,14 @@ line_end :: (buffer: *Text_Buffer, line: int) -> int {
     return end;
 }
 
-// The line that contains `offset` (the last line for an offset at the end).
+// The line that holds `offset`, or the last line for an offset at the end.
+//
+// ```jai
+// buffer: Text_Buffer;
+// defer free_buffer(*buffer);
+// set_text(*buffer, "ab\ncd");
+// assert(line_of_offset(*buffer, 4) == 1);
+// ```
 line_of_offset :: (buffer: *Text_Buffer, offset: int) -> int {
     ensure_lines(buffer);
 
@@ -114,6 +150,14 @@ line_of_offset :: (buffer: *Text_Buffer, offset: int) -> int {
 }
 
 // The byte at `offset`, or 0 outside the text.
+//
+// ```jai
+// buffer: Text_Buffer;
+// defer free_buffer(*buffer);
+// set_text(*buffer, "abc");
+// assert(byte_at(*buffer, 1) == #char "b");
+// assert(byte_at(*buffer, 9) == 0);
+// ```
 byte_at :: (buffer: *Text_Buffer, offset: int) -> u8 {
     if offset < 0 || offset >= buffer.length return 0;
 
@@ -127,15 +171,28 @@ byte_at :: (buffer: *Text_Buffer, offset: int) -> u8 {
     return 0;
 }
 
-// The text of `line` without its line break. It points into the buffer when the line lies within
-// one piece, and is a copy in temporary storage otherwise; either way it is valid only until the
-// next edit.
+// The text of `line` without its line break. It points into the buffer when the line sits in one
+// piece and is a temporary copy otherwise; either way it is valid only until the next edit.
+//
+// ```jai
+// buffer: Text_Buffer;
+// defer free_buffer(*buffer);
+// set_text(*buffer, "first\nsecond");
+// assert(line_text(*buffer, 1) == "second");
+// ```
 line_text :: (buffer: *Text_Buffer, line: int) -> string {
     return text_range(buffer, line_start(buffer, line), line_end(buffer, line));
 }
 
-// The bytes `start` to `end` (exclusive). Points into the buffer when the range lies within one
-// piece, otherwise a copy in temporary storage; valid until the next edit.
+// The bytes from `start` up to `end`. Like `line_text`, it is a view or a temporary copy, valid until
+// the next edit. Use `copy_range` to keep it.
+//
+// ```jai
+// buffer: Text_Buffer;
+// defer free_buffer(*buffer);
+// set_text(*buffer, "hello world");
+// assert(text_range(*buffer, 6, 11) == "world");
+// ```
 text_range :: (buffer: *Text_Buffer, start: int, end: int) -> string {
     s := clamp(start, 0, buffer.length);
     e := clamp(end, s, buffer.length);
@@ -161,7 +218,16 @@ text_range :: (buffer: *Text_Buffer, start: int, end: int) -> string {
     return copy_range(buffer, s, e, temp);
 }
 
-// A copy of the bytes `start` to `end` (exclusive) made with `allocator`.
+// A copy of the bytes from `start` up to `end`, made with `allocator`.
+//
+// ```jai
+// buffer: Text_Buffer;
+// defer free_buffer(*buffer);
+// set_text(*buffer, "hello world");
+// word := copy_range(*buffer, 0, 5, temp);
+// insert(*buffer, 0, ">> ");
+// assert(word == "hello");
+// ```
 copy_range :: (buffer: *Text_Buffer, start: int, end: int, allocator: Allocator) -> string {
     s := clamp(start, 0, buffer.length);
     e := clamp(end, s, buffer.length);
@@ -190,13 +256,29 @@ copy_range :: (buffer: *Text_Buffer, start: int, end: int, allocator: Allocator)
     return result;
 }
 
-// The whole text as a new string made with `allocator`.
+// The whole text as a new string, made with `allocator`. Free it unless the allocator is temporary.
+//
+// ```jai
+// buffer: Text_Buffer;
+// defer free_buffer(*buffer);
+// set_text(*buffer, "abc");
+// insert(*buffer, 3, "def");
+// assert(buffer_to_string(*buffer, temp) == "abcdef");
+// ```
 buffer_to_string :: (buffer: *Text_Buffer, allocator: Allocator = context.allocator) -> string {
     return copy_range(buffer, 0, buffer.length, allocator);
 }
 
-// Insert `text` at `offset` (clamped to the text). Recorded for undo; typing one character after
-// another merges into a single undo step.
+// Inserts `text` at `offset`. Undo can take it back; typing one character after another merges into
+// a single undo step.
+//
+// ```jai
+// buffer: Text_Buffer;
+// defer free_buffer(*buffer);
+// set_text(*buffer, "held");
+// insert(*buffer, 2, "llo wor");
+// assert(buffer_to_string(*buffer, temp) == "hello world");
+// ```
 insert :: (buffer: *Text_Buffer, offset: int, text: string) {
     if !text.count return;
 
@@ -205,7 +287,15 @@ insert :: (buffer: *Text_Buffer, offset: int, text: string) {
     apply_insert(buffer, at, text);
 }
 
-// Delete `count` bytes starting at `offset` (clamped to the text). Recorded for undo.
+// Deletes `count` bytes from `offset`. Undo can take it back.
+//
+// ```jai
+// buffer: Text_Buffer;
+// defer free_buffer(*buffer);
+// set_text(*buffer, "hello world");
+// erase(*buffer, 5, 6);
+// assert(buffer_to_string(*buffer, temp) == "hello");
+// ```
 erase :: (buffer: *Text_Buffer, offset: int, count: int) {
     start := clamp(offset, 0, buffer.length);
     end := clamp(offset + count, start, buffer.length);
@@ -219,7 +309,17 @@ erase :: (buffer: *Text_Buffer, offset: int, count: int) {
     apply_erase(buffer, start, end - start);
 }
 
-// Replace `count` bytes at `offset` with `text` as one undo step.
+// Replaces `count` bytes at `offset` with `text`, as one undo step.
+//
+// ```jai
+// buffer: Text_Buffer;
+// defer free_buffer(*buffer);
+// set_text(*buffer, "hello world");
+// replace(*buffer, 6, 5, "there");
+// assert(buffer_to_string(*buffer, temp) == "hello there");
+// undo(*buffer);
+// assert(buffer_to_string(*buffer, temp) == "hello world");
+// ```
 replace :: (buffer: *Text_Buffer, offset: int, count: int, text: string) {
     begin_group(buffer);
     erase(buffer, offset, count);
@@ -227,8 +327,16 @@ replace :: (buffer: *Text_Buffer, offset: int, count: int, text: string) {
     end_group(buffer);
 }
 
-// Search for `needle` from `from`; returns the offset of the first match or -1. Matches across
-// pieces are found.
+// The offset of the first `needle` at or after `from`, or -1.
+//
+// ```jai
+// buffer: Text_Buffer;
+// defer free_buffer(*buffer);
+// set_text(*buffer, "to be or not to be");
+// assert(find_text(*buffer, "be") == 3);
+// assert(find_text(*buffer, "be", 4) == 16);
+// assert(find_text(*buffer, "maybe") == -1);
+// ```
 find_text :: (buffer: *Text_Buffer, needle: string, from: int = 0) -> int {
     if !needle.count return -1;
 

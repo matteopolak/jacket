@@ -1,8 +1,7 @@
 // Undo and redo for Text_Buffer. Every edit is recorded as (offset, removed text, inserted text);
 // undoing applies the inverse. Edits in one group, or typing that merges, undo together.
 
-// One recorded change: `removed` was replaced by `inserted` at `offset`. Edits with the same
-// `group` undo together.
+// One recorded change: `removed` was replaced by `inserted` at `offset`. Edits in one `group` undo together.
 Edit :: struct {
     offset: int;
     removed: string; // heap copies, released with the history
@@ -10,8 +9,7 @@ Edit :: struct {
     group: int;
 }
 
-// A buffer's undo and redo stacks; zero is empty. Use `undo`, `redo`, `begin_group` and
-// `end_group` rather than reading it.
+// A buffer's undo and redo stacks. Use `undo`, `redo`, `begin_group` and `end_group` instead of reading it.
 History :: struct {
     undo_stack: [..] Edit;
     redo_stack: [..] Edit;
@@ -21,7 +19,7 @@ History :: struct {
     mergeable: bool; // the last recorded edit may absorb the next one
 }
 
-// Release the history's stacks and the text of every edit in them.
+// Frees the stacks and the text of every edit in them.
 free_history :: (history: *History) {
     for history.undo_stack free_edit(it);
     for history.redo_stack free_edit(it);
@@ -31,7 +29,19 @@ free_history :: (history: *History) {
     history.* = .{};
 }
 
-// Start an undo group: every edit until the matching `end_group` undoes as one step. Groups nest.
+// Makes every edit until the matching `end_group` undo as one step. Groups nest.
+//
+// ```jai
+// buffer: Text_Buffer;
+// defer free_buffer(*buffer);
+// set_text(*buffer, "ab");
+// begin_group(*buffer);
+// insert(*buffer, 0, "x");
+// insert(*buffer, 3, "y");
+// end_group(*buffer);
+// undo(*buffer);
+// assert(buffer_to_string(*buffer, temp) == "ab");
+// ```
 begin_group :: (buffer: *Text_Buffer) {
     h := *buffer.history;
 
@@ -44,20 +54,39 @@ begin_group :: (buffer: *Text_Buffer) {
     h.open_depth += 1;
 }
 
-// End the group started by `begin_group`.
+// Ends the group that `begin_group` started.
 end_group :: (buffer: *Text_Buffer) {
     h := *buffer.history;
     if h.open_depth > 0 h.open_depth -= 1;
     h.mergeable = false;
 }
 
-// Stop the next typed character from merging into the previous undo step. Call it when the
-// cursor moves, so undo steps follow what the user did.
+// Stops the next typed character from merging into the previous undo step. Call it when the cursor
+// moves, so undo steps follow what the user did.
+//
+// ```jai
+// buffer: Text_Buffer;
+// defer free_buffer(*buffer);
+// insert(*buffer, 0, "a");
+// insert(*buffer, 1, "b");
+// seal_undo(*buffer);
+// insert(*buffer, 2, "c");
+// undo(*buffer);
+// assert(buffer_to_string(*buffer, temp) == "ab");
+// ```
 seal_undo :: (buffer: *Text_Buffer) {
     buffer.history.mergeable = false;
 }
 
 // Whether `undo` has anything to undo.
+//
+// ```jai
+// buffer: Text_Buffer;
+// defer free_buffer(*buffer);
+// assert(!can_undo(*buffer));
+// insert(*buffer, 0, "a");
+// assert(can_undo(*buffer));
+// ```
 can_undo :: (buffer: *Text_Buffer) -> bool {
     return buffer.history.undo_stack.count > 0;
 }
@@ -67,7 +96,17 @@ can_redo :: (buffer: *Text_Buffer) -> bool {
     return buffer.history.redo_stack.count > 0;
 }
 
-// Undo the last step. Returns whether anything was undone and the offset the cursor belongs at.
+// Undoes the last step. Returns whether anything was undone and the offset where the cursor belongs.
+//
+// ```jai
+// buffer: Text_Buffer;
+// defer free_buffer(*buffer);
+// set_text(*buffer, "hello");
+// erase(*buffer, 0, 5);
+// ok, cursor := undo(*buffer);
+// assert(ok && cursor == 5);
+// assert(buffer_to_string(*buffer, temp) == "hello");
+// ```
 undo :: (buffer: *Text_Buffer) -> ok: bool, cursor: int {
     h := *buffer.history;
     if !h.undo_stack.count return false, 0;
@@ -88,7 +127,17 @@ undo :: (buffer: *Text_Buffer) -> ok: bool, cursor: int {
     return true, cursor;
 }
 
-// Redo the last undone step. Returns whether anything was redone and the offset the cursor belongs at.
+// Redoes the last undone step. Returns whether anything was redone and the offset where the cursor belongs.
+//
+// ```jai
+// buffer: Text_Buffer;
+// defer free_buffer(*buffer);
+// insert(*buffer, 0, "hi");
+// undo(*buffer);
+// assert(can_redo(*buffer));
+// redo(*buffer);
+// assert(buffer_to_string(*buffer, temp) == "hi");
+// ```
 redo :: (buffer: *Text_Buffer) -> ok: bool, cursor: int {
     h := *buffer.history;
     if !h.redo_stack.count return false, 0;

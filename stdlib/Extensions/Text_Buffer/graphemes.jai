@@ -6,8 +6,14 @@
 // text segmentation (UAX 29) but are not a full implementation: scripts whose spacing marks join a
 // cluster (Indic scripts) are split at those marks.
 
-// The byte offset after the grapheme cluster that starts at `index` in `text`. Returns
-// `text.count` at the end, and `index` itself when it is already there.
+// The offset after the grapheme cluster (what a reader sees as one character) that starts at `index`.
+// Returns `text.count` at the end.
+//
+// ```jai
+// text := "e\xCC\x81x";  // e + combining acute accent, then x
+// assert(next_grapheme(text, 0) == 3);
+// assert(next_grapheme(text, 3) == 4);
+// ```
 next_grapheme :: (text: string, index: int) -> int {
     if index >= text.count return text.count;
 
@@ -49,7 +55,13 @@ next_grapheme :: (text: string, index: int) -> int {
     return i;
 }
 
-// The byte offset where the grapheme cluster that ends at `index` starts. Returns 0 at the start.
+// The offset where the grapheme cluster that ends at `index` starts. Returns 0 at the start.
+//
+// ```jai
+// text := "e\xCC\x81x";
+// assert(previous_grapheme(text, 4) == 3);
+// assert(previous_grapheme(text, 3) == 0);
+// ```
 previous_grapheme :: (text: string, index: int) -> int {
     end := min(index, text.count);
     if end <= 0 return 0;
@@ -76,7 +88,7 @@ Word_Class :: enum u8 {
     PUNCTUATION;
 }
 
-// The class of a code point for word movement: runs of one class are a word.
+// The class of a code point for word movement. A run of one class is a word.
 word_class :: (c: u32) -> Word_Class {
     if c == #char " " || c == #char "\t" || c == 0xA0 || c == 0x3000 return .SPACE;
     if c >= #char "a" && c <= #char "z" return .WORD;
@@ -88,8 +100,13 @@ word_class :: (c: u32) -> Word_Class {
     return .PUNCTUATION;
 }
 
-// The byte offset where the word to the right of `index` ends: spaces are skipped, then a run of
-// word characters or of punctuation. Stops at the end of the text; line breaks are the caller's.
+// The offset where the word right of `index` ends. Spaces are skipped first, then a run of word
+// characters or of punctuation. Line breaks are the caller's to handle.
+//
+// ```jai
+// assert(next_word("hello world", 0) == 5);
+// assert(next_word("hello world", 5) == 11);
+// ```
 next_word :: (text: string, index: int) -> int {
     i := clamp(index, 0, text.count);
 
@@ -113,7 +130,12 @@ next_word :: (text: string, index: int) -> int {
     return i;
 }
 
-// The byte offset where the word to the left of `index` starts.
+// The offset where the word left of `index` starts.
+//
+// ```jai
+// assert(previous_word("hello world", 11) == 6);
+// assert(previous_word("hello world", 6) == 0);
+// ```
 previous_word :: (text: string, index: int) -> int {
     i := clamp(index, 0, text.count);
 
@@ -140,7 +162,11 @@ previous_word :: (text: string, index: int) -> int {
     return i;
 }
 
-// Number of grapheme clusters in `text`.
+// The number of grapheme clusters in `text`.
+//
+// ```jai
+// assert(grapheme_count("e\xCC\x81x") == 2);
+// ```
 grapheme_count :: (text: string) -> int {
     count := 0;
     i := 0;
@@ -153,8 +179,13 @@ grapheme_count :: (text: string) -> int {
     return count;
 }
 
-// Decode the code point at `index`: its value and its length in bytes. Malformed bytes decode as
-// U+FFFD, one byte at a time, so scanning always advances.
+// Decodes the code point at `index`: its value and its length in bytes. A malformed byte decodes as
+// U+FFFD, one byte at a time, so a scan always advances.
+//
+// ```jai
+// code, size := decode_at("é", 0);
+// assert(code == 0xE9 && size == 2);
+// ```
 decode_at :: (text: string, index: int) -> code: u32, size: int {
     b := text.data[index];
     if b < 0x80 return b, 1;
@@ -186,7 +217,7 @@ decode_at :: (text: string, index: int) -> code: u32, size: int {
     return code, need + 1;
 }
 
-// Start of the code point that ends at `index`.
+// The start of the code point that ends at `index`.
 previous_code_point :: (text: string, index: int) -> int {
     i := min(index, text.count) - 1;
     if i < 0 return 0;
