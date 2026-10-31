@@ -193,6 +193,16 @@ pub struct Item {
     pub also: Vec<(PathBuf, usize)>,
 }
 
+/// A parameter of the module (`#module_parameters`).
+#[derive(Debug, Default)]
+pub struct Parameter {
+    pub name: String,
+    /// As written; empty when the type comes from the default.
+    pub ty: String,
+    pub default: String,
+    pub doc: String,
+}
+
 #[derive(Debug, Default)]
 pub struct Module {
     pub file: PathBuf,
@@ -202,6 +212,7 @@ pub struct Module {
     pub platforms: Vec<String>,
     /// Whether the opening comment carries the `@experimental` tag.
     pub experimental: bool,
+    pub parameters: Vec<Parameter>,
     pub items: Vec<Item>,
 }
 
@@ -640,6 +651,21 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
                         }
                     }
                 }
+                TopLevelKind::ModuleParameters(stmt) if file == module_file => {
+                    for p in stmt.params.iter().chain(&stmt.runtime_params) {
+                        let Some(name) = &p.name else {
+                            continue;
+                        };
+                        let written = |e: &crate::ast::Expr| slice(&text, e.span.start, e.span.end);
+                        out.parameters.push(Parameter {
+                            name: name.name.as_str().to_owned(),
+                            ty: p.ty.as_ref().map(written).unwrap_or_default(),
+                            default: p.default.as_ref().map(written).unwrap_or_default(),
+                            doc: docs::declaration(&text, name.span.start as usize)
+                                .unwrap_or_default(),
+                        });
+                    }
+                }
                 TopLevelKind::Decl(decl) if decl.kind == DeclKind::Const => {
                     if item.visibility != Visibility::Export {
                         continue;
@@ -945,7 +971,7 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
         ));
     }
     format!(
-        "{{\"file\":{},\"docs\":{},\"docs_line\":{},\"platforms\":[{}],\"experimental\":{},\"items\":[\n{}\n]}}\n",
+        "{{\"file\":{},\"docs\":{},\"docs_line\":{},\"platforms\":[{}],\"experimental\":{},\"parameters\":[{}],\"items\":[\n{}\n]}}\n",
         path(&model.file),
         json(&md(&model.docs)),
         model.docs_line,
@@ -956,6 +982,18 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
             .collect::<Vec<_>>()
             .join(","),
         model.experimental,
+        model
+            .parameters
+            .iter()
+            .map(|p| format!(
+                "{{\"name\":{},\"type\":{},\"default\":{},\"doc\":{}}}",
+                json(&p.name),
+                json(&p.ty),
+                json(&p.default),
+                json(&md(&p.doc))
+            ))
+            .collect::<Vec<_>>()
+            .join(","),
         items.join(",\n")
     )
 }
@@ -1002,199 +1040,5 @@ pub fn print(dir: &Path, stdlib: &Path) -> String {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn library(tag: &str, files: &[(&str, &str)]) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("jaic-doc-model-{tag}-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&dir);
-        for (file, text) in files {
-            let path = dir.join(file);
-            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-            std::fs::write(path, text).unwrap();
-        }
-        dir
-    }
-
-    #[test]
-    fn names_in_types_are_resolved_to_declarations() {
-        assert_eq!(
-            type_paths("[4] Hash.Table(string, $T)"),
-            [vec!["Hash", "Table"], vec!["string"]]
-        );
-        assert_eq!(type_paths(":= Kind.MEMBER"), [vec!["Kind", "MEMBER"]]);
-        let dir = library(
-            "type-refs",
-            &[
-                (
-                    "module.jai",
-                    "Shapes :: #import,file \"shapes.jai\";\n\nPoint :: Shapes.Point;\nmove :: (p: *Point, by: Shapes.Point, other: Elsewhere, n: int) {}\n",
-                ),
-                ("shapes.jai", "Point :: struct { x: int; }\n"),
-                ("extra.jai", "Elsewhere :: struct { y: int; }\n"),
-            ],
-        );
-        let model = module(&dir, Path::new("/nowhere"));
-        let point = model.items.iter().find(|i| i.name == "Point").unwrap();
-        let move_ = model.items.iter().find(|i| i.name == "move").unwrap();
-        let params = &move_.overloads[0].params;
-        let at = |p: &Param, name: &str| {
-            p.refs
-                .iter()
-                .find(|r| r.path == name)
-                .map(|r| (r.file.clone(), r.line))
-        };
-        // The alias and the written `Shapes.Point` both lead to the struct itself.
-        assert_eq!(
-            at(&params[0], "Point"),
-            Some((point.file.clone(), point.line))
-        );
-        assert_eq!(
-            at(&params[1], "Shapes.Point"),
-            Some((point.file.clone(), point.line))
-        );
-        // A file of the library the entry does not load still declares names for the others.
-        assert!(at(&params[2], "Elsewhere").is_some());
-        assert!(params[3].refs.is_empty());
-    }
-
-    #[test]
-    fn aliases_overloads_and_members_become_items() {
-        let dir = library(
-            "aliases",
-            &[
-                (
-                    "module.jai",
-                    "// A module.\n\nImpl :: #import,file \"impl.jai\";\n\nsplit :: Impl.split;\nrenamed :: split;\nPoint :: Impl.Point;\nLIMIT :: Impl.LIMIT;\n\n#scope_module\n\nhidden :: () {}\n",
-                ),
-                (
-                    "impl.jai",
-                    "// Splits `s` at `byte`.\n//\n// - s: the text\n// - found: whether it was there\nsplit :: (s: string, byte: u8) -> (found: bool) { return true; }\n\n// Splits at a string.\nsplit :: (s: string, by: string, n := 1) -> bool { return true; }\n\nPoint :: struct {\n    x: int; // across\n    y: int;\n}\n\n// The most.\nLIMIT :: 4;\n",
-                ),
-            ],
-        );
-        let model = module(&dir, Path::new("/nowhere"));
-        assert_eq!(model.docs, "A module.");
-        let names: Vec<_> = model
-            .items
-            .iter()
-            .map(|i| (i.name.as_str(), i.kind))
-            .collect();
-        assert_eq!(
-            names,
-            [
-                ("split", "procedure"),
-                ("renamed", "procedure"),
-                ("Point", "struct"),
-                ("LIMIT", "constant")
-            ]
-        );
-        let split = &model.items[0];
-        assert_eq!(split.overloads.len(), 2);
-        let first = &split.overloads[0];
-        assert_eq!(first.params[0].doc, "the text");
-        assert_eq!(first.returns[0].doc, "whether it was there");
-        assert_eq!(first.docs, "Splits `s` at `byte`.");
-        assert_eq!(split.overloads[1].params[2].default, "1");
-        assert_eq!(model.items[1].overloads.len(), 2);
-        assert_eq!(model.items[2].members[0].doc, "across");
-        assert_eq!(model.items[3].value, "4");
-        assert_eq!(model.items[3].docs, "The most.");
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn items_under_an_os_condition_name_their_systems() {
-        let dir = library(
-            "systems",
-            &[
-                (
-                    "module.jai",
-                    "everywhere :: Impl.everywhere;\nwindows_only :: Impl.windows_only;\nboth :: Impl.both;\nnot_windows :: Impl.not_windows;\n\n#scope_module\n\nImpl :: #import,file \"impl.jai\";\n",
-                ),
-                (
-                    "impl.jai",
-                    "everywhere :: () {}\n#if OS == .WINDOWS {\n    windows_only :: () {}\n    both :: () {}\n} else {\n    both :: (n: int) {}\n}\n#if OS != .WINDOWS && CPU == .X64 {\n    not_windows :: () {}\n}\n",
-                ),
-            ],
-        );
-        let model = module(&dir, Path::new("/nowhere"));
-        let systems = |name: &str| {
-            model
-                .items
-                .iter()
-                .find(|i| i.name == name)
-                .map(|i| i.platforms.join(","))
-        };
-        assert_eq!(systems("everywhere").as_deref(), Some(""));
-        assert_eq!(systems("windows_only").as_deref(), Some("WINDOWS"));
-        assert_eq!(systems("both").as_deref(), Some(""));
-        assert_eq!(
-            systems("not_windows").as_deref(),
-            Some("MACOS,LINUX,ANDROID,IOS,WASM")
-        );
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn the_experimental_tag_is_a_flag_not_doc_text() {
-        let dir = library(
-            "experimental",
-            &[
-                (
-                    "module.jai",
-                    "// Does things.\n// @experimental\n\nsteady :: Impl.steady;\nmoving :: Impl.moving;\n\n#scope_module\n\nImpl :: #import,file \"impl.jai\";\n",
-                ),
-                (
-                    "impl.jai",
-                    "// Stays put.\nsteady :: () {}\n\n// Still changing.\n// @experimental\n// Second line.\nmoving :: () {}\n",
-                ),
-            ],
-        );
-        let model = module(&dir, Path::new("/nowhere"));
-        assert!(model.experimental);
-        assert_eq!(model.docs, "Does things.");
-        let item = |name: &str| model.items.iter().find(|i| i.name == name).unwrap();
-        assert!(!item("steady").experimental);
-        assert!(item("moving").experimental);
-        assert_eq!(
-            item("moving").overloads[0].docs,
-            "Still changing.\nSecond line."
-        );
-        let json = to_json(&model, &|_| None);
-        assert!(json.contains("\"experimental\":true"));
-        assert!(!json.contains("@experimental"));
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-
-    #[test]
-    fn declarations_of_foreign_procedures_are_listed_as_bindings() {
-        let dir = library(
-            "binding",
-            &[
-                (
-                    "module.jai",
-                    "#load \"declarations.jai\";\n\nown :: () {}\n",
-                ),
-                (
-                    "declarations.jai",
-                    "lib :: #library \"native\";\n\nNative_Mode :: enum s32 { A :: 0; B :: 1; }\nNative_Box :: struct { size: s32; }\nNATIVE_MAX :: 8;\nnative_open :: (mode: Native_Mode) -> s32 #foreign lib;\n",
-                ),
-            ],
-        );
-        let model = module(&dir, Path::new("/nowhere"));
-        let item = |name: &str| model.items.iter().find(|i| i.name == name).unwrap();
-        for name in ["Native_Mode", "Native_Box", "NATIVE_MAX", "native_open"] {
-            assert!(item(name).binding, "{name}");
-        }
-        assert_eq!(item("Native_Mode").members.len(), 2);
-        assert_eq!(item("Native_Box").members.len(), 1);
-        assert_eq!(item("native_open").overloads.len(), 1);
-        assert!(!item("own").binding);
-        let json = to_json(&model, &|_| None);
-        let flagged = model.items.iter().filter(|i| i.binding).count();
-        assert_eq!(json.matches("\"binding\":true").count(), flagged);
-        assert_eq!(flagged, model.items.len() - 1);
-        let _ = std::fs::remove_dir_all(&dir);
-    }
-}
+#[path = "model_tests.rs"]
+mod tests;

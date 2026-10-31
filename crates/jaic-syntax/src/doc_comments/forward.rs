@@ -81,7 +81,7 @@ impl<'a> Files<'a> {
                     }
                 }
                 TopLevelKind::Load(path, _) => loads.push(base.join(path)),
-                TopLevelKind::Assert(_) => {}
+                TopLevelKind::Assert(_) | TopLevelKind::ModuleParameters(_) => {}
             }
         }
         if depth == 0 {

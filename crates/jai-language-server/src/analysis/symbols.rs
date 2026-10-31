@@ -60,7 +60,7 @@ impl Analysis {
                         "This #load target is unavailable in the closed document VFS.",
                     ),
                 },
-                TopLevelKind::Assert(_) => {}
+                TopLevelKind::Assert(_) | TopLevelKind::ModuleParameters(_) => {}
             }
         }
     }

@@ -10,8 +10,8 @@ pub use self::cursor::{
     CursorContext, MemberAt, PathDirective, StringAt, cursor_context, cursor_context_in,
 };
 use crate::ast::{
-    AssertStmt, BinOp, Decl, DeclKind, Expr, ExprKind, File, Ident, Import, Note, ProcHeader,
-    ScopeKind, Stmt, StmtKind, UnOp,
+    AssertStmt, BinOp, Decl, DeclKind, Expr, ExprKind, File, Ident, Import, ModuleParametersStmt,
+    Note, ProcHeader, ScopeKind, Stmt, StmtKind, UnOp,
 };
 use crate::intern::Sym;
 use crate::lexer::{P, Tok, Token};
@@ -131,6 +131,8 @@ pub enum TopLevelKind<'a> {
     Load(&'a str, Span),
     /// `#assert cond;`
     Assert(&'a AssertStmt),
+    /// `#module_parameters(...)`.
+    ModuleParameters(&'a ModuleParametersStmt),
 }
 
 /// A statement of a file's top level, `#if` branches included.
@@ -170,6 +172,7 @@ pub fn top_level(file: &File) -> Vec<TopLevel<'_>> {
                     span,
                 } => TopLevelKind::Load(path, *span),
                 StmtKind::Assert(assert) => TopLevelKind::Assert(assert),
+                StmtKind::ModuleParameters(params) => TopLevelKind::ModuleParameters(params),
                 _ => continue,
             };
             out.push(TopLevel {

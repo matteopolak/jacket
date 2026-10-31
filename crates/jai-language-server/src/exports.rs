@@ -144,6 +144,7 @@ pub fn scan(text: &str) -> FileScan {
                     out.only_os = Some(targets.iter().map(|t| t.as_str().to_owned()).collect());
                 }
             }
+            TopLevelKind::ModuleParameters(_) => {}
         }
     }
     out
