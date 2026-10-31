@@ -1285,6 +1285,11 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: {persist-credentials: false}
+      - name: Keep temporary files on D:
+        # C: has far less room than D:, and the test programs and their debug info are large.
+        run: |
+          mkdir -p /d/jacket-tmp
+          printf 'TEMP=D:\\jacket-tmp\nTMP=D:\\jacket-tmp\n' >> "$GITHUB_ENV"
       - uses: ./.github/actions/setup-windows
         with:
           cpu: ${{ matrix.cpu }}
@@ -1327,6 +1332,10 @@ jobs:
           "$jacket" test -q --needs display --partition "hash:${{ matrix.shard }}" --interp || status=1
           "$jacket" test -q --needs display --partition "hash:${{ matrix.shard }}" -- -O2 || status=1
           exit $status
+      - name: Free disk space
+        if: ${{ always() }}
+        shell: pwsh
+        run: Get-PSDrive C,D | Format-Table Name, @{n='UsedGB';e={[math]::Round($_.Used/1GB,1)}}, @{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}
   windows-smoke:
     # The third-party projects of `upstream-smoke`, built and run on Windows with the interactive
     # desktop and Mesa's software OpenGL (docs/tools/upstream-corpus.md).
