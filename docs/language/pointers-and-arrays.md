@@ -1,10 +1,6 @@
 # Pointers, arrays and bounds checks
 
-## What it is
-
 Pointers (`*T`, `*void`, `null`), fixed arrays (`[N]T`), views (`[]T`), dynamic arrays (`[..]T`), `remove` during iteration, and the bounds and null checks with their opt-outs.
-
-## How it works
 
 ```jai
 buf: [4]int = .[2, 4, 5, 7];
@@ -13,44 +9,41 @@ for v: values { if (v & 1) == 0 remove v; }
 // values.count == 2; buf is now 7, 5, 5, 7
 ```
 
-- `remove v` copies the last element into the slot and revisits it (order is not kept). Outside a `for` over a view or dynamic array, `check_remove` (`sema/stmt.rs`) reports an error.
-- `p += 1` and `p - q` scale by element size. `*T` converts to `*void` implicitly. `arr.data` is the first-element pointer.
-- Fixed arrays convert to views; views and dynamic arrays start with an `s64` count, then the data pointer. An empty array's `.data` is `null`.
-- A constant literal like `.["a", "b"]` used as `[] T` points at its own writable global (`convert.rs`); one with runtime elements is a stack temporary.
+## Pointers
 
-### Bounds checks
-
-Indexing emits `Intrinsic::BoundsCheck` against the fixed length or count (`sema/expr.rs`). Failure prints `bounds.jai:5: error: array bounds check failed: index 7 is outside an array of 4 elements` and traps (native code calls `runtime_support_check_failed` in `stdlib/Runtime_Support/module.jai`). `#no_abc` turns it off for a procedure, block or `for`/`while`/`if`; `Build_Options.array_bounds_check = .OFF` turns it off for a workspace (`build.rs`). The arithmetic counterpart `#no_aoc` goes in the same places ([numbers](numbers.md)).
-
-### Null pointers
-
-The interpreter stops on a load, store or copy below address 4096 (`null pointer dereference: read through a null pointer`). The LLVM backend does the same with `null_check` (`jaic-llvm/src/lower.rs`), calling `runtime_support_check_failed` with `ir::CheckReason::NullPointer`; addresses from `SlotAddr`, `GlobalAddr`, `FuncAddr`, `ForeignAddr` skip it. `Build_Options.null_pointer_check = .OFF` (the shipping presets) or `#no_abc` drops it (`ir::Func::null_checks`). `memcpy`/`memset` by name are not checked natively.
-
-Boxing a place reached through a pointer into an `Any` reads nothing: `p.*` of a null `p` gives an `Any` with a type and a null value pointer, and the program goes on. This is required by existing code (jaison asserts with such an `Any`). The stop happens in the reader: `print` (the formatter under `stdlib/internal/basic/`) reports the null dereference and stops. Taking an address back (`*(p.*)`, `*p.x`) is also unchecked, which keeps the `offsetof` idiom working.
-
-## How to change it
-
-Index lowering is around `BoundsCheck` in `sema/expr.rs`; the opt-out is `FnCtx::no_abc` (`sema/lower.rs`, set in `procs.rs` and `stmt.rs`), which any new indexing construct must consult. The checks live in the IR so the interpreter and LLVM agree; do not add one to a single backend. `box_any` (`sema/convert.rs`) must not check or read the place. Tests: `tests/compiler/regressions/reverse-for-remove.jai`, `array-bounds-check-opt-out.jai`; corpus cases `null-deref-print-any`, `null-deref-any-member`.
-
-## Rules
-
-Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
-
-- `remove v` copies the last element into the current slot, shrinks the count, and revisits the slot, so order is not preserved {#ptr.1}. It only works in a `for` over a view or dynamic array {#ptr.2}; otherwise `check_remove` (`sema/stmt/loops.rs`) says why: the loop is over a fixed-size array, a range or is a `while`, or there is no enclosing loop {#ptr.3}.
 - `p += 1` and `p - q` scale by element size {#ptr.4}; `p - *buf[0]` is an element count {#ptr.5}.
-- Arrays (`[N]T`, `[]T`, `[..]T`) do not compare with `==` or `!=`: it is an error whose note names the type. Strings do compare. Compare lengths and elements instead (check in `check_binary`, `sema/binary.rs`).
 - `null` takes its type from context {#ptr.6}; `!p` and `p == null` test for null {#ptr.7}.
 - `*T` converts to `*void` implicitly; `cast(*int) void_ptr` goes back {#ptr.8}.
 - `arr.data` is a `*T` to the first element; pass it to hand an array to C {#ptr.9}.
-- Fixed arrays convert to views implicitly {#ptr.10}. Views and dynamic arrays start with an `s64` count, then the data pointer {#ptr.11}.
-- A fixed array's size is any constant integer expression, an element of a constant array included (`SIZES :: int.[1, 4, 9]; a: [SIZES[1]] int;` has four elements).
-- `for v, i: arr`, `for *e: arr` and `for < arr` iterate by value, by pointer and in reverse {#ptr.12}.
-- A constant literal like `.["a", "b"]` used as a `[] T` points at its own writable global (`convert.rs`), so a procedure can return it and callers can write through it {#ptr.16}. A literal with runtime elements is a stack temporary.
-- An empty array's `.data` is `null` {#ptr.17}.
-- Indexing emits `Intrinsic::BoundsCheck` against the fixed length or the count (`sema/expr.rs`) {#ptr.13}. A failure stops the program:
-- In a built executable the failure path calls `runtime_support_check_failed` in `stdlib/Runtime_Support/module.jai` with the index, the count and the line, which prints `bounds.jai:5: error: array bounds check failed: index 7 is outside an array of 4 elements` and then traps. The passing path is a single compare and branch {#ptr.18}.
-- `#no_abc` turns the check off for a procedure, a block, or a `for`/`while`/`if` {#ptr.14}. `Build_Options.array_bounds_check = .OFF` in a metaprogram turns it off for a whole workspace (`build.rs`) {#ptr.15}.
-- A place reached through a pointer and boxed into an `Any` is not read where it is boxed: the `Any`'s value pointer is the place's address, so `p.*` (or a member, or an element) of a null `p` gives an `Any` with a type and a null value pointer, and the program goes on. This holds for `..Any` arguments, `a: Any = p.*` and `cast(Any)` {#ptr.19}. Code relies on it: jaison's `assert(!table_find_pointer(table, name), "...", ..., (.*) table_find_pointer(table, name))` boxes the null result whenever the assertion holds, and its tests pass. Whoever reads the value finds the null: `print` (`__append_item` in `Basic/Print.jai`), given a typed `Any` of nonzero size with a null value pointer, writes `error: null pointer dereference: read through a null pointer` to standard error and stops through `debug_break`, on every backend, rather than show `null` {#ptr.21}. An `Any` with no type (a zero-initialized one) still prints `null`.
 - A `(.*)` after an expression is a prefix dereference starting the next statement, not an argument list: `if (found) (.*)out = value;` assigns through `out` {#ptr.22}.
-- Taking the address back reads nothing and is not checked: `*(p.*)` is `p`, and `*p.x` is `p` plus the member's offset, even for a null `p` (the `offsetof` idiom) {#ptr.20}. Converting `p.*` of a fixed array to a view does not check either; indexing the view does.
-- `null.*` is a value of type `void`, not a read: it fills the value slot of a `Table(K, void)` used as a set (`table_add(*set, key, null.*)`), and does not convert to a pointer parameter {#ptr.23}.
+- `null.*` is a `void` value, not a read. It fills the value slot of a `Table(K, void)` used as a set, and doesn't convert to a pointer parameter {#ptr.23}.
+
+## Arrays
+
+- Fixed arrays convert to views implicitly {#ptr.10}. Views and dynamic arrays start with an `s64` count, then the data pointer {#ptr.11}. An empty array's `.data` is `null` {#ptr.17}.
+- A fixed array's size is any constant integer expression, including an element of a constant array (`SIZES :: int.[1, 4, 9]; a: [SIZES[1]] int;`).
+- Arrays don't compare with `==` or `!=` (an error naming the type); strings do. Compare lengths and elements.
+- `for v, i: arr`, `for *e: arr` and `for < arr` iterate by value, by pointer and in reverse {#ptr.12}.
+- A constant literal like `.["a", "b"]` used as a `[] T` points at its own writable global, so a procedure can return it {#ptr.16}. A literal with runtime elements is a stack temporary.
+- `remove v` copies the last element into the slot, shrinks the count and revisits the slot, so order isn't kept {#ptr.1}. It works only in a `for` over a view or dynamic array {#ptr.2}; otherwise the error says why (fixed array, range, `while`, or no enclosing loop) {#ptr.3}.
+
+## Bounds checks
+
+Indexing checks against the fixed length or count {#ptr.13}. A failure prints and traps; the passing path is one compare and branch {#ptr.18}:
+
+```
+bounds.jai:5: error: array bounds check failed: index 7 is outside an array of 4 elements
+```
+
+- `#no_abc` turns the check off for a procedure, a block, or a `for`/`while`/`if` {#ptr.14}. `Build_Options.array_bounds_check = .OFF` turns it off for a whole workspace {#ptr.15}. The arithmetic counterpart `#no_aoc` goes in the same places ([numbers](numbers.md)).
+
+## Null pointers
+
+- The interpreter stops on a load, store or copy below address 4096 (`null pointer dereference: read through a null pointer`). Native code does the same. `Build_Options.null_pointer_check = .OFF` (the shipping presets) or `#no_abc` drops it. `memcpy`/`memset` by name aren't checked natively.
+- Boxing a place reached through a pointer into an `Any` reads nothing: `p.*` of a null `p` gives an `Any` with a type and a null value pointer, and the program goes on. This holds for `..Any` arguments, `a: Any = p.*` and `cast(Any)` {#ptr.19}. Existing code relies on it (asserts that box a null result whenever the condition holds).
+- The reader stops: `print`, given a typed `Any` of nonzero size with a null value pointer, writes `error: null pointer dereference: read through a null pointer` and stops, rather than show `null` {#ptr.21}. An `Any` with no type still prints `null`.
+- Taking the address back reads nothing and isn't checked: `*(p.*)` is `p`, and `*p.x` is `p` plus the member's offset, even for null `p` (the `offsetof` idiom) {#ptr.20}.
+
+## How to change it
+
+Index lowering is around `BoundsCheck` in `sema/expr.rs`. The opt-out is `FnCtx::no_abc`, which any new indexing construct must consult. Checks live in the IR so the interpreter and LLVM agree; don't add one to a single backend. `box_any` (`sema/convert.rs`) must not check or read the place. `check_remove` is in `sema/stmt/loops.rs`.

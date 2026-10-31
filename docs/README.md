@@ -6,7 +6,7 @@ Start with [features](features.md), [the command line](tools/cli.md) (every flag
 
 ## Language
 
-[language/](language/) has one page per topic (for example [modules](language/modules-and-imports.md), [procedures](language/procedures.md), [polymorphism](language/polymorphism.md), [macros](language/macros-and-custom-iteration.md), [inline holes](language/interpolates.md), [numbers](language/numbers.md), [enums](language/enums.md), [unions](language/unions.md), [control flow](language/control-flow.md), [context](language/context.md), [leniencies](language/leniencies.md): what jaic accepts that the official compiler rejects, and the warning for each). Compile-time execution and the `Compiler` module are in [metaprogramming/](metaprogramming/), including [reflection and type info](metaprogramming/reflection-and-type-info.md).
+[language/](language/) has one page per topic (for example [modules](language/modules-and-imports.md), [procedures](language/procedures.md), [polymorphism](language/polymorphism.md), [macros](language/macros-and-custom-iteration.md), [inline holes](language/interpolates.md), [numbers](language/numbers.md), [strings](language/strings-and-literals.md), [operator overloading](language/operator-overloading.md), [enums](language/enums.md), [unions](language/unions.md), [control flow](language/control-flow.md), [context](language/context.md), [leniencies](language/leniencies.md): what jaic accepts that the official compiler rejects, and the warning for each). Compile-time execution and the `Compiler` module are in [metaprogramming/](metaprogramming/), including [reflection and type info](metaprogramming/reflection-and-type-info.md).
 
 ## Compiler
 

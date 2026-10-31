@@ -1,12 +1,6 @@
 # Procedures, calls and lambdas
 
-## What it is
-
 Procedure declarations, calls, overloads, default and named arguments, multiple returns, variadics, lambdas and header directives (`#caller_location`, `#deprecated`, `#no_debug`).
-
-## How it works
-
-`parser/procedure.rs` parses headers (trailing directives are in a table at the top). `sema/procs.rs` checks declarations; `sema/calls/` resolves calls, ranks overloads (`arg_cost` in `mod.rs`) and expands macros.
 
 ```jai
 named :: (a: int, b := 7, c := "z") -> int { return a*100 + b; }
@@ -21,17 +15,35 @@ sum(1, 2, 3)             // 6
 h :: f;  h :: g;         // aliases join one overload set
 ```
 
-- Two non-polymorphic procedures in one scope with identical parameter types are an error even if never called (`check_identical_overloads`). Aliases of the same procedure, even in different scopes of one file (`read_it :: Impl.read_it;` at file scope and again inside `#if`), count as one overload.
-- A procedure type returned without parentheses cannot be followed by a body: `f :: () -> (A, B) -> C { ... }` is a parse error; write `-> ((A, B) -> C) { ... }`.
-- `#caller_location` as a default is evaluated at the call site (`location_operand` in `sema/expr.rs`). `#file` and `#filepath` use `/` on Windows too.
-- A `Code` parameter on a plain procedure takes any expression as code; a baked `$args: ..Code` quotes each argument (`quote_code_arg`).
-- Parameters are values: aggregates arrive as a pointer and the callee copies them on entry (`lower_body_code`), so it never changes the caller's variable.
-- Inside an argument or field list a comma normally ends a return type, so `f(a, (x: int) -> bool, T { ... })` would read `T` as the next argument. When the tokens after the comma run up to a `{` before any `,`, `;` or closing bracket, they are another return type of a procedure literal and the `{` starts its body, so a struct-literal field such as `proc = (data: *u8) -> bool, Pad { ... }` parses (`return_list_precedes_body` in `parser/procedure.rs`) {#proc.13}.
-- `#deprecated "msg"` is exported to metaprograms but produces no warning.
+The calls give the commented results: defaults and named arguments {#proc.1}, multiple returns {#proc.2} and a variadic `..int` {#proc.3}.
 
-### Lambdas
+## Overloads
 
-`(x) => expr` and `x => expr` take their types from the expected procedure type, or are polymorphic when bound with `::`. `sema/lambda.rs` lowers one to an ordinary literal (`lambda_lit`), checks it (`check_lambda`) and instantiates it per use.
+- Overloads are procedures sharing a name; the call picks by argument types {#proc.4}. A constant alias to a procedure joins the overload set {#proc.5}, which is how modules re-export one name for several implementations.
+- Two non-polymorphic procedures in a scope with identical parameter types are an error even if never called. Aliases of the same procedure count as one.
+- A candidate is ranked by the conversion cost of its arguments, then by how well its parameters fit untyped literals (see [casts](casts-and-conversions.md)). For struct parameters, a named member the type lacks, too many positional values, or too few for members without initializers rule it out.
+- A tie is `Procedure call matches N possible overloads.`. `.{}`, `null`, `.[..]` and two equally polymorphic headers have no better reading. An untyped number fits every numeric parameter alike, so the first declared wins.
+- Among equal candidates, fixed arity beats variadic, and an inner scope beats an outer one.
+- A procedure the calling module declares itself beats an imported one that fits equally well, unless a `using` at or around the call brings the import in (that `using` is nearer). In the program's own files the official compiler rejects the pair, so the declaration warns (`declaration-hides-import`, see [leniencies](leniencies.md)).
+- An overloaded name used as a value (`v := over;`) is ``error: ambiguous overloaded procedure used as a value``, or ``N overloads fit procedure type ..`` when a type is wanted (`ambiguous-procedure-value`, in modules too) {#proc.14}. A target type only one overload fits picks it.
+
+## Parameters
+
+- `#caller_location` as a default is evaluated at the call site and gives a `Source_Code_Location` {#proc.6}. `#location()`, `#file` and `#line` give the directive's own position {#proc.7}. `#file` and `#filepath` use `/` on Windows too.
+- A `Code` parameter on a plain procedure takes any expression as code, like a macro: `convert(1 + 2 * 3)` receives the code of `1 + 2 * 3` {#proc.8}. An argument that already is `Code` passes its value {#proc.9}. A baked `$args: ..Code` quotes each argument.
+- A scalar parameter is a mutable local. An aggregate parameter (struct, string, fixed array, view) is read-only: `p.x = 1`, `s = "zz"`, `a[0] = 5` on a fixed array are errors, `Can't assign to an immutable argument.` Writing through a pointer inside it, taking its address, and writing an element of a view or string stay legal. Copy first to change it: `s := s;`. A member brought in by `using o: Outer` counts as part of `o`. A `#compile_time` procedure is exempt {#proc.12}.
+- A bare builtin type name followed by a comma in a parameter list is a nameless parameter: in `(sep: string, string, reversed := false)` the second is an unnamed `string` {#proc.15}. Followed by `:` it is a parameter named like a builtin type, which is rejected (decl.25).
+- A block nested in a procedure (such as `#insert -> string { ... }`) may take the `.count` of an enclosing procedure's fixed array via `result.words.count`: the count is part of the type. Any other use of an enclosing local is an error {#proc.16}.
+
+## Headers
+
+- `#deprecated "msg"` is parsed and exported to metaprograms {#proc.10}; calls compile and run {#proc.11} with no warning. `#no_debug` is a header flag.
+- A returned procedure type without parentheses can't be followed by a body: `f :: () -> (A, B) -> C { ... }` is a parse error; write `-> ((A, B) -> C) { ... }`.
+- In an argument or field list a comma normally ends a return type. When the tokens after the comma run up to a `{` before any `,`, `;` or closing bracket, they are another return type and the `{` starts a body, so `proc = (data: *u8) -> bool, Pad { ... }` parses {#proc.13}.
+
+## Lambdas
+
+`(x) => expr`, `(x) => { ... }` and `x => expr` are procedure literals {#lambda.1}. A lambda takes its types from the expected procedure type {#lambda.2}, or is polymorphic when bound with `::` {#lambda.3}.
 
 ```jai
 add   :: (a, b) => a + b;                // add(1.5, 2.0) == 3.5
@@ -39,27 +51,10 @@ add10 :: #bake_arguments add(a = 10);
 apply(5, x => x + 1)                     // 6
 ```
 
-Lambdas do not capture locals (``cannot access local `n` of an enclosing procedure``); pass state through parameters, pointers or globals. Inference bugs are usually on the callee side (`infer_lambda_bindings`).
+- A lambda lowers to an ordinary literal, is checked against the expected type, instantiated per use, and its result types are inferred, including a callee's `$R` {#lambda.4}.
+- The commented results are what jaic computes {#lambda.5}; the block-bodied `twice` call runs its body three times {#lambda.6}.
+- Lambdas don't capture locals: ``error: cannot access local `n` of an enclosing procedure`` {#lambda.7}. Pass state through parameters, pointers or globals.
 
 ## How to change it
 
-New header directive: add it to the table in `parser/procedure.rs` and the flags in `ast.rs`, then read it in `sema/procs.rs`. Changing `arg_cost` affects every call; run the full sweep. Related: `sema/bake.rs`; `#must` and `#discard` are in [directives and notes](directives-and-notes.md).
-
-## Rules
-
-Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
-
-- Procedure literals with a body, `(x) => expr` lambdas, and bare `x => expr` {#lambda.1}. A lambda takes its types from the expected procedure type {#lambda.2}, or becomes polymorphic when bound with `::` {#lambda.3}.
-- `sema/lambda.rs` lowers a lambda to an ordinary procedure literal (`lambda_lit`), checks it against the expected type (`check_lambda`), instantiates it per use (`lambda_instance`) and infers result types, including a callee's `$R` (`lambda_return_type`, `infer_lambda_bindings`) {#lambda.4}.
-- The commented results are what jaic computes {#lambda.5}; the block-bodied `twice` call runs its body three times {#lambda.6}.
-- Lambdas do not capture locals. Using one is ``error: cannot access local `n` of an enclosing procedure`` {#lambda.7}; pass state through parameters, pointers or globals.
-- The calls give the commented results: defaults and named arguments {#proc.1}, multiple return values {#proc.2} and a variadic `..int` {#proc.3}.
-- Overloads are procedures sharing a name; the call picks by argument types {#proc.4}. A constant alias to a procedure joins the overload set {#proc.5}, which is how modules re-export one name for several implementations:
-- A candidate is ranked by the conversion cost of its arguments, then by how well its parameters fit the untyped literals passed (see [types from context](casts-and-conversions.md#types-from-context)). A named member the type lacks, more positional values than it has members, or too few for its members without initializers rule a struct out; of the rest, positional values prefer the type with the fewest members left over, and named values leave members with initializers to them. A tie is `Procedure call matches N possible overloads.` (`ambiguous_overloads`): `.{}`, `null`, `.[..]` and two equally polymorphic headers (`$T` and `$U`) have no better reading, while an untyped number fits every numeric parameter alike and the first declared wins. Among otherwise equally matching candidates, a fixed-arity header beats a variadic header, including when the variadic pack is empty; and an overload in an inner scope is nearer than one in an outer scope. A procedure the calling module declares itself beats an imported one that fits equally well when the import comes from the module's files or a body's `#import` (`choose_candidate`), but not when a `using` of the imported module in a body at or around the call brings it in: that `using` is nearer than the module's declarations, so the imported procedure is called (`brought_by_nearer_using`). The same-scope tie rule above applies when both belong to that module or neither does. In the program's own files the official compiler rejects this (the two have identical parameter types), so the declaration warns (`declaration-hides-import`, see [leniencies](leniencies.md)); inside an imported module it compiles there too.
-- `#caller_location` as a default value is evaluated at the call site and gives a `Source_Code_Location` (`location_operand` in `sema/expr.rs`) {#proc.6}. `#location()`, `#file` and `#line` give the directive's own position {#proc.7}. `#file` and `#filepath` (the directory, with a trailing `/`) spell paths with `/` on Windows too, so a metaprogram can splice them into a string literal or a `#load`.
-- A `Code` parameter on a plain procedure takes any expression as code, like a macro: `convert(1 + 2 * 3)` receives the code of `1 + 2 * 3` {#proc.8}. An argument that already is a `Code` passes its value (`param_value` in `sema/calls/emit.rs`) {#proc.9}. A baked variadic `$args: ..Code` quotes each argument the same way (`quote_code_arg`), giving a constant `[] Code`; this is how Print_Vars takes its expressions.
-- Parameters are values. A scalar parameter is a mutable local. An aggregate parameter (struct, string, fixed array, view) is read-only: `p.x = 1`, `p.q.y = 1`, `s = "zz"`, `s.count = 1` and `a[0] = 5` on a fixed array are errors, `Can't assign to an immutable argument.` (`reject_constant_target` in `sema/stmt/assign.rs`, `FnCtx::immutable`). Writing through a pointer inside the aggregate, and taking its address (`advance(*s, 1)`, which changes the procedure's own copy, never the caller's variable), stay legal; so does writing an element of a view or string parameter, whose data lives behind a pointer. To change an aggregate argument, copy it first: `s := s;`. A member brought in by `using o: Outer` is part of `o`, so `x = 9;` and `x += 9;` are errors too. A `#compile_time` procedure is exempt and may assign to its arguments. The check compares the local's own storage, found by name, so a global or a `using` member that shares a name with a parameter of some other signature is never mistaken for an argument {#proc.12}.
-- `#deprecated "msg"` is parsed and exported to metaprograms {#proc.10}; a call to such a procedure compiles and runs {#proc.11} but produces no warning. `#no_debug` is a header flag read by `sema/procs.rs` and `sema/code_export.rs`.
-- An overloaded name used as a value (`v := over;`) has no single procedure to give: two or more overloads is ``error: ambiguous overloaded procedure used as a value`` and, when a procedure type is wanted and two overloads fit it, ``N overloads fit procedure type ..`` (code `ambiguous-procedure-value`, in modules too) {#proc.14}. A target type that only one overload fits picks it; otherwise give the overload its own name.
-- A bare builtin type name followed by a comma in a parameter list is a nameless parameter of that type, not a name shared with the next parameter: in `(sep: string, string, reversed := false)` the second parameter is an unnamed `string` {#proc.15}. A builtin type name followed by `:` is still a parameter named like a builtin type and is rejected (rule decl.25 above).
-- A block nested in a procedure (such as `#insert -> string { ... }`) may take the `.count` of an enclosing procedure's fixed array through a path like `result.words.count`: the count is part of the type, so no runtime value is read. Any other use of an enclosing procedure's local is still an error {#proc.16}.
+New header directive: add it to the table in `parser/procedure.rs` and the flags in `ast.rs`, then read it in `sema/procs.rs`. Overload ranking is `arg_cost` in `sema/calls/mod.rs`; changing it affects every call, so run the full sweep. Lambdas are in `sema/lambda.rs` (inference bugs are usually on the callee side, `infer_lambda_bindings`). `#must` and `#discard` are in [directives and notes](directives-and-notes.md).

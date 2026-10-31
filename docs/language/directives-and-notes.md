@@ -1,20 +1,30 @@
 # Directives, notes, `#must` and `#discard`
 
-## What it is
-
 Source markers that change how a declaration or statement is treated: directive suffixes (`#run,stallable`), `#assert`, `#program_export`, `#must`, `#discard`, `@notes`.
 
-## How it works
+## Directives
 
-`parser/directive.rs` parses suffixes generically as `,name` or `,name(expr)`. `#run,stallable` behaves like `#run`, and `#assert,stallable` like `#assert`. `#assert cond "msg";` and `#assert(cond, "msg");` fail at the condition. `#program_export` keeps a procedure as a root and sets its native symbol (`export_entities` in `sema/modules.rs`). `;` alone is an empty statement.
+- Suffixes are written `,name` or `,name(expr)` after a directive (`#run,stallable`, `#insert,scope(x)`). `#run,stallable` behaves like `#run` {#note.1}.
+- `#assert cond "msg";` and `#assert(cond, "msg");` both take an optional message {#note.2}; a failure is reported at the condition {#note.3}.
+- A `#assert` whose condition holds a braced body (`#assert #run -> bool { ... } "msg"`) needs no `;`; any other does {#note.13}.
+- `#program_export` (optionally with a symbol string) keeps a procedure as a root even if nothing calls it {#note.4} and sets its native symbol name to the string or the procedure name {#note.5}.
+- `;` alone is an empty statement, so `if answer ;` is valid {#note.12}.
 
-### Notes
+## Notes
 
-A note is `@` plus every character up to whitespace: `@short=j`, `@range(1,64)`. A touching `;` or `{` belongs to the note, so member notes go after the semicolon (`a: int; @tag`). `@help("two words")` is an error. `@"?text"` is read as one string note; this deviates from the older reference build because programs in the corpus use it (`Tok::Note` in `lexer.rs`).
+A note is `@` plus every character up to whitespace: `@short=j`, `@range(1,64)`. A touching `;` or `{` belongs to the note, so member notes go after the semicolon (`a: int; @tag`). `@help("two words")` is an error. `@"?text"` is one string note.
 
-Notes are stored, never interpreted: `type_info(T).members[i].notes`, `type_info(S).notes`, `Code_Struct.notes`, `Code_Enum.notes` (`Type_Info_Enum` has none). Built in `sema/typeinfo.rs` and `sema/code_export.rs`. The two notes on procedures that the compiler reads are `@PrintLike` (checks a format string against its arguments) and the `jaic` extension `@Interpolates` ([inline holes](interpolates.md)).
+Notes are stored, never interpreted {#note.11}:
 
-### `#must` and `#discard`
+| Where | Read from |
+|---|---|
+| after a struct member | `type_info(T).members[i].notes` {#note.7} |
+| on a struct or union (`S :: struct @thing {`) | `type_info(S).notes`, `Code_Struct.notes` {#note.8} |
+| on an enum (`enum_flags @Hi {`) | `Code_Enum.notes` only {#note.9}; `Type_Info_Enum` has no notes {#note.10} |
+
+The two notes on procedures the compiler reads are `@PrintLike` (checks a format string against its arguments) and `@Interpolates` ([inline holes](interpolates.md)).
+
+## `#must` and `#discard`
 
 ```jai
 only :: () -> int, bool #must { return 1, true; }
@@ -24,41 +34,23 @@ _, ok := only();   // fine
 assert :: (cond: bool, #discard msg := "") { ... }   // msg is type-checked, never evaluated
 ```
 
-`#must` is checked when code is generated, not during type checking, so a call passed as `Code` to a macro that never runs it is fine. `emit_call` records the call in `last_call_must`; `check_stmt` and local declarations call `check_must_used` (`sema/stmt.rs`). `_ := f()` counts as use. Calls through procedure values and operator overloads do not carry `#must`.
+- `#must` on a result makes discarding it a compile error {#note.6} {#must.1}. It is per result: `-> int, bool #must` marks the second {#must.5}.
+- The check runs when code is generated, not during type checking. A call passed as `Code` to a macro that never runs it doesn't violate `#must` {#must.6}.
+- `a := f();` uses only the declared names, so results beyond them may not be `#must` {#must.7}. `_ := f();` counts as use {#must.8}.
+- Calls through procedure values and operator overloads don't carry `#must`; the flag lives on the declaration {#must.9}.
+- `#discard` on a parameter means the callee can't use it {#must.2} and the caller never evaluates the argument {#must.3}. That is how `Basic.assert` costs nothing when assertions are off {#must.4}.
+- The argument is still type-checked, so `#discard x: $T` infers `T` {#must.10} and type errors are reported {#must.11}. Defaults (`#discard loc := #caller_location`) aren't evaluated either {#must.12}.
 
-A `#discard` argument is only type-checked (`discarded_args`, `precheck_args_deferring` in `sema/calls/mod.rs`), so `#discard x: $T` still infers `T`, and defaults are not evaluated. Using the parameter in the callee is an error (`entity_operand`, `sema/expr.rs`). `Basic.assert` uses it when `ENABLE_ASSERT` is false.
-
-### `#target_features`
+## `#target_features`
 
 ```jai
 sum_avx2 :: (xs: [] u8) -> u64 #target_features "avx2,bmi2" { ... }
 ```
 
-Native code for the procedure may use the listed CPU features on top of the build's (`parse_proc_flags` stores the string in `ProcFlags::target_features`; `Func::target_features` carries it to `lower/symbols.rs`, which writes LLVM's `target-features` attribute as the machine's feature string plus `+name` per entry). Bare names mean `+`; a leading `-` removes one. Names the target architecture does not have are dropped (`simd::function_features`), so one source can list x64 features and still build for arm64 or wasm, where the attribute is simply absent. The interpreter ignores the directive. LLVM inlines a procedure into callers with at least its features only, so a `#target_features` procedure called from baseline code is a real call, which is what a dispatch table wants ([SIMD](../extensions/simd.md#choosing-code-by-cpu)). Vector intrinsics (`byte_lookup`, `sign_mask`) still lower for the build's features, not the procedure's.
+Native code for the procedure may use the listed CPU features on top of the build's. A leading `-` removes one. Names the target doesn't have are dropped, so one source can list x64 features and still build for arm64 or wasm. The interpreter ignores it. LLVM inlines a procedure only into callers with at least its features, so calling it from baseline code is a real call, which is what a dispatch table wants ([SIMD](../extensions/simd.md)). Vector intrinsics still lower for the build's features, not the procedure's.
 
 ## How to change it
 
-- New expression directive: a `Directive` variant in `parser/directive.rs` and an arm in `parse_directive_expr`; a directive suffix is consumed where the directive is evaluated. New procedure flag: a `ProcFlag` variant and an arm in `apply_proc_flag` (`parser/procedure.rs`), read in `sema/procs.rs`; `ProcFlag::kept_by_name` lists the flags that do not make the procedure a header.
-- Code that drops call results must call `check_must_used` right after the call (it matches by span). New call forms must route arguments through `precheck_args_deferring`.
-- A check that rejects programs needs a negative test in `tests/corpus/negative/` and an entry in `tests/corpus/manifest.json`.
-
-## Rules
-
-Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
-
-- `parser/directive.rs` parses suffixes generically as `,name` or `,name(expr)` after a directive (`#run,stallable`, `#insert,scope(x)`). `#run,stallable` behaves like `#run` {#note.1}.
-- `#assert cond "msg";` and `#assert(cond, "msg");` both take an optional message {#note.2}, and a failure is reported at the condition {#note.3}. `#must` after a result makes discarding that result a compile error {#note.6}.
-- A `#assert` whose condition holds a braced body, as in `#assert #run -> bool { ... } "msg"`, needs no `;` after it; any other `#assert` still needs one {#note.13}.
-- `#program_export` (optionally with a symbol name string) on a procedure keeps it as a root even if nothing calls it (`export_entities` in `sema/modules.rs`) {#note.4} and sets its native symbol name to the string or the procedure name (`sema/procs.rs`) {#note.5}. It matters for `jaic`.
-- Notes (`@Name`) are stored, never interpreted {#note.11}:
-- | after a struct member | `type_info(T).members[i].notes` {#note.7} |
-- | on a struct or union (`S :: struct @thing {`) | `type_info(S).notes`, `Code_Struct.notes` {#note.8} |
-- | on an enum (`enum_flags @Hi {`) | `Code_Enum.notes` only {#note.9}; `Type_Info_Enum` has no notes {#note.10} |
-- `;` alone is a statement, so `if answer ;` is valid with an empty body {#note.12}.
-- `#must` on a result makes discarding it a compile error {#must.1}. `#discard` on a parameter means the callee cannot use it {#must.2} and the caller never evaluates the argument (it is only type-checked) {#must.3}. That is how `Basic.assert` costs nothing when assertions are off {#must.4}.
-- The parser sets `Return::must` per result (`-> int, bool #must` marks the second) {#must.5}. Each time `emit_call` in `sema/calls/emit.rs` emits a call or expands a macro, it records the call's span, name and `#must` flags in `last_call_must`.
-- The check happens when code is generated, not during type checking. That is deliberate: a call passed as `Code` to a macro that never runs it does not violate `#must` {#must.6}.
-- `a := f();`: `check_must_used(span, names)`, so only results beyond the declared names may not be `#must` {#must.7}. `_ := f();` counts as using it {#must.8}.
-- Calls through procedure values and operator overloads don't carry `#must`; the flag lives on the declaration {#must.9}.
-- Since the argument is still type-checked, `#discard x: $T` infers `T` {#must.10} and type errors are still reported {#must.11}.
-- Defaults (`#discard loc := #caller_location`) are not evaluated either {#must.12}.
+- New expression directive: a `Directive` variant in `parser/directive.rs` and an arm in `parse_directive_expr`. New procedure flag: a `ProcFlag` variant and an arm in `apply_proc_flag` (`parser/procedure.rs`), read in `sema/procs.rs`.
+- Code that drops call results must call `check_must_used` right after the call. New call forms must route arguments through `precheck_args_deferring`.
+- A check that rejects programs needs a negative test in `tests/corpus/negative/` and a manifest entry.

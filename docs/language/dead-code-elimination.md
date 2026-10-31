@@ -1,8 +1,6 @@
 # Dead-code elimination
 
-## What it is
-
-Which declarations jaic type-checks when nothing the program runs uses them. `Build_Options.dead_code_elimination` (and `-no_dce`) picks the mode. Only checking depends on it: compiled output never contains unreached code in any mode.
+Which declarations jaic type-checks when nothing the program runs uses them. `Build_Options.dead_code_elimination` (or `-no_dce`) picks the mode. Only checking depends on it: compiled output never contains unreached code.
 
 | Mode | Checked even when unreferenced |
 |---|---|
@@ -16,47 +14,31 @@ bad :: () { x: int = "a"; }    // error: bodies in the program's files are check
 main :: () { print("hi\n"); }
 ```
 
-The same declarations in an imported module go unchecked until something calls them, so a module can carry other-platform or stale helpers without breaking importers.
+The same declarations in an imported module go unchecked until something calls them, so a module can carry stale or other-platform helpers without breaking importers.
 
 ## How it works
 
-The program's own files are those in the main module (`Scope::module == Compiler::ns.main_module`): files given to the compiler, a workspace's `add_build_file`/`add_build_string`, and what they `#load`. Under `.MODULES_ONLY`, in those files every global, constant and non-polymorphic, non-macro procedure body is checked (including struct-body and nested procedures); struct constants are checked after layout. What those bodies call is checked as called code. Polymorphic procedures and macros are checked per instance or expansion. Inactive `#if` branches declare nothing. `#run` inside checked bodies runs, after the top-level `#run`s. Every non-polymorphic struct and union is laid out in every mode, so a member of an undefined type is always an error.
+- The program's own files are the files given to the compiler (or a workspace's `add_build_file`/`add_build_string`) and everything they `#load`. A module's files are what `#import`, `#import,file` and `#import,dir` load, plus what those `#load` {#dce.7}.
+- Under `.MODULES_ONLY`, in the program's files every global (type and initializer) and constant is checked {#dce.1}, and so is every procedure body unless it is polymorphic or a macro, including nested ones {#dce.2}.
+- A struct constant is checked after its struct is laid out, so it can name the struct's members (`PAD :: size_of(type_of(info))`) {#dce.13}.
+- What those bodies call is checked like any called code, so a module procedure called only by an unreferenced program procedure is checked too {#dce.3}.
+- Polymorphic procedures are checked per instance and macros per expansion, so never-used ones are never checked {#dce.4}.
+- An inactive `#if` branch declares nothing, so nothing in it is checked {#dce.5}.
+- `#run`s inside bodies checked this way run, after the top-level `#run`s {#dce.11}. In modules, a body nothing reaches is never checked and its `#run`s never run {#dce.6}.
+- `.NONE` applies the program-file rules to every module {#dce.8}. `.ALL` checks only what the program reaches {#dce.9}.
+- In every mode, every non-polymorphic struct and union is laid out, so a member of an undefined type is an error even in an unused struct {#dce.10}.
+- Compiled output holds only functions that the exported entry points, globals and runtime information reach; code lowered only to check something is dropped {#dce.12}.
+- Declarations are visited in creation order, so which error is reported does not depend on hashing.
 
-Implementation:
-
-1. `finish_program` (`sema/driver.rs`) lowers what is reachable, lays out structs and fills runtime info.
-2. `check_unreferenced` walks `Compiler::ns.entities` and `Compiler::pr.procs` in creation order until nothing new appears. `unreferenced_entity_wanted` picks unresolved declarations in checked modules (`checks_unreferenced_in`); `check_unreferenced_proc` picks procedures with no target (settling `refresh_implicit_poly`, skipping polymorphic ones; bodiless `#foreign`/`#compiler` procedures only get their signature checked). Anything inside an instance or expansion is skipped (`inside_instance`). Under `.MODULES_ONLY` a procedure that a file-scope `#insert` declares gets its signature checked but not its body until something calls it (`waits_for_a_call`); its constants, globals and structs are checked as usual, and `.NONE` checks every body.
-3. Before it lowers anything it records `Compiler::unreferenced_from`; `prepare_compiled_output` then calls `drop_unreferenced_code`, which walks from older functions and globals (plus exports) and drops newer unreached functions, initializers and foreign symbols. The interpreter keeps everything.
-
-Declarations are visited in creation order, so the reported error does not depend on hashing. The language server publishes the first error as a `jaic` diagnostic with code `check`.
-
-### Differences from Jai
+## Differences from Jai
 
 - Jai also checks module declaration headers, globals and constants under `.MODULES_ONLY` and `.ALL`; jaic checks them only when used (structs excepted).
-- Jai compiles the program's unreferenced procedures into the executable; jaic drops them.
+- Jai compiles unreferenced procedures into the executable; jaic drops them.
 - Bodies checked by this pass come after the last `Message_Typechecked`, so a metaprogram never sees them.
 
 ## How to change it
 
-- New kind of unreferenced declaration: extend `unreferenced_entity_wanted` or `check_unreferenced_proc`. It runs after `placeholders_final`, so it must not wait for code a metaprogram adds.
+- A new kind of unreferenced declaration: extend `unreferenced_entity_wanted` or `check_unreferenced_proc` in the `check_unreferenced` pass (`sema/driver.rs`). It runs after `placeholders_final`, so it must not wait on code a metaprogram adds.
 - Which files count as the program's: `checks_unreferenced_in`.
-- A new IR instruction referring to a function, global or foreign symbol must be taught to `drop_unreferenced_code`.
+- A new IR instruction that refers to a function, global or foreign symbol must be taught to `drop_unreferenced_code`.
 - A new sweep failure after a change here is usually a latent sema bug in never-checked code.
-
-Configuration: `set_build_options` in `stdlib/internal/compiler-api/workspaces.jai`; `sema::Options::dead_code`; `build::BuildSettings::dead_code_elimination`. Tests: `tests/compiler/regressions/dead-code-elimination.jai`, `tests/corpus/negative/dce-*.jai`, `dead_code_elimination_flag` in `crates/jaic-cli/tests/cli.rs`.
-
-## Rules
-
-Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
-
-- The program's own files are those in the main module: the files given to the compiler (`jaic file.jai`, a workspace's `add_build_file` and `add_build_string`) and every file they `#load`. A module's files are what `#import`, `#import,file` and `#import,dir` load (the program's `modules/` folder too), and every file such a module `#load`s {#dce.7}. Sema tells them apart by `Scope::module == Compiler::ns.main_module`.
-- Every global variable (its type and initializer) and every constant is checked {#dce.1}.
-- Every procedure body is checked unless the procedure is polymorphic or a macro, including procedures declared in a struct body or inside another procedure's body {#dce.2}.
-- A struct constant is checked after its struct is laid out, as a use of the struct would, so it may name the struct's members (`PAD :: size_of(type_of(info))`), also in a struct declared inside another struct {#dce.13}.
-- What those bodies call is checked like any called code, so a module procedure that only an unreferenced procedure of the program calls has its body checked {#dce.3}.
-- A polymorphic procedure's body is checked per instance and a macro's per expansion, so one that is never instantiated or expanded is never checked {#dce.4}.
-- An inactive `#if` branch declares nothing, so nothing in it is checked {#dce.5}.
-- `#run` directives inside a body checked this way run, since checking a body evaluates its compile-time code {#dce.11}. They run when the program has been compiled, after the top-level `#run`s.
-- In modules, a procedure body nothing reaches is never checked, and the `#run`s inside it never run {#dce.6}.
-- `.NONE` applies the program-file rules to every module as well {#dce.8}. `.ALL` checks only what the program reaches, which is how jaic behaved before the modes existed {#dce.9}. In every mode, every non-polymorphic struct and union declaration is laid out, so a member of an undefined type is an error even in a struct nothing uses {#dce.10} (see [sema: declarations](../compiler/sema.md)).
-- Compiled output contains only the functions that the program's exported entry points, its globals and its runtime information reach. Code lowered only to check something unreferenced is dropped {#dce.12}.

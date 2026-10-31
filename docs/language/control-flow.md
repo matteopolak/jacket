@@ -1,12 +1,6 @@
 # Control flow: loops, cases and defer
 
-## What it is
-
-How jaic checks and lowers `if`, `while`, `for`, `if x == { case ... }` and `defer`, including named loops, reverse and pointer iteration, and `remove`.
-
-## How it works
-
-Parsing is in `parser/stmt.rs`; checking is `check_if`, `check_while`, `check_for` and `check_for_expansion` in `sema/stmt.rs`. Jumps resolve to the innermost or named loop at check time.
+How `if`, `while`, `for`, `if x == { case ... }` and `defer` behave, including named loops, reverse and pointer iteration, and `remove`. Jumps resolve to the innermost or named loop at check time, so there is no runtime label lookup {#flow.10}.
 
 ```jai
 for outer: 1..4 {
@@ -26,34 +20,32 @@ if c == {
 }
 ```
 
-- Ranges are inclusive; both ends are evaluated once, left to right. Default names are `it` and `it_index`.
-- Over any array, a by-value `it` over aggregate elements (structs, strings, arrays) is the element itself, so `*it` stays valid after the loop (`for table if it.key == key return *it.value;`), but nothing can be assigned through it. A scalar element (number, bool, pointer, enum) is copied into `it`.
-- `remove it;` over a dynamic array is an unordered remove: the last element moves into the hole and is visited next. A scalar `it` keeps the removed value; an aggregate `it` shows the element that moved in.
-- Case values must be constants (`Conditions listed by 'case' must be constant.`; an integer literal such as `#char "+"` against an enum, and `type_info(T)`, count) and two cases of one `if ==` may not name the same one (`Duplicate case.`, with a note at the earlier case). Switching on a struct or array value is an error: `'if ==' statements do not support struct or array types at this time.`
-- `while name := cond` re-evaluates `cond`, binds it, and names the loop; `while :name cond` only names it.
-- `ifx c then x = 1 else x = 2;` whose branches assign is an `if` statement, and a branch may be parenthesized (`then (x = 1)`) {#flow.30}. `ifx value == { case ...; }` at the start of a statement is a switch, as `if` is {#flow.31}.
-- An `ifx` whose `then` value is an untyped constant that cannot become the type the context expects (a vector operand's type, for `v * (ifx c then 0.9 else 1.0)`) takes its type from the `else` value or the constant's default {#flow.32}.
-- `if #complete c == {` on a non-flags enum must name every member (a default label does not count): `#complete switch on Color has no case for .BLUE` (`check_switch_complete`). A switch on a constant still type-checks every case. At run time, a `#complete` switch with no default stops the program when the value matches nothing (`unmatched_switch_check` sends the path to `Intrinsic::CheckFailed`, `ir::CheckReason::SwitchUnmatched`; native code reports via `runtime_support_check_failed`).
-- `defer` runs at scope exit in reverse order, including on `return`, `break` and `continue`.
-- `for x: value` on a type with a `for_expansion` goes through `check_for_expansion` ([macros and custom iteration](macros-and-custom-iteration.md)). A `continue` from the user's body jumps to the macro's loop head, so advance the index in a `defer`.
+`for <` visits `3` down to `1` {#flow.1}; `continue outer` leaves the inner loop and continues the outer one {#flow.2}; `for 5..3` runs zero times {#flow.3}; `for v, i` binds the value then the index {#flow.4}; `for *p` writes through `p` into the array {#flow.5}; `while x := ...` names the loop {#flow.6}.
+
+## Loops
+
+- Ranges are inclusive {#flow.7}; both ends are evaluated once, left to right {#flow.8}. `for #v2 a..b` means the same {#flow.12}.
+- Default names are `it` and `it_index`; naming either replaces it {#flow.9}.
+- Over an array, a by-value `it` over aggregate elements (structs, strings, arrays, views) is the element itself, so `*it` stays valid after the loop: `for table if it.key == key return *it.value;` {#flow.28}. Assigning through such an `it` is an error (`Can't assign to a large-value iterator. Perhaps you want to iterate by pointer (for *).`).
+- A scalar element is copied into `it`; changing it leaves the array alone, and after `remove it` the copy still holds the removed value {#flow.29}.
+- `remove it;` over a dynamic array is an unordered remove: the last element moves into the hole and is visited next. Removing `2`, `4`, `6` from `[1..6]` leaves `[1, 5, 3]` {#flow.11}.
+- `while name := cond` re-evaluates `cond`, binds it, and names the loop for `break name` {#flow.24}. `while :name cond` only names it {#flow.25}.
+- `for x: value` on a type with a `for_expansion` macro goes through that macro {#flow.22}, which can rewrite the body's jumps with `#insert (break=..., continue=..., remove=...) body;` {#flow.23}. A `continue` from the body jumps to the macro's loop head, so advance the index in a `defer`. See [macros and custom iteration](macros-and-custom-iteration.md).
+
+## Cases
+
+- A case runs only its own body unless it ends with `#through` {#flow.13}; a bare `case;` is the default {#flow.14}.
+- Case values must be constants and may not repeat (`Duplicate case.`). Switching on a struct or array is an error.
+- `if #complete c == {` on a non-flags enum must name every member; a default label does not count: `#complete switch on Color has no case for .BLUE` {#flow.15}. Members compare by value, so aliases count {#flow.16}. `#complete` on an `enum_flags` value is not checked {#flow.17}; on a non-enum it is an error.
+- A switch on a compile-time constant runs only the matching case, but every case is still type-checked. Only `#if` skips code {#flow.18}.
+- At run time a `#complete` switch with no default stops the program when the value matches nothing: `error: runtime error: no case of the `#complete` switch matches its value, 7` {#flow.27}.
+
+## ifx and defer
+
+- `ifx c then x = 1 else x = 2;` whose branches assign is an `if` statement {#flow.26}, and a branch may be parenthesized {#flow.30}. `ifx value == { case ...; }` at the start of a statement is a switch {#flow.31}.
+- An `ifx` whose `then` is an untyped constant that can't take the expected type (`v * (ifx c then 0.9 else 1.0)`) takes its type from the `else` value or the constant's default {#flow.32}.
+- `defer` bodies run at scope exit in reverse order {#flow.19}, including on `return`, `break` and `continue` out of the scope {#flow.20}. `push_context,defer_pop ctx;` holds a context for the rest of the block {#flow.21}.
 
 ## How to change it
 
-Add syntax in `parser/stmt.rs` with a test in `parser/tests.rs`, then handle the new `StmtKind` in `sema/stmt.rs`. Loop bodies that macros rewrite go through `ForBody` in `sema/lower.rs`. Regression programs that exit 0 go in `tests/compiler/regressions/` (`insert-replacements.jai`, `push-context-defer-pop.jai`); programs that must be rejected go in `tests/corpus/negative/` (`complete-switch-missing-case.jai`).
-
-## Rules
-
-Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
-
-- Parsing is in `parser/stmt.rs`; checking is `check_if`, `check_while`, `check_for` and `check_for_expansion` in `sema/stmt.rs`. Jumps resolve to the innermost or named loop at check time {#flow.10}, so there is no runtime label lookup. A statement `ifx c then x = 1 else x = 2;` whose branches assign is an `if` statement {#flow.26}.
-- Here `for <` visits `3` down to `1` {#flow.1}, `continue outer` leaves the inner loop and continues the outer one {#flow.2}, `for 5..3` runs zero times {#flow.3}, `for v, i` binds the value then the index {#flow.4}, `for *p` writes through `p` into the array {#flow.5}, and `while x := ...` names the loop {#flow.6}.
-- Ranges are inclusive {#flow.7}; both ends are evaluated once, left to right {#flow.8}. `for #v2 a..b` means the same {#flow.12}.
-- The default names are `it` and `it_index`; naming either replaces it {#flow.9}.
-- Over an array (fixed, view or dynamic), a by-value `it` over aggregate elements (structs, strings, fixed arrays, views) is the element itself, not a copy: `*it` is the element's address and stays valid after the loop, so `for table if it.key == key return *it.value;` returns a pointer into the array {#flow.28}. Any assignment through such an `it` (`it = x`, `it.f = x`, `it[0] = x`, `it.f += x`) is an error, `Can't assign to a large-value iterator. Perhaps you want to iterate by pointer (for *).`; writing through a pointer the element holds, and `for *`, are fine. A scalar element (number, bool, pointer, enum) is copied into `it`: changing `it` leaves the array alone, `*it` is the copy's address, and after `remove it` the copy still holds the removed value (`remove` of `1` from `[1, 2, 3]` leaves `[3, 2]`) {#flow.29}.
-- `while name := cond` binds `name` to the condition's value (re-evaluated each iteration) and names the loop for `break name` {#flow.24}. `while :name cond` only names it {#flow.25}.
-- `remove it;` (or `remove;`) over a dynamic array is an unordered remove: the last element moves into the hole and is visited next. Removing `2`, `4`, `6` from `[1..6]` leaves `[1, 5, 3]` {#flow.11}.
-- A case runs only its own body unless it ends with `#through` {#flow.13}; a bare `case;` is the default label {#flow.14}.
-- `if #complete c == {` on a non-flags enum must name every member (a default label does not count), or it fails with `#complete switch on Color has no case for .BLUE` (`check_switch_complete`) {#flow.15}. Members compare by value, so aliases count {#flow.16}. `#complete` on an `enum_flags` value is not checked {#flow.17}; on a non-enum it is an error, `#complete only applies to 'if' on enum types.` A switch on a compile-time constant runs only the matching case, but every case is still type-checked and `#complete` applies as usual; only `#if` skips code {#flow.18}.
-- At run time, a `#complete` switch on a non-flags enum without a default label stops the program when the value is none of the members (a cast from an integer, or uninitialized memory), instead of running no case: `error: runtime error: no case of the `#complete` switch matches its value, 7`. `unmatched_switch_check` in `sema/stmt.rs` sends the no-match path to `Intrinsic::CheckFailed` (`ir::CheckReason::SwitchUnmatched`); native code reports it through `runtime_support_check_failed` {#flow.27}.
-- `defer` bodies run at scope exit in reverse order {#flow.19}, including on `return`, `break` and `continue` out of the scope {#flow.20}. `push_context,defer_pop ctx;` holds a context for the rest of the block {#flow.21}.
-- `for x: value` on a type with a `for_expansion` macro goes through `check_for_expansion` {#flow.22}. The macro can rewrite the body's jumps with `#insert (break=..., continue=..., remove=...) body;` {#flow.23}. See [macros and custom iteration](macros-and-custom-iteration.md).
+Add syntax in `parser/stmt.rs` with a parser test, then handle the new `StmtKind` in `sema/stmt.rs` (`check_if`, `check_while`, `check_for`). Loop bodies that macros rewrite go through `ForBody` in `sema/lower.rs`. Rejected programs go in `tests/corpus/negative/`.

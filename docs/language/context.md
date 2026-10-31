@@ -1,12 +1,6 @@
 # The implicit context
 
-## What it is
-
-Every ordinary procedure receives a hidden pointer to a `Context` record (allocator, logger, temporary storage, thread index, plus `#add_context` fields). `push_context` swaps in a modified copy for a scope.
-
-## How it works
-
-The record starts from `Context_Base` in `stdlib/prelude/context.jai`, then each `#add_context` field (`Compiler::ns.add_contexts` in `sema/modules.rs`, merged in `sema/structs.rs`).
+Every ordinary procedure receives a hidden pointer to a `Context` record: allocator, logger, temporary storage, thread index, plus whatever `#add_context` declares {#ctx.1}. `push_context` swaps in a modified copy for a lexical scope {#ctx.2}.
 
 ```jai
 #add_context depth: int = 7;
@@ -19,27 +13,22 @@ inner :: () {
 }
 ```
 
-- `context.depth += 1` writes through the active pointer, so callees see it. `push_context` restores on any exit (`return`, `break`, `continue`); `check_stmt` tracks it in `FnCtx::context`.
-- `push_context,defer_pop ctx;` lasts to the end of the block. With no ctx the bare forms push a copy of the current context, or a default `#Context` inside `#c_call` and `#no_context` procedures.
-- `#add_context` is legal only at file scope. All additions share one program `#Context`, so field names must be unique; duplicates through differently parameterised imports or distinct modules are rejected even when the type and initializer match. A shared context extension should be declared once in a common imported module.
-- `#add_context name :: value;` is a constant reachable as `context.name`, resolved in the declaring file (`context_type`, `sema/structs.rs`) and listed in `type_info(type_of(context)).members` with `CONSTANT`.
-- `has_context` (`sema/procs.rs`) decides per signature whether the hidden parameter exists: not for `#c_call`, `#no_context`, `#intrinsic`. Using `context` there is an error; a `#c_call` body can do `new_context: #Context; push_context new_context { ... }`.
+The example prints `depth=99` inside the block and `depth=7` after it {#ctx.4}.
+
+## How it works
+
+- The record starts from `Context_Base` in the prelude, then each `#add_context` field with its default {#ctx.3}.
+- `context.depth += 1` writes through the active pointer, so callees see it {#ctx.5}.
+- `push_context` restores the previous context on any exit, including `return`, `break` and `continue` {#ctx.6}.
+- `push_context,defer_pop ctx;` keeps the context until the end of the enclosing block {#ctx.7}.
+- With no context given, `push_context { }` and `push_context,defer_pop;` push a copy of the current one, so the block's changes stay inside it. In a `#c_call` or `#no_context` procedure they push a default `#Context` {#ctx.14}.
+- `#add_context` is only legal at file scope {#ctx.11}. All additions share one program `#Context`, so field names must be unique, even across differently parameterised imports. Declare a shared extension once in a common module.
+- `#add_context name :: value;` is a constant reachable as `context.name`, resolved in the declaring file {#ctx.12}. It shows up in `type_info(type_of(context)).members` with the `CONSTANT` flag.
+- `#c_call`, `#no_context` and `#intrinsic` procedures have no hidden parameter {#ctx.8}; direct and indirect calls pass the active pointer {#ctx.13}. Using `context` in a procedure without one is an error {#ctx.9}.
+- A `#c_call` body can make one: `new_context: #Context; push_context new_context { ... }` {#ctx.10}.
 
 ## How to change it
 
-Add context fields with `#add_context` in Jai, not in the compiler. The layout must be final before any `#run` lays it out: `expand_plain_ifs` (`sema/scope.rs`) expands plain `#if` first so a conditional `#add_context` is seen, but one that depends on a `#run` result cannot work. A file that loads while a `#run` is already using the Context (an `#import,file` inside a procedure the `#run` calls) may still add members: they are appended and defaulted in the running context, up to 4096 bytes in all. Test: `late-add-context.jai`. Tests: `tests/compiler/regressions/push-context-defer-pop.jai`, `add-context-constant.jai`.
+Add context fields with `#add_context` in Jai, not in the compiler. The layout must be final before any `#run` uses it. Plain `#if` is expanded first so a conditional `#add_context` works; one that depends on a `#run` result cannot. A file loaded while a `#run` is already using the context may still append members, up to 4096 bytes in all.
 
-## Rules
-
-Claims that tests cite by ID (`tools/dev/check_rule_coverage.py`).
-
-- Every ordinary procedure receives a hidden pointer to a `Context` record: allocator, logger, temporary storage, thread index, plus whatever `#add_context` declares {#ctx.1}. `push_context` swaps in a modified copy for a lexical scope {#ctx.2}.
-- The record starts from `Context_Base` in `stdlib/Runtime_Support.jai`. `stdlib/prelude/module.jai` splices that in first, then each `#add_context` field (collected in `Compiler::ns.add_contexts` in `sema/modules.rs`, merged in `sema/structs.rs`) with its default {#ctx.3}.
-- The example prints `depth=99` inside the `push_context` block and `depth=7` after it {#ctx.4}.
-- `context.depth += 1` writes through the active pointer, so callees see it {#ctx.5}.
-- `push_context` restores the previous context when the block exits by any path, including `return`, `break` and `continue` {#ctx.6}. `check_stmt` in `sema/stmt.rs` tracks the active address in `FnCtx::context`.
-- `push_context,defer_pop ctx;` keeps the context until the end of the enclosing block {#ctx.7}. Without a context, `push_context { }` and `push_context,defer_pop;` push a copy of the current context, so what the block changes stays inside it; in a `#c_call` or `#no_context` procedure, which has none, they push a default `#Context` {#ctx.14}. Third-party code relies on the bare form in `#c_call` callbacks (Vk-Engine's `push_context,defer_pop;`, Photon's `push_context { }`).
-- `#add_context` is only legal at file scope {#ctx.11}.
-- `#add_context name :: value;` declares a constant reachable as `#Context.name` or `context.name`, not a field. The Iprof and Tracy plugins use this to insert a module alias for their runtime. It resolves in the declaring file (`context_type` in `sema/structs.rs`) {#ctx.12}. It appears in `type_info(type_of(context)).members` with the `CONSTANT` flag (procedures included), so compile-time code can detect a hook by name; module aliases are not listed.
-- `has_context` in `sema/procs.rs` decides once per signature whether the hidden parameter exists: not for `#c_call`, `#no_context` or `#intrinsic` {#ctx.8}. Direct and indirect calls pass the active pointer {#ctx.13}. Using `context` in such a procedure is an error {#ctx.9}:
-- A `#c_call` body can create one with `new_context: #Context; push_context new_context { ... }` {#ctx.10}.
+Code: `has_context` in `sema/procs.rs`, `context_type` in `sema/structs.rs`.
