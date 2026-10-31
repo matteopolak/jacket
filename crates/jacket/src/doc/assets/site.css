@@ -208,11 +208,14 @@ pre { margin: 0; }
 pre.sig { margin: 0 0 20px; padding: 14px 18px; background: var(--sunken); border-radius: 8px; font-size: 13.5px; line-height: 1.75; }
 .fn { font-weight: 500; }
 .ty, a.ty { color: var(--type); }
-.defs { margin: 0 0 20px; border-top: 1px solid var(--hair); }
-.def { display: flex; flex-wrap: wrap; gap: 2px 24px; padding: 9px 0; border-bottom: 1px solid var(--hair); }
-.def dt { flex: 0 1 auto; min-width: min(220px, 100%); max-width: 100%; font-size: 13.5px; overflow-wrap: break-word; }
+/* One card per list, rows split by hairlines, and one shared name column: as wide as the
+   longest name, up to half the width. */
+.defs { display: grid; grid-template-columns: fit-content(50%) minmax(0, 1fr); column-gap: 24px; margin: 0 0 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.def { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; align-items: baseline; padding: 10px 16px; }
+.def + .def { border-top: 1px solid var(--hair); }
+.def dt { font-size: 13.5px; overflow-wrap: anywhere; min-width: 0; }
 .def dd:empty { display: none; }
-.def dd { flex: 1 1 280px; margin: 0; font-size: 14.5px; color: var(--fg2); min-width: 0; }
+.def dd { margin: 0; font-size: 14.5px; color: var(--fg2); min-width: 0; }
 .pname { color: var(--fg); font-weight: 500; }
 .colon { color: var(--muted); }
 .see { border-top: 1px solid var(--border); padding-top: 4px; margin-top: 44px; }
@@ -270,7 +273,8 @@ a.btn:hover { text-decoration: none; border-color: var(--link); }
   h1.mono { font-size: 24px; }
 }
 @media (max-width: 599px) {
-  .def dt { flex-basis: 100%; }
+  .defs { grid-template-columns: minmax(0, 1fr); }
+  .def dd { margin-top: 2px; }
   .site-nav { gap: 14px; flex-wrap: wrap; }
   .search-wrap { order: 5; flex-basis: 100%; }
   .ex-row { flex-wrap: wrap; }
