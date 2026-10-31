@@ -1,8 +1,6 @@
 # LLVM setup
 
-## What it is
-
-`crates/jaic-llvm` uses Inkwell (`llvm23-1-prefer-dynamic`, from a pinned commit; see [development](development.md#dependency-policy)) over a separately installed LLVM 23.1, and `jaic` links with the host's Clang. Building `jaic-cli` needs LLVM; `jaic -check` and `-interp` do not use it at run time. `jai-wasm` does not depend on it.
+`crates/jaic-llvm` uses Inkwell (from a pinned commit; see [development](development.md#dependency-policy)) over a separately installed LLVM 23.1, and `jaic` links with the host's Clang. Building `jaic-cli` needs LLVM; `jaic -check` and `-interp` don't use it at run time. `jai-wasm` doesn't depend on it.
 
 ```sh
 brew install llvm@23 lld   # lld: wasm-ld, only for `jaic -os wasm`
@@ -16,39 +14,36 @@ Any LLVM 23.1 install with `llvm-config` and shared `libLLVM` works. The officia
 
 ## How it works
 
-`llvm-sys` finds LLVM through `LLVM_SYS_<major><minor>_PREFIX` (`LLVM_SYS_231_PREFIX` for 23.1; a directory with `bin/llvm-config` and `lib/`). CI sets it per platform through the `.github/actions/setup-llvm` composite action (`setup-windows` on Windows), which exports `LLVM_VERSION`, `LLVM_MAJOR`, `LLVM_SYS_PREFIX_VAR` (the variable's name) and `LLVM_PREFIX` (the install directory, for steps that should not spell the version-specific variable). The version is `llvm` in `.github/pins.json` and nowhere else: `tools/ci/pins.py llvm-env` derives the major version and the variable name from it, the scripts source `tools/ci/llvm_env.sh`, and `install_pinned.py llvm-release` takes archive names with a `{version}` placeholder. `pins.py check` (run with the policy tests) fails when the full version is spelled out in `.github/`, `tools/` or `docs/`.
+`llvm-sys` finds LLVM through `LLVM_SYS_<major><minor>_PREFIX`. CI sets it per platform through `.github/actions/setup-llvm` (`setup-windows` on Windows), which also exports `LLVM_VERSION`, `LLVM_MAJOR`, `LLVM_SYS_PREFIX_VAR` and `LLVM_PREFIX`. The version is `llvm` in `.github/pins.json` and nowhere else; `tools/ci/pins.py check` fails when the full version is spelled out in `.github/`, `tools/` or `docs/`.
 
 ### Where jaic finds LLVM
 
-The programs used at run time (the sanitizer link driver, `wasm-ld`, `llvm-dwarfdump`, `llvm-symbolizer`) come from one search order, in `jacket_config::llvm` for Rust and `tools/toolkit/llvm.py` for the Python tools:
+Programs used at run time (the sanitizer link driver, `wasm-ld`, `llvm-dwarfdump`, `llvm-symbolizer`) come from one search order, in `jacket_config::llvm` (Rust) and `tools/toolkit/llvm.py` (Python):
 
 1. the `llvm-sys` variable, then `LLVM_PREFIX`;
-2. the prefix the build saw (`crates/jaic-llvm/build.rs` records it; Rust only);
+2. the prefix the build saw (`crates/jaic-llvm/build.rs`; Rust only);
 3. `llvm-config --prefix` (`llvm-config-<major>` first);
-4. the platform's usual places: Homebrew's `llvm@<major>` and Debian's `/usr/lib/llvm-<major>`;
+4. Homebrew's `llvm@<major>` and Debian's `/usr/lib/llvm-<major>`;
 5. `<tool>-<major>` or `<tool>` on `PATH`.
 
-Rust takes the version from `crates/jacket-config/src/llvm/version.rs`, which also builds the variable's name (the build script and the `env.rs` entry both use it). The Python tools read `LLVM_MAJOR` and `LLVM_SYS_PREFIX_VAR` when CI set them, else `.github/pins.json`. A test in `jacket-config` fails when the Rust version and the pin disagree.
+The Rust side takes the version from `crates/jacket-config/src/llvm/version.rs`; a test fails when it disagrees with the pin.
 
+### CI installs
 
-- **macOS arm64:** Homebrew `llvm@<major>` via `tools/ci/install_ci_llvm_macos.sh`. **macOS Intel:** Homebrew has no bottles, so the script installs conda-forge's LLVM of the pinned version with a pinned micromamba, links with an rpath to it, and puts only LLVM's tools on `PATH` so conda's `cc`/`ld` do not shadow the system's (`--static` installs only static libraries for the release's `macos-x64` archive).
-- **Linux (Ubuntu 24.04, x86-64/ARM64):** `tools/ci/install_ci_llvm_linux.sh` adds the signed apt.llvm.org archive after checking its key fingerprint and installs into `/usr/lib/llvm-<major>`. It writes apt network timeouts and retries (the mirror sometimes stalls) and needs `sudo`; use it on fresh CI runners only.
-- **Windows MSVC:** the official `clang+llvm-<version>-*-pc-windows-msvc` archives are not linkable by llvm-sys as shipped: `llvm-config --system-libs` prints absolute build-machine paths (`S:/llvm/.../zstd_static.lib`) that rustc reads as a library rename, and `zs.lib`, `zstd_static.lib`, `xml2s.lib` are missing. `tools/ci/windows-llvm/prepare.sh <llvm dir>` (run by the Windows and release workflows after unpacking) adds an empty `xml2s.lib`, builds zlib and zstd (pinned versions and SHA-256) into `lib/`, and compiles `bin/llvm-config-<major>.exe`, a shim llvm-sys picks first, which runs the real `llvm-config` and rewrites path-qualified `*.lib` entries to file names. It then verifies every system library resolves. Locally: run it from Git Bash, set the `llvm-sys` variable (forward slashes) and build with `+crt-static` ([Windows](../native/windows.md#configuration)). When the flag comes from `CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS`, also pass `--target x86_64-pc-windows-msvc` (or set `CARGO_BUILD_TARGET`): without an explicit target the variable is not applied, the CRT is not linked statically, and llvm-sys asks for `static=psapi`.
+- **macOS arm64:** Homebrew via `tools/ci/install_ci_llvm_macos.sh`. **macOS Intel:** Homebrew has no bottles, so the script installs conda-forge's LLVM with a pinned micromamba and puts only LLVM's tools on `PATH`.
+- **Linux (Ubuntu 24.04):** `tools/ci/install_ci_llvm_linux.sh` adds the signed apt.llvm.org archive after checking its key fingerprint. Fresh CI runners only; it needs `sudo`.
+- **Windows MSVC:** the official archives aren't linkable by llvm-sys as shipped (`llvm-config --system-libs` prints absolute build-machine paths and some `.lib` files are missing). `tools/ci/windows-llvm/prepare.sh <llvm dir>` adds the missing libraries, builds zlib and zstd, and compiles an `llvm-config-<major>.exe` shim that rewrites the paths. Locally, run it from Git Bash, set the `llvm-sys` variable with forward slashes and build with `+crt-static` ([Windows](../native/windows.md#configuration)). If the flag comes from `CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS`, also pass `--target x86_64-pc-windows-msvc`, or the CRT isn't linked statically.
 
-`jaic -os wasm` also needs LLD's `wasm-ld` (packaged separately: `lld`, `lld-<major>`; [wasm target](../native/wasm-target.md)).
+`jaic -os wasm` also needs LLD's `wasm-ld` (`lld`, `lld-<major>`; [wasm target](../native/wasm-target.md)).
 
 ### Registered backends and binary size
 
-`jaic` registers only the x86-64, AArch64 and WebAssembly backends (`target_machine` in `crates/jaic-llvm/src/lib.rs`), not `Target::initialize_all`, which links all twenty (0.6.2's macOS arm64 `jaic` was 136 MiB). The root `Cargo.toml` enables inkwell's `target-x86`, `target-aarch64` and `target-webassembly` features. The disassembler is skipped; the asm parser stays because inline asm is assembled by the backend. Other architectures are rejected before LLVM sees them (`jaic::target::Target::arch`). Unreferenced archive members are never loaded and the linker drops the rest. `llvm-sys`'s `disable-alltargets-init` is deliberately not enabled: an unverified link failure on one of six release platforms costs more than it saves.
+`jaic` registers only the x86-64, AArch64 and WebAssembly backends (`target_machine` in `crates/jaic-llvm/src/lib.rs`), not all twenty, which would make the binary huge. The root `Cargo.toml` enables inkwell's `target-x86`, `target-aarch64` and `target-webassembly`. The asm parser stays because inline asm is assembled by the backend. Other architectures are rejected before LLVM sees them.
 
-The release workflow strips packaged `jaic`, `jailsp` and `jailint` after the PGO/BOLT build (`strip -x` then ad-hoc `codesign` on macOS, `strip --strip-unneeded` on Linux; Windows symbols live in the unshipped `.pdb`). Backtraces from stripped binaries have no function names; build from source for symbolised ones. Internal-error reports are unaffected.
+The release workflow strips packaged binaries, so their backtraces have no function names; build from source for symbolised ones.
 
 ## How to change it
 
-- **New target architecture:** an `Arch` variant in `crates/jaic/src/abi.rs`, the `target-<name>` inkwell feature, and `Target::initialize_<name>` in `target_machine`; expect the static binary to grow.
-- **New LLVM version:** change `llvm` in `.github/pins.json`; for a patch release that is the only edit (`pins.py check` finds a stray copy of the old version). A new major or minor version also changes what llvm-sys expects, which CI cannot derive: the `llvm-sys` feature that `Cargo.toml` and `crates/jaic-llvm/Cargo.toml` select through inkwell (`llvm23-1`; then `cargo update -p inkwell` and `tools/ci/check_dependency_age.py`), and `MAJOR`/minor in `crates/jacket-config/src/llvm/version.rs` (the rest of the Rust code and the Python tools derive their names from these); the apt signing key fingerprint in `install_ci_llvm_linux.sh`; the Homebrew formula in `release.yml`; `llvmPackages_NN` in `flake.nix` and `nix/jaic.nix`; the shim in `tools/ci/windows-llvm/prepare.sh` (drop it once llvm-sys or the archive stop emitting absolute paths). Recheck the workarounds in [LLVM backend](../native/llvm-backend.md) and compile times. Searching the tree for `LLVM_SYS_`, `llvm@` and `llvm-[0-9]+` finds the remaining version mentions.
-- Inkwell's `const_int` at the pinned revision masks values to the type's width (LLVM 23 no longer truncates), so jaic's sign-extended `u64` arguments for narrow types behave as before.
-
-## Dependencies
-
-Inkwell (git), llvm-sys, the pinned LLVM and Clang, LLD for wasm, the platform's `strip` and `codesign`. Windows CI also downloads zlib and zstd sources.
+- **New target architecture:** an `Arch` variant in `crates/jaic/src/abi.rs`, the `target-<name>` inkwell feature, and `Target::initialize_<name>` in `target_machine`. Expect the binary to grow.
+- **New LLVM version:** change `llvm` in `.github/pins.json`; for a patch release that's the only edit. A new major or minor also changes the inkwell feature (`llvm23-1`; then `cargo update -p inkwell` and `check_dependency_age.py`), `crates/jacket-config/src/llvm/version.rs`, the apt key fingerprint in `install_ci_llvm_linux.sh`, the Homebrew formula in `release.yml`, `llvmPackages_NN` in `flake.nix` and `nix/jaic.nix`, and the Windows shim in `prepare.sh`. Recheck the workarounds in [LLVM backend](../native/llvm-backend.md). Search for `LLVM_SYS_`, `llvm@` and `llvm-[0-9]+` to find the rest.
+- Inkwell's `const_int` masks values to the type's width at the pinned revision, so sign-extended `u64` arguments for narrow types behave as before.

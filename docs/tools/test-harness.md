@@ -1,60 +1,45 @@
 # Rust test harness and snapshots
 
-## What it is
+`crates/test-support` is a dev-only crate with the helpers the workspace's Rust tests share: scratch directories, toolchain lookup, child processes, IR assertions, compile and run helpers, language-server sessions, and `insta` snapshots with machine-independent paths.
 
-`crates/test-support` is a dev-only crate (`publish = false`) with the helpers the workspace's Rust tests share: scratch directories, toolchain lookup, child processes, IR assertions, compile and run helpers, language-server sessions, and `insta` snapshots with machine-independent paths. Tests no longer carry their own `common/mod.rs`.
-
-## How it works
+## Modules
 
 | Module | Provides |
 | --- | --- |
-| `tmp` | `TempDir::new(label)`: a unique, canonical directory removed on drop. Kept when the test panics or `JAIC_KEEP_TEST_TMP` is set. |
-| `process` | `succeeded`, `checked`, `success_with_stdout`: run a command and fail with its output. |
-| `toolchain` | `command(name)`, `host_cc`, `clang`, `wasm_ld`, `mingw_gcc`, `node`, `require`, `require_all`, `optional`. A missing tool skips the test with a note. |
-| `repo` | `root`, `path`, `fixture`, `stdlib`: paths inside the repository. |
-| `ir` | `function`, `body`, `assert_contains`, `assert_lacks`, `assert_line`, `assert_function_contains` over textual LLVM IR. |
-| `plugin` | A small metaprogram plugin and a program that uses it. |
+| `tmp` | `TempDir::new(label)`: a unique directory removed on drop (kept when the test panics or `JAIC_KEEP_TEST_TMP` is set). |
+| `process` | `succeeded`, `checked`, `success_with_stdout`: run a command, fail with its output. |
+| `toolchain` | `command`, `host_cc`, `clang`, `wasm_ld`, `mingw_gcc`, `node`, `require`, `optional`. |
+| `repo` | `root`, `path`, `fixture`, `stdlib`. |
+| `ir` | assertions over textual LLVM IR. |
 | `snapshot` | `assert_snapshot!`, `assert_snapshot_in!`, `Redactor`, `assert_generated_file`. |
-| `compiler` (feature `compiler`) | Compile a source string or file with `jaic`. |
-| `backend` (feature `backend`) | `Variant` (native or wasm64 at O0 or O2), emit, link, run, `execute`, `check`. |
-| `lsp` (feature `lsp`) | Language-server sessions, `position`, `uri`, `project`. |
+| `compiler` (feature) | compile a source string or file with `jaic`. |
+| `backend` (feature) | native or wasm64 at O0/O2: emit, link, run. |
+| `lsp` (feature) | language-server sessions. |
 
-`jaic` and `jaic-llvm` dev-depend on `test-support`, which depends on them only behind features, so there is no cycle. A test inside a crate's `src/` sees a different build of that crate and may use only the feature-less modules.
+`jaic` and `jaic-llvm` dev-depend on `test-support`, which depends on them only behind features. A test inside a crate's `src/` sees a different build of that crate and may use only the feature-less modules.
 
-### Toolchain strictness
+`require(name)` fails the test on CI (or when `JAIC_REQUIRE_TOOLCHAIN` names the tool); otherwise the test skips with a note. `optional(name)` skips unless the variable names it.
 
-`require(name)` fails the test on CI (`CI` set) or when `JAIC_REQUIRE_TOOLCHAIN` names the tool; otherwise it prints a note and the test returns early. `optional(name)` skips unless `JAIC_REQUIRE_TOOLCHAIN` names it. CI sets `JAIC_REQUIRE_TOOLCHAIN: node,wasm-ld` for the WebAssembly jobs.
+## Snapshots
 
-### Snapshots
+- `tests/lint/<rule>/bad.snap`: lint output for the case's `bad.jai`.
+- `crates/jaic/tests/snapshots/ide_facts_golden__<name>.snap`: IDE facts per fixture. Stdlib locations are written as the file alone, so editing the stdlib never rewrites them.
 
-Goldens are `insta` snapshots:
+`Redactor` turns absolute and Windows-style paths into repository-relative forward-slash paths. `bad.fixed.jai` files and `editors/lexicon.json` are read by other tools, so `assert_generated_file` compares and rewrites them under the same switch.
 
-- `tests/lint/<rule>/bad.snap` (and `platform/<os>/window.snap`): the lint output for the case's `bad.jai`, written by `assert_snapshot_in!`.
-- `crates/jaic/tests/snapshots/ide_facts_golden__<name>.snap`: IDE facts for each fixture. Only project-file positions are pinned: a stdlib location is written as its file alone (a procedure adds `#n`, its position rank among same-named procedures in that file, to keep overloads apart), so editing the stdlib never rewrites them. The normalisation is in the test's formatter, not the IDE's output.
+## Changing snapshots
 
-Paths in snapshot text go through `Redactor`, which rewrites the repository root, relative `../..` forms, Windows `\\?\` prefixes and `\` separators to forward-slash repository-relative paths, so snapshots match on every platform.
-
-`bad.fixed.jai` files and `editors/lexicon.json` are read by other tools, so they stay as files; `assert_generated_file` compares them and rewrites them under the same switch.
-
-## How to change it
-
-- Review changed snapshots: `INSTA_UPDATE=always cargo test -p jailint -p jaic`, then read the diff. `cargo insta review` also works.
-- New helper: add it to the module that fits. Keep the API small; a helper used by one test belongs in that test.
+- Review: `INSTA_UPDATE=always cargo test -p jailint -p jaic`, then read the diff (or `cargo insta review`).
 - New lint case: add `bad.jai`, run with `INSTA_UPDATE=always`, review `bad.snap`.
-- Insta trims trailing newlines, so a snapshot never ends with a blank line.
-- `jacket test` goldens (`.stdout`, `.stderr`, `--accept`) belong to that feature and are separate from this workflow.
+- A helper used by one test belongs in that test.
+- `jacket test` goldens (`--accept`) are a separate workflow.
 
 ## Configuration
 
 | Variable | Effect |
 | --- | --- |
-| `INSTA_UPDATE` | `always` rewrites snapshots and generated files; `no` (the default on CI) only compares. |
-| `JAIC_REQUIRE_TOOLCHAIN` | `1`, or a comma list such as `node,wasm-ld`: missing tools fail instead of skipping. |
-| `JAIC_ABI_CROSS` | `;`-separated `os-cpu[:clang args]` targets (`macos-x64`) whose C headers `stdlib_c_abi_matches_cross_target_headers` checks the stdlib's C layouts against; unset or empty, the test prints `skipped:`. CI sets `macos-x64` on the arm64 macOS leg. |
-| `JAIC_TEST_TMPDIR` | Where `TempDir` creates directories (default: the system temp dir). |
-| `JAIC_KEEP_TEST_TMP` | Keep scratch directories after the test. |
-| `CI` | Makes `require` strict. |
-
-## Dependencies
-
-`insta` (pinned exactly; it must satisfy the dependency-age rule), and optionally `jaic`, `jaic-llvm` and `jai-language-server` behind the features above.
+| `INSTA_UPDATE` | `always` rewrites snapshots; `no` (CI default) only compares. |
+| `JAIC_REQUIRE_TOOLCHAIN` | `1` or a list like `node,wasm-ld`: missing tools fail instead of skipping. |
+| `JAIC_ABI_CROSS` | `;`-separated `os-cpu[:clang args]` targets whose C headers the stdlib's C layouts are checked against. |
+| `JAIC_TEST_TMPDIR` | Where `TempDir` creates directories. |
+| `JAIC_KEEP_TEST_TMP` | Keep scratch directories. |
