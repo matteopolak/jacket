@@ -1,4 +1,9 @@
 /// Device pixels per window coordinate unit; window sizes here are already in pixels.
+//
+// ```jai,no_run
+// window := create_window(800, 600, "scale");
+// pixels := cast(int) (800 * get_pixel_scale(window));
+// ```
 get_pixel_scale :: (win: Window) -> float {
     return 1;
 }
@@ -6,6 +11,12 @@ get_pixel_scale :: (win: Window) -> float {
 // Where the window's drawing area is on the screen and how big it is: `x, y, width, height, success`.
 //
 // - right_handed: counts `y` up from the bottom of the screen instead of down from the top.
+//
+// ```jai,no_run
+// window := create_window(800, 600, "size");
+// x, y, width, height, ok := get_dimensions(window, false);
+// assert(ok && width > 0);
+// ```
 get_dimensions :: (win: Window, right_handed: bool) -> (x: s32, y: s32, width: s32, height: s32, success := true) {
     if win == None return 0, 0, 0, 0, false;
 
@@ -48,6 +59,11 @@ get_mouse_pointer_position :: (dpy: *Display, win: Window, right_handed: bool) -
 // Where the mouse is, in window coordinates: `x, y, success`.
 //
 // - right_handed: counts `y` up from the bottom of the window instead of down from the top.
+//
+// ```jai,no_run
+// window := create_window(800, 600, "pointer");
+// x, y, ok := get_mouse_pointer_position(window, false);
+// ```
 get_mouse_pointer_position :: (win: Window, right_handed: bool) -> x: int, y: int, success: bool {
     if win == None return 0, 0, false;
     return get_mouse_pointer_position(Connection.get_display(), win, right_handed);
@@ -56,6 +72,10 @@ get_mouse_pointer_position :: (win: Window, right_handed: bool) -> x: int, y: in
 // Where the mouse is, in window coordinates: `x, y, success`.
 //
 // - right_handed: counts `y` up from the bottom of the window instead of down from the top.
+//
+// ```jai,no_run
+// x, y, ok := get_mouse_pointer_position();
+// ```
 get_mouse_pointer_position :: inline (right_handed := false) -> x: int, y: int, success: bool {
     dpy := Connection.get_display();
     if !dpy return 0, 0, false;
@@ -67,6 +87,13 @@ get_mouse_pointer_position :: inline (right_handed := false) -> x: int, y: int, 
 // - desire_fullscreen: true to go full screen, false to go back.
 // - saved: where the old position and size are kept while full screen, to restore them on the way
 //   back.
+//
+// ```jai,no_run
+// window := create_window(800, 600, "full screen");
+// saved: Saved_Window_Info;
+// ok, width, height := toggle_fullscreen(window, true, *saved);
+// toggle_fullscreen(window, false, *saved);
+// ```
 toggle_fullscreen :: (win: Window, desire_fullscreen: bool, saved: *Saved_Window_Info) -> success: bool, width: s32, height: s32 {
     if win == None return false, 0, 0;
 

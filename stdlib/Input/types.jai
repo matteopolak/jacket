@@ -1,3 +1,4 @@
+// What kind of thing an `Event` reports.
 Event_Type :: enum u32 {
     UNINITIALIZED :: 0;
     KEYBOARD :: 1;
@@ -9,6 +10,7 @@ Event_Type :: enum u32 {
     TOUCH :: 7;
 }
 
+// What happened to the window, for events of type `.WINDOW`.
 Window_Event_Type :: enum u8 {
     UNINITIALIZED :: 0;
     GAINED_FOCUS :: 1;
@@ -17,6 +19,14 @@ Window_Event_Type :: enum u8 {
     MOVED_TO_FOREGROUND :: 4;
 }
 
+// The state of a key or button this frame. `DOWN` lasts while it is held; `START` and `END` are set
+// only on the frame it went down or up.
+//
+// ```jai
+// state := Key_Current_State.DOWN | .START;
+// assert((state & .START) != 0);
+// assert((state & .END) == 0);
+// ```
 Key_Current_State :: enum_flags u32 {
     NONE :: 0;
     DOWN :: 1;
@@ -28,6 +38,18 @@ GAMEPAD_BUTTON_COUNT :: 32;
 TOUCH_POINTERS_COUNT :: 10;
 NUM_BUTTON_STATES :: cast(int) Key_Code.TOUCH + 1;
 
+// One input event. Check `type` first; it decides which other fields mean anything: `key_code` and
+// `repeat` for `.KEYBOARD`, `utf32` for `.TEXT_INPUT`, `wheel_delta` for `.MOUSE_WHEEL`, `files` for
+// `.DRAG_AND_DROP_FILES`, and so on. The modifier flags (`shift_pressed`, `ctrl_pressed`,
+// `alt_pressed`, `cmd_meta_pressed`) apply to every event.
+//
+// ```jai
+// event: Event;
+// event.type = .KEYBOARD;
+// event.key_code = .ENTER;
+// event.shift_pressed = true;
+// assert(event.key_code == .ENTER && event.packed != 0);
+// ```
 Event :: struct {
     using modifier_flags: Modifier_Flags;
     Modifier_Flags :: struct {
@@ -59,24 +81,34 @@ Event :: struct {
     window: Window_Type;
 }
 
+// The state and position of one finger on a touch screen.
 Touch_Pointer_Info :: struct {
     state: Key_Current_State;
     window_position_x: float;
     window_position_y: float;
 }
 
+// A window's new size, from `get_window_resizes`.
 Window_Resize_Record :: struct {
     window: Window_Type;
     width: s32;
     height: s32;
 }
 
+// A window's new position, from `get_window_moves`.
 Window_Move_Record :: struct {
     window: Window_Type;
     x: s32;
     y: s32;
 }
 
+// Keys, mouse buttons and gamepad buttons. Printable keys use their ASCII value, upper case for
+// letters (`#char "A"` is the `A` key); the rest have names. Index `input_button_states` with it.
+//
+// ```jai
+// assert(cast(u32) Key_Code.ENTER == 13);
+// assert(cast(Key_Code) #char "A" != .UNKNOWN);
+// ```
 Key_Code :: enum u32 {
     UNKNOWN :: 0;
     BACKSPACE :: 8;

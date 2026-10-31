@@ -11,6 +11,11 @@
 // - background_color_rgb: red, green and blue from 0 to 1, shown before the first frame is drawn.
 // - wanted_msaa: samples per pixel for smoothing edges. The default is the module parameter
 //   `DEFAULT_MSAA`.
+//
+// ```jai,no_run
+// window := create_window(800, 600, "My game");
+// assert(window != WT.INVALID_WINDOW);
+// ```
 create_window :: (width: int, height: int, window_name: string, window_x := 0, window_y := 0, parent: Window_Type = None, background_color_rgb := DEFAULT_WINDOW_CREATION_COLOR, wanted_msaa: s32 = DEFAULT_MSAA) -> Window {
     if width <= 0 || height <= 0 || width > 0x7fffffff || height > 0x7fffffff return None;
 

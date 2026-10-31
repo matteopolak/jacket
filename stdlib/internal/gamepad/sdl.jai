@@ -1,3 +1,4 @@
+// Starts the controller backend. `update_gamepad` calls it on first use.
 init_gamepad :: () {
     if initialized return;
 
@@ -20,6 +21,8 @@ init_gamepad :: () {
     initialized = true;
 }
 
+// Reads the controller and refreshes `gamepad`. Call once per frame. Buttons that changed since the
+// last call carry `START` or `END`.
 update_gamepad :: () {
     init_gamepad();
     SDL.SDL_PumpEvents();

@@ -1,3 +1,9 @@
+// The target for a mapping-string name such as `leftx` or `dpup`, or `.UNINITIALIZED` for an unknown name.
+//
+// ```jai
+// assert(input_name_to_input_target("start") == .START);
+// assert(input_name_to_input_target("nope") == .UNINITIALIZED);
+// ```
 input_name_to_input_target :: (name: string) -> SDL_Input_Target {
     for candidate, index: input_names {
         if name == candidate return cast(SDL_Input_Target) (index + 1);
@@ -6,6 +12,7 @@ input_name_to_input_target :: (name: string) -> SDL_Input_Target {
     return .UNINITIALIZED;
 }
 
+// Frees a mapping returned by `parse_gamepad_mapping_string`.
 deinit :: (map: SDL_Gamepad_Mapping) {
     free(map.guid);
     free(map.name);
@@ -13,6 +20,13 @@ deinit :: (map: SDL_Gamepad_Mapping) {
     array_free(map.mappings);
 } @FreesArgument
 
+// Builds the 32-character SDL GUID for a device from its bus type, vendor, product and version. The
+// string lives in temporary storage.
+//
+// ```jai
+// guid := get_guid_string(3, 0x45e, 0x28e, 0x110);
+// assert(guid.count == 32);
+// ```
 get_guid_string :: (bustype: s16, vendor: s16, product: s16, version: s16) -> temp_string: string {
     result := talloc_string(32);
     for i: 0..31 result[i] = #char "0";
@@ -29,6 +43,17 @@ get_guid_string :: (bustype: s16, vendor: s16, product: s16, version: s16) -> te
     return result;
 }
 
+// Parses one SDL mapping line. Returns the mapping and whether the line was valid. The caller owns
+// the result: free it with `deinit`.
+//
+// ```jai
+// mapping, ok := parse_gamepad_mapping_string("guid,Pad,a:b0,righttrigger:a5");
+// assert(ok && mapping.mappings[1].type == .AXIS && mapping.mappings[1].index == 5);
+// deinit(mapping);
+//
+// _, ok = parse_gamepad_mapping_string("guid,Pad,bogus:b0");
+// assert(!ok);
+// ```
 parse_gamepad_mapping_string :: (input: string) -> map: SDL_Gamepad_Mapping, success: bool {
     result: SDL_Gamepad_Mapping;
     committed := false;

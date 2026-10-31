@@ -1,3 +1,21 @@
+// Opens native windows (Cocoa, Win32 or X11) with an OpenGL surface.
+//
+// `create_window` makes one; `get_dimensions`, `get_mouse_pointer_position` and `toggle_fullscreen`
+// query and change it. Read input with the `Input` module. The module parameter `DEFAULT_MSAA`
+// sets the default sample count.
+//
+// ```jai,no_run
+// #import "Window_Creation";
+// #import "Input";
+//
+// window := create_window(800, 600, "hello");
+// assert(window != WT.INVALID_WINDOW);
+// while true {
+//     update_window_events();
+//     for events_this_frame if it.type == .QUIT return;
+// }
+// ```
+
 #module_parameters (DEFAULT_MSAA: s32 = 4);
 
 WT :: #import "Window_Type";
@@ -20,16 +38,19 @@ WT :: #import "Window_Type";
 Window_Type :: WT.Window_Type;
 
 #if OS == .LINUX {
+    // The position and size to restore after leaving full screen; `toggle_fullscreen` fills it in.
     Saved_Window_Info :: struct {}
     window_minimized := false;
 
     #load "../internal/window/x11-queries.jai";
     #load "../internal/window/x11-create.jai";
 } else #if OS == .WINDOWS {
+    // The Win32 window style of a normal window.
     WINDOWED_STYLE: u32 : Windows.WS_OVERLAPPEDWINDOW;
     FULLSCREEN_STYLE: u32 : Windows.WS_VISIBLE | Windows.WS_POPUP;
     SECONDARY_WINDOW_STYLE: u32 : Windows.WS_OVERLAPPED | Windows.WS_CAPTION | Windows.WS_SYSMENU | Windows.WS_THICKFRAME;
 
+    // The position and size to restore after leaving full screen; `toggle_fullscreen` fills it in.
     Saved_Window_Info :: struct {
         rect: Windows.RECT;
         style: s32;
@@ -41,6 +62,7 @@ Window_Type :: WT.Window_Type;
 } else #if OS == .MACOS {
     application_initialized := false;
 
+    // The position and size to restore after leaving full screen; `toggle_fullscreen` fills it in.
     Saved_Window_Info :: struct {
         mask: NSWindowStyleMask;
         window_frame: Foundation.NSRect;
@@ -48,6 +70,7 @@ Window_Type :: WT.Window_Type;
 
     #load "../internal/window/cocoa-queries.jai";
 } else #if OS == .ANDROID {
+    // The position and size to restore after leaving full screen; `toggle_fullscreen` fills it in.
     Saved_Window_Info :: struct {}
 } else {
     #assert false, "Window_Creation has no declarations for this target";

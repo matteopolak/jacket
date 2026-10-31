@@ -1,3 +1,15 @@
+// Parses SDL game controller mapping strings, the `guid,name,a:b0,leftx:a0,...` lines of the SDL
+// controller database.
+//
+// `parse_gamepad_mapping_string` turns one line into an `SDL_Gamepad_Mapping`; free it with `deinit`.
+//
+// ```jai
+// mapping, ok := parse_gamepad_mapping_string("030000005e040000,Pad,a:b0,leftx:a0,dpup:h0.1,platform:Mac OS X");
+// assert(ok && mapping.name == "Pad" && mapping.mappings.count == 3);
+// assert(mapping.mappings[0].target == .A && mapping.mappings[0].type == .BUTTON);
+// deinit(mapping);
+// ```
+
 SDL_PLATFORM_WINDOWS :: "Windows";
 SDL_PLATFORM_MACOS :: "Mac OS X";
 SDL_PLATFORM_LINUX :: "Linux";
@@ -6,6 +18,7 @@ SDL_HAT_RIGHT_BIT :: 0x02;
 SDL_HAT_DOWN_BIT :: 0x04;
 SDL_HAT_LEFT_BIT :: 0x08;
 
+// Whether a mapped input is a button, an axis or a hat (d-pad) direction.
 SDL_Input_Type :: enum {
     UNINITIALIZED :: 0;
     BUTTON :: 1;
@@ -13,6 +26,7 @@ SDL_Input_Type :: enum {
     HAT :: 3;
 }
 
+// The part of a standard controller an input is mapped onto.
 SDL_Input_Target :: enum {
     UNINITIALIZED :: 0;
     LEFTX :: 1;
@@ -38,6 +52,7 @@ SDL_Input_Target :: enum {
     Y :: 21;
 }
 
+// One mapping entry: the physical input (`type`, `index`, and `subindex` for a hat) that drives `target`.
 SDL_Input_Map :: struct {
     target: SDL_Input_Target;
     type: SDL_Input_Type;
@@ -45,6 +60,7 @@ SDL_Input_Map :: struct {
     subindex: s32 = -1;
 }
 
+// A controller's mapping: its `guid`, `name`, `platform` and the list of entries.
 SDL_Gamepad_Mapping :: struct {
     guid: string;
     name: string;

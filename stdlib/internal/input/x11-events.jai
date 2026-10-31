@@ -1,3 +1,4 @@
+// Tells the library whether the program manages the mouse cursor itself.
 set_custom_cursor_handling :: (is_custom: bool) {
     custom_cursor = is_custom;
 }
@@ -7,6 +8,7 @@ set_custom_cursor_handling :: (is_custom: bool) {
 // platforms.
 custom_cursor := false;
 
+// Collects the events of all windows into `events_this_frame` and the button states. Call once per frame.
 update_window_events :: () {
     input_per_frame_event_and_flag_update();
     display := Connection.get_display();

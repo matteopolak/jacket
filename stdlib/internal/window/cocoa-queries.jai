@@ -11,6 +11,11 @@
 // - background_color_rgb: red, green and blue from 0 to 1, shown before the first frame is drawn.
 // - wanted_msaa: samples per pixel for smoothing edges. The default is the module parameter
 //   `DEFAULT_MSAA`.
+//
+// ```jai,no_run
+// window := create_window(800, 600, "My game");
+// assert(window != WT.INVALID_WINDOW);
+// ```
 create_window :: (width: int, height: int, window_name: string, window_x := -1, window_y := -1, parent: Window_Type = null, background_color_rgb := DEFAULT_WINDOW_CREATION_COLOR, wanted_msaa := DEFAULT_MSAA) -> *ObjC.NSWindow {
     init_mac_app();
     window := cast(*ObjC.NSWindow) Cocoa.create_content_window(cast(s32) width, cast(s32) height, window_name, cast(s32) window_x, cast(s32) window_y);
@@ -18,10 +23,12 @@ create_window :: (width: int, height: int, window_name: string, window_x := -1, 
     return window;
 }
 
+// Starts the Cocoa application object. `create_window` calls it.
 init_mac_app :: () {
     application_initialized = Cocoa.initialize_application();
 }
 
+// Shows what was drawn: swaps the window's front and back buffers.
 swap_view_buffers :: (win: *ObjC.NSWindow) {
     Cocoa.swap_window_buffers(win);
 }
@@ -29,6 +36,12 @@ swap_view_buffers :: (win: *ObjC.NSWindow) {
 // Where the window's drawing area is on the screen and how big it is: `x, y, width, height, success`.
 //
 // - right_handed: counts `y` up from the bottom of the screen instead of down from the top.
+//
+// ```jai,no_run
+// window := create_window(800, 600, "size");
+// x, y, width, height, ok := get_dimensions(window, false);
+// assert(ok && width > 0);
+// ```
 get_dimensions :: (window: *ObjC.NSWindow, right_handed: bool) -> (x: s32, y: s32, width: s32, height: s32, success := true) {
     if !window return 0, 0, 0, 0, false;
 
@@ -41,6 +54,11 @@ get_dimensions :: (window: *ObjC.NSWindow, right_handed: bool) -> (x: s32, y: s3
 }
 
 /// Device pixels per window coordinate unit: 2 on a Retina display, 1 elsewhere.
+//
+// ```jai,no_run
+// window := create_window(800, 600, "scale");
+// pixels := cast(int) (800 * get_pixel_scale(window));
+// ```
 get_pixel_scale :: (window: *ObjC.NSWindow) -> float {
     if !window return 1;
     return Cocoa.backing_scale(window);
@@ -49,6 +67,11 @@ get_pixel_scale :: (window: *ObjC.NSWindow) -> float {
 // Where the mouse is, in window coordinates: `x, y, success`.
 //
 // - right_handed: counts `y` up from the bottom of the window instead of down from the top.
+//
+// ```jai,no_run
+// window := create_window(800, 600, "pointer");
+// x, y, ok := get_mouse_pointer_position(window, false);
+// ```
 get_mouse_pointer_position :: (window: *ObjC.NSWindow, right_handed: bool) -> x: int, y: int, success: bool {
     if !window return 0, 0, false;
     point := Cocoa.local_mouse_location(window);
@@ -59,6 +82,10 @@ get_mouse_pointer_position :: (window: *ObjC.NSWindow, right_handed: bool) -> x:
 // Where the mouse is, in window coordinates: `x, y, success`.
 //
 // - right_handed: counts `y` up from the bottom of the window instead of down from the top.
+//
+// ```jai,no_run
+// x, y, ok := get_mouse_pointer_position();
+// ```
 get_mouse_pointer_position :: inline (right_handed := false) -> x: int, y: int, success: bool {
     point := Cocoa.mouse_location();
     if !right_handed point.y = Cocoa.screen_top() - point.y;
@@ -70,6 +97,13 @@ get_mouse_pointer_position :: inline (right_handed := false) -> x: int, y: int, 
 // - desire_fullscreen: true to go full screen, false to go back.
 // - saved: where the old position and size are kept while full screen, to restore them on the way
 //   back.
+//
+// ```jai,no_run
+// window := create_window(800, 600, "full screen");
+// saved: Saved_Window_Info;
+// ok, width, height := toggle_fullscreen(window, true, *saved);
+// toggle_fullscreen(window, false, *saved);
+// ```
 toggle_fullscreen :: (win: *ObjC.NSWindow, desire_fullscreen: bool, saved: *Saved_Window_Info) -> success: bool, width: s32, height: s32 {
     if !win || !saved return false, 0, 0;
 

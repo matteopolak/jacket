@@ -1,3 +1,21 @@
+// Reads bindings from `memory` into the set. Returns false if any line was invalid; the valid
+// ones still apply.
+//
+// The text starts with a `[1]` version line. Each line is `[S-][C-][A-]key action`, where `key` is a character or a name such as `Space`, `Enter`, `F5` or `ArrowUp`. `action` is the name of a procedure registered with
+// `add_proc`, or `:` followed by a command string passed to `command_string_proc`. A `N-` prefix
+// flips whether the binding respects the keymap's `ignore_modifier_keys`. `#` starts a comment, and
+// `[name]` selects the keymap the following lines go to.
+//
+// ```jai
+// set: Keymap_Set;
+// map := add_keymap(*set, "game");
+// set.default_keymap = map;
+// add_proc(map, "jump", () { /* ... */ });
+// assert(load_from_memory(*set, "[1]\nSpace jump\nS-F5 jump\n"));
+// assert(map.mappings.count == 2);
+// assert(!load_from_memory(*set, "[1]\nNOT_A_KEY jump"));
+// reset_keymaps(*set);
+// ```
 load_from_memory :: (set: *Keymap_Set, memory: string, short_name := "unnamed", full_path := "(no path)") -> bool {
     handler: Text_File_Handler;
     TH.start_from_memory(*handler, short_name, full_path, memory);
@@ -5,6 +23,8 @@ load_from_memory :: (set: *Keymap_Set, memory: string, short_name := "unnamed", 
     return load_from_handler(set, null, *handler);
 }
 
+// Reads bindings from `memory` into one keymap, ignoring `[section]` lines. Returns false if any
+// line was invalid.
 load_from_memory :: (using keymap: *Keymap, memory: string, short_name: string, full_path: string, optional := false) -> bool {
     handler: Text_File_Handler;
     TH.start_from_memory(*handler, short_name, full_path, memory);
@@ -12,6 +32,16 @@ load_from_memory :: (using keymap: *Keymap, memory: string, short_name: string, 
     return load_from_handler(null, keymap, *handler);
 }
 
+// Reads bindings from a file into the set, in the format of `load_from_memory`. Returns false when
+// the file cannot be read or has an invalid line. With `optional`, a missing file is not an error.
+//
+// ```jai,no_run
+// set: Keymap_Set;
+// map := add_keymap(*set, "game");
+// set.default_keymap = map;
+// add_proc(map, "jump", () { /* ... */ });
+// load_from_file(*set, "keys", "keys.txt", optional = true);
+// ```
 load_from_file :: (set: *Keymap_Set, short_name: string, filename: string, optional := false) -> bool {
     handler: Text_File_Handler;
     TH.start_file(*handler, short_name, filename, optional);
@@ -19,6 +49,7 @@ load_from_file :: (set: *Keymap_Set, short_name: string, filename: string, optio
     return load_from_handler(set, null, *handler);
 }
 
+// Reads bindings from a file into one keymap, ignoring `[section]` lines.
 load_from_file :: (using keymap: *Keymap, short_name: string, full_path: string, optional := false) -> bool {
     handler: Text_File_Handler;
     TH.start_file(*handler, short_name, full_path, optional);
@@ -26,6 +57,7 @@ load_from_file :: (using keymap: *Keymap, short_name: string, full_path: string,
     return load_from_handler(null, keymap, *handler);
 }
 
+// Parses bindings from an open `Text_File_Handler`. The `load_from_` procedures call it.
 load_from_handler :: (set: *Keymap_Set, keymap: *Keymap, handler: *Text_File_Handler) -> bool {
     if handler.failed return false;
 
@@ -102,6 +134,16 @@ load_from_handler :: (set: *Keymap_Set, keymap: *Keymap, handler: *Text_File_Han
     return success && !handler.failed;
 }
 
+// Turns a key name or a single character into a `Key_Code`. Returns false for a name it does not know.
+//
+// ```jai
+// #import "Input";
+//
+// ok, key := map_string_to_key("F5");
+// assert(ok && key == .F5);
+// ok, key = map_string_to_key("a");
+// assert(ok && key == cast(Key_Code) #char "A");
+// ```
 map_string_to_key :: (s: string) -> bool, Key_Code {
     for item: named_keys if item.name == s return true, item.key;
 
@@ -112,11 +154,34 @@ map_string_to_key :: (s: string) -> bool, Key_Code {
     return true, cast(Key_Code) code;
 }
 
+// The name `map_string_to_key` accepts for a key.
+//
+// ```jai
+// assert(map_key_to_string(.ENTER) == "Enter");
+// ```
 map_key_to_string :: (k: Key_Code) -> string {
     for item: named_keys if item.key == k return item.name;
     return U.character_utf32_to_utf8(cast(u32) k);
 }
 
+// Writes the bindings of every keymap in the set in the format `load_from_memory` reads.
+//
+// ```jai
+// #import "Input";
+//
+// set: Keymap_Set;
+// map := add_keymap(*set, "game");
+// add_proc(map, "jump", () { /* ... */ });
+// flags: Event.Modifier_Flags;
+// add_mapping(map, .SPACEBAR, flags, true, "jump", true);
+//
+// builder: String_Builder;
+// print_to_builder(*builder, *set);
+// text := builder_to_string(*builder);
+// assert(text.count > 0);
+// free(text);
+// reset_keymaps(*set);
+// ```
 print_to_builder :: (builder: *String_Builder, set: *Keymap_Set) {
     append(builder, "[1]\n");
 
@@ -128,11 +193,13 @@ print_to_builder :: (builder: *String_Builder, set: *Keymap_Set) {
     }
 }
 
+// Writes the bindings of one keymap in the format `load_from_memory` reads.
 print_to_builder :: (builder: *String_Builder, keymap: *Keymap) {
     append(builder, "[1]\n");
     print_keymap_mappings_to_builder(builder, keymap);
 }
 
+// Writes only the binding lines of a keymap, without its `[section]` header.
 print_keymap_mappings_to_builder :: (builder: *String_Builder, keymap: *Keymap) {
     for mapping: keymap.mappings {
         assert(!mapping.modifier_flags.cmd_meta_pressed, "keymap persistence grammar has no Meta modifier prefix");
@@ -165,6 +232,7 @@ print_keymap_mappings_to_builder :: (builder: *String_Builder, keymap: *Keymap) 
     }
 }
 
+// Writes the bindings of the set to a file, so `load_from_file` can read them back.
 save_to_file :: (set: *Keymap_Set, filename: string) {
     builder: String_Builder;
 
@@ -176,6 +244,7 @@ save_to_file :: (set: *Keymap_Set, filename: string) {
     }
 }
 
+// Writes the bindings of one keymap to a file.
 save_to_file :: (keymap: *Keymap, filename: string) {
     builder: String_Builder;
 
