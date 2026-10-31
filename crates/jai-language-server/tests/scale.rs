@@ -103,6 +103,28 @@ fn large_document_opens_and_answers() {
     assert!(hover.is_some(), "hover on a call in a large document");
 }
 
+/// Names followed by `(` that the check recorded nothing for (the `trunc` of `cast,trunc(u8)`)
+/// are looked up together: the file is parsed once for all of them, not once for each, which took
+/// a minute for 25,000 lines.
+#[test]
+fn semantic_tokens_of_many_unchecked_calls_parse_the_file_once() {
+    let count = 3_000;
+    let mut text = String::new();
+    for i in 0..count {
+        text.push_str(&format!(
+            "narrow_{i} :: (a: int) -> u8 {{ return cast,trunc(u8) a; }}\n"
+        ));
+    }
+    let uri = file_uri("/lsp-scale-test/unchecked-calls.jai");
+    let mut s = session();
+    s.open(uri.clone(), 1, text.clone()).unwrap();
+    let start = Instant::now();
+    let tokens = s.semantic_tokens(&uri).unwrap();
+    let elapsed = start.elapsed();
+    assert!(tokens.len() > count, "{} tokens", tokens.len());
+    assert!(elapsed < Duration::from_secs(4), "took {elapsed:?}");
+}
+
 /// A `didOpen` message past the old 1 MiB cap is accepted, and later requests find the document.
 #[test]
 fn large_message_is_accepted_through_the_json_session() {

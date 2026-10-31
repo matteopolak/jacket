@@ -33,13 +33,25 @@ pub fn parse_file_ide(file: FileId, text: &str) -> IdeParse {
 /// parsing its unfinished arguments. No source/argument/body is rewritten. Only
 /// the requested expression is cloned; strict CLI parsing never sets this hook.
 pub fn parse_callee_ide(file: FileId, text: &str, open: u32) -> Option<crate::ast::Expr> {
+    parse_callees_ide(file, text, &[open]).remove(&open)
+}
+
+/// [`parse_callee_ide`] for many calls at once: one lex and one parse of the file, however
+/// many `(` are asked for. A `(` that opens no call is missing from the result.
+pub fn parse_callees_ide(
+    file: FileId,
+    text: &str,
+    opens: &[u32],
+) -> crate::fxhash::HashMap<u32, crate::ast::Expr> {
     let (tokens, _) = crate::lexer::lex_ide(file, text);
     let mut parser = Parser::new(text, tokens);
     parser.recovery = Some(Vec::new());
-    parser.ide_call_open = Some(open);
+    parser.ide_call_opens = opens.iter().copied().collect();
     parser.index_ide_braces();
-    parser.parse_file_stmts().ok()?;
-    parser.ide_call_callee
+    if parser.parse_file_stmts().is_err() {
+        return crate::fxhash::HashMap::default();
+    }
+    parser.ide_call_callees
 }
 
 
@@ -372,6 +384,38 @@ mod callee_tests {
                 "not a call: {source}"
             );
         }
+    }
+
+    #[test]
+    fn many_callees_come_from_one_parse() {
+        let source = "main :: () {\n    first(1);\n    a.second(2);\n    x := cast,trunc(u8) y;\n    third(unfinished\n}";
+        let file = FileId(7);
+        let opens: Vec<u32> = source
+            .match_indices('(')
+            .map(|(at, _)| at as u32)
+            .filter(|&at| at > 10)
+            .collect();
+        let together = parse_callees_ide(file, source, &opens);
+        for &open in &opens {
+            let alone = parse_callee_ide(file, source, open);
+            assert_eq!(
+                together.get(&open).map(crate::ast::Expr::extent),
+                alone.map(|c| c.extent()),
+                "callee at {open}"
+            );
+        }
+        let spelled: Vec<&str> = {
+            let mut found: Vec<_> = together.iter().collect();
+            found.sort_by_key(|(open, _)| **open);
+            found
+                .into_iter()
+                .map(|(_, c)| {
+                    let span = c.extent();
+                    &source[span.start as usize..span.end as usize]
+                })
+                .collect()
+        };
+        assert_eq!(spelled, ["first", "a.second", "third"]);
     }
 }
 

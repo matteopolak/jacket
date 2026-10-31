@@ -219,10 +219,20 @@ impl Session {
             return classes;
         }
         let found = self.checked(uri, |a, f| {
-            callees
-                .iter()
-                .filter_map(|&(span, open)| Some((span, a.compiler.ide_callee_class(f, open)?)))
-                .collect::<Vec<_>>()
+            let opens: Vec<u32> = callees.iter().map(|&(_, open)| open).collect();
+            let classes = a.compiler.ide_callee_classes(f, &opens);
+            // Both lists are in source order, and `classes` is a subsequence of `callees`.
+            let mut classes = classes.into_iter().peekable();
+            let mut found = Vec::new();
+            for &(span, open) in &callees {
+                if let Some(&(at, class)) = classes.peek()
+                    && at == open
+                {
+                    found.push((span, class));
+                    classes.next();
+                }
+            }
+            found
         });
         let found = found.unwrap_or_default();
         // Resolving a callee checks the code around it and records what it found, even when it

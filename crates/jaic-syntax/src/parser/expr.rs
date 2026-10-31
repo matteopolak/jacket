@@ -413,8 +413,9 @@ impl Parser<'_> {
                     if !self.continues_after_block()
                         && (!self.at_n(1, P::DotStar) || !self.at_n(2, P::RParen)) =>
                 {
-                    if self.ide_call_open == Some(self.toks[self.pos].span.start) {
-                        self.ide_call_callee = Some(expr.clone());
+                    let open = self.toks[self.pos].span.start;
+                    if self.ide_call_opens.contains(&open) {
+                        self.ide_call_callees.insert(open, expr.clone());
                     }
                     self.bump();
                     let args = self.parse_args(P::RParen, "in argument list")?;

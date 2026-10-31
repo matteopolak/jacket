@@ -36,8 +36,8 @@ pub use crate::lexer::PlatformTarget;
 use crate::lexer::{P, Tok, Token, lex};
 use crate::source::{Applicability, FileId, Span, Suggestion};
 pub use directive_stmt::GENERIC_DIRECTIVES;
-pub use ide::parse_callee_ide;
 pub use ide::{IdeParse, ParseReuse, SharedParse, parse_file_ide, parse_tokens_ide};
+pub use ide::{parse_callee_ide, parse_callees_ide};
 pub use stmt::check_bits;
 
 pub(crate) type PResult<T> = Result<T, Diagnostic>;
@@ -147,9 +147,11 @@ pub(crate) struct Parser<'a> {
     /// Set only by the editor entry points. Strict parsing never resynchronizes.
     recovery: Option<Vec<Diagnostic>>,
     ide_closed_braces: crate::fxhash::HashSet<u32>,
-    /// Only an IDE query sets this: capture one real callee before argument parsing fails.
-    ide_call_open: Option<u32>,
-    ide_call_callee: Option<crate::ast::Expr>,
+    /// Only an IDE query sets this: the `(` of each call whose real callee to capture before
+    /// argument parsing fails.
+    ide_call_opens: crate::fxhash::HashSet<u32>,
+    /// The callee captured for each of `ide_call_opens`, by the `(`.
+    ide_call_callees: crate::fxhash::HashMap<u32, crate::ast::Expr>,
     /// Set by `parse_file_for_target`.
     platform: Option<PlatformTarget>,
     /// The `depth` at which a statement is still at file level: `#if` branches at file level
@@ -181,8 +183,8 @@ impl<'a> Parser<'a> {
             depth: 0,
             recovery: None,
             ide_closed_braces: crate::fxhash::HashSet::default(),
-            ide_call_open: None,
-            ide_call_callee: None,
+            ide_call_opens: crate::fxhash::HashSet::default(),
+            ide_call_callees: crate::fxhash::HashMap::default(),
             platform: None,
             file_level_depth: 1,
             lenient: Vec::new(),

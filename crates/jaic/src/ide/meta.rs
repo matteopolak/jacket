@@ -166,6 +166,31 @@ impl Compiler {
     /// one, a function otherwise. `None` when the call's target cannot be found.
     pub fn ide_callee_class(&mut self, file: FileId, open: u32) -> Option<IdeClass> {
         let procedures = self.ide_call_target_at(file, open)?.procedures;
+        self.callee_class(&procedures)
+    }
+
+    /// [`Self::ide_callee_class`] for the calls whose `(` are at `opens`, in that order, parsing
+    /// the file once for all of them.
+    pub fn ide_callee_classes(&mut self, file: FileId, opens: &[u32]) -> Vec<(u32, IdeClass)> {
+        if opens.is_empty() || self.ed.facts().is_none() {
+            return Vec::new();
+        }
+        let text = self.src.sources.get(file).text.clone();
+        let mut callees = crate::parser::parse_callees_ide(file, &text, opens);
+        let mut out = Vec::new();
+        for &open in opens {
+            let Some(callee) = callees.remove(&open) else {
+                continue;
+            };
+            let target = self
+                .ide_call_target_of(file, open, &callee)
+                .and_then(|t| self.callee_class(&t.procedures));
+            out.extend(target.map(|class| (open, class)));
+        }
+        out
+    }
+
+    fn callee_class(&self, procedures: &[ProcId]) -> Option<IdeClass> {
         if procedures.is_empty() {
             return None;
         }
@@ -179,22 +204,40 @@ impl Compiler {
     /// Resolve only the actual callee at this call's opening parenthesis. The original
     /// program and its failed-body guards stay intact; no argument values are invented.
     pub fn ide_call_target_at(&mut self, file: FileId, open: u32) -> Option<IdeCallTarget> {
-        // Code this compile skipped (an `#if` arm the target does not take) has no scope here:
-        // its names are declared in the arm, so checking the callee would bind them to whatever
-        // else is called that, and record the wrong reference for a later hover.
-        if self
-            .ed
-            .facts()?
-            .skipped
-            .iter()
-            .any(|s| s.file == file && s.start <= open && open <= s.end)
-        {
+        if self.ide_call_skipped(file, open)? {
             return None;
         }
         let text = self.src.sources.get(file).text.clone();
         let callee = crate::parser::parse_callee_ide(file, &text, open)?;
+        self.ide_call_target_of(file, open, &callee)
+    }
+
+    /// Whether the call at `open` is in code this compile skipped (an `#if` arm the target does
+    /// not take); `None` when nothing was recorded. That code has no scope here: its names are
+    /// declared in the arm, so checking the callee would bind them to whatever else is called
+    /// that, and record the wrong reference for a later hover.
+    fn ide_call_skipped(&self, file: FileId, open: u32) -> Option<bool> {
+        Some(
+            self.ed
+                .facts()?
+                .skipped
+                .iter()
+                .any(|s| s.file == file && s.start <= open && open <= s.end),
+        )
+    }
+
+    /// [`Self::ide_call_target_at`] for a callee already parsed from the call at `open`.
+    fn ide_call_target_of(
+        &mut self,
+        file: FileId,
+        open: u32,
+        callee: &crate::ast::Expr,
+    ) -> Option<IdeCallTarget> {
+        if self.ide_call_skipped(file, open)? {
+            return None;
+        }
         let scope = self.ide_scope_at(file, callee.span.start)?;
-        let operand = self.check_expr_no_emit(scope, &callee).ok()?;
+        let operand = self.check_expr_no_emit(scope, callee).ok()?;
         let parameters = match &operand {
             Operand::Callable {
                 parameters, ..
