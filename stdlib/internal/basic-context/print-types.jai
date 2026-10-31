@@ -1,7 +1,9 @@
+// The base of the `FormatInt`, `FormatFloat`, `FormatStruct` and `FormatArray` wrappers. `value` is what gets printed.
 Formatter :: struct {
     value: Any;
 }
 
+// Print settings for one float. Build one with `formatFloat` and pass it to `print` or `tprint` in place of the number.
 FormatFloat :: struct {
     #as using formatter: Formatter;
     width := -1;
@@ -30,6 +32,8 @@ FormatFloat :: struct {
     positive_number_prefix := Positive_Number_Prefix.NONE;
 }
 
+// Print settings for one struct: the brackets, the separators, when to switch to the long form. Build one with
+// `formatStruct`.
 FormatStruct :: struct {
     #as using formatter: Formatter;
     draw_type_name := false;
@@ -43,6 +47,14 @@ FormatStruct :: struct {
     use_newlines_if_long_form := false;
 }
 
+// Print settings for one array: the separator and brackets, and how many elements to show before the output is cut with
+// `...`.
+//
+// ```jai
+// numbers := int.[1, 2, 3];
+// format := FormatArray.{ value = numbers, separator = " | ", begin_string = "<", end_string = ">" };
+// assert(tprint("%", format) == "<1 | 2 | 3>");
+// ```
 FormatArray :: struct {
     #as using formatter: Formatter;
     separator := ", ";
@@ -53,6 +65,16 @@ FormatArray :: struct {
     stop_printing_after_this_many_elements := 100;
 }
 
+// The defaults `print` uses when a value has no wrapper: one `FormatInt`, `FormatFloat`, `FormatStruct` and `FormatArray`,
+// and how pointers are shown. Set a field of `context.print_style` to change how every later `print` writes that kind of
+// value.
+//
+// ```jai
+// old := context.print_style.default_format_float.trailing_width;
+// context.print_style.default_format_float.trailing_width = 2;
+// assert(tprint("%", 3.14159) == "3.14");
+// context.print_style.default_format_float.trailing_width = old;
+// ```
 Print_Style :: struct {
     default_format_int: FormatInt;
     default_format_float: FormatFloat;
@@ -68,6 +90,7 @@ Print_Style :: struct {
     log_runtime_errors := true;
 }
 
+// Print settings for one integer. Build one with `formatInt` and pass it to `print` or `tprint` in place of the number.
 FormatInt :: struct {
     using #as formatter: Formatter;
     base := 10;

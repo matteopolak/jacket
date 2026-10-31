@@ -1,4 +1,12 @@
 #if OS == .MACOS || OS == .LINUX || OS == .ANDROID || OS == .WINDOWS || OS == .WASM {
+    // Seconds since the first call to this procedure, from the monotonic clock. A quick stopwatch: call it once to start and
+    // again to read.
+    //
+    // ```jai
+    // start := seconds_since_init();
+    // now := seconds_since_init();
+    // assert(now >= start);
+    // ```
     seconds_since_init :: () -> float64 {
         initializing, state := compare_and_swap(*elapsed_state, cast(s32) 0, cast(s32) 1);
         if initializing {

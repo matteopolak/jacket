@@ -1,3 +1,4 @@
+// Reads an unsigned integer of `size_in_bytes` (1, 2, 4 or 8) from `pointer`.
 get_u64_from_void_pointer :: (pointer: *void, size_in_bytes: int) -> u64 {
     if size_in_bytes == 1 return (cast(*u8) pointer).*;
     if size_in_bytes == 2 return (cast(*u16) pointer).*;
@@ -8,6 +9,7 @@ get_u64_from_void_pointer :: (pointer: *void, size_in_bytes: int) -> u64 {
     return (cast(*u64) pointer).*;
 }
 
+// Reads a signed integer of `size_in_bytes` (1, 2, 4 or 8) from `pointer`, sign-extended.
 get_s64_from_void_pointer :: (pointer: *void, size_in_bytes: int) -> s64 {
     if size_in_bytes == 1 return (cast(*s8) pointer).*;
     if size_in_bytes == 2 return (cast(*s16) pointer).*;
@@ -18,6 +20,17 @@ get_s64_from_void_pointer :: (pointer: *void, size_in_bytes: int) -> s64 {
     return (cast(*s64) pointer).*;
 }
 
+// Appends one value to `builder` the way `print` writes a `%`. Useful in a procedure that takes an `Any`.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// n := 12;
+// print_item_to_builder(*builder, n);
+// text := builder_to_string(*builder);
+// defer free(text);
+// assert(text == "12");
+// ```
 print_item_to_builder :: (builder: *String_Builder, item: Any, inside_struct_or_array := true, may_be_uninitialized := false) {
     render_item(builder, item, inside_struct_or_array, may_be_uninitialized, formatter_style());
 }
@@ -324,6 +337,11 @@ tprint :: (format_string: string, args: ..Any) -> string {
 } @UseResult @PrintLike @FormatsToString @TempAllocates
 
 // Writes the byte `_c` to standard output.
+//
+// ```jai
+// print_character(#char "!");
+// print_character(#char "\n");
+// ```
 print_character :: (_c: u8) {
     write_string(string.{ 1, *_c });
 }

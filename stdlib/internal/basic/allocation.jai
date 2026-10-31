@@ -1,29 +1,59 @@
+// Allocates `size` bytes with the context allocator and returns a pointer to them. The bytes are not cleared. Give them
+// back with `free`. Prefer `New` or `NewArray` when you know the type.
+//
+// ```jai
+// memory := cast(*u8) alloc(16);
+// defer free(memory);
+// memory[0] = 7;
+// assert(memory[0] == 7);
+// ```
 alloc :: (size: s64) -> *void {
     assert(size >= 0);
     return allocator_call(context.allocator, .ALLOCATE, size, 0, null);
 } @Allocates
 
+// What the allocator `b` can do (its `Allocator_Caps`) and its name.
 get_capabilities :: (b: Allocator) -> (caps: Allocator_Caps, name: string) {
     name: string;
     flags := b.proc(.CAPS, 0, 0, *name, null);
     return cast(Allocator_Caps) cast(u64) flags, name;
 }
 
-// Gives memory back to the context allocator. `memory` must come from `alloc`, `New`, `realloc` or another
-// procedure that allocates with the context allocator, and must not be freed twice. Freeing a null
-// pointer is up to the allocator; do not rely on it.
+// Gives `memory` back to the context allocator. It must come from `alloc`, `New`, `realloc` or another procedure that
+// allocates with the context allocator, and must not be freed twice. Don't rely on freeing a null pointer.
+//
+// ```jai
+// number := New(int);
+// free(number);
+// ```
 free :: (memory: *void) {
     allocator_call(context.allocator, .FREE, 0, 0, memory);
 } @FreesArgument
 
+// Resizes a block from `alloc` to `size` bytes and returns the block, which may have moved. `old_size` is the size it has
+// now. The first `min(size, old_size)` bytes are kept.
+//
+// ```jai
+// memory := cast(*u8) alloc(4);
+// memory[0] = 42;
+// memory = cast(*u8) realloc(memory, 64, 4);
+// defer free(memory);
+// assert(memory[0] == 42);
+// ```
 realloc :: (memory: *void, size: s64, old_size: s64) -> *void {
     assert(size >= 0 && old_size >= 0);
     return allocator_call(context.allocator, .RESIZE, size, old_size, memory);
 }
 
-// Frees the memory a string points to. The string must have been allocated with the context allocator
-// in effect now, for example by `alloc_string`, `copy_string` or `sprint`. Never free a string literal,
-// a slice of another string or a string from temporary storage.
+// Frees the memory a string points to. The string must have been allocated with the context allocator in effect now, for
+// example by `alloc_string`, `copy_string` or `sprint`. Never free a string literal, a slice of another string or a string
+// from temporary storage.
+//
+// ```jai
+// s := sprint("%-%", 1, 2);
+// assert(s == "1-2");
+// free(s);
+// ```
 free :: inline (s: string) {
     free(s.data);
 } @FreesArgument
@@ -104,6 +134,15 @@ to_c_string :: (s: string) -> *u8 {
     return result;
 } @Allocates
 
+// Sets the value `memory` points to back to the default for its type.
+//
+// ```jai
+// Point :: struct { x := 5; y := 6; }
+// p: Point;
+// p.x = 100;
+// Initialize(*p);
+// assert(p.x == 5 && p.y == 6);
+// ```
 Initialize :: (memory: *$T) {
     memory.* = T.{};
 }
@@ -125,10 +164,17 @@ is_zero_default :: ($T: Type) -> bool {
     return tag == .INTEGER || tag == .FLOAT || tag == .BOOL || tag == .POINTER;
 }
 
-// Allocates a `T` with `context.allocator` and returns a pointer to it.
+// Allocates a `T` with `context.allocator` and returns a pointer to it. The value starts as the default for `T`.
+// Free it with `free`.
 //
-// - initialized: set to `false` to skip setting the new value to its default; its bytes are then
-//   whatever the allocator returned.
+// ```jai
+// Point :: struct { x := 1; y := 2; }
+// p := New(Point);
+// defer free(p);
+// assert(p.x == 1 && p.y == 2);
+// ```
+//
+// - initialized: set to `false` to skip setting the default; the bytes are then whatever the allocator returned.
 New :: ($T: Type, $initialized := true) -> *T {
     memory := cast(*T) alloc(size_of(T));
 
@@ -139,9 +185,17 @@ New :: ($T: Type, $initialized := true) -> *T {
     return memory;
 } @Allocates
 
-// Allocates `count` elements of `T` with `context.allocator`.
+// Allocates `count` elements of `T` with `context.allocator`. They start as the default for `T`.
 //
-// The second result is the pointer the allocator gave out. Free that one, not `result.data`, which may have been moved forward to meet `alignment`.
+// The second result is the pointer the allocator gave out. Free that one, not `result.data`, which may have been moved
+// forward to meet `alignment`.
+//
+// ```jai
+// numbers, base := NewArray(4, int);
+// defer free(base);
+// numbers[3] = 9;
+// assert(numbers.count == 4 && numbers[0] == 0);
+// ```
 //
 // - alignment: in bytes, a power of two. The type's own alignment when negative.
 // - initialized: set to `false` to leave the elements as the allocator returned them.
@@ -165,11 +219,27 @@ NewArray :: (count: s64, $T: Type, $initialized := true, alignment: s32 = -1) ->
     return result, base;
 } @Allocates
 
+// Rounds `orig_size` up to a multiple of `alignment`.
+//
+// ```jai
+// assert(align_forward(13, 8) == 16);
+// assert(align_forward(16, 8) == 16);
+// ```
 align_forward :: (orig_size: s64, alignment: s64) -> s64 {
     assert(alignment > 0);
     return ((orig_size + alignment - 1) / alignment) * alignment;
 }
 
+// Makes `allocator` the `context.allocator` until the end of the enclosing scope, then puts the old one back.
+//
+// ```jai
+// {
+//     push_allocator(temp);
+//     text := sprint("%", 123); // lives in temporary storage
+//     assert(text == "123");
+// }
+// reset_temporary_storage();
+// ```
 push_allocator :: (allocator: Allocator) #expand #no_debug {
     previous_allocator := context.allocator;
     context.allocator = allocator;

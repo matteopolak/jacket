@@ -1,3 +1,20 @@
+// The everyday toolbox: printing, strings and string builders, dynamic arrays, allocation and temporary storage,
+// `assert`, logging, time, and a few reflection helpers.
+//
+// - Print with `print`, build text with `tprint` (temporary storage) or `sprint` (allocated), and write by hand with a
+//   `String_Builder`.
+// - Grow arrays with `array_add`; allocate with `New`, `NewArray` and `alloc`; scratch memory comes from `temp`.
+// - Time is an `Apollo_Time`; `current_time_monotonic` is the clock for timing.
+//
+// Module parameters: `ENABLE_ASSERT` (default `true`) compiles `assert` out when `false`, and `MEMORY_DEBUGGER` turns on
+// leak tracking.
+//
+// ```jai
+// numbers: [..] int;
+// defer array_free(numbers);
+// for 1..3 array_add(*numbers, it * it);
+// assert(tprint("%", numbers) == "[1, 4, 9]");
+// ```
 #module_parameters()(MEMORY_DEBUGGER := false, ENABLE_ASSERT := true, REPLACEMENT_INTERFACE: $I/interface Memory_Debugger_Interface = Memory_Debugger_Interface, VISUALIZE_MEMORY_DEBUGGER := true, TEMP_ALLOCATOR_OVERWRITE_MEMORY := false) {
     #scope_file
     Memory_Debugger_Interface :: Interface_Definition.Memory_Debugger_Interface;

@@ -32,8 +32,15 @@ formatFloat :: (value: Any, width := -1, trailing_width := -1, mode := FormatFlo
 
 // Wraps a struct for `print` with its own layout instead of the default one.
 //
-// - use_long_form_if_more_than_this_many_members: structs with more members than this print as `name =
-//   value; ...`, shorter ones as `{a, b}`.
+// ```jai
+// Pair :: struct { a: int; b: int; }
+// pair := Pair.{ 1, 2 };
+// text := tprint("%", formatStruct(pair, use_long_form_if_more_than_this_many_members = 1));
+// assert(text == "{a = 1; b = 2; }");
+// ```
+//
+// - use_long_form_if_more_than_this_many_members: structs with more members than this print as `name = value; ...`,
+//   shorter ones as `{a, b}`.
 // - use_newlines_if_long_form: put each member of a long form on its own line.
 formatStruct :: (value: Any, use_long_form_if_more_than_this_many_members := 5, use_newlines_if_long_form := false) -> FormatStruct {
     result: FormatStruct;

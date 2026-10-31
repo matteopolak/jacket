@@ -34,9 +34,17 @@ get_buffer_data :: inline (using buffer: *String_Builder.Buffer) -> *u8 {
     return cast(*u8) buffer + size_of(String_Builder.Buffer);
 }
 
-// Prepares `builder` for use. Called by the other procedures when needed, so you rarely call it. `buffer_size`
-// sets the size of the buffers allocated after the first (the default is 4 KiB); the builder takes the
-// current context allocator. Does nothing when already prepared.
+// Prepares `builder` for use. Every other builder procedure does this for you, so the only reason to call it is to pick
+// `buffer_size`, the size of the buffers added after the first (4 KiB by default). The builder takes the current context
+// allocator. Calling it on a prepared builder does nothing.
+//
+// ```jai
+// builder: String_Builder;
+// init_string_builder(*builder, 64 * 1024);
+// defer free_buffers(*builder);
+// append(*builder, "ready");
+// assert(builder_string_length(*builder) == 5);
+// ```
 init_string_builder :: (using builder: *String_Builder, buffer_size := -1) {
     if initialized return;
     if !allocator.proc allocator = context.allocator;
@@ -51,6 +59,8 @@ init_string_builder :: (using builder: *String_Builder, buffer_size := -1) {
     initialized = true;
 } @Opens
 
+// Returns a pointer to `bytes` of free space at the end of `builder`, or null if the builder failed. Write there, then call
+// `advance_through_ensured_space`. See `ensure_contiguous_space_and_return_available_range` for the slice form.
 ensure_contiguous_space :: (using builder: *String_Builder, bytes: s64) -> pointer: *void {
     assert(bytes >= 0);
     if failed return null;
@@ -66,6 +76,21 @@ ensure_contiguous_space :: (using builder: *String_Builder, bytes: s64) -> point
     return get_buffer_data(buffer) + buffer.count;
 }
 
+// Makes sure `builder` has at least `minimum_bytes` of free space in one piece and returns all of it as a slice. Write into
+// the slice, then call `advance_through_ensured_space` with the number of bytes you used. Use it to format straight into the
+// builder instead of building a temporary string first. An empty slice means the builder failed.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// space := ensure_contiguous_space_and_return_available_range(*builder, 8);
+// space[0] = #char "h";
+// space[1] = #char "i";
+// advance_through_ensured_space(*builder, 2);
+// text := builder_to_string(*builder);
+// defer free(text);
+// assert(text == "hi");
+// ```
 ensure_contiguous_space_and_return_available_range :: (using builder: *String_Builder, minimum_bytes := 1) -> [] u8 {
     memory := ensure_contiguous_space(builder, minimum_bytes);
     if !memory return .{};
@@ -82,6 +107,22 @@ expand :: (using builder: *String_Builder) -> bool {
     return grow_builder(builder, 1);
 }
 
+// Appends everything in `steal_from` to `builder` and leaves `steal_from` empty. When both use the same allocator the
+// buffers are moved instead of copied. Handy when threads fill their own builders and one of them joins the results.
+//
+// ```jai
+// a: String_Builder;
+// b: String_Builder;
+// defer free_buffers(*a);
+// defer free_buffers(*b);
+// append(*a, "one ");
+// append(*b, "two");
+// append_and_steal_buffers(*a, *b);
+// assert(builder_string_length(*b) == 0);
+// text := builder_to_string(*a);
+// defer free(text);
+// assert(text == "one two");
+// ```
 append_and_steal_buffers :: (builder: *String_Builder, steal_from: *String_Builder) {
     assert(builder != steal_from);
     if !steal_from.initialized return;
@@ -121,6 +162,8 @@ append_and_steal_buffers :: (builder: *String_Builder, steal_from: *String_Build
     reset(steal_from);
 }
 
+// Counts the first `bytes` of the space from `ensure_contiguous_space` as written. `bytes` must not be more than the space
+// that was ensured.
 advance_through_ensured_space :: (using builder: *String_Builder, bytes: s64) {
     assert(initialized && bytes >= 0 && bytes <= current_buffer.allocated - current_buffer.count);
 
@@ -132,8 +175,15 @@ advance_through_ensured_space :: (using builder: *String_Builder, bytes: s64) {
     current_buffer.count += bytes;
 }
 
-// Appends `length` bytes at `s` to `builder`. A negative `length` is an error and sets the builder to
-// failed.
+// Appends `length` bytes at `s` to `builder`. A negative `length` marks the builder as failed.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// data := u8.[1, 2, 3];
+// append(*builder, data.data, 3);
+// assert(builder_string_length(*builder) == 3);
+// ```
 append :: (using builder: *String_Builder, s: *u8, length: s64) {
     // The common case: the text fits in the buffer being filled.
     if initialized && !failed && length >= 0 && length <= current_buffer.allocated - current_buffer.count {
@@ -151,11 +201,31 @@ append :: (using builder: *String_Builder, s: *u8, length: s64) {
 } @Opens
 
 // Appends the string `s` to `builder`.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// append(*builder, "hello, ");
+// append(*builder, "world");
+// text := builder_to_string(*builder);
+// defer free(text);
+// assert(text == "hello, world");
+// ```
 append :: inline (builder: *String_Builder, s: string) {
     append(builder, s.data, s.count);
 } @AppendsString @Opens
 
 // Appends one byte to `builder`.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// append(*builder, #char "A");
+// append(*builder, #char "B");
+// text := builder_to_string(*builder);
+// defer free(text);
+// assert(text == "AB");
+// ```
 append :: inline (using builder: *String_Builder, byte: u8) {
     if initialized && !failed && current_buffer.allocated > current_buffer.count {
         get_buffer_data(current_buffer)[current_buffer.count] = byte;
@@ -166,7 +236,15 @@ append :: inline (using builder: *String_Builder, byte: u8) {
     }
 } @Opens
 
-// Appends the bytes of the value `pointer` points to, as they are in memory.
+// Appends the raw bytes of the value `pointer` points to, as they sit in memory.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// value: u32 = 0x01020304;
+// append_by_pointer(*builder, *value);
+// assert(builder_string_length(*builder) == 4);
+// ```
 append_by_pointer :: inline (builder: *String_Builder, pointer: *$T) {
     append(builder, cast(*u8) pointer, size_of(T));
 }
@@ -175,7 +253,15 @@ simple_memcpy :: inline (using builder: *String_Builder, x: $T) {
     append_by_pointer(builder, *x);
 }
 
-// The number of bytes appended to `builder` since it was last reset.
+// The number of bytes in `builder`.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// assert(builder_string_length(*builder) == 0);
+// append(*builder, "abc");
+// assert(builder_string_length(*builder) == 3);
+// ```
 builder_string_length :: (using builder: *String_Builder) -> int {
     if !initialized return 0;
 
@@ -190,8 +276,16 @@ builder_string_length :: (using builder: *String_Builder) -> int {
     return total;
 }
 
-// Frees the memory `builder` took from its allocator and returns it to its empty state, also clearing
-// the failed state. The builder can be used again afterwards.
+// Frees the memory `builder` took from its allocator and puts it back in its empty state, clearing a failure too. The
+// builder can be used again afterwards. `builder_to_string` and `write_builder` already do this, so you only need it for a
+// builder you abandon.
+//
+// ```jai
+// builder: String_Builder;
+// append(*builder, "scratch");
+// free_buffers(*builder);
+// assert(builder_string_length(*builder) == 0);
+// ```
 free_buffers :: (using builder: *String_Builder) {
     if !initialized return;
 
@@ -210,7 +304,18 @@ free_buffers :: (using builder: *String_Builder) {
     failed = false;
 } @FreesArgument @Closes
 
-// Empties `builder`, freeing its extra memory, so it can be used again.
+// Empties `builder` and frees its extra buffers so it can be used again.
+//
+// ```jai
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// append(*builder, "old");
+// reset(*builder);
+// append(*builder, "new");
+// text := builder_to_string(*builder);
+// defer free(text);
+// assert(text == "new");
+// ```
 reset :: (using builder: *String_Builder) {
     #if ENABLE_ASSERT {
         // Space ensured in the inline buffer survives a reset, so code that ensures space, takes
@@ -225,10 +330,18 @@ reset :: (using builder: *String_Builder) {
     #if ENABLE_ASSERT get_base_buffer(builder).ensured_count = ensured;
 } @Closes
 
-// The text in `builder`, in a new string; the string is allocated with the context allocator, not the
-// builder's, and the caller frees it. With `do_reset` (the default) the builder is emptied afterwards,
-// otherwise it keeps its text. `extra_bytes_to_prepend` leaves that many unwritten bytes in front of the text.
-// A builder that has failed gives an empty string.
+// The text in `builder` as a new string, allocated with the context allocator (not the builder's). You free it. The builder
+// is emptied afterwards unless `do_reset` is `false`. `extra_bytes_to_prepend` leaves that many unwritten bytes in front of
+// the text. A failed builder gives an empty string.
+//
+// ```jai
+// builder: String_Builder;
+// append(*builder, "total: ");
+// print_to_builder(*builder, "%", 42);
+// text := builder_to_string(*builder);
+// defer free(text);
+// assert(text == "total: 42");
+// ```
 builder_to_string :: (builder: *String_Builder, extra_bytes_to_prepend := 0, do_reset := true) -> string {
     assert(extra_bytes_to_prepend >= 0);
     if builder.failed return "";
@@ -250,8 +363,15 @@ builder_to_string :: (builder: *String_Builder, extra_bytes_to_prepend := 0, do_
     return result;
 } @Allocates @Closes
 
-// Writes the text in `builder` to standard output, or standard error with `to_standard_error`, and returns the
-// number of bytes. With `do_reset` (the default) the builder is emptied afterwards.
+// Writes the text in `builder` to standard output, or standard error with `to_standard_error`, and returns the byte count.
+// The builder is emptied afterwards unless `do_reset` is `false`.
+//
+// ```jai
+// builder: String_Builder;
+// append(*builder, "to the console\n");
+// written := write_builder(*builder);
+// assert(written == 15);
+// ```
 write_builder :: (using builder: *String_Builder, do_reset := true, to_standard_error := false) -> s64 {
     if failed return 0;
 

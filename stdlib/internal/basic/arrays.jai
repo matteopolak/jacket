@@ -71,6 +71,13 @@ array_add :: (array: *[..] $T) -> *T {
 } @AddsToArray @GrowsArray
 
 // Appends `item`; see the first `array_add` for how the array grows.
+//
+// ```jai
+// values: [..] int;
+// array_add(*values, 5);
+// assert(values.count == 1 && values[0] == 5);
+// array_free(values);
+// ```
 array_add :: (array: *[..] $T, item: T) #no_abc {
     maybe_grow(cast(*Resizable_Array) array, size_of(T));
     array.data[array.count] = item;
@@ -78,6 +85,13 @@ array_add :: (array: *[..] $T, item: T) #no_abc {
 } @AddsToArray @GrowsArray
 
 // Appends all of `to_append` in order; see the first `array_add` for how the array grows.
+//
+// ```jai
+// values: [..] int;
+// array_add(*values, 1, 2, 3);
+// assert(values.count == 3 && values[2] == 3);
+// array_free(values);
+// ```
 array_add :: (array: *[..] $T, to_append: ..T) {
     if to_append.count == 0 return;
 
@@ -191,6 +205,11 @@ array_view :: inline (array: [] $T, index: int) -> [] T {
 }
 
 // At most `count` elements from `index`; see the first `array_view` for the clamping rules.
+//
+// ```jai
+// values := int.[1, 2, 3, 4];
+// assert(array_view(values, 1, 2).count == 2);
+// ```
 array_view :: inline (array: [] $T, index: int, count: int) -> [] T {
     assert(index >= 0);
     if index >= array.count return .{};
@@ -320,6 +339,12 @@ array_unordered_remove_by_value :: inline (array: *[] $T, item: T, $stop_after_f
 } @RemovesFromArray
 
 // A pointer to the last element, which stays valid until the array is changed. Fails an assert when the array is empty.
+//
+// ```jai
+// values := int.[3, 6, 9];
+// peek_pointer(values).* += 1;
+// assert(values[2] == 10);
+// ```
 peek_pointer :: inline (array: [] $T) -> *T {
     assert(array.count > 0);
     return array.data + array.count - 1;
@@ -389,6 +414,12 @@ array_free :: inline (array: [] $T) {
 } @FreesArgument
 
 // Frees a dynamic array through the allocator it grew with, or `context.allocator` if it never allocated.
+//
+// ```jai
+// values: [..] int;
+// array_add(*values, 1);
+// array_free(values);
+// ```
 array_free :: (array: [..] $T) {
     if array.allocator.proc allocator_call(array.allocator, .FREE, 0, array.allocated * size_of(T), array.data);
     else free(array.data);
@@ -410,6 +441,13 @@ array_reset :: (array: *[] $T) {
 } @FreesArgument
 
 // Frees a dynamic array through its own allocator and sets it to empty, which also forgets that allocator.
+//
+// ```jai
+// values: [..] int;
+// array_add(*values, 1);
+// array_reset(*values);
+// assert(values.count == 0);
+// ```
 array_reset :: (array: *[..] $T) {
     array_free(array.*);
     array.* = .{};
@@ -444,6 +482,13 @@ array_resize :: (array: *[..] $T, new_count: s64, $initialize := true) {
 } @GrowsArray
 
 // Resizes a view's storage to exactly `new_count` elements with `context.allocator`; see the first `array_resize`.
+//
+// ```jai
+// view: [] int;
+// array_resize(*view, 3);
+// assert(view.count == 3 && view[0] == 0);
+// array_resize(*view, 0);
+// ```
 array_resize :: (array: *[] $T, new_count: s64, $initialize := true) {
     assert(new_count >= 0 && new_count <= 0x7fffffffffffffff / max(cast(s64) 1, size_of(T)));
 
@@ -502,6 +547,13 @@ array_copy :: (array: [] $T) -> [] T {
 } @UseResult @Allocates
 
 // Replaces the contents of `dest` with a copy of `source`; see the first `array_copy`.
+//
+// ```jai
+// list: [..] int;
+// array_copy(*list, int.[4, 5]);
+// assert(list.count == 2 && list[1] == 5);
+// array_free(list);
+// ```
 array_copy :: (dest: *[..] $T, source: [] T) {
     array_resize(dest, source.count, false);
     copy_array_elements(dest.data, source);

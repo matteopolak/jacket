@@ -1,8 +1,10 @@
+// A signed 128-bit integer as two 64-bit halves. There is no arithmetic operator on it; `Apollo_Time` is the main user.
 S128 :: struct {
     low: u64;
     high: s64;
 }
 
+// An unsigned 128-bit integer as two 64-bit halves.
 U128 :: struct {
     low: u64;
     high: u64;
@@ -55,6 +57,12 @@ operator - :: (a: U128, b: U128) -> U128 #no_aoc {
     return .{ a.low - b.low, a.high - b.high - borrow };
 }
 
+// Multiplies two 64-bit numbers without losing the top half: the 128-bit product comes back as `high` and `low`.
+//
+// ```jai
+// high, low := multiply_64bits_with_overflow(0xffffffffffffffff, 2);
+// assert(high == 1 && low == 0xfffffffffffffffe);
+// ```
 multiply_64bits_with_overflow :: (a: u64, b: u64) -> (high: u64, low: u64) #no_aoc {
     a0 := a & 0xffffffff;
     a1 := a >> 32;
@@ -67,12 +75,24 @@ multiply_64bits_with_overflow :: (a: u64, b: u64) -> (high: u64, low: u64) #no_a
     return a1 * b1 + (t >> 32) + (w1 >> 32), (w1 << 32) | (w0 & 0xffffffff);
 }
 
+// Widens an unsigned integer (`u8` to `u64`) to a `U128`.
+//
+// ```jai
+// x := to_u128(cast(u64) 7);
+// assert(x.low == 7 && x.high == 0);
+// ```
 to_u128 :: (a: $T) -> U128 #modify {
     return T == u8 || T == u16 || T == u32 || T == u64, "to_u128 requires a built-in unsigned integer type";
 } {
     return .{ cast(u64) a, 0 };
 }
 
+// Widens any integer to an `S128`, with sign extension.
+//
+// ```jai
+// x := to_s128(-1);
+// assert(x.high == -1);
+// ```
 to_s128 :: (a: $T) -> S128 #modify {
     return (cast(*Type_Info) T).type == .INTEGER, "to_s128 requires a reflected integer type";
 } {
@@ -89,6 +109,12 @@ logical_shift_right :: (a: S128, $$x: u8) -> S128 {
     return .{ (a.low >> x) | (high << (64 - x)), cast(s64) (high >> x) };
 }
 
+// Divides `u` by `v`. The third result is `true` when `v` is zero, and the others are then `U128_ERROR`.
+//
+// ```jai
+// q, r, error := unsigned_divide_with_remainder(to_u128(cast(u64) 100), to_u128(cast(u64) 7));
+// assert(!error && q.low == 14 && r.low == 2);
+// ```
 unsigned_divide_with_remainder :: (u: U128, v: U128) -> quotient: U128, remainder: U128, overflow_or_divide_by_zero: bool #no_aoc {
     if v.low == 0 && v.high == 0 return U128_ERROR, U128_ERROR, true;
 
@@ -120,6 +146,7 @@ unsigned_divide_with_remainder :: (u: U128, v: U128) -> quotient: U128, remainde
     return q, r, false;
 }
 
+// Like `unsigned_divide_with_remainder`, for `S128`. The quotient rounds toward zero.
 signed_divide_with_remainder :: inline (dividend: S128, divisor: S128) -> quotient: S128, remainder: S128, overflow_or_divide_by_zero: bool #no_aoc {
     if dividend.low == 0 && dividend.high == -9223372036854775808 && divisor.low == 0xffffffffffffffff && divisor.high == -1 return S128_ERROR, S128_ERROR, true;
 

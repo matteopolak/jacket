@@ -53,10 +53,20 @@ set_working_directory :: (s: string) -> bool {
     return P.chdir(name) == 0;
 }
 
+// Ends the program now with `status` as its exit code. Deferred statements and cleanup do not run.
+//
+// ```jai,no_run
+// exit(1);
+// ```
 exit :: (status: s32) {
     c_exit(status);
 } @Exits
 
+// Pauses the calling thread for at least `milliseconds`.
+//
+// ```jai
+// sleep_milliseconds(1);
+// ```
 sleep_milliseconds :: (milliseconds: s32) {
     assert(milliseconds >= 0);
     remaining: P.timespec;

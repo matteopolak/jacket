@@ -1,3 +1,9 @@
+// Spells `ct` as text such as `1 January 1970, 00:00:00`, in temporary storage.
+//
+// ```jai
+// text := calendar_to_string(to_calendar(APOLLO_TIME_FOR_JAN_1_1970));
+// assert(text == "1 January 1970, 00:00:00");
+// ```
 calendar_to_string :: (ct: Calendar_Time) -> string {
     bytes: [128] u8;
     count: s64;
@@ -15,6 +21,12 @@ calendar_to_string :: (ct: Calendar_Time) -> string {
     return copy_temporary_string(.{ count, bytes.data });
 }
 
+// Spells `ct` in ISO 8601 form such as `1970-01-01T00:00:00.000Z`, in temporary storage.
+//
+// ```jai
+// text := calendar_to_iso_string(to_calendar(APOLLO_TIME_FOR_JAN_1_1970));
+// assert(text == "1970-01-01T00:00:00.000Z");
+// ```
 calendar_to_iso_string :: (ct: Calendar_Time) -> string {
     bytes: [128] u8;
     count: s64;

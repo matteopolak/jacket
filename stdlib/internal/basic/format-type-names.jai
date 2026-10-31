@@ -1,7 +1,14 @@
+// Appends the name of `info` to `builder`, as `type_to_string` writes it.
 print_type_to_builder :: (builder: *String_Builder, info: *Type_Info, print_parameters_matching_defaults := false) {
     render_type(builder, info, print_parameters_matching_defaults, formatter_style());
 }
 
+// The name of a type as source code spells it, in temporary storage.
+//
+// ```jai
+// assert(type_to_string(type_info(int)) == "s64");
+// assert(type_to_string(type_info(*string)) == "*string");
+// ```
 type_to_string :: (info: *Type_Info) -> string {
     builder: String_Builder;
 

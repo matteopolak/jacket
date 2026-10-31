@@ -1,8 +1,20 @@
+// Calls `context.assertion_failed` with the formatted `message` and returns what it returns. `assert` calls this; call it
+// yourself only to report a failed check of your own.
 assert_helper :: (message := "", args: ..Any, loc := #caller_location) -> bool #no_debug {
     return context.assertion_failed(loc, tprint(message, ..args));
 }
 
 #if ENABLE_ASSERT {
+    // Stops the program with a message when `arg` is false. `message` can hold `%` markers filled from `args`, the same way
+    // `print` does. The failure goes through `context.assertion_failed`, which prints the location and a stack trace and exits by
+    // default.
+    //
+    // Asserts are compiled out when Basic is imported with `ENABLE_ASSERT = false`, and the arguments are not evaluated then.
+    //
+    // ```jai,no_run
+    // count := 3;
+    // assert(count > 0, "count must be positive, got %", count);
+    // ```
     assert :: (arg: bool, message := "", args: ..Any, loc := #caller_location) #no_debug #expand {
         if !arg assert_helper(message, ..args, loc = loc);
     } @AssertsArgument
@@ -28,6 +40,13 @@ print :: (format_string: string, args: ..Any, to_standard_error := false) -> byt
     return write_builder(*builder, to_standard_error = to_standard_error);
 } @PrintLike @WritesOutput
 
+// Tells whether `T` is an integer type, and if so whether it is signed and how many bits wide.
+//
+// ```jai
+// is_integer, is_signed, bits := is_integer_type(s16);
+// assert(is_integer && is_signed && bits == 16);
+// assert(!is_integer_type(float32));
+// ```
 is_integer_type :: ($T: Type) -> (is_integer: bool, is_signed: bool, bits: u8) {
     info := type_info(T);
     if info.type != .INTEGER return false, false, 0;
@@ -35,16 +54,32 @@ is_integer_type :: ($T: Type) -> (is_integer: bool, is_signed: bool, bits: u8) {
     return true, integer.signed, cast(u8) (info.runtime_size * 8);
 }
 
+// The smaller of `a` and `b`. Works on any type with `<`.
+//
+// ```jai
+// assert(min(3, 7) == 3);
+// assert(min(2.5, -1.0) == -1.0);
+// ```
 min :: (a: $T, b: T) -> T {
     if a < b return a;
     return b;
 } @UseResult @ReturnsSmaller
 
+// The larger of `a` and `b`. Works on any type with `>`.
+//
+// ```jai
+// assert(max(3, 7) == 7);
+// ```
 max :: (a: $T, b: T) -> T {
     if a > b return a;
     return b;
 } @UseResult @ReturnsLarger
 
+// The smallest of all the arguments. `T` must be a number, pointer or enum.
+//
+// ```jai
+// assert(min(9, 4, 6, 8) == 4);
+// ```
 min :: inline (a: $T, x: ..T) -> T #modify {
     return IsScalar(T), "min requires a scalar type";
 } {
@@ -53,6 +88,11 @@ min :: inline (a: $T, x: ..T) -> T #modify {
     return result;
 } @UseResult @ReturnsSmaller
 
+// The largest of all the arguments. `T` must be a number, pointer or enum.
+//
+// ```jai
+// assert(max(9, 4, 6, 8) == 9);
+// ```
 max :: inline (a: $T, x: ..T) -> T #modify {
     return IsScalar(T), "max requires a scalar type";
 } {
@@ -61,12 +101,27 @@ max :: inline (a: $T, x: ..T) -> T #modify {
     return result;
 } @UseResult @ReturnsLarger
 
+// `x` limited to the range from `a` to `b`. Bring `a` and `b` in the right order yourself: with `a > b` the result is `a`.
+//
+// ```jai
+// assert(clamp(15, 0, 10) == 10);
+// assert(clamp(-5, 0, 10) == 0);
+// assert(clamp(4, 0, 10) == 4);
+// ```
 clamp :: (x: $T, a: T, b: T) -> T #modify {
     return IsScalar(T), "clamp requires a scalar type";
 } {
     return min(max(x, a), b);
 } @UseResult
 
+// Exchanges the values `a` and `b` point to.
+//
+// ```jai
+// x := 1;
+// y := 2;
+// swap(*x, *y);
+// assert(x == 2 && y == 1);
+// ```
 swap :: inline (a: *$T, b: *T) {
     t := a.*;
     a.* = b.*;
@@ -106,6 +161,10 @@ is_alpha :: (c: u8) -> bool {
 } @UseResult
 
 // Whether `c` is an ASCII digit, `0` to `9`.
+//
+// ```jai
+// assert(is_digit(#char "7") && !is_digit(#char "x"));
+// ```
 is_digit :: (c: u8) -> bool {
     return c >= #char "0" && c <= #char "9";
 } @UseResult
@@ -121,11 +180,19 @@ is_alnum :: (c: u8) -> bool {
 } @UseResult
 
 // Whether `c` is white space: a space, tab, line feed, vertical tab, form feed or carriage return.
+//
+// ```jai
+// assert(is_space(#char " ") && is_space(#char "\n") && !is_space(#char "a"));
+// ```
 is_space :: (c: u8) -> bool {
     return c == #char " " || (c >= #char "\t" && c <= #char "\r");
 } @UseResult
 
 // Whether `c` is a printable ASCII character, from the space to `~`.
+//
+// ```jai
+// assert(is_print(#char "~") && !is_print(10));
+// ```
 is_print :: (c: u8) -> bool {
     return c >= 32 && c <= #char "~";
 }

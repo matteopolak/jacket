@@ -1,3 +1,4 @@
+// Appends each of `args` to `builder` with nothing between them, written the way values print inside an array, so strings come out in quotes.
 print_sequence_to_builder :: (builder: *String_Builder, args: ..Any) {
     style := formatter_style();
 
@@ -7,6 +8,12 @@ print_sequence_to_builder :: (builder: *String_Builder, args: ..Any) {
     }
 }
 
+// Prints `length` bytes at `a` in hex, each written with `format_string`, then a newline. Handy for a quick look at a buffer.
+//
+// ```jai
+// data := u8.[1, 171, 255];
+// print_bytes(data.data, 3);
+// ```
 print_bytes :: (a: *void, length: int, format_string := "% ") {
     assert(length >= 0 && (a != null || length == 0));
     bytes := cast(*u8) a;

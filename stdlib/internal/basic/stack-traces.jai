@@ -1,3 +1,5 @@
+// Copies the current stack trace into a slice that stays valid after the call returns. Empty when the program keeps no
+// stack trace.
 pack_stack_trace :: () -> [] Stack_Trace_Node #no_debug {
     if !context.stack_trace return .{};
     head := context.stack_trace.*;
@@ -31,6 +33,7 @@ pack_stack_trace :: (node: *Stack_Trace_Node) -> [] Stack_Trace_Node {
     return result;
 }
 
+// The frames of a stack trace (the current one by default) as strings, innermost first, in a dynamic array.
 get_stack_trace_strings :: (node: *Stack_Trace_Node = null) -> [..] string #no_debug {
     head: Stack_Trace_Node;
     current := node;
@@ -52,6 +55,12 @@ get_stack_trace_strings :: (node: *Stack_Trace_Node = null) -> [..] string #no_d
     return result;
 }
 
+// Prints each frame of the trace at `node` on its own line, after `prefix`, to standard error unless `to_standard_error`
+// is `false`.
+//
+// ```jai,no_run
+// print_stack_trace(context.stack_trace, "  at ");
+// ```
 print_stack_trace :: (node: *Stack_Trace_Node, prefix: string = "", to_standard_error := true) {
     validate_trace(node);
     current := node;
@@ -66,6 +75,11 @@ print_stack_trace :: (node: *Stack_Trace_Node, prefix: string = "", to_standard_
     }
 }
 
+// Sends each frame of a stack trace (the current one by default) to the logger, one message per frame.
+//
+// ```jai,no_run
+// log_stack_trace();
+// ```
 log_stack_trace :: (node: *Stack_Trace_Node = null, log_flags := Log_Flags.ERROR, prefix := "") #no_debug {
     head: Stack_Trace_Node;
     current := node;

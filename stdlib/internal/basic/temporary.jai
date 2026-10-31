@@ -25,19 +25,46 @@ ALIGNED_OVERFLOW_PAGE_ALLOCATION :: 32;
 SET_STORAGE_MARK_STAMP :: 0xda;
 RESET_STORAGE_STAMP :: 0xdb;
 FREE_PAGE_STAMP :: 0xdc;
+// The temporary allocator: a scratch heap that is never freed piece by piece. Everything in it goes away together when
+// `reset_temporary_storage` runs, which a program typically does once per frame or request. Use it for short-lived results
+// so there is nothing to track or free. Set `context.allocator = temp` or use `push_allocator(temp)` to send allocations
+// there.
+//
+// ```jai
+// text := tprint("%, %", 1, 2); // allocated in temporary storage
+// assert(text == "1, 2");
+// reset_temporary_storage();
+// ```
 temp :: Allocator.{ temporary_allocator_proc, null };
+// Another name for `temp`.
 temporary_allocator :: temp;
 
+// Allocates `size` bytes in temporary storage. They are not cleared, must not be freed, and last until the temporary
+// storage is reset.
+//
+// ```jai
+// bytes := cast(*u8) talloc(32);
+// bytes[0] = 1;
+// reset_temporary_storage();
+// ```
 talloc :: inline (size: s64) -> *void {
     return temporary_allocator_proc(.ALLOCATE, size, 0, null, null);
 } @TempAllocates
 
+// Another name for `talloc`.
 temporary_alloc :: inline (size: s64) -> *void {
     return talloc(size);
 } @TempAllocates
 
-// A string of `count` bytes in temporary storage. It must not be freed; it lasts until the temporary storage
-// is reset. The bytes are not cleared.
+// A string of `count` bytes in temporary storage. It must not be freed; it lasts until the temporary storage is reset.
+// The bytes are not cleared.
+//
+// ```jai
+// s := talloc_string(3);
+// memcpy(s.data, "abc".data, 3);
+// assert(s == "abc");
+// reset_temporary_storage();
+// ```
 talloc_string :: (count: int) -> string {
     data := cast(*u8) talloc(count);
     assert(data != null || count == 0);
@@ -58,8 +85,14 @@ copy_temporary_string :: inline (s: string) -> string {
     return result;
 } @TempAllocates
 
-// A copy of `s` in temporary storage followed by a zero byte, for passing to C. It must not be freed; it lasts
-// until the temporary storage is reset.
+// A copy of `s` in temporary storage followed by a zero byte, for passing to C. It must not be freed; it lasts until the
+// temporary storage is reset.
+//
+// ```jai
+// c := temp_c_string("hi");
+// assert(c[0] == #char "h" && c[2] == 0);
+// reset_temporary_storage();
+// ```
 temp_c_string :: (s: string) -> *u8 {
     result := cast(*u8) talloc(s.count + 1);
 
@@ -184,12 +217,22 @@ free_pages_down_to :: (ts: *Temporary_Storage_Paged_Alloc, page: *Overflow_Page)
     }
 }
 
+// The current position in temporary storage. Pass it to `set_temporary_storage_mark` to free everything allocated after
+// this point while keeping what came before.
 get_temporary_storage_mark :: inline () -> Temporary_Storage_State {
     ts := cast(*Temporary_Storage_Paged_Alloc) context.temporary_storage;
     if !ts return .{};
     return .{ ts.overflow_pages, ts.current_page_bytes_occupied, ts.total_bytes_occupied };
 }
 
+// Rewinds temporary storage to `state`, a value from `get_temporary_storage_mark`. Everything allocated since then is gone.
+//
+// ```jai
+// mark := get_temporary_storage_mark();
+// scratch := tprint("%", 12345);
+// assert(scratch == "12345");
+// set_temporary_storage_mark(mark);
+// ```
 set_temporary_storage_mark :: inline (state: Temporary_Storage_State, loc := #caller_location) {
     ts := cast(*Temporary_Storage_Paged_Alloc) context.temporary_storage;
     if !ts return;
@@ -212,6 +255,17 @@ set_temporary_storage_mark :: inline (state: Temporary_Storage_State, loc := #ca
     ts.last_set_mark_location = loc;
 }
 
+// Rewinds temporary storage to where it is now when the enclosing scope ends. Put it at the top of a procedure that makes
+// temporary strings so its callers don't pile them up.
+//
+// ```jai
+// shout :: (s: string) -> int {
+//     auto_release_temp();
+//     upper := tprint("%!", s);
+//     return upper.count;
+// }
+// assert(shout("hey") == 4);
+// ```
 auto_release_temp :: (loc := #caller_location) #expand {
     mark := get_temporary_storage_mark();
     `defer set_temporary_storage_mark(mark, loc);
@@ -235,6 +289,14 @@ reset_temporary_storage :: (_ts: *Temporary_Storage) {
     ts.total_bytes_occupied = 0;
 }
 
+// Frees everything in temporary storage at once. Any pointer or string taken from it is invalid afterwards.
+//
+// ```jai
+// a := tprint("one");
+// b := tprint("two");
+// assert(a == "one" && b == "two");
+// reset_temporary_storage();
+// ```
 reset_temporary_storage :: () {
     reset_temporary_storage(context.temporary_storage);
 }

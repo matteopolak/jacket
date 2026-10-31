@@ -68,6 +68,11 @@ string_to_int :: (t: string, base := 10, $T := int) -> result: T, success: bool,
 } @UseResult
 
 // Reads a decimal `int` from the start of `s`, as `string_to_int` does.
+//
+// ```jai
+// value, ok, rest := to_integer("42px");
+// assert(ok && value == 42 && rest == "px");
+// ```
 to_integer :: (s: string) -> result: int, success: bool, remainder: string {
     return string_to_int(s);
 } @UseResult
@@ -109,12 +114,22 @@ string_to_float :: (arg: string) -> (result: float, success: bool, remainder: st
 } @UseResult
 
 // Like `string_to_float64`, with the success flag first.
+//
+// ```jai
+// ok, value, rest := string_to_float64_new("0.5!");
+// assert(ok && value == 0.5 && rest == "!");
+// ```
 string_to_float64_new :: (_s: string) -> (success: bool, result: float64, remainder: string) {
     value, ok, rest := string_to_float64(_s);
     return ok, value, rest;
 }
 
 // Like `string_to_float`, with the success flag first.
+//
+// ```jai
+// ok, value, rest := string_to_float_new("2.5");
+// assert(ok && value == 2.5 && rest.count == 0);
+// ```
 string_to_float_new :: (arg: string) -> (success: bool, result: float, remainder: string) {
     value, ok, rest := string_to_float(arg);
     return ok, value, rest;

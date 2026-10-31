@@ -1,10 +1,12 @@
 #if OS == .MACOS || OS == .LINUX || OS == .ANDROID || OS == .WASM {
+    // Converts a C `timespec` to an `Apollo_Time`.
     timespec_to_apollo :: (ts: Clock_Native.timespec) -> Apollo_Time {
         if ts.tv_nsec < 0 || ts.tv_nsec >= 1000000000 return APOLLO_TIME_INVALID;
         duration := add_clock_words(seconds_to_apollo(ts.tv_sec), nanoseconds_to_apollo(ts.tv_nsec));
         return add_clock_words(APOLLO_TIME_FOR_JAN_1_1970, duration);
     }
 
+    // Converts an `Apollo_Time` to a C `timespec`. The second result is `false` when it does not fit.
     to_timespec :: (at: Apollo_Time) -> (ts: Clock_Native.timespec, success: bool) {
         if at.low == APOLLO_TIME_INVALID.low && at.high == APOLLO_TIME_INVALID.high return .{}, false;
 
@@ -32,6 +34,13 @@
         return .{ seconds, nanos }, true;
     }
 
+    // The current wall-clock time. This is the clock the computer's owner can set, so it can jump; use `current_time_monotonic`
+    // to measure how long something took. Returns `APOLLO_TIME_INVALID` if the system cannot say.
+    //
+    // ```jai
+    // now := current_time_consensus();
+    // assert(compare_apollo_times(now, APOLLO_TIME_INVALID) != 0);
+    // ```
     current_time_consensus :: () -> Apollo_Time {
         value: Clock_Native.timespec;
         status := Clock_Native.clock_gettime(.REALTIME, *value);
@@ -44,6 +53,14 @@
         return timespec_to_apollo(value);
     }
 
+    // A clock that only moves forward and is not affected by the user changing the date. Its zero is arbitrary, so only
+    // differences mean anything. Use it for timing.
+    //
+    // ```jai
+    // start := current_time_monotonic();
+    // stop := current_time_monotonic();
+    // assert(compare_apollo_times(stop, start) >= 0);
+    // ```
     current_time_monotonic :: () -> Apollo_Time {
         value: Clock_Native.timespec;
         status := Clock_Native.clock_gettime(.MONOTONIC, *value);
@@ -57,6 +74,11 @@
     }
 
     // Breaks `at` into year, month, day and time of day.
+    //
+    // ```jai
+    // ct := to_calendar(APOLLO_TIME_FOR_JAN_1_1970);
+    // assert(ct.year == 1970 && ct.hour == 0);
+    // ```
     //
     // - time_zone: `.UTC`, or `.LOCAL` for the computer's own time zone.
     to_calendar :: (at: Apollo_Time, time_zone := Time_Zone.UTC) -> Calendar_Time {
@@ -85,6 +107,13 @@
                   cast(s8) broken.tm_sec, cast(s16) (ts.tv_nsec / 1000000), time_zone };
     }
 
+    // The `Apollo_Time` for a `Calendar_Time`; the reverse of `to_calendar`.
+    //
+    // ```jai
+    // ct := to_calendar(seconds_to_apollo(1000000));
+    // back := calendar_to_apollo(ct);
+    // assert(to_seconds(back) == 1000000);
+    // ```
     calendar_to_apollo :: (ct: Calendar_Time) -> Apollo_Time {
         TM_YEAR_BASE :: 1900;
 
