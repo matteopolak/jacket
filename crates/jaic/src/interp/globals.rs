@@ -87,13 +87,19 @@ impl Interp {
         // are made once.
         self.globals[i] = Some(mem);
         self.ranges.insert(addr, (addr + global.size.max(1), g));
-        self.initialize_global(program, g, addr)?;
+        self.initialize_global(program, g, addr, true)?;
         Ok(addr)
     }
 
     /// Write global `g`'s initial contents at `addr`, its live block: zeroes, then `init`, then
     /// the relocated pointers.
-    fn initialize_global(&mut self, program: &Program, g: GlobalId, addr: u64) -> Res<()> {
+    fn initialize_global(
+        &mut self,
+        program: &Program,
+        g: GlobalId,
+        addr: u64,
+        fresh: bool,
+    ) -> Res<()> {
         let global = &program.globals[g.0 as usize];
         let mut pointers = Vec::with_capacity(global.relocs.len());
         for r in &global.relocs {
@@ -111,7 +117,10 @@ impl Interp {
             // relocation addresses a pointer-sized slot inside it (the IR only records
             // relocations that fit). Unaligned writes need no alignment.
             unsafe {
-                std::ptr::write_bytes(addr as *mut u8, 0, size);
+                // Newly made blocks are zeroed already.
+                if !fresh {
+                    std::ptr::write_bytes(addr as *mut u8, 0, size);
+                }
                 std::ptr::copy_nonoverlapping(
                     global.init.as_ptr(),
                     addr as *mut u8,
@@ -167,7 +176,7 @@ impl Interp {
     /// Reload an already materialized global from its (rebuilt) initial contents, in place.
     pub fn refresh_global(&mut self, program: &Program, g: GlobalId) -> Res<()> {
         match self.globals.get(g.0 as usize) {
-            Some(Some(m)) => self.initialize_global(program, g, m.addr),
+            Some(Some(m)) => self.initialize_global(program, g, m.addr, false),
             _ => Ok(()),
         }
     }
@@ -177,7 +186,7 @@ impl Interp {
     pub fn reset_globals(&mut self, program: &Program) -> Res<()> {
         for &g in &program.reset_globals {
             if let Some(Some(m)) = self.globals.get(g.0 as usize) {
-                self.initialize_global(program, g, m.addr)?;
+                self.initialize_global(program, g, m.addr, false)?;
             }
         }
         Ok(())

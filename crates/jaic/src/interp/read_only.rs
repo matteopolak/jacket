@@ -4,8 +4,9 @@
 //! refuses to write, as in a native build. Without that, `s[0] = #char "z"` on a literal would
 //! quietly change every use of it (equal literals share one global). Interpreted stores check
 //! the range (`contains`) and fail with an error at the line that made them; the protection
-//! also stops foreign code. Pages are writable only while the interpreter fills a global in
-//! (`fill`).
+//! also stops foreign code. Pages are opened for writing while the interpreter fills globals in
+//! (`fill`) and stay open until the next foreign call or callback return (`seal`), so a run of
+//! new globals costs one protection change, not one each.
 #![allow(unsafe_code)]
 
 /// Address space reserved for one interpreter's read-only data. Pages cost nothing until
@@ -28,6 +29,8 @@ pub(super) struct ReadOnlyData {
     committed: usize,
     /// The host refused the reservation: never ask again.
     refused: bool,
+    /// Offsets from `base` of pages left writable by `fill` and not yet sealed.
+    open: Option<(usize, usize)>,
 }
 
 impl ReadOnlyData {
@@ -74,9 +77,9 @@ impl ReadOnlyData {
         Some((self.base + start) as u64)
     }
 
-    /// Run `write` with the pages under `addr..addr + len` writable, then protect them again.
-    /// Memory outside the reservation is written as it is.
-    pub(super) fn fill<R>(&self, addr: u64, len: usize, write: impl FnOnce() -> R) -> R {
+    /// Run `write` with the pages under `addr..addr + len` writable. They stay writable until
+    /// `seal`. Memory outside the reservation is written as it is.
+    pub(super) fn fill<R>(&mut self, addr: u64, len: usize, write: impl FnOnce() -> R) -> R {
         if !self.contains(addr) {
             return write();
         }
@@ -85,10 +88,29 @@ impl ReadOnlyData {
         let end = (offset + len.max(1))
             .next_multiple_of(STEP)
             .min(self.committed);
-        sys::protect(self.base + start, end - start, true);
-        let result = write();
-        sys::protect(self.base + start, end - start, false);
-        result
+        match self.open {
+            Some((lo, hi)) if lo <= start && end <= hi => {}
+            Some((lo, hi)) => {
+                // Grow to one span; the pages in between are read-only already or about to
+                // be sealed with the rest.
+                let (lo, hi) = (lo.min(start), hi.max(end));
+                sys::protect(self.base + lo, hi - lo, true);
+                self.open = Some((lo, hi));
+            }
+            None => {
+                sys::protect(self.base + start, end - start, true);
+                self.open = Some((start, end));
+            }
+        }
+        write()
+    }
+
+    /// Make every page `fill` opened read-only again. Called before C code can run.
+    #[inline]
+    pub(super) fn seal(&mut self) {
+        if let Some((lo, hi)) = self.open.take() {
+            sys::protect(self.base + lo, hi - lo, false);
+        }
     }
 }
 

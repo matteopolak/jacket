@@ -64,6 +64,7 @@ impl Interp {
         });
         self.call_nesting += 1;
         let result = self.exec(program, func, args);
+        self.read_only.seal();
         self.call_nesting -= 1;
         let mine = self.take_exec_state();
         self.put_exec_state(outer);

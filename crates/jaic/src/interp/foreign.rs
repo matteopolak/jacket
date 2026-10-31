@@ -386,6 +386,7 @@ impl Interp {
         symbol: Option<&str>,
         release: bool,
     ) -> Res<Rets> {
+        self.read_only.seal();
         // Native code reached through a procedure pointer may release memory; a named foreign
         // procedure was classified by `call_foreign`.
         if symbol.is_none() {
