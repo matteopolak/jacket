@@ -78,6 +78,12 @@ Response :: struct {
 //
 // - name: the header name.
 // - value: the header value.
+//
+// ```jai,skip_on(wasm)
+// response := with_header(text("hi"), "Cache-Control", "no-store");
+// value, found := find_header(response.headers, "cache-control");
+// assert(found && value == "no-store");
+// ```
 with_header :: (response: Response, name: string, value: string) -> Response {
     result := response;
 
@@ -92,6 +98,11 @@ with_header :: (response: Response, name: string, value: string) -> Response {
 }
 
 // An empty response with only a status (`status_only(204)`).
+//
+// ```jai,skip_on(wasm)
+// response := status_only(204);
+// assert(response.status == 204 && response.body.count == 0);
+// ```
 status_only :: (status: int) -> Response {
     response: Response;
 
@@ -105,6 +116,12 @@ status_only :: (status: int) -> Response {
 //
 // - value: any value the Json module can encode.
 // - status: the HTTP status code.
+//
+// ```jai,skip_on(wasm)
+// response := json(s32.[1, 2, 3]);
+// assert(response.status == 200);
+// assert(string.{ response.body.count, response.body.data } == "[1,2,3]");
+// ```
 json :: (value: $T, status := 200) -> Response {
     response: Response;
 
@@ -140,6 +157,12 @@ created :: (value: $T, location := "") -> Response {
 //
 // - body: sent as it is.
 // - status: the HTTP status code.
+//
+// ```jai,skip_on(wasm)
+// response := text("not here", 404);
+// assert(response.status == 404);
+// assert(string.{ response.body.count, response.body.data } == "not here");
+// ```
 text :: (body: string, status := 200) -> Response {
     return bytes_response(body, "text/plain; charset=utf-8", status);
 }
@@ -148,6 +171,12 @@ text :: (body: string, status := 200) -> Response {
 //
 // - body: sent as it is. Nothing is escaped.
 // - status: the HTTP status code.
+//
+// ```jai,skip_on(wasm)
+// response := html("<h1>Hello</h1>");
+// type, _ := find_header(response.headers, "Content-Type");
+// assert(type == "text/html; charset=utf-8");
+// ```
 html :: (body: string, status := 200) -> Response {
     return bytes_response(body, "text/html; charset=utf-8", status);
 }
@@ -158,6 +187,13 @@ html :: (body: string, status := 200) -> Response {
 // - body: a `[] u8` or a `string`, sent as it is.
 // - content_type: the `Content-Type` header value.
 // - status: the HTTP status code.
+//
+// ```jai,skip_on(wasm)
+// response := bytes_response(u8.[137, 80, 78, 71], "image/png");
+// assert(response.body.count == 4);
+// type, _ := find_header(response.headers, "Content-Type");
+// assert(type == "image/png");
+// ```
 bytes_response :: (body: $T, content_type: string, status := 200) -> Response {
     response: Response;
 
@@ -178,6 +214,12 @@ bytes_response :: (body: $T, content_type: string, status := 200) -> Response {
 //
 // - location: the URL to go to, as an absolute URL or a path.
 // - status: 301, 302, 303, 307 or 308. Use 303 after a POST, 307 or 308 to keep the method.
+//
+// ```jai,skip_on(wasm)
+// response := redirect("/login", 303);
+// location, _ := find_header(response.headers, "Location");
+// assert(response.status == 303 && location == "/login");
+// ```
 redirect :: (location: string, status := 302) -> Response {
     response: Response;
 
@@ -229,6 +271,11 @@ Http_Error :: struct {
 //
 // - status: the HTTP status code.
 // - detail: text for the client, used as it is.
+//
+// ```jai,skip_on(wasm)
+// error := http_error(418, "short and stout");
+// assert(error.kind == .STATUS && error.status == 418);
+// ```
 http_error :: (status: int, detail := "") -> Http_Error {
     error: Http_Error;
 
@@ -242,6 +289,11 @@ http_error :: (status: int, detail := "") -> Http_Error {
 
 // An `Http_Error` with status 400, for when the request is malformed or its content is invalid.
 // `format` and `args` make the detail text as `tprint` does, in the temporary allocator.
+//
+// ```jai,skip_on(wasm)
+// error := bad_request("the field % is empty", "name");
+// assert(error.status == 400 && error.detail == "the field name is empty");
+// ```
 bad_request :: (format := "", args: ..Any) -> Http_Error {
     return http_error(400, tprint(format, ..args));
 }
@@ -261,6 +313,10 @@ unauthorized :: (format := "", args: ..Any) -> Http_Error {
 
 // An `Http_Error` with status 403, for when the caller is known but not allowed.
 // `format` and `args` make the detail text as `tprint` does, in the temporary allocator.
+// ```jai,skip_on(wasm)
+// error := forbidden("admins only");
+// assert(error.status == 403);
+// ```
 forbidden :: (format := "", args: ..Any) -> Http_Error {
     return http_error(403, tprint(format, ..args));
 }
@@ -281,36 +337,56 @@ not_found :: (format := "", args: ..Any) -> Http_Error {
 
 // An `Http_Error` with status 409, for when the request clashes with the current state, such as a duplicate.
 // `format` and `args` make the detail text as `tprint` does, in the temporary allocator.
+// ```jai,skip_on(wasm)
+// error := conflict("% already exists", "ada");
+// assert(error.status == 409);
+// ```
 conflict :: (format := "", args: ..Any) -> Http_Error {
     return http_error(409, tprint(format, ..args));
 }
 
 // An `Http_Error` with status 410, for when the resource existed and has been removed for good.
 // `format` and `args` make the detail text as `tprint` does, in the temporary allocator.
+// ```jai,skip_on(wasm)
+// assert(gone("removed").status == 410);
+// ```
 gone :: (format := "", args: ..Any) -> Http_Error {
     return http_error(410, tprint(format, ..args));
 }
 
 // An `Http_Error` with status 422, for when the request is well-formed but its content cannot be processed.
 // `format` and `args` make the detail text as `tprint` does, in the temporary allocator.
+// ```jai,skip_on(wasm)
+// assert(unprocessable("age must be positive").status == 422);
+// ```
 unprocessable :: (format := "", args: ..Any) -> Http_Error {
     return http_error(422, tprint(format, ..args));
 }
 
 // An `Http_Error` with status 429, for when the caller is over a rate limit; add `Retry-After` with `with_header`.
 // `format` and `args` make the detail text as `tprint` does, in the temporary allocator.
+// ```jai,skip_on(wasm)
+// error := with_header(too_many_requests("slow down"), "Retry-After", "30");
+// assert(error.status == 429 && error.headers.count == 1);
+// ```
 too_many_requests :: (format := "", args: ..Any) -> Http_Error {
     return http_error(429, tprint(format, ..args));
 }
 
 // An `Http_Error` with status 500, for when something failed that is not the caller's fault.
 // `format` and `args` make the detail text as `tprint` does, in the temporary allocator.
+// ```jai,skip_on(wasm)
+// assert(internal_error("the disk is full").status == 500);
+// ```
 internal_error :: (format := "", args: ..Any) -> Http_Error {
     return http_error(500, tprint(format, ..args));
 }
 
 // An `Http_Error` with status 503, for when the service cannot answer now; add `Retry-After` with `with_header`.
 // `format` and `args` make the detail text as `tprint` does, in the temporary allocator.
+// ```jai,skip_on(wasm)
+// assert(unavailable("down for maintenance").status == 503);
+// ```
 unavailable :: (format := "", args: ..Any) -> Http_Error {
     return http_error(503, tprint(format, ..args));
 }
@@ -319,6 +395,11 @@ unavailable :: (format := "", args: ..Any) -> Http_Error {
 //
 // - name: the header name.
 // - value: the header value.
+//
+// ```jai,skip_on(wasm)
+// error := with_header(unavailable("try later"), "Retry-After", "120");
+// assert(error.headers.count == 1);
+// ```
 with_header :: (error: Http_Error, name: string, value: string) -> Http_Error {
     result := error;
     list: [..] Header_Field;
@@ -339,6 +420,10 @@ with_header :: (error: Http_Error, name: string, value: string) -> Http_Error {
 }
 
 // A one-line description of any error, for logs and messages.
+//
+// ```jai,skip_on(wasm)
+// assert(error_text(not_found("No user 7")) == "404 Not Found: No user 7");
+// ```
 error_text :: (error: Http_Error) -> string {
     if error.kind == .NONE return "no error";
 

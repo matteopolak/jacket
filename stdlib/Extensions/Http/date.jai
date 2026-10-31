@@ -29,10 +29,16 @@ MONTH_CYCLE_DAYS :: 153;
 // cache per thread (it is not synchronized).
 Date_Cache :: struct {
     second: s64 = -1;
-    text: [HTTP_DATE_SIZE] u8;
+    text: [29] u8;
 }
 
 // Writes `seconds` since 1970-01-01 UTC as an IMF-fixdate (always 29 bytes).
+//
+// ```jai
+// text: [29] u8;
+// format_http_date(784111777, *text);
+// assert(string.{ text.count, text.data } == "Sun, 06 Nov 1994 08:49:37 GMT");
+// ```
 format_http_date :: (seconds: s64, out: *[HTTP_DATE_SIZE] u8) {
     days := seconds / SECONDS_PER_DAY;
     rest := seconds % SECONDS_PER_DAY;
@@ -100,6 +106,11 @@ format_http_date :: (seconds: s64, out: *[HTTP_DATE_SIZE] u8) {
 }
 
 // The date for `seconds`; the string points into `cache` and stays valid until the next call.
+//
+// ```jai
+// cache: Date_Cache;
+// assert(http_date(*cache, 0) == "Thu, 01 Jan 1970 00:00:00 GMT");
+// ```
 http_date :: (cache: *Date_Cache, seconds: s64) -> string {
     if cache.second != seconds {
         format_http_date(seconds, *cache.text);
@@ -115,6 +126,11 @@ http_date :: (cache: *Date_Cache, seconds: s64) -> string {
 
 // Reads an IMF-fixdate into seconds since 1970-01-01 UTC. The obsolete RFC 850 and asctime forms
 // are not accepted.
+//
+// ```jai
+// seconds, ok := parse_http_date("Sun, 06 Nov 1994 08:49:37 GMT");
+// assert(ok && seconds == 784111777);
+// ```
 parse_http_date :: (text: string) -> s64, bool {
     if text.count != HTTP_DATE_SIZE || text[3] != #char "," || text[4] != #char " " || text[7] != #char " " || text[11] != #char " " || text[16] != #char " " || text[19] != #char ":" || text[22] != #char ":" || !equal_nocase(slice(text, 25, 4), " GMT") {
         return 0, false;

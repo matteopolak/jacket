@@ -22,7 +22,7 @@
 //
 // A connection goes back to the pool when its body has been read to the end. A response whose body
 // is not wanted is released with `close(*response)`, which is safe to call at any time and more
-// than once. See docs/extensions/http-client.md for the exact rule.
+// than once.
 //
 // Every call takes the `Client` it goes through. A zeroed `Client` is a working one (no base URL,
 // TCP, 30 seconds), so `api: Client;` is all a one-off script needs. A call made outside
@@ -34,7 +34,7 @@
 // `https://` URLs work like `http://` ones: the connection is a TLS 1.2 or 1.3 session, the server's
 // certificate is checked against the system's trusted roots (macOS and Windows ask the operating
 // system) and the name in the URL, and ALPN offers `http/1.1`. `client.tls` replaces that with a
-// `Tls_Config` of your own (private roots, a client certificate); see docs/extensions/tls.md. A failed
+// `Tls_Config` of your own (private roots, a client certificate). A failed
 // handshake or certificate check is a `.TLS` error. There is no way to turn certificate
 // checking off from the client except a config with `verify = false`.
 //
@@ -137,6 +137,12 @@ Client_Error :: struct {
 }
 
 // A one-line description of any client error, for logs and messages.
+//
+// ```jai,skip_on(wasm)
+// api: Client;
+// _, error := get(*api, "ftp://example.com/file");
+// assert(error_text(error).count > 0);
+// ```
 error_text :: (error: Client_Error) -> string {
     if error.kind == .NONE return "no error";
 
@@ -156,6 +162,13 @@ error_text :: (error: Client_Error) -> string {
 }
 
 // Releases the strings an error from the client holds.
+//
+// ```jai,skip_on(wasm)
+// api: Client;
+// _, error := get(*api, "ftp://example.com/file");
+// free_error(*error);
+// assert(error.kind == .NONE);
+// ```
 free_error :: (error: *Client_Error) {
     if error.owned {
         if error.title.count free(error.title.data);
@@ -240,6 +253,13 @@ set_header :: (client: *Client, name: string, value: string) {
 }
 
 // Takes a default header off again.
+//
+// ```jai,skip_on(wasm)
+// api: Client;
+// set_header(*api, "X-Debug", "1");
+// remove_header(*api, "x-debug");
+// assert(api.headers.count == 0);
+// ```
 remove_header :: (client: *Client, name: string) {
     for client.headers {
         if equal_nocase(it.name, name) {
@@ -254,11 +274,37 @@ remove_header :: (client: *Client, name: string) {
 }
 
 // The value of the first header called `name` (any case).
+//
+// ```jai,skip_on(wasm)
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/hello", hello);
+//
+//     api := test_client(*app);
+//
+//     response, _ := get(api, "/hello");
+//     defer close(*response);
+//
+//     type, found := header(*response, "content-type");
+//     assert(found && type == "text/plain; charset=utf-8");
+// }
+// ```
 header :: (response: *Client_Response, name: string) -> string, bool {
     return find_header(response.headers, name);
 }
 
 // The bytes of `text` (the same memory), for a request's `body`.
+//
+// ```jai,skip_on(wasm)
+// request := Client_Request.{ method = .POST, url = "/echo", body = bytes_of("payload") };
+// assert(request.body.count == 7);
+// ```
 bytes_of :: (text: string) -> [] u8 {
     return .{ text.count, text.data };
 }
@@ -286,6 +332,30 @@ close :: (response: *Client_Response, now := false) {
 // whatever the server answered (a 404 is a response, not an error); the body is read from it with
 // `read_text`, `read_bytes`, `read_json` or `read_some`. Errors are only about not getting a
 // response: the URL, the connection, a timeout, a reply that is not HTTP, too many redirects.
+//
+// ```jai,skip_on(wasm)
+// echo :: (body: *Body) -> string {
+//     data, _ := read_all(body);
+//     return cast(string) data;
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     post(*app, "/echo", echo);
+//
+//     api := test_client(*app);
+//
+//     response, error := send(api, .{ method = .POST, url = "/echo", body = bytes_of("ping") });
+//     assert(error.kind == .NONE);
+//     defer close(*response);
+//
+//     text, _ := read_text(*response);
+//     defer free(text);
+//     assert(text == "ping");
+// }
+// ```
 send :: (client: *Client, request: Client_Request) -> Client_Response, Client_Error {
     if Io.in_scheduler() return send_on_fiber(client, request);
 
@@ -307,11 +377,52 @@ get :: (client: *Client, url: string, headers: [] Header_Field = .[]) -> Client_
 }
 
 // `HEAD`: the headers a `GET` would get, and no body. The response is returned as `get` does.
+//
+// ```jai,skip_on(wasm)
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/hello", hello);
+//
+//     api := test_client(*app);
+//
+//     response, _ := head(api, "/hello");
+//     defer close(*response);
+//
+//     assert(response.status == 200);
+// }
+// ```
 head :: (client: *Client, url: string, headers: [] Header_Field = .[]) -> Client_Response, Client_Error {
     return send(client, .{ method = .HEAD, url = url, headers = headers });
 }
 
 // `OPTIONS`: asks what the server allows at `url`; the `Allow` header of the response lists the methods.
+//
+// ```jai,skip_on(wasm)
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/hello", hello);
+//
+//     api := test_client(*app);
+//
+//     response, _ := options(api, "/hello");
+//     defer close(*response);
+//
+//     allow, found := header(*response, "Allow");
+//     assert(found && allow.count > 0);
+// }
+// ```
 options :: (client: *Client, url: string, headers: [] Header_Field = .[]) -> Client_Response, Client_Error {
     return send(client, .{ method = .OPTIONS, url = url, headers = headers });
 }
@@ -321,25 +432,93 @@ delete :: (client: *Client, url: string, headers: [] Header_Field = .[]) -> Clie
     return send(client, .{ method = .DELETE, url = url, headers = headers });
 }
 
-// `POST` with `value` as a JSON body (`Content-Type: application/json`). `post(client, url)`
-// sends no body. A request with any other body is a `send`.
-// `POST` with `value` as a JSON body (`Content-Type: application/json`); a struct, array or string is encoded with
-// `Extensions/Json`.
+// `POST` with `value` as a JSON body (`Content-Type: application/json`); a struct, array or
+// string is encoded with `Extensions/Json`. A request with any other body is a [send].
 post :: (client: *Client, url: string, value: $V, headers: [] Header_Field = .[]) -> Client_Response, Client_Error {
     return send_with_json(client, .POST, url, value, headers);
 }
 
 // `POST` with no body.
+//
+// ```jai,skip_on(wasm)
+// ping :: () -> string {
+//     return "pong";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     post(*app, "/ping", ping);
+//
+//     api := test_client(*app);
+//
+//     response, _ := post(api, "/ping");
+//     defer close(*response);
+//
+//     text, _ := read_text(*response);
+//     defer free(text);
+//     assert(text == "pong");
+// }
+// ```
 post :: (client: *Client, url: string, headers: [] Header_Field = .[]) -> Client_Response, Client_Error {
     return send(client, .{ method = .POST, url = url, headers = headers });
 }
 
 // `PUT` with `value` as a JSON body, as `post` sends it.
+//
+// ```jai,skip_on(wasm)
+// Item :: struct {
+//     name: string;
+// }
+//
+// store :: (item: Json(Item)) -> Response {
+//     return status_only(204);
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     put(*app, "/item", store);
+//
+//     api := test_client(*app);
+//
+//     response, _ := put(api, "/item", Item.{ name = "pen" });
+//     defer close(*response);
+//
+//     assert(response.status == 204);
+// }
+// ```
 put :: (client: *Client, url: string, value: $V, headers: [] Header_Field = .[]) -> Client_Response, Client_Error {
     return send_with_json(client, .PUT, url, value, headers);
 }
 
 // `PATCH` with `value` as a JSON body, as `post` sends it.
+//
+// ```jai,skip_on(wasm)
+// Change :: struct {
+//     name: string;
+// }
+//
+// apply :: (change: Json(Change)) -> Response {
+//     return status_only(204);
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     patch(*app, "/item", apply);
+//
+//     api := test_client(*app);
+//
+//     response, _ := patch(api, "/item", Change.{ name = "pencil" });
+//     defer close(*response);
+//
+//     assert(response.status == 204);
+// }
+// ```
 patch :: (client: *Client, url: string, value: $V, headers: [] Header_Field = .[]) -> Client_Response, Client_Error {
     return send_with_json(client, .PATCH, url, value, headers);
 }
@@ -350,6 +529,28 @@ patch :: (client: *Client, url: string, value: $V, headers: [] Header_Field = .[
 
 // The whole body as text, in memory from the context allocator (release it with `free`). A body
 // longer than the request's `max_response_size` is a `.TOO_LARGE` error and is not read.
+//
+// ```jai,skip_on(wasm)
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/hello", hello);
+//
+//     api := test_client(*app);
+//
+//     response, _ := get(api, "/hello");
+//     defer close(*response);
+//
+//     text, error := read_text(*response);
+//     defer free(text);
+//     assert(error.kind == .NONE && text == "hello");
+// }
+// ```
 read_text :: (response: *Client_Response) -> string, Client_Error {
     bytes, error := read_bytes(response);
 
@@ -357,6 +558,28 @@ read_text :: (response: *Client_Response) -> string, Client_Error {
 }
 
 // The whole body, in memory from the context allocator (release it with `free`).
+//
+// ```jai,skip_on(wasm)
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/hello", hello);
+//
+//     api := test_client(*app);
+//
+//     response, _ := get(api, "/hello");
+//     defer close(*response);
+//
+//     bytes, error := read_bytes(*response);
+//     defer free(bytes.data);
+//     assert(error.kind == .NONE && bytes.count == 5);
+// }
+// ```
 read_bytes :: (response: *Client_Response) -> [] u8, Client_Error {
     source, error := readable(response);
 

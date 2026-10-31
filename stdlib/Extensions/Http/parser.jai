@@ -1,4 +1,4 @@
-// The incremental parser for requests and responses. See docs/extensions/http-codec.md.
+// The incremental parser for requests and responses.
 //
 //     parser: Parser;
 //     parser_init(*parser, .REQUEST);

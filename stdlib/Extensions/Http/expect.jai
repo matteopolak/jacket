@@ -40,6 +40,10 @@ Problem :: struct @json(default) {
 
 // A condition the test relies on, for anything that is not a response: the state a handler left
 // behind, a count. `what` says what the condition means.
+//
+// ```jai,skip_on(wasm)
+// assert(expect(1 + 1 == 2, "arithmetic works"));
+// ```
 expect :: (condition: bool, what := "", loc := #caller_location) -> bool {
     test_state.checks += 1;
 
@@ -51,6 +55,11 @@ expect :: (condition: bool, what := "", loc := #caller_location) -> bool {
 }
 
 // `actual == expected`, showing both when they differ.
+//
+// ```jai,skip_on(wasm)
+// assert(expect_equal(2 + 2, 4));
+// assert(expect_equal("abc", "abc", "the name"));
+// ```
 expect_equal :: (actual: $T, expected: T, what := "", loc := #caller_location) -> bool {
     test_state.checks += 1;
 
@@ -68,6 +77,26 @@ expect_equal :: (actual: $T, expected: T, what := "", loc := #caller_location) -
 }
 
 // The status of the response is exactly `status`.
+//
+// ```jai,skip_on(wasm)
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/hello", hello);
+//
+//     api := test_client(*app);
+//
+//     response, _ := get(api, "/hello");
+//     defer close(*response);
+//
+//     assert(expect_status(response, 200));
+// }
+// ```
 expect_status :: (response: Client_Response, status: int, loc := #caller_location) -> bool {
     test_state.checks += 1;
 
@@ -79,6 +108,26 @@ expect_status :: (response: Client_Response, status: int, loc := #caller_locatio
 }
 
 // The status is 2xx.
+//
+// ```jai,skip_on(wasm)
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/hello", hello);
+//
+//     api := test_client(*app);
+//
+//     response, _ := get(api, "/hello");
+//     defer close(*response);
+//
+//     assert(expect_success(response));
+// }
+// ```
 expect_success :: (response: Client_Response, loc := #caller_location) -> bool {
     test_state.checks += 1;
 
@@ -92,6 +141,26 @@ expect_success :: (response: Client_Response, loc := #caller_location) -> bool {
 // The response has the header, with exactly this value (any case in the name). For
 // `Content-Type` a value without parameters matches the media type: `"application/json"` accepts
 // `application/json; charset=utf-8`.
+//
+// ```jai,skip_on(wasm)
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/hello", hello);
+//
+//     api := test_client(*app);
+//
+//     response, _ := get(api, "/hello");
+//     defer close(*response);
+//
+//     assert(expect_header(response, "Content-Type", "text/plain"));
+// }
+// ```
 expect_header :: (response: Client_Response, name: string, value: string, loc := #caller_location) -> bool {
     test_state.checks += 1;
 
@@ -109,6 +178,26 @@ expect_header :: (response: Client_Response, name: string, value: string, loc :=
 }
 
 // The response has the header, whatever its value.
+//
+// ```jai,skip_on(wasm)
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/hello", hello);
+//
+//     api := test_client(*app);
+//
+//     response, _ := get(api, "/hello");
+//     defer close(*response);
+//
+//     assert(expect_header(response, "Content-Length"));
+// }
+// ```
 expect_header :: (response: Client_Response, name: string, loc := #caller_location) -> bool {
     test_state.checks += 1;
 
@@ -155,6 +244,26 @@ expect_no_header :: (response: Client_Response, name: string, loc := #caller_loc
 }
 
 // The body is exactly `expected`.
+//
+// ```jai,skip_on(wasm)
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/hello", hello);
+//
+//     api := test_client(*app);
+//
+//     response, _ := get(api, "/hello");
+//     defer close(*response);
+//
+//     assert(expect_text(response, "hello"));
+// }
+// ```
 expect_text :: (response: Client_Response, expected: string, loc := #caller_location) -> bool {
     test_state.checks += 1;
 
@@ -168,6 +277,26 @@ expect_text :: (response: Client_Response, expected: string, loc := #caller_loca
 }
 
 // The body contains `needle`.
+//
+// ```jai,skip_on(wasm)
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/hello", hello);
+//
+//     api := test_client(*app);
+//
+//     response, _ := get(api, "/hello");
+//     defer close(*response);
+//
+//     assert(expect_body_contains(response, "ell"));
+// }
+// ```
 expect_body_contains :: (response: Client_Response, needle: string, loc := #caller_location) -> bool {
     test_state.checks += 1;
 
@@ -184,6 +313,26 @@ expect_body_contains :: (response: Client_Response, needle: string, loc := #call
 //
 // - location: the `Location` the response must have.
 // - status: the exact status wanted. 0 accepts any 3xx.
+//
+// ```jai,skip_on(wasm)
+// go_home :: () -> Response {
+//     return redirect("/home");
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/", go_home);
+//
+//     api := test_client(*app);
+//
+//     response, _ := get(api, "/");
+//     defer close(*response);
+//
+//     assert(expect_redirect(response, "/home", 302));
+// }
+// ```
 expect_redirect :: (response: Client_Response, location: string, status := 0, loc := #caller_location) -> bool {
     test_state.checks += 1;
 
@@ -209,6 +358,31 @@ expect_redirect :: (response: Client_Response, location: string, status := 0, lo
 // with the context allocator; a test may leave them.
 //
 // - status: the exact status wanted. 0 accepts any 2xx.
+//
+// ```jai,skip_on(wasm)
+// Note :: struct {
+//     title: string;
+// }
+//
+// show :: () -> Response {
+//     return json(Note.{ title = "milk" });
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/note", show);
+//
+//     api := test_client(*app);
+//
+//     response, _ := get(api, "/note");
+//     defer close(*response);
+//
+//     note := expect_json(response, Note);
+//     assert(note.title == "milk");
+// }
+// ```
 expect_json :: (response: Client_Response, $T: Type, status := 0, loc := #caller_location) -> T {
     test_state.checks += 1;
 
@@ -260,6 +434,27 @@ expect_json :: (response: Client_Response, $T: Type, status := 0, loc := #caller
 //
 // - status: the status the problem must have.
 // - detail: the text the `detail` member must have. Empty skips that check.
+//
+// ```jai,skip_on(wasm)
+// find :: (id: Path("id", int)) -> string, Http_Error {
+//     return "", not_found("No note %", id.value);
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/notes/{id}", find);
+//
+//     api := test_client(*app);
+//
+//     response, _ := get(api, "/notes/9");
+//     defer close(*response);
+//
+//     problem := expect_problem(response, 404, "No note 9");
+//     assert(problem.title == "Not Found");
+// }
+// ```
 expect_problem :: (response: Client_Response, status: int, detail := "", loc := #caller_location) -> Problem {
     test_state.checks += 1;
 

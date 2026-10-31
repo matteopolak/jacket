@@ -9,6 +9,12 @@ Pair :: Query_Pair;
 // paths do not). The text itself is returned, with no allocation, when there is nothing to
 // decode; otherwise the result comes from context.allocator. A `%` not followed by two hex
 // digits stays as it is.
+//
+// ```jai,skip_on(wasm)
+// assert(percent_decode("a%20b") == "a b");
+// assert(percent_decode("a+b", plus_is_space = true) == "a b");
+// assert(percent_decode("100%") == "100%");
+// ```
 percent_decode :: (text: string, plus_is_space := false) -> string {
     needs := false;
 
@@ -52,6 +58,13 @@ percent_decode :: (text: string, plus_is_space := false) -> string {
 // Splits `a=1&b=two&flag` into decoded pairs (`flag` has an empty value). The pairs and the
 // strings that needed decoding come from context.allocator; the server calls this with
 // the temporary allocator.
+//
+// ```jai,skip_on(wasm)
+// pairs := parse_query("name=Ada%20L&tag=a&tag=b&flag");
+// assert(pairs.count == 4);
+// assert(pairs[0].key == "name" && pairs[0].value == "Ada L");
+// assert(pairs[3].key == "flag" && pairs[3].value == "");
+// ```
 parse_query :: (query: string) -> [] Pair {
     pairs: [..] Pair;
 
@@ -87,6 +100,12 @@ parse_query :: (query: string) -> [] Pair {
 }
 
 // Percent-encodes everything but unreserved characters (RFC 3986), for building queries and URLs.
+//
+// ```jai,skip_on(wasm)
+// text := percent_encode("a b&c");
+// assert(text == "a%20b%26c");
+// free(text);
+// ```
 percent_encode :: (text: string) -> string {
     builder: String_Builder;
 
@@ -118,7 +137,17 @@ Url :: struct {
     ipv6: bool;
 }
 
-// Why `parse_url` refused a text, with `.NONE` for success.
+// Why [parse_url] refused a text, with `.NONE` for success.
+Url_Problem :: enum u8 {
+    NONE;
+    NOT_A_URL; // no `scheme://`
+    UNSUPPORTED_SCHEME; // anything but `http` and `https`
+    NO_HOST;
+    BAD_PORT;
+    BAD_HOST;
+}
+
+// Reads an absolute `http://` or `https://` URL (the port defaults to 80 and 443).
 //
 // ```jai,skip_on(wasm)
 // url, problem := parse_url("https://example.com:8443/a/b?x=1");
@@ -132,16 +161,6 @@ Url :: struct {
 // _, problem = parse_url("/relative/path");
 // assert(problem == .NOT_A_URL);
 // ```
-Url_Problem :: enum u8 {
-    NONE;
-    NOT_A_URL; // no `scheme://`
-    UNSUPPORTED_SCHEME; // anything but `http` and `https`
-    NO_HOST;
-    BAD_PORT;
-    BAD_HOST;
-}
-
-// Reads an absolute `http://` or `https://` URL (the port defaults to 80 and 443).
 parse_url :: (text: string) -> Url, Url_Problem {
     url: Url;
 

@@ -13,6 +13,14 @@
 
 // What an `App` does when nothing else is said. Every number is a limit or a timeout in
 // milliseconds unless it says otherwise; 0 turns the ones that allow it off.
+//
+// ```jai,skip_on(wasm)
+// app: App;
+// app.config.address = "127.0.0.1:3000";
+// app.config.log_requests = true;
+// app.config.max_body_size = 5 * 1024 * 1024;
+// free_app(*app);
+// ```
 Server_Config :: struct {
     // Where to listen: `":8080"`, `"127.0.0.1:3000"`, `"[::1]:8080"`. Port 0 picks a free one.
     address := ":8080";
@@ -148,12 +156,44 @@ free_app :: (app: *App) {
 } @FreesArgument
 
 // Adds middleware that wraps every request (in the order added), including ones with no route.
+//
+// ```jai,skip_on(wasm)
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// add_header :: (request: *Request, next: Next) -> Response {
+//     return with_header(next(request), "X-Served-By", "jacket");
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/hello", hello);
+//     use(*app, add_header);
+//
+//     api := test_client(*app);
+//
+//     response, _ := get(api, "/hello");
+//     defer close(*response);
+//
+//     value, found := header(*response, "X-Served-By");
+//     assert(found && value == "jacket");
+// }
+// ```
 use :: (app: *App, middleware: Middleware) {
     array_add(*app.middleware, middleware);
 }
 
 // Asks the servers started by `serve` to stop: they stop accepting and finish the requests in
 // progress. Safe to call from any thread; `serve` returns once they are done.
+//
+// ```jai,no_run
+// // From a signal handler's polling loop, a timer thread or an admin route:
+// app: App;
+// shutdown(*app);
+// ```
 shutdown :: (app: *App) {
     atomic_store(*app.shutdown_flag, 1);
 }
@@ -231,6 +271,33 @@ group :: (parent: *Group($P), $prefix: string, middleware: ..Middleware) -> *Gro
 }
 
 // Adds middleware to a group for the routes registered after this call.
+//
+// ```jai,skip_on(wasm)
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// add_header :: (request: *Request, next: Next) -> Response {
+//     return with_header(next(request), "X-Area", "admin");
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     admin := group(*app, "/admin");
+//     use(admin, add_header);
+//     get(admin, "/hello", hello);
+//
+//     api := test_client(*app);
+//
+//     response, _ := get(api, "/admin/hello");
+//     defer close(*response);
+//
+//     value, found := header(*response, "X-Area");
+//     assert(found && value == "admin");
+// }
+// ```
 use :: (group: *Group($P), middleware: Middleware) {
     array_add(*group.middleware, middleware);
 }
@@ -319,6 +386,28 @@ post :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $loc
 }
 
 // Adds a `PUT` route; the template, handler and `max_body` work as for `get`.
+//
+// ```jai,skip_on(wasm)
+// replace :: (id: Path("id", int)) -> string {
+//     return tprint("replaced %", id.value);
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     put(*app, "/items/{id}", replace);
+//
+//     api := test_client(*app);
+//
+//     response, _ := put(api, "/items/3", "new value");
+//     defer close(*response);
+//
+//     text, _ := read_text(*response);
+//     defer free(text);
+//     assert(text == "replaced 3");
+// }
+// ```
 put :: (app: *App, $template: string, $handler: $H, max_body := 0, $loc := #caller_location) {
     add_route(app, .[], .PUT, "", template, handler, max_body, loc);
 }
@@ -329,6 +418,26 @@ put :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $loc 
 }
 
 // Adds a `PATCH` route; the template, handler and `max_body` work as for `get`.
+//
+// ```jai,skip_on(wasm)
+// touch :: (id: Path("id", int)) -> Response {
+//     return status_only(204);
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     patch(*app, "/items/{id}", touch);
+//
+//     api := test_client(*app);
+//
+//     response, _ := patch(api, "/items/3", "changed");
+//     defer close(*response);
+//
+//     assert(response.status == 204);
+// }
+// ```
 patch :: (app: *App, $template: string, $handler: $H, max_body := 0, $loc := #caller_location) {
     add_route(app, .[], .PATCH, "", template, handler, max_body, loc);
 }
@@ -372,6 +481,26 @@ delete :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $l
 // body, OPTIONS with an `Allow` list); register them only to change that.
 // Adds a `HEAD` route. Register one only to change the default, which answers `HEAD` from the `GET` handler without sending the
 // body. The template, handler and `max_body` work as for `get`.
+//
+// ```jai,skip_on(wasm)
+// probe :: () -> Response {
+//     return status_only(200);
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     head(*app, "/file", probe);
+//
+//     api := test_client(*app);
+//
+//     response, _ := head(api, "/file");
+//     defer close(*response);
+//
+//     assert(response.status == 200);
+// }
+// ```
 head :: (app: *App, $template: string, $handler: $H, max_body := 0, $loc := #caller_location) {
     add_route(app, .[], .HEAD, "", template, handler, max_body, loc);
 }

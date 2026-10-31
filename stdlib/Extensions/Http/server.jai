@@ -33,7 +33,7 @@ error_text :: (error: Serve_Error) -> string {
     return error.message;
 }
 
-// One scheduler's listener and its connections.
+// One scheduler's listener and its connections, as [start] returns it.
 Server :: struct {
     app: *App;
     listener: Io.Tcp_Listener;
@@ -71,6 +71,35 @@ Connection :: struct {
 // Starts listening on the running scheduler (call it inside `Io.io_run`, from a fiber) and
 // returns at once; connections are served by fibers of this scheduler. Fails if the address
 // cannot be bound, the routes conflict or `config.tls` is not usable. `stop` and `wait` end it.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// app: App;
+//
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// main :: () {
+//     get(*app, "/hello", hello);
+//     app.config.address = "127.0.0.1:0"; // any free port
+//
+//     Io.io_run(() {
+//         server, error := start(*app);
+//         assert(error.kind == .NONE);
+//
+//         client: Client;
+//         response, _ := get(*client, tprint("%/hello", server_url(server)));
+//         text, _ := read_text(*response);
+//         assert(text == "hello");
+//         close(*response);
+//
+//         stop(server);
+//         wait(server);
+//     });
+// }
+// ```
 start :: (app: *App, reuse_port := false) -> *Server, Serve_Error {
     invalid := check_app(app);
 
@@ -810,6 +839,22 @@ Serve_State :: struct {
 // processor count), each with its own listener on the same port. Returns once the servers have
 // stopped; the error says why it could not start (the port is taken, two routes conflict, the TLS
 // configuration is unusable) and is `.NONE` for a clean stop.
+//
+// ```jai,no_run
+// hello :: () -> string {
+//     return "hello";
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/hello", hello);
+//
+//     error := serve(*app);   // returns after Ctrl-C
+//     if error.kind != .NONE print("%\n", error_text(error));
+// }
+// ```
 serve :: (app: *App) -> Serve_Error {
     invalid := check_app(app);
 
