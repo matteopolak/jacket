@@ -867,6 +867,14 @@ pub mod main_thread {
 
 #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 fn call_with(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
+    #[cfg(windows)]
+    return windows::keeping_last_error(|| call_with_unkept(addr, args, sig));
+    #[cfg(not(windows))]
+    call_with_unkept(addr, args, sig)
+}
+
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
+fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
     let arch = Arch::host().ok_or("native foreign calls are not available on this CPU")?;
     // The register model below is System V / AAPCS64 (Windows on arm64 included); the
     // Microsoft x64 convention has its own (`windows.rs`).

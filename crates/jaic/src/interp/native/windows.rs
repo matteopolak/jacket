@@ -27,6 +27,27 @@ use std::sync::Mutex;
 unsafe extern "system" {
     fn LoadLibraryW(name: *const u16) -> *mut c_void;
     fn GetProcAddress(module: *mut c_void, name: *const u8) -> *mut c_void;
+    fn GetLastError() -> u32;
+    fn SetLastError(code: u32);
+}
+
+std::thread_local! {
+    /// The Win32 last-error value the program's foreign calls left on this thread.
+    static LAST_ERROR: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
+}
+
+/// Run one foreign call so that `GetLastError` reads what the previous foreign call left.
+///
+/// The thread's last-error value belongs to the interpreted program, but the interpreter's own
+/// work between two foreign calls (loading the library of the next one, for instance) sets it
+/// too. It is put back before the call and kept after it.
+pub fn keeping_last_error<R>(call: impl FnOnce() -> R) -> R {
+    // SAFETY: this only writes the calling thread's last-error value.
+    unsafe { SetLastError(LAST_ERROR.get()) };
+    let result = call();
+    // SAFETY: this only reads the calling thread's last-error value.
+    LAST_ERROR.set(unsafe { GetLastError() });
+    result
 }
 
 /// Every module opened so far, searched (after the defaults) for symbols that name no

@@ -1,4 +1,4 @@
-// test: only(.WINDOWS) skip_on(.INTERP, reason = "the second window, without multisampling, fails to open under the interpreter")
+// test: only(.WINDOWS)
 #import "Basic";
 W :: #import "Windows";
 Default :: #import "Window_Creation";
