@@ -23,6 +23,7 @@
 // socket buffers before the client reads any, both sides wait on each other; read results (or
 // sync) every few hundred kilobytes of queued statements.
 
+// What a pipeline reported next.
 Pipeline_Kind :: enum u8 {
     NONE; // nothing is waiting for a result
     RESULT; // a statement finished: its rows and command tag, or what a prepare/describe/close did
@@ -42,6 +43,7 @@ Pipeline_Result :: struct {
     error: Pg_Error; // for ERROR
 }
 
+// The kind of request queued in a pipeline.
 Pipeline_Step :: enum u8 {
     QUERY; // Parse (unless prepared), Bind, Describe portal, Execute
     PREPARE;

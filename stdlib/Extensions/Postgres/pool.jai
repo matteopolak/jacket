@@ -1,6 +1,7 @@
 // A pool of connections for the fibers of one scheduler, and transactions on pooled or plain
 // connections.
 
+// Sizing and recycling rules for a `Pool`. Times are in milliseconds.
 Pool_Config :: struct {
     max_size := 10;
     // Kept open even when idle; opened in the background, so the first borrowers need not wait.
@@ -169,6 +170,7 @@ ping :: (c: *Connection) -> Pg_Error {
     return .{};
 }
 
+// Transaction isolation level for `transaction`.
 Isolation :: enum u8 {
     DEFAULT; // the server's default_transaction_isolation
     READ_COMMITTED;

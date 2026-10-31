@@ -405,6 +405,7 @@ stream :: (c: *Connection, error: *Pg_Error, $sql: string, args: ..Any, batch :=
     return out;
 } @Interpolates("sql")
 
+// Rows of a streamed typed query, read one at a time with a `for` loop.
 Row_Stream :: struct(T: Type) {
     pipeline: *Pipeline; // null once the statement is over
     error: *Pg_Error;

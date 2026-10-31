@@ -1,6 +1,7 @@
 // Errors: what went wrong, from the client (`kind`) and, for errors the server sent, every field
 // of its ErrorResponse.
 
+// What sort of failure a `Pg_Error` is. `SERVER` errors also carry the server's fields.
 Error_Kind :: enum u8 {
     NONE;
     CONFIG; // a bad URL or setting, or a call made outside `Io.io_run`

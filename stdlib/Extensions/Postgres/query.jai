@@ -1,6 +1,7 @@
 // Runtime queries: SQL known only at runtime, results read by column. The typed, compile-time
 // checked queries (`query`, `query_one`, `execute`, ...) are built on the same messages.
 
+// One result column: its name and the type the server gave it.
 Column :: struct {
     name: string;
     table_oid: u32; // the table the column comes from; 0 for computed columns

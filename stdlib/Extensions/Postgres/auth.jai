@@ -1,6 +1,7 @@
 // Authentication policy the application sets before connecting: libpq's `require_auth`, and the
 // password file that supplies a password when the config has none.
 
+// Authentication methods a server can ask for; a set of them is what `require_auth` allows.
 Auth_Method :: enum_flags u32 {
     PASSWORD; // the server asked for the password in clear text
     MD5;

@@ -1,5 +1,6 @@
 // Where and how to connect: a plain struct with defaults, or one parsed from a URL.
 
+// How `connect` uses TLS, as libpq's `sslmode`.
 Ssl_Mode :: enum u8 {
     DISABLE; // never TLS
     PREFER; // TLS when the server offers it, no certificate check (the default, like libpq)
@@ -25,6 +26,7 @@ Load_Balance_Hosts :: enum u8 {
     RANDOM; // shuffled for each connection
 }
 
+// Whether `connect` sends a client certificate.
 Ssl_Cert_Mode :: enum u8 {
     DISABLE; // never send a client certificate
     ALLOW; // send the certificate in `ssl_cert_pem` when there is one (the default)
@@ -41,12 +43,15 @@ Ssl_Protocol_Version :: enum u8 {
     TLS_1_3;
 }
 
+// Whether SCRAM authentication binds to the TLS channel, as libpq's `channel_binding`.
 Channel_Binding :: enum u8 {
     DISABLE; // plain SCRAM-SHA-256 only
     PREFER; // SCRAM-SHA-256-PLUS over TLS when the server offers it
     REQUIRE; // fail unless SCRAM-SHA-256-PLUS is used
 }
 
+// Everything `connect` needs: servers, login, TLS and session settings. The defaults
+// suit a local server; `parse_url` fills one from a connection string.
 Config :: struct {
     // A host name or address, or a directory holding the server's Unix socket (starts with `/`).
     host := "localhost";
@@ -159,11 +164,13 @@ Config :: struct {
     owned: bool; // set by `parse_url`: the strings belong to the config (`free_config`)
 }
 
+// One run-time setting sent in the startup message (`work_mem`, `search_path`, ...).
 Startup_Parameter :: struct {
     name: string;
     value: string;
 }
 
+// One server of a multi-host connection string.
 Host_Port :: struct {
     host: string;
     hostaddr: string;

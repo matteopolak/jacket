@@ -51,6 +51,7 @@ Oid :: enum u32 {
     JSONB_ARRAY :: 3807;
 }
 
+// How a value travels on the wire: server text, or its binary form.
 Format :: enum u16 {
     TEXT :: 0;
     BINARY :: 1;

@@ -8,12 +8,14 @@ Protocol_Version :: enum u8 {
     LATEST; // the newest this client speaks: 3.2
 }
 
+// Where the session is in a transaction, as the server last reported it.
 Transaction_Status :: enum u8 {
     IDLE; // outside a transaction block
     IN_TRANSACTION; // inside BEGIN ... COMMIT
     FAILED; // inside a transaction block that failed: only ROLLBACK works
 }
 
+// A name and value, as the server reports run-time settings.
 Parameter :: struct {
     name: string;
     value: string;
@@ -27,6 +29,8 @@ Notice_Proc :: #type (connection: *Connection, notice: *Pg_Error);
 // notifications queue on the connection (`next_notification`, `wait_for_notification`).
 Notification_Proc :: #type (connection: *Connection, notification: *Notification);
 
+// An open session. Made by `connect`, released with `close`. One connection runs one request at a
+// time; use a `Pool` to share a database between fibers.
 Connection :: struct {
     status: Transaction_Status;
     backend_pid: s32;

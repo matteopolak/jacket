@@ -13,6 +13,7 @@
 // wait. They go to `Connection.on_notification` when it is set, otherwise they queue on the
 // connection until taken. A connection that LISTENs is best kept for it alone, off a pool.
 
+// A message from `NOTIFY` on a channel the connection LISTENs to.
 Notification :: struct {
     channel: string;
     payload: string; // empty when NOTIFY gave none

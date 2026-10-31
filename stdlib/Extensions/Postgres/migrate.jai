@@ -6,6 +6,7 @@
 // Files are named `NNNN_name.sql`. One whose first line is `-- jacket: no-transaction` runs
 // outside a transaction, one statement at a time (`create index concurrently` needs that).
 
+// One migration file, embedded at compile time by `load_migrations`.
 Migration :: struct {
     version: s64; // the number the file name starts with
     name: string; // the file name without `.sql`
@@ -14,6 +15,7 @@ Migration :: struct {
     transaction := true; // false for `-- jacket: no-transaction`
 }
 
+// Relaxes the checks `migrate` makes before applying anything.
 Migrate_Options :: struct {
     // Apply even when an applied migration's file changed or is missing from the list.
     allow_modified := false;
@@ -133,6 +135,7 @@ Migration_State :: enum u8 {
     OUT_OF_ORDER; // pending, but numbered below the newest applied migration
 }
 
+// A migration and whether it is applied, changed, missing or out of order.
 Migration_Status :: struct {
     version: s64;
     name: string;
