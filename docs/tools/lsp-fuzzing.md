@@ -1,63 +1,45 @@
 # Language server typing sessions
 
-A seeded checker that types into documents the way an editor does and asks the language server the same questions before, during and after, to find answers that get lost, change or contradict a fresh start. Use it after touching `jai-language-server`, the IDE parts of `jaic` (`parser/ide.rs`, `ide/`, `sema/ide_sketch.rs`) or incremental analysis.
+A seeded checker that types into documents the way an editor does and asks the language server the same questions before, during and after, to find answers that get lost, change or contradict a fresh start. Run it after touching `jai-language-server`, the IDE parts of `jaic` (`parser/ide.rs`, `ide/`, `sema/ide_sketch.rs`) or incremental analysis.
 
-## What it is
+```sh
+cargo test -p jai-language-server --test typing_session        # fast slice, fixed seeds
+cargo run --release -p jai-language-server --example typing_fuzz -- \
+    --seeds 0..20 --scenarios 6 --diff-every 7 stdlib/Hash/tests/scalars.jai examples/*.jai
+fuzz/run.sh lsp_typing 600                                      # libFuzzer
+```
 
-`crates/jai-language-server/examples/support/typing_session.rs` opens real files in a `Session`, records the baseline (diagnostics, semantic tokens, definition and hover at sampled identifiers), then sends incremental `TextChange`s with rising versions and queries between them. It needs no expected answers, only oracles:
+Run one process at a time; a session compiles the document many times. A failure prints the file, seed, oracle, the last edits and the text, and exit status is 1. Oracle d failures are minimized by delta debugging.
 
-| oracle | checks |
-|---|---|
-| a | no request panics or runs past the time budget; a watchdog ends a hung process (exit 112) |
-| b | with the edited region balanced, definition, hover, tokens and diagnostics outside it equal the baseline mapped through the edits |
+## How it works
+
+`crates/jai-language-server/examples/support/typing_session.rs` opens real files in a `Session`, records a baseline (diagnostics, semantic tokens, definition and hover at sampled identifiers), then sends incremental edits with rising versions and queries between them. It needs no expected answers, only oracles:
+
+| Oracle | Checks |
+| --- | --- |
+| a | no request panics or runs past the time budget |
+| b | outside the edited region, answers equal the baseline mapped through the edits |
 | c | back at the original text, everything equals the baseline |
-| d | every Nth version equals a fresh `Session` on the same text, unless some open document reports an incomplete lexical edit (the session leaves an edited comment or literal out of its analysis, and so does what loads it; a fresh session lexes the text as it is) |
-| e | diagnostic ranges are ordered, inside the document, on character boundaries, without duplicates |
-| f | the server's text equals the checker's copy after each change |
+| d | every Nth version equals a fresh `Session` on the same text |
+| e | diagnostic ranges are ordered, in bounds and without duplicates |
+| f | the server's text equals the checker's copy |
 | g | text that lexes has no literal left out of the analysis |
 | h | asking the baseline's requests twice gives the same answers |
 
-Traffic: typing a statement or declaration one character at a time (auto-closed brackets and quotes included), backspacing, deleting and retyping a token or line, pastes, unclosed brackets, strings and comments closed later, undo to the exact original, whole-document reverts, and the same edits in a second open document that the first loads. Edits stay inside one region of a document (a procedure body, or the end of the file), so the rest has a known answer.
-
-## How to run it
-
-The fast slice, a few fixed seeds over `tests/lsp/typing/` (a program and the file it `#load`s) and `tests/lsp/partial/`:
-
-```sh
-cargo test -p jai-language-server --test typing_session
-```
-
-At scale, over any files (stdlib tests, examples), release build, one process:
-
-```sh
-cargo run --release -p jai-language-server --example typing_fuzz -- \
-    --seeds 0..20 --scenarios 6 --diff-every 7 stdlib/Hash/tests/scalars.jai examples/*.jai
-# or: --list FILE (one path per line), --stdlib DIR
-```
-
-Each failure prints the file, seed, oracle, the last edits and the document text; a difference found by oracle d is then minimised by delta debugging to the shortest history of edits that still shows it. The exit status is 1 on any failure. A file that loads or imports a sibling opens the sibling too. Run one process at a time: a session compiles the document many times.
-
-libFuzzer drives the same checker (oracles a, c, d, e; b is off because it has known cases a fuzzer would only rediscover):
-
-```sh
-fuzz/run.sh lsp_typing 600
-```
-
-The input is a document, then optionally a NUL and the bytes that choose the edits. Saved crashes go in `fuzz/regressions/lsp_typing/` and replay in `cargo test` (see [testing tools](testing.md)).
+Traffic includes typing one character at a time (with auto-closed brackets), backspacing, retyping, pastes, unclosed brackets closed later, undo to the original, and the same edits in a second open document. The libFuzzer target runs oracles a, c, d and e; saved crashes go in `fuzz/regressions/lsp_typing/` and replay in `cargo test`.
 
 ## How to change it
 
-- A new kind of edit traffic is a `scenario_*` method on `Rig`, picked in `run_scenario`.
-- A new query is a `Query` variant (every request goes through it so a failing run can be replayed) and a field of `Snapshot`.
-- Where the choices come from is the `Choices` trait: `Seeded` for the example and test, the fuzzer's bytes for libFuzzer.
+- New edit traffic: a `scenario_*` method on `Rig`, picked in `run_scenario`.
+- New query: a `Query` variant (so a failing run can replay it) and a field of `Snapshot`.
+- Where choices come from is the `Choices` trait: `Seeded` for tests, the fuzzer's bytes for libFuzzer.
 - A fixed failure becomes a test in `crates/jai-language-server/tests/fuzz_regressions.rs` or a fixture under `tests/lsp/typing/`.
-- Oracle b has exemptions where a difference is expected, each checked by a fuzz run without it: samples at a `#run` and in `#string` bodies (the value a `#run` shows follows from what another body does; the target answers differ), usage lints and compile-time execution errors (they follow from what a body does: a `#run` of a procedure fails where it is written when that procedure stops returning a value), and diagnostics on the procedure header line (a missing return or an unused parameter is reported there). Hover text inside a polymorphic struct is compared only for its presence and range (`in_poly_struct`): it shows the types of whichever instance there is, or the stand-ins of the editor's own sketch. Definitions and tokens there are still compared. A syntax hover ("Source syntax declaration") quotes the whole declaration, which may enclose the edited region, so it may change as long as it keeps its range and quotes the document as it now reads. Likewise a macro call's hover may show the macro body as edited, as long as its header is the same and every line it shows is in the document. An error in another open document that names a declaration in this one is also shown here, with its note (`check` is declared here): such a diagnostic is left out when its first line is among the other documents' diagnostics. When the diagnostics outside the region still differ, a session opened on the current texts decides (`fresh_agrees`): an edit can legitimately change them elsewhere (a first use of a procedure checks its header; a callee that stops returning makes the rest of its callers unreachable), and only a difference the fresh session does not share is a failure. A changed definition or hover is decided the same way (`fresh_probe_agrees`, after the fresh session is asked what this one was): removing the only call of a polymorph leaves only its sketch to describe it. A new exemption belongs in `sample_identifiers`, `usage_lint`, `near_region` or `in_poly_struct`. The `#if` blocks and the line after a body's closing brace are no longer exempt.
-- A use of a name an analysis never checked (a call inside a body that cannot be checked on this host) is answered by checking its callee on demand, like semantic tokens do (`ide_note_callee_at`), so hover and definition do not depend on which request came first. Test `typing_regressions.rs`.
+- Oracle b has exemptions where a difference is legitimate (samples at `#run` and `#string` bodies, usage lints, compile-time errors, the procedure header line, hover text inside polymorphic structs). Add a new one to `sample_identifiers`, `usage_lint`, `near_region` or `in_poly_struct`, and check it with a fuzz run without it. Remaining differences are decided by a fresh session (`fresh_agrees`, `fresh_probe_agrees`).
 
 ## Configuration
 
-`Config` (in `typing_session.rs`): `scenarios`, `diff_every`, `probes`, `full_probes`, `budget`, `hang`, `outside`, `max_failures`. The example takes `--seeds A..B`, `--scenarios N`, `--diff-every N`, `--stdlib DIR`, `--list FILE`. With `TYPING_FUZZ_DUMP=DIR` set, each failure also writes every open document's whole text to `DIR/<failure>-<doc>-<file name>`, so the failing state can be opened fresh in a test. The environment is the one `jailsp` starts with: the stdlib directory and `find_preload`.
+`Config` in `typing_session.rs`: `scenarios`, `diff_every`, `probes`, `full_probes`, `budget`, `hang`, `outside`, `max_failures`. The example takes `--seeds A..B`, `--scenarios N`, `--diff-every N`, `--stdlib DIR`, `--list FILE`. `TYPING_FUZZ_DUMP=DIR` writes each failing document's text to `DIR`.
 
 ## Dependencies
 
-`jai-language-server` (public `Session` API only) and `jaic`. The libFuzzer target adds `jai-wasm` for the playground environment and `arbitrary` for the byte-driven choices.
+`jai-language-server` (public `Session` API only) and `jaic`. The libFuzzer target adds `jai-wasm` and `arbitrary`.
