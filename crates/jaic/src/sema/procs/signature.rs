@@ -421,7 +421,8 @@ impl Compiler {
             {
                 self.ide_note_param_name(n.span, n.name, ty);
             }
-            if ty != TypeId::VOID {
+            // A lone `void` result means no result; next to others it is a value of its own.
+            if ty != TypeId::VOID || header.returns.len() > 1 {
                 returns.push(ty);
                 return_callables.push(if matches!(self.ty.types.kind(ty), TypeKind::Proc(_)) {
                     self.callable_expression_parameters(

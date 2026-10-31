@@ -235,6 +235,10 @@ impl Compiler {
                     None => addr,
                 }
             };
+            // A `void` result is checked like the others but leaves nothing to return.
+            if ty == TypeId::VOID {
+                continue;
+            }
             match f.return_outs[i] {
                 Some(out) => self.store_value(f, ty, out, v, span)?,
                 None if f.defers.is_empty() => scalars.push((v, None)),

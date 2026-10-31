@@ -229,7 +229,7 @@ impl Compiler {
         }
         let results = f.b.intrinsic(op, values, &returns);
         let outs = vec![None; sig.returns.len()];
-        Ok(self.call_results(&sig.returns, results, outs, &sig.return_callables))
+        Ok(self.call_results(f, &sig.returns, results, outs, &sig.return_callables))
     }
 
     /// `black_box(value)`: `value` unchanged, but unknown to the optimizer. A scalar goes through
@@ -274,6 +274,7 @@ impl Compiler {
             f.b.copy(slot, value, size);
             f.b.intrinsic(ir::Intrinsic::BlackBoxMemory, vec![slot], &[]);
             return Ok(self.call_results(
+                f,
                 &sig.returns,
                 Vec::new(),
                 vec![Some(slot)],
@@ -289,7 +290,7 @@ impl Compiler {
         };
         let results =
             f.b.intrinsic(ir::Intrinsic::BlackBox, vec![value], &[scalar]);
-        Ok(self.call_results(&sig.returns, results, vec![None], &sig.return_callables))
+        Ok(self.call_results(f, &sig.returns, results, vec![None], &sig.return_callables))
     }
 
     /// The compile-time integer passed as the last argument of an intrinsic.

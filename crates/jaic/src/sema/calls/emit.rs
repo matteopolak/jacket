@@ -166,11 +166,12 @@ impl Compiler {
             record_vararg_types(f, &mut ir_sig, &c_vararg_values);
         }
         let results = f.b.call(callee, values, &ir_sig.returns.clone());
-        Ok(self.call_results(&sig.returns, results, outs, &sig.return_callables))
+        Ok(self.call_results(f, &sig.returns, results, outs, &sig.return_callables))
     }
 
     pub(super) fn call_results(
         &mut self,
+        f: &mut FnCtx,
         returns: &[TypeId],
         results: Vec<ir::Val>,
         outs: Vec<Option<ir::Val>>,
@@ -181,6 +182,8 @@ impl Compiler {
         for (i, &rt) in returns.iter().enumerate() {
             let v = match outs[i] {
                 Some(out) => out,
+                // A `void` result has no register; its value is an empty slot.
+                None if rt == TypeId::VOID => f.b.alloca(1, 1),
                 None => regs.next().unwrap(),
             };
             values.push(
@@ -588,7 +591,7 @@ impl Compiler {
             values,
             &returns,
         );
-        Ok(self.call_results(&pt.returns, results, outs, &result_parameters))
+        Ok(self.call_results(f, &pt.returns, results, outs, &result_parameters))
     }
 }
 

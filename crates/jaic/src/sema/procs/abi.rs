@@ -34,6 +34,10 @@ impl Compiler {
         }
         let mut returns = Vec::new();
         for (i, &t) in p.returns.iter().enumerate() {
+            // A `void` result takes no register or slot.
+            if t == TypeId::VOID {
+                continue;
+            }
             if let Some(rt) = self.ir_ty(t) {
                 returns.push(rt);
             } else {

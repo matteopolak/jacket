@@ -751,7 +751,7 @@ impl Compiler {
             if let Some(name) = r.name {
                 self.ide_note_param_name(name.span, name.name, t);
             }
-            if t != TypeId::VOID {
+            if t != TypeId::VOID || header.returns.len() > 1 {
                 returns.push(t);
             }
         }
