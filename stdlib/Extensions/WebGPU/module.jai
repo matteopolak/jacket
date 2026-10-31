@@ -92,6 +92,7 @@ to_string :: (view: WGPUStringView) -> string {
 // the browser each poll lets the page run.
 //
 // ```jai,no_run
+// instance := wgpuCreateInstance(null);
 // done := false;
 // // ... start something whose callback sets `done` ...
 // webgpu_wait(instance, *done);
@@ -179,6 +180,8 @@ webgpu_request_device :: (instance: WGPUInstance, adapter: WGPUAdapter, descript
 // `wgpuBufferUnmap` ends the mapping. Returns false, and logs why, when mapping failed.
 //
 // ```jai,no_run
+// instance := wgpuCreateInstance(null);
+// buffer: WGPUBuffer;
 // if webgpu_map_buffer(instance, buffer, .Read) {
 //     bytes := wgpuBufferGetConstMappedRange(buffer, 0, 64);
 //     // ... read from bytes ...
@@ -217,6 +220,10 @@ webgpu_map_buffer :: (instance: WGPUInstance, buffer: WGPUBuffer, mode: WGPUMapM
 // than every frame. Returns an empty array, and logs why, on failure.
 //
 // ```jai,no_run
+// instance := wgpuCreateInstance(null);
+// device: WGPUDevice;
+// queue: WGPUQueue;
+// texture: WGPUTexture;
 // pixels := webgpu_read_texture(instance, device, queue, texture, 256, 256);
 // defer array_free(pixels);
 // ```
@@ -280,6 +287,8 @@ webgpu_read_texture :: (instance: WGPUInstance, device: WGPUDevice, queue: WGPUQ
 // caught (`.NoError` for none) and its message, which lives in temporary storage.
 //
 // ```jai,no_run
+// instance := wgpuCreateInstance(null);
+// device: WGPUDevice;
 // wgpuDevicePushErrorScope(device, .Validation);
 // // ... calls that might be invalid ...
 // type, message := webgpu_pop_error_scope(instance, device);
@@ -312,9 +321,10 @@ webgpu_pop_error_scope :: (instance: WGPUInstance, device: WGPUDevice) -> WGPUEr
     // Makes a surface for a `Window_Creation` window. It's native only; in the browser, pass the canvas to
     // `wgpuInstanceCreateSurface`. Returns null, and logs why, when the window is invalid.
     //
-    // ```jai,no_run
+    // ```jai,no_run,skip_on(wasm)
     // #import "Window_Creation";
     //
+    // instance := wgpuCreateInstance(null);
     // window := create_window(800, 600, "gpu");
     // surface := webgpu_create_surface(instance, window);
     // ```
@@ -358,6 +368,8 @@ webgpu_pop_error_scope :: (instance: WGPUInstance, device: WGPUDevice) -> WGPUEr
 // the surface has no sRGB format (see `webgpu_format_is_srgb`). Returns `.Undefined` when the surface lists none.
 //
 // ```jai,no_run
+// surface: WGPUSurface;
+// adapter: WGPUAdapter;
 // format := webgpu_surface_format(surface, adapter);
 // ```
 webgpu_surface_format :: (surface: WGPUSurface, adapter: WGPUAdapter, srgb := false) -> WGPUTextureFormat {
@@ -407,7 +419,7 @@ webgpu_format_is_srgb :: (format: WGPUTextureFormat) -> bool {
     // Browser only: the size in pixels of the page's canvas. It changes when the page resizes the canvas, so
     // compare it each frame and configure the surface again.
     //
-    // ```jai,no_run
+    // ```jai,no_run,only(wasm)
     // width, height := webgpu_canvas_size();
     // ```
     webgpu_canvas_size :: () -> width: s32, height: s32 {
@@ -418,7 +430,10 @@ webgpu_format_is_srgb :: (format: WGPUTextureFormat) -> bool {
 } else {
     // Native only: the size in pixels of the surface `window` shows.
     //
-    // ```jai,no_run
+    // ```jai,no_run,skip_on(wasm)
+    // #import "Window_Creation";
+    //
+    // window: Window_Type;
     // width, height := webgpu_window_size(window);
     // ```
     webgpu_window_size :: (window: Window_Type) -> width: s32, height: s32 {
@@ -444,6 +459,7 @@ WEBGPU_SURFACE_OCCLUDED :: cast(WGPUSurfaceGetCurrentTextureStatus) 0x0003_0001;
 // page's next animation frame.
 //
 // ```jai,no_run
+// surface: WGPUSurface;
 // while true {
 //     // ... draw into the surface's current texture ...
 //     webgpu_present(surface);

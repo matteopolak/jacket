@@ -38,6 +38,12 @@ class Records(unittest.TestCase):
         )
 
 
+class Unrun(unittest.TestCase):
+    def test_a_module_with_an_example_must_be_tested(self):
+        self.assertEqual(docs.unrun_examples(rows(), set()), ["Big"])
+        self.assertEqual(docs.unrun_examples(rows(), {"Big"}), [])
+
+
 class Report(unittest.TestCase):
     def test_the_worst_module_comes_first(self):
         lines = docs.report(rows(), examples=False, top=None, only=None).splitlines()

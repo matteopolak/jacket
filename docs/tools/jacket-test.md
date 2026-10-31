@@ -41,6 +41,8 @@ Two layouts:
 
 Roots are the `--path DIR` folders, else `[test] paths` in `jacket.toml` (only those the current directory is inside, when it is inside some), else the project folder. With several roots, test names get the root's folder as a prefix (`Bit_Array::finds_the_first_set`). `--list` prints the roots it searched.
 
+A folder that is not a root is never visited, so its doc examples never run. `tools/ci/check_stdlib_docs.py` fails when a stdlib module has doc examples and no `[test] paths` entry; add the module's folder to `jacket.toml`.
+
 ## Writing tests
 
 ```jai
