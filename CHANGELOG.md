@@ -5,12 +5,17 @@
 ### New
 
 - The playground now lives in the docs, at [matteopolak.com/docs/jacket/playground](https://matteopolak.com/docs/jacket/playground).
+- `Http` speaks HTTP/2 over TLS, in both the server and the client.
 
 ### Improved
 
 - Most standard library procedures now have a description and an example, and experimental modules carry an "Experimental" badge.
 - The README and the docs pages are shorter and easier to read.
 - `jaic -check` and `-interp` start faster and use less memory: native code generation now loads only when a build needs it.
+
+### Fixed
+
+- An `Http` HEAD handler can set its own `Content-Length`.
 
 ## [0.31.0] - 2026-10-31
 
