@@ -41,12 +41,25 @@ fn skip_string(src: &[u8], mut at: usize) -> usize {
     at
 }
 
+/// Which bytes can continue an identifier: letters, digits, `_` and every non-ASCII byte. A table
+/// lookup, since identifiers are most of what the lexer reads.
+static IDENT_CHAR: [bool; 256] = {
+    let mut table = [false; 256];
+    let mut c = 0;
+    while c < 256 {
+        let b = c as u8;
+        table[c] = b.is_ascii_alphanumeric() || b == b'_' || b >= 0x80;
+        c += 1;
+    }
+    table
+};
+
 fn is_ident_start(c: u8) -> bool {
     c.is_ascii_alphabetic() || c == b'_' || c >= 0x80
 }
 
 pub(crate) fn is_ident_char(c: u8) -> bool {
-    c.is_ascii_alphanumeric() || c == b'_' || c >= 0x80
+    IDENT_CHAR[c as usize]
 }
 
 impl<'a> Lexer<'a> {
