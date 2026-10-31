@@ -1,3 +1,5 @@
+// Adds a node under `parent` and returns it. The first node has no parent and becomes the root.
+// The name is copied.
 add_node :: (treemap: *Treemap, name: string, parent: *Treemap_Node) -> *Treemap_Node {
     assert(treemap != null);
 
@@ -19,12 +21,15 @@ add_node :: (treemap: *Treemap, name: string, parent: *Treemap_Node) -> *Treemap
     return pointer;
 }
 
+// The position of `node` in a `Treemap_Display`'s `nodes`.
 get_index :: inline (treemap: *Treemap, node: *Treemap_Node) -> s64 {
     assert(treemap != null && node != null);
     assert(B.bucket_array_find_pointer(*treemap.nodes, node.locator) == node);
     return cast(s64) node.locator.bucket_index * 1024 + cast(s64) node.locator.slot_index;
 }
 
+// Adds up the sizes of every parent and orders children from largest to smallest. Call it after
+// adding nodes or changing sizes, before laying out.
 recompute_if_dirty :: (treemap: *Treemap) {
     assert(treemap != null);
     if !treemap.dirty return;
@@ -32,11 +37,30 @@ recompute_if_dirty :: (treemap: *Treemap) {
     treemap.dirty = false;
 }
 
+// Makes a display for laying out `treemap`.
 init_treemap_display :: (treemap: *Treemap) -> Treemap_Display {
     assert(treemap != null);
     return .{ treemap = treemap };
 }
 
+// Lays the tree out in a rectangle of `outer_size`, with each node's area proportional to its size,
+// and fills `display.nodes`. Does nothing if nothing changed since the last layout, unless `force`.
+// The treemap must be up to date first.
+//
+// ```jai
+// treemap: Treemap;
+// root := add_node(*treemap, "root", null);
+// a := add_node(*treemap, "a", root);
+// b := add_node(*treemap, "b", root);
+// a.size = 3;
+// b.size = 1;
+// recompute_if_dirty(*treemap);
+// display := init_treemap_display(*treemap);
+// recompute_if_dirty(*display, .{100, 100});
+// rect := display.nodes[get_index(*treemap, a)];
+// area := rect.size.x * rect.size.y;
+// assert(area > 7499 && area < 7501);
+// ```
 recompute_if_dirty :: (display: *Treemap_Display, outer_size: Vector2, border_proc: Border_Proc = null, force := false) {
     assert(display != null && display.treemap != null && !display.treemap.dirty, "Treemap display requires clean weights");
     assert(outer_size.x >= 0 && outer_size.y >= 0 && Math.is_finite(outer_size.x) && Math.is_finite(outer_size.y));
@@ -59,6 +83,7 @@ recompute_if_dirty :: (display: *Treemap_Display, outer_size: Vector2, border_pr
     display.dirty = false;
 }
 
+// Lays out the descendants of `root` inside its rectangle, less its border.
 size_children :: (treemap: *Treemap, root: *Treemap_Node, display: *Treemap_Display, border_proc: Border_Proc) {
     assert(display.treemap == treemap && !treemap.dirty);
     item := display.nodes[get_index(treemap, root)];
@@ -73,6 +98,7 @@ size_children :: (treemap: *Treemap, root: *Treemap_Node, display: *Treemap_Disp
     }
 }
 
+// Places one row of `children` along the short side of the free area, and returns their total weight.
 flush_nodes :: (children: [] *Treemap_Node, unsized_cursor: int, child_index: int, display: *Treemap_Display, root_corner: Vector2, fill_weight_total: float64, horizontal: bool, size: Vector2) -> (flushed_node_weight: float64) {
     assert(unsized_cursor >= 0 && child_index >= unsized_cursor && child_index <= children.count);
     weight: float64;
