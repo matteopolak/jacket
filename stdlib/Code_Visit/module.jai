@@ -1,4 +1,4 @@
-// Walks the nodes of a [Compiler.Code_Node] tree.
+// Walks the nodes of a `Compiler.Code_Node` tree.
 //
 // - [get_subexpressions] lists a node's direct children.
 // - [get_recursive_nodes_breadth_first] and [get_recursive_nodes_depth_first] list a node and everything below it.
