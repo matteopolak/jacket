@@ -28,11 +28,27 @@ Compile times from a release `jaic` on an Apple M5 (LLVM 23, median of warm runs
 
 | Project | Lines of Jai | Type-check | Debug build | Release build |
 | --- | ---: | ---: | ---: | ---: |
-| [Focus](https://github.com/focus-editor/focus) | 49k + 79k in modules | 1.0 s | 1.5 s | 8.1 s |
-| [Jails](https://github.com/SogoCZE/Jails) | 4.0k | 0.23 s | 0.32 s | 0.86 s |
-| [jaison](https://github.com/rluba/jaison) (tests) | 1.7k | 0.07 s | 0.12 s | 0.44 s |
+| [Focus](https://github.com/focus-editor/focus) | 49k + 79k in modules | 0.49 s | 0.90 s | 4.1 s |
+| [Jails](https://github.com/SogoCZE/Jails) | 4.0k | 0.07 s | 0.17 s | 0.54 s |
+| [jaison](https://github.com/rluba/jaison) (tests) | 1.7k | 0.05 s | 0.10 s | 0.52 s |
 
-About 4 s of Focus's release build is its build script packaging the app. Method and how to rerun them (`PYTHONPATH=tools python3 tools/bench/main.py compile --categories real`): [benchmarks](tools/benchmarks.md).
+Method and how to rerun them (`PYTHONPATH=tools python3 tools/bench/main.py compile --categories real`): [benchmarks](tools/benchmarks.md).
+
+### Against the reference compiler
+
+Wall time of `jaic` divided by the reference compiler's on the same program, warm, on the same Apple M5 (below 1 is faster):
+
+| Workload | Type-check | Debug build | Optimized build |
+| --- | ---: | ---: | ---: |
+| Generated, 10k lines | 0.75 | 0.73 | 0.21 |
+| Generated, 100k lines | 0.87 | 0.46 | 0.09 |
+| Jails | 0.68 | 0.76 | 0.24 |
+| jaison tests | | 0.71 | 0.35 |
+| Small benchmark programs | | 0.86-0.92 | 0.82-0.92 |
+
+Both compilers pay a fixed cost to start a process and link, so small programs sit near 0.9. Focus and a few other projects do not build with the reference compiler on this machine, so they have no ratio. The machine was busy while these ran, so read them as rough.
+
+On Windows (measured 2026-10-30): type-check takes 0.86-0.99 of the reference's time. Debug builds take 0.57-1.00 on the generated programs, 1.02-1.03 on small programs and 1.11 on the jails. Optimized builds take 0.11-0.87. Both compilers spend about 0.8-0.95 s on process start and `link.exe` alone, which is why small programs are a wash there.
 
 ## What is missing
 
