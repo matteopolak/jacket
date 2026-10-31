@@ -1,3 +1,4 @@
+// Measures a typechecked procedure body: branch and loop depth, calls, allocations and global accesses.
 collect_metrics :: (tc: Typechecked(Code_Procedure_Body)) -> (metrics: Metrics) {
     if !tc.expression return metrics;
 

@@ -1,4 +1,4 @@
-// Canonical public records; declaration order follows their dependency graph.
+// The version control system the build came from, recorded in the file header.
 Revision_Control_Type :: enum u64 {
     UNKNOWN :: 0;
     SVN :: 1;
@@ -8,18 +8,21 @@ Revision_Control_Type :: enum u64 {
     PERFORCE :: 5;
 }
 
+// A module the build imported: its kind, name and path.
 Module_Record :: struct {
     module_type: type_of(Compiler.Message_Import.module_type) #align 1;
     module_name: Relative.Relative_String(s16) #align 1;
     fully_pathed_filename: Relative.Relative_String(s16) #align 1;
 }
 
+// A source file the build loaded: its path and the module it belongs to (an index into the module list).
 File_Record :: struct {
     fully_pathed_filename: Relative.Relative_String(s16) #align 1;
     module_index: s32 #align 1;
     from_a_string: bool #align 1;
 }
 
+// A procedure body: where it is in its file, how many expressions it has, its [Metrics] and its name.
 Procedure_Record :: struct {
     file_index: s32 #align 1;
     l0: s32 #align 1;
@@ -32,6 +35,7 @@ Procedure_Record :: struct {
     name: Relative.Relative_String(s16) #align 1;
 }
 
+// The start of a `.codex` file: format version, when and for what target it was made, and the counts of the records that follow.
 Header_Record :: struct {
     magic: u32;
     version: u32;
@@ -50,6 +54,7 @@ Header_Record :: struct {
     comment: Relative.Relative_String(s16);
 }
 
+// A `.codex` file opened for reading. `modules`, `files` and `procedures` point into `memory`, so keep that alive while you use them, and release the arrays with `deinit`.
 Codex_Help :: struct {
     memory: [] u8;
     header: *Header_Record;

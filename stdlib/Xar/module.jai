@@ -1,33 +1,43 @@
-// A growable array that allocates in chunks, so its elements never move.
-
-// `Xar(Element_Type, first_chunk_size_shift, max_chunks)`: a growable array whose elements never move.
+// A growable array whose elements never move, so pointers to them stay valid while you add more.
 //
-// Elements live in up to `max_chunks` separately allocated chunks. The first two chunks hold
-// `1 << first_chunk_size_shift` elements each and every later chunk doubles, so the capacity is fixed by
-// the parameters; adding past it fails an assert. Chunks come from `allocator` (`context.allocator` when
-// unset) as they are first needed and are freed by `xar_reset`. A pointer to an element stays valid
-// until the array is reset; unlike a dynamic array, adding never invalidates it.
-//
-// `array[i]` is element `i` (`*array[i]` is its address), `count` the number of elements, and `for` visits them in
-// order. There is no way to remove the last element but `xar_unordered_remove`.
+// - [Xar] is the type; [xar_add] appends and [xar_reset] frees.
+// - `array[i]` indexes, `array.count` counts, and `for` walks it in order.
+// - [xar_iterator], [xar_next] and [xar_prev] walk it cheaply by hand.
+// - [quick_sort] sorts it.
 //
 // ```jai
-// array: Xar(int, 2, 8); // chunks of 4, 4, 8, 16, ...
+// array: Xar(int, 2, 8);
 // first := xar_add(*array, 10);
 // for 1..20 xar_add(*array, it * 10);
 //
-// assert(array.count == 21 && first.* == 10 && first == *array[0]);
+// assert(array.count == 21 && first == *array[0]);
 // assert(array[5] == 50);
 // xar_reset(*array);
 // ```
+
+// `Xar(Element_Type, first_chunk_size_shift, max_chunks)` stores its elements in separately allocated chunks.
+//
+// The first two chunks hold `1 << first_chunk_size_shift` elements and each later chunk doubles, so the three parameters fix the capacity; adding past it fails an assert. Chunks come from `allocator` (`context.allocator` when unset) as they are needed, and `xar_reset` frees them.
+//
+// ```jai
+// array: Xar(string, 3, 4); // chunks of 8, 8, 16, 32
+// xar_add(*array, "a");
+// xar_add(*array, "b");
+// assert(array.count == 2 && array[1] == "b");
+// xar_reset(*array);
+// ```
 Xar :: Impl.Xar;
-// Appends `el` and returns a pointer to the stored copy, which stays valid until `xar_reset`. Returns `null` if a chunk could not be allocated.
+// Appends `el` and returns a pointer to the stored copy, or `null` if a chunk could not be allocated.
 //
-// Exceeding the capacity set by the type's parameters fails an assert.
+// ```jai
+// array: Xar(int, 2, 4);
+// slot := xar_add(*array, 7);
+// slot.* += 1;
+// assert(array[0] == 8);
+// xar_reset(*array);
+// ```
 xar_add :: Impl.xar_add;
-// Removes element `index` by copying the last element over it and shrinking the count. The order changes and no memory is freed.
-//
-// An out-of-range index fails an assert. Pointers to the last element and to `index` now name different values.
+// Removes element `index` by copying the last element over it. The order changes and no memory is freed.
 //
 // ```jai
 // array: Xar(int, 2, 4);
@@ -37,13 +47,28 @@ xar_add :: Impl.xar_add;
 // xar_reset(*array);
 // ```
 xar_unordered_remove :: Impl.xar_unordered_remove;
-// Frees every chunk and empties the array, so it can be used again. All pointers into it are invalid afterwards. The elements are not destroyed first.
+// Frees every chunk and empties the array, so it can be used again. Pointers into it are invalid afterwards. The elements are not destroyed first.
+//
+// ```jai
+// array: Xar(int, 2, 4);
+// xar_add(*array, 1);
+// xar_reset(*array);
+// assert(array.count == 0);
+// ```
 xar_reset :: Impl.xar_reset;
-// An iterator positioned at element `index`, for walking with `xar_get`, `xar_next` and `xar_prev`; cheaper than indexing each step.
+// Returns an iterator at element `index`, for walking with [xar_get], [xar_next] and [xar_prev]. Cheaper than indexing at every step.
+//
+// ```jai
+// array: Xar(int, 2, 4);
+// for 1..3 xar_add(*array, it);
+// iterator := xar_iterator(*array, 1);
+// assert(xar_get(*array, iterator).* == 2);
+// xar_reset(*array);
+// ```
 xar_iterator :: Impl.xar_iterator;
-// A pointer to the element an iterator is at. Fails an assert when the iterator is past the end or was never positioned.
+// Returns a pointer to the element the iterator is at. Fails an assert when the iterator is past the end.
 xar_get :: Impl.xar_get;
-// Moves the iterator to the following element and returns a pointer to it, or `null` at the end (the iterator then stays where it was).
+// Moves the iterator to the next element and returns a pointer to it, or `null` at the end (the iterator then stays put).
 //
 // ```jai
 // array: Xar(int, 1, 4);
@@ -61,17 +86,28 @@ xar_get :: Impl.xar_get;
 // xar_reset(*array);
 // ```
 xar_next :: Impl.xar_next;
-// Moves the iterator to the preceding element and returns a pointer to it, or `null` at the start (the iterator then stays where it was).
+// Moves the iterator to the previous element and returns a pointer to it, or `null` at the start (the iterator then stays put).
+//
+// ```jai
+// array: Xar(int, 2, 4);
+// for 1..3 xar_add(*array, it);
+// iterator := xar_iterator(*array, 2);
+// assert(xar_prev(*array, *iterator).* == 2);
+// xar_reset(*array);
+// ```
 xar_prev :: Impl.xar_prev;
-// Lets a `Xar` be used in a `for` loop over its elements in order: `it` is the element (a pointer with `for *`) and `it_index` its index.
+// Makes a `Xar` work in a `for` loop: `it` is the element (a pointer with `for *`) and `it_index` its index. Do not add during the loop. Reverse loops are a compile error.
 //
-// Reverse iteration is not supported and is rejected at compile time. Do not add during the loop.
+// ```jai
+// array: Xar(int, 2, 4);
+// for 1..3 xar_add(*array, it);
+// total := 0;
+// for array total += it * it_index;
+// assert(total == 8);
+// xar_reset(*array);
+// ```
 for_expansion :: Impl.for_expansion;
-// Sorts a `Xar` in place with a three-way comparator (negative, zero or positive). Despite the name it is a heap sort, not a quicksort.
-//
-// It is `O(n log n)` in the worst case and unstable: equal elements may change their relative order. The
-// comparator should be a strict weak order; an inconsistent one only gives an unspecified order. Unlike
-// `Sort.quick_sort` it has no key form and no insertion-sort fast path, and it returns nothing.
+// Sorts in place with a three-way comparator (negative, zero or positive). Despite the name it is an unstable heap sort, `O(n log n)`; it returns nothing and has no key form.
 //
 // ```jai
 // array: Xar(int, 2, 4);
@@ -81,9 +117,17 @@ for_expansion :: Impl.for_expansion;
 // xar_reset(*array);
 // ```
 quick_sort :: Impl.quick_sort;
-// The same heap sort as `quick_sort` (unstable, `O(n log n)`); the name is kept so that code written for either works.
+// The same sort as [quick_sort] under another name, so code written for either works.
+//
+// ```jai
+// array: Xar(int, 2, 4);
+// for value: int.[2, 1] xar_add(*array, value);
+// quick_sort_simple(array, (a: int, b: int) -> int { return a - b; });
+// assert(array[0] == 1);
+// xar_reset(*array);
+// ```
 quick_sort_simple :: Impl.quick_sort_simple;
-// The same heap sort as `quick_sort` (unstable, `O(n log n)`); the name is kept so that code written for either works.
+// The same sort as [quick_sort] under another name, so code written for either works.
 quick_sort_iter :: Impl.quick_sort_iter;
 
 using,only(.["*[]"]) #import "internal/collections/xar";

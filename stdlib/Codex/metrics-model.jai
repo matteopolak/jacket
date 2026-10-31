@@ -1,3 +1,4 @@
+// Code metrics for one procedure body: branch points and their depth, loop depth, call counts, allocations, and global reads and writes.
 Metrics :: struct {
     if_points: s32 #align 1;
     maximum_if_depth: s32 #align 1;

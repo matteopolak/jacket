@@ -1,18 +1,22 @@
+// The default heap as an `Allocator`.
 allocator :: Allocator.{ allocator_proc, null };
 allocator_default_heap: *Heap;
 
+// Sets the allocator up if nothing has used it yet. Returns true if this call did the setup. It is called for you on first use.
 initialize_if_needed :: inline () -> did_init: bool {
     acquire();
     defer unlock();
     return initialize_locked();
 }
 
+// True once the allocator has been set up.
 is_initialized :: inline () -> bool {
     acquire();
     defer unlock();
     return initialized;
 }
 
+// Frees every heap and every block in them, and returns the allocator to its unset-up state. For program shutdown.
 finalize :: () {
     acquire();
     defer unlock();
@@ -34,11 +38,18 @@ finalize :: () {
     live_count = 0;
 }
 
-// A fork child owns the inherited state exclusively; do not touch live blocks.
+// Releases the allocator's lock whoever holds it. Only for the child of a `fork`, where a thread that no longer exists may have held it.
 unsafe_reset :: inline () {
     guard = 0;
 }
 
+// Returns how many bytes the allocation at `ptr` can hold, which can exceed what was asked for. Returns 0 for null.
+//
+// ```jai,only(x64)
+// memory := allocator_proc(.ALLOCATE, 10, 0, null, null);
+// assert(usable_size(memory) >= 10);
+// allocator_proc(.FREE, 0, 10, memory, null);
+// ```
 usable_size :: inline (ptr: *void) -> s64 {
     if !ptr return 0;
 
@@ -56,6 +67,13 @@ usable_size :: inline (ptr: *void) -> s64 {
     return 0;
 }
 
+// True if `memory` is a live allocation from `heap`.
+//
+// ```jai,only(x64)
+// memory := allocator_proc(.ALLOCATE, 10, 0, null, null);
+// assert(is_this_yours(allocator_default_heap, memory));
+// allocator_proc(.FREE, 0, 10, memory, null);
+// ```
 is_this_yours :: (heap: *Heap, memory: *void) -> bool {
     acquire();
     defer unlock();
@@ -63,6 +81,7 @@ is_this_yours :: (heap: *Heap, memory: *void) -> bool {
     return state != null && find_block_locked(state, memory) != null;
 }
 
+// Frees every allocation in `heap` at once.
 heap_free_all :: (heap: *Heap) {
     acquire();
     defer unlock();
@@ -75,11 +94,13 @@ heap_free_all :: (heap: *Heap) {
     clear_locked(state);
 }
 
+// Returns counters for the whole allocator. This allocator keeps none, so every field is zero.
 global_statistics :: () -> Global_Statistics {
     // The standard variant explicitly returns dummy statistics.
     return .{};
 }
 
+// Returns counters for `heap`. This allocator keeps none, so every field is zero.
 heap_statistics :: (heap: *Heap) -> Heap_Statistics {
     acquire();
     defer unlock();
@@ -89,6 +110,15 @@ heap_statistics :: (heap: *Heap) -> Heap_Statistics {
     return .{};
 }
 
+// The allocator procedure. It handles `.ALLOCATE`, `.RESIZE`, `.FREE`, `.CREATE_HEAP`, `.DESTROY_HEAP` and `.IS_THIS_YOURS`; `allocator_data` is the heap, or null for the default one. Allocation returns null when the size is invalid or memory runs out.
+//
+// ```jai
+// memory := cast(*u8) allocator_proc(.ALLOCATE, 8, 0, null, null);
+// memset(memory, 7, 8);
+// grown := cast(*u8) allocator_proc(.RESIZE, 64, 8, memory, null);
+// assert(grown[7] == 7);
+// allocator_proc(.FREE, 0, 64, grown, null);
+// ```
 allocator_proc :: (mode: Allocator_Mode, requested_size: s64, old_size: s64, old_memory: *void, allocator_data: *void) -> *void {
     if mode == .CAPS {
         if old_memory {

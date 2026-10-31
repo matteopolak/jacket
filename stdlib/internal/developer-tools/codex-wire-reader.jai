@@ -1,3 +1,10 @@
+// Checks the bytes of a `.codex` file and indexes its records. Returns false with a reason when the file is truncated or of another version. The result points into `memory`; release it with `deinit`.
+//
+// ```jai
+// memory := cast([] u8) "not a codex file";
+// ok, help, error := make_help(memory);
+// assert(!ok && error.count > 0);
+// ```
 make_help :: (memory: [] u8) -> (success: bool, help: Codex_Help, error_string: string) {
     if memory.count < size_of(Header_Record) return false, .{}, "Codex: short header";
 
@@ -80,6 +87,11 @@ make_help :: (memory: [] u8) -> (success: bool, help: Codex_Help, error_string: 
     return true, help, "";
 }
 
+// Prints the modules, files and procedures of the `.codex` file at `name`. Returns false if it cannot be read or is not valid.
+//
+// ```jai,skip_on(wasm)
+// assert(!dump_file("no/such/file.codex"));
+// ```
 dump_file :: (name: string) -> bool {
     memory, read_ok := read_entire_file(name);
     if !read_ok return false;

@@ -1,3 +1,4 @@
+// Frees the index arrays of `help`. The records and strings belong to the file bytes, which the caller frees.
 deinit :: (using help: *Codex_Help) {
     assert(help != null);
     // Index arrays belong to the helper; records and strings belong to memory.

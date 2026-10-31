@@ -1,5 +1,11 @@
 HELP_STRING :: "Codex: -export_file <path> (default exported.codex)\n";
 
+// Returns the plugin that records the build. Add it to a workspace and forward its messages; when the build finishes it writes the `.codex` file. The `-export_file <path>` option picks the path, and the plugin also accepts the `project_name`, `comment` and `url_or_generation_command` keys over the communication channel.
+//
+// ```jai,no_run
+// plugin := get_plugin();
+// assert(plugin.message != null);
+// ```
 get_plugin :: () -> *Metaprogram_Plugin {
     state := New(Codex_State);
     state.owner = context.allocator;

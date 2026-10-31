@@ -1,3 +1,4 @@
+// Counters for the whole allocator, as returned by `global_statistics`.
 Global_Statistics :: struct {
     mapped: s64;
     mapped_peak: s64;
@@ -8,6 +9,7 @@ Global_Statistics :: struct {
     unmapped_total: s64;
 }
 
+// Counters for one heap, as returned by `heap_statistics`.
 Heap_Statistics :: struct {
     sizecache: s64;
     spancache: s64;

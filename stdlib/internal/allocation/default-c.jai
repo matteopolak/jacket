@@ -1,3 +1,10 @@
+// The allocator procedure, backed by the C runtime's `malloc`. It handles `.ALLOCATE`, `.RESIZE` and `.FREE`, and returns null when memory runs out.
+//
+// ```jai
+// memory := cast(*u8) allocator_proc(.ALLOCATE, 8, 0, null, null);
+// memory[0] = 1;
+// allocator_proc(.FREE, 0, 8, memory, null);
+// ```
 allocator_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, allocator_data: *void) -> *void {
     if mode == .ALLOCATE {
         return obtain_contents(size, PREFIX);
@@ -28,7 +35,7 @@ allocator_proc :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *
     return null;
 }
 
-// The C allocator has no worker-owned inherited lock to reset after fork.
+// Does nothing here; the C allocator has no lock to reset after a `fork`.
 unsafe_reset :: inline () {}
 
 #scope_file
