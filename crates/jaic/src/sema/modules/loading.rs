@@ -28,7 +28,11 @@ impl Compiler {
             let file = crate::source::SourceFile::with_lines(path.into(), text, lines);
             return Ok(self.src.sources.add_file(file));
         }
-        let text: Rc<str> = String::from_utf8_lossy(&bytes).into();
+        // `from_utf8` checks a word at a time; the lossy form walks every byte.
+        let text: Rc<str> = match std::str::from_utf8(&bytes) {
+            Ok(text) => text.into(),
+            Err(_) => String::from_utf8_lossy(&bytes).into(),
+        };
         let file = self.src.sources.add(path, text);
         let source = self.src.sources.get(file);
         self.ed
