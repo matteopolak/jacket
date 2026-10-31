@@ -1,18 +1,18 @@
-// Iprof: a frame profiler with a text report and an optional overlay.
+// A frame profiler with a text report and an optional overlay.
 //
-// As a metaprogram plugin (`+Iprof`) it adds zones to your procedures for you. Manual mode
-// (`MANUAL_MODE = true`) leaves that to you: you name the zones and open and close each one.
+// As a metaprogram plugin (`+Iprof`) it adds zones to your procedures for you. In manual mode
+// (`MANUAL_MODE = true`) you name the zones and open and close each one yourself:
 //
-// 1. Import the module as a client in manual mode. Pass `USE_GRAPHICS = false` if you do not want the overlay.
+// 1. Import the module as a client in manual mode. Pass `USE_GRAPHICS = false` to leave out the overlay.
 // 2. Call `Prof_init_highlevel()` once.
 // 3. Give each zone a slot in `zones` (up to `MAX_PROFILING_ZONES_FOR_MANUAL_MODE`): set its `name` and
 //    `initted = true`. A zone that is not initted is refused at run time and left out of reports.
-// 4. Wrap the code with `zone_begin(index)` and `zone_end()`. Zones nest, and a zone may nest in itself.
+// 4. Wrap the code in `zone_begin(index)` and `zone_end()`. Zones nest, and a zone may nest in itself.
 // 5. Call `update(true)` once per frame. It closes the frame and files the times away.
 // 6. Read the result with `create_report()`, then `log_text_report(report)` or `save_csv_report(report, path)`.
 //
-// The zones, the open-zone stack and the history are globals of the process, so zones cannot be
-// opened from several threads, such as a job system's workers.
+// Zones, the open-zone stack and the history are process globals, so zones cannot be opened from
+// several threads.
 //
 // ```jai,skip_on(wasm)
 // #import "Iprof"(IMPORT_MODE = .CLIENT, MANUAL_MODE = true, USE_GRAPHICS = false, DO_HISTORY = false);
@@ -40,12 +40,15 @@
 //     log_text_report(report);
 // }
 // ```
+
 #module_parameters(IMPORT_MODE := Import_Mode.METAPROGRAM, MANUAL_MODE := false, USE_GRAPHICS := true, DO_HISTORY := true);
 
 #scope_module
 Profile_Context :: #import "internal/developer-tools/profiling/context";
 #scope_export
 
+// How the module is imported. `METAPROGRAM` makes it a plugin that instruments your code; `CLIENT`
+// pulls the profiling runtime into the program.
 Import_Mode :: enum u8 {
     METAPROGRAM :: 0;
     CLIENT :: 1;
@@ -56,6 +59,8 @@ NUM_TITLE :: 2;
 NUM_HEADER :: NUM_VALUES + 1;
 NUM_FRAME_SLOTS :: 128;
 
+// What a report shows for each zone: time spent in the zone itself, time including its callees, call
+// counts, or the call graph.
 Report_Mode :: enum u8 {
     SELF_TIME;
     HIERARCHICAL_TIME;
@@ -63,6 +68,7 @@ Report_Mode :: enum u8 {
     CALL_GRAPH;
 }
 
+// The table `create_report` builds: a title, column headers and one `Report_Row` per zone.
 Report :: struct {
     title: string;
     title_right: string;
@@ -72,6 +78,7 @@ Report :: struct {
     hilight: s64;
 }
 
+// One zone's line in a report: its name, self and hierarchical time in seconds, and its call count.
 Report_Row :: struct {
     indent: s64;
     name: string;
@@ -86,16 +93,19 @@ Report_Row :: struct {
     zone: *Zone;
 }
 
+// Where a zone came from in the source, as the plugin records it.
 Zone_Info :: struct {
     name: string;
     load: *Iprof_Compiler.Message_File;
     line: s64;
 }
 
+// The last `NUM_FRAME_SLOTS` values of one zone quantity, for the overlay's graph.
 #if DO_HISTORY Zone_History :: struct {
     values: [NUM_FRAME_SLOTS] float32;
 }
 
+// A named piece of code to time. In manual mode, fill `name` and set `initted` in a slot of `zones`.
 Zone :: struct {
     name: string;
     hash: u64;

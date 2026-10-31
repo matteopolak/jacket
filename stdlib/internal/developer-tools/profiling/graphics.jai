@@ -1,3 +1,6 @@
+// How the overlay draws: the callbacks that draw text, rectangles and lines, the sizes of the font,
+// and the colours. Fill in `draw_text`, `text_width` and `draw_rectangle` at least; the others have
+// do-nothing defaults.
 Config :: struct {
     line_spacing: s32 = 8;
     font_character_height: s32 = 8;
@@ -29,17 +32,20 @@ Config :: struct {
     user_data: *void;
 }
 
+// Tells the overlay where the mouse is, so it can highlight the row under it.
 set_cursor_screen_coordinates :: (x: s32, y: s32) {
     profile_mouse_x = x;
     profile_mouse_y = y;
     profile_mouse_valid = true;
 }
 
+// The graph scale in use for the current report mode.
 get_current_graph_scaling :: () -> *Graph_Scaling {
     if displayed_quantity == .SELF_TIME return *profile_self_scaling;
     return *profile_hier_scaling;
 }
 
+// Shows the frame the mouse is over in the graph.
 graph_select_sample :: () {
     if current_graph_window_selected_sample < 0 || current_graph_window_selected_sample >= NUM_FRAME_SLOTS return;
 
@@ -50,6 +56,21 @@ graph_select_sample :: () {
     if zone_under_cursor displayed_quantity = .CALL_GRAPH;
 }
 
+// Draws the report as an overlay with its top left corner at `x, y`, using the callbacks in `config`.
+// Call it every frame after `update`.
+//
+// ```jai,no_run
+// #import "Math";
+// #import "Iprof"(IMPORT_MODE = .CLIENT, MANUAL_MODE = true, DO_HISTORY = true);
+//
+// config: Config;
+// config.draw_text = (x: float, y: float, text: string, color: Vector4) { /* draw with your renderer */ };
+// config.text_width = (text: string) -> float { return 8.0 * text.count; };
+// config.draw_rectangle = (x0: float, y0: float, x1: float, y1: float, color: Vector4) { /* ... */ };
+//
+// update(true);
+// draw(10, 10, 400, 300, *config);
+// ```
 draw :: (x: float, y: float, full_width: float, requested_height: float, config: *Config) {
     prior_runtime_guard := Profile_Context.set_active(true);
 
@@ -99,6 +120,7 @@ draw :: (x: float, y: float, full_width: float, requested_height: float, config:
     }
 }
 
+// Draws the history graph of the selected zone inside the given rectangle.
 draw_graph :: (sx: float, sy: float, requested_width: float, requested_height: float, config: *Config) {
     prior_runtime_guard := Profile_Context.set_active(true);
 

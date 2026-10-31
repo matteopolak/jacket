@@ -1,3 +1,4 @@
+// Calls `func` on every node of the call tree.
 traverse :: (func: (z: *Zone_Profiling_Data)) {
     prior_runtime_guard := Profile_Context.set_active(true);
 

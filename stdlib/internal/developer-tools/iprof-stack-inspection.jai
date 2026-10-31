@@ -1,3 +1,4 @@
+// The smoothed self time, hierarchical time and call count of one zone in the call tree.
 Profile_Tracker_Data_Record :: struct {
     self_time: History_Scalar;
     hierarchical_time: History_Scalar;
@@ -5,6 +6,7 @@ Profile_Tracker_Data_Record :: struct {
     max_recursion: s64;
 }
 
+// The running totals of one zone in one place of the call tree (the same zone under another parent is a separate node).
 Zone_Profiling_Data :: struct {
     t_self_start: s64;
     total_self_ticks: s64;
@@ -16,6 +18,7 @@ Zone_Profiling_Data :: struct {
     profile_tracker_data_record: *Profile_Tracker_Data_Record;
 }
 
+// How many times `zone` already appears on the open-zone stack above `stack`.
 count_recursion_depth :: (stack: *Zone_Profiling_Data, zone: *Zone) -> s32 {
     if !zone return 0;
 

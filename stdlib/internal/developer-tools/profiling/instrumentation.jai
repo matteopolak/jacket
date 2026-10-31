@@ -1,5 +1,6 @@
 HELP_STRING :: "Iprof: -csv <filename>, -min_size <integer> (default 30), -modules\n";
 
+// Creates the metaprogram plugin that `+Iprof` loads.
 get_plugin :: () -> *Metaprogram_Plugin {
     state := New(Profile_Plugin_State);
     state.owner = context.allocator;
@@ -14,6 +15,7 @@ get_plugin :: () -> *Metaprogram_Plugin {
     return *state.base;
 }
 
+// Reads the plugin options (`-csv`, `-min_size`, `-modules`) and prepares the plugin.
 init :: (p: *Metaprogram_Plugin, options: [] string) -> bool {
     state := cast(*Profile_Plugin_State) p;
 
@@ -77,10 +79,12 @@ init :: (p: *Metaprogram_Plugin, options: [] string) -> bool {
     return true;
 }
 
+// Asks the compiler to send procedure bodies to the plugin.
 before_intercept :: (p: *Metaprogram_Plugin, flags: *Intercept_Flags) {
     flags.* &= ~(.SKIP_EXPRESSIONS_WITHOUT_NOTES | .SKIP_PROCEDURE_HEADERS | .SKIP_PROCEDURE_BODIES);
 }
 
+// Adds the profiling runtime to the program being compiled.
 add_source :: (p: *Metaprogram_Plugin) {
     state := cast(*Profile_Plugin_State) p;
     builder: String_Builder;
@@ -105,6 +109,7 @@ add_source :: (p: *Metaprogram_Plugin) {
     add_build_string(source, p.workspace, message = cast(*Message) null);
 }
 
+// Handles one compiler message: instruments the procedure bodies that are big enough.
 message :: (p: *Metaprogram_Plugin, message: *Message) {
     state := cast(*Profile_Plugin_State) p;
 
@@ -189,6 +194,7 @@ message :: (p: *Metaprogram_Plugin, message: *Message) {
     }
 }
 
+// Adds a call to the user's hook next to Iprof's own at a point in the program's life.
 add_hook :: (w: Workspace, iprof_hook_name: string, iprof_hook_args: string, user_hook_name: string, user_hook_args: string) {
     builder: String_Builder;
 
@@ -218,8 +224,10 @@ add_hook :: (w: Workspace, iprof_hook_name: string, iprof_hook_args: string, use
     add_build_string(source, w, message = cast(*Message) null);
 }
 
+// Does nothing; the work happens in `message` and `shutdown`.
 finish :: (p: *Metaprogram_Plugin) {}
 
+// Adds the final report code to the program once the compile is over.
 shutdown :: (p: *Metaprogram_Plugin) {
     state := cast(*Profile_Plugin_State) p;
 
@@ -240,6 +248,7 @@ shutdown :: (p: *Metaprogram_Plugin) {
     free(state);
 }
 
+// Prints the plugin's options.
 log_help :: (p: *Metaprogram_Plugin) {
     log("%", HELP_STRING);
 }

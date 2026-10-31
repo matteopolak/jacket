@@ -1,3 +1,4 @@
+// The vertical scale the overlay's graphs are drawn at, and how fast it eases toward a new target.
 #if USE_GRAPHICS Graph_Scaling :: struct {
     target: s64;
     current: float;
@@ -6,6 +7,7 @@
     SCALE_MAX :: 16;
 }
 
+// Where a graph sits on screen: origin and size.
 GraphLocation :: struct {
     x0, y0: float;
     sx, sy: float;
@@ -39,6 +41,16 @@ update_index: s64;
 zone_infos: [..] Zone_Info;
 zone_under_cursor: *Zone;
 
+// Picks what the report and overlay show for each zone.
+//
+// ```jai,skip_on(wasm)
+// #import "Iprof"(IMPORT_MODE = .CLIENT, MANUAL_MODE = true, USE_GRAPHICS = false, DO_HISTORY = false);
+//
+// main :: () {
+//     set_report_mode(.HIERARCHICAL_TIME);
+//     assert(displayed_quantity == .HIERARCHICAL_TIME);
+// }
+// ```
 set_report_mode :: (desired: Report_Mode) {
     displayed_quantity = desired;
 }

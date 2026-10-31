@@ -1,3 +1,4 @@
+// How uneven a value is over time, from 0 (steady) to 1 (jumpy), as its spread relative to its mean.
 compute_heat :: (variance: float64, value: float64) -> float64 {
     prior_runtime_guard := Profile_Context.set_active(true);
 
@@ -13,6 +14,7 @@ compute_heat :: (variance: float64, value: float64) -> float64 {
     return min(cast(float64) 1, ratio);
 }
 
+// Orders two rows by one of the report's columns, largest first, then by name.
 report_compare_slot :: (p: Report_Row, q: Report_Row, slot: s64) -> s64 {
     assert(slot >= 0 && slot < NUM_VALUES);
     a := ifx slot == 3 then p.heat else p.array_aliased_values[slot];
@@ -31,6 +33,7 @@ report_compare_slot :: (p: Report_Row, q: Report_Row, slot: s64) -> s64 {
     return 0;
 }
 
+// Orders rows of the expanded call graph view.
 report_expand_compare :: (a: Report_Row, b: Report_Row) -> s64 {
     a_group := profile_row_group(a);
     b_group := profile_row_group(b);
@@ -44,6 +47,7 @@ report_expand_compare :: (a: Report_Row, b: Report_Row) -> s64 {
     return ifx a.hier_time > b.hier_time then -1 else 1;
 }
 
+// Adds a node's figures into its zone's row of the report.
 propagate_to_zone :: (c: *Zone_Profiling_Data) {
     assert(c != null && c.zone != null);
     if !c.profile_tracker_data_record || !c.zone.highlevel return;
@@ -56,6 +60,7 @@ propagate_to_zone :: (c: *Zone_Profiling_Data) {
     row.heat = max(row.heat, compute_heat(tracker.self_time.variances[clamp(slot, cast(s64) 0, cast(s64) NUM_SMOOTHING_SLOTS - 1)], get_value(*tracker.self_time)));
 }
 
+// Adds a node's figures into the rows of the expanded call graph view.
 propagate_expanded :: (c: *Zone_Profiling_Data) {
     assert(c != null);
     profile_add_graph(c);
@@ -65,6 +70,23 @@ propagate_expanded :: (c: *Zone_Profiling_Data) {
 // `Report_Mode`. The report lives in temporary storage, so print or save it before the next
 // `reset_temporary_storage`. Rows of zones that were never called, or never `initted` in manual
 // mode, are left out when printed.
+//
+// ```jai,skip_on(wasm)
+// #import "Iprof"(IMPORT_MODE = .CLIENT, MANUAL_MODE = true, USE_GRAPHICS = false, DO_HISTORY = false);
+//
+// main :: () {
+//     Prof_init_highlevel();
+//     zones[0].name = "work";
+//     zones[0].initted = true;
+//     zone_begin(0);
+//     zone_end();
+//     update(true);
+//
+//     report := create_report();
+//     assert(report.records.count == 1);
+//     assert(report.records[0].name == "work");
+// }
+// ```
 create_report :: () -> *Report {
     prior_runtime_guard := Profile_Context.set_active(true);
 
@@ -169,26 +191,31 @@ create_report :: () -> *Report {
     return profile_report;
 }
 
+// Moves the overlay's highlighted row to row `num`.
 set_cursor :: (num: s64) {
     cursor = num;
 }
 
+// Moves the highlighted row by `num` rows. The cursor is clamped when the report is built.
 move_cursor :: (num: s64) {
     if num > 0 && cursor > 0x7fffffffffffffff - num cursor = 0x7fffffffffffffff;
     else if num < 0 && cursor < (-0x7fffffffffffffff - 1) - num cursor = -0x7fffffffffffffff - 1;
     else cursor += num;
 }
 
+// Shows the frame `num` frames back in the history, clamped to the history's length.
 set_frame :: (num: s64) {
     display_frame = clamp(num, cast(s64) 0, cast(s64) NUM_FRAME_SLOTS - 1);
 }
 
+// Steps the shown frame by `delta`: positive goes forward in time, negative back.
 move_frame :: (delta: s64) {
     if delta < -NUM_FRAME_SLOTS set_frame(NUM_FRAME_SLOTS - 1);
     else if delta > NUM_FRAME_SLOTS set_frame(0);
     else set_frame(display_frame - delta);
 }
 
+// Opens the call graph of the zone under the cursor.
 select :: () {
     if !profile_report || profile_report.records.count == 0 return;
     index := max(cast(s64) 0, min(cursor, profile_report.records.count - 1));
@@ -196,6 +223,7 @@ select :: () {
     displayed_quantity = .CALL_GRAPH;
 }
 
+// Moves the selection to the parent of the selected zone in the call graph.
 select_parent :: () {
     if !profile_report return;
 

@@ -15,6 +15,7 @@ zone_hash_mask: u64 = 0;
 timestamps_to_seconds: float64;
 integer_timestamps_per_second: History_Scalar;
 
+// Starts the clock and the zone tables. Everything that needs them calls it first, so calling it yourself is optional.
 init_runtime :: () {
     prior_runtime_guard := Profile_Context.set_active(true);
 
@@ -48,6 +49,7 @@ init_runtime :: () {
     profile_ready = true;
 }
 
+// Opens a zone and returns its node in the call tree.
 Stack_Push :: (zone: *Zone) -> *Zone_Profiling_Data {
     return profile_push(zone, null);
 }
@@ -55,21 +57,51 @@ Stack_Push :: (zone: *Zone) -> *Zone_Profiling_Data {
 // Opens the zone in slot `zone_index` of `zones` (manual mode). Close it with `zone_end()`. The
 // slot needs a `name` and `initted = true` first. Time until the matching `zone_end` counts
 // toward the zone, and toward its parent for the hierarchical time.
+//
+// ```jai,skip_on(wasm)
+// #import "Iprof"(IMPORT_MODE = .CLIENT, MANUAL_MODE = true, USE_GRAPHICS = false, DO_HISTORY = false);
+//
+// main :: () {
+//     zones[0].name = "work";
+//     zones[0].initted = true;
+//     zone_begin(0);
+//     // ... the code to time ...
+//     zone_end();
+// }
+// ```
 zone_begin :: inline (zone_index: s64) #expand {
     profile_zone_begin(zone_index);
 }
 
 // Closes the zone most recently opened with `zone_begin`. Calling it with no zone open fails an
 // assert.
+//
+// ```jai,skip_on(wasm)
+// #import "Iprof"(IMPORT_MODE = .CLIENT, MANUAL_MODE = true, USE_GRAPHICS = false, DO_HISTORY = false);
+//
+// main :: () {
+//     zones[0].name = "outer";
+//     zones[0].initted = true;
+//     zones[1].name = "inner";
+//     zones[1].initted = true;
+//
+//     zone_begin(0);
+//     zone_begin(1);
+//     zone_end();  // closes "inner"
+//     zone_end();  // closes "outer"
+// }
+// ```
 zone_end :: inline () {
     profile_zone_end();
 }
 
+// The hash-table key of a zone under a given parent.
 hash :: (z: *Zone, s: *Zone_Profiling_Data) -> u64 #no_aoc {
     assert(z != null);
     return z.hash + cast(u64) s;
 }
 
+// Makes a call tree node for `zone` under `parent`.
 createStackNode :: (zone: *Zone, parent: *Zone_Profiling_Data) -> *Zone_Profiling_Data {
     prior_runtime_guard := Profile_Context.set_active(true);
 
@@ -93,6 +125,7 @@ createStackNode :: (zone: *Zone, parent: *Zone_Profiling_Data) -> *Zone_Profilin
     return node;
 }
 
+// Adds a node to the zone hash table, growing the table when it is half full.
 insert_node :: (q: *Zone_Profiling_Data) #no_aoc {
     prior_runtime_guard := Profile_Context.set_active(true);
 
@@ -105,6 +138,7 @@ insert_node :: (q: *Zone_Profiling_Data) #no_aoc {
     profile_insert_slot(q);
 }
 
+// Resets the zone hash table to `size` slots, which must be a power of two. It fails while a zone is open.
 init_zone_hash :: (size: s64) {
     prior_runtime_guard := Profile_Context.set_active(true);
 

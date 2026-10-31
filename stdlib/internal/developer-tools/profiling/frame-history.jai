@@ -2,6 +2,15 @@ SPEEDSTEP_DETECTION_RATIO: float64 = 0.08;
 
 // Sets up the frame history and the report state. Call it once before the first `update`.
 // `update` and `create_report` call it too, so calling it twice is fine.
+//
+// ```jai,skip_on(wasm)
+// #import "Iprof"(IMPORT_MODE = .CLIENT, MANUAL_MODE = true, USE_GRAPHICS = false, DO_HISTORY = false);
+//
+// main :: () {
+//     Prof_init_highlevel();
+//     Prof_init_highlevel();  // calling it again does nothing
+// }
+// ```
 Prof_init_highlevel :: () {
     prior_runtime_guard := Profile_Context.set_active(true);
 
@@ -17,6 +26,7 @@ Prof_init_highlevel :: () {
     profile_highlevel_ready = true;
 }
 
+// Folds `new_value` into a smoothed value, one factor per smoothing speed.
 update :: (using s: *History_Scalar, new_value: float64, k_array: [] float64) {
     assert(s != null && k_array.count == NUM_SMOOTHING_SLOTS);
 
@@ -29,6 +39,7 @@ update :: (using s: *History_Scalar, new_value: float64, k_array: [] float64) {
     #if DO_HISTORY s.history[history_index] = cast(float) new_value;
 }
 
+// Sets every smoothing speed of a value at once, so it starts at `new_value` instead of easing in.
 eternity_set :: (using s: *History_Scalar, new_value: float64) {
     assert(s != null);
     for *value: s.values value.* = new_value;
@@ -36,6 +47,7 @@ eternity_set :: (using s: *History_Scalar, new_value: float64) {
     #if DO_HISTORY s.history[history_index] = cast(float) new_value;
 }
 
+// Zeroes a node's totals for the next frame.
 clear_stack :: (using c: *Zone_Profiling_Data) {
     assert(c != null);
     c.total_self_ticks = 0;
@@ -43,11 +55,13 @@ clear_stack :: (using c: *Zone_Profiling_Data) {
     c.total_entry_count = 0;
 }
 
+// Adds a node's self time to the frame total.
 sum_times :: (c: *Zone_Profiling_Data) {
     assert(c != null && c.total_self_ticks >= 0);
     prof_sum += c.total_self_ticks;
 }
 
+// Files a node's totals for the frame into its smoothed history.
 update_history :: (c: *Zone_Profiling_Data) {
     assert(c != null && c.zone != null);
 
@@ -73,6 +87,7 @@ update_history :: (c: *Zone_Profiling_Data) {
     tracker.max_recursion = max(tracker.max_recursion, cast(s64) c.recursion_depth);
 }
 
+// Adds a node's self time to the hierarchical time of each ancestor, counting a recursive zone once.
 propagate_stack :: (c: *Zone_Profiling_Data) {
     assert(c != null);
     ancestor := c;
@@ -99,6 +114,23 @@ propagate_stack :: (c: *Zone_Profiling_Data) {
 // The frame's times are filed in the history and the counters start again at zero, so the
 // report then shows this frame and the smoothed past. With `record_data` false the clocks are
 // read but the history is left alone, as when a frame should not count (a paused game).
+//
+// ```jai,skip_on(wasm)
+// #import "Iprof"(IMPORT_MODE = .CLIENT, MANUAL_MODE = true, USE_GRAPHICS = false, DO_HISTORY = false);
+//
+// main :: () {
+//     Prof_init_highlevel();
+//     zones[0].name = "frame";
+//     zones[0].initted = true;
+//
+//     for 1..5 {
+//         zone_begin(0);
+//         zone_end();
+//         update(true);
+//     }
+//     assert(create_report().records.count == 1);
+// }
+// ```
 update :: (record_data: bool) {
     prior_runtime_guard := Profile_Context.set_active(true);
 

@@ -1,6 +1,20 @@
 // Logs a report as text: a title line, a header, then one line per zone with its self time and
 // hierarchical time in milliseconds, its call count and its heat. Rows below `min_self_time`
 // or `min_hier_time` (milliseconds, 0 for all) are skipped.
+//
+// ```jai,skip_on(wasm)
+// #import "Iprof"(IMPORT_MODE = .CLIENT, MANUAL_MODE = true, USE_GRAPHICS = false, DO_HISTORY = false);
+//
+// main :: () {
+//     Prof_init_highlevel();
+//     zones[0].name = "work";
+//     zones[0].initted = true;
+//     zone_begin(0);
+//     zone_end();
+//     update(true);
+//     log_text_report(create_report());
+// }
+// ```
 log_text_report :: (report: *Report, min_self_time := 0., min_hier_time := 0.) {
     prior_runtime_guard := Profile_Context.set_active(true);
 
@@ -40,6 +54,20 @@ log_text_report :: (report: *Report, min_self_time := 0., min_hier_time := 0.) {
 
 // Writes a report to `filename` as CSV: the command line, then `name,self (ms),hier (ms),calls`
 // per zone. A name with a quote or a comma is quoted. A failed write logs an error.
+//
+// ```jai,no_run
+// #import "Iprof"(IMPORT_MODE = .CLIENT, MANUAL_MODE = true, USE_GRAPHICS = false, DO_HISTORY = false);
+//
+// main :: () {
+//     Prof_init_highlevel();
+//     zones[0].name = "work";
+//     zones[0].initted = true;
+//     zone_begin(0);
+//     zone_end();
+//     update(true);
+//     save_csv_report(create_report(), "profile.csv");
+// }
+// ```
 save_csv_report :: (report: *Report, filename: string) {
     prior_runtime_guard := Profile_Context.set_active(true);
 

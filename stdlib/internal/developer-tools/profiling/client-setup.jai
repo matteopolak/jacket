@@ -1,3 +1,4 @@
+// Starts the profiling runtime at the top of `main`.
 Prepend_To_Main :: () #expand {
     init_runtime();
 }
