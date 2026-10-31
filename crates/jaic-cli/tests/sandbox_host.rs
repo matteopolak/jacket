@@ -86,3 +86,51 @@ fn wasm_interp_passes_program_arguments() {
     );
     assert_eq!(String::from_utf8_lossy(&output.stdout), "[a][b c]3\n");
 }
+
+/// A listener named by `JAIC_TCPLISTEN` becomes descriptor 3 of an `-interp -os wasm` run, and
+/// the program echoes a message over the connection it accepts the way a WASI program does with
+/// `sock_accept`, `sock_recv`, `sock_send` and `sock_shutdown`.
+#[test]
+fn sandbox_serves_a_preopened_listener() {
+    use std::io::{Read, Write};
+    use std::net::{Shutdown, TcpListener, TcpStream};
+
+    let port = TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port();
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/compiler/semantics/sandbox-sockets.jai");
+    let child = Command::new(JAIC)
+        .arg("-interp")
+        .arg(&path)
+        .args(["-os", "wasm"])
+        .env("JAIC_TCPLISTEN", format!("127.0.0.1:{port}"))
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    // The listener exists before the program is compiled, so a connection waits for `accept`.
+    let mut stream = None;
+    for _ in 0..200 {
+        match TcpStream::connect(("127.0.0.1", port)) {
+            Ok(connected) => {
+                stream = Some(connected);
+                break;
+            }
+            Err(_) => std::thread::sleep(std::time::Duration::from_millis(50)),
+        }
+    }
+    let mut stream = stream.expect("the listener never came up");
+    let _ = stream.write_all(b"copper");
+    let _ = stream.shutdown(Shutdown::Write);
+    let mut reply = String::new();
+    let read = stream.read_to_string(&mut reply);
+    let output = child.wait_with_output().unwrap();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "{stderr}");
+    read.unwrap();
+    assert_eq!(reply, "echo: copper");
+    assert_eq!(String::from_utf8_lossy(&output.stdout), "ok\n", "{stderr}");
+}

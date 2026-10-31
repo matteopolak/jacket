@@ -27,6 +27,7 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `JAIC_SANITIZER_CC` | The C driver that links a build made with a sanitizer. | the `clang` of the LLVM jaic was built with, else `cc` | jaic |
 | `JAIC_STDLIB` | The standard library directory. `jacket test` also hands it to every `jaic` it starts. | the `stdlib/` next to the executable, else the checkout's | jaic, jacket, jailint, jailsp, tests |
 | `JAIC_SYM_SCRAMBLE` | A seed that spreads the interner's symbol numbers apart, so output that depends on them rather than spellings changes (`tools/differential/determinism.py`). | unset | jaic |
+| `JAIC_TCPLISTEN` | Comma-separated `host:port` addresses a `-interp -os wasm` run listens on. Each becomes a pre-opened socket the program accepts connections from, numbered 3, 4, ... in order, and `LISTEN_FDS` holds how many there are (the convention of wasmtime's `--tcplisten`). | unset: a `-interp -os wasm` run has no sockets | jaic |
 | `JAIC_WASM_LD` | The `wasm-ld` that links WebAssembly output. | `wasm-ld` next to the build's LLVM, an LLD install, then `PATH` | jaic |
 
 ## Set by one tool for another

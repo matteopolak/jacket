@@ -23,6 +23,7 @@ mod memory;
 mod numeric;
 mod objc;
 mod process;
+mod sockets;
 mod stdin;
 mod streams;
 mod symbols;
@@ -253,6 +254,10 @@ pub struct SandboxHost {
     fs: SandboxFs,
     cwd: String,
     fds: HashMap<i64, OpenFile>,
+    /// Pre-opened listeners and the connections they accepted, by descriptor (`-os wasm` runs).
+    sockets: HashMap<i64, sockets::Socket>,
+    /// Variables the program sees whatever `real_environment` says (`LISTEN_FDS`).
+    extra_environment: HashMap<String, String>,
     next_fd: i64,
     /// `FILE*` handle address -> descriptor.
     streams: HashMap<u64, i64>,
@@ -581,6 +586,7 @@ impl Host for SandboxHost {
             .or_else(|| self.memory_call(fun, arg))
             .or_else(|| self.time_call(fun, arg))
             .or_else(|| self.numeric_call(fun, arg))
+            .or_else(|| self.socket_call(fun, arg))
             .or_else(|| self.file_call(fun, arg))
             .or_else(|| self.dir_call(fun, arg))
             .or_else(|| self.stream_call(fun, arg))

@@ -79,12 +79,16 @@ impl SandboxHost {
     /// `getenv`: unset unless the embedder allows the real environment (read-only, so asking
     /// twice gives the same answer while the variable is unchanged).
     fn getenv(&mut self, name: u64) -> u64 {
-        if !self.real_environment {
-            return 0;
-        }
         let name = super::cstr(name);
-        let Some(value) = jacket_config::env::for_program(&name) else {
-            return 0;
+        let value = match self.extra_environment.get(&name) {
+            Some(value) => value.clone(),
+            None if self.real_environment => {
+                let Some(value) = jacket_config::env::for_program(&name) else {
+                    return 0;
+                };
+                value
+            }
+            None => return 0,
         };
         let key = (name, value);
         if let Some(&text) = self.environment_texts.get(&key) {

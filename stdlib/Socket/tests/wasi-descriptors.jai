@@ -1,4 +1,4 @@
-// test: only(.WASM, mode = .NATIVE)
+// test: only(.WASM)
 // A descriptor the host did not pre-open as a socket is refused by the four calls WASI has for sockets, with -1 and an error.
 #import "Basic";
 S :: #import "Socket";

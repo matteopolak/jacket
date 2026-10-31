@@ -79,6 +79,21 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         &cwd.to_string_lossy(),
     )));
     let sandbox = (options.os == TargetOs::Wasm).then(|| shared_sandbox.clone());
+    if cli.mode == Mode::Interp
+        && sandbox.is_some()
+        && let Some(listen) = jacket_config::env::TCP_LISTEN.non_empty()
+    {
+        let addresses: Vec<String> = listen
+            .to_string_lossy()
+            .split(',')
+            .map(|address| address.trim().to_string())
+            .filter(|address| !address.is_empty())
+            .collect();
+        if let Err(message) = shared_sandbox.borrow_mut().preopen_listeners(&addresses) {
+            print_error(&message);
+            return ExitCode::from(1);
+        }
+    }
     let workspaces = create_workspaces(&cli, &options, &fs, &shared_sandbox);
     // jaic exits right after: tearing down the syntax trees and the program takes about a tenth
     // of a large check, and nothing observes it. After `-interp` the program's threads are left

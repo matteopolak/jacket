@@ -171,6 +171,11 @@ vars! {
         default: "no limit",
         summary: "Stop with exit status 120 once this much memory is allocated: bytes, or a number with a `K`, `M` or `G` suffix. Child processes inherit it.",
     }
+    TCP_LISTEN {
+        name: "JAIC_TCPLISTEN", group: Settings, readers: [Jaic],
+        default: "unset: a `-interp -os wasm` run has no sockets",
+        summary: "Comma-separated `host:port` addresses a `-interp -os wasm` run listens on. Each becomes a pre-opened socket the program accepts connections from, numbered 3, 4, ... in order, and `LISTEN_FDS` holds how many there are (the convention of wasmtime's `--tcplisten`).",
+    }
     DIAGNOSTICS {
         name: "JAIC_DIAGNOSTICS", group: Settings, readers: [Jaic, Jailint],
         default: "by terminal: `unicode` or `ascii` on one, `plain` otherwise",
