@@ -200,10 +200,11 @@ mod tests {
     use super::*;
 
     fn library(files: &[(&str, &str)]) -> PathBuf {
+        static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         let dir = std::env::temp_dir().join(format!(
             "jaic-doc-comments-{}-{}",
             std::process::id(),
-            files.len()
+            NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         ));
         let _ = std::fs::remove_dir_all(&dir);
         for (name, text) in files {
