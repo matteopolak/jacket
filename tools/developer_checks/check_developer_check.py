@@ -78,7 +78,7 @@ def main():
         run([executable], expected="ok\n")
     rejected = run([jaic, ROOT / "tests/compiler/rejections/check-binding-types.jai",
                     "-check", "-I", output_dir()], code=1)
-    if (rejected.stderr.count("error: Check:") != 12 or "assertion failed" in rejected.stderr
+    if (len(re.findall(r"error(?:\[[a-z0-9-]+\])?: Check:", rejected.stderr)) != 12 or "assertion failed" in rejected.stderr
             or "encoded foreign return type" not in rejected.stderr):
         raise RuntimeError("Expected twelve genuine continuable binding diagnostics and false results")
     stats_source = ROOT / "stdlib/Bindings_Generator/tests/driven/check-binding-stats.jai"

@@ -63,7 +63,7 @@ OUTPUT_VARIES = {
 # those primitives (the Bindings_Generator's libclang bridge, for one) exist only inside the compiler.
 # A compile warning (with its source line, note and help) in a host backend's stderr: the wasm engine
 # reports warnings as diagnostics, not as program output, so they are left out of the comparison.
-COMPILE_WARNING = re.compile(r"^\S+:\d+:\d+: warning: .*(?:\n(?!\n).*)*(?:\n\n|\n?\Z)", re.MULTILINE)
+COMPILE_WARNING = re.compile(r"^\S+:\d+:\d+: warning(?:\[[a-z0-9-]+\])?: .*(?:\n(?!\n).*)*(?:\n\n|\n?\Z)", re.MULTILINE)
 COMPILE_TIME_ONLY = "is a compiler primitive; it runs only at compile time"
 
 
