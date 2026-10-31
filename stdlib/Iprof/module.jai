@@ -14,7 +14,7 @@
 // The zones, the open-zone stack and the history are globals of the process, so zones cannot be
 // opened from several threads, such as a job system's workers.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // #import "Iprof"(IMPORT_MODE = .CLIENT, MANUAL_MODE = true, USE_GRAPHICS = false, DO_HISTORY = false);
 //
 // ZONE_FRAME :: 0;
