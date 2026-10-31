@@ -17,6 +17,18 @@ Channel :: struct(T: Type) {
 
 // A channel that holds up to `capacity` values, made with `context.allocator`.
 //
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     channel := Io.make_channel(int, 2);
+//     defer Io.free_channel(channel);
+//
+//     Io.send(channel, 1);
+//     value, error := Io.recv(channel);
+//     assert(error == .NONE && value == 1);
+// });
+// ```
 // - capacity: how many values it holds before `send` blocks. 0 makes a send wait for a receive.
 make_channel :: ($T: Type, capacity := 0) -> *Channel(T) {
     assert(capacity >= 0, "Io: a channel's capacity cannot be negative");
@@ -39,6 +51,20 @@ free_channel :: (channel: *Channel($T)) {
 
 // Puts `value` into the channel, blocking while it is full. `.CLOSED` if the channel is (or becomes)
 // closed, `.CANCELED` if the fiber is canceled while it waits.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     channel := Io.make_channel(string, 1);
+//     defer Io.free_channel(channel);
+//
+//     assert(Io.send(channel, "first") == .NONE);
+//
+//     Io.close(channel);
+//     assert(Io.send(channel, "second") == .CLOSED);
+// });
+// ```
 send :: (channel: *Channel($T), value: T) -> Io_Error {
     fiber, scheduler := current_fiber();
     if fiber.canceled return .CANCELED;
@@ -64,6 +90,18 @@ send :: (channel: *Channel($T), value: T) -> Io_Error {
 }
 
 // A `send` that gives up instead of blocking: whether the value was taken.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     channel := Io.make_channel(int, 1);
+//     defer Io.free_channel(channel);
+//
+//     assert(Io.try_send(channel, 1));
+//     assert(!Io.try_send(channel, 2)); // full
+// });
+// ```
 try_send :: (channel: *Channel($T), value: T) -> bool {
     if channel.closed return false;
     if hand_to_receiver(channel, value) return true;
@@ -77,6 +115,20 @@ try_send :: (channel: *Channel($T), value: T) -> bool {
 
 // Takes the oldest value, blocking while the channel is empty. `.CLOSED` once it is closed and
 // drained, `.CANCELED` if the fiber is canceled while it waits.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     channel := Io.make_channel(int, 1);
+//     defer Io.free_channel(channel);
+//
+//     Io.spawn((c: *Io.Channel(int)) { Io.send(c, 7); }, channel);
+//
+//     value, error := Io.recv(channel); // waits for the spawned fiber
+//     assert(error == .NONE && value == 7);
+// });
+// ```
 recv :: (channel: *Channel($T)) -> T, Io_Error {
     result: T;
     fiber, scheduler := current_fiber();
@@ -97,6 +149,22 @@ recv :: (channel: *Channel($T)) -> T, Io_Error {
 }
 
 // A `recv` that gives up instead of blocking: the value and whether there was one.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     channel := Io.make_channel(int, 1);
+//     defer Io.free_channel(channel);
+//
+//     _, found := Io.try_recv(channel);
+//     assert(!found);
+//
+//     Io.send(channel, 5);
+//     value, found2 := Io.try_recv(channel);
+//     assert(found2 && value == 5);
+// });
+// ```
 try_recv :: (channel: *Channel($T)) -> T, bool {
     result: T;
     found := take_ready(channel, *result);
@@ -106,6 +174,24 @@ try_recv :: (channel: *Channel($T)) -> T, bool {
 
 // No more values will be sent. Fibers waiting to send get `.CLOSED`; receivers get what is
 // buffered, then `.CLOSED`.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     channel := Io.make_channel(int, 2);
+//     defer Io.free_channel(channel);
+//
+//     Io.send(channel, 1);
+//     Io.close(channel);
+//
+//     value, error := Io.recv(channel);  // what was buffered still arrives
+//     assert(error == .NONE && value == 1);
+//
+//     _, error = Io.recv(channel);
+//     assert(error == .CLOSED);
+// });
+// ```
 close :: (channel: *Channel($T)) {
     if channel.closed return;
 
@@ -127,11 +213,30 @@ close :: (channel: *Channel($T)) {
 } @FreesArgument
 
 // Waits for a number of tasks, as many as were `add`ed and have not yet been `done`.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     group: Io.Wait_Group;
+//
+//     for 1..3 {
+//         Io.add(*group);
+//         Io.spawn((group: *Io.Wait_Group) {
+//             Io.sleep(1);
+//             Io.done(group);
+//         }, *group);
+//     }
+//
+//     assert(Io.wait(*group) == .NONE); // returns once all three are done
+// });
+// ```
 Wait_Group :: struct {
     count: s64;
     waiters: Waiter;
 }
 
+// Adds `count` tasks to wait for.
 add :: (group: *Wait_Group, count := 1) {
     group.count += count;
     assert(group.count >= 0, "Io: a Wait_Group's count went negative");
@@ -139,6 +244,7 @@ add :: (group: *Wait_Group, count := 1) {
     if group.count == 0 wake_all(*group.waiters);
 }
 
+// Marks one task finished.
 done :: (group: *Wait_Group) {
     add(group, -1);
 }
@@ -162,6 +268,19 @@ Fiber_Mutex :: struct {
     waiters: Waiter;
 }
 
+// Takes the lock, waiting for whoever holds it. Pair it with [unlock].
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     mutex: Io.Fiber_Mutex;
+//
+//     assert(Io.lock(*mutex) == .NONE);
+//     Io.sleep(1);               // safe to wait while holding it
+//     Io.unlock(*mutex);
+// });
+// ```
 lock :: (mutex: *Fiber_Mutex) -> Io_Error {
     fiber, scheduler := current_fiber();
     if fiber.canceled return .CANCELED;
@@ -178,6 +297,16 @@ lock :: (mutex: *Fiber_Mutex) -> Io_Error {
     return wait_on(scheduler, fiber, *mutex.waiters, *waiter);
 } @Locks
 
+// Takes the lock if it is free, without waiting; returns whether it did.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// mutex: Io.Fiber_Mutex;
+// assert(Io.try_lock(*mutex));
+// assert(!Io.try_lock(*mutex));
+// Io.unlock(*mutex);
+// ```
 try_lock :: (mutex: *Fiber_Mutex) -> bool {
     if mutex.locked return false;
 
@@ -186,6 +315,7 @@ try_lock :: (mutex: *Fiber_Mutex) -> bool {
     return true;
 }
 
+// Releases the lock, handing it to the fiber that has waited longest.
 unlock :: (mutex: *Fiber_Mutex) {
     assert(mutex.locked, "Io: unlock of a Fiber_Mutex that is not locked");
 
@@ -251,6 +381,18 @@ wait :: (condition: *Condition) -> Io_Error {
 }
 
 // Wakes the fiber that has waited longest, if any.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     changed: Io.Condition;
+//
+//     Io.spawn((changed: *Io.Condition) { Io.notify_one(changed); }, *changed);
+//
+//     assert(Io.wait(*changed) == .NONE); // the spawned fiber notifies
+// });
+// ```
 notify_one :: (condition: *Condition) {
     waiter := waiter_pop(*condition.waiters);
     if !waiter return;
@@ -259,6 +401,7 @@ notify_one :: (condition: *Condition) {
     wake(waiter.fiber);
 }
 
+// Wakes every fiber waiting on the condition.
 notify_all :: (condition: *Condition) {
     while !waiters_empty(*condition.waiters) notify_one(condition);
 }

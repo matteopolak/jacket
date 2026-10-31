@@ -49,6 +49,22 @@ Pipe_Link :: struct {
 
 // Two connected ends. What one writes the other reads. `close` both when done (they free
 // themselves once both are closed).
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     client, server := Io.make_pipe();
+//     defer Io.close(client);
+//     defer Io.close(server);
+//
+//     Io.write(client, "ping");
+//
+//     buffer: [8] u8;
+//     count, error := Io.read(server, buffer);
+//     assert(error == .NONE && string.{ count, buffer.data } == "ping");
+// });
+// ```
 make_pipe :: () -> *Pipe_Stream, *Pipe_Stream {
     link := New(Pipe_Link);
 
@@ -170,6 +186,23 @@ write :: (stream: *Pipe_Stream, text: string) -> s64, Io_Error {
 }
 
 // This end will send nothing more: the other end reads what was sent, then 0.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     client, server := Io.make_pipe();
+//     defer Io.close(client);
+//     defer Io.close(server);
+//
+//     Io.write(client, "bye");
+//     Io.shutdown_write(client);
+//
+//     data, _ := Io.read_all(Io.reader_of(server));
+//     assert(cast(string) data == "bye");
+//     free(data.data);
+// });
+// ```
 shutdown_write :: (stream: *Pipe_Stream) -> Io_Error {
     if stream.closed return .CLOSED;
 

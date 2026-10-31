@@ -2,8 +2,14 @@
 // killing it in the middle of a response. POSIX only: Windows has no signals to catch here, and
 // `interrupted` stays false.
 //
-//     catch_interrupts();
-//     while !interrupted() sleep(100);
+// ```jai,no_run
+// Io :: #import "Extensions/Io";
+//
+// Io.catch_interrupts();
+// Io.io_run(() {
+//     while !Io.interrupted() Io.sleep(100);
+// });
+// ```
 
 #scope_export
 
@@ -24,6 +30,16 @@ catch_interrupts :: () {
 }
 
 // True once SIGINT or SIGTERM arrived after `catch_interrupts`, or `request_interrupt` ran.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.clear_interrupt();
+// assert(!Io.interrupted());
+// Io.request_interrupt();
+// assert(Io.interrupted());
+// Io.clear_interrupt();
+// ```
 interrupted :: () -> bool {
     return atomic_load(*interrupt_flag) != 0;
 }

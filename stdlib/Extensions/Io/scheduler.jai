@@ -155,11 +155,10 @@ Scheduler :: struct {
 
 // Runs `proc` as the first fiber of a new scheduler on this thread and returns when it has
 // returned. Fibers it started that are still alive then are canceled, and run until they end.
-//
-// Runs `proc` as the first fiber of a new scheduler on this thread and returns when it has returned. Fibers it started that
-// are still alive then are canceled, and run until they end. Everything that waits (`sleep`, `accept`, `read`, channels) runs
-// inside it, and only the calling fiber waits, never the thread. The scheduler's memory is released when the call returns; the
-// caller keeps what `proc` allocated. Do not call it from inside another `io_run` on the same thread.
+// Everything that waits (`sleep`, `accept`, `read`, channels) runs inside it, and only the calling
+// fiber waits, never the thread. The scheduler's memory is released when the call returns; the
+// caller keeps what `proc` allocated. Do not call it from inside another `io_run` on the same
+// thread.
 //
 // ```jai,skip_on(wasm)
 // Io :: #import "Extensions/Io";
@@ -180,18 +179,21 @@ io_run :: (proc: $P) {
 }
 
 // The `io_run` for a procedure that takes one argument: `data` is copied and handed to `proc`.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run((n: int) { assert(n == 3); }, 3);
+// ```
 io_run :: (proc: $P, data: $T) {
     run_scheduler(spawn_block(proc, data));
 }
 
-// Starts `proc` as a new fiber on the current scheduler; it first runs when the caller blocks or
-// yields. It gets a copy of the caller's `context` (with temporary storage of its own) and
-// `data` is copied for it.
-//
-// Starts `proc` as a new fiber on the current scheduler and returns its handle. It first runs when the calling fiber blocks or
-// yields, and not at all if the scheduler ends first. The new fiber starts with a copy of the caller's `context` and temporary
-// storage of its own. Fibers share one OS thread, so they can use shared data without locks as long as they do not block in
-// the middle of updating it.
+// Starts `proc` as a new fiber on the current scheduler and returns its handle. It first runs when
+// the calling fiber blocks or yields, and not at all if the scheduler ends first. The new fiber
+// starts with a copy of the caller's `context` and temporary storage of its own. Fibers share one
+// OS thread, so they can use shared data without locks as long as they do not block in the middle
+// of updating it.
 //
 // ```jai,skip_on(wasm)
 // Io :: #import "Extensions/Io";
@@ -212,13 +214,26 @@ spawn :: (proc: $P) -> Fiber_Handle {
     return start_fiber(current_scheduler(), spawn_block(proc));
 }
 
-// The `spawn` for a procedure that takes one argument: `data` is copied for the new fiber, so a pointer in it must stay valid
-// until the fiber is done with it.
+// The `spawn` for a procedure that takes one argument: `data` is copied for the new fiber, so a
+// pointer in it must stay valid until the fiber is done with it.
 spawn :: (proc: $P, data: $T) -> Fiber_Handle {
     return start_fiber(current_scheduler(), spawn_block(proc, data));
 }
 
 // Lets the other ready fibers run first. `.CANCELED` if this fiber was canceled.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     log: [..] int;
+//     Io.spawn((out: *[..] int) { array_add(out, 2); }, *log);
+//     array_add(*log, 1);
+//     Io.yield();            // the spawned fiber runs now
+//     array_add(*log, 3);
+//     assert(log[0] == 1 && log[1] == 2 && log[2] == 3);
+// });
+// ```
 yield :: () -> Io_Error {
     fiber, scheduler := current_fiber();
     if fiber.canceled return .CANCELED;
@@ -232,6 +247,15 @@ yield :: () -> Io_Error {
 
 // Blocks this fiber, not the thread, for at least `milliseconds`. Ends early with `.TIMED_OUT`
 // when a `with_deadline` limit comes first.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     error := Io.sleep(5);
+//     assert(error == .NONE);
+// });
+// ```
 sleep :: (milliseconds: s64) -> Io_Error {
     fiber, scheduler := current_fiber();
     if fiber.canceled return .CANCELED;
@@ -252,6 +276,20 @@ sleep :: (milliseconds: s64) -> Io_Error {
 
 // Makes the blocking calls of `fiber` return `.CANCELED`, now and from now on. The call it is
 // blocked in, if any, returns at once. Does nothing for a fiber that has ended.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     sleeper := Io.spawn(() {
+//         error := Io.sleep(60_000);
+//         assert(error == .CANCELED);
+//     });
+//
+//     Io.yield();             // let it start sleeping
+//     Io.cancel(sleeper);
+// });
+// ```
 cancel :: (handle: Fiber_Handle) {
     fiber := handle.fiber;
     if !fiber || fiber.generation != handle.generation || fiber.state == .FREE || fiber.state == .DEAD return;
@@ -261,6 +299,14 @@ cancel :: (handle: Fiber_Handle) {
 }
 
 // Whether the running fiber was canceled, for loops that do not block.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     assert(!Io.is_canceled());
+// });
+// ```
 is_canceled :: () -> bool {
     fiber := current_fiber();
 
@@ -268,6 +314,13 @@ is_canceled :: () -> bool {
 }
 
 // Whether the calling code runs on a fiber of a scheduler, that is inside `io_run`.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// assert(!Io.in_scheduler());
+// Io.io_run(() { assert(Io.in_scheduler()); });
+// ```
 in_scheduler :: () -> bool {
     scheduler := context.io_scheduler;
 
@@ -275,6 +328,15 @@ in_scheduler :: () -> bool {
 }
 
 // The handle of the running fiber.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     me := Io.current();
+//     assert(me.fiber != null);
+// });
+// ```
 current :: () -> Fiber_Handle {
     fiber := current_fiber();
 

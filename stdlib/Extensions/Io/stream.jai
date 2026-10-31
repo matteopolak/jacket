@@ -97,6 +97,21 @@ Writer :: struct {
 // Reading
 
 // Waits for bytes and reads what is there, up to `buffer.count`. 0 means the end of the source.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     near, far := Io.make_pipe();
+//     defer Io.close(near);
+//     defer Io.close(far);
+//     Io.write(Io.writer_of(far), "hello");
+//
+//     buffer: [16] u8;
+//     count, error := Io.read(Io.reader_of(near), buffer);
+//     assert(error == .NONE && string.{ count, buffer.data } == "hello");
+// });
+// ```
 read :: (reader: Reader, buffer: [] u8) -> s64, Io_Error {
     if buffer.count == 0 return 0, .NONE;
     if !reader.read_proc return 0, .UNSUPPORTED;
@@ -136,6 +151,26 @@ can_wait_readable :: (reader: Reader) -> bool {
 }
 
 // Reads until `buffer` is full. `.END_OF_FILE` if the source ended first, with the bytes read.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     near, far := Io.make_pipe();
+//     defer Io.close(near);
+//     defer Io.close(far);
+//     Io.write(Io.writer_of(far), "abcdef");
+//     Io.shutdown_write(far);
+//
+//     head: [4] u8;
+//     count, error := Io.read_full(Io.reader_of(near), head);
+//     assert(error == .NONE && count == 4);
+//
+//     tail: [4] u8;
+//     count, error = Io.read_full(Io.reader_of(near), tail);
+//     assert(error == .END_OF_FILE && count == 2);
+// });
+// ```
 read_full :: (reader: Reader, buffer: [] u8) -> s64, Io_Error {
     total := 0;
 
@@ -153,6 +188,22 @@ read_full :: (reader: Reader, buffer: [] u8) -> s64, Io_Error {
 // Reads to the end of the source into memory from `context.allocator` (free it with `free`).
 // `size_hint` is the expected length, when it is known. On any error the bytes read so far are
 // freed.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     near, far := Io.make_pipe();
+//     defer Io.close(near);
+//     defer Io.close(far);
+//     Io.write(Io.writer_of(far), "everything");
+//     Io.shutdown_write(far);
+//
+//     data, error := Io.read_all(Io.reader_of(near));
+//     assert(error == .NONE && cast(string) data == "everything");
+//     free(data.data);
+// });
+// ```
 read_all :: (reader: Reader, size_hint := 0) -> [] u8, Io_Error {
     capacity := max(size_hint + 1, 4096);
 
@@ -183,7 +234,20 @@ read_all :: (reader: Reader, size_hint := 0) -> [] u8, Io_Error {
 
 // Writing
 
-// Sends at least one byte of `data` (unless it is empty) and returns how many.
+// Sends at least one byte of `data` (unless it is empty) and returns how many. Use [write] to
+// send everything.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     near, far := Io.make_pipe();
+//     defer Io.close(near);
+//     defer Io.close(far);
+//     count, error := Io.write_some(Io.writer_of(far), u8.[1, 2, 3]);
+//     assert(error == .NONE && count > 0);
+// });
+// ```
 write_some :: (writer: Writer, data: [] u8) -> s64, Io_Error {
     if data.count == 0 return 0, .NONE;
     if !writer.write_proc return 0, .UNSUPPORTED;
@@ -192,6 +256,18 @@ write_some :: (writer: Writer, data: [] u8) -> s64, Io_Error {
 }
 
 // Sends all of `data`, waiting as often as it takes. On an error it returns how many bytes went out.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     near, far := Io.make_pipe();
+//     defer Io.close(near);
+//     defer Io.close(far);
+//     count, error := Io.write(Io.writer_of(far), "hello");
+//     assert(error == .NONE && count == 5);
+// });
+// ```
 write :: (writer: Writer, data: [] u8) -> s64, Io_Error {
     total := 0;
 
@@ -216,6 +292,16 @@ write :: (writer: Writer, text: string) -> s64, Io_Error {
 // Closes the source behind a reader. With `now`, nothing waits: use it where the code cannot
 // block (a `Local_Drop`); fibers still waiting on the source are not woken, so prefer the plain
 // call unless the scheduler is ending.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     near, far := Io.make_pipe();
+//     Io.close(Io.reader_of(near));
+//     Io.close(far);
+// });
+// ```
 close :: (reader: Reader, now := false) -> Io_Error {
     if !reader.close_proc return .NONE;
 
@@ -233,12 +319,48 @@ close :: (writer: Writer, now := false) -> Io_Error {
 // The built-in sources
 
 // The file as a `Reader`. Reading advances the file's position. The reader points at the `Io_File`, which must outlive it.
+//
+// ```jai,only(linux, macos)
+// Io :: #import "Extensions/Io";
+// #import "File";
+//
+// path := "/tmp/jacket-io-reader-of.txt";
+// Io.io_run(() {
+//     Io.write_file("/tmp/jacket-io-reader-of.txt", "hello");
+//
+//     file, _ := Io.open_file("/tmp/jacket-io-reader-of.txt");
+//     defer Io.close(*file);
+//
+//     data, error := Io.read_all(Io.reader_of(*file));
+//     assert(error == .NONE && cast(string) data == "hello");
+//     free(data.data);
+// });
+// file_delete(path);
+// ```
 reader_of :: (file: *Io_File) -> Reader {
     return .{ file, file_read_proc, file_close_proc, null };
 }
 
 // The TCP stream as a `Reader`; it can `wait_readable`. The reader carries the socket handle, so closing the reader closes the
 // stream.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     listener, _ := Io.tcp_listen("127.0.0.1:0");
+//     defer Io.close(listener);
+//
+//     address, _ := Io.local_address(listener);
+//     client, _ := Io.connect(address);
+//     server, _ := Io.accept(listener);
+//
+//     assert(Io.can_wait_readable(Io.reader_of(server)));
+//
+//     Io.close(client);
+//     Io.close(server);
+// });
+// ```
 reader_of :: (stream: Tcp_Stream) -> Reader {
     return .{ cast(*void) stream.handle.fd, tcp_read_proc, tcp_close_proc, tcp_wait_proc };
 }
@@ -249,6 +371,21 @@ reader_of :: (stream: *Pipe_Stream) -> Reader {
 }
 
 // The file as a `Writer`. Writing advances the file's position. The writer points at the `Io_File`, which must outlive it.
+//
+// ```jai,only(linux, macos)
+// Io :: #import "Extensions/Io";
+// #import "File";
+//
+// path := "/tmp/jacket-io-writer-of.txt";
+// Io.io_run(() {
+//     file, _ := Io.open_file("/tmp/jacket-io-writer-of.txt", .WRITE);
+//     defer Io.close(*file);
+//
+//     count, error := Io.write(Io.writer_of(*file), "hello");
+//     assert(error == .NONE && count == 5);
+// });
+// file_delete(path);
+// ```
 writer_of :: (file: *Io_File) -> Writer {
     return .{ file, file_write_proc, file_close_proc };
 }
@@ -284,6 +421,21 @@ writer_of :: (stream: Tcp_Stream) -> Writer {
 }
 
 // One end of a pipe from `make_pipe` as a `Writer`. The writer points at the pipe end, which must outlive it.
+//
+// ```jai,skip_on(wasm)
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     near, far := Io.make_pipe();
+//     defer Io.close(near);
+//     defer Io.close(far);
+//     Io.write(Io.writer_of(far), "ping");
+//
+//     buffer: [8] u8;
+//     count, _ := Io.read(Io.reader_of(near), buffer);
+//     assert(string.{ count, buffer.data } == "ping");
+// });
+// ```
 writer_of :: (stream: *Pipe_Stream) -> Writer {
     return .{ stream, pipe_write_proc, pipe_close_proc };
 }
