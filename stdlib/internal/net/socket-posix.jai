@@ -1,5 +1,10 @@
-// A socket handle: the file descriptor (`s32`) on Unix. Windows uses Winsock's unsigned pointer-sized `SOCKET`. Compare a
-// handle against `INVALID_SOCKET`, never against a number.
+// A socket handle: an `s32` file descriptor here, Winsock's `SOCKET` on Windows. Compare against
+// `INVALID_SOCKET`, never a number.
+//
+// ```jai,skip_on(wasm)
+// s: Socket = INVALID_SOCKET;
+// assert(s == INVALID_SOCKET);
+// ```
 Socket :: s32;
 INVALID_SOCKET: Socket : -1;
 SOCKET_ERROR :: -1;

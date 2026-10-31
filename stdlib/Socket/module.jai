@@ -1,20 +1,17 @@
-// The system's network sockets (Berkeley sockets on Unix, Winsock on Windows) for TCP, UDP and Unix-domain use.
+// Network sockets for TCP, UDP and Unix-domain use: Berkeley sockets on Unix, Winsock on Windows.
 //
-// The module exposes the native calls (`socket`, `bind`, `listen`, `connect`, `send`, `recv`, `select`, ...) with their
-// native signatures, and a small set of portable helpers around them: `socket_init`, `set_blocking`, `set_keepalive`,
-// `close_and_reset`, the `accept` and `bind` overloads, `FD_SET` and its siblings, and `to_string` for addresses. For
-// HTTP, TLS or an event loop use `Extensions/Http`, `Extensions/Tls` and `Extensions/Io` instead.
+// The native calls (`socket`, `bind`, `listen`, `connect`, `send`, `recv`, `select`, ...) keep their
+// system signatures. Around them are portable helpers: `socket_init`, `set_blocking`, `set_keepalive`,
+// `close_and_reset`, `bind` and `accept` overloads that take a text address, `FD_SET` and friends,
+// and `to_string` for addresses. For HTTP, TLS or an event loop use `Extensions/Http`,
+// `Extensions/Tls` and `Extensions/Io`.
 //
-// Calls report failure the way the system does: -1 (or `INVALID_SOCKET`) and an error code from
-// `get_last_socket_error()`. Nothing here allocates except the `to_string` calls, which use `context.allocator`.
-// A socket is owned by whoever created or accepted it and is released with `close_and_reset`. Sockets start blocking;
-// `set_blocking(s, false)` makes `recv`, `send`, `accept` and `connect` return at once with `SOCKET_WOULDBLOCK`, and
-// reads and writes may then transfer fewer bytes than requested. Addresses go through `sockaddr_in` (IPv4) and
-// `sockaddr_in6` (IPv6); ports in these records are in network order (`htons`) while the helper `bind` overloads take host order.
-// Windows needs `socket_init` before the first call, and the descriptor-set and control-message helpers differ by
-// platform (`CMSG_*` exist on Unix only).
-// Under WASI only `accept`, `recv`, `send` and `shutdown` on a socket the host pre-opened work; the calls that would create or set up a
-// socket return -1 with `ENOSYS`.
+// A call fails the way the system's does: it returns -1 (or `INVALID_SOCKET`) and
+// `get_last_socket_error()` has the code. Close every socket you create or accept with
+// `close_and_reset`. Sockets start blocking; after `set_blocking(s, false)`, calls return at once with
+// `SOCKET_WOULDBLOCK` and reads and writes may move fewer bytes than asked. Call `socket_init` first on
+// Windows. Ports in `sockaddr_in` are in network order (`htons`); the `bind` helpers take host order.
+// `to_string` allocates with `context.allocator`.
 //
 // ```jai,skip_on(wasm)
 // assert(socket_init());
