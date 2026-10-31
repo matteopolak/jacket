@@ -57,7 +57,7 @@ Sizes come from the same lexer `tools/jaistats.py` uses: `info.source` holds fil
 
 | Bucket | jaic phases |
 | --- | --- |
-| front end | `front end` minus `interp` |
+| front end | `front end` plus `workspaces` (the other workspaces a metaprogram checks after its own front end), minus `interp` |
 | compile-time execution | `interp` plus `run` (the program itself under `-interp`) |
 | codegen | `prepare output` + `codegen` + `debug info` |
 | link | `link` |

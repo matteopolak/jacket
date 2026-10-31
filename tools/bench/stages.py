@@ -33,7 +33,8 @@ class JaicTimings:
     `front end` wraps parsing, checking and (for a metaprogram) everything the metaprogram builds, and
     `interp` is the time compile-time code ran, which overlaps it. So the front end bucket is
     `front end - interp`, and compile-time execution is `interp + run` (`run` is the program itself under
-    `-interp`). The backend phases (`prepare output`, `codegen`, `debug info`) are codegen. For a
+    `-interp`). `workspaces` is the time a metaprogram's other workspaces took after its own front end, which
+    for a check is checking them, so it counts with the front end. The backend phases (`prepare output`, `codegen`, `debug info`) are codegen. For a
     metaprogram that builds workspaces, backend time is also inside its `front end` and `interp` phases, so
     buckets may add up to more than the total; `other` never goes negative."""
 
@@ -45,7 +46,7 @@ class JaicTimings:
             return {}
         interp = phases.get('interp', 0.0)
         stages = {
-            Bucket.FRONT_END: max(0.0, phases.get('front end', 0.0) - interp),
+            Bucket.FRONT_END: max(0.0, phases.get('front end', 0.0) + phases.get('workspaces', 0.0) - interp),
             Bucket.COMPILE_TIME: interp + phases.get('run', 0.0),
             Bucket.CODEGEN: sum(phases.get(name, 0.0) for name in self.CODEGEN_PHASES),
             Bucket.LINK: phases.get('link', 0.0),

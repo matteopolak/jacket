@@ -18,12 +18,19 @@ jaic-timing: interp 1.0 12
 class JaicTimingTests(unittest.TestCase):
     def test_phases_map_to_buckets(self):
         stages = JaicTimings().parse(JAIC)
-        self.assertAlmostEqual(stages[Bucket.FRONT_END], 2.0)       # front end minus the interpreter
+        self.assertAlmostEqual(stages[Bucket.FRONT_END], 2.01)      # front end and workspaces, minus the interpreter
         self.assertAlmostEqual(stages[Bucket.COMPILE_TIME], 1.0)    # interp
         self.assertAlmostEqual(stages[Bucket.CODEGEN], 0.65)        # prepare output + codegen + debug info
         self.assertAlmostEqual(stages[Bucket.LINK], 0.25)
         self.assertAlmostEqual(stages[Bucket.TOTAL], 4.1)
-        self.assertAlmostEqual(stages[Bucket.OTHER], 4.1 - 2.0 - 1.0 - 0.65 - 0.25)
+        self.assertAlmostEqual(stages[Bucket.OTHER], 4.1 - 2.01 - 1.0 - 0.65 - 0.25)
+
+    def test_a_check_of_a_build_program_counts_its_workspaces_as_front_end(self):
+        # build.jai checks eight example programs in workspaces of their own after its own small front end.
+        stages = JaicTimings().parse('jaic-timing: front end 0.045 1\njaic-timing: workspaces 0.66 1\n'
+                                     'jaic-timing: total 0.71 1\njaic-timing: interp 0.17 2096\n')
+        self.assertAlmostEqual(stages[Bucket.FRONT_END], 0.535)
+        self.assertAlmostEqual(stages[Bucket.OTHER], 0.005)
 
     def test_the_program_run_under_interp_is_compile_time_execution(self):
         stages = JaicTimings().parse('jaic-timing: front end 0.1 1\njaic-timing: run 2.0 1\n'
