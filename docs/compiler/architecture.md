@@ -48,9 +48,34 @@ The split does not speed up those three binaries, because each links the whole c
 
 ### Threading
 
-The compiler proper is single-threaded. The exceptions: `parse_ahead.rs` runs the lexer and parser for the files a compile will load on a few worker threads, ahead of sema ([compile speed](compile-speed.md#parallel-lex-and-parse)); codegen runs one thread per unit; the interpreter has its own threads for `#run` code. Type checking is not parallel.
+The compiler proper is single-threaded. The exceptions: `parse_ahead.rs` runs the lexer and parser for the files a compile will load on a few worker threads, ahead of sema ([compile speed](compile-speed.md#parallel-lex-and-parse)); codegen runs one thread per unit; the interpreter has its own threads for `#run` code. Type checking is not parallel yet ([below](#parallel-front-end)).
 
 The symbol interner (`intern.rs`) is shared by every thread: a worker interns as it parses, and a `Sym` means the same spelling on any thread, including threads a `#run` starts. Symbol numbers therefore follow thread timing; nothing visible may depend on them (sort by spelling, `tools/differential/determinism.py --scramble` checks it). `AstId`s (`ast.rs`) are process-wide too: each thread takes blocks of 256 from one atomic counter, so their numbers also follow thread timing and nothing visible may depend on their order. File ids come from sema's load order, so a worker parses with a placeholder file and `ast::relocate` rewrites the spans when sema claims the tree. Any new field in the syntax tree that holds a `Span` or `Ident` must also be visited in `ast/relocate.rs`; `parse_ahead`'s test fails otherwise.
+
+### Parallel front end
+
+Work is split between one driver thread, which owns `Compiler` and everything order-sensitive (the interpreter and `#run` order, metaprogram messages, diagnostics and their order, polymorph instance caches, record and IR numbering), and workers that run pure functions of a frozen snapshot. Workers never write shared tables. Each returns its result keyed by a stable id, and the driver merges results in the order the serial path would have produced them, so ids are assigned at merge time and `-threads N` gives the same output as `-threads 1`. When a worker needs something only the driver may do (a new polymorph instance, a `#run`, a name not resolved yet, a table still being written), it stops that body and hands it back; the driver then runs it through the ordinary serial path. Any doubt means falling back, never guessing. The full protocol, with its cost model, is in [parallel type checking](parallel-sema.md).
+
+What runs on workers today: parsing ahead of sema (`parse_ahead.rs`, dedicated threads) and, on the shared pool (`pool.rs`, sized by `-threads`), body scans for stack-trace instrumentation, code generation units and `jailint`'s file checks. Checking a body and lowering it to IR are one pass (`FnCtx` is filled while expressions are checked), so there is no finished-bodies-to-IR step to hand to workers on its own; body checking is the unit that has to move, and it needs the world/per-body split described in the design before it can. The editor hooks checking calls are behind the `Recorder` trait (`ide/recorder.rs`, implemented by `Editor`), so a worker can later be given a recorder that buffers events for the driver to replay in order.
+
+Wall and CPU seconds of `-check` at each `-threads` value (Apple M5, 10 cores, median of 7, `tools/bench/main.py compile`; CPU is user plus system). Checking itself is one thread, so what differs is the pool's size and run-to-run noise:
+
+| Workload | Threads | Wall s | CPU s |
+| --- | ---: | ---: | ---: |
+| gen-60k | 1 | 0.148 | 0.139 |
+| gen-60k | 2 | 0.148 | 0.153 |
+| gen-60k | 4 | 0.133 | 0.193 |
+| gen-60k | 8 | 0.141 | 0.250 |
+| focus | 1 | 0.709 | 0.697 |
+| focus | 2 | 0.697 | 0.744 |
+| focus | 4 | 0.695 | 0.865 |
+| focus | 8 | 0.691 | 0.938 |
+| forbear | 1 | 0.176 | 0.170 |
+| forbear | 2 | 0.167 | 0.200 |
+| forbear | 4 | 0.156 | 0.227 |
+| forbear | 8 | 0.159 | 0.263 |
+
+CPU rises with the pool size and wall barely moves, because the front end (0.12 s of gen-60k, 0.62 s of focus) is one thread.
 
 ## How to change it
 
