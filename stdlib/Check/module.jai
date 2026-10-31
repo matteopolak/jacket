@@ -1,5 +1,20 @@
+// A build plugin that catches mistakes common in code ported from C: fixed arrays used as pointers, and small integers added without a cast. With `CHECK_BINDINGS` (the default) it also checks each `#elsewhere` procedure against the library that provides it.
+//
+// Turn it on from the command line with `+Check`, or add [get_plugin]'s result to a workspace yourself. Pass `-no_check_bindings` to skip the binding checks.
+//
+// ```jai,no_run
+// plugin := get_plugin();
+// assert(plugin.message != null);
+// ```
+
 #module_parameters(CHECK_BINDINGS := true);
 
+// Returns the checking plugin. Every call returns the same object, with only its `message` procedure set; set `workspace` before forwarding messages to it.
+//
+// ```jai,no_run
+// plugin := get_plugin();
+// assert(plugin == get_plugin());
+// ```
 get_plugin :: () -> *Metaprogram_Plugin {
     plugin.message = Engine.do_error_checking;
     plugin.init = null;

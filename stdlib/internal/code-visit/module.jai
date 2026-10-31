@@ -1,3 +1,20 @@
+// Appends the direct children of `node` to `pointers`, in source order.
+//
+// A procedure header does not list its body.
+//
+// ```jai
+// Compiler :: #import "Compiler";
+// left := Compiler.make_integer_literal(13);
+// right := Compiler.make_integer_literal(29);
+// sum: Compiler.Code_Binary_Operator;
+// sum.kind = .BINARY_OPERATOR;
+// sum.left = left;
+// sum.right = right;
+//
+// children: [..] *Compiler.Code_Node;
+// get_subexpressions(*sum, *children);
+// assert(children.count == 2 && children[0] == cast(*Compiler.Code_Node) left);
+// ```
 get_subexpressions :: (node: *C.Code_Node, pointers: *[..] *C.Code_Node) {
     if !node return;
 
@@ -171,6 +188,15 @@ get_subexpressions :: (node: *C.Code_Node, pointers: *[..] *C.Code_Node) {
     }
 }
 
+// Appends `node` and everything below it to `pointers`, one level at a time. Each node is added once.
+//
+// ```jai
+// Compiler :: #import "Compiler";
+// n := Compiler.make_integer_literal(7);
+// all: [..] *Compiler.Code_Node;
+// get_recursive_nodes_breadth_first(cast(*Compiler.Code_Node) n, *all);
+// assert(all.count == 1);
+// ```
 get_recursive_nodes_breadth_first :: (node: *C.Code_Node, pointers: *[..] *C.Code_Node) {
     queue: [..] *C.Code_Node;
 
@@ -189,6 +215,15 @@ get_recursive_nodes_breadth_first :: (node: *C.Code_Node, pointers: *[..] *C.Cod
     Basic.array_free(queue);
 }
 
+// Like [get_recursive_nodes_breadth_first], but follows each child's subtree to the end before moving to the next child.
+//
+// ```jai
+// Compiler :: #import "Compiler";
+// n := Compiler.make_integer_literal(7);
+// all: [..] *Compiler.Code_Node;
+// get_recursive_nodes_depth_first(cast(*Compiler.Code_Node) n, *all);
+// assert(all.count == 1);
+// ```
 get_recursive_nodes_depth_first :: (node: *C.Code_Node, pointers: *[..] *C.Code_Node) {
     stack: [..] *C.Code_Node;
     children: [..] *C.Code_Node;
@@ -209,6 +244,17 @@ get_recursive_nodes_depth_first :: (node: *C.Code_Node, pointers: *[..] *C.Code_
     Basic.array_free(stack);
 }
 
+// Walks `node` depth first and appends a `Dumb_Value` when it enters each node (`preorder` true) and again when it leaves (`preorder` false).
+//
+// Use it when you need to know where a subtree ends, for example to track nesting.
+//
+// ```jai
+// Compiler :: #import "Compiler";
+// n := Compiler.make_integer_literal(7);
+// events: [..] Dumb_Value;
+// get_values(cast(*Compiler.Code_Node) n, *events);
+// assert(events.count == 2 && events[0].preorder && !events[1].preorder);
+// ```
 get_values :: (node: *C.Code_Node, values: *[..] V.Dumb_Value) {
     stack: [..] V.Dumb_Value;
     seen: [..] *C.Code_Node;
