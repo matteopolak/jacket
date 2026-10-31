@@ -1,4 +1,9 @@
-// Version and extension discovery operate on the caller's current GL context.
+// Splits a version macro name such as `GL_VERSION_3_3` into major and minor. Returns 0, 0 if the text isn't one.
+//
+// ```jai
+// major, minor := gl_parse_version("GL_VERSION_4_5");
+// assert(major == 4 && minor == 5);
+// ```
 gl_parse_version :: (version: string) -> major: s32, minor: s32 {
     text := Native.terminated_copy(version);
 
@@ -9,15 +14,34 @@ gl_parse_version :: (version: string) -> major: s32, minor: s32 {
     return major, minor;
 }
 
+// The OpenGL version of the current context, as major and minor.
+//
+// ```jai,no_run
+// major, minor := gl_get_version();
+// if major < 3 print("OpenGL 3 is required\n");
+// ```
 gl_get_version :: () -> major: s32, minor: s32 {
     return binding_query_version(*gl);
 }
 
+// Whether the current context offers the named extension.
+//
+// ```jai,no_run
+// if gl_supports_extension("GL_ARB_debug_output") gl_enable_debug_output();
+// ```
 gl_supports_extension :: (ext: string) -> bool {
     major := gl_get_version();
     return binding_supports_extension(*gl, ext, major);
 }
 
+// Fills `procs` with the context's function pointers. `gl_create_context` calls it for you; call it
+// yourself only when you made the context some other way. `GetProcAddress` looks a name up; the
+// default uses the platform's own loader.
+//
+// ```jai,no_run
+// procs: GL_Procedures;
+// gl_load(*procs);
+// ```
 gl_load :: (procs: *GL_Procedures, GetProcAddress: GetProcAddressFunction = null) {
     major, minor := binding_query_version(procs);
     if major == 0 return;
@@ -109,6 +133,12 @@ _glGetAttribLocation :: (program: GLuint, $$name: string) -> GLint {
     return gl.glGetAttribLocation(program, text);
 }
 
+// Gives a GL object a name that debuggers and error messages show.
+//
+// ```jai,no_run
+// texture: GLuint;
+// gl_label_object(GL_TEXTURE, texture, "player sprite");
+// ```
 gl_label_object :: (identifier: GLenum, name: GLuint, label: string) {
     if label.count > 0x7fff_ffff binding_abort();
     gl.glObjectLabel(identifier, name, cast(GLsizei) label.count, label.data);
@@ -216,6 +246,12 @@ DumpProgramInfoLog :: (program: GLuint, name: string) {
     }
 }
 
+// Logs the driver's debug messages through the context logger. With `break_on_error`, an error stops
+// the program at the call that caused it. Does nothing when the driver has no debug output.
+//
+// ```jai,no_run
+// gl_enable_debug_output(break_on_error = true);
+// ```
 gl_enable_debug_output :: (break_on_error: bool = false) {
     Set :: #type (callback: GLDEBUGPROC, user_data: *void) #c_call;
     install: Set;
@@ -235,8 +271,16 @@ gl_enable_debug_output :: (break_on_error: bool = false) {
     if break_on_error gl.glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
 }
 
-// The convenience API intentionally leaves native lifetime ownership
-// with the caller and exposes no result. Use constructors for explicit handles.
+// Makes an OpenGL context for `win` and sets it current. The version defaults to what the platform
+// offers; set `compatibility` for the old fixed pipeline and `debug` for a debug context. Aborts if
+// the context cannot be made.
+//
+// ```jai,no_run
+// #import "Window_Creation";
+//
+// window := create_window(800, 600, "gl");
+// gl_create_context(window, 3, 3);
+// ```
 gl_create_context :: (win: $Window, major_version: s32 = 0, minor_version: s32 = 0,
                       compatibility := false, debug := false, wanted_msaa: s32 = DEFAULT_MSAA) {
     #if OS == .WINDOWS {
