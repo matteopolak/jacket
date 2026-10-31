@@ -228,7 +228,7 @@ pub fn index_page(site: &Site) -> String {
     render(
         site,
         &Page {
-            title: "Jai standard library - Jacket",
+            title: "Standard library — Jacket",
             description: "API documentation for the Jai standard library that ships with Jacket.",
             side: modules_side(site, None),
             side_label: "Modules",
@@ -479,7 +479,7 @@ pub fn module_page(site: &Site, mi: usize) -> String {
     render(
         site,
         &Page {
-            title: &format!("{} - Jai standard library", m.title()),
+            title: &format!("{} — Jacket", m.title()),
             description: &description,
             side: modules_side(site, Some(mi)),
             side_label: "Modules",
@@ -879,7 +879,7 @@ pub fn item_page(site: &Site, mi: usize, item: &Item) -> String {
     render(
         site,
         &Page {
-            title: &format!("{} - {} - Jai standard library", item.name, m.title()),
+            title: &format!("{}.{} — Jacket", m.title(), item.name),
             description: &description,
             side: item_side(site, mi, item, &anchors),
             side_label: &format!("{} module", m.title()),

@@ -81,7 +81,7 @@ pub fn index(site: &Site) -> String {
     render(
         site,
         &Page {
-            title: "Tools - Jacket",
+            title: "Tools — Jacket",
             description: "Reference pages for jaic, jailint, jacket and their settings.",
             side: side(site, None),
             side_label: "Tools",
@@ -152,7 +152,7 @@ pub fn pages(site: &Site, root: &Path) -> Result<Vec<(String, String)>, String> 
         let html = render(
             site,
             &Page {
-                title: &format!("{name} - Jacket"),
+                title: &format!("{name} — Jacket"),
                 description: &description,
                 side: side(site, Some(file)),
                 side_label: "Tools",
