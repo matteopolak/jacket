@@ -1,4 +1,13 @@
 // A collection with stable element addresses, grown a fixed-size bucket at a time.
+//
+// ```jai
+// nodes: Bucket_Array(int, 64);
+// locator, node := bucket_array_add(*nodes, 1);
+// for 2..1000 bucket_array_add(*nodes, it);
+// assert(node.* == 1); // the address did not change while the array grew
+// assert(bucket_array_find(*nodes, locator) == 1);
+// bucket_array_reset(*nodes);
+// ```
 
 // A growable collection whose elements never move: `Bucket_Array(Type, items_per_bucket)`.
 //
@@ -63,8 +72,15 @@ Bucket :: Impl.Bucket;
 Bucket_Locator :: Impl.Bucket_Locator;
 // Frees every bucket through the array's allocator and empties the array, ready for reuse.
 //
-// Every pointer and locator into it becomes invalid. Elements are not destroyed first, so free what they own
-// beforehand. Safe on an array that never held anything.
+// Every pointer and locator into it becomes invalid. Elements are not destroyed first, so free what they own beforehand.
+// Safe on an array that never held anything.
+//
+// ```jai
+// array: Bucket_Array(int, 4);
+// bucket_array_add(*array, 1);
+// bucket_array_reset(*array);
+// assert(array.count == 0);
+// ```
 bucket_array_reset :: Impl.bucket_array_reset;
 // Stores `item` in the first free slot and returns its `Bucket_Locator` and a pointer to the stored copy.
 //
@@ -84,6 +100,13 @@ bucket_array_reset :: Impl.bucket_array_reset;
 // ```
 bucket_array_add :: Impl.bucket_array_add;
 // The element at `locator`, by value. Fails an assert when the locator is out of range or names a free slot.
+//
+// ```jai
+// array: Bucket_Array(string, 4);
+// locator := bucket_array_add(*array, "hi");
+// assert(bucket_array_find(*array, locator) == "hi");
+// bucket_array_reset(*array);
+// ```
 bucket_array_find :: Impl.bucket_array_find;
 // A pointer to the element at `locator`, to change it in place. Fails an assert when the locator is out of range or names a free slot.
 //
@@ -113,8 +136,17 @@ bucket_array_find_pointer :: Impl.bucket_array_find_pointer;
 bucket_array_remove :: Impl.bucket_array_remove;
 // Claims a free slot and returns a pointer to it and its locator; the lower-level half of `bucket_array_add`.
 //
-// The element is set to the default value of the type, or left uninitialized with `$initialize` set to
-// `false`, in which case the caller must write all of it.
+// The element is set to the default value of the type, or left uninitialized with `$initialize` set to `false`, in which
+// case the caller must write all of it.
+//
+// ```jai
+// array: Bucket_Array(int, 4);
+// slot, locator := find_and_occupy_empty_slot(*array);
+// assert(slot.* == 0 && array.count == 1);
+// slot.* = 9;
+// assert(bucket_array_find(*array, locator) == 9);
+// bucket_array_reset(*array);
+// ```
 find_and_occupy_empty_slot :: Impl.find_and_occupy_empty_slot;
 // Lets a `Bucket_Array` be used in a `for` loop over its live elements, in bucket and slot order; `it_index` numbers the elements visited, `0`, `1`, `2`, ... with free slots skipped.
 //

@@ -1,4 +1,11 @@
 // A fixed-length sequence of bits packed into words.
+//
+// ```jai
+// seen := make_bit_array(100);
+// defer deinit(*seen);
+// seen[42] = true;
+// assert(seen[42] && !seen[43]);
+// ```
 
 // A fixed-length sequence of bits packed into 64-bit words; `count` is the number of bits.
 //
@@ -29,6 +36,13 @@ Bit_Array :: Impl.Bit_Array;
 //
 // Use it on a `Bit_Array` that holds no storage, such as a zeroed one or one after `deinit`; storage it already
 // owned would leak. A negative `count` fails an assert.
+//
+// ```jai
+// bits: Bit_Array;
+// init_bit_array(*bits, 16);
+// assert(bits.count == 16 && !bits[3]);
+// deinit(*bits);
+// ```
 init_bit_array :: Impl.init_bit_array;
 // A new `Bit_Array` of `count` cleared bits. The caller owns the storage and releases it with `deinit`.
 //
@@ -39,6 +53,12 @@ init_bit_array :: Impl.init_bit_array;
 // ```
 make_bit_array :: Impl.make_bit_array;
 // Frees the words and leaves the array empty (`count` is zero). It can be set up again with `init_bit_array`.
+//
+// ```jai
+// bits := make_bit_array(8);
+// deinit(*bits);
+// assert(bits.count == 0);
+// ```
 deinit :: Impl.deinit;
 // Sets bit `i`; `bits[i]` reads it back.
 //
@@ -59,8 +79,26 @@ set_bit :: Impl.set_bit;
 // ```
 clear_bit :: Impl.clear_bit;
 // Flips bit `i`. An index outside `0..count-1` fails an assert.
+//
+// ```jai
+// bits := make_bit_array(4);
+// toggle_bit(*bits, 2);
+// assert(bits[2]);
+// toggle_bit(*bits, 2);
+// assert(!bits[2]);
+// deinit(*bits);
+// ```
 toggle_bit :: Impl.toggle_bit;
 // Sets bit `i` when `value` is `true` and clears it otherwise; this is what `bits[i] = value` does.
+//
+// ```jai
+// bits := make_bit_array(4);
+// set_bit_to(*bits, 1, true);
+// assert(bits[1]);
+// set_bit_to(*bits, 1, false);
+// assert(!bits[1]);
+// deinit(*bits);
+// ```
 set_bit_to :: Impl.set_bit_to;
 // Clears every bit, including the padding bits of the last word.
 //
@@ -82,11 +120,26 @@ clear_all_bits :: Impl.clear_all_bits;
 // ```
 set_all_bits :: Impl.set_all_bits;
 // Flips every bit, including the padding bits of the last word.
+//
+// ```jai
+// bits := make_bit_array(3);
+// bits[0] = true;
+// toggle_all_bits(*bits);
+// assert(!bits[0] && bits[1] && bits[2]);
+// deinit(*bits);
+// ```
 toggle_all_bits :: Impl.toggle_all_bits;
 // Lets a `Bit_Array` be used in a `for` loop over all its bits, in order: `it` is the bit and `it_index` its position.
 //
-// Pointer and reverse loops (`for *`, `for <`) are not supported and fail an assert. See `only_set` and
-// `only_unset` to skip the others.
+// ```jai
+// bits := make_bit_array(4);
+// bits[2] = true;
+// for bits if it assert(it_index == 2);
+// deinit(*bits);
+// ```
+//
+// Pointer and reverse loops (`for *`, `for <`) are not supported and fail an assert. See `only_set` and `only_unset` to
+// skip the others.
 for_expansion :: Impl.for_expansion;
 // A loop body for visiting just the set bits, used as `for: only_set bits`; `it` is `true` and `it_index` the position.
 //
@@ -103,6 +156,15 @@ for_expansion :: Impl.for_expansion;
 // ```
 only_set :: Impl.only_set;
 // Like `only_set`, but visits the cleared bits.
+//
+// ```jai
+// bits := make_bit_array(4);
+// bits[0] = true;
+// cleared := 0;
+// for: only_unset bits cleared += 1;
+// assert(cleared == 3);
+// deinit(*bits);
+// ```
 only_unset :: Impl.only_unset;
 
 using,only(.["[]", "[]="]) #import "internal/collections/bit-array";

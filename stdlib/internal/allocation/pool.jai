@@ -61,9 +61,16 @@ Pool :: struct {
 
 // Chooses the allocator the pool takes its blocks from: `block_allocator` if given, else `context.allocator`.
 //
-// The first `get` calls it when nothing was chosen. Calling it again once an allocator is set logs an error
-// and changes nothing. With the module parameter `USE_UNMAPPING_ALLOCATOR` the default is the unmapping
-// allocator and `free_memblocks_on_reset` is turned on.
+// The first `get` calls it when nothing was chosen. Calling it again once an allocator is set logs an error and changes
+// nothing. With the module parameter `USE_UNMAPPING_ALLOCATOR` the default is the unmapping allocator and
+// `free_memblocks_on_reset` is turned on.
+//
+// ```jai
+// pool: Pool;
+// set_allocators(*pool);
+// defer release(*pool);
+// assert(get(*pool, 8) != null);
+// ```
 set_allocators :: (pool: *Pool, block_allocator: Allocator = .{}) {
     if pool.block_allocator.proc {
         context.logger("Pool allocator is already selected\n", context.logger_data, Log_Info.{ common_flags = .ERROR });
@@ -81,8 +88,18 @@ set_allocators :: (pool: *Pool, block_allocator: Allocator = .{}) {
 
 // Returns `nbytes` bytes aligned to the pool's alignment, or `null` when the underlying allocator fails or the size is too large to represent.
 //
-// The memory is uninitialized and stays valid until `reset` or `release`. A size of zero is fine. A
-// non-power-of-two alignment or a negative size fails an assert.
+// The memory is uninitialized and stays valid until `reset` or `release`. A size of zero is fine. A non-power-of-two
+// alignment or a negative size fails an assert.
+//
+// ```jai
+// pool: Pool;
+// defer release(*pool);
+// a := cast(*int) get(*pool, size_of(int));
+// b := cast(*int) get(*pool, size_of(int));
+// a.* = 1;
+// b.* = 2;
+// assert(a.* == 1 && b.* == 2);
+// ```
 get :: (using pool: *Pool, nbytes: s64) -> *void {
     assert(nbytes >= 0 && alignment > 0 && (alignment & (alignment - 1)) == 0);
     // Include both public linked headers and the private backing-size word.
@@ -143,10 +160,20 @@ get :: (using pool: *Pool, nbytes: s64) -> *void {
     return result;
 }
 
-// Gives all memory back to the pool: oversized blocks are freed, ordinary blocks are kept for reuse (or freed too, with `free_memblocks_on_reset`).
+// Gives all memory back to the pool: oversized blocks are freed, ordinary blocks are kept for reuse (or freed too, with
+// `free_memblocks_on_reset`).
 //
-// Every pointer from `get` is invalid afterwards. With `overwrite_memory` the reused blocks are filled with
-// `0xcc` first. Safe to call on an empty pool.
+// Every pointer from `get` is invalid afterwards. With `overwrite_memory` the reused blocks are filled with `0xcc` first.
+// Safe to call on an empty pool.
+//
+// ```jai
+// pool: Pool;
+// defer release(*pool);
+// get(*pool, 100);
+// reset(*pool);
+// bytes, oversized := calculate_used_memory(pool);
+// assert(bytes == 0 && oversized == 0);
+// ```
 reset :: (using pool: *Pool) {
     block := out_of_band_allocations;
     while block {
@@ -179,6 +206,12 @@ reset :: (using pool: *Pool) {
 }
 
 // Resets the pool and frees all its blocks through `block_allocator`. The pool can be used again; it takes new blocks on the next `get`.
+//
+// ```jai
+// pool: Pool;
+// get(*pool, 100);
+// release(*pool);
+// ```
 release :: (using pool: *Pool) {
     reset(pool);
     block := unused_memblocks;
@@ -225,9 +258,19 @@ calculate_used_memory :: (using pool: Pool) -> inband_size: s64, outband_count: 
 
 // The `Allocator_Proc` for a pool: use it as `Allocator.{ pool_allocator_proc, *pool }`.
 //
-// Allocate and resize take memory from the pool (a resize copies, and never reuses the old space); free does
-// nothing; shutdown calls `release`. `IS_THIS_YOURS` is answered for addresses inside any block the pool
-// has handed out, ordinary or oversized. Unsupported modes fail an assert.
+// Allocate and resize take memory from the pool (a resize copies, and never reuses the old space); free does nothing;
+// shutdown calls `release`. `IS_THIS_YOURS` is answered for addresses inside any block the pool has handed out, ordinary
+// or oversized. Unsupported modes fail an assert.
+//
+// ```jai
+// pool: Pool;
+// set_allocators(*pool); // blocks come from the allocator in effect now
+// defer release(*pool);
+//
+// push_allocator(Allocator.{ pool_allocator_proc, *pool });
+// text := copy_string("in the pool");
+// assert(text == "in the pool");
+// ```
 pool_allocator_proc :: (mode: Allocator_Mode, requested_size: s64, old_size: s64, old_memory: *void, allocator_data: *void) -> *void {
     if mode == .CAPS {
         if old_memory {

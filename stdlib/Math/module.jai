@@ -127,14 +127,27 @@ AnyMatrix4x3 :: Impl.AnyMatrix4x3;
 // ```
 Matrix4 :: Impl.Matrix4;
 // The 4x4 identity: ones on the diagonal, zeros elsewhere.
+//
+// ```jai
+// v := xyz(1, 2, 3);
+// assert(transform_point(Matrix4_Identity, v) == v);
+// ```
 Matrix4_Identity :: Impl.Matrix4_Identity;
 // A marker struct that matches every matrix type of this module (`Matrix2`, `Matrix3`, `Matrix4x3`, `Matrix4`); use it as `$T/interface AnyMatrix` to write one procedure for all of them, which can then rely on `floats` and `coef`.
 AnyMatrix :: Impl.AnyMatrix;
 // The circle constant 2*PI as a `float`, rounded to 7 digits (6.283185).
+//
+// ```jai
+// assert(abs(TAU - 2 * PI) < 0.0001);
+// ```
 TAU :: Impl.TAU;
 // The circle constant 2*PI at `float64` precision.
 TAU64 :: Impl.TAU64;
 // Pi as a `float` (3.1415927). Use `PI64` for double precision.
+//
+// ```jai
+// assert(abs(PI - 3.14159) < 0.0001);
+// ```
 PI :: Impl.PI;
 // Pi as a `float64` (3.141592653589793).
 PI64 :: Impl.PI64;
@@ -523,10 +536,22 @@ make_vector4 :: Impl.make_vector4;
 // ```
 xyzw :: Impl.xyzw;
 // The same procedure as `dot_product`.
+//
+// ```jai
+// assert(dot(xyz(1, 2, 3), xyz(4, 5, 6)) == 32);
+// ```
 dot :: dot_product;
 // The same procedure as `xyz`, named for colors: red, green and blue as a `Vector3`.
+//
+// ```jai
+// assert(rgb(1, 0.5, 0) == xyz(1, 0.5, 0));
+// ```
 rgb :: Impl.rgb;
 // The same procedure as `xyzw`, named for colors: red, green, blue and alpha as a `Vector4`.
+//
+// ```jai
+// assert(rgba(1, 0, 0, 1) == xyzw(1, 0, 0, 1));
+// ```
 rgba :: Impl.rgba;
 // Scales a vector or quaternion to length 1. Given a pointer it normalizes in place and returns the length it had; given a value it returns the normalized copy.
 //
@@ -543,6 +568,10 @@ rgba :: Impl.rgba;
 // ```
 normalize :: Impl.normalize;
 // The same procedure as `cross_product`.
+//
+// ```jai
+// assert(cross(xyz(0, 0, 1), xyz(1, 0, 0)) == xyz(0, 1, 0));
+// ```
 cross :: Impl.cross;
 // The cross product of two `Vector3`: perpendicular to both, with length `|a||b|sin(angle)`, and zero when they are parallel. Right-handed: `x` cross `y` is `z`. Also spelled `cross`.
 //
@@ -855,6 +884,11 @@ inverse_gaussian_elimination :: Impl.inverse_gaussian_elimination;
 // ```
 adjugate_lengyel :: Impl.adjugate_lengyel;
 // The same procedure as `adjugate_lengyel`.
+//
+// ```jai
+// m := make_scale_matrix4(xyz(2, 2, 2));
+// assert(adjugate(m) == adjugate_lengyel(m));
+// ```
 adjugate :: Impl.adjugate;
 // The determinant of a `Matrix4`, by cofactor expansion along the first row, as a `float`. Zero means the matrix is not invertible; the sign tells whether it flips handedness.
 //
@@ -891,8 +925,18 @@ isometry_inverse :: Impl.isometry_inverse;
 // ```
 mat_norm :: Impl.mat_norm;
 // The maximum absolute row sum of a `Matrix3`: `mat_norm(m, false)`.
+//
+// ```jai
+// m := Matrix3.{ 1, -2, 0, 0, 1, 1, 4, 0, 0 };
+// assert(norm_inf(m) == 4);
+// ```
 norm_inf :: Impl.norm_inf;
 // The maximum absolute column sum of a `Matrix3`: `mat_norm(m, true)`.
+//
+// ```jai
+// m := Matrix3.{ 1, -2, 0, 0, 1, 1, 4, 0, 0 };
+// assert(norm_one(m) == 5);
+// ```
 norm_one :: Impl.norm_one;
 // Returns the vector `u` of the Householder reflection `I - u u^T` that maps `v` onto the z axis (to minus its own length along z when `v.z` is not negative). `u` has length square root of 2, which is what makes `I - u u^T` a reflection; `reflect_cols` and `reflect_rows` apply it. A zero `v` gives the zero vector.
 //
@@ -905,8 +949,20 @@ norm_one :: Impl.norm_one;
 // ```
 make_reflector :: Impl.make_reflector;
 // Multiplies the matrix pointed to by the reflection `I - u u^T` from the right, in place: every row vector `v[i]` becomes `v[i] - u * dot(v[i], u)`. `u` should come from `make_reflector` (length square root of 2).
+//
+// ```jai
+// m := Matrix3_Identity;
+// reflect_cols(*m, make_reflector(xyz(0, 3, 4)));
+// assert(abs((m * xyz(0, 3, 4)).z + 5) < 0.0001);
+// ```
 reflect_cols :: Impl.reflect_cols;
 // Multiplies the matrix pointed to by the reflection `I - u u^T` from the left, in place: the same reflection as `reflect_cols` applied to the columns instead of the rows (it transposes, reflects and transposes back).
+//
+// ```jai
+// m := Matrix3_Identity;
+// reflect_rows(*m, make_reflector(xyz(0, 3, 4)));
+// assert(abs((m * xyz(0, 3, 4)).z + 5) < 0.0001);
+// ```
 reflect_rows :: Impl.reflect_rows;
 // Splits a `Matrix3` into `Q * S` (the polar decomposition), returned as `(Q, S, det)`: `Q` is an orthogonal matrix (a rotation, or a rotation with a flip when the determinant is negative), `S` is symmetric positive semi-definite (the stretch), and `det` is the determinant of the input. A singular input is allowed: the missing directions of `Q` are filled in so it stays orthogonal. Computed by an iterative eigen-solver at `float` precision, so `Q * S` matches the input to about 1e-6 for well-scaled input.
 //
@@ -934,6 +990,11 @@ make_plane :: Impl.make_plane;
 // ```
 plane_from_point_and_normal :: Impl.plane_from_point_and_normal;
 // The `(a, b, c)` normal of a plane (the same as its `normal` field).
+//
+// ```jai
+// p := make_plane(xyz(0, 1, 0), xyz(0, 2, 0));
+// assert(get_normal(p) == xyz(0, 1, 0));
+// ```
 get_normal :: Impl.get_normal;
 // The plane through three points, with a unit normal `cross(p1 - p0, p2 - p0)`: the normal points towards the side from which `p0, p1, p2` appear counter-clockwise. Collinear points give a zero normal.
 //
@@ -951,6 +1012,12 @@ normalized_plane_from_points :: Impl.normalized_plane_from_points;
 // ```
 plane_dot :: Impl.plane_dot;
 // A struct printer that prints a `Matrix2`, `Matrix3`, `Matrix4` or `Matrix4x3` as one row per line, each row as `(a, b, c)` with six decimal places and followed by a newline. Returns false for any other type. See `math_struct_printer` for how to install it.
+//
+// ```jai
+// context.print_style.struct_printer = math_struct_printer;
+// text := tprint("%", Matrix2_Identity);
+// assert(text == "(1.000000, 0.000000)\n(0.000000, 1.000000)\n");
+// ```
 print_matrix :: Impl.print_matrix;
 // A struct printer for the types of this module: a vector or quaternion prints as `(x, y, z)`, a plane as its four coefficients and a matrix one row per line (via `print_matrix`), every number with six decimal places. It returns false for any other type, so the default formatting applies. Install it with `context.print_style.struct_printer = math_struct_printer;` to make `print("%", v)` use it.
 //

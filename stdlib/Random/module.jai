@@ -5,11 +5,27 @@
 // copy has its own stream). The sequence is fully determined by the seed. A context that is never seeded
 // starts from the same state every run, so seed from the clock when runs should differ. Nothing here is
 // suitable for cryptography, and a state must not be shared between threads without a lock.
+//
+// ```jai
+// state: Random_State;
+// random_seed(*state, cast(u64) 2024);
+// roll := random_get(*state) % 6 + 1;
+// assert(roll >= 1 && roll <= 6);
+//
+// chance := random_get_zero_to_one_open(*state);
+// assert(chance >= 0 && chance < 1);
+// ```
 
 // The generator's 128-bit state, as two halves. Seed it with `random_seed` before drawing: an all-zero state (a
 // plain `state: Random_State;`) is a fixed point of the generator and only ever yields zero.
 //
 // Seeding keeps the low half odd, which is what gives the generator its full period; the draw itself needs no other setup.
+//
+// ```jai
+// state: Random_State;
+// random_seed(*state, cast(u64) 5);
+// assert(random_get(*state) != 0);
+// ```
 Random_State :: Impl.Random_State;
 // What `random_seed` accepts for a seed from the clock: any struct with a `u64` named `low` and an `s64` named `high`, such as an `Apollo_Time`.
 Some_Big_Time_Value :: Impl.Some_Big_Time_Value;

@@ -71,7 +71,8 @@ Table :: struct(Key_Type: Type, Value_Type: Type, given_hash_function: (Key_Type
     #assert LOAD_FACTOR_PERCENT > 0 && LOAD_FACTOR_PERCENT < 100;
 }
 
-// Deprecated and not needed: a zero-initialized `Table` is ready to use. With `slots_to_allocate` greater than zero it reserves that many slots (rounded up) through `expand`.
+// Deprecated and not needed: a zero-initialized `Table` is ready to use. With `slots_to_allocate` greater than zero it
+// reserves that many slots (rounded up) through `expand`.
 init :: (using table: *Table, slots_to_allocate: s64 = 0) #deprecated "Not needed: a zero-initialized Table is ready to use." {
     if slots_to_allocate > 0 expand(table, slots_to_allocate);
 }
@@ -95,10 +96,19 @@ next_power_of_two :: inline (x: int) -> int {
 
 // Rehashes every entry into a new array of `new_allocated` slots, and frees the old one.
 //
-// The size is rounded up to a power of two and never below the minimum of 32 slots, nor below what the
-// current entries need at the load factor. A negative `new_allocated` (the default) doubles the slots.
-// Removed entries are dropped by the rehash, so it also reclaims the space they filled. Every pointer into
-// the table is stale afterwards. Adds call this for you; reach for `table_resize` to plan ahead.
+// The size is rounded up to a power of two and never below the minimum of 32 slots, nor below what the current entries need
+// at the load factor. A negative `new_allocated` (the default) doubles the slots. Removed entries are dropped by the
+// rehash, so it also reclaims the space they filled. Every pointer into the table is stale afterwards. Adds call this for
+// you; reach for `table_resize` to plan ahead.
+//
+// ```jai
+// table: Table(int, int);
+// table_add(*table, 1, 10);
+// before := table.allocated;
+// expand(*table);
+// assert(table.allocated > before && table.count == 1);
+// deinit(*table);
+// ```
 expand :: (table: *Table, new_allocated := -1) {
     size := new_allocated;
     if size < 0 size = max(table.SIZE_MIN, table.allocated * 2);
@@ -122,9 +132,18 @@ expand :: (table: *Table, new_allocated := -1) {
 
 // Makes sure `items` more entries can be added without the table growing again.
 //
-// Does nothing when there is room. When many removed entries fill the table, it rehashes at the size the live
-// entries need instead of doubling. `table_add` calls it with `1`; call it with a larger number before a bulk
-// add to avoid repeated growth. A negative `items` fails an assert.
+// Does nothing when there is room. When many removed entries fill the table, it rehashes at the size the live entries need
+// instead of doubling. `table_add` calls it with `1`; call it with a larger number before a bulk add to avoid repeated
+// growth. A negative `items` fails an assert.
+//
+// ```jai
+// table: Table(int, int);
+// table_ensure_space(*table, 500);
+// slots := table.allocated;
+// for 0..499 table_add(*table, it, it);
+// assert(table.allocated == slots);
+// deinit(*table);
+// ```
 table_ensure_space :: (using table: *Table, items: s64) {
     assert(items >= 0);
 
@@ -178,8 +197,17 @@ table_add :: (table: *Table, key: table.Key_Type, value: table.Value_Type) -> *t
 
 // Sets the value of `key`, replacing the first entry with an equal key, or adding one if there is none. Returns a pointer to the stored value.
 //
-// With duplicate keys present only the first match found is replaced. Pointers are stable unless the call
-// had to add an entry and the table grew.
+// With duplicate keys present only the first match found is replaced. Pointers are stable unless the call had to add an
+// entry and the table grew.
+//
+// ```jai
+// table: Table(string, int);
+// table_set(*table, "hits", 1);
+// table_set(*table, "hits", 2);
+// found, value := table_find(*table, "hits");
+// assert(found && value == 2 && table.count == 1);
+// deinit(*table);
+// ```
 table_set :: (table: *Table, key: table.Key_Type, value: table.Value_Type) -> *table.Value_Type {
     // One hash serves both the lookup and the insert.
     hash := valid_hash(table, key);
@@ -384,15 +412,32 @@ find_or_add :: (table: *Table, key: table.Key_Type) -> (entry: *table.Value_Type
 // Removes every entry but keeps the allocated slots, so refilling the table up to its old size allocates nothing.
 //
 // Costs time linear in the slot count. Values are not freed; if they own memory, free it first.
+//
+// ```jai
+// table: Table(int, int);
+// table_add(*table, 1, 1);
+// slots := table.allocated;
+// table_reset_keeping_memory(*table);
+// assert(table.count == 0 && table.allocated == slots);
+// deinit(*table);
+// ```
 table_reset_keeping_memory :: (using table: *Table) {
     memset(entries.data, 0, entries.count * size_of(table.Entry));
     count = 0;
     slots_filled = 0;
 }
 
-// Removes every entry and frees the slot array through the table's allocator. The table is usable again afterwards and allocates from scratch.
+// Removes every entry and frees the slot array through the table's allocator. The table is usable again afterwards and
+// allocates from scratch.
 //
 // Values and keys that own memory are not freed.
+//
+// ```jai
+// table: Table(int, int);
+// table_add(*table, 1, 1);
+// table_reset(*table);
+// assert(table.count == 0 && table.allocated == 0);
+// ```
 table_reset :: (using table: *Table) {
     if entries.data allocator.proc(.FREE, 0, entries.count * size_of(table.Entry), entries.data, allocator.data);
 
@@ -403,6 +448,12 @@ table_reset :: (using table: *Table) {
 }
 
 // Frees the table's memory, as `table_reset` does. Call it when the table is no longer needed.
+//
+// ```jai
+// table: Table(int, string);
+// table_add(*table, 1, "one");
+// deinit(*table);
+// ```
 deinit :: (table: *Table) {
     table_reset(table);
 } @FreesArgument

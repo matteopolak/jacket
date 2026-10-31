@@ -5,6 +5,12 @@ DEFAULT_DELIMITERS :: ";=()";
 
 // The part of `s` that starts at `index` and holds at most `count` bytes; empty when `index` is
 // past the end. Both must not be negative: a negative one fails an assert.
+//
+// ```jai
+// assert(slice("hello world", 6, 5) == "world");
+// assert(slice("abc", 2, 10) == "c"); // cut short, not an error
+// assert(slice("abc", 5, 1) == "");
+// ```
 slice :: inline (s: string, index: s64, count: s64) -> string {
     assert(index >= 0 && count >= 0);
     if index >= s.count return "";
@@ -66,6 +72,10 @@ compare_nocase :: (a: string, b: string) -> int {
 }
 
 // Whether the two strings hold the same bytes. The same as `a == b`.
+//
+// ```jai
+// assert(equal("jai", "jai") && !equal("jai", "Jai"));
+// ```
 equal :: (a: string, b: string) -> bool {
     return a == b;
 } @UseResult
@@ -447,6 +457,10 @@ trim :: (s: string, chars := DEFAULT_SPACES) -> string {
 } @UseResult
 
 // `_s` without the spaces, tabs and line breaks at its end. The same as `trim_right`.
+//
+// ```jai
+// assert(eat_trailing_spaces("word \t\n") == "word");
+// ```
 eat_trailing_spaces :: (_s: string) -> string {
     return trim_right(_s);
 }

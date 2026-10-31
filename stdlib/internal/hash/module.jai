@@ -1,6 +1,15 @@
 FNV_64_PRIME: u64 : 0x100000001b3;
 FNV_64_OFFSET_BIAS: u64 : 0xcbf29ce484222325;
 
+// A 32-bit hash of `size` bytes at `data`. Pass the previous result as `h` to hash several pieces as one.
+//
+// ```jai
+// whole := "hello world";
+// one := sdbm_hash(whole.data, whole.count);
+// part := sdbm_hash(whole.data, 5);
+// two := sdbm_hash(whole.data + 5, whole.count - 5, part);
+// assert(one == two);
+// ```
 sdbm_hash :: (data: *void, size: int, h := HASH_INIT) -> u32 #no_aoc {
     // Each step is value * 65599 + byte. Wrapping arithmetic lets four steps fold into one sum of
     // independent products, which takes fewer instructions than four dependent steps.
@@ -28,6 +37,12 @@ sdbm_hash :: (data: *void, size: int, h := HASH_INIT) -> u32 #no_aoc {
     return value;
 }
 
+// A 32-bit hash of `count` floats starting at `f`. Negative zero hashes like zero.
+//
+// ```jai
+// values := float.[1.5, 2.5];
+// assert(sdbm_float_hash(values.data, 2) == sdbm_float_hash(values.data, 2));
+// ```
 sdbm_float_hash :: inline (f: *float, count: int, h := HASH_INIT) -> u32 {
     value := h;
 
@@ -40,6 +55,12 @@ sdbm_float_hash :: inline (f: *float, count: int, h := HASH_INIT) -> u32 {
     return value;
 }
 
+// A 32-bit hash of a string.
+//
+// ```jai
+// assert(djb2_hash("abc") == djb2_hash("abc"));
+// assert(djb2_hash("abc") != djb2_hash("abd"));
+// ```
 djb2_hash :: (s: string) -> u32 #no_aoc {
     // Four steps of value * 33 + byte at a time, folded as in sdbm_hash.
     M: u32 : 33;
@@ -61,10 +82,17 @@ djb2_hash :: (s: string) -> u32 #no_aoc {
     return value;
 }
 
+// One step of 64-bit FNV-1a: mixes `val` into the hash `h`.
 fnv1a_hash :: inline (val: u64, h := FNV_64_OFFSET_BIAS) -> u64 #no_aoc {
     return (val ^ h) * FNV_64_PRIME;
 }
 
+// A 64-bit FNV-1a hash of `size` bytes at `data`. Pass a previous result as `h` to continue it.
+//
+// ```jai
+// text := "jacket";
+// assert(fnv1a_hash(text.data, text.count) == fnv1a_hash(text.data, text.count));
+// ```
 fnv1a_hash :: (data: *void, size: int, h := FNV_64_OFFSET_BIAS) -> u64 #no_aoc {
     value := h;
     bytes := cast(*u8) data;
@@ -72,20 +100,43 @@ fnv1a_hash :: (data: *void, size: int, h := FNV_64_OFFSET_BIAS) -> u64 #no_aoc {
     return value;
 }
 
+// Scrambles an integer by multiplying it with a large odd constant. The high bits of the result are the well mixed ones.
+//
+// ```jai
+// assert(knuth_hash(1) != knuth_hash(2));
+// ```
 knuth_hash :: inline (x: u64) -> u64 #no_aoc {
     KNUTH_MULTIPLIER: u64 : 11400714819323198485;
 
     return x * KNUTH_MULTIPLIER;
 }
 
+// A 32-bit hash of a string. This is the hash `Table` uses for string keys.
+//
+// ```jai
+// assert(get_hash("key") == get_hash("key"));
+// assert(get_hash("key") != get_hash("other"));
+// ```
 get_hash :: (s: string, h := HASH_INIT) -> u32 {
     return cast,trunc(u32) fnv1a_hash(s.data, s.count, cast(u64) h);
 }
 
+// A 32-bit hash of the bytes of an array.
+//
+// ```jai
+// values := int.[1, 2, 3];
+// assert(get_hash(values) == get_hash(int.[1, 2, 3]));
+// ```
 get_hash :: (array: [] $T, h := HASH_INIT) -> u32 {
     return sdbm_hash(array.data, array.count * size_of(T), h);
 }
 
+// A 32-bit hash of an integer, boolean, enum, pointer or float. Pass a previous result as `h` to combine several values.
+//
+// ```jai
+// combined := get_hash(7, get_hash(42));
+// assert(combined == get_hash(7, get_hash(42)));
+// ```
 get_hash :: (x: $T, h := HASH_INIT) -> u32 #modify {
     info := hash_scalar_base_info(type_info(T));
     return info.type == .FLOAT || info.type == .INTEGER || info.type == .BOOL || info.type == .ENUM || info.type == .POINTER, "get_hash requires an integer, boolean, enum, pointer, or float";

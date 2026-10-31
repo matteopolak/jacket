@@ -1,4 +1,14 @@
 // In-place sorting of arrays by a comparator or a key, and ready-made comparators.
+//
+// ```jai
+// words := string.["pear", "fig", "apple"];
+// quick_sort(words, compare_strings);
+// assert(words[0] == "apple" && words[2] == "pear");
+//
+// lengths := int.[3, 1, 2];
+// quick_sort(lengths, (a: int, b: int) -> int { return b - a; }); // largest first
+// assert(lengths[0] == 3);
+// ```
 
 // Sorts an array in place and returns the same view, so calls can be chained.
 //

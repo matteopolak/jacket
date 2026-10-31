@@ -1,8 +1,18 @@
 // How decoding one character went.
 //
-// `CONVERSION_OK` means a character was decoded. `SOURCE_EXHAUSTED` means the input ended in the middle
-// of a character. `SOURCE_ILLEGAL` means the bytes are not valid UTF-8. Both decoding modes report it for a
-// broken byte structure; strict decoding also reports it for a decoded value that is not a Unicode scalar.
+// `CONVERSION_OK` means a character was decoded. `SOURCE_EXHAUSTED` means the input ended in the middle of a character.
+// `SOURCE_ILLEGAL` means the bytes are not valid UTF-8. Both decoding modes report it for a broken byte structure; strict
+// decoding also reports it for a decoded value that is not a Unicode scalar.
+//
+// ```jai
+// cut := u8.[0xe2, 0x82]; // the start of a three byte character
+// _, _, status := character_utf8_to_utf32(cut.data, 2, true);
+// assert(status == .SOURCE_EXHAUSTED);
+//
+// stray := u8.[0x80]; // a continuation byte with nothing before it
+// _, _, status = character_utf8_to_utf32(stray.data, 1, true);
+// assert(status == .SOURCE_ILLEGAL);
+// ```
 Unicode_Result :: enum {
     CONVERSION_OK;
     SOURCE_EXHAUSTED;
@@ -134,8 +144,14 @@ utf8_next_character :: (s: *string) -> code: u32, success: Unicode_Result {
     return code, status;
 }
 
-// A pointer to the byte after the character that starts at `s`, going by its first byte only. Nothing is
-// checked: a truncated or malformed character at the end of a buffer gives a pointer past the end.
+// A pointer to the byte after the character that starts at `s`, going by its first byte only. Nothing is checked: a
+// truncated or malformed character at the end of a buffer gives a pointer past the end.
+//
+// ```jai
+// text := "aé!"; // 'é' takes two bytes
+// next := unicode_next_character(text.data + 1);
+// assert(next == text.data + 3);
+// ```
 unicode_next_character :: (s: *u8) -> *u8 {
     return s + 1 + cast(s64) trailingBytesForUTF8[s[0]];
 }

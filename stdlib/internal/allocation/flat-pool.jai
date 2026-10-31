@@ -40,10 +40,15 @@ Flat_Pool :: struct {
 }
 
 #if OS == .MACOS || OS == .LINUX || OS == .ANDROID || OS == .WINDOWS {
-    // Reserves `reserve` bytes of address space for the pool, rounded up to a whole number of pages, and starts it empty.
+    // Reserves `reserve` bytes of address space for the pool (256 MiB by default) and sets it up. No memory is used until `get`
+    // touches pages.
     //
-    // The pool must not be initialized already (`fini` it first). An unusable reservation, a size of zero or
-    // less, or a failed OS call fails an assert.
+    // ```jai,skip_on(wasm)
+    // pool: Flat_Pool;
+    // init(*pool, 1024 * 1024);
+    // defer fini(*pool);
+    // assert(get(*pool, 16) != null);
+    // ```
     init :: (using pool: *Flat_Pool, reserve := DEFAULT_VIRTUAL_MEMORY_RESERVE) {
         assert(memory_base == null, "flat pool must be finalized before initialization");
         assert(reserve > 0, "flat-pool reservation must be positive");
@@ -65,9 +70,16 @@ Flat_Pool :: struct {
         address_limit = base + extent;
     }
 
-    // Returns `nbytes` bytes aligned to the pool's `alignment`, initializing the pool first if needed, or `null` if the OS refuses to commit the pages.
+    // Returns `nbytes` bytes from the pool, aligned to its alignment. The memory is not cleared. Running out of the reserved
+    // range fails an assert.
     //
-    // Exhausting the reserved range fails an assert instead. The memory is uninitialized.
+    // ```jai,skip_on(wasm)
+    // pool: Flat_Pool;
+    // defer fini(*pool);
+    // a := cast(*int) get(*pool, size_of(int));
+    // a.* = 3;
+    // assert(a.* == 3);
+    // ```
     get :: (using pool: *Flat_Pool, nbytes: s64) -> *void {
         assert(nbytes >= 0 && alignment > 0 && (alignment & (alignment - 1)) == 0, "invalid flat-pool request/alignment");
         if !memory_base init(pool);
@@ -106,10 +118,15 @@ Flat_Pool :: struct {
         return cast(*void) aligned;
     }
 
-    // Rewinds the pool so the next `get` starts at the beginning; the committed pages stay committed.
+    // Rewinds the pool to the start, keeping its committed pages for reuse. Pointers from `get` are invalid afterwards.
     //
-    // With `overwrite_memory`, or the module parameter `OVERWRITE_ALL_POOLS_ON_RESET`, the used part is first filled with
-    // `0xcc`. All earlier pointers are invalid. Does nothing on an uninitialized pool.
+    // ```jai,skip_on(wasm)
+    // pool: Flat_Pool;
+    // defer fini(*pool);
+    // first := get(*pool, 32);
+    // reset(*pool);
+    // assert(get(*pool, 32) == first);
+    // ```
     reset :: (using pool: *Flat_Pool, overwrite_memory := false) {
         if !memory_base return;
         assert(current_point >= memory_base && current_point <= first_uncommitted_page, "invalid flat-pool allocated extent");
@@ -117,7 +134,7 @@ Flat_Pool :: struct {
         current_point = memory_base;
     }
 
-    // Returns the whole reservation to the OS and leaves the pool uninitialized, so a later `get` starts over. Safe on a pool that never allocated.
+    // Gives the pool's whole address range back to the system.
     fini :: (using pool: *Flat_Pool) {
         if !memory_base return;
 
@@ -135,10 +152,16 @@ Flat_Pool :: struct {
         address_limit = null;
     }
 
-    // The `Allocator_Proc` for a flat pool: use it as `Allocator.{ flat_pool_allocator_proc, *pool }`.
+    // The `Allocator_Proc` for a flat pool: use it as `Allocator.{ flat_pool_allocator_proc, *pool }`. Allocate and resize take
+    // memory from the pool, free does nothing.
     //
-    // Allocate and resize take from the pool (resize copies); free does nothing; startup initializes it and shutdown
-    // calls `fini`. It reports `IS_THIS_YOURS` for addresses in the part of the range used so far.
+    // ```jai,skip_on(wasm)
+    // pool: Flat_Pool;
+    // defer fini(*pool);
+    // context.allocator = Allocator.{ flat_pool_allocator_proc, *pool };
+    // numbers := NewArray(4, int);
+    // assert(numbers.count == 4);
+    // ```
     flat_pool_allocator_proc :: (mode: Allocator_Mode, requested_size: s64, old_size: s64, old_memory: *void, allocator_data: *void) -> *void {
         if mode == .CAPS {
             if old_memory {
