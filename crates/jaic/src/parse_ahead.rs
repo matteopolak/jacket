@@ -378,9 +378,11 @@ mod imp {
         }
 
         /// Whether `cond` holds for the target, when it only compares `OS` or `CPU` with a
-        /// member (combined with `&&`, `||`, `!`).
+        /// member (combined with `&&`, `||`, `!`). A library file's parser has already folded
+        /// those tests into `true` and `false`.
         fn target_test(&self, cond: &ast::Expr) -> Option<bool> {
             match &cond.kind {
+                ast::ExprKind::Bool(value) => Some(*value),
                 ast::ExprKind::Unary(ast::UnOp::Not, inner) => self.target_test(inner).map(|b| !b),
                 ast::ExprKind::Binary(ast::BinOp::Or, lhs, rhs) => {
                     match (self.target_test(lhs), self.target_test(rhs)) {
