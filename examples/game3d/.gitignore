@@ -1,0 +1,7 @@
+# Build output and smoke frames.
+/game/main
+/game/game3d
+/game/*.dSYM
+/game3d
+/*.dSYM
+/*.png
