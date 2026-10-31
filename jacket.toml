@@ -82,6 +82,8 @@ rules = { magic_number = "allow" }
 [[lint.overrides]]
 paths = [
     "stdlib/Extensions/Deflate/stream.jai",
+    "stdlib/Extensions/Http/h2_frame.jai",
+    "stdlib/Extensions/Http/hpack.jai",
     "stdlib/Extensions/Image/jpeg.jai",
     "stdlib/Extensions/Image/jpeg_huffman.jai",
     "stdlib/Extensions/Image/jpeg_output.jai",
