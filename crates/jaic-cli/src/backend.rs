@@ -15,8 +15,65 @@ use jaic::sema::Compiler;
 use jaic::sema::Options;
 #[cfg(feature = "llvm")]
 use jaic::target::Target;
+#[cfg(feature = "llvm")]
 use jaic::target::{TargetCpu, TargetOs};
 use std::path::{Path, PathBuf};
+
+#[cfg(all(
+    feature = "lazy-llvm",
+    any(feature = "dynamic-llvm", feature = "static-llvm")
+))]
+compile_error!(
+    "`lazy-llvm` opens the backend as a library; build without `dynamic-llvm` and `static-llvm`"
+);
+
+/// Where code generation runs: in this executable (`dynamic-llvm`, `static-llvm`), or in the
+/// library opened on the first build that writes native code (`lazy-llvm`). Linking stays here
+/// either way.
+#[cfg(feature = "llvm")]
+mod generate {
+    use jaic::ir::Program;
+    use jaic_native::Options;
+    use std::path::{Path, PathBuf};
+
+    /// Write `program` as the one object file `path`.
+    #[cfg(not(feature = "lazy-llvm"))]
+    pub(super) fn object(program: &Program, options: &Options, path: &Path) -> Result<(), String> {
+        jaic_llvm::emit_object(program, options, path)
+    }
+
+    /// Write `program` as `path` and the objects of its other codegen units.
+    #[cfg(not(feature = "lazy-llvm"))]
+    pub(super) fn objects(
+        program: &Program,
+        options: &Options,
+        path: &Path,
+    ) -> Result<Vec<PathBuf>, String> {
+        jaic_llvm::emit_objects(program, options, path)
+    }
+
+    /// Write `program` as the one object file `path`.
+    #[cfg(feature = "lazy-llvm")]
+    pub(super) fn object(program: &Program, options: &Options, path: &Path) -> Result<(), String> {
+        backend()?.emit_object(program, options, path)
+    }
+
+    /// Write `program` as `path` and the objects of its other codegen units.
+    #[cfg(feature = "lazy-llvm")]
+    pub(super) fn objects(
+        program: &Program,
+        options: &Options,
+        path: &Path,
+    ) -> Result<Vec<PathBuf>, String> {
+        backend()?.emit_objects(program, options, path)
+    }
+
+    /// The library, opened on first use; `-timings` shows the time as `load backend`.
+    #[cfg(feature = "lazy-llvm")]
+    fn backend() -> Result<&'static jaic_native::backend::Backend, String> {
+        crate::timings::time("load backend", jaic_native::backend::load)
+    }
+}
 
 /// Write the top-level program. `-exe`, `-output_path` and the optimization options override
 /// what the metaprogram set.
@@ -136,7 +193,7 @@ struct Prepared {
     /// The objects stay after linking, for the debugger.
     keep_objects: bool,
     target: Option<Target>,
-    options: jaic_llvm::Options,
+    options: jaic_native::Options,
     /// Linker arguments beyond the metaprogram's (`-mmacosx-version-min`).
     extra_link_args: Vec<String>,
 }
@@ -178,7 +235,7 @@ impl LlvmBackend {
         let non_empty = |s: &String| (!s.is_empty()).then(|| s.clone());
         // Windows wants `.exe`/`.dll`/`.lib`; a name without an extension gets the platform's,
         // unless the metaprogram turned `append_executable_filename_extension` off.
-        use jaic_llvm::OutputKind;
+        use jaic_native::OutputKind;
         let kind = match settings.output_type {
             OutputType::Executable => Some(OutputKind::Executable),
             OutputType::DynamicLibrary => Some(OutputKind::DynamicLibrary),
@@ -188,7 +245,7 @@ impl LlvmBackend {
         let mut output = output.to_path_buf();
         if settings.append_extension
             && output.extension().is_none()
-            && let Some(ext) = kind.and_then(|k| jaic_llvm::output_extension(target, k))
+            && let Some(ext) = kind.and_then(|k| jaic_native::output_extension(target, k))
         {
             output.set_extension(ext);
         }
@@ -227,7 +284,7 @@ impl LlvmBackend {
             name.push(suffix);
             intermediate.join(name)
         };
-        use jaic_llvm::OptLevel;
+        use jaic_native::OptLevel;
         let opt_level = match settings.optimization {
             BitcodeOptimization::O1 => OptLevel::O1,
             BitcodeOptimization::O2 => OptLevel::O2,
@@ -242,9 +299,9 @@ impl LlvmBackend {
             && settings.emit_debug_info != Some(false)
             && settings.llvm_switch(WorkspaceFlag::LlvmPreserveDebugInfo) != Some(false);
         let sanitize = if self.sanitize.is_empty() {
-            jaic_llvm::Sanitize::default()
+            jaic_native::Sanitize::default()
         } else {
-            jaic_llvm::Sanitize::parse(&self.sanitize)?
+            jaic_native::Sanitize::parse(&self.sanitize)?
         };
         let macos = target.unwrap_or_else(Target::host).is_apple();
         let macos_version = (macos && !settings.minimum_os_version.is_empty())
@@ -255,7 +312,7 @@ impl LlvmBackend {
         }
         let switch = |flag: WorkspaceFlag| settings.llvm_switch(flag);
         let wanted = |on: bool, suffix: &str| on.then(|| beside(suffix));
-        let codegen = jaic_llvm::Codegen {
+        let codegen = jaic_native::Codegen {
             machine_level: match settings.machine_code_optimization {
                 MachineCodeOptimization::None => Some(OptLevel::O0),
                 MachineCodeOptimization::Less => Some(OptLevel::O1),
@@ -294,7 +351,7 @@ impl LlvmBackend {
                 ".unoptimized.ll",
             )
         });
-        let options = jaic_llvm::Options {
+        let options = jaic_native::Options {
             opt_level,
             target,
             emit_ir,
@@ -408,14 +465,10 @@ impl OutputBackend for LlvmBackend {
             settings.output_type,
             OutputType::ObjectFile | OutputType::NoOutput
         ) {
-            return timings::time("codegen", || {
-                jaic_llvm::emit_object(program, &options, &object)
-            });
+            return timings::time("codegen", || generate::object(program, &options, &object));
         }
-        let objects = timings::time("codegen", || {
-            jaic_llvm::emit_objects(program, &options, &object)
-        })?;
-        let libraries = jaic_llvm::used_libraries(program);
+        let objects = timings::time("codegen", || generate::objects(program, &options, &object))?;
+        let libraries = jaic_native::used_libraries(program);
         let wasm = target.is_some_and(jaic::target::Target::is_wasm);
         let mut link_args = settings.additional_linker_arguments.clone();
         link_args.extend(extra_link_args);
@@ -424,7 +477,7 @@ impl OutputBackend for LlvmBackend {
             OutputType::ObjectFile | OutputType::NoOutput => unreachable!(),
             OutputType::Executable | OutputType::DynamicLibrary if wasm => {
                 let start = jaic::ir::Linkage::Export("_start".into());
-                jaic_llvm::link_wasm(&jaic_llvm::WasmLink {
+                jaic_native::link_wasm(&jaic_native::WasmLink {
                     objects: &objects,
                     libraries: &libraries,
                     output,
@@ -435,7 +488,7 @@ impl OutputBackend for LlvmBackend {
                 })
             }
             OutputType::Executable | OutputType::DynamicLibrary => {
-                jaic_llvm::link(&jaic_llvm::LinkRequest {
+                jaic_native::link(&jaic_native::LinkRequest {
                     objects: &objects,
                     libraries: &libraries,
                     output,
@@ -446,7 +499,7 @@ impl OutputBackend for LlvmBackend {
                     debug_info,
                 })
             }
-            OutputType::StaticLibrary => jaic_llvm::archive(&objects, output, target),
+            OutputType::StaticLibrary => jaic_native::archive(&objects, output, target),
         });
         if linked.is_ok() {
             jaic::build::report_executable(settings, output);
@@ -460,7 +513,7 @@ impl OutputBackend for LlvmBackend {
             && settings.output_type != OutputType::StaticLibrary;
         if macho
             && !keep_objects
-            && let Err(message) = timings::time("debug info", || jaic_llvm::write_dsym(output))
+            && let Err(message) = timings::time("debug info", || jaic_native::write_dsym(output))
         {
             eprintln!("warning: {message}");
         }
@@ -480,10 +533,10 @@ impl OutputBackend for LlvmBackend {
     ) -> Result<jaic::build::LinkObjects, String> {
         let prepared = self.prepare(settings, output)?;
         let objects = timings::time("codegen", || {
-            jaic_llvm::emit_objects(program, &prepared.options, &prepared.object)
+            generate::objects(program, &prepared.options, &prepared.object)
         })?;
-        let libraries = jaic_llvm::used_libraries(program);
-        let inputs = jaic_llvm::link_inputs(&libraries, prepared.target)?;
+        let libraries = jaic_native::used_libraries(program);
+        let inputs = jaic_native::link_inputs(&libraries, prepared.target)?;
         jaic::build::report_executable(settings, &prepared.output);
         Ok(jaic::build::LinkObjects {
             objects: objects.iter().map(|o| o.display().to_string()).collect(),

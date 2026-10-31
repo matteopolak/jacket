@@ -8,6 +8,7 @@ description = "LLVM backend for the jaic compiler core: lowers jaic IR to native
 
 [dependencies]
 jaic = { path = "../jaic" }
+jaic-native = { path = "../jaic-native" }
 jacket-config = { path = "../jacket-config" }
 inkwell.workspace = true
 

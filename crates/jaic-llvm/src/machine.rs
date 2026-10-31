@@ -1,11 +1,9 @@
 //! Target machines: triples, CPUs and features, and coverage options.
-use super::options::{OptLevel, Options};
 use inkwell::targets::{
     CodeModel, InitializationConfig, RelocMode, Target, TargetMachine, TargetTriple,
 };
 use jaic::target::Target as BuildTarget;
-use std::path::PathBuf;
-use std::process::Command;
+use jaic_native::{OptLevel, Options};
 
 /// `sancov-module` takes its options from LLVM's command-line registry, not from pipeline
 /// parameters. A `-coverage` build numbers every basic block (level 2) with a guard and a row in
@@ -44,28 +42,6 @@ pub(super) fn set_coverage_options(fuzzer: bool) {
             );
         }
     });
-}
-
-/// The libFuzzer engine without its `main`, found through the sanitizer driver (`clang
-/// --print-file-name`), or a message saying what to install.
-pub(super) fn fuzzer_runtime(driver: &str) -> Result<PathBuf, String> {
-    let arch = std::env::consts::ARCH;
-    let name = if cfg!(target_os = "macos") {
-        "libclang_rt.fuzzer_no_main_osx.a".to_string()
-    } else {
-        format!("libclang_rt.fuzzer_no_main-{arch}.a")
-    };
-    let out =
-        crate::linker::run_captured(Command::new(driver).arg(format!("--print-file-name={name}")))
-            .map_err(|e| format!("could not run `{driver}` to find {name}: {e}"))?;
-    let path = PathBuf::from(String::from_utf8_lossy(&out.stdout).trim());
-    if path.is_absolute() && path.is_file() {
-        Ok(path)
-    } else {
-        Err(format!(
-            "`-sanitize fuzzer` needs {name} from the LLVM that built jaic (`{driver}` did not find it)\nhelp: install compiler-rt (Homebrew `llvm`, or `libclang-rt-23-dev` from apt.llvm.org) or set JAIC_SANITIZER_CC to its clang"
-        ))
-    }
 }
 
 /// The host triple. On macOS LLVM's default names the Darwin kernel version, which it maps to
@@ -184,7 +160,7 @@ pub(super) fn target_machine(
             &triple,
             &cpu,
             &features,
-            wasm_machine_level(arch, options, level).llvm(),
+            llvm_level(wasm_machine_level(arch, options, level)),
             reloc,
             CodeModel::Default,
         )
@@ -232,11 +208,22 @@ pub(super) fn verify_ir(options: &Options) -> bool {
     options.codegen.verify_ir.unwrap_or(cfg!(debug_assertions))
 }
 
+/// The target machine's optimization level for `level`.
+fn llvm_level(level: OptLevel) -> inkwell::OptimizationLevel {
+    use inkwell::OptimizationLevel;
+    match level {
+        OptLevel::O0 => OptimizationLevel::None,
+        OptLevel::O1 => OptimizationLevel::Less,
+        OptLevel::O2 | OptLevel::Os | OptLevel::Oz => OptimizationLevel::Default,
+        OptLevel::O3 => OptimizationLevel::Aggressive,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::options::Codegen;
     use jaic::abi::Arch;
+    use jaic_native::Codegen;
 
     #[test]
     fn an_unoptimized_wasm_module_gets_register_coloring_unless_the_program_chose_a_level() {

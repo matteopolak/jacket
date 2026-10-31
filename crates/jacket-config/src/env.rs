@@ -191,6 +191,11 @@ vars! {
         default: "`$XDG_CACHE_HOME/jaic`, else the platform's user cache (`~/Library/Caches/jaic`, `~/.cache/jaic`)",
         summary: "Where `jaic` unpacks the helpers it embeds (the crash runtime).",
     }
+    BACKEND {
+        name: "JAIC_BACKEND", group: Settings, readers: [Jaic],
+        default: "the code generation library next to the `jaic` executable",
+        summary: "The code generation library (`libjaic_backend`) a release `jaic` opens when a build writes native code.",
+    }
     DSYM {
         name: "JAIC_DSYM", group: Settings, readers: [Jaic],
         default: "unset: macOS debug builds keep their object files for the debugger",

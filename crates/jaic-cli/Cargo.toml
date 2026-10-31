@@ -14,6 +14,7 @@ path = "src/main.rs"
 jaic = { path = "../jaic" }
 jacket-config = { path = "../jacket-config" }
 jaic-llvm = { path = "../jaic-llvm", optional = true, default-features = false }
+jaic-native = { path = "../jaic-native", optional = true }
 mimalloc = { version = "=0.1.52", optional = true, default-features = false }
 
 # On macOS also replace the C `malloc` family, so LLVM's C++ allocations (about a fifth of a
@@ -26,10 +27,14 @@ mimalloc = { version = "=0.1.52", optional = true, default-features = false, fea
 [features]
 default = ["dynamic-llvm", "mimalloc"]
 # Native output (`jaic`); without it jaic only checks and interprets.
-llvm = ["dep:jaic-llvm"]
-# LLVM as a shared library (development) or statically linked (release archives).
-dynamic-llvm = ["llvm", "jaic-llvm/dynamic"]
-static-llvm = ["llvm", "jaic-llvm/static", "mimalloc"]
+llvm = ["dep:jaic-native"]
+# LLVM linked into the executable, as a shared library (development) or statically.
+dynamic-llvm = ["llvm", "dep:jaic-llvm", "jaic-llvm/dynamic"]
+static-llvm = ["llvm", "dep:jaic-llvm", "jaic-llvm/static", "mimalloc"]
+# LLVM in `libjaic_backend` beside the executable (crate `jaic-backend`), opened when a build
+# first writes native code, so every other command starts without loading it
+# (`docs/compiler/lazy-backend.md`). Release archives use this.
+lazy-llvm = ["llvm", "mimalloc"]
 # mimalloc under the memory-limit counter instead of the system allocator (on with either LLVM
 # feature; `--no-default-features` alone keeps the system allocator).
 mimalloc = ["dep:mimalloc"]

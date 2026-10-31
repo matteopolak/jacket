@@ -1,18 +1,17 @@
 //! Emitting objects and IR for a program, split into codegen units.
-use super::linker::check_sanitizer_target;
 use super::lower::Shard;
 use super::machine::{set_coverage_options, target_machine, verify_ir};
-#[cfg(target_os = "macos")]
-use super::malloc_zone;
-use super::options::{Codegen, OptLevel, Options};
 use super::partition::func_weight;
 use super::{debuginfo, green, lower, partition, simd, split};
 use inkwell::attributes::{Attribute, AttributeLoc};
 use inkwell::context::Context;
 use inkwell::passes::PassBuilderOptions;
 use inkwell::targets::FileType;
-use jaic::ir::{self, Library, Program};
+use jaic::ir::{self, Program};
 use jaic::target::Target as BuildTarget;
+use jaic_native::check_sanitizer_target;
+#[cfg(target_os = "macos")]
+use jaic_native::{Codegen, OptLevel, Options};
 use std::path::{Path, PathBuf};
 
 /// Lower `program` (or one shard of it) to one LLVM module and write it as an object file.
@@ -401,13 +400,6 @@ pub(super) fn inline_cuts(program: &Program, options: &Options) -> Vec<bool> {
     partition::inline_cuts(program, partition::INLINE_CAP)
 }
 
-/// Keep `fork` working when the process's C allocator is mimalloc's macOS zone
-/// (the `override` feature of mimalloc); call once at startup. Does nothing elsewhere.
-pub fn fix_malloc_zone_for_fork() {
-    #[cfg(target_os = "macos")]
-    malloc_zone::fix_fork();
-}
-
 /// Translate `program` to native object files, splitting codegen across threads when it
 /// is large. Returns the objects written: `path` itself, then `path.1.o`, `path.2.o`...
 pub fn emit_objects(
@@ -462,22 +454,4 @@ pub fn emit_objects(
     .into_iter()
     .collect::<Result<Vec<()>, String>>()?;
     Ok(paths)
-}
-
-/// The libraries from `program.libraries` that some foreign symbol uses, or that are
-/// `link_always`.
-pub fn used_libraries(program: &Program) -> Vec<Library> {
-    let mut used: Vec<bool> = program.libraries.iter().map(|l| l.link_always).collect();
-    for foreign in &program.foreigns {
-        if let Some(i) = foreign.library.filter(|&i| i < used.len()) {
-            used[i] = true;
-        }
-    }
-    program
-        .libraries
-        .iter()
-        .zip(used)
-        .filter(|&(_, u)| u)
-        .map(|(l, _)| l.clone())
-        .collect()
 }

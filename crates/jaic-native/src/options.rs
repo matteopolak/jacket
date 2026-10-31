@@ -1,5 +1,4 @@
 //! Optimisation levels, code generation options and sanitizer selection.
-use inkwell::OptimizationLevel;
 use jaic::target::Target as BuildTarget;
 use std::path::PathBuf;
 
@@ -18,17 +17,8 @@ pub enum OptLevel {
 }
 
 impl OptLevel {
-    pub(super) fn llvm(self) -> OptimizationLevel {
-        match self {
-            OptLevel::O0 => OptimizationLevel::None,
-            OptLevel::O1 => OptimizationLevel::Less,
-            OptLevel::O2 | OptLevel::Os | OptLevel::Oz => OptimizationLevel::Default,
-            OptLevel::O3 => OptimizationLevel::Aggressive,
-        }
-    }
-
     /// New-pass-manager pipeline string, `None` when no optimization runs.
-    pub(super) fn pipeline(self) -> Option<&'static str> {
+    pub fn pipeline(self) -> Option<&'static str> {
         match self {
             OptLevel::O0 => None,
             OptLevel::O1 => Some("default<O1>"),
@@ -152,7 +142,7 @@ impl Sanitize {
     }
 
     /// The Clang driver's `-fsanitize=` value; the driver then links the matching runtime.
-    pub(super) fn driver_flag(self) -> Option<String> {
+    pub fn driver_flag(self) -> Option<String> {
         // `fuzzer-no-link`: the instrumentation flags only. libFuzzer's own `main` would clash
         // with the program's; `fuzzer_runtime` names the engine archive without it.
         let names: Vec<&str> = [
@@ -168,7 +158,7 @@ impl Sanitize {
 
     /// Passes appended to the optimization pipeline, where Clang runs its sanitizer passes.
     /// The bounds checks come first so that `ASan` does not instrument them.
-    pub(super) fn passes(self, opt_level: OptLevel) -> Vec<&'static str> {
+    pub fn passes(self, opt_level: OptLevel) -> Vec<&'static str> {
         let mut passes = Vec::new();
         if self.undefined {
             // `rt-abort`: report through the UBSan runtime, then stop the program. The check
