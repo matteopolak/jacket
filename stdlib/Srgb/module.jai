@@ -1,6 +1,8 @@
 // Conversion between sRGB-encoded and linear-light color values.
 //
-// sRGB is the encoding of most images and displays: it spends more of its range on dark values than linear light does, so blend, filter and light in linear space and encode on output. Each conversion comes as a `float` form, a `Vector3` (red, green, blue) form and a `Vector4` form that leaves alpha as it is. The exact curves are `srgb_to_linear` and `linear_to_srgb`; the `_fast` forms use a table and the `_pow2` and `_sqrt` forms a gamma of 2.0, both cheaper and less accurate. Values outside [0, 1] are not clamped.
+// sRGB spends more of its range on dark values than linear light does, so blend, filter and light in linear space and encode on output.
+//
+// [srgb_to_linear] and [linear_to_srgb] are the exact curves, each for a `float`, a `Vector3` and a `Vector4` (alpha is left alone). The `_fast` forms use a table, and the `_pow2` and `_sqrt` forms a gamma of 2.0; both are cheaper and less accurate.
 //
 // ```jai
 // #import "Math";

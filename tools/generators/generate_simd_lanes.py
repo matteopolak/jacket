@@ -35,6 +35,35 @@ COMPARISON_TEXT = {
     "<=": "less than or equal to",
 }
 
+SCALAR_ARITHMETIC_EXAMPLES = {
+    "+": """```jai
+a := set(4, cast(s32) 3);
+assert((a + cast(s32) 2).data[1] == 5);
+```""",
+    "-": """```jai
+a := set(4, cast(s32) 3);
+assert((a - cast(s32) 2).data[1] == 1);
+```""",
+    "*": """```jai
+a := set(4, cast(s32) 3);
+assert((a * cast(s32) 2).data[1] == 6);
+```""",
+    "/": """```jai
+a := set(4, cast(s32) 6);
+assert((a / cast(s32) 2).data[1] == 3);
+```""",
+}
+
+# The mask `get_mask(a OP b)` gives for lanes of 3 against lanes of 5, and for lanes of 3 against the scalar 3.
+COMPARISON_MASKS = {
+    "==": (0, 15),
+    "!=": (15, 0),
+    ">": (0, 0),
+    ">=": (0, 15),
+    "<": (15, 0),
+    "<=": (15, 15),
+}
+
 ARITHMETIC_NOTES = {
     "+": """Integer lanes wrap on overflow, with no overflow check.
 
@@ -186,6 +215,8 @@ get_looping_indices :: ($N: int, $I: Type, $STEP := 1) -> SIMD_Array(N, I) #no_a
             text = ARITHMETIC_TEXT[operation][scalar]
             if not scalar:
                 text += "\n\n" + ARITHMETIC_NOTES[operation]
+            else:
+                text += "\n\n" + SCALAR_ARITHMETIC_EXAMPLES[operation]
             parts.append("\n" + doc(text) + f"""operator {operation} :: (a: $T/SIMD_Array, {other}) -> T{symmetric} #no_abc #no_aoc {{
     result: T;
     for 0..a.count - 1 result.data[it] = a.data[it] {operation} {expression};
@@ -205,11 +236,11 @@ get_looping_indices :: ($N: int, $I: Type, $STEP := 1) -> SIMD_Array(N, I) #no_a
             expression = "factor" if scalar else "b.data[it]"
             relation = COMPARISON_TEXT[operation]
             text = (
-                f"Compares lane by lane: each lane of the result is 1 where the lane of `a` is {relation} the lane of `b`, else 0 (1.0 and 0.0 for float lanes)."
+                f"Compares lane by lane: each lane of the result is 1 where the lane of `a` is {relation} the lane of `b`, else 0."
                 if not scalar
-                else f"Compares every lane with `factor`: each lane of the result is 1 where the lane of `a` is {relation} `factor`, else 0."
+                else f"Compares every lane with `factor`: each lane of the result is 1 where the lane is {relation} `factor`, else 0."
             )
-            text += " The result has the type of the operands, not `bool`, and is not an all-ones mask; pass it to `get_mask` to get one bit per lane."
+            text += " The result has the lane type, not `bool`; pass it to `get_mask` to get one bit per lane."
             if not scalar and operation == "==":
                 text += """
 
@@ -221,9 +252,17 @@ same := a == b;
 assert(same.data[0] == 1 && same.data[2] == 0);
 assert(get_mask(a < b) == 4);
 assert(get_mask(a == cast(s32) 3) == 15);
-```"""
-            if not scalar and operation == "==":
-                text += "\n\nFor float lanes a NaN is unequal to everything, itself included, as in scalar code."
+```
+
+For float lanes a NaN is unequal to everything, itself included."""
+            else:
+                vector_mask, scalar_mask = COMPARISON_MASKS[operation]
+                text += "\n\n```jai\na := set(4, cast(s32) 3);\n"
+                if scalar:
+                    text += f"assert(get_mask(a {operation} cast(s32) 3) == {scalar_mask});\n"
+                else:
+                    text += f"assert(get_mask(a {operation} set(4, cast(s32) 5)) == {vector_mask});\n"
+                text += "```"
             parts.append("\n" + doc(text) + f"""operator {operation} :: (a: $T/SIMD_Array, {other}) -> T #no_abc #no_aoc {{
     result: T;
     for 0..a.count - 1 result.data[it] = cast(a.type) (a.data[it] {operation} {expression});
@@ -235,7 +274,7 @@ assert(get_mask(a == cast(s32) 3) == 15);
             other = "factor: a.type" if scalar else "b: T"
             expression = "factor" if scalar else "b.data[it]"
             text = f"The lane-wise {'smaller' if operation == 'min' else 'larger'} of " + ("two vectors." if not scalar else "each lane and `factor`.")
-            text += f" Each lane is `Basic.{operation}` of the two values, so with a NaN lane the answer depends on the operand order, as it does in scalar code."
+            text += f" With a NaN lane the answer depends on the operand order, as in scalar code."
             if not scalar:
                 text += f"""
 
@@ -244,6 +283,13 @@ a := set(4, cast(s32) 3);
 b := set(4, cast(s32) 5);
 assert({operation}(a, b).data[0] == {'3' if operation == 'min' else '5'});
 assert({operation}(a, cast(s32) 4).data[0] == {'3' if operation == 'min' else '4'});
+```"""
+            else:
+                text += f"""
+
+```jai
+a := set(4, cast(s32) 3);
+assert({operation}(a, cast(s32) 4).data[1] == {'3' if operation == 'min' else '4'});
 ```"""
             parts.append("\n" + doc(text) + f"""{operation} :: (a: $T/SIMD_Array, {other}) -> T #no_abc #no_aoc {{
     result: T;

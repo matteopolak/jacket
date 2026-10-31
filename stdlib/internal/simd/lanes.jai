@@ -123,6 +123,11 @@ operator + :: (a: $T/SIMD_Array, b: T) -> T #no_abc #no_aoc {
 }
 
 // Adds `factor` to every lane. The scalar can be on either side.
+//
+// ```jai
+// a := set(4, cast(s32) 3);
+// assert((a + cast(s32) 2).data[1] == 5);
+// ```
 operator + :: (a: $T/SIMD_Array, factor: a.type) -> T #symmetric #no_abc #no_aoc {
     result: T;
     for 0..a.count - 1 result.data[it] = a.data[it] + factor;
@@ -146,6 +151,11 @@ operator - :: (a: $T/SIMD_Array, b: T) -> T #no_abc #no_aoc {
 }
 
 // Subtracts `factor` from every lane. The scalar can be on either side: `scalar - vector` subtracts every lane from the scalar.
+//
+// ```jai
+// a := set(4, cast(s32) 3);
+// assert((a - cast(s32) 2).data[1] == 1);
+// ```
 operator - :: (a: $T/SIMD_Array, factor: a.type) -> T #no_abc #no_aoc {
     result: T;
     for 0..a.count - 1 result.data[it] = a.data[it] - factor;
@@ -176,6 +186,11 @@ operator * :: (a: $T/SIMD_Array, b: T) -> T #no_abc #no_aoc {
 }
 
 // Multiplies every lane by `factor`. The scalar can be on either side.
+//
+// ```jai
+// a := set(4, cast(s32) 3);
+// assert((a * cast(s32) 2).data[1] == 6);
+// ```
 operator * :: (a: $T/SIMD_Array, factor: a.type) -> T #symmetric #no_abc #no_aoc {
     result: T;
     for 0..a.count - 1 result.data[it] = a.data[it] * factor;
@@ -199,6 +214,11 @@ operator / :: (a: $T/SIMD_Array, b: T) -> T #no_abc #no_aoc {
 }
 
 // Divides every lane by `factor`. The scalar can be on either side: `scalar / vector` divides the scalar by every lane.
+//
+// ```jai
+// a := set(4, cast(s32) 6);
+// assert((a / cast(s32) 2).data[1] == 3);
+// ```
 operator / :: (a: $T/SIMD_Array, factor: a.type) -> T #no_abc #no_aoc {
     result: T;
     for 0..a.count - 1 result.data[it] = a.data[it] / factor;
@@ -212,7 +232,7 @@ operator / :: (factor: $E, a: SIMD_Array($N, E)) -> SIMD_Array(N, E) #no_abc #no
     return result;
 }
 
-// Compares lane by lane: each lane of the result is 1 where the lane of `a` is equal to the lane of `b`, else 0 (1.0 and 0.0 for float lanes). The result has the type of the operands, not `bool`, and is not an all-ones mask; pass it to `get_mask` to get one bit per lane.
+// Compares lane by lane: each lane of the result is 1 where the lane of `a` is equal to the lane of `b`, else 0. The result has the lane type, not `bool`; pass it to `get_mask` to get one bit per lane.
 //
 // ```jai
 // a := set(4, cast(s32) 3);
@@ -224,91 +244,146 @@ operator / :: (factor: $E, a: SIMD_Array($N, E)) -> SIMD_Array(N, E) #no_abc #no
 // assert(get_mask(a == cast(s32) 3) == 15);
 // ```
 //
-// For float lanes a NaN is unequal to everything, itself included, as in scalar code.
+// For float lanes a NaN is unequal to everything, itself included.
 operator == :: (a: $T/SIMD_Array, b: T) -> T #no_abc #no_aoc {
     result: T;
     for 0..a.count - 1 result.data[it] = cast(a.type) (a.data[it] == b.data[it]);
     return result;
 }
 
-// Compares every lane with `factor`: each lane of the result is 1 where the lane of `a` is equal to `factor`, else 0. The result has the type of the operands, not `bool`, and is not an all-ones mask; pass it to `get_mask` to get one bit per lane.
+// Compares every lane with `factor`: each lane of the result is 1 where the lane is equal to `factor`, else 0. The result has the lane type, not `bool`; pass it to `get_mask` to get one bit per lane.
+//
+// ```jai
+// a := set(4, cast(s32) 3);
+// assert(get_mask(a == cast(s32) 3) == 15);
+// ```
 operator == :: (a: $T/SIMD_Array, factor: a.type) -> T #no_abc #no_aoc {
     result: T;
     for 0..a.count - 1 result.data[it] = cast(a.type) (a.data[it] == factor);
     return result;
 }
 
-// Compares lane by lane: each lane of the result is 1 where the lane of `a` is different from the lane of `b`, else 0 (1.0 and 0.0 for float lanes). The result has the type of the operands, not `bool`, and is not an all-ones mask; pass it to `get_mask` to get one bit per lane.
+// Compares lane by lane: each lane of the result is 1 where the lane of `a` is different from the lane of `b`, else 0. The result has the lane type, not `bool`; pass it to `get_mask` to get one bit per lane.
+//
+// ```jai
+// a := set(4, cast(s32) 3);
+// assert(get_mask(a != set(4, cast(s32) 5)) == 15);
+// ```
 operator != :: (a: $T/SIMD_Array, b: T) -> T #no_abc #no_aoc {
     result: T;
     for 0..a.count - 1 result.data[it] = cast(a.type) (a.data[it] != b.data[it]);
     return result;
 }
 
-// Compares every lane with `factor`: each lane of the result is 1 where the lane of `a` is different from `factor`, else 0. The result has the type of the operands, not `bool`, and is not an all-ones mask; pass it to `get_mask` to get one bit per lane.
+// Compares every lane with `factor`: each lane of the result is 1 where the lane is different from `factor`, else 0. The result has the lane type, not `bool`; pass it to `get_mask` to get one bit per lane.
+//
+// ```jai
+// a := set(4, cast(s32) 3);
+// assert(get_mask(a != cast(s32) 3) == 0);
+// ```
 operator != :: (a: $T/SIMD_Array, factor: a.type) -> T #no_abc #no_aoc {
     result: T;
     for 0..a.count - 1 result.data[it] = cast(a.type) (a.data[it] != factor);
     return result;
 }
 
-// Compares lane by lane: each lane of the result is 1 where the lane of `a` is greater than the lane of `b`, else 0 (1.0 and 0.0 for float lanes). The result has the type of the operands, not `bool`, and is not an all-ones mask; pass it to `get_mask` to get one bit per lane.
+// Compares lane by lane: each lane of the result is 1 where the lane of `a` is greater than the lane of `b`, else 0. The result has the lane type, not `bool`; pass it to `get_mask` to get one bit per lane.
+//
+// ```jai
+// a := set(4, cast(s32) 3);
+// assert(get_mask(a > set(4, cast(s32) 5)) == 0);
+// ```
 operator > :: (a: $T/SIMD_Array, b: T) -> T #no_abc #no_aoc {
     result: T;
     for 0..a.count - 1 result.data[it] = cast(a.type) (a.data[it] > b.data[it]);
     return result;
 }
 
-// Compares every lane with `factor`: each lane of the result is 1 where the lane of `a` is greater than `factor`, else 0. The result has the type of the operands, not `bool`, and is not an all-ones mask; pass it to `get_mask` to get one bit per lane.
+// Compares every lane with `factor`: each lane of the result is 1 where the lane is greater than `factor`, else 0. The result has the lane type, not `bool`; pass it to `get_mask` to get one bit per lane.
+//
+// ```jai
+// a := set(4, cast(s32) 3);
+// assert(get_mask(a > cast(s32) 3) == 0);
+// ```
 operator > :: (a: $T/SIMD_Array, factor: a.type) -> T #no_abc #no_aoc {
     result: T;
     for 0..a.count - 1 result.data[it] = cast(a.type) (a.data[it] > factor);
     return result;
 }
 
-// Compares lane by lane: each lane of the result is 1 where the lane of `a` is greater than or equal to the lane of `b`, else 0 (1.0 and 0.0 for float lanes). The result has the type of the operands, not `bool`, and is not an all-ones mask; pass it to `get_mask` to get one bit per lane.
+// Compares lane by lane: each lane of the result is 1 where the lane of `a` is greater than or equal to the lane of `b`, else 0. The result has the lane type, not `bool`; pass it to `get_mask` to get one bit per lane.
+//
+// ```jai
+// a := set(4, cast(s32) 3);
+// assert(get_mask(a >= set(4, cast(s32) 5)) == 0);
+// ```
 operator >= :: (a: $T/SIMD_Array, b: T) -> T #no_abc #no_aoc {
     result: T;
     for 0..a.count - 1 result.data[it] = cast(a.type) (a.data[it] >= b.data[it]);
     return result;
 }
 
-// Compares every lane with `factor`: each lane of the result is 1 where the lane of `a` is greater than or equal to `factor`, else 0. The result has the type of the operands, not `bool`, and is not an all-ones mask; pass it to `get_mask` to get one bit per lane.
+// Compares every lane with `factor`: each lane of the result is 1 where the lane is greater than or equal to `factor`, else 0. The result has the lane type, not `bool`; pass it to `get_mask` to get one bit per lane.
+//
+// ```jai
+// a := set(4, cast(s32) 3);
+// assert(get_mask(a >= cast(s32) 3) == 15);
+// ```
 operator >= :: (a: $T/SIMD_Array, factor: a.type) -> T #no_abc #no_aoc {
     result: T;
     for 0..a.count - 1 result.data[it] = cast(a.type) (a.data[it] >= factor);
     return result;
 }
 
-// Compares lane by lane: each lane of the result is 1 where the lane of `a` is less than the lane of `b`, else 0 (1.0 and 0.0 for float lanes). The result has the type of the operands, not `bool`, and is not an all-ones mask; pass it to `get_mask` to get one bit per lane.
+// Compares lane by lane: each lane of the result is 1 where the lane of `a` is less than the lane of `b`, else 0. The result has the lane type, not `bool`; pass it to `get_mask` to get one bit per lane.
+//
+// ```jai
+// a := set(4, cast(s32) 3);
+// assert(get_mask(a < set(4, cast(s32) 5)) == 15);
+// ```
 operator < :: (a: $T/SIMD_Array, b: T) -> T #no_abc #no_aoc {
     result: T;
     for 0..a.count - 1 result.data[it] = cast(a.type) (a.data[it] < b.data[it]);
     return result;
 }
 
-// Compares every lane with `factor`: each lane of the result is 1 where the lane of `a` is less than `factor`, else 0. The result has the type of the operands, not `bool`, and is not an all-ones mask; pass it to `get_mask` to get one bit per lane.
+// Compares every lane with `factor`: each lane of the result is 1 where the lane is less than `factor`, else 0. The result has the lane type, not `bool`; pass it to `get_mask` to get one bit per lane.
+//
+// ```jai
+// a := set(4, cast(s32) 3);
+// assert(get_mask(a < cast(s32) 3) == 0);
+// ```
 operator < :: (a: $T/SIMD_Array, factor: a.type) -> T #no_abc #no_aoc {
     result: T;
     for 0..a.count - 1 result.data[it] = cast(a.type) (a.data[it] < factor);
     return result;
 }
 
-// Compares lane by lane: each lane of the result is 1 where the lane of `a` is less than or equal to the lane of `b`, else 0 (1.0 and 0.0 for float lanes). The result has the type of the operands, not `bool`, and is not an all-ones mask; pass it to `get_mask` to get one bit per lane.
+// Compares lane by lane: each lane of the result is 1 where the lane of `a` is less than or equal to the lane of `b`, else 0. The result has the lane type, not `bool`; pass it to `get_mask` to get one bit per lane.
+//
+// ```jai
+// a := set(4, cast(s32) 3);
+// assert(get_mask(a <= set(4, cast(s32) 5)) == 15);
+// ```
 operator <= :: (a: $T/SIMD_Array, b: T) -> T #no_abc #no_aoc {
     result: T;
     for 0..a.count - 1 result.data[it] = cast(a.type) (a.data[it] <= b.data[it]);
     return result;
 }
 
-// Compares every lane with `factor`: each lane of the result is 1 where the lane of `a` is less than or equal to `factor`, else 0. The result has the type of the operands, not `bool`, and is not an all-ones mask; pass it to `get_mask` to get one bit per lane.
+// Compares every lane with `factor`: each lane of the result is 1 where the lane is less than or equal to `factor`, else 0. The result has the lane type, not `bool`; pass it to `get_mask` to get one bit per lane.
+//
+// ```jai
+// a := set(4, cast(s32) 3);
+// assert(get_mask(a <= cast(s32) 3) == 15);
+// ```
 operator <= :: (a: $T/SIMD_Array, factor: a.type) -> T #no_abc #no_aoc {
     result: T;
     for 0..a.count - 1 result.data[it] = cast(a.type) (a.data[it] <= factor);
     return result;
 }
 
-// The lane-wise smaller of two vectors. Each lane is `Basic.min` of the two values, so with a NaN lane the answer depends on the operand order, as it does in scalar code.
+// The lane-wise smaller of two vectors. With a NaN lane the answer depends on the operand order, as in scalar code.
 //
 // ```jai
 // a := set(4, cast(s32) 3);
@@ -322,14 +397,19 @@ min :: (a: $T/SIMD_Array, b: T) -> T #no_abc #no_aoc {
     return result;
 }
 
-// The lane-wise smaller of each lane and `factor`. Each lane is `Basic.min` of the two values, so with a NaN lane the answer depends on the operand order, as it does in scalar code.
+// The lane-wise smaller of each lane and `factor`. With a NaN lane the answer depends on the operand order, as in scalar code.
+//
+// ```jai
+// a := set(4, cast(s32) 3);
+// assert(min(a, cast(s32) 4).data[1] == 3);
+// ```
 min :: (a: $T/SIMD_Array, factor: a.type) -> T #no_abc #no_aoc {
     result: T;
     for 0..a.count - 1 result.data[it] = B.min(a.data[it], factor);
     return result;
 }
 
-// The lane-wise larger of two vectors. Each lane is `Basic.max` of the two values, so with a NaN lane the answer depends on the operand order, as it does in scalar code.
+// The lane-wise larger of two vectors. With a NaN lane the answer depends on the operand order, as in scalar code.
 //
 // ```jai
 // a := set(4, cast(s32) 3);
@@ -343,7 +423,12 @@ max :: (a: $T/SIMD_Array, b: T) -> T #no_abc #no_aoc {
     return result;
 }
 
-// The lane-wise larger of each lane and `factor`. Each lane is `Basic.max` of the two values, so with a NaN lane the answer depends on the operand order, as it does in scalar code.
+// The lane-wise larger of each lane and `factor`. With a NaN lane the answer depends on the operand order, as in scalar code.
+//
+// ```jai
+// a := set(4, cast(s32) 3);
+// assert(max(a, cast(s32) 4).data[1] == 4);
+// ```
 max :: (a: $T/SIMD_Array, factor: a.type) -> T #no_abc #no_aoc {
     result: T;
     for 0..a.count - 1 result.data[it] = B.max(a.data[it], factor);
