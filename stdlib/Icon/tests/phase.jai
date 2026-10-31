@@ -48,8 +48,8 @@ verify_phase :: () {
         }
 
         if windows_target {
-            // The ICO is deliberately absent: File and Icon both report failure.
-            assert(counts.count == 2 && counts.errors == 2);
+            // The ICO is deliberately absent. File fails quietly, so only Icon reports it.
+            assert(counts.count == 1 && counts.errors == 1);
         } else assert(counts.count == 1 && counts.errors == 0);
     }
 }
