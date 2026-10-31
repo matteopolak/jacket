@@ -5,6 +5,7 @@ mod defaults;
 mod fields;
 mod layout;
 mod literal_hints;
+pub(in crate::sema) use literal_hints::LitMisfit;
 mod literals;
 mod members;
 mod model;

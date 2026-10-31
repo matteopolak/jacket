@@ -1,7 +1,7 @@
 //! Notes and help on calls whose polymorphic parameters cannot be inferred: where `$T` is
 //! declared, which argument failed to bind it or bound it differently, and how to give the type
 //! by name. See docs/compiler/polymorph-reporting.md.
-use jaic::diagnostics::Diagnostic;
+use jaic::diagnostics::{Code, Diagnostic};
 use jaic::source::Span;
 use test_support::compiler::compile_source;
 
@@ -239,4 +239,23 @@ fn an_element_type_mismatch_gets_no_length_notes() {
          main :: () { x: [3] int; y: [3] string; same(x, y); }",
     );
     assert!(error.notes.iter().all(|(_, n)| !n.contains("has length")));
+}
+
+#[test]
+fn overload_notes_say_why_a_short_literal_was_rejected() {
+    let (_, error) = failure(
+        "S :: struct { a: int; b: int; c: int; d: int; }\n\
+         add :: (arr: *[..] $T, item: T) {}\n\
+         add :: (arr: *[..] $T, items: ..T) {}\n\
+         main :: () { arr: [..] S; add(*arr, .{1, 2, 3}); }",
+    );
+    assert_eq!(error.code, Code::CallNoOverloadMatchesArguments);
+    let reasons = error
+        .notes
+        .iter()
+        .filter(|(_, n)| {
+            n.contains("not enough values in this struct literal (no value for member `d`)")
+        })
+        .count();
+    assert_eq!(reasons, 2, "{:?}", error.notes);
 }

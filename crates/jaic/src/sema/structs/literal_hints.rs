@@ -1,7 +1,7 @@
 //! What a positional struct literal with the wrong number of values tells the author: the
 //! members it fills, in order, and which of them it left out or has no member for.
 use crate::diagnostics::Code;
-use crate::sema::{Compiler, Diagnostic, Span, Sym, TypeId, ast};
+use crate::sema::{Compiler, Diagnostic, Result, Span, Sym, TypeId, ast};
 use crate::source::{Applicability, Suggestion};
 
 /// The members as a list for a note: `` `a`, `b`, `c` ``.
@@ -11,6 +11,31 @@ fn listed(names: &[Sym]) -> String {
         .map(|n| format!("`{n}`"))
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+/// Why a `.{...}` literal cannot be a value of a given struct, for a call that has to pick a
+/// type for it.
+pub(in crate::sema) enum LitMisfit {
+    /// A value is named for a member the type does not have.
+    NoMember(Sym),
+    /// The value for this member (unnamed if the member has no name) does not fit its type.
+    Value(Option<Sym>),
+    /// A positional value after the last member.
+    TooMany,
+    /// Only positional values, and fewer than the members without a default.
+    NotEnough { given: usize, needed: usize },
+}
+
+/// What a literal that gives `given` of `needed` positional values leaves out.
+fn missing_label(missing: &[Sym]) -> String {
+    format!(
+        "no value for {}",
+        if missing.len() == 1 {
+            format!("member {}", listed(missing))
+        } else {
+            format!("members {}", listed(missing))
+        }
+    )
 }
 
 #[expect(
@@ -41,14 +66,7 @@ impl Compiler {
             "not enough values in this struct literal",
         );
         if !missing.is_empty() {
-            d = d.with_label(format!(
-                "no value for {}",
-                if missing.len() == 1 {
-                    format!("member {}", listed(&missing))
-                } else {
-                    format!("members {}", listed(&missing))
-                }
-            ));
+            d = d.with_label(missing_label(&missing));
         }
         if !asked.is_empty() {
             d = d.with_note(
@@ -62,6 +80,44 @@ impl Compiler {
         Box::new(d.with_help(
             "give the missing values, or name the members you set (`.{ a = 1 }`) and leave the rest to their defaults",
         ))
+    }
+
+    /// The reason a literal does not fit `ty`, as a clause for a note on a rejected overload.
+    pub(in crate::sema) fn misfit_reason(
+        &mut self,
+        ty: TypeId,
+        misfit: &LitMisfit,
+        span: Span,
+    ) -> Result<String> {
+        let name = self.ty.types.name(ty);
+        Ok(match misfit {
+            LitMisfit::NoMember(member) => format!("`{name}` has no member `{member}`"),
+            LitMisfit::Value(Some(member)) => {
+                format!("the value for member `{member}` does not fit its type")
+            }
+            LitMisfit::Value(None) => "a value does not fit the member it fills".to_string(),
+            LitMisfit::TooMany => format!("too many values for `{name}`"),
+            LitMisfit::NotEnough {
+                given,
+                needed,
+            } => {
+                let members = self.positional_members(ty, span)?;
+                let missing: Vec<Sym> = members
+                    .iter()
+                    .take(*needed)
+                    .skip(*given)
+                    .filter_map(|m| m.0)
+                    .collect();
+                if missing.is_empty() {
+                    "not enough values in this struct literal".to_string()
+                } else {
+                    format!(
+                        "not enough values in this struct literal ({})",
+                        missing_label(&missing)
+                    )
+                }
+            }
+        })
     }
 
     /// A literal of `ty` with a value after the last of its `count` members.

@@ -5,6 +5,7 @@ use crate::ast::ExprKind as E;
 use crate::diagnostics::Code;
 use crate::sema::convert;
 use crate::sema::lower::Operand;
+use crate::sema::structs::LitMisfit;
 use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, Sym, TypeId, Value, ast, err};
 use crate::types::TypeKind;
 
@@ -82,9 +83,9 @@ impl Compiler {
         fields: &[ast::Arg],
         scope: ScopeId,
         span: Span,
-    ) -> Result<Option<u32>> {
+    ) -> Result<std::result::Result<u32, LitMisfit>> {
         if self.size_of(param, span).is_err() || fields.is_empty() {
-            return Ok(Some(0));
+            return Ok(Ok(0));
         }
         let members = self.positional_members(param, span)?;
         let mut positional = 0;
@@ -92,15 +93,15 @@ impl Compiler {
         for field in fields {
             if let Some(name) = field.name {
                 let Some((_, member)) = self.find_member(param, name.name, name.span)? else {
-                    return Ok(None);
+                    return Ok(Err(LitMisfit::NoMember(name.name)));
                 };
                 if !self.value_fits_member(scope, &field.value, member) {
-                    return Ok(None);
+                    return Ok(Err(LitMisfit::Value(Some(name.name))));
                 }
                 named += 1;
             } else if field.target.is_none() {
-                let Some(&(_, member, _)) = members.get(positional) else {
-                    return Ok(None);
+                let Some(&(member_name, member, _)) = members.get(positional) else {
+                    return Ok(Err(LitMisfit::TooMany));
                 };
                 if matches!(field.value.kind, E::ArrayLit { .. })
                     && !matches!(
@@ -108,21 +109,24 @@ impl Compiler {
                         TypeKind::Array { .. }
                     )
                 {
-                    return Ok(None);
+                    return Ok(Err(LitMisfit::Value(member_name)));
                 }
                 if !self.value_fits_member(scope, &field.value, member) {
-                    return Ok(None);
+                    return Ok(Err(LitMisfit::Value(member_name)));
                 }
                 positional += 1;
             }
         }
         // All values positional and fewer than the fields without initializers: the literal
         // itself would be rejected, so it is not this type.
-        if positional > 0
-            && positional == fields.len()
-            && positional < self.positional_values_needed(param)
-        {
-            return Ok(None);
+        if positional > 0 && positional == fields.len() {
+            let needed = self.positional_values_needed(param);
+            if positional < needed {
+                return Ok(Err(LitMisfit::NotEnough {
+                    given: positional,
+                    needed,
+                }));
+            }
         }
         // Positional values fill members from the front, so a type with exactly that many
         // members is closer. Named values pick their members, and a member left to its
@@ -145,7 +149,7 @@ impl Compiler {
                 })
                 .count()
         };
-        Ok(Some(u32::try_from(unfilled).unwrap_or(u32::MAX)))
+        Ok(Ok(u32::try_from(unfilled).unwrap_or(u32::MAX)))
     }
 
     /// Whether a value of a literal can be stored in a member of type `member`. A value that
@@ -328,18 +332,24 @@ impl Compiler {
                 | TypeKind::String
                 | TypeKind::Type
         );
+        let mut misfit = None;
         let fits = match arg.expr.as_ref().map(|e| &e.kind) {
             // `.{...}` and `.[...]` build aggregates, `.NAME` picks an enum member.
             Some(E::StructLit {
                 fields: lit_args, ..
             }) => {
-                (!scalar
+                if !scalar
                     || !self
                         .builtin_members(self.ty.types.repr(param), arg.span)?
-                        .is_empty())
-                    && self
+                        .is_empty()
+                {
+                    misfit = self
                         .struct_lit_fit(param, lit_args, arg.scope, arg.span)?
-                        .is_some()
+                        .err();
+                    misfit.is_none()
+                } else {
+                    false
+                }
             }
             Some(E::ArrayLit {
                 ..
@@ -350,11 +360,12 @@ impl Compiler {
             _ => true,
         };
         if !fits {
-            return err(
-                Code::CallCannotInfer,
-                arg.span,
-                format!("{CANNOT_INFER} {}", self.ty.types.name(param)),
-            );
+            let mut message = format!("{CANNOT_INFER} {}", self.ty.types.name(param));
+            if let Some(misfit) = misfit {
+                message.push_str(": ");
+                message.push_str(&self.misfit_reason(param, &misfit, arg.span)?);
+            }
+            return err(Code::CallCannotInfer, arg.span, message);
         }
         // A bare `xx` names no type, so a scalar parameter is the likelier target than an
         // array or slice one (`Append(*view, xx byte)` beside an `Append(buf, items: []T)`).
