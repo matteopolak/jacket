@@ -9,6 +9,7 @@
 - `version`: `jacket version` lists jacket and each tool it fronts, all at the release's version.
 - `bindings`: `B.generate_bindings` through `jaic -interp` on a C header, and on a C++ class with and without `-x c`.
 - `project`: `jacket new smoke`, `jacket build`, `jacket run` (prints `Hello from smoke!`), then `jailsp` is initialized, given the project's `main.jai` and asked for a hover on `main`.
+- `backend`: `-check` and `-interp` never load the backend library ([lazy backend](../compiler/lazy-backend.md)) and work with `JAIC_BACKEND` pointing at nothing; a build with that setting fails naming the library; a normal build loads it and runs.
 
 | Job | Runners | Installs from |
 | --- | --- | --- |

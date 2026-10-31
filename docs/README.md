@@ -18,7 +18,7 @@ One page per topic in [language/](language/): [modules](language/modules-and-imp
 
 ## Compiler
 
-- Overview: [architecture](compiler/architecture.md), [project structure](compiler/project.md), [lexicon](compiler/lexicon.md), [prelude selection](compiler/prelude-selection.md).
+- Overview: [architecture](compiler/architecture.md), [lazy code generation backend](compiler/lazy-backend.md), [project structure](compiler/project.md), [lexicon](compiler/lexicon.md), [prelude selection](compiler/prelude-selection.md).
 - Front end: [parser](compiler/parser.md), [sema](compiler/sema.md), [variables vs constants](compiler/variable-constness.md), [parallel type checking](compiler/parallel-sema.md), [polymorph reporting](compiler/polymorph-reporting.md), [file identity](compiler/file-identity.md), [source positions](compiler/source-positions.md).
 - Back end: [IR](compiler/ir.md), [interpreter](compiler/interpreter.md), [fibers](compiler/fibers.md), [`#asm`](compiler/asm.md), [integer arithmetic](compiler/integer-arithmetic.md), [compile-time limits](compiler/compile-time-limits.md), [compile-time code on the host](compiler/compile-time-host-execution.md), [builtins](compiler/compiler-builtins.md), [targets](compiler/targets.md), [toolchain](compiler/toolchain.md), [platform differences](compiler/platform.md), [stack traces](compiler/stack-traces.md), [compile speed](compiler/compile-speed.md).
 - Diagnostics and editors: [diagnostics](compiler/diagnostics.md), [doc comments](compiler/doc-comments.md), [language server](compiler/language-server.md), [IDE facts](compiler/ide-facts.md), [saved configuration](compiler/saved-configuration.md).

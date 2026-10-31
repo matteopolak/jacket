@@ -21,7 +21,7 @@ Any LLVM 23.1 install with `llvm-config` and shared `libLLVM` works. The officia
 Programs used at run time (the sanitizer link driver, `wasm-ld`, `llvm-dwarfdump`, `llvm-symbolizer`) come from one search order, in `jacket_config::llvm` (Rust) and `tools/toolkit/llvm.py` (Python):
 
 1. the `llvm-sys` variable, then `LLVM_PREFIX`;
-2. the prefix the build saw (`crates/jaic-llvm/build.rs`; Rust only);
+2. the prefix the build saw (`crates/jaic-native/build.rs`; Rust only);
 3. `llvm-config --prefix` (`llvm-config-<major>` first);
 4. Homebrew's `llvm@<major>` and Debian's `/usr/lib/llvm-<major>`;
 5. `<tool>-<major>` or `<tool>` on `PATH`.

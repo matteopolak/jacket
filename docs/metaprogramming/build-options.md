@@ -24,7 +24,7 @@ With `use_custom_link_command`, `write_output` writes objects instead of linking
 
 ### Code generation
 
-`LlvmBackend::prepare` (`crates/jaic-cli/src/main.rs`) turns settings into `jaic_llvm::Options`. Frame pointers, red zone, inlining and tail calls become function attributes (`apply_codegen_attributes`); unrolling, vectorization and merging are pass switches. `function_sections` applies on ELF only. `.OS`/`.OZ` run `default<Os>`/`default<Oz>`. `JAIC_CODEGEN_UNITS=1` asks for whole-program optimization ([LLVM backend](../native/llvm-backend.md)).
+`LlvmBackend::prepare` (`crates/jaic-cli/src/main.rs`) turns settings into `jaic_native::Options`. Frame pointers, red zone, inlining and tail calls become function attributes (`apply_codegen_attributes`); unrolling, vectorization and merging are pass switches. `function_sections` applies on ELF only. `.OS`/`.OZ` run `default<Os>`/`default<Oz>`. `JAIC_CODEGEN_UNITS=1` asks for whole-program optimization ([LLVM backend](../native/llvm-backend.md)).
 
 ## Target constants
 

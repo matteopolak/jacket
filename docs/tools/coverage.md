@@ -10,7 +10,7 @@ tools/coverage/report.py report target/cov --lcov target/cov.info --least 10
 ## How it works
 
 - **Compile.** After optimization, LLVM's `sancov-module` pass numbers every basic block (`trace-pc-guard` plus `pc-table`, level 2; `set_coverage_options` in `crates/jaic-llvm/src/lib.rs`). `-coverage` travels in the sanitizer list, so it shares the single-codegen-unit rule and `.dSYM` of sanitized builds.
-- **Run.** `crates/jaic-llvm/runtime/coverage.c` counts each block and, at exit, writes `<dir>/<exe>.<pid>.cov` with un-slid addresses. Counts are saturating but not atomic, so threads can lose some.
+- **Run.** `crates/jaic-native/runtime/coverage.c` counts each block and, at exit, writes `<dir>/<exe>.<pid>.cov` with un-slid addresses. Counts are saturating but not atomic, so threads can lose some.
 - **Ingest.** `report.py ingest` maps blocks to lines through the DWARF line table (`llvm-dwarfdump`) and names function entries with `llvm-symbolizer`, producing a JSON per source file. `jaic_sweep.py --coverage DIR` does this after each native run.
 - **Report.** `report.py report DIR` merges every JSON (hit if any run hit it) and prints a table from least to most covered. A module is a top-level `stdlib/` entry (`internal/<x>` and `Extensions/<x>` count separately).
 

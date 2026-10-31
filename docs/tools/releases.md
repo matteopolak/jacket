@@ -40,8 +40,8 @@ nix develop     # then cargo build -p jaic-cli --locked
 Each platform job:
 
 1. Downloads the pinned official LLVM (static libraries). Intel macOS uses conda-forge's `llvmdev` ([LLVM setup](llvm-setup.md)).
-2. Builds `jaic-cli` (static LLVM), `jailsp` and `jailint` through `tools/dev/build_pgo.py` and strips symbols.
-3. Builds `jaifmt` with the packaged `jaic` and packages the tools, `stdlib/`, `native-libs/<platform>/` ([native libraries](native-libs.md)), `README.md` and `CHANGELOG.md`.
+2. Builds `jaic-cli` (`lazy-llvm`), the backend library `jaic-backend` (static LLVM inside), `jailsp` and `jailint` through `tools/dev/build_pgo.py --llvm lazy` and strips symbols.
+3. Builds `jaifmt` with the packaged `jaic` and packages the tools, the backend library beside `jaic` (`libjaic_backend.dylib`, `.so` or `jaic_backend.dll`; [lazy backend](../compiler/lazy-backend.md)), `stdlib/`, `native-libs/<platform>/` ([native libraries](native-libs.md)), `README.md` and `CHANGELOG.md`.
 4. Windows only: builds the crash runtime into the packaged `stdlib/`.
 5. Smoke-tests the package from outside the checkout ([release smoke tests](release-smoke.md)), so an archive missing a tool or library fails before anything is published.
 
@@ -59,7 +59,7 @@ Our Rust code is built with profile-guided optimisation (`tools/dev/build_pgo.py
 
 - Profiles must be merged by the `llvm-profdata` of rustc's LLVM (rustup `llvm-tools`), not the LLVM `jaic` links.
 - Change the training in `train()` and `lsp_session()`; heavier training slows the release.
-- Locally: `PYTHONPATH=tools python3 tools/dev/build_pgo.py --jobs 4`. Options: `--llvm dynamic|static|none`, `--bolt`, `--target`, `--out`, `--profile`, `--strict`. Tests: `tools/dev/test_build_pgo.py`.
+- Locally: `PYTHONPATH=tools python3 tools/dev/build_pgo.py --jobs 4`. Options: `--llvm dynamic|static|lazy|none`, `--bolt`, `--target`, `--out`, `--profile`, `--strict`. Tests: `tools/dev/test_build_pgo.py`.
 
 ## Cutting a release
 
@@ -104,7 +104,7 @@ Gotchas:
 
 ## Configuration
 
-The `llvm` pin in `.github/pins.json`; `jaic-cli` features `dynamic-llvm` (default), `static-llvm`; secrets `HOMEBREW_TAP_TOKEN`, `VSCE_PAT`, `OVSX_PAT`, `NVIM_MIRROR_DEPLOY_KEY`.
+The `llvm` pin in `.github/pins.json`; `jaic-cli` features `dynamic-llvm` (default), `static-llvm`, `lazy-llvm`; `jaic-llvm` and `jaic-backend` features `dynamic`, `static`; secrets `HOMEBREW_TAP_TOKEN`, `VSCE_PAT`, `OVSX_PAT`, `NVIM_MIRROR_DEPLOY_KEY`.
 
 ## Dependencies
 

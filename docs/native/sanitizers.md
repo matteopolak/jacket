@@ -10,7 +10,7 @@ $ jacket run uaf.jai -sanitize address
 
 ## How it works
 
-Compile side (`Sanitize` in `crates/jaic-llvm/src/lib.rs`, applied in `emit_module`):
+Compile side (`Sanitize` in `crates/jaic-native/src/options.rs`, applied in `emit_module`):
 
 - `address`: every function gets `sanitize_address`, then the `asan` pass runs after optimisation, with redzones on every `Slot` alloca and global. A sanitized build is one codegen unit and writes a `.dSYM` at `-O0` ([debug info](debug-info.md)).
 - `undefined`: the `bounds-checking<rt-abort>` pass (Clang's `local-bounds`). At `-O0` `sroa` runs first. It runs before `asan`, so ASan does not instrument the checks.

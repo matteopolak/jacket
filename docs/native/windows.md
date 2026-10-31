@@ -13,7 +13,7 @@ jacket build main.jai -os windows -cpu arm64   # Windows on Arm
 
 `Target::arch` maps x86-64 to `Arch::Win64` and aarch64 to `Arch::Win64Arm` ([C ABI](c-abi.md)). Lowering differences are small: `#program_export` is `dllexport`, `CompilerWrite` calls `_write`, and `#asm` is lowered to portable IR so x64 `#asm` works on arm64 ([#asm](../compiler/asm.md)).
 
-**Linking** (`link` in `crates/jaic-llvm/src/link.rs`, `Toolchain` in `crates/jaic/src/toolchain/`):
+**Linking** (`link` in `crates/jaic-native/src/link.rs`, `Toolchain` in `crates/jaic/src/toolchain/`):
 
 | Linker | Triple | Tool |
 |---|---|---|

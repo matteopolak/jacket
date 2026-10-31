@@ -8,6 +8,8 @@ An independent Jai compiler in Rust. [Features](../features.md) tracks what work
 | `jaic` | Core: sema, IR, interpreter, workspaces, IDE queries. Re-exports `jaic-syntax`. |
 | `jaic-cli` | The `jaic` binary. |
 | `jaic-llvm` | Native backend over the shared IR (Inkwell, LLVM 23). |
+| `jaic-native` | Native output without LLVM: build options, the system linker, and the loader for the backend library ([lazy backend](lazy-backend.md)). |
+| `jaic-backend` | `jaic-llvm` as a shared library (`libjaic_backend`) that release `jaic` opens on the first native build. |
 | `jai-language-server` | JSON-RPC server on `jaic` ([language server](language-server.md)). |
 | `jailint` | The linter, also used by the language server. |
 | `jai-wasm` | `jaic` and the language server as WebAssembly ([browser](../browser/playground.md)). |
@@ -46,7 +48,7 @@ cargo run -p jaic-cli -- file.jai -check [-I dir] [-os linux|windows|macos]
 cargo run -p jaic-cli -- file.jai -interp
 ```
 
-- `dynamic-llvm` (default) and `static-llvm` (release archives) need LLVM 23 ([LLVM setup](../tools/llvm-setup.md)).
+- `dynamic-llvm` (default), `static-llvm` and `lazy-llvm` (release archives: `jaic` opens `libjaic_backend` beside it on the first native build, see [lazy backend](lazy-backend.md)) need LLVM 23 ([LLVM setup](../tools/llvm-setup.md)).
 - `mimalloc` is on with either LLVM feature ([allocator](compile-speed.md#allocator)).
 - `--no-default-features` builds a check-and-interpret `jaic` without LLVM.
 

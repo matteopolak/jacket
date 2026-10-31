@@ -1,6 +1,6 @@
 # LLVM backend
 
-`crates/jaic-llvm` translates the `jaic::ir::Program` into LLVM IR, writes object files and links them with the system `cc` (see [native linking](native-linking.md)). `jaic file.jai` uses it; `-interp` uses the interpreter and `-check` only type-checks.
+`crates/jaic-llvm` translates the `jaic::ir::Program` into LLVM IR and writes object files; `crates/jaic-native` links them with the system `cc` ([native linking](native-linking.md)). A release `jaic` loads `jaic-llvm` from a library beside it on the first native build ([lazy backend](../compiler/lazy-backend.md)). `jaic file.jai` uses it; `-interp` uses the interpreter and `-check` only type-checks.
 
 ## How it works
 
