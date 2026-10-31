@@ -70,9 +70,9 @@ pub fn body_extent(node: Node<'_>) -> crate::source::Span {
         Node::Expr(e) => e.span,
         Node::Stmt(s) => s.span,
     };
-    let kids = children(node);
-    for kid in [kids.first(), kids.last()].into_iter().flatten() {
-        let inner = extent(*kid);
+    let (first, last) = edge_children(node);
+    for kid in [first, last].into_iter().flatten() {
+        let inner = extent(kid);
         if inner.file == out.file {
             out.start = out.start.min(inner.start);
             out.end = out.end.max(inner.end);
@@ -104,6 +104,47 @@ pub fn walk_node<'a>(
         walk_node(child, stack, visit);
     }
     stack.pop();
+}
+
+/// The first and last of a node's children, as [`children`] orders them. The common shapes are read
+/// straight off the node, so measuring an expression's extent does not build a list.
+fn edge_children(node: Node<'_>) -> (Option<Node<'_>>, Option<Node<'_>>) {
+    if let Node::Expr(x) = node {
+        match &x.kind {
+            E::Binary(_, a, b) | E::Index(a, b) => {
+                return (Some(Node::Expr(a)), Some(Node::Expr(b)));
+            }
+            E::Unary(_, a) | E::Member(a, _) | E::Backtick(a) | E::ProcedureOfCall(a) => {
+                return (Some(Node::Expr(a)), Some(Node::Expr(a)));
+            }
+            E::Call {
+                callee,
+                args,
+                ..
+            } => {
+                let last = args.last().map_or(&**callee, |a| &a.value);
+                return (Some(Node::Expr(callee)), Some(Node::Expr(last)));
+            }
+            E::Cast {
+                ty,
+                value,
+                ..
+            } => {
+                let first = ty.as_deref().unwrap_or(value);
+                return (Some(Node::Expr(first)), Some(Node::Expr(value)));
+            }
+            E::Int(..)
+            | E::Float(..)
+            | E::Str(_)
+            | E::Bool(_)
+            | E::Null
+            | E::Context
+            | E::Ident(_) => return (None, None),
+            _ => {}
+        }
+    }
+    let kids = children(node);
+    (kids.first().copied(), kids.last().copied())
 }
 
 /// The direct children of a node, in source order.
