@@ -1,6 +1,17 @@
-// WebGPU through the standard C API (webgpu.h). Natively the procedures call wgpu-native; in the
-// browser playground they go to the page's WebGPU. On top of webgpu.h, the module adds what it leaves
-// to the platform: a surface for a window, waiting for asynchronous requests, and frame pacing.
+// WebGPU through the standard C API (`webgpu.h`). Natively the calls go to wgpu-native; in the browser
+// playground they go to the page's WebGPU.
+//
+// The `wgpu*` procedures and `WGPU*` types are the C API as is. The module adds what that API leaves to
+// the platform: `webgpu_request_adapter` and `webgpu_request_device` wait for the asynchronous
+// requests, `webgpu_create_surface` makes a surface for a window, `webgpu_surface_format` picks a format
+// for it, and `webgpu_present` shows a frame.
+//
+// ```jai,no_run
+// instance := wgpuCreateInstance(null);
+// adapter := webgpu_request_adapter(instance);
+// device := webgpu_request_device(instance, adapter);
+// queue := wgpuDeviceGetQueue(device);
+// ```
 // @experimental
 
 #import "Basic";
@@ -25,10 +36,16 @@
 // wgpu-native, from target/native-libs (see docs/extensions/webgpu.md). Unused in the browser.
 libwgpu :: #library "libwgpu_native"; @native(fetched)
 
-// Whether WebGPU can be used here. Natively wgpu-native is linked, so this is true (an adapter
-// may still be missing: webgpu_request_adapter returns null then). In the browser it is false
-// when the page has no WebGPU or cannot suspend the program while it waits (JSPI); a program
-// can then do something else instead of failing at its first wgpu call.
+// Whether WebGPU can be used here. Natively it is always true, though there may still be no adapter. In the
+// browser it is false when the page has no WebGPU or can't suspend the program while it waits, so a program
+// can fall back instead of failing at its first call.
+//
+// ```jai,no_run
+// if !webgpu_available() {
+//     print("this browser has no WebGPU\n");
+//     return;
+// }
+// ```
 webgpu_available :: () -> bool {
     #if OS == .WASM {
         name :: "jai_webgpu_available";
@@ -41,12 +58,23 @@ webgpu_available :: () -> bool {
 
 // --- Strings ----------------------------------------------------------------------------------
 
+// A `WGPUStringView` for a Jai string, to pass where the C API wants text. It borrows the string's bytes.
+//
+// ```jai
+// view := to_string_view("compute");
+// assert(view.length == 7);
+// ```
 to_string_view :: (s: string) -> WGPUStringView {
     return .{ data = s.data, length = cast(u64) s.count };
 }
 
-// A view the implementation wrote (an adapter's name, an error message), as a Jai string that
-// borrows its bytes.
+// A string for a view the implementation wrote (an adapter name, an error message). It borrows the
+// view's bytes.
+//
+// ```jai
+// view := to_string_view("hello");
+// assert(to_string(view) == "hello");
+// ```
 to_string :: (view: WGPUStringView) -> string {
     if view.data == null return "";
     if view.length != WGPU_STRLEN return string.{ cast(s64) view.length, view.data };
@@ -59,10 +87,15 @@ to_string :: (view: WGPUStringView) -> string {
 
 // --- Waiting ----------------------------------------------------------------------------------
 
-// Process events until `done` is set (by a callback with mode .AllowProcessEvents or
-// .AllowSpontaneous). Natively this polls wgpu-native and sleeps a little between polls once
-// the wait gets long; in the browser each poll gives the page a turn (and other Jai threads run
-// meanwhile, see docs/extensions/webgpu.md).
+// Processes events until `done` is set by a callback created with mode `.AllowProcessEvents` or
+// `.AllowSpontaneous`. Natively it polls wgpu-native and sleeps a little once the wait gets long; in
+// the browser each poll lets the page run.
+//
+// ```jai,no_run
+// done := false;
+// // ... start something whose callback sets `done` ...
+// webgpu_wait(instance, *done);
+// ```
 webgpu_wait :: (instance: WGPUInstance, done: *bool) {
     polls := 0;
 
@@ -76,7 +109,13 @@ webgpu_wait :: (instance: WGPUInstance, done: *bool) {
     }
 }
 
-// Request an adapter and wait for it; null when there is none.
+// Requests an adapter (a GPU) and waits for it. Returns null, and logs why, when there is none.
+//
+// ```jai,no_run
+// instance := wgpuCreateInstance(null);
+// adapter := webgpu_request_adapter(instance);
+// if !adapter return;
+// ```
 webgpu_request_adapter :: (instance: WGPUInstance, options: *WGPURequestAdapterOptions = null) -> WGPUAdapter {
     state: Request_State;
     info: WGPURequestAdapterCallbackInfo;
@@ -96,8 +135,14 @@ webgpu_request_adapter :: (instance: WGPUInstance, options: *WGPURequestAdapterO
     return cast(WGPUAdapter) state.result;
 }
 
-// Request a device and wait for it; null on failure. Uncaptured errors are printed unless the
-// descriptor sets its own callback.
+// Requests a device from an adapter and waits for it. Returns null on failure. Uncaptured errors are
+// logged unless the descriptor sets its own callback.
+//
+// ```jai,no_run
+// instance := wgpuCreateInstance(null);
+// adapter := webgpu_request_adapter(instance);
+// device := webgpu_request_device(instance, adapter);
+// ```
 webgpu_request_device :: (instance: WGPUInstance, adapter: WGPUAdapter, descriptor: *WGPUDeviceDescriptor = null) -> WGPUDevice {
     desc: WGPUDeviceDescriptor;
     if descriptor desc = descriptor.*;
@@ -129,9 +174,17 @@ webgpu_request_device :: (instance: WGPUInstance, adapter: WGPUAdapter, descript
     return cast(WGPUDevice) state.result;
 }
 
-// Map `size` bytes of `buffer` at `offset` for reading (.Read) or writing (.Write) and wait
-// until they are; then wgpuBufferGetConstMappedRange / wgpuBufferGetMappedRange give the bytes
-// and wgpuBufferUnmap ends it. False (and the reason logged) when mapping failed.
+// Maps `size` bytes of `buffer` at `offset` for reading (`.Read`) or writing (`.Write`) and waits until they
+// are mapped. `wgpuBufferGetConstMappedRange` or `wgpuBufferGetMappedRange` then give the bytes, and
+// `wgpuBufferUnmap` ends the mapping. Returns false, and logs why, when mapping failed.
+//
+// ```jai,no_run
+// if webgpu_map_buffer(instance, buffer, .Read) {
+//     bytes := wgpuBufferGetConstMappedRange(buffer, 0, 64);
+//     // ... read from bytes ...
+//     wgpuBufferUnmap(buffer);
+// }
+// ```
 webgpu_map_buffer :: (instance: WGPUInstance, buffer: WGPUBuffer, mode: WGPUMapMode, offset: u64 = 0, size: u64 = WGPU_WHOLE_MAP_SIZE) -> bool {
     state: Map_State;
     info: WGPUBufferMapCallbackInfo;
@@ -158,15 +211,15 @@ webgpu_map_buffer :: (instance: WGPUInstance, buffer: WGPUBuffer, mode: WGPUMapM
     return true;
 }
 
-// Copy the base mip of a 2D `texture` (width x height, `bytes_per_pixel` per texel, such as 4 for
-// rgba8 or bgra8) back to the CPU and return its bytes, rows packed one after another with no
-// padding. The texture needs the .CopySrc usage and must not be multisampled. The caller frees the
-// result with array_free. It submits its own command buffer and waits for it, so it stalls the
-// frame: use it for screenshots and tests, not for per-frame work. Empty (and the reason logged)
-// when the copy or the mapping failed.
+// Copies the base level of a 2D texture back to the CPU and returns its bytes, rows packed one after
+// another. The texture needs the `.CopySrc` usage and can't be multisampled. Free the result with
+// `array_free`. It submits its own command buffer and waits, so use it for screenshots and tests rather
+// than every frame. Returns an empty array, and logs why, on failure.
 //
-// A copy out of a texture needs every row of the buffer to start at a multiple of 256 bytes, so
-// the helper copies into a padded buffer and removes the padding as it copies out.
+// ```jai,no_run
+// pixels := webgpu_read_texture(instance, device, queue, texture, 256, 256);
+// defer array_free(pixels);
+// ```
 webgpu_read_texture :: (instance: WGPUInstance, device: WGPUDevice, queue: WGPUQueue, texture: WGPUTexture, width: s32, height: s32, bytes_per_pixel := 4) -> [] u8 {
     if width <= 0 || height <= 0 || bytes_per_pixel <= 0 {
         log_error("WebGPU: cannot read a % x % texture of % bytes per pixel", width, height, bytes_per_pixel);
@@ -223,8 +276,15 @@ webgpu_read_texture :: (instance: WGPUInstance, device: WGPUDevice, queue: WGPUQ
     return pixels;
 }
 
-// Pop the device's innermost error scope (wgpuDevicePushErrorScope) and wait for it: the type of
-// the first error it caught (.NoError for none), and its message (temporary storage).
+// Pops the device's innermost error scope and waits for it. Returns the type of the first error the scope
+// caught (`.NoError` for none) and its message, which lives in temporary storage.
+//
+// ```jai,no_run
+// wgpuDevicePushErrorScope(device, .Validation);
+// // ... calls that might be invalid ...
+// type, message := webgpu_pop_error_scope(instance, device);
+// if type != .NoError print("%\n", message);
+// ```
 webgpu_pop_error_scope :: (instance: WGPUInstance, device: WGPUDevice) -> WGPUErrorType, message: string {
     state: Error_Scope_State;
     info: WGPUPopErrorScopeCallbackInfo;
@@ -249,6 +309,15 @@ webgpu_pop_error_scope :: (instance: WGPUInstance, device: WGPUDevice) -> WGPUEr
 // its canvas to the C API's wgpuInstanceCreateSurface instead. Null without a window:
 // wgpu-native aborts the process on most calls given a null surface, so check before using it.
 #if OS != .WASM {
+    // Makes a surface for a `Window_Creation` window. It's native only; in the browser, pass the canvas to
+    // `wgpuInstanceCreateSurface`. Returns null, and logs why, when the window is invalid.
+    //
+    // ```jai,no_run
+    // #import "Window_Creation";
+    //
+    // window := create_window(800, 600, "gpu");
+    // surface := webgpu_create_surface(instance, window);
+    // ```
     webgpu_create_surface :: (instance: WGPUInstance, window: Window_Type) -> WGPUSurface {
         #if OS != .WASM {
             if !window {
@@ -282,13 +351,15 @@ webgpu_pop_error_scope :: (instance: WGPUInstance, device: WGPUDevice) -> WGPUEr
     }
 }
 
-// The texture format to configure `surface` with: one the surface supports that is not sRGB
-// (unless `srgb`), so colors mean the same everywhere. Natively a surface usually lists an sRGB
-// format first (bgra8unorm-srgb), where the GPU converts the shader's output to sRGB on write;
-// the browser's canvas has only plain formats. A shader that writes already-encoded colors (or
-// applies gamma itself) wants `srgb = false`; one that writes linear colors wants `srgb = true`,
-// and must then encode them itself where the surface has no sRGB format (check with
-// webgpu_format_is_srgb). .Undefined when the surface reports no formats, or is null.
+// The format to configure `surface` with: one it supports that is not sRGB, unless `srgb` is set, so colours
+// mean the same everywhere. Natively a surface usually lists an sRGB format first, where the GPU converts the
+// shader's output on write; a browser canvas has only plain formats. A shader that writes already encoded colours
+// wants `srgb = false`; one that writes linear colours wants `srgb = true` and must encode them itself where
+// the surface has no sRGB format (see `webgpu_format_is_srgb`). Returns `.Undefined` when the surface lists none.
+//
+// ```jai,no_run
+// format := webgpu_surface_format(surface, adapter);
+// ```
 webgpu_surface_format :: (surface: WGPUSurface, adapter: WGPUAdapter, srgb := false) -> WGPUTextureFormat {
     if !surface || !adapter return .Undefined;
 
@@ -306,7 +377,12 @@ webgpu_surface_format :: (surface: WGPUSurface, adapter: WGPUAdapter, srgb := fa
     return caps.formats[0];
 }
 
-// Whether writes to `format` are sRGB-encoded by the GPU.
+// Whether the GPU sRGB-encodes writes to `format`.
+//
+// ```jai
+// assert(webgpu_format_is_srgb(.BGRA8UnormSrgb));
+// assert(!webgpu_format_is_srgb(.BGRA8Unorm));
+// ```
 webgpu_format_is_srgb :: (format: WGPUTextureFormat) -> bool {
     if format == {
         case .RGBA8UnormSrgb; #through;
@@ -328,16 +404,23 @@ webgpu_format_is_srgb :: (format: WGPUTextureFormat) -> bool {
 }
 
 #if OS == .WASM {
-    // Browser-only size of the page's canvas (the surface wgpuInstanceCreateSurface(instance,
-    // null) draws into), in pixels. It changes when the page resizes the canvas: compare it each
-    // frame and configure the surface again.
+    // Browser only: the size in pixels of the page's canvas. It changes when the page resizes the canvas, so
+    // compare it each frame and configure the surface again.
+    //
+    // ```jai,no_run
+    // width, height := webgpu_canvas_size();
+    // ```
     webgpu_canvas_size :: () -> width: s32, height: s32 {
         w, h: u32;
         jai_canvas_size(*w, *h);
         return cast(s32) w, cast(s32) h;
     }
 } else {
-    // Native-only size of the surface `window` shows, in pixels.
+    // Native only: the size in pixels of the surface `window` shows.
+    //
+    // ```jai,no_run
+    // width, height := webgpu_window_size(window);
+    // ```
     webgpu_window_size :: (window: Window_Type) -> width: s32, height: s32 {
         #if OS == .MACOS {
             return webgpu_macos_drawable_size(window);
@@ -356,10 +439,16 @@ webgpu_format_is_srgb :: (format: WGPUTextureFormat) -> bool {
 // blocking for up to a second; skip the frame (handle events, wait a little) and try again.
 WEBGPU_SURFACE_OCCLUDED :: cast(WGPUSurfaceGetCurrentTextureStatus) 0x0003_0001;
 
-// Show the frame drawn into the surface's current texture and wait until the next one is due.
-// Natively that is wgpuSurfacePresent (a FIFO surface blocks for vsync). The browser presents on
-// its own; there this suspends the program until the page's next animation frame (other Jai
-// threads run meanwhile) and then runs the callbacks with mode .AllowSpontaneous that finished.
+// Shows the frame drawn into the surface's current texture and waits until the next one is due. Natively
+// that is `wgpuSurfacePresent`, which blocks for vsync on a FIFO surface. In the browser it waits for the
+// page's next animation frame.
+//
+// ```jai,no_run
+// while true {
+//     // ... draw into the surface's current texture ...
+//     webgpu_present(surface);
+// }
+// ```
 webgpu_present :: (surface: WGPUSurface) {
     #if OS == .WASM {
         webgpu_wasm_next_frame();
