@@ -1287,9 +1287,12 @@ jobs:
         with: {persist-credentials: false}
       - name: Keep temporary files on drive D
         # C: has far less room than D:, and the test programs and their debug info are large.
+        # The arm64 runners have no D:, so they keep the default.
         run: |
-          mkdir -p /d/jacket-tmp
-          printf 'TEMP=D:\\jacket-tmp\nTMP=D:\\jacket-tmp\n' >> "$GITHUB_ENV"
+          if [ -d /d ]; then
+            mkdir -p /d/jacket-tmp
+            printf 'TEMP=D:\\jacket-tmp\nTMP=D:\\jacket-tmp\n' >> "$GITHUB_ENV"
+          fi
       - uses: ./.github/actions/setup-windows
         with:
           cpu: ${{ matrix.cpu }}
@@ -1335,7 +1338,7 @@ jobs:
       - name: Free disk space
         if: ${{ always() }}
         shell: pwsh
-        run: Get-PSDrive C,D | Format-Table Name, @{n='UsedGB';e={[math]::Round($_.Used/1GB,1)}}, @{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}
+        run: Get-PSDrive -PSProvider FileSystem | Where-Object Name -in 'C','D' | Format-Table Name, @{n='UsedGB';e={[math]::Round($_.Used/1GB,1)}}, @{n='FreeGB';e={[math]::Round($_.Free/1GB,1)}}
   windows-smoke:
     # The third-party projects of `upstream-smoke`, built and run on Windows with the interactive
     # desktop and Mesa's software OpenGL (docs/tools/upstream-corpus.md).
