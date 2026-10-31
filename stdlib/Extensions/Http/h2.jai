@@ -59,6 +59,7 @@ H2_Stream :: struct {
     has_head: bool;
     failure: string; // why the stream ended in an error, for the caller
     refused: bool; // the server did not process it (RST_STREAM REFUSED_STREAM or GOAWAY): the request may be retried
+    head_only: bool; // the request was HEAD: the response has a length and no body
 }
 
 // Everything about one HTTP/2 connection.
@@ -201,6 +202,9 @@ h2_conn_start :: (conn: *H2_Conn, window_bonus: s64) {
     conn.settings_ack_pending += 1;
 
     Io.add(*conn.tasks, 1);
+
+    conn.refs += 1;
+
     Io.spawn(h2_writer, conn);
 }
 
@@ -208,6 +212,7 @@ h2_conn_start :: (conn: *H2_Conn, window_bonus: s64) {
 
 // Sends what is queued, one batch at a time, until the connection is closing and the queue is empty.
 h2_writer :: (conn: *H2_Conn) {
+    defer h2_conn_release(conn);
     defer Io.done(*conn.tasks);
 
     while true {
@@ -429,8 +434,13 @@ h2_check_closed :: (stream: *H2_Stream) {
 
     stream.removed = true;
 
-    if h2_local_stream(conn, stream.id) conn.open_local -= 1;
-    else conn.open_remote -= 1;
+    if h2_local_stream(conn, stream.id) {
+        conn.open_local -= 1;
+
+        if conn.open_local == 0 conn.idle_since = now_ms();
+    } else {
+        conn.open_remote -= 1;
+    }
 
     for conn.streams {
         if it == stream {

@@ -226,6 +226,11 @@ Client_Settings :: struct {
     // Responses whose body is neither read to the end nor closed may hold this many
     // connections per scheduler; past it the oldest is closed (its body can no longer be read).
     max_open_responses := 64;
+
+    // Offer HTTP/2 (ALPN `h2`) on https connections made with the default TLS settings. When the
+    // server picks it, requests to that origin share one connection. Read when the first https
+    // request is made; a `tls` config of your own lists its own `alpn`.
+    http2 := true;
 }
 
 client_settings: Client_Settings;
@@ -1209,9 +1214,29 @@ exchange :: (client: *Client, method: Method, url_text: string, extra: [] Header
     attempt := 0;
 
     while true {
-        stream, reused, error := checkout(client, url);
+        conn, stream, reused, error := open_connection(client, url);
 
         if error.kind != .NONE return .{}, error;
+
+        if conn {
+            response, reply_started, failure, retry := converse_h2(client, conn, method, method_text, url, headers, body, max_response_size, note);
+
+            h2_conn_release(conn);
+
+            if failure.kind == .NONE return response, .{};
+
+            // A stream the server refused, or a connection that was going away: another try is safe, as it is for a
+            // request that can be repeated when a connection that sat in the pool turns out to be gone.
+            if attempt == 0 && !reply_started && (retry || (reused && idempotent && failure.kind == .TRANSPORT)) {
+                free_error(*failure);
+
+                attempt += 1;
+
+                continue;
+            }
+
+            return .{}, failure;
+        }
 
         response, reply_started, failure := converse(client, stream, method, method_text, url, headers, body, max_response_size, note);
 
@@ -1442,6 +1467,11 @@ Body_Source :: struct {
     tls: *Tls.Tls_Config; // null: plain http
     held := false; // the connection is checked out: this body is still on the wire
 
+    // HTTP/2: the stream the body arrives on instead of a connection of its own, and the data
+    // block the reader is working through.
+    h2: *H2_Stream;
+    h2_block: [] u8;
+
     parser: Parser;
     kind: Body_Kind;
     length: s64;
@@ -1544,6 +1574,8 @@ discard_source :: (source: *Body_Source) {
     parser_free(*source.parser);
     release_buffer(source);
 
+    if source.h2_block.data free(source.h2_block.data);
+
     if source.host.count free(source.host.data);
 
     array_reset(*source.stored);
@@ -1573,6 +1605,12 @@ discard_source :: (source: *Body_Source) {
 drop_connection :: (source: *Body_Source) {
     if !source.held return;
 
+    if source.h2 {
+        h2_source_release(source);
+
+        return;
+    }
+
     unregister_source(source);
     close(source.stream);
 
@@ -1592,6 +1630,12 @@ fail_source :: (source: *Body_Source, error: Client_Error) -> Client_Error {
 // allows another request on it.
 connection_done :: (source: *Body_Source) {
     if !source.held return;
+
+    if source.h2 {
+        h2_source_release(source);
+
+        return;
+    }
 
     unregister_source(source);
 
@@ -1627,6 +1671,8 @@ read_wire :: (source: *Body_Source) -> int, Io.Io_Error {
 // true when the body has ended instead (and the connection has been dealt with). On an error the
 // connection is left for the caller to close.
 fill_pending :: (source: *Body_Source) -> bool, Client_Error {
+    if source.h2 return h2_fill_pending(source);
+
     while source.pending.count == 0 {
         if source.finished return true, .{};
 
@@ -1812,6 +1858,13 @@ peek_body :: (response: *Client_Response) -> string, string {
 release_source :: (source: *Body_Source) {
     if !source.held return;
 
+    // An HTTP/2 stream has nothing to drain: the rest of the body is cancelled.
+    if source.h2 {
+        h2_source_release(source);
+
+        return;
+    }
+
     if source.finished || source.kind == .UNTIL_CLOSE || !source.keep_alive || source.failed || (source.kind == .LENGTH && source.length - source.received > DRAIN_LIMIT) {
         drop_connection(source);
 
@@ -1900,6 +1953,11 @@ Client_Pool :: struct {
     opened: int;
     open: [..] *Body_Source; // responses holding a connection, oldest first
 
+    // HTTP/2: the connections (one serves many requests), the origins being connected to, and the ones found to speak HTTP/1.1.
+    h2: [..] *H2_Conn;
+    connecting: [..] *H2_Connecting;
+    http1_only: [..] H2_Known_Origin;
+
     // Response bodies' state and read buffers, kept for the next response.
     sources: [..] *Body_Source;
     buffers: [..] *u8;
@@ -1928,6 +1986,14 @@ drop_pool :: (value: *void) {
         close(it.stream, now = true);
         free(it.host.data);
     }
+
+    for pool.h2 h2_conn_release(it);
+    for pool.http1_only free(it.host.data);
+    for pool.connecting free(it);
+
+    array_reset(*pool.h2);
+    array_reset(*pool.http1_only);
+    array_reset(*pool.connecting);
 
     // Responses that were never read or closed lose their connection with the scheduler.
     for pool.open {
@@ -2100,7 +2166,9 @@ default_tls_ready :: () -> Tls.Tls_Error {
             exchanged, _ := compare_and_swap(*default_tls_state, 0, 1);
 
             if exchanged {
-                default_tls.alpn = string.["http/1.1"];
+                if client_settings.http2 default_tls.alpn = ALPN_H2_FIRST;
+                else default_tls.alpn = ALPN_HTTP1_ONLY;
+
                 default_tls_error = Tls.tls_config_init(*default_tls);
 
                 atomic_store(*default_tls_state, cast(s32) ifx default_tls_error.kind == .NONE then 2 else 3);
@@ -2138,6 +2206,7 @@ secure_link :: (client: *Client, link: Link, url: Url) -> Link, Client_Error {
     secured.reader = Tls.reader_of(stream);
     secured.writer = Tls.writer_of(stream);
     secured.peer = link.peer;
+    secured.h2 = Tls.alpn_protocol(stream) == "h2";
 
     return secured, .{};
 }
@@ -2148,3 +2217,6 @@ tls_failure :: (error: Tls.Tls_Error, url: Url) -> Client_Error {
 
     return client_error(.TLS, .NONE, tprint("TLS with %:%: %", url.host, url.port, Tls.error_text(error)));
 }
+
+ALPN_H2_FIRST: [2] string : .["h2", "http/1.1"];
+ALPN_HTTP1_ONLY: [1] string : .["http/1.1"];

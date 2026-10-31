@@ -11,6 +11,8 @@ Link :: struct {
     writer: Io.Writer;
     // The other side's address. A pipe has none: it reports the loopback address with port 0.
     peer: Io.Address;
+    // True when TLS agreed on HTTP/2 (ALPN `h2`) for this connection.
+    h2: bool;
 }
 
 // A `Link` over an accepted or connected TCP stream. `peer` is the stream's remote address, or empty if it cannot be read.

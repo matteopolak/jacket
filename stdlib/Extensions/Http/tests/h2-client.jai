@@ -1,0 +1,283 @@
+// test: skip_on(.WASM, reason = "needs the Http server and router, which are not built for wasm")
+// The HTTP/2 client against the HTTP/2 server of this library over TLS on loopback: one connection
+// shared by many concurrent requests, bodies that need flow-control updates in both directions,
+// streamed responses, and the fall back to HTTP/1.1 against a peer that does not offer h2 (and the
+// other way round). Run from this directory.
+#load "support/server_support.jai";
+
+Tls :: #import "Extensions/Tls";
+
+#load "../../Tls/tests/fixtures/certs.jai";
+
+load :: (name: string) -> string {
+    for DATA if it.name == name return it.text;
+
+    assert(false, "no test file %", name);
+
+    return "";
+}
+
+BIG :: 600 * 1024 + 3;
+
+big_text: string;
+
+big :: () -> string {
+    return big_text;
+}
+
+ping :: () -> string {
+    return "pong";
+}
+
+slow :: (request: *Request) -> string {
+    Io.sleep(30);
+
+    return request.target;
+}
+
+size_of_body :: (body: *Body) -> string, Http_Error {
+    bytes, error := read_all(body);
+
+    if error.kind != .NONE return "", error;
+
+    return tprint("%", bytes.count), .{};
+}
+
+produce :: (stream: *Stream, data: *void) {
+    for 1..5 {
+        if !send_chunk(stream, tprint("tick %\n", it)) return;
+
+        Io.sleep(10);
+    }
+}
+
+streamed :: () -> Response {
+    return stream_response(produce, null, "text/plain");
+}
+
+missing :: () -> Response {
+    return status_only(404);
+}
+
+client_config :: (alpn: [] string) -> Tls.Tls_Config {
+    config: Tls.Tls_Config;
+
+    config.roots_pem = load("ca.pem");
+    config.alpn = alpn;
+
+    check(Tls.tls_config_init(*config).kind == .NONE, "client config");
+
+    return config;
+}
+
+Fan :: struct {
+    base: string;
+    config: *Tls.Tls_Config;
+    index: int;
+    group: *Io.Wait_Group;
+    bad: *int;
+}
+
+fan_out :: (fan: Fan) {
+    defer Io.done(fan.group);
+
+    api: Client;
+
+    api.base_url = fan.base;
+    api.tls = fan.config;
+
+    path := tprint("/slow?i=%", fan.index);
+    response, error := get(*api, path);
+
+    if error.kind != .NONE {
+        fan.bad.* += 1;
+
+        return;
+    }
+
+    status := response.status;
+    text, read_error := read_text(*response);
+
+    close(*response);
+
+    if status != 200 || read_error.kind != .NONE || text != path fan.bad.* += 1;
+}
+
+shared_connection :: (base: string, server: *Server) {
+    config := client_config(string.["h2", "http/1.1"]);
+
+    defer Tls.tls_config_free(*config);
+
+    api: Client;
+
+    api.base_url = base;
+    api.tls = *config;
+
+    before := http_statistics().connections_opened;
+
+    reply := get_path(*api, "/ping");
+
+    check(reply.status == 200 && reply.body == "pong", "a request: % '%'", reply.status, reply.body);
+
+    // Many requests at once, from several clients that share the scheduler's pool.
+    group: Io.Wait_Group;
+    bad := 0;
+
+    Io.add(*group, 40);
+
+    for 1..40 Io.spawn(fan_out, Fan.{ base, *config, it, *group, *bad });
+
+    Io.wait(*group);
+
+    check(bad == 0, "% of 40 concurrent requests failed", bad);
+
+    opened := http_statistics().connections_opened - before;
+
+    check(opened == 1, "40 concurrent requests shared one connection: % opened", opened);
+
+    // A body bigger than the initial windows, both ways.
+    reply = get_path(*api, "/big");
+
+    check(reply.status == 200 && reply.body.count == BIG, "a large response: % bytes", reply.body.count);
+
+    intact := true;
+
+    for reply.body {
+        if it != #char "a" + it_index % 26 {
+            intact = false;
+
+            break;
+        }
+    }
+
+    check(intact, "the large response arrived intact");
+
+    upload := alloc_string(BIG);
+
+    defer free(upload.data);
+
+    for *upload it.* = cast(u8) (it_index & 0x7f);
+
+    reply = post_body(*api, "/size", upload, "text/plain");
+
+    check(reply.status == 200 && reply.body == tprint("%", BIG), "a large request: '%'", reply.body);
+
+    // Streaming and statuses.
+    reply = get_path(*api, "/streamed");
+
+    check(reply.status == 200 && reply.body == "tick 1\ntick 2\ntick 3\ntick 4\ntick 5\n", "a streamed response: '%'", reply.body);
+
+    reply = get_path(*api, "/missing");
+
+    check(reply.status == 404, "a 404: %", reply.status);
+
+    reply = fetch(*api, .HEAD, "/ping");
+
+    check(reply.status == 200 && reply.body.count == 0, "HEAD: % '%'", reply.status, reply.body);
+
+    check(http_statistics().connections_opened - before == 1, "everything ran on one connection: % opened", http_statistics().connections_opened - before);
+
+    close_idle_connections();
+}
+
+// A client that offers h2 to a server that only speaks HTTP/1.1.
+http1_server :: (base: string, server: *Server) {
+    config := client_config(string.["h2", "http/1.1"]);
+
+    defer Tls.tls_config_free(*config);
+
+    api: Client;
+
+    api.base_url = base;
+    api.tls = *config;
+
+    for 1..3 {
+        reply := get_path(*api, "/ping");
+
+        check(reply.status == 200 && reply.body == "pong", "an HTTP/1.1 server answers: % '%'", reply.status, reply.body);
+    }
+
+    group: Io.Wait_Group;
+    bad := 0;
+
+    Io.add(*group, 10);
+
+    for 1..10 Io.spawn(fan_out, Fan.{ base, *config, it, *group, *bad });
+
+    Io.wait(*group);
+
+    check(bad == 0, "% of 10 concurrent requests failed over HTTP/1.1", bad);
+
+    close_idle_connections();
+}
+
+// A client that only offers http/1.1 to a server that would speak h2.
+http1_client :: (base: string, server: *Server) {
+    config := client_config(string.["http/1.1"]);
+
+    defer Tls.tls_config_free(*config);
+
+    api: Client;
+
+    api.base_url = base;
+    api.tls = *config;
+
+    reply := get_path(*api, "/ping");
+
+    check(reply.status == 200 && reply.body == "pong", "an HTTP/1.1 client is served: % '%'", reply.status, reply.body);
+
+    reply = get_path(*api, "/big");
+
+    check(reply.status == 200 && reply.body.count == BIG, "and gets a large body: %", reply.body.count);
+
+    close_idle_connections();
+}
+
+register :: (app: *App) {
+    get(app, "/ping", ping);
+    get(app, "/slow", slow);
+    get(app, "/big", big);
+    get(app, "/streamed", streamed);
+    get(app, "/missing", missing);
+    head(app, "/ping", ping);
+    post(app, "/size", size_of_body, max_body = 8 * 1024 * 1024);
+}
+
+app: App;
+legacy: App;
+
+main :: () {
+    if !supported() return;
+
+    big_text = alloc_string(BIG);
+
+    for *big_text it.* = cast(u8) (#char "a" + it_index % 26);
+
+    register(*app);
+    register(*legacy);
+
+    h2_config: Tls.Tls_Config;
+
+    h2_config.certificate_chain_pem = load("server.pem");
+    h2_config.private_key_pem = load("server.key");
+    h2_config.alpn = string.["h2", "http/1.1"];
+
+    check(Tls.tls_config_init(*h2_config).kind == .NONE, "server config");
+
+    old_config: Tls.Tls_Config;
+
+    old_config.certificate_chain_pem = load("server.pem");
+    old_config.private_key_pem = load("server.key");
+    old_config.alpn = string.["http/1.1"];
+
+    check(Tls.tls_config_init(*old_config).kind == .NONE, "server config");
+
+    app.config.tls = *h2_config;
+    legacy.config.tls = *old_config;
+
+    run_server(*app, shared_connection);
+    run_server(*legacy, http1_server);
+    run_server(*app, http1_client);
+
+    finish();
+}
