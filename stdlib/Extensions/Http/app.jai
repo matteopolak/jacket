@@ -77,8 +77,8 @@ Server_Config :: struct {
     // HTTP.
     tls: *Tls.Tls_Config;
 
-    // Serve HTTP/2 to clients that negotiate `h2`. Off, such a connection is refused after the
-    // handshake, so a config that offers `h2` while this is off sends clients to a dead end.
+    // Serve HTTP/2 to clients that negotiate `h2`. Off, the server leaves `h2` out of the ALPN
+    // protocols it accepts (a copy of `tls` is made at `start`), so clients fall back to HTTP/1.1.
     http2 := true;
 
     // HTTP/2 only: requests in progress on one connection, and the bytes a client may send on

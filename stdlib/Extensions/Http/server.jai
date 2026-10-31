@@ -46,6 +46,11 @@ Server :: struct {
     connections: *Connection;
     count: int;
 
+    // The TLS config connections are accepted with: `config.tls`, or without `h2` in its ALPN list
+    // when `config.http2` is off (then `own_tls` is that copy, and the server frees it).
+    tls: *Tls.Tls_Config;
+    own_tls: *Tls.Tls_Config;
+
     dates: Date_Cache;
     finished: Io.Wait_Group;
     served: s64; // requests answered, for tests and logs
@@ -108,9 +113,15 @@ start :: (app: *App, reuse_port := false) -> *Server, Serve_Error {
 
     if invalid.kind != .NONE return null, invalid;
 
+    tls, own_tls, tls_error := server_tls(app);
+
+    if tls_error.kind != .NONE return null, tls_error;
+
     listener, error := Io.tcp_listen(app.config.address, reuse_port = reuse_port);
 
     if error != .NONE {
+        free_own_tls(own_tls);
+
         failure: Serve_Error;
 
         failure.kind = .CANNOT_LISTEN;
@@ -124,6 +135,8 @@ start :: (app: *App, reuse_port := false) -> *Server, Serve_Error {
 
     server.app = app;
     server.listener = listener;
+    server.tls = tls;
+    server.own_tls = own_tls;
 
     address, _ := Io.local_address(listener);
 
@@ -208,7 +221,7 @@ accept_loop :: (server: *Server) {
             continue;
         }
 
-        adopt(server, tcp_link(stream), server.app.config.tls != null);
+        adopt(server, tcp_link(stream), server.tls != null);
     }
 }
 
@@ -251,7 +264,64 @@ drain :: (server: *Server) {
         Io.sleep(5);
     }
 
+    free_own_tls(server.own_tls);
+
+    server.own_tls = null;
+
     Io.done(*server.finished);
+}
+
+// The config connections are accepted with. With `http2` off it is a copy of `config.tls` that does
+// not list `h2`, so clients that offer it fall back to HTTP/1.1 instead of being refused.
+server_tls :: (app: *App) -> *Tls.Tls_Config, *Tls.Tls_Config, Serve_Error {
+    tls := app.config.tls;
+
+    if !tls || app.config.http2 return tls, null, .{};
+
+    offered := false;
+
+    for tls.alpn if it == "h2" offered = true;
+
+    if !offered return tls, null, .{};
+
+    copy := New(Tls.Tls_Config);
+
+    copy.* = tls.*;
+    copy.native = null;
+
+    kept: [..] string;
+
+    for tls.alpn {
+        if it != "h2" array_add(*kept, it);
+    }
+
+    copy.alpn = kept;
+
+    init_error := Tls.tls_config_init(copy);
+
+    if init_error.kind != .NONE {
+        free(kept.data);
+        free(copy);
+
+        failure: Serve_Error;
+
+        failure.kind = .INVALID_TLS;
+        failure.message = tprint("config.tls cannot be used without h2: %", Tls.error_text(init_error));
+
+        return null, null, failure;
+    }
+
+    return copy, copy, .{};
+}
+
+free_own_tls :: (copy: *Tls.Tls_Config) {
+    if !copy return;
+
+    kept := copy.alpn.data;
+
+    Tls.tls_config_free(copy);
+    free(kept);
+    free(copy);
 }
 
 now_ms :: () -> s64 {
@@ -276,7 +346,7 @@ accept_tls :: (connection: *Connection) -> Link, bool, bool {
     error: Tls.Tls_Error;
 
     Io.with_deadline(within(config.header_timeout), #code {
-        stream, error = Tls.tls_accept(config.tls, link.reader, link.writer);
+        stream, error = Tls.tls_accept(connection.server.tls, link.reader, link.writer);
     });
 
     if error.kind != .NONE {

@@ -92,6 +92,7 @@ Reply :: struct {
     reason: string;
     headers: [] Header_Field;
     body: string;
+    http2: bool;
 }
 
 // Reads the body of `response` and closes it.
@@ -99,6 +100,7 @@ into_reply :: (response: *Client_Response) -> Reply {
     reply: Reply;
 
     reply.status = response.status;
+    reply.http2 = response.http2;
     reply.reason = copy_string(response.reason,, temp);
 
     list: [..] Header_Field;

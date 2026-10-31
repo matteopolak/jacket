@@ -87,6 +87,9 @@ Client_Response :: struct {
     request_body: string;
     request_body_size: int;
 
+    // Whether the answer came over HTTP/2 (otherwise HTTP/1.1).
+    http2: bool;
+
     storage: *void;
     source: *Body_Source;
 }
@@ -227,9 +230,9 @@ Client_Settings :: struct {
     // connections per scheduler; past it the oldest is closed (its body can no longer be read).
     max_open_responses := 64;
 
-    // Offer HTTP/2 (ALPN `h2`) on https connections made with the default TLS settings. When the
-    // server picks it, requests to that origin share one connection. Read when the first https
-    // request is made; a `tls` config of your own lists its own `alpn`.
+    // Offer HTTP/2 (ALPN `h2`) on https connections. When the server picks it, requests to that
+    // origin share one connection. Off, `h2` is never offered, even when a `tls` config of your own
+    // lists it in `alpn` (the client then uses a copy of that config without it).
     http2 := true;
 }
 
@@ -2144,9 +2147,66 @@ checkin :: (owner: *void, host: string, port: u16, tls: *Tls.Tls_Config, stream:
 tls_config_of :: (client: *Client, url: Url) -> *Tls.Tls_Config {
     if !url.secure return null;
 
-    if client.tls return client.tls;
+    if client.tls {
+        if client_settings.http2 return client.tls;
+
+        return without_h2(client.tls);
+    }
 
     return *default_tls;
+}
+
+// A config of the program's own that never offers `h2`, standing in for `source` while
+// `client_settings.http2` is off. One is made for each config the first time it is used and kept
+// for the life of the program; if it cannot be made, `source` is used as it is.
+Quiet_Tls :: struct {
+    source: *Tls.Tls_Config;
+    native: *void;
+    copy: *Tls.Tls_Config;
+}
+
+quiet_tls: [..] Quiet_Tls;
+quiet_tls_lock: s32;
+
+without_h2 :: (source: *Tls.Tls_Config) -> *Tls.Tls_Config {
+    offers := false;
+
+    for source.alpn if it == "h2" offers = true;
+
+    if !offers || !source.native return source;
+
+    while true {
+        exchanged, _ := compare_and_swap(*quiet_tls_lock, 0, 1);
+
+        if exchanged break;
+
+        Io.sleep(1);
+    }
+
+    defer atomic_store(*quiet_tls_lock, cast(s32) 0);
+
+    for quiet_tls {
+        if it.source == source && it.native == cast(*void) source.native return it.copy;
+    }
+
+    copy := New(Tls.Tls_Config);
+
+    copy.* = source.*;
+    copy.native = null;
+
+    kept: [..] string;
+
+    for source.alpn {
+        if it != "h2" array_add(*kept, it);
+    }
+
+    copy.alpn = kept;
+
+    if Tls.tls_config_init(copy).kind != .NONE return source;
+
+    array_add(*quiet_tls, .{ source, source.native, copy });
+
+    return copy;
 }
 
 // The default for clients with no `tls`: system roots, ALPN `http/1.1`. Built once by whichever
@@ -2207,6 +2267,12 @@ secure_link :: (client: *Client, link: Link, url: Url) -> Link, Client_Error {
     secured.writer = Tls.writer_of(stream);
     secured.peer = link.peer;
     secured.h2 = Tls.alpn_protocol(stream) == "h2";
+
+    if secured.h2 && !client_settings.http2 {
+        Tls.close(stream, now = true);
+
+        return .{}, client_error(.TLS, .NONE, "the server chose HTTP/2, which client_settings.http2 turned off");
+    }
 
     return secured, .{};
 }

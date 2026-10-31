@@ -118,6 +118,7 @@ shared_connection :: (base: string, server: *Server) {
     reply := get_path(*api, "/ping");
 
     check(reply.status == 200 && reply.body == "pong", "a request: % '%'", reply.status, reply.body);
+    check(reply.http2, "the answer came over HTTP/2");
 
     // Many requests at once, from several clients that share the scheduler's pool.
     group: Io.Wait_Group;
@@ -195,6 +196,7 @@ http1_server :: (base: string, server: *Server) {
         reply := get_path(*api, "/ping");
 
         check(reply.status == 200 && reply.body == "pong", "an HTTP/1.1 server answers: % '%'", reply.status, reply.body);
+        check(!reply.http2, "and it is HTTP/1.1");
     }
 
     group: Io.Wait_Group;
@@ -225,12 +227,60 @@ http1_client :: (base: string, server: *Server) {
     reply := get_path(*api, "/ping");
 
     check(reply.status == 200 && reply.body == "pong", "an HTTP/1.1 client is served: % '%'", reply.status, reply.body);
+    check(!reply.http2, "over HTTP/1.1");
 
     reply = get_path(*api, "/big");
 
     check(reply.status == 200 && reply.body.count == BIG, "and gets a large body: %", reply.body.count);
 
     close_idle_connections();
+}
+
+// `http2 = false` on the server: it does not pick h2 even for a client that offers it, so the client
+// falls back to HTTP/1.1 instead of being refused. And `client_settings.http2 = false` on the client
+// does the same against a server that would speak h2.
+switched_off :: (base: string, server: *Server) {
+    config := client_config(string.["h2", "http/1.1"]);
+
+    defer Tls.tls_config_free(*config);
+
+    api: Client;
+
+    api.base_url = base;
+    api.tls = *config;
+
+    reply := get_path(*api, "/ping");
+
+    check(reply.status == 200 && reply.body == "pong" && !reply.http2, "the server with http2 off answers over HTTP/1.1: % '%'", reply.status, reply.body);
+
+    close_idle_connections();
+}
+
+client_off :: (base: string, server: *Server) {
+    config := client_config(string.["h2", "http/1.1"]);
+
+    defer Tls.tls_config_free(*config);
+
+    api: Client;
+
+    api.base_url = base;
+    api.tls = *config;
+
+    reply := get_path(*api, "/ping");
+
+    check(reply.status == 200 && reply.http2, "with http2 on the client speaks it");
+
+    close_idle_connections();
+
+    client_settings.http2 = false;
+
+    reply = get_path(*api, "/ping");
+
+    check(reply.status == 200 && reply.body == "pong" && !reply.http2, "client_settings.http2 = false: HTTP/1.1 even though the config lists h2: % '%'", reply.status, reply.body);
+
+    close_idle_connections();
+
+    client_settings.http2 = true;
 }
 
 register :: (app: *App) {
@@ -245,6 +295,7 @@ register :: (app: *App) {
 
 app: App;
 legacy: App;
+quiet: App;
 
 main :: () {
     if !supported() return;
@@ -255,6 +306,7 @@ main :: () {
 
     register(*app);
     register(*legacy);
+    register(*quiet);
 
     h2_config: Tls.Tls_Config;
 
@@ -273,11 +325,15 @@ main :: () {
     check(Tls.tls_config_init(*old_config).kind == .NONE, "server config");
 
     app.config.tls = *h2_config;
+    quiet.config.tls = *h2_config;
+    quiet.config.http2 = false;
     legacy.config.tls = *old_config;
 
     run_server(*app, shared_connection);
     run_server(*legacy, http1_server);
     run_server(*app, http1_client);
+    run_server(*quiet, switched_off);
+    run_server(*app, client_off);
 
     finish();
 }

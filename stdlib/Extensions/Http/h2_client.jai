@@ -379,6 +379,7 @@ converse_h2 :: (client: *Client, conn: *H2_Conn, method: Method, method_text: st
     conn.refs += 1;
 
     response.source = source;
+    response.http2 = true;
 
     // Everything has arrived already (a small answer): take it into memory, and the stream is free at once.
     if stream.remote_ended {
