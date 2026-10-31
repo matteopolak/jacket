@@ -230,9 +230,16 @@ insert_position :: inline (e: *Encoder, pos: s64) #no_abc {
     e.head[h] = cast(s32) pos;
 }
 
-// Inserts every position up to (not including) `end` that the chains do not hold yet.
+// A match longer than this only has its last positions recorded; the rest of a long run is not
+// worth the time, since a later match can start from its tail just as well.
+MAX_INSERT_RUN :: 64;
+
+// Inserts the positions up to (not including) `end` that the chains do not hold yet, skipping
+// the start of a very long stretch.
 insert_through :: (e: *Encoder, end: s64) #no_abc {
     last := min(end, e.size - 3);
+
+    if e.inserted < end - MAX_INSERT_RUN e.inserted = end - MAX_INSERT_RUN;
 
     while e.inserted < last {
         insert_position(e, e.inserted);

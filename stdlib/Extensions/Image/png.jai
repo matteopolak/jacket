@@ -58,7 +58,8 @@ decode_png :: (data: [] u8, max_pixels: s64 = DEFAULT_MAX_PIXELS) -> image: Imag
 
 // Encodes as an 8-bit PNG: gray, gray with alpha, RGB or RGBA (BGRA is written as RGBA). Each
 // row gets the filter whose output has the smallest sum of absolute values (read as signed
-// bytes). `level` is the deflate level, 0 to 9; 0 stores the rows unfiltered and uncompressed.
+// bytes): estimated from a sample of the row for levels 1 to 8, over the whole row at level 9, which is slower.
+// `level` is the deflate level, 0 to 9; 0 stores the rows unfiltered and uncompressed.
 encode_png :: (image: Image, level: s32 = 6) -> [] u8 {
     if !image_is_valid(image) return empty_bytes();
 
@@ -97,7 +98,7 @@ encode_png :: (image: Image, level: s32 = 6) -> [] u8 {
             memcpy(filtered.data + y * (stride + 1) + 1, source.pixels.data + y * stride, stride);
         }
     } else {
-        png_filter_image(source, filtered, bpp);
+        png_filter_image(source, filtered, bpp, level >= PNG_THOROUGH_LEVEL);
     }
 
     packed := deflate(filtered, .ZLIB, level);
@@ -732,17 +733,152 @@ png_expand_16 :: (ctx: *Png_Decode, src: *u8, count: s64, dst: *u8) {
     }
 }
 
-// Filters every row, trying all five filters and keeping the one with the smallest sum of
-// absolute differences from zero.
-png_filter_image :: (source: Image, filtered: [] u8, bpp: s64) {
-    if bpp == 1 {
-        png_filter_rows(1, source, filtered);
-    } else if bpp == 2 {
-        png_filter_rows(2, source, filtered);
-    } else if bpp == 3 {
-        png_filter_rows(3, source, filtered);
+// The level from which every filter is tried on each row; below it only Sub and Up are.
+PNG_THOROUGH_LEVEL :: 9;
+
+// Filters every row, keeping the filter with the smallest sum of absolute differences from zero.
+png_filter_image :: (source: Image, filtered: [] u8, bpp: s64, thorough: bool) {
+    if thorough {
+        if bpp == 1 {
+            png_filter_rows(1, source, filtered);
+        } else if bpp == 2 {
+            png_filter_rows(2, source, filtered);
+        } else if bpp == 3 {
+            png_filter_rows(3, source, filtered);
+        } else {
+            png_filter_rows(4, source, filtered);
+        }
     } else {
-        png_filter_rows(4, source, filtered);
+        if bpp == 1 {
+            png_filter_rows_fast(1, source, filtered);
+        } else if bpp == 2 {
+            png_filter_rows_fast(2, source, filtered);
+        } else if bpp == 3 {
+            png_filter_rows_fast(3, source, filtered);
+        } else {
+            png_filter_rows_fast(4, source, filtered);
+        }
+    }
+}
+
+// How many bytes of a row are compared to pick between Sub and Up.
+PNG_FILTER_SAMPLES :: 256;
+
+// Sub, Up, Average or Paeth for each row. The choice compares the filtered bytes of all four at a
+// spread of positions along the row (the sum of their distances from zero, as signed bytes). Sub
+// and Up then filter the row eight bytes at a time; Average and Paeth go byte by byte, and only
+// rows where they won pay for it. On the first line Up is the row itself.
+png_filter_rows_fast :: ($BPP: s64, source: Image, filtered: [] u8) {
+    width := cast(s64) source.width;
+    height := cast(s64) source.height;
+    stride := width * BPP;
+
+    // How far a filtered byte is from zero, reading it as a signed byte.
+    cost: [256] u8;
+
+    for 0..255 cost[it] = cast,trunc(u8) (ifx it < 128 then it else 256 - it);
+
+    cost_at := cost.data;
+    zero := NewArray(stride, u8);
+
+    defer array_free(zero);
+
+    // A step that is a multiple of the pixel size would only ever look at one channel.
+    step := max(stride / PNG_FILTER_SAMPLES, 1);
+    if BPP > 1 && step % BPP == 0 step += 1;
+
+    for y: 0..height - 1 {
+        row := source.pixels.data + y * stride;
+        previous := ifx y == 0 then zero.data else row - stride;
+        out := filtered.data + y * (stride + 1);
+
+        sum_sub, sum_up, sum_average, sum_paeth: s64;
+        i := BPP;
+
+        while i < stride {
+            x := row[i];
+            a := row[i - BPP];
+            b := previous[i];
+            c := previous[i - BPP];
+
+            sum_sub += cost_at[x - a];
+            sum_up += cost_at[x - b];
+            sum_average += cost_at[x - cast,trunc(u8) ((cast(u32) a + b) >> 1)];
+            sum_paeth += cost_at[x - png_paeth(a, b, c)];
+            i += step;
+        }
+
+        best := sum_sub;
+        kind: u8 = 1;
+
+        if sum_up < best {
+            best = sum_up;
+            kind = 2;
+        }
+
+        if sum_average < best {
+            best = sum_average;
+            kind = 3;
+        }
+
+        if sum_paeth < best {
+            best = sum_paeth;
+            kind = 4;
+        }
+
+        out[0] = kind;
+        dst := out + 1;
+
+        if kind == 1 {
+            memcpy(dst, row, BPP);
+            png_subtract_bytes(row + BPP, row, dst + BPP, stride - BPP);
+        } else if kind == 2 {
+            png_subtract_bytes(row, previous, dst, stride);
+        } else if kind == 3 {
+            for k: 0..BPP - 1 dst[k] = row[k] - (previous[k] >> 1);
+
+            for k: BPP..stride - 1 dst[k] = row[k] - cast,trunc(u8) ((cast(u32) row[k - BPP] + previous[k]) >> 1);
+        } else {
+            for k: 0..BPP - 1 dst[k] = row[k] - previous[k];
+
+            for k: BPP..stride - 1 {
+                a := cast(s32) row[k - BPP];
+                b := cast(s32) previous[k];
+                c := cast(s32) previous[k - BPP];
+                pa := b - c;
+                pb := a - c;
+                pc := pa + pb;
+
+                pa = ifx pa < 0 then -pa else pa;
+                pb = ifx pb < 0 then -pb else pb;
+                pc = ifx pc < 0 then -pc else pc;
+
+                near := ifx pa <= pb then a else b;
+                distance := ifx pa <= pb then pa else pb;
+
+                dst[k] = row[k] - cast,trunc(u8) (ifx distance <= pc then near else c);
+            }
+        }
+    }
+}
+
+// dst[i] = a[i] - b[i] for `count` bytes, eight at a time (each byte subtracted on its own, with
+// no borrow into its neighbour).
+png_subtract_bytes :: (a: *u8, b: *u8, dst: *u8, count: s64) {
+    high: u64 = 0x8080808080808080;
+    i: s64;
+
+    while i + 8 <= count {
+        x := (cast(*u64) (a + i)).*;
+        y := (cast(*u64) (b + i)).*;
+
+        (cast(*u64) (dst + i)).* = ((x | high) - (y & ~high)) ^ ((x ^ ~y) & high);
+        i += 8;
+    }
+
+    while i < count {
+        dst[i] = a[i] - b[i];
+        i += 1;
     }
 }
 

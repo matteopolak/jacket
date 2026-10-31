@@ -102,6 +102,79 @@ main :: () {
     check(ok && same_bytes(decoded.pixels, wide.pixels), "wide round trip");
     array_free(data);
 
+    // Smooth content, where Sub and Up win on different rows: horizontal ramps in some rows, vertical
+    // ramps in others, over widths that leave a tail after the eight-byte steps and rows long enough
+    // to be sampled sparsely.
+    for format: ALL_FORMATS for width : s32.[1, 3, 7, 9, 130, 1100] for level : s32.[1, 9] {
+        ramp := random_image(width, 24, format, cast(u64) width);
+        bpp := bytes_per_pixel(format);
+
+        for y: 0..23 for x : 0..width - 1 for c : 0..bpp - 1 {
+            value := ifx y % 2 == 0 then x * (c + 1) else y * 5 + c;
+            ramp.pixels[(y * width + x) * bpp + c] = cast,trunc(u8) value;
+        }
+
+        packed := encode_png(ramp, level);
+        back, back_ok := decode_png(packed);
+        reference := ifx format == .BGRA8 then convert(ramp, .RGBA8) else ramp;
+
+        check(back_ok && same_bytes(back.pixels, reference.pixels), tprint("ramp round trip % % %", format, width, level));
+        array_free(packed);
+        deinit(*back);
+        deinit(*ramp);
+    }
+
+    // Every filter the default levels can pick has to be chosen somewhere, or its loop is untested:
+    // a smooth paraboloid (Paeth), noise around a flat level (Average, which halves the noise of its
+    // two neighbours), flat blocks (Up) and diagonal stripes (Sub).
+    for format: s32.[0, 1, 2] {
+        mixed := random_image(203, 120, ALL_FORMATS[format], 9);
+        bpp := bytes_per_pixel(mixed.format);
+        noise: u32 = 777;
+
+        for y: 0..119 for x : 0..202 for c : 0..bpp - 1 {
+            noise = noise * 1664525 + 1013904223;
+            value := 0;
+
+            if y < 30 {
+                value = (x * x + y * y) / 64 + c;
+            } else if y < 60 {
+                value = 100 + cast(s64) ((noise >> 24) & 15);
+            } else if y < 90 {
+                value = ifx ((x / 17) + (y / 13)) % 2 == 0 then 200 else 20;
+            } else {
+                value = ifx ((x + y) / 4) % 2 == 0 then 200 else 20;
+            }
+
+            mixed.pixels[(y * 203 + x) * bpp + c] = cast,trunc(u8) value;
+        }
+
+        for level: s32.[1, 6] {
+            packed := encode_png(mixed, level);
+            back, back_ok := decode_png(packed);
+
+            check(back_ok && same_bytes(back.pixels, mixed.pixels), tprint("mixed round trip % %", mixed.format, level));
+
+            // The filter byte of every row, read from the inflated image data (one IDAT follows the header).
+            idat_length: s64;
+            for 33..36 idat_length = idat_length * 256 + packed[it];
+
+            raw, raw_ok := inflate(byte_range(packed, 41, idat_length));
+            used: [5] bool;
+
+            check(raw_ok, "the image data inflates");
+
+            for y: 0..119 used[raw[y * (203 * bpp + 1)]] = true;
+
+            check(used[1] && used[2] && used[3] && used[4], tprint("every filter is chosen % %: % % % %", mixed.format, level, used[1], used[2], used[3], used[4]));
+            array_free(raw);
+            array_free(packed);
+            deinit(*back);
+        }
+
+        deinit(*mixed);
+    }
+
     // Rules.
     good := simple_png(4, 3);
     image, ok2, _ := decode_png(good);

@@ -26,6 +26,7 @@ Modules used: Basic, Math, Hash_Table, Flat_Pool, File, File_Utilities, File_Wat
 ## Tooling
 
 - An interpreted run of the smoke test takes about a second once the binary is warm: the front end is under 0.1 s and the rest is the interpreter encoding the PNG of the GPU frame. Fixed by "perf(basic): clear zero-default arrays with one memset": `array_resize` and `NewArray` called `Initialize` once per element, which was half of the interpreted instructions. A first run of a freshly built `jaic` can still wait on the system for tens of seconds before it starts working; use `-check` while editing.
+- Fixed by "perf(image): pick PNG row filters from a sample": the interpreted smoke run spent most of its time in the PNG encoder (row filtering about 58%, the match finder about 25%). Rows now score Sub, Up, Average and Paeth at 256 sampled positions and filter only with the winner (Sub and Up eight bytes at a time), and long matches no longer insert every position. The interpreter executes 325 million instructions instead of 1,060 million and the run takes about 0.7 s instead of 1.15 s.
 - The pre-commit lint rejects magic numbers in stdlib; every tuning constant needs a name.
 
 ## Not done
