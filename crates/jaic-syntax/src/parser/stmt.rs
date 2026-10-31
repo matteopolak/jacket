@@ -1,6 +1,6 @@
 //! Statements and control flow.
 use crate::diagnostics::Code;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use super::{PResult, Parser};
 use crate::ast::{
@@ -220,7 +220,7 @@ impl Parser<'_> {
         }
         match &mut statement.kind {
             StmtKind::Decl(decl) | StmtKind::AddContext(decl) => {
-                if let Some(decl) = std::rc::Rc::get_mut(decl) {
+                if let Some(decl) = std::sync::Arc::get_mut(decl) {
                     decl.notes.extend(notes);
                     return;
                 }
@@ -340,7 +340,7 @@ impl Parser<'_> {
         self.expect(P::Comma, "after the union tag")?;
         let mut member = self.parse_simple_stmt()?;
         if let StmtKind::Decl(decl) = &mut member.kind
-            && let Some(decl) = std::rc::Rc::get_mut(decl)
+            && let Some(decl) = std::sync::Arc::get_mut(decl)
         {
             decl.rare_mut().union_tag = Some(tag);
         }
@@ -892,7 +892,7 @@ impl Parser<'_> {
             let mut import = self.parse_import(None, start)?;
             self.end_stmt("after `#import`")?;
             if let StmtKind::Import(i) = &mut import.kind
-                && let Some(i) = Rc::get_mut(i)
+                && let Some(i) = Arc::get_mut(i)
             {
                 i.using = Some(filter);
             }

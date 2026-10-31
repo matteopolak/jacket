@@ -22,7 +22,7 @@ pub(crate) use self::scan::is_ident_char;
 pub use self::value_map::string_value_map;
 use crate::intern::Sym;
 use crate::source::Span;
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Tok {
@@ -30,10 +30,10 @@ pub enum Tok {
     /// `#name`, stored without the hash.
     Directive(Sym),
     /// `@name` or `@"text"`, stored without the at-sign.
-    Note(Rc<str>),
+    Note(Arc<str>),
     Int(u128),
     Float(f64),
-    Str(Rc<[u8]>),
+    Str(Arc<[u8]>),
     Punct(P),
     Eof,
 }

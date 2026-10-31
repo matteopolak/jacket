@@ -10,7 +10,7 @@ use crate::{DocumentUri, Position};
 use jaic::interpolate::{self, Mode};
 use jaic::lexer::Tok;
 use jaic::source::FileId;
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// One hole: `%name.field`, `%array[i]` or `%(expression)`.
 pub(crate) struct Hole {
@@ -27,7 +27,7 @@ pub(crate) struct Site {
     pub string: Span,
     pub mode: Mode,
     pub holes: Vec<Hole>,
-    value: Rc<[u8]>,
+    value: Arc<[u8]>,
     /// For each byte of `value` (and one past it) its offset in the literal's spelling.
     map: Vec<u32>,
 }
@@ -45,7 +45,7 @@ fn ident_char(c: u8) -> bool {
 }
 
 impl Site {
-    fn new(text: &str, string: Span, value: Rc<[u8]>, mode: Mode) -> Option<Site> {
+    fn new(text: &str, string: Span, value: Arc<[u8]>, mode: Mode) -> Option<Site> {
         let map = jaic::lexer::string_value_map(text.get(string.start..string.end)?, value.len())?;
         let source = |v: usize| string.start + map[v] as usize;
         let mut holes = Vec::new();

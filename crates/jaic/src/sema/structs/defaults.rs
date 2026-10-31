@@ -6,12 +6,16 @@ use crate::ir::Ty;
 use crate::sema::convert::Site;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::value::Aggregate;
-use crate::sema::{Compiler, FileId, Rc, Result, ScopeId, Span, TypeId, Value, ast, err, ir};
+use crate::sema::{Arc, Compiler, FileId, Result, ScopeId, Span, TypeId, Value, ast, err, ir};
 use crate::types::{ArrayKind, TypeKind};
 
 impl Compiler {
     /// Constant image of a default-initialized value (`None` = all zero).
-    pub fn default_initializer(&mut self, ty: TypeId, span: Span) -> Result<Option<Rc<Aggregate>>> {
+    pub fn default_initializer(
+        &mut self,
+        ty: TypeId,
+        span: Span,
+    ) -> Result<Option<Arc<Aggregate>>> {
         if let Some(img) = self.ty.default_images.get(&ty) {
             return Ok(img.clone());
         }
@@ -21,7 +25,7 @@ impl Compiler {
                 // canonical void descriptor, not a null pointer image.
                 let mut image = Aggregate::zeroed(self.size_of(ty, span)?, span)?;
                 self.write_value(&mut image, 0, &Value::Type(TypeId::VOID), ty, span)?;
-                Some(Rc::new(image))
+                Some(Arc::new(image))
             }
             TypeKind::Struct(s) => {
                 self.layout_struct(s, span)?;
@@ -70,7 +74,7 @@ impl Compiler {
                         self.write_value(agg, offset, &value, fty, r.span)?;
                     }
                 }
-                image.map(Rc::new)
+                image.map(Arc::new)
             }
             TypeKind::Array {
                 elem,
@@ -82,7 +86,7 @@ impl Compiler {
                     for i in 0..n {
                         write_agg(&mut agg, i * size, &inner);
                     }
-                    Some(Rc::new(agg))
+                    Some(Arc::new(agg))
                 }
                 None => None,
             },
@@ -198,7 +202,7 @@ impl Compiler {
         let proc_ty = self
             .ty
             .types
-            .intern(TypeKind::Proc(Rc::new(crate::types::ProcType {
+            .intern(TypeKind::Proc(Arc::new(crate::types::ProcType {
                 params: vec![TypeId::VOID_PTR],
                 returns: Vec::new(),
                 variadic: false,

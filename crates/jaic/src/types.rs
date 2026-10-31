@@ -5,7 +5,7 @@ use crate::fxhash::HashMap;
 use crate::intern::Sym;
 use crate::layout::{self, POINTER_SIZE};
 use crate::source::Span;
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct TypeId(pub u32);
@@ -57,7 +57,7 @@ pub enum TypeKind {
         elem: TypeId,
         kind: ArrayKind,
     },
-    Proc(Rc<ProcType>),
+    Proc(Arc<ProcType>),
     Struct(StructId),
     Enum(EnumId),
     Distinct(DistinctId),
@@ -96,7 +96,7 @@ pub struct Field {
     pub as_: bool,
     /// Declared after `#overlay(f)`: shares another field's storage.
     pub overlay: bool,
-    pub notes: Vec<Rc<str>>,
+    pub notes: Vec<Arc<str>>,
     /// Constant initializer bytes (or none = zero / ---).
     pub span: Span,
 }
@@ -114,7 +114,7 @@ pub struct StructInfo {
     pub ast: Option<AstId>,
     pub is_union: bool,
     /// Shared, so a caller can hold the fields while it changes other types.
-    pub fields: std::rc::Rc<[Field]>,
+    pub fields: std::sync::Arc<[Field]>,
     pub size: u64,
     pub align: u64,
     pub layout: LayoutState,

@@ -9,7 +9,7 @@
 //! u64; segment_info: [] Global_Data_Segment_Info; }`,
 //! `Global_Data_Segment_Info { segment_tag: u16; data: [] u8; }`.
 use super::{
-    Compiler, Diagnostic, EntityId, HashSet, Rc, Result, Span, TypeId, Value, ast, ir, scope,
+    Arc, Compiler, Diagnostic, EntityId, HashSet, Result, Span, TypeId, Value, ast, ir, scope,
 };
 use crate::diagnostics::Code;
 use crate::sema::Output;
@@ -46,7 +46,7 @@ impl Compiler {
         if !text.is_empty() && !text.ends_with(std::path::MAIN_SEPARATOR) {
             text.push(std::path::MAIN_SEPARATOR);
         }
-        let bytes: Rc<[u8]> = Rc::from(text.as_bytes());
+        let bytes: Arc<[u8]> = Arc::from(text.as_bytes());
         let data = self.out.string_global(&bytes);
         let mut init = (text.len() as u64).to_le_bytes().to_vec();
         init.extend_from_slice(&[0; 8]);

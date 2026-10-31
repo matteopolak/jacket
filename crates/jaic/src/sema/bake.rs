@@ -6,8 +6,8 @@
 //! procedure, so the body and the remaining parameter types see them by name.
 use super::lower::Operand;
 use super::{
-    Compiler, ConstArg, Diagnostic, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, calls, err,
-    procs, value,
+    Arc, Compiler, ConstArg, Diagnostic, Result, ScopeId, Span, Sym, TypeId, Value, ast, calls,
+    err, procs, value,
 };
 use crate::diagnostics::Code;
 
@@ -82,8 +82,8 @@ impl Compiler {
                 header.baked = true;
                 // The copy is a new procedure, not another export of the original.
                 header.flags.program_export = None;
-                let lit = Rc::new(ast::ProcLit {
-                    header: Rc::new(header),
+                let lit = Arc::new(ast::ProcLit {
+                    header: Arc::new(header),
                     body,
                 });
                 let baked_scope = self.const_scope(def_scope, consts, span);
@@ -139,7 +139,7 @@ impl Compiler {
                     .collect();
                 let mut lit = (*lit).clone();
                 lit.params = kept;
-                let baked = self.ty.new_poly_struct(name, Rc::new(lit), def_scope);
+                let baked = self.ty.new_poly_struct(name, Arc::new(lit), def_scope);
                 self.ty.poly_structs[baked.0 as usize].baked = consts;
                 self.ty.poly_structs[baked.0 as usize].origin = Some(origin);
                 if self.ty.poly_structs[baked.0 as usize].lit.params.is_empty() {
@@ -489,7 +489,7 @@ fn polyfy(expr: &mut ast::Expr, names: &[Sym]) {
             }
         }
         E::ProcType(header) => {
-            let header = Rc::make_mut(header);
+            let header = Arc::make_mut(header);
             for t in header
                 .params
                 .iter_mut()
@@ -537,7 +537,7 @@ fn unbind_poly(expr: &mut ast::Expr, names: &[Sym]) {
             }
         }
         E::ProcType(header) => {
-            let header = Rc::make_mut(header);
+            let header = Arc::make_mut(header);
             for t in header
                 .params
                 .iter_mut()

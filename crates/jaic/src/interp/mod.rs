@@ -119,7 +119,7 @@ pub struct MadeCode {
     /// The code whose scope it takes.
     pub scope_from: usize,
     /// The text its spans point into, until the compiler adopts it.
-    pub source: std::rc::Rc<str>,
+    pub source: std::sync::Arc<str>,
     /// Every value its conversion read: a repeated run that reads the same makes the same code.
     pub fingerprint: Box<[u8]>,
 }
@@ -182,11 +182,11 @@ pub struct Interp {
     pub twin_declined: bool,
     /// Declaration of each struct whose descriptor exists: file path, line, column
     /// (`compiler_get_struct_location`).
-    pub struct_locations: crate::fxhash::HashMap<GlobalId, (std::rc::Rc<str>, i64, i64)>,
+    pub struct_locations: crate::fxhash::HashMap<GlobalId, (std::sync::Arc<str>, i64, i64)>,
     /// Workspace registry for the `Compiler` module, when the embedder has one.
     pub workspaces: Option<crate::build::SharedWorkspaces>,
     /// Bodies of the compiler's `Code` values, by `CodeId`.
-    pub codes: Vec<std::rc::Rc<crate::ast::CodeBody>>,
+    pub codes: Vec<std::sync::Arc<crate::ast::CodeBody>>,
     /// Codes made by compile-time code (`compiler_get_code`). The compiler adopts them lazily.
     pub made_codes: Vec<MadeCode>,
     pub pending_data_globals: Vec<PendingDataGlobal>,

@@ -5,7 +5,7 @@ use crate::diagnostics::Code;
 use crate::sema::scope::ScopeKind;
 use crate::sema::value::Aggregate;
 use crate::sema::{
-    Compiler, PreludeType, Rc, Result, Span, Sym, TypeId, Value, ast, err, ir, structs,
+    Arc, Compiler, PreludeType, Result, Span, Sym, TypeId, Value, ast, err, ir, structs,
 };
 use crate::types::{ArrayKind, StructId, TypeKind};
 
@@ -154,11 +154,11 @@ impl Compiler {
             )
         });
         // Notes written on the struct itself: `S :: struct @thing { ... }`.
-        let notes: Vec<Rc<[u8]>> = src
+        let notes: Vec<Arc<[u8]>> = src
             .lit
             .notes
             .iter()
-            .map(|n| Rc::from(n.text.as_bytes()))
+            .map(|n| Arc::from(n.text.as_bytes()))
             .collect();
         if no_padding {
             self.set_field(agg, desc, "textual_flags", Value::Int(textual | 0x4), span)?;
@@ -319,8 +319,11 @@ impl Compiler {
                         flags |= 0x20;
                     }
                     self.set_field(&mut m, member_ty, "flags", Value::Int(flags), span)?;
-                    let notes: Vec<Rc<[u8]>> =
-                        field.notes.iter().map(|n| Rc::from(n.as_bytes())).collect();
+                    let notes: Vec<Arc<[u8]>> = field
+                        .notes
+                        .iter()
+                        .map(|n| Arc::from(n.as_bytes()))
+                        .collect();
                     self.set_notes_view(&mut m, member_ty, &notes, span)?;
                     structs::write_agg(&mut members, slot as u64 * msize, &m);
                 }
@@ -424,10 +427,10 @@ impl Compiler {
                     span,
                 )?;
                 self.set_info_ptr(agg, desc, "internal_type", info.base, span)?;
-                let names: Vec<Rc<[u8]>> = info
+                let names: Vec<Arc<[u8]>> = info
                     .members
                     .iter()
-                    .map(|(n, _)| Rc::from(n.as_str().as_bytes()))
+                    .map(|(n, _)| Arc::from(n.as_str().as_bytes()))
                     .collect();
                 let names_data = self.string_view(&names, span)?;
                 self.set_view(agg, desc, "names", View::of(names.len(), names_data), span)?;

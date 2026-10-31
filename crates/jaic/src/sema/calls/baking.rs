@@ -1,7 +1,7 @@
 //! Values for baked (`$x`) parameters: defaults, `Code` arguments and constant packs.
 
 use super::{
-    ArrayKind, CallArg, Compiler, Diagnostic, E, Operand, PackKey, Rc, Result, ScopeId, Span, Sym,
+    Arc, ArrayKind, CallArg, Compiler, Diagnostic, E, Operand, PackKey, Result, ScopeId, Span, Sym,
     TypeId, Value, ast, err, ir, procs, value,
 };
 use crate::diagnostics::Code;
@@ -93,7 +93,7 @@ impl Compiler {
         };
         Some(match named {
             Some(code) => code,
-            None => self.add_code(Rc::new(ast::CodeBody::Expr(expr.clone())), arg.scope),
+            None => self.add_code(Arc::new(ast::CodeBody::Expr(expr.clone())), arg.scope),
         })
     }
 
@@ -286,7 +286,7 @@ impl Compiler {
             }],
         };
         view.bytes[..8].copy_from_slice(&count.to_le_bytes());
-        Ok(Value::Bytes(Rc::new(view)))
+        Ok(Value::Bytes(Arc::new(view)))
     }
 
     /// Whether a constant of `ty` is a bool, integer, float or enum value, which the argument

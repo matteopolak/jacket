@@ -4,7 +4,7 @@ use super::model::{
 };
 use crate::diagnostics::Code;
 use crate::sema::{
-    Compiler, Diagnostic, HashMap, Rc, Result, ScopeId, Span, Sym, TypeId, ast, err, scope,
+    Arc, Compiler, Diagnostic, HashMap, Result, ScopeId, Span, Sym, TypeId, ast, err, scope,
 };
 use crate::types::{Field, LayoutState, MAX_SIZE, StructId, TypeKind};
 
@@ -147,7 +147,7 @@ impl Compiler {
             members.notes = Vec::new();
             let members = self.new_struct_type(
                 Sym::intern("anonymous"),
-                Rc::new(members),
+                Arc::new(members),
                 src.scope,
                 Vec::new(),
                 None,

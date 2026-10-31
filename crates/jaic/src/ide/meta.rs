@@ -18,7 +18,7 @@ use crate::sema::{Compiler, ModuleId, ProcTypeParams, Value};
 use crate::source::FileId;
 use crate::source::Span;
 use crate::types::TypeId;
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// Expansions kept per analysis: an edit that makes a metaprogram generate a lot stays bounded.
 const MAX_EXPANSIONS: usize = 4096;
@@ -158,7 +158,7 @@ enum Target {
 /// Structural type identity alone never supplies parameter names.
 pub struct IdeCallTarget {
     pub procedures: Vec<ProcId>,
-    pub parameters: Option<(TypeId, Rc<ProcTypeParams>)>,
+    pub parameters: Option<(TypeId, Arc<ProcTypeParams>)>,
 }
 
 impl Compiler {

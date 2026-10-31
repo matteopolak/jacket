@@ -1,6 +1,7 @@
 //! Corpus sweep: `JAIC_CORPUS_ROOT=<repo> JAIC_CORPUS_STAGE=lex|parse cargo test -p jaic --test corpus -- --ignored --nocapture`.
 //! Walks public upstream projects and standard-library sources and reports failures.
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 #[test]
 #[ignore = "sweeps whole corpora; run explicitly (see docs/tools/testing.md)"]
@@ -24,7 +25,7 @@ fn corpus_sweep() {
     let mut failures = Vec::new();
     for path in &files {
         let bytes = std::fs::read(path).unwrap();
-        let text: std::rc::Rc<str> = String::from_utf8_lossy(&bytes).into();
+        let text: Arc<str> = String::from_utf8_lossy(&bytes).into();
         let id = sources.add(path.as_path(), text.clone());
         let result = if stage == "lex" {
             jaic::lexer::lex(id, &text).map(|_| ())

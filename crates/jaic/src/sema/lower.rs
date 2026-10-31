@@ -2,7 +2,7 @@
 use super::scope::BuiltinProc;
 use super::value::{LibraryId, PolyStructId};
 use super::{
-    Compiler, FileId, HashMap, HashSet, ModuleId, ProcId, ProcTypeParams, Rc, Result, ScopeId,
+    Arc, Compiler, FileId, HashMap, HashSet, ModuleId, ProcId, ProcTypeParams, Rc, Result, ScopeId,
     Span, Sym, TypeId, Value, ast, err, ir, procs,
 };
 use crate::diagnostics::Code;
@@ -53,7 +53,7 @@ pub enum Operand {
     /// annotation is compile-time information and does not change the ABI.
     Callable {
         operand: Box<Operand>,
-        parameters: Rc<ProcTypeParams>,
+        parameters: Arc<ProcTypeParams>,
     },
     /// A runtime value. Scalars live in the register; memory-class types
     /// (structs, arrays, strings, Any) are represented by the address of a
@@ -87,7 +87,7 @@ pub enum Operand {
 }
 
 impl Operand {
-    pub(super) fn with_callable(self, parameters: Option<Rc<ProcTypeParams>>) -> Self {
+    pub(super) fn with_callable(self, parameters: Option<Arc<ProcTypeParams>>) -> Self {
         match parameters {
             Some(parameters) => Self::Callable {
                 operand: Box::new(self.without_callable()),
@@ -361,7 +361,7 @@ pub struct ForBody {
     pub call_span: Span,
     /// The `Code` value standing for the loop body.
     pub code: super::value::CodeId,
-    pub body: Rc<ast::Stmt>,
+    pub body: Arc<ast::Stmt>,
     pub scope: ScopeId,
     pub it_name: Sym,
     pub index_name: Sym,
@@ -829,7 +829,7 @@ impl TypeState {
 
 impl Output {
     /// Read-only global holding the bytes of a string literal.
-    pub fn string_global(&mut self, bytes: &Rc<[u8]>) -> ir::GlobalId {
+    pub fn string_global(&mut self, bytes: &Arc<[u8]>) -> ir::GlobalId {
         if let Some(&g) = self.strings.get(bytes) {
             return g;
         }

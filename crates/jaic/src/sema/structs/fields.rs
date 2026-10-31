@@ -5,7 +5,7 @@ use crate::diagnostics::Code;
 use crate::sema::TypeState;
 use crate::sema::lower::Operand;
 use crate::sema::scope::{EntityKind, Resolved, ScopeKind};
-use crate::sema::{Compiler, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err};
+use crate::sema::{Arc, Compiler, Result, ScopeId, Span, Sym, TypeId, Value, ast, err};
 
 impl Compiler {
     pub(super) fn collect_fields(
@@ -167,7 +167,7 @@ impl Compiler {
     pub(in crate::sema) fn resolve_field_decl_type(
         &mut self,
         scope: ScopeId,
-        decl: &Rc<ast::Decl>,
+        decl: &Arc<ast::Decl>,
     ) -> Result<TypeId> {
         if let Some(ty) = decl
             .names
@@ -198,7 +198,7 @@ impl Compiler {
         result
     }
 
-    fn field_decl_type_inner(&mut self, scope: ScopeId, decl: &Rc<ast::Decl>) -> Result<TypeId> {
+    fn field_decl_type_inner(&mut self, scope: ScopeId, decl: &Arc<ast::Decl>) -> Result<TypeId> {
         let ty = match (&decl.ty, &decl.value) {
             (Some(t), _) => self.eval_type(scope, t)?,
             (None, Some(v)) => {
@@ -225,7 +225,7 @@ impl Compiler {
     pub(super) fn resolve_decl_fields(
         &mut self,
         scope: ScopeId,
-        decl: &Rc<ast::Decl>,
+        decl: &Arc<ast::Decl>,
         out: &mut Vec<FieldItem>,
     ) -> Result<()> {
         let ty = self.resolve_field_decl_type(scope, decl)?;
@@ -234,7 +234,7 @@ impl Compiler {
             Some(a) => Some(self.eval_align(scope, a)?),
             None => None,
         };
-        let notes: Vec<Rc<str>> = decl.notes.iter().map(|n| n.text.clone()).collect();
+        let notes: Vec<Arc<str>> = decl.notes.iter().map(|n| n.text.clone()).collect();
         for name in &decl.names {
             out.push(FieldItem::Field(FieldDecl {
                 name: Some(name.name),
@@ -259,7 +259,7 @@ impl Compiler {
             return Ok(t);
         }
         self.expand_all()?;
-        let mut extra: Vec<(Rc<ast::Decl>, ScopeId)> = Vec::new();
+        let mut extra: Vec<(Arc<ast::Decl>, ScopeId)> = Vec::new();
         if let Some(preload) = self.ns.preload {
             let ids = self.module_declarations(preload, Sym::intern("FIRST_ADD_CONTEXT"))?;
             if let Some(&id) = ids.first()
@@ -287,7 +287,7 @@ impl Compiler {
             }
         }
         extra.extend(self.ns.add_contexts.iter().cloned());
-        let lit = Rc::new(ast::StructLit {
+        let lit = Arc::new(ast::StructLit {
             id: ast::AstId::fresh(),
             kind: ast::StructKind::Struct,
             params: Vec::new(),
@@ -318,7 +318,12 @@ impl Compiler {
 }
 
 impl Compiler {
-    fn add_context_constant(&mut self, struct_scope: ScopeId, decl: &Rc<ast::Decl>, home: ScopeId) {
+    fn add_context_constant(
+        &mut self,
+        struct_scope: ScopeId,
+        decl: &Arc<ast::Decl>,
+        home: ScopeId,
+    ) {
         for (index, n) in decl.names.iter().enumerate() {
             let kind = EntityKind::Decl {
                 decl: decl.clone(),
@@ -336,7 +341,7 @@ impl Compiler {
     pub fn extend_context(
         &mut self,
         context: TypeId,
-        decl: &Rc<ast::Decl>,
+        decl: &Arc<ast::Decl>,
         home: ScopeId,
         span: Span,
     ) -> Result<()> {
@@ -400,7 +405,7 @@ impl TypeState {
     pub(super) fn collect_decl_fields(
         &mut self,
         scope: ScopeId,
-        decl: &Rc<ast::Decl>,
+        decl: &Arc<ast::Decl>,
         out: &mut Vec<FieldItem>,
     ) -> Result<()> {
         for name in &decl.names {

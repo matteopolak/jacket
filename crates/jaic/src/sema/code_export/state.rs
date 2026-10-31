@@ -1,6 +1,6 @@
 //! State kept across exports: modified statements, expression types and the pending procedures.
 use crate::sema::{
-    EntityId, FileId, HashMap, HashSet, ModuleId, PathBuf, ProcId, Rc, ScopeId, Span, Sym, TypeId,
+    Arc, EntityId, FileId, HashMap, HashSet, ModuleId, PathBuf, ProcId, ScopeId, Span, Sym, TypeId,
     ast,
 };
 
@@ -10,7 +10,7 @@ use crate::sema::{
 pub struct Modification {
     pub body: i64,
     pub stmts: Vec<ast::Stmt>,
-    pub source: Rc<str>,
+    pub source: Arc<str>,
 }
 
 /// Exporter state kept by a workspace's compiler between messages.

@@ -6,7 +6,7 @@ use crate::sema::lower::{
 };
 use crate::sema::scope::{EntityId, EntityKind, ScopeKind};
 use crate::sema::{
-    Compiler, Diagnostic, HashMap, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, scope,
+    Arc, Compiler, Diagnostic, HashMap, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, scope,
 };
 
 impl Compiler {
@@ -41,7 +41,7 @@ impl Compiler {
                 span: value.span,
                 checks_off: crate::ast::CheckBits::NONE,
             };
-            let code = self.add_code(Rc::new(ast::CodeBody::Block(block)), scope);
+            let code = self.add_code(Arc::new(ast::CodeBody::Block(block)), scope);
             op = Operand::Const {
                 ty: TypeId::CODE,
                 value: Value::Code(code),
@@ -235,7 +235,7 @@ impl Compiler {
                             EntityKind::Decl {
                                 decl: old_decl, ..
                             },
-                        ) => decl.backtick && Rc::ptr_eq(decl, old_decl),
+                        ) => decl.backtick && Arc::ptr_eq(decl, old_decl),
                         _ => false,
                     };
                 if same_binding {

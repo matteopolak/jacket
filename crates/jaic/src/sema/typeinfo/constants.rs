@@ -2,7 +2,7 @@
 use super::StructConstant;
 use crate::sema::scope::{EntityKind, Resolved};
 use crate::sema::value::Aggregate;
-use crate::sema::{Compiler, EntityId, Rc, Result, Span, Sym, TypeId, Value, ast, ir, structs};
+use crate::sema::{Arc, Compiler, EntityId, Result, Span, Sym, TypeId, Value, ast, ir, structs};
 
 impl Compiler {
     /// The constants a struct body declares (`Entry :: struct {..}`, `K :: 3;`, procedures),
@@ -34,13 +34,13 @@ impl Compiler {
         let mut out = Vec::new();
         for id in ids {
             let (name, span) = (self.entity(id).name, self.entity(id).span);
-            let notes: Vec<Rc<[u8]>> = match &self.entity(id).kind {
+            let notes: Vec<Arc<[u8]>> = match &self.entity(id).kind {
                 EntityKind::Decl {
                     decl, ..
                 } => decl
                     .notes
                     .iter()
-                    .map(|n| Rc::from(n.text.as_bytes()))
+                    .map(|n| Arc::from(n.text.as_bytes()))
                     .collect(),
                 _ => Vec::new(),
             };
@@ -87,7 +87,7 @@ impl Compiler {
         (member_ty, msize): (TypeId, u64),
         (name, mut ty): (Sym, TypeId),
         value: Option<Value>,
-        notes: &[Rc<[u8]>],
+        notes: &[Arc<[u8]>],
         storage: &mut Aggregate,
         span: Span,
     ) -> Result<Aggregate> {

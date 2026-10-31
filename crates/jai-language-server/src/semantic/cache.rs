@@ -11,6 +11,7 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::sync::Arc;
 
 pub struct Cache {
     entries: Vec<Analysis>,
@@ -67,15 +68,15 @@ fn shared_parses() -> Rc<RefCell<jaic::parser::ParseReuse>> {
 struct Inputs {
     quick: u64,
     key: u64,
-    files: BTreeMap<PathBuf, Rc<[u8]>>,
+    files: BTreeMap<PathBuf, Arc<[u8]>>,
 }
 
 /// Whether `analysis` answers for `files` as well as for the texts it was compiled from: every
 /// buffer that changed, appeared or went away is one it never read, tested or searched a
 /// folder for.
-fn unaffected(analysis: &Analysis, files: &BTreeMap<PathBuf, Rc<[u8]>>) -> bool {
+fn unaffected(analysis: &Analysis, files: &BTreeMap<PathBuf, Arc<[u8]>>) -> bool {
     let reads = analysis.reads.borrow();
-    let same = |old: &Rc<[u8]>, new: &Rc<[u8]>| Rc::ptr_eq(old, new) || old == new;
+    let same = |old: &Arc<[u8]>, new: &Arc<[u8]>| Arc::ptr_eq(old, new) || old == new;
     analysis.files.iter().all(|(path, old)| {
         files.get(path).is_some_and(|new| same(old, new)) || !reads.concerns(path)
     }) && files
@@ -86,7 +87,7 @@ fn unaffected(analysis: &Analysis, files: &BTreeMap<PathBuf, Rc<[u8]>>) -> bool 
 pub(super) fn hash(
     root: &Path,
     dirs: &[PathBuf],
-    files: &BTreeMap<PathBuf, Rc<[u8]>>,
+    files: &BTreeMap<PathBuf, Arc<[u8]>>,
     os: Option<TargetOs>,
 ) -> u64 {
     use std::hash::{Hash, Hasher};
@@ -235,7 +236,7 @@ impl Cache {
         path: &Path,
         prefix: &[u8],
     ) -> Option<&mut Analysis> {
-        let canonical: BTreeMap<PathBuf, Rc<[u8]>> = files
+        let canonical: BTreeMap<PathBuf, Arc<[u8]>> = files
             .iter()
             .map(|(p, t)| (jaic::paths::file_identity(&*env.fs, p), t.clone()))
             .collect();
@@ -350,7 +351,7 @@ impl Cache {
         given: &Buffers,
         os: Option<TargetOs>,
     ) -> Inputs {
-        let files: BTreeMap<PathBuf, Rc<[u8]>> = given
+        let files: BTreeMap<PathBuf, Arc<[u8]>> = given
             .iter()
             .map(|(p, t)| {
                 let canonical = self

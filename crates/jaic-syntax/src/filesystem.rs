@@ -3,7 +3,7 @@ use crate::fxhash::HashMap;
 use crate::paths::normalize;
 use std::path::Path;
 use std::path::PathBuf;
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// Source access. Native builds read the filesystem; the browser supplies a
 /// virtual file system containing the workspace, prelude and stdlib.
@@ -116,7 +116,7 @@ impl FileSystem for NativeFs {
 
 #[derive(Default)]
 pub struct VirtualFs {
-    files: HashMap<PathBuf, Rc<[u8]>>,
+    files: HashMap<PathBuf, Arc<[u8]>>,
     /// Every directory holding a file, however deep, with the names directly inside it (and
     /// whether each holds more): `is_dir` is asked for each path the compiler canonicalizes and
     /// `list_dir` for each module folder, and a scan of `files` for each is quadratic in the
@@ -127,7 +127,7 @@ pub struct VirtualFs {
 }
 
 impl VirtualFs {
-    pub fn insert(&mut self, path: impl Into<PathBuf>, bytes: impl Into<Rc<[u8]>>) {
+    pub fn insert(&mut self, path: impl Into<PathBuf>, bytes: impl Into<Arc<[u8]>>) {
         let path = normalize(&path.into());
         let parts: Vec<_> = path.components().collect();
         let mut dir = PathBuf::new();
@@ -155,7 +155,7 @@ impl VirtualFs {
     }
 
     /// The files by normalized path.
-    pub fn files(&self) -> &HashMap<PathBuf, Rc<[u8]>> {
+    pub fn files(&self) -> &HashMap<PathBuf, Arc<[u8]>> {
         &self.files
     }
 }

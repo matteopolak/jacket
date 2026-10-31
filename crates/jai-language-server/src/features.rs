@@ -19,7 +19,7 @@ use jaic::ide::meta::{IdeCallInfo, IdeExpansion, IdeExpansionKind};
 use jaic::parser::ide_facts;
 use jaic::source::FileId;
 use std::path::Path;
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// URI scheme of expansion documents.
 pub const EXPANSION_SCHEME: &str = "jai-expansion://";
@@ -89,7 +89,7 @@ impl Session {
     pub(crate) fn location_in(
         &self,
         path: &str,
-        text: &Rc<str>,
+        text: &Arc<str>,
         start: usize,
         end: usize,
     ) -> Option<Location> {

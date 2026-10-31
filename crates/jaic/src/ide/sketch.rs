@@ -17,7 +17,7 @@ use crate::sema::value::PolyStructId;
 use crate::sema::{Compiler, ProcId, ScopeId, Value};
 use crate::source::Span;
 use crate::types::{TypeId, TypeKind};
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// The most facts one sketch may add.
 const MAX_SKETCH_REFS: usize = 20_000;
@@ -303,10 +303,10 @@ impl Compiler {
                     ..
                 } => Value::float(0.0),
                 TypeKind::Bool => Value::Bool(false),
-                TypeKind::String => Value::String(Rc::from(&b""[..])),
+                TypeKind::String => Value::String(Arc::from(&b""[..])),
                 TypeKind::Pointer(_) => Value::Null,
                 // `$handler: $H`: a value of a stand-in type is its (empty) zero.
-                _ if self.is_stand_in(ty) => Value::Bytes(Rc::new(
+                _ if self.is_stand_in(ty) => Value::Bytes(Arc::new(
                     crate::sema::value::Aggregate::zeroed(0, name.span).ok()?,
                 )),
                 _ => return None,
@@ -404,7 +404,7 @@ impl Compiler {
 
     /// An empty struct named `name`, standing in for whatever type a call would bind.
     fn ide_stand_in(&mut self, name: Sym, span: Span, scope: ScopeId) -> TypeId {
-        let lit = Rc::new(ast::StructLit {
+        let lit = Arc::new(ast::StructLit {
             id: ast::AstId::fresh(),
             kind: ast::StructKind::Struct,
             params: Vec::new(),

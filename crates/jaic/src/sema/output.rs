@@ -5,7 +5,7 @@ use crate::fxhash::HashMap;
 use crate::ir;
 use crate::sema::{PackKey, driver, runtime_config};
 use crate::types::TypeId;
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// A constant's type, bytes and relocations: what a constant global is interned by.
 pub type ConstAddrKey = (TypeId, Vec<u8>, Vec<ir::Reloc>);
@@ -21,7 +21,7 @@ pub struct Output {
     pub(in crate::sema) runtime_storage_global: Option<ir::GlobalId>,
     pub(in crate::sema) runtime_storage_dependencies: runtime_config::RuntimeStorageDependencies,
     /// String literal globals, deduplicated.
-    pub strings: Probed<HashMap<Rc<[u8]>, ir::GlobalId>, { W::OutStrings as usize }>,
+    pub strings: Probed<HashMap<Arc<[u8]>, ir::GlobalId>, { W::OutStrings as usize }>,
     /// Static storage for aggregate constants whose address was taken, one per distinct image.
     pub const_addr_globals:
         Probed<HashMap<ConstAddrKey, ir::GlobalId>, { W::OutConstAddrGlobals as usize }>,

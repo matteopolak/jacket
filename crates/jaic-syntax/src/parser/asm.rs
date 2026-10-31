@@ -21,7 +21,7 @@ use crate::ast::{
 use crate::diagnostics::Code;
 use crate::intern::Sym;
 use crate::lexer::{P, Tok};
-use std::rc::Rc;
+use std::sync::Arc;
 
 impl Parser<'_> {
     /// `#asm FEATURE, ... { ... }`
@@ -55,7 +55,7 @@ impl Parser<'_> {
         }
         let end = self.bump();
         Ok(mk(
-            ExprKind::Asm(Rc::new(AsmBlock {
+            ExprKind::Asm(Arc::new(AsmBlock {
                 features,
                 items,
             })),

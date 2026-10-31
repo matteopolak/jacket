@@ -6,7 +6,8 @@ use crate::ast::ExprKind as E;
 use crate::diagnostics::Code;
 use crate::sema::convert;
 use crate::sema::lower::Operand;
-use crate::sema::{Compiler, Diagnostic, ProcId, Rc, Result, Span, TypeId, Value, ast, err, ir};
+use crate::sema::{Compiler, Diagnostic, ProcId, Result, Span, TypeId, Value, ast, err, ir};
+use std::sync::Arc;
 
 impl Compiler {
     /// Why the only candidate of a call does not accept its arguments: the problem at the
@@ -343,8 +344,8 @@ impl Compiler {
             }
         }
         header.flags.program_export = None;
-        let lit = Rc::new(ast::ProcLit {
-            header: Rc::new(header),
+        let lit = Arc::new(ast::ProcLit {
+            header: Arc::new(header),
             body: lit.body.clone(),
         });
         let scope = if consts.is_empty() {

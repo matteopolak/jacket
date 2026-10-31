@@ -12,6 +12,7 @@ use crate::interp::{Interp, Trap};
 use crate::lang_items;
 use crate::records::{FieldRef, Item, List, Name, Records};
 use std::rc::Rc;
+use std::sync::Arc;
 
 /// How a plan entry (or an array's element) is stored.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -193,7 +194,7 @@ struct Slot {
 /// What a build is writing into: strings handed out and the records read.
 struct Fill<'a> {
     records: &'a Records,
-    kept: &'a mut Vec<Rc<[u8]>>,
+    kept: &'a mut Vec<Arc<[u8]>>,
     /// Records built and not filled yet: (id, memory, type).
     queue: Vec<(i64, u64, u64)>,
     created: Vec<i64>,
@@ -248,7 +249,7 @@ impl Builder {
     pub fn build(
         &mut self,
         records: &Records,
-        kept: &mut Vec<Rc<[u8]>>,
+        kept: &mut Vec<Arc<[u8]>>,
         interp: &mut Interp,
         id: i64,
         expected: u64,

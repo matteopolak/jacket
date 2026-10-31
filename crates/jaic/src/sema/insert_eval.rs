@@ -1,8 +1,9 @@
 //! `#insert`: running the operand and turning its result into statements or an expression.
+use super::Value;
 use super::lower::Operand;
 use super::{Compiler, Result, ScopeId, Span, ast, err};
-use super::{Rc, Value};
 use crate::diagnostics::Code;
+use std::sync::Arc;
 
 impl Compiler {
     /// Evaluate the operand of `#insert`. `#insert -> string { ... }` (or `-> Code`) is a
@@ -52,7 +53,7 @@ impl Compiler {
                 value: Value::String(s),
                 ..
             } => {
-                let text: Rc<str> = String::from_utf8_lossy(&s).into();
+                let text: Arc<str> = String::from_utf8_lossy(&s).into();
                 let file = self.src.insert_source(span, text.clone())?;
                 let ast = crate::parser::parse_file(file, &text).map_err(Box::new)?;
                 Ok(ast.stmts)

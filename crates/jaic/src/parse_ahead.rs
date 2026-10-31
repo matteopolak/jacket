@@ -22,7 +22,7 @@ mod imp {
     use crate::sema::Options;
     use crate::source::{FileId, LineIndex};
     use std::path::{Path, PathBuf};
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     pub struct ParseAhead;
     pub struct Prepared;
@@ -42,7 +42,7 @@ mod imp {
     }
 
     impl Prepared {
-        pub fn into_parts(self) -> (Rc<str>, LineIndex, PreparedTree) {
+        pub fn into_parts(self) -> (Arc<str>, LineIndex, PreparedTree) {
             unreachable!()
         }
     }
@@ -63,42 +63,31 @@ mod imp {
     use crate::target::{TargetCpu, TargetOs};
     use std::collections::VecDeque;
     use std::path::{Path, PathBuf};
-    use std::rc::Rc;
     use std::sync::{Arc, Condvar, Mutex};
 
     /// A file's finished parse, its spans still naming the placeholder file.
     pub struct Prepared {
-        text: Handoff<Rc<str>>,
+        text: Arc<str>,
         lines: LineIndex,
         tree: PreparedTree,
     }
 
     /// The tree of a `Prepared`, before it is placed in a compile.
     pub struct PreparedTree {
-        file: Handoff<ast::File>,
-    }
-
-    /// A value moved between threads. Its `Rc`s are only ever shared inside the value, and the
-    /// worker drops every other handle before the value is published.
-    struct Handoff<T>(T);
-
-    // SAFETY: see `Handoff`. Nothing else points into the value, so the reference counts it
-    // holds are touched by one thread at a time.
-    #[allow(unsafe_code)]
-    unsafe impl<T> Send for Handoff<T> {
+        file: ast::File,
     }
 
     impl Prepared {
         /// The file's text, the offsets of its lines, and its tree.
-        pub fn into_parts(self) -> (Rc<str>, LineIndex, PreparedTree) {
-            (self.text.0, self.lines, self.tree)
+        pub fn into_parts(self) -> (Arc<str>, LineIndex, PreparedTree) {
+            (self.text, self.lines, self.tree)
         }
     }
 
     impl PreparedTree {
         /// The tree for a compile that gave the file `file`.
         pub fn finish(self, file: FileId) -> ast::File {
-            let mut tree = self.file.0;
+            let mut tree = self.file;
             relocate::relocate(&mut tree, file);
             tree
         }
@@ -304,10 +293,10 @@ mod imp {
             let file = parsed.ok()?;
             let lines = LineIndex::new(&text);
             Some(Prepared {
-                text: Handoff(text.into()),
+                text: text.into(),
                 lines,
                 tree: PreparedTree {
-                    file: Handoff(file),
+                    file,
                 },
             })
         }

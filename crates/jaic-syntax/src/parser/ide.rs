@@ -426,15 +426,15 @@ pub struct SharedParse {
 }
 
 struct KeptParse {
-    text: std::rc::Rc<str>,
-    parse: std::rc::Rc<SharedParse>,
+    text: std::sync::Arc<str>,
+    parse: std::sync::Arc<SharedParse>,
     /// The last compile that used it.
     used: u64,
 }
 
 /// A file's decoded text and line index, for a compile that reads the same bytes again.
 struct KeptSource {
-    text: std::rc::Rc<str>,
+    text: std::sync::Arc<str>,
     lines: crate::source::LineIndex,
     used: u64,
 }
@@ -472,7 +472,7 @@ impl ParseReuse {
         compile: u64,
         path: &std::path::Path,
         bytes: &[u8],
-    ) -> Option<(std::rc::Rc<str>, crate::source::LineIndex)> {
+    ) -> Option<(std::sync::Arc<str>, crate::source::LineIndex)> {
         let kept = self.sources.get_mut(path)?;
         if kept.text.as_bytes() != bytes {
             return None;
@@ -488,7 +488,7 @@ impl ParseReuse {
         compile: u64,
         path: &std::path::Path,
         bytes: &[u8],
-        text: &std::rc::Rc<str>,
+        text: &std::sync::Arc<str>,
         lines: &crate::source::LineIndex,
     ) {
         if text.as_bytes() == bytes {
@@ -509,12 +509,12 @@ impl ParseReuse {
         compile: u64,
         path: &std::path::Path,
         file: FileId,
-        text: &std::rc::Rc<str>,
-    ) -> std::rc::Rc<SharedParse> {
+        text: &std::sync::Arc<str>,
+    ) -> std::sync::Arc<SharedParse> {
         let key = (path.to_path_buf(), file);
         if let Some(kept) = self.kept.get_mut(&key)
             && kept.used != compile
-            && (std::rc::Rc::ptr_eq(&kept.text, text) || *kept.text == **text)
+            && (std::sync::Arc::ptr_eq(&kept.text, text) || *kept.text == **text)
         {
             kept.used = compile;
             return kept.parse.clone();
@@ -524,7 +524,7 @@ impl ParseReuse {
             diagnostics,
             ..
         } = parse_file_ide(file, text);
-        let parse = std::rc::Rc::new(SharedParse {
+        let parse = std::sync::Arc::new(SharedParse {
             file: tree,
             diagnostics,
         });
@@ -546,25 +546,31 @@ impl ParseReuse {
 mod reuse_tests {
     use super::*;
     use std::path::Path;
-    use std::rc::Rc;
+    use std::sync::Arc;
 
     #[test]
     fn kept_parses_are_shared_across_compiles_only() {
         let mut reuse = ParseReuse::default();
-        let text: Rc<str> = "a :: 1;".into();
+        let text: Arc<str> = "a :: 1;".into();
         let path = Path::new("/p/a.jai");
         let first = reuse.begin();
         let a = reuse.parse(first, path, FileId(3), &text);
         // A second instance in the same compile gets its own tree.
         let b = reuse.parse(first, path, FileId(3), &text);
-        assert!(!Rc::ptr_eq(&a, &b));
+        assert!(!Arc::ptr_eq(&a, &b));
         let second = reuse.begin();
-        assert!(Rc::ptr_eq(&a, &reuse.parse(second, path, FileId(3), &text)));
+        assert!(Arc::ptr_eq(
+            &a,
+            &reuse.parse(second, path, FileId(3), &text)
+        ));
         // Another id or another text is parsed again.
         let third = reuse.begin();
-        assert!(!Rc::ptr_eq(&a, &reuse.parse(third, path, FileId(4), &text)));
-        let changed: Rc<str> = "a :: 2;".into();
-        assert!(!Rc::ptr_eq(
+        assert!(!Arc::ptr_eq(
+            &a,
+            &reuse.parse(third, path, FileId(4), &text)
+        ));
+        let changed: Arc<str> = "a :: 2;".into();
+        assert!(!Arc::ptr_eq(
             &a,
             &reuse.parse(third, path, FileId(3), &changed)
         ));
@@ -579,16 +585,16 @@ mod reuse_tests {
     fn kept_sources_match_their_bytes() {
         let mut reuse = ParseReuse::default();
         let path = Path::new("/p/a.jai");
-        let text: Rc<str> = "a :: 1;\nb :: 2;".into();
+        let text: Arc<str> = "a :: 1;\nb :: 2;".into();
         let lines = crate::source::LineIndex::new(&text);
         let first = reuse.begin();
         reuse.keep_source(first, path, text.as_bytes(), &text, &lines);
         let (again, kept_lines) = reuse.source(first, path, text.as_bytes()).expect("kept");
-        assert!(Rc::ptr_eq(&again, &text));
+        assert!(Arc::ptr_eq(&again, &text));
         assert_eq!(kept_lines, lines);
         assert!(reuse.source(first, path, b"a :: 3;").is_none());
         // Text decoded with replacements is not kept.
-        let lossy: Rc<str> = String::from_utf8_lossy(b"\xff").into();
+        let lossy: Arc<str> = String::from_utf8_lossy(b"\xff").into();
         reuse.keep_source(first, Path::new("/p/b.jai"), b"\xff", &lossy, &lines);
         assert!(
             reuse

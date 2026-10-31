@@ -5,7 +5,9 @@ use crate::sema::TypeState;
 use crate::sema::convert::Site;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::scope::{EntityKind, Resolved, UsingEntry};
-use crate::sema::{Compiler, Diagnostic, ProcId, Rc, Result, ScopeId, Span, Sym, TypeId, ast, err};
+use crate::sema::{
+    Arc, Compiler, Diagnostic, ProcId, Result, ScopeId, Span, Sym, TypeId, ast, err,
+};
 use crate::types::TypeKind;
 
 impl Compiler {
@@ -13,7 +15,7 @@ impl Compiler {
         &mut self,
         f: &mut FnCtx,
         scope: ScopeId,
-        decl: &Rc<ast::Decl>,
+        decl: &Arc<ast::Decl>,
     ) -> Result<()> {
         let target = if decl.backtick {
             f.macros.last().map_or(scope, |m| m.caller_scope)
@@ -233,7 +235,7 @@ impl Compiler {
         &mut self,
         f: &mut FnCtx,
         scope: ScopeId,
-        lit: &Rc<ast::StructLit>,
+        lit: &Arc<ast::StructLit>,
         span: Span,
     ) -> Result<()> {
         let name = Sym::intern("anonymous");

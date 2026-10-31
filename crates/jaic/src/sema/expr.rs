@@ -6,7 +6,7 @@ mod unary;
 
 use super::binary::Binary;
 use super::lower::{FnCtx, Operand, Origin};
-use super::{Compiler, Rc, Result, ScopeId, Sym, TypeId, Value, ast, err, ir};
+use super::{Arc, Compiler, Result, ScopeId, Sym, TypeId, Value, ast, err, ir};
 use crate::ast::{BinOp, ExprKind as E};
 use crate::diagnostics::Code;
 use crate::ide::Recorder;
@@ -866,7 +866,8 @@ impl Compiler {
                         "#caller_code is only valid as a parameter default",
                     );
                 };
-                let id = self.add_code(Rc::new(ast::CodeBody::Expr((*call).clone())), caller_scope);
+                let id =
+                    self.add_code(Arc::new(ast::CodeBody::Expr((*call).clone())), caller_scope);
                 Ok(Operand::Const {
                     ty: TypeId::CODE,
                     value: Value::Code(id),

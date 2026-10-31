@@ -7,13 +7,13 @@ mod generic;
 mod tagged;
 mod views;
 
-use super::{Compiler, Diagnostic, PreludeType, Rc, Result, Span, Sym, TypeId, Value, err, ir};
+use super::{Arc, Compiler, Diagnostic, PreludeType, Result, Span, Sym, TypeId, Value, err, ir};
 use crate::diagnostics::Code;
 use crate::sema::TypeState;
 use crate::types::{LayoutState, TypeKind};
 
 /// A struct-scoped constant for type info: where it is declared, its name, type, value and notes.
-type StructConstant = (Span, Sym, TypeId, Option<Value>, Vec<Rc<[u8]>>);
+type StructConstant = (Span, Sym, TypeId, Option<Value>, Vec<Arc<[u8]>>);
 
 /// Tag values of Preload's `Type_Info_Tag`.
 mod tag {
@@ -121,7 +121,7 @@ impl Compiler {
             if (span.file.0 as usize) < self.src.sources.len() {
                 let source = self.src.sources.get(span.file);
                 let (line, col) = source.line_col(span.start);
-                let path: Rc<str> = source.path.to_string().into();
+                let path: Arc<str> = source.path.to_string().into();
                 self.ct
                     .interp
                     .struct_locations

@@ -4,7 +4,7 @@
 use super::body_probe::{Probed, W};
 use std::collections::BTreeSet;
 use std::path::PathBuf;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::ast;
 use crate::diagnostics::Diagnostic;
@@ -29,7 +29,7 @@ pub struct Namespaces {
     pub check_handler_resolved: bool,
     pub main_module: Option<ModuleId>,
     /// `#add_context` declarations with their declaring scope, in load order.
-    pub add_contexts: Probed<Vec<(Rc<ast::Decl>, ScopeId)>, { W::NsAddContexts as usize }>,
+    pub add_contexts: Probed<Vec<(Arc<ast::Decl>, ScopeId)>, { W::NsAddContexts as usize }>,
     /// `#poke_name Module name;` directives: (module expression, name, declaring file scope).
     pub pokes: Probed<Vec<(ast::Expr, Sym, ScopeId)>, { W::NsPokes as usize }>,
     /// Scopes holding the bindings that a polymorphic parameter's default is evaluated in.

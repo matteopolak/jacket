@@ -7,7 +7,7 @@ use jaic::intern::Sym;
 use jaic::source::{FileId, Suggestion};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// How many of a program's first errors get their render-time help (see
 /// `Analysis::check_findings`) for the editor.
@@ -32,7 +32,7 @@ pub struct CheckFinding {
 /// A located note of a finding: a place in any compiled file.
 pub struct Related {
     pub path: String,
-    pub text: Rc<str>,
+    pub text: Arc<str>,
     pub start: usize,
     pub end: usize,
     pub message: String,
@@ -42,7 +42,7 @@ pub struct Related {
 /// program cost, summed over the times the compile ran it.
 pub struct EvalCost {
     pub path: String,
-    pub text: Rc<str>,
+    pub text: Arc<str>,
     /// The byte range of the code that was evaluated.
     pub start: usize,
     pub end: usize,
@@ -63,7 +63,7 @@ pub enum LimitKind {
 pub struct LimitHit {
     pub kind: LimitKind,
     pub path: String,
-    pub text: Rc<str>,
+    pub text: Arc<str>,
     pub start: usize,
     pub end: usize,
     /// The first line of the diagnostic.
@@ -435,7 +435,7 @@ impl Analysis {
 
     /// A span of any compiled file as (path, text, start, end); `None` for a span in no file
     /// (`Span::NONE`, which builtins carry).
-    pub fn location(&self, span: jaic::source::Span) -> Option<(String, Rc<str>, usize, usize)> {
+    pub fn location(&self, span: jaic::source::Span) -> Option<(String, Arc<str>, usize, usize)> {
         let source = self.compiler.src.sources.try_get(span.file)?;
         Some((
             source.path.to_string(),
@@ -557,7 +557,7 @@ impl Analysis {
         &mut self,
         path: &Path,
         offset: usize,
-    ) -> Vec<(String, Rc<str>, usize, usize)> {
+    ) -> Vec<(String, Arc<str>, usize, usize)> {
         let Some(file) = self.file(path) else {
             return Vec::new();
         };

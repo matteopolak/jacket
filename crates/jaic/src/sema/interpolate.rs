@@ -11,7 +11,7 @@ use crate::diagnostics::Code;
 use crate::interpolate::{self, Mode};
 use crate::lexer;
 use crate::parser;
-use std::rc::Rc;
+use std::sync::Arc;
 
 impl Compiler {
     /// The mode of `p`'s `@Interpolates` note, and the index of the parameter it marks.
@@ -141,7 +141,7 @@ impl Compiler {
         let mut out = Vec::with_capacity(args.len() + values.len());
         out.extend_from_slice(&args[..at]);
         let mut rewritten = args[at].clone();
-        rewritten.value.kind = E::Str(Rc::from(interpolate::rewrite(value, &holes)));
+        rewritten.value.kind = E::Str(Arc::from(interpolate::rewrite(value, &holes)));
         self.pr.interpolated.insert(rewritten.value.span);
         out.push(rewritten);
         out.extend(values.into_iter().map(|value| ast::Arg {

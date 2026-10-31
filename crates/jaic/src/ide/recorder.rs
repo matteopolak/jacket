@@ -15,7 +15,7 @@ use crate::sema::{EntityId, ProcId, Result};
 use crate::source::{FileId, Span};
 use crate::types::TypeId;
 use std::path::Path;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub(crate) trait Recorder {
     /// An expression was checked: a failed one is not checked again by the recovery of an
@@ -81,22 +81,25 @@ pub(crate) trait Recorder {
     fn refuse_unavailable(&mut self, span: Span) -> bool;
 
     /// The text and line index kept from an earlier compile that read `bytes` from `path`.
-    fn kept_source(&self, path: &Path, bytes: &[u8])
-    -> Option<(Rc<str>, crate::source::LineIndex)>;
+    fn kept_source(
+        &self,
+        path: &Path,
+        bytes: &[u8],
+    ) -> Option<(Arc<str>, crate::source::LineIndex)>;
 
     /// Keep what `bytes` from `path` decoded to, for later compiles.
     fn keep_source(
         &self,
         path: &Path,
         bytes: &[u8],
-        text: &Rc<str>,
+        text: &Arc<str>,
         lines: &crate::source::LineIndex,
     );
 
     /// Parses `text` (file `file`, read from `path`) the editor's way, with every syntax
     /// error recovered from and recorded: `None` when not recording, and the batch parser
     /// applies.
-    fn parse(&mut self, path: &Path, file: FileId, text: &Rc<str>) -> Option<Rc<SharedParse>>;
+    fn parse(&mut self, path: &Path, file: FileId, text: &Arc<str>) -> Option<Arc<SharedParse>>;
 
     /// Errors reported along with the first: a batch compile stops at the first, an editor
     /// shows them all.

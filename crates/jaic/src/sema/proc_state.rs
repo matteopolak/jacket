@@ -2,7 +2,7 @@
 //! lowered, failures remembered per body, and per-body side tables.
 
 use super::body_probe::{Probed, W};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::ast;
 use crate::diagnostics::Diagnostic;
@@ -17,7 +17,7 @@ use super::{EntityId, ProcId, ProcTypeParams, ScopeId, Value, asm, calls, lower,
 #[derive(Default)]
 pub struct ProcState {
     pub procs: Probed<Vec<procs::ProcInfo>, { W::PrProcs as usize }>,
-    pub codes: Probed<Vec<Rc<ast::CodeBody>>, { W::PrCodes as usize }>,
+    pub codes: Probed<Vec<Arc<ast::CodeBody>>, { W::PrCodes as usize }>,
     /// Runtime opt-in to compiler-host assertion faults, keyed by actual procedure identity.
     pub runtime_interpreter_assertion: Option<ProcId>,
     /// Bodies the lenient drain failed to lower, with the `lower_epoch` of the failure.
@@ -60,7 +60,7 @@ pub struct ProcState {
     /// the macro (`#insert -> string { ... }`) reads them even though they are locals.
     /// User-written calls being emitted, innermost last: `#caller_code` evaluates to the
     /// innermost one. Only calls to procedures that use `#caller_code` are recorded.
-    pub calls_in_flight: Probed<Vec<(Rc<ast::Expr>, ScopeId)>, { W::PrCallsInFlight as usize }>,
+    pub calls_in_flight: Probed<Vec<(Arc<ast::Expr>, ScopeId)>, { W::PrCallsInFlight as usize }>,
     pub local_consts: Probed<HashMap<EntityId, (Value, TypeId)>, { W::PrLocalConsts as usize }>,
     /// `#discard` parameters: naming one in the body is an error.
     pub discard_params: Probed<HashSet<EntityId>, { W::PrDiscardParams as usize }>,
@@ -102,7 +102,7 @@ pub struct ProcState {
     pub asm_pins: Probed<Vec<(u8, ir::Val)>, { W::PrAsmPins as usize }>,
     /// Callable metadata belongs to declarations, never structural `TypeIds`.
     pub(in crate::sema) callable_entities:
-        Probed<HashMap<EntityId, Rc<ProcTypeParams>>, { W::PrCallableEntities as usize }>,
+        Probed<HashMap<EntityId, Arc<ProcTypeParams>>, { W::PrCallableEntities as usize }>,
     pub(in crate::sema) callable_fields:
-        Probed<HashMap<(StructId, usize), Rc<ProcTypeParams>>, { W::PrCallableFields as usize }>,
+        Probed<HashMap<(StructId, usize), Arc<ProcTypeParams>>, { W::PrCallableFields as usize }>,
 }

@@ -7,7 +7,7 @@ mod statements;
 use super::parse_file;
 use crate::ast::*;
 use crate::source::FileId;
-use std::rc::Rc;
+use std::sync::Arc;
 
 fn parse(src: &str) -> Vec<Stmt> {
     match parse_file(FileId(0), src) {
@@ -26,7 +26,7 @@ fn error(src: &str) -> String {
     }
 }
 
-fn decl(stmt: &Stmt) -> &Rc<Decl> {
+fn decl(stmt: &Stmt) -> &Arc<Decl> {
     match &stmt.kind {
         StmtKind::Decl(decl) => decl,
         other => panic!("expected a declaration, found {other:?}"),

@@ -14,6 +14,7 @@ use crate::types::TypeId;
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::sync::Arc;
 
 /// What checking does after a statement of a block failed (`Editor::stmt_failed`).
 pub(crate) enum StmtRecovery {
@@ -235,7 +236,7 @@ impl Recorder for Editor {
         &self,
         path: &Path,
         bytes: &[u8],
-    ) -> Option<(Rc<str>, crate::source::LineIndex)> {
+    ) -> Option<(Arc<str>, crate::source::LineIndex)> {
         let (reuse, compile) = self.parse_reuse.as_ref()?;
         reuse.borrow_mut().source(*compile, path, bytes)
     }
@@ -244,7 +245,7 @@ impl Recorder for Editor {
         &self,
         path: &Path,
         bytes: &[u8],
-        text: &Rc<str>,
+        text: &Arc<str>,
         lines: &crate::source::LineIndex,
     ) {
         if let Some((reuse, compile)) = &self.parse_reuse {
@@ -254,13 +255,13 @@ impl Recorder for Editor {
         }
     }
 
-    fn parse(&mut self, path: &Path, file: FileId, text: &Rc<str>) -> Option<Rc<SharedParse>> {
+    fn parse(&mut self, path: &Path, file: FileId, text: &Arc<str>) -> Option<Arc<SharedParse>> {
         let facts = self.facts.as_mut()?;
         let shared = if let Some((reuse, compile)) = &self.parse_reuse {
             reuse.borrow_mut().parse(*compile, path, file, text)
         } else {
             let parsed = crate::parser::parse_file_ide(file, text);
-            Rc::new(SharedParse {
+            Arc::new(SharedParse {
                 file: parsed.file,
                 diagnostics: parsed.diagnostics,
             })

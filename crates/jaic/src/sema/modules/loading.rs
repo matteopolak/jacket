@@ -6,8 +6,8 @@ use crate::sema::Namespaces;
 use crate::sema::SourceState;
 use crate::sema::scope::{PendingState, ScopeKind};
 use crate::sema::{
-    BootstrapModule, Compiler, Diagnostic, FileId, FileInfo, HashSet, Module, ModuleId, PathBuf,
-    Rc, Result, ScopeId, SourcePath, Span, Sym, TypeId, Value, ast, err,
+    Arc, BootstrapModule, Compiler, Diagnostic, FileId, FileInfo, HashSet, Module, ModuleId,
+    PathBuf, Result, ScopeId, SourcePath, Span, Sym, TypeId, Value, ast, err,
 };
 use std::path::Path;
 
@@ -29,7 +29,7 @@ impl Compiler {
             return Ok(self.src.sources.add_file(file));
         }
         // `from_utf8` checks a word at a time; the lossy form walks every byte.
-        let text: Rc<str> = match std::str::from_utf8(&bytes) {
+        let text: Arc<str> = match std::str::from_utf8(&bytes) {
             Ok(text) => text.into(),
             Err(_) => String::from_utf8_lossy(&bytes).into(),
         };
@@ -268,7 +268,7 @@ impl Compiler {
         self.ns.modules.push(Module {
             loading: true,
             argument_span: span,
-            argument_imports: import.cloned().map(Rc::new).into_iter().collect(),
+            argument_imports: import.cloned().map(Arc::new).into_iter().collect(),
             arguments_validated: false,
             name: name.to_string(),
             path: Some(entry.to_path_buf()),

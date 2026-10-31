@@ -3,6 +3,7 @@
 use super::body_probe::{Probed, W};
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::fxhash::HashMap;
 use crate::intern::Sym;
@@ -21,7 +22,7 @@ pub(in crate::sema) enum DeclaringKey {
 }
 
 /// A cached `module_declarations` answer and the `namespace_generation` it holds for.
-type ModuleNames = (u64, Rc<[EntityId]>);
+type ModuleNames = (u64, Arc<[EntityId]>);
 
 #[derive(Default)]
 pub struct NameCaches {

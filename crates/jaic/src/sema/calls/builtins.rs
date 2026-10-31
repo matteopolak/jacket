@@ -1,8 +1,8 @@
 //! Built-in procedures (`size_of`, `type_of`, `is_constant`, ...) and procedure-type helpers.
 
 use super::{
-    ArrayKind, BuiltinProc, CallArg, Compiler, Diagnostic, E, FnCtx, Operand, PreludeType, ProcId,
-    Rc, Result, ScopeId, ScopeKind, Span, Ty, TypeId, TypeKind, Value, ast, err, ir, procs,
+    Arc, ArrayKind, BuiltinProc, CallArg, Compiler, Diagnostic, E, FnCtx, Operand, PreludeType,
+    ProcId, Result, ScopeId, ScopeKind, Span, Ty, TypeId, TypeKind, Value, ast, err, ir, procs,
 };
 use crate::diagnostics::Code;
 use crate::sema::lower::Origin;
@@ -120,11 +120,11 @@ impl Compiler {
                     span,
                     parens: None,
                 };
-                let id = self.add_code(Rc::new(ast::CodeBody::Expr(expr)), pscope);
+                let id = self.add_code(Arc::new(ast::CodeBody::Expr(expr)), pscope);
                 self.pr.code_procs.insert(id.0 as usize, p);
                 id
             }
-            None => self.add_code(Rc::new(ast::CodeBody::Expr(arg.value.clone())), scope),
+            None => self.add_code(Arc::new(ast::CodeBody::Expr(arg.value.clone())), scope),
         };
         Ok(Operand::Const {
             ty: TypeId::CODE,
@@ -523,7 +523,7 @@ impl Compiler {
             .collect();
         self.ty
             .types
-            .intern(TypeKind::Proc(Rc::new(crate::types::ProcType {
+            .intern(TypeKind::Proc(Arc::new(crate::types::ProcType {
                 params,
                 returns,
                 variadic,
@@ -555,7 +555,7 @@ impl Compiler {
         let returns = header.returns.iter().map(|_| TypeId::POLY_PARAM).collect();
         self.ty
             .types
-            .intern(TypeKind::Proc(Rc::new(crate::types::ProcType {
+            .intern(TypeKind::Proc(Arc::new(crate::types::ProcType {
                 params,
                 returns,
                 variadic,

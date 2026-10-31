@@ -10,7 +10,7 @@ use crate::{
     interp::Trap,
     types::TypeId,
 };
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// The procedure directives a header reports as `#name` text.
 const REPORTED: [(&str, ProcBits); 5] = [
@@ -75,8 +75,8 @@ impl Convert<'_, '_> {
             ..
         }) = &mut value
         {
-            let lit = Rc::get_mut(lit).expect("a converted procedure is not shared");
-            let header = Rc::get_mut(&mut lit.header).expect("a converted header is not shared");
+            let lit = Arc::get_mut(lit).expect("a converted procedure is not shared");
+            let header = Arc::get_mut(&mut lit.header).expect("a converted header is not shared");
             notes = std::mem::take(&mut header.notes);
             if let Some(operator) = name.strip_prefix("operator")
                 && !operator.is_empty()
@@ -340,7 +340,7 @@ impl Convert<'_, '_> {
             header.span = span;
             return Ok(mk(
                 ExprKind::Lambda {
-                    header: Rc::new(header),
+                    header: Arc::new(header),
                     body: Box::new(body),
                 },
                 span,
@@ -478,9 +478,9 @@ impl Convert<'_, '_> {
             || header.flags.compiler()
             || header.flags.intrinsic()
             || header.flags.elsewhere.is_some();
-        let header = Rc::new(header);
+        let header = Arc::new(header);
         let kind = if body.is_some() || external {
-            ExprKind::Proc(Rc::new(ProcLit {
+            ExprKind::Proc(Arc::new(ProcLit {
                 header,
                 body,
             }))

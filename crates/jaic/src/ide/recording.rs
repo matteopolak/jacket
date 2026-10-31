@@ -15,7 +15,7 @@ use crate::source::Span;
 use crate::types::TypeId;
 use crate::types::TypeKind;
 use std::path::Path;
-use std::rc::Rc;
+use std::sync::Arc;
 
 impl Compiler {
     fn ide_missing_module_epoch(&self) -> IdeMissingModuleEpoch {
@@ -93,7 +93,7 @@ impl Compiler {
             return None;
         }
         let (at, error) = self.pr.lenient_failures.get(&id)?;
-        (*at == epoch && Rc::ptr_eq(ide.failed_body_lits.get(&id)?, &self.proc(id).lit))
+        (*at == epoch && Arc::ptr_eq(ide.failed_body_lits.get(&id)?, &self.proc(id).lit))
             .then(|| error.clone())
     }
 

@@ -6,7 +6,7 @@ use crate::ide::StmtRecovery;
 use crate::ir::Ty;
 use crate::sema::lower::{DeferAction, DeferEntry, FnCtx, Operand};
 use crate::sema::scope::{EntityKind, ScopeKind};
-use crate::sema::{Compiler, Diagnostic, Rc, Result, ScopeId, Span, ast, err, scope};
+use crate::sema::{Arc, Compiler, Diagnostic, Result, ScopeId, Span, ast, err, scope};
 
 impl Compiler {
     /// Check statements in `scope` (no new scope is opened).
@@ -243,7 +243,7 @@ impl Compiler {
         &mut self,
         target: ScopeId,
         scope: ScopeId,
-        decl: &Rc<ast::Decl>,
+        decl: &Arc<ast::Decl>,
     ) -> Result<()> {
         for (index, name) in decl.names.iter().enumerate() {
             if !decl.backtick {

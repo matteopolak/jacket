@@ -21,6 +21,7 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::sync::Arc;
 
 /// Where the language server finds modules: a file system for everything that is not an open
 /// document, and compiler options for a main file (import paths, Preload, target).
@@ -99,7 +100,7 @@ pub(crate) fn text_hash(bytes: &[u8]) -> u64 {
 }
 
 /// A declaration in a compiled file: (path, text of the file, start, end of its name).
-pub type Decl = (String, Rc<str>, usize, usize);
+pub type Decl = (String, Arc<str>, usize, usize);
 
 /// What the type checker says about a hover.
 pub struct HoverFacts {
@@ -155,7 +156,7 @@ pub struct BuiltProgram {
 
 /// The open documents' texts by path, shared so that asking again with the same inputs is
 /// known by address alone.
-pub type Buffers = Rc<BTreeMap<PathBuf, Rc<[u8]>>>;
+pub type Buffers = Rc<BTreeMap<PathBuf, Arc<[u8]>>>;
 
 pub struct Analysis {
     pub compiler: Compiler,
@@ -171,7 +172,7 @@ pub struct Analysis {
     /// was compiled from (shared with the compiler's file system, so no copy).
     root: PathBuf,
     dirs: Vec<PathBuf>,
-    files: BTreeMap<PathBuf, Rc<[u8]>>,
+    files: BTreeMap<PathBuf, Arc<[u8]>>,
     /// The paths the compile and the queries since asked about: a buffer outside them can
     /// change without the compile going stale.
     reads: Rc<RefCell<Reads>>,

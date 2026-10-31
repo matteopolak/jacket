@@ -44,7 +44,7 @@ use jaic::sema::Options as CompilerOptions;
 use lint_root::{RootResult, lint_root};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub const MAX_AUTO_JOBS: usize = 8;
 
@@ -73,7 +73,7 @@ pub struct Options {
 pub struct Outcome {
     pub lints: Vec<Lint>,
     /// Text of every file a lint points into, by path.
-    pub texts: BTreeMap<String, Rc<str>>,
+    pub texts: BTreeMap<String, Arc<str>>,
     /// Roots the compiler could not finish, with its first error (their lints may be fewer).
     pub incomplete: Vec<(PathBuf, String)>,
     pub roots: usize,
@@ -151,7 +151,7 @@ pub fn run(options: &Options) -> Outcome {
         results[i] = Some(result);
     }
     let mut lints = Vec::new();
-    let mut texts: BTreeMap<String, Rc<str>> = BTreeMap::new();
+    let mut texts: BTreeMap<String, Arc<str>> = BTreeMap::new();
     let mut incomplete = Vec::new();
     let mut owner: BTreeMap<String, usize> = BTreeMap::new();
     for (i, r) in results.iter().enumerate() {
@@ -180,7 +180,7 @@ pub fn run(options: &Options) -> Outcome {
         }
         for (p, text) in r.texts {
             if owner.get(&p) == Some(&i) {
-                texts.entry(p).or_insert_with(|| Rc::from(text));
+                texts.entry(p).or_insert_with(|| Arc::from(text));
             }
         }
     }

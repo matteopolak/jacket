@@ -2,7 +2,7 @@
 use super::{error, parse, proc_of, value};
 use crate::ast::*;
 use crate::source::FileId;
-use std::rc::Rc;
+use std::sync::Arc;
 
 // -- diagnostics ----------------------------------------------------------------
 
@@ -47,7 +47,7 @@ fn parenthesized_cast_with_flags_is_not_a_header() {
     assert!(matches!(inner.kind, ExprKind::Binary(BinOp::BitAnd, ..)));
 }
 
-fn asm_block(src: &str) -> Rc<AsmBlock> {
+fn asm_block(src: &str) -> Arc<AsmBlock> {
     match value(src).kind {
         ExprKind::Asm(block) => block,
         other => panic!("expected an #asm block, found {other:?}"),

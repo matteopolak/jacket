@@ -8,6 +8,7 @@ use crate::intern::Sym;
 use crate::source::Span;
 use crate::types::TypeId;
 use std::rc::Rc;
+use std::sync::Arc;
 
 fn failed() -> (Compiler, ProcId) {
     let mut fs = VirtualFs::default();
@@ -52,7 +53,7 @@ fn replacing_body_retries_without_source_epoch_change() {
         .lit
         .clone();
     let header = compiler.proc(id).lit.header.clone();
-    compiler.pr.procs[id.0 as usize].lit = Rc::new(ast::ProcLit {
+    compiler.pr.procs[id.0 as usize].lit = Arc::new(ast::ProcLit {
         header,
         body: replacement.body.clone(),
     });
@@ -77,7 +78,7 @@ fn replacing_a_parked_body_retries_during_the_next_audit() {
         .lit
         .clone();
     let header = compiler.proc(id).lit.header.clone();
-    compiler.pr.procs[id.0 as usize].lit = Rc::new(ast::ProcLit {
+    compiler.pr.procs[id.0 as usize].lit = Arc::new(ast::ProcLit {
         header,
         body: replacement.body.clone(),
     });

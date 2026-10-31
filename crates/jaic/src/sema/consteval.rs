@@ -3,7 +3,7 @@
 use super::lower::{FnCtx, Operand, Origin};
 use super::value::Aggregate;
 use super::{
-    Compiler, Diagnostic, FileId, ModuleId, Rc, Result, ScopeId, SourcePath, Span, Sym, TypeId,
+    Arc, Compiler, Diagnostic, FileId, ModuleId, Result, ScopeId, SourcePath, Span, Sym, TypeId,
     Value, ast, err, ir, scope, structs, value,
 };
 use crate::diagnostics::Code;
@@ -594,12 +594,12 @@ impl Compiler {
         scope: ScopeId,
         expr: &ast::Expr,
         ty: TypeId,
-    ) -> Result<Rc<Aggregate>> {
+    ) -> Result<Arc<Aggregate>> {
         let value = self.const_value_of_type(scope, expr, ty)?;
         let size = self.size_of(ty, expr.span)?;
         let mut agg = Aggregate::zeroed(size, expr.span)?;
         self.write_value(&mut agg, 0, &value, ty, expr.span)?;
-        Ok(Rc::new(agg))
+        Ok(Arc::new(agg))
     }
 
 
@@ -629,7 +629,7 @@ impl Compiler {
                 self.write_value(&mut agg, off, &value, fty, span)?;
             }
         }
-        Ok(Value::Bytes(Rc::new(agg)))
+        Ok(Value::Bytes(Arc::new(agg)))
     }
 
     // Reading interpreter memory back
@@ -748,7 +748,7 @@ impl Compiler {
         let result = self.freeze(&mut agg, 0, addr, ty, span);
         self.ct.frozen.clear();
         result?;
-        Ok(Value::Bytes(Rc::new(agg)))
+        Ok(Value::Bytes(Arc::new(agg)))
     }
 
     /// The `u64` a frozen value holds at `offset`, which `agg` copied from `addr` a moment ago.
@@ -1130,7 +1130,7 @@ impl CompileTime {
 impl SourceState {
     /// Register the text of an `#insert`ed string inserted at `at`. Inserted text may insert
     /// more (`X :: "#insert X;"`), so nesting is bounded.
-    pub(super) fn insert_source(&mut self, at: Span, text: Rc<str>) -> Result<FileId> {
+    pub(super) fn insert_source(&mut self, at: Span, text: Arc<str>) -> Result<FileId> {
         const MAX_INSERT_DEPTH: u32 = 256;
         let depth = self.insert_depth.get(&at.file).map_or(1, |d| d + 1);
         if depth > MAX_INSERT_DEPTH {

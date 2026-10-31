@@ -6,7 +6,7 @@ use crate::ir::Ty;
 use crate::sema::lower::{FnCtx, Immutable, Operand};
 use crate::sema::scope::{EntityKind, ScopeKind, UsingEntry};
 use crate::sema::{
-    Compiler, Diagnostic, HashMap, InstanceKeyValue, ProcId, Rc, Result, Span, Sym, TypeId, Value,
+    Arc, Compiler, Diagnostic, HashMap, InstanceKeyValue, ProcId, Result, Span, Sym, TypeId, Value,
     ast, err, ir,
 };
 
@@ -406,7 +406,7 @@ impl Compiler {
             // Compile-time-only primitives (`#compiler` hooks) have no runtime body. The
             // interpreter calls the hook itself, so only compiled code reaches this stub: say
             // why it stops, instead of a bare trap.
-            let text: Rc<[u8]> = format!(
+            let text: Arc<[u8]> = format!(
                 "runtime error: `{name}` is a compiler primitive; it runs only at compile time\n"
             )
             .into_bytes()

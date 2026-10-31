@@ -2,8 +2,8 @@
 
 use super::count_hints::remove_extra_arguments;
 use super::{
-    ArrayKind, CallArg, Candidate, Compiler, Diagnostic, E, FnCtx, Operand, ProcTarget,
-    ProcTypeParams, Rc, Result, ScopeId, Signature, Slot, Span, Ty, TypeId, TypeKind, Value, ast,
+    Arc, ArrayKind, CallArg, Candidate, Compiler, Diagnostic, E, FnCtx, Operand, ProcTarget,
+    ProcTypeParams, Result, ScopeId, Signature, Slot, Span, Ty, TypeId, TypeKind, Value, ast,
     c_vararg_promote, err, ir, procs,
 };
 use crate::diagnostics::Code;
@@ -176,7 +176,7 @@ impl Compiler {
         returns: &[TypeId],
         results: Vec<ir::Val>,
         outs: Vec<Option<ir::Val>>,
-        callables: &[Option<Rc<ProcTypeParams>>],
+        callables: &[Option<Arc<ProcTypeParams>>],
     ) -> Operand {
         let mut values = Vec::new();
         let mut regs = results.into_iter();
@@ -310,7 +310,7 @@ impl Compiler {
                         self.arg_operand(f, arg, Some(param.ty))?
                     }
                     _ => {
-                        let body = Rc::new(ast::CodeBody::Expr(expr.clone()));
+                        let body = Arc::new(ast::CodeBody::Expr(expr.clone()));
                         Operand::Const {
                             ty: TypeId::CODE,
                             value: Value::Code(self.add_code(body, arg.scope)),
@@ -505,7 +505,7 @@ impl Compiler {
         f: &mut FnCtx,
         ty: TypeId,
         callee: ir::Val,
-        parameters: Option<Rc<ProcTypeParams>>,
+        parameters: Option<Arc<ProcTypeParams>>,
         mut args: Vec<CallArg>,
         span: Span,
     ) -> Result<Operand> {

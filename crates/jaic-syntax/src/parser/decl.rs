@@ -9,7 +9,7 @@ use crate::diagnostics::Code;
 use crate::diagnostics::Diagnostic;
 use crate::intern::Sym;
 use crate::lexer::{P, Tok};
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// Directives that may trail a declaration (`x: int #align 16;`).
 struct DeclNames {
@@ -172,7 +172,7 @@ impl Parser<'_> {
         }
         let mut declaration = self.parse_decl(using, as_)?;
         if let StmtKind::Decl(decl) = &mut declaration.kind
-            && let Some(decl) = Rc::get_mut(decl)
+            && let Some(decl) = Arc::get_mut(decl)
         {
             for flag in flags {
                 decl.rare_mut().flags.push(flag);
@@ -180,13 +180,13 @@ impl Parser<'_> {
         }
         match &mut declaration.kind {
             StmtKind::Decl(decl) if !matches!(filter, UsingFilter::None) => {
-                if let Some(decl) = Rc::get_mut(decl) {
+                if let Some(decl) = Arc::get_mut(decl) {
                     decl.rare_mut().using_filter = Some(filter);
                 }
             }
             // `using X :: #import "M"` (with or without a filter) imports the names too.
             StmtKind::Import(import) if using => {
-                if let Some(import) = Rc::get_mut(import) {
+                if let Some(import) = Arc::get_mut(import) {
                     import.using = Some(filter);
                 }
             }
@@ -270,7 +270,7 @@ impl Parser<'_> {
         decl.span = start.to(self.prev_span());
         decl.trim_rare();
         let span = decl.span;
-        Ok(stmt(StmtKind::Decl(Rc::new(decl)), span))
+        Ok(stmt(StmtKind::Decl(Arc::new(decl)), span))
     }
 
     /// Declared names, with the assigned-to-existing mask for mixed lists.

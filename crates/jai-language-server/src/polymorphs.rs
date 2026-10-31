@@ -10,6 +10,7 @@ use jaic::source::{FileId, Span};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::sync::Arc;
 
 type Declaration = (PathBuf, u32, String);
 
@@ -98,7 +99,7 @@ impl Session {
         let buffers: Buffers = Rc::new(
             self.documents
                 .iter()
-                .map(|(u, d)| (PathBuf::from(u.path()), Rc::from(d.ide_text().as_bytes())))
+                .map(|(u, d)| (PathBuf::from(u.path()), Arc::from(d.ide_text().as_bytes())))
                 .collect(),
         );
         let open = buffers

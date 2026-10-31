@@ -11,7 +11,7 @@ use jaic::sema::ImportEdge;
 use jaic::target::TargetOs;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
+use std::sync::Arc;
 use std::sync::Mutex;
 
 /// What one portable root's compile for one system found.
@@ -26,7 +26,7 @@ pub(super) fn leak_pass(
     configs: &Configs,
     canon: &CanonCache,
     lints: &mut Vec<Lint>,
-    texts: &mut BTreeMap<String, Rc<str>>,
+    texts: &mut BTreeMap<String, Arc<str>>,
     failed_asserts: &mut Vec<AssertFailure>,
 ) {
     use crate::rules::platform_leak::{Leak, Probe, analyze};
@@ -106,14 +106,14 @@ pub(super) fn leak_pass(
     });
     let mut runs = collected.into_inner().unwrap_or_default();
     runs.sort_by(|a, b| (a.0, jaic::target::os_name(a.1)).cmp(&(b.0, jaic::target::os_name(b.1))));
-    let mut read: BTreeMap<PathBuf, Option<Rc<str>>> = BTreeMap::new();
-    let mut text_of = |path: &Path, texts: &BTreeMap<String, Rc<str>>| -> Option<Rc<str>> {
+    let mut read: BTreeMap<PathBuf, Option<Arc<str>>> = BTreeMap::new();
+    let mut text_of = |path: &Path, texts: &BTreeMap<String, Arc<str>>| -> Option<Arc<str>> {
         read.entry(path.to_path_buf())
             .or_insert_with(|| {
                 texts
                     .get(path.to_string_lossy().as_ref())
                     .cloned()
-                    .or_else(|| std::fs::read_to_string(path).ok().map(Rc::from))
+                    .or_else(|| std::fs::read_to_string(path).ok().map(Arc::from))
             })
             .clone()
     };

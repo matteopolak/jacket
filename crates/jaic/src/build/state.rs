@@ -6,6 +6,7 @@ use crate::sema::{Compiler, ProgramSource, ProvidedImport};
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Stage {
@@ -146,7 +147,7 @@ pub struct Workspaces {
     /// Strings handed to Jai code; kept alive for the whole compilation.
     pub(super) strings: Vec<Box<[u8]>>,
     /// Record strings handed to Jai code without copying (the record may later drop its own).
-    pub(super) kept: Vec<Rc<[u8]>>,
+    pub(super) kept: Vec<Arc<[u8]>>,
     /// Messages, syntax trees and types exported to metaprograms.
     pub(crate) records: Records,
     /// The structs each program built from the records (`State::builder` indexes it).

@@ -9,7 +9,7 @@ use crate::diagnostics::Code;
 use crate::intern::Sym;
 use crate::lexer::{P, Tok};
 use crate::source::Span;
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// Directive statements that take a plain list of expressions up to the `;`.
 pub const GENERIC_DIRECTIVES: &[&str] = &[
@@ -22,13 +22,13 @@ pub const GENERIC_DIRECTIVES: &[&str] = &[
 ];
 
 /// `#program_export "name" f :: () {}` sets the export flag on the procedure itself.
-fn mark_program_export(decl: &mut Decl, name: Option<Rc<[u8]>>) {
+fn mark_program_export(decl: &mut Decl, name: Option<Arc<[u8]>>) {
     if let Some(Expr {
         kind: ExprKind::Proc(lit),
         ..
     }) = &mut decl.value
-        && let Some(lit) = Rc::get_mut(lit)
-        && let Some(header) = Rc::get_mut(&mut lit.header)
+        && let Some(lit) = Arc::get_mut(lit)
+        && let Some(header) = Arc::get_mut(&mut lit.header)
     {
         header.flags.program_export = Some(name);
     }
@@ -244,7 +244,7 @@ impl Parser<'_> {
             }
         }
         let (text, _) = self.string_lit("after `#import`")?;
-        let text: Rc<str> = String::from_utf8_lossy(&text).into();
+        let text: Arc<str> = String::from_utf8_lossy(&text).into();
         let source = match kind {
             Some("file") => ImportSource::File(text),
             Some("dir") => ImportSource::Dir(text),
@@ -263,7 +263,7 @@ impl Parser<'_> {
         }
         let span = start.to(self.prev_span());
         Ok(stmt(
-            StmtKind::Import(Rc::new(Import {
+            StmtKind::Import(Arc::new(Import {
                 source,
                 params,
                 module_params_present: groups != 0,
@@ -282,7 +282,7 @@ impl Parser<'_> {
         self.parse_directive_flags()?;
         let (path, span) = self.string_lit("after `#load`")?;
         self.end_stmt("after `#load`")?;
-        let path: Rc<str> = String::from_utf8_lossy(&path).into();
+        let path: Arc<str> = String::from_utf8_lossy(&path).into();
         Ok(stmt(
             StmtKind::Load {
                 path,
@@ -501,7 +501,7 @@ impl Parser<'_> {
         };
         let mut declaration = self.parse_terminated_simple()?;
         if let StmtKind::Decl(decl) = &mut declaration.kind
-            && let Some(decl) = Rc::get_mut(decl)
+            && let Some(decl) = Arc::get_mut(decl)
         {
             decl.rare_mut().flags.push(flag);
             if name == "program_export" {

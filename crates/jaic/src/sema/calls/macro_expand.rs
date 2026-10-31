@@ -1,7 +1,7 @@
 //! Expanding `#expand` macro calls.
 
 use super::{
-    CallArg, Compiler, E, EntityKind, FnCtx, MacroFrame, Operand, PreludeType, ProcId, Rc, Result,
+    Arc, CallArg, Compiler, E, EntityKind, FnCtx, MacroFrame, Operand, PreludeType, ProcId, Result,
     ScopeId, ScopeKind, Signature, Slot, Span, Sym, TypeId, Value, asm, ast, err, procs, scope,
 };
 use crate::diagnostics::Code;
@@ -185,7 +185,7 @@ impl Compiler {
                     None => {
                         let body = match &expr.kind {
                             E::Code(c) => c.clone(),
-                            _ => Rc::new(ast::CodeBody::Expr(expr)),
+                            _ => Arc::new(ast::CodeBody::Expr(expr)),
                         };
                         self.add_code(body, caller)
                     }

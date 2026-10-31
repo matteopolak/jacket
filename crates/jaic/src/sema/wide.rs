@@ -7,7 +7,7 @@
 //! (`crate::wide_float`). Constants are encoded at compile time into `Value::Bytes`.
 use super::lower::{FnCtx, Operand, Origin};
 use super::value::Aggregate;
-use super::{Compiler, Rc, Result, Span, TypeId, Value, convert, err};
+use super::{Arc, Compiler, Result, Span, TypeId, Value, convert, err};
 use crate::ast::BinOp;
 use crate::diagnostics::Code;
 use crate::ir::{CmpOp, ConvOp, Intrinsic, Ty, Val, WideArith, WideFloat, WideOp};
@@ -26,7 +26,7 @@ impl Compiler {
             Value::Float(x, _) => wide_float::from_f64(fmt, *x),
             _ => return None,
         };
-        Some(Value::Bytes(Rc::new(Aggregate {
+        Some(Value::Bytes(Arc::new(Aggregate {
             bytes: bytes.to_vec(),
             relocs: Vec::new(),
         })))
@@ -273,7 +273,7 @@ impl Compiler {
         };
         Some(Operand::Const {
             ty,
-            value: Value::Bytes(Rc::new(Aggregate {
+            value: Value::Bytes(Arc::new(Aggregate {
                 bytes: result.to_vec(),
                 relocs: Vec::new(),
             })),

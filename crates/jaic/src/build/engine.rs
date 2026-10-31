@@ -11,6 +11,7 @@ use super::{
 use crate::records::Item;
 use crate::sema::value::CodeId;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 fn trap(message: String) -> Trap {
     Trap::new(message)
@@ -390,7 +391,7 @@ pub(super) fn set_type_info_flags(interp: &mut Interp, ty: u64, flags: u32) -> R
 }
 
 /// Where the struct whose `Type_Info_Struct` is at `info` was declared: (path, line, column).
-pub(super) fn struct_location(interp: &Interp, info: u64) -> Option<(std::rc::Rc<str>, i64, i64)> {
+pub(super) fn struct_location(interp: &Interp, info: u64) -> Option<(Arc<str>, i64, i64)> {
     let (global, 0) = interp.global_at(info)? else {
         return None;
     };

@@ -1,24 +1,24 @@
 //! The data a struct declaration is read into: sources, member aliases, field items and `using` filters.
 use crate::ast::ExprKind as E;
 use crate::sema::value::PolyStructId;
-use crate::sema::{HashMap, InstanceKeyValue, Rc, ScopeId, Span, Sym, TypeId, Value, ast};
+use crate::sema::{Arc, HashMap, InstanceKeyValue, ScopeId, Span, Sym, TypeId, Value, ast};
 use crate::types::{Field, StructId};
 
 /// Where a struct's fields come from.
 #[derive(Clone)]
 pub struct StructSource {
-    pub lit: Rc<ast::StructLit>,
+    pub lit: Arc<ast::StructLit>,
     /// Body scope (constants, `#this`, polymorphic bindings).
     pub scope: ScopeId,
     /// Field declarations evaluated in their own scopes (the synthesized `#Context`).
-    pub extra: Vec<(Rc<ast::Decl>, ScopeId)>,
+    pub extra: Vec<(Arc<ast::Decl>, ScopeId)>,
     /// Initializer of each laid-out field, with the scope to evaluate it in.
     pub inits: Vec<(Option<ast::Expr>, ScopeId)>,
 }
 
 pub struct PolyStruct {
     pub name: Sym,
-    pub lit: Rc<ast::StructLit>,
+    pub lit: Arc<ast::StructLit>,
     pub scope: ScopeId,
     pub instances: HashMap<Vec<InstanceKeyValue>, TypeId>,
     /// Parameters fixed by `#bake_arguments`: constants of every instance.
@@ -97,7 +97,7 @@ pub(super) struct FieldDecl {
     pub(super) ty: TypeId,
     pub(super) using: bool,
     pub(super) as_: bool,
-    pub(super) notes: Vec<Rc<str>>,
+    pub(super) notes: Vec<Arc<str>>,
     pub(super) span: Span,
     pub(super) init: Option<ast::Expr>,
     pub(super) scope: ScopeId,
@@ -107,7 +107,7 @@ pub(super) struct FieldDecl {
 }
 
 pub(super) enum FieldItem {
-    Declaration(ScopeId, Rc<ast::Decl>),
+    Declaration(ScopeId, Arc<ast::Decl>),
     Field(FieldDecl),
     /// `using,only(a, b) field.inner;`: names reached through a path of members.
     Alias(MemberAlias),
@@ -136,7 +136,7 @@ pub(super) enum LayoutItem {
 
 #[derive(Clone)]
 pub(in crate::sema) enum FieldUsing {
-    Declaration(ScopeId, Rc<ast::Decl>),
+    Declaration(ScopeId, Arc<ast::Decl>),
     Inline(TypeId, ast::UsingFilter),
 }
 

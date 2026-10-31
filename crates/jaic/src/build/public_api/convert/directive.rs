@@ -12,6 +12,7 @@ use crate::{
     parser::GENERIC_DIRECTIVES,
     types::TypeId,
 };
+use std::sync::Arc;
 
 impl Convert<'_, '_> {
     /// A `#run` node's body and `,flags`.
@@ -91,7 +92,7 @@ impl Convert<'_, '_> {
         self.word("#import");
         let kind = self.int_attribute(at, SyntaxKey::ImportKind)?;
         let flags = self.flag_names(at, SyntaxKey::Flags)?;
-        let path: std::rc::Rc<str> = self.text(at, ty, "name")?.into();
+        let path: Arc<str> = self.text(at, ty, "name")?.into();
         self.word(&super::quote_bytes(path.as_bytes()));
         let source = match kind {
             0 => ImportSource::Module(path),

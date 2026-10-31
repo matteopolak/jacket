@@ -1,6 +1,6 @@
 //! Directive flag sets of procedure and struct headers, and the check bits of blocks.
 use super::{Expr, Ident, LambdaKind};
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// The on/off directives of a procedure header, as one set of bits.
 ///
@@ -104,13 +104,13 @@ pub struct ProcFlags {
     pub(crate) bits: ProcBits,
     pub elsewhere: Option<Option<Ident>>,
     pub inline: CallHintFlag,
-    pub deprecated: Option<Option<Rc<[u8]>>>,
-    pub program_export: Option<Option<Rc<[u8]>>>,
+    pub deprecated: Option<Option<Arc<[u8]>>>,
+    pub program_export: Option<Option<Arc<[u8]>>>,
     /// The string after `#target_features`: CPU features (`"avx2,bmi2"`) the native code of
     /// this procedure may use on top of the build's.
-    pub target_features: Option<Rc<str>>,
+    pub target_features: Option<Arc<str>>,
     /// The string after `#compiler "name"` / `#intrinsic "name"` selecting the builtin.
-    pub builtin_name: Option<Rc<str>>,
+    pub builtin_name: Option<Arc<str>>,
     /// Any other `#directive` flag (`#dump`, `#entry_point`, `#no_alias`, ...), kept by name.
     pub other: Vec<Ident>,
 }

@@ -4,7 +4,7 @@ use crate::diagnostics::Code;
 use crate::ide::Recorder;
 use crate::sema::lower::{FnCtx, Operand, Origin};
 use crate::sema::scope::{EntityId, EntityKind, Found, Resolved, ScopeKind};
-use crate::sema::{Compiler, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, scope};
+use crate::sema::{Arc, Compiler, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, scope};
 use crate::types::{ArrayKind, LayoutState, TypeKind};
 
 impl Compiler {
@@ -195,7 +195,7 @@ impl Compiler {
     pub(super) fn field_using_filter(
         &mut self,
         scope: ScopeId,
-        decl: &Rc<ast::Decl>,
+        decl: &Arc<ast::Decl>,
         ty: TypeId,
     ) -> Result<Option<ast::UsingFilter>> {
         let Some(filter) = decl.using_filter().filter(|_| decl.using) else {

@@ -3,7 +3,7 @@
 use super::scope::UsingEntry;
 use super::value::Aggregate;
 use super::{
-    Compiler, Diagnostic, EntityId, ModuleId, Rc, Result, ScopeId, SourcePath, Span, Sym, TypeId,
+    Arc, Compiler, Diagnostic, EntityId, ModuleId, Result, ScopeId, SourcePath, Span, Sym, TypeId,
     Value, ast, err, ir, scope,
 };
 use crate::diagnostics::Code;
@@ -193,7 +193,7 @@ impl Compiler {
         self.ide_note_filter_names(&entry, filter);
         if let UsingEntry::Module(m, _) = entry {
             let filter = self.resolve_module_filter(scope, m, filter, span)?;
-            return Ok(UsingEntry::Module(m, Some(Rc::new(filter))));
+            return Ok(UsingEntry::Module(m, Some(Arc::new(filter))));
         }
         let filter = if let ast::UsingFilter::Computed {
             kind: ast::UsingFilterKind::Map,
@@ -228,7 +228,7 @@ impl Compiler {
         } else {
             self.resolve_name_filter(scope, filter)?
         };
-        Ok(UsingEntry::Filtered(Box::new(entry), Rc::new(filter)))
+        Ok(UsingEntry::Filtered(Box::new(entry), Arc::new(filter)))
     }
 
     /// `resolve_name_filter` for a filter on `module`, where a mapper also sees the

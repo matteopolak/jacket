@@ -8,8 +8,8 @@ use crate::sema::SourceState;
 use crate::sema::lower::Operand;
 use crate::sema::scope::{EntityKind, Resolved};
 use crate::sema::{
-    Compiler, Diagnostic, EntityId, HashMap, ProcId, Rc, Result, ScopeId, Span, Sym, TypeId, Value,
-    ast, err, ir, value,
+    Arc, Compiler, Diagnostic, EntityId, HashMap, ProcId, Result, ScopeId, Span, Sym, TypeId,
+    Value, ast, err, ir, value,
 };
 use crate::types::{ArrayKind, ProcType, TypeKind};
 
@@ -17,7 +17,7 @@ impl Compiler {
     pub fn new_proc(
         &mut self,
         name: Sym,
-        lit: Rc<ast::ProcLit>,
+        lit: Arc<ast::ProcLit>,
         scope: ScopeId,
         span: Span,
     ) -> ProcId {
@@ -176,7 +176,7 @@ impl Compiler {
         self.eval_type(scope, ty).ok() == Some(TypeId::CODE)
     }
 
-    pub fn signature(&mut self, id: ProcId, span: Span) -> Result<Rc<Signature>> {
+    pub fn signature(&mut self, id: ProcId, span: Span) -> Result<Arc<Signature>> {
         if let Some(sig) = &self.proc(id).sig {
             return Ok(sig.clone());
         }
@@ -225,7 +225,7 @@ impl Compiler {
         self.pr.procs[id.0 as usize].sig_resolving = true;
         let result = self.build_signature(id);
         self.pr.procs[id.0 as usize].sig_resolving = false;
-        let sig = Rc::new(result?);
+        let sig = Arc::new(result?);
         self.pr.procs[id.0 as usize].sig = Some(sig.clone());
         Ok(sig)
     }
@@ -467,7 +467,7 @@ impl Compiler {
             no_context: !has_context,
             non_pod_return: header.flags.cpp_return_type_is_non_pod(),
         };
-        let ty = self.ty.types.intern(TypeKind::Proc(Rc::new(proc_type)));
+        let ty = self.ty.types.intern(TypeKind::Proc(Arc::new(proc_type)));
         Ok(Signature {
             params,
             returns,
@@ -492,7 +492,7 @@ impl Compiler {
         if self.ns.overload_sets_checked.contains(ids) {
             return Ok(());
         }
-        let mut seen: Vec<(EntityId, ProcId, Rc<[TypeId]>, bool)> = Vec::new();
+        let mut seen: Vec<(EntityId, ProcId, Arc<[TypeId]>, bool)> = Vec::new();
         // A member that cannot be resolved yet (a `#placeholder` in its parameters) reports
         // its own error; the set is checked again once it can be compared.
         let mut complete = true;
@@ -524,7 +524,7 @@ impl Compiler {
                 continue;
             }
             let scope = self.binding_scope(self.entity(id).scope);
-            let params: Rc<[TypeId]> = ty.params.iter().copied().collect();
+            let params: Arc<[TypeId]> = ty.params.iter().copied().collect();
             if let Some((first, ..)) = seen.iter().find(|(other, _, p, v)| {
                 self.binding_scope(self.entity(*other).scope) == scope
                     && **p == *params

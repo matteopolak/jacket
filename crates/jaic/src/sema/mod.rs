@@ -18,6 +18,7 @@ mod binary;
 #[cfg(test)]
 mod body_failure_tests;
 pub mod body_probe;
+mod sync_world;
 use body_probe::{Probed, W};
 mod callable;
 pub(crate) mod calls;
@@ -105,6 +106,7 @@ pub use scope::{EntityId, ScopeId};
 pub use source_state::SourceState;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::Arc;
 pub use type_state::TypeState;
 pub use value::{ModuleId, ProcId, Value};
 
@@ -389,7 +391,7 @@ pub struct FileInfo {
 #[derive(Clone)]
 pub struct ModuleUsing {
     pub module: ModuleId,
-    pub filter: Option<Rc<ast::UsingFilter>>,
+    pub filter: Option<Arc<ast::UsingFilter>>,
     pub exported: bool,
 }
 
@@ -398,7 +400,7 @@ pub struct Module {
     pub loading: bool,
     pub argument_span: Span,
     /// Source-list provenance for validating an import before binding its header.
-    pub argument_imports: Vec<Rc<ast::Import>>,
+    pub argument_imports: Vec<Arc<ast::Import>>,
     pub arguments_validated: bool,
     pub name: String,
     pub path: Option<PathBuf>,
@@ -465,7 +467,7 @@ fn instance_key_value(types: &Types, value: &Value, ty: TypeId) -> InstanceKeyVa
                 bytes.extend_from_slice(&id.to_le_bytes());
                 bytes.extend_from_slice(&r.addend.to_le_bytes());
             }
-            Value::Bytes(Rc::new(value::Aggregate {
+            Value::Bytes(Arc::new(value::Aggregate {
                 bytes,
                 relocs: Vec::new(),
             }))
@@ -532,7 +534,7 @@ pub struct ProcTypeParams {
     pub defaults: Vec<Option<ast::Expr>>,
     pub scope: ScopeId,
     /// Lexical headers on declared procedure-valued results.
-    pub returns: Vec<Option<Rc<ProcTypeParams>>>,
+    pub returns: Vec<Option<Arc<ProcTypeParams>>>,
 }
 
 impl Compiler {
@@ -595,7 +597,7 @@ impl Compiler {
 
     /// A new `Code` value. The interpreter keeps the body too (`compiler_get_nodes` exports
     /// it from compile-time code).
-    pub fn add_code(&mut self, body: Rc<ast::CodeBody>, scope: ScopeId) -> value::CodeId {
+    pub fn add_code(&mut self, body: Arc<ast::CodeBody>, scope: ScopeId) -> value::CodeId {
         self.adopt_made_codes();
         // Constant evaluation uses synthetic procedure scopes to hide runtime
         // locals. Quoted code belongs to the lexical scope where it was written,
@@ -641,7 +643,7 @@ impl Compiler {
                     SourcePath::virtual_source(format!("compiler_get_code {id}")),
                     source,
                 );
-                ast::relocate::relocate_code(Rc::make_mut(&mut self.ct.interp.codes[id]), file);
+                ast::relocate::relocate_code(Arc::make_mut(&mut self.ct.interp.codes[id]), file);
             }
             let body = self.ct.interp.codes[id].clone();
             self.pr.codes.push(body);

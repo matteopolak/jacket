@@ -6,8 +6,9 @@ use crate::ir::{CmpOp, Ty};
 use crate::sema::calls::binop_text;
 use crate::sema::lower::{FnCtx, Operand, Origin};
 use crate::sema::scope::Resolved;
-use crate::sema::{Compiler, Diagnostic, Rc, Result, Span, Sym, TypeId, Value, ast, err, ir};
+use crate::sema::{Compiler, Diagnostic, Result, Span, Sym, TypeId, Value, ast, err, ir};
 use crate::types::TypeKind;
+use std::sync::Arc;
 
 impl Compiler {
     /// Convert both operands to the operation's type and load them. Returns that type, the
@@ -388,7 +389,7 @@ impl Compiler {
         let code = f.b.iconst(Ty::I16, code);
         let file = self.src.sources.get(span.file);
         let (line, _) = file.line_col(span.start);
-        let path: Rc<[u8]> = Rc::from(file.path.to_string().as_bytes());
+        let path: Arc<[u8]> = Arc::from(file.path.to_string().as_bytes());
         let line = f.b.iconst(Ty::I64, line as u64);
         let global = self.out.string_global(&path);
         let filename = f.b.global_addr(global);

@@ -2,7 +2,7 @@
 //! declaration, values checked to have the same layout on both sides, data copied.
 use super::lower::{Operand, Origin};
 use super::{
-    Compiler, HashMap, HashSet, ProcId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, err, ir,
+    Arc, Compiler, HashMap, HashSet, ProcId, Result, ScopeId, Span, Sym, TypeId, Value, err, ir,
     procs::ProcTarget, scope::Resolved,
 };
 use crate::diagnostics::Code;
@@ -122,7 +122,7 @@ impl Importer<'_> {
             Some(target) => {
                 let mut image = (**image).clone();
                 image.bytes = wide_float::convert(format, target, &bytes).to_vec();
-                Ok(Value::Bytes(Rc::new(image)))
+                Ok(Value::Bytes(Arc::new(image)))
             }
             None => Ok(Value::float(wide_float::to_f64(format, &bytes))),
         }
@@ -142,7 +142,7 @@ impl Importer<'_> {
                 for relocation in &mut image.relocs {
                     relocation.target = self.data(relocation.target)?;
                 }
-                Ok(Value::Bytes(Rc::new(image)))
+                Ok(Value::Bytes(Arc::new(image)))
             }
             Value::Proc(procedure) => Ok(Value::Proc(self.target_proc(procedure)?)),
             Value::Code(_) => self.fail(
@@ -228,7 +228,7 @@ impl Importer<'_> {
                 self.target
                     .ty
                     .types
-                    .intern(TypeKind::Proc(Rc::new(ProcType {
+                    .intern(TypeKind::Proc(Arc::new(ProcType {
                         params,
                         returns,
                         ..(*procedure).clone()

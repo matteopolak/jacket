@@ -6,7 +6,7 @@ use crate::layout;
 use crate::sema::lower::FnCtx;
 use crate::sema::scope::EntityKind;
 use crate::sema::{
-    Compiler, EntityId, PreludeType, ProcTypeParams, Rc, Result, Span, Sym, TypeId, err, ir,
+    Arc, Compiler, EntityId, PreludeType, ProcTypeParams, Result, Span, Sym, TypeId, err, ir,
 };
 use crate::types::{ArrayKind, LayoutState, StructId, TypeKind};
 
@@ -81,7 +81,7 @@ impl Compiler {
         ty: TypeId,
         name: Sym,
         span: Span,
-    ) -> Result<Option<Rc<ProcTypeParams>>> {
+    ) -> Result<Option<Arc<ProcTypeParams>>> {
         let ty = self.ty.types.pointee(ty).unwrap_or(ty);
         Ok(self
             .find_member_in(ty, name, span, &mut Vec::new())?

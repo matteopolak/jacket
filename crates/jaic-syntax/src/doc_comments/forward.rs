@@ -7,12 +7,12 @@ use crate::fxhash::HashMap;
 use crate::parser::ide_facts::{self, TopLevelKind};
 use crate::source::FileId;
 use std::path::{Path, PathBuf};
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// Reads files of a library and the standard library, each once.
 pub(super) struct Files<'a> {
     stdlib: &'a Path,
-    texts: HashMap<PathBuf, Option<Rc<str>>>,
+    texts: HashMap<PathBuf, Option<Arc<str>>>,
 }
 
 /// What one name at the top of a file stands for.
@@ -31,10 +31,10 @@ impl<'a> Files<'a> {
         }
     }
 
-    fn read(&mut self, file: &Path) -> Option<Rc<str>> {
+    fn read(&mut self, file: &Path) -> Option<Arc<str>> {
         self.texts
             .entry(file.to_path_buf())
-            .or_insert_with(|| std::fs::read_to_string(file).ok().map(Rc::from))
+            .or_insert_with(|| std::fs::read_to_string(file).ok().map(Arc::from))
             .clone()
     }
 
@@ -146,7 +146,7 @@ impl Files<'_> {
 const LOAD_DEPTH: usize = 4;
 
 impl Resolver<PathBuf> for Files<'_> {
-    fn text(&mut self, file: &PathBuf) -> Option<Rc<str>> {
+    fn text(&mut self, file: &PathBuf) -> Option<Arc<str>> {
         self.read(file)
     }
 

@@ -9,7 +9,7 @@ use crate::diagnostics::Code;
 use crate::diagnostics::Diagnostic;
 use crate::lexer::{P, Tok};
 use crate::macros::raw_enum;
-use std::rc::Rc;
+use std::sync::Arc;
 
 raw_enum! {
     /// A `#directive` that flags a procedure header.
@@ -209,7 +209,7 @@ impl Parser<'_> {
             || header.flags.compiler()
             || header.flags.intrinsic()
             || header.flags.elsewhere.is_some();
-        let header = Rc::new(header);
+        let header = Arc::new(header);
         if self.at(P::LBrace) && in_return_type {
             let error = Diagnostic::new(
                 Code::ParseProcedureTypeReturn,
@@ -228,7 +228,7 @@ impl Parser<'_> {
             let body = self.parse_proc_body()?;
             let span = start.to(body.span);
             return Ok(mk(
-                ExprKind::Proc(Rc::new(ProcLit {
+                ExprKind::Proc(Arc::new(ProcLit {
                     header,
                     body: Some(body),
                 })),
@@ -238,7 +238,7 @@ impl Parser<'_> {
         let span = header.span;
         if has_external_body {
             return Ok(mk(
-                ExprKind::Proc(Rc::new(ProcLit {
+                ExprKind::Proc(Arc::new(ProcLit {
                     header,
                     body: None,
                 })),
@@ -303,7 +303,7 @@ impl Parser<'_> {
         header.span = span;
         Ok(mk(
             ExprKind::Lambda {
-                header: Rc::new(header),
+                header: Arc::new(header),
                 body: Box::new(body),
             },
             span,

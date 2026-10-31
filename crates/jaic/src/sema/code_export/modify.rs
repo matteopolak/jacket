@@ -1,7 +1,7 @@
 //! Making procedures live and applying modifications to them.
 use super::state::Modification;
 use crate::diagnostics::Code;
-use crate::sema::{Compiler, Rc, Result, SourcePath, Span, ast, err, procs};
+use crate::sema::{Arc, Compiler, Result, SourcePath, Span, ast, err, procs};
 
 impl Compiler {
     /// `compiler_make_procedure_live`: keep the procedure behind header record `header` in the
@@ -77,7 +77,7 @@ impl Compiler {
                 checks_off: old_body.checks_off,
             }),
         };
-        self.pr.procs[p.0 as usize].lit = Rc::new(lit);
+        self.pr.procs[p.0 as usize].lit = Arc::new(lit);
         if self.proc(p).body_state == procs::BodyState::Done {
             self.meta.export.relower.push(p);
         }

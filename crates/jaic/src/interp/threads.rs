@@ -146,7 +146,7 @@ mod worker_lifetime_tests {
     #[test]
     fn compiler_keeps_its_owned_state_alive_through_interpreter_teardown() {
         struct LifetimeHost {
-            source: std::rc::Weak<str>,
+            source: std::sync::Weak<str>,
             alive: Rc<std::cell::Cell<bool>>,
         }
         impl Host for LifetimeHost {
@@ -171,8 +171,8 @@ mod worker_lifetime_tests {
             }
         }
         let mut compiler = Compiler::new(Options::host(), Rc::new(VirtualFs::default()));
-        let source: Rc<str> = "main :: () {}".into();
-        let weak = Rc::downgrade(&source);
+        let source: Arc<str> = "main :: () {}".into();
+        let weak = Arc::downgrade(&source);
         compiler.src.sources.add("lifetime-order.jai", source);
         let alive = Rc::new(std::cell::Cell::new(false));
         compiler.ct.interp.host = Box::new(LifetimeHost {

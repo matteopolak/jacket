@@ -8,7 +8,7 @@ use crate::ast::{
 use crate::diagnostics::Code;
 use crate::lexer::{P, Tok};
 use crate::macros::raw_enum;
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// `,name` or `,name(expr)` after a directive, e.g. `#run,stallable` or `#insert,scope(x)`.
 pub(super) struct DirectiveFlag {
@@ -207,7 +207,7 @@ impl Parser<'_> {
         let end = self.prev_span();
         Ok(mk(
             ExprKind::Run {
-                body: Rc::new(body),
+                body: Arc::new(body),
                 flags,
             },
             start.to(end),
@@ -235,7 +235,7 @@ impl Parser<'_> {
                 let case = self.parse_case()?;
                 let span = case.span;
                 Stmt {
-                    kind: StmtKind::Case(Rc::new(case)),
+                    kind: StmtKind::Case(Arc::new(case)),
                     span,
                     notes: Notes::default(),
                 }
@@ -282,7 +282,7 @@ impl Parser<'_> {
             }
         };
         let end = self.prev_span();
-        Ok(mk(ExprKind::Code(Rc::new(body)), start.to(end)))
+        Ok(mk(ExprKind::Code(Arc::new(body)), start.to(end)))
     }
 
     fn parse_insert_expr(&mut self) -> PResult<Expr> {

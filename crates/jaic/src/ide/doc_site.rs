@@ -3,13 +3,13 @@ use crate::docs::{self, Resolver};
 use crate::intern::Sym;
 use crate::sema::Compiler;
 use crate::source::{FileId, Span};
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// The type checker as the resolver of [`docs::docs_site`].
 struct Checked<'a>(&'a mut Compiler);
 
 impl Resolver<FileId> for Checked<'_> {
-    fn text(&mut self, file: &FileId) -> Option<Rc<str>> {
+    fn text(&mut self, file: &FileId) -> Option<Arc<str>> {
         Some(self.0.src.sources.try_get(*file)?.text.clone())
     }
 

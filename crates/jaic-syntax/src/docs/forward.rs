@@ -4,6 +4,7 @@
 //! differ in how they find what a path names (the type checker, or the library's own files).
 use super::{P, Tok, trivia, valid};
 use crate::lexer::Token;
+use std::sync::Arc;
 
 /// How many aliases are followed before giving up, so a cycle ends.
 const MAX_HOPS: usize = 8;
@@ -11,7 +12,7 @@ const MAX_HOPS: usize = 8;
 /// What a path names, for [`docs_site`]. `F` identifies a file.
 pub trait Resolver<F> {
     /// The text of `file`.
-    fn text(&mut self, file: &F) -> Option<std::rc::Rc<str>>;
+    fn text(&mut self, file: &F) -> Option<Arc<str>>;
 
     /// The declaration the names `path` lead to from the declaration at `at` of `file`: its file
     /// and the offset of its name.

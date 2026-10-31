@@ -8,7 +8,7 @@ use super::lower::{FnCtx, Operand};
 use super::procs::ParamInfo;
 use super::scope::{EntityKind, Resolved, ScopeKind};
 use super::{
-    Compiler, Diagnostic, ProcId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, ir,
+    Arc, Compiler, Diagnostic, ProcId, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, ir,
 };
 use crate::ast::ExprKind as E;
 use crate::diagnostics::Code;
@@ -22,7 +22,7 @@ const PARAM_PREFIX: &str = "__lambda_";
 
 /// Desugar a lambda: untyped parameters get a polymorphic type, an expression
 /// body becomes `return <expr>;`.
-pub fn lambda_lit(header: &ast::ProcHeader, body: &ast::Expr) -> Rc<ast::ProcLit> {
+pub fn lambda_lit(header: &ast::ProcHeader, body: &ast::Expr) -> Arc<ast::ProcLit> {
     let mut header = header.clone();
     for (i, p) in header.params.iter_mut().enumerate() {
         if p.ty.is_none() && p.default.is_none() {
@@ -61,8 +61,8 @@ pub fn lambda_lit(header: &ast::ProcHeader, body: &ast::Expr) -> Rc<ast::ProcLit
             checks_off: crate::ast::CheckBits::NONE,
         }
     };
-    Rc::new(ast::ProcLit {
-        header: Rc::new(header),
+    Arc::new(ast::ProcLit {
+        header: Arc::new(header),
         body: Some(block),
     })
 }
@@ -72,7 +72,7 @@ impl Compiler {
     pub fn lambda_proc(
         &mut self,
         scope: ScopeId,
-        header: &Rc<ast::ProcHeader>,
+        header: &Arc<ast::ProcHeader>,
         body: &ast::Expr,
         span: Span,
     ) -> ProcId {
@@ -90,7 +90,7 @@ impl Compiler {
     pub fn check_lambda(
         &mut self,
         scope: ScopeId,
-        header: &Rc<ast::ProcHeader>,
+        header: &Arc<ast::ProcHeader>,
         body: &ast::Expr,
         expected: Option<TypeId>,
         span: Span,
@@ -231,7 +231,7 @@ impl Compiler {
     pub fn infer_lambda_bindings(
         &mut self,
         pattern: &ast::Expr,
-        arg: (ScopeId, &Rc<ast::ProcHeader>, &ast::Expr),
+        arg: (ScopeId, &Arc<ast::ProcHeader>, &ast::Expr),
         def_scope: ScopeId,
         bindings: &mut Vec<(Sym, Value, TypeId)>,
         span: Span,

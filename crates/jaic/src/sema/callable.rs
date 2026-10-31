@@ -2,7 +2,7 @@
 use super::lower::Operand;
 use super::scope::{Builtin, BuiltinProc, EntityKind, EntityState, Found, Resolved};
 use super::{
-    Compiler, EntityId, HashSet, ProcId, ProcTypeParams, Rc, Result, ScopeId, TypeId, Value, ast,
+    Arc, Compiler, EntityId, HashSet, ProcId, ProcTypeParams, Result, ScopeId, TypeId, Value, ast,
 };
 use crate::ast::ExprKind as E;
 
@@ -12,7 +12,7 @@ impl Compiler {
     pub fn callable_entity_parameters(
         &mut self,
         entity: EntityId,
-    ) -> Result<Option<Rc<ProcTypeParams>>> {
+    ) -> Result<Option<Arc<ProcTypeParams>>> {
         self.callable_entity_parameters_in(entity, &mut HashSet::default())
     }
 
@@ -20,7 +20,7 @@ impl Compiler {
         &mut self,
         entity: EntityId,
         visiting: &mut HashSet<EntityId>,
-    ) -> Result<Option<Rc<ProcTypeParams>>> {
+    ) -> Result<Option<Arc<ProcTypeParams>>> {
         if let Some(info) = self.pr.callable_entities.get(&entity) {
             return Ok(Some(info.clone()));
         }
@@ -74,7 +74,7 @@ impl Compiler {
         &mut self,
         scope: ScopeId,
         expression: Option<&ast::Expr>,
-    ) -> Result<Option<Rc<ProcTypeParams>>> {
+    ) -> Result<Option<Arc<ProcTypeParams>>> {
         self.callable_expression_parameters_in(scope, expression, &mut HashSet::default())
     }
 
@@ -83,7 +83,7 @@ impl Compiler {
         scope: ScopeId,
         expression: Option<&ast::Expr>,
         visiting: &mut HashSet<EntityId>,
-    ) -> Result<Option<Rc<ProcTypeParams>>> {
+    ) -> Result<Option<Arc<ProcTypeParams>>> {
         let Some(expression) = expression else {
             return Ok(None);
         };
@@ -107,7 +107,7 @@ impl Compiler {
                     visiting,
                 )?);
             }
-            return Ok(Some(Rc::new(ProcTypeParams {
+            return Ok(Some(Arc::new(ProcTypeParams {
                 names: parameters.iter().map(|p| p.name.map(|n| n.name)).collect(),
                 defaults: parameters.iter().map(|p| p.default.clone()).collect(),
                 scope,
@@ -255,9 +255,9 @@ impl Compiler {
     pub(super) fn callable_procedure_parameters(
         &mut self,
         procedure: ProcId,
-    ) -> Result<Rc<ProcTypeParams>> {
+    ) -> Result<Arc<ProcTypeParams>> {
         let signature = self.signature(procedure, self.proc(procedure).span)?;
-        Ok(Rc::new(ProcTypeParams {
+        Ok(Arc::new(ProcTypeParams {
             names: signature
                 .params
                 .iter()
@@ -278,7 +278,7 @@ impl Compiler {
     pub(super) fn callable_operand_parameters(
         &mut self,
         operand: &Operand,
-    ) -> Result<Option<Rc<ProcTypeParams>>> {
+    ) -> Result<Option<Arc<ProcTypeParams>>> {
         match operand {
             Operand::Multi(values) if !values.is_empty() => {
                 self.callable_operand_parameters(&values[0])

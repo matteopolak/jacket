@@ -1,8 +1,8 @@
 //! Procedure records: targets, parameters, signatures and the polymorphism helpers over headers.
 use crate::diagnostics::Code;
 use crate::sema::{
-    HashMap, InstanceKeyValue, ProcId, ProcTypeParams, Rc, Result, ScopeId, Span, Sym, TypeId, ast,
-    err, ir,
+    Arc, HashMap, InstanceKeyValue, ProcId, ProcTypeParams, Result, ScopeId, Span, Sym, TypeId,
+    ast, err, ir,
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -16,7 +16,7 @@ pub struct ParamInfo {
     pub name: Option<Sym>,
     pub ty: TypeId,
     pub default: Option<ast::Expr>,
-    pub callable: Option<Rc<ProcTypeParams>>,
+    pub callable: Option<Arc<ProcTypeParams>>,
     pub variadic: bool,
     pub using: bool,
     pub using_filter: Option<ast::UsingFilter>,
@@ -29,7 +29,7 @@ pub struct ParamInfo {
 pub struct Signature {
     pub params: Vec<ParamInfo>,
     pub returns: Vec<TypeId>,
-    pub return_callables: Vec<Option<Rc<ProcTypeParams>>>,
+    pub return_callables: Vec<Option<Arc<ProcTypeParams>>>,
     pub return_names: Vec<Option<Sym>>,
     pub ty: TypeId,
     pub has_context: bool,
@@ -60,7 +60,7 @@ pub(in crate::sema) fn validate_c_variadic_header(header: &ast::ProcHeader) -> R
 
 pub struct ProcInfo {
     pub name: Sym,
-    pub lit: Rc<ast::ProcLit>,
+    pub lit: Arc<ast::ProcLit>,
     /// Defining scope.
     pub scope: ScopeId,
     pub span: Span,
@@ -68,7 +68,7 @@ pub struct ProcInfo {
     /// Parameter types were checked for bare polymorphic structs (implicit polymorphism).
     pub poly_checked: bool,
     pub is_macro: bool,
-    pub sig: Option<Rc<Signature>>,
+    pub sig: Option<Arc<Signature>>,
     pub sig_resolving: bool,
     pub target: Option<ProcTarget>,
     pub body_state: BodyState,

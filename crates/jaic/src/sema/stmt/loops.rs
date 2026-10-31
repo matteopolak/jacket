@@ -6,7 +6,7 @@ use crate::sema::calls::CallArg;
 use crate::sema::lower::{FnCtx, ForBody, Immutable, LoopFrame, LoopRemove, Operand, Origin};
 use crate::sema::scope::{EntityKind, Resolved};
 use crate::sema::{
-    Compiler, Diagnostic, PreludeType, ProcId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast,
+    Arc, Compiler, Diagnostic, PreludeType, ProcId, Result, ScopeId, Span, Sym, TypeId, Value, ast,
     err, ir, procs,
 };
 use crate::source::{Applicability, Suggestion};
@@ -910,9 +910,9 @@ impl Compiler {
     ) -> Result<()> {
         // The body becomes a Code value; names declared with backticks land in the loop scope.
         let loop_scope = self.new_hidden_scope(scope);
-        let body_stmt = Rc::new((*for_.body).clone());
+        let body_stmt = Arc::new((*for_.body).clone());
         let code = self.add_code(
-            Rc::new(ast::CodeBody::Block(ast::Block {
+            Arc::new(ast::CodeBody::Block(ast::Block {
                 stmts: vec![(*for_.body).clone()],
                 span: for_.body.span,
                 checks_off: crate::ast::CheckBits::NONE,

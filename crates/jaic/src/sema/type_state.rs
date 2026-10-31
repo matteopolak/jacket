@@ -2,7 +2,7 @@
 //! globals, default values and initializers.
 
 use super::body_probe::{Probed, W};
-use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::ast;
 use crate::fxhash::{HashMap, HashSet};
@@ -25,7 +25,7 @@ pub struct TypeState {
     /// Field type queries do not require storage layout or declaration reordering.
     pub field_types: Probed<HashMap<ScopeId, HashMap<Sym, TypeId>>, { W::TyFieldTypes as usize }>,
     pub(in crate::sema) field_declarations:
-        Probed<HashMap<ScopeId, HashMap<Sym, Rc<ast::Decl>>>, { W::TyFieldDeclarations as usize }>,
+        Probed<HashMap<ScopeId, HashMap<Sym, Arc<ast::Decl>>>, { W::TyFieldDeclarations as usize }>,
     pub(in crate::sema) field_type_pending:
         Probed<HashSet<(ScopeId, ast::AstId)>, { W::TyFieldTypePending as usize }>,
     pub(in crate::sema) field_filter_cache: Probed<
@@ -92,7 +92,7 @@ pub struct TypeState {
     pub(in crate::sema) using_filters:
         Probed<HashMap<StructId, structs::UsingFilters>, { W::TyUsingFilters as usize }>,
     pub default_images:
-        Probed<HashMap<TypeId, Option<Rc<value::Aggregate>>>, { W::TyDefaultImages as usize }>,
+        Probed<HashMap<TypeId, Option<Arc<value::Aggregate>>>, { W::TyDefaultImages as usize }>,
     pub default_globals: Probed<HashMap<TypeId, ir::GlobalId>, { W::TyDefaultGlobals as usize }>,
     pub initializers: Probed<HashMap<TypeId, ir::FuncId>, { W::TyInitializers as usize }>,
     /// The stand-in `Type_Info_Struct` of each polymorphic struct, by its literal.

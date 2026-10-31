@@ -7,8 +7,8 @@
 //! Every field holding a `Span` or an `Ident` must be visited here. A field left out
 //! keeps its worker value, which `parse_ahead`'s tests catch by comparing against a serial parse.
 use super::{
-    Arg, ArraySize, AsmBlock, AsmDecl, AsmItem, AsmOperand, AsmPin, AsmSize, Block, Case, CodeBody,
-    Decl, EnumItem, Expr, ExprKind, File, ForOver, Ident, Note, Notes, Param, ProcHeader, Rc,
+    Arc, Arg, ArraySize, AsmBlock, AsmDecl, AsmItem, AsmOperand, AsmPin, AsmSize, Block, Case,
+    CodeBody, Decl, EnumItem, Expr, ExprKind, File, ForOver, Ident, Note, Notes, Param, ProcHeader,
     RunBody, Span, Stmt, StmtKind, StructLit, SwitchStmt, UsingFilter,
 };
 use crate::fxhash::HashSet;
@@ -61,19 +61,19 @@ pub fn relocate_stmts(stmts: &mut [Stmt], real: FileId) {
     }
 }
 
-/// Mutable access to an `Rc`'s contents. The tree being relocated is owned by one thread and
+/// Mutable access to an `Arc`'s contents. The tree being relocated is owned by one thread and
 /// nothing else holds its nodes, so no reference to the contents exists while it is edited.
 #[allow(unsafe_code, clippy::mut_from_ref)]
-fn rc_mut<T>(rc: &Rc<T>) -> &mut T {
+fn rc_mut<T>(rc: &Arc<T>) -> &mut T {
     // SAFETY: see above. A node reachable twice (`strong_count > 1`) is visited once, through
     // `Relocator::once`, so the edits never alias.
-    unsafe { &mut *Rc::as_ptr(rc).cast_mut() }
+    unsafe { &mut *Arc::as_ptr(rc).cast_mut() }
 }
 
 impl Relocator {
     /// True the first time a shared node is met.
-    fn once<T>(&mut self, rc: &Rc<T>) -> bool {
-        Rc::strong_count(rc) == 1 || self.shared.insert(Rc::as_ptr(rc).cast::<()>())
+    fn once<T>(&mut self, rc: &Arc<T>) -> bool {
+        Arc::strong_count(rc) == 1 || self.shared.insert(Arc::as_ptr(rc).cast::<()>())
     }
 
     fn span(&self, span: &mut Span) {
@@ -369,7 +369,7 @@ impl Relocator {
         }
     }
 
-    fn header(&mut self, header: &Rc<ProcHeader>) {
+    fn header(&mut self, header: &Arc<ProcHeader>) {
         if !self.once(header) {
             return;
         }
@@ -395,7 +395,7 @@ impl Relocator {
         self.span(&mut header.span);
     }
 
-    fn struct_lit(&mut self, lit: &Rc<StructLit>) {
+    fn struct_lit(&mut self, lit: &Arc<StructLit>) {
         if !self.once(lit) {
             return;
         }
@@ -452,7 +452,7 @@ impl Relocator {
         }
     }
 
-    fn decl(&mut self, decl: &Rc<Decl>) {
+    fn decl(&mut self, decl: &Arc<Decl>) {
         if !self.once(decl) {
             return;
         }

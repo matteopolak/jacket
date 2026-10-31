@@ -6,7 +6,7 @@ use crate::ir::Ty;
 use crate::sema::lower::{FnCtx, Operand, Origin};
 use crate::sema::scope::{EntityKind, Found, Resolved, ScopeKind};
 use crate::sema::{
-    Compiler, Diagnostic, EntityId, PreludeType, Rc, Result, ScopeId, Span, Sym, TypeId, Value,
+    Arc, Compiler, Diagnostic, EntityId, PreludeType, Result, ScopeId, Span, Sym, TypeId, Value,
     ast, err, procs, scope,
 };
 use crate::types::{ArrayKind, ProcType, TypeKind};
@@ -756,7 +756,7 @@ impl Compiler {
                 returns.push(t);
             }
         }
-        let ty = self.ty.types.intern(TypeKind::Proc(Rc::new(ProcType {
+        let ty = self.ty.types.intern(TypeKind::Proc(Arc::new(ProcType {
             params,
             returns,
             variadic,

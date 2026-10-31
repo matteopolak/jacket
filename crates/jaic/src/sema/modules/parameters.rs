@@ -4,7 +4,7 @@ use crate::sema::convert::Site;
 use crate::sema::lower::Origin;
 use crate::sema::scope::EntityKind;
 use crate::sema::{
-    Compiler, Diagnostic, EntityId, ModuleId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast,
+    Arc, Compiler, Diagnostic, EntityId, ModuleId, Result, ScopeId, Span, Sym, TypeId, Value, ast,
     err, ir, lower, procs, scope,
 };
 use std::path::Path;
@@ -104,7 +104,7 @@ impl Compiler {
             } = &mut self.entity_mut(entity).kind
                 && decl.ty.is_none()
             {
-                Rc::make_mut(decl).value = Some(value);
+                Arc::make_mut(decl).value = Some(value);
                 self.entity_mut(entity).home = scope;
             }
         }
@@ -210,7 +210,7 @@ impl Compiler {
             .iter()
             .find(|(n, ..)| *n == name.name || n.as_str() == format!("${position}"))
             .map(|(_, v, ty)| (v.clone(), *ty));
-        let decl = Rc::new(ast::Decl {
+        let decl = Arc::new(ast::Decl {
             id: ast::AstId::fresh(),
             names: vec![name],
             kind: ast::DeclKind::Const,
@@ -255,7 +255,7 @@ impl Compiler {
             else {
                 unreachable!()
             };
-            let decl = Rc::make_mut(decl);
+            let decl = Arc::make_mut(decl);
             // `P := Kind.A` has no written type: use the default's (`type_of(Kind.A)`).
             if decl.ty.is_none()
                 && let Some(default) = decl.value.take()

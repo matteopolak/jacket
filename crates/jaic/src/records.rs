@@ -14,6 +14,7 @@
 //! struct the metaprogram built from it) keeps its identity across messages.
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+use std::sync::Arc;
 
 use crate::builtin_keys::SyntaxKey;
 use crate::fxhash::HashMap;
@@ -24,7 +25,7 @@ use std::sync::{OnceLock, PoisonError, RwLock};
 pub enum Item {
     /// Integers, enums, bools; floats as their raw bits.
     Int(i64),
-    Str(Rc<[u8]>),
+    Str(Arc<[u8]>),
     /// Another record (0 = null).
     Ref(i64),
 }
@@ -40,7 +41,7 @@ pub enum Field {
 #[derive(Clone, Copy, Debug)]
 pub enum FieldRef<'a> {
     Int(i64),
-    Str(&'a Rc<[u8]>),
+    Str(&'a Arc<[u8]>),
     Ref(i64),
     List(List<'a>),
 }
@@ -236,7 +237,7 @@ struct Slot {
 
 #[derive(Clone, Debug)]
 enum Extra {
-    Str(Rc<[u8]>),
+    Str(Arc<[u8]>),
     List(Vec<Item>),
     Refs(Box<[i64]>),
 }

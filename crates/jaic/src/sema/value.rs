@@ -2,7 +2,7 @@
 use crate::diagnostics::Code;
 use crate::ir::Reloc;
 use crate::types::{TypeId, Types};
-use std::rc::Rc;
+use std::sync::Arc;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct ProcId(pub u32);
@@ -28,12 +28,12 @@ pub enum Value {
     /// untyped aliases and folding. Explicit/typed conversions clear it.
     Float(f64, crate::lexer::FloatLiteralPrecision),
     Bool(bool),
-    String(Rc<[u8]>),
+    String(Arc<[u8]>),
     Type(TypeId),
     Null,
     Proc(ProcId),
     /// Raw bytes of an aggregate (struct/array/Any...) plus pointer relocations.
-    Bytes(Rc<Aggregate>),
+    Bytes(Arc<Aggregate>),
     Code(CodeId),
     Void,
 }
@@ -210,7 +210,7 @@ mod tests {
         let values: Vec<Value> = relocations
             .into_iter()
             .map(|r| {
-                Value::Bytes(Rc::new(Aggregate {
+                Value::Bytes(Arc::new(Aggregate {
                     bytes: vec![0; 16],
                     relocs: vec![r],
                 }))

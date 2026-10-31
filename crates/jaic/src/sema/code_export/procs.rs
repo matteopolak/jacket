@@ -3,7 +3,8 @@ use super::constants::node;
 use super::{Exporter, Typechecked};
 use crate::builtin_keys::SyntaxKey;
 use crate::records::{FieldRef, Item, RecordTag, Records};
-use crate::sema::{Compiler, ProcId, Rc, ScopeId, Span, Sym, ast, procs};
+use crate::sema::{Compiler, ProcId, ScopeId, Span, Sym, ast, procs};
+use std::sync::Arc;
 
 /// The directives reported to metaprograms as text in `Code_Procedure_Header.flags`.
 const REPORTED_DIRECTIVES: [ast::ProcBits; 5] = [
@@ -78,7 +79,7 @@ impl Exporter<'_> {
         &mut self,
         lit: &ast::ProcLit,
         decl_notes: &[ast::Note],
-        resolved: Option<(ProcId, Option<Rc<procs::Signature>>)>,
+        resolved: Option<(ProcId, Option<Arc<procs::Signature>>)>,
         span: Span,
     ) -> i64 {
         let start = self.sub.len();

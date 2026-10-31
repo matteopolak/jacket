@@ -122,7 +122,7 @@ pub(crate) struct Parser<'a> {
     /// as the operand instead of indexing `T`.
     in_asm_size: bool,
     /// Operator text (`+`, `[]`, ...) for the procedure header parsed next.
-    pending_operator: Option<std::rc::Rc<str>>,
+    pending_operator: Option<std::sync::Arc<str>>,
     /// Token index just past a brace-terminated construct that ended with trailing flags
     /// (`struct {..} #no_padding`); such a statement needs no `;`.
     block_end: usize,
@@ -381,7 +381,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Consumes a string literal token.
-    fn string_lit(&mut self, context: &str) -> PResult<(std::rc::Rc<[u8]>, Span)> {
+    fn string_lit(&mut self, context: &str) -> PResult<(std::sync::Arc<[u8]>, Span)> {
         match self.tok() {
             Tok::Str(s) => {
                 let s = s.clone();

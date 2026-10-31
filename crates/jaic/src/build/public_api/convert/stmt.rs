@@ -9,7 +9,7 @@ use crate::{
     interp::Trap,
     types::TypeId,
 };
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// The assignment an `operator_type` stands for, if it is one.
 pub(super) fn assign_op(value: u64) -> Option<AssignOp> {
@@ -51,7 +51,7 @@ impl Convert<'_, '_> {
             };
             // Notes after a declaration are the declaration's.
             match &mut stmt.kind {
-                StmtKind::Decl(decl) | StmtKind::AddContext(decl) => Rc::get_mut(decl)
+                StmtKind::Decl(decl) | StmtKind::AddContext(decl) => Arc::get_mut(decl)
                     .expect("a converted declaration is not shared")
                     .notes
                     .extend(notes),
@@ -69,8 +69,8 @@ impl Convert<'_, '_> {
 
     fn stmt_kind(&mut self, at: u64, name: &str, ty: TypeId) -> R<StmtKind> {
         Ok(match name {
-            "DECLARATION" => StmtKind::Decl(Rc::new(self.decl(at, ty)?)),
-            "COMPOUND_DECLARATION" => StmtKind::Decl(Rc::new(self.compound(at, ty)?)),
+            "DECLARATION" => StmtKind::Decl(Arc::new(self.decl(at, ty)?)),
+            "COMPOUND_DECLARATION" => StmtKind::Decl(Arc::new(self.compound(at, ty)?)),
             "BINARY_OPERATOR" => {
                 let Some(op) = assign_op(self.num(at, ty, "operator_type")?) else {
                     return Ok(StmtKind::Expr(self.expr_node(at, name, ty)?));
@@ -88,7 +88,7 @@ impl Convert<'_, '_> {
             }
             "BLOCK" => StmtKind::Block(self.block_node(at, ty)?),
             "IF" => return self.conditional(at, name, ty),
-            "CASE" => StmtKind::Case(Rc::new(self.case(at, ty)?)),
+            "CASE" => StmtKind::Case(Arc::new(self.case(at, ty)?)),
             "WHILE" => {
                 self.word("while");
                 let label = self.attribute(at, SyntaxKey::Label)?;
@@ -145,7 +145,7 @@ impl Convert<'_, '_> {
             "PUSH_CONTEXT" => self.push_context(at, ty)?,
             "DIRECTIVE_INSERT" => StmtKind::Insert(Box::new(self.insert(at, ty)?)),
             "DIRECTIVE_RUN" => self.run_stmt(at, ty)?,
-            "DIRECTIVE_IMPORT" => StmtKind::Import(Rc::new(self.import(at, ty)?)),
+            "DIRECTIVE_IMPORT" => StmtKind::Import(Arc::new(self.import(at, ty)?)),
             "DIRECTIVE_LOAD" => {
                 self.word("#load");
                 let path = self.text(at, ty, "short_name")?;
@@ -186,7 +186,7 @@ impl Convert<'_, '_> {
             "DIRECTIVE_ADD_CONTEXT" => {
                 self.word("#add_context");
                 let decl = self.ptr(at, ty, "expression")?;
-                StmtKind::AddContext(Rc::new(self.node(decl, |c, name, ty| {
+                StmtKind::AddContext(Arc::new(self.node(decl, |c, name, ty| {
                     if name != "DECLARATION" {
                         return Err(Trap::new(format!(
                             "#add_context requires a declaration, got {name}"
@@ -458,7 +458,7 @@ impl Convert<'_, '_> {
         let (body, flags) = self.run(at, ty)?;
         Ok(StmtKind::Run(Box::new(mk(
             ExprKind::Run {
-                body: Rc::new(body),
+                body: Arc::new(body),
                 flags,
             },
             self.since(start),

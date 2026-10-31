@@ -14,6 +14,7 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::sync::Arc;
 
 /// `path`'s id among the files `compiler` compiled.
 pub(super) fn find_file(compiler: &Compiler, path: &Path) -> Option<FileId> {
@@ -177,7 +178,7 @@ pub(super) fn compile(
     env: &Environment,
     root: &Path,
     dirs: &[PathBuf],
-    files: BTreeMap<PathBuf, Rc<[u8]>>,
+    files: BTreeMap<PathBuf, Arc<[u8]>>,
     os: Option<TargetOs>,
     parses: &Rc<RefCell<jaic::parser::ParseReuse>>,
     mode: Mode,
@@ -212,7 +213,7 @@ pub(super) fn compile(
         let stub = jaic::project::module_root_stub(&folder);
         files.insert(
             jaic::paths::file_identity(&*env.fs, &stub),
-            Rc::from(jaic::project::module_root_stub_text(&import).into_bytes()),
+            Arc::from(jaic::project::module_root_stub_text(&import).into_bytes()),
         );
         stub
     });

@@ -25,7 +25,7 @@ use crate::{
     source::Span,
     types::TypeId,
 };
-use std::rc::Rc;
+use std::sync::Arc;
 
 type R<T> = Result<T, Trap>;
 
@@ -78,7 +78,7 @@ pub(super) fn get_code(cx: &Call, interp: &mut Interp) -> R<Rets> {
         return Ok(Rets::one(id as u64));
     }
     let id = interp.codes.len();
-    interp.codes.push(Rc::new(body));
+    interp.codes.push(Arc::new(body));
     interp.made_codes.push(MadeCode {
         id,
         scope_from,
@@ -139,7 +139,7 @@ impl<'a, 'b> Convert<'a, 'b> {
         }
     }
 
-    fn finish(self) -> (Rc<str>, Box<[u8]>) {
+    fn finish(self) -> (Arc<str>, Box<[u8]>) {
         (self.text.into(), self.print.into())
     }
 

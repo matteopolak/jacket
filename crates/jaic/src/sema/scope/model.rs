@@ -1,6 +1,6 @@
 //! Scopes, entities and the kinds of things a name can resolve to.
 use crate::sema::{
-    Diagnostic, FileId, HashMap, ModuleId, ProcId, Rc, Span, Sym, Value, ast, ir, value,
+    Arc, Diagnostic, FileId, HashMap, ModuleId, ProcId, Span, Sym, Value, ast, ir, value,
 };
 use crate::types::TypeId;
 
@@ -49,7 +49,7 @@ pub struct Pending {
 
 #[derive(Clone)]
 pub struct ImportEntry {
-    pub import: Rc<ast::Import>,
+    pub import: Arc<ast::Import>,
     pub module: Option<ModuleId>,
     pub loading: bool,
     /// The file that wrote the import (for relative paths and parameter evaluation).
@@ -79,9 +79,9 @@ pub enum UsingEntry {
     /// Constants of a type (struct constants, enum members).
     Type(TypeId),
     /// A module's names, minus those an `only`/`except` filter hides.
-    Module(ModuleId, Option<Rc<ast::UsingFilter>>),
+    Module(ModuleId, Option<Arc<ast::UsingFilter>>),
     /// A resolved aggregate name filter; the target retains its original storage.
-    Filtered(Box<UsingEntry>, Rc<ast::UsingFilter>),
+    Filtered(Box<UsingEntry>, Arc<ast::UsingFilter>),
 }
 
 impl UsingEntry {
@@ -159,11 +159,11 @@ pub enum BuiltinProc {
 pub enum EntityKind {
     /// Global or struct-level constant/variable from source.
     Decl {
-        decl: Rc<ast::Decl>,
+        decl: Arc<ast::Decl>,
         index: usize,
     },
     /// `Name :: #import "X"`.
-    Import(Rc<ast::Import>),
+    Import(Arc<ast::Import>),
     Builtin(Builtin),
     /// A runtime local living at `addr` in the procedure being lowered.
     Local {

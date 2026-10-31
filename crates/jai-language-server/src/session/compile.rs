@@ -7,6 +7,7 @@ use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::sync::Arc;
 
 impl Session {
     pub(super) fn rebuild(&mut self) {
@@ -118,7 +119,7 @@ impl Session {
 
     fn work_out_inputs(&self, uri: &DocumentUri, text: &str) -> Option<CompileInputs> {
         let environment = self.environment.as_ref()?;
-        let files: BTreeMap<PathBuf, Rc<[u8]>> = self
+        let files: BTreeMap<PathBuf, Arc<[u8]>> = self
             .documents
             .iter()
             .map(|(u, d)| {
@@ -133,7 +134,7 @@ impl Session {
                 } else {
                     d.ide_text()
                 };
-                (PathBuf::from(u.path()), Rc::from(view.as_bytes()))
+                (PathBuf::from(u.path()), Arc::from(view.as_bytes()))
             })
             .collect();
         // The open document no other open document loads, compiled from the project's entry
@@ -178,7 +179,7 @@ impl Session {
     /// changed since), once each, so their recorded facts decide which program `uri` is in
     /// instead of a scan of their text. A run that fails is not repeated until the
     /// metaprogram, what it loads or `jacket.toml` changes.
-    fn run_unrecorded_builds(&self, uri: &DocumentUri, files: &BTreeMap<PathBuf, Rc<[u8]>>) {
+    fn run_unrecorded_builds(&self, uri: &DocumentUri, files: &BTreeMap<PathBuf, Arc<[u8]>>) {
         let Some(environment) = self.environment.as_ref() else {
             return;
         };

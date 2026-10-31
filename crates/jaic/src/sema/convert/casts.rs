@@ -443,7 +443,7 @@ impl Compiler {
         {
             return Ok(Operand::Const {
                 ty: to,
-                value: Value::Bytes(std::rc::Rc::new(crate::sema::value::Aggregate {
+                value: Value::Bytes(std::sync::Arc::new(crate::sema::value::Aggregate {
                     bytes: bytes.to_vec(),
                     relocs: Vec::new(),
                 })),

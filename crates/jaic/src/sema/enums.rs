@@ -1,7 +1,7 @@
 //! Enum declarations retain source order while values resolve through the ordinary entity graph.
 use super::lower::Operand;
 use super::scope::{EntityKind, EntityState, Resolved};
-use super::{Compiler, EntityId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err};
+use super::{Arc, Compiler, EntityId, Result, ScopeId, Span, Sym, TypeId, Value, ast, err};
 use crate::ast::ExprKind as E;
 use crate::diagnostics::Code;
 use crate::types::{EnumInfo, TypeKind};
@@ -34,7 +34,7 @@ impl Compiler {
     pub fn new_enum_type(
         &mut self,
         name: Sym,
-        lit: &Rc<ast::EnumLit>,
+        lit: &Arc<ast::EnumLit>,
         scope: ScopeId,
     ) -> Result<TypeId> {
         let base = match &lit.base {

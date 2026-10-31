@@ -13,6 +13,7 @@ use crate::types::StructId;
 use crate::types::TypeId;
 use std::path::PathBuf;
 use std::rc::Rc;
+use std::sync::Arc;
 
 /// Lengths of `IdeFacts::refs`, `Compiler::entities` and `Compiler::procs` at a point.
 #[derive(Clone, Copy, Debug)]
@@ -71,7 +72,7 @@ pub struct IdeFacts {
     pub(super) wanted: HashMap<FileId, bool>,
     /// The exact body associated with an IDE-final lenient failure. Replacing a
     /// procedure's AST invalidates that failure even without another source load.
-    pub(crate) failed_body_lits: HashMap<ProcId, Rc<ast::ProcLit>>,
+    pub(crate) failed_body_lits: HashMap<ProcId, Arc<ast::ProcLit>>,
     pub refs: Vec<IdeRef>,
     /// Static filter selectors may denote an entire exported overload set.
     pub(super) filter_targets: HashMap<Span, Vec<EntityId>>,

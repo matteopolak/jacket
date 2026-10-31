@@ -13,11 +13,12 @@ mod parens;
 pub mod relocate;
 pub use parens::Parens;
 mod spelling;
+mod sync_check;
 pub mod walk;
 pub use flags::{CallHintFlag, CheckBits, ProcBits, ProcFlags, StructBits, StructFlags};
 pub use spelling::Spelling;
 use std::cell::Cell;
-use std::rc::Rc;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -62,7 +63,7 @@ pub struct Ident {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Note {
-    pub text: Rc<str>,
+    pub text: Arc<str>,
     pub span: Span,
 }
 
@@ -273,7 +274,7 @@ pub enum ExprKind {
     Int(Int128, Spelling),
     /// A float literal, how many digits it asked for and how it was written.
     Float(f64, crate::lexer::FloatLiteralPrecision, Spelling),
-    Str(Rc<[u8]>),
+    Str(Arc<[u8]>),
     Bool(bool),
     Null,
     /// `---`
@@ -321,29 +322,29 @@ pub enum ExprKind {
         elem: Box<Expr>,
     },
     /// A procedure header without a body (a procedure type).
-    ProcType(Rc<ProcHeader>),
+    ProcType(Arc<ProcHeader>),
     /// A procedure literal (header + body, or a foreign/compiler declaration).
-    Proc(Rc<ProcLit>),
+    Proc(Arc<ProcLit>),
     /// Short lambda: `x => x + 1`, `(a, b) => { ... }`. Parameter types are usually absent.
     Lambda {
-        header: Rc<ProcHeader>,
+        header: Arc<ProcHeader>,
         body: Box<Expr>,
     },
     /// A block in value position: `#ifx c { ...; value } else { ... }`, lambda bodies.
     Block(Box<Block>),
-    Struct(Rc<StructLit>),
-    Enum(Rc<EnumLit>),
+    Struct(Arc<StructLit>),
+    Enum(Arc<EnumLit>),
     TypeDirective {
         modifier: TypeModifier,
         ty: Box<Expr>,
     },
     /// `#run expr` or `#run { ... }`.
     Run {
-        body: Rc<RunBody>,
+        body: Arc<RunBody>,
         flags: Vec<Ident>,
     },
     /// `#code expr`, `#code { ... }`.
-    Code(Rc<CodeBody>),
+    Code(Arc<CodeBody>),
     /// `#insert expr` in expression position. `scope` is the `,scope(x)` operand;
     /// `replacements` are the `(remove = ..., break = ...)` arguments before the code.
     Insert(Box<InsertExpr>),
@@ -377,7 +378,7 @@ pub enum ExprKind {
     /// `` `x ``: refer to the macro caller's scope.
     Backtick(Box<Expr>),
     /// `#asm { ... }`: x64 instructions over Jai variables (lowered by `sema::asm`).
-    Asm(Rc<AsmBlock>),
+    Asm(Arc<AsmBlock>),
 }
 
 /// The payload of `ExprKind::Insert`, boxed because it is rare and large.
@@ -577,7 +578,7 @@ pub struct Return {
 pub enum ForeignName {
     /// `#foreign lib` — symbol is the declaration's name.
     Default,
-    Named(Rc<str>),
+    Named(Arc<str>),
 }
 
 /// `#foreign lib "symbol"` / `#elsewhere lib "symbol"`; `library == None` for a bare `#foreign;`.
@@ -612,7 +613,7 @@ pub struct ProcHeader {
     pub notes: Vec<Note>,
     pub span: Span,
     /// `operator +` style declarations: the operator text.
-    pub operator: Option<Rc<str>>,
+    pub operator: Option<Arc<str>>,
     /// `#bake_arguments` removed parameters, so `span`'s text lists more than `params`.
     pub baked: bool,
 }
@@ -627,7 +628,7 @@ impl ProcHeader {
 
 #[derive(Clone, Debug)]
 pub struct ProcLit {
-    pub header: Rc<ProcHeader>,
+    pub header: Arc<ProcHeader>,
     /// `None` for foreign, `#compiler`, `#intrinsic` and `#elsewhere` declarations.
     pub body: Option<Block>,
 }
@@ -895,13 +896,13 @@ pub enum ScopeKind {
 #[derive(Clone, Debug)]
 pub enum ImportSource {
     /// `#import "Basic"`
-    Module(Rc<str>),
+    Module(Arc<str>),
     /// `#import,file "x.jai"`
-    File(Rc<str>),
+    File(Arc<str>),
     /// `#import,dir "path"`
-    Dir(Rc<str>),
+    Dir(Arc<str>),
     /// `#import,string "source"`
-    String(Rc<str>),
+    String(Arc<str>),
 }
 
 #[derive(Clone, Debug)]
@@ -956,7 +957,7 @@ pub enum UsingFilterKind {
 
 #[derive(Clone, Debug)]
 pub enum StmtKind {
-    Decl(Rc<Decl>),
+    Decl(Arc<Decl>),
     Expr(Expr),
     Assign {
         op: AssignOp,
@@ -998,15 +999,15 @@ pub enum StmtKind {
     Assert(Box<AssertStmt>),
     /// Top-level `#run expr;`
     Run(Box<Expr>),
-    Import(Rc<Import>),
+    Import(Arc<Import>),
     /// `#load "file.jai";`
     Load {
-        path: Rc<str>,
+        path: Arc<str>,
         span: Span,
     },
     Scope(ScopeKind),
     /// `#add_context name: T = v;`
-    AddContext(Rc<Decl>),
+    AddContext(Arc<Decl>),
     /// `#module_parameters (A := 1) (B := 2);` second list = parameters visible to importers' runtime.
     ModuleParameters(Box<ModuleParametersStmt>),
     /// `#placeholder name;`
@@ -1025,7 +1026,7 @@ pub enum StmtKind {
     Empty,
     /// A lone `case x; ...` as the body of `#code case ...` (yield-jai builds switches
     /// from them); not valid as a statement.
-    Case(Rc<Case>),
+    Case(Arc<Case>),
 }
 
 // The payloads below are boxed in `StmtKind` because they are rare and large: every `Stmt` pays

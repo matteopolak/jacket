@@ -16,7 +16,7 @@ use super::lower::{FnCtx, MacroFrame, Operand};
 use super::procs::{ProcTarget, Signature};
 use super::scope::{BuiltinProc, EntityKind, ScopeKind, UsingEntry};
 use super::{
-    Compiler, Diagnostic, PackKey, PreludeType, ProcId, ProcTypeParams, Rc, Result, ScopeId, Span,
+    Arc, Compiler, Diagnostic, PackKey, PreludeType, ProcId, ProcTypeParams, Result, ScopeId, Span,
     Sym, TypeId, Value, asm, ast, err, ir, procs, scope, value,
 };
 use crate::ast::ExprKind as E;
@@ -270,7 +270,7 @@ impl Compiler {
                     span,
                     parens: None,
                 };
-                self.pr.calls_in_flight.push((Rc::new(call), scope));
+                self.pr.calls_in_flight.push((Arc::new(call), scope));
                 let result = self.call_procs(f, scope, &procs, call_args, expected, span);
                 self.pr.calls_in_flight.pop();
                 result

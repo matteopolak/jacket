@@ -3,7 +3,7 @@ use super::parameters::{ParameterContract, ParameterContractState};
 use crate::diagnostics::Code;
 use crate::ide::Recorder;
 use crate::sema::scope::{EntityKind, ImportEntry, Pending, PendingState, ScopeKind, UsingEntry};
-use crate::sema::{Compiler, EntityId, Rc, Result, ScopeId, Sym, ast, err, lower, procs};
+use crate::sema::{Arc, Compiler, EntityId, Result, ScopeId, Sym, ast, err, lower, procs};
 
 impl Compiler {
     /// Declare top-level statements. Returns the visibility state at the end.
@@ -715,8 +715,8 @@ pub(in crate::sema) fn file_scope_for_eval(
 }
 
 /// `name :: value;`, a synthesized constant declaration.
-fn const_alias(name: ast::Ident, value: ast::Expr) -> Rc<ast::Decl> {
-    Rc::new(ast::Decl {
+fn const_alias(name: ast::Ident, value: ast::Expr) -> Arc<ast::Decl> {
+    Arc::new(ast::Decl {
         id: ast::AstId::fresh(),
         names: vec![name],
         kind: ast::DeclKind::Const,

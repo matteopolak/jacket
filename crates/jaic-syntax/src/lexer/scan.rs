@@ -7,7 +7,7 @@ use crate::diagnostics::Code;
 use crate::diagnostics::Diagnostic;
 use crate::intern::Sym;
 use crate::source::{Applicability, FileId, Span, Suggestion};
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub(super) struct Lexer<'a> {
     pub(super) file: FileId,
@@ -177,7 +177,7 @@ impl<'a> Lexer<'a> {
                 if self.peek(0) == b'"' {
                     self.at += 1;
                     let s = self.string_body(start)?;
-                    let note: Rc<str> = String::from_utf8_lossy(&s).into();
+                    let note: Arc<str> = String::from_utf8_lossy(&s).into();
                     self.push(Tok::Note(note), start);
                     continue;
                 }
@@ -203,7 +203,7 @@ impl<'a> Lexer<'a> {
                             "write the note without spaces, such as `@help_text` or `@range(1,64)`",
                         ));
                 }
-                let note: Rc<str> = String::from_utf8_lossy(text).into();
+                let note: Arc<str> = String::from_utf8_lossy(text).into();
                 self.push(Tok::Note(note), start);
             } else {
                 let rest = &self.src[self.at..];

@@ -12,7 +12,7 @@ use crate::{
     source::Span,
     types::TypeId,
 };
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub(super) fn mk(kind: ExprKind, span: Span) -> Expr {
     Expr {
@@ -96,8 +96,8 @@ impl Convert<'_, '_> {
                 });
             }
             "BLOCK" => ExprKind::Block(Box::new(self.block_node(at, ty)?)),
-            "STRUCT" => ExprKind::Struct(Rc::new(self.structure(at, ty)?)),
-            "ENUM" => ExprKind::Enum(Rc::new(self.enumeration(at, ty)?)),
+            "STRUCT" => ExprKind::Struct(Arc::new(self.structure(at, ty)?)),
+            "ENUM" => ExprKind::Enum(Arc::new(self.enumeration(at, ty)?)),
             "DIRECTIVE_EXISTS" => {
                 self.word("#exists");
                 ExprKind::Exists(Box::new(self.child(at, ty, "query_expression")?), None)
@@ -157,10 +157,10 @@ impl Convert<'_, '_> {
                 self.word("#code");
                 if self.has(at, ty, "code_flags", "NULL")? {
                     let span = self.word("null");
-                    ExprKind::Code(Rc::new(CodeBody::Expr(mk(ExprKind::Null, span))))
+                    ExprKind::Code(Arc::new(CodeBody::Expr(mk(ExprKind::Null, span))))
                 } else {
                     let child = self.ptr(at, ty, "expression")?;
-                    ExprKind::Code(Rc::new(self.code_body(child)?))
+                    ExprKind::Code(Arc::new(self.code_body(child)?))
                 }
             }
             "DIRECTIVE_THIS" => {
@@ -184,7 +184,7 @@ impl Convert<'_, '_> {
                 }))
             }
             "PLACEHOLDER" => self.placeholder(at)?,
-            "ASM" => ExprKind::Asm(Rc::new(self.assembly(at)?)),
+            "ASM" => ExprKind::Asm(Arc::new(self.assembly(at)?)),
             "RESOLVED_OVERLOAD" => return self.child(at, ty, "source_expression"),
             "DIRECTIVE_RUN" => {
                 if self.num(at, ty, "flags")? & 1 != 0 {
@@ -192,7 +192,7 @@ impl Convert<'_, '_> {
                 }
                 let (body, flags) = self.run(at, ty)?;
                 ExprKind::Run {
-                    body: Rc::new(body),
+                    body: Arc::new(body),
                     flags,
                 }
             }

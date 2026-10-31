@@ -20,6 +20,7 @@ use crate::source::FileId;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::sync::Arc;
 
 /// How many aliases are followed to the declaration they name.
 const MAX_HOPS: usize = 8;
@@ -204,7 +205,7 @@ pub struct Module {
 
 /// A parsed file and its text, read once.
 struct Parsed {
-    text: Rc<str>,
+    text: Arc<str>,
     parse: IdeParse,
     /// Declarations limited by an `#if` on `OS`; see [`limits`].
     limits: HashMap<u32, u8>,

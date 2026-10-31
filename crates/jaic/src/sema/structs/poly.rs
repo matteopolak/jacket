@@ -7,7 +7,7 @@ use crate::sema::lower::{Operand, Origin};
 use crate::sema::scope::{EntityKind, ScopeKind};
 use crate::sema::value::PolyStructId;
 use crate::sema::{
-    Compiler, Diagnostic, HashMap, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, scope,
+    Arc, Compiler, Diagnostic, HashMap, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, scope,
     value,
 };
 use crate::types::{ArrayKind, LayoutState, StructInfo, TypeKind};
@@ -16,7 +16,7 @@ impl Compiler {
     pub fn new_struct_type(
         &mut self,
         name: Sym,
-        lit: Rc<ast::StructLit>,
+        lit: Arc<ast::StructLit>,
         parent: ScopeId,
         bindings: Vec<(Sym, Value, TypeId)>,
         poly: Option<(PolyStructId, Vec<Value>)>,
@@ -26,7 +26,7 @@ impl Compiler {
             ast: Some(lit.id),
             // A tagged union is a struct: the tag, then the members' union.
             is_union: lit.kind == ast::StructKind::Union && lit.tag.is_none(),
-            fields: Rc::from([]),
+            fields: Arc::from([]),
             size: 0,
             align: 1,
             layout: LayoutState::Pending,
@@ -260,7 +260,7 @@ impl Compiler {
         let fixed = self.ty.types.array(elem, ArrayKind::Fixed(count));
         Ok(Some(Operand::Const {
             ty: fixed,
-            value: Value::Bytes(Rc::new(array)),
+            value: Value::Bytes(Arc::new(array)),
             untyped: false,
             origin: Origin::Computed,
         }))
@@ -518,7 +518,7 @@ impl TypeState {
     pub fn new_poly_struct(
         &mut self,
         name: Sym,
-        lit: Rc<ast::StructLit>,
+        lit: Arc<ast::StructLit>,
         scope: ScopeId,
     ) -> PolyStructId {
         self.poly_structs.push(PolyStruct {

@@ -2,7 +2,7 @@
 use crate::diagnostics::Code;
 use crate::layout;
 use crate::sema::value::Aggregate;
-use crate::sema::{Compiler, Rc, Result, Span, Sym, TypeId, Value, err, ir, structs};
+use crate::sema::{Arc, Compiler, Result, Span, Sym, TypeId, Value, err, ir, structs};
 
 /// The elements a `[] T` view field points at: how many, their bytes and the alignment of the
 /// global that holds them.
@@ -123,7 +123,7 @@ impl Compiler {
         &mut self,
         agg: &mut Aggregate,
         desc: TypeId,
-        notes: &[Rc<[u8]>],
+        notes: &[Arc<[u8]>],
         span: Span,
     ) -> Result<()> {
         let data = self.string_view(notes, span)?;
@@ -199,7 +199,7 @@ impl Compiler {
         Ok(data)
     }
 
-    pub(super) fn string_view(&mut self, strings: &[Rc<[u8]>], span: Span) -> Result<Aggregate> {
+    pub(super) fn string_view(&mut self, strings: &[Arc<[u8]>], span: Span) -> Result<Aggregate> {
         let mut data = Aggregate {
             bytes: vec![0; strings.len() * 16],
             relocs: Vec::new(),

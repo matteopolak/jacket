@@ -3,7 +3,8 @@ use super::constants::node;
 use super::{Exporter, assign_op};
 use crate::builtin_keys::SyntaxKey;
 use crate::records::RecordTag;
-use crate::sema::{Rc, Span, Sym, ast};
+use crate::sema::{Span, Sym, ast};
+use std::sync::Arc;
 
 impl Exporter<'_> {
     pub(super) fn block(&mut self, stmts: &[ast::Stmt], block_type: i64, span: Span) -> i64 {
@@ -580,7 +581,7 @@ impl Exporter<'_> {
             baked: false,
         };
         let lit = ast::ProcLit {
-            header: Rc::new(header),
+            header: Arc::new(header),
             body: None,
         };
         self.proc(&lit, &[], None, span)

@@ -3,7 +3,7 @@ use super::lower::Operand;
 use super::scope::{Builtin, EntityKind, EntityState, Resolved};
 use super::value::LibraryId;
 use super::{
-    Compiler, Diagnostic, EntityId, FileId, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast,
+    Arc, Compiler, Diagnostic, EntityId, FileId, Result, ScopeId, Span, Sym, TypeId, Value, ast,
     err, ir, lambda, procs,
 };
 use crate::diagnostics::Code;
@@ -286,7 +286,7 @@ impl Compiler {
         id: EntityId,
         scope: ScopeId,
         name: Sym,
-        decl: &Rc<ast::Decl>,
+        decl: &Arc<ast::Decl>,
         index: usize,
     ) -> Result<Resolved> {
         let Some(value) = &decl.value else {
@@ -357,7 +357,7 @@ impl Compiler {
                     .iter()
                     .any(|f| f.name.as_str() == "entry_point") =>
             {
-                let lit = Rc::new(ast::ProcLit {
+                let lit = Arc::new(ast::ProcLit {
                     header: header.clone(),
                     body: None,
                 });
@@ -534,7 +534,7 @@ impl Compiler {
         &mut self,
         scope: ScopeId,
         name: Sym,
-        decl: &Rc<ast::Decl>,
+        decl: &Arc<ast::Decl>,
     ) -> Result<Resolved> {
         let span = decl.span;
         let declared = match &decl.ty {
@@ -615,7 +615,7 @@ impl Compiler {
                 let size = self.size_of(ty, span)?;
                 let mut agg = super::value::Aggregate::zeroed(size, span)?;
                 self.write_value(&mut agg, 0, evaluated.as_ref().unwrap(), ty, span)?;
-                Some(Rc::new(agg))
+                Some(Arc::new(agg))
             }
             Some(v) => Some(self.global_initializer(scope, v, ty)?),
             None => self.default_initializer(ty, span)?,

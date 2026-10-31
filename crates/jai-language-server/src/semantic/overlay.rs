@@ -4,6 +4,7 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::sync::Arc;
 
 /// Every path a compile asked its file system about, by canonical key: files read or tested,
 /// folders tested. Compile-time code reads through the same file system, so what `#run` read
@@ -29,7 +30,7 @@ pub(super) struct OverlayFs {
     /// is wherever the editor started it, and a build metaprogram names its files and module
     /// folders relative to itself.
     pub(super) dir: PathBuf,
-    pub(super) files: BTreeMap<PathBuf, Rc<[u8]>>,
+    pub(super) files: BTreeMap<PathBuf, Arc<[u8]>>,
     /// `canonical` answers so far: a compile asks about the same paths over and over.
     pub(super) canonical: jaic::paths::CanonCache,
     /// What was asked so far; shared with the analysis, since queries after the compile can

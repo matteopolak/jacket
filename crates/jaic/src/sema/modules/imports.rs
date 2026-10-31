@@ -4,7 +4,7 @@ use super::parameters::INFERRED_PARAM;
 use crate::diagnostics::Code;
 use crate::ide::Recorder;
 use crate::sema::{
-    BootstrapModule, Compiler, ModuleId, ProvidedImport, ProvidedKind, Rc, Result, ScopeId, Sym,
+    Arc, BootstrapModule, Compiler, ModuleId, ProvidedImport, ProvidedKind, Result, ScopeId, Sym,
     TypeId, Value, ast, err, scope,
 };
 use std::path::Path;
@@ -221,7 +221,7 @@ impl Compiler {
                 let id = self.new_module("string", None, params);
                 self.ns.modules[id.0 as usize]
                     .argument_imports
-                    .push(Rc::new(import.clone()));
+                    .push(Arc::new(import.clone()));
                 let label = format!("import string {}", self.src.sources.len());
                 self.load_string(&label, source, id)?;
                 self.validate_module_arguments(id, import.span)?;
@@ -260,7 +260,7 @@ impl Compiler {
         if !module.arguments_validated {
             // A recursive or deferred header has not registered its slots yet.
             // Retain each request for validation before that header binds values.
-            module.argument_imports.push(Rc::new(import.clone()));
+            module.argument_imports.push(Arc::new(import.clone()));
             return Ok(());
         }
         let module = &self.ns.modules[id.0 as usize];
@@ -354,7 +354,7 @@ impl Compiler {
                 let id = self.new_module(name, None, params.to_vec());
                 self.ns.modules[id.0 as usize]
                     .argument_imports
-                    .push(Rc::new(import.clone()));
+                    .push(Arc::new(import.clone()));
                 let label = format!("provided import {name}");
                 self.load_string(&label, &provided.value, id)?;
                 self.validate_module_arguments(id, span)?;

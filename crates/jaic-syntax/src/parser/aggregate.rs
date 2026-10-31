@@ -6,7 +6,7 @@ use crate::ast::{
     StructLit, UsingStmt,
 };
 use crate::lexer::{P, Tok};
-use std::rc::Rc;
+use std::sync::Arc;
 
 impl Parser<'_> {
     /// `struct (T: Type) #flags { ... }` / `union { ... }`.
@@ -47,7 +47,7 @@ impl Parser<'_> {
             notes,
             span: start.to(end),
         };
-        Ok(mk(ExprKind::Struct(Rc::new(lit)), start.to(end)))
+        Ok(mk(ExprKind::Struct(Arc::new(lit)), start.to(end)))
     }
 
     /// `union tag : Type {`, `union tag : Type = default {` or `union tag := default {`: the tag
@@ -150,7 +150,7 @@ impl Parser<'_> {
             notes,
             span: start.to(end),
         };
-        Ok(mk(ExprKind::Enum(Rc::new(lit)), start.to(end)))
+        Ok(mk(ExprKind::Enum(Arc::new(lit)), start.to(end)))
     }
 
     /// Enum items up to (not including) the closing brace.

@@ -1,7 +1,7 @@
 //! Isolated host-workspace evaluation and explicit primitive result transfer.
 use super::lower::{Operand, Origin};
 use super::{
-    Compiler, Diagnostic, FileId, HashMap, Rc, Result, Span, TypeId, Value, ast, err, ir, scope,
+    Arc, Compiler, Diagnostic, FileId, HashMap, Result, Span, TypeId, Value, ast, err, ir, scope,
 };
 use crate::diagnostics::Code;
 use crate::types::TypeKind;
@@ -123,7 +123,7 @@ impl Compiler {
                                 span,
                             )?;
                         }
-                        Value::Bytes(Rc::new(image))
+                        Value::Bytes(Arc::new(image))
                     }
                     Value::Int(_) | Value::Float(..) | Value::Bool(_) | Value::String(_) => value,
                     _ => {

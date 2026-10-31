@@ -3,6 +3,7 @@ use std::borrow::Cow;
 use std::fmt;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::sync::Arc;
 
 mod suggestion;
 
@@ -323,12 +324,12 @@ impl From<&str> for SourcePath {
 #[derive(Clone)]
 pub struct SourceFile {
     pub path: SourcePath,
-    pub text: Rc<str>,
+    pub text: Arc<str>,
     lines: LineIndex,
 }
 
 impl SourceFile {
-    pub fn new(path: SourcePath, text: Rc<str>) -> Self {
+    pub fn new(path: SourcePath, text: Arc<str>) -> Self {
         let lines = LineIndex::new(&text);
         Self {
             path,
@@ -343,7 +344,7 @@ impl SourceFile {
     }
 
     /// A file whose line index was built elsewhere, from the same `text`.
-    pub fn with_lines(path: SourcePath, text: Rc<str>, lines: LineIndex) -> Self {
+    pub fn with_lines(path: SourcePath, text: Arc<str>, lines: LineIndex) -> Self {
         Self {
             path,
             text,
@@ -647,7 +648,7 @@ impl SourceMap {
         self.typechecked_use = usage;
     }
 
-    pub fn add(&mut self, path: impl Into<SourcePath>, text: Rc<str>) -> FileId {
+    pub fn add(&mut self, path: impl Into<SourcePath>, text: Arc<str>) -> FileId {
         let path = path.into();
         note_typechecked_name(&self.typechecked_use, &path, &text);
         self.table.push(SourceFile::new(path, text))

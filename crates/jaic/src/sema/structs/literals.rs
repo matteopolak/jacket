@@ -5,7 +5,7 @@ use crate::diagnostics::Code;
 use crate::ide::Recorder;
 use crate::sema::lower::{FnCtx, Operand, Origin};
 use crate::sema::value::Aggregate;
-use crate::sema::{Compiler, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, ir, procs};
+use crate::sema::{Arc, Compiler, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, ir, procs};
 use crate::types::{ArrayKind, TypeKind};
 
 impl Compiler {
@@ -204,7 +204,7 @@ impl Compiler {
             }
             return Ok(Operand::Const {
                 ty,
-                value: Value::Bytes(Rc::new(agg)),
+                value: Value::Bytes(Arc::new(agg)),
                 untyped: false,
                 origin: Origin::Computed,
             });
@@ -302,7 +302,7 @@ impl Compiler {
         {
             return None;
         }
-        let id = self.add_code(Rc::new(ast::CodeBody::Expr(element.clone())), scope);
+        let id = self.add_code(Arc::new(ast::CodeBody::Expr(element.clone())), scope);
         Some(Operand::Const {
             ty: TypeId::CODE,
             value: Value::Code(id),
@@ -377,7 +377,7 @@ impl Compiler {
             }
             return Ok(Operand::Const {
                 ty,
-                value: Value::Bytes(Rc::new(agg)),
+                value: Value::Bytes(Arc::new(agg)),
                 untyped: false,
                 origin: Origin::Computed,
             });

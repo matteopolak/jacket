@@ -7,7 +7,7 @@ use super::model::{
 use crate::diagnostics::Code;
 use crate::sema::Diagnostics;
 use crate::sema::{
-    Compiler, Diagnostic, FileId, HashMap, ModuleId, Rc, Result, Span, Sym, Value, ast,
+    Arc, Compiler, Diagnostic, FileId, HashMap, ModuleId, Result, Span, Sym, Value, ast,
 };
 use crate::types::TypeId;
 
@@ -236,7 +236,7 @@ impl Compiler {
         scope: ScopeId,
         name: Sym,
         span: Span,
-        decl: Option<&Rc<ast::Decl>>,
+        decl: Option<&Arc<ast::Decl>>,
     ) -> Result<()> {
         if name.as_str() == "_" {
             return Ok(());
@@ -261,7 +261,7 @@ impl Compiler {
                         decl: old, ..
                     },
                     Some(new),
-                ) if Rc::ptr_eq(old, new) || (may_overload(old) && may_overload(new)) => continue,
+                ) if Arc::ptr_eq(old, new) || (may_overload(old) && may_overload(new)) => continue,
                 (
                     EntityKind::Decl {
                         ..
