@@ -5,6 +5,31 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 mod suggestion;
+
+/// The offset of the first `\n` or `\r` in `bytes`, found eight bytes at a time.
+fn find_line_break(bytes: &[u8]) -> Option<usize> {
+    const ONES: u64 = u64::from_ne_bytes([0x01; 8]);
+    const HIGHS: u64 = u64::from_ne_bytes([0x80; 8]);
+    let (words, rest) = bytes.as_chunks::<8>();
+    let mut base = 0;
+    for chunk in words {
+        let word = u64::from_ne_bytes(*chunk);
+        // A byte of `word ^ pattern` is zero where `word` has that byte; the test below is
+        // non-zero exactly when some byte is zero, and the scan then finds which.
+        let lf = word ^ (ONES * u64::from(b'\n'));
+        let cr = word ^ (ONES * u64::from(b'\r'));
+        let hit = ((lf.wrapping_sub(ONES) & !lf) | (cr.wrapping_sub(ONES) & !cr)) & HIGHS;
+        if hit != 0 {
+            let within = chunk.iter().position(|&b| b == b'\n' || b == b'\r');
+            return within.map(|at| base + at);
+        }
+        base += 8;
+    }
+    rest.iter()
+        .position(|&b| b == b'\n' || b == b'\r')
+        .map(|at| base + at)
+}
+
 pub use suggestion::{Applicability, Edit, ImportSuggestion, Suggestion, Suggestions};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
@@ -88,7 +113,7 @@ impl LineIndex {
     fn scan(&mut self, text: &str) {
         let bytes = text.as_bytes();
         let mut at = self.starts.last().map_or(0, |&start| start as usize);
-        while let Some(found) = bytes[at..].iter().position(|&b| b == b'\n' || b == b'\r') {
+        while let Some(found) = find_line_break(&bytes[at..]) {
             let end = at + found;
             let next = if bytes[end] == b'\r' && bytes.get(end + 1) == Some(&b'\n') {
                 end + 2

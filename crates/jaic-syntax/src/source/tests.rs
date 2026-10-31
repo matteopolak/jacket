@@ -346,3 +346,19 @@ fn readers_of_procedure_bodies_are_found_in_every_map_of_the_build() {
     host.add("/app/build.jai", "for m.procedure_bodies {}".into());
     assert!(workspace.reads_procedure_bodies());
 }
+
+#[test]
+fn line_breaks_are_found_in_every_position() {
+    use super::find_line_break;
+    for len in 0..40usize {
+        for at in 0..len {
+            for brk in *b"\n\r" {
+                let mut bytes = vec![b'x'; len];
+                bytes[at] = brk;
+                assert_eq!(find_line_break(&bytes), Some(at), "{len} {at}");
+            }
+        }
+        assert_eq!(find_line_break(&vec![b'x'; len]), None);
+    }
+    assert_eq!(find_line_break(b"ab\xff\x0a\x0d"), Some(3));
+}
