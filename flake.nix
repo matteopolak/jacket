@@ -87,6 +87,8 @@
         pkgs:
         let
           llvmPackages = pkgs.llvmPackages_23;
+          # llvm-sys reads LLVM_SYS_<major><minor>_PREFIX.
+          llvmSysVar = "LLVM_SYS_${lib.versions.major llvmPackages.llvm.version}${lib.versions.minor llvmPackages.llvm.version}_PREFIX";
         in
         {
           default = pkgs.mkShell {
@@ -103,7 +105,8 @@
               pkgs.zlib
               pkgs.zstd
             ];
-            LLVM_SYS_231_PREFIX = "${llvmPackages.llvm.dev}";
+            ${llvmSysVar} = "${llvmPackages.llvm.dev}";
+            LLVM_PREFIX = "${llvmPackages.llvm.dev}";
             JAI_LIBCLANG = "${lib.getLib llvmPackages.libclang}/lib/libclang${pkgs.stdenv.hostPlatform.extensions.sharedLibrary}";
           };
         }

@@ -92,36 +92,28 @@ pub fn find_wasm_ld() -> Result<PathBuf, String> {
 
 /// How to get `wasm-ld`.
 const WASM_LD_INSTALL: &str =
-    "install LLD (Homebrew `lld`, Debian `lld-23`) or set JAIC_WASM_LD to its path";
+    "install LLD (Homebrew `lld`, Debian `lld-<llvm major>`) or set JAIC_WASM_LD to its path";
 
 /// An LLVM tool (`wasm-ld`, `llvm-ar`) from the LLVM or LLD installs jaic knows about.
 pub(crate) fn find_llvm_tool(name: &str) -> Option<String> {
-    let mut dirs: Vec<PathBuf> = Vec::new();
-    if let Some(prefix) = jacket_config::env::LLVM_SYS_231_PREFIX.os() {
-        dirs.push(Path::new(&prefix).join("bin"));
-    }
-    if let Some(prefix) = option_env!("LLVM_SYS_231_PREFIX") {
-        dirs.push(Path::new(prefix).join("bin"));
-    }
-    for config in ["llvm-config-23", "llvm-config"] {
-        if let Ok(out) = Command::new(config).arg("--bindir").output()
-            && out.status.success()
-        {
-            dirs.push(PathBuf::from(String::from_utf8_lossy(&out.stdout).trim()));
-        }
-    }
+    let mut dirs = jacket_config::llvm::bin_dirs(crate::BAKED_LLVM_PREFIX);
     // LLD is a separate package from LLVM on Homebrew and Debian.
-    for keg in ["lld", "lld@23"] {
+    for keg in [
+        "lld".to_string(),
+        format!("lld@{}", jacket_config::llvm::MAJOR),
+    ] {
         for root in ["/opt/homebrew/opt", "/usr/local/opt"] {
-            dirs.push(Path::new(root).join(keg).join("bin"));
+            dirs.push(Path::new(root).join(&keg).join("bin"));
         }
     }
-    dirs.push(PathBuf::from("/usr/lib/llvm-23/bin"));
     if let Some(found) = dirs.iter().map(|d| d.join(name)).find(|p| p.is_file()) {
         return Some(found.to_string_lossy().into_owned());
     }
     let path = jacket_config::env::PATH.os()?;
-    for candidate in [format!("{name}-23"), name.to_string()] {
+    for candidate in [
+        format!("{name}-{}", jacket_config::llvm::MAJOR),
+        name.to_string(),
+    ] {
         for dir in std::env::split_paths(&path) {
             let full = dir.join(&candidate);
             if full.is_file() {

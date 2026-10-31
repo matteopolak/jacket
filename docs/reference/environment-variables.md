@@ -82,7 +82,8 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `LC_CTYPE` | See `LC_ALL`. | unset | jaic, jailint |
 | `LIB` | On Windows, the library directories the MSVC linker searches; set by a developer prompt. | found from the Visual Studio and Windows SDK installs | jaic |
 | `LIBRARY_PATH` | Extra library directories compile-time code may load native libraries from on Windows. | unset | jaic |
-| `LLVM_SYS_231_PREFIX` | The LLVM install jaic is built against; its `bin/` supplies `clang`, `wasm-ld` and the LLVM tools. | unset | jaic, jacket |
+| `LLVM_PREFIX` | The LLVM install to use when the `llvm-sys` variable above is unset. CI sets both. | `llvm-config --prefix`, then Homebrew's `llvm@<major>` or `/usr/lib/llvm-<major>` | jaic, jacket |
+| `LLVM_SYS_231_PREFIX` | The LLVM install jaic is built against; its `bin/` supplies `clang`, `wasm-ld` and the LLVM tools. The name carries the LLVM version (`LLVM_SYS_<major><minor>_PREFIX`). | unset | jaic, jacket |
 | `MACOSX_DEPLOYMENT_TARGET` | The macOS version native output targets. | the SDK's | jaic |
 | `NO_COLOR` | Any value turns colour off. | unset | jaic, jacket, jailint |
 | `PATH` | Where tools such as the linker, `clang` and `wasm-ld` are searched for. | the process's | jaic, jacket, jailsp, tests |

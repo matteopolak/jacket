@@ -184,26 +184,14 @@ pub(super) fn sanitizer_driver() -> String {
     if let Some(program) = jacket_config::env::SANITIZER_CC.get() {
         return program;
     }
-    let prefixes = [
-        jacket_config::env::LLVM_SYS_231_PREFIX.get(),
-        option_env!("LLVM_SYS_231_PREFIX").map(str::to_string),
-    ];
-    for prefix in prefixes.into_iter().flatten() {
-        let clang = Path::new(&prefix).join("bin/clang");
+    for dir in jacket_config::llvm::bin_dirs(crate::BAKED_LLVM_PREFIX) {
+        let clang = dir.join("clang");
         if clang.is_file() {
             return clang.to_string_lossy().into_owned();
         }
     }
-    for config in ["llvm-config-23", "llvm-config"] {
-        let Ok(out) = Command::new(config).arg("--bindir").output() else {
-            continue;
-        };
-        let clang = Path::new(String::from_utf8_lossy(&out.stdout).trim()).join("clang");
-        if out.status.success() && clang.is_file() {
-            return clang.to_string_lossy().into_owned();
-        }
-    }
-    find_program(&["clang-23", "clang"]).unwrap_or_else(|| "clang".into())
+    let versioned = format!("clang-{}", jacket_config::llvm::MAJOR);
+    find_program(&[&versioned, "clang"]).unwrap_or_else(|| "clang".into())
 }
 
 /// The first of `names` found on `PATH`.

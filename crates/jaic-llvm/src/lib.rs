@@ -19,6 +19,9 @@ mod simd;
 mod split;
 mod wasm;
 
+/// The LLVM prefix this build was made against (`build.rs`), searched after the environment.
+pub(crate) const BAKED_LLVM_PREFIX: Option<&str> = option_env!("LLVM_PREFIX_AT_BUILD");
+
 pub use wasm::{WasmLink, find_wasm_ld, link_wasm};
 
 

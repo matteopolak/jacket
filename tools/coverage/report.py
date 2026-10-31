@@ -14,33 +14,26 @@ function entries.
 import argparse
 import bisect
 import json
-import os
 import re
-import shutil
 import subprocess
 import sys
 from collections import defaultdict
 from pathlib import Path
+from toolkit import llvm
 from toolkit.host import brew_prefix
 from toolkit.repo import ROOT
 
 
 def llvm_tool(name):
-    """`name` from the LLVM jaic links against (LLVM_SYS_231_PREFIX), else Homebrew's, else PATH."""
+    """`name` from the LLVM jaic links against (docs/tools/llvm-setup.md), else Homebrew's, else PATH."""
+    found = llvm.tool(name)
+    if found:
+        return found
     brew = brew_prefix()
-    prefixes = [
-        os.environ.get("LLVM_SYS_231_PREFIX"),
-        brew and brew / "opt/llvm",
-        "/usr/local/opt/llvm",
-    ]
-    for prefix in prefixes:
-        if prefix and (Path(prefix) / "bin" / name).is_file():
-            return str(Path(prefix) / "bin" / name)
-    for candidate in (f"{name}-23", name):
-        found = shutil.which(candidate)
-        if found:
-            return found
-    sys.exit(f"coverage: {name} not found (install LLVM or set LLVM_SYS_231_PREFIX)")
+    for prefix in (brew and brew / "opt/llvm", Path("/usr/local/opt/llvm")):
+        if prefix and (prefix / "bin" / name).is_file():
+            return str(prefix / "bin" / name)
+    sys.exit(f"coverage: {name} not found (install LLVM or set LLVM_PREFIX)")
 
 
 def read_runs(paths):

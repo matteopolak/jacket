@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest import mock
 
 
-from toolkit import download
+from toolkit import download, llvm
 from toolkit.cli import add_jaic_argument, default_jaic
 from toolkit.hashing import sha256_bytes, sha256_file
 from toolkit.process import run, run_expect
@@ -188,6 +188,33 @@ class Fetch(unittest.TestCase):
             with self.assertRaises(urllib.error.HTTPError):
                 download.fetch("https://example.invalid/f")
         sleep.assert_not_called()
+
+
+class Llvm(unittest.TestCase):
+    def test_version_env_derives_the_variable_name(self):
+        env = llvm.version_env("31.4.2")
+        self.assertEqual(env["LLVM_MAJOR"], "31")
+        self.assertEqual(env["LLVM_SYS_PREFIX_VAR"], "LLVM_SYS_314_PREFIX")
+
+    def test_ci_environment_wins_over_the_pin(self):
+        with mock.patch.dict(os.environ, {"LLVM_MAJOR": "99", "LLVM_SYS_PREFIX_VAR": "LLVM_SYS_991_PREFIX"}):
+            self.assertEqual(llvm.major(), "99")
+            self.assertEqual(llvm.sys_prefix_var(), "LLVM_SYS_991_PREFIX")
+
+    def test_configured_prefix_prefers_the_sys_variable_then_llvm_prefix(self):
+        env = {"LLVM_SYS_PREFIX_VAR": "LLVM_SYS_991_PREFIX", "LLVM_SYS_991_PREFIX": "/a", "LLVM_PREFIX": "/b"}
+        with mock.patch.dict(os.environ, env):
+            self.assertEqual(llvm.configured_prefix(), Path("/a"))
+            del os.environ["LLVM_SYS_991_PREFIX"]
+            self.assertEqual(llvm.configured_prefix(), Path("/b"))
+
+    def test_tool_is_found_in_the_configured_prefix(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tool = Path(tmp) / "bin" / exe_name("llvm-symbolizer")
+            tool.parent.mkdir()
+            tool.write_text("")
+            with mock.patch.dict(os.environ, {"LLVM_PREFIX": tmp}):
+                self.assertEqual(llvm.tool("llvm-symbolizer"), str(tool))
 
 
 if __name__ == "__main__":

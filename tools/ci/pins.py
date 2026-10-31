@@ -23,6 +23,7 @@ import sys
 from pathlib import Path
 
 
+from toolkit.llvm import version_env
 from toolkit.repo import ROOT
 
 PINS = ROOT / ".github" / "pins.json"
@@ -80,16 +81,8 @@ def load(path=PINS):
 
 
 def llvm_env(manifest):
-    """The forms of the `llvm` pin that the setup actions and scripts export. The variable name
-    follows the llvm-sys crate feature (`llvm23-1` reads LLVM_SYS_231_PREFIX), which Cargo.toml
-    and crates/jaic-llvm/Cargo.toml set by hand."""
-    version = manifest["llvm"]
-    major, minor = version.split(".")[:2]
-    return {
-        "LLVM_VERSION": version,
-        "LLVM_MAJOR": major,
-        "LLVM_SYS_PREFIX_VAR": f"LLVM_SYS_{major}{minor}_PREFIX",
-    }
+    """The forms of the `llvm` pin that the setup actions and scripts export (`toolkit.llvm.version_env`)."""
+    return version_env(manifest["llvm"])
 
 
 # Where the full LLVM version must not be spelled out (pins.json is its one home): the CI

@@ -23,6 +23,7 @@ import sys
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from toolkit import llvm
 from toolkit.host import brew_prefix
 from toolkit.repo import ROOT
 from toolkit.cli import add_jaic_argument
@@ -326,14 +327,7 @@ def sanitizer_report(err):
 
 def symbolizer():
     """llvm-symbolizer from the LLVM jaic links against, so reports show source lines."""
-    prefix = os.environ.get("LLVM_SYS_231_PREFIX")
-    candidates = [Path(prefix) / "bin/llvm-symbolizer"] if prefix else []
-    candidates += [
-        Path(p)
-        for p in (shutil.which("llvm-symbolizer-23"), shutil.which("llvm-symbolizer"))
-        if p
-    ]
-    return next((str(p) for p in candidates if p.is_file()), None)
+    return llvm.tool("llvm-symbolizer")
 
 
 # `--coverage DIR`: where each native run's ingested coverage goes (docs/tools/coverage.md).

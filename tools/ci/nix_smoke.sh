@@ -11,6 +11,6 @@ cd "$work"
 "$jaic" hello.jai -exe hello
 ./hello
 printf 'x:=1;\n' | "$GITHUB_WORKSPACE/result-1/bin/jaifmt" --stdin
-# The inner shell expands $LLVM_SYS_231_PREFIX, not this one.
+# The inner shell expands $LLVM_PREFIX, not this one.
 # shellcheck disable=SC2016
-nix develop "$GITHUB_WORKSPACE" --command sh -c 'cargo --version && llvm-config --version && python3 --version && node --version && echo "$LLVM_SYS_231_PREFIX"'
+nix develop "$GITHUB_WORKSPACE" --command sh -c 'cargo --version && llvm-config --version && python3 --version && node --version && echo "$LLVM_PREFIX"'

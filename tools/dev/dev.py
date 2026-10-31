@@ -26,6 +26,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from toolkit import llvm
 from toolkit.process import run as toolkit_run
 from toolkit.host import exe_name
 from toolkit.repo import ROOT, cargo_binary, cargo_target_dir, jaifmt_path
@@ -155,30 +156,32 @@ DEVELOPER_TOOLS = ROOT / "stdlib" / "internal" / "developer-tools"
 HELPER_SUFFIX = {"darwin": "dylib", "win32": "dll"}.get(sys.platform, "so")
 
 
-LLVM_HELP = ("install LLVM 23.1 and point LLVM_SYS_231_PREFIX at it (macOS: `brew install llvm@23` then "
-             "`export LLVM_SYS_231_PREFIX=\"$(brew --prefix llvm@23)\"`); see docs/tools/llvm-setup.md")
+def llvm_help() -> str:
+    var = llvm.sys_prefix_var()
+    return (f"install LLVM {llvm.major_minor()} and point {var} at it (macOS: `brew install llvm@{llvm.major()}` then "
+            f"`export {var}=\"$(brew --prefix llvm@{llvm.major()})\"`); see docs/tools/llvm-setup.md")
 
 
 def llvm_prefix() -> tuple[Path | None, str | None]:
-    """The LLVM that llvm-sys will build against (LLVM_SYS_231_PREFIX, else llvm-config on
+    """The LLVM that llvm-sys will build against (the llvm-sys variable, else `LLVM_PREFIX`, else llvm-config on
     PATH), or why there is none."""
-    configured = os.environ.get("LLVM_SYS_231_PREFIX")
+    var, help_text = llvm.sys_prefix_var(), llvm_help()
+    configured = llvm.configured_prefix()
     if configured:
-        config = Path(configured) / "bin" / ("llvm-config" + EXE)
-        if not config.is_file():
-            return None, f"LLVM_SYS_231_PREFIX={configured} has no bin/llvm-config: {LLVM_HELP}"
+        config = llvm.llvm_config(configured)
+        if not config:
+            return None, f"{configured} has no bin/llvm-config ({var} or LLVM_PREFIX): {help_text}"
     else:
-        found = shutil.which("llvm-config-23") or shutil.which("llvm-config")
-        if not found:
-            return None, f"LLVM 23.1 not found (LLVM_SYS_231_PREFIX is not set and no llvm-config is on PATH): {LLVM_HELP}"
-        config = Path(found)
+        config = llvm.llvm_config()
+        if not config:
+            return None, f"LLVM {llvm.major_minor()} not found ({var} is not set and no llvm-config is on PATH): {help_text}"
     try:
         version = subprocess.check_output([str(config), "--version"], text=True).strip()
         prefix = Path(subprocess.check_output([str(config), "--prefix"], text=True).strip())
     except (OSError, subprocess.CalledProcessError) as error:
-        return None, f"{config} does not run ({error}): {LLVM_HELP}"
-    if not version.startswith("23.1"):
-        return None, f"{config} is LLVM {version}, and the compiler needs 23.1: {LLVM_HELP}"
+        return None, f"{config} does not run ({error}): {help_text}"
+    if not version.startswith(llvm.major_minor()):
+        return None, f"{config} is LLVM {version}, and the compiler needs {llvm.major_minor()}: {help_text}"
     return prefix, None
 
 
@@ -187,9 +190,9 @@ def missing_dependencies(native: bool) -> list[str]:
     problems = []
     if not shutil.which("cargo"):
         problems.append("cargo not found: install Rust with rustup (https://rustup.rs)")
-    prefix, llvm = llvm_prefix()
-    if llvm:
-        problems.append(llvm)
+    prefix, llvm_problem = llvm_prefix()
+    if llvm_problem:
+        problems.append(llvm_problem)
     if not native:
         return problems
     compilers = ["clang"] if sys.platform == "win32" else ["cc", "c++"]
@@ -206,7 +209,7 @@ def missing_dependencies(native: bool) -> list[str]:
             and not os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX")
             and not (prefix / "include" / "clang-c" / "Index.h").is_file()):
         problems.append(f"{prefix} has no include/clang-c/Index.h: Bindings_Generator's helper needs an LLVM "
-                        "with libclang (Homebrew's llvm@23 and apt's libclang-23-dev have it)")
+                        f"with libclang (Homebrew's llvm@{llvm.major()} and apt's libclang-{llvm.major()}-dev have it)")
     return problems
 
 

@@ -21,12 +21,13 @@ import sys
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
+from toolkit import llvm
 from toolkit.cli import add_jaic_argument
 from toolkit.host import brew_prefix
 from toolkit.repo import ROOT
 
 from bench.sandbox import Sandbox, environment
-LLVM_READS = [*([brew_prefix() / 'opt/llvm'] if brew_prefix() else []), Path('/usr/lib/llvm-23')]  # clang and the libFuzzer archive
+LLVM_READS = [*llvm.prefixes(), *([brew_prefix() / 'opt/llvm'] if brew_prefix() else [])]  # clang and the libFuzzer archive
 MAX_RESTARTS = 40
 MAX_AUTO_DENY = 20
 LENGTH_BOUNDS = [0, 1, 2, 4, 8, 16, 32, 64, 128]

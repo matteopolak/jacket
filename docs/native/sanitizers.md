@@ -21,7 +21,7 @@ Compile side (`Sanitize` in `crates/jaic-llvm/src/lib.rs`, applied in `emit_modu
 
 Other UBSan checks are deliberately absent: signed overflow wraps in Jai ([arithmetic overflow checks](../language/numbers.md)), shifts and float-to-int conversions are defined, division by zero already traps, and an alignment check would flag deliberate unaligned reads like `<< cast(*u32) byte_pointer`.
 
-Link side (`link`): a Clang driver from the LLVM install jaic was built against links with `-fsanitize=address,undefined`, which adds the runtime. Instrumentation and runtime must come from the same LLVM (Apple's `cc` ships an older runtime; GCC's `libasan` is different). Driver search: `JAIC_SANITIZER_CC`; `$LLVM_SYS_231_PREFIX/bin/clang`; `llvm-config-23 --bindir` / `llvm-config --bindir`; `clang-23` or `clang` on `PATH`.
+Link side (`link`): a Clang driver from the LLVM install jaic was built against links with `-fsanitize=address,undefined`, which adds the runtime. Instrumentation and runtime must come from the same LLVM (Apple's `cc` ships an older runtime; GCC's `libasan` is different). Driver search: `JAIC_SANITIZER_CC`; `bin/clang` of the LLVM install ([LLVM setup](../tools/llvm-setup.md#where-jaic-finds-llvm)); `clang-<major>` or `clang` on `PATH`.
 
 `Default_Allocator` calls C `malloc`/`free`, so ASan sees every heap block. Allocators that carve blocks out of a larger region (temporary allocator, `Flat_Pool`, `Pool`, `Bucket_Array`) are invisible: an overrun inside such a region is not reported.
 
@@ -41,7 +41,7 @@ Link side (`link`): a Clang driver from the LLVM install jaic was built against 
 ## Configuration
 
 - CLI: `-sanitize address`, `undefined`, `fuzzer` or a comma-separated list such as `address,fuzzer` (also `--sanitize`, repeatable); combines with `-O0..-O3`, debug info stays on.
-- `JAIC_SANITIZER_CC`, `LLVM_SYS_231_PREFIX` (also finds `clang` and `llvm-symbolizer`); runtime `ASAN_OPTIONS`, `UBSAN_OPTIONS`.
+- `JAIC_SANITIZER_CC`, `LLVM_PREFIX` (also finds `clang` and `llvm-symbolizer`); runtime `ASAN_OPTIONS`, `UBSAN_OPTIONS`.
 - Sweep: `--sanitize LIST`, `--native`, `--opt`, `--jobs` (ASan roughly doubles memory and reserves terabytes of virtual shadow space; keep jobs low on small machines).
 
 ## Dependencies

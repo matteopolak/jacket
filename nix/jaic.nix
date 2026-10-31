@@ -15,6 +15,8 @@
 }:
 let
   llvmPackages = llvmPackages_23;
+  # llvm-sys reads LLVM_SYS_<major><minor>_PREFIX.
+  llvmSysVar = "LLVM_SYS_${lib.versions.major llvmPackages.llvm.version}${lib.versions.minor llvmPackages.llvm.version}_PREFIX";
   rustPlatform = makeRustPlatform {
     cargo = rustToolchain;
     rustc = rustToolchain;
@@ -81,8 +83,11 @@ rustPlatform.buildRustPackage {
     zlib
     zstd
   ];
-  # llvm-sys runs `$LLVM_SYS_231_PREFIX/bin/llvm-config`.
-  env.LLVM_SYS_231_PREFIX = "${llvmPackages.llvm.dev}";
+  # llvm-sys runs `$<llvm-sys variable>/bin/llvm-config`.
+  env = {
+    ${llvmSysVar} = "${llvmPackages.llvm.dev}";
+    LLVM_PREFIX = "${llvmPackages.llvm.dev}";
+  };
 
   # jaic looks for its standard library in `stdlib/` next to the executable, and
   # its bootstrap is `stdlib/prelude/module.jai`, so binaries live beside the library.

@@ -36,7 +36,7 @@ if [ "$RUNNER_OS" = "macOS" ]; then
   export MACOSX_DEPLOYMENT_TARGET
 fi
 python3 tools/native/package_native_libs.py --platform "$NAME" --package "$dir" \
-  --llvm-prefix "${LLVM_SYS_231_PREFIX:-$RUNNER_TEMP/llvm}"
+  --llvm-prefix "${LLVM_PREFIX:-$RUNNER_TEMP/llvm}"
 unset MACOSX_DEPLOYMENT_TARGET
 ls -l "$dir/native-libs/$NAME"
 # jaifmt is a Jai program: built by the packaged jaic against the packaged stdlib, -O2

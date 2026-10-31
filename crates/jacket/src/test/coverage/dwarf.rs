@@ -18,12 +18,10 @@ pub(super) fn debug_file(program: &Path) -> PathBuf {
     }
 }
 
-/// `llvm-dwarfdump` from the LLVM jaic is built with (`LLVM_SYS_231_PREFIX`), Homebrew's, or
-/// the one on `PATH`.
+/// `llvm-dwarfdump` from the LLVM jaic is built with (`jacket_config::llvm`), Homebrew's, or the
+/// one on `PATH`.
 pub(super) fn find_dwarfdump() -> Result<PathBuf, String> {
-    let prefixes = jacket_config::env::LLVM_SYS_231_PREFIX
-        .os()
-        .map(PathBuf::from)
+    let prefixes = jacket_config::llvm::prefixes(None)
         .into_iter()
         .chain(["/opt/homebrew/opt/llvm", "/usr/local/opt/llvm"].map(PathBuf::from));
     let path = jacket_config::env::PATH.os().unwrap_or_default();
@@ -31,14 +29,18 @@ pub(super) fn find_dwarfdump() -> Result<PathBuf, String> {
         .map(|p| p.join("bin"))
         .chain(std::env::split_paths(&path));
     for folder in folders {
-        for name in ["llvm-dwarfdump", "llvm-dwarfdump-23"] {
+        let versioned = format!("llvm-dwarfdump-{}", jacket_config::llvm::MAJOR);
+        for name in ["llvm-dwarfdump", versioned.as_str()] {
             let tool = folder.join(name);
             if tool.is_file() {
                 return Ok(tool);
             }
         }
     }
-    Err("`--coverage` needs `llvm-dwarfdump` to read debug info; install LLVM or set LLVM_SYS_231_PREFIX".into())
+    Err(
+        "`--coverage` needs `llvm-dwarfdump` to read debug info; install LLVM or set LLVM_PREFIX"
+            .into(),
+    )
 }
 
 /// A row of a DWARF line table.

@@ -82,8 +82,8 @@ fn debug_file(exe: &Path) -> PathBuf {
 
 fn dwarfdump() -> Option<PathBuf> {
     let mut candidates = Vec::new();
-    if let Some(prefix) = jacket_config::env::LLVM_SYS_231_PREFIX.get() {
-        candidates.push(Path::new(&prefix).join("bin/llvm-dwarfdump"));
+    for dir in jacket_config::llvm::bin_dirs(None) {
+        candidates.push(dir.join("llvm-dwarfdump"));
     }
     candidates.push(PathBuf::from("/opt/homebrew/opt/llvm/bin/llvm-dwarfdump"));
     candidates.push(PathBuf::from("llvm-dwarfdump"));

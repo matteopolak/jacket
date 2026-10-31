@@ -79,7 +79,7 @@ To add an instruction set: add `Feature` variants in `features.rs` (`ALL`, `name
 - `-codegen_units N` forces the unit count; `1` (`-no_split`) turns all splitting off for whole-program optimisation. `-dev_split_units N` forces the post-optimizer count. `[experimental] codegen_units` in `jacket.toml` sets the first for `jacket` builds.
 - Constants: `INSTS_PER_UNIT`, `OPT_INSTS_PER_UNIT`, `MAX_OPT_UNITS` (`lib.rs`); `INSTS_PER_UNIT`, `MAX_UNITS` (`split.rs`); `IMPORT_MAX`, `IMPORT_BUDGET_PERCENT`, `GLOBAL_IMPORT_MAX`, `INLINE_CAP`, `INLINE_SMALL` (`partition.rs`).
 - `jaic_llvm::Options { opt_level, target, emit_ir, debug_info, sanitize, cpu, features }`, from `-O0..-O3`, `-emit_ir file.ll`, `-no_debug_info`, `-sanitize` ([sanitizers](sanitizers.md)), `-os`, `-target triple`. Wasm always gets `+bulk-memory`; `+simd128` enables the swizzle.
-- Building needs `LLVM_SYS_231_PREFIX` pointing at LLVM 23 ([LLVM setup](../tools/llvm-setup.md)).
+- Building needs the `llvm-sys` variable (or `LLVM_PREFIX`) pointing at the pinned LLVM ([LLVM setup](../tools/llvm-setup.md)).
 
 ## Dependencies
 

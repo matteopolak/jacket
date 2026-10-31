@@ -73,7 +73,7 @@ The lowest entries are platform code a macOS run cannot reach (`Objective_C`, `i
 ## Configuration
 
 - `jaic -coverage` (also valid next to `-sanitize`, and with `-interp`), `JAIC_COVERAGE_DIR`, `JAIC_COVERAGE_FILE`.
-- `jaic_sweep.py --coverage DIR`; `report.py report --root`, `--files`, `--least N`, `--lcov FILE`, `--json`. `LLVM_SYS_231_PREFIX` selects the LLVM whose `llvm-dwarfdump` and `llvm-symbolizer` are used (default: Homebrew LLVM, then `PATH`).
+- `jaic_sweep.py --coverage DIR`; `report.py report --root`, `--files`, `--least N`, `--lcov FILE`, `--json`. `LLVM_PREFIX` (or the `llvm-sys` variable) selects the LLVM whose `llvm-dwarfdump` and `llvm-symbolizer` are used (default: the usual install places, Homebrew LLVM, then `PATH`; see [LLVM setup](llvm-setup.md)).
 
 ## Dependencies
 

@@ -10,19 +10,19 @@ import argparse
 import os
 from pathlib import Path
 import platform
-import shutil
 import subprocess
 from developer_checks import developer_native_runtime
+from toolkit import llvm
 from developer_checks.dev_common import ROOT, output_dir
 
 
 def llvm_prefix(prefix=None):
-    configured = prefix or os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX") or os.environ.get("LLVM_SYS_231_PREFIX")
+    configured = prefix or os.environ.get("DEVELOPER_TOOLS_LLVM_PREFIX") or llvm.configured_prefix()
     if not configured:
-        config = shutil.which("llvm-config-23") or shutil.which("llvm-config")
+        config = llvm.llvm_config()
         if not config:
-            raise RuntimeError("set DEVELOPER_TOOLS_LLVM_PREFIX or LLVM_SYS_231_PREFIX to the official LLVM SDK")
-        configured = subprocess.check_output([config, "--prefix"], text=True).strip()
+            raise RuntimeError(f"set DEVELOPER_TOOLS_LLVM_PREFIX or {llvm.sys_prefix_var()} to the official LLVM SDK")
+        configured = subprocess.check_output([str(config), "--prefix"], text=True).strip()
     sdk = Path(configured).resolve(strict=True)
     if not (sdk / "include/clang-c/Index.h").is_file():
         raise RuntimeError("official LLVM SDK lacks clang-c/Index.h: " + str(sdk))

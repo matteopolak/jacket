@@ -107,7 +107,7 @@ impl Var {
 
 macro_rules! vars {
     ($($(#[$meta:meta])* $id:ident {
-        name: $name:literal, group: $group:ident, readers: [$($reader:ident),* $(,)?],
+        name: $name:expr, group: $group:ident, readers: [$($reader:ident),* $(,)?],
         default: $default:literal, summary: $summary:literal $(,)?
     })*) => {
         $(
@@ -447,10 +447,15 @@ vars! {
         default: "`C:\\Windows`",
         summary: "Locates the Windows system tools `jacket upgrade` uses.",
     }
-    LLVM_SYS_231_PREFIX {
-        name: "LLVM_SYS_231_PREFIX", group: Standard, readers: [Jaic, Jacket],
+    LLVM_SYS_PREFIX {
+        name: crate::llvm::SYS_PREFIX_VAR, group: Standard, readers: [Jaic, Jacket],
         default: "unset",
-        summary: "The LLVM install jaic is built against; its `bin/` supplies `clang`, `wasm-ld` and the LLVM tools.",
+        summary: "The LLVM install jaic is built against; its `bin/` supplies `clang`, `wasm-ld` and the LLVM tools. The name carries the LLVM version (`LLVM_SYS_<major><minor>_PREFIX`).",
+    }
+    LLVM_PREFIX {
+        name: "LLVM_PREFIX", group: Standard, readers: [Jaic, Jacket],
+        default: "`llvm-config --prefix`, then Homebrew's `llvm@<major>` or `/usr/lib/llvm-<major>`",
+        summary: "The LLVM install to use when the `llvm-sys` variable above is unset. CI sets both.",
     }
     MACOSX_DEPLOYMENT_TARGET {
         name: "MACOSX_DEPLOYMENT_TARGET", group: Standard, readers: [Jaic],
