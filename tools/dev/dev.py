@@ -649,6 +649,20 @@ def check_shell(hook: Hook, shell: list[str]) -> None:
         hook.fail("shellcheck <files>", output)
 
 
+def check_workflows(hook: Hook, workflows: list[str]) -> None:
+    """GitHub rejects a whole workflow file it cannot parse, and then none of its jobs run."""
+    if hook.skipped("actionlint"):
+        return
+    if not shutil.which("actionlint"):
+        hook_warn("actionlint not found; skipping the workflow check")
+        return
+    hook.say("actionlint")
+    # Shell lint is left to the shellcheck step's own rules; this is about the workflow itself.
+    status, output = run_captured(["actionlint", "-shellcheck=", "-pyflakes=", *workflows])
+    if status:
+        hook.fail("actionlint <workflows>", output)
+
+
 def check_locks(hook: Hook) -> None:
     """A manifest change must come with its lock files (CI builds with --locked)."""
     for manifest in ("Cargo.toml", "fuzz/Cargo.toml"):
@@ -702,6 +716,9 @@ def cmd_precommit(args) -> int:
             check_rust(hook, rust)
         if shell:
             check_shell(hook, shell)
+        workflows = [f for f in everything if f.startswith(".github/workflows/") and f.endswith((".yml", ".yaml"))]
+        if workflows:
+            check_workflows(hook, workflows)
         # They read the working tree, so a partly staged file is checked as it is on disk.
         if not hook.skipped("repo"):
             hook.say("repo checks")

@@ -53,6 +53,7 @@ A new per-system file under `stdlib/internal` (one that imports `windows-api`, `
 | `*.jai` | `jaifmt --check` on the export; `jailint -D warnings` on the working tree files (it needs the surrounding loaders and modules; a file another program `#load`s is linted through that program) |
 | `crates/**/*.rs` | `rustfmt --check --edition 2024` per staged blob (stdin mode, pinned nightly); `tools/dev/rust_item_spacing.py --check` |
 | `*.sh`, files with a `sh`/`bash` shebang | `shellcheck` on the export (`tools/dev/staged-files.sh shell` picks the files; CI lints every one: `shell-all`). Skipped with a warning when `shellcheck` is not installed |
+| `.github/workflows/*.yml` | `actionlint` without its shell and Python lints, so a workflow GitHub cannot parse is caught before it is pushed. Skipped with a warning when `actionlint` is not installed |
 | anything | `just repo-checks` (`check_source_style.py`: file length allowlist, banners; `check_repo_paths.py`; `check_ci_sources.py`) on the working tree |
 | `Cargo.toml`, `Cargo.lock` | `cargo metadata --locked --offline` for the workspace and `fuzz/`, so a stale lock file fails here, not in CI's `--locked` builds |
 | `crates/**`, `editors/vscode/**` | `node scripts/build-grammar.ts --check` and `node scripts/build.ts schemas --check` in `editors/vscode` (needs node 24) |
@@ -61,7 +62,7 @@ Tools are found in cargo's target directory (`$CARGO_TARGET_DIR`, else what `car
 
 | Variable | Effect |
 | --- | --- |
-| `JAI_HOOK_SKIP` | space-separated checks to skip: `jaifmt jailint rustfmt spacing shellcheck repo locks editor` |
+| `JAI_HOOK_SKIP` | space-separated checks to skip: `jaifmt jailint rustfmt spacing shellcheck actionlint repo locks editor` |
 | `JAI_HOOK_NO_BUILD=1` | never build or rebuild a tool: use what exists |
 | `JAI_HOOK_VERBOSE=1` | say which checks run |
 
