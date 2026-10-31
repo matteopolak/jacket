@@ -270,6 +270,8 @@ append_json_string :: (builder: *String_Builder, text: string) #no_abc {
 
 #scope_export
 
+// Where an encoder writes: the builder, whether to indent, and the nesting depth. Set `builder`
+// (and `pretty`) and pass it to [json_encode].
 Json_Writer :: struct {
     builder: *String_Builder;
     pretty: bool;
@@ -333,14 +335,17 @@ count_digits :: inline (value: u64) -> s64 {
 
 #scope_export
 
+// Writes `null`.
 json_write_null :: inline (w: *Json_Writer) {
     put(w.builder, "null");
 }
 
+// Writes `true` or `false`.
 json_write_bool :: inline (w: *Json_Writer, value: bool) {
     put(w.builder, ifx value then "true" else "false");
 }
 
+// Writes an unsigned integer.
 json_write_uint :: (w: *Json_Writer, value: u64) {
     out := builder_reserve(w.builder, MAX_U64_DIGITS);
 
@@ -359,6 +364,7 @@ json_write_uint :: (w: *Json_Writer, value: u64) {
     builder_commit(w.builder, digits);
 }
 
+// Writes a signed integer.
 json_write_int :: (w: *Json_Writer, value: s64) {
     if value >= 0 {
         json_write_uint(w, cast(u64) value);
@@ -383,14 +389,17 @@ json_write_int :: (w: *Json_Writer, value: s64) {
     builder_commit(w.builder, digits + 1);
 }
 
+// Writes a float64; NaN and infinities have no JSON spelling and are written as `null`.
 json_write_float64 :: (w: *Json_Writer, value: float64) {
     append_float64(w.builder, value);
 }
 
+// Writes a float32, like [json_write_float64].
 json_write_float32 :: (w: *Json_Writer, value: float32) {
     append_float32(w.builder, value);
 }
 
+// Writes a quoted, escaped string.
 json_write_string :: (w: *Json_Writer, value: string) {
     append_json_string(w.builder, value);
 }
@@ -406,6 +415,7 @@ json_begin_object :: inline (w: *Json_Writer) {
     w.depth += 1;
 }
 
+// `}`, on a line of its own when pretty-printing. `empty` is true when no member was written.
 json_end_object :: (w: *Json_Writer, empty: bool) {
     w.depth -= 1;
 
@@ -414,11 +424,13 @@ json_end_object :: (w: *Json_Writer, empty: bool) {
     put(w.builder, #char "}");
 }
 
+// `[`. Pair it with [json_end_array] and call [json_item] before each element.
 json_begin_array :: inline (w: *Json_Writer) {
     put(w.builder, #char "[");
     w.depth += 1;
 }
 
+// `]`, on a line of its own when pretty-printing. `empty` is true when no element was written.
 json_end_array :: (w: *Json_Writer, empty: bool) {
     w.depth -= 1;
 
@@ -475,6 +487,7 @@ json_item :: inline (w: *Json_Writer, first: *bool) {
     if w.pretty write_newline(w);
 }
 
+// Writes a [Json_Value].
 json_write_value :: (w: *Json_Writer, value: *Json_Value) {
     if value.kind == {
         case .NULL;

@@ -1,5 +1,6 @@
-// Typed JSON for jaic programs, in the spirit of Rust's serde_json. Encoders and decoders
-// are generated from your types at compile time, so there is no reflection walk at run time.
+// JSON to and from your own types. [to_json] encodes a value and [from_json] decodes text into a
+// type; both are generated from the type at compile time. When the shape is not known, decode
+// into a [Json_Value] instead. Behaviour per field is set with `@json(...)` notes.
 //
 // ```jai
 // #import "Extensions/Json";
@@ -18,6 +19,7 @@
 // free_json(*user);                         // also for a Json_Value and a Json_Error
 // ```
 
+// Why decoding failed.
 Json_Error_Kind :: enum u8 {
     NONE;
     SYNTAX; // not JSON
@@ -35,6 +37,12 @@ Json_Error_Kind :: enum u8 {
 // Why decoding failed and where. `path` names the value inside the document (`tags[2]`,
 // `address.zip`); `line` and `column` count from 1, the column in characters. `message` and
 // `path` are allocated with context.allocator: free_json releases them.
+//
+// ```jai
+// _, error := from_json([] s64, "[1, 2");
+// assert(error.kind == .SYNTAX && error.line == 1);
+// free_json(*error);
+// ```
 Json_Error :: struct {
     kind: Json_Error_Kind;
     message: string;
@@ -44,11 +52,23 @@ Json_Error :: struct {
     path: string;
 }
 
+// What a repeated key in an object does; see [Json_Options].
 Json_Duplicate_Keys :: enum u8 {
     ERROR; // a repeated key in an object is a .DUPLICATE_FIELD error
     LAST; // the last one wins (what Postgres jsonb keeps); the earlier value is released
 }
 
+// Limits and strictness for [from_json].
+//
+// ```jai
+// Point :: struct { x: int; y: int; }
+//
+// options: Json_Options;
+// options.deny_unknown_fields = true;
+// _, error := from_json(Point, "{\"x\": 1, \"y\": 2, \"z\": 3}", options);
+// assert(error.kind == .UNKNOWN_FIELD);
+// free_json(*error);
+// ```
 Json_Options :: struct {
     max_depth := 256; // nesting of arrays and objects
     max_size := 1 << 30; // bytes of text
@@ -84,6 +104,21 @@ Json_Presence :: enum u8 {
     SET;
 }
 
+// A member type for a field that may be absent: it holds a [Json_Presence] and the value.
+//
+// ```jai
+// Patch :: struct { name: Json_Maybe(string); }
+//
+// missing, _ := from_json(Patch, "{}");
+// assert(missing.name.state == .MISSING);
+//
+// cleared, _ := from_json(Patch, "{\"name\": null}");
+// assert(cleared.name.state == .NULL);
+//
+// renamed, _ := from_json(Patch, "{\"name\": \"Ada\"}");
+// assert(renamed.name.state == .SET && renamed.name.value == "Ada");
+// free_json(*renamed);
+// ```
 Json_Maybe :: struct(T: Type) {
     state: Json_Presence;
     value: T;
@@ -108,6 +143,14 @@ json_index_stats: Json_Index_Stats;
 // The error's path in jsonpath form, as `jsonb_path_query` takes it: `$` for the document itself,
 // `$.address.tags[2]`, and a key that is not a plain identifier quoted: `$."we ird"`. Allocated
 // with the temporary allocator.
+//
+// ```jai
+// Item :: struct { tags: [..] string; }
+//
+// _, error := from_json(Item, "{\"tags\": [\"a\", 2]}");
+// assert(json_path_text(error) == "$.tags[1]");
+// free_json(*error);
+// ```
 json_path_text :: (error: Json_Error) -> string {
     builder: String_Builder;
     builder.allocator = temp;
@@ -160,7 +203,14 @@ json_path_text :: (error: Json_Error) -> string {
     return builder_to_string(*builder,, temp);
 }
 
-// `message at line 3, column 5 (tags[2])`
+// The error as one line: `message at line 3, column 5 (tags[2])`.
+//
+// ```jai
+// _, error := from_json(s64, "x");
+// text := error_text(error);
+// assert(text.count > 0);
+// free_json(*error);
+// ```
 error_text :: (error: Json_Error) -> string {
     if error.kind == .NONE return "no error";
 
@@ -169,7 +219,7 @@ error_text :: (error: Json_Error) -> string {
     return tprint("% at line %, column %", error.message, error.line, error.column);
 }
 
-// Releases the `message` and `path` of an error and clears it. Part of the `free_json` set.
+// Releases the `message` and `path` of an error and clears it.
 free_json :: (error: *Json_Error) {
     if error.message.data free(error.message);
     if error.path.data free(error.path);
@@ -181,6 +231,14 @@ free_json :: (error: *Json_Error) {
 // context.allocator.
 //
 // - pretty: indents with two spaces and puts members on their own lines.
+//
+// ```jai
+// Point :: struct { x: int; y: int; }
+//
+// text := to_json(Point.{ 1, 2 });
+// assert(text == "{\"x\":1,\"y\":2}");
+// free(text);
+// ```
 to_json :: (value: $T, pretty := false) -> string {
     builder: String_Builder;
     write_json(*builder, value, pretty);
@@ -188,6 +246,13 @@ to_json :: (value: $T, pretty := false) -> string {
     return builder_to_string(*builder);
 }
 
+// Like [to_json], appending to a `String_Builder` instead of allocating a string.
+//
+// ```jai
+// builder: String_Builder;
+// write_json(*builder, s32.[1, 2, 3]);
+// assert(builder_to_string(*builder,, temp) == "[1,2,3]");
+// ```
 write_json :: (builder: *String_Builder, value: $T, pretty := false) {
     w: Json_Writer;
     w.builder = builder;
@@ -202,6 +267,7 @@ write_json :: (builder: *String_Builder, value: $T, pretty := false) {
 // pieces come from; `Io.read_json` makes one from an `Io.Reader`.
 Json_Fill :: #type (data: *void, buffer: [] u8) -> s64, string;
 
+// A document that arrives in pieces; see [Json_Fill].
 Json_Source :: struct {
     data: *void;
     fill: Json_Fill;
@@ -213,6 +279,24 @@ Json_Source :: struct {
 // byte gives the same value or the same error. A source that fails gives a `.READ` error with
 // the source's text; a document longer than `options.max_size` is a `.LIMIT` error and the rest
 // is not read.
+//
+// ```jai
+// Chunks :: struct { parts: [] string; next: int; }
+//
+// fill :: (data: *void, buffer: [] u8) -> s64, string {
+//     chunks := cast(*Chunks) data;
+//     if chunks.next >= chunks.parts.count return 0, "";
+//     part := chunks.parts[chunks.next];
+//     chunks.next += 1;
+//     memcpy(buffer.data, part.data, part.count);
+//     return part.count, "";
+// }
+//
+// chunks := Chunks.{ parts = .["[1, ", "2, 3]"] };
+// numbers, error := from_json([] s64, Json_Source.{ *chunks, fill });
+// assert(error.kind == .NONE && numbers.count == 3);
+// free_json(*numbers);
+// ```
 from_json :: ($T: Type, source: Json_Source, options := Json_Options.{}) -> T, Json_Error {
     empty: T;
 
@@ -251,6 +335,16 @@ from_json :: ($T: Type, source: Json_Source, options := Json_Options.{}) -> T, J
 // allocated has been freed already and the returned value is a default `T`.
 //
 // - options: nesting and size limits, and whether unknown fields are an error.
+//
+// ```jai
+// numbers, error := from_json([] s64, "[1, 2, 3]");
+// assert(error.kind == .NONE && numbers.count == 3 && numbers[2] == 3);
+// free_json(*numbers);
+//
+// _, error = from_json(s64, "\"one\"");
+// assert(error.kind == .TYPE);
+// free_json(*error);
+// ```
 from_json :: ($T: Type, text: string, options := Json_Options.{}) -> T, Json_Error {
     empty: T;
 
@@ -348,21 +442,48 @@ decode_document :: (r: *Json_Reader, out: *$T) -> bool {
 // not freed, so defaults such as `name := "guest"` are safe. Fields with a `with=` handler are
 // left to the handler. Do not use it on values that were not decoded, as their strings may not
 // have come from the allocator.
+//
+// ```jai
+// names, _ := from_json([] string, "[\"a\", \"b\"]");
+// free_json(*names);
+// assert(names.count == 0);
+// ```
 free_json :: (value: *$T) {
     defaults: T;
 
     free_json_fields(value, *defaults);
 } @FreesArgument
 
-// Writes the JSON of the value `value` points to. This and json_decode are what `with=`
-// handlers call for the parts they do not encode themselves.
+// Writes the JSON of the value `value` points to to the writer `w`. This and [json_decode] are
+// what `with=` handlers call for the parts they do not encode themselves.
+//
+// ```jai
+// Price :: struct {
+//     cents: s64; @json(with=dollars)
+//
+//     dollars_encode :: (w: *Json_Writer, value: *s64) {
+//         json_write_float64(w, cast(float64) value.* / 100.0);
+//     }
+//
+//     dollars_decode :: (r: *Json_Reader, out: *s64) -> bool {
+//         dollars: float64;
+//         if !json_read_float64(r, *dollars) return false;
+//         out.* = cast(s64) (dollars * 100.0 + 0.5);
+//         return true;
+//     }
+// }
+//
+// assert(to_json(Price.{ 1250 }) == "{\"cents\":12.5}");
+// price, _ := from_json(Price, "{\"cents\": 3.25}");
+// assert(price.cents == 325);
+// ```
 json_encode :: (w: *Json_Writer, value: *$T) {
     #insert -> string {
         return generate_encoder(T);
     };
 }
 
-// Reads a `T` into `out`; false after recording an error.
+// Reads a `T` into `out` from the reader `r`; false after recording an error. See [json_encode].
 json_decode :: (r: *Json_Reader, out: *$T) -> bool {
     #insert -> string {
         return generate_decoder(T);

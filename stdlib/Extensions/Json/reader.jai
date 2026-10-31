@@ -37,12 +37,14 @@ Json_Reader :: struct {
     borrow: bool;
 }
 
+// What [json_object_next] found: a key, the end of the object, or an error.
 Object_Status :: enum u8 {
     ERROR;
     KEY;
     END;
 }
 
+// What [json_array_next] found: an item, the end of the array, or an error.
 Array_Status :: enum u8 {
     ERROR;
     ITEM;
@@ -75,6 +77,7 @@ json_fail :: (r: *Json_Reader, kind: Json_Error_Kind, message: string) -> bool {
     return json_fail_at(r, kind, message, r.pos);
 }
 
+// Like [json_fail], at the byte `offset`.
 json_fail_at :: (r: *Json_Reader, kind: Json_Error_Kind, message: string, offset: int) -> bool {
     if r.error.kind == .NONE {
         r.error.kind = kind;
@@ -94,6 +97,7 @@ json_path_key :: (r: *Json_Reader, key: string) {
     array_add(*r.path, segment);
 }
 
+// Like [json_path_key], for an array element.
 json_path_index :: (r: *Json_Reader, index: int) {
     segment: Path_Segment;
     segment.index = index;
@@ -190,18 +194,22 @@ enter_nesting :: (r: *Json_Reader) -> bool {
 
 #scope_export
 
+// Records a duplicate-field error for `key`.
 json_duplicate_field :: (r: *Json_Reader, key: string) {
     json_fail_at(r, .DUPLICATE_FIELD, tprint("duplicate field `%`", key), r.key_start);
 }
 
+// Records an unknown-field error for `key`.
 json_unknown_field :: (r: *Json_Reader, key: string) {
     json_fail_at(r, .UNKNOWN_FIELD, tprint("unknown field `%`", key), r.key_start);
 }
 
+// Records a missing-field error for `key`.
 json_missing_field :: (r: *Json_Reader, key: string) {
     json_fail_at(r, .MISSING_FIELD, tprint("missing field `%`", key), r.pos - 1);
 }
 
+// Consumes the `{`; false (with an error) when the next value is not an object.
 json_begin_object :: (r: *Json_Reader) -> bool {
     if json_peek(r) != #char "{" return wrong_type(r, "an object");
 
@@ -262,6 +270,7 @@ json_object_next :: (r: *Json_Reader, first: *bool) -> string, Object_Status {
     return key, .KEY;
 }
 
+// Consumes the `[`; false (with an error) when the next value is not an array.
 json_begin_array :: (r: *Json_Reader) -> bool {
     if json_peek(r) != #char "[" return wrong_type(r, "an array");
 
@@ -270,6 +279,8 @@ json_begin_array :: (r: *Json_Reader) -> bool {
     return enter_nesting(r);
 }
 
+// Moves to the next element of the array: `.ITEM` with the reader at its value, or `.END`.
+// `first` is true before the first call.
 json_array_next :: (r: *Json_Reader, first: *bool) -> Array_Status {
     c := json_peek(r);
 
@@ -646,6 +657,7 @@ json_keep_key :: (r: *Json_Reader, key: string) -> string {
     return copy_string(key);
 }
 
+// Reads `true` or `false`.
 json_read_bool :: (r: *Json_Reader) -> bool, bool {
     c := json_peek(r);
 
@@ -664,10 +676,12 @@ json_read_bool :: (r: *Json_Reader) -> bool, bool {
     return false, wrong_type(r, "a boolean");
 }
 
+// Whether the next value is `null`, without consuming it.
 json_next_is_null :: (r: *Json_Reader) -> bool {
     return json_peek(r) == #char "n";
 }
 
+// Consumes a `null`.
 json_read_null :: (r: *Json_Reader) -> bool {
     json_peek(r);
 
@@ -842,6 +856,7 @@ json_read_signed :: (r: *Json_Reader, out: *s64, low: s64, high: s64, type_name:
     return true;
 }
 
+// Like [json_read_signed], for an unsigned integer up to `high`.
 json_read_unsigned :: (r: *Json_Reader, out: *u64, high: u64, type_name: string) -> bool {
     if !starts_number(json_peek(r)) return wrong_type(r, "an integer");
 
@@ -869,6 +884,7 @@ json_read_unsigned :: (r: *Json_Reader, out: *u64, high: u64, type_name: string)
     return true;
 }
 
+// Reads any number into a float64.
 json_read_float64 :: (r: *Json_Reader, out: *float64) -> bool {
     if !starts_number(json_peek(r)) return wrong_type(r, "a number");
 
@@ -886,6 +902,7 @@ json_read_float64 :: (r: *Json_Reader, out: *float64) -> bool {
     return true;
 }
 
+// Reads any number into a float32.
 json_read_float32 :: (r: *Json_Reader, out: *float32) -> bool {
     if !starts_number(json_peek(r)) return wrong_type(r, "a number");
 
