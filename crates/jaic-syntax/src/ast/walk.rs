@@ -12,6 +12,15 @@ pub enum Node<'a> {
 }
 
 impl<'a> Node<'a> {
+    /// Whether both are the very same node of the tree.
+    pub fn same_node(self, other: Node<'_>) -> bool {
+        match (self, other) {
+            (Node::Stmt(a), Node::Stmt(b)) => std::ptr::eq(a, b),
+            (Node::Expr(a), Node::Expr(b)) => std::ptr::eq(a, b),
+            _ => false,
+        }
+    }
+
     pub fn expr(self) -> Option<&'a Expr> {
         match self {
             Node::Expr(e) => Some(e),
@@ -71,6 +80,9 @@ pub fn body_extent(node: Node<'_>) -> crate::source::Span {
         Node::Stmt(s) => s.span,
     };
     let (first, last) = edge_children(node);
+    // A node with one child (or a unary operand) has it as both edges; measuring it twice would
+    // double the work at every level of a chain of such nodes.
+    let last = last.filter(|l| !first.is_some_and(|f| f.same_node(*l)));
     for kid in [first, last].into_iter().flatten() {
         let inner = extent(kid);
         if inner.file == out.file {
@@ -472,5 +484,30 @@ fn expr_children<'a>(x: &'a Expr, out: &mut Vec<Node<'a>>) {
         }
         // Procedures, lambdas, structs and enums are not part of the enclosing body.
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::parser::parse_file;
+    use crate::source::FileId;
+
+    /// Measures the extent of every node under `node`; how many were unary operators.
+    fn measure(node: Node<'_>) -> usize {
+        let _ = extent(node);
+        let own = matches!(node, Node::Expr(e) if matches!(e.kind, E::Unary(..)));
+        usize::from(own) + children(node).into_iter().map(measure).sum::<usize>()
+    }
+
+    /// A chain of unary operators is measured in time linear in its length: the operand is both
+    /// the first and the last child, and must not be measured once for each.
+    #[test]
+    fn extent_of_a_unary_chain_is_linear() {
+        let depth = 300;
+        let src = format!("x := {}1;\n", "!".repeat(depth));
+        let file = parse_file(FileId(0), &src).expect("parses");
+        let unary: usize = file.stmts.iter().map(|s| measure(Node::Stmt(s))).sum();
+        assert_eq!(unary, depth);
     }
 }
