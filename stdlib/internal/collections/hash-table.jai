@@ -237,9 +237,14 @@ table_contains :: (table: *Table, key: table.Key_Type) -> bool {
 // ```
 table_find :: (table: *Table, key: table.Key_Type) -> (success: bool, table.Value_Type) {
     pointer := table_find_pointer(table, key);
-    if pointer return true, pointer.*;
     value: table.Value_Type;
-    return false, value;
+
+    // A void value has nothing to copy out.
+    #if table.Value_Type != void {
+        if pointer value = pointer.*;
+    }
+
+    return pointer != null, value;
 }
 
 // Every value stored under `key`, as a view into temporary storage (`talloc`), or an empty view when there are none.
@@ -313,12 +318,11 @@ table_find_multiple :: (table: *Table, key: table.Key_Type) -> [] table.Value_Ty
 // ```
 table_remove :: (table: *Table, key: table.Key_Type) -> (success: bool, value: table.Value_Type) {
     entry := find_entry(table, key);
-    if !entry {
-        value: table.Value_Type;
-        return false, value;
-    }
+    value: table.Value_Type;
 
-    value := entry.value;
+    if !entry return false, value;
+
+    #if table.Value_Type != void value = entry.value;
 
     entry.hash = REMOVED_HASH;
     table.count -= 1;
