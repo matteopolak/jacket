@@ -130,15 +130,30 @@ if [ "$RUNNER_OS" = "Windows" ]; then
   )
 fi
 # (`! cmd` would not stop the script: `set -e` ignores a negated command.)
+#
+# LLVM is in the code generation library beside jaic (opened on the first build that writes
+# native code), so jaic itself links no LLVM and the library carries all of it, statically.
+case "$RUNNER_OS" in
+  macOS) backend="$PWD/$PACKAGE_DIR/libjaic_backend.dylib" ;;
+  Windows) backend="$PWD/$PACKAGE_DIR/jaic_backend.dll" ;;
+  *) backend="$PWD/$PACKAGE_DIR/libjaic_backend.so" ;;
+esac
+if [ -n "$LLVM" ]; then test -f "$backend" || { echo "the archive has no $backend"; exit 1; }; fi
 if [ "$RUNNER_OS" = "macOS" ]; then
-  otool -L "$jaic"
-  if otool -L "$jaic" | grep -E '/opt/homebrew|/usr/local|@rpath'; then
-    echo "jaic links a library outside the system"; exit 1
-  fi
+  for image in "$jaic" "$backend"; do
+    [ -f "$image" ] || continue
+    otool -L "$image"
+    if otool -L "$image" | grep -E '/opt/homebrew|/usr/local|@rpath'; then
+      echo "$image links a library outside the system"; exit 1
+    fi
+  done
 fi
 if [ "$RUNNER_OS" = "Linux" ]; then
-  ldd "$jaic"
-  if ldd "$jaic" | grep -i llvm; then echo "jaic links a shared LLVM"; exit 1; fi
+  for image in "$jaic" "$backend"; do
+    [ -f "$image" ] || continue
+    ldd "$image"
+    if ldd "$image" | grep -i llvm; then echo "$image links a shared LLVM"; exit 1; fi
+  done
 fi
 # Installed the usual way: unpacked elsewhere, linked from a bin folder, with no
 # checkout to fall back on (the build's own stdlib path is baked in as the fallback).
@@ -153,6 +168,12 @@ if [ "$RUNNER_OS" != "Windows" ]; then
   # The native libraries are found beside the real stdlib behind the symlink.
   "$RUNNER_TEMP/bin/jaic" simp-image.jai -interp
   simp_status=$?
+  # A build through the symlink finds the code generation library beside the real jaic.
+  link_build_status=0
+  if [ -n "$LLVM" ]; then
+    "$RUNNER_TEMP/bin/jaic" main.jai -exe via-link
+    link_build_status=$?
+  fi
   # jaifmt is self-contained: it needs neither the stdlib nor a checkout.
   ln -s "$RUNNER_TEMP/opt-jaic/jaifmt" "$RUNNER_TEMP/bin/jaifmt"
   linked_fmt="$(printf 'main::(){x:=1;}' | "$RUNNER_TEMP/bin/jaifmt" --stdin)"
@@ -161,6 +182,7 @@ if [ "$RUNNER_OS" != "Windows" ]; then
   mv "$GITHUB_WORKSPACE/stdlib.hidden" "$GITHUB_WORKSPACE/stdlib"
   test "$status" = 42
   test "$simp_status" = 0
+  test "$link_build_status" = 0
   test "$fmt_status" = 0
   test "$linked_fmt" = "$formatted"
 fi

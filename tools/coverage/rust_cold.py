@@ -117,6 +117,7 @@ def main() -> int:
         "crates/jaic-syntax/src",
         "crates/jaic-cli/src",
         "crates/jaic-llvm/src",
+        "crates/jaic-native/src",
         "crates/jai-language-server/src",
         "crates/jailint/src",
     ]

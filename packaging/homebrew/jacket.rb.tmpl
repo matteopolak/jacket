@@ -37,8 +37,10 @@ class Jacket < Formula
     # jacket starts the other tools from beside the real file behind its bin/ symlink.
     # jaic, jailint and jailsp find stdlib/ (including its prelude) next to the real file
     # behind the bin/ symlinks, and native libraries (wgpu-native, stb_*, rpmalloc) in
-    # ../native-libs.
+    # ../native-libs. jaic opens its code generation library (libjaic_backend) from beside the
+    # real file too, on the first build that writes native code.
     libexec.install "jacket", "jaic", "jailsp", "jailint", "jaifmt", "stdlib"
+    libexec.install Dir["libjaic_backend.*"]
     libexec.install "native-libs"
     bin.install_symlink libexec/"jacket", libexec/"jaic", libexec/"jailsp", libexec/"jailint", libexec/"jaifmt"
     doc.install "README.md", "CHANGELOG.md"

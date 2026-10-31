@@ -13,6 +13,8 @@ function Build($version) {
   $top = Join-Path $stage 'jacket-windows-x64'
   New-Item -ItemType Directory -Force (Join-Path $top 'stdlib\prelude') | Out-Null
   foreach ($tool in 'jacket', 'jaic', 'jailsp', 'jailint', 'jaifmt') { "stub $version" | Set-Content (Join-Path $top "$tool.exe") }
+  # The code generation library jaic opens from beside its executable.
+  "stub $version" | Set-Content (Join-Path $top 'jaic_backend.dll')
   $dir = Join-Path $root "v$version"
   New-Item -ItemType Directory -Force $dir | Out-Null
   $zip = Join-Path $dir 'jacket-windows-x64.zip'
@@ -32,6 +34,7 @@ Get-Content -Raw $script | Invoke-Expression
 if (-not (Test-Path (Join-Path $env:JAI_INSTALL_DIR '9.0.2\jaic.exe'))) { throw '9.0.2 was not installed' }
 if (Test-Path (Join-Path $env:JAI_INSTALL_DIR '9.0.1')) { throw '9.0.1 was not removed by the upgrade' }
 if (-not (Test-Path (Join-Path $env:JAI_INSTALL_DIR 'current\jaic.exe'))) { throw 'the current junction is broken' }
+if (-not (Test-Path (Join-Path $env:JAI_INSTALL_DIR 'current\jaic_backend.dll'))) { throw 'the code generation library is not beside jaic.exe' }
 # A damaged download is refused.
 Add-Content (Join-Path $root 'v9.0.2\jacket-windows-x64.zip') 'damaged'
 $rejected = $false

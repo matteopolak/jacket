@@ -251,7 +251,7 @@ def stale_sources(jaic):
         built = jaic.stat().st_mtime
     except OSError:
         return None
-    for crate in ("jaic", "jaic-cli", "jaic-llvm"):
+    for crate in ("jaic", "jaic-cli", "jaic-llvm", "jaic-native"):
         for f in (ROOT / "crates" / crate / "src").rglob("*.rs"):
             if f.stat().st_mtime > built:
                 return f.relative_to(ROOT)

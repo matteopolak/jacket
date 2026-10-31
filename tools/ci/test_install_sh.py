@@ -28,6 +28,7 @@ PLATFORMS = {
 }
 PLATFORM = PLATFORMS.get((platform.system(), platform.machine()))
 TOOLS = ("jaic", "jailsp", "jailint", "jaifmt", "jacket")
+BACKEND = "libjaic_backend.dylib" if platform.system() == "Darwin" else "libjaic_backend.so"
 
 
 @unittest.skipIf(PLATFORM is None, "install.sh has no build for this platform")
@@ -49,6 +50,8 @@ class InstallSh(unittest.TestCase):
             script = stage / tool
             script.write_text(f'#!/bin/sh\necho "{tool} {version}"\n')
             script.chmod(0o755)
+        # The code generation library jaic opens from beside its real file.
+        (stage / BACKEND).write_text("library\n")
         directory = self.release / f"v{version}"
         directory.mkdir(parents=True)
         archive = directory / f"jacket-{PLATFORM}.tar.gz"
@@ -92,6 +95,12 @@ class InstallSh(unittest.TestCase):
         self.assertEqual(
             os.readlink(self.bin / "jaic"), str(self.share / "9.0.2" / "jaic")
         )
+
+    def test_the_code_generation_library_stays_beside_the_real_jaic(self):
+        self.install("9.0.2")
+        # `bin/jaic` is a symlink; jaic looks for the library beside the file it resolves to.
+        real = (self.bin / "jaic").resolve()
+        self.assertTrue((real.parent / BACKEND).is_file())
 
     def test_a_damaged_download_is_refused(self):
         archive = self.release / "v9.0.2" / f"jacket-{PLATFORM}.tar.gz"
