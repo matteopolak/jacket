@@ -1,4 +1,10 @@
 // C's `long double` as a Jai type.
+//
+// ```jai
+// x: Long_Double = 1.5;
+// y := x + x;
+// assert(y == 3);
+// ```
 
 // The C compiler's `long double` on the target. Where C makes it the same as `double`
 // (Apple arm64, Windows with MSVC) this is float64 itself. Elsewhere it is a 16-byte float in

@@ -1,4 +1,16 @@
-// Ranks `u32`, `u64` and `float` data by radix sorting, without moving it.
+// Ranks `u32`, `u64` and `float` data by radix sorting, without moving it: `sort` fills a
+// `RadixSort`, `rank` says which input element comes next, and `reorder` rearranges an array to match.
+//
+// ```jai
+// values: [..] u32;
+// array_add(*values, 3, 1, 2);
+// sorter: RadixSort;
+// sort(*sorter, values);
+// reorder(*values, sorter);
+// assert(values[0] == 1 && values[2] == 3);
+// free_resources(*sorter);
+// array_free(values);
+// ```
 
 // Scratch state for radix sorting, which orders the numbers in an array by their bytes rather than by comparing them.
 //

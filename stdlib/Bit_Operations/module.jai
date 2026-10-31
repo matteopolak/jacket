@@ -1,4 +1,9 @@
 // Byte swapping, bit scans and population count for integers of any size.
+//
+// ```jai
+// assert(popcount(cast(u32) 0b1011) == 3);
+// assert(byte_swap(cast(u16) 0x0102) == 0x0201);
+// ```
 
 // Reverses the byte order of `input` and returns the result; `input` is untouched.
 //

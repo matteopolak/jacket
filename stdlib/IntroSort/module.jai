@@ -1,4 +1,11 @@
-// The comparator sorts that Sort is built from, for callers that want a specific algorithm.
+// The comparator sorts that Sort is built from, for callers that want a specific algorithm:
+// `intro_sort` for general use, `insertion_sort` for short or nearly sorted arrays.
+//
+// ```jai
+// values := int.[5, 2, 9, 1];
+// intro_sort(values, (a: int, b: int) -> int { return a - b; });
+// assert(values[0] == 1 && values[3] == 9);
+// ```
 
 intro_sort :: Impl.intro_sort;
 // Sorts an array view in place by insertion with a three-way comparator.

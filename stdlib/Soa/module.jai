@@ -1,4 +1,11 @@
-// Fixed-size arrays of structs stored as one array per member.
+// Fixed-size arrays of structs stored as one array per member: `Soa(T, N)`.
+//
+// ```jai
+// Point :: struct { x: float; y: float; }
+// points: Soa(Point, 4);
+// points[0] = .{1, 2};
+// assert(points.y[0] == 2);
+// ```
 
 // `Soa(T, N)`: `N` values of the struct `T`, stored as one array per member ("structure of arrays") instead of one array of structs.
 //

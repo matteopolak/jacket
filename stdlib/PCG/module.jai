@@ -4,6 +4,13 @@
 // that uses a single module-global `u64`. The global is shared by every thread and is not locked, so use
 // your own state when more than one thread draws. The global starts at a fixed value, so an unseeded program
 // sees the same numbers every run. The generator is not suitable for cryptography.
+//
+// ```jai
+// state: u64;
+// random_seed(*state, 1);
+// roll := random_get_within_bound(*state, 6) + 1;
+// assert(roll >= 1 && roll <= 6);
+// ```
 
 // The next 32 random bits, advancing the state. Any `u64` is a valid state, including 0.
 //

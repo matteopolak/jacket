@@ -1,4 +1,9 @@
 // Approximate float comparison and the numeric limits of a type.
+//
+// ```jai
+// assert(values_are_close(0.1 + 0.2, 0.3));
+// assert(max_of_type(u8) == 255);
+// ```
 
 // The smallest value of the numeric type `T`: the lowest integer, so `-128` for `s8` and `0` for any unsigned type.
 //
