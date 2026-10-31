@@ -134,7 +134,14 @@ created_empty :: () -> Response {
     return status_only(201);
 }
 
+// A HEAD handler may state the length of the body a GET would send, without sending it.
+head_with_length :: () -> Response {
+    return with_header(status_only(200), "Content-Length", "1234");
+}
+
 make_app :: (app: *App) {
+    head(app, "/sized", head_with_length);
+    get(app, "/sized", hello);
     app.state = *world;
 
     get(app, "/hello", hello);
@@ -218,6 +225,17 @@ basics :: () {
 
     expect_status(followed, 200);
     expect_text(followed, "hello");
+
+    // A HEAD answer names a length and has no body: nobody waits for those bytes.
+    sized := head(api, "/sized");
+
+    expect_status(sized, 200);
+    expect_header(sized, "Content-Length", "1234");
+
+    sized_body, sized_error := read_text(*sized);
+
+    expect_equal(sized_error.kind, Client_Error_Kind.NONE);
+    expect_equal(sized_body.count, 0);
 
     // HEAD and OPTIONS come from the router.
     head_response := head(api, "/hello");

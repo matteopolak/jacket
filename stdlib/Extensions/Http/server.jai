@@ -746,7 +746,20 @@ append_response :: (server: *Server, out: *[..] u8, response: *Response, request
 
     if response.source length = response.source.length;
 
-    kind, ok := write_response_head(out, response.status, response.headers, length, options);
+    headers: [] Header_Field = response.headers;
+
+    // A HEAD answer may state the length of the body a GET would send. The writer adds the
+    // framing header itself, so the handler's one is taken out and its number used.
+    if request.method == .HEAD && response.body.count == 0 && !response.source {
+        stated, rest, found := stated_length(response.headers);
+
+        if found {
+            length = stated;
+            headers = rest;
+        }
+    }
+
+    kind, ok := write_response_head(out, response.status, headers, length, options);
 
     if !ok {
         // A handler built a response the writer refuses (a bad header, a status outside 100-599).
@@ -769,6 +782,40 @@ append_response :: (server: *Server, out: *[..] u8, response: *Response, request
     }
 
     return true, kind;
+}
+
+// Digits that always fit a `s64`.
+MAX_LENGTH_DIGITS :: 18;
+
+// The `Content-Length` a handler put in its headers: its number, the headers without it (in
+// temporary storage), and whether it was a valid number.
+stated_length :: (headers: [] Header_Field) -> s64, [] Header_Field, bool {
+    for headers {
+        if lookup_header_name(it.name) != .CONTENT_LENGTH continue;
+
+        value := it.value;
+
+        if value.count == 0 || value.count > MAX_LENGTH_DIGITS return 0, headers, false;
+
+        number: s64;
+
+        for value {
+            if it < #char "0" || it > #char "9" return 0, headers, false;
+
+            number = number * 10 + (it - #char "0");
+        }
+
+        rest: [..] Header_Field;
+        rest.allocator = temp;
+
+        for other: headers {
+            if lookup_header_name(other.name) != .CONTENT_LENGTH array_add(*rest, other);
+        }
+
+        return number, rest, true;
+    }
+
+    return 0, headers, false;
 }
 
 // Fills in `path` and `query` from the target (an absolute-form target keeps only its path).

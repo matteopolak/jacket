@@ -480,7 +480,8 @@ delete :: (group: *Group($P), $template: string, $handler: $H, max_body := 0, $l
 // HEAD and OPTIONS are answered for every route by default (HEAD by the GET handler without the
 // body, OPTIONS with an `Allow` list); register them only to change that.
 // Adds a `HEAD` route. Register one only to change the default, which answers `HEAD` from the `GET` handler without sending the
-// body. The template, handler and `max_body` work as for `get`.
+// body. The template, handler and `max_body` work as for `get`. A `Content-Length` header on the response is sent as is, with no
+// body, to tell the client how large a `GET` would be.
 //
 // ```jai,skip_on(wasm)
 // probe :: () -> Response {
