@@ -1,5 +1,5 @@
 //! C ABI layouts, by-value structs, callbacks and sanitized builds.
-use super::{JAIC, abi_layout, build_and_run, exe_path, jaic, repo_root};
+use super::{JAIC, abi_layout, build_and_run, exe_path, jaic, read_ir_parts, repo_root};
 use std::path::Path;
 use std::process::Command;
 use test_support::{TempDir, toolchain};
@@ -951,7 +951,7 @@ fn msvc_long_double_math_calls_the_double_functions() {
         .current_dir(&dir)
         .output()
         .unwrap();
-    let ir = std::fs::read_to_string(dir.join("main.ll")).unwrap();
+    let ir = read_ir_parts(&dir.join("main.ll"));
     assert!(
         ir.contains(&format!("declare double @{double}(double)")),
         "{ir}"
@@ -1006,7 +1006,7 @@ fn msvc_c_runtime_variables_are_dllimport() {
             .current_dir(&dir)
             .output()
             .unwrap();
-        std::fs::read_to_string(dir.join(name)).unwrap()
+        read_ir_parts(&dir.join(name))
     };
     for target in ["x86_64-pc-windows-msvc", "aarch64-pc-windows-msvc"] {
         let ir = emit(target);
