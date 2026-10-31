@@ -1,4 +1,4 @@
-// test: skip_on(.WASM, .WINDOWS, reason = "a directory in use cannot be deleted on Windows, and wasm has no working directory") serial
+// test: skip_on(.WASM, .WINDOWS, reason = "a directory in use cannot be deleted on Windows, and on wasm the working directory is a name that stays after the directory is gone") serial
 #import "Basic";
 #import "File";
 

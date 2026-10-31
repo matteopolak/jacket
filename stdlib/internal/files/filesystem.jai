@@ -3,7 +3,7 @@ File_Visit_Info :: Visit.File_Visit_Info;
 // Whether `path` is a directory, as `(is_directory, success)`. A link is followed. A path that cannot be examined (missing, no
 // permission, or a NUL byte in it) gives `(false, false)`, so `success` tells a file from nothing at all.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // #import "Extensions/Environment";
 // #import "File";
 // base := environment_variable("TMPDIR");
@@ -69,7 +69,7 @@ add_modtime_and_size_if_missing :: (info: *File_Visit_Info) -> bool {
 // A missing or unreadable `dir_name` returns `false` without calling `proc`. An entry whose details cannot be read is reported
 // with `had_error` set and makes the result `false`, but the walk goes on.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // #import "Extensions/Environment";
 // #import "File";
 // base := environment_variable("TMPDIR");
@@ -135,7 +135,7 @@ file_exists :: (path: string) -> bool {
 // time keeps the file system's resolution (nanoseconds on most Unix targets); compare two with `compare_apollo_times`.
 // A directory's size is whatever the system reports for it.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // #import "Extensions/Environment";
 // #import "File";
 // base := environment_variable("TMPDIR");
@@ -178,7 +178,7 @@ file_modtime :: (file_path: string) -> (modtime: Apollo_Time, file_exists: bool)
 // written. Permissions and times are not copied. `silent` has no effect here; on
 // Windows a failure is logged only when it is `false`, and passing it keeps code the same on every target.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // #import "Extensions/Environment";
 // #import "File";
 // base := environment_variable("TMPDIR");
@@ -243,7 +243,7 @@ copy_file :: (source: string, dest: string, silent := true) -> bool {
 // it is a replacing move. Both names must be on one file system. To change a file safely, write the new content to a
 // second file in the same folder and move it over the old one.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // #import "Extensions/Environment";
 // #import "File";
 // base := environment_variable("TMPDIR");
@@ -276,7 +276,7 @@ atomic_file_replace_or_just_rename_if_destination_file_does_not_exist :: (old_fi
 // The order is the file system's. The array and every string in it are new allocations from `context.allocator`: free each
 // string and then the array. A missing folder or a read error is logged, and the files found before it are still returned.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // #import "Extensions/Environment";
 // #import "File";
 // base := environment_variable("TMPDIR");
@@ -324,7 +324,7 @@ file_list :: (path: string, recursive := false, follow_directory_symlinks := tru
 // and copied as what they point to, with link cycles cut. As with `copy_file`, permissions and times are not copied. A failure
 // part-way leaves what was copied so far.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // #import "Extensions/Environment";
 // #import "File";
 // base := environment_variable("TMPDIR");
@@ -378,7 +378,7 @@ copy_directory :: (source: string, dest: string) -> bool {
 // stops at the first that is missing. The count is `0` when even the first is missing and the number of words when all of them exist.
 // An empty path is `(true, 0)`.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // path := parse_path("jai-doc-no-such-folder/inner/file");
 // defer array_free(path.words);
 // exists, count := how_much_of_path_exists_on_the_local_filesystem(path);
@@ -402,7 +402,8 @@ how_much_of_path_exists_on_the_local_filesystem :: (path: Paths.Path) -> (fully_
 
 #scope_file
 #import "Basic";
-P :: #import "internal/bindings/posix-api";
+#if OS == .WASM P :: #import "internal/files/wasi-libc";
+else P :: #import "internal/bindings/posix-api";
 F :: #import "File";
 S :: #import "String";
 Paths :: #import "internal/files/paths";

@@ -1,4 +1,3 @@
-// test: skip_on(.WASM, reason = "File_Utilities has no wasm backend")
 // Jai_Format golden tests: every fixtures/<name>.in.jai formats to <name>.out.jai (with
 // <name>.toml as its config when present), formatting is idempotent and keeps the token stream,
 // malformed input is refused, and the formatter's own sources are already formatted.

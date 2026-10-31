@@ -1,4 +1,3 @@
-// test: skip_on(.WASM, reason = "Basic has no get_working_directory on wasm")
 // Real child workspace; no CLI replacement or private implementation access.
 #import "Basic";
 M :: #import "Minimal_Metaprogram";

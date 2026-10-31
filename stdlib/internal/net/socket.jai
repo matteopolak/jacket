@@ -4,6 +4,8 @@
     #load "socket-abi-windows.jai";
     #load "socket-windows.jai";
     #load "socket-fields-windows.jai";
+} else #if OS == .WASM {
+    #load "socket-wasm.jai";
 } else {
     #load "socket-native-completions.jai";
     #load "socket-posix.jai";

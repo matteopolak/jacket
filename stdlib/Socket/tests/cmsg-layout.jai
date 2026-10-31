@@ -1,4 +1,3 @@
-// test: skip_on(.WASM, reason = "Socket has no wasm target (Unix and Windows sockets only)")
 // Reviewed public ancillary signatures; independent layout and extent safety.
 #import "Basic";
 S :: #import "Socket";

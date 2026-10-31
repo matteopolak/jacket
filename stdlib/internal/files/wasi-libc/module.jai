@@ -9,6 +9,7 @@ SEEK_CUR :: 1;
 SEEK_END :: 2;
 
 fopen :: (name: *u8, mode: *u8) -> *FILE #foreign libc;
+close :: (fd: s32) -> s32 #foreign libc;
 fclose :: (file: *FILE) -> s32 #foreign libc;
 fread :: (data: *void, size: u64, count: u64, file: *FILE) -> u64 #foreign libc;
 fwrite :: (data: *void, size: u64, count: u64, file: *FILE) -> u64 #foreign libc;
@@ -17,6 +18,69 @@ ferror :: (file: *FILE) -> s32 #foreign libc;
 fseeko :: (file: *FILE, offset: s64, origin: s32) -> s32 #foreign libc;
 ftello :: (file: *FILE) -> s64 #foreign libc;
 
+OS_Error_Code :: s32;
+ENOENT :: 2;
+EINVAL :: 22;
+ENOSYS :: 38;
+EAFNOSUPPORT :: 97;
+
+errno_location :: () -> *s32 #foreign libc "__errno_location";
+
+errno :: () -> OS_Error_Code {
+    return errno_location().*;
+}
+
+set_errno :: (code: OS_Error_Code) {
+    errno_location().* = code;
+}
+
+// The Linux x86-64 layouts, which Wasi_Runtime and the interpreter's sandbox both fill in.
+stat_t :: struct {
+    st_dev: u64;
+    st_ino: u64;
+    st_nlink: u64;
+    st_mode: u32;
+    st_uid: u32;
+    st_gid: u32;
+    padding: u32;
+    st_rdev: u64;
+    st_size: s64;
+    st_blksize: s64;
+    st_blocks: s64;
+    st_atime: timespec;
+    st_mtime: timespec;
+    st_ctime: timespec;
+    reserved: [3] s64;
+}
+
+dirent :: struct {
+    d_ino: u64;
+    d_off: s64;
+    d_reclen: u16;
+    d_type: u8;
+    d_name: [256] u8;
+}
+
+S_IFMT :: 0xF000;
+S_IFDIR :: 0x4000;
+S_IFLNK :: 0xA000;
+
+S_ISDIR :: (mode: u32) -> bool {
+    return mode & S_IFMT == S_IFDIR;
+}
+
+S_ISLNK :: (mode: u32) -> bool {
+    return mode & S_IFMT == S_IFLNK;
+}
+
+stat :: (name: *u8, result: *stat_t) -> s32 #foreign libc;
+lstat :: (name: *u8, result: *stat_t) -> s32 #foreign libc;
+readdir :: (directory: *DIR) -> *dirent #foreign libc;
+
+ERANGE :: 34;
+
+getcwd :: (buffer: *u8, size: u64) -> *u8 #foreign libc;
+chdir :: (name: *u8) -> s32 #foreign libc;
 rename :: (old: *u8, new: *u8) -> s32 #foreign libc;
 unlink :: (name: *u8) -> s32 #foreign libc;
 link :: (target: *u8, name: *u8) -> s32 #foreign libc;

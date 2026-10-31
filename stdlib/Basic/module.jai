@@ -229,6 +229,8 @@ NewArray :: Impl.NewArray;
 }
 
 #if OS == .WASM {
+    get_working_directory :: Impl.get_working_directory;
+    set_working_directory :: Impl.set_working_directory;
     exit :: Impl.exit;
     sleep_milliseconds :: Impl.sleep_milliseconds;
 }

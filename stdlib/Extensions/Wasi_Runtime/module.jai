@@ -27,6 +27,7 @@
 #load "elementary.jai";
 #load "quad.jai";
 #load "threads.jai";
+#load "sockets.jai";
 
 c_runtime :: #system_library "libc"; @native(external)
 wasi :: #system_library "wasi_snapshot_preview1"; @native(external)

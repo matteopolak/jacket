@@ -1,4 +1,4 @@
-// test: skip_on(.WASM, reason = "Socket has no wasm target (Unix and Windows sockets only)")
+// test: skip_on(.WASM, reason = "WASI preview 1 cannot create or connect sockets")
 // Reviewed descriptor domain. Cross-target #run uses no native Winsock calls.
 #import "Basic";
 S :: #import "Socket";

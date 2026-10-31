@@ -2,9 +2,9 @@
 //
 // Relative paths given to the file procedures are resolved against it. The path uses the system's own separators. The
 // system cannot give the directory (it was deleted while the program was in it, or it cannot be searched) the result is the
-// empty string, which no working directory is, and there is nothing to free. Not available on wasm.
+// empty string, which no working directory is, and there is nothing to free.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // original := get_working_directory();
 // defer free(original);
 // assert(original.count > 0);
@@ -43,7 +43,7 @@ get_working_directory :: () -> result: string {
 // Makes `s` the working directory of the whole program, for every thread, and returns whether it worked. A missing path, a
 // file, a directory without permission to enter, an empty path and a path with a NUL byte give `false` and change nothing.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // assert(!set_working_directory("jai-doc-no-such-directory/inner"));
 // ```
 set_working_directory :: (s: string) -> bool {

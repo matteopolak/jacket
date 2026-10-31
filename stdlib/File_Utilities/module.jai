@@ -5,9 +5,10 @@
 // `copy_file` and `copy_directory` copy, `delete_directory_tree` removes a folder with everything in it, and `parse_path` turns text into a `Path` of names that `reduce_path`,
 // `path_contains` and `path_to_string` work on without touching the disk. The procedures that take a path
 // answer `false` for one with a NUL byte in it. Strings that a procedure returns come from `context.allocator` and
-// are the caller's to free. There is no wasm backend.
+// are the caller's to free. On wasm only the directories the host pre-opened can be reached, and files have no owners or
+// permissions (see `docs/native/wasm-target.md`).
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // #import "Extensions/Environment";
 // #import "File";
 // base := environment_variable("TMPDIR");
@@ -30,7 +31,7 @@ copy_to_permanent :: Paths.copy_to_permanent;
 free_permanent :: Paths.free_permanent;
 File_Visit_Info :: Visit.File_Visit_Info;
 
-#if OS_IS_UNIX {
+#if HAS_UNIX_FILES {
     visit_files :: Files.visit_files;
     is_directory :: Files.is_directory;
     add_modtime_and_size_if_missing :: Files.add_modtime_and_size_if_missing;
@@ -58,7 +59,7 @@ File_Visit_Info :: Visit.File_Visit_Info;
     atomic_file_replace_or_just_rename_if_destination_file_does_not_exist :: Files.atomic_file_replace_or_just_rename_if_destination_file_does_not_exist;
 }
 
-#if OS_IS_UNIX || OS == .WINDOWS {
+#if HAS_UNIX_FILES || OS == .WINDOWS {
     // Deletes the folder `path` and everything in it. Returns whether the folder is gone.
     //
     // `File.delete_directory` only removes an empty folder; this walks down first and removes the files, then the folders,
@@ -67,7 +68,7 @@ File_Visit_Info :: Visit.File_Visit_Info;
     // be removed (no permission, a read-only file on Windows), the rest is still tried and the answer is `false`, so a failure
     // may leave part of the tree behind.
     //
-    // ```jai,skip_on(wasm)
+    // ```jai
     // #import "Extensions/Environment";
     // #import "File";
     // base := environment_variable("TMPDIR");
@@ -101,7 +102,7 @@ F :: #import "File";
 S :: #import "String";
 #import "Basic";
 
-#if OS_IS_UNIX || OS == .WINDOWS {
+#if HAS_UNIX_FILES || OS == .WINDOWS {
     Tree_Entry :: struct {
         name: string;
         is_directory: bool;
@@ -158,7 +159,10 @@ S :: #import "String";
     }
 }
 
+// The POSIX file calls, which Wasi_Runtime and the interpreter's sandbox answer on wasm.
+HAS_UNIX_FILES :: OS_IS_UNIX || OS == .WASM;
+
 Paths :: #import "internal/files/paths";
 Visit :: #import "internal/files/visit-info";
-#if OS_IS_UNIX Files :: #import "internal/files/filesystem";
+#if HAS_UNIX_FILES Files :: #import "internal/files/filesystem";
 #if OS == .WINDOWS Files :: #import "internal/files/filesystem-windows";

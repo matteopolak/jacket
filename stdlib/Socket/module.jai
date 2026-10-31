@@ -13,6 +13,8 @@
 // `sockaddr_in6` (IPv6); ports in these records are in network order (`htons`) while the helper `bind` overloads take host order.
 // Windows needs `socket_init` before the first call, and the descriptor-set and control-message helpers differ by
 // platform (`CMSG_*` exist on Unix only).
+// Under WASI only `accept`, `recv`, `send` and `shutdown` on a socket the host pre-opened work; the calls that would create or set up a
+// socket return -1 with `ENOSYS`.
 //
 // ```jai,skip_on(wasm)
 // assert(socket_init());
@@ -42,7 +44,7 @@
 // assert(got == 4 && string.{got, buffer.data} == "ping");
 // ```
 
-#assert OS_IS_UNIX || OS == .WINDOWS;
+#assert OS_IS_UNIX || OS == .WINDOWS || OS == .WASM;
 
 // The module is the files of internal/net loaded into one scope: the per-OS native declarations
 // (socket-abi-<os>.jai) are the public names, beside the hand-written helpers around them.

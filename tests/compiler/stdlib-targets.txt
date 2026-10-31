@@ -75,7 +75,6 @@ Runtime_Support_Crash_Handler wasm: Runtime_Support_Crash_Handler/module.jai: #a
 SDL wasm: SDL/module.jai: #assert failed: SDL requires its documented native platform
 Shared_Memory_Channel wasm: Shared_Memory_Channel/module.jai: #assert failed: Shared_Memory_Channel requires native shared-memory mappings
 Simp wasm: GL/module.jai: #assert failed: GL requires its documented native platform
-Socket wasm: Socket/module.jai: #assert failed: `OS_IS_UNIX || OS == .WINDOWS` is false
 Sound_Player wasm: Thread/module.jai: #assert failed: `OS == .WINDOWS || OS == .MACOS || OS == .LINUX || OS == .ANDROID` is false
 System wasm: System/module.jai: #assert failed: `OS == .WINDOWS || OS == .MACOS || OS == .LINUX || OS == .ANDROID` is false
 Thread wasm: Thread/module.jai: #assert failed: `OS == .WINDOWS || OS == .MACOS || OS == .LINUX || OS == .ANDROID` is false
