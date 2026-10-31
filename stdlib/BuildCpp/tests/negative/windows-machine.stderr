@@ -1,4 +1,4 @@
-windows-machine.jai:22:13: error: BuildCpp object target validation failed
+windows-machine.jai:22:13: error[metaprogram-report]: BuildCpp object target validation failed
         assert(!B.build_cpp(output, source, type = .OBJ_FILE, extra = flags, compiler_executable_path = "clang"));
                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
