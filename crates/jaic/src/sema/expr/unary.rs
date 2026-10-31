@@ -190,7 +190,14 @@ impl Compiler {
     ) -> Result<Operand> {
         let inner = self.check_expr(f, scope, a, None)?;
         let (ty, v) = self.rvalue(f, inner, span)?;
-        let Some(pointee) = self.ty.types.pointee(ty) else {
+        // `null.*` is a `void` place, the way `<< ptr` is on a `*void`: it is how a table of
+        // `void` values (a set) is given the value it ignores.
+        let pointee = if ty == TypeId::NULL {
+            Some(TypeId::VOID)
+        } else {
+            self.ty.types.pointee(ty)
+        };
+        let Some(pointee) = pointee else {
             return Err(Box::new(self.cannot_dereference(ty, a.span, span)));
         };
         // `<< ptr` on a `*void` is a `void` place (it prints as `void`).
