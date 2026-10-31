@@ -11,7 +11,7 @@ use super::state::{
 use crate::diagnostics::Diagnostic;
 use crate::ide::Recorder;
 use crate::records::Records;
-use crate::sema::{Compiler, Modification, ProgramSource};
+use crate::sema::{Compiler, Contents, Modification, ProgramSource};
 
 /// Advance workspace `id` by one step, queueing the messages it produces:
 /// Open → (load, run directives) Checked → (more sources, or generate code
@@ -181,9 +181,16 @@ fn advance(
     (result, lowering)
 }
 
-/// Whether the metaprogram asked for the full `TYPECHECKED` records (it names the message).
-fn typechecked_in_full(shared: &SharedWorkspaces) -> bool {
-    shared.borrow().typechecked_use.get() & crate::source::TYPECHECKED_NAMED != 0
+/// What `TYPECHECKED` records carry: nothing unless a source names the message, and no
+/// procedure bodies unless a source can read one.
+fn typechecked_contents(shared: &SharedWorkspaces, compiler: &Compiler) -> Contents {
+    if shared.borrow().typechecked_use.get() & crate::source::TYPECHECKED_NAMED == 0 {
+        Contents::Nothing
+    } else if compiler.src.sources.reads_procedure_bodies() {
+        Contents::Everything
+    } else {
+        Contents::WithoutBodies
+    }
 }
 
 fn file_event(kind: i64, record: i64) -> Event {
@@ -218,10 +225,10 @@ fn export_checked_events(
     for (kind, record) in compiler.export_file_events(&mut records) {
         file_events.push(file_event(kind, record));
     }
+    let contents = typechecked_contents(shared, compiler);
     // After the final lowering too: procedure bodies are reported once lowered.
     if matches!(result, Ok(Stage::Checked | Stage::Done))
-        && let Some(message) =
-            compiler.export_typechecked_with(&mut records, typechecked_in_full(shared))
+        && let Some(message) = compiler.export_typechecked_with(&mut records, contents)
     {
         reported = true;
         // Before TYPECHECKED_ALL_WE_CAN, after any files the export loaded.
@@ -254,10 +261,9 @@ fn finish_lowering(
             // Checking what nothing reaches lowered more bodies: they are reported too, as the
             // last TYPECHECKED message.
             if finished.is_ok() && intercepted {
+                let contents = typechecked_contents(shared, compiler);
                 let mut records = Records::lend(&mut shared.borrow_mut().records);
-                if let Some(message) =
-                    compiler.export_typechecked_with(&mut records, typechecked_in_full(shared))
-                {
+                if let Some(message) = compiler.export_typechecked_with(&mut records, contents) {
                     events.push(record_event(EVENT_TYPECHECKED, message));
                 }
                 Records::give_back(&mut shared.borrow_mut().records, records);

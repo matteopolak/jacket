@@ -275,3 +275,74 @@ fn typing_a_newline_after_a_carriage_return_updates_the_index() {
     index.update(after, 3);
     assert_eq!(index, LineIndex::new(after));
 }
+
+#[test]
+fn procedure_bodies_are_readable_only_by_names_in_code() {
+    let reads = |files: &[(&str, &str)]| {
+        let mut map = SourceMap::default();
+        for (path, text) in files {
+            map.add(*path, (*text).into());
+        }
+        map.reads_procedure_bodies()
+    };
+    assert!(!reads(&[(
+        "/app/a.jai",
+        "m: *Message_Typechecked; m.declarations;"
+    )]));
+    // Comments and the Compiler module's own declarations do not count.
+    assert!(!reads(&[
+        (
+            "/app/a.jai",
+            "// walks subexpressions\n/* body_or_null /* all */ */ x := 1;"
+        ),
+        (
+            "/lib/Compiler/workspace.jai",
+            "f :: (b: *Code_Procedure_Body) #compiler;"
+        ),
+        (
+            "/lib/Compiler/contract-records.jai",
+            "procedure_bodies: []Typechecked;"
+        ),
+        ("/app/b.jai", "name := \"http://all\"; calls := all_calls;"),
+    ]));
+    // A comment after a here-string is still a comment; its text is not.
+    assert!(!reads(&[(
+        "/app/a.jai",
+        "m: *Message_Typechecked; s :: #string END\nx // y\nEND\n// what all do\n"
+    )]));
+    assert!(reads(&[(
+        "/app/a.jai",
+        "m: *Message_Typechecked; s :: #string END\nh.body_or_null\nEND\n"
+    )]));
+    for text in [
+        "for m.procedure_bodies print();",
+        "h.body_or_null",
+        "t.subexpressions",
+        "b: *Code_Procedure_Body;",
+        "for m.all {}",
+        // In code after a string that holds a comment marker.
+        "print(\"// %\", t.subexpressions);",
+        "m: *Message_Typechecked; for all {}",
+    ] {
+        assert!(reads(&[("/app/a.jai", text)]), "{text}");
+    }
+    // A file added later is looked at too.
+    let mut map = SourceMap::default();
+    map.add("/app/a.jai", "x := 1;".into());
+    assert!(!map.reads_procedure_bodies());
+    map.add("/app/b.jai", "h.body_or_null".into());
+    assert!(map.reads_procedure_bodies());
+}
+
+#[test]
+fn readers_of_procedure_bodies_are_found_in_every_map_of_the_build() {
+    let usage = TypecheckedUse::default();
+    let mut host = SourceMap::default();
+    let mut workspace = SourceMap::default();
+    host.share_typechecked_use(usage.clone());
+    workspace.share_typechecked_use(usage);
+    workspace.add("/app/main.jai", "x := 1;".into());
+    assert!(!workspace.reads_procedure_bodies());
+    host.add("/app/build.jai", "for m.procedure_bodies {}".into());
+    assert!(workspace.reads_procedure_bodies());
+}

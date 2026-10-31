@@ -85,7 +85,7 @@ use crate::target::{TargetCpu, TargetOs};
 use crate::types::{TypeId, Types};
 /// The `#asm` instruction table, for editors (`jailsp`).
 pub use asm::catalog as asm_catalog;
-pub use code_export::Modification;
+pub use code_export::{Contents, Modification};
 pub use compile_time::CompileTime;
 pub use diagnostics::Diagnostics;
 pub use driver::ProgramSource;

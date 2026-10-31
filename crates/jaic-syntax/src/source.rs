@@ -364,6 +364,8 @@ struct FileTable {
     /// reached through its `Rc` allocation, not through this vector), so references handed out
     /// by `get` stay valid while the table grows.
     files: std::cell::UnsafeCell<Vec<Rc<SourceFile>>>,
+    /// How far `SourceMap::reads_procedure_bodies` has looked, and what it found.
+    scanned: std::cell::Cell<usize>,
 }
 
 impl FileTable {
@@ -426,12 +428,143 @@ impl Clone for SourceMap {
 /// What the sources of one build say about reading `Message_Typechecked`, shared by every
 /// compiler of the build (see `Compiler::attach_workspaces`). Bits only ever turn on, so a
 /// build that cannot be sure keeps the full export.
-pub type TypecheckedUse = std::rc::Rc<std::cell::Cell<u8>>;
+pub type TypecheckedUse = Rc<TypecheckedState>;
+
+/// The bits of a `TypecheckedUse`, and the file tables of the maps that report to it (so the
+/// files of every compiler of the build can be searched for the readers of procedure bodies).
+#[derive(Default)]
+pub struct TypecheckedState {
+    bits: std::cell::Cell<u8>,
+    tables: std::cell::RefCell<Vec<Rc<FileTable>>>,
+}
+
+impl TypecheckedState {
+    pub fn get(&self) -> u8 {
+        self.bits.get()
+    }
+
+    fn set(&self, bits: u8) {
+        self.bits.set(bits);
+    }
+
+    fn register(&self, table: &Rc<FileTable>) {
+        let mut tables = self.tables.borrow_mut();
+        if !tables.iter().any(|known| Rc::ptr_eq(known, table)) {
+            tables.push(table.clone());
+        }
+    }
+}
 
 /// Some source names `Message_Typechecked` outside the files that define and deliver it:
 /// no code can look inside a TYPECHECKED message when none does, and the contents are not
 /// exported.
 pub const TYPECHECKED_NAMED: u8 = 1;
+
+/// Some source can read a procedure body in a TYPECHECKED message (found by
+/// `SourceMap::reads_procedure_bodies`).
+pub const TYPECHECKED_BODIES: u8 = 2;
+
+/// Where the `#string` at byte `at` ends: after its delimiter, or at the end of the text.
+fn here_string_end(text: &str, at: usize) -> usize {
+    let rest = &text[at + "#string".len()..];
+    let line_end = rest.find('\n').unwrap_or(rest.len());
+    let header = rest[..line_end].trim_start_matches(|c: char| c != ' ' && c != '\t');
+    let delimiter = header.trim();
+    let body = at + "#string".len() + line_end;
+    if delimiter.is_empty() {
+        return text.len();
+    }
+    text[body..]
+        .find(delimiter)
+        .map_or(text.len(), |found| body + found + delimiter.len())
+}
+
+/// `text` with its comments blanked, for a search that must not count a word in a comment.
+/// Words in strings stay: they may be code that is inserted. A `#string` runs to its
+/// delimiter, and comment markers in it are text.
+fn without_comments(text: &str) -> std::borrow::Cow<'_, str> {
+    let bytes = text.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let (mut i, mut depth, mut in_string) = (0, 0usize, false);
+    while i < bytes.len() {
+        let b = bytes[i];
+        let next = bytes.get(i + 1).copied();
+        if depth > 0 {
+            if b == b'/' && next == Some(b'*') {
+                depth += 1;
+                i += 2;
+            } else if b == b'*' && next == Some(b'/') {
+                depth -= 1;
+                i += 2;
+            } else {
+                i += 1;
+            }
+            out.push(b' ');
+            continue;
+        }
+        if in_string {
+            if b == b'\\' && next.is_some() {
+                out.extend_from_slice(&bytes[i..i + 2]);
+                i += 2;
+                continue;
+            }
+            in_string = b != b'"';
+        } else if b == b'"' {
+            in_string = true;
+        } else if bytes[i..].starts_with(b"#string") {
+            let end = here_string_end(text, i);
+            out.extend_from_slice(&bytes[i..end]);
+            i = end;
+            continue;
+        } else if b == b'/' && next == Some(b'/') {
+            while i < bytes.len() && bytes[i] != b'\n' {
+                i += 1;
+            }
+            out.push(b' ');
+            continue;
+        } else if b == b'/' && next == Some(b'*') {
+            depth = 1;
+            i += 2;
+            out.push(b' ');
+            continue;
+        }
+        out.push(b);
+        i += 1;
+    }
+    // Only whole comments were replaced by a space, so what is left is still valid UTF-8.
+    String::from_utf8(out).map_or_else(|_| text.into(), Into::into)
+}
+
+/// Whether `text` can read the body of a procedure that a TYPECHECKED message reports: it
+/// names the members that lead to one (`procedure_bodies`, `body_or_null`, `subexpressions`),
+/// the node type or kind of a body, `.all` (the list that includes the bodies) or, in a file
+/// that names the message, a bare `all`. Comments do not count.
+fn can_read_procedure_bodies(text: &str) -> bool {
+    const NAMES: [&str; 5] = [
+        "procedure_bodies",
+        "body_or_null",
+        "subexpressions",
+        "Code_Procedure_Body",
+        "PROCEDURE_BODY",
+    ];
+    let names_message = text.contains("Message_Typechecked");
+    let candidate = (names_message && text.contains("all"))
+        || text.contains(".all")
+        || NAMES.iter().any(|name| text.contains(name));
+    if !candidate {
+        return false;
+    }
+    let code = without_comments(text);
+    let word = |at: usize, len: usize| {
+        let ident = |b: u8| b.is_ascii_alphanumeric() || b == b'_';
+        let bytes = code.as_bytes();
+        let after = bytes.get(at + len).copied();
+        !after.is_some_and(ident) && (at == 0 || !ident(bytes[at - 1]))
+    };
+    NAMES.iter().any(|name| code.contains(name))
+        || code.match_indices(".all").any(|(at, _)| word(at + 1, 3))
+        || (names_message && code.match_indices("all").any(|(at, _)| word(at, 3)))
+}
 
 fn note_typechecked_name(usage: &TypecheckedUse, path: &SourcePath, text: &str) {
     if usage.get() & TYPECHECKED_NAMED != 0 || !text.contains("Message_Typechecked") {
@@ -449,9 +582,43 @@ fn note_typechecked_name(usage: &TypecheckedUse, path: &SourcePath, text: &str) 
 }
 
 impl SourceMap {
+    /// Whether any source of the build can read the body of a procedure reported by a
+    /// TYPECHECKED message (see `can_read_procedure_bodies`). Files are looked at once, as they
+    /// appear, so ask only when a metaprogram names the message. The record definition and the
+    /// `Compiler` module's declarations do not count.
+    pub fn reads_procedure_bodies(&self) -> bool {
+        let usage = &self.typechecked_use;
+        usage.register(&self.table);
+        if usage.get() & TYPECHECKED_BODIES != 0 {
+            return true;
+        }
+        for table in usage.tables.borrow().iter() {
+            let upto = table.len();
+            for id in table.scanned.get()..upto {
+                let Some(file) = table.get(FileId(id as u32)) else {
+                    continue;
+                };
+                let own = crate::paths::to_slash(&file.path.to_string());
+                if ["Compiler/contract-records.jai", "Compiler/workspace.jai"]
+                    .iter()
+                    .any(|name| own.ends_with(name))
+                {
+                    continue;
+                }
+                if can_read_procedure_bodies(&file.text) {
+                    usage.set(usage.get() | TYPECHECKED_BODIES);
+                    return true;
+                }
+            }
+            table.scanned.set(upto);
+        }
+        false
+    }
+
     /// Report this map's sources to `usage` (the build's) from now on.
     pub fn share_typechecked_use(&mut self, usage: TypecheckedUse) {
         usage.set(usage.get() | self.typechecked_use.get());
+        usage.register(&self.table);
         self.typechecked_use = usage;
     }
 

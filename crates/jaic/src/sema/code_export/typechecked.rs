@@ -6,17 +6,30 @@ use crate::records::{Item, Record, RecordTag, Records};
 use crate::sema::scope::{EntityKind, Resolved, ScopeId, ScopeKind};
 use crate::sema::{Compiler, EntityId, ProcId, procs};
 
+/// What a TYPECHECKED message carries, by what the metaprogram can read.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Contents {
+    /// Empty lists: nothing names the message.
+    Nothing,
+    /// Everything but procedure bodies, which no source can reach: headers have no
+    /// `body_or_null` and the lists hold no body. A body is exported (and reported) in the
+    /// next message once some source could read it.
+    WithoutBodies,
+    Everything,
+}
+
 impl Compiler {
     /// A TYPECHECKED message for eligible declarations and ready bodies, or `None`.
     pub fn export_typechecked(&mut self, r: &mut Records) -> Option<i64> {
-        self.export_typechecked_with(r, true)
+        self.export_typechecked_with(r, Contents::Everything)
     }
 
-    /// Like `export_typechecked`; with `full` false the message has empty lists. The same
+    /// Like `export_typechecked`; with `Contents::Nothing` the message has empty lists. The same
     /// declarations are resolved and the same bodies are tracked, so a message is sent exactly
     /// when it would be with contents, but no node record is built (see `TYPECHECKED_NAMED` in `crate::source`:
     /// nothing in the metaprogram can read them).
-    pub fn export_typechecked_with(&mut self, r: &mut Records, full: bool) -> Option<i64> {
+    pub fn export_typechecked_with(&mut self, r: &mut Records, contents: Contents) -> Option<i64> {
+        let full = contents != Contents::Nothing;
         let mut decls = Vec::new();
         while self.meta.export.next_entity < self.ns.entities.len() {
             let id = EntityId(self.meta.export.next_entity as u32);
@@ -49,7 +62,7 @@ impl Compiler {
         }
         let mut out = Typechecked::default();
         // Bodies lowered since their header was reported.
-        let mut exported = self.export_ready_bodies(r, &mut out, full);
+        let mut exported = self.export_ready_bodies(r, &mut out, contents);
         if decls.is_empty() && exported == 0 {
             return None;
         }
@@ -71,6 +84,7 @@ impl Compiler {
                 }
                 continue;
             }
+            self.meta.export.omit_bodies = contents == Contents::WithoutBodies;
             let (rec, sub) = {
                 let mut ex = Exporter {
                     c: Some(self),
@@ -86,12 +100,13 @@ impl Compiler {
                 let rec = ex.global_decl(&decl, index, &resolved, file_private);
                 (rec, ex.sub)
             };
+            self.meta.export.omit_bodies = false;
             out.declarations.push((rec, sub));
         }
         // Newly reported calls can schedule ordinary callees or polymorph instances.
         // Drain ready bodies transitively even when the first pass exported none.
         loop {
-            exported = self.export_ready_bodies(r, &mut out, full);
+            exported = self.export_ready_bodies(r, &mut out, contents);
             if exported == 0 {
                 break;
             }
@@ -245,7 +260,13 @@ impl Compiler {
 
     /// Export the bodies of reported headers that are lowered by now, into `out`. Returns how
     /// many it exported.
-    fn export_ready_bodies(&mut self, r: &mut Records, out: &mut Typechecked, full: bool) -> usize {
+    fn export_ready_bodies(
+        &mut self,
+        r: &mut Records,
+        out: &mut Typechecked,
+        contents: Contents,
+    ) -> usize {
+        let full = contents != Contents::Nothing;
         // A concrete procedure may be reached through a member or procedure value,
         // without the syntax exporter's call lookup finding it. Lowering is the
         // authority for these events, not whether its source has a global name.
@@ -294,15 +315,23 @@ impl Compiler {
             .into_iter()
             .partition(|(p, _, _)| self.proc(*p).body_state == procs::BodyState::Done);
         self.meta.export.pending_bodies = waiting;
+        let mut ready = ready;
+        if contents == Contents::Everything {
+            // Bodies left out of an earlier message that something can read now.
+            let owed = std::mem::take(&mut self.meta.export.bodiless);
+            ready.extend(owed.into_iter().map(|(p, scope)| (p, 0, scope)));
+        }
         let count = ready.len();
         if !full {
             return count;
         }
+        let omit = contents == Contents::WithoutBodies;
         for (p, _header_id, scope) in ready {
             let lit = self.proc(p).lit.clone();
             let span = self.proc(p).span;
             let sig = self.signature(p, span).ok();
             let notes = self.pr.proc_decl_notes.get(&p).cloned().unwrap_or_default();
+            self.meta.export.omit_bodies = omit;
             let mut ex = Exporter {
                 c: Some(self),
                 r,
@@ -315,6 +344,7 @@ impl Compiler {
                 out,
             };
             ex.proc(&lit, &notes, Some((p, sig)), span);
+            self.meta.export.omit_bodies = false;
         }
         count
     }

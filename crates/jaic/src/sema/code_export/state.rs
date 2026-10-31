@@ -34,6 +34,11 @@ pub struct ExportState {
     /// A procedure may be reached through several aliases and call records.
     pub(super) scheduled_bodies: HashSet<ProcId>,
     pub(super) reported_headers: HashSet<ProcId>,
+    /// Procedures whose header went out in a TYPECHECKED message without their body (nothing
+    /// could read it, see `Contents::WithoutBodies`), and the scope their body is exported in.
+    pub(super) bodiless: Vec<(ProcId, ScopeId)>,
+    /// Set while the export leaves procedure bodies out of their headers.
+    pub(super) omit_bodies: bool,
     pub(super) reported_bodies: HashSet<ProcId>,
     /// Records of this compiler's own type descriptors (`__address`), by type.
     pub(super) own_types: HashMap<TypeId, i64>,

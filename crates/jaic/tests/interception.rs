@@ -203,40 +203,72 @@ unused :: () { unavailable_unused_body(); }
     assert!(error.message.contains("hidden"), "{}", error.message);
 }
 
-#[test]
-fn skipped_typechecked_contents_keep_the_message_sequence() {
+fn typechecked_counts(contents: &[jaic::sema::Contents]) -> Vec<(usize, usize, usize)> {
     let program = r"
 Pair :: struct { a: int; b: int; }
 twice :: (x: int) -> int { return x * 2; }
 generic :: (x: $T) -> T { return x; }
 main :: () -> int { return twice(1) + generic(2); }
 ";
-    let sequence = |full: bool| {
-        let mut fs = VirtualFs::default();
-        fs.insert("/lib/prelude/module.jai", "".as_bytes());
-        fs.insert("/app/main.jai", program.as_bytes());
-        let mut options = Options::host();
-        options.runtime_support = false;
-        options.preload = Some("/lib/prelude/module.jai".into());
-        let mut compiler = Compiler::new(options, Rc::new(fs));
-        compiler
-            .compile_program(Path::new("/app/main.jai"))
-            .unwrap();
-        let mut records = Records::default();
-        let mut sequence = Vec::new();
-        while let Some(message) = compiler.export_typechecked_with(&mut records, full) {
+    let mut fs = VirtualFs::default();
+    fs.insert("/lib/prelude/module.jai", "".as_bytes());
+    fs.insert("/app/main.jai", program.as_bytes());
+    let mut options = Options::host();
+    options.runtime_support = false;
+    options.preload = Some("/lib/prelude/module.jai".into());
+    let mut compiler = Compiler::new(options, Rc::new(fs));
+    compiler
+        .compile_program(Path::new("/app/main.jai"))
+        .unwrap();
+    let mut records = Records::default();
+    let mut sequence = Vec::new();
+    for &level in contents {
+        while let Some(message) = compiler.export_typechecked_with(&mut records, level) {
             let count = |field| refs(&records, message, field).len();
-            sequence.push((count("declarations"), count("procedure_bodies")));
+            sequence.push((
+                count("declarations"),
+                count("procedure_headers"),
+                count("procedure_bodies"),
+            ));
             assert!(sequence.len() < 10);
         }
-        sequence
-    };
-    let full = sequence(true);
-    let skipped = sequence(false);
+    }
+    sequence
+}
+
+#[test]
+fn skipped_typechecked_contents_keep_the_message_sequence() {
+    use jaic::sema::Contents::{Everything, Nothing, WithoutBodies};
+    let full = typechecked_counts(&[Everything]);
+    let skipped = typechecked_counts(&[Nothing]);
     assert!(
         full.iter()
-            .any(|&(declarations, bodies)| declarations > 0 && bodies > 0)
+            .any(|&(declarations, _, bodies)| declarations > 0 && bodies > 0)
     );
     assert_eq!(full.len(), skipped.len(), "the same messages are sent");
-    assert!(skipped.iter().all(|&counts| counts == (0, 0)));
+    assert!(skipped.iter().all(|&counts| counts == (0, 0, 0)));
+    // Without bodies: the same messages with the same declarations and headers, no bodies.
+    let bodiless = typechecked_counts(&[WithoutBodies]);
+    assert_eq!(full.len(), bodiless.len());
+    for (full, bodiless) in full.iter().zip(&bodiless) {
+        assert_eq!((full.0, full.1), (bodiless.0, bodiless.1));
+        assert_eq!(bodiless.2, 0);
+    }
+}
+
+#[test]
+fn bodies_left_out_of_typechecked_messages_follow_once_readable() {
+    use jaic::sema::Contents::{Everything, WithoutBodies};
+    let bodiless = typechecked_counts(&[WithoutBodies]);
+    let later = typechecked_counts(&[WithoutBodies, Everything]);
+    assert!(bodiless.iter().all(|&(_, _, bodies)| bodies == 0));
+    assert!(
+        later.len() > bodiless.len(),
+        "a message carries the owed bodies"
+    );
+    assert!(
+        later[bodiless.len()..]
+            .iter()
+            .any(|&(_, _, bodies)| bodies > 0)
+    );
 }

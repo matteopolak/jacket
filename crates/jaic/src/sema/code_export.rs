@@ -27,6 +27,7 @@ pub use self::constants::message_kind;
 use self::constants::node;
 pub use self::procs::export_code;
 pub use self::state::{ExportState, FileEvent, Modification};
+pub use self::typechecked::Contents;
 use super::{Compiler, ProcId, ScopeId, Span, Sym, TypeId, ast};
 use crate::builtin_keys::SyntaxKey;
 use crate::lang_items;

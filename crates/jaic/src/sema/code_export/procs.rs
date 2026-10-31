@@ -15,6 +15,22 @@ const REPORTED_DIRECTIVES: [ast::ProcBits; 5] = [
 ];
 
 impl Exporter<'_> {
+    /// Whether the body of `resolved` is left out of its header (see `Contents::WithoutBodies`);
+    /// if so it is remembered, to be exported if a source can read it later.
+    fn omit_body(&mut self, resolved: Option<ProcId>) -> bool {
+        let Some(p) = resolved.filter(|_| !self.own) else {
+            return false;
+        };
+        let scope = self.scope;
+        match self.c.as_deref_mut() {
+            Some(c) if c.meta.export.omit_bodies => {
+                c.meta.export.bodiless.push((p, scope));
+                true
+            }
+            _ => false,
+        }
+    }
+
     /// A `Code_Procedure_Body` record for `body`, belonging to header record `header_id`.
     fn body(&mut self, body: &ast::Block, header_id: i64, proc: Option<ProcId>) -> i64 {
         // The header's arguments and named returns are in scope in the body.
@@ -206,10 +222,13 @@ impl Exporter<'_> {
             let c = self.c.as_deref_mut().unwrap();
             c.meta.export.schedule_body(*p, header_id, scope);
         } else if let Some(body) = &lit.body {
-            body_id = match self.r.field(header_id, "body_or_null") {
-                Some(FieldRef::Ref(body)) if body != 0 => body,
-                _ => self.body(body, header_id, resolved.as_ref().map(|(p, _)| *p)),
-            };
+            if self.omit_body(resolved.as_ref().map(|(p, _)| *p)) {
+            } else {
+                body_id = match self.r.field(header_id, "body_or_null") {
+                    Some(FieldRef::Ref(body)) if body != 0 => body,
+                    _ => self.body(body, header_id, resolved.as_ref().map(|(p, _)| *p)),
+                };
+            }
         }
         let mut rec = self.node(RecordTag::CodeProcedureHeader, node::PROCEDURE_HEADER, span);
         let foreign_name = match h.foreign.as_ref().map(|f| &f.name) {
