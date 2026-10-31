@@ -438,13 +438,7 @@ array_resize :: (array: *[..] $T, new_count: s64, $initialize := true) {
     assert(new_count >= 0);
     array_reserve(array, new_count);
 
-    #if initialize {
-        i := array.count;
-        while i < new_count {
-            Initialize(array.data + i);
-            i += 1;
-        }
-    }
+    #if initialize if new_count > array.count initialize_elements(array.data + array.count, new_count - array.count);
 
     array.count = new_count;
 } @GrowsArray
@@ -462,7 +456,7 @@ array_resize :: (array: *[] $T, new_count: s64, $initialize := true) {
     memory := cast(*T) realloc(array.data, new_count * size_of(T), array.count * size_of(T));
 
     assert(memory != null || size_of(T) == 0, "array allocation failed");
-    #if initialize for index: array.count..new_count - 1 Initialize(memory + index);
+    #if initialize if new_count > array.count initialize_elements(memory + array.count, new_count - array.count);
     array.data = memory;
     array.count = new_count;
 }

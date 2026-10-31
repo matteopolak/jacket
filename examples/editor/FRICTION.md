@@ -25,7 +25,7 @@ Modules used: Basic, Math, Hash_Table, Flat_Pool, File, File_Utilities, File_Wat
 
 ## Tooling
 
-- A cold interpreted run of the smoke test takes tens of seconds, mostly compile; use `-check` while editing.
+- An interpreted run of the smoke test takes about a second once the binary is warm: the front end is under 0.1 s and the rest is the interpreter encoding the PNG of the GPU frame. Fixed by "perf(basic): clear zero-default arrays with one memset": `array_resize` and `NewArray` called `Initialize` once per element, which was half of the interpreted instructions. A first run of a freshly built `jaic` can still wait on the system for tens of seconds before it starts working; use `-check` while editing.
 - The pre-commit lint rejects magic numbers in stdlib; every tuning constant needs a name.
 
 ## Not done

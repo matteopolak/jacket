@@ -238,5 +238,8 @@ get_command_line_arguments :: Impl.get_command_line_arguments;
 // Reexport the canonical overload sets through ordinary visibility.
 using,only(.["==", "!", "+", "-", "<", "<=", ">", ">="]) #import "internal/basic"(MEMORY_DEBUGGER = MEMORY_DEBUGGER, ENABLE_ASSERT = ENABLE_ASSERT, REPLACEMENT_INTERFACE = REPLACEMENT_INTERFACE, VISUALIZE_MEMORY_DEBUGGER = VISUALIZE_MEMORY_DEBUGGER, TEMP_ALLOCATOR_OVERWRITE_MEMORY = TEMP_ALLOCATOR_OVERWRITE_MEMORY);
 
+#scope_module
+initialize_elements :: Impl.initialize_elements;
+
 #scope_file
 Impl :: #import "internal/basic"(MEMORY_DEBUGGER = MEMORY_DEBUGGER, ENABLE_ASSERT = ENABLE_ASSERT, REPLACEMENT_INTERFACE = REPLACEMENT_INTERFACE, VISUALIZE_MEMORY_DEBUGGER = VISUALIZE_MEMORY_DEBUGGER, TEMP_ALLOCATOR_OVERWRITE_MEMORY = TEMP_ALLOCATOR_OVERWRITE_MEMORY);

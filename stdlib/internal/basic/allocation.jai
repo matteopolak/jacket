@@ -108,6 +108,23 @@ Initialize :: (memory: *$T) {
     memory.* = T.{};
 }
 
+// Sets `count` consecutive elements to their defaults. Numbers, booleans and pointers default to all
+// zero bytes, so those are cleared in one `memset` instead of one `Initialize` call per element.
+initialize_elements :: (memory: *$T, count: s64) {
+    #if size_of(T) == 0 {
+        return;
+    } else #if is_zero_default(T) {
+        memset(memory, 0, count * size_of(T));
+    } else {
+        for index: 0..count - 1 Initialize(memory + index);
+    }
+}
+
+is_zero_default :: ($T: Type) -> bool {
+    tag := (cast(*Type_Info) T).type;
+    return tag == .INTEGER || tag == .FLOAT || tag == .BOOL || tag == .POINTER;
+}
+
 // Allocates a `T` with `context.allocator` and returns a pointer to it.
 //
 // - initialized: set to `false` to skip setting the new value to its default; its bytes are then
@@ -143,7 +160,7 @@ NewArray :: (count: s64, $T: Type, $initialized := true, alignment: s32 = -1) ->
     data := cast(*T) align_forward(cast(s64) base, desired);
     result: [] T = .{ count, data };
 
-    #if initialized for *value: result Initialize(value);
+    #if initialized initialize_elements(result.data, count);
 
     return result, base;
 } @Allocates

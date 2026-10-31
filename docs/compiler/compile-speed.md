@@ -49,6 +49,8 @@ The IDE (a recording `Compiler::ed`), non-native filesystems and `wasm32` always
 
 Compile-time code is mostly the standard library's own code, so its cost is measured in interpreted instructions (`-profile`). `benchmarks/interp-strings.jai` fell from 1.50 to 0.54 billion by fixing three stdlib paths, not the interpreter: `String_Builder` `append` (one byte or a string) copies straight into the buffer when it fits instead of ensure, copy, advance with their assertions; `print_u64_base_n` appends a number once, not a digit at a time; and float formatting (`portable_float`) moves factors of two out of the mantissa and multiplies powers of five in word-sized chunks, so `2.5` costs one big-number multiply instead of fifty-one. When a compile-time workload is slow, read the profile's procedure table before touching `run_ops`.
 
+`array_resize` and `NewArray` clear new elements of number, boolean and pointer types with one `memset` (`initialize_elements` in `internal/basic/allocation.jai`) instead of calling `Initialize` per element. In the interpreter a per-element call costs a few dozen instructions, so growing a 2 MB byte array took 35 million calls; `-profile` showed it as `array_resize` and `Initialize` at the top of the table. Other types still go through `Initialize`, since their default may not be all zero.
+
 Child processes (`run_command`): the supervisor that watches a command polls for its exit starting at 1 ms and backing off to 10 ms, since a fixed 10 ms poll added up to 10 ms to every short command (a build metaprogram runs `xcrun` twice and the linker once).
 
 ### Rejected experiments
