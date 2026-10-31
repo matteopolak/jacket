@@ -30,6 +30,11 @@ unwind_one_character :: (lexer: *J.Lexer) {
     while lexer.input_cursor < desired eat_character(lexer);
 }
 
+// True for a character that can begin an identifier: a letter or `_`.
+//
+// ```jai
+// assert(starts_identifier(#char "_") && !starts_identifier(#char "7"));
+// ```
 starts_identifier :: inline (c: u8) -> bool {
     return (c >= #char "A" && c <= #char "Z") || (c >= #char "a" && c <= #char "z") || c == #char "_";
 }
@@ -97,6 +102,7 @@ get_decimal_digit :: (lexer: *J.Lexer) -> s32 {
     return cast(s32) (c - #char "0");
 }
 
+// Prints an error at the lexer's current position, formatted like `print`, and marks the lexer as having reported one.
 report_parse_error :: (lexer: *J.Lexer, format: string, arguments: ..Any) {
     lexer.reported_error = true;
     diagnostic(lexer.current_line_number, lexer.current_character_index, format, ..arguments);

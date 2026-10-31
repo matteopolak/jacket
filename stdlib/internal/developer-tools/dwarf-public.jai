@@ -1,3 +1,9 @@
+// Parses DWARF 4 data into a [Debug_Info]. Pass the contents of the `.debug_info`, `.debug_abbrev`, `.debug_line` and `.debug_str` sections. Returns false, and logs why, for data that is malformed or not DWARF 4. Set `verbose` to log what it reads.
+//
+// ```jai
+// info, ok := parse_dwarf_debug_info(.[], .[], .[], .[]);
+// assert(ok && info.compilation_units.count == 0);
+// ```
 parse_dwarf_debug_info :: (debug_info_data: [] u8, abbrev: [] u8, line_programs: [] u8, debug_string_data: [] u8, verbose := false) -> Debug_Info, success: bool {
     result: Debug_Info;
     keep := false;
@@ -178,6 +184,14 @@ parse_compilation_unit_v4 :: (using parse_context: *Parse_Context, cu_index: int
     return result, true;
 }
 
+// Returns the full path of the file with number `file_id` (as found in a [Line_Mapping]) in `info`, or an empty string if there is none.
+//
+// ```jai
+// info: Line_Info;
+// array_add(*info.dirs, "/src");
+// array_add(*info.files, .{ dir_id = 1, path = "main.jai" });
+// assert(get_filename_for_file_id(info, 1) == "/src/main.jai");
+// ```
 get_filename_for_file_id :: (info: Line_Info, file_id: Dwarf_File_Id) -> string {
     if !file_id || file_id > info.files.count || !info.files.data {
         log_error("Debug_Info: invalid DWARF file ID\n");
@@ -187,6 +201,7 @@ get_filename_for_file_id :: (info: Line_Info, file_id: Dwarf_File_Id) -> string 
     return get_filename(info, info.files[file_id - 1]);
 }
 
+// Returns the full path of `file_info`: its directory in `info` joined to its path, or the path alone when it is absolute.
 get_filename :: (info: Line_Info, file_info: File_Info) -> string {
     path := file_info.path;
     if path.count < 0 || (path.count && !path.data) return "";

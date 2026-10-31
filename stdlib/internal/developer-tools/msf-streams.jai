@@ -8,6 +8,7 @@ Free_Page_Map :: struct {
     wFill: s64;
 }
 
+// A parsed MSF container, the file format PDB files are stored in: a set of numbered streams over fixed-size pages.
 Msf :: struct {
     header: *Msf_Header_Big;
     parms: Msf_Parms;
@@ -18,6 +19,11 @@ Msf :: struct {
     content: string;
 }
 
+// True if `file_content` starts with the MSF signature.
+//
+// ```jai
+// assert(!is_msf("not a pdb"));
+// ```
 is_msf :: (file_content: string) -> bool {
     magic :: "Microsoft C/C++ MSF 7.00\r\n\x1aDS\0\0\0";
     if file_content.count < magic.count || !file_content.data return false;
@@ -27,6 +33,7 @@ is_msf :: (file_content: string) -> bool {
 
 is_pdb :: is_msf;
 
+// Reads the stream directory of an MSF file. `file_content` must stay alive as long as the result is used. Returns false, and logs why, for a file that is damaged or uses an unsupported layout. `path` is only used in that message.
 parse_msf :: (file_content: string, path := "", verbose := false) -> success: bool, Msf {
     view, error := tools_msf_decode(file_content);
     if error != .NONE {
@@ -97,6 +104,7 @@ is_valid_user_stream_number :: (msf: Msf, stream_index: UNSN) -> bool {
     return stream_index >= FIRST_USER_STREAM && is_valid_stream_number(msf, stream_index);
 }
 
+// Re-reads the file and checks that `msf`'s stream directory and free-page map agree with it.
 verify_integrity :: (msf: Msf) -> bool {
     if !msf.header || cast(*u8) msf.header != msf.content.data return false;
 
@@ -138,10 +146,12 @@ is_valid_stream_number :: (msf: Msf, stream_index: UNSN) -> bool {
     return msf.stream_table.stream_infos.count >= 0 && stream_index < msf.stream_table.stream_infos.count && msf.stream_table.stream_infos.data != null;
 }
 
+// True if `stream_index` names a stream in `msf`.
 stream_exists :: (msf: Msf, stream_index: UNSN) -> bool {
     return is_valid_stream_number(msf, stream_index) && msf.stream_table.stream_infos[stream_index].byte_count >= 0;
 }
 
+// Returns the size in bytes of stream `stream_index`, or -1 if there is no such stream.
 get_stream_size :: (msf: Msf, stream_index: UNSN) -> s64 {
     if !stream_exists(msf, stream_index) return -1;
     return msf.stream_table.stream_infos[stream_index].byte_count;
@@ -152,6 +162,13 @@ is_valid_page_number :: (msf: Msf, pn: UPN) -> bool {
     return pn < msf.header.data.page_count;
 }
 
+// Returns a copy of the contents of stream `stream_index`, and whether it could be read. The caller frees the bytes.
+//
+// ```jai
+// msf: Msf;
+// data, ok := get_stream_data(msf, 1);
+// assert(!ok);
+// ```
 get_stream_data :: (msf: Msf, stream_index: UNSN) -> [] u8, success: bool {
     if !stream_exists(msf, stream_index) {
         log_error("Debug_Info: absent or invalid MSF stream %\n", stream_index);

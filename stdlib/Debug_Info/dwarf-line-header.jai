@@ -1,3 +1,4 @@
+// The fixed header at the start of a DWARF line program.
 Line_Program_Header :: struct {
     size: u32;
     version: u16;

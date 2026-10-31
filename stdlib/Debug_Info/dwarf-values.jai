@@ -1,5 +1,6 @@
 // Public DWARF values from the spec; independently grouped by role.
 
+// How a DWARF base type encodes its values: signed or unsigned integer, float, boolean, character and so on.
 Dwarf_Base_Type :: enum {
     ADDRESS :: 0x01;
     BOOLEAN :: 0x02;
@@ -21,6 +22,7 @@ Dwarf_Base_Type :: enum {
     UTF :: 0x10;
 }
 
+// The source language a DWARF compilation unit was written in.
 Dwarf_Language :: enum u16 {
     ADA2005 :: 0x002e;
     ADA2012 :: 0x002f;
@@ -95,6 +97,7 @@ Dwarf_Language :: enum u16 {
     ZIG :: 0x0027;
 }
 
+// What kind of entry a DWARF record is: a function, a variable, a type, a scope and so on.
 Dwarf_Tag :: enum {
     ACCESS_DECLARATION :: 0x0023;
     APPLE_PROPERTY :: 0x4200;

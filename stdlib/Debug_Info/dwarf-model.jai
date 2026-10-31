@@ -1,3 +1,4 @@
+// A named type from the DWARF data: its tag, name and size.
 Debug_Type :: struct {
     offset: s64;
     tag: Dwarf_Tag;
@@ -6,6 +7,7 @@ Debug_Type :: struct {
     base_type: Dwarf_Base_Type;
 }
 
+// A variable or parameter: its name, where it was declared and its type.
 Declaration :: struct {
     tag: Dwarf_Tag;
     name: string;
@@ -18,6 +20,7 @@ Declaration :: struct {
     }
 }
 
+// A scope inside a function: its code range, the declarations in it and the scopes nested in it.
 Lexical_Block :: struct {
     low_pc: u64;
     high_pc: u64;
@@ -25,6 +28,7 @@ Lexical_Block :: struct {
     children: [..] *Lexical_Block;
 }
 
+// A function: its name, code range (`low_pc` to `high_pc`), declaration site and scope tree.
 Subprogram :: struct {
     name: string;
     linkage_name: string;
@@ -40,6 +44,7 @@ Subprogram :: struct {
     root_block: *Lexical_Block;
 }
 
+// One source file as compiled: its producer, language, functions, global variables, types and line table.
 Compilation_Unit :: struct {
     producer: string;
     language: Dwarf_Language;
@@ -53,6 +58,7 @@ Compilation_Unit :: struct {
     globals: [..] Declaration;
 }
 
+// Everything read from a program's DWARF sections, one [Compilation_Unit] per compiled source file.
 Debug_Info :: struct {
     compilation_units: [..] Compilation_Unit;
 }

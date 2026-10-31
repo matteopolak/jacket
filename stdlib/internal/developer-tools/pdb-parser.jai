@@ -1,3 +1,4 @@
+// Reads the type records of the type stream `stream_index` (stream 2 is the usual TPI stream, 4 the IPI stream).
 parse_tpi_stream :: (msf: Msf, stream_index: UNSN, verbose := false) -> [] *Codeview_Type, success: bool {
     bytes, ok := get_stream_data(msf, stream_index);
     if !ok return .{}, false;
@@ -29,6 +30,12 @@ parse_tpi_stream :: (msf: Msf, stream_index: UNSN, verbose := false) -> [] *Code
     return records, true;
 }
 
+// Opens a PDB file: its container, signature, name table and type records. Returns false, and logs why, if it cannot. `file_content` must stay alive as long as the result is used.
+//
+// ```jai
+// ok, pdb := parse_pdb("not a pdb");
+// assert(!ok);
+// ```
 parse_pdb :: (file_content: string, path := "", verbose := false) -> success: bool, Pdb {
     result: Pdb;
     keep := false;

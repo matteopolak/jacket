@@ -1,3 +1,4 @@
+// Returns the type in `unit` with the given id, or null if there is none.
 get_type :: (cu: Compilation_Unit, type: u32) -> *Debug_Type {
     if cu.types.count < 0 || (cu.types.count > 0 && !cu.types.data) {
         log_error("Debug_Info: invalid DWARF type table\n");

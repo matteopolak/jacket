@@ -1,4 +1,11 @@
 // Sets an identifier token's type to the keyword it spells, if any, and returns the type.
+//
+// ```jai
+// lexer: Lexer;
+// set_input_from_string(*lexer, "struct");
+// token := peek_next_token(*lexer);
+// assert(check_for_keyword(token) == .KEYWORD_STRUCT);
+// ```
 check_for_keyword :: (token: *J.Token) -> J.Token_Type {
     if token.ident_value.name == "auto_cast" {
         token.type = .KEYWORD_AUTO_CAST;

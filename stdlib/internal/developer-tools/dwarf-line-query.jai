@@ -1,3 +1,4 @@
+// Returns the source position for the code at `address`, and whether one was found. Returns false when no sequence covers the address, or the table is malformed.
 get_line_mapping_for_address :: (info: Line_Info, address: u64) -> Line_Mapping, success: bool {
     empty: Line_Mapping;
     if !line_sequences_valid(info) return empty, false;
@@ -29,6 +30,13 @@ get_line_mapping_for_address :: (info: Line_Info, address: u64) -> Line_Mapping,
     return result, found;
 }
 
+// Returns the source positions for the code from `start` up to, not including, `end_exclusive`, in address order.
+//
+// ```jai
+// info: Line_Info;
+// mappings, ok := get_line_mappings_for_address_range(info, 0x2000, 0x2000);
+// assert(ok && mappings.count == 0);
+// ```
 get_line_mappings_for_address_range :: (info: Line_Info, start: u64, end_exclusive: u64) -> [] Line_Mapping, success: bool {
     if end_exclusive < start {
         log_error("Debug_Info: reversed line address range\n");

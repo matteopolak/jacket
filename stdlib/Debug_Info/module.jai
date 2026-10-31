@@ -1,3 +1,22 @@
+// Reads the debug information in a compiled program: DWARF (Linux and macOS) and CodeView in PDB files (Windows).
+//
+// - [parse_dwarf_debug_info] turns the DWARF sections of an executable into a [Debug_Info] of compilation units, functions, variables and line tables.
+// - [get_line_mapping_for_address] finds the source line for a code address in a [Line_Info].
+// - [parse_pdb] and [parse_msf] open a PDB file and its stream container; [get_stream_data] reads one stream.
+//
+// ```jai
+// info: Line_Info;
+// sequence: Line_Info_Sequence;
+// array_add(*sequence.addresses, 0x1000);
+// array_add(*sequence.addresses, 0x1010);
+// array_add(*sequence.mappings, .{ file_id = 1, line = 42 });
+// array_add(*sequence.mappings, .{ is_end = true });
+// array_add(*info.sequences, sequence);
+//
+// mapping, found := get_line_mapping_for_address(info, 0x1004);
+// assert(found && mapping.line == 42);
+// ```
+
 Int_Set :: struct {
     BPW :: 32;
     words: [] u32;
@@ -5,22 +24,26 @@ Int_Set :: struct {
 
 Dwarf_File_Id :: #type,isa u32;
 
+// The line table of one compilation unit: its directories and files, and the address sequences that map code to lines.
 Line_Info :: struct {
     dirs: [..] string;
     files: [..] File_Info;
     sequences: [..] Line_Info_Sequence;
 }
 
+// A source file in a [Line_Info]: its directory (an index into `dirs`, 0 for none) and its path.
 File_Info :: struct {
     dir_id: u64;
     path: string;
 }
 
+// One run of the line program. `addresses[i]` starts the source position `mappings[i]`; the last mapping has `is_end` set and closes the run.
 Line_Info_Sequence :: struct {
     addresses: [..] u64;
     mappings: [..] Line_Mapping;
 }
 
+// The source position of a code address: file, line and column, plus what kind of position it is (statement start, end of prologue, and so on).
 Line_Mapping :: struct {
     file_id: Dwarf_File_Id;
     line: u32;
@@ -59,6 +82,7 @@ Codeview_Symbol_Defrange_Register_Rel :: struct {
     gaps: [] Codeview_Address_Gap;
 }
 
+// One DWARF call frame instruction, as found in a [Frame_Description_Entry].
 Call_Frame_Address_Instruction :: struct {
     type: Call_Frame_Address_Instruction_Type;
     arg1: Argument;
@@ -69,6 +93,7 @@ Call_Frame_Address_Instruction :: struct {
     }
 }
 
+// The DWARF call frame information shared by a group of functions.
 Frame_Common_Information_Entry :: struct {
     length: u64;
     id: u32;
@@ -83,6 +108,7 @@ Frame_Common_Information_Entry :: struct {
     offset: u64;
 }
 
+// The DWARF call frame instructions for the code range `pc_begin` to `pc_begin + pc_range`.
 Frame_Description_Entry :: struct {
     length: u64;
     cie_offset: u64;
@@ -92,6 +118,7 @@ Frame_Description_Entry :: struct {
     instructions: [] Call_Frame_Address_Instruction;
 }
 
+// The operation of a [Call_Frame_Address_Instruction]: how to find the caller's registers at one point in a function.
 Call_Frame_Address_Instruction_Type :: enum u8 {
     ADVANCE_LOC :: 0x40;
     OFFSET :: 0x80;

@@ -1,4 +1,18 @@
 // Turns Jai source text into tokens, with their types, values and positions.
+//
+// Set a [Lexer]'s input with [set_input_from_string] or [set_input_from_file], look at upcoming tokens with [peek_next_token] and [peek_token], and consume them with [eat_token]. The end of the input is a token of type `END_OF_INPUT`.
+//
+// ```jai
+// lexer: Lexer;
+// set_input_from_string(*lexer, "orchid 23");
+//
+// token := peek_next_token(*lexer);
+// assert(token.type == .IDENT && token.ident_value.name == "orchid");
+// eat_token(*lexer);
+//
+// token = peek_next_token(*lexer);
+// assert(token.type == .NUMBER && token.integer_value == 23);
+// ```
 
 LEXER_SIMD_WIDTH :: 16;
 
@@ -10,16 +24,19 @@ USE_SIMD :: false;
 
 Table_String :: #type,isa string;
 
+// Which hex escape a string is reading: `\x` (two digits), `\u` (four) or `\U` (eight).
 Hex_Digit_Type :: enum u8 {
     ASCII_8_BIT :: 0;
     UNICODE_16 :: 1;
     UNICODE_32 :: 2;
 }
 
+// Flags on a `@note`.
 Note_Flags :: enum_flags u8 {
     IS_SYSTEM_LEVEL :: 0x1;
 }
 
+// One token: its `type`, where it starts (`l0`, `c0`, line and column) and ends (`l1`, `c1`), and its value. Read `ident_value` for an identifier, `integer_value` or `float64_value` for a number (check `value_flags`), `string_value` for a string.
 Token :: struct {
     type: Token_Type = .ERROR;
     l0, c0: s32;
@@ -37,6 +54,7 @@ Token :: struct {
     ident_is_backticked := false;
 }
 
+// What kind of token this is. Single-character tokens use their character as the value (`#char "+"`); everything else is named.
 Token_Type :: enum s16 {
     BITWISE_XOR :: #char "^";
     BITWISE_NOT :: #char "~";
@@ -126,6 +144,7 @@ Token_Type :: enum s16 {
     ERROR :: 502;
 }
 
+// How a string or number token was written: as a here-string, in hex or binary, as a float, a float that needs 64-bit precision, or an integer that overflowed.
 Value_Flags :: enum_flags u32 {
     HERE_STRING :: 0x1;
     NUMBER :: 0x2;
@@ -138,6 +157,7 @@ Value_Flags :: enum_flags u32 {
     OVERFLOWED :: 0x1000_0000;
 }
 
+// The state of a lex in progress: the input, the position, and the tokens read ahead. Start from a zeroed `Lexer` and call [set_input_from_string] or [set_input_from_file].
 Lexer :: struct {
     current_line_number: s32;
     current_external_file_error_report_line_number: s32;

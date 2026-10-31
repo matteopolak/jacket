@@ -1,3 +1,10 @@
+// Points `lexer` at `input` and resets its position. The lexer reads `input` in place, so keep it alive while you lex.
+//
+// ```jai
+// lexer: Lexer;
+// set_input_from_string(*lexer, "x := 1;");
+// assert(peek_next_token(*lexer).type == .IDENT);
+// ```
 set_input_from_string :: (lexer: *J.Lexer, input: string) {
     if lexer.should_free_input Basic.free(lexer.input);
 
@@ -16,6 +23,12 @@ set_input_from_string :: (lexer: *J.Lexer, input: string) {
     lexer.eof_token = .{};
 }
 
+// Reads the file at `file_path` and lexes it. Returns false if it cannot be read. The lexer frees the text when it is given new input.
+//
+// ```jai,skip_on(wasm)
+// lexer: Lexer;
+// assert(!set_input_from_file(*lexer, "no/such/file.jai"));
+// ```
 set_input_from_file :: (lexer: *J.Lexer, file_path: string) -> bool {
     File :: #import "File";
     text, success := File.read_entire_file(file_path);
@@ -40,22 +53,40 @@ get_unused_token :: (lexer: *J.Lexer) -> *J.Token {
     return token;
 }
 
+// Returns the token `lookahead_index` places ahead without consuming it; 0 is the next token. The index must be below `MAX_CONCURRENT_TOKENS`, and the pointer stays valid until you eat past it.
+//
+// ```jai
+// lexer: Lexer;
+// set_input_from_string(*lexer, "a + b");
+// assert(peek_token(*lexer, 1).type == #char "+");
+// assert(peek_token(*lexer, 0).ident_value.name == "a");
+// ```
 peek_token :: (lexer: *J.Lexer, lookahead_index: s32) -> *J.Token {
     Basic.assert(lookahead_index >= 0 && lookahead_index < J.MAX_CONCURRENT_TOKENS, "invalid lexer lookahead index");
     while lexer.num_incoming_tokens <= lookahead_index compose_new_token(lexer);
     return *lexer.tokens[(lexer.token_array_cursor + lookahead_index) % J.MAX_CONCURRENT_TOKENS];
 }
 
+// Returns the next token without consuming it. Same as `peek_token(lexer, 0)`.
 peek_next_token :: (using lexer: *J.Lexer) -> *J.Token {
     return peek_token(lexer, 0);
 }
 
+// Consumes the next token.
+//
+// ```jai
+// lexer: Lexer;
+// set_input_from_string(*lexer, "a b");
+// eat_token(*lexer);
+// assert(peek_next_token(*lexer).ident_value.name == "b");
+// ```
 eat_token :: (lexer: *J.Lexer) {
     if lexer.num_incoming_tokens == 0 compose_new_token(lexer);
     lexer.token_array_cursor = (lexer.token_array_cursor + 1) % J.MAX_CONCURRENT_TOKENS;
     lexer.num_incoming_tokens -= 1;
 }
 
+// Returns a copy of the token most recently consumed with [eat_token], for reporting its position after you have moved on.
 get_last_token :: (lexer: *J.Lexer) -> J.Token {
     return lexer.tokens[(lexer.token_array_cursor + J.MAX_CONCURRENT_TOKENS - 1) % J.MAX_CONCURRENT_TOKENS];
 }

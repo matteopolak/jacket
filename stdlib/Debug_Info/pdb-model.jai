@@ -11,12 +11,14 @@ Pdb :: struct {
     msf: Msf;
 }
 
+// The fixed header of a PDB's information stream.
 Pdb_Header :: struct {
     version: Pdb_Version;
     signature: u32;
     age: u32;
 }
 
+// The fixed header of a PDB type stream (TPI or IPI).
 Tpi_Stream_Header :: struct {
     version: Tpi_Stream_Version;
     header_size: u32;
