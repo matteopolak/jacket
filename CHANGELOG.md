@@ -5,7 +5,8 @@
 ### New
 
 - A UI library, with widgets, layout, text editing and a WebGPU renderer.
-- `jacket doc` builds a searchable API reference site for the standard library.
+- Standard library docs are online at [matteopolak.com/docs/jacket](https://matteopolak.com/docs/jacket/), with search and examples you can run in the browser.
+- `jacket doc` builds that same docs site locally.
 - `jacket explain <code>` explains a diagnostic, and every diagnostic now shows its code.
 - `-A`, `-W` and `-D` turn warnings off, on, or into errors.
 - `jacket test` coverage gains hit counts, an HTML report and a saved baseline.
