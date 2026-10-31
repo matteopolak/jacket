@@ -1,3 +1,10 @@
+// How a pixel is stored. Plain colours (`RGBA8`), floating point formats, integer formats, block
+// compressed formats (`BC*`, `ETC_*`) and depth formats.
+//
+// ```jai
+// assert(get_image_bytes_per_texel(.RGBA8) == 4);
+// assert(get_image_bytes_per_texel(.R8) == 1);
+// ```
 Texture_Format :: enum u16 {
     Unknown :: 0;
 
@@ -46,6 +53,15 @@ Texture_Format :: enum u16 {
     D32FS8;
 }
 
+// Pixels in memory, before or after they are on the graphics card. `stride` is the bytes between rows.
+// `bitmap_alloc` makes one, `bitmap_load` reads one from a file, and `deinit` frees it.
+//
+// ```jai
+// bitmap: Bitmap;
+// bitmap_alloc(*bitmap, 4, 2, .RGBA8);
+// defer deinit(*bitmap);
+// assert(bitmap.stride == 16 && bitmap.data.count == 32);
+// ```
 Bitmap :: struct {
     width: s32;
     height: s32;

@@ -6,6 +6,13 @@
 // - height: size of the result in pixels. -1 keeps the size of `source`.
 // - srgb: treats the result as sRGB-encoded.
 // - flip: reverses the order of the rows, so the top row comes first.
+//
+// ```jai,no_run,skip_on(wasm)
+// target := texture_create_render_target(256, 256, .RGBA8);
+// reader := pixel_read_begin(*target, .RGBA8, flip = true);
+// while !pixel_read_is_done(reader) {}
+// bitmap := pixel_read_end(reader);
+// ```
 pixel_read_begin :: (source: *Texture, dest_format: Texture_Format, width: s32 = -1, height: s32 = -1, srgb := false, flip := false) -> *Pixel_Read {
     immediate_flush();
     require_gl_texture_context();
@@ -96,6 +103,7 @@ pixel_read_begin :: (source: *Texture, dest_format: Texture_Format, width: s32 =
     return reader;
 }
 
+// Whether the pixels `pixel_read_begin` asked for have arrived.
 pixel_read_is_done :: (reader: *Pixel_Read) -> bool {
     storage := find_pixel_reader(reader);
 
@@ -107,12 +115,14 @@ pixel_read_is_done :: (reader: *Pixel_Read) -> bool {
     return result == GL.GL_ALREADY_SIGNALED || result == GL.GL_CONDITION_SATISFIED;
 }
 
+// Waits for the read to finish and returns the pixels as a `Bitmap`; free it with `deinit`.
 pixel_read_end :: (reader: *Pixel_Read) -> Bitmap {
     result: Bitmap;
     pixel_read_end(reader, *result);
     return result;
 }
 
+// Waits for the read to finish and puts the pixels in `bitmap`.
 pixel_read_end :: (reader: *Pixel_Read, bitmap: *Bitmap) {
     stored := find_pixel_reader(reader).*;
 

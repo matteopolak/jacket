@@ -1,3 +1,4 @@
+// Compiles a shader from its source text and returns the GL program, or 0 if it doesn't compile.
 get_shader_program :: (shader_text: string) -> GLuint {
     require_gl_texture_context();
     vertex := compile_stage(shader_text, GL.GL_VERTEX_SHADER, "#version 330 core\n#define VERTEX_SHADER\n#define OUT_IN out\n");
@@ -43,6 +44,7 @@ backend_update_shader_parameter_locations :: (s: *Shader) {
     s.diffuse_texture_loc = GL._glGetUniformLocation(s.gl_handle, "diffuse_texture");
 }
 
+// Sets a matrix uniform of a shader by name.
 set_parameter :: (shader: *Shader, name: *u8, m: Matrix4) {
     require_gl_texture_context();
     location := GL.gl.glGetUniformLocation(shader.gl_handle, name);

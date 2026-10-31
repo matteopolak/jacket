@@ -16,8 +16,10 @@ isLegalUTF8 :: (source: *u8, length: s64) -> bool {
     return result == .CONVERSION_OK && consumed == length;
 }
 
-/// Sizes are in drawing units. With `pixel_scale` above 1 (a Retina window) the glyphs are rasterized
-/// at `pixel_height * pixel_scale` device pixels and drawn at 1/`pixel_scale`, so text stays sharp.
+// Loads a font file at a size, reusing the font if it was loaded at that size before. Returns null if the file can't be read.
+//
+// Sizes are in drawing units. With `pixel_scale` above 1 (a Retina window) the glyphs are made at `pixel_height * pixel_scale`
+// device pixels and drawn at 1/`pixel_scale`, so text stays sharp.
 get_font_at_size :: (path: string, name: string, pixel_height: int, pixel_scale := 1.0) -> *Dynamic_Font {
     device_height := device_font_height(pixel_height, pixel_scale);
     for entry: dynamic_fonts if entry.key == name && entry.font.character_height == device_height && same_scale(entry.font.pixel_scale, pixel_scale) return entry.font;
@@ -43,6 +45,11 @@ device_font_height :: (pixel_height: int, pixel_scale: float) -> int {
 // - pixel_height: how tall the text is in pixels.
 // - pixel_scale: device pixels per pixel, for sharp text on a high-density display. Glyphs are made at
 //   `pixel_height * pixel_scale` and measured back in `pixel_height` units.
+//
+// ```jai,no_run,skip_on(wasm)
+// font := load_font("fonts", "Roboto-Regular.ttf", 24);
+// if !font return;
+// ```
 load_font :: (path: string, basename: string, pixel_height: int, pixel_scale := 1.0) -> font: *Dynamic_Font {
     persistent := font_context();
 
@@ -72,6 +79,7 @@ load_font :: (path: string, basename: string, pixel_height: int, pixel_scale := 
     return result;
 }
 
+// Loads a font from the bytes of a font file at a size. Returns null if they aren't a usable font.
 get_font_at_size :: (memory: [] u8, pixel_height: int, pixel_scale := 1.0) -> *Dynamic_Font {
     device_height := device_font_height(pixel_height, pixel_scale);
 
@@ -110,10 +118,12 @@ load_font_part_2 :: (result: *Dynamic_Font, loaded_font: Loaded_Font, pixel_heig
     if !initialize_dynamic_font(result, loaded_font, pixel_height) return;
 }
 
+// Lets go of a font. Fonts and their glyph atlases are kept for reuse, so this is cheap.
 release_font :: (font: *Dynamic_Font) {
     // Reviewed API retains dynamic fonts/faces/atlas pools in module registries.
 } @FreesArgument
 
+// Picks the character drawn for code points the font lacks. Returns false if the font doesn't have `utf32`.
 set_unknown_character :: (using font: *Dynamic_Font, utf32: u32) -> bool {
     index := FT_Get_Char_Index(private1, utf32);
     if index == 0 return false;
@@ -124,10 +134,12 @@ set_unknown_character :: (using font: *Dynamic_Font, utf32: u32) -> bool {
     return true;
 }
 
+// The distance from the top of a line to its baseline, in pixels.
 get_baseline_height :: (font: *Dynamic_Font) -> s64 {
     return cast(s64) (cast(float) font.typical_ascender / font.pixel_scale + 0.5);
 }
 
+// How far the pen moves after `glyph`, in pixels.
 get_glyph_width_in_pixels :: (glyph: *Glyph_Data) -> s64 {
     return glyph.advance;
 }
@@ -136,6 +148,11 @@ get_glyph_width_in_pixels :: (glyph: *Glyph_Data) -> s64 {
 //
 // - utf8: the first byte of the character. A zero byte or null gives 0.
 // - effect_flags: `Font_Effects` flags.
+//
+// ```jai,no_run,skip_on(wasm)
+// font := load_font("", "Roboto-Regular.ttf", 24);
+// width := get_character_width_in_pixels(font, "W".data, 0);
+// ```
 get_character_width_in_pixels :: (using font: *Dynamic_Font, utf8: *u8, effect_flags: Font_Effects) -> u32 {
     if !utf8 || utf8[0] == 0 return 0;
 
@@ -163,6 +180,12 @@ get_character_width_in_pixels :: (using font: *Dynamic_Font, utf8: *u8, effect_f
 // - font: the font to lay the text out in.
 // - text: UTF-8.
 // - effect_flags: `Font_Effects` flags.
+//
+// ```jai,no_run,skip_on(wasm)
+// font := load_font("", "Roboto-Regular.ttf", 24);
+// width := prepare_text(font, "Game over");
+// draw_prepared_text(font, (800 - width) / 2, 300);  // centred
+// ```
 prepare_text :: (font: *Dynamic_Font, text: string, effect_flags: Font_Effects = 0) -> (width: s64) {
     convert_to_temporary_glyphs(font, text, effect_flags);
     return cast(s64) (cast(float) font.temporary_glyphs_width_in_pixels / font.pixel_scale + 0.5);
@@ -173,29 +196,8 @@ convert_to_temporary_glyphs :: (using font: *Dynamic_Font, s: string, effect_fla
     append_prepare_text(font, s, effect_flags);
 }
 
-/// Starts a new run of prepared text, dropping what an earlier run gathered, glyphs and quads alike.
-///
-/// A run is built with `begin_prepare_text`, any number of `append_prepare_text` calls and `end_prepare_text`. After the end,
-/// `font.current_quads` holds one `Font_Quad` per glyph, so the layout can be looked at, and `draw_prepared_text` draws the run
-/// wherever it is asked to. `prepare_text` does the three steps for one string and returns its width.
-///
-/// ```jai,no_run,skip_on(wasm)
-/// #import "Simp";
-/// #import "File";
-///
-/// draw_label :: (font: *Dynamic_Font) {
-///     begin_prepare_text(font);
-///     append_prepare_text(font, "Score: ");
-///     append_prepare_text(font, "42");
-///     end_prepare_text(font);
-///
-///     // The quads are laid out from the origin, one per glyph, left to right.
-///     last := font.current_quads[font.current_quads.count - 1];
-///     width := last.lr.x;
-///
-///     draw_prepared_text(font, 20, 40, .{ 1, 1, 0, 1 });
-/// }
-/// ```
+// Starts a run of text for `append_prepare_text`. Use it, with `end_prepare_text`, to join pieces that
+// `prepare_text` can't take in one string.
 begin_prepare_text :: (using font: *Dynamic_Font) {
     persistent := font_context();
 
@@ -208,6 +210,14 @@ begin_prepare_text :: (using font: *Dynamic_Font) {
 }
 
 /// Adds the glyphs of `s` to the run; byte offsets count from the start of this piece.
+//
+// ```jai,no_run,skip_on(wasm)
+// font := load_font("", "Roboto-Regular.ttf", 24);
+// begin_prepare_text(font);
+// append_prepare_text(font, "Hello, ");
+// append_prepare_text(font, "world");
+// end_prepare_text(font);
+// ```
 append_prepare_text :: (using font: *Dynamic_Font, s: string, effect_flags: Font_Effects = 0) {
     persistent := font_context();
 
@@ -238,8 +248,8 @@ append_prepare_text :: (using font: *Dynamic_Font, s: string, effect_flags: Font
     }
 }
 
-/// Closes the run and lays its glyphs out as `font.current_quads`, with the pen at the origin and the baseline at `y = 0`, so the
-/// quads can be inspected. `draw_prepared_text` draws the same run at a position of its choosing.
+// Closes the run and lays its glyphs out as `font.current_quads`, with the pen at the origin and the
+// baseline at `y = 0`. `draw_prepared_text` draws the same run wherever you like.
 end_prepare_text :: (font: *Dynamic_Font) {
     generate_quads_for_prepared_text(font, 0, 0, 0);
 }

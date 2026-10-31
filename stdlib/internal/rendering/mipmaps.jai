@@ -1,3 +1,4 @@
+// Replaces the bitmap's pixels with the same image followed by each half-size level, down to 1 by 1.
 bitmap_build_mipmaps :: (bitmap: *Bitmap) {
     assert(bitmap.width > 0 && bitmap.height > 0 && bitmap.data.data != null);
     assert(bitmap.format == .R8 || bitmap.format == .RG8 || bitmap.format == .RGB8 || bitmap.format == .RGBA8, "mip generation requires an 8-bit R/RG/RGB/RGBA bitmap");

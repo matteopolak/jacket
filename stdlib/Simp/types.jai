@@ -1,8 +1,11 @@
+// Where the origin of a render target is. `RIGHT_HANDED` puts it at the bottom left with y up;
+// `LEFT_HANDED` at the top left with y down.
 Simp_Coordinate_System :: enum u8 {
     LEFT_HANDED :: 0;
     RIGHT_HANDED :: 1;
 }
 
+// Extra properties of a texture, such as `sRGB` and `Render_Target`.
 Texture_Flags :: enum_flags u16 {
     sRGB;
     Cube;
@@ -15,12 +18,20 @@ Texture_Flags :: enum_flags u16 {
     Display_Target;
 }
 
-/// How a texture is sampled when drawn larger or smaller than its size.
+// How a texture is sampled when drawn larger or smaller than its size: `LINEAR` blends, `NEAREST` picks one texel.
+//
+// ```jai,no_run,skip_on(wasm)
+// texture: Texture;
+// texture_load_from_file(*texture, "sprite.png");
+// texture_set_filter(*texture, .NEAREST);  // crisp pixels
+// ```
 Texture_Filter :: enum u8 {
     LINEAR;
     NEAREST;
 }
 
+// An image on the graphics card. Load one with `texture_load_from_file` or `texture_load_from_memory`,
+// draw it after `set_shader_for_images`, and release it with `texture_destroy`.
 Texture :: struct {
     width, height, depth: s32 = 1;
     mipmap_count: u16 = 1;
@@ -34,6 +45,8 @@ Texture :: struct {
 
 Window_Info_Platform_Specific :: struct {}
 
+// What Simp knows about a window it draws into: its size in window units, the `pixel_scale` (device pixels
+// per unit) and the sample count.
 Window_Info :: struct {
     window: Window_Type;
     window_width, window_height: s32; // in window coordinate units (what the application draws in)
@@ -45,12 +58,14 @@ Window_Info :: struct {
     specific: Window_Info_Platform_Specific;
 }
 
+// A shader program. `set_shader_for_color` and `set_shader_for_images` select the built-in ones.
 Shader :: struct {
     using platform: Shader_Platform;
 }
 
 Backend_Platform_Specific :: struct {}
 
+// One corner in the batch that `immediate_vertex` fills.
 Immediate_Vertex :: struct {
     position: Vector3;
     color_scale: Vector4;
@@ -60,6 +75,7 @@ Immediate_Vertex :: struct {
     tangent: Vector4;
 }
 
+// The batch of corners waiting to be drawn, with the current window, shader and coordinate system.
 Immediate_State :: struct {
     current_window_info: Window_Info;
 
@@ -76,6 +92,12 @@ Immediate_State :: struct {
 
 }
 
+// Flags that change how text is laid out: small caps, lining figures, no kerning, left justification.
+//
+// ```jai
+// effects: Font_Effects = .SMALLCAPS | .NO_KERNING;
+// assert((effects & .NO_KERNING) != 0);
+// ```
 Font_Effects :: enum_flags u32 {
     SMALLCAPS :: 0x1;
     LINING_FIGURES :: 0x2;
@@ -83,6 +105,7 @@ Font_Effects :: enum_flags u32 {
     LEFT_JUSTIFIED :: 0x8;
 }
 
+// One glyph of a font: its code point, where it sits in the glyph atlas, and its size and advance.
 Glyph_Data :: struct {
     utf32: u32;
     glyph_index_within_font: u32;
@@ -98,7 +121,8 @@ Glyph_Data :: struct {
     page: *Font_Page;
 }
 
-// Per-context Simp settings, read as `context.simp`.
+// Per-context Simp settings, read as `context.simp`. `text_color` is multiplied into the colour of text
+// being prepared; white leaves it alone.
 Simp_Context :: struct {
     // The colour recorded in each `Font_Quad` as text is prepared. `draw_prepared_text` multiplies it into the colour it is
     // given, so white (the default) leaves that colour alone.
@@ -108,11 +132,7 @@ Simp_Context :: struct {
 #add_context simp: Simp_Context;
 
 // One glyph of prepared text: where it goes, the part of the glyph atlas it shows and its tint.
-//
-// `begin_prepare_text` through `end_prepare_text` fill `Dynamic_Font.current_quads` with one of these per glyph, placed with the
-// pen at the origin. `ul` is the corner with the smaller `y` and `lr` the opposite one; `uv0` is the atlas coordinate drawn at
-// `ul` and `uv1` the one drawn at `lr`. `p0` to `p3` are the four corners the same box is drawn with, and `u0`, `v0`, `u1`, `v1` the
-// atlas box before it is flipped to match, for code that wants those forms.
+// `end_prepare_text` fills `Dynamic_Font.current_quads` with one per glyph, with the pen at the origin.
 Font_Quad :: struct {
     ul, lr: Vector2;
     uv0, uv1: Vector2;
@@ -184,6 +204,9 @@ Font_Feature :: struct {
     lookup_tables: [] Font_Lookup_Table;
 }
 
+// A font at one size, ready to draw with. `load_font` returns one; it makes glyphs as text needs them
+// and keeps them in an atlas. `character_height` is in device pixels, `pixel_scale` the number of those
+// per drawing unit.
 Dynamic_Font :: struct {
     name: string;
     latin_font: *Dynamic_Font;
@@ -226,6 +249,7 @@ Dynamic_Font :: struct {
     current_quads: [..] Font_Quad;
 }
 
+// A pending read of a render target's pixels back to the CPU. See `pixel_read_begin`.
 Pixel_Read :: struct {
     dest_format: Texture_Format;
     dest_srgb: bool;

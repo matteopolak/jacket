@@ -1,6 +1,15 @@
 // Uploads `bitmap` to the graphics card as `texture`. Returns `false` when that fails.
 //
 // - texture: gets the pixels. Its old storage is replaced.
+//
+// ```jai,no_run,skip_on(wasm)
+// bitmap: Bitmap;
+// bitmap_alloc(*bitmap, 16, 16, .RGBA8);
+// defer deinit(*bitmap);
+//
+// texture: Texture;
+// assert(texture_load_from_bitmap(*texture, *bitmap));
+// ```
 texture_load_from_bitmap :: (using texture: *Texture, bitmap: *Bitmap) -> bool {
     return upload_bitmap(texture, bitmap);
 }
@@ -12,6 +21,11 @@ texture_load_from_bitmap :: (using texture: *Texture, bitmap: *Bitmap) -> bool {
 // - srgb: says the pixels are sRGB-encoded, which is what most image files hold, so they are converted
 //   to linear when sampled.
 // - build_mipmaps: also makes the half-size levels, so the image looks smooth when drawn small.
+//
+// ```jai,no_run,skip_on(wasm)
+// texture: Texture;
+// if !texture_load_from_file(*texture, "sprite.png", srgb = true, build_mipmaps = true) return;
+// ```
 texture_load_from_file :: (map: *Texture, filename: string, srgb := false, build_mipmaps := false) -> bool {
     bitmap: Bitmap;
     if !bitmap_load(*bitmap, filename) return false;
@@ -31,6 +45,14 @@ texture_load_from_file :: (map: *Texture, filename: string, srgb := false, build
 // - srgb: says the pixels are sRGB-encoded, which is what most image files hold, so they are converted
 //   to linear when sampled.
 // - build_mipmaps: also makes the half-size levels, so the image looks smooth when drawn small.
+//
+// ```jai,no_run,skip_on(wasm)
+// #import "File";
+//
+// file := read_entire_file("sprite.png");
+// texture: Texture;
+// if !texture_load_from_memory(*texture, cast([] u8) file) return;
+// ```
 texture_load_from_memory :: (texture: *Texture, memory: [] u8, srgb := false, build_mipmaps := false) -> bool {
     bitmap: Bitmap;
     if !bitmap_load_from_memory(*bitmap, memory) return false;
@@ -43,7 +65,7 @@ texture_load_from_memory :: (texture: *Texture, memory: [] u8, srgb := false, bu
     return upload_bitmap(texture, *bitmap);
 }
 
-/// Chooses between smooth (`.LINEAR`, the default) and hard-edged (`.NEAREST`, for pixel art) sampling.
+// Chooses how `texture` is sampled when drawn at another size.
 texture_set_filter :: (texture: *Texture, filter: Texture_Filter) {
     if texture.gl_handle == 0 return;
 
@@ -70,6 +92,7 @@ texture_set_filter :: (texture: *Texture, filter: Texture_Filter) {
     GL.gl.glTexParameteri(GL.GL_TEXTURE_2D, GL.GL_TEXTURE_MAG_FILTER, cast(s32) mag);
 }
 
+// Frees the texture's storage on the graphics card.
 texture_destroy :: (texture: *Texture) {
     if texture.gl_handle != 0 {
         require_gl_texture_context();
@@ -177,6 +200,17 @@ backend_update_texture :: (texture: *Texture, bitmap: *Bitmap) {
 // - height: in pixels.
 // - format: how a pixel is stored, for instance `.RGBA8`.
 // - flags: extra `Texture_Flags`, such as `.sRGB`. `.Render_Target` is always added.
+//
+// ```jai,no_run,skip_on(wasm)
+// #import "Window_Creation";
+//
+// window := create_window(800, 600, "simp");
+// target := texture_create_render_target(512, 512, .RGBA8);
+// set_render_target(*target);
+// // ... draw ...
+// set_render_target(window);
+// // now draw `target` like any texture
+// ```
 texture_create_render_target :: (width: s32, height: s32, format: Texture_Format, flags: Texture_Flags = 0) -> Texture {
     result: Texture;
     result.width = width;
@@ -229,6 +263,7 @@ backend_create_render_target :: (texture: *Texture) {
     texture.flags |= .Render_Target;
 }
 
+// Whether the graphics card can use a texture of this format.
 is_supported :: (tf: Texture_Format) -> bool {
     description, known := describe_gl_format(tf, false);
     if !known return false;

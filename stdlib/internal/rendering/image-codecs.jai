@@ -4,6 +4,12 @@
 //
 // - bitmap: receives the pixels. Free them with `deinit`.
 // - filepath: an image file in a format `stb_image` reads, such as PNG or JPEG.
+//
+// ```jai,no_run,skip_on(wasm)
+// bitmap: Bitmap;
+// if !bitmap_load(*bitmap, "sprite.png") return;
+// defer deinit(*bitmap);
+// ```
 bitmap_load :: (bitmap: *Bitmap, filepath: string) -> bool {
     filename := Basic.to_c_string(filepath);
 
@@ -23,6 +29,18 @@ bitmap_load :: (bitmap: *Bitmap, filepath: string) -> bool {
 //
 // - bitmap: receives the pixels. Free them with `deinit`.
 // - memory: the bytes of an image file.
+//
+// ```jai
+// #import "Extensions/Image";
+//
+// png := encode_png(make_image(2, 2, .RGB8));
+// defer free(png.data);
+//
+// bitmap: Bitmap;
+// assert(bitmap_load_from_memory(*bitmap, png));
+// defer deinit(*bitmap);
+// assert(bitmap.width == 2 && bitmap.format == .RGB8);
+// ```
 bitmap_load_from_memory :: (bitmap: *Bitmap, memory: [] u8) -> bool {
     if memory.count <= 0 || memory.count > 0x7fffffff || !memory.data return false;
 
@@ -42,6 +60,13 @@ bitmap_load_from_memory :: (bitmap: *Bitmap, memory: [] u8) -> bool {
 // - filepath: where to write. The extension picks the format: `.png`, `.bmp`, `.tga`, `.jpg` or
 //   `.jpeg`.
 // - save_alpha: keeps the alpha channel of an `RGBA8` bitmap. Off by default, which writes RGB.
+//
+// ```jai,no_run,skip_on(wasm)
+// bitmap: Bitmap;
+// bitmap_alloc(*bitmap, 16, 16, .RGB8);
+// defer deinit(*bitmap);
+// bitmap_save(*bitmap, "out.png");
+// ```
 bitmap_save :: (bitmap: *Bitmap, filepath: string, save_alpha := false) -> bool {
     source_channels := get_image_bytes_per_texel(bitmap.format);
 

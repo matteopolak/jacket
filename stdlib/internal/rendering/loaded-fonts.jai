@@ -1,3 +1,4 @@
+// Starts FreeType and optionally sets the size of the glyph atlas pages (at least 64 by 64). Fonts start it on first use.
 init_fonts :: (_page_size_x: s32 = -1, _page_size_y: s32 = -1) {
     if _page_size_x >= 0 || _page_size_y >= 0 {
         assert(_page_size_x >= 64 && _page_size_y >= 64);
@@ -12,15 +13,18 @@ init_fonts :: (_page_size_x: s32 = -1, _page_size_y: s32 = -1) {
     assert(status == 0 && font_library != null, "FreeType initialization failed");
 }
 
+// Starts FreeType if it isn't running.
 ensure_fonts_are_initted :: () {
     if !font_library init_fonts();
 }
 
+// The font already loaded from this file name, or null.
 find_loaded_font :: (filename: string) -> *Loaded_Font {
     for storage: loaded_fonts if storage.key == filename return storage.font;
     return null;
 }
 
+// Reads a font from memory and registers it under `name`. The bytes must outlive the font.
 make_loaded_font :: (name: string, data: [] u8) -> *Loaded_Font {
     ensure_fonts_are_initted();
     if data.count <= 0 || !data.data return null;
@@ -51,6 +55,7 @@ make_loaded_font :: (name: string, data: [] u8) -> *Loaded_Font {
     return result;
 }
 
+// Reads a font file and registers it under its file name.
 make_loaded_font :: (filename: string) -> (font: *Loaded_Font) {
     existing := find_loaded_font(filename);
     if existing return existing;
@@ -67,6 +72,7 @@ make_loaded_font :: (filename: string) -> (font: *Loaded_Font) {
     return result;
 }
 
+// Frees a loaded font.
 destroy :: (font: *Loaded_Font) {
     if !font || !font.name.data return;
 

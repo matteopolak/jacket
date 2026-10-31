@@ -1,3 +1,36 @@
+// A small 2D renderer on OpenGL: coloured shapes, textures, text and render targets, drawn through
+// immediate-mode calls.
+//
+// Make a window with `Window_Creation`, choose it with `set_render_target`, then each frame call
+// `update_window`, `clear_render_target`, draw, and `swap_buffers`. Pick a shader first
+// (`set_shader_for_color` or `set_shader_for_images`), then draw with `immediate_quad`, or send
+// single corners with `immediate_vertex`. `load_font` and `draw_text` put text on screen. Textures come
+// from `texture_load_from_file` or `texture_load_from_memory`.
+//
+// The default coordinate system has its origin at the bottom left with y growing up; pass
+// `.LEFT_HANDED` to `set_render_target` for the top left with y growing down.
+//
+// ```jai,no_run,skip_on(wasm)
+// #import "Window_Creation";
+// #import "Input";
+//
+// window := create_window(800, 600, "simp");
+// set_render_target(window);
+// font := load_font("", "Roboto-Regular.ttf", 24);
+//
+// while true {
+//     update_window_events();
+//     for events_this_frame if it.type == .QUIT return;
+//     update_window(window);
+//
+//     clear_render_target(0.1, 0.1, 0.15, 1);
+//     set_shader_for_color();
+//     immediate_quad(100, 100, 300, 200, .{0.9, 0.3, 0.2, 1});
+//     draw_text(font, 100, 300, "Hello");
+//     swap_buffers(window);
+// }
+// ```
+
 #module_parameters (render_api := Render_API.OPENGL)() {
     Render_API :: enum u32 {
         NONE;

@@ -41,6 +41,13 @@ backend_init :: (info: *Window_Info) {
 // - window: the window to draw into from now on.
 // - coords: `.RIGHT_HANDED` (the default) puts the origin at the bottom left with y growing up;
 //   `.LEFT_HANDED` puts it at the top left with y growing down.
+//
+// ```jai,no_run,skip_on(wasm)
+// #import "Window_Creation";
+//
+// window := create_window(800, 600, "simp");
+// set_render_target(window, .LEFT_HANDED);
+// ```
 set_render_target :: (window: Window_Type, coords := Simp_Coordinate_System.RIGHT_HANDED) {
     immediate_flush();
     prepare_window(window, 4);
@@ -62,6 +69,12 @@ set_render_target :: (window: Window_Type, coords := Simp_Coordinate_System.RIGH
 // - texture: a texture made with `texture_create_render_target`.
 // - coords: `.RIGHT_HANDED` (the default) puts the origin at the bottom left with y growing up;
 //   `.LEFT_HANDED` puts it at the top left with y growing down.
+//
+// ```jai,no_run,skip_on(wasm)
+// target := texture_create_render_target(256, 256, .RGBA8);
+// set_render_target(*target);
+// clear_render_target(0, 0, 0, 0);
+// ```
 set_render_target :: (texture: *Texture, coords := Simp_Coordinate_System.RIGHT_HANDED) {
     immediate_flush();
     assert(texture != null && (texture.flags & .Render_Target) != 0);
@@ -101,6 +114,7 @@ backend_set_render_target :: (texture: *Texture) {
     GL.gl.glViewport(0, 0, cast(GL.GLsizei) texture.width, cast(GL.GLsizei) texture.height);
 }
 
+// Tells Simp the window may have changed size or scale. Call it once per frame before drawing.
 update_window :: (window: Window_Type) {
     for *info: window_infos if info.window == window {
         _, _, width, height, ok := Windows_API.get_dimensions(window, false);
@@ -124,6 +138,7 @@ update_window :: (window: Window_Type) {
     prepare_window(window, 4);
 }
 
+// The size of the window's drawing area in window units.
 get_render_dimensions :: (window: Window_Type) -> (width: s32, height: s32) {
     _, _, width, height, ok := Windows_API.get_dimensions(window, false);
     assert(ok, "native render dimension query failed");
@@ -131,6 +146,13 @@ get_render_dimensions :: (window: Window_Type) -> (width: s32, height: s32) {
 }
 
 /// The size of the window's framebuffer in device pixels.
+//
+// ```jai,no_run,skip_on(wasm)
+// #import "Window_Creation";
+//
+// window := create_window(800, 600, "simp");
+// width, height := get_pixel_dimensions(window);
+// ```
 get_pixel_dimensions :: (window: Window_Type) -> (width: s32, height: s32) {
     width, height := get_render_dimensions(window);
     scale := Windows_API.get_pixel_scale(window);
@@ -138,15 +160,24 @@ get_pixel_dimensions :: (window: Window_Type) -> (width: s32, height: s32) {
 }
 
 /// Device pixels per window coordinate unit (2 on a Retina display).
+//
+// ```jai,no_run,skip_on(wasm)
+// #import "Window_Creation";
+//
+// window := create_window(800, 600, "simp");
+// scale := get_pixel_scale(window);  // 2 on a Retina display
+// ```
 get_pixel_scale :: (window: Window_Type) -> float {
     return Windows_API.get_pixel_scale(window);
 }
 
+// Stops Simp from drawing to `window`. Calls that would draw to it do nothing until `enable_window`.
 disable_window :: (window: Window_Type) {
     for item: disabled_windows if item == window return;
     Basic.array_add(*disabled_windows, window);
 }
 
+// Lets Simp draw to `window` again after `disable_window`.
 enable_window :: (window: Window_Type) {
     for item, index: disabled_windows if item == window {
         Basic.array_unordered_remove_by_index(*disabled_windows, index);
@@ -157,6 +188,15 @@ enable_window :: (window: Window_Type) {
 // Shows what was drawn to `window`. Anything still batched is drawn first.
 //
 // - vsync: waits for the display's next refresh before showing the frame. On by default.
+//
+// ```jai,no_run,skip_on(wasm)
+// #import "Window_Creation";
+//
+// window := create_window(800, 600, "simp");
+// set_render_target(window);
+// clear_render_target(0, 0, 0, 1);
+// swap_buffers(window);
+// ```
 swap_buffers :: (window: Window_Type, vsync := true) {
     immediate_flush();
     for item: disabled_windows if item == window return;
@@ -181,6 +221,10 @@ backend_tweak_projection_matrix :: (m: *Matrix4) {
 // - g: green, from 0 to 1.
 // - b: blue, from 0 to 1.
 // - a: alpha, from 0 to 1.
+//
+// ```jai,no_run,skip_on(wasm)
+// clear_render_target(0.1, 0.1, 0.15, 1);
+// ```
 clear_render_target :: (r: float, g: float, b: float, a: float) {
     immediate_flush();
     require_gl_texture_context();
@@ -192,6 +236,12 @@ clear_render_target :: (r: float, g: float, b: float, a: float) {
 //
 // - p0: one corner of the box.
 // - p1: the opposite corner. It must not be left of or below `p0`.
+//
+// ```jai,no_run,skip_on(wasm)
+// set_scissor(.{10, 10}, .{110, 60});
+// // ... draw: only this box shows ...
+// clear_scissor();
+// ```
 set_scissor :: (p0: Vector2, p1: Vector2) {
     set_scissor(cast(s32) p0.x, cast(s32) p0.y, cast(s32) p1.x, cast(s32) p1.y);
 }
@@ -202,6 +252,11 @@ set_scissor :: (p0: Vector2, p1: Vector2) {
 // - y0: the edge with the smaller `y`.
 // - x1: right edge. It must not be less than `x0`.
 // - y1: the edge with the larger `y`. It must not be less than `y0`.
+//
+// ```jai,no_run,skip_on(wasm)
+// set_scissor(10, 10, 110, 60);
+// clear_scissor();
+// ```
 set_scissor :: (x0: s32, y0: s32, x1: s32, y1: s32) {
     immediate_flush();
     assert(x1 >= x0 && y1 >= y0);
@@ -234,31 +289,41 @@ set_scissor :: (x0: s32, y0: s32, x1: s32, y1: s32) {
 
 // Lifts the limit set by `set_scissor`.
 //
+//
+// ```jai,no_run,skip_on(wasm)
+// set_scissor(0, 0, 100, 100);
+// clear_scissor();
+// ```
 clear_scissor :: () {
     immediate_flush();
     GL.gl.glDisable(GL.GL_SCISSOR_TEST);
 }
 
+// Throws away the corners waiting in the batch without drawing them.
 immediate_reset :: () {
     immediate_state.num_vertices = 0;
 }
 
+// Starts a new batch. It does the same as `immediate_reset`.
 immediate_begin :: () {
     immediate_reset();
 }
 
+// Draws the batch now. Switching shader or texture, `swap_buffers` and a full batch do this on their own.
 immediate_flush :: () {
     if immediate_state.num_vertices == 0 return;
     backend_draw_immediate_vertices(immediate_state.num_vertices);
     immediate_state.num_vertices = 0;
 }
 
+// Selects the shader for the next corners, drawing the batch first if the shader changes.
 immediate_set_shader :: (s: *Shader) {
     if immediate_state.current_shader == s return;
     immediate_flush();
     immediate_state.current_shader = s;
 }
 
+// Selects the texture for the next corners, drawing the batch first if the texture changes.
 immediate_set_texture :: (texture: *Texture) {
     if immediate_texture == texture return;
     immediate_flush();
@@ -272,6 +337,16 @@ immediate_set_texture :: (texture: *Texture) {
 //   `set_shader_for_color`, the texel for images.
 // - uv: which point of the texture this corner takes, from 0 to 1.
 // - normal: the direction the surface faces, for shaders that light it.
+//
+// ```jai,no_run,skip_on(wasm)
+// set_shader_for_color();
+// #import "Math";
+//
+// red := Vector4.{1, 0, 0, 1};
+// immediate_vertex(.{100, 100, 0}, red);
+// immediate_vertex(.{200, 100, 0}, red);
+// immediate_vertex(.{150, 200, 0}, red);  // a triangle
+// ```
 immediate_vertex :: (position: Vector3, color_scale: Vector4, uv: Vector2 = .{}, normal: Vector3 = .{}) {
     if immediate_state.num_vertices == Immediate_State.MAX_VERTICES immediate_flush();
 
@@ -300,6 +375,7 @@ immediate_set_2d_projection :: (render_target_width: s32, render_target_height: 
     }
 }
 
+// Sends the current projection to the current shader.
 set_projection :: () {
     assert(immediate_state.current_shader != null);
     set_parameter(immediate_state.current_shader, "transform", projection);
@@ -309,6 +385,11 @@ set_projection :: () {
 //
 // - enable_blend: mixes with what is already on screen using the alpha of the colour. Off by default,
 //   which overwrites.
+//
+// ```jai,no_run,skip_on(wasm)
+// set_shader_for_color(enable_blend = true);
+// immediate_quad(10, 10, 110, 60, .{0, 0.5, 1, 0.5});
+// ```
 set_shader_for_color :: (enable_blend := false) {
     ensure_renderer();
     immediate_set_texture(null);
@@ -324,6 +405,14 @@ set_shader_for_text :: () {
 // Draws the following triangles with `texture`, scaled by their colours.
 //
 // - texture: the texture to draw.
+//
+// ```jai,no_run,skip_on(wasm)
+// texture: Texture;
+// texture_load_from_file(*texture, "sprite.png");
+//
+// set_shader_for_images(*texture);
+// immediate_quad(.{10, 10}, .{138, 10}, .{138, 138}, .{10, 138});
+// ```
 set_shader_for_images :: (texture: *Texture) {
     ensure_renderer();
     immediate_set_texture(texture);
@@ -373,6 +462,11 @@ backend_draw_immediate_vertices :: (num_vertices: int) {
 // - text: UTF-8.
 // - color: white by default.
 // - effects: `Font_Effects` flags.
+//
+// ```jai,no_run,skip_on(wasm)
+// font := load_font("", "Roboto-Regular.ttf", 24);
+// width := draw_text(font, 20, 40, "Score: 120", .{1, 1, 0, 1});
+// ```
 draw_text :: (font: *Dynamic_Font, x: s64, y: s64, text: string, color := Vector4.{ 1, 1, 1, 1 }, effects: Font_Effects = 0) -> width: s64 {
     width := prepare_text(font, text, effects);
     draw_prepared_text(font, x, y, color, effects);
@@ -386,6 +480,13 @@ draw_text :: (font: *Dynamic_Font, x: s64, y: s64, text: string, color := Vector
 // - y: the baseline of the text.
 // - color: white by default.
 // - effects: the same flags the text was prepared with.
+//
+// ```jai,no_run,skip_on(wasm)
+// font := load_font("", "Roboto-Regular.ttf", 24);
+// prepare_text(font, "Paused");
+// draw_prepared_text(font, 20, 40);
+// draw_prepared_text(font, 20, 80, .{1, 0.5, 0.5, 1});
+// ```
 draw_prepared_text :: (font: *Dynamic_Font, x: s64, y: s64, color := Vector4.{ 1, 1, 1, 1 }, effects: Font_Effects = 0) {
     baseline := y;
     if immediate_state.coordinate_system == .LEFT_HANDED baseline = -baseline;
