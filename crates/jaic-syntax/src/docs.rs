@@ -924,9 +924,10 @@ fn fenced_in(t: &Trivia, run: &[&Comment], out: &mut Vec<(usize, usize)>) {
 }
 
 /// `doc` as Markdown for display: untagged code fences become `jai`, and links `resolve`
-/// gives a URL for become Markdown links to it (the rest stay as written).
+/// gives a URL for become Markdown links to it (the rest stay as written). An `@experimental`
+/// line reads as *Experimental*.
 pub fn markdown(doc: &str, resolve: &dyn Fn(&[String]) -> Option<String>) -> String {
-    rewrite(doc, resolve, true)
+    rewrite(&noted(doc), resolve, true)
 }
 
 /// [`markdown`] with the code fences left as written, for a page that has to tell a fence that
@@ -1185,6 +1186,8 @@ pub fn signature_line(text: &str, at: usize) -> String {
 }
 
 
+mod experimental;
+pub use experimental::{EXPERIMENTAL, noted, strip_experimental};
 mod forward;
 pub use forward::{Resolver, alias_target, docs_site};
 mod located;

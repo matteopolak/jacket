@@ -19,6 +19,8 @@ Fields, enum members and parameters may have a trailing comment or comment lines
 
 A parameter's doc is, in order: comment lines above it or a trailing comment in the header; or a list item in the procedure's docs starting with its name (`- name: text`, ``- `name`: text``, `- name — text`).
 
+A line that is exactly `@experimental` marks a module (in the comment that opens `module.jai`) or an item as experimental. `jaic -doc_model` removes the line from the docs and reports `experimental: true`; hover shows it as *Experimental*. Use it instead of a warning sentence.
+
 Links are rustdoc-style: `[print]`, ``[`print`]``, `[Basic.print]` (module), `[Point.x]`, `[Mode.IDLE]`, `[Outer.Inner]`, `[Ring.items]` (a field of a polymorphic struct, found in source), and `[text](print)`. A link that does not resolve stays plain text (jailint's `broken_doc_link` reports it), as do `a[i]`, `[0]`, `[text](https://...)` and anything inside code. Untagged code fences render as `jai`.
 
 ## How it works

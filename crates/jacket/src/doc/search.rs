@@ -50,7 +50,8 @@ pub fn index(site: &Site) -> String {
             "module",
             summary(site, &m.docs, &m.id),
             "",
-            []
+            [],
+            u8::from(m.experimental)
         ]));
         for item in &m.items {
             let docs = if item.docs.is_empty() {
@@ -82,7 +83,8 @@ pub fn index(site: &Site) -> String {
                     (Kind::Procedure, Some(o)) => signature_marked(site, o, mi),
                     _ => item_line(item),
                 },
-                shapes
+                shapes,
+                u8::from(item.experimental)
             ]));
         }
     }

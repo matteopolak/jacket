@@ -55,6 +55,19 @@ fn clip(text: &str, max: usize) -> String {
     format!("{cut}...")
 }
 
+/// The badge beside the name of a module or an item tagged `@experimental`.
+fn experimental_badge(experimental: bool, small: bool) -> &'static str {
+    match (experimental, small) {
+        (false, _) => "",
+        (true, false) => {
+            "<span class=\"badge exp\" title=\"May change or go away\">Experimental</span>"
+        }
+        (true, true) => {
+            "<span class=\"badge exp sm\" title=\"May change or go away\">Experimental</span>"
+        }
+    }
+}
+
 fn badges(m: &Module) -> String {
     let spans: String = m
         .systems()
@@ -119,7 +132,7 @@ fn crumbs(site: &Site, m: &Module, last: Option<&str>) -> String {
 /// One module's link in a list. `depth` indents a nested module under its parent.
 fn module_link(site: &Site, m: &Module, current: Option<usize>, i: usize, depth: usize) -> String {
     format!(
-        "<a href=\"{}\" title=\"{}\"{}{}>{}</a>\n",
+        "<a href=\"{}\" title=\"{}\"{}{}>{}{}</a>\n",
         esc(&site.module_href(&m.id)),
         esc(&m.id),
         if depth > 0 {
@@ -132,7 +145,12 @@ fn module_link(site: &Site, m: &Module, current: Option<usize>, i: usize, depth:
         } else {
             ""
         },
-        esc(m.title())
+        esc(m.title()),
+        if m.experimental {
+            "<span class=\"badge exp sm\" title=\"Experimental\">exp</span>"
+        } else {
+            ""
+        }
     )
 }
 
@@ -176,9 +194,10 @@ fn card(site: &Site, m: &Module) -> String {
     let segs = blocks(site, &m.docs, &m.id);
     let summary = lead(&segs).map_or_else(String::new, |(_, html)| clip(&plain(&html), 140));
     format!(
-        "<li><a class=\"card\" href=\"{}\"><span class=\"card-name mono\">{}</span><span class=\"card-sum\">{}</span></a></li>\n",
+        "<li><a class=\"card\" href=\"{}\"><span class=\"card-name mono\">{}{}</span><span class=\"card-sum\">{}</span></a></li>\n",
         esc(&site.module_href(&m.id)),
         esc(m.title()),
+        experimental_badge(m.experimental, true),
         esc(&summary)
     )
 }
@@ -312,9 +331,10 @@ fn row(site: &Site, mi: usize, item: &Item) -> String {
         example::fence(site, m, (&file, line), (info, code), true)
     });
     format!(
-        "<article class=\"row\" id=\"{name}\">\n<div class=\"row-head\"><a class=\"name\" href=\"{href}\">{name}</a>{pills}{platforms}{since}</div>\n{line}{summary}{sample}</article>\n",
+        "<article class=\"row\" id=\"{name}\">\n<div class=\"row-head\"><a class=\"name\" href=\"{href}\">{name}</a>{pills}{experimental}{platforms}{since}</div>\n{line}{summary}{sample}</article>\n",
         name = esc(&item.name),
         href = esc(&site.item_href(&m.id, &item.name)),
+        experimental = experimental_badge(item.experimental, true),
         platforms = item_badges(m, item),
         since = since_note(&item.since),
     )
@@ -346,6 +366,12 @@ pub fn module_page(site: &Site, mi: usize) -> String {
         esc(&site.source_url(&m.file, 1)),
     ));
     main.push_str(&badges(m));
+    if m.experimental {
+        main.push_str(&format!(
+            "<p class=\"since-line\">{}</p>\n",
+            experimental_badge(true, false)
+        ));
+    }
     if !m.since.is_empty() {
         main.push_str(&format!(
             "<p class=\"since-line\">{}</p>\n",
@@ -756,9 +782,10 @@ pub fn item_page(site: &Site, mi: usize, item: &Item) -> String {
         other => other.label().to_owned(),
     };
     main.push_str(&format!(
-        "<div class=\"titlebar\"><h1 class=\"mono\">{}</h1><span class=\"pill\">{kind}</span>{platforms}{since}<span class=\"spacer\"></span><a class=\"muted\" href=\"{}\">Source</a></div>\n",
+        "<div class=\"titlebar\"><h1 class=\"mono\">{}</h1><span class=\"pill\">{kind}</span>{experimental}{platforms}{since}<span class=\"spacer\"></span><a class=\"muted\" href=\"{}\">Source</a></div>\n",
         esc(&item.name),
         esc(&site.source_url(&source_file, source_line)),
+        experimental = experimental_badge(item.experimental, false),
         platforms = item_badges(m, item),
         since = since_note(&item.since),
     ));
@@ -861,4 +888,75 @@ pub fn item_page(site: &Site, mi: usize, item: &Item) -> String {
             path: &Site::item_path(&m.id, &item.name),
         },
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn site() -> Site {
+        let item = |name: &str, experimental| Item {
+            name: name.into(),
+            kind: Kind::Constant,
+            docs: "A value.".into(),
+            experimental,
+            ..Item::default()
+        };
+        let module = |id: &str, experimental| Module {
+            id: id.into(),
+            docs: "A module.".into(),
+            category: "General".into(),
+            experimental,
+            items: vec![item("moving", true), item("steady", false)],
+            ..Module::default()
+        };
+        Site::new(
+            vec![module("Extensions/Moving", true), module("Steady", false)],
+            vec!["General".into()],
+            "/".into(),
+            "0.0.0".into(),
+            String::new(),
+            String::new(),
+            false,
+        )
+    }
+
+    const BADGE: &str = "badge exp";
+
+    #[test]
+    fn the_experimental_badge_is_beside_what_is_tagged() {
+        let site = site();
+        let moving = module_page(&site, 0);
+        assert!(moving.contains("<span class=\"badge exp\""));
+        assert!(!module_page(&site, 1).contains("<span class=\"badge exp\""));
+        let page = item_page(&site, 0, &site.modules[0].items[0]);
+        assert!(page.contains("<span class=\"badge exp\""));
+        assert!(!item_page(&site, 0, &site.modules[0].items[1]).contains(BADGE));
+    }
+
+    #[test]
+    fn lists_mark_experimental_modules_and_items() {
+        let site = site();
+        let home = index_page(&site);
+        assert!(home.contains("Moving<span class=\"badge exp sm\""));
+        assert!(!home.contains("Steady<span"));
+        // In a module's list, only the tagged item has a badge in its row.
+        let list = module_page(&site, 1);
+        assert_eq!(list.matches("class=\"badge exp sm\"").count(), 2);
+    }
+
+    #[test]
+    fn search_results_carry_the_flag() {
+        let site = site();
+        let index: serde_json::Value =
+            serde_json::from_str(&super::super::search::index(&site)).unwrap();
+        let flags: Vec<i64> = index["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r[6].as_i64().unwrap())
+            .collect();
+        // Each module, then its items: moving, steady.
+        assert_eq!(flags, [1, 1, 0, 0, 1, 0]);
+    }
 }

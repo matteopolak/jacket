@@ -4,7 +4,7 @@
   --fg: #2f2f35; --fg2: #56565e; --muted: #6a6a74; --border: #ebebee; --hair: #f1f1f3;
   --link: #4a63c8; --accent: #4a63c8; --sel: #f0f2fa; --type: #36766f; --str: #8d6032; --kw: #70589f;
   --ok: #2f7d4d; --okbg: #f4f9f6; --err: #b3463d; --errbg: #fcf5f4; --shadow: rgba(24, 24, 27, 0.08);
-  --scroll: #dcdce0; --scroll-hover: #b8b8bf;
+  --warn: #8a5a12; --warnbg: #fbf1dd; --scroll: #dcdce0; --scroll-hover: #b8b8bf;
   --sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --mono: "JetBrains Mono", ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   color-scheme: light;
@@ -14,7 +14,7 @@
   --fg: #d4d4d8; --fg2: #b0b0b8; --muted: #8f8f98; --border: #2a2a2f; --hair: #242428;
   --link: #a1abf0; --accent: #8e99e6; --sel: #262a40; --type: #7fbfb3; --str: #cfae86; --kw: #ae9ddb;
   --ok: #6dc98f; --okbg: #1a2620; --err: #e5877f; --errbg: #2b2020; --shadow: rgba(0, 0, 0, 0.4);
-  --scroll: #38383e; --scroll-hover: #4c4c54;
+  --warn: #e0b26a; --warnbg: #2e2619; --scroll: #38383e; --scroll-hover: #4c4c54;
   color-scheme: dark;
 }
 @media (prefers-color-scheme: dark) {
@@ -23,7 +23,7 @@
     --fg: #d4d4d8; --fg2: #b0b0b8; --muted: #8f8f98; --border: #2a2a2f; --hair: #242428;
     --link: #a1abf0; --accent: #8e99e6; --sel: #262a40; --type: #7fbfb3; --str: #cfae86; --kw: #ae9ddb;
     --ok: #6dc98f; --okbg: #1a2620; --err: #e5877f; --errbg: #2b2020; --shadow: rgba(0, 0, 0, 0.4);
-    --scroll: #38383e; --scroll-hover: #4c4c54;
+    --warn: #e0b26a; --warnbg: #2e2619; --scroll: #38383e; --scroll-hover: #4c4c54;
     color-scheme: dark;
   }
 }
@@ -139,6 +139,8 @@ h3 { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--muted); }
 .since-line { margin: -8px 0 14px; }
 .badge.sm { font-size: 11px; padding: 0 7px; }
 .badge { font-size: 12px; color: var(--fg2); background: var(--sunken); border-radius: 6px; padding: 2px 8px; }
+.badge.exp { color: var(--warn); background: var(--warnbg); white-space: nowrap; }
+.card-name .badge, .side a .badge { margin-left: 8px; font-weight: 400; vertical-align: 1px; }
 .import { margin: 0 0 20px; color: var(--muted); }
 .lead { margin: 0 0 18px; font-size: 17px; line-height: 1.65; color: var(--fg); max-width: 72ch; }
 main > p, details.more > p, .prose p { margin: 0 0 16px; color: var(--fg2); max-width: 72ch; }

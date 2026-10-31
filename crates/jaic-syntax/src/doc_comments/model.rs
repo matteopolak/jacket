@@ -184,6 +184,8 @@ pub struct Item {
     pub value: String,
     /// The systems the `#if`s around it (and around what it names) limit it to; empty for any.
     pub platforms: Vec<String>,
+    /// Whether its docs carry the `@experimental` tag (on the item or any overload).
+    pub experimental: bool,
     /// Other declarations of the name (one per branch of an `#if`) that this item stands for.
     pub also: Vec<(PathBuf, usize)>,
 }
@@ -195,6 +197,8 @@ pub struct Module {
     pub docs_line: usize,
     /// The targets the module asserts it builds for (`MACOS`), empty for any.
     pub platforms: Vec<String>,
+    /// Whether the opening comment carries the `@experimental` tag.
+    pub experimental: bool,
     pub items: Vec<Item>,
 }
 
@@ -782,8 +786,24 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
             }
         }
     }
+    take_experimental(&mut out);
     reconcile_refs(&mut out);
     out
+}
+
+/// Moves the `@experimental` tag lines out of the docs and into the flags.
+fn take_experimental(module: &mut Module) {
+    (module.docs, module.experimental) = docs::strip_experimental(&module.docs);
+    for item in &mut module.items {
+        let (text, mut tagged) = docs::strip_experimental(&item.docs);
+        item.docs = text;
+        for o in &mut item.overloads {
+            let (text, t) = docs::strip_experimental(&o.docs);
+            o.docs = text;
+            tagged |= t;
+        }
+        item.experimental = tagged;
+    }
 }
 
 fn add(out: &mut Module, names: &mut Vec<String>, item: Item) {
@@ -890,7 +910,7 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
             })
             .collect();
         items.push(format!(
-            "{{\"name\":{},\"kind\":{},\"file\":{},\"line\":{},\"docs\":{},\"value\":{},\"platforms\":[{}],\"overloads\":[{}],\"members\":[{}]{}}}",
+            "{{\"name\":{},\"kind\":{},\"file\":{},\"line\":{},\"docs\":{},\"value\":{},\"platforms\":[{}],\"experimental\":{},\"overloads\":[{}],\"members\":[{}]{}}}",
             json(&item.name),
             json(item.kind),
             path(&item.file),
@@ -898,6 +918,7 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
             json(&md(&item.docs)),
             json(&item.value),
             item.platforms.iter().map(|f| json(f)).collect::<Vec<_>>().join(","),
+            item.experimental,
             overloads.join(","),
             members.join(","),
             if item.also.is_empty() {
@@ -915,7 +936,7 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
         ));
     }
     format!(
-        "{{\"file\":{},\"docs\":{},\"docs_line\":{},\"platforms\":[{}],\"items\":[\n{}\n]}}\n",
+        "{{\"file\":{},\"docs\":{},\"docs_line\":{},\"platforms\":[{}],\"experimental\":{},\"items\":[\n{}\n]}}\n",
         path(&model.file),
         json(&md(&model.docs)),
         model.docs_line,
@@ -925,6 +946,7 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
             .map(|p| json(p))
             .collect::<Vec<_>>()
             .join(","),
+        model.experimental,
         items.join(",\n")
     )
 }
@@ -1102,6 +1124,37 @@ mod tests {
             systems("not_windows").as_deref(),
             Some("MACOS,LINUX,ANDROID,IOS,WASM")
         );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_experimental_tag_is_a_flag_not_doc_text() {
+        let dir = library(
+            "experimental",
+            &[
+                (
+                    "module.jai",
+                    "// Does things.\n// @experimental\n\nsteady :: Impl.steady;\nmoving :: Impl.moving;\n\n#scope_module\n\nImpl :: #import,file \"impl.jai\";\n",
+                ),
+                (
+                    "impl.jai",
+                    "// Stays put.\nsteady :: () {}\n\n// Still changing.\n// @experimental\n// Second line.\nmoving :: () {}\n",
+                ),
+            ],
+        );
+        let model = module(&dir, Path::new("/nowhere"));
+        assert!(model.experimental);
+        assert_eq!(model.docs, "Does things.");
+        let item = |name: &str| model.items.iter().find(|i| i.name == name).unwrap();
+        assert!(!item("steady").experimental);
+        assert!(item("moving").experimental);
+        assert_eq!(
+            item("moving").overloads[0].docs,
+            "Still changing.\nSecond line."
+        );
+        let json = to_json(&model, &|_| None);
+        assert!(json.contains("\"experimental\":true"));
+        assert!(!json.contains("@experimental"));
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

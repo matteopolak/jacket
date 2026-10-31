@@ -83,7 +83,7 @@
           var module = d.modules[r[0]];
           var title = module.split('/').pop();
           return {
-            module: module, title: title, name: r[1], kind: r[2], summary: r[3], sig: r[4], shapes: r[5],
+            module: module, title: title, name: r[1], kind: r[2], summary: r[3], sig: r[4], shapes: r[5], experimental: r[6] === 1,
             lname: r[1].toLowerCase(), lpath: (title + '.' + r[1]).toLowerCase(), lsum: r[3].toLowerCase()
           };
         });
@@ -204,6 +204,7 @@
       var name = el('a', 'path', it.kind === 'module' ? it.title : it.title + '.' + it.name);
       name.href = hrefOf(it);
       a.appendChild(el('code', '', '')).appendChild(name);
+      if (it.experimental) a.appendChild(el('span', 'badge exp sm', 'Experimental'));
       var sig = el('span', 'sig');
       sig.appendChild(sigNodes(it));
       a.appendChild(sig);

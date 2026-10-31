@@ -111,7 +111,10 @@ impl Session {
         kind: MarkupKind,
     ) -> Vec<String> {
         if kind == MarkupKind::PlainText {
-            return raws.to_vec();
+            return raws
+                .iter()
+                .map(|raw| docs::strip_experimental(raw).0)
+                .collect();
         }
         let mut names: Vec<Vec<String>> = Vec::new();
         for raw in raws {

@@ -113,11 +113,13 @@ mod tests {
                     group: String::new(),
                     platforms: Vec::new(),
                     since: String::new(),
+                    experimental: false,
                 })
                 .collect(),
             category: String::new(),
             wasm: false,
             since: String::new(),
+            experimental: false,
         }
     }
 

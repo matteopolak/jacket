@@ -108,6 +108,8 @@ pub struct Item {
     pub platforms: Vec<String>,
     /// The release it first appeared in (`0.24.0`); empty when unknown. See `since.rs`.
     pub since: String,
+    /// Tagged `@experimental` in its docs.
+    pub experimental: bool,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -126,6 +128,8 @@ pub struct Module {
     pub wasm: bool,
     /// The release its items first appeared in, when they all did after the oldest one known.
     pub since: String,
+    /// Tagged `@experimental` in its opening comment.
+    pub experimental: bool,
 }
 
 impl Module {
@@ -299,6 +303,7 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
                     .filter_map(|p| p.as_str().map(str::to_owned))
                     .collect(),
                 since: String::new(),
+                experimental: i.get("experimental").and_then(Value::as_bool) == Some(true),
             }
         })
         .collect();
@@ -315,6 +320,7 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
         category: String::new(),
         wasm: false,
         since: String::new(),
+        experimental: v.get("experimental").and_then(Value::as_bool) == Some(true),
     };
     assign_groups(&mut module);
     Ok(module)
