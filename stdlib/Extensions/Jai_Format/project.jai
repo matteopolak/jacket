@@ -1,6 +1,5 @@
-// Which settings govern a file: the nearest jacket.toml above it. The search is here so every
-// front end (command line, WASI module, browser playground) runs the same one; each supplies only
-// how to read a file, which is why this module needs no file access of its own.
+// Which settings govern a file: the nearest jacket.toml above it. Callers supply how to read a
+// file, so the search itself needs no file access.
 
 // The settings for files in `directory`: the `[format]` of the nearest jacket.toml in it or one
 // of its parents, up to and including `stop` ("" to go to the top), else the defaults. `file` is

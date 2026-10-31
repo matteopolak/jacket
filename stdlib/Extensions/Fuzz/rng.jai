@@ -1,4 +1,12 @@
-// Deterministic random source plus the per-case allocations made while filling values.
+// A deterministic random source, plus the allocations made while filling values. Seed it with
+// [rng_seed] and release a case's memory with [case_end].
+//
+// ```jai
+// r: Rng;
+// rng_seed(*r, 1);
+// roll := below(*r, 6);
+// assert(roll >= 0 && roll < 6);
+// ```
 Rng :: struct {
     state: u64;
 
@@ -22,11 +30,13 @@ Rng :: struct {
     live: [..] *void;
 }
 
+// Starts the sequence for `seed`. The same seed always gives the same values.
 rng_seed :: (r: *Rng, seed: u64) {
     r.state = seed;
     next(r);
 }
 
+// The next 64 random bits.
 next :: (r: *Rng) -> u64 {
     r.state += 0x9E3779B97F4A7C15;
     z := r.state;
@@ -71,11 +81,12 @@ below :: (r: *Rng, n: s64) -> s64 {
     return cast(s64) (take(r, bytes) % cast(u64) n);
 }
 
+// True about one time in `one_in`.
 chance :: (r: *Rng, one_in: s64) -> bool {
     return below(r, one_in) == 0;
 }
 
-// Memory that lives until the end of the case; zeroed, so strings are NUL terminated.
+// Memory that lives until [case_end]; zeroed, so strings are NUL terminated.
 case_alloc :: (r: *Rng, bytes: s64) -> *u8 {
     p := cast(*u8) alloc(bytes + 1);
     memset(p, 0, bytes + 1);
@@ -83,6 +94,7 @@ case_alloc :: (r: *Rng, bytes: s64) -> *u8 {
     return p;
 }
 
+// Frees what the case allocated and resets temporary storage. Call it after every case.
 case_end :: (r: *Rng) {
     for r.live free(it);
     r.live.count = 0;

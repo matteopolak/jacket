@@ -43,12 +43,26 @@ has_pointer :: (info: *Type_Info) -> bool {
     return false;
 }
 
+// A random `T`: integers, floats, bools, strings, enums, fixed and slice arrays, structs of
+// those, and pointers when `r.pointers` is set. Memory for strings and views comes from the
+// [Rng] and lasts until [case_end].
+//
+// ```jai
+// r: Rng;
+// rng_seed(*r, 3);
+// r.max_len = 8;
+// text := gen(*r, string);
+// assert(text.count <= 4 * 8 + 4);
+// number := gen(*r, s32);
+// case_end(*r);
+// ```
 gen :: (r: *Rng, $T: Type) -> T {
     value: T;
     fill(r, type_info(T), cast(*u8) *value);
     return value;
 }
 
+// Writes a random value of the type `info` describes at `dst`; [gen] is the typed wrapper.
 fill :: (r: *Rng, info: *Type_Info, dst: *u8) {
     if info.type == {
         case .INTEGER;
@@ -76,6 +90,7 @@ fill :: (r: *Rng, info: *Type_Info, dst: *u8) {
     }
 }
 
+// Writes the low `size` bytes of `bits` at `dst`, little endian.
 store_bits :: (dst: *u8, size: s64, bits: u64) {
     for i: 0..size - 1 {
         dst[i] = cast,trunc(u8) (bits >> cast(u64) (8 * i));
@@ -111,6 +126,7 @@ integer_bits :: (r: *Rng, size: s64, signed: bool) -> u64 {
     return take(r, size) & all_ones;
 }
 
+// The bit pattern of a random float, favouring zero, NaN, infinities and the extremes.
 float_bits :: (r: *Rng, size: s64) -> u64 {
     if size == 4 {
         choice := below(r, 12);
@@ -149,6 +165,7 @@ float_bits :: (r: *Rng, size: s64) -> u64 {
     return take(r, 8);
 }
 
+// An enum value: usually a member, sometimes one no member names.
 fill_enum :: (r: *Rng, info: *Type_Info_Enum, dst: *u8) {
     size := info.internal_type.runtime_size;
 
@@ -163,6 +180,7 @@ fill_enum :: (r: *Rng, info: *Type_Info_Enum, dst: *u8) {
     }
 }
 
+// Null, or a pointer to a freshly generated pointee when the [Rng] allows pointers.
 fill_pointer :: (r: *Rng, info: *Type_Info_Pointer, dst: *u8) {
     target := cast(**void) dst;
     target.* = null;
@@ -185,6 +203,7 @@ fill_pointer :: (r: *Rng, info: *Type_Info_Pointer, dst: *u8) {
     target.* = memory;
 }
 
+// A fixed array's elements, or a view over generated elements.
 fill_array :: (r: *Rng, info: *Type_Info_Array, dst: *u8) {
     element := info.element_type;
     stride := element.runtime_size;
@@ -272,6 +291,7 @@ gen_string :: (r: *Rng) -> string {
     return result;
 }
 
+// A random Unicode scalar value.
 random_code_point :: (r: *Rng) -> u32 {
     choice := below(r, 8);
     if choice == {
@@ -290,6 +310,7 @@ random_code_point :: (r: *Rng) -> u32 {
     return code;
 }
 
+// Writes `code` at `dst` as UTF-8 and returns the byte count.
 put_code_point :: (dst: *u8, code: u32) -> s64 {
     if code < 0x80 {
         dst[0] = cast,trunc(u8) code;
@@ -372,11 +393,13 @@ put_malformed :: (r: *Rng, dst: *u8) -> s64 {
     return 2; // continuation replaced
 }
 
+// A byte that tends to matter to parsers: whitespace, quotes, separators and punctuation.
 special_byte :: (r: *Rng) -> u8 {
     SPECIAL :: "\0 \t\r\n/\\.:;,|*?-_=+%\"'";
     return SPECIAL[below(r, SPECIAL.count)];
 }
 
+// A random byte from a mix of letters, digits and number-ish characters.
 alphabet_byte :: (r: *Rng) -> u8 {
     ALPHABET :: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=-_.eE xX\xff";
     return ALPHABET[below(r, ALPHABET.count)];
