@@ -1,3 +1,5 @@
+// Reads an image file (any format the image decoder knows) and returns it as an ICO file, as
+// `create_ico_file` does. Returns an empty string after logging an error if it cannot be read or decoded.
 create_ico_file_from_bitmap_filename :: (bitmap_filename: string) -> string {
     bytes, read_ok := Files.read_entire_file(bitmap_filename, log_errors = false);
     if !read_ok {

@@ -1,3 +1,4 @@
+// The format chunk of a WAV file: encoding, channels, sample rate and sample size.
 Waveformatex :: struct #no_padding {
     wFormatTag: s16;
     nChannels: s16;
@@ -8,14 +9,31 @@ Waveformatex :: struct #no_padding {
     cbSize: s16;
 }
 
+// Extra facts a WAV file can carry for ADPCM data: samples per block, and the sample count the
+// `fact` chunk claims.
 Wave_Extra_Info :: struct {
     wSamplesPerBlock: s32;
     wSamplesAccordingToFactChunk: s32;
 }
 
+// `Waveformatex.wFormatTag` values `get_wav_header` accepts: plain PCM and IMA/DVI ADPCM.
 WAVE_FORMAT_PCM :: 0x0001;
 WAVE_FORMAT_DVI_ADPCM :: 0x0011;
 
+// Reads the format and sample data out of a WAV file held in memory. `samples` points into
+// `file_data`; nothing is copied. `success` is false when the file is not a RIFF/WAVE with a
+// readable `fmt ` and `data` chunk in PCM or ADPCM.
+//
+// ```jai
+// bytes: [48] u8 = .[
+//     82, 73, 70, 70, 40, 0, 0, 0, 87, 65, 86, 69,               // "RIFF", size, "WAVE"
+//     102, 109, 116, 32, 16, 0, 0, 0, 1, 0, 1, 0,                // "fmt ", PCM, mono
+//     0x40, 0x1f, 0, 0, 0x40, 0x1f, 0, 0, 1, 0, 8, 0,            // 8000 Hz, 8 bits
+//     100, 97, 116, 97, 4, 0, 0, 0, 1, 2, 3, 4];                 // "data", 4 samples
+// file: string = .{48, bytes.data};
+// format, samples, ok := get_wav_header(file);
+// assert(ok && format.nChannels == 1 && format.nSamplesPerSec == 8000 && samples.count == 4);
+// ```
 get_wav_header :: (file_data: string) -> (format: Waveformatex, samples: string, success: bool = false, extra: Wave_Extra_Info) {
     result: Waveformatex;
     details: Wave_Extra_Info;

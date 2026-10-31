@@ -1,3 +1,4 @@
+// Reads the format and sample data of WAV files held in memory: `get_wav_header`.
 Waveformatex :: Impl.Waveformatex;
 Wave_Extra_Info :: Impl.Wave_Extra_Info;
 get_wav_header :: Impl.get_wav_header;

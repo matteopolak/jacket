@@ -1,14 +1,31 @@
+// How many bytes one square icon image takes in an ICO file: the pixels with their header, the
+// transparency mask, and the total. `comp` is bytes per pixel (3 or 4).
 get_bytes_for_image :: (comp: s32, size: s32) -> (image_bytes: s32, mask_bytes: s32, total_bytes: s32) {
     image_bytes: s32 = 2 * size * size * comp + 40;
     mask_bytes: s32 = (2 * size * size) / 8;
     return image_bytes, mask_bytes, image_bytes + 2 * mask_bytes;
 }
 
+// The total of `get_bytes_for_image` for an image of `size` by `size` pixels.
+//
+// ```jai
+// assert(get_total_bytes_for_size(4, 16) == 2216);
+// ```
 get_total_bytes_for_size :: (comp: s32, size: s32) -> s32 {
     _image_bytes, _mask_bytes, total_bytes := get_bytes_for_image(comp, size);
     return total_bytes;
 }
 
+// Builds an ICO file from a picture of `x` by `y` pixels, scaled to 256, 128, 48, 32 and 16 pixels
+// square. `image_data` is tightly packed BGR (`comp` 3) or BGRA (`comp` 4). Returns the file's
+// bytes (free them), or an empty string after logging an error.
+//
+// ```jai
+// pixels: [16] u8;
+// ico := create_ico_file(2, 2, 4, pixels.data);
+// defer free(ico);
+// assert(ico.count > 0);
+// ```
 create_ico_file :: (x: s32, y: s32, comp: s32, image_data: *u8) -> string {
     if x <= 0 || y <= 0 || (comp != 3 && comp != 4) || !image_data {
         B.log_error("ICO requires readable tightly packed BGR/BGRA pixels with positive dimensions");
