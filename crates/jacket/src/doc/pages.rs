@@ -417,6 +417,23 @@ pub fn module_page(site: &Site, mi: usize) -> String {
     }
 
     let mut outline: Vec<(String, String, bool)> = Vec::new();
+    if !m.parameters.is_empty() {
+        main.push_str(&heading(2, "parameters", "Module parameters"));
+        outline.push(("parameters".into(), "Module parameters".into(), false));
+        let rows: Vec<_> = m
+            .parameters
+            .iter()
+            .map(|p| {
+                let name = if p.default.is_empty() {
+                    p.name.clone()
+                } else {
+                    format!("{} := {}", p.name, p.default)
+                };
+                (name, p.ty.clone(), p.doc.clone(), Vec::new())
+            })
+            .collect();
+        main.push_str(&definition_list(site, mi, &rows, ""));
+    }
     let procs: Vec<&Item> = m
         .items
         .iter()
@@ -1119,5 +1136,23 @@ mod tests {
             .collect();
         // The module, then own, MAX, Mode.
         assert_eq!(flags, [0, 0, 2, 2]);
+    }
+
+    #[test]
+    fn module_parameters_have_a_section_before_the_items() {
+        let mut site = site();
+        site.modules[1].parameters = vec![super::super::model::Parameter {
+            name: "STRICT".into(),
+            ty: "bool".into(),
+            default: "false".into(),
+            doc: "Checks more.".into(),
+        }];
+        let page = module_page(&site, 1);
+        let at = page.find("id=\"parameters\"").unwrap();
+        assert!(at < page.find("id=\"constants\"").unwrap());
+        assert!(page.contains("STRICT := false"));
+        assert!(page.contains("Checks more."));
+        assert!(page.contains("href=\"#parameters\""));
+        assert!(!module_page(&site, 0).contains("Module parameters"));
     }
 }

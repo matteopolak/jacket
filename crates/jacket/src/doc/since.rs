@@ -124,6 +124,7 @@ mod tests {
             wasm: false,
             since: String::new(),
             experimental: false,
+            parameters: Vec::new(),
         }
     }
 

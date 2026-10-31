@@ -114,6 +114,15 @@ pub struct Item {
     pub binding: bool,
 }
 
+/// A parameter of a module (`#module_parameters`).
+#[derive(Clone, Debug, Default)]
+pub struct Parameter {
+    pub name: String,
+    pub ty: String,
+    pub default: String,
+    pub doc: String,
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct Module {
     /// `String`, `Extensions/Http`: what `#import` takes.
@@ -132,6 +141,7 @@ pub struct Module {
     pub since: String,
     /// Tagged `@experimental` in its opening comment.
     pub experimental: bool,
+    pub parameters: Vec<Parameter>,
 }
 
 impl Module {
@@ -324,6 +334,15 @@ pub fn parse(id: &str, json: &str, stdlib: &Path) -> Result<Module, String> {
         wasm: false,
         since: String::new(),
         experimental: v.get("experimental").and_then(Value::as_bool) == Some(true),
+        parameters: list(&v, "parameters")
+            .iter()
+            .map(|p| Parameter {
+                name: text(p, "name"),
+                ty: text(p, "type"),
+                default: text(p, "default"),
+                doc: text(p, "doc"),
+            })
+            .collect(),
     };
     assign_groups(&mut module);
     Ok(module)
