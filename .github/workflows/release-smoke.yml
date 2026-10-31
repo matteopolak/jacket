@@ -153,7 +153,10 @@ jobs:
         run: |
           if [ "$RUNNER_OS" = Linux ]; then eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"; fi
           brew tap matteopolak/tap
-          formula_version="$(brew info --json=v2 matteopolak/tap/jacket | python3 -c 'import json,sys; print(json.load(sys.stdin)["formulae"][0]["versions"]["stable"])')"
+          # Read the version from the formula file: Homebrew 6 refuses to load (`brew info`) a formula
+          # from a tap that is not trusted, and only a fully qualified `brew install` trusts it.
+          formula="$(find "$(brew --repository matteopolak/tap)" -name jacket.rb | head -1)"
+          formula_version="$(grep -oE 'release v[0-9]+\.[0-9]+\.[0-9]+' "$formula" | head -1 | sed 's/release v//')"
           echo "formula version $formula_version, release ${TAG#v}"
           # The tap holds only the latest release: an older tag has nothing to install from it.
           if [ "$formula_version" != "${TAG#v}" ]; then

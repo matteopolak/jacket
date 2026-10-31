@@ -16,7 +16,7 @@
 | `archive` | ubuntu x64/arm64, macOS arm64/Intel, Windows x64/arm64 | the platform's `jacket-<platform>` archive, verified against `SHA256SUMS` |
 | `install-sh` | the Unix runners | the published `install.sh` |
 | `install-ps1` | Windows x64/arm64 | the published `install.ps1` under Windows PowerShell 5.1 |
-| `homebrew` | ubuntu, macOS arm64 | `brew install matteopolak/tap/jacket` and `brew test` (latest release only) |
+| `homebrew` | ubuntu, macOS arm64 | `brew install matteopolak/tap/jacket` and `brew test` (latest release only). The version is read from the formula file, since Homebrew 6 won't load a formula from an untrusted tap until a fully qualified install trusts it |
 | `vscode` | ubuntu | the release's `.vsix` (checksum, version, bundled files) and Open VSX serving the same version |
 | `neovim` | ubuntu | the newest tag of the `jacket.nvim` mirror, running the plugin's own `jai.install` in a pinned headless Neovim |
 
