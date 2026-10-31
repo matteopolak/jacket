@@ -1833,7 +1833,6 @@ Input.get_window_resizes
 Input.input_per_frame_event_and_flag_update
 Input.set_custom_cursor_handling
 Input.update_window_events
-Iprof
 Iprof.Automatic_Zone
 Iprof.Automatic_Zone_Guarded
 Iprof.Config
@@ -1842,7 +1841,6 @@ Iprof.Graph_Scaling
 Iprof.History_Scalar
 Iprof.Import_Mode
 Iprof.Prepend_To_Main
-Iprof.Prof_init_highlevel
 Iprof.Profile_Tracker_Data_Record
 Iprof.Report
 Iprof.Report_Mode
@@ -1860,7 +1858,6 @@ Iprof.clear_stack
 Iprof.compute_heat
 Iprof.count_recursion_depth
 Iprof.createStackNode
-Iprof.create_report
 Iprof.draw
 Iprof.draw_graph
 Iprof.eternity_set
@@ -1875,7 +1872,6 @@ Iprof.init_runtime
 Iprof.init_zone_hash
 Iprof.insert_node
 Iprof.log_help
-Iprof.log_text_report
 Iprof.message
 Iprof.move_cursor
 Iprof.move_frame
@@ -1884,7 +1880,6 @@ Iprof.propagate_stack
 Iprof.propagate_to_zone
 Iprof.report_compare_slot
 Iprof.report_expand_compare
-Iprof.save_csv_report
 Iprof.select
 Iprof.select_parent
 Iprof.set_cursor
@@ -1897,8 +1892,6 @@ Iprof.sum_times
 Iprof.traverse
 Iprof.update
 Iprof.update_history
-Iprof.zone_begin
-Iprof.zone_end
 Jai_Lexer.Hex_Digit_Type
 Jai_Lexer.Lexer
 Jai_Lexer.Note_Flags
@@ -2466,7 +2459,6 @@ Wav_File.get_wav_header
 Window_Creation
 Window_Creation.Saved_Window_Info
 Window_Creation.WINDOWED_STYLE
-Window_Creation.Window_Type
 Window_Creation.init_mac_app
 Window_Creation.swap_view_buffers
 Window_Type
