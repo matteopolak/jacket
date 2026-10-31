@@ -296,7 +296,7 @@ pub struct DocArgs {
     #[arg(
         long,
         value_name = "URL",
-        default_value = "https://matteopolak.com/docs/jacket/playground"
+        default_value = "https://matteopolak.com/playground/jacket"
     )]
     pub playground_url: String,
     /// The tag or branch Source links point at [default: v<this version>]

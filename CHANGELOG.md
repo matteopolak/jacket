@@ -4,7 +4,6 @@
 
 ### New
 
-- The playground now lives in the docs, at [matteopolak.com/docs/jacket/playground](https://matteopolak.com/docs/jacket/playground).
 - `Http` speaks HTTP/2 over TLS, in both the server and the client.
 
 ### Improved

@@ -68,7 +68,7 @@ CI runs `jacket doc --check` when the stdlib, the compiler or the docs change, s
 | `--out` | `target/doc-site` | replaced each run, only if `jacket doc` made it |
 | `--base-url` | `/` | where the site is served, with both slashes |
 | `--runtime` | none | folder with `jai_wasm.wasm` and `engine.mjs` |
-| `--playground-url` | `https://matteopolak.com/docs/jacket/playground` | the Playground and "Open in playground" links |
+| `--playground-url` | `https://matteopolak.com/playground/jacket` | the Playground and "Open in playground" links |
 | `--source-ref` | the commit, else `v<version>` | tag or branch for Source links |
 | `--module` | all | build only these; broken links are then warnings |
 | `--check` | off | build and check, write nothing |

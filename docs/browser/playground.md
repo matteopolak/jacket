@@ -1,6 +1,6 @@
 # Browser compiler (WebAssembly bundle)
 
-`crates/jai-wasm` compiles the compiler core `crates/jaic` and the shared language server to `wasm32-unknown-unknown`, with the full `stdlib/` embedded, so `#import "Basic"` works offline. This repository ships the module, a small JavaScript glue file (`engine.mjs`), the example workspaces and release packaging, not a UI. The hosted playground at https://matteopolak.com/docs/jacket/playground lives in the portfolio repository (`matteopolak/portfolio`), which has the editor, worker and engine wrapper.
+`crates/jai-wasm` compiles the compiler core `crates/jaic` and the shared language server to `wasm32-unknown-unknown`, with the full `stdlib/` embedded, so `#import "Basic"` works offline. This repository ships the module, a small JavaScript glue file (`engine.mjs`), the example workspaces and release packaging, not a UI. The hosted playground at https://matteopolak.com/playground/jacket lives in the portfolio repository (`matteopolak/portfolio`), which has the editor, worker and engine wrapper.
 
 ```js
 const engine = await createEngine(wasmBytes);
