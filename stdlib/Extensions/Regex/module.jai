@@ -1,5 +1,6 @@
-// Regular expressions with the syntax and guarantees of Rust's `regex` crate, full
-// Unicode support, and patterns that can be compiled while your program compiles.
+// Regular expressions with full Unicode support, whose patterns can be compiled while your
+// program compiles. [compile] builds one at run time; [Static] builds one at compile time and
+// types its named groups. [find], [captures], [replace] and [split] work on either.
 //
 // ```jai
 // Regex :: #import "Extensions/Regex";
@@ -20,6 +21,16 @@
 // look-around, and the engines are automata, never an exponential backtracker.
 
 // Pattern flags, also settable inside the pattern: (?i) (?m) (?s) (?U) (?x) (?R) (?-u).
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+//
+// options: Regex.Options;
+// options.case_insensitive = true;
+// re, ok := Regex.compile("hello", options);
+// assert(ok && Regex.is_match(*re, "Say HELLO"));
+// Regex.free_regex(*re);
+// ```
 Options :: struct {
     case_insensitive: bool; // i: letters match either case (Unicode simple case folding)
     multi_line: bool; // m: ^ and $ match at line breaks, not just the ends of the text
@@ -30,8 +41,8 @@ Options :: struct {
     unicode := true; // u: classes and \b are Unicode-aware; off, they are ASCII and match bytes
 }
 
-// A compiled pattern. Copies share the compiled program and the search cache, which is not safe
-// to use from two threads at once: give each thread its own compile.
+// A compiled pattern from [compile]. Copies share the compiled program and the search cache,
+// which is not safe to use from two threads at once: give each thread its own compile.
 Regex :: struct {
     pattern: string;
     group_count: int; // capture groups, not counting group 0 (the whole match)
@@ -39,11 +50,13 @@ Regex :: struct {
     engine: *Engine;
 }
 
+// Why a pattern did not compile.
 Error :: struct {
     message: string; // `unclosed group: expected `)``
     offset: int; // byte offset in the pattern where the problem is
 }
 
+// One match: its byte range and a view of the matched text.
 Match :: struct {
     start: int;
     end: int;
@@ -51,14 +64,26 @@ Match :: struct {
 }
 
 // Where each group matched. Group 0 is the whole match; a group that did not take part has
-// start -1.
+// start -1. Read it with [group] and [span].
 Captures :: struct {
     text: string; // the whole searched string
     slots: [] int; // start and end of each group, in pairs
     names: [] string;
 }
 
-// Compiles `pattern`. The result says whether it was valid and, if not, the error says where it went wrong. Free the regex with `free_regex`.
+// Compiles `pattern`. The result says whether it was valid and, if not, the error says where it
+// went wrong. Free the regex with [free_regex].
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+//
+// re, ok, error := Regex.compile("[a-z]+[0-9]");
+// assert(ok);
+// Regex.free_regex(*re);
+//
+// _, ok, error = Regex.compile("(unclosed");
+// assert(!ok && error.message.count > 0);
+// ```
 //
 // - pattern: the regular expression.
 // - options: flags such as case-insensitive matching.
@@ -75,6 +100,7 @@ compile :: (pattern: string, options := Options.{}) -> Regex, ok: bool, Error {
     return re, true, .{};
 }
 
+// Releases the compiled program.
 free_regex :: (re: *Regex) {
     if !re.engine return;
 
@@ -85,7 +111,15 @@ free_regex :: (re: *Regex) {
     re.engine = null;
 } @FreesArgument
 
-// Whether captures for this pattern are found in a single scan (see docs/extensions/regex.md).
+// Whether captures for this pattern are found in a single scan, which makes [captures] faster.
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+//
+// re, _ := Regex.compile("(a)(b)");
+// assert(Regex.is_one_pass(*re));
+// Regex.free_regex(*re);
+// ```
 is_one_pass :: (re: *Regex) -> bool {
     return re.engine.onepass.ok;
 }
@@ -96,6 +130,16 @@ is_one_pass :: ($R: Type) -> bool #modify {
     return static_engine_of(R.pattern, false).onepass.ok;
 }
 
+// Whether the pattern matches anywhere in `text`, starting at or after byte `start`.
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+//
+// re, _ := Regex.compile("[0-9]+");
+// assert(Regex.is_match(*re, "room 101"));
+// assert(!Regex.is_match(*re, "no digits"));
+// Regex.free_regex(*re);
+// ```
 is_match :: (re: *Regex, text: string, start := 0) -> bool {
     _, end := find_span(re.engine, text, start, earliest = true);
     return end >= 0;
@@ -104,6 +148,15 @@ is_match :: (re: *Regex, text: string, start := 0) -> bool {
 // The leftmost match at or after byte `start`.
 //
 // - start: the byte offset to begin at. Anchors and `\b` still see the text before it.
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+//
+// re, _ := Regex.compile("[0-9]+");
+// match, found := Regex.find(*re, "room 101, floor 3");
+// assert(found && match.text == "101" && match.start == 5);
+// Regex.free_regex(*re);
+// ```
 find :: (re: *Regex, text: string, start := 0) -> Match, bool {
     s, e := find_span(re.engine, text, start);
     if e < 0 return .{}, false;
@@ -112,25 +165,72 @@ find :: (re: *Regex, text: string, start := 0) -> Match, bool {
 
 // Every match, left to right, not overlapping. An empty match right where the previous match
 // ended is skipped, and in Unicode mode empty matches never split a UTF-8 sequence.
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+//
+// re, _ := Regex.compile("[0-9]+");
+// matches := Regex.find_all(*re, "room 101, floor 3");
+// assert(matches.count == 2 && matches[1].text == "3");
+// array_free(matches);
+// Regex.free_regex(*re);
+// ```
 find_all :: (re: *Regex, text: string) -> [..] Match {
     out: [..] Match;
     for_matches(re.engine, text, #code array_add(*out, .{ s, e, slice(text, s, e - s) }));
     return out;
 }
 
+// The leftmost match at or after `start`, with where each group matched. Read the groups with
+// [group] and [span].
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+//
+// re, _ := Regex.compile("(?<key>[a-z]+)=(?<value>[0-9]+)");
+// caps, found := Regex.captures(*re, "retries=3");
+// assert(found);
+// key, _ := Regex.group(caps, "key");
+// assert(key == "retries");
+// Regex.free_regex(*re);
+// ```
 captures :: (re: *Regex, text: string, start := 0) -> Captures, bool {
     s, e := find_span(re.engine, text, start);
     if e < 0 return .{}, false;
     return captures_of(re.engine, text, s, e), true;
 }
 
+// [captures] for every match, as [find_all] finds them.
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+//
+// re, _ := Regex.compile("([a-z])=([0-9])");
+// all := Regex.captures_all(*re, "a=1, b=2");
+// assert(all.count == 2);
+// value, _ := Regex.group(all[1], 2);
+// assert(value == "2");
+// Regex.free_regex(*re);
+// ```
 captures_all :: (re: *Regex, text: string) -> [..] Captures {
     out: [..] Captures;
     for_matches(re.engine, text, #code array_add(*out, captures_of(engine, text, s, e)));
     return out;
 }
 
-// Group `index`'s text, and whether it took part in the match.
+// Group `index`'s text, and whether it took part in the match. Group 0 is the whole match.
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+//
+// re, _ := Regex.compile("(a)(x)?");
+// caps, _ := Regex.captures(*re, "ab");
+// first, took_part := Regex.group(caps, 1);
+// assert(took_part && first == "a");
+// _, took_part = Regex.group(caps, 2);
+// assert(!took_part);
+// Regex.free_regex(*re);
+// ```
 group :: (caps: Captures, index: int) -> string, bool {
     if index < 0 || 2 * index + 1 >= caps.slots.count return "", false;
 
@@ -142,12 +242,23 @@ group :: (caps: Captures, index: int) -> string, bool {
     return slice(caps.text, s, e - s), true;
 }
 
+// The text of the group called `name`, and whether it took part in the match.
 group :: (caps: Captures, name: string) -> string, bool {
     for caps.names if it.count && it == name return group(caps, it_index);
     return "", false;
 }
 
 // Group `index`'s byte range, or -1, -1.
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+//
+// re, _ := Regex.compile("b+");
+// caps, _ := Regex.captures(*re, "abbc");
+// start, end := Regex.span(caps, 0);
+// assert(start == 1 && end == 3);
+// Regex.free_regex(*re);
+// ```
 span :: (caps: Captures, index: int) -> start: int, end: int {
     if index < 0 || 2 * index + 1 >= caps.slots.count return -1, -1;
     return caps.slots[2 * index], caps.slots[2 * index + 1];
@@ -157,10 +268,27 @@ span :: (caps: Captures, index: int) -> start: int, end: int {
 // `${name}` a named group's, and `$$` a dollar sign; a group that did not match (or does not
 // exist) gives "". `$name` takes the longest run of letters, digits and `_`, so write
 // `${1}st` rather than `$1st`.
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+//
+// re, _ := Regex.compile("(\\w+)@(\\w+)");
+// assert(Regex.replace(*re, "ada@home, bob@work", "$2:$1") == "home:ada, bob@work");
+// Regex.free_regex(*re);
+// ```
 replace :: (re: *Regex, text: string, replacement: string) -> string {
     return replace_n(re, text, replacement, 1);
 }
 
+// Replaces every match; `replacement` works as in [replace].
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+//
+// re, _ := Regex.compile("[0-9]+");
+// assert(Regex.replace_all(*re, "a1 b22", "#") == "a# b#");
+// Regex.free_regex(*re);
+// ```
 replace_all :: (re: *Regex, text: string, replacement: string) -> string {
     return replace_n(re, text, replacement, -1);
 }
@@ -170,6 +298,14 @@ replace_all :: (re: *Regex, text: string, replacement: string) -> string {
 // - replacement: the new text; `$1` or `${1}` stands for a group and `$name` or `${name}` for a named
 //   one.
 // - limit: how many matches to replace. Negative replaces all of them.
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+//
+// re, _ := Regex.compile("[0-9]+");
+// assert(Regex.replace_n(*re, "1 2 3", "#", 2) == "# # 3");
+// Regex.free_regex(*re);
+// ```
 replace_n :: (re: *Regex, text: string, replacement: string, limit: int) -> string {
     builder: String_Builder;
     last := 0;
@@ -197,6 +333,16 @@ replace_n :: (re: *Regex, text: string, replacement: string, limit: int) -> stri
 }
 
 // The pieces of `text` between matches.
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+//
+// re, _ := Regex.compile("\\s*,\\s*");
+// parts := Regex.split(*re, "a , b,c");
+// assert(parts.count == 3 && parts[1] == "b");
+// array_free(parts);
+// Regex.free_regex(*re);
+// ```
 split :: (re: *Regex, text: string) -> [..] string {
     out: [..] string;
     last := 0;
@@ -211,6 +357,12 @@ split :: (re: *Regex, text: string) -> [..] string {
 }
 
 // `text` with every regex metacharacter escaped, so it matches literally.
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+//
+// assert(Regex.escape("1+1=2?") == "1\\+1=2\\?");
+// ```
 escape :: (text: string) -> string {
     builder: String_Builder;
 
@@ -228,13 +380,15 @@ escape :: (text: string) -> string {
 // ```jai
 // Regex :: #import "Extensions/Regex";
 // Date :: Regex.Static("(?<year>[0-9]{4})-(?<month>[0-9]{2})-(?<day>[0-9]{2})");
+//
 // date, ok := Regex.parse(Date, "2026-10-11");  // a Date.Groups: date.year is a u16
+// assert(ok && date.year == 2026 && date.month == 10 && date.day == 11);
 // ```
 //
 // A bad pattern is a compile error, and the automata are built at compile time (big Unicode
-// classes excepted: those are built on first use), so searching needs no setup. The same
-// procedures as for a Regex take it in place of `*re`, and parse, parse_into and captures_into
-// only take one of these. For a pattern known only at run time, use compile.
+// classes excepted: those are built on first use), so searching needs no setup. The procedures
+// below take it in place of `*re`; [parse], [parse_into] and [captures_into] only take one of
+// these. For a pattern known only at run time, use [compile].
 Static :: struct(pattern: string) {
 
     // The named groups, as typed fields: `[0-9]{4}` is a u16, `-?\d+` an s64, `\d+\.\d+` a
@@ -252,6 +406,14 @@ Static :: struct(pattern: string) {
     }
 }
 
+// Whether the static pattern matches anywhere in `text`.
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+// Digits :: Regex.Static("[0-9]+");
+//
+// assert(Regex.is_match(Digits, "room 101"));
+// ```
 is_match :: ($R: Type, text: string, start := 0) -> bool #modify {
     return is_static(R);
 } {
@@ -259,6 +421,15 @@ is_match :: ($R: Type, text: string, start := 0) -> bool #modify {
     return is_match(*re, text, start);
 }
 
+// The leftmost match of the static pattern at or after `start`.
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+// Digits :: Regex.Static("[0-9]+");
+//
+// match, found := Regex.find(Digits, "room 101");
+// assert(found && match.text == "101");
+// ```
 find :: ($R: Type, text: string, start := 0) -> Match, bool #modify {
     return is_static(R);
 } {
@@ -267,6 +438,14 @@ find :: ($R: Type, text: string, start := 0) -> Match, bool #modify {
     return match, ok;
 }
 
+// Every match of the static pattern, as [find_all] does for a [Regex].
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+// Digits :: Regex.Static("[0-9]+");
+//
+// assert(Regex.find_all(Digits, "1 22 333").count == 3);
+// ```
 find_all :: ($R: Type, text: string) -> [..] Match #modify {
     return is_static(R);
 } {
@@ -276,6 +455,14 @@ find_all :: ($R: Type, text: string) -> [..] Match #modify {
 
 // The leftmost match at or after `start`, with its named groups parsed. False if there is no
 // match, or a number does not fit its field.
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+// Pair :: Regex.Static("(?<key>[a-z]+)=(?<value>[0-9]+)");
+//
+// pair, ok := Regex.captures(Pair, "  retries=3");
+// assert(ok && pair.key == "retries" && pair.value == 3);
+// ```
 captures :: ($R: Type, text: string, start := 0) -> R.Groups, bool #modify {
     return is_static(R);
 } {
@@ -290,6 +477,15 @@ captures :: ($R: Type, text: string, start := 0) -> R.Groups, bool #modify {
     return out, ok;
 }
 
+// [captures] for every match.
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+// Pair :: Regex.Static("(?<key>[a-z]+)=(?<value>[0-9]+)");
+//
+// pairs := Regex.captures_all(Pair, "a=1 b=2");
+// assert(pairs.count == 2 && pairs[1].key == "b");
+// ```
 captures_all :: ($R: Type, text: string) -> [..] R.Groups #modify {
     return is_static(R);
 } {
@@ -304,6 +500,16 @@ captures_all :: ($R: Type, text: string) -> [..] R.Groups #modify {
 }
 
 // The whole of `text` against the pattern, with its named groups parsed.
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+// Time :: Regex.Static("(?<hour>[0-9]{2}):(?<minute>[0-9]{2})");
+//
+// time, ok := Regex.parse(Time, "09:30");
+// assert(ok && time.hour == 9 && time.minute == 30);
+// _, ok = Regex.parse(Time, "at 09:30");
+// assert(!ok);
+// ```
 parse :: ($R: Type, text: string) -> R.Groups, bool #modify {
     return is_static(R);
 } {
@@ -322,6 +528,17 @@ parse :: ($R: Type, text: string) -> R.Groups, bool #modify {
 // string, integer, float, bool (`true` / `false`) or enum (a member's name, any case). A field
 // with no group or a group with no field is a compile error. False if the text does not match
 // or a group's text does not fit its field.
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+// Time :: Regex.Static("(?<hour>[0-9]{2}):(?<minute>[0-9]{2})");
+//
+// Clock :: struct { hour: int; minute: int; }
+//
+// clock: Clock;
+// assert(Regex.parse_into(Time, "09:30", *clock));
+// assert(clock.hour == 9 && clock.minute == 30);
+// ```
 parse_into :: ($R: Type, text: string, out: *$T) -> bool #modify {
     return is_static(R);
 } {
@@ -331,7 +548,18 @@ parse_into :: ($R: Type, text: string, out: *$T) -> bool #modify {
     return fill_struct(R.pattern, engine, text, s, e, out);
 }
 
-// Like captures, into your own struct (see parse_into).
+// Like [captures], into your own struct (see [parse_into]).
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+// Time :: Regex.Static("(?<hour>[0-9]{2}):(?<minute>[0-9]{2})");
+//
+// Clock :: struct { hour: int; minute: int; }
+//
+// clock: Clock;
+// assert(Regex.captures_into(Time, "meet at 09:30", *clock));
+// assert(clock.minute == 30);
+// ```
 captures_into :: ($R: Type, text: string, out: *$T, start := 0) -> bool #modify {
     return is_static(R);
 } {
@@ -341,6 +569,14 @@ captures_into :: ($R: Type, text: string, out: *$T, start := 0) -> bool #modify 
     return fill_struct(R.pattern, engine, text, s, e, out);
 }
 
+// Replaces the first match of the static pattern; `replacement` works as for a [Regex].
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+// Digits :: Regex.Static("[0-9]+");
+//
+// assert(Regex.replace(Digits, "1 2", "#") == "# 2");
+// ```
 replace :: ($R: Type, text: string, replacement: string) -> string #modify {
     return is_static(R);
 } {
@@ -348,6 +584,14 @@ replace :: ($R: Type, text: string, replacement: string) -> string #modify {
     return replace_n(*re, text, replacement, 1);
 }
 
+// Replaces every match of the static pattern.
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+// Digits :: Regex.Static("[0-9]+");
+//
+// assert(Regex.replace_all(Digits, "1 2", "#") == "# #");
+// ```
 replace_all :: ($R: Type, text: string, replacement: string) -> string #modify {
     return is_static(R);
 } {
@@ -355,6 +599,7 @@ replace_all :: ($R: Type, text: string, replacement: string) -> string #modify {
     return replace_n(*re, text, replacement, -1);
 }
 
+// Replaces the first `limit` matches of the static pattern; negative replaces all.
 replace_n :: ($R: Type, text: string, replacement: string, limit: int) -> string #modify {
     return is_static(R);
 } {
@@ -362,6 +607,14 @@ replace_n :: ($R: Type, text: string, replacement: string, limit: int) -> string
     return replace_n(*re, text, replacement, limit);
 }
 
+// The pieces of `text` between matches of the static pattern.
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+// Comma :: Regex.Static(",");
+//
+// assert(Regex.split(Comma, "a,b,c").count == 3);
+// ```
 split :: ($R: Type, text: string) -> [..] string #modify {
     return is_static(R);
 } {
