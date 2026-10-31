@@ -1,7 +1,5 @@
 // Typed JSON for jaic programs, in the spirit of Rust's serde_json. Encoders and decoders
 // are generated from your types at compile time, so there is no reflection walk at run time.
-// A jaic extension, not official Jai: other Jai compilers have no such module, and it may change
-// between jaic releases. See docs/extensions/json.md.
 //
 // ```jai
 // #import "Extensions/Json";

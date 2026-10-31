@@ -1,6 +1,7 @@
 // WebGPU through the standard C API (webgpu.h). Natively the procedures call wgpu-native; in the
 // browser playground they go to the page's WebGPU. On top of webgpu.h, the module adds what it leaves
 // to the platform: a surface for a window, waiting for asynchronous requests, and frame pacing.
+// @experimental
 
 #import "Basic";
 

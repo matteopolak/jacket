@@ -1,6 +1,5 @@
-// HTTP/1.0 and HTTP/1.1 message codecs, plus a server, a client and test tools on top of them for fibers. A jaic
-// extension, not official Jai: other Jai compilers have no such module, and it may change between jaic releases. See
-// docs/extensions/http-codec.md, http-server.md and http-client.md.
+// HTTP/1.0 and HTTP/1.1 message codecs, plus a server, a client and test tools on top of them for fibers.
+// @experimental
 //
 // The codec has no IO of its own. A `Parser` reads requests or responses from byte buffers the caller fills, in pieces of
 // any size, and reports the head, the body in pieces and the end of each message with strict RFC 9112 framing; the writers

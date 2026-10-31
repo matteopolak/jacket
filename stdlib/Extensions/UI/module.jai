@@ -1,6 +1,5 @@
-// A native user interface library for jaic programs. A jaic extension, not official Jai: other
-// Jai compilers have no such module, and it may change between jaic releases. See
-// docs/extensions/ui.md.
+// A native user interface library for jaic programs.
+// @experimental
 //
 // Windows, rendering and text are our own: the window comes from `Window_Creation`, drawing from
 // `Extensions/WebGPU` (Metal, Vulkan or D3D12 natively, the page's WebGPU in the playground) and

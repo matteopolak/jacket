@@ -1,5 +1,4 @@
-// An opt-in hash map that probes sixteen slots at a time. A jaic extension, not
-// official Jai. See docs/extensions/hash-map.md.
+// An opt-in hash map that probes sixteen slots at a time.
 //
 // ```jai
 // Map :: #import "Extensions/Hash_Map";

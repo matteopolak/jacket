@@ -1,5 +1,5 @@
-// Fibers and a cooperative scheduler. A jaic extension, not official Jai: other Jai compilers
-// have no such module, and it may change between jaic releases. See docs/extensions/io-engine.md.
+// Fibers and a cooperative scheduler.
+// @experimental
 //
 // ```jai,skip_on(wasm)
 // Io :: #import "Extensions/Io";

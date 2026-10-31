@@ -1,6 +1,5 @@
-// An editable UTF-8 text buffer with undo, for editors. A jaic extension, not official
-// Jai: other Jai compilers have no such module, and it may change between jaic releases. See
-// docs/extensions/text-buffer.md.
+// An editable UTF-8 text buffer with undo, for editors.
+// @experimental
 //
 // The text lives in a piece table: the loaded file is never copied or modified, typed text is
 // appended to a second buffer, and the document is a list of pieces pointing into the two. Editing

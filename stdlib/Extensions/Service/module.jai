@@ -1,5 +1,5 @@
-// Compile-time services. A jaic extension, not official Jai: other Jai compilers have no
-// such module, and it may change between jaic releases. See docs/extensions/service.md.
+// Compile-time services.
+// @experimental
 //
 // A service is a long-lived program that compile-time code asks questions: one that keeps a
 // database connection open, say, so `#run` code can learn a query's types without connecting

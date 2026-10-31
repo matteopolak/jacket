@@ -1,6 +1,5 @@
-// Where a byte of a string literal's value sits in the source. A jaic extension,
-// not official Jai: other Jai compilers have no such module, and it may change between jaic
-// releases. See docs/extensions/string-literal.md.
+// Where a byte of a string literal's value sits in the source.
+// @experimental
 //
 // Compile-time code that checks a string it was given (a query, a pattern, a format) can report
 // a problem at the exact character instead of at the whole literal:

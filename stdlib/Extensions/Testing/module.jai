@@ -1,5 +1,5 @@
 // Tests are procedures with a `@test` note, found at compile time and run by
-// `jacket test`. A jaic extension, not official Jai. See docs/extensions/testing.md.
+// `jacket test`.
 //
 //     #import "Basic";
 #import "File";

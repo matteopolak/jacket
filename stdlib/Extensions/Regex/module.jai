@@ -1,7 +1,5 @@
 // Regular expressions with the syntax and guarantees of Rust's `regex` crate, full
-// Unicode support, and patterns that can be compiled while your program compiles. A jaic
-// extension, not official Jai: other Jai compilers have no such module, and it may change
-// between jaic releases. See docs/extensions/regex.md.
+// Unicode support, and patterns that can be compiled while your program compiles.
 //
 // ```jai
 // Regex :: #import "Extensions/Regex";

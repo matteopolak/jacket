@@ -1,6 +1,5 @@
-// A PostgreSQL client over Io fibers. A jaic extension, not official Jai: other Jai
-// compilers have no such module, and it may change between jaic releases. See
-// docs/extensions/postgres.md.
+// A PostgreSQL client over Io fibers.
+// @experimental
 //
 // ```jai,no_run,skip_on(wasm)
 // Io :: #import "Extensions/Io";

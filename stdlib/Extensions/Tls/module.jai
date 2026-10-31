@@ -1,6 +1,5 @@
 // TLS 1.2 and 1.3 over Io readers and writers, on a bundled mbedTLS.
-// A jaic extension, not official Jai: other Jai compilers have no such module, and it may change
-// between jaic releases. See docs/extensions/tls.md.
+// @experimental
 //
 // Fill in a `Tls_Config`, call `tls_config_init` once, then wrap an accepted or connected TCP stream with `tls_connect`
 // (client) or `tls_accept` (server). A stream is also an `Io.Reader` and `Io.Writer` (`reader_of`, `writer_of`), so code

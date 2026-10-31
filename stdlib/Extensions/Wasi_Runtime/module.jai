@@ -1,7 +1,7 @@
 // What a wasm64 program needs to run as a WASI command (node, wasmtime and the
 // like). jaic adds it to `jaic -os wasm` programs and to workspaces whose LLVM triple
-// names WASI; a program that brings its own host bindings leaves it out. This module is a jaic
-// extension, not official Jai. See docs/native/wasm-target.md.
+// names WASI; a program that brings its own host bindings leaves it out.
+// @experimental
 //
 // It supplies, in Jai, the C library entry points the stdlib reaches for under `OS == .WASM`
 // (the same ones the interpreter's sandbox host implements): a heap, `memmove`/`memcmp`,

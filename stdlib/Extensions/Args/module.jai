@@ -1,6 +1,5 @@
 // A typed, compile-time-generated command-line parser for jaic programs, in the spirit of
-// Rust's clap derive. A jaic extension, not official Jai: other Jai compilers have no such
-// module, and it may change between jaic releases. See docs/extensions/args.md.
+// Rust's clap derive.
 //
 // ```jai
 // Args :: #import "Extensions/Args";

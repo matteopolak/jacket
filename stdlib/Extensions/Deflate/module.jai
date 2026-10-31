@@ -1,5 +1,5 @@
 // The DEFLATE compressed format (RFC 1951) with its zlib (RFC 1950) and gzip (RFC 1952)
-// wrappers, in plain Jai. A jaic extension, not official Jai. See docs/extensions/deflate.md.
+// wrappers, in plain Jai.
 //
 // ```jai
 // #import "Extensions/Deflate";
