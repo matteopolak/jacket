@@ -111,6 +111,32 @@ fn a_call_argument_is_wrapped_in_a_cast() {
 }
 
 #[test]
+fn a_literal_is_wrapped_without_parentheses() {
+    fixes_to(
+        "c: s32 = .5;",
+        "type mismatch: expected `s32`, found `float32`",
+        "convert with `cast(s32)`, which drops the fraction",
+        "c: s32 = cast(s32) .5;",
+    );
+    fixes_to(
+        "s: *string = \"x\";",
+        "type mismatch: expected `*string`, found `string`",
+        "this is the value itself: take its address with `*value`",
+        "s: *string = *\"x\";",
+    );
+}
+
+#[test]
+fn an_indexed_element_is_wrapped_without_parentheses() {
+    fixes_to(
+        "xs: [2] s64; c: s32 = xs[1];",
+        "type mismatch: expected `s32`, found `s64`",
+        "convert with `cast(s32)` if every value fits",
+        "xs: [2] s64; c: s32 = cast(s32) xs[1];",
+    );
+}
+
+#[test]
 fn a_pointer_where_its_value_is_expected_is_dereferenced() {
     fixes_to(
         "p := *a; c: s64 = p;",

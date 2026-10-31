@@ -153,7 +153,7 @@ impl Compiler {
                 (vec![PathStep::Offset(off)], mty)
             };
             let op = self.check_expr(f, scope, &arg.value, Some(mty))?;
-            let op = self.convert(f, op, mty, arg.value.span)?;
+            let op = self.convert(f, op, mty, &arg.value)?;
             values.push((path, mty, op, arg.value.span));
         }
         // A field with no initializer of its own needs a positional value; trailing fields with
@@ -232,7 +232,7 @@ impl Compiler {
                 );
             };
             let op = self.check_expr(f, scope, &arg.value, Some(pty))?;
-            let op = self.convert(f, op, pty, arg.value.span)?;
+            let op = self.convert(f, op, pty, &arg.value)?;
             let (_, v) = self.rvalue(f, op, arg.value.span)?;
             self.store_value(f, pty, addr, v, arg.value.span)?;
         }
@@ -341,7 +341,7 @@ impl Compiler {
                     other => other.ty(),
                 });
             }
-            let op = self.convert(f, op, elem_ty.unwrap(), e.span)?;
+            let op = self.convert(f, op, elem_ty.unwrap(), e)?;
             ops.push((op, e.span));
         }
         let Some(elem) = elem_ty else {

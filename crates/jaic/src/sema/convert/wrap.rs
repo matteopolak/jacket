@@ -1,6 +1,7 @@
 //! Suggestions that wrap an expression in what converts it: `cast(T)`, `.*`, `*` or `!= 0`.
 //! One helper builds the edit, so every conversion error (an assignment, an argument, an
 //! operand, an explicit cast) rewrites the code the same way. See docs/compiler/diagnostics.md.
+use crate::ast::Expr;
 use crate::sema::{Compiler, Diagnostic, Span, TypeId};
 use crate::source::{Applicability, Edit, SourceMap, Suggestion};
 use crate::types::TypeKind;
@@ -27,44 +28,47 @@ impl Wrap {
     }
 }
 
-/// Whether `text` is one primary expression (a name, a literal, a member path, a call or an
-/// index of those), so a prefix or a postfix operator applies to all of it without
-/// parentheses.
-pub(in crate::sema) fn is_primary(text: &str) -> bool {
-    let bytes = text.as_bytes();
-    let Some(&first) = bytes.first() else {
-        return false;
-    };
-    if !(first.is_ascii_alphanumeric() || first == b'_') {
-        return false;
-    }
-    // Names, numbers and `.`, then any number of balanced `( )` / `[ ]` groups, each followed
-    // by more path.
-    let mut depth = 0u32;
-    let mut in_string = false;
-    for (i, &b) in bytes.iter().enumerate() {
-        if in_string {
-            in_string = b != b'"' || bytes[i - 1] == b'\\';
-            continue;
-        }
-        match b {
-            b'"' if depth > 0 => in_string = true,
-            b'(' | b'[' => depth += 1,
-            b')' | b']' => {
-                let Some(d) = depth.checked_sub(1) else {
-                    return false;
-                };
-                depth = d;
-            }
-            _ if depth > 0 => {}
-            b'.' | b'_' => {}
-            _ if b.is_ascii_alphanumeric() => {}
-            _ => return false,
+/// Where a conversion applies: the span of the expression, and whether it reads as one unit
+/// (`Expr::is_atomic`), so a prefix or postfix wrap goes around it without parentheses. Built
+/// from the expression, so the parser's reading of the tree decides, not the text.
+#[derive(Clone, Copy, Debug)]
+pub(in crate::sema) struct Site {
+    pub span: Span,
+    atomic: bool,
+}
+
+impl Site {
+    /// A place with no expression of its own (a statement, a name): any wrap puts parentheses
+    /// around what it covers.
+    pub(in crate::sema) fn opaque(span: Span) -> Self {
+        Self {
+            span,
+            atomic: false,
         }
     }
-    depth == 0
-        // `a.*` and `a.{...}` end in an operator or a brace: not a path.
-        && !text.ends_with('.')
+
+    /// A plain name: it reads as one unit.
+    pub(in crate::sema) fn name(span: Span) -> Self {
+        Self {
+            span,
+            atomic: true,
+        }
+    }
+}
+
+impl From<&Expr> for Site {
+    fn from(e: &Expr) -> Self {
+        Self {
+            span: e.span,
+            atomic: e.is_atomic(),
+        }
+    }
+}
+
+impl From<&Box<Expr>> for Site {
+    fn from(e: &Box<Expr>) -> Self {
+        Self::from(&**e)
+    }
 }
 
 /// The span of `span` without surrounding whitespace, and its text.
@@ -80,13 +84,9 @@ fn trimmed(sources: &SourceMap, span: Span) -> Option<(Span, &str)> {
 }
 
 /// The expression at `span` written inside `wrap`.
-pub(in crate::sema) fn wrapped_text(
-    sources: &SourceMap,
-    span: Span,
-    wrap: &Wrap,
-) -> Option<String> {
-    let (_, body) = trimmed(sources, span)?;
-    let primary = is_primary(body);
+pub(in crate::sema) fn wrapped_text(sources: &SourceMap, at: Site, wrap: &Wrap) -> Option<String> {
+    let (_, body) = trimmed(sources, at.span)?;
+    let primary = at.atomic;
     Some(match wrap {
         Wrap::Cast(ty) if primary => format!("cast({ty}) {body}"),
         Wrap::Cast(ty) => format!("cast({ty}) ({body})"),
@@ -107,11 +107,11 @@ pub(in crate::sema) fn wrapped_text(
 pub(in crate::sema) fn wrap_suggestion(
     sources: &SourceMap,
     title: impl Into<String>,
-    span: Span,
+    site: Site,
     wrap: &Wrap,
 ) -> Option<Suggestion> {
-    let (at, _) = trimmed(sources, span)?;
-    let text = wrapped_text(sources, span, wrap)?;
+    let (at, _) = trimmed(sources, site.span)?;
+    let text = wrapped_text(sources, site, wrap)?;
     let action = match wrap {
         Wrap::Cast(ty) => format!("Convert with `cast({ty})`"),
         Wrap::Deref => "Dereference with `.*`".into(),
@@ -139,12 +139,12 @@ impl Compiler {
         d: Diagnostic,
         from: TypeId,
         to: TypeId,
-        span: Span,
+        at: Site,
     ) -> Diagnostic {
         let Some((help, wrap)) = self.ty.conversion_hint(from, to) else {
             return d;
         };
-        match wrap.and_then(|w| wrap_suggestion(&self.src.sources, help.clone(), span, &w)) {
+        match wrap.and_then(|w| wrap_suggestion(&self.src.sources, help.clone(), at, &w)) {
             Some(suggestion) => d.with_suggestion(suggestion),
             None => d.with_help(help),
         }
@@ -197,20 +197,5 @@ impl TypeState {
             ),
             _ => return None,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::is_primary;
-
-    #[test]
-    fn primary_expressions_need_no_parentheses() {
-        for text in ["x", "a.b", "f(x, \"a)\")", "xs[i + 1]", "42", "a.b(c).d"] {
-            assert!(is_primary(text), "{text}");
-        }
-        for text in ["a + b", "-x", "a.*", "f(x) + 1", "", "(a)", "x if y"] {
-            assert!(!is_primary(text), "{text}");
-        }
     }
 }

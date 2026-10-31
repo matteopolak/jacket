@@ -3,7 +3,6 @@ use crate::ast::ExprKind as E;
 use crate::diagnostics::Code;
 use crate::ir::{CmpOp, Ty};
 use crate::sema::calls::CallArg;
-use crate::sema::convert::is_primary;
 use crate::sema::lower::{FnCtx, ForBody, Immutable, LoopFrame, LoopRemove, Operand, Origin};
 use crate::sema::scope::{EntityKind, Resolved};
 use crate::sema::{
@@ -363,8 +362,8 @@ impl Compiler {
         } else {
             TypeId::S64
         };
-        let av = self.convert(f, av, ty, a.span)?;
-        let bv = self.convert(f, bv, ty, b.span)?;
+        let av = self.convert(f, av, ty, a)?;
+        let bv = self.convert(f, bv, ty, b)?;
         let (_, start) = self.rvalue(f, av, a.span)?;
         let (_, end) = self.rvalue(f, bv, b.span)?;
         let t = self.ir_ty(ty).unwrap();
@@ -617,7 +616,7 @@ impl Compiler {
                 elem, ..
             } => (elem, None),
             TypeKind::String => (TypeId::U8, None),
-            _ => return Err(Box::new(self.cannot_iterate(cty, c.span))),
+            _ => return Err(Box::new(self.cannot_iterate(cty, c))),
         };
         let container = match op {
             p @ Operand::Place {
@@ -850,7 +849,8 @@ impl Compiler {
     }
 
     /// `for x` over a value that is not a collection. A number counts: the help writes the range.
-    fn cannot_iterate(&self, ty: TypeId, container: Span) -> Diagnostic {
+    fn cannot_iterate(&self, ty: TypeId, expr: &ast::Expr) -> Diagnostic {
+        let container = expr.span;
         let d = Diagnostic::new(
             Code::CannotIterateOver,
             container,
@@ -866,7 +866,7 @@ impl Compiler {
         {
             return d;
         }
-        let range = if is_primary(text) {
+        let range = if expr.is_atomic() {
             format!("0..{text} - 1")
         } else {
             format!("0..({text}) - 1")

@@ -237,8 +237,7 @@ impl Compiler {
                     self.ty.types.name(param)
                 ),
             );
-            let at = arg.expr.as_ref().map_or(arg.span, |e| e.span);
-            Box::new(self.with_conversion_hint(d, from, param, at))
+            Box::new(self.with_conversion_hint(d, from, param, arg.site()))
         })
     }
 

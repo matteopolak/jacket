@@ -40,7 +40,7 @@ impl Compiler {
                 self.ide_note_member_ref(n.span, name, fty);
             }
             let op = self.check_expr(f, scope, &o.value, Some(fty))?;
-            let op = self.convert(f, op, fty, o.value.span)?;
+            let op = self.convert(f, op, fty, &o.value)?;
             let (_, v) = self.rvalue(f, op, o.value.span)?;
             let addr = self.apply_path(f, copy, &path);
             self.store_value(f, fty, addr, v, o.value.span)?;

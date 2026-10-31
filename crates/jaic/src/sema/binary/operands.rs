@@ -4,6 +4,7 @@ use crate::ast::BinOp;
 use crate::diagnostics::Code;
 use crate::sema::TypeState;
 use crate::sema::calls::binop_text;
+use crate::sema::convert::Site;
 use crate::sema::expr::takes_sibling_type;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, TypeId, Value, ast};
@@ -195,7 +196,7 @@ impl Compiler {
 
     /// `op` converted to `ty` and loaded as a value.
     fn value_as(&mut self, f: &mut FnCtx, op: Operand, ty: TypeId, span: Span) -> Result<Operand> {
-        let converted = self.convert(f, op, ty, span)?;
+        let converted = self.convert(f, op, ty, Site::opaque(span))?;
         let (ty, val) = self.rvalue(f, converted, span)?;
         Ok(Operand::Value {
             ty,

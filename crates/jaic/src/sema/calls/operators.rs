@@ -9,6 +9,7 @@ use crate::ast::ExprKind as E;
 use crate::diagnostics::Code;
 use crate::sema::TypeState;
 use crate::sema::binary::Binary;
+use crate::sema::convert::Site;
 use crate::sema::expr::{takes_context_type, takes_sibling_type};
 
 /// One way to call the `operator` overloads of a binary operator.
@@ -115,7 +116,7 @@ impl Compiler {
                 operands.push(operand.clone());
                 continue;
             };
-            operands.push(self.convert(f, operand.clone(), base, span)?);
+            operands.push(self.convert(f, operand.clone(), base, Site::opaque(span))?);
         }
         let rhs = operands.pop().expect("two operands");
         let lhs = operands.pop().expect("two operands");

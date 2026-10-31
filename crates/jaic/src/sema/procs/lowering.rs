@@ -258,7 +258,7 @@ impl Compiler {
                 match default {
                     Some(d) => {
                         let op = self.check_expr(&mut f, scope, &d, Some(rt))?;
-                        let op = self.convert(&mut f, op, rt, d.span)?;
+                        let op = self.convert(&mut f, op, rt, &d)?;
                         let (_, v) = self.rvalue(&mut f, op, d.span)?;
                         self.store_value(&mut f, rt, addr, v, d.span)?;
                     }

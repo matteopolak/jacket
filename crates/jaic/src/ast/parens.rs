@@ -47,27 +47,25 @@ impl Expr {
         walk::extent(walk::Node::Expr(self))
     }
 
-    /// The expression reads as one unit: a name, a literal, a member path, or a call of one.
-    /// Another expression takes it as an operand without parentheses around it.
+    /// The expression reads as one unit: a name, a literal, or a member path, call or index
+    /// built on one. A prefix or postfix operator, or another expression, takes it as an
+    /// operand without parentheses around it. A parenthesized link in the chain (`(a).b`) is
+    /// not atomic.
     pub fn is_atomic(&self) -> bool {
-        fn path(e: &Expr) -> bool {
-            match &e.kind {
-                ExprKind::Ident(_) => true,
-                ExprKind::Member(base, _) => !base.parenthesized() && path(base),
-                _ => false,
-            }
-        }
         match &self.kind {
             ExprKind::Int(..)
             | ExprKind::Float(..)
             | ExprKind::Str(_)
             | ExprKind::Bool(_)
             | ExprKind::Null
-            | ExprKind::Context => true,
-            ExprKind::Call {
-                callee, ..
-            } => !callee.parenthesized() && path(callee),
-            _ => path(self),
+            | ExprKind::Context
+            | ExprKind::Ident(_) => true,
+            ExprKind::Member(base, _)
+            | ExprKind::Index(base, _)
+            | ExprKind::Call {
+                callee: base, ..
+            } => !base.parenthesized() && base.is_atomic(),
+            _ => false,
         }
     }
 

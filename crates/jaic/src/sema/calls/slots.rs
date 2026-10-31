@@ -3,6 +3,7 @@ use super::count_hints::remove_extra_arguments;
 use super::{CallArg, Slot};
 use crate::ast::ExprKind as E;
 use crate::diagnostics::Code;
+use crate::sema::convert::Site;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, Diagnostic, Result, Span, Sym, TypeId, ast, err};
 
@@ -29,7 +30,7 @@ pub(super) fn c_vararg_promote(
 ) -> Result<Operand> {
     let ty = op.ty();
     if ty == TypeId::F32 {
-        return c.convert(f, op, TypeId::F64, span);
+        return c.convert(f, op, TypeId::F64, Site::opaque(span));
     }
     if let Some((bits, signed)) = c.ty.types.int_info(ty)
         && bits < 32

@@ -1,6 +1,7 @@
 //! Pointer arithmetic and pointer masking.
 use crate::ast::BinOp;
 use crate::ir::Ty;
+use crate::sema::convert::Site;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, Result, Span, TypeId, ast, ir};
 
@@ -37,7 +38,7 @@ impl Compiler {
         let rhs = if self.ty.types.is_integer(rty) && !matches!(rhs, Operand::Const { .. }) {
             self.explicit_cast(f, rhs, TypeId::S64, ast::CastFlags::default(), span)?
         } else {
-            self.convert(f, rhs, TypeId::S64, span)?
+            self.convert(f, rhs, TypeId::S64, Site::opaque(span))?
         };
         let (_, idx) = self.rvalue(f, rhs, span)?;
         let pointee = self.ty.types.pointee(lty).unwrap();

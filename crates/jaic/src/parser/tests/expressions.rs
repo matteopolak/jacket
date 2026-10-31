@@ -528,10 +528,30 @@ fn numeric_literals_record_how_they_were_written() {
 
 #[test]
 fn atomic_expressions_need_no_parentheses() {
-    for src in ["x", "a.b", "f(1, g(2))", "\"text\"", "42", "a.b(c)"] {
+    for src in [
+        "x",
+        "a.b",
+        "f(1, g(2))",
+        "\"text\"",
+        "42",
+        "a.b(c)",
+        "xs[0]",
+        "f(a)(b)",
+        "a.b(c).d",
+        "xs[i + 1].x",
+    ] {
         assert!(value(&format!("x := {src};")).is_atomic(), "{src}");
     }
-    for src in ["x + 1", "f(1) + g(2)", "-x", "xs[0]", "f(a)(b)", "(a).b"] {
+    for src in [
+        "x + 1",
+        "f(1) + g(2)",
+        "-x",
+        "(a).b",
+        "(f)(a)",
+        "(xs)[0]",
+        "a.*",
+        "cast(s32) x",
+    ] {
         assert!(!value(&format!("x := {src};")).is_atomic(), "{src}");
     }
 }

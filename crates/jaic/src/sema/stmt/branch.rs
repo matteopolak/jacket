@@ -201,7 +201,7 @@ impl Compiler {
             }
             for cv in &case.values {
                 let raw = self.check_expr(f, scope, cv, Some(vty))?;
-                let c = self.convert(f, raw.clone(), vty, cv.span)?;
+                let c = self.convert(f, raw.clone(), vty, cv)?;
                 Self::check_case_value(f, &raw, &c, cv.span, &mut seen)?;
                 if let Some(Value::Int(n)) = c.const_value() {
                     covered.push(n);
@@ -327,7 +327,7 @@ impl Compiler {
         for case in cases {
             for cv in &case.values {
                 let raw = self.check_expr(f, scope, cv, Some(vty))?;
-                let c = self.convert(f, raw.clone(), vty, cv.span)?;
+                let c = self.convert(f, raw.clone(), vty, cv)?;
                 Self::check_case_value(f, &raw, &c, cv.span, &mut seen)?;
                 if let Some(Value::Int(n)) = c.const_value() {
                     covered.push(n);

@@ -237,7 +237,7 @@ impl Compiler {
                 elem
             };
             let op = self.arg_operand(f, &args[a], Some(target))?;
-            let op = self.convert(f, op, target, args[a].span)?;
+            let op = self.convert(f, op, target, args[a].site())?;
             let (_, value) = self.rvalue(f, op, args[a].span)?;
             let (n, source) = if args[a].spread {
                 let n = f.b.load(Ty::I64, value);
@@ -325,7 +325,7 @@ impl Compiler {
                         addr: p,
                     }
                 } else {
-                    self.convert(f, op, param.ty, args[*a].span)?
+                    self.convert(f, op, param.ty, args[*a].site())?
                 }
             }
             Slot::Default => {
@@ -351,7 +351,7 @@ impl Compiler {
                     }
                     _ => self.check_expr(f, sig.scope, &d, Some(param.ty))?,
                 };
-                self.convert(f, op, param.ty, d.span)?
+                self.convert(f, op, param.ty, &d)?
             }
             Slot::Variadic(list) => {
                 if let Some(&a) = list.iter().find(|&&a| args[a].spread) {
@@ -365,7 +365,7 @@ impl Compiler {
                 let base = f.b.alloca((size * n).max(1), align);
                 for (i, &a) in list.iter().enumerate() {
                     let op = self.arg_operand(f, &args[a], Some(elem))?;
-                    let op = self.convert(f, op, elem, args[a].span)?;
+                    let op = self.convert(f, op, elem, args[a].site())?;
                     let (_, v) = self.rvalue(f, op, span)?;
                     let at = f.b.ptr_offset(base, size * i as u64);
                     self.store_value(f, elem, at, v, span)?;
@@ -552,7 +552,7 @@ impl Compiler {
         }
         for (i, &param_ty) in pt.params.iter().enumerate() {
             let op = self.arg_operand(f, &args[i], Some(param_ty))?;
-            let op = self.convert(f, op, param_ty, args[i].span)?;
+            let op = self.convert(f, op, param_ty, args[i].site())?;
             if self.is_memory_type(param_ty) {
                 let (_, a) = self.address_of(f, op, span)?;
                 values.push(a);

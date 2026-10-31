@@ -1,4 +1,5 @@
 //! Implicit conversions of operands and constants.
+use super::wrap::Site;
 use super::{int_constant_fits, int_to_float};
 use crate::diagnostics::Code;
 use crate::sema::TypeState;
@@ -8,19 +9,21 @@ use crate::types::TypeKind;
 
 impl Compiler {
     /// Implicitly convert `op` to `to`, or fail with a type mismatch.
-    pub fn convert(
+    pub(in crate::sema) fn convert(
         &mut self,
         f: &mut FnCtx,
         op: Operand,
         to: TypeId,
-        span: Span,
+        at: impl Into<Site>,
     ) -> Result<Operand> {
+        let at = at.into();
+        let span = at.span;
         if let Operand::Callable {
             operand,
             parameters,
         } = op
         {
-            let converted = self.convert(f, *operand, to, span)?;
+            let converted = self.convert(f, *operand, to, at)?;
             return Ok(if matches!(self.ty.types.kind(to), TypeKind::Proc(_)) {
                 converted.with_callable(Some(parameters))
             } else {
@@ -55,7 +58,7 @@ impl Compiler {
         match op {
             Operand::PolyStruct(ps) if to == TypeId::TYPE || to == TypeId::ANY => {
                 let t = self.ty.poly_struct_type(ps);
-                return self.convert(f, Operand::Type(t), to, span);
+                return self.convert(f, Operand::Type(t), to, at);
             }
             Operand::Type(t) if to == TypeId::TYPE => return Ok(Operand::Type(t)),
             Operand::Type(t) if to == TypeId::ANY => {
@@ -191,7 +194,7 @@ impl Compiler {
                     s.len()
                 ));
             } else {
-                d = self.with_conversion_hint(d, from, to, span);
+                d = self.with_conversion_hint(d, from, to, at);
             }
             return Err(Box::new(d));
         }

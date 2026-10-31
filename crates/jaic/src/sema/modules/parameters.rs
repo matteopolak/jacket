@@ -1,5 +1,6 @@
 //! Module parameters and program parameters: declaring them, binding arguments and checking their contracts.
 use crate::diagnostics::Code;
+use crate::sema::convert::Site;
 use crate::sema::lower::Origin;
 use crate::sema::scope::EntityKind;
 use crate::sema::{
@@ -337,7 +338,7 @@ impl Compiler {
                         origin: Origin::Computed,
                     },
                     expected,
-                    param.span,
+                    Site::opaque(param.span),
                 )?;
                 let op = if op.is_const() {
                     op

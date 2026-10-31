@@ -77,6 +77,17 @@ pub struct CallArg {
     pub scope: ScopeId,
 }
 
+impl CallArg {
+    /// Where a conversion of this argument applies: its expression, or just its span when the
+    /// argument was checked before the call and carries no expression.
+    pub(in crate::sema) fn site(&self) -> convert::Site {
+        match &self.expr {
+            Some(e) => e.into(),
+            None => convert::Site::opaque(self.span),
+        }
+    }
+}
+
 /// How a parameter receives its value.
 #[derive(Clone, Debug)]
 pub(crate) enum Slot {
@@ -288,7 +299,7 @@ impl Compiler {
                     && (self.ty.types.is_integer(t) || self.ty.types.is_float(t))
                     && let Some(text) = convert::wrapped_text(
                         &self.src.sources,
-                        arg.value.span,
+                        (&arg.value).into(),
                         &convert::Wrap::cast(name.clone()),
                     )
                 {

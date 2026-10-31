@@ -5,7 +5,7 @@ mod cost;
 mod implicit;
 mod wrap;
 
-pub(in crate::sema) use wrap::{Wrap, is_primary, wrap_suggestion, wrapped_text};
+pub(in crate::sema) use wrap::{Site, Wrap, wrap_suggestion, wrapped_text};
 
 use super::lower::{FnCtx, Operand};
 use super::{Compiler, Result, Span, TypeId, Value, ir};

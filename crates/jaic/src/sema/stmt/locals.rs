@@ -2,6 +2,7 @@
 use crate::ast::ExprKind as E;
 use crate::diagnostics::Code;
 use crate::sema::TypeState;
+use crate::sema::convert::Site;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::scope::{EntityKind, Resolved, UsingEntry};
 use crate::sema::{Compiler, Diagnostic, ProcId, Rc, Result, ScopeId, Span, Sym, TypeId, ast, err};
@@ -82,7 +83,7 @@ impl Compiler {
                     };
                     return Err(self.not_assignable(scope, &target, &place));
                 };
-                let value = self.convert(f, value, ty, name.span)?;
+                let value = self.convert(f, value, ty, Site::name(name.span))?;
                 let (_, v) = self.rvalue(f, value, name.span)?;
                 self.store_value(f, ty, addr, v, name.span)?;
                 // As an assignment statement: what the editor knew of the variable's value
@@ -144,12 +145,12 @@ impl Compiler {
             match value {
                 Some(Operand::Void) if ty == TypeId::VOID => {}
                 Some(op) => {
-                    let value_span = match &decl.value {
-                        Some(v) if decl.names.len() == 1 => v.span,
-                        _ => span,
+                    let value_site = match &decl.value {
+                        Some(v) if decl.names.len() == 1 => Site::from(v),
+                        _ => Site::opaque(span),
                     };
                     let op = self
-                        .convert(f, op, ty, value_span)
+                        .convert(f, op, ty, value_site)
                         .map_err(|e| self.declared_type_mismatch(e, decl, decl.names.len() == 1))?;
                     let (_, v) = self.rvalue(f, op, span)?;
                     self.store_value(f, ty, addr, v, span)?;

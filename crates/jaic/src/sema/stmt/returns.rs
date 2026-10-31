@@ -1,6 +1,7 @@
 //! `return` statements and emitting deferred code.
 use crate::diagnostics::Code;
 use crate::ir::Ty;
+use crate::sema::convert::Site;
 use crate::sema::lower::{DeferAction, FnCtx, Operand};
 use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, TypeId, ast, err};
 use crate::source::{Applicability, Suggestion};
@@ -30,7 +31,7 @@ impl Compiler {
                 }
             }
             for (op, (ty, slot)) in ops.into_iter().zip(&frame.result_slots) {
-                let op = self.convert(f, op, *ty, span)?;
+                let op = self.convert(f, op, *ty, Site::opaque(span))?;
                 let (_, v) = self.rvalue(f, op, span)?;
                 self.store_value(f, *ty, *slot, v, span)?;
             }
@@ -104,7 +105,7 @@ impl Compiler {
                 );
             };
             let op = self.check_expr(f, scope, &v.value, Some(ty))?;
-            let op = self.convert(f, op, ty, v.value.span)?;
+            let op = self.convert(f, op, ty, &v.value)?;
             let (_, val) = self.rvalue(f, op, v.value.span)?;
             self.store_value(f, ty, addr, val, v.value.span)?;
         }
@@ -177,7 +178,7 @@ impl Compiler {
         }
         let mut ops: Vec<Operand> = Vec::new();
         // Where each value was written, for errors.
-        let mut spans: Vec<Span> = Vec::new();
+        let mut spans: Vec<Site> = Vec::new();
         for (i, v) in values.iter().enumerate() {
             let op = self.check_expr(f, scope, &v.value, types.get(i).copied())?;
             match op {
@@ -189,7 +190,7 @@ impl Compiler {
                 Operand::Void if values.len() == 1 => {}
                 other => ops.push(other),
             }
-            spans.resize(ops.len(), v.value.span);
+            spans.resize(ops.len(), Site::from(&v.value));
         }
         if ops.is_empty() && !types.is_empty() && f.named_results.iter().all(Option::is_some) {
             self.emit_fallthrough_return(f, span)?;
@@ -219,11 +220,11 @@ impl Compiler {
         let mut scalars = Vec::new();
         for (i, &ty) in types.iter().enumerate() {
             let v = if let Some(op) = ops.get(i) {
-                let at = spans.get(i).copied().unwrap_or(span);
+                let at = spans.get(i).copied().unwrap_or(Site::opaque(span));
                 let op = self
                     .convert(f, op.clone(), ty, at)
                     .map_err(|e| self.return_type_mismatch(e, f.proc, i))?;
-                let (_, v) = self.rvalue(f, op, at)?;
+                let (_, v) = self.rvalue(f, op, at.span)?;
                 v
             } else {
                 let addr = f.named_results[i].unwrap();

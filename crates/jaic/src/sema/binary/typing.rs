@@ -1,8 +1,9 @@
 //! Literal fitting and the type a binary expression takes.
+use crate::ast::Expr;
 use crate::diagnostics::Code;
 use crate::int_arith::wrap;
 use crate::sema::TypeState;
-use crate::sema::convert::{Wrap, wrap_suggestion};
+use crate::sema::convert::{Site, Wrap, wrap_suggestion};
 use crate::sema::lower::{Operand, Origin};
 use crate::sema::{Compiler, Diagnostic, Result, Span, TypeId, Value};
 use crate::types::TypeKind;
@@ -14,7 +15,7 @@ impl Compiler {
         rhs: &Operand,
         expected: Option<TypeId>,
         is_shift: bool,
-        operands: (Span, Span),
+        operands: (&Expr, &Expr),
         span: Span,
     ) -> Result<TypeId> {
         let lu = matches!(
@@ -145,7 +146,7 @@ impl Compiler {
                         "`\"{c}\"` is a string; for the character's code write `#char \"{c}\"`"
                     ));
                 } else if let Some((side, to)) = self.binary_cast_side(lt, rt) {
-                    let at = [operands.0, operands.1][side];
+                    let at = Site::from([operands.0, operands.1][side]);
                     let to_name = self.ty.types.name(to);
                     let title = format!(
                         "convert the {} operand with `cast({to_name})`",

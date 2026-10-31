@@ -1,7 +1,7 @@
 //! `ifx` expressions: branch agreement and constant folding.
 use super::{implicit_then_expr, takes_sibling_type};
 use crate::diagnostics::Code;
-use crate::sema::convert::int_fits;
+use crate::sema::convert::{Site, int_fits};
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::{Compiler, Diagnostic, Result, ScopeId, Span, TypeId, Value, ast};
 use crate::types::TypeKind;
@@ -251,7 +251,7 @@ impl Compiler {
                     val,
                 },
                 e,
-                span,
+                Site::opaque(span),
             )?;
         }
         Ok(taken)
@@ -428,11 +428,11 @@ impl Compiler {
             // already emitted in their own blocks; there is no result storage
             // to load. Conversion still rejects an incompatible value arm.
             if let Some(else_op) = else_op {
-                self.convert(f, else_op, ty, span)?;
+                self.convert(f, else_op, ty, Site::opaque(span))?;
             }
             f.b.jump(done);
             f.b.switch_to(then_end);
-            self.convert(f, then_op, ty, span)?;
+            self.convert(f, then_op, ty, Site::opaque(span))?;
             f.b.jump(done);
             f.b.switch_to(done);
             return Ok(Operand::Void);
@@ -445,7 +445,7 @@ impl Compiler {
         let mut callable_parameters = None;
         match (else_op, else_value) {
             (Some(else_op), Some(else_value)) => {
-                let else_converted = self.convert(f, else_op, ty, else_value.span)?;
+                let else_converted = self.convert(f, else_op, ty, else_value)?;
                 // Runtime selection changes the callee, not its lexical call
                 // header: inference retains the else arm's names/defaults.
                 callable_parameters = self.callable_operand_parameters(&else_converted)?;
@@ -456,7 +456,7 @@ impl Compiler {
         }
         f.b.jump(done);
         f.b.switch_to(then_end);
-        let then_converted = self.convert(f, then_op, ty, span)?;
+        let then_converted = self.convert(f, then_op, ty, Site::opaque(span))?;
         let (_, tv) = self.rvalue(f, then_converted, span)?;
         let addr = f.b.slot_addr(slot);
         self.store_value(f, ty, addr, tv, span)?;

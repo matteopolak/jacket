@@ -2,6 +2,7 @@
 use crate::ast::ExprKind as E;
 use crate::diagnostics::Code;
 use crate::sema::calls::CallArg;
+use crate::sema::convert::Site;
 use crate::sema::lower::{FnCtx, Immutable, Operand};
 use crate::sema::scope::{EntityKind, Found};
 use crate::sema::{
@@ -516,7 +517,7 @@ impl Compiler {
                 parens: None,
             };
             let result = self.check_expr(f, scope, &value, Some(ty))?;
-            let result = self.convert(f, result, ty, span)?;
+            let result = self.convert(f, result, ty, Site::opaque(span))?;
             let (_, v) = self.rvalue(f, result, span)?;
             self.store_value(f, ty, addr, v, span)?;
             return Ok(());
@@ -572,7 +573,7 @@ impl Compiler {
             parens: None,
         };
         let result = self.check_expr(f, inner, &value, Some(ty))?;
-        let result = self.convert(f, result, ty, span)?;
+        let result = self.convert(f, result, ty, Site::opaque(span))?;
         let (_, v) = self.rvalue(f, result, span)?;
         self.store_value(f, ty, addr, v, span)?;
         Ok(())
@@ -606,7 +607,7 @@ impl Compiler {
             return Err(self.not_assignable(scope, target, &place));
         };
         let operand = self.check_expr(f, scope, value, Some(ty))?;
-        let operand = self.convert(f, operand, ty, value.span)?;
+        let operand = self.convert(f, operand, ty, value)?;
         // A call's result is a temporary of its own and cannot overlap the target.
         let fresh =
             matches!(value.kind, E::Call { .. }) && matches!(operand, Operand::Value { .. });
@@ -674,7 +675,7 @@ impl Compiler {
                     val: v,
                 },
                 ty,
-                l.span,
+                l,
             )?;
             let (_, v) = self.rvalue(f, op, l.span)?;
             self.store_value(f, ty, addr, v, l.span)?;
@@ -718,7 +719,7 @@ impl Compiler {
                         else {
                             return Err(self.not_assignable(scope, l, &place));
                         };
-                        let op = self.convert(f, other.clone(), ty, rhs[0].span)?;
+                        let op = self.convert(f, other.clone(), ty, &rhs[0])?;
                         let (_, v) = self.rvalue(f, op, l.span)?;
                         self.store_value(f, ty, addr, v, l.span)?;
                     }
@@ -766,7 +767,7 @@ impl Compiler {
                         untyped: true, ..
                     },
                     Some(ty),
-                ) => self.convert(f, op, ty, r.span)?,
+                ) => self.convert(f, op, ty, r)?,
                 _ => op,
             };
             let op = self.settle_untyped(op, None);

@@ -1,4 +1,5 @@
 //! Checked and explicit casts.
+use super::wrap::Site;
 use super::{int_constant_fits, int_to_float};
 use crate::diagnostics::Code;
 use crate::ir::{ConvOp, Ty};
@@ -292,7 +293,7 @@ impl Compiler {
             }
         ) && self.ty.types.pointee(to) == Some(TypeId::U8)
         {
-            return self.convert(f, op, to, span);
+            return self.convert(f, op, to, Site::opaque(span));
         }
         if let Operand::Type(t) = op {
             if to == TypeId::TYPE {
@@ -330,7 +331,7 @@ impl Compiler {
             && !self.ty.types.is_integer(to)
             && !self.ty.types.is_float(to)
         {
-            return self.convert(f, op, to, span);
+            return self.convert(f, op, to, Site::opaque(span));
         }
         self.cast_between_representations(f, op, to, flags, untyped, span)
     }
@@ -490,7 +491,7 @@ impl Compiler {
             });
         }
         if self.implicit_cost(from, untyped, to).is_some() {
-            return self.convert(f, op, to, span);
+            return self.convert(f, op, to, Site::opaque(span));
         }
         // `string` and `[] u8` share the same layout (count, data).
         let is_bytes_view = |s: &Self, t: TypeId| {

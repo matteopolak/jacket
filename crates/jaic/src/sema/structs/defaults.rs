@@ -3,6 +3,7 @@ use super::literals::{image_of, write_agg};
 use crate::ast::ExprKind as E;
 use crate::diagnostics::Code;
 use crate::ir::Ty;
+use crate::sema::convert::Site;
 use crate::sema::lower::{FnCtx, Operand};
 use crate::sema::value::Aggregate;
 use crate::sema::{Compiler, FileId, Rc, Result, ScopeId, Span, TypeId, Value, ast, err, ir};
@@ -131,7 +132,9 @@ impl Compiler {
         scratch.set_context(Some(scratch.b.param(0)));
         // Lexical callable headers annotate operands, not the constant value
         // stored in a generic binding. Preserve the ordinary conversion first.
-        let converted = self.convert(&mut scratch, op, ty, span)?.without_callable();
+        let converted = self
+            .convert(&mut scratch, op, ty, Site::opaque(span))?
+            .without_callable();
         match converted {
             Operand::Const {
                 value, ..
