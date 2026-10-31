@@ -1,6 +1,6 @@
 # Standard-library doc gaps
 
-`jaic -doc_gaps DIR` lists the public procedures, structs, enums and aliases of one library (and the module itself) with whether each has a doc comment and an example. `tools/ci/check_stdlib_docs.py` runs it over every module of `stdlib/`, prints a report (worst module first) and fails CI when a public declaration is added without a doc comment.
+`jaic -doc_gaps DIR` lists the public procedures, structs, enums and aliases of one library (and the module itself) with whether each has a doc comment and an example. `tools/ci/check_stdlib_docs.py` runs it over every module of `stdlib/`, prints a report (worst module first) and fails CI when a public declaration is added without a doc comment. It also fails on code indented four spaces in a comment outside `tests/`, `bench/`, `examples/` and `fuzz/`: use a fence.
 
 ## How it works
 

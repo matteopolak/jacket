@@ -16,6 +16,9 @@ own docs). The list only shrinks:
 `--report` prints the gaps instead, worst module first (`--examples`: count the missing examples too).
 `--update` rewrites the list from the tree; review its diff, a new line is a declaration added without docs.
 
+It also fails on code indented by four spaces in a comment (outside `tests/`, `bench/`, `examples/`
+and `fuzz/`): docs use ``` fences, so the code is highlighted and examples can be run.
+
 The binary is `$JAIC`, else the built `jaic`, built with cargo when there is none.
 """
 
@@ -127,6 +130,36 @@ def report(everything: dict[Path, list[dict]], examples: bool, top: int | None, 
     return "\n".join(lines)
 
 
+def indented_code() -> list[str]:
+    """`file:line` of each comment block that starts code by indenting it four spaces, outside a fence."""
+    found = []
+    for path in sorted(STDLIB.rglob("*.jai")):
+        rel = path.relative_to(STDLIB)
+        if {"tests", "bench", "examples", "fuzz", "target"} & set(rel.parts):
+            continue
+        fence, blank_before, inside = False, True, False
+        for number, line in enumerate(path.read_text(errors="replace").splitlines(), 1):
+            text = line.lstrip()
+            if not text.startswith("//"):
+                fence, blank_before, inside = False, True, False
+                continue
+            body = text[2:].removeprefix(" ")
+            if body.strip().startswith("```"):
+                fence = not fence
+                continue
+            if fence:
+                continue
+            if not body.strip():
+                blank_before = True
+                continue
+            indented = body.startswith("    ") or body.startswith("\t")
+            if indented and blank_before and not inside:
+                found.append(f"{path.relative_to(ROOT)}:{number}")
+            inside = indented and (inside or blank_before)
+            blank_before = False
+    return found
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--update", action="store_true", help="rewrite tools/ci/undocumented_stdlib.txt from the tree")
@@ -152,6 +185,8 @@ def main() -> int:
     for k in sorted(allowed - missing):
         why = "is now documented" if k in known else "no longer exists"
         errors.append(f"{k} {why}; remove it from tools/ci/undocumented_stdlib.txt (python3 tools/ci/check_stdlib_docs.py --update)")
+    for place in indented_code():
+        errors.append(f"{place}: indented code in a comment; put it in a ```jai fence (or ```sh, or a plain ```)")
     for e in errors:
         print(e, file=sys.stderr)
     print(f"{len(missing)} undocumented, {len(allowed)} allowlisted", file=sys.stderr)
