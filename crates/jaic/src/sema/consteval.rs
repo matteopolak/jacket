@@ -748,6 +748,15 @@ impl Compiler {
         Ok(Value::Bytes(Rc::new(agg)))
     }
 
+    /// The `u64` a frozen value holds at `offset`, which `agg` copied from `addr` a moment ago.
+    fn frozen_u64(&self, agg: &Aggregate, offset: u64, addr: u64, span: Span) -> Result<u64> {
+        let at = offset as usize;
+        match agg.bytes.get(at..at + 8) {
+            Some(bytes) => Ok(u64::from_le_bytes(bytes.try_into().unwrap())),
+            None => self.ct.program_u64(addr, span),
+        }
+    }
+
     /// Turn pointers inside a value read from interpreter memory into relocations,
     /// copying pointed-to data that does not live in a global.
     fn freeze(
@@ -788,8 +797,18 @@ impl Compiler {
                 elem,
                 kind,
             } => {
-                let count = self.ct.program_u64(addr + layout::view::COUNT, span)?;
-                let data = self.ct.program_u64(addr + layout::view::DATA, span)?;
+                let count = self.frozen_u64(
+                    agg,
+                    offset + layout::view::COUNT,
+                    addr + layout::view::COUNT,
+                    span,
+                )?;
+                let data = self.frozen_u64(
+                    agg,
+                    offset + layout::view::DATA,
+                    addr + layout::view::DATA,
+                    span,
+                )?;
                 let esize = self.size_of(elem, span)?;
                 // Only the elements in use: the unused capacity of a resizable array is memory the
                 // program never wrote, so copying it would put whatever the interpreter's heap held
@@ -814,8 +833,18 @@ impl Compiler {
                 }
             }
             TypeKind::String => {
-                let count = self.ct.program_u64(addr + layout::view::COUNT, span)?;
-                let data = self.ct.program_u64(addr + layout::view::DATA, span)?;
+                let count = self.frozen_u64(
+                    agg,
+                    offset + layout::view::COUNT,
+                    addr + layout::view::COUNT,
+                    span,
+                )?;
+                let data = self.frozen_u64(
+                    agg,
+                    offset + layout::view::DATA,
+                    addr + layout::view::DATA,
+                    span,
+                )?;
                 self.freeze_pointer(
                     agg,
                     offset + layout::view::DATA,
@@ -829,7 +858,7 @@ impl Compiler {
                 )?;
             }
             TypeKind::Pointer(to) => {
-                let p = self.ct.program_u64(addr, span)?;
+                let p = self.frozen_u64(agg, offset, addr, span)?;
                 let size = if to == TypeId::VOID {
                     0
                 } else {
@@ -848,7 +877,7 @@ impl Compiler {
                 )?;
             }
             TypeKind::Type => {
-                let p = self.ct.program_u64(addr, span)?;
+                let p = self.frozen_u64(agg, offset, addr, span)?;
                 if p != 0 {
                     let t = self.type_at(p, span)?;
                     let g = self.type_info_global(t, span)?;
@@ -861,7 +890,7 @@ impl Compiler {
                 }
             }
             TypeKind::Proc(_) => {
-                let p = self.ct.program_u64(addr, span)?;
+                let p = self.frozen_u64(agg, offset, addr, span)?;
                 agg.bytes[offset as usize..offset as usize + 8].fill(0);
                 if let Some(func) = self.ct.interp.func_of(p) {
                     agg.relocs.push(ir::Reloc {
@@ -882,10 +911,18 @@ impl Compiler {
                 }
             }
             TypeKind::Any => {
-                let t = self.ct.program_u64(addr + layout::any::TYPE, span)?;
-                let v = self
-                    .ct
-                    .program_u64(addr + layout::any::VALUE_POINTER, span)?;
+                let t = self.frozen_u64(
+                    agg,
+                    offset + layout::any::TYPE,
+                    addr + layout::any::TYPE,
+                    span,
+                )?;
+                let v = self.frozen_u64(
+                    agg,
+                    offset + layout::any::VALUE_POINTER,
+                    addr + layout::any::VALUE_POINTER,
+                    span,
+                )?;
                 agg.bytes[offset as usize..(offset + layout::any::SIZE) as usize].fill(0);
                 if t != 0 {
                     let vt = self.type_at(t, span)?;
