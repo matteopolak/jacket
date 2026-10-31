@@ -33,6 +33,7 @@ http_use_simd := true;
 #load "writer.jai";
 #load "date.jai";
 #load "h2_frame.jai";
+#load "hpack.jai";
 
 // The server and client need fibers, which WebAssembly code cannot switch: there the module is
 // the codec alone.
