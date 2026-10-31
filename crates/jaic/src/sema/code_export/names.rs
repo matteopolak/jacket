@@ -60,6 +60,21 @@ impl Exporter<'_> {
         };
         let expression = header.map_or(0, |p| self.resolved_header(p));
         let decl = self.reference_decl(name, ty, expression, flags, span);
+        // A procedure's notes follow its body, so the declaration carries the same ones as its
+        // header (`@after:a @without:B` is read from `declaration.notes`).
+        let header_notes = match self.r.field(expression, "notes") {
+            Some(FieldRef::List(list)) => list
+                .iter()
+                .filter_map(|item| match item {
+                    Item::Ref(id) => Some(id),
+                    _ => None,
+                })
+                .collect::<Vec<_>>(),
+            _ => Vec::new(),
+        };
+        if !header_notes.is_empty() {
+            self.r.get_mut(decl).unwrap().refs("notes", header_notes);
+        }
         self.c
             .as_deref_mut()?
             .meta

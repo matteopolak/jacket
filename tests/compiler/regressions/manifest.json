@@ -611,6 +611,10 @@
     "interpreter_only": true
   },
   {
+    "name": "compiler-declaration-notes",
+    "interpreter_only": true
+  },
+  {
     "name": "compiler-enum-external-type",
     "interpreter_only": true
   },
