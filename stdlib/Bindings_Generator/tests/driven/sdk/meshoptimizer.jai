@@ -1,8 +1,8 @@
 M :: #import "meshoptimizer";
 
-#assert M.MESHOPTIMIZER_VERSION == 110;
+#assert M.MESHOPTIMIZER_VERSION == 1030;
 #assert size_of(M.meshopt_Stream) == 24;
-#assert size_of(M.meshopt_Meshlet) == 636;
+#assert size_of(M.meshopt_Meshlet) == 16;
 #assert size_of(M.meshopt_Bounds) == 48;
 libc :: #library,system "c";
 abort :: () #foreign libc;
