@@ -651,7 +651,7 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
                         }
                     }
                 }
-                TopLevelKind::ModuleParameters(stmt) if file == module_file => {
+                TopLevelKind::ModuleParameters(stmt) => {
                     for p in stmt.params.iter().chain(&stmt.runtime_params) {
                         let Some(name) = &p.name else {
                             continue;
