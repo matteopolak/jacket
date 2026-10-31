@@ -381,16 +381,17 @@
     if (name) window.open(name.href, '_blank');
   });
 
-  // Version menu. versions.json, when the host serves one, is [{"version": "0.31.0", "url": "/docs/jacket/0.31.0/"}, ...].
+  // Version menu. versions.json is [{"version": "0.31.0", "url": "../0.31.0/"}, ...]; a relative url is read from versions.json's folder.
   (function () {
     var btn = document.getElementById('ver'), menu = document.getElementById('ver-menu');
     if (!btn || !menu) return;
-    fetch(base + 'versions.json').then(function (r) { return r.ok ? r.json() : []; }).then(function (list) {
+    var listUrl = new URL(base + 'versions.json', location.href);
+    fetch(listUrl).then(function (r) { return r.ok ? r.json() : []; }).then(function (list) {
       if (!Array.isArray(list) || list.length < 2) return;
       var current = btn.textContent.trim();
       list.forEach(function (v) {
         var a = document.createElement('a');
-        a.href = v.url; a.textContent = v.version; a.setAttribute('role', 'menuitem');
+        a.href = new URL(v.url, listUrl).href; a.textContent = v.version; a.setAttribute('role', 'menuitem');
         if (v.version === current) a.setAttribute('aria-current', 'true');
         menu.appendChild(a);
       });

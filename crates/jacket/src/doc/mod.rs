@@ -309,6 +309,11 @@ fn build(args: &DocArgs, cwd: &Path) -> Result<ExitCode, String> {
         add(path, html);
     }
     add("search-index.json".into(), search::index(&site));
+    // One entry, so the version menu stays plain text; a host with several versions replaces it.
+    add(
+        "versions.json".into(),
+        serde_json::json!([{ "version": version, "url": "./" }]).to_string(),
+    );
     add("assets/site.css".into(), STYLE.to_owned());
     add("assets/site.js".into(), SCRIPT.to_owned());
     add("assets/run-worker.js".into(), WORKER.to_owned());
