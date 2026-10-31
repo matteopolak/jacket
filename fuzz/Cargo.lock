@@ -165,7 +165,6 @@ dependencies = [
  "find-msvc-tools",
  "jacket-config",
  "jaic-syntax",
- "pulldown-cmark",
  "rayon",
 ]
 
