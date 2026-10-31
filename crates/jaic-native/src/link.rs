@@ -4,7 +4,6 @@ use super::linker::{
     check_sanitizer_target, library_args, link_failure, linker_command, linker_not_run, pdb_args,
     render_link_arg, sanitizer_driver,
 };
-use super::machine::fuzzer_runtime;
 use super::options::Sanitize;
 use jaic::ir::Library;
 use jaic::target::Target as BuildTarget;
@@ -267,4 +266,26 @@ pub fn link_inputs(
         }
     }
     Ok(inputs)
+}
+
+/// The libFuzzer engine without its `main`, found through the sanitizer driver (`clang
+/// --print-file-name`), or a message saying what to install.
+fn fuzzer_runtime(driver: &str) -> Result<PathBuf, String> {
+    let arch = std::env::consts::ARCH;
+    let name = if cfg!(target_os = "macos") {
+        "libclang_rt.fuzzer_no_main_osx.a".to_string()
+    } else {
+        format!("libclang_rt.fuzzer_no_main-{arch}.a")
+    };
+    let out =
+        crate::linker::run_captured(Command::new(driver).arg(format!("--print-file-name={name}")))
+            .map_err(|e| format!("could not run `{driver}` to find {name}: {e}"))?;
+    let path = PathBuf::from(String::from_utf8_lossy(&out.stdout).trim());
+    if path.is_absolute() && path.is_file() {
+        Ok(path)
+    } else {
+        Err(format!(
+            "`-sanitize fuzzer` needs {name} from the LLVM that built jaic (`{driver}` did not find it)\nhelp: install compiler-rt (Homebrew `llvm`, or `libclang-rt-23-dev` from apt.llvm.org) or set JAIC_SANITIZER_CC to its clang"
+        ))
+    }
 }

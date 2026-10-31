@@ -50,9 +50,9 @@ pub(super) struct CodegenSwitches {
 
 #[cfg(feature = "llvm")]
 impl CodegenSwitches {
-    /// The `jaic_llvm::Codegen` fields these set; the rest is the default.
-    pub(super) fn codegen(&self) -> jaic_llvm::Codegen {
-        jaic_llvm::Codegen {
+    /// The `jaic_native::Codegen` fields these set; the rest is the default.
+    pub(super) fn codegen(&self) -> jaic_native::Codegen {
+        jaic_native::Codegen {
             units: self.units,
             split_units: self.split_units,
             verify_ir: self.verify_ir.then_some(true),

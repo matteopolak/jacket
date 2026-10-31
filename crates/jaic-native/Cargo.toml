@@ -1,0 +1,14 @@
+[package]
+name = "jaic-native"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Native output without LLVM: build options, the system linker, and the loader for the code generation backend."
+
+[dependencies]
+jaic = { path = "../jaic" }
+jacket-config = { path = "../jacket-config" }
+
+[lints]
+workspace = true

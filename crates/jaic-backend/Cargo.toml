@@ -1,0 +1,24 @@
+[package]
+name = "jaic-backend"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "The LLVM code generation backend as a shared library that jaic opens when a build writes native code."
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+jaic-llvm = { path = "../jaic-llvm", default-features = false }
+jaic-native = { path = "../jaic-native" }
+
+[features]
+default = ["dynamic"]
+# How LLVM is linked into the library: shared (development) or the static libraries of an
+# official LLVM release (release archives).
+dynamic = ["jaic-llvm/dynamic"]
+static = ["jaic-llvm/static"]
+
+[lints]
+workspace = true

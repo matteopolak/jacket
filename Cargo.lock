@@ -388,12 +388,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "jaic-backend"
+version = "0.31.0"
+dependencies = [
+ "jaic-llvm",
+ "jaic-native",
+]
+
+[[package]]
 name = "jaic-cli"
 version = "0.31.0"
 dependencies = [
  "jacket-config",
  "jaic",
  "jaic-llvm",
+ "jaic-native",
  "mimalloc",
  "serde_json",
  "test-support",
@@ -406,7 +415,16 @@ dependencies = [
  "inkwell",
  "jacket-config",
  "jaic",
+ "jaic-native",
  "test-support",
+]
+
+[[package]]
+name = "jaic-native"
+version = "0.31.0"
+dependencies = [
+ "jacket-config",
+ "jaic",
 ]
 
 [[package]]
