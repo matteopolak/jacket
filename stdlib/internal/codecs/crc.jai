@@ -1,3 +1,10 @@
+// A 64-bit CRC of `s` (polynomial 0x42f0e1eba9ea3693, bits fed high first, start and end value all
+// ones). It detects accidental corruption; it is not a cryptographic digest.
+//
+// ```jai
+// assert(crc64("jacket") == crc64("jacket"));
+// assert(crc64("jacket") != crc64("jackel"));
+// ```
 crc64 :: (s: string) -> u64 #no_aoc {
     crc: u64 = 0xffffffffffffffff;
 

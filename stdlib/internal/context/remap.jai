@@ -1,10 +1,21 @@
 #module_parameters(VERBOSE := true);
 
+// Makes `remap_context()` the context for the rest of the enclosing scope, so code that received a
+// context built by another program (a plugin, say) runs with one laid out the way this program expects.
+//
+// ```jai
+// {
+//     Remap_Context();
+//     assert(context.context_info == type_info(#Context));
+// }
+// ```
 Remap_Context :: () #expand {
     mapped := remap_context();
     `push_context, defer_pop mapped;
 }
 
+// Returns the current context as this program's `#Context`. When `context` came from a program
+// with a different layout, its fields are copied over by name; see the two-argument form.
 remap_context :: () -> (result: #Context) {
     if context.context_info == type_info(#Context) {
         // The copy outlives this call, so its stack trace must start at the caller's node.
@@ -17,6 +28,10 @@ remap_context :: () -> (result: #Context) {
     return remap_context(*context, context.context_info);
 }
 
+// Builds a `#Context` from a context of another layout. The foreign struct must begin with a
+// `base` struct; the fields of that struct and the ones after it are copied into the field of the
+// same name when the sizes agree. Fields with no match keep their defaults. A foreign context
+// without a `base` gives an empty context (and a logged warning when `VERBOSE`).
 remap_context :: (foreign_context: *void, foreign_type: *Type_Info_Struct) -> (result: #Context) {
     result: #Context;
     result.context_info = type_info(#Context);

@@ -1,4 +1,6 @@
+// The 64-bit FNV prime and offset basis that `fnv1a_hash` starts from.
 FNV_64_PRIME: u64 : 0x100000001b3;
+// The starting value of a 64-bit FNV-1a hash.
 FNV_64_OFFSET_BIAS: u64 : 0xcbf29ce484222325;
 
 // A 32-bit hash of `size` bytes at `data`. Pass the previous result as `h` to hash several pieces as one.
@@ -83,6 +85,12 @@ djb2_hash :: (s: string) -> u32 #no_aoc {
 }
 
 // One step of 64-bit FNV-1a: mixes `val` into the hash `h`.
+//
+// ```jai
+// h := fnv1a_hash(1);
+// assert(h != fnv1a_hash(2));
+// assert(fnv1a_hash(2, h) != h);
+// ```
 fnv1a_hash :: inline (val: u64, h := FNV_64_OFFSET_BIAS) -> u64 #no_aoc {
     return (val ^ h) * FNV_64_PRIME;
 }

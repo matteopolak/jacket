@@ -1,3 +1,10 @@
+// Deep copies of values and the data they point to, with `Deep_Copy`.
+//
+// ```jai
+// n: s64 = 5;
+// copy := Deep_Copy(*n, .{});
+// assert(copy != *n && copy.* == 5);
+// ```
 #module_parameters(DC_DEBUG := false, DEBUG_PRINT := false);
 
 #load "../internal/memory/deep-copy-types.jai";

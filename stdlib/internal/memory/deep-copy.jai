@@ -1,3 +1,17 @@
+// Copies `value` and everything it points to, and returns the copy (null for null). Pointers that
+// appear more than once are copied once, so shared and cyclic data keeps its shape. The copy is
+// allocated with `context.allocator`.
+//
+// - preallocated_root: memory to build the copy of `value` in, instead of a new allocation.
+// - pointer_map: shares the record of copied pointers across calls.
+//
+// ```jai
+// Node :: struct { value: s64; next: *Node; }
+// tail := Node.{2, null};
+// head := Node.{1, *tail};
+// copy := Deep_Copy(*head, .{});
+// assert(copy != *head && copy.next != *tail && copy.next.value == 2);
+// ```
 Deep_Copy :: (value: *$T, config: Deep_Copy_Config, preallocated_root: *void = null, pointer_map: *Pointer_Map = null, loc := #caller_location) -> *T {
     if !value return null;
 

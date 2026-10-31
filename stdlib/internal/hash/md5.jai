@@ -1,3 +1,11 @@
+// Returns the MD5 digest of `input` as 32 lowercase hex characters, in a string the caller frees.
+// MD5 is broken as a security measure; use it for checksums and legacy formats only.
+//
+// ```jai
+// digest := md5("abc");
+// defer free(digest);
+// assert(digest == "900150983cd24fb0d6963f7d28e17f72");
+// ```
 md5 :: (input: string) -> string #no_aoc {
     length := ((input.count + 9 + 63) / 64) * 64;
     buffer := alloc_string(length);
