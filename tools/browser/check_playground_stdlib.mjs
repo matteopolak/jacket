@@ -16,11 +16,10 @@ const catalogue = isMainThread ? JSON.parse(execFileSync(python, [path.join(root
 if (!isMainThread) {
   const { directory, test } = workerData;
   const { createEngine } = await import(pathToFileURL(path.join(directory, "engine.mjs")).href);
-  // Retain library-owned entry paths beneath the explicit supplied library root.
-  const { files, main, libraryRoot, request } = await buildPlayRequest(root, test);
+  const { files, main, request } = await buildPlayRequest(root, test);
   const engine = await createEngine(await readFile(path.join(directory, "jai_wasm.wasm")));
   try {
-    parentPort.postMessage({ ...engine.play(files, main, { libraryRoot }), request });
+    parentPort.postMessage({ ...engine.play(files, main), request });
   } catch (error) {
     parentPort.postMessage({ requestFailure: String(error.message), compilerCrashed: error.compilerCrashed === true || error instanceof WebAssembly.RuntimeError, request });
   }

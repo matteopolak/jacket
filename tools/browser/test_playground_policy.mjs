@@ -72,9 +72,3 @@ test("actual worker host keeps diagnostic failures and predeclared availability 
     assert.match(run.stdout, /input byte limit exceeded; input files=/);
   } finally { await rm(base, { recursive: true, force: true }); }
 });
-
-test("rejected supplied-library requests report every counted channel", () => {
-  const result = playgroundCaseResult({}, { requestFailure: "input byte limit exceeded", request: { fileCount: 1, pathBytes: 2, sourceBytes: 3, mainBytes: 4, libraryRootBytes: 6, totalBytes: 15 } });
-  assert.equal(result.pass, false);
-  assert.match(result.why, /bytes=15 .*libraryRoot=6/);
-});

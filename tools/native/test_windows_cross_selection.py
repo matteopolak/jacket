@@ -217,11 +217,11 @@ class Selection(unittest.TestCase):
             catalogue = [
                 {
                     "id": "unix",
-                    "family": "modules",
+                    "family": "compiler",
                     "path": paths[0],
                     "required_os": "linux",
                 },
-                {"id": "required", "family": "modules", "path": paths[1]},
+                {"id": "required", "family": "compiler", "path": paths[1]},
             ]
             selected = [
                 ("stdlib-" + c["id"], c["path"], 0, None, True) for c in catalogue

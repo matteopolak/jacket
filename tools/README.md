@@ -272,7 +272,7 @@ front door would hide them.
 | `check_stdlib_suites.py` | Run the suites that need special flags, fixtures or hosts against the production library. | CI, tools |
 | `http_conformance.py` | Runs the HTTP conformance suites: the codec's (docs/extensions/http-codec.md) and the server's | CI |
 | `io_stress.py` | Run the Io and Http tests many copies at a time, to shake out bugs that depend on timing. | CI, tools |
-| `stdlib_runtime.py` | Run the compiler regressions (and any stdlib test folder not under `jacket test`) through one catalogue. | CI, tools |
+| `stdlib_runtime.py` | Run the compiler regressions through one catalogue. | CI, tools |
 | `stdlib_test_catalog.py` | Discovery and per-case metadata for the compiler regression tests the Python runner executes. | tools |
 
 ## `window_render/`

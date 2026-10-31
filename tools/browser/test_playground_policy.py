@@ -28,7 +28,7 @@ class BrowserPolicy(unittest.TestCase):
         root = Path("/own/workspace")
         case = {
             "id": "Bindings_Generator/tests/unclassified-control",
-            "family": "modules",
+            "family": "compiler",
             "path": root / "stdlib/Bindings_Generator/tests/control.jai",
         }
         with patch.object(browser, "validated_entries", return_value=[case]):

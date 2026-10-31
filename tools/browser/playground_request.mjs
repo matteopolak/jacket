@@ -2,25 +2,16 @@
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 
-export async function collectPlayFiles(dir, base, files, { moduleWorkspace = false, ownTests = null } = {}) {
+export async function collectPlayFiles(dir, base, files) {
   const entries = await readdir(dir, { withFileTypes: true });
   entries.sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
   for (const entry of entries) {
     // AppleDouble files are filesystem sidecars, not checked-in inputs.
     if (entry.name.startsWith("._")) continue;
     const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      // Every module keeps its tests beside its sources, so a request carries only the suite it
-      // runs: the other modules' test directories are neither imported nor loaded by it.
-      if (ownTests && entry.name === "tests" && full !== ownTests && !full.startsWith(ownTests + path.sep)) continue;
-      await collectPlayFiles(full, base, files, { moduleWorkspace, ownTests });
-    }
+    if (entry.isDirectory()) await collectPlayFiles(full, base, files);
     else if (entry.isFile()) {
       const relative = path.relative(base, full).replaceAll("\\", "/");
-      // Module workspaces retain every source (including relative #load inputs)
-      // and every test fixture. Library audit/documentation payloads outside test
-      // directories are not run inputs and must not be resent as user files.
-      if (moduleWorkspace && !entry.name.endsWith(".jai") && !relative.split("/").includes("tests")) continue;
       // Every file is sent as its bytes, so binary fixtures arrive intact.
       files[relative] = new Uint8Array(await readFile(full));
     }
@@ -29,26 +20,19 @@ export async function collectPlayFiles(dir, base, files, { moduleWorkspace = fal
 
 export async function buildPlayRequest(root, test) {
   const parts = test.path.split("/");
-  const moduleWorkspace = test.family === "modules";
-  const base = path.join(root, ...parts.slice(0, moduleWorkspace ? 1 : 2));
-  const fileBase = moduleWorkspace ? root : base;
+  const base = path.join(root, ...parts.slice(0, 2));
   const files = {};
-  const suite = parts.indexOf("tests");
-  const ownTests = moduleWorkspace && suite >= 0 ? path.join(root, ...parts.slice(0, suite + 1)) : null;
-  await collectPlayFiles(base, fileBase, files, { moduleWorkspace, ownTests });
-  const main = path.relative(fileBase, path.join(root, test.path)).replaceAll("\\", "/");
-  const libraryRoot = moduleWorkspace ? path.relative(root, base).replaceAll("\\", "/") : undefined;
-  return { files, main, libraryRoot, request: playRequestSize(files, main, { libraryRoot }) };
+  await collectPlayFiles(base, base, files);
+  const main = path.relative(base, path.join(root, test.path)).replaceAll("\\", "/");
+  return { files, main, request: playRequestSize(files, main) };
 }
 
-export function playRequestSize(files, main, { libraryRoot } = {}) {
+export function playRequestSize(files, main) {
   let pathBytes = 0, sourceBytes = 0;
   for (const [name, contents] of Object.entries(files)) {
     pathBytes += Buffer.byteLength(name, "utf8");
     sourceBytes += typeof contents === "string" ? Buffer.byteLength(contents, "utf8") : contents.length;
   }
   const mainBytes = Buffer.byteLength(main, "utf8");
-  const libraryRootBytes = libraryRoot === undefined ? 0 : Buffer.byteLength(libraryRoot, "utf8");
-  return { ...(libraryRoot === undefined ? {} : { libraryRootBytes }), fileCount: Object.keys(files).length, pathBytes, sourceBytes, mainBytes,
-    totalBytes: pathBytes + sourceBytes + mainBytes + libraryRootBytes };
+  return { fileCount: Object.keys(files).length, pathBytes, sourceBytes, mainBytes, totalBytes: pathBytes + sourceBytes + mainBytes };
 }
