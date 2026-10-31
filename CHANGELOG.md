@@ -12,6 +12,7 @@
 - The README and the docs pages are shorter and easier to read.
 - Docs pages are titled "Name — Jacket", and fields, members and parameters sit in one aligned card.
 - The docs list the declarations of native binding modules, such as `d3d12` and `nvidia_aftermath`, in a collapsed Native API section.
+- Module pages list their module parameters in a table at the top.
 - `jaic -check` and `-interp` start faster and use less memory: native code generation now loads only when a build needs it.
 
 ### Fixed

@@ -30,6 +30,8 @@ Every page is `<path>/index.html` and every link ends in `/`, so a plain static 
 | `assets/` | `site.css`, `site.js`, `run-worker.js`, the logo |
 
 Modules are the folders of `stdlib/` with a `module.jai`, minus `internal/`, `prelude/` and `tests/`. 
+**Module parameters.** Each `#module_parameters` of the module's files becomes a "Module parameters" section before the items: name, type, default, and the doc comment above or after the parameter. Put one parameter per line so each has its own comment. They are not counted by `jaic -doc_gaps`.
+
 **Native bindings.** A file that declares foreign procedures mirrors a native API. The model marks its declarations `"binding": true`; the module page lists them in a collapsed "Native API" section after the module's own items, as one line each (types fold their members), and they have no item pages. They never count as undocumented (`jaic -doc_gaps` skips them). Search includes them with a "Native" badge and ranks them below the library's own API. Their `since` label is left off.
 
 `runtime.json` (`{"engine": "...", "wasm": "..."}`) points at the bundle `tools/browser/build_scripting_wasm.py --release --output <dir>` writes ([browser build](../browser/playground.md)); `--runtime <dir>` copies `jai_wasm.wasm` and `engine.mjs` from it. A site that already hosts the compiler can drop the copy and edit `runtime.json`.
