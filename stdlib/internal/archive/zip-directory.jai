@@ -1,3 +1,4 @@
+// Frees the directory's name, entries and memory (not the file, if one is still open).
 deinit :: (dir: *Zip_Directory) {
     free(dir.name);
     array_free(dir.entries);
@@ -9,6 +10,17 @@ deinit :: (dir: *Zip_Directory) {
     dir.file = retained;
 } @FreesArgument
 
+// Reads the central directory of a zip file. Returns false when the file cannot be opened or is not
+// a classic zip (zip64 archives and entries with a trailing data descriptor are refused). Call
+// `deinit` on the result. The file is closed afterwards unless `close_file` is false.
+//
+// ```jai,no_run
+// ok, dir := load_zip_directory("assets.zip");
+// if ok {
+//     defer deinit(*dir);
+//     for dir.entries print("%\n", it.filename);
+// }
+// ```
 load_zip_directory :: (zip_filename: string, close_file := true) -> (success: bool, dir: Zip_Directory) {
     file, opened := file_open(zip_filename, log_errors = false);
     if !opened return false, .{};

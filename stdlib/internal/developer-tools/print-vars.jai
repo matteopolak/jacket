@@ -26,6 +26,7 @@ print_helper :: (builder: *String_Builder, using config: Print_Vars_Config, name
     append(builder, line_separator);
 }
 
+// The source text of `code`, rendered at compile time.
 get_code_name :: (code: Code) -> string #compile_time {
     root := compiler_get_nodes(code);
     builder: String_Builder;
@@ -55,10 +56,32 @@ print_vars_helper :: (builder: *String_Builder, config: Print_Vars_Config, $args
     for index: 0..N - 1 print_helper(builder, config, name_width, value_width, names[index], values[index], types[index]);
 }
 
+// Appends one line per expression to `builder`, each with the expression's source text, its value
+// and its type, lined up in columns.
+//
+// ```jai
+// x: s32 = 7;
+// y: s32 = 22;
+// builder: String_Builder;
+// defer free_buffers(*builder);
+// print_vars_to(*builder, x, y);
+// text := builder_to_string(*builder);
+// defer free(text);
+// assert(text == "x = 7  (s32)\ny = 22 (s32)\n");
+// ```
 print_vars_to :: (builder: *String_Builder, $args: ..Code, loc := #caller_location) #expand {
     print_vars_helper(builder, Print_Vars_Config.{}, #run fixed_codes(args.count, args), loc);
 }
 
+// Prints each expression's source text, value and type, one line apiece. Each expression is
+// evaluated once.
+//
+// ```jai
+// width := 640;
+// print_vars(width, width * 2);
+// // width       = 640  (s64)
+// // (width * 2) = 1280 (s64)
+// ```
 print_vars :: ($args: ..Code, loc := #caller_location) #expand {
     builder: String_Builder;
 
@@ -70,6 +93,7 @@ print_vars :: ($args: ..Code, loc := #caller_location) #expand {
     print("%", text);
 }
 
+// Like `print_vars`, but sends the lines through `log`.
 log_vars :: ($args: ..Code, loc := #caller_location) #expand {
     builder: String_Builder;
 

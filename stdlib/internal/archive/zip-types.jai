@@ -1,3 +1,5 @@
+// One file in a zip archive, as its central directory describes it. Most fields are the zip
+// format's own; `filename` points into the directory's `memory_block`.
 Zip_Entry :: struct {
     filename: string;
     position_in_file: s64;
@@ -15,6 +17,7 @@ Zip_Entry :: struct {
     chunk_offset: u32;
 }
 
+// The list of files in a zip archive, read without extracting anything.
 Zip_Directory :: struct {
     name := "";
     entries: [..] Zip_Entry;
