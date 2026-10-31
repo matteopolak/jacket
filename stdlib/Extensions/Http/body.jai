@@ -170,6 +170,10 @@ Body_Frame :: struct {
     length: s64 = -1; // declared, or -1
     total: s64; // bytes handed to the handler
 
+    // HTTP/2: the stream the body arrives on instead of the parser, and the blocks of data given out so far.
+    h2: *H2_Stream;
+    held: [..][] u8;
+
     carry: [] u8; // the rest of a piece `read` has not copied out yet
     hold: [] u8; // a piece of the read buffer `read_all` still points into
 
@@ -248,6 +252,8 @@ next_piece :: no_inline (frame: *Body_Frame) -> [] u8, Http_Error {
     if frame.finished return .[], .{};
 
     if frame.failure.kind != .NONE return .[], frame.failure;
+
+    if frame.h2 return h2_next_piece(frame);
 
     sent := send_continue(frame);
 

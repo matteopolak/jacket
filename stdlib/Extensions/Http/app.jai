@@ -72,9 +72,22 @@ Server_Config :: struct {
 
     // Serve HTTPS: every accepted connection does a TLS handshake first (within `header_timeout`).
     // A `Tls_Config` that went through `Tls.tls_config_init`, with a certificate chain and private
-    // key, that outlives the server; its `alpn` should be empty or `.["http/1.1"]`. Null: plain
+    // key, that outlives the server. Its `alpn` picks the protocols: empty or `.["http/1.1"]` is
+    // HTTP/1.1 only, and adding `"h2"` (`.["h2", "http/1.1"]`) also serves HTTP/2. Null: plain
     // HTTP.
     tls: *Tls.Tls_Config;
+
+    // Serve HTTP/2 to clients that negotiate `h2`. Off, such a connection is refused after the
+    // handshake, so a config that offers `h2` while this is off sends clients to a dead end.
+    http2 := true;
+
+    // HTTP/2 only: requests in progress on one connection, and the bytes a client may send on
+    // one request before the handler takes some (the window of a stream).
+    h2_max_streams := 100;
+    h2_window := 256 * 1024;
+
+    // HTTP/2 only: the bytes a client may send on a whole connection ahead of the handlers.
+    h2_connection_window := 1024 * 1024;
 }
 
 // Called for every error response (a handler's `Http_Error`, a failed extractor, 404, 405, 413...)

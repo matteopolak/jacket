@@ -5,10 +5,6 @@
 
 #load "support/support.jai";
 
-bytes_of :: (text: string) -> [] u8 {
-    return .{ text.count, text.data };
-}
-
 header_of :: (out: [..] u8) -> H2_Frame_Header {
     return h2_decode_header(.{ out.count, out.data });
 }

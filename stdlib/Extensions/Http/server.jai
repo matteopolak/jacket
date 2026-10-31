@@ -61,6 +61,7 @@ Connection :: struct {
     fiber: Io.Fiber_Handle;
     secure: bool; // the TLS handshake is still to be done (`config.tls`)
     idle: bool; // waiting for the first byte of a request: safe to cut off
+    h2: *H2_Conn; // set while the connection speaks HTTP/2
 
     // The request being handled. It lives here, not on the fiber's stack, so a connection that
     // stays open does not touch one more page of stack for it (a page is 16 KiB on some systems).
@@ -237,6 +238,9 @@ drain :: (server: *Server) {
         connection := server.connections;
 
         while connection {
+            // An HTTP/2 connection is told first, so its client stops opening streams.
+            if connection.h2 h2_shutdown(connection.h2);
+
             if connection.idle || forced Io.cancel(connection.fiber);
 
             connection = connection.next;
@@ -254,17 +258,17 @@ now_ms :: () -> s64 {
     return to_milliseconds(current_time_monotonic());
 }
 
-// Where an HTTP/2 upgrade (`Upgrade: h2c`) or prior-knowledge connection would take over. HTTP/2
-// is a later milestone, so nothing switches yet; the connection keeps speaking HTTP/1.
+// Where an HTTP/2 upgrade (`Upgrade: h2c`) would take over. Only HTTP/2 over TLS is served, so
+// nothing switches and the connection keeps speaking HTTP/1.
 upgrade_connection :: (connection: *Connection, head: *Head) -> bool {
     return false;
 }
 
 // Runs the TLS handshake of a new connection, which has `header_timeout` to finish it, and returns
 // the link that carries HTTP from here on (or, when the connection must be dropped, the link to
-// close). The protocol is chosen here too: ALPN `http/1.1` (or none)
-// speaks HTTP/1.1. `choose_protocol` is where `h2` would branch off to an HTTP/2 connection.
-accept_tls :: (connection: *Connection) -> Link, bool {
+// close). The protocol is chosen here too: ALPN `http/1.1` (or none) speaks HTTP/1.1, and `h2`
+// HTTP/2, which the third result says.
+accept_tls :: (connection: *Connection) -> Link, bool, bool {
     config := *connection.server.app.config;
     link := connection.stream;
 
@@ -278,7 +282,7 @@ accept_tls :: (connection: *Connection) -> Link, bool {
     if error.kind != .NONE {
         if config.log_requests print("TLS handshake from % failed: %\n", Io.address_to_string(link.peer), Tls.error_text(error));
 
-        return link, false;
+        return link, false, false;
     }
 
     secured: Link;
@@ -287,19 +291,21 @@ accept_tls :: (connection: *Connection) -> Link, bool {
     secured.writer = Tls.writer_of(stream);
     secured.peer = link.peer;
 
-    if !choose_protocol(Tls.alpn_protocol(stream)) {
-        if config.log_requests print("TLS connection from % negotiated ALPN %, which this server does not speak\n", Io.address_to_string(link.peer), Tls.alpn_protocol(stream));
+    alpn := Tls.alpn_protocol(stream);
 
-        return secured, false;
+    if !choose_protocol(alpn, config.http2) {
+        if config.log_requests print("TLS connection from % negotiated ALPN %, which this server does not speak\n", Io.address_to_string(link.peer), alpn);
+
+        return secured, false, false;
     }
 
-    return secured, true;
+    return secured, true, alpn == "h2";
 }
 
-// Whether the connection can speak the protocol ALPN chose. HTTP/1.1 is all there is; HTTP/2
-// (milestone 11) turns `h2` into a different connection loop here.
-choose_protocol :: (alpn: string) -> bool {
-    return alpn.count == 0 || alpn == "http/1.1";
+// Whether the connection can speak the protocol ALPN chose: HTTP/1.1, or HTTP/2 unless the
+// config turned it off.
+choose_protocol :: (alpn: string, http2: bool) -> bool {
+    return alpn.count == 0 || alpn == "http/1.1" || (alpn == "h2" && http2);
 }
 
 serve_connection :: (connection: *Connection) { // jailint: allow(cognitive_complexity)
@@ -321,7 +327,7 @@ serve_connection :: (connection: *Connection) { // jailint: allow(cognitive_comp
     }
 
     if connection.secure {
-        secured, ok := accept_tls(connection);
+        secured, ok, h2 := accept_tls(connection);
 
         // A client that fails the handshake is dropped without an answer: there is no HTTP yet.
         // `secured` is then the link to close: the TCP one, or the TLS one when it is up.
@@ -332,6 +338,14 @@ serve_connection :: (connection: *Connection) { // jailint: allow(cognitive_comp
         }
 
         stream = secured;
+
+        if h2 {
+            serve_h2(connection, stream);
+
+            close(stream);
+
+            return;
+        }
     }
 
     defer close(stream);

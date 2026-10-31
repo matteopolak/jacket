@@ -137,6 +137,7 @@ Stream_Frame :: struct {
     out: *[..] u8;
     write_timeout: s64;
     failed: bool;
+    h2: *H2_Stream; // the body goes out as DATA frames of this stream instead of to `link`
 }
 
 string_bytes :: (text: string) -> [] u8 {
@@ -144,6 +145,8 @@ string_bytes :: (text: string) -> [] u8 {
 }
 
 flush :: (frame: *Stream_Frame, data: [] u8) -> bool {
+    if frame.h2 return h2_send_data(frame.h2, data, false);
+
     error: Io.Io_Error;
 
     Io.with_deadline(within(frame.write_timeout), #code {
