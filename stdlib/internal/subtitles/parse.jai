@@ -1,3 +1,4 @@
+// Frees the sections and tables, and the text itself when `load_subtitles_from_file` read it.
 free :: (using subtitles: *Subtitles) {
     H.deinit(*sections_by_name);
 
@@ -13,6 +14,8 @@ free :: (using subtitles: *Subtitles) {
     subtitles.* = .{};
 } @FreesArgument
 
+// Reads and parses a subtitle file. Returns false when it cannot be read or is malformed; the
+// problem is reported through the log. Free the result with `free`.
 load_subtitles_from_file :: (path: string) -> bool, Subtitles {
     bytes, read_ok := F.read_entire_file(path);
     if !read_ok return false, .{};
@@ -28,6 +31,20 @@ load_subtitles_from_file :: (path: string) -> bool, Subtitles {
     return true, subtitles;
 }
 
+// Parses subtitle text, which opens with a `[1]` version line. `:name` starts a section (`::name` marks it finalized), `=speaker 1.5`
+// starts a timed instant, the lines after it are speech, `++ text` is a stage direction, and
+// `+name parameter begin end` adds an event. The sections point into `data`, which must outlive
+// them. `short_name` names the source in error messages.
+//
+// ```jai
+// text := "[1]\n:intro\n=guard 1.5\nHalt!\n++ raises a hand\n";
+// ok, subtitles := load_subtitles_from_memory(text, "intro");
+// assert(ok);
+// section := subtitles.all_sections[0];
+// assert(section.name == "intro" && section.instants[0].speaker == "guard");
+// assert(section.instants[0].lines.count == 2);
+// free(*subtitles);
+// ```
 load_subtitles_from_memory :: (data: string, short_name: string) -> bool, Subtitles {
     handler: T.Text_File_Handler;
 
@@ -133,6 +150,7 @@ load_subtitles_from_memory :: (data: string, short_name: string) -> bool, Subtit
     return true, subtitles;
 }
 
+// The sections in which any of the named characters speak.
 get_sections_for_characters :: (subtitles: Subtitles, names: ..string) -> [..] *Subtitles_Section {
     selected: [..] *Subtitles_Section;
 

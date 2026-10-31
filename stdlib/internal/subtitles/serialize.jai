@@ -1,3 +1,5 @@
+// Writes `subtitles` back out in the text form `load_subtitles_from_memory` reads, starting with
+// a `[1]` version line. The caller frees the string.
 serialize :: (using subtitles: *Subtitles) -> string {
     builder: String_Builder;
 

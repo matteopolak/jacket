@@ -1,3 +1,5 @@
+// Appends a complete HTML page showing `sections` as dialogue, one block per section. Lines of
+// `character_to_emphasize` are highlighted; `name_map` swaps speaker ids for display names.
 format_sections_as_html :: (builder: *String_Builder, sections: [] *Subtitles_Section, character_to_emphasize := "", name_map: *H.Table(string, string) = null) {
     append(builder, HTML_HEAD);
     append(builder, "<body>\n");
@@ -5,6 +7,7 @@ format_sections_as_html :: (builder: *String_Builder, sections: [] *Subtitles_Se
     append(builder, "\n</body>\n");
 }
 
+// Appends one section as an HTML block, without the page around it. See `format_sections_as_html`.
 format_section_as_html :: (builder: *String_Builder, section: *Subtitles_Section, character_to_emphasize := "", name_map: *H.Table(string, string) = null) {
     append(builder, "<br><p></p><br>\n<div class=\"keep-together\">\n\n");
     append(builder, "<p class=\"title\">");
@@ -39,6 +42,7 @@ format_section_as_html :: (builder: *String_Builder, section: *Subtitles_Section
     append(builder, "</div>");
 }
 
+// Returns `s` in double quotes with inner quotes doubled, as a CSV field. The caller frees it.
 csv_quote :: (s: string) -> string {
     builder: String_Builder;
 
@@ -55,12 +59,16 @@ csv_quote :: (s: string) -> string {
     return builder_to_string(*builder);
 }
 
+// Appends a recording script as CSV: a header row, then one row per speaker turn with its
+// dialogue, directions and the wav file names to record into. `row_number` and `row_index` carry the
+// numbering from row to row.
 format_sections_as_csv :: (builder: *String_Builder, sections: [] *Subtitles_Section, name_map: *H.Table(string, string), row_number: *int, row_index: *int) {
     row_number.* = 0;
     append(builder, "Line #,Conversation,Character,Dialogue,Directions,Wav Filename,Conversation Filename\n");
     for section: sections format_section_as_csv(builder, section, name_map, row_number, row_index);
 }
 
+// Appends one section's CSV rows. See `format_sections_as_csv`.
 format_section_as_csv :: (builder: *String_Builder, section: *Subtitles_Section, name_map: *H.Table(string, string), row_number: *int, row_index: *int) {
     row_index.* = 0;
     speaker: string;
@@ -89,6 +97,7 @@ format_section_as_csv :: (builder: *String_Builder, section: *Subtitles_Section,
     if speaker.count > 0 flush_csv_lines(builder, section.name, name_map, speaker, lines, directions, row_number, row_index);
 }
 
+// Writes the CSV row for one speaker's gathered lines, if any of them has text.
 flush_csv_lines :: (builder: *String_Builder, section_name: string, name_map: *H.Table(string, string), _speaker_name: string, lines: [] string, directions: [] string, row_number: *int, row_index: *int) {
     if _speaker_name.count == 0 return;
 
