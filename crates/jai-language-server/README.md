@@ -7,7 +7,7 @@ The language server for [Jai](https://en.wikipedia.org/wiki/Jai_(programming_lan
 
 jailsp checks your code with the real compiler, `jaic`, including the code that runs at compile time: `#run`, `#insert`, macros and build metaprograms. So the types in a hover, the members offered in completion and the errors you see are the compiler's own answers, not a guess from a separate parser.
 
-The same server, compiled to WebAssembly, runs in the [online playground](https://matteopolak.com/playground/jacket).
+The same server, compiled to WebAssembly, runs in the [online playground](https://matteopolak.com/docs/jacket/playground).
 
 ## Install
 

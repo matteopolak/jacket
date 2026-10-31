@@ -33,6 +33,8 @@ Modules are the folders of `stdlib/` with a `module.jai`, minus `internal/`, `pr
 
 `runtime.json` (`{"engine": "...", "wasm": "..."}`) points at the bundle `tools/browser/build_scripting_wasm.py --release --output <dir>` writes ([browser build](../browser/playground.md)); `--runtime <dir>` copies `jai_wasm.wasm` and `engine.mjs` from it. A site that already hosts the compiler can drop the copy and edit `runtime.json`.
 
+The hosted playground page at `/docs/jacket/playground` loads `assets/site.js` with only the header, so the script must stay null-safe, and the header markup, `jacket-docs-theme` key and asset path must stay stable. Tell the portfolio side if they change. The site never writes a `playground/` path, which would collide with that page.
+
 **Categories.** `stdlib/categories.toml` puts every module in one category. `jacket doc` fails when a module has no category, is listed twice, or a name matches no module, so add new modules to the file.
 
 ## Publishing
@@ -66,7 +68,7 @@ CI runs `jacket doc --check` when the stdlib, the compiler or the docs change, s
 | `--out` | `target/doc-site` | replaced each run, only if `jacket doc` made it |
 | `--base-url` | `/` | where the site is served, with both slashes |
 | `--runtime` | none | folder with `jai_wasm.wasm` and `engine.mjs` |
-| `--playground-url` | `https://matteopolak.com/playground/jacket` | the Playground and "Open in playground" links |
+| `--playground-url` | `https://matteopolak.com/docs/jacket/playground` | the Playground and "Open in playground" links |
 | `--source-ref` | the commit, else `v<version>` | tag or branch for Source links |
 | `--module` | all | build only these; broken links are then warnings |
 | `--check` | off | build and check, write nothing |

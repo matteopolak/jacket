@@ -5,6 +5,9 @@
   var root = document.documentElement;
   var base = document.body.getAttribute('data-base') || '/';
 
+  // The hosted playground page loads this file too, with only the header (#q, #results, #ver,
+  // #ver-menu, #theme). Keep every lookup null-safe, and keep this file's path and the theme key stable.
+
   // Theme: system, light or dark, remembered in this browser.
   var KEY = 'jacket-docs-theme';
   var ORDER = ['system', 'light', 'dark'];
