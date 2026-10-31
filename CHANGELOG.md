@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### New
+
+- The playground now lives in the docs, at [matteopolak.com/docs/jacket/playground](https://matteopolak.com/docs/jacket/playground).
+
+### Improved
+
+- Most standard library procedures now have a description and an example, and experimental modules carry an "Experimental" badge.
+- The README and the docs pages are shorter and easier to read.
+- `jaic -check` and `-interp` start faster and use less memory: native code generation now loads only when a build needs it.
+
 ## [0.31.0] - 2026-10-31
 
 ### New
