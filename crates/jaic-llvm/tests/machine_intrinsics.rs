@@ -6,7 +6,7 @@ mod cpuid {
     use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
     use jaic::target::TargetCpu;
     use jaic_llvm::{OptLevel, emit_object};
-    use std::{process::Command, rc::Rc};
+    use std::rc::Rc;
     use test_support::{TempDir, process::checked, toolchain};
 
     // macOS ARM64 supports executing independently built x64 programs under translation.
@@ -64,7 +64,9 @@ mod cpuid {
                 .arg("-o")
                 .arg(&exe);
             checked(&mut driver);
-            assert!(checked(&mut Command::new(exe)).contains("CPUID hardware registers"));
+            assert!(
+                checked(&mut std::process::Command::new(exe)).contains("CPUID hardware registers")
+            );
         }
     }
 
@@ -144,6 +146,7 @@ mod cpuid_leaf_zero {
     //! O0/O2 CPUID codegen and native comparison against the public C intrinsic.
     #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
     use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+    #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
     use jaic::target::TargetCpu;
     #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
     use jaic_llvm::{OptLevel, emit_object};
@@ -392,7 +395,7 @@ mod x86_machine {
     use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
     use jaic::target::TargetCpu;
     use jaic_llvm::{OptLevel, emit_object};
-    use std::{process::Command, rc::Rc};
+    use std::rc::Rc;
     use test_support::{TempDir, ir, process::checked, toolchain};
 
     #[test]
@@ -468,6 +471,7 @@ mod x86_machine {
         if !toolchain::require_all(&["clang", "llvm-objdump"]) {
             return;
         }
+        #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
         let root = test_support::repo::root();
         let mut options = Options::host();
         options.cpu = TargetCpu::X64;
@@ -557,7 +561,7 @@ mod x86_machine {
                                 .arg("-o")
                                 .arg(&exe),
                         );
-                        let evidence = checked(&mut Command::new(exe));
+                        let evidence = checked(&mut std::process::Command::new(exe));
                         std::fs::write(dir.join("executed.txt"), &evidence).unwrap();
                         println!("{target} {level:?}: {evidence}");
                     }
