@@ -28,13 +28,20 @@ impl Wrap {
     }
 }
 
-/// Where a conversion applies: the span of the expression, and whether it reads as one unit
-/// (`Expr::is_atomic`), so a prefix or postfix wrap goes around it without parentheses. Built
-/// from the expression, so the parser's reading of the tree decides, not the text.
+/// Where a conversion applies. `span` is what the diagnostic points at; `extent` is the whole
+/// written expression, parentheses included, which any edit replaces (for `(p).x` the span
+/// starts inside the parentheses, and an edit over it would leave them around the wrap). `atomic`
+/// says the written text reads as one unit, so a prefix or postfix wrap goes around it without
+/// parentheses. Built from the expression, so the parser's reading of the tree decides, not
+/// the text.
 #[derive(Clone, Copy, Debug)]
 pub(in crate::sema) struct Site {
     pub span: Span,
+    extent: Span,
     atomic: bool,
+    /// An edit can stand for the value. False for one of several values from a single
+    /// expression (`a, b = f();`): wrapping the call would not convert that value alone.
+    wrappable: bool,
 }
 
 impl Site {
@@ -43,7 +50,9 @@ impl Site {
     pub(in crate::sema) fn opaque(span: Span) -> Self {
         Self {
             span,
+            extent: span,
             atomic: false,
+            wrappable: true,
         }
     }
 
@@ -51,7 +60,18 @@ impl Site {
     pub(in crate::sema) fn name(span: Span) -> Self {
         Self {
             span,
+            extent: span,
             atomic: true,
+            wrappable: true,
+        }
+    }
+
+    /// One of the several values `e` gives (a call returning more than one): errors point at
+    /// the call, and no edit is offered.
+    pub(in crate::sema) fn one_of(e: &Expr) -> Self {
+        Self {
+            wrappable: false,
+            ..Self::from(e)
         }
     }
 }
@@ -60,7 +80,9 @@ impl From<&Expr> for Site {
     fn from(e: &Expr) -> Self {
         Self {
             span: e.span,
-            atomic: e.is_atomic(),
+            extent: e.extent(),
+            atomic: e.is_atomic_written(),
+            wrappable: true,
         }
     }
 }
@@ -85,7 +107,10 @@ fn trimmed(sources: &SourceMap, span: Span) -> Option<(Span, &str)> {
 
 /// The expression at `span` written inside `wrap`.
 pub(in crate::sema) fn wrapped_text(sources: &SourceMap, at: Site, wrap: &Wrap) -> Option<String> {
-    let (_, body) = trimmed(sources, at.span)?;
+    if !at.wrappable {
+        return None;
+    }
+    let (_, body) = trimmed(sources, at.extent)?;
     let primary = at.atomic;
     Some(match wrap {
         Wrap::Cast(ty) if primary => format!("cast({ty}) {body}"),
@@ -110,7 +135,7 @@ pub(in crate::sema) fn wrap_suggestion(
     site: Site,
     wrap: &Wrap,
 ) -> Option<Suggestion> {
-    let (at, _) = trimmed(sources, site.span)?;
+    let (at, _) = trimmed(sources, site.extent)?;
     let text = wrapped_text(sources, site, wrap)?;
     let action = match wrap {
         Wrap::Cast(ty) => format!("Convert with `cast({ty})`"),

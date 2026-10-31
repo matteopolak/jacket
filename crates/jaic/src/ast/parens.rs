@@ -52,6 +52,20 @@ impl Expr {
     /// operand without parentheses around it. A parenthesized link in the chain (`(a).b`) is
     /// not atomic.
     pub fn is_atomic(&self) -> bool {
+        self.reads_as_unit(false)
+    }
+
+    /// The whole written expression ([`Expr::extent`], parentheses included) reads as one
+    /// unit: [`Expr::is_atomic`], but a parenthesized expression, or a parenthesized link in
+    /// the chain (`(a).b`), counts, since the text a rewrite replaces covers those parentheses.
+    pub fn is_atomic_written(&self) -> bool {
+        self.reads_as_unit(true)
+    }
+
+    fn reads_as_unit(&self, parens_count: bool) -> bool {
+        if parens_count && self.parenthesized() {
+            return true;
+        }
         match &self.kind {
             ExprKind::Int(..)
             | ExprKind::Float(..)
@@ -64,7 +78,7 @@ impl Expr {
             | ExprKind::Index(base, _)
             | ExprKind::Call {
                 callee: base, ..
-            } => !base.parenthesized() && base.is_atomic(),
+            } => (parens_count || !base.parenthesized()) && base.reads_as_unit(parens_count),
             _ => false,
         }
     }

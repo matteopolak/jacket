@@ -859,14 +859,16 @@ impl Compiler {
                 self.ty.types.name(ty)
             ),
         );
-        let text = self.src.sources.snippet(container).trim();
+        // The edit covers the whole written expression, parentheses included.
+        let written = expr.extent();
+        let text = self.src.sources.snippet(written).trim();
         if !self.ty.types.is_integer(self.ty.types.repr(ty))
             || matches!(self.ty.types.kind(ty), TypeKind::Enum(_))
             || text.is_empty()
         {
             return d;
         }
-        let range = if expr.is_atomic() {
+        let range = if expr.is_atomic_written() {
             format!("0..{text} - 1")
         } else {
             format!("0..({text}) - 1")
@@ -874,7 +876,7 @@ impl Compiler {
         d.with_suggestion(
             Suggestion::replace(
                 format!("to repeat {text} times, loop over a range: `for {range}`"),
-                container,
+                written,
                 range,
                 Applicability::MaybeIncorrect,
             )

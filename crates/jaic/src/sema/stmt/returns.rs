@@ -185,6 +185,8 @@ impl Compiler {
                 // Extra results of a returned call are dropped, like in a declaration.
                 Operand::Multi(vals) if values.len() == 1 => {
                     ops.extend(vals.into_iter().take(types.len()));
+                    spans.resize(ops.len(), Site::one_of(&v.value));
+                    continue;
                 }
                 // `return f();` of a procedure without results.
                 Operand::Void if values.len() == 1 => {}

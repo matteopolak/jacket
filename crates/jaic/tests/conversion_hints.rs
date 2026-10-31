@@ -252,6 +252,12 @@ fn looping_over_a_number_suggests_a_range() {
         "to repeat a + 1 times, loop over a range: `for 0..(a + 1) - 1`",
         "for 0..(a + 1) - 1 { }",
     );
+    fixes_to(
+        "p := P.{}; for (p).x { }",
+        "cannot iterate over a value of type s64",
+        "to repeat (p).x times, loop over a range: `for 0..(p).x - 1`",
+        "p := P.{}; for 0..(p).x - 1 { }",
+    );
 }
 
 #[test]
@@ -352,5 +358,51 @@ fn a_cast_with_no_conversion_says_what_to_do_instead() {
     assert_eq!(
         d.help,
         ["build a P from its members with a struct literal instead: `P.{...}`"]
+    );
+}
+
+#[test]
+fn a_paired_assignment_wraps_the_value_not_the_target() {
+    fixes_to(
+        "x: s32 = 0; y: s32 = 0; x, y = a, 1;",
+        "type mismatch: expected `s32`, found `s64`",
+        "convert with `cast(s32)` if every value fits",
+        "x: s32 = 0; y: s32 = 0; x, y = cast(s32) a, 1;",
+    );
+}
+
+#[test]
+fn one_value_of_a_call_is_not_wrapped() {
+    let source = program(
+        "pair :: () -> s64, s64 { return 1, 2; }\n    x: s32 = 0; y: s32 = 0; x, y = pair();",
+    );
+    let d = error_of(&source);
+    assert!(d.message.starts_with("type mismatch"), "{}", d.message);
+    // The call gives both values: wrapping it would not convert one.
+    assert!(d.suggestions().is_empty(), "{:?}", d.suggestions());
+    assert_eq!(d.help, ["convert with `cast(s32)` if every value fits"]);
+    assert_eq!(
+        &source[d.span.start as usize..d.span.end as usize],
+        "pair()"
+    );
+}
+
+#[test]
+fn a_parenthesised_base_is_wrapped_as_a_whole() {
+    fixes_to(
+        "p := P.{}; c: s32 = (p).x;",
+        "type mismatch: expected `s32`, found `s64`",
+        "convert with `cast(s32)` if every value fits",
+        "p := P.{}; c: s32 = cast(s32) (p).x;",
+    );
+}
+
+#[test]
+fn a_parenthesised_expression_keeps_its_parentheses() {
+    fixes_to(
+        "c: s32 = (a + 1);",
+        "type mismatch: expected `s32`, found `s64`",
+        "convert with `cast(s32)` if every value fits",
+        "c: s32 = cast(s32) (a + 1);",
     );
 }

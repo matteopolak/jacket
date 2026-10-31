@@ -555,3 +555,20 @@ fn atomic_expressions_need_no_parentheses() {
         assert!(!value(&format!("x := {src};")).is_atomic(), "{src}");
     }
 }
+
+#[test]
+fn a_written_expression_with_parentheses_reads_as_a_unit() {
+    for src in [
+        "(a).b",
+        "(f)(a)",
+        "(xs)[0]",
+        "(a + b)",
+        "(a + b).c",
+        "a.b(c)",
+    ] {
+        assert!(value(&format!("x := {src};")).is_atomic_written(), "{src}");
+    }
+    for src in ["x + 1", "(a) + 1", "-x", "a.*"] {
+        assert!(!value(&format!("x := {src};")).is_atomic_written(), "{src}");
+    }
+}

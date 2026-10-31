@@ -146,8 +146,15 @@ impl Compiler {
                 Some(Operand::Void) if ty == TypeId::VOID => {}
                 Some(op) => {
                     let value_site = match &decl.value {
-                        Some(v) if decl.names.len() == 1 => Site::from(v),
-                        _ => Site::opaque(span),
+                        // Several names may split one call's results: no edit stands for one.
+                        Some(v)
+                            if decl.names.len() > 1
+                                && matches!(v.kind, E::Call { .. } | E::Run { .. }) =>
+                        {
+                            Site::one_of(v)
+                        }
+                        Some(v) => Site::from(v),
+                        None => Site::opaque(span),
                     };
                     let op = self
                         .convert(f, op, ty, value_site)

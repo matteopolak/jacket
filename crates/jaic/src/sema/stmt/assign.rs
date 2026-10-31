@@ -11,6 +11,9 @@ use crate::sema::{
 };
 use crate::types::{ArrayKind, TypeKind};
 
+/// A value of a multiple assignment: its type, the value, and where it was written.
+type AssignedValue = (TypeId, ir::Val, Site);
+
 impl Compiler {
     /// `x[i] = v` / `x[i] op= v` through `operator []=` (and `operator []` to
     /// read the old value). Evaluation order: base, index, (get), value, set.
@@ -654,7 +657,7 @@ impl Compiler {
         if values.len() < lhs.len() {
             return Err(self.count_mismatch(span, (lhs.len(), "targets"), values.len(), &[]));
         }
-        for (l, (vty, v)) in lhs.iter().zip(values) {
+        for (l, (vty, v, at)) in lhs.iter().zip(values) {
             if let E::Ident(name) = &l.kind
                 && name.as_str() == "_"
             {
@@ -675,7 +678,7 @@ impl Compiler {
                     val: v,
                 },
                 ty,
-                l,
+                at,
             )?;
             let (_, v) = self.rvalue(f, op, l.span)?;
             self.store_value(f, ty, addr, v, l.span)?;
@@ -691,13 +694,14 @@ impl Compiler {
         scope: ScopeId,
         lhs: &[ast::Expr],
         source: &ast::Expr,
-    ) -> Result<Option<Vec<(TypeId, ir::Val)>>> {
+    ) -> Result<Option<Vec<AssignedValue>>> {
         let rhs = std::slice::from_ref(source);
-        let mut values: Vec<(TypeId, ir::Val)> = Vec::new();
+        let mut values: Vec<AssignedValue> = Vec::new();
         match self.check_expr(f, scope, &rhs[0], None)? {
             Operand::Multi(v) => {
                 for operand in v {
-                    values.push(self.rvalue(f, operand, rhs[0].span)?);
+                    let (ty, val) = self.rvalue(f, operand, rhs[0].span)?;
+                    values.push((ty, val, Site::one_of(&rhs[0])));
                 }
             }
             other => {
@@ -746,8 +750,8 @@ impl Compiler {
         scope: ScopeId,
         lhs: &[ast::Expr],
         rhs: &[ast::Expr],
-    ) -> Result<Vec<(TypeId, ir::Val)>> {
-        let mut values: Vec<(TypeId, ir::Val)> = Vec::new();
+    ) -> Result<Vec<AssignedValue>> {
+        let mut values: Vec<AssignedValue> = Vec::new();
         for (r, l) in rhs.iter().zip(lhs) {
             // The value is checked against its own target's type, so untyped constants,
             // `xx` and inferred members follow it (`v.x, v.y = 42, 108;`, `= xx a, xx b;`).
@@ -777,7 +781,7 @@ impl Compiler {
                 Some(t) => f.b.load(t, tmp),
                 None => tmp,
             };
-            values.push((ty, v));
+            values.push((ty, v, Site::from(r)));
         }
         Ok(values)
     }
