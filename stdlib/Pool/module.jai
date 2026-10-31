@@ -12,6 +12,9 @@
 // reset(*pool);
 // ```
 
-#module_parameters(USE_UNMAPPING_ALLOCATOR := false);
+#module_parameters(
+    // Gets blocks from the `Unmapping_Allocator`, which returns them to the OS when the pool is reset.
+    USE_UNMAPPING_ALLOCATOR := false
+);
 
 #load "../internal/allocation/pool.jai";

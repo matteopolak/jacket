@@ -6,16 +6,25 @@
 // - Grow arrays with `array_add`; allocate with `New`, `NewArray` and `alloc`; scratch memory comes from `temp`.
 // - Time is an `Apollo_Time`; `current_time_monotonic` is the clock for timing.
 //
-// Module parameters: `ENABLE_ASSERT` (default `true`) compiles `assert` out when `false`, and `MEMORY_DEBUGGER` turns on
-// leak tracking.
-//
 // ```jai
 // numbers: [..] int;
 // defer array_free(numbers);
 // for 1..3 array_add(*numbers, it * it);
 // assert(tprint("%", numbers) == "[1, 4, 9]");
 // ```
-#module_parameters()(MEMORY_DEBUGGER := false, ENABLE_ASSERT := true, REPLACEMENT_INTERFACE: $I/interface Memory_Debugger_Interface = Memory_Debugger_Interface, VISUALIZE_MEMORY_DEBUGGER := true, TEMP_ALLOCATOR_OVERWRITE_MEMORY := false) {
+
+#module_parameters()(
+    // Tracks every allocation, so leaks can be reported.
+    MEMORY_DEBUGGER := false,
+    // Compiles `assert` out when `false`.
+    ENABLE_ASSERT := true,
+    // The memory debugger's implementation, to replace it with your own.
+    REPLACEMENT_INTERFACE: $I/interface Memory_Debugger_Interface = Memory_Debugger_Interface,
+    // Lets the memory debugger draw its live view.
+    VISUALIZE_MEMORY_DEBUGGER := true,
+    // Overwrites temporary storage when it is reset, to expose stale pointers.
+    TEMP_ALLOCATOR_OVERWRITE_MEMORY := false
+) {
     #scope_file
     Memory_Debugger_Interface :: Interface_Definition.Memory_Debugger_Interface;
     Interface_Definition :: #import "internal/basic-interface";

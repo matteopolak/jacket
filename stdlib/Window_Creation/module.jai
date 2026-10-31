@@ -1,8 +1,7 @@
 // Opens native windows (Cocoa, Win32 or X11) with an OpenGL surface.
 //
 // `create_window` makes one; `get_dimensions`, `get_mouse_pointer_position` and `toggle_fullscreen`
-// query and change it. Read input with the `Input` module. The module parameter `DEFAULT_MSAA`
-// sets the default sample count.
+// query and change it. Read input with the `Input` module.
 //
 // ```jai,no_run
 // #import "Window_Creation";
@@ -16,7 +15,10 @@
 // }
 // ```
 
-#module_parameters (DEFAULT_MSAA: s32 = 4);
+#module_parameters(
+    // The sample count of new windows.
+    DEFAULT_MSAA: s32 = 4
+);
 
 WT :: #import "Window_Type";
 

@@ -1,4 +1,7 @@
-#module_parameters(USE_GRAPHICS := true);
+#module_parameters(
+    // Reports a failed assert in an interactive window, not only on the console.
+    USE_GRAPHICS := true
+);
 
 using,only(CRASH_HANDLER_USE_SEPARATE_THREAD, Crash_Handler, crash_handler, Assert_Response, Exit_Code, Minidump_State, ignored_asserts) #import "internal/debug-state";
 

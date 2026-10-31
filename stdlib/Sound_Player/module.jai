@@ -22,7 +22,12 @@
 // }
 // ```
 
-#module_parameters (MAX_SOUND_CATEGORIES := DEFAULT_MAX_SOUND_CATEGORIES, VERBOSE := false) {
+#module_parameters (
+    // How many categories streams can be sorted into.
+    MAX_SOUND_CATEGORIES := DEFAULT_MAX_SOUND_CATEGORIES,
+    // Logs when the audio output cannot be opened or started.
+    VERBOSE := false
+) {
     DEFAULT_MAX_SOUND_CATEGORIES :: 64;
 }
 

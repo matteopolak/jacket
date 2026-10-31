@@ -31,7 +31,10 @@
 // }
 // ```
 
-#module_parameters (render_api := Render_API.OPENGL)() {
+#module_parameters (
+    // The graphics API to draw with. `.NONE` draws nothing.
+    render_api := Render_API.OPENGL
+)() {
     Render_API :: enum u32 {
         NONE;
         SOFTWARE;

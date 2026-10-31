@@ -1,21 +1,36 @@
-#module_parameters (
+#module_parameters(
+    // The size of the table of heaps that threads share.
     HEAP_ARRAY_SIZE := 47,
+    // How many spans are mapped at a time.
     DEFAULT_SPAN_MAP_COUNT := 64,
+    // How many times larger the global cache is than a thread cache.
     GLOBAL_CACHE_MULTIPLIER := 8,
+    // Keeps freed spans in a cache for each thread.
     ENABLE_THREAD_CACHE := true,
+    // Keeps freed spans in a cache that threads share. Needs the thread cache.
     ENABLE_GLOBAL_CACHE := true,
+    // Counts allocations and mapped memory for the statistics procedures.
     ENABLE_STATISTICS := true,
+    // Checks the allocator's internal invariants.
     ENABLE_ASSERTS := true,
+    // Checks the arguments of its procedures.
     ENABLE_VALIDATE_ARGS := true,
+    // The advice given to Linux when pages are freed.
     LINUX_FREE_ADVICE: enum {
         DONTNEED;
         FREE;
     } = .DONTNEED,
+    // Lets the allocator be configured when it is initialized.
     CONFIGURABLE := false,
+    // Sizes each thread's cache from how the thread allocates. Needs the thread cache.
     ENABLE_ADAPTIVE_THREAD_CACHE := false,
+    // Asks Linux for transparent huge pages.
     LINUX_HUGE_PAGES := false,
+    // Binds the C interface with `size_t` and the C types as the header writes them, not `s64`.
     USE_RAW := false,
+    // Never returns memory to the OS. Needs the global and unlimited caches.
     DISABLE_UNMAP := false,
+    // Lets the caches grow without a limit. Needs the global cache.
     ENABLE_UNLIMITED_CACHE := false
 )();
 

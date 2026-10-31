@@ -2,14 +2,15 @@
 //
 // A `Float16` holds only the bits (1 sign, 5 exponent, 10 significand) and has no arithmetic: convert to `float32` with [float16_to_float32], compute, and convert back with [float32_to_float16]. Halves have about three decimal digits and top out at 65504.
 //
-// Pass `ASSERT_ON_OVERFLOW = true` when importing to make a finite value too large for a half fail an assert instead of becoming infinity.
-//
 // ```jai
 // half := float32_to_float16(1.5);
 // assert(float16_to_float32(half) == 1.5);
 // ```
 
-#module_parameters(ASSERT_ON_OVERFLOW := false);
+#module_parameters(
+    // Fails an assert when a finite value is too large for a half, instead of making it infinity.
+    ASSERT_ON_OVERFLOW := false
+);
 
 // A half-precision float stored as 16 bits. It is distinct from `u16`, so it cannot be mixed with integers by accident; `cast(u16) h` gives the raw bits and `cast(Float16) bits` builds one from them.
 //

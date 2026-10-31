@@ -25,18 +25,24 @@
 // Every call that talks to the server runs on a fiber inside `Io.io_run` and blocks only that
 // fiber. `Io.with_deadline` bounds any of them.
 //
-// TLS needs Extensions/Tls (mbedTLS). Programs that only connect over Unix sockets or cleartext
-// TCP can leave it out with `#import "Extensions/Postgres"(TLS = false)`.
-//
-// The other parameters say where the compile-time side finds the project's files, relative to the
-// project root (docs/postgres/typed-queries.md, "Module parameters"):
+// Set the module parameters when importing:
 //
 // ```jai,skip_on(wasm)
 // Pg :: #import "Extensions/Postgres"(MIGRATIONS = "sql/migrations", SCHEMA = "sql/schema.jai", QUERY_CACHE = "sql/cache", MIN_SERVER_VERSION = 15);
 // ```
-//
-// `MIN_SERVER_VERSION` is a major version; a server older than that fails every describe.
-#module_parameters(TLS := true, MIGRATIONS := "db/migrations", SCHEMA := "db/schema.jai", QUERY_CACHE := "db/queries", MIN_SERVER_VERSION := 0);
+
+#module_parameters(
+    // Connects over TLS, which needs Extensions/Tls (mbedTLS). Set `false` to leave it out of programs that only use Unix sockets or cleartext TCP.
+    TLS := true,
+    // The migrations folder, relative to the project root.
+    MIGRATIONS := "db/migrations",
+    // The schema file, relative to the project root.
+    SCHEMA := "db/schema.jai",
+    // The folder of the typed-query cache, relative to the project root.
+    QUERY_CACHE := "db/queries",
+    // The oldest server major version accepted; an older server fails every describe.
+    MIN_SERVER_VERSION := 0
+);
 
 #assert OS != .WASM "Extensions/Postgres runs on fibers over Io, and WebAssembly has neither";
 

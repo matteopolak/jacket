@@ -1,4 +1,7 @@
-#module_parameters()(Type_Indicator: Type = void);
+#module_parameters()(
+    // `void` draws with `Simp`. To draw with something else, pass a type that has its own `Font` and texture procedures.
+    Type_Indicator: Type = void
+);
 
 #load "../internal/numerics/ui_types.jai";
 #load "../internal/numerics/ui_context.jai";

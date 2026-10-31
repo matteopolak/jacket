@@ -36,9 +36,16 @@
 // `cancel` has been called for its fiber.
 //
 // WebAssembly cannot switch stacks, so importing this module for wasm is a compile error.
-// The stack of each fiber, in bytes, including its guard page. Address space only: the OS commits
-// pages as the fiber touches them (Windows commits it all up front).
-#module_parameters(STACK_BYTES := 256 * 1024, POOL_LIMIT := 1024, TEMPORARY_BYTES := 2048);
+
+#module_parameters(
+    // The stack of each fiber, in bytes, including its guard page. Address space only: the OS commits
+    // pages as the fiber touches them (Windows commits it all up front).
+    STACK_BYTES := 256 * 1024,
+    // How many finished fibers keep their stack for reuse.
+    POOL_LIMIT := 1024,
+    // The temporary storage each fiber gets, in bytes; `0` gives none.
+    TEMPORARY_BYTES := 2048
+);
 
 #assert OS != .WASM "Extensions/Io needs fibers, and WebAssembly code cannot switch stacks";
 

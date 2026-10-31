@@ -1,6 +1,12 @@
-// Byte-copying helpers. `copy` is the one to use; the variants that `with_candidates` adds are competing implementations
-// kept for comparing speeds.
-#module_parameters(with_candidates := false, with_unwraps := false);
+// Byte-copying helpers. `copy` is the one to use.
+
+#module_parameters(
+    // Adds `copy_0` and the other competing implementations, for comparing speeds.
+    with_candidates := false,
+    // Adds the unrolled fixed-size copies, such as `copy_128`.
+    with_unwraps := false
+);
+
 // Copies `count` bytes from `source` to `destination`. The two ranges may overlap.
 //
 // ```jai

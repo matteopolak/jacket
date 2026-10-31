@@ -1,4 +1,9 @@
-#module_parameters(SDK_LEVEL := 34, ENABLE_ARM_LSE := true);
+#module_parameters(
+    // The Android API level to build against and target.
+    SDK_LEVEL := 34,
+    // Targets arm64 CPUs with the LSE atomic instructions.
+    ENABLE_ARM_LSE := true
+);
 
 ANDROID_SDK_LEVEL :: SDK_LEVEL;
 

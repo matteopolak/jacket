@@ -1,7 +1,10 @@
 // Turns a context built by another program into this program's `#Context`: `remap_context` returns
-// it, `Remap_Context()` installs it for the rest of the scope. `VERBOSE := false` silences the
-// warning for a context it cannot map.
-#module_parameters(VERBOSE := true);
+// it, `Remap_Context()` installs it for the rest of the scope.
+#module_parameters(
+    // Warns about a context it cannot map; `false` silences it.
+    VERBOSE := true
+);
+
 Remap_Context :: Impl.Remap_Context;
 remap_context :: Impl.remap_context;
 

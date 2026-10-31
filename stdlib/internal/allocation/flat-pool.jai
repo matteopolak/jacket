@@ -1,4 +1,9 @@
-#module_parameters(DEFAULT_VIRTUAL_MEMORY_RESERVE := 256 * 1024 * 1024, OVERWRITE_ALL_POOLS_ON_RESET := false);
+#module_parameters(
+    // The address space a pool reserves when `init` is not given a size, in bytes.
+    DEFAULT_VIRTUAL_MEMORY_RESERVE := 256 * 1024 * 1024,
+    // Fills reset memory with `0xcc` for every pool.
+    OVERWRITE_ALL_POOLS_ON_RESET := false
+);
 
 CAPS_VERSION_STRING :: "modules/Flat_Pool";
 
@@ -14,9 +19,6 @@ CAPS_VERSION_STRING :: "modules/Flat_Pool";
 // `reset` rewinds to the start and keeps the committed pages for reuse; `fini` releases the whole range back
 // to the OS. A zeroed `Flat_Pool` is initialized by the first `get`. Not thread safe. Only available where the
 // platform has virtual memory (macOS, Linux, Android and Windows).
-//
-// Module parameters: `DEFAULT_VIRTUAL_MEMORY_RESERVE` is the default reserve, and `OVERWRITE_ALL_POOLS_ON_RESET`
-// fills reset memory with `0xcc` for every pool.
 //
 // ```jai,skip_on(wasm)
 // pool: Flat_Pool;

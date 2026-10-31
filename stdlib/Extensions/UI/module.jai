@@ -28,7 +28,10 @@
 //
 // Tests drive the same `build` procedures without a window or a GPU (`headless`, `frame`, `click`,
 // `layout_dump`).
-#module_parameters(DEBUG_WARNINGS := true);
+#module_parameters(
+    // Warns about layout mistakes, such as focusable elements with no size.
+    DEBUG_WARNINGS := true
+);
 
 #import "Basic";
 #import "Math";

@@ -1,4 +1,15 @@
-#module_parameters(LOAD_THREAD_GROUP := true)(CACHE_LINE_SIZE: s32 = 64, DO_RACE_DETECTOR := false, SET_THREAD_NAMES := true);
+#module_parameters(
+    // Includes `Thread_Group`.
+    LOAD_THREAD_GROUP := true
+)(
+    // The cache line size in bytes, which pads the records of workers.
+    CACHE_LINE_SIZE: s32 = 64,
+    // Reserved for a race detector; it must stay `false`.
+    DO_RACE_DETECTOR := false,
+    // Gives each thread's name to the operating system.
+    SET_THREAD_NAMES := true
+);
+
 #assert !DO_RACE_DETECTOR;
 
 #load "types.jai";

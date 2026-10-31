@@ -1,4 +1,7 @@
-#module_parameters(TARGET_OS: type_of(OS) = xx OS);
+#module_parameters(
+    // The operating system the generated bindings are for.
+    TARGET_OS: type_of(OS) = xx OS
+);
 
 #load "../internal/developer-tools/generator-active-state.jai";
 

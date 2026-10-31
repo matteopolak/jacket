@@ -41,7 +41,16 @@
 // }
 // ```
 
-#module_parameters(IMPORT_MODE := Import_Mode.METAPROGRAM, MANUAL_MODE := false, USE_GRAPHICS := true, DO_HISTORY := true);
+#module_parameters(
+    // `.METAPROGRAM` profiles the program that imports it; `.CLIENT` is for a program that reports to a profiler.
+    IMPORT_MODE := Import_Mode.METAPROGRAM,
+    // Zones are started and stopped by hand, with no automatic ones.
+    MANUAL_MODE := false,
+    // Includes the graphical report.
+    USE_GRAPHICS := true,
+    // Keeps the history of each value across frames.
+    DO_HISTORY := true
+);
 
 #scope_module
 Profile_Context :: #import "internal/developer-tools/profiling/context";

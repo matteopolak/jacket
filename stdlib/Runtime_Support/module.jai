@@ -1,4 +1,11 @@
-#module_parameters(DEFINE_SYSTEM_ENTRY_POINT: bool, DEFINE_INITIALIZATION: bool, ENABLE_BACKTRACE_ON_CRASH: bool);
+#module_parameters(
+    // Defines the program's system entry point.
+    DEFINE_SYSTEM_ENTRY_POINT: bool,
+    // Defines the initialization that runs before `main`.
+    DEFINE_INITIALIZATION: bool,
+    // Installs the crash handler that prints a backtrace.
+    ENABLE_BACKTRACE_ON_CRASH: bool
+);
 
 OS_IS_UNIX :: OS == .MACOS || OS == .LINUX || OS == .PS5 || OS == .IOS || OS == .ANDROID;
 

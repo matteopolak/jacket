@@ -1,4 +1,8 @@
-#module_parameters(COUNT_COLLISIONS := false);
+#module_parameters(
+    // Counts the collisions of each table, in `add_collisions` and `find_collisions`.
+    COUNT_COLLISIONS := false
+);
+
 NEVER_OCCUPIED_HASH :: 0;
 REMOVED_HASH :: 1;
 FIRST_VALID_HASH :: 2;
