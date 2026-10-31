@@ -1,5 +1,7 @@
 SPEEDSTEP_DETECTION_RATIO: float64 = 0.08;
 
+// Sets up the frame history and the report state. Call it once before the first `update`.
+// `update` and `create_report` call it too, so calling it twice is fine.
 Prof_init_highlevel :: () {
     prior_runtime_guard := Profile_Context.set_active(true);
 
@@ -93,6 +95,10 @@ propagate_stack :: (c: *Zone_Profiling_Data) {
     }
 }
 
+// Ends the current frame. Call it once per frame, outside every zone you opened with `zone_begin`.
+// The frame's times are filed in the history and the counters start again at zero, so the
+// report then shows this frame and the smoothed past. With `record_data` false the clocks are
+// read but the history is left alone, as when a frame should not count (a paused game).
 update :: (record_data: bool) {
     prior_runtime_guard := Profile_Context.set_active(true);
 

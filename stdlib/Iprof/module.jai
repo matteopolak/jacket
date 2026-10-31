@@ -1,3 +1,45 @@
+// Iprof: a frame profiler with a text report and an optional overlay.
+//
+// As a metaprogram plugin (`+Iprof`) it adds zones to your procedures for you. Manual mode
+// (`MANUAL_MODE = true`) leaves that to you: you name the zones and open and close each one.
+//
+// 1. Import the module as a client in manual mode. Pass `USE_GRAPHICS = false` if you do not want the overlay.
+// 2. Call `Prof_init_highlevel()` once.
+// 3. Give each zone a slot in `zones` (up to `MAX_PROFILING_ZONES_FOR_MANUAL_MODE`): set its `name` and
+//    `initted = true`. A zone that is not initted is refused at run time and left out of reports.
+// 4. Wrap the code with `zone_begin(index)` and `zone_end()`. Zones nest, and a zone may nest in itself.
+// 5. Call `update(true)` once per frame. It closes the frame and files the times away.
+// 6. Read the result with `create_report()`, then `log_text_report(report)` or `save_csv_report(report, path)`.
+//
+// The zones, the open-zone stack and the history are globals of the process, so zones cannot be
+// opened from several threads, such as a job system's workers.
+//
+// ```jai
+// #import "Iprof"(IMPORT_MODE = .CLIENT, MANUAL_MODE = true, USE_GRAPHICS = false, DO_HISTORY = false);
+//
+// ZONE_FRAME :: 0;
+// ZONE_WORK :: 1;
+//
+// main :: () {
+//     Prof_init_highlevel();
+//     zones[ZONE_FRAME].name = "frame";
+//     zones[ZONE_FRAME].initted = true;
+//     zones[ZONE_WORK].name = "work";
+//     zones[ZONE_WORK].initted = true;
+//
+//     for 1..3 {
+//         zone_begin(ZONE_FRAME);
+//         zone_begin(ZONE_WORK);
+//         zone_end();
+//         zone_end();
+//         update(true);
+//     }
+//
+//     report := create_report();
+//     assert(report.records.count == 2);
+//     log_text_report(report);
+// }
+// ```
 #module_parameters(IMPORT_MODE := Import_Mode.METAPROGRAM, MANUAL_MODE := false, USE_GRAPHICS := true, DO_HISTORY := true);
 
 #scope_module

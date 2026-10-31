@@ -1,3 +1,6 @@
+// Logs a report as text: a title line, a header, then one line per zone with its self time and
+// hierarchical time in milliseconds, its call count and its heat. Rows below `min_self_time`
+// or `min_hier_time` (milliseconds, 0 for all) are skipped.
 log_text_report :: (report: *Report, min_self_time := 0., min_hier_time := 0.) {
     prior_runtime_guard := Profile_Context.set_active(true);
 
@@ -35,6 +38,8 @@ log_text_report :: (report: *Report, min_self_time := 0., min_hier_time := 0.) {
     log("%", text);
 }
 
+// Writes a report to `filename` as CSV: the command line, then `name,self (ms),hier (ms),calls`
+// per zone. A name with a quote or a comma is quoted. A failed write logs an error.
 save_csv_report :: (report: *Report, filename: string) {
     prior_runtime_guard := Profile_Context.set_active(true);
 

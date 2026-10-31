@@ -355,6 +355,7 @@ paths = [
     "stdlib/Icon",
     "stdlib/ImGui",
     "stdlib/Input",
+    "stdlib/Iprof",
     "stdlib/Jai_Lexer",
     "stdlib/Keymap",
     "stdlib/MacOS_Bundler",

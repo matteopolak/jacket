@@ -52,10 +52,15 @@ Stack_Push :: (zone: *Zone) -> *Zone_Profiling_Data {
     return profile_push(zone, null);
 }
 
+// Opens the zone in slot `zone_index` of `zones` (manual mode). Close it with `zone_end()`. The
+// slot needs a `name` and `initted = true` first. Time until the matching `zone_end` counts
+// toward the zone, and toward its parent for the hierarchical time.
 zone_begin :: inline (zone_index: s64) #expand {
     profile_zone_begin(zone_index);
 }
 
+// Closes the zone most recently opened with `zone_begin`. Calling it with no zone open fails an
+// assert.
 zone_end :: inline () {
     profile_zone_end();
 }

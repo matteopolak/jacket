@@ -61,6 +61,10 @@ propagate_expanded :: (c: *Zone_Profiling_Data) {
     profile_add_graph(c);
 }
 
+// Builds a report of the frames recorded by `update`: one row per zone, in the current
+// `Report_Mode`. The report lives in temporary storage, so print or save it before the next
+// `reset_temporary_storage`. Rows of zones that were never called, or never `initted` in manual
+// mode, are left out when printed.
 create_report :: () -> *Report {
     prior_runtime_guard := Profile_Context.set_active(true);
 
