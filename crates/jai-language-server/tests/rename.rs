@@ -49,6 +49,19 @@ const EDIT_COUNTS: &[(&str, &str, &str, usize)] = &[
         "n",
         2,
     ),
+    // A bare polymorphic struct behind a pointer in an operator's parameter is a use of it.
+    (
+        "Bucket :: struct(T: Type) {\n    items: [4] T;\n}\n\noperator *[] :: (b: *Bucket, i: int) -> *b.T {\n    return *b.items[i];\n}\n\nmain :: () {\n    b: Bucket(int);\n    b[2] = 5;\n}\n",
+        "Bucket ::",
+        "Pile",
+        3,
+    ),
+    (
+        "Bucket :: struct(T: Type) {\n    items: [4] T;\n}\n\nfirst :: (b: *Bucket) -> int {\n    return b.items[0];\n}\n\nmain :: () {\n    b: Bucket(int);\n    x := first(*b);\n}\n",
+        "Bucket ::",
+        "Pile",
+        3,
+    ),
     // Renames take any name the lexer reads as one identifier, non-ASCII characters included.
     (UNICODE, "größe", "→size", 2),
     (UNICODE, "größe", "ß", 2),

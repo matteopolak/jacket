@@ -341,8 +341,22 @@ impl Compiler {
             } => found.push((self.poly_name_span(e, *name), *name, true)),
             _ => {}
         });
+        let binders = self.poly_binders(header);
+        // A name a runtime parameter's bare polymorphic struct type binds to the instance it was
+        // given is still the struct where the header writes it.
+        let names_binding = |name: Sym| {
+            binders.iter().any(|(n, _)| *n == name)
+                || header
+                    .params
+                    .iter()
+                    .any(|p| (p.baked || p.auto_bake) && p.name.is_some_and(|n| n.name == name))
+        };
         for (span, name, binder) in found {
-            let what = match bound.iter().find(|(n, _)| *n == name) {
+            let bound_here = bound
+                .iter()
+                .find(|(n, _)| *n == name)
+                .filter(|_| binder || names_binding(name));
+            let what = match bound_here {
                 Some(&(_, id)) => IdeWhat::Entity(id),
                 // Only restrictions and other named types: types the header names elsewhere
                 // are recorded when the instance's signature is checked.
