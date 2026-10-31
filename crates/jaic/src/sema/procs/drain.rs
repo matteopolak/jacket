@@ -165,6 +165,15 @@ impl Compiler {
     /// Every change to what the scopes hold must move `namespace_generation`.
     #[cfg(debug_assertions)]
     fn check_namespace_generation(&self) {
+        // Counting every scope costs as much as the compile of a small program, and the epoch
+        // is read once per queued body: the first calls are all checked, later ones every 64th.
+        let (last_total, last_generation, calls) = self.namespace_check.get();
+        let calls = calls.saturating_add(1);
+        if calls > 256 && calls % 64 != 0 {
+            self.namespace_check
+                .set((last_total, last_generation, calls));
+            return;
+        }
         let total = self
             .ns
             .scopes
@@ -182,13 +191,12 @@ impl Compiler {
                     + scope.pending_done
             })
             .sum::<usize>();
-        let (last_total, last_generation) = self.namespace_check.get();
         debug_assert!(
             total == last_total || self.epochs.namespace_generation != last_generation,
             "a scope changed without `namespace_changed`"
         );
         self.namespace_check
-            .set((total, self.epochs.namespace_generation));
+            .set((total, self.epochs.namespace_generation, calls));
     }
 
     /// The procedures whose target is IR function `func`, lowest id first.

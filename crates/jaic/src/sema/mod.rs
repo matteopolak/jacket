@@ -515,9 +515,10 @@ pub struct Compiler {
     pub meta: MetaState,
     pub epochs: Epochs,
     pub caches: NameCaches,
-    /// Debug builds check `namespace_generation` against a full count of scope contents.
+    /// Debug builds check `namespace_generation` against a full count of scope contents:
+    /// the count, the generation and the number of calls at the last check.
     #[cfg(debug_assertions)]
-    namespace_check: std::cell::Cell<(usize, u64)>,
+    namespace_check: std::cell::Cell<(usize, u64, u32)>,
     pub diag: Diagnostics,
     /// The editor analysis this compile records for, if any (`crate::ide`).
     pub ed: crate::ide::Editor,
@@ -577,7 +578,7 @@ impl Compiler {
             options,
             ed: crate::ide::Editor::default(),
             #[cfg(debug_assertions)]
-            namespace_check: std::cell::Cell::new((0, 0)),
+            namespace_check: std::cell::Cell::new((0, 0, 0)),
             ct: CompileTime::default(),
         };
         c.ct.interp.eval_steps = c.options.eval_step_limit;
