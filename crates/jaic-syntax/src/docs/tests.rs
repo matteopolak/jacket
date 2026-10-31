@@ -1,5 +1,17 @@
 use super::*;
 
+#[test]
+fn lexings_of_many_files_are_kept_for_the_next_lookup() {
+    let texts: Vec<String> = (0..40)
+        .map(|i| format!("// File {i}.\nf_{i} :: () {{}}\n"))
+        .collect();
+    let first: Vec<_> = texts.iter().map(|t| trivia(t)).collect();
+    // Going round the files again lexes none of them again.
+    for (text, before) in texts.iter().zip(&first) {
+        assert!(Rc::ptr_eq(&trivia(text), before), "{text}");
+    }
+}
+
 fn doc(text: &str, name: &str) -> Option<String> {
     declaration(text, text.find(name).unwrap())
 }

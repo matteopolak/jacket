@@ -57,17 +57,23 @@ struct Trivia {
 }
 
 thread_local! {
-    static LAST: RefCell<Option<Rc<Trivia>>> = const { RefCell::new(None) };
+    static LAST: RefCell<Vec<Rc<Trivia>>> = const { RefCell::new(Vec::new()) };
 }
 
-/// `text` lexed, reusing the last lexing on this thread when the text is the same.
+/// How much source text the lexings kept on a thread may cover. A completion looks up the docs of
+/// names from dozens of files in turn; keeping only the last one lexed every file again for
+/// each name.
+const KEPT_BYTES: usize = 4 << 20;
+
+/// `text` lexed, reusing a recent lexing on this thread when the text is the same.
 fn trivia(text: &str) -> Rc<Trivia> {
-    LAST.with(|last| {
-        let mut last = last.borrow_mut();
-        if let Some(found) = last.as_ref()
-            && found.text == text
-        {
-            return Rc::clone(found);
+    LAST.with(|kept| {
+        let mut kept = kept.borrow_mut();
+        if let Some(at) = kept.iter().position(|found| found.text == text) {
+            // Most recently used first.
+            let found = kept.remove(at);
+            kept.insert(0, Rc::clone(&found));
+            return found;
         }
         let lexed = Lexed::new(FileId(0), text);
         let found = Rc::new(Trivia {
@@ -75,7 +81,12 @@ fn trivia(text: &str) -> Rc<Trivia> {
             tokens: lexed.tokens,
             comments: lexed.comments,
         });
-        *last = Some(Rc::clone(&found));
+        kept.insert(0, Rc::clone(&found));
+        let mut bytes = 0;
+        kept.retain(|t| {
+            bytes += t.text.len();
+            bytes <= KEPT_BYTES
+        });
         found
     })
 }
