@@ -6,7 +6,13 @@ use jaic::target::Target as BuildTarget;
 use jaic::toolchain::discover;
 use jaic::toolchain::{Linker, Toolchain};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Output, Stdio};
+
+/// Runs a tool and collects its output. `Command::output` gives the child the null device as stdin,
+/// and a Windows `AppContainer` may not open it, so the child gets an empty pipe instead.
+pub(crate) fn run_captured(cmd: &mut Command) -> std::io::Result<Output> {
+    cmd.stdin(Stdio::piped()).output()
+}
 
 /// The error for a linker that could not be started, with how to get one.
 /// The error for a linker that could not be started; `install` says how to get one.
@@ -76,11 +82,7 @@ pub(super) fn pdb_args(output: &Path) -> [String; 4] {
 pub fn write_dsym(output: &Path) -> Result<(), String> {
     let mut bundle = output.to_path_buf().into_os_string();
     bundle.push(".dSYM");
-    let out = Command::new("dsymutil")
-        .arg(output)
-        .arg("-o")
-        .arg(&bundle)
-        .output()
+    let out = run_captured(Command::new("dsymutil").arg(output).arg("-o").arg(&bundle))
         .map_err(|e| format!("could not run 'dsymutil' for debug information: {e}"))?;
     if out.status.success() {
         Ok(())

@@ -50,8 +50,7 @@ pub fn link_wasm(link: &WasmLink) -> Result<(), String> {
     }
     cmd.args(link.extra_args);
     let program = wasm_ld.display().to_string();
-    let out = cmd
-        .output()
+    let out = crate::linker::run_captured(&mut cmd)
         .map_err(|e| crate::linker_not_run(&program, &e, WASM_LD_INSTALL))?;
     if out.status.success() {
         Ok(())

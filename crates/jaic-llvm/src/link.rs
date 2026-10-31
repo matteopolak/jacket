@@ -197,7 +197,7 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
     } else {
         "install a C compiler (clang or gcc, e.g. `apt install clang`), or name a linker with the JAIC_LINKER environment variable"
     };
-    let out = cmd.output();
+    let out = crate::linker::run_captured(&mut cmd);
     if let Some(source) = coverage_source {
         let _ = std::fs::remove_file(source);
     }

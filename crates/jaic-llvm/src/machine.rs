@@ -55,10 +55,9 @@ pub(super) fn fuzzer_runtime(driver: &str) -> Result<PathBuf, String> {
     } else {
         format!("libclang_rt.fuzzer_no_main-{arch}.a")
     };
-    let out = Command::new(driver)
-        .arg(format!("--print-file-name={name}"))
-        .output()
-        .map_err(|e| format!("could not run `{driver}` to find {name}: {e}"))?;
+    let out =
+        crate::linker::run_captured(Command::new(driver).arg(format!("--print-file-name={name}")))
+            .map_err(|e| format!("could not run `{driver}` to find {name}: {e}"))?;
     let path = PathBuf::from(String::from_utf8_lossy(&out.stdout).trim());
     if path.is_absolute() && path.is_file() {
         Ok(path)
