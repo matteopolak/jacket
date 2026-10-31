@@ -49,7 +49,7 @@ main :: () {
         memcpy(*v6.sin6_addr, raw.data, 16);
         v6.sin6_scope_id = 44;
         text = S.to_string(v6);
-        assert(text == "0:0:0:0:0:0:0:1:0");
+        assert(text == "[::1]:0");
         free(text);
         client := S.socket(S.AF_INET, S.SOCK.STREAM, S.IPPROTO.TCP);
 

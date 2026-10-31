@@ -10,7 +10,7 @@
 GL :: #import "GL";
 
 main :: () {
-    window := create_window(100, 80, "jaic pixel scale test");
+    window := create_window(320, 240, "jaic pixel scale test");
 
     assert(cast(u64) window != 0, "create_window failed");
 
@@ -27,8 +27,8 @@ main :: () {
     pixels_w, pixels_h := get_pixel_dimensions(window);
 
     assert(scale >= 1);
-    assert(width == 100 && height == 80);
-    assert(pixels_w == cast(s32) (100 * scale + 0.5) && pixels_h == cast(s32) (80 * scale + 0.5));
+    assert(width == 320 && height == 240, "render size %x%", width, height);
+    assert(pixels_w == cast(s32) (320 * scale + 0.5) && pixels_h == cast(s32) (240 * scale + 0.5), "pixel size %x% at scale %", pixels_w, pixels_h, scale);
 
     viewport: [4] s32;
 
