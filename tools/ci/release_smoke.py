@@ -200,6 +200,11 @@ def backend(bin_dir: Path) -> None:
     with a message naming the library when it is missing.
     """
     jaic = bin_dir / exe("jaic")
+    home = jaic.resolve().parent
+    if not [*home.glob("libjaic_backend.*"), *home.glob("jaic_backend.dll")]:
+        # Releases before the split link LLVM into jaic, so there is nothing to check.
+        print("backend: built into jaic: skipped")
+        return
     with tempfile.TemporaryDirectory(prefix="backend-") as work:
         work = Path(work)
         (work / "hello.jai").write_text(
