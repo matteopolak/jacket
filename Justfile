@@ -123,6 +123,11 @@ vscode script="lint":
 ui-editor-smoke *args:
     jaic examples/editor/smoke.jai -interp {{ args }}
 
+# Local smoke test of examples/game3d: the job system, meshoptimizer, the intro clip and offscreen WebGPU frames (needs a GPU adapter, no window). Not run by CI; docs/tools/dogfood.md.
+[group('test')]
+dogfood-3d:
+    sh examples/game3d/tools/smoke_game.sh
+
 # Local smoke tests of the dogfood apps in examples/game2d: the backend with a throwaway PostgreSQL, a load test over HTTP and HTTPS, and the game's scripted session. Not run by CI; docs/tools/dogfood.md.
 [group('test')]
 dogfood:
