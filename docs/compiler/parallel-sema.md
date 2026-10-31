@@ -111,6 +111,7 @@ The statics and thread-locals in `jaic`, with why each stays. Anything not liste
 
 - **Codegen** already does: `jaic-llvm` splits into units of 5,000 instructions on one thread each (`docs/compiler/compile-speed.md`); `-check` has no codegen. Overlapping codegen with the front end was tried and rejected there.
 - **Lowering finished bodies to IR** is not a separate step (checking lowers directly), so there is nothing to split off.
+- **Skipping IR under `-check`** (a builder that records nothing for bodies no compile-time code runs) is not worth it yet. Building IR is about 7–12% of `-check` time (gen-60k, Focus), and a crude no-op builder saved 3% wall and 9% peak RSS on gen-60k. The checker still needs the builder's values, terminator state and callee lists: reachability in `procs/drain.rs` walks the emitted calls. A body that a later `#run` needs would have to be checked again, repeating its side effects. Parse (14–30%) and name lookup (15–17%) cost more.
 - **Parse and load**: the sibling parse-ahead work.
 - **Unreferenced-declaration checking** after the reachable program: same machinery as above (stage 4), and the least entangled with the metaprogram.
 
