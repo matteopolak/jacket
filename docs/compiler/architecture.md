@@ -9,7 +9,9 @@ An independent Jai compiler in Rust, aiming at source compatibility with real Ja
 | `crates/jaic-syntax` | The front end: source files and spans, diagnostics, lexer, parser, syntax tree, the file system trait, and the small utilities they share. Knows nothing about type checking. |
 | `crates/jaic` | Compiler core: sema, IR, interpreter, workspaces, IDE queries. Re-exports `jaic-syntax` at its root, so downstream crates keep writing `jaic::parser`, `jaic::source` and so on. |
 | `crates/jaic-cli` | The `jaic` binary (`jaic file.jai` builds, `-check` only compiles, `-interp` interprets). |
-| `crates/jaic-llvm` | Native backend over the shared IR (Inkwell, LLVM 23). |
+| `crates/jaic-llvm` | Native code generation over the shared IR (Inkwell, LLVM 23). |
+| `crates/jaic-native` | Native output without LLVM: build options, the system linker, and the loader for the code generation library ([lazy backend](lazy-backend.md)). |
+| `crates/jaic-backend` | `jaic-llvm` as a shared library (`libjaic_backend`) that release builds of `jaic` open on the first native build. |
 | `crates/jai-language-server` | JSON-RPC language server on top of `jaic` ([language server](language-server.md)). |
 | `crates/jailint` | The `jailint` linter, also used by the language server ([jailint](../tools/jailint.md)). |
 | `crates/jai-wasm` | `jaic` and the language server compiled to WebAssembly with the bundled `stdlib/` ([browser](../browser/playground.md)). |
@@ -90,8 +92,8 @@ cargo run -p jaic-cli -- file.jai -check [-I dir] [-os linux|windows|macos]
 cargo run -p jaic-cli -- file.jai -interp [- metaprogram args]
 ```
 
-`jaic-cli` features: `dynamic-llvm` (default) links LLVM's shared library, `static-llvm` links it statically for [release archives](../tools/releases.md); both need LLVM 23 ([LLVM setup](../tools/llvm-setup.md)). `mimalloc` (turned on by both LLVM features) puts mimalloc under the global allocator ([compile speed](compile-speed.md#allocator)). `--no-default-features` builds a `jaic` that only checks and interprets, useful where LLVM is unavailable (e.g. an x86-64 `jaic` under Rosetta to test the interpreter's x86-64 foreign calls).
+`jaic-cli` features: `dynamic-llvm` (default) links LLVM's shared library into `jaic`, `static-llvm` links it statically, and `lazy-llvm` links none: `jaic` opens `libjaic_backend` beside it on the first build that writes native code, which is how [release archives](../tools/releases.md) are built ([lazy backend](lazy-backend.md)). All three need LLVM 23 to build ([LLVM setup](../tools/llvm-setup.md)). `mimalloc` (turned on by each LLVM feature) puts mimalloc under the global allocator ([compile speed](compile-speed.md#allocator)). `--no-default-features` builds a `jaic` that only checks and interprets, useful where LLVM is unavailable (e.g. an x86-64 `jaic` under Rosetta to test the interpreter's x86-64 foreign calls).
 
 ## Dependencies
 
-`jaic` uses the Rust standard library and `rayon` (the one thread pool, `jaic::pool`: body scans, code generation units and `jailint`'s file checks share it, sized by `-threads`; the parse-ahead workers and the interpreter's Jai threads stay dedicated OS threads) (`Bindings_Generator` calls the host's libclang as an ordinary `#foreign` library through the interpreter). `jaic-llvm` uses Inkwell and LLVM 23. The language server uses `serde` and `serde_json`.
+`jaic` uses the Rust standard library and `rayon` (the one thread pool, `jaic::pool`: body scans, code generation units and `jailint`'s file checks share it, sized by `-threads`; the parse-ahead workers and the interpreter's Jai threads stay dedicated OS threads) (`Bindings_Generator` calls the host's libclang as an ordinary `#foreign` library through the interpreter). `jaic-llvm` uses Inkwell and LLVM 23; `jaic-native` uses neither. The language server uses `serde` and `serde_json`.

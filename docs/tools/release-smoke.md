@@ -10,7 +10,8 @@
 
 - `version`: `jacket version` lists jacket and each tool it fronts, and every line carries the release's version.
 - `bindings`: `B.generate_bindings` through `jaic -interp` on a C header (the binding for `add` must appear) on the C++ class of issue 26 with no language option (it must be parsed as C++ and bind `Demo::add` by its mangled name), and with an explicit `-x c` (the class must fail as C). Run by `release.yml` on each archive and by the `archive` job on the published one.
-- `project`: `jacket new smoke`, `jacket build`, `jacket run` (prints `Hello from smoke!`), then `jailsp` is started, initialized, given the project's `main.jai` and asked for a hover on `main`; an empty answer fails.
+- `project`: `jacket new smoke`, `jacket build`, `jacket run` (prints `Hello from smoke!`), then `jailsp` is started, initialized, given the project's `main.jai` and asked for a hover on `main`; an empty answer fails. It ends with `backend`.
+- `backend`: code generation is a library beside `jaic` ([lazy backend](../compiler/lazy-backend.md)). `jaic -check` and `-interp` with `-timings` must print no `load backend` line and must still work with `JAIC_BACKEND` pointing at nothing; a build with that setting must fail naming the code generation library; a build without it must print `jaic-timing: load backend` and produce a program that runs. Also runnable alone: `release_smoke.py backend --bin DIR`.
 
 | Job | Runners | What it installs from |
 | --- | --- | --- |

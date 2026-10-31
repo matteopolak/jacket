@@ -2,7 +2,7 @@
 
 ## What it is
 
-`crates/jaic-llvm` translates the `jaic::ir::Program` into LLVM IR, writes native object files, and links them with the system `cc`. The CLI exposes it as `jaic <file.jai> [-o out]`; `jaic -interp` uses the interpreter and `jaic -check` only type-checks.
+`crates/jaic-llvm` translates the `jaic::ir::Program` into LLVM IR and writes native object files; `crates/jaic-native` links them with the system `cc`. A release `jaic` runs `jaic-llvm` from a library it opens on the first build ([lazy backend](../compiler/lazy-backend.md)). The CLI exposes it as `jaic <file.jai> [-o out]`; `jaic -interp` uses the interpreter and `jaic -check` only type-checks.
 
 ## How it works
 

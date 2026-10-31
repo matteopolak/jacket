@@ -15,7 +15,7 @@ Target selection (`Cli::target_triple` in `crates/jaic-cli/src/main.rs`):
 
 `jaic::target::Target::arch` maps a Windows x86-64 triple to `Arch::Win64` and aarch64 to `Arch::Win64Arm` ([C ABI](c-abi.md)). Lowering differences are small: `#program_export` definitions get `dllexport`, `CompilerWrite` calls the CRT's `_write`, and on arm64 the cycle counter reads `cntvct_el0` and `pause` is `yield`. `#asm` is lowered to portable IR, so x64 `#asm` works in arm64 builds ([#asm](../compiler/asm.md)). `#bytes` is never emitted as machine code; only debug-trap encodings are recognized.
 
-Linking (`link` in `crates/jaic-llvm/src/link.rs`, `Toolchain` in `crates/jaic/src/toolchain/`):
+Linking (`link` in `crates/jaic-native/src/link.rs`, `Toolchain` in `crates/jaic/src/toolchain/`):
 
 | Linker | Triple | Linker | C runtime |
 |---|---|---|---|

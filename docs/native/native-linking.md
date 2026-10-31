@@ -2,7 +2,7 @@
 
 ## What it is
 
-`jaic` compiles the program to object files with `jaic-llvm` and links them with the system `cc` on macOS and Linux, or a Windows toolchain ([Windows](windows.md)). It adds the libraries named by `#library` and `#system_library` that foreign symbols actually use.
+`jaic` compiles the program to object files with `jaic-llvm` and links them (the linker is in `crates/jaic-native`, so it runs in the driver) with the system `cc` on macOS and Linux, or a Windows toolchain ([Windows](windows.md)). It adds the libraries named by `#library` and `#system_library` that foreign symbols actually use.
 
 ## How it works
 
@@ -20,7 +20,7 @@ A missing library fails at link time; `link_failure` adds a help when the linker
 
 ## How to change it
 
-- Linker rules: `library_args` in `crates/jaic-llvm/src/lib.rs`. Keep its search order in step with how the interpreter loads libraries (`interp/native.rs`). It receives the `Toolchain` and whether the build is a cross build (host directories are not searched then).
+- Linker rules: `library_args` in `crates/jaic-native/src/linker.rs`. Keep its search order in step with how the interpreter loads libraries (`interp/native.rs`). It receives the `Toolchain` and whether the build is a cross build (host directories are not searched then).
 - Static libraries go through `jaic_llvm::archive` (`ar rcs`, or the Windows archivers). Extra linker flags from a metaprogram arrive in the `extra_args` parameter of `link`.
 - Tests in `crates/jaic-cli/tests/native.rs`: `corpus_runs_natively_like_the_interpreter` builds every passing `tests/corpus/manifest.json` case and compares exit code and stdout. Fixtures live in `tests/native/`.
 

@@ -20,7 +20,7 @@ The interpreter, code generation, linking and the tests all read the same descri
 
 The fields, and who reads them:
 
-- `linker` (`Unix`, `MinGw`, `Msvc`): what `jaic-llvm` runs. WebAssembly says `Unix` but never reaches the `cc` code; `wasm-ld` links it.
+- `linker` (`Unix`, `MinGw`, `Msvc`): what `jaic-native` runs. WebAssembly says `Unix` but never reaches the `cc` code; `wasm-ld` links it.
 - `runtime.libs`: the runtime libraries in link order. `default` says how a link names one on its own; the others are only listed when a custom link command replaces the defaults (`link_inputs`).
 - `runtime_args(driver)`: that one table written for `link.exe`/`lld-link`/`clang-cl` (`/DEFAULTLIB:x`, plus `/MD` for `clang-cl`) or for Clang's `cc`-style driver (`-fms-runtime-lib=dll`, `-Wl,/NODEFAULTLIB:libcmt`, `-Wl,/DEFAULTLIB:x`, `-lx`). Clang's own link step adds the static runtime, hence the exclusion.
 - `stack_arg(driver)`: the 8 MiB main stack on Windows, spelled `/STACK:n`, `-Wl,/STACK:n` or `-Wl,--stack,n`.
@@ -53,8 +53,8 @@ None of its own. `JAIC_LINKER` and `JAIC_AR` choose programs ([Windows](../nativ
 
 ## Dependencies
 
-`jaic::target` (`Target`, `TargetOs`, `TargetAbi`). Used by `jaic-llvm` (`link.rs`, `linker.rs`, `link_options.rs`, `lower/symbols.rs`) and the interpreter (`interp/native/windows.rs`).
+`jaic::target` (`Target`, `TargetOs`, `TargetAbi`). Used by `jaic-native` (`link.rs`, `linker.rs`, `link_options.rs`), `jaic-llvm` (`lower/symbols.rs`) and the interpreter (`interp/native/windows.rs`).
 
 ## Discovery
 
-`toolchain/discover.rs` finds a Microsoft `link.exe`, `lib.exe`, the `LIB` value and a Clang outside `PATH` on a Windows host, through the `find-msvc-tools` crate, and tells Microsoft's `link` apart from the coreutils one. It returns paths and environment; it never says which libraries to link. Choosing among the programs it finds stays in `crates/jaic-llvm/src/linker.rs` (`linker_command`).
+`toolchain/discover.rs` finds a Microsoft `link.exe`, `lib.exe`, the `LIB` value and a Clang outside `PATH` on a Windows host, through the `find-msvc-tools` crate, and tells Microsoft's `link` apart from the coreutils one. It returns paths and environment; it never says which libraries to link. Choosing among the programs it finds stays in `crates/jaic-native/src/linker.rs` (`linker_command`).

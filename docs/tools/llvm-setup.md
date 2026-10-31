@@ -2,7 +2,7 @@
 
 ## What it is
 
-`crates/jaic-llvm` uses Inkwell (`llvm23-1-prefer-dynamic`, from a pinned commit; see [development](development.md#dependency-policy)) over a separately installed LLVM 23.1, and `jaic` links with the host's Clang. Building `jaic-cli` needs LLVM; `jaic -check` and `-interp` do not use it at run time. `jai-wasm` does not depend on it.
+`crates/jaic-llvm` uses Inkwell (`llvm23-1-prefer-dynamic`, from a pinned commit; see [development](development.md#dependency-policy)) over a separately installed LLVM 23.1, and `jaic` links with the host's Clang. Building `jaic-cli` needs LLVM; `jaic -check` and `-interp` do not use it at run time, and a release `jaic` does not even load it until a build writes native code ([lazy backend](../compiler/lazy-backend.md)). `jai-wasm` does not depend on it.
 
 ```sh
 brew install llvm@23 lld   # lld: wasm-ld, only for `jaic -os wasm`
@@ -23,7 +23,7 @@ Any LLVM 23.1 install with `llvm-config` and shared `libLLVM` works. The officia
 The programs used at run time (the sanitizer link driver, `wasm-ld`, `llvm-dwarfdump`, `llvm-symbolizer`) come from one search order, in `jacket_config::llvm` for Rust and `tools/toolkit/llvm.py` for the Python tools:
 
 1. the `llvm-sys` variable, then `LLVM_PREFIX`;
-2. the prefix the build saw (`crates/jaic-llvm/build.rs` records it; Rust only);
+2. the prefix the build saw (`crates/jaic-native/build.rs` records it; Rust only);
 3. `llvm-config --prefix` (`llvm-config-<major>` first);
 4. the platform's usual places: Homebrew's `llvm@<major>` and Debian's `/usr/lib/llvm-<major>`;
 5. `<tool>-<major>` or `<tool>` on `PATH`.

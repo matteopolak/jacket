@@ -12,6 +12,7 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `JACKET_OUTPUT_DIR` | Relocates the build output directory (the `native-libs/` lookup and `jacket test --coverage` reports follow it). | `target/` in the project | jaic, jacket |
 | `JACKET_TEST_DLLS` | A path list of directories whose `.dll` files `jacket test` links next to each Windows test executable. | unset | jacket |
 | `JAIC_AR` | The program that archives object files into a static library. | the system `ar`, or `llvm-ar`, a MinGW `ar` or `lib.exe` where that is needed | jaic |
+| `JAIC_BACKEND` | The code generation library (`libjaic_backend`) a release `jaic` opens when a build writes native code. | the code generation library next to the `jaic` executable | jaic |
 | `JAIC_CACHE_DIR` | Where `jaic` unpacks the helpers it embeds (the crash runtime). | `$XDG_CACHE_HOME/jaic`, else the platform's user cache (`~/Library/Caches/jaic`, `~/.cache/jaic`) | jaic |
 | `JAIC_CROSS_LIBS` | A path list of directories with libraries cross-built for a MinGW target; a cross build links from these instead of the host's native libraries. | unset | jaic |
 | `JAIC_DIAGNOSTICS` | The diagnostic layout: `plain`, `ascii` or `unicode`. | by terminal: `unicode` or `ascii` on one, `plain` otherwise | jaic, jailint |
