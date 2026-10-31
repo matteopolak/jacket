@@ -2,16 +2,7 @@
 // `Link`'s). The handshake is a plain blocking call on the calling fiber: it waits through the Io
 // calls under it, so `Io.with_deadline` limits it and `Io.cancel` ends it. After it, the stream is
 // read and written like any other, through `reader_of` and `writer_of`, or directly with `read`,
-// `write_some` and `write`.
-//
-// ```jai,ignore
-// stream, error := tls_connect(*config, Io.reader_of(tcp), Io.writer_of(tcp), "example.com");
-// if error.kind != .NONE { ...; Io.close(tcp); return; }
-// defer close(stream);
-//
-// write(stream, request);
-// count, io_error := read(stream, buffer);
-// ```
+// `write_some` and `write`. The example in the module's docs connects, writes and reads.
 //
 // One stream belongs to one scheduler thread. One fiber may read while another writes (every call
 // into the TLS library is short and not interrupted by a switch to another fiber of the stream);

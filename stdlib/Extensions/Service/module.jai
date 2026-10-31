@@ -33,6 +33,8 @@
 // }
 // ```
 //
+// Not run: it works at compile time, against a running service.
+//
 // In a build, `call` waits for the answer. In the editor (a trusted workspace) it answers
 // `.PENDING` while the service works, and the editor checks the file again once the answer is
 // in. Untrusted workspaces run no compile-time code at all.

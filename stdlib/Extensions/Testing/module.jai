@@ -112,8 +112,20 @@ run :: (t: *Test, name: string, body: (t: *Test)) -> bool {
 
 // `run` with `data` passed on to `body`, for table tests:
 //
-// ```jai,ignore
-// for CASES run(t, it.name, check_case, *it);
+// ```jai
+// Case :: struct {
+//     name: string;
+//     left: int;
+//     right: int;
+//     sum: int;
+// }
+//
+// check_case :: (t: *Test, data: *Case) {
+//     expect_equal(data.left + data.right, data.sum);
+// }
+//
+// cases := Case.[.{"small", 1, 2, 3}, .{"large", 40, 2, 42}];
+// for cases run(t, it.name, check_case, *it);
 // ```
 //
 // - t: the parent test.

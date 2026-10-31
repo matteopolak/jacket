@@ -467,13 +467,31 @@ body_read_proc :: (data: *void, buffer: [] u8) -> s64, Io.Io_Error {
 // while there is more, then 0 once the body has ended (and on every call after that). It waits
 // for data when none has arrived. For a body that should not be held in memory:
 //
-// ```jai,ignore
-// buffer: [16384] u8;
+// ```jai,skip_on(wasm)
+// hello :: () -> string {
+//     return "hello";
+// }
 //
-// while true {
-//     count, error := read_some(*response, buffer);
-//     if error.kind != .NONE || count == 0 break;
-//     write(file, buffer, count);
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/", hello);
+//
+//     api := test_client(*app);
+//     response, _ := get(api, "/");
+//     defer close(*response);
+//
+//     buffer: [4] u8;
+//     total := 0;
+//
+//     while true {
+//         count, error := read_some(*response, buffer);
+//         if error.kind != .NONE || count == 0 break;
+//         total += count;
+//     }
+//
+//     assert(total == 5);
 // }
 // ```
 //
@@ -547,10 +565,20 @@ read_some :: (response: *Client_Response, buffer: [] u8) -> int, Client_Error {
 // server sends, when there is one) and the `body` text, so this reads the body. Release the error
 // with `free_error`.
 //
-// ```jai,ignore
-// response, error := get(*api, "/users/1");
-// defer close(*response);
-// error = error_for_status(*response);
+// ```jai,skip_on(wasm)
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     api := test_client(*app);
+//     response, _ := get(api, "/missing");
+//     defer close(*response);
+//
+//     error := error_for_status(*response);
+//     defer free_error(*error);
+//
+//     assert(error.kind == .STATUS && error.status == 404);
+// }
 // ```
 error_for_status :: (response: *Client_Response) -> Client_Error {
     if response.status >= HTTP_OK && response.status < HTTP_MULTIPLE_CHOICES return .{};

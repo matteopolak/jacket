@@ -14,6 +14,8 @@
 // ```jai,ignore
 // stored, error := Pg.copy_in(db, "copy users (email, score) from stdin (format binary)", users, .["email", "score"]);
 // ```
+//
+// Not run: it needs a PostgreSQL server.
 copy_in :: (c: *Connection, sql: string, rows: [] $Row, columns: [] string = .[]) -> s64, Pg_Error {
     #assert type_info(Row).type == .STRUCT "copy_in takes an array of structs";
 
@@ -71,6 +73,8 @@ Copy_Out_Proc :: #type (data: [] u8, user_data: *void);
 // ```jai,ignore
 // count, error := Pg.copy_out(db, "copy (select email from users) to stdout (format csv)", write_chunk, file);
 // ```
+//
+// Not run: it needs a PostgreSQL server.
 copy_out :: (c: *Connection, sql: string, proc: Copy_Out_Proc, user_data: *void = null) -> s64, Pg_Error {
     state: Copy_Stream;
     state.proc = proc;
@@ -138,6 +142,8 @@ free_copy_rows :: (copied: *Copy_Rows($Row)) {
 // for copied.rows print("% %\n", it.email, it.score);
 // Pg.free_copy_rows(*copied);
 // ```
+//
+// Not run: it needs a PostgreSQL server.
 copy_out :: (c: *Connection, sql: string, $Row: Type, columns: [] string = .[]) -> Copy_Rows(Row), Pg_Error {
     #assert type_info(Row).type == .STRUCT "copy_out takes a struct";
 

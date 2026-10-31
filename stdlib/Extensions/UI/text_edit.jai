@@ -536,8 +536,23 @@ paste_clipboard :: (ui: *UI_State, edit: *Text_Edit) {
 // - options: font, size, line numbers, highlighting, marks, read-only mode and tab width.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 //
-// ```jai,ignore
-// if text_editor(*doc.edit, .{line_numbers = true, highlight = highlight_jai}) doc.dirty = true;
+// ```jai,no_run,skip_on(wasm)
+// #import "Basic";
+// #import "Extensions/UI";
+//
+// Notes :: struct {
+//     edit: Text_Edit;
+//     dirty: bool;
+// }
+//
+// main :: () {
+//     notes: Notes;
+//     run_app(.{title = "Notes", width = 480, height = 320}, *notes, build);
+// }
+//
+// build :: (notes: *Notes) {
+//     if text_editor(*notes.edit, .{line_numbers = true}) notes.dirty = true;
+// }
 // ```
 text_editor :: (edit: *Text_Edit, options: Editor_Options = .{}, loc := #caller_location) -> changed: bool {
     edit.single_line = false;

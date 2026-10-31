@@ -167,13 +167,6 @@ Group :: struct(PREFIX: string) {
     middleware: [..] Middleware;
 }
 
-// Routes under `prefix`, wrapped by `middleware`, which runs after the app's middleware:
-//
-// ```jai,ignore
-// admin := group(*app, "/admin", require_token);
-// get(admin, "/stats", stats);               // GET /admin/stats
-// v1 := group(admin, "/v1");                 // groups nest; the middleware add up
-// ```
 // Routes under `prefix` that share `middleware`, which runs after the app's own. The prefix is part of the group's type, so
 // a handler's `Path(...)` is checked against the whole route. The group belongs to the app and is released with it: do not
 // free it. Groups nest with `group(parent, "/more")`, and the middleware add up.

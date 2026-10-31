@@ -150,14 +150,7 @@ processor_count :: () -> s64 {
 
 // Starts `count` schedulers, each on a thread of its own, runs `proc` as the first fiber of every
 // one, and returns when all have finished. Fibers never move between them. With `reuse_port`
-// listeners (`tcp_listen(..., reuse_port = true)`) each thread accepts its own connections:
-//
-// ```jai,ignore
-// io_run_threads(4, () {
-//     listener, error := tcp_listen(":8080", reuse_port = true);
-//     while true { conn := accept(listener); spawn(handle, conn); }
-// });
-// ```
+// listeners (`tcp_listen(..., reuse_port = true)`) each thread accepts its own connections.
 //
 // `count` 0 means one per processor. Call it from outside any `io_run`.
 //

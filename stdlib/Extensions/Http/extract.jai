@@ -20,9 +20,31 @@ Path :: struct(NAME: string, T: Type) {
 // Several `{params}` at once: every field of `T` names a parameter of the route. The `T` lives in
 // temporary storage for the request.
 //
-// ```jai,ignore
-// Post_Key :: struct { user: int; post: string; }
-// get_post :: (key: Params(Post_Key)) { ... key.temporary.user ... }
+// ```jai,skip_on(wasm)
+// Post_Key :: struct {
+//     user: int;
+//     post: string;
+// }
+//
+// get_post :: (key: Params(Post_Key)) -> string {
+//     return tprint("% / %", key.temporary.user, key.temporary.post);
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     get(*app, "/users/{user}/posts/{post}", get_post);
+//
+//     api := test_client(*app);
+//     response, _ := get(api, "/users/7/posts/intro");
+//     defer close(*response);
+//
+//     text, _ := read_text(*response);
+//     defer free(text);
+//
+//     assert(text == "7 / intro");
+// }
 // ```
 Params :: struct(T: Type) {
     temporary: T;
@@ -46,9 +68,34 @@ Query :: struct(T: Type) {
 // route's `max_body` is a 413. The `T` lives in temporary storage for the request: copy the
 // strings you keep.
 //
-// ```jai,ignore
+// ```jai,skip_on(wasm)
+// New_User :: struct {
+//     name: string;
+// }
+//
+// User :: struct {
+//     id: int;
+//     name: string;
+// }
+//
 // create :: (body: Json(New_User)) -> User {
-//     return .{ id = next_id(), name = copy_string(body.temporary.name) };
+//     return .{ id = 1, name = copy_string(body.temporary.name) };
+// }
+//
+// main :: () {
+//     app: App;
+//     defer free_app(*app);
+//
+//     post(*app, "/users", create);
+//
+//     api := test_client(*app);
+//     response, _ := post(api, "/users", New_User.{ name = "ada" });
+//     defer close(*response);
+//
+//     text, _ := read_text(*response);
+//     defer free(text);
+//
+//     assert(response.status == 200 && text.count > 0);
 // }
 // ```
 Json :: struct(T: Type) {

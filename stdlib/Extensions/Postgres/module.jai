@@ -2,7 +2,8 @@
 // compilers have no such module, and it may change between jaic releases. See
 // docs/extensions/postgres.md.
 //
-// ```jai,ignore
+// ```jai,no_run
+// Io :: #import "Extensions/Io";
 // Pg :: #import "Extensions/Postgres";
 //
 // main :: () {

@@ -41,6 +41,8 @@ Rows :: struct(T: Type) {
 // users := Pg.fetch_all(*rows);   // or Pg.fetch_all(*rows, temp)
 // Pg.free_rows(*rows);
 // ```
+//
+// Not run: it needs a PostgreSQL server.
 fetch_all :: (rows: *Rows($T), allocator := context.allocator) -> [] T {
     decoded: [..] T;
     decoded.allocator = temp;
@@ -339,6 +341,8 @@ execute :: (db: $D, $sql: string, args: ..Any, plan := Plan.AUTO, json := Json_O
 // changed, error = Pg.take(p, count);
 // Pg.pipeline_exit(p);
 // ```
+//
+// Not run: it needs a PostgreSQL server.
 queue :: (p: *Pipeline, $sql: string, args: ..Any, $call := #caller_code) -> Pending(Rows(#run row_type(sql, call, 1, #insert,scope(call) #run row_table_type(sql, call, 1, #insert,scope(call) #run row_table_exists(sql, call, 1)), Row(#run row_shape(sql, call, 1))))), Pg_Error #expand {
     #run check_statement(sql, call, 1, true);
 
@@ -385,6 +389,8 @@ queue_execute :: (p: *Pipeline, $sql: string, args: ..Any, $call := #caller_code
 // }
 // if error.kind != .NONE ...
 // ```
+//
+// Not run: it needs a PostgreSQL server.
 stream :: (c: *Connection, error: *Pg_Error, $sql: string, args: ..Any, batch := 1000, $call := #caller_code) -> Row_Stream(#run row_type(sql, call, 2, #insert,scope(call) #run row_table_type(sql, call, 2, #insert,scope(call) #run row_table_exists(sql, call, 2)), Row(#run row_shape(sql, call, 2)))) #expand {
     #run check_statement(sql, call, 2, true);
 

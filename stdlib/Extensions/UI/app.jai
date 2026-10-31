@@ -26,8 +26,22 @@ App_Window :: struct {
 // - app: your app state, passed to `build` each frame.
 // - build: declares the widgets for a frame.
 //
-// ```jai,ignore
-// run_app(.{title = "Counter", width = 320, height = 200}, *app, build);
+// ```jai,no_run,skip_on(wasm)
+// #import "Basic";
+// #import "Extensions/UI";
+//
+// Counter :: struct {
+//     count: int;
+// }
+//
+// main :: () {
+//     app: Counter;
+//     run_app(.{title = "Counter", width = 320, height = 200}, *app, build);
+// }
+//
+// build :: (app: *Counter) {
+//     if button(tprint("Clicked % times", app.count)) app.count += 1;
+// }
 // ```
 run_app :: (options: App_Options, app: *$T, build: (app: *T)) -> bool {
     ui := New(UI_State);

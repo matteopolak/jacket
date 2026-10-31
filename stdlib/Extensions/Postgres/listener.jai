@@ -16,6 +16,8 @@
 // }
 // Pg.close_listener(listener);
 // ```
+//
+// Not run: it needs a PostgreSQL server.
 Listener :: struct {
     // Notifications received and not yet taken, oldest first (`receive`). The reader waits when
     // `LISTENER_QUEUE` of them are queued.

@@ -14,6 +14,8 @@
 // }
 // ```
 //
+// Not run: it is a compile-time macro that reports to the compiler.
+//
 // Both quoted literals (with every escape) and here-strings (`#string`, `#string,cr`,
 // `#string,\%`) are mapped. The source is read through the compiler's file system, so the
 // editor maps against the unsaved buffer.

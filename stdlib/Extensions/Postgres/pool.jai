@@ -198,6 +198,8 @@ Isolation :: enum u8 {
 //     return error;
 // }, .SERIALIZABLE, retries = 3);
 // ```
+//
+// Not run: it needs a PostgreSQL server.
 transaction :: (pool: *Pool, data: $T, body: (tx: *Connection, data: T) -> Pg_Error, isolation := Isolation.DEFAULT, retries := 0, read_only := false) -> Pg_Error {
     c, error := acquire(pool);
     if error.kind != .NONE return error;

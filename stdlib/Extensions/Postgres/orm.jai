@@ -120,6 +120,8 @@ insert_many :: (db: $D, values: [] $T, $call := #caller_code) -> [] T, Pg_Error 
 // error: Pg.Pg_Error;
 // for Pg.each(db, User, *error, where = #code it.score > min) print("%\n", it.email);   // select "id", "email" ...
 // ```
+//
+// Not run: it needs a PostgreSQL server.
 each :: (db: $D, $T: Type, error: *Pg_Error, $where: Code = EVERY_ROW, $order_by: Code = NO_ORDER, $desc := false, $limit := -1, $offset := 0, $from_sql := "", $strategy := Orm_Strategy.PRELOAD, $call := #caller_code) -> Orm_Each(D, T, where, order_by, desc, limit, offset, from_sql, strategy, call) {
     if error error.* = .{};
     return .{ db = db, error = error };
@@ -163,6 +165,8 @@ copy_many :: (db: $D, values: [] $T) -> s64, Pg_Error {
 // posts, error := Pg.load_many(db, users, "posts");
 // for users print("% wrote % posts\n", it.email, posts.items[it_index].count);
 // ```
+//
+// Not run: it needs a PostgreSQL server.
 Loaded_Many :: struct(Item: Type) {
     items: [][] Item;
     // Every item once; `items` are views into it.
