@@ -143,7 +143,7 @@ Options live in one table, `OPTIONS` in `crates/jaic-cli/src/main.rs`, in `-help
    A value option uses `store!("a directory", |cli, dir| cli.output_path = Some(PathBuf::from(dir)))`, or a `store_*` function when the value needs checking. A row without `.help(...)` is accepted but not listed (its spelling is covered by another row's line). `.aliases(&[...])` adds spellings that are never suggested; keep names under three characters there, since `suggest::closest` only matches those exactly.
 3. Checks that involve several options or the mode go in `Cli::finish`.
 
-Renamed options go in `RENAMED`, which produces the "use X instead" errors. The `-msvc_format` layout is `Layout::Msvc` in `crates/jaic/src/render.rs`.
+Renamed options go in `RENAMED`, which produces the "use X instead" errors. The `-msvc_format` layout is `Layout::Msvc` in `crates/jaic-syntax/src/render.rs`.
 
 Tests live in `crates/jaic-cli/tests/`: `cli.rs` for parsing, `diagnostics.rs` for output and exit codes, and `native.rs` for builds.
 

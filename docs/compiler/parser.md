@@ -2,7 +2,7 @@
 
 ## What it is
 
-The recursive-descent parser in `crates/jaic/src/parser/`. It turns tokens from `lexer::lex` into an `ast::File` and stops at the first error; there is no recovery.
+The recursive-descent parser in `crates/jaic-syntax/src/parser/`. It turns tokens from `lexer::lex` into an `ast::File` and stops at the first error; there is no recovery.
 
 ## How it works
 

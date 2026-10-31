@@ -114,6 +114,7 @@ def main() -> int:
     args = parser.parse_args()
     roots = args.root or [
         "crates/jaic/src",
+        "crates/jaic-syntax/src",
         "crates/jaic-cli/src",
         "crates/jaic-llvm/src",
         "crates/jai-language-server/src",

@@ -51,7 +51,7 @@ jobs:
           FULL_SUITE: ${{ inputs.full_suite }}
         run: |
           if [ -z "$SCOPE" ]; then
-            SCOPE='crates/jaic/src/sema/calls/**/*.rs crates/jaic/src/sema/convert/**/*.rs crates/jaic/src/sema/convert.rs crates/jaic/src/ide/interval.rs crates/jaic/src/types.rs crates/jaic/src/interp/arith.rs crates/jaic/src/parser/**/*.rs'
+            SCOPE='crates/jaic/src/sema/calls/**/*.rs crates/jaic/src/sema/convert/**/*.rs crates/jaic/src/sema/convert.rs crates/jaic/src/ide/interval.rs crates/jaic/src/types.rs crates/jaic/src/interp/arith.rs crates/jaic-syntax/src/parser/**/*.rs'
           fi
           files=()
           # shellcheck disable=SC2086
@@ -62,7 +62,7 @@ jobs:
           for name in cast_shifts cast_semantics literals call_diagnostics default_type nominal_comparisons operator_filters struct_arguments variadics poly_inference_errors void_ifx typed_nodes pointer_subscript raw_pointers never_returns; do tests+=(--test "$name"); done
           [ "$FULL_SUITE" != true ] || tests=()
           # Surviving mutants are the output, not a failure: exit codes 2 (missed) and 3 (timeouts) pass.
-          cargo mutants -p jaic --shard "${{ matrix.shard }}/8" "${files[@]}" --output mutants-out --jobs 1 -- "${tests[@]}" && status=0 || status=$?
+          cargo mutants -p jaic -p jaic-syntax --shard "${{ matrix.shard }}/8" "${files[@]}" --output mutants-out --jobs 1 -- "${tests[@]}" && status=0 || status=$?
           [ "$status" -eq 0 ] || [ "$status" -eq 2 ] || [ "$status" -eq 3 ]
       - name: Surviving mutants
         if: ${{ always() }}

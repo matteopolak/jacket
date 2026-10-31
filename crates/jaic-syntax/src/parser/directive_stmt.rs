@@ -12,7 +12,7 @@ use crate::source::Span;
 use std::rc::Rc;
 
 /// Directive statements that take a plain list of expressions up to the `;`.
-pub(crate) const GENERIC_DIRECTIVES: &[&str] = &[
+pub const GENERIC_DIRECTIVES: &[&str] = &[
     "library",
     "system_library",
     "foreign_library",

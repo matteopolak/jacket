@@ -16,7 +16,7 @@
 
 ## How to change it
 
-1. Edit `crates/jaic/src/lexicon.rs` (or `LANGUAGE_TAGS` in `lexer/here.rs`).
+1. Edit `crates/jaic-syntax/src/lexicon.rs` (or `LANGUAGE_TAGS` in `lexer/here.rs`).
 2. `INSTA_UPDATE=always cargo test -p jaic --lib lexicon` rewrites `editors/lexicon.json` (the same switch that rewrites snapshots; see [the test harness](../tools/test-harness.md)).
 3. `node editors/vscode/scripts/build-grammar.ts` regenerates the grammar and the Neovim lists.
 

@@ -1,0 +1,14 @@
+[package]
+name = "jaic-syntax"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Jai compiler front end: source files, diagnostics, lexer, parser and syntax tree."
+
+[dependencies]
+pulldown-cmark.workspace = true
+jacket-config = { path = "../jacket-config" }
+
+[lints]
+workspace = true

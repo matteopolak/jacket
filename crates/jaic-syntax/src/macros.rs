@@ -12,6 +12,7 @@
 ///   several ways (`A = "a" | "old_a"`); `name` gives the first.
 ///
 /// Both derive `Clone, Copy, Debug, PartialEq, Eq`.
+#[macro_export]
 macro_rules! raw_enum {
     (
         $(#[$meta:meta])*
@@ -75,4 +76,4 @@ macro_rules! raw_enum {
     };
 }
 
-pub(crate) use raw_enum;
+pub use raw_enum;

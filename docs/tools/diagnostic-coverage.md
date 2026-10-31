@@ -6,7 +6,7 @@
 
 ## How it works
 
-Every diagnostic has a code, defined once in `crates/jaic/src/diagnostics/catalog.rs` (see [diagnostics](../compiler/diagnostics.md)). The script reads that table and looks for each code in the test corpus: every tracked text file under `tests/`, `crates/*/tests/`, the standard library's own `tests/` folders (their `.stderr` goldens), test modules in `crates/*/src` and `tools/test_*` files.
+Every diagnostic has a code, defined once in `crates/jaic-syntax/src/diagnostics/catalog.rs` (see [diagnostics](../compiler/diagnostics.md)). The script reads that table and looks for each code in the test corpus: every tracked text file under `tests/`, `crates/*/tests/`, the standard library's own `tests/` folders (their `.stderr` goldens), test modules in `crates/*/src` and `tools/test_*` files.
 
 A code is tested when a test names it as:
 

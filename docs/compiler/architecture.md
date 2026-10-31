@@ -6,7 +6,8 @@ An independent Jai compiler in Rust, aiming at source compatibility with real Ja
 
 | Crate | Role |
 | --- | --- |
-| `crates/jaic` | Compiler core: lexer, parser, sema, IR, interpreter. No external crates. |
+| `crates/jaic-syntax` | The front end: source files and spans, diagnostics, lexer, parser, syntax tree, the file system trait, and the small utilities they share. Knows nothing about type checking. |
+| `crates/jaic` | Compiler core: sema, IR, interpreter, workspaces, IDE queries. Re-exports `jaic-syntax` at its root, so downstream crates keep writing `jaic::parser`, `jaic::source` and so on. |
 | `crates/jaic-cli` | The `jaic` binary (`jaic file.jai` builds, `-check` only compiles, `-interp` interprets). |
 | `crates/jaic-llvm` | Native backend over the shared IR (Inkwell, LLVM 23). |
 | `crates/jai-language-server` | JSON-RPC language server on top of `jaic` ([language server](language-server.md)). |
@@ -28,6 +29,22 @@ lexer -> parser (ast) -> sema (demand-driven checking, then lowering) -> ir -> i
 - `build.rs`, `records.rs`: workspaces and compiler messages for metaprograms ([workspaces](../metaprogramming/workspaces.md)).
 - `interp/`: the IR [interpreter](interpreter.md), used for `#run`, metaprograms and `jaic -interp`. Its `Host` decides which `#foreign` calls exist; the browser uses `SandboxHost`. The compiler's own reads and writes of program memory go through `interp::memory`, which uses the fault-safe copies in `interp::probe`; interpreted loads and stores use raw pointers, like the native program.
 - `stdlib/` (including `stdlib/prelude/`) is plain Jai, loaded through `sema::FileSystem` (real or virtual).
+
+### Crate layers
+
+`jaic-syntax` holds `source`, `render`, `diagnostics`, `lexer`, `parser`, `ast`, `intern`, `lexicon`, `docs`, `doc_comments`, `paths`, `filesystem`, `fxhash`, `knobs`, `suggest` and `macros`, plus the prelude and display-path helpers in its `lib.rs`. `jaic` depends on it and does `pub use jaic_syntax::*`, so inside `jaic` a path like `crate::ast::Expr` still works.
+
+Only the syntax layer was split off. Sema, the interpreter and the build code call each other in both directions (`sema` <-> `interp` <-> `build`), and `sema` holds the IDE recorder, so cutting further needs trait inversion across about fifty call sites. Splitting `ir`, `target` and `ide` out would not shorten the rebuilds below either: everything above `jaic-syntax` still rebuilds when the parser changes.
+
+Dev-profile rebuild times in seconds (no incremental; touching one file, then building the binary), measured on the same machine before and after the split:
+
+| Touch | `jaic-cli` | `jailint` | `jai-language-server` |
+| --- | --- | --- | --- |
+| parser file, before / after | 10 / 11 | 10 / 11 | 10 / 12 |
+| sema file, before / after | 11 / 10 | 10 / 9 | 13 / 13 |
+| ide file, before / after | 10 / 7 | 12 / 11 | 12 / 10 |
+
+The split does not speed up those three binaries, because each links the whole compiler. It pays off for tools that only need the syntax layer (parser tests, fuzz targets): after touching a parser file, `cargo build -p jaic-syntax` takes about 1.5 seconds, where the same touch used to rebuild all of `jaic`.
 
 ### Threading
 

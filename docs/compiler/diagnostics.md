@@ -29,7 +29,7 @@ The severity comes from the code (`Code::severity`); a flag can change how a war
 
 #### The catalog
 
-Every code is defined once, in `crates/jaic/src/diagnostics/catalog.rs`:
+Every code is defined once, in `crates/jaic-syntax/src/diagnostics/catalog.rs`:
 
 ```rust
 "types" => {
@@ -98,7 +98,7 @@ Removing something is always `MaybeIncorrect`, never preferred.
 
 Lexer and parser errors carry suggestions too, built where they are raised: `Parser::missing_semicolon` (`parser/mod.rs`) inserts `;` where the previous token ends (machine-applicable when the next token starts a line or closes a block, a guess when more of the line follows), `Parser::unclosed_block` adds a "the block opens here" note at the `{` and, at the end of the file, a suggestion that writes the `}`, and the lexer fixes an unknown escape (`\q` to `\\q`) and closes an unterminated block comment or here-string at the end of the file. A parser path that rebuilds an error to move its span (the editor's recovery) must keep the rest with `Diagnostic { span, ..error }`, or the suggestions are lost. `jailsp` keeps them next to the syntax diagnostics (`Analysis::syntax_fixes`) and `suggestion_fixes.rs` turns them into quick fixes like the type checker's.
 
-### Rendering (`crates/jaic/src/render.rs`)
+### Rendering (`crates/jaic-syntax/src/render.rs`)
 
 Line and column numbers come from `jaic::source::LineIndex` (see [source positions](source-positions.md)); a `Label` or `Fix` carries the caller's index so rendering stays linear. One renderer serves `jaic`, `jailint` and `jaifmt`'s command-line errors. `Report` is its input; `Diagnostic::report` converts a compiler diagnostic (each listed suggestion is a `help:` line; one whose edits are replacements in one file shows the changed code under it, as `~`, or `-` for removed lines) and `Report::from_text` converts text with `help:`/`note:` lines. Layouts, picked once per process (`render::detect`, then `set_style`):
 

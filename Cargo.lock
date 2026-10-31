@@ -382,6 +382,7 @@ version = "0.30.4"
 dependencies = [
  "find-msvc-tools",
  "jacket-config",
+ "jaic-syntax",
  "pulldown-cmark",
  "rayon",
  "test-support",
@@ -407,6 +408,14 @@ dependencies = [
  "jacket-config",
  "jaic",
  "test-support",
+]
+
+[[package]]
+name = "jaic-syntax"
+version = "0.30.4"
+dependencies = [
+ "jacket-config",
+ "pulldown-cmark",
 ]
 
 [[package]]

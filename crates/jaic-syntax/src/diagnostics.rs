@@ -62,7 +62,7 @@ pub struct Diagnostic {
     pub help: Vec<String>,
     /// Changes that fix the problem, in a form tools can apply. Each prints as a `help:` line
     /// before the plain ones in `help`; editors offer each as a quick fix.
-    pub(crate) suggestions: Option<Box<Suggestions>>,
+    pub suggestions: Option<Box<Suggestions>>,
 }
 
 impl Diagnostic {

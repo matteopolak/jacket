@@ -118,12 +118,16 @@ pub fn native_spelling(path: &str, windows: bool) -> Option<String> {
 /// already knows the real spelling and some Windows folders are case-sensitive. The language
 /// server, the linter and the compiler's own file table all compare files through this, so one
 /// file reached through a link, a verbatim prefix or a different drive-letter case is one file.
-pub fn file_identity(fs: &dyn crate::sema::FileSystem, path: &Path) -> PathBuf {
+pub fn file_identity(fs: &dyn crate::filesystem::FileSystem, path: &Path) -> PathBuf {
     file_identity_on(fs, path, cfg!(windows))
 }
 
 /// [`file_identity`] with the Windows rules chosen by `windows` (for tests on any host).
-pub fn file_identity_on(fs: &dyn crate::sema::FileSystem, path: &Path, windows: bool) -> PathBuf {
+pub fn file_identity_on(
+    fs: &dyn crate::filesystem::FileSystem,
+    path: &Path,
+    windows: bool,
+) -> PathBuf {
     identity_spelling_on(&fs.canonical(path), windows)
 }
 
@@ -228,7 +232,9 @@ pub fn stdlib_dir(fallback: PathBuf) -> PathBuf {
         .into_iter()
         .flatten()
         .filter_map(|exe| Some(exe.parent()?.join("stdlib")))
-        .find(|dir| dir.is_dir() && crate::find_preload(&crate::sema::NativeFs, dir).is_some())
+        .find(|dir| {
+            dir.is_dir() && crate::find_preload(&crate::filesystem::NativeFs, dir).is_some()
+        })
         .unwrap_or(fallback)
 }
 
@@ -375,7 +381,9 @@ mod tests {
         if jacket_config::env::STDLIB.os().is_none() {
             let fallback = PathBuf::from("/nowhere/stdlib");
             assert_eq!(stdlib_dir(fallback.clone()), fallback);
-            assert!(crate::find_preload(&crate::sema::NativeFs, &default_stdlib_dir()).is_some());
+            assert!(
+                crate::find_preload(&crate::filesystem::NativeFs, &default_stdlib_dir()).is_some()
+            );
         }
     }
 }

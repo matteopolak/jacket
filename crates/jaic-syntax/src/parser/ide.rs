@@ -32,7 +32,7 @@ pub fn parse_file_ide(file: FileId, text: &str) -> IdeParse {
 /// Capture the normal parser's actual callee, including complex receivers, before
 /// parsing its unfinished arguments. No source/argument/body is rewritten. Only
 /// the requested expression is cloned; strict CLI parsing never sets this hook.
-pub(crate) fn parse_callee_ide(file: FileId, text: &str, open: u32) -> Option<crate::ast::Expr> {
+pub fn parse_callee_ide(file: FileId, text: &str, open: u32) -> Option<crate::ast::Expr> {
     let (tokens, _) = crate::lexer::lex_ide(file, text);
     let mut parser = Parser::new(text, tokens);
     parser.recovery = Some(Vec::new());

@@ -25,7 +25,7 @@ Flags are declared at the top of `jaifmt/main.jai` and parsed by [`Extensions/Ar
 
 `stdlib/Extensions/Jai_Format/` holds:
 
-- `lexer.jai`: same token boundaries as `crates/jaic/src/lexer.rs`, but comments are tokens and each token records the whitespace before it.
+- `lexer.jai`: same token boundaries as `crates/jaic-syntax/src/lexer.rs`, but comments are tokens and each token records the whitespace before it.
 - `format.jai`: `plan_lines` decides line breaks (`breaks[i]`), then the emit loop writes each line with indentation from a stack of `Frame`s and zero or one space between tokens (`spacing_rule`).
 - `config.jai`: `jacket.toml` `[format]` parsing and ignore globs, for standalone use and the browser (`jacket fmt` passes resolved settings instead).
 - `project.jai`: the upward search for the governing `jacket.toml` (`find_config`), with file reading left to the front end.
@@ -85,7 +85,7 @@ Also `format_find_config(directory, reader, stop)` (the nearest `jacket.toml` at
 - **Blank-line rule for code blocks:** `statement_wants_blank` (one `if` per option), a field in `Format_Config`, an `apply_key` arm and `FORMAT_KEYS` entry, the matching entry in `FORMAT_SETTINGS` and `Format` in `crates/jacket-config/src/schema.rs` (the sync test fails until they agree), and a `stmt-*` golden case. It may only call `add_blank_line`. File-level items: `separate_pair`, `finish_item`, `block_ends_item`, `is_item_container`.
 - **Line structure:** `plan_lines`; any break it adds or removes must be accepted by `break_change_allowed`, which must accept only breaks the parser ignores.
 - **Indentation:** `line_indent`, `track`, `starts_statement`.
-- **Lexer:** mirror `crates/jaic/src/lexer.rs` (`crates/jaic/tests/formatter_lexer.rs` fails when the punctuation table drifts; `Jai_Lexer` is the metaprogram token contract and cannot serve, see the comment in `lexer.jai`). If the parser starts depending on whitespace somewhere new (look for `newline_before` in `crates/jaic/src/parser/`), teach `check_equivalent` and keep that spacing.
+- **Lexer:** mirror `crates/jaic-syntax/src/lexer.rs` (`crates/jaic/tests/formatter_lexer.rs` fails when the punctuation table drifts; `Jai_Lexer` is the metaprogram token contract and cannot serve, see the comment in `lexer.jai`). If the parser starts depending on whitespace somewhere new (look for `newline_before` in `crates/jaic-syntax/src/parser/`), teach `check_equivalent` and keep that spacing.
 - **Golden tests:** `stdlib/Extensions/Jai_Format/tests/fixtures/<name>.in.jai` must format to `<name>.out.jai` (optional `<name>.toml`). Run `jaic stdlib/Extensions/Jai_Format/tests/golden.jai -interp`; regenerate with `-- --bless` and review the diff. `stdlib/Extensions/Jai_Format/tests/api.jai` covers the API in memory so it also runs in the browser engine. `crates/jaic-cli/tests/native.rs` covers the CLI and checks idempotence over the repository's Jai files.
 - The strongest test is semantic: format a scratch copy of `stdlib/`, `tests/` and the upstream corpus and run the sweep.
 - Layout-sensitive files: add to `ignore` or wrap in `// jaifmt: off`/`on`. Tests comparing `#location` lines must not rely on two statements sharing a line.

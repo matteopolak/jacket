@@ -32,7 +32,7 @@ PYTHONPATH=tools python3 tools/ci/check_stdlib_docs.py --update                 
 ```
 
 - Document a listed declaration, run `--update`, commit the shorter list. Documenting the target of an alias documents every alias of it.
-- What counts as public or documented: `crates/jaic/src/doc_comments/gaps.rs` (unit tests there); the check, report and list handling: the script (`tools/ci/test_check_stdlib_docs.py`).
+- What counts as public or documented: `crates/jaic-syntax/src/doc_comments/gaps.rs` (unit tests there); the check, report and list handling: the script (`tools/ci/test_check_stdlib_docs.py`).
 - `python3 tools/dev/dev.py repo-checks stdlib-docs` runs only this check. The pre-commit hook skips it (it needs `jaic`); CI runs it with the other repository checks.
 
 ## Configuration

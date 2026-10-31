@@ -16,7 +16,7 @@ note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 """
 
 BACKTRACE = """\
-thread 'main' panicked at crates/jaic/src/lexer.rs:7:5:
+thread 'main' panicked at crates/jaic-syntax/src/lexer.rs:7:5:
 index out of bounds: the len is 3 but the index is 7
 stack backtrace:
    0: rust_begin_unwind

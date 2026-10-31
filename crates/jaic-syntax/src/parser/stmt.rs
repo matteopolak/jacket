@@ -959,7 +959,7 @@ impl Parser<'_> {
 }
 
 /// The checks the `#no_abc` / `#no_aoc` among `flags` turn off.
-pub(crate) fn check_bits(flags: &[Ident]) -> CheckBits {
+pub fn check_bits(flags: &[Ident]) -> CheckBits {
     let named = |name: &str| flags.iter().any(|f| f.name.as_str() == name);
     let mut checks = CheckBits::NONE;
     if named("no_abc") {

@@ -47,7 +47,7 @@ Pipes and logs get none of it. `-quiet`/`--quiet`, `NO_COLOR`, `-no_color` and `
 
 ## Explaining diagnostics
 
-Every error and warning shows a code, as in `error[type-mismatch]`. `jacket explain type-mismatch` says what the code means and how to fix it, with an example; `jacket explain` alone lists all of them by area, and a mistyped code gets the nearest one. The text is the catalog in `crates/jaic/src/diagnostics/catalog.rs`, read through the `jaic` crate (`commands::explain`), so `jacket` has no copy of it. See [diagnostics](../compiler/diagnostics.md).
+Every error and warning shows a code, as in `error[type-mismatch]`. `jacket explain type-mismatch` says what the code means and how to fix it, with an example; `jacket explain` alone lists all of them by area, and a mistyped code gets the nearest one. The text is the catalog in `crates/jaic-syntax/src/diagnostics/catalog.rs`, read through the `jaic` crate (`commands::explain`), so `jacket` has no copy of it. See [diagnostics](../compiler/diagnostics.md).
 
 ## Upgrading
 

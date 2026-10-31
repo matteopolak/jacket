@@ -23,7 +23,7 @@ Literal nodes from `compiler_get_nodes` carry the file (`enclosing_load`), plus 
 
 1. Reads the file again with `read_entire_file`. In the editor this goes through the language server's overlay, so it reads the unsaved buffer.
 2. Finds the literal's first byte.
-3. Decodes the literal the way the lexer does (`crates/jaic/src/lexer/scan.rs`), recording for each output byte the offset of the source that produced it:
+3. Decodes the literal the way the lexer does (`crates/jaic-syntax/src/lexer/scan.rs`), recording for each output byte the offset of the source that produced it:
    - **Quoted literals.** Every escape is handled: `\n \r \t \0 \e \a \b \f \v \% \\ \" \'`, `\xHH`, `\dDDD`, `\uHHHH`, `\UHHHHHHHH`, and line continuations. A byte produced by an escape maps to its backslash.
    - **Here-strings.** `#string TAG`, with the `,cr` and `,\%` flags. `\r` is dropped, and with `,cr` a line end becomes `\r\n`.
 4. Checks that the decoded text equals the node's `_string`. If it does not (a string built by compile-time code, or a file changed since it was parsed), `ok` is false.

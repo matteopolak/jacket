@@ -451,7 +451,7 @@ The target names in `only` and `skip_on` take `mode =` and `cpu =` to narrow an 
 - What is watched, the debounce and which changes narrow a run: `watch.rs`; the run itself is `run_once` in `mod.rs`, which tells `Watched` the folders and test files it used.
 - A filter predicate: `Parser::predicate` and `eval` in `crates/jacket/src/test/filter.rs`, and what a test offers it in `expr_selects` and `kinds_of` (`mod.rs`).
 - A new kind of file test: `Root::read` (`discover.rs`), a `Kind`, and a runner in `golden.rs` called from `run_file_case` (`jobs.rs`).
-- Doc tests: what counts as a doc comment and which files are read is `crates/jaic/src/doc_comments.rs` (printed by `jaic -doc_comments`); the fence options and the generated program are in `doctest.rs` (`fenced`, `generate`); checking a block is `doctest::check`.
+- Doc tests: what counts as a doc comment and which files are read is `crates/jaic-syntax/src/doc_comments.rs` (printed by `jaic -doc_comments`); the fence options and the generated program are in `doctest.rs` (`fenced`, `generate`); checking a block is `doctest::check`.
 - Reviewing snapshots: `review.rs` (what `--review` finds, shows and renames). The program side, where a snapshot's file goes and how a value prints, is `snapshots.jai` in the Testing module.
 - Scheduling and batching: `jobs` and `run_jobs` in `jobs.rs`. Process handling, record parsing and timeouts: `exec.rs`. Output: `report.rs`.
 - The JSON fields are a format others read (CI, the language server, the VS Code extension: `editors/vscode/src/testEvents.ts`): add fields freely, and change or remove one only with a changelog line.

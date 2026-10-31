@@ -51,7 +51,7 @@ jobs:
           # The skipped test stores through a wild guest address on purpose: AddressSanitizer's shadow
           # check of that store faults before the interpreter's own guard can see it.
           cargo test --no-fail-fast -Zbuild-std --target x86_64-unknown-linux-gnu --locked -j 2 \
-            -p jaic -p jai-language-server -p jailint -p jacket-config -- --test-threads 2 \
+            -p jaic -p jaic-syntax -p jai-language-server -p jailint -p jacket-config -- --test-threads 2 \
             --skip invalid_pointer_access_still_traps
       # The native-code tests drive the instrumented jaic through LLVM (the FFI glue and the
       # linker steps) and run the executables it builds; the executables themselves are not

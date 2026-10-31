@@ -21,7 +21,7 @@ const words = (list: string[]) => `${B}(?:${list.join("|")})${E}`;
 // A list of names before a declaration operator: `a, b :=`.
 const namesThen = (op: string) => `(?=(?:\\s*,\\s*${ID})*\\s*${op})`;
 
-// The word lists come from jaic (`crates/jaic/src/lexicon.rs`, written to editors/lexicon.json
+// The word lists come from jaic (`crates/jaic-syntax/src/lexicon.rs`, written to editors/lexicon.json
 // by `INSTA_UPDATE=always cargo test -p jaic --lib lexicon`); only how they are grouped is chosen here.
 const lexicon: {
   words: Record<string, string[]>;

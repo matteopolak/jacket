@@ -4,6 +4,7 @@ members = [
     "crates/jai-wasm",
     "crates/jai-language-server",
     "crates/jaic",
+    "crates/jaic-syntax",
     "crates/jaic-llvm",
     "crates/jaic-cli",
     "crates/jailint",

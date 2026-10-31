@@ -39,7 +39,7 @@ JAI_DIRS = ["stdlib", "tests", "benchmarks", "tools", "jaifmt", "examples"]
 JAI_LINT_DIRS = ["stdlib", "examples", "tools", "jaifmt", "tests", "benchmarks"]
 JAIFMT_SOURCES = ["jaifmt", "stdlib/Extensions/Jai_Format", "stdlib/Extensions/Args"]
 # What a jailint binary is built from; the pre-commit hook uses an existing one only when cargo is unavailable, and then only if none of these is newer.
-JAILINT_SOURCES = ["crates/jailint", "crates/jaic", "crates/jaic-cli", "stdlib/prelude/module.jai", "Cargo.lock"]
+JAILINT_SOURCES = ["crates/jailint", "crates/jaic", "crates/jaic-syntax", "crates/jaic-cli", "stdlib/prelude/module.jai", "Cargo.lock"]
 # Repository checks that read only the working tree (tools/ci/check_<name>.py), in `repo-checks` order.
 REPO_CHECKS = {"style": "check_source_style", "paths": "check_repo_paths", "ci-sources": "check_ci_sources",
                "stdlib-docs": "check_stdlib_docs"}

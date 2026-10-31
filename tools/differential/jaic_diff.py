@@ -41,7 +41,7 @@ from differential import jaic_sweep as sweep
 
 ALL_BACKENDS = ["interp", "native", "native-O2", "wasm", "wasm-native"]
 
-# Diagnostic codes (`DiagnosticKind::code` in crates/jaic/src/source.rs) with which the wasm engine
+# Diagnostic codes (`DiagnosticKind::code` in crates/jaic-syntax/src/source.rs) with which the wasm engine
 # says a program needs something the sandbox lacks: they mean "cannot run here", never "ran
 # differently". `unavailable` is a foreign procedure no library there provides; `unknown-library`
 # a library declared only for other targets.

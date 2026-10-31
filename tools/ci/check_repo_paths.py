@@ -141,6 +141,10 @@ CRATE_SPAN = re.compile(r"`([a-z][a-z0-9_]*)((?:::[A-Za-z_]\w*)+)(::\{[^}`]*\})?
 ITEM = r"\b(?:fn|struct|enum|union|const|static|trait|type|mod|macro_rules!)\s+%s\b"
 
 
+# `jaic` re-exports the compiler's layers, so a path under it may resolve in any of them.
+FACADE_LAYERS = {"jaic": ["jaic", "jaic_syntax", "jaic_ir", "jaic_target", "jaic_ide"]}
+
+
 def crate_roots(root=ROOT):
     """The workspace crates by the name Rust code uses for them (`jacket_config`) and their src/ folder."""
     found = {}
@@ -210,7 +214,12 @@ def check_symbols(name, text, crates):
                 members = [m.strip().split("::")[0] for m in group[3:-1].split(",")]
                 wanted = [segments + [m] for m in members if m]
             for path in wanted:
-                missing = resolve_symbol(crates[crate], path)
+                misses = [
+                    resolve_symbol(crates[layer], path)
+                    for layer in FACADE_LAYERS.get(crate, [crate])
+                    if layer in crates
+                ]
+                missing = None if None in misses else misses[0]
                 if missing:
                     errors.append(
                         f"{name}: `{crate}::{'::'.join(path)}` does not resolve: no `{missing}`"

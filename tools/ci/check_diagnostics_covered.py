@@ -3,7 +3,7 @@
 
 Usage: tools/ci/check_diagnostics_covered.py [--update] [--list]
 
-Every diagnostic the compiler reports has a code, defined once in `crates/jaic/src/diagnostics/catalog.rs`
+Every diagnostic the compiler reports has a code, defined once in `crates/jaic-syntax/src/diagnostics/catalog.rs`
 (`Variant = "kebab-name", Severity, "summary"`). This script reads that table and looks for each code in the test
 corpus: every tracked text file under `tests/`, every `crates/*/tests/` file, the golden files of the standard
 library's own tests, test modules inside `crates/*/src` and `tools/**/test_*`. A code is tested when a test names it as
@@ -26,7 +26,7 @@ import subprocess
 import sys
 from toolkit.repo import ROOT
 
-CATALOG = "crates/jaic/src/diagnostics/catalog.rs"
+CATALOG = "crates/jaic-syntax/src/diagnostics/catalog.rs"
 ALLOWLIST = ROOT / "tools/ci/untested_codes.txt"
 ENTRY = re.compile(r'^\s+(\w+) = "([a-z0-9-]+)",\s*(Error|Warning)\b', re.M)
 # Codes reported by tools around the compiler (a usage mistake, a crash) are tested by the tools' own tests

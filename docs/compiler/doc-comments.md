@@ -23,7 +23,7 @@ Links are rustdoc-style: `[print]`, ``[`print`]``, `[Basic.print]` (module), `[P
 
 ## How it works
 
-`crates/jaic/src/docs.rs` (shared with jailint) works from the lexer's tokens, with no parse: `lex_with_trivia` keeps comments as trivia, and a comment belongs to the declaration whose first token follows it. Given the offset of a declaration's name it finds the comments directly above, splits parameter lists by their tokens, and reads list items. Links come from `pulldown-cmark` (with a broken-link callback, since intra-doc links have no definition): `docs::links` returns them with byte ranges, `sites` maps those back into the file, and `markdown` rewrites resolved ones. It lexes a file on demand, and the last text lexed is cached per thread, so a burst of questions about one file lexes it once.
+`crates/jaic-syntax/src/docs.rs` (shared with jailint) works from the lexer's tokens, with no parse: `lex_with_trivia` keeps comments as trivia, and a comment belongs to the declaration whose first token follows it. Given the offset of a declaration's name it finds the comments directly above, splits parameter lists by their tokens, and reads list items. Links come from `pulldown-cmark` (with a broken-link callback, since intra-doc links have no definition): `docs::links` returns them with byte ranges, `sites` maps those back into the file, and `markdown` rewrites resolved ones. It lexes a file on demand, and the last text lexed is cached per thread, so a burst of questions about one file lexes it once.
 
 `doc_view.rs` is the glue:
 
@@ -36,7 +36,7 @@ Links are rustdoc-style: `[print]`, ``[`print`]``, `[Basic.print]` (module), `[P
 
 ### Aliases
 
-A constant that only renames another (`hello :: Impl.hello;`, `Twice :: hello;`) with no comment of its own shows the docs of what it names, along a chain of aliases; its own docs win. The rule is `docs::docs_site` in `crates/jaic/src/docs/forward.rs`, and nothing else decides it; consumers differ only in how they find what a path names (the `Resolver`):
+A constant that only renames another (`hello :: Impl.hello;`, `Twice :: hello;`) with no comment of its own shows the docs of what it names, along a chain of aliases; its own docs win. The rule is `docs::docs_site` in `crates/jaic-syntax/src/docs/forward.rs`, and nothing else decides it; consumers differ only in how they find what a path names (the `Resolver`):
 
 - **Language server**: `Compiler::ide_doc_site` (type checker). Hover reads docs from `Analysis::hover`'s declarations through it; completion sets `IdeName::docs` (`Analysis::forward_docs`) and the item's `data` points there, so eager and `completionItem/resolve` docs agree. Hover on a call of an alias procedure still describes the procedure, so it shows the procedure's docs, not the alias's own.
 - **`jaic -doc_comments`**: `doc_comments/forward.rs` resolves from the library's files (`X :: #import,file ...`, stdlib modules, `#load`s). The record for the alias carries the target's text and a fifth field, the name it renames. `jacket test` skips such records, so an example runs once, under the target.
@@ -47,7 +47,7 @@ A constant that only renames another (`hello :: Impl.hello;`, `Twice :: hello;`)
 
 ## How to change it
 
-- Convention (what counts as a doc, parameter items, link syntax): `crates/jaic/src/docs.rs`; alias forwarding: `crates/jaic/src/docs/forward.rs` (tests in `doc_comments.rs` and `tests/doc_comments.rs` of the language server); unit tests per rule, `tests/doc_comments.rs` for editor features.
+- Convention (what counts as a doc, parameter items, link syntax): `crates/jaic-syntax/src/docs.rs`; alias forwarding: `crates/jaic-syntax/src/docs/forward.rs` (tests in `doc_comments.rs` and `tests/doc_comments.rs` of the language server); unit tests per rule, `tests/doc_comments.rs` for editor features.
 - What a link can name: `Compiler::ide_resolve_path` in `crates/jaic/src/ide/definition.rs`. Link colour: `target_kind` in `doc_view.rs`.
 - Markdown styling: edit the regexes in `jai-doc-comments.tmLanguage.json`, add a case to `editors/vscode/test/grammar/doc-comments.jai` (`pnpm run test:grammar`).
 - The playground (another repository) needs the `meta.comment-run.jai` wrapper, the injection grammar or equivalent, a mapping from `markup.*` scopes to styles, and the semantic token types the server sends on link labels, applied over the comment colour.

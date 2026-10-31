@@ -73,7 +73,7 @@ INTEL = {"runner": "macos-15-intel", "architecture": "x86_64"}
 
 # On macOS the fast tier runs only the crates whose tests depend on the host: the compiler, its
 # backend and the test runner.
-HOST_CRATES = "package(jaic-cli) | package(jaic-llvm) | package(jaic) | package(jacket)"
+HOST_CRATES = "package(jaic-cli) | package(jaic-llvm) | package(jaic) | package(jaic-syntax) | package(jacket)"
 # The WebAssembly target tests run node on whatever the host is and build the same modules everywhere,
 # so only the Linux x64 legs run them.
 NOT_WASM = "not test(wasm_target)"
@@ -301,6 +301,7 @@ NARROW = {
         "crates/jaic-llvm/**",
         "crates/jaic-cli/src/**",
         "crates/jaic/src/**",
+        "crates/jaic-syntax/src/**",
         "tools/differential/**",
         "tools/native/**",
         "corpus/**",

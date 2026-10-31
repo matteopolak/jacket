@@ -50,7 +50,7 @@ jobs:
       - name: Test suite
         run: |
           cargo llvm-cov nextest --profile ci --locked --no-report \
-            -p jaic -p jaic-cli -p jaic-llvm -p jai-language-server -p jailint
+            -p jaic -p jaic-syntax -p jaic-cli -p jaic-llvm -p jai-language-server -p jailint
       - name: Regression sweep with the instrumented compiler
         if: ${{ github.event_name == 'schedule' || inputs.sweep }}
         run: |
