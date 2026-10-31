@@ -52,17 +52,18 @@ impl Compiler {
         if self.epochs.lookup_without_expansion {
             return Ok(());
         }
-        let s = self.scope_mut(scope);
+        let s = self.scope(scope);
         let done = s.pending_done;
+        let mut i = done;
         while s
             .pending
-            .get(s.pending_done)
+            .get(i)
             .is_some_and(|p| p.state == PendingState::Done)
         {
-            s.pending_done += 1;
+            i += 1;
         }
-        let mut i = s.pending_done;
         if i != done {
+            self.scope_mut(scope).pending_done = i;
             self.namespace_changed(scope);
         }
         while i < self.scope(scope).pending.len() {
