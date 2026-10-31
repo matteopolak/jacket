@@ -105,6 +105,11 @@ alert_name :: (alert: u8) -> string {
 // Like `detail`, the text is in temporary storage, never inside the error.
 //
 // - error: the error to describe.
+//
+// ```jai
+// line := error_text(Tls_Error.{ kind = .CLOSED });
+// assert(line.count > 0);
+// ```
 error_text :: (error: Tls_Error) -> string {
     if error.kind == .NONE return "no error";
 

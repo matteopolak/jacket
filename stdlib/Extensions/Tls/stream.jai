@@ -86,6 +86,28 @@ Tls_Stream :: struct {
 // - reader: where the bytes from the server come from.
 // - writer: where the bytes to the server go.
 // - server_name: the host name to check the certificate against and send as SNI.
+//
+// ```jai,no_run
+// Io :: #import "Extensions/Io";
+//
+// Io.io_run(() {
+//     config: Tls_Config;
+//     tls_config_init(*config);
+//     defer tls_config_free(*config);
+//
+//     tcp, io_error := Io.connect("example.com:443");
+//     assert(io_error == .NONE);
+//
+//     stream, error := tls_connect(*config, Io.reader_of(tcp), Io.writer_of(tcp), "example.com");
+//     if error.kind != .NONE {
+//         Io.close(tcp);
+//         return;
+//     }
+//     defer close(stream);
+//
+//     write(stream, "hello");
+// });
+// ```
 tls_connect :: (config: *Tls_Config, reader: Io.Reader, writer: Io.Writer, server_name: string) -> *Tls_Stream, Tls_Error {
     native := config.native;
 
@@ -142,6 +164,25 @@ tls_connect :: (config: *Tls_Config, reader: Io.Reader, writer: Io.Writer, serve
 // - config: an initialised config with a certificate and key.
 // - reader: where the bytes from the client come from.
 // - writer: where the bytes to the client go.
+//
+// ```jai,no_run
+// Io :: #import "Extensions/Io";
+//
+// // `config` has a certificate chain and private key; `listener` is an Io.Tcp_Listener.
+// serve_one :: (config: *Tls_Config, listener: Io.Tcp_Listener) {
+//     tcp, io_error := Io.accept(listener);
+//     if io_error != .NONE return;
+//
+//     stream, error := tls_accept(config, Io.reader_of(tcp), Io.writer_of(tcp));
+//     if error.kind != .NONE {
+//         Io.close(tcp);
+//         return;
+//     }
+//     defer close(stream);
+//
+//     write(stream, "welcome");
+// }
+// ```
 tls_accept :: (config: *Tls_Config, reader: Io.Reader, writer: Io.Writer) -> *Tls_Stream, Tls_Error {
     native := config.native;
 
@@ -168,6 +209,12 @@ tls_accept :: (config: *Tls_Config, reader: Io.Reader, writer: Io.Writer) -> *Tl
 // The ALPN protocol both sides chose ("" when none was).
 //
 // - stream: an established stream.
+//
+// ```jai,no_run
+// uses_http2 :: (stream: *Tls_Stream) -> bool {
+//     return alpn_protocol(stream) == "h2";
+// }
+// ```
 alpn_protocol :: (stream: *Tls_Stream) -> string {
     return c_text(mbedtls_ssl_get_alpn_protocol(stream.ssl));
 }
@@ -299,6 +346,15 @@ last_error :: (stream: *Tls_Stream) -> Tls_Error {
 //
 // - stream: the stream to read from.
 // - buffer: where the bytes go. Empty returns 0 at once.
+//
+// ```jai,no_run
+// read_greeting :: (stream: *Tls_Stream) -> string {
+//     buffer: [64] u8;
+//     count, error := read(stream, buffer);
+//     if error != .NONE || count == 0 return "";
+//     return copy_string(string.{ count, buffer.data });
+// }
+// ```
 read :: (stream: *Tls_Stream, buffer: [] u8) -> s64, Io.Io_Error {
     if buffer.count == 0 return 0, .NONE;
     if !enter(stream) return 0, .CLOSED;
@@ -425,6 +481,14 @@ write_some :: (stream: *Tls_Stream, bytes: [] u8) -> s64, Io.Io_Error {
 //
 // - stream: the stream to write to.
 // - bytes: the data to send.
+//
+// ```jai,no_run
+// send_frame :: (stream: *Tls_Stream) {
+//     frame := u8.[1, 2, 3];
+//     sent, error := write(stream, frame);
+//     assert(error == .NONE && sent == frame.count);
+// }
+// ```
 write :: (stream: *Tls_Stream, bytes: [] u8) -> s64, Io.Io_Error {
     return Io.write(writer_of(stream), bytes);
 }
@@ -461,6 +525,12 @@ wait_readable :: (stream: *Tls_Stream) -> Io.Io_Error {
 //
 // - stream: the stream to end.
 // - now: skip close_notify and the wait; just close the connection.
+//
+// ```jai,no_run
+// finish :: (stream: *Tls_Stream) {
+//     close(stream); // sends close_notify, closes the TCP connection, frees the stream
+// }
+// ```
 close :: (stream: *Tls_Stream, now := false) -> Io.Io_Error {
     if stream.closing return .NONE;
 
@@ -503,6 +573,15 @@ ended_without_close_notify :: (reader: Io.Reader) -> bool {
 // closing it closes the whole stream, once. The reader points at the stream, so it is only valid until `close`.
 //
 // - stream: the stream to read through.
+//
+// ```jai,no_run
+// Io :: #import "Extensions/Io";
+//
+// read_everything :: (stream: *Tls_Stream) -> string {
+//     data, error := Io.read_all(reader_of(stream));
+//     return cast(string) data;
+// }
+// ```
 reader_of :: (stream: *Tls_Stream) -> Io.Reader {
     reader: Io.Reader;
 

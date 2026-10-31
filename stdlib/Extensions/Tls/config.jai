@@ -31,7 +31,14 @@ Tls_Verify_Proc :: #type (chain: [][] u8, server_name: string, data: *void) -> s
 Tls_Key_Log_Proc :: #type (line: string, data: *void);
 
 // Zero-initialised, a config is a client that verifies servers against the system's roots. Fill in
-// the fields you need, then call `tls_config_init`.
+// the fields you need, then call [tls_config_init].
+//
+// ```jai,no_run
+// client: Tls_Config;
+// client.alpn = .["h2", "http/1.1"];
+// assert(tls_config_init(*client).kind == .NONE);
+// defer tls_config_free(*client);
+// ```
 Tls_Config :: struct {
     // Server (and, for a client that must prove who it is, client): the certificate chain as PEM,
     // the endpoint's own certificate first, and its private key: PEM or DER (PKCS#8, PKCS#1 or
@@ -43,7 +50,7 @@ Tls_Config :: struct {
     private_key_password: string;
 
     // The certificate authorities to trust, as PEM (any number of certificates). Empty: the system's
-    // (see docs/extensions/tls.md for where each OS keeps them). They must be authorities: the server's own certificate listed
+    // (macOS and Windows use their own trust stores). They must be authorities: the server's own certificate listed
     // here does not make a client trust it unless it is self-signed (the usual rule), so a certificate that a CA signed is
     // trusted by giving that CA, or an intermediate (see `root_must_be_self_signed`).
     roots_pem: string;
@@ -130,6 +137,13 @@ Tls_Native :: struct {
 // client; one with a certificate and key can also accept.
 //
 // - config: the filled-in config. The native state is attached to it.
+//
+// ```jai,no_run
+// config: Tls_Config; // a client, trusting the system's roots
+// error := tls_config_init(*config);
+// assert(error.kind == .NONE, "%", error_text(error));
+// tls_config_free(*config);
+// ```
 tls_config_init :: (config: *Tls_Config) -> Tls_Error {
     if config.native return .{};
 
@@ -154,6 +168,12 @@ tls_config_init :: (config: *Tls_Config) -> Tls_Error {
 // Releases what `tls_config_init` built. Streams made from the config must be closed first.
 //
 // - config: the config to release. It can be initialised again afterwards.
+//
+// ```jai,no_run
+// config: Tls_Config;
+// tls_config_init(*config);
+// tls_config_free(*config);
+// ```
 tls_config_free :: (config: *Tls_Config) {
     if !config.native return;
 
@@ -165,6 +185,13 @@ tls_config_free :: (config: *Tls_Config) {
 // Whether `tls_accept` works with this config: it was set up, and has a certificate and key.
 //
 // - config: the config to check.
+//
+// ```jai,no_run
+// client: Tls_Config;
+// tls_config_init(*client);
+// assert(!can_accept(*client)); // no certificate and key
+// tls_config_free(*client);
+// ```
 can_accept :: (config: *Tls_Config) -> bool {
     return config.native != null && config.native.server != null;
 }

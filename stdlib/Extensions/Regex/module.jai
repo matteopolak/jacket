@@ -124,6 +124,14 @@ is_one_pass :: (re: *Regex) -> bool {
     return re.engine.onepass.ok;
 }
 
+// [is_one_pass] for a static pattern.
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+// Pair :: Regex.Static("(a)(b)");
+//
+// assert(Regex.is_one_pass(Pair));
+// ```
 is_one_pass :: ($R: Type) -> bool #modify {
     return is_static(R);
 } {
@@ -600,6 +608,13 @@ replace_all :: ($R: Type, text: string, replacement: string) -> string #modify {
 }
 
 // Replaces the first `limit` matches of the static pattern; negative replaces all.
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+// Digits :: Regex.Static("[0-9]+");
+//
+// assert(Regex.replace_n(Digits, "1 2 3", "#", 2) == "# # 3");
+// ```
 replace_n :: ($R: Type, text: string, replacement: string, limit: int) -> string #modify {
     return is_static(R);
 } {

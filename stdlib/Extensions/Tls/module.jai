@@ -1,22 +1,23 @@
 // TLS 1.2 and 1.3 over Io readers and writers, on a bundled mbedTLS.
 // @experimental
 //
-// Fill in a `Tls_Config`, call `tls_config_init` once, then wrap an accepted or connected TCP stream with `tls_connect`
-// (client) or `tls_accept` (server). A stream is also an `Io.Reader` and `Io.Writer` (`reader_of`, `writer_of`), so code
-// written for those, like Http, runs over TLS unchanged. The handshake and every read and write are blocking calls on a
-// fiber, inside `Io.io_run`: a deadline (`Io.with_deadline`) limits them and `Io.cancel` ends them, and
-// one stream belongs to one scheduler thread.
+// Fill in a [Tls_Config], call [tls_config_init] once, then wrap an accepted or connected TCP
+// stream with [tls_connect] (client) or [tls_accept] (server). A [Tls_Stream] is also an
+// `Io.Reader` and `Io.Writer` ([reader_of], [writer_of]), so code written for those, like Http,
+// runs over TLS unchanged.
 //
-// Every call reports failure in its result and never stops the program: the handshake calls give a `Tls_Error` whose
-// `kind` says what went wrong (`error_text` makes a line of it), while `read` and `write` give an `Io.Io_Error` and
-// `last_error(stream)` the TLS reason. A client verifies the server against the system's trusted roots unless
-// `roots_pem` gives others; names are matched against the certificate's subject alternative names. Memory: a stream is
-// allocated with `context.allocator` by `tls_connect` or `tls_accept` and released by `close`; the config's parsed
-// certificates are released by `tls_config_free`. mbedTLS is linked into the executable, so nothing has to be
-// installed. WebAssembly has no sockets and no fibers.
+// Calls block the calling fiber inside `Io.io_run`, so `Io.with_deadline` limits them and
+// `Io.cancel` ends them. A stream belongs to one scheduler thread. Failures are returned, never
+// fatal: handshake calls give a [Tls_Error] ([error_text] makes a line of it), while [read] and
+// [write] give an `Io.Io_Error` and [last_error] the TLS reason.
 //
-// The example runs a client and a server on loopback. The certificates and the key are throwaway ones made for
-// tests, and the certificate is valid for `localhost`. Never use them for anything else.
+// A client verifies the server against the system's trusted roots unless `roots_pem` names
+// others, and matches the host name against the certificate's subject alternative names. A
+// stream is allocated by `tls_connect` or `tls_accept` and freed by [close]; [tls_config_free]
+// releases the config. WebAssembly has no sockets or fibers, so the module is not there.
+//
+// The example runs a client and a server on loopback with throwaway test certificates, valid for
+// `localhost`. Never use them for anything else.
 //
 // ```jai,skip_on(wasm)
 // Io :: #import "Extensions/Io";
