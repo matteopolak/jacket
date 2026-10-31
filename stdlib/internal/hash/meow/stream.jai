@@ -1,3 +1,4 @@
+// Starts a streamed hash in `State` from `Seed`.
 MeowBegin :: (State: *meow_state, Seed: [128] u8) {
     B.assert(State != null);
     memcpy(State.RegisterFile.data, Seed.data, 128);
@@ -5,6 +6,7 @@ MeowBegin :: (State: *meow_state, Seed: [128] u8) {
     State.BufferLen = 0;
 }
 
+// Feeds `Len` bytes at `Source` into a streamed hash. Pieces of any size add up to the same hash as one call.
 MeowAbsorb :: (State: *meow_state, Len: u64, Source: *void) {
     B.assert(State != null && State.BufferLen < 256 && Len <= 0x7fffffffffffffff && (Len == 0 || Source != null));
     State.TotalLengthInBytes = add_length(State.TotalLengthInBytes, Len);
@@ -37,6 +39,15 @@ MeowAbsorb :: (State: *meow_state, Len: u64, Source: *void) {
     State.BufferLen = cast(u32) remaining;
 }
 
+// Hashes `Len` bytes at `Source` with `Seed` in one call, leaving the 128-bit result in the
+// register `h0`. Read it with `MeowU64From` or `MeowU32From`. Needs an x64 CPU with AES-NI.
+//
+// ```jai,ignore
+// data := "meow";
+// #asm { pxor hash:, hash; }
+// MeowHash(MeowDefaultSeed, data.count, data.data, hash);
+// low := MeowU64From(hash, 0);
+// ```
 MeowHash :: (Seed: [128] u8, Len: u64, Source: *void, h0: reg) #expand {
     B.assert(Len <= 0x7fffffffffffffff && (Len == 0 || Source != null), "MeowHash invalid source/length");
 

@@ -1,10 +1,14 @@
 // Public finalization operates on the trailing (less than 256-byte) input region.
 // r1/r3 are residual scratch operands. Their precise ancillary contract and the
 // dump format require review; standard calico hash/seed output is tested.
+// Finishes a hash from the state registers and the trailing `Len & 255` bytes at `Source`; the
+// result is left in `h0`. `r1` and `r3` are scratch registers.
 MeowEnd :: (Len: u64, Source: *void, r1: reg, r3: reg, h0: reg, h1: reg, h2: reg, h3: reg, h4: reg, h5: reg, h6: reg, h7: reg, Store128: *void) #expand {
     finish(Len, Source, r1, r3, h0, h1, h2, h3, h4, h5, h6, h7, Store128, false);
 }
 
+// Finishes a streamed hash and leaves the 128-bit result in `h0`. When `Store128` is set, the final
+// 128 bytes of internal state are written there too.
 MeowEnd :: (State: *meow_state, h0: reg, Store128: *void = null) #expand {
     B.assert(State != null && State.BufferLen == (State.TotalLengthInBytes & 255));
     registers := State.RegisterFile.data;

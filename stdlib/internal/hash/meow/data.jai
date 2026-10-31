@@ -1,7 +1,9 @@
 // Reviewed public data. Mutable arrays remain actual initialized entities.
 
+// A 128-bit vector register operand, the type the hash is returned in.
 reg :: __reg;
 
+// The state of a hash fed in pieces: `MeowBegin`, any number of `MeowAbsorb`, then `MeowEnd`.
 meow_state :: struct {
     RegisterFile: [256] u8;
     TotalLengthInBytes: u64;

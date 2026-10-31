@@ -1,5 +1,11 @@
 // Separately adapted from permitted Molly Rocket native C (zlib license).
 // See third_party/meow_hash for the full unmodified notice and provenance.
+// Reads 64-bit lane `INDEX` (0 or 1) of a hash register.
+//
+// ```jai,ignore
+// #asm { pxor hash:, hash; }
+// assert(MeowU64From(hash, 0) == 0);
+// ```
 MeowU64From :: (Hash: reg, $INDEX: int) -> u64 #expand {
     #assert INDEX >= 0 && INDEX < 2;
     result: u64;
@@ -7,6 +13,7 @@ MeowU64From :: (Hash: reg, $INDEX: int) -> u64 #expand {
     return result;
 }
 
+// Reads 32-bit lane `INDEX` (0 to 3) of a hash register.
 MeowU32From :: (Hash: reg, $INDEX: int) -> u32 #expand {
     #assert INDEX >= 0 && INDEX < 4;
     result: u32;
@@ -49,6 +56,7 @@ MEOW_MIX :: (r1: reg, r2: reg, r3: reg, r4: reg, r5: reg, ptr: *void, $OFFSET: s
     MEOW_MIX_REG(r1, r2, r3, r4, r5, a, b, c, d);
 }
 
+// Loads `Seed` into the eight state registers `h0` to `h7`.
 MeowBegin :: (Seed: [128] u8, h0: reg, h1: reg, h2: reg, h3: reg, h4: reg, h5: reg, h6: reg, h7: reg) #expand {
     source := Seed.data;
 
@@ -64,6 +72,7 @@ MeowBegin :: (Seed: [128] u8, h0: reg, h1: reg, h2: reg, h3: reg, h4: reg, h5: r
     }
 }
 
+// Mixes `BlockCount` whole 256-byte blocks from `Source` into the state registers.
 MeowAbsorbBlocks :: (BlockCount: u64, Source: *void, h0: reg, h1: reg, h2: reg, h3: reg, h4: reg, h5: reg, h6: reg, h7: reg) #expand {
     B.assert(BlockCount <= 0x7fffffffffffffff / 256 && (BlockCount == 0 || Source != null));
     remaining := BlockCount;
