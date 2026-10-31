@@ -490,10 +490,6 @@ fn run_file_case(plan: &Plan, index: usize) -> Outcome {
     };
     if let (Some(coverage), Some(dir)) = (&plan.coverage, &run_dir) {
         coverage.collect_once(dir);
-        // The program and its debug info are large and have been read.
-        for kind in ["doc", "golden"] {
-            let _ = std::fs::remove_dir_all(plan.work.join(format!("{kind}-{index}")));
-        }
     }
     let status = if checked.timed_out {
         Status::Timeout
@@ -502,6 +498,14 @@ fn run_file_case(plan: &Plan, index: usize) -> Outcome {
     } else {
         Status::Fail
     };
+    // The program and its debug info are large: only a failure, or `--keep-temp`, leaves them on disk.
+    if plan.coverage.is_some()
+        || !(plan.settings.keep_temp || status.fails(plan.settings.flaky_fails))
+    {
+        for kind in ["doc", "golden"] {
+            let _ = std::fs::remove_dir_all(plan.work.join(format!("{kind}-{index}")));
+        }
+    }
     let mut outcome = Outcome::new(index, status);
     outcome.duration = started.elapsed();
     outcome.problems = checked.problems;
