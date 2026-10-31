@@ -11,7 +11,12 @@ Steps (docs/tools/releases.md):
      workload again, and rewrite them with the collected profile.
 The results are copied to --out (default <target-dir>/pgo/dist).
 
-Usage: tools/dev/build_pgo.py [--llvm dynamic|static|none] [--bolt] [--jobs N] [--out DIR]
+With `--llvm lazy` (release archives) code generation is a second artefact, the library
+`libjaic_backend` (crate `jaic-backend`, LLVM linked statically into it). It is built, profiled,
+BOLTed and shipped beside `jaic`, which opens it when a build writes native code
+(docs/compiler/lazy-backend.md).
+
+Usage: tools/dev/build_pgo.py [--llvm dynamic|static|lazy|none] [--bolt] [--jobs N] [--out DIR]
 """
 
 from __future__ import annotations
@@ -31,12 +36,28 @@ from toolkit.repo import ROOT, cargo_target_dir
 
 TOOLS = ("jaic", "jailsp", "jailint")
 EXE = exe_name("")
+# The code generation library of a `--llvm lazy` build, next to `jaic` (jaic_native::backend).
+BACKEND = "backend"
+BACKEND_FILE = (
+    "jaic_backend.dll"
+    if sys.platform == "win32"
+    else "libjaic_backend.dylib"
+    if sys.platform == "darwin"
+    else "libjaic_backend.so"
+)
 # `jaic-cli` features per --llvm choice; the other two packages always use their defaults.
 LLVM_FEATURES = {
     "dynamic": [],
     "static": ["--no-default-features", "--features", "static-llvm"],
+    # No LLVM in `jaic`; `jaic-backend` carries it (see `cargo_build`).
+    "lazy": ["--no-default-features", "--features", "lazy-llvm"],
     "none": ["--no-default-features"],
 }
+
+
+def file_name(tool):
+    """The file a tool's build is installed as."""
+    return BACKEND_FILE if tool == BACKEND else f"{tool}{EXE}"
 # Files the scripted jailsp session opens: a program with imports, a generic module and tests.
 LSP_FILES = [
     "examples/metaprogramming/main.jai",
@@ -164,9 +185,18 @@ def cargo_build(args, target_dir, flags):
         str(args.jobs),
     ]
     run(common + ["-p", "jaic-cli"] + LLVM_FEATURES[args.llvm], env=env)
+    if args.llvm == "lazy":
+        run(
+            common
+            + ["-p", "jaic-backend", "--no-default-features", "--features", "static"],
+            env=env,
+        )
     run(common + ["-p", "jai-language-server", "-p", "jailint"], env=env)
     out = Path(target_dir) / args.target / "release"
-    return {tool: out / f"{tool}{EXE}" for tool in TOOLS}
+    built = {tool: out / f"{tool}{EXE}" for tool in TOOLS}
+    if args.llvm == "lazy":
+        built[BACKEND] = out / BACKEND_FILE
+    return built
 
 
 def build_jacket(args, work, out):
@@ -455,7 +485,8 @@ def main():
         "--llvm",
         choices=sorted(LLVM_FEATURES),
         default="dynamic",
-        help="how jaic links LLVM: dynamic (development default), static (release archives), none",
+        help="how jaic gets LLVM: dynamic (development default), static, lazy (release archives: "
+        "a static library beside jaic, opened on the first native build), none",
     )
     ap.add_argument(
         "--jobs",
@@ -513,7 +544,7 @@ def main():
         bins = cargo_build(args, work / "optimized", [])
         out.mkdir(parents=True, exist_ok=True)
         for tool, path in bins.items():
-            shutil.copy2(path, out / f"{tool}{EXE}")
+            shutil.copy2(path, out / file_name(tool))
         build_jacket(args, work, out)
         log(f"binaries in {out}")
         return
@@ -576,7 +607,11 @@ def main():
                 ]
             )
         log("training the BOLT-instrumented binaries")
-        problems += train(instrumented, args, env, native)
+        # The instrumented `jaic` is not beside the library, so point it at the instrumented one.
+        bolt_env = dict(env)
+        if BACKEND in instrumented:
+            bolt_env["JAIC_BACKEND"] = str(instrumented[BACKEND])
+        problems += train(instrumented, args, bolt_env, native)
         for tool, path in bins.items():
             fdata = bolt / f"{tool}.fdata"
             parts = sorted(
@@ -608,7 +643,7 @@ def main():
 
     out.mkdir(parents=True, exist_ok=True)
     for tool, path in bins.items():
-        shutil.copy2(path, out / f"{tool}{EXE}")
+        shutil.copy2(path, out / file_name(tool))
     build_jacket(args, work, out)
     log(f"optimized binaries in {out}")
     if problems and args.strict:

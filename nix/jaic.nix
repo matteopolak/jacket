@@ -1,5 +1,5 @@
-# jaic, jailsp and jailint, built with the LLVM 23 backend and installed next to `stdlib/`
-# the way the release archives lay them out (see docs/tools/releases.md).
+# jaic (with its code generation library), jailsp and jailint, built with the LLVM 23 backend and
+# installed next to `stdlib/` the way the release archives lay them out (see docs/tools/releases.md).
 {
   lib,
   stdenv,
@@ -57,13 +57,22 @@ rustPlatform.buildRustPackage {
     # so no separate output hash has to be kept in sync with the lock file.
     allowBuiltinFetchGit = true;
   };
+  # jaic writes native code through `libjaic_backend`, a library it opens on the first build
+  # that needs it, so `-check`, `-interp` and the other tools never load LLVM
+  # (docs/compiler/lazy-backend.md). `--no-default-features` turns off jaic's in-process LLVM;
+  # jailint keeps the feature its binary needs.
   cargoBuildFlags = [
     "-p"
     "jaic-cli"
     "-p"
+    "jaic-backend"
+    "-p"
     "jai-language-server"
     "-p"
     "jailint"
+    "--no-default-features"
+    "--features"
+    "jaic-cli/lazy-llvm,jaic-backend/dynamic,jailint/cli"
   ];
   # The workspace tests need the repository's test corpus and host tools; the install
   # check below exercises the packaged compiler instead.
@@ -96,6 +105,8 @@ rustPlatform.buildRustPackage {
     dir=$out/libexec/jaic
     mkdir -p $dir
     mv $out/bin/jaic $out/bin/jailsp $out/bin/jailint $dir/
+    # jaic opens the code generation library from beside its executable.
+    mv $out/lib/libjaic_backend* $dir/
     cp -R stdlib $dir/
     # The stdlib's own tests and fixtures (stdlib/**/tests) are not part of a module.
     find $dir/stdlib -type d -name tests -prune -exec rm -rf {} +

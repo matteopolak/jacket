@@ -8,6 +8,7 @@ Usage:
   release_smoke.py vsix-store --tag vX.Y.Z --dest DIR  the same extension version from Open VSX
   release_smoke.py version --tag vX.Y.Z --bin DIR      every tool in DIR reports the release's version
   release_smoke.py bindings --bin DIR                  `generate_bindings` on a C header and on a C++ class with the tools in DIR
+  release_smoke.py backend --bin DIR                   `-check` and `-interp` never open the code generation library; a build does
 
 `fetch` and `vsix` use `gh release download` (GH_TOKEN in the environment).
 """
@@ -15,6 +16,7 @@ Usage:
 import argparse
 import hashlib
 import json
+import os
 import platform
 import re
 import subprocess
@@ -187,6 +189,48 @@ def project(bin_dir: Path) -> None:
             raise SystemExit(f"the program printed {out!r}")
         print("new, build, run: ok")
         hover(bin_dir / exe("jailsp"), app / "main.jai", None)
+    backend(bin_dir)
+
+
+def backend(bin_dir: Path) -> None:
+    """Code generation is a library beside `jaic` (docs/compiler/lazy-backend.md): only a build opens it.
+
+    `-timings` prints a `load backend` phase when the library was opened. `-check` and `-interp` must
+    not print one, and must still work with the library missing; a build must print one, and fails
+    with a message naming the library when it is missing.
+    """
+    jaic = bin_dir / exe("jaic")
+    with tempfile.TemporaryDirectory(prefix="backend-") as work:
+        work = Path(work)
+        (work / "hello.jai").write_text(
+            '#import "Basic";\nmain :: () { print("Hello from the backend!\\n"); }\n'
+        )
+        for flag in ("-check", "-interp"):
+            result = run([jaic, "hello.jai", flag, "-timings"], cwd=work)
+            if result.returncode or "load backend" in result.stderr:
+                raise SystemExit(
+                    f"jaic {flag} must run without the backend ({result.returncode}):\n{result.stderr}"
+                )
+        missing = dict(os.environ, JAIC_BACKEND=str(work / "no-such-backend"))
+        for flag in ("-check", "-interp"):
+            need(
+                run([jaic, "hello.jai", flag], cwd=work, env=missing),
+                f"jaic {flag} with the backend missing",
+            )
+        result = run([jaic, "hello.jai", "-exe", "gone"], cwd=work, env=missing)
+        if result.returncode == 0 or "code generation library" not in result.stderr:
+            raise SystemExit(
+                f"a build without the backend must say so ({result.returncode}):\n{result.stderr}"
+            )
+        result = run([jaic, "hello.jai", "-exe", "hello", "-timings"], cwd=work)
+        if result.returncode or "jaic-timing: load backend" not in result.stderr:
+            raise SystemExit(
+                f"a build must open the backend ({result.returncode}):\n{result.stderr}"
+            )
+        out = need(run([work / exe("hello")], cwd=work), "the built program")
+        if "Hello from the backend!" not in out:
+            raise SystemExit(f"the built program printed {out!r}")
+        print("backend: opened by a build only: ok")
 
 
 C_HEADER = "int add(int a, int b);\n"
@@ -386,7 +430,7 @@ def main() -> int:
         p = sub.add_parser(name)
         p.add_argument("--tag", required=True)
         p.add_argument("--dest", type=Path, required=True)
-    for name in ("project", "bindings"):
+    for name in ("project", "bindings", "backend"):
         p = sub.add_parser(name)
         p.add_argument("--bin", type=Path, required=True)
     p = sub.add_parser("version")
@@ -399,6 +443,8 @@ def main() -> int:
         project(args.bin)
     elif args.command == "bindings":
         bindings(args.bin)
+    elif args.command == "backend":
+        backend(args.bin)
     elif args.command == "vsix":
         vsix(args.tag, args.dest)
     elif args.command == "vsix-store":

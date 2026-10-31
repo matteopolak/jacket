@@ -200,13 +200,14 @@ jobs:
         id: build
         run: |
           llvm=none
-          if [ -n "${{ matrix.llvm }}" ]; then llvm=static; fi
+          if [ -n "${{ matrix.llvm }}" ]; then llvm=lazy; fi
           bolt=()
           if [ "${{ matrix.bolt }}" = true ]; then bolt=(--bolt --llvm-bin "$RUNNER_TEMP/llvm/bin"); fi
           python3 tools/dev/build_pgo.py --llvm "$llvm" --jobs 4 "${bolt[@]}"
+      # The static LLVM links into the code generation library, not into jaic.
       - name: Show the failing link
         if: failure() && steps.build.outcome == 'failure' && matrix.llvm != ''
-        run: cargo rustc --release --locked -p jaic-cli --bin jaic --no-default-features --features static-llvm -- -C link-args=-v 2>&1 | tail -60
+        run: cargo rustc --release --locked -p jaic-backend --no-default-features --features static -- -C link-args=-v 2>&1 | tail -60
       - name: Package
         env:
           NAME: ${{ matrix.name }}
@@ -217,8 +218,10 @@ jobs:
           LLVM: ${{ matrix.llvm }}
         run: bash tools/ci/smoke_packaged_compiler.sh
       # What a user does first, on the archive that is about to be published: `jacket new`,
-      # `build`, `run` and a language-server hover (the post-release smoke test's project check).
-      # Catches a tool or library the archive lacks before the release exists.
+      # `build`, `run` and a language-server hover (the post-release smoke test's project check),
+      # then that `-check` and `-interp` never open the code generation library and a build does
+      # (docs/compiler/lazy-backend.md). Catches a tool or library the archive lacks before the
+      # release exists.
       - name: Smoke test a new project with the packaged tools
         shell: bash
         run: python3 tools/ci/release_smoke.py project --bin "$PWD/$PACKAGE_DIR"

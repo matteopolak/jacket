@@ -5,6 +5,13 @@
 set -eo pipefail
 exe=""
 if [ "$RUNNER_OS" = "Windows" ]; then exe=".exe"; fi
+# Code generation is a library beside jaic, opened on the first build that writes native code
+# (docs/compiler/lazy-backend.md).
+case "$RUNNER_OS" in
+  macOS) backend="libjaic_backend.dylib" ;;
+  Windows) backend="jaic_backend.dll" ;;
+  *) backend="libjaic_backend.so" ;;
+esac
 dir="jacket-$NAME"
 mkdir -p "$dir"
 out="target/pgo/dist"
@@ -13,11 +20,12 @@ out="target/pgo/dist"
 # only, then the ad-hoc signature arm64 requires is made again. Windows: the
 # symbols are in the .pdb, which the archive does not ship.
 case "$RUNNER_OS" in
-  macOS) for t in jaic jailsp jailint jacket; do strip -x "$out/$t"; codesign --force -s - "$out/$t"; done ;;
-  Linux) for t in jaic jailsp jailint jacket; do strip --strip-unneeded "$out/$t"; done ;;
+  macOS) for t in jaic jailsp jailint jacket "$backend"; do strip -x "$out/$t"; codesign --force -s - "$out/$t"; done ;;
+  Linux) for t in jaic jailsp jailint jacket "$backend"; do strip --strip-unneeded "$out/$t"; done ;;
 esac
 ls -l "$out"
-cp "$out/jaic$exe" "$out/jailsp$exe" "$out/jailint$exe" "$out/jacket$exe" "$dir/"
+test -f "$out/$backend" || { echo "the build has no $backend" >&2; exit 1; }
+cp "$out/jaic$exe" "$out/jailsp$exe" "$out/jailint$exe" "$out/jacket$exe" "$out/$backend" "$dir/"
 # Bootstrap definitions are packaged with the standard library.
 cp -R stdlib "$dir/stdlib"
 cp README.md CHANGELOG.md "$dir/"

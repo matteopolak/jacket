@@ -41,7 +41,7 @@ class RealWorkflow(unittest.TestCase):
     def test_windows_jobs_run_for_lowering_linking_and_the_stdlib(self):
         for path in [
             "crates/jaic-llvm/src/lower/symbols.rs",
-            "crates/jaic-llvm/src/link.rs",
+            "crates/jaic-native/src/link.rs",
             "crates/jaic/src/abi.rs",
             "crates/jaic/src/toolchain/discover.rs",
             "crates/jaic/src/ir/lower.rs",
@@ -126,6 +126,7 @@ class RealWorkflow(unittest.TestCase):
 
     def test_macos_asan_runs_on_pushes_only_for_sanitizer_relevant_paths(self):
         self.assertTrue(selects("sanitizers-macos", "crates/jaic-llvm/src/lib.rs"))
+        self.assertTrue(selects("sanitizers-macos", "crates/jaic-native/src/link.rs"))
         self.assertTrue(selects("sanitizers-macos", "tools/differential/jaic_sweep.py"))
         self.assertFalse(selects("sanitizers-macos", "stdlib/Hash/module.jai"))
         self.assertFalse(selects("sanitizers-macos", "crates/jailint/src/lib.rs"))

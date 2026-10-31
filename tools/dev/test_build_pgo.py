@@ -33,6 +33,30 @@ class BuildEnvTests(unittest.TestCase):
             self.assertTrue(build_pgo.pgo_works(target))
 
 
+class LazyBackendTests(unittest.TestCase):
+    def args(self, llvm):
+        return mock.Mock(llvm=llvm, target="x86_64-unknown-linux-gnu", jobs=2)
+
+    def test_a_lazy_build_also_builds_the_backend_library(self):
+        with mock.patch.object(build_pgo, "run") as run:
+            built = build_pgo.cargo_build(self.args("lazy"), "t", [])
+        commands = [" ".join(map(str, call.args[0])) for call in run.call_args_list]
+        self.assertTrue(any("-p jaic-cli --no-default-features --features lazy-llvm" in c for c in commands))
+        self.assertTrue(any("-p jaic-backend --no-default-features --features static" in c for c in commands))
+        self.assertEqual(sorted(built), ["backend", "jaic", "jailint", "jailsp"])
+        self.assertEqual(built["backend"].name, build_pgo.BACKEND_FILE)
+
+    def test_other_builds_have_no_backend_library(self):
+        with mock.patch.object(build_pgo, "run") as run:
+            built = build_pgo.cargo_build(self.args("static"), "t", [])
+        self.assertNotIn("backend", built)
+        self.assertFalse(any("jaic-backend" in " ".join(map(str, c.args[0])) for c in run.call_args_list))
+
+    def test_the_library_keeps_its_own_file_name(self):
+        self.assertEqual(build_pgo.file_name("backend"), build_pgo.BACKEND_FILE)
+        self.assertEqual(build_pgo.file_name("jaic"), f"jaic{build_pgo.EXE}")
+
+
 class LspSessionTests(unittest.TestCase):
     def test_session_is_framed_and_ends_with_exit(self):
         done = mock.Mock(returncode=0, stdout=b"")
