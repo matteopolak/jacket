@@ -39,7 +39,8 @@ reply, _ := Io.read_all(Tls.reader_of(stream));
 
 ## How to change it
 
-- **Private keys:** PEM or DER, encrypted PKCS#8 (PBES2 with PBKDF2 and AES or 3DES) or OpenSSL-style encrypted PEM; a wrong or missing password is `.CONFIG` with `wrong_key_password` set.
+- **Private keys:** PEM or DER (PKCS#8 `PRIVATE KEY`, `RSA PRIVATE KEY`, `EC PRIVATE KEY`, with or without a leading `EC PARAMETERS` block, which is skipped), encrypted PKCS#8 (PBES2 with PBKDF2 and AES or 3DES) or OpenSSL-style encrypted PEM; a wrong or missing password is `.CONFIG` with `wrong_key_password` set.
+- **EC curves spelled out.** `openssl req -newkey ec` from LibreSSL writes the curve's parameters into the certificate and the PKCS#8 key instead of naming it. mbedTLS reads those only for a compressed generator and never matches the a = -3 curves (P-256, P-384, P-521), so the build patches its `pkparse.c` (`prepare_mbedtls_pkparse` in `tools/native/build_native_libs.py`) to accept both. A bump of the mbedTLS pin makes the patch fail loudly if the code moved; recheck it then. Only curves mbedTLS knows are accepted. Fixtures: `ec_params` and `ec_explicit` in `tests/fixtures` (`make_certs.sh --forms-only`, needs LibreSSL for the explicit one).
 - **Another mbedTLS function:** declare it in `bindings.jai` (opaque `*void` objects). A `static inline` function or struct field goes through `tools/native/mbedtls/jai_mbedtls.c`.
 - **SNI certificate selection, tickets, OCSP stapling, resumption:** `build_server`/`build_client` in `config.jai`; `sni_callback` in `stream.jai` already sees the name first.
 - **HTTP/2:** `choose_protocol` in `Http/server.jai`.

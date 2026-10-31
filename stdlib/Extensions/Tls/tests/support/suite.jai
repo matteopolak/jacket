@@ -1241,6 +1241,39 @@ test_revocation_lists :: () {
     Tls.tls_config_free(*foreign);
 }
 
+// Keys and certificates in the spellings openssl writes by default: an "EC PARAMETERS" block before
+// the "EC PRIVATE KEY", and a certificate and PKCS#8 "PRIVATE KEY" that spell the curve out instead
+// of naming it. Each is its own trust root (self-signed).
+test_ec_key_forms :: () {
+    for name: string.["ec_params", "ec_explicit"] {
+        for versions: 0..1 {
+            min := ifx versions == 1 then Tls.Tls_Version.TLS_1_3 else Tls.Tls_Version.TLS_1_2;
+            max := ifx versions == 0 then Tls.Tls_Version.TLS_1_2 else Tls.Tls_Version.TLS_1_3;
+
+            server_config := make_config(name, "");
+            client_config := make_config("", name, min = min, max = max);
+
+            init(*server_config);
+            init(*client_config);
+
+            pair := connect_pair(*server_config, *client_config);
+
+            expect_connected(pair);
+            pass(pair.client.stream, pair.server.stream, "hello from the client");
+
+            expected := pem_der(load(tprint("%.pem", name)));
+            seen := Tls.peer_certificate_der(pair.client.stream);
+
+            assert(string.{ seen.count, seen.data } == expected, "% leaf differs", name);
+
+            close_pair(*pair);
+
+            Tls.tls_config_free(*server_config);
+            Tls.tls_config_free(*client_config);
+        }
+    }
+}
+
 test_encrypted_key :: () {
     server_config := make_config("server", "ca");
 
@@ -1909,6 +1942,8 @@ run_all :: () {
     test_root_must_be_self_signed();
     progress("test_revocation_lists");
     test_revocation_lists();
+    progress("test_ec_key_forms");
+    test_ec_key_forms();
     progress("test_encrypted_key");
     test_encrypted_key();
     progress("test_alerts");

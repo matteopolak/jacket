@@ -5,6 +5,8 @@
 #     sh make_certs.sh --jai-only   # only certs.jai, from the files that are here
 #     sh make_certs.sh --extra-only # the files added after the first ones (inter, deep, revoked,
 #                                   # the CRLs, client_encrypted.key), from the CAs that are here
+#     sh make_certs.sh --forms-only # only the self-signed EC certificates in the key spellings
+#                                   # LibreSSL and OpenSSL write (needs LibreSSL, see below)
 #
 # Everything here is for the tests only. The private keys are public (they are committed), so no
 # certificate from this directory may be trusted for anything but the tests of Extensions/Tls and
@@ -16,12 +18,16 @@ cd "$(dirname "$0")"
 # A word list on purpose: it is split into file names below.
 base="ca.pem ca.key other_ca.pem other_ca.key server.pem server.key rsa.pem rsa.key wrong_name.pem wrong_name.key expired.pem expired.key unknown.pem unknown.key client.pem client.key"
 extra="inter.pem inter.key deep.pem deep.key revoked.pem revoked.key ca.crl other_ca.crl client_encrypted.key"
-names="$base $extra"
+forms="ec_params.pem ec_params.key ec_explicit.pem ec_explicit.key"
+names="$base $extra $forms"
 
 if [ "${1:-}" != --jai-only ]; then
 if [ "${1:-}" = --extra-only ]; then
 # shellcheck disable=SC2086
 rm -f $extra certs.jai
+elif [ "${1:-}" = --forms-only ]; then
+# shellcheck disable=SC2086
+rm -f $forms certs.jai
 else
 # shellcheck disable=SC2086
 rm -f $names certs.jai
@@ -69,7 +75,7 @@ CONF
     fi
 }
 
-if [ "${1:-}" != --extra-only ]; then
+if [ "${1:-}" != --extra-only ] && [ "${1:-}" != --forms-only ]; then
 # A certificate authority: ca.pem signs everything below; other_ca.pem is one nobody trusts.
 for ca in ca other_ca; do
     ec "$ca.key"
@@ -92,7 +98,7 @@ subjectAltName=$san" "$name.pem" "$start" "$end" "$ca"
 }
 
 SERVER_NAMES="DNS:localhost,DNS:server.test,IP:127.0.0.1,IP:::1"
-if [ "${1:-}" != --extra-only ]; then
+if [ "${1:-}" != --extra-only ] && [ "${1:-}" != --forms-only ]; then
 leaf server ca "$SERVER_NAMES" serverAuth
 leaf rsa ca "$SERVER_NAMES" serverAuth rsa
 leaf wrong_name ca "DNS:other.test" serverAuth
@@ -101,6 +107,7 @@ leaf client ca "DNS:client.test" clientAuth
 leaf expired ca "$SERVER_NAMES" serverAuth ec 20000101000000Z 20010101000000Z
 fi
 
+if [ "${1:-}" != --forms-only ]; then
 # An intermediate CA under ca.pem, with a leaf below it: trusting inter.pem alone is trusting a
 # certificate that is not self-signed.
 ec inter.key
@@ -139,6 +146,28 @@ crl other_ca other_ca.crl
 
 # A key that is encrypted with the password "secret" (PKCS#8, PBES2 with PBKDF2 and AES-256).
 openssl pkcs8 -topk8 -in client.key -out client_encrypted.key -v2 aes-256-cbc -v2prf hmacWithSHA256 -passout pass:secret
+fi
+
+# Self-signed EC certificates for the spellings tools write by default. ec_params.key starts with
+# an "EC PARAMETERS" block and then holds the "EC PRIVATE KEY" (what `openssl ecparam -genkey`
+# prints). ec_explicit spells the whole curve out in its certificate and its PKCS#8 "PRIVATE KEY"
+# instead of naming it, which is what LibreSSL's `req -newkey ec` does; OpenSSL 3 names the curve,
+# so this one must be run with LibreSSL (the check below stops otherwise).
+if [ "${1:-}" != --extra-only ]; then
+openssl ecparam -name prime256v1 -genkey -out ec_params.key 2>/dev/null
+openssl req -new -key ec_params.key -subj "/CN=ec_params.test" -out "$work/ec_params.csr"
+ISSUER_KEY=ec_params.key sign "$work/ec_params.csr" "basicConstraints=critical,CA:TRUE
+subjectAltName=$SERVER_NAMES" ec_params.pem "$START" "$END"
+
+openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout ec_explicit.key \
+    -subj "/CN=ec_explicit.test" -out "$work/ec_explicit.csr" 2>/dev/null
+ISSUER_KEY=ec_explicit.key sign "$work/ec_explicit.csr" "basicConstraints=critical,CA:TRUE
+subjectAltName=$SERVER_NAMES" ec_explicit.pem "$START" "$END"
+if ! openssl asn1parse -in ec_explicit.pem | grep -q prime-field; then
+    echo "ec_explicit.pem names its curve: run this with LibreSSL's openssl" >&2
+    exit 1
+fi
+fi
 
 fi
 

@@ -161,6 +161,75 @@ def prepare_xxhash_arm64_source(src: Path, tmp: Path) -> Path:
     return staged
 
 
+def prepare_mbedtls_pkparse(src: Path, tmp: Path) -> Path:
+    """Build copy of mbedTLS's pkparse.c that reads explicit-parameter NIST curves.
+
+    A key or certificate may spell out its curve (OpenSSL and LibreSSL do for `req -newkey ec`)
+    instead of naming it, and mbedTLS then finds the named curve by comparing every parameter.
+    Two things stopped that from working for P-256, P-384 and P-521: the generator is only read
+    when it is compressed (an uncompressed one is rejected), and `a` is compared as stored, but the
+    a = -3 groups keep it as zero. The patch reads both point forms and accepts `a == p - 3` for
+    those groups; nothing else changes.
+    """
+    original = (src / 'library' / 'pkparse.c').read_text()
+    compare = '            mbedtls_mpi_cmp_mpi(&grp->A, &ref.A) == 0 &&\n'
+    anchor = '/*\n * Find the group id associated with an (almost filled) group'
+    point = ('        if (ret != MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE ||\n'
+             '            (p[0] != 0x02 && p[0] != 0x03) ||\n'
+             '            len != mbedtls_mpi_size(&grp->P) + 1 ||\n'
+             '            mbedtls_mpi_read_binary(&grp->G.X, p + 1, len - 1) != 0 ||\n'
+             '            mbedtls_mpi_lset(&grp->G.Y, p[0] - 2) != 0 ||\n'
+             '            mbedtls_mpi_lset(&grp->G.Z, 1) != 0) {\n')
+    function = 'static int pk_group_from_specified(const mbedtls_asn1_buf *params, mbedtls_ecp_group *grp)\n'
+    for text in (compare, anchor, point, function):
+        if original.count(text) != 1:
+            raise RuntimeError('mbedtls: unrecognized pkparse.c; review the explicit-curve patch')
+    helpers = (
+        '/* The a = -3 groups keep A unset: an explicit `a` equal to P - 3 is that group\'s. */\n'
+        'static int pk_a_matches(const mbedtls_mpi *a, const mbedtls_ecp_group *ref)\n'
+        '{\n'
+        '    mbedtls_mpi sum;\n'
+        '    int same = mbedtls_mpi_cmp_mpi(a, &ref->A) == 0;\n'
+        '\n'
+        '    if (!same && mbedtls_mpi_cmp_int(&ref->A, 0) == 0) {\n'
+        '        mbedtls_mpi_init(&sum);\n'
+        '        same = mbedtls_mpi_add_int(&sum, a, 3) == 0 && mbedtls_mpi_cmp_mpi(&sum, &ref->P) == 0;\n'
+        '        mbedtls_mpi_free(&sum);\n'
+        '    }\n'
+        '    return same;\n'
+        '}\n\n')
+    reader = (
+        '/* The generator as the group comparison wants it: X and Y (or Y\'s parity when compressed). */\n'
+        'static int pk_read_generator(mbedtls_ecp_group *grp, const unsigned char *p, size_t len)\n'
+        '{\n'
+        '    size_t size = mbedtls_mpi_size(&grp->P);\n'
+        '\n'
+        '    if ((p[0] == 0x02 || p[0] == 0x03) && len == size + 1) {\n'
+        '        if (mbedtls_mpi_read_binary(&grp->G.X, p + 1, size) != 0 ||\n'
+        '            mbedtls_mpi_lset(&grp->G.Y, p[0] - 2) != 0) {\n'
+        '            return -1;\n'
+        '        }\n'
+        '    } else if (p[0] == 0x04 && len == 2 * size + 1) {\n'
+        '        if (mbedtls_mpi_read_binary(&grp->G.X, p + 1, size) != 0 ||\n'
+        '            mbedtls_mpi_read_binary(&grp->G.Y, p + 1 + size, size) != 0) {\n'
+        '            return -1;\n'
+        '        }\n'
+        '    } else {\n'
+        '        return -1;\n'
+        '    }\n'
+        '    return mbedtls_mpi_lset(&grp->G.Z, 1);\n'
+        '}\n\n')
+    patched = original.replace(function, reader + function)
+    patched = patched.replace(anchor, helpers + anchor)
+    patched = patched.replace(compare, '            pk_a_matches(&grp->A, &ref) &&\n')
+    patched = patched.replace(point, '        if (ret != MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE ||\n'
+                                     '            pk_read_generator(grp, p, len) != 0) {\n')
+    out = tmp / 'mbedtls-patched'
+    out.mkdir()
+    (out / 'pkparse.c').write_text(patched)
+    return out / 'pkparse.c'
+
+
 def compile_units(name: str, lib: dict, src: Path, tmp: Path, plat: str) -> list[Path]:
     """Object files of one library: its one-line `code` unit, or the `units` of its source."""
     if name == 'xxhash070' and plat == 'windows-arm64':
@@ -171,6 +240,8 @@ def compile_units(name: str, lib: dict, src: Path, tmp: Path, plat: str) -> list
         units = [unit]
     else:
         units = [src / rel for rel in lib.get('units', [])]
+        if name == 'mbedtls':
+            units = [prepare_mbedtls_pkparse(src, tmp) if u == src / 'library' / 'pkparse.c' else u for u in units]
         # Files of this repository that belong to the library (a configuration header, glue code,
         # or all of it for a `source: repo` library), plus those only one OS compiles.
         units += [ROOT / lib['local'] / rel for rel in lib.get('local_units', [])]
