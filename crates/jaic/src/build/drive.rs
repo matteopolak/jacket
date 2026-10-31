@@ -9,6 +9,7 @@ use super::state::{
     SharedWorkspaces, Stage,
 };
 use crate::diagnostics::Diagnostic;
+use crate::ide::Recorder;
 use crate::records::Records;
 use crate::sema::{Compiler, Modification, ProgramSource};
 
@@ -306,9 +307,7 @@ fn settle(
         Err(d) => {
             let text = compiler.render(&d);
             // An editor compile (see `WorkspaceObserver`) keeps the error with its facts.
-            if let Some(ide) = compiler.ed.facts_mut() {
-                ide.errors.push((*d).clone());
-            }
+            compiler.ed.error(&d);
             let mut imports = Vec::new();
             if intercepted {
                 // The imports that found nothing, then the error itself.

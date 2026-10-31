@@ -1,5 +1,6 @@
 //! Draining queued bodies and lowering everything reachable from a root.
 use super::model::{BodyState, ProcTarget};
+use crate::ide::Recorder;
 use crate::sema::ProcState;
 #[cfg(debug_assertions)]
 use crate::sema::scope::ScopeKind;

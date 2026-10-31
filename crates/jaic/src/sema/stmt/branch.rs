@@ -1,5 +1,6 @@
 //! `if` and `switch` statements and the comparisons they make.
 use crate::diagnostics::Code;
+use crate::ide::Recorder;
 use crate::ir::{CmpOp, Ty};
 use crate::sema::TypeState;
 use crate::sema::lower::{FnCtx, Operand};

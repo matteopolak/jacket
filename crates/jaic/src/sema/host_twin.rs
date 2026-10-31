@@ -7,6 +7,7 @@ use super::{
     Span, TypeId, ast, ir,
 };
 use crate::diagnostics::Code;
+use crate::ide::Recorder;
 
 /// Where a cross build keeps its twin.
 #[derive(Default)]

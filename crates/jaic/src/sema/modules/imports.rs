@@ -2,6 +2,7 @@
 use super::filesystem::import_entry;
 use super::parameters::INFERRED_PARAM;
 use crate::diagnostics::Code;
+use crate::ide::Recorder;
 use crate::sema::{
     BootstrapModule, Compiler, ModuleId, ProvidedImport, ProvidedKind, Rc, Result, ScopeId, Sym,
     TypeId, Value, ast, err, scope,

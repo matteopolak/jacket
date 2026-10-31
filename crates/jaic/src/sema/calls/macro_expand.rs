@@ -5,6 +5,7 @@ use super::{
     ScopeId, ScopeKind, Signature, Slot, Span, Sym, TypeId, Value, asm, ast, err, procs, scope,
 };
 use crate::diagnostics::Code;
+use crate::ide::Recorder;
 use crate::sema::SourceState;
 
 /// What the parameters of one macro expansion share.

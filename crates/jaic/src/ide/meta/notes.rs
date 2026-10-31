@@ -3,6 +3,7 @@ use super::text::{Argument, dedent, substitute};
 use super::{IdeArg, IdeCall, IdeExpansionKind, MAX_CALLS};
 use crate::ast;
 use crate::fxhash::HashMap;
+use crate::ide::Recorder;
 use crate::ide::{IdeRef, IdeWhat};
 use crate::intern::Sym;
 use crate::sema::calls::{CallArg, Slot};

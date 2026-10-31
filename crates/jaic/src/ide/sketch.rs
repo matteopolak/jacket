@@ -8,6 +8,7 @@
 //! The sketch is then forgotten: its errors are dropped and nothing can call it.
 use crate::ast;
 use crate::fxhash::HashMap;
+use crate::ide::Recorder;
 use crate::intern::Sym;
 use crate::sema::lower::{FnCtx, Operand, Origin};
 use crate::sema::procs::{self, BodyState, ProcTarget};

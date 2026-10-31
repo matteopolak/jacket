@@ -1,6 +1,7 @@
 //! IR functions for procedures: entry-point wrappers, naming and library resolution.
 use super::model::{BodyState, ProcTarget};
 use crate::diagnostics::Code;
+use crate::ide::Recorder;
 use crate::ir::Ty;
 use crate::sema::lower::FnCtx;
 use crate::sema::{

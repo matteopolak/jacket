@@ -9,9 +9,10 @@
 //! assigned in that branch: those cannot change between the test and the code it guards. When
 //! unsure the answer is unknown, and unknown fades nothing. A batch compile records nothing, so
 //! every answer is unknown there.
+use super::IdeFacts;
 use super::interval::{self, Interval};
-use super::{Editor, IdeFacts};
 use crate::ast::{self, BinOp, ExprKind as E, UnOp};
+use crate::ide::Recorder;
 use crate::sema::lower::Operand;
 use crate::sema::scope::EntityKind;
 use crate::sema::{Compiler, EntityId, ScopeId, Value};
@@ -98,7 +99,13 @@ impl Narrowing {
 }
 
 impl IdeFacts {
-    fn compare(&self, n: &Narrowing, op: BinOp, a: &ast::Expr, b: &ast::Expr) -> Option<bool> {
+    pub(super) fn compare(
+        &self,
+        n: &Narrowing,
+        op: BinOp,
+        a: &ast::Expr,
+        b: &ast::Expr,
+    ) -> Option<bool> {
         let (ia, ib) = (self.eval(n, a)?, self.eval(n, b)?);
         let ide = self;
         let (ua, ub) = (
@@ -113,7 +120,7 @@ impl IdeFacts {
 
     /// What `expr` can be where the walk is: its checked interval, tightened by the narrowing
     /// of the branches around it.
-    fn eval(&self, n: &Narrowing, expr: &ast::Expr) -> Option<Interval> {
+    pub(super) fn eval(&self, n: &Narrowing, expr: &ast::Expr) -> Option<Interval> {
         let ide = self;
         let info = *ide.ainfo.get(&expr.span)?;
         let flags = |e: &ast::Expr| ide.ainfo.get(&e.span).map(|a| a.unsigned);
@@ -148,7 +155,7 @@ impl IdeFacts {
     }
 
     /// Enter `region`, which runs when `cond` is `holds`: narrow the locals it constrains.
-    fn narrow(&self, n: &mut Narrowing, cond: &ast::Expr, holds: bool, region: Span) {
+    pub(super) fn narrow(&self, n: &mut Narrowing, cond: &ast::Expr, holds: bool, region: Span) {
         match &cond.kind {
             E::Unary(UnOp::Not, inner) => self.narrow(n, inner, !holds, region),
             E::Binary(BinOp::And, a, b) if holds => {
@@ -221,7 +228,13 @@ impl IdeFacts {
     }
 
     /// Inside `case` the switched value is one of the case's values.
-    fn narrow_case(&self, n: &mut Narrowing, value: &ast::Expr, case: &ast::Case, body: Span) {
+    pub(super) fn narrow_case(
+        &self,
+        n: &mut Narrowing,
+        value: &ast::Expr,
+        case: &ast::Case,
+        body: Span,
+    ) {
         let E::Ident(_) = value.kind else {
             return;
         };
@@ -246,60 +259,6 @@ impl IdeFacts {
         }
         if let Some(h) = hull {
             n.0.push((local, h));
-        }
-    }
-}
-
-impl Editor {
-    /// What `expr` can be where the walk is: its checked interval, tightened by the narrowing
-    /// `n` of the branches around it.
-    pub(crate) fn value(&self, n: &Narrowing, expr: &ast::Expr) -> Option<Interval> {
-        self.facts()?.eval(n, expr)
-    }
-
-    /// Whether `a op b` always (or never) holds where the walk is.
-    pub(crate) fn compare(
-        &self,
-        n: &Narrowing,
-        op: BinOp,
-        a: &ast::Expr,
-        b: &ast::Expr,
-    ) -> Option<bool> {
-        self.facts()?.compare(n, op, a, b)
-    }
-
-    /// Enter `region`, which runs when `cond` is `holds`: narrow the locals it constrains.
-    pub(crate) fn narrow(&self, n: &mut Narrowing, cond: &ast::Expr, holds: bool, region: Span) {
-        if let Some(ide) = self.facts() {
-            ide.narrow(n, cond, holds, region);
-        }
-    }
-
-    /// Enter the `body` of `case`, where the switched `value` is one of the case's values.
-    pub(crate) fn narrow_case(
-        &self,
-        n: &mut Narrowing,
-        value: &ast::Expr,
-        case: &ast::Case,
-        body: Span,
-    ) {
-        if let Some(ide) = self.facts() {
-            ide.narrow_case(n, value, case, body);
-        }
-    }
-
-    /// A walk of the body at `body` found the runs `dead` that cannot run. A polymorphic
-    /// procedure is walked once per instance, so a run counts as dead only if every walk found
-    /// it dead (`body_evals` against `dead_runs`).
-    pub(crate) fn body_walked(&mut self, body: Span, mut dead: Vec<Span>) {
-        let Some(ide) = self.facts_mut() else {
-            return;
-        };
-        dead.sort_by_key(|s| (s.start, s.end));
-        dead.dedup();
-        *ide.body_evals.entry(body).or_default() += 1;
-        for run in dead {
-            *ide.dead_runs.entry((body, run)).or_default() += 1;
         }
     }
 }

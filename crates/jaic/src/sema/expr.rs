@@ -9,6 +9,7 @@ use super::lower::{FnCtx, Operand, Origin};
 use super::{Compiler, Rc, Result, ScopeId, Sym, TypeId, Value, ast, err, ir};
 use crate::ast::{BinOp, ExprKind as E};
 use crate::diagnostics::Code;
+use crate::ide::Recorder;
 use crate::ir::Ty;
 use crate::types::{ArrayKind, TypeKind};
 

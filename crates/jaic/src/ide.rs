@@ -17,6 +17,7 @@ pub mod meta;
 mod never_returns;
 mod polymorphs;
 pub use self::polymorphs::{IdePolymorph, IdeSpecialization};
+mod recorder;
 mod recording;
 mod sketch;
 mod span_index;
@@ -30,4 +31,5 @@ pub use self::facts::{
     IdeReceiver, IdeRef, IdeRoot, IdeWhat, SketchMark,
 };
 pub(crate) use self::member_notes::for_header_types;
+pub(crate) use self::recorder::Recorder;
 pub(crate) use self::values::{AInfo, Narrowing};

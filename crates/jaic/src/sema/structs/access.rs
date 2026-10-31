@@ -1,6 +1,7 @@
 //! Member access expressions and the types of promoted and pending members.
 use super::model::FieldUsing;
 use crate::diagnostics::Code;
+use crate::ide::Recorder;
 use crate::sema::lower::{FnCtx, Operand, Origin};
 use crate::sema::scope::{EntityId, EntityKind, Found, Resolved, ScopeKind};
 use crate::sema::{Compiler, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, scope};

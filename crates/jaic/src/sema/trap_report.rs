@@ -4,6 +4,7 @@
 use super::Compiler;
 use crate::diagnostics::Code;
 use crate::diagnostics::Diagnostic;
+use crate::ide::Recorder;
 use crate::interp::{Trap, TrapFrame, TrapKind};
 use crate::ir;
 use crate::sema::SourceState;
@@ -25,12 +26,8 @@ impl Compiler {
     /// An unknown result is like refused code: what it would have declared is unknown, not
     /// missing, so the editor records the span.
     pub(crate) fn note_unknown(&mut self, d: &Diagnostic, span: Span) {
-        if d.code == Code::Unavailable {
+        if matches!(d.code, Code::Unavailable | Code::Unknown) {
             self.ed.refuse_unavailable(span);
-        } else if d.code == Code::Unknown
-            && let Some(facts) = self.ed.facts_mut()
-        {
-            facts.refused.push(span);
         }
     }
 

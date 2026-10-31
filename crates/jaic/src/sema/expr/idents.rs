@@ -1,6 +1,7 @@
 //! Identifiers, entities and `#this`: resolving a name to an operand.
 use crate::ast::ExprKind as E;
 use crate::diagnostics::{Code, Data};
+use crate::ide::Recorder;
 use crate::ir::Ty;
 use crate::sema::lower::{FnCtx, Operand, Origin};
 use crate::sema::scope::{EntityKind, Found, Resolved, ScopeKind};

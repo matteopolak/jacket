@@ -1,6 +1,9 @@
 //! The compiler's handle on an editor analysis. A batch compile has an idle `Editor`: every
 //! event method returns at once, so recording costs the checker one branch per site.
-use super::IdeFacts;
+use super::interval::Interval;
+use super::values::Narrowing;
+use super::{IdeFacts, Recorder};
+use crate::ast::{self, BinOp};
 use crate::diagnostics::Code;
 use crate::diagnostics::Diagnostic;
 use crate::intern::Sym;
@@ -79,11 +82,11 @@ impl Editor {
     pub fn facts_mut(&mut self) -> Option<&mut IdeFacts> {
         self.facts.as_deref_mut()
     }
+}
 
-    /// An expression was checked: a failed one is not checked again by the recovery of an
-    /// enclosing expression until it succeeds.
+impl Recorder for Editor {
     #[inline]
-    pub(crate) fn expr_checked(&mut self, span: Span, ok: bool) {
+    fn expr_checked(&mut self, span: Span, ok: bool) {
         if let Some(facts) = &mut self.facts {
             if ok {
                 facts.failed_exprs.remove(&span);
@@ -93,30 +96,25 @@ impl Editor {
         }
     }
 
-    /// A sketch began checking the expression at `span`.
     #[inline]
-    pub(crate) fn sketch_tried(&mut self, span: Span) {
+    fn sketch_tried(&mut self, span: Span) {
         if let Some(facts) = self.facts.as_mut().filter(|facts| facts.sketching) {
             facts.sketch_tried.insert(span);
         }
     }
 
-    /// Whether a sketch began checking the expression at `span`.
-    pub(crate) fn sketch_checked(&self, span: Span) -> bool {
+    fn sketch_checked(&self, span: Span) -> bool {
         self.facts()
             .is_some_and(|facts| facts.sketch_tried.contains(&span))
     }
 
-    /// Whether a sketch gave the expression at `span` a type.
-    pub(crate) fn sketch_typed(&self, span: Span) -> bool {
+    fn sketch_typed(&self, span: Span) -> bool {
         self.facts()
             .is_some_and(|facts| facts.sketch_types.contains_key(&span))
     }
 
-    /// The name at `span` resolved to `ids` (one entity, or overloads): a use of each, for a
-    /// linter.
     #[inline]
-    pub(crate) fn named(&mut self, span: Span, ids: &[EntityId]) {
+    fn named(&mut self, span: Span, ids: &[EntityId]) {
         if let Some(facts) = &mut self.facts {
             facts.last_entity = Some((span, ids[0]));
             if facts.lint {
@@ -125,37 +123,31 @@ impl Editor {
         }
     }
 
-    /// The name at `span` resolved to `id`, outside an identifier (a struct constant, a named
-    /// expression).
     #[inline]
-    pub(crate) fn resolved(&mut self, span: Span, id: EntityId) {
+    fn resolved(&mut self, span: Span, id: EntityId) {
         if let Some(facts) = &mut self.facts {
             facts.last_entity = Some((span, id));
         }
     }
 
-    /// The name just checked stands for `member` of a `using`d value.
     #[inline]
-    pub(crate) fn named_using_member(&mut self, member: Sym) {
+    fn named_using_member(&mut self, member: Sym) {
         if let Some(facts) = &mut self.facts {
             facts.last_using_member = Some(member);
         }
     }
 
-    /// The `#run` at `span`, of type `ty`, failed.
-    pub(crate) fn run_failed(&mut self, span: Span, ty: TypeId) {
+    fn run_failed(&mut self, span: Span, ty: TypeId) {
         if let Some(facts) = &mut self.facts {
             facts.failed_runs.insert(span, ty);
         }
     }
 
-    /// The type of the failed `#run` at `span`.
-    pub(crate) fn failed_run_type(&self, span: Span) -> Option<TypeId> {
+    fn failed_run_type(&self, span: Span) -> Option<TypeId> {
         self.facts()?.failed_runs.get(&span).copied()
     }
 
-    /// `.name` at `span` was inferred against `ty`.
-    pub(crate) fn inferred(&mut self, span: Span, ty: TypeId) {
+    fn inferred(&mut self, span: Span, ty: TypeId) {
         if let Some(facts) = &mut self.facts {
             let seen = facts.inferred_expected.entry(span).or_default();
             if !seen.contains(&ty) {
@@ -164,36 +156,31 @@ impl Editor {
         }
     }
 
-    /// The macro `proc` was expanded.
     #[inline]
-    pub(crate) fn macro_expanded(&mut self, proc: ProcId) {
+    fn macro_expanded(&mut self, proc: ProcId) {
         if let Some(facts) = &mut self.facts {
             facts.expanded_macros.insert(proc);
         }
     }
 
-    /// The body of `proc` expanded a macro that returns from its caller.
-    pub(crate) fn macro_returned(&mut self, proc: ProcId) {
+    fn macro_returned(&mut self, proc: ProcId) {
         if let Some(facts) = &mut self.facts {
             facts.macro_returners.insert(proc);
         }
     }
 
-    /// Errors recorded so far, to drop the ones a speculative check adds (`forget_errors`).
     #[inline]
-    pub(crate) fn error_count(&self) -> usize {
+    fn error_count(&self) -> usize {
         self.facts.as_ref().map_or(0, |facts| facts.errors.len())
     }
 
-    /// The errors recorded since `count` of them were.
-    pub(crate) fn errors_since(&self, count: usize) -> Vec<Diagnostic> {
+    fn errors_since(&self, count: usize) -> Vec<Diagnostic> {
         self.facts.as_ref().map_or_else(Vec::new, |facts| {
             facts.errors.get(count..).unwrap_or(&[]).to_vec()
         })
     }
 
-    /// Drop one recorded copy of each of `errors`.
-    pub(crate) fn forget_matching(&mut self, errors: &[Diagnostic]) {
+    fn forget_matching(&mut self, errors: &[Diagnostic]) {
         let Some(facts) = &mut self.facts else {
             return;
         };
@@ -209,24 +196,21 @@ impl Editor {
     }
 
     #[inline]
-    pub(crate) fn forget_errors(&mut self, count: usize) {
+    fn forget_errors(&mut self, count: usize) {
         if let Some(facts) = &mut self.facts {
             facts.errors.truncate(count);
         }
     }
 
-    /// An error checking went on past, so the editor still shows it.
     #[inline]
-    pub(crate) fn error(&mut self, error: &crate::diagnostics::Diagnostic) {
+    fn error(&mut self, error: &crate::diagnostics::Diagnostic) {
         if let Some(facts) = &mut self.facts {
             facts.errors.push(error.clone());
         }
     }
 
-    /// Compile-time code at `span` was refused because the workspace is untrusted: `true` when
-    /// it was (and the refusal is recorded).
     #[inline]
-    pub(crate) fn refuse_untrusted(&mut self, span: Span) -> bool {
+    fn refuse_untrusted(&mut self, span: Span) -> bool {
         match self.facts.as_mut().filter(|facts| facts.untrusted) {
             Some(facts) => {
                 facts.refused.push(span);
@@ -236,11 +220,8 @@ impl Editor {
         }
     }
 
-    /// Compile-time code at `span` called something the editor's sandbox does not provide (a
-    /// foreign procedure it does not emulate): what it would have produced is unknown, not
-    /// wrong, so it is recorded like a refusal. `true` when recording.
     #[inline]
-    pub(crate) fn refuse_unavailable(&mut self, span: Span) -> bool {
+    fn refuse_unavailable(&mut self, span: Span) -> bool {
         match self.facts.as_mut() {
             Some(facts) => {
                 facts.refused.push(span);
@@ -250,8 +231,7 @@ impl Editor {
         }
     }
 
-    /// The text and line index kept from an earlier compile that read `bytes` from `path`.
-    pub(crate) fn kept_source(
+    fn kept_source(
         &self,
         path: &Path,
         bytes: &[u8],
@@ -260,8 +240,7 @@ impl Editor {
         reuse.borrow_mut().source(*compile, path, bytes)
     }
 
-    /// Keep what `bytes` from `path` decoded to, for later compiles.
-    pub(crate) fn keep_source(
+    fn keep_source(
         &self,
         path: &Path,
         bytes: &[u8],
@@ -275,15 +254,7 @@ impl Editor {
         }
     }
 
-    /// Parses `text` (file `file`, read from `path`) the editor's way, with every syntax
-    /// error recovered from and recorded: `None` when not recording, and the batch parser
-    /// applies.
-    pub(crate) fn parse(
-        &mut self,
-        path: &Path,
-        file: FileId,
-        text: &Rc<str>,
-    ) -> Option<Rc<SharedParse>> {
+    fn parse(&mut self, path: &Path, file: FileId, text: &Rc<str>) -> Option<Rc<SharedParse>> {
         let facts = self.facts.as_mut()?;
         let shared = if let Some((reuse, compile)) = &self.parse_reuse {
             reuse.borrow_mut().parse(*compile, path, file, text)
@@ -301,39 +272,28 @@ impl Editor {
         Some(shared)
     }
 
-    /// Errors reported along with the first: a batch compile stops at the first, an editor
-    /// shows them all.
-    pub(crate) fn errors<'a>(&mut self, errors: impl IntoIterator<Item = &'a Diagnostic>) {
+    fn errors<'a>(&mut self, errors: impl IntoIterator<Item = &'a Diagnostic>) {
         if let Some(facts) = &mut self.facts {
             facts.errors.extend(errors.into_iter().cloned());
         }
     }
 
-    // --- Policy: where an editor analysis checks differently from a build. A batch compile
-    // (not recording) always gets the build's answer.
-
-    /// A sketch (a body checked with stand-ins for what failed) is being checked.
     #[inline]
-    pub(crate) fn sketching(&self) -> bool {
+    fn sketching(&self) -> bool {
         self.facts.as_ref().is_some_and(|facts| facts.sketching)
     }
 
-    /// An expression that failed has its operands checked for their facts, and gets a
-    /// stand-in value when one of them is a stand-in (expressions over a failed
-    /// declaration's values are unknown, not wrong). Always, not only once something left
-    /// a stand-in behind: what an edit elsewhere declares must not change these facts.
     #[inline]
-    pub(crate) fn recovers_exprs(&self) -> bool {
+    fn recovers_exprs(&self) -> bool {
         self.is_live()
     }
 
-    /// Checking goes on past a failed statement of a block, for the facts of the rest.
     #[inline]
-    pub(crate) fn continues_past_errors(&self) -> bool {
+    fn continues_past_errors(&self) -> bool {
         self.is_live() && !self.sketching()
     }
 
-    pub(crate) fn stmt_failed(&self, code: Code, is_decl: bool) -> StmtRecovery {
+    fn stmt_failed(&self, code: Code, is_decl: bool) -> StmtRecovery {
         if !self.continues_past_errors() {
             StmtRecovery::Propagate
         } else if code.is_unknown_result() {
@@ -345,9 +305,7 @@ impl Editor {
         }
     }
 
-    /// A declaration or import of a file failed: an editor records the error and declares the
-    /// rest of the file, so the names after it keep their types and definitions.
-    pub(crate) fn keep_going(&mut self, error: Box<Diagnostic>) -> Result<()> {
+    fn keep_going(&mut self, error: Box<Diagnostic>) -> Result<()> {
         match &mut self.facts {
             Some(facts) => {
                 facts.errors.push(*error);
@@ -357,9 +315,7 @@ impl Editor {
         }
     }
 
-    /// `keep_going` for an error that may be reported again (an import retried from each
-    /// file that names it): recorded once.
-    pub(crate) fn keep_going_once(&mut self, error: Box<Diagnostic>) -> Result<()> {
+    fn keep_going_once(&mut self, error: Box<Diagnostic>) -> Result<()> {
         match &mut self.facts {
             Some(facts) => {
                 if !facts
@@ -375,50 +331,71 @@ impl Editor {
         }
     }
 
-    /// Bodies no build reaches are checked too (an entry point in a program without `main`).
     #[inline]
-    pub(crate) fn checks_every_body(&self) -> bool {
+    fn checks_every_body(&self) -> bool {
         self.is_live()
     }
 
-    /// Files may be parsed ahead on worker threads. An editor parses on its own thread, with
-    /// error recovery and shared parses (`Editor::parse`).
     #[inline]
-    pub(crate) fn allows_parse_ahead(&self) -> bool {
+    fn allows_parse_ahead(&self) -> bool {
         !self.is_live()
     }
 
-    /// `path` is the entry file the editor picked (canonical), so it may be inspected even
-    /// where loading it would otherwise be refused.
-    pub(crate) fn is_selected_entry(&self, path: &Path) -> bool {
+    fn is_selected_entry(&self, path: &Path) -> bool {
         self.selected_entry.as_deref() == Some(path)
     }
 
-    /// The end of a body that walking it shows is never reached owes no result. A build keeps
-    /// the reference compiler's simpler rule.
     #[inline]
-    pub(crate) fn trusts_reachability(&self) -> bool {
+    fn trusts_reachability(&self) -> bool {
         self.is_live()
     }
 
-    /// Failed bodies are retried only after scopes changed: a change to what a scope holds is
-    /// progress for `Compiler::lower_epoch`.
     #[inline]
-    pub(crate) fn counts_scope_changes(&self) -> bool {
+    fn counts_scope_changes(&self) -> bool {
         self.is_live()
     }
 
-    /// A sketch made only the signature of polymorph instance `inst` (`ide_sketch_refuses`).
-    pub(crate) fn signature_only(&mut self, inst: crate::sema::ProcId) {
+    fn signature_only(&mut self, inst: crate::sema::ProcId) {
         if let Some(facts) = &mut self.facts {
             facts.sketch_signatures.insert(inst);
         }
     }
 
-    /// `proc` has only a signature: its body is never lowered.
-    pub(crate) fn is_signature_only(&self, proc: crate::sema::ProcId) -> bool {
+    fn is_signature_only(&self, proc: crate::sema::ProcId) -> bool {
         self.facts
             .as_ref()
             .is_some_and(|facts| facts.sketch_signatures.contains(&proc))
+    }
+
+    fn value(&self, n: &Narrowing, expr: &ast::Expr) -> Option<Interval> {
+        self.facts()?.eval(n, expr)
+    }
+
+    fn compare(&self, n: &Narrowing, op: BinOp, a: &ast::Expr, b: &ast::Expr) -> Option<bool> {
+        self.facts()?.compare(n, op, a, b)
+    }
+
+    fn narrow(&self, n: &mut Narrowing, cond: &ast::Expr, holds: bool, region: Span) {
+        if let Some(ide) = self.facts() {
+            ide.narrow(n, cond, holds, region);
+        }
+    }
+
+    fn narrow_case(&self, n: &mut Narrowing, value: &ast::Expr, case: &ast::Case, body: Span) {
+        if let Some(ide) = self.facts() {
+            ide.narrow_case(n, value, case, body);
+        }
+    }
+
+    fn body_walked(&mut self, body: Span, mut dead: Vec<Span>) {
+        let Some(ide) = self.facts_mut() else {
+            return;
+        };
+        dead.sort_by_key(|s| (s.start, s.end));
+        dead.dedup();
+        *ide.body_evals.entry(body).or_default() += 1;
+        for run in dead {
+            *ide.dead_runs.entry((body, run)).or_default() += 1;
+        }
     }
 }

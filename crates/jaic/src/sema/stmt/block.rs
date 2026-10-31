@@ -1,6 +1,7 @@
 //! Checking blocks and dispatching on the kind of statement.
 use crate::ast::{ExprKind as E, StmtKind as S};
 use crate::diagnostics::Code;
+use crate::ide::Recorder;
 use crate::ide::StmtRecovery;
 use crate::ir::Ty;
 use crate::sema::lower::{DeferAction, DeferEntry, FnCtx, Operand};

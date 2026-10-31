@@ -1,4 +1,5 @@
 //! Selected generic specializations and identities portable between compiler analyses.
+use crate::ide::Recorder;
 use crate::sema::scope::{EntityKind, EntityState, Resolved};
 use crate::sema::{Compiler, ProcId, ScopeId, Value};
 use crate::source::Span;

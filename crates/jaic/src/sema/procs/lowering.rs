@@ -1,6 +1,7 @@
 //! Lowering a procedure body, intrinsic wrappers and instantiating polymorphic procedures.
 use super::model::{BodyState, ProcInfo, ProcTarget, Signature};
 use crate::diagnostics::Code;
+use crate::ide::Recorder;
 use crate::ir::Ty;
 use crate::sema::lower::{FnCtx, Immutable, Operand};
 use crate::sema::scope::{EntityKind, ScopeKind, UsingEntry};

@@ -7,6 +7,7 @@ use super::{
     ProcId, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, ir, procs, value,
 };
 use crate::diagnostics::Code;
+use crate::ide::Recorder;
 use crate::lang_items;
 use crate::sema::Diagnostics;
 use crate::sema::Output;

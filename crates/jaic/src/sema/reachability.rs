@@ -11,6 +11,7 @@ use crate::ast::{self, BinOp, StmtKind as S};
 use crate::diagnostics::Code;
 use crate::diagnostics::Diagnostic;
 use crate::ide::Narrowing;
+use crate::ide::Recorder;
 use crate::intern::Sym;
 use crate::sema::Compiler;
 use crate::sema::lower::FnCtx;

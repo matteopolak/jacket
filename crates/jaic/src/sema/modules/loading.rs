@@ -1,6 +1,7 @@
 //! Reading source files, loading modules and strings, and creating modules.
 use super::filesystem::find_module_in;
 use crate::diagnostics::Code;
+use crate::ide::Recorder;
 use crate::sema::Namespaces;
 use crate::sema::SourceState;
 use crate::sema::scope::{PendingState, ScopeKind};

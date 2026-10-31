@@ -2,6 +2,7 @@
 use super::model::PathStep;
 use crate::ast::ExprKind as E;
 use crate::diagnostics::Code;
+use crate::ide::Recorder;
 use crate::sema::lower::{FnCtx, Operand, Origin};
 use crate::sema::value::Aggregate;
 use crate::sema::{Compiler, Rc, Result, ScopeId, Span, Sym, TypeId, Value, ast, err, ir, procs};

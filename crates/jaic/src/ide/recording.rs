@@ -4,6 +4,7 @@ use super::facts::{
 };
 use crate::ast;
 use crate::diagnostics::Diagnostic;
+use crate::ide::Recorder;
 use crate::sema::lower::Operand;
 use crate::sema::scope::{EntityId, EntityKind, ScopeId};
 use crate::sema::value::ProcId;

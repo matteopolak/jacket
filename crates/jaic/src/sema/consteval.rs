@@ -7,6 +7,7 @@ use super::{
     Value, ast, err, ir, scope, structs, value,
 };
 use crate::diagnostics::Code;
+use crate::ide::Recorder;
 
 use crate::ir::Ty;
 use crate::lang_items;
