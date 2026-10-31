@@ -1285,7 +1285,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with: {persist-credentials: false}
-      - name: Keep temporary files on D:
+      - name: Keep temporary files on drive D
         # C: has far less room than D:, and the test programs and their debug info are large.
         run: |
           mkdir -p /d/jacket-tmp
