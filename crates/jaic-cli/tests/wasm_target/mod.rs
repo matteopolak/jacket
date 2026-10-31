@@ -159,7 +159,7 @@ fn wasm_allocation_heavy_program() {
 }
 
 /// Playground examples as WASI commands: the threads example runs on green threads
-/// (docs/native/wasm-threads.md), the files example reads its own folder, and all print what the
+/// (docs/native/wasm-target.md), the files example reads its own folder, and all print what the
 /// browser prints. The WebGPU imports are left unresolved (`--unknown-imports-trap`);
 /// `Wasi_Runtime`'s `jai_host_provides` says there is no page, so the GPU example skips itself
 /// without calling them.

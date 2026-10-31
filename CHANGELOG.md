@@ -1197,7 +1197,7 @@ WebGPU graphics on every platform and in the playground, threads in WebAssembly 
 - New `Extensions/WebGPU` module: one program draws in a window on macOS, Linux and Windows, and in the playground's new **Render** pane. See [WebGPU](https://github.com/matteopolak/jacket/blob/main/docs/extensions/webgpu.md).
 - Release archives ship the WebGPU library; nothing else to install.
 - New examples: a triangle, a ray marcher and a compute shader.
-- `jaic build -os wasm` programs can use threads. See [threads in WASI builds](https://github.com/matteopolak/jacket/blob/main/docs/native/wasm-threads.md).
+- `jaic build -os wasm` programs can use threads. See [threads in WASI builds](https://github.com/matteopolak/jacket/blob/main/docs/native/wasm-target.md#green-threads).
 - The playground tour has four new stops, and VS Code highlights `#string WGSL`, `GLSL`, `SQL` and `JSON` bodies.
 - The extension is listed as **Jai Toolchain** on the VS Code Marketplace.
 
