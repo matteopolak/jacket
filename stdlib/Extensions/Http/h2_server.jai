@@ -4,6 +4,8 @@
 // it is on: the request looks like an HTTP/1.1 one with a `Host` header, the body is read through
 // the same `Body`, and streamed responses go through the same `Stream`.
 
+#scope_module
+
 // One request being handled: the request frame (the `*Request` a handler gets points at it), the
 // strings it refers to, and the stream it travels on.
 H2_Server_Stream :: struct {
@@ -409,7 +411,7 @@ h2_send_response :: (ctx: *H2_Server_Stream, response: *Response) {
     if response.source length = response.source.length;
 
     for response.headers {
-        name := lowercase_copy(it.name);
+        name := to_lower_copy(it.name,, temp);
 
         if name == "content-length" {
             // A HEAD answer may say how long the body would be.
@@ -483,14 +485,6 @@ h2_send_source :: (ctx: *H2_Server_Stream, source: *Response_Source) {
     }
 
     if ok h2_send_data(stream, .[], true);
-}
-
-lowercase_copy :: (text: string) -> string {
-    result := alloc_string(text.count,, temp);
-
-    for text result[it_index] = ifx it >= #char "A" && it <= #char "Z" then cast(u8) (it + 32) else it;
-
-    return result;
 }
 
 // Takes the next DATA of a request body for `Body`. The data is handed over as it stands in the

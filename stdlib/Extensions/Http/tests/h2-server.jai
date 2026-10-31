@@ -4,6 +4,9 @@
 // directions, many streams at once, streamed responses, and the errors RFC 9113 names for
 // malformed input. Run from this directory.
 #load "support/server_support.jai";
+#load "../bytes.jai";
+#load "../h2_frame.jai";
+#load "../hpack.jai";
 
 Tls :: #import "Extensions/Tls";
 
@@ -501,7 +504,8 @@ basic_requests :: (base: string, server: *Server) {
 
     // Header names are lowercase and nothing HTTP/1 specific is sent.
     for result.headers {
-        check(!h2_has_uppercase(it.name) && !h2_connection_specific(it.name), "a response header: %", it.name);
+        check(it.name == to_lower_copy(it.name,, temp), "a response header is lowercase: %", it.name);
+        check(it.name != "connection" && it.name != "keep-alive" && it.name != "transfer-encoding" && it.name != "upgrade", "no HTTP/1 only header: %", it.name);
     }
 
     // The request as the handler sees it: Host from :authority, cookies joined, same version.

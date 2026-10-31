@@ -12,6 +12,8 @@
 // Frames are appended to `conn.out` in the order they must reach the peer. That is also what
 // keeps HPACK honest: a header block is encoded at the moment its frame is queued.
 
+#scope_module
+
 // How much of an unsent frame queue a sender tolerates before it waits for the writer.
 H2_QUEUE_LIMIT :: 256 * 1024;
 

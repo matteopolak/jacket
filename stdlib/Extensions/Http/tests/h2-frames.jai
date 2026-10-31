@@ -4,6 +4,8 @@
 //     jaic stdlib/Extensions/Http/tests/h2-frames.jai -interp
 
 #load "support/support.jai";
+#load "../h2_frame.jai";
+#load "../bytes.jai";
 
 header_of :: (out: [..] u8) -> H2_Frame_Header {
     return h2_decode_header(.{ out.count, out.data });

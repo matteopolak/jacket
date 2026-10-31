@@ -1,6 +1,8 @@
 // The Huffman code of RFC 7541 appendix B: the length in bits and the code of every byte, and of
 // the end-of-string symbol last (index 256).
 
+#scope_module
+
 HPACK_HUFFMAN_LENGTHS :: u8.[
     13, 23, 28, 28, 28, 28, 28, 28, 28, 24, 30, 28, 28, 30, 28, 28,
     28, 28, 28, 28, 28, 28, 30, 28, 28, 28, 28, 28, 28, 28, 28, 28,

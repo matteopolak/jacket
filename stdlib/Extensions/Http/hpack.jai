@@ -1,7 +1,7 @@
 // HPACK (RFC 7541), the header compression of HTTP/2: an encoder and a decoder that each keep the
 // dynamic table of one direction of a connection, and the Huffman code the strings use.
 //
-// ```jai
+// ```jai,ignore
 // encoder: Hpack_Encoder;
 // decoder: Hpack_Decoder;
 // hpack_encoder_init(*encoder);
@@ -22,6 +22,8 @@
 // assert(hpack_decode(*decoder, out, 4096, *block) == .NO_ERROR);
 // assert(block.fields.count == 2 && block.fields[1].value == "abc");
 // ```
+
+#scope_module
 
 #load "hpack_huffman.jai";
 
@@ -448,8 +450,6 @@ hpack_is_sensitive :: (name: string) -> bool {
 
 // ---- Integers and strings
 
-#scope_export
-
 // Appends `value` as an integer with an N-bit prefix; `flags` are the bits of the first byte above the prefix.
 hpack_put_integer :: (out: *[..] u8, prefix: int, flags: u8, value: s64) {
     limit := (1 << prefix) - 1;
@@ -634,8 +634,6 @@ hpack_make_huffman_decoder :: () -> Hpack_Huffman_Decoder {
 }
 
 hpack_huffman_decoder :: #run hpack_make_huffman_decoder();
-
-#scope_export
 
 // Appends the bytes `data` codes. False for the end-of-string symbol inside the data, for padding longer than seven bits and for
 // padding that is not ones.

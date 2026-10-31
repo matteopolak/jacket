@@ -5,6 +5,9 @@
 //     jaic stdlib/Extensions/Http/tests/hpack.jai -interp
 
 #load "support/support.jai";
+#load "../bytes.jai";
+#load "../h2_frame.jai";
+#load "../hpack.jai";
 
 hex_bytes :: (text: string) -> [] u8 {
     bytes: [..] u8;

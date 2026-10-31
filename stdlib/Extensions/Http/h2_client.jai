@@ -2,6 +2,8 @@
 // pool keeps per origin, and every request to that origin is a stream on it. Requests that run
 // at the same time share the connection; each response body reads from its own stream.
 
+#scope_module
+
 // The window a response stream starts with, and the room for all of them together.
 H2_CLIENT_WINDOW :: 256 * 1024;
 H2_CLIENT_CONNECTION_WINDOW :: 1024 * 1024;
@@ -284,7 +286,7 @@ converse_h2 :: (client: *Client, conn: *H2_Conn, method: Method, method_text: st
     array_add(*fields, .{ name = ":path", value = url.target });
 
     for headers {
-        name := lowercase_copy(it.name);
+        name := to_lower_copy(it.name,, temp);
 
         if name == "host" || name == "content-length" || h2_connection_specific(name) continue;
         if name == "te" && it.value != "trailers" continue;

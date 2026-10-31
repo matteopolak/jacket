@@ -1,7 +1,7 @@
 // HTTP/2 frames (RFC 9113): reading the nine-byte frame header and each frame's payload, and
 // appending frames to a buffer. The codec has no IO; `h2.jai` runs connections on top of it.
 //
-// ```jai
+// ```jai,ignore
 // out: [..] u8;
 // defer array_reset(*out);
 //
@@ -10,6 +10,8 @@
 // header := h2_decode_header(.{ H2_FRAME_HEADER_SIZE, out.data });
 // assert(header.type == .WINDOW_UPDATE && header.stream == 3 && header.length == 4);
 // ```
+
+#scope_module
 
 // What the client sends first on every HTTP/2 connection.
 H2_PREFACE :: "PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n";

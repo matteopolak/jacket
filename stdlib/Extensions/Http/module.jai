@@ -28,6 +28,7 @@
 http_use_simd := true;
 
 #load "types.jai";
+#load "bytes.jai";
 #load "parser.jai";
 #load "chunked.jai";
 #load "writer.jai";

@@ -4,6 +4,9 @@
 // GOAWAY in the middle of a batch of requests lets the streams it covers finish while the ones above
 // its last stream id are sent again on a new connection. Run from this directory.
 #load "support/server_support.jai";
+#load "../bytes.jai";
+#load "../h2_frame.jai";
+#load "../hpack.jai";
 
 Tls :: #import "Extensions/Tls";
 
