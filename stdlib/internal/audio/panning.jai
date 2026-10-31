@@ -33,6 +33,10 @@ clear_scale_accumulation :: (stream: *Sound_Stream, index: s64) {
 //
 // - camera_position: where the listener is.
 // - camera_orientation: which way the listener faces.
+//
+// ```jai,no_run,skip_on(wasm)
+// update_listener(.{0, 1.7, 0}, .{0, 0, 0, 1});
+// ```
 update_listener :: (camera_position: Vector3, camera_orientation: Quaternion) {
     lock_player();
     defer unlock_player();
@@ -271,6 +275,7 @@ update_panning_helper :: (stream: *Sound_Stream, gain_scale: float) {
     }
 }
 
+// The loudness a stream should have for the listener's position, from the master volume, the stream's own scales and distance.
 get_desired_volume_perceptual :: (stream: *Sound_Stream, position: Vector3) -> float {
     if !stream || !stream.sound_data return 0;
 
@@ -286,6 +291,7 @@ get_desired_volume_perceptual :: (stream: *Sound_Stream, position: Vector3) -> f
     return volume;
 }
 
+// Sets the volume of everything the player plays, as a factor of the original: 1 is unchanged, 0 is silent.
 set_master_volume :: (value: float) {
     lock_player();
     defer unlock_player();

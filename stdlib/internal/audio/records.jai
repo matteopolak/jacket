@@ -3,6 +3,7 @@ ACHANNEL_MAX :: 8;
 OUTPUT_CHANNELS_MAX :: ACHANNEL_MAX;
 NUM_SOURCE_DIRECTIONS :: 11;
 
+// A speaker of the output, as laid out by the player.
 Audio_Channel :: enum u16 {
     FRONT_LEFT :: 0;
     FRONT_RIGHT :: 1;
@@ -14,6 +15,8 @@ Audio_Channel :: enum u16 {
     EXTEND_RIGHT :: 7;
 }
 
+// Where a channel of a sound belongs in the room. `load_audio_file` sets these from the channel count; change
+// `Sound_Data.source_directions` before starting a stream to override them.
 Source_Direction :: enum u16 {
     MONO :: 0;
     LEFT :: 1;
@@ -28,6 +31,7 @@ Source_Direction :: enum u16 {
     EXTEND_RIGHT :: 10;
 }
 
+// A group of sounds. A stream's category sets its default flags (a `.MUSIC` stream is music).
 Sound_Category :: enum u32 {
     GENERAL_SFX :: 0;
     AMBIENCES :: 1;
@@ -55,6 +59,14 @@ Scale_Mapping :: struct {
     dvolume_dsample: [OUTPUT_CHANNELS_MAX] float;
 }
 
+// A loaded sound. `loaded` says whether loading worked. `volume_scale` scales every stream of it, and
+// `buffer` holds the bytes the sound was read from. Make a `Sound_Stream` from it to play it.
+//
+// ```jai,skip_on(wasm)
+// samples: [8] s16;
+// sound := Sound_Data.{ loaded = true, type = .LINEAR_SAMPLE_ARRAY, nchannels = 1, samples = samples.data, nsamples_times_nchannels = samples.count };
+// assert(sound.sampling_rate == 44100);
+// ```
 Sound_Data :: struct {
     using resource: struct {
         name: string;
@@ -90,6 +102,17 @@ Sound_Data :: struct {
     wSamplesPerBlock: s32 = 0;
 }
 
+// One playing instance of a sound. `make_stream` creates it and `start_playing` hands it to the player,
+// which owns it from then on. Set `user_volume_scale`, `rate_scale`, `position` and the `user_flags` before
+// starting it, or any time while it plays.
+//
+// ```jai,no_run,skip_on(wasm)
+// sound := load_audio_file("jump.wav");
+// stream := make_stream(*sound);
+// stream.user_volume_scale = 0.5;
+// stream.rate_scale = 1.2;  // a little higher in pitch
+// start_playing(stream);
+// ```
 Sound_Stream :: struct {
 
     user_data_u64: u64;
@@ -238,6 +261,7 @@ Fill_Region_Result :: struct {
     buffer1: string;
 }
 
+// What the audio backend settled on: the channel count and the output sampling rate.
 Backend_Properties :: struct {
     initted := false;
 
@@ -247,12 +271,23 @@ Backend_Properties :: struct {
     output_sampling_rate: s32;
 }
 
+// An audio output that `get_devices` found.
 Output_Device :: struct {
     name: string;
     hints: [] string;
     device_index: s64;
 }
 
+// Settings for `sound_player_init`. The default works: it mixes on its own thread and keeps sounds
+// playing when the window loses focus only if `audible_when_window_is_not_in_focus` is set.
+// `release_asset` is called when a stream ends, so the program can free what the stream used.
+//
+// ```jai,no_run,skip_on(wasm)
+// config: Sound_Player_Config;
+// config.update_from_a_thread = false;  // mix inside update() instead
+// config.audible_when_window_is_not_in_focus = true;
+// assert(sound_player_init(config));
+// ```
 Sound_Player_Config :: struct {
     update_from_a_thread := true;
     audible_when_window_is_not_in_focus := false;

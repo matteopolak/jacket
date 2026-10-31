@@ -2,6 +2,11 @@
 //
 // - filename: a WAV or Ogg Vorbis file.
 // - optional: true when a missing file is fine, so it is not reported as an error.
+//
+// ```jai,no_run,skip_on(wasm)
+// sound := load_audio_file("music.ogg");
+// if !sound.loaded return;
+// ```
 load_audio_file :: (filename: string, optional := false) -> Sound_Data {
     bytes, success := F.read_entire_file(filename);
     if !success {
@@ -20,6 +25,11 @@ load_audio_file :: (filename: string, optional := false) -> Sound_Data {
 // - name_for_error_reporting: shown when the data cannot be read, and kept as the sound's name.
 // - data: the bytes of a WAV or Ogg Vorbis file. They are not copied, so they must stay alive as long
 //   as the sound is used.
+//
+// ```jai,skip_on(wasm)
+// sound := load_audio_data("junk", "this is not audio");
+// assert(!sound.loaded);
+// ```
 load_audio_data :: (name_for_error_reporting: string, data: string) -> Sound_Data {
     result: Sound_Data;
     result.name = name_for_error_reporting;

@@ -1,9 +1,19 @@
+// The audio outputs the system offers.
+//
+// ```jai,no_run,skip_on(wasm)
+// for get_devices() print("%\n", it.name);
+// ```
 get_devices :: () -> [] Output_Device {
     lock_producer();
     defer finish_backend_call();
     return backend_get_devices();
 }
 
+// The sampling rate of the output in hertz, or 0 before `sound_player_init`.
+//
+// ```jai,skip_on(wasm)
+// assert(get_audio_sampling_rate() == 0);
+// ```
 get_audio_sampling_rate :: () -> s64 {
     lock_producer();
     defer unlock_producer();
@@ -14,6 +24,12 @@ get_audio_sampling_rate :: () -> s64 {
     return backend_current_rate();
 }
 
+// Opens the audio output and starts mixing. Returns false if there is no usable device. Calling it again
+// after it worked does nothing.
+//
+// ```jai,no_run,skip_on(wasm)
+// if !sound_player_init(.{}) print("no audio\n");
+// ```
 sound_player_init :: (given_config: Sound_Player_Config) -> bool {
     push_allocator(context.default_allocator);
     if player_initted return true;
@@ -66,6 +82,7 @@ sound_player_init :: (given_config: Sound_Player_Config) -> bool {
     return true;
 }
 
+// Stops every stream, closes the output and frees what the player holds. `sound_player_init` can be called again after it.
 sound_player_shutdown :: () {
     push_allocator(context.default_allocator);
 
@@ -127,6 +144,17 @@ audio_fatal :: (message: string) {
 //
 // - data: a loaded sound.
 // - category: the group the stream belongs to, for volume control.
+//
+// ```jai,skip_on(wasm)
+// samples: [64] s16;
+// sound := Sound_Data.{ loaded = true, type = .LINEAR_SAMPLE_ARRAY, nchannels = 1, samples = samples.data, nsamples_times_nchannels = samples.count };
+//
+// stream := make_stream(*sound, .UI);
+// assert(stream != null);
+//
+// not_loaded: Sound_Data;
+// assert(make_stream(*not_loaded) == null);
+// ```
 make_stream :: (data: *Sound_Data, category := Sound_Category.GENERAL_SFX) -> *Sound_Stream {
     push_allocator(context.default_allocator);
     if !data return null;
@@ -184,6 +212,8 @@ make_stream :: (data: *Sound_Data, category := Sound_Category.GENERAL_SFX) -> *S
     return stream;
 }
 
+// Gives `stream` to the player, which plays it from the start and frees it once it ends. Do nothing before
+// `sound_player_init`.
 start_playing :: (stream: *Sound_Stream) {
     push_allocator(context.default_allocator);
     if !stream || !player_initted return;
@@ -200,6 +230,15 @@ start_playing :: (stream: *Sound_Stream) {
     array_add(*active_streams, stream);
 }
 
+// The playing stream with this `entity_id` and `manager_id`, or null. Set those on a stream to find it later.
+//
+// ```jai,no_run,skip_on(wasm)
+// sound := load_audio_file("jump.wav");
+// stream := make_stream(*sound);
+// stream.entity_id = 7;
+// start_playing(stream);
+// assert(find(7, 0) == stream);
+// ```
 find :: (entity_id: s64, manager_id: s64) -> *Sound_Stream {
     lock_player();
     defer unlock_player();
@@ -207,6 +246,11 @@ find :: (entity_id: s64, manager_id: s64) -> *Sound_Stream {
     return null;
 }
 
+// Stops every stream whose `entity_id` is `id`, with no fade.
+//
+// ```jai,no_run,skip_on(wasm)
+// stop_stream_abruptly(7);
+// ```
 stop_stream_abruptly :: (id: s64) {
     lock_player();
     index: s64;
@@ -219,6 +263,7 @@ stop_stream_abruptly :: (id: s64) {
     release_retired_streams();
 }
 
+// Stops every stream that plays `data`, with no fade. Streams the program still points to are dead after this.
 stop_stream_abruptly :: (data: *Sound_Data) {
     lock_player();
     index: s64;
@@ -231,6 +276,7 @@ stop_stream_abruptly :: (data: *Sound_Data) {
     release_retired_streams();
 }
 
+// Stops every stream that has this `manager_id`, with no fade.
 stop_all_sounds_abruptly :: (manager_id: s64) {
     lock_player();
     index: s64;
@@ -243,6 +289,7 @@ stop_all_sounds_abruptly :: (manager_id: s64) {
     release_retired_streams();
 }
 
+// Works out how fast a stream plays from its sound's sampling rate, the output rate and `rate_scale`.
 update_desired_rate :: (stream: *Sound_Stream) {
     lock_player();
     defer unlock_player();
@@ -256,6 +303,13 @@ update_desired_rate :: (stream: *Sound_Stream) {
 // Makes a stream loop, or stops it from looping.
 //
 // - repeating: true to start over each time the end is reached, false to stop there.
+//
+// ```jai,no_run,skip_on(wasm)
+// sound := load_audio_file("jump.wav");
+// stream := make_stream(*sound, .MUSIC);
+// set_repeating(stream, true);
+// start_playing(stream);
+// ```
 set_repeating :: (stream: *Sound_Stream, repeating: bool) {
     lock_player();
     defer unlock_player();
@@ -268,6 +322,8 @@ set_repeating :: (stream: *Sound_Stream, repeating: bool) {
     } else stream.user_flags &= ~ .REPEATING;
 }
 
+// The first half of `update`: marks streams that have reached their end. Call it and `post_entity_update`
+// instead of `update` when you need to touch streams between the two.
 pre_entity_update :: () {
     if !sound_mutex_ready return;
 
@@ -282,6 +338,8 @@ pre_entity_update :: () {
     }
 }
 
+// The second half of `update`: ends streams that were not kept alive, and refreshes the pitch and panning of the rest.
+// `dt` is the seconds since the last frame.
 post_entity_update :: (dt: float) {
     assert(is_finite(dt) && dt >= 0);
     lock_player();
@@ -305,6 +363,15 @@ post_entity_update :: (dt: float) {
     release_retired_streams();
 }
 
+// Advances the player by one frame. Call it once per frame. `dt` is the seconds since the last
+// call; leave it out to have the player measure it.
+//
+// ```jai,no_run,skip_on(wasm)
+// while true {
+//     update();
+//     // ... draw and handle input ...
+// }
+// ```
 update :: (dt := FLOAT32_INFINITY) {
     lock_player();
     now := audio_wall_time();
@@ -318,6 +385,7 @@ update :: (dt := FLOAT32_INFINITY) {
     post_entity_update(elapsed);
 }
 
+// Mixes the next stretch of every stream into the output buffer. The audio thread calls it.
 fill_sample_buffer :: (buffer: string) {
     assert(buffer.count >= 0 && (buffer.data != null || buffer.count == 0));
     offset: s64;
@@ -365,6 +433,7 @@ fill_sample_buffer :: (buffer: string) {
     }
 }
 
+// Fills the output with the audio thread's mixing step, or with the main thread's when `update_from_a_thread` is off.
 update_from_async_thread :: (actually_async: bool) {
     lock_producer();
 
@@ -402,6 +471,7 @@ update_from_async_thread :: (actually_async: bool) {
     backend_release_fill_regions(regions);
 }
 
+// The body of the audio thread.
 async_audio_update :: (thread: *Thread) -> s64 {
     if player_config.set_async_thread_priority player_config.set_async_thread_priority();
 
