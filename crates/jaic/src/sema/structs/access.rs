@@ -138,8 +138,7 @@ impl Compiler {
             }
             _ => {
                 if let Some(ids) = self.struct_constant(ty, name)? {
-                    self.ide_note_constant_use(span, &ids);
-                    return self.entities_operand(f, scope, &ids, span);
+                    return self.constant_operand(f, scope, &ids, span);
                 }
                 let (_, addr) = self.address_of(f, base, span)?;
                 (ty, addr)
@@ -181,8 +180,7 @@ impl Compiler {
             .with_callable(parameters));
         }
         if let Some(ids) = self.struct_constant(target, name)? {
-            self.ide_note_constant_use(span, &ids);
-            return self.entities_operand(f, scope, &ids, span);
+            return self.constant_operand(f, scope, &ids, span);
         }
         if self.is_stand_in(target) {
             // The value is unknown because an earlier error already said why: its members
@@ -358,11 +356,23 @@ impl Compiler {
         Ok(Some(ty))
     }
 
-    /// `name` at `span` named the constant `ids` declare in a struct: a use of it, like any name.
-    fn ide_note_constant_use(&mut self, span: Span, ids: &[EntityId]) {
-        if let Some(&first) = ids.first() {
+    /// The value of the struct constant `ids` that `name` at `span` named. The use is noted after
+    /// the value is checked: an initializer that names something (`count :: N;`) would otherwise
+    /// take the name's place as the last one resolved.
+    fn constant_operand(
+        &mut self,
+        f: &mut FnCtx,
+        scope: ScopeId,
+        ids: &[EntityId],
+        span: Span,
+    ) -> Result<Operand> {
+        let operand = self.entities_operand(f, scope, ids, span);
+        if operand.is_ok()
+            && let Some(&first) = ids.first()
+        {
             self.ed.resolved(span, first);
         }
+        operand
     }
 
     pub(super) fn type_member(
@@ -378,8 +388,7 @@ impl Compiler {
             && self.ty.types.as_struct(p).is_some()
             && let Some(ids) = self.struct_constant(p, name)?
         {
-            self.ide_note_constant_use(span, &ids);
-            return self.entities_operand(f, scope, &ids, span);
+            return self.constant_operand(f, scope, &ids, span);
         }
         match self.ty.types.kind(t).clone() {
             TypeKind::Enum(_) if name.as_str() == "loose" => {
@@ -434,8 +443,7 @@ impl Compiler {
             }
             TypeKind::Struct(_) => {
                 if let Some(ids) = self.struct_constant(t, name)? {
-                    self.ide_note_constant_use(span, &ids);
-                    return self.entities_operand(f, scope, &ids, span);
+                    return self.constant_operand(f, scope, &ids, span);
                 }
                 if let Some(ty) = self.pending_struct_field_type(t, name, span)? {
                     return Ok(Operand::Type(ty));

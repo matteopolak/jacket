@@ -20,10 +20,7 @@
  "tests/compiler/language/json-numeric-progress/main.jai|d-member|bits",
  "tests/compiler/language/json-numeric-progress/main.jai|d-member|text",
  "tests/compiler/regressions/baked-dependent-type-and-member.jai|d-literal|Inner",
- "tests/compiler/regressions/code-array-of-names.jai|b-definition|count",
  "tests/compiler/regressions/for-expansion-pointer-among-poly-overloads.jai|c-blank|count",
  "tests/compiler/regressions/for-expansion-pointer-among-poly-overloads.jai|c-edit|count",
- "tests/compiler/regressions/howto-type-variant-literals.jai|b-definition|count",
- "tests/compiler/regressions/rules-modules-and-imports.jai|b-definition|str_twice",
- "tests/compiler/regressions/view-for-fixed-array-struct-parameter.jai|b-definition|count"
+ "tests/compiler/regressions/rules-modules-and-imports.jai|b-definition|str_twice"
 ]

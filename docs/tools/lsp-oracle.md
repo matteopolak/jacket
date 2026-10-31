@@ -14,7 +14,7 @@ Checks what the language server answers against what the compiler knows, on ever
 | c | `c-blank`, `c-format`, `c-edit` | hover, definition and diagnostics change beyond shifted positions after inserting blank lines or running `jaifmt`; editing an open session into that text differs from opening it fresh |
 | d | `d-member`, `d-literal` | completion after `value.` misses a member the code uses there; completion in a struct literal misses a field |
 
-The blank-line comparison ignores `line:column` pairs in hover text, since a constant that prints where a literal is changes with the layout. Member completion (`d-member`) in a polymorphic body offers the members of every instance's receiver. `jaigen` programs have no reversed ranges and no compound assignment that reads its target, so the lints on those stay quiet.
+The blank-line comparison ignores `line:column` pairs in hover text, since a constant that prints where a literal is changes with the layout. A member of a distinct string or array (`name.count` on a `#type,isa string`) is builtin, so it is not expected to have a declaration. Member completion (`d-member`) in a polymorphic body offers the members of every instance's receiver. `jaigen` programs have no reversed ranges and no compound assignment that reads its target, so the lints on those stay quiet.
 
 A chunk that crashes or hangs is rerun file by file, so one bad file does not hide the others. Upstream files run inside the corpus sandbox (`tools/corpus/upstream_sandbox.py`), as the upstream sweep does; cases that need special build setup (`args`, `files`, `setup`, ...) or are still `"review": "pending"` are skipped.
 

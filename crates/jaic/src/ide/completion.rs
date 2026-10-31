@@ -622,6 +622,19 @@ impl Compiler {
             out.extend(self.ide_struct_constants(ty));
             out.extend(self.ide_using_constants(inner, seen));
         }
+        // `using name :: Base(T).{};` stores nothing, but its type's constants are the struct's.
+        for base in self.using_constant_bases(s, false) {
+            let ty = self.ide_deref(base);
+            let TypeKind::Struct(inner) = *self.ty.types.kind(ty) else {
+                continue;
+            };
+            if seen.contains(&inner) {
+                continue;
+            }
+            seen.push(inner);
+            out.extend(self.ide_struct_constants(ty));
+            out.extend(self.ide_using_constants(inner, seen));
+        }
         out
     }
 
@@ -717,6 +730,10 @@ impl Compiler {
                     TypeKind::Struct(s) => {
                         // Constants and parameters of the struct are members of its values too.
                         out.extend(self.ide_struct_constants(t));
+                        for base in self.using_constant_bases(s, false) {
+                            let base = self.ide_deref(base);
+                            out.extend(self.ide_struct_constants(base));
+                        }
                         let fields = self.ty.types.struct_info(s).fields.clone();
                         for f in fields.iter() {
                             if let Some(n) = f.name {

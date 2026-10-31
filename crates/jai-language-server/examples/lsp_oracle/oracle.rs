@@ -65,15 +65,15 @@ fn line_of(text: &str, byte: usize) -> u32 {
     text[..byte.min(text.len())].matches('\n').count() as u32
 }
 
+/// Whether members of `t` are declared in source: a struct or enum, through pointers and
+/// distinct wrappers. A distinct string or array only has the builtin members of its base.
 fn declared(compiler: &Compiler, t: TypeId) -> bool {
-    let mut t = t;
-    while let TypeKind::Pointer(inner) = *compiler.ty.types.kind(t) {
-        t = inner;
+    let types = &compiler.ty.types;
+    let mut t = types.repr_struct(t);
+    while let TypeKind::Pointer(inner) = *types.kind(t) {
+        t = types.repr_struct(inner);
     }
-    matches!(
-        compiler.ty.types.kind(t),
-        TypeKind::Struct(_) | TypeKind::Enum(_) | TypeKind::Distinct(_)
-    )
+    matches!(types.kind(t), TypeKind::Struct(_) | TypeKind::Enum(_))
 }
 
 /// Compiles `path` as a program with `options`. `Err` is the compiler's first error.

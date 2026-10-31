@@ -29,7 +29,7 @@ impl Compiler {
     /// The types of the struct's `using name :: value;` constants (only the `#as` ones when
     /// `as_only`): members without storage that still lend the struct their own constants and,
     /// with `#as`, make it count as an instance of the type they hold.
-    pub(in crate::sema) fn using_constant_bases(
+    pub(crate) fn using_constant_bases(
         &mut self,
         s: crate::types::StructId,
         as_only: bool,
