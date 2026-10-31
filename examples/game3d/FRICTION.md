@@ -4,13 +4,17 @@ Rough edges hit while writing game3d. Fixed ones name the commit subject; open o
 
 ## Fixed in the stdlib
 
+- `Window_Type` is a pointer on macOS and an integer on Linux, so "no window" is `null` in one place and `0` in another. The type stays as it is (it has to match the reference); the Window_Creation docs now say so and show the portable spelling, `no_window: Window_Type;` compared with `WT.INVALID_WINDOW`.
+- `Extensions/WebGPU` had no texture readback helper. It has `webgpu_read_texture` now, which does the copy, the 256-byte row padding, the map and the copy out, and returns packed rows. The game, `Extensions/UI` and the headless test use it.
+- `Iprof`: the manual mode was written down only in the module's tests. The module now opens with an overview and a runnable example (setup, zones, `update(true)` per frame, report), and `zone_begin`, `zone_end`, `update`, `create_report`, `log_text_report` and `save_csv_report` have doc comments. It also says zones are global to the process and cannot be opened from worker threads.
 - `meshoptimizer`: the declarations followed an old API, so `meshopt_simplify` and the meshlet functions did not match the linked library. Fixed by `fix(meshoptimizer): match the declarations to the pinned library`; the game now calls the module's `meshopt_simplify`.
+
+## Fixed in jailint
+
+- `a << 8 | b << 4 | c` reads left to right as `(((a << 8) | b) << 4) | c`, because shifts and bitwise operators share one level in Jai. The `bitwise_precedence` lint of jailint already flags it (with a fix that adds the parentheses); its tests now include this shape. No new lint was needed.
 
 ## Open: stdlib
 
-- `Window_Type` is a pointer on macOS and an integer on Linux, so "no window" is `null` in one place and `0` in another. A zero value of the type (`no_window: Window_Type;`) is the portable spelling; it is not written down anywhere.
-- `Extensions/WebGPU` has no texture readback helper. The copy to a buffer, the 256-byte row rule, the map and the copy out are about thirty lines that `tests/driven/headless.jai` and the game both carry.
-- `Iprof`: the module has no overview. The manual mode (`MANUAL_MODE = true`) needs `Prof_init_highlevel`, then a name and an `initted` flag for each zone (the tests also set its `hash`), then `zone_begin`/`zone_end`, `update(true)` once per frame and `create_report`/`log_text_report` to read it. That is only written down in the module's tests. Zones are global to the process, so they cannot be opened from the job system's worker threads.
 - `Performance_Report` is a compiler plugin (`jaic ... +Performance_Report`), not a runtime profiler; the name suggests the second.
 - `WGPUAdapterInfo.vendor` is empty on Metal; only `device` carries the GPU's name.
 
@@ -20,7 +24,6 @@ None found. `jaic -check` passes for the game on macOS, Linux and Windows.
 
 ## Open: diagnostics and tooling
 
-- `a << 8 | b << 4 | c` groups as `a << (8 | b) << (4 | c)`: `|` binds tighter than `<<`. No warning; the lookup table index went out of range at run time. Parenthesise every shift next to a bitwise operator.
 - `crates/jaic-cli/tests/examples.rs` lists every example program by hand (`every_example_is_a_listed_program_or_loaded_by_one`), so a new example fails that test until `("game3d/game/main.jai", NATIVE, NO_WINDOW)` is added to `PROGRAMS`.
 
 ## What went smoothly
