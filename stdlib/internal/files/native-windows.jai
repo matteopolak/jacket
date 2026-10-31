@@ -3,6 +3,11 @@
 //
 // A zero `File` is not open: `is_valid` is `false` for it and every procedure fails on it. Reads and writes go straight to
 // the system without a buffer of ours in between.
+//
+// ```jai,only(windows)
+// file, ok := file_open("jai-doc-no-such-file.txt");
+// assert(!ok && !is_valid(file));
+// ```
 File :: struct {
     handle: W.HANDLE;
 }
@@ -35,6 +40,31 @@ FOLDERID_SavedGames_uid_string :: "4C5C32FF-BB9D-43b0-B5B4-2D72E54EAAA4";
 // `name` is UTF-8 and is converted to UTF-16 for the system; text that is not valid UTF-8, an empty name, and a name with a
 // NUL byte are refused. `/` and `\` both separate directories. Other programs may open, write and delete the file while it is
 // open. A failure is logged as an error through `context.logger` only when `log_errors` is `true`.
+//
+// ```jai,only(windows)
+// #import "Extensions/Environment";
+// base := environment_variable("TMPDIR");
+// if base == "" base = environment_variable("TEMP");
+// if base == "" base = "/tmp";
+// path := tprint("%/jai-doc-file-open.txt", base);
+// defer file_delete(path);
+//
+// _, found := file_open(path);
+// assert(!found); // reading needs an existing file
+//
+// file, ok := file_open(path, for_writing = true);
+// assert(ok && file_write(*file, "hello"));
+// file_close(*file);
+//
+// // Keeping the content starts at the first byte, so this overwrites it.
+// file, ok = file_open(path, for_writing = true, keep_existing_content = true);
+// assert(ok && file_write(*file, "J"));
+// file_close(*file);
+//
+// text, read_ok := read_entire_file(path);
+// assert(read_ok && text == "Jello");
+// free(text);
+// ```
 file_open :: (name: string, for_writing := false, keep_existing_content := false, log_errors := false) -> File, bool {
     path := Text.utf16_path(name);
 
@@ -62,12 +92,32 @@ file_open :: (name: string, for_writing := false, keep_existing_content := false
 } @Opens
 
 // Whether `file` is open: `false` for a zero `File`, for one `file_open` failed to open, and for one `file_close` closed.
+//
+// ```jai,only(windows)
+// file, ok := file_open("jai-doc-no-such-file.txt");
+// assert(!ok && !is_valid(file));
+// ```
 is_valid :: (file: File) -> bool {
     return file.handle != null && file.handle != W.INVALID_HANDLE_VALUE;
 }
 
 // Closes `file` and sets it to the closed state. A file that is already closed, or was never opened, is left alone, so closing
 // twice is safe. A failure to close is logged and leaves the handle as it was.
+//
+// ```jai,only(windows)
+// #import "Extensions/Environment";
+// base := environment_variable("TMPDIR");
+// if base == "" base = environment_variable("TEMP");
+// if base == "" base = "/tmp";
+// path := tprint("%/jai-doc-close.bin", base);
+// defer file_delete(path);
+// assert(write_entire_file(path, "x"));
+// file, ok := file_open(path);
+// assert(ok && is_valid(file));
+// file_close(*file);
+// assert(!is_valid(file));
+// file_close(*file); // closing twice is fine
+// ```
 file_close :: (file: *File) {
     if is_valid(file.*) {
         if W.CloseHandle(file.handle) == 0 {
@@ -84,6 +134,28 @@ file_close :: (file: *File) {
 // It keeps reading until the count is met or the end is reached, so a short count with `true` means the end of the file (or
 // of a pipe whose writer closed), and `0` means it is at the end. A closed file, a `null` buffer or a count of `0` or less
 // fails with `0` bytes. A read error gives `false` with the bytes that did arrive. The position moves by `total_read`.
+//
+// ```jai,only(windows)
+// #import "Extensions/Environment";
+// base := environment_variable("TMPDIR");
+// if base == "" base = environment_variable("TEMP");
+// if base == "" base = "/tmp";
+// path := tprint("%/jai-doc-file-read.bin", base);
+// defer file_delete(path);
+//
+// assert(write_entire_file(path, "abcdef"));
+// file, ok := file_open(path);
+// assert(ok);
+// defer file_close(*file);
+//
+// buffer: [4] u8;
+// success, count := file_read(file, buffer.data, buffer.count);
+// assert(success && count == 4 && buffer[0] == #char "a");
+// success, count = file_read(file, buffer.data, buffer.count);
+// assert(success && count == 2); // short: the end of the file
+// success, count = file_read(file, buffer.data, buffer.count);
+// assert(success && count == 0); // at the end
+// ```
 file_read :: (f: File, vdata: *void, bytes_to_read: s64) -> (success: bool, total_read: s64) {
     if !is_valid(f) || !vdata || bytes_to_read <= 0 return false, 0;
 
@@ -112,6 +184,23 @@ file_read :: (f: File, vdata: *void, bytes_to_read: s64) -> (success: bool, tota
 
 // Writes `length` bytes at `data` at the current position. Returns `false` for a closed file, a negative `length`, `null`
 // `data` with a positive length, or a write error (then an unknown part of the bytes may be in the file). A `length` of `0` succeeds.
+//
+// ```jai,only(windows)
+// #import "Extensions/Environment";
+// base := environment_variable("TMPDIR");
+// if base == "" base = environment_variable("TEMP");
+// if base == "" base = "/tmp";
+// path := tprint("%/jai-doc-write-bytes.bin", base);
+// defer file_delete(path);
+// file, ok := file_open(path, for_writing = true);
+// assert(ok);
+// bytes := u8.[1, 2, 3];
+// assert(file_write(*file, bytes.data, bytes.count));
+// file_close(*file);
+// text, read_ok := read_entire_file(path);
+// assert(read_ok && text.count == 3 && text[2] == 3);
+// free(text);
+// ```
 file_write :: (file: *File, data: *void, length: s64) -> bool {
     if !is_valid(file.*) || length < 0 || (!data && length > 0) return false;
 
@@ -129,11 +218,43 @@ file_write :: (file: *File, data: *void, length: s64) -> bool {
 }
 
 // Asks the system to write the file's buffers to the device (`FlushFileBuffers`); returns `false` for a closed file or on an error.
+//
+// ```jai,only(windows)
+// #import "Extensions/Environment";
+// base := environment_variable("TMPDIR");
+// if base == "" base = environment_variable("TEMP");
+// if base == "" base = "/tmp";
+// path := tprint("%/jai-doc-flush.bin", base);
+// defer file_delete(path);
+// file, ok := file_open(path, for_writing = true);
+// assert(ok);
+// defer file_close(*file);
+// assert(file_write(*file, "data"));
+// assert(file_flush(file));
+// text, read_ok := read_entire_file(path); // another reader sees it already
+// assert(read_ok && text == "data");
+// free(text);
+// ```
 file_flush :: (file: File) -> bool {
     return is_valid(file) && W.FlushFileBuffers(file.handle) != 0;
 }
 
 // The size of the file in bytes and whether it could be read. The position does not change.
+//
+// ```jai,only(windows)
+// #import "Extensions/Environment";
+// base := environment_variable("TMPDIR");
+// if base == "" base = environment_variable("TEMP");
+// if base == "" base = "/tmp";
+// path := tprint("%/jai-doc-length.bin", base);
+// defer file_delete(path);
+// assert(write_entire_file(path, "abcdef"));
+// file, ok := file_open(path);
+// assert(ok);
+// defer file_close(*file);
+// length, length_ok := file_length(file);
+// assert(length_ok && length == 6);
+// ```
 file_length :: (file: File) -> s64, bool {
     if !is_valid(file) return 0, false;
     length: W.LARGE_INTEGER;
@@ -143,6 +264,23 @@ file_length :: (file: File) -> s64, bool {
 
 // The position of the next read or write, in bytes from the start of the file, and whether it could be read.
 // A closed file gives `(0, false)`.
+//
+// ```jai,only(windows)
+// #import "Extensions/Environment";
+// base := environment_variable("TMPDIR");
+// if base == "" base = environment_variable("TEMP");
+// if base == "" base = "/tmp";
+// path := tprint("%/jai-doc-position.bin", base);
+// defer file_delete(path);
+// assert(write_entire_file(path, "abcdef"));
+// file, ok := file_open(path);
+// assert(ok);
+// defer file_close(*file);
+// buffer: [2] u8;
+// file_read(file, buffer.data, 2);
+// position, position_ok := file_current_position(file);
+// assert(position_ok && position == 2);
+// ```
 file_current_position :: (f: File) -> s64, bool {
     if !is_valid(f) return 0, false;
 
@@ -155,6 +293,30 @@ file_current_position :: (f: File) -> s64, bool {
 
 // Moves by `pos` bytes relative to `.START`, `.CURRENT` or `.END` of the file. A negative `pos` goes backwards. Returns
 // `false` for a closed file or when the result would be before the start. Going past the end is allowed.
+//
+// ```jai,only(windows)
+// #import "Extensions/Environment";
+// base := environment_variable("TMPDIR");
+// if base == "" base = environment_variable("TEMP");
+// if base == "" base = "/tmp";
+// path := tprint("%/jai-doc-file-seek.bin", base);
+// defer file_delete(path);
+//
+// assert(write_entire_file(path, "abcdef"));
+// file, ok := file_open(path);
+// assert(ok);
+// defer file_close(*file);
+//
+// assert(file_seek(file, -2, .END));
+// tail, tail_ok := read_entire_file(file);
+// assert(tail_ok && tail == "ef");
+// free(tail);
+//
+// assert(file_seek(file, 1, .START) && file_seek(file, 2, .CURRENT));
+// position, position_ok := file_current_position(file);
+// assert(position_ok && position == 3);
+// assert(!file_seek(file, -1, .START));
+// ```
 file_seek :: (file: File, pos: s64, type: Seek_Type) -> (success: bool) {
     if !is_valid(file) return false;
 
@@ -171,12 +333,41 @@ file_seek :: (file: File, pos: s64, type: Seek_Type) -> (success: bool) {
 }
 
 // Moves to byte `pos` counted from the start of the file. Returns `false` for a closed file or a negative `pos`.
+//
+// ```jai,only(windows)
+// #import "Extensions/Environment";
+// base := environment_variable("TMPDIR");
+// if base == "" base = environment_variable("TEMP");
+// if base == "" base = "/tmp";
+// path := tprint("%/jai-doc-set-position.bin", base);
+// defer file_delete(path);
+// assert(write_entire_file(path, "abcdef"));
+// file, ok := file_open(path);
+// assert(ok);
+// defer file_close(*file);
+// assert(file_set_position(file, 4));
+// rest, rest_ok := read_entire_file(file);
+// assert(rest_ok && rest == "ef");
+// free(rest);
+// ```
 file_set_position :: (f: File, pos: s64) -> bool {
     return pos >= 0 && file_seek(f, pos, .START);
 }
 
 // Deletes the file `filename`; `false` if it does not exist, is a directory (see `delete_directory`) or is read-only. Files this
 // module opened can be deleted while open.
+//
+// ```jai,only(windows)
+// #import "Extensions/Environment";
+// base := environment_variable("TMPDIR");
+// if base == "" base = environment_variable("TEMP");
+// if base == "" base = "/tmp";
+// path := tprint("%/jai-doc-delete.bin", base);
+// defer file_delete(path);
+// assert(write_entire_file(path, "x"));
+// assert(file_delete(path));
+// assert(!file_delete(path)); // already gone
+// ```
 file_delete :: (filename: string) -> bool {
     path := Text.utf16_path(filename);
     defer free(path);
@@ -186,6 +377,24 @@ file_delete :: (filename: string) -> bool {
 // Renames the file `name_old` to `name_new`, which may be on another volume. Returns `false` if that fails, including
 // when `name_new` already exists: delete it first, or see
 // `File_Utilities.atomic_file_replace_or_just_rename_if_destination_file_does_not_exist`.
+//
+// ```jai,only(windows)
+// #import "Extensions/Environment";
+// base := environment_variable("TMPDIR");
+// if base == "" base = environment_variable("TEMP");
+// if base == "" base = "/tmp";
+// path := tprint("%/jai-doc-move.bin", base);
+// defer file_delete(path);
+// to := tprint("%.moved", path);
+// defer file_delete(to);
+// assert(write_entire_file(path, "content"));
+// assert(file_move(path, to));
+// text, ok := read_entire_file(to);
+// assert(ok && text == "content");
+// free(text);
+// _, still_there := file_open(path);
+// assert(!still_there);
+// ```
 file_move :: (name_old: string, name_new: string) -> bool {
     old := Text.utf16_path(name_old);
 
@@ -199,6 +408,22 @@ file_move :: (name_old: string, name_new: string) -> bool {
 
 // Creates the hard link `link` to the existing file `filepath`, so both names are one file. Note the order: the new name
 // comes first. Fails if `link` exists, on a directory, or across volumes or on a file system without hard links.
+//
+// ```jai,only(windows)
+// #import "Extensions/Environment";
+// base := environment_variable("TMPDIR");
+// if base == "" base = environment_variable("TEMP");
+// if base == "" base = "/tmp";
+// path := tprint("%/jai-doc-link.bin", base);
+// defer file_delete(path);
+// other := tprint("%.link", path);
+// defer file_delete(other);
+// assert(write_entire_file(path, "shared"));
+// assert(file_link(other, path));
+// text, ok := read_entire_file(other);
+// assert(ok && text == "shared");
+// free(text);
+// ```
 file_link :: (link: string, filepath: string) -> bool {
     name := Text.utf16_path(link);
 
@@ -212,6 +437,19 @@ file_link :: (link: string, filepath: string) -> bool {
 
 // Removes the directory `dirname` if it is empty. Returns `false` if it is missing, not empty, or not a directory.
 // To remove a folder with its content, see `File_Utilities.delete_directory_tree`.
+//
+// ```jai,only(windows)
+// #import "Extensions/Environment";
+// base := environment_variable("TMPDIR");
+// if base == "" base = environment_variable("TEMP");
+// if base == "" base = "/tmp";
+// path := tprint("%/jai-doc-rmdir.bin", base);
+// defer file_delete(path);
+// directory := tprint("%.dir", path);
+// assert(make_directory_if_it_does_not_exist(directory));
+// assert(delete_directory(directory));
+// assert(!delete_directory(directory)); // gone
+// ```
 delete_directory :: (dirname: string) -> bool {
     path := Text.utf16_path(dirname);
     defer free(path);
@@ -221,6 +459,24 @@ delete_directory :: (dirname: string) -> bool {
 // Makes sure the directory `name` exists and returns whether it does afterwards: an existing directory is a success, a file
 // of that name or (without `recursive`) a missing parent is a failure. With `recursive`, missing parents are created too.
 // Both `/` and `\` work as separators.
+//
+// ```jai,only(windows)
+// #import "Extensions/Environment";
+// base := environment_variable("TMPDIR");
+// if base == "" base = environment_variable("TEMP");
+// if base == "" base = "/tmp";
+// root := tprint("%/jai-doc-make-directory", base);
+// leaf := tprint("%/a/b", root);
+// defer {
+//     delete_directory(leaf);
+//     delete_directory(tprint("%/a", root));
+//     delete_directory(root);
+// }
+//
+// assert(!make_directory_if_it_does_not_exist(leaf)); // the parents are missing
+// assert(make_directory_if_it_does_not_exist(leaf, recursive = true));
+// assert(make_directory_if_it_does_not_exist(leaf)); // already there
+// ```
 make_directory_if_it_does_not_exist :: (name: string, recursive := false) -> directory_now_exists: bool {
     path := Text.utf16_path(name);
 
@@ -248,6 +504,12 @@ make_directory_if_it_does_not_exist :: (name: string, recursive := false) -> dir
 //
 // The path need not exist and links are not followed; `.` and `..` are resolved textually. The result uses `/` as separator,
 // as on other targets, so it can go into a string literal or a `#load`.
+//
+// ```jai,only(windows)
+// path, ok := get_absolute_path(".");
+// assert(ok && path.count > 0);
+// free(path);
+// ```
 get_absolute_path :: inline (relative_path: string) -> string, success: bool {
     path := Text.utf16_path(relative_path);
 

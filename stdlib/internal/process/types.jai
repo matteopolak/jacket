@@ -3,6 +3,13 @@
 // `QUOTE_IF_NEEDED` (the default) quotes an argument that has spaces, tabs, quotes or is empty, so each argument arrives as one
 // piece. `NEVER_QUOTE` passes the text as it is, for a caller who has built the command line. Only Windows builds a command line
 // and so only Windows reads this; on Unix targets the arguments are handed to the program one by one and nothing is quoted.
+//
+// ```jai,only(linux, macos)
+// result, out, err, timed_out := run_command("/bin/echo", "a b", capture_and_return_output = true, arg_quoting = .NEVER_QUOTE, timeout_ms = 5000);
+// assert(!timed_out && result.type == .EXITED && out == "a b\n");
+// free(out);
+// free(err);
+// ```
 Process_Argument_Quoting :: enum {
     QUOTE_IF_NEEDED :: 0;
     NEVER_QUOTE :: 1;
@@ -15,6 +22,11 @@ Process_Argument_Quoting :: enum {
 // - `FAILED_TO_LAUNCH`: the program could not be started. `run_command` reports it; `create_process` returns `false` instead.
 // - `EXITED`: it ended by itself or by being killed on Windows; `exit_code` has its code.
 // - `SIGNALED`: a signal ended it (Unix targets only); `signal` has the number, `9` for `kill_process`.
+//
+// ```jai,only(linux, macos)
+// result, _, _, _ := run_command("/bin/sh", "-c", "exit 3", timeout_ms = 5000);
+// assert(result.type == .EXITED && result.exit_code == 3);
+// ```
 Process_Result_Type :: enum s32 {
     UNSTARTED;
     STILL_RUNNING;
@@ -38,12 +50,24 @@ Process_Result :: struct {
 
 // The system part of a `Process.Pipe`: the file descriptor of a pipe to or from the child, `-1` when there is none. Read it,
 // but let the procedures of this module do the closing.
+//
+// ```jai,only(linux, macos)
+// process: Process;
+// assert(process.input.handle == -1); // nothing is open before create_process
+// ```
 Pipe_Platform :: struct {
     handle: s32 = -1;
 }
 
 // The system part of a `Process`: the child's process id in `pid` (`0` before `create_process`), and on macOS a descriptor used
 // for waiting that the module keeps.
+//
+// ```jai,only(linux, macos)
+// process: Process;
+// assert(create_process(*process, "/bin/sh", "-c", "exit 0"));
+// defer deinit(*process);
+// assert(process.pid != 0);
+// ```
 Process_Platform :: struct {
     pid: P.pid_t;
     #if OS == .MACOS kevent_queue: s32 = -1;

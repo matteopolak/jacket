@@ -1,6 +1,19 @@
 File_Visit_Info :: Visit.File_Visit_Info;
 
 // Whether something exists at `path`: a file or a directory. `false` for an empty path, a path with a NUL byte, or text that is not valid UTF-8.
+//
+// ```jai,only(windows)
+// #import "Extensions/Environment";
+// #import "File";
+// base := environment_variable("TMPDIR");
+// if base == "" base = environment_variable("TEMP");
+// if base == "" base = "/tmp";
+// path := tprint("%/jai-doc-exists.txt", base);
+// defer file_delete(path);
+// assert(!file_exists(path));
+// assert(write_entire_file(path, "x"));
+// assert(file_exists(path));
+// ```
 file_exists :: (file_path: string) -> bool {
     _, success := is_directory(file_path);
     return success;
@@ -37,6 +50,19 @@ file_modtime_and_size :: (file_path: string) -> (modtime: Apollo_Time, size: s64
 }
 
 // When the file was last written, and whether it exists; the same as `file_modtime_and_size` without the size.
+//
+// ```jai,only(windows)
+// #import "Extensions/Environment";
+// #import "File";
+// base := environment_variable("TMPDIR");
+// if base == "" base = environment_variable("TEMP");
+// if base == "" base = "/tmp";
+// path := tprint("%/jai-doc-file-modtime.txt", base);
+// defer file_delete(path);
+// assert(write_entire_file(path, "x"));
+// time, found := file_modtime(path);
+// assert(found && compare_apollo_times(time, APOLLO_TIME_INVALID) != 0);
+// ```
 file_modtime :: (file_path: string) -> (modtime: Apollo_Time, success: bool) {
     time, _, success := file_modtime_and_size(file_path);
     return time, success;
@@ -45,6 +71,20 @@ file_modtime :: (file_path: string) -> (modtime: Apollo_Time, success: bool) {
 // Fills in `modification_time` and `size` of `info` from `info.full_name` when the time is still `APOLLO_TIME_INVALID`.
 // Returns whether the details are known: `false`, with `had_error` set, when they cannot be read. A record that already has
 // a time is left alone and the answer is `!had_error`. `visit_files` fills these in itself on this target.
+//
+// ```jai,only(windows)
+// #import "Extensions/Environment";
+// #import "File";
+// base := environment_variable("TMPDIR");
+// if base == "" base = environment_variable("TEMP");
+// if base == "" base = "/tmp";
+// path := tprint("%/jai-doc-add-modtime.txt", base);
+// defer file_delete(path);
+// assert(write_entire_file(path, "four"));
+// info := File_Visit_Info.{ full_name = path, modification_time = APOLLO_TIME_INVALID };
+// assert(add_modtime_and_size_if_missing(*info));
+// assert(info.size == 4);
+// ```
 add_modtime_and_size_if_missing :: inline (info: *File_Visit_Info) -> bool {
     if info.modification_time.low != APOLLO_TIME_INVALID.low || info.modification_time.high != APOLLO_TIME_INVALID.high return !info.had_error;
 

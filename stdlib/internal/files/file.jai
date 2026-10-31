@@ -23,6 +23,21 @@ Map_File_Info :: struct {
 //
 // The same answer as `file_current_position`, with the two results in the other order: that one returns the
 // position first. Both orders are kept because programs rely on each.
+//
+// ```jai
+// #import "Extensions/Environment";
+// base := environment_variable("TMPDIR");
+// if base == "" base = environment_variable("TEMP");
+// if base == "" base = "/tmp";
+// path := tprint("%/jai-doc-tell.bin", base);
+// defer file_delete(path);
+// assert(write_entire_file(path, "abc"));
+// file, ok := file_open(path);
+// assert(ok);
+// defer file_close(*file);
+// success, position := file_tell(file);
+// assert(success && position == 0);
+// ```
 file_tell :: (file: File) -> (success: bool, position: s64) {
     position, ok := file_current_position(file);
     return ok, position;
@@ -31,6 +46,23 @@ file_tell :: (file: File) -> (success: bool, position: s64) {
 // Writes all of `data` to `file`. Returns `false` when the file is not open or the write fails or stops short.
 //
 // An empty string succeeds without touching the file. After a failure part of the data may have been written.
+//
+// ```jai
+// #import "Extensions/Environment";
+// base := environment_variable("TMPDIR");
+// if base == "" base = environment_variable("TEMP");
+// if base == "" base = "/tmp";
+// path := tprint("%/jai-doc-write-string.bin", base);
+// defer file_delete(path);
+// file, ok := file_open(path, for_writing = true);
+// assert(ok);
+// assert(file_write(*file, "hello "));
+// assert(file_write(*file, "world"));
+// file_close(*file);
+// text, read_ok := read_entire_file(path);
+// assert(read_ok && text == "hello world");
+// free(text);
+// ```
 file_write :: inline (file: *File, data: string) -> bool {
     return file_write(file, data.data, data.count);
 }
@@ -39,6 +71,25 @@ file_write :: inline (file: *File, data: string) -> bool {
 //
 // Returns `false` when the builder has failed or a write fails; an empty builder succeeds. The builder is reset even
 // on failure, and it is still the caller's to free with `free_buffers`.
+//
+// ```jai
+// #import "Extensions/Environment";
+// base := environment_variable("TMPDIR");
+// if base == "" base = environment_variable("TEMP");
+// if base == "" base = "/tmp";
+// path := tprint("%/jai-doc-write-builder.bin", base);
+// defer file_delete(path);
+// builder: String_Builder;
+// print_to_builder(*builder, "%-%", 1, 2);
+// file, ok := file_open(path, for_writing = true);
+// assert(ok);
+// assert(file_write(*file, *builder));
+// file_close(*file);
+// free_buffers(*builder);
+// text, read_ok := read_entire_file(path);
+// assert(read_ok && text == "1-2");
+// free(text);
+// ```
 file_write :: (file: *File, builder: *String_Builder, do_reset := true) -> bool {
     defer {
         if do_reset reset(builder);
@@ -198,6 +249,12 @@ write_entire_file :: (name: string, builder: *String_Builder, do_reset := true) 
 //
 // On Windows `map_entire_file_end` leaves such a wrapper's text alone; elsewhere it frees `data`, so the text must then
 // have been allocated with `context.allocator`.
+//
+// ```jai
+// info := string_to_map_file_info(copy_string("abc"));
+// assert(info.data == "abc");
+// map_entire_file_end(*info);
+// ```
 string_to_map_file_info :: (data: string) -> Map_File_Info {
     return .{ data = data };
 }
@@ -234,6 +291,12 @@ map_entire_file_start :: (name: string, log_errors := false) -> Map_File_Info, b
 
 // Releases what `map_entire_file_start` returned and leaves `data` empty: it unmaps the view on Windows and frees the
 // text elsewhere. Do not use the old `data` afterwards. A failure to unmap is logged and `data` keeps its value.
+//
+// ```jai
+// info := string_to_map_file_info(copy_string("abc"));
+// map_entire_file_end(*info);
+// assert(info.data.count == 0);
+// ```
 map_entire_file_end :: (file_info: *Map_File_Info) {
     #if USE_MAP_FILE {
         if !munmap_file(*file_info.map_info) {

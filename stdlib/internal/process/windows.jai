@@ -11,6 +11,13 @@ Process_Argument_Quoting :: Types.Process_Argument_Quoting;
 // Sets up `pipe` as one end of a new named pipe and returns the other end for the child, as `(success, client_handle)`.
 // `is_input` says which way the data flows: `true` for a pipe the parent writes. The child's handle is inheritable; the
 // caller passes it to the child and closes it. Windows only; `create_process` uses it, and callers rarely need it.
+//
+// ```jai,only(windows)
+// process: Process;
+// ok, client := init_named_pipe_pair(*process.output, false);
+// assert(ok);
+// deinit(*process.output);
+// ```
 init_named_pipe_pair :: (pipe: *Process.Pipe, is_input: bool) -> success: bool, client_handle: W.HANDLE = W.INVALID_HANDLE_VALUE {
     return Engine.initialize_pipe(pipe, is_input);
 }
@@ -29,6 +36,15 @@ init_named_pipe_pair :: (pipe: *Process.Pipe, is_input: bool) -> success: bool, 
 //   off for a child that should live on.
 //
 // A child that fills an output pipe nobody reads blocks until someone does, so read with `read_from_process` while it runs.
+//
+// ```jai,only(windows)
+// process: Process;
+// assert(create_process(*process, "cmd.exe", "/c", "echo ready", capture_and_return_output = true));
+// defer deinit(*process);
+//
+// finished, result := get_process_result(*process, 5000);
+// assert(finished && result.type == .EXITED && result.exit_code == 0);
+// ```
 create_process :: (process: *Process, args: ..string, working_directory := "", capture_and_return_output := false, arg_quoting := Process_Argument_Quoting.QUOTE_IF_NEEDED, kill_process_if_parent_exits := true) -> success: bool {
     return Engine.launch(process, args, working_directory, capture_and_return_output, kill_process_if_parent_exits, arg_quoting != .NEVER_QUOTE);
 }
@@ -36,18 +52,42 @@ create_process :: (process: *Process, args: ..string, working_directory := "", c
 // Releases a `Process`: closes its pipes and handles and leaves it as a fresh record. Unlike on Unix it does not wait for the
 // child. A child started with `kill_process_if_parent_exits` (the default) is killed when its job handle closes here; one
 // started without it keeps running. Always call it once per successful `create_process`.
+//
+// ```jai,only(windows)
+// process: Process;
+// assert(create_process(*process, "cmd.exe", "/c", "exit 0"));
+// deinit(*process);
+// ok, result := get_process_result(*process, 0);
+// assert(ok && result.type == .UNSTARTED);
+// ```
 deinit :: (process: *Process) {
     Engine.destroy(process);
 } @FreesArgument
 
 // Closes one pipe of a process, for instance `process.input` so that a child reading its standard input sees the end of the file.
 // The pipe is marked at its end. Safe on a pipe that is already closed.
+//
+// ```jai,only(windows)
+// process: Process;
+// assert(create_process(*process, "cmd.exe", "/c", "exit 0"));
+// defer deinit(*process);
+// deinit(*process.input);
+// assert(process.input.eof);
+// ```
 deinit :: (pipe: *Process.Pipe) {
     Engine.destroy_pipe(pipe);
 } @FreesArgument
 
 // Writes `data` to the child's standard input and returns `(success, bytes_written)`. It waits until the pipe has taken everything.
 // It fails with the number of bytes that did go in when the pipe is closed, or the child has closed its end. Empty data succeeds with `0`.
+//
+// ```jai,only(windows)
+// process: Process;
+// assert(create_process(*process, "cmd.exe", "/c", "exit 0"));
+// defer deinit(*process);
+// ok, written := write_to_process(*process, .[]);
+// assert(ok && written == 0);
+// ```
 write_to_process :: (process: *Process, data: [] u8) -> success: bool, bytes_written: int {
     return Engine.write_input(process, data);
 }
@@ -57,12 +97,32 @@ write_to_process :: (process: *Process, data: [] u8) -> success: bool, bytes_wri
 // A `timeout_ms` of `0` only looks, and `-1` (the default) waits for ever. Nothing arriving in time is a success with `0` and `0`.
 // Each call reads at most one buffer's worth from each pipe, so loop until `process.output.eof` and `process.error.eof` for all of
 // it, and give the loop a time limit of its own.
+//
+// ```jai,only(windows)
+// process: Process;
+// assert(create_process(*process, "cmd.exe", "/c", "echo hi", capture_and_return_output = true));
+// defer deinit(*process);
+//
+// output: [64] u8;
+// errors: [64] u8;
+// ok, out_count, _ := read_from_process(*process, output, errors, 5000);
+// assert(ok && out_count > 0);
+// ```
 read_from_process :: (process: *Process, output_buffer: [] u8, error_buffer: [] u8, timeout_ms := -1) -> success: bool, output_bytes: int, error_bytes: int {
     return Engine.read_pair(process, output_buffer, error_buffer, timeout_ms);
 }
 
 // Terminates the child with exit code `1` and returns whether that was done: `false` for a process that was never started, and `true`
 // without doing anything for one that has already ended. The result then reads `EXITED`; collect it with `get_process_result`.
+//
+// ```jai,only(windows)
+// process: Process;
+// assert(create_process(*process, "cmd.exe", "/c", "ping -n 30 127.0.0.1"));
+// defer deinit(*process);
+// assert(kill_process(*process));
+// ok, result := get_process_result(*process, 5000);
+// assert(ok && result.type == .EXITED);
+// ```
 kill_process :: (process: *Process) -> bool {
     return Engine.terminate(process);
 }
@@ -70,6 +130,14 @@ kill_process :: (process: *Process) -> bool {
 // The state of the child as `(success, result)`, waiting up to `timeout_ms` for it to finish. `0` only checks and `-1` (the
 // default) waits for ever. While it runs the result is `STILL_RUNNING`; afterwards `EXITED` with the exit code. A process never
 // started is `UNSTARTED`. `success` is `false` when the system could not tell.
+//
+// ```jai,only(windows)
+// process: Process;
+// assert(create_process(*process, "cmd.exe", "/c", "exit 2"));
+// defer deinit(*process);
+// ok, result := get_process_result(*process, 5000);
+// assert(ok && result.type == .EXITED && result.exit_code == 2);
+// ```
 get_process_result :: (process: *Process, timeout_ms := -1) -> success: bool, Process_Result {
     if !process.info.hProcess return true, .{};
 
@@ -83,6 +151,17 @@ get_process_result :: (process: *Process, timeout_ms := -1) -> success: bool, Pr
 // Reads what is available now from one pipe of a process into `buffer`, and returns `(success, bytes_read)`.
 // `0` bytes with `success` means nothing is there yet, or the end: check `pipe.eof`. It fails with a closed pipe or an empty buffer.
 // Use `read_from_process` to wait for data on both pipes.
+//
+// ```jai,only(windows)
+// process: Process;
+// assert(create_process(*process, "cmd.exe", "/c", "echo hi", capture_and_return_output = true));
+// defer deinit(*process);
+// get_process_result(*process, 5000);
+//
+// buffer: [64] u8;
+// ok, count := read_pipe(*process.output, buffer);
+// assert(ok && count > 0);
+// ```
 read_pipe :: (pipe: *Process.Pipe, buffer: [] u8) -> success: bool, bytes_read: int {
     return Engine.read_pipe(pipe, buffer);
 }

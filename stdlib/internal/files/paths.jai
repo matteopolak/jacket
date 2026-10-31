@@ -8,6 +8,13 @@
 //   `copy_to_permanent` for a path that outlives its text and free that with `free_permanent`.
 //
 // Both `/` and `\` separate names on every target; `path_to_string` writes the platform's own separator.
+//
+// ```jai
+// path := parse_path("/usr/local/bin/");
+// assert(path.number_of_leading_slashes == 1 && path.trailing_slash);
+// assert(path.words.count == 3 && path.words[1] == "local");
+// array_free(path.words);
+// ```
 Path :: struct {
     header_string: string;
     number_of_leading_slashes: int;
@@ -71,6 +78,14 @@ parse_path :: (_s: string, reduce := true) -> Path {
 // A `..` with nothing to cancel is kept in a relative path (`../a`), and dropped in a rooted one, where it would go above the
 // root. Symbolic links are not looked at, so `a/link/..` becomes `a` even if `link` points elsewhere. The result has a new
 // `words` array (free it with `array_free`) whose words are the input's slices; the input is not changed.
+//
+// ```jai
+// raw := parse_path("a/./b/../c", reduce = false);
+// tidy := reduce_path(raw);
+// assert(tidy.words.count == 2 && tidy.words[0] == "a" && tidy.words[1] == "c");
+// array_free(raw.words);
+// array_free(tidy.words);
+// ```
 reduce_path :: (path: Path) -> Path {
     result := path;
     result.words = .{};
@@ -96,6 +111,15 @@ reduce_path :: (path: Path) -> Path {
 // Whether the names `words` appear next to each other, in that order, among the words of `path`; and where the first match starts.
 //
 // The position is `0` when there is no match. An empty `words` matches at position `0`. Names are compared exactly, byte for byte, also on Windows.
+//
+// ```jai
+// path := parse_path("src/app/models/user");
+// found, position := path_contains(path, .["app", "models"]);
+// assert(found && position == 1);
+// found, position = path_contains(path, .["models", "app"]);
+// assert(!found);
+// array_free(path.words);
+// ```
 path_contains :: (path: Path, words: [] string) -> (contains: bool, position: s32) {
     if words.count > path.words.count return false, 0;
 
@@ -149,6 +173,16 @@ path_to_string :: (path: Path, max_words := -1) -> string {
 
 // A deep copy of `path`: the drive, every word and the array are new allocations from `context.allocator`, so the copy stays valid after the
 // text it was parsed from is freed. Give it to `free_permanent`.
+//
+// ```jai
+// text := copy_string("x/y");
+// path := parse_path(text);
+// permanent := copy_to_permanent(path);
+// array_free(path.words);
+// free(text); // the copy no longer depends on it
+// assert(permanent.words.count == 2 && permanent.words[1] == "y");
+// free_permanent(permanent);
+// ```
 copy_to_permanent :: (path: Path) -> Path {
     result := path;
     result.header_string = copy_string(path.header_string);
@@ -159,6 +193,13 @@ copy_to_permanent :: (path: Path) -> Path {
 }
 
 // Frees a path made by `copy_to_permanent`: the drive, each word and the array. Do not use it on the result of `parse_path`, whose words are not allocated.
+//
+// ```jai
+// path := parse_path("a/b");
+// permanent := copy_to_permanent(path);
+// array_free(path.words);
+// free_permanent(permanent);
+// ```
 free_permanent :: (using path: Path) {
     free(header_string);
     for word: words free(word);
