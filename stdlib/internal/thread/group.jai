@@ -1,3 +1,9 @@
+// Sets up `group` with `num_threads` worker threads that call `group_proc` for each piece of work. The workers are created
+// but do not run until `start`.
+//
+// - enable_work_stealing: lets an idle worker take work queued for another.
+// - temporary_storage_size: bytes of temporary storage for each worker.
+// - group_name: used in log messages.
 init :: (using group: *Thread_Group, num_threads: s32, group_proc: Thread_Group_Proc, enable_work_stealing := false, temporary_storage_size: s32 = 16384, group_name := "") {
     assert(!initted && num_threads > 0 && group_proc != null);
     if !allocator.proc allocator = context.allocator;
@@ -50,6 +56,7 @@ init :: (using group: *Thread_Group, num_threads: s32, group_proc: Thread_Group_
     initted = true;
 }
 
+// Starts the workers of `group`. Work added before this waits in the queues. Calling it again does nothing.
 start :: (group: *Thread_Group) {
     // Callers may start a group every round of work, or one that was never initialized (no workers).
     if !group.initted || group.started return;
@@ -58,6 +65,8 @@ start :: (group: *Thread_Group) {
     for *worker: group.worker_info thread_start(*worker.thread);
 }
 
+// Queues `work` for one of the group's workers; `group_proc` receives the same pointer. The work must stay valid until it
+// comes back from `get_completed_work`. Send work to a group that has been set up and not shut down.
 add_work :: (group: *Thread_Group, work: *void, logging_name := "") {
     assert(group.initted && !group.should_exit);
     _, index := compare_and_swap(*group.next_worker_index, cast(s32) 0, cast(s32) 0);
@@ -98,6 +107,7 @@ add_work :: (group: *Thread_Group, work: *void, logging_name := "") {
         for *worker, i: group.worker_info if i != selected signal(*worker.available.semaphore);
 }
 
+// The pointers of the work finished since the last call, in temporary storage. Empty when none has.
 get_completed_work :: (group: *Thread_Group) -> [] *void {
     collected: [..] *void;
 
@@ -122,6 +132,8 @@ get_completed_work :: (group: *Thread_Group) -> [] *void {
     return result;
 }
 
+// Stops the workers after they finish what is queued and frees the group. Returns `false` if they did not all stop within
+// `timeout_milliseconds` (-1 waits as long as it takes).
 shutdown :: (using group: *Thread_Group, timeout_milliseconds: s32 = -1) -> bool {
     if !initted return true;
     if !started start(group);

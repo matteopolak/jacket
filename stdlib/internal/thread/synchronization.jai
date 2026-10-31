@@ -1,8 +1,17 @@
 // Sets up a mutex. It is recursive: the thread that holds it can lock it again, and has to unlock it as many times.
 //
+// ```jai
+// mutex: Mutex;
+// init(*mutex);
+// defer destroy(*mutex);
+// lock(*mutex);
+// lock(*mutex); // the same thread may lock again
+// unlock(*mutex);
+// unlock(*mutex);
+// ```
+//
 // - desired_name: a label for the mutex. Only kept in builds with `DEBUG` set.
-// - desired_order: a rank for the mutex. Only kept in builds with `DEBUG` set; nothing acts on it yet.
-//   -1 for none.
+// - desired_order: a rank for the mutex. Only kept in builds with `DEBUG` set; nothing acts on it yet. -1 for none.
 init :: (using m: *Mutex, desired_name := "", desired_order: Mutex_Order = -1) {
     attr: P.pthread_mutexattr_t;
 
@@ -37,23 +46,41 @@ init :: (using m: *Mutex, desired_name := "", desired_order: Mutex_Order = -1) {
     }
 }
 
+// Releases the resources of a mutex. It must be unlocked.
 destroy :: (using m: *Mutex) {
     result := P.pthread_mutex_destroy(*csection);
     if !sdk_ok(result, "pthread mutex destruction failed") return;
     #if THREAD_DEBUG initialized = false;
 } @FreesArgument
 
+// Takes the mutex, waiting until no other thread holds it. Pair every `lock` with an `unlock`.
+//
+// ```jai
+// mutex: Mutex;
+// init(*mutex);
+// defer destroy(*mutex);
+//
+// lock(*mutex);
+// defer unlock(*mutex);
+// ```
 lock :: (using m: *Mutex) {
     result := P.pthread_mutex_lock(*csection);
     sdk_ok(result, "pthread mutex lock failed");
 } @Locks
 
+// Gives the mutex back. Call it from the thread that locked it.
 unlock :: (using m: *Mutex) {
     result := P.pthread_mutex_unlock(*csection);
     sdk_ok(result, "pthread mutex unlock failed");
 } @Unlocks
 
 // Sets up a condition variable.
+//
+// ```jai
+// ready: Condition_Variable;
+// init(*ready);
+// defer destroy(*ready);
+// ```
 //
 // - desired_name: a label for the condition variable. Only kept in builds with `DEBUG` set.
 init :: (using cv: *Condition_Variable, desired_name := "") {
@@ -66,22 +93,27 @@ init :: (using cv: *Condition_Variable, desired_name := "") {
     }
 }
 
+// Releases the resources of a condition variable. No thread may be waiting on it.
 destroy :: (using cv: *Condition_Variable) {
     result := P.pthread_cond_destroy(*condition_variable);
     if !sdk_ok(result, "pthread condition destruction failed") return;
     #if THREAD_DEBUG initialized = false;
 } @FreesArgument
 
+// Locks the raw operating-system critical section behind a `Mutex`. Prefer `lock`.
 csection_lock :: (csection: *Per_OS_Critical_Section_Type) #expand {
     result := P.pthread_mutex_lock(csection);
     sdk_ok(result, "pthread critical section lock failed");
 }
 
+// Unlocks a critical section locked with `csection_lock`.
 csection_unlock :: (csection: *Per_OS_Critical_Section_Type) #expand {
     result := P.pthread_mutex_unlock(csection);
     sdk_ok(result, "pthread critical section unlock failed");
 }
 
+// Waits on a raw operating-system condition variable, giving up after `wait_time_ms` (never, when negative). Prefer
+// `wait`.
 cvariable_wait :: (condition_variable: *Per_OS_Condition_Variable_Type, csection: *Per_OS_Critical_Section_Type, wait_time_ms: s32 = -1) {
     result: s32;
     if wait_time_ms < 0 result = P.pthread_cond_wait(condition_variable, csection);
@@ -94,11 +126,13 @@ cvariable_wait :: (condition_variable: *Per_OS_Condition_Variable_Type, csection
     if result != P.ETIMEDOUT sdk_ok(result, "pthread condition wait failed");
 }
 
+// Wakes one waiter on a raw operating-system condition variable. Prefer `wake`.
 cvariable_wake :: (condition_variable: *Per_OS_Condition_Variable_Type) {
     result := P.pthread_cond_signal(condition_variable);
     sdk_ok(result, "pthread condition signal failed");
 }
 
+// Wakes every waiter on a raw operating-system condition variable. Prefer `wake_all`.
 cvariable_wake_all :: (condition_variable: *Per_OS_Condition_Variable_Type) {
     result := P.pthread_cond_broadcast(condition_variable);
     sdk_ok(result, "pthread condition broadcast failed");
@@ -106,30 +140,78 @@ cvariable_wake_all :: (condition_variable: *Per_OS_Condition_Variable_Type) {
 
 // Waits on `c` until another thread calls `wake` or `wake_all`. It can return without either, so check the condition again afterwards.
 //
+// ```jai
+// Box :: struct { mutex: Mutex; changed: Condition_Variable; done: bool; }
+//
+// finish :: (thread: *Thread) -> s64 {
+//     box := cast(*Box) thread.data;
+//     lock(*box.mutex);
+//     box.done = true;
+//     unlock(*box.mutex);
+//     wake(*box.changed);
+//     return 0;
+// }
+//
+// box: Box;
+// init(*box.mutex);
+// init(*box.changed);
+// thread: Thread;
+// assert(thread_init(*thread, finish));
+// thread.data = *box;
+// thread_start(*thread);
+//
+// lock(*box.mutex);
+// while !box.done wait(*box.changed, *box.mutex);
+// unlock(*box.mutex);
+//
+// assert(thread_is_done(*thread, -1));
+// thread_deinit(*thread);
+// ```
+//
 // - m: the mutex the caller holds. It is released while waiting and held again when `wait` returns.
 wait :: (c: *Condition_Variable, m: *Mutex) {
     cvariable_wait(*c.condition_variable, *m.csection);
 }
 
+// Wakes one thread waiting on `c`, if any. Change the shared state under the mutex first; see `wait` for an example.
 wake :: (c: *Condition_Variable) {
     cvariable_wake(*c.condition_variable);
 }
 
+// Wakes every thread waiting on `c`.
 wake_all :: (c: *Condition_Variable) {
     cvariable_wake_all(*c.condition_variable);
 }
 
 // Sets up a semaphore.
 //
+// ```jai
+// semaphore: Semaphore;
+// init(*semaphore, 1);
+// defer destroy(*semaphore);
+// assert(wait_for(*semaphore, 0) == .SUCCESS);
+// assert(wait_for(*semaphore, 0) == .TIMEOUT);
+// ```
+//
 // - initial_value: how many `wait_for` calls succeed before anyone calls `signal`.
 init :: (s: *Semaphore, initial_value: s32 = 0) {
     initialize_semaphore(s, initial_value);
 }
 
+// Releases the resources of a semaphore.
 destroy :: (s: *Semaphore) {
     destroy_semaphore(s);
 } @FreesArgument
 
+// Adds one count to the semaphore, waking a thread blocked in `wait_for`.
+//
+// ```jai
+// semaphore: Semaphore;
+// init(*semaphore);
+// defer destroy(*semaphore);
+// signal(*semaphore);
+// assert(wait_for(*semaphore, 0) == .SUCCESS);
+// ```
 signal :: (s: *Semaphore) {
     signal_semaphore(s);
 }
@@ -142,7 +224,15 @@ signal_semaphore :: (s: *Semaphore) -> bool {
 }
 
 #scope_export
-// Takes one count from the semaphore, waiting for `signal` if there is none. The result says whether it got one.
+// Takes one count from the semaphore, waiting for `signal` if there is none. The result says whether it got one: `.SUCCESS`,
+// `.TIMEOUT` or `.ERROR`.
+//
+// ```jai
+// semaphore: Semaphore;
+// init(*semaphore);
+// defer destroy(*semaphore);
+// assert(wait_for(*semaphore, 10) == .TIMEOUT);
+// ```
 //
 // - milliseconds: how long to wait at most. 0 only tries; -1 waits as long as it takes.
 wait_for :: (s: *Semaphore, milliseconds: s32 = -1) -> Wait_For_Result #no_context {

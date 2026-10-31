@@ -1,3 +1,14 @@
+// Helpers for working with type information at run time: integer ranges, struct members, enum names and values, and setting a value from text.
+//
+// ```jai
+// Color :: enum { RED; GREEN; BLUE; }
+// assert(enum_value_to_name(Color.GREEN) == "GREEN");
+//
+// value: Color;
+// assert(set_value_from_string(value, "BLUE"));
+// assert(value == .BLUE);
+// ```
+
 get_array_count_and_data :: Impl.get_array_count_and_data;
 signed_integer_range_from_size :: Impl.signed_integer_range_from_size;
 unsigned_integer_range_from_size :: Impl.unsigned_integer_range_from_size;

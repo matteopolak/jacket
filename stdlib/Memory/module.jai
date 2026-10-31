@@ -1,4 +1,13 @@
+// Byte-copying helpers. `copy` is the one to use; the variants that `with_candidates` adds are competing implementations
+// kept for comparing speeds.
 #module_parameters(with_candidates := false, with_unwraps := false);
+// Copies `count` bytes from `source` to `destination`. The two ranges may overlap.
+//
+// ```jai
+// data := u8.[1, 2, 3, 4, 5];
+// copy(data.data + 1, data.data, 4); // shift right by one
+// assert(data[1] == 1 && data[4] == 4);
+// ```
 copy :: Impl.move_bytes;
 
 #if with_candidates {

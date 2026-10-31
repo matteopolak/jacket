@@ -105,6 +105,7 @@ retain_thread_state :: (state: *Thread_State) {
 }
 
 #scope_export
+// Lets a thread set up with `thread_init` begin running its procedure.
 thread_start :: (thread: *Thread) {
     state := lookup_thread(thread);
 
@@ -124,6 +125,22 @@ thread_start :: (thread: *Thread) {
 }
 
 // Whether `thread` has finished.
+//
+// ```jai
+// count := 0;
+// worker :: (thread: *Thread) -> s64 {
+//     (cast(*int) thread.data).* = 7;
+//     return 0;
+// }
+//
+// thread: Thread;
+// assert(thread_init(*thread, worker));
+// thread.data = *count;
+// thread_start(*thread);
+// assert(thread_is_done(*thread, -1)); // wait for it
+// thread_deinit(*thread);
+// assert(count == 7);
+// ```
 //
 // - milliseconds: how long to wait for the thread to finish. 0 only checks; -1 waits until it does.
 thread_is_done :: (thread: *Thread, milliseconds: s32 = 0) -> bool {
@@ -151,6 +168,8 @@ thread_is_done :: (thread: *Thread, milliseconds: s32 = 0) -> bool {
 // What `thread_deinit` says when the thread is still running or was never started.
 DEINIT_UNFINISHED :: "thread_deinit needs a thread that has finished: wait for it first with thread_is_done(*thread, -1), which blocks until it ends";
 
+// Cleans up after a thread that has finished. Wait for it first with `thread_is_done(*thread, -1)`; after this the `Thread`
+// can be reused or dropped.
 thread_deinit :: (thread: *Thread) {
     state := lookup_thread(thread);
 

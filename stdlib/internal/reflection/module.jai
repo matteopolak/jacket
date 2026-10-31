@@ -1,20 +1,50 @@
+// The element count and data pointer of the array at `pointer`, whose type is `info`. Works for fixed, resizable and view
+// arrays alike.
+//
+// ```jai
+// values := int.[4, 5, 6];
+// count, data := get_array_count_and_data(*values, cast(*Type_Info_Array) type_info(type_of(values)));
+// assert(count == 3 && (cast(*int) data).* == 4);
+// ```
 get_array_count_and_data :: (pointer: *void, info: *Type_Info_Array) -> (count: s64, data: *void) {
     if info.array_type == .FIXED return info.array_count, pointer;
     view := cast(*Array_View_64) pointer;
     return view.count, view.data;
 }
 
+// The lowest and highest signed value that fits in `size_in_bytes` bytes (1, 2, 4 or 8).
+//
+// ```jai
+// low, high := signed_integer_range_from_size(1);
+// assert(low == -128 && high == 127);
+// ```
 signed_integer_range_from_size :: (size_in_bytes: int) -> (low: s64, high: s64) #no_aoc {
     assert(size_in_bytes == 1 || size_in_bytes == 2 || size_in_bytes == 4 || size_in_bytes == 8);
     high := cast(s64) (cast(u64) 0x7fffffffffffffff >> (64 - size_in_bytes * 8));
     return -high - 1, high;
 }
 
+// The lowest and highest unsigned value that fits in `size_in_bytes` bytes (1, 2, 4 or 8).
+//
+// ```jai
+// low, high := unsigned_integer_range_from_size(2);
+// assert(low == 0 && high == 65535);
+// ```
 unsigned_integer_range_from_size :: (size_in_bytes: int) -> (low: u64, high: u64) #no_aoc {
     assert(size_in_bytes == 1 || size_in_bytes == 2 || size_in_bytes == 4 || size_in_bytes == 8);
     return 0, 0xffffffffffffffff >> (64 - size_in_bytes * 8);
 }
 
+// Stores `value` at `pointer` as the integer type `info` describes, if it fits. Returns whether it did, and the lowest and
+// highest value of that type.
+//
+// ```jai
+// small: u8;
+// ok := range_check_and_store(200, cast(*Type_Info_Integer) type_info(u8), *small);
+// assert(ok && small == 200);
+// ok = range_check_and_store(300, cast(*Type_Info_Integer) type_info(u8), *small);
+// assert(!ok && small == 200);
+// ```
 range_check_and_store :: (value: $T, info: *Type_Info_Integer, pointer: *void) -> (success: bool, low: T, high: T) {
     #if T == u64 {
         lo, hi := unsigned_integer_range_from_size(info.runtime_size);
@@ -41,17 +71,40 @@ range_check_and_store :: (value: $T, info: *Type_Info_Integer, pointer: *void) -
     }
 }
 
+// The member called `name` of a struct, or null. Unlike `get_field` in Basic it does not look inside `using` members.
+//
+// ```jai
+// Point :: struct { x: int; y: int; }
+// info := cast(*Type_Info_Struct) type_info(Point);
+// assert(get_struct_field_info(info, "y") != null);
+// assert(get_struct_field_info(info, "z") == null);
+// ```
 get_struct_field_info :: (info: *Type_Info_Struct, name: string) -> *Type_Info_Struct_Member {
     for *member: info.members if member.name == name return member;
     return null;
 }
 
+// The member of the enum `T` called `name`, and whether there is one.
+//
+// ```jai
+// Color :: enum { RED; GREEN; BLUE; }
+// value, found := enum_name_to_value(Color, "GREEN");
+// assert(found && value == .GREEN);
+// _, found = enum_name_to_value(Color, "PINK");
+// assert(!found);
+// ```
 enum_name_to_value :: ($T: Type, name: string) -> T, bool {
     info := cast(*Type_Info_Enum) type_info(T);
     for n, i: info.names if n == name return cast(T) info.values[i], true;
     return cast(T) 0, false;
 }
 
+// The name of an enum value, or an empty string when it matches no member.
+//
+// ```jai
+// Color :: enum { RED; GREEN; BLUE; }
+// assert(enum_value_to_name(Color.BLUE) == "BLUE");
+// ```
 enum_value_to_name :: (e_value: $Enum) -> string {
     info := cast(*Type_Info_Enum) type_info(Enum);
     value := cast(s64) e_value;
@@ -59,20 +112,45 @@ enum_value_to_name :: (e_value: $Enum) -> string {
     return "";
 }
 
+// Reads the enum stored at `data`, whose type is `info`, as an `s64`.
+//
+// ```jai
+// Level :: enum u8 { LOW :: 3; HIGH :: 9; }
+// level := Level.HIGH;
+// assert(get_enum_value(*level, cast(*Type_Info_Enum) type_info(Level)) == 9);
+// ```
 get_enum_value :: (data: *void, info: *Type_Info_Enum) -> s64 {
     if info.internal_type.signed return get_s64_from_void_pointer(data, info.internal_type.runtime_size);
     return cast(s64) get_u64_from_void_pointer(data, info.internal_type.runtime_size);
 }
 
+// Stores `value` in the enum at `data`, whose type is `info`. The value is not checked against the members.
+//
+// ```jai
+// Level :: enum u8 { LOW :: 3; HIGH :: 9; }
+// level: Level;
+// set_enum_value(*level, cast(*Type_Info_Enum) type_info(Level), 9);
+// assert(level == .HIGH);
+// ```
 set_enum_value :: (data: *void, info: *Type_Info_Enum, value: s64) {
     store_integer(data, info.internal_type.runtime_size, cast,no_check(u64) value);
 }
 
+// Reads text into the value `any` points to: a bool (`true` or `false`), an integer, a float, a quoted string or an enum
+// member name. Returns whether it worked; the value is left alone when it did not. The number must fit the type.
+//
+// ```jai
+// count: u8;
+// assert(set_value_from_string(count, "200"));
+// assert(count == 200);
+// assert(!set_value_from_string(count, "300"));
+// ```
 set_value_from_string :: (any: Any, text: string) -> bool {
     cursor := text;
     return set_value_from_string(any, *cursor);
 }
 
+// Like the string form, and moves `text` past what it read so the next value can follow.
 set_value_from_string :: (any: Any, text: *string) -> bool {
     info := any.type;
     pointer := any.value_pointer;

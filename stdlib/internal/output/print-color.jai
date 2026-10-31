@@ -1,9 +1,11 @@
+// How `set_console_color` draws the text: `.NORMAL`, `.BOLD` or `.UNDERLINE`.
 Console_Style :: enum {
     NORMAL :: 0;
     BOLD :: 1;
     UNDERLINE :: 4;
 }
 
+// A text color, or with a `BG_` prefix a background color; `HI_` ones are the bright shades. They are the ANSI color codes.
 Console_Color :: enum_flags u16 {
     BLACK :: 30;
     RED :: 31;
@@ -46,16 +48,14 @@ CONSOLE_FOREGROUND_BRIGHT :: 0x0008;
 CONSOLE_BACKGROUND_BRIGHT :: 0x0080;
 CONSOLE_UNDERLINE :: 0x8000;
 
-// The console's side of the native engine: read the attribute word of a standard stream and
-// replace it. `is_console` is false for a stream that is redirected to a file or pipe (or closed),
-// which the engine then leaves alone entirely. Windows installs the real console API; tests (and
-// other platforms) install their own.
+// The console API the colors go through on Windows, or a stand-in for tests: `query` reads a stream's attributes and says
+// whether it is a console, `apply` sets them. A stream that is redirected to a file is left alone.
 Console_Backend :: struct {
     query: (to_standard_error: bool) -> (u16, bool);
     apply: (to_standard_error: bool, attributes: u16);
 }
 
-// Use `backend` instead of the system console, and forget any colors already pushed.
+// Uses `backend` instead of the system console, and forgets any colors already pushed.
 set_console_backend :: (backend: Console_Backend) {
     native_lock();
     defer native_unlock();
@@ -64,22 +64,20 @@ set_console_backend :: (backend: Console_Backend) {
     native_streams = .[.{}, .{}];
 }
 
-// Go back to the system console.
+// Goes back to the system console.
 reset_console_backend :: () {
     set_console_backend(default_console_backend());
 }
 
-// How many colors are active on a standard stream (pushed and not yet popped).
+// How many colors are active on a standard stream: pushed and not yet popped.
 console_color_depth :: (to_standard_error := false) -> s64 {
     native_lock();
     defer native_unlock();
     return native_streams[ifx to_standard_error then 1 else 0].depth;
 }
 
-// The attribute word that shows `color` and `style` on top of `current`. A foreground color
-// replaces only the foreground and a background color only the background, so a block colored
-// on its text keeps the enclosing block's background. BOLD brightens the foreground; UNDERLINE
-// underlines; NORMAL removes an enclosing underline.
+// The Windows console attribute word that shows `color` and `style` on top of `current`. A foreground color changes only the
+// foreground and a background color only the background.
 console_attributes_for :: (current: u16, color: Console_Color, style: Console_Style = .NORMAL) -> u16 {
     result := current;
     code := cast(s64) color;
@@ -111,9 +109,8 @@ console_attributes_for :: (current: u16, color: Console_Color, style: Console_St
     return result;
 }
 
-// Show `color` on a standard stream, remembering what was there. Every push needs a pop; the
-// colors nest and each pop restores the enclosing one. A stream that is not a console is not
-// touched, but the push still counts so the pops stay balanced.
+// Shows `color` on a standard stream and remembers what was there. Every push needs a pop; they nest, and each pop restores
+// the enclosing color. A stream that is not a console is not touched, but the push still counts so the pops stay balanced.
 push_console_color :: (color: Console_Color, style: Console_Style = .NORMAL, to_standard_error := false) {
     native_lock();
     defer native_unlock();
@@ -144,9 +141,7 @@ push_console_color :: (color: Console_Color, style: Console_Style = .NORMAL, to_
     backend.apply(to_standard_error, console_attributes_for(attributes, color, style));
 }
 
-// Undo the latest push on a standard stream. The outermost pop returns to the attributes the
-// stream had before that push when SAVE_RESTORE_ON_WINDOWS is set, and otherwise to the ones it
-// had before the first color was ever pushed. A pop without a push does the latter.
+// Undoes the latest `push_console_color` on a stream.
 pop_console_color :: (to_standard_error := false) {
     native_lock();
     defer native_unlock();
@@ -176,6 +171,14 @@ pop_console_color :: (to_standard_error := false) {
 }
 
 #if OS != .WINDOWS || USE_ANSI_CODES_ON_WINDOWS {
+    // Switches the text color on standard output, or on standard error with `to_standard_error`. Everything printed afterwards
+    // has it until `reset_console_color`. Prefer `print_color` or `with_console_color`, which can't forget to reset.
+    //
+    // ```jai
+    // set_console_color(.GREEN);
+    // print("ok\n");
+    // reset_console_color();
+    // ```
     set_console_color :: (color: Console_Color, style: Console_Style = .NORMAL, to_standard_error := false) {
         write_string("\e[", to_standard_error);
         write_number(cast(s64) style, to_standard_error = to_standard_error);
@@ -184,6 +187,7 @@ pop_console_color :: (to_standard_error := false) {
         write_string("m", to_standard_error);
     }
 
+    // Puts the console back to its normal colors after `set_console_color`.
     reset_console_color :: (to_standard_error := false) {
         write_string("\e[0m", to_standard_error);
     }
@@ -197,12 +201,23 @@ pop_console_color :: (to_standard_error := false) {
     }
 }
 
+// Runs `code` with the console set to `color`, and resets it afterwards.
+//
+// ```jai
+// with_console_color(.RED, #code print("warning\n"), .BOLD);
+// ```
 with_console_color :: (color: Console_Color, code: Code, style: Console_Style = .NORMAL, to_standard_error := false) #expand {
     set_console_color(color, style, to_standard_error);
     defer reset_console_color(to_standard_error);
     #insert code;
 }
 
+// Like `print`, with the text in `color`.
+//
+// ```jai
+// print_color("done: %\n", 3, color = .CYAN);
+// print_color("careful\n", color = .YELLOW, style = .BOLD, to_standard_error = true);
+// ```
 print_color :: (format_string: string, args: ..Any, color: Console_Color, style: Console_Style = .NORMAL, to_standard_error := false) {
     set_console_color(color, style, to_standard_error);
     defer reset_console_color(to_standard_error);

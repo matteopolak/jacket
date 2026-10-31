@@ -1,3 +1,10 @@
+// How `parse_arguments` treats the command line. Combine them with `|`.
+//
+// - `.FREE_ARGUMENTS_ALLOWED`: arguments that are not options are collected instead of being an error. `--` ends the options.
+// - `.DOUBLE_DASH_REQUIRED`: options start with `--` instead of `-`.
+// - `.SHOW_HELP_ON_ERROR`: print the help text when parsing fails.
+// - `.SORT_HELP`: list the options in the help text in alphabetical order.
+// - `.ALIGN_HELP`: line up the descriptions in the help text.
 Argument_Flags :: enum_flags u64 {
     FREE_ARGUMENTS_ALLOWED :: 1;
     DOUBLE_DASH_REQUIRED :: 2;
@@ -6,12 +13,36 @@ Argument_Flags :: enum_flags u64 {
     ALIGN_HELP :: 16;
 }
 
+// `.FREE_ARGUMENTS_ALLOWED`, `.SORT_HELP` and `.ALIGN_HELP`.
 Default_Argument_Flags :: Argument_Flags.FREE_ARGUMENTS_ALLOWED | .SORT_HELP | .ALIGN_HELP;
 
+// For a struct `T`, a struct with a `bool` for each of its fields that `parse_arguments` sets to `true` for every option the
+// user gave. It tells an option left at its default apart from one set to the same value.
 Is_Set :: struct(T: Type) {
     #insert #run make_fields(T);
 }
 
+// Reads the program's arguments into a struct. Each field of `T` is an option: a `bool` is a switch that is set by its name
+// alone, anything else takes the next argument as its value (`-count 3`), and a fixed-size array takes one argument per
+// element. Returns whether it worked, the filled struct, an `Is_Set` of which options appeared, and the arguments that were
+// not options. An unknown option, a missing or bad value or a repeated option makes it fail. Asking for `-help` prints the
+// options and fails.
+//
+// ```jai
+// Options :: struct {
+//     verbose: bool;
+//     count := 1;
+//     name: string;
+// }
+//
+// ok, options, is_set, files := parse_arguments(Options, args = string.["-verbose", "-count", "3", "a.txt"]);
+// assert(ok && options.verbose && options.count == 3);
+// assert(!is_set.name && files.count == 1 && files[0] == "a.txt");
+// ```
+//
+// - flags: see `Argument_Flags`.
+// - help_triggers: the option names that ask for help.
+// - args: the arguments to read, without the program name. The program's own command line when not given.
 parse_arguments :: ($T: Type, flags := Default_Argument_Flags, help_triggers: [] string = .["help", "HELP", "?"], args: [] string = .{ count = -1 }) -> (success: bool, result: T, is_set: Is_Set(T), free_arguments: [..] string) {
     info := cast(*Type_Info_Struct) type_info(T);
 
@@ -118,6 +149,12 @@ parse_arguments :: ($T: Type, flags := Default_Argument_Flags, help_triggers: []
     return true, values, assigned, free_args;
 }
 
+// Prints the options of `T` with their types and defaults, as `parse_arguments` does when asked for help.
+//
+// ```jai,no_run
+// Options :: struct { verbose: bool; count := 1; }
+// show_help(Options, Default_Argument_Flags, string.["help"]);
+// ```
 show_help :: ($T: Type, flags: Argument_Flags, help_triggers: [] string) {
     info := cast(*Type_Info_Struct) type_info(T);
     members := array_copy(info.members);
