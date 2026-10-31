@@ -116,13 +116,43 @@ impl PathPattern {
     /// Whether `path` (`/` separated, relative to the config's directory) is matched, or a
     /// directory above it is.
     pub fn is_match(&self, path: &str) -> bool {
-        self.alternatives.iter().any(|tokens| run(tokens, path))
+        self.alternatives
+            .iter()
+            .any(|tokens| run(tokens, path, false))
+    }
+
+    /// Whether `path` is matched itself: unlike [`PathPattern::is_match`], a pattern for a
+    /// directory does not match what is inside it.
+    pub fn is_exact_match(&self, path: &str) -> bool {
+        self.alternatives
+            .iter()
+            .any(|tokens| run(tokens, path, true))
+    }
+
+    /// Whether the pattern names one path, with none of `* ? [ { \`.
+    pub fn is_literal(&self) -> bool {
+        !self.source.contains(SPECIAL)
+    }
+
+    /// The leading folders of the pattern that are plain text (`stdlib` for `stdlib/A*/x`).
+    pub fn literal_prefix(&self) -> &str {
+        let mut end = 0;
+        for part in self.source.split_inclusive('/') {
+            if part.contains(SPECIAL) {
+                break;
+            }
+            end += part.len();
+        }
+        self.source[..end].trim_end_matches('/')
     }
 }
 
+/// The characters that make a pattern more than a path.
+const SPECIAL: [char; 5] = ['*', '?', '[', '{', '\\'];
+
 /// Simulates the pattern on `path` one character at a time: every state it could be in at once
 /// is tracked, so the time is the path length times the pattern length however many `*` there are.
-fn run(tokens: &[Token], path: &str) -> bool {
+fn run(tokens: &[Token], path: &str, exact: bool) -> bool {
     let end = tokens.len();
     let mut current = vec![false; end + 1];
     let mut next = vec![false; end + 1];
@@ -130,7 +160,7 @@ fn run(tokens: &[Token], path: &str) -> bool {
     close(tokens, &mut current);
     for c in path.chars() {
         // A directory of the path ends here.
-        if c == '/' && current[end] {
+        if !exact && c == '/' && current[end] {
             return true;
         }
         next.fill(false);
@@ -448,6 +478,29 @@ mod tests {
         // A class never matches a separator, even a negated one.
         assert!(!matches("a[!x]b", "a/b"));
         assert!(matches("[a-c][a-c]", "ab"));
+    }
+
+    #[test]
+    fn exact_matches_leave_out_what_is_inside() {
+        let exact =
+            |pattern: &str, path: &str| PathPattern::new(pattern).unwrap().is_exact_match(path);
+        assert!(exact("stdlib/Basic", "stdlib/Basic"));
+        assert!(!exact("stdlib/Basic", "stdlib/Basic/Sub"));
+        assert!(exact("stdlib/*", "stdlib/Basic"));
+        assert!(!exact("stdlib/*", "stdlib/Basic/Sub"));
+        assert!(exact("stdlib/**", "stdlib/Basic/Sub"));
+        assert!(!exact("stdlib/**", "stdlib"));
+    }
+
+    #[test]
+    fn literal_prefixes() {
+        let pattern = |text: &str| PathPattern::new(text).unwrap();
+        assert!(pattern("stdlib/Basic/").is_literal());
+        assert!(!pattern("stdlib/**").is_literal());
+        assert_eq!(pattern("stdlib/A*/x").literal_prefix(), "stdlib");
+        assert_eq!(pattern("stdlib/Basic/").literal_prefix(), "stdlib/Basic");
+        assert_eq!(pattern("**").literal_prefix(), "");
+        assert_eq!(pattern("a/b{c,d}").literal_prefix(), "a");
     }
 
     #[test]

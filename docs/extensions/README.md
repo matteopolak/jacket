@@ -46,7 +46,7 @@
 - New module: add `stdlib/Extensions/<Name>/module.jai`, a row above, and a page here if it needs design notes. Nothing in the compiler lists modules.
 - Compiler-backed type (like `Long_Double`): add a name to `jaic_type` in `sema/expr.rs` and export `Name :: #jaic_type name;`.
 - Don't use a name official Jai code uses; those belong in `stdlib/`.
-- Tests enumerate modules as `Extensions/<Name>` (`tests/compiler/stdlib-targets.txt`, `[test] paths` in `jacket.toml`).
+- Tests enumerate modules as `Extensions/<Name>` (`tests/compiler/stdlib-targets.txt`).
 
 ## Conventions of Io, Tls, Http and Json
 

@@ -39,9 +39,11 @@ Two layouts:
 - **A library** (`Name/module.jai`, `Name/tests/`): the parent folder is an import folder, so tests `#import "Name"`. Only a library root has doc tests.
 - **A project** (`tests/` beside the code, no `module.jai` in the root): `[project] import_path` folders are passed as `-import_dir`, so `import_path = ["src"]` with `src/Name/module.jai` lets tests `#import "Name"`.
 
-Roots are the `--path DIR` folders, else `[test] paths` in `jacket.toml` (only those the current directory is inside, when it is inside some), else the project folder. With several roots, test names get the root's folder as a prefix (`Bit_Array::finds_the_first_set`). `--list` prints the roots it searched.
+Roots are the `--path DIR` folders, else the folders `[test] paths` in `jacket.toml` names (only those the current directory is inside, when it is inside some; of nested roots, the innermost), else the project folder. With several roots, test names get the root's folder as a prefix (`Bit_Array::finds_the_first_set`). `--list` prints the roots that have tests; `--roots` prints every root and runs nothing, for scripts.
 
-A folder that is not a root is never visited, so its doc examples never run. `tools/ci/check_stdlib_docs.py` fails when a stdlib module has doc examples and no `[test] paths` entry; add the module's folder to `jacket.toml`.
+An entry of `[test] paths` is a folder or a [path pattern](jailint.md) (`stdlib/**` is every folder below `stdlib`). A pattern selects each folder it matches that has a `tests/` folder or a `module.jai`; nested ones (`stdlib/Android` and `stdlib/Android/Toolchain`) are both roots. The search skips hidden folders, `tests/` folders, and anything `[format] ignore` or `[lint] exclude` match. A root with nothing to run is silent, so a new module needs no entry. A plain folder is taken as written.
+
+Doc examples of `stdlib/internal/*` modules are not run from there: a program cannot import them, so the public module that loads them runs them.
 
 ## Writing tests
 
@@ -266,7 +268,7 @@ Design choices:
 
 ```toml
 [test]
-paths = ["stdlib/Bit_Array", "stdlib/String"]   # test roots; default: the project folder
+paths = ["stdlib/**"]    # test roots, folders or patterns; default: the project folder
 jobs = 8                 # -j
 timeout = 120            # seconds; 0: no limit
 slow = 30                # seconds before a SLOW line

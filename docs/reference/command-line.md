@@ -230,6 +230,9 @@ Options:
       --list
           Print the tests (and benchmarks) instead of running them
 
+      --roots
+          Print the test roots (the folders `[test] paths` expands to, narrowed by the current directory), one per line, and nothing else
+
       --deps
           With `--list`: print the source files the test programs read (what `jaic -deps` prints for each), instead of the tests
 
@@ -384,6 +387,9 @@ Options:
 
       --list
           Print the tests (and benchmarks) instead of running them
+
+      --roots
+          Print the test roots (the folders `[test] paths` expands to, narrowed by the current directory), one per line, and nothing else
 
       --deps
           With `--list`: print the source files the test programs read (what `jaic -deps` prints for each), instead of the tests

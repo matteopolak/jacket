@@ -155,6 +155,10 @@ pub struct TestArgs {
     /// Print the tests (and benchmarks) instead of running them
     #[arg(long)]
     pub list: bool,
+    /// Print the test roots (the folders `[test] paths` expands to, narrowed by the current
+    /// directory), one per line, and nothing else
+    #[arg(long, conflicts_with_all = ["list", "review", "coverage"])]
+    pub roots: bool,
     /// With `--list`: print the source files the test programs read (what `jaic -deps` prints for
     /// each), instead of the tests
     #[arg(long, requires = "list")]

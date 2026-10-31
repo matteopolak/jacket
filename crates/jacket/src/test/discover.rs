@@ -1,4 +1,4 @@
-//! Where tests are. A test root is a folder with a `tests/` directory:
+//! Where tests are. A test root is a folder with a `tests/` directory or a `module.jai`:
 //!
 //! - a `.jai` file anywhere below `tests/` with a `.stdout`, `.stderr` or `.exit` file beside it is a
 //!   golden-output test, a program built and run alone; with `// test: compile_fail` on top it
@@ -7,8 +7,9 @@
 //! - every other `tests/*.jai` goes into one build, whose `@test` procedures are the unit tests;
 //! - the rest of the files below `tests/` are what those files `#load` or `#import`.
 //!
-//! The roots are `[test] paths` in jacket.toml (only those the current directory is in, when it
-//! is in some), else the project's folder.
+//! The roots are `[test] paths` in jacket.toml, expanded by [`expand`] (only those the current
+//! directory is in, when it is in some), else the project's folder.
+use jacket_config::{PathPattern, relative_text};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
@@ -103,6 +104,12 @@ fn module_name(dir: &Path, stdlib: &Path) -> Option<String> {
     (!parts.is_empty()).then(|| parts.join("/"))
 }
 
+/// Whether the module is one of the standard library's private ones (`internal/hash`): a program
+/// cannot import it, so its examples run through the public module that loads it.
+fn is_private(module: &str) -> bool {
+    module.split('/').next() == Some("internal")
+}
+
 /// Whether the file has a procedure with a `@bench` note.
 fn holds_bench(source: &Path) -> bool {
     std::fs::read_to_string(source).is_ok_and(|text| text.contains("@bench"))
@@ -153,7 +160,7 @@ impl Root {
         bench.extend(unit.iter().filter(|file| holds_bench(file)).cloned());
         Root {
             bench,
-            docs: if library && doc_tests {
+            docs: if library && doc_tests && !is_private(&module) {
                 super::doctest::blocks(&dir, &module, (jaic, stdlib), seen)
             } else {
                 Vec::new()
@@ -177,6 +184,60 @@ impl Root {
     }
 }
 
+/// Whether `dir` holds tests: a `tests/` folder, or a library's `module.jai`.
+fn is_test_root(dir: &Path) -> bool {
+    dir.join("tests").is_dir() || dir.join("module.jai").is_file()
+}
+
+/// Whether the folder `relative` is ignored: the patterns match a file in it (`fuzz/**` does not
+/// match `fuzz` itself).
+fn ignored(ignore: &[PathPattern], relative: &str) -> bool {
+    let inside = format!("{relative}/x");
+    ignore.iter().any(|i| i.is_match(&inside))
+}
+
+/// The folders `[test] paths` names, as absolute paths under `project`, sorted.
+///
+/// A plain path is that folder. A pattern is every test root it matches exactly, found below
+/// its plain leading folders. The walk skips hidden entries, `tests/` folders, and folders
+/// `ignore` matches (paths relative to `project`).
+pub fn expand(
+    patterns: &[String],
+    project: &Path,
+    ignore: &[PathPattern],
+) -> Result<Vec<PathBuf>, String> {
+    let mut found = BTreeSet::new();
+    for text in patterns {
+        let pattern = PathPattern::new(text).map_err(|e| e.to_string())?;
+        if pattern.is_literal() {
+            found.insert(project.join(text));
+            continue;
+        }
+        let base = project.join(pattern.literal_prefix());
+        let mut pending = vec![base];
+        while let Some(dir) = pending.pop() {
+            let relative = relative_text(&dir, project);
+            if is_test_root(&dir) && pattern.is_exact_match(&relative) {
+                found.insert(dir.clone());
+            }
+            for entry in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
+                let name = entry.file_name();
+                let name = name.to_string_lossy();
+                let path = entry.path();
+                if name.starts_with('.')
+                    || name == "tests"
+                    || !entry.file_type().is_ok_and(|t| t.is_dir())
+                    || ignored(ignore, &relative_text(&path, project))
+                {
+                    continue;
+                }
+                pending.push(path);
+            }
+        }
+    }
+    Ok(found.into_iter().collect())
+}
+
 /// The roots to test: `explicit` folders if any, else `[test] paths` (narrowed to those `cwd` is
 /// in, when it is in some), else `project`.
 pub fn roots(
@@ -197,10 +258,18 @@ pub fn roots(
         .cloned()
         .collect();
     if inside.is_empty() {
-        configured.to_vec()
-    } else {
-        inside
+        return configured.to_vec();
     }
+    // The innermost: inside `A/B` of roots `A` and `A/B`, only `A/B` runs.
+    inside
+        .iter()
+        .filter(|root| {
+            !inside
+                .iter()
+                .any(|other| other != *root && other.starts_with(root))
+        })
+        .cloned()
+        .collect()
 }
 
 #[cfg(test)]
@@ -237,6 +306,16 @@ mod tests {
             roots(&[], &configured, project, Path::new("/r/stdlib/B/tests")),
             [PathBuf::from("/r/stdlib/B")]
         );
+        // Of nested roots, the innermost one the directory is in.
+        let nested = [PathBuf::from("/r/A"), PathBuf::from("/r/A/B")];
+        assert_eq!(
+            roots(&[], &nested, project, Path::new("/r/A/B")),
+            [PathBuf::from("/r/A/B")]
+        );
+        assert_eq!(
+            roots(&[], &nested, project, Path::new("/r/A/tests")),
+            [PathBuf::from("/r/A")]
+        );
         assert_eq!(
             roots(&[], &[], project, Path::new("/r/x")),
             [PathBuf::from("/r")]
@@ -250,6 +329,49 @@ mod tests {
             ),
             [PathBuf::from("/w/lib")]
         );
+    }
+
+    #[test]
+    fn patterns_expand_to_the_test_roots_they_match() {
+        let dir = std::env::temp_dir().join(format!("jacket-expand-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        for folder in [
+            "lib/A/tests/inner",
+            "lib/A/B",
+            "lib/C/sub/tests",
+            "lib/D",
+            "lib/E/tests",
+            "lib/.hidden/tests",
+            "lib/skip/tests",
+            "other/F/tests",
+        ] {
+            std::fs::create_dir_all(dir.join(folder)).unwrap();
+        }
+        std::fs::write(dir.join("lib/A/B/module.jai"), "").unwrap();
+        std::fs::write(dir.join("lib/D/notes.txt"), "").unwrap();
+        // `lib/A/tests/inner` is under a tests folder: never a root.
+        std::fs::create_dir_all(dir.join("lib/A/tests/inner/tests")).unwrap();
+        let ignore = [PathPattern::new("lib/skip/**").unwrap()];
+        let found = |patterns: &[&str]| -> Vec<String> {
+            let patterns: Vec<String> = patterns.iter().map(ToString::to_string).collect();
+            expand(&patterns, &dir, &ignore)
+                .unwrap()
+                .iter()
+                .map(|p| relative_text(p, &dir))
+                .collect()
+        };
+        assert_eq!(
+            found(&["lib/**"]),
+            ["lib/A", "lib/A/B", "lib/C/sub", "lib/E"]
+        );
+        assert_eq!(found(&["lib/*"]), ["lib/A", "lib/E"]);
+        assert_eq!(found(&["lib/{A,E}"]), ["lib/A", "lib/E"]);
+        assert_eq!(found(&["lib/A"]), ["lib/A"]);
+        // A plain path is taken as written, root or not.
+        assert_eq!(found(&["lib/D"]), ["lib/D"]);
+        assert_eq!(found(&["lib/**", "lib/A"]), found(&["lib/**"]));
+        assert!(expand(&["a[".into()], &dir, &[]).is_err());
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

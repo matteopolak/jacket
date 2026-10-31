@@ -409,8 +409,9 @@ macro_rules! test_settings {
         /// here.
         #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
         pub struct Test {
-            /// The folders whose `tests/` directory holds tests, relative to the file. Default:
-            /// this one.
+            /// Where the tests are, relative to the file: folders, or path patterns that match
+            /// every folder below them with a `tests/` folder or a `module.jai`. Default: this
+            /// folder.
             #[serde(default, skip_serializing_if = "is_empty_strings")]
             pub paths: Strings,
             $(

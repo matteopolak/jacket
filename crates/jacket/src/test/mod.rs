@@ -460,9 +460,24 @@ fn run_once(
         Err(error) => return fail(error),
     };
     let project_dir = loaded.as_ref().map_or(cwd, |l| l.dir()).to_path_buf();
-    let configured: Vec<PathBuf> = config
-        .map(|c| c.paths.0.iter().map(|p| project_dir.join(p)).collect())
-        .unwrap_or_default();
+    let ignore: Vec<jacket_config::PathPattern> = loaded.as_ref().map_or_else(Vec::new, |l| {
+        let format = l.config.format.ignore.iter().filter_map(|p| p.parse().ok());
+        format
+            .chain(l.config.lint.exclude.iter().cloned())
+            .collect()
+    });
+    let configured = match config.map_or(Ok(Vec::new()), |c| {
+        discover::expand(&c.paths.0, &project_dir, &ignore)
+    }) {
+        Ok(found) => found,
+        Err(error) => return fail(format!("in `[test] paths`, {error}")),
+    };
+    if args.roots {
+        for root in discover::roots(&args.path, &configured, &project_dir, cwd) {
+            println!("{}", root.display());
+        }
+        return ExitCode::SUCCESS;
+    }
     if args.review {
         use std::io::IsTerminal;
         let roots = discover::roots(&args.path, &configured, &project_dir, cwd);
@@ -537,7 +552,7 @@ fn run_once(
         .collect();
     if roots.is_empty() {
         return fail(format!(
-            "no tests found in {}\nhelp: tests are `.jai` files in a `tests/` folder; `[test] paths` in jacket.toml lists other folders",
+            "no tests found in {}\nhelp: tests are `.jai` files in a `tests/` folder; `[test] paths` in jacket.toml names other folders or patterns such as `stdlib/**`",
             project_dir.display()
         ));
     }
