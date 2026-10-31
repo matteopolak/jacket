@@ -135,6 +135,11 @@ impl Name {
         id
     }
 
+    /// The name's position in the table: small, dense, the same on every thread.
+    pub fn index(self) -> usize {
+        self.0 as usize
+    }
+
     /// The name `name` if any field was ever given it.
     pub fn find(name: &str) -> Option<Name> {
         if let Some(id) = SEEN.with_borrow(|seen| seen.by_text.get(name).copied()) {
@@ -419,6 +424,21 @@ impl Record {
 
     pub fn field(&self, name: &str) -> Option<FieldRef<'_>> {
         self.field_named(Name::find(name)?)
+    }
+
+    /// How many fields the record has set (a field set twice counts twice).
+    pub fn slot_count(&self) -> usize {
+        self.slots.len()
+    }
+
+    /// The name of the `i`th field in the order they were added.
+    pub fn slot_name(&self, i: usize) -> Name {
+        self.slots[i].name
+    }
+
+    /// The value of the `i`th field in the order they were added.
+    pub fn slot_value(&self, i: usize) -> FieldRef<'_> {
+        self.value(&self.slots[i])
     }
 
     pub fn field_named(&self, name: Name) -> Option<FieldRef<'_>> {

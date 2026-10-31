@@ -29,6 +29,30 @@ pub enum Shape {
     FixedArray,
 }
 
+const NO_ENTRY: u16 = u16::MAX;
+
+impl Plan {
+    fn new(size: u64, entries: Vec<PlanEntry>, constant_storage: Option<u64>) -> Self {
+        let mut by_name = Vec::new();
+        for (i, entry) in entries.iter().enumerate() {
+            let at = entry.name.index();
+            if by_name.len() <= at {
+                by_name.resize(at + 1, NO_ENTRY);
+            }
+            // The first entry of a name is the one a lookup by name would find.
+            if by_name[at] == NO_ENTRY {
+                by_name[at] = i as u16;
+            }
+        }
+        Self {
+            size,
+            entries,
+            by_name,
+            constant_storage,
+        }
+    }
+}
+
 /// Structs are carved out of chunks this big; bigger ones get their own block.
 const CHUNK: usize = 256 * 1024;
 
@@ -65,6 +89,9 @@ impl PlanEntry {
 struct Plan {
     size: u64,
     entries: Vec<PlanEntry>,
+    /// The entry for each field name by `Name::index` (`NO_ENTRY` for names it has none for;
+    /// names newer than the plan have no entry either).
+    by_name: Vec<u16>,
     /// Where a `Type_Info_Struct`'s `constant_storage` is: its polymorph parameters that are
     /// types point at other descriptors (`__constant_pointers`).
     constant_storage: Option<u64>,
@@ -88,6 +115,8 @@ pub struct Builder {
     /// Null record references may acquire targets in later compiler messages.
     pending_refs: HashMap<i64, Vec<PendingRef>>,
     change_cursor: usize,
+    /// The names of the fields that mark a descriptor or a builtin, once interned.
+    marks: Option<(Name, Name)>,
 }
 
 #[derive(Clone)]
@@ -204,14 +233,8 @@ impl Builder {
             })
             .flatten()
             .map(|e| e.offset);
-        self.plans.insert(
-            info,
-            Rc::new(Plan {
-                size,
-                entries,
-                constant_storage,
-            }),
-        );
+        self.plans
+            .insert(info, Rc::new(Plan::new(size, entries, constant_storage)));
     }
 
     /// The record a built struct came from, 0 if none.
@@ -243,13 +266,11 @@ impl Builder {
             let root = self.obtain(&mut fill, id, expected)?;
             while let Some((id, memory, info)) = fill.queue.pop() {
                 let plan = self.plans[&info].clone();
-                let mut bytes = vec![0; plan.size as usize];
                 let mut image = Image {
                     base: memory,
-                    bytes: &mut bytes,
+                    bytes: self.own_bytes(memory, plan.size as usize)?,
                 };
                 self.fill_struct(&mut fill, interp, &mut image, memory, &plan, id)?;
-                self.place(interp, memory, &bytes)?;
                 if let Some(at) = plan.constant_storage {
                     self.patch_constant_pointers(&mut fill, interp, memory + at, id)?;
                 }
@@ -343,14 +364,20 @@ impl Builder {
             .get(id)
             .ok_or_else(|| Trap::new(format!("records: no record with id {id}")))?;
         let record = Some(record);
+        let (address_name, builtin_name) = *self.marks.get_or_insert_with(|| {
+            (
+                Name::intern(lang_items::record_fields::ADDRESS),
+                Name::intern(lang_items::record_fields::BUILTIN),
+            )
+        });
         if let Some(record) = record {
             // A descriptor of the program reading the records: the real one.
-            if let Some(FieldRef::Int(address)) = record.field(lang_items::record_fields::ADDRESS) {
+            if let Some(FieldRef::Int(address)) = record.field_named(address_name) {
                 self.remember(id, address as u64);
                 fill.created.push(id);
                 return Ok(address as u64);
             }
-            if let Some(FieldRef::Str(name)) = record.field(lang_items::record_fields::BUILTIN)
+            if let Some(FieldRef::Str(name)) = record.field_named(builtin_name)
                 && let Some(&info) = std::str::from_utf8(name)
                     .ok()
                     .and_then(|name| self.builtins.get(name))
@@ -394,26 +421,25 @@ impl Builder {
         self.ids.entry(pointer).or_insert(id);
     }
 
-    /// Copy `bytes` to `p`, memory from `alloc` that the program has not been given yet. It
-    /// is the builder's own, so it is copied in place rather than through the interpreter's
-    /// checked transfers (one kernel call each on some hosts).
-    fn place(&mut self, interp: &mut Interp, p: u64, bytes: &[u8]) -> Result<(), Trap> {
-        let words = bytes.len().div_ceil(16);
-        let chunk = self.chunks.iter_mut().rev().find_map(|chunk| {
-            let start = chunk.as_ptr() as u64;
-            let at = p.checked_sub(start)?;
-            let index = (at % 16 == 0).then_some(at as usize / 16)?;
-            chunk.get_mut(index..index.checked_add(words)?)
+    /// The `len` bytes at `p`, memory from `alloc` that the program has not been given yet, to
+    /// be written in place rather than through the interpreter's checked transfers (one kernel
+    /// call each on some hosts).
+    #[allow(unsafe_code)]
+    fn own_bytes(&mut self, p: u64, len: usize) -> Result<&'static mut [u8], Trap> {
+        let found = self.chunks.iter_mut().rev().find_map(|chunk| {
+            let start = chunk.as_mut_ptr() as u64;
+            let at = usize::try_from(p.checked_sub(start)?).ok()?;
+            let end = at.checked_add(len)?;
+            (end <= chunk.len() * 16).then_some((chunk.as_mut_ptr(), at))
         });
-        let Some(slots) = chunk else {
-            return store(interp, p, bytes);
+        let Some((base, at)) = found else {
+            return Err(Trap::unwritable(p, len));
         };
-        for (slot, word) in slots.iter_mut().zip(bytes.chunks(16)) {
-            let mut value = [0; 16];
-            value[..word.len()].copy_from_slice(word);
-            *slot = u128::from_ne_bytes(value);
-        }
-        Ok(())
+        // SAFETY: `at..at + len` lies inside one chunk, which the builder keeps (never moves or
+        // frees) for as long as it lives. The memory is zeroed and unread until the build that
+        // fills it returns, and each region is filled by one build step at a time, so nothing
+        // else reads or writes these bytes while the slice is in use.
+        Ok(unsafe { std::slice::from_raw_parts_mut(base.cast::<u8>().add(at), len) })
     }
 
     /// Zeroed, 16-byte aligned memory that lives as long as the builder.
@@ -450,12 +476,28 @@ impl Builder {
             .records
             .get(id)
             .ok_or_else(|| Trap::new(format!("records: no record with id {id}")))?;
-        for entry in &plan.entries {
+        // The record's field for each entry (the first one set under a name), found by one
+        // pass over the record instead of a search per entry.
+        let mut inline = [NO_ENTRY; 48];
+        let mut spilled;
+        let slots: &mut [u16] = if plan.entries.len() <= inline.len() {
+            &mut inline[..plan.entries.len()]
+        } else {
+            spilled = vec![NO_ENTRY; plan.entries.len()];
+            &mut spilled
+        };
+        for i in 0..record.slot_count() {
+            let Some(&entry) = plan.by_name.get(record.slot_name(i).index()) else {
+                continue;
+            };
+            if entry != NO_ENTRY && slots[entry as usize] == NO_ENTRY {
+                slots[entry as usize] = i as u16;
+            }
+        }
+        for (entry, &slot) in plan.entries.iter().zip(slots.iter()) {
+            let field = (slot != NO_ENTRY).then(|| record.slot_value(slot as usize));
             if entry.shape == Shape::Pointer
-                && matches!(
-                    record.field_named(entry.name),
-                    None | Some(FieldRef::Ref(0) | FieldRef::Int(0))
-                )
+                && matches!(field, None | Some(FieldRef::Ref(0) | FieldRef::Int(0)))
             {
                 self.pending_refs.entry(id).or_default().push(PendingRef {
                     name: entry.name,
@@ -463,7 +505,7 @@ impl Builder {
                     expected: entry.target,
                 });
             }
-            let Some(field) = record.field_named(entry.name) else {
+            let Some(field) = field else {
                 continue;
             };
             let target = memory + entry.offset;
@@ -487,10 +529,16 @@ impl Builder {
                     } else {
                         self.alloc(bytes as usize)
                     };
-                    let mut elements = vec![0; bytes as usize];
+                    let mut inline;
+                    let elements: &mut [u8] = if entry.shape == Shape::FixedArray {
+                        inline = vec![0; bytes as usize];
+                        &mut inline
+                    } else {
+                        self.own_bytes(data, bytes as usize)?
+                    };
                     let mut array = Image {
                         base: data,
-                        bytes: &mut elements,
+                        bytes: &mut *elements,
                     };
                     for (k, item) in items.iter().enumerate() {
                         let item = &item;
@@ -508,9 +556,8 @@ impl Builder {
                         )?;
                     }
                     if entry.shape == Shape::FixedArray {
-                        image.put(target, &elements)?;
+                        image.put(target, elements)?;
                     } else {
-                        self.place(interp, data, &elements)?;
                         image.put_pair(target, items.len() as u64, data)?;
                     }
                     if entry.resizable {
@@ -642,14 +689,14 @@ mod tests {
         b.add_type("Code_Node".into(), 1);
         b.plans.insert(
             1,
-            Rc::new(Plan {
-                size: 16,
-                entries: vec![
+            Rc::new(Plan::new(
+                16,
+                vec![
                     PlanEntry::single(0, Shape::Int, 8, Name::intern("value"), 0),
                     PlanEntry::single(8, Shape::Pointer, 8, Name::intern("next"), 1),
                 ],
-                constant_storage: None,
-            }),
+                None,
+            )),
         );
         let mut records = Records::default();
         let mut root = Record::new(RecordTag::CodeNode);
@@ -733,17 +780,17 @@ mod tests {
         b.add_type("Code_Node".into(), 1);
         b.plans.insert(
             1,
-            Rc::new(Plan {
-                size: 8,
-                entries: vec![PlanEntry::single(
+            Rc::new(Plan::new(
+                8,
+                vec![PlanEntry::single(
                     0,
                     Shape::Int,
                     8,
                     Name::intern("value"),
                     0,
                 )],
-                constant_storage: None,
-            }),
+                None,
+            )),
         );
         let mut records = Records::default();
         let mut record = Record::new(RecordTag::CodeNode);
@@ -762,17 +809,17 @@ mod tests {
             builder.add_type("Record".into(), info);
             builder.plans.insert(
                 info,
-                Rc::new(Plan {
-                    size: 16,
-                    entries: vec![PlanEntry::single(
+                Rc::new(Plan::new(
+                    16,
+                    vec![PlanEntry::single(
                         offset,
                         Shape::Int,
                         8,
                         Name::intern("value"),
                         0,
                     )],
-                    constant_storage: None,
-                }),
+                    None,
+                )),
             );
         }
         let mut records = Records::default();
@@ -795,9 +842,9 @@ mod tests {
         builder.add_type("Record".into(), 1);
         builder.plans.insert(
             1,
-            Rc::new(Plan {
-                size: 24,
-                entries: vec![PlanEntry {
+            Rc::new(Plan::new(
+                24,
+                vec![PlanEntry {
                     offset: 8,
                     shape: Shape::FixedArray,
                     size: 16,
@@ -807,8 +854,8 @@ mod tests {
                     target: 0,
                     resizable: false,
                 }],
-                constant_storage: None,
-            }),
+                None,
+            )),
         );
         let mut records = Records::default();
         let mut record = Record::new(RecordTag::Record);
