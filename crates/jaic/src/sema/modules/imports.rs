@@ -35,6 +35,7 @@ impl Compiler {
                 // (through the program's types); until it has run they are visible unmapped.
                 self.scope_mut(scope).imports[index].module = Some(module);
             }
+            crate::sema::body_probe::write(crate::sema::body_probe::W::EpochsMappingImports);
             self.epochs.mapping_imports += u32::from(mapping);
             let filter = self.resolve_module_filter(
                 entry.from_scope,
@@ -42,6 +43,7 @@ impl Compiler {
                 &entry.filter,
                 entry.import.span,
             );
+            crate::sema::body_probe::write(crate::sema::body_probe::W::EpochsMappingImports);
             self.epochs.mapping_imports -= u32::from(mapping);
             let filter = filter?;
             self.scope_mut(scope).imports[index].filter = filter;
@@ -57,6 +59,7 @@ impl Compiler {
         };
         self.scope_mut(scope).imports[index].module = Some(module);
         if mapping {
+            crate::sema::body_probe::write(crate::sema::body_probe::W::EpochsNamespaceGeneration);
             self.epochs.namespace_generation += 1;
         }
         self.ide_note_filter_names(&scope::UsingEntry::Module(module, None), &entry.filter);

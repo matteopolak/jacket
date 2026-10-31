@@ -1,5 +1,6 @@
 //! What a metaprogram's view of this compile needs: the workspace it builds, the records already
 //! handed to it, and the counts for its performance report.
+use crate::sema::body_probe::{Probed, W};
 use crate::sema::{code_export, perf};
 
 pub struct MetaState {
@@ -9,9 +10,9 @@ pub struct MetaState {
     /// the target compiler and neither takes workspace sources nor settles top-level code.
     pub twin: bool,
     /// Syntax trees and types already handed to metaprograms as records.
-    pub export: code_export::ExportState,
+    pub export: Probed<code_export::ExportState, { W::MetaExport as usize }>,
     /// Counts for the workspace's `PERFORMANCE_REPORT` message (`perf.rs`).
-    pub perf: perf::PerfStats,
+    pub perf: Probed<perf::PerfStats, { W::MetaPerf as usize }>,
 }
 
 impl Default for MetaState {
@@ -19,8 +20,8 @@ impl Default for MetaState {
         Self {
             workspace: crate::build::TOP_LEVEL_WORKSPACE,
             twin: false,
-            export: code_export::ExportState::default(),
-            perf: perf::PerfStats::default(),
+            export: Probed::default(),
+            perf: Probed::default(),
         }
     }
 }

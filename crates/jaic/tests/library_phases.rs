@@ -55,7 +55,8 @@ fn compiler(cross_os: bool, cross_cpu: bool) -> (Compiler, Rc<Cell<usize>>) {
     compiler.ct.interp = Interp::new(Box::new(Observer {
         calls: calls.clone(),
         value: Box::new(37),
-    }));
+    }))
+    .into();
     (compiler, calls)
 }
 

@@ -148,7 +148,7 @@ impl Compiler {
                 None => crate::parser::parse_file(file, &text),
             }
             .map_err(Box::new)?;
-            if let Some(ahead) = &self.src.ahead {
+            if let Some(ahead) = self.src.ahead.as_ref() {
                 ahead.discover(&own, path);
             }
             &own
@@ -422,9 +422,8 @@ impl Compiler {
         let mut origin_scope = Some(target);
         while let Some(scope) = origin_scope {
             if let Some(origin) = self.scope(scope).file {
-                self.src
-                    .origins
-                    .insert(file, self.src.source_origin(origin));
+                let source = self.src.source_origin(origin);
+                self.src.origins.insert(file, source);
                 break;
             }
             origin_scope = self.scope(scope).parent;

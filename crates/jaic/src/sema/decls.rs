@@ -56,6 +56,7 @@ impl Compiler {
         match &self.entity(id).state {
             EntityState::Done(r) => return Ok(r.clone()),
             EntityState::Resolving => {
+                crate::sema::body_probe::write(crate::sema::body_probe::W::EpochsInProgressMisses);
                 self.epochs.in_progress_misses += 1;
                 let e = self.entity(id);
                 return err(
@@ -70,8 +71,10 @@ impl Compiler {
         super::body_probe::bump(super::body_probe::C::EntResolve);
         self.entity_mut(id).state = EntityState::Resolving;
         let traps = self.ct.traps;
+        crate::sema::body_probe::write(crate::sema::body_probe::W::EpochsResolvingDepth);
         self.epochs.resolving_depth += 1;
         let result = self.resolve_entity_inner(id);
+        crate::sema::body_probe::write(crate::sema::body_probe::W::EpochsResolvingDepth);
         self.epochs.resolving_depth -= 1;
         match &result {
             Ok(r) => self.entity_mut(id).state = EntityState::Done(r.clone()),
@@ -123,6 +126,7 @@ impl Compiler {
             EntityKind::Placeholder => {
                 // Top-level items that needed it wait for the metaprogram to define it.
                 self.diag.dependencies.read_placeholder(id);
+                crate::sema::body_probe::write(crate::sema::body_probe::W::EpochsPlaceholderMisses);
                 self.epochs.placeholder_misses += 1;
                 err(
                     Code::PlaceholderNeverDefined,

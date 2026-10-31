@@ -164,8 +164,9 @@ impl Compiler {
         let count_at = (offset + layout::view::COUNT) as usize;
         agg.bytes[count_at..count_at + 8].copy_from_slice(&(count as u64).to_le_bytes());
         if count > 0 {
+            let name = format!("type_info.{name}.{}", self.out.program.globals.len());
             let g = self.out.program.add_global(ir::Global {
-                name: format!("type_info.{name}.{}", self.out.program.globals.len()),
+                name,
                 size: data.bytes.len() as u64,
                 align,
                 init: data.bytes,

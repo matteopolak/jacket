@@ -17,7 +17,7 @@ Measured with `jaic -check -dev_body_probe` (release build). A body's "own" grow
 
 Two conclusions:
 
-- **Bodies are not independent readers.** About a third to two thirds of bodies are pure by table growth, but they hold a small share of the time. The rest append to shared tables while being checked: types (12% of bodies on the 60k program), procedures and IR functions (25%), globals (16%), strings (3%), and, most of all, lazily resolve entities (24%), signatures (25%) and struct layouts (3%) that nothing resolved yet. "Pure" here only means no table grew; in-place writes (entity state, memo caches such as `module_names`, `lenient_failures`, `local_consts`) are not visible to the probe and must be audited by hand (stage 0).
+- **Bodies are not independent readers.** About a third to two thirds of bodies are pure by table growth, but they hold a small share of the time. The rest append to shared tables while being checked: types (12% of bodies on the 60k program), procedures and IR functions (25%), globals (16%), strings (3%), and, most of all, lazily resolve entities (24%), signatures (25%) and struct layouts (3%) that nothing resolved yet. "Pure" here only means no table grew; the in-place writes (entity state, memo caches such as `module_names`, `lenient_failures`, `local_consts`) are counted separately and decided one by one in the stage 0 audit below.
 - **The work is wide, not deep.** On the 60k program the queue tree (body → bodies it caused to be queued) has depth 17 and a critical path of 3% of the total, so parallelism is plentiful. Focus is dominated by one serial thing, the interpreter running the build program.
 
 Order matters for output. `-dev_body_fifo` lowers queued bodies first-in-first-out instead of last-in-first-out; the 60k program still compiles and runs, but the LLVM IR differs from line 19 on (function numbering and names follow lowering order). Any parallel scheme must therefore commit results in the serial order, not in completion order.
@@ -88,9 +88,64 @@ So the realistic target is about 1.5–1.8x from sema alone and 2–2.4x with pa
 
 What to change first: stage 0's `Send + Sync` conversion (it unblocks the parse work too) and the write audit. Cheaper wins that stand alone and do not depend on any of this: fewer allocations in `lookup_full` (25% inclusive, 4.6% in malloc itself; a per-scope name cache keyed by `namespace_generation` is the likely fix) and mimalloc (about 8%).
 
-## Status of stage 0 and 1
+## Stage 0: audit of in-place writes during `lower_body`
 
-Nothing of stage 0 or 1 is done yet (no `Send + Sync` conversion, no context split). Name lookup now writes four generation-keyed memo tables in place during body checking: `module_names`, `module_misses`, `scope_misses` and `using_member_free` (all in `Compiler`, keyed by `namespace_generation`). They belong in the stage 0 write audit: each is a pure cache of the declarations, so a worker can keep a private copy or share a read-only one per batch. Body scopes (`Proc`, `Block`, `Macro`) are deliberately not cached because they gain `using`s without moving the generation.
+With the `body-probe` feature (`cargo build --release -p jaic-cli --features body-probe`), `-dev_body_probe` counts every mutable borrow of shared compiler state made while a body is lowered, not only table growth. The shared tables of `Compiler` (`pr`, `ty`, `ns`, `out`, `src`, `caches`, `diag`, `ct`, `meta`) are wrapped in `Probed<T, W>` (`body_probe.rs`): reads go through `Deref`, anything that takes `&mut` goes through `DerefMut` and counts one write for that state. Plain fields (`namespace_generation`, `in_progress_misses`, `ct.executions`, `last_call_must`, ...) call `body_probe::write` where they change. The counts are an upper bound: a `&mut` that ends up changing nothing still counts (type interning counts every constructor call, hit or miss; `Editor` counts every fact call it then ignores). Writes made by bodies lowered on demand inside a body are charged to those bodies. Indexing the procedure or entity table for assignment also notes whether the element is older than the body (`pr.procs[i]` for another body's procedure, `ns.entities[i]` for an entity made before the body began), and `scope_mut` notes writes to root, module, file and struct scopes. Those are the writes that a second reader of the frozen world could observe. Without the feature `Probed` is a transparent wrapper and the hooks compile to nothing, so the perf gate sees no cost.
+
+Measured with a release `jaic` built with that feature, `-check -dev_body_probe -serial_parse -threads 1` on the generated 60k program (3,217 bodies), the first 100 programs of `tests/compiler/regressions` (17,326 bodies) and Focus through the `tools/bench` sandbox (4,913 bodies). "Bodies" is the share of bodies whose own lowering wrote the state at least once, as 60k / regressions / Focus; "writes" is the total on the 60k program.
+
+Decisions:
+
+- **local**: a worker-local delta. The worker owns the value, new ids come from a local range, the commit appends it.
+- **copy**: a private copy per worker of a pure cache.
+- **replay**: the delta records the write and the commit applies it in queue order.
+- **abort**: the body is dropped and run serially.
+
+| State | Written by | Bodies (%) | Writes | Decision | Why |
+| --- | --- | --- | --- | --- | --- |
+| `pr.procs[own]` (`body_state`, `sig`) | `lower_body_uncached`, `signature` | 100 / 100 / 100 | 29,383 | local | The body's own record; the commit sets `Done` and the cached signature. |
+| `pr.lenient_failures` (remove own) | `lower_body_uncached` | 100 / 100 / 100 | 3,217 | replay | One keyed remove per successful body, in any order. |
+| `pr.lowering_depth` | `lower_body_uncached` | 100 / 100 / 100 | 6,434 | local | Nesting counter of one body; each worker starts at zero. |
+| `pr.last_call_must` | `check_call`, statements | 84 / 86 / 83 | 22,313 | local | Per-body scratch that lives on `Compiler` by accident; moves into the body context. |
+| `diag.dependencies` (`begin_body`, `end_body`) | `lower_body_uncached` | 100 / 100 / 100 | 6,446 | replay | The edges a body records are consumed in order; buffer per body, append at commit. |
+| `meta.export.expression_types[own]` | `check_expr` | 100 / 100 / 100 | 257,408 | local | Keyed by the body's id; merged at commit. |
+| `meta.export.call_instances` | `calls/matching.rs` | not separated | | replay | Keyed by call span; appended in queue order. |
+| `meta.perf` | `perf.rs` counters | 99 / 98 / 92 | 9,196 | local | Per-worker counters summed at commit. |
+| `ed` (editor facts) | every `ide` recording call | 100 / 98 / 100 | 791,462 | local | `jaic` is not live, so each call returns at once and the `&mut` is its only cost. Editor builds keep the serial path. |
+| `out.program` (function bodies, globals) | end of `lower_body_code`, constants | 100 / 100 / 100 | 8,794 | local | The body's `Func` is filled once; new globals get local ids that the commit remaps. |
+| `ns.scopes` (own `Proc`, `Block`, `Macro` scopes) | `new_scope`, `bind_name` | 100 / 100 / 100 | 47,749 | local | Scopes a body creates and fills are its own; ids come from a local range. |
+| `ns.entities` (appends: locals, parameters) | `new_entity` | 100 / 96 / 98 | 34,934 | local | Same, appended at commit. |
+| `ns.entities[i]`, older than the body; `epochs.resolving_depth` | `resolve_entity` (`Unresolved` to `Done`) | 25 / 46 / 16; 25 / 47 / 23 | 7,693; 9,776 | abort | First version: a body that needs an unresolved entity is retried after the serial thread resolved it. Stage 3 resolves non-`#run` entities locally and commits them idempotently. |
+| `pr.procs[i]`, another body's procedure | `signature`, instantiation, calls | 26 / 45 / 40 | 19,465 | abort | Same lazy resolution for a procedure. Stage 3 gives a callee a local proc range plus the instance key. |
+| `pr.body_queue`, `pr.func_targets`, `pr.func_procs` | a call to a procedure that has no body yet | 25 / 42 / 39 | 3,208 each | replay | The commit enqueues in the order the serial compiler would have. |
+| `ty.types` (intern) | every type constructor | 51 / 72 / 69 | 11,255 | local | A hit is a lookup that borrows `&mut`, so it needs a read-only path. A miss (13% of the 60k bodies) goes to a delta and is remapped through the interner at commit. |
+| `out.strings`, `out.packs`, `out.const_addr_globals` | string and constant literals | 4 / 24 / 12 | 453 | local | Interned by content; the commit dedupes. |
+| `caches.module_names` | `module_declarations` | 27 / 58 / 56 | 25,086 | copy | Pure cache of the declarations, stamped with `namespace_generation`. A worker starts each batch with empty copies; a miss only costs a recompute. |
+| `caches.module_misses` | `module_lookup` | 26 / 55 / 54 | 24,773 | copy | Same. |
+| `caches.scope_misses` | `lookup_full` | 27 / 72 / 65 | 9,754 | copy | Same. |
+| `caches.using_member_free` | `using` member search | 1 / 6 / 7 | 3,289 | copy | Same. |
+| `ns.reexport_visiting` | `module_declarations` | 27 / 56 / 55 | 49,842 | copy | A search stack that is empty between calls. |
+| `pr.local_decl_types` | local declarations | 87 / 63 / 59 | 11,067 | replay | Keyed by AST id and name index; an idempotent insert. |
+| `pr.local_consts`, `pr.const_macro_params` | constants and macro parameters | 1 / 22 / 13 | 63, 62 | replay | Keyed by the body's own entities. |
+| `pr.first_arguments`, `pr.proc_decl_notes`, `pr.ifx_operands` | calls, declaration notes, `ifx` | 1 / 22 / 14; 1 / 15 / 6; 0 / 3 / 0 | 54, 69, 4 | replay | Keyed by span or procedure; idempotent. |
+| `ns.thunk_scopes` | constant evaluation | 10 / 28 / 35 | 1,862 | replay | Maps a scope to its thunk scope; the new scope is local and the entry is replayed. |
+| `ns.overload_sets_checked` | overload resolution | 1 / 11 / 3 | 32 | replay | A set insert that gates a one-time warning; the warning is replayed in order. |
+| Struct state: `ty.struct_asts`, `field_declarations`, `field_types`, `field_type_pending`, `field_using_order`, `default_images`, `pr.callable_fields`, `ns.scopes[i]` of a struct, layout in `ty.types` | first use of a struct (`layout_struct`) | 3 / 10 / 3 | 691 to 5,540 | abort | Lazy resolution of a declaration, like an entity. Stage 3 makes it local and idempotent. |
+| Enum and nominal state: `ty.enum_member_scopes`, `enum_member_entities`, `enum_base_spans`, `nominal_origins` | first use of an enum or nominal type | 2 / 5 / 1 | 17 to 282 | abort | Same. |
+| Type information: `ty.snapshot_infos`, `infos`, `failed_infos`, `building_infos`, `default_globals`, `initializers`, `generic_struct_infos`, `deferred_infos` | `type_info`, defaults, `get_type_table` | 21 / 14 / 16 for `snapshot_infos`; 0 to 3 for the rest | 2,627; 1 to 302 | abort | Builds globals and functions in several steps with state kept across calls. |
+| `ct.interp`, `ct.executions`, `ct.frozen` | constant evaluation, `#run`, `#assert` | 1.5 / 15 / 13; 1.4 / 12 / 11; 0.1 / 0.1 / 0.3 | 3,386; 207; 38 | abort | Runs compile-time code on the one interpreter and its memory: the serial section. |
+| `epochs.namespace_generation`, `src.sources`, `src.insert_depth`, `src.insert_sites`, `ns.libraries`, `ns.default_scopes`, `pr.codes`, `pr.code_scopes`, `pr.anonymous_procs`, `pr.callable_entities` | `#insert`, `#import`, `#load`, `#library`, quoted code, anonymous procedures | 1 / 3 / 5 for `namespace_generation`; 0 to 1 / 0 to 3 / 0 to 6 for the rest | 620; at most 3 each | abort | A body that changes what names mean invalidates every cache another body used. |
+| `epochs.in_progress_misses`, `epochs.placeholder_misses`, `epochs.mapping_imports` | failed lookups that wait on unfinished work | 0 / 0.1 / 0 | 0 | abort | A failure that reads these is not final; the body is retried serially. |
+| `diag.warnings`, `diag.deferred_errors`, `caches.declaring_imports`, `caches.stdlib_view`, `src.library_files` | diagnostics and their suggestions | 0 / 0 / 0.1 | 0 | abort | Any diagnostic aborts, so messages, their order and their notes stay byte-identical. |
+| Everything else in the shared tables | | 0 in all three runs | 0 | local if it ever fires | `pr.provisional_errors`, `auto_bake_variants`, `parked_bodies`, `multi_consts`, `code_procs`, `live_procs`, `exports`, `calls_in_flight`, `discard_params`, `interpolated`, `ty.variadic_cases`, `cases_building`, `info_flags`, `table_funcs`, `member_aliases`, `using_filters`, `ns.modules`, `module_cache`, `module_failures`, `add_contexts`, `pokes`, `deferred_pending`, `unsettled`, `src.files`, `file_by_path`, `provided_texts`, `canon_cache`, `ahead`, `ct.top_level_runs`, `asserts`, `twin`. A few change in the rare body that loads a module or runs a `#run` (`ns.modules`, `src.files`, `ns.unsettled` in 2 of the 100 regression programs); those bodies already abort on `namespace_generation` or `ct.executions`. |
+
+Reading the table:
+
+- Most writes go to the body's own record, scopes, entities and per-body maps. They need a local id range and a commit step, nothing else.
+- What sets the abort rate is lazy resolution: older entities, other bodies' procedures, struct and enum state. It touches a quarter of the bodies on the 60k program and up to 46% on the regressions, so stage 1 measures the abort rate with these aborting and stage 3 widens.
+- The four name-lookup caches and the re-export search stack are the most frequent shared writes after the per-body ones, and a private copy costs nothing to keep correct.
+- `lower_epoch()` only reads (`src.added`, `src.files`, `ns.modules`, `ct.runs_done`, `namespace_generation`); it needs no decision of its own.
+- Reference counts are writes too. Cloning an `Rc<ProcLit>`, `Rc<Signature>` or a `Value` on a worker writes memory that other workers read, so the types a frozen `&Compiler` holds have to be `Arc` (the next section).
 
 ## Process-wide state
 
@@ -117,11 +172,12 @@ The statics and thread-locals in `jaic`, with why each stays. Anything not liste
 
 ## How to change it
 
-The probe is `crates/jaic/src/sema/body_probe.rs`; hook points: `lower_body_uncached` (begin/end), the two `body_queue.push` sites, `resolve_entity`, `signature`, `layout_struct_with_runtime_dependencies`, and `finish_program` (report). New shared table in `Compiler`? Add a counter to `snapshot` in the probe so the study stays honest. Remove `next_body` and the FIFO switch when the study is done; it exists only to show order sensitivity.
+The probe is `crates/jaic/src/sema/body_probe.rs`; hook points: `lower_body_uncached` (begin/end), the two `body_queue.push` sites, `resolve_entity`, `signature`, `layout_struct_with_runtime_dependencies`, and `finish_program` (report). New shared table in `Compiler`? Declare it as `Probed<T, { W::Name as usize }>` and add `Name "owner.field"` to the `writes!` list in the probe, so its in-place writes are counted; a plain field that changes in a body calls `body_probe::write(W::Name)` next to the change. `Probed` has a `DerefMut`, so code that only reads must not take `&mut` (read through `scope(id)`, not `scope_mut(id)`), or the count is inflated; assigning a whole new value needs `.into()`. A table that grows adds a counter to `snapshot` as before. Remove `next_body` and the FIFO switch when the study is done; it exists only to show order sensitivity.
 
 ## Configuration
 
-- `-dev_body_probe`: print the per-body mutation histogram and queue-tree critical path to stderr at the end of `finish_program`.
+- `body-probe` (cargo feature of `jaic` and `jaic-cli`, off by default): count in-place writes; without it the probe still reports table growth and says the writes were not counted.
+- `-dev_body_probe`: print the per-body mutation histogram, the in-place write counts and the queue-tree critical path to stderr at the end of `finish_program`. Programs that run a metaprogram print one report per compiler; the last one holds the totals of the thread.
 - `-dev_body_fifo`: lower queued bodies first-in-first-out (study only; output differs from the default).
 
 ## Dependencies

@@ -1,27 +1,34 @@
 //! What this compile produces: the IR program, the constant data pooled into its globals, and
 //! the output compile-time code printed.
+use super::body_probe::{Probed, W};
 use crate::fxhash::HashMap;
 use crate::ir;
 use crate::sema::{PackKey, driver, runtime_config};
 use crate::types::TypeId;
 use std::rc::Rc;
 
+/// A constant's type, bytes and relocations: what a constant global is interned by.
+pub type ConstAddrKey = (TypeId, Vec<u8>, Vec<ir::Reloc>);
+
 #[derive(Default)]
+
 pub struct Output {
-    pub program: ir::Program,
-    pub(in crate::sema) registered_data_segments: HashMap<ir::GlobalId, u16>,
+    pub program: Probed<ir::Program, { W::OutProgram as usize }>,
+    pub(in crate::sema) registered_data_segments:
+        Probed<HashMap<ir::GlobalId, u16>, { W::OutRegisteredDataSegments as usize }>,
     /// `__runtime_info`, when the program references it.
     pub(in crate::sema) runtime_info: Option<ir::GlobalId>,
     pub(in crate::sema) runtime_storage_global: Option<ir::GlobalId>,
     pub(in crate::sema) runtime_storage_dependencies: runtime_config::RuntimeStorageDependencies,
     /// String literal globals, deduplicated.
-    pub strings: HashMap<Rc<[u8]>, ir::GlobalId>,
+    pub strings: Probed<HashMap<Rc<[u8]>, ir::GlobalId>, { W::OutStrings as usize }>,
     /// Static storage for aggregate constants whose address was taken, one per distinct image.
-    pub const_addr_globals: HashMap<(TypeId, Vec<u8>, Vec<ir::Reloc>), ir::GlobalId>,
+    pub const_addr_globals:
+        Probed<HashMap<ConstAddrKey, ir::GlobalId>, { W::OutConstAddrGlobals as usize }>,
     /// The data of constant views made from baked variadic arguments, deduplicated by
     /// contents so that equal argument lists share one global (and one instance).
-    pub packs: HashMap<PackKey, ir::GlobalId>,
-    pub output: Vec<u8>,
+    pub packs: Probed<HashMap<PackKey, ir::GlobalId>, { W::OutPacks as usize }>,
+    pub output: Probed<Vec<u8>, { W::OutOutput as usize }>,
     /// Spin lock word shared by `lock_cmpxchg8b`/`lock_cmpxchg16b` in `#asm` blocks.
     pub asm_pair_lock: Option<ir::GlobalId>,
     /// The AES S-boxes used by `aesenc` & co. in `#asm` blocks.
@@ -32,7 +39,7 @@ pub struct Output {
         HashMap<ir::GlobalId, (crate::intern::Sym, crate::source::Span)>,
     /// `#no_reset` globals with their types: compiled output starts from the values that
     /// compile-time code left in them (`prepare_compiled_output`).
-    pub no_reset_globals: Vec<(ir::GlobalId, TypeId)>,
+    pub no_reset_globals: Probed<Vec<(ir::GlobalId, TypeId)>, { W::OutNoResetGlobals as usize }>,
     /// How much code existed when `finish_program` began checking what the program does not
     /// reach: compiled output drops what was made after it and is still unreferenced.
     pub(in crate::sema) unreferenced_from: Option<driver::ProgramMark>,

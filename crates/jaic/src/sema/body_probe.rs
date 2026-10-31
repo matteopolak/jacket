@@ -5,8 +5,362 @@
 //! made by bodies lowered on demand inside it is charged to those), and prints a histogram when
 //! the compile ends. It costs nothing when the variable is unset.
 use super::Compiler;
+use super::scope::ScopeKind;
 use std::cell::RefCell;
 use std::time::{Duration, Instant};
+
+macro_rules! writes {
+    ($($v:ident $n:literal,)*) => {
+        /// A piece of shared compiler state whose in-place writes the probe counts.
+        #[derive(Clone, Copy)]
+        pub enum W { $($v),* }
+        const WRITE_NAMES: &[&str] = &[$($n),*];
+    };
+}
+
+writes! {
+    PrProcs "pr.procs",
+    PrCodes "pr.codes",
+    PrLenientFailures "pr.lenient_failures",
+    PrProvisionalErrors "pr.provisional_errors",
+    PrAutoBakeVariants "pr.auto_bake_variants",
+    PrBodyQueue "pr.body_queue",
+    PrParkedBodies "pr.parked_bodies",
+    PrMultiConsts "pr.multi_consts",
+    PrCodeProcs "pr.code_procs",
+    PrFuncTargets "pr.func_targets",
+    PrLiveProcs "pr.live_procs",
+    PrExports "pr.exports",
+    PrAnonymousProcs "pr.anonymous_procs",
+    PrCallsInFlight "pr.calls_in_flight",
+    PrLocalConsts "pr.local_consts",
+    PrDiscardParams "pr.discard_params",
+    PrConstMacroParams "pr.const_macro_params",
+    PrLocalDeclTypes "pr.local_decl_types",
+    PrCodeScopes "pr.code_scopes",
+    PrUnscopedCodes "pr.unscoped_codes",
+    PrProcDeclNotes "pr.proc_decl_notes",
+    PrInterpolated "pr.interpolated",
+    PrIfxOperands "pr.ifx_operands",
+    PrFirstArguments "pr.first_arguments",
+    PrFuncProcs "pr.func_procs",
+    PrAsmRegs "pr.asm_regs",
+    PrAsmPins "pr.asm_pins",
+    PrCallableEntities "pr.callable_entities",
+    PrCallableFields "pr.callable_fields",
+    TyNominalOrigins "ty.nominal_origins",
+    TyPolyStructs "ty.poly_structs",
+    TyStructAsts "ty.struct_asts",
+    TyFieldTypes "ty.field_types",
+    TyFieldDeclarations "ty.field_declarations",
+    TyFieldTypePending "ty.field_type_pending",
+    TyFieldFilterCache "ty.field_filter_cache",
+    TyFieldFilterPending "ty.field_filter_pending",
+    TyFieldUsingOrder "ty.field_using_order",
+    TyInfos "ty.infos",
+    TyFailedInfos "ty.failed_infos",
+    TyDeferredInfos "ty.deferred_infos",
+    TyVariadicCases "ty.variadic_cases",
+    TyCasesBuilding "ty.cases_building",
+    TyBuildingInfos "ty.building_infos",
+    TySnapshotInfos "ty.snapshot_infos",
+    TyTableFuncs "ty.table_funcs",
+    TyInfoFlags "ty.info_flags",
+    TyAnonymous "ty.anonymous",
+    TyPolyAliases "ty.poly_aliases",
+    TyEnumMemberScopes "ty.enum_member_scopes",
+    TyEnumBaseSpans "ty.enum_base_spans",
+    TyEnumBorrowed "ty.enum_borrowed",
+    TyEnumMemberEntities "ty.enum_member_entities",
+    TyMemberAliases "ty.member_aliases",
+    TyUsingFilters "ty.using_filters",
+    TyDefaultImages "ty.default_images",
+    TyDefaultGlobals "ty.default_globals",
+    TyInitializers "ty.initializers",
+    TyGenericStructInfos "ty.generic_struct_infos",
+    NsModules "ns.modules",
+    NsModuleCache "ns.module_cache",
+    NsModuleFailures "ns.module_failures",
+    NsScopes "ns.scopes",
+    NsEntities "ns.entities",
+    NsLibraries "ns.libraries",
+    NsAddContexts "ns.add_contexts",
+    NsPokes "ns.pokes",
+    NsDefaultScopes "ns.default_scopes",
+    NsOverloadSetsChecked "ns.overload_sets_checked",
+    NsFailedImports "ns.failed_imports",
+    NsReexportVisiting "ns.reexport_visiting",
+    NsThunkScopes "ns.thunk_scopes",
+    NsExportEntities "ns.export_entities",
+    NsDeferredPending "ns.deferred_pending",
+    NsUnsettled "ns.unsettled",
+    OutRegisteredDataSegments "out.registered_data_segments",
+    OutStrings "out.strings",
+    OutConstAddrGlobals "out.const_addr_globals",
+    OutPacks "out.packs",
+    OutOutput "out.output",
+    OutNoResetGlobals "out.no_reset_globals",
+    CachesModuleNames "caches.module_names",
+    CachesModuleMisses "caches.module_misses",
+    CachesScopeMisses "caches.scope_misses",
+    CachesUsingMemberFree "caches.using_member_free",
+    SrcFiles "src.files",
+    SrcOrigins "src.origins",
+    SrcFileByPath "src.file_by_path",
+    SrcHoistedImports "src.hoisted_imports",
+    SrcProvidedTexts "src.provided_texts",
+    SrcInsertDepth "src.insert_depth",
+    SrcInsertSites "src.insert_sites",
+    SrcTwinOutbox "src.twin_outbox",
+    DiagWarnings "diag.warnings",
+    DiagDeferredErrors "diag.deferred_errors",
+    CtTopLevelRuns "ct.top_level_runs",
+    CtAsserts "ct.asserts",
+    CtFrozen "ct.frozen",
+    CtInterp "ct.interp",
+    CtTwin "ct.twin",
+    DiagDependencies "diag.dependencies",
+    MetaExport "meta.export",
+    MetaPerf "meta.perf",
+    OutProgram "out.program",
+    SrcCanonCache "src.canon_cache",
+    SrcAhead "src.ahead",
+    SrcSources "src.sources",
+    TyTypes "ty.types",
+    Ed "ed",
+    EpochsNamespaceGeneration "epochs.namespace_generation",
+    EpochsPlaceholderMisses "epochs.placeholder_misses",
+    EpochsInProgressMisses "epochs.in_progress_misses",
+    EpochsResolvingDepth "epochs.resolving_depth",
+    EpochsMappingImports "epochs.mapping_imports",
+    CtExecutions "ct.executions",
+    PrLastCallMust "pr.last_call_must",
+    PrLoweringDepth "pr.lowering_depth",
+    SrcLibraryFiles "src.library_files",
+    CachesDeclaringImports "caches.declaring_imports",
+    CachesStdlibView "caches.stdlib_view",
+    OldProcs "pr.procs[i], another body's procedure",
+    OldEntities "ns.entities[i], older than the body",
+    OldModuleScopes "ns.scopes[i], a root, module or file scope",
+    OldStructScopes "ns.scopes[i], a struct scope",
+}
+
+const WN: usize = WRITE_NAMES.len();
+
+/// A shared table with its writes counted: reading goes through `Deref`, anything that borrows it
+/// mutably (`push`, `insert`, `entry`, `get_mut`, indexing for assignment, passing `&mut`) goes
+/// through `DerefMut` and counts one write for `I`. A mutable borrow that does not change anything
+/// still counts, so the numbers are an upper bound. Free when `-dev_body_probe` is off apart from
+/// one relaxed load.
+#[derive(Default)]
+pub struct Probed<T, const I: usize>(T);
+
+impl<T, const I: usize> Probed<T, I> {
+    pub fn new(value: T) -> Self {
+        Probed(value)
+    }
+
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
+impl<T, const I: usize> From<T> for Probed<T, I> {
+    fn from(value: T) -> Self {
+        Probed(value)
+    }
+}
+
+impl<T, const I: usize> std::ops::Deref for Probed<T, I> {
+    type Target = T;
+
+    #[inline(always)]
+    fn deref(&self) -> &T {
+        &self.0
+    }
+}
+
+impl<T, const I: usize> std::ops::DerefMut for Probed<T, I> {
+    #[inline(always)]
+    fn deref_mut(&mut self) -> &mut T {
+        write_at(I);
+        &mut self.0
+    }
+}
+
+// `iter` and `iter_mut` are the wrapped table's, reached through `Deref`.
+#[allow(clippy::into_iter_without_iter)]
+impl<'a, T, const I: usize> IntoIterator for &'a Probed<T, I>
+where
+    &'a T: IntoIterator,
+{
+    type Item = <&'a T as IntoIterator>::Item;
+    type IntoIter = <&'a T as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        (&self.0).into_iter()
+    }
+}
+
+// `iter` and `iter_mut` are the wrapped table's, reached through `Deref`.
+#[allow(clippy::into_iter_without_iter)]
+impl<'a, T, const I: usize> IntoIterator for &'a mut Probed<T, I>
+where
+    &'a mut T: IntoIterator,
+{
+    type Item = <&'a mut T as IntoIterator>::Item;
+    type IntoIter = <&'a mut T as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        write_at(I);
+        (&mut self.0).into_iter()
+    }
+}
+
+impl<T: IntoIterator, const I: usize> IntoIterator for Probed<T, I> {
+    type Item = T::Item;
+    type IntoIter = T::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<T: std::fmt::Debug, const I: usize> std::fmt::Debug for Probed<T, I> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl<T, P: std::slice::SliceIndex<[T]> + First, const I: usize> std::ops::Index<P>
+    for Probed<Vec<T>, I>
+{
+    type Output = P::Output;
+
+    #[inline(always)]
+    fn index(&self, at: P) -> &P::Output {
+        &self.0[at]
+    }
+}
+
+/// Indexing for assignment also notes whether the element existed before the body began: those
+/// writes touch something another body could be reading.
+impl<T, P: std::slice::SliceIndex<[T]> + First, const I: usize> std::ops::IndexMut<P>
+    for Probed<Vec<T>, I>
+{
+    #[inline(always)]
+    fn index_mut(&mut self, at: P) -> &mut P::Output {
+        write_at(I);
+        old_write(I, at.first());
+        &mut self.0[at]
+    }
+}
+
+/// The first element an index reaches.
+pub trait First {
+    fn first(&self) -> usize;
+}
+
+impl First for usize {
+    fn first(&self) -> usize {
+        *self
+    }
+}
+
+impl First for std::ops::Range<usize> {
+    fn first(&self) -> usize {
+        self.start
+    }
+}
+
+impl First for std::ops::RangeFrom<usize> {
+    fn first(&self) -> usize {
+        self.start
+    }
+}
+
+impl First for std::ops::RangeTo<usize> {
+    fn first(&self) -> usize {
+        0
+    }
+}
+
+impl First for std::ops::RangeFull {
+    fn first(&self) -> usize {
+        0
+    }
+}
+
+impl First for std::ops::RangeInclusive<usize> {
+    fn first(&self) -> usize {
+        *self.start()
+    }
+}
+
+impl First for std::ops::RangeToInclusive<usize> {
+    fn first(&self) -> usize {
+        0
+    }
+}
+
+thread_local! {
+    /// The lengths of the procedure, entity and scope tables when the innermost body began.
+    static LIMITS: std::cell::Cell<[usize; 3]> = const { std::cell::Cell::new([0, 0, usize::MAX]) };
+}
+
+fn old_write(table: usize, at: usize) {
+    if !COUNTING || !enabled() {
+        return;
+    }
+    let limits = LIMITS.with(std::cell::Cell::get);
+    if table == W::PrProcs as usize {
+        // The body's own record changes as it is lowered; any other procedure's is shared.
+        if at != limits[2] {
+            write(W::OldProcs);
+        }
+    } else if table == W::NsEntities as usize && at < limits[1] {
+        write(W::OldEntities);
+    }
+}
+
+/// A write through `scope_mut`: the scopes of modules, files and structs are shared, the
+/// scopes of a body's blocks are its own.
+pub fn scope_written(kind: ScopeKind) {
+    match kind {
+        ScopeKind::Root | ScopeKind::Module | ScopeKind::File => write(W::OldModuleScopes),
+        ScopeKind::Struct(_) | ScopeKind::StructParams => write(W::OldStructScopes),
+        ScopeKind::Proc | ScopeKind::Block | ScopeKind::Macro => {}
+    }
+}
+
+/// Count one in-place write to state that is not a `Probed` table (a counter, a flag, a
+/// `RefCell` behind a shared reference).
+#[inline(always)]
+pub fn write(w: W) {
+    write_at(w as usize);
+}
+
+/// Whether in-place writes are counted at all: the `body-probe` feature of `jaic`. Without it
+/// `Probed` is a plain wrapper and every hook compiles to nothing, so a normal build pays no
+/// instructions for the audit.
+pub const COUNTING: bool = cfg!(feature = "body-probe");
+
+#[inline(always)]
+fn write_at(i: usize) {
+    if COUNTING && ON.load(std::sync::atomic::Ordering::Relaxed) {
+        WRITES.with(|w| w.borrow_mut()[i] += 1);
+    }
+}
+
+static ON: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Read the knob once; `Compiler::new` calls this.
+pub fn init() {
+    ON.store(
+        crate::knobs::get().body_probe,
+        std::sync::atomic::Ordering::Relaxed,
+    );
+}
 
 /// What a counter measures; `SETS` groups them by how hard they are to make concurrent.
 #[derive(Clone, Copy)]
@@ -36,9 +390,10 @@ pub enum C {
     Warnings,
 }
 
-const N: usize = 23;
+const N0: usize = 23;
+const N: usize = N0 + WN;
 
-const NAMES: [&str; N] = [
+const NAMES: [&str; N0] = [
     "types",
     "structs",
     "strings",
@@ -113,7 +468,9 @@ struct State {
     bumps: [u64; 3],
     frames: Vec<Frame>,
     bodies: u64,
-    touched: [u64; N],
+    touched: Vec<u64>,
+    /// Writes made by the bodies themselves (nested bodies excluded), per `W`.
+    writes: Vec<u64>,
     /// Per mask of touched sets: bodies, self time.
     masks: [(u64, Duration); 32],
     total: Duration,
@@ -125,11 +482,12 @@ struct State {
 
 thread_local! {
     static STATE: RefCell<State> = RefCell::new(State::default());
+    static WRITES: RefCell<[u64; WN]> = const { RefCell::new([0; WN]) };
 }
 
+#[inline(always)]
 pub fn enabled() -> bool {
-    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *ON.get_or_init(|| crate::knobs::get().body_probe)
+    ON.load(std::sync::atomic::Ordering::Relaxed)
 }
 
 /// Count one lazy resolution (`C::EntResolve`, `C::SigResolve` or `C::Layout`).
@@ -164,6 +522,7 @@ fn snapshot(c: &Compiler, bumps: [u64; 3], nested: u64) -> [u64; N] {
     v[C::Entities as usize] = c.ns.entities.len() as u64;
     v[C::Scopes as usize] = c.ns.scopes.len() as u64;
     v[C::Warnings as usize] = c.diag.warnings.len() as u64;
+    WRITES.with(|w| v[N0..].copy_from_slice(&*w.borrow()));
     v
 }
 
@@ -181,8 +540,13 @@ pub fn enqueued(id: u32) {
 pub fn begin(c: &Compiler, id: u32) {
     STATE.with(|s| {
         let mut s = s.borrow_mut();
+        if s.touched.is_empty() {
+            s.touched = vec![0; N];
+            s.writes = vec![0; WN];
+        }
         s.bodies += 1;
         let start = snapshot(c, s.bumps, s.bodies);
+        LIMITS.with(|l| l.set([0, start[C::Entities as usize] as usize, id as usize]));
         s.frames.push(Frame {
             start,
             child: [0; N],
@@ -200,6 +564,11 @@ pub fn end(c: &Compiler) {
         // `bodies` already counts this one, which `begin` snapshotted before incrementing.
         let now = snapshot(c, bumps, s.bodies);
         let f = s.frames.pop().unwrap();
+        LIMITS.with(|l| {
+            l.set(s.frames.last().map_or([0, 0, usize::MAX], |p| {
+                [0, p.start[C::Entities as usize] as usize, p.id as usize]
+            }));
+        });
         let elapsed = f.at.elapsed();
         let self_time = elapsed.saturating_sub(f.child_time);
         let mut total = [0u64; N];
@@ -226,6 +595,9 @@ pub fn end(c: &Compiler) {
                 s.touched[i] += 1;
             }
         }
+        for i in 0..WN {
+            s.writes[i] += own[N0 + i];
+        }
         s.masks[mask].0 += 1;
         s.masks[mask].1 += self_time;
         s.total += self_time;
@@ -241,8 +613,27 @@ pub fn report() {
         let s = s.borrow();
         eprintln!("== body probe: {} lower_body calls (self time {:?})", s.bodies, s.total);
         eprintln!("-- bodies whose own lowering grew each table:");
-        for i in 0..N {
+        for i in 0..N0 {
             eprintln!("  {:<20} {:>8} ({:.1}%)", NAMES[i], s.touched[i], 100.0 * s.touched[i] as f64 / s.bodies.max(1) as f64);
+        }
+        if COUNTING {
+            eprintln!("-- in-place writes (mutable borrows of shared state) made while a body is lowered:");
+            eprintln!("  {:<30} {:>8} bodies ({:>5}) {:>12} writes", "state", "wrote", "%", "total");
+            let mut rows: Vec<_> = (0..WN).filter(|&i| s.touched[N0 + i] > 0).collect();
+            rows.sort_by_key(|&i| std::cmp::Reverse(s.touched[N0 + i]));
+            for i in rows {
+                eprintln!(
+                    "  {:<30} {:>8} bodies ({:>4.1}%) {:>12}",
+                    WRITE_NAMES[i],
+                    s.touched[N0 + i],
+                    100.0 * s.touched[N0 + i] as f64 / s.bodies.max(1) as f64,
+                    s.writes[i]
+                );
+            }
+            let quiet: Vec<_> = (0..WN).filter(|&i| s.touched[N0 + i] == 0).map(|i| WRITE_NAMES[i]).collect();
+            eprintln!("  never written by a body: {}", quiet.join(", "));
+        } else {
+            eprintln!("-- in-place writes were not counted: build jaic with `--features body-probe`");
         }
         eprintln!("-- by sets touched (A..E, see body_probe.rs):");
         let mut rows: Vec<_> = (0..32).filter(|&m| s.masks[m].0 > 0).collect();

@@ -132,6 +132,9 @@ impl Compiler {
                         None if self.epochs.lookup_without_expansion
                             && self.scope(sid).imports[i].is_mapped() =>
                         {
+                            crate::sema::body_probe::write(
+                                crate::sema::body_probe::W::EpochsInProgressMisses,
+                            );
                             self.epochs.in_progress_misses += 1;
                             None
                         }
@@ -179,6 +182,9 @@ impl Compiler {
                     }
                 }
                 if mid_mapping && found.is_empty() {
+                    crate::sema::body_probe::write(
+                        crate::sema::body_probe::W::EpochsInProgressMisses,
+                    );
                     self.epochs.in_progress_misses += 1;
                     cacheable = false;
                 }

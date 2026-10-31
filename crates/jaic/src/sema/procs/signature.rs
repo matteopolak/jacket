@@ -195,6 +195,7 @@ impl Compiler {
             );
         }
         if self.proc(id).sig_resolving {
+            crate::sema::body_probe::write(crate::sema::body_probe::W::EpochsInProgressMisses);
             self.epochs.in_progress_misses += 1;
             return err(
                 Code::ProcSignatureDependsItself,

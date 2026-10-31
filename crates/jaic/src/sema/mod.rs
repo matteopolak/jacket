@@ -18,6 +18,7 @@ mod binary;
 #[cfg(test)]
 mod body_failure_tests;
 pub mod body_probe;
+use body_probe::{Probed, W};
 mod callable;
 pub(crate) mod calls;
 mod cast_shift;
@@ -521,7 +522,7 @@ pub struct Compiler {
     namespace_check: std::cell::Cell<(usize, u64, u32)>,
     pub diag: Diagnostics,
     /// The editor analysis this compile records for, if any (`crate::ide`).
-    pub ed: crate::ide::Editor,
+    pub ed: Probed<crate::ide::Editor, { W::Ed as usize }>,
 }
 
 /// Names and default values of a procedure type's parameters (defaults evaluate in `scope`).
@@ -548,7 +549,7 @@ impl Compiler {
     /// code that reaches for the `Compiler` module traps.
     pub fn release_build_state(&mut self) {
         self.ct.interp.workspaces = None;
-        self.meta.export = code_export::ExportState::default();
+        self.meta.export = Probed::default();
     }
 
     /// Close the interpreter for good and drop what only running or emitting the program
@@ -564,6 +565,7 @@ impl Compiler {
     }
 
     pub fn new(options: Options, fs: Rc<dyn FileSystem>) -> Self {
+        body_probe::init();
         let cross_target = options.is_cross_build();
         let mut c = Compiler {
             pr: ProcState::default(),
@@ -576,7 +578,7 @@ impl Compiler {
             epochs: Epochs::default(),
             diag: Diagnostics::default(),
             options,
-            ed: crate::ide::Editor::default(),
+            ed: Probed::default(),
             #[cfg(debug_assertions)]
             namespace_check: std::cell::Cell::new((0, 0, 0)),
             ct: CompileTime::default(),

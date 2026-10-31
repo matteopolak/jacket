@@ -388,6 +388,7 @@ impl Compiler {
             }
             return Ok(ops.into_iter().take(names).map(Some).collect());
         }
+        crate::sema::body_probe::write(crate::sema::body_probe::W::PrLastCallMust);
         self.pr.last_call_must = None;
         let first_op = self.check_expr(f, scope, first, declared)?;
         if matches!(first.kind, E::Call { .. }) {

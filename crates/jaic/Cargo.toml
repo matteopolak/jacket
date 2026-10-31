@@ -6,6 +6,11 @@ rust-version.workspace = true
 license.workspace = true
 description = "Jai compiler core: lexer, parser, demand-driven semantic analysis, IR and interpreter."
 
+[features]
+# Count the in-place writes shared compiler state takes while a body is checked
+# (`-dev_body_probe`, docs/compiler/parallel-sema.md). Off: no cost.
+body-probe = []
+
 [dependencies]
 rayon.workspace = true
 find-msvc-tools.workspace = true

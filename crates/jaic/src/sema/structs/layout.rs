@@ -88,6 +88,7 @@ impl Compiler {
         match self.ty.types.struct_info(s).layout {
             LayoutState::Done => return Ok(()),
             LayoutState::InProgress => {
+                crate::sema::body_probe::write(crate::sema::body_probe::W::EpochsInProgressMisses);
                 self.epochs.in_progress_misses += 1;
                 let name = self.ty.types.struct_info(s).name;
                 return err(

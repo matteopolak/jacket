@@ -81,6 +81,7 @@ impl Compiler {
             self.scope(scope).kind,
             ScopeKind::Proc | ScopeKind::Block | ScopeKind::Macro
         ) {
+            crate::sema::body_probe::write(crate::sema::body_probe::W::EpochsNamespaceGeneration);
             self.epochs.namespace_generation += 1;
         }
     }
@@ -106,6 +107,9 @@ impl Compiler {
     }
 
     pub fn scope_mut(&mut self, id: ScopeId) -> &mut Scope {
+        if crate::sema::body_probe::COUNTING && crate::sema::body_probe::enabled() {
+            crate::sema::body_probe::scope_written(self.ns.scopes[id.0 as usize].kind);
+        }
         &mut self.ns.scopes[id.0 as usize]
     }
 

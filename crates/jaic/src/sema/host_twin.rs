@@ -162,7 +162,7 @@ impl Compiler {
         twin.meta.twin = true;
         twin.meta.workspace = self.meta.workspace;
         // One file table, so a span of either compiler names the same file in both.
-        twin.src.sources = self.src.sources.share();
+        twin.src.sources = self.src.sources.share().into();
         let workspaces = self.ct.interp.workspaces.clone();
         let provider = match &workspaces {
             Some(shared) => crate::build::host_provider(shared, os),
@@ -174,7 +174,7 @@ impl Compiler {
                 ))
             })?,
         };
-        twin.ct.interp = crate::interp::Interp::new(provider);
+        twin.ct.interp = crate::interp::Interp::new(provider).into();
         twin.ct.interp.in_host_twin = true;
         if let Some(shared) = workspaces {
             twin.attach_workspaces(shared);

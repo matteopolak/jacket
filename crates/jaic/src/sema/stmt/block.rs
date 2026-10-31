@@ -360,6 +360,7 @@ impl Compiler {
                 ..
             }) => self.declare_anonymous_aggregate(f, scope, lit, *lit_span),
             S::Expr(e) => {
+                crate::sema::body_probe::write(crate::sema::body_probe::W::PrLastCallMust);
                 self.pr.last_call_must = None;
                 self.check_expr(f, scope, e, None)?;
                 if matches!(e.kind, E::Call { .. }) {

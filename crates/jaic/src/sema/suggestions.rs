@@ -226,6 +226,7 @@ impl Compiler {
             return found.clone();
         }
         let found = self.imports_declaring_name(name);
+        crate::sema::body_probe::write(crate::sema::body_probe::W::CachesDeclaringImports);
         self.caches
             .declaring_imports
             .borrow_mut()
@@ -275,6 +276,7 @@ impl Compiler {
             }
             None => Vec::new(),
         };
+        crate::sema::body_probe::write(crate::sema::body_probe::W::CachesDeclaringImports);
         self.caches
             .declaring_imports
             .borrow_mut()
@@ -343,6 +345,7 @@ impl Compiler {
                 &*self.src.fs,
             ))
         });
+        crate::sema::body_probe::write(crate::sema::body_probe::W::CachesStdlibView);
         *self.caches.stdlib_view.borrow_mut() = Some(view.clone());
         view
     }

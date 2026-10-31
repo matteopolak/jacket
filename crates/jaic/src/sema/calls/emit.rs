@@ -51,6 +51,7 @@ impl Compiler {
             }),
             (result, _) => result,
         };
+        crate::sema::body_probe::write(crate::sema::body_probe::W::PrLastCallMust);
         self.pr.last_call_must = must.iter().any(|&m| m).then_some((span, name, must));
         result
     }

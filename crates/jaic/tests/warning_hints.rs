@@ -17,7 +17,7 @@ fn compile(source: &str) -> Vec<Diagnostic> {
     if let Err(e) = compiler.compile_sources(&[ProgramSource::String(source.into())]) {
         panic!("{}\n{source}", e.render(&compiler.src.sources));
     }
-    compiler.diag.warnings.clone()
+    compiler.diag.warnings.to_vec()
 }
 
 fn warning_of(source: &str, message: &str) -> Diagnostic {

@@ -311,6 +311,7 @@ impl Compiler {
             let path = self.src.canon(&self.src.sources.get(file).path.to_path());
             path.starts_with(self.src.canon(stdlib))
         });
+        crate::sema::body_probe::write(crate::sema::body_probe::W::SrcLibraryFiles);
         self.src.library_files.borrow_mut().insert(file.0, known);
         known
     }

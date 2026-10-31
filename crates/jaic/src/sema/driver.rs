@@ -91,7 +91,7 @@ impl Compiler {
                 roots.push(path.clone());
             }
         }
-        self.src.ahead = crate::parse_ahead::ParseAhead::start(&self.options, roots);
+        self.src.ahead = crate::parse_ahead::ParseAhead::start(&self.options, roots).into();
     }
 
     /// Compile a program whose main file is `path`.

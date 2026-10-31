@@ -166,7 +166,8 @@ impl Compiler {
             self.refresh_type_table();
         }
         self.ct.interp.compile_time = true;
-        let outer = self.ct.interp.run_effects.replace(self.ct.interp.effects);
+        let effects = self.ct.interp.effects;
+        let outer = self.ct.interp.run_effects.replace(effects);
         // Typed exports belong to this run (a nested one keeps the outer run's aside).
         let outer_exports = (
             std::mem::take(&mut self.ct.interp.code_exports),
@@ -183,6 +184,7 @@ impl Compiler {
         let outermost = !self.meta.perf.running() && !self.ct.interp.nested_eval;
         let blocks_at_start = self.ct.interp.begin_evaluation();
         let clock = self.meta.perf.start_run();
+        crate::sema::body_probe::write(crate::sema::body_probe::W::CtExecutions);
         self.ct.executions += 1;
         let mut result = self.call_with_dependencies(id, &[ctx], &mut deferred);
         elapsed += self.meta.perf.finish_run(clock);

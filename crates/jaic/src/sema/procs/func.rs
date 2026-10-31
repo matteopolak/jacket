@@ -101,10 +101,8 @@ impl Compiler {
                 context: sig.has_context,
                 location: self.location_layout(span)?,
             };
-            self.ct
-                .interp
-                .hooks
-                .resize(self.ct.interp.hooks.len().max(func.0 as usize + 1), None);
+            let hooks = self.ct.interp.hooks.len().max(func.0 as usize + 1);
+            self.ct.interp.hooks.resize(hooks, None);
             self.ct.interp.hooks[func.0 as usize] = Some(hook);
         }
         if let ProcTarget::Func(func) = target {

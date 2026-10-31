@@ -738,8 +738,9 @@ impl Compiler {
             Value::Bytes(agg) => {
                 let size = self.size_of(ty, span)?;
                 let align = self.align_of(ty, span)?;
+                let name = format!("const.{}", self.out.program.globals.len());
                 let global = self.out.program.add_global(ir::Global {
-                    name: format!("const.{}", self.out.program.globals.len()),
+                    name,
                     size,
                     align,
                     init: agg.bytes.clone(),

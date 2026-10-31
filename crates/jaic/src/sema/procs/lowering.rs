@@ -39,6 +39,7 @@ impl Compiler {
         self.pr.procs[id.0 as usize].body_state = BodyState::Lowering;
         let outermost = (self.pr.lowering_depth == 0).then(|| self.meta.perf.start_lowering());
         let checking = crate::progress::enter(crate::progress::Phase::Checking);
+        crate::sema::body_probe::write(crate::sema::body_probe::W::PrLoweringDepth);
         self.pr.lowering_depth += 1;
         let result = self.lower_body_inner(id);
         self.diag.dependencies.end_body(id, result.is_err());
@@ -51,6 +52,7 @@ impl Compiler {
             // retry owns the final diagnostics, including independent errors.
             self.ed.forget_errors(error_mark);
         }
+        crate::sema::body_probe::write(crate::sema::body_probe::W::PrLoweringDepth);
         self.pr.lowering_depth -= 1;
         if result.is_err() {
             self.meta.export.expression_types.remove(&id);
