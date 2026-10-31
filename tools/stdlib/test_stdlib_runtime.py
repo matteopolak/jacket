@@ -18,13 +18,8 @@ class CatalogueTests(unittest.TestCase):
             regression.mkdir(parents=True)
             (regression / "actual.jai").write_text("main :: () {}")
             (regression / "._actual.jai").write_bytes(b"\x00\x05\x16\x07")
-            module = root / "stdlib/Real/tests"
-            module.mkdir(parents=True)
-            (module / "actual.jai").write_text("main :: () {}")
-            (module / "._actual.jai").write_bytes(b"\x00\x05\x16\x07")
             self.assertEqual(
-                {c["id"] for c in validated_entries(root)},
-                {"compiler/actual", "Real/tests/actual"},
+                {c["id"] for c in validated_entries(root)}, {"compiler/actual"}
             )
 
     def test_native_platform_requirement_is_not_a_success(self):

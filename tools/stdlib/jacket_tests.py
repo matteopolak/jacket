@@ -8,7 +8,6 @@ import os
 import re
 import shutil
 import subprocess
-import tomllib
 from pathlib import Path
 
 from toolkit.repo import ROOT, cargo_target_dir
@@ -109,13 +108,24 @@ def runs_on(notes, os_name, cpu):
 COMPILE_TIME_DRIVERS = frozenset({"stdlib/Autorun/tests/basics.jai"})
 
 
-def golden_sources(root=ROOT):
-    """The golden test programs of every folder under `[test] paths` in jacket.toml: the
-    `tests/*.jai` files with an expected-output file beside them that are not compile-fail tests."""
-    config = root / "jacket.toml"
-    paths = tomllib.loads(config.read_text(encoding="utf-8")).get("test", {}).get("paths", [])
-    for path in sorted(paths):
-        for source in sorted((root / path / "tests").glob("*.jai")):
+def jacket_test_roots(root=ROOT, compiler=None):
+    """The folders `jacket test` runs in the project at `root` (`[test] paths` in jacket.toml,
+    patterns expanded), as absolute paths."""
+    result = subprocess.run(
+        [str(jacket_binary(compiler)), "test", "--roots"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return [Path(line) for line in result.stdout.splitlines() if line]
+
+
+def golden_sources(root=ROOT, compiler=None):
+    """The golden test programs of every test root: the `tests/*.jai` files with an
+    expected-output file beside them that are not compile-fail tests."""
+    for folder in sorted(jacket_test_roots(root, compiler)):
+        for source in sorted((folder / "tests").glob("*.jai")):
             expected = any(
                 source.with_suffix(suffix).is_file()
                 for suffix in (".stdout", ".stderr", ".exit")
@@ -132,7 +142,7 @@ def cross_check(compiler, os_name, cpu, env=None):
     anything. Returns (checked count, failure texts)."""
     flags = ["-target", "wasm64-unknown-wasi"] if os_name == "wasm" else ["-os", os_name, "-cpu", cpu]
     checked, failures = 0, []
-    for source in golden_sources():
+    for source in golden_sources(compiler=compiler):
         if not runs_on(header_notes(source), os_name, "wasm" if os_name == "wasm" else cpu):
             continue
         result = subprocess.run(
@@ -154,4 +164,5 @@ __all__ = [
     "header_notes",
     "jacket_binary",
     "runs_on",
+    "jacket_test_roots",
 ]

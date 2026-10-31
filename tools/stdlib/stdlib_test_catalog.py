@@ -1,8 +1,7 @@
 """Discovery and per-case metadata for the compiler regression tests the Python runner executes.
 
 The stdlib modules' tests run under `jacket test` (`[test] paths` in jacket.toml, see
-docs/tools/jacket-test.md) and are skipped here. What is left is `tests/compiler/regressions/`
-and any `stdlib/**/tests/` folder that is not under `[test] paths`.
+docs/tools/jacket-test.md), not here. What is left is `tests/compiler/regressions/`.
 Every top-level `*.jai` file of a test directory is a case that must build and exit 0 in each
 mode; sub-directories hold helpers and fixtures and are never discovered.
 
@@ -18,9 +17,6 @@ errors remain failures.
 """
 
 import json
-import os
-import tomllib
-from pathlib import Path
 
 from stdlib.case_capabilities import user_deferred_reason
 from toolkit.repo import ROOT
@@ -77,26 +73,8 @@ def visible(path):
     return not any(part.startswith("._") for part in path.parts)
 
 
-def jacket_test_folders(root=ROOT):
-    """The folders `jacket test` runs (`[test] paths` in jacket.toml), as absolute paths."""
-    config = root / "jacket.toml"
-    if not config.is_file():
-        return set()
-    paths = tomllib.loads(config.read_text(encoding="utf-8")).get("test", {}).get("paths", [])
-    return {(root / path).resolve() for path in paths}
-
-
 def test_directories(root=ROOT):
-    """Every `tests` directory below stdlib/, outermost only, then the compiler regressions.
-    Folders `jacket test` runs are left out: their tests are not manifest cases."""
-    stdlib = root / "stdlib"
-    migrated = jacket_test_folders(root)
-    for directory, children, _ in os.walk(stdlib):
-        children.sort()
-        if "tests" in children:
-            children.remove("tests")
-            if Path(directory).resolve() not in migrated:
-                yield Path(directory) / "tests"
+    """The test directories this catalogue covers: the compiler regressions."""
     yield root / COMPILER_REGRESSIONS
 
 

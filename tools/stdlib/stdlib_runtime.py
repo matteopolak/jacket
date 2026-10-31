@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the compiler regressions (and any stdlib test folder not under `jacket test`) through one catalogue.
+"""Run the compiler regressions through one catalogue.
 
 The stdlib modules' tests run under `jacket test` (docs/tools/jacket-test.md).
 
