@@ -1,11 +1,18 @@
 // Geometric transforms. All treat the channels of a pixel alike; alpha is never premultiplied
 // unless premultiply_alpha says so.
 
-// A new image of width x height. NEAREST picks the closest source pixel. BILINEAR blends the
-// four pixels around each sample point (it does not widen its footprint when shrinking, so use
-// BOX to shrink by much). BOX averages the exact source area under each output pixel. Channels
-// are filtered independently in 14-bit fixed point, so alpha is not premultiplied: colours of
-// transparent pixels bleed into their neighbours. An invalid image or size gives an empty image.
+// A new image of `width` by `height`. `NEAREST` is fastest, `BILINEAR` is the default and is smooth
+// when enlarging, and `BOX` is the one to shrink with. Alpha is not premultiplied, so the colour of
+// transparent pixels bleeds into their neighbours. An invalid image or size gives an empty image.
+//
+// ```jai
+// image := make_image(100, 100, .RGB8);
+// defer deinit(*image);
+//
+// thumb := resize(image, 25, 25, .BOX);
+// defer deinit(*thumb);
+// assert(thumb.width == 25 && thumb.height == 25);
+// ```
 resize :: (image: Image, width: s32, height: s32, filter := Resize_Filter.BILINEAR) -> Image {
     if !image_is_valid(image) || width <= 0 || height <= 0 return .{};
     if cast(s64) width * height * bytes_per_pixel(image.format) > 0x7fffffff * 8 return .{};
@@ -46,8 +53,20 @@ resize :: (image: Image, width: s32, height: s32, filter := Resize_Filter.BILINE
     return result;
 }
 
-// The width x height rectangle with its top left corner at (x, y). Not ok when any part of it is
-// outside the image or it is empty.
+// The `width` by `height` rectangle with its top left corner at `x, y`. Not ok when any part of it lies
+// outside the image, or it's empty.
+//
+// ```jai
+// image := make_image(10, 10, .RGBA8);
+// defer deinit(*image);
+//
+// part, ok := crop(image, 2, 2, 4, 4);
+// defer deinit(*part);
+// assert(ok && part.width == 4);
+//
+// _, ok = crop(image, 8, 8, 4, 4);
+// assert(!ok);
+// ```
 crop :: (image: Image, x: s32, y: s32, width: s32, height: s32) -> Image, ok: bool {
     if !image_is_valid(image) || width <= 0 || height <= 0 || x < 0 || y < 0 return .{}, false;
     if cast(s64) x + width > image.width || cast(s64) y + height > image.height return .{}, false;
@@ -65,6 +84,15 @@ crop :: (image: Image, x: s32, y: s32, width: s32, height: s32) -> Image, ok: bo
 }
 
 // Mirrors the image top to bottom, in place.
+//
+// ```jai
+// image := make_image(1, 2, .GRAY8);
+// defer deinit(*image);
+// image.pixels[0] = 10;
+// image.pixels[1] = 20;
+// flip_vertical(*image);
+// assert(image.pixels[0] == 20);
+// ```
 flip_vertical :: (image: *Image) {
     if !image_is_valid(image.*) return;
 
@@ -89,6 +117,15 @@ flip_vertical :: (image: *Image) {
 }
 
 // Mirrors the image left to right, in place.
+//
+// ```jai
+// image := make_image(2, 1, .GRAY8);
+// defer deinit(*image);
+// image.pixels[0] = 10;
+// image.pixels[1] = 20;
+// flip_horizontal(*image);
+// assert(image.pixels[0] == 20);
+// ```
 flip_horizontal :: (image: *Image) {
     if !image_is_valid(image.*) return;
 
@@ -116,7 +153,16 @@ flip_horizontal :: (image: *Image) {
     }
 }
 
-// A new image turned a quarter turn, clockwise or counter-clockwise; its width is the old height.
+// A new image turned a quarter turn, clockwise or counter-clockwise. Its width is the old height.
+//
+// ```jai
+// image := make_image(4, 2, .RGB8);
+// defer deinit(*image);
+//
+// turned := rotate_90(image, true);
+// defer deinit(*turned);
+// assert(turned.width == 2 && turned.height == 4);
+// ```
 rotate_90 :: (image: Image, clockwise := true) -> Image {
     if !image_is_valid(image) return .{};
 
@@ -145,7 +191,15 @@ rotate_90 :: (image: Image, clockwise := true) -> Image {
     return result;
 }
 
-// Multiplies the colour channels by alpha (rounded), in place. A no-op for formats without alpha.
+// Multiplies the colour channels by alpha, in place. Formats without alpha are left alone.
+//
+// ```jai
+// image := make_image(1, 1, .RGBA8);
+// defer deinit(*image);
+// image.pixels[0], image.pixels[3] = 200, 128;
+// premultiply_alpha(*image);
+// assert(image.pixels[0] == 100);
+// ```
 premultiply_alpha :: (image: *Image) {
     if !image_is_valid(image.*) || !has_alpha(image.format) return;
 

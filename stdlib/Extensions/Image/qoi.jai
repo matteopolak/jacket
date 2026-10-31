@@ -1,7 +1,16 @@
 // jailint: allow-file(magic_number) // the QOI header and op encodings
 // QOI ("Quite OK Image"): 14-byte header, a stream of one-to-five byte ops, 8-byte end marker.
 
-// Decodes a QOI file to RGB8 (3 channels) or RGBA8 (4 channels).
+// Decodes a QOI file to `RGB8` (3 channels) or `RGBA8` (4 channels).
+//
+// ```jai
+// qoi := encode_qoi(make_image(8, 8, .RGBA8));
+// defer free(qoi.data);
+//
+// image, ok := decode_qoi(qoi);
+// defer deinit(*image);
+// assert(ok && image.format == .RGBA8);
+// ```
 decode_qoi :: (data: [] u8, max_pixels: s64 = DEFAULT_MAX_PIXELS) -> image: Image, ok: bool, error: string {
     if data.count < 14 + 8 || data[0] != #char "q" || data[1] != #char "o" || data[2] != #char "i" || data[3] != #char "f" {
         return .{}, false, "not a QOI image";
@@ -115,7 +124,14 @@ decode_qoi :: (data: [] u8, max_pixels: s64 = DEFAULT_MAX_PIXELS) -> image: Imag
     return image, true, "";
 }
 
-// Encodes as QOI with 3 channels, or 4 when the image has alpha. Gray is written as colour.
+// Encodes a QOI file, with 4 channels when the image has alpha and 3 otherwise. Gray is written as colour.
+// QOI is far quicker to write and read than PNG, at a larger size.
+//
+// ```jai
+// qoi := encode_qoi(make_image(8, 8, .RGB8));
+// defer free(qoi.data);
+// assert(detect_image_format(qoi) == .QOI);
+// ```
 encode_qoi :: (image: Image) -> [] u8 {
     if !image_is_valid(image) return empty_bytes();
 

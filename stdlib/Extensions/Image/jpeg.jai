@@ -15,6 +15,16 @@
 #load "jpeg_scan.jai";
 #load "jpeg_output.jai";
 
+// Decodes a baseline, extended sequential or progressive JPEG with 8-bit samples. Grayscale, YCbCr,
+// RGB, CMYK and YCCK images work. Arithmetic coding and 12-bit samples are refused. Damaged data never
+// reads out of bounds; a file cut off inside the pixel data still decodes, with the missing blocks grey.
+//
+// ```jai,no_run
+// #import "File";
+//
+// file, found := read_entire_file("photo.jpg");
+// image, ok, error := decode_jpeg(cast([] u8) file, DEFAULT_MAX_PIXELS);
+// ```
 decode_jpeg :: (data: [] u8, max_pixels: s64) -> image: Image, ok: bool, error: string {
     if data.count < 4 || data[0] != 0xFF || data[1] != 0xD8 return .{}, false, "not a JPEG image";
 

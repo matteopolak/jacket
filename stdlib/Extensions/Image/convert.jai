@@ -2,14 +2,24 @@
 // Pixel format conversion. One loop per (source, destination) pair, instantiated from a single
 // template so each is straight-line code over the pixels.
 
-// Rec. 709 luma in 16-bit fixed point; the weights sum to 65536 so white stays white.
+// The Rec. 709 brightness of an RGB colour, from 0 to 255.
 convert_luma :: inline (r: s32, g: s32, b: s32) -> u8 {
     return cast,trunc(u8) ((13933 * r + 46871 * g + 4732 * b + 32768) >> 16);
 }
 
-// The same pixels in another format. Gray is made from colour with Rec. 709 luma, colour from
-// gray by repeating it, alpha is added as 255 and dropped without compositing. Always returns a
-// new image (a copy when the format is already right); an invalid image gives an empty one.
+// The same pixels in another format. Gray is made from colour with Rec. 709 luma, colour from gray by
+// repeating it, alpha is added as 255 and dropped without compositing. Always a new image (a copy when
+// the format already matches); an invalid image gives an empty one.
+//
+// ```jai
+// rgb := make_image(1, 1, .RGB8);
+// defer deinit(*rgb);
+// rgb.pixels[0], rgb.pixels[1], rgb.pixels[2] = 255, 255, 255;
+//
+// gray := convert(rgb, .GRAY8);
+// defer deinit(*gray);
+// assert(gray.pixels[0] == 255);
+// ```
 convert :: (image: Image, format: Pixel_Format) -> Image {
     if !image_is_valid(image) || bytes_per_pixel(format) == 0 return .{};
 

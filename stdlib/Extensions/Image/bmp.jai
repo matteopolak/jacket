@@ -2,10 +2,17 @@
 // BMP: file header, a DIB header (OS/2 core, BITMAPINFOHEADER, V4, V5), an optional palette or
 // channel masks, then rows padded to four bytes, bottom row first unless the height is negative.
 
-// Decodes BMP files of 1, 4, 8 (palette, optionally RLE), 16, 24 and 32 bits per pixel, with
-// channel masks for 16 and 32. Palettised and 24-bit images become RGB8. 16 and 32-bit images
-// become RGBA8 when they have an alpha mask (or, for 32-bit without masks, any nonzero alpha
-// byte) and RGB8 otherwise.
+// Decodes a BMP file of 1, 4, 8 (palette, optionally RLE), 16, 24 or 32 bits per pixel. Palette and
+// 24-bit images become `RGB8`; 16 and 32-bit images become `RGBA8` when they have alpha, `RGB8` otherwise.
+//
+// ```jai
+// bmp := encode_bmp(make_image(3, 3, .RGB8));
+// defer free(bmp.data);
+//
+// image, ok := decode_bmp(bmp);
+// defer deinit(*image);
+// assert(ok && image.width == 3);
+// ```
 decode_bmp :: (data: [] u8, max_pixels: s64 = DEFAULT_MAX_PIXELS) -> image: Image, ok: bool, error: string {
     info: Bmp_Info;
     problem := bmp_read_info(data, max_pixels, *info);
@@ -39,8 +46,16 @@ decode_bmp :: (data: [] u8, max_pixels: s64 = DEFAULT_MAX_PIXELS) -> image: Imag
     return bmp_decode_masked(pixels, *info, stride);
 }
 
-// Encodes as an uncompressed bottom-up BMP: 24-bit, or 32-bit with an alpha mask (a V4 header)
-// when the image has alpha. Gray is written as colour.
+// Encodes an uncompressed BMP: 24-bit, or 32-bit with an alpha mask when the image has alpha. Gray is
+// written as colour.
+//
+// ```jai
+// image := make_image(2, 2, .RGBA8);
+// defer deinit(*image);
+// bmp := encode_bmp(image);
+// defer free(bmp.data);
+// assert(detect_image_format(bmp) == .BMP);
+// ```
 encode_bmp :: (image: Image) -> [] u8 {
     if !image_is_valid(image) return empty_bytes();
 

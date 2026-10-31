@@ -1,8 +1,13 @@
 // jailint: allow-file(magic_number) // decimal digit arithmetic of the PNM header
 // PNM: P2/P3 (text) and P5/P6 (binary) graymaps and pixmaps.
 
-// Decodes P2/P5 to GRAY8 and P3/P6 to RGB8. Samples are scaled from maxval (1 to 65535) to 8 bits
-// with rounding; binary samples are 16-bit big-endian when maxval exceeds 255.
+// Decodes a PGM (P2, P5) to `GRAY8` or a PPM (P3, P6) to `RGB8`. Samples are scaled to 8 bits.
+//
+// ```jai
+// image, ok := decode_pnm(cast([] u8) "P2\n2 1\n255\n0 255\n");
+// defer deinit(*image);
+// assert(ok && image.format == .GRAY8 && image.pixels[1] == 255);
+// ```
 decode_pnm :: (data: [] u8, max_pixels: s64 = DEFAULT_MAX_PIXELS) -> image: Image, ok: bool, error: string {
     if data.count < 2 || data[0] != #char "P" return .{}, false, "not a PNM image";
 
@@ -66,7 +71,15 @@ decode_pnm :: (data: [] u8, max_pixels: s64 = DEFAULT_MAX_PIXELS) -> image: Imag
     return image, true, "";
 }
 
-// Encodes as binary PPM (P6), or PGM (P5) for gray; alpha is dropped.
+// Encodes a binary PPM (P6), or a PGM (P5) for gray images. Alpha is dropped.
+//
+// ```jai
+// image := make_image(2, 2, .RGB8);
+// defer deinit(*image);
+// ppm := encode_ppm(image);
+// defer free(ppm.data);
+// assert(ppm[0] == #char "P" && ppm[1] == #char "6");
+// ```
 encode_ppm :: (image: Image) -> [] u8 {
     if !image_is_valid(image) return empty_bytes();
 

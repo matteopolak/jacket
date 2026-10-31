@@ -2,12 +2,18 @@
 // PNG: signature, then chunks of length, type, data and CRC-32. The image data is the zlib stream
 // formed by the IDAT chunks, holding filtered scanlines (each a filter-type byte and the row).
 
-// Decodes a PNG to the nearest pixel format: GRAY8, GRAY_ALPHA8, RGB8 or RGBA8. Palettes are
-// expanded to RGB8 (RGBA8 with a tRNS chunk), a tRNS colour key on gray or RGB adds alpha, and
-// 1, 2 and 4-bit gray is scaled to 8 bits. 16-bit samples keep their high byte (truncation).
-// Adam7 interlacing is supported. Gamma, colour profiles and other ancillary chunks are ignored,
-// and of an animated PNG only the default image is decoded. Chunk CRCs are checked for the
-// critical chunks and tRNS.
+// Decodes a PNG to `GRAY8`, `GRAY_ALPHA8`, `RGB8` or `RGBA8`. Palettes are expanded, transparency is
+// kept as alpha, and 16-bit samples keep their high byte. Interlaced files work; gamma and colour
+// profiles are ignored; of an animated PNG only the first image is read.
+//
+// ```jai
+// png := encode_png(make_image(5, 3, .GRAY_ALPHA8));
+// defer free(png.data);
+//
+// image, ok, error := decode_png(png);
+// defer deinit(*image);
+// assert(ok && image.format == .GRAY_ALPHA8 && image.height == 3);
+// ```
 decode_png :: (data: [] u8, max_pixels: s64 = DEFAULT_MAX_PIXELS) -> image: Image, ok: bool, error: string {
     if data.count < 8 || !png_has_signature(data) return .{}, false, "not a PNG image";
 
@@ -56,10 +62,19 @@ decode_png :: (data: [] u8, max_pixels: s64 = DEFAULT_MAX_PIXELS) -> image: Imag
     return image, ok, error;
 }
 
-// Encodes as an 8-bit PNG: gray, gray with alpha, RGB or RGBA (BGRA is written as RGBA). Each
-// row gets the filter whose output has the smallest sum of absolute values (read as signed
-// bytes): estimated from a sample of the row for levels 1 to 8, over the whole row at level 9, which is slower.
-// `level` is the deflate level, 0 to 9; 0 stores the rows unfiltered and uncompressed.
+// Encodes an 8-bit PNG: gray, gray with alpha, RGB or RGBA (BGRA is written as RGBA). `level` is the
+// deflate level from 0 (stored) to 9 (smallest, slowest).
+//
+// ```jai
+// image := make_image(64, 64, .RGB8);
+// defer deinit(*image);
+//
+// fast := encode_png(image, 1);
+// small := encode_png(image, 9);
+// defer free(fast.data);
+// defer free(small.data);
+// assert(small.count <= fast.count);
+// ```
 encode_png :: (image: Image, level: s32 = 6) -> [] u8 {
     if !image_is_valid(image) return empty_bytes();
 
