@@ -30,8 +30,32 @@ pub use self::state::{ExportState, FileEvent, Modification};
 use super::{Compiler, ProcId, ScopeId, Span, Sym, TypeId, ast};
 use crate::builtin_keys::SyntaxKey;
 use crate::lang_items;
-use crate::records::{FieldRef, Record, RecordTag, Records};
+use crate::records::{FieldRef, Name, Record, RecordTag, Records};
 
+/// The names of the fields every node record has, interned once per thread. A node is made
+/// for each piece of syntax exported, so they are not looked up by text each time.
+#[derive(Clone, Copy)]
+struct NodeNames {
+    kind: Name,
+    enclosing_load: Name,
+    l0: Name,
+    c0: Name,
+    l1: Name,
+    c1: Name,
+    serial: Name,
+}
+
+thread_local! {
+    static NODE_NAMES: NodeNames = NodeNames {
+        kind: Name::intern("kind"),
+        enclosing_load: Name::intern("enclosing_load"),
+        l0: Name::intern("l0"),
+        c0: Name::intern("c0"),
+        l1: Name::intern("l1"),
+        c1: Name::intern("c1"),
+        serial: Name::intern("serial"),
+    };
+}
 
 #[derive(Default)]
 struct Typechecked {
@@ -133,10 +157,11 @@ impl Exporter<'_> {
 
     /// A node record with the `Code_Node` fields filled in.
     fn node(&mut self, tag: RecordTag, kind: i64, span: Span) -> Record {
+        let names = NODE_NAMES.with(|names| *names);
         // The common fields (kind, location, serial, type) and a node's own few: growing
         // from empty reallocated most records two or three times.
         let mut rec = Record::with_capacity(tag, 12);
-        rec.int("kind", kind).int(SyntaxKey::OriginalKind, kind);
+        rec.int(names.kind, kind).int(SyntaxKey::OriginalKind, kind);
         let Some(c) = self.c.as_deref_mut() else {
             return rec;
         };
@@ -156,18 +181,18 @@ impl Exporter<'_> {
             let source = c.src.sources.get(span.file);
             let (l0, c0) = source.line_col(span.start);
             let (l1, c1) = source.line_col(span.end);
-            rec.ptr("enclosing_load", file)
-                .int("l0", l0 as i64)
-                .int("c0", c0 as i64)
-                .int("l1", l1 as i64)
-                .int("c1", c1 as i64);
+            rec.ptr(names.enclosing_load, file)
+                .int(names.l0, l0 as i64)
+                .int(names.c0, c0 as i64)
+                .int(names.l1, l1 as i64)
+                .int(names.c1, c1 as i64);
         }
         rec
     }
 
     fn add(&mut self, mut rec: Record) -> i64 {
         let id = self.r.reserve(rec.tag);
-        rec.int("serial", id);
+        rec.int(NODE_NAMES.with(|names| names.serial), id);
         *self.r.get_mut(id).unwrap() = rec;
         self.sub.push(id);
         id

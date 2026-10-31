@@ -212,6 +212,12 @@ impl FieldKey for &'static str {
     }
 }
 
+impl FieldKey for Name {
+    fn name(self) -> Name {
+        self
+    }
+}
+
 impl FieldKey for SyntaxKey {
     fn name(self) -> Name {
         Name::syntax(self)
