@@ -1,5 +1,72 @@
 # Changelog
 
+## [0.31.0] - 2026-10-31
+
+### New
+
+- A UI library with a widget tree, layout, text editing and a WebGPU renderer, plus `Text_Buffer`, a piece-table text buffer with undo and grapheme movement. It does not build for WebAssembly.
+- `Simp` lays out prepared text as inspectable quads, has `context.simp`, and draws at the window's pixel scale on high-DPI displays.
+- `webgpu_read_texture` copies a texture back to the CPU.
+- `JAIC_TCPLISTEN` gives a `jaic -interp -os wasm` program pre-opened TCP listeners, and the WebAssembly target gains `File_Utilities`, working directory and `Socket` backends.
+- `jacket doc` builds the standard library API reference site: categories, search with colored and linked signatures, the release each item first appeared in, and badges for items not available everywhere their module is. `jaic -doc_model` prints a library's documentation as JSON.
+- `jacket explain` explains a diagnostic code, and every terminal diagnostic now shows its code.
+- `-A`, `-W` and `-D` choose how loud a warning is.
+- `-run_budget` bounds compile-time runs.
+- `jaic -deps` and `jacket test --list --deps` print the source files a compile reads.
+- Test coverage in `jacket test` gains hit counts, per-procedure totals, an HTML report and a recorded baseline; it covers golden programs and doc examples, counts procedures no test touches, and reports folders named by `--coverage-include`. `jaic -coverage` counts the lines an interpreted program runs.
+- New warnings for forms that only jaic accepts: a body's constant or local constant used above its declaration, a declaration also exported by an import, `for` finding `for_expansion` through a namespaced import, `#place`, `#foreign_library`, unnamed `#library`, `#must`, `#ifx then; else` and `*T.{}` literals, and the loose type of an enum. Each says it may not be supported in future.
+- Warnings for a cast that widens the result of a narrow shift, a positional struct literal that leaves trailing defaults, and focusable UI widgets laid out with no size; a file-scoped name used from a loading file hints at `#scope_module`.
+- Errors that say why an overload rejected a struct literal argument.
+- `_ = value;` discards a value, `ifx` works as a switch, and `#exists` takes a second operand.
+- `#overlay` and `#place` can anchor on a member path.
+- `Hash_Table` accepts a `void` value type, so it can be used as a set.
+- `delete_directory_tree` in `File_Utilities`, `release_sound_data` and `replace_sound_data` in `Sound_Player`, `vector4_float32` in `Float16`, a `Vector3` times `float64` scale, and a send timeout in `Mail`.
+- `deinit` on a child process's pipe closes its standard input alone on Unix, and `File_Watcher` can be reset with `deinit`.
+- Example apps: a text editor, a 2D game and a 3D scene.
+
+### Improved
+
+- Type checking is faster. Metaprograms that read typechecked code no longer pay for procedure bodies nobody can read, source reading and lexing are quicker, and release builds use thin LTO.
+- Semantic highlighting in the language server is much faster on large files (a minute down to a tenth of a second on a 25k-line file), and completions that look up docs across many files are quicker.
+- Faster compile-time execution: record structs are filled in place, calls to the program's own allocator go direct, and compile-time results are read without a second copy.
+- Faster stack trace analysis, and MSVC targets link with `link.exe` first.
+- Windows programs start faster because crash-handler symbols load only on a crash.
+- Faster PNG encoding, and arrays that default to zero are cleared with one `memset`.
+- The default heap finds its blocks through a hash table instead of walking the heap.
+- The language server links the names in a `#place` or `#overlay` path to their fields and reaches a struct constant's declaration through an instance of a polymorphic struct.
+- A compile-time step budget is counted in interpreter steps and rounded to 100M for editors and 1B for `jaic`.
+- IPv6 endpoints print as `[address]:port` with the zero run compressed.
+- `jacket test` tests the checkout it runs in and names build outputs a fresh checkout is missing.
+
+### Fixed
+
+- A conversion suggestion replaces the whole written expression and never wraps one value of a multi-value call.
+- `null.*` is accepted as a `void` value, a negative constant shift amount compiles, and a `float32` operation widens to `float64` beside a literal that needs it.
+- Call arguments are evaluated left to right.
+- Overload resolution: a procedure the calling module declares beats an equally good import, a local procedure beats module ones when used as a value, a scalar overload beats a slice one for a bare autocast argument, and a procedure a body brings in with `using` wins over an equally good one of the module.
+- Swapped arguments for a symmetric procedure, a `void` variable from a call that returns nothing, and a void result next to other results all compile.
+- Polymorphism: a type is bound from an omitted argument's default before `#modify`, a baked view parameter binds to a view of its array argument, a fixed-size array parameter's length binds from a constant view, and `using #as` counts as a base for struct restrictions.
+- Several parser cases: `.[` after call arguments, a multi-return procedure literal in a field list, an `assert` with a braced condition and no semicolon, a bare `return` as code in an argument list, a builtin type name between parameters, and a prefix dereference after a parenthesized condition.
+- `Unicode` replaces overlong, surrogate and out-of-range UTF-8 when decoding non-strictly, and reports stray and bad continuation bytes.
+- `parse_int` fails when the number does not fit, `split_from_right` returns all the text when it finds no byte, `scan` consumes a literal percent sign, and substring searches no longer misbehave with a needle longer than the text.
+- `base64` fails on a lone trailing symbol and returns nothing for invalid input.
+- `compare_floats` orders NaN after every number, `quick_sort` keeps its partition scans inside the array, and `Random` accepts range bounds in either order and keeps PCG draws below one.
+- `Bucket_Array` catches locators to removed slots, `Radix_Sort` handles empty input, and `Pool` recognises oversized blocks.
+- `Vector` math with the scalar on the left (`scalar - vector`, `scalar / vector`) computes the right result.
+- `get_basename_and_path` drops the extension from the basename, and file names with a NUL byte are refused instead of cut short.
+- Leak reports count only marked allocations as non-leaks, and the leak markers evaluate their argument when the memory debugger is off.
+- `.OTHER` HTTP requests are refused instead of sent with an empty method, and EC certificates and keys that spell out their curve load in `Tls`.
+- On Windows, the recursive-watch flag of `File_Watcher` is passed correctly, keep-alive timings are in seconds, the last error left by a foreign call at compile time is kept, and the matching C runtime DLL loads for every runtime name.
+- Compile-time code on macOS x86-64 can make BSD system calls, and a wild pointer in compile-time code is reported as an error.
+- Linkers and tools get an empty pipe for standard input instead of the null device.
+- `jaifmt` keeps a note after a semicolon with its declaration, so no blank line follows the next line.
+- `jailint` keeps the semicolon that is the whole body of an `#if`, and `lossy_float_literal` leaves a float literal that widens its operation alone.
+- Renaming a polymorphic struct also renames its uses behind a pointer in a procedure's parameters.
+- Long chains of unary operators no longer make `jailint` and the language server take exponential time.
+- The language server no longer counts the return types of a procedure value in a struct literal as positional values.
+- The `Postgres` null flag of `raw_value` is `is_null`, and SDL3 parameters named `string` bind as text.
+- The VS Code extension closes fenced examples that carry options or another language.
+
 ## [0.30.4] - 2026-10-28
 
 ### Fixed
