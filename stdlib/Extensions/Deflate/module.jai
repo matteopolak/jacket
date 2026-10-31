@@ -1,5 +1,5 @@
-// The DEFLATE compressed format (RFC 1951) with its zlib (RFC 1950) and gzip (RFC 1952)
-// wrappers, in plain Jai.
+// DEFLATE compression (RFC 1951) with its zlib (RFC 1950) and gzip (RFC 1952) wrappers.
+// [deflate] compresses, [inflate] decompresses, and [crc32] and [adler32] are the checksums.
 //
 // ```jai
 // #import "Extensions/Deflate";
@@ -7,10 +7,12 @@
 // bytes := cast([] u8) "hello hello hello hello";
 // packed := deflate(bytes, .GZIP);
 // unpacked, ok, error := inflate(packed, .GZIP);
+// assert(ok && cast(string) unpacked == "hello hello hello hello");
 // ```
 //
-// Results are allocated with context.allocator and owned by the caller. Errors are static strings.
+// Results are allocated with `context.allocator` and owned by the caller. Errors are static strings.
 
+// The framing around the compressed blocks.
 Deflate_Container :: enum u8 {
     RAW; // bare DEFLATE blocks
     ZLIB; // 2-byte header, Adler-32 trailer (PNG's IDAT stream)
@@ -29,6 +31,18 @@ DEFAULT_MAX_OUTPUT :: 1 << 30;
 // Decompresses `data` into a new buffer. `max_output` bounds the result (a compressed bomb fails
 // instead of exhausting memory). A GZIP stream is a single member; bytes after the stream are
 // ignored. On failure the output is empty and `error` says why.
+//
+// ```jai
+// #import "Extensions/Deflate";
+//
+// packed := deflate(cast([] u8) "abcabcabc", .ZLIB);
+// output, ok, error := inflate(packed, .ZLIB);
+// assert(ok);
+// assert(cast(string) output == "abcabcabc");
+//
+// _, ok = inflate(cast([] u8) "not deflate data", .ZLIB);
+// assert(!ok);
+// ```
 inflate :: (data: [] u8, container := Deflate_Container.ZLIB, max_output: s64 = DEFAULT_MAX_OUTPUT) -> output: [] u8, ok: bool, error: string {
     s := New(Inflater);
 
@@ -64,8 +78,17 @@ inflate :: (data: [] u8, container := Deflate_Container.ZLIB, max_output: s64 = 
     return result, true, "";
 }
 
-// Like `inflate`, into a buffer the caller sized. Fails with "output is too small" when the
+// Like [inflate], into a buffer the caller sized. Fails with "output is too small" when the
 // stream expands past `output`; nothing is written beyond it.
+//
+// ```jai
+// #import "Extensions/Deflate";
+//
+// packed := deflate(cast([] u8) "abcabcabc");
+// buffer: [16] u8;
+// written, ok := inflate_into(packed, buffer);
+// assert(ok && written == 9);
+// ```
 inflate_into :: (data: [] u8, output: [] u8, container := Deflate_Container.ZLIB) -> written: s64, ok: bool, error: string {
     s := New(Inflater);
 
@@ -82,15 +105,36 @@ inflate_into :: (data: [] u8, output: [] u8, container := Deflate_Container.ZLIB
 
 // Compresses `data`. `level` runs from 0 (stored blocks only) to 9 (smallest); 6 is the usual
 // balance. Out-of-range levels are clamped.
+//
+// ```jai
+// #import "Extensions/Deflate";
+//
+// text := cast([] u8) "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+// packed := deflate(text, .GZIP, 9);
+// assert(packed.count < text.count);
+// ```
 deflate :: (data: [] u8, container := Deflate_Container.ZLIB, level: s32 = 6) -> [] u8 {
     return compress(data, container, level);
 }
 
 // CRC-32 (the checksum of gzip and PNG). To continue over more data, pass the previous result.
+//
+// ```jai
+// #import "Extensions/Deflate";
+//
+// assert(crc32(cast([] u8) "123456789") == 0xCBF43926);
+// ```
 crc32 :: (data: [] u8, crc: u32 = 0) -> u32 {
     return crc32_update(data, crc);
 }
 
+// Adler-32 (the checksum of zlib). To continue over more data, pass the previous result.
+//
+// ```jai
+// #import "Extensions/Deflate";
+//
+// assert(adler32(cast([] u8) "123456789") == 0x091E01DE);
+// ```
 adler32 :: (data: [] u8, adler: u32 = 1) -> u32 {
     return adler32_update(data, adler);
 }

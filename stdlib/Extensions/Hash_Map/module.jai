@@ -11,15 +11,27 @@
 // for value, name: ages print("% is %\n", name, value);
 // ```
 //
-// A key is stored once. Iteration order is whatever the layout gives, and changes whenever the
-// map grows.
+// Iteration order is whatever the layout gives, and changes whenever the map grows.
 
 // Compare the sixteen control bytes of a group with the vector unit. Set it to true to use plain
-// loops instead (wasm targets always do), which gives the same answers; the tests rely on that.
+// loops instead (wasm targets always do), which gives the same answers.
 #module_parameters(SCALAR_GROUPS := false);
 
 GROUP_SIZE :: 16;
 
+// A hash map from `Key` to `Value`. Strings and anything [Hash.get_hash] handles work as keys
+// out of the box; pass `hash` and `equal` for other types. The zero value is an empty map that
+// allocates on the first insert; free it with [deinit].
+//
+// ```jai
+// Hash_Map :: #import "Extensions/Hash_Map";
+//
+// map: Hash_Map.Map(string, int);
+// defer Hash_Map.deinit(*map);
+//
+// Hash_Map.insert(*map, "one", 1);
+// assert(map.count == 1 && Hash_Map.get(*map, "one") == 1);
+// ```
 Map :: struct(Key: Type, Value: Type, hash: (Key) -> u32 = null, equal: (Key, Key) -> bool = null) {
     // Entries in the map. Read only.
     count: int;
@@ -63,6 +75,18 @@ Map :: struct(Key: Type, Value: Type, hash: (Key) -> u32 = null, equal: (Key, Ke
 
 // Stores the value under the key. Returns the value it replaced (zero if there was none) and
 // whether there was one.
+//
+// ```jai
+// Hash_Map :: #import "Extensions/Hash_Map";
+//
+// map: Hash_Map.Map(string, int);
+// defer Hash_Map.deinit(*map);
+//
+// _, replaced := Hash_Map.insert(*map, "a", 1);
+// assert(!replaced);
+// previous, replaced2 := Hash_Map.insert(*map, "a", 2);
+// assert(replaced2 && previous == 1);
+// ```
 insert :: (map: *Map, key: map.Key, value: map.Value) -> (previous: map.Value, replaced: bool) {
     if map.capacity == 0 rebuild(map, GROUP_SIZE);
 
@@ -86,6 +110,19 @@ insert :: (map: *Map, key: map.Key, value: map.Value) -> (previous: map.Value, r
 
 // A pointer to the key's value, or null if it is missing. The pointer stays valid until the map
 // is next rebuilt by an insert or entry.
+//
+// ```jai
+// Hash_Map :: #import "Extensions/Hash_Map";
+//
+// map: Hash_Map.Map(string, int);
+// defer Hash_Map.deinit(*map);
+//
+// Hash_Map.insert(*map, "hits", 1);
+// hits := Hash_Map.find(*map, "hits");
+// hits.* += 1;
+// assert(Hash_Map.get(*map, "hits") == 2);
+// assert(Hash_Map.find(*map, "misses") == null);
+// ```
 find :: (map: *Map, key: map.Key) -> *map.Value {
     slot := find_slot(map, key);
     if slot < 0 return null;
@@ -93,6 +130,17 @@ find :: (map: *Map, key: map.Key) -> *map.Value {
 }
 
 // A copy of the key's value, or `default` if it is missing.
+//
+// ```jai
+// Hash_Map :: #import "Extensions/Hash_Map";
+//
+// map: Hash_Map.Map(string, int);
+// defer Hash_Map.deinit(*map);
+//
+// Hash_Map.insert(*map, "a", 1);
+// assert(Hash_Map.get(*map, "a") == 1);
+// assert(Hash_Map.get(*map, "b", -1) == -1);
+// ```
 get :: (map: *Map, key: map.Key, default: map.Value = .{}) -> map.Value {
     slot := find_slot(map, key);
     if slot < 0 return default;
@@ -100,7 +148,20 @@ get :: (map: *Map, key: map.Key, default: map.Value = .{}) -> map.Value {
 }
 
 // A pointer to the key's value, adding a zero-initialized one if the key is missing. `added`
-// says whether it was added.
+// says whether it was added. Handy for counting.
+//
+// ```jai
+// Hash_Map :: #import "Extensions/Hash_Map";
+//
+// counts: Hash_Map.Map(string, int);
+// defer Hash_Map.deinit(*counts);
+//
+// for word: string.["a", "b", "a"] {
+//     count := Hash_Map.entry(*counts, word);
+//     count.* += 1;
+// }
+// assert(Hash_Map.get(*counts, "a") == 2);
+// ```
 entry :: (map: *Map, key: map.Key) -> (value: *map.Value, added: bool) {
     if map.capacity == 0 rebuild(map, GROUP_SIZE);
 
@@ -116,6 +177,17 @@ entry :: (map: *Map, key: map.Key) -> (value: *map.Value, added: bool) {
 }
 
 // Removes the key. Returns its value (zero if it was missing) and whether it was there.
+//
+// ```jai
+// Hash_Map :: #import "Extensions/Hash_Map";
+//
+// map: Hash_Map.Map(string, int);
+// defer Hash_Map.deinit(*map);
+//
+// Hash_Map.insert(*map, "a", 1);
+// value, removed := Hash_Map.delete(*map, "a");
+// assert(removed && value == 1 && map.count == 0);
+// ```
 delete :: (map: *Map, key: map.Key) -> (value: map.Value, removed: bool) {
     value: map.Value;
 
@@ -129,11 +201,34 @@ delete :: (map: *Map, key: map.Key) -> (value: map.Value, removed: bool) {
     return value, true;
 }
 
+// Whether the key is in the map.
+//
+// ```jai
+// Hash_Map :: #import "Extensions/Hash_Map";
+//
+// map: Hash_Map.Map(string, int);
+// defer Hash_Map.deinit(*map);
+//
+// Hash_Map.insert(*map, "a", 1);
+// assert(Hash_Map.contains(*map, "a") && !Hash_Map.contains(*map, "b"));
+// ```
 contains :: (map: *Map, key: map.Key) -> bool {
     return find_slot(map, key) >= 0;
 }
 
 // Room for `expected_count` entries in total, so inserting up to that many never rebuilds the map.
+//
+// ```jai
+// Hash_Map :: #import "Extensions/Hash_Map";
+//
+// map: Hash_Map.Map(int, int);
+// defer Hash_Map.deinit(*map);
+//
+// Hash_Map.reserve(*map, 1000);
+// capacity := map.capacity;
+// for 0..999 Hash_Map.insert(*map, it, it);
+// assert(map.capacity == capacity);
+// ```
 reserve :: (map: *Map, expected_count: s64) {
     assert(expected_count >= 0);
 
@@ -146,6 +241,17 @@ reserve :: (map: *Map, expected_count: s64) {
 }
 
 // Removes every entry and keeps the memory.
+//
+// ```jai
+// Hash_Map :: #import "Extensions/Hash_Map";
+//
+// map: Hash_Map.Map(int, int);
+// defer Hash_Map.deinit(*map);
+//
+// Hash_Map.insert(*map, 1, 1);
+// Hash_Map.clear(*map);
+// assert(map.count == 0 && map.capacity > 0);
+// ```
 clear :: (map: *Map) {
     if map.capacity == 0 return;
 
@@ -154,7 +260,16 @@ clear :: (map: *Map) {
     map.growth_left = max_load(map.capacity);
 }
 
-// Removes every entry and frees the memory.
+// Removes every entry and frees the memory. The map can be used again afterwards.
+//
+// ```jai
+// Hash_Map :: #import "Extensions/Hash_Map";
+//
+// map: Hash_Map.Map(int, int);
+// Hash_Map.insert(*map, 1, 1);
+// Hash_Map.deinit(*map);
+// assert(map.count == 0 && map.capacity == 0);
+// ```
 deinit :: (map: *Map) {
     if map.control map.allocator.proc(.FREE, 0, block_size(map), map.control, map.allocator.data);
 
@@ -165,9 +280,22 @@ deinit :: (map: *Map) {
     map.growth_left = 0;
 } @FreesArgument
 
-// for value, key: map {...}: `it` is the value (a pointer to it under `for *`), `it_index` the
-// key. `remove it` takes the current entry out. Anything else that changes the map inside the
-// loop, adding included, invalidates the loop.
+// `for value, key: map {...}` visits every entry: `it` is the value (a pointer to it under
+// `for *`), `it_index` the key. `remove it` takes the current entry out. Anything else that
+// changes the map inside the loop, adding included, invalidates the loop.
+//
+// ```jai
+// Hash_Map :: #import "Extensions/Hash_Map";
+//
+// map: Hash_Map.Map(int, int);
+// defer Hash_Map.deinit(*map);
+//
+// for 1..5 Hash_Map.insert(*map, it, it * 10);
+// for value, key: map if key % 2 == 0 remove value;
+// total := 0;
+// for value: map total += value;
+// assert(total == 90);
+// ```
 for_expansion :: (map: *$T/Map, body: Code, flags: For_Flags) #expand {
     #if (flags & .REVERSE) != 0 {
         next_group := map.capacity / GROUP_SIZE;

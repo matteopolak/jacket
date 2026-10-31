@@ -44,12 +44,21 @@ Command_Spec :: struct {
 // "dumb" (on Windows, a console known to understand ANSI codes).
 #scope_export
 
+// The standard stream a piece of output goes to; colour is decided per stream.
 Stream :: enum u8 {
     OUTPUT;
     ERROR;
 }
 
 // Whether output to `stream` should be coloured, by the colour mode and then the environment.
+//
+// ```jai
+// Args :: #import "Extensions/Args";
+//
+// Args.set_color_mode(.ALWAYS);
+// assert(Args.color_enabled(.ERROR));
+// Args.set_color_mode(.AUTO);
+// ```
 //
 // - stream: the stream the output goes to.
 color_enabled :: (stream: Stream) -> bool {

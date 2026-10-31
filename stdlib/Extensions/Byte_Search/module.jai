@@ -18,26 +18,53 @@
 // linear in the text, including substring search with a needle built to defeat it.
 
 // The first `byte` at or after `start`, or -1.
+//
+// ```jai
+// Byte_Search :: #import "Extensions/Byte_Search";
+//
+// assert(Byte_Search.find("a,b,c", #char ",") == 1);
+// assert(Byte_Search.find("a,b,c", #char ",", 2) == 3);
+// assert(Byte_Search.find("abc", #char ",") == -1);
+// ```
 find :: inline (text: string, byte: u8, start := 0) -> int {
     return find_byte(text, byte, start);
 }
 
 // The first of either byte at or after `start`, or -1.
+//
+// ```jai
+// Byte_Search :: #import "Extensions/Byte_Search";
+//
+// assert(Byte_Search.find_any("key=value;", #char ";", #char "=") == 3);
+// ```
 find_any :: inline (text: string, a: u8, b: u8, start := 0) -> int {
     return find_two(text, a, b, start);
 }
 
-// The first of any of the three bytes at or after `start`, or -1.
+// The first of any of the three bytes at or after `start`, or -1. Larger sets: [Byte_Set].
 find_any :: inline (text: string, a: u8, b: u8, c: u8, start := 0) -> int {
     return find_three(text, a, b, c, start);
 }
 
 // The last `byte` before `end` (-1: the end of the text), or -1.
+//
+// ```jai
+// Byte_Search :: #import "Extensions/Byte_Search";
+//
+// assert(Byte_Search.find_last("a/b/c", #char "/") == 3);
+// assert(Byte_Search.find_last("a/b/c", #char "/", 3) == 1);
+// ```
 find_last :: inline (text: string, byte: u8, end := -1) -> int {
     return find_last_byte(text, byte, end);
 }
 
 // The last of either byte before `end`, or -1.
+//
+// ```jai
+// Byte_Search :: #import "Extensions/Byte_Search";
+//
+// assert(Byte_Search.find_last_any("dir\\file/name", #char "/", #char "\\") == 8);
+// ```
 find_last_any :: inline (text: string, a: u8, b: u8, end := -1) -> int {
     return find_last_two(text, a, b, end);
 }
@@ -48,11 +75,17 @@ find_last_any :: inline (text: string, a: u8, b: u8, c: u8, end := -1) -> int {
 }
 
 // How many times `byte` occurs in the text.
+//
+// ```jai
+// Byte_Search :: #import "Extensions/Byte_Search";
+//
+// assert(Byte_Search.count("a\nb\nc", #char "\n") == 2);
+// ```
 count :: inline (text: string, byte: u8) -> int {
     return count_byte(text, byte);
 }
 
-// A set of bytes to search for, any number of them. Make it once with make_byte_set.
+// A set of bytes to search for, any number of them. Make it once with [make_byte_set].
 Byte_Set :: struct {
     low: [2] u8x16; // per low nibble: the buckets holding a byte with that low nibble
     high: [2] u8x16; // per high nibble: its bucket bit
@@ -61,6 +94,14 @@ Byte_Set :: struct {
     bits: [32] u8; // membership, one bit per byte
 }
 
+// Builds the [Byte_Set] holding `bytes`. Reuse it across searches.
+//
+// ```jai
+// Byte_Search :: #import "Extensions/Byte_Search";
+//
+// delimiters := Byte_Search.make_byte_set(.[#char " ", #char "\t", #char ",", #char ";"]);
+// assert(Byte_Search.find(*delimiters, "one;two three") == 3);
+// ```
 make_byte_set :: (bytes: [] u8) -> Byte_Set {
     set: Byte_Set;
     for bytes set.bits[it >> 3] |= cast(u8) (1 << (it & 7));
@@ -111,6 +152,15 @@ make_byte_set :: (bytes: [] u8) -> Byte_Set {
     return set;
 }
 
+// Whether `byte` is in the set.
+//
+// ```jai
+// Byte_Search :: #import "Extensions/Byte_Search";
+//
+// vowels := Byte_Search.make_byte_set(.[#char "a", #char "e", #char "i", #char "o", #char "u"]);
+// assert(Byte_Search.contains(*vowels, #char "e"));
+// assert(!Byte_Search.contains(*vowels, #char "z"));
+// ```
 contains :: inline (set: *Byte_Set, byte: u8) -> bool {
     return (set.bits[byte >> 3] & (1 << (byte & 7))) != 0;
 }
@@ -165,6 +215,14 @@ find_triple :: (first: *Byte_Set, second: *Byte_Set, third: *Byte_Set, gap_2: in
 }
 
 // The first `needle` at or after `start`, or -1. An empty needle is found at `start`.
+// Searching one needle many times is faster with a [Finder].
+//
+// ```jai
+// Byte_Search :: #import "Extensions/Byte_Search";
+//
+// assert(Byte_Search.find("one two one", "one", 1) == 8);
+// assert(Byte_Search.find("one two", "three") == -1);
+// ```
 find :: (text: string, needle: string, start := 0) -> int {
     if needle.count == 1 return find(text, needle[0], start);
     finder := make_finder(needle);
@@ -172,13 +230,19 @@ find :: (text: string, needle: string, start := 0) -> int {
 }
 
 // The last `needle` ending at or before `end` (-1: the end of the text), or -1.
+//
+// ```jai
+// Byte_Search :: #import "Extensions/Byte_Search";
+//
+// assert(Byte_Search.find_last("one two one", "one") == 8);
+// ```
 find_last :: (text: string, needle: string, end := -1) -> int {
     if needle.count == 1 return find_last(text, needle[0], end);
     finder := make_finder(needle);
     return find_last(*finder, text, end);
 }
 
-// A needle prepared for searching. It points into the needle, which must outlive it.
+// A needle prepared for repeated searches. It points into the needle, which must outlive it.
 Finder :: struct {
     needle: string;
     // The two bytes the vector loop looks for, at these positions in the needle: the rarest two
@@ -195,6 +259,16 @@ Finder :: struct {
     reverse_periodic: bool;
 }
 
+// Analyses `needle` once so that [find] and [find_last] on the [Finder] skip that work.
+//
+// ```jai
+// Byte_Search :: #import "Extensions/Byte_Search";
+//
+// finder := Byte_Search.make_finder("ab");
+// at := Byte_Search.find(*finder, "xxabxxab");
+// assert(at == 2);
+// assert(Byte_Search.find(*finder, "xxabxxab", at + 1) == 6);
+// ```
 make_finder :: (needle: string) -> Finder {
     finder: Finder;
     finder.needle = needle;
@@ -337,7 +411,7 @@ find_last_finder_body :: inline ($V: Type, finder: *Finder, text: string, end :=
 
 // The searches that compare bytes exist twice: 16 bytes at a time for every processor, and 32 at a
 // time compiled for AVX2. The first call of each picks one (pick_target) and keeps it in a table, so
-// no call checks the processor. See docs/extensions/simd.md.
+// no call checks the processor.
 #insert #run dispatch("find_byte", "text: string, byte: u8, start := 0", "text, byte, start", "int", "a := byte;", forward_search("eq(chunk, a)", "c == a"), "text.count - max(start, 0) < 64");
 #insert #run dispatch("find_two", "text: string, a: u8, b: u8, start := 0", "text, a, b, start", "int", "", forward_search("eq(chunk, a) | eq(chunk, b)", "c == a || c == b"), "text.count - max(start, 0) < 64");
 #insert #run dispatch("find_three", "text: string, a: u8, b: u8, c: u8, start := 0", "text, a, b, c, start", "int", "third := c;", forward_search("eq(chunk, a) | eq(chunk, b) | eq(chunk, third)", "c == a || c == b || c == third"), "text.count - max(start, 0) < 64");

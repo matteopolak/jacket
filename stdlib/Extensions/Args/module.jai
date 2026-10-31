@@ -1,5 +1,6 @@
-// A typed, compile-time-generated command-line parser for jaic programs, in the spirit of
-// Rust's clap derive.
+// Command-line parsing from a struct: each field is an option, notes like `@short=c` refine it.
+// [parse] handles `--help`, `--version` and bad input for you; [try_parse] returns the error
+// instead, which suits tests. [help_text] and [completions] render the same description.
 //
 // ```jai
 // Args :: #import "Extensions/Args";
@@ -17,9 +18,8 @@
 // }
 // ```
 //
-// The fields of `Cli` are the options; notes (`@short=c`) refine them. At compile time the
-// struct is read once and the parser is written out as plain Jai (see generate.jai), so the
-// per-argument work is string comparisons and direct stores into the fields.
+// The parser is generated from the struct at compile time, so parsing is plain string
+// comparisons and stores into the fields.
 
 // Why parsing stopped. HELP and VERSION are not failures: `error.text` is what to print.
 Error_Kind :: enum u8 {
@@ -39,6 +39,8 @@ Error_Kind :: enum u8 {
     REQUIRES;
 }
 
+// What went wrong (or what to print for `--help`), with enough detail to build your own message.
+// `message` is ready to show; `suggestion` is the closest known name when the user mistyped one.
 Error :: struct {
     kind: Error_Kind;
     message: string; // `unknown option `--chek``
@@ -50,7 +52,7 @@ Error :: struct {
     text: string; // for .HELP and .VERSION: what to print
 }
 
-// Which terminals get colour in help and errors: `AUTO` follows NO_COLOR, FORCE_COLOR,
+// Which output gets colour in help and errors. `AUTO` follows NO_COLOR, FORCE_COLOR,
 // CLICOLOR_FORCE, TERM and whether the stream is a terminal.
 Color_Mode :: enum u8 {
     AUTO;
@@ -62,11 +64,19 @@ color_mode := Color_Mode.AUTO;
 
 // Sets the colour mode for help and error output from now on.
 //
+// ```jai
+// Args :: #import "Extensions/Args";
+//
+// Args.set_color_mode(.NEVER);
+// assert(!Args.color_enabled(.OUTPUT));
+// ```
+//
 // - mode: the mode to use.
 set_color_mode :: (mode: Color_Mode) {
     color_mode = mode;
 }
 
+// The shells [completions] can write a script for.
 Shell :: enum u8 {
     BASH;
     ZSH;
@@ -155,6 +165,16 @@ try_parse :: ($T: Type, $help: Help(T), argv: [] string, environment: [] string 
 // Parses the process's arguments. `--help` and `--version` print and exit 0; a bad command
 // line prints the error with a usage hint to stderr and exits 2.
 //
+// ```jai,no_run
+// Args :: #import "Extensions/Args";
+//
+// Cli :: struct { name: string = "world"; @short=n }
+// HELP :: Args.Help(Cli).{ about = "Greets.", name = "Who to greet" };
+//
+// cli, set := Args.parse(Cli, HELP);
+// print("hello, %\n", cli.name);
+// ```
+//
 // - $T: the struct whose fields are the options.
 // - $help: the help strings for `T`.
 parse :: ($T: Type, $help: Help(T)) -> T, Is_Set(T) {
@@ -177,6 +197,16 @@ parse :: ($T: Type, $help: Help(T)) -> T, Is_Set(T) {
 // The completion script for `shell`, to be saved where that shell loads completions from. The
 // program name is argv[0]'s basename unless `program` says otherwise.
 //
+// ```jai
+// Args :: #import "Extensions/Args";
+//
+// Cli :: struct { verbose: bool; @short=v }
+// HELP :: Args.Help(Cli).{ verbose = "Talk more" };
+//
+// script := Args.completions(Cli, HELP, .BASH, "tool");
+// assert(script.count > 0);
+// ```
+//
 // - $T: the struct whose fields are the options.
 // - $help: the help strings for `T`.
 // - shell: the shell to write the script for.
@@ -187,6 +217,16 @@ completions :: ($T: Type, $help: Help(T), shell: Shell, program := "") -> string
 }
 
 // The help text of the whole program (what `--help` prints), for tools that show it themselves.
+//
+// ```jai
+// Args :: #import "Extensions/Args";
+//
+// Cli :: struct { verbose: bool; @short=v }
+// HELP :: Args.Help(Cli).{ about = "Does things.", verbose = "Talk more" };
+//
+// text := Args.help_text(Cli, HELP, "tool");
+// assert(text.count > 0);
+// ```
 //
 // - $T: the struct whose fields are the options.
 // - $help: the help strings for `T`.

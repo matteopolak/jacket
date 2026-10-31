@@ -1,4 +1,5 @@
-// A tagged union whose cases are types, like a Rust enum.
+// A tagged union whose cases are types. [variant] and [set] store a value, [is], [get] and
+// [unwrap] read it back, and `variant_switch` runs a handler per case.
 //
 // ```jai
 // #import "Extensions/Variant";
@@ -17,11 +18,22 @@
 // );
 // ```
 //
-// A Variant is an `index` and the bytes of the largest case, aligned for the strictest one. Two
-// cases of one type are not allowed: wrap each in its own struct.
+// Two cases of one type are not allowed: wrap each in its own struct.
 
 #scope_export
 
+// A value that holds one of `types` at a time. A fresh one holds a zeroed first case; it takes
+// the size of the largest case.
+//
+// ```jai
+// #import "Extensions/Variant";
+//
+// Id :: Variant(s64, string);
+// id: Id;
+// assert(is(id, s64) && variant_index(id) == 0);
+// set(*id, "abc");
+// assert(variant_index(id) == 1);
+// ```
 Variant :: struct($types: ..Type) {
     // The position of the live case in `types`.
     index: s32;
@@ -33,7 +45,15 @@ Variant :: struct($types: ..Type) {
     };
 }
 
-// Makes a Variant holding `value`; its type picks the case. `variant(Shape, Circle.{ 1 })`.
+// Makes a Variant holding `value`; its type picks the case.
+//
+// ```jai
+// #import "Extensions/Variant";
+//
+// Id :: Variant(s64, string);
+// id := variant(Id, "abc");
+// assert(is(id, string));
+// ```
 variant :: ($V: Type, value: $T) -> V {
     CASE :: #run case_of(V, T, "variant");
 
@@ -46,6 +66,16 @@ variant :: ($V: Type, value: $T) -> V {
 
 // Stores `value` as the live case, replacing whatever was there without releasing it (see
 // free_variant). It is a compile-time error when `T` is not a case.
+//
+// ```jai
+// #import "Extensions/Variant";
+//
+// Id :: Variant(s64, string);
+// id: Id;
+// set(*id, "abc");
+// set(*id, cast(s64) 7);
+// assert(unwrap(id, s64) == 7);
+// ```
 set :: (v: *$V/Variant, value: $T) {
     CASE :: #run case_of(V, T, "set");
 
@@ -64,6 +94,13 @@ set :: (v: *$V/Variant, value: $T) {
 }
 
 // Whether the live case is `T`.
+//
+// ```jai
+// #import "Extensions/Variant";
+//
+// id := variant(Variant(s64, string), "abc");
+// assert(is(id, string) && !is(id, s64));
+// ```
 is :: (v: $V/Variant, $T: Type) -> bool {
     CASE :: #run case_of(V, T, "is");
 
@@ -71,16 +108,40 @@ is :: (v: $V/Variant, $T: Type) -> bool {
 }
 
 // The position of the live case in the type's case list.
+//
+// ```jai
+// #import "Extensions/Variant";
+//
+// id := variant(Variant(s64, string), "abc");
+// assert(variant_index(id) == 1);
+// ```
 variant_index :: (v: $V/Variant) -> s32 {
     return v.index;
 }
 
 // The type of the live case.
+//
+// ```jai
+// #import "Extensions/Variant";
+//
+// id := variant(Variant(s64, string), "abc");
+// assert(variant_type(id) == string);
+// ```
 variant_type :: (v: $V/Variant) -> Type {
     return V.types[v.index];
 }
 
 // A copy of the `T` payload and true; a zeroed `T` and false when another case is live.
+//
+// ```jai
+// #import "Extensions/Variant";
+//
+// id := variant(Variant(s64, string), "abc");
+// text, ok := get(id, string);
+// assert(ok && text == "abc");
+// _, ok = get(id, s64);
+// assert(!ok);
+// ```
 get :: (v: $V/Variant, $T: Type) -> T, bool {
     CASE :: #run case_of(V, T, "get");
 
@@ -98,6 +159,16 @@ get :: (v: $V/Variant, $T: Type) -> T, bool {
 
 // A pointer to the `T` payload inside the variant, or null when another case is live. It stays
 // valid until the variant is set again, freed or moved.
+//
+// ```jai
+// #import "Extensions/Variant";
+//
+// id := variant(Variant(s64, string), cast(s64) 1);
+// number := get_pointer(*id, s64);
+// number.* += 1;
+// assert(unwrap(id, s64) == 2);
+// assert(get_pointer(*id, string) == null);
+// ```
 get_pointer :: (v: *$V/Variant, $T: Type) -> *T {
     CASE :: #run case_of(V, T, "get_pointer");
 
@@ -106,7 +177,14 @@ get_pointer :: (v: *$V/Variant, $T: Type) -> *T {
     return cast(*T) v.payload.data;
 }
 
-// The `T` payload; asserts that `T` is the live case.
+// The `T` payload; asserts that `T` is the live case. Use [get] when the case is not certain.
+//
+// ```jai
+// #import "Extensions/Variant";
+//
+// id := variant(Variant(s64, string), cast(s64) 5);
+// assert(unwrap(id, s64) == 5);
+// ```
 unwrap :: (v: $V/Variant, $T: Type) -> T {
     CASE :: #run case_of(V, T, "unwrap");
 
@@ -126,12 +204,21 @@ unwrap :: (v: $V/Variant, $T: Type) -> T {
 
 // The live case is equal: the same index and equal payloads. Strings compare by content, arrays
 // element by element, structs member by member; pointers by address.
+//
+// ```jai
+// #import "Extensions/Variant";
+//
+// Id :: Variant(s64, string);
+// assert(variant(Id, "a") == variant(Id, "a"));
+// assert(variant(Id, "a") != variant(Id, cast(s64) 1));
+// ```
 operator == :: (a: $V/Variant, b: V) -> bool {
     if a.index != b.index return false;
 
     return values_equal(V.case_infos[a.index], a.payload.data, b.payload.data);
 }
 
+// The negation of `==`.
 operator != :: (a: $V/Variant, b: V) -> bool {
     return !(a == b);
 }
@@ -140,6 +227,14 @@ operator != :: (a: $V/Variant, b: V) -> bool {
 // elements own), and the same inside structs and nested variants. Views (`[] T`) and pointers are
 // not owned and are left alone. Then the variant is zeroed: its first case, zeroed. Only use it
 // on payloads that came from the allocator, not string literals.
+//
+// ```jai
+// #import "Extensions/Variant";
+//
+// id := variant(Variant(s64, string), copy_string("owned"));
+// free_variant(*id);
+// assert(is(id, s64));
+// ```
 free_variant :: (v: *$V/Variant) {
     free_variant_value(type_info(V), v);
 } @FreesArgument
@@ -149,7 +244,7 @@ free_variant :: (v: *$V/Variant) {
 // Basic prints a struct member by member, with no hook for a type of its own. Its one hook is
 // `context.print_style.struct_printer`, which Math uses for vectors; this is Variant's.
 
-// A Print_Style struct_printer that writes a Variant as its live payload, and passes everything
+// A `Print_Style` `struct_printer` that writes a Variant as its live payload, and passes everything
 // else to the printer that was installed before use_variant_printing (or declines).
 variant_struct_printer :: (builder: *String_Builder, any: Any, data: *void) -> bool {
     if any.type && is_variant_type(any.type) {
@@ -165,6 +260,14 @@ variant_struct_printer :: (builder: *String_Builder, any: Any, data: *void) -> b
 
 // Makes `print("%", variant)` write the payload, from now on in this context. Calling it again
 // does nothing; a struct_printer installed earlier still gets the values that are not variants.
+//
+// ```jai
+// #import "Extensions/Variant";
+//
+// use_variant_printing();
+// id := variant(Variant(s64, string), "abc");
+// assert(tprint("%", id) == "abc");
+// ```
 use_variant_printing :: () {
     style := *context.print_style;
 
@@ -176,7 +279,14 @@ use_variant_printing :: () {
     style.struct_printer_data = null;
 }
 
-// The payload as text, allocated with context.allocator.
+// The payload as text, allocated with `context.allocator`.
+//
+// ```jai
+// #import "Extensions/Variant";
+//
+// id := variant(Variant(s64, string), cast(s64) 42);
+// assert(variant_to_string(id) == "42");
+// ```
 variant_to_string :: (v: $V/Variant) -> string {
     style := *context.print_style;
     saved_printer := style.struct_printer;
