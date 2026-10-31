@@ -4,7 +4,7 @@
 //! bodies between braces and with them, the declaration, and the whole file. A document that
 //! does not parse still has ranges for its recovered, unaffected syntax.
 use crate::analysis::{Span, TokenKind};
-use crate::refactor::{extent, stmt_extent, trim};
+use crate::refactor::{stmt_extent, trim};
 use crate::session::Session;
 use crate::{Error, Position, SelectionRange};
 use jaic::ast::walk::{Node, walk};
@@ -44,7 +44,8 @@ fn around(text: &str, stmts: &[Stmt], byte: usize, out: &mut Vec<(usize, usize)>
                 }
             }
             Node::Expr(x) => {
-                add(extent(text, x.span));
+                let span = x.body_extent();
+                add((span.start as usize, span.end as usize));
                 match &x.kind {
                     E::Block(b) => inner(b, &mut add),
                     E::Proc(lit) => {

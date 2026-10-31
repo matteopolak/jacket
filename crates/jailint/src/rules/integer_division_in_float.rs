@@ -64,7 +64,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 }
                 _ => return true,
             };
-            let a_text = cx.whole_src(a.span).trim();
+            let a_text = cx.whole_src(a).trim();
             let float_a = match a.kind {
                 E::Int(..) => format!("{a_text}.0"),
                 E::Ident(_)
@@ -75,10 +75,10 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 } => {
                     format!("cast(float) {a_text}")
                 }
-                _ if a.parenthesized => format!("cast(float) {a_text}"),
+                _ if a.parenthesized() => format!("cast(float) {a_text}"),
                 _ => format!("cast(float) ({a_text})"),
             };
-            let b_text = cx.whole_src(b.span).trim();
+            let b_text = cx.whole_src(b).trim();
             out.push(suggesting(
                 e.span,
                 format!(
@@ -87,8 +87,8 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 format!("divide as floats: `{float_a} / {b_text}`"),
                 "convert the dividend to a float",
                 vec![Edit {
-                    start: cx.whole(a.span).0,
-                    end: cx.whole(a.span).1,
+                    start: cx.whole(a).0,
+                    end: cx.whole(a).1,
                     text: float_a,
                 }],
             ));

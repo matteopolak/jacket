@@ -53,7 +53,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 } else {
                     false
                 };
-                if !surprising || child.parenthesized {
+                if !surprising || child.parenthesized() {
                     continue;
                 }
                 out.push(report(cx, e, child, *op, *inner));
@@ -82,7 +82,7 @@ fn c_bitwise_level(op: BinOp) -> Option<u8> {
 }
 
 fn report(cx: &Cx, whole: &Expr, child: &Expr, outer: BinOp, inner: BinOp) -> Finding {
-    let (start, end) = cx.whole(child.span);
+    let (start, end) = cx.whole(child);
     let child_text = &cx.text[start..end];
     let help = format!(
         "`{}` binds first here: write `({child_text})`",

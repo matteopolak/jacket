@@ -222,7 +222,7 @@ impl Compiler {
         let at = |kind, span| ast::Expr {
             kind,
             span,
-            parenthesized: false,
+            parens: None,
         };
         let stmt = |kind, span| ast::Stmt {
             kind,

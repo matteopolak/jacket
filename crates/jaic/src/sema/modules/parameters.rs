@@ -265,7 +265,7 @@ impl Compiler {
                         callee: Box::new(ast::Expr {
                             kind: ast::ExprKind::Ident(Sym::intern("type_of")),
                             span,
-                            parenthesized: false,
+                            parens: None,
                         }),
                         args: vec![ast::Arg {
                             name: None,
@@ -277,7 +277,7 @@ impl Compiler {
                         hint: ast::CallHint::None,
                     },
                     span,
-                    parenthesized: false,
+                    parens: None,
                 });
             }
             let span = param.span;
@@ -287,7 +287,7 @@ impl Compiler {
                     span,
                 }),
                 span,
-                parenthesized: false,
+                parens: None,
             };
             let mut names = member.split('|');
             let first = member_expr(names.next().unwrap_or_default());
@@ -298,7 +298,7 @@ impl Compiler {
                     Box::new(member_expr(name)),
                 ),
                 span,
-                parenthesized: false,
+                parens: None,
             }));
             return Ok(());
         }
@@ -567,11 +567,11 @@ fn literal_sized_type(param: &ast::Param) -> Option<ast::Expr> {
                     ast::Spelling::Decimal,
                 ),
                 span: size.span,
-                parenthesized: false,
+                parens: None,
             })),
             elem: elem.clone(),
         },
         span: *span,
-        parenthesized: false,
+        parens: None,
     })
 }

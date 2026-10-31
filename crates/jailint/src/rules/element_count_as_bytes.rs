@@ -52,7 +52,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             }
             let data_passed = rest.iter().any(|a| {
                 matches!(&uncast(&a.value).kind, E::Member(base, m)
-                    if m.name.as_str() == "data" && cx.same_tokens(base.span, array.span))
+                    if m.name.as_str() == "data" && cx.same_tokens(base, array))
             });
             if !data_passed {
                 return true;

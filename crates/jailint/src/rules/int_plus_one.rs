@@ -61,11 +61,11 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 return true;
             };
             // The comparison as written, parentheses around either side included.
-            let (start, end) = (cx.whole(l.span).0, cx.whole(r.span).1);
+            let (start, end) = (cx.whole(l).0, cx.whole(r).1);
             let written = cx.text.get(start..end).unwrap_or("");
             let (left, right) = (
-                cx.whole_src(plain_left.span).trim(),
-                cx.whole_src(plain_right.span).trim(),
+                cx.whole_src(plain_left).trim(),
+                cx.whole_src(plain_right).trim(),
             );
             let replacement = format!("{left} {} {right}", op_text(strict));
             out.push(suggesting(

@@ -93,7 +93,7 @@ fn run(cx: &Cx, e: &Expr, op: BinOp, alone: bool, out: &mut Vec<Finding>) {
             continue;
         }
         let group: Vec<&Test> = (i..tests.len())
-            .filter(|&j| cx.same_tokens(tests[i].value.span, tests[j].value.span))
+            .filter(|&j| cx.same_tokens(tests[i].value, tests[j].value))
             .inspect(|&j| done[j] = true)
             .map(|j| &tests[j])
             .collect();
@@ -115,7 +115,7 @@ fn run(cx: &Cx, e: &Expr, op: BinOp, alone: bool, out: &mut Vec<Finding>) {
         if !impossible {
             continue;
         }
-        let shown = cx.whole_src(e.span).trim();
+        let shown = cx.whole_src(e).trim();
         let (always, help) = if and {
             (
                 "false",
@@ -131,7 +131,7 @@ fn run(cx: &Cx, e: &Expr, op: BinOp, alone: bool, out: &mut Vec<Finding>) {
         // `a && b` becomes `a || b` (and back), when the run is just those two operands.
         let flipped = match &e.kind {
             E::Binary(_, a, b) if alone && operands.len() == 2 => {
-                let (start, end) = (cx.whole(a.span).1, cx.whole(b.span).0);
+                let (start, end) = (cx.whole(a).1, cx.whole(b).0);
                 let between = cx.text.get(start..end).unwrap_or("");
                 let (from, to) = if and {
                     ("&&", "||")

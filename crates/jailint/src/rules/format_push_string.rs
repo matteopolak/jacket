@@ -71,7 +71,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             }
             let name = cx.src(format.span).trim();
             let leaks = calls_noted(cx, format, "Allocates");
-            let (_, end) = cx.whole(last.value.span);
+            let (_, end) = cx.whole(&last.value);
             let values = cx
                 .text
                 .get(first.value.span.start as usize..end)
@@ -79,7 +79,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 .trim();
             let replacement = format!(
                 "print_to_builder({}, {values})",
-                cx.whole_src(builder.value.span).trim()
+                cx.whole_src(&builder.value).trim()
             );
             out.push(suggesting(
                 e.span,

@@ -58,7 +58,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 return true;
             }
             if let Some(how) = transient_use(cx, e, chain) {
-                let name = cx.whole_src(callee.span).trim();
+                let name = cx.whole_src(callee).trim();
                 out.push(finding(
                     e.span,
                     format!("the memory `{name}` allocates is {how} and never freed"),

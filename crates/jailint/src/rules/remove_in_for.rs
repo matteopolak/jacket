@@ -63,15 +63,14 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             }
             let walking = chain.iter().rev().find_map(|a| match a {
                 Node::Stmt(Stmt {
-                    kind: S::For(f),
-                    ..
+                    kind: S::For(f), ..
                 }) => {
                     let index = f.index.map_or("it_index", |i| i.name.as_str());
                     (!f.reverse
                         && !assigns_index(&f.body, index)
                         && f.reverse_if.is_none()
                         && f.iterator.is_none()
-                        && matches!(&f.over, ForOver::Collection(c) if cx.same_tokens(c.span, array.span)))
+                        && matches!(&f.over, ForOver::Collection(c) if cx.same_tokens(c, array)))
                     .then_some((f.it.map_or("it", |i| i.name.as_str()), index))
                 }
                 _ => None,
@@ -82,8 +81,8 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             if stopped(chain, e, &stopping) {
                 return true;
             }
-            let name = cx.whole_src(callee.span).trim();
-            let array_shown = cx.whole_src(array.span).trim();
+            let name = cx.whole_src(callee).trim();
+            let array_shown = cx.whole_src(array).trim();
             let message = format!("`{name}` changes `{array_shown}` while this `for` walks it");
             let help = format!(
                 "the element moved into the freed slot is skipped; use `remove {it};` (or loop backwards with `for < {array_shown}`)"

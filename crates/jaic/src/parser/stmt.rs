@@ -306,7 +306,7 @@ impl Parser<'_> {
             return Ok(Expr {
                 kind: crate::ast::ExprKind::Ident(name.name),
                 span: name.span,
-                parenthesized: false,
+                parens: None,
             });
         }
         self.parse_expr()
@@ -725,7 +725,7 @@ impl Parser<'_> {
         let mut path = Expr {
             kind: ExprKind::Ident(first.name),
             span: first.span,
-            parenthesized: false,
+            parens: None,
         };
         while self.at(P::Dot) && matches!(self.tok_at(1), Tok::Ident(_)) {
             self.bump();
@@ -734,7 +734,7 @@ impl Parser<'_> {
             path = Expr {
                 kind: ExprKind::Member(Box::new(path), member),
                 span,
-                parenthesized: false,
+                parens: None,
             };
         }
         Ok(path)

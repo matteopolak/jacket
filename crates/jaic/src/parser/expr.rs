@@ -1,6 +1,8 @@
 //! Expressions: precedence climbing, prefix/postfix operators and primaries.
 use super::{PResult, Parser};
-use crate::ast::{Arg, BinOp, CallHint, CallHintFlag, CastFlags, Expr, ExprKind, Ident, UnOp};
+use crate::ast::{
+    Arg, BinOp, CallHint, CallHintFlag, CastFlags, Expr, ExprKind, Ident, Parens, UnOp,
+};
 use crate::intern::Sym;
 use crate::lexer::{P, Tok};
 use crate::source::Span;
@@ -152,7 +154,7 @@ impl Parser<'_> {
         // `*Block.[a, b]` is an array literal of `*Block`; `*(Block.[a, b])` takes the address of
         // an array literal.
         if op == UnOp::Star
-            && !operand.parenthesized
+            && !operand.parenthesized()
             && matches!(
                 &operand.kind,
                 ExprKind::ArrayLit {
@@ -178,7 +180,7 @@ impl Parser<'_> {
         // `*T.{..}` is a pointer to a struct literal here; the official compiler reads it as the
         // pointer type `*T` followed by a literal.
         if op == UnOp::Star
-            && !operand.parenthesized
+            && !operand.parenthesized()
             && matches!(
                 &operand.kind,
                 ExprKind::StructLit {
@@ -611,9 +613,9 @@ impl Parser<'_> {
             P::LParen => {
                 self.bump();
                 let inner = self.parse_expr()?;
-                self.expect(P::RParen, "to close the parenthesized expression")?;
+                let close = self.expect(P::RParen, "to close the parenthesized expression")?;
                 Ok(Expr {
-                    parenthesized: true,
+                    parens: Some(Parens::new(span, close, inner.span)),
                     ..inner
                 })
             }

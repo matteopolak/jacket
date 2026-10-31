@@ -11,10 +11,10 @@
 use super::{finding, pure, suggesting};
 use crate::syntax::{Cx, is_atom};
 use crate::{Edit, Finding};
+use jaic::ast::walk::Node;
 use jaic::ast::walk::walk;
 use jaic::ast::{ExprKind as E, Stmt, StmtKind as S};
 use jaic::lexer::Token;
-use jaic::source::Span;
 
 /// The rule's name, group and one-line summary, and its check.
 pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
@@ -38,7 +38,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         && !matches!(other.kind, S::If { .. })
                         && !empty(then_branch)
                         && !chain_tail(s, up)
-                        && same_tokens(cx, then_branch.span, other.span)
+                        && same_tokens(cx, &**then_branch, &**other)
                     {
                         let message = "both branches of this `if` are the same".to_string();
                         let help = "the condition decides nothing: was one branch meant to differ?"
@@ -54,7 +54,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                                 vec![Edit {
                                     start: s.span.start as usize,
                                     end: s.span.end as usize,
-                                    text: cx.whole_src(then_branch.span).trim().to_string(),
+                                    text: cx.whole_src(&**then_branch).trim().to_string(),
                                 }],
                             )
                         } else {
@@ -70,7 +70,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         is_static: false,
                         ..
                     } = &e.kind
-                        && same_tokens(cx, a.span, b.span)
+                        && same_tokens(cx, a, b)
                     {
                         let message = "both branches of this `ifx` are the same".to_string();
                         let help = "the condition decides nothing: was one branch meant to differ?"
@@ -85,9 +85,9 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                                     start: e.span.start as usize,
                                     end: e.span.end as usize,
                                     text: if is_atom(a) {
-                                        cx.whole_src(a.span).trim().to_string()
+                                        cx.whole_src(a).trim().to_string()
                                     } else {
-                                        format!("({})", cx.whole_src(a.span).trim())
+                                        format!("({})", cx.whole_src(a).trim())
                                     },
                                 }],
                             )
@@ -118,7 +118,7 @@ fn empty(s: &Stmt) -> bool {
 }
 
 /// The tokens of `a` and `b` (comments and layout are not tokens) are the same.
-fn same_tokens(cx: &Cx, a: Span, b: Span) -> bool {
+fn same_tokens<'n>(cx: &Cx, a: impl Into<Node<'n>>, b: impl Into<Node<'n>>) -> bool {
     let (a, b) = (tokens(cx, a), tokens(cx, b));
     a.len() == b.len()
         && a.iter()
@@ -126,8 +126,8 @@ fn same_tokens(cx: &Cx, a: Span, b: Span) -> bool {
             .all(|(x, y)| cx.src(x.span) == cx.src(y.span))
 }
 
-fn tokens<'a>(cx: &Cx<'a>, span: Span) -> &'a [Token] {
-    let (start, end) = cx.whole(span);
+fn tokens<'a, 'n>(cx: &Cx<'a>, node: impl Into<Node<'n>>) -> &'a [Token] {
+    let (start, end) = cx.whole(node);
     let first = cx
         .tokens
         .partition_point(|t| (t.span.start as usize) < start);

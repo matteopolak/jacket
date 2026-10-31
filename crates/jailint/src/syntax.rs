@@ -5,7 +5,6 @@ use jaic::ast::{Block, Decl, Expr, ExprKind as E, File, ProcHeader, Stmt, StmtKi
 use jaic::ide::{Found, IdeCast, IdeExprFact};
 use jaic::intern::Sym;
 use jaic::lexer::{Comment, P, Tok, Token};
-use jaic::lexicon::WordClass;
 use jaic::sema::{Compiler, EntityId, ProcId};
 use jaic::source::{FileId, LineIndex, Span};
 use jaic::types::TypeId;
@@ -107,60 +106,22 @@ impl<'a> Cx<'a> {
             .unwrap_or("")
     }
 
-    /// Byte range of `span` widened to balance its parentheses (`jaic::lexer::balanced`) and to
-    /// take in parentheses written around the whole expression.
-    pub fn whole(&self, span: Span) -> (usize, usize) {
-        let balanced = jaic::lexer::balanced(self.tokens, span);
-        let mut start = balanced.start as usize;
-        let mut end = balanced.end as usize;
-        // Parentheses written around the whole expression.
-        let mut a = self
-            .tokens
-            .partition_point(|t| (t.span.start as usize) < start);
-        let mut b = self
-            .tokens
-            .partition_point(|t| (t.span.end as usize) <= end);
-        while a > 0
-            && matches!(self.tokens[a - 1].tok, Tok::Punct(P::LParen))
-            && matches!(
-                self.tokens.get(b).map(|t| &t.tok),
-                Some(Tok::Punct(P::RParen))
-            )
-            && !self.call_paren(a - 1)
-        {
-            a -= 1;
-            start = self.tokens[a].span.start as usize;
-            end = self.tokens[b].span.end as usize;
-            b += 1;
-        }
-        (start, end)
-    }
-
-    /// The `(` at token `i` opens an argument list or a header, not a group.
-    fn call_paren(&self, i: usize) -> bool {
-        i > 0
-            && matches!(
-                self.tokens[i - 1].tok,
-                Tok::Ident(n) if !(matches!(
-                    jaic::lexicon::class_of(n.as_str()),
-                    Some(WordClass::Conditional | WordClass::Repeat)
-                ) || matches!(n.as_str(), "return" | "xx"))
-            )
-            || matches!(
-                self.tokens[i - 1].tok,
-                Tok::Punct(P::RParen | P::RBracket | P::RBrace) | Tok::Directive(_)
-            )
+    /// Byte range of the expression with the parentheses written around it and around its
+    /// edge operands (`Expr::extent`).
+    pub fn whole<'n>(&self, node: impl Into<Node<'n>>) -> (usize, usize) {
+        let extent = jaic::ast::walk::extent(node.into());
+        (extent.start as usize, extent.end as usize)
     }
 
     /// The source text of [`Cx::whole`].
-    pub fn whole_src(&self, span: Span) -> &'a str {
-        let (start, end) = self.whole(span);
+    pub fn whole_src<'n>(&self, node: impl Into<Node<'n>>) -> &'a str {
+        let (start, end) = self.whole(node);
         self.text.get(start..end).unwrap_or("")
     }
 
-    /// The tokens of the expression at `span`, parentheses around it and comments left out.
-    fn expression_tokens(&self, span: Span) -> impl Iterator<Item = &'a Tok> {
-        let (start, end) = self.whole(span);
+    /// The tokens of the expression of `e`, parentheses around it and comments left out.
+    fn expression_tokens(&self, e: &Expr) -> impl Iterator<Item = &'a Tok> {
+        let (start, end) = self.whole(e);
         let first = self
             .tokens
             .partition_point(|t| (t.span.start as usize) < start);
@@ -171,7 +132,7 @@ impl<'a> Cx<'a> {
     }
 
     /// Two expressions are spelled with the same tokens (whitespace and comments aside).
-    pub fn same_tokens(&self, a: Span, b: Span) -> bool {
+    pub fn same_tokens(&self, a: &Expr, b: &Expr) -> bool {
         self.expression_tokens(a).eq(self.expression_tokens(b))
     }
 

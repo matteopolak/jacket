@@ -342,9 +342,10 @@ impl Compiler {
                             && (span.file.0 as usize) < self.src.sources.len()
                         {
                             let (line, col) = self.src.sources.get(span.file).line_col(span.start);
-                            self.pr
-                                .first_arguments
-                                .insert((span.file.0, line, col), first.span);
+                            self.pr.first_arguments.insert(
+                                (span.file.0, line, col),
+                                first.expr.as_ref().map_or(first.span, ast::Expr::extent),
+                            );
                         }
                         self.location_operand(f, span)?
                     }

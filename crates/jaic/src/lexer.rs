@@ -11,8 +11,8 @@ mod scan;
 mod value_map;
 
 pub use self::api::{
-    Comment, CommentKind, Lexed, PlatformTarget, balanced, lex, lex_for_target, lex_ide,
-    lex_with_trivia, lexical_regions,
+    Comment, CommentKind, Lexed, PlatformTarget, lex, lex_for_target, lex_ide, lex_with_trivia,
+    lexical_regions,
 };
 pub use self::floats::{FloatLiteralPrecision, float_literal_precision, has_big_float32_exponent};
 pub use self::here::{LANGUAGE_TAGS, here_string_tag, names_language};

@@ -51,8 +51,8 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if case.through || default.is_some_and(|d| d.through) || body_text(cx, case).is_none() {
             return;
         }
-        let subject = cx.whole_src(sw.value.span).trim();
-        let wanted = cx.whole_src(value.span).trim();
+        let subject = cx.whole_src(&sw.value).trim();
+        let wanted = cx.whole_src(value).trim();
         let (_, indent) = cx.line_start(s.span.start as usize);
         let mut text = format!(
             "if {subject} == {wanted} {{\n{indent}    {}\n{indent}}}",

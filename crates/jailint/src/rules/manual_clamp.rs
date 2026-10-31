@@ -72,7 +72,7 @@ struct Clamp<'a> {
 }
 
 fn report(cx: &Cx, span: jaic::source::Span, found: Clamp, editable: bool, out: &mut Vec<Finding>) {
-    let text = |e: &Expr| cx.whole_src(e.span).trim();
+    let text = |e: &Expr| cx.whole_src(e).trim();
     let call = format!(
         "clamp({}, {}, {})",
         text(found.value),
@@ -184,7 +184,7 @@ fn tests<'a>(
     let mut found = Vec::new();
     for (v1, b1, s1) in readings(first) {
         for (v2, b2, s2) in readings(second) {
-            if s1 != s2 && pure(v1) && cx.same_tokens(v1.span, v2.span) {
+            if s1 != s2 && pure(v1) && cx.same_tokens(v1, v2) {
                 found.push((v1, b1, b2, s1));
             }
         }
@@ -221,15 +221,12 @@ fn chain<'a>(cx: &Cx, s: &'a Stmt) -> Option<Clamp<'a>> {
     };
     let (target, set1) = assignment(then_branch)?;
     let (target2, set2) = assignment(then2)?;
-    if !cx.same_tokens(target.span, target2.span) {
+    if !cx.same_tokens(target, target2) {
         return None;
     }
     for (value, b1, b2, side1) in tests(cx, cond, cond2) {
         // Each branch assigns the value its own bound.
-        if cx.same_tokens(value.span, target.span)
-            && cx.same_tokens(set1.span, b1.span)
-            && cx.same_tokens(set2.span, b2.span)
-        {
+        if cx.same_tokens(value, target) && cx.same_tokens(set1, b1) && cx.same_tokens(set2, b2) {
             let (lo, hi) = bounds(side1, b1, b2);
             if ordered(cx, lo, hi) && is_number(cx, value) {
                 return Some(Clamp {
@@ -288,10 +285,7 @@ fn ifx<'a>(cx: &Cx, e: &'a Expr) -> Option<Clamp<'a>> {
         return None;
     };
     for (value, b1, b2, side1) in tests(cx, cond, cond2) {
-        if cx.same_tokens(value.span, last.span)
-            && cx.same_tokens(pick1.span, b1.span)
-            && cx.same_tokens(pick2.span, b2.span)
-        {
+        if cx.same_tokens(value, last) && cx.same_tokens(pick1, b1) && cx.same_tokens(pick2, b2) {
             let (lo, hi) = bounds(side1, b1, b2);
             if ordered(cx, lo, hi) && is_number(cx, value) {
                 return Some(Clamp {

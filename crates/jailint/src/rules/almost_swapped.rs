@@ -33,8 +33,8 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     && cx.ty(a).is_some()
                     && cx.ty(a) == cx.ty(b)
                 {
-                    let x = cx.whole_src(a.span).trim();
-                    let y = cx.whole_src(b.span).trim();
+                    let x = cx.whole_src(a).trim();
+                    let y = cx.whole_src(b).trim();
                     let span = pair[0].span.to(pair[1].span);
                     let message = format!("this sets both `{x}` and `{y}` to `{y}`");
                     let help = format!("to swap them, write `{x}, {y} = {y}, {x};`");

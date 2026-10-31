@@ -227,7 +227,7 @@ pub(crate) fn pure(e: &Expr) -> bool {
 
 /// `a` and `b` are the same pure expression, written the same way.
 pub(crate) fn same_pure(cx: &Cx, a: &Expr, b: &Expr) -> bool {
-    pure(a) && pure(b) && cx.same_tokens(a.span, b.span)
+    pure(a) && pure(b) && cx.same_tokens(a, b)
 }
 
 /// An integer literal, possibly negated: its value.

@@ -63,7 +63,7 @@ impl Compiler {
                         let expr = ast::Expr {
                             kind: ast::ExprKind::Ident(name.name),
                             span: name.span,
-                            parenthesized: false,
+                            parens: None,
                         };
                         self.ide_note_expr(&expr, &place);
                     }
@@ -78,7 +78,7 @@ impl Compiler {
                     let target = ast::Expr {
                         kind: ast::ExprKind::Ident(name.name),
                         span: name.span,
-                        parenthesized: false,
+                        parens: None,
                     };
                     return Err(self.not_assignable(scope, &target, &place));
                 };
@@ -92,7 +92,7 @@ impl Compiler {
                     _ => ast::Expr {
                         kind: ast::ExprKind::Ident(name.name),
                         span: name.span,
-                        parenthesized: false,
+                        parens: None,
                     },
                 };
                 self.ide_note_assign(scope, &[written], span);

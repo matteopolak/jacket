@@ -107,7 +107,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 let callee = match &o.call.kind {
                     E::Call {
                         callee, ..
-                    } => cx.whole_src(callee.span).trim(),
+                    } => cx.whole_src(callee).trim(),
                     _ => "",
                 };
                 out.push(finding(

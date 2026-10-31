@@ -63,13 +63,12 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     match &e.kind {
                         E::Index(base, index)
                             if matches!(index.kind, E::Ident(v) if v == var)
-                                && cx.same_tokens(base.span, arr.span) =>
+                                && cx.same_tokens(base, arr) =>
                         {
                             indexed.get_or_insert(e.span);
                         }
                         E::Member(base, member)
-                            if member.name.as_str() == "count"
-                                && cx.same_tokens(base.span, arr.span) =>
+                            if member.name.as_str() == "count" && cx.same_tokens(base, arr) =>
                         {
                             guarded = true;
                         }
@@ -84,7 +83,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             if guarded {
                 return true;
             }
-            let (_, end) = cx.whole(hi.span);
+            let (_, end) = cx.whole(hi);
             let mut found = finding(
                 hi.span,
                 format!(

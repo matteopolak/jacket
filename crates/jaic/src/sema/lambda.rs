@@ -33,7 +33,7 @@ pub fn lambda_lit(header: &ast::ProcHeader, body: &ast::Expr) -> Rc<ast::ProcLit
                     baked: false,
                 },
                 span: p.span,
-                parenthesized: false,
+                parens: None,
             });
         }
     }

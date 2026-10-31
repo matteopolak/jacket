@@ -66,18 +66,16 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 } else {
                     (inner_literal, outer_literal)
                 };
-                let (lo_text, hi_text) = (
-                    cx.whole_src(lo_expr.span).trim(),
-                    cx.whole_src(hi_expr.span).trim(),
-                );
-                let value = cx.whole_src(value.span).trim();
+                let (lo_text, hi_text) =
+                    (cx.whole_src(lo_expr).trim(), cx.whole_src(hi_expr).trim());
+                let value = cx.whole_src(value).trim();
                 out.push(suggesting(
                     e.span,
                     format!(
                         "this is always `{}`: the bounds are swapped",
                         cx.whole_src(match literal(x) {
-                            Some(_) => x.span,
-                            None => y.span,
+                            Some(_) => x,
+                            None => y,
                         })
                         .trim()
                     ),

@@ -124,7 +124,7 @@ fn examine(cx: &Cx, value: &Expr, kept: usize, after: Option<usize>, out: &mut V
     if !lists.iter().all(drops_bool) {
         return;
     }
-    let name = cx.whole_src(callee.span).trim();
+    let name = cx.whole_src(callee).trim();
     let message = format!(
         "`{name}` returns {} values but this keeps {kept}; the next value is a `bool`, which usually says whether the call worked",
         lists[0].len()

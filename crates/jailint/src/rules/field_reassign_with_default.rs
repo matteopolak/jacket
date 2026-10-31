@@ -114,7 +114,7 @@ fn examine(cx: &Cx, list: &[Stmt], at: usize, s: &Stmt) -> Option<Finding> {
     let shown = name.name.as_str();
     let literal = fields
         .iter()
-        .map(|(f, v)| format!("{f} = {}", cx.whole_src(v.span).trim()))
+        .map(|(f, v)| format!("{f} = {}", cx.whole_src(*v).trim()))
         .collect::<Vec<_>>()
         .join(", ");
     let replacement = format!("{shown} := {}.{{ {literal} }};", cx.src(ty.span).trim());

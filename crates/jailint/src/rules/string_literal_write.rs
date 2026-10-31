@@ -16,7 +16,6 @@ use crate::{Edit, Finding};
 use jaic::ast::walk::{Node, walk_node};
 use jaic::ast::{Expr, ExprKind as E, Stmt, StmtKind as S, UnOp};
 use jaic::intern::Sym;
-use jaic::source::Span;
 
 /// The rule's name, group and one-line summary, and its check.
 pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
@@ -33,14 +32,14 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         }
         statement_lists(&p.body.stmts, &mut |list: &[Stmt]| {
             // Locals in this list that still hold a literal.
-            let mut literals: Vec<(Sym, Span)> = Vec::new();
+            let mut literals: Vec<(Sym, &Expr)> = Vec::new();
             for s in list {
                 if let S::Assign {
                     lhs, ..
                 } = &s.kind
                 {
                     for l in lhs {
-                        let shown = cx.whole_src(l.span).trim();
+                        let shown = cx.whole_src(l).trim();
                         if let Some((name, literal)) = written_local(l)
                             .and_then(|n| literals.iter().find(|(held, _)| *held == n).copied())
                         {
@@ -78,7 +77,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         .as_ref()
                         .is_none_or(|t| matches!(t.kind, E::Ident(n) if n.as_str() == "string"))
                 {
-                    literals.push((name.name, value.span));
+                    literals.push((name.name, value));
                 }
             }
         });

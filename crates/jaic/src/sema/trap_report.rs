@@ -297,12 +297,7 @@ impl Compiler {
     fn assert_condition(&self, path: &str, line: u32, col: u32) -> Option<String> {
         let file = self.src.file_by_path(path)?;
         let span = *self.pr.first_arguments.get(&(file.0, line, col))?;
-        let tokens = crate::lexer::lex(file, &self.src.sources.get(file).text).ok()?;
-        let text = self
-            .src
-            .sources
-            .snippet(crate::lexer::balanced(&tokens, span))
-            .trim();
+        let text = self.src.sources.snippet(span).trim();
         (!text.is_empty() && !text.contains('\n')).then(|| text.to_string())
     }
 

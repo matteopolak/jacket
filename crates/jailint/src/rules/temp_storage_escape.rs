@@ -135,8 +135,8 @@ fn report(cx: &Cx, call: &Expr, how: Escape) -> Finding {
     let name = match &call.kind {
         E::Call {
             callee, ..
-        } => cx.whole_src(callee.span).trim(),
-        _ => cx.whole_src(call.span).trim(),
+        } => cx.whole_src(callee).trim(),
+        _ => cx.whole_src(call).trim(),
     };
     let (message, help) = match how {
         Escape::Returned => (

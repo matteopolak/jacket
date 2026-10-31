@@ -128,7 +128,6 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
     if loop_vars.is_empty() {
         return None;
     }
-    let arr_span = arr.span;
     let (root_name, root_span) = root_ident(arr)?;
     let root_entities = cx.entities(root_span).to_vec();
     let mut uses = Uses {
@@ -185,7 +184,7 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
                 })) = chain.last()
                     && idx.span == e.span
                     && *name != var
-                    && cx.same_tokens(base.span, arr_span)
+                    && cx.same_tokens(base, arr)
                 {
                     // `ms[i] - ms[j]`: walking the same array by two indices (pairs) reads
                     // best with both.
@@ -209,7 +208,7 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
                         bail = true;
                         return false;
                     }
-                    if let Some((span, how, written)) = element_access(cx, e, chain, arr_span) {
+                    if let Some((span, how, written)) = element_access(cx, e, chain, arr) {
                         // `for c: 0..grid[r].count - 1`: walking a grid by row and
                         // column reads best with both indices.
                         let in_inner_range = chain.iter().any(|a| {
@@ -254,7 +253,7 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
                     let same = ents.is_empty()
                         || root_entities.is_empty()
                         || ents.iter().any(|x| root_entities.contains(x));
-                    if same && !part_of_element(cx, e, chain, arr_span, var) {
+                    if same && !part_of_element(cx, e, chain, arr, var) {
                         match array_use(e, chain, arr) {
                             ArrayUse::Read => {}
                             ArrayUse::MayWriteElements => uses.by_pointer = true,
@@ -271,7 +270,7 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
     }
     let arr_src = cx.src(arr.span).trim();
     // The bound may be parenthesized: the header edit takes the parentheses along.
-    let (_, hi_end) = cx.whole(hi.span);
+    let (_, hi_end) = cx.whole(hi);
     let header_start = f.it.map_or(lo.span.start, |i| i.span.start) as usize;
     let header = format!(
         "{}{arr_src}",
@@ -355,13 +354,13 @@ fn element_access(
     cx: &Cx,
     e: &Expr,
     chain: &[Node<'_>],
-    arr: jaic::source::Span,
+    arr: &Expr,
 ) -> Option<(jaic::source::Span, Replace, bool)> {
     let index = chain.last()?.expr()?;
     let E::Index(base, idx) = &index.kind else {
         return None;
     };
-    if idx.span != e.span || !cx.same_tokens(base.span, arr) {
+    if idx.span != e.span || !cx.same_tokens(base, arr) {
         return None;
     }
     let up = &chain[..chain.len() - 1];
@@ -382,18 +381,12 @@ fn element_access(
 }
 
 /// The array root `e` sits inside the base of an `arr[var]` access (rewritten anyway).
-fn part_of_element(
-    cx: &Cx,
-    e: &Expr,
-    chain: &[Node<'_>],
-    arr: jaic::source::Span,
-    var: Sym,
-) -> bool {
+fn part_of_element(cx: &Cx, e: &Expr, chain: &[Node<'_>], arr: &Expr, var: Sym) -> bool {
     chain.iter().rev().any(|n| {
         matches!(n, Node::Expr(Expr { kind: E::Index(base, idx), .. })
             if base.span.start <= e.span.start && e.span.end <= base.span.end
                 && matches!(idx.kind, E::Ident(v) if v == var)
-                && cx.same_tokens(base.span, arr))
+                && cx.same_tokens(base, arr))
     })
 }
 

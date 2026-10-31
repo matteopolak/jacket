@@ -123,7 +123,7 @@ fn dangling(cx: &Cx, list: &[Stmt], array: &Expr, name: Sym, out: &mut Vec<Findi
                 format!(
                     "`{}` points into `{}`, which `{procedure}` may have moved by now",
                     name.as_str(),
-                    cx.whole_src(array.span).trim()
+                    cx.whole_src(array).trim()
                 ),
                 Some(
                     "take the pointer again after the array has grown, or keep the index instead"
@@ -150,10 +150,10 @@ fn growth<'a>(cx: &Cx, s: &'a Stmt, array: &Expr) -> Option<(&'a Expr, String)> 
             } = &e.kind
             && let Some(first) = args.first()
             && let Some(target) = grown_array(&first.value)
-            && cx.same_tokens(target.span, array.span)
+            && cx.same_tokens(target, array)
             && calls_noted(cx, callee, "GrowsArray")
         {
-            found = Some((e, cx.whole_src(callee.span).trim().to_string()));
+            found = Some((e, cx.whole_src(callee).trim().to_string()));
         }
         found.is_none()
     });

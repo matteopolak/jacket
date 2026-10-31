@@ -56,7 +56,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             if !(types.is_integer(ty) || types.is_float(ty)) {
                 return true;
             }
-            let same = |e: &jaic::ast::Expr| cx.same_tokens(target.span, e.span);
+            let same = |e: &jaic::ast::Expr| cx.same_tokens(target, e);
             let commutes = matches!(
                 op,
                 BinOp::Add | BinOp::Mul | BinOp::BitAnd | BinOp::BitOr | BinOp::BitXor
@@ -68,10 +68,10 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             } else {
                 return true;
             };
-            let target_text = cx.whole_src(target.span).trim();
-            let other_text = cx.whole_src(other.span).trim();
+            let target_text = cx.whole_src(target).trim();
+            let other_text = cx.whole_src(other).trim();
             let sym = op_text(*op);
-            let (start, end) = cx.whole(value.span);
+            let (start, end) = cx.whole(value);
             out.push(suggesting(
                 s.span,
                 format!("`{target_text} {sym}= {target_text} {sym} ...` applies `{sym}` to `{target_text}` twice"),

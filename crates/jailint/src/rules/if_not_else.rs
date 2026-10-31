@@ -17,6 +17,7 @@ use super::needless_bool::condition;
 use super::{finding, suggesting};
 use crate::syntax::Cx;
 use crate::{Edit, Finding};
+use jaic::ast::walk::Node;
 use jaic::ast::{BinOp, Expr, ExprKind as E, Stmt, StmtKind as S, UnOp};
 use jaic::source::Span;
 
@@ -39,7 +40,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 && !matches!(other.kind, S::If { .. })
                 && let Some(positive) = positive(cx, cond)
             {
-                let header = Span::new(cx.file, s.span.start as usize, cx.whole(cond.span).1);
+                let header = Span::new(cx.file, s.span.start as usize, cx.whole(cond).1);
                 let fixable = matches!(then_branch.kind, S::Block(_))
                     && matches!(other.kind, S::Block(_))
                     && !cx.has_comment_between(cond.span.end as usize, s.span.end as usize);
@@ -60,13 +61,13 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             } = &e.kind
                 && let Some(positive) = positive(cx, cond)
             {
-                let header = Span::new(cx.file, e.span.start as usize, cx.whole(cond.span).1);
+                let header = Span::new(cx.file, e.span.start as usize, cx.whole(cond).1);
                 let fixable = !cx.has_comment_between(e.span.start as usize, e.span.end as usize);
                 let edits = |a: &Expr, b: &Expr| {
                     vec![
-                        replace(cx, cond.span, &positive),
-                        replace(cx, a.span, cx.whole_src(b.span).trim()),
-                        replace(cx, b.span, cx.whole_src(a.span).trim()),
+                        replace(cx, cond, &positive),
+                        replace(cx, a, cx.whole_src(b).trim()),
+                        replace(cx, b, cx.whole_src(a).trim()),
                     ]
                 };
                 out.push(report(cx, header, &positive, fixable.then(|| edits(a, b))));
@@ -84,8 +85,8 @@ fn report(cx: &Cx, header: Span, positive: &str, edits: Option<Vec<Edit>>) -> Fi
     }
 }
 
-fn replace(cx: &Cx, span: Span, text: &str) -> Edit {
-    let (start, end) = cx.whole(span);
+fn replace<'n>(cx: &Cx, node: impl Into<Node<'n>>, text: &str) -> Edit {
+    let (start, end) = cx.whole(node);
     Edit {
         start,
         end,
@@ -102,7 +103,7 @@ fn swap(cx: &Cx, cond: &Expr, a: &Stmt, b: &Stmt, positive: &str) -> Vec<Edit> {
         text,
     };
     vec![
-        replace(cx, cond.span, positive),
+        replace(cx, cond, positive),
         edit(a, text(b)),
         edit(b, text(a)),
     ]
@@ -113,8 +114,8 @@ fn swap(cx: &Cx, cond: &Expr, a: &Stmt, b: &Stmt, positive: &str) -> Vec<Edit> {
 fn positive(cx: &Cx, cond: &Expr) -> Option<String> {
     match &cond.kind {
         E::Unary(UnOp::Not, inner) => {
-            let text = cx.whole_src(inner.span).trim();
-            Some(if inner.parenthesized {
+            let text = cx.whole_src(inner).trim();
+            Some(if inner.parenthesized() {
                 text[1..text.len() - 1].trim().to_string()
             } else {
                 text.to_string()

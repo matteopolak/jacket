@@ -62,19 +62,19 @@ fn literal(e: &Expr) -> Option<bool> {
 /// comparison of built-in types is written as the opposite comparison (`!(a < b)` is `a >= b`);
 /// floats keep the `!`, since NaN fails both.
 pub(super) fn condition(cx: &Cx, cond: &Expr, negate: bool, inside: bool) -> String {
-    let text = cx.whole_src(cond.span).trim();
+    let text = cx.whole_src(cond).trim();
     if negate
         && let E::Binary(op, a, b) = &cond.kind
         && let Some(opposite) = opposite(*op)
-        && !cond.parenthesized
+        && !cond.parenthesized()
         && cx.ty(a).is_some_and(|t| builtin_compare(cx, t, *op))
         && cx.ty(b).is_some_and(|t| builtin_compare(cx, t, *op))
     {
         let flipped = format!(
             "{} {} {}",
-            cx.whole_src(a.span).trim(),
+            cx.whole_src(a).trim(),
             op_text(opposite),
-            cx.whole_src(b.span).trim()
+            cx.whole_src(b).trim()
         );
         return if inside {
             format!("({flipped})")
@@ -82,7 +82,7 @@ pub(super) fn condition(cx: &Cx, cond: &Expr, negate: bool, inside: bool) -> Str
             flipped
         };
     }
-    let grouped = is_atom(cond) || cond.parenthesized;
+    let grouped = is_atom(cond) || cond.parenthesized();
     match (negate, grouped) {
         (false, true) => text.to_string(),
         (false, false) if inside => format!("({text})"),
@@ -147,7 +147,7 @@ fn ifx(cx: &Cx, e: &Expr, chain: &[Node<'_>], out: &mut Vec<Finding>) {
         e.span,
         "this `ifx` turns a condition into the same `bool`".into(),
         format!("write `{replacement}`"),
-        cx.whole(e.span),
+        cx.whole(e),
         replacement,
         true,
     ));
@@ -234,12 +234,12 @@ fn branches(cx: &Cx, s: &Stmt, chain: &[Node<'_>], out: &mut Vec<Finding>) {
     }
     if let (Some((x, a)), Some((y, b))) = (assigned(then_branch), assigned(other))
         && a != b
-        && cx.same_tokens(x.span, y.span)
+        && cx.same_tokens(x, y)
         && is_bool(cx, x)
     {
         let replacement = format!(
             "{} = {};",
-            cx.whole_src(x.span).trim(),
+            cx.whole_src(x).trim(),
             condition(cx, cond, !a, false)
         );
         out.push(replacing(

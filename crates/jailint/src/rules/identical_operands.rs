@@ -62,7 +62,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             if !scalar || cx.constant(a) || !same_pure(cx, a, b) {
                 return true;
             }
-            let side = cx.whole_src(a.span).trim();
+            let side = cx.whole_src(a).trim();
             out.push(finding(
                 e.span,
                 format!("both sides of `{}` are `{side}`", op_text(*op)),

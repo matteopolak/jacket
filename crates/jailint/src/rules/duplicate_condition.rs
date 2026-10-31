@@ -59,7 +59,7 @@ fn chain_conditions(cx: &Cx, head: &jaic::ast::Stmt, out: &mut Vec<Finding>) {
         if earlier.iter().any(|e| same_pure(cx, e, cond)) {
             let message = format!(
                 "`{}` was already tested earlier in this chain",
-                cx.whole_src(cond.span).trim()
+                cx.whole_src(cond).trim()
             );
             let help = "this branch can never run: was another condition meant?".to_string();
             let cut = before.map(|b| {

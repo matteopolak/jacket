@@ -1,5 +1,4 @@
 //! Text and extent helpers for building refactoring edits.
-use super::Sp;
 use jaic::ast::Stmt;
 use jaic::source::line_start;
 
@@ -63,49 +62,6 @@ pub(super) fn fresh(text: &str, base: &str) -> String {
         .unwrap_or_else(|| base.into())
 }
 
-/// Parentheses and brackets of `text` outside string literals: the count of `(` minus `)`.
-fn paren_balance(text: &str) -> i32 {
-    let mut balance = 0;
-    let mut in_string = false;
-    let mut chars = text.chars();
-    while let Some(c) = chars.next() {
-        match c {
-            '\\' if in_string => {
-                chars.next();
-            }
-            '"' => in_string = !in_string,
-            '(' if !in_string => balance += 1,
-            ')' if !in_string => balance -= 1,
-            _ => {}
-        }
-    }
-    balance
-}
-
-/// The source extent of an expression. The parser's span can leave out parentheses around the
-/// expression's first or last operand, so they are taken back in.
-pub(crate) fn extent(text: &str, span: Sp) -> (usize, usize) {
-    let (mut a, mut b) = (span.start as usize, span.end as usize);
-    if a > b || b > text.len() || !text.is_char_boundary(a) || !text.is_char_boundary(b) {
-        return (a, b);
-    }
-    let balance = paren_balance(&text[a..b]);
-    for _ in 0..balance.unsigned_abs() {
-        if balance < 0 {
-            let before = text[..a].trim_end();
-            if before.ends_with('(') {
-                a = before.len() - 1;
-            }
-        } else {
-            let after = text[b..].trim_start();
-            if after.starts_with(')') {
-                b = text.len() - after.len() + 1;
-            }
-        }
-    }
-    (a, b)
-}
-
 /// A statement's extent, through its `;`.
 pub(crate) fn stmt_extent(text: &str, s: &Stmt) -> (usize, usize) {
     let (a, mut b) = (s.span.start as usize, s.span.end as usize);
@@ -116,30 +72,4 @@ pub(crate) fn stmt_extent(text: &str, s: &Stmt) -> (usize, usize) {
         }
     }
     (a, b)
-}
-
-/// `selection` without one pair of outer parentheses that enclose all of it.
-pub(super) fn unparenthesized(text: &str, (a, b): (usize, usize)) -> Option<(usize, usize)> {
-    let slice = text.get(a..b)?;
-    if slice.starts_with('(')
-        && slice.ends_with(')')
-        && paren_balance(&slice[1..slice.len() - 1]) == 0
-    {
-        // `(a) + (b)` has balanced insides too; the first `(` must close at the very end.
-        let mut depth = 0;
-        for (i, c) in slice.char_indices() {
-            match c {
-                '(' => depth += 1,
-                ')' => {
-                    depth -= 1;
-                    if depth == 0 && i + 1 != slice.len() {
-                        return None;
-                    }
-                }
-                _ => {}
-            }
-        }
-        return Some(trim(text, a + 1, b - 1));
-    }
-    None
 }

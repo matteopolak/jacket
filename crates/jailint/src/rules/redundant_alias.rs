@@ -198,7 +198,7 @@ fn copy(cx: &Cx, a: Candidate, b: &Decl, out: &mut Vec<Finding>) {
         return;
     }
     let bname = &b.names[0];
-    let (init_start, init_end) = cx.whole(a.init.span);
+    let (init_start, init_end) = cx.whole(a.init);
     // `b` named in the initializer would mean the outer `b` there, and the new one after.
     if cx
         .name_tokens(bname.name, init_start as u32, init_end as u32)
@@ -218,7 +218,7 @@ fn copy(cx: &Cx, a: Candidate, b: &Decl, out: &mut Vec<Finding>) {
         return;
     }
     let aname = &a.decl.names[0];
-    let (_, use_end) = cx.whole(v.span);
+    let (_, use_end) = cx.whole(v);
     push(
         aname.span,
         format!(
@@ -274,8 +274,8 @@ fn returned(
         }
     }
     let aname = &a.decl.names[0];
-    let (init_start, init_end) = cx.whole(a.init.span);
-    let (_, use_end) = cx.whole(v.span);
+    let (init_start, init_end) = cx.whole(a.init);
+    let (_, use_end) = cx.whole(v);
     push(
         aname.span,
         format!("`{}` is returned right after it is declared", aname.name),

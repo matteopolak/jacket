@@ -45,8 +45,8 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             }
             let negate = (*op == BinOp::Eq) != lit;
             // Spans leave grouping parentheses out: take them in on both sides.
-            let text = cx.whole_src(other.span).trim();
-            let grouped = other.parenthesized;
+            let text = cx.whole_src(other).trim();
+            let grouped = other.parenthesized();
             // Whether the replacement stands alone (a condition, a statement's value) or sits
             // inside a larger expression.
             let alone = matches!(chain.last(), Some(Node::Stmt(_)) | None);
@@ -57,8 +57,8 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 (true, true) => format!("!{text}"),
                 (true, false) => format!("!({text})"),
             };
-            let (start, end) = cx.whole(e.span);
-            let written = cx.whole_src(e.span).trim();
+            let (start, end) = cx.whole(e);
+            let written = cx.whole_src(e).trim();
             let help = format!("write `{replacement}`");
             out.push(Finding {
                 start: e.span.start as usize,

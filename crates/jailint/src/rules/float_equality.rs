@@ -37,7 +37,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let float =
                 |x| cx.ty(x).is_some_and(|t| cx.compiler.ty.types.is_float(t)) && !cx.constant(x);
             // `x != x` is the NaN test.
-            let same = cx.same_tokens(a.span, b.span);
+            let same = cx.same_tokens(a, b);
             if float(a) && float(b) && !same {
                 out.push(Finding {
                     start: e.span.start as usize,

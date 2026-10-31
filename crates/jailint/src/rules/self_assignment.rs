@@ -46,7 +46,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 && same_pure(cx, l, r)
                 && same_place(cx, p.header.span.start, s.span.start, l, r)
             {
-                let target = cx.whole_src(l.span).trim();
+                let target = cx.whole_src(l).trim();
                 let mut found = finding(
                     s.span,
                     format!("`{target}` is assigned to itself"),

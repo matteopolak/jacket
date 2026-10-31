@@ -61,8 +61,8 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             if !returns || by_pointer {
                 return true;
             }
-            let name = cx.whole_src(callee.span).trim();
-            let call = cx.whole_src(e.span).trim();
+            let name = cx.whole_src(callee).trim();
+            let call = cx.whole_src(e).trim();
             let mut edits = Vec::new();
             let help = match args.first() {
                 Some(first)
@@ -71,7 +71,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         && first.name.is_none()
                         && cx.ty(&first.value) == cx.ty(e) =>
                 {
-                    let target = cx.whole_src(first.value.span).trim();
+                    let target = cx.whole_src(&first.value).trim();
                     edits.push(Edit {
                         start: e.span.start as usize,
                         end: e.span.start as usize,

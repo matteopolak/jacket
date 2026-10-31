@@ -151,7 +151,7 @@ impl Parser<'_> {
             Some(decided) => Expr {
                 kind: ExprKind::Bool(decided),
                 span: value.span,
-                parenthesized: false,
+                parens: None,
             },
             None => value,
         };

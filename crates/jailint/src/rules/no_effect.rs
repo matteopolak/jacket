@@ -42,11 +42,11 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 E::Binary(BinOp::Eq, l, r) => (
                     format!(
                         "to assign, write `{} = {};`",
-                        cx.whole_src(l.span).trim(),
-                        cx.whole_src(r.span).trim()
+                        cx.whole_src(l).trim(),
+                        cx.whole_src(r).trim()
                     ),
                     "assign instead of comparing",
-                    vec![edit(cx.whole(l.span).1, cx.whole(r.span).0, " = ".into())],
+                    vec![edit(cx.whole(l).1, cx.whole(r).0, " = ".into())],
                 ),
                 E::Binary(
                     op @ (BinOp::Add
@@ -61,15 +61,15 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 ) => (
                     format!(
                         "to update `{}`, write `{} {}= {};`",
-                        cx.whole_src(l.span).trim(),
-                        cx.whole_src(l.span).trim(),
+                        cx.whole_src(l).trim(),
+                        cx.whole_src(l).trim(),
                         op_text(*op),
-                        cx.whole_src(r.span).trim()
+                        cx.whole_src(r).trim()
                     ),
                     "update the variable instead of computing a value",
                     vec![edit(
-                        cx.whole(l.span).1,
-                        cx.whole(r.span).0,
+                        cx.whole(l).1,
+                        cx.whole(r).0,
                         format!(" {}= ", op_text(*op)),
                     )],
                 ),
@@ -80,7 +80,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         }) =>
                 {
                     (
-                        format!("to call it, write `{}();`", cx.whole_src(e.span).trim()),
+                        format!("to call it, write `{}();`", cx.whole_src(e).trim()),
                         "call it",
                         vec![edit(b, b, "()".into())],
                     )

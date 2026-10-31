@@ -45,12 +45,12 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 return true;
             }
             let (start, end) = (
-                cx.whole(a.span).0.min(cx.whole(b.span).0),
-                cx.whole(b.span).1.max(cx.whole(a.span).1),
+                cx.whole(a).0.min(cx.whole(b).0),
+                cx.whole(b).1.max(cx.whole(a).1),
             );
             let written = cx.text.get(start..end).unwrap_or("");
-            let value = cx.whole_src(other.span).trim();
-            let negated = if is_atom(other) || other.parenthesized {
+            let value = cx.whole_src(other).trim();
+            let negated = if is_atom(other) || other.parenthesized() {
                 format!("-{value}")
             } else {
                 format!("-({value})")

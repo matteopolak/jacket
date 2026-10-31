@@ -27,6 +27,60 @@ impl<'a> Node<'a> {
     }
 }
 
+impl<'a> From<&'a Expr> for Node<'a> {
+    fn from(e: &'a Expr) -> Self {
+        Node::Expr(e)
+    }
+}
+
+impl<'a> From<&'a Box<Expr>> for Node<'a> {
+    fn from(e: &'a Box<Expr>) -> Self {
+        Node::Expr(e)
+    }
+}
+
+impl<'a> From<&'a Box<Stmt>> for Node<'a> {
+    fn from(s: &'a Box<Stmt>) -> Self {
+        Node::Stmt(s)
+    }
+}
+
+impl<'a> From<&'a Stmt> for Node<'a> {
+    fn from(s: &'a Stmt) -> Self {
+        Node::Stmt(s)
+    }
+}
+
+/// The full source range of a node: its span with the parentheses written around it, and the
+/// parentheses around its first and last children that the span leaves out (`(a + b) * c`
+/// spans `a + b) * c`).
+pub fn extent(node: Node<'_>) -> crate::source::Span {
+    let mut out = body_extent(node);
+    if let Node::Expr(e) = node {
+        let outer = e.outer_span();
+        out.start = out.start.min(outer.start);
+        out.end = out.end.max(outer.end);
+    }
+    out
+}
+
+/// [`extent`] without the parentheses written around the node itself.
+pub fn body_extent(node: Node<'_>) -> crate::source::Span {
+    let mut out = match node {
+        Node::Expr(e) => e.span,
+        Node::Stmt(s) => s.span,
+    };
+    let kids = children(node);
+    for kid in [kids.first(), kids.last()].into_iter().flatten() {
+        let inner = extent(*kid);
+        if inner.file == out.file {
+            out.start = out.start.min(inner.start);
+            out.end = out.end.max(inner.end);
+        }
+    }
+    out
+}
+
 /// Visit every statement and expression under `stmts` (parents first) with the chain of
 /// its ancestors (outermost first). `visit` returns whether to look inside the node. Nested
 /// procedure bodies, struct and enum bodies are not entered.

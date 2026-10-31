@@ -1,5 +1,5 @@
 //! Noting calls, macros and keyword calls for editors.
-use super::text::{dedent, substitute};
+use super::text::{Argument, dedent, substitute};
 use super::{IdeArg, IdeCall, IdeExpansionKind, MAX_CALLS};
 use crate::ast;
 use crate::fxhash::HashMap;
@@ -28,48 +28,67 @@ impl Compiler {
             return;
         }
         let header = self.proc(proc).lit.header.clone();
-        let mut subst: HashMap<Sym, (String, bool, bool)> = HashMap::default();
+        let mut subst: HashMap<Sym, Argument> = HashMap::default();
         for (i, param) in header.params.iter().enumerate() {
             let Some(name) = param.name else {
                 continue;
             };
             let is_code = self.param_is_code(proc, param);
-            let arg_text = |a: usize| -> String {
+            let arg_text = |a: usize| -> (String, bool) {
                 let arg = &args[a];
                 if let Some(Operand::Const {
                     value: Value::Code(c),
                     ..
                 }) = &arg.op
                 {
-                    return self.ide_code_text(*c);
+                    return (self.ide_code_text(*c), false);
                 }
                 match &arg.expr {
                     Some(ast::Expr {
                         kind: ast::ExprKind::Code(body),
                         ..
                     }) => match &**body {
-                        ast::CodeBody::Expr(e) => self.ide_snippet(e.span).trim().to_string(),
-                        ast::CodeBody::Stmt(s) => self.ide_snippet(s.span).trim().to_string(),
-                        ast::CodeBody::Block(b) => self.ide_snippet(b.span).trim().to_string(),
+                        ast::CodeBody::Expr(e) => {
+                            (self.ide_snippet(e.span).trim().to_string(), e.is_atomic())
+                        }
+                        ast::CodeBody::Stmt(s) => {
+                            (self.ide_snippet(s.span).trim().to_string(), false)
+                        }
+                        ast::CodeBody::Block(b) => {
+                            (self.ide_snippet(b.span).trim().to_string(), false)
+                        }
                     },
-                    Some(e) => self.ide_snippet(e.span).trim().to_string(),
-                    None => self.ide_snippet(arg.span).trim().to_string(),
+                    Some(e) => (self.ide_snippet(e.span).trim().to_string(), e.is_atomic()),
+                    None => (self.ide_snippet(arg.span).trim().to_string(), false),
                 }
             };
-            let text = match slots.get(i) {
+            let (text, atomic) = match slots.get(i) {
                 Some(Slot::Arg(a)) => arg_text(*a),
-                Some(Slot::Spread(a)) => format!("..{}", arg_text(*a)),
-                Some(Slot::Variadic(list)) => list
-                    .iter()
-                    .map(|&a| arg_text(a))
-                    .collect::<Vec<_>>()
-                    .join(", "),
+                Some(Slot::Spread(a)) => {
+                    let (text, atomic) = arg_text(*a);
+                    (format!("..{text}"), atomic)
+                }
+                Some(Slot::Variadic(list)) => (
+                    list.iter()
+                        .map(|&a| arg_text(a).0)
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                    false,
+                ),
                 Some(Slot::Default) | None => match &param.default {
-                    Some(d) => self.ide_snippet(d.span).trim().to_string(),
+                    Some(d) => (self.ide_snippet(d.span).trim().to_string(), d.is_atomic()),
                     None => continue,
                 },
             };
-            subst.insert(name.name, (text, is_code, param.variadic));
+            subst.insert(
+                name.name,
+                Argument {
+                    text,
+                    code: is_code,
+                    variadic: param.variadic,
+                    atomic,
+                },
+            );
         }
         let source = self.ide_snippet(body.span).trim().to_string();
         let text = match substitute(&source, &subst) {

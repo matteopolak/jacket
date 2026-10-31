@@ -1,6 +1,6 @@
 //! Extract and inline variable.
 use super::exprs::{atomic, changes, contains_range, has_call, hoistable, suggest_name, type_like};
-use super::text::{fresh, indent_at, starts_line, stmt_extent, unparenthesized};
+use super::text::{fresh, indent_at, starts_line, stmt_extent};
 use super::tree::{in_list, plain_statement};
 use super::{Cx, EXTRACT, INLINE};
 use crate::CodeAction;
@@ -17,11 +17,14 @@ impl Cx<'_> {
         if a >= b {
             return;
         }
-        let inner = unparenthesized(self.text, self.sel);
         let Some(((e, extent), parents)) = self.find(false, |n, _| {
             let e = n.expr()?;
             let x = self.ex(e);
-            (x == (a, b) || inner == Some(x)).then_some((e, x))
+            // The selection may take in the parentheses written around the expression.
+            let outer = e.extent();
+            (x == (a, b)
+                || (e.parenthesized() && (outer.start as usize, outer.end as usize) == (a, b)))
+                .then_some((e, x))
         }) else {
             return;
         };

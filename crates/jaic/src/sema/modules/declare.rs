@@ -200,12 +200,12 @@ impl Compiler {
                                     Box::new(ast::Expr {
                                         kind: ast::ExprKind::Ident(name.name),
                                         span,
-                                        parenthesized: false,
+                                        parens: None,
                                     }),
                                     member.name,
                                 ),
                                 span,
-                                parenthesized: false,
+                                parens: None,
                             },
                         );
                         let id = self.add_entity(
@@ -233,7 +233,7 @@ impl Compiler {
                                     value: ast::Expr {
                                         kind: ast::ExprKind::Ident(using_name.unwrap_or(name.name)),
                                         span: name.span,
-                                        parenthesized: false,
+                                        parens: None,
                                     },
                                     filter: ast::UsingFilter::None,
                                 })),

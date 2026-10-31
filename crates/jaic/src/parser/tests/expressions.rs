@@ -461,7 +461,7 @@ fn parentheses_are_recorded_on_the_expression_they_enclose() {
     let ExprKind::Binary(_, a, b) = value("x := (a + b) * c;").kind else {
         panic!()
     };
-    assert!(a.parenthesized && !b.parenthesized);
+    assert!(a.parenthesized() && !b.parenthesized());
     // The parentheses of a call are not a group around an expression.
     let ExprKind::Call {
         args, ..
@@ -469,13 +469,35 @@ fn parentheses_are_recorded_on_the_expression_they_enclose() {
     else {
         panic!()
     };
-    assert!(!args[0].value.parenthesized && args[1].value.parenthesized);
-    assert!(value("x := ((a));").parenthesized);
-    assert!(!value("x := a;").parenthesized);
-    // The span still leaves the parentheses out.
+    assert!(!args[0].value.parenthesized() && args[1].value.parenthesized());
+    assert!(value("x := ((a));").parenthesized());
+    assert!(!value("x := a;").parenthesized());
+    // The span still leaves the parentheses out; `parens` and the extent take them in.
     let src = "x := (a + b);";
     let e = value(src);
     assert_eq!(&src[e.span.start as usize..e.span.end as usize], "a + b");
+    assert!(e.parenthesized());
+    let parens = e.outer_span();
+    assert_eq!(&src[parens.start as usize..parens.end as usize], "(a + b)");
+    let src = "x := ((a)) * c;";
+    let ExprKind::Binary(_, a, _) = value(src).kind else {
+        panic!()
+    };
+    assert!(a.parenthesized());
+    let parens = a.outer_span();
+    assert_eq!(&src[parens.start as usize..parens.end as usize], "((a))");
+    // A node whose span stops inside a parenthesis gets it back from its operands.
+    let src = "x := (a + b) * (c);";
+    let e = value(src);
+    assert_ne!(
+        &src[e.span.start as usize..e.span.end as usize],
+        "(a + b) * (c)"
+    );
+    let whole = e.extent();
+    assert_eq!(
+        &src[whole.start as usize..whole.end as usize],
+        "(a + b) * (c)"
+    );
 }
 
 #[test]
@@ -503,3 +525,13 @@ fn numeric_literals_record_how_they_were_written() {
 }
 
 // -- declarations ---------------------------------------------------------------
+
+#[test]
+fn atomic_expressions_need_no_parentheses() {
+    for src in ["x", "a.b", "f(1, g(2))", "\"text\"", "42", "a.b(c)"] {
+        assert!(value(&format!("x := {src};")).is_atomic(), "{src}");
+    }
+    for src in ["x + 1", "f(1) + g(2)", "-x", "xs[0]", "f(a)(b)", "(a).b"] {
+        assert!(!value(&format!("x := {src};")).is_atomic(), "{src}");
+    }
+}

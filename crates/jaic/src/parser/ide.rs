@@ -354,10 +354,8 @@ mod callee_tests {
             );
             let callee = parse_callee_ide(file, source, open).expect("real parsed callee");
             assert_eq!(callee.span.file, file);
-            // Existing AST spans omit grouping openers. Use the compiler's normal
-            // balancing helper rather than invent a different span convention.
-            let (tokens, _) = crate::lexer::lex_ide(file, source);
-            let span = crate::lexer::balanced(&tokens, callee.span);
+            // Existing AST spans omit grouping openers; the extent takes them in.
+            let span = callee.extent();
             assert_eq!(&source[span.start as usize..span.end as usize], expected);
         }
         for source in [

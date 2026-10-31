@@ -9,7 +9,9 @@
 use crate::intern::Sym;
 use crate::source::Span;
 mod flags;
+mod parens;
 pub mod relocate;
+pub use parens::Parens;
 mod spelling;
 pub mod walk;
 pub use flags::{CallHintFlag, CheckBits, ProcBits, ProcFlags, StructBits, StructFlags};
@@ -141,9 +143,10 @@ impl Int128 {
 pub struct Expr {
     pub kind: ExprKind,
     pub span: Span,
-    /// The expression was written inside parentheses: `(a + b)`. The span leaves them out, so
-    /// a rule about how code was written reads this instead of the source text.
-    pub parenthesized: bool,
+    /// The outermost parentheses written around the expression: `(a + b)`. [`Expr::span`]
+    /// leaves them out, so a rule about how code was written reads this instead of the source
+    /// text.
+    pub parens: Option<Parens>,
 }
 
 impl Expr {
@@ -151,7 +154,7 @@ impl Expr {
         Self {
             kind,
             span,
-            parenthesized: false,
+            parens: None,
         }
     }
 

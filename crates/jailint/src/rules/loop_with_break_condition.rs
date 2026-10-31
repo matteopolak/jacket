@@ -97,8 +97,8 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 /// The test that keeps the loop going, as text: `!c` gives `c`.
 fn negated(cx: &Cx, cond: &Expr) -> String {
     if let E::Unary(UnOp::Not, inner) = &cond.kind {
-        let text = cx.whole_src(inner.span).trim();
-        if inner.parenthesized {
+        let text = cx.whole_src(inner).trim();
+        if inner.parenthesized() {
             return text[1..text.len() - 1].trim().to_string();
         }
         return text.to_string();

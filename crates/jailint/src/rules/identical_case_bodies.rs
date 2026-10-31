@@ -52,7 +52,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let values = |c: &Case| {
                 c.values
                     .iter()
-                    .map(|v| cx.whole_src(v.span).trim())
+                    .map(|v| cx.whole_src(v).trim())
                     .collect::<Vec<_>>()
                     .join(", ")
             };
@@ -61,9 +61,9 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let values_end = later
                 .values
                 .last()
-                .map_or(later.span.start as usize, |v| cx.whole(v.span).1);
+                .map_or(later.span.start as usize, |v| cx.whole(v).1);
             let header = Span::new(cx.file, later.span.start as usize, values_end);
-            let last_earlier = cx.whole(earlier.values[earlier.values.len() - 1].span).1;
+            let last_earlier = cx.whole(&earlier.values[earlier.values.len() - 1]).1;
             let merged = format!("case {first}, {second};");
             let mut finding = suggesting(
                 header,

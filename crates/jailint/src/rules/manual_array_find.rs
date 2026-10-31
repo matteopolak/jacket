@@ -133,8 +133,8 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
             _ => return None,
         }
     }
-    let wanted_src = cx.whole_src(wanted.span).trim();
-    let array_src = cx.whole_src(array.span).trim();
+    let wanted_src = cx.whole_src(wanted).trim();
+    let array_src = cx.whole_src(array).trim();
     let call = format!("array_find({array_src}, {wanted_src})");
     let help = if sets_index {
         format!("`found, index := {call};` returns whether it was found and where")

@@ -55,7 +55,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 return true;
             }
             let name = cx.src(callee.span).trim();
-            let shown = cx.whole_src(value.value.span).trim();
+            let shown = cx.whole_src(&value.value).trim();
             let owned = calls_noted(cx, callee, "Allocates");
             let text = if owned {
                 format!("copy_string({shown})")

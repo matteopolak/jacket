@@ -17,7 +17,7 @@ mod tree;
 mod variables;
 
 use self::text::indent_unit;
-pub(crate) use self::text::{extent, stmt_extent, trim};
+pub(crate) use self::text::{stmt_extent, trim};
 use self::tree::proc_bodies;
 use crate::analysis::Span;
 use crate::session::Session;
@@ -30,7 +30,6 @@ use jaic::intern::Sym;
 use jaic::source::FileId;
 use std::cell::OnceCell;
 
-type Sp = jaic::source::Span;
 
 // The refactoring kinds.
 
@@ -194,7 +193,8 @@ struct Local {
 
 impl<'a> Cx<'a> {
     fn ex(&self, e: &Expr) -> (usize, usize) {
-        extent(self.text, e.span)
+        let span = e.body_extent();
+        (span.start as usize, span.end as usize)
     }
 
     fn slice(&self, (a, b): (usize, usize)) -> &'a str {

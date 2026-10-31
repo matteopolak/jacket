@@ -103,8 +103,8 @@ fn check_operand(
         return;
     }
     let wrapped = wrap(value, bits, signed);
-    let text = cx.whole_src(constant.span).trim();
-    let other_text = cx.whole_src(other.span).trim();
+    let text = cx.whole_src(constant).trim();
+    let other_text = cx.whole_src(other).trim();
     let type_name = types.name(ty);
     let message = format!(
         "constant `{text}` is {value}, which does not fit in `{type_name}`: `{}` uses it as {wrapped}",
@@ -124,7 +124,7 @@ fn check_operand(
         ),
         _ => format!("to mean {wrapped}, write {wrapped}"),
     };
-    let (start, end) = cx.whole(other.span);
+    let (start, end) = cx.whole(other);
     out.push(Finding {
         start: constant.span.start as usize,
         end: constant.span.end as usize,
@@ -146,7 +146,7 @@ fn check_operand(
 
 /// `other` as written, parenthesized unless it is a single term.
 fn operand(cx: &Cx, other: &Expr) -> String {
-    let text = cx.whole_src(other.span).trim();
+    let text = cx.whole_src(other).trim();
     if is_atom(other) {
         text.to_string()
     } else {

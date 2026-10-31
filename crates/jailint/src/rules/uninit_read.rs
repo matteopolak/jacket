@@ -63,8 +63,8 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                             help,
                             "drop the `= ---` so it starts out zeroed",
                             vec![Edit {
-                                start: cx.whole(ty.span).1,
-                                end: cx.whole(value.span).1,
+                                start: cx.whole(ty).1,
+                                end: cx.whole(value).1,
                                 text: String::new(),
                             }],
                         ),

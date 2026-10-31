@@ -56,12 +56,12 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             {
                 return true;
             }
-            let written = cx.whole_src(e.span).trim();
+            let written = cx.whole_src(e).trim();
             let message = format!("`{written}` is always `0`");
             let help = format!(
                 "`{}` with this literal erases `{}`: was another value meant?",
                 op_text(*op),
-                cx.whole_src(erased.span).trim()
+                cx.whole_src(erased).trim()
             );
             out.push(if pure(erased) {
                 suggesting(

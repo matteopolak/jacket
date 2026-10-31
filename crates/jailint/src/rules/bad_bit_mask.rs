@@ -59,7 +59,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 return true;
             }
             let always = *cmp == BinOp::Ne;
-            let shown = cx.whole_src(e.span).trim();
+            let shown = cx.whole_src(e).trim();
             let why = if *op == BinOp::BitAnd {
                 format!("`& {c}` leaves only the bits of {c}, and {k} has others")
             } else {
@@ -69,7 +69,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 e.span,
                 format!("`{shown}` is always `{always}`: {why}"),
                 "compare with the mask itself (`(x & m) == m`) or test for non-zero".into(),
-                cx.whole(e.span),
+                cx.whole(e),
                 always.to_string(),
                 false,
             ));

@@ -51,7 +51,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 BinOp::Gt => BinOp::Le,
                 _ => BinOp::Lt,
             };
-            let (a_src, b_src) = (cx.whole_src(a.span).trim(), cx.whole_src(b.span).trim());
+            let (a_src, b_src) = (cx.whole_src(a).trim(), cx.whole_src(b).trim());
             let bare = matches!(
                 chain.last(),
                 Some(
@@ -68,7 +68,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             } else {
                 format!("({text})")
             };
-            let (start, end) = cx.whole(e.span);
+            let (start, end) = cx.whole(e);
             out.push(suggesting(
                 e.span,
                 format!(

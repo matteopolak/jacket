@@ -43,8 +43,8 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             if !reversed {
                 return true;
             }
-            let (lo_start, lo_end) = cx.whole(lo.span);
-            let (hi_start, hi_end) = cx.whole(hi.span);
+            let (lo_start, lo_end) = cx.whole(lo);
+            let (hi_start, hi_end) = cx.whole(hi);
             let lo_text = &cx.text[lo_start..lo_end];
             let hi_text = &cx.text[hi_start..hi_end];
             // `for i: a..b` → `for < i: b..a`: the `<` goes right after `for`.

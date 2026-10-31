@@ -71,7 +71,7 @@ fn assignments(cx: &Cx, s: &Stmt, out: &mut Vec<Finding>) {
     else {
         return;
     };
-    if !pure(target) || !cx.same_tokens(target.span, target2.span) {
+    if !pure(target) || !cx.same_tokens(target, target2) {
         return;
     }
     let (Some(inverted), Some(ty)) = (zero_one(a, b), cx.ty(target)) else {
@@ -81,7 +81,7 @@ fn assignments(cx: &Cx, s: &Stmt, out: &mut Vec<Finding>) {
     if !types.is_integer(ty) {
         return;
     }
-    let target_text = cx.whole_src(target.span).trim();
+    let target_text = cx.whole_src(target).trim();
     report(
         cx,
         s.span,

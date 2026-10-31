@@ -75,7 +75,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             {
                 continue;
             }
-            let shown = cx.whole_src(arg.span).trim();
+            let shown = cx.whole_src(arg).trim();
             // Deferring the unlock is offered when nothing below unlocks by hand (a second
             // unlock would then run twice) and the call is spelled `lock(...)`.
             let defer = (!list[k + 1..].iter().any(|t| releases(cx, t, arg)))
@@ -130,15 +130,12 @@ fn deferred_unlock(cx: &Cx, s: &Stmt) -> Option<String> {
     else {
         return None;
     };
-    let name = cx.whole_src(callee.span).trim();
+    let name = cx.whole_src(callee).trim();
     let stem = name.strip_suffix("lock")?;
     if stem.ends_with("un") || stem.ends_with(|c: char| c.is_alphanumeric()) {
         return None;
     }
-    let args = cx
-        .text
-        .get(cx.whole(callee.span).1..e.span.end as usize)?
-        .trim();
+    let args = cx.text.get(cx.whole(callee).1..e.span.end as usize)?.trim();
     Some(format!("defer {stem}unlock{args};"))
 }
 
@@ -173,7 +170,7 @@ fn unlocks(cx: &Cx, e: &Expr, arg: &Expr) -> bool {
     calls_noted(cx, callee, "Unlocks")
         && args
             .first()
-            .is_some_and(|a| !a.spread && cx.same_tokens(a.value.span, arg.span))
+            .is_some_and(|a| !a.spread && cx.same_tokens(&a.value, arg))
 }
 
 /// Some statement in `s` (nested blocks included) unlocks `arg`.

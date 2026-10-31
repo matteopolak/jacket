@@ -69,7 +69,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 _ => return true,
             };
             let ty_name = cx.compiler.ty.types.name(ty);
-            let shown = cx.whole_src(value.span).trim();
+            let shown = cx.whole_src(value).trim();
             let why = if signed {
                 format!("`{ty_name}` holds nothing below {min}")
             } else {

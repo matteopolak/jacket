@@ -89,7 +89,7 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
         return None;
     };
     let (dst, src) = (indexed_by(to, var)?, indexed_by(from, var)?);
-    if !is_path(dst) || !is_path(src) || cx.same_tokens(dst.span, src.span) {
+    if !is_path(dst) || !is_path(src) || cx.same_tokens(dst, src) {
         return None;
     }
     // Arrays or pointers on both sides, with the very same element type.
@@ -106,10 +106,10 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
     }
     let count = match &hi.kind {
         E::Binary(BinOp::Sub, c, one) if matches!(one.kind, E::Int(n, ..) if n.get() == 1) => {
-            cx.whole_src(c.span).trim().to_string()
+            cx.whole_src(c).trim().to_string()
         }
         E::Int(n, ..) => (n.get() + 1).to_string(),
-        _ => format!("({} + 1)", cx.whole_src(hi.span).trim()),
+        _ => format!("({} + 1)", cx.whole_src(hi).trim()),
     };
     let (d, s) = (cx.src(dst.span).trim(), cx.src(src.span).trim());
     let data = |name: &str, array: bool| {

@@ -11,7 +11,7 @@ use crate::diagnostics::{Code, Diagnostic};
 /// Whether an unparenthesized shift left sits at the start of `e`'s chain of bitwise operators:
 /// the part of `e` that the cast's operand evaluates first.
 fn starts_with_shift(e: &ast::Expr) -> bool {
-    if e.parenthesized {
+    if e.parenthesized() {
         return false;
     }
     match &e.kind {
