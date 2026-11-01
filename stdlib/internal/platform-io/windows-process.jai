@@ -188,7 +188,10 @@ destroy :: (child: *Child) {
 
 write_input :: (child: *Child, data: [] u8) -> bool, s64 {
     stream := *child.input;
-    if !valid_handle(stream.handle) || stream.eof || operation_state(stream).pending return false, 0;
+    if !valid_handle(stream.handle) return false, 0;
+    // Nothing to send succeeds whatever state the pipe is in, as it does where pipes are file descriptors.
+    if data.count == 0 return true, 0;
+    if stream.eof || operation_state(stream).pending return false, 0;
 
     total: s64;
     while total < data.count {
