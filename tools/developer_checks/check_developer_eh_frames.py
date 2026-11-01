@@ -6,7 +6,7 @@ from developer_checks import build_developer_bindings
 import re
 import shutil
 from developer_checks.check_developer_dwarf_lines import run
-from developer_checks.dev_common import JAIFMT, ROOT, sha256_file, output_dir
+from developer_checks.dev_common import JAIFMT, ROOT, sha256_file, output_dir, X86_LINUX, LINUX_ARCHES, TRIPLES
 
 
 def main():
@@ -21,7 +21,7 @@ def main():
     spec = (ROOT / "docs/specs/stdlib/modules/debug-info.md").read_text().split("#### `Call_Frame_Address_Instruction_Type`", 1)[1].split("#### ", 1)[0]
     opcodes = {name: int(value, 0) for name, value in re.findall(r"^- `([A-Z_0-9]+)\s*::\s*(0x[0-9a-fA-F]+|[0-9]+)`", spec, re.MULTILINE)}
     evidence = {"scope": "original C Linux ELF objects linked by official LLD; relocated eh_frame decoded on host; no ELF program executed", "fixtures": []}
-    for arch, triple in [("x86", "i386-unknown-linux-gnu"), ("x64", "x86_64-unknown-linux-gnu"), ("arm64", "aarch64-unknown-linux-gnu")]:
+    for arch, triple in [X86_LINUX, *LINUX_ARCHES]:
         for optimization in [0, 2]:
             obj = output_dir(f"developer-tools-eh-{arch}-o{optimization}.o")
             run([prefix / "bin/clang", "-target", triple, "-gdwarf-4", "-g", f"-O{optimization}", "-Wall", "-Wextra", "-Werror",
@@ -54,7 +54,7 @@ def main():
                                              "bytes_sha256": sha256_file(base.with_suffix('.bin'))})
     for optimization in [0, 2]:
         base = output_dir(f"developer-tools-eh-absolute-o{optimization}")
-        run([prefix / "bin/clang", "-target", "x86_64-unknown-linux-gnu", "-std=c11", f"-O{optimization}", "-fno-asynchronous-unwind-tables",
+        run([prefix / "bin/clang", "-target", TRIPLES["linux-x64"], "-std=c11", f"-O{optimization}", "-fno-asynchronous-unwind-tables",
              "-fno-unwind-tables", "-Wall", "-Wextra", "-Werror", "-c", ROOT / "stdlib/Debug_Info/tests/driven/eh-absolute-native.c", "-o", base.with_suffix('.o')])
         run([linker, "--entry=original_absolute_frame", "-o", base.with_suffix('.elf'), base.with_suffix('.o')])
         sections = json.loads(run([prefix / "bin/llvm-readobj", "--sections", "--elf-output-style=JSON", base.with_suffix('.elf')]))[0]["Sections"]
@@ -76,7 +76,7 @@ def main():
             kinds = "".join(f"\\x{opcodes[name.upper()]:02x}" for name in names)
             augmentation = common[cie]
             source.append(f'    .{{filename = "{base.with_suffix(".bin").name}", section_address = {section_address}, fde_offset = {offset}, fde_end = {offset + 4 + length}, fde_length = {length}, cie_offset = {cie}, pc_begin = {begin}, pc_range = {end - begin}, instruction_types = "{kinds}", augmentation = "{augmentation}", encoding = 0}},')
-            evidence["fixtures"].append({"target": "x86_64-unknown-linux-gnu", "optimization": optimization, "placement": "absolute/default original C inline-assembly standard records",
+            evidence["fixtures"].append({"target": TRIPLES["linux-x64"], "optimization": optimization, "placement": "absolute/default original C inline-assembly standard records",
                                          "section_address": section_address, "fde_offset": offset, "length": length, "cie_offset": cie, "pc_begin": begin,
                                          "pc_range": end - begin, "instruction_types": names, "augmentation": augmentation, "encoding": 0,
                                          "bytes_sha256": sha256_file(base.with_suffix('.bin'))})

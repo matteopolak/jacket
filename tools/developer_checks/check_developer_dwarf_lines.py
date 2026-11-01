@@ -3,7 +3,7 @@
 import json
 from developer_checks import build_developer_bindings
 import re
-from developer_checks.dev_common import JAIFMT, ROOT, labeled_runner, sha256_file, output_dir
+from developer_checks.dev_common import JAIFMT, ROOT, labeled_runner, sha256_file, output_dir, X86_LINUX, LINUX_ARCHES
 
 
 run = labeled_runner('DWARF fixture command', expected=None, env=None, timeout=60, stdout=True)
@@ -13,7 +13,7 @@ def main():
     prefix = build_developer_bindings.llvm_prefix()
     generated = ["check_native_line_queries :: () {"]
     evidence = {"scope": "original Linux-target DWARF4 objects decoded by host SDK; no target executable run", "fixtures": []}
-    for architecture, target in [("x86", "i386-unknown-linux-gnu"), ("x64", "x86_64-unknown-linux-gnu"), ("arm64", "aarch64-unknown-linux-gnu")]:
+    for architecture, target in [X86_LINUX, *LINUX_ARCHES]:
         for optimization in [0, 2]:
             base = output_dir(f"developer-tools-dwarf-line-{architecture}-o{optimization}")
             run([prefix / "bin/clang", "-target", target, "-gdwarf-4", "-g", f"-O{optimization}",

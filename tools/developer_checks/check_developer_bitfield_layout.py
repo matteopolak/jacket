@@ -3,7 +3,7 @@
 import platform
 import re
 from developer_checks.driven_sources import driven
-from developer_checks.dev_common import JAIC, JAIFMT, ROOT, labeled_runner, output_dir
+from developer_checks.dev_common import JAIC, JAIFMT, ROOT, labeled_runner, output_dir, TRIPLES
 from developer_checks.build_developer_bindings import llvm_prefix
 
 run = labeled_runner("Bitfield layout", stdout=True)
@@ -12,10 +12,10 @@ run = labeled_runner("Bitfield layout", stdout=True)
 # Their records are checked for layout only: the generated #assert lines compare Jai's placement with
 # libclang's for that target, and the C compiler for that target must agree with every number.
 TARGETS = [
-    ("windows", "windows", "x64", "x86_64-pc-windows-msvc"),
-    ("linux", "linux", "x64", "x86_64-unknown-linux-gnu"),
-    ("linux-arm", "linux", "arm64", "aarch64-unknown-linux-gnu"),
-    ("macos-arm", "macos", "arm64", "arm64-apple-macos"),
+    ("windows", "windows", "x64", TRIPLES["windows-x64"]),
+    ("linux", "linux", "x64", TRIPLES["linux-x64"]),
+    ("linux-arm", "linux", "arm64", TRIPLES["linux-arm64"]),
+    ("macos-arm", "macos", "arm64", TRIPLES["macos-arm64"]),
 ]
 
 ASSERTION = re.compile(r'#assert\((size_of|align_of|offset_of)\((\w+)(?:, "(\w+)")?\) == (\d+)\)')

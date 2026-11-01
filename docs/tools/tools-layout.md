@@ -18,7 +18,7 @@ There is no single front-door script: [CI job selection](ci-job-selection.md) re
 | `ci/` | Change detection (`ci_changes.py`), source and dependency-age checks, runner install scripts |
 | `corpus/` | Upstream smoke runs, conformance corpus generators |
 | `dev/` | The workflow behind the Justfile (`dev.py`), format checks, staged-file lists, `linux_x64.sh` ([container](linux-container.md)) |
-| `developer_checks/` | Checks of the Bindings_Generator tooling; `check_developer_tools.py` runs them as one unittest module. A new `check_developer_*.py` needs a `CHECKS` entry |
+| `developer_checks/` | Checks of the Bindings_Generator tooling; `check_developer_tools.py` runs them as one unittest module. A new `check_developer_*.py` needs a `CHECKS` entry. Target triples come from `toolkit.platforms` (re-exported as `dev_common.TRIPLES`); `dev_common.WINDOWS_ARCHES` and `LINUX_ARCHES` are the per-architecture loop lists |
 | `differential/` | `jaic_diff.py`, `jaic_reduce.py`, `jaic_sweep.py`, `jaigen.py` ([testing](testing.md)) |
 | `fuzz/` | The stdlib fuzzer ([stdlib fuzzing](stdlib-fuzzing.md)) |
 | `generators/` | Generators of checked-in files |

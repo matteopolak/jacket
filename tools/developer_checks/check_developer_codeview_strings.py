@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import re
 import struct
-from developer_checks.dev_common import JAIFMT, ROOT, labeled_runner, sha256_bytes, output_dir
+from developer_checks.dev_common import JAIFMT, ROOT, labeled_runner, sha256_bytes, output_dir, WINDOWS_ARCHES
 from developer_checks.build_developer_bindings import llvm_prefix
 
 
@@ -19,7 +19,7 @@ def main():
     allowed_paths = {str(source), str(header)}
     generated = ["check_native_codeview_strings :: () {"]
     evidence = {"scope": "original C Windows x64/arm64 O0/O2 C13 sections and SDK filename/file-ID/checksum oracles; host queries, no target execution or Jai symbol-parser claim", "fixtures": []}
-    for architecture, target in [("x64", "x86_64-pc-windows-msvc"), ("arm64", "aarch64-pc-windows-msvc")]:
+    for architecture, target in WINDOWS_ARCHES:
         for optimization in [0, 2]:
             base = output_dir(f"developer-tools-codeview-strings-{architecture}-o{optimization}")
             run([prefix / "bin/clang", "-target", target, "-std=c11", "-g", "-gcodeview", f"-O{optimization}",

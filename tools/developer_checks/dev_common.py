@@ -4,11 +4,18 @@
 """
 
 from toolkit.hashing import sha256_bytes, sha256_file  # noqa: F401
+from toolkit.platforms import TRIPLES  # noqa: F401
 from toolkit.process import run_expect
 from repo_output import output_dir  # noqa: F401
 from toolkit.repo import ROOT, cargo_binary, cargo_target_dir, jaifmt_path, stdlib_env  # noqa: F401
 
 ENV = stdlib_env()
+
+# The (architecture, target triple) pairs the per-architecture checks loop over. x86 is no platform of
+# ours, so its triple is spelled here once.
+X86_LINUX = ("x86", "i386-unknown-linux-gnu")
+WINDOWS_ARCHES = [("x64", TRIPLES["windows-x64"]), ("arm64", TRIPLES["windows-arm64"])]
+LINUX_ARCHES = [("x64", TRIPLES["linux-x64"]), ("arm64", TRIPLES["linux-arm64"])]
 
 
 def __getattr__(name):

@@ -4,7 +4,7 @@ import json
 import subprocess
 from developer_checks import build_developer_bindings
 from developer_checks.driven_sources import driven
-from developer_checks.dev_common import ENV, JAIFMT, ROOT, sha256_file, cargo_binary, output_dir
+from developer_checks.dev_common import ENV, JAIFMT, ROOT, sha256_file, cargo_binary, output_dir, TRIPLES
 
 
 def run(command, expected="", returncode=0, diagnostic=None):
@@ -55,14 +55,14 @@ def main():
             raise RuntimeError(f"{case} replaced output despite generation failure")
     cpp_header = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-cpp-input.h"
     run([prefix / "bin/clang++", "-x", "c++", "-std=c++17", "-Wall", "-Wextra", "-Werror", "-fsyntax-only", cpp_header])
-    for triple in ["aarch64-apple-macos", "x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]:
+    for triple in ["aarch64-apple-macos", TRIPLES["linux-x64"], TRIPLES["windows-x64"]]:
         rejected.write_text("existing output must survive")
         run([tool, cpp_header, rejected, "native", f"--target={triple}", "-x", "c++", "-std=c++17"],
             returncode=1, diagnostic="duplicate C bridge output name")
         if rejected.read_text() != "existing output must survive":
             raise RuntimeError("Colliding C++ adapter names replaced the destination")
-    for triple, os_name, spelling in [("x86_64-unknown-linux-gnu", "linux", "NativeLong :: s64;"),
-                                      ("x86_64-pc-windows-msvc", "windows", "NativeLong :: s32;")]:
+    for triple, os_name, spelling in [(TRIPLES["linux-x64"], "linux", "NativeLong :: s64;"),
+                                      (TRIPLES["windows-x64"], "windows", "NativeLong :: s32;")]:
         run([tool, header, output, "developer_tools_bindings", f"--target={triple}"])
         if spelling not in output.read_text():
             raise RuntimeError(f"Target-dependent C long ABI was not preserved: {triple}")
@@ -74,8 +74,8 @@ def main():
     macro_header = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-macro-values.h"
     macro_output = output_dir("developer-tools-macros-generated.jai")
     macro_fixture = ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-macros-roundtrip.jai"
-    for triple, os_name, width in [("x86_64-unknown-linux-gnu", "linux", 8),
-                                    ("x86_64-pc-windows-msvc", "windows", 4)]:
+    for triple, os_name, width in [(TRIPLES["linux-x64"], "linux", 8),
+                                    (TRIPLES["windows-x64"], "windows", 4)]:
         run([tool, macro_header, macro_output, "developer_tools_macros", f"--target={triple}"])
         if f"ORIGINAL_LONG_BYTES :: cast(u64) {width};" not in macro_output.read_text():
             raise RuntimeError("Macro sizeof must use the requested target ABI")

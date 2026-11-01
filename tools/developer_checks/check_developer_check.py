@@ -5,7 +5,7 @@ from pathlib import Path
 import platform
 import re
 from developer_checks import build_developer_check
-from developer_checks.dev_common import JAIFMT, ROOT, run_checked, sha256_file, cargo_binary, output_dir
+from developer_checks.dev_common import JAIFMT, ROOT, run_checked, sha256_file, cargo_binary, output_dir, TRIPLES
 from developer_checks.build_developer_bindings import llvm_prefix
 
 
@@ -45,7 +45,7 @@ def prepare():
     debug_staged.write_text("// Test-only debug accounting configuration.\n" + body.replace("DEBUG_BINDINGS :: false;", "DEBUG_BINDINGS :: true;"))
     fields = ["scalars", "zero", "reference", "callback", "array", "record", "method"]
     rows = []
-    for target in ["arm64-apple-macos13", "x86_64-pc-windows-msvc"]:
+    for target in ["arm64-apple-macos13", TRIPLES["windows-x64"]]:
         native = output_dir(f"developer-tools-check-{target}.o")
         run([prefix / "bin/clang++", "-std=c++17", "-target", target, "-O0", "-c",
              ROOT / "stdlib/Bindings_Generator/tests/driven/check-binding-native.cpp", "-o", native])

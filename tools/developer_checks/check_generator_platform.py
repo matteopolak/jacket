@@ -7,7 +7,7 @@ import re
 import subprocess
 from developer_checks import build_generator_platform
 from developer_checks.build_developer_bindings import llvm_prefix
-from developer_checks.dev_common import JAIFMT, ROOT, run_checked, sha256_bytes, sha256_file, stdlib_env, cargo_binary, output_dir
+from developer_checks.dev_common import JAIFMT, ROOT, run_checked, sha256_bytes, sha256_file, stdlib_env, cargo_binary, output_dir, TRIPLES
 
 ENV = stdlib_env(TMPDIR=str(output_dir()))
 PREFIX = llvm_prefix()
@@ -92,8 +92,8 @@ def main():
     evidence = {"scope": "original objects; official SDK symbol tables; host interpreter/native O0/O2",
                 "objects": {}, "sdk": run([PREFIX / "bin/clang", "--version"]).splitlines()[0]}
     variants = [("macho.o", None, 0), ("macho-o2.o", None, 2),
-                ("elf.o", "x86_64-unknown-linux-gnu", 0),
-                ("coff.o", "x86_64-pc-windows-msvc", 0)]
+                ("elf.o", TRIPLES["linux-x64"], 0),
+                ("coff.o", TRIPLES["windows-x64"], 0)]
     for suffix, triple, optimization in variants:
         output = output_dir(f"generator-platform-{suffix}")
         flags = ["-target", triple] if triple else []

@@ -27,7 +27,7 @@ import unittest
 from unittest import mock
 
 from developer_checks import build_developer_bindings
-from developer_checks.dev_common import ENV, JAIC, JAIFMT, ROOT, run_checked, sha256_file, cargo_binary, output_dir
+from developer_checks.dev_common import ENV, JAIC, JAIFMT, ROOT, run_checked, sha256_file, cargo_binary, output_dir, WINDOWS_ARCHES, TRIPLES
 from developer_checks.driven_sources import driven, driven_matching
 
 PART_ENV = "JACKET_TOOLING_PART"
@@ -145,7 +145,7 @@ def prepare_cpp_visitors(prefix):
                         "original_fixture_sha256": {name: sha256_file(driven(name))
                                                    for name in ["bindings-clang-cpp.h", "bindings-cpp-visitors.c", "bindings-clang-cpp.jai"]}}
     (output_dir("developer-tools-cpp-evidence.json")).write_text(json.dumps(visitor_evidence, indent=2) + "\n")
-    for triple in ["x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc", "aarch64-pc-windows-msvc"]:
+    for triple in [TRIPLES["linux-x64"], TRIPLES["windows-x64"], TRIPLES["windows-arm64"]]:
         run([prefix / "bin/clang++", "-target", triple, "-x", "c++", "-std=c++17", "-Wall", "-Wextra", "-Werror",
              "-fsyntax-only", ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-clang-cpp.h"])
     return visitor_oracle
@@ -210,11 +210,11 @@ def inline_setup():
     (framework / "Headers").mkdir(parents=True, exist_ok=True)
     shutil.copyfile(ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-module-header.h", framework / "Headers/OriginalNative.h")
     prepare_clang_time_inputs()
-    run([prefix / "bin/clang", "-target", "x86_64-unknown-linux-gnu", "-g", "-fno-omit-frame-pointer",
+    run([prefix / "bin/clang", "-target", TRIPLES["linux-x64"], "-g", "-fno-omit-frame-pointer",
          "-c", "stdlib/Debug_Info/tests/driven/dwarf-native.c", "-o", output_dir("developer-tools-dwarf.o")])
     run([prefix / "bin/llvm-objcopy", "--dump-section", f".eh_frame={output_dir('developer-tools-eh-frame.bin')}",
          output_dir("developer-tools-dwarf.o")])
-    for architecture, triple in [("x64", "x86_64-pc-windows-msvc"), ("arm64", "aarch64-pc-windows-msvc")]:
+    for architecture, triple in WINDOWS_ARCHES:
         object_path = output_dir(f"developer-tools-codeview-{architecture}.obj")
         data_path = output_dir(f"developer-tools-codeview-{architecture}.bin")
         run([prefix / "bin/clang", "-std=c11", "-Wall", "-Wextra", "-Werror", "-target", triple,

@@ -6,7 +6,7 @@ import platform
 import re
 import shutil
 
-from developer_checks.dev_common import ENV, ROOT, cargo_target_dir, run_checked
+from developer_checks.dev_common import ENV, ROOT, cargo_target_dir, run_checked, TRIPLES
 from repo_output import output_dir
 from developer_checks import build_developer_bindings
 
@@ -51,8 +51,8 @@ def main():
         env["PATH"] = str(prefix / "bin") + os.pathsep + env.get("PATH", "")
 
     # Parse foreign triples on every host; runtime dispatch remains host evidence.
-    for triple in ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu",
-                   "x86_64-pc-windows-msvc", "aarch64-pc-windows-msvc"]:
+    for triple in [TRIPLES["linux-x64"], TRIPLES["linux-arm64"],
+                   TRIPLES["windows-x64"], TRIPLES["windows-arm64"]]:
         fixture = work / f"generate-{triple}.jai"
         text = (source / "bindings-vtable-workflow.jai").read_text()
         target_os = 'WINDOWS' if 'windows' in triple else 'LINUX'

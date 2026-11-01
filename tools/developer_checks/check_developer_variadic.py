@@ -3,7 +3,7 @@
 import platform
 from developer_checks import build_developer_bindings
 from developer_checks.driven_sources import driven
-from developer_checks.dev_common import JAIFMT, ROOT, labeled_runner, cargo_binary, output_dir
+from developer_checks.dev_common import JAIFMT, ROOT, labeled_runner, cargo_binary, output_dir, TRIPLES
 from developer_checks.build_developer_bindings import llvm_prefix
 
 
@@ -43,8 +43,8 @@ def main():
              ROOT / "stdlib/internal/developer-tools/binding-type-emission.jai"]
     run([JAIFMT, "--config", ROOT / "jacket.toml", "--check", *paths])
     run([cargo_binary("jailint"), "-D", "warnings", "-I", output_dir(), *paths])
-    for triple, os_tag, cpu in [("x86_64-pc-windows-msvc", "windows", "x64"),
-                                ("aarch64-unknown-linux-gnu", "linux", "arm64")]:
+    for triple, os_tag, cpu in [(TRIPLES["windows-x64"], "windows", "x64"),
+                                (TRIPLES["linux-arm64"], "linux", "arm64")]:
         run([prefix / "bin/clang", "-std=c11", "-Wall", "-Wextra", "-Werror", "-target", triple,
              "-c", driven("bindings-variadic-native.c"), "-o", output_dir(f"developer-tools-variadic-{triple}.o")])
         run([jaic, consumer, "-check", "-os", os_tag, "-cpu", cpu, "-I", output_dir()])

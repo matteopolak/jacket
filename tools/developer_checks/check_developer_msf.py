@@ -6,7 +6,7 @@ import json
 import re
 import shutil
 import struct
-from developer_checks.dev_common import ROOT, labeled_runner, sha256_bytes, output_dir
+from developer_checks.dev_common import ROOT, labeled_runner, sha256_bytes, output_dir, WINDOWS_ARCHES
 
 
 run = labeled_runner('MSF fixture command', expected=None, env=None, timeout=60, stdout=True)
@@ -20,7 +20,7 @@ def main():
     if not linker:
         raise RuntimeError("MSF native fixtures require official lld-link (DEVELOPER_TOOLS_LLD_LINK)")
     page_evidence = {"format": "https://www.llvm.org/docs/PDB/MsfFile.html", "scope": "original native PDB active FPM SDK byte oracles; host public-map operations, not target execution or public parser initialization", "fixtures": []}
-    for architecture, target in [("x64", "x86_64-pc-windows-msvc"), ("arm64", "aarch64-pc-windows-msvc")]:
+    for architecture, target in WINDOWS_ARCHES:
         base = output_dir(f"developer-tools-msf-{architecture}")
         run([llvm / "clang", "-target", target, "-g", "-gcodeview", "-O0", "-std=c11",
              "-Wall", "-Wextra", "-Werror", "-c", "stdlib/Debug_Info/tests/driven/msf-native.c",

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Public signed-range checks against an original native Clang integer oracle."""
 import platform
-from developer_checks.dev_common import JAIFMT, ROOT, labeled_runner, cargo_binary, output_dir
+from developer_checks.dev_common import JAIFMT, ROOT, labeled_runner, cargo_binary, output_dir, TRIPLES
 from developer_checks.build_developer_bindings import llvm_prefix
 
 
@@ -22,7 +22,7 @@ def main():
         executable = output_dir(f"developer-tools-integer-range-o{optimization}")
         run([jaic, source, f"-O{optimization}", "-exe", executable])
         run([executable], "ok\n")
-    run([prefix / "bin/clang", "-std=c11", "--target=x86_64-pc-windows-msvc", "-Wall", "-Wextra", "-Werror",
+    run([prefix / "bin/clang", "-std=c11", f"--target={TRIPLES['windows-x64']}", "-Wall", "-Wextra", "-Werror",
          "-c", native, "-o", output_dir("developer-tools-integer-range-windows.obj")])
     run([jaic, source, "-check", "-os", "windows", "-cpu", "x64"])
     paths = [source, ROOT / "stdlib/Bindings_Generator/module.jai",

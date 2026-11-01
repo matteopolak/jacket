@@ -4,7 +4,7 @@ import json
 from developer_checks import build_developer_bindings
 import re
 from developer_checks.check_developer_dwarf_lines import run
-from developer_checks.dev_common import JAIFMT, ROOT, sha256_file, output_dir
+from developer_checks.dev_common import JAIFMT, ROOT, sha256_file, output_dir, X86_LINUX, LINUX_ARCHES
 
 
 def main():
@@ -13,7 +13,7 @@ def main():
     spec = (ROOT / "docs/specs/stdlib/modules/debug-info.md").read_text().split("#### `Call_Frame_Address_Instruction_Type`", 1)[1].split("#### ", 1)[0]
     opcodes = {name: int(value, 0) for name, value in re.findall(r"^- `([A-Z_0-9]+)\s*::\s*(0x[0-9a-f]+|[0-9]+)`", spec, re.MULTILINE)}
     evidence = {"scope": "original x86/x64/arm64 Linux-target DWARF32 version4 debug_frame bytes, host decoder; no target executable run", "fixtures": []}
-    for arch, target in [("x64", "x86_64-unknown-linux-gnu"), ("arm64", "aarch64-unknown-linux-gnu"), ("x86", "i386-unknown-linux-gnu")]:
+    for arch, target in [*LINUX_ARCHES, X86_LINUX]:
         for optimization in [0, 2]:
             base = output_dir(f"developer-tools-debug-frame-{arch}-o{optimization}")
             run([prefix / "bin/clang", "-target", target, "-gdwarf-4", "-g", "-fno-asynchronous-unwind-tables", "-fno-unwind-tables",
