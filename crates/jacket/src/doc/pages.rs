@@ -644,12 +644,23 @@ fn overload_section(
 ) -> String {
     let m = &site.modules[mi];
     let from = format!("{}.{}", m.id, item.name);
-    let mut out = format!("<section id=\"o{}\" class=\"overload\">\n", n + 1);
+    // A lone overload is the whole page, so it needs no card of its own.
+    let class = if item.overloads.len() > 1 {
+        " class=\"overload\""
+    } else {
+        ""
+    };
+    let mut out = format!("<section id=\"o{}\"{class}>\n", n + 1);
     out.push_str(&format!(
         "<pre class=\"sig\"><code>{}</code></pre>\n",
         signature_html(site, &item.name, o, mi)
     ));
-    let segs = blocks(site, &o.docs, &from);
+    // The page already shows the item's own docs, which a lone overload often shares.
+    let segs = if o.docs == item.docs {
+        Vec::new()
+    } else {
+        blocks(site, &o.docs, &from)
+    };
     let lead_at = skip_lead.then(|| lead(&segs).map(|(i, _)| i)).flatten();
     for (i, seg) in segs.iter().enumerate() {
         if let Segment::Html(html) = seg
