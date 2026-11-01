@@ -354,6 +354,18 @@ fn failed_assert_reports_the_users_line_not_debug_break() {
             "d.jai:4:13: error[runtime-error]: runtime error: assertion failed: `f(\"a,b\") == 1 && (2 > 1)` is false",
         ],
     );
+    // A condition that starts with a parenthesis keeps it.
+    let output = jaic_on(
+        &dir,
+        "e.jai",
+        "#import \"Basic\";\nmain :: () {\n    flags := 3;\n    assert((flags & 1) == 0);\n}\n",
+        "-interp",
+        &[],
+    );
+    assert_in_order(
+        &stderr(&output),
+        &["assertion failed: `(flags & 1) == 0` is false"],
+    );
     // An assert inside the stdlib: the user's call is the primary location.
     let output = jaic_on(
         &dir,

@@ -1,7 +1,7 @@
 reverse.jai:7:5: error[static-assert]: #assert failed: reverse Xar iteration is unsupported
         for < value: array assert(value >= 0);
         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-$STDLIB/internal/collections/xar.jai:81:5: note: in the expansion of `for_expansion`: `flags & .REVERSE) == 0` is false
+$STDLIB/internal/collections/xar.jai:81:5: note: in the expansion of `for_expansion`: `(flags & .REVERSE) == 0` is false
         #assert (flags & .REVERSE) == 0, "reverse Xar iteration is unsupported";
         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

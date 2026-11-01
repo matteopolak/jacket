@@ -330,7 +330,7 @@ impl Compiler {
                     target.span,
                     format!(
                         "cannot assign into the constant `{}`",
-                        self.src.sources.snippet(base.span).trim()
+                        self.src.sources.snippet(base.extent()).trim()
                     ),
                 );
                 return Err(Box::new(match base.kind {

@@ -405,7 +405,7 @@ impl Compiler {
             Code::MissingReturnValue | Code::MissingReturnValue2
         ) {
             error.help.push(format!(
-                "`{name}` returns from the procedure that calls it, which must return a value; use the `expect` form of the check there"
+                "`{name}` expands to a `return` from the procedure that calls it, and that procedure must return a value"
             ));
         }
         error.notes.insert(0, (error.span, note));

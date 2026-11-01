@@ -411,7 +411,7 @@ impl Compiler {
         span: Span,
         message: String,
     ) -> Diagnostic {
-        let text = self.src.sources.snippet(cond.span).trim();
+        let text = self.src.sources.snippet(cond.extent()).trim();
         let shown = (!text.is_empty() && !text.contains('\n') && text.len() <= 80).then_some(text);
         let literal_false = matches!(cond.kind, ExprKind::Bool(false));
         let mut d = match (message.is_empty(), shown) {

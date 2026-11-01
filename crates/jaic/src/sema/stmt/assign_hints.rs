@@ -20,7 +20,7 @@ impl Compiler {
         target: &ast::Expr,
         place: &Operand,
     ) -> Box<Diagnostic> {
-        let written = self.src.sources.snippet(target.span).trim().to_string();
+        let written = self.src.sources.snippet(target.extent()).trim().to_string();
         let is_constant = matches!(
             place,
             Operand::Const { value, .. } if !matches!(value, Value::Type(_) | Value::Null)
@@ -45,7 +45,7 @@ impl Compiler {
                 callee, ..
             } => format!(
                 "cannot assign to the result of a call to `{}`",
-                self.src.sources.snippet(callee.span).trim()
+                self.src.sources.snippet(callee.extent()).trim()
             ),
             E::Binary(..) | E::Unary(..) => "cannot assign to the result of an operator".into(),
             E::Cast {

@@ -94,7 +94,7 @@ expect_not_null :: (pointer: *$T, loc := #caller_location) -> bool {
 
 // The `require` forms check the same way and, when the check fails, return from the procedure
 // they are written in (which must return nothing). Use them when the rest of the test needs the
-// check to hold.
+// check to hold. In a helper that returns a value, use the `expect` form instead.
 //
 // ```jai
 // items: [..] int;

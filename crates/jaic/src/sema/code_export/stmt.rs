@@ -369,7 +369,7 @@ impl Exporter<'_> {
                 } = &**boxed;
                 let mut rec = self.node(RecordTag::CodeDirectiveRun, node::DIRECTIVE_RUN, span);
                 let text = self.c.as_deref().map_or(String::new(), |c| {
-                    c.src.sources.snippet(cond.span).to_string()
+                    c.src.sources.snippet(cond.extent()).to_string()
                 });
                 let cond = self.expr(cond);
                 let message = self.opt_expr(message.as_ref());

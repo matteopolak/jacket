@@ -417,6 +417,22 @@ fn missing_load_file_says_where_it_looked() {
 }
 
 #[test]
+fn static_assert_shows_a_condition_that_starts_with_a_parenthesis() {
+    let dir = TempDir::new("assert-paren");
+    let output = jaic_on(
+        &dir,
+        "a.jai",
+        "FLAGS :: 3;\n#assert (FLAGS & 1) == 0;\nmain :: () {}\n",
+        "-check",
+        &[],
+    );
+    assert_in_order(
+        &stderr(&output),
+        &["#assert failed: `(FLAGS & 1) == 0` is false"],
+    );
+}
+
+#[test]
 fn error_in_a_macro_body_is_reported_at_the_call() {
     let dir = TempDir::new("macro-call-site");
     let output = jaic_on(
@@ -454,7 +470,7 @@ fn require_in_a_procedure_that_returns_a_value_points_at_the_call() {
             "checks.jai",
             "note: in the expansion of `require_equal`",
             "help: the procedure returns `s64`",
-            "help: `require_equal` returns from the procedure that calls it",
+            "help: `require_equal` expands to a `return` from the procedure that calls it",
         ],
     );
 }
