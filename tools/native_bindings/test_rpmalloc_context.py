@@ -1,4 +1,5 @@
 import os
+import re
 import unittest
 
 from rpmalloc_context import rewrite_records, render_context
@@ -49,7 +50,7 @@ class ReviewedAllocatorContextTests(unittest.TestCase):
         self.assertIn(expected, ('false', 'true'))
         self.assertIn('FIRST_CLASS_HEAPS :: '+expected+';',
                       (ROOT/'stdlib/internal/bindings/rpmalloc-build/module.jai').read_text())
-        params = self.spec.split('#module_parameters (',1)[1].split(')();',1)[0]
+        params = re.search(r'#module_parameters\s*\((.*?)\)\s*\(\s*\)\s*;', self.spec, re.S).group(1)
         self.assertNotIn('FIRST_CLASS_HEAPS',params)
 
 
