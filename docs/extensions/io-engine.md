@@ -51,6 +51,8 @@ rest, error = Io.read_all(source);
 Io.with_deadline(2000, #code { count, error = Io.read(source, buffer); });   // .TIMED_OUT
 ```
 
+`open_stream_file(path)` opens a terminal, FIFO or `/dev/stdin` for non-blocking reads from the current position (no `pread`), so a fiber can wait on a line without stalling the others. POSIX only; Windows returns `.UNSUPPORTED`. The descriptor stays non-blocking while open, so nothing else should read it meanwhile; closing a duplicated stdin restores its flags.
+
 - `with_deadline` limits every IO call and `sleep` in the block; the earlier deadline wins when nested, and an expired deadline fails a call before it starts. The body is a `#code` argument: assign to variables declared before it and don't `return` inside. Channel and lock operations ignore deadlines.
 - `cancel(fiber)` ends the fiber's current IO with `.CANCELED` and fails later IO the same way.
 - `with_grace(ms, #code {...})` runs cleanup after a deadline or cancel fired, with its own limit; a cancel arriving meanwhile applies when the outermost grace block ends.
