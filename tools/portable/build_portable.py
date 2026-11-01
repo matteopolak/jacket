@@ -661,9 +661,7 @@ def main(argv=None):
     board.add_argument("--output", type=Path, required=True)
     board.set_defaults(run=lambda args: clipboard(args.output))
     crash = commands.add_parser("runtime", help=runtime.__doc__.split("\n")[0])
-    crash.add_argument(
-        "--platform", choices=DESKTOP_POSIX
-    )
+    crash.add_argument("--platform", choices=DESKTOP_POSIX)
     crash.add_argument(
         "--output-dir",
         type=Path,
