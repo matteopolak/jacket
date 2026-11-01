@@ -28,7 +28,7 @@ windows_sources = ["stdlib/Windows_Resources", "stdlib/internal/windows-resource
                    "stdlib/Windows_Resources/tests/console-windows.jai",
                    "stdlib/Windows_Resources/tests/discovery-windows.jai"]
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("--output-ROOT", type=Path, default=output_dir("portable-data"))
+parser.add_argument("--output-root", type=Path, default=output_dir("portable-data"))
 parser.add_argument("--native-libs", type=Path)
 parser.add_argument("--compiler", type=Path)
 parser.add_argument("--formatter", type=Path)
@@ -47,7 +47,7 @@ linter = (args.linter or cargo_binary("jailint")).resolve(strict=True)
 def context_lint():
     subprocess.run([sys.executable, str(ROOT / "tools/portable/portable_data_context_lint.py"),
                     "--linter", str(linter), "--stdlib", str(ROOT / "stdlib"),
-                    "--output-ROOT", str(output / "lint"), *sources, *windows_sources],
+                    "--output-root", str(output / "lint"), *sources, *windows_sources],
                    cwd=ROOT, env=env, check=True)
 
 if args.lint_only:
