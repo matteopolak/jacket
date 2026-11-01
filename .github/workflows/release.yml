@@ -278,48 +278,22 @@ jobs:
           path: vsix/*.vsix
           if-no-files-found: error
 
-  # The API reference (docs/tools/jacket-doc.md): the standard library's docs as a static site
-  # for /docs/jacket/, with the browser compiler beside it so the examples run on the page. Attached
-  # to the release as jacket-docs-<version>.tar.gz; the portfolio site unpacks it.
+  # The API reference (docs/tools/jacket-doc.md), built by docs-pages.yml: attached to the release
+  # as jacket-docs-<version>.tar.gz, and deployed to GitHub Pages by `pages` once published.
   docs:
     needs: [release-meta, validate-release]
     if: github.event_name != 'push' || !github.event.forced
-    runs-on: ubuntu-24.04
-    timeout-minutes: 60
-    env:
-      CARGO_INCREMENTAL: '0'
-      VERSION: ${{ needs.release-meta.outputs.version }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          ref: ${{ github.sha }}
-      - name: Install the pinned Rust toolchain and wasm target
-        run: python3 tools/ci/install_pinned.py rust --target wasm32-unknown-unknown
-      - uses: ./.github/actions/rust-cache
-      - uses: ./.github/actions/dependency-age-cache
-      - name: Validate dependency ages before building
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: python3 tools/ci/check_dependency_age.py
-      - name: Fetch the locked crates
-        run: cargo fetch --locked
-      - name: Build the browser compiler
-        run: python3 tools/browser/build_scripting_wasm.py --release --output target/doc-runtime
-      - name: Build jacket and jaic without the native backend
-        run: cargo build --release --locked --offline -p jacket -p jaic-cli --no-default-features
-      - name: Build the site
-        run: target/release/jacket doc --base-url /docs/jacket/ --version "$VERSION" --source-ref "v$VERSION" --playground-url https://matteopolak.com/playground/jacket --runtime target/doc-runtime --out target/doc-site
-      - name: Pack it
-        run: |
-          mkdir -p dist-docs
-          tar -czf "dist-docs/jacket-docs-$VERSION.tar.gz" -C target/doc-site .
-          ls -l dist-docs
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: docs-site
-          path: dist-docs/*.tar.gz
-          if-no-files-found: error
+    # Only `pages` deploys; the called workflow's deploy job is skipped here but still declares these.
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/docs-pages.yml
+    with:
+      ref: ${{ github.sha }}
+      source_ref: v${{ needs.release-meta.outputs.version }}
+      version: ${{ needs.release-meta.outputs.version }}
+      pack: true
 
   publish:
     needs: [release-meta, validate-release, build, vscode, docs]
@@ -352,6 +326,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           CURRENT_VERSION: ${{ needs.release-meta.outputs.version }}
         run: python3 tools/release.py publish
+
+  # The docs site at https://jacket.matteopolak.com, for the current release only.
+  pages:
+    needs: [docs, publish]
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
 
   # Extension stores are only updated for the current compiler release. Historical compiler
   # rebuilds still attach a freshly checksum-pinned VSIX to GitHub, without republishing old,

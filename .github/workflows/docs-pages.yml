@@ -1,0 +1,117 @@
+name: docs-pages
+# The API reference site (docs/tools/jacket-doc.md) at https://jacket.matteopolak.com, served by
+# GitHub Pages. The release workflow calls this to build the site for its tag, then deploys it once
+# the release is published (its `pages` job). A manual run builds a tag or branch and deploys it.
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Commit, tag or branch to build
+        type: string
+        required: true
+      version:
+        description: Version shown on the site
+        type: string
+        required: true
+      source_ref:
+        description: Tag or commit the Source links point at; defaults to ref
+        type: string
+        default: ''
+      pack:
+        description: Also attach the site as the docs-site artifact (jacket-docs-<version>.tar.gz)
+        type: boolean
+        default: false
+      deploy:
+        description: Deploy to Pages after building
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Tag or branch to build - defaults to the latest release tag
+        required: false
+        default: ''
+      deploy:
+        description: Deploy to Pages after building
+        type: boolean
+        default: true
+permissions:
+  contents: read
+concurrency:
+  group: docs-pages-${{ inputs.ref || github.ref_name }}
+  cancel-in-progress: false
+env:
+  PYTHONPATH: ${{ github.workspace }}/tools
+  CARGO_INCREMENTAL: '0'
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Pick the ref and version
+        id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF: ${{ inputs.ref }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          ref="$REF"
+          if [ -z "$ref" ]; then ref="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName)"; fi
+          version="$VERSION"
+          if [ -z "$version" ]; then version="${ref#v}"; fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ steps.pick.outputs.ref }}
+      - name: Install the pinned Rust toolchain and wasm target
+        run: python3 tools/ci/install_pinned.py rust --target wasm32-unknown-unknown
+      - uses: ./.github/actions/rust-cache
+      - uses: ./.github/actions/dependency-age-cache
+      - name: Validate dependency ages before building
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 tools/ci/check_dependency_age.py
+      - name: Fetch the locked crates
+        run: cargo fetch --locked
+      - name: Build the browser compiler
+        run: python3 tools/browser/build_scripting_wasm.py --release --output target/doc-runtime
+      - name: Build jacket and jaic without the native backend
+        run: cargo build --release --locked --offline -p jacket -p jaic-cli --no-default-features
+      - name: Build the site
+        env:
+          VERSION: ${{ steps.pick.outputs.version }}
+          REF: ${{ inputs.source_ref || steps.pick.outputs.ref }}
+        run: target/release/jacket doc --base-url / --version "$VERSION" --source-ref "$REF" --playground-url https://matteopolak.com/playground/jacket --runtime target/doc-runtime --out target/doc-site
+      - name: Pack it for the release
+        if: inputs.pack
+        env:
+          VERSION: ${{ steps.pick.outputs.version }}
+        run: |
+          mkdir -p dist-docs
+          tar -czf "dist-docs/jacket-docs-$VERSION.tar.gz" -C target/doc-site .
+          ls -l dist-docs
+      - if: inputs.pack
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: docs-site
+          path: dist-docs/*.tar.gz
+          if-no-files-found: error
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: target/doc-site
+
+  deploy:
+    needs: build
+    if: inputs.deploy
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

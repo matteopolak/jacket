@@ -2,7 +2,7 @@
 
 A compiler, standard library, language server, formatter and linter for the [Jai](https://en.wikipedia.org/wiki/Jai_(programming_language)) programming language. It builds for macOS, Linux, Windows and WebAssembly.
 
-**[API docs](https://matteopolak.com/docs/jacket)** · **[Guides and reference](docs/README.md)** · [Playground](https://matteopolak.com/playground/jacket) · [Changelog](CHANGELOG.md)
+**[API docs](https://jacket.matteopolak.com)** · **[Guides and reference](docs/README.md)** · [Playground](https://matteopolak.com/playground/jacket) · [Changelog](CHANGELOG.md)
 
 > [!NOTE]
 > Jacket is unofficial and is not affiliated with or endorsed by Thekla, Inc. or the official Jai project.

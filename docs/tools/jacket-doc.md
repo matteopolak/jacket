@@ -1,11 +1,11 @@
 # jacket doc
 
-`jacket doc` writes the API reference for a Jai library as a static website: one page per module and per item, a search index, and any extra Markdown pages the project lists. The standard library's site is one such library, set up in the root `jacket.toml`. Every doc-comment example gets a Run button that compiles and runs it in the browser with the playground's compiler build. Nothing it makes is committed; a release builds it and attaches `jacket-docs-<version>.tar.gz`.
+`jacket doc` writes the API reference for a Jai library as a static website: one page per module and per item, a search index, and any extra Markdown pages the project lists. The standard library's site is one such library, set up in the root `jacket.toml`. Every doc-comment example gets a Run button that compiles and runs it in the browser with the playground's compiler build. Nothing it makes is committed; a release builds it, attaches `jacket-docs-<version>.tar.gz` and deploys it to https://jacket.matteopolak.com.
 
 ```sh
 jacket doc                                  # the [doc] library of the nearest jacket.toml, else the standard library
 jacket doc path/to/my_lib                   # a module (folder with module.jai) or a folder of modules
-jacket doc --base-url /docs/jacket/ --out site
+jacket doc --out site
 jacket doc --module String --module Basic   # just these, for a quick look
 jacket doc --check                          # build in memory and check links only
 ```
@@ -41,8 +41,6 @@ Modules are the folders of the library with a `module.jai`, minus `internal/`, `
 **Module rows.** A struct, union or enum row shows its fields or members inline, folded with Show more past 200px. A constant that instantiates one of the module's own structs (`u8x16 :: Vector(u8, 16)`) is listed as a type. The "On this page" rail nests each section's items: a list shows its first five, or a window around the item being read, and Show all keeps it open. Same-page links scroll smoothly unless the reader prefers reduced motion.
 
 `runtime.json` (`{"engine": "...", "wasm": "..."}`) points at the bundle `tools/browser/build_scripting_wasm.py --release --output <dir>` writes ([browser build](../browser/playground.md)); `--runtime <dir>` copies `jai_wasm.wasm` and `engine.mjs` from it. A site that already hosts the compiler can drop the copy and edit `runtime.json`.
-
-The hosted docs redirect `/docs/jacket/playground` to the playground, so the site never writes a `playground/` path or `playground.html`.
 
 ## Settings: `[doc]` in `jacket.toml`
 
@@ -91,12 +89,16 @@ The standard library's `[doc]` sits in the root `jacket.toml`: categories "Stand
 
 ## Publishing
 
-The release workflow's `docs` job runs `jacket doc --base-url /docs/jacket/ --version <version> --source-ref v<version> --playground-url <playground> --runtime <bundle>` and attaches `jacket-docs-<version>.tar.gz`. The portfolio site's build downloads the asset for the tag it pins and extracts it into `/docs/jacket`:
+The stdlib site is served by GitHub Pages at https://jacket.matteopolak.com. `.github/workflows/docs-pages.yml` builds it with `jacket doc --base-url / --version <version> --source-ref <tag> --playground-url <playground> --runtime <bundle>`:
+
+- A release calls it from its `docs` job, which also attaches `jacket-docs-<version>.tar.gz`. The release's `pages` job deploys the site once the release is published, for the current release only.
+- A manual run builds a tag or branch and deploys it (default: the latest release tag):
 
 ```sh
-gh release download "$TAG" --repo matteopolak/jacket --pattern 'jacket-docs-*.tar.gz' --dir "$TMP"
-mkdir -p dist/docs/jacket && tar -xzf "$TMP"/jacket-docs-*.tar.gz -C dist/docs/jacket
+gh workflow run docs-pages.yml -R matteopolak/jacket -f ref=v0.33.0
 ```
+
+Repository settings: Pages source "GitHub Actions", custom domain `jacket.matteopolak.com` (a `CNAME` record to `matteopolak.github.io`), and the `github-pages` environment allows `main` and `v*` tags. The Pages limit is 1 GB per site, with no file-count cap.
 
 CI runs `jacket doc --check` when the stdlib, the compiler or the docs change, so a broken intra-doc link fails before a release does.
 
