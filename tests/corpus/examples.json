@@ -427,6 +427,15 @@
       "summary": "A streaming WAV and Vorbis player with a library, queue, worker waveform and synced lyrics (native only: needs a window).",
       "mode": "check",
       "stdout_contains": []
+    },
+    {
+      "id": "traceview",
+      "directory": "examples/traceview",
+      "main": "main.jai",
+      "title": "Iprof trace viewer",
+      "summary": "Browse recorded frames, nested zones and per-zone statistics in a native UI.",
+      "mode": "check",
+      "stdout_contains": []
     }
   ]
 }

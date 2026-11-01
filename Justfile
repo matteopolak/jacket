@@ -141,3 +141,4 @@ dogfood:
     sh examples/imageview/tools/smoke.sh
     sh examples/music/tools/smoke.sh
     sh examples/term/tools/smoke.sh
+    sh examples/traceview/tools/smoke.sh
