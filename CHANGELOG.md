@@ -2,10 +2,18 @@
 
 ## Unreleased
 
+### New
+
+- `examples/kvdb` is a key-value database: a checksummed append-only log with crash recovery and compaction, a CLI, and a TCP server.
+
 ### Improved
 
 - `jacket test --doc --check-only --os <os>` type-checks the doc examples for another OS from any machine.
 - `jacket test --changed FILE` runs only the tests a change to FILE can affect.
+
+### Fixed
+
+- A compile error in a test program is no longer followed by pages of the generated test table.
 
 ## [0.32.0] - 2026-11-01
 

@@ -128,7 +128,8 @@ ui-editor-smoke *args:
 dogfood-3d:
     sh examples/game3d/tools/smoke_game.sh
 
-# Local smoke tests of the dogfood apps in examples/game2d: the backend with a throwaway PostgreSQL, a load test over HTTP and HTTPS, and the game's scripted session. Not run by CI; docs/tools/dogfood.md.
+# Local smoke tests of the dogfood apps in examples/game2d and examples/kvdb: the backend with a throwaway PostgreSQL, a load test over HTTP and HTTPS, and the game's scripted session. Not run by CI; docs/tools/dogfood.md.
 [group('test')]
 dogfood:
     WITH_GAME=1 sh examples/game2d/tools/smoke_server.sh
+    sh examples/kvdb/tools/smoke.sh

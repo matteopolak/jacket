@@ -1,9 +1,10 @@
 # Dogfood applications
 
-Real applications written in Jai under `examples/`, to exercise the compiler, stdlib and extensions together. Each keeps a `FRICTION.md` of rough edges found while writing it. They are not in CI.
+Real applications written in Jai under `examples/`, to exercise the compiler, stdlib and extensions together. Each keeps a `FRICTION.md` of rough edges found while writing it. They are not in CI, except that `jaic -check` runs over their programs (`crates/jaic-cli/tests/examples.rs`).
 
 - `examples/game2d/`: a 2D shooter plus a JSON backend. `shared/` (API types, typed client), `server/` (Http, Postgres, Tls, Json; `--listen`, `--database`, `--threads`, `--pool-size`, `--tls-cert`/`--tls-key`), `loadtest/` (Io fibers; reports throughput and p50/p99/max), `game/` (Simp, window, input, sound, zip asset pack, hot reload, `--smoke` and `--autoplay N`), and `examples/game2d/tools/assetgen/`.
 - `examples/game3d/`: one program (`game/main.jai`): `Soa` entities updated with `Extensions/SIMD`, a job system on `Thread` and `Atomics`, meshoptimizer meshes, WebGPU rendering, an MPEG-1 intro via `pl_mpeg`. See its README.
+- `examples/kvdb/`: a key-value database. `store/` (checksummed append-only log, recovery, compaction; md5, File), `protocol/` (line protocol, server and client on `Io` fibers), `main.jai` (`Extensions/Args` subcommands), and `tests/`, which `jacket test` runs in that folder. See its README.
 
 ## Running
 
@@ -12,6 +13,8 @@ just dogfood                                # server, load test (HTTP and HTTPS)
 sh examples/game2d/tools/smoke_server.sh    # backend only
 sh examples/game2d/tools/smoke_game.sh      # game only; FRAME=out.png keeps the offscreen frame
 sh examples/game3d/tools/smoke_game.sh      # 3D game
+sh examples/kvdb/tools/smoke.sh             # key-value database: CLI, recovery, server
+(cd examples/kvdb && jacket test)           # its unit tests
 ```
 
 The 2D game needs a display and OpenGL, the 3D game a WebGPU-capable GPU (no window), the server `initdb`/`pg_ctl`/`openssl` (`examples/game2d/tools/local_postgres.sh` starts a throwaway cluster).

@@ -338,6 +338,15 @@
       "stdout_contains": []
     },
     {
+      "id": "kvdb",
+      "directory": "examples/kvdb",
+      "main": "main.jai",
+      "title": "Key-value database",
+      "summary": "An append-only log with checksummed records, crash recovery, compaction, and a TCP server (native only: needs Io fibers).",
+      "mode": "check",
+      "stdout_contains": []
+    },
+    {
       "id": "game2d",
       "directory": "examples/game2d",
       "main": "game/main.jai",
