@@ -13,7 +13,7 @@ On large `-check` runs most time is checking bodies (about 60% on a generated 60
 
 ## Shared tables design
 
-Status: design and audit, nothing implemented. It supersedes the speculative design below ([Design](#design-speculative-bodies-superseded), stage 2 part 3 onwards) wherever they conflict; the stage 1 and 2 prototype and its measurements stay as the record of what a body writes.
+Status: shelved (2026-11-01), nothing implemented. On real programs the estimate is 1.1x to 1.3x on type checking, about 25 ms on game2d (under 10% of a debug build, 3% of a release build), which does not pay for the risk; codegen and link are where build time goes. Revisit if large programs make checking dominate. It supersedes the speculative design below ([Design](#design-speculative-bodies-superseded), stage 2 part 3 onwards) wherever they conflict; the stage 1 and 2 prototype and its measurements stay as the record of what a body writes.
 
 Bodies run truly in parallel against shared, insert-only concurrent tables. Lookups are plain atomic loads. A new type, procedure or constant is inserted with a CAS; a thread that loses a race drops its entry and adopts the winner's. Ids come from `fetch_add` counters, may arrive in any order and may have gaps. Only visible behaviour has to be deterministic, so every place where an id's order reaches the output gets a stable key instead.
 
