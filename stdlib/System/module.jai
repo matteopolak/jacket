@@ -12,6 +12,8 @@
 // assert(path.count > 0);
 // ```
 
+// test: skip_on(.WASM, reason = "System has no wasm target")
+
 #assert OS == .WINDOWS || OS == .MACOS || OS == .LINUX || OS == .ANDROID;
 // Which processors [get_number_of_processors] counts: physical cores or logical threads, all of them or only the performance ones on hybrid chips.
 Processor_Query_Type :: Impl.Processor_Query_Type;
@@ -28,33 +30,33 @@ read_cpu_counter :: Impl.read_cpu_counter;
 
 // Returns the name of the current user and whether the lookup worked.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // name, ok := get_username();
 // assert(!ok || name.count > 0);
 // ```
 get_username :: Impl.get_username;
 // Returns the home directory of `username`, or of the current user when it is empty, and whether the lookup worked.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // home, ok := get_home_directory();
 // assert(!ok || home.count > 0);
 // ```
 get_home_directory :: Impl.get_home_directory;
 // Returns the machine's host name, or an empty string if it cannot be read.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // assert(get_machinename().count > 0);
 // ```
 get_machinename :: Impl.get_machinename;
 // Returns the full path of the running program, or an empty string if it cannot be found.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // assert(get_path_of_running_executable().count > 0);
 // ```
 get_path_of_running_executable :: Impl.get_path_of_running_executable;
 // How many processors of a kind the machine has.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // logical := get_number_of_processors(.ALL_LOGICAL);
 // assert(logical >= get_number_of_processors(.ALL_PHYSICAL) && logical > 0);
 // ```
@@ -65,7 +67,7 @@ get_number_of_processors :: Impl.get_number_of_processors;
 
     // Returns the last error code the operating system set: `errno` on Unix, `GetLastError` on Windows. Read it right after the call that failed.
     //
-    // ```jai,skip_on(wasm)
+    // ```jai
     // description := get_error_string(get_error_value());
     // assert(description.count >= 0);
     // ```
@@ -77,14 +79,14 @@ get_number_of_processors :: Impl.get_number_of_processors;
 
 // Returns the system's message for an error code, such as "No such file or directory".
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // assert(get_error_string(get_error_value()).count >= 0);
 // ```
 get_error_string :: Impl.get_error_string;
 
 // Returns the last OS error code together with its message.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // code, message := get_error_value_and_string();
 // assert(message.count >= 0);
 // ```

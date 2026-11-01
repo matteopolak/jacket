@@ -15,6 +15,8 @@
 // }
 // ```
 
+// test: skip_on(.WASM, reason = "needs the native SDL library, which has no wasm build")
+
 // The buttons of a controller. Index `Gamepad.buttons` with it. `A`, `B`, `X` and `Y` are the face
 // buttons by their Xbox names; sticks and triggers also appear here as buttons, once they pass their
 // thresholds.

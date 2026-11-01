@@ -19,7 +19,7 @@
 // The example runs a client and a server on loopback with throwaway test certificates, valid for
 // `localhost`. Never use them for anything else.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // ROOT :: #string END
@@ -126,6 +126,8 @@
 //     });
 // }
 // ```
+
+// test: skip_on(.WASM, reason = "Extensions/Tls runs on Extensions/Io fibers, which wasm cannot run")
 
 #assert OS != .WASM "Extensions/Tls runs on fibers over Io, and WebAssembly has neither";
 

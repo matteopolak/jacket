@@ -15,7 +15,7 @@
 // The IP version of an `Address`: `IPV4`, `IPV6`, or `NONE` for an `Address` that was never filled in (and for what
 // `parse_address` returns when the text is not an address).
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // address, ok := parse_address("[::1]:8080");
@@ -55,7 +55,7 @@ Tcp_Stream :: struct {
 
 // An IPv4 address from its four octets, `a.b.c.d`, and a port in host order. `address_to_string` turns it back into text.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // address := address_v4(127, 0, 0, 1, 8080);
@@ -79,7 +79,7 @@ address_v4 :: (a: u8, b: u8, c: u8, d: u8, port: u16) -> Address {
 // Reads an address literal: `1.2.3.4:80`, `:8080` (any IPv4 address), `[::1]:80`, `1.2.3.4`,
 // `::1`. It does not look names up; `resolve` does.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // address, ok := Io.parse_address("[::1]:8080");
@@ -158,7 +158,7 @@ parse_address :: (text: string) -> Address, bool {
 
 // `1.2.3.4:80` or `[::1]:80`, in temporary storage.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // address, _ := Io.parse_address("10.0.0.7:443");
@@ -236,7 +236,7 @@ last_platform_code :: () -> s32 {
 // `local_address`). `reuse_port` lets several listeners, one per thread, share the port; the
 // kernel then spreads the connections between them.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // main :: () {
@@ -298,7 +298,7 @@ tcp_listen :: (address: Address, backlog := 1024, reuse_port := false) -> Tcp_Li
 
 // Waits for the next connection.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -352,7 +352,7 @@ accept :: (listener: Tcp_Listener) -> Tcp_Stream, Io_Error {
 
 // Connects to `address`. The one with a name is `connect("host:port")`.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -546,7 +546,7 @@ connect :: (target: string) -> Tcp_Stream, Io_Error {
 
 // The address this socket is bound to; with `tcp_listen(":0")`, which port it got.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // main :: () {
@@ -566,7 +566,7 @@ local_address :: (listener: Tcp_Listener) -> Address, Io_Error {
 
 // The local end of a connected stream: the address and port this side of the connection uses.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -590,7 +590,7 @@ local_address :: (stream: Tcp_Stream) -> Address, Io_Error {
 // The far end of a connected stream. On the accepting side this is the client's address and its ephemeral port; on the connecting
 // side it is the server's.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // main :: () {
@@ -624,7 +624,7 @@ peer_address :: (stream: Tcp_Stream) -> Address, Io_Error {
 // Waits for data and reads what is there, up to `buffer.count` bytes. 0 means the peer closed its
 // end. An error comes with 0 bytes.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -666,7 +666,7 @@ read :: (stream: Tcp_Stream, buffer: [] u8) -> s64, Io_Error {
 // for a quiet connection and take its memory only when there is something to read. Ends with
 // `.TIMED_OUT` or `.CANCELED` like any other wait, and `.CLOSED` if the socket is closed meanwhile.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -699,7 +699,7 @@ wait_readable :: (stream: Tcp_Stream) -> Io_Error {
 
 // Reads until `buffer` is full. `.END_OF_FILE` if the peer closed first, with the bytes read.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -744,7 +744,7 @@ write_some :: (stream: Tcp_Stream, data: [] u8) -> s64, Io_Error {
 
 // Sends all of `data`, waiting as often as it takes. On an error it returns how many bytes went out.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -772,7 +772,7 @@ write :: (stream: Tcp_Stream, text: string) -> s64, Io_Error {
 
 // Closes the sending side; the peer reads the end of the stream once it has what was sent.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -804,7 +804,7 @@ shutdown_write :: (stream: Tcp_Stream) -> Io_Error {
 // that cannot block: a `Local_Drop`, or a fiber that must not give up its turn. Fibers still
 // waiting on the socket are not woken, so use the plain call unless the scheduler is ending.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -843,7 +843,7 @@ close :: (listener: Tcp_Listener, now := false) -> Io_Error {
 // Looks `host` up (an address literal, or a name for the system's resolver, which
 // runs on a helper thread so only this fiber waits) and gives its first address, IPv4 preferred.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {

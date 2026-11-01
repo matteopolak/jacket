@@ -31,7 +31,7 @@ catch_interrupts :: () {
 
 // True once SIGINT or SIGTERM arrived after `catch_interrupts`, or `request_interrupt` ran.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.clear_interrupt();

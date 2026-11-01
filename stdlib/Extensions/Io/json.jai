@@ -7,7 +7,7 @@
 // that fails gives a `.READ` error naming the `Io_Error`; a document over `options.max_size`
 // is a `.LIMIT` error and the rest of the stream is left unread. The reader is not closed.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 // #import "Extensions/Json";
 //

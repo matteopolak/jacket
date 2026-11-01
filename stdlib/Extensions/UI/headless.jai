@@ -2,7 +2,7 @@
 
 // Options for `headless`.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // options := Headless_Options.{ width = 1024, height = 768, scale = 2 };
 // ui := headless(options);
 // defer free_ui(*ui);
@@ -22,7 +22,7 @@ Headless_Options :: struct {
 //
 // - options: window size, scale, fonts and theme.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless(.{ width = 320, height = 200 });
 // defer free_ui(*ui);
 // count := 0;
@@ -59,7 +59,7 @@ headless :: (options: Headless_Options = .{}) -> UI_State {
 // - width: the new width in points.
 // - height: the new height in points.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // resize(*ui, 400, 300);
@@ -72,7 +72,7 @@ resize :: (ui: *UI_State, width: float, height: float) {
 
 // How `find` picks a node: every field that is set must match.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless(.{ width = 320, height = 200 });
 // defer free_ui(*ui);
 // count := 0;
@@ -100,7 +100,7 @@ Find_Query :: struct {
 // - ui: the UI to search.
 // - query: what the node must match.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless(.{ width = 320, height = 200 });
 // defer free_ui(*ui);
 // count := 0;
@@ -124,7 +124,7 @@ find :: (ui: *UI_State, query: Find_Query) -> *Node {
 // - ui: the UI to search.
 // - label: the label to match exactly.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless(.{ width = 320, height = 200 });
 // defer free_ui(*ui);
 // count := 0;
@@ -148,7 +148,7 @@ find_label :: (ui: *UI_State, label: string) -> *Node {
 // - role: the role to match.
 // - index: which match to take, from 0.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless(.{ width = 320, height = 200 });
 // defer free_ui(*ui);
 // count := 0;
@@ -172,7 +172,7 @@ find_role :: (ui: *UI_State, role: Role, index: int = 0) -> *Node {
 // - ui: the UI to send the click to.
 // - node: the node to click. Null does nothing.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless(.{ width = 320, height = 200 });
 // defer free_ui(*ui);
 // count := 0;
@@ -201,7 +201,7 @@ click :: (ui: *UI_State, node: *Node) {
 // - x: horizontal position in points.
 // - y: vertical position in points.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless(.{ width = 320, height = 200 });
 // defer free_ui(*ui);
 // count := 0;
@@ -228,7 +228,7 @@ click_at :: (ui: *UI_State, x: float, y: float) {
 //
 // - ui: the UI to dump.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless(.{ width = 320, height = 200 });
 // defer free_ui(*ui);
 // count := 0;

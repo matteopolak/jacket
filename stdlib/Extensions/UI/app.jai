@@ -3,7 +3,7 @@
 
 // Options for `run_app`.
 //
-// ```jai,no_run,skip_on(wasm)
+// ```jai,no_run
 // options := App_Options.{ title = "Notes", width = 900, height = 600 };
 // ```
 App_Options :: struct {
@@ -30,7 +30,7 @@ App_Window :: struct {
 // - app: your app state, passed to `build` each frame.
 // - build: declares the widgets for a frame.
 //
-// ```jai,no_run,skip_on(wasm)
+// ```jai,no_run
 // #import "Basic";
 // #import "Extensions/UI";
 //
@@ -48,7 +48,7 @@ App_Window :: struct {
 // }
 // ```
 //
-// ```jai,no_run,skip_on(wasm)
+// ```jai,no_run
 // App :: struct { count: int; }
 //
 // main :: () {
@@ -81,7 +81,7 @@ run_app :: (options: App_Options, app: *$T, build: (app: *T)) -> bool {
 // - app: your app state, passed to `build` each frame.
 // - build: declares the widgets for a frame.
 //
-// ```jai,no_run,skip_on(wasm)
+// ```jai,no_run
 // main :: () {
 //     ui := headless();
 //     app: int;

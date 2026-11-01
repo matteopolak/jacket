@@ -3,7 +3,7 @@
 
 // An axis-aligned rectangle: `x`, `y` is the top left corner.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // r := Rect.{ x = 10, y = 20, w = 100, h = 50 };
 // assert(contains(r, 10, 20));
 // assert(!contains(r, 110, 20));
@@ -17,7 +17,7 @@ Rect :: struct {
 
 // A colour with straight (not premultiplied) alpha, each channel 0 to 1.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // red: Color = .{ 1, 0, 0, 1 };
 // assert(red == rgb(255, 0, 0));
 // ```
@@ -30,7 +30,7 @@ Color :: Vector4;
 // - b: blue, 0 to 255.
 // - a: alpha, 0 (clear) to 255 (opaque).
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // c := rgb(255, 128, 0);
 // assert(c.x == 1 && c.w == 1);
 // faded := rgb(255, 128, 0, 0);
@@ -45,7 +45,7 @@ rgb :: (r: int, g: int, b: int, a: int = 255) -> Color {
 // - value: the colour as `0xRRGGBB`.
 // - alpha: alpha, 0 to 1.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // white := hex(0xFFFFFF);
 // assert(white.x == 1 && white.y == 1 && white.z == 1);
 // glass := hex(0x3B82F6, 0.5);
@@ -60,7 +60,7 @@ hex :: (value: u32, alpha: float = 1) -> Color {
 // - color: the colour to start from.
 // - alpha: the new alpha, 0 to 1.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // solid := rgb(10, 20, 30);
 // assert(with_alpha(solid, 0.25).w == 0.25);
 // ```
@@ -74,7 +74,7 @@ with_alpha :: (color: Color, alpha: float) -> Color {
 // - x: the point's horizontal position.
 // - y: the point's vertical position.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // r := Rect.{ 0, 0, 10, 10 };
 // assert(contains(r, 0, 0));
 // assert(!contains(r, 10, 10));
@@ -88,7 +88,7 @@ contains :: (rect: Rect, x: float, y: float) -> bool {
 // - a: the first rectangle.
 // - b: the second rectangle.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // overlap := intersect(.{ 0, 0, 10, 10 }, .{ 5, 5, 10, 10 });
 // assert(overlap.x == 5 && overlap.w == 5 && overlap.h == 5);
 // assert(intersect(.{ 0, 0, 1, 1 }, .{ 5, 5, 1, 1 }).w == 0);
@@ -107,7 +107,7 @@ intersect :: (a: Rect, b: Rect) -> Rect {
 // - rect: the rectangle to shrink.
 // - amount: how far to move each edge in. The size stops at zero instead of going negative.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // r := inset(.{ 0, 0, 100, 40 }, 10);
 // assert(r.x == 10 && r.w == 80 && r.h == 20);
 // ```
@@ -117,7 +117,7 @@ inset :: (rect: Rect, amount: float) -> Rect {
 
 // Which way a container lays out its children.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // axis := Axis.HORIZONTAL;
 // assert(axis != .VERTICAL);
 // ```
@@ -129,7 +129,7 @@ Axis :: enum u8 {
 
 // How a container places children across its axis.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // style := Style.{ align = .CENTER };
 // assert(style.align == .CENTER);
 // ```
@@ -142,7 +142,7 @@ Align :: enum u8 {
 
 // How a container places children along its axis when none of them grow.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // style := Style.{ justify = .SPACE_BETWEEN };
 // assert(style.justify == .SPACE_BETWEEN);
 // ```
@@ -155,7 +155,7 @@ Justify :: enum u8 {
 
 // What a widget is, kept on its node for tests, for tools and for a later accessibility export.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) { button("OK"); });
@@ -181,7 +181,7 @@ Role :: enum u8 {
 // Layout and paint options for a container or widget. Zero values mean "automatic" or "none", so a
 // style is written with only what differs: `.{gap = 8, padding = 12}`.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // style := Style.{ gap = 8, padding = 12, background = rgb(30, 30, 40), radius = 6 };
 // assert(style.grow == 0);  // zero means automatic
 // ```
@@ -208,7 +208,7 @@ Style :: struct {
 //
 // - value: the number to round.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // assert(round(2.5) == 3);
 // assert(round(2.4) == 2);
 // ```

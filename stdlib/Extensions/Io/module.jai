@@ -4,7 +4,7 @@
 // [connect] do TCP, and [Reader] and [Writer] give files, sockets and pipes one shape.
 // @experimental
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // results: *Io.Channel(int); // a fiber's procedure cannot capture locals: share through a global or pass data
@@ -36,6 +36,8 @@
 // `cancel` has been called for its fiber.
 //
 // WebAssembly cannot switch stacks, so importing this module for wasm is a compile error.
+
+// test: skip_on(.WASM, reason = "Extensions/Io needs fibers, which wasm cannot run (no stack switching)")
 
 #module_parameters(
     // The stack of each fiber, in bytes, including its guard page. Address space only: the OS commits

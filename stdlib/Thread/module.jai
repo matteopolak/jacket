@@ -31,6 +31,9 @@
 // assert(shared.total == 4000);
 // destroy(*shared.mutex);
 // ```
+
+// test: skip_on(.WASM, reason = "Thread has no wasm target (no OS threads)")
+
 #assert OS == .WINDOWS || OS == .MACOS || OS == .LINUX || OS == .ANDROID;
 
 #load "../internal/thread/module.jai";

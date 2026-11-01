@@ -6,7 +6,7 @@
 
 // Which font a piece of text uses.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // style := Text_Style.{ font = .MONO, size = 14 };
 // assert(style.font == .MONO);
 // ```
@@ -17,7 +17,7 @@ Font_Slot :: enum u8 {
 
 // How text is drawn.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // style := Text_Style.{ size = 16 };
 // assert(style.size == 16);
 // ```
@@ -83,7 +83,7 @@ Text_System :: struct {
 // - text: the text system to add the font to.
 // - path: the font file to read.
 //
-// ```jai,no_run,skip_on(wasm)
+// ```jai,no_run
 // ui := headless();
 // defer free_ui(*ui);
 // if !load_font(*ui.text, "fonts/Inter-Regular.ttf") print("font missing\n");
@@ -102,7 +102,7 @@ load_font :: (text: *Text_System, path: string) -> bool {
 //   failure.
 // - name: a label for the font, copied.
 //
-// ```jai,no_run,skip_on(wasm)
+// ```jai,no_run
 // ui := headless();
 // defer free_ui(*ui);
 // #import "File";
@@ -140,7 +140,7 @@ load_font_data :: (text: *Text_System, data: string, name: string = "") -> bool 
 //
 // - text: the text system to add the font to.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // width := text_width(*ui.text, "abcde", .{ size = 10 });
@@ -157,7 +157,7 @@ add_synthetic_font :: (text: *Text_System) {
 //
 // - text: the text system to fill.
 //
-// ```jai,no_run,skip_on(wasm)
+// ```jai,no_run
 // ui := headless();
 // defer free_ui(*ui);
 // load_system_fonts(*ui.text);
@@ -216,7 +216,7 @@ load_system_fonts :: (text: *Text_System) {
 //
 // - text: the text system to release. It is reset to empty.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // free_ui(*ui);
 // ```
@@ -242,7 +242,7 @@ free_text_system :: (text: *Text_System) {
 // - text: the text system to change.
 // - scale: device pixels per point. Values under 0.25 are raised to 0.25.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // set_scale(*ui.text, 2);  // a Retina display
@@ -257,7 +257,7 @@ set_scale :: (text: *Text_System, scale: float) {
 // - slot: which font to measure.
 // - size: the font size in points.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // metrics := font_metrics(*ui.text, .SANS, 20);
@@ -296,7 +296,7 @@ font_metrics :: (text: *Text_System, slot: Font_Slot, size: float) -> Font_Metri
 // - string_to_measure: the UTF-8 text to measure.
 // - style: the font and size to measure with.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // assert(text_width(*ui.text, "ten chars!", .{ size = 10 }) == 60);
@@ -320,7 +320,7 @@ text_width :: (text: *Text_System, string_to_measure: string, style: Text_Style)
 // - code: the code point.
 // - style: the font and size to measure with.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // assert(glyph_advance(*ui.text, #char "a", .{ size = 10 }) == 6);
@@ -344,7 +344,7 @@ glyph_advance :: (text: *Text_System, code: u32, style: Text_Style) -> float {
 // - style: the font and size the text is drawn with.
 // - x: the position in points from the start of the text. Zero or less gives 0.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // index := index_at_x(*ui.text, "abcdef", .{ size = 10 }, 13);  // x = 13 falls in the third character
@@ -377,7 +377,7 @@ index_at_x :: (text: *Text_System, string_to_measure: string, style: Text_Style,
 // - slot: which font to prefer.
 // - size: the font size in points.
 //
-// ```jai,no_run,skip_on(wasm)
+// ```jai,no_run
 // ui := headless();
 // defer free_ui(*ui);
 // glyph := get_glyph(*ui.text, #char "A", .SANS, 16);

@@ -2,7 +2,7 @@
 
 // Light or dark defaults for `default_theme`.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // light := default_theme(.LIGHT);
 // dark := default_theme(.DARK);
 // assert(light.background != dark.background);
@@ -14,7 +14,7 @@ Theme_Mode :: enum u8 {
 
 // The look of the library's widgets. Change fields on `ui.theme` (or `set_theme`) to restyle everything.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // t := default_theme();
 // t.accent = hex(0xFF5500);
 // ```
@@ -44,7 +44,7 @@ Theme :: struct {
 //
 // - mode: dark or light colours.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless(.{ theme = .LIGHT });
 // defer free_ui(*ui);
 // assert(ui.theme.background == default_theme(.LIGHT).background);
@@ -91,7 +91,7 @@ default_theme :: (mode: Theme_Mode = .DARK) -> Theme {
 //
 // - theme: the theme to use from now on.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // push_ui(*ui);
@@ -107,7 +107,7 @@ set_theme :: (theme: Theme) {
 
 // The theme of the UI being built.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // push_ui(*ui);

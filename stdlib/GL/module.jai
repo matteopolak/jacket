@@ -14,6 +14,8 @@
 // glClear(GL_COLOR_BUFFER_BIT);
 // ```
 
+// test: skip_on(.WASM, reason = "GL has no wasm target")
+
 #module_parameters(
     // Logs GL errors.
     DUMP_GL_ERRORS := false,

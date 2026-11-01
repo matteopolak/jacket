@@ -10,7 +10,7 @@
 // The default coordinate system has its origin at the bottom left with y growing up; pass
 // `.LEFT_HANDED` to `set_render_target` for the top left with y growing down.
 //
-// ```jai,no_run,skip_on(wasm)
+// ```jai,no_run
 // #import "Window_Creation";
 // #import "Input";
 //
@@ -30,6 +30,8 @@
 //     swap_buffers(window);
 // }
 // ```
+
+// test: skip_on(.WASM, reason = "needs OpenGL, which has no wasm target")
 
 #module_parameters (
     // The graphics API to draw with. `.NONE` draws nothing.

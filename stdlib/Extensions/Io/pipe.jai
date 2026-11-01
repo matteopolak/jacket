@@ -52,7 +52,7 @@ Pipe_Link :: struct {
 // Two connected ends. What one writes the other reads. `close` both when done (they free
 // themselves once both are closed).
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -164,7 +164,7 @@ write_some :: (stream: *Pipe_Stream, data: [] u8) -> s64, Io_Error {
 
 // The `write` for a `string`: sends all of `text` into the pipe, to be read at the other end.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // main :: () {
@@ -189,7 +189,7 @@ write :: (stream: *Pipe_Stream, text: string) -> s64, Io_Error {
 
 // This end will send nothing more: the other end reads what was sent, then 0.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {

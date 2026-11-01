@@ -6,7 +6,7 @@
 
 // An open container, returned by `row`, `column` and the other containers so `for` can close it.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
@@ -33,7 +33,7 @@ for_expansion :: (container: Container, body: Code, flags: For_Flags) #expand {
 // - style: layout and paint options for the container.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
@@ -53,7 +53,7 @@ row :: (style: Style = .{}, loc := #caller_location) -> Container {
 // - style: layout and paint options for the container.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
@@ -73,7 +73,7 @@ column :: (style: Style = .{}, loc := #caller_location) -> Container {
 // - style: layout and paint options for the container.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
@@ -93,7 +93,7 @@ stack :: (style: Style = .{}, loc := #caller_location) -> Container {
 // - style: layout and paint options. A `background` set here replaces the panel colour.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
@@ -116,7 +116,7 @@ panel :: (style: Style = .{}, loc := #caller_location) -> Container {
 // - axis: the scrolling direction.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless(.{ width = 200, height = 100 });
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
@@ -135,7 +135,7 @@ scroll :: (style: Style = .{}, axis: Axis = .VERTICAL, loc := #caller_location) 
 
 // Options for text: all optional.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
@@ -158,7 +158,7 @@ Text_Options :: struct {
 // - options: size, colour, font and spacing.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) { label("Hello"); });
@@ -180,7 +180,7 @@ label :: (text: string, options: Text_Options = .{}, loc := #caller_location) ->
 
 // Looks of a button.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
@@ -196,7 +196,7 @@ Button_Variant :: enum u8 {
 
 // Options for `button`.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
@@ -217,7 +217,7 @@ Button_Options :: struct {
 // - options: look, size and whether it is enabled.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless(.{ width = 320, height = 200 });
 // defer free_ui(*ui);
 // count := 0;
@@ -289,7 +289,7 @@ button :: (text: string, options: Button_Options = .{}, loc := #caller_location)
 // - text: a caption next to the box. Empty for none.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // on := false;
 // ui := headless();
 // defer free_ui(*ui);
@@ -338,7 +338,7 @@ checkbox :: (value: *bool, text: string = "", loc := #caller_location) -> change
 // - indent: extra space on the left, in points.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // selected := -1;
 // ui := headless();
 // defer free_ui(*ui);
@@ -386,7 +386,7 @@ list_item :: (text: string, selected: bool = false, indent: float = 0, loc := #c
 //
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
@@ -411,7 +411,7 @@ separator :: (loc := #caller_location) {
 // - grow: its share of the leftover space.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless(.{ width = 300, height = 40 });
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
@@ -434,7 +434,7 @@ spacer :: (grow: float = 1, loc := #caller_location) {
 // - style: layout and paint options for the container.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
@@ -451,7 +451,7 @@ tab_bar :: (style: Style = .{}, loc := #caller_location) -> Container {
 
 // What a click on a tab did.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // result := Tab_Result.NONE;
 // assert(result != .SELECT && result != .CLOSE);
 // ```
@@ -463,7 +463,7 @@ Tab_Result :: enum u8 {
 
 // Options for `tab`.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // frame(*ui, *ui, (u: *UI_State) {
@@ -482,7 +482,7 @@ Tab_Options :: struct {
 // - options: whether it shows an unsaved dot or a close button.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // current := 0;
 // ui := headless();
 // defer free_ui(*ui);
@@ -545,7 +545,7 @@ tab :: (text: string, active: bool, options: Tab_Options = .{}, loc := #caller_l
 
 // An open split: the two panes are visited with `for pane: split(...)`.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // width := 150.0;
 // ui := headless(.{ width = 400, height = 200 });
 // defer free_ui(*ui);
@@ -566,7 +566,7 @@ Split :: struct {
 
 // Options for `split`.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // options := Split_Options.{ min = 100, max = 300 };
 // assert(options.min == 100);
 // ```
@@ -585,7 +585,7 @@ Split_Options :: struct {
 // - options: the smallest and largest size of the first pane.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // width := 150.0;
 // ui := headless(.{ width = 400, height = 200 });
 // defer free_ui(*ui);
@@ -643,7 +643,7 @@ for_expansion :: (s: Split, body: Code, flags: For_Flags) #expand {
 // - s: the split the divider belongs to.
 // - loc: the call site. It identifies the widget from one frame to the next, so leave the default.
 //
-// ```jai,no_run,skip_on(wasm)
+// ```jai,no_run
 // // split() draws it for you; a custom layout calls it between its own panes
 // width := 150.0;
 // for pane: split(.HORIZONTAL, *width) { label("pane"); }

@@ -7,7 +7,7 @@
 // plain calls every frame, so the app owns its data and the library owns scroll offsets, focus and
 // cursors. Containers are `for` blocks.
 //
-// ```jai,no_run,skip_on(wasm)
+// ```jai,no_run
 // #import "Basic";
 // #import "Extensions/UI";
 //
@@ -28,6 +28,8 @@
 //
 // Tests drive the same `build` procedures without a window or a GPU (`headless`, `frame`, `click`,
 // `layout_dump`).
+
+// test: skip_on(.WASM, reason = "Extensions/UI has no WebAssembly backend")
 
 #module_parameters(
     // Warns about layout mistakes, such as focusable elements with no size.

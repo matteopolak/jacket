@@ -58,7 +58,7 @@ Node :: struct {
 
 // What happened to a node this frame, from the input events routed to it.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless(.{ width = 320, height = 200 });
 // defer free_ui(*ui);
 // count := 0;
@@ -88,7 +88,7 @@ Node_Events :: struct {
 // All the state of one UI: its tree, fonts, input and the frame being drawn. Create one with
 // `headless` or let `run_app` make it.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless(.{ width = 640, height = 480 });
 // defer free_ui(*ui);
 // assert(ui.size.x == 640);
@@ -130,7 +130,7 @@ UI_State :: struct {
 
 // Platform services the library needs but does not own, set by `run_app`. Tests leave them null.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // ui.hooks.clipboard_get = () -> string { return "from the hook"; };
@@ -155,7 +155,7 @@ Cursor_Kind :: enum u8 {
 
 // The UI being built (`context.ui`).
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // push_ui(*ui);
@@ -170,7 +170,7 @@ current_ui :: () -> *UI_State {
 //
 // - ui: the UI to release. It is reset to empty.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // free_ui(*ui);
 // ```
@@ -190,7 +190,7 @@ free_ui :: (ui: *UI_State) {
 //
 // - ui: the UI to start a frame on.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // push_ui(*ui);
@@ -224,7 +224,7 @@ begin_frame :: (ui: *UI_State) {
 //
 // - ui: the UI whose frame is done.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless(.{ width = 200, height = 100 });
 // defer free_ui(*ui);
 // push_ui(*ui);
@@ -256,7 +256,7 @@ end_frame :: (ui: *UI_State) {
 // - app: your app state, passed to `build`.
 // - build: declares the widgets for the frame.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless(.{ width = 320, height = 200 });
 // defer free_ui(*ui);
 // count := 0;
@@ -296,7 +296,7 @@ frame :: (ui: *UI_State, app: *$T, build: (app: *T)) {
 //
 // - ui: the UI to make current.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // first := headless();
 // second := headless();
 // defer free_ui(*first);
@@ -316,7 +316,7 @@ push_ui :: (ui: *UI_State) {
 
 // Restore the UI that was current before the matching `push_ui`.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // push_ui(*ui);
@@ -331,7 +331,7 @@ pop_ui :: () {
 //
 // - value: anything that identifies the item and stays the same as the list changes.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Item :: struct { id: int; name: string; }
 // items := Item.[.{ 7, "seven" }, .{ 9, "nine" }];
 //
@@ -360,7 +360,7 @@ key :: (value: $T) {
 // - node: the node that keeps the value.
 // - $T: the type stored. A node holding a value of another size has it replaced by a zeroed one.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // push_ui(*ui);
@@ -393,7 +393,7 @@ state :: (node: *Node, $T: Type) -> *T {
 // - loc: the call site. It identifies the node from one frame to the next, so pass the caller's
 //   location.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // push_ui(*ui);
@@ -434,7 +434,7 @@ widget :: (kind: Node_Kind, role: Role, style: Style, loc: Source_Code_Location)
 // - loc: the call site. It identifies the node from one frame to the next, so pass the caller's
 //   location.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // push_ui(*ui);
@@ -457,7 +457,7 @@ begin_container :: (axis: Axis, role: Role, style: Style, loc: Source_Code_Locat
 //
 // - ui: the UI whose innermost container to close. The root is never closed.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // push_ui(*ui);
@@ -475,7 +475,7 @@ end_container :: (ui: *UI_State) {
 //
 // - ui: the UI whose frame arena to use.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // scratch := alloc(16,, frame_allocator(*ui));  // freed when the next frame begins
@@ -490,7 +490,7 @@ frame_allocator :: (ui: *UI_State) -> Allocator {
 // - ui: the UI whose frame arena holds the copy.
 // - text: the string to copy.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // copy := frame_string(*ui, "kept until the next frame");
@@ -512,7 +512,7 @@ frame_string :: (ui: *UI_State, text: string) -> string {
 // - ui: the UI the node belongs to.
 // - node: the node to look up.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless(.{ width = 320, height = 200 });
 // defer free_ui(*ui);
 // count := 0;
@@ -544,7 +544,7 @@ events_of :: (ui: *UI_State, node: *Node) -> Node_Events {
 // - ui: the UI the node belongs to.
 // - node: the node to focus.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless(.{ width = 320, height = 200 });
 // defer free_ui(*ui);
 // count := 0;
@@ -567,7 +567,7 @@ focus_node :: (ui: *UI_State, node: *Node) {
 
 // Ask for another frame (animation, a blinking caret).
 //
-// ```jai,no_run,skip_on(wasm)
+// ```jai,no_run
 // // inside a build procedure, while something animates:
 // request_frame();
 // ```
@@ -577,7 +577,7 @@ request_frame :: () {
 
 // The frame's current time in seconds.
 //
-// ```jai,no_run,skip_on(wasm)
+// ```jai,no_run
 // // inside a build procedure:
 // seconds := ui_time();
 // ```

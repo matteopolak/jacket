@@ -3,7 +3,7 @@
 
 // What a display list entry draws.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // draw_rect(*ui, .{ 0, 0, 10, 10 }, rgb(255, 0, 0));
@@ -17,7 +17,7 @@ Draw_Kind :: enum u8 {
 
 // One display list entry.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // draw_rect(*ui, .{ 5, 5, 20, 10 }, rgb(0, 255, 0), radius = 4);
@@ -36,7 +36,7 @@ Draw_Cmd :: struct {
 
 // The display list of a frame plus the clip stack used while building it.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // assert(ui.draw.cmds.count == 0);
@@ -50,7 +50,7 @@ Draw_List :: struct {
 //
 // - list: the display list to release.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // list: Draw_List;
 // free_draw_list(*list);
 // ```
@@ -63,7 +63,7 @@ free_draw_list :: (list: *Draw_List) {
 //
 // - list: the display list to empty. Its memory is kept.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // draw_rect(*ui, .{ 0, 0, 10, 10 }, rgb(255, 0, 0));
@@ -84,7 +84,7 @@ reset_draw_list :: (list: *Draw_List) {
 // - border: outline width in points.
 // - border_color: outline colour.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // draw_rect(*ui, .{ 10, 10, 100, 40 }, rgb(40, 40, 60), radius = 6, border = 1, border_color = rgb(90, 90, 120));
@@ -105,7 +105,7 @@ draw_rect :: (ui: *UI_State, rect: Rect, color: Color, radius: float = 0, border
 // - text: the UTF-8 text. Control characters other than tab are skipped.
 // - style: font, size and colour.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // width := draw_text(*ui, 10, 10, "hello", .{ size = 10 });
@@ -124,7 +124,7 @@ draw_text :: (ui: *UI_State, x: float, y: float, text: string, style: Text_Style
 // - text: the UTF-8 text. Control characters other than tab are skipped.
 // - style: font, size and colour.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // width := draw_text_baseline(*ui, 10, 30, "hello", .{ size = 10 });
@@ -167,7 +167,7 @@ draw_text_baseline :: (ui: *UI_State, x: float, baseline: float, text: string, s
 // - ui: the UI whose display list gets the clip.
 // - rect: the area to keep, in points.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // push_clip(*ui, .{ 0, 0, 50, 50 });
@@ -186,7 +186,7 @@ push_clip :: (ui: *UI_State, rect: Rect) {
 //
 // - ui: the UI whose innermost clip to end.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless();
 // defer free_ui(*ui);
 // push_clip(*ui, .{ 0, 0, 50, 50 });

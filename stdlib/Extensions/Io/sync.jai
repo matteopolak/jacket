@@ -17,7 +17,7 @@ Channel :: struct(T: Type) {
 
 // A channel that holds up to `capacity` values, made with `context.allocator`.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -52,7 +52,7 @@ free_channel :: (channel: *Channel($T)) {
 // Puts `value` into the channel, blocking while it is full. `.CLOSED` if the channel is (or becomes)
 // closed, `.CANCELED` if the fiber is canceled while it waits.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -91,7 +91,7 @@ send :: (channel: *Channel($T), value: T) -> Io_Error {
 
 // A `send` that gives up instead of blocking: whether the value was taken.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -116,7 +116,7 @@ try_send :: (channel: *Channel($T), value: T) -> bool {
 // Takes the oldest value, blocking while the channel is empty. `.CLOSED` once it is closed and
 // drained, `.CANCELED` if the fiber is canceled while it waits.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -150,7 +150,7 @@ recv :: (channel: *Channel($T)) -> T, Io_Error {
 
 // A `recv` that gives up instead of blocking: the value and whether there was one.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -175,7 +175,7 @@ try_recv :: (channel: *Channel($T)) -> T, bool {
 // No more values will be sent. Fibers waiting to send get `.CLOSED`; receivers get what is
 // buffered, then `.CLOSED`.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -214,7 +214,7 @@ close :: (channel: *Channel($T)) {
 
 // Waits for a number of tasks, as many as were `add`ed and have not yet been `done`.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -270,7 +270,7 @@ Fiber_Mutex :: struct {
 
 // Takes the lock, waiting for whoever holds it. Pair it with [unlock].
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -299,7 +299,7 @@ lock :: (mutex: *Fiber_Mutex) -> Io_Error {
 
 // Takes the lock if it is free, without waiting; returns whether it did.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // mutex: Io.Fiber_Mutex;
@@ -328,7 +328,7 @@ unlock :: (mutex: *Fiber_Mutex) {
 // `wait` honours `with_deadline`. A condition carries no value and remembers nothing: a notify
 // with nobody waiting is lost, so wait in a loop that checks the state itself.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // changed: Io.Condition;
@@ -382,7 +382,7 @@ wait :: (condition: *Condition) -> Io_Error {
 
 // Wakes the fiber that has waited longest, if any.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {

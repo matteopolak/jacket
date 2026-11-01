@@ -7,7 +7,7 @@
 
 // Mouse buttons.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // button := Mouse_Button.RIGHT;
 // assert(button != .LEFT);
 // ```
@@ -19,7 +19,7 @@ Mouse_Button :: enum u8 {
 
 // Which modifier keys are held. `primary` is Cmd on macOS and Ctrl elsewhere.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // mods := Modifiers.{ ctrl = true };
 // assert(mods.ctrl && !mods.shift);
 // ```
@@ -34,7 +34,7 @@ Modifiers :: struct {
 //
 // - mods: the modifiers to check.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // mods := Modifiers.{ ctrl = true, shift = true };
 // shortcut := primary(mods);  // Ctrl on Windows and Linux, Cmd on macOS
 // ```
@@ -45,7 +45,7 @@ primary :: (mods: Modifiers) -> bool {
 
 // What an input event is.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // kind := Input_Kind.KEY;
 // assert(kind != .TEXT);
 // ```
@@ -95,7 +95,7 @@ Input_State :: struct {
 // - x: the new horizontal position.
 // - y: the new vertical position.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless(.{ width = 320, height = 200 });
 // defer free_ui(*ui);
 // count := 0;
@@ -118,7 +118,7 @@ send_mouse_move :: (ui: *UI_State, x: float, y: float) {
 // - ui: the UI to queue the event on.
 // - button: which button went down.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless(.{ width = 320, height = 200 });
 // defer free_ui(*ui);
 // count := 0;
@@ -145,7 +145,7 @@ send_mouse_down :: (ui: *UI_State, button: Mouse_Button = .LEFT) {
 // - ui: the UI to queue the event on.
 // - button: which button was released.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless(.{ width = 320, height = 200 });
 // defer free_ui(*ui);
 // count := 0;
@@ -173,7 +173,7 @@ send_mouse_up :: (ui: *UI_State, button: Mouse_Button = .LEFT) {
 // - dx: horizontal scroll in points.
 // - dy: vertical scroll in points.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless(.{ width = 200, height = 100 });
 // defer free_ui(*ui);
 // build := (u: *UI_State) {
@@ -195,7 +195,7 @@ send_scroll :: (ui: *UI_State, dx: float, dy: float) {
 // - mods: the modifiers held.
 // - repeat: true for an auto-repeat rather than a fresh press.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // edit: Text_Edit;
 // defer free_text_edit(*edit);
 // set_contents(*edit, "hi");
@@ -219,7 +219,7 @@ send_key :: (ui: *UI_State, key: Key_Code, mods: Modifiers = .{}, repeat: bool =
 // - ui: the UI to queue the events on.
 // - text: the UTF-8 text typed.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // edit: Text_Edit;
 // defer free_text_edit(*edit);
 // ui := headless();

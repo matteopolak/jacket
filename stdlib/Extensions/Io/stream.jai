@@ -53,7 +53,7 @@ Close_Proc :: #type (data: *void, now: bool) -> Io_Error;
 // a pipe end, and a struct of your own can fill in `read_proc` (and optionally `close_proc` and `wait_proc`). A `Reader` is a
 // handle: copy it freely, it owns nothing, and the source must stay alive while it is used. `close` on it closes the source.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Counter :: struct {
 //     next: u8;
 // }
@@ -102,7 +102,7 @@ Writer :: struct {
 
 // Waits for bytes and reads what is there, up to `buffer.count`. 0 means the end of the source.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -137,7 +137,7 @@ wait_readable :: (reader: Reader) -> Io_Error {
 // Whether `wait_readable` works on `reader`, which is when its source supplies a `wait_proc` (a TCP stream does; a file or a pipe
 // end does not). When it is false, `wait_readable` returns `.UNSUPPORTED`.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // main :: () {
@@ -156,7 +156,7 @@ can_wait_readable :: (reader: Reader) -> bool {
 
 // Reads until `buffer` is full. `.END_OF_FILE` if the source ended first, with the bytes read.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -193,7 +193,7 @@ read_full :: (reader: Reader, buffer: [] u8) -> s64, Io_Error {
 // `size_hint` is the expected length, when it is known. On any error the bytes read so far are
 // freed.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -241,7 +241,7 @@ read_all :: (reader: Reader, size_hint := 0) -> [] u8, Io_Error {
 // Sends at least one byte of `data` (unless it is empty) and returns how many. Use [write] to
 // send everything.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -261,7 +261,7 @@ write_some :: (writer: Writer, data: [] u8) -> s64, Io_Error {
 
 // Sends all of `data`, waiting as often as it takes. On an error it returns how many bytes went out.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -297,7 +297,7 @@ write :: (writer: Writer, text: string) -> s64, Io_Error {
 // block (a `Local_Drop`); fibers still waiting on the source are not woken, so prefer the plain
 // call unless the scheduler is ending.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -348,7 +348,7 @@ reader_of :: (file: *Io_File) -> Reader {
 // The TCP stream as a `Reader`; it can `wait_readable`. The reader carries the socket handle, so closing the reader closes the
 // stream.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -397,7 +397,7 @@ writer_of :: (file: *Io_File) -> Writer {
 // The TCP stream as a `Writer`. `write` through it waits as long as it takes for the peer to take the bytes. Closing the writer
 // closes the stream.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // main :: () {
@@ -426,7 +426,7 @@ writer_of :: (stream: Tcp_Stream) -> Writer {
 
 // One end of a pipe from `make_pipe` as a `Writer`. The writer points at the pipe end, which must outlive it.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {

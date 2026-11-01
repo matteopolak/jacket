@@ -7,7 +7,7 @@
 // adds no limit (`NO_DEADLINE`), so a timeout setting that may be off needs no second code path.
 // Channel and lock operations are not IO and ignore it.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // main :: () {
@@ -37,7 +37,7 @@ with_deadline :: (milliseconds: s64, body: Code) #expand {
 // `body` ends, the outer deadline is back, and the fiber is canceled if it was before or a cancel
 // came during `body`.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // main :: () {
@@ -85,7 +85,7 @@ Backend :: enum u8 {
 
 // The name of a backend as `JAI_IO_BACKEND` spells it, such as `"epoll"`, or `"none"` for `.NONE`. The string is a constant.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // assert(name_of_backend(.EPOLL) == "epoll");
 // assert(name_of_backend(.NONE) == "none");
 // ```
@@ -118,7 +118,7 @@ Capabilities :: struct {
 // `iocp` or `ioring` before `io_run` to ask for one; a backend the system cannot offer is
 // replaced (see `backend_reason`).
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 //
@@ -155,7 +155,7 @@ capabilities :: () -> Capabilities {
 
 // The number of processors, for sizing `io_run_threads`.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 //
@@ -171,7 +171,7 @@ processor_count :: () -> s64 {
 //
 // `count` 0 means one per processor. Call it from outside any `io_run`.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 // Atomics :: #import "Atomics";
 //
@@ -325,7 +325,7 @@ Local_Entry :: struct {
 // something the library owns (a global works). This is the per-thread variable the language does
 // not have: the Http client keeps its connection pool here.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 //

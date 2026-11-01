@@ -25,6 +25,8 @@
 // reset_keymaps(*set);
 // ```
 
+// test: skip_on(.WASM, reason = "needs the native SDL library, which has no wasm build")
+
 // A procedure a key press runs.
 Key_Press_Proc :: #type ();
 // A procedure for a key that is held: called with true when the key goes down, false when it is released.

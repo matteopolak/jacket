@@ -15,6 +15,8 @@
 // }
 // ```
 
+// test: skip_on(.WASM, reason = "Window_Creation has no wasm target")
+
 #module_parameters(
     // The sample count of new windows.
     DEFAULT_MSAA: s32 = 4
@@ -30,7 +32,7 @@ WT :: #import "Window_Type";
 // target, and `WT.INVALID_WINDOW` is the same value as a constant to compare against or assign.
 // Handles compare with `==` on all targets.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // no_window: Window_Type;
 // assert(no_window == WT.INVALID_WINDOW);
 //

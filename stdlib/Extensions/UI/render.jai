@@ -62,7 +62,7 @@ Rendered_Image :: struct {
 // - width: the drawable width in pixels.
 // - height: the drawable height in pixels.
 //
-// ```jai,no_run,skip_on(wasm)
+// ```jai,no_run
 // #import "Window_Creation";
 //
 // window := create_window(800, 600, "ui");
@@ -104,7 +104,7 @@ create_window_renderer :: (window: Window_Type, width: int, height: int) -> *Ren
 // - width: the target width in pixels.
 // - height: the target height in pixels.
 //
-// ```jai,no_run,skip_on(wasm)
+// ```jai,no_run
 // ui := headless();
 // defer free_ui(*ui);
 // renderer := create_offscreen_renderer(640, 480);
@@ -137,7 +137,7 @@ create_offscreen_renderer :: (width: int, height: int) -> *Renderer {
 //
 // - r: the renderer to release.
 //
-// ```jai,no_run,skip_on(wasm)
+// ```jai,no_run
 // renderer := create_offscreen_renderer(320, 200);
 // destroy_renderer(renderer);
 // ```
@@ -168,7 +168,7 @@ destroy_renderer :: (r: *Renderer) {
 // - width: the new width in pixels. Zero or less does nothing.
 // - height: the new height in pixels. Zero or less does nothing.
 //
-// ```jai,no_run,skip_on(wasm)
+// ```jai,no_run
 // renderer := create_offscreen_renderer(320, 200);
 // resize_target(renderer, 640, 400);
 // ```
@@ -209,7 +209,7 @@ resize_target :: (r: *Renderer, width: int, height: int) {
 // - ui: the UI whose display list to draw.
 // - clear: the colour the window is cleared to first.
 //
-// ```jai,no_run,skip_on(wasm)
+// ```jai,no_run
 // #import "Window_Creation";
 //
 // ui := headless();
@@ -246,7 +246,7 @@ present :: (r: *Renderer, ui: *UI_State, clear: Color) -> bool {
 // - ui: the UI whose display list to draw.
 // - clear: the colour the target is cleared to first.
 //
-// ```jai,no_run,skip_on(wasm)
+// ```jai,no_run
 // ui := headless();
 // defer free_ui(*ui);
 // renderer := create_offscreen_renderer(320, 200);
@@ -276,7 +276,7 @@ render_to_image :: (r: *Renderer, ui: *UI_State, clear: Color) -> Rendered_Image
 // - ui: the UI whose last frame to draw.
 // - path: where to write the PNG.
 //
-// ```jai,no_run,skip_on(wasm)
+// ```jai,no_run
 // ui := headless();
 // defer free_ui(*ui);
 // write_screenshot(*ui, "frame.png");

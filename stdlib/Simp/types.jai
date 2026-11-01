@@ -20,7 +20,7 @@ Texture_Flags :: enum_flags u16 {
 
 // How a texture is sampled when drawn larger or smaller than its size: `LINEAR` blends, `NEAREST` picks one texel.
 //
-// ```jai,no_run,skip_on(wasm)
+// ```jai,no_run
 // texture: Texture;
 // texture_load_from_file(*texture, "sprite.png");
 // texture_set_filter(*texture, .NEAREST);  // crisp pixels

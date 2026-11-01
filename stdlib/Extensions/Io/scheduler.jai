@@ -160,7 +160,7 @@ Scheduler :: struct {
 // caller keeps what `proc` allocated. Do not call it from inside another `io_run` on the same
 // thread.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // done: bool;
@@ -180,7 +180,7 @@ io_run :: (proc: $P) {
 
 // The `io_run` for a procedure that takes one argument: `data` is copied and handed to `proc`.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run((n: int) { assert(n == 3); }, 3);
@@ -195,7 +195,7 @@ io_run :: (proc: $P, data: $T) {
 // OS thread, so they can use shared data without locks as long as they do not block in the middle
 // of updating it.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // main :: () {
@@ -222,7 +222,7 @@ spawn :: (proc: $P, data: $T) -> Fiber_Handle {
 
 // Lets the other ready fibers run first. `.CANCELED` if this fiber was canceled.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -248,7 +248,7 @@ yield :: () -> Io_Error {
 // Blocks this fiber, not the thread, for at least `milliseconds`. Ends early with `.TIMED_OUT`
 // when a `with_deadline` limit comes first.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -277,7 +277,7 @@ sleep :: (milliseconds: s64) -> Io_Error {
 // Makes the blocking calls of `fiber` return `.CANCELED`, now and from now on. The call it is
 // blocked in, if any, returns at once. Does nothing for a fiber that has ended.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -300,7 +300,7 @@ cancel :: (handle: Fiber_Handle) {
 
 // Whether the running fiber was canceled, for loops that do not block.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {
@@ -315,7 +315,7 @@ is_canceled :: () -> bool {
 
 // Whether the calling code runs on a fiber of a scheduler, that is inside `io_run`.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // assert(!Io.in_scheduler());
@@ -329,7 +329,7 @@ in_scheduler :: () -> bool {
 
 // The handle of the running fiber.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // Io :: #import "Extensions/Io";
 //
 // Io.io_run(() {

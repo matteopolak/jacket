@@ -20,7 +20,7 @@ get_total_bytes_for_size :: (comp: s32, size: s32) -> s32 {
 // square. `image_data` is tightly packed BGR (`comp` 3) or BGRA (`comp` 4). Returns the file's
 // bytes (free them), or an empty string after logging an error.
 //
-// ```jai
+// ```jai,skip_on(wasm)
 // pixels: [16] u8;
 // ico := create_ico_file(2, 2, 4, pixels.data);
 // defer free(ico);

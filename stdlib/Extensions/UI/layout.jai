@@ -7,7 +7,7 @@
 //
 // - ui: the UI whose tree to lay out.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // ui := headless(.{ width = 200, height = 100 });
 // defer free_ui(*ui);
 // push_ui(*ui);

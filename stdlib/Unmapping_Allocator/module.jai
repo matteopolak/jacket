@@ -2,7 +2,7 @@
 //
 // Make one with [get_unmapping_allocator] and use it with `push_allocator` around the code you suspect. Needs a system with virtual memory: macOS, Linux, Android or Windows.
 //
-// ```jai,skip_on(wasm)
+// ```jai
 // allocator := get_unmapping_allocator();
 // {
 //     push_allocator(allocator);
@@ -12,6 +12,8 @@
 // }
 // deinit_unmapping_allocator(allocator);
 // ```
+
+// test: skip_on(.WASM, reason = "needs virtual-memory unmapping, which wasm lacks")
 
 #assert OS == .MACOS || OS == .LINUX || OS == .ANDROID || OS == .WINDOWS;
 // The state of an unmapping allocator: a record of live allocations and a lock.

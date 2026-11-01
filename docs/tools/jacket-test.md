@@ -123,7 +123,7 @@ Each block is a program importing `Basic` and the library. A block with a file-l
 | ```` ```jai,should_fail ```` | built and run; must fail |
 | ```` ```jai,ignore ```` | skipped |
 
-The notes above also work as options without the `@`: ```` ```jai,only(linux, macos) ````, `skip_on(wasm)`, `needs(...)`, `timeout(...)`. Doc tests are named `doc: Module.symbol#N`. `--doc` runs only doc tests, `--no-doc` leaves them out.
+The notes above also work as options without the `@`: ```` ```jai,only(linux, macos) ````, `skip_on(wasm)`, `needs(...)`, `timeout(...)`. A `// test:` line in its own comment run at the top of the library's `module.jai` (after the module docs, with a blank line on each side) applies to every doc test of the library, so a module with no wasm target writes `// test: skip_on(.WASM, reason = "needs threads")` once instead of annotating each fence. It is a header like a test file's, so it is not part of the module docs. Doc tests are named `doc: Module.symbol#N`. `--doc` runs only doc tests, `--no-doc` leaves them out.
 
 ## Running
 

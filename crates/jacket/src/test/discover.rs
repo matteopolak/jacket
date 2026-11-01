@@ -124,6 +124,21 @@ pub fn is_golden(source: &Path) -> bool {
             .any(|n| n.starts_with("compile_fail("))
 }
 
+/// Gives every doc test of the library in `dir` the notes of the `// test:` lines that open its
+/// `module.jai`, so a library with no wasm target needs `skip_on(.WASM)` once, not on each example.
+fn apply_module_notes(dir: &Path, docs: &mut [super::doctest::Block]) {
+    let source = std::fs::read_to_string(dir.join("module.jai")).unwrap_or_default();
+    for note in super::options::header_notes(&source) {
+        for block in docs.iter_mut() {
+            if let Err(problem) = block.options.apply(&note) {
+                block
+                    .problems
+                    .push(problem.replace("note `@", "module note `"));
+            }
+        }
+    }
+}
+
 impl Root {
     /// `seen` holds the files earlier roots read doc tests from; a file is read for one root.
     pub fn read(
@@ -156,15 +171,17 @@ impl Root {
             .map_or_else(|| "tests".into(), |n| n.to_string_lossy().into_owned());
         let library = dir.join("module.jai").is_file();
         let module = module_name(&dir, stdlib).unwrap_or_else(|| label.clone());
+        let mut docs = if library && doc_tests && !is_private(&module) {
+            super::doctest::blocks(&dir, &module, (jaic, stdlib), seen)
+        } else {
+            Vec::new()
+        };
+        apply_module_notes(&dir, &mut docs);
         let mut bench = jai_files(&dir.join("benches"));
         bench.extend(unit.iter().filter(|file| holds_bench(file)).cloned());
         Root {
             bench,
-            docs: if library && doc_tests && !is_private(&module) {
-                super::doctest::blocks(&dir, &module, (jaic, stdlib), seen)
-            } else {
-                Vec::new()
-            },
+            docs,
             module,
             library,
             compile_fail,
@@ -275,6 +292,33 @@ pub fn roots(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn module_notes_reach_every_doc_test_of_the_library() {
+        let dir = std::env::temp_dir().join(format!("jacket-module-notes-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("module.jai"),
+            "// Docs.\n\n// test: skip_on(.WASM) bogus_note\n\nf :: () {}\n",
+        )
+        .unwrap();
+        let block = |name: &str| super::super::doctest::Block {
+            name: name.into(),
+            file: dir.join("module.jai"),
+            line: 1,
+            code: String::new(),
+            mode: super::super::doctest::Mode::Run,
+            options: Default::default(),
+            problems: Vec::new(),
+        };
+        let mut docs = vec![block("M#1"), block("M.f#1")];
+        apply_module_notes(&dir, &mut docs);
+        std::fs::remove_dir_all(&dir).ok();
+        for doc in &docs {
+            assert_eq!(doc.options.skip_on.len(), 1, "{}", doc.name);
+            assert_eq!(doc.problems.len(), 1, "{:?}", doc.problems);
+        }
+    }
 
     #[test]
     fn import_folders_are_the_existing_ones_flags_name() {
