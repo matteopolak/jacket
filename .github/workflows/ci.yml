@@ -295,6 +295,19 @@ jobs:
           objc=()
           [[ "$JACKET_STDLIB_TARGETS_PART" == 1/* ]] && objc=(--test objc_selectors)
           cargo nextest run --profile ci --ignore-default-filter -p jaic-cli --locked --test stdlib_targets "${objc[@]}"
+      - name: Stdlib doc examples type-check for every OS
+        id: doc-targets
+        if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',targets,') }}
+        # Every doc example of the standard library, type-checked (not built or run) for linux,
+        # macos, windows and wasm, so a mistake that only shows on another OS fails here and not
+        # after the merge (docs/tools/jacket-test.md). The shard's share of each target's examples.
+        env:
+          JACKET_PART: ${{ matrix.shard }}
+        run: |
+          cargo build -q -p jaic-cli -p jacket --locked
+          for os in linux macos windows wasm; do
+            target/debug/jacket test -q --doc --check-only --os "$os" --partition "count:$JACKET_PART"
+          done
       - name: Prepare hash-pinned SDL Python test inputs
         if: ${{ !cancelled() && steps.setup.outcome == 'success' && contains(matrix.parts, ',jai,') }}
         run: python3 tools/bindings/prepare_sdl_python_tests.py --scratch "$RUNNER_TEMP/sdl-python" --cache "$RUNNER_TEMP/sdl-python-cache" >> "$GITHUB_ENV"
