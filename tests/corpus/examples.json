@@ -383,6 +383,15 @@
       "stdout_contains": []
     },
     {
+      "id": "term",
+      "directory": "examples/term",
+      "main": "main.jai",
+      "title": "Terminal",
+      "summary": "A VT grid on Extensions/UI with a native macOS/Linux pseudoterminal.",
+      "mode": "check",
+      "args": []
+    },
+    {
       "id": "chat",
       "directory": "examples/chat",
       "main": "main.jai",
