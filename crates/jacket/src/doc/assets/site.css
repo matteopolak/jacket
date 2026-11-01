@@ -231,7 +231,7 @@ h2:hover .anchor, h3:hover .anchor, .anchor:focus-visible { opacity: 1; }
 .overload > .defs { border-width: 1px 0; }
 .overload > .defs .def { padding-left: var(--px); padding-right: var(--px); }
 .overload > .defs:last-child { margin-bottom: calc(-1 * var(--py)); border-bottom-width: 0; }
-.overload > h3 { margin-top: 22px; }
+.overload > .defs + :not(h3) { margin-top: 20px; }
 pre { margin: 0; }
 .sig, .code { font-family: var(--mono); color: var(--fg); }
 .code { overflow-x: auto; }
@@ -244,6 +244,12 @@ pre.sig { margin: 0 0 20px; padding: 14px 18px; background: var(--sunken); borde
 .defs { display: grid; grid-template-columns: fit-content(50%) minmax(0, 1fr); column-gap: 24px; margin: 0 0 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .def { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; align-items: baseline; padding: 10px 16px; }
 .def + .def { border-top: 1px solid var(--hair); }
+/* A list under a heading reads as one captioned table: the heading is its tinted top bar. */
+main h3:has(+ .defs) { margin: 24px 0 0; padding: 7px 16px; background: color-mix(in srgb, var(--surface), var(--fg) 5%); border: 1px solid var(--border); border-bottom-color: var(--hair); border-radius: 10px 10px 0 0; font-size: 12.5px; color: var(--fg2); }
+main h3 + .defs { border-top-width: 0; border-radius: 0 0 10px 10px; }
+main .overload > h3 { margin: 20px calc(-1 * var(--px)) 0; padding: 7px var(--px); border-width: 1px 0; border-bottom-color: var(--hair); border-radius: 0; }
+main .overload > .defs + h3 { margin-top: 0; border-top-width: 0; }
+main .overload > h3 + .defs { margin-top: 0; margin-bottom: 0; border-radius: 0; }
 .def dt { font-size: 13.5px; overflow-wrap: anywhere; min-width: 0; }
 .def dd:empty { display: none; }
 .def dd { margin: 0; font-size: 14.5px; color: var(--fg2); min-width: 0; }
