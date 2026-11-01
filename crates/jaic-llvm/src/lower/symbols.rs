@@ -254,7 +254,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             let name = g
                 .export
                 .clone()
-                .unwrap_or_else(|| format!("{}.{i}", g.name));
+                .unwrap_or_else(|| format!("{}.g{i}", g.name));
             let gv = self.module.add_global(ty, None, &name);
             gv.set_linkage(Linkage::External);
             if self.replicated(g) {
