@@ -107,6 +107,19 @@ mod imp {
         shutdown: bool,
     }
 
+    impl State {
+        /// The next queued file that no one has taken, marked as running.
+        fn next_queued(&mut self) -> Option<PathBuf> {
+            while let Some(path) = self.queue.pop_front() {
+                if let Some(entry @ Entry::Queued) = self.entries.get_mut(&path) {
+                    *entry = Entry::Running;
+                    return Some(path);
+                }
+            }
+            None
+        }
+    }
+
     struct Shared {
         state: Mutex<State>,
         /// Workers wait here for queued files.
@@ -257,12 +270,8 @@ mod imp {
                         if state.shutdown {
                             return;
                         }
-                        if let Some(path) = state.queue.pop_front() {
-                            if let Some(entry @ Entry::Queued) = state.entries.get_mut(&path) {
-                                *entry = Entry::Running;
-                                break path;
-                            }
-                            continue;
+                        if let Some(path) = state.next_queued() {
+                            break path;
                         }
                         state = self.work.wait(state).unwrap();
                     }
