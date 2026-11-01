@@ -973,7 +973,7 @@ Serve_State :: struct {
 // stopped; the error says why it could not start (the port is taken, two routes conflict, the TLS
 // configuration is unusable) and is `.NONE` for a clean stop.
 //
-// ```jai,no_run
+// ```jai,no_run,skip_on(wasm)
 // hello :: () -> string {
 //     return "hello";
 // }

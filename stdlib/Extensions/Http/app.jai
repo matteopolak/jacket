@@ -202,7 +202,7 @@ use :: (app: *App, middleware: Middleware) {
 // Asks the servers started by `serve` to stop: they stop accepting and finish the requests in
 // progress. Safe to call from any thread; `serve` returns once they are done.
 //
-// ```jai,no_run
+// ```jai,no_run,skip_on(wasm)
 // // From a signal handler's polling loop, a timer thread or an admin route:
 // app: App;
 // shutdown(*app);
