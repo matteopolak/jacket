@@ -306,11 +306,11 @@ finish_error :: (state: *Parse_State) {
     }
 
     if error.kind == .VERSION {
-        error.text = tprint("% %\n", root.name, root.version);
+        error.text = sprint("% %\n", root.name, root.version);
         return;
     }
 
-    error.usage = usage_line(*root, state.path);
+    error.usage = copy_string(usage_line(*root, state.path));
 
     if error.kind == .UNKNOWN_OPTION {
         long: [..] string;

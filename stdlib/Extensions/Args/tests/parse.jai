@@ -332,6 +332,29 @@ test_shell_option :: () {
     expect(error.kind == .NONE && c.completions == .POWERSHELL && set.completions, "Args.Shell works as an option type");
 }
 
+// Error text retained by the caller must survive reuse of temporary storage.
+test_error_storage :: () {
+    initial: [32_768] u8;
+    storage: Temporary_Storage_Paged_Alloc;
+    storage.data = initial.data;
+    storage.size = initial.count;
+
+    push_context {
+        context.temporary_storage = *storage;
+        defer reset_temporary_storage();
+
+        _cli, version, _set := Args.try_parse(Cli, HELP, string.["jaifmt", "--version"]);
+        _bad_cli, invalid, _bad_set := Args.try_parse(Cli, HELP, string.["jaifmt", "--bogus"]);
+
+        reset_temporary_storage();
+        scratch := talloc_string(initial.count);
+        for *scratch it.* = #char "x";
+
+        expect(version.text == "jaifmt 1.2.3\n", "version text survives temporary storage reuse");
+        expect(invalid.usage == "jaifmt [OPTIONS] [PATHS]...", "usage text survives temporary storage reuse");
+    }
+}
+
 main :: () {
     test_shell_option();
     test_defaults_and_syntax();
@@ -341,6 +364,7 @@ main :: () {
     test_relations();
     test_positionals();
     test_subcommands();
+    test_error_storage();
 
     if failures {
         print("% failures\n", failures);
