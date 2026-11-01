@@ -1,6 +1,5 @@
 //! jacket's own build status lines, such as the `Running` line after `jacket run` builds. They
-//! follow the rules jaic's status uses (`jaic::progress::mode_with`), so they appear exactly when
-//! jaic's `Compiling` and `Finished` lines do.
+//! use jaic's own rule (`jaic::progress::mode_with`), so they appear exactly when jaic's `Compiling` and `Finished` lines do.
 use std::ffi::OsString;
 
 /// Whether status lines are printed for a jaic command line, and in colour: `None` for none.
@@ -25,30 +24,11 @@ fn lines_with(
         quiet |= flag == "-quiet" || flag == "--quiet";
         no_color |= flag == "-no_color" || flag == "-msvc_format";
     }
-    if quiet {
-        return None;
+    match jaic::progress::mode_with(terminal, quiet, no_color, env) {
+        jaic::progress::Mode::Off => None,
+        jaic::progress::Mode::Plain => Some(false),
+        jaic::progress::Mode::Live => Some(true),
     }
-    match env("JAIC_PROGRESS").as_deref() {
-        Some("off") => return None,
-        Some("plain") => return Some(false),
-        Some("live") => return Some(true),
-        _ => {}
-    }
-    if !terminal {
-        return None;
-    }
-    let ansi_console = !cfg!(windows)
-        || env("WT_SESSION").is_some()
-        || env("ANSICON").is_some()
-        || env("ConEmuANSI").as_deref() == Some("ON")
-        || env("TERM").is_some();
-    let ci = env("CI").is_some_and(|v| !v.is_empty() && v != "0" && v != "false");
-    let plain = no_color
-        || ci
-        || !ansi_console
-        || env("NO_COLOR").is_some()
-        || env("TERM").as_deref() == Some("dumb");
-    Some(!plain)
 }
 
 /// Prints `verb` right-aligned in 12 columns, then `text`, like jaic's status lines.
