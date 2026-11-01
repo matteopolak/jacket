@@ -34,8 +34,11 @@ class SdlPythonSetup(unittest.TestCase):
             self.assertFalse(Path(child).exists())
 
     def test_unconfigured_or_relative_scratch_has_no_internal_fallback(self):
-        with patch.dict(os.environ, {}, clear=True):
+        with patch.dict(os.environ, {"CI": "true"}, clear=True):
             with self.assertRaisesRegex(RuntimeError, "SDL_TEST_TMPDIR is required"):
+                support.temporary_directory()
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaisesRegex(unittest.SkipTest, "prepare_sdl_python_tests"):
                 support.temporary_directory()
         with patch.dict(os.environ, {"SDL_TEST_TMPDIR": "relative"}):
             with self.assertRaises(ValueError):

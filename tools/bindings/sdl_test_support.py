@@ -3,6 +3,7 @@
 import os
 from pathlib import Path
 import tempfile
+import unittest
 from toolkit.repo import ROOT
 
 
@@ -15,9 +16,15 @@ def repository_root():
 def scratch_root():
     value = os.environ.get("SDL_TEST_TMPDIR")
     if not value:
-        raise RuntimeError(
-            "SDL_TEST_TMPDIR is required: run tools/bindings/prepare_sdl_python_tests.py before discovery"
+        message = (
+            "SDL_TEST_TMPDIR is required: run tools/bindings/prepare_sdl_python_tests.py "
+            "--scratch DIR --cache DIR (absolute paths) and export the variables it prints, "
+            "or run the tests through tools/run_tests.py, which prepares them"
         )
+        # CI prepares the inputs before the tests, so a missing one there is a broken job.
+        if os.environ.get("CI"):
+            raise RuntimeError(message)
+        raise unittest.SkipTest(message)
     root = Path(value)
     if not root.is_absolute():
         raise ValueError("SDL_TEST_TMPDIR must be an absolute owned scratch path")

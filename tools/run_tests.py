@@ -65,7 +65,7 @@ def sdl_environment() -> dict[str, str]:
     if result.returncode:
         sys.stderr.write(
             "run_tests.py: could not prepare the SDL test inputs (no network?); "
-            "the tools/bindings SDL tests will fail:\n" + result.stderr[-400:]
+            "the tools/bindings SDL tests will be skipped:\n" + result.stderr[-400:]
         )
         return {}
     return dict(line.split("=", 1) for line in result.stdout.splitlines() if "=" in line)

@@ -63,7 +63,7 @@ Any script under `tools/` that defines `OUTPUTS` is run, and a script in `tools/
 
 ## Tests
 
-`tools/` has no `__init__.py`, so plain `unittest discover` skips subfolders. Use `python3 tools/run_tests.py [FOLDER ...] [-p PATTERN]... [-v] [-j N] [--timeout S]`: one `discover` per folder, each in its own process, run in parallel. Folders run at the same time, so tests must not share scratch paths. A folder that needs prepared inputs has an entry in `FIXTURES`. A script that only runs a suite by hand must not be named `test_*.py`. Node tests (`tools/browser/test_*.mjs`) run with `node --test`.
+`tools/` has no `__init__.py`, so plain `unittest discover` skips subfolders. Use `python3 tools/run_tests.py [FOLDER ...] [-p PATTERN]... [-v] [-j N] [--timeout S]`: one `discover` per folder, each in its own process, run in parallel. Folders run at the same time, so tests must not share scratch paths. A folder that needs prepared inputs has an entry in `FIXTURES`. A script that only runs a suite by hand must not be named `test_*.py`. The SDL tests in `bindings/` need `SDL_TEST_TMPDIR` and prepared sources: `run_tests.py` prepares them, and run by hand without them they skip with the command to prepare them. When `CI` is set a missing input is an error instead, so CI cannot skip them silently. Node tests (`tools/browser/test_*.mjs`) run with `node --test`.
 
 ## Adding a tool
 
