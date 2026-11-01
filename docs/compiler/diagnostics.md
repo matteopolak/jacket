@@ -32,6 +32,7 @@ Say what is wrong in the user's terms, point at the user's own code (the wrong a
 - Warnings print before any error and do not change the exit status unless denied. Format strings are checked against argument counts for print-like procedures.
 - Runtime failures: the interpreter returns a `Trap` with the unwound frames, and `trap_diagnostic` makes the innermost user frame the location. Wording lives in `ir::check_message`, keyed by `ir::CheckReason`, and executables print the same text.
 - A fault inside foreign code run by `-interp` or `#run` is caught by a signal handler (`interp/crash.rs`) that prints the call and exits 121. Wild-pointer loads in compile-time code are caught by `interp/guard.rs` (macOS arm64, Linux x86-64/arm64).
+- An error found while expanding an `#expand` macro is reported at the macro call, with a note `in the expansion of `name`` at the place in the macro body (`at_macro_call` in `sema/calls/macro_expand.rs`). Nested expansions end at the outermost call. Errors in the arguments keep their own place. A macro that returns from its caller (`` `return ``) into a procedure that needs a value gets a `help:` saying so.
 - Command-line mistakes are diagnostics with the codes `cli-usage` and `cli-failure`, with closest-match suggestions.
 - `Types::name` shortens long string arguments of polymorphic structs; `Types::full_name` keeps them.
 

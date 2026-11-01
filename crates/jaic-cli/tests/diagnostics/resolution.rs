@@ -415,3 +415,46 @@ fn missing_load_file_says_where_it_looked() {
         ],
     );
 }
+
+#[test]
+fn error_in_a_macro_body_is_reported_at_the_call() {
+    let dir = TempDir::new("macro-call-site");
+    let output = jaic_on(
+        &dir,
+        "m.jai",
+        "bad :: (x: int) #expand {\n    y: string = x;\n}\nmain :: () {\n    bad(1);\n}\n",
+        "-check",
+        &[],
+    );
+    assert_in_order(
+        &stderr(&output),
+        &[
+            "m.jai:5:5: error[",
+            "bad(1);",
+            "m.jai:2:17: note: in the expansion of `bad`",
+        ],
+    );
+}
+
+#[test]
+fn require_in_a_procedure_that_returns_a_value_points_at_the_call() {
+    let dir = TempDir::new("require-returns-value");
+    let output = jaic_on(
+        &dir,
+        "r.jai",
+        "#import \"Basic\";\n#import \"Extensions/Testing\";\nhelper :: () -> int {\n    require_equal(1 + 1, 2);\n    return 5;\n}\nmain :: () { print(\"%\\n\", helper()); }\n",
+        "-check",
+        &[],
+    );
+    assert_in_order(
+        &stderr(&output),
+        &[
+            "r.jai:4:5: error[missing-return-value-2]: missing return value",
+            "require_equal(1 + 1, 2);",
+            "checks.jai",
+            "note: in the expansion of `require_equal`",
+            "help: the procedure returns `s64`",
+            "help: `require_equal` returns from the procedure that calls it",
+        ],
+    );
+}

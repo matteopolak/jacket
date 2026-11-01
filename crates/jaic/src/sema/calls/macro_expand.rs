@@ -4,7 +4,7 @@ use super::{
     Arc, CallArg, Compiler, E, EntityKind, FnCtx, MacroFrame, Operand, PreludeType, ProcId, Result,
     ScopeId, ScopeKind, Signature, Slot, Span, Sym, TypeId, Value, asm, ast, err, procs, scope,
 };
-use crate::diagnostics::Code;
+use crate::diagnostics::{Code, Diagnostic};
 use crate::ide::Recorder;
 use crate::sema::SourceState;
 
@@ -384,6 +384,34 @@ impl Compiler {
         Ok(())
     }
 
+    /// An error found inside a macro body is reported at the call, with a note at the place in
+    /// the body (once per level, so a macro that expands another ends at the outermost call).
+    /// Errors in the arguments, which are written at the call, stay where they are.
+    fn at_macro_call(&self, error: &mut Diagnostic, proc: ProcId, body: Span, call: Span) {
+        let inside = error.span.file == body.file
+            && error.span.start >= body.start
+            && error.span.end <= body.end
+            && call != Span::NONE;
+        if !inside {
+            return;
+        }
+        let name = self.proc(proc).name;
+        let note = match error.label.take() {
+            Some(label) => format!("in the expansion of `{name}`: {label}"),
+            None => format!("in the expansion of `{name}`"),
+        };
+        if matches!(
+            error.code,
+            Code::MissingReturnValue | Code::MissingReturnValue2
+        ) {
+            error.help.push(format!(
+                "`{name}` returns from the procedure that calls it, which must return a value; use the `expect` form of the check there"
+            ));
+        }
+        error.notes.insert(0, (error.span, note));
+        error.span = call;
+    }
+
     pub(super) fn expand_macro(
         &mut self,
         f: &mut FnCtx,
@@ -458,7 +486,10 @@ impl Compiler {
         let result = self.check_block_stmts(f, mscope, &body.stmts);
         f.backtick_scope = saved_backtick;
         let frame = f.macros.pop().unwrap();
-        result?;
+        if let Err(mut error) = result {
+            self.at_macro_call(&mut error, proc, body.span, span);
+            return Err(error);
+        }
         self.ide_require_parsed_body(body.span)?;
         if !f.b.is_terminated() {
             self.emit_defers(f, frame.defer_depth.position(), span)?;
