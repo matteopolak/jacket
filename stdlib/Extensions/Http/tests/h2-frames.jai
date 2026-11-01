@@ -46,7 +46,10 @@ data_and_padding :: () {
 
     defer array_reset(*out);
 
-    h2_put_data(*out, 1, bytes_of("hello"), true);
+    // The codec is built on wasm too, where the client's `bytes_of` is not.
+    greeting := "hello";
+
+    h2_put_data(*out, 1, .{ greeting.count, greeting.data }, true);
 
     header := header_of(out);
 
