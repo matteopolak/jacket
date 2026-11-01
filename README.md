@@ -1,6 +1,8 @@
 # Jacket
 
-A compiler, standard library, language server, formatter and linter for the [Jai](https://en.wikipedia.org/wiki/Jai_(programming_language)) programming language. It builds for macOS, Linux, Windows and WebAssembly. [Try it in the browser.](https://matteopolak.com/playground/jacket)
+A compiler, standard library, language server, formatter and linter for the [Jai](https://en.wikipedia.org/wiki/Jai_(programming_language)) programming language. It builds for macOS, Linux, Windows and WebAssembly.
+
+**[API docs](https://matteopolak.com/docs/jacket)** · **[Guides and reference](docs/README.md)** · [Playground](https://matteopolak.com/playground/jacket) · [Changelog](CHANGELOG.md)
 
 > [!NOTE]
 > Jacket is unofficial and is not affiliated with or endorsed by Thekla, Inc. or the official Jai project.
@@ -49,11 +51,6 @@ jacket doc               # build the API docs site
 ```
 
 `jacket build`, `check` and `run` take the same flags as the compiler, `jaic`, and also read your project's `jacket.toml`. `jaic hello.jai -o -os windows` is the direct form; run `jaic -help` for every option. See [jacket](docs/tools/jacket.md) and the [command-line reference](docs/reference/command-line.md).
-
-## Docs
-
-- [API documentation](https://matteopolak.com/docs/jacket): the standard library, with examples you can run
-- [All docs](docs/README.md) and the [changelog](CHANGELOG.md)
 
 ## Contributing
 
