@@ -13,12 +13,13 @@ from unittest.mock import patch
 
 import io_stress as stress
 from ci.ci_test_scratch import assigned_scratch
+from toolkit.repo import ROOT
 
 
 # A set target directory keeps `cargo metadata` from reaching the mocked `Popen` and counting as a launch.
 @patch.dict(
     "os.environ",
-    {"CARGO_TARGET_DIR": str(Path(__file__).resolve().parents[2] / "target")},
+    {"CARGO_TARGET_DIR": str(ROOT / "target")},
 )
 class FailureWiring(unittest.TestCase):
     def test_twelve_original_copies_and_original_failure_gate(self):

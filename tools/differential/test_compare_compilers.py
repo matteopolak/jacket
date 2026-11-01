@@ -14,7 +14,6 @@ from compare_core import (A_ONLY, AGREE, B_ONLY, BOTH_REJECT, CRASH, FAILURE, OK
                           TIMEOUT, Outcome, Program, Record, classify, cluster_by_error, cluster_by_tag,
                           cluster_rejections, first_error, normalise_error, reduce_lines, summarise)
 
-ROOT = Path(__file__).resolve().parents[2]
 
 
 def find_jaic():

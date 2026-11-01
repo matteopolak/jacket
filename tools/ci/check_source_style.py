@@ -14,6 +14,9 @@ Build paths: a Python script under tools/ may not read `CARGO_TARGET_DIR` from a
 `ROOT / "target"...` by hand. Use `toolkit.repo.cargo_target_dir()` / `cargo_binary()` for cargo's output
 and `repo_output.output_dir()` for scratch. Setting the variable for a child process is fine.
 `BUILD_PATH_ALLOWED` lists the few files that really resolve these paths themselves.
+
+Repo root: a Python script under tools/ may not work the root out from `__file__` (`Path(__file__).resolve().parents[2]`).
+Import `toolkit.repo.ROOT`. `ROOT_ALLOWED` lists the files that run without `tools/` on the import path.
 """
 
 import ast
@@ -34,7 +37,17 @@ BUILD_PATH_ALLOWED = {
     "tools/browser/cargo_build_paths.py": "release packaging resolver: pinned toolchain, locked metadata and an injected environment",
     "tools/browser/test_build_scripting_wasm.py": "asserts on the environment handed to the cargo child process",
     "tools/dev/test_build_pgo.py": "asserts on the environment handed to the cargo child process",
+    "tools/stdlib/test_io_failure_wiring.py": "pins CARGO_TARGET_DIR for the code under test so cargo metadata never runs",
     "tools/ci/ci_test_scratch.py": "scratch selection from an injected environment, deliberately without cargo or defaults",
+}
+
+# Files that may find the repository root from their own location, and why.
+ROOT_ALLOWED = {
+    "tools/toolkit/repo.py": "the one resolver",
+    "tools/ci/job_inputs.py": "runs from a checkout of any layout, with no import path of its own",
+    "tools/ci/check_ci_sources.py": "packaging runs it on a public checkout without tools/ on the import path",
+    "tools/dev/check_rust_format.py": "a git hook, run without PYTHONPATH",
+    "tools/dev/pre_push_clippy.py": "a git hook, run without PYTHONPATH",
 }
 TARGET_ENV = "CARGO_TARGET_DIR"
 
@@ -130,6 +143,19 @@ def build_path_problems(source: str, name: str = "") -> list[str]:
     return problems
 
 
+def root_problems(source: str, name: str = "") -> list[str]:
+    """Lines of `source` that find the repository root from `__file__`."""
+    if name in ROOT_ALLOWED:
+        return []
+    return [
+        f"line {node.lineno}: finds the repository root from __file__; use toolkit.repo.ROOT"
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Attribute)
+        and node.attr == "parents"
+        and any(isinstance(inner, ast.Name) and inner.id == "__file__" for inner in ast.walk(node.value))
+    ]
+
+
 def main():
     counts, errors = {}, []
     for path in git_files("*.rs"):
@@ -145,9 +171,8 @@ def main():
             )
     for path in git_files("tools/*.py"):
         if (ROOT / path).is_file():
-            for problem in build_path_problems(
-                (ROOT / path).read_text(encoding="utf-8"), path
-            ):
+            text = (ROOT / path).read_text(encoding="utf-8")
+            for problem in [*build_path_problems(text, path), *root_problems(text, path)]:
                 errors.append(f"{path}: {problem}")
     for e in errors:
         print(e, file=sys.stderr)

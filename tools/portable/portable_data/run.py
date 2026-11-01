@@ -11,9 +11,9 @@ import os
 import subprocess
 import sys
 from repo_output import output_dir
+from toolkit.repo import ROOT
 from toolkit.repo import cargo_binary, jaifmt_path
 
-root = Path(__file__).resolve().parents[3]
 sources = [
     "stdlib/Ico_File", "stdlib/Simple_Package", "stdlib/Subtitles",
     "stdlib/internal/resource-wire", "stdlib/internal/simple-package",
@@ -28,7 +28,7 @@ windows_sources = ["stdlib/Windows_Resources", "stdlib/internal/windows-resource
                    "stdlib/Windows_Resources/tests/console-windows.jai",
                    "stdlib/Windows_Resources/tests/discovery-windows.jai"]
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("--output-root", type=Path, default=output_dir("portable-data"))
+parser.add_argument("--output-ROOT", type=Path, default=output_dir("portable-data"))
 parser.add_argument("--native-libs", type=Path)
 parser.add_argument("--compiler", type=Path)
 parser.add_argument("--formatter", type=Path)
@@ -39,16 +39,16 @@ args = parser.parse_args()
 output = args.output_root.resolve()
 output.mkdir(parents=True, exist_ok=True)
 native_libs = args.native_libs or output / "native"
-env = dict(os.environ, JAIC_NATIVE_LIBS=str(native_libs.resolve()), JAIC_STDLIB=str(root / "stdlib"))
+env = dict(os.environ, JAIC_NATIVE_LIBS=str(native_libs.resolve()), JAIC_STDLIB=str(ROOT / "stdlib"))
 if os.name == "nt":
     env["PATH"] = str(native_libs.resolve()) + os.pathsep + env.get("PATH", "")
 linter = (args.linter or cargo_binary("jailint")).resolve(strict=True)
 
 def context_lint():
-    subprocess.run([sys.executable, str(root / "tools/portable/portable_data_context_lint.py"),
-                    "--linter", str(linter), "--stdlib", str(root / "stdlib"),
-                    "--output-root", str(output / "lint"), *sources, *windows_sources],
-                   cwd=root, env=env, check=True)
+    subprocess.run([sys.executable, str(ROOT / "tools/portable/portable_data_context_lint.py"),
+                    "--linter", str(linter), "--stdlib", str(ROOT / "stdlib"),
+                    "--output-ROOT", str(output / "lint"), *sources, *windows_sources],
+                   cwd=ROOT, env=env, check=True)
 
 if args.lint_only:
     context_lint()
@@ -61,7 +61,7 @@ failures = []
 
 def run(*args):
     print("+", *map(str, args), flush=True)
-    subprocess.run(list(map(str, args)), cwd=root, env=env, check=True)
+    subprocess.run(list(map(str, args)), cwd=ROOT, env=env, check=True)
 
 def wasm_test(source, name):
     wasm = output / f"{name}.wasm"
@@ -109,7 +109,7 @@ for mode in ("O0", "O2"):
     binary = output / f"manifest-{mode}"
     run(compiler, f"-{mode}", "stdlib/Windows_Resources/tests/manifest.jai", "-exe", binary)
     with (output / f"manifests-{mode}.xml").open("w") as stream:
-        subprocess.run([str(binary)], cwd=root, env=env, stdout=stream, check=True)
+        subprocess.run([str(binary)], cwd=ROOT, env=env, stdout=stream, check=True)
 wasm_test("stdlib/Windows_Resources/tests/manifest.jai", "manifest")
 run(sys.executable, "tools/portable/portable_data/sdk_resources.py", output)
 run(sys.executable, "tools/portable/portable_data/wire_consumer.py", output)

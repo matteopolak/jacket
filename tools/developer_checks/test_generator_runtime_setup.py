@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from developer_checks import build_generator_platform as provider
 from developer_checks import check_developer_cpp_custom as workflow
 from ci.ci_test_scratch import assigned_scratch
+from toolkit.repo import ROOT
 
 
 class RuntimeSetup(unittest.TestCase):
@@ -73,10 +74,9 @@ class RuntimeSetup(unittest.TestCase):
         )
 
     def test_existing_required_cpp_assertions_remain(self):
-        root = Path(__file__).resolve().parents[2]
-        emitter = (root / "stdlib/Bindings_Generator/tests/driven/bindings-cpp-custom.jai").read_text()
+        emitter = (ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-cpp-custom.jai").read_text()
         consumer = (
-            root / "stdlib/Bindings_Generator/tests/driven/bindings-cpp-custom-roundtrip.jai"
+            ROOT / "stdlib/Bindings_Generator/tests/driven/bindings-cpp-custom-roundtrip.jai"
         ).read_text()
         self.assertIn("foreign_prints == ordinary_functions", emitter)
         self.assertIn("outer_prints == outer_before + 1", emitter)

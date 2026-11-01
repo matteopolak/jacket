@@ -30,6 +30,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from repo_output import output_dir
+from toolkit.repo import ROOT
 import compare_grid
 import compare_rewrite
 import jaigen
@@ -40,8 +41,6 @@ from compare_core import (CLASSES, CRASH, OK,
                           reduce_lines, summarise)
 from bench.dialects import Compiler, Mode, Request, detect_dialect
 from bench.measure import run_measured
-HERE = Path(__file__).resolve().parent
-ROOT = HERE.parents[1]
 MODES = {'check': Mode.CHECK, 'interp': Mode.INTERP, 'run': Mode.BUILD, 'run-opt': Mode.OPTIMIZED}
 MAX_STDOUT = 20000
 DEFAULT_REWRITE_PATHS = ['tests/compiler/semantics', 'tests/compiler/language']

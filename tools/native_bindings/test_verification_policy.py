@@ -4,6 +4,7 @@ from pathlib import Path
 import re
 import tempfile
 import unittest
+from toolkit.repo import ROOT
 
 from verification_policy import (
     private_library_root,
@@ -16,8 +17,7 @@ class PrivateLayout(unittest.TestCase):
     def test_existing_cache_fixture_keeps_repository_relative_dependencies(self):
         from verify import PRIVATE_UNIT_DEPENDENCIES
 
-        root = Path(__file__).resolve().parents[2]
-        body = (root / "stdlib/rpmalloc/tests/no-thread-cache.jai").read_text()
+        body = (ROOT / "stdlib/rpmalloc/tests/no-thread-cache.jai").read_text()
         dependencies = PRIVATE_UNIT_DEPENDENCIES["rpmalloc-no-thread-cache"]
         library = Path("/owned/private-units/stdlib")
         for relative in re.findall(r'#load "([^"]+)"', body):
@@ -32,7 +32,6 @@ class PrivateLayout(unittest.TestCase):
     def test_actual_dxc_loads_resolve_inside_private_library(self):
         from verify import relocate_private_loads
 
-        root = Path(__file__).resolve().parents[2]
         with tempfile.TemporaryDirectory() as directory:
             library = private_library_root(Path(directory))
             for name, component in (
@@ -40,7 +39,7 @@ class PrivateLayout(unittest.TestCase):
                 ("dxc-compile-unit", "dxc-compile"),
             ):
                 data = relocate_private_loads(
-                    (root / "stdlib/Bindings_Generator/tests/driven/sdk" / (name + ".jai")).read_bytes()
+                    (ROOT / "stdlib/Bindings_Generator/tests/driven/sdk" / (name + ".jai")).read_bytes()
                 )
                 relative = re.search(rb'#load "([^"]+)"', data)[1].decode()
                 placed = library / "dxc_compiler" / (name + ".jai")

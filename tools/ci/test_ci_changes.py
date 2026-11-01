@@ -6,6 +6,7 @@ from pathlib import Path
 
 import ci_changes
 import job_inputs
+from toolkit.repo import ROOT
 
 _REAL = {}
 
@@ -332,11 +333,10 @@ class JobSelection(unittest.TestCase):
         self.assertEqual(ci_changes.selected_jobs(self.ALL | {"nix": False}, "nix"), [])
 
     def test_ci_yml_gates_exactly_the_listed_jobs(self):
-        from pathlib import Path
         import re
 
         text = (
-            Path(__file__).resolve().parents[2] / ".github/workflows/ci.yml"
+            ROOT / ".github/workflows/ci.yml"
         ).read_text()
         gated = re.findall(
             r"contains\(fromJSON\(needs\.changes\.outputs\.jobs\), '([a-z0-9-]+)'\)",
@@ -397,10 +397,9 @@ class Tiers(unittest.TestCase):
                     )
 
     def test_the_test_job_selects_steps_by_parts(self):
-        from pathlib import Path
 
         text = (
-            Path(__file__).resolve().parents[2] / ".github/workflows/ci.yml"
+            ROOT / ".github/workflows/ci.yml"
         ).read_text()
         job = text[text.index("\n  test:\n") : text.index("\n  vscode-extension:\n")]
         self.assertNotIn("matrix.part ==", job)

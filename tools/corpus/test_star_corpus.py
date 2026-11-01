@@ -7,8 +7,8 @@ from pathlib import Path
 
 import fetch_upstreams as fetch
 import select_upstream_cases as sel
+from toolkit.repo import ROOT
 
-ROOT = Path(__file__).resolve().parents[2]
 
 
 def directory(repo: str) -> str:

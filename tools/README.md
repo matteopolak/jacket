@@ -105,7 +105,7 @@ front door would hide them.
 | `dev.py` | Developer commands behind the Justfile: build, format, lint and test the repository. | CI, just, hook, tools |
 | `fetch_mini_test.py` | Fetch mini.test, the Neovim plugin tests' runner, at the commit pinned in .github/pins.json. | tools |
 | `lsp_partial_edits.py` | Run source-built IDE correctness checks in timeout-isolated per-file processes. | - |
-| `pre_push_clippy.py` | Clippy for the crates a push changes. Called by .githooks/pre-push with git's ref lines on stdin. | - |
+| `pre_push_clippy.py` | Clippy for the crates a push changes. Called by .githooks/pre-push with git's ref lines on stdin. | tools |
 | `render_packages.py` | Render the Homebrew formula for a release from packaging/. | CI, tools |
 | `rust_item_spacing.py` | Enforce a blank line between Rust items, which rustfmt does not do. | tools |
 

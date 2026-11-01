@@ -14,6 +14,7 @@ import struct
 import subprocess
 import sys
 from toolkit.hashing import sha256_bytes, sha256_file
+from toolkit.repo import ROOT
 
 
 def dll_name(data):
@@ -143,7 +144,6 @@ def main():
     parser.add_argument("--stdlib", type=Path)
     parser.add_argument("--metadata-only", action="store_true")
     args = parser.parse_args()
-    root = Path(__file__).resolve().parents[2]
     args.report.parent.mkdir(parents=True, exist_ok=True)
     report = {"archives": [], "runtime": [], "commands": [], "native_verified": False}
     for path in args.import_library:
@@ -182,7 +182,7 @@ def main():
             result = subprocess.run(
                 list(map(str, command)),
                 env=env,
-                cwd=root,
+                cwd=ROOT,
                 capture_output=True,
                 text=True,
                 timeout=timeout,
@@ -206,7 +206,7 @@ def main():
         return row["passed"]
 
     for name in ("windows-import-library-required", "windows-d3dcompiler-provider"):
-        source = root / "stdlib/Bindings_Generator/tests/driven/sdk" / (name + ".jai")
+        source = ROOT / "stdlib/Bindings_Generator/tests/driven/sdk" / (name + ".jai")
         report.setdefault("sources", {})[str(source)] = sha256_bytes(source.read_bytes())
         exe = work / (name + ".exe")
         commands = [

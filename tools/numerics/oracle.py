@@ -8,15 +8,14 @@ values are not compared byte for byte in CI (libm may round the last digit diffe
 the Jai assertions that use them carry tolerances. `jacket test` runs the file as a golden test.
 """
 
-from pathlib import Path
 import math
 import random
 import struct
 from fractions import Fraction
 
 from generators.jai_codegen import emit_generated, generator_parser
+from toolkit.repo import ROOT
 
-root = Path(__file__).resolve().parents[2]
 
 rng = random.Random(0x986831)
 lines = [
@@ -185,7 +184,7 @@ for r, g, b in colors:
     lines.append("    }")
 lines += ['    print("independent oracle ok\\n");', "}"]
 args = generator_parser(__doc__.split("\n")[0]).parse_args()
-target = root / "stdlib/Math/tests/numeric-oracle.jai"
+target = ROOT / "stdlib/Math/tests/numeric-oracle.jai"
 emit_generated(target, "\n".join(lines) + "\n", args.formatter)
 count = sum(line.count("assert(") for line in lines)
-print(f"{target.relative_to(root)}: {count} independent assertions")
+print(f"{target.relative_to(ROOT)}: {count} independent assertions")

@@ -6,9 +6,10 @@ import tempfile
 import unittest
 
 from ci.ci_test_scratch import assigned_scratch
+from toolkit.repo import ROOT
 
 WORKFLOW = (
-    Path(__file__).resolve().parents[2] / ".github/workflows/http-conformance.yml"
+    ROOT / ".github/workflows/http-conformance.yml"
 )
 STEP = "      - name: Retain the selected Linux observer capture"
 

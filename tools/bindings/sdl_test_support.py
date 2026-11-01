@@ -3,11 +3,12 @@
 import os
 from pathlib import Path
 import tempfile
+from toolkit.repo import ROOT
 
 
 def repository_root():
     return Path(
-        os.environ.get("SDL_PYTHON_TEST_ROOT", Path(__file__).resolve().parents[2])
+        os.environ.get("SDL_PYTHON_TEST_ROOT", ROOT)
     ).resolve(strict=True)
 
 

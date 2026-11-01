@@ -82,6 +82,20 @@ class BuildPaths(unittest.TestCase):
             self.assertTrue((style.ROOT / name).is_file(), name)
 
 
+class RepoRoot(unittest.TestCase):
+    def test_finding_the_root_from_file_is_flagged(self):
+        source = "from pathlib import Path\nROOT = Path(__file__).resolve().parents[2]\n"
+        self.assertEqual(len(style.root_problems(source, "tools/x.py")), 1)
+
+    def test_other_parents_and_allowed_files_pass(self):
+        self.assertEqual(style.root_problems("p = base.parents[2]\n", "tools/x.py"), [])
+        self.assertEqual(style.root_problems("r = Path(__file__).parents[2]\n", "tools/toolkit/repo.py"), [])
+
+    def test_allow_list_names_real_files(self):
+        for name in style.ROOT_ALLOWED:
+            self.assertTrue((style.ROOT / name).is_file(), name)
+
+
 class Banners(unittest.TestCase):
     def test_rule_only_comments_are_banners(self):
         self.assertEqual(

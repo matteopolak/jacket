@@ -21,12 +21,13 @@ import subprocess
 from pathlib import Path
 
 from toolkit.host import exe_name
+from toolkit.repo import ROOT
 
 __all__ = [
     "configured_prefix", "llvm_config", "major", "major_minor", "prefixes", "sys_prefix_var", "tool", "version_env",
 ]
 
-_PINS = Path(__file__).resolve().parents[2] / ".github" / "pins.json"
+_PINS = ROOT / ".github" / "pins.json"
 
 
 def version_env(version: str) -> dict[str, str]:
