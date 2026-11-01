@@ -45,6 +45,7 @@ const PROGRAMS: &[(&str, &[&str], &str)] = &[
     ("chat/main.jai", NATIVE, NO_FIBERS),
     ("sitegen/main.jai", NATIVE, NO_FILES),
     ("seek/main.jai", NATIVE, NO_FILES),
+    ("imageview/main.jai", NATIVE, NO_WINDOW),
     ("chip8/main.jai", NATIVE, NO_WINDOW),
     ("chip8/tools/asm/main.jai", NATIVE, NO_FILES),
     ("game2d/game/main.jai", NATIVE, NO_WINDOW),

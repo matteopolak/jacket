@@ -399,6 +399,16 @@
       "summary": "A deterministic CHIP-8/SUPER-CHIP interpreter with a Simp window and a small assembler.",
       "mode": "check",
       "stdout_contains": []
+    },
+    {
+      "id": "imageview",
+      "bundle": false,
+      "directory": "examples/imageview",
+      "main": "main.jai",
+      "title": "Image viewer",
+      "summary": "Browse, zoom, rotate and export images through Extensions/UI.",
+      "mode": "check",
+      "args": []
     }
   ]
 }
