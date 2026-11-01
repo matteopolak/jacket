@@ -854,11 +854,14 @@ error_for_status :: (response: *Client_Response) -> Client_Error {
     return error;
 }
 
-// Closes every idle connection of the running scheduler (they are also closed when it ends).
+// Closes every idle connection of the running scheduler, HTTP/2 ones included (they are also closed when it
+// ends). It returns once they are closed, so a TLS config they used may be freed after it.
 close_idle_connections :: () {
     pool := client_pool();
 
     while pool.idle.count drop_entry(pool, pool.idle.count - 1);
+
+    h2_close_idle(pool);
 }
 
 // What the running scheduler's pools hold right now, for tests and diagnostics (nothing here is
@@ -866,7 +869,7 @@ close_idle_connections :: () {
 Http_Statistics :: struct {
     read_buffers_in_use: int; // server read buffers held by connections that are reading a request
     read_buffers_free: int; // read buffers kept for reuse (a connection between requests holds none)
-    idle_connections: int; // client connections waiting in the pool
+    idle_connections: int; // client connections waiting in the pool, HTTP/2 ones with no stream open included
     connections_opened: int; // client connections opened over the scheduler's life
     open_responses: int; // responses that still hold their connection (body neither read to the end nor closed)
     body_sources_free: int; // response states kept for reuse
@@ -898,6 +901,11 @@ http_statistics :: () -> Http_Statistics {
     statistics.read_buffers_in_use = buffers.held;
     statistics.read_buffers_free = buffers.free.count;
     statistics.idle_connections = pool.idle.count;
+
+    for pool.h2 {
+        if it.open_local == 0 && !it.dead statistics.idle_connections += 1;
+    }
+
     statistics.connections_opened = pool.opened;
     statistics.open_responses = pool.open.count;
     statistics.body_sources_free = pool.sources.count;

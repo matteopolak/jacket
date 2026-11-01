@@ -259,7 +259,35 @@ h2_client_reader :: (conn: *H2_Conn) {
     });
 
     close(conn.link);
+
+    conn.link_closed = true;
+
+    Io.notify_all(*conn.closed);
     h2_conn_release(conn);
+}
+
+// Closes the connections that have no stream in flight and waits until their links are closed, so
+// that the TLS configs they were made from may be freed afterwards.
+h2_close_idle :: (pool: *Client_Pool) {
+    closing: [..] *H2_Conn;
+    closing.allocator = temp;
+
+    for pool.h2 {
+        if it.open_local != 0 continue;
+
+        it.refs += 1;
+
+        array_add(*closing, it);
+        h2_close_connection(it);
+    }
+
+    for closing {
+        while !it.link_closed {
+            if Io.wait(*it.closed) != .NONE break;
+        }
+
+        h2_conn_release(it);
+    }
 }
 
 // ---- Requests

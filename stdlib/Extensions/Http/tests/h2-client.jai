@@ -70,6 +70,15 @@ client_config :: (alpn: [] string) -> Tls.Tls_Config {
     return config;
 }
 
+// The TLS configs of the tests are freed when they return, so no connection may be left holding one.
+close_all :: () {
+    close_idle_connections();
+
+    left := http_statistics().idle_connections;
+
+    check(left == 0, "close_idle_connections left % connections", left);
+}
+
 Fan :: struct {
     base: string;
     config: *Tls.Tls_Config;
@@ -178,7 +187,7 @@ shared_connection :: (base: string, server: *Server) {
 
     check(http_statistics().connections_opened - before == 1, "everything ran on one connection: % opened", http_statistics().connections_opened - before);
 
-    close_idle_connections();
+    close_all();
 }
 
 // A client that offers h2 to a server that only speaks HTTP/1.1.
@@ -210,7 +219,7 @@ http1_server :: (base: string, server: *Server) {
 
     check(bad == 0, "% of 10 concurrent requests failed over HTTP/1.1", bad);
 
-    close_idle_connections();
+    close_all();
 }
 
 // A client that only offers http/1.1 to a server that would speak h2.
@@ -233,7 +242,7 @@ http1_client :: (base: string, server: *Server) {
 
     check(reply.status == 200 && reply.body.count == BIG, "and gets a large body: %", reply.body.count);
 
-    close_idle_connections();
+    close_all();
 }
 
 // `http2 = false` on the server: it does not pick h2 even for a client that offers it, so the client
@@ -253,7 +262,7 @@ switched_off :: (base: string, server: *Server) {
 
     check(reply.status == 200 && reply.body == "pong" && !reply.http2, "the server with http2 off answers over HTTP/1.1: % '%'", reply.status, reply.body);
 
-    close_idle_connections();
+    close_all();
 }
 
 client_off :: (base: string, server: *Server) {
@@ -270,7 +279,7 @@ client_off :: (base: string, server: *Server) {
 
     check(reply.status == 200 && reply.http2, "with http2 on the client speaks it");
 
-    close_idle_connections();
+    close_all();
 
     client_settings.http2 = false;
 
@@ -278,7 +287,7 @@ client_off :: (base: string, server: *Server) {
 
     check(reply.status == 200 && reply.body == "pong" && !reply.http2, "client_settings.http2 = false: HTTP/1.1 even though the config lists h2: % '%'", reply.status, reply.body);
 
-    close_idle_connections();
+    close_all();
 
     client_settings.http2 = true;
 }

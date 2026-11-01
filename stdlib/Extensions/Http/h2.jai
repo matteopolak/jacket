@@ -101,6 +101,10 @@ H2_Conn :: struct {
 
     reader: Io.Fiber_Handle;
 
+    // The client's reader closed the link: nothing of the connection touches its TLS config any more.
+    link_closed: bool;
+    closed: Io.Condition;
+
     // A header block that continues in the next frames.
     fragment: [..] u8;
     fragment_stream: u32;
