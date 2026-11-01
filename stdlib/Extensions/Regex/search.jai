@@ -10,10 +10,38 @@ Engine :: struct {
     backward: Dfa;
     onepass: OnePass; // the one-pass capture table, if the pattern has one (onepass.ok)
     fixed_length := -1; // every match is this many bytes long: no need to look for the start
+    pool: *Memory_Pool.Pool; // holds the parse tree, the programs and this struct; null for an engine built at compile time
     frozen: bool; // built at compile time: both DFAs are complete and the programs are constants
 }
 
+// Builds the engine for `pattern`. The parse tree, the programs and the engine itself are allocated from a pool of their own
+// (`Engine.pool`), so `free_regex` can give them all back at once.
 build_engine :: (pattern: string, options: Options) -> *Engine, bool, Error {
+    pool := New(Memory_Pool.Pool);
+
+    Memory_Pool.set_allocators(pool);
+
+    engine, ok, error := build_programs(pool, pattern, options);
+    if !ok {
+        Memory_Pool.release(pool);
+        free(pool);
+        return null, false, error;
+    }
+
+    engine.pool = pool;
+
+    dfa_init(*engine.forward, *engine.program, false);
+    dfa_init(*engine.backward, *engine.reverse, true);
+    engine.onepass = onepass_build(*engine.program, ONEPASS_STATE_LIMIT);
+    engine.fixed_length = fixed_length(*engine.program);
+
+    return engine, true, .{};
+}
+
+// Parses the pattern and compiles both programs into an engine, allocating all of it from `pool`.
+build_programs :: (pool: *Memory_Pool.Pool, pattern: string, options: Options) -> *Engine, bool, Error {
+    push_allocator(Memory_Pool.pool_allocator_proc, pool);
+
     parsed := parse_pattern(pattern, options);
     if !parsed.ok return null, false, .{ parsed.error, parsed.offset };
 
@@ -22,21 +50,10 @@ build_engine :: (pattern: string, options: Options) -> *Engine, bool, Error {
     ok: bool;
     message: string;
     engine.program, ok, message = compile_program(*parsed, false);
-    if !ok {
-        free(engine);
-        return null, false, .{ message, 0 };
-    }
+    if !ok return null, false, .{ message, 0 };
 
     engine.reverse, ok, message = compile_program(*parsed, true);
-    if !ok {
-        free(engine);
-        return null, false, .{ message, 0 };
-    }
-
-    dfa_init(*engine.forward, *engine.program, false);
-    dfa_init(*engine.backward, *engine.reverse, true);
-    engine.onepass = onepass_build(*engine.program, ONEPASS_STATE_LIMIT);
-    engine.fixed_length = fixed_length(*engine.program);
+    if !ok return null, false, .{ message, 0 };
 
     return engine, true, .{};
 }

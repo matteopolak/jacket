@@ -24,6 +24,7 @@
 - `get_type_table()` lists the Compiler module's records in the same order on every run; before, a program that ran a metaprogram could see them shuffled.
 - A program with several identical-overload errors, or a `using` that clashes with several block constants, reports the first one declared on every run; before, which came first could vary.
 - The namespaces suggested for an unknown name are listed in import order on every run.
+- `Regex.free_regex` frees everything `Regex.compile` allocated; before, the parsed pattern and both programs leaked, and so did a pattern that failed to compile.
 
 ## [0.32.0] - 2026-11-01
 

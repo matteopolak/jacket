@@ -100,14 +100,33 @@ compile :: (pattern: string, options := Options.{}) -> Regex, ok: bool, Error {
     return re, true, .{};
 }
 
-// Releases the compiled program.
+// Releases everything [compile] allocated for the regex: the parsed pattern, both programs and the search tables.
+//
+// ```jai
+// Regex :: #import "Extensions/Regex";
+//
+// re, ok := Regex.compile("a+b");
+// assert(ok && Regex.is_match(*re, "caab"));
+// Regex.free_regex(*re);
+// assert(re.engine == null);
+// ```
 free_regex :: (re: *Regex) {
     if !re.engine return;
 
-    dfa_free(*re.engine.forward);
-    dfa_free(*re.engine.backward);
-    onepass_free(*re.engine.onepass);
-    free(re.engine);
+    engine := re.engine;
+
+    dfa_free(*engine.forward);
+    dfa_free(*engine.backward);
+    onepass_free(*engine.onepass);
+
+    // A compiled engine lives in its own pool, the engine itself included.
+    if engine.pool {
+        pool := engine.pool;
+
+        Memory_Pool.release(pool);
+        free(pool);
+    }
+
     re.engine = null;
 } @FreesArgument
 
@@ -705,6 +724,7 @@ fill_struct :: ($pattern: string, engine: *Engine, text: string, s: int, e: int,
 #import "Hash_Table";
 #import "Compiler";
 Byte_Search :: #import "Extensions/Byte_Search";
+Memory_Pool :: #import "Pool";
 
 #load "unicode.jai";
 #load "syntax.jai";

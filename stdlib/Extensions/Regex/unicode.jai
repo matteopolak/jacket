@@ -370,6 +370,9 @@ load_fold_table :: () {
 
     fold_loaded = true;
 
+    // The table outlives every regex, so it must not come from the pool of the one that first needed it.
+    push_allocator(context.default_allocator);
+
     position: int = UNICODE_FOLD_OFFSET;
     orbits := read_number(*position);
     members: [..] u32;
