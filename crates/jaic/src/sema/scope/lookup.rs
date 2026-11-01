@@ -1,7 +1,8 @@
 //! Name lookup through scopes, imports and using entries.
 use super::model::{EntityId, EntityKind, Found, ScopeId, ScopeKind, UsingEntry};
 use super::module_lookup::filter_name;
-use crate::sema::{Compiler, Result, Sym};
+use crate::sema::ast::UsingFilter;
+use crate::sema::{Compiler, ModuleId, Result, Sym};
 
 impl Compiler {
     /// Look up `name` starting at `scope`, ignoring `using` struct members.
@@ -124,6 +125,12 @@ impl Compiler {
                 }
                 let imports = self.scope(sid).imports.len();
                 let mut mid_mapping = false;
+                // A module's files each write their own `#import "Basic";` into one scope, so
+                // the same unfiltered module repeats many times: once it has been asked, asking
+                // again cannot add a name. The editor's unused-import lint records each import.
+                let mut asked = [ModuleId(u32::MAX); 8];
+                let mut asked_len = 0;
+                let skip_repeats = !self.ed.is_live();
                 for i in 0..imports {
                     let resolved = match self.scope(sid).imports[i].module {
                         Some(module) => Some(module),
@@ -144,6 +151,17 @@ impl Compiler {
                         cacheable = false;
                         continue;
                     };
+                    if skip_repeats
+                        && matches!(self.scope(sid).imports[i].filter, UsingFilter::None)
+                    {
+                        if asked[..asked_len].contains(&module) {
+                            continue;
+                        }
+                        if asked_len < asked.len() {
+                            asked[asked_len] = module;
+                            asked_len += 1;
+                        }
+                    }
                     // Names are still unmapped while the mapper runs: a miss now may be a hit
                     // once it has, so it must not be remembered.
                     if self.scope(sid).imports[i].is_mapped() {
