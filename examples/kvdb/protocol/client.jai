@@ -2,7 +2,7 @@
 
 Client :: struct {
     stream: Io.Tcp_Stream;
-    reader: Line_Reader;
+    reader: Io.Line_Reader;
 }
 
 // Connects to `address` such as "127.0.0.1:7878". Call it from a fiber.
@@ -11,14 +11,14 @@ connect_client :: (address: string) -> Client, Io.Io_Error {
     error: Io.Io_Error;
 
     client.stream, error = Io.connect(address);
-    client.reader.stream = client.stream;
+    client.reader = line_reader(client.stream);
 
     return client, error;
 }
 
 close_client :: (client: *Client) {
     Io.close(client.stream);
-    free_line_reader(*client.reader);
+    Io.free_line_reader(*client.reader);
 }
 
 // Sends one request and returns its reply: one line, or for SCAN every row up to END. The lines
@@ -35,9 +35,12 @@ call :: (client: *Client, request: string) -> [] string, Io.Io_Error {
     multiple := equal_nocase(word, "SCAN");
 
     while true {
-        line, read_error := read_line(*client.reader);
+        line, read_error := Io.read_line(*client.reader);
 
         if read_error != .NONE return lines, read_error;
+
+        // The server went away in the middle of a reply line.
+        if client.reader.unterminated return lines, .END_OF_FILE;
 
         array_add(*lines, copy_string(line));
 

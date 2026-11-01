@@ -51,15 +51,15 @@ server_stop :: (server: *Server) {
 // disconnected, or the server stops.
 connection_loop :: (connection: Connection) {
     server := connection.server;
-    reader := Line_Reader.{ stream = connection.stream };
+    reader := line_reader(connection.stream);
     reply: String_Builder;
 
-    defer free_line_reader(*reader);
+    defer Io.free_line_reader(*reader);
     defer free_buffers(*reply);
     defer Io.close(connection.stream);
 
     while true {
-        line, error := read_line(*reader);
+        line, error := Io.read_line(*reader);
 
         if error == .INVALID {
             write_line(connection.stream, "ERR the request line is too long");
@@ -68,6 +68,9 @@ connection_loop :: (connection: Connection) {
         }
 
         if error != .NONE break;
+
+        // The client left in the middle of a request: do not act on half of it.
+        if reader.unterminated break;
         if line.count == 0 continue;
 
         outcome := Outcome.CONTINUE;

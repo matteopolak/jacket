@@ -371,3 +371,64 @@ large_replies_and_requests_work :: (t: *Test) {
 
     expect(found && value.count == BIG_VALUE_SIZE);
 } @test
+
+cut_off_session :: (bulk: *Bulk) {
+    error: Io.Io_Error;
+
+    bulk.server.listener, error = Io.tcp_listen("127.0.0.1:0");
+    bulk.server.store = bulk.store;
+
+    require(error == .NONE, "listening on an ephemeral port");
+
+    Io.spawn(serve, *bulk.server);
+
+    local, _ := Io.local_address(bulk.server.listener);
+    address := Io.address_to_string(local);
+
+    // A complete request, then half of one with no line ending, then the client is gone.
+    leaver, leave_error := connect_client(address);
+
+    require(leave_error == .NONE, "connecting");
+
+    Io.write(leaver.stream, "SET whole 1\nSET partial value");
+
+    // A clean end of the stream (a closed socket may be reported as a reset instead).
+    Io.shutdown_write(leaver.stream);
+    Io.sleep(20);
+    close_client(*leaver);
+
+    // Let the server see the end of that connection before asking what it stored.
+    Io.sleep(20);
+
+    asker, ask_error := connect_client(address);
+
+    require(ask_error == .NONE, "connecting");
+
+    defer close_client(*asker);
+
+    first := expect_reply(*asker, "GET whole", "VALUE 1");
+    second := expect_reply(*asker, "GET partial", "MISSING");
+
+    bulk.value_ok = first && second;
+
+    expect_reply(*asker, "SHUTDOWN", "OK");
+}
+
+// A request cut off before its line ending is not run.
+an_unfinished_request_is_ignored :: (t: *Test) {
+    bulk: Bulk;
+    store: Store;
+
+    store_open(*store, log_path(t));
+    defer store_close(*store);
+
+    bulk.store = *store;
+
+    Io.io_run(cut_off_session, *bulk);
+
+    expect(bulk.value_ok, "the whole request ran and the cut one did not");
+
+    _, found := store_get(*store, "partial");
+
+    expect(!found, "the cut request left nothing in the store");
+} @test

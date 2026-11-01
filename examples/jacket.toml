@@ -23,6 +23,6 @@ cognitive_complexity = "warn"
 # Sizes, seeds and iteration counts are the content of a small program, not a choice to name.
 magic_number = "allow"
 
-# Examples with a `tests/` folder of their own. `jacket test` run in one of them, or here, runs them.
+# Examples with a `tests/` folder of their own, for `jacket test` run here. Run inside one, it tests just that example.
 [test]
 paths = ["kvdb"]

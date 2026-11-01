@@ -140,10 +140,10 @@ recovery_truncates_a_torn_tail :: (t: *Test) {
 
         opened := store_open(*store, path);
 
-        expect_equal(opened.status, Open_Status.RECOVERED);
-        expect_equal(opened.records, 3);
-        expect_equal(opened.dropped_bytes, cut - last_start);
-        expect_equal(store.index.count, 3);
+        expect_equal(opened.status, Open_Status.RECOVERED, tprint("cut at %", cut));
+        expect_equal(opened.records, 3, tprint("cut at %", cut));
+        expect_equal(opened.dropped_bytes, cut - last_start, tprint("cut at %", cut));
+        expect_equal(store.index.count, 3, tprint("cut at %", cut));
 
         _, found := store_get(*store, "key3");
 
