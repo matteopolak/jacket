@@ -24,14 +24,11 @@ from pathlib import Path
 
 from repo_output import host_platform, output_dir as repo_output_dir, shared_output_dir
 from toolkit.hashing import sha256_bytes, sha256_file
+from toolkit.platforms import MINGW_PREFIXES, WINDOWS_TRIPLES
 from toolkit.repo import ROOT
 
 MANIFEST = ROOT / 'tools' / 'native' / 'native-libs.json'
 
-# The Clang target of each Windows platform directory.
-WINDOWS_TRIPLES = {'windows-x64': 'x86_64-pc-windows-msvc', 'windows-arm64': 'aarch64-pc-windows-msvc'}
-# The tool prefix of each MinGW cross platform (`windows-<cpu>-mingw`, built on Linux or macOS).
-MINGW_PREFIXES = {'windows-x64-mingw': 'x86_64-w64-mingw32', 'windows-arm64-mingw': 'aarch64-w64-mingw32'}
 
 
 def output_dir(plat: str | None = None) -> Path:

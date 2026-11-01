@@ -30,6 +30,7 @@ from pathlib import Path
 
 from repo_output import host_platform
 from toolkit.hashing import sha256_bytes, sha256_file
+from toolkit.platforms import DESKTOP_POSIX
 from toolkit.repo import ROOT, cargo_target_dir
 from repo_output import output_dir
 
@@ -483,7 +484,7 @@ def clipboard(output):
 
 
 def build_plan(target, output, temporary, cc, ar):
-    if target not in {"macos-x64", "macos-arm64", "linux-x64", "linux-arm64"}:
+    if target not in DESKTOP_POSIX:
         raise ValueError("portable crash builder supports desktop POSIX targets only")
     system, cpu = target.split("-")
     directory = output
@@ -661,7 +662,7 @@ def main(argv=None):
     board.set_defaults(run=lambda args: clipboard(args.output))
     crash = commands.add_parser("runtime", help=runtime.__doc__.split("\n")[0])
     crash.add_argument(
-        "--platform", choices=["macos-x64", "macos-arm64", "linux-x64", "linux-arm64"]
+        "--platform", choices=DESKTOP_POSIX
     )
     crash.add_argument(
         "--output-dir",

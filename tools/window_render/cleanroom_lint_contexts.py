@@ -3,14 +3,16 @@ import os
 from pathlib import Path
 import re
 
+from toolkit.platforms import WINDOWS_TRIPLES
+
 
 TARGETS = {
     "macos-arm64": ["-os", "macos", "-cpu", "arm64"],
     "macos-x64": ["-os", "macos", "-cpu", "x64"],
     "linux-arm64": ["-os", "linux", "-cpu", "arm64"],
     "linux-x64": ["-os", "linux", "-cpu", "x64"],
-    "windows-arm64": ["-target", "aarch64-pc-windows-msvc"],
-    "windows-x64": ["-target", "x86_64-pc-windows-msvc"],
+    "windows-arm64": ["-target", WINDOWS_TRIPLES["windows-arm64"]],
+    "windows-x64": ["-target", WINDOWS_TRIPLES["windows-x64"]],
     "wasi": ["-target", "wasm64-unknown-wasi"],
 }
 

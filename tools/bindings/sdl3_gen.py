@@ -13,17 +13,16 @@ from bindings import sdl3_coverage as coverage
 from repo_output import output_dir
 from pathlib import Path
 from toolkit.hashing import sha256_bytes, sha256_file
+from toolkit.platforms import TRIPLES
 from toolkit.process import run as toolkit_run
 from toolkit.repo import ROOT
 
 OUT = ROOT / "stdlib/Extensions/SDL3"
+# The oldest macOS each architecture supports is spelled on top of the shared targets.
 TARGETS = {
-    "macos-x64": "x86_64-apple-macos10.12",
-    "macos-arm64": "arm64-apple-macos11",
-    "linux-x64": "x86_64-unknown-linux-gnu",
-    "linux-arm64": "aarch64-unknown-linux-gnu",
-    "windows-x64": "x86_64-pc-windows-msvc",
-    "windows-arm64": "aarch64-pc-windows-msvc",
+    **TRIPLES,
+    "macos-x64": TRIPLES["macos-x64"] + "10.12",
+    "macos-arm64": TRIPLES["macos-arm64"] + "11",
 }
 HEADER = """#define SDL_MAIN_HANDLED 1
 #define SDL_DISABLE_OLD_NAMES 1

@@ -13,13 +13,13 @@ from native_bindings.prepare_rpmalloc import prepare
 from native_bindings.rpmalloc_profiles import PROFILES, c_definitions
 from native_bindings.config import RPMALLOC_SDK_BUILD_OPTIONS
 from toolkit.hashing import sha256_bytes, sha256_file
+from toolkit.platforms import MINGW_PREFIXES, WINDOWS_TRIPLES
 from toolkit.repo import ROOT
 
+_MACHINES = {"x64": "IMAGE_FILE_MACHINE_AMD64", "arm64": "IMAGE_FILE_MACHINE_ARM64"}
 TARGETS = {
-    "windows-x64-mingw": ("x86_64-w64-mingw32", "IMAGE_FILE_MACHINE_AMD64"),
-    "windows-arm64-mingw": ("aarch64-w64-mingw32", "IMAGE_FILE_MACHINE_ARM64"),
-    "windows-x64": ("x86_64-pc-windows-msvc", "IMAGE_FILE_MACHINE_AMD64"),
-    "windows-arm64": ("aarch64-pc-windows-msvc", "IMAGE_FILE_MACHINE_ARM64"),
+    name: (prefix, _MACHINES[name.split("-")[1]])
+    for name, prefix in {**MINGW_PREFIXES, **WINDOWS_TRIPLES}.items()
 }
 
 

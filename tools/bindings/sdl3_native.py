@@ -17,16 +17,9 @@ from pathlib import Path
 
 from repo_output import output_dir
 from toolkit.hashing import sha256_bytes, sha256_file
+from toolkit.platforms import PLATFORMS
 from toolkit.repo import ROOT
 
-PLATFORMS = (
-    "macos-x64",
-    "macos-arm64",
-    "linux-x64",
-    "linux-arm64",
-    "windows-x64",
-    "windows-arm64",
-)
 WINDOWS_ARTIFACTS = {
     "SDL3.lib": ("lib/SDL3-static.lib", "static"),
     "SDL3-import.lib": ("lib/SDL3.lib", "import"),
