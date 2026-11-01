@@ -4,6 +4,8 @@
 //! [`archive`], [`link_wasm`]) and the loader for the code generation backend ([`backend`]).
 //! `jaic-llvm` implements the backend; a driver that links it directly never uses the loader,
 //! and one that does not link it opens `libjaic_backend` the first time a build needs it.
+#[cfg(target_os = "macos")]
+mod apple_ld;
 pub mod backend;
 mod link;
 mod link_options;

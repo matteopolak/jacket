@@ -87,13 +87,14 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `LIBRARY_PATH` | Extra library directories compile-time code may load native libraries from on Windows. | unset | jaic |
 | `LLVM_PREFIX` | The LLVM install to use when the `llvm-sys` variable above is unset. CI sets both. | `llvm-config --prefix`, then Homebrew's `llvm@<major>` or `/usr/lib/llvm-<major>` | jaic, jacket |
 | `LLVM_SYS_231_PREFIX` | The LLVM install jaic is built against; its `bin/` supplies `clang`, `wasm-ld` and the LLVM tools. The name carries the LLVM version (`LLVM_SYS_<major><minor>_PREFIX`). | unset | jaic, jacket |
-| `MACOSX_DEPLOYMENT_TARGET` | The macOS version native output targets. | the SDK's | jaic |
+| `MACOSX_DEPLOYMENT_TARGET` | The macOS version native output targets. When it is set, jaic links through `cc` instead of calling `ld` itself. | the SDK's | jaic |
 | `NO_COLOR` | Any value turns colour off. | unset | jaic, jacket, jailint |
 | `PATH` | Where tools such as the linker, `clang` and `wasm-ld` are searched for. | the process's | jaic, jacket, jailsp, tests |
 | `PATHEXT` | The executable extensions tried when a test looks a tool up on Windows. | the Windows default | tests |
 | `ProgramFiles` | Where Visual Studio and the Windows SDK are looked for. | `C:\Program Files` | jaic |
 | `ProgramFiles(x86)` | See `ProgramFiles`. | `C:\Program Files (x86)` | jaic |
 | `RUST_BACKTRACE` | When set, an internal compiler error shows the Rust backtrace. | unset | jaic |
+| `SDKROOT` | The macOS SDK `cc` links against. When it is set, jaic links through `cc` instead of calling `ld` itself. | unset | jaic |
 | `SystemRoot` | Locates the Windows system tools `jacket upgrade` uses. | `C:\Windows` | jacket |
 | `TERM` | `dumb` turns colour, layout characters and the live status line off. | unset | jaic, jacket, jailint |
 | `WT_SESSION` | Set by Windows Terminal; it gets the Unicode diagnostic layout. | unset | jaic, jailint |

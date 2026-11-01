@@ -196,6 +196,26 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
     } else {
         "install a C compiler (clang or gcc, e.g. `apt install clang`), or name a linker with the JAIC_LINKER environment variable"
     };
+    #[cfg(target_os = "macos")]
+    if program == "cc"
+        && target.is_none()
+        && !dynamic_library
+        && !sanitize.any()
+        && coverage_source.is_none()
+    {
+        let args: Option<Vec<String>> = cmd
+            .get_args()
+            .map(|arg| arg.to_str().map(String::from))
+            .collect();
+        // The linker alone, without the driver; on any failure `cc` runs the same link, so
+        // its message and its rules decide what is an error.
+        if let Some(mut direct) = args.and_then(|args| crate::apple_ld::direct_command(&args))
+            && let Ok(out) = crate::linker::run_captured(&mut direct)
+            && out.status.success()
+        {
+            return Ok(());
+        }
+    }
     let out = crate::linker::run_captured(&mut cmd);
     if let Some(source) = coverage_source {
         let _ = std::fs::remove_file(source);

@@ -475,7 +475,12 @@ vars! {
     MACOSX_DEPLOYMENT_TARGET {
         name: "MACOSX_DEPLOYMENT_TARGET", group: Standard, readers: [Jaic],
         default: "the SDK's",
-        summary: "The macOS version native output targets.",
+        summary: "The macOS version native output targets. When it is set, jaic links through `cc` instead of calling `ld` itself.",
+    }
+    SDKROOT {
+        name: "SDKROOT", group: Standard, readers: [Jaic],
+        default: "unset",
+        summary: "The macOS SDK `cc` links against. When it is set, jaic links through `cc` instead of calling `ld` itself.",
     }
     DEVELOPER_DIR {
         name: "DEVELOPER_DIR", group: Standard, readers: [Jaic],
