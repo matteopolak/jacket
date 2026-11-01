@@ -212,3 +212,4 @@ decode_image_as :: (data: [] u8, format: Pixel_Format, max_pixels: s64 = DEFAULT
 #load "qoi.jai";
 #load "bmp.jai";
 #load "pnm.jai";
+#load "ico.jai";
