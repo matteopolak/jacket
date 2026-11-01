@@ -307,5 +307,8 @@ TM_API_NYI :: #type () -> void #c_call;
 ## Module parameters
 
 ```jai
-#module_parameters(ENABLED := false);
+#module_parameters(
+    // Turns telemetry on, on Windows. Off, the procedures do nothing.
+    ENABLED := false
+);
 ```

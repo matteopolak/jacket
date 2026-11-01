@@ -4,7 +4,7 @@
   "modules": {
     "Android": {
       "spec": "docs/specs/stdlib/modules/android.md",
-      "spec_sha256": "43e884139a18c1b62822e971bbe16138cf6a0fe2fce40dd6ac45b7bd817fcf0c",
+      "spec_sha256": "2a1929301e984e92cc9c780c73b95d2f8c103ac87ec051a77cacb4bb9054896b",
       "counts": {
         "declared": 932,
         "implemented_manual": 8
@@ -172737,7 +172737,7 @@
     },
     "rpmalloc": {
       "spec": "docs/specs/stdlib/modules/rpmalloc.md",
-      "spec_sha256": "1a82ba108baf538de9d589f9447ab13f658b57ba2953e2438cdfeb20043f7722",
+      "spec_sha256": "ee237d4b1b97af9304f0a0525f52021548175c0bc98d1585da3b739ebf89cb8b",
       "counts": {
         "implemented_manual": 80,
         "declared": 31
@@ -180341,7 +180341,7 @@
     },
     "telemetry3": {
       "spec": "docs/specs/stdlib/modules/telemetry3.md",
-      "spec_sha256": "f8fe35247f63c6e857370bdf645d9506cd85206d20f2e2c9c9743c1933fd408b",
+      "spec_sha256": "3c6434210bb34f43759c6333261c8590fe309e8dce632349922b66594fce9297",
       "counts": {
         "declared": 24,
         "implemented": 14,

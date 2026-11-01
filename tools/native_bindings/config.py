@@ -57,10 +57,26 @@ LIBRARIES = {
     'libmediandk': 'mediandk', 'libcamera2ndk': 'camera2ndk',
 }
 PARAMETERS = {
-    'd3d11': '#module_parameters(INCLUDE_DEBUG_BINDINGS := false)();',
-    'd3d12': '#module_parameters(INCLUDE_DEBUG_BINDINGS := false)();',
-    'dxc_compiler': '#module_parameters(NINTENDO_SUPPORT := false)();',
-    'GL': '#module_parameters(DUMP_GL_ERRORS := false, ENABLE_ALL_EXTENSIONS := false, DEFAULT_MSAA: s32 = 4)();',
+    'd3d11': '''#module_parameters(
+    // Includes the debug-layer interfaces.
+    INCLUDE_DEBUG_BINDINGS := false
+)();''',
+    'd3d12': '''#module_parameters(
+    // Includes the debug-layer interfaces.
+    INCLUDE_DEBUG_BINDINGS := false
+)();''',
+    'dxc_compiler': '''#module_parameters(
+    // Nintendo platform support; no declaration depends on it yet.
+    NINTENDO_SUPPORT := false
+)();''',
+    'GL': '''#module_parameters(
+    // Logs GL errors.
+    DUMP_GL_ERRORS := false,
+    // Loads every extension procedure.
+    ENABLE_ALL_EXTENSIONS := false,
+    // The sample count of new contexts.
+    DEFAULT_MSAA: s32 = 4
+)();''',
     'telemetry3': '#module_parameters(ENABLED := false)();',
 }
 CXX_RUNTIME = f'''#if OS == .MACOS {{ #library,system,link_always "c++"; {EXTERNAL} }}
