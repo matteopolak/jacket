@@ -1,7 +1,7 @@
 //! The scanner state and its token, number and string readers.
 use super::api::{Comment, CommentKind, PlatformTarget};
 use super::conditions::fold_or;
-use super::punct::{INTEGER_TOO_BIG, P, puncts_starting_with};
+use super::punct::{INTEGER_TOO_BIG, P, match_punct};
 use super::{Tok, Token};
 use crate::diagnostics::Code;
 use crate::diagnostics::Diagnostic;
@@ -206,11 +206,7 @@ impl<'a> Lexer<'a> {
                 let note: Arc<str> = String::from_utf8_lossy(text).into();
                 self.push(Tok::Note(note), start);
             } else {
-                let rest = &self.src[self.at..];
-                let Some(&(text, p)) = puncts_starting_with(c)
-                    .iter()
-                    .find(|(t, _)| rest.starts_with(t.as_bytes()))
-                else {
+                let Some((len, p)) = match_punct(&self.src[self.at..]) else {
                     self.at += 1;
                     return Err(self.err(
                         Code::LexUnexpectedCharacter,
@@ -218,7 +214,7 @@ impl<'a> Lexer<'a> {
                         &format!("unexpected character `{}`", c as char),
                     ));
                 };
-                self.at += text.len();
+                self.at += len;
                 self.push(Tok::Punct(p), start);
                 if self.platform.is_some() {
                     self.track_brace(p);

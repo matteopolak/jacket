@@ -131,19 +131,53 @@ const PUNCT: &[(&str, P)] = &[
     ("?", P::Question),
 ];
 
-/// The `PUNCT` entries that start with byte `c`, longest first (`PUNCT`'s order).
-pub(super) fn puncts_starting_with(c: u8) -> &'static [(&'static str, P)] {
-    static BY_FIRST: std::sync::OnceLock<[Vec<(&'static str, P)>; 256]> =
-        std::sync::OnceLock::new();
-    &BY_FIRST.get_or_init(|| {
-        std::array::from_fn(|b| {
+/// A `PUNCT` entry as the first four bytes of the text it matches, so a candidate is one masked
+/// compare of a word instead of a call to `memcmp`.
+#[derive(Clone, Copy)]
+struct Candidate {
+    mask: u32,
+    bits: u32,
+    len: usize,
+    p: P,
+}
+
+/// The `PUNCT` entries that start with each byte, longest first (`PUNCT`'s order).
+fn candidates() -> &'static [Vec<Candidate>; 256] {
+    static BY_FIRST: std::sync::OnceLock<[Vec<Candidate>; 256]> = std::sync::OnceLock::new();
+    BY_FIRST.get_or_init(|| {
+        std::array::from_fn(|first| {
             PUNCT
                 .iter()
-                .copied()
-                .filter(|(t, _)| t.as_bytes()[0] as usize == b)
+                .filter(|(text, _)| text.as_bytes()[0] as usize == first)
+                .map(|&(text, p)| {
+                    let bytes = text.as_bytes();
+                    let mut bits = [0u8; 4];
+                    bits[..bytes.len()].copy_from_slice(bytes);
+                    let mut mask = [0u8; 4];
+                    mask[..bytes.len()].fill(0xff);
+                    Candidate {
+                        mask: u32::from_le_bytes(mask),
+                        bits: u32::from_le_bytes(bits),
+                        len: bytes.len(),
+                        p,
+                    }
+                })
                 .collect()
         })
-    })[c as usize]
+    })
+}
+
+/// The longest punctuation `rest` starts with: its length in bytes and token.
+pub(super) fn match_punct(rest: &[u8]) -> Option<(usize, P)> {
+    let first = *rest.first()?;
+    let mut window = [0u8; 4];
+    let n = rest.len().min(4);
+    window[..n].copy_from_slice(&rest[..n]);
+    let word = u32::from_le_bytes(window);
+    candidates()[first as usize]
+        .iter()
+        .find(|c| word & c.mask == c.bits)
+        .map(|c| (c.len, c.p))
 }
 
 /// Every punctuation spelling, longest first within each starting character: the table a
