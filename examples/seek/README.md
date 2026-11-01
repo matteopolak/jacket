@@ -34,7 +34,7 @@ Exit status, like grep: `0` when a line matched, `1` when none did, `2` for a ba
 
 ## How it works
 
-`list_files` walks each path with `visit_files` (hidden folders are told not to descend), filters by glob, sorts the names and drops repeats. Every file becomes a `Job`; the jobs are handed to a `Thread_Group`, and the main thread polls until all have come back.
+`list_files` walks each path with `visit_files` (hidden folders are told not to descend), filters by glob, sorts the names and drops repeats. Every file becomes a `Job`; the jobs are handed to a `Thread_Group`, and the main thread blocks in `wait_for_all` until they are done. Each worker makes its matcher in the group's `worker_start` hook.
 
 A worker owns a `Worker`: a `Matcher` (made on its first job, because a compiled regex keeps a search cache that two threads cannot share) and one output buffer. Scanning a file appends its finished output lines to the worker's buffer, and the job remembers where they start and how long they are. When every job is done `join_output` reads the buffers back in job order, which is path order. Which worker ran which file never reaches the output.
 

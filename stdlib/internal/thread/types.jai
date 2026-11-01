@@ -137,11 +137,8 @@ Thread_Continue_Status :: enum {
     // }
     // start(*group);
     //
-    // finished := 0;
-    // while finished < items.count {
-    //     finished += get_completed_work(*group).count;
-    //     sleep_milliseconds(1);
-    // }
+    // assert(wait_for_all(*group));
+    // assert(get_completed_work(*group).count == items.count);
     // assert(shutdown(*group));
     // assert(items[3].result == 16);
     // ```
@@ -151,10 +148,17 @@ Thread_Continue_Status :: enum {
         name: string;
         logging := true;
         time_proc: () -> float64;
+        // Set before `start` to run something on each worker thread, once, before its first piece of work. `worker_index` is the
+        // worker's place in the group, 0 up to the number of threads minus one. A good place to build state the worker keeps.
+        worker_start: (group: *Thread_Group, thread: *Thread, worker_index: s32);
         allocator: Allocator;
         worker_info: [] Worker_Info;
         worker_info_data_to_free: *void;
         next_worker_index: s32;
+        // Work added and not yet finished, and what `wait_for_all` sleeps on.
+        outstanding: s64;
+        idle_mutex: Mutex;
+        idle_changed: Condition_Variable;
         Worker_Info :: struct {
             using info: Unpadded_Worker_Info;
             INFO_SIZE :: size_of(type_of(info));

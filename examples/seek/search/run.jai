@@ -70,7 +70,6 @@ Job :: struct {
 Worker :: struct {
     output: [..] u8;
     matcher: Matcher;
-    ready: bool;
 }
 
 Shared :: struct {
@@ -109,22 +108,22 @@ scan_all :: (options: Options, jobs: [] Job) -> [] Worker {
     init(*group, count, scan_job, temporary_storage_size = 1 << 20);
     group.data = *shared;
     group.logging = false;
+    group.worker_start = start_worker;
     start(*group);
 
     for *jobs add_work(*group, it);
 
-    // Work comes back in whatever order it finishes; only the number matters here.
-    done := 0;
-
-    while done < jobs.count {
-        done += get_completed_work(*group).count;
-
-        if done < jobs.count sleep_milliseconds(1);
-    }
-
+    wait_for_all(*group);
     shutdown(*group);
 
     return shared.workers;
+}
+
+// Runs on each worker thread before its first job: the worker's matcher is made here.
+start_worker :: (group: *Thread_Group, thread: *Thread, worker_index: s32) {
+    shared := cast(*Shared) group.data;
+
+    shared.workers[worker_index].matcher, _ = make_matcher(shared.options.*);
 }
 
 scan_job :: (group: *Thread_Group, thread: *Thread, work: *void) -> Thread_Continue_Status {
@@ -132,11 +131,6 @@ scan_job :: (group: *Thread_Group, thread: *Thread, work: *void) -> Thread_Conti
     shared := cast(*Shared) group.data;
     index := thread.worker_info.worker_index;
     worker := *shared.workers[index];
-
-    if !worker.ready {
-        worker.matcher, _ = make_matcher(shared.options.*);
-        worker.ready = true;
-    }
 
     job.worker = index;
     job.start = worker.output.count;

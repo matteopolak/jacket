@@ -19,6 +19,9 @@ init :: (using group: *Thread_Group, num_threads: s32, group_proc: Thread_Group_
     worker_info_data_to_free = base;
     next_worker_index = 0;
     should_exit = false;
+    outstanding = 0;
+    init(*idle_mutex);
+    init(*idle_changed);
 
     for *worker, i: worker_info {
         worker.group = group;
@@ -95,6 +98,7 @@ add_work :: (group: *Thread_Group, work: *void, logging_name := "") {
     entry.logging_name = logging_name;
     entry.issue_time = group.time_proc();
     entry.work_list_index = selected;
+    add_outstanding(group, 1);
     append_work(*group.worker_info[selected].available, entry);
 
     if group.logging {
@@ -178,6 +182,8 @@ shutdown :: (using group: *Thread_Group, timeout_milliseconds: s32 = -1) -> bool
         free(worker.work_steal_indices.data);
     }
 
+    destroy(*idle_changed);
+    destroy(*idle_mutex);
     free(worker_info_data_to_free);
     worker_info = .{};
     worker_info_data_to_free = null;
@@ -259,9 +265,24 @@ free_work_list :: (list: *Work_List, allocator: Allocator) {
     destroy(*list.mutex);
 } @FreesArgument
 
+// Adds `delta` to the group's count of unfinished work and returns the new count.
+add_outstanding :: (group: *Thread_Group, delta: s64) -> s64 {
+    _, value := compare_and_swap(*group.outstanding, cast(s64) 0, cast(s64) 0);
+
+    while true {
+        changed, old := compare_and_swap(*group.outstanding, value, value + delta);
+        if changed return value + delta;
+        value = old;
+    }
+
+    return 0;
+}
+
 group_worker :: (thread: *Thread) -> s64 {
     worker := thread.worker_info;
     group := worker.group;
+
+    if group.worker_start group.worker_start(group, thread, worker.worker_index);
 
     while true {
         entry := take_work(*worker.available);
@@ -275,6 +296,14 @@ group_worker :: (thread: *Thread) -> s64 {
             status := group.proc(group, thread, entry.work);
 
             append_work(*worker.completed, entry);
+
+            if add_outstanding(group, -1) == 0 {
+                // Taking the mutex orders this wake after a waiter has either seen zero or gone to sleep.
+                lock(*group.idle_mutex);
+                wake_all(*group.idle_changed);
+                unlock(*group.idle_mutex);
+            }
+
             if status == .STOP break;
 
             continue;
