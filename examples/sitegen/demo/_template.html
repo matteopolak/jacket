@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }} - Demo site</title>
+<link rel="stylesheet" href="{{ asset style.css }}">
+<link rel="icon" href="{{ inline img/logo.png }}">
+</head>
+<body>
+<header>
+<img src="{{ inline img/logo.png }}" alt="" width="24" height="24">
+<a href="{{ root }}index.html">Demo site</a>
+</header>
+<nav>
+{{ nav }}
+</nav>
+<main>
+{{ content }}
+</main>
+<footer>{{ path }}</footer>
+</body>
+</html>

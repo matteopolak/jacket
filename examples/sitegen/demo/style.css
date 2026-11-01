@@ -1,0 +1,37 @@
+body {
+    font-family: system-ui, sans-serif;
+    max-width: 44rem;
+    margin: 2rem auto;
+    padding: 0 1rem;
+    line-height: 1.55;
+}
+
+header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+}
+
+nav ul {
+    display: flex;
+    gap: 1rem;
+    padding: 0;
+    list-style: none;
+}
+
+nav a[aria-current] {
+    font-weight: 700;
+}
+
+pre {
+    background: #f4f4f4;
+    padding: 0.75rem;
+    overflow-x: auto;
+}
+
+footer {
+    margin-top: 3rem;
+    color: #777;
+    font-size: 0.85rem;
+}

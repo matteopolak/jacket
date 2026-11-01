@@ -347,6 +347,15 @@
       "stdout_contains": []
     },
     {
+      "id": "sitegen",
+      "directory": "examples/sitegen",
+      "main": "main.jai",
+      "title": "Static site generator",
+      "summary": "Markdown pages and a template in, HTML out, with content-hashed asset names and small images inlined as data URIs (native only: reads and writes files).",
+      "mode": "check",
+      "stdout_contains": []
+    },
+    {
       "id": "game2d",
       "directory": "examples/game2d",
       "main": "game/main.jai",

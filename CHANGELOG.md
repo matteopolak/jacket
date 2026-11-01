@@ -5,6 +5,7 @@
 ### New
 
 - `examples/kvdb` is a key-value database: a checksummed append-only log with crash recovery and compaction, a CLI, and a TCP server.
+- `examples/sitegen` is a static site generator: Markdown pages and a template in, HTML out, assets published under content-hashed names, small images inlined as data URIs.
 
 ### Improved
 
@@ -17,6 +18,7 @@
 
 ### Fixed
 
+- `make_directory_if_it_does_not_exist("a/b/", recursive = true)` creates the missing parents on Linux and macOS; before, a name ending in a slash failed unless the parent was already there.
 - A compile error in a test program is no longer followed by pages of the generated test table.
 - `Http.close_idle_connections` also closes idle HTTP/2 connections, so a TLS config can be freed after it; before, a pooled HTTP/2 connection could read the freed config and crash.
 - `get_type_table()` lists the Compiler module's records in the same order on every run; before, a program that ran a metaprogram could see them shuffled.
