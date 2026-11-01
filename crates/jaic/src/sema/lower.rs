@@ -729,7 +729,7 @@ impl Compiler {
                 Ok(f.b.global_addr(global))
             }
             Value::Proc(p) => {
-                let func = self.proc_func(*p, span)?;
+                let func = self.proc_func_in_code(*p, span)?;
                 Ok(match func {
                     procs::ProcTarget::Func(id) => f.b.func_addr(id),
                     procs::ProcTarget::Foreign(id) => f.b.foreign_addr(id),

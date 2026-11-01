@@ -141,7 +141,7 @@ impl Compiler {
             }
         }
         values.extend(c_vararg_values.iter().copied());
-        let target = self.proc_func(proc, span)?;
+        let target = self.proc_func_in_code(proc, span)?;
         let mut ir_sig = self.ir_sig(sig.ty, span)?;
         if c_vararg_layouts.iter().any(Option::is_some) {
             // The variadic arguments follow the fixed ones in `c_abi.params`, as in the signature.

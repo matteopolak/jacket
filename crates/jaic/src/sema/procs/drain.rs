@@ -364,7 +364,7 @@ impl ProcState {
         self.body_queue.extend(parked);
     }
 
-    pub(super) fn set_proc_target(&mut self, id: ProcId, target: ProcTarget) {
+    pub(in crate::sema) fn set_proc_target(&mut self, id: ProcId, target: ProcTarget) {
         self.procs[id.0 as usize].target = Some(target);
         if let ProcTarget::Func(func) = target {
             let procs = self.func_targets.entry(func).or_default();

@@ -94,7 +94,7 @@ impl Compiler {
     /// Whether `proc_func` for `id` can be run on its own, ahead of the body that asks for it:
     /// the plain case of a procedure with a body, whose only failures come before it changes
     /// anything.
-    fn target_is_resumable(&self, id: ProcId) -> bool {
+    pub(super) fn target_is_resumable(&self, id: ProcId) -> bool {
         let p = self.proc(id);
         let header = &p.lit.header;
         p.lit.body.is_some()

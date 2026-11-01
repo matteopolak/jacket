@@ -83,6 +83,7 @@ pub(in crate::sema) struct Counts {
     pub committed: u64,
     pub resolved_ahead: u64,
     pub recovered: u64,
+    pub reserved_at_commit: u64,
 }
 
 /// Switch speculation on or off for this thread and zero the counters (tests).
@@ -101,6 +102,7 @@ pub(in crate::sema) fn counts() -> Counts {
             committed: s.committed,
             resolved_ahead: s.resolved_ahead,
             recovered: s.recovered,
+            reserved_at_commit: s.reserved_at_commit,
         }
     })
 }

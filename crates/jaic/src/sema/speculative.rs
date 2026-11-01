@@ -81,64 +81,6 @@ const MEMOS: [usize; 4] = [
     W::CachesUsingMemberFree as usize,
 ];
 
-/// What `spec_fingerprint` lists, in order.
-const FINGERPRINT: [&str; 54] = [
-    "ns.check_handler_resolved",
-    "ns.named_imports_done",
-    "ns.preload",
-    "ns.runtime_support",
-    "ns.main_module",
-    "ns.program_param_settings",
-    "ct.context",
-    "ct.context_global",
-    "ct.temporary_buffer",
-    "ct.executions",
-    "ct.traps",
-    "ct.runs_done",
-    "ct.asserts_done",
-    "src.added",
-    "src.program_sources",
-    "src.library_files",
-    "ty.context_type",
-    "ty.defer_infos",
-    "ty.strict_sizes",
-    "ty.in_snapshot",
-    "ty.snapshot_key.0",
-    "ty.snapshot_key.1",
-    "ty.snapshot_key.2",
-    "ty.in_element_pattern",
-    "pr.runtime_interpreter_assertion",
-    "pr.entry_point",
-    "pr.parked_epoch",
-    "pr.lowering_depth",
-    "out.runtime_info",
-    "out.runtime_storage_global",
-    "out.asm_pair_lock",
-    "out.asm_aes_tables",
-    "out.declared_globals",
-    "out.runtime_storage_dependencies.functions",
-    "out.runtime_storage_dependencies.entities",
-    "out.runtime_storage_dependencies.layouts",
-    "out.runtime_storage_dependencies.captures",
-    "out.unreferenced_from",
-    "epochs.namespace_generation",
-    "epochs.placeholder_misses",
-    "epochs.in_progress_misses",
-    "epochs.resolving_depth",
-    "epochs.mapping_imports",
-    "epochs.retrying_pending",
-    "epochs.lookup_without_expansion",
-    "epochs.placeholders_final",
-    "ty.types",
-    "out.program.globals",
-    "out.program.funcs",
-    "out.program.foreigns",
-    "pr.procs",
-    "ns.modules",
-    "src.files",
-    "caches.module_names_unsettled",
-];
-
 /// Unwind payload of an abandoned speculative body.
 struct Abandoned;
 
@@ -216,6 +158,14 @@ pub(super) struct Shift {
     scope: u32,
     entity_base: u32,
     entity: u32,
+    /// The program's function count when the body began, and the functions its provisional ids
+    /// became (with whether the commit reserved each one).
+    func_base: usize,
+    funcs: Vec<(ir::FuncId, bool)>,
+    /// The same for foreign symbols.
+    foreign_base: usize,
+    foreigns: Vec<ir::ForeignId>,
+    foreign_fresh: Vec<bool>,
 }
 
 impl Shift {
@@ -391,6 +341,8 @@ struct Stats {
     /// Entities resolved at a body's turn, and bodies that committed after it.
     resolved_ahead: u64,
     recovered: u64,
+    /// Functions and foreign symbols reserved when committing bodies that were handed provisional ones.
+    reserved_at_commit: u64,
 }
 
 /// What a finished speculative body made.
@@ -407,6 +359,7 @@ pub(super) struct Delta {
     thunk_keys: Vec<ScopeId>,
     globals_base: usize,
     globals: Vec<LocalGlobal>,
+    reserved: funcs::Reserved,
     took: Duration,
 }
 
@@ -437,69 +390,6 @@ impl Compiler {
             self.ct.runs_done as u64,
             self.ct.executions,
             self.src.sources.len() as u64,
-        ]
-    }
-
-    /// The shared state a body is not allowed to leave changed that no `Probed` hook watches:
-    /// plain flags, counters and options. Debug builds compare it before and after every
-    /// speculative body, so a write the hooks missed fails a test instead of the output.
-    fn spec_fingerprint(&self) -> [u64; FINGERPRINT.len()] {
-        let id = |v: Option<u32>| v.map_or(u64::MAX, u64::from);
-        [
-            u64::from(self.ns.check_handler_resolved),
-            self.ns.named_imports_done as u64,
-            id(self.ns.preload.map(|m| m.0)),
-            id(self.ns.runtime_support.map(|m| m.0)),
-            id(self.ns.main_module.map(|m| m.0)),
-            self.ns.program_param_settings.len() as u64,
-            self.ct.context.unwrap_or(u64::MAX),
-            id(self.ct.context_global.map(|g| g.0)),
-            id(self.ct.temporary_buffer.map(|g| g.0)),
-            self.ct.executions,
-            self.ct.traps,
-            self.ct.runs_done as u64,
-            self.ct.asserts_done as u64,
-            self.src.added as u64,
-            self.src.program_sources.len() as u64,
-            self.src.library_files.borrow().len() as u64,
-            id(self.ty.context_type.map(|t| t.0)),
-            u64::from(self.ty.defer_infos),
-            u64::from(self.ty.strict_sizes),
-            u64::from(self.ty.in_snapshot),
-            self.ty.snapshot_key.0 as u64,
-            self.ty.snapshot_key.1 as u64,
-            self.ty.snapshot_key.2 as u64,
-            u64::from(self.ty.in_element_pattern),
-            id(self.pr.runtime_interpreter_assertion.map(|p| p.0)),
-            id(self.pr.entry_point.map(|p| p.0)),
-            self.pr.parked_epoch,
-            u64::from(self.pr.lowering_depth),
-            id(self.out.runtime_info.map(|g| g.0)),
-            id(self.out.runtime_storage_global.map(|g| g.0)),
-            id(self.out.asm_pair_lock.map(|g| g.0)),
-            id(self.out.asm_aes_tables.map(|g| g.0)),
-            self.out.declared_globals.len() as u64,
-            self.out.runtime_storage_dependencies.functions.len() as u64,
-            self.out.runtime_storage_dependencies.entities.len() as u64,
-            self.out.runtime_storage_dependencies.layouts.len() as u64,
-            self.out.runtime_storage_dependencies.captures.len() as u64,
-            u64::from(self.out.unreferenced_from.is_some()),
-            self.epochs.namespace_generation,
-            self.epochs.placeholder_misses,
-            self.epochs.in_progress_misses,
-            u64::from(self.epochs.resolving_depth),
-            u64::from(self.epochs.mapping_imports),
-            u64::from(self.epochs.retrying_pending),
-            u64::from(self.epochs.lookup_without_expansion),
-            u64::from(self.epochs.placeholders_final),
-            self.ty.types.type_count() as u64,
-            self.out.program.globals.len() as u64,
-            self.out.program.funcs.len() as u64,
-            self.out.program.foreigns.len() as u64,
-            self.pr.procs.len() as u64,
-            self.ns.modules.len() as u64,
-            self.src.files.len() as u64,
-            u64::from(self.caches.module_names_unsettled),
         ]
     }
 
@@ -617,6 +507,10 @@ impl Compiler {
         OPS.with(|o| o.borrow_mut().clear());
         UNDO.with(|u| u.borrow_mut().clear());
         LOCAL_GLOBALS.with(|g| *g.borrow_mut() = (self.out.program.globals.len(), Vec::new()));
+        funcs::begin(
+            self.out.program.funcs.len(),
+            self.out.program.foreigns.len(),
+        );
         FIRST_USE.with(|f| f.set(None));
         TOUCHED_PROCS.with(|t| t.borrow_mut().clear());
         THUNK_KEYS.with(|t| t.borrow_mut().clear());
@@ -657,11 +551,12 @@ impl Compiler {
         let deposit = DEPOSIT.with(|d| d.borrow_mut().take());
         let bases_globals = LOCAL_GLOBALS.with(|g| g.borrow().0);
         let took = started.elapsed();
+        let reserved = funcs::take();
         // What the body asked for before it stopped comes first in the serial order; running the
-        // step ahead would number its own globals before them.
+        // step ahead would number its own globals and functions before them.
         let first_use = FIRST_USE
             .with(Cell::take)
-            .filter(|_| LOCAL_GLOBALS.with(|g| g.borrow().1.is_empty()));
+            .filter(|_| LOCAL_GLOBALS.with(|g| g.borrow().1.is_empty()) && reserved.is_empty());
         let reason = match result {
             Ok(Ok(())) if finished_active => match deposit {
                 Some(deposit) => {
@@ -680,6 +575,7 @@ impl Compiler {
                             thunk_keys: THUNK_KEYS.with(|t| std::mem::take(&mut *t.borrow_mut())),
                             globals_base: bases_globals,
                             globals: LOCAL_GLOBALS.with(|g| std::mem::take(&mut g.borrow_mut().1)),
+                            reserved,
                             took,
                         }));
                     }
@@ -730,6 +626,7 @@ impl Compiler {
             thunk_keys: _,
             globals_base,
             globals,
+            reserved,
             took,
         } = delta;
         // The globals the body asked for are made first: what it built refers to them by the ids
@@ -757,7 +654,24 @@ impl Compiler {
             };
             made.push(global);
         }
+        let funcs::Reserved {
+            funcs_base,
+            funcs,
+            foreigns_base,
+            foreigns,
+        } = reserved;
+        let funcs = self.reserve_local_funcs(funcs);
+        let (foreigns, foreign_fresh): (Vec<_>, Vec<bool>) =
+            self.reserve_local_foreigns(foreigns).into_iter().unzip();
+        let reserved_now =
+            funcs.iter().filter(|f| f.1).count() + foreign_fresh.iter().filter(|f| **f).count();
+        STATS.with(|s| s.borrow_mut().reserved_at_commit += reserved_now as u64);
         let shift = Shift {
+            func_base: funcs_base,
+            funcs,
+            foreign_base: foreigns_base,
+            foreigns,
+            foreign_fresh,
             scope_base: scopes_base as u32,
             scope: self.ns.scopes.len() as u32 - scopes_base as u32,
             entity_base: entities_base as u32,
@@ -798,6 +712,7 @@ impl Compiler {
             storage_constants,
             span,
         } = deposit;
+        funcs::remap_func_ids(&mut func, &shift);
         if !made.is_empty() {
             for block in &mut func.blocks {
                 for inst in &mut block.insts {
@@ -1107,6 +1022,10 @@ fn immovable(scopes: &[Scope], entities: &[Entity], bases: [usize; 2]) -> Option
     None
 }
 
+mod fingerprint;
+use self::fingerprint::FINGERPRINT;
+mod funcs;
+pub(in crate::sema) use self::funcs::refuse_provisional;
 mod journal;
 mod stats;
 

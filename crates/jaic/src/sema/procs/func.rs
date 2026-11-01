@@ -14,13 +14,26 @@ impl Compiler {
     pub fn proc_func(&mut self, id: ProcId, span: Span) -> Result<ProcTarget> {
         self.ide_note_polymorph(id);
         if let Some(t) = self.proc(id).target {
+            crate::sema::speculative::refuse_provisional(t, &self.out.program);
             return Ok(t);
         }
-        self.first_use(FirstUse::Target(id), |c| c.make_proc_target(id, span))
+        self.first_use(FirstUse::Target(id), |c| {
+            c.make_proc_target(id, span, false)
+        })
+    }
+
+    /// `proc_func` for a call or a procedure's address, whose IR only names the function by id: a
+    /// speculative body may be handed a provisional one.
+    pub fn proc_func_in_code(&mut self, id: ProcId, span: Span) -> Result<ProcTarget> {
+        self.ide_note_polymorph(id);
+        if let Some(t) = self.proc(id).target {
+            return Ok(t);
+        }
+        self.first_use(FirstUse::Target(id), |c| c.make_proc_target(id, span, true))
     }
 
     /// The part of `proc_func` that runs once: the procedure has no target yet.
-    fn make_proc_target(&mut self, id: ProcId, span: Span) -> Result<ProcTarget> {
+    fn make_proc_target(&mut self, id: ProcId, span: Span, in_code: bool) -> Result<ProcTarget> {
         if self.proc(id).is_macro {
             return err(
                 Code::ProcMacro,
@@ -52,23 +65,31 @@ impl Compiler {
                 ast::ForeignName::Named(s) => s.to_string(),
                 ast::ForeignName::Default => name.to_string(),
             };
-            ProcTarget::Foreign(self.out.program.add_foreign(ir::Foreign {
+            let foreign = ir::Foreign {
                 symbol,
                 library,
                 sig: ir_sig,
                 is_data: false,
-            }))
+            };
+            if in_code && let Some(target) = self.provisional_foreign(id, foreign.clone()) {
+                return Ok(target);
+            }
+            ProcTarget::Foreign(self.out.program.add_foreign(foreign))
         } else if let Some(llvm) =
             llvm_intrinsic(&header).filter(|_| self.proc(id).lit.body.is_none())
         {
             // `#intrinsic "llvm.x"`: a call to the LLVM intrinsic itself. It exists only in
             // native code; the interpreter cannot resolve the symbol.
-            ProcTarget::Foreign(self.out.program.add_foreign(ir::Foreign {
+            let foreign = ir::Foreign {
                 symbol: llvm.to_string(),
                 library: None,
                 sig: ir_sig,
                 is_data: false,
-            }))
+            };
+            if in_code && let Some(target) = self.provisional_foreign(id, foreign.clone()) {
+                return Ok(target);
+            }
+            ProcTarget::Foreign(self.out.program.add_foreign(foreign))
         } else if self.proc(id).lit.body.is_none() {
             if header.flags.intrinsic() || header.flags.compiler() {
                 // Intrinsics are expanded at call sites; a reference as a value gets a wrapper later.
@@ -79,15 +100,22 @@ impl Compiler {
                 ProcTarget::Func(func)
             } else {
                 // `#elsewhere` or a declaration without body: resolve as a process symbol.
-                ProcTarget::Foreign(self.out.program.add_foreign(ir::Foreign {
+                let foreign = ir::Foreign {
                     symbol: name.to_string(),
                     library: None,
                     sig: ir_sig,
                     is_data: false,
-                }))
+                };
+                if in_code && let Some(target) = self.provisional_foreign(id, foreign.clone()) {
+                    return Ok(target);
+                }
+                ProcTarget::Foreign(self.out.program.add_foreign(foreign))
             }
         } else {
             let display = self.proc_display_name(id);
+            if in_code && let Some(target) = self.provisional_target(id, display.clone(), &ir_sig) {
+                return Ok(target);
+            }
             let func = self.out.program.reserve_func_with_sig(display, ir_sig);
             self.pr.procs[id.0 as usize].body_state = BodyState::Queued;
             crate::sema::body_probe::enqueued(id.0);
