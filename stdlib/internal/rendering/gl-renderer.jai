@@ -88,7 +88,7 @@ backend_set_render_target :: (info: *Window_Info) {
     if !Contexts.make_current(info.window) return;
     require_gl_texture_context();
     GL.gl.glBindFramebuffer(GL.GL_FRAMEBUFFER, 0);
-    GL.gl.glViewport(0, 0, cast(GL.GLsizei) (info.window_width * info.pixel_scale + 0.5), cast(GL.GLsizei) (info.window_height * info.pixel_scale + 0.5));
+    GL.gl.glViewport(0, 0, cast(GL.GLsizei) (info.window_width * framebuffer_scale(info.pixel_scale) + 0.5), cast(GL.GLsizei) (info.window_height * framebuffer_scale(info.pixel_scale) + 0.5));
 }
 
 backend_set_render_target :: (texture: *Texture) {
@@ -155,7 +155,7 @@ get_render_dimensions :: (window: Window_Type) -> (width: s32, height: s32) {
 // ```
 get_pixel_dimensions :: (window: Window_Type) -> (width: s32, height: s32) {
     width, height := get_render_dimensions(window);
-    scale := Windows_API.get_pixel_scale(window);
+    scale := framebuffer_scale(Windows_API.get_pixel_scale(window));
     return cast(s32) (width * scale + 0.5), cast(s32) (height * scale + 0.5);
 }
 
@@ -204,7 +204,7 @@ swap_buffers :: (window: Window_Type, vsync := true) {
 }
 
 backend_resize_render_target :: (info: Window_Info) {
-    GL.gl.glViewport(0, 0, cast(GL.GLsizei) (info.window_width * info.pixel_scale + 0.5), cast(GL.GLsizei) (info.window_height * info.pixel_scale + 0.5));
+    GL.gl.glViewport(0, 0, cast(GL.GLsizei) (info.window_width * framebuffer_scale(info.pixel_scale) + 0.5), cast(GL.GLsizei) (info.window_height * framebuffer_scale(info.pixel_scale) + 0.5));
 }
 
 backend_flush :: () {
@@ -263,7 +263,7 @@ set_scissor :: (x0: s32, y0: s32, x1: s32, y1: s32) {
 
     // Window targets take logical coordinates; the scissor box is in device pixels.
     if !immediate_state.texture_render_target {
-        scale := immediate_state.current_window_info.pixel_scale;
+        scale := framebuffer_scale(immediate_state.current_window_info.pixel_scale);
 
         if scale != 1 {
             x0 = cast(s32) (x0 * scale + 0.5);
@@ -274,7 +274,7 @@ set_scissor :: (x0: s32, y0: s32, x1: s32, y1: s32) {
     }
 
     if immediate_state.coordinate_system == .LEFT_HANDED {
-        height := cast(s32) (immediate_state.current_window_info.window_height * immediate_state.current_window_info.pixel_scale + 0.5);
+        height := cast(s32) (immediate_state.current_window_info.window_height * framebuffer_scale(immediate_state.current_window_info.pixel_scale) + 0.5);
         if immediate_state.texture_render_target height = immediate_state.texture_render_target.height;
 
         bottom := height - y1;
@@ -704,4 +704,11 @@ initialize_builtin_shader :: (shader: *Shader, blend: bool, texture: bool, flip:
     assert(shader.gl_handle != 0, "built-in shader compilation failed");
     shader.alpha_blend = blend;
     backend_update_shader_parameter_locations(shader);
+}
+
+#scope_module
+// Cocoa dimensions are points. Win32 and X11 dimensions already describe pixels.
+framebuffer_scale :: (desktop_scale: float) -> float {
+    #if OS == .MACOS return desktop_scale;
+    return 1;
 }

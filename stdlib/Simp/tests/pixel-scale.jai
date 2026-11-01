@@ -28,12 +28,25 @@ main :: () {
 
     assert(scale >= 1);
     assert(width == 320 && height == 240, "render size %x%", width, height);
-    assert(pixels_w == cast(s32) (320 * scale + 0.5) && pixels_h == cast(s32) (240 * scale + 0.5), "pixel size %x% at scale %", pixels_w, pixels_h, scale);
+    framebuffer_scale := scale;
+
+    #if OS != .MACOS framebuffer_scale = 1; // these native APIs already return pixels
+    assert(pixels_w == cast(s32) (320 * framebuffer_scale + 0.5) && pixels_h == cast(s32) (240 * framebuffer_scale + 0.5), "pixel size %x% at scale %", pixels_w, pixels_h, scale);
 
     viewport: [4] s32;
 
     GL.gl.glGetIntegerv(GL.GL_VIEWPORT, viewport.data);
     assert(viewport[2] == pixels_w && viewport[3] == pixels_h, "the viewport must cover the framebuffer in pixels");
+
+    set_scissor(10, 20, 30, 40);
+    scissor: [4] s32;
+
+    GL.gl.glGetIntegerv(GL.GL_SCISSOR_BOX, scissor.data);
+    assert(scissor[0] == cast(s32) (10 * framebuffer_scale + 0.5));
+    assert(scissor[1] == pixels_h - cast(s32) (40 * framebuffer_scale + 0.5));
+    assert(scissor[2] == cast(s32) (20 * framebuffer_scale + 0.5));
+    assert(scissor[3] == cast(s32) (20 * framebuffer_scale + 0.5));
+    clear_scissor();
 
     // A 2x1 texture drawn eight times larger: nearest keeps two flat halves, linear blends across the middle.
     bitmap: Bitmap;
