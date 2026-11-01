@@ -192,17 +192,9 @@ impl Compiler {
     /// Keep inserted declarations' canonical entities and captured lookup scope,
     /// while making their bindings visible in the receiving lexical scope.
     fn publish_insert_scope(&mut self, source: ScopeId, target: ScopeId, at: Span) -> Result<()> {
-        let mut bindings: Vec<(Sym, EntityId)> = self
-            .scope(source)
-            .names
-            .iter()
-            .flat_map(|(&name, ids)| ids.iter().map(move |&id| (name, id)))
-            .collect();
-        // Declaration/hoisting order, rather than hash-map iteration order,
-        // determines which collision is diagnosed first.
-        bindings.sort_by_key(|(_, id)| id.0);
+        // Declaration/hoisting order determines which collision is diagnosed first.
         let mut publish = Vec::new();
-        for (name, id) in bindings {
+        for (id, name) in self.scope(source).declared() {
             let existing = self
                 .scope(target)
                 .names

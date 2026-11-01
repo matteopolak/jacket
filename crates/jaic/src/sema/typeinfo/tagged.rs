@@ -2,9 +2,7 @@
 use super::views::View;
 use crate::sema::scope::EntityKind;
 use crate::sema::value::Aggregate;
-use crate::sema::{
-    Compiler, EntityId, PreludeType, Result, Span, Sym, TypeId, Value, ast, structs,
-};
+use crate::sema::{Compiler, PreludeType, Result, Span, Sym, TypeId, Value, ast, structs};
 use crate::types::TypeKind;
 
 impl Compiler {
@@ -128,20 +126,16 @@ impl Compiler {
         let Some(scope) = self.ty.struct_asts.get(&s).map(|src| src.scope) else {
             return Vec::new();
         };
-        let mut bindings: Vec<(EntityId, Sym, Value, TypeId)> = self
-            .scope(scope)
-            .names
-            .iter()
-            .flat_map(|(&name, ids)| ids.iter().map(move |&e| (name, e)))
-            .filter_map(|(name, e)| match &self.entity(e).kind {
+        self.scope(scope)
+            .declared()
+            .into_iter()
+            .filter_map(|(e, name)| match &self.entity(e).kind {
                 EntityKind::Const {
                     value,
                     ty,
-                } => Some((e, name, value.clone(), *ty)),
+                } => Some((name, value.clone(), *ty)),
                 _ => None,
             })
-            .collect();
-        bindings.sort_by_key(|b| b.0);
-        bindings.into_iter().map(|(_, n, v, t)| (n, v, t)).collect()
+            .collect()
     }
 }

@@ -133,6 +133,23 @@ pub struct Scope {
     pub fallbacks: Vec<ScopeId>,
 }
 
+impl Scope {
+    /// Every binding of the scope as `(entity, name)`, in declaration order.
+    ///
+    /// The name map iterates in symbol-number order, and those numbers depend on which parse
+    /// thread met a spelling first, so anything a user can see (diagnostics, suggestions,
+    /// completion and type-table order) takes its order from here instead.
+    pub fn declared(&self) -> Vec<(EntityId, Sym)> {
+        let mut out: Vec<(EntityId, Sym)> = self
+            .names
+            .iter()
+            .flat_map(|(&name, ids)| ids.iter().map(move |&id| (id, name)))
+            .collect();
+        out.sort_unstable_by_key(|&(id, _)| id);
+        out
+    }
+}
+
 #[derive(Clone, Debug)]
 pub enum Builtin {
     Type(TypeId),

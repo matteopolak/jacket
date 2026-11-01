@@ -359,6 +359,8 @@ impl Compiler {
                 }
             }
         }
+        // Declaration order: the first set that fails is the one reported.
+        sets.sort_unstable_by_key(|ids| ids[0]);
         for ids in sets {
             self.check_identical_overloads(&ids)?;
         }

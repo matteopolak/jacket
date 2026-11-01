@@ -167,16 +167,8 @@ fn shared(compiler: &mut Compiler, modules: Option<&[ModuleId]>, span: Span) -> 
         ];
         for &module in modules {
             let scope = compiler.ns.modules[module.0 as usize].scope;
-            // Declaration order, not the name map's: it follows symbol numbers, which depend on
-            // which parse thread met a spelling first, and this order fixes the type table's.
-            let mut declared: Vec<_> = compiler
-                .scope(scope)
-                .names
-                .iter()
-                .flat_map(|(name, entities)| entities.iter().map(|&entity| (entity, *name)))
-                .collect();
-            declared.sort_unstable_by_key(|&(entity, _)| entity);
-            for (entity, name) in declared {
+            // Declaration order: it fixes the type table's.
+            for (entity, name) in compiler.scope(scope).declared() {
                 let Ok(Resolved::Const {
                     value: Value::Type(ty),
                     ..

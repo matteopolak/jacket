@@ -20,6 +20,8 @@
 - A compile error in a test program is no longer followed by pages of the generated test table.
 - `Http.close_idle_connections` also closes idle HTTP/2 connections, so a TLS config can be freed after it; before, a pooled HTTP/2 connection could read the freed config and crash.
 - `get_type_table()` lists the Compiler module's records in the same order on every run; before, a program that ran a metaprogram could see them shuffled.
+- A program with several identical-overload errors, or a `using` that clashes with several block constants, reports the first one declared on every run; before, which came first could vary.
+- The namespaces suggested for an unknown name are listed in import order on every run.
 
 ## [0.32.0] - 2026-11-01
 

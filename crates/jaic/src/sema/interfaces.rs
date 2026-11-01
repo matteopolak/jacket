@@ -67,14 +67,7 @@ impl Compiler {
             let Some(source) = self.ty.struct_asts.get(&contract) else {
                 continue;
             };
-            let mut declarations: Vec<_> = self
-                .scope(source.scope)
-                .names
-                .iter()
-                .flat_map(|(&name, ids)| ids.iter().map(move |&id| (id, name)))
-                .collect();
-            declarations.sort_by_key(|&(id, _)| id);
-            for (id, name) in declarations {
+            for (id, name) in self.scope(source.scope).declared() {
                 let wanted = self.resolve_entity(id)?;
                 let Some(candidates) = self.struct_constant(actual, name)? else {
                     return err(

@@ -429,11 +429,9 @@ impl Compiler {
         entry: UsingEntry,
     ) -> Result<()> {
         let mut declared: Vec<(Sym, Span)> = Vec::new();
-        for (name, ids) in &self.scope(scope).names {
-            for &id in ids {
-                if matches!(self.entity(id).kind, scope::EntityKind::Decl { .. }) {
-                    declared.push((*name, self.entity(id).span));
-                }
+        for (id, name) in self.scope(scope).declared() {
+            if matches!(self.entity(id).kind, scope::EntityKind::Decl { .. }) {
+                declared.push((name, self.entity(id).span));
             }
         }
         for (name, span) in declared {

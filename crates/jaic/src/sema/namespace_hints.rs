@@ -86,7 +86,7 @@ impl Compiler {
         let mut current = Some(scope);
         while let Some(sid) = current {
             let s = self.scope(sid);
-            for &id in s.names.values().flatten() {
+            for (id, _) in s.declared() {
                 let EntityKind::Import(import) = &self.entity(id).kind else {
                     continue;
                 };
