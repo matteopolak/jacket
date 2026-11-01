@@ -36,6 +36,13 @@ std::thread_local! {
     static LAST_ERROR: std::cell::Cell<u32> = const { std::cell::Cell::new(0) };
 }
 
+/// Publish an error from an emulated Win32 call to the native foreign-call path too.
+pub fn set_last_error(code: u32) {
+    LAST_ERROR.set(code);
+    // SAFETY: this only writes the calling thread's last-error value.
+    unsafe { SetLastError(code) };
+}
+
 /// Run one foreign call so that `GetLastError` reads what the previous foreign call left.
 ///
 /// The thread's last-error value belongs to the interpreted program, but the interpreter's own

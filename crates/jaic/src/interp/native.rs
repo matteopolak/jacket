@@ -24,6 +24,8 @@ pub use callbacks::{
 mod wide;
 #[cfg(all(windows, any(target_arch = "x86_64", target_arch = "aarch64")))]
 mod windows;
+#[cfg(all(windows, any(target_arch = "x86_64", target_arch = "aarch64")))]
+pub(super) use windows::set_last_error;
 #[cfg(windows)]
 mod windows_imports;
 

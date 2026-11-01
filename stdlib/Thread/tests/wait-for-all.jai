@@ -7,6 +7,11 @@ JOBS :: 10000;
 WORKERS :: 8;
 ROUNDS :: 50;
 
+#if OS == .WINDOWS {
+    kernel32 :: #system_library "kernel32";
+    set_error :: (code: u32) #foreign kernel32 "SetLastError";
+}
+
 Shared :: struct {
     ran: [JOBS] s64;
     started_mask: s64;
@@ -37,6 +42,22 @@ on_start :: (group: *T.Thread_Group, thread: *T.Thread, worker_index: s32) {
 }
 
 main :: () {
+    #if OS == .WINDOWS {
+        W :: #import "Windows";
+        mutex: T.Mutex;
+        changed: T.Condition_Variable;
+        T.init(*mutex);
+        T.init(*changed);
+        T.lock(*mutex);
+        set_error(1234);
+        // An immediate timeout must replace the previous foreign call's error even in --interp.
+        T.cvariable_wait(*changed.condition_variable, *mutex.csection, 0);
+        assert(W.GetLastError() == 1460);
+        T.unlock(*mutex);
+        T.destroy(*changed);
+        T.destroy(*mutex);
+    }
+
     // Many tiny jobs over contended workers, waited for again and again on one group.
     group: T.Thread_Group;
 

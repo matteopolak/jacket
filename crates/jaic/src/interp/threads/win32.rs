@@ -440,14 +440,10 @@ fn real_event_signaled(handle: u64) -> bool {
     }
 }
 
-/// The calling thread's `GetLastError` value. Every scheduler thread is the OS thread the
-/// program reads it on, so the real one is set.
+/// Publish errors from scheduler-emulated calls to both the OS and the native FFI's saved slot.
 fn set_last_error(code: u32) {
     #[cfg(windows)]
-    // SAFETY: SetLastError only writes the calling thread's error slot.
-    unsafe {
-        SetLastError(code);
-    };
+    crate::interp::native::set_last_error(code);
     #[cfg(not(windows))]
     let _ = code;
 }
@@ -1080,6 +1076,32 @@ mod handle_registry_tests {
     use crate::interp::NativeHost;
     #[cfg(windows)]
     use crate::interp::native;
+
+    #[cfg(windows)]
+    #[test]
+    fn emulated_errors_survive_the_next_native_foreign_call() {
+        let mut interp = Interp::new(Box::new(NativeHost));
+        let sig = crate::ir::Sig {
+            params: vec![],
+            returns: vec![Ty::I32],
+            conv: crate::ir::Conv::C,
+            c_varargs: false,
+            c_fixed: 0,
+            c_abi: None,
+        };
+        // Seed the FFI cache with an unrelated error, as an earlier successful call can leave.
+        native::set_last_error(1234);
+        let result = interp
+            .win32_sync_foreign(Win32Fn::CreateSemaphoreW, &[0, 0, 0, 0])
+            .unwrap()
+            .unwrap();
+        assert_eq!(result, vec![0]);
+        // Interpreter work can clobber the OS slot before GetLastError is reached.
+        // SAFETY: SetLastError only writes this thread's error slot.
+        unsafe { SetLastError(5678) };
+        let result = native::call(GetLastError as *const () as u64, &[], &sig).unwrap();
+        assert_eq!(result.first(), Some(&u64::from(ERROR_INVALID_PARAMETER)));
+    }
 
     #[test]
     fn managed_thread_lookup_accepts_native_handle_range_without_events() {
