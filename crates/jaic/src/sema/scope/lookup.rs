@@ -2,7 +2,10 @@
 use super::model::{EntityId, EntityKind, Found, ScopeId, ScopeKind, UsingEntry};
 use super::module_lookup::filter_name;
 use crate::sema::ast::UsingFilter;
-use crate::sema::{Compiler, ModuleId, Result, Sym};
+use crate::sema::{Arc, Compiler, HashSet, ModuleId, Result, Sym};
+
+/// Scopes with more imports than this are asked through an `import_plan`.
+const IMPORT_PLAN_MIN: usize = 16;
 
 impl Compiler {
     /// Look up `name` starting at `scope`, ignoring `using` struct members.
@@ -141,7 +144,13 @@ impl Compiler {
                 let mut asked = [ModuleId(u32::MAX); 8];
                 let mut asked_len = 0;
                 let skip_repeats = !self.ed.is_live();
-                for i in 0..imports {
+                let plan = if skip_repeats && imports > IMPORT_PLAN_MIN {
+                    self.import_plan(sid)
+                } else {
+                    None
+                };
+                for n in 0..plan.as_ref().map_or(imports, |p| p.len()) {
+                    let i = plan.as_ref().map_or(n, |p| p[n] as usize);
                     let resolved = match self.scope(sid).imports[i].module {
                         Some(module) => Some(module),
                         // A mapper runs arbitrary compile-time code, which needs modules whose
@@ -240,6 +249,35 @@ impl Compiler {
             return Ok(Found::Entities(found));
         }
         Ok(Found::Entities(found))
+    }
+
+    /// The imports of `scope` a lookup has to ask, when it has many: each unfiltered module
+    /// once, at its first import, and every filtered import. `None` while some import is not
+    /// loaded yet. Kept for as long as the namespace stays as it was.
+    fn import_plan(&mut self, scope: ScopeId) -> Option<Arc<[u32]>> {
+        let generation = self.epochs.namespace_generation;
+        let imports = &self.scope(scope).imports;
+        if let Some((at, len, plan)) = self.caches.import_plans.get(&scope)
+            && *at == generation
+            && *len == imports.len()
+        {
+            return Some(plan.clone());
+        }
+        let mut plain: HashSet<ModuleId> = HashSet::default();
+        let mut plan = Vec::new();
+        for (i, entry) in imports.iter().enumerate() {
+            let module = entry.module?;
+            if matches!(entry.filter, UsingFilter::None) && !plain.insert(module) {
+                continue;
+            }
+            plan.push(i as u32);
+        }
+        let plan: Arc<[u32]> = plan.into();
+        let len = imports.len();
+        self.caches
+            .import_plans
+            .insert(scope, (generation, len, plan.clone()));
+        Some(plan)
     }
 
     /// The `using` variables of the scope that provides `name` when two or more of them bring

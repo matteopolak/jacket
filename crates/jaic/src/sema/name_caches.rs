@@ -40,6 +40,9 @@ pub struct NameCaches {
     /// the `namespace_generation` that holds for.
     pub(in crate::sema) scope_misses:
         Probed<HashMap<(ScopeId, Sym), u64>, { W::CachesScopeMisses as usize }>,
+    /// The imports of a scope with many that a lookup has to ask (`Compiler::import_plan`), with
+    /// the `namespace_generation` and import count they were made for.
+    pub(in crate::sema) import_plans: HashMap<ScopeId, (u64, usize, Arc<[u32]>)>,
     /// Modules without any exported `using` member (here or re-exported), and the
     /// `namespace_generation` that holds for.
     pub(in crate::sema) using_member_free:
