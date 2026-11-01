@@ -51,7 +51,7 @@ Only names visible through the module’s exported scope are listed. Declaration
 
 ## Stack overflow reporting
 
-A stack overflow prints `stack overflow` in place of the usual reason line (`crash signal N` on Linux and macOS, `Windows exception 0x... at 0x...` on Windows), followed by the same `native stack:` trace. Exit status is unchanged.
+A stack overflow prints `stack overflow` in place of the usual reason line (`crash signal N at 0xADDR` on Linux and macOS, the fault address from `siginfo`, `Windows exception 0x... at 0x...` on Windows), followed by the same `native stack:` trace. Exit status is unchanged.
 
 - Linux and macOS: signal handlers run on a per-thread alternate stack (`sigaltstack`, `SA_ONSTACK`). `init` sets it up for the calling thread and `Thread` calls `attach_thread` for each thread it creates. A `SIGSEGV`/`SIGBUS` whose fault address lies within 256 KiB below, or 64 KiB above, the thread's recorded stack limit counts as an overflow; the extent is read when the thread is attached, not in the handler. Change `OVERFLOW_WINDOW` in `crash-native/runtime.c` to widen it.
 - Windows: `EXCEPTION_STACK_OVERFLOW` is reported the same way. `init` and `attach_thread` call `SetThreadStackGuarantee` for 128 KiB so the filter has room to walk the stack.

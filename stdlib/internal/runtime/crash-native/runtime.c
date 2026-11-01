@@ -62,6 +62,20 @@ static int emit_number(unsigned value) {
 // guard region lies just below the lowest usable address.
 #define OVERFLOW_WINDOW ((uintptr_t)(256 * 1024))
 
+// Writes the address a memory fault touched, as ` at 0x...`.
+static int emit_fault_address(int sig, siginfo_t *info) {
+    if (info == NULL) return 1;
+    if (sig != SIGSEGV && sig != SIGBUS && sig != SIGILL && sig != SIGFPE) return 1;
+    uintptr_t address = (uintptr_t)info->si_addr;
+    char buffer[2 * sizeof(uintptr_t)];
+    size_t count = 0;
+    do {
+        buffer[sizeof(buffer) - ++count] = "0123456789abcdef"[address & 15];
+        address >>= 4;
+    } while (address);
+    return EMIT_LITERAL(" at 0x") && emit(buffer + sizeof(buffer) - count, count);
+}
+
 static int is_stack_overflow(int sig, siginfo_t *info) {
     if (sig != SIGSEGV && sig != SIGBUS) return 0;
     if (info == NULL) return 0;
@@ -105,6 +119,7 @@ static void handle_fatal(int sig, siginfo_t *info, void *secret) {
     } else if (!EMIT_LITERAL("crash signal ") || !emit_number((unsigned)sig)) {
         _exit(128 + sig);
     }
+    if (!emit_fault_address(sig, info)) _exit(128 + sig);
     if (!EMIT_LITERAL("\nnative stack:\n")) _exit(128 + sig);
     void *frames[64];
     int count = backtrace(frames, (int)(sizeof(frames) / sizeof(frames[0])));
