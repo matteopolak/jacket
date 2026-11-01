@@ -39,13 +39,6 @@ fn has_example(docs: &str) -> bool {
     })
 }
 
-fn has_body(decl: &crate::ast::Decl) -> bool {
-    match decl.value.as_ref().map(|v| &v.kind) {
-        Some(crate::ast::ExprKind::Proc(lit)) => lit.body.is_some(),
-        _ => true,
-    }
-}
-
 fn kind_of(decl: &crate::ast::Decl) -> Option<&'static str> {
     if decl.kind != DeclKind::Const {
         return None;
@@ -59,6 +52,17 @@ fn kind_of(decl: &crate::ast::Decl) -> Option<&'static str> {
         DeclClass::Enum => Some("enum"),
         _ => None,
     }
+}
+
+/// Whether the file declares a procedure with no body at the top level (`#foreign`,
+/// `#intrinsic`, `#compiler` and the like).
+fn declares_bodiless_procs(file: &crate::ast::File) -> bool {
+    ide_facts::top_level(file).iter().any(|item| {
+        matches!(item.kind, TopLevelKind::Decl(decl)
+            if decl.kind == DeclKind::Const
+                && matches!(decl.value.as_ref().map(|v| &v.kind),
+                    Some(crate::ast::ExprKind::Proc(lit)) if lit.body.is_none()))
+    })
 }
 
 /// Every public procedure, struct, enum and alias of the library in `dir`, and the module
@@ -81,14 +85,9 @@ pub fn gaps(dir: &Path, stdlib: &Path) -> Vec<Entry> {
         };
         let parsed = crate::parser::parse_file_ide(FileId(0), &text);
         let base = file.parent().unwrap_or(Path::new("."));
-        // A file that declares foreign procedures (no body) mirrors a native API: its types and
-        // procedures are documented by their vendor, and are not listed.
-        let binding = ide_facts::top_level(&parsed.file).iter().any(|item| {
-            matches!(item.kind, TopLevelKind::Decl(decl)
-                if decl.kind == DeclKind::Const
-                    && ide_facts::decl_class(decl) == DeclClass::Procedure
-                    && !has_body(decl))
-        });
+        // A file that declares bodiless procedures mirrors a native API or the compiler's
+        // built-ins: its types and procedures are documented elsewhere, and are not listed.
+        let binding = declares_bodiless_procs(&parsed.file);
         let mut first_statement = None;
         for item in ide_facts::top_level(&parsed.file) {
             first_statement.get_or_insert(item.span.start as usize);

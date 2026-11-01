@@ -29,6 +29,7 @@
 }
 
 * { box-sizing: border-box; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
 html { interpolate-size: allow-keywords; -webkit-text-size-adjust: 100%; scroll-padding-top: 76px; scrollbar-gutter: stable; }
 
 /* Scrollbars: thin, the colour of the theme, and their gutter always reserved so a page that
@@ -114,12 +115,13 @@ kbd { font-family: var(--mono); font-size: 12px; color: var(--muted); border: 1p
 .nav-list.mono { font-size: 13px; }
 .back { color: var(--fg2); padding-left: 10px; margin-bottom: 14px; }
 .nav-cat { margin: 0; }
-.nav-cat > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; list-style: none; padding: 6px 10px; border-radius: 6px; color: var(--fg2); font-size: 13px; line-height: 1.5; }
+.nav-cat > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; cursor: pointer; list-style: none; padding: 6px 10px; border-radius: 6px; color: var(--fg2); font-size: 13.5px; line-height: 1.5; }
 .nav-cat > summary::-webkit-details-marker { display: none; }
 .nav-cat > summary::after { content: ""; flex: none; width: 5px; height: 5px; border-right: 1px solid var(--muted); border-bottom: 1px solid var(--muted); opacity: 0.7; transform: rotate(-45deg); transition: transform 0.18s ease-out; }
 .nav-cat[open] > summary::after { transform: rotate(45deg); }
 .nav-cat > summary:hover { color: var(--fg); }
-.nav-cat > .nav-list { margin: 2px 0 10px 10px; padding-left: 8px; border-left: 1px solid var(--hair); }
+.nav-cat > .nav-list { margin: 2px 0 10px 10px; padding-left: 8px; border-left: 1px solid var(--hair); font-size: 13px; }
+.nav-cat > .nav-list a { padding-top: 3px; padding-bottom: 3px; }
 .nav-list a[style] { padding-left: calc(10px + var(--depth) * 14px); }
 .nav-cat::details-content { block-size: 0; opacity: 0; overflow: hidden; transition: block-size 0.18s ease-out, opacity 0.18s ease-out, content-visibility 0.18s allow-discrete; }
 .nav-cat[open]::details-content { block-size: auto; opacity: 1; }
@@ -195,7 +197,14 @@ h2:hover .anchor, h3:hover .anchor, .anchor:focus-visible { opacity: 1; }
 .toc-h { font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--muted); margin: 0 0 10px; padding-left: 12px; }
 .toc ul { list-style: none; margin: 0; padding: 0; border-left: 1px solid var(--border); }
 .toc li a { display: block; padding: 3px 12px; color: var(--muted); font-size: 13px; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.toc li.sub a { padding-left: 24px; }
+.toc > ul > li > a { color: var(--fg2); }
+.toc li.sub a { padding-left: 24px; font-size: 12.5px; color: var(--muted); }
+.toc li.items > ul { border-left: 0; }
+.toc li.items a { padding: 1px 12px 1px 24px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+.toc li.sub + li.items a, .toc li.sub + li.items button { padding-left: 36px; }
+.js .toc li.items li.extra, .toc li.more[hidden] { display: none; }
+.toc li.more button { display: block; padding: 1px 12px 1px 24px; border: 0; background: none; color: var(--muted); font: inherit; font-size: 11.5px; opacity: 0.8; cursor: pointer; }
+.toc li.more button:hover { color: var(--fg); }
 .toc li a:hover { color: var(--fg); text-decoration: none; }
 .toc li a.active { color: var(--link); }
 @media (min-width: 1200px) {
@@ -339,8 +348,16 @@ a.btn:hover { text-decoration: none; border-color: var(--link); }
 }
 .foot a { color: var(--muted); }
 
-/* The fields or members of a foreign type, folded inside its row. */
-.row details.members { margin-top: 10px; }
-.row details.members > summary { cursor: pointer; width: fit-content; font-size: 13px; color: var(--muted); }
-.row details.members > summary:hover { color: var(--fg); }
-.row details.members[open] > summary { margin-bottom: 10px; }
+/* A type's fields or members: a full-width band of its row, cut short (with Show more) when long. */
+.row > .members { margin: 14px calc(-1 * var(--px)) 0; }
+.row > .members:last-child { margin-bottom: calc(-1 * var(--py)); }
+.row > .members:last-child .def:last-child { padding-bottom: 14px; }
+.row > .sig-line:last-child { margin-bottom: 0; }
+.row > .members > .defs { margin: 0; border-width: 1px 0 0; border-radius: 0; background: none; }
+.row > .members:not(:last-child) > .defs { border-bottom-width: 1px; }
+.row > .members .def { padding: 7px var(--px); }
+.row > .members .def dt { font-size: 13px; }
+.row > .members .def dd { font-size: 13.5px; }
+.row > .members .def dd p { margin: 0; }
+.row > .members.folded { max-height: 200px; }
+.row > .members + .fold-btn { margin: -22px auto 4px; }

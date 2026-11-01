@@ -601,25 +601,20 @@ fn members(decl: &Decl, text: &str) -> Vec<Member> {
     out
 }
 
-/// Whether a file declares foreign procedures, which mirrors a native API documented by its
-/// vendor; its declarations are listed as bindings.
-fn is_binding(parsed: &Parsed) -> bool {
-    ide_facts::top_level(&parsed.parse.file)
+/// Whether a file declares `#foreign` procedures, which mirrors a native API documented by its
+/// vendor, so its types and constants are listed as bindings too. `#intrinsic` and `#compiler`
+/// procedures have no body either but are the language's own, so they don't count.
+pub(super) fn is_binding_file(file: &crate::ast::File) -> bool {
+    ide_facts::top_level(file)
         .iter()
         .any(|item| matches!(item.kind, TopLevelKind::Decl(decl) if is_foreign_proc(decl)))
 }
 
-/// A procedure constant with no body: one a native library provides.
+/// A `#foreign` (or `#elsewhere`) procedure constant: one a native library provides.
 pub(super) fn is_foreign_proc(decl: &Decl) -> bool {
     decl.kind == DeclKind::Const
-        && ide_facts::decl_class(decl) == DeclClass::Procedure
-        && !has_body(decl)
-}
-
-/// A procedure written in Jai, which is never a binding even in a file that declares some.
-pub(super) fn has_body(decl: &Decl) -> bool {
-    matches!(decl.value.as_ref().map(|v| &v.kind),
-        Some(ExprKind::Proc(lit)) if lit.body.is_some())
+        && matches!(decl.value.as_ref().map(|v| &v.kind),
+            Some(ExprKind::Proc(lit)) if lit.body.is_none() && lit.header.foreign.is_some())
 }
 
 /// The documentation model of the library in `dir`. `stdlib` is where the `internal/` modules
@@ -693,6 +688,7 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
     };
     let mut names: Vec<String> = Vec::new();
     let mut binding_files: HashMap<PathBuf, bool> = HashMap::default();
+    let internal = super::canonical(&stdlib.join("internal"));
     // (item index, alias comment) to resolve links once every name is known.
     while let Some(file) = queue.pop() {
         let file = super::canonical(&file);
@@ -755,7 +751,11 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
                     };
                     let binding = *binding_files
                         .entry(tfile.clone())
-                        .or_insert_with(|| is_binding(&target));
+                        // The standard library's own `internal/` code may call a native
+                        // function, but mirrors no vendor's API.
+                        .or_insert_with(|| {
+                            !tfile.starts_with(&internal) && is_binding_file(&target.parse.file)
+                        });
                     let elsewhere;
                     let tindex = if Rc::ptr_eq(&target, &parsed) {
                         &index
@@ -817,7 +817,10 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
                         file: tfile.clone(),
                         line: reader.line_of(&target.text, tat),
                         docs: own_docs.unwrap_or_default(),
-                        binding: binding && !has_body(tdecl),
+                        // A foreign procedure is a binding wherever it is; the rest of a
+                        // declaration in a file that mirrors a native API is too.
+                        binding: is_foreign_proc(tdecl)
+                            || (binding && ide_facts::decl_class(tdecl) != DeclClass::Procedure),
                         ..Item::default()
                     };
                     if kind == "procedure" {
@@ -876,8 +879,30 @@ pub fn module(dir: &Path, stdlib: &Path) -> Module {
         }
     }
     take_experimental(&mut out);
+    type_instances(&mut out);
     reconcile_refs(&mut out);
     out
+}
+
+/// Marks a constant whose value instantiates one of the module's own structs, like
+/// `u8x16 :: Vector(u8, 16)`, as the type it is.
+fn type_instances(module: &mut Module) {
+    let structs: BTreeSet<String> = module
+        .items
+        .iter()
+        .filter(|i| matches!(i.kind, "struct" | "union"))
+        .map(|i| i.name.clone())
+        .collect();
+    for item in &mut module.items {
+        let callee = item
+            .value
+            .strip_suffix(')')
+            .and_then(|v| v.split_once('('))
+            .map(|(callee, _)| callee.trim());
+        if item.kind == "constant" && callee.is_some_and(|c| structs.contains(c)) {
+            item.kind = "type";
+        }
+    }
 }
 
 /// Moves the `@experimental` tag lines out of the docs and into the flags.

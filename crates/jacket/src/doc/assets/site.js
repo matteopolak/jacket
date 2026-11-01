@@ -55,7 +55,40 @@
       var now = marks[0];
       marks.forEach(function (m) { if (m.h.getBoundingClientRect().top <= 100) now = m; });
       marks.forEach(function (m) { m.a.classList.toggle('active', m === now); });
+      if (now === shown) return;
+      shown = now;
+      // The list of items the reader is in (or the one right below its heading) shows a few
+      // around the current one; the others show their first few, unless the reader opened them.
+      var li = now.a.closest('li');
+      var list = li.closest('li.items') || (li.nextElementSibling && li.nextElementSibling.classList.contains('items') ? li.nextElementSibling : null);
+      Array.prototype.forEach.call(document.querySelectorAll('.toc li.items'), function (l) {
+        var rows = l.querySelectorAll('li:not(.more)');
+        var all = l.hasAttribute('data-pinned');
+        var at = l === list ? Array.prototype.indexOf.call(rows, li) : -1;
+        var from = at < 0 ? 0 : Math.max(0, Math.min(at - 3, rows.length - 8));
+        var to = at < 0 ? 5 : from + 8;
+        var hidden = 0;
+        Array.prototype.forEach.call(rows, function (r, i) {
+          var out = !all && (i < from || i >= to);
+          r.classList.toggle('extra', out);
+          if (out) hidden++;
+        });
+        var more = l.querySelector('li.more');
+        if (more) { more.hidden = !hidden; more.firstChild.textContent = 'Show all ' + rows.length; }
+      });
+      var rail = document.querySelector('.toc');
+      var a = now.a.getBoundingClientRect(), r = rail.getBoundingClientRect();
+      if (a.top < r.top || a.bottom > r.bottom) rail.scrollTop += a.top - r.top - r.height / 3;
     };
+    var shown = null;
+    Array.prototype.forEach.call(document.querySelectorAll('.toc li.more button'), function (b) {
+      b.addEventListener('click', function () {
+        var l = b.closest('li.items');
+        l.setAttribute('data-pinned', '');
+        shown = null;
+        mark();
+      });
+    });
     window.addEventListener('scroll', function () {
       if (!pending) { pending = true; requestAnimationFrame(mark); }
     }, { passive: true });
@@ -546,7 +579,7 @@
 
   // A long block (.fold) shows its top, faded, with a button that expands it for good.
   Array.prototype.forEach.call(document.querySelectorAll('.fold'), function (fold) {
-    if (fold.scrollHeight <= 440) return;
+    if (fold.scrollHeight <= (+fold.getAttribute('data-fold') || 440)) return;
     fold.classList.add('folded');
     var btn = el('button', 'btn fold-btn', 'Show more');
     btn.type = 'button';

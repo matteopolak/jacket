@@ -362,29 +362,116 @@ fn heading(level: u8, id: &str, text: &str) -> String {
     )
 }
 
-/// The right-hand outline of a module page: its sections, with the groups of procedures below.
-fn outline_html(entries: &[(String, String, bool)]) -> String {
-    if entries.len() < 2 {
+/// One line of a module page's outline: a section, a group of procedures, or an item.
+struct Outline {
+    id: String,
+    label: String,
+    level: Level,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Level {
+    Section,
+    Group,
+    Item,
+}
+
+/// How many items of a list the outline shows before the rest fold away.
+const OUTLINE_ITEMS: usize = 5;
+
+/// The right-hand outline of a module page: its sections and groups, each with its items. A long
+/// list of items shows its first few until the reader reaches it, or asks for the rest.
+fn outline_html(entries: &[Outline]) -> String {
+    if entries.iter().filter(|e| e.level != Level::Item).count() < 2 {
         return String::new();
     }
     let mut out = String::from("<div class=\"toc-h\">On this page</div>\n<ul>\n");
-    for (id, label, sub) in entries {
+    let mut i = 0;
+    while i < entries.len() {
+        let e = &entries[i];
+        if e.level == Level::Item {
+            let run = entries[i..]
+                .iter()
+                .take_while(|e| e.level == Level::Item)
+                .count();
+            let items = &entries[i..i + run];
+            out.push_str("<li class=\"items\"><ul>\n");
+            for (n, item) in items.iter().enumerate() {
+                out.push_str(&format!(
+                    "<li{}><a href=\"#{}\">{}</a></li>\n",
+                    if n >= OUTLINE_ITEMS {
+                        " class=\"extra\""
+                    } else {
+                        ""
+                    },
+                    esc(&item.id),
+                    esc(&item.label)
+                ));
+            }
+            if run > OUTLINE_ITEMS {
+                out.push_str(&format!(
+                    "<li class=\"more js-only\"><button type=\"button\">Show all {run}</button></li>\n"
+                ));
+            }
+            out.push_str("</ul></li>\n");
+            i += run;
+            continue;
+        }
         out.push_str(&format!(
             "<li{}><a href=\"#{}\">{}</a></li>\n",
-            if *sub {
+            if e.level == Level::Group {
                 " class=\"sub\""
             } else {
                 ""
             },
-            esc(id),
-            esc(label)
+            esc(&e.id),
+            esc(&e.label)
         ));
+        i += 1;
     }
     out.push_str("</ul>\n");
     out
 }
 
-/// One entry of a module's list: name, first signature, summary and the first example.
+/// The outline lines of `items`, linking to their rows.
+fn outline_items(items: &[&Item]) -> impl Iterator<Item = Outline> {
+    items.iter().map(|i| Outline {
+        id: if i.binding {
+            Site::slug(&i.name)
+        } else {
+            i.name.clone()
+        },
+        label: i.name.clone(),
+        level: Level::Item,
+    })
+}
+
+/// A type's fields or enum members as a full-width band of its row, folded when long.
+fn members_band(site: &Site, mi: usize, item: &Item) -> String {
+    if item.members.is_empty() {
+        return String::new();
+    }
+    let enumerated = matches!(item.kind, Kind::Enum | Kind::EnumFlags);
+    let rows: Vec<_> = item
+        .members
+        .iter()
+        .map(|f| {
+            let ty = if enumerated {
+                String::new()
+            } else {
+                f.ty.clone()
+            };
+            (f.name.clone(), ty, f.doc.clone(), f.refs.clone())
+        })
+        .collect();
+    format!(
+        "<div class=\"fold members\" data-fold=\"240\">\n{}</div>\n",
+        definition_list(site, mi, &rows, "")
+    )
+}
+
+/// One entry of a module's list: name, first signature, summary, a type's members and the
+/// first example.
 fn row(site: &Site, mi: usize, item: &Item) -> String {
     let m = &site.modules[mi];
     let from = format!("{}.{}", m.id, item.name);
@@ -422,11 +509,12 @@ fn row(site: &Site, mi: usize, item: &Item) -> String {
         let (file, line) = docs_place(item);
         example::fence(site, m, (&file, line), (info, code), true)
     });
+    let members = members_band(site, mi, item);
     if item.binding {
-        return foreign_row(site, mi, item, &pills, &line);
+        return foreign_row(site, mi, item, &pills, &line, &members);
     }
     format!(
-        "<article class=\"row\" id=\"{name}\">\n<div class=\"row-head\"><a class=\"name\" href=\"{href}\">{name}</a>{pills}{experimental}{overloads}{platforms}{since}</div>\n{line}{summary}{sample}</article>\n",
+        "<article class=\"row\" id=\"{name}\">\n<div class=\"row-head\"><a class=\"name\" href=\"{href}\">{name}</a>{pills}{experimental}{overloads}{platforms}{since}</div>\n{line}{summary}{members}{sample}</article>\n",
         name = esc(&item.name),
         href = esc(&site.item_href(&m.id, &item.name)),
         experimental = experimental_badge(item.experimental, true),
@@ -436,38 +524,16 @@ fn row(site: &Site, mi: usize, item: &Item) -> String {
 }
 
 /// A declaration of a foreign library the module binds. It has no page of its own, so the row
-/// is the whole entry: its signature, and a type's members folded below it.
-fn foreign_row(site: &Site, mi: usize, item: &Item, pills: &str, line: &str) -> String {
+/// is the whole entry: its signature, and a type's members.
+fn foreign_row(
+    site: &Site,
+    mi: usize,
+    item: &Item,
+    pills: &str,
+    line: &str,
+    members: &str,
+) -> String {
     let m = &site.modules[mi];
-    let members = if item.members.is_empty() {
-        String::new()
-    } else {
-        let enumerated = matches!(item.kind, Kind::Enum | Kind::EnumFlags);
-        let rows: Vec<_> = item
-            .members
-            .iter()
-            .map(|f| {
-                let ty = if enumerated {
-                    String::new()
-                } else {
-                    f.ty.clone()
-                };
-                (f.name.clone(), ty, f.doc.clone(), f.refs.clone())
-            })
-            .collect();
-        format!(
-            "<details class=\"members\"><summary>{}</summary>\n{}</details>\n",
-            plural(
-                item.members.len(),
-                if enumerated {
-                    "member"
-                } else {
-                    "field"
-                }
-            ),
-            definition_list(site, mi, &rows, "")
-        )
-    };
     format!(
         "<article class=\"row\" id=\"{id}\">\n<div class=\"row-head\"><span class=\"name\">{name}</span>{pills}<span class=\"badge sm foreign\" title=\"Declared by a foreign library this module binds\">foreign</span>{platforms}</div>\n{line}{members}</article>\n",
         id = esc(&Site::slug(&item.name)),
@@ -534,10 +600,19 @@ pub fn module_page(site: &Site, mi: usize) -> String {
         main.push_str("</div>\n");
     }
 
-    let mut outline: Vec<(String, String, bool)> = Vec::new();
+    let mut outline: Vec<Outline> = Vec::new();
+    let section_line = |id: &str, label: &str, level| Outline {
+        id: id.into(),
+        label: label.into(),
+        level,
+    };
     if !m.parameters.is_empty() {
         main.push_str(&heading(2, "parameters", "Module parameters"));
-        outline.push(("parameters".into(), "Module parameters".into(), false));
+        outline.push(section_line(
+            "parameters",
+            "Module parameters",
+            Level::Section,
+        ));
         let rows: Vec<_> = m
             .parameters
             .iter()
@@ -561,7 +636,7 @@ pub fn module_page(site: &Site, mi: usize) -> String {
     let procs = section(&|i| i.kind == Kind::Procedure);
     if !procs.is_empty() {
         main.push_str(&heading(2, "procedures", "Procedures"));
-        outline.push(("procedures".into(), "Procedures".into(), false));
+        outline.push(section_line("procedures", "Procedures", Level::Section));
         let mut groups: Vec<&str> = Vec::new();
         for p in &procs {
             if !p.group.is_empty() && !groups.contains(&p.group.as_str()) {
@@ -575,7 +650,9 @@ pub fn module_page(site: &Site, mi: usize) -> String {
                     "<section class=\"group\">\n{}",
                     heading(3, &id, g)
                 ));
-                outline.push((id, (*g).to_owned(), true));
+                outline.push(section_line(&id, g, Level::Group));
+                let members: Vec<&Item> = procs.iter().copied().filter(|p| p.group == *g).collect();
+                outline.extend(outline_items(&members));
                 for p in procs.iter().filter(|p| p.group == *g) {
                     main.push_str(&row(site, mi, p));
                 }
@@ -586,13 +663,16 @@ pub fn module_page(site: &Site, mi: usize) -> String {
                     "<section class=\"group\">\n{}",
                     heading(3, "g-foreign", "Foreign")
                 ));
-                outline.push(("g-foreign".into(), "Foreign".into(), true));
+                outline.push(section_line("g-foreign", "Foreign", Level::Group));
+                let foreign: Vec<&Item> = procs.iter().copied().filter(|p| p.binding).collect();
+                outline.extend(outline_items(&foreign));
                 for p in procs.iter().filter(|p| p.binding) {
                     main.push_str(&row(site, mi, p));
                 }
                 main.push_str("</section>\n");
             }
         } else {
+            outline.extend(outline_items(&procs));
             main.push_str("<section class=\"group\">\n");
             for p in &procs {
                 main.push_str(&row(site, mi, p));
@@ -603,7 +683,8 @@ pub fn module_page(site: &Site, mi: usize) -> String {
     let types = section(&|i| i.kind.is_type());
     if !types.is_empty() {
         main.push_str(&heading(2, "types", "Types"));
-        outline.push(("types".into(), "Types".into(), false));
+        outline.push(section_line("types", "Types", Level::Section));
+        outline.extend(outline_items(&types));
         main.push_str("<section class=\"group\">\n");
         for t in types {
             main.push_str(&row(site, mi, t));
@@ -613,7 +694,8 @@ pub fn module_page(site: &Site, mi: usize) -> String {
     let constants = section(&|i| i.kind == Kind::Constant);
     if !constants.is_empty() {
         main.push_str(&heading(2, "constants", "Constants"));
-        outline.push(("constants".into(), "Constants".into(), false));
+        outline.push(section_line("constants", "Constants", Level::Section));
+        outline.extend(outline_items(&constants));
         main.push_str("<section class=\"group\">\n");
         for c in constants {
             main.push_str(&row(site, mi, c));
@@ -632,14 +714,6 @@ pub fn module_page(site: &Site, mi: usize) -> String {
             path: &Site::module_path(&m.id),
         },
     )
-}
-
-fn plural(n: usize, one: &str) -> String {
-    if n == 1 {
-        format!("1 {one}")
-    } else {
-        format!("{n} {one}s")
-    }
 }
 
 /// `name: type` and what it means, two columns that stack on a phone.
